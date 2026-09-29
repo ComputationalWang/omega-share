@@ -2,7 +2,7 @@
 // Flags: --no-build (use existing builds), --strict (pending budgets also fail).
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXTENSION_DIR, ROOT, WEB_DIST_DIR, scripts } from "../e2e/support/apps";
+import { EXTENSION_SHIPPED_DIR, ROOT, WEB_DIST_DIR, scripts } from "../e2e/support/apps";
 import { BUDGETS, evaluate, renderReport, type Measurement } from "./budgets";
 import { RESULTS_DIR, readMetrics, recordMetric } from "./metrics";
 import { checkManifest, initialJsGzipKb } from "./static-checks";
@@ -33,7 +33,8 @@ if (existsSync(join(WEB_DIST_DIR, "index.html"))) {
 } else {
   recordMetric({ id: "site.initialJsGzip", pending: "apps/web/dist not built (OME-6)" });
 }
-const manifestPath = join(EXTENSION_DIR, "manifest.json");
+// Manifest budgets apply to the shipped build, not the e2e build with its extra host permissions.
+const manifestPath = join(EXTENSION_SHIPPED_DIR, "manifest.json");
 if (existsSync(manifestPath)) {
   const m = checkManifest(JSON.parse(readFileSync(manifestPath, "utf8")));
   recordMetric({ id: "ext.contentScripts", value: m.contentScripts });
