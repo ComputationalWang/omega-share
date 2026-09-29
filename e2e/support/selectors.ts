@@ -5,6 +5,8 @@ export const popup = {
   embedItem: id("embed-item"),
   embedsEmpty: id("embeds-empty"),
   shareButton: id("share-button"),
+  shareStatus: id("share-status"),
+  roomSelect: id("room-select"),
 } as const;
 
 export const site = {
@@ -16,4 +18,7 @@ export const site = {
   chatInput: id("chat-input"),
   chatMessage: id("chat-message"),
   sharedVideo: id("shared-video"),
+  nicknameTag: id("nickname-tag"),
+  roomFull: id("room-full"),
+  roomNotice: id("room-notice"),
 } as const;
