@@ -15,7 +15,7 @@ Specs are named `*.e2e.ts` / `*.perf.ts` (not `*.spec.ts`) so `bun test` doesn't
 ## What starts automatically
 Playwright's `webServer` starts the fixture server (`e2e/fixtures/server.ts`, port 4400). It adds `apps/server` and `apps/web` once they have a `dev` script. Perf serves the web app with `preview` (production build) when that script exists. Ports and URLs: `OMEGA_FIXTURE_PORT`, `OMEGA_WEB_PORT` / `OMEGA_WEB_URL`, `OMEGA_SERVER_PORT` / `OMEGA_SERVER_URL`.
 
-Specs for pieces that haven't landed yet are `test.fixme` (e2e) or reported as PENDING (perf). See `e2e/support/apps.ts`.
+Specs for pieces that haven't landed yet are `test.fixme` (e2e) or reported as PENDING (perf). See `e2e/support/apps.ts`. `bun run e2e` builds the e2e extension (`build:e2e`) before running Playwright. If you call `playwright test` directly without that build, the extension specs fail with the build command. They are never skipped.
 
 ## Helpers (`e2e/support/`)
 - `extension.ts`: `test` with a persistent Chromium context that loads the unpacked **e2e build** from `apps/extension/.output/chrome-mv3-e2e` (override with `OMEGA_EXTENSION_DIR`). That build is the shipped code plus host permissions for `http://localhost/*` and `https://www.youtube.com/*`, because Playwright can't grant `activeTab` ([ADR 0005](../docs/adr/0005-extension-permissions-and-e2e-build.md)). `bun run perf` runs the static manifest checks (content scripts, persistent background) against the **shipped** build in `apps/extension/.output/chrome-mv3` (`EXTENSION_SHIPPED_DIR`). The extension's `build` script writes both. Fixtures: `extensionId`, `serviceWorker`, `openPopup(page)`.

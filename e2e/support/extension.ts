@@ -1,6 +1,6 @@
 // Chromium persistent context with the unpacked extension loaded, plus a popup opener.
 import { test as base, chromium, type BrowserContext, type Page, type Worker } from "@playwright/test";
-import { EXTENSION_DIR, URLS } from "./apps";
+import { EXTENSION_DIR, URLS, extensionBuildError } from "./apps";
 import { stubExternalNetwork } from "./network";
 
 // `chrome` exists inside the extension's service worker; these are the only bits the harness uses.
@@ -20,6 +20,8 @@ export interface ExtensionFixtures {
 
 export const test = base.extend<ExtensionFixtures>({
   context: async ({}, use) => {
+    const missing = extensionBuildError();
+    if (missing !== null) throw new Error(missing);
     const context = await chromium.launchPersistentContext("", {
       channel: "chromium", // new headless mode, which supports extensions
       baseURL: URLS.fixtures,

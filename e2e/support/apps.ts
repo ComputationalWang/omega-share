@@ -1,4 +1,5 @@
 // Which app pieces exist yet. Specs `test.fixme` on these until the piece lands, so `bun run e2e` stays green.
+// Once a piece has landed, a missing build is a failure, never a skip (OME-30).
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
@@ -36,11 +37,17 @@ export function scripts(app: "web" | "server" | "extension"): Record<string, str
 export const available = {
   web: "dev" in scripts("web"),
   server: "dev" in scripts("server"),
-  extension: existsSync(join(EXTENSION_DIR, "manifest.json")),
+  extension: "build" in scripts("extension"),
 } as const;
+
+/** Why the unpacked extension in `dir` can't be loaded, or null if it can. The extension fixture throws this. */
+export function extensionBuildError(dir: string = EXTENSION_DIR): string | null {
+  if (existsSync(join(dir, "manifest.json"))) return null;
+  return `extension not built at ${relative(ROOT, dir) || "."} — run \`bun run --filter @omega/extension build:e2e\` (\`bun run e2e\` does this)`;
+}
 
 export const PENDING = {
   web: "apps/web has no `dev` script yet (OME-6)",
   server: "apps/server has no `dev` script yet (OME-5)",
-  extension: `extension not built at ${relative(ROOT, EXTENSION_DIR) || "."} — run \`bun run --filter @omega/extension build\` (OME-7)`,
+  extension: "apps/extension has no `build` script yet (OME-7)",
 } as const;
