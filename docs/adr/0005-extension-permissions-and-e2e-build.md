@@ -4,7 +4,7 @@
 
 **Decisions:**
 - The shipped extension asks for `activeTab`, `scripting`, `storage` and one host permission: the default server origin (`http://localhost:8787/*`), so the popup can `fetch` the share endpoint without CORS. There are no content scripts. The service worker has no listeners.
-- A different server URL (ngrok, hosted) is requested at runtime from the options page (`optional_host_permissions: http://*/*, https://*/*`, granted per origin). The previously granted non-default origin is removed.
+- A different server URL (ngrok, hosted) is requested at runtime from the options page (`optional_host_permissions: http://*/*, https://*/*`, granted per origin). The previously granted non-default origin is removed. `parseServerBaseUrl` only accepts cleartext `http:` for loopback hosts, so remote servers are always `https:` even though the optional pattern is broad.
 - The page scan is injected only when the popup opens (`scripting.executeScript` on the top frame). It returns raw URLs, and the popup keeps only what `canonicalizeEmbed` accepts.
 - `bun run build` writes **two** unpacked dirs:
   - `.output/chrome-mv3`: the shipped build. Load it by hand and run the manifest checks against it.

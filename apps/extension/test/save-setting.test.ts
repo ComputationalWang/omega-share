@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { saveServerBaseUrl, type SaveDeps } from "../src/save-setting";
 
-type Calls = { requested: string[]; stored: string[]; removed: string[] };
+interface Calls {
+  requested: string[];
+  stored: string[];
+  removed: string[];
+}
 
 function deps(overrides: Partial<SaveDeps> = {}): { deps: SaveDeps; calls: Calls } {
   const calls: Calls = { requested: [], stored: [], removed: [] };

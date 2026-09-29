@@ -18,3 +18,27 @@ export function listEmbeds(scan: unknown): Embed[] {
   }
   return [...seen.values()];
 }
+
+export type ScanOutcome = { readonly kind: "embeds"; readonly embeds: Embed[] } | { readonly kind: "unreadable" };
+
+/** The part of `chrome.scripting.InjectionResult` we read. */
+export interface FrameResult {
+  readonly result?: unknown;
+  readonly error?: unknown;
+}
+
+/**
+ * Runs the injected scan and tells "nothing supported here" apart from "we could not
+ * read this tab" (chrome:// pages, the web store, no activeTab grant, a frame error).
+ */
+export async function scanTab(run: () => Promise<readonly FrameResult[]>): Promise<ScanOutcome> {
+  let frames: readonly FrameResult[];
+  try {
+    frames = await run();
+  } catch {
+    return { kind: "unreadable" };
+  }
+  const [top] = frames;
+  if (top === undefined || top.error !== undefined) return { kind: "unreadable" };
+  return { kind: "embeds", embeds: listEmbeds(top.result) };
+}
