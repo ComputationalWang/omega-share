@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Member, RoomState, ServerMessage } from "@omega/shared";
-import { BUBBLE_MS, initialState, nextExpiry, reduce, type ViewState } from "../src/state";
+import { BUBBLE_MS, initialState, nextExpiry, reduce, screen, type ViewState } from "../src/state";
 
 const alice: Member = { id: "a", nickname: "alice", avatar: 0 };
 const bob: Member = { id: "b", nickname: "bob", avatar: 1 };
@@ -123,5 +123,22 @@ describe("reduce", () => {
     const s = reduce(server(joined(), { type: "chat", memberId: "a", text: "x", at: 1 }), { type: "disconnected" });
     expect(s.bubbles).toEqual([]);
     expect(s.room?.members).toHaveLength(2);
+  });
+});
+
+describe("screen", () => {
+  // The stage wrap has a fixed height, so it must leave the layout flow (not just hide the
+  // stage inside it) or it pushes the room-full message below the fold (OME-6 QA).
+  test("room-full takes the stage wrap and chat out of the flow and shows the message", () => {
+    const s = server(joined(), { type: "room-full" });
+    expect(screen(s)).toEqual({ stage: false, chat: false, full: true });
+  });
+
+  test("an open room shows the stage and chat, not the full message", () => {
+    expect(screen(joined())).toEqual({ stage: true, chat: true, full: false });
+  });
+
+  test("before the first snapshot nothing is laid out", () => {
+    expect(screen(reduce(initialState, { type: "connecting" }))).toEqual({ stage: false, chat: false, full: false });
   });
 });
