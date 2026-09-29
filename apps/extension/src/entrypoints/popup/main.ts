@@ -1,6 +1,7 @@
-import { DEFAULT_ROOM_ID, type Embed } from "@omega/shared";
+import type { Embed } from "@omega/shared";
 import { browser } from "wxt/browser";
 import { type ScanOutcome, scanTab } from "../../embeds";
+import { FALLBACK_ROOMS, type RoomList, loadRooms } from "../../rooms";
 import { collectCandidateUrls } from "../../scan";
 import { SERVER_BASE_URL_KEY, readServerBaseUrl } from "../../settings";
 import { shareEmbed } from "../../share";
@@ -70,8 +71,8 @@ function renderEmbeds(embeds: readonly Embed[] | null): void {
   );
 }
 
-function renderRooms(rooms: readonly string[]): void {
-  ui.room.replaceChildren(...rooms.map((id) => new Option(id, id)));
+function renderRooms({ rooms, selected }: RoomList): void {
+  ui.room.replaceChildren(...rooms.map((r) => new Option(r.label, r.id, r.id === selected, r.id === selected)));
 }
 
 function showStatus(state: "ok" | "error", message: string): void {
@@ -82,9 +83,10 @@ function showStatus(state: "ok" | "error", message: string): void {
 
 const serverBaseUrl = browser.storage.local.get(SERVER_BASE_URL_KEY).then((items) => readServerBaseUrl(items[SERVER_BASE_URL_KEY]));
 
-// Room list: one room until the server serves `GET /rooms` (wired up in OME-20).
-renderRooms([DEFAULT_ROOM_ID]);
+renderRooms(FALLBACK_ROOMS);
 void scan().then(render);
+// One `GET /rooms` per popup open; it falls back to the default room, so share works either way.
+void serverBaseUrl.then((baseUrl) => loadRooms({ baseUrl, fetch: (u, init) => fetch(u, init) })).then(renderRooms);
 
 ui.form.addEventListener("submit", (event) => {
   event.preventDefault();
