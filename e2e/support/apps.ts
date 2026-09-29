@@ -16,8 +16,13 @@ export const URLS = {
   server: process.env["OMEGA_SERVER_URL"] ?? `http://localhost:${String(PORTS.server)}`,
 } as const;
 
-/** WXT's default Chromium MV3 output. Override with OMEGA_EXTENSION_DIR. */
-export const EXTENSION_DIR = process.env["OMEGA_EXTENSION_DIR"] ?? join(ROOT, "apps/extension/.output/chrome-mv3");
+/**
+ * Unpacked build Playwright loads: the shipped code plus host permissions, because Playwright can't grant
+ * `activeTab` (ADR 0005). Override with OMEGA_EXTENSION_DIR.
+ */
+export const EXTENSION_DIR = process.env["OMEGA_EXTENSION_DIR"] ?? join(ROOT, "apps/extension/.output/chrome-mv3-e2e");
+/** The build we ship. Static manifest checks (`bun run perf`) run against this one. */
+export const EXTENSION_SHIPPED_DIR = join(ROOT, "apps/extension/.output/chrome-mv3");
 export const WEB_DIST_DIR = join(ROOT, "apps/web/dist");
 
 export function scripts(app: "web" | "server" | "extension"): Record<string, string> {

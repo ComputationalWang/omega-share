@@ -18,7 +18,7 @@ Playwright's `webServer` starts the fixture server (`e2e/fixtures/server.ts`, po
 Specs for pieces that haven't landed yet are `test.fixme` (e2e) or reported as PENDING (perf). See `e2e/support/apps.ts`.
 
 ## Helpers (`e2e/support/`)
-- `extension.ts`: `test` with a persistent Chromium context that loads the unpacked extension from `apps/extension/.output/chrome-mv3` (override with `OMEGA_EXTENSION_DIR`). Fixtures: `extensionId`, `serviceWorker`, `openPopup(page)`.
+- `extension.ts`: `test` with a persistent Chromium context that loads the unpacked **e2e build** from `apps/extension/.output/chrome-mv3-e2e` (override with `OMEGA_EXTENSION_DIR`). That build is the shipped code plus host permissions for `http://localhost/*` and `https://www.youtube.com/*`, because Playwright can't grant `activeTab` ([ADR 0005](../docs/adr/0005-extension-permissions-and-e2e-build.md)). `bun run perf` runs the static manifest checks (content scripts, persistent background) against the **shipped** build in `apps/extension/.output/chrome-mv3` (`EXTENSION_SHIPPED_DIR`). The extension's `build` script writes both. Fixtures: `extensionId`, `serviceWorker`, `openPopup(page)`.
 - `network.ts`: every non-localhost request is stubbed, so runs are offline. `https://www.youtube.com/watch?v=…` serves `watch-url.html`. Use `gotoFixture(page, name)`.
 - `room.ts`: `joinRoom(browser, { roomUrl, count })` creates N contexts. Each gets its own nickname and avatar and joins the room.
 - `selectors.ts`: the `data-testid` contract with the apps. Change it here, not in specs.
