@@ -63,7 +63,7 @@ in `apps/web/src/layout.ts`. Place the sprite there, with no per-item offsets.
 | `wall/l/end`, `wall/r/end` | | `(0,9)`, `(9,0)` | Open wall ends at the front. |
 | `armchair/<ne\|nw>/back`, `…/front` | 52×36 | seat cell | Faces the TV (sitter seen from behind). Draw `back`, then the seated avatar, then `front`. Seat surface is 8 px above the anchor (`seatHeight`). |
 | `armchair/<se\|sw>/back`, `…/front` | 52×44 | seat cell | Faces the camera (sitter's face visible, use `sit/se` / `sit/sw`). Same three-layer draw; `front` is just the near armrest. For seats that face into the room rather than the TV. |
-| `tv/0` | 347×253 | `(0,0)` | Corner media console + wall-mounted TV + dithered glow. The screen is painted "off"; `meta.omega.tv.screen` is the iframe rect. |
+| `tv/0` | 340×250 | `(0,0)` | Corner media console + wall-mounted TV + a 1 px cool glow line. The screen is painted "off"; `meta.omega.tv.screen` is the iframe rect (it starts at pixel (10, 13) of the frame, inside the bezel). |
 | `plant/0`, `lamp/0` | | any free cell | Floor props. |
 
 - **Walls** tile as flat 32 px columns, and only their top edge is outlined, so segments butt with no seams. Draw floor → walls → `tv/0`
@@ -75,7 +75,7 @@ in `apps/web/src/layout.ts`. Place the sprite there, with no per-item offsets.
 - **The console covers the back corner cells** `col+row <= 1` (and the back half of `col+row = 2`). Don't seat or stand anyone there.
 - **`meta.omega.layout`** is a suggested default room for the 10×10 floor: `floor[row][col]` keys, `walls.l[row]`,
   `walls.r[col]`, `props[]`. Seats are **not** in it; they stay in `layout.ts`. `preview/room@1x.png` renders exactly this layout
-  with the `layout.ts` seats.
+  with the `layout.ts` seats, plus two preview-only camera-facing chairs (`armchair/sw` at (1,8), `armchair/se` at (8,1)) so the `se`/`sw` sprites are checked in context.
 - Contract review: [OME-31](/OME/issues/OME-31).
 
 ## UI atlas (`ui/`, set c)
@@ -118,11 +118,11 @@ exactly how to use them; copy the rules you need into `apps/web`. The slice file
 | `avatars/avatars.json` | 24 075 raw / 1 492 gz |
 | `room/room.png` | 8 947 |
 | `room/room.json` | 13 829 raw / 1 192 gz |
-| `ui/ui.png` | 3 142 |
+| `ui/ui.png` | 3 145 |
 | `ui/ui.json` | 14 216 raw / 1 208 gz |
-| `ui/slices/*.png` (21 files, palettes trimmed to the colours used) | 3 502 |
+| `ui/slices/*.png` (21 files, palettes trimmed to the colours used) | 3 506 |
 | `ui/reference.css` (if ported as-is) | 6 998 raw / 2 015 gz |
-| **total shipped art** | **≈ 25.9 KB of 300 KB** (25 924 B) |
+| **total shipped art** | **≈ 25.9 KB of 300 KB** (25 931 B) |
 
 "gz" is zlib **level 9** with no file name (what `build.ts` prints; `gzip -9nc <file> | wc -c` agrees within 4 B).
 Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B more per file, e.g. 1 227 for `ui.json`, 2 034 for `reference.css`.

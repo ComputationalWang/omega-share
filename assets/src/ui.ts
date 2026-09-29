@@ -165,7 +165,7 @@ function cursor(state: "free" | "mine" | "taken"): UiFrame {
     const dx = Math.abs(x + 0.5 - 32);
     const d = dx / 2 + Math.abs(y + 0.5 - 16);
     if (d > 15.25 || d <= 13.75) return false;
-    if (state === "free") return dx > 20 || dx < 12;
+    if (state === "free") return dx > 19 || dx < 13; // long arms, 6 px gaps: as much ink as the ring, still clearly open
     if (state === "taken") return Math.floor(dx / 6) % 2 === 0;
     return true;
   };

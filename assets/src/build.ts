@@ -381,6 +381,11 @@ function buildRoomScene(frames: readonly RoomFrame[], avatars: Map<string, Uint8
     if (who !== undefined) items.push({ key: `${who}/sit/${d}/0`, ...p, layer: 3 });
     items.push({ key: `armchair/${d}/front`, ...p, layer: 4 });
   });
+  // Preview only (not in layout.ts): two camera-facing chairs, so the se/sw sprites are checked in the room.
+  for (const [c, r, d, who] of [[1, 8, "sw", "pip"], [8, 1, "se", "mo"]] as const) {
+    const p = cellCenter(c, r);
+    items.push({ key: `armchair/${d}/back`, ...p, layer: 2 }, { key: `${who}/sit/${d}/0`, ...p, layer: 3 }, { key: `armchair/${d}/front`, ...p, layer: 4 });
+  }
   for (const pr of layout.props) items.push({ key: pr.frame, ...cellCenter(pr.col, pr.row), layer: 3 });
   items.push({ key: "pip/idle/sw/0", ...cellCenter(4, 9), layer: 3 });
   items.push({ key: "kiki/idle/nw/0", ...cellCenter(8, 5), layer: 3 });
