@@ -104,3 +104,15 @@ export function nextExpiry(state: ViewState): number | null {
   for (const b of state.bubbles) if (min === null || b.expiresAt < min) min = b.expiresAt;
   return min;
 }
+
+export interface Screen {
+  readonly stage: boolean;
+  readonly chat: boolean;
+  readonly full: boolean;
+}
+
+/** Which room-screen regions are laid out. The stage wrap has a fixed height, so it leaves the flow when not in a room. */
+export function screen(state: ViewState): Screen {
+  const inRoom = state.room !== null && state.status !== "full";
+  return { stage: inRoom, chat: inRoom, full: state.status === "full" };
+}

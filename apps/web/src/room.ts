@@ -5,7 +5,7 @@ import { createConnection, type Connection, type SocketLike } from "./connection
 import { chatIntent, seatViews, sitIntent } from "./intents";
 import { SEATS, STAGE_H, STAGE_W, STANDING, TV, type Point } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
-import { initialState, nextExpiry, reduce, type ViewEvent, type ViewState } from "./state";
+import { initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
 import { tvFrame } from "./tv";
 
 export interface RoomOptions {
@@ -76,8 +76,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const full = el("div", { className: "room-full", hidden: true }, "room-full");
   full.append(el("h2", { textContent: "This room is full" }), el("p", { textContent: "Try again in a little while." }));
 
-  const stage = el("div", { className: "stage", hidden: true }, "room");
-  const wrap = el("div", { className: "stage-wrap" });
+  const stage = el("div", { className: "stage" }, "room");
+  const wrap = el("div", { className: "stage-wrap", hidden: true });
   wrap.append(stage);
   const tv = el("div", { className: "tv" });
   Object.assign(tv.style, { left: `${String(TV.x)}px`, top: `${String(TV.y)}px`, width: `${String(TV.w)}px`, height: `${String(TV.h)}px` });
@@ -125,10 +125,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     frame = 0;
     const s = state;
     status.textContent = STATUS_TEXT[s.status];
-    const inRoom = s.room !== null && s.status !== "full";
-    stage.hidden = !inRoom;
-    chatForm.hidden = !inRoom;
-    full.hidden = s.status !== "full";
+    const shown = screen(s);
+    wrap.hidden = !shown.stage;
+    chatForm.hidden = !shown.chat;
+    full.hidden = !shown.full;
 
     const placements: AvatarPlacement[] = [];
     const at = new Map<MemberId, Point>();
