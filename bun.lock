@@ -5,6 +5,7 @@
     "": {
       "name": "omega-share",
       "devDependencies": {
+        "@omega/shared": "workspace:*",
         "@playwright/test": "^1.63.0",
         "@types/bun": "^1.4.2",
         "eslint": "^10.11.0",
