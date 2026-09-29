@@ -134,14 +134,7 @@ test.describe("M1a acceptance", () => {
     const p = await openPopup(tab);
     await expect(p.locator(popup.embedsEmpty)).toBeVisible();
     await expect(p.locator(popup.embedItem)).toHaveCount(0);
-    // Nothing to share even if Share is pressed: no request leaves the popup. (The button itself should be hidden too, OME-35.)
-    const shares: string[] = [];
-    p.on("request", (r) => {
-      if (r.url().includes("/share")) shares.push(r.url());
-    });
-    if (await p.locator(popup.shareButton).isVisible()) await p.locator(popup.shareButton).click();
-    await expect(p.locator(popup.shareStatus)).toBeHidden();
-    expect(shares).toEqual([]);
+    await expect(p.locator(popup.shareButton)).toBeHidden();
   });
 
   test("4b. direct POST of a non-YouTube URL → 400, room embed unchanged", async ({ browser, request }) => {
