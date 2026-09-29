@@ -30,6 +30,8 @@ export const RAMPS = {
   wall: ["#8a6f9e", "#6d5584", "#523f66"],
   floor: ["#d9b98c", "#c49f70", "#a47f55"],
   glow: ["#e8fbff", "#b8e6f0", "#7fbfd0"],
+  velvet: ["#b85a6e", "#8f3f55", "#652a3e"],
+  night: ["#4a4f8c", "#343766", "#24264a"],
 } as const satisfies Record<string, readonly [string, string, string]>;
 
 export type RampName = keyof typeof RAMPS;

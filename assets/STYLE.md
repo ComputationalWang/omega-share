@@ -32,14 +32,17 @@ All three render the same scene with the same sprites. Only the palette and the 
 ## Outline
 - **1 px, 4-connected, deep plum `#2b1d2f`**, drawn automatically around every silhouette. Nothing is black.
 - Inner separations, such as arms against the body or the gap between legs, are 1 px transparent gaps that pick up the outline.
-- Eyes use the outline colour. Glasses use charcoal shade.
+- Eyes are 2×2: a cream white plus an outline-colour pupil on the facing side. On a blink the whites vanish and a lid line drops,
+  so the blink reads on every skin tone. Pip's glasses are rust-shade rims.
 
 ## Lighting
 - The light comes from the **top-left**, for every asset.
 - Automatic shading: a pixel takes the ramp **shade** if the pixel to its right or below belongs to another
   surface. Surfaces flagged `hi` (hair, hats, tops) get the **highlight** on their top/left edge.
 - Shading runs after mirroring, so SW frames are lit from the top-left too, not mirrored light.
-- Room light (set b): the TV casts a cool `glow` ramp. Everything else is warm.
+- Room faces follow the same rule: top = highlight, SW-facing = base, SE-facing = shade. So the right wall is lit
+  and the left wall sits in shade.
+- Room light (set b): the TV casts a cool, dithered `glow` halo. The sconces and floor lamp are warm (cream/mustard).
 
 ## Avatars
 | id | Silhouette cue | Palette | Accessory |
@@ -50,8 +53,12 @@ All three render the same scene with the same sprites. Only the palette and the 
 | `kiki` | Twin buns (wide head) | Lilac pinafore, pink hair, charcoal tights, tan skin | Popcorn bucket |
 
 - Chibi proportions: head 16 px wide, standing height about 40 px (1.25 tiles).
-- **Facings:** `se` and `sw` (toward the camera). Each template is drawn once facing SE. SW is its mirror.
-- **Poses:** `idle` (standing) and `sit`. Frame `1` of each is a blink.
+- **Facings:** `se`/`sw` face the camera, and `ne`/`nw` face away (toward the TV). Front templates are drawn facing SE and back
+  templates facing NE; SW and NW are mirrors, shaded after mirroring.
+- **3/4 turn cues:** eyes and mouth sit on the facing side, the ear on the back side, and the far arm and leg take the shade tone.
+  The far foot is a step back.
+- **Poses:** `idle` (standing) and `sit`. Front sit is a true 3/4 lap: thighs run down the 2:1 axis, the far leg sits behind
+  the near one, and the feet dangle. Back sit shows hips on the seat with the legs hidden. Frame `1` of each front pose is a blink.
 
 ## Anchors and seats (contract with engineering; see `README.md`)
 - Cell **32×64**. Floor point at pixel **(16, 61)**, so the anchor is `(0.5, 61/64)`.
@@ -60,10 +67,19 @@ All three render the same scene with the same sprites. Only the palette and the 
   Every seat in set (b) has its sitting surface at exactly 8 px above its tile centre, and the legs
   hang forward along the facing axis.
 
+## Room (set b)
+- **Mood:** a small home cinema at dusk. Honey plank floor, navy rug with a mustard border, violet lozenge
+  wallpaper over warm wood wainscoting, and a window onto a dusk skyline. An original ringed-planet film poster, globe sconces,
+  a plant and a floor lamp. Wine-velvet club chairs face a wood-framed TV mounted across the corner above a media console.
+- **Construction:** room pieces are 3D boxes, ray-cast per pixel (`src/iso.ts`). Wall height is 212 px and thickness is 4 units.
+  Chairs have a separate front layer (backrest + near armrest) that draws over the sitter.
+- **Palette additions for set (b):** `velvet` (chairs) and `night` (window sky, TV glass). That's 67 colours total, still one palette.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
-| (a) avatars | `avatars/avatars.png` + `avatars.json` (gz) | 2 862 + ~1 200 ≈ **4 KB** |
+| (a) avatars | `avatars/avatars.png` + `avatars.json` (gz) | 4 428 + 1 492 ≈ **5.9 KB** |
+| (b) room | `room/room.png` + `room.json` (gz) | 8 721 + 1 147 ≈ **9.9 KB** |
 | total art budget | | ≤ 300 KB |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.

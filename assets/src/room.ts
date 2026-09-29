@@ -1,0 +1,576 @@
+// Set (b): room shell (floor, rug, walls), seats and the TV. Every frame is anchored at the
+// floor point of the cell it belongs to (the tile centre), in 1× pixels.
+import { SEAT_HEIGHT } from "./avatars";
+import { box, renderSolids, type Facing, type Solid, type Vec3 } from "./iso";
+import { OUTLINE, colorIndex, type RampName, type Tone } from "./palette";
+import { render as renderRoles, type Grid, type RoleMap } from "./sprite";
+
+export const TILE = { w: 64, h: 32 } as const;
+/** Wall height above the floor, px. With the web's origin (back corner at y 220) the top sits at y 8. */
+export const WALL_H = 212;
+const WALL_T = 4;
+/** Where the video goes, relative to the `tv/0` anchor (= cellCenter(0,0)). Matches layout.ts `TV`. */
+export const TV_SCREEN = { x: -160, y: -212, w: 320, h: 180 } as const;
+
+export interface RoomFrame {
+  key: string;
+  w: number;
+  h: number;
+  img: Uint8Array;
+  /** Anchor in pixels (floor point). */
+  ax: number;
+  ay: number;
+}
+
+type Paint = readonly [RampName, Tone];
+const hash = (a: number, b: number): number => {
+  let h = (Math.imul(a | 0, 73856093) ^ Math.imul(b | 0, 19349663)) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
+};
+
+/** Crop an image to its non-empty bbox; the anchor moves with it. */
+function crop(key: string, img: Uint8Array, w: number, h: number, ax: number, ay: number): RoomFrame {
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if ((img[y * w + x] ?? 0) === 0) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < 0) throw new Error(`${key} is empty`);
+  const cw = x1 - x0 + 1;
+  const ch = y1 - y0 + 1;
+  const out = new Uint8Array(cw * ch);
+  for (let y = 0; y < ch; y++) out.set(img.subarray((y0 + y) * w + x0, (y0 + y) * w + x0 + cw), y * cw);
+  return { key, w: cw, h: ch, img: out, ax: ax - x0, ay: ay - y0 };
+}
+
+// ---------------------------------------------------------------- floor
+
+/** Pixel (px,py) of a 64×32 tile → cell-local (u,v) on the floor; exact half-open partition. */
+function tileUV(px: number, py: number): { u: number; v: number } | null {
+  const sx = px + 0.5 - TILE.w / 2;
+  const sy = py + 0.5 - TILE.h / 2;
+  const u = (sy + sx / 2) / 2;
+  const v = (sy - sx / 2) / 2;
+  return u >= -8 && u < 8 && v >= -8 && v < 8 ? { u, v } : null;
+}
+
+function floorTile(key: string, paint: (u: number, v: number) => Paint): RoomFrame {
+  const img = new Uint8Array(TILE.w * TILE.h);
+  for (let py = 0; py < TILE.h; py++) {
+    for (let px = 0; px < TILE.w; px++) {
+      const uv = tileUV(px, py);
+      if (!uv) continue;
+      const [ramp, tone] = paint(uv.u, uv.v);
+      img[py * TILE.w + px] = colorIndex(ramp, tone);
+    }
+  }
+  return { key, w: TILE.w, h: TILE.h, img, ax: TILE.w / 2, ay: TILE.h / 2 };
+}
+
+/** Honey planks running along the col axis, 4 per tile, with staggered butt joints. */
+function planks(variant: number): (u: number, v: number) => Paint {
+  return (u, v) => {
+    const lane = Math.floor((v + 8) / 4);
+    if ((v + 8) % 4 < 0.5) return ["floor", 2];
+    const joint = -8 + ((lane * 7 + variant * 5 + 3) % 16);
+    if (Math.abs(u - joint) < 0.5) return ["floor", 2];
+    // A soft grain streak in some planks.
+    const grain = hash(lane + variant * 11, Math.floor((u + 8) / 5)) % 7 === 0 && (v + 8) % 4 > 2 && (v + 8) % 4 < 2.5;
+    if (grain) return ["floor", 2];
+    return ["floor", (lane + variant) % 2 === 0 ? 1 : 0];
+  };
+}
+
+/** Rug 9-slice. Parts name the screen side of the cell on the rug's rim: edges ne/se/sw/nw
+ *  (−v, +u, +v, −u) and corners n/e/s/w; `c` is the field. */
+export const RUG_PARTS = ["c", "ne", "se", "sw", "nw", "n", "e", "s", "w"] as const;
+type RugPart = (typeof RUG_PARTS)[number];
+function rug(part: RugPart, variant: number): (u: number, v: number) => Paint {
+  const rimU0 = part === "nw" || part === "n" || part === "w";
+  const rimU1 = part === "se" || part === "e" || part === "s";
+  const rimV0 = part === "ne" || part === "n" || part === "e";
+  const rimV1 = part === "sw" || part === "s" || part === "w";
+  const base = planks(variant);
+  return (u, v) => {
+    // Distance to the rug's outer rim, in units (rug edge sits 2 units inside the rim cells).
+    const d = Math.min(rimU0 ? u + 6 : 99, rimU1 ? 6 - u : 99, rimV0 ? v + 6 : 99, rimV1 ? 6 - v : 99);
+    if (d < 0) return base(u, v);
+    if (d < 0.5) return ["navy", 2];
+    if (d < 3) return ["mustard", d < 1 ? 2 : 1];
+    if (d < 3.5) return ["navy", 2];
+    // Field: navy with a lattice of small lozenges (teal ring, mustard heart).
+    const gu = ((u + 8) % 8 + 8) % 8;
+    const gv = ((v + 8) % 8 + 8) % 8;
+    const m = Math.abs(gu - 4) + Math.abs(gv - 4);
+    if (m < 1.1) return ["mustard", 0];
+    if (m < 2.1) return ["navy", 0];
+    return ["navy", 1];
+  };
+}
+
+// ---------------------------------------------------------------- walls
+
+type WallVariant = "plain" | "window0" | "window1" | "poster0" | "poster1" | "sconce";
+const LEFT_VARIANTS: readonly WallVariant[] = ["plain", "window0", "window1", "sconce"];
+const RIGHT_VARIANTS: readonly WallVariant[] = ["plain", "poster0", "poster1", "sconce"];
+
+/**
+ * Paint a wall face at position s along the wall (−8..8 within the segment) and height z.
+ * `lit` is the right wall (faces SW, catches the top-left light); the left wall faces SE (shade).
+ */
+function wallPaint(variant: WallVariant, s: number, z: number, lit: boolean): Paint {
+  const t = (hiTone: Tone, loTone: Tone): Tone => (lit ? hiTone : loTone);
+  // Continuous coordinate across a two-segment decoration (window, poster), 0 at the seam.
+  const w = variant.endsWith("0") ? s - 8 : variant.endsWith("1") ? s + 8 : s;
+  if (variant === "window0" || variant === "window1") {
+    const p = windowPaint(w, z, lit);
+    if (p) return p;
+  }
+  if (variant === "poster0" || variant === "poster1") {
+    const p = posterPaint(w, z, lit);
+    if (p) return p;
+  }
+  if (variant === "sconce") {
+    const p = sconcePaint(s, z, lit);
+    if (p) return p;
+  }
+  // Baseboard, wainscot panel, chair rail, wallpaper, crown.
+  if (z < 5) return ["wood", t(2, 2)];
+  if (z < 6) return ["wood", t(0, 1)];
+  if (z < 52) {
+    const inPanel = s > -6 && s < 6 && z > 11 && z < 47;
+    if (!inPanel) return ["wood", t(1, 2)];
+    if (z > 46 || s < -5) return ["wood", t(2, 2)];
+    if (z < 12 || s > 5) return ["wood", t(0, 1)];
+    return ["wood", t(1, 2)];
+  }
+  if (z < 53) return ["wood", t(2, 2)];
+  if (z < 56) return ["wood", t(0, 1)];
+  if (z >= WALL_H - 5) return z >= WALL_H - 1 ? ["wall", t(0, 1)] : ["wall", t(1, 2)];
+  // Wallpaper: a sparse lattice of tiny lozenges.
+  const gs = ((s + 8) % 8 + 8) % 8;
+  const gz = (z - 56) % 12;
+  const row = Math.floor((z - 56) / 12) % 2;
+  const cx = row === 0 ? 4 : 0;
+  const dz = Math.abs(gz - 6);
+  const ds = Math.min(Math.abs(gs - cx), 8 - Math.abs(gs - cx));
+  if (dz + ds * 2 < 1.6) return ["wall", t(0, 1)];
+  return ["wall", t(1, 2)];
+}
+
+function windowPaint(w: number, z: number, lit: boolean): Paint | null {
+  const x0 = -12, x1 = 12, z0 = 84, z1 = 168;
+  if (z >= z0 - 5 && z < z0 && w >= x0 - 2 && w < x1 + 2) return ["wood", z >= z0 - 1 ? (lit ? 0 : 1) : 2]; // sill
+  if (w < x0 || w >= x1 || z < z0 || z >= z1) return null;
+  const frame = w < x0 + 1.5 || w >= x1 - 1.5 || z < z0 + 3 || z >= z1 - 3 || Math.abs(w) < 0.75 || (z >= 138 && z < 141);
+  if (frame) return ["wood", lit ? 1 : 2];
+  // Skyline silhouette with a few lit windows.
+  const col = Math.floor((w + 12) / 3);
+  const top = z0 + 3 + 6 + (hash(col, 7) % 5) * 4;
+  if (z < top) {
+    const lit1 = Math.floor(w * 2) % 3 === 0 && Math.floor(z) % 4 === 0 && hash(Math.floor(w * 2), Math.floor(z)) % 3 === 0;
+    return lit1 ? ["mustard", 1] : ["night", 2];
+  }
+  // Moon.
+  const mw = w - 6, mz = z - 150;
+  if (mw * mw * 4 + mz * mz < 30) return ["cream", mw * mw * 4 + mz * mz < 14 ? 0 : 1];
+  // Stars.
+  if (hash(Math.floor(w * 2), Math.floor(z)) % 61 === 0 && z > 120) return ["glow", 0];
+  // Dusk gradient with dithered steps.
+  const dither = (Math.floor(w * 2) + Math.floor(z)) % 2 === 0;
+  if (z < top + 6) return ["pink", dither ? 2 : 1];
+  if (z < top + 12) return dither ? ["pink", 2] : ["lilac", 2];
+  if (z < top + 20) return ["lilac", 2];
+  if (z < top + 26) return dither ? ["lilac", 2] : ["night", 0];
+  if (z < 150) return ["night", 0];
+  if (z < 156) return dither ? ["night", 0] : ["night", 1];
+  return ["night", 1];
+}
+
+function posterPaint(w: number, z: number, lit: boolean): Paint | null {
+  const x0 = -10, x1 = 10, z0 = 78, z1 = 164;
+  if (w < x0 || w >= x1 || z < z0 || z >= z1) return null;
+  if (w < x0 + 1 || w >= x1 - 1 || z < z0 + 1.5 || z >= z1 - 1.5) return ["charcoal", 2]; // frame
+  // Title band with "type" (blocks, not letters).
+  if (z < z0 + 14) {
+    const line = z >= z0 + 5 && z < z0 + 10 && Math.floor(w + 20) % 3 !== 0 && Math.abs(w) < 7;
+    return line ? ["rust", 2] : ["cream", lit ? 0 : 1];
+  }
+  // A ringed planet over a night sky, with a little rocket.
+  const pw = w + 1, pz = z - 124;
+  const ring = Math.abs(pw * pw + (pz * 2.6) * (pz * 2.6) - 90) < 22 && !(pz > 0 && pw * pw + pz * pz < 42);
+  if (ring) return ["mustard", 0];
+  if (pw * pw + pz * pz < 42) return ["teal", pw + pz < -3 ? 0 : pz < -3 ? 2 : 1];
+  const rw = w - 5, rz = z - 150;
+  if (Math.abs(rw) < 1 && rz > -4 && rz < 5) return ["cream", 0];
+  if (Math.abs(rw) < 2 && rz > -4 && rz < -1) return ["rust", 1];
+  if (Math.abs(rw) < 0.6 && rz > -8 && rz <= -4) return ["mustard", 1];
+  if (hash(Math.floor(w * 2) + 99, Math.floor(z)) % 37 === 0) return ["cream", 0];
+  return ["navy", 2];
+}
+
+function sconcePaint(s: number, z: number, lit: boolean): Paint | null {
+  const ds = Math.abs(s);
+  // Brass back plate + arm, then a round cream globe lit from inside.
+  if (ds < 1.5 && z >= 112 && z < 122) return ["mustard", lit ? 1 : 2];
+  const gz = z - 128;
+  const g2 = ds * ds * 1.6 + gz * gz;
+  if (g2 < 30) return ["cream", g2 < 10 && gz > -2 ? 0 : 1];
+  // Warm halo on the wallpaper, dithered.
+  const dz = z - 128;
+  const r = Math.sqrt(ds * ds * 2.2 + dz * dz);
+  const px = Math.floor(s * 2) + Math.floor(z);
+  if (z >= 56 && z < WALL_H - 5 && r < 18 && px % 2 === 0) return r < 11 ? ["mustard", 2] : ["wall", lit ? 0 : 1];
+  return null;
+}
+
+/** Left wall segment: stands on the top-left (u = −8) edge of cell (0,row). */
+function leftWall(variant: WallVariant): Solid {
+  return box(-8 - WALL_T, -8, -8, 8, 0, WALL_H, "wall", {
+    skip: ["sw", "other"],
+    paint: (p: Vec3, f: Facing) => (f === "top" ? ["wall", 0] : f === "se" ? wallPaint(variant, p.v, p.z, false) : null),
+  });
+}
+/** Right wall segment: stands on the top-right (v = −8) edge of cell (col,0). */
+function rightWall(variant: WallVariant): Solid {
+  return box(-8, 8, -8 - WALL_T, -8, 0, WALL_H, "wall", {
+    skip: ["se", "other"],
+    paint: (p: Vec3, f: Facing) => (f === "top" ? ["wall", 0] : f === "sw" ? wallPaint(variant, p.u, p.z, true) : null),
+  });
+}
+
+const CANVAS = { w: 400, h: 340, ax: 200, ay: 290 } as const;
+
+/** `keepOutline(x, y)` (anchor-relative) can drop outline pixels that would land on a neighbour frame. */
+function solidsFrame(key: string, solids: readonly Solid[], outline: "all" | "top" | "none" = "all", keepOutline?: (x: number, y: number) => boolean): RoomFrame {
+  const r = renderSolids(solids, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, outline);
+  if (keepOutline) {
+    for (let i = 0; i < r.img.length; i++) {
+      if (r.img[i] === OUTLINE && !keepOutline((i % CANVAS.w) - CANVAS.ax, Math.floor(i / CANVAS.w) - CANVAS.ay)) r.img[i] = 0;
+    }
+  }
+  return crop(key, r.img, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay);
+}
+
+// ---------------------------------------------------------------- seats
+
+/** Velvet lounge armchair facing NE (toward −v): backrest on the +v side, toward the camera. */
+function armchairSolids(dir: "ne" | "nw"): { back: Solid[]; front: Solid[] } {
+  // Build facing NE, then swap axes for NW (facing −u). Swapping keeps the lighting correct.
+  const B = (u0: number, u1: number, v0: number, v1: number, z0: number, z1: number, ramp: RampName, extra: Omit<Solid, "planes" | "ramp"> = {}): Solid =>
+    dir === "ne" ? box(u0, u1, v0, v1, z0, z1, ramp, extra) : box(v0, v1, u0, u1, z0, z1, ramp, swapPaint(extra));
+  const tuft = (p: Vec3, f: Facing): Paint | null => {
+    const along = dir === "ne" ? p.u : p.v;
+    const face: Facing = dir === "ne" ? "sw" : "se";
+    if (f === face && p.z > 8 && p.z < 14 && Math.abs(((along + 8) % 4) - 2) < 0.6 && Math.abs(((p.z - 9) % 4) - 2) < 0.6) return ["velvet", 2];
+    if (f === "top") return ["velvet", 0];
+    return null;
+  };
+  const piping = (p: Vec3, f: Facing): Paint | null => (f === "top" ? ["velvet", 0] : p.z > 4.2 && p.z < 5.2 ? ["mustard", 2] : null);
+  const legs = [
+    B(-5, -4, -5, -4, 0, 2, "wood"),
+    B(4, 5, -5, -4, 0, 2, "wood"),
+    B(-5, -4, 5, 6, 0, 2, "wood"),
+    B(4, 5, 5, 6, 0, 2, "wood"),
+  ];
+  const base = B(-6, 6, -6, 7, 2, 6, "velvet", { paint: piping });
+  const cushion = B(-4, 4, -5, 4, 6, SEAT_HEIGHT, "velvet", { tones: { top: 0, sw: 1, se: 2 } });
+  const armFar = B(-6, -4, -6, 7, 6, 11, "velvet", { paint: (_p, f) => (f === "top" ? ["velvet", 0] : null) });
+  const armNear = B(4, 6, -6, 7, 6, 11, "velvet", { paint: (_p, f) => (f === "top" ? ["velvet", 0] : null) });
+  const backrest = B(-6, 6, 5, 7, 6, 15, "velvet", { paint: tuft });
+  return { back: [...legs.slice(0, 2), base, cushion, armFar], front: [...legs.slice(2), armNear, backrest] };
+}
+function swapPaint(extra: Omit<Solid, "planes" | "ramp">): Omit<Solid, "planes" | "ramp"> {
+  const swapF = (f: Facing): Facing => (f === "sw" ? "se" : f === "se" ? "sw" : f);
+  const out: Omit<Solid, "planes" | "ramp"> = { ...extra };
+  if (extra.tones) out.tones = { top: extra.tones.top ?? 0, sw: extra.tones.se ?? 2, se: extra.tones.sw ?? 1 };
+  const paint = extra.paint;
+  if (paint) out.paint = (p, f) => paint({ u: p.v, v: p.u, z: p.z }, swapF(f));
+  return out;
+}
+
+/** Back + front layers of one armchair. The front keeps only pixels owned by front solids
+ *  (plus their outline), so it can be drawn over a seated avatar. */
+function armchairFrames(dir: "ne" | "nw"): RoomFrame[] {
+  const { back, front } = armchairSolids(dir);
+  const all = [...back, ...front];
+  const full = renderSolids(all, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all");
+  const backImg = renderSolids(back, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
+  const frontImg = new Uint8Array(CANVAS.w * CANVAS.h);
+  const isFront = (i: number): boolean => (full.ids[i] ?? -1) >= back.length;
+  for (let y = 0; y < CANVAS.h; y++) {
+    for (let x = 0; x < CANVAS.w; x++) {
+      const i = y * CANVAS.w + x;
+      if (isFront(i)) frontImg[i] = full.img[i] ?? 0;
+      else if (full.img[i] === OUTLINE) {
+        const n = [x > 0 ? i - 1 : -1, x < CANVAS.w - 1 ? i + 1 : -1, y > 0 ? i - CANVAS.w : -1, y < CANVAS.h - 1 ? i + CANVAS.w : -1];
+        if (n.some((j) => j >= 0 && isFront(j))) frontImg[i] = OUTLINE;
+      }
+    }
+  }
+  // Same crop rect for both layers so they share one anchor offset.
+  const both = new Uint8Array(CANVAS.w * CANVAS.h);
+  for (let i = 0; i < both.length; i++) both[i] = (backImg[i] ?? 0) || (frontImg[i] ?? 0);
+  const box0 = crop("tmp", both, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay);
+  const cropTo = (key: string, img: Uint8Array): RoomFrame => {
+    const x0 = CANVAS.ax - box0.ax;
+    const y0 = CANVAS.ay - box0.ay;
+    const out = new Uint8Array(box0.w * box0.h);
+    for (let y = 0; y < box0.h; y++) out.set(img.subarray((y0 + y) * CANVAS.w + x0, (y0 + y) * CANVAS.w + x0 + box0.w), y * box0.w);
+    return { key, w: box0.w, h: box0.h, img: out, ax: box0.ax, ay: box0.ay };
+  };
+  return [cropTo(`armchair/${dir}/back`, backImg), cropTo(`armchair/${dir}/front`, frontImg)];
+}
+
+// ---------------------------------------------------------------- TV + console
+
+function tvFrame(): RoomFrame {
+  // Cell (0,0) frame: the room's back corner is at u = v = −8.
+  const K = 68; // TV front plane u+v = K: its edges touch both walls (mounted across the corner)
+  const zb = K + 24; // bezel bottom at screen y = −24
+  const zt = K + 220; // bezel top at screen y = −220
+  const plane = (nu: number, nv: number, nz: number, d: number): { n: Vec3; d: number } => ({ n: { u: nu, v: nv, z: nz }, d });
+  const tv: Solid = {
+    ramp: "wood",
+    planes: [plane(1, 1, 0, K), plane(-1, -1, 0, -(K - 3)), plane(1, -1, 0, 84), plane(-1, 1, 0, 84), plane(0, 0, 1, zt), plane(0, 0, -1, -zb)],
+    paint: (p, f) => {
+      if (f === "top") return ["charcoal", 0];
+      const x = 2 * (p.u - p.v);
+      const y = p.u + p.v - p.z;
+      const sx0 = TV_SCREEN.x, sx1 = TV_SCREEN.x + TV_SCREEN.w, sy0 = TV_SCREEN.y, sy1 = TV_SCREEN.y + TV_SCREEN.h;
+      if (x >= sx0 && x < sx1 && y >= sy0 && y < sy1) {
+        // Screen "off": deep night glass with a diagonal sheen.
+        const diag = x - (y - sy0) * 1.2;
+        if (diag > -60 && diag < -44) return ["night", 1];
+        if (diag > -38 && diag < -34) return ["night", 1];
+        return ["night", 2];
+      }
+      // Inner lip (2 px charcoal), then warm wood bezel with a highlight on the top/left.
+      if (x >= sx0 - 2 && x < sx1 + 2 && y >= sy0 - 2 && y < sy1 + 2) return ["charcoal", 2];
+      const edgeTL = x < sx0 - 7 || y < sy0 - 7;
+      const edgeBR = x >= sx1 + 7 || y >= sy1 + 7;
+      if (edgeTL) return ["wood", 0];
+      if (edgeBR) return ["wood", 2];
+      // Power light, bottom right.
+      if (y >= sy1 + 3 && y < sy1 + 5 && x >= sx1 - 12 && x < sx1 - 8) return ["glow", 0];
+      return ["wood", 1];
+    },
+  };
+  // Corner media console: a triangle against both walls, front plane u+v = 40, 20 px tall.
+  const CF = 24;
+  const half = 2 * (CF + 8);
+  const console_: Solid = {
+    ramp: "wood",
+    planes: [plane(-1, 0, 0, 8), plane(0, -1, 0, 8), plane(1, 1, 0, CF), plane(0, 0, 1, 20), plane(0, 0, -1, 0)],
+    paint: (p, f) => {
+      if (f === "top") return ["wood", 1];
+      const x = 2 * (p.u - p.v);
+      const z = p.z;
+      if (z < 2) return ["charcoal", 2]; // plinth
+      if (z >= 18) return ["wood", 0]; // top lip
+      // Speaker grilles at both ends, doors with brass knobs between.
+      const g = half - 26;
+      if (Math.abs(x) > g) {
+        if (Math.abs(x) > half - 4) return ["wood", 2];
+        const dot = Math.floor(x) % 3 === 0 && Math.floor(z) % 3 === 0;
+        return dot ? ["charcoal", 0] : ["charcoal", 2];
+      }
+      const dw = (2 * g) / 2;
+      const door = Math.floor((x + g) / dw);
+      const dx = x + g - door * dw;
+      if (dx < 1.5 || z < 4 || z >= 16.5) return ["wood", 2];
+      if (Math.abs(dx - dw / 2) < 1.5 && z >= 9 && z < 11) return ["mustard", 0];
+      return ["wood", 1];
+    },
+  };
+  // Little things on the console top: a potted succulent (left), a tape stack (right).
+  const pot = box(12, 16, -6, -2, 20, 26, "rust");
+  const leaf1 = box(12.5, 15.5, -5.5, -2.5, 26, 32, "olive");
+  const tapes = [0, 1, 2].map((i) => box(-6, 0, 8, 14, 20 + i * 2, 22 + i * 2, i === 1 ? "teal" : "charcoal", { tones: { top: 0, sw: 1, se: 2 } }));
+  const r = renderSolids([console_, pot, leaf1, ...tapes, tv], CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay + 0, "all");
+  // Cool glow halo around the bezel, dithered (binary alpha only).
+  const img = r.img;
+  const inBezel = (x: number, y: number): boolean => x >= -168 && x < 168 && y >= -223 && y < -24;
+  for (let py = 0; py < CANVAS.h; py++) {
+    for (let px = 0; px < CANVAS.w; px++) {
+      const i = py * CANVAS.w + px;
+      if ((img[i] ?? 0) !== 0) continue;
+      const x = px - CANVAS.ax;
+      const y = py - CANVAS.ay;
+      if (inBezel(x, y)) continue;
+      const dx = x < -168 ? -168 - x : x >= 168 ? x - 167 : 0;
+      const dy = y < -223 ? -223 - y : y >= -24 ? y + 25 : 0;
+      const d = Math.max(dx, dy);
+      if (y >= -24) continue; // no halo below the TV (console / floor)
+      if (d >= 2 && d <= 3 && (px + py) % 2 === 0) img[i] = colorIndex("glow", 2);
+      else if (d >= 4 && d <= 6 && (px + py) % 4 === 0 && py % 2 === 0) img[i] = colorIndex("glow", 2);
+    }
+  }
+  return crop("tv/0", img, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay);
+}
+
+// ---------------------------------------------------------------- props (role-grid, like avatars)
+
+const PROP_ROLES: RoleMap = {
+  G: { ramp: "olive", hi: true, group: "G" },
+  g: { ramp: "olive", tone: 2, group: "G" },
+  P: { ramp: "rust", hi: true },
+  p: { ramp: "rust", tone: 2 },
+  s: { ramp: "floor", tone: 2 },
+  M: { ramp: "mustard", hi: true },
+  C: { ramp: "cream", tone: 0, group: "C" },
+  c: { ramp: "cream", tone: 1, group: "C" },
+  K: { ramp: "charcoal" },
+};
+function gridFrame(key: string, rows: readonly string[], floor: { x: number; y: number }): RoomFrame {
+  const w = Math.max(...rows.map((r) => r.length)) + 2;
+  const h = rows.length + 2;
+  const g: Grid = Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => rows[y - 1]?.[x - 1] ?? "."));
+  const img = renderRoles(g, PROP_ROLES);
+  return { key, w, h, img, ax: floor.x + 1, ay: floor.y + 1 };
+}
+
+const PLANT = [
+  "..........G.......G.....",
+  ".........GG......GG.....",
+  "....G...GGG.....GGg.....",
+  "...GG..GGGg....GGgg..G..",
+  "..GGG..GGgg...GGgg..GG..",
+  "..GGGg.GGg...GGgg..GGg..",
+  "..GGgg.GGg..GGgg..GGgg..",
+  "...Ggg..Gg.GGgg..GGgg...",
+  "...Ggg..GgGGgg..GGgg....",
+  "G...Ggg.GgGgg..GGgg...G.",
+  "GG..Ggg.GGgg.GGgg....GG.",
+  "GGG..Gg.GGg.GGgg....GGg.",
+  ".GGG.GggGGgGGgg...GGGg..",
+  "..GGGgGgGGGGgg..GGGgg...",
+  "...GGGGgGGGgGGGGGgg.....",
+  "....GGGGGGGGGGgg........",
+  ".....GGgGGGgggg.........",
+  "......GGgGGgg...........",
+  ".......gGGgg............",
+  "........ggg.............",
+  ".....PPPPPPPPPPP........",
+  ".....PPPPPPPPPPP........",
+  "......pppppppppp........",
+  "......PPPPPPPPP.........",
+  "......PPPPPPPPP.........",
+  ".......PPPPPPPp.........",
+  ".......PPPPPPPp.........",
+  "........PPPPPp..........",
+  "........sssssss.........",
+];
+const LAMP = [
+  "......CCCCCCCC......",
+  ".....CCCCCCCCCC.....",
+  "....CCCCCCCCCCcc....",
+  "...CCCCCCCCCCCccc...",
+  "..CCCCCCCCCCCCcccc..",
+  ".cccccccccccccccccc.",
+  "........MMMM........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".........KK.........",
+  ".....KKKKKKKKKK.....",
+  "....KKKKKKKKKKKK....",
+  ".....KKKKKKKKKK.....",
+];
+
+// ---------------------------------------------------------------- all frames
+
+export function buildRoomFrames(): RoomFrame[] {
+  const frames: RoomFrame[] = [];
+  frames.push(floorTile("floor/0", planks(0)), floorTile("floor/1", planks(1)));
+  for (const part of RUG_PARTS) frames.push(floorTile(`rug/${part}`, rug(part, 0)));
+  for (const v of LEFT_VARIANTS) frames.push(solidsFrame(`wall/l/${v}`, [leftWall(v)], "top"));
+  for (const v of RIGHT_VARIANTS) frames.push(solidsFrame(`wall/r/${v}`, [rightWall(v)], "top"));
+  // Back corner block (only its top shows) and the two open wall ends at the front.
+  frames.push(solidsFrame("wall/corner", [box(-8 - WALL_T, -8, -8 - WALL_T, -8, 0, WALL_H, "wall", { paint: (_p, f) => (f === "top" ? ["wall", 0] : null) })], "top"));
+  frames.push(solidsFrame("wall/l/end", [box(-8 - WALL_T, -8, 7, 8, 0, WALL_H, "wall", { skip: ["se", "other"], paint: (_p, f) => (f === "top" ? ["wall", 0] : ["wall", 1]) })], "all", (x) => x < -32));
+  frames.push(solidsFrame("wall/r/end", [box(7, 8, -8 - WALL_T, -8, 0, WALL_H, "wall", { skip: ["sw", "other"], paint: (_p, f) => (f === "top" ? ["wall", 0] : ["wall", 2]) })], "all", (x) => x >= 32));
+  frames.push(...armchairFrames("ne"), ...armchairFrames("nw"));
+  frames.push(tvFrame());
+  frames.push(gridFrame("plant/0", PLANT, { x: 11, y: 27 }));
+  frames.push(gridFrame("lamp/0", LAMP, { x: 10, y: 61 }));
+  return frames;
+}
+
+/** Suggested default room for the web's 10×10 floor (layout.ts). Seats stay in layout.ts. */
+export function defaultLayout(): {
+  floor: string[][];
+  walls: { l: string[]; r: string[] };
+  props: { frame: string; col: number; row: number }[];
+} {
+  const N = 10;
+  const R0 = 1, R1 = 7;
+  const floor: string[][] = [];
+  for (let r = 0; r < N; r++) {
+    const row: string[] = [];
+    for (let c = 0; c < N; c++) {
+      if (c >= R0 && c <= R1 && r >= R0 && r <= R1) {
+        const nw = c === R0, se = c === R1, ne = r === R0, sw = r === R1;
+        const part = nw && ne ? "n" : se && ne ? "e" : se && sw ? "s" : nw && sw ? "w" : nw ? "nw" : se ? "se" : ne ? "ne" : sw ? "sw" : "c";
+        row.push(`rug/${part}`);
+      } else row.push(`floor/${String(hash(c, r) % 2)}`);
+    }
+    floor.push(row);
+  }
+  const l = ["plain", "plain", "plain", "plain", "plain", "window0", "window1", "plain", "sconce", "plain"].map((v) => `wall/l/${v}`);
+  const rr = ["plain", "plain", "plain", "plain", "plain", "poster0", "poster1", "plain", "sconce", "plain"].map((v) => `wall/r/${v}`);
+  return { floor, walls: { l, r: rr }, props: [{ frame: "plant/0", col: 0, row: 9 }, { frame: "lamp/0", col: 9, row: 0 }] };
+}
