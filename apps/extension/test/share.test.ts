@@ -7,7 +7,7 @@ const json = (body: unknown, status = 200) =>
 
 describe("shareEmbed", () => {
   test("POSTs the embed URL to /rooms/:id/share and returns the server's embed", async () => {
-    const fetch = mock((_url: string, _init: RequestInit) => Promise.resolve(json({ ok: true, embed: EMBED })));
+    const fetch = mock<(url: string, init: RequestInit) => Promise<Response>>(() => Promise.resolve(json({ ok: true, embed: EMBED })));
     const result = await shareEmbed({ baseUrl: "http://localhost:8787", roomId: "lobby", url: EMBED.url, fetch });
     expect(result).toEqual({ ok: true, embed: EMBED });
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -15,7 +15,7 @@ describe("shareEmbed", () => {
     expect(url).toBe("http://localhost:8787/rooms/lobby/share");
     expect(init?.method).toBe("POST");
     expect(new Headers(init?.headers).get("content-type")).toBe("application/json");
-    expect(JSON.parse(String(init?.body))).toEqual({ url: EMBED.url });
+    expect(JSON.parse(typeof init?.body === "string" ? init.body : "")).toEqual({ url: EMBED.url });
   });
 
   test("surfaces the server's error message", async () => {

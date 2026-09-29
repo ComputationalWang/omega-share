@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import type { Embed } from "@omega/shared";
 import { listEmbeds } from "../src/embeds";
 
 const A = "aqz-KE-bpKQ";
 const B = "dQw4w9WgXcQ";
-const embed = (videoId: string) => ({ provider: "youtube", videoId, url: `https://www.youtube.com/embed/${videoId}` });
+const embed = (videoId: string): Embed => ({ provider: "youtube", videoId, url: `https://www.youtube.com/embed/${videoId}` });
 
 describe("listEmbeds (scan result → canonical list)", () => {
-  const cases: readonly { name: string; scan: unknown; expected: readonly ReturnType<typeof embed>[] }[] = [
+  const cases: readonly { name: string; scan: unknown; expected: readonly Embed[] }[] = [
     { name: "watch page URL", scan: [`https://www.youtube.com/watch?v=${A}`], expected: [embed(A)] },
     { name: "embed iframe src", scan: ["https://example.com/post", `https://www.youtube.com/embed/${A}`], expected: [embed(A)] },
     { name: "nocookie + short link", scan: [`https://www.youtube-nocookie.com/embed/${A}`, `https://youtu.be/${B}`], expected: [embed(A), embed(B)] },
