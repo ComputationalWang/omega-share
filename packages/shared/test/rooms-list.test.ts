@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
-import { MAX_ROOM_MEMBERS, RoomListResponseSchema, SEAT_COUNT } from "../src/index";
+import { MAX_LISTED_ROOMS, MAX_ROOM_MEMBERS, RoomListResponseSchema, SEAT_COUNT } from "../src/index";
 
 describe("RoomListResponseSchema (GET /rooms)", () => {
   test("accepts a list of room summaries", () => {
@@ -33,5 +33,12 @@ describe("RoomListResponseSchema (GET /rooms)", () => {
 
   test("rejects an invalid room id", () => {
     expect(v.is(RoomListResponseSchema, { rooms: [{ id: "Lobby!", memberCount: 0, seatedCount: 0 }] })).toBe(false);
+  });
+
+  test("accepts up to MAX_LISTED_ROOMS rooms and rejects more", () => {
+    const room = (i: number) => ({ id: `room-${i}`, memberCount: 0, seatedCount: 0 });
+    const full = Array.from({ length: MAX_LISTED_ROOMS }, (_, i) => room(i));
+    expect(v.is(RoomListResponseSchema, { rooms: full })).toBe(true);
+    expect(v.is(RoomListResponseSchema, { rooms: [...full, room(MAX_LISTED_ROOMS)] })).toBe(false);
   });
 });
