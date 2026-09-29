@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture: non-allowlisted iframes</title></head>
+<body>
+<h1>Iframes the extension must NOT list or share</h1>
+<!-- Unknown provider. -->
+<iframe id="unknown" src="https://player.example.net/embed/abc123" width="320" height="180"></iframe>
+<!-- Lookalike host: youtube.com is only a prefix of the hostname. -->
+<iframe id="lookalike" src="https://www.youtube.com.evil.example/embed/aqz-KE-bpKQ" width="320" height="180"></iframe>
+<!-- Allowlisted-looking path on a non-YouTube host. -->
+<iframe id="path-spoof" src="https://evil.example/www.youtube.com/embed/aqz-KE-bpKQ" width="320" height="180"></iframe>
+<!-- javascript: and data: URLs. -->
+<iframe id="js-url" src="javascript:alert(1)" width="320" height="180"></iframe>
+<iframe id="data-url" src="data:text/html,<p>hi</p>" width="320" height="180"></iframe>
+</body></html>

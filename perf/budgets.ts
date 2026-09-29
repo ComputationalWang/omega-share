@@ -1,0 +1,69 @@
+// Budgets from docs/perf-budgets.md. budgets.test.ts fails if these drift from the doc.
+
+export type Comparator = "<=" | "<";
+
+export interface Budget {
+  readonly id: string;
+  readonly area: string;
+  readonly metric: string;
+  /** Exact text of the Metric column in docs/perf-budgets.md. */
+  readonly docMetric: string;
+  readonly unit: "KB" | "MB" | "ms" | "count";
+  readonly limit: number;
+  readonly comparator: Comparator;
+}
+
+export const BUDGETS: readonly Budget[] = [
+  { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
+  { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
+  { id: "site.frameP95", area: "Site", metric: "p95 frame time, 8 avatars + video", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
+  { id: "server.relayLatency", area: "Server", metric: "Relay latency, control action", docMetric: "Relay latency for a control action, localhost", unit: "ms", limit: 50, comparator: "<=" },
+  { id: "ext.popupToList", area: "Extension", metric: "Popup opened → embeds listed", docMetric: "Popup opened → embeds listed", unit: "ms", limit: 300, comparator: "<=" },
+  { id: "ext.contentScripts", area: "Extension", metric: "Declared content scripts", docMetric: "Content scripts on page load", unit: "count", limit: 0, comparator: "<=" },
+  { id: "ext.persistentBackground", area: "Extension", metric: "Persistent background violations", docMetric: "Persistent background", unit: "count", limit: 0, comparator: "<=" },
+];
+
+export type Measurement =
+  | { readonly id: string; readonly value: number; readonly note?: string }
+  | { readonly id: string; readonly pending: string };
+
+export type Status = "pass" | "fail" | "pending";
+
+export interface Result {
+  readonly budget: Budget;
+  readonly status: Status;
+  readonly value?: number;
+  readonly note?: string;
+}
+
+export function evaluate(budget: Budget, m: Measurement | undefined): Result {
+  if (m === undefined) return { budget, status: "pending", note: "not measured" };
+  if ("pending" in m) return { budget, status: "pending", note: m.pending };
+  const ok = budget.comparator === "<=" ? m.value <= budget.limit : m.value < budget.limit;
+  const base = { budget, status: ok ? "pass" : "fail", value: m.value } as const;
+  return m.note === undefined ? base : { ...base, note: m.note };
+}
+
+const fmt = (n: number, unit: Budget["unit"]): string =>
+  unit === "count" ? String(n) : `${n.toFixed(1)} ${unit}`;
+
+const LABEL: Record<Status, string> = { pass: "✅ PASS", fail: "❌ FAIL", pending: "⏳ PENDING" };
+
+export function renderReport(results: readonly Result[]): string {
+  const rows = results.map((r) => {
+    const measured = r.value === undefined ? "—" : fmt(r.value, r.budget.unit);
+    const budget = `${r.budget.comparator === "<=" ? "≤" : "<"} ${fmt(r.budget.limit, r.budget.unit)}`;
+    return `| ${LABEL[r.status]} | ${r.budget.area} | ${r.budget.metric} | ${measured} | ${budget} | ${r.note ?? ""} |`;
+  });
+  const count = (s: Status): number => results.filter((r) => r.status === s).length;
+  return [
+    "# Perf budget report",
+    "",
+    "| Status | Area | Metric | Measured | Budget | Notes |",
+    "|---|---|---|---|---|---|",
+    ...rows,
+    "",
+    `**${String(count("pass"))} passed, ${String(count("fail"))} failed, ${String(count("pending"))} pending.**`,
+    "",
+  ].join("\n");
+}

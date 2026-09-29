@@ -1,0 +1,58 @@
+// `bun run perf`: build, run static + Playwright perf checks, print a report, exit 1 on any budget regression.
+// Flags: --no-build (use existing builds), --strict (pending budgets also fail).
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { EXTENSION_DIR, ROOT, WEB_DIST_DIR, scripts } from "../e2e/support/apps";
+import { BUDGETS, evaluate, renderReport, type Measurement } from "./budgets";
+import { RESULTS_DIR, readMetrics, recordMetric } from "./metrics";
+import { checkManifest, initialJsGzipKb } from "./static-checks";
+
+const args = new Set(process.argv.slice(2));
+
+function run(cmd: string[], env: Record<string, string> = {}): number {
+  console.log(`$ ${cmd.join(" ")}`);
+  return Bun.spawnSync(cmd, { cwd: ROOT, stdio: ["inherit", "inherit", "inherit"], env: { ...process.env, ...env } }).exitCode;
+}
+
+rmSync(RESULTS_DIR, { recursive: true, force: true });
+mkdirSync(RESULTS_DIR, { recursive: true });
+
+if (!args.has("--no-build")) {
+  for (const app of ["web", "extension"] as const) {
+    if ("build" in scripts(app) && run(["bun", "run", "--filter", `@omega/${app}`, "build"]) !== 0) {
+      console.error(`build failed for apps/${app}`);
+      process.exit(1);
+    }
+  }
+}
+
+// Static checks.
+if (existsSync(join(WEB_DIST_DIR, "index.html"))) {
+  const b = initialJsGzipKb(WEB_DIST_DIR);
+  recordMetric({ id: "site.initialJsGzip", value: b.kb, note: `${String(b.files.length)} initial JS files` });
+} else {
+  recordMetric({ id: "site.initialJsGzip", pending: "apps/web/dist not built (OME-6)" });
+}
+const manifestPath = join(EXTENSION_DIR, "manifest.json");
+if (existsSync(manifestPath)) {
+  const m = checkManifest(JSON.parse(readFileSync(manifestPath, "utf8")));
+  recordMetric({ id: "ext.contentScripts", value: m.contentScripts });
+  const bg: Measurement = { id: "ext.persistentBackground", value: m.persistentBackground.length };
+  recordMetric(m.persistentBackground.length > 0 ? { ...bg, note: m.persistentBackground.join("; ") } : bg);
+} else {
+  for (const id of ["ext.contentScripts", "ext.persistentBackground"]) recordMetric({ id, pending: "extension not built (OME-7)" });
+}
+
+// Runtime checks (Playwright, Chromium). Web is served from the production build.
+const pwExit = run(["bunx", "playwright", "test", "--project=perf"], { OMEGA_WEB_MODE: "preview" });
+
+const measured = new Map(readMetrics().map((m) => [m.id, m]));
+const results = BUDGETS.map((b) => evaluate(b, measured.get(b.id)));
+const report = renderReport(results);
+writeFileSync(join(RESULTS_DIR, "report.md"), report);
+writeFileSync(join(RESULTS_DIR, "report.json"), JSON.stringify(results, null, 2));
+console.log(`\n${report}\nWritten to perf/results/report.{md,json}`);
+
+const failed = results.some((r) => r.status === "fail" || (args.has("--strict") && r.status === "pending"));
+if (pwExit !== 0) console.error("Playwright perf specs failed — see output above.");
+process.exit(failed || pwExit !== 0 ? 1 : 0);
