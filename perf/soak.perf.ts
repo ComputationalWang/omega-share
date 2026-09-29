@@ -65,7 +65,9 @@ test("site: JS heap after a 10 min soak in the lobby", async ({ browser }) => {
     const endMb = await heapAfterGcMb(page);
     const s = await traffic.stats();
     expect(s.errors).toEqual([]);
-    expect(s.joins).toBeGreaterThan(6);
+    expect(s.dropped).toBe(0);
+    // Churn replaces a bot every 15 s.
+    if (plan.durationMs >= 30_000) expect(s.joins).toBeGreaterThan(6);
 
     const minutes = (plan.durationMs / 60_000).toFixed(1);
     const detail = `${minutes} min: start ${startMb.toFixed(1)} MB → end ${endMb.toFixed(1)} MB; site sent ${String(lines)} chats + ${String(seatClicks)} seat clicks; bots saw ${String(s.chats)} chats, ${String(s.seatChanges)} seat changes, ${String(s.joins)} joins`;
