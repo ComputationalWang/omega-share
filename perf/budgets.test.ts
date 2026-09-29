@@ -2,8 +2,16 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { MAX_ROOM_MEMBERS } from "@omega/shared";
 import { BUDGETS, evaluate, renderReport } from "./budgets";
+import { soakPlan } from "./soak";
 import { checkManifest, initialJsGzipKb } from "./static-checks";
+
+const DOC = readFileSync(join(import.meta.dir, "../docs/perf-budgets.md"), "utf8");
+/** Table rows of docs/perf-budgets.md as [area, metric, budget] cells, header and separator skipped. */
+const DOC_ROWS = DOC.split("\n")
+  .filter((line) => line.startsWith("| ") && !line.startsWith("| Area ") && !line.startsWith("|---"))
+  .map((line) => line.split("|").slice(1, -1).map((c) => c.trim()));
 
 describe("budgets", () => {
   test("every budget id is unique", () => {
@@ -11,10 +19,29 @@ describe("budgets", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  test("every row in docs/perf-budgets.md has at least one budget, so none is missing from the report", () => {
+    expect(DOC_ROWS.length).toBeGreaterThan(0);
+    const covered = new Set(BUDGETS.map((b) => b.docMetric));
+    for (const [, metric] of DOC_ROWS) expect(covered.has(metric ?? ""), `budget for doc row "${metric ?? ""}"`).toBe(true);
+  });
+
+  test("load-test budgets hold another budget at the doc's room size, which is MAX_ROOM_MEMBERS", () => {
+    const load = BUDGETS.filter((b) => b.load !== undefined);
+    expect(load.map((b) => b.id).sort()).toEqual(["load.frameP95", "load.relayLatency"]);
+    for (const b of load) {
+      const row = DOC_ROWS.find(([, metric]) => metric === b.docMetric);
+      expect(Number(row?.[2])).toBe(b.load?.members ?? Number.NaN);
+      expect(b.load?.members).toBe(MAX_ROOM_MEMBERS);
+      const base = BUDGETS.find((x) => x.id === b.load?.of);
+      expect(base, `base budget ${b.load?.of ?? ""}`).toBeDefined();
+      expect([b.limit, b.unit, b.comparator]).toEqual([base?.limit, base?.unit, base?.comparator]);
+    }
+  });
+
   test("limits match docs/perf-budgets.md", () => {
-    const doc = readFileSync(join(import.meta.dir, "../docs/perf-budgets.md"), "utf8");
     for (const b of BUDGETS) {
-      const row = doc.split("\n").find((line) => line.includes(`| ${b.docMetric} |`));
+      if (b.load !== undefined) continue;
+      const row = DOC.split("\n").find((line) => line.includes(`| ${b.docMetric} |`));
       expect(row, `row for ${b.docMetric}`).toBeDefined();
       const cell = (row ?? "").split("|").at(-2)?.trim() ?? "";
       if (cell.startsWith("none")) {
@@ -100,5 +127,23 @@ describe("initialJsGzipKb", () => {
     expect(r.files).toEqual(["assets/entry.js", "assets/vendor.js"]);
     expect(r.kb).toBeGreaterThan(0);
     expect(r.kb).toBeLessThan(1);
+  });
+});
+
+describe("soakPlan", () => {
+  test("skips unless OMEGA_PERF_SOAK=1, and says how to run it", () => {
+    const p = soakPlan({});
+    expect(p.run).toBe(false);
+    expect(p.run ? "" : p.reason).toContain("bun run perf --soak");
+  });
+  test("defaults to the budget's 10 minutes", () => {
+    expect(soakPlan({ OMEGA_PERF_SOAK: "1" })).toEqual({ run: true, durationMs: 600_000, full: true });
+  });
+  test("OMEGA_SOAK_MS shortens it, but a short soak is not a full measurement", () => {
+    expect(soakPlan({ OMEGA_PERF_SOAK: "1", OMEGA_SOAK_MS: "30000" })).toEqual({ run: true, durationMs: 30_000, full: false });
+  });
+  test("rejects a nonsense duration", () => {
+    expect(() => soakPlan({ OMEGA_PERF_SOAK: "1", OMEGA_SOAK_MS: "soon" })).toThrow();
+    expect(() => soakPlan({ OMEGA_PERF_SOAK: "1", OMEGA_SOAK_MS: "0" })).toThrow();
   });
 });
