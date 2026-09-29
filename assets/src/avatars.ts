@@ -14,7 +14,7 @@ export type Dir = "se" | "sw" | "ne" | "nw";
 /** Front-facing dirs (face visible, blink frame differs) and back-facing dirs. */
 export const FRONT_DIRS: readonly Dir[] = ["se", "sw"];
 export const BACK_DIRS: readonly Dir[] = ["ne", "nw"];
-type View = "front" | "back";
+export type View = "front" | "back";
 
 // Role letters used by the body templates:
 // S skin, W eye white, E pupil/lid, M mouth, C cheek, k ear, T top, r far arm, B hips/lap,
@@ -510,15 +510,52 @@ const KIKI: AvatarDef = {
 
 export const AVATARS: readonly AvatarDef[] = [JUNO, PIP, MO, KIKI].map((a) => ({ ...a, roles: withFarLimbs(a.roles) }));
 
+/** Which way the template faces: front (SE, face visible) or back (NE, toward the TV). */
+export function viewOf(dir: Dir): View {
+  return dir === "se" || dir === "sw" ? "front" : "back";
+}
+
+/** A stamp in template space (before mirroring), relative to the torso origin. "_" erases. */
+export interface Stamp {
+  x: number;
+  y: number;
+  rows: readonly string[];
+}
+
+/** Per-frame motion on top of a base pose (set d). Offsets are 1× px, in template space. */
+export interface Motion {
+  blink?: boolean;
+  /** Head and torso rise by this many px (walk bob). Standing legs then need 10 + lift rows. */
+  lift?: number;
+  /** The head sinks by this many px onto the collar (breathing out). */
+  headDrop?: number;
+  /** Replaces the standing legs (idle pose only). The last row always lands on the floor line (y 60). */
+  legs?: readonly string[];
+  /** Stamped last, relative to the (lifted) torso origin: arm swings and gestures. */
+  after?: readonly Stamp[];
+}
+
 /** Compose one frame as a role grid (before shading/outline). */
 export function composeFrame(a: AvatarDef, pose: Pose, dir: Dir, blink: boolean): Grid {
-  const view: View = dir === "se" || dir === "sw" ? "front" : "back";
+  return composeMotion(a, pose, dir, { blink });
+}
+
+export function composeMotion(a: AvatarDef, pose: Pose, dir: Dir, m: Motion): Grid {
+  const view = viewOf(dir);
+  const blink = m.blink === true;
+  const lift = m.lift ?? 0;
   const g = blank(CELL.w, CELL.h);
-  const o = ORIGINS[pose];
+  const o0 = ORIGINS[pose];
+  const o: Origins = {
+    head: { x: o0.head.x, y: o0.head.y - lift + (m.headDrop ?? 0) },
+    torso: { x: o0.torso.x, y: o0.torso.y - lift },
+  };
   const torso = view === "front" ? TORSO : TORSO_BACK;
   if (pose === "idle") {
     stamp(g, torso, o.torso.x, o.torso.y);
-    stamp(g, view === "front" ? LEGS : LEGS_BACK, o.torso.x, o.torso.y + TORSO.length);
+    const legs = m.legs ?? (view === "front" ? LEGS : LEGS_BACK);
+    if (legs.length !== LEGS.length + lift) throw new Error(`legs must be ${String(LEGS.length + lift)} rows for lift ${String(lift)}`);
+    stamp(g, legs, o.torso.x, FLOOR.y - legs.length);
   } else if (view === "front") {
     stamp(g, torso.slice(0, 7), o.torso.x, o.torso.y);
     sitLowerSE(g);
@@ -535,5 +572,6 @@ export function composeFrame(a: AvatarDef, pose: Pose, dir: Dir, blink: boolean)
     const base = ov.on === "head" ? o.head : o.torso;
     stamp(g, ov.rows, base.x + ov.x, base.y + ov.y);
   }
+  for (const s of m.after ?? []) stamp(g, s.rows, o.torso.x + s.x, o.torso.y + s.y);
   return dir === "se" || dir === "ne" ? g : mirror(g);
 }

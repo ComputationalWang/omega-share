@@ -93,12 +93,27 @@ All three render the same scene with the same sprites. Only the palette and the 
   on a rust/cream-shade extrusion, and a teal hyphen.
 - **Icons** are 16×16 role-grid sprites, auto-shaded and auto-outlined exactly like the avatars, so they sit on either dark chrome or the honey floor.
 
+## Motion (set d)
+- **Same pixels, moved:** walk, breathe and wave frames are built from the set (a) role templates, so the palette, the plum outline,
+  top-left light (shaded after mirroring) and every accessory carry over. No new colours.
+- **Walk, 4 frames at 150 ms:** contact, passing, contact, passing. Chibi legs stride in depth rather than width: facing the camera,
+  the forward foot is the lower one on screen; facing away, it's the higher one. The trailing foot lifts its heel. The body bobs 1 px up on the passing frames,
+  and the supporting sole never leaves y 60, so the feet stay on the floor point while the sprite advances (8, 4) px per frame on the 2:1 axis.
+  One arm swings against the legs (hand up 1 px forward, out 1 px back). It's always the template-left arm, so Kiki keeps her popcorn.
+- **Breathe:** the head settles 1 px onto the collar, 1.4 s in / 1 s out. That's subtle on purpose: it's the pose a whole room holds for two hours.
+- **Wave:** the free arm is raised with a bent elbow, forearm upright beside the head (never over the face), and the open hand rocks out and in.
+  Seated and standing, from the front and from behind.
+- **Emote icons** are 16×16, outlined and auto-shaded like the UI icons, one hue each: heart pink, laugh mustard, question teal, surprise rust,
+  clap cream + a mustard burst. Each has a pop-in, a settled frame and a pulse (a beat, a squeeze, a tilt, a jolt, palms together).
+  They float just above the name tag and read at 1× on floor, rug and walls.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
 | (a) avatars | `avatars/avatars.png` + `avatars.json` (gz) | 4 428 + 1 492 ≈ **5.9 KB** |
 | (b) room | `room/room.png` + `room.json` (gz) | 8 721 + 1 147 ≈ **9.9 KB** |
 | (c) UI chrome | `ui/ui.png` + `ui.json` (gz) + `ui/slices/*.png` + `reference.css` (gz) | 3 240 + 1 161 + 3 506 + 2 029 ≈ **9.9 KB** |
-| total art budget | | ≤ 300 KB (≈ 25.7 KB used) |
+| (d) motion (lazy, M5) | `avatars/motion.png` + `motion.json` (gz) | 14 189 + 3 788 ≈ **18.0 KB** |
+| total art budget | | ≤ 300 KB (≈ 43.9 KB used) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.

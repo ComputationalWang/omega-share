@@ -3,11 +3,28 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
-import { AVATARS, BACK_DIRS, CELL, FLOOR, FRONT_DIRS, SEAT_HEIGHT, composeFrame, type Dir, type Pose } from "./avatars";
-import { PALETTE, RAMPS, colorIndex } from "./palette";
-import { encodeIndexedPng, type RGBA } from "./png";
+import { AVATARS, BACK_DIRS, CELL, FLOOR, FRONT_DIRS, SEAT_HEIGHT, composeFrame, composeMotion, viewOf, type Dir, type Motion, type Pose } from "./avatars";
+import {
+  BREATHE,
+  BREATHE_MS,
+  EMOTES,
+  EMOTE_CELL,
+  EMOTE_FRAMES,
+  EMOTE_SEQUENCE,
+  WALK_FRAMES,
+  WALK_FRAME_MS,
+  WALK_TILES_PER_CYCLE,
+  WAVE_FRAMES,
+  WAVE_MS,
+  WAVE_SEQUENCE,
+  waveMotion,
+  walkMotion,
+  type EmoteDef,
+} from "./motion";
+import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
+import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
-import { blit, render, upscale } from "./sprite";
+import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders } from "./ui";
 
 const ROOT = join(import.meta.dir, "..");
@@ -563,13 +580,295 @@ function uiTokens(): Record<string, string> {
   };
 }
 
+/** Emote icon as a role grid: bottom-aligned on row 13 (outline on 14), centred. */
+function emoteGrid(e: EmoteDef, n: number): Grid {
+  const g = blank(EMOTE_CELL.w, EMOTE_CELL.h);
+  const rows = [e.pop, e.art, e.accent][n] ?? e.art;
+  const w = Math.max(...rows.map((r) => r.length));
+  stamp(g, rows, Math.floor((EMOTE_CELL.w - w) / 2), 14 - rows.length);
+  return g;
+}
+
+function assertInside(key: string, img: Uint8Array, w: number, h: number): void {
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const border = x === 0 || y === 0 || x === w - 1 || y === h - 1;
+      if (border && img[y * w + x] !== 0) throw new Error(`${key} touches the cell border at ${String(x)},${String(y)}`);
+    }
+  }
+}
+
+interface Anim {
+  frames: string[];
+  ms: number[];
+  loop: boolean;
+}
+
+/** Set (d): walk cycles, breathing, the wave and emote icons, in `avatars/motion.png` + `motion.json`. */
+function buildMotion(base: Map<string, Uint8Array>): void {
+  const sheetW = 1024;
+  const sheetH = pow2(AVATARS.length * 2 * CELL.h);
+  const sheet = new Uint8Array(sheetW * sheetH);
+  const frames: Record<string, Frame> = {};
+  const images = new Map<string, { img: Uint8Array; w: number; h: number }>();
+  const anims: Record<string, Anim> = {};
+  const put = (key: string, img: Uint8Array, w: number, h: number, x: number, y: number, anchor: { x: number; y: number }): void => {
+    if (frames[key]) throw new Error(`duplicate motion key ${key}`);
+    assertInside(key, img, w, h);
+    blit(sheet, sheetW, img, w, h, x, y);
+    frames[key] = {
+      frame: { x, y, w, h },
+      rotated: false,
+      trimmed: false,
+      spriteSourceSize: { x: 0, y: 0, w, h },
+      sourceSize: { w, h },
+      anchor: { x: anchor.x / w, y: anchor.y / h },
+    };
+    images.set(key, { img, w, h });
+  };
+  const avatarCell = (a: (typeof AVATARS)[number], pose: Pose, dir: Dir, m: Motion): Uint8Array => render(composeMotion(a, pose, dir, m), a.roles);
+  AVATARS.forEach((a, i) => {
+    let col = 0;
+    const cell = (key: string, img: Uint8Array, row: number): void => {
+      put(key, img, CELL.w, CELL.h, col * CELL.w, (i * 2 + row) * CELL.h, FLOOR);
+      col++;
+    };
+    // Row 2i: walk (dirs × 4 frames), then the wave (poses × dirs × 2 frames).
+    for (const dir of DIRS) {
+      const keys: string[] = [];
+      for (let n = 0; n < WALK_FRAMES; n++) {
+        const key = `walk/${a.id}/${dir}/${String(n)}`;
+        cell(key, avatarCell(a, "idle", dir, walkMotion(viewOf(dir), n)), 0);
+        keys.push(key);
+      }
+      anims[`walk/${a.id}/${dir}`] = { frames: keys, ms: keys.map(() => WALK_FRAME_MS), loop: true };
+    }
+    for (const pose of POSES) {
+      for (const dir of DIRS) {
+        const keys: string[] = [];
+        for (let n = 0; n < WAVE_FRAMES; n++) {
+          const key = `wave/${a.id}/${pose}/${dir}/${String(n)}`;
+          cell(key, avatarCell(a, pose, dir, waveMotion(viewOf(dir), n)), 0);
+          keys.push(key);
+        }
+        const seq = WAVE_SEQUENCE.map((n) => keys[n] ?? "");
+        anims[`wave/${a.id}/${pose}/${dir}`] = { frames: seq, ms: seq.map(() => WAVE_MS), loop: false };
+      }
+    }
+    // Row 2i+1: the breathing-out frame per pose × dir (breathing in is the set (a) /0 frame).
+    col = 0;
+    for (const pose of POSES) {
+      for (const dir of DIRS) {
+        const key = `breathe/${a.id}/${pose}/${dir}/1`;
+        cell(key, avatarCell(a, pose, dir, BREATHE), 1);
+        anims[`breathe/${a.id}/${pose}/${dir}`] = { frames: [`${a.id}/${pose}/${dir}/0`, key], ms: [...BREATHE_MS], loop: true };
+      }
+    }
+  });
+  // Emote icons: after the breathe cells on Juno's second row.
+  const ex0 = DIRS.length * POSES.length * CELL.w;
+  const ey0 = CELL.h;
+  EMOTES.forEach((e, i) => {
+    const keys: string[] = [];
+    for (let n = 0; n < EMOTE_FRAMES; n++) {
+      const key = `emote/${e.id}/${String(n)}`;
+      const x = ex0 + (i * EMOTE_FRAMES + n) * EMOTE_CELL.w;
+      put(key, render(emoteGrid(e, n), e.roles), EMOTE_CELL.w, EMOTE_CELL.h, x, ey0, { x: EMOTE_CELL.w / 2, y: EMOTE_CELL.h });
+      keys.push(key);
+    }
+    anims[`emote/${e.id}`] = { frames: EMOTE_SEQUENCE.map(([n]) => keys[n] ?? ""), ms: EMOTE_SEQUENCE.map(([, ms]) => ms), loop: false };
+  });
+  registerKeys("motion", Object.keys(frames));
+  const dir = join(ROOT, "avatars");
+  writeFileSync(join(dir, "motion.png"), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
+  // Pixi's own `animations` can only list this sheet's frames, so breathe (which starts on a set (a) frame) is in meta only.
+  const animations: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(anims)) if (v.frames.every((f) => frames[f])) animations[k] = v.frames;
+  const atlas = {
+    frames,
+    animations,
+    meta: {
+      app: "omega-share assets/src/build.ts",
+      version: "1",
+      image: "motion.png",
+      format: "RGBA8888",
+      size: { w: sheetW, h: sheetH },
+      scale: "1",
+      omega: {
+        license: "CC-BY-SA-4.0",
+        tile: TILE,
+        cell: CELL,
+        floorPoint: FLOOR,
+        emoteCell: EMOTE_CELL,
+        walk: { frameMs: WALK_FRAME_MS, tilesPerCycle: WALK_TILES_PER_CYCLE, stepPx: { x: TILE.w / 2 / WALK_FRAMES, y: TILE.h / 2 / WALK_FRAMES } },
+        emotes: EMOTES.map((e) => ({ id: e.id, label: e.label })),
+        gestures: [{ id: "wave", label: "Wave" }],
+        anims,
+      },
+    },
+  };
+  writeFileSync(join(dir, "motion.json"), JSON.stringify(atlas, null, 1) + "\n");
+  const all = new Map<string, { img: Uint8Array; w: number; h: number }>(images);
+  for (const [k, img] of base) all.set(k, { img, w: CELL.w, h: CELL.h });
+  buildMotionPreviews(all);
+}
+
+type Sprites = ReadonlyMap<string, { img: Uint8Array; w: number; h: number }>;
+
+/** A small honey diamond under each floor point, so planted feet can be checked at a glance. */
+function floorMark(img: Uint8Array, W: number, cx: number, cy: number): void {
+  for (let y = -8; y < 8; y++) {
+    const half = y < 0 ? (y + 9) * 2 : (8 - y) * 2;
+    for (let x = -half; x < half; x++) img[(cy + y) * W + cx + x] = colorIndex("floor", x === -half || x === half - 1 ? 2 : 1);
+  }
+}
+
+function strip(name: string, cols: number, rows: readonly (readonly string[])[], sprites: Sprites, cw: number, ch: number, mark: boolean): void {
+  const W = cols * cw, H = rows.length * ch;
+  const img = new Uint8Array(W * H).fill(colorIndex("wall", 1));
+  rows.forEach((row, r) => {
+    row.forEach((key, c) => {
+      if (key === "") return;
+      const s = sprites.get(key);
+      if (!s) throw new Error(`missing ${key}`);
+      const ox = c * cw + Math.floor((cw - s.w) / 2), oy = r * ch + (ch - s.h);
+      if (mark && s.h === CELL.h) floorMark(img, W, ox + FLOOR.x, oy + FLOOR.y);
+      blitAt(img, W, H, s.img, s.w, s.h, ox, oy);
+    });
+  });
+  writeFileSync(join(ROOT, "preview", name), encodeIndexedPng(W * 4, H * 4, upscale(img, W, H, 4), PALETTE));
+}
+
+function buildMotionPreviews(sprites: Sprites): void {
+  const walkRows = AVATARS.map((a) => DIRS.flatMap((d) => [0, 1, 2, 3].map((n) => `walk/${a.id}/${d}/${String(n)}`)));
+  strip("walk-strip@4x.png", 16, walkRows, sprites, CELL.w, CELL.h, true);
+  const idleRows = AVATARS.map((a) => POSES.flatMap((p) => DIRS.flatMap((d) => [`${a.id}/${p}/${d}/0`, `breathe/${a.id}/${p}/${d}/1`])));
+  strip("breathe-strip@4x.png", 16, idleRows, sprites, CELL.w, CELL.h, true);
+  const icons = EMOTES.flatMap((e) => [0, 1, 2].map((n) => `emote/${e.id}/${String(n)}`));
+  const waveRows = AVATARS.map((a) => POSES.flatMap((p) => DIRS.flatMap((d) => [0, 1].map((n) => `wave/${a.id}/${p}/${d}/${String(n)}`))));
+  strip("emote-strip@4x.png", 16, [icons, ...waveRows], sprites, CELL.w, CELL.h, true);
+  buildMotionScene(sprites);
+}
+
+/** Timeline scene at 1×: two walkers, two sitters, emotes over name-tag plates. Frame strip + APNG. */
+function buildMotionScene(sprites: Sprites): void {
+  const room = new Map(buildRoomFrames().map((f) => [f.key, f]));
+  const W = 400, H = 232;
+  const cc = (c: number, r: number): { x: number; y: number } => ({ x: 200 + (c - r) * 32, y: 24 + (c + r + 1) * 16 });
+  const lifts = tagLiftByAvatar(new Map([...sprites].filter(([k]) => /^[a-z]+\/(idle|sit)\//.test(k)).map(([k, v]) => [k, v.img])));
+  const STEP_MS = WALK_FRAME_MS;
+  const sx = TILE.w / 2 / WALK_FRAMES, sy = TILE.h / 2 / WALK_FRAMES;
+  const emoteAt = (t: number, start: number): number | null => {
+    let acc = start;
+    for (const [n, ms] of EMOTE_SEQUENCE) {
+      if (t >= acc && t < acc + ms) return n;
+      acc += ms;
+    }
+    return null;
+  };
+  const breathing = (t: number, phase: number): boolean => (t + phase) % (BREATHE_MS[0] + BREATHE_MS[1]) >= BREATHE_MS[0];
+  interface Actor {
+    id: string;
+    key: (t: number) => string;
+    pos: (t: number) => { x: number; y: number };
+    pose: Pose;
+    seat?: Dir;
+    emotes: readonly (readonly [string, number])[];
+  }
+  const LOOP = 16; // walk frames before a walker wraps (4 tiles)
+  const walker = (id: string, dir: Dir, c0: number, r0: number, dx: number, dy: number, emotes: Actor["emotes"]): Actor => ({
+    id,
+    pose: "idle",
+    key: (t) => `walk/${id}/${dir}/${String(Math.floor(t / STEP_MS) % WALK_FRAMES)}`,
+    pos: (t) => {
+      const k = Math.floor(t / STEP_MS) % LOOP, p = cc(c0, r0);
+      return { x: p.x + dx * sx * k, y: p.y + dy * sy * k };
+    },
+    emotes,
+  });
+  const sitter = (id: string, dir: Dir, c: number, r: number, phase: number, waveAt: number, emotes: Actor["emotes"]): Actor => ({
+    id,
+    pose: "sit",
+    seat: dir,
+    key: (t) => {
+      const w = Math.floor((t - waveAt) / WAVE_MS);
+      const n = WAVE_SEQUENCE[w];
+      if (t >= waveAt && n !== undefined) return `wave/${id}/sit/${dir}/${String(n)}`;
+      return breathing(t, phase) ? `breathe/${id}/sit/${dir}/1` : `${id}/sit/${dir}/0`;
+    },
+    pos: () => cc(c, r),
+    emotes,
+  });
+  const actors: Actor[] = [
+    walker("juno", "se", 1, 2, 1, 1, [["exclaim", 2600]]),
+    walker("pip", "nw", 5, 0, -1, -1, [["question", 300]]),
+    sitter("kiki", "ne", 1, 4, 800, 99999, [["heart", 150], ["clap", 2800]]),
+    sitter("mo", "se", 4, 4, 0, 0, [["laugh", 1800]]),
+  ];
+  const render1 = (t: number): Uint8Array => {
+    const img = new Uint8Array(W * H).fill(colorIndex("night", 2));
+    const drawRoom = (key: string, x: number, y: number): void => {
+      const f = room.get(key);
+      if (!f) throw new Error(`missing ${key}`);
+      blitAt(img, W, H, f.img, f.w, f.h, x - f.ax, y - f.ay);
+    };
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) {
+      const p = cc(c, r);
+      drawRoom((c + r) % 3 === 0 ? "floor/1" : "floor/0", p.x, p.y);
+    }
+    const items: { y: number; x: number; layer: number; draw: () => void }[] = [];
+    for (const a of actors) {
+      const p = a.pos(t);
+      if (a.seat) {
+        const d = a.seat;
+        items.push({ ...p, layer: 2, draw: () => { drawRoom(`armchair/${d}/back`, p.x, p.y); } });
+        items.push({ ...p, layer: 4, draw: () => { drawRoom(`armchair/${d}/front`, p.x, p.y); } });
+      }
+      const s = sprites.get(a.key(t));
+      if (!s) throw new Error(`missing ${a.key(t)}`);
+      items.push({ ...p, layer: 3, draw: () => { blitAt(img, W, H, s.img, s.w, s.h, p.x - FLOOR.x, p.y - FLOOR.y); } });
+    }
+    items.sort((a, b) => a.y - b.y || a.x - b.x || a.layer - b.layer);
+    for (const it of items) it.draw();
+    // Overlay layer: name-tag plates (stand-ins for the DOM/Pixi tags) and emotes just above them.
+    for (const a of actors) {
+      const p = a.pos(t);
+      const lift = lifts[a.id]?.[a.pose] ?? 48;
+      const tagW = 24, tagH = 9, tx = p.x - tagW / 2, ty = p.y - lift - tagH;
+      for (let y = 0; y < tagH; y++) for (let x = 0; x < tagW; x++) {
+        const edge = x === 0 || y === 0 || x === tagW - 1 || y === tagH - 1;
+        const text = y >= 3 && y <= 5 && x >= 4 && x < tagW - 4 && (x * 7 + y * 3) % 5 !== 0;
+        img[(ty + y) * W + tx + x] = edge || text ? OUTLINE : colorIndex("cream", 0);
+      }
+      for (const [id, start] of a.emotes) {
+        const n = emoteAt(t, start);
+        if (n === null) continue;
+        const e = sprites.get(`emote/${id}/${String(n)}`);
+        if (e) blitAt(img, W, H, e.img, e.w, e.h, p.x - e.w / 2, ty - 1 - e.h);
+      }
+    }
+    return img;
+  };
+  const N = 32;
+  const shots = Array.from({ length: N }, (_, k) => render1(k * STEP_MS));
+  writeFileSync(join(ROOT, "preview", "motion-scene@1x.apng"), encodeIndexedApng(W, H, shots, shots.map(() => STEP_MS), PALETTE));
+  // Frame strip: the first 8 steps (0–1050 ms), 4 across, with a 4 px gutter.
+  const G = 4, SW = 4 * W + 3 * G, SH = 2 * H + G;
+  const out = new Uint8Array(SW * SH).fill(OUTLINE);
+  shots.slice(0, 8).forEach((s, k) => {
+    const ox = (k % 4) * (W + G), oy = Math.floor(k / 4) * (H + G);
+    for (let y = 0; y < H; y++) out.set(s.subarray(y * W, (y + 1) * W), (oy + y) * SW + ox);
+  });
+  writeFileSync(join(ROOT, "preview", "motion-scene@1x.png"), encodeIndexedPng(SW, SH, out, PALETTE));
+}
+
 function slicesFiles(): string[] {
   return readdirSync(join(ROOT, "ui", "slices")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/slices/${n}`);
 }
 
 function report(): void {
   let total = 0;
-  for (const f of ["avatars/avatars.png", "avatars/avatars.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", ...slicesFiles()]) {
+  for (const f of ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", ...slicesFiles()]) {
     const buf = readFileSync(join(ROOT, f));
     const size = f.endsWith(".png") ? buf.length : gzipSync(buf, { level: 9 }).length;
     total += size;
@@ -584,5 +883,6 @@ const avatarImages = buildAvatars();
 buildScene(avatarImages);
 buildRoom(avatarImages);
 buildUi(avatarImages);
+buildMotion(avatarImages);
 console.log(`palette: ${String(PALETTE.length - 1)} colours`);
 report();

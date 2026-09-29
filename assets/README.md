@@ -6,13 +6,16 @@ Original art, CC BY-SA 4.0 (`LICENSE`). Style rules: `STYLE.md`.
 assets/
   avatars/avatars.png   # shipped: 512×256 indexed PNG-8 sprite sheet (set a)
   avatars/avatars.json  # shipped: PixiJS v8 spritesheet atlas
+  avatars/motion.png    # set d (M5, lazy-load): 1024×512 indexed PNG-8, walk / breathe / wave / emote icons
+  avatars/motion.json   # set d: PixiJS v8 atlas + meta.omega.anims (frames, per-frame ms, loop)
   room/room.png         # shipped: 512×512 indexed PNG-8 (set b: floor, rug, walls, seats, TV, props)
   room/room.json        # shipped: PixiJS v8 spritesheet atlas + meta.omega room contract
   ui/ui.png             # shipped: 256×128 indexed PNG-8 (set c: 9-slices, cursor, icons, dots, portraits, wordmark)
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
   ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
-  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots
+  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots,
+                        #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated)
   src/                  # generator (Bun, no deps) + mood boards
 ```
 
@@ -110,19 +113,49 @@ exactly how to use them; copy the rules you need into `apps/web`. The slice file
   plum `#2b1d2f`; text on dark chrome is cream `#fff7ea`. Every text/fill pair in the tokens is ≥ 5:1 (WCAG AA).
 - System font stays (no webfont bytes). Only the wordmark is lettered.
 
+## Motion atlas (`avatars/motion.json`, set d)
+
+Same format as the avatar atlas (PixiJS v8, 32×64 cells, no trim, no rotation, anchor = floor point `(16, 61)`).
+It's a second sheet so the room's first paint doesn't pay for it: load it after the room is up (walking is M5).
+Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collide with avatar ids or room keys in Pixi's cache.
+
+| Key | Frames | Notes |
+|---|---|---|
+| `walk/<id>/<dir>/<0-3>` | 4 per dir | Contact → passing → contact → passing. The body rises 1 px on passing frames, the supporting sole is always on y 60, and the near/far arm swings against the legs. |
+| `breathe/<id>/<pose>/<dir>/1` | 1 per pose × dir | Breathing out: the head settles 1 px onto the collar. Breathing in is the set (a) frame `<id>/<pose>/<dir>/0`. |
+| `wave/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | Arm up beside the head, open hand rocking. Standing and seated, all four dirs (seated viewers wave from behind too). |
+| `emote/<heart\|laugh\|question\|exclaim\|clap>/<0-2>` | 3 each, 16×16 | `0` pop-in, `1` settled, `2` pulse. Anchor = bottom centre `(8, 16)`. |
+
+- **`meta.omega.anims`** is the source of truth: `<name> → { frames: key[], ms: number[], loop }`. Names are
+  `walk/<id>/<dir>`, `breathe/<id>/<pose>/<dir>`, `wave/<id>/<pose>/<dir>` and `emote/<id>`. Build `AnimatedSprite` from
+  `frames.map((k, i) => ({ texture: Texture.from(k), time: ms[i] }))`. Keys resolve from either sheet once both are loaded.
+  The Pixi-native `animations` map has everything except `breathe/*`, because those start on a set (a) frame.
+- **Walk:** `meta.omega.walk = { frameMs: 150, tilesPerCycle: 1, stepPx: {x: 8, y: 4} }`. One 600 ms cycle (two steps) crosses one tile.
+  Advance the sprite `(±8, ±4)` per frame along the 2:1 axis of travel, or tween and round to whole pixels on that axis.
+  Screen direction → facing: `+col` = `se`, `+row` = `sw`, `−row` = `ne`, `−col` = `nw`. When the walk stops, show `idle/<dir>/0`.
+- **Breathe:** `[1400, 1000]` ms. Start each avatar at a random phase so a full room doesn't breathe in unison.
+  The blink ticker (set a) wins over the exhale frame for its 120 ms.
+- **Wave** is one-shot (`6 × 160 ms`), then return to the pose's base frame. Seated waves still draw between the chair's `back` and `front` layers.
+- **Emotes** are one-shot (`80, 160, 200, 200, 200, 400, 80` ms ≈ 1.3 s). They draw on the tag layer, bottom-centred 1 px above the
+  name tag (`(floor x, tagTop − 1)`). Without a tag, use `floor y − tagLiftByAvatar[id][pose]`. The icons are outlined, so they hold on
+  floor, rug, velvet and the dark walls.
+- Contract: proposed in `docs/adr/0010-motion-atlas.md`, pending Lead Engineer review.
+
 ## Budget
 
 | File | Bytes |
 |---|---|
 | `avatars/avatars.png` | 4 426 |
 | `avatars/avatars.json` | 24 075 raw / 1 492 gz |
+| `avatars/motion.png` (set d, lazy) | 14 189 |
+| `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
 | `room/room.png` | 8 947 |
 | `room/room.json` | 13 829 raw / 1 192 gz |
 | `ui/ui.png` | 3 145 |
 | `ui/ui.json` | 14 216 raw / 1 208 gz |
 | `ui/slices/*.png` (21 files, palettes trimmed to the colours used) | 3 506 |
 | `ui/reference.css` (if ported as-is) | 6 998 raw / 2 015 gz |
-| **total shipped art** | **≈ 25.9 KB of 300 KB** (25 931 B) |
+| **total shipped art** | **≈ 43.9 KB of 300 KB** (43 908 B; 25 931 B without the lazy set d) |
 
 "gz" is zlib **level 9** with no file name (what `build.ts` prints; `gzip -9nc <file> | wc -c` agrees within 4 B).
 Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B more per file, e.g. 1 227 for `ui.json`, 2 034 for `reference.css`.
