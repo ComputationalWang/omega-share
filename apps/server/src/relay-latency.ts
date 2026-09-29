@@ -1,9 +1,11 @@
 /**
  * Relay latency probe (docs/perf-budgets.md: ≤ 50 ms for a control action, localhost).
  *
- * Joins `clients` sockets to a room. For each sample, one actor sends a `sit`, and the
- * sample is the time until the last socket (actor included) receives the `seat-changed`.
- * Falls back to `chat` if every seat is taken. Leaves the room as it found it.
+ * Joins `clients` sockets to a room. For each sample, one actor sends a `sit` (then, on the
+ * next sample, stands up again), and the sample is the time until the last socket (actor
+ * included) receives the `seat-changed`. Actors rotate through the sockets so no one socket
+ * exceeds the server's per-socket rate limit (a burst of 20). Falls back to `chat` if every
+ * seat is taken. Leaves the room as it found it.
  *
  * CLI: `bun run --filter @omega/server bench:relay -- --url ws://127.0.0.1:8787/rooms/lobby/ws`
  * prints the result as JSON and exits 1 when p95 exceeds `--budget` (default 50).
@@ -88,28 +90,33 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
   const clients = opts.clients ?? 25;
   const samples = opts.samples ?? 50;
   const timeoutMs = opts.timeoutMs ?? 2000;
+  if (!Number.isInteger(clients) || clients < 1) throw new Error("relay-latency: clients must be an integer ≥ 1");
+  if (!Number.isInteger(samples) || samples < 1) throw new Error("relay-latency: samples must be an integer ≥ 1");
   const probes: Probe[] = [];
   try {
     // Join one at a time so the actor's snapshot is taken after everyone else is in.
     for (let i = 0; i < clients; i++) {
       probes.push(await withTimeout(connect(opts.url, i, opts.origin), timeoutMs, "join"));
     }
-    const actor = probes[probes.length - 1];
-    if (actor === undefined) throw new Error("relay-latency: clients must be ≥ 1");
-    const seat = actor.firstFreeSeat;
+    const last = probes[probes.length - 1];
+    if (last === undefined) throw new Error("relay-latency: no clients joined");
+    const seat = last.firstFreeSeat;
     const action = seat === null ? "chat" : "sit";
+    let actor = last;
 
     const times: number[] = [];
     for (let s = 0; s < samples; s++) {
       const target = s % 2 === 0 ? seat : null;
+      actor = probes[(action === "sit" ? Math.floor(s / 2) : s) % probes.length] ?? last;
       let pending = probes.length;
+      const self = actor.self;
       const done = new Promise<void>((resolve) => {
         for (const p of probes) {
           p.onMessage = (msg) => {
             const hit =
               action === "sit"
-                ? msg.type === "seat-changed" && msg.memberId === actor.self && msg.seat === target
-                : msg.type === "chat" && msg.memberId === actor.self;
+                ? msg.type === "seat-changed" && msg.memberId === self && msg.seat === target
+                : msg.type === "chat" && msg.memberId === self;
             if (!hit) return;
             p.onMessage = null;
             if (--pending === 0) resolve();

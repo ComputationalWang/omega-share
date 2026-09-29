@@ -114,6 +114,12 @@ describe("abuse limits", () => {
 
   test("the latency probe refuses a run with no samples", async () => {
     t = start();
-    expect(measureRelayLatency({ url: t.ws(), clients: 2, samples: 0 })).rejects.toThrow();
+    let error: unknown = null;
+    try {
+      await measureRelayLatency({ url: t.ws(), clients: 2, samples: 0 });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(Error);
   });
 });
