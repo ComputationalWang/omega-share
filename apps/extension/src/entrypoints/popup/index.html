@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>omega share</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Share a video</h1>
+      <p id="scanning" data-testid="embeds-loading">Looking for videos…</p>
+      <ul id="embeds" data-testid="embed-list"></ul>
+      <p id="empty" data-testid="embeds-empty" hidden>No supported video found on this page.</p>
+      <form id="share-form" hidden>
+        <label>Room <select id="room" data-testid="room-select"></select></label>
+        <button type="submit" id="share" data-testid="share-button">Share</button>
+      </form>
+      <p id="status" data-testid="share-status" role="status" hidden></p>
+      <button type="button" id="options" class="link" data-testid="open-options">Server settings</button>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
