@@ -4,7 +4,10 @@
   "type": "module",
   "license": "AGPL-3.0-only",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "wxt prepare && tsc -p tsconfig.json",
+    "build": "wxt build && wxt build --mode e2e",
+    "build:e2e": "wxt build --mode e2e",
+    "dev": "wxt"
   },
   "devDependencies": {
     "happy-dom": "^20.14.5",
@@ -13,5 +16,6 @@
   "dependencies": {
     "@omega/shared": "workspace:*",
     "valibot": "^1.5.0"
-  }
+  },
+  "version": "0.1.0"
 }
