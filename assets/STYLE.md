@@ -75,11 +75,25 @@ All three render the same scene with the same sprites. Only the palette and the 
   Chairs have a separate front layer (backrest + near armrest) that draws over the sitter.
 - **Palette additions for set (b):** `velvet` (chairs) and `night` (window sky, TV glass). That's 67 colours total, still one palette.
 
+## UI chrome (set c)
+- **Same rules as the art:** palette-only, 1-bit alpha, 1 px plum outline, top-left light. Raised things (panel frame,
+  buttons) are lit on the top/left and shaded on the bottom/right. Sunken things (text fields) invert it: a shadow top-left, a lit lip bottom-right.
+- **Corners** are chamfered, and the diagonal steps are 2 px per row, the same stair as the 2:1 floor edges. Nothing is anti-aliased.
+- **Materials come from the room:** the panel frame is the TV's warm wood with brass pins, fields and the picker are the dusk-window
+  `night` blue, chat bubbles are cream card, and the primary action is mustard (the one warm accent, like the lamps). Secondary is navy.
+- **Chunky keys:** buttons stand on a 2 px lip; pressed loses the lip and the label drops 2 px. Hover brightens by one ramp step.
+  The focus indicator is the mustard outer ring (fields) or a cream outline (buttons), never colour alone. Errors are rust **plus** the warn icon.
+- **Scale:** page chrome is 2× (1 art px = 2 CSS px). Tags, bubbles and the seat cursor live in the room and are 1×, like the avatars.
+- **Type:** the system font, bold for actions. The only lettering is the "omega-share" wordmark: 2 px strokes, mustard + cream faces
+  on a rust/cream-shade extrusion, and a teal hyphen.
+- **Icons** are 16×16 role-grid sprites, auto-shaded and auto-outlined exactly like the avatars, so they sit on either dark chrome or the honey floor.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
 | (a) avatars | `avatars/avatars.png` + `avatars.json` (gz) | 4 428 + 1 492 ≈ **5.9 KB** |
 | (b) room | `room/room.png` + `room.json` (gz) | 8 721 + 1 147 ≈ **9.9 KB** |
-| total art budget | | ≤ 300 KB |
+| (c) UI chrome | `ui/ui.png` + `ui.json` (gz) + `ui/slices/*.png` + `reference.css` (gz) | 3 240 + 1 161 + 3 506 + 2 029 ≈ **9.9 KB** |
+| total art budget | | ≤ 300 KB (≈ 25.7 KB used) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.

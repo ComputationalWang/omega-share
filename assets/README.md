@@ -8,11 +8,16 @@ assets/
   avatars/avatars.json  # shipped: PixiJS v8 spritesheet atlas
   room/room.png         # shipped: 512×512 indexed PNG-8 (set b: floor, rug, walls, seats, TV, props)
   room/room.json        # shipped: PixiJS v8 spritesheet atlas + meta.omega room contract
-  preview/              # not shipped: sheets, avatar scene, and room@1x/@2x (the web's real layout)
+  ui/ui.png             # shipped: 256×128 indexed PNG-8 (set c: 9-slices, cursor, icons, dots, portraits, wordmark)
+  ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
+  ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
+  ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
+  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots
   src/                  # generator (Bun, no deps) + mood boards
 ```
 
 Rebuild everything (deterministic): `bun assets/src/build.ts`. It prints the byte budget.
+Re-shoot the UI previews after a build: `bun assets/src/shoot-ui.ts` (uses the repo's Playwright + Chromium).
 - Avatars are role-letter templates in `src/avatars.ts`. Room pieces in `src/room.ts` are ray-cast from
   3D boxes by `src/iso.ts`, so every edge sits on the exact 2:1 grid. Palette ramps are in `src/palette.ts`.
 - The build fails if an avatar touches its cell border, or if a frame id repeats across sets (Pixi caches textures by key).
@@ -72,6 +77,37 @@ in `apps/web/src/layout.ts`. Place the sprite there, with no per-item offsets.
   with the `layout.ts` seats.
 - Contract review: [OME-31](/OME/issues/OME-31).
 
+## UI atlas (`ui/`, set c)
+
+The web's chrome is DOM (accessible buttons, inputs, live regions), so set (c) ships two views of the same pixels:
+`ui/ui.png` + `ui/ui.json` (same PixiJS v8 format as above, for anything drawn in Pixi) and `ui/slices/<key>.png`
+(one file per 9-slice, because CSS `border-image` can't crop a sheet). `ui/reference.css` is generated from the atlas and shows
+exactly how to use them; copy the rules you need into `apps/web`. The slice file name is the key with `/` → `-`.
+
+| Key | Size | Slice | Use |
+|---|---|---|---|
+| `panel/0` | 24×24 | 8 | Wood-framed dusk panel with brass pins: landing form, notices, room-full card. |
+| `button/primary/<idle\|hover\|press\|disabled>` | 16×20 | 5 | Mustard key with a 2 px lip. `press` loses the lip, so move the label down 2 art px (the CSS does). |
+| `button/secondary/<idle\|hover\|press>` | 16×20 | 5 | Navy variant (Stand up, Leave). Disabled uses the primary `disabled`. |
+| `input/<idle\|focus\|invalid>` | 18×18 | 6 | Inset well. The outer ring *is* the focus indicator (mustard) or error (rust). |
+| `bubble/0` + `bubble/tail` | 16×16, 14×5 | 6 | Cream chat card. Centre the tail under it; its top 2 rows overlap the card's bottom 2 (anchor `(7,2)`). |
+| `tag/0`, `tag/self` | 12×12 | 4 | Name tag; `self` has a mustard rim. |
+| `picker/<idle\|hover\|selected>` | 20×20 | 7 | Avatar picker tile (a little dusk window). Put a portrait inside, bottom-aligned. |
+| `cursor/<free\|mine\|taken>` | 64×33 | — | Seat hover brackets on the 2:1 tile, room scale. Anchor `(32,16)` = tile centre. |
+| `icon/<send\|chat\|seat\|leave\|people\|share\|close\|warn\|tv>` | 16×16 | — | Outlined like the avatars. Anchor = centre. |
+| `dot/<online\|connecting\|offline>` | 8×8 | — | Connection lamps (teal / mustard / rust). |
+| `portrait/<juno\|pip\|mo\|kiki>` | 32×32 | — | Head-and-shoulders crops of `idle/se/0`; one shared eye line. |
+| `logo/0` | 80×17 | — | "omega-share" wordmark with extrusion. |
+
+- **Scale:** page chrome draws 1 art px = **2 CSS px** (`--ui-px: 2px`). Inside the room stage (`.ui-room`) it's **1×**, like the room art.
+  Keep `image-rendering: pixelated` and integer scales only.
+- **9-slices:** Pixi reads `borders` from the frame (`new NineSliceSprite({ texture })`). CSS:
+  `border-image: url(slices/panel-0.png) 8 fill / calc(8 * var(--ui-px))`. Every edge and centre is flat colour, so `stretch` is seamless.
+- **Name tags** sit bottom-centre at `(floor x, floor y − meta.omega.tagLift[pose])` (`idle 48`, `sit 46`), 2 px over the tallest avatar.
+- **Tokens** (`meta.omega.tokens`, mirrored as `--ui-*` in the CSS) are palette colours for text and flat fills. Text on cream/mustard is
+  plum `#2b1d2f`; text on dark chrome is cream `#fff7ea`. Every text/fill pair in the tokens is ≥ 5:1 (WCAG AA).
+- System font stays (no webfont bytes). Only the wordmark is lettered.
+
 ## Budget
 
 | File | Bytes |
@@ -80,4 +116,8 @@ in `apps/web/src/layout.ts`. Place the sprite there, with no per-item offsets.
 | `avatars/avatars.json` | 24 075 raw / 1 492 gz |
 | `room/room.png` | 8 721 |
 | `room/room.json` | 12 488 raw / 1 147 gz |
-| **total shipped art** | **≈ 15.8 KB of 300 KB** |
+| `ui/ui.png` | 3 240 |
+| `ui/ui.json` | 13 978 raw / 1 161 gz |
+| `ui/slices/*.png` (21 files, palettes trimmed to the colours used) | 3 506 |
+| `ui/reference.css` (if ported as-is) | 7 000 raw / 2 029 gz |
+| **total shipped art** | **≈ 25.7 KB of 300 KB** |
