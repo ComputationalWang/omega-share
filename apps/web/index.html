@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; worker-src 'self' blob:; frame-src https://www.youtube.com; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>omega-share</title>
+    <link rel="stylesheet" href="/src/style.css" />
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <main id="app">
+      <form id="landing" class="landing" novalidate>
+        <h1>omega-share</h1>
+        <p class="lede">Watch together. Pick a name and an avatar, then take a seat.</p>
+        <label for="nickname">Nickname</label>
+        <input id="nickname" name="nickname" type="text" maxlength="20" autocomplete="nickname" required data-testid="nickname-input" aria-describedby="nickname-error" />
+        <p id="nickname-error" class="error" data-testid="nickname-error" aria-live="polite"></p>
+        <fieldset>
+          <legend>Avatar</legend>
+          <div class="avatars" role="radiogroup" aria-label="Avatar">
+            <button type="button" class="avatar a0" role="radio" aria-checked="true" aria-label="Avatar 1" data-avatar="0" data-testid="avatar-option"></button>
+            <button type="button" class="avatar a1" role="radio" aria-checked="false" aria-label="Avatar 2" data-avatar="1" data-testid="avatar-option"></button>
+            <button type="button" class="avatar a2" role="radio" aria-checked="false" aria-label="Avatar 3" data-avatar="2" data-testid="avatar-option"></button>
+            <button type="button" class="avatar a3" role="radio" aria-checked="false" aria-label="Avatar 4" data-avatar="3" data-testid="avatar-option"></button>
+          </div>
+        </fieldset>
+        <button type="submit" class="enter" data-testid="join-button">Enter room</button>
+      </form>
+      <section id="room-root" class="room" hidden></section>
+    </main>
+  </body>
+</html>
