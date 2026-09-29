@@ -59,6 +59,11 @@ RoomState = { id: RoomId, seats: (MemberId | null)[8], members: Member[≤25], e
 
 On success, the server broadcasts `embed-changed` with `by: null`.
 
+## HTTP: `GET /rooms`
+
+Used by the extension's room dropdown. Response `RoomListResponse`:
+`{ rooms: { id: RoomId, memberCount: 0..25, seatedCount: 0..8 }[] }` (lenient; unknown keys stripped).
+
 ## WebSocket messages (discriminated on `type`)
 
 ### Client → server (`ClientMessage`)
