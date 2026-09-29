@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { joinRoom, leaveAll } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
@@ -28,7 +29,7 @@ async function measureTti(page: Page, url: string): Promise<number> {
   });
 }
 
-/** Frame deltas from requestAnimationFrame over `ms`. */
+/** Frame deltas from requestAnimationFrame over `ms` (unthrottled in the perf project, see playwright.config.ts). */
 async function frameTimes(page: Page, ms: number): Promise<number[]> {
   return page.evaluate(
     (duration) =>
@@ -65,7 +66,7 @@ test("site: p95 frame time with 8 avatars", async ({ browser }) => {
     return;
   }
   test.setTimeout(120_000);
-  const clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/perf-fps`, count: 8, nicknamePrefix: "fps" });
+  const clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${DEFAULT_ROOM_ID}`, count: 8, nicknamePrefix: "fps" });
   try {
     const [observer] = clients;
     if (!observer) throw new Error("no clients");
