@@ -1,4 +1,4 @@
-# ADR 0005 — Room capacity: 8 seats, 25 members
+# ADR 0006 — Room capacity: 8 seats, 25 members
 
 **Status:** accepted (2026-09-29) · [OME-5](/OME/issues/OME-5) · contract constants in `packages/shared` (ADR 0003)
 

@@ -323,7 +323,7 @@ describe("WebSocket /rooms/:id/ws", () => {
   });
 });
 
-describe("room capacity (ADR 0005)", () => {
+describe("room capacity (ADR 0006)", () => {
   test(`the ${String(MAX_ROOM_MEMBERS + 1)}th member gets room-full and is closed; a freed slot can be reused`, async () => {
     const members = await Promise.all(Array.from({ length: MAX_ROOM_MEMBERS }, (_, i) => join(`m${String(i)}`)));
     const first = members[0];

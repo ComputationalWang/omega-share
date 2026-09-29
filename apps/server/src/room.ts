@@ -15,7 +15,7 @@ import {
 export type SitResult = "ok" | "seat_taken";
 
 /**
- * One in-memory room: up to MAX_ROOM_MEMBERS members, SEAT_COUNT seats (ADR 0005).
+ * One in-memory room: up to MAX_ROOM_MEMBERS members, SEAT_COUNT seats (ADR 0006).
  * Members stand until they sit; anyone beyond the seated ones spectates.
  */
 export class Room {

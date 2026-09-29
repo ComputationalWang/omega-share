@@ -1,12 +1,14 @@
 # @omega/server
 
-Bun + Hono on `Bun.serve` with built-in WebSockets and Bun pub/sub (one topic per room). State is in memory: one room, `lobby` (`DEFAULT_ROOM_ID`). Wire contract: `packages/shared` (ADR 0003). Capacity: ADR 0005.
+Bun + Hono on `Bun.serve` with built-in WebSockets and Bun pub/sub (one topic per room). State is in memory: one room, `lobby` (`DEFAULT_ROOM_ID`). Wire contract: `packages/shared` (ADR 0003). Capacity: ADR 0006. Share auth: ADR 0007.
 
 ## Run
 
 ```sh
-bun run --filter @omega/server start
+bun run --filter @omega/server start   # or `dev` to restart on file changes
 ```
+
+`GET /` answers 200 as a readiness probe (Playwright's `webServer` waits on it).
 
 | Env | Default | |
 |---|---|---|
@@ -33,6 +35,12 @@ CORS allows only the site origin and extension origins. Requests with no `Origin
 | WS messages per socket | burst 20, 10/s; excess → `error rate_limited`, dropped |
 | Shares per client address | burst 5, then 1 per 3 s → 429 `rate_limited` |
 | Share body | 4096 UTF-8 bytes, counted while streaming |
+
+Limits are keyed by the socket peer address. IPv6 is keyed by its /64, and at most 1024 share keys are kept (least recently used evicted). `X-Forwarded-For` is ignored on purpose, so it can't be spoofed. **Expose the server directly.** Behind a reverse proxy every user shares the proxy's address and hits the per-address caps together. A trusted-proxy option is needed before any proxied deploy.
+
+A rate-limited socket gets one `error rate_limited` per streak. Further dropped frames get no reply until it slows down.
+
+`POST /rooms/:id/share` needs no membership or token in M1a; see ADR 0007.
 
 ## Relay latency hook (perf budget ≤ 50 ms)
 

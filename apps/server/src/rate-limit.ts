@@ -19,14 +19,12 @@ export class TokenBucket {
     this.tokens -= 1;
     return true;
   }
-
-  /** True when the bucket has refilled completely, so forgetting it changes nothing. */
-  isFull(): boolean {
-    return this.tokens + ((performance.now() - this.last) / 1000) * this.perSecond >= this.burst;
-  }
 }
 
-/** One bucket per key (e.g. client address). Full buckets are pruned so the map stays small. */
+/**
+ * One bucket per key (e.g. client address), at most `maxKeys` of them. The least recently
+ * used key is evicted first (Map keeps insertion order), so the map can't grow without bound.
+ */
 export class KeyedLimiter {
   private readonly buckets = new Map<string, TokenBucket>();
 
@@ -36,17 +34,42 @@ export class KeyedLimiter {
     private readonly maxKeys = 1024,
   ) {}
 
+  get size(): number {
+    return this.buckets.size;
+  }
+
   take(key: string): boolean {
     let bucket = this.buckets.get(key);
     if (bucket === undefined) {
       if (this.buckets.size >= this.maxKeys) {
-        for (const [k, b] of this.buckets) if (b.isFull()) this.buckets.delete(k);
+        const oldest = this.buckets.keys().next();
+        if (oldest.done !== true) this.buckets.delete(oldest.value);
       }
       bucket = new TokenBucket(this.burst, this.perSecond);
-      this.buckets.set(key, bucket);
+    } else {
+      this.buckets.delete(key);
     }
+    this.buckets.set(key, bucket);
     return bucket.take();
   }
+}
+
+/**
+ * Rate-limit key for a peer address. IPv4 (including IPv4-mapped IPv6) is kept as is; IPv6
+ * is keyed by its /64, because one host usually controls a whole /64.
+ */
+export function addressKey(ip: string): string {
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
+  if (mapped?.[1] !== undefined) return mapped[1];
+  if (!ip.includes(":")) return ip;
+  const [head = "", tail = ""] = ip.split("::", 2);
+  const h = head === "" ? [] : head.split(":");
+  const t = ip.includes("::") && tail !== "" ? tail.split(":") : [];
+  const groups = [...h, ...Array.from({ length: Math.max(0, 8 - h.length - t.length) }, () => "0"), ...t];
+  return groups
+    .slice(0, 4)
+    .map((g) => parseInt(g, 16).toString(16))
+    .join(":") + "::/64";
 }
 
 /** Reads a request body as UTF-8, or returns null once it exceeds `maxBytes` (without buffering the rest). */

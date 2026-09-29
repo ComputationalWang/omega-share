@@ -16,7 +16,7 @@ import {
   type ShareErrorCode,
   type ShareResponse,
 } from "@omega/shared";
-import { KeyedLimiter, TokenBucket, readBodyCapped } from "./rate-limit";
+import { KeyedLimiter, TokenBucket, addressKey, readBodyCapped } from "./rate-limit";
 import { Room } from "./room";
 
 export interface ServerOptions {
@@ -35,6 +35,8 @@ interface ConnData {
   ip: string;
   memberId: MemberId | null;
   bucket: TokenBucket;
+  /** Already told this socket it is rate limited; stay quiet until it slows down. */
+  limited: boolean;
   joinTimer: Timer | null;
 }
 type Conn = ServerWebSocket<ConnData>;
@@ -66,7 +68,8 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     const origin = req.headers.get("origin");
     return origin === null || isAllowedOrigin(origin);
   };
-  const ipOf = (req: Request): string => server.requestIP(req)?.address ?? "unknown";
+  /** The socket peer: expose the server directly, since behind a proxy every user shares one key (README). */
+  const ipOf = (req: Request): string => addressKey(server.requestIP(req)?.address ?? "unknown");
 
   const app = new Hono();
   app.use(
@@ -78,6 +81,9 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       maxAge: 600,
     }),
   );
+
+  /** Readiness probe (Playwright webServer, supervisors). */
+  app.get("/", (c) => c.text("omega-share server"));
 
   app.get("/rooms", (c) => {
     const body: RoomListResponse = { rooms: [...rooms.values()].map((r) => r.summary()) };
@@ -196,7 +202,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       const ip = ipOf(req);
       const open = connectionsPerIp.get(ip) ?? 0;
       if (open >= maxConnectionsPerIp) return new Response("too many connections", { status: 429 });
-      const data: ConnData = { room, ip, memberId: null, bucket: new TokenBucket(WS_BURST, WS_PER_SECOND), joinTimer: null };
+      const data: ConnData = { room, ip, memberId: null, bucket: new TokenBucket(WS_BURST, WS_PER_SECOND), limited: false, joinTimer: null };
       if (!srv.upgrade(req, { data })) return new Response("expected a WebSocket upgrade", { status: 426 });
       connectionsPerIp.set(ip, open + 1);
       return undefined;
@@ -208,9 +214,11 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       },
       message(ws, raw) {
         if (!ws.data.bucket.take()) {
-          sendError(ws, "rate_limited", "too many messages, slow down");
+          if (!ws.data.limited) sendError(ws, "rate_limited", "too many messages, slow down");
+          ws.data.limited = true;
           return;
         }
+        ws.data.limited = false;
         const msg = typeof raw === "string" ? parseClientMessage(raw) : null;
         if (msg === null) {
           sendError(ws, "bad_message", "invalid message");

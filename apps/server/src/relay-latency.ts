@@ -60,9 +60,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<
   });
 }
 
-function connect(url: string, index: number, origin: string | undefined): Promise<Probe> {
+/** Every socket is recorded in `sockets` as soon as it exists, so the caller can always close it. */
+function connect(url: string, index: number, origin: string | undefined, sockets: WebSocket[]): Promise<Probe> {
   return new Promise((resolve, reject) => {
     const socket = origin === undefined ? new WebSocket(url) : new WebSocket(url, { headers: { Origin: origin } });
+    sockets.push(socket);
     const probe: Probe = { socket, self: "", firstFreeSeat: null, onMessage: null };
     socket.addEventListener("open", () => {
       socket.send(JSON.stringify({ type: "join", nickname: `probe-${String(index)}`, avatar: index % 4 }));
@@ -81,7 +83,10 @@ function connect(url: string, index: number, origin: string | undefined): Promis
       probe.onMessage?.(msg);
     });
     socket.addEventListener("error", () => {
-      reject(new Error("relay-latency: socket error"));
+      reject(new Error("relay-latency: connection refused or failed (origin, per-address cap, or server down?)"));
+    });
+    socket.addEventListener("close", (e: CloseEvent) => {
+      reject(new Error(`relay-latency: server closed the socket before it joined (code ${String(e.code)})`));
     });
   });
 }
@@ -93,10 +98,11 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
   if (!Number.isInteger(clients) || clients < 1) throw new Error("relay-latency: clients must be an integer ≥ 1");
   if (!Number.isInteger(samples) || samples < 1) throw new Error("relay-latency: samples must be an integer ≥ 1");
   const probes: Probe[] = [];
+  const sockets: WebSocket[] = [];
   try {
     // Join one at a time so the actor's snapshot is taken after everyone else is in.
     for (let i = 0; i < clients; i++) {
-      probes.push(await withTimeout(connect(opts.url, i, opts.origin), timeoutMs, "join"));
+      probes.push(await withTimeout(connect(opts.url, i, opts.origin, sockets), timeoutMs, "join"));
     }
     const last = probes[probes.length - 1];
     if (last === undefined) throw new Error("relay-latency: no clients joined");
@@ -143,14 +149,17 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
     };
   } finally {
     await Promise.all(
-      probes.map(
-        (p) =>
+      sockets.map(
+        (socket) =>
           new Promise<void>((resolve) => {
-            if (p.socket.readyState === WebSocket.CLOSED) { resolve(); return; }
-            p.socket.addEventListener("close", () => {
+            if (socket.readyState === WebSocket.CLOSED) {
+              resolve();
+              return;
+            }
+            socket.addEventListener("close", () => {
               resolve();
             });
-            p.socket.close();
+            socket.close();
           }),
       ),
     );
