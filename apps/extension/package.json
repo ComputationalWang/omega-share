@@ -5,5 +5,13 @@
   "license": "AGPL-3.0-only",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.14.5",
+    "wxt": "^0.21.4"
+  },
+  "dependencies": {
+    "@omega/shared": "workspace:*",
+    "valibot": "^1.5.0"
   }
 }
