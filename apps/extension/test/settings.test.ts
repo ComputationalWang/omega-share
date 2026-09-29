@@ -8,6 +8,8 @@ describe("parseServerBaseUrl", () => {
     ["https://abc123.ngrok-free.app", "https://abc123.ngrok-free.app"],
     ["HTTPS://Omega.Example.COM:443/", "https://omega.example.com"],
     ["http://127.0.0.1:3000", "http://127.0.0.1:3000"],
+    ["http://[::1]:8787", "http://[::1]:8787"],
+    ["https://example.com", "https://example.com"],
   ];
   for (const [input, origin] of ok) {
     test(`accepts ${JSON.stringify(input)}`, () => {
@@ -28,6 +30,11 @@ describe("parseServerBaseUrl", () => {
     "https://example.com/?x=1",
     "https://example.com/#x",
     `https://${"a".repeat(2100)}.com`,
+    // Cleartext is only for the local machine.
+    "http://example.com",
+    "http://abc123.ngrok-free.app",
+    "http://192.168.1.10:8787",
+    "http://localhost.example.com",
   ];
   for (const input of rejected) {
     test(`rejects ${JSON.stringify(input.slice(0, 40))}`, () => {

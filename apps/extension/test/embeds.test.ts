@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Embed } from "@omega/shared";
-import { listEmbeds } from "../src/embeds";
+import { listEmbeds, scanTab } from "../src/embeds";
 
 const A = "aqz-KE-bpKQ";
 const B = "dQw4w9WgXcQ";
@@ -43,5 +43,31 @@ describe("listEmbeds (scan result → canonical list)", () => {
   test("caps the number of candidates it looks at", () => {
     const junk = Array.from({ length: 5000 }, (_, i) => `https://example.com/${String(i)}`);
     expect(listEmbeds([...junk, `https://youtu.be/${A}`])).toEqual([]);
+  });
+});
+
+describe("scanTab", () => {
+  const WATCH = "https://www.youtube.com/watch?v=aqz-KE-bpKQ";
+  const EMBED_URL = "https://www.youtube.com/embed/aqz-KE-bpKQ";
+
+  test("lists the embeds from the top frame's result", async () => {
+    const r = await scanTab(() => Promise.resolve([{ result: [WATCH] }]));
+    expect(r).toEqual({ kind: "embeds", embeds: [{ provider: "youtube", videoId: "aqz-KE-bpKQ", url: EMBED_URL }] });
+  });
+
+  test("a readable page with nothing supported is an empty list", async () => {
+    expect(await scanTab(() => Promise.resolve([{ result: ["https://example.com/"] }]))).toEqual({ kind: "embeds", embeds: [] });
+  });
+
+  test("executeScript rejecting (chrome://, no activeTab) means the tab is unreadable", async () => {
+    expect(await scanTab(() => Promise.reject(new Error("Cannot access a chrome:// URL")))).toEqual({ kind: "unreadable" });
+  });
+
+  test("a frame error means the tab is unreadable", async () => {
+    expect(await scanTab(() => Promise.resolve([{ error: new Error("boom") }]))).toEqual({ kind: "unreadable" });
+  });
+
+  test("no injection results means the tab is unreadable", async () => {
+    expect(await scanTab(() => Promise.resolve([]))).toEqual({ kind: "unreadable" });
   });
 });
