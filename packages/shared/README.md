@@ -10,7 +10,7 @@ Import from `@omega/shared`. Types are `v.InferOutput` of the schema with the sa
 - Client, incoming WS frame: `parseServerMessage(raw)` → `ServerMessage | null`
 - HTTP bodies: `v.safeParse(ShareRequestSchema, body)` / `v.safeParse(ShareResponseSchema, json)`
 
-Both parsers reject frames over `MAX_MESSAGE_BYTES` (UTF-8) before `JSON.parse`, and never throw.
+Both parsers reject oversized frames (UTF-8 bytes, counted without allocating) before `JSON.parse`, and never throw. The limit is `MAX_CLIENT_MESSAGE_BYTES` for client→server and `MAX_SERVER_MESSAGE_BYTES` for server→client. The server should also set Bun's `maxPayloadLength` to the client limit.
 Client→server schemas are **strict** (unknown keys are rejected). Server→client schemas strip unknown keys, so the server can add fields without breaking older clients.
 
 ## Constants
@@ -23,7 +23,8 @@ Client→server schemas are **strict** (unknown keys are rejected). Server→cli
 | `MAX_ROOM_MEMBERS` | 25 |
 | `NICKNAME_MAX_LENGTH` | 20 |
 | `CHAT_MAX_LENGTH` | 280 |
-| `MAX_MESSAGE_BYTES` | 4096 |
+| `MAX_CLIENT_MESSAGE_BYTES` | 4096 |
+| `MAX_SERVER_MESSAGE_BYTES` | 16384 |
 | `MAX_URL_LENGTH` | 2048 |
 
 ## Embeds (provider allowlist)
@@ -34,7 +35,7 @@ Client→server schemas are **strict** (unknown keys are rejected). Server→cli
 - `youtu.be/ID`
 - `youtube.com/embed/ID`, `youtube-nocookie.com/embed/ID` (with or without `www.`)
 
-Scheme must be `http`/`https`. No credentials, no explicit port. ID is `[A-Za-z0-9_-]{11}` and not a reserved path such as `videoseries`. Anything else, such as other hosts, lookalike hosts, `javascript:`/`data:`, `/shorts/` or playlists, returns `null`.
+Scheme must be `http`/`https` (the output is always `https`). No credentials, no explicit port. ID is `[A-Za-z0-9_-]{11}` and not a reserved slug (`videoseries`, `live_stream`). Anything else, such as other hosts, lookalike hosts, `javascript:`/`data:`, `/shorts/` or playlists, returns `null`.
 
 `Embed = { provider: "youtube", videoId, url }`, where `url` is always `https://www.youtube.com/embed/<videoId>`. `EmbedSchema` checks this, so a parsed `Embed.url` is safe to use as an iframe `src`. Never build an iframe from any other string.
 
@@ -46,7 +47,7 @@ RoomState = { id: RoomId, seats: (MemberId | null)[8], members: Member[≤25], e
 ```
 
 - `RoomId`: `[a-z0-9-]{1,32}`. `MemberId`: `[A-Za-z0-9_-]{1,64}`, assigned by the server.
-- `Nickname`: trimmed and NFC-normalized, 1–20 chars of letters, digits and `_ . -`, with single spaces between words. No emoji, controls or invisible characters.
+- `Nickname`: trimmed and NFC-normalized, 1–20 UTF-16 units of letters (combining marks allowed after a letter), digits and `_ . -`, with single spaces between words. No emoji, controls or invisible characters (including Hangul fillers).
 - Invariants: member ids are unique, and every seat occupant is a member seated only once.
 
 ## HTTP: `POST /rooms/:id/share`
@@ -67,7 +68,7 @@ On success, the server broadcasts `embed-changed` with `by: null`.
 | `join` | `nickname`, `avatar` | first message on the socket |
 | `leave` | — | |
 | `sit` | `seat: 0..7 \| null` | `null` = stand up |
-| `chat` | `text` | trimmed, 1–280 chars, no control or bidi-override characters |
+| `chat` | `text` | trimmed, 1–280 chars; no control, zero-width, bidi, BOM or line-separator characters (ZWJ allowed for emoji); must contain a visible character |
 
 ### Server → client (`ServerMessage`)
 

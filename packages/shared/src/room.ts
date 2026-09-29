@@ -9,9 +9,13 @@ export type RoomId = v.InferOutput<typeof RoomIdSchema>;
 export const MemberIdSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{1,64}$/));
 export type MemberId = v.InferOutput<typeof MemberIdSchema>;
 
+/** Letters that render as blank space (Hangul fillers). */
+export const INVISIBLE_LETTERS = /[\u115F\u1160\u3164\uFFA0]/u;
+
 /**
- * Trimmed and NFC-normalized, then 1–20 UTF-16 units of letters, digits, `_ . -`,
- * with single spaces between words. No emoji, marks, controls or invisible chars.
+ * Trimmed and NFC-normalized, then 1–20 UTF-16 units of letters (with combining
+ * marks), digits, `_ . -`, with single spaces between words. No emoji, controls
+ * or invisible characters.
  */
 export const NicknameSchema = v.pipe(
   v.string(),
@@ -19,7 +23,8 @@ export const NicknameSchema = v.pipe(
   v.normalize("NFC"),
   v.minLength(1),
   v.maxLength(NICKNAME_MAX_LENGTH),
-  v.regex(/^[\p{L}\p{N}_.-]+(?: [\p{L}\p{N}_.-]+)*$/u),
+  v.regex(/^(?:[\p{L}\p{N}_.-]\p{M}*)+(?: (?:[\p{L}\p{N}_.-]\p{M}*)+)*$/u),
+  v.check((s) => !INVISIBLE_LETTERS.test(s), "invisible characters"),
 );
 export type Nickname = v.InferOutput<typeof NicknameSchema>;
 

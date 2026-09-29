@@ -177,7 +177,7 @@ describe("ClientMessageSchema", () => {
       ["chat bidi override", { type: "chat", text: "a\u202eb" }],
       ["chat zero-width space only", { type: "chat", text: "\u200b" }],
       ["chat zero-width space inside", { type: "chat", text: "a\u200bb" }],
-      ["chat BOM", { type: "chat", text: "\ufeffhi" }],
+      ["chat BOM inside", { type: "chat", text: "h\ufeffi" }],
       ["chat line separator", { type: "chat", text: "a\u2028b" }],
       ["chat ZWJ only", { type: "chat", text: "\u200d" }],
       ["chat variation selector only", { type: "chat", text: "\ufe0f" }],

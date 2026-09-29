@@ -10,7 +10,7 @@ export type Provider = (typeof PROVIDERS)[number];
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
 const YOUTUBE_EMBED_BASE = "https://www.youtube.com/embed/";
 /** 11-char path segments YouTube uses for things that are not videos. */
-const RESERVED_IDS = new Set(["videoseries"]);
+const RESERVED_IDS = new Set(["videoseries", "live_stream"]);
 
 export const YoutubeVideoIdSchema = v.pipe(
   v.string(),
