@@ -34,8 +34,7 @@ s.position.set(seatTileCenter.x, seatTileCenter.y);
   are drawn with their surface 8 px above that point (`meta.omega.seatHeight`).
 - **`meta.omega`:** `tile {64×32}`, `cell`, `floorPoint`, `seatHeight`, `poses`, `dirs`, `blink`, and
   `avatars[] {id, label, blurb, colors {main, dark}}` (use `colors.main` for nickname tags and the picker).
-- Status: proposed to the Lead Engineer in the OME-2 sub-issue. Changes to this format go through that
-  thread.
+- Status: accepted, see `docs/adr/0004-sprite-atlas-format.md`. `meta.format` is informational (PixiJS v8 ignores it); the PNG is indexed PNG-8.
 
 ## Budget
 
