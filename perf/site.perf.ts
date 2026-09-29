@@ -3,7 +3,10 @@ import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { joinRoom, leaveAll } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
-import { p95, recordMetric } from "./metrics";
+import { p95, recordMetric, vsyncFrames } from "./metrics";
+
+/** Headless Chromium drives rAF from a fixed 60 Hz begin-frame clock. */
+const VSYNC_MS = 1000 / 60;
 
 interface LongTaskStore { __omegaLongTaskEnds: number[] }
 
@@ -73,7 +76,10 @@ test("site: p95 frame time with 8 avatars", async ({ browser }) => {
     const hasVideo = (await observer.page.locator(site.sharedVideo).count()) > 0;
     const samples = await frameTimes(observer.page, 5000);
     expect(samples.length).toBeGreaterThan(0);
-    recordMetric({ id: "site.frameP95", value: p95(samples), note: `${String(samples.length)} frames${hasVideo ? "" : ", no video playing (M1b)"}` });
+    const frames = vsyncFrames(samples, VSYNC_MS);
+    const missed = frames.filter((f) => f > VSYNC_MS * 1.5).length;
+    const detail = `${String(samples.length)} frames, ${String(missed)} missed vsync, raw p95 ${p95(samples).toFixed(1)} ms`;
+    recordMetric({ id: "site.frameP95", value: p95(frames), note: `${detail}${hasVideo ? "" : ", no video playing (M1b)"}` });
   } finally {
     await leaveAll(clients);
   }

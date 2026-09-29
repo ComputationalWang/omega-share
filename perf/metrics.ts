@@ -36,3 +36,12 @@ export function p95(samples: readonly number[]): number {
   const sorted = [...samples].sort((a, b) => a - b);
   return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] ?? Number.NaN;
 }
+
+/**
+ * rAF deltas → presented frame times: each delta rounded to a whole number of vsync intervals (at least one).
+ * Raw deltas can't go below one interval and carry ±0.1 ms timer jitter, so their p95 straddles a 16.7 ms budget
+ * even on a blank page; this counts missed vsyncs instead.
+ */
+export function vsyncFrames(deltas: readonly number[], vsyncMs: number): number[] {
+  return deltas.map((d) => Math.max(1, Math.round(d / vsyncMs)) * vsyncMs);
+}
