@@ -4,6 +4,13 @@
   "type": "module",
   "license": "AGPL-3.0-only",
   "scripts": {
+    "start": "bun src/index.ts",
+    "bench:relay": "bun src/relay-latency.ts",
     "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@omega/shared": "workspace:*",
+    "hono": "^4.13.11",
+    "valibot": "^1.5.0"
   }
 }
