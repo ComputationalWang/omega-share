@@ -51,3 +51,5 @@ legend { padding: 0; margin-bottom: 6px; }
 .chat input { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--panel); }
 .chat button { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #1d1a2b; font-weight: 600; }
 .room-full { text-align: center; margin: 15vh auto; }
+.seat:disabled { cursor: default; }
+.notice { margin: 8px 0 0; color: var(--error); }

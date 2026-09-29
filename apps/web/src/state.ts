@@ -17,7 +17,13 @@ export interface ViewState {
   readonly room: RoomState | null;
   /** At most one per member, the newest. */
   readonly bubbles: readonly Bubble[];
-  readonly lastError: ErrorCode | null;
+  /** A new object per server error, so the UI can show each one. */
+  readonly lastError: ErrorNotice | null;
+}
+
+export interface ErrorNotice {
+  readonly code: ErrorCode;
+  readonly at: number;
 }
 
 export type ViewEvent =
@@ -43,7 +49,7 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     case "room-full":
       return { ...initialState, status: "full" };
     case "error":
-      return { ...state, lastError: msg.code };
+      return { ...state, lastError: { code: msg.code, at: now } };
     case "member-joined":
       return withRoom(state, (room) =>
         hasMember(room, msg.member.id) ? null : { ...room, members: [...room.members, msg.member] },

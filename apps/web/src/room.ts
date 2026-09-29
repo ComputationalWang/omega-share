@@ -1,6 +1,6 @@
 // Room screen. Loaded lazily after Enter so PixiJS stays out of the initial bundle.
 import "pixi.js/unsafe-eval";
-import type { Avatar, ClientMessage, MemberId, Nickname, RoomId } from "@omega/shared";
+import type { Avatar, ClientMessage, ErrorCode, MemberId, Nickname, RoomId } from "@omega/shared";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { chatIntent, seatViews, sitIntent } from "./intents";
 import { SEATS, STAGE_H, STAGE_W, STANDING, TV, type Point } from "./layout";
@@ -27,6 +27,15 @@ const STATUS_TEXT: Record<ViewState["status"], string> = {
   open: "",
   reconnecting: "Connection lost, reconnecting…",
   full: "",
+};
+
+const NOTICE_MS = 3000;
+const ERROR_TEXT: Record<ErrorCode, string> = {
+  seat_taken: "Someone just took that seat.",
+  rate_limited: "Slow down a little.",
+  bad_message: "That didn't go through.",
+  not_joined: "Still joining, try again in a moment.",
+  already_joined: "You're already in this room.",
 };
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, testId?: string): HTMLElementTagNameMap[K] {
@@ -63,6 +72,7 @@ function place(e: HTMLElement, p: Point): void {
 
 export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const status = el("p", { className: "status", role: "status" }, "connection-status");
+  const notice = el("p", { className: "notice", role: "alert", hidden: true }, "room-notice");
   const full = el("div", { className: "room-full", hidden: true }, "room-full");
   full.append(el("h2", { textContent: "This room is full" }), el("p", { textContent: "Try again in a little while." }));
 
@@ -91,7 +101,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const view: RoomView = await createRoomView();
   view.canvas.className = "scene";
   stage.append(view.canvas, tv, overlay, tags, bubbles);
-  opts.root.replaceChildren(status, wrap, chatForm, full);
+  opts.root.replaceChildren(status, wrap, notice, chatForm, full);
 
   const fit = (): void => {
     const scale = Math.min(1, wrap.clientWidth / STAGE_W);
@@ -105,6 +115,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let frame = 0;
   let expiryTimer: ReturnType<typeof setTimeout> | null = null;
   let tvSrc: string | null = null;
+  let drawnRoom: ViewState["room"] | undefined;
+  let shownError: ViewState["lastError"] = null;
+  let noticeTimer: ReturnType<typeof setTimeout> | null = null;
   const tagEls = new Map<MemberId, HTMLElement>();
   const bubbleEls = new Map<MemberId, HTMLElement>();
 
@@ -135,12 +148,28 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       placements.push({ id: m.id, avatar: m.avatar, at: p });
       at.set(m.id, p);
     }
-    view.update(views.map((v) => v.member !== null), placements);
+    // Chat and bubbles leave `room` untouched, so the scene is only redrawn when seats, members or embed change.
+    if (s.room !== drawnRoom) {
+      drawnRoom = s.room;
+      view.update(views.map((v) => v.member !== null), placements);
+    }
+    if (s.lastError !== shownError) {
+      shownError = s.lastError;
+      if (s.lastError !== null) {
+        notice.textContent = ERROR_TEXT[s.lastError.code];
+        notice.hidden = false;
+        if (noticeTimer !== null) clearTimeout(noticeTimer);
+        noticeTimer = setTimeout(() => {
+          notice.hidden = true;
+        }, NOTICE_MS);
+      }
+    }
 
     for (const v of views) {
       const b = seatButtons[v.index];
       if (b === undefined) continue;
       b.dataset["occupied"] = String(v.member !== null);
+      b.disabled = s.status !== "open";
       b.classList.toggle("mine", v.isSelf);
       b.ariaLabel = v.member === null ? `Seat ${String(v.index + 1)}, free` : v.isSelf ? `Seat ${String(v.index + 1)}, yours: stand up` : `Seat ${String(v.index + 1)}, taken by ${v.member.nickname}`;
     }
@@ -238,8 +267,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const msg = chatIntent(chatInput.value);
     if (msg !== null && conn.send(msg)) chatInput.value = "";
   });
-  addEventListener("pagehide", () => {
+  // Close on unload so the server frees the seat now; a bfcache restore reconnects.
+  window.addEventListener("pagehide", () => {
     conn.close();
+  });
+  window.addEventListener("pageshow", (ev) => {
+    if (ev.persisted) conn.resume();
   });
 
   render();
