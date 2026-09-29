@@ -1,6 +1,6 @@
 import type { Server } from "bun";
 import { parseServerMessage, type ServerMessage } from "@omega/shared";
-import { startServer } from "../src/server";
+import { startServer, type ServerOptions } from "../src/server";
 
 export const SITE_ORIGIN = "http://localhost:5173";
 export const EXTENSION_ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop";
@@ -12,8 +12,8 @@ export interface TestServer {
   ws: (roomId?: string) => string;
 }
 
-export function start(): TestServer {
-  const server = startServer({ port: 0, hostname: "127.0.0.1", siteOrigin: SITE_ORIGIN });
+export function start(opts: Partial<ServerOptions> = {}): TestServer {
+  const server = startServer({ port: 0, hostname: "127.0.0.1", siteOrigin: SITE_ORIGIN, ...opts });
   const http = `http://127.0.0.1:${String(server.port)}`;
   return { server, http, ws: (roomId = "lobby") => `ws://127.0.0.1:${String(server.port)}/rooms/${roomId}/ws` };
 }
