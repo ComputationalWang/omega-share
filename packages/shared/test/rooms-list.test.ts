@@ -36,7 +36,7 @@ describe("RoomListResponseSchema (GET /rooms)", () => {
   });
 
   test("accepts up to MAX_LISTED_ROOMS rooms and rejects more", () => {
-    const room = (i: number) => ({ id: `room-${i}`, memberCount: 0, seatedCount: 0 });
+    const room = (i: number) => ({ id: `room-${String(i)}`, memberCount: 0, seatedCount: 0 });
     const full = Array.from({ length: MAX_LISTED_ROOMS }, (_, i) => room(i));
     expect(v.is(RoomListResponseSchema, { rooms: full })).toBe(true);
     expect(v.is(RoomListResponseSchema, { rooms: [...full, room(MAX_LISTED_ROOMS)] })).toBe(false);

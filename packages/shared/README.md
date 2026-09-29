@@ -26,6 +26,7 @@ Client→server schemas are **strict** (unknown keys are rejected). Server→cli
 | `MAX_CLIENT_MESSAGE_BYTES` | 4096 |
 | `MAX_SERVER_MESSAGE_BYTES` | 16384 |
 | `MAX_URL_LENGTH` | 2048 |
+| `MAX_LISTED_ROOMS` | 100 |
 
 ## Embeds (provider allowlist)
 
@@ -62,7 +63,7 @@ On success, the server broadcasts `embed-changed` with `by: null`.
 ## HTTP: `GET /rooms`
 
 Used by the extension's room dropdown. Response `RoomListResponse`:
-`{ rooms: { id: RoomId, memberCount: 0..25, seatedCount: 0..8 }[] }` (lenient; unknown keys stripped).
+`{ rooms: { id: RoomId, memberCount: 0..25, seatedCount: 0..8 }[≤100] }` (lenient; unknown keys stripped). The server truncates to `MAX_LISTED_ROOMS`. Parse with `v.safeParse(RoomListResponseSchema, json)`; on failure, fall back to `DEFAULT_ROOM_ID`.
 
 ## WebSocket messages (discriminated on `type`)
 

@@ -5,6 +5,7 @@ import * as v from "valibot";
 import {
   DEFAULT_ROOM_ID,
   MAX_CLIENT_MESSAGE_BYTES,
+  MAX_LISTED_ROOMS,
   ShareRequestSchema,
   canonicalizeEmbed,
   parseClientMessage,
@@ -86,7 +87,8 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   app.get("/", (c) => c.text("omega-share server"));
 
   app.get("/rooms", (c) => {
-    const body: RoomListResponse = { rooms: [...rooms.values()].map((r) => r.summary()) };
+    const listed = [...rooms.values()].slice(0, MAX_LISTED_ROOMS);
+    const body: RoomListResponse = { rooms: listed.map((r) => r.summary()) };
     return c.json(body);
   });
 
