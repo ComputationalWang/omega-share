@@ -101,9 +101,17 @@ describe("reduce", () => {
     expect(s.status).toBe("full");
   });
 
-  test("error records the last error code", () => {
-    const s = server(joined(), { type: "error", code: "seat_taken", message: "taken" });
-    expect(s.lastError).toBe("seat_taken");
+  test("each error is recorded as a new notice, even when the code repeats", () => {
+    const s1 = server(joined(), { type: "error", code: "seat_taken", message: "taken" }, 5);
+    const s2 = server(s1, { type: "error", code: "seat_taken", message: "taken" }, 9);
+    expect(s1.lastError).toEqual({ code: "seat_taken", at: 5 });
+    expect(s2.lastError).not.toBe(s1.lastError);
+  });
+
+  test("chat changes bubbles but keeps the room object, so the scene needn't redraw", () => {
+    const before = joined();
+    const after = server(before, { type: "chat", memberId: "a", text: "x", at: 1 });
+    expect(after.room).toBe(before.room);
   });
 
   test("messages before a snapshot don't invent a room", () => {
