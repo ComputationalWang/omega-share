@@ -2,7 +2,7 @@
 // Flags: --no-build (use existing builds), --strict (pending budgets also fail).
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXTENSION_SHIPPED_DIR, ROOT, WEB_DIST_DIR, scripts } from "../e2e/support/apps";
+import { EXTENSION_SHIPPED_DIR, ROOT, URLS, WEB_DIST_DIR, scripts } from "../e2e/support/apps";
 import { BUDGETS, evaluate, renderReport, type Measurement } from "./budgets";
 import { RESULTS_DIR, readMetrics, recordMetric } from "./metrics";
 import { checkManifest, initialJsGzipKb } from "./static-checks";
@@ -19,7 +19,9 @@ mkdirSync(RESULTS_DIR, { recursive: true });
 
 if (!args.has("--no-build")) {
   for (const app of ["web", "extension"] as const) {
-    if ("build" in scripts(app) && run(["bun", "run", "--filter", `@omega/${app}`, "build"]) !== 0) {
+    // The web build bakes in the server URL; perf serves it via `preview`, so it must match OMEGA_SERVER_PORT.
+    const env = app === "web" ? { VITE_SERVER_URL: URLS.server } : {};
+    if ("build" in scripts(app) && run(["bun", "run", "--filter", `@omega/${app}`, "build"], env) !== 0) {
       console.error(`build failed for apps/${app}`);
       process.exit(1);
     }
