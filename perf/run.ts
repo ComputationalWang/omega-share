@@ -1,5 +1,5 @@
 // `bun run perf`: build, run static + Playwright perf checks, print a report, exit 1 on any budget regression.
-// Flags: --no-build (use existing builds), --strict (pending budgets also fail).
+// Flags: --no-build (use existing builds), --strict (pending budgets also fail), --soak (also run the 10 min heap soak).
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { EXTENSION_SHIPPED_DIR, ROOT, URLS, WEB_DIST_DIR, scripts } from "../e2e/support/apps";
@@ -46,8 +46,11 @@ if (existsSync(manifestPath)) {
   for (const id of ["ext.contentScripts", "ext.persistentBackground"]) recordMetric({ id, pending: "extension not built (OME-7)" });
 }
 
+recordMetric({ id: "sync.spread", pending: "M1b: playback sync not built yet" });
+
 // Runtime checks (Playwright, Chromium). Web is served from the production build.
-const pwExit = run(["bunx", "playwright", "test", "--project=perf"], { OMEGA_WEB_MODE: "preview" });
+const soak: Record<string, string> = args.has("--soak") ? { OMEGA_PERF_SOAK: "1" } : {};
+const pwExit = run(["bunx", "playwright", "test", "--project=perf"], { OMEGA_WEB_MODE: "preview", ...soak });
 
 const measured = new Map(readMetrics().map((m) => [m.id, m]));
 const results = BUDGETS.map((b) => evaluate(b, measured.get(b.id)));

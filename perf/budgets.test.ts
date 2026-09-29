@@ -33,8 +33,8 @@ describe("budgets", () => {
       expect(Number(row?.[2])).toBe(b.load?.members ?? Number.NaN);
       expect(b.load?.members).toBe(MAX_ROOM_MEMBERS);
       const base = BUDGETS.find((x) => x.id === b.load?.of);
-      expect(base, `base budget ${b.load?.of ?? ""}`).toBeDefined();
-      expect([b.limit, b.unit, b.comparator]).toEqual([base?.limit, base?.unit, base?.comparator]);
+      if (base === undefined) throw new Error(`no base budget ${b.load?.of ?? ""} for ${b.id}`);
+      expect([b.limit, b.unit, b.comparator]).toEqual([base.limit, base.unit, base.comparator]);
     }
   });
 

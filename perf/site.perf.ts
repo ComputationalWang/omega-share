@@ -3,10 +3,8 @@ import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { joinRoom, leaveAll } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
+import { VSYNC_MS, frameTimes } from "./frames";
 import { p95, recordMetric, vsyncFrames } from "./metrics";
-
-/** Headless Chromium drives rAF from a fixed 60 Hz begin-frame clock. */
-const VSYNC_MS = 1000 / 60;
 
 interface LongTaskStore { __omegaLongTaskEnds: number[] }
 
@@ -30,26 +28,6 @@ async function measureTti(page: Page, url: string): Promise<number> {
     const longTasks = (globalThis as unknown as LongTaskStore).__omegaLongTaskEnds;
     return Math.max(nav?.domContentLoadedEventEnd ?? 0, mark, ...longTasks);
   });
-}
-
-/** Frame deltas from requestAnimationFrame over `ms` (unthrottled in the perf project, see playwright.config.ts). */
-async function frameTimes(page: Page, ms: number): Promise<number[]> {
-  return page.evaluate(
-    (duration) =>
-      new Promise<number[]>((resolve) => {
-        const deltas: number[] = [];
-        let last = performance.now();
-        const end = last + duration;
-        const tick = (t: number): void => {
-          deltas.push(t - last);
-          last = t;
-          if (t < end) requestAnimationFrame(tick);
-          else resolve(deltas.slice(1));
-        };
-        requestAnimationFrame(tick);
-      }),
-    ms,
-  );
 }
 
 test("site: time to interactive", async ({ page }) => {
