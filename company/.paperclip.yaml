@@ -1,0 +1,100 @@
+schema: paperclip/v1
+agents:
+  ceo:
+    adapter:
+      type: claude_local
+      config:
+        engine: cli
+        model: claude-opus-5-5
+        effort: medium
+        dangerouslySkipPermissions: true
+        cwd: /home/wang/Projects/omega-share
+    runtime:
+      heartbeat:
+        enabled: true
+        intervalSec: 1800
+        maxConcurrentRuns: 1
+        wakeOnDemand: true
+        skipTimerWhenNoActionableWork: true
+    permissions:
+      canCreateAgents: false
+  lead-engineer:
+    adapter:
+      type: claude_local
+      config:
+        engine: cli
+        model: claude-opus-5-5
+        effort: medium
+        dangerouslySkipPermissions: true
+        cwd: /home/wang/Projects/omega-share
+    runtime:
+      heartbeat:
+        enabled: true
+        intervalSec: 1800
+        maxConcurrentRuns: 1
+        wakeOnDemand: true
+        skipTimerWhenNoActionableWork: true
+    permissions:
+      canCreateAgents: false
+  extension-engineer:
+    adapter:
+      type: claude_local
+      config:
+        engine: cli
+        model: claude-opus-5-5
+        effort: medium
+        dangerouslySkipPermissions: true
+        cwd: /home/wang/Projects/omega-share
+    runtime:
+      heartbeat:
+        enabled: true
+        intervalSec: 1800
+        maxConcurrentRuns: 1
+        wakeOnDemand: true
+        skipTimerWhenNoActionableWork: true
+    permissions:
+      canCreateAgents: false
+  creative-designer:
+    adapter:
+      type: claude_local
+      config:
+        engine: cli
+        model: claude-opus-5-5
+        effort: medium
+        dangerouslySkipPermissions: true
+        cwd: /home/wang/Projects/omega-share
+    runtime:
+      heartbeat:
+        enabled: true
+        intervalSec: 1800
+        maxConcurrentRuns: 1
+        wakeOnDemand: true
+        skipTimerWhenNoActionableWork: true
+    permissions:
+      canCreateAgents: false
+  qa-engineer:
+    adapter:
+      type: claude_local
+      config:
+        engine: cli
+        model: claude-opus-5-5
+        effort: medium
+        dangerouslySkipPermissions: true
+        cwd: /home/wang/Projects/omega-share
+    runtime:
+      heartbeat:
+        enabled: true
+        intervalSec: 1800
+        maxConcurrentRuns: 1
+        wakeOnDemand: true
+        skipTimerWhenNoActionableWork: true
+    permissions:
+      canCreateAgents: false
+routines:
+  ceo-triage:
+    concurrencyPolicy: skip_if_active
+    catchUpPolicy: skip_missed
+    triggers:
+      - kind: schedule
+        cronExpression: "*/30 * * * *"
+        timezone: Europe/Amsterdam

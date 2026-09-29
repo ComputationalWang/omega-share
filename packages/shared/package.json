@@ -1,0 +1,12 @@
+{
+  "name": "@omega/shared",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "valibot": "^1.5.0"
+  }
+}

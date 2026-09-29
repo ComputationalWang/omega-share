@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.output/
+.wxt/
+coverage/
+playwright-report/
+test-results/
+*.log
+.DS_Store
+.env.local
+.claude/settings.local.json
+.claude/pool/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/

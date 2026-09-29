@@ -1,0 +1,22 @@
+{
+  "name": "omega-share",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "typecheck": "bun run --filter '*' typecheck",
+    "lint": "eslint .",
+    "test": "bun test --pass-with-no-tests",
+    "e2e": "playwright test",
+    "perf": "bun run --filter '*' perf",
+    "check": "bun run typecheck && bun run lint && bun run test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/bun": "^1.4.2",
+    "eslint": "^10.11.0",
+    "typescript": "^6",
+    "typescript-eslint": "^8.71.0"
+  }
+}
