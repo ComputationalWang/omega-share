@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Embed } from "@omega/shared";
 import { Window } from "happy-dom";
 import { listEmbeds } from "../src/embeds";
 import { collectCandidateUrls } from "../src/scan";
@@ -21,7 +22,7 @@ function load(name: string, url: string): Document {
   return window.document as unknown as Document;
 }
 
-const EMBED = { provider: "youtube", videoId: "aqz-KE-bpKQ", url: "https://www.youtube.com/embed/aqz-KE-bpKQ" };
+const EMBED: Embed = { provider: "youtube", videoId: "aqz-KE-bpKQ", url: "https://www.youtube.com/embed/aqz-KE-bpKQ" };
 
 describe("collectCandidateUrls on fixture pages", () => {
   test("youtube-embed: finds the iframe", () => {
