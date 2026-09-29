@@ -1,0 +1,115 @@
+<!doctype html>
+<!-- Set (c) preview: the reference CSS applied to mock-ups of the landing form and the room chrome.
+     Screenshots: bun assets/src/shoot-ui.ts (writes preview/ui-*.png). Not shipped. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>omega-share UI chrome preview</title>
+<link rel="stylesheet" href="../ui/reference.css">
+<style>
+  body { margin: 0; background: var(--ui-page); color: var(--ui-text); font: 600 15px/1.35 system-ui, sans-serif; }
+  section { padding: 24px; width: fit-content; }
+  h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ui-muted); margin: 0 0 12px; }
+  .landing { width: 400px; display: grid; gap: 10px; }
+  .landing .logo-row { display: flex; align-items: center; gap: 10px; }
+  .lede { margin: 0; color: var(--ui-muted); font-weight: 500; }
+  label, legend { font-size: 13px; }
+  fieldset { border: 0; margin: 0; padding: 0; }
+  .avatars { display: flex; gap: 8px; }
+  .avatars .ui-picker { width: 84px; height: 84px; }
+  .ui-picker .ui-sprite { margin-bottom: -2px; }
+  .name { font-size: 12px; text-align: center; margin-top: 2px; color: var(--ui-muted); }
+  .name.on { color: var(--ui-accent); }
+  .error { color: var(--ui-error); font-size: 13px; margin: 0; min-height: 1.3em; display: flex; gap: 6px; align-items: center; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ui-button { font-size: 15px; }
+  .ui-button .ui-sprite { width: 32px; height: 32px; }
+
+  .room-wrap { width: 960px; }
+  .topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .status { display: flex; gap: 6px; align-items: center; color: var(--ui-muted); font-size: 13px; font-weight: 500; }
+  .spacer { flex: 1; }
+  .count { display: flex; align-items: center; gap: 2px; font-size: 13px; }
+  .stage { position: relative; width: 960px; height: 600px; background: url("room@1x.png"); image-rendering: pixelated; }
+  .stage > * { position: absolute; }
+  .ui-tag { translate: -50% -100%; } /* bottom-centre on (floor x, floor y − tagLift) */
+  .ui-bubble { translate: -50% -100%; max-width: 200px; font-size: 12px; font-weight: 500; line-height: 1.25; }
+  .chat { display: flex; gap: 8px; margin-top: 8px; }
+  .chat .ui-input { flex: 1; font: inherit; font-weight: 500; }
+  .notice { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+<section id="landing">
+  <h2>Landing</h2>
+  <form class="ui-panel landing" onsubmit="return false">
+    <div class="logo-row"><span class="ui-sprite ui-icon-tv"></span><span class="ui-sprite ui-logo-0"></span></div>
+    <p class="lede">Watch together. Pick a name and an avatar, then take a seat.</p>
+    <label for="n">Nickname</label>
+    <input id="n" class="ui-input is-focus" value="Wren" autocomplete="off">
+    <fieldset>
+      <legend>Avatar</legend>
+      <div class="avatars" role="radiogroup">
+        <div><button type="button" class="ui-picker" role="radio" aria-checked="false"><span class="ui-sprite ui-portrait-juno"></span></button><div class="name">Juno</div></div>
+        <div><button type="button" class="ui-picker" role="radio" aria-checked="true"><span class="ui-sprite ui-portrait-pip"></span></button><div class="name on">Pip</div></div>
+        <div><button type="button" class="ui-picker is-hover" role="radio" aria-checked="false"><span class="ui-sprite ui-portrait-mo"></span></button><div class="name">Mo</div></div>
+        <div><button type="button" class="ui-picker" role="radio" aria-checked="false"><span class="ui-sprite ui-portrait-kiki"></span></button><div class="name">Kiki</div></div>
+      </div>
+    </fieldset>
+    <button type="submit" class="ui-button">Enter room</button>
+  </form>
+</section>
+
+<section id="states">
+  <h2>States</h2>
+  <div class="ui-panel" style="display:grid;gap:12px;width:520px">
+    <div class="row"><button class="ui-button">Idle</button><button class="ui-button is-hover">Hover</button><button class="ui-button is-press">Pressed</button><button class="ui-button" disabled>Disabled</button></div>
+    <div class="row"><button class="ui-button secondary"><span class="ui-sprite ui-icon-leave"></span>Leave seat</button><button class="ui-button secondary is-hover">Hover</button><button class="ui-button secondary is-press">Pressed</button></div>
+    <div class="row"><input class="ui-input" placeholder="Idle field" style="width:150px"><input class="ui-input is-focus" value="Focused" style="width:150px"><input class="ui-input" aria-invalid="true" value="Invalid!" style="width:150px"></div>
+    <p class="error"><span class="ui-sprite ui-icon-warn"></span>Pick a nickname between 1 and 20 characters.</p>
+    <div class="row">
+      <span class="ui-sprite ui-icon-send"></span><span class="ui-sprite ui-icon-chat"></span><span class="ui-sprite ui-icon-seat"></span><span class="ui-sprite ui-icon-leave"></span><span class="ui-sprite ui-icon-people"></span><span class="ui-sprite ui-icon-share"></span><span class="ui-sprite ui-icon-close"></span><span class="ui-sprite ui-icon-warn"></span><span class="ui-sprite ui-icon-tv"></span>
+      <span class="ui-sprite ui-dot-online"></span><span class="ui-sprite ui-dot-connecting"></span><span class="ui-sprite ui-dot-offline"></span>
+    </div>
+    <div class="row ui-room" style="gap:24px;padding:28px 0 4px 20px;background:#c49f70">
+      <span class="ui-tag">Wren</span><span class="ui-tag self">you</span>
+      <span class="ui-bubble">hi! 🍿</span>
+      <span style="position:relative;width:64px;height:33px"><span class="ui-seat-cursor" style="position:absolute;left:32px;top:16px"></span></span>
+      <span style="position:relative;width:64px;height:33px"><span class="ui-seat-cursor mine" style="position:absolute;left:32px;top:16px"></span></span>
+      <span style="position:relative;width:64px;height:33px"><span class="ui-seat-cursor taken" style="position:absolute;left:32px;top:16px"></span></span>
+    </div>
+  </div>
+</section>
+
+<section id="room">
+  <h2>Room chrome</h2>
+  <div class="room-wrap">
+    <div class="topbar">
+      <span class="ui-sprite ui-icon-tv"></span><strong>Movie night</strong>
+      <span class="status"><span class="ui-sprite ui-dot-online"></span>Connected</span>
+      <span class="spacer"></span>
+      <span class="count"><span class="ui-sprite ui-icon-people"></span>6 / 8</span>
+      <button class="ui-button secondary"><span class="ui-sprite ui-icon-leave"></span>Stand up</button>
+    </div>
+    <div class="stage ui-room">
+      <!-- tags/bubbles over the seated avatars of preview/room@1x.png (cells from layout.ts) -->
+      <span class="ui-tag" style="left:352px;top:286px">Ada</span>
+      <span class="ui-tag self" style="left:416px;top:286px">Wren</span>
+      <span class="ui-tag" style="left:544px;top:286px">Moss</span>
+      <span class="ui-tag" style="left:608px;top:286px">Kit</span>
+      <span class="ui-tag" style="left:352px;top:350px">Juniper</span>
+      <span class="ui-tag" style="left:416px;top:350px">Oli</span>
+      <span class="ui-bubble" style="left:416px;top:262px">this bit is my favourite</span>
+      <span class="ui-bubble" style="left:608px;top:262px">shh!!</span>
+      <span class="ui-seat-cursor" style="left:512px;top:476px"></span>
+      <span class="ui-seat-cursor mine" style="left:608px;top:396px"></span>
+    </div>
+    <form class="chat" onsubmit="return false">
+      <input class="ui-input" placeholder="Say something…">
+      <button class="ui-button"><span class="ui-sprite ui-icon-send"></span>Send</button>
+    </form>
+    <div class="notice ui-panel"><span class="ui-sprite ui-icon-warn"></span>The room is full (8/8). You can still watch and chat.</div>
+  </div>
+</section>
+</body>
+</html>

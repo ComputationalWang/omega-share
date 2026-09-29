@@ -1,6 +1,6 @@
 // Builds the shipped sprite sheets + atlases and the (non-shipped) previews.
 // Run: bun assets/src/build.ts
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { AVATARS, BACK_DIRS, CELL, FLOOR, FRONT_DIRS, SEAT_HEIGHT, composeFrame, type Dir, type Pose } from "./avatars";
@@ -8,6 +8,7 @@ import { PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedPng, type RGBA } from "./png";
 import { TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blit, render, upscale } from "./sprite";
+import { buildUiFrames, referenceCss, type Borders } from "./ui";
 
 const ROOT = join(import.meta.dir, "..");
 const POSES: readonly Pose[] = ["idle", "sit"];
@@ -419,9 +420,107 @@ function fakeVideo(img: Uint8Array, W: number, x0: number, y0: number, w: number
   }
 }
 
+/** Set (c): UI chrome atlas, plus each 9-slice/cursor as its own PNG for CSS `border-image`. */
+function buildUi(avatarImages: Map<string, Uint8Array>): void {
+  const frames = buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w);
+  registerKeys("ui", frames.map((f) => f.key));
+  const byKey = new Map(frames.map((f) => [f.key, f]));
+  if (byKey.size !== frames.length) throw new Error("duplicate ui key");
+  const { placed, w: sheetW, h: sheetH } = pack(frames, 256);
+  const sheet = new Uint8Array(sheetW * sheetH);
+  const atlasFrames: Record<string, Frame & { borders?: Borders }> = {};
+  const dir = join(ROOT, "ui");
+  mkdirSync(join(dir, "slices"), { recursive: true });
+  for (const p of placed.sort((a, b) => a.key.localeCompare(b.key))) {
+    const f = byKey.get(p.key);
+    if (!f) throw new Error(`lost ${p.key}`);
+    blit(sheet, sheetW, p.img, p.w, p.h, p.x, p.y);
+    atlasFrames[p.key] = {
+      frame: { x: p.x, y: p.y, w: p.w, h: p.h },
+      rotated: false,
+      trimmed: false,
+      spriteSourceSize: { x: 0, y: 0, w: p.w, h: p.h },
+      sourceSize: { w: p.w, h: p.h },
+      anchor: { x: p.ax / p.w, y: p.ay / p.h },
+      ...(f.borders ? { borders: f.borders } : {}),
+    };
+    if (f.slice === true) {
+      const small = compactPalette(p.img);
+      writeFileSync(join(dir, "slices", `${p.key.replace(/\//g, "-")}.png`), encodeIndexedPng(p.w, p.h, small.pixels, small.palette));
+    }
+  }
+  writeFileSync(join(dir, "ui.png"), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
+  const atlas = {
+    frames: atlasFrames,
+    meta: {
+      app: "omega-share assets/src/build.ts",
+      version: "1",
+      image: "ui.png",
+      format: "RGBA8888",
+      size: { w: sheetW, h: sheetH },
+      scale: "1",
+      omega: {
+        license: "CC-BY-SA-4.0",
+        uiScale: 2,
+        roomScale: 1,
+        // Name tags sit bottom-centre at (floor x, floor y − tagLift): 2 px over the tallest avatar (Pip's pom-pom).
+        tagLift: { idle: 48, sit: 46 },
+        tokens: uiTokens(),
+      },
+    },
+  };
+  writeFileSync(join(dir, "ui.json"), JSON.stringify(atlas, null, 1) + "\n");
+  const rects = Object.fromEntries(Object.entries(atlasFrames).map(([k, f]) => [k, f.frame]));
+  const borders: Record<string, Borders> = {};
+  for (const f of frames) if (f.borders) borders[f.key] = f.borders;
+  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders));
+  const bg = colorIndex("wall", 1);
+  const big = upscale(sheet, sheetW, sheetH, 4).map((v) => (v === 0 ? bg : v));
+  writeFileSync(join(ROOT, "preview", "ui-sheet@4x.png"), encodeIndexedPng(sheetW * 4, sheetH * 4, big, PALETTE));
+}
+
+/** Re-index a tiny image to just the colours it uses (index 0 stays transparent); saves ~200 B of PLTE per file. */
+function compactPalette(img: Uint8Array): { pixels: Uint8Array; palette: RGBA[] } {
+  const map = new Map<number, number>([[0, 0]]);
+  const palette: RGBA[] = [PALETTE[0] ?? { r: 0, g: 0, b: 0, a: 0 }];
+  const pixels = img.map((v) => {
+    let i = map.get(v);
+    if (i === undefined) {
+      i = palette.length;
+      map.set(v, i);
+      const col = PALETTE[v];
+      if (!col) throw new Error(`index ${String(v)} not in palette`);
+      palette.push(col);
+    }
+    return i;
+  });
+  return { pixels, palette };
+}
+
+/** Colour tokens for DOM text and flat fills; `ui/reference.css` mirrors these. */
+function uiTokens(): Record<string, string> {
+  return {
+    page: RAMPS.outline[1],
+    panel: RAMPS.charcoal[2],
+    field: RAMPS.night[2],
+    text: RAMPS.cream[0],
+    muted: RAMPS.lilac[0],
+    onPrimary: RAMPS.outline[1],
+    accent: RAMPS.mustard[1],
+    error: RAMPS.blush[0],
+    ok: RAMPS.teal[0],
+    bubbleText: RAMPS.outline[1],
+    disabledText: RAMPS.cream[2],
+  };
+}
+
+function slicesFiles(): string[] {
+  return readdirSync(join(ROOT, "ui", "slices")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/slices/${n}`);
+}
+
 function report(): void {
   let total = 0;
-  for (const f of ["avatars/avatars.png", "avatars/avatars.json", "room/room.png", "room/room.json"]) {
+  for (const f of ["avatars/avatars.png", "avatars/avatars.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", ...slicesFiles()]) {
     const buf = readFileSync(join(ROOT, f));
     const size = f.endsWith(".png") ? buf.length : gzipSync(buf, { level: 9 }).length;
     total += size;
@@ -435,5 +534,6 @@ mkdirSync(join(ROOT, "src", "moodboards"), { recursive: true });
 const avatarImages = buildAvatars();
 buildScene(avatarImages);
 buildRoom(avatarImages);
+buildUi(avatarImages);
 console.log(`palette: ${String(PALETTE.length - 1)} colours`);
 report();
