@@ -121,9 +121,9 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 
 | Key | Frames | Notes |
 |---|---|---|
-| `walk/<id>/<dir>/<0-3>` | 4 per dir | Contact → passing → contact → passing. The body rises 1 px on passing frames, the supporting sole is always on y 60, and the near/far arm swings against the legs. |
+| `walk/<id>/<dir>/<0-3>` | 4 per dir | Contact (kick-up) → passing → contact (open V) → passing. The body rises 1 px on passing frames, the supporting sole is always on y 60, and both arms swing against the legs (Kiki's popcorn arm stays put). |
 | `breathe/<id>/<pose>/<dir>/1` | 1 per pose × dir | Breathing out: the head settles 1 px onto the collar. Breathing in is the set (a) frame `<id>/<pose>/<dir>/0`. |
-| `wave/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | Arm up beside the head, open hand rocking. Standing and seated, all four dirs (seated viewers wave from behind too). |
+| `wave/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | One arm (the other at rest): `0` forearm upright, hand high; `1` forearm 45° out, hand at cheek height. Standing and seated, all four dirs (seated viewers wave from behind too). |
 | `emote/<heart\|laugh\|question\|exclaim\|clap>/<0-2>` | 3 each, 16×16 | `0` pop-in, `1` settled, `2` pulse. Anchor = bottom centre `(8, 16)`. |
 
 - **`meta.omega.anims`** is the source of truth: `<name> → { frames: key[], ms: number[], loop }`. Names are
@@ -147,7 +147,7 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 |---|---|
 | `avatars/avatars.png` | 4 426 |
 | `avatars/avatars.json` | 24 075 raw / 1 492 gz |
-| `avatars/motion.png` (set d, lazy) | 14 189 |
+| `avatars/motion.png` (set d, lazy) | 14 423 |
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
 | `room/room.png` | 8 947 |
 | `room/room.json` | 13 829 raw / 1 192 gz |
@@ -155,7 +155,7 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 | `ui/ui.json` | 14 216 raw / 1 208 gz |
 | `ui/slices/*.png` (21 files, palettes trimmed to the colours used) | 3 506 |
 | `ui/reference.css` (if ported as-is) | 6 998 raw / 2 015 gz |
-| **total shipped art** | **≈ 43.9 KB of 300 KB** (43 908 B; 25 931 B without the lazy set d) |
+| **total shipped art** | **≈ 44.1 KB of 300 KB** (44 142 B; 25 931 B without the lazy set d) |
 
 "gz" is zlib **level 9** with no file name (what `build.ts` prints; `gzip -9nc <file> | wc -c` agrees within 4 B).
 Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B more per file, e.g. 1 227 for `ui.json`, 2 034 for `reference.css`.

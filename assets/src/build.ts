@@ -638,7 +638,7 @@ function buildMotion(base: Map<string, Uint8Array>): void {
       const keys: string[] = [];
       for (let n = 0; n < WALK_FRAMES; n++) {
         const key = `walk/${a.id}/${dir}/${String(n)}`;
-        cell(key, avatarCell(a, "idle", dir, walkMotion(viewOf(dir), n)), 0);
+        cell(key, avatarCell(a, "idle", dir, walkMotion(viewOf(dir), n, a.holds === true)), 0);
         keys.push(key);
       }
       anims[`walk/${a.id}/${dir}`] = { frames: keys, ms: keys.map(() => WALK_FRAME_MS), loop: true };
@@ -800,10 +800,10 @@ function buildMotionScene(sprites: Sprites): void {
     emotes,
   });
   const actors: Actor[] = [
-    walker("juno", "se", 1, 2, 1, 1, [["exclaim", 2600]]),
+    walker("juno", "se", 1, 2, 1, 1, [["exclaim", 450], ["clap", 2800]]),
     walker("pip", "nw", 5, 0, -1, -1, [["question", 300]]),
-    sitter("kiki", "ne", 1, 4, 800, 99999, [["heart", 150], ["clap", 2800]]),
-    sitter("mo", "se", 4, 4, 0, 0, [["laugh", 1800]]),
+    sitter("kiki", "ne", 1, 4, 800, 99999, [["heart", 150], ["clap", 2600]]),
+    sitter("mo", "se", 4, 4, 0, 0, [["laugh", 1100]]),
   ];
   const render1 = (t: number): Uint8Array => {
     const img = new Uint8Array(W * H).fill(colorIndex("night", 2));

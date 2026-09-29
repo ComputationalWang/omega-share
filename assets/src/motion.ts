@@ -13,15 +13,15 @@ export const WALK_TILES_PER_CYCLE = 1;
 // Legs are 16 wide, stamped at the torso x. Front = facing SE: toes point right, and a foot lower on
 // screen is closer to the camera, so the forward (SE) foot is the lower one. Back = facing NE: the forward foot is the higher one.
 const WALK_FRONT: readonly (readonly string[])[] = [
-  // 0 contact: near leg forward and planted, far leg trailing with the heel up.
+// 0 contact (depth): near leg forward and planted, far leg kicked up behind it (sole 4 px off the floor).
   [
     "....LLL..lll....",
     "....LLL..lll....",
     "....LLL..lll....",
-    "....LLL..lll....",
-    ".....LLL.lll....",
-    ".....LLL.fff....",
-    ".....LLL.ffff...",
+    "....LLL...lll...",
+    ".....LLL..ffff..",
+    ".....LLL..fffff.",
+    ".....LLL........",
     ".....LLL........",
     ".....FFFF.......",
     ".....FFFFF......",
@@ -40,18 +40,18 @@ const WALK_FRONT: readonly (readonly string[])[] = [
     "....FFFF........",
     "....FFFFF.......",
   ],
-  // 2 contact: far leg forward and planted, near leg trailing with the heel up.
+// 2 contact (open V): far foot forward and planted, near foot trailing 3 px out with the heel up.
   [
     "....LLL..lll....",
     "....LLL..lll....",
-    "....LLL..lll....",
-    "....LLL..lll....",
     "...LLL....lll...",
     "...LLL....lll...",
-    "...LLL....lll...",
-    "..FFFF....lll...",
-    "..FFFFF...ffff..",
-    "..........fffff.",
+    "..LLL......lll..",
+    ".LLL.......lll..",
+    "FFFF.......lll..",
+    "FFF........lll..",
+    "...........ffff.",
+    "...........fffff",
   ],
   // 3 passing (lift 1): far leg straight, near foot swinging through.
   [
@@ -70,18 +70,18 @@ const WALK_FRONT: readonly (readonly string[])[] = [
 ];
 
 const WALK_BACK: readonly (readonly string[])[] = [
-  // 0 contact: near (right) leg forward, so its heel lands higher; far leg trailing toward the camera.
+// 0 contact (open V): near (right) foot forward, landing high; far foot trailing out toward the camera.
   [
     "....lll..LLL....",
     "....lll..LLL....",
-    "....lll..LLL....",
-    "....lll..LLL....",
     "...lll....LLL...",
     "...lll....LLL...",
-    "...lll....LLL...",
-    "...lll....FFF...",
-    "...fff....FFF...",
-    "...fff..........",
+    "..lll......LLL..",
+    "..lll......LLL..",
+    ".lll.......FFF..",
+    ".lll.......FFF..",
+    ".fff............",
+    ".fff............",
   ],
   // 1 passing (lift 1): near leg straight, far foot lifted through.
   [
@@ -97,16 +97,16 @@ const WALK_BACK: readonly (readonly string[])[] = [
     ".........FFF....",
     ".........FFF....",
   ],
-  // 2 contact: far (left) leg forward and high, near leg trailing with its heel toward the camera.
+// 2 contact (depth): far (left) leg kicked up and away (sole 4 px off the floor), near leg planted.
   [
     "....lll..LLL....",
     "....lll..LLL....",
     "....lll..LLL....",
-    "....lll..LLL....",
-    ".....lll.LLL....",
     ".....lll.LLL....",
     ".....fff.LLL....",
     ".....fff.LLL....",
+    ".........LLL....",
+    ".........LLL....",
     ".........FFF....",
     ".........FFF....",
   ],
@@ -126,25 +126,28 @@ const WALK_BACK: readonly (readonly string[])[] = [
   ],
 ];
 
-/** The arm on the template's left (near arm facing SE, far arm facing NE). It's never the arm holding
- *  Kiki's popcorn, so every avatar can swing and wave it. Role letter per view: near arm T, far arm r. */
-const armRole = (view: View): string => (view === "front" ? "T" : "r");
+/** Arm role letters by template side: facing SE the left arm is the near one (T), facing NE it's the far one (r). */
+const armRoles = (view: View): { left: string; right: string } => (view === "front" ? { left: "T", right: "r" } : { left: "r", right: "T" });
 
-/** Arm swing, opposite to the legs: the hand rises 1 px when the arm swings forward (foreshortened)
- *  and drops back 1 px out from the body when it swings back. */
-function armSwing(view: View, n: number): Stamp[] {
-  const a = armRole(view);
-  // Which way the arm swings on each contact frame depends on which leg is forward.
-  const forward = view === "front" ? n === 2 : n === 0;
+/** Arm swing against the legs. The arm swinging toward the camera extends 1 row (hand lower); the one swinging away
+ *  foreshortens 2 rows (hand tucked up), so the hands sit 3 px apart. On contact 0 the left arm tucks and the right extends,
+ *  on contact 2 the reverse (the same rule in both views, because "toward the camera" flips with the view). */
+function armSwing(view: View, n: number, holds: boolean): Stamp[] {
   if (n === 1 || n === 3) return [];
-  if (forward) return [{ x: 1, y: 7, rows: ["SS", "__"] }];
-  return [{ x: 0, y: 6, rows: [`${a}${a}_`, `${a}${a}_`, "SS_"] }];
+  const r = armRoles(view);
+  const tuck = (x: number, e: number): Stamp[] => [{ x: e, y: 7, rows: ["____", "____"] }, { x, y: 6, rows: ["SS"] }];
+  const extend = (x: number, arm: string): Stamp[] => [{ x, y: 8, rows: [arm + arm, "SS"] }];
+  const leftTucks = n === 0;
+  const out: Stamp[] = leftTucks ? tuck(1, -1) : extend(1, r.left);
+  // Kiki's right hand holds the popcorn bucket, so that arm stays put.
+  if (!holds) out.push(...(leftTucks ? extend(13, r.right) : tuck(13, 13)));
+  return out;
 }
 
-export function walkMotion(view: View, n: number): Motion {
+export function walkMotion(view: View, n: number, holds = false): Motion {
   const legs = (view === "front" ? WALK_FRONT : WALK_BACK)[n];
   if (!legs) throw new Error(`no walk frame ${String(n)}`);
-  return { legs, lift: n % 2 === 1 ? 1 : 0, after: armSwing(view, n) };
+  return { legs, lift: n % 2 === 1 ? 1 : 0, after: armSwing(view, n, holds) };
 }
 export const WALK_FRAMES = WALK_FRONT.length;
 
@@ -153,17 +156,15 @@ export const BREATHE: Motion = { headDrop: 1 };
 /** Breathe loop: [in (set a /0), out]. Long and slow so a room full of sitters doesn't twitch. */
 export const BREATHE_MS: readonly [number, number] = [1400, 1000];
 
-/** Erase the hanging arm (Mo's wider sleeve too), then raise it: upper arm out from the shoulder, elbow bent,
- *  forearm up beside the head (never over it), open hand rocking out and in. */
+/** One-arm wave with the template-left arm (never Kiki's popcorn hand); the other arm stays at rest. The upper arm goes out
+ *  from the shoulder and the forearm swings between upright (hand high beside the head) and 45° out (hand at cheek height):
+ *  the hand moves 5 px between frames, so the wave reads at 1×. */
 function raisedArm(view: View, n: number): Stamp[] {
-  const a = armRole(view);
-  const hand = n === 0 ? ["SS.....", "SSS....", "SSSS...", ".SSS..."] : ["..SS...", ".SSS...", "SSSS...", ".SSS..."];
-  const arm = [".AA.....", ".AA.....", ".AA.....", ".AA.....", ".AA.....", ".AAA....", ".AAAAAA.", "..AAAAAA"].map((r) => r.replace(/A/g, a));
-  return [
-    { x: -1, y: 4, rows: ["____", "____", "____", "____", "____"] },
-    { x: -6, y: -10, rows: hand },
-    { x: -6, y: -6, rows: arm },
-  ];
+  const a = armRoles(view).left;
+  const up = ["SS......", "SSS.....", "SSSS....", ".SSS....", ".AA.....", ".AA.....", ".AA.....", ".AA.....", ".AA.....", ".AAA....", ".AAAA...", "..AAAAA.", "...AAAAA"];
+  const out = ["SS......", "SSS.....", "SSS.....", ".AA.....", ".AAA....", "..AAA...", "..AAAAA.", "...AAAAA"];
+  const rows = (n === 0 ? up : out).map((r) => r.replace(/A/g, a));
+  return [{ x: -1, y: 4, rows: ["____", "____", "____", "____", "____"] }, { x: -6, y: 1 - rows.length, rows }];
 }
 export function waveMotion(view: View, n: number): Motion {
   return { after: raisedArm(view, n) };
@@ -193,8 +194,8 @@ export interface EmoteDef {
 const HEART: EmoteDef = {
   id: "heart",
   label: "Heart",
-  roles: { H: { ramp: "pink", hi: true, group: "H" }, w: { ramp: "cream", tone: 0, group: "H" } },
-  pop: [".HH.HH.", "HwHHHHH", "HHHHHHH", ".HHHHH.", "..HHH..", "...H..."],
+  roles: { H: { ramp: "pink", group: "H" }, w: { ramp: "pink", tone: 0, group: "H" } },
+  pop: [".HH...HH.", "HHHH.HHHH", "HwHHHHHHH", "HHHHHHHHH", ".HHHHHHH.", "..HHHHH..", "...HHH...", "....H...."],
   art: [
     ".HHH...HHH.",
     "HHHHH.HHHHH",
@@ -227,12 +228,12 @@ const LAUGH: EmoteDef = {
   id: "laugh",
   label: "Laugh",
   roles: {
-    Y: { ramp: "mustard", hi: true, group: "Y" },
+    Y: { ramp: "mustard", group: "Y" },
     E: { ramp: "outline", tone: 1, group: "Y" },
     p: { ramp: "pink", tone: 1, group: "Y" },
     t: { ramp: "glow", tone: 1, group: "Y" },
   },
-  pop: [".YYYYY.", "YEYYYEY", "YYYYYYY", "YEEEEEY", "YYEpEYY", ".YYYYY."],
+  pop: ["..YYYYY..", ".YYYYYYY.", "YYEYYYEYY", "YEYEYEYEY", "YYYYYYYYY", "YYEEEEEYY", ".YYEppEY.", "..YYYYY.."],
   art: [
     "...YYYYY...",
     ".YYYYYYYYY.",
@@ -264,8 +265,8 @@ const LAUGH: EmoteDef = {
 const QUESTION: EmoteDef = {
   id: "question",
   label: "Question",
-  roles: { Q: { ramp: "teal", hi: true } },
-  pop: [".QQQ.", "QQ.QQ", "...QQ", "..QQ.", ".....", "..QQ."],
+  roles: { Q: { ramp: "teal" } },
+  pop: [".QQQQ.", "QQQ.QQ", "....QQ", "...QQ.", "..QQ..", "......", "..QQ..", "..QQ.."],
   art: [
     "..QQQQ..",
     ".QQQQQQ.",
@@ -298,39 +299,27 @@ const QUESTION: EmoteDef = {
 const EXCLAIM: EmoteDef = {
   id: "exclaim",
   label: "Surprise",
-  roles: { X: { ramp: "rust", hi: true } },
-  pop: ["XX", "XX", "XX", "..", "XX"],
+  roles: { X: { ramp: "rust" } },
+  pop: ["XX", "XX", "XX", "XX", "XX", "..", "XX", "XX"],
   art: [".XX.", "XXXX", "XXXX", "XXXX", ".XX.", ".XX.", ".XX.", "....", ".XX.", ".XX."],
-  // A jolt: taller, with two shock lines.
-  accent: [
-    "..X....XX....X..",
-    "...X..XXXX..X...",
-    "......XXXX......",
-    "......XXXX......",
-    "......XXXX......",
-    ".......XX.......",
-    ".......XX.......",
-    ".......XX.......",
-    "................",
-    ".......XX.......",
-    ".......XX.......",
-  ].map((r) => r.slice(2, 14)),
+  // A jolt: one size up.
+  accent: [".XXXX.", "XXXXXX", "XXXXXX", "XXXXXX", ".XXXX.", "..XX..", "..XX..", "..XX..", "......", "..XX..", "..XX.."],
 };
 
 const CLAP: EmoteDef = {
   id: "clap",
   label: "Clap",
-  roles: { h: { ramp: "cream", hi: true }, c: { ramp: "mustard", tone: 1 }, y: { ramp: "mustard", tone: 0 } },
-  pop: ["hh..hh", ".hhhh.", ".c..c."],
-  // Palms open in a V.
+  roles: { h: { ramp: "cream" }, c: { ramp: "mustard", tone: 1 }, y: { ramp: "mustard", tone: 0 } },
+  pop: ["hh.....hh", "hhh...hhh", ".hhh.hhh.", "..hh.hh..", "..cc.cc.."],
+  // Palms open in a V, fingers split.
   art: [
-    "hh........hh",
-    "hhh......hhh",
+    "h.h......h.h",
     "hhhh....hhhh",
+    "hhhh....hhhh",
+    "hhhhh..hhhhh",
     ".hhhh..hhhh.",
     "..hhh..hhh..",
-    "..hhh..hhh..",
-    "...cc..cc...",
+    "..cc....cc..",
   ],
   // Palms together, with a burst.
   accent: [

@@ -147,6 +147,8 @@ export interface AvatarDef {
   swatch: RampName;
   roles: RoleMap;
   overlays: readonly Overlay[];
+  /** The template-right hand holds a prop (Kiki's popcorn), so motion leaves that arm alone. */
+  holds?: boolean;
 }
 
 const face = (skin: RampName): RoleMap => ({
@@ -416,6 +418,7 @@ const KIKI: AvatarDef = {
   label: "Kiki",
   blurb: "Pink twin buns, lilac pinafore, never without a bucket of popcorn.",
   swatch: "lilac",
+  holds: true,
   roles: {
     ...face("skinTan"),
     T: { ramp: "lilac", hi: true, group: "T" },

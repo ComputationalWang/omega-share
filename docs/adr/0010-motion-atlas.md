@@ -7,6 +7,7 @@
 - Frame keys are namespaced by animation: `walk/<id>/<dir>/<n>`, `breathe/<id>/<pose>/<dir>/1`, `wave/<id>/<pose>/<dir>/<n>`, `emote/<emoteId>/<n>`. `walk`, `breathe`, `wave` and `emote` join the reserved prefixes of ADR 0008. The asset build enforces cross-set uniqueness.
 - Avatar cells keep the set (a) cell (32×64) and anchor (floor point `(16, 61)`). Emote cells are 16×16, anchored bottom-centre.
 - Timing lives in the atlas: `meta.omega.anims[name] = { frames: key[], ms: number[], loop: boolean }`. Pixi's native `animations` map repeats the frame lists where every frame is in this sheet (all but `breathe/*`, whose first frame is the set (a) `/0` frame).
+- Size: `motion.png` ≈ 14.4 KB and `motion.json` 3 788 B gzipped (87 KB raw). The duplicate Pixi `animations` map stays, because it's well under 10 KB gzipped.
 - Walking speed is part of the contract: `meta.omega.walk = { frameMs: 150, tilesPerCycle: 1, stepPx: {x: 8, y: 4} }`.
 
 **Why:** one extra ~18 KB request that's off the critical path, instead of growing the sheet every room loads. Durations in the atlas let art change the timing without code changes. Cross-sheet keys work because Pixi caches textures globally by key.
