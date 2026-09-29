@@ -8,6 +8,7 @@ bun run e2e                        # smoke/e2e specs (e2e/**/*.e2e.ts)
 bun run perf                       # builds apps, runs perf checks, prints the budget report
 bun run perf --no-build            # reuse existing builds
 bun run perf --strict              # pending budgets also fail
+bun run perf --soak                # also the 10 min JS heap soak (post-merge full suite); OMEGA_SOAK_MS shortens it, but a short soak stays PENDING
 ```
 
 Specs are named `*.e2e.ts` / `*.perf.ts` (not `*.spec.ts`) so `bun test` doesn't pick them up.
@@ -32,4 +33,4 @@ Specs for pieces that haven't landed yet are `test.fixme` (e2e) or reported as P
 - **Server** (OME-5): `dev` script reads `PORT`.
 
 ## Perf report
-`bun run perf` writes `perf/results/report.md` and `report.json` (git-ignored) and exits 1 if any budget fails. Budgets live in `perf/budgets.ts`. A unit test checks them against `docs/perf-budgets.md`, so edit both together.
+`bun run perf` writes `perf/results/report.md` and `report.json` (git-ignored) and exits 1 if any budget fails. Budgets live in `perf/budgets.ts`. A unit test checks them against `docs/perf-budgets.md`, so edit both together. Every row in the doc needs a budget (unmeasured ones report PENDING). The load test (`perf/load.perf.ts`) fills the room to 25 with `startTraffic` bots from `support/bots.ts`, which chat, sit/stand and sample relay latency.
