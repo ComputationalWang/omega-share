@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
-import { EmbedSchema, canonicalizeEmbed } from "../src/index.ts";
+import { EmbedSchema, canonicalizeEmbed } from "../src/index";
 
 const ID = "dQw4w9WgXcQ";
 const CANONICAL = `https://www.youtube.com/embed/${ID}`;
@@ -99,6 +99,7 @@ describe("EmbedSchema", () => {
     ["url not canonical", { provider: "youtube", videoId: ID, url: `https://youtu.be/${ID}` }],
     ["url for another id", { provider: "youtube", videoId: ID, url: "https://www.youtube.com/embed/aaaaaaaaaaa" }],
     ["arbitrary iframe url", { provider: "youtube", videoId: ID, url: "https://evil.example/" }],
+    ["reserved id", { provider: "youtube", videoId: "videoseries", url: "https://www.youtube.com/embed/videoseries" }],
     ["missing url", { provider: "youtube", videoId: ID }],
     ["null", null],
   ];
