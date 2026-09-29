@@ -113,6 +113,27 @@ describe("CORS", () => {
   });
 });
 
+describe("readiness", () => {
+  test("GET / answers 200 so process supervisors (Playwright webServer) can see the server is up", async () => {
+    const res = await fetch(`${t.http}/`);
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("requests without an Origin (curl, server-to-server)", () => {
+  test("may share and connect: they are not a cross-site risk", async () => {
+    const res = await fetch(`${t.http}/rooms/lobby/share`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: WATCH_URL }),
+    });
+    expect(res.status).toBe(200);
+    const c = await open();
+    c.send({ type: "join", nickname: "curl", avatar: 0 });
+    expect((await c.next("snapshot")).room.embed).toEqual(CANONICAL);
+  });
+});
+
 describe("GET /rooms", () => {
   test("lists the default room with member and seated counts", async () => {
     const empty = v.parse(RoomListResponseSchema, await (await fetch(`${t.http}/rooms`)).json());
@@ -305,15 +326,18 @@ describe("WebSocket /rooms/:id/ws", () => {
 describe("room capacity (ADR 0005)", () => {
   test(`the ${String(MAX_ROOM_MEMBERS + 1)}th member gets room-full and is closed; a freed slot can be reused`, async () => {
     const members = await Promise.all(Array.from({ length: MAX_ROOM_MEMBERS }, (_, i) => join(`m${String(i)}`)));
-    expect(members.at(-1)?.snapshot.room.members).toHaveLength(MAX_ROOM_MEMBERS);
+    const first = members[0];
+    const last = members.at(-1);
+    if (first === undefined || last === undefined) throw new Error("no members joined");
+    expect(last.snapshot.room.members).toHaveLength(MAX_ROOM_MEMBERS);
 
     const late = await open();
     late.send({ type: "join", nickname: "late", avatar: 0 });
     expect(await late.next("room-full")).toEqual({ type: "room-full" });
-    await late.closed;
-    await members[0]?.client.none("member-joined");
+    expect((await late.closed).code).toBe(1008);
+    await first.client.none("member-joined");
 
-    members[0]?.client.close();
+    first.client.close();
     const again = await join("again");
     expect(again.snapshot.room.members).toHaveLength(MAX_ROOM_MEMBERS);
   });

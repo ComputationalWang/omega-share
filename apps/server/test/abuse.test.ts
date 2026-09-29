@@ -30,6 +30,26 @@ describe("abuse limits", () => {
     expect(joined.socket.readyState).toBe(WebSocket.OPEN);
   });
 
+  test("leaving re-arms the join timeout", async () => {
+    t = start({ joinTimeoutMs: 100 });
+    const c = await open(t.ws());
+    c.send({ type: "join", nickname: "alice", avatar: 0 });
+    await c.next("snapshot");
+    await Bun.sleep(150);
+    expect(c.socket.readyState).toBe(WebSocket.OPEN);
+    c.send({ type: "leave" });
+    expect((await c.closed).code).toBe(1008);
+  });
+
+  test("a flooder gets one rate_limited notice per streak, not one per dropped frame", async () => {
+    t = start();
+    const a = await Client.join(t.ws(), "alice");
+    clients.push(a.client);
+    for (let i = 0; i < 100; i++) a.client.send({ type: "chat", text: `spam ${String(i)}` });
+    await a.client.next("error");
+    await a.client.none("error", 150);
+  });
+
   test("a message flood is cut off with rate_limited and not relayed past the burst", async () => {
     t = start();
     const a = await Client.join(t.ws(), "alice");
@@ -110,6 +130,22 @@ describe("abuse limits", () => {
     });
     expect(response.split("\r\n")[0]).toBe("HTTP/1.1 413 Payload Too Large");
     expect(response).toContain("payload_too_large");
+  });
+
+  test("the latency probe fails fast and cleans up when the server refuses its sockets", async () => {
+    t = start({ maxConnectionsPerIp: 2 });
+    const started = performance.now();
+    let error: unknown = null;
+    try {
+      await measureRelayLatency({ url: t.ws(), clients: 4, samples: 1, timeoutMs: 1500 });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(Error);
+    expect(String(error)).toMatch(/refused|closed/);
+    expect(performance.now() - started).toBeLessThan(1000);
+    await Bun.sleep(50);
+    expect(t.server.pendingWebSockets).toBe(0);
   });
 
   test("the latency probe refuses a run with no samples", async () => {
