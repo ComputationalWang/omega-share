@@ -147,7 +147,7 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 |---|---|
 | `avatars/avatars.png` | 4 426 |
 | `avatars/avatars.json` | 24 075 raw / 1 492 gz |
-| `avatars/motion.png` (set d, lazy) | 14 423 |
+| `avatars/motion.png` (set d, lazy) | 14 601 |
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
 | `room/room.png` | 8 947 |
 | `room/room.json` | 13 829 raw / 1 192 gz |
@@ -155,7 +155,7 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 | `ui/ui.json` | 14 216 raw / 1 208 gz |
 | `ui/slices/*.png` (21 files, palettes trimmed to the colours used) | 3 506 |
 | `ui/reference.css` (if ported as-is) | 6 998 raw / 2 015 gz |
-| **total shipped art** | **≈ 44.1 KB of 300 KB** (44 142 B; 25 931 B without the lazy set d) |
+| **total shipped art** | **≈ 44.3 KB of 300 KB** (44 320 B; 25 931 B without the lazy set d) |
 
 "gz" is zlib **level 9** with no file name (what `build.ts` prints; `gzip -9nc <file> | wc -c` agrees within 4 B).
 Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B more per file, e.g. 1 227 for `ui.json`, 2 034 for `reference.css`.

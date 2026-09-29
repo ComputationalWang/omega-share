@@ -129,14 +129,14 @@ const WALK_BACK: readonly (readonly string[])[] = [
 /** Arm role letters by template side: facing SE the left arm is the near one (T), facing NE it's the far one (r). */
 const armRoles = (view: View): { left: string; right: string } => (view === "front" ? { left: "T", right: "r" } : { left: "r", right: "T" });
 
-/** Arm swing against the legs. The arm swinging toward the camera extends 1 row (hand lower); the one swinging away
- *  foreshortens 2 rows (hand tucked up), so the hands sit 3 px apart. On contact 0 the left arm tucks and the right extends,
+/** Arm swing against the legs. The arm swinging toward the camera extends 2 rows (hand lower); the one swinging away
+ *  foreshortens 2 rows (hand tucked up), so the hands sit 4 px apart and the swing still reads at 1× in ne/nw. On contact 0 the left arm tucks and the right extends,
  *  on contact 2 the reverse (the same rule in both views, because "toward the camera" flips with the view). */
 function armSwing(view: View, n: number, holds: boolean): Stamp[] {
   if (n === 1 || n === 3) return [];
   const r = armRoles(view);
   const tuck = (x: number, e: number): Stamp[] => [{ x: e, y: 7, rows: ["____", "____"] }, { x, y: 6, rows: ["SS"] }];
-  const extend = (x: number, arm: string): Stamp[] => [{ x, y: 8, rows: [arm + arm, "SS"] }];
+  const extend = (x: number, arm: string): Stamp[] => [{ x, y: 8, rows: [arm + arm, arm + arm, "SS"] }];
   const leftTucks = n === 0;
   const out: Stamp[] = leftTucks ? tuck(1, -1) : extend(1, r.left);
   // Kiki's right hand holds the popcorn bucket, so that arm stays put.
@@ -230,10 +230,11 @@ const LAUGH: EmoteDef = {
   roles: {
     Y: { ramp: "mustard", group: "Y" },
     E: { ramp: "outline", tone: 1, group: "Y" },
-    p: { ramp: "pink", tone: 1, group: "Y" },
+    // The open mouth is the face's own edge shade, so eyes + mouth stay 2 tones (plum, dark mustard).
+    d: { ramp: "mustard", tone: 2, group: "Y" },
     t: { ramp: "glow", tone: 1, group: "Y" },
   },
-  pop: ["..YYYYY..", ".YYYYYYY.", "YYEYYYEYY", "YEYEYEYEY", "YYYYYYYYY", "YYEEEEEYY", ".YYEppEY.", "..YYYYY.."],
+  pop: ["..YYYYY..", ".YYYYYYY.", "YYEYYYEYY", "YEYEYEYEY", "YYYYYYYYY", "YYEEEEEYY", ".YYEdEYY.", "..YYYYY.."],
   art: [
     "...YYYYY...",
     ".YYYYYYYYY.",
@@ -242,8 +243,8 @@ const LAUGH: EmoteDef = {
     "YEYEYYYEYEY",
     "YYYYYYYYYYY",
     "YYEEEEEEEYY",
-    "YYEEEEEEEYY",
-    ".YYEpppEYY.",
+    "YYEdddddEYY",
+    ".YYEdddEYY.",
     ".YYYEEEYYY.",
     "...YYYYY...",
   ],
@@ -256,9 +257,10 @@ const LAUGH: EmoteDef = {
     ".YEEYYYYYEEY",
     "tYYYYYYYYYYY",
     "tYYEEEEEEEYY",
-    ".YYEEEEEEEYY",
-    ".YYYEpppEYY.",
-    "...YYYYYYY..",
+    ".YYEdddddEYY",
+    ".YYYEdddEYY.",
+    "...YYEEEYY..",
+    "....YYYYY...",
   ],
 };
 

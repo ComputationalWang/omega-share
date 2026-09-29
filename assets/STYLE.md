@@ -100,13 +100,14 @@ All three render the same scene with the same sprites. Only the palette and the 
   one is an **open V** (the forward foot planted, the trailing foot 3 px out with its heel up), and the other is a **kick-up**
   (the trailing sole 4 px off the floor). Facing the camera the forward foot sits lower on screen; facing away, higher. The body bobs 1 px up on the passing frames,
   and the supporting sole never leaves y 60, so the feet stay on the floor point while the sprite advances (8, 4) px per frame on the 2:1 axis.
-  Both arms swing against the legs: the arm swinging toward the camera extends 1 row, and the other tucks up 2 rows, so the hands sit 3 px apart.
+  Both arms swing against the legs: the arm swinging toward the camera extends 2 rows, and the other tucks up 2 rows, so the hands sit 4 px apart (enough to read in ne/nw at 1×).
   Kiki's popcorn arm (`holds`) stays put.
 - **Breathe:** the head settles 1 px onto the collar, 1.4 s in / 1 s out. That's subtle on purpose: it's the pose a whole room holds for two hours.
 - **Wave:** one arm only (the template-left arm, never the popcorn hand); the other arm hangs at rest. The upper arm goes out from the shoulder,
   and the forearm swings from upright (hand high beside the head) to 45° out (hand at cheek height). That's a 5 px hand travel per beat. Seated and standing, front and back.
+  **Don't flip it in code:** the sw and nw wave frames are already mirrored and re-shaded in the sheet (light stays top-left), so play each dir's own frames and never use `scale.x = -1`.
 - **Emote icons** are 16×16 flat stickers: one base tone per shape with the auto shade on the bottom/right edge, the same 1 px plum outline
-  as the avatars, and no highlight band. One hue each: heart pink, laugh mustard, question teal, surprise rust, clap cream + mustard cuffs.
+  as the avatars, and no highlight band. One hue each: heart pink, laugh mustard, question teal, surprise rust, clap cream + mustard cuffs. The laugh face keeps its eyes and open mouth to plum + the face's own dark mustard shade, so it stays a 3-colour face.
   Each has a pop-in (at least 8 px, so it never flickers as a speck), a settled frame and a pulse (a beat, a squeeze, a tilt, a jolt, palms together).
   They float just above the name tag and read at 1× on floor, rug and walls.
 
