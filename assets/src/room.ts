@@ -260,31 +260,45 @@ function solidsFrame(key: string, solids: readonly Solid[], outline: "all" | "to
 
 // ---------------------------------------------------------------- seats
 
-/** Velvet lounge armchair facing NE (toward −v): backrest on the +v side, toward the camera. */
-function armchairSolids(dir: "ne" | "nw"): { back: Solid[]; front: Solid[] } {
-  // Build facing NE, then swap axes for NW (facing −u). Swapping keeps the lighting correct.
+export type SeatDir = "ne" | "nw" | "se" | "sw";
+export const SEAT_DIRS: readonly SeatDir[] = ["ne", "nw", "se", "sw"];
+
+/** Velvet lounge armchair. Built facing NE (toward −v, backrest on the +v side toward the camera) or
+ *  SE (toward +u, backrest on the far −u side); NW and SW swap the u/v axes, which keeps the lighting correct. */
+function armchairSolids(dir: SeatDir): { back: Solid[]; front: Solid[] } {
+  const swap = dir === "nw" || dir === "sw";
   const B = (u0: number, u1: number, v0: number, v1: number, z0: number, z1: number, ramp: RampName, extra: Omit<Solid, "planes" | "ramp"> = {}): Solid =>
-    dir === "ne" ? box(u0, u1, v0, v1, z0, z1, ramp, extra) : box(v0, v1, u0, u1, z0, z1, ramp, swapPaint(extra));
+    swap ? box(v0, v1, u0, u1, z0, z1, ramp, swapPaint(extra)) : box(u0, u1, v0, v1, z0, z1, ramp, extra);
+  const facingCamera = dir === "se" || dir === "sw";
   const tuft = (p: Vec3, f: Facing): Paint | null => {
-    const along = dir === "ne" ? p.u : p.v;
-    const face: Facing = dir === "ne" ? "sw" : "se";
-    if (f === face && p.z > 8 && p.z < 14 && Math.abs(((along + 8) % 4) - 2) < 0.6 && Math.abs(((p.z - 9) % 4) - 2) < 0.6) return ["velvet", 2];
+    // Button tufts on the backrest's sitting face: sw (+v) when it faces NE, se (+u) when it faces SE.
+    const along = facingCamera ? p.v : p.u;
+    const face: Facing = facingCamera ? "se" : "sw";
+    if (f === face && p.z > 10 && p.z < 18 && Math.abs(((along + 8) % 4) - 2) < 0.6 && Math.abs(((p.z - 11) % 4) - 2) < 0.6) return ["velvet", 2];
     if (f === "top") return ["velvet", 0];
     return null;
   };
-  const piping = (p: Vec3, f: Facing): Paint | null => (f === "top" ? ["velvet", 0] : p.z > 4.2 && p.z < 5.2 ? ["mustard", 2] : null);
-  const legs = [
-    B(-5, -4, -5, -4, 0, 2, "wood"),
-    B(4, 5, -5, -4, 0, 2, "wood"),
-    B(-5, -4, 5, 6, 0, 2, "wood"),
-    B(4, 5, 5, 6, 0, 2, "wood"),
-  ];
-  const base = B(-6, 6, -6, 7, 2, 6, "velvet", { paint: piping });
-  const cushion = B(-4, 4, -5, 4, 6, SEAT_HEIGHT, "velvet", { tones: { top: 0, sw: 1, se: 2 } });
-  const armFar = B(-6, -4, -6, 7, 6, 11, "velvet", { paint: (_p, f) => (f === "top" ? ["velvet", 0] : null) });
-  const armNear = B(4, 6, -6, 7, 6, 11, "velvet", { paint: (_p, f) => (f === "top" ? ["velvet", 0] : null) });
-  const backrest = B(-6, 6, 5, 7, 6, 15, "velvet", { paint: tuft });
-  return { back: [...legs.slice(0, 2), base, cushion, armFar], front: [...legs.slice(2), armNear, backrest] };
+  // Mustard piping on the base; a shade seam where the cushion meets the base, so the seat reads as a cushion.
+  const piping = (p: Vec3, f: Facing): Paint | null => (f === "top" ? ["velvet", 0] : p.z > 3.2 && p.z < 4.2 ? ["mustard", 2] : null);
+  const cap = (_p: Vec3, f: Facing): Paint | null => (f === "top" ? ["velvet", 0] : null);
+  const seam = (p: Vec3, f: Facing): Paint | null => (f === "top" ? ["velvet", 0] : p.z < 5.6 ? ["velvet", 2] : null);
+  if (!facingCamera) {
+    const legs = [B(-5, -4, -5, -4, 0, 2, "wood"), B(4, 5, -5, -4, 0, 2, "wood"), B(-5, -4, 5, 6, 0, 2, "wood"), B(4, 5, 5, 6, 0, 2, "wood")];
+    const base = B(-6, 6, -6, 7, 2, 5, "velvet", { paint: piping });
+    const cushion = B(-4, 4, -5, 4, 5, SEAT_HEIGHT, "velvet", { tones: { top: 0, sw: 1, se: 2 }, paint: seam });
+    const armFar = B(-6, -4, -6, 7, 5, 11, "velvet", { paint: cap });
+    const armNear = B(4, 6, -6, 7, 5, 11, "velvet", { paint: cap });
+    const backrest = B(-6, 6, 5, 7, 5, 19, "velvet", { paint: tuft });
+    return { back: [...legs.slice(0, 2), base, cushion, armFar], front: [...legs.slice(2), armNear, backrest] };
+  }
+  // Facing SE: backrest on the far (−u) side, arms along u. Only the near (+v) arm draws over the sitter.
+  const legs = [B(-6, -5, -5, -4, 0, 2, "wood"), B(-6, -5, 4, 5, 0, 2, "wood"), B(4, 5, -5, -4, 0, 2, "wood"), B(4, 5, 4, 5, 0, 2, "wood")];
+  const base = B(-7, 6, -6, 6, 2, 5, "velvet", { paint: piping });
+  const backrest = B(-7, -5, -6, 6, 5, 19, "velvet", { paint: tuft });
+  const cushion = B(-5, 5, -4, 4, 5, SEAT_HEIGHT, "velvet", { tones: { top: 0, sw: 1, se: 2 }, paint: seam });
+  const armFar = B(-7, 6, -6, -4, 5, 11, "velvet", { paint: cap });
+  const armNear = B(-7, 6, 4, 6, 5, 11, "velvet", { paint: cap });
+  return { back: [...legs, base, backrest, cushion, armFar], front: [armNear] };
 }
 function swapPaint(extra: Omit<Solid, "planes" | "ramp">): Omit<Solid, "planes" | "ramp"> {
   const swapF = (f: Facing): Facing => (f === "sw" ? "se" : f === "se" ? "sw" : f);
@@ -297,7 +311,7 @@ function swapPaint(extra: Omit<Solid, "planes" | "ramp">): Omit<Solid, "planes" 
 
 /** Back + front layers of one armchair. The front keeps only pixels owned by front solids
  *  (plus their outline), so it can be drawn over a seated avatar. */
-function armchairFrames(dir: "ne" | "nw"): RoomFrame[] {
+function armchairFrames(dir: SeatDir): RoomFrame[] {
   const { back, front } = armchairSolids(dir);
   const all = [...back, ...front];
   const full = renderSolids(all, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all");
@@ -394,7 +408,7 @@ function tvFrame(): RoomFrame {
   const leaf1 = box(12.5, 15.5, -5.5, -2.5, 26, 32, "olive");
   const tapes = [0, 1, 2].map((i) => box(-6, 0, 8, 14, 20 + i * 2, 22 + i * 2, i === 1 ? "teal" : "charcoal", { tones: { top: 0, sw: 1, se: 2 } }));
   const r = renderSolids([console_, pot, leaf1, ...tapes, tv], CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay + 0, "all");
-  // Cool glow halo around the bezel, dithered (binary alpha only).
+  // Cool glow halo around the bezel (binary alpha only).
   const img = r.img;
   const inBezel = (x: number, y: number): boolean => x >= -168 && x < 168 && y >= -223 && y < -24;
   for (let py = 0; py < CANVAS.h; py++) {
@@ -408,8 +422,8 @@ function tvFrame(): RoomFrame {
       const dy = y < -223 ? -223 - y : y >= -24 ? y + 25 : 0;
       const d = Math.max(dx, dy);
       if (y >= -24) continue; // no halo below the TV (console / floor)
-      if (d >= 2 && d <= 3 && (px + py) % 2 === 0) img[i] = colorIndex("glow", 2);
-      else if (d >= 4 && d <= 6 && (px + py) % 4 === 0 && py % 2 === 0) img[i] = colorIndex("glow", 2);
+      // One defined 1 px glow line just off the outline; no dither speckle, so the frame edge stays clean.
+      if (d === 2) img[i] = colorIndex("glow", 2);
     }
   }
   return crop("tv/0", img, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay);
@@ -543,7 +557,7 @@ export function buildRoomFrames(): RoomFrame[] {
   frames.push(solidsFrame("wall/corner", [box(-8 - WALL_T, -8, -8 - WALL_T, -8, 0, WALL_H, "wall", { paint: (_p, f) => (f === "top" ? ["wall", 0] : null) })], "top"));
   frames.push(solidsFrame("wall/l/end", [box(-8 - WALL_T, -8, 7, 8, 0, WALL_H, "wall", { skip: ["se", "other"], paint: (_p, f) => (f === "top" ? ["wall", 0] : ["wall", 1]) })], "all", (x) => x < -32));
   frames.push(solidsFrame("wall/r/end", [box(7, 8, -8 - WALL_T, -8, 0, WALL_H, "wall", { skip: ["sw", "other"], paint: (_p, f) => (f === "top" ? ["wall", 0] : ["wall", 2]) })], "all", (x) => x >= 32));
-  frames.push(...armchairFrames("ne"), ...armchairFrames("nw"));
+  for (const d of SEAT_DIRS) frames.push(...armchairFrames(d));
   frames.push(tvFrame());
   frames.push(gridFrame("plant/0", PLANT, { x: 11, y: 27 }));
   frames.push(gridFrame("lamp/0", LAMP, { x: 10, y: 61 }));

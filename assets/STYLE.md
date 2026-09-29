@@ -49,7 +49,7 @@ All three render the same scene with the same sprites. Only the palette and the 
 |---|---|---|---|
 | `juno` | Big round cloud-puff hair | Mustard hoodie, charcoal trousers, cream trainers, deep skin | Headphones round the neck |
 | `pip` | Tall beanie + pom-pom | Striped teal jumper, navy jeans, light skin, ginger hair | Round glasses |
-| `mo` | Wide bucket-hat brim, broad shoulders | Rust bomber, olive hat, navy jeans, medium skin | Full beard |
+| `mo` | Wide bucket-hat brim, broad shoulders | Rust bomber, olive hat, navy jeans, medium skin | Trimmed beard in a flat brown mid-tone (`hairDark` highlight), so it separates from both skin and hair |
 | `kiki` | Twin buns (wide head) | Lilac pinafore, pink hair, charcoal tights, tan skin | Popcorn bucket |
 
 - Chibi proportions: head 16 px wide, standing height about 40 px (1.25 tiles).
@@ -73,6 +73,9 @@ All three render the same scene with the same sprites. Only the palette and the 
   a plant and a floor lamp. Wine-velvet club chairs face a wood-framed TV mounted across the corner above a media console.
 - **Construction:** room pieces are 3D boxes, ray-cast per pixel (`src/iso.ts`). Wall height is 212 px and thickness is 4 units.
   Chairs have a separate front layer (backrest + near armrest) that draws over the sitter.
+- **Armchair:** a 14 px backrest (6 px above the 11 px arms, so it reads as a club chair, not a pouf) with button tufts,
+  a 3 px seat cushion with a shade seam where it meets the mustard-piped base. Four facings: `ne`/`nw` face the TV
+  (backrest toward the camera, the sitter seen from behind); `se`/`sw` face the camera (backrest behind, the sitter's face visible).
 - **Palette additions for set (b):** `velvet` (chairs) and `night` (window sky, TV glass). That's 67 colours total, still one palette.
 
 ## UI chrome (set c)
@@ -84,6 +87,8 @@ All three render the same scene with the same sprites. Only the palette and the 
 - **Chunky keys:** buttons stand on a 2 px lip; pressed loses the lip and the label drops 2 px. Hover brightens by one ramp step.
   The focus indicator is the mustard outer ring (fields) or a cream outline (buttons), never colour alone. Errors are rust **plus** the warn icon.
 - **Scale:** page chrome is 2× (1 art px = 2 CSS px). Tags, bubbles and the seat cursor live in the room and are 1×, like the avatars.
+- **Seat cursor:** a 2 px band on the tile diamond, plum-stroked inside and out, so it holds on honey floor, gold rug and velvet.
+  State is never colour alone: corner brackets = free, closed ring = mine, dashed ring = taken.
 - **Type:** the system font, bold for actions. The only lettering is the "omega-share" wordmark: 2 px strokes, mustard + cream faces
   on a rust/cream-shade extrusion, and a teal hyphen.
 - **Icons** are 16×16 role-grid sprites, auto-shaded and auto-outlined exactly like the avatars, so they sit on either dark chrome or the honey floor.

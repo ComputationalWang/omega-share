@@ -1033,6 +1033,24 @@
     "idle": 48,
     "sit": 46
    },
+   "tagLiftByAvatar": {
+    "juno": {
+     "idle": 45,
+     "sit": 43
+    },
+    "pip": {
+     "idle": 48,
+     "sit": 46
+    },
+    "mo": {
+     "idle": 43,
+     "sit": 41
+    },
+    "kiki": {
+     "idle": 45,
+     "sit": 43
+    }
+   },
    "tokens": {
     "page": "#2b1d2f",
     "panel": "#332b3a",

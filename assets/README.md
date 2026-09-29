@@ -61,7 +61,8 @@ in `apps/web/src/layout.ts`. Place the sprite there, with no per-item offsets.
 | `wall/r/<plain\|poster0\|poster1\|sconce>` | 39×233 | `(col,0)` | Stands on the cell's top-right edge. `poster0` at col c needs `poster1` at c+1. |
 | `wall/corner` | | `(0,0)` | Top cap of the back corner. |
 | `wall/l/end`, `wall/r/end` | | `(0,9)`, `(9,0)` | Open wall ends at the front. |
-| `armchair/<ne\|nw>/back`, `…/front` | 52×36 | seat cell | Draw `back`, then the seated avatar, then `front`. Seat surface is 8 px above the anchor (`seatHeight`). |
+| `armchair/<ne\|nw>/back`, `…/front` | 52×36 | seat cell | Faces the TV (sitter seen from behind). Draw `back`, then the seated avatar, then `front`. Seat surface is 8 px above the anchor (`seatHeight`). |
+| `armchair/<se\|sw>/back`, `…/front` | 52×44 | seat cell | Faces the camera (sitter's face visible, use `sit/se` / `sit/sw`). Same three-layer draw; `front` is just the near armrest. For seats that face into the room rather than the TV. |
 | `tv/0` | 347×253 | `(0,0)` | Corner media console + wall-mounted TV + dithered glow. The screen is painted "off"; `meta.omega.tv.screen` is the iframe rect. |
 | `plant/0`, `lamp/0` | | any free cell | Floor props. |
 
@@ -93,7 +94,7 @@ exactly how to use them; copy the rules you need into `apps/web`. The slice file
 | `bubble/0` + `bubble/tail` | 16×16, 14×5 | 6 | Cream chat card. Centre the tail under it; its top 2 rows overlap the card's bottom 2 (anchor `(7,2)`). |
 | `tag/0`, `tag/self` | 12×12 | 4 | Name tag; `self` has a mustard rim. |
 | `picker/<idle\|hover\|selected>` | 20×20 | 7 | Avatar picker tile (a little dusk window). Put a portrait inside, bottom-aligned. |
-| `cursor/<free\|mine\|taken>` | 64×33 | — | Seat hover brackets on the 2:1 tile, room scale. Anchor `(32,16)` = tile centre. |
+| `cursor/<free\|mine\|taken>` | 64×33 | — | Seat cursor on the 2:1 tile, room scale, 2 px band with a plum stroke on both sides. The state reads without colour too: `free` = four corner brackets (cream), `mine` = closed ring (mustard), `taken` = dashed ring (rust). Anchor `(32,16)` = the seat tile's `cellCenter`; draw it under name tags. |
 | `icon/<send\|chat\|seat\|leave\|people\|share\|close\|warn\|tv>` | 16×16 | — | Outlined like the avatars. Anchor = centre. |
 | `dot/<online\|connecting\|offline>` | 8×8 | — | Connection lamps (teal / mustard / rust). |
 | `portrait/<juno\|pip\|mo\|kiki>` | 32×32 | — | Head-and-shoulders crops of `idle/se/0`; one shared eye line. |
@@ -104,6 +105,7 @@ exactly how to use them; copy the rules you need into `apps/web`. The slice file
 - **9-slices:** Pixi reads `borders` from the frame (`new NineSliceSprite({ texture })`). CSS:
   `border-image: url(slices/panel-0.png) 8 fill / calc(8 * var(--ui-px))`. Every edge and centre is flat colour, so `stretch` is seamless.
 - **Name tags** sit bottom-centre at `(floor x, floor y − meta.omega.tagLift[pose])` (`idle 48`, `sit 46`), 2 px over the tallest avatar.
+  To hug each head instead, use `meta.omega.tagLiftByAvatar[id][pose]` (2 px over that avatar's own top pixel; Pip's equals `tagLift`).
 - **Tokens** (`meta.omega.tokens`, mirrored as `--ui-*` in the CSS) are palette colours for text and flat fills. Text on cream/mustard is
   plum `#2b1d2f`; text on dark chrome is cream `#fff7ea`. Every text/fill pair in the tokens is ≥ 5:1 (WCAG AA).
 - System font stays (no webfont bytes). Only the wordmark is lettered.
@@ -112,12 +114,15 @@ exactly how to use them; copy the rules you need into `apps/web`. The slice file
 
 | File | Bytes |
 |---|---|
-| `avatars/avatars.png` | 4 428 |
+| `avatars/avatars.png` | 4 426 |
 | `avatars/avatars.json` | 24 075 raw / 1 492 gz |
-| `room/room.png` | 8 721 |
-| `room/room.json` | 12 488 raw / 1 147 gz |
-| `ui/ui.png` | 3 240 |
-| `ui/ui.json` | 13 978 raw / 1 161 gz |
-| `ui/slices/*.png` (21 files, palettes trimmed to the colours used) | 3 506 |
-| `ui/reference.css` (if ported as-is) | 7 000 raw / 2 029 gz |
-| **total shipped art** | **≈ 25.7 KB of 300 KB** |
+| `room/room.png` | 8 947 |
+| `room/room.json` | 13 829 raw / 1 192 gz |
+| `ui/ui.png` | 3 142 |
+| `ui/ui.json` | 14 216 raw / 1 208 gz |
+| `ui/slices/*.png` (21 files, palettes trimmed to the colours used) | 3 502 |
+| `ui/reference.css` (if ported as-is) | 6 998 raw / 2 015 gz |
+| **total shipped art** | **≈ 25.9 KB of 300 KB** (25 924 B) |
+
+"gz" is zlib **level 9** with no file name (what `build.ts` prints; `gzip -9nc <file> | wc -c` agrees within 4 B).
+Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B more per file, e.g. 1 227 for `ui.json`, 2 034 for `reference.css`.

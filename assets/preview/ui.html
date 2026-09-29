@@ -92,17 +92,19 @@
       <button class="ui-button secondary"><span class="ui-sprite ui-icon-leave"></span>Stand up</button>
     </div>
     <div class="stage ui-room">
-      <!-- tags/bubbles over the seated avatars of preview/room@1x.png (cells from layout.ts) -->
-      <span class="ui-tag" style="left:352px;top:286px">Ada</span>
+      <!-- seat cursors sit on the seat tile's anchor (cellCenter): mine = Wren's seat (2,4), free = empty (7,3), taken = Juniper's (3,7); drawn before the tags so tags stay on top -->
+      <span class="ui-seat-cursor mine" style="left:416px;top:332px"></span>
+      <span class="ui-seat-cursor" style="left:608px;top:396px"></span>
+      <span class="ui-seat-cursor taken" style="left:352px;top:396px"></span>
+      <!-- tags/bubbles over the seated avatars of preview/room@1x.png (cells from layout.ts); tag top = seat y − ui.json tagLiftByAvatar[id].sit -->
+      <span class="ui-tag" style="left:352px;top:289px">Ada</span>
       <span class="ui-tag self" style="left:416px;top:286px">Wren</span>
-      <span class="ui-tag" style="left:544px;top:286px">Moss</span>
-      <span class="ui-tag" style="left:608px;top:286px">Kit</span>
-      <span class="ui-tag" style="left:352px;top:350px">Juniper</span>
-      <span class="ui-tag" style="left:416px;top:350px">Oli</span>
+      <span class="ui-tag" style="left:544px;top:291px">Moss</span>
+      <span class="ui-tag" style="left:608px;top:289px">Kit</span>
+      <span class="ui-tag" style="left:352px;top:355px">Juniper</span>
+      <span class="ui-tag" style="left:416px;top:353px">Oli</span>
       <span class="ui-bubble" style="left:416px;top:262px">this bit is my favourite</span>
-      <span class="ui-bubble" style="left:608px;top:262px">shh!!</span>
-      <span class="ui-seat-cursor" style="left:512px;top:476px"></span>
-      <span class="ui-seat-cursor mine" style="left:608px;top:396px"></span>
+      <span class="ui-bubble" style="left:608px;top:265px">shh!!</span>
     </div>
     <form class="chat" onsubmit="return false">
       <input class="ui-input" placeholder="Say something…">

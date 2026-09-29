@@ -154,20 +154,29 @@ function picker(state: "idle" | "hover" | "selected"): UiFrame {
   return nine(`picker/${state}`, W, W, img, all(7));
 }
 
-// --- Seat cursor: corner brackets on the 2:1 tile diamond, with a plum drop shadow.
+// --- Seat cursor: a 2 px band on the 2:1 tile diamond, plum-stroked on both sides so it reads on the honey
+// floor, the gold rug and the velvet chairs alike. The state is carried by the line pattern as well as the
+// colour: free = four corner brackets, mine = a closed ring, taken = a dashed ring.
 function cursor(state: "free" | "mine" | "taken"): UiFrame {
   const W = 64, H = 33;
   const line = state === "free" ? c("cream", 0) : state === "mine" ? c("mustard", 0) : c("rust", 0);
   const img = new Uint8Array(W * H);
-  for (let y = 0; y < 32; y++) {
-    const hw = y < 16 ? (y + 1) * 2 : (32 - y) * 2;
-    for (const x of [32 - hw, 32 - hw + 1, 32 + hw - 2, 32 + hw - 1]) {
-      const dx = Math.abs(x + 0.5 - 32);
-      if (dx > 20 || dx < 12) img[y * W + x] = line;
+  const on = (x: number, y: number): boolean => {
+    const dx = Math.abs(x + 0.5 - 32);
+    const d = dx / 2 + Math.abs(y + 0.5 - 16);
+    if (d > 15.25 || d <= 13.75) return false;
+    if (state === "free") return dx > 20 || dx < 12;
+    if (state === "taken") return Math.floor(dx / 6) % 2 === 0;
+    return true;
+  };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (on(x, y)) img[y * W + x] = line;
+  // Plum stroke all round the band (4-connected), inside and out.
+  const lit = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < W && y < H && img[y * W + x] === line;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (img[y * W + x] !== T) continue;
+      if (lit(x + 1, y) || lit(x - 1, y) || lit(x, y + 1) || lit(x, y - 1)) img[y * W + x] = O;
     }
-  }
-  for (let y = H - 2; y >= 0; y--) {
-    for (let x = 0; x < W; x++) if (img[y * W + x] === line && img[(y + 1) * W + x] === T) img[(y + 1) * W + x] = O;
   }
   return { key: `cursor/${state}`, w: W, h: H, img, ax: 32, ay: 16, slice: true };
 }

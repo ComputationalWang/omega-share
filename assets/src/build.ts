@@ -6,7 +6,7 @@ import { gzipSync } from "node:zlib";
 import { AVATARS, BACK_DIRS, CELL, FLOOR, FRONT_DIRS, SEAT_HEIGHT, composeFrame, type Dir, type Pose } from "./avatars";
 import { PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedPng, type RGBA } from "./png";
-import { TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
+import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blit, render, upscale } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders } from "./ui";
 
@@ -320,7 +320,7 @@ function buildRoom(avatarImages: Map<string, Uint8Array>): void {
         wallHeight: WALL_H,
         layers: { floor: 0, wall: 1, back: 2, avatar: 3, front: 4 },
         tv: { frame: "tv/0", screen: TV_SCREEN },
-        seats: [{ frame: "armchair", dirs: ["ne", "nw"] }],
+        seats: [{ frame: "armchair", dirs: SEAT_DIRS }],
         layout,
       },
     },
@@ -330,6 +330,7 @@ function buildRoom(avatarImages: Map<string, Uint8Array>): void {
   const big = upscale(sheet, sheetW, sheetH, 2).map((v) => (v === 0 ? bg : v));
   writeFileSync(join(ROOT, "preview", "room-sheet@2x.png"), encodeIndexedPng(sheetW * 2, sheetH * 2, big, PALETTE));
   buildRoomScene(frames, avatarImages, layout);
+  buildSeatsPreview(frames, avatarImages);
 }
 
 /** The whole room exactly as the web lays it out (apps/web/src/layout.ts), with people in it. */
@@ -390,6 +391,28 @@ function buildRoomScene(frames: readonly RoomFrame[], avatars: Map<string, Uint8
   writeFileSync(join(ROOT, "preview", "room@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
 }
 
+/** Every armchair facing, empty and with a sitter, on a strip of floor (preview only, 4×). */
+function buildSeatsPreview(frames: readonly RoomFrame[], avatars: Map<string, Uint8Array>): void {
+  const W = 320, H = 136;
+  const img = new Uint8Array(W * H).fill(colorIndex("wall", 2));
+  const byKey = new Map(frames.map((f) => [f.key, f]));
+  const floor = byKey.get("floor/0");
+  const sitters = ["juno", "pip", "mo", "kiki"];
+  SEAT_DIRS.forEach((d, i) => {
+    for (const [row, who] of [[0, undefined], [1, sitters[i]]] as const) {
+      const x = 40 + i * 80, y = 52 + row * 64;
+      if (floor) blitAt(img, W, H, floor.img, floor.w, floor.h, x - floor.ax, y - floor.ay);
+      const back = byKey.get(`armchair/${d}/back`), front = byKey.get(`armchair/${d}/front`);
+      if (!back || !front) throw new Error(`missing armchair/${d}`);
+      blitAt(img, W, H, back.img, back.w, back.h, x - back.ax, y - back.ay);
+      const a = who === undefined ? undefined : avatars.get(`${who}/sit/${d}/0`);
+      if (a) blitAt(img, W, H, a, CELL.w, CELL.h, x - FLOOR.x, y - FLOOR.y);
+      blitAt(img, W, H, front.img, front.w, front.h, x - front.ax, y - front.ay);
+    }
+  });
+  writeFileSync(join(ROOT, "preview", "seats@4x.png"), encodeIndexedPng(W * 4, H * 4, upscale(img, W, H, 4), PALETTE));
+}
+
 function blitAt(dst: Uint8Array, dw: number, dh: number, src: Uint8Array, sw: number, sh: number, ox: number, oy: number): void {
   for (let y = 0; y < sh; y++) {
     for (let x = 0; x < sw; x++) {
@@ -418,6 +441,25 @@ function fakeVideo(img: Uint8Array, W: number, x0: number, y0: number, w: number
       img[(y0 + y) * W + x0 + x] = c;
     }
   }
+}
+
+/** Per avatar and pose: floor point minus the highest opaque row over every dir, plus a 2 px gap. */
+function tagLiftByAvatar(images: Map<string, Uint8Array>): Record<string, Record<Pose, number>> {
+  const out: Record<string, Record<Pose, number>> = {};
+  for (const a of AVATARS) {
+    const lift = (pose: Pose): number => {
+      let top: number = CELL.h;
+      for (const d of [...FRONT_DIRS, ...BACK_DIRS]) {
+        const img = images.get(`${a.id}/${pose}/${d}/0`);
+        if (!img) throw new Error(`missing ${a.id}/${pose}/${d}/0`);
+        const i = img.findIndex((v) => v !== 0);
+        if (i >= 0) top = Math.min(top, Math.floor(i / CELL.w));
+      }
+      return FLOOR.y - top + 2;
+    };
+    out[a.id] = { idle: lift("idle"), sit: lift("sit") };
+  }
+  return out;
 }
 
 /** Set (c): UI chrome atlas, plus each 9-slice/cursor as its own PNG for CSS `border-image`. */
@@ -465,6 +507,8 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
         roomScale: 1,
         // Name tags sit bottom-centre at (floor x, floor y − tagLift): 2 px over the tallest avatar (Pip's pom-pom).
         tagLift: { idle: 48, sit: 46 },
+        // Optional per-head lift (2 px over that avatar's own top pixel), so tags hug each head.
+        tagLiftByAvatar: tagLiftByAvatar(avatarImages),
         tokens: uiTokens(),
       },
     },
