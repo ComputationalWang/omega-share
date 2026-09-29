@@ -5,7 +5,7 @@
   "license": "AGPL-3.0-only",
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "typecheck": "bun run --filter '*' typecheck && tsc -p tsconfig.json",
+    "typecheck": "bun run --filter '*' typecheck && tsc -p tsconfig.json && tsc -p assets",
     "lint": "eslint .",
     "test": "bun test --pass-with-no-tests",
     "e2e": "bun run --filter @omega/extension build:e2e && playwright test --project=e2e",
