@@ -4,7 +4,7 @@ import { MAX_ROOM_MEMBERS, RoomListResponseSchema, ShareResponseSchema } from "@
 import { Client, EXTENSION_ORIGIN, SITE_ORIGIN, start, type TestServer } from "./helpers";
 
 const WATCH_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-const CANONICAL = { provider: "youtube", videoId: "dQw4w9WgXcQ", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" };
+const CANONICAL = { provider: "youtube", videoId: "dQw4w9WgXcQ", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" } as const;
 
 let t: TestServer;
 const clients: Client[] = [];
@@ -172,7 +172,7 @@ describe("WebSocket /rooms/:id/ws", () => {
     const a = await join("alice");
     const b = await join("bob");
     a.client.send({ type: "sit", seat: 0 });
-    const expected = { type: "seat-changed", memberId: a.snapshot.self, seat: 0 };
+    const expected = { type: "seat-changed", memberId: a.snapshot.self, seat: 0 } as const;
     expect(await a.client.next("seat-changed")).toEqual(expected);
     expect(await b.client.next("seat-changed")).toEqual(expected);
   });

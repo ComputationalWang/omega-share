@@ -69,8 +69,9 @@ export class Client {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
       const i = this.inbox.findIndex((m) => m.type === type);
-      if (i !== -1) {
-        const [msg] = this.inbox.splice(0, i + 1).slice(-1);
+      const msg = this.inbox[i];
+      if (msg !== undefined) {
+        this.inbox.splice(0, i + 1);
         return msg as Of<T>;
       }
       const left = deadline - Date.now();
@@ -86,10 +87,11 @@ export class Client {
     }
   }
 
-  /** Asserts no message of `type` arrives within `ms`. */
+  /** Asserts no message of `type` arrives within the next `ms`. */
   async none(type: ServerMessage["type"], ms = 100): Promise<void> {
+    const from = this.inbox.length;
     await Bun.sleep(ms);
-    if (this.inbox.some((m) => m.type === type)) throw new Error(`unexpected ${type}`);
+    if (this.inbox.slice(from).some((m) => m.type === type)) throw new Error(`unexpected ${type}`);
   }
 
   close(): void {

@@ -24,6 +24,6 @@ test(`relay latency with a full room of ${String(MAX_ROOM_MEMBERS)} stays within
   expect(result.p95).toBeLessThanOrEqual(BUDGET_MS);
 
   // The measurement leaves the room empty again.
-  const rooms = (await (await fetch(`${t.http}/rooms`)).json()) as unknown;
+  const rooms = (await (await fetch(`${t.http}/rooms`)).json());
   expect(rooms).toEqual({ rooms: [{ id: "lobby", memberCount: 0, seatedCount: 0 }] });
 });
