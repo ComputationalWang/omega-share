@@ -20,7 +20,7 @@ Run e2e/perf against `.output/chrome-mv3-e2e` (`OMEGA_EXTENSION_DIR`). It has ex
 The room dropdown has one room (`DEFAULT_ROOM_ID`) until the contract defines `GET /rooms`.
 
 ## Settings
-Options page → server URL (default `http://localhost:8787`), stored in `chrome.storage.local` under `serverBaseUrl`. It must be a bare `http(s)` origin. A non-default origin asks for that host permission at save time.
+Options page → server URL (default `http://localhost:8787`), stored in `chrome.storage.local` under `serverBaseUrl`. It must be a bare origin: `https://`, or `http://` only for `localhost`, `127.0.0.1` and `[::1]`. A non-default origin asks for that host permission at save time.
 
 ## Permissions
 `activeTab`, `scripting` (inject the scan on popup open), `storage` (server URL), host `http://localhost:8787/*` (the default server, so `fetch` needs no CORS). Other origins are optional and granted at runtime.
@@ -32,6 +32,7 @@ Options page → server URL (default `http://localhost:8787`), stored in `chrome
 | `embed-item` | one per embed (`data-video-id`), contains a radio input |
 | `embeds-loading` | shown while scanning |
 | `embeds-empty` | "No supported video found on this page." |
+| `embeds-unreadable` | "Can't read this tab." (chrome:// pages, the web store, a failed scan) |
 | `room-select` | room dropdown |
 | `share-button` | share the selected embed |
 | `share-status` | result; `data-state="ok" \| "error"` |

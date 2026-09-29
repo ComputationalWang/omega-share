@@ -1,5 +1,6 @@
 import { browser } from "wxt/browser";
-import { DEFAULT_SERVER_BASE_URL, SERVER_BASE_URL_KEY, hostPermissionPattern, parseServerBaseUrl, readServerBaseUrl } from "../../settings";
+import { saveServerBaseUrl } from "../../save-setting";
+import { DEFAULT_SERVER_BASE_URL, SERVER_BASE_URL_KEY, readServerBaseUrl } from "../../settings";
 
 function byId<T extends HTMLElement>(id: string, type: new () => T): T {
   const el = document.getElementById(id);
@@ -24,26 +25,17 @@ void browser.storage.local.get(SERVER_BASE_URL_KEY).then((items) => {
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  const parsed = parseServerBaseUrl(input.value);
-  if (!parsed.ok) {
-    show("error", parsed.message);
-    return;
-  }
-  const { origin } = parsed;
-  const previous = current;
-  // Request inside the click's user gesture. The default origin is already granted by the manifest.
-  const granted = origin === DEFAULT_SERVER_BASE_URL ? Promise.resolve(true) : browser.permissions.request({ origins: [hostPermissionPattern(origin)] });
-  void granted.then(async (ok) => {
-    if (!ok) {
-      show("error", `Permission to reach ${origin} was not granted.`);
-      return;
+  void saveServerBaseUrl(input.value, current, {
+    requestOrigin: (pattern) => browser.permissions.request({ origins: [pattern] }),
+    store: (origin) => browser.storage.local.set({ [SERVER_BASE_URL_KEY]: origin }),
+    removeOrigin: (pattern) => browser.permissions.remove({ origins: [pattern] }),
+  }).then((result) => {
+    if (result.ok) {
+      current = result.origin;
+      input.value = result.origin;
+      show("ok", result.message);
+    } else {
+      show("error", result.message);
     }
-    await browser.storage.local.set({ [SERVER_BASE_URL_KEY]: origin });
-    current = origin;
-    input.value = origin;
-    if (previous !== origin && previous !== DEFAULT_SERVER_BASE_URL) {
-      await browser.permissions.remove({ origins: [hostPermissionPattern(previous)] });
-    }
-    show("ok", `Saved. Sharing to ${origin}.`);
   });
 });

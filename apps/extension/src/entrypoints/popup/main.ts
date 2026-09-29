@@ -1,6 +1,6 @@
 import { DEFAULT_ROOM_ID, type Embed } from "@omega/shared";
 import { browser } from "wxt/browser";
-import { listEmbeds } from "../../embeds";
+import { type ScanOutcome, scanTab } from "../../embeds";
 import { collectCandidateUrls } from "../../scan";
 import { SERVER_BASE_URL_KEY, readServerBaseUrl } from "../../settings";
 import { shareEmbed } from "../../share";
@@ -15,6 +15,7 @@ const ui = {
   scanning: byId("scanning", HTMLParagraphElement),
   embeds: byId("embeds", HTMLUListElement),
   empty: byId("empty", HTMLParagraphElement),
+  unreadable: byId("unreadable", HTMLParagraphElement),
   form: byId("share-form", HTMLFormElement),
   room: byId("room", HTMLSelectElement),
   share: byId("share", HTMLButtonElement),
@@ -30,20 +31,25 @@ async function targetTabId(): Promise<number | undefined> {
   return tab?.id;
 }
 
-async function scan(): Promise<Embed[]> {
+async function scan(): Promise<ScanOutcome> {
   const tabId = await targetTabId();
-  if (tabId === undefined) return [];
-  try {
-    const [frame] = await browser.scripting.executeScript({ target: { tabId }, func: collectCandidateUrls });
-    return listEmbeds(frame?.result);
-  } catch {
-    // Pages we can't script (chrome://, the web store, no permission) have nothing to share.
-    return [];
-  }
+  if (tabId === undefined) return { kind: "unreadable" };
+  return scanTab(() => browser.scripting.executeScript({ target: { tabId }, func: collectCandidateUrls }));
 }
 
-function renderEmbeds(embeds: readonly Embed[]): void {
+function render(outcome: ScanOutcome): void {
   ui.scanning.hidden = true;
+  ui.unreadable.hidden = outcome.kind !== "unreadable";
+  renderEmbeds(outcome.kind === "embeds" ? outcome.embeds : null);
+}
+
+/** `null`: the tab could not be read, so neither the list nor "no video found" applies. */
+function renderEmbeds(embeds: readonly Embed[] | null): void {
+  if (embeds === null) {
+    ui.empty.hidden = true;
+    ui.form.hidden = true;
+    return;
+  }
   ui.empty.hidden = embeds.length > 0;
   ui.form.hidden = embeds.length === 0;
   ui.embeds.replaceChildren(
@@ -76,9 +82,9 @@ function showStatus(state: "ok" | "error", message: string): void {
 
 const serverBaseUrl = browser.storage.local.get(SERVER_BASE_URL_KEY).then((items) => readServerBaseUrl(items[SERVER_BASE_URL_KEY]));
 
-// Room list: one room until the contract defines `GET /rooms`.
+// Room list: one room until the server serves `GET /rooms` (wired up in OME-20).
 renderRooms([DEFAULT_ROOM_ID]);
-void scan().then(renderEmbeds);
+void scan().then(render);
 
 ui.form.addEventListener("submit", (event) => {
   event.preventDefault();

@@ -6,7 +6,7 @@
 export function collectCandidateUrls(doc: Document = document): string[] {
   const urls = [doc.location.href];
   for (const el of doc.querySelectorAll("iframe[src], embed[src], object[data]")) {
-    const raw = el.getAttribute(el.tagName === "OBJECT" ? "data" : "src");
+    const raw = el.getAttribute(el.localName === "object" ? "data" : "src");
     if (raw === null) continue;
     try {
       urls.push(new URL(raw, doc.baseURI).href);
