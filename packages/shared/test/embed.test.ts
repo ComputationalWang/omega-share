@@ -73,6 +73,7 @@ describe("canonicalizeEmbed — rejected", () => {
     ["nocookie watch path", `https://www.youtube-nocookie.com/watch?v=${ID}`],
     ["channel page", "https://www.youtube.com/@somechannel"],
     ["shorts not yet supported", `https://www.youtube.com/shorts/${ID}`],
+    ["live_stream slug", "https://www.youtube.com/embed/live_stream?channel=UC123"],
     ["playlist embed", "https://www.youtube.com/embed/videoseries?list=PL123"],
     ["over length cap", `https://www.youtube.com/watch?v=${ID}&x=${"a".repeat(3000)}`],
   ];

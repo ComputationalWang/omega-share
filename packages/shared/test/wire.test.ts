@@ -5,7 +5,8 @@ import {
   CHAT_MAX_LENGTH,
   ClientMessageSchema,
   DEFAULT_ROOM_ID,
-  MAX_MESSAGE_BYTES,
+  MAX_CLIENT_MESSAGE_BYTES,
+  MAX_SERVER_MESSAGE_BYTES,
   MAX_ROOM_MEMBERS,
   NICKNAME_MAX_LENGTH,
   NicknameSchema,
@@ -52,7 +53,8 @@ describe("constants", () => {
     expect(CHAT_MAX_LENGTH).toBe(280);
     expect(NICKNAME_MAX_LENGTH).toBe(20);
     expect(MAX_ROOM_MEMBERS).toBe(25);
-    expect(MAX_MESSAGE_BYTES).toBe(4096);
+    expect(MAX_CLIENT_MESSAGE_BYTES).toBe(4096);
+    expect(MAX_SERVER_MESSAGE_BYTES).toBe(16384);
   });
 });
 
@@ -67,7 +69,7 @@ describe("RoomIdSchema", () => {
 });
 
 describe("NicknameSchema", () => {
-  cases(NicknameSchema, ["alice", "Bob 2", "zoë", "李雷", "a.b_c-d", "x".repeat(20)], [
+  cases(NicknameSchema, ["alice", "Bob 2", "zoë", "李雷", "हिन्दी", "a.b_c-d", "x".repeat(20)], [
     ["empty", ""],
     ["only spaces", "   "],
     ["too long", "x".repeat(21)],
@@ -77,6 +79,9 @@ describe("NicknameSchema", () => {
     ["zero-width joiner", "a\u200db"],
     ["rtl override", "a\u202eb"],
     ["double space", "a  b"],
+    ["hangul filler", "\u3164"],
+    ["halfwidth hangul filler", "a\uffa0b"],
+    ["leading combining mark", "\u0301a"],
     ["number", 42],
   ]);
 
@@ -152,6 +157,8 @@ describe("ClientMessageSchema", () => {
       { type: "chat", text: "hello" },
       { type: "chat", text: "x".repeat(280) },
       { type: "chat", text: "emoji ok 🎉 and <b>tags</b> are just text" },
+      { type: "chat", text: "family \u{1F468}\u200d\u{1F469}\u200d\u{1F467} ok" },
+      { type: "chat", text: "ok 👍" },
     ],
     [
       ["unknown type", { type: "kick", id: "m1" }],
@@ -168,6 +175,13 @@ describe("ClientMessageSchema", () => {
       ["chat too long", { type: "chat", text: "x".repeat(281) }],
       ["chat control chars", { type: "chat", text: "a\u0000b" }],
       ["chat bidi override", { type: "chat", text: "a\u202eb" }],
+      ["chat zero-width space only", { type: "chat", text: "\u200b" }],
+      ["chat zero-width space inside", { type: "chat", text: "a\u200bb" }],
+      ["chat BOM", { type: "chat", text: "\ufeffhi" }],
+      ["chat line separator", { type: "chat", text: "a\u2028b" }],
+      ["chat ZWJ only", { type: "chat", text: "\u200d" }],
+      ["chat variation selector only", { type: "chat", text: "\ufe0f" }],
+      ["chat hangul filler only", { type: "chat", text: "\u3164" }],
       ["server-only type", { type: "snapshot", self: "m1", room: room() }],
       ["not an object", "join"],
     ],
@@ -225,7 +239,7 @@ describe("parseClientMessage", () => {
   });
 
   test("returns null for an oversized frame without parsing it", () => {
-    const big = JSON.stringify({ type: "chat", text: "x".repeat(MAX_MESSAGE_BYTES) });
+    const big = JSON.stringify({ type: "chat", text: "x".repeat(MAX_CLIENT_MESSAGE_BYTES) });
     expect(parseClientMessage(big)).toBeNull();
   });
 
@@ -236,6 +250,22 @@ describe("parseClientMessage", () => {
 });
 
 describe("parseServerMessage", () => {
+  test("accepts a worst-case full-room snapshot", () => {
+    const members = Array.from({ length: 25 }, (_, i) => ({
+      id: String(i).padStart(2, "0") + "x".repeat(62),
+      nickname: "李".repeat(20),
+      avatar: 3,
+    }));
+    const seats = members.slice(0, 8).map((m) => m.id);
+    const frame = JSON.stringify({ type: "snapshot", self: members[0]?.id, room: { id: "a".repeat(32), seats, members, embed: EMBED } });
+    expect(parseServerMessage(frame)?.type).toBe("snapshot");
+  });
+
+  test("returns null for a frame over the server limit", () => {
+    const frame = JSON.stringify({ type: "room-full", pad: "x".repeat(MAX_SERVER_MESSAGE_BYTES) });
+    expect(parseServerMessage(frame)).toBeNull();
+  });
+
   test("parses a valid frame", () => {
     expect(parseServerMessage('{"type":"room-full"}')).toEqual({ type: "room-full" });
   });
