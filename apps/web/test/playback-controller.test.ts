@@ -307,3 +307,50 @@ describe("review follow-ups", () => {
     expect(Number.isInteger(h.c.view().position)).toBe(true);
   });
 });
+
+describe("YouTube refuses the video (OME-110)", () => {
+  test("error 150 → the view carries the code and stops claiming the room plays here", () => {
+    const h = harness({ state: "playing", position: 10 });
+    h.c.setRoom(h.room(VIDEO, pb()));
+    h.c.attach(h.player, VIDEO);
+    expect(h.c.view()).toMatchObject({ playing: true, canControl: true, error: null });
+    h.player.emit({ type: "error", code: 150 });
+    expect(h.c.view()).toMatchObject({ error: 150, playing: false, canControl: false, hasVideo: false, position: 0, catching: false });
+    expect(h.views.at(-1)?.error).toBe(150);
+  });
+
+  test("after an error the transport sends nothing and the view stays frozen", () => {
+    const h = harness({ state: "playing", position: 10 });
+    h.c.setRoom(h.room(VIDEO, pb()));
+    h.c.attach(h.player, VIDEO);
+    h.player.emit({ type: "error", code: 101 });
+    const n = h.views.length;
+    h.run(3000);
+    expect(h.views.length).toBe(n);
+    expect(h.c.togglePlay()).toBe(false);
+    expect(h.c.seek(30)).toBe(false);
+    expect(h.sent).toEqual([]);
+  });
+
+  test("the sync loop stops commanding the refused player", () => {
+    const h = harness({ state: "playing", position: 10 });
+    h.c.setRoom(h.room(VIDEO, pb()));
+    h.c.attach(h.player, VIDEO);
+    h.run(1000);
+    h.player.emit({ type: "error", code: 150 });
+    const n = h.player.calls.length;
+    h.c.setRoom(h.room(VIDEO, pb({ rev: 2, position: 50 })));
+    h.run(3000);
+    expect(h.player.calls.length).toBe(n);
+  });
+
+  test("a new video clears the error", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb()));
+    h.c.attach(h.player, VIDEO);
+    h.player.emit({ type: "error", code: 100 });
+    expect(h.c.view().error).toBe(100);
+    h.c.setRoom(h.room(OTHER, pb({ rev: 2 })));
+    expect(h.c.view().error).toBeNull();
+  });
+});

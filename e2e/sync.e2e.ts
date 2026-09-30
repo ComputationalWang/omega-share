@@ -165,6 +165,23 @@ test.describe("M1b sync, 8 clients", () => {
     expect(p.action).toBe("pause");
   });
 
+  test("YouTube refusing the embed (error 150) shows a site notice and freezes this client's transport", async ({ browser, request }) => {
+    await shareVideo(request);
+    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 2, nicknamePrefix: "noembed" });
+    const [a, b] = pair(clients);
+    await waitPlaying(clients);
+
+    await a.page.evaluate(() => window.__fakeYt?.error(150));
+    await expect(a.page.locator(site.syncNotice)).toBeVisible();
+    await expect(a.page.locator(site.syncNotice)).toHaveText(/can't play here.*owner doesn't allow playback on other sites/);
+    await expect(a.page.locator(site.playToggle)).toBeDisabled();
+    await expect(a.page.locator(site.playToggle)).toHaveAttribute("aria-label", "Play for everyone");
+    // Only the refused client: the room keeps playing for the others.
+    await expect(b.page.locator(site.syncNotice)).toBeHidden();
+    await expect(b.page.locator(site.playToggle)).toBeEnabled();
+    expect((await roomPlayback(browser)).playing).toBe(true);
+  });
+
   test("a volume change on A doesn't affect B", async ({ browser, request }) => {
     await shareVideo(request);
     clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 8, nicknamePrefix: "vol" });

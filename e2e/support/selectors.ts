@@ -31,4 +31,5 @@ export const site = {
   unmuteButton: id("unmute-button"),
   systemLine: id("system-line"),
   catchingNotice: id("catching-notice"),
+  syncNotice: id("sync-notice"),
 } as const;
