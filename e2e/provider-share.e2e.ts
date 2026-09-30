@@ -30,6 +30,17 @@ async function twitchSrc(room: Page): Promise<URL> {
   return src;
 }
 
+/** OME-251: the hint sits next to the gate (the TV), not below the stage: inside the first viewport, above the stage. */
+async function expectHintAboveFold(room: Page): Promise<void> {
+  const box = await room.locator(site.tvHint).evaluate((h) => {
+    const r = h.getBoundingClientRect();
+    const stage = document.querySelector('[data-testid="room"]')?.getBoundingClientRect();
+    return { bottom: r.bottom + window.scrollY, stageTop: (stage?.top ?? 0) + window.scrollY, fold: window.innerHeight };
+  });
+  expect(box.bottom).toBeLessThanOrEqual(box.fold);
+  expect(box.bottom).toBeLessThanOrEqual(box.stageTop);
+}
+
 // The four embeds of fixtures/pages/providers-embed.html, as the popup lists them (canonical URLs, ADR 0014).
 const EXPECTED: readonly Expected[] = [
   {
@@ -49,6 +60,7 @@ const EXPECTED: readonly Expected[] = [
       expect([src.searchParams.get("channel"), src.searchParams.get("video")]).toEqual(["somechannel", null]);
       await expect(room.locator('[data-testid="live-pill"]')).toBeVisible();
       await expect(room.locator(site.tvHint)).toHaveText(TWITCH_HINT);
+      await expectHintAboveFold(room);
     },
   },
   {
