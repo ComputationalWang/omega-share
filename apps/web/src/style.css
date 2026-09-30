@@ -81,6 +81,6 @@ legend { padding: 0; margin-bottom: 6px; }
 .ui-sysline b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 @keyframes sysline-fade { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .syslines .ui-sysline { animation: none; } }
-.sync-notice { color: var(--muted); }
+.sync-notice, .tv-hint { color: var(--muted); }
 .chat[data-cooldown="true"] input, .chat[data-cooldown="true"] button { opacity: 0.6; }
 .room-full .enter { display: inline-block; margin-top: 12px; text-decoration: none; }

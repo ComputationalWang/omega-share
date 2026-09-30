@@ -38,3 +38,12 @@ export function mountErrorText(provider: Provider, reason: MountFailure): string
       return `${PREFIX}: the player didn't match the room's video.`;
   }
 }
+
+/**
+ * A standing one-line hint under the TV for the shown provider, or null. Twitch gates mature channels behind its own
+ * "Start Watching" interstitial while the video plays on behind it (OME-244). The player is cross-origin, so we can't
+ * tell whether it's up: the hint shows for every Twitch embed.
+ */
+export function providerHint(provider: Provider): string | null {
+  return provider === "twitch" ? "If the Twitch player asks, press Start Watching in it." : null;
+}

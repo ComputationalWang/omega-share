@@ -7,7 +7,7 @@ import { trackShareToken } from "./share-token";
 import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { chatView, refusalCard } from "./controls/feedback";
-import { mountErrorText, playerErrorText } from "./controls/player-error";
+import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, seatViews, sitIntent } from "./intents";
 import { BUBBLE_OFFSET_Y, SEATS, STANDING, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
 import type { PlayerError } from "./player/adapter";
@@ -121,6 +121,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const rail = el("div", { className: "syslines", ariaLive: "polite" });
   box(rail, SYSLINE_RAIL);
   const syncNotice = el("p", { className: "notice sync-notice", role: "status", hidden: true }, "sync-notice");
+  const tvHint = el("p", { className: "notice tv-hint", hidden: true }, "tv-hint");
 
   const chatForm = el("form", { className: "chat" });
   const chatInput = el("input", { type: "text", maxLength: 280, placeholder: "Say something…", autocomplete: "off", ariaLabel: "Chat message" }, "chat-input");
@@ -164,7 +165,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const view: RoomView = await createRoomView();
   view.canvas.className = "scene";
   stage.append(view.canvas, overlay, tags, bubbles, rail);
-  opts.root.replaceChildren(status, wrap, personal.root, syncNotice, notice, chatForm, full, refused);
+  opts.root.replaceChildren(status, wrap, personal.root, tvHint, syncNotice, notice, chatForm, full, refused);
 
   /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
   let tvProvider: Embed["provider"] | null = null;
@@ -376,6 +377,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       const provider = tf === null ? null : (embed?.provider ?? null);
       if (provider !== tvProvider) {
         tvProvider = provider;
+        const hint = provider === null ? null : providerHint(provider);
+        tvHint.textContent = hint ?? "";
+        tvHint.hidden = hint === null;
         fit();
       }
       if (tf === null || embed === null) {
