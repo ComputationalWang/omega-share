@@ -145,7 +145,6 @@ describe("createClockSync", () => {
     const clock = make();
     clock.start();
     for (const [rtt, offset] of samples) {
-      if (rtt === undefined || offset === undefined) throw new Error("bad row");
       pong(clock, rtt, offset);
       nextPing();
     }
@@ -193,15 +192,15 @@ describe("createClockSync", () => {
     expect(WINDOW_SIZE).toBe(8);
     const clock = make();
     clock.start();
-    pong(clock, 5, 111); // the best, until evicted
+    pong(clock, 6, 111); // the best, until evicted
     for (let i = 1; i < WINDOW_SIZE; i++) {
       nextPing();
-      pong(clock, 50 + i, i === 3 ? 333 : 0);
+      pong(clock, 50 + 2 * i, i === 3 ? 333 : 0);
     }
     expect(clock.offsetMs).toBe(111);
     nextPing();
     pong(clock, 60, 0);
-    // Remaining: rtts 51..57 and 60; the fastest is 51 (offset 0).
+    // Remaining: rtts 52..64 and 60; the fastest is 52 (offset 0).
     expect(clock.offsetMs).toBe(0);
   });
 

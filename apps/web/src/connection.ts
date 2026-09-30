@@ -20,6 +20,8 @@ export interface ConnectionOptions<Timer = unknown> {
   readonly join: Extract<ClientMessage, { type: "join" }>;
   readonly createSocket: (url: string) => SocketLike;
   readonly onEvent: (e: ConnectionEvent) => void;
+  /** Runs on every socket open, before `join` goes out; `send` already works (clock pings go first). */
+  readonly onOpen?: () => void;
   readonly setTimer: (fn: () => void, ms: number) => Timer;
   readonly clearTimer: (handle: Timer) => void;
   /** [0, 1); defaults to Math.random. Spreads reconnects so clients don't stampede a restarted server. */
@@ -68,6 +70,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
     }, HANDSHAKE_TIMEOUT_MS);
     s.onopen = () => {
       open = true;
+      opts.onOpen?.();
       s.send(JSON.stringify(opts.join));
     };
     s.onmessage = (ev) => {

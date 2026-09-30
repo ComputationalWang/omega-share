@@ -27,8 +27,8 @@ afterAll(() => server.stop(true));
 function realSocket(url: string): SocketLike {
   const ws = new WebSocket(url);
   const s: SocketLike = {
-    send: (d) => ws.send(d),
-    close: (code) => ws.close(code),
+    send: (d) => { ws.send(d); },
+    close: (code) => { ws.close(code); },
     onopen: null,
     onmessage: null,
     onclose: null,
@@ -44,7 +44,7 @@ test("offset error ≤ 25 ms against a real socket on localhost", async () => {
   const now = (): number => performance.timeOrigin + performance.now();
   let clock: ReturnType<typeof createClockSync> | null = null;
   const conn = createConnection({
-    url: `ws://127.0.0.1:${server.port}/`,
+    url: `ws://127.0.0.1:${String(server.port)}/`,
     join: { type: "join", nickname: "zoe", avatar: 1 },
     createSocket: realSocket,
     onOpen: () => clock?.start(),
@@ -52,13 +52,13 @@ test("offset error ≤ 25 ms against a real socket on localhost", async () => {
       if (e.type === "message" && e.msg.type === "pong") clock?.onPong(e.msg.id, e.msg.at);
     },
     setTimer: (fn, ms) => setTimeout(fn, ms),
-    clearTimer: (h) => clearTimeout(h),
+    clearTimer: (h) => { clearTimeout(h); },
   });
   clock = createClockSync({
     now,
     sendPing: (id) => conn.send({ type: "ping", id }),
     setTimer: (fn, ms) => setTimeout(fn, ms),
-    clearTimer: (h) => clearTimeout(h),
+    clearTimer: (h) => { clearTimeout(h); },
   });
 
   const deadline = Date.now() + 3000;

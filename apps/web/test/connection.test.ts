@@ -102,7 +102,10 @@ describe("createConnection", () => {
     });
     last().open();
     expect(opens).toBe(1);
-    expect(last().sent.map((x) => JSON.parse(x).type)).toEqual(["ping", "join"]);
+    expect(last().sent.map((x) => JSON.parse(x) as unknown)).toEqual([
+      { type: "ping", id: 7 },
+      { type: "join", nickname: "zoe", avatar: 1 },
+    ]);
     last().drop();
     runTimer();
     last().open();
