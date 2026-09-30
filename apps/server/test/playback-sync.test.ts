@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { Client, start, type TestServer } from "./helpers";
+import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 const VIDEO = "dQw4w9WgXcQ";
 const OTHER = "aaaaaaaaaaa";
@@ -16,17 +16,19 @@ async function open() {
   clients.push(c);
   return c;
 }
-async function share(videoId = VIDEO) {
-  const res = await fetch(`${t.http}/rooms/lobby/share`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ url: `https://www.youtube.com/watch?v=${videoId}` }),
-  });
+let sharer: Promise<{ id: string; token: string }> | null = null;
+/** Shares as a "sharer" member joined for the test; resolves with that member's id. */
+async function share(videoId = VIDEO): Promise<string> {
+  sharer ??= join("sharer").then((r) => ({ id: r.snapshot.self, token: tokenOf(r.snapshot) }));
+  const { id, token } = await sharer;
+  const res = await postShare(t, JSON.stringify({ url: `https://www.youtube.com/watch?v=${videoId}` }), { token });
   expect(res.status).toBe(200);
+  return id;
 }
 
 beforeEach(() => {
   t = start();
+  sharer = null;
 });
 afterEach(async () => {
   for (const c of clients.splice(0)) c.close();
@@ -65,9 +67,9 @@ describe("playback", () => {
   test("is null with no embed, and a share starts it at 0 with action load", async () => {
     const a = await join("alice");
     expect(a.snapshot.room.playback).toBeNull();
-    await share();
+    const by = await share();
     const changed = await a.client.next("embed-changed");
-    expect(changed.playback).toMatchObject({ playing: true, position: 0, rate: 1, action: "load", by: null });
+    expect(changed.playback).toMatchObject({ playing: true, position: 0, rate: 1, action: "load", by });
   });
 
   test("control fans out as playback to every member, the sender included", async () => {
@@ -97,9 +99,9 @@ describe("playback", () => {
     const a = await join("alice");
     a.client.send({ type: "control", url: `https://www.youtube.com/embed/${VIDEO}`, playing: false, position: 40 });
     const { playback: paused } = await a.client.next("playback");
-    await share(OTHER);
+    const by = await share(OTHER);
     const changed = await a.client.next("embed-changed");
-    expect(changed.playback).toMatchObject({ playing: true, position: 0, action: "load", by: null });
+    expect(changed.playback).toMatchObject({ playing: true, position: 0, action: "load", by });
     expect(changed.playback?.rev ?? -1).toBeGreaterThan(paused.rev);
   });
 

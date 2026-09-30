@@ -23,6 +23,8 @@ type Of<T extends ServerMessage["type"]> = Extract<ServerMessage, { type: T }>;
 /** A WebSocket test client that queues parsed server messages. */
 export class Client {
   readonly socket: WebSocket;
+  /** Every text frame as sent, before parsing (parsing strips unknown keys). */
+  readonly raw: string[] = [];
   private readonly inbox: ServerMessage[] = [];
   private waiter: (() => void) | null = null;
   closed: Promise<CloseEvent>;
@@ -30,6 +32,7 @@ export class Client {
   constructor(url: string, origin?: string, headers: Record<string, string> = {}) {
     this.socket = new WebSocket(url, { headers: origin === undefined ? headers : { ...headers, Origin: origin } });
     this.socket.addEventListener("message", (e: MessageEvent) => {
+      if (typeof e.data === "string") this.raw.push(e.data);
       const msg = typeof e.data === "string" ? parseServerMessage(e.data) : null;
       if (msg === null) throw new Error(`server sent an invalid frame: ${String(e.data)}`);
       this.inbox.push(msg);
@@ -54,8 +57,13 @@ export class Client {
   }
 
   /** Opens and joins; resolves with the snapshot. */
-  static async join(url: string, nickname: string, avatar = 0): Promise<{ client: Client; snapshot: Of<"snapshot"> }> {
-    const client = await Client.open(url);
+  static async join(
+    url: string,
+    nickname: string,
+    avatar = 0,
+    headers?: Record<string, string>,
+  ): Promise<{ client: Client; snapshot: Of<"snapshot"> }> {
+    const client = await Client.open(url, undefined, headers);
     client.send({ type: "join", nickname, avatar });
     return { client, snapshot: await client.next("snapshot") };
   }
@@ -97,4 +105,26 @@ export class Client {
   close(): void {
     this.socket.close();
   }
+}
+
+export interface ShareInit {
+  roomId?: string;
+  /** Sent as `Authorization: Bearer <token>`; omit for an anonymous share. */
+  token?: string;
+  origin?: string;
+  headers?: Record<string, string>;
+}
+
+/** `POST /rooms/:id/share` with a JSON body. */
+export function postShare(t: TestServer, body: string, init: ShareInit = {}): Promise<Response> {
+  const headers: Record<string, string> = { "content-type": "application/json", ...init.headers };
+  if (init.token !== undefined) headers["authorization"] = `Bearer ${init.token}`;
+  if (init.origin !== undefined) headers["origin"] = init.origin;
+  return fetch(`${t.http}/rooms/${init.roomId ?? "lobby"}/share`, { method: "POST", headers, body });
+}
+
+/** The member's share token; every M2 snapshot carries one. */
+export function tokenOf(snapshot: Of<"snapshot">): string {
+  if (snapshot.shareToken === undefined) throw new Error("snapshot has no shareToken");
+  return snapshot.shareToken;
 }

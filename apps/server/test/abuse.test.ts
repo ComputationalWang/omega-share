@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { ShareResponseSchema } from "@omega/shared";
 import { measureRelayLatency } from "../src/relay-latency";
-import { Client, start, type TestServer } from "./helpers";
+import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 let t: TestServer | undefined;
 const clients: Client[] = [];
@@ -11,6 +11,11 @@ afterEach(async () => {
   await t?.server.stop(true);
 });
 
+async function join(server: TestServer, nickname: string) {
+  const r = await Client.join(server.ws(), nickname);
+  clients.push(r.client);
+  return r;
+}
 async function open(url: string) {
   const c = await Client.open(url);
   clients.push(c);
@@ -83,13 +88,13 @@ describe("abuse limits", () => {
 
   test("share is rate limited per address with 429 rate_limited", async () => {
     t = start();
-    const http = t.http;
+    const server = t;
+    // Several members, so the per-member bucket isn't what trips.
+    const tokens = await Promise.all(["a", "b", "c", "d"].map(async (n) => tokenOf((await join(server, n)).snapshot)));
     const statuses: number[] = [];
     for (let i = 0; i < 20; i++) {
-      const res = await fetch(`${http}/rooms/lobby/share`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: "https://youtu.be/dQw4w9WgXcQ" }),
+      const res = await postShare(server, JSON.stringify({ url: "https://youtu.be/dQw4w9WgXcQ" }), {
+        token: tokens[i % tokens.length] ?? "",
       });
       statuses.push(res.status);
       if (res.status === 429) {
@@ -103,12 +108,13 @@ describe("abuse limits", () => {
 
   test("a chunked share body over 4 KB of UTF-8 is refused, even under 4096 characters", async () => {
     t = start();
+    const token = tokenOf((await join(t, "sharer")).snapshot);
     const body = Buffer.from(JSON.stringify({ url: "https://youtu.be/" + "é".repeat(2100) }));
     expect(body.toString().length).toBeLessThan(4096);
     expect(body.length).toBeGreaterThan(4096);
     const port = t.server.port ?? 0;
     // Raw HTTP so there is no content-length: fetch() would add one.
-    const head = `POST /rooms/lobby/share HTTP/1.1\r\nhost: 127.0.0.1:${String(port)}\r\ncontent-type: application/json\r\ntransfer-encoding: chunked\r\nconnection: close\r\n\r\n`;
+    const head = `POST /rooms/lobby/share HTTP/1.1\r\nhost: 127.0.0.1:${String(port)}\r\nauthorization: Bearer ${token}\r\ncontent-type: application/json\r\ntransfer-encoding: chunked\r\nconnection: close\r\n\r\n`;
     const raw = Buffer.concat([Buffer.from(head + body.length.toString(16) + "\r\n"), body, Buffer.from("\r\n0\r\n\r\n")]);
     const response = await new Promise<string>((resolve) => {
       let got = "";

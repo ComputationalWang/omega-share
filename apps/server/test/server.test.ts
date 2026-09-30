@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { MAX_ROOM_MEMBERS, RoomListResponseSchema, ShareResponseSchema } from "@omega/shared";
-import { Client, EXTENSION_ORIGIN, SITE_ORIGIN, start, type TestServer } from "./helpers";
+import { Client, EXTENSION_ORIGIN, SITE_ORIGIN, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 const WATCH_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 const CANONICAL = { provider: "youtube", videoId: "dQw4w9WgXcQ", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" } as const;
@@ -21,30 +21,32 @@ async function open(url = t.ws(), origin?: string) {
 
 beforeEach(() => {
   t = start();
+  sharer = null;
 });
 afterEach(async () => {
   for (const c of clients.splice(0)) c.close();
   await t.server.stop(true);
 });
 
-function share(body: string, init: { roomId?: string; origin?: string } = {}) {
-  const headers: Record<string, string> = { "content-type": "application/json" };
-  if (init.origin !== undefined) headers["origin"] = init.origin;
-  return fetch(`${t.http}/rooms/${init.roomId ?? "lobby"}/share`, { method: "POST", headers, body });
+let sharer: Promise<string> | null = null;
+/** Shares as a member: `init.token`, or a "sharer" member joined for the test. */
+async function share(body: string, init: { roomId?: string; origin?: string; token?: string } = {}) {
+  sharer ??= join("sharer").then((r) => tokenOf(r.snapshot));
+  return postShare(t, body, { ...init, token: init.token ?? (await sharer) });
 }
 async function shareJson(res: Response) {
   return v.parse(ShareResponseSchema, await res.json());
 }
 
 describe("POST /rooms/:id/share", () => {
-  test("canonicalizes the URL, sets the embed and broadcasts embed-changed", async () => {
-    const { client } = await join("alice");
-    const res = await share(JSON.stringify({ url: WATCH_URL }), { origin: EXTENSION_ORIGIN });
+  test("canonicalizes the URL, sets the embed and broadcasts embed-changed by the sharing member", async () => {
+    const { client, snapshot } = await join("alice");
+    const res = await share(JSON.stringify({ url: WATCH_URL }), { origin: EXTENSION_ORIGIN, token: tokenOf(snapshot) });
     expect(res.status).toBe(200);
     expect(await shareJson(res)).toEqual({ ok: true, embed: CANONICAL });
     const changed = await client.next("embed-changed");
-    expect(changed).toMatchObject({ type: "embed-changed", embed: CANONICAL, by: null });
-    expect(changed.playback).toMatchObject({ playing: true, position: 0, action: "load", by: null });
+    expect(changed).toMatchObject({ type: "embed-changed", embed: CANONICAL, by: snapshot.self });
+    expect(changed.playback).toMatchObject({ playing: true, position: 0, action: "load", by: snapshot.self });
 
     const { snapshot } = await join("bob");
     expect(snapshot.room.embed).toEqual(CANONICAL);
@@ -123,12 +125,8 @@ describe("readiness", () => {
 });
 
 describe("requests without an Origin (curl, server-to-server)", () => {
-  test("may share and connect: they are not a cross-site risk", async () => {
-    const res = await fetch(`${t.http}/rooms/lobby/share`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url: WATCH_URL }),
-    });
+  test("may share (with a member's token) and connect: they are not a cross-site risk", async () => {
+    const res = await share(JSON.stringify({ url: WATCH_URL }));
     expect(res.status).toBe(200);
     const c = await open();
     c.send({ type: "join", nickname: "curl", avatar: 0 });
