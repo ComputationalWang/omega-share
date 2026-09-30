@@ -135,7 +135,8 @@ Three ways to say "this button affects everyone" were tried on paper before any 
 - **The player is sacred:** the live picture is a page box above the stage (ADR 0012), and the frame only ever paints outside it
   (`border-image-outset`). It never moves the box, resizes it or overlaps it.
 - **Same wood as the room:** the bezel is the old TV's recipe, scaled down to fit the 6/8 px gaps: charcoal lip, highlight top/left,
-  shade bottom/right, plum outline, and the glow power light.
+  shade bottom/right, plum outline, and the glow power light, plus a cream glint on the top-left corner and a brass tuning knob
+  opposite the power light, so the frame reads as a set, not a border.
 - **The shelf is the remote's home:** the control bar box is a flat, sunken night slot (plum shadow top-left, lit lip bottom-right, like the
   seek track), set into the TV's wood. That's set (e)'s "wood = shared" rule: the controls belong to the TV, so to everyone.
 - **Charm lives at the edges, never in the slot:** speaker cabinets with a woofer ring on a dot mesh. In the room, the corner console now
