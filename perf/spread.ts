@@ -33,6 +33,24 @@ export function spread(p: PlaybackState, samples: readonly ClientSample[]): Spre
   return { spreadMs: Math.max(...drifts) - Math.min(...drifts), drifts };
 }
 
+export interface ArrivalSpread {
+  /** Last minus first client to apply the action. */
+  readonly spreadMs: number;
+  /** Last client to apply it minus the action itself. */
+  readonly latencyMs: number;
+}
+
+/**
+ * A live stream has no position to drift from (ADR 0014 §3), so its sync.spread is when a pause or play-from-live
+ * landed on each client: `arrivals` are wall-clock ms, `at` is when the action was taken (OME-131).
+ */
+export function arrivalSpread(at: number, arrivals: readonly number[]): ArrivalSpread {
+  if (arrivals.length < 2) throw new Error("arrival spread needs at least two clients");
+  if (arrivals.some((t) => t < at)) throw new Error("an arrival is before the action: stale reading");
+  const last = Math.max(...arrivals);
+  return { spreadMs: last - Math.min(...arrivals), latencyMs: last - at };
+}
+
 export interface FrameSummary {
   /** p95 of frame times in whole vsync intervals: the budgeted number (ADR 0009). */
   readonly p95: number;
