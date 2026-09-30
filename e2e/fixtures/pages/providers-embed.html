@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture: YouTube, Twitch and Vimeo embeds</title></head>
+<body>
+<h1>A post that embeds all three providers</h1>
+<iframe src="https://www.youtube.com/embed/aqz-KE-bpKQ" title="YouTube video player" allowfullscreen></iframe>
+<!-- Twitch's own snippet: mixed-case channel, parent + player params. -->
+<iframe src="https://player.twitch.tv/?channel=SomeChannel&parent=localhost&muted=true" title="Twitch live" allowfullscreen></iframe>
+<iframe src="https://player.twitch.tv/?video=v1234567890&parent=localhost&autoplay=false" title="Twitch VOD" allowfullscreen></iframe>
+<!-- Vimeo's share snippet: unlisted hash plus player params, protocol-relative. -->
+<iframe src="//player.vimeo.com/video/76979871?h=8272103f6e&badge=0&autopause=0&player_id=0&app_id=58479" title="Vimeo" allowfullscreen></iframe>
+<!-- The same Twitch channel again in its site form: listed once. -->
+<iframe src="https://www.twitch.tv/somechannel" title="Twitch channel page"></iframe>
+
+<!-- Rejected: clips, collections and live events have no usable player API (ADR 0014). -->
+<iframe src="https://clips.twitch.tv/embed?clip=AwkwardHelplessSalamanderSwiftRage&parent=localhost" title="Twitch clip"></iframe>
+<iframe src="https://www.twitch.tv/somechannel/clip/AwkwardHelplessSalamanderSwiftRage" title="Twitch clip page"></iframe>
+<iframe src="https://player.twitch.tv/?collection=abcDEF123&video=1234567890&parent=localhost" title="Twitch collection"></iframe>
+<iframe src="https://vimeo.com/event/123456/embed" title="Vimeo live event"></iframe>
+
+<!-- Rejected: lookalike hosts and path spoofs. -->
+<iframe src="https://player.twitch.tv.evil.example/?channel=somechannel" title="lookalike"></iframe>
+<iframe src="https://player-twitch.tv/?channel=somechannel" title="lookalike"></iframe>
+<iframe src="https://evil.example/player.twitch.tv/?channel=somechannel" title="path spoof"></iframe>
+<iframe src="https://player.vimeo.com.evil.example/video/76979871" title="lookalike"></iframe>
+<iframe src="https://vimeo.co/76979871" title="lookalike"></iframe>
+<iframe src="https://evil.example/player.vimeo.com/video/76979871" title="path spoof"></iframe>
+</body></html>

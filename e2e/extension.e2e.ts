@@ -28,6 +28,14 @@ test.describe("extension", () => {
     await expect(p.locator(popup.embedItem)).toHaveCount(1);
   });
 
+  test("lists exactly the YouTube, Twitch live, Twitch VOD and Vimeo embeds on a mixed page", async ({ context, openPopup }) => {
+    // Clips, collections, Vimeo events and lookalike hosts are on the page too and must not be listed (OME-129).
+    const page = await context.newPage();
+    await gotoFixture(page, "providers-embed");
+    const p = await openPopup(page);
+    await expect(p.locator(popup.embedItem)).toHaveCount(4);
+  });
+
   test("lists the video on a watch URL", async ({ context, openPopup }) => {
     const page = await context.newPage();
     await gotoFixture(page, "watch-url");
