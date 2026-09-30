@@ -141,21 +141,26 @@ test.describe("tunnel safety through the local reverse proxy", () => {
 
     // From a real evil.test page: a simple (no-cors) POST and a CORS POST with a Bearer header.
     const evil = await blankPage(context, EVIL_ORIGIN);
-    const simple = evil.waitForResponse((r) => r.url() === `${PUBLIC_ORIGIN}${SHARE_PATH}`);
+    // The server answers 403 (asserted on the raw request above), and CORP stops the page from even reading that.
+    const simple = evil.waitForEvent("requestfailed", (r) => r.url() === `${PUBLIC_ORIGIN}${SHARE_PATH}`);
     const outcome = await evil.evaluate(
       async ({ url, token, video }) => {
-        await fetch(url, { method: "POST", mode: "no-cors", headers: { "content-type": "text/plain" }, body: JSON.stringify({ url: video }) });
+        // CORP same-origin (OME-188) makes the browser refuse the opaque response too, so this rejects.
+        const simple = await fetch(url, { method: "POST", mode: "no-cors", headers: { "content-type": "text/plain" }, body: JSON.stringify({ url: video }) }).then(
+          () => "read",
+          () => "corp-blocked",
+        );
         try {
           await fetch(url, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ url: video }) });
-          return "cors-allowed";
+          return `${simple} cors-allowed`;
         } catch {
-          return "cors-blocked";
+          return `${simple} cors-blocked`;
         }
       },
       { url: `${PUBLIC_ORIGIN}${SHARE_PATH}`, token, video: "https://www.youtube.com/watch?v=evilevil000" },
     );
-    expect((await simple).status()).toBe(403);
-    expect(outcome).toBe("cors-blocked");
+    expect((await simple).failure()?.errorText).toBe("net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin");
+    expect(outcome).toBe("corp-blocked cors-blocked");
     // The evil origin has no way to the token: it lives in omega.test's sessionStorage only.
     expect(await evil.evaluate((k) => sessionStorage.getItem(k), SHARE_TOKEN_STORAGE_KEY)).toBeNull();
 
@@ -216,21 +221,6 @@ test.describe("tunnel safety through the local reverse proxy", () => {
     } finally {
       for (const u of open) u.close();
     }
-  });
-
-  test("per-client share limit holds behind the proxy; a spoofed XFF entry is ignored", async ({ newTunnelContext }) => {
-    const page = await blankPage(await newTunnelContext(), PUBLIC_ORIGIN);
-    const a = await joinInPage(page, "sharer-a");
-    const b = await joinInPage(page, "sharer-b");
-    const x = freshClient();
-    // Burst 5 per client, spread over two members so no single member's bucket is the limit.
-    const burst = [a, a, a, b, b];
-    for (const [i, m] of burst.entries()) expect((await share(m.token, x)).status, `share ${String(i + 1)}`).toBe(200);
-    const spoofed = await share(b.token, x, { "x-forwarded-for": freshClient() });
-    expect(spoofed.status).toBe(429);
-    expect(JSON.parse(spoofed.body)).toMatchObject({ ok: false, error: { code: "rate_limited" } });
-    // Another client with the same member is its own bucket (b has used 2 of 5).
-    expect((await share(b.token, freshClient())).status).toBe(200);
   });
 
   test("T-12/T-13/T-16 site and WebSocket work over https/wss on the public origin; no mixed content, framing refused, token never in a URL", async ({ newTunnelContext, csp }) => {
@@ -388,6 +378,27 @@ test.describe("tunnel safety through the local reverse proxy", () => {
     }
     // Never print the matches themselves: only the paths.
     expect(hits).toEqual([]);
+  });
+
+  // Last: it uses up the lobby's switches, and the worker-scoped server keeps that state for the tests after it.
+  test("the room share limit holds behind the proxy, whoever shares and whatever XFF they send", async ({ newTunnelContext }) => {
+    const page = await blankPage(await newTunnelContext(), PUBLIC_ORIGIN);
+    const members = [await joinInPage(page, "sharer-a"), await joinInPage(page, "sharer-b"), await joinInPage(page, "sharer-c")];
+    // The lobby takes 2 switches at once, then one per 10 s (OME-188), stricter than the per-client burst of 5
+    // (covered across rooms by the server unit tests; the tunnel server has only the lobby). Earlier tests may
+    // have used some, so every member shares from a fresh client with a spoofed XFF until the room refuses.
+    let refused: Awaited<ReturnType<typeof share>> | null = null;
+    for (const m of members) {
+      const r = await share(m.token, freshClient(), { "x-forwarded-for": freshClient() });
+      if (r.status === 429) {
+        refused = r;
+        break;
+      }
+      expect(r.status).toBe(200);
+    }
+    expect(refused?.status).toBe(429);
+    expect(Number(refused?.headers["retry-after"])).toBeGreaterThanOrEqual(1);
+    expect(JSON.parse(refused?.body ?? "{}")).toMatchObject({ ok: false, error: { code: "rate_limited", retryAfterMs: expect.any(Number) } });
   });
 });
 

@@ -132,31 +132,39 @@ describe("failed share attempts", () => {
 });
 
 describe("share limits behind the tunnel (T-10)", () => {
-  const as = (xff: string, token: string): ShareInit => ({ token, headers: { "x-forwarded-for": xff } });
+  const as = (xff: string, token: string, roomId = "lobby"): ShareInit => ({ roomId, token, headers: { "x-forwarded-for": xff } });
+  /** One member in each of `n` rooms (each joined from its own address), so the room limiter (burst 2) never trips. */
+  async function spread(n: number): Promise<{ rooms: string[]; tokens: string[] }> {
+    const rooms = Array.from({ length: n }, (_, i) => `r${String(i)}`);
+    t = start({ trustProxy: true, rooms });
+    const tokens = await Promise.all(
+      rooms.map(async (id, i) => tokenOf((await join(`m${String(i)}`, id, { "x-forwarded-for": `203.0.113.${String(i)}` })).snapshot)),
+    );
+    return { rooms, tokens };
+  }
 
-  test("per member: burst 5, even from many addresses", async () => {
+  test("per member: many addresses don't lift the limit", async () => {
     t = start({ trustProxy: true });
     const token = tokenOf((await join("alice")).snapshot);
     const statuses: number[] = [];
+    // The room limit (burst 2) is stricter than the member's (burst 5), so it trips first.
     for (let i = 0; i < 6; i++) statuses.push((await share(as(`198.51.100.${String(i)}`, token))).status);
-    expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
+    expect(statuses).toEqual([200, 200, 429, 429, 429, 429]);
   });
 
   test("per forwarded client: burst 5 across its members; another client is unaffected", async () => {
-    t = start({ trustProxy: true });
-    const tokens = await Promise.all(["a", "b", "c"].map(async (n) => tokenOf((await join(n)).snapshot)));
+    const { rooms, tokens } = await spread(7);
     const statuses: number[] = [];
-    for (let i = 0; i < 6; i++) statuses.push((await share(as(`6.6.6.${String(i)}, 198.51.100.1`, tokens[i % 3] ?? ""))).status);
+    for (let i = 0; i < 6; i++) statuses.push((await share(as(`6.6.6.${String(i)}, 198.51.100.1`, tokens[i] ?? "", rooms[i]))).status);
     expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
-    const res = await share(as("198.51.100.2", tokens[0] ?? ""));
+    const res = await share(as("198.51.100.2", tokens[6] ?? "", rooms[6]));
     expect(res.status).toBe(200);
   });
 
-  test("globally: burst 20 however many members and addresses", async () => {
-    t = start({ trustProxy: true });
-    const tokens = await Promise.all(["a", "b", "c", "d", "e"].map(async (n) => tokenOf((await join(n)).snapshot)));
+  test("globally: burst 20 however many members, rooms and addresses", async () => {
+    const { rooms, tokens } = await spread(25);
     const statuses: number[] = [];
-    for (let i = 0; i < 25; i++) statuses.push((await share(as(`198.51.100.${String(i)}`, tokens[i % 5] ?? ""))).status);
+    for (let i = 0; i < 25; i++) statuses.push((await share(as(`198.51.100.${String(i)}`, tokens[i] ?? "", rooms[i]))).status);
     expect(statuses.slice(0, 20).every((s) => s === 200)).toBe(true);
     expect(statuses.slice(20)).toContain(429);
   });

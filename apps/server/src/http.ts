@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import * as v from "valibot";
 import {
   MAX_LISTED_ROOMS,
+  RETRY_AFTER_MAX_MS,
   ShareRequestSchema,
   canonicalizeEmbed,
   parseShareAuthorization,
@@ -13,6 +14,7 @@ import {
   type ShareResponse,
   type ShareToken,
 } from "@omega/shared";
+import { SECURITY_HEADERS } from "./headers";
 import { KeyedLimiter, TokenBucket, readBodyCapped } from "./rate-limit";
 import type { Room } from "./room";
 import { mountSite } from "./static";
@@ -28,15 +30,9 @@ const FAILED_SHARE_PER_SECOND = 1;
 /** All shares together, whatever the key (ADR 0015 §6): bounds many-address floods. */
 const GLOBAL_SHARE_BURST = 20;
 const GLOBAL_SHARE_PER_SECOND = 2;
-/**
- * On every response. The header CSP carries only `frame-ancestors` (a `<meta>` CSP can't); header and
- * meta CSPs intersect, so the `<meta>` in index.html stays the single source for the rest.
- */
-const SECURITY_HEADERS: Readonly<Record<string, string>> = {
-  "x-content-type-options": "nosniff",
-  "referrer-policy": "strict-origin-when-cross-origin",
-  "content-security-policy": "frame-ancestors 'none'",
-};
+/** Per room: 2 switches at once, then one every 10 s (threat model §6; any member may share until B1). */
+const ROOM_SHARE_BURST = 2;
+const ROOM_SHARE_PER_SECOND = 0.1;
 export const plain = (status: number, text: string): Response => new Response(text, { status, headers: SECURITY_HEADERS });
 
 const encode = (msg: ServerMessage): string => JSON.stringify(msg);
@@ -66,6 +62,16 @@ export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publi
   const shareLimiter = new KeyedLimiter(SHARE_BURST, SHARE_PER_SECOND);
   const globalShares = new TokenBucket(GLOBAL_SHARE_BURST, GLOBAL_SHARE_PER_SECOND);
   const failedShares = new KeyedLimiter(FAILED_SHARE_BURST, FAILED_SHARE_PER_SECOND);
+  // Rooms are fixed at startup, so this holds at most one bucket per room.
+  const roomShares = new Map<Room, TokenBucket>();
+  const roomBucket = (room: Room): TokenBucket => {
+    let bucket = roomShares.get(room);
+    if (bucket === undefined) {
+      bucket = new TokenBucket(ROOM_SHARE_BURST, ROOM_SHARE_PER_SECOND);
+      roomShares.set(room, bucket);
+    }
+    return bucket;
+  };
 
   const app = new Hono();
   app.use("*", async (c, next) => {
@@ -93,9 +99,19 @@ export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publi
   });
 
   app.post("/rooms/:id/share", async (c) => {
-    const fail = (status: 400 | 401 | 404 | 413 | 429, code: ShareErrorCode, message: string) => {
+    const fail = (status: 400 | 401 | 404 | 413, code: ShareErrorCode, message: string) => {
       const body: ShareResponse = { ok: false, error: { code, message } };
       return c.json(body, status);
+    };
+    /**
+     * 429 for a bucket refilling at `perSecond`. The wait is its refill period, an upper bound on the
+     * time to the next token (TokenBucket doesn't expose its level). Retry-After is whole seconds.
+     */
+    const limited = (perSecond: number) => {
+      const retryAfterMs = Math.min(RETRY_AFTER_MAX_MS, Math.ceil(1000 / perSecond));
+      c.header("retry-after", String(Math.ceil(retryAfterMs / 1000)));
+      const body: ShareResponse = { ok: false, error: { code: "rate_limited", message: "too many shares, slow down", retryAfterMs } };
+      return c.json(body, 429);
     };
     const room = rooms.get(c.req.param("id"));
     if (room === undefined) return fail(404, "room_not_found", "unknown room");
@@ -104,12 +120,11 @@ export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publi
     const grant = token === null ? undefined : shareGrants.get(token);
     // Failures have their own bucket, so guessing is bounded without locking out members on the same address.
     if (grant?.room !== room) {
-      if (!failedShares.take(ip)) return fail(429, "rate_limited", "too many shares, slow down");
+      if (!failedShares.take(ip)) return limited(FAILED_SHARE_PER_SECOND);
       return fail(401, "unauthorized", "join the room to share into it");
     }
-    if (!shareLimiter.take(ip) || !grant.bucket.take() || !globalShares.take()) {
-      return fail(429, "rate_limited", "too many shares, slow down");
-    }
+    if (!shareLimiter.take(ip) || !grant.bucket.take()) return limited(SHARE_PER_SECOND);
+    if (!globalShares.take()) return limited(GLOBAL_SHARE_PER_SECOND);
     if (Number(c.req.header("content-length") ?? 0) > MAX_SHARE_BODY_BYTES) {
       return fail(413, "payload_too_large", "body too large");
     }
@@ -126,6 +141,8 @@ export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publi
     if (!parsed.success) return fail(400, "invalid_body", "expected { url: string }");
     const embed = canonicalizeEmbed(parsed.output.url);
     if (embed === null) return fail(400, "unsupported_url", "not a supported video URL");
+    // Last, so a refused request never uses up the room's switches.
+    if (!roomBucket(room).take()) return limited(ROOM_SHARE_PER_SECOND);
 
     const playback = room.setEmbed(embed, grant.memberId);
     publish(room.topic, encode({ type: "embed-changed", embed, by: grant.memberId, playback }));
