@@ -64,6 +64,11 @@ export const ClientMessageSchema = v.variant("type", [
     playing: v.boolean(),
     position: PositionSchema,
   }),
+  /**
+   * Advisory catch-up flag (ADR 0019); never pauses the room. Needs `join`. Send only on
+   * change, after it has held for 500 ms (web `CATCHUP_SHOW_MS`). Counts against the per-socket frame limit.
+   */
+  v.strictObject({ type: v.literal("status"), catching: v.boolean() }),
 ]);
 export type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 
@@ -118,6 +123,8 @@ export const ServerMessageSchema = v.variant("type", [
     }),
     v.check((x) => x.embed !== null || (x.playback ?? null) === null, "playback without embed"),
   ),
+  /** A member's `catching` changed. Coalesced by the server; the latest value always arrives. */
+  v.object({ type: v.literal("member-status"), memberId: MemberIdSchema, catching: v.boolean() }),
   /** Reply to `ping`. `at` = server ms when it answered. */
   v.object({ type: v.literal("pong"), id: PingIdSchema, at: ServerTimeSchema }),
   /** The room's playback changed; published to every member. */

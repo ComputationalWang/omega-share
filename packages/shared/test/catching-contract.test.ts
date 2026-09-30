@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
-import { ClientMessageSchema, ServerMessageSchema, parseClientMessage, parseServerMessage } from "../src/index";
+import {
+  ClientMessageSchema,
+  ServerMessageSchema,
+  parseClientMessage,
+  parseServerMessage,
+  type Member,
+  type RoomState,
+} from "../src/index";
 
 // Advisory catch-up status (OME-213, ADR 0019, docs/research/m3-threat-model.md §7.7).
 
@@ -11,9 +18,9 @@ function rejects(schema: v.GenericSchema, input: unknown): void {
   expect(v.safeParse(schema, input).success).toBe(false);
 }
 
-const ALICE = { id: "m1", nickname: "Alice", avatar: 0 };
-const BOB = { id: "m2", nickname: "Bob", avatar: 1 };
-function room(members: readonly unknown[]): unknown {
+const ALICE: Member = { id: "m1", nickname: "Alice", avatar: 0 };
+const BOB: Member = { id: "m2", nickname: "Bob", avatar: 1 };
+function room(members: Member[]): RoomState {
   return { id: "lobby", seats: [null, null, null, null, null, null, null, null], members, embed: null, playback: null };
 }
 
@@ -78,7 +85,7 @@ describe("members[].catching", () => {
   });
 
   test("rejects a non-boolean catching", () => {
-    rejects(ServerMessageSchema, { type: "snapshot", self: "m1", room: room([{ ...ALICE, catching: "yes" }]) });
+    rejects(ServerMessageSchema, { type: "snapshot", self: "m1", room: { ...room([]), members: [{ ...ALICE, catching: "yes" }] } });
     rejects(ServerMessageSchema, { type: "member-joined", member: { ...ALICE, catching: 1 } });
   });
 });

@@ -162,6 +162,7 @@ export function createWs({ joinTimeoutMs, shareGrants, publish, release, now = m
         return false;
       case "leave":
       case "ping":
+      case "status":
         return true;
     }
   };
@@ -229,6 +230,9 @@ export function createWs({ joinTimeoutMs, shareGrants, publish, release, now = m
         publish(room.topic, encode({ type: "playback", playback }));
         return;
       }
+      case "status":
+        // Accepted and ignored until OME-101 stores and broadcasts it (ADR 0019).
+        return;
     }
   };
 

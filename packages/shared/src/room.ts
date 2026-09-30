@@ -68,6 +68,8 @@ export const MemberSchema = v.object({
   id: MemberIdSchema,
   nickname: NicknameSchema,
   avatar: AvatarSchema,
+  /** Advisory: this member's player is catching up (ADR 0019). Absent means false. */
+  catching: v.optional(v.boolean()),
 });
 export type Member = v.InferOutput<typeof MemberSchema>;
 

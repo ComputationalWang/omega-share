@@ -138,6 +138,7 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       return { ...state, bubbles: [...state.bubbles.filter((b) => b.memberId !== msg.memberId), bubble] };
     }
     case "pong":
+    case "member-status": // Shown by the web half of OME-101 (ADR 0019).
       return state;
   }
 }
