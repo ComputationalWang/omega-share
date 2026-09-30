@@ -1,7 +1,9 @@
 import { asVimeoNamespace, type VimeoNamespace } from "./vimeo-types";
 
+import { VIMEO_SDK_URL, sdkScriptUrl } from "./sdk-policy";
+
 /** The served SDK, allowed as an exact file by the CSP (ADR 0014 §5, research M2 §4.5). */
-export const VIMEO_SDK_URL = "https://player.vimeo.com/api/player.js";
+export { VIMEO_SDK_URL };
 /** Past this the room plays the video without sync, with a notice (as for YouTube and Twitch). */
 export const VIMEO_LOAD_TIMEOUT_MS = 10_000;
 
@@ -60,7 +62,7 @@ export function loadVimeoApi(): Promise<VimeoLoad> {
     readGlobal: (): unknown => Reflect.get(window, "Vimeo"),
     insertScript(src, onLoad, onError) {
       const s = document.createElement("script");
-      s.src = src;
+      Reflect.set(s, "src", sdkScriptUrl(src));
       s.async = true;
       s.onload = onLoad;
       s.onerror = onError;

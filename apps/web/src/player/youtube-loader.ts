@@ -1,6 +1,8 @@
 import { asYtNamespace, type YtNamespace } from "./youtube-types";
 
-export const IFRAME_API_URL = "https://www.youtube.com/iframe_api";
+import { IFRAME_API_URL, sdkScriptUrl } from "./sdk-policy";
+
+export { IFRAME_API_URL };
 /** Past this the room plays the video without sync, with a notice (ADR 0011). */
 export const LOAD_TIMEOUT_MS = 10_000;
 
@@ -67,7 +69,7 @@ export function loadYouTubeApi(): Promise<YtLoad> {
     win: window,
     insertScript(src, onError) {
       const s = document.createElement("script");
-      s.src = src;
+      Reflect.set(s, "src", sdkScriptUrl(src));
       s.async = true;
       s.onerror = onError;
       document.head.append(s);

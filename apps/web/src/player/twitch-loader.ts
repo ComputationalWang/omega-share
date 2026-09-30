@@ -1,7 +1,9 @@
 import { asTwitchNamespace, type TwitchNamespace } from "./twitch-types";
 
+import { TWITCH_SDK_URL, sdkScriptUrl } from "./sdk-policy";
+
 /** The served SDK, allowed as an exact file by the CSP (research M2 §4.3). */
-export const TWITCH_SDK_URL = "https://player.twitch.tv/js/embed/v1.js";
+export { TWITCH_SDK_URL };
 /** Past this the room plays the video without sync, with a notice (as for YouTube). */
 export const TWITCH_LOAD_TIMEOUT_MS = 10_000;
 
@@ -60,7 +62,7 @@ export function loadTwitchApi(): Promise<TwitchLoad> {
     readGlobal: (): unknown => Reflect.get(window, "Twitch"),
     insertScript(src, onLoad, onError) {
       const s = document.createElement("script");
-      s.src = src;
+      Reflect.set(s, "src", sdkScriptUrl(src));
       s.async = true;
       s.onload = onLoad;
       s.onerror = onError;
