@@ -93,6 +93,12 @@ describe("reduce", () => {
     expect(s.room?.embed).toBeNull();
   });
 
+  test("pong and playback leave the view state unchanged (sync lives outside the reducer)", () => {
+    const s = joined(room({ embed }));
+    expect(server(s, { type: "pong", id: 1, at: 5 })).toBe(s);
+    expect(server(s, { type: "playback", playback: { playing: true, position: 3, rate: 1, at: 5, rev: 1, action: "play", by: "a" } })).toBe(s);
+  });
+
   test("room-full is terminal: later connection events don't leave it", () => {
     let s = server(reduce(initialState, { type: "connecting" }), { type: "room-full" });
     expect(s.status).toBe("full");
