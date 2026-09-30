@@ -43,7 +43,16 @@ test(`control → playback relay with a full room stays within ${String(BUDGET_M
   expect(result.p50).toBeGreaterThan(0);
   expect(result.p95).toBeLessThanOrEqual(BUDGET_MS);
   console.log(`control relay: ${JSON.stringify(result)}`);
-});
+  // Paced to the room control limit (8, then 4/s): 51 controls take about 11 s.
+}, 20_000);
+
+test(`[Relay under flood unmeasured] relay with 24 members and 1 flooder stays within ${String(BUDGET_MS)} ms at p95`, async () => {
+  const result = await measureRelayLatency({ url: t.ws(), clients: MAX_ROOM_MEMBERS, samples: 50, flood: true });
+  expect(result.flood).toBe(true);
+  expect(result.samples).toBe(50);
+  expect(result.p95).toBeLessThanOrEqual(BUDGET_MS);
+  console.log(`relay under flood: ${JSON.stringify(result)}`);
+}, 20_000);
 
 test("control mode needs an embed in the room", async () => {
   let error: unknown = null;

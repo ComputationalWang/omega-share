@@ -85,9 +85,9 @@ afterEach(async () => {
 });
 
 test("[Malformed frames] 10k seeded fuzz frames: no crash, no invalid relay, valid room state", async () => {
-  // Time runs 1 s per frame, so the limiters never trip and every frame reaches the handler.
+  // Time moves 1 s every time a limiter reads it, so no limiter trips and every frame reaches the handler.
   const clock = { ms: 0 };
-  t = start({ now: () => clock.ms, joinTimeoutMs: 60_000 });
+  t = start({ now: () => (clock.ms += 1000), joinTimeoutMs: 60_000 });
   const server = t;
   const observer = await Client.join(server.ws(), "observer");
   clients.push(observer.client);
@@ -101,7 +101,6 @@ test("[Malformed frames] 10k seeded fuzz frames: no crash, no invalid relay, val
     clients.push(c);
     for (let sent = 0; sent < FRAMES / FUZZERS; ) {
       for (let i = 0; i < BATCH && sent < FRAMES / FUZZERS; i++, sent++) {
-        clock.ms += 1000;
         c.send(frame(rand, url));
       }
       c.send({ type: "ping", id: 1 });
@@ -123,7 +122,6 @@ test("[Malformed frames] 10k seeded fuzz frames: no crash, no invalid relay, val
   expect(reconnects).toBeGreaterThan(0);
 
   // The server is up and its room state is valid, with unique nickname keys.
-  clock.ms += 60_000;
   const late = await Client.join(server.ws(), "latecomer");
   clients.push(late.client);
   const room = v.parse(RoomStateSchema, late.snapshot.room);

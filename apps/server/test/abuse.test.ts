@@ -273,7 +273,7 @@ describe("M3 room limiters (threat model §6)", () => {
     await a.client.none("playback", 50);
     clock.ms += 250;
     c.client.send({ type: "control", url, playing: false, position: 5 });
-    expect((await a.client.next("playback")).playback.by).toBe(c.snapshot.self);
+    expect((await c.client.next("playback")).playback.by).toBe(c.snapshot.self);
   });
 });
 
@@ -281,11 +281,15 @@ describe("M3 per-key limiters (threat model §6, ADR 0015 client key)", () => {
   test("[Reconnect churn] upgrade: 10 per key pass, the 11th gets HTTP 429 with Retry-After, other keys and a refill pass", async () => {
     const clock = fakeClock();
     t = start({ now: clock.now, trustProxy: true });
-    for (let i = 0; i < 10; i++) (await Client.open(t.ws(), undefined, as("198.51.100.1"))).close();
+    for (let i = 0; i < 10; i++) {
+      // Wait for each close, so the per-key connection cap (C1) never counts them.
+      const c = await Client.open(t.ws(), undefined, as("198.51.100.1"));
+      c.close();
+      await c.closed;
+    }
     const refused = await upgradeStatus(t, as("198.51.100.1"));
     expect(refused.status).toBe(429);
     expect(refused.headers.get("retry-after")).toBe("2");
-    await open(t.ws()).then(() => undefined, () => undefined);
     clients.push(await Client.open(t.ws(), undefined, as("198.51.100.2")));
     clock.ms += 2000;
     clients.push(await Client.open(t.ws(), undefined, as("198.51.100.1")));
@@ -328,6 +332,8 @@ describe("M3 per-key limiters (threat model §6, ADR 0015 client key)", () => {
     clients.push((await Client.join(t.ws(), "neighbour", 0, as("198.51.100.2"))).client);
     five[0]?.client.send({ type: "leave" });
     await five[1]?.client.next("member-left");
+    // The key has used its 6 joins; this one is past the join limiter's refill.
+    clock.ms += 5000;
     sixth.send({ type: "join", nickname: "squat5", avatar: 0 });
     await sixth.next("snapshot");
   });
@@ -371,6 +377,9 @@ describe("M3 escalation closes (threat model §6)", () => {
     const a = await join(t, "alice");
     // Chat 1–5 pass; 6–54 are 49 drops (chat bucket, then L1).
     for (let i = 0; i < 54; i++) a.client.send(chat(`spam ${String(i)}`));
+    await a.client.next("error");
+    // Let the server read the rest of the drops before the clock moves (they produce no reply to wait for).
+    await Bun.sleep(50);
     clock.ms += 1000;
     await pingPong(a.client);
     // A frame that passes ends the streak.
@@ -429,24 +438,35 @@ async function slowReader(server: TestServer, nickname: string): Promise<Socket>
 }
 
 describe("M3 transport limits (threat model §6)", () => {
-  test("[Slow reader] a member that stops reading is closed after ~1 MB of broadcasts; the others keep relaying", async () => {
+  test("[Slow reader] a member that stops reading is closed at the backpressure limit, not Bun's 16 MB; the others keep relaying", async () => {
     t = start();
     const a = await join(t, "alice");
     const b = await join(t, "bob");
     const slow = await slowReader(t, "sloth");
-    const sloth = (await a.client.next("member-joined")).member.id;
-    await b.client.next("member-joined");
-    // Chat is capped per socket, so the server's own publish plays the room's broadcasts.
+    // Bob joined after alice, so the only join bob sees is the sloth's.
+    const sloth = (await b.client.next("member-joined")).member.id;
+    // Chat is capped per socket, so the server's own publish plays the room's broadcasts. Loopback kernel
+    // buffers absorb a few MB before Bun buffers anything, so publish until the sloth is dropped.
     const frame = JSON.stringify({ type: "chat", memberId: sloth, text: "x".repeat(250), at: 0 });
+    let left = false;
+    a.client.socket.addEventListener("message", (e: MessageEvent) => {
+      if (typeof e.data === "string" && e.data.includes('"member-left"')) left = true;
+    });
     let sent = 0;
-    for (let i = 0; sent < 1024 * 1024; i++) {
-      t.server.publish("room:lobby", frame);
-      sent += frame.length;
-      if (i % 256 === 0) await Bun.sleep(1);
+    const [baseA, baseB] = [a.client.raw.length, b.client.raw.length];
+    for (let published = 0; !left && sent < 16 * 1024 * 1024; ) {
+      for (let i = 0; i < 64; i++, published++) {
+        t.server.publish("room:lobby", frame);
+        sent += frame.length;
+      }
+      // The honest members read on this same event loop: let them catch up, so only the sloth backs up.
+      while (a.client.raw.length - baseA < published || b.client.raw.length - baseB < published) await Bun.sleep(1);
     }
     expect((await a.client.next("member-left", 2000)).memberId).toBe(sloth);
+    expect(sent).toBeLessThan(16 * 1024 * 1024);
     a.client.send(chat("still here"));
-    expect((await b.client.next("chat")).text).toBe("still here");
+    // Bob's inbox still holds the published chats; skip to the fresh one.
+    while ((await b.client.next("chat")).text !== "still here");
     slow.destroy();
   });
 
