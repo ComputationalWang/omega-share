@@ -4,6 +4,7 @@ import {
   ClientMessageSchema,
   ERROR_CODES,
   MAX_CLIENT_MESSAGE_BYTES,
+  MAX_EMBED_URL_LENGTH,
   MAX_POSITION_S,
   MAX_SERVER_MESSAGE_BYTES,
   PING_ID_MAX,
@@ -105,8 +106,11 @@ describe("ClientMessageSchema: ping and control", () => {
     [
       { type: "ping", id: 0 },
       { type: "ping", id: 2_147_483_647 },
-      { type: "control", videoId: VIDEO_ID, playing: true, position: 0 },
-      { type: "control", videoId: VIDEO_ID, playing: false, position: 43_200 },
+      { type: "control", url: EMBED.url, playing: true, position: 0 },
+      { type: "control", url: EMBED.url, playing: false, position: 43_200 },
+      { type: "control", url: "https://player.twitch.tv/?channel=some_streamer", playing: true, position: 0 },
+      { type: "control", url: "https://player.vimeo.com/video/76979871?h=abc123def4", playing: false, position: 3 },
+      { type: "control", url: "u".repeat(MAX_EMBED_URL_LENGTH), playing: true, position: 0 },
     ],
     [
       ["ping without id", { type: "ping" }],
@@ -114,13 +118,15 @@ describe("ClientMessageSchema: ping and control", () => {
       ["ping fractional id", { type: "ping", id: 1.5 }],
       ["ping id above PING_ID_MAX", { type: "ping", id: 2_147_483_648 }],
       ["ping with unknown key", { type: "ping", id: 1, t0: 5 }],
-      ["control with unknown key", { type: "control", videoId: VIDEO_ID, playing: true, position: 0, rate: 2 }],
-      ["control NaN position", { type: "control", videoId: VIDEO_ID, playing: true, position: Number.NaN }],
-      ["control negative position", { type: "control", videoId: VIDEO_ID, playing: true, position: -1 }],
-      ["control position above MAX_POSITION_S", { type: "control", videoId: VIDEO_ID, playing: true, position: 43_201 }],
-      ["control bad videoId", { type: "control", videoId: "short", playing: true, position: 0 }],
-      ["control reserved videoId", { type: "control", videoId: "videoseries", playing: true, position: 0 }],
-      ["control missing playing", { type: "control", videoId: VIDEO_ID, position: 0 }],
+      ["control with unknown key", { type: "control", url: EMBED.url, playing: true, position: 0, rate: 2 }],
+      ["control NaN position", { type: "control", url: EMBED.url, playing: true, position: Number.NaN }],
+      ["control negative position", { type: "control", url: EMBED.url, playing: true, position: -1 }],
+      ["control position above MAX_POSITION_S", { type: "control", url: EMBED.url, playing: true, position: 43_201 }],
+      ["control url over MAX_EMBED_URL_LENGTH", { type: "control", url: "u".repeat(MAX_EMBED_URL_LENGTH + 1), playing: true, position: 0 }],
+      ["control url not a string", { type: "control", url: 1, playing: true, position: 0 }],
+      ["control with the old videoId key", { type: "control", videoId: VIDEO_ID, playing: true, position: 0 }],
+      ["control with videoId and url", { type: "control", videoId: VIDEO_ID, url: EMBED.url, playing: true, position: 0 }],
+      ["control missing playing", { type: "control", url: EMBED.url, position: 0 }],
       ["server-only pong", { type: "pong", id: 1, at: 0 }],
       ["server-only playback", { type: "playback", playback: PLAYBACK }],
     ],
@@ -128,11 +134,11 @@ describe("ClientMessageSchema: ping and control", () => {
 
   test("parseClientMessage rejects NaN smuggled as a JSON number overflow", () => {
     // JSON has no NaN; 1e999 parses to Infinity.
-    expect(parseClientMessage(`{"type":"control","videoId":"${VIDEO_ID}","playing":true,"position":1e999}`)).toBeNull();
+    expect(parseClientMessage(`{"type":"control","url":"${EMBED.url}","playing":true,"position":1e999}`)).toBeNull();
   });
 
   test("a worst-case control frame stays under the client frame cap", () => {
-    const frame = JSON.stringify({ type: "control", videoId: "_".repeat(11), playing: false, position: 43_199.999_999_999_99 });
+    const frame = JSON.stringify({ type: "control", url: "\u2028".repeat(MAX_EMBED_URL_LENGTH), playing: false, position: 43_199.999_999_999_99 });
     expect(utf8(frame)).toBeLessThan(MAX_CLIENT_MESSAGE_BYTES);
     expect(parseClientMessage(frame)?.type).toBe("control");
   });
@@ -157,7 +163,7 @@ describe("ServerMessageSchema: pong and playback", () => {
       ["playback with bad rate", { type: "playback", playback: { ...PLAYBACK, rate: 4 } }],
       ["embed-changed with playback but no embed", { type: "embed-changed", embed: null, by: null, playback: LOADED }],
       ["client-only ping", { type: "ping", id: 1 }],
-      ["client-only control", { type: "control", videoId: VIDEO_ID, playing: true, position: 0 }],
+      ["client-only control", { type: "control", url: EMBED.url, playing: true, position: 0 }],
     ],
   );
 
