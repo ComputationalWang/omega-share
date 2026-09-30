@@ -329,6 +329,9 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
       input.room = pb;
       input.hardSeek = pb !== null;
       holdUntil = Number.NEGATIVE_INFINITY;
+      // RESEND_MS only suppresses repeats within one room state (OME-170).
+      lastPlayAt = Number.NEGATIVE_INFINITY;
+      lastPauseAt = Number.NEGATIVE_INFINITY;
       pendingComp = -1;
     },
     tick,
