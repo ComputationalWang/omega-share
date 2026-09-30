@@ -278,9 +278,11 @@ test.describe("tunnel safety through the local reverse proxy", () => {
     const page = await enterRoom(await newTunnelContext(), "twitch-watcher");
     const { token } = readRecord(await page.evaluate((k) => sessionStorage.getItem(k), SHARE_TOKEN_STORAGE_KEY));
     expect((await share(token, freshClient(), {}, TWITCH_CHANNEL_URL)).status).toBe(200);
-    const frame = page.locator('iframe[src^="https://player.twitch.tv/"]');
+    // The SDK builds `https://player.twitch.tv?…` (no slash before the query), so match the origin, then pin it.
+    const frame = page.locator('iframe[src^="https://player.twitch.tv"]');
     await expect(frame).toHaveCount(1);
     const src = new URL((await frame.getAttribute("src")) ?? "");
+    expect(src.origin).toBe("https://player.twitch.tv");
     expect(src.searchParams.getAll("parent")).toEqual(["omega.test"]);
   });
 
