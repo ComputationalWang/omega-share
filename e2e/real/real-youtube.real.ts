@@ -250,6 +250,8 @@ test("3 · muted fallback + Unmute (raw-CDP Chromium with no user activation)", 
     await tab.click(site.unmuteButton);
     await expect.poll(async () => (await playback())?.needsUnmute, { timeout: 5_000, message: "Unmute cleared needsUnmute" }).toBe(false);
     await expect.poll(async () => (await frameVideo())?.muted, { timeout: 5_000, message: "the real <video> unmuted" }).toBe(false);
+    // The controls re-render on the next view update, not synchronously with needsUnmute (OME-222), so poll.
+    await expect.poll(() => tab.eval<boolean>(`document.querySelector('${site.unmuteButton}').hidden`), { timeout: 5_000, message: "Unmute hidden again" }).toBe(true);
     const after = { view: await playback(), video: await frameVideo(), unmuteHidden: await tab.eval<boolean>(`document.querySelector('${site.unmuteButton}').hidden`) };
     await tab.screenshot(join(EVIDENCE_DIR, "03-after-unmute.png"));
     tab.close();
