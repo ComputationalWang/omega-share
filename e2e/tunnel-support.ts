@@ -9,7 +9,7 @@ import type { Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test as base, chromium, type Browser, type BrowserContext } from "@playwright/test";
-import { EXTENSION_DIR, PORTS, ROOT, extensionBuildError } from "./support/apps";
+import { PORTS, ROOT } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { EVIL_HOST, PUBLIC_HOST, startTunnelProxy, type TunnelProxy } from "./fixtures/proxy";
 
@@ -261,18 +261,5 @@ export const test = base.extend<TunnelTestFixtures, TunnelWorkerFixtures>({
     await Promise.all(opened.map((c) => c.close()));
   },
 });
-
-/** Chromium with the unpacked extension, resolving the test hosts to the proxy. */
-export async function launchExtensionThroughTunnel(): Promise<BrowserContext> {
-  const missing = extensionBuildError();
-  if (missing !== null) throw new Error(missing);
-  const context = await chromium.launchPersistentContext("", {
-    channel: "chromium",
-    ignoreHTTPSErrors: true,
-    args: [`--disable-extensions-except=${EXTENSION_DIR}`, `--load-extension=${EXTENSION_DIR}`, ...TUNNEL_BROWSER_ARGS],
-  });
-  await passTunnelHosts(context);
-  return context;
-}
 
 export { expect } from "@playwright/test";
