@@ -75,6 +75,20 @@ test(`[Relay under flood] control relay with 24 members chatting at the allowed 
   console.log(`control relay under flood: ${JSON.stringify(result)}`);
 }, 30_000);
 
+test("a control run right after another one doesn't trip the room control limit (OME-192)", async () => {
+  const sharer = await Client.join(t.ws(), "sharer");
+  const res = await postShare(t, JSON.stringify({ url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }), {
+    token: tokenOf(sharer.snapshot),
+  });
+  expect(res.status).toBe(200);
+  sharer.client.close();
+  await sharer.client.closed;
+  // The first run leaves the server's room bucket empty; the second must not assume it's full.
+  await measureRelayLatency({ url: t.ws(), clients: 4, samples: 10, action: "control" });
+  const result = await measureRelayLatency({ url: t.ws(), clients: 4, samples: 10, action: "control" });
+  expect(result.samples).toBe(10);
+}, 20_000);
+
 test("without flood there is no attacker and no member traffic in the result", async () => {
   const result = await measureRelayLatency({ url: t.ws(), clients: 2, samples: 2 });
   expect(result.attacker).toBeUndefined();
