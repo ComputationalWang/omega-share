@@ -117,25 +117,32 @@ test("5 · effective rate at 1.05: getCurrentTime slope over 30 s + video.playba
   const at1 = await measure(1, 10);
   const at105 = await measure(1.05, 30);
   const rungAfterCheck = nextRateMode(initialRateMode(setup), 1.05, at105.slope, setup);
-  // The sync loop's own check, replayed: set a small nudge, then slope = Δ getCurrentTime / Δ wall over RATE_CHECK_MS
-  // (2 s) from the moment of the set call, exactly as createSyncLoop does. Which rung would each window leave us on?
-  const loopChecks = await page.evaluate(async (rates) => {
-    const p = (window as unknown as { __p: { setPlaybackRate(r: number): void; getCurrentTime(): number } }).__p;
-    const out: { requested: number; slope: number }[] = [];
-    for (const requested of [0.98, 1.02, 0.97, 1.03, 0.98, 1.02, 0.97, 1.03, 0.95, 1.05]) {
+  // The sync loop's own check, replayed: set a nudge, then slope = Δ getCurrentTime / Δ wall over RATE_CHECK_MS (2 s)
+  // from the moment of the set call, exactly as createSyncLoop does. Rates are the ones the loop sends since OME-109
+  // (whole 0.05 steps, ADR 0013); off-grid rates are only probed for what the <video> really plays (YouTube floors them).
+  const replayWindow = (requested: number) =>
+    page.evaluate(async (r) => {
+      const p = (window as unknown as { __p: { setPlaybackRate(r: number): void; getCurrentTime(): number } }).__p;
       p.setPlaybackRate(1);
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((res) => setTimeout(res, 1500));
       const t0 = performance.now();
       const c0 = p.getCurrentTime();
-      p.setPlaybackRate(requested);
-      await new Promise((r) => setTimeout(r, 2000));
-      out.push({ requested, slope: Number(((p.getCurrentTime() - c0) / ((performance.now() - t0) / 1000)).toFixed(4)) });
-    }
-    return out.map((x) => ({ ...x, rates }));
-  }, setup);
-  const replay = loopChecks.map(({ requested, slope: s }) => ({ requested, slope: s, rung: nextRateMode("fine", requested, s, setup) }));
+      p.setPlaybackRate(r);
+      await new Promise((res) => setTimeout(res, 2000));
+      return Number(((p.getCurrentTime() - c0) / ((performance.now() - t0) / 1000)).toFixed(4));
+    }, requested);
+  const replay: { requested: number; slope: number; videoPlaybackRate: number | null; rung: string }[] = [];
+  for (const requested of [0.95, 1.05, 0.9, 1.1, 0.95, 1.05, 0.9, 1.1]) {
+    const s = await replayWindow(requested);
+    replay.push({ requested, slope: s, videoPlaybackRate: (await sampleVideo(frame))?.playbackRate ?? null, rung: nextRateMode("fine", requested, s, setup) });
+  }
+  const offGrid: { requested: number; videoPlaybackRate: number | null }[] = [];
+  for (const requested of [1.02, 1.03, 0.98, 0.97]) {
+    await replayWindow(requested);
+    offGrid.push({ requested, videoPlaybackRate: (await sampleVideo(frame))?.playbackRate ?? null });
+  }
   await ctx.close();
-  record("05-rate-raw", { availableRates: setup, at1, at105, rungAfterCheck, loopCheckReplay: replay, falseDowngrades: replay.filter((x) => x.rung !== "fine").length });
+  record("05-rate-raw", { availableRates: setup, at1, at105, rungAfterCheck, loopCheckReplay: replay, falseDowngrades: replay.filter((x) => x.rung !== "fine").length, offGrid });
 
   // (b) In the room: push one client ~600 ms ahead (inside the 1 s seek threshold) and watch what the sync loop does.
   const a = await enter(await browser.newContext(), "real-rate-a");
@@ -169,12 +176,13 @@ test("5 · effective rate at 1.05: getCurrentTime slope over 30 s + video.playba
       ? "fine"
       : seen.some((r) => r === BURST_SLOW || r === BURST_FAST) ? "burst" : "seek-only (or corrected by seek)";
     const after = await spreadOver(fa, fb, 8, 250);
-    record("05-rate", { availableRates: setup, at1, at105, rungAfterCheck, loopCheckReplay: replay, inRoom: { afterJoinRates: [...new Set(settle.flatMap((x) => [x.a, x.b]))], afterJoin: settle.filter((x) => x.a !== 1 || x.b !== 1), videoRatesSeen: seen, inRoomRung, spreadAfter: after, trace: rates } });
+    record("05-rate", { availableRates: setup, at1, at105, rungAfterCheck, loopCheckReplay: replay, offGrid, inRoom: { afterJoinRates: [...new Set(settle.flatMap((x) => [x.a, x.b]))], afterJoin: settle.filter((x) => x.a !== 1 || x.b !== 1), videoRatesSeen: seen, inRoomRung, spreadAfter: after, trace: rates } });
     expect(at105.reported).toBeCloseTo(1.05, 2);
     expect(at105.videoPlaybackRate, "the media element really plays at 1.05").toEqual([1.05]);
     expect(at105.slope).toBeCloseTo(1.05, 2);
     // Fine rates really apply, so the ladder should stay on its first rung.
     expect(replay.filter((x) => x.rung !== "fine"), "the 2 s check never downgrades a working fine rate").toEqual([]);
+    expect(replay.every((x) => x.videoPlaybackRate === x.requested), "grid rates play as sent").toBe(true);
     expect(inRoomRung, "the room's sync loop is on the fine rung").toBe("fine");
     expect(after.maxAbsMs, "corrected back inside the dead band-ish").toBeLessThan(500);
   } finally {
