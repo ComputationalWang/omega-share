@@ -9,15 +9,22 @@
  *
  * With `action: "control"` (the room must have an embed) each sample is a `control` seek to a
  * fresh position instead, timed until every socket receives the matching `playback`. Actors
- * rotate so no socket exceeds its control limit (a burst of 4). Afterwards it sends one more
+ * rotate so no socket exceeds its control limit (a burst of 4), and samples are paced to the room's
+ * control limit (a burst of 8, then 4/s), so 50 samples take about 11 s. Afterwards it sends one more
  * control restoring the playback it found, extrapolated with the local clock.
  *
- * CLI: `bun run --filter @omega/server bench:relay -- --url ws://127.0.0.1:8787/rooms/lobby/ws [--action control]`
+ * With `flood`, one of the `clients` sockets is an attacker instead of a probe: it sends chat at 10× the
+ * per-socket limit (100/s) for the whole run and rejoins whenever the server closes it (threat model §8).
+ * Samples are then spread 20 ms apart, so they span the attacker's closes and rejoins.
+ *
+ * CLI: `bun run --filter @omega/server bench:relay -- --url ws://127.0.0.1:8787/rooms/lobby/ws [--action control] [--flood]`
  * prints the result as JSON and exits 1 when p95 exceeds `--budget` (default 50).
  */
 import { parseArgs } from "node:util";
 import { parseServerMessage, type Embed, type PlaybackState, type SeatIndex, type ServerMessage } from "@omega/shared";
 import { expectedPosition } from "./playback";
+import { TokenBucket } from "./rate-limit";
+import { CONTROL_BURST, ROOM_CONTROL_BURST, ROOM_CONTROL_PER_SECOND } from "./ws";
 
 export interface RelayLatencyOptions {
   url: string;
@@ -28,10 +35,13 @@ export interface RelayLatencyOptions {
   timeoutMs?: number;
   /** `seat` (default): sit/stand, or chat when the seats are full. `control`: seek via `control`. */
   action?: "seat" | "control";
+  /** One of `clients` floods chat for the whole run instead of probing. */
+  flood?: boolean;
 }
 
 export interface RelayLatencyResult {
   clients: number;
+  flood: boolean;
   samples: number;
   action: "sit" | "chat" | "control";
   p50: number;
@@ -48,8 +58,10 @@ interface Probe {
   onMessage: ((msg: ServerMessage) => void) | null;
 }
 
-/** The server's per-socket `control` burst (apps/server/src/server.ts). */
-const CONTROL_BURST = 4;
+/** The attacker's pace: 10× the server's per-socket limit of 10/s. */
+const FLOOD_INTERVAL_MS = 10;
+/** Under flood, samples are spread out so the run spans the attacker's closes and rejoins (~1 s for 50). */
+const FLOOD_SAMPLE_GAP_MS = 20;
 
 function percentile(sorted: number[], p: number): number {
   return sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)] ?? 0;
@@ -106,17 +118,49 @@ function connect(url: string, index: number, origin: string | undefined, sockets
   });
 }
 
+/** A socket that joins and floods chat until stopped, rejoining after every close. */
+function startFlooder(url: string, origin: string | undefined, sockets: WebSocket[]): () => void {
+  let stopped = false;
+  let timer: Timer | null = null;
+  const open = (): void => {
+    const socket = origin === undefined ? new WebSocket(url) : new WebSocket(url, { headers: { Origin: origin } });
+    sockets.push(socket);
+    socket.addEventListener("open", () => {
+      socket.send(JSON.stringify({ type: "join", nickname: "flooder", avatar: 0 }));
+      let n = 0;
+      timer = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "chat", text: `flood ${String(n++)}` }));
+      }, FLOOD_INTERVAL_MS);
+    });
+    socket.addEventListener("close", () => {
+      if (timer !== null) clearInterval(timer);
+      timer = null;
+      if (!stopped) open();
+    });
+  };
+  open();
+  return () => {
+    stopped = true;
+    if (timer !== null) clearInterval(timer);
+  };
+}
+
 export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<RelayLatencyResult> {
   const clients = opts.clients ?? 25;
   const samples = opts.samples ?? 50;
   const timeoutMs = opts.timeoutMs ?? 2000;
   if (!Number.isInteger(clients) || clients < 1) throw new Error("relay-latency: clients must be an integer ≥ 1");
   if (!Number.isInteger(samples) || samples < 1) throw new Error("relay-latency: samples must be an integer ≥ 1");
+  const flood = opts.flood ?? false;
+  if (flood && clients < 2) throw new Error("relay-latency: flood needs clients ≥ 2 (one is the attacker)");
   const probes: Probe[] = [];
   const sockets: WebSocket[] = [];
+  let stopFlood: (() => void) | null = null;
   try {
+    // The attacker joins first, so the probes' room is already under flood.
+    if (flood) stopFlood = startFlooder(opts.url, opts.origin, sockets);
     // Join one at a time so the actor's snapshot is taken after everyone else is in.
-    for (let i = 0; i < clients; i++) {
+    for (let i = 0; i < (flood ? clients - 1 : clients); i++) {
       probes.push(await withTimeout(connect(opts.url, i, opts.origin, sockets), timeoutMs, "join"));
     }
     const last = probes[probes.length - 1];
@@ -127,11 +171,17 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
     const found = last.playback;
     if (action === "control") {
       if (url === null) throw new Error("relay-latency: control mode needs an embed in the room");
-      if (samples + 1 > clients * CONTROL_BURST) {
+      if (samples + 1 > probes.length * CONTROL_BURST) {
         throw new Error(`relay-latency: control mode needs clients ≥ (samples + 1) / ${String(CONTROL_BURST)}`);
       }
     }
     let actor = last;
+    // Mirrors the server's room control bucket, one token short so the server always has one to spare.
+    const roomControl = new TokenBucket(ROOM_CONTROL_BURST - 1, ROOM_CONTROL_PER_SECOND);
+    const paceControl = async (): Promise<void> => {
+      if (action !== "control") return;
+      while (!roomControl.take()) await Bun.sleep(roomControl.retryAfterMs());
+    };
 
     const times: number[] = [];
     for (let s = 0; s < samples; s++) {
@@ -156,6 +206,8 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
           };
         }
       });
+      await paceControl();
+      if (flood) await Bun.sleep(FLOOD_SAMPLE_GAP_MS);
       const t0 = performance.now();
       actor.socket.send(
         JSON.stringify(
@@ -177,6 +229,7 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
           if (msg.type === "playback" && msg.playback.by === restorer.self) resolve();
         };
       });
+      await paceControl();
       const position = expectedPosition(found, Date.now());
       restorer.socket.send(JSON.stringify({ type: "control", url, playing: found.playing, position }));
       await withTimeout(restored, timeoutMs, "restore");
@@ -185,6 +238,7 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
     times.sort((a, b) => a - b);
     return {
       clients,
+      flood,
       samples,
       action,
       p50: percentile(times, 50),
@@ -192,6 +246,7 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
       max: times[times.length - 1] ?? 0,
     };
   } finally {
+    stopFlood?.();
     await Promise.all(
       sockets.map(
         (socket) =>
@@ -219,6 +274,7 @@ if (import.meta.main) {
       budget: { type: "string", default: "50" },
       origin: { type: "string" },
       action: { type: "string", default: "seat" },
+      flood: { type: "boolean", default: false },
     },
   });
   const result = await measureRelayLatency({
@@ -226,6 +282,7 @@ if (import.meta.main) {
     clients: Number(values.clients),
     samples: Number(values.samples),
     action: values.action === "control" ? "control" : "seat",
+    flood: values.flood,
     ...(values.origin === undefined ? {} : { origin: values.origin }),
   });
   const budget = Number(values.budget);

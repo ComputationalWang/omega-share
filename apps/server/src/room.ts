@@ -11,10 +11,25 @@ import {
   type RoomState,
   type RoomSummary,
   type SeatIndex,
+  nicknameKey,
 } from "@omega/shared";
 import { applyControl, loadPlayback, type Control } from "./playback";
 
 export type SitResult = "ok" | "seat_taken";
+export type JoinResult = { ok: true; member: Member } | { ok: false; reason: "room_full" | "too_many_members" | "nickname_taken" };
+
+/**
+ * Joined members one client key may hold in a room (threat model §6, room squatting). Pending the
+ * board's answer to B2 on OME-183: real groups behind one NAT share a key.
+ */
+export const MAX_MEMBERS_PER_CLIENT = 5;
+
+interface Held {
+  /** `nicknameKey` of the member's nickname: unique per room. */
+  nameKey: string;
+  /** Client key the member counts against, or null when uncapped. */
+  client: string | null;
+}
 
 /**
  * One in-memory room: up to MAX_ROOM_MEMBERS members, SEAT_COUNT seats (ADR 0006).
@@ -23,6 +38,9 @@ export type SitResult = "ok" | "seat_taken";
 export class Room {
   readonly topic: string;
   private readonly members = new Map<MemberId, Member>();
+  private readonly held = new Map<MemberId, Held>();
+  private readonly nameKeys = new Set<string>();
+  private readonly perClient = new Map<string, number>();
   private readonly seats: (MemberId | null)[] = Array.from({ length: SEAT_COUNT }, () => null);
   private embed: Embed | null = null;
   /** Null iff there is no embed. */
@@ -34,18 +52,37 @@ export class Room {
     this.topic = `room:${id}`;
   }
 
-  /** Adds a member, or returns null when the room is full. */
-  join(nickname: Nickname, avatar: Avatar): Member | null {
-    if (this.members.size >= MAX_ROOM_MEMBERS) return null;
+  /**
+   * Adds a member, unless the room is full, `client` already holds MAX_MEMBERS_PER_CLIENT members here,
+   * or another member's nickname has the same `nicknameKey`. `client` null means uncapped.
+   */
+  join(nickname: Nickname, avatar: Avatar, client: string | null = null): JoinResult {
+    if (this.members.size >= MAX_ROOM_MEMBERS) return { ok: false, reason: "room_full" };
+    if (client !== null && (this.perClient.get(client) ?? 0) >= MAX_MEMBERS_PER_CLIENT) {
+      return { ok: false, reason: "too_many_members" };
+    }
+    const nameKey = nicknameKey(nickname);
+    if (this.nameKeys.has(nameKey)) return { ok: false, reason: "nickname_taken" };
     const member: Member = { id: crypto.randomUUID(), nickname, avatar };
     this.members.set(member.id, member);
-    return member;
+    this.held.set(member.id, { nameKey, client });
+    this.nameKeys.add(nameKey);
+    if (client !== null) this.perClient.set(client, (this.perClient.get(client) ?? 0) + 1);
+    return { ok: true, member };
   }
 
-  /** Removes a member and frees their seat. */
+  /** Removes a member and frees their seat, nickname and client slot. */
   leave(memberId: MemberId): void {
     this.free(memberId);
     this.members.delete(memberId);
+    const held = this.held.get(memberId);
+    if (held === undefined) return;
+    this.held.delete(memberId);
+    this.nameKeys.delete(held.nameKey);
+    if (held.client === null) return;
+    const left = (this.perClient.get(held.client) ?? 1) - 1;
+    if (left === 0) this.perClient.delete(held.client);
+    else this.perClient.set(held.client, left);
   }
 
   /** Sits `memberId` on `seat` (moving from any other seat), or stands up on `null`. */

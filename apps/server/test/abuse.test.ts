@@ -448,13 +448,13 @@ describe("M3 transport limits (threat model §6)", () => {
     // Chat is capped per socket, so the server's own publish plays the room's broadcasts. Loopback kernel
     // buffers absorb a few MB before Bun buffers anything, so publish until the sloth is dropped.
     const frame = JSON.stringify({ type: "chat", memberId: sloth, text: "x".repeat(250), at: 0 });
-    let left = false;
+    const seen = { left: false };
     a.client.socket.addEventListener("message", (e: MessageEvent) => {
-      if (typeof e.data === "string" && e.data.includes('"member-left"')) left = true;
+      if (typeof e.data === "string" && e.data.includes('"member-left"')) seen.left = true;
     });
     let sent = 0;
     const [baseA, baseB] = [a.client.raw.length, b.client.raw.length];
-    for (let published = 0; !left && sent < 16 * 1024 * 1024; ) {
+    for (let published = 0; !seen.left && sent < 16 * 1024 * 1024; ) {
       for (let i = 0; i < 64; i++, published++) {
         t.server.publish("room:lobby", frame);
         sent += frame.length;

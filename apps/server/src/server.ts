@@ -1,7 +1,7 @@
 import type { Server } from "bun";
 import { DEFAULT_ROOM_ID, type RoomId, type ShareToken } from "@omega/shared";
 import { createHttpApp, plain, type ShareGrant } from "./http";
-import { clientKey } from "./rate-limit";
+import { clientKey, monotonic, type Clock } from "./rate-limit";
 import { Room } from "./room";
 import { createWs, type ConnData } from "./ws";
 
@@ -27,6 +27,8 @@ export interface ServerOptions {
   maxConnections?: number;
   /** Rooms that exist. Default: just the lobby. */
   rooms?: readonly RoomId[];
+  /** Clock for the WS limiters (tests inject one so a refill needs no sleep). Default: monotonic. */
+  now?: Clock;
 }
 
 const WS_PATH = /^\/rooms\/([^/]+)\/ws$/;
@@ -66,6 +68,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     joinTimeoutMs: opts.joinTimeoutMs ?? 10_000,
     shareGrants,
     publish,
+    now: opts.now ?? monotonic,
     release(ip) {
       connections--;
       const left = (connectionsPerIp.get(ip) ?? 1) - 1;
