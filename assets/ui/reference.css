@@ -257,16 +257,17 @@
 @media (prefers-reduced-motion: reduce) { .ui-onair, .ui-resync { animation: none; } }
 
 /* ---- Set (f) (OME-193): M3 safety states. Friendly waits, never alarms: no rust, no warn icon.
- * Snail = too fast. Timer ring = how long to wait. Mustard bar = only you see this. Plug = network dropped. Shut door = room full. */
+ * Snail = too fast. Round arrow = try your share again. Timer dial = how long to wait. Mustard bar = only you see this.
+ * Plug = network dropped. Mug = the room paused you, take a breather. Shut door = room full. */
 
-/* Slow down: a rate-limited shared key rests (darker wood, charcoal lip) and its icon becomes the timer ring, which drains once
+/* Slow down: a rate-limited shared key rests (darker wood, charcoal lip) and its icon becomes the timer dial, which drains once
  * over --cool (the server's retry-after). Use aria-disabled="true" (not disabled) so it keeps focus and its label, e.g.
- * "Pause for everyone: available again in 3 seconds". Remove .is-cooling when the ring is empty. */
+ * "Pause for everyone: available again in 3 seconds". Remove .is-cooling when the dial is empty. */
 .ui-button.shared.is-cooling { border-image-source: url("slices/button-shared-cool.png"); cursor: default; padding: 0 0 calc(2 * var(--ui-px)); }
 .ui-wait { --w0: calc(-132 * var(--ui-px)) calc(-158 * var(--ui-px)); --w1: calc(-149 * var(--ui-px)) calc(-158 * var(--ui-px)); --w2: calc(-85 * var(--ui-px)) calc(-159 * var(--ui-px)); --w3: calc(-183 * var(--ui-px)) calc(-159 * var(--ui-px)); --w4: calc(-200 * var(--ui-px)) calc(-159 * var(--ui-px)); --w5: calc(-217 * var(--ui-px)) calc(-159 * var(--ui-px)); --w6: calc(-234 * var(--ui-px)) calc(-159 * var(--ui-px)); --w7: calc(-102 * var(--ui-px)) calc(-160 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--w0); animation: ui-wait var(--cool, 3s) steps(1) 1 both; }
 @keyframes ui-wait { 0% { background-position: var(--w0); } 12.5% { background-position: var(--w1); } 25% { background-position: var(--w2); } 37.5% { background-position: var(--w3); } 50% { background-position: var(--w4); } 62.5% { background-position: var(--w5); } 75% { background-position: var(--w6); } 87.5% { background-position: var(--w7); } 100% { background-position: var(--w7); } }
 /* The slow-down chip is a .ui-chip.self (it only slows you): glyph/snail + "Slow down". Put it where .ui-live-note / the seek's
- * left end would be, and drop it with the ring. */
+ * left end would be, and drop it with the dial. */
 
 /* A line only you see (e.g. your share didn't go through): the system strip with the mustard "you" bar. */
 .ui-sysline.self { border-image-source: url("slices/chat-system-self.png"); }
@@ -274,7 +275,10 @@
 
 /* Connection. Normal drop: dot/connecting + "Reconnecting" + the dots loader, no button (it retries by itself).
  * Closed by the server (flood/policy): dot/paused + icon/resting in a panel notice, and a primary "Rejoin" key that waits out
- * the server's delay (disabled, "Rejoin in 20 s") before it lights up. Different lamp, icon, motion and action, and neither is rust. */
+ * the server's delay ("Rejoin in 20 s") before it lights up. Different lamp, icon, motion and action, and neither is rust.
+ * While it waits the key is .is-waiting with aria-disabled="true": the charcoal disabled face but full cream text (9:1, not the
+ * disabled text's floor), because the countdown is something to read, not a dead control. */
+.ui-button.is-waiting { border-image-source: url("slices/button-primary-disabled.png"); color: var(--ui-text); cursor: default; padding-top: 0; padding-bottom: calc(2 * var(--ui-px)); }
 .ui-dots { --d0: calc(-61 * var(--ui-px)) calc(-178 * var(--ui-px)); --d1: calc(-156 * var(--ui-px)) calc(-178 * var(--ui-px)); --d2: 0 calc(-179 * var(--ui-px)); width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--d0); animation: ui-dots 720ms steps(1) infinite; }
 @keyframes ui-dots { 0% { background-position: var(--d0); } 33.333% { background-position: var(--d1); } 66.667% { background-position: var(--d2); } }
 

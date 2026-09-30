@@ -168,16 +168,19 @@ Three ways to tell someone "you hit a limit" were weighed first:
 |---|---|---|
 | A | Error chrome: rust + the warn triangle, like set (c)'s form errors | Rejected: every one of these is expected and temporary. Rust already means "on air" and "wrong", and a room full of warn triangles feels like a broken site. |
 | B | Just dim things (opacity or charcoal) with a toast | Rejected: dimmed looks the same as disabled (set c), so "wait 3 s" and "not allowed" would look alike. It also says nothing about *how long*. |
-| **C** | **Friendly objects from the room, one per meaning:** a snail (too fast), a timer ring (how long), a plug (the network dropped), a shut door with a hanger (full) | **Chosen.** Each state has its own shape, so it reads without colour, and none of them is an alarm. The timer ring answers "how long" without extra text. |
+| **C** | **Friendly objects from the room, one per meaning:** a snail (too fast), a round arrow (try again), a timer dial (how long), a plug (the network dropped), a mug (the room paused you), a shut door with a hanger (full) | **Chosen.** Each state has its own shape, so it reads without colour, and none of them is an alarm. The timer dial answers "how long" without extra text. |
 
-- **Resting ≠ disabled.** A rate-limited shared key stays wood, a ramp step darker with a charcoal lip, and its icon becomes the timer ring. Disabled
-  stays charcoal all over. The ring is cream on a plum groove, so it drains visibly on wood, night or the popup's white.
+- **Resting ≠ disabled.** A rate-limited shared key stays wood, a ramp step darker with a charcoal lip, and its icon becomes the timer dial. Disabled
+  stays charcoal all over. The dial is a filled cream wedge on plum, so it drains by whole slices, visibly at 1×, on wood, night or the popup's white.
 - **Who it's for** follows set (e): only you are slowed, and only you see your failed share, so those carry the mustard "you" colour (the `chip/self` rim,
   a mustard bar on the system strip). The room's news keeps the TV's glow bar.
 - **Two ways to lose the connection, told apart by lamp, icon, motion and action:** a normal drop is the mustard lamp, a plug, running dots and no button (it heals
-  itself). A server close is a pale pause lamp, the snail asleep in its shell, nothing moving and a Rejoin key that waits out the delay. Neither uses rust.
+  itself). A server close is a pale pause lamp, a mug ("take a breather"), nothing moving and a Rejoin key that waits out the delay
+  in full cream text on the charcoal face (a countdown to read, so not the disabled text colour). Neither uses rust.
+- **One meaning per motif (OME-200):** the snail is only ever "too fast". Share retry has its own round arrow and a server close its own mug,
+  so no shape stands for two states.
 - **Room full** is a door, not a warning: open doors show warm lamplight; a full room's door is shut with a cream hanger (three little heads) and the card dims.
-- **Popup key icon:** drawn twice, at 16 px and 32 px (the 2× has a 4 px shaded arrow and a clock with hands), never upscaled, and outlined so it works on the popup's plain white.
+- **Popup key icon:** drawn twice, at 16 px and 32 px (a 2 px arrow at 16, a shaded 4 px one at 32, same wide gap, nothing inside so it can't read as a target), never upscaled, and outlined so it works on the popup's plain white.
 - No new colours: still the 67.
 
 ## Budget
