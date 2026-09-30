@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { connect, type Socket } from "node:net";
 import * as v from "valibot";
-import { ShareResponseSchema } from "@omega/shared";
+import { CLOSE_CODES, MAX_CLIENT_MESSAGE_BYTES, ShareResponseSchema } from "@omega/shared";
 import { measureRelayLatency } from "../src/relay-latency";
+import { createWs } from "../src/ws";
 import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 let t: TestServer | undefined;
@@ -23,14 +25,14 @@ async function open(url: string) {
 }
 
 describe("abuse limits", () => {
-  test("a socket that never joins is closed after the join timeout", async () => {
+  test("[Ad hoc close codes] a socket that never joins is closed after the join timeout", async () => {
     t = start({ joinTimeoutMs: 100 });
     const idle = await open(t.ws());
     const joined = await open(t.ws());
     joined.send({ type: "join", nickname: "alice", avatar: 0 });
     await joined.next("snapshot");
     const ev = await idle.closed;
-    expect(ev.code).toBe(1008);
+    expect(ev.code).toBe(CLOSE_CODES.JOIN_TIMEOUT);
     await Bun.sleep(100);
     expect(joined.socket.readyState).toBe(WebSocket.OPEN);
   });
@@ -43,7 +45,7 @@ describe("abuse limits", () => {
     await Bun.sleep(150);
     expect(c.socket.readyState).toBe(WebSocket.OPEN);
     c.send({ type: "leave" });
-    expect((await c.closed).code).toBe(1008);
+    expect((await c.closed).code).toBe(CLOSE_CODES.JOIN_TIMEOUT);
   });
 
   test("a flooder gets one rate_limited notice per streak, not one per dropped frame", async () => {
@@ -163,5 +165,306 @@ describe("abuse limits", () => {
       error = e;
     }
     expect(error).toBeInstanceOf(Error);
+  });
+});
+
+/** A clock the test moves by hand (ms), handed to the server's limiters so no test sleeps for a refill. */
+function fakeClock() {
+  const clock = { ms: 1_000_000, now: () => clock.ms };
+  return clock;
+}
+/** Behind the local proxy, so each test address is its own client key (ADR 0015 §5). */
+const as = (address: string): Record<string, string> => ({ "x-forwarded-for": address });
+const chat = (text: string) => ({ type: "chat", text });
+const YT = "https://youtu.be/dQw4w9WgXcQ";
+
+async function pingPong(c: Client): Promise<void> {
+  c.send({ type: "ping", id: 1 });
+  await c.next("pong");
+}
+async function upgradeStatus(server: TestServer, headers: Record<string, string>): Promise<Response> {
+  return fetch(`${server.http}/rooms/lobby/ws`, { headers: { upgrade: "websocket", ...headers } });
+}
+
+describe("M3 per-socket limiters (threat model §6)", () => {
+  test("[Chat fan-out flood] chat: a burst of 5 relays, the 6th gets rate_limited with retryAfterMs, a refill restores it", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now });
+    const a = await join(t, "alice");
+    const b = await join(t, "bob");
+    for (let i = 0; i < 5; i++) a.client.send(chat(`hi ${String(i)}`));
+    for (let i = 0; i < 5; i++) expect((await b.client.next("chat")).text).toBe(`hi ${String(i)}`);
+    a.client.send(chat("one too many"));
+    const refused = await a.client.next("error");
+    expect(refused.code).toBe("rate_limited");
+    expect(refused.retryAfterMs).toBe(1000);
+    await b.client.none("chat", 50);
+    clock.ms += 1000;
+    a.client.send(chat("after refill"));
+    expect((await b.client.next("chat")).text).toBe("after refill");
+  });
+
+  test("[Sit spam] sit: a burst of 4 relays, the 5th gets rate_limited with retryAfterMs, a refill restores it", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now });
+    const a = await join(t, "alice");
+    const b = await join(t, "bob");
+    for (let i = 0; i < 4; i++) a.client.send({ type: "sit", seat: i % 2 === 0 ? 0 : null });
+    for (let i = 0; i < 4; i++) await b.client.next("seat-changed");
+    a.client.send({ type: "sit", seat: 1 });
+    const refused = await a.client.next("error");
+    expect(refused.code).toBe("rate_limited");
+    expect(refused.retryAfterMs).toBe(1000);
+    await b.client.none("seat-changed", 50);
+    clock.ms += 1000;
+    a.client.send({ type: "sit", seat: 1 });
+    expect((await b.client.next("seat-changed")).seat).toBe(1);
+  });
+
+  test("[Seek war] control per socket (L2): a burst of 4, the 5th gets rate_limited with retryAfterMs 250, a refill restores it", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now });
+    const a = await join(t, "alice");
+    const b = await join(t, "bob");
+    expect((await postShare(t, JSON.stringify({ url: YT }), { token: tokenOf(a.snapshot) })).status).toBe(200);
+    const url = (await b.client.next("embed-changed")).embed?.url ?? "";
+    for (let i = 0; i < 4; i++) a.client.send({ type: "control", url, playing: i % 2 === 0, position: 10 * i });
+    for (let i = 0; i < 4; i++) await b.client.next("playback");
+    a.client.send({ type: "control", url, playing: true, position: 99 });
+    const refused = await a.client.next("error");
+    expect(refused.code).toBe("rate_limited");
+    expect(refused.retryAfterMs).toBe(250);
+    clock.ms += 250;
+    a.client.send({ type: "control", url, playing: true, position: 120 });
+    expect((await b.client.next("playback")).playback.position).toBe(120);
+  });
+
+  test("[Chat fan-out flood] L1: 20 frames pass, the next gets rate_limited with retryAfterMs 100, a refill restores it", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now });
+    const c = await open(t.ws());
+    for (let i = 0; i < 20; i++) c.send({ type: "ping", id: i });
+    for (let i = 0; i < 20; i++) await c.next("pong");
+    c.send({ type: "ping", id: 20 });
+    const refused = await c.next("error");
+    expect(refused.code).toBe("rate_limited");
+    expect(refused.retryAfterMs).toBe(100);
+    clock.ms += 100;
+    await pingPong(c);
+  });
+});
+
+describe("M3 room limiters (threat model §6)", () => {
+  test("[Seek war] room control: 8 controls across members pass, the 9th gets rate_limited with retryAfterMs 250, a refill restores it", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now });
+    const members = [await join(t, "alice"), await join(t, "bob"), await join(t, "carol")];
+    const [a, b, c] = members;
+    if (a === undefined || b === undefined || c === undefined) throw new Error("unreachable");
+    expect((await postShare(t, JSON.stringify({ url: YT }), { token: tokenOf(a.snapshot) })).status).toBe(200);
+    const url = (await c.client.next("embed-changed")).embed?.url ?? "";
+    // 4 + 4 stay inside each socket's own burst; the room aggregate is what trips.
+    for (const m of [a, b]) for (let i = 0; i < 4; i++) m.client.send({ type: "control", url, playing: true, position: 10 * i });
+    for (let i = 0; i < 8; i++) await c.client.next("playback");
+    c.client.send({ type: "control", url, playing: false, position: 5 });
+    const refused = await c.client.next("error");
+    expect(refused.code).toBe("rate_limited");
+    expect(refused.retryAfterMs).toBe(250);
+    await a.client.none("playback", 50);
+    clock.ms += 250;
+    c.client.send({ type: "control", url, playing: false, position: 5 });
+    expect((await a.client.next("playback")).playback.by).toBe(c.snapshot.self);
+  });
+});
+
+describe("M3 per-key limiters (threat model §6, ADR 0015 client key)", () => {
+  test("[Reconnect churn] upgrade: 10 per key pass, the 11th gets HTTP 429 with Retry-After, other keys and a refill pass", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now, trustProxy: true });
+    for (let i = 0; i < 10; i++) (await Client.open(t.ws(), undefined, as("198.51.100.1"))).close();
+    const refused = await upgradeStatus(t, as("198.51.100.1"));
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get("retry-after")).toBe("2");
+    await open(t.ws()).then(() => undefined, () => undefined);
+    clients.push(await Client.open(t.ws(), undefined, as("198.51.100.2")));
+    clock.ms += 2000;
+    clients.push(await Client.open(t.ws(), undefined, as("198.51.100.1")));
+  });
+
+  test("[Join/leave churn] join: 6 joins per key pass, the 7th gets rate_limited with retryAfterMs 5000 and stays unjoined, a refill restores it", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now, trustProxy: true });
+    const c = await Client.open(t.ws(), undefined, as("198.51.100.1"));
+    clients.push(c);
+    for (let i = 0; i < 6; i++) {
+      c.send({ type: "join", nickname: "alice", avatar: 0 });
+      await c.next("snapshot");
+      c.send({ type: "leave" });
+    }
+    c.send({ type: "join", nickname: "alice", avatar: 0 });
+    const refused = await c.next("error");
+    expect(refused.code).toBe("rate_limited");
+    expect(refused.retryAfterMs).toBe(5000);
+    c.send(chat("am I in?"));
+    expect((await c.next("error")).code).toBe("not_joined");
+    const other = await Client.join(t.ws(), "bob", 0, as("198.51.100.2"));
+    clients.push(other.client);
+    clock.ms += 5000;
+    c.send({ type: "join", nickname: "alice", avatar: 0 });
+    await c.next("snapshot");
+  });
+
+  test("[Room squatting] at most 5 members per key per room: the 6th gets too_many_members and stays open, unjoined", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now, trustProxy: true, joinTimeoutMs: 200 });
+    const five = [];
+    for (let i = 0; i < 5; i++) five.push(await Client.join(t.ws(), `squat${String(i)}`, 0, as("198.51.100.1")));
+    clients.push(...five.map((m) => m.client));
+    const sixth = await Client.open(t.ws(), undefined, as("198.51.100.1"));
+    clients.push(sixth);
+    sixth.send({ type: "join", nickname: "squat5", avatar: 0 });
+    expect((await sixth.next("error")).code).toBe("too_many_members");
+    expect(sixth.socket.readyState).toBe(WebSocket.OPEN);
+    clients.push((await Client.join(t.ws(), "neighbour", 0, as("198.51.100.2"))).client);
+    five[0]?.client.send({ type: "leave" });
+    await five[1]?.client.next("member-left");
+    sixth.send({ type: "join", nickname: "squat5", avatar: 0 });
+    await sixth.next("snapshot");
+  });
+
+  test("[Room squatting] loopback peers are exempt from the per-key limits (local dev, the load probe)", async () => {
+    t = start();
+    for (let i = 0; i < 12; i++) clients.push((await Client.join(t.ws(), `local${String(i)}`)).client);
+  });
+});
+
+describe("M3 nickname uniqueness (threat model §3, ADR 0016 §2)", () => {
+  test("[Name impersonation] a join whose nicknameKey matches a member's gets nickname_taken and stays unjoined until the join timeout", async () => {
+    t = start({ joinTimeoutMs: 300 });
+    const alice = await join(t, "Alice");
+    const copycat = await open(t.ws());
+    for (const nickname of ["alice", "ALÍCE", "Ａｌｉｃｅ"]) {
+      copycat.send({ type: "join", nickname, avatar: 1 });
+      expect((await copycat.next("error")).code).toBe("nickname_taken");
+    }
+    await alice.client.none("member-joined", 50);
+    expect((await copycat.closed).code).toBe(CLOSE_CODES.JOIN_TIMEOUT);
+  });
+
+  test("[Name impersonation] the name is free again once its member leaves", async () => {
+    t = start();
+    const alice = await join(t, "alice");
+    const other = await open(t.ws());
+    other.send({ type: "join", nickname: "alice", avatar: 0 });
+    expect((await other.next("error")).code).toBe("nickname_taken");
+    alice.client.send({ type: "leave" });
+    await Bun.sleep(20);
+    other.send({ type: "join", nickname: "alice", avatar: 0 });
+    await other.next("snapshot");
+  });
+});
+
+describe("M3 escalation closes (threat model §6)", () => {
+  test("[Sustained flood never escalated] 49 dropped frames in a row keep the socket, the 50th closes it with 4029", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now });
+    const a = await join(t, "alice");
+    // Chat 1–5 pass; 6–54 are 49 drops (chat bucket, then L1).
+    for (let i = 0; i < 54; i++) a.client.send(chat(`spam ${String(i)}`));
+    clock.ms += 1000;
+    await pingPong(a.client);
+    // A frame that passes ends the streak.
+    for (let i = 0; i < 5; i++) a.client.send(chat(`again ${String(i)}`));
+    for (let i = 0; i < 50; i++) a.client.send(chat(`spam ${String(i)}`));
+    expect((await a.client.closed).code).toBe(CLOSE_CODES.RATE_LIMITED);
+  });
+
+  test("[Sustained flood never escalated] 19 bad_messages keep the socket, the 20th closes it with 4400", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now });
+    const c = await open(t.ws());
+    for (let i = 0; i < 19; i++) c.send(i % 2 === 0 ? "{not json" : { type: "chat", text: 5 });
+    for (let i = 0; i < 19; i++) expect((await c.next("error")).code).toBe("bad_message");
+    clock.ms += 1000;
+    await pingPong(c);
+    c.send({ type: "nope" });
+    expect((await c.closed).code).toBe(CLOSE_CODES.BAD_MESSAGES);
+  });
+
+  test("[Ad hoc close codes] the member past MAX_ROOM_MEMBERS gets room-full and close 4002", async () => {
+    t = start();
+    for (let i = 0; i < 25; i++) clients.push((await Client.join(t.ws(), `m${String(i)}`)).client);
+    const late = await open(t.ws());
+    late.send({ type: "join", nickname: "late", avatar: 0 });
+    await late.next("room-full");
+    expect((await late.closed).code).toBe(CLOSE_CODES.ROOM_FULL);
+  });
+});
+
+/** A raw TCP WebSocket client that joins and then never reads again. */
+async function slowReader(server: TestServer, nickname: string): Promise<Socket> {
+  const port = server.server.port ?? 0;
+  const sock = connect(port, "127.0.0.1");
+  await new Promise<void>((resolve, reject) => {
+    sock.once("error", reject);
+    sock.once("connect", () => {
+      sock.write(
+        `GET /rooms/lobby/ws HTTP/1.1\r\nhost: 127.0.0.1:${String(port)}\r\nupgrade: websocket\r\nconnection: Upgrade\r\n` +
+          `sec-websocket-key: dGhlIHNhbXBsZSBub25jZQ==\r\nsec-websocket-version: 13\r\n\r\n`,
+      );
+    });
+    sock.once("data", (chunk: Buffer) => {
+      if (!chunk.toString().startsWith("HTTP/1.1 101")) reject(new Error(`no upgrade: ${chunk.toString()}`));
+      else resolve();
+    });
+  });
+  // One masked text frame (RFC 6455 §5.2); the payload is short, so a 7-bit length.
+  const payload = Buffer.from(JSON.stringify({ type: "join", nickname, avatar: 0 }));
+  const mask = Buffer.from([1, 2, 3, 4]);
+  const masked = payload.map((byte, i) => byte ^ (mask[i % 4] ?? 0));
+  sock.write(Buffer.concat([Buffer.from([0x81, 0x80 | payload.length]), mask, masked]));
+  await Bun.sleep(50);
+  sock.pause();
+  return sock;
+}
+
+describe("M3 transport limits (threat model §6)", () => {
+  test("[Slow reader] a member that stops reading is closed after ~1 MB of broadcasts; the others keep relaying", async () => {
+    t = start();
+    const a = await join(t, "alice");
+    const b = await join(t, "bob");
+    const slow = await slowReader(t, "sloth");
+    const sloth = (await a.client.next("member-joined")).member.id;
+    await b.client.next("member-joined");
+    // Chat is capped per socket, so the server's own publish plays the room's broadcasts.
+    const frame = JSON.stringify({ type: "chat", memberId: sloth, text: "x".repeat(250), at: 0 });
+    let sent = 0;
+    for (let i = 0; sent < 1024 * 1024; i++) {
+      t.server.publish("room:lobby", frame);
+      sent += frame.length;
+      if (i % 256 === 0) await Bun.sleep(1);
+    }
+    expect((await a.client.next("member-left", 2000)).memberId).toBe(sloth);
+    a.client.send(chat("still here"));
+    expect((await b.client.next("chat")).text).toBe("still here");
+    slow.destroy();
+  });
+
+  test("[Slow reader] [Idle policy implicit] the WebSocket handler pins backpressure and idle settings", () => {
+    const { websocket } = createWs({ joinTimeoutMs: 1000, shareGrants: new Map(), publish: () => undefined, release: () => undefined });
+    expect(websocket.backpressureLimit).toBe(256 * 1024);
+    expect(websocket.closeOnBackpressureLimit).toBe(true);
+    expect(websocket.idleTimeout).toBe(60);
+    expect(websocket.sendPings).toBe(true);
+    expect(websocket.maxPayloadLength).toBe(MAX_CLIENT_MESSAGE_BYTES);
+  });
+
+  test("[Oversized frames] a frame over the limit closes with 1006 and the server stays up", async () => {
+    t = start();
+    const c = await open(t.ws());
+    c.send("x".repeat(MAX_CLIENT_MESSAGE_BYTES + 1));
+    expect((await c.closed).code).toBe(1006);
+    const after = await join(t, "after");
+    expect(after.snapshot.room.members).toHaveLength(1);
   });
 });

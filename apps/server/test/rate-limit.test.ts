@@ -1,5 +1,36 @@
 import { describe, expect, test } from "bun:test";
-import { KeyedLimiter, addressKey, clientKey } from "../src/rate-limit";
+import { KeyedLimiter, TokenBucket, addressKey, clientKey, isLoopbackKey } from "../src/rate-limit";
+
+/** A clock the test moves by hand, in ms. */
+function fakeClock() {
+  const clock = { ms: 0, now: () => clock.ms };
+  return clock;
+}
+
+describe("TokenBucket with an injected clock", () => {
+  test("a burst passes, the next take is refused with the time to the next token, and refill restores it", () => {
+    const clock = fakeClock();
+    const bucket = new TokenBucket(5, 1, clock.now);
+    for (let i = 0; i < 5; i++) expect(bucket.take()).toBe(true);
+    expect(bucket.take()).toBe(false);
+    expect(bucket.retryAfterMs()).toBe(1000);
+    clock.ms += 400;
+    expect(bucket.take()).toBe(false);
+    expect(bucket.retryAfterMs()).toBe(600);
+    clock.ms += 600;
+    expect(bucket.take()).toBe(true);
+    expect(bucket.take()).toBe(false);
+  });
+
+  test("retryAfterMs is 0 while a token is available and never above the contract maximum", () => {
+    const clock = fakeClock();
+    const bucket = new TokenBucket(1, 0.001, clock.now);
+    expect(bucket.retryAfterMs()).toBe(0);
+    bucket.take();
+    expect(bucket.retryAfterMs()).toBe(60_000);
+  });
+});
+
 
 describe("KeyedLimiter", () => {
   test("never holds more than maxKeys buckets, even when every bucket is in use", () => {
@@ -15,6 +46,28 @@ describe("KeyedLimiter", () => {
       limiter.take(`cold${String(i)}`);
       expect(limiter.take("hot")).toBe(false);
     }
+  });
+});
+
+describe("KeyedLimiter with an injected clock", () => {
+  test("each key has its own bucket and its own retry time", () => {
+    const clock = fakeClock();
+    const limiter = new KeyedLimiter(6, 0.2, 1024, clock.now);
+    for (let i = 0; i < 6; i++) expect(limiter.take("a")).toBe(true);
+    expect(limiter.take("a")).toBe(false);
+    expect(limiter.retryAfterMs("a")).toBe(5000);
+    expect(limiter.take("b")).toBe(true);
+    expect(limiter.retryAfterMs("unseen")).toBe(0);
+    clock.ms += 5000;
+    expect(limiter.take("a")).toBe(true);
+  });
+});
+
+describe("isLoopbackKey", () => {
+  test("is true only for the keys of loopback peers", () => {
+    for (const ip of ["127.0.0.1", "127.8.9.10", "::1", "::ffff:127.0.0.1"]) expect(isLoopbackKey(addressKey(ip))).toBe(true);
+    for (const ip of ["203.0.113.7", "10.0.0.2", "2001:db8::1", "128.0.0.1"]) expect(isLoopbackKey(addressKey(ip))).toBe(false);
+    expect(isLoopbackKey("proxy:unknown")).toBe(false);
   });
 });
 

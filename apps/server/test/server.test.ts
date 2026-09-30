@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as v from "valibot";
-import { MAX_ROOM_MEMBERS, RoomListResponseSchema, ShareResponseSchema } from "@omega/shared";
+import { CLOSE_CODES, MAX_ROOM_MEMBERS, RoomListResponseSchema, ShareResponseSchema } from "@omega/shared";
 import { Client, EXTENSION_ORIGIN, SITE_ORIGIN, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 const WATCH_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
@@ -335,7 +335,7 @@ describe("room capacity (ADR 0006)", () => {
     const late = await open();
     late.send({ type: "join", nickname: "late", avatar: 0 });
     expect(await late.next("room-full")).toEqual({ type: "room-full" });
-    expect((await late.closed).code).toBe(1008);
+    expect((await late.closed).code).toBe(CLOSE_CODES.ROOM_FULL);
     await first.client.none("member-joined");
 
     first.client.close();
