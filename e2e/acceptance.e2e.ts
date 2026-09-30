@@ -97,7 +97,10 @@ test.describe("M1a acceptance", () => {
           const tv = c.page.locator(site.sharedVideo);
           await expect(tv).toHaveCount(1);
           const src = new URL((await tv.getAttribute("src")) ?? "");
-          expect(`${src.origin}${src.pathname}`).toBe(EMBED_URL);
+          // The room stores the canonical www URL; tvFrame() renders it on the nocookie host with the IFrame API params (OME-88).
+          expect(`${src.origin}${src.pathname}`).toBe(`https://www.youtube-nocookie.com/embed/${VIDEO_ID}`);
+          expect(src.searchParams.get("enablejsapi")).toBe("1");
+          expect(src.searchParams.get("origin")).toBe(new URL(c.page.url()).origin);
           await expect(c.page.locator("iframe")).toHaveCount(1);
 
           // Tags follow join order, which is racy here; compare as a set.
