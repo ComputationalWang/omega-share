@@ -6,7 +6,7 @@ const TOKEN2 = "abcdefghijklmnopqrstuv";
 const record = (roomId: string, token: string): string => JSON.stringify({ roomId, token });
 
 interface FakeTab {
-  readonly url?: string;
+  readonly url?: string | undefined;
   readonly value: unknown;
 }
 
