@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Member, RoomState, ServerMessage } from "@omega/shared";
 import type { PlaybackState } from "@omega/shared";
-import { BUBBLE_MS, MAX_SYSLINES, SYSLINE_MS, initialState, nextExpiry, reduce, screen, type ViewState } from "../src/state";
+import { BUBBLE_MS, CHAT_COOLDOWN_DEFAULT_MS, MAX_SYSLINES, SYSLINE_MS, coolingDown, initialState, nextExpiry, reduce, screen, type ViewState } from "../src/state";
 
 const alice: Member = { id: "a", nickname: "alice", avatar: 0 };
 const bob: Member = { id: "b", nickname: "bob", avatar: 1 };
@@ -137,15 +137,15 @@ describe("screen", () => {
   // stage inside it) or it pushes the room-full message below the fold (OME-6 QA).
   test("room-full takes the stage wrap and chat out of the flow and shows the message", () => {
     const s = server(joined(), { type: "room-full" });
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: true });
+    expect(screen(s)).toEqual({ stage: false, chat: false, full: true, refused: null });
   });
 
   test("an open room shows the stage and chat, not the full message", () => {
-    expect(screen(joined())).toEqual({ stage: true, chat: true, full: false });
+    expect(screen(joined())).toEqual({ stage: true, chat: true, full: false, refused: null });
   });
 
   test("before the first snapshot nothing is laid out", () => {
-    expect(screen(reduce(initialState, { type: "connecting" }))).toEqual({ stage: false, chat: false, full: false });
+    expect(screen(reduce(initialState, { type: "connecting" }))).toEqual({ stage: false, chat: false, full: false, refused: null });
   });
 });
 
@@ -205,5 +205,78 @@ describe("reduce: room playback + system lines", () => {
     const s = server(s0, { type: "playback", playback: pb({ rev: 2, action: "pause" }) });
     expect(s.room?.members).toBe(s0.room?.members);
     expect(s.room?.seats).toBe(s0.room?.seats);
+  });
+});
+
+describe("refused joins (ADR 0016 §4)", () => {
+  const refuse = (s: ViewState, code: "nickname_taken" | "too_many_members"): ViewState =>
+    server(s, { type: "error", code, message: "no" });
+
+  for (const code of ["nickname_taken", "too_many_members"] as const) {
+    test(`${code} before a snapshot refuses the room and says why`, () => {
+      const s = refuse(reduce(initialState, { type: "connecting" }), code);
+      expect(s.status).toBe("refused");
+      expect(s.refusal).toBe(code);
+      expect(s.room).toBeNull();
+      expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: code });
+    });
+  }
+
+  test("a refusal on a rejoin (the name was taken while we were away) also leaves the room", () => {
+    const s = refuse(reduce(joined(), { type: "disconnected" }), "nickname_taken");
+    expect(s.status).toBe("refused");
+    expect(screen(s).stage).toBe(false);
+  });
+
+  test("the connection's own disconnect after a refusal doesn't turn it back into reconnecting", () => {
+    const s = reduce(reduce(refuse(initialState, "too_many_members"), { type: "disconnected" }), { type: "connecting" });
+    expect(s.status).toBe("refused");
+    expect(s.refusal).toBe("too_many_members");
+  });
+
+  test("other errors are not refusals", () => {
+    const s = server(joined(), { type: "error", code: "seat_taken", message: "no" });
+    expect(s.status).toBe("open");
+    expect(s.refusal).toBeNull();
+    expect(screen(s).refused).toBeNull();
+  });
+});
+
+describe("chat cooldown after rate_limited", () => {
+  const limited = (s: ViewState, now: number, retryAfterMs?: number): ViewState =>
+    server(s, { type: "error", code: "rate_limited", message: "slow", ...(retryAfterMs === undefined ? {} : { retryAfterMs }) }, now);
+
+  test("honours retryAfterMs: cooling down until then, not after", () => {
+    const s = limited(joined(), 1000, 2500);
+    expect(s.lastError?.code).toBe("rate_limited");
+    expect(coolingDown(s, 1000)).toBe(true);
+    expect(coolingDown(s, 3499)).toBe(true);
+    expect(coolingDown(s, 3500)).toBe(false);
+  });
+
+  test("a pre-M3 rate_limited without a hint cools down for the default", () => {
+    const s = limited(joined(), 0);
+    expect(CHAT_COOLDOWN_DEFAULT_MS).toBe(1000);
+    expect(coolingDown(s, 999)).toBe(true);
+    expect(coolingDown(s, 1000)).toBe(false);
+  });
+
+  test("a shorter second hint never shortens the cooldown", () => {
+    const s = limited(limited(joined(), 0, 5000), 100, 200);
+    expect(coolingDown(s, 4000)).toBe(true);
+  });
+
+  test("the cooldown end is the next expiry, and the tick at that time ends it", () => {
+    const s = limited(joined(), 0, 2000);
+    expect(nextExpiry(s)).toBe(2000);
+    const later = reduce(s, { type: "tick", now: 2000 });
+    expect(later).not.toBe(s);
+    expect(coolingDown(later, 2000)).toBe(false);
+    expect(nextExpiry(later)).toBeNull();
+  });
+
+  test("no cooldown by default", () => {
+    expect(coolingDown(joined(), 0)).toBe(false);
+    expect(nextExpiry(joined())).toBeNull();
   });
 });
