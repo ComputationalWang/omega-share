@@ -170,14 +170,14 @@ test("ad(ms): emits 3,1 then 3,1; video data and duration follow the ad; content
   const { player, states, hooks } = await rig();
   player.playVideo();
   await sleep(50);
+  const content = player.getCurrentTime();
   hooks.ad(250);
-  const content = hooks.currentTime;
   expect(states).toEqual([1, 3, 1]);
   expect(player.getVideoData().video_id).not.toBe(VIDEO);
   expect(player.getDuration()).toBe(15);
   await sleep(100);
-  expect(player.getCurrentTime()).toBeLessThan(content + 0.001 + 0.2);
-  expect(player.getCurrentTime()).toBeGreaterThan(0);
+  expect(player.getCurrentTime()).toBeGreaterThan(0.05); // ad time, not content time
+  expect(player.getCurrentTime()).toBeLessThan(0.2);
   await sleep(250);
   expect(states).toEqual([1, 3, 1, 3, 1]);
   expect(player.getVideoData().video_id).toBe(VIDEO);
