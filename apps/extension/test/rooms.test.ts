@@ -63,7 +63,7 @@ describe("loadRooms", () => {
     expect(await loadRooms({ baseUrl: BASE, fetch: mock(() => Promise.resolve(json({ rooms: [] }))) })).toEqual({ kind: "ok", list: FALLBACK });
   });
 
-  const outcomes: readonly { name: string; response: () => Promise<Response>; kind: string }[] = [
+  const outcomes: readonly { name: string; response: () => Promise<Response>; kind: "unreachable" | "offline" | "sign-in" }[] = [
     { name: "a network error (DNS, TLS, refused)", response: () => Promise.reject(new TypeError("Failed to fetch")), kind: "unreachable" },
     { name: "a non-2xx plain-text body", response: () => Promise.resolve(new Response("Forbidden origin", { status: 403 })), kind: "offline" },
     { name: "a non-2xx JSON body on the contract", response: () => Promise.resolve(json({ rooms: [{ id: "x", memberCount: 1, seatedCount: 0 }] }, 500)), kind: "offline" },

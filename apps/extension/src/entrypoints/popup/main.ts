@@ -86,7 +86,9 @@ const serverBaseUrl = browser.storage.local.get(SERVER_BASE_URL_KEY).then((items
 renderRooms(FALLBACK_ROOMS);
 void scan().then(render);
 // One `GET /rooms` per popup open; it falls back to the default room, so share works either way.
-void serverBaseUrl.then((baseUrl) => loadRooms({ baseUrl, fetch: (u, init) => fetch(u, init) })).then(renderRooms);
+void serverBaseUrl.then((baseUrl) => loadRooms({ baseUrl, fetch: (u, init) => fetch(u, init) })).then((probe) => {
+  renderRooms(probe.kind === "ok" ? probe.list : FALLBACK_ROOMS);
+});
 
 ui.form.addEventListener("submit", (event) => {
   event.preventDefault();

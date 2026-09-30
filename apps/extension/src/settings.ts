@@ -47,6 +47,27 @@ export function readServerBaseUrl(stored: unknown): string {
   return parsed.ok ? parsed.origin : DEFAULT_SERVER_BASE_URL;
 }
 
+/** Whether `origin` (already parsed) is this computer. */
+export function isLoopbackOrigin(origin: string): boolean {
+  try {
+    return LOOPBACK_HOSTS.has(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sent on every server request. ngrok's free tier shows HTML browser traffic a warning page
+ * unless this header is present (research OME-119 §1.4); other servers ignore it.
+ */
+export const SERVER_REQUEST_HEADERS: Readonly<Record<string, string>> = { "ngrok-skip-browser-warning": "1" };
+
+/**
+ * `credentials` carries an edge gate's session cookie; `redirect: "manual"` turns a bounce to a
+ * login page into an `opaqueredirect` response instead of a cross-origin fetch.
+ */
+export const SERVER_REQUEST_INIT = { credentials: "include", redirect: "manual" } as const satisfies RequestInit;
+
 /** Host permission match pattern for exactly this origin. */
 export function hostPermissionPattern(origin: string): string {
   return `${origin}/*`;
