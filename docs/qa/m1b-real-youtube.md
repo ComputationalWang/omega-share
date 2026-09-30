@@ -34,6 +34,8 @@ OMEGA_WEB_PORT=5191 OMEGA_SERVER_PORT=8797 OMEGA_FIXTURE_PORT=4491 bun run e2e:r
 
 Not automated: two *machines* (item 7 runs on one). After M2, rerun item 7 over the ngrok tunnel from a second machine.
 
+M2 ([OME-133](/OME/issues/OME-133)): the item 1 spec now also probes the same ids as a raw `www.youtube.com` embed, as a control. Twitch, Vimeo and the real tunnel are in [`m2-real-sign-off.md`](m2-real-sign-off.md), and that file has the 2026-09-30 rerun of this checklist.
+
 ## Results
 
 Newest first. Earlier runs stay for comparison.
