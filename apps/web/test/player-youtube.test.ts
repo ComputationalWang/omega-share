@@ -4,12 +4,13 @@ import { AD_RELEARN_MS, ECHO_WINDOW_MS, attachYouTube } from "../src/player/yout
 import { fakeYt, type FakeYtPlayer } from "./support/fake-yt";
 
 const VIDEO = "dQw4w9WgXcQ";
+const EMBED = { provider: "youtube", videoId: VIDEO, url: `https://www.youtube.com/embed/${VIDEO}` } as const;
 
 function setup() {
   const t = { now: 0 };
   const { yt, players } = fakeYt();
   const iframe = {} as HTMLIFrameElement;
-  const adapter = attachYouTube(yt, iframe, { videoId: VIDEO, now: () => t.now });
+  const adapter = attachYouTube(yt, iframe, { embed: EMBED, now: () => t.now });
   const p = players[0];
   if (p === undefined) throw new Error("no player created");
   const events: PlayerEvent[] = [];
@@ -285,15 +286,23 @@ describe("attachYouTube", () => {
     expect(intents(events)).toEqual([]);
   });
 
-  test("errors are forwarded with their numeric code; garbage codes become -1", () => {
+  test("errors carry a provider-neutral reason plus YouTube's code; garbage codes become -1", () => {
     const { p, events, ready } = setup();
     ready();
-    p.fire("onError", 150);
-    p.fire("onError", "boom");
+    for (const code of [150, 101, 100, 5, 2, "boom"]) p.fire("onError", code);
     expect(events.filter((e) => e.type === "error")).toEqual([
-      { type: "error", code: 150 },
-      { type: "error", code: -1 },
+      { type: "error", reason: "refused", code: "150" },
+      { type: "error", reason: "refused", code: "101" },
+      { type: "error", reason: "not-found", code: "100" },
+      { type: "error", reason: "other", code: "5" },
+      { type: "error", reason: "other", code: "2" },
+      { type: "error", reason: "other", code: "-1" },
     ]);
+  });
+
+  test("capabilities are the YouTube embed's: seek, fine rates, not live", () => {
+    const { adapter } = setup();
+    expect(adapter.caps).toEqual({ seek: true, live: false, rate: "yes" });
   });
 
   test("unsubscribe and destroy stop events and destroy the player", () => {

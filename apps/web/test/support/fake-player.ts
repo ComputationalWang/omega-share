@@ -1,3 +1,4 @@
+import { playbackCaps, type PlaybackCaps } from "@omega/shared";
 import type { PlayerAdapter, PlayerEvent, PlayerState } from "../../src/player/adapter";
 
 export type FakeCall =
@@ -8,9 +9,14 @@ export type FakeCall =
   | { op: "unmute" }
   | { op: "volume"; volume: number };
 
+/** What a YouTube embed can do; the default for a fake. */
+export const YOUTUBE_CAPS: PlaybackCaps = playbackCaps({ provider: "youtube", videoId: "dQw4w9WgXcQ", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" });
+
 export interface FakePlayerOptions {
   /** Test clock, ms. */
   now: () => number;
+  /** Static capabilities of the embed this fake stands in for. Default: YouTube's. */
+  caps?: PlaybackCaps;
   rates?: readonly number[];
   /** Which requested rates the media actually plays at. Others play at 1. Default: all. */
   applies?: (rate: number) => boolean;
@@ -30,6 +36,7 @@ export interface FakePlayerOptions {
 /** A PlayerAdapter with a deterministic media clock driven by the test's `now()`. */
 export class FakePlayer implements PlayerAdapter {
   readonly calls: FakeCall[] = [];
+  readonly caps: PlaybackCaps;
   isReady: boolean;
   destroyed = false;
   private st: PlayerState;
@@ -40,6 +47,7 @@ export class FakePlayer implements PlayerAdapter {
   private listeners = new Set<(e: PlayerEvent) => void>();
 
   constructor(private readonly o: FakePlayerOptions) {
+    this.caps = o.caps ?? YOUTUBE_CAPS;
     this.isReady = o.ready ?? true;
     this.st = o.state ?? "cued";
     this.pos = o.position ?? 0;

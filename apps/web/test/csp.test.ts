@@ -13,13 +13,24 @@ function csp(): Map<string, string[]> {
   return out;
 }
 
-describe("index.html CSP (ADR 0011)", () => {
-  test("scripts: self plus only the two YouTube API paths, never the whole host", () => {
-    expect(csp().get("script-src")).toEqual(["'self'", "https://www.youtube.com/iframe_api", "https://www.youtube.com/s/player/"]);
+describe("index.html CSP (ADR 0011, ADR 0014 §5)", () => {
+  test("scripts: self, the two YouTube API paths and the exact Twitch/Vimeo SDK files, never a whole host", () => {
+    expect(csp().get("script-src")).toEqual([
+      "'self'",
+      "https://www.youtube.com/iframe_api",
+      "https://www.youtube.com/s/player/",
+      "https://player.twitch.tv/js/embed/v1.js",
+      "https://player.vimeo.com/api/player.js",
+    ]);
   });
 
-  test("frames: the canonical and the nocookie YouTube hosts only", () => {
-    expect(csp().get("frame-src")).toEqual(["https://www.youtube.com", "https://www.youtube-nocookie.com"]);
+  test("frames: the YouTube hosts plus the Twitch and Vimeo player hosts only", () => {
+    expect(csp().get("frame-src")).toEqual([
+      "https://www.youtube.com",
+      "https://www.youtube-nocookie.com",
+      "https://player.twitch.tv",
+      "https://player.vimeo.com",
+    ]);
   });
 
   test("the rest stays locked down", () => {
