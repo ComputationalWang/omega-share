@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture: YT.Player on an existing iframe</title></head>
+<body>
+<!-- Harness page for the fake iframe_api (OME-85): attaches YT.Player to our own iframe, as the M1b adapter will (§1.5). -->
+<iframe id="yt" width="560" height="315"
+  src="https://www.youtube.com/embed/aqz-KE-bpKQ?enablejsapi=1&controls=0&disablekb=1&origin=http://localhost:4400"
+  title="YouTube video player" allow="autoplay; encrypted-media"></iframe>
+<iframe id="nocookie" width="320" height="180" src="https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ" title="nocookie"></iframe>
+<script>
+  window.__log = [];
+  const log = (type) => (e) => window.__log.push({ type, data: e.data, t: performance.now() });
+  window.onYouTubeIframeAPIReady = () => {
+    window.player = new YT.Player(document.getElementById("yt"), {
+      events: {
+        onReady: log("ready"),
+        onStateChange: log("state"),
+        onPlaybackRateChange: log("rate"),
+        onError: log("error"),
+        onAutoplayBlocked: log("autoplayBlocked"),
+      },
+    });
+  };
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body></html>
