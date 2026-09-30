@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MAX_ROOM_MEMBERS } from "@omega/shared";
-import { BUDGETS, evaluate, renderReport } from "./budgets";
+import { BUDGETS, FRAME_PROVIDERS, evaluate, renderReport } from "./budgets";
 import { soakPlan } from "./soak";
 import { checkManifest, initialJsGzipKb } from "./static-checks";
 
@@ -50,6 +50,21 @@ describe("budgets", () => {
     }
   });
 
+  test("each provider has a frame work-time and a missed-vsync row next to its frame p95 (ADR 0017, OME-192)", () => {
+    const rows = [
+      { base: "site.frameWorkP95", docMetric: "Main-thread work per frame, 8 avatars + video playing", unit: "ms", limit: 8 },
+      { base: "site.missedVsync", docMetric: "Missed vsyncs, 8 avatars + video playing", unit: "%", limit: 1 },
+    ];
+    for (const r of rows) {
+      for (const provider of FRAME_PROVIDERS) {
+        const b = BUDGETS.find((x) => x.id === `${r.base}.${provider}`);
+        expect(b, `${r.base}.${provider}`).toBeDefined();
+        expect([b?.area, b?.docMetric, b?.unit, b?.limit, b?.comparator]).toEqual(["Site", r.docMetric, r.unit, r.limit, "<="]);
+      }
+    }
+    expect(FRAME_PROVIDERS).toEqual(["youtube", "twitchVod", "twitchLive", "vimeo"]);
+  });
+
   test("limits match docs/perf-budgets.md", () => {
     for (const b of BUDGETS) {
       if (b.load !== undefined) continue;
@@ -60,7 +75,7 @@ describe("budgets", () => {
         expect(b.limit).toBe(0);
         continue;
       }
-      const m = /([≤<])\s*([\d.]+)\s*(KB|MB|ms|s)\b/.exec(cell);
+      const m = /([≤<])\s*([\d.]+)\s*(KB|MB|ms|s|%)(?![A-Za-z])/.exec(cell);
       expect(m, `numeric budget in "${cell}"`).not.toBeNull();
       const [, op, num, unit] = m ?? [];
       const limit = Number(num) * (unit === "s" ? 1000 : 1);
@@ -75,6 +90,11 @@ describe("evaluate", () => {
 
   test("passes at the limit for <=", () => {
     expect(evaluate(b, { id: "x", value: 100 }).status).toBe("pass");
+  });
+  test("renders a percentage budget with its unit", () => {
+    const pct = { ...b, unit: "%", limit: 1 } as const;
+    const out = renderReport([evaluate(pct, { id: "x", value: 0 })]);
+    expect(out).toContain("| 0.0 % | ≤ 1.0 % |");
   });
   test("fails over the limit", () => {
     expect(evaluate(b, { id: "x", value: 100.1 }).status).toBe("fail");
