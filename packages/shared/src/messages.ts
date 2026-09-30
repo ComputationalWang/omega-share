@@ -1,6 +1,7 @@
 import * as v from "valibot";
 import { CHAT_MAX_LENGTH, ERROR_MESSAGE_MAX_LENGTH, MAX_CLIENT_MESSAGE_BYTES, MAX_SERVER_MESSAGE_BYTES } from "./constants";
-import { EmbedSchema } from "./embed";
+import { EmbedSchema, YoutubeVideoIdSchema } from "./embed";
+import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
   AvatarSchema,
   INVISIBLE_LETTERS,
@@ -32,10 +33,17 @@ export const ClientMessageSchema = v.variant("type", [
   /** `seat: null` stands up. */
   v.strictObject({ type: v.literal("sit"), seat: v.nullable(SeatIndexSchema) }),
   v.strictObject({ type: v.literal("chat"), text: ChatTextSchema }),
+  /** Clock sample; allowed before `join`. Answered with `pong` to the sender only. */
+  v.strictObject({ type: v.literal("ping"), id: PingIdSchema }),
+  /**
+   * Desired room playback. Seek while playing = `{ playing: true, position }`.
+   * Needs `join`; `videoId` must match the current embed, else `error: no_embed`.
+   */
+  v.strictObject({ type: v.literal("control"), videoId: YoutubeVideoIdSchema, playing: v.boolean(), position: PositionSchema }),
 ]);
 export type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 
-export const ERROR_CODES = ["bad_message", "not_joined", "already_joined", "seat_taken", "rate_limited"] as const;
+export const ERROR_CODES = ["bad_message", "not_joined", "already_joined", "seat_taken", "rate_limited", "no_embed"] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
 // Server → client. Unknown keys are stripped so the server can add fields.
@@ -50,10 +58,25 @@ export const ServerMessageSchema = v.variant("type", [
     memberId: MemberIdSchema,
     text: ChatTextSchema,
     /** Server time, ms since epoch. */
-    at: v.pipe(v.number(), v.integer(), v.minValue(0)),
+    at: ServerTimeSchema,
   }),
-  /** `by` is null when the embed came from `POST /rooms/:id/share`. */
-  v.object({ type: v.literal("embed-changed"), embed: v.nullable(EmbedSchema), by: v.nullable(MemberIdSchema) }),
+  /**
+   * `by` is null when the embed came from `POST /rooms/:id/share`. `playback` is the
+   * new embed's `load` state (null iff `embed` is null; absent from pre-M1b servers).
+   */
+  v.pipe(
+    v.object({
+      type: v.literal("embed-changed"),
+      embed: v.nullable(EmbedSchema),
+      by: v.nullable(MemberIdSchema),
+      playback: OptionalPlaybackSchema,
+    }),
+    v.check((x) => x.embed !== null || (x.playback ?? null) === null, "playback without embed"),
+  ),
+  /** Reply to `ping`. `at` = server ms when it answered. */
+  v.object({ type: v.literal("pong"), id: PingIdSchema, at: ServerTimeSchema }),
+  /** The room's playback changed; published to every member. */
+  v.object({ type: v.literal("playback"), playback: PlaybackStateSchema }),
   /** Sent instead of a snapshot when the room is at MAX_ROOM_MEMBERS; the server then closes. */
   v.object({ type: v.literal("room-full") }),
   v.object({

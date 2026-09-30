@@ -1,13 +1,13 @@
 import * as v from "valibot";
 import { AVATAR_COUNT, MAX_ROOM_MEMBERS, NICKNAME_MAX_LENGTH, SEAT_COUNT } from "./constants";
 import { EmbedSchema } from "./embed";
+import { MemberIdSchema } from "./ids";
+import { OptionalPlaybackSchema } from "./playback";
 
 export const RoomIdSchema = v.pipe(v.string(), v.regex(/^[a-z0-9-]{1,32}$/));
 export type RoomId = v.InferOutput<typeof RoomIdSchema>;
 
-/** Server-assigned, opaque. */
-export const MemberIdSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{1,64}$/));
-export type MemberId = v.InferOutput<typeof MemberIdSchema>;
+export { MemberIdSchema, type MemberId } from "./ids";
 
 /** Letters that render as blank space (Hangul fillers). */
 export const INVISIBLE_LETTERS = /[\u115F\u1160\u3164\uFFA0]/u;
@@ -48,7 +48,10 @@ export const RoomStateSchema = v.pipe(
     seats: v.pipe(v.array(v.nullable(MemberIdSchema)), v.length(SEAT_COUNT)),
     members: v.pipe(v.array(MemberSchema), v.maxLength(MAX_ROOM_MEMBERS)),
     embed: v.nullable(EmbedSchema),
+    /** Null iff `embed` is null. Absent only from a pre-M1b server (treat as null). */
+    playback: OptionalPlaybackSchema,
   }),
+  v.check((x) => x.embed !== null || (x.playback ?? null) === null, "playback without embed"),
   v.check((r) => new Set(r.members.map((m) => m.id)).size === r.members.length, "duplicate member id"),
   v.check((r) => {
     const ids = new Set(r.members.map((m) => m.id));

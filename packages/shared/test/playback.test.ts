@@ -14,12 +14,15 @@ import {
   ServerMessageSchema,
   parseClientMessage,
   parseServerMessage,
+  type Embed,
+  type PlaybackState,
+  type RoomState,
 } from "../src/index";
 
 const VIDEO_ID = "dQw4w9WgXcQ";
-const EMBED = { provider: "youtube", videoId: VIDEO_ID, url: `https://www.youtube.com/embed/${VIDEO_ID}` };
-const PLAYBACK = { playing: true, position: 12.5, rate: 1, at: 1_790_000_000_000, rev: 3, action: "play", by: "m1" };
-const LOADED = { playing: true, position: 0, rate: 1, at: 1_790_000_000_000, rev: 0, action: "load", by: null };
+const EMBED: Embed = { provider: "youtube", videoId: VIDEO_ID, url: `https://www.youtube.com/embed/${VIDEO_ID}` };
+const PLAYBACK: PlaybackState = { playing: true, position: 12.5, rate: 1, at: 1_790_000_000_000, rev: 3, action: "play", by: "m1" };
+const LOADED: PlaybackState = { playing: true, position: 0, rate: 1, at: 1_790_000_000_000, rev: 0, action: "load", by: null };
 const seats = (): (string | null)[] => Array.from({ length: 8 }, () => null);
 
 function room(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -183,7 +186,7 @@ describe("RoomStateSchema.playback", () => {
   );
 
   test("a v0 snapshot without playback still parses, with playback absent", () => {
-    const v0 = { id: "lobby", seats: seats(), members: [], embed: EMBED };
+    const v0: RoomState = { id: "lobby", seats: seats(), members: [], embed: EMBED };
     const frame = JSON.stringify({ type: "snapshot", self: "m1", room: v0 });
     const msg = parseServerMessage(frame);
     expect(msg?.type === "snapshot" ? msg.room : null).toEqual(v0);
@@ -195,7 +198,7 @@ describe("RoomStateSchema.playback", () => {
       nickname: "李".repeat(20),
       avatar: 3,
     }));
-    const worstPlayback = { playing: false, position: 43_199.999_999_999_99, rate: 1.999_999_999_999, at: 9_007_199_254_740_991, rev: 9_007_199_254_740_991, action: "pause", by: members[24]?.id };
+    const worstPlayback: PlaybackState = { playing: false, position: 43_199.999_999_999_99, rate: 1.999_999_999_999, at: 9_007_199_254_740_991, rev: 9_007_199_254_740_991, action: "pause", by: "z".repeat(64) };
     const frame = JSON.stringify({
       type: "snapshot",
       self: members[0]?.id,

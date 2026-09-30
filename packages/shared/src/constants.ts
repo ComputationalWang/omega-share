@@ -14,3 +14,7 @@ export const MAX_SERVER_MESSAGE_BYTES = 16384;
 export const MAX_LISTED_ROOMS = 100;
 /** Cap on human-readable error messages sent over the wire. */
 export const ERROR_MESSAGE_MAX_LENGTH = 200;
+/** Longest seekable playback position we accept, in seconds (12 h). */
+export const MAX_POSITION_S = 12 * 60 * 60;
+/** Largest clock-ping id; clients wrap to 0 after it. */
+export const PING_ID_MAX = 2 ** 31 - 1;

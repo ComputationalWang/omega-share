@@ -80,6 +80,9 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       const bubble: Bubble = { memberId: msg.memberId, text: msg.text, expiresAt: now + BUBBLE_MS };
       return { ...state, bubbles: [...state.bubbles.filter((b) => b.memberId !== msg.memberId), bubble] };
     }
+    case "pong":
+    case "playback":
+      return state;
   }
 }
 

@@ -36,6 +36,7 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   bad_message: "That didn't go through.",
   not_joined: "Still joining, try again in a moment.",
   already_joined: "You're already in this room.",
+  no_embed: "That video isn't playing here any more.",
 };
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, testId?: string): HTMLElementTagNameMap[K] {

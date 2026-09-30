@@ -186,6 +186,11 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       case "chat":
         server.publish(room.topic, encode({ type: "chat", memberId, text: msg.text, at: Date.now() }));
         return;
+      case "ping":
+      case "control":
+        // Contract only (OME-83); the M1b server issue implements these. Same reply as before they parsed.
+        sendError(ws, "bad_message", "invalid message");
+        return;
     }
   };
 
