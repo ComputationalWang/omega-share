@@ -8,16 +8,16 @@ import { DEFAULT_ROOM_ID } from "@omega/shared";
 import type { PlaybackView } from "../../apps/web/src/controls/playback";
 import { ROOT, URLS } from "../support/apps";
 import { site } from "../support/selectors";
+import { joinForToken, postShare } from "../support/share";
 
 export const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
-const SHARE_URL = `${URLS.server}/rooms/${DEFAULT_ROOM_ID}/share`;
 /** Not under test-results/: Playwright empties that at the start of every run. Git-ignored. */
 export const EVIDENCE_DIR = join(ROOT, "e2e/real/results");
 
 /** Open-licensed, embeddable, not monetized (Blender's Big Buck Bunny): the steady baseline. */
 export const BASELINE_ID = "aqz-KE-bpKQ";
 /** Monetized and embeddable: the best chance of a pre-roll ad. Override with OMEGA_REAL_AD_IDS (comma-separated). */
-export const AD_IDS = (process.env["OMEGA_REAL_AD_IDS"] ?? "dQw4w9WgXcQ,kJQP7kiw5Fk,JGwWNGJdvx8,OPf0YbXqDm0,09R8_2nJtjg,fRh_vgS2dFE").split(",");
+export const AD_IDS = (process.env["OMEGA_REAL_AD_IDS"] ?? "dQw4w9WgXcQ,kJQP7kiw5Fk,JGwWNGJdvx8,OPf0YbXqDm0,09R8_2nJtjg,fRh_vgS2dFE,fJ9rUzIMcZQ,RgKAFK5djSk,CevxZvSJLk8,hT_nvWreIhg").split(",");
 
 export const embedUrl = (id: string): string => `https://www.youtube.com/embed/${id}`;
 
@@ -63,11 +63,17 @@ export async function enter(context: BrowserContext, nickname: string): Promise<
   return { context, page, nickname };
 }
 
-export async function share(request: APIRequestContext, id: string): Promise<void> {
-  await expect
-    .poll(async () => (await request.post(SHARE_URL, { data: { url: embedUrl(id) } })).status(), { timeout: 20_000, intervals: [1_000] })
-    .toBe(200);
+/** Share any allowlisted URL into the lobby as a member would since ADR 0015: with that member's share token. */
+export async function shareUrl(request: APIRequestContext, url: string): Promise<void> {
+  const member = await joinForToken(DEFAULT_ROOM_ID, "real-sharer");
+  try {
+    expect((await postShare(request, DEFAULT_ROOM_ID, member.token, url)).status(), `share ${url}`).toBe(200);
+  } finally {
+    member.close();
+  }
 }
+
+export const share = (request: APIRequestContext, id: string): Promise<void> => shareUrl(request, embedUrl(id));
 
 /** The YouTube player frame (cross-origin, but Playwright can evaluate in it). */
 export async function ytFrame(page: Page, id: string, timeout = 20_000): Promise<Frame> {
@@ -154,7 +160,7 @@ export async function spreadOver(a: Frame, b: Frame, n: number, everyMs: number)
 export function record(name: string, data: unknown): void {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
   writeFileSync(join(EVIDENCE_DIR, `${name}.json`), `${JSON.stringify(data, null, 2)}\n`);
-  console.log(`[real-youtube] ${name}: ${JSON.stringify(data)}`);
+  console.log(`[real] ${name}: ${JSON.stringify(data)}`);
 }
 
 export const shot = (page: Page, name: string): Promise<Buffer> => page.screenshot({ path: join(EVIDENCE_DIR, `${name}.png`) });
