@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readShareTokens, roomTabPatterns, type TokenDeps } from "../src/share-token";
+import { MAX_RECORD_LENGTH, readRecordInPage, readShareTokens, roomTabPatterns, type TokenDeps } from "../src/share-token";
 
 const TOKEN = "AAAAAAAAAAAAAAAAAAAAAA";
 const TOKEN2 = "abcdefghijklmnopqrstuv";
@@ -87,5 +87,24 @@ describe("readShareTokens", () => {
       readSession: () => Promise.resolve(null),
     });
     expect(tokens.size).toBe(0);
+  });
+});
+
+describe("readRecordInPage (runs inside the room tab)", () => {
+  const storage = (value: string | null): Pick<Storage, "getItem"> => ({ getItem: (key) => (key === "omega.share" ? value : null) });
+
+  test("returns the record under the key", () => {
+    expect(readRecordInPage("omega.share", MAX_RECORD_LENGTH, storage(record("lobby", TOKEN)))).toBe(record("lobby", TOKEN));
+  });
+  test("a missing record is null", () => {
+    expect(readRecordInPage("omega.share", MAX_RECORD_LENGTH, storage(null))).toBeNull();
+  });
+  test("a record at the cap is returned; one past it never leaves the page", () => {
+    expect(readRecordInPage("omega.share", 512, storage("x".repeat(512)))).toBe("x".repeat(512));
+    expect(readRecordInPage("omega.share", 512, storage("x".repeat(513)))).toBeNull();
+    expect(readRecordInPage("omega.share", 512, storage("x".repeat(5_000_000)))).toBeNull();
+  });
+  test("the cap is 512", () => {
+    expect(MAX_RECORD_LENGTH).toBe(512);
   });
 });
