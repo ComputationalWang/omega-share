@@ -200,7 +200,8 @@ export function liveCss(rects: Readonly<Record<string, { x: number; y: number }>
 .ui-room .ui-hint:not(.wordy) .ui-hint-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Resync, one-shot on a tag: add .resynced when a seek-only viewer was jumped back into sync, remove after ${String(total)} ms.
- * Hangs off the tag's left end with a 2 art px gap. The landed chevrons reach the sticker's right edge, so unlike the
+ * Hangs off the tag's left end: the sticker moves 1 art px further left (translate -1), and its art leaves 1 empty column on the
+ * right, so the visible gap is 2 art px (4 screen px at 2×). The landed chevrons nearly reach the sticker's right edge, so unlike the
  * centred hourglass it must not overlap the tag (OME-137: it ran into the name). */
 .ui-resync { --f0: ${at("resync/0")}; --f1: ${at("resync/1")}; --f2: ${at("resync/2")}; width: ${u(16)}; height: ${u(16)}; background-position: var(--f2); animation: ui-resync ${String(total)}ms steps(1) 1 both; }
 @keyframes ui-resync { 0% { background-position: var(--f0); } ${String(p1)}% { background-position: var(--f1); } ${String(p2)}% { background-position: var(--f2); } 100% { background-position: var(--f2); } }
