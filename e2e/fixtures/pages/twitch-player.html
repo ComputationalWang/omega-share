@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture: Twitch.Player</title></head>
+<body>
+<!-- Harness page for the fake Twitch SDK (OME-121). The SDK builds its own iframe inside #tv (research §4.1). ?channel=<login> = live, else a VOD. -->
+<div id="tv"></div>
+<script>
+  window.__log = [];
+  const params = new URLSearchParams(location.search);
+  if (params.has("neverReady")) window.__neverReady = true;
+</script>
+<script src="https://player.twitch.tv/js/embed/v1.js"></script>
+<script>
+  if (window.__neverReady) window.__fakeTwitch.neverReady();
+  const channel = params.get("channel");
+  const options = channel ? { channel, parent: ["localhost"] } : { video: "v1234567890", parent: ["localhost"] };
+  window.player = new Twitch.Player("tv", { ...options, width: 640, height: 360, autoplay: false, muted: false });
+  const P = Twitch.Player;
+  for (const name of [P.READY, P.PLAY, P.PLAYING, P.PAUSE, P.ENDED, P.ONLINE, P.OFFLINE, P.PLAYBACK_BLOCKED, P.SEEK, P.ERROR]) {
+    window.player.addEventListener(name, (params) => window.__log.push({ type: name, data: params ?? null, t: performance.now() }));
+  }
+</script>
+</body></html>
