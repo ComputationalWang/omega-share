@@ -78,3 +78,37 @@ describe("roomLayout: nothing of ours over the player", () => {
     expect(roomLayout(1920).scale).toBe(1);
   });
 });
+
+// The TV frame's ink (assets/ui/reference.css, OME-92): border-image-outset paints outside each box.
+// Bezel 6/6/8/6 around the player, shelf 1/38/6/38 around the control bar; `.compact` drops the sides.
+const outset = (r: Rect, top: number, side: number, bottom: number): Rect => ({ x: r.x - side, y: r.y - top, w: r.w + 2 * side, h: r.h + top + bottom });
+const frameInk = (l: ReturnType<typeof roomLayout>): Rect => outset(l.tv, 6, l.compact.tv ? 0 : 6, 8);
+const shelfInk = (l: ReturnType<typeof roomLayout>): Rect => outset(l.controls, 1, l.compact.controls ? 0 : 38, 6);
+
+describe("roomLayout: TV frame", () => {
+  test.each([
+    [360, { tv: true, controls: true }],
+    [600, { tv: false, controls: true }],
+    [635, { tv: false, controls: true }],
+    [636, { tv: false, controls: false }],
+    [1920, { tv: false, controls: false }],
+  ] as const)("at width %p the compact flags are %o", (width, compact) => {
+    expect(roomLayout(width).compact).toEqual(compact);
+  });
+
+  test.each(WIDTHS)("the bezel and shelf ink stay inside the container, no horizontal scroll, at width %p", (width) => {
+    const l = roomLayout(width);
+    const box: Rect = { x: 0, y: 0, w: Math.floor(width), h: l.height };
+    expect(inside(frameInk(l), box)).toBe(true);
+    expect(inside(shelfInk(l), box)).toBe(true);
+  });
+
+  test.each(WIDTHS)("the frame never paints over the player, and the shelf stays above the stage, at width %p", (width) => {
+    const l = roomLayout(width);
+    // The bezel is a ring outside the player (no `fill`), so only the shelf could reach it.
+    expect(intersects(shelfInk(l), l.tv)).toBe(false);
+    // The bezel's bottom row and the shelf's 1 px top outset share the plum outline row (reference.css).
+    expect(frameInk(l).y + frameInk(l).h).toBeLessThanOrEqual(l.controls.y + 1);
+    expect(shelfInk(l).y + shelfInk(l).h).toBeLessThanOrEqual(l.stage.y);
+  });
+});
