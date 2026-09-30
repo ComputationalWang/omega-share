@@ -165,7 +165,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const view: RoomView = await createRoomView();
   view.canvas.className = "scene";
   stage.append(view.canvas, overlay, tags, bubbles, rail);
-  opts.root.replaceChildren(status, wrap, personal.root, tvHint, syncNotice, notice, chatForm, full, refused);
+  // The provider hint sits right above the TV, next to what it's about (OME-251): below the stage it's off-screen.
+  opts.root.replaceChildren(status, tvHint, wrap, personal.root, syncNotice, notice, chatForm, full, refused);
 
   /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
   let tvProvider: Embed["provider"] | null = null;
