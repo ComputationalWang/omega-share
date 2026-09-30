@@ -2,9 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { joinRoom, leaveAll } from "../e2e/support/room";
-import { site } from "../e2e/support/selectors";
 import { VSYNC_MS, frameTimes } from "./frames";
-import { p95, recordMetric, vsyncFrames } from "./metrics";
+import { recordMetric } from "./metrics";
+import { summarizeFrames } from "./spread";
+import { PLAYING, fakeState, shareVideo, waitPlaying } from "./sync";
 
 interface LongTaskStore { __omegaLongTaskEnds: number[] }
 
@@ -41,7 +42,7 @@ test("site: time to interactive", async ({ page }) => {
   recordMetric({ id: "site.tti", value: await measureTti(fresh, URLS.web) });
 });
 
-test("site: p95 frame time with 8 avatars", async ({ browser }) => {
+test("site: p95 frame time with 8 avatars and video playing", async ({ browser, request }) => {
   if (!available.web || !available.server) {
     recordMetric({ id: "site.frameP95", pending: available.web ? PENDING.server : PENDING.web });
     return;
@@ -51,13 +52,13 @@ test("site: p95 frame time with 8 avatars", async ({ browser }) => {
   try {
     const [observer] = clients;
     if (!observer) throw new Error("no clients");
-    const hasVideo = (await observer.page.locator(site.sharedVideo).count()) > 0;
+    await shareVideo(request);
+    await waitPlaying(clients);
     const samples = await frameTimes(observer.page, 5000);
+    expect(await fakeState(observer.page)).toBe(PLAYING);
     expect(samples.length).toBeGreaterThan(0);
-    const frames = vsyncFrames(samples, VSYNC_MS);
-    const missed = frames.filter((f) => f > VSYNC_MS * 1.5).length;
-    const detail = `${String(samples.length)} frames, ${String(missed)} missed vsync, raw p95 ${p95(samples).toFixed(1)} ms`;
-    recordMetric({ id: "site.frameP95", value: p95(frames), note: `${detail}${hasVideo ? "" : ", no video playing (M1b)"}` });
+    const f = summarizeFrames(samples, VSYNC_MS);
+    recordMetric({ id: "site.frameP95", value: f.p95, note: `${f.note}; video playing (fake player)` });
   } finally {
     await leaveAll(clients);
   }

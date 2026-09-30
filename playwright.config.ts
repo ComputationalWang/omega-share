@@ -23,7 +23,9 @@ export default defineConfig({
   use: { baseURL: URLS.fixtures, trace: "retain-on-failure", screenshot: "only-on-failure" },
   webServer: servers,
   projects: [
-    { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    // The sync suite drives the shared lobby with 8 clients (pause, seek), so it runs alone, after the rest (OME-90).
+    { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", testIgnore: "**/sync.e2e.ts", use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    { name: "e2e-sync", testDir: "e2e", testMatch: "**/sync.e2e.ts", workers: 1, dependencies: ["e2e"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     { name: "perf", testDir: "perf", testMatch: "**/*.perf.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
   ],
 });

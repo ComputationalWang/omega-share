@@ -46,8 +46,6 @@ if (existsSync(manifestPath)) {
   for (const id of ["ext.contentScripts", "ext.persistentBackground"]) recordMetric({ id, pending: "extension not built (OME-7)" });
 }
 
-recordMetric({ id: "sync.spread", pending: "M1b: playback sync not built yet" });
-
 // Runtime checks (Playwright, Chromium). Web is served from the production build.
 const soak: Record<string, string> = args.has("--soak") ? { OMEGA_PERF_SOAK: "1" } : {};
 const pwExit = run(["bunx", "playwright", "test", "--project=perf"], { OMEGA_WEB_MODE: "preview", ...soak });

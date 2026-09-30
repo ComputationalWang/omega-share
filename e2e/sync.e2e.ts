@@ -139,10 +139,12 @@ test.describe("M1b sync, 8 clients", () => {
     await shareVideo(request);
     await waitPlaying(clients);
 
+    // A has been watching for a bit (clear of the adapter's 1 s echo window), then clicks the video itself.
+    await a.page.waitForTimeout(SETTLE_MS);
     await a.page.evaluate(() => window.__fakeYt?.clickToggle());
-    for (const c of clients) {
+    for (const c of [...clients.slice(1), a]) {
       await expect.poll(() => fakeState(c.page), { timeout: 5_000, message: c.nickname }).toBe(PAUSED);
-      await expect(c.page.locator(site.systemLine).last()).toHaveText(`${a.nickname} paused`);
+      await expect(c.page.locator(site.systemLine).last()).toHaveText(c === a ? "You paused" : `${a.nickname} paused`);
       await expect(c.page.locator(site.playToggle)).toHaveAttribute("aria-label", "Play for everyone");
     }
     const p = await roomPlayback(browser);

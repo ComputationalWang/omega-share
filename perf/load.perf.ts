@@ -1,17 +1,20 @@
 // Load test (docs/perf-budgets.md: 25 people in a room without breaking the budgets): one measured site client plus
 // raw-socket bots filling the room to MAX_ROOM_MEMBERS, all chatting, while bots sample relay latency on a free seat.
+// The room's video is playing throughout (fake player, OME-90).
 import { expect, test } from "@playwright/test";
 import { DEFAULT_ROOM_ID, MAX_ROOM_MEMBERS } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { startTraffic } from "../e2e/support/bots";
-import { joinRoom, leaveAll } from "../e2e/support/room";
+import { clickSettled, joinRoom, leaveAll } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
 import { VSYNC_MS, frameTimes } from "./frames";
-import { p95, recordMetric, vsyncFrames } from "./metrics";
+import { p95, recordMetric } from "./metrics";
+import { summarizeFrames } from "./spread";
+import { PLAYING, fakeState, shareVideo, waitPlaying } from "./sync";
 
 const BOTS = MAX_ROOM_MEMBERS - 1;
 
-test("load: 25 in a room — relay latency and site frame time", async ({ browser }) => {
+test("load: 25 in a room with video playing — relay latency and site frame time", async ({ browser, request }) => {
   if (!available.web || !available.server) {
     const pending = available.web ? PENDING.server : PENDING.web;
     for (const id of ["load.relayLatency", "load.frameP95"]) recordMetric({ id, pending });
@@ -31,9 +34,11 @@ test("load: 25 in a room — relay latency and site frame time", async ({ browse
   try {
     const [client] = clients;
     if (!client) throw new Error("no site client");
+    await shareVideo(request);
+    await waitPlaying(clients);
     await expect(client.page.locator(site.nicknameTag)).toHaveCount(MAX_ROOM_MEMBERS);
     const siteSeat = client.page.locator(`${site.seat}[data-seat="7"]`);
-    await siteSeat.click();
+    await clickSettled(client.page, siteSeat);
     await expect(siteSeat).toHaveClass(/\bmine\b/);
     await client.page.waitForTimeout(1000);
     // Only samples taken while frames are measured count, so both numbers describe the same window.
@@ -46,17 +51,13 @@ test("load: 25 in a room — relay latency and site frame time", async ({ browse
     expect(s.errors).toEqual([]);
     expect(s.dropped).toBe(0);
     expect(latencies.length).toBeGreaterThanOrEqual(40);
+    expect(await fakeState(client.page)).toBe(PLAYING);
 
     const load = `${String(s.members)} members, ${String(s.chats)} chats + ${String(s.seatChanges)} seat changes received by bots`;
     const how = "slowest of 24 bots in one page, client queueing included";
     recordMetric({ id: "load.relayLatency", value: p95(latencies), note: `${String(latencies.length)} sit/stand samples (${how}); ${load}` });
-    const frames = vsyncFrames(samples, VSYNC_MS);
-    const missed = frames.filter((f) => f > VSYNC_MS * 1.5).length;
-    recordMetric({
-      id: "load.frameP95",
-      value: p95(frames),
-      note: `${String(samples.length)} frames, ${String(missed)} missed vsync, raw p95 ${p95(samples).toFixed(1)} ms; 8 seated + 17 standing; no video playing (M1b)`,
-    });
+    const f = summarizeFrames(samples, VSYNC_MS);
+    recordMetric({ id: "load.frameP95", value: f.p95, note: `${f.note}; 8 seated + 17 standing; video playing (fake player)` });
   } finally {
     await traffic.stop();
     await leaveAll(clients);

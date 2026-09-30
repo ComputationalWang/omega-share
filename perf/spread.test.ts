@@ -54,7 +54,7 @@ describe("summarizeFrames: vsync p95 plus the raw numbers ADR 0009 asks for", ()
   const V = 1000 / 60;
 
   test("clean 60 Hz: no flags", () => {
-    const s = summarizeFrames(Array.from({ length: 100 }, (_, i) => V + (i % 2 === 0 ? 0.1 : -0.1)), V);
+    const s = summarizeFrames(Array.from({ length: 100 }, (_, i) => V + (i % 2 === 0 ? 0.02 : -0.02)), V);
     expect(s.frames).toBe(100);
     expect(s.missed).toBe(0);
     expect(s.p95).toBeCloseTo(V, 6);
@@ -65,7 +65,7 @@ describe("summarizeFrames: vsync p95 plus the raw numbers ADR 0009 asks for", ()
     const s = summarizeFrames(Array.from({ length: 100 }, () => 16.9), V);
     expect(s.p95).toBeCloseTo(V, 6);
     expect(s.rawP95).toBeCloseTo(16.9, 6);
-    expect(s.flags).toEqual(["raw p95 16.9 ms > 16.7 ms"]);
+    expect(s.flags).toEqual(["raw p95 16.90 ms > 16.7 ms"]);
   });
 
   test("more than 5% missed vsyncs is flagged", () => {
@@ -78,8 +78,8 @@ describe("summarizeFrames: vsync p95 plus the raw numbers ADR 0009 asks for", ()
 
   test("the note carries frames, missed, raw p95 and any flags", () => {
     const s = summarizeFrames(Array.from({ length: 10 }, () => V), V);
-    expect(s.note).toBe("10 frames, 0 missed vsync (0.0%), raw p95 16.7 ms");
+    expect(s.note).toBe("10 frames, 0 missed vsync (0.0%), raw p95 16.67 ms");
     const f = summarizeFrames(Array.from({ length: 10 }, () => 16.9), V);
-    expect(f.note).toBe("10 frames, 0 missed vsync (0.0%), raw p95 16.9 ms; ⚠ raw p95 16.9 ms > 16.7 ms");
+    expect(f.note).toBe("10 frames, 0 missed vsync (0.0%), raw p95 16.90 ms; ⚠ raw p95 16.90 ms > 16.7 ms");
   });
 });

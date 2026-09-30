@@ -25,6 +25,9 @@ Specs for pieces that haven't landed yet are `test.fixme` (e2e) or reported as P
   - `window.__fakeYt` acts on the newest player. Injections: `buffering(ms)`, `ad(ms)` (video id and duration switch to the ad's), `autoplayBlocked()` / `allowAutoplay()`, `error(code)`, `seekLatency(ms)`, `clickToggle()`, `configure({ duration, availableRates, fineRates, applyRate, … })`. Read-outs: `currentTime`, `rate`, `state`, `events` (a `{ type, data, t }` log), `player`. The harness page is `yt-player.html`, and the self-tests are `support/fake-yt.test.ts` and `fake-yt.e2e.ts`.
 - `room.ts`: `joinRoom(browser, { roomUrl, count })` creates N contexts. Each gets its own nickname and avatar and joins the room.
 - `selectors.ts`: the `data-testid` contract with the apps. Change it here, not in specs.
+- `../perf/sync.ts` (M1b, OME-90): `shareVideo`, `waitPlaying`, `sampleClients`, `roomPlayback` and `measureSpread` — the spread is max − min of (expected − actual) across clients; each sample carries its own wall-clock time, and the room state comes from a throwaway observer's snapshot, so it works on dev and production builds. The pure maths is `perf/spread.ts`.
+
+`e2e/sync.e2e.ts` runs in its own project (`e2e-sync`, one worker, after `e2e`) because it pauses and seeks the shared lobby with 8 clients. `bun run e2e` runs both projects.
 
 ## Fixture pages (`e2e/fixtures/pages/`)
 `youtube-embed` (one allowlisted embed), `watch-url` (the tab URL is the video), `non-allowlisted` (unknown provider, lookalike host, path spoof, `javascript:`/`data:`; must list nothing), `no-video`.
@@ -35,4 +38,4 @@ Specs for pieces that haven't landed yet are `test.fixme` (e2e) or reported as P
 - **Server** (OME-5): `dev` script reads `PORT`.
 
 ## Perf report
-`bun run perf` writes `perf/results/report.md` and `report.json` (git-ignored) and exits 1 if any budget fails. Budgets live in `perf/budgets.ts`. A unit test checks them against `docs/perf-budgets.md`, so edit both together. Every row in the doc needs a budget (unmeasured ones report PENDING). The load test (`perf/load.perf.ts`) fills the room to 25 with `startTraffic` bots from `support/bots.ts`, which chat, sit/stand and sample relay latency.
+`bun run perf` writes `perf/results/report.md` and `report.json` (git-ignored) and exits 1 if any budget fails. Budgets live in `perf/budgets.ts`. A unit test checks them against `docs/perf-budgets.md`, so edit both together. Every row in the doc needs a budget (unmeasured ones report PENDING). `sync.spread` (`perf/sync.perf.ts`) is the worst spread 2 s after play, pause and seek, two rounds, 8 clients. The frame-time rows run with the video playing on the fake player; their notes carry raw p95 and missed vsyncs and flag ⚠ raw p95 > 16.7 ms or > 5% missed (ADR 0009 has no headroom). `server.relayLatency` is a `control` seek to all 25 sockets. The load test (`perf/load.perf.ts`) fills the room to 25 with `startTraffic` bots from `support/bots.ts`, which chat, sit/stand and sample relay latency.
