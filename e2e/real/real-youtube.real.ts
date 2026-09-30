@@ -284,6 +284,8 @@ test("2 · embedding-disabled and age-restricted videos show a clear notice", as
       // only YouTube's in-player text: the room's transport must stop claiming it plays (research §1.1 onError).
       if (x.played) continue;
       expect(x.siteNotices.some((t) => /can.t|cannot|unavailable|not allowed|embed|age/i.test(t)), `${name}: the site says why it can't play`).toBe(true);
+      expect(x.view?.playing, `${name}: the transport stops claiming the room plays here`).toBe(false);
+      expect(x.view?.canControl, `${name}: the transport is frozen`).toBe(false);
     }
   } finally {
     await a.context.close();
