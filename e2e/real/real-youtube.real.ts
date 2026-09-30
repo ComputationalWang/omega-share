@@ -367,6 +367,7 @@ test("7 · two separate browsers (own profiles): spread", async ({ request }) =>
 });
 
 test("1 · pre-roll ad on a monetized video: the room doesn't pause; the client catches up", async ({ browser, request }) => {
+  test.setTimeout(600_000);
   const a = await enter(await browser.newContext(), "real-ad-a");
   const b = await enter(await browser.newContext(), "real-ad-b");
   const attempts: unknown[] = [];
@@ -391,7 +392,39 @@ test("1 · pre-roll ad on a monetized video: the room doesn't pause; the client 
       attempts.push({ id, sawAd, roomAlwaysPlaying: trace.every((x) => x.roomPlaying !== false), after, trace: trace.filter((x) => x.adA || x.adB) });
       if (sawAd) break;
     }
-    record("01-ads", attempts);
+    // Control (OME-133): does this profile get ads at all? The same candidates as a raw www.youtube.com embed (not
+    // our nocookie one) on a localhost page, muted autoplay, 20 s each. An ad here but never in the room means the
+    // nocookie host is what keeps pre-rolls away, and the room path stays covered only by the fake player's ad(ms).
+    const control: { id: string; sawAd: boolean; played: boolean }[] = [];
+    if (!attempts.some((x) => (x as { sawAd: boolean }).sawAd)) {
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+      await page.goto(`${ROOM_URL.replace(/\/r\/.*$/, "")}/`);
+      for (const id of AD_IDS) {
+        await page.evaluate((v) => {
+          const f = document.createElement("iframe");
+          f.width = "640";
+          f.height = "360";
+          f.allow = "autoplay; encrypted-media";
+          f.src = `https://www.youtube.com/embed/${v}?autoplay=1&mute=1&playsinline=1`;
+          document.body.replaceChildren(f);
+        }, id);
+        const frame = await ytFrame(page, id);
+        let sawAd = false;
+        let played = false;
+        const t0 = Date.now();
+        while (Date.now() - t0 < 20_000 && !sawAd) {
+          const s = await sampleVideo(frame).catch(() => null);
+          sawAd ||= s?.ad === true;
+          played ||= s !== null && !s.paused && !s.ad && s.currentTime > 1;
+          await page.waitForTimeout(500);
+        }
+        if (sawAd) await shot(page, `01-control-ad-${id}`);
+        control.push({ id, sawAd, played });
+      }
+      await ctx.close();
+    }
+    record("01-ads", { room: attempts, controlWwwEmbed: control });
     const hit = attempts.find((x) => (x as { sawAd: boolean }).sawAd) as { roomAlwaysPlaying: boolean; after: { maxAbsMs: number } } | undefined;
     test.skip(hit === undefined, "no ad served on any candidate; see 01-ads.json, rerun or check by hand");
     if (hit === undefined) return;
