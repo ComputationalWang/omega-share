@@ -39,7 +39,10 @@ export const PLAYERS: AdapterRegistry = {
   vimeo: () => Promise.resolve(unsupported),
 };
 
-/** Returns `mount(c)`: resolves the embed's provider factory (each module imported at most once) and runs it. */
+/**
+ * Returns `mount(c)`: resolves the embed's provider factory (each module imported at most once) and runs it.
+ * Never rejects. The caller passes `frame = tvFrame(embed)`; only the frame kind is re-checked here.
+ */
 export function createPlayerMounter(reg: AdapterRegistry): (c: MountContext) => Promise<MountResult> {
   const youtube = once(reg.youtube);
   const twitch = once(reg.twitch);
@@ -65,7 +68,12 @@ async function run<E extends Embed>(load: () => Promise<AdapterFactory<E>>, c: M
   } catch {
     return { ok: false, reason: "load-failed" };
   }
-  return factory(c);
+  try {
+    // A throwing SDK constructor must still end in a notice, not an unhandled rejection.
+    return await factory(c);
+  } catch {
+    return { ok: false, reason: "load-failed" };
+  }
 }
 
 /** Memoises `f()`; a rejected load (offline, deploy in flight) is retried by the next call. */

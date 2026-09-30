@@ -103,7 +103,7 @@ function vimeoFrame(url: string): TvIframe {
   // The canonical url is the player URL, with `?h=<hash>` for unlisted videos; ours go after it.
   const src = new URL(url);
   for (const [k, val] of VIMEO_PARAMS) src.searchParams.append(k, val);
-  // Vimeo's own oEmbed markup uses this policy; domain-level privacy needs the origin.
+  // Vimeo's own oEmbed markup uses this policy; its domain-level privacy check reads the referrer's origin.
   return { kind: "iframe", key: src.href, src: src.href, sandbox: SANDBOX, allow: VIMEO_ALLOW, referrerPolicy: "strict-origin-when-cross-origin" };
 }
 
@@ -115,7 +115,8 @@ function twitchFrame(e: Extract<Embed, { provider: "twitch" }>, host: string): T
 
 /**
  * The post-render check on the iframe the Twitch SDK built (research §4.1 W1): exactly the
- * player origin, and the one content parameter equal to ours. Anything else → remove it.
+ * player origin, the one content parameter equal to ours, and `parent` = this page's host only.
+ * Anything else → remove it. Attributes (sandbox, allow) are the SDK's, accepted in ADR 0014 §5.
  */
 export function twitchIframeMatches(src: string, frame: TvTwitch): boolean {
   if (!URL.canParse(src)) return false;
@@ -126,7 +127,8 @@ export function twitchIframeMatches(src: string, frame: TvTwitch): boolean {
     const got = u.searchParams.getAll(k);
     if (k === want[0] ? got.length !== 1 || got[0] !== want[1] : got.length !== 0) return false;
   }
-  return true;
+  const parents = u.searchParams.getAll("parent");
+  return parents.length === frame.options.parent.length && parents.every((p, i) => p === frame.options.parent[i]);
 }
 
 function httpOrigin(s: string): URL | null {

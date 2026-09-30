@@ -215,6 +215,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const mountPlayer = (embed: Embed, frame: TvFrame, screenEl: HTMLElement, iframe: HTMLIFrameElement | null): void => {
     syncNotice.hidden = true;
     // Only the shown embed's provider module and SDK load, and only now (ADR 0014, research §5).
+    // mount() never rejects (registry.ts).
     void mount({ embed, frame, target: { iframe, container: screenEl }, now: () => performance.now() }).then((r) => {
       if (tvScreen !== screenEl) {
         if (r.ok) r.player.destroy();
