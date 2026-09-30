@@ -45,4 +45,25 @@ bun e2e/support/headed.ts bun my-script.ts
 
 ## Verification
 
-See the results section below (filled in by [OME-210](/OME/issues/OME-210)).
+### 2026-09-30 · branch `qa-engineer/OME-210-xvfb` on `main` @ 186c13f · Chrome for Testing 153 (Playwright 1.63.0), headed on Xvfb 1920×1080×24 · QA ([OME-210](/OME/issues/OME-210))
+
+`bun run e2e:real e2e/real/real-youtube.real.ts e2e/real/real-providers.real.ts --trace on`, then Twitch again with `-g M2-twitch --repeat-each 2`. A `hyprctl clients` poll every 2 s through both runs (548 samples) saw 3 desktop windows the whole time and never a Chromium one.
+
+| Check | Result on Xvfb | Before (headed on Wayland, `docs/qa/m1b-real-youtube.md`, `m2-real-sign-off.md`) |
+|---|---|---|
+| Guard | `playwright test --project=e2e-real` without the wrapper fails in `beforeAll`. `DEBUG=pw:browser` shows 0 browser launches. | n/a |
+| YouTube 3a sound after Enter | PASS: `muted: false`, volume 1, `needsUnmute: false` | PASS, the same |
+| YouTube 3b muted fallback (raw CDP) | PASS: `hasBeenActive: false`, muted and playing, Unmute shown, unmuted after the click | PASS, the same |
+| YouTube 2, 4, 5, 6, 8 | PASS. 5: slope 1.050, rung `fine`. 6: 172 ms throttled. 8: widget 200, 0 CSP violations | PASS: 1.050 `fine`, 168 ms, 200/0 |
+| YouTube 7 two browsers | PASS: steady 113 ms, pause 0 ms, 27 ms after play | PASS: 182 ms, 0, 38 |
+| YouTube 1 pre-roll | Skipped, no ad served (the known gap) | The same |
+| Twitch VOD (P1) | 1st run FAIL: after-seek 809 ms (one client −809 ms, 5 samples after the seek). Reruns 2/2 PASS: 112 / 0 / 61 / 108 ms | PASS: 286 / 0 / 1 / 3 ms |
+| Twitch live (P3) | 1st run FAIL: `valorant` was offline. With `OMEGA_REAL_TWITCH_LIVE=caedrel` 2/2 PASS: pause spread 58 ms, play 57 ms, LIVE pill, no scrubber | PASS: 57 / 262 ms |
+| Vimeo (P2) | PASS: 24 / 0 / 31 / 28 ms, `seekOnly: false` | PASS: 124 / 0 / 16 / 26 ms |
+| Refused (P4) | PASS | PASS |
+| Extension load | Headed `launchPersistentContext` with the e2e build: the service worker started and the popup rendered | T2 (needs a tunnel, not rerun) |
+
+Differences we saw:
+- The raw-CDP Chromium (YouTube 3b) has no Playwright viewport, so its window fills the Xvfb screen and its screenshots are bigger (2560×1714) than on the desktop.
+- There's no GPU on Xvfb, so video decodes and draws in software. Every real player still played and seeked, and the spreads stayed in the Wayland range. The one Twitch after-seek spike didn't repeat in 2 reruns, so we treat it as a flaky real player, not an Xvfb effect. If it comes back, compare with `E2E_REAL_ON_DESKTOP=1` on a desktop you own.
+- `xvfb-run -a` picks a free display (`:99`, `:100`, …), so runs can overlap without clashing.
