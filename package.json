@@ -11,7 +11,7 @@
     "typecheck": "bun run --filter '*' typecheck && tsc -p tsconfig.json && tsc -p assets",
     "lint": "eslint .",
     "test": "bun test --pass-with-no-tests",
-    "e2e": "bun run --filter @omega/extension build:e2e && playwright test --project=e2e --project=e2e-sync",
+    "e2e": "bun run --filter @omega/extension build:e2e && playwright test --project=e2e --project=e2e-sync --project=e2e-tunnel",
     "e2e:real": "playwright test --project=e2e-real",
     "perf": "bun perf/run.ts",
     "check": "bun run typecheck && bun run lint && bun run test"

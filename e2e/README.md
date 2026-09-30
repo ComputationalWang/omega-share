@@ -35,6 +35,16 @@ Specs for pieces that haven't landed yet are `test.fixme` (e2e) or reported as P
 ## Fixture pages (`e2e/fixtures/pages/`)
 `youtube-embed` (one allowlisted embed), `watch-url` (the tab URL is the video), `non-allowlisted` (unknown provider, lookalike host, path spoof, `javascript:`/`data:`; must list nothing), `no-video`.
 
+## Tunnel lane (`e2e-tunnel`, OME-132)
+
+`e2e/tunnel*.e2e.ts` emulate the public tunnel without ngrok (ADR 0015, `docs/research/m2-tunnel-safety.md` §8.2). `e2e/tunnel-support.ts` builds the site without `VITE_SERVER_URL` into a temp dir, starts a server with `PUBLIC_ORIGIN=https://omega.test TRUST_PROXY=loopback STATIC_DIR=<that dir>`, and puts `e2e/fixtures/proxy.ts` in front of it.
+
+- The proxy speaks TLS with a per-run self-signed certificate (`openssl`; no key is committed), keeps `Host`, passes `X-Forwarded-Host` through, appends the client to `X-Forwarded-For` and sets `X-Forwarded-Proto: https`, like ngrok. `evil.test` gets a blank hostile page. `setMode("offline" | "down")` emulates an offline agent (HTML 404) and a dead tunnel.
+- `x-fixture-client: <ip>` (test only, stripped) picks the address the proxy appends, so one run plays many clients.
+- Chromium maps both hosts to the proxy with `--host-resolver-rules` and runs with `ignoreHTTPSErrors`.
+- Ports: proxy `OMEGA_FIXTURE_PORT + 30` (4430; QA2's lane 4440), server `OMEGA_SERVER_PORT + 1` (8788; 8798). Override with `OMEGA_PROXY_PORT` / `OMEGA_TUNNEL_SERVER_PORT`.
+- The extension test loads a copy of the e2e build with `https://omega.test/*` added to `host_permissions`, since Playwright can't accept Chrome's permission prompt.
+
 ## Contract for app engineers
 - **Popup** (OME-7): `popup.html?tabId=<n>` must target tab `n`. A popup opened as a tab can't use the active tab. Render `data-testid="embed-item"` per embed and `embeds-empty` when there are none. Popup-to-list time runs from the popup's navigation start until the first `embed-item`.
 - **Site** (OME-6): test ids from `selectors.ts`, rooms at `/r/<room>`, `bun run --filter @omega/web dev|preview -- --port <p> --strictPort`, `build` → `apps/web/dist`. Optionally call `performance.mark("omega:interactive")` when the room is usable; TTI takes the latest of that mark, DOMContentLoaded and the last long task.

@@ -155,7 +155,9 @@ export async function startTunnelProxy({ port, upstreamPort }: ProxyOptions): Pr
     close: () =>
       new Promise<void>((resolve) => {
         for (const s of sockets) s.destroy();
-        server.close(() => resolve());
+        server.close(() => {
+          resolve();
+        });
       }),
   };
 }

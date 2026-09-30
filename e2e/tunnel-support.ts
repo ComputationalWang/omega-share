@@ -43,7 +43,8 @@ export interface TunnelLane {
 
 function buildSite(): string {
   const outDir = mkdtempSync(join(tmpdir(), "omega-tunnel-site-"));
-  const env: NodeJS.ProcessEnv = { ...process.env };
+  // The sentinel is in the build's environment too: nothing may bake it into the bundle.
+  const env: NodeJS.ProcessEnv = { ...process.env, NGROK_AUTHTOKEN: SENTINEL_AUTHTOKEN };
   delete env["VITE_SERVER_URL"];
   const r = spawnSync("bunx", ["vite", "build", "--outDir", outDir, "--emptyOutDir", "--logLevel", "error"], {
     cwd: join(ROOT, "apps/web"),
@@ -85,8 +86,8 @@ async function startLane(): Promise<TunnelLane & { stop: () => Promise<void> }> 
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
-  child.stdout?.on("data", (d: Buffer) => (output += d.toString()));
-  child.stderr?.on("data", (d: Buffer) => (output += d.toString()));
+  child.stdout.on("data", (d: Buffer) => (output += d.toString()));
+  child.stderr.on("data", (d: Buffer) => (output += d.toString()));
   const log = (): string => output;
   try {
     await waitHealthy(TUNNEL_PORTS.server, child, log);
@@ -143,7 +144,9 @@ export function tunnelRequest({ port = TUNNEL_PORTS.proxy, method = "GET", path,
         let text = "";
         res.setEncoding("utf8");
         res.on("data", (c: string) => (text += c));
-        res.on("end", () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: text }));
+        res.on("end", () => {
+          resolve({ status: res.statusCode ?? 0, headers: res.headers, body: text });
+        });
       },
     );
     req.on("error", reject);

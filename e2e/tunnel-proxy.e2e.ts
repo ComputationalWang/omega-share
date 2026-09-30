@@ -30,7 +30,9 @@ function echoUpstream(): Promise<{ server: Server; seen: Seen[] }> {
     socket.write("HTTP/1.1 101 Switching Protocols\r\nconnection: Upgrade\r\nupgrade: websocket\r\n\r\n");
     socket.pipe(socket);
   });
-  return new Promise((resolve) => server.listen(UPSTREAM_PORT, "127.0.0.1", () => resolve({ server, seen })));
+  return new Promise((resolve) => server.listen(UPSTREAM_PORT, "127.0.0.1", () => {
+    resolve({ server, seen });
+  }));
 }
 
 const header = (raw: readonly string[], name: string): string[] =>

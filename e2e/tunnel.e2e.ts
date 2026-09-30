@@ -1,0 +1,385 @@
+// Tunnel safety (OME-132, ADR 0015, docs/research/m2-tunnel-safety.md §7–8): the server runs in tunnel mode
+// (PUBLIC_ORIGIN=https://omega.test, TRUST_PROXY=loopback, same-origin site) behind e2e/fixtures/proxy.ts, which
+// behaves like ngrok. Each test names the ADR threat it covers. Serial: one server, one lobby, shared limits.
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import type { BrowserContext, Page } from "@playwright/test";
+import { DEFAULT_ROOM_ID, SHARE_TOKEN_STORAGE_KEY, parseServerMessage, type RoomState } from "@omega/shared";
+import { EXTENSION_DIR, EXTENSION_SHIPPED_DIR, ROOT, URLS } from "./support/apps";
+import { VIDEO_ID, WATCH_URL } from "./support/network";
+import { popup, site } from "./support/selectors";
+import {
+  EVIL_ORIGIN,
+  PUBLIC_ORIGIN,
+  SENTINEL_AUTHTOKEN,
+  TUNNEL_BROWSER_ARGS,
+  TUNNEL_PORTS,
+  expect,
+  passTunnelHosts,
+  test,
+  tunnelRequest,
+  tunnelUpgrade,
+} from "./tunnel-support";
+import { chromium } from "@playwright/test";
+
+const ROOM = DEFAULT_ROOM_ID;
+const ROOM_PATH = `/r/${ROOM}`;
+const WS_PATH = `/rooms/${ROOM}/ws`;
+const SHARE_PATH = `/rooms/${ROOM}/share`;
+const PUBLIC_WS = `wss://omega.test${WS_PATH}`;
+const TWITCH_CHANNEL_URL = "https://www.twitch.tv/omegatestchannel";
+/** The site renders Twitch once its player lands (OME-124/OME-125 own `apps/web/src/player/twitch*`). */
+const SITE_HAS_TWITCH = existsSync(join(ROOT, "apps/web/src/player/twitch.ts"));
+
+/** A distinct synthetic client per call, so tests never share a rate-limit bucket by accident. */
+let nextClient = 1;
+const freshClient = (): string => `203.0.113.${String(nextClient++)}`;
+
+const share = (token: string | null, client: string, extra: Record<string, string> = {}, url: string = WATCH_URL) =>
+  tunnelRequest({
+    method: "POST",
+    path: SHARE_PATH,
+    headers: {
+      "content-type": "application/json",
+      "x-fixture-client": client,
+      ...(token === null ? {} : { authorization: `Bearer ${token}` }),
+      ...extra,
+    },
+    body: JSON.stringify({ url }),
+  });
+
+/** Joins the lobby over a WebSocket opened by `page` (on omega.test) and returns the raw snapshot; the socket stays open. */
+async function joinInPage(page: Page, nickname: string): Promise<{ token: string; room: RoomState }> {
+  const raw = await page.evaluate(
+    ({ url, nickname }) =>
+      new Promise<string>((resolve, reject) => {
+        const ws = new WebSocket(url);
+        const kept = (window as unknown as { omegaSockets?: WebSocket[] }).omegaSockets ?? [];
+        Object.assign(window, { omegaSockets: [...kept, ws] });
+        ws.addEventListener("open", () => {
+          ws.send(JSON.stringify({ type: "join", nickname, avatar: 0 }));
+        });
+        ws.addEventListener("message", (ev: MessageEvent<unknown>) => {
+          if (typeof ev.data === "string" && ev.data.includes('"snapshot"')) resolve(ev.data);
+        });
+        ws.addEventListener("error", () => {
+          reject(new Error("websocket error"));
+        });
+      }),
+    { url: PUBLIC_WS, nickname },
+  );
+  const msg = parseServerMessage(raw);
+  if (msg?.type !== "snapshot" || msg.shareToken === undefined) throw new Error("expected a snapshot with a share token");
+  return { token: msg.shareToken, room: msg.room };
+}
+
+/** Opens `https://omega.test/r/lobby` in `context`, joins through the UI and waits for the room. */
+async function enterRoom(context: BrowserContext, nickname: string): Promise<Page> {
+  const page = await context.newPage();
+  await page.goto(`${PUBLIC_ORIGIN}${ROOM_PATH}`);
+  await page.locator(site.nicknameInput).fill(nickname);
+  await page.locator(site.avatarOption).first().click();
+  await page.locator(site.joinButton).click();
+  await page.locator(site.room).waitFor();
+  return page;
+}
+
+async function blankPage(context: BrowserContext, origin: string): Promise<Page> {
+  const page = await context.newPage();
+  await page.goto(origin === PUBLIC_ORIGIN ? `${PUBLIC_ORIGIN}/healthz` : `${origin}/`);
+  return page;
+}
+
+test.describe.configure({ mode: "serial" });
+
+test.describe("tunnel safety through the local reverse proxy", () => {
+  // Starts the lane (site build, tunnel-mode server, proxy) once for the file.
+  test.beforeAll(({ lane }) => {
+    expect(lane.proxy.port).toBe(TUNNEL_PORTS.proxy);
+  });
+
+  test("T-06 DNS rebinding: a foreign Host gets 421 on HTTP and on the WebSocket upgrade", async () => {
+    for (const host of ["rebind.test", `127.0.0.1:${String(TUNNEL_PORTS.proxy)}`, "omega.test.evil.test"]) {
+      expect((await tunnelRequest({ path: "/rooms", host })).status, host).toBe(421);
+      expect((await tunnelRequest({ path: ROOM_PATH, host })).status, host).toBe(421);
+      const up = await tunnelUpgrade({ path: WS_PATH, host });
+      up.close();
+      expect(up.status, host).toBe(421);
+    }
+    // The public host itself is fine.
+    expect((await tunnelRequest({ path: "/rooms" })).status).toBe(200);
+  });
+
+  test("T-01 drive-by share without a (valid) token: 401 unauthorized", async () => {
+    const client = freshClient();
+    for (const token of [null, "not-a-token", "A".repeat(22)]) {
+      const r = await share(token, client);
+      expect(r.status, String(token)).toBe(401);
+      expect(JSON.parse(r.body)).toMatchObject({ ok: false, error: { code: "unauthorized" } });
+    }
+  });
+
+  test("T-04 hostile page: cross-origin share refused with 403, even with a stolen token; nothing changes", async ({ newTunnelContext }) => {
+    const context = await newTunnelContext();
+    const member = await blankPage(context, PUBLIC_ORIGIN);
+    const { token, room: before } = await joinInPage(member, "victim");
+
+    // A raw client presenting Origin: https://evil.test is refused before the token is looked at.
+    const stolen = await share(token, freshClient(), { origin: EVIL_ORIGIN });
+    expect(stolen.status).toBe(403);
+
+    // From a real evil.test page: a simple (no-cors) POST and a CORS POST with a Bearer header.
+    const evil = await blankPage(context, EVIL_ORIGIN);
+    const simple = evil.waitForResponse((r) => r.url() === `${PUBLIC_ORIGIN}${SHARE_PATH}`);
+    const outcome = await evil.evaluate(
+      async ({ url, token, video }) => {
+        await fetch(url, { method: "POST", mode: "no-cors", headers: { "content-type": "text/plain" }, body: JSON.stringify({ url: video }) });
+        try {
+          await fetch(url, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ url: video }) });
+          return "cors-allowed";
+        } catch {
+          return "cors-blocked";
+        }
+      },
+      { url: `${PUBLIC_ORIGIN}${SHARE_PATH}`, token, video: "https://www.youtube.com/watch?v=evilevil000" },
+    );
+    expect((await simple).status()).toBe(403);
+    expect(outcome).toBe("cors-blocked");
+    // The evil origin has no way to the token: it lives in omega.test's sessionStorage only.
+    expect(await evil.evaluate((k) => sessionStorage.getItem(k), SHARE_TOKEN_STORAGE_KEY)).toBeNull();
+
+    const { room: after } = await joinInPage(member, "observer");
+    expect(after.embed).toEqual(before.embed);
+  });
+
+  test("T-05 cross-site WebSocket hijack: upgrade from a foreign Origin gets 403", async ({ newTunnelContext }) => {
+    const refused = await tunnelUpgrade({ path: WS_PATH, headers: { origin: EVIL_ORIGIN } });
+    refused.close();
+    expect(refused.status).toBe(403);
+    const ok = await tunnelUpgrade({ path: WS_PATH, headers: { origin: PUBLIC_ORIGIN } });
+    ok.close();
+    expect(ok.status).toBe(101);
+
+    const evil = await blankPage(await newTunnelContext(), EVIL_ORIGIN);
+    const result = await evil.evaluate(
+      (url) =>
+        new Promise<string>((resolve) => {
+          const ws = new WebSocket(url);
+          ws.addEventListener("open", () => {
+            resolve("open");
+          });
+          ws.addEventListener("error", () => {
+            resolve("error");
+          });
+        }),
+      PUBLIC_WS,
+    );
+    expect(result).toBe("error");
+  });
+
+  test("T-09 one client can't lock everyone out: 10 sockets per client behind the proxy, the next client still joins", async () => {
+    const hog = freshClient();
+    const open = await Promise.all(Array.from({ length: 10 }, () => tunnelUpgrade({ path: WS_PATH, headers: { "x-fixture-client": hog } })));
+    try {
+      expect(open.map((u) => u.status)).toEqual(Array<number>(10).fill(101));
+      const eleventh = await tunnelUpgrade({ path: WS_PATH, headers: { "x-fixture-client": hog } });
+      eleventh.close();
+      expect(eleventh.status).toBe(429);
+      const other = await tunnelUpgrade({ path: WS_PATH, headers: { "x-fixture-client": freshClient() } });
+      other.close();
+      expect(other.status).toBe(101);
+    } finally {
+      for (const u of open) u.close();
+    }
+  });
+
+  test("T-07 spoofed X-Forwarded-For doesn't dodge the cap: only the entry the tunnel appended counts", async () => {
+    const client = freshClient();
+    const spoof = (i: number) => ({ "x-fixture-client": client, "x-forwarded-for": `10.1.${String(i)}.1, 10.2.${String(i)}.2` });
+    const open = await Promise.all(Array.from({ length: 10 }, (_, i) => tunnelUpgrade({ path: WS_PATH, headers: spoof(i) })));
+    try {
+      expect(open.map((u) => u.status)).toEqual(Array<number>(10).fill(101));
+      const next = await tunnelUpgrade({ path: WS_PATH, headers: spoof(99) });
+      next.close();
+      expect(next.status).toBe(429);
+    } finally {
+      for (const u of open) u.close();
+    }
+  });
+
+  test("per-client share limit holds behind the proxy; spoofed XFF and X-Forwarded-Host are ignored", async ({ newTunnelContext }) => {
+    const page = await blankPage(await newTunnelContext(), PUBLIC_ORIGIN);
+    const a = await joinInPage(page, "sharer-a");
+    const b = await joinInPage(page, "sharer-b");
+    const x = freshClient();
+    // Burst 5 per client, spread over two members so no single member's bucket is the limit.
+    const burst = [a, a, a, b, b];
+    for (const [i, m] of burst.entries()) expect((await share(m.token, x)).status, `share ${String(i + 1)}`).toBe(200);
+    const spoofed = await share(b.token, x, { "x-forwarded-for": freshClient(), "x-forwarded-host": "omega.test" });
+    expect(spoofed.status).toBe(429);
+    expect(JSON.parse(spoofed.body)).toMatchObject({ ok: false, error: { code: "rate_limited" } });
+    // Another client with the same member is its own bucket (b has used 2 of 5).
+    expect((await share(b.token, freshClient())).status).toBe(200);
+  });
+
+  test("T-12/T-13/T-16 site and WebSocket work over https/wss on the public origin; no mixed content, framing refused, token never in a URL", async ({ newTunnelContext }) => {
+    const urls: string[] = [];
+    const sockets: string[] = [];
+    const ctxA = await newTunnelContext();
+    ctxA.on("request", (r) => urls.push(r.url()));
+    ctxA.on("page", (p) => p.on("websocket", (ws) => sockets.push(ws.url())));
+    const ada = await enterRoom(ctxA, "ada");
+    const bo = await enterRoom(await newTunnelContext(), "bo");
+
+    expect(sockets).toContain(PUBLIC_WS);
+    expect(urls.filter((u) => u.startsWith("http:"))).toEqual([]);
+    expect(await ada.evaluate(() => window.isSecureContext)).toBe(true);
+
+    const record = await ada.evaluate((k) => sessionStorage.getItem(k), SHARE_TOKEN_STORAGE_KEY);
+    expect(record).not.toBeNull();
+    const { roomId, token } = JSON.parse(record ?? "{}") as { roomId?: unknown; token?: unknown };
+    expect(roomId).toBe(ROOM);
+    expect(token).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    for (const u of [...urls, ...sockets, ada.url()]) expect(u).not.toContain(String(token));
+
+    await ada.locator(site.chatInput).fill("hello through the tunnel");
+    await ada.locator(site.chatInput).press("Enter");
+    await expect(bo.locator(site.chatMessage).filter({ hasText: "hello through the tunnel" })).toBeVisible();
+
+    const doc = await tunnelRequest({ path: ROOM_PATH });
+    expect(doc.status).toBe(200);
+    expect(String(doc.headers["content-security-policy"])).toContain("frame-ancestors 'none'");
+    expect(doc.headers["x-content-type-options"]).toBe("nosniff");
+
+    const evil = await blankPage(ctxA, EVIL_ORIGIN);
+    await evil.evaluate((src) => {
+      const f = document.createElement("iframe");
+      f.src = src;
+      document.body.append(f);
+    }, `${PUBLIC_ORIGIN}${ROOM_PATH}`);
+    // Chromium blocks the frame: it never gets the site's document (no nickname input inside it).
+    await evil.waitForTimeout(1_000);
+    expect(evil.frames().map((f) => f.url()).filter((u) => u.startsWith(PUBLIC_ORIGIN))).toEqual([]);
+    await expect(evil.frameLocator("iframe").locator(site.nicknameInput)).toHaveCount(0);
+  });
+
+  test("Twitch parent is the public host", async ({ newTunnelContext }) => {
+    test.fixme(!SITE_HAS_TWITCH, "apps/web renders no Twitch player yet (OME-124/OME-125)");
+    const page = await enterRoom(await newTunnelContext(), "twitch-watcher");
+    const { token } = JSON.parse((await page.evaluate((k) => sessionStorage.getItem(k), SHARE_TOKEN_STORAGE_KEY)) ?? "{}") as { token: string };
+    expect((await share(token, freshClient(), {}, TWITCH_CHANNEL_URL)).status).toBe(200);
+    const frame = page.locator('iframe[src^="https://player.twitch.tv/"]');
+    await expect(frame).toHaveCount(1);
+    const src = new URL((await frame.getAttribute("src")) ?? "");
+    expect(src.searchParams.getAll("parent")).toEqual(["omega.test"]);
+  });
+
+  test("extension shares through the public origin; popup reports an offline and an unreachable tunnel", async ({ lane }) => {
+    test.setTimeout(60_000);
+    // Playwright can't click Chrome's permission prompt, so load a copy of the e2e build that already holds the
+    // grant Options would request (optional_host_permissions → https://omega.test/*). The grant flow itself is
+    // unit-tested with a fake chrome.permissions (OME-130).
+    const dir = mkdtempSync(join(tmpdir(), "omega-ext-tunnel-"));
+    cpSync(EXTENSION_DIR, dir, { recursive: true });
+    const manifestPath = join(dir, "manifest.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { host_permissions?: string[] };
+    manifest.host_permissions = [...(manifest.host_permissions ?? []), `${PUBLIC_ORIGIN}/*`];
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+
+    const context = await chromium.launchPersistentContext("", {
+      channel: "chromium",
+      ignoreHTTPSErrors: true,
+      args: [`--disable-extensions-except=${dir}`, `--load-extension=${dir}`, ...TUNNEL_BROWSER_ARGS],
+    });
+    try {
+      await passTunnelHosts(context);
+      const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
+      await sw.evaluate((url) => chrome.storage.local.set({ serverBaseUrl: url }), PUBLIC_ORIGIN);
+      const extensionId = new URL(sw.url()).host;
+      const openPopup = async (target: Page): Promise<Page> => {
+        const url = target.url();
+        const tabId = await sw.evaluate(async (u) => (await chrome.tabs.query({})).find((t) => t.url === u)?.id, url);
+        if (tabId === undefined) throw new Error(`no tab for ${url}`);
+        const p = await context.newPage();
+        await p.goto(`chrome-extension://${extensionId}/popup.html?tabId=${String(tabId)}`);
+        return p;
+      };
+
+      const roomTab = await enterRoom(context, "ext-sharer");
+      const source = await context.newPage();
+      await source.goto(`${URLS.fixtures}/youtube-embed.html`);
+
+      const p = await openPopup(source);
+      await expect(p.locator(popup.embedItem)).toHaveCount(1);
+      await expect(p.locator(popup.shareButton)).toBeEnabled();
+      await expect(p.locator('[data-testid="server-status"]')).toBeHidden();
+      await p.locator(popup.shareButton).click();
+      await expect(p.locator(popup.shareStatus)).toHaveAttribute("data-state", "ok");
+
+      const tv = roomTab.locator(`${site.sharedVideo} iframe, iframe${site.sharedVideo}`).first();
+      await expect(tv).toHaveAttribute("src", new RegExp(`/embed/${VIDEO_ID}\\?`));
+      // YouTube's `origin` is the public host, as Twitch's `parent` must be.
+      expect(new URL((await tv.getAttribute("src")) ?? "").searchParams.get("origin")).toBe(PUBLIC_ORIGIN);
+      await p.close();
+
+      lane.proxy.setMode("offline");
+      const offline = await openPopup(source);
+      await expect(offline.locator('[data-testid="server-status"]')).toContainText("tunnel may be offline");
+      await expect(offline.locator(popup.shareButton)).toBeDisabled();
+      await offline.close();
+
+      lane.proxy.setMode("down");
+      const down = await openPopup(source);
+      await expect(down.locator('[data-testid="server-status"]')).toContainText(`Can't reach ${PUBLIC_ORIGIN}`);
+      await expect(down.locator(popup.shareButton)).toBeDisabled();
+    } finally {
+      lane.proxy.setMode("forward");
+      await context.close();
+    }
+  });
+
+  test("T-14 no authtoken in the repo, the build output or the logs", ({ lane }) => {
+    // The server ran the whole suite with the sentinel in its environment; the site was built with it too.
+    const log = lane.serverLog();
+    expect(log).toContain("public origin https://omega.test");
+    expect(log).not.toContain(SENTINEL_AUTHTOKEN);
+    const real = process.env["NGROK_AUTHTOKEN"];
+    const needles = [SENTINEL_AUTHTOKEN, ...(real === undefined || real === "" ? [] : [real])];
+
+    // The wrapper script never prints it either.
+    const dry = spawnSync("bash", ["scripts/tunnel.sh", PUBLIC_ORIGIN, "--dry-run"], {
+      cwd: ROOT,
+      env: { ...process.env, NGROK_AUTHTOKEN: SENTINEL_AUTHTOKEN },
+      encoding: "utf8",
+    });
+    expect(dry.status).toBe(0);
+    expect(`${dry.stdout}${dry.stderr}`).not.toContain(SENTINEL_AUTHTOKEN);
+
+    // ngrok authtokens look like `<digit><25+ alnum>_<20+ alnum>`; nothing tracked or built may match, or contain a needle.
+    const TOKEN_SHAPE = /\b\d[A-Za-z0-9]{25,}_[A-Za-z0-9]{20,}\b/;
+    const tracked = spawnSync("git", ["ls-files", "-z"], { cwd: ROOT, encoding: "utf8" }).stdout.split("\0").filter((f) => f !== "");
+    const built = [lane.siteDir, EXTENSION_DIR, EXTENSION_SHIPPED_DIR].filter((d) => existsSync(d)).flatMap((d) => walk(d));
+    expect(tracked.length).toBeGreaterThan(50);
+    expect(built.length).toBeGreaterThan(5);
+    const hits: string[] = [];
+    for (const file of [...tracked.map((f) => join(ROOT, f)), ...built]) {
+      if (!existsSync(file) || statSync(file).size > 5_000_000) continue;
+      const text = readFileSync(file, "utf8");
+      if (TOKEN_SHAPE.test(text) || needles.some((n) => text.includes(n))) hits.push(file);
+      if (/NGROK_AUTHTOKEN\s*[=:]\s*["']?[A-Za-z0-9]{20,}/.test(text)) hits.push(`${file} (assignment)`);
+    }
+    // Never print the matches themselves: only the paths.
+    expect(hits).toEqual([]);
+  });
+});
+
+function walk(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
+}
+
+declare const chrome: {
+  tabs: { query(q: Record<string, never>): Promise<{ readonly id?: number; readonly url?: string }[]> };
+  storage: { local: { set(items: Record<string, string>): Promise<void> } };
+};
