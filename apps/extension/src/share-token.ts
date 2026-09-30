@@ -1,4 +1,4 @@
-import { type RoomId, type ShareToken, ShareTokenRecordSchema } from "@omega/shared";
+import { type RoomId, RoomIdSchema, type ShareToken, ShareTokenRecordSchema } from "@omega/shared";
 import * as v from "valibot";
 import { isLoopbackOrigin } from "./settings";
 
@@ -10,7 +10,7 @@ export const MAX_RECORD_LENGTH = 512;
 /** The browser calls the popup makes; injected so the flow can be tested. */
 export interface TokenDeps {
   /** `tabs.query({ url: patterns })`: only tabs we hold host permission for match. */
-  readonly queryTabs: (patterns: string[]) => Promise<readonly { readonly id?: number | undefined }[]>;
+  readonly queryTabs: (patterns: string[]) => Promise<readonly { readonly id?: number | undefined; readonly url?: string | undefined }[]>;
   /** One-shot `scripting.executeScript` that returns `sessionStorage["omega.share"]`, unparsed. */
   readonly readSession: (tabId: number) => Promise<unknown>;
 }
@@ -34,18 +34,37 @@ export function roomTabPatterns(origin: string): string[] {
   return [`${origin}/r/*`];
 }
 
-/** Reads each open room tab's share token record (ADR 0015 item 7). Hostile or missing records are skipped; never throws. */
+/**
+ * Reads each open room tab's share token record (ADR 0015 item 7). A record only counts for the
+ * room in its own tab's `/r/<id>` URL, so a planted record can't shadow another room's token.
+ * Hostile or missing records are skipped; never throws.
+ */
 export async function readShareTokens(origin: string, deps: TokenDeps): Promise<ReadonlyMap<RoomId, ShareToken>> {
-  let tabIds: number[];
+  let tabs: { id: number; roomId: RoomId }[];
   try {
-    tabIds = (await deps.queryTabs(roomTabPatterns(origin))).flatMap((t) => (t.id === undefined ? [] : [t.id])).slice(0, MAX_TABS);
+    tabs = (await deps.queryTabs(roomTabPatterns(origin)))
+      .flatMap((t) => {
+        const roomId = roomIdFromTabUrl(t.url);
+        return t.id === undefined || roomId === null ? [] : [{ id: t.id, roomId }];
+      })
+      .slice(0, MAX_TABS);
   } catch {
     return new Map();
   }
-  const records = await Promise.all(tabIds.map((id) => deps.readSession(id).then(parseRecord, () => null)));
+  const records = await Promise.all(tabs.map((t) => deps.readSession(t.id).then(parseRecord, () => null)));
   const tokens = new Map<RoomId, ShareToken>();
-  for (const r of records) if (r !== null && !tokens.has(r.roomId)) tokens.set(r.roomId, r.token);
+  records.forEach((r, i) => {
+    if (r !== null && r.roomId === tabs[i]?.roomId && !tokens.has(r.roomId)) tokens.set(r.roomId, r.token);
+  });
   return tokens;
+}
+
+/** The site's `/r/<room>` path (see `apps/web/src/route.ts`), strictly: no default room. */
+function roomIdFromTabUrl(url: string | undefined): RoomId | null {
+  if (url === undefined || !URL.canParse(url)) return null;
+  const m = /^\/r\/([^/]+)\/?$/.exec(new URL(url).pathname);
+  const parsed = v.safeParse(RoomIdSchema, m?.[1]);
+  return parsed.success ? parsed.output : null;
 }
 
 function parseRecord(raw: unknown): { roomId: RoomId; token: ShareToken } | null {
