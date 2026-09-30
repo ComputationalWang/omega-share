@@ -29,6 +29,7 @@ import { buildUiFrames, referenceCss, type Borders } from "./ui";
 import { CATCHUP_FRAME_MS, buildPlaybackFrames, playbackCss } from "./playback";
 import { buildTvFrames, tvCss } from "./tv";
 import { ONAIR_FRAME_MS, RESYNC_FRAME_MS, buildLiveFrames, liveCss } from "./live";
+import { DOTS_FRAME_MS, POPUP_ICONS, WAIT_FRAMES, buildSafetyFrames, safetyCss } from "./safety";
 
 const ROOT = join(import.meta.dir, "..");
 const POSES: readonly Pose[] = ["idle", "sit"];
@@ -493,7 +494,7 @@ function tagLiftByAvatar(images: Map<string, Uint8Array>): Record<string, Record
 
 /** Set (c): UI chrome atlas, plus each 9-slice/cursor as its own PNG for CSS `border-image`. */
 function buildUi(avatarImages: Map<string, Uint8Array>): void {
-  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildLiveFrames(), ...buildTvFrames()];
+  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildLiveFrames(), ...buildTvFrames(), ...buildSafetyFrames()];
   registerKeys("ui", frames.map((f) => f.key));
   const byKey = new Map(frames.map((f) => [f.key, f]));
   if (byKey.size !== frames.length) throw new Error("duplicate ui key");
@@ -545,6 +546,10 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
         // M2 (OME-120): the LIVE pill's lamp blinks glyph/onair/0..1 at this frame time (loop); resync/0..2 is one-shot.
         onairFrameMs: ONAIR_FRAME_MS,
         resyncFrameMs: RESYNC_FRAME_MS,
+        // Set (f) (OME-193): wait/0..N-1 is a one-shot drain over the server's retry-after (frame = floor(elapsed / total * N));
+        // glyph/dots/0..2 loops while reconnecting.
+        waitFrames: WAIT_FRAMES,
+        dotsFrameMs: DOTS_FRAME_MS,
       },
     },
   };
@@ -552,7 +557,15 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
   const rects = Object.fromEntries(Object.entries(atlasFrames).map(([k, f]) => [k, f.frame]));
   const borders: Record<string, Borders> = {};
   for (const f of frames) if (f.borders) borders[f.key] = f.borders;
-  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects));
+  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects) + safetyCss(rects));
+  // Set (f): the extension popup is plain HTML, so its key icon ships as two standalone files (drawn 1× and 2×, not upscaled).
+  mkdirSync(join(dir, "popup"), { recursive: true });
+  for (const [file, k] of Object.entries(POPUP_ICONS)) {
+    const f = byKey.get(k);
+    if (!f) throw new Error(`missing ${k}`);
+    const small = compactPalette(f.img);
+    writeFileSync(join(dir, "popup", `${file}.png`), encodeIndexedPng(f.w, f.h, small.pixels, small.palette));
+  }
   const bg = colorIndex("wall", 1);
   const big = upscale(sheet, sheetW, sheetH, 4).map((v) => (v === 0 ? bg : v));
   writeFileSync(join(ROOT, "preview", "ui-sheet@4x.png"), encodeIndexedPng(sheetW * 4, sheetH * 4, big, PALETTE));

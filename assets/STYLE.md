@@ -161,6 +161,25 @@ Three ways to show "this is live, you can't scrub it" were weighed first:
   third-party logos, colours or lettering anywhere, and the plate looks the same for every provider.
 - No new colours: still the 67.
 
+## Set (f) safety states (OME-193)
+Three ways to tell someone "you hit a limit" were weighed first:
+
+| | Direction | Verdict |
+|---|---|---|
+| A | Error chrome: rust + the warn triangle, like set (c)'s form errors | Rejected: every one of these is expected and temporary. Rust already means "on air" and "wrong", and a room full of warn triangles feels like a broken site. |
+| B | Just dim things (opacity or charcoal) with a toast | Rejected: dimmed looks the same as disabled (set c), so "wait 3 s" and "not allowed" would look alike. It also says nothing about *how long*. |
+| **C** | **Friendly objects from the room, one per meaning:** a snail (too fast), a timer ring (how long), a plug (the network dropped), a shut door with a hanger (full) | **Chosen.** Each state has its own shape, so it reads without colour, and none of them is an alarm. The timer ring answers "how long" without extra text. |
+
+- **Resting ≠ disabled.** A rate-limited shared key stays wood, a ramp step darker with a charcoal lip, and its icon becomes the timer ring. Disabled
+  stays charcoal all over. The ring is cream on a plum groove, so it drains visibly on wood, night or the popup's white.
+- **Who it's for** follows set (e): only you are slowed, and only you see your failed share, so those carry the mustard "you" colour (the `chip/self` rim,
+  a mustard bar on the system strip). The room's news keeps the TV's glow bar.
+- **Two ways to lose the connection, told apart by lamp, icon, motion and action:** a normal drop is the mustard lamp, a plug, running dots and no button (it heals
+  itself). A server close is a pale pause lamp, the snail asleep in its shell, nothing moving and a Rejoin key that waits out the delay. Neither uses rust.
+- **Room full** is a door, not a warning: open doors show warm lamplight; a full room's door is shut with a cream hanger (three little heads) and the card dims.
+- **Popup key icon:** drawn twice, at 16 px and 32 px (the 2× has a 4 px shaded arrow and a clock with hands), never upscaled, and outlined so it works on the popup's plain white.
+- No new colours: still the 67.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -170,6 +189,7 @@ Three ways to show "this is live, you can't scrub it" were weighed first:
 | (e) playback (M1b) | added to the (c) files: `ui.png` + `ui.json` (gz) + 16 slices + `reference.css` (gz) | 16 233 total for (c)+(e), so **≈ 6.4 KB** for (e) |
 | (d) motion (lazy, M5) | `avatars/motion.png` + `motion.json` (gz) | 14 423 + 3 788 ≈ **18.2 KB** |
 | M1b TV frame | 2 slices + CSS; `tv/0` shrinks to the console + projector | UI ≈ +1.7 KB, room ≈ −0.6 KB |
-| total art budget | | ≤ 300 KB (≈ 51.8 KB used) |
+| (f) safety states (M3) | added to the (c) files: `ui.png` + `ui.json` (gz) + 6 slices + `reference.css` (gz) + 2 popup PNGs | **≈ 4.1 KB** |
+| total art budget | | ≤ 300 KB (≈ 58.4 KB used) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.
