@@ -4,12 +4,12 @@
 // each channel, so a console error beyond the event count means one the init script couldn't see (a worker, an
 // extension page). At teardown, any enforced violation fails the test, and report-only ones (Trusted Types in M3)
 // are attached as `csp-report-only.json` without failing it.
-// Only our documents count (OME-218): a violation in a third-party frame (a provider's player blocking its own script)
-// is that provider's policy, which ours never governs. Those are attached as `csp-third-party.json` without failing.
-// Ours: the top page's origin, every loopback origin (site, server, fixtures) and non-http(s) documents (extension
-// pages, about:srcdoc, blob:). Anything unparseable counts as ours, so the scope can only fail closed.
+// Only our documents count (OME-218, support/csp-scope.ts): a violation in a third-party frame (a provider's player
+// blocking its own script) is that provider's policy, and is attached as `csp-third-party.json` without failing.
+// Console lines can't be placed in a frame, so they aren't scoped: third-party events count toward the event total too.
 // The default `context` is watched automatically. Contexts made by hand must be wrapped: `watchCsp(await browser.newContext())`.
 import { test as base, type BrowserContext } from "@playwright/test";
+import { isOurDocument } from "./csp-scope";
 
 export interface CspViolation {
   readonly disposition: string;
@@ -27,7 +27,7 @@ export interface CspRecorder {
   readonly reportOnly: readonly CspViolation[];
   /** Enforced violations in third-party documents, by their own policies: evidence, never a failure. */
   readonly thirdParty: readonly CspViolation[];
-  /** Enforced CSP console errors this test, including ones whose event was drained. */
+  /** Enforced CSP console errors this test, including ones whose event was drained or was third-party. */
   readonly console: readonly string[];
   /** Removes and returns the enforced violations, for tests that provoke one on purpose. */
   readonly drain: () => CspViolation[];
@@ -43,10 +43,9 @@ const BINDING = "__omegaCspViolation";
 const enforced: CspViolation[] = [];
 const reportOnly: CspViolation[] = [];
 const thirdParty: CspViolation[] = [];
-const consoleThirdParty: string[] = [];
 const consoleEnforced: string[] = [];
 const consoleReportOnly: string[] = [];
-let enforcedEvents = 0; // drained ones included, to match against consoleEnforced
+let enforcedEvents = 0; // drained and third-party ones included, to match against consoleEnforced
 const watched = new WeakSet<BrowserContext>();
 
 const recorder: CspRecorder = {
@@ -90,17 +89,6 @@ const str = (o: object, k: string): string => {
   return typeof v === "string" ? v : "";
 };
 
-const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
-
-/** Whether a violation in `documentURI`, on a page whose top document is `topURL`, is ours to fail on. */
-export function isOurDocument(documentURI: string, topURL: string): boolean {
-  if (!URL.canParse(documentURI)) return true;
-  const doc = new URL(documentURI);
-  if (doc.protocol !== "https:" && doc.protocol !== "http:") return true;
-  if (LOOPBACK.has(doc.hostname) || doc.hostname.endsWith(".localhost")) return true;
-  return URL.canParse(topURL) && new URL(topURL).origin === doc.origin;
-}
-
 function record(raw: unknown, topURL: string): void {
   if (typeof raw !== "object" || raw === null) return;
   const lineNumber: unknown = Reflect.get(raw, "lineNumber");
@@ -116,22 +104,16 @@ function record(raw: unknown, topURL: string): void {
   };
   if (v.disposition === "report") {
     reportOnly.push(v);
-  } else if (!isOurDocument(v.documentURI, topURL)) {
-    thirdParty.push(v);
   } else {
-    enforced.push(v);
+    (isOurDocument(v.documentURI, topURL) ? enforced : thirdParty).push(v);
     enforcedEvents += 1;
   }
 }
 
 const CSP_CONSOLE = /Content Security Policy|Trusted ?Types?\b|'Trusted(HTML|Script|ScriptURL)'/;
 
-function recordConsole(type: string, text: string, url: string, topURL: string): void {
+function recordConsole(type: string, text: string): void {
   if (type !== "error" || !CSP_CONSOLE.test(text)) return;
-  if (url !== "" && !isOurDocument(url, topURL)) {
-    consoleThirdParty.push(text);
-    return;
-  }
   (text.startsWith("[Report Only]") ? consoleReportOnly : consoleEnforced).push(text);
 }
 
@@ -144,7 +126,7 @@ export async function watchCsp<C extends BrowserContext>(context: C): Promise<C>
   });
   await context.addInitScript(forwardViolations, BINDING);
   context.on("console", (msg) => {
-    recordConsole(msg.type(), msg.text(), msg.location().url, msg.page()?.url() ?? "");
+    recordConsole(msg.type(), msg.text());
   });
   return context;
 }
@@ -168,9 +150,8 @@ export const test = base.extend<{ csp: CspRecorder }>({
         await testInfo.attach("csp-report-only.json", { body, contentType: "application/json" });
       }
       const foreign = thirdParty.splice(0);
-      const foreignLines = consoleThirdParty.splice(0);
-      if (foreign.length > 0 || foreignLines.length > 0) {
-        const body = JSON.stringify({ violations: foreign, console: foreignLines }, null, 2);
+      if (foreign.length > 0) {
+        const body = JSON.stringify({ violations: foreign }, null, 2);
         await testInfo.attach("csp-third-party.json", { body, contentType: "application/json" });
       }
       const failures = enforced.splice(0).map(describe);

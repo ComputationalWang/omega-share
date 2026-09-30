@@ -34,20 +34,28 @@ async function frames(a: Client, b: Client, provider: RealProvider, id: string):
 interface LiveTry { readonly channel: string; readonly outcome: "live" | "offline" | "error" | "no-start" }
 
 /**
- * Shares the first candidate that is live now (OME-218: a fixed channel is often offline). Twitch reports offline as
- * the room's `offline` error; an ad or moving video means live. Any other error, or nothing within `timeout`, tries the next.
+ * Shares the first candidate that is live now (OME-218: a fixed channel is often offline). Offline is the room's
+ * `offline` error with the new player's own offline overlay (so a stale error from the last candidate can't count);
+ * an ad or moving video means live. Another error, or nothing within `perChannel`, tries the next, until `budget`
+ * runs out, which leaves the test (300 s) time to run.
  */
-async function shareLiveChannel(request: APIRequestContext, a: Client, candidates: readonly string[], timeout = 30_000): Promise<{ channel: string | null; tried: LiveTry[] }> {
+async function shareLiveChannel(request: APIRequestContext, a: Client, candidates: readonly string[], perChannel = 25_000, budget = 120_000): Promise<{ channel: string | null; tried: LiveTry[] }> {
   const tried: LiveTry[] = [];
+  const start = Date.now();
   for (const channel of candidates) {
+    if (Date.now() - start > budget) break;
     await shareUrl(request, twitchLiveUrl(channel));
-    const frame = await providerFrame(a.page, "twitch", channel).catch(() => null);
+    const frame = await providerFrame(a.page, "twitch", channel, 15_000).catch(() => null);
     let outcome: LiveTry["outcome"] = "no-start";
     const t0 = Date.now();
-    while (frame !== null && Date.now() - t0 < timeout) {
+    while (frame !== null && Date.now() - t0 < perChannel) {
       const [s, v] = await Promise.all([sampleMedia(frame), view(a.page)]);
-      if (v !== null && v.error !== null) {
-        outcome = v.error.reason === "offline" ? "offline" : "error";
+      if (v !== null && v.error !== null && v.error.reason !== "offline") {
+        outcome = "error";
+        break;
+      }
+      if (v?.error?.reason === "offline" && s !== null && /offline/i.test(s.overlay)) {
+        outcome = "offline";
         break;
       }
       if (s !== null && (s.ad || (!s.paused && s.currentTime > 0.5))) {
@@ -136,9 +144,12 @@ test("M2-twitch-live · pause and play-from-live reach both browsers; no scrubbe
   const { browsers, a, b } = await twoBrowsers("real-live");
   try {
     const live = await shareLiveChannel(request, a, REAL.twitchLive);
-    if (live.channel === null) record("m2-twitch-live", { notRun: "no candidate was live; set OMEGA_REAL_TWITCH_LIVE", tried: live.tried });
-    test.skip(live.channel === null, `no Twitch candidate is live now (${live.tried.map((x) => `${x.channel}: ${x.outcome}`).join(", ")}); set OMEGA_REAL_TWITCH_LIVE`);
-    const channel = live.channel ?? "";
+    const { channel } = live;
+    if (channel === null) {
+      record("m2-twitch-live", { notRun: "no candidate was live; set OMEGA_REAL_TWITCH_LIVE", tried: live.tried });
+      test.skip(true, `no Twitch candidate is live now (${live.tried.map((x) => `${x.channel}: ${x.outcome}`).join(", ")}); set OMEGA_REAL_TWITCH_LIVE`);
+      return;
+    }
     const [fa, fb] = await frames(a, b, "twitch", channel);
     const ads = await Promise.all([waitMediaPlaying(a, fa), waitMediaPlaying(b, fb)]);
     await a.page.waitForTimeout(3_000);
@@ -215,13 +226,12 @@ test("M2-refused · refused, gone, offline and mature-gated embeds: the site say
     }
     const notRun = REAL.vimeoRefused === undefined ? ["vimeo-refused: set OMEGA_REAL_VIMEO_REFUSED to a domain-restricted id"] : [];
     const mature = results["twitch-mature"];
-    // Ungated: Twitch played it (or its pre-roll) with no gate and no error, so the provider refused nothing (OME-218).
-    const ungated = mature?.error === null && mature.playing === true && !/mature|audience/i.test(mature.overlay);
+    // Ungated: Twitch's own <video> played the stream (or its pre-roll) with no gate showing, so it refused nothing (OME-218).
+    const ungated = mature !== undefined && (mature.played || mature.ad) && !/mature|audience|gate/i.test(mature.overlay);
     if (ungated) notRun.push(`twitch-mature: ${REAL.twitchMature} played with no mature gate for a logged-out viewer; set OMEGA_REAL_TWITCH_MATURE to a gated channel`);
     record("m2-refused", { notRun, results });
     for (const [name, x] of Object.entries(results)) {
-      // Played, or in a pre-roll: the provider accepted it, so there is nothing to refuse.
-      if (x.played || x.ad || (name === "twitch-mature" && ungated)) continue;
+      if (x.played || (name === "twitch-mature" && ungated)) continue;
       expect.soft(x.siteNotices.some((t) => /can.t play|offline|unavailable|restricted|didn.t start/i.test(t)), `${name}: the site says why`).toBe(true);
       expect.soft(x.canControl, `${name}: the transport is frozen`).toBe(false);
     }
