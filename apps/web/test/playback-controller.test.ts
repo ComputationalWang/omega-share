@@ -242,3 +242,68 @@ describe("view", () => {
     expect(h.c.view().catching).toBe(false);
   });
 });
+
+describe("review follow-ups", () => {
+  test("pause after the video ended sends the duration, not a position past the end", () => {
+    const h = harness({ duration: 212 });
+    h.c.setRoom(h.room(VIDEO, pb({ playing: true, position: 200, at: SERVER_OFFSET })));
+    h.c.attach(h.player, VIDEO);
+    h.t.now = 600_000;
+    expect(h.c.togglePlay()).toBe(true);
+    expect(h.sent).toEqual([{ type: "control", videoId: VIDEO, playing: false, position: 212 }]);
+  });
+
+  test("play from a paused room works while the clock resyncs (no clock needed)", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb({ playing: false, position: 42 })));
+    h.clock.ready = false;
+    expect(h.c.view().canControl).toBe(true);
+    expect(h.c.togglePlay()).toBe(true);
+    expect(h.sent).toEqual([{ type: "control", videoId: VIDEO, playing: true, position: 42 }]);
+  });
+
+  test("pausing a playing room waits for the clock, and the key says so (canControl false)", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb({ playing: true })));
+    h.clock.ready = false;
+    h.run(SYNC_INTERVAL_MS);
+    expect(h.c.view().canControl).toBe(false);
+    h.clock.ready = true;
+    h.run(SYNC_INTERVAL_MS);
+    expect(h.c.view().canControl).toBe(true);
+  });
+
+  test("after a blocked autoplay, the mute key unmutes (and clears Unmute) instead of muting", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb()));
+    h.c.attach(h.player, VIDEO);
+    h.player.emit({ type: "autoplay-blocked" });
+    h.player.calls.length = 0;
+    h.c.toggleMute();
+    expect(h.c.view()).toMatchObject({ muted: false, needsUnmute: false });
+    expect(h.player.calls).toEqual([{ op: "unmute" }, { op: "volume", volume: 100 }]);
+    expect(h.sent).toEqual([]);
+  });
+
+  test("after a blocked autoplay, moving the volume unmutes too", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb()));
+    h.c.attach(h.player, VIDEO);
+    h.player.emit({ type: "autoplay-blocked" });
+    h.player.calls.length = 0;
+    h.c.setVolume(60);
+    expect(h.c.view().needsUnmute).toBe(false);
+    expect(h.player.calls).toEqual([{ op: "unmute" }, { op: "volume", volume: 60 }]);
+  });
+
+  test("while playing, the view changes once per second, not every tick", () => {
+    const h = harness({ state: "playing", position: 10 });
+    h.c.setRoom(h.room(VIDEO, pb({ position: 10, at: SERVER_OFFSET })));
+    h.c.attach(h.player, VIDEO);
+    h.run(1000);
+    const n = h.views.length;
+    h.run(4000);
+    expect(h.views.length - n).toBeLessThanOrEqual(5);
+    expect(Number.isInteger(h.c.view().position)).toBe(true);
+  });
+});
