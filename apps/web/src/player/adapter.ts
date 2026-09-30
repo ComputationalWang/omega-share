@@ -26,6 +26,8 @@ export interface PlayerAdapter {
   setVolume(volume: number): void;
   /** Seconds, as the player reports it. */
   time(): number;
+  /** The room video's duration, seconds; 0 until known. Never an ad's. */
+  duration(): number;
   state(): PlayerState;
   rates(): readonly number[];
   onEvent(cb: (e: PlayerEvent) => void): () => void;

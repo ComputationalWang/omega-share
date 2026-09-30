@@ -160,6 +160,7 @@ export function attachYouTube(yt: YtNamespace, iframe: HTMLIFrameElement, opts: 
       player.setVolume(volume);
     },
     time,
+    duration: () => contentDuration,
     state() {
       if (!isReady) return "unstarted";
       return inAd() ? "ad" : mapState(player.getPlayerState());

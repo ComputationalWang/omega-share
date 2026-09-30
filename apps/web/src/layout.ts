@@ -88,6 +88,12 @@ export function bubbleRect(p: Point): Rect {
   return { x: p.x - BUBBLE_MAX_W / 2, y: p.y + BUBBLE_OFFSET_Y - BUBBLE_MAX_H, w: BUBBLE_MAX_W, h: BUBBLE_MAX_H };
 }
 
+/**
+ * Chat system lines ("Ana paused"): a caption rail in the stage's empty bottom-left corner, stage px.
+ * Room scale, up to MAX_SYSLINES lines, newest at the bottom; clear of every seat, standing spot and tag.
+ */
+export const SYSLINE_RAIL: Rect = { x: 12, y: 510, w: 288, h: 78 };
+
 /** Two rows of four facing the TV, split by an aisle. */
 const SEAT_CELLS: readonly (readonly [number, number])[] = [
   [1, 5], [2, 4], [4, 2], [5, 1],

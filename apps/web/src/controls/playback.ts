@@ -1,0 +1,238 @@
+import type { ClientMessage, PlaybackState } from "@omega/shared";
+import { playerIntent, seekIntent, togglePlayIntent, type PlaybackTarget } from "../intents";
+import type { PlayerAdapter, PlayerEvent } from "../player/adapter";
+import { SYNC_INTERVAL_MS, createSyncLoop, expectedPosition, type SyncLoop } from "../sync";
+import { NOT_CATCHING, stepCatchup, type Catchup } from "./catchup";
+
+/** Everything the playback chrome renders. A new object only when something in it changed. */
+export interface PlaybackView {
+  /** A player for the room's video is attached and ready. */
+  readonly hasVideo: boolean;
+  /** The room has a video with playback, so the shared transport can send. */
+  readonly canControl: boolean;
+  /** The room's (shared) state, not this player's. */
+  readonly playing: boolean;
+  /** The room's position now, seconds. */
+  readonly position: number;
+  /** Seconds; 0 = unknown (the seek bar stays disabled). */
+  readonly duration: number;
+  /** This user only (ADR 0002): 0–100. Never on the wire. */
+  readonly volume: number;
+  readonly muted: boolean;
+  /** The browser blocked sound; show Unmute outside the player. */
+  readonly needsUnmute: boolean;
+  /** This client's player is buffering or in an ad while the room plays. */
+  readonly catching: boolean;
+}
+
+/** What the controller needs of the clock-sync module (`ClockSync` fits). */
+export interface ControllerClock {
+  readonly ready: boolean;
+  serverNow(): number;
+  /** Called every tick; detects OS sleep. */
+  tick(): void;
+}
+
+export interface PlaybackControllerOptions<Timer> {
+  /** The room connection. Only the shared transport and in-player clicks use it. */
+  readonly send: (msg: ClientMessage) => boolean;
+  readonly clock: ControllerClock;
+  /** Monotonic client ms. */
+  readonly now: () => number;
+  readonly setInterval: (fn: () => void, ms: number) => Timer;
+  readonly clearInterval: (t: Timer) => void;
+  readonly onView?: (v: PlaybackView) => void;
+}
+
+export interface PlaybackController {
+  /** The room's embed and playback, after every state change. A new videoId drops the player; a new playback object hard-seeks. */
+  setRoom(t: PlaybackTarget): void;
+  /** The player built for `videoId`. Refused (and destroyed) if the room has moved on. */
+  attach(player: PlayerAdapter, videoId: string): void;
+  /** Shared: play/pause for everyone. False if nothing was sent. */
+  togglePlay(): boolean;
+  /** Shared: seek for everyone, seconds. */
+  seek(position: number): boolean;
+  /** Personal. */
+  setVolume(volume: number): void;
+  toggleMute(): void;
+  /** After a blocked autoplay; must run in a user gesture. */
+  unmute(): void;
+  tick(): void;
+  start(): void;
+  stop(): void;
+  destroy(): void;
+  view(): PlaybackView;
+}
+
+const clampVolume = (v: number): number => (Number.isFinite(v) ? Math.min(100, Math.max(0, Math.round(v))) : 100);
+
+/**
+ * The room's playback glue: connection → clock → sync loop → player. One 4 Hz timer
+ * ticks the clock, the sync loop and the catching-up state. Volume only ever reaches
+ * the local player; `send` is used for shared intents alone.
+ */
+export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Timer>): PlaybackController {
+  let target: PlaybackTarget = { embed: null, playback: null };
+  let videoId: string | null = null;
+  let pb: PlaybackState | null = null;
+  let player: PlayerAdapter | null = null;
+  let loop: SyncLoop | null = null;
+  let offPlayer: (() => void) | null = null;
+  let volume = 100;
+  let muted = false;
+  let needsUnmute = false;
+  let catchup: Catchup = NOT_CATCHING;
+  let timer: Timer | null = null;
+  let current: PlaybackView = {
+    hasVideo: false,
+    canControl: false,
+    playing: false,
+    position: 0,
+    duration: 0,
+    volume,
+    muted,
+    needsUnmute,
+    catching: false,
+  };
+
+  const detach = (): void => {
+    offPlayer?.();
+    offPlayer = null;
+    loop?.destroy();
+    loop = null;
+    player?.destroy();
+    player = null;
+    catchup = NOT_CATCHING;
+    needsUnmute = false;
+  };
+
+  const applyVolume = (): void => {
+    if (player === null) return;
+    player.setVolume(muted ? 0 : volume);
+  };
+
+  const refresh = (): PlaybackView => {
+    const duration = player?.duration() ?? 0;
+    let position = pb === null ? 0 : o.clock.ready ? expectedPosition(pb, o.clock.serverNow()) : pb.position;
+    if (duration > 0 && position > duration) position = duration;
+    const c = current;
+    const hasVideo = player?.ready() === true;
+    const playing = pb?.playing ?? false;
+    const canControl = pb !== null && videoId !== null;
+    if (
+      c.hasVideo === hasVideo &&
+      c.canControl === canControl &&
+      c.playing === playing &&
+      c.position === position &&
+      c.duration === duration &&
+      c.volume === volume &&
+      c.muted === muted &&
+      c.needsUnmute === needsUnmute &&
+      c.catching === catchup.catching
+    ) {
+      return c;
+    }
+    current = { hasVideo, canControl, playing, position, duration, volume, muted, needsUnmute, catching: catchup.catching };
+    o.onView?.(current);
+    return current;
+  };
+
+  const onPlayer = (e: PlayerEvent): void => {
+    switch (e.type) {
+      case "ready":
+        applyVolume();
+        break;
+      case "autoplay-blocked":
+        needsUnmute = true;
+        break;
+      case "intent": {
+        const msg = playerIntent(target, e.playing, e.position);
+        if (msg !== null) o.send(msg);
+        break;
+      }
+      case "state":
+      case "error":
+        return;
+    }
+    refresh();
+  };
+
+  const send = (msg: ClientMessage | null): boolean => msg !== null && o.send(msg);
+
+  function tick(): void {
+    o.clock.tick();
+    loop?.tick();
+    catchup = player === null ? NOT_CATCHING : stepCatchup(catchup, { now: o.now(), playerState: player.state(), roomPlaying: pb?.playing ?? false });
+    refresh();
+  }
+
+  return {
+    setRoom(t) {
+      target = t;
+      const id = t.embed?.videoId ?? null;
+      if (id !== videoId) {
+        detach();
+        videoId = id;
+      }
+      const next = t.playback ?? null;
+      if (next !== pb) {
+        pb = next;
+        loop?.setPlayback(pb);
+      }
+      refresh();
+    },
+    attach(p, id) {
+      if (id !== videoId) {
+        p.destroy();
+        return;
+      }
+      detach();
+      player = p;
+      loop = createSyncLoop({ player: p, clock: o.clock, now: o.now, setInterval: o.setInterval, clearInterval: o.clearInterval });
+      loop.setPlayback(pb);
+      offPlayer = p.onEvent(onPlayer);
+      if (p.ready()) applyVolume();
+      refresh();
+    },
+    togglePlay() {
+      if (!o.clock.ready) return false;
+      return send(togglePlayIntent(target, o.clock.serverNow()));
+    },
+    seek(position) {
+      return send(seekIntent(target, position));
+    },
+    setVolume(v) {
+      volume = clampVolume(v);
+      muted = false;
+      applyVolume();
+      refresh();
+    },
+    toggleMute() {
+      muted = !muted;
+      if (!muted) player?.unmute();
+      applyVolume();
+      refresh();
+    },
+    unmute() {
+      needsUnmute = false;
+      muted = false;
+      player?.unmute();
+      applyVolume();
+      refresh();
+    },
+    tick,
+    start() {
+      timer ??= o.setInterval(tick, SYNC_INTERVAL_MS);
+    },
+    stop() {
+      if (timer !== null) o.clearInterval(timer);
+      timer = null;
+    },
+    destroy() {
+      this.stop();
+      detach();
+    },
+    view: refresh,
+  };
+}

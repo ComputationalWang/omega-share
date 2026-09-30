@@ -7,6 +7,7 @@ import { PENDING, URLS, available } from "./support/apps";
 import { rawSnapshot, spawnBots } from "./support/bots";
 import { expect, test } from "./support/extension";
 import { EMBED_URL, VIDEO_ID, gotoFixture, stubExternalNetwork } from "./support/network";
+import { clickSettled } from "./support/room";
 import { popup, site } from "./support/selectors";
 
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
@@ -78,7 +79,7 @@ test.describe("M1a acceptance", () => {
         await Promise.all(
           clients.map(async (c, i) => {
             await expect(seat(c.page, i)).toBeEnabled();
-            await seat(c.page, i).click();
+            await clickSettled(c.page, seat(c.page, i));
             await expect(seat(c.page, i)).toHaveClass(/\bmine\b/);
           }),
         );
@@ -165,7 +166,7 @@ test.describe("M1a acceptance", () => {
       await expect(page.locator(site.room)).toBeVisible();
       await expect(page.locator(`${site.seat}[data-occupied="true"]`)).toHaveCount(SEAT_COUNT);
       for (let i = 0; i < SEAT_COUNT; i++) {
-        await seat(page, i).click();
+        await clickSettled(page, seat(page, i));
         await expect(seat(page, i)).toHaveAttribute("aria-label", `Seat ${String(i + 1)}, taken by sitter-${String(i + 1)}`);
       }
       await expect(page.locator(`${site.seat}.mine`)).toHaveCount(0);

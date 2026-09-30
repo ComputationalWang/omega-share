@@ -1,5 +1,5 @@
 // N browser contexts joining one room with different nicknames and avatars.
-import type { Browser, BrowserContext, Page } from "@playwright/test";
+import type { Browser, BrowserContext, Locator, Page } from "@playwright/test";
 import { site } from "./selectors";
 import { stubExternalNetwork } from "./network";
 
@@ -38,4 +38,23 @@ export async function joinRoom(browser: Browser, { roomUrl, count, nicknamePrefi
 
 export async function leaveAll(clients: readonly Client[]): Promise<void> {
   await Promise.all(clients.map((c) => c.context.close()));
+}
+
+/**
+ * Click after scrolling `target` into view and letting two frames land. Right after a programmatic scroll,
+ * Chromium can route the click by the previous frame's hit-test data, so a seat that scrolls up to where the
+ * cross-origin TV iframe just was gets its click delivered to the iframe instead (OME-89). Users scroll first
+ * and click later, so only instant scroll-then-click automation needs this.
+ */
+export async function clickSettled(page: Page, target: Locator): Promise<void> {
+  await target.scrollIntoViewIfNeeded();
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          resolve();
+        }));
+      }),
+  );
+  await target.click();
 }

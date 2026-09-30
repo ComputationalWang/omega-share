@@ -1,9 +1,14 @@
 // Room screen. Loaded lazily after Enter so PixiJS stays out of the initial bundle.
 import "pixi.js/unsafe-eval";
 import type { Avatar, ClientMessage, ErrorCode, MemberId, Nickname, RoomId } from "@omega/shared";
+import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
+import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
+import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { chatIntent, seatViews, sitIntent } from "./intents";
-import { BUBBLE_OFFSET_Y, SEATS, STANDING, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
+import { BUBBLE_OFFSET_Y, SEATS, STANDING, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
+import { attachYouTube } from "./player/youtube";
+import { loadYouTubeApi } from "./player/youtube-loader";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
 import { initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
 import { tvFrame } from "./tv";
@@ -19,6 +24,8 @@ export interface RoomOptions {
 export interface RoomHandle {
   readonly state: () => ViewState;
   readonly send: (msg: ClientMessage) => boolean;
+  /** What the playback chrome shows (QA reads it in dev builds). */
+  readonly playback: () => PlaybackView;
 }
 
 const STATUS_TEXT: Record<ViewState["status"], string> = {
@@ -38,12 +45,6 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   already_joined: "You're already in this room.",
   no_embed: "That video isn't playing here any more.",
 };
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, testId?: string): HTMLElementTagNameMap[K] {
-  const e = Object.assign(document.createElement(tag), props);
-  if (testId !== undefined) e.setAttribute("data-testid", testId);
-  return e;
-}
 
 /** Adapts the DOM WebSocket to the connection's SocketLike. */
 function browserSocket(url: string): SocketLike {
@@ -83,7 +84,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   // The TV and its control bar sit above the scaled stage, unscaled, so the player keeps
   // YouTube's minimum size and no room layer can stack over it (layout.ts `roomLayout`).
-  const stage = el("div", { className: "stage" }, "room");
+  // .ui-room: set (e)/(c) chrome inside the stage is at the room's 1× art scale.
+  const stage = el("div", { className: "stage ui-room" }, "room");
   const clip = el("div", { className: "stage-clip" });
   clip.append(stage);
   const tv = el("div", { className: "tv ui-tv-frame" });
@@ -102,15 +104,52 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   overlay.append(...seatButtons);
   const tags = el("div", { className: "tags" });
   const bubbles = el("div", { className: "bubbles", ariaLive: "polite" });
+  // Chat system lines ("Ana paused"): caption rail in the stage's bottom-left, text only.
+  const rail = el("div", { className: "syslines", ariaLive: "polite" });
+  box(rail, SYSLINE_RAIL);
+  const syncNotice = el("p", { className: "notice sync-notice", role: "status", hidden: true }, "sync-notice");
 
   const chatForm = el("form", { className: "chat" });
   const chatInput = el("input", { type: "text", maxLength: 280, placeholder: "Say something…", autocomplete: "off", ariaLabel: "Chat message" }, "chat-input");
   chatForm.append(chatInput, el("button", { type: "submit", textContent: "Say" }));
 
+  let state = initialState;
+  let conn: Connection | null = null;
+  const send = (m: ClientMessage): boolean => conn?.send(m) ?? false;
+  // connection → clock → sync loop → player (ADR 0011). One 4 Hz timer drives the clock tick, the loop and the chrome.
+  const clock = createClockSync({
+    now: browserNow,
+    sendPing: (id) => send({ type: "ping", id }),
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => {
+      clearTimeout(h);
+    },
+    window,
+    document,
+  });
+  let pbView: PlaybackView | null = null;
+  let ctlFrame = 0;
+  const playback = createPlaybackController({
+    send,
+    clock,
+    now: () => performance.now(),
+    setInterval: (fn, ms) => setInterval(fn, ms),
+    clearInterval: (h) => {
+      clearInterval(h);
+    },
+    onView: (v) => {
+      pbView = v;
+      if (ctlFrame === 0) ctlFrame = requestAnimationFrame(renderControls);
+    },
+  });
+  const transport = createTransport(playback);
+  controls.append(transport.root);
+  const personal = createPersonal(playback);
+
   const view: RoomView = await createRoomView();
   view.canvas.className = "scene";
-  stage.append(view.canvas, overlay, tags, bubbles);
-  opts.root.replaceChildren(status, wrap, notice, chatForm, full);
+  stage.append(view.canvas, overlay, tags, bubbles, rail);
+  opts.root.replaceChildren(status, wrap, personal.root, syncNotice, notice, chatForm, full);
 
   const fit = (): void => {
     const l = roomLayout(wrap.clientWidth);
@@ -125,15 +164,55 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   new ResizeObserver(fit).observe(wrap);
   fit();
 
-  let state = initialState;
   let frame = 0;
   let expiryTimer: ReturnType<typeof setTimeout> | null = null;
   let tvSrc: string | null = null;
-  let drawnRoom: ViewState["room"] | undefined;
+  let drawnSeats: readonly unknown[] | undefined;
+  let drawnMembers: readonly unknown[] | undefined;
+  let catchTag: HTMLElement | null = null;
+  const hourglass = el("span", { className: "ui-sprite ui-catchup", ariaHidden: "true" });
+  const syslineEls = new Map<number, HTMLElement>();
   let shownError: ViewState["lastError"] = null;
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
   const tagEls = new Map<MemberId, HTMLElement>();
   const bubbleEls = new Map<MemberId, HTMLElement>();
+
+  /** My own tag carries the hourglass while my player catches up (local only in M1b). */
+  const applyCatching = (): void => {
+    const self = state.self === null ? null : (tagEls.get(state.self) ?? null);
+    const want = pbView?.catching === true ? self : null;
+    if (want === catchTag) return;
+    catchTag?.classList.remove("catching");
+    hourglass.remove();
+    catchTag = want;
+    if (want !== null) {
+      want.classList.add("catching");
+      want.prepend(hourglass);
+    }
+  };
+
+  function renderControls(): void {
+    ctlFrame = 0;
+    const v = pbView;
+    if (v === null) return;
+    transport.update(v);
+    personal.update(v);
+    applyCatching();
+  }
+
+  let tvIframe: HTMLIFrameElement | null = null;
+  const mountPlayer = (iframe: HTMLIFrameElement, videoId: string): void => {
+    syncNotice.hidden = true;
+    void loadYouTubeApi().then((r) => {
+      if (tvIframe !== iframe) return;
+      if (!r.ok) {
+        syncNotice.textContent = "The video plays here without sync: the YouTube player API didn't load.";
+        syncNotice.hidden = false;
+        return;
+      }
+      playback.attach(attachYouTube(r.yt, iframe, { videoId, now: () => performance.now() }), videoId);
+    });
+  };
 
   const render = (): void => {
     frame = 0;
@@ -162,9 +241,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       placements.push({ id: m.id, avatar: m.avatar, at: p });
       at.set(m.id, p);
     }
-    // Chat and bubbles leave `room` untouched, so the scene is only redrawn when seats, members or embed change.
-    if (s.room !== drawnRoom) {
-      drawnRoom = s.room;
+    // Chat, bubbles and playback leave seats/members untouched, so the scene is only redrawn when they change.
+    const seatsNow = s.room?.seats;
+    const membersNow = s.room?.members;
+    if (seatsNow !== drawnSeats || membersNow !== drawnMembers) {
+      drawnSeats = seatsNow;
+      drawnMembers = membersNow;
       view.update(views.map((v) => v.member !== null), placements);
     }
     if (s.lastError !== shownError) {
@@ -198,7 +280,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     for (const m of members.values()) {
       let e = tagEls.get(m.id);
       if (e === undefined) {
-        e = el("span", { className: "tag", textContent: m.nickname }, "nickname-tag");
+        e = el("span", { className: "tag ui-tag" }, "nickname-tag");
+        e.append(el("span", { className: "tag-name", textContent: m.nickname }));
         tagEls.set(m.id, e);
         tags.append(e);
       }
@@ -225,15 +308,23 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (p !== undefined) place(e, { x: p.x, y: p.y + BUBBLE_OFFSET_Y });
     }
 
-    const tf = tvFrame(s.room?.embed ?? null);
+    renderSyslines(rail, s.syslines, syslineEls);
+    applyCatching();
+
+    const embed = s.room?.embed ?? null;
+    const tf = tvFrame(embed);
     const nextSrc = tf?.src ?? null;
     if (nextSrc !== tvSrc) {
       tvSrc = nextSrc;
-      if (tf === null) tv.replaceChildren(tvEmpty);
-      else {
+      if (tf === null || embed === null) {
+        tvIframe = null;
+        tv.replaceChildren(tvEmpty);
+      } else {
         const iframe = el("iframe", { src: tf.src, allow: tf.allow, referrerPolicy: tf.referrerPolicy, title: "Shared video" }, "shared-video");
         iframe.setAttribute("sandbox", tf.sandbox);
+        tvIframe = iframe;
         tv.replaceChildren(iframe);
+        mountPlayer(iframe, embed.videoId);
       }
     }
   };
@@ -251,18 +342,31 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const dispatch = (e: ViewEvent): void => {
     const next = reduce(state, e);
     if (next === state) return;
-    const bubblesChanged = next.bubbles !== state.bubbles;
+    const expiriesChanged = next.bubbles !== state.bubbles || next.syslines !== state.syslines;
+    const prevRoom = state.room;
     state = next;
-    if (bubblesChanged) scheduleExpiry();
+    // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
+    const room = next.room;
+    if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) playback.setRoom(room ?? { embed: null, playback: null });
+    if (expiriesChanged) scheduleExpiry();
     if (frame === 0) frame = requestAnimationFrame(render);
   };
 
-  const conn: Connection = createConnection({
+  const c: Connection = createConnection({
     url: opts.socketUrl,
     join: { type: "join", nickname: opts.nickname, avatar: opts.avatar },
     createSocket: browserSocket,
+    onOpen: () => {
+      clock.start();
+    },
     onEvent: (e) => {
-      dispatch(e.type === "message" ? { type: "server", msg: e.msg, now: Date.now() } : e);
+      if (e.type === "message") {
+        if (e.msg.type === "pong") clock.onPong(e.msg.id, e.msg.at);
+        else dispatch({ type: "server", msg: e.msg, now: Date.now() });
+      } else {
+        if (e.type === "disconnected") clock.stop();
+        dispatch(e);
+      }
     },
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (h) => {
@@ -270,25 +374,31 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
 
+  conn = c;
+  playback.start();
+
   overlay.addEventListener("click", (ev) => {
     if (!(ev.target instanceof HTMLElement)) return;
     const seat = Number(ev.target.closest<HTMLElement>("[data-seat]")?.dataset["seat"] ?? NaN);
     const msg = sitIntent(state, seat);
-    if (msg !== null) conn.send(msg);
+    if (msg !== null) c.send(msg);
   });
   chatForm.addEventListener("submit", (ev) => {
     ev.preventDefault();
     const msg = chatIntent(chatInput.value);
-    if (msg !== null && conn.send(msg)) chatInput.value = "";
+    if (msg !== null && c.send(msg)) chatInput.value = "";
   });
   // Close on unload so the server frees the seat now; a bfcache restore reconnects.
   window.addEventListener("pagehide", () => {
-    conn.close();
+    c.close();
+    clock.stop();
   });
   window.addEventListener("pageshow", (ev) => {
-    if (ev.persisted) conn.resume();
+    if (ev.persisted) c.resume();
   });
 
   render();
-  return { state: () => state, send: (m) => conn.send(m) };
+  pbView = playback.view();
+  renderControls();
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view() };
 }

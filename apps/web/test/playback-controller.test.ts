@@ -19,7 +19,10 @@ function harness(playerOpts: Omit<Partial<FakePlayerOptions>, "now"> = {}) {
   const t = { now: 0 };
   const sent: ClientMessage[] = [];
   const views: PlaybackView[] = [];
-  const clock = { ready: true, ticks: 0, serverNow: () => t.now + SERVER_OFFSET, tick: () => void clock.ticks++ };
+  const clock = { ready: true, ticks: 0, serverNow: () => t.now + SERVER_OFFSET, tick: () => {
+      clock.ticks++;
+    },
+  };
   const timers: { fn: () => void; cleared: boolean }[] = [];
   const c = createPlaybackController({
     send: (m) => {

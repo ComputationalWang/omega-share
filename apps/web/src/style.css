@@ -1,3 +1,7 @@
+/* Set (c)/(e) chrome and the TV frame: the generated design spec, imported as is so it never drifts (Vite rebases its
+ * url()s and inlines it). Art: CC BY-SA 4.0 (assets/LICENSE). App rules below only place and size things. */
+@import "../../../assets/ui/reference.css";
+
 :root {
   color-scheme: dark;
   --bg: #1d1a2b;
@@ -44,23 +48,15 @@ legend { padding: 0; margin-bottom: 6px; }
 .tv { position: absolute; background: #000; display: grid; place-items: center; }
 /* Reserved for the set (e) shared transport + personal volume (OME-89); the shelf is its slot. */
 .controls { position: absolute; }
-/* TV frame, copied from the end of assets/ui/reference.css (OME-92/95, ADR 0012); keep in step with it.
- * border-image-outset is ink overflow: it never covers the player and never adds scroll. roomLayout().compact
- * toggles .compact when the side ink wouldn't fit. */
-.ui-tv-frame { border: 0 solid transparent; border-image: url("../../../assets/ui/slices/tvframe-bezel.png") 6 6 8 6 / 6px 6px 8px 6px / 6px 6px 8px 6px stretch; image-rendering: pixelated; }
-.ui-tv-shelf { box-sizing: border-box; height: 44px; display: flex; align-items: center; padding: 0 6px; border: 0 solid transparent; border-image: url("../../../assets/ui/slices/tvframe-shelf.png") 1 38 6 38 fill / 1px 38px 6px 38px / 1px 38px 6px 38px stretch; image-rendering: pixelated; }
-.ui-tv-shelf > .ui-transport { flex: 1; min-width: 0; }
-.ui-tv-shelf .ui-seek { min-width: 0; }
-.ui-tv-shelf.compact { border-image-width: 1px 0 6px 0; border-image-outset: 1px 0 6px 0; }
-.ui-tv-frame.compact { border-image-width: 6px 0 8px 0; border-image-outset: 6px 0 8px 0; }
 .tv iframe { width: 100%; height: 100%; border: 0; }
 .tv-empty { margin: 16px; color: var(--muted); text-align: center; font-size: 0.9em; }
 .overlay, .tags, .bubbles { position: absolute; inset: 0; pointer-events: none; }
 .seat { position: absolute; left: -26px; top: -13px; width: 52px; height: 26px; padding: 0; border: 0; background: transparent; pointer-events: auto; cursor: pointer; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .seat:hover, .seat:focus-visible { background: rgb(234 172 139 / 0.35); outline: none; }
 .seat[data-occupied="true"]:not(.mine) { cursor: default; }
-.tag { position: absolute; left: 0; top: 0; translate: -50% 0; max-width: 160px; height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 6px; border-radius: 4px; background: rgb(0 0 0 / 0.55); font-size: 12px; }
-.tag.self { color: var(--accent); }
+/* Name tags wear .ui-tag; the name ellipsizes inside, so the catching-up hourglass can hang off the tag's left end. */
+.tag { position: absolute; left: 0; top: 0; translate: -50% 0; max-width: 160px; height: 20px; display: flex; align-items: center; font-size: 12px; }
+.tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .bubble { position: absolute; left: 0; top: 0; translate: -50% -100%; max-width: 220px; max-height: 180px; overflow: hidden; margin: 0; padding: 6px 10px; border-radius: 10px; background: #fff; color: #1d1a2b; font-size: 13px; overflow-wrap: anywhere; }
 .chat { display: flex; gap: 8px; margin-top: 8px; }
 .chat input { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--panel); }
@@ -68,3 +64,20 @@ legend { padding: 0; margin-bottom: 6px; }
 .room-full { text-align: center; margin: 15vh auto; }
 .seat:disabled { cursor: default; }
 .notice { margin: 8px 0 0; color: var(--error); }
+
+/* ---- Set (e) playback chrome (OME-89). Shared transport in the TV's control-bar slot at 1×; personal pod below the stage. ---- */
+/* Own compositor layer: the readout/seek repaint each second without re-rastering the page around them. */
+.controls { --ui-px: 1px; }
+.controls > .ui-transport { will-change: transform; }
+.ui-seek input, .ui-vol-track input { position: absolute; inset: -8px -4px; width: calc(100% + 8px); height: calc(100% + 16px); margin: 0; opacity: 0; cursor: pointer; }
+.ui-seek input:disabled { cursor: default; }
+.ui-seek:focus-within, .ui-vol-track:focus-within { outline: 1px solid var(--ui-text); outline-offset: 5px; }
+.ui-seek.is-disabled .ui-seek-head { display: none; }
+.room-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.catching-notice { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; }
+.syslines { position: absolute; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 4px; overflow: hidden; pointer-events: none; }
+.syslines .ui-sysline { max-width: 100%; white-space: nowrap; overflow: hidden; animation: sysline-fade 6s linear forwards; }
+.ui-sysline b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@keyframes sysline-fade { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .syslines .ui-sysline { animation: none; } }
+.sync-notice { color: var(--muted); }
