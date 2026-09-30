@@ -11,6 +11,7 @@ import { expect, test, watchCsp } from "../support/csp";
 import type { Browser, Page } from "@playwright/test";
 import type { PlaybackView } from "../../apps/web/src/controls/playback";
 import { BURST_FAST, BURST_SLOW, initialRateMode, nextRateMode } from "../../apps/web/src/sync";
+import { URLS } from "../support/apps";
 import { site } from "../support/selectors";
 import {
   AD_IDS, BASELINE_ID, cdpTargets, closeAll, cspViolations, embedUrl, enter, EVIDENCE_DIR, rawTab, record, requireVirtualDisplay, ROOM_URL, sampleVideo, share, shot, slope, spreadOver,
@@ -398,11 +399,12 @@ test("1 · pre-roll ad on a monetized video: the room doesn't pause; the client 
     // Control (OME-133): does this profile get ads at all? The same candidates as a raw www.youtube.com embed (not
     // our nocookie one) on a localhost page, muted autoplay, 20 s each. An ad here but never in the room means the
     // nocookie host is what keeps pre-rolls away, and the room path stays covered only by the fake player's ad(ms).
+    // The page is the fixtures server, not the site: the site's CSP frames only the nocookie host (OME-189).
     const control: { id: string; sawAd: boolean; played: boolean }[] = [];
     if (!attempts.some((x) => (x as { sawAd: boolean }).sawAd)) {
       const ctx = await watchCsp(await browser.newContext());
       const page = await ctx.newPage();
-      await page.goto(`${ROOM_URL.replace(/\/r\/.*$/, "")}/`);
+      await page.goto(`${URLS.fixtures}/`);
       for (const id of AD_IDS) {
         await page.evaluate((v) => {
           const f = document.createElement("iframe");
