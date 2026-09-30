@@ -21,4 +21,14 @@ export const site = {
   nicknameTag: id("nickname-tag"),
   roomFull: id("room-full"),
   roomNotice: id("room-notice"),
+  // Set (e) playback chrome (OME-89).
+  playToggle: id("play-toggle"),
+  seek: id("seek"),
+  timeCurrent: id("time-current"),
+  timeDuration: id("time-duration"),
+  muteToggle: id("mute-toggle"),
+  volume: id("volume"),
+  unmuteButton: id("unmute-button"),
+  systemLine: id("system-line"),
+  catchingNotice: id("catching-notice"),
 } as const;

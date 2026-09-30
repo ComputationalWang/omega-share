@@ -21,12 +21,15 @@ export interface FakePlayerOptions {
   ignorePlay?: boolean;
   state?: PlayerState;
   position?: number;
+  /** Content duration, s; 0 = unknown. */
+  duration?: number;
 }
 
 /** A PlayerAdapter with a deterministic media clock driven by the test's `now()`. */
 export class FakePlayer implements PlayerAdapter {
   readonly calls: FakeCall[] = [];
   isReady: boolean;
+  destroyed = false;
   private st: PlayerState;
   private pos: number;
   private reqRate = 1;
@@ -116,6 +119,9 @@ export class FakePlayer implements PlayerAdapter {
     this.sync();
     return this.st;
   }
+  duration(): number {
+    return this.o.duration ?? 0;
+  }
   rates(): readonly number[] {
     return this.o.rates ?? [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
   }
@@ -124,6 +130,7 @@ export class FakePlayer implements PlayerAdapter {
     return () => this.listeners.delete(cb);
   }
   destroy(): void {
+    this.destroyed = true;
     this.listeners.clear();
   }
 }

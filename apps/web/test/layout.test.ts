@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { SEATS, STANDING, bubbleRect, roomLayout, stageToPage, tagRect, type Rect } from "../src/layout";
+import { SEATS, STAGE_H, STAGE_W, STANDING, SYSLINE_RAIL, bubbleRect, roomLayout, stageToPage, tagRect, type Rect } from "../src/layout";
 
 const intersects = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const inside = (a: Rect, b: Rect): boolean => a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h;
@@ -110,5 +110,25 @@ describe("roomLayout: TV frame", () => {
     // The bezel's bottom row and the shelf's 1 px top outset share the plum outline row (reference.css).
     expect(frameInk(l).y + frameInk(l).h).toBeLessThanOrEqual(l.controls.y + 1);
     expect(shelfInk(l).y + shelfInk(l).h).toBeLessThanOrEqual(l.stage.y);
+  });
+});
+
+describe("SYSLINE_RAIL: the chat system-line caption rail", () => {
+  test("sits inside the stage", () => {
+    expect(inside(SYSLINE_RAIL, { x: 0, y: 0, w: STAGE_W, h: STAGE_H })).toBe(true);
+  });
+
+  test("never covers a seat, a standing spot or their name tags", () => {
+    for (const p of [...SEATS, ...STANDING]) {
+      expect(intersects(SYSLINE_RAIL, tagRect(p))).toBe(false);
+      expect(intersects(SYSLINE_RAIL, { x: p.x - 32, y: p.y - 48, w: 64, h: 64 })).toBe(false);
+    }
+  });
+
+  test.each(WIDTHS)("stays off the player and the control bar at width %p", (width) => {
+    const l = roomLayout(width);
+    const onPage = stageToPage(l, SYSLINE_RAIL);
+    expect(intersects(onPage, l.tv)).toBe(false);
+    expect(intersects(onPage, l.controls)).toBe(false);
   });
 });

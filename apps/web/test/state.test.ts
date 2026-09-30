@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Member, RoomState, ServerMessage } from "@omega/shared";
-import { BUBBLE_MS, initialState, nextExpiry, reduce, screen, type ViewState } from "../src/state";
+import type { PlaybackState } from "@omega/shared";
+import { BUBBLE_MS, MAX_SYSLINES, SYSLINE_MS, initialState, nextExpiry, reduce, screen, type ViewState } from "../src/state";
 
 const alice: Member = { id: "a", nickname: "alice", avatar: 0 };
 const bob: Member = { id: "b", nickname: "bob", avatar: 1 };
@@ -93,10 +94,9 @@ describe("reduce", () => {
     expect(s.room?.embed).toBeNull();
   });
 
-  test("pong and playback leave the view state unchanged (sync lives outside the reducer)", () => {
+  test("pong leaves the view state unchanged (the clock lives outside the reducer)", () => {
     const s = joined(room({ embed }));
     expect(server(s, { type: "pong", id: 1, at: 5 })).toBe(s);
-    expect(server(s, { type: "playback", playback: { playing: true, position: 3, rate: 1, at: 5, rev: 1, action: "play", by: "a" } })).toBe(s);
   });
 
   test("room-full is terminal: later connection events don't leave it", () => {
@@ -146,5 +146,64 @@ describe("screen", () => {
 
   test("before the first snapshot nothing is laid out", () => {
     expect(screen(reduce(initialState, { type: "connecting" }))).toEqual({ stage: false, chat: false, full: false });
+  });
+});
+
+const pb = (over: Partial<PlaybackState> = {}): PlaybackState => ({ playing: true, position: 0, rate: 1, at: 1000, rev: 1, action: "load", by: null, ...over });
+
+describe("reduce: room playback + system lines", () => {
+  test("the snapshot's playback is the room's playback, with no system line (joining isn't news)", () => {
+    const s = joined(room({ embed, playback: pb({ rev: 4, action: "play", by: "b" }) }));
+    expect(s.room?.playback?.rev).toBe(4);
+    expect(s.syslines).toEqual([]);
+  });
+
+  test("a playback message replaces the playback and adds a text-only system line", () => {
+    const s0 = joined(room({ embed, playback: pb({ rev: 1 }) }));
+    const next = pb({ rev: 2, action: "pause", playing: false, position: 12, by: "b" });
+    const s = server(s0, { type: "playback", playback: next }, 5000);
+    expect(s.room?.playback).toEqual(next);
+    expect(s.syslines).toEqual([{ id: 2, glyph: "pause", actor: "bob", verb: "paused", time: null, expiresAt: 5000 + SYSLINE_MS }]);
+  });
+
+  test("stale or duplicate revs are dropped", () => {
+    const s0 = server(joined(room({ embed, playback: pb({ rev: 1 }) })), { type: "playback", playback: pb({ rev: 5, action: "pause" }) });
+    expect(server(s0, { type: "playback", playback: pb({ rev: 5, action: "play" }) })).toBe(s0);
+    expect(server(s0, { type: "playback", playback: pb({ rev: 4, action: "seek" }) })).toBe(s0);
+  });
+
+  test("playback without an embed is ignored", () => {
+    const s0 = joined();
+    expect(server(s0, { type: "playback", playback: pb({ rev: 9 }) })).toBe(s0);
+  });
+
+  test("embed-changed carries the load playback; from the extension it reads Video shared", () => {
+    const s = server(joined(), { type: "embed-changed", embed, by: null, playback: pb({ rev: 7 }) }, 100);
+    expect(s.room?.playback?.rev).toBe(7);
+    expect(s.syslines.map((l) => [l.actor, l.verb])).toEqual([[null, "Video shared"]]);
+  });
+
+  test("embed-changed to nothing clears the playback; a pre-M1b embed-changed (no playback) reads as null", () => {
+    let s = server(joined(), { type: "embed-changed", embed, by: null, playback: pb({ rev: 7 }) });
+    s = server(s, { type: "embed-changed", embed: null, by: "a", playback: null });
+    expect(s.room?.playback ?? null).toBeNull();
+    s = server(s, { type: "embed-changed", embed, by: null });
+    expect(s.room?.playback ?? null).toBeNull();
+  });
+
+  test("at most MAX_SYSLINES lines, newest last; they expire after SYSLINE_MS and count for nextExpiry", () => {
+    let s = joined(room({ embed, playback: pb({ rev: 1 }) }));
+    for (let rev = 2; rev <= 2 + MAX_SYSLINES; rev++) s = server(s, { type: "playback", playback: pb({ rev, action: "pause", by: "a" }) }, rev * 100);
+    expect(s.syslines.map((l) => l.id)).toEqual([3, 4, 5]);
+    expect(nextExpiry(s)).toBe(300 + SYSLINE_MS);
+    s = reduce(s, { type: "tick", now: 400 + SYSLINE_MS });
+    expect(s.syslines.map((l) => l.id)).toEqual([5]);
+  });
+
+  test("system lines keep the room's seats/members objects, so the scene needn't redraw", () => {
+    const s0 = joined(room({ embed, playback: pb({ rev: 1 }) }));
+    const s = server(s0, { type: "playback", playback: pb({ rev: 2, action: "pause" }) });
+    expect(s.room?.members).toBe(s0.room?.members);
+    expect(s.room?.seats).toBe(s0.room?.seats);
   });
 });
