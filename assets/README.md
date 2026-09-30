@@ -204,7 +204,7 @@ follow the same rule: **wood = shared**. Two new materials each have one job: **
 | `glyph/hop` | 8×8 | — | Glow staircase: "keeps in sync in steps", not a smooth ramp. Also the system-line glyph for a resync jump. |
 | `resync/<0..2>` | 16×16 | — | One-shot tag sticker: a glow double chevron slides right and lands (`meta.omega.resyncFrameMs` = 160, 200, 640 ms). Anchor `(8,8)`. |
 | `plate/source` | 12×12 | 4 | Brass provider plate with four corner rivets. Plum system-font text (8:1). |
-| `glyph/src-<video\|live>` | 8×8 | — | Glyphs engraved in the plate: a screen with a play mark (on-demand) and `((•))` (live broadcast). Generic kinds of source, not provider marks. |
+| `glyph/src-<video\|live>` | 8×8 | — | Glyphs engraved in the plate: a screen with a play mark (on-demand) and a plain broadcast dot (live), the on-air lamp cut into brass. Generic kinds of source, not provider marks. |
 
 - **Live transport** (`.ui-tv-shelf > .ui-transport`, the same slot as set (e)): `chip/shared` · play/pause key · `.ui-live` pill ·
   `.ui-live-note` (one muted line where the scrubber was, e.g. "Live: everyone watches the same moment") · `.ui-readout.behind` ("−0:42",
@@ -215,8 +215,9 @@ follow the same rule: **wood = shared**. Two new materials each have one job: **
     "Back to live for everyone"; the play key keeps "Play for everyone" (it resumes from the paused point).
 - **Seek-only hint:** for a provider that can't nudge its playback rate, drift is fixed with small jumps. Add
   `<span class="ui-hint" title="…"><span class="ui-sprite ui-glyph-hop"></span><span class="ui-hint-text">syncs by skipping</span></span>`
-  just before the plate. It's static and never animates. When a viewer is jumped back into sync, add `.resynced` to their tag
-  with a `.ui-sprite.ui-resync` inside (same spot as the catching-up hourglass) and remove it after 1 s, optionally with a system line
+  just before the plate. It's static and never animates. At 1× (`.ui-room`) it's **glyph-only by default**: the words are visually
+  hidden but kept for screen readers, and the `title` spells them out. Add `.wordy` to show them anyway. When a viewer is jumped back into sync, add `.resynced` to their tag
+  with a `.ui-sprite.ui-resync` inside (left of the tag with a 2 art px gap, clear of the name) and remove it after 1 s, optionally with a system line
   (`glyph/hop` · "**Oli** skipped ahead to stay in sync"). Buffering and ads still use the set (e) hourglass.
 - **Provider plate:** `<span class="ui-plate"><span class="ui-sprite ui-glyph-src-live"></span><span class="ui-plate-name">Twitch</span></span>`.
   The name is **plain text in the system font, in plum on brass**: never a provider's logo, colour or lettering, and never an image of a name.
@@ -225,7 +226,7 @@ follow the same rule: **wood = shared**. Two new materials each have one job: **
 - **`.compact` shelf** (360 px viewport): the note and the plate/hint words drop (`.ui-plate-name`, `.ui-hint-text`), and the lamp, pill,
   glyphs and keys stay. Keep the full name in the plate's `title`/`aria-label`.
 - **Motion:** `prefers-reduced-motion` holds `glyph/onair/0` and shows `resync/2` straight away.
-- **Scale:** these pieces follow `--ui-px` like set (e). The shelf is `.ui-room` (1×). Text is 11 px at 2× and 9 px at 1×; the note is 12 px / 11 px.
+- **Scale:** these pieces follow `--ui-px` like set (e). The shelf is `.ui-room` (1×). Text is 11 px at 2× and 9 px at 1×, except the plate name (10 px at 1×); the note is 12 px / 11 px.
 
 ## Motion atlas (`avatars/motion.json`, set d)
 
