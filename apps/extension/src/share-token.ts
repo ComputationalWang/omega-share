@@ -10,7 +10,7 @@ const MAX_RECORD_LENGTH = 512;
 /** The browser calls the popup makes; injected so the flow can be tested. */
 export interface TokenDeps {
   /** `tabs.query({ url: patterns })`: only tabs we hold host permission for match. */
-  readonly queryTabs: (patterns: string[]) => Promise<readonly { readonly id?: number }[]>;
+  readonly queryTabs: (patterns: string[]) => Promise<readonly { readonly id?: number | undefined }[]>;
   /** One-shot `scripting.executeScript` that returns `sessionStorage["omega.share"]`, unparsed. */
   readonly readSession: (tabId: number) => Promise<unknown>;
 }
