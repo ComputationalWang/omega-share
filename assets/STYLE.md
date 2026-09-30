@@ -142,6 +142,25 @@ Three ways to say "this button affects everyone" were tried on paper before any 
 - **Charm lives at the edges, never in the slot:** speaker cabinets with a woofer ring on a dot mesh. In the room, the corner console now
   carries a cream projector (lit 16:9 lens, two film reels), so the room still "makes" the picture above it. No new colours.
 
+## M2 live chrome (OME-120)
+Three ways to show "this is live, you can't scrub it" were weighed first:
+
+| | Direction | Verdict |
+|---|---|---|
+| A | Keep the scrubber, fill it solid and lock it | Rejected: a disabled control reads "try later", and a full bar reads "finished". |
+| B | Make the LIVE pill the back-to-live button (the streaming-site habit) | Rejected: it would be a shared action in a status material. Wood = shared stays the one rule. |
+| **C** | **A rust on-air lamp (status only) + a separate wood back-to-live key + one muted line where the scrubber was** | **Chosen.** The lamp tells you where you are and the wood key is what you press. The note says why there's no scrubber, so the empty slot doesn't look broken. |
+
+- **Rust = on air.** The pill is dark rust with a bright rim, and the lamp blinks slowly (700 ms) between cream and rust highlight, so it glows rather than flashes.
+  When paused or behind, the same pill turns charcoal with the lamp out (a ring). That reads without colour, lit dot vs ring, and the readout says how far behind.
+- **Back to live** is play's 2:1 stair running into a bar, on the shared wood key. It's disabled at the live edge.
+- **Seek-only** is the quietest thing on the shelf: a charcoal chip with a glow staircase glyph ("keeps up in steps, not a smooth ramp").
+  The one-shot resync sticker is the seek glyph's double chevron at sticker size, sliding right, with a speed dash on the middle frame.
+- **Brass plate = what's on.** The TV has a riveted brass nameplate, like old sets had. The provider's name is plain system-font text engraved
+  in plum. The glyph describes the *kind* of source (a screen with a play mark, or `((•))` for a broadcast), never the provider. There are no
+  third-party logos, colours or lettering anywhere, and the plate looks the same for every provider.
+- No new colours: still the 67.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|

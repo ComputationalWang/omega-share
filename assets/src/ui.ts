@@ -464,7 +464,7 @@ const kebab = (key: string): string => key.replace(/\//g, "-");
 /** Art pixels → CSS length that follows the chrome scale (`--ui-px`). */
 const u = (n: number): string => (n === 0 ? "0" : `calc(${String(n)} * var(--ui-px))`);
 /** Atlas keys that CSS draws as plain sprites from ui.png (the rest are 9-slices in ui/slices/). */
-const SPRITE_KEY = /^(icon|dot|portrait|logo|glyph|catchup|seek\/head|volume\/knob)\//;
+const SPRITE_KEY = /^(icon|dot|portrait|logo|glyph|catchup|resync|seek\/head|volume\/knob)\//;
 
 /** `ui/reference.css`: the design spec for the DOM chrome, generated so sprite offsets never drift.
  *  9-slices scale with `--ui-px` (2px in page chrome, 1px inside the room stage); sprites are baked at 2×. */

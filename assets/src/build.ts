@@ -28,6 +28,7 @@ import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders } from "./ui";
 import { CATCHUP_FRAME_MS, buildPlaybackFrames, playbackCss } from "./playback";
 import { buildTvFrames, tvCss } from "./tv";
+import { ONAIR_FRAME_MS, RESYNC_FRAME_MS, buildLiveFrames, liveCss } from "./live";
 
 const ROOT = join(import.meta.dir, "..");
 const POSES: readonly Pose[] = ["idle", "sit"];
@@ -492,7 +493,7 @@ function tagLiftByAvatar(images: Map<string, Uint8Array>): Record<string, Record
 
 /** Set (c): UI chrome atlas, plus each 9-slice/cursor as its own PNG for CSS `border-image`. */
 function buildUi(avatarImages: Map<string, Uint8Array>): void {
-  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildTvFrames()];
+  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildLiveFrames(), ...buildTvFrames()];
   registerKeys("ui", frames.map((f) => f.key));
   const byKey = new Map(frames.map((f) => [f.key, f]));
   if (byKey.size !== frames.length) throw new Error("duplicate ui key");
@@ -541,6 +542,9 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
         tokens: uiTokens(),
         // Set (e): the catching-up hourglass loops catchup/0..3 at this frame time.
         catchupFrameMs: CATCHUP_FRAME_MS,
+        // M2 (OME-120): the LIVE pill's lamp blinks glyph/onair/0..1 at this frame time (loop); resync/0..2 is one-shot.
+        onairFrameMs: ONAIR_FRAME_MS,
+        resyncFrameMs: RESYNC_FRAME_MS,
       },
     },
   };
@@ -548,7 +552,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
   const rects = Object.fromEntries(Object.entries(atlasFrames).map(([k, f]) => [k, f.frame]));
   const borders: Record<string, Borders> = {};
   for (const f of frames) if (f.borders) borders[f.key] = f.borders;
-  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss());
+  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects));
   const bg = colorIndex("wall", 1);
   const big = upscale(sheet, sheetW, sheetH, 4).map((v) => (v === 0 ? bg : v));
   writeFileSync(join(ROOT, "preview", "ui-sheet@4x.png"), encodeIndexedPng(sheetW * 4, sheetH * 4, big, PALETTE));

@@ -65,15 +65,21 @@
 .ui-catchup-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-148 * var(--ui-px)) calc(-101 * var(--ui-px)); }
 .ui-catchup-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-165 * var(--ui-px)) calc(-101 * var(--ui-px)); }
 .ui-catchup-3 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-106 * var(--ui-px)); }
-.ui-dot-connecting { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-232 * var(--ui-px)) calc(-140 * var(--ui-px)); }
-.ui-dot-offline { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-241 * var(--ui-px)) calc(-140 * var(--ui-px)); }
-.ui-dot-online { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-11 * var(--ui-px)) calc(-141 * var(--ui-px)); }
-.ui-glyph-catchup { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-20 * var(--ui-px)) calc(-141 * var(--ui-px)); }
-.ui-glyph-everyone { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-208 * var(--ui-px)) calc(-140 * var(--ui-px)); }
-.ui-glyph-pause { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-29 * var(--ui-px)) calc(-141 * var(--ui-px)); }
-.ui-glyph-play { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-38 * var(--ui-px)) calc(-141 * var(--ui-px)); }
-.ui-glyph-seek { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-47 * var(--ui-px)) calc(-141 * var(--ui-px)); }
-.ui-glyph-you { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-56 * var(--ui-px)) calc(-141 * var(--ui-px)); }
+.ui-dot-connecting { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-247 * var(--ui-px)) calc(-140 * var(--ui-px)); }
+.ui-dot-offline { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-247 * var(--ui-px)) calc(-149 * var(--ui-px)); }
+.ui-dot-online { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-93 * var(--ui-px)) calc(-152 * var(--ui-px)); }
+.ui-glyph-catchup { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-152 * var(--ui-px)); }
+.ui-glyph-everyone { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-69 * var(--ui-px)) calc(-152 * var(--ui-px)); }
+.ui-glyph-hop { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-111 * var(--ui-px)) calc(-152 * var(--ui-px)); }
+.ui-glyph-onair-off { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-120 * var(--ui-px)) calc(-152 * var(--ui-px)); }
+.ui-glyph-onair-0 { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-129 * var(--ui-px)) calc(-152 * var(--ui-px)); }
+.ui-glyph-onair-1 { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-138 * var(--ui-px)) calc(-152 * var(--ui-px)); }
+.ui-glyph-pause { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-147 * var(--ui-px)) calc(-152 * var(--ui-px)); }
+.ui-glyph-play { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-156 * var(--ui-px)) calc(-152 * var(--ui-px)); }
+.ui-glyph-seek { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: 0 calc(-153 * var(--ui-px)); }
+.ui-glyph-src-live { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-165 * var(--ui-px)) calc(-153 * var(--ui-px)); }
+.ui-glyph-src-video { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-174 * var(--ui-px)) calc(-153 * var(--ui-px)); }
+.ui-glyph-you { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-183 * var(--ui-px)) calc(-153 * var(--ui-px)); }
 .ui-icon-chat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-182 * var(--ui-px)) calc(-106 * var(--ui-px)); }
 .ui-icon-close { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-199 * var(--ui-px)) calc(-106 * var(--ui-px)); }
 .ui-icon-leave { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-216 * var(--ui-px)) calc(-106 * var(--ui-px)); }
@@ -89,22 +95,27 @@
 .ui-icon-share { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-118 * var(--ui-px)); }
 .ui-icon-sound { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-123 * var(--ui-px)); }
 .ui-icon-sound-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-123 * var(--ui-px)); }
-.ui-icon-tv { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-123 * var(--ui-px)); }
-.ui-icon-warn { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-123 * var(--ui-px)); }
-.ui-icon-you { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-123 * var(--ui-px)); }
+.ui-icon-tolive { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-123 * var(--ui-px)); }
+.ui-icon-tolive-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-123 * var(--ui-px)); }
+.ui-icon-tv { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-123 * var(--ui-px)); }
+.ui-icon-warn { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-123 * var(--ui-px)); }
+.ui-icon-you { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-124 * var(--ui-px)); }
 .ui-logo-0 { width: calc(80 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: calc(-67 * var(--ui-px)) calc(-89 * var(--ui-px)); }
 .ui-portrait-juno { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-209 * var(--ui-px)) 0; }
 .ui-portrait-kiki { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-209 * var(--ui-px)) calc(-33 * var(--ui-px)); }
 .ui-portrait-mo { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-144 * var(--ui-px)) calc(-34 * var(--ui-px)); }
 .ui-portrait-pip { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: 0 calc(-52 * var(--ui-px)); }
-.ui-seek-head-disabled { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-66 * var(--ui-px)) calc(-124 * var(--ui-px)); }
-.ui-seek-head-hover { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-77 * var(--ui-px)) calc(-124 * var(--ui-px)); }
-.ui-seek-head-idle { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-88 * var(--ui-px)) calc(-124 * var(--ui-px)); }
-.ui-seek-head-press { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-99 * var(--ui-px)) calc(-124 * var(--ui-px)); }
-.ui-volume-knob-disabled { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-164 * var(--ui-px)) calc(-140 * var(--ui-px)); }
-.ui-volume-knob-hover { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-175 * var(--ui-px)) calc(-140 * var(--ui-px)); }
-.ui-volume-knob-idle { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-186 * var(--ui-px)) calc(-140 * var(--ui-px)); }
-.ui-volume-knob-press { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-197 * var(--ui-px)) calc(-140 * var(--ui-px)); }
+.ui-resync-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-124 * var(--ui-px)); }
+.ui-resync-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-124 * var(--ui-px)); }
+.ui-resync-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-124 * var(--ui-px)); }
+.ui-seek-head-disabled { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-32 * var(--ui-px)) calc(-128 * var(--ui-px)); }
+.ui-seek-head-hover { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-135 * var(--ui-px)); }
+.ui-seek-head-idle { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-147 * var(--ui-px)) calc(-135 * var(--ui-px)); }
+.ui-seek-head-press { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-158 * var(--ui-px)) calc(-135 * var(--ui-px)); }
+.ui-volume-knob-disabled { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-106 * var(--ui-px)) calc(-141 * var(--ui-px)); }
+.ui-volume-knob-hover { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-117 * var(--ui-px)) calc(-141 * var(--ui-px)); }
+.ui-volume-knob-idle { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-15 * var(--ui-px)) calc(-145 * var(--ui-px)); }
+.ui-volume-knob-press { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-26 * var(--ui-px)) calc(-145 * var(--ui-px)); }
 
 /* ---- Set (e): synced playback (M1b). Wood = shared (everyone), mustard rim on night = only you, TV glow = the video. ---- */
 .ui-transport, .ui-volume, .ui-seek, .ui-vol-track, .ui-readout, .ui-chip, .ui-sysline, .ui-seek-fill, .ui-vol-fill { image-rendering: pixelated; box-sizing: border-box; }
@@ -182,3 +193,39 @@
 .ui-tv-shelf.compact { border-image-width: 1px 0 6px 0; border-image-outset: 1px 0 6px 0; }
 /* Same for the bezel sides on a 360 px viewport (the 356 px player leaves 2 px each side). */
 .ui-tv-frame.compact { border-image-width: 6px 0 8px 0; border-image-outset: 6px 0 8px 0; }
+
+/* ---- M2 (OME-120): live transport, seek-only hint, provider plate. ----
+ * Rust = on air (a status light, never a control). Brass = the TV's nameplate (plain text + a generic glyph, never a
+ * provider's logo, colour or lettering). The back-to-live key is wood: jumping to live changes the video for everyone. */
+.ui-live, .ui-hint, .ui-plate { image-rendering: pixelated; box-sizing: border-box; display: inline-flex; align-items: center; gap: calc(2 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); line-height: 1; white-space: nowrap; flex: none; }
+
+/* LIVE pill. Put a .ui-sprite.ui-onair inside, before the word. .is-behind = paused or not at the live edge. */
+.ui-live { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-live.png") 4 fill / calc(4 * var(--ui-px)) stretch; color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.ui-onair { --f0: calc(-129 * var(--ui-px)) calc(-152 * var(--ui-px)); --f1: calc(-138 * var(--ui-px)) calc(-152 * var(--ui-px)); width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--f0); animation: ui-onair 1400ms steps(1) infinite; }
+@keyframes ui-onair { 0% { background-position: var(--f0); } 50% { background-position: var(--f1); } }
+.ui-live.is-behind { border-image-source: url("slices/pill-behind.png"); color: var(--ui-muted); }
+.ui-live.is-behind .ui-onair { animation: none; background-position: calc(-120 * var(--ui-px)) calc(-152 * var(--ui-px)); }
+/* How far behind live the room is: a normal .ui-readout with .behind ("−0:42"). Hide it at the live edge. */
+.ui-readout.behind { color: var(--ui-muted); }
+/* Back to live: a wood .ui-button.shared.icon (it moves everyone). Disabled at the live edge. */
+.ui-button:disabled .ui-icon-tolive, .ui-button.is-disabled .ui-icon-tolive { background-position: calc(-204 * var(--ui-px)) calc(-123 * var(--ui-px)); }
+/* Where the scrubber was: one muted line saying why there is none. Drop it first when space runs out. */
+.ui-live-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-muted); font-size: 12px; font-weight: 500; }
+.ui-room .ui-live, .ui-room .ui-hint, .ui-room .ui-plate { font-size: 9px; }
+.ui-room .ui-live-note { font-size: 11px; }
+
+/* Seek-only hint: the provider can't nudge its speed, so drift is fixed by small jumps. Quiet on purpose. */
+.ui-hint { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/chip-hint.png") 4 fill / calc(4 * var(--ui-px)) stretch; color: var(--ui-muted); font-size: 11px; font-weight: 600; }
+
+/* Provider plate: brass, plum system-font text (8:1). The name is plain text, e.g. "YouTube", "Twitch", "Vimeo". */
+.ui-plate { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/plate-source.png") 4 fill / calc(4 * var(--ui-px)) stretch; color: var(--ui-on-primary); font-size: 11px; font-weight: 700; }
+
+/* Narrow shelf (.compact): keep the lamp, the pill word, the glyphs; drop the note and the plate/hint words. */
+.ui-tv-shelf.compact .ui-live-note, .ui-tv-shelf.compact .ui-plate-name, .ui-tv-shelf.compact .ui-hint-text { display: none; }
+
+/* Resync, one-shot on a tag: add .resynced when a seek-only viewer was jumped back into sync, remove after 1000 ms.
+ * Hangs off the tag's left end like the catching-up hourglass (overlap 3 art px). */
+.ui-resync { --f0: calc(-85 * var(--ui-px)) calc(-124 * var(--ui-px)); --f1: calc(-102 * var(--ui-px)) calc(-124 * var(--ui-px)); --f2: calc(-119 * var(--ui-px)) calc(-124 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--f2); animation: ui-resync 1000ms steps(1) 1 both; }
+@keyframes ui-resync { 0% { background-position: var(--f0); } 16% { background-position: var(--f1); } 36% { background-position: var(--f2); } 100% { background-position: var(--f2); } }
+.ui-tag.resynced .ui-resync { position: absolute; right: 100%; top: 50%; translate: calc(3 * var(--ui-px)) -50%; }
+@media (prefers-reduced-motion: reduce) { .ui-onair, .ui-resync { animation: none; } }
