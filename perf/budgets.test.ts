@@ -38,6 +38,18 @@ describe("budgets", () => {
     }
   });
 
+  test("each M2 provider has its own merge-blocking sync.spread and site.frameP95 row at the base budget (OME-131)", () => {
+    for (const base of ["sync.spread", "site.frameP95"]) {
+      const b = BUDGETS.find((x) => x.id === base);
+      if (b === undefined) throw new Error(`no ${base}`);
+      for (const provider of ["twitchVod", "twitchLive", "vimeo"]) {
+        const row = BUDGETS.find((x) => x.id === `${base}.${provider}`);
+        expect(row, `${base}.${provider}`).toBeDefined();
+        expect([row?.docMetric, row?.limit, row?.unit, row?.comparator]).toEqual([b.docMetric, b.limit, b.unit, b.comparator]);
+      }
+    }
+  });
+
   test("limits match docs/perf-budgets.md", () => {
     for (const b of BUDGETS) {
       if (b.load !== undefined) continue;
