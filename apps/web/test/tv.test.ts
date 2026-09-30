@@ -191,6 +191,10 @@ describe("twitchIframeMatches (post-render check, research §4.1 W1)", () => {
       "https://player.twitch.tv?channel=some_streamer&video=v1",
       "https://player.twitch.tv?channel=some_streamer&collection=abc",
       "https://player.twitch.tv?video=v1234567890",
+      // parent must be exactly this page's host (the SDK appends document.domain, which is the same host).
+      "https://player.twitch.tv?channel=some_streamer",
+      "https://player.twitch.tv?channel=some_streamer&parent=evil.example",
+      "https://player.twitch.tv?channel=some_streamer&parent=localhost&parent=evil.example",
     ];
     for (const b of bad) expect([b, twitchIframeMatches(b, live)]).toEqual([b, false]);
     expect(twitchIframeMatches("https://player.twitch.tv?video=v1", vod)).toBe(false);

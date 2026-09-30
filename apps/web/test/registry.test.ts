@@ -59,6 +59,18 @@ describe("createPlayerMounter", () => {
     expect(f.loads).toEqual(["twitch", "twitch"]);
   });
 
+  test("a factory that throws (SDK constructor error) → load-failed, never a rejected mount", async () => {
+    const throwing: AdapterFactory = () => Promise.reject(new Error("Twitch.Player is not a constructor"));
+    const sync: AdapterFactory = () => {
+      throw new Error("boom");
+    };
+    const mount = createPlayerMounter({ youtube: () => Promise.resolve(sync), twitch: () => Promise.resolve(throwing), vimeo: () => Promise.resolve(throwing) });
+    expect(await mount(ctx(twitch))).toEqual({ ok: false, reason: "load-failed" });
+    expect(await mount(ctx(vimeo))).toEqual({ ok: false, reason: "load-failed" });
+    const yt: MountContext = { ...ctx(youtube), target: { iframe: {} as HTMLIFrameElement, container: {} as HTMLElement } };
+    expect(await mount(yt)).toEqual({ ok: false, reason: "load-failed" });
+  });
+
   test("a frame that doesn't belong to the embed's provider never reaches a factory", async () => {
     const f = fakes();
     const mount = createPlayerMounter(f.reg);
