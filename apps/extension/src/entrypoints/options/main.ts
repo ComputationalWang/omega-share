@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
 import { browserSaveDeps, saveServerBaseUrl } from "../../save-setting";
-import { DEFAULT_SERVER_BASE_URL, SERVER_BASE_URL_KEY, readServerBaseUrl } from "../../settings";
+import { SERVER_BASE_URL_KEY, readServerBaseUrl } from "../../settings";
 
 function byId<T extends HTMLElement>(id: string, type: new () => T): T {
   const el = document.getElementById(id);
@@ -18,14 +18,12 @@ function show(state: "ok" | "error", message: string): void {
   status.textContent = message;
 }
 
-// Save stays disabled until the stored origin is known, so its grant is the one revoked on change.
-let current = DEFAULT_SERVER_BASE_URL;
+// Save stays disabled until the stored origin is shown, so the user edits what is actually saved.
 save.disabled = true;
 void browser.storage.local
   .get(SERVER_BASE_URL_KEY)
   .then((items) => {
-    current = readServerBaseUrl(items[SERVER_BASE_URL_KEY]);
-    input.value = current;
+    input.value = readServerBaseUrl(items[SERVER_BASE_URL_KEY]);
   })
   .finally(() => {
     save.disabled = false;
@@ -33,9 +31,8 @@ void browser.storage.local
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  void saveServerBaseUrl(input.value, current, browserSaveDeps(browser.permissions, browser.storage.local)).then((result) => {
+  void saveServerBaseUrl(input.value, browserSaveDeps(browser.permissions, browser.storage.local)).then((result) => {
     if (result.ok) {
-      current = result.origin;
       input.value = result.origin;
       show("ok", result.message);
     } else {
