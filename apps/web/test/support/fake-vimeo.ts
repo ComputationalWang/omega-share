@@ -32,9 +32,9 @@ export function named(name: string): Error {
  */
 export class FakeVimeoPlayer implements VimeoPlayer {
   readonly calls: VimeoCall[] = [];
-  readonly readyP = pending<void>();
+  readonly readyP = pending<undefined>();
   readonly rateP: Pending<unknown>[] = [];
-  readonly playP: Pending<void>[] = [];
+  readonly playP: Pending<undefined>[] = [];
   readonly handlers = new Map<string, Set<(data?: unknown) => void>>();
   videoId: unknown = 76979871;
   duration: unknown = 300;
@@ -56,9 +56,9 @@ export class FakeVimeoPlayer implements VimeoPlayer {
   ready(): Promise<void> {
     return this.readyP.promise;
   }
-  play(): Promise<void> {
+  play(): Promise<unknown> {
     this.calls.push(["play"]);
-    const p = pending<void>();
+    const p = pending<undefined>();
     this.playP.push(p);
     return p.promise;
   }

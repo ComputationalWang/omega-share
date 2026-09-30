@@ -30,13 +30,11 @@ export type AdapterFactory<E extends Embed = Embed> = (c: MountContext<E>) => Pr
 /** Provider → lazy import of its factory, so each provider's code and SDK load only when its embed is shown. */
 export type AdapterRegistry = { readonly [P in Provider]: () => Promise<AdapterFactory<Extract<Embed, { provider: P }>>> };
 
-const unsupported: AdapterFactory = () => Promise.resolve({ ok: false, reason: "unsupported" });
-
-/** The page's registry. The Vimeo adapter lands in OME-126. */
+/** The page's registry. */
 export const PLAYERS: AdapterRegistry = {
   youtube: () => import("./youtube").then((m) => m.mountYouTube),
   twitch: () => import("./twitch").then((m) => m.mountTwitch),
-  vimeo: () => Promise.resolve(unsupported),
+  vimeo: () => import("./vimeo").then((m) => m.mountVimeo),
 };
 
 /**

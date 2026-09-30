@@ -36,7 +36,7 @@ function setup() {
   adapter.onEvent((e) => events.push(e));
   /** The iframe answers ready; the rate probe resolves (paid plan) or rejects (free plan). */
   const ready = async (rateOk = true) => {
-    p.readyP.resolve();
+    p.readyP.resolve(undefined);
     await flush();
     const probe = p.rateP[0];
     if (probe === undefined) throw new Error("no rate probe");
@@ -63,7 +63,7 @@ describe("attachVimeo", () => {
     adapter.play();
     adapter.seek(3);
     expect(p.calls).toEqual([]);
-    p.readyP.resolve();
+    p.readyP.resolve(undefined);
     await flush();
     expect(p.calls).toEqual([["setPlaybackRate", 1]]);
     // rates() must be final once ready() is true (PlayerAdapter, caps.rate "probe").
@@ -214,7 +214,7 @@ describe("attachVimeo", () => {
   test("the iframe plays a different video than the room's → error, never ready", async () => {
     const { adapter, p, events } = setup();
     p.videoId = 12345;
-    p.readyP.resolve();
+    p.readyP.resolve(undefined);
     await flush();
     expect(adapter.ready()).toBe(false);
     expect(events).toEqual([{ type: "error", reason: "other", code: "wrong-video" }]);
@@ -270,7 +270,7 @@ describe("attachVimeo", () => {
   test("destroyed before the iframe answered → never becomes ready", async () => {
     const { adapter, p, events } = setup();
     adapter.destroy();
-    p.readyP.resolve();
+    p.readyP.resolve(undefined);
     await flush();
     p.rateP[0]?.resolve(1);
     await flush();

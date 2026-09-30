@@ -7,7 +7,7 @@ interface Timer {
   cleared: boolean;
 }
 
-function env(initial: unknown = undefined) {
+function env(initial?: unknown) {
   const g: { Vimeo: unknown } = { Vimeo: initial };
   const scripts: { src: string; onLoad: () => void; onError: () => void }[] = [];
   const timers: Timer[] = [];
