@@ -1,4 +1,4 @@
-// Self-test for the zero-CSP-violation fixture (OME-191, threat model §8): enforced violations fail the test,
+// Self-test for the zero-CSP-violation fixture (OME-198, threat model §8): enforced violations fail the test,
 // report-only (Trusted Types) ones are only reported, and hand-made contexts are watched too.
 import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "./support/apps";
@@ -7,6 +7,9 @@ import { joinRoom, leaveAll } from "./support/room";
 
 const ENFORCED = `${URLS.fixtures}/__csp/enforced`;
 const REPORT_ONLY = `${URLS.fixtures}/__csp/report-only`;
+const INLINE = `${URLS.fixtures}/__csp/inline-script`;
+const CLEAN = `${URLS.fixtures}/__csp/clean`;
+const STRICT = "default-src 'self'; script-src 'self'";
 const html = (body: string): string => `<!doctype html><title>csp</title><body>${body}</body>`;
 
 test.describe("csp fixture", () => {
@@ -21,6 +24,43 @@ test.describe("csp fixture", () => {
         body: html(`<div id="t"></div><script>document.getElementById("t").innerHTML = "<b>tt</b>";</script>`),
       }),
     );
+    await context.route(INLINE, (r) =>
+      r.fulfill({ contentType: "text/html", headers: { "content-security-policy": STRICT }, body: html(`<script>document.title = "ran";</script>`) }),
+    );
+    await context.route(CLEAN, (r) =>
+      r.fulfill({ contentType: "text/html", headers: { "content-security-policy": STRICT }, body: html(`<p id="ok">clean</p>`) }),
+    );
+  });
+
+  test("an inline script is recorded from both the event and the console", async ({ page, csp }) => {
+    await page.goto(INLINE);
+    await expect.poll(() => csp.enforced.length).toBe(1);
+    await expect.poll(() => csp.console.length).toBe(1);
+    expect(csp.console[0]).toMatch(/Refused to execute inline script/);
+    expect(await page.title()).toBe("csp");
+    expect(csp.drain().map((v) => v.effectiveDirective)).toEqual(["script-src-elem"]);
+  });
+
+  test("a page with an inline script fails the test", async ({ page, csp }) => {
+    test.fail(); // the fixture's teardown must throw; if it doesn't, this test turns red
+    await page.goto(INLINE);
+    await expect.poll(() => csp.enforced.length).toBe(1);
+  });
+
+  test("a clean page under a strict policy passes", async ({ page, csp }) => {
+    await page.goto(CLEAN);
+    await expect(page.locator("#ok")).toHaveText("clean");
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 100))));
+    expect(csp.enforced).toEqual([]);
+    expect(csp.console).toEqual([]);
+  });
+
+  test("a CSP console error with no matching event fails the test", async ({ page }) => {
+    test.fail(); // covers violations the init script can't see (workers, extension pages)
+    await page.goto(CLEAN);
+    await page.evaluate(() => {
+      console.error(`Refused to load the script 'https://evil.example/x.js' because it violates the following Content Security Policy directive: "script-src 'self'".`);
+    });
   });
 
   test("records an enforced violation with its directive", async ({ page, csp }) => {
@@ -42,6 +82,7 @@ test.describe("csp fixture", () => {
     await expect.poll(() => csp.reportOnly.length).toBe(1);
     expect(csp.reportOnly[0]?.effectiveDirective).toBe("require-trusted-types-for");
     expect(csp.enforced).toEqual([]);
+    expect(csp.console).toEqual([]);
   });
 
   test("a hand-made context is watched once wrapped", async ({ browser, csp }) => {
