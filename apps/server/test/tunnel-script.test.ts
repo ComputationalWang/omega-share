@@ -74,7 +74,7 @@ describe("scripts/tunnel.sh (ADR 0015 §2)", () => {
     }
   };
 
-  test.each([["--dryrun"], ["-n"], ["--dry-run", "extra"]])("an unknown or extra flag %p exits 2 and starts nothing", (...flags: string[]) => {
+  test.each([[["--dryrun"]], [["-n"]], [["--dry-run", "extra"]]])("an unknown or extra flag %p exits 2 and starts nothing", (flags: string[]) => {
     withFakes((dir, runWithFakes) => {
       expect(runWithFakes(URL, ...flags)).toBe(2);
       expect(existsSync(join(dir, "built"))).toBe(false);
