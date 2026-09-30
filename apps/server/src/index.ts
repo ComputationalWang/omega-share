@@ -1,9 +1,13 @@
+import { parseConfig, type ServerConfig } from "./config";
 import { startServer } from "./server";
 
-const DEFAULT_PORT = 8787;
-const port = Number(process.env["PORT"] ?? DEFAULT_PORT);
-if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`invalid PORT: ${String(process.env["PORT"])}`);
-const siteOrigin = process.env["SITE_ORIGIN"] ?? "http://localhost:5173";
+let config: ServerConfig;
+try {
+  config = parseConfig(process.env);
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+}
 
-const server = startServer({ port, siteOrigin, ...(process.env["HOST"] === undefined ? {} : { hostname: process.env["HOST"] }) });
-console.log(`omega-share server on ${server.url.href} (site origin ${siteOrigin})`);
+const server = startServer({ port: config.port, hostname: config.hostname, siteOrigin: config.siteOrigin });
+console.log(`omega-share server on ${server.url.href} (site origin ${config.siteOrigin})`);
