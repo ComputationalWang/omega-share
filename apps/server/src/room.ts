@@ -6,11 +6,13 @@ import {
   type Member,
   type MemberId,
   type Nickname,
+  type PlaybackState,
   type RoomId,
   type RoomState,
   type RoomSummary,
   type SeatIndex,
 } from "@omega/shared";
+import { applyControl, loadPlayback, type Control } from "./playback";
 
 export type SitResult = "ok" | "seat_taken";
 
@@ -23,6 +25,10 @@ export class Room {
   private readonly members = new Map<MemberId, Member>();
   private readonly seats: (MemberId | null)[] = Array.from({ length: SEAT_COUNT }, () => null);
   private embed: Embed | null = null;
+  /** Null iff there is no embed. */
+  private playback: PlaybackState | null = null;
+  /** Last rev handed out; survives embed changes so clients never see rev go back. */
+  private rev = -1;
 
   constructor(readonly id: RoomId) {
     this.topic = `room:${id}`;
@@ -53,12 +59,31 @@ export class Room {
     return "ok";
   }
 
-  setEmbed(embed: Embed | null): void {
+  /** Sets the embed and restarts playback at 0 (or clears it); returns the new playback. */
+  setEmbed(embed: Embed | null): PlaybackState | null {
     this.embed = embed;
+    this.playback = embed === null ? null : loadPlayback(this.rev, Date.now());
+    if (this.playback !== null) this.rev = this.playback.rev;
+    return this.playback;
+  }
+
+  /** Applies a member's `control`; returns the new playback, or null if it's for no/another embed. */
+  control(memberId: MemberId, control: Control): PlaybackState | null {
+    const next = applyControl(this.playback, this.embed?.videoId ?? null, control, memberId, Date.now());
+    if (next === null) return null;
+    this.playback = next;
+    this.rev = next.rev;
+    return next;
   }
 
   snapshot(): RoomState {
-    return { id: this.id, seats: [...this.seats], members: [...this.members.values()], embed: this.embed };
+    return {
+      id: this.id,
+      seats: [...this.seats],
+      members: [...this.members.values()],
+      embed: this.embed,
+      playback: this.playback,
+    };
   }
 
   summary(): RoomSummary {

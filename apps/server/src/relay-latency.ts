@@ -7,11 +7,17 @@
  * exceeds the server's per-socket rate limit (a burst of 20). Falls back to `chat` if every
  * seat is taken. Leaves the room as it found it.
  *
- * CLI: `bun run --filter @omega/server bench:relay -- --url ws://127.0.0.1:8787/rooms/lobby/ws`
+ * With `action: "control"` (the room must have an embed) each sample is a `control` seek to a
+ * fresh position instead, timed until every socket receives the matching `playback`. Actors
+ * rotate so no socket exceeds its control limit (a burst of 4). Afterwards it sends one more
+ * control restoring the playback it found, extrapolated with the local clock.
+ *
+ * CLI: `bun run --filter @omega/server bench:relay -- --url ws://127.0.0.1:8787/rooms/lobby/ws [--action control]`
  * prints the result as JSON and exits 1 when p95 exceeds `--budget` (default 50).
  */
 import { parseArgs } from "node:util";
-import { parseServerMessage, type SeatIndex, type ServerMessage } from "@omega/shared";
+import { parseServerMessage, type Embed, type PlaybackState, type SeatIndex, type ServerMessage } from "@omega/shared";
+import { expectedPosition } from "./playback";
 
 export interface RelayLatencyOptions {
   url: string;
@@ -20,12 +26,14 @@ export interface RelayLatencyOptions {
   /** Sent as the Origin header; needed when the server is reached from a browser-only origin policy. */
   origin?: string;
   timeoutMs?: number;
+  /** `seat` (default): sit/stand, or chat when the seats are full. `control`: seek via `control`. */
+  action?: "seat" | "control";
 }
 
 export interface RelayLatencyResult {
   clients: number;
   samples: number;
-  action: "sit" | "chat";
+  action: "sit" | "chat" | "control";
   p50: number;
   p95: number;
   max: number;
@@ -35,8 +43,13 @@ interface Probe {
   socket: WebSocket;
   self: string;
   firstFreeSeat: SeatIndex | null;
+  embed: Embed | null;
+  playback: PlaybackState | null;
   onMessage: ((msg: ServerMessage) => void) | null;
 }
+
+/** The server's per-socket `control` burst (apps/server/src/server.ts). */
+const CONTROL_BURST = 4;
 
 function percentile(sorted: number[], p: number): number {
   return sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)] ?? 0;
@@ -65,7 +78,7 @@ function connect(url: string, index: number, origin: string | undefined, sockets
   return new Promise((resolve, reject) => {
     const socket = origin === undefined ? new WebSocket(url) : new WebSocket(url, { headers: { Origin: origin } });
     sockets.push(socket);
-    const probe: Probe = { socket, self: "", firstFreeSeat: null, onMessage: null };
+    const probe: Probe = { socket, self: "", firstFreeSeat: null, embed: null, playback: null, onMessage: null };
     socket.addEventListener("open", () => {
       socket.send(JSON.stringify({ type: "join", nickname: `probe-${String(index)}`, avatar: index % 4 }));
     });
@@ -76,6 +89,8 @@ function connect(url: string, index: number, origin: string | undefined, sockets
         probe.self = msg.self;
         const free = msg.room.seats.indexOf(null);
         probe.firstFreeSeat = free === -1 ? null : (free);
+        probe.embed = msg.room.embed;
+        probe.playback = msg.room.playback ?? null;
         resolve(probe);
       } else if (msg.type === "room-full") {
         reject(new Error("relay-latency: room is full"));
@@ -107,13 +122,23 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
     const last = probes[probes.length - 1];
     if (last === undefined) throw new Error("relay-latency: no clients joined");
     const seat = last.firstFreeSeat;
-    const action = seat === null ? "chat" : "sit";
+    const action = opts.action === "control" ? "control" : seat === null ? "chat" : "sit";
+    const videoId = last.embed?.videoId ?? null;
+    const found = last.playback;
+    if (action === "control") {
+      if (videoId === null) throw new Error("relay-latency: control mode needs an embed in the room");
+      if (samples + 1 > clients * CONTROL_BURST) {
+        throw new Error(`relay-latency: control mode needs clients ≥ (samples + 1) / ${String(CONTROL_BURST)}`);
+      }
+    }
     let actor = last;
 
     const times: number[] = [];
     for (let s = 0; s < samples; s++) {
       const target = s % 2 === 0 ? seat : null;
       actor = probes[(action === "sit" ? Math.floor(s / 2) : s) % probes.length] ?? last;
+      // Unique per sample, so each hit is this sample's playback; +2 s steps are always seeks.
+      const position = 2 * (s + 1);
       let pending = probes.length;
       const self = actor.self;
       const done = new Promise<void>((resolve) => {
@@ -122,7 +147,9 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
             const hit =
               action === "sit"
                 ? msg.type === "seat-changed" && msg.memberId === self && msg.seat === target
-                : msg.type === "chat" && msg.memberId === self;
+                : action === "control"
+                  ? msg.type === "playback" && msg.playback.by === self && msg.playback.position === position
+                  : msg.type === "chat" && msg.memberId === self;
             if (!hit) return;
             p.onMessage = null;
             if (--pending === 0) resolve();
@@ -131,12 +158,29 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
       });
       const t0 = performance.now();
       actor.socket.send(
-        JSON.stringify(action === "sit" ? { type: "sit", seat: target } : { type: "chat", text: `probe ${String(s)}` }),
+        JSON.stringify(
+          action === "sit"
+            ? { type: "sit", seat: target }
+            : action === "control"
+              ? { type: "control", videoId, playing: s % 2 === 1, position }
+              : { type: "chat", text: `probe ${String(s)}` },
+        ),
       );
       await withTimeout(done, timeoutMs, `sample ${String(s)}`);
       times.push(performance.now() - t0);
     }
     if (action === "sit" && samples % 2 === 1) actor.socket.send(JSON.stringify({ type: "sit", seat: null }));
+    if (action === "control" && found !== null) {
+      const restorer = probes[samples % probes.length] ?? last;
+      const restored = new Promise<void>((resolve) => {
+        restorer.onMessage = (msg) => {
+          if (msg.type === "playback" && msg.playback.by === restorer.self) resolve();
+        };
+      });
+      const position = expectedPosition(found, Date.now());
+      restorer.socket.send(JSON.stringify({ type: "control", videoId, playing: found.playing, position }));
+      await withTimeout(restored, timeoutMs, "restore");
+    }
 
     times.sort((a, b) => a - b);
     return {
@@ -174,12 +218,14 @@ if (import.meta.main) {
       samples: { type: "string", default: "50" },
       budget: { type: "string", default: "50" },
       origin: { type: "string" },
+      action: { type: "string", default: "seat" },
     },
   });
   const result = await measureRelayLatency({
     url: values.url,
     clients: Number(values.clients),
     samples: Number(values.samples),
+    action: values.action === "control" ? "control" : "seat",
     ...(values.origin === undefined ? {} : { origin: values.origin }),
   });
   const budget = Number(values.budget);

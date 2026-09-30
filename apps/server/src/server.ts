@@ -38,6 +38,9 @@ interface ConnData {
   bucket: TokenBucket;
   /** Already told this socket it is rate limited; stay quiet until it slows down. */
   limited: boolean;
+  /** `control` only, on top of `bucket`, so seek wars stay bounded. */
+  controlBucket: TokenBucket;
+  controlLimited: boolean;
   joinTimer: Timer | null;
 }
 type Conn = ServerWebSocket<ConnData>;
@@ -47,6 +50,9 @@ const MAX_SHARE_BODY_BYTES = 4096;
 /** Per socket: bursts of 20 messages, 10/s sustained. Human pace; stops relay amplification. */
 const WS_BURST = 20;
 const WS_PER_SECOND = 10;
+/** Per socket, `control` only: 4/s (docs/research/m1b-youtube-sync.md §6). */
+const CONTROL_BURST = 4;
+const CONTROL_PER_SECOND = 4;
 /** Per address: 5 shares at once, then one every 3 s. */
 const SHARE_BURST = 5;
 const SHARE_PER_SECOND = 1 / 3;
@@ -119,8 +125,8 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     const embed = canonicalizeEmbed(parsed.output.url);
     if (embed === null) return fail(400, "unsupported_url", "not a supported video URL");
 
-    room.setEmbed(embed);
-    server.publish(room.topic, encode({ type: "embed-changed", embed, by: null }));
+    const playback = room.setEmbed(embed);
+    server.publish(room.topic, encode({ type: "embed-changed", embed, by: null, playback }));
     const body: ShareResponse = { ok: true, embed };
     return c.json(body);
   });
@@ -149,6 +155,11 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
 
   const handle = (ws: Conn, msg: ClientMessage): void => {
     const { room, memberId } = ws.data;
+    if (msg.type === "ping") {
+      // Clock sample: sender only, allowed before join. The token bucket already counted it.
+      ws.send(encode({ type: "pong", id: msg.id, at: Date.now() }));
+      return;
+    }
     if (msg.type === "join") {
       if (memberId !== null) {
         sendError(ws, "already_joined", "already joined");
@@ -186,11 +197,21 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       case "chat":
         server.publish(room.topic, encode({ type: "chat", memberId, text: msg.text, at: Date.now() }));
         return;
-      case "ping":
-      case "control":
-        // Contract only (OME-83); the M1b server issue implements these. Same reply as before they parsed.
-        sendError(ws, "bad_message", "invalid message");
+      case "control": {
+        if (!ws.data.controlBucket.take()) {
+          if (!ws.data.controlLimited) sendError(ws, "rate_limited", "too many playback changes, slow down");
+          ws.data.controlLimited = true;
+          return;
+        }
+        ws.data.controlLimited = false;
+        const playback = room.control(memberId, msg);
+        if (playback === null) {
+          sendError(ws, "no_embed", "that video is not playing here");
+          return;
+        }
+        server.publish(room.topic, encode({ type: "playback", playback }));
         return;
+      }
     }
   };
 
@@ -209,7 +230,16 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       const ip = ipOf(req);
       const open = connectionsPerIp.get(ip) ?? 0;
       if (open >= maxConnectionsPerIp) return new Response("too many connections", { status: 429 });
-      const data: ConnData = { room, ip, memberId: null, bucket: new TokenBucket(WS_BURST, WS_PER_SECOND), limited: false, joinTimer: null };
+      const data: ConnData = {
+        room,
+        ip,
+        memberId: null,
+        bucket: new TokenBucket(WS_BURST, WS_PER_SECOND),
+        limited: false,
+        controlBucket: new TokenBucket(CONTROL_BURST, CONTROL_PER_SECOND),
+        controlLimited: false,
+        joinTimer: null,
+      };
       if (!srv.upgrade(req, { data })) return new Response("expected a WebSocket upgrade", { status: 426 });
       connectionsPerIp.set(ip, open + 1);
       return undefined;

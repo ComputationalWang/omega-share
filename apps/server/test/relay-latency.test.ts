@@ -44,5 +44,12 @@ test(`control → playback relay with a full room stays within ${String(BUDGET_M
 });
 
 test("control mode needs an embed in the room", async () => {
-  await expect(measureRelayLatency({ url: t.ws(), clients: 2, samples: 2, action: "control" })).rejects.toThrow(/embed/);
+  let error: unknown = null;
+  try {
+    await measureRelayLatency({ url: t.ws(), clients: 2, samples: 2, action: "control" });
+  } catch (e) {
+    error = e;
+  }
+  expect(error).toBeInstanceOf(Error);
+  expect(String(error)).toMatch(/needs an embed/);
 });
