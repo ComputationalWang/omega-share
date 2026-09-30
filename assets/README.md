@@ -216,8 +216,12 @@ follow the same rule: **wood = shared**. Two new materials each have one job: **
 - **Seek-only hint:** for a provider that can't nudge its playback rate, drift is fixed with small jumps. Add
   `<span class="ui-hint" title="…"><span class="ui-sprite ui-glyph-hop"></span><span class="ui-hint-text">syncs by skipping</span></span>`
   just before the plate. It's static and never animates. At 1× (`.ui-room`) it's **glyph-only by default**: the words are visually
-  hidden but kept for screen readers, and the `title` spells them out. Add `.wordy` to show them anyway. When a viewer is jumped back into sync, add `.resynced` to their tag
-  with a `.ui-sprite.ui-resync` inside (left of the tag with a 2 art px gap, clear of the name) and remove it after 1 s, optionally with a system line
+  hidden but kept for screen readers, and the `title` spells them out. Add `.wordy` to show them anyway.
+  **Wiring:** always render `.ui-hint-text` with the full words (don't drop it at 1×; the CSS hides it visually, and `display: none`
+  would hide it from screen readers too). Set the chip's `title` to the longer sentence, e.g. "This source can't change speed, so it
+  keeps in sync with small jumps." Don't add an `aria-label` to the chip, because it would replace the text screen readers already read.
+  Keep `glyph/hop` decorative (`aria-hidden="true"` on the sprite span). The chip isn't focusable, so the `title` is for mouse users only. When a viewer is jumped back into sync, add `.resynced` to their tag
+  with a `.ui-sprite.ui-resync` inside (left of the tag, clear of the name: the CSS moves it 1 art px left and its art keeps 1 empty column, so the visible gap is 2 art px, 4 screen px at 2×) and remove it after 1 s, optionally with a system line
   (`glyph/hop` · "**Oli** skipped ahead to stay in sync"). Buffering and ads still use the set (e) hourglass.
 - **Provider plate:** `<span class="ui-plate"><span class="ui-sprite ui-glyph-src-live"></span><span class="ui-plate-name">Twitch</span></span>`.
   The name is **plain text in the system font, in plum on brass**: never a provider's logo, colour or lettering, and never an image of a name.
