@@ -1,6 +1,6 @@
 // TV frame (OME-94/98): at a 360 px phone viewport the bezel and shelf drop their side ink (.compact), nothing scrolls
 // sideways, nothing of ours covers the player, and the player keeps YouTube's minimum size. At 1280 px the full frame shows.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/csp";
 import type { Page } from "@playwright/test";
 import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "./support/apps";

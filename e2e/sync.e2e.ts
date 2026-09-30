@@ -2,7 +2,7 @@
 // against the fake iframe_api (OME-85). Spread = max − min of (expected − actual) across clients, 2 s after an
 // action; each client stamps its own sample with wall-clock time, which the server shares on localhost.
 // Runs in its own Playwright project after `e2e`, one worker, because every spec shares the lobby.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/csp";
 import type { Page, TestInfo } from "@playwright/test";
 import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "./support/apps";
@@ -229,7 +229,7 @@ test.describe("M1b sync, 8 clients", () => {
     }
   });
 
-  test("the CSP blocks a non-allowlisted script", async ({ browser }) => {
+  test("the CSP blocks a non-allowlisted script", async ({ browser, csp }) => {
     clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 1, nicknamePrefix: "csp" });
     const { page } = only(clients);
     // If CSP let them through, these would run and bump the counter.
@@ -269,6 +269,9 @@ test.describe("M1b sync, 8 clients", () => {
         "script-src-elem inline",
       ]),
     );
+    // Provoked on purpose, so take them off the zero-violation fixture's list (OME-191).
+    await expect.poll(() => csp.enforced.length).toBe(3);
+    expect(csp.drain().map((v) => `${v.effectiveDirective} ${v.blockedURI}`)).toEqual(blocked.violations);
   });
 
   test("our tab URL is unchanged after a player popup", async ({ browser, request }) => {

@@ -7,6 +7,7 @@ import { PENDING, URLS, available } from "./support/apps";
 import { rawSnapshot, spawnBots } from "./support/bots";
 import { expect, test } from "./support/extension";
 import { EMBED_URL, VIDEO_ID, gotoFixture, stubExternalNetwork } from "./support/network";
+import { watchCsp } from "./support/csp";
 import { clickSettled } from "./support/room";
 import { popup, site } from "./support/selectors";
 import { joinForToken, postShare } from "./support/share";
@@ -22,7 +23,7 @@ interface SiteClient {
 
 /** Opens the room as a new person. Doesn't wait for the stage: a full room never shows it. */
 async function arrive(browser: Browser, nickname: string, avatar: number): Promise<SiteClient> {
-  const context = await browser.newContext();
+  const context = await watchCsp(await browser.newContext());
   await stubExternalNetwork(context);
   const page = await context.newPage();
   await page.goto(ROOM_URL);

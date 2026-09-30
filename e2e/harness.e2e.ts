@@ -1,5 +1,5 @@
 // Harness self-checks: fixture pages are served and external network is stubbed.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/csp";
 import { EMBED_URL, WATCH_URL, gotoFixture, stubExternalNetwork } from "./support/network";
 
 test.beforeEach(async ({ context }) => {

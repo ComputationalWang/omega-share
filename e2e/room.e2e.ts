@@ -1,6 +1,6 @@
 // Multiplayer smoke: several clients join one room with distinct nicknames/avatars.
 // M1a has only the default room; unknown room ids 404 on the server by design (OME-5).
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/csp";
 import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "./support/apps";
 import { joinRoom, leaveAll } from "./support/room";

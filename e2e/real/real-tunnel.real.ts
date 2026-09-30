@@ -6,7 +6,8 @@ import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chromium, expect, test } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import { expect, test, watchCsp } from "../support/csp";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { DEFAULT_ROOM_ID, SHARE_TOKEN_STORAGE_KEY } from "@omega/shared";
 import { EXTENSION_DIR, URLS } from "../support/apps";
@@ -31,7 +32,7 @@ const SKIP_WARNING: Record<string, string> = NGROK ? { "ngrok-skip-browser-warni
  * to the tunnel get the header: context-wide `extraHTTPHeaders` also reach the providers, and YouTube's player won't start.
  */
 async function skipping(b: Browser): Promise<BrowserContext> {
-  const context = await b.newContext();
+  const context = await watchCsp(await b.newContext());
   if (NGROK) await context.route(`${origin()}/**`, (route) => route.continue({ headers: { ...route.request().headers(), ...SKIP_WARNING } }));
   return context;
 }
@@ -138,7 +139,7 @@ test("tunnel-2 · the extension, configured with the tunnel URL, shares; a secon
   const granted: unknown[] = Array.isArray(listed) ? listed : [];
   writeFileSync(manifestPath, JSON.stringify({ ...manifest, host_permissions: [...granted, `${origin()}/*`] }));
 
-  const ext = await chromium.launchPersistentContext("", { channel: "chromium", headless: false, args: [`--disable-extensions-except=${dir}`, `--load-extension=${dir}`] });
+  const ext = await watchCsp(await chromium.launchPersistentContext("", { channel: "chromium", headless: false, args: [`--disable-extensions-except=${dir}`, `--load-extension=${dir}`] }));
   const other: Browser = await chromium.launch({ headless: false });
   try {
     const sw = ext.serviceWorkers()[0] ?? (await ext.waitForEvent("serviceworker"));
@@ -292,7 +293,7 @@ test("tunnel-5 · ngrok only: a first-time browser visitor gets the interstitial
   const withHeader = await probe({ "ngrok-skip-browser-warning": "1" });
   const fresh: Browser = await chromium.launch({ headless: false });
   try {
-    const a = await enterVia(await fresh.newContext(), "tunnel-fresh");
+    const a = await enterVia(await watchCsp(await fresh.newContext()), "tunnel-fresh");
     // After *Visit Site* the room works as usual: the WebSocket is up (the member got a share token).
     const token = await tokenOf(a.page);
     const again = await a.page.goto(`${origin()}${ROOM_PATH}`);

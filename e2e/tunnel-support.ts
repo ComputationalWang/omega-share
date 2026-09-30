@@ -8,7 +8,8 @@ import { request } from "node:https";
 import type { Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test as base, chromium, type Browser, type BrowserContext } from "@playwright/test";
+import { chromium, type Browser, type BrowserContext } from "@playwright/test";
+import { test as base, watchCsp } from "./support/csp";
 import { PORTS, ROOT } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { EVIL_HOST, PUBLIC_HOST, startTunnelProxy, type TunnelProxy } from "./fixtures/proxy";
@@ -253,7 +254,7 @@ export const test = base.extend<TunnelTestFixtures, TunnelWorkerFixtures>({
   newTunnelContext: async ({ tunnelBrowser }, use) => {
     const opened: BrowserContext[] = [];
     await use(async () => {
-      const context = await tunnelBrowser.newContext({ ignoreHTTPSErrors: true });
+      const context = await watchCsp(await tunnelBrowser.newContext({ ignoreHTTPSErrors: true }));
       await passTunnelHosts(context);
       opened.push(context);
       return context;

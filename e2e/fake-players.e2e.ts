@@ -1,5 +1,5 @@
 // Harness self-checks for the fake Twitch and Vimeo SDKs (OME-121): served at the real URLs over the stubbed network, real Chromium, real time.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/csp";
 import type { Page } from "@playwright/test";
 import { stubExternalNetwork } from "./support/network";
 

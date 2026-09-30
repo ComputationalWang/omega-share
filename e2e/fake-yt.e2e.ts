@@ -1,5 +1,5 @@
 // Harness self-checks for the fake YouTube IFrame API (OME-85): served over the stubbed network, real Chromium, real time.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/csp";
 import type { Page } from "@playwright/test";
 import { VIDEO_ID, stubExternalNetwork } from "./support/network";
 

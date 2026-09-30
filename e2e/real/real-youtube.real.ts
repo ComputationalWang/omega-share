@@ -6,7 +6,8 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { playbackCaps } from "@omega/shared";
-import { chromium, expect, test } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import { expect, test, watchCsp } from "../support/csp";
 import type { Browser, Page } from "@playwright/test";
 import type { PlaybackView } from "../../apps/web/src/controls/playback";
 import { BURST_FAST, BURST_SLOW, initialRateMode, nextRateMode } from "../../apps/web/src/sync";
@@ -27,7 +28,7 @@ const view = (page: Page): Promise<PlaybackView | null> => page.evaluate(() => w
 test.setTimeout(180_000);
 
 test("8 · path-scoped CSP loads the current www-widgetapi.js; 4 · nocookie host plays with the API attached", async ({ browser, request }) => {
-  const ctx = await browser.newContext();
+  const ctx = await watchCsp(await browser.newContext());
   const probe = await ctx.newPage();
   const w = await watchPage(probe);
   await probe.goto(ROOM_URL);
@@ -65,7 +66,7 @@ test("8 · path-scoped CSP loads the current www-widgetapi.js; 4 · nocookie hos
 
 test("5 · effective rate at 1.05: getCurrentTime slope over 30 s + video.playbackRate; which rung is active", async ({ browser, request }) => {
   // (a) Raw player, outside the sync loop: attach the API to a nocookie iframe on a localhost page, like tvFrame() does.
-  const ctx = await browser.newContext();
+  const ctx = await watchCsp(await browser.newContext());
   const page = await ctx.newPage();
   await page.goto(`${ROOM_URL.replace(/\/r\/.*$/, "")}/`);
   const setup = await page.evaluate(async (id) => {
@@ -146,8 +147,8 @@ test("5 · effective rate at 1.05: getCurrentTime slope over 30 s + video.playba
   record("05-rate-raw", { availableRates: setup, at1, at105, rungAfterCheck, loopCheckReplay: replay, falseDowngrades: replay.filter((x) => x.rung !== "fine").length, offGrid });
 
   // (b) In the room: push one client ~600 ms ahead (inside the 1 s seek threshold) and watch what the sync loop does.
-  const a = await enter(await browser.newContext(), "real-rate-a");
-  const b = await enter(await browser.newContext(), "real-rate-b");
+  const a = await enter(await watchCsp(await browser.newContext()), "real-rate-a");
+  const b = await enter(await watchCsp(await browser.newContext()), "real-rate-b");
   try {
     await share(request, BASELINE_ID);
     const fa = await ytFrame(a.page, BASELINE_ID);
@@ -193,7 +194,7 @@ test("5 · effective rate at 1.05: getCurrentTime slope over 30 s + video.playba
 
 test("3 · sound after Enter room (Playwright, real click)", async ({ browser, request }) => {
   await share(request, BASELINE_ID);
-  const a = await enter(await browser.newContext(), "real-sound");
+  const a = await enter(await watchCsp(await browser.newContext()), "real-sound");
   try {
     const fa = await ytFrame(a.page, BASELINE_ID);
     await waitVideoPlaying(fa);
@@ -260,7 +261,7 @@ test("3 · muted fallback + Unmute (raw-CDP Chromium with no user activation)", 
 });
 
 test("2 · embedding-disabled and age-restricted videos show a clear notice", async ({ browser, request }) => {
-  const a = await enter(await browser.newContext(), "real-errors");
+  const a = await enter(await watchCsp(await browser.newContext()), "real-errors");
   interface Case { id: string; played: boolean; inPlayer: string; siteNotices: string[]; view: PlaybackView | null }
   const results: Record<string, Case> = {};
   try {
@@ -294,8 +295,8 @@ test("2 · embedding-disabled and age-restricted videos show a clear notice", as
 });
 
 test("6 · buffering under Slow 4G doesn't pause the room; the slow client catches up", async ({ browser, request }) => {
-  const a = await enter(await browser.newContext(), "real-fast");
-  const b = await enter(await browser.newContext(), "real-slow4g");
+  const a = await enter(await watchCsp(await browser.newContext()), "real-fast");
+  const b = await enter(await watchCsp(await browser.newContext()), "real-slow4g");
   try {
     await share(request, BASELINE_ID);
     const fa = await ytFrame(a.page, BASELINE_ID);
@@ -341,8 +342,8 @@ test("7 · two separate browsers (own profiles): spread", async ({ request }) =>
   const one: Browser = await chromium.launch({ headless: false });
   const two: Browser = await chromium.launch({ headless: false });
   try {
-    const a = await enter(await one.newContext(), "real-browser-1");
-    const b = await enter(await two.newContext(), "real-browser-2");
+    const a = await enter(await watchCsp(await one.newContext()), "real-browser-1");
+    const b = await enter(await watchCsp(await two.newContext()), "real-browser-2");
     await share(request, BASELINE_ID);
     const fa = await ytFrame(a.page, BASELINE_ID);
     const fb = await ytFrame(b.page, BASELINE_ID);
@@ -368,8 +369,8 @@ test("7 · two separate browsers (own profiles): spread", async ({ request }) =>
 
 test("1 · pre-roll ad on a monetized video: the room doesn't pause; the client catches up", async ({ browser, request }) => {
   test.setTimeout(600_000);
-  const a = await enter(await browser.newContext(), "real-ad-a");
-  const b = await enter(await browser.newContext(), "real-ad-b");
+  const a = await enter(await watchCsp(await browser.newContext()), "real-ad-a");
+  const b = await enter(await watchCsp(await browser.newContext()), "real-ad-b");
   const attempts: unknown[] = [];
   try {
     for (const id of AD_IDS) {
@@ -397,7 +398,7 @@ test("1 · pre-roll ad on a monetized video: the room doesn't pause; the client 
     // nocookie host is what keeps pre-rolls away, and the room path stays covered only by the fake player's ad(ms).
     const control: { id: string; sawAd: boolean; played: boolean }[] = [];
     if (!attempts.some((x) => (x as { sawAd: boolean }).sawAd)) {
-      const ctx = await browser.newContext();
+      const ctx = await watchCsp(await browser.newContext());
       const page = await ctx.newPage();
       await page.goto(`${ROOM_URL.replace(/\/r\/.*$/, "")}/`);
       for (const id of AD_IDS) {

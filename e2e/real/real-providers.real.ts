@@ -1,7 +1,8 @@
 // Opt-in real Twitch / Vimeo checks for the M2 sign-off (OME-133): `bun run e2e:real`. Real network, headed, never in CI.
 // Checklist and how to read the results: docs/qa/m2-real-sign-off.md. Evidence: e2e/real/results/m2-<item>.json (+ .png).
 // The fake-SDK suites (e2e/provider-sync.e2e.ts, e2e/vimeo.e2e.ts) prove the logic; this proves the real players obey it.
-import { chromium, expect, test } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import { expect, test, watchCsp } from "../support/csp";
 import type { Browser, Frame } from "@playwright/test";
 import { site } from "../support/selectors";
 import { REAL, arrival, mediaSpread, providerFrame, sampleMedia, seekTo, siteNotices, twitchLiveUrl, twitchVodUrl, view, vimeoUrl, waitMediaPlaying } from "./providers";
@@ -19,8 +20,8 @@ async function twoBrowsers(prefix: string): Promise<{ browsers: Browser[]; a: Cl
   const browsers = [await chromium.launch({ headless: false }), await chromium.launch({ headless: false })];
   const [one, two] = browsers;
   if (one === undefined || two === undefined) throw new Error("no browsers");
-  const a = await enter(await one.newContext(), `${prefix}-1`);
-  const b = await enter(await two.newContext(), `${prefix}-2`);
+  const a = await enter(await watchCsp(await one.newContext()), `${prefix}-1`);
+  const b = await enter(await watchCsp(await two.newContext()), `${prefix}-2`);
   return { browsers, a, b };
 }
 
@@ -145,7 +146,7 @@ test("M2-twitch-live · pause and play-from-live reach both browsers; no scrubbe
 });
 
 test("M2-refused · refused, gone, offline and mature-gated embeds: the site says why and freezes the transport", async ({ browser, request }) => {
-  const a = await enter(await browser.newContext(), "real-refused");
+  const a = await enter(await watchCsp(await browser.newContext()), "real-refused");
   interface Case { url: string; played: boolean; overlay: string; siteNotices: string[]; playing: boolean | null; canControl: boolean | null; error: unknown }
   const cases: (readonly [name: string, provider: RealProvider, url: string, frameId: string])[] = [
     ["vimeo-gone", "vimeo", vimeoUrl(REAL.vimeoGone), REAL.vimeoGone],

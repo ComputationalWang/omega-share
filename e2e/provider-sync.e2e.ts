@@ -2,7 +2,7 @@
 // adapters (OME-125, OME-126) against the fake SDKs (OME-121). Spread = max − min of (expected − actual) 2 s after
 // each action, as in sync.e2e.ts; Twitch live has no position, so there it is when the pause / play-from-live landed
 // on each client (perf/spread.ts arrivalSpread). Runs in the `e2e-sync` project: every case re-shares the lobby.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/csp";
 import type { BrowserContext, TestInfo } from "@playwright/test";
 import { DEFAULT_ROOM_ID, parseServerMessage } from "@omega/shared";
 import { PENDING, URLS, available } from "./support/apps";

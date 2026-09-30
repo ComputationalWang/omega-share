@@ -1,5 +1,6 @@
 // Chromium persistent context with the unpacked extension loaded, plus a popup opener.
-import { test as base, chromium, type BrowserContext, type Page, type Worker } from "@playwright/test";
+import { chromium, type BrowserContext, type Page, type Worker } from "@playwright/test";
+import { test as base, watchCsp } from "./csp";
 import { EXTENSION_DIR, URLS, extensionBuildError } from "./apps";
 import { stubExternalNetwork } from "./network";
 
@@ -25,11 +26,11 @@ export const test = base.extend<ExtensionFixtures>({
   context: async ({}, use) => {
     const missing = extensionBuildError();
     if (missing !== null) throw new Error(missing);
-    const context = await chromium.launchPersistentContext("", {
+    const context = await watchCsp(await chromium.launchPersistentContext("", {
       channel: "chromium", // new headless mode, which supports extensions
       baseURL: URLS.fixtures,
       args: [`--disable-extensions-except=${EXTENSION_DIR}`, `--load-extension=${EXTENSION_DIR}`],
-    });
+    }));
     await stubExternalNetwork(context);
     await use(context);
     await context.close();

@@ -23,6 +23,7 @@ import {
   tunnelUpgrade,
 } from "./tunnel-support";
 import { chromium } from "@playwright/test";
+import { watchCsp } from "./support/csp";
 
 const ROOM = DEFAULT_ROOM_ID;
 const ROOM_PATH = `/r/${ROOM}`;
@@ -300,11 +301,11 @@ test.describe("tunnel safety through the local reverse proxy", () => {
     const granted: unknown[] = Array.isArray(listed) ? listed : [];
     writeFileSync(manifestPath, JSON.stringify({ ...manifest, host_permissions: [...granted, `${PUBLIC_ORIGIN}/*`] }));
 
-    const context = await chromium.launchPersistentContext("", {
+    const context = await watchCsp(await chromium.launchPersistentContext("", {
       channel: "chromium",
       ignoreHTTPSErrors: true,
       args: [`--disable-extensions-except=${dir}`, `--load-extension=${dir}`, ...TUNNEL_BROWSER_ARGS],
-    });
+    }));
     try {
       await passTunnelHosts(context);
       const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));

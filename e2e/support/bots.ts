@@ -2,6 +2,7 @@
 // Use them to fill seats or the room without paying for a full site client each.
 import type { Browser, BrowserContext } from "@playwright/test";
 import { URLS } from "./apps";
+import { watchCsp } from "./csp";
 
 export interface BotSpec {
   readonly nickname: string;
@@ -26,7 +27,7 @@ export function socketUrl(roomId: string): string {
 
 /** Joins `specs` one by one; stops at the first `room-full`. Bots stay connected until `close()`. */
 export async function spawnBots(browser: Browser, roomId: string, specs: readonly BotSpec[]): Promise<Bots> {
-  const context: BrowserContext = await browser.newContext();
+  const context: BrowserContext = await watchCsp(await browser.newContext());
   const page = await context.newPage();
   await page.goto(URLS.web);
   const result = await page.evaluate(
@@ -64,7 +65,7 @@ export async function spawnBots(browser: Browser, roomId: string, specs: readonl
 
 /** The room as the server sees it: joins as a throwaway observer, then leaves. Returns the raw snapshot frame. */
 export async function rawSnapshot(browser: Browser, roomId: string): Promise<string> {
-  const context = await browser.newContext();
+  const context = await watchCsp(await browser.newContext());
   try {
     const page = await context.newPage();
     await page.goto(URLS.web);
@@ -152,7 +153,7 @@ function parseStats(x: unknown): TrafficStats {
  * latency. Each bot stays well under the server's 10 msg/s per-socket limit. Resolves once every bot has joined.
  */
 export async function startTraffic(browser: Browser, roomId: string, opts: TrafficOptions): Promise<Traffic> {
-  const context = await browser.newContext();
+  const context = await watchCsp(await browser.newContext());
   const page = await context.newPage();
   await page.goto(URLS.web);
   await page.evaluate(

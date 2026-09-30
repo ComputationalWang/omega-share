@@ -3,7 +3,7 @@
 // - the real, pinned player.js (fixtures/vimeo-real-sdk): forged {event:"pause"} messages from the wrong origin or
 //   source are dropped by the SDK, and the same event from our own iframe becomes a room pause.
 // Runs in the `e2e-sync` project (one worker, after `e2e`) because every case shares a Vimeo video into the lobby.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/csp";
 import type { Frame, Page } from "@playwright/test";
 import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "./support/apps";

@@ -3,6 +3,7 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { Socket } from "node:net";
 import { chromium } from "@playwright/test";
+import { watchCsp } from "./support/csp";
 import { EVIL_HOST, PUBLIC_HOST, startTunnelProxy, type TunnelProxy } from "./fixtures/proxy";
 import { TUNNEL_PORTS, expect, passTunnelHosts, test, tunnelRequest, tunnelUpgrade } from "./tunnel-support";
 
@@ -119,7 +120,7 @@ test.describe("tunnel proxy fixture", () => {
       args: [`--host-resolver-rules=MAP ${PUBLIC_HOST} 127.0.0.1:${String(PROXY_PORT)}`],
     });
     try {
-      const context = await browser.newContext({ ignoreHTTPSErrors: true });
+      const context = await watchCsp(await browser.newContext({ ignoreHTTPSErrors: true }));
       await passTunnelHosts(context);
       const page = await context.newPage();
       const res = await page.goto(`https://${PUBLIC_HOST}/page`);

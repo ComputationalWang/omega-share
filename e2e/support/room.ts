@@ -1,6 +1,7 @@
 // N browser contexts joining one room with different nicknames and avatars.
 import type { Browser, BrowserContext, Locator, Page } from "@playwright/test";
 import { site } from "./selectors";
+import { watchCsp } from "./csp";
 import { stubExternalNetwork } from "./network";
 
 export interface Client {
@@ -22,7 +23,7 @@ export interface JoinOptions {
 export async function joinRoom(browser: Browser, { roomUrl, count, nicknamePrefix = "tester", setup }: JoinOptions): Promise<Client[]> {
   return Promise.all(
     Array.from({ length: count }, async (_, i) => {
-      const context = await browser.newContext();
+      const context = await watchCsp(await browser.newContext());
       await stubExternalNetwork(context);
       await setup?.(context, i);
       const page = await context.newPage();
