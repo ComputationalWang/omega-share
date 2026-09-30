@@ -84,6 +84,78 @@ function headerBlock(req: IncomingMessage): string {
   return `${lines.join("\r\n")}\r\n\r\n`;
 }
 
-export function startTunnelProxy(_opts: ProxyOptions): Promise<TunnelProxy> {
-  return Promise.reject(new Error("not implemented"));
+export async function startTunnelProxy({ port, upstreamPort }: ProxyOptions): Promise<TunnelProxy> {
+  let mode: ProxyMode = "forward";
+  const sockets = new Set<Socket>();
+  const server = createServer(makeTestCertificate());
+
+  server.on("connection", (socket: Socket) => {
+    if (mode === "down") {
+      socket.destroy();
+      return;
+    }
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+
+  server.on("request", (req, res) => {
+    if (hostName(req) === EVIL_HOST) {
+      res.writeHead(200, { "content-type": "text/html" }).end(EVIL_PAGE);
+      return;
+    }
+    if (mode === "offline") {
+      res.writeHead(404, { "content-type": "text/html", "ngrok-error-code": "ERR_NGROK_3200" }).end(OFFLINE_PAGE);
+      return;
+    }
+    const upstream = request(
+      { host: "127.0.0.1", port: upstreamPort, method: req.method, path: req.url, headers: forwardedHeaders(req) },
+      (up) => {
+        res.writeHead(up.statusCode ?? 502, up.rawHeaders);
+        up.pipe(res);
+      },
+    );
+    upstream.on("error", () => {
+      if (!res.headersSent) res.writeHead(502, { "content-type": "text/plain" });
+      res.end("bad gateway");
+    });
+    req.pipe(upstream);
+  });
+
+  server.on("upgrade", (req: IncomingMessage, client: Socket, head: Buffer) => {
+    if (mode !== "forward" || hostName(req) === EVIL_HOST) {
+      client.end("HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\n\r\n");
+      return;
+    }
+    const upstream = connect(upstreamPort, "127.0.0.1", () => {
+      upstream.write(headerBlock(req));
+      if (head.length > 0) upstream.write(head);
+      upstream.pipe(client);
+      client.pipe(upstream);
+    });
+    const drop = (): void => {
+      upstream.destroy();
+      client.destroy();
+    };
+    upstream.on("error", drop);
+    client.on("error", drop);
+    upstream.on("close", drop);
+    client.on("close", drop);
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", resolve);
+  });
+  return {
+    port,
+    setMode(next) {
+      mode = next;
+      if (next !== "forward") for (const s of sockets) s.destroy();
+    },
+    close: () =>
+      new Promise<void>((resolve) => {
+        for (const s of sockets) s.destroy();
+        server.close(() => resolve());
+      }),
+  };
 }
