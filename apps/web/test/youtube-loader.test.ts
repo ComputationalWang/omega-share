@@ -7,7 +7,7 @@ interface Timer {
   cleared: boolean;
 }
 
-function env(win: Record<string, unknown> = {}) {
+function env(win: { YT?: unknown; onYouTubeIframeAPIReady?: unknown } = {}) {
   const scripts: { src: string; onError: () => void }[] = [];
   const timers: Timer[] = [];
   const e: LoaderEnv<Timer> = {
@@ -25,7 +25,13 @@ function env(win: Record<string, unknown> = {}) {
   return { e, win, scripts, timers };
 }
 
-const validYT = () => ({ Player: function Player() {} });
+const validYT = (): unknown => ({ Player: () => undefined });
+
+function fireReady(win: { onYouTubeIframeAPIReady?: unknown }): void {
+  const f = win.onYouTubeIframeAPIReady;
+  expect(typeof f).toBe("function");
+  if (typeof f === "function") (f as () => void)();
+}
 
 describe("youtube loader", () => {
   test("injects the iframe_api script once per page, however many callers", async () => {
@@ -37,9 +43,7 @@ describe("youtube loader", () => {
     expect(scripts.map((s) => s.src)).toEqual([IFRAME_API_URL]);
     expect(IFRAME_API_URL).toBe("https://www.youtube.com/iframe_api");
     win.YT = validYT();
-    const ready = win.onYouTubeIframeAPIReady;
-    expect(typeof ready).toBe("function");
-    if (typeof ready === "function") ready();
+    fireReady(win);
     const r = await a;
     expect(r.ok).toBe(true);
     expect(scripts).toHaveLength(1);
@@ -50,10 +54,11 @@ describe("youtube loader", () => {
     const p = createYouTubeLoader(e)();
     const yt = validYT();
     win.YT = yt;
-    const ready = win.onYouTubeIframeAPIReady;
-    if (typeof ready === "function") ready();
+    fireReady(win);
     const r = await p;
-    expect(r).toEqual({ ok: true, yt });
+    expect(r.ok).toBe(true);
+    const got: unknown = r.ok ? r.yt : null;
+    expect(got).toBe(yt);
     expect(timers[0]?.cleared).toBe(true);
   });
 
@@ -62,8 +67,7 @@ describe("youtube loader", () => {
     const { e, win } = env({ onYouTubeIframeAPIReady: () => called++ });
     const p = createYouTubeLoader(e)();
     win.YT = validYT();
-    const ready = win.onYouTubeIframeAPIReady;
-    if (typeof ready === "function") ready();
+    fireReady(win);
     await p;
     expect(called).toBe(1);
   });
@@ -72,7 +76,9 @@ describe("youtube loader", () => {
     const yt = validYT();
     const { e, scripts } = env({ YT: yt });
     const r = await createYouTubeLoader(e)();
-    expect(r).toEqual({ ok: true, yt });
+    expect(r.ok).toBe(true);
+    const got: unknown = r.ok ? r.yt : null;
+    expect(got).toBe(yt);
     expect(scripts).toEqual([]);
   });
 
@@ -97,8 +103,7 @@ describe("youtube loader", () => {
     const { e, win } = env();
     const p = createYouTubeLoader(e)();
     win.YT = { Player: "nope" };
-    const ready = win.onYouTubeIframeAPIReady;
-    if (typeof ready === "function") ready();
+    fireReady(win);
     expect(await p).toEqual({ ok: false, reason: "invalid" });
   });
 

@@ -1,0 +1,289 @@
+import type { PlaybackState } from "@omega/shared";
+import type { PlayerAdapter, PlayerState } from "./player/adapter";
+
+// Thresholds: ADR 0011, research §1.2–§1.3.
+export const SYNC_INTERVAL_MS = 250;
+export const DEAD_BAND_MS = 100;
+export const SEEK_THRESHOLD_MS = 1000;
+/** Seek threshold when the player can't change rate at all. */
+export const SEEK_ONLY_THRESHOLD_MS = 500;
+/** Drift is only trusted after the player has been playing this long. */
+export const STABLE_MS = 500;
+export const MAX_NUDGE = 0.1;
+/** Nudge = 1 ± min(MAX_NUDGE, |drift| / NUDGE_SPAN_MS). */
+export const NUDGE_SPAN_MS = 5000;
+/** How long a nudge runs before we check the media really plays at that rate. */
+export const RATE_CHECK_MS = 2000;
+/** A slope closer to 1 than this means the requested rate isn't applied. */
+export const RATE_EFFECT_MIN = 0.01;
+export const BURST_SLOW = 0.75;
+export const BURST_FAST = 1.25;
+const SEEK_LATENCY_ALPHA = 0.25;
+const MAX_SEEK_LATENCY_MS = 2000;
+
+/** fine: 1 ± ≤10 %; burst: 0.75/1.25 only; seek-only: no rate changes, seek above 500 ms. */
+export type RateMode = "fine" | "burst" | "seek-only";
+
+export type Correction =
+  | { readonly kind: "none" }
+  | { readonly kind: "play" }
+  | { readonly kind: "pause" }
+  /** Seek, then play or pause to match the room. */
+  | { readonly kind: "seek"; readonly to: number; readonly play: boolean }
+  | { readonly kind: "rate"; readonly rate: number };
+
+const NONE: Correction = { kind: "none" };
+const PLAY: Correction = { kind: "play" };
+const PAUSE: Correction = { kind: "pause" };
+const RATE_ONE: Correction = { kind: "rate", rate: 1 };
+
+/** Mutable on purpose: the loop reuses one instance per tick. */
+export interface DecideInput {
+  room: PlaybackState | null;
+  serverNowMs: number;
+  /** Seconds, as the player reports it. */
+  playerTime: number;
+  playerState: PlayerState;
+  /** How long the player has been in `playerState`, ms. */
+  stableForMs: number;
+  /** Last 3 drift samples, ms, player − room (+ = ahead). Taken only while stable-playing. */
+  samples: ArrayLike<number>;
+  sampleCount: number;
+  /** An explicit action, join or embed change is pending: seek regardless of drift. */
+  hardSeek: boolean;
+  /** The rate we last set. */
+  rate: number;
+  mode: RateMode;
+  /** Estimated time a seek takes to land while playing, ms. */
+  seekLatencyMs: number;
+}
+
+/** The room's position at server time `serverNowMs`, seconds. */
+export function expectedPosition(room: PlaybackState, serverNowMs: number): number {
+  const p = room.playing ? room.position + ((serverNowMs - room.at) / 1000) * room.rate : room.position;
+  return p > 0 ? p : 0;
+}
+
+/** Pure: what to do to the local player this tick. Returns shared constants for none/play/pause. */
+export function decide(i: DecideInput): Correction {
+  const room = i.room;
+  if (room === null || i.playerState === "ad") return NONE;
+  const expected = expectedPosition(room, i.serverNowMs);
+  if (i.hardSeek) return seekTo(expected, room, i.seekLatencyMs);
+  if (i.playerState === "buffering") return NONE;
+  if (!room.playing) {
+    if (i.playerState === "playing") return PAUSE;
+    return Math.abs(i.playerTime - expected) * 1000 > SEEK_THRESHOLD_MS ? seekTo(expected, room, 0) : NONE;
+  }
+  if (i.playerState === "ended") return NONE;
+  if (i.playerState !== "playing") return PLAY;
+  if (i.stableForMs < STABLE_MS || i.sampleCount < 3) return NONE;
+
+  const drift = median3(i.samples);
+  const abs = Math.abs(drift);
+  if (i.mode === "seek-only") {
+    if (abs > SEEK_ONLY_THRESHOLD_MS) return seekTo(expected, room, i.seekLatencyMs);
+    return i.rate !== 1 ? RATE_ONE : NONE;
+  }
+  if (abs > SEEK_THRESHOLD_MS) return seekTo(expected, room, i.seekLatencyMs);
+  if (abs <= DEAD_BAND_MS) return i.rate !== 1 ? RATE_ONE : NONE;
+  const ahead = drift > 0;
+  // Hold a nudge that already points the right way until we're back in the dead band.
+  if (ahead ? i.rate < 1 : i.rate > 1) return NONE;
+  if (i.mode === "burst") return { kind: "rate", rate: ahead ? BURST_SLOW : BURST_FAST };
+  const n = Math.min(MAX_NUDGE, abs / NUDGE_SPAN_MS);
+  return { kind: "rate", rate: ahead ? 1 - n : 1 + n };
+}
+
+function seekTo(expected: number, room: PlaybackState, latencyMs: number): Correction {
+  const to = room.playing ? expected + (latencyMs / 1000) * room.rate : expected;
+  return { kind: "seek", to, play: room.playing };
+}
+
+function median3(s: ArrayLike<number>): number {
+  const a = s[0] ?? 0;
+  const b = s[1] ?? 0;
+  const c = s[2] ?? 0;
+  return Math.max(Math.min(a, b), Math.min(Math.max(a, b), c));
+}
+
+/** Fine nudges unless the player offers nothing but 1× (live streams). */
+export function initialRateMode(rates: readonly number[]): RateMode {
+  return rates.some((r) => r !== 1) ? "fine" : "seek-only";
+}
+
+/**
+ * Fallback ladder after an effective-rate check: `slope` is how fast the player's
+ * time advanced per wall second while `requested` was set.
+ */
+export function nextRateMode(mode: RateMode, requested: number, slope: number, rates: readonly number[]): RateMode {
+  if (mode === "seek-only" || requested === 1 || Math.abs(slope - 1) >= RATE_EFFECT_MIN) return mode;
+  if (mode === "fine" && rates.includes(BURST_SLOW) && rates.includes(BURST_FAST)) return "burst";
+  return "seek-only";
+}
+
+/**
+ * EWMA of how long a seek takes to land. A seek aimed `compensationMs` ahead that
+ * then measures `residualDriftMs` took `compensation − residual` ms.
+ */
+export function updateSeekLatency(prevMs: number, compensationMs: number, residualDriftMs: number): number {
+  const sample = Math.min(MAX_SEEK_LATENCY_MS, Math.max(0, compensationMs - residualDriftMs));
+  return prevMs + SEEK_LATENCY_ALPHA * (sample - prevMs);
+}
+
+/** What the loop needs of the clock-sync module. */
+export interface SyncClock {
+  readonly ready: boolean;
+  /** Server ms now. */
+  serverNow(): number;
+}
+
+export interface SyncLoopOptions<Timer> {
+  readonly player: PlayerAdapter;
+  readonly clock: SyncClock;
+  /** Monotonic client ms. */
+  readonly now: () => number;
+  readonly setInterval: (fn: () => void, ms: number) => Timer;
+  readonly clearInterval: (t: Timer) => void;
+}
+
+export interface SyncLoop {
+  /** The room's latest playback (already rev-filtered). A new state means a hard seek. */
+  setPlayback(p: PlaybackState | null): void;
+  tick(): void;
+  start(): void;
+  stop(): void;
+  readonly mode: RateMode;
+  readonly seekLatencyMs: number;
+}
+
+/**
+ * Keeps one player in step with the room, on its own 4 Hz timer (not the PixiJS
+ * ticker). Idle until the clock is ready. No allocation per tick in steady state.
+ */
+export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
+  const p = o.player;
+  const samples = new Float64Array(3);
+  const input: DecideInput = {
+    room: null,
+    serverNowMs: 0,
+    playerTime: 0,
+    playerState: "unstarted",
+    stableForMs: 0,
+    samples,
+    sampleCount: 0,
+    hardSeek: false,
+    rate: 1,
+    mode: "fine",
+    seekLatencyMs: 0,
+  };
+  let timer: Timer | null = null;
+  let modeKnown = false;
+  let lastState: PlayerState | null = null;
+  let stateSince = 0;
+  let next = 0;
+  /** Effective-rate check: when (client ms) and where (s) the current nudge started; -1 = none. */
+  let checkFrom = -1;
+  let checkPos = 0;
+  /** Compensation used by the last seek while playing, ms; -1 = nothing to learn. */
+  let pendingComp = -1;
+
+  const unstable = (now: number) => {
+    input.sampleCount = 0;
+    next = 0;
+    stateSince = now;
+    checkFrom = -1;
+  };
+  const setRate = (r: number) => {
+    p.setRate(r);
+    input.rate = r;
+  };
+
+  function tick(): void {
+    const room = input.room;
+    if (room === null || !o.clock.ready || !p.ready()) return;
+    if (!modeKnown) {
+      input.mode = initialRateMode(p.rates());
+      modeKnown = true;
+    }
+    const now = o.now();
+    const st = p.state();
+    if (st !== lastState) {
+      lastState = st;
+      unstable(now);
+    }
+    const t = p.time();
+    const serverNow = o.clock.serverNow();
+    input.serverNowMs = serverNow;
+    input.playerTime = t;
+    input.playerState = st;
+    input.stableForMs = now - stateSince;
+    if (st === "playing" && room.playing && input.stableForMs >= STABLE_MS) {
+      samples[next] = (t - expectedPosition(room, serverNow)) * 1000;
+      next = (next + 1) % 3;
+      if (input.sampleCount < 3) input.sampleCount++;
+    }
+    if (pendingComp >= 0 && input.sampleCount === 3) {
+      input.seekLatencyMs = updateSeekLatency(input.seekLatencyMs, pendingComp, median3(samples));
+      pendingComp = -1;
+    }
+    if (checkFrom >= 0 && now - checkFrom >= RATE_CHECK_MS) {
+      const slope = (t - checkPos) / ((now - checkFrom) / 1000);
+      checkFrom = -1;
+      const m = nextRateMode(input.mode, input.rate, slope, p.rates());
+      if (m !== input.mode) {
+        input.mode = m;
+        setRate(1);
+      }
+    }
+    apply(decide(input), now, t, st);
+  }
+
+  function apply(c: Correction, now: number, t: number, st: PlayerState): void {
+    switch (c.kind) {
+      case "none":
+        return;
+      case "play":
+        p.play();
+        return;
+      case "pause":
+        p.pause();
+        return;
+      case "rate":
+        setRate(c.rate);
+        checkFrom = c.rate === 1 ? -1 : now;
+        checkPos = t;
+        return;
+      case "seek":
+        input.hardSeek = false;
+        if (input.rate !== 1) setRate(1);
+        p.seek(c.to);
+        if (c.play) p.play();
+        else p.pause();
+        pendingComp = c.play && st === "playing" ? input.seekLatencyMs : -1;
+        unstable(now);
+        return;
+    }
+  }
+
+  return {
+    setPlayback(pb) {
+      input.room = pb;
+      input.hardSeek = pb !== null;
+    },
+    tick,
+    start() {
+      timer ??= o.setInterval(tick, SYNC_INTERVAL_MS);
+    },
+    stop() {
+      if (timer !== null) o.clearInterval(timer);
+      timer = null;
+    },
+    get mode() {
+      return input.mode;
+    },
+    get seekLatencyMs() {
+      return input.seekLatencyMs;
+    },
+  };
+}

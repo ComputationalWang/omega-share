@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { PlayerEvent } from "../src/player/adapter";
+import type { PlayerEvent, PlayerState } from "../src/player/adapter";
 import { ECHO_WINDOW_MS, attachYouTube } from "../src/player/youtube";
 import { fakeYt, type FakeYtPlayer } from "./support/fake-yt";
 
@@ -84,7 +84,7 @@ describe("attachYouTube", () => {
   test("state maps the numeric player states", () => {
     const { adapter, p, ready } = setup();
     ready();
-    const table: [unknown, string][] = [
+    const table: [unknown, PlayerState][] = [
       [-1, "unstarted"],
       [0, "ended"],
       [1, "playing"],
