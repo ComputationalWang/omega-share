@@ -10,6 +10,9 @@ describe("parseServerBaseUrl", () => {
     ["http://127.0.0.1:3000", "http://127.0.0.1:3000"],
     ["http://[::1]:8787", "http://[::1]:8787"],
     ["https://example.com", "https://example.com"],
+    ["https://127.0.0.1:8443", "https://127.0.0.1:8443"],
+    ["https://[::1]:8443", "https://[::1]:8443"],
+    ["https://omega.trycloudflare.com", "https://omega.trycloudflare.com"],
   ];
   for (const [input, origin] of ok) {
     test(`accepts ${JSON.stringify(input)}`, () => {
@@ -35,6 +38,26 @@ describe("parseServerBaseUrl", () => {
     "http://abc123.ngrok-free.app",
     "http://192.168.1.10:8787",
     "http://localhost.example.com",
+    // Hostile or confusing forms a tunnel URL never has.
+    "   ",
+    "https://",
+    "https://exa\nmple.com",
+    "https://exa mple.com",
+    "http://localhost:8787@evil.com",
+    "https://user@example.com",
+    "https://:pw@example.com",
+    "https://example.com\\@evil.com",
+    "http://localhost%2eevil.com",
+    "http://0.0.0.0:8787",
+    "https://example.com.",
+    "https://example.com:0",
+    "data:text/html,<script>alert(1)</script>",
+    // A tunnel always has a name: IP literals are refused unless they are loopback.
+    "https://192.168.1.10",
+    "https://10.0.0.1:8443",
+    "https://8.8.8.8",
+    "https://[fe80::1]",
+    "https://[2001:db8::1]:8443",
   ];
   for (const input of rejected) {
     test(`rejects ${JSON.stringify(input.slice(0, 40))}`, () => {

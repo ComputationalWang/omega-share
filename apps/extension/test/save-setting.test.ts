@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { saveServerBaseUrl, type SaveDeps } from "../src/save-setting";
+import { browserSaveDeps, saveServerBaseUrl, type SaveDeps } from "../src/save-setting";
 
 interface Calls {
   requested: string[];
@@ -93,5 +93,82 @@ describe("saveServerBaseUrl", () => {
     const { deps: d, calls } = deps();
     void saveServerBaseUrl(NGROK, "http://localhost:8787", d);
     expect(calls.requested).toEqual([`${NGROK}/*`]);
+  });
+});
+
+/** A fake `chrome.permissions` + `storage.local` pair: the manifest's default origin is always granted. */
+class FakeBrowser {
+  readonly granted = new Set<string>(["http://localhost:8787/*"]);
+  readonly stored = new Map<string, unknown>();
+  answer = true;
+  readonly permissions = {
+    request: ({ origins = [] }: { origins?: string[] }): Promise<boolean> => {
+      if (this.answer) for (const o of origins) this.granted.add(o);
+      return Promise.resolve(this.answer);
+    },
+    remove: ({ origins = [] }: { origins?: string[] }): Promise<boolean> => {
+      for (const o of origins) this.granted.delete(o);
+      return Promise.resolve(true);
+    },
+  };
+  readonly storage = {
+    set: (items: Record<string, unknown>): Promise<void> => {
+      for (const [k, v] of Object.entries(items)) this.stored.set(k, v);
+      return Promise.resolve();
+    },
+  };
+}
+
+describe("options page flow against a fake chrome.permissions", () => {
+  test("switching tunnels keeps exactly one runtime grant: the current origin", async () => {
+    const b = new FakeBrowser();
+    const d = browserSaveDeps(b.permissions, b.storage);
+    let current = "http://localhost:8787";
+    for (const next of [NGROK, "https://omega.trycloudflare.com", "https://omega.example.com"]) {
+      const r = await saveServerBaseUrl(next, current, d);
+      expect(r.ok).toBe(true);
+      current = next;
+      expect([...b.granted].sort()).toEqual(["http://localhost:8787/*", `${next}/*`].sort());
+      expect(b.stored.get("serverBaseUrl")).toBe(next);
+    }
+  });
+
+  test("going back to localhost revokes the tunnel grant and keeps the manifest's", async () => {
+    const b = new FakeBrowser();
+    const d = browserSaveDeps(b.permissions, b.storage);
+    await saveServerBaseUrl(NGROK, "http://localhost:8787", d);
+    await saveServerBaseUrl("http://localhost:8787", NGROK, d);
+    expect([...b.granted]).toEqual(["http://localhost:8787/*"]);
+    expect(b.stored.get("serverBaseUrl")).toBe("http://localhost:8787");
+  });
+
+  test("re-saving the same origin keeps its grant", async () => {
+    const b = new FakeBrowser();
+    const d = browserSaveDeps(b.permissions, b.storage);
+    await saveServerBaseUrl(NGROK, "http://localhost:8787", d);
+    await saveServerBaseUrl(`${NGROK}/`, NGROK, d);
+    expect(b.granted.has(`${NGROK}/*`)).toBe(true);
+  });
+
+  test("a denied prompt keeps the old origin, its grant and the stored value", async () => {
+    const b = new FakeBrowser();
+    const d = browserSaveDeps(b.permissions, b.storage);
+    await saveServerBaseUrl(NGROK, "http://localhost:8787", d);
+    b.answer = false;
+    const r = await saveServerBaseUrl("https://omega.example.com", NGROK, d);
+    expect(r.ok).toBe(false);
+    expect([...b.granted].sort()).toEqual(["http://localhost:8787/*", `${NGROK}/*`].sort());
+    expect(b.stored.get("serverBaseUrl")).toBe(NGROK);
+  });
+
+  test("a hostile URL never reaches chrome.permissions", async () => {
+    const b = new FakeBrowser();
+    let prompts = 0;
+    const d = browserSaveDeps({ ...b.permissions, request: () => ((prompts += 1), Promise.resolve(true)) }, b.storage);
+    for (const bad of ["http://evil.com", "https://user:pw@evil.com", "https://10.0.0.1", "https://evil.com/path"]) {
+      expect((await saveServerBaseUrl(bad, "http://localhost:8787", d)).ok).toBe(false);
+    }
+    expect(prompts).toBe(0);
+    expect(b.stored.size).toBe(0);
   });
 });
