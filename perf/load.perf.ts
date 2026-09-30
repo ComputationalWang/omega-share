@@ -53,7 +53,8 @@ test("load: 25 in a room with video playing — relay latency and site frame tim
     expect(latencies.length).toBeGreaterThanOrEqual(40);
     expect(await fakeState(client.page)).toBe(PLAYING);
 
-    const load = `${String(s.members)} members, ${String(s.chats)} chats + ${String(s.seatChanges)} seat changes received by bots`;
+    // M3 limits are on (ADR 0018): `errors` would hold any `rate_limited` a bot got, and it is asserted empty above.
+    const load = `${String(s.members)} members, ${String(s.chats)} chats + ${String(s.seatChanges)} seat changes received by bots, 0 error frames (no rate_limited) with M3 limits on`;
     const how = "slowest of 24 bots in one page, client queueing included";
     recordMetric({ id: "load.relayLatency", value: p95(latencies), note: `${String(latencies.length)} sit/stand samples (${how}); ${load}` });
     const f = summarizeFrames(samples, VSYNC_MS);

@@ -44,6 +44,8 @@ export const BUDGETS: readonly Budget[] = [
   { id: "sync.spread.twitchLive", area: "Sync", metric: "Spread after pause/play-from-live, Twitch live", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   { id: "sync.spread.vimeo", area: "Sync", metric: "Spread after play/pause/seek, Vimeo (seek-only)", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   { id: "server.relayLatency", area: "Server", metric: "Relay latency, control action", docMetric: "Relay latency for a control action, localhost", unit: "ms", limit: 50, comparator: "<=" },
+  // Threat model §8 Q (OME-192): 24 members at the allowed chat/control rates + 1 socket flooding chat at 10× L1.
+  { id: "server.relayLatencyFlood", area: "Server", metric: "Relay latency, control action, under flood", docMetric: "Relay latency for a control action under flood, localhost", unit: "ms", limit: 50, comparator: "<=" },
   { id: "ext.popupToList", area: "Extension", metric: "Popup opened → embeds listed", docMetric: "Popup opened → embeds listed", unit: "ms", limit: 300, comparator: "<=" },
   { id: "ext.contentScripts", area: "Extension", metric: "Declared content scripts", docMetric: "Content scripts on page load", unit: "count", limit: 0, comparator: "<=" },
   { id: "ext.persistentBackground", area: "Extension", metric: "Persistent background violations", docMetric: "Persistent background", unit: "count", limit: 0, comparator: "<=" },

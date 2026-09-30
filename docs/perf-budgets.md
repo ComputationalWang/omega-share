@@ -12,6 +12,7 @@ QA measures these on every merge (Playwright + Chromium). A regression past a bu
 | Site | JS heap after 10 min in room | ≤ 150 MB |
 | Sync | Spread between clients after play/pause/seek | ≤ 500 ms |
 | Server | Relay latency for a control action, localhost | ≤ 50 ms |
+| Server | Relay latency for a control action under flood, localhost | ≤ 50 ms p95, 24 members at the allowed chat/control rates + 1 socket flooding at 10× L1, which is throttled or closed with 4029 (ADR 0016/0018) |
 | Extension | Popup opened → embeds listed | ≤ 300 ms |
 | Extension | Content scripts on page load | none (inject on popup open only) |
 | Extension | Persistent background | none (event-driven service worker only) |

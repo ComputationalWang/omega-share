@@ -42,7 +42,7 @@ const WS_BURST = 20;
 const WS_PER_SECOND = 10;
 /** Per socket. */
 const CHAT_BURST = 5;
-const CHAT_PER_SECOND = 1;
+export const CHAT_PER_SECOND = 1;
 const SIT_BURST = 4;
 const SIT_PER_SECOND = 1;
 /** L2, per socket, `control` only: 4/s (docs/research/m1b-youtube-sync.md §6). */

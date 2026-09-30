@@ -43,7 +43,7 @@ test(`control → playback relay with a full room stays within ${String(BUDGET_M
   expect(result.p50).toBeGreaterThan(0);
   expect(result.p95).toBeLessThanOrEqual(BUDGET_MS);
   console.log(`control relay: ${JSON.stringify(result)}`);
-  // Paced to the room control limit (8, then 4/s): 51 controls take about 11 s.
+  // A 2 s refill wait, then paced to the room control limit (8, then 4/s): 51 controls take about 13 s.
 }, 20_000);
 
 test(`[Relay under flood unmeasured] relay with 24 members and 1 flooder stays within ${String(BUDGET_MS)} ms at p95`, async () => {
@@ -68,7 +68,7 @@ test(`[Relay under flood] control relay with 24 members chatting at the allowed 
   // Legitimate traffic: every member chatted at the server's sustained chat rate, and none was ever rate-limited.
   expect(result.members?.chats).toBeGreaterThanOrEqual(MAX_ROOM_MEMBERS - 1);
   expect(result.members?.rateLimited).toBe(0);
-  // The attacker was throttled (`rate_limited`) and closed with 4029 at least once over the ~11 s run (ADR 0016/0018).
+  // The attacker was throttled (`rate_limited`) and closed with 4029 at least once over the ~13 s run (ADR 0016/0018).
   expect(result.attacker?.sent).toBeGreaterThan(0);
   expect(result.attacker?.rateLimited).toBeGreaterThan(0);
   expect(result.attacker?.closes["4029"]).toBeGreaterThan(0);
