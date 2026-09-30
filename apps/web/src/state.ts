@@ -89,7 +89,11 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       return { ...initialState, status: "full" };
     case "error": {
       const lastError = { code: msg.code, at: now };
-      if (msg.code === "nickname_taken" || msg.code === "too_many_members") return { ...initialState, status: "refused", refusal: msg.code, lastError };
+      if (msg.code === "nickname_taken" || msg.code === "too_many_members") {
+        // Only a join is refused (ADR 0016 §4). Once this connection is in, the connection ignores it; so do we.
+        if (state.status === "open") return { ...state, lastError };
+        return { ...initialState, status: "refused", refusal: msg.code, lastError };
+      }
       if (msg.code !== "rate_limited") return { ...state, lastError };
       const until = now + (msg.retryAfterMs ?? CHAT_COOLDOWN_DEFAULT_MS);
       return { ...state, lastError, cooldownUntil: Math.max(state.cooldownUntil, until) };

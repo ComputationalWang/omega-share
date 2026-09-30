@@ -398,7 +398,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const at = nextExpiry(state);
     if (at === null) return;
     expiryTimer = setTimeout(() => {
-      dispatch({ type: "tick", now: Date.now() });
+      // Never earlier than the expiry it was set for: a timer that fires a hair early would change nothing and not re-arm.
+      dispatch({ type: "tick", now: Math.max(Date.now(), at) });
     }, Math.max(0, at - Date.now()));
   };
 

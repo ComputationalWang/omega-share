@@ -148,12 +148,18 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       if (retryTimer !== null) opts.clearTimer(retryTimer);
       retryTimer = null;
       clearHandshake();
-      socket?.close(1000);
+      retryAfter = null;
+      // Forget the socket now: its close event may land after a resume(), and must not count for the new one.
+      const s = socket;
+      socket = null;
+      open = false;
+      s?.close(1000);
     },
     resume() {
       if (stopped || socket !== null || retryTimer !== null) return;
       closed = false;
       attempts = 0;
+      retryAfter = null;
       connect();
     },
   };
