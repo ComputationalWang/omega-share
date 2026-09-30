@@ -3,6 +3,7 @@ import "pixi.js/unsafe-eval";
 import type { Avatar, ClientMessage, ErrorCode, MemberId, Nickname, RoomId } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
+import { trackShareToken } from "./share-token";
 import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { playerErrorText } from "./controls/player-error";
@@ -371,6 +372,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (frame === 0) frame = requestAnimationFrame(render);
   };
 
+  const shareToken = trackShareToken(sessionStorage, opts.roomId);
   const c: Connection = createConnection({
     url: opts.socketUrl,
     join: { type: "join", nickname: opts.nickname, avatar: opts.avatar },
@@ -379,6 +381,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       clock.start();
     },
     onEvent: (e) => {
+      shareToken.onEvent(e);
       if (e.type === "message") {
         if (e.msg.type === "pong") clock.onPong(e.msg.id, e.msg.at);
         else dispatch({ type: "server", msg: e.msg, now: Date.now() });
@@ -410,6 +413,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Close on unload so the server frees the seat now; a bfcache restore reconnects.
   window.addEventListener("pagehide", () => {
     c.close();
+    shareToken.clear();
     clock.stop();
   });
   window.addEventListener("pageshow", (ev) => {

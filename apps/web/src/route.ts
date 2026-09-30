@@ -17,3 +17,16 @@ export function wsUrl(serverUrl: string, roomId: RoomId): string {
   url.hash = "";
   return url.href;
 }
+
+/**
+ * Base URL of apps/server. A built site is served by the server itself, so it uses its own origin and
+ * one tunnel covers site, API and WebSocket (ADR 0015 §1). The Vite dev site finds it on port 8787.
+ */
+export function serverBaseUrl(
+  configured: string | undefined,
+  location: Pick<Location, "origin" | "protocol" | "hostname">,
+  dev: boolean,
+): string {
+  if (configured !== undefined) return configured;
+  return dev ? `${location.protocol}//${location.hostname}:8787` : location.origin;
+}

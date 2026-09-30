@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { SHARE_TOKEN_STORAGE_KEY, ShareTokenRecordSchema, type RoomState, type ServerMessage } from "@omega/shared";
-import { serverBaseUrl } from "../src/connection";
-import { wsUrl } from "../src/route";
+import { serverBaseUrl, wsUrl } from "../src/route";
 import { trackShareToken, type ShareTokenStorage } from "../src/share-token";
 
 const TOKEN = "AbCdEfGhIjKlMnOpQrStUv";

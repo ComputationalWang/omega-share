@@ -1,7 +1,7 @@
 // Landing: nickname + avatar + one Enter click (which also satisfies autoplay). Keep this entry tiny; the room loads on demand.
 import type { Avatar } from "@omega/shared";
 import { loadProfile, saveProfile, validateNickname } from "./profile";
-import { roomIdFromPath, wsUrl } from "./route";
+import { roomIdFromPath, serverBaseUrl, wsUrl } from "./route";
 import type * as RoomModule from "./room";
 import type { RoomHandle } from "./room";
 
@@ -26,7 +26,7 @@ const roomRoot = must("#room-root", HTMLElement);
 const options = [...document.querySelectorAll<HTMLButtonElement>("[data-testid=avatar-option]")];
 
 const roomId = roomIdFromPath(location.pathname);
-const serverUrl = import.meta.env.VITE_SERVER_URL ?? `${location.protocol}//${location.hostname}:8787`;
+const serverUrl = serverBaseUrl(import.meta.env.VITE_SERVER_URL, location, import.meta.env.DEV);
 const debug = { roomId, room: null as RoomHandle | null };
 if (import.meta.env.DEV) window.__omega = debug;
 
