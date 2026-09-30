@@ -1,5 +1,5 @@
 import { PENDING, available } from "../e2e/support/apps";
-import { test } from "../e2e/support/extension";
+import { expect, test } from "../e2e/support/extension";
 import { gotoFixture } from "../e2e/support/network";
 import { popup } from "../e2e/support/selectors";
 import { p95, recordMetric } from "./metrics";
@@ -9,16 +9,18 @@ test.describe("extension perf", () => {
 
   test("popup opened → embeds listed", async ({ context, openPopup }) => {
     const page = await context.newPage();
-    await gotoFixture(page, "youtube-embed");
+    // All three providers plus rejected clips/events/lookalikes, so the scan does its full M2 work (OME-144).
+    await gotoFixture(page, "providers-embed");
     const runs: number[] = [];
     for (let i = 0; i < 5; i++) {
       const p = await openPopup(page);
-      await p.locator(popup.embedItem).first().waitFor();
+      await p.locator(popup.embedItem).nth(3).waitFor();
       // performance.now() is relative to the popup's navigation start.
       runs.push(await p.evaluate(() => performance.now()));
+      await expect(p.locator(popup.embedItem)).toHaveCount(4);
       await p.close();
     }
-    recordMetric({ id: "ext.popupToList", value: p95(runs), note: `p95 of ${String(runs.length)} opens` });
+    recordMetric({ id: "ext.popupToList", value: p95(runs), note: `p95 of ${String(runs.length)} opens on providers-embed (4 embeds)` });
   });
 });
 
