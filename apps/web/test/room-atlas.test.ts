@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
-import { cellCenter, SEATS, TILE_H, TILE_W, TV } from "../src/layout";
+import { cellCenter, SEATS, TILE_H, TILE_W } from "../src/layout";
 
 // The room atlas (assets/room/room.json, OME-31 contract) and layout.ts must agree on geometry:
 // every room frame is anchored at cellCenter(col,row), and tv.screen is relative to the tv/0 anchor at (0,0).
+// The live player moved out of the scaled stage (OME-84, roomLayout), so tv.screen only has to stay 16:9.
 const Rect = v.object({ x: v.number(), y: v.number(), w: v.number(), h: v.number() });
 const RoomAtlas = v.object({
   frames: v.record(v.string(), v.object({ frame: Rect, anchor: v.object({ x: v.number(), y: v.number() }) })),
@@ -22,11 +23,10 @@ describe("room atlas vs layout.ts", () => {
     expect(atlas.meta.omega.tile).toEqual({ w: TILE_W, h: TILE_H });
   });
 
-  test("tv.screen, measured from the tv/0 anchor at cellCenter(0,0), is exactly the TV rect", () => {
+  test("tv.screen is 16:9, like the player it frames", () => {
     const { frame, screen } = atlas.meta.omega.tv;
     expect(atlas.frames[frame]).toBeDefined();
-    const anchor = cellCenter(0, 0);
-    expect({ x: anchor.x + screen.x, y: anchor.y + screen.y, w: screen.w, h: screen.h }).toEqual({ ...TV });
+    expect(Math.abs(screen.w / screen.h - 16 / 9)).toBeLessThan(0.01);
   });
 
   test("the screen rect lies inside the tv/0 frame", () => {

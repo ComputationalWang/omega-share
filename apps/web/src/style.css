@@ -12,6 +12,8 @@
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--fg); }
 main { max-width: 980px; margin: 0 auto; padding: 16px; }
+/* Keep the 356 px TV inside a 360 px viewport. */
+@media (max-width: 400px) { main { padding: 8px 2px; } }
 button, input { font: inherit; color: inherit; }
 
 .landing { max-width: 360px; margin: 10vh auto; display: grid; gap: 8px; background: var(--panel); padding: 24px; border-radius: 12px; }
@@ -34,19 +36,23 @@ legend { padding: 0; margin-bottom: 6px; }
 .enter:disabled { opacity: 0.6; }
 
 .status { min-height: 1.4em; margin: 0 0 8px; color: var(--muted); }
-.stage-wrap { position: relative; width: 100%; overflow: hidden; }
+.stage-wrap { position: relative; width: 100%; }
+.stage-clip { position: absolute; overflow: hidden; }
 .stage { position: absolute; top: 0; left: 0; width: 960px; height: 600px; transform-origin: 0 0; }
 .scene { position: absolute; inset: 0; width: 960px; height: 600px; }
-.tv { position: absolute; background: #000; border: 6px solid #0d0b14; border-radius: 6px; display: grid; place-items: center; }
+/* The TV box is the player rect (>= 356x200, layout.ts); the bezel is an outline so it never eats into it. */
+.tv { position: absolute; background: #000; outline: 6px solid #0d0b14; border-radius: 2px; display: grid; place-items: center; }
+/* Reserved for the set (e) shared transport + personal volume (OME-89). Placeholder until then. */
+.controls { position: absolute; border-radius: 6px; background: var(--panel); }
 .tv iframe { width: 100%; height: 100%; border: 0; }
 .tv-empty { margin: 16px; color: var(--muted); text-align: center; font-size: 0.9em; }
 .overlay, .tags, .bubbles { position: absolute; inset: 0; pointer-events: none; }
 .seat { position: absolute; left: -26px; top: -13px; width: 52px; height: 26px; padding: 0; border: 0; background: transparent; pointer-events: auto; cursor: pointer; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .seat:hover, .seat:focus-visible { background: rgb(234 172 139 / 0.35); outline: none; }
 .seat[data-occupied="true"]:not(.mine) { cursor: default; }
-.tag { position: absolute; left: 0; top: 0; translate: -50% 0; white-space: nowrap; padding: 1px 6px; border-radius: 4px; background: rgb(0 0 0 / 0.55); font-size: 12px; }
+.tag { position: absolute; left: 0; top: 0; translate: -50% 0; max-width: 160px; height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 6px; border-radius: 4px; background: rgb(0 0 0 / 0.55); font-size: 12px; }
 .tag.self { color: var(--accent); }
-.bubble { position: absolute; left: 0; top: 0; translate: -50% -100%; max-width: 220px; margin: 0; padding: 6px 10px; border-radius: 10px; background: #fff; color: #1d1a2b; font-size: 13px; overflow-wrap: anywhere; }
+.bubble { position: absolute; left: 0; top: 0; translate: -50% -100%; max-width: 220px; max-height: 180px; overflow: hidden; margin: 0; padding: 6px 10px; border-radius: 10px; background: #fff; color: #1d1a2b; font-size: 13px; overflow-wrap: anywhere; }
 .chat { display: flex; gap: 8px; margin-top: 8px; }
 .chat input { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--panel); }
 .chat button { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #1d1a2b; font-weight: 600; }

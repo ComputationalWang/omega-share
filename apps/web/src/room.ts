@@ -3,7 +3,7 @@ import "pixi.js/unsafe-eval";
 import type { Avatar, ClientMessage, ErrorCode, MemberId, Nickname, RoomId } from "@omega/shared";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { chatIntent, seatViews, sitIntent } from "./intents";
-import { SEATS, STAGE_H, STAGE_W, STANDING, TV, type Point } from "./layout";
+import { BUBBLE_OFFSET_Y, SEATS, STANDING, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
 import { initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
 import { tvFrame } from "./tv";
@@ -71,17 +71,25 @@ function place(e: HTMLElement, p: Point): void {
   e.style.transform = `translate(${String(p.x)}px, ${String(p.y)}px)`;
 }
 
+function box(e: HTMLElement, r: Rect): void {
+  Object.assign(e.style, { left: `${String(r.x)}px`, top: `${String(r.y)}px`, width: `${String(r.w)}px`, height: `${String(r.h)}px` });
+}
+
 export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const status = el("p", { className: "status", role: "status" }, "connection-status");
   const notice = el("p", { className: "notice", role: "alert", hidden: true }, "room-notice");
   const full = el("div", { className: "room-full", hidden: true }, "room-full");
   full.append(el("h2", { textContent: "This room is full" }), el("p", { textContent: "Try again in a little while." }));
 
+  // The TV and its control bar sit above the scaled stage, unscaled, so the player keeps
+  // YouTube's minimum size and no room layer can stack over it (layout.ts `roomLayout`).
   const stage = el("div", { className: "stage" }, "room");
-  const wrap = el("div", { className: "stage-wrap", hidden: true });
-  wrap.append(stage);
+  const clip = el("div", { className: "stage-clip" });
+  clip.append(stage);
   const tv = el("div", { className: "tv" });
-  Object.assign(tv.style, { left: `${String(TV.x)}px`, top: `${String(TV.y)}px`, width: `${String(TV.w)}px`, height: `${String(TV.h)}px` });
+  const controls = el("div", { className: "controls" });
+  const wrap = el("div", { className: "stage-wrap", hidden: true });
+  wrap.append(tv, controls, clip);
   const tvEmpty = el("p", { className: "tv-empty", textContent: "Share a video with the extension to watch it here." });
   tv.append(tvEmpty);
   const overlay = el("div", { className: "overlay" });
@@ -101,13 +109,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   const view: RoomView = await createRoomView();
   view.canvas.className = "scene";
-  stage.append(view.canvas, tv, overlay, tags, bubbles);
+  stage.append(view.canvas, overlay, tags, bubbles);
   opts.root.replaceChildren(status, wrap, notice, chatForm, full);
 
   const fit = (): void => {
-    const scale = Math.min(1, wrap.clientWidth / STAGE_W);
-    stage.style.transform = `scale(${String(scale)})`;
-    wrap.style.height = `${String(STAGE_H * scale)}px`;
+    const l = roomLayout(wrap.clientWidth);
+    box(tv, l.tv);
+    box(controls, l.controls);
+    box(clip, l.stage);
+    stage.style.transform = `scale(${String(l.scale)})`;
+    wrap.style.height = `${String(l.height)}px`;
   };
   new ResizeObserver(fit).observe(wrap);
   fit();
@@ -191,7 +202,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       }
       e.classList.toggle("self", m.id === s.self);
       const p = at.get(m.id);
-      if (p !== undefined) place(e, { x: p.x, y: p.y + 10 });
+      if (p !== undefined) place(e, { x: p.x, y: p.y + TAG_OFFSET_Y });
     }
 
     const live = new Set(s.bubbles.map((b) => b.memberId));
@@ -209,7 +220,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         bubbles.append(e);
       }
       if (e.textContent !== b.text) e.textContent = b.text;
-      if (p !== undefined) place(e, { x: p.x, y: p.y - 48 });
+      if (p !== undefined) place(e, { x: p.x, y: p.y + BUBBLE_OFFSET_Y });
     }
 
     const tf = tvFrame(s.room?.embed ?? null);

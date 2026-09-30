@@ -21,8 +21,65 @@ export function cellCenter(col: number, row: number): Point {
   return { x: ORIGIN_X + (col - row) * (TILE_W / 2), y: ORIGIN_Y + (col + row + 1) * (TILE_H / 2) };
 }
 
-/** The TV sits on the back wall, above the floor's back corner. */
-export const TV = { x: ORIGIN_X - 160, y: 24, w: 320, h: 180 } as const;
+export interface Rect {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+/**
+ * YouTube's Required Minimum Functionality: the player is at least 200×200 CSS px and nothing
+ * of ours covers it. So the TV lives outside the scaled stage, at 16:9 and never below 356×200.
+ */
+const TV_MIN_W = 356;
+const TV_MAX_W = 560;
+/** Room for the TV's bezel, drawn as an outline outside the player rect. */
+const TV_BEZEL = 6;
+const GAP = 8;
+/** Set (e) chrome at 1×: 8 px panel border + 4 px padding around a 20 px key, top and bottom. */
+export const CONTROL_BAR_H = 44;
+
+/** Everything in container CSS px. `stage` is the scaled 960×600 stage's box on the page. */
+export interface RoomLayout {
+  readonly tv: Rect;
+  readonly controls: Rect;
+  readonly stage: Rect;
+  readonly scale: number;
+  readonly height: number;
+}
+
+export function roomLayout(containerWidth: number): RoomLayout {
+  const width = Math.floor(containerWidth);
+  const tvW = Math.max(TV_MIN_W, Math.min(TV_MAX_W, width - 2 * TV_BEZEL));
+  const tv = { x: Math.max(0, Math.floor((width - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
+  const controls = { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
+  const scale = Math.min(1, width / STAGE_W);
+  const stage = { x: 0, y: controls.y + controls.h + GAP, w: STAGE_W * scale, h: STAGE_H * scale };
+  return { tv, controls, stage, scale, height: stage.y + stage.h };
+}
+
+/** A stage-space rect on the page. */
+export function stageToPage(l: RoomLayout, r: Rect): Rect {
+  return { x: l.stage.x + r.x * l.scale, y: l.stage.y + r.y * l.scale, w: r.w * l.scale, h: r.h * l.scale };
+}
+
+/** Name tags hang below the avatar's feet; `style.css` caps them at this box. */
+export const TAG_OFFSET_Y = 10;
+export const TAG_MAX_W = 160;
+export const TAG_H = 20;
+/** Bubbles float above the head, bottom-anchored; `style.css` caps them at this box. */
+export const BUBBLE_OFFSET_Y = -48;
+export const BUBBLE_MAX_W = 220;
+export const BUBBLE_MAX_H = 180;
+
+export function tagRect(p: Point): Rect {
+  return { x: p.x - TAG_MAX_W / 2, y: p.y + TAG_OFFSET_Y, w: TAG_MAX_W, h: TAG_H };
+}
+
+export function bubbleRect(p: Point): Rect {
+  return { x: p.x - BUBBLE_MAX_W / 2, y: p.y + BUBBLE_OFFSET_Y - BUBBLE_MAX_H, w: BUBBLE_MAX_W, h: BUBBLE_MAX_H };
+}
 
 /** Two rows of four facing the TV, split by an aisle. */
 const SEAT_CELLS: readonly (readonly [number, number])[] = [
