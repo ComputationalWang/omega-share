@@ -279,6 +279,7 @@ function errorName(e: unknown): string {
 /** Vimeo's named errors (research M2 §2.2): private or domain-restricted → refused, password → restricted. */
 function errorReason(name: string): PlayerErrorReason {
   if (name === "PrivacyError") return "refused";
+  if (name === "NotFoundError") return "not-found";
   return name === "PasswordError" ? "restricted" : "other";
 }
 
