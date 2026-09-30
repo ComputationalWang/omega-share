@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BrowserContext, Page } from "@playwright/test";
 import { installFakeYt } from "../fixtures/fake-iframe-api";
+import { installFakeTwitch } from "../fixtures/fake-twitch-embed";
+import { installFakeVimeo } from "../fixtures/fake-vimeo-player";
 
 export const VIDEO_ID = "aqz-KE-bpKQ";
 export const WATCH_URL = `https://www.youtube.com/watch?v=${VIDEO_ID}`;
@@ -13,6 +15,9 @@ const PAGES = join(FIXTURES, "pages");
 const EMBED_HOSTS = new Set(["www.youtube.com", "www.youtube-nocookie.com"]);
 // The fake IFrame API (window.YT + window.__fakeYt), see e2e/fixtures/fake-iframe-api.ts. The app's real loader and adapter run against it.
 const FAKE_IFRAME_API = `(${installFakeYt.toString()})(window);`;
+// Fake Twitch and Vimeo SDKs (OME-121, research §7.1), served at the exact URLs the M2 CSP allows.
+const FAKE_TWITCH_SDK = `(${installFakeTwitch.toString()})(window);`;
+const FAKE_VIMEO_SDK = `(${installFakeVimeo.toString()})(window);`;
 const LOCAL = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 export async function stubExternalNetwork(context: BrowserContext): Promise<void> {
@@ -30,6 +35,20 @@ export async function stubExternalNetwork(context: BrowserContext): Promise<void
       }
       if (EMBED_HOSTS.has(url.hostname) && url.pathname.startsWith("/embed/")) {
         await route.fulfill({ contentType: "text/html", body: readFileSync(join(FIXTURES, "yt-embed.html"), "utf8") });
+        return;
+      }
+      if (url.hostname === "player.twitch.tv") {
+        const sdk = url.pathname === "/js/embed/v1.js";
+        const body = sdk ? FAKE_TWITCH_SDK : readFileSync(join(FIXTURES, "twitch-embed.html"), "utf8");
+        await route.fulfill({ contentType: sdk ? "text/javascript" : "text/html", body });
+        return;
+      }
+      if (url.hostname === "player.vimeo.com" && url.pathname === "/api/player.js") {
+        await route.fulfill({ contentType: "text/javascript", body: FAKE_VIMEO_SDK });
+        return;
+      }
+      if (url.hostname === "player.vimeo.com" && url.pathname.startsWith("/video/")) {
+        await route.fulfill({ contentType: "text/html", body: readFileSync(join(FIXTURES, "vimeo-embed.html"), "utf8") });
         return;
       }
       await route.fulfill({ contentType: "text/html", body: `<!doctype html><title>stub</title><p>stub for ${url.hostname}</p>` });

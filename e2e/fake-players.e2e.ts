@@ -111,7 +111,7 @@ test.describe("fake Vimeo SDK", () => {
   test("rate: rejected by default, honoured with rateAllowed, echoed but ignored with rateIgnored", async ({ page }) => {
     await page.goto("/vimeo-player.html");
     await ready(page);
-    const setRate = (r: number) => page.evaluate((rate) => window.__fakeVimeo?.player?.setPlaybackRate(rate).then(() => "ok", (e: Error) => e.name), r);
+    const setRate = (r: number) => page.evaluate((rate) => window.__fakeVimeo?.player?.setPlaybackRate(rate).then(() => "ok", (e: unknown) => (e instanceof Error ? e.name : String(e))), r);
     expect(await setRate(1)).toBe("Error");
     await page.evaluate(() => { window.__fakeVimeo?.rateAllowed(true); return window.__fakeVimeo?.player?.play(); });
     expect(await setRate(1.25)).toBe("ok");
@@ -138,7 +138,7 @@ test.describe("fake Vimeo SDK", () => {
     await page.evaluate(() => window.__fakeVimeo?.buffering(150));
     await expect.poll(async () => (await types(page)).includes("bufferend")).toBe(true);
     await page.evaluate(() => window.__fakeVimeo?.autoplayBlocked());
-    const blocked = await page.evaluate(() => window.__fakeVimeo?.player?.play().then(() => "ok", (e: Error) => e.name));
+    const blocked = await page.evaluate(() => window.__fakeVimeo?.player?.play().then(() => "ok", (e: unknown) => (e instanceof Error ? e.name : String(e))));
     expect(blocked).toBe("NotAllowedError");
     await page.evaluate(() => { window.__fakeVimeo?.userPlay(); window.__fakeVimeo?.userSeek(10); });
     // seeked settles asynchronously, as in the real player.
@@ -153,7 +153,7 @@ test.describe("fake Vimeo SDK", () => {
     test(`refusal: ${refuse} rejects ready() with the named error`, async ({ page }) => {
       await page.goto(`/vimeo-player.html?refuse=${refuse}`);
       expect(await ready(page)).toBe(refuse === "privacy" ? "PrivacyError" : "PasswordError");
-      expect(await page.evaluate(() => window.__fakeVimeo?.player?.play().then(() => "ok", (e: Error) => e.name))).toBe(refuse === "privacy" ? "PrivacyError" : "PasswordError");
+      expect(await page.evaluate(() => window.__fakeVimeo?.player?.play().then(() => "ok", (e: unknown) => (e instanceof Error ? e.name : String(e))))).toBe(refuse === "privacy" ? "PrivacyError" : "PasswordError");
     });
   }
 });
