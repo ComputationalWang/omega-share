@@ -27,8 +27,10 @@ export default defineConfig({
   webServer: servers,
   projects: [
     // The sync suite drives the shared lobby with 8 clients (pause, seek), so it runs alone, after the rest (OME-90).
-    { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", testIgnore: "**/sync.e2e.ts", use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", testIgnore: ["**/sync.e2e.ts", "**/tunnel*.e2e.ts"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     { name: "e2e-sync", testDir: "e2e", testMatch: "**/sync.e2e.ts", workers: 1, dependencies: ["e2e"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    // Tunnel safety (OME-132): its own tunnel-mode server behind a local TLS proxy on fixed ports, so one worker.
+    { name: "e2e-tunnel", testDir: "e2e", testMatch: "**/tunnel*.e2e.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     // Opt-in real-YouTube sign-off checks (OME-91, docs/qa/m1b-real-youtube.md): real network, headed, never in CI. `bun run e2e:real`.
     { name: "e2e-real", testDir: "e2e/real", testMatch: "**/*.real.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium", headless: false, launchOptions: { args: [AUTOPLAY_DEFAULT] } } },
     { name: "perf", testDir: "perf", testMatch: "**/*.perf.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
