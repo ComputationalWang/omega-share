@@ -7,6 +7,8 @@ const SINKS: readonly { readonly name: string; readonly re: RegExp }[] = [
   { name: "DOMParser", re: /\bDOMParser\b/ },
   { name: "createContextualFragment", re: /\bcreateContextualFragment\b/ },
   { name: "srcdoc", re: /\bsrcdoc\b/i },
+  { name: "setHTMLUnsafe", re: /\bsetHTMLUnsafe\b/ },
+  { name: "parseHTMLUnsafe", re: /\bparseHTMLUnsafe\b/ },
 ];
 
 /** Names of the banned sinks that appear anywhere in `source` (comments included: keep them out too). */
