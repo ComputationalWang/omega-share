@@ -81,9 +81,9 @@ describe("createPlayerMounter", () => {
 });
 
 describe("PLAYERS (the page's registry)", () => {
-  test("Vimeo has no adapter yet (OME-126): unsupported, nothing loaded", async () => {
+  test("Vimeo without our iframe is refused before the SDK loads", async () => {
     const mount = createPlayerMounter(PLAYERS);
-    expect(await mount(ctx(vimeo))).toEqual({ ok: false, reason: "unsupported" });
+    expect(await mount(ctx(vimeo))).toEqual({ ok: false, reason: "invalid" });
   });
 
   test("Twitch is the SDK adapter (OME-125): handed an iframe instead of a container, it refuses before the SDK loads", async () => {
