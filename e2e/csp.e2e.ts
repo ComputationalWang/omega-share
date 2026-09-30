@@ -10,6 +10,12 @@ const REPORT_ONLY = `${URLS.fixtures}/__csp/report-only`;
 const INLINE = `${URLS.fixtures}/__csp/inline-script`;
 const CLEAN = `${URLS.fixtures}/__csp/clean`;
 const STRICT = "default-src 'self'; script-src 'self'";
+/** A provider's player frame with its own policy (OME-218: Vimeo's 404 player blocks its own Cloudflare script). */
+const THIRD_PARTY = "https://player.third-party.test/video/1";
+const EMBEDS_THIRD_PARTY = `${URLS.fixtures}/__csp/embeds-third-party`;
+/** Ours even though it's another origin: every loopback origin is a server we run (site, server, fixtures). */
+const LOOPBACK_OTHER = `${URLS.fixtures.replace("localhost", "127.0.0.1")}/__csp/enforced`;
+const EMBEDS_LOOPBACK = `${URLS.fixtures}/__csp/embeds-loopback`;
 const html = (body: string): string => `<!doctype html><title>csp</title><body>${body}</body>`;
 
 test.describe("csp fixture", () => {
@@ -27,6 +33,14 @@ test.describe("csp fixture", () => {
     await context.route(INLINE, (r) =>
       r.fulfill({ contentType: "text/html", headers: { "content-security-policy": STRICT }, body: html(`<script>document.title = "ran";</script>`) }),
     );
+    await context.route(THIRD_PARTY, (r) =>
+      r.fulfill({ contentType: "text/html", headers: { "content-security-policy": STRICT }, body: html(`<script>document.title = "ran";</script>`) }),
+    );
+    await context.route(EMBEDS_THIRD_PARTY, (r) => r.fulfill({ contentType: "text/html", body: html(`<iframe src="${THIRD_PARTY}"></iframe>`) }));
+    await context.route(LOOPBACK_OTHER, (r) =>
+      r.fulfill({ contentType: "text/html", headers: { "content-security-policy": "img-src 'none'" }, body: html(`<img src="/blocked.png">`) }),
+    );
+    await context.route(EMBEDS_LOOPBACK, (r) => r.fulfill({ contentType: "text/html", body: html(`<iframe src="${LOOPBACK_OTHER}"></iframe>`) }));
     await context.route(CLEAN, (r) =>
       r.fulfill({ contentType: "text/html", headers: { "content-security-policy": STRICT }, body: html(`<p id="ok">clean</p>`) }),
     );
@@ -83,6 +97,22 @@ test.describe("csp fixture", () => {
     expect(csp.reportOnly[0]?.effectiveDirective).toBe("require-trusted-types-for");
     expect(csp.enforced).toEqual([]);
     expect(csp.console).toEqual([]);
+  });
+
+  test("a third-party frame's own policy is kept as evidence and does not fail", async ({ page, csp }) => {
+    await page.goto(EMBEDS_THIRD_PARTY);
+    await expect.poll(() => csp.thirdParty.length).toBe(1);
+    expect(csp.thirdParty[0]?.documentURI).toBe(THIRD_PARTY);
+    expect(csp.thirdParty[0]?.effectiveDirective).toBe("script-src-elem");
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 200))));
+    expect(csp.enforced).toEqual([]);
+    expect(csp.console).toEqual([]);
+  });
+
+  test("a violation in a loopback frame of another origin still fails the test", async ({ page, csp }) => {
+    test.fail(); // loopback origins are ours (site, server, fixtures on other ports)
+    await page.goto(EMBEDS_LOOPBACK);
+    await expect.poll(() => csp.enforced.length).toBe(1);
   });
 
   test("a hand-made context is watched once wrapped", async ({ browser, csp }) => {
