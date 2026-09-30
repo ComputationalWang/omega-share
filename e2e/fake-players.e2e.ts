@@ -140,7 +140,10 @@ test.describe("fake Vimeo SDK", () => {
     await page.evaluate(() => window.__fakeVimeo?.autoplayBlocked());
     const blocked = await page.evaluate(() => window.__fakeVimeo?.player?.play().then(() => "ok", (e: Error) => e.name));
     expect(blocked).toBe("NotAllowedError");
-    await page.evaluate(() => { window.__fakeVimeo?.userPlay(); window.__fakeVimeo?.userSeek(10); window.__fakeVimeo?.userPause(); });
+    await page.evaluate(() => { window.__fakeVimeo?.userPlay(); window.__fakeVimeo?.userSeek(10); });
+    // seeked settles asynchronously, as in the real player.
+    await expect.poll(async () => (await types(page)).filter((t) => t === "seeked").length).toBe(2);
+    await page.evaluate(() => window.__fakeVimeo?.userPause());
     const names = (await types(page)).filter((t) => t !== "timeupdate");
     expect(names).toEqual(["loaded", "play", "playing", "seeking", "seeked", "bufferstart", "bufferend", "pause", "play", "playing", "seeking", "seeked", "pause"]);
     expect(await page.evaluate(() => window.__fakeVimeo?.calls.some((c) => c.name === "setCurrentTime" && c.args[0] === 10))).toBe(false);
