@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture: Vimeo.Player on an existing iframe</title></head>
+<body>
+<!-- Harness page for the fake Vimeo SDK (OME-121): attaches Vimeo.Player to our own iframe, as the M2 adapter will (research §4.1). ?refuse=privacy|password. -->
+<iframe id="tv" width="640" height="360"
+  src="https://player.vimeo.com/video/76979871?h=8272103f6e&autopause=0&autoplay=1&dnt=1&keyboard=0&controls=0&title=0&byline=0&portrait=0"
+  title="Vimeo video player" allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+  sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
+  referrerpolicy="strict-origin-when-cross-origin"></iframe>
+<script src="https://player.vimeo.com/api/player.js"></script>
+<script>
+  window.__log = [];
+  const refuse = new URLSearchParams(location.search).get("refuse");
+  if (refuse === "privacy") window.__fakeVimeo.privacy();
+  if (refuse === "password") window.__fakeVimeo.password();
+  window.player = new Vimeo.Player(document.getElementById("tv"));
+  for (const name of ["loaded", "play", "playing", "pause", "ended", "seeking", "seeked", "bufferstart", "bufferend", "playbackratechange", "error"]) {
+    window.player.on(name, (data) => window.__log.push({ type: name, data: data ?? null, t: performance.now() }));
+  }
+  window.ready = window.player.ready().then(() => "ready", (e) => e.name);
+</script>
+</body></html>
