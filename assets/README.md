@@ -14,6 +14,7 @@ assets/
                         #   set e: playback keys, seek/volume, chips, system line, catching-up hourglass; M1b: tvframe/* TV frame)
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
+  ui/popup/*.png        # set f: the extension popup's key icon as standalone files, drawn at 16 px (1×) and 32 px (2×)
   ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
   preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame),
                         #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated)
@@ -232,6 +233,47 @@ follow the same rule: **wood = shared**. Two new materials each have one job: **
 - **Motion:** `prefers-reduced-motion` holds `glyph/onair/0` and shows `resync/2` straight away.
 - **Scale:** these pieces follow `--ui-px` like set (e). The shelf is `.ui-room` (1×). Text is 11 px at 2× and 9 px at 1×, except the plate name (10 px at 1×); the note is 12 px / 11 px.
 
+## Set (f) safety states (OME-193, `ui/`)
+
+M3's limits, drawn as "wait a moment" and never as an alarm: **no rust and no warn icon anywhere in this set** (rust means on air or
+a real error). They use the same files as sets (c)/(e) (`ui/ui.png` / `ui.json`, `ui/slices/`, the end of `ui/reference.css`) plus
+two standalone popup PNGs. Previews: `preview/ui-safety.png` (in context: shelf, system lines, popup 1×/2×, notices, room list) and
+`preview/ui-safety-states.png` (every piece at 2× and 1×). **Each motif has one job:** snail = too fast · timer ring = how long to wait ·
+mustard bar = only you see this · plug = the network dropped · shut door with a hanger = the room is full.
+
+| Key | Size | Slice | Use |
+|---|---|---|---|
+| `button/shared/cool` | 16×20 | 5 | A rate-limited shared key resting: still wood (it's still everyone's key), a ramp step darker, charcoal lip. Not `disabled` (charcoal all over). |
+| `wait/<0..7>` | 16×16 | — | Timer ring. `0` is full; each frame spends one more eighth, clockwise from 12 o'clock (cream arc, plum groove, 2×2 hub). One-shot over the server's retry-after: frame = `floor(elapsed / total × 8)`. Anchor = centre. |
+| `glyph/snail` | 12×8 | — | "Take it slow": the slow-down chip and rate-limit system lines. |
+| `chat/system-self` | 14×12 | 4 (left 5) | System line only you see: set (e)'s strip with a **mustard** bar instead of the glow bar. |
+| `glyph/retry` | 8×8 | — | Round mustard arrow, for "your share didn't go through". |
+| `icon/retry`, `icon/retry-2x` | 16×16, 32×32 | — | Round arrow round a clock face: "try again later". The 32 px one is drawn, not upscaled. Also shipped as `ui/popup/retry-16.png` / `retry-32.png`. |
+| `icon/unplugged` | 16×16 | — | Normal disconnect: a mustard plug pulled out of its cream socket (prongs line up with the holes). |
+| `glyph/dots/<0..2>` | 12×8 | — | "Reconnecting" loader: one dot lifted in turn, `meta.omega.dotsFrameMs` (240 ms), loop. |
+| `icon/resting` | 16×16 | — | Closed by the server (flood/policy): the snail tucked in its shell with a small "z". Still, never animated. |
+| `dot/paused` | 8×8 | — | Top-bar lamp for "paused by the room": a pale lamp with two plum pause bars (a shape, so it isn't colour alone next to the plain `dot/*` discs). |
+| `card/room/<idle\|hover\|full>` | 16×16 | 6 | Room-list card: dusk glass in a wood rim (hover = cream lit edge). `full` = shade rim, charcoal glass. |
+| `door/<open\|full>` | 16×24 | — | Card thumbnail, anchor bottom centre `(8,24)`. `open`: lamplight in the doorway and on the floor. `full`: door shut, a cream hanger on the knob with three little heads. |
+| `pill/full` | 12×12 | 4 | Calm "Full" pill: charcoal, cream rim, cream text (≥ 5:1). |
+
+- **1 · Slow down** (`.ui-button.shared.is-cooling`): swap the key's icon for `<span class="ui-sprite ui-wait" style="--cool: 3s">`,
+  and the CSS drains the ring once over `--cool`. Use `aria-disabled="true"`, not `disabled`, so the key keeps focus. Relabel it
+  ("Pause for everyone: available again in 3 seconds"), and drop `.is-cooling` when the ring is empty. Next to it, put a `.ui-chip.self`
+  with `glyph/snail` + "Slow down". It's in the "only you" rim because only you are slowed. Optionally, show a self line: `glyph/snail` · "**Easy!** You can skip again in `<time>3 s</time>`".
+- **2 · Share retry.** Room: `.ui-sysline.self` · `glyph/retry` · "**Your share** didn't go through. Try again in `<time>12 s</time>`". Recount the
+  `<time>` each second and drop the line when it reaches 0. Popup (plain HTML): `<img src="retry-16.png" srcset="retry-16.png 1x, retry-32.png 2x" width="16" height="16" alt="">`
+  before the status text. The icon has a plum outline, so it holds on the popup's white as well as on dark chrome.
+- **3 · Connection.** They differ in lamp, icon, motion and action:
+  - **Normal drop:** `dot/connecting` + "Reconnecting" + `.ui-dots`, and a `panel/0` notice with `icon/unplugged` ("Connection dropped.
+    Reconnecting by itself…"). There's **no button**: it retries by itself.
+  - **Closed by the server:** `dot/paused` + "Paused by the room", and a `panel/0` notice with `icon/resting` ("The room paused your
+    connection: lots of messages at once.") plus a primary **Rejoin** key. The key is disabled ("Rejoin in 20 s") until the delay is over. Nothing moves.
+- **4 · Room full** (ADR 0006, the 26th member): `.ui-card.is-full` with `door/full`, the count "25 / 25" and a `.ui-pill-full`. Render the card as a
+  `div` with `aria-disabled="true"`, not a link. Open rooms are `a.ui-card` with `door/open` (hover/focus = the cream edge).
+- **Motion:** `prefers-reduced-motion` stops the dots and shows `wait/0` (the countdown text still carries the time).
+- **Scale:** follows `--ui-px` like the other sets (2× page chrome, 1× in `.ui-room`, e.g. on the TV shelf). No new colours: still the 67.
+
 ## Motion atlas (`avatars/motion.json`, set d)
 
 Same format as the avatar atlas (PixiJS v8, 32×64 cells, no trim, no rotation, anchor = floor point `(16, 61)`).
@@ -270,13 +312,14 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
 | `room/room.png` | 8 335 |
 | `room/room.json` | 13 823 raw / 1 192 gz |
-| `ui/ui.png` (sets c + e + M1b TV frame + M2 live) | 5 462 |
-| `ui/ui.json` (sets c + e + M1b TV frame + M2 live) | 35 059 raw / 2 116 gz |
-| `ui/slices/*.png` (43 files, palettes trimmed to the colours used) | 6 968 |
-| `ui/reference.css` (if ported as-is) | 28 281 raw / 5 705 gz |
-| **total shipped art** | **≈ 54.1 KB of 300 KB** (54 085 B; 35 696 B without the lazy set d) |
+| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f) | 6 492 |
+| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f) | 43 732 raw / 2 436 gz |
+| `ui/slices/*.png` (49 files, palettes trimmed to the colours used) | 7 923 |
+| `ui/popup/*.png` (set f) | 471 |
+| `ui/reference.css` (if ported as-is) | 36 406 raw / 7 282 gz |
+| **total shipped art** | **≈ 58.4 KB of 300 KB** (58 438 B; 40 049 B without the lazy set d) |
 
-M2 live chrome (OME-120) adds ≈ 2.2 KB: `ui.png` +347, `ui.json` +205 gz, 4 slices +592, `reference.css` +1 057 gz. The sheet stays 256×256.
+Set (f) (OME-193) adds ≈ 4.1 KB against `main`: `ui.png` +1 030, `ui.json` +331 gz, 6 slices +955, `reference.css` +1 273 gz, popup PNGs +471. The sheet stays 256×256.
 
 "gz" is zlib **level 9** with no file name (what `build.ts` prints; `gzip -9nc <file> | wc -c` agrees within 4 B).
 Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B more per file, e.g. for `ui.json` and `reference.css`.

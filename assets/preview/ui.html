@@ -59,6 +59,27 @@
   .tvbox { background: url("tv-video@1x.png") 0 0 / 100% 100%; image-rendering: pixelated; }
   .page .stage-img { background: url("room@1x.png") 0 0 / 100% 100%; image-rendering: pixelated; }
   .tv-cap { font-size: 11px; color: var(--ui-muted); font-weight: 500; margin: 8px 0 16px; }
+  /* Set (f) safety states (OME-193) */
+  .sf-row { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  .sf-col { display: grid; gap: 8px; justify-items: start; }
+  .sf-status { display: flex; gap: 6px; align-items: center; color: var(--ui-muted); font-size: 13px; font-weight: 500; }
+  .sf-notice { display: flex; gap: 8px; align-items: center; width: 440px; font-size: 13px; font-weight: 500; }
+  .sf-notice p { margin: 0; flex: 1; }
+  .sf-list { display: grid; gap: 8px; width: 460px; }
+  .sf-list .ui-card { text-decoration: none; }
+  .sf-card-body { display: grid; gap: 2px; flex: 1; min-width: 0; }
+  .sf-card-body strong { font-size: 15px; }
+  .sf-card-body span { font-size: 12px; font-weight: 500; color: var(--ui-muted); }
+  .sf-count { display: flex; align-items: center; gap: 2px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .ui-card.is-full .sf-card-body strong { color: var(--ui-muted); }
+  .sf-stage { position: relative; width: 460px; height: 120px; background: url("room@1x.png") -250px -380px; image-rendering: pixelated; }
+  .sf-stage .rail { position: absolute; }
+  .popup { width: 320px; background: #fff; color: #222; font: 14px/1.4 system-ui, sans-serif; padding: 12px; box-sizing: border-box; display: grid; gap: 8px; outline: 1px solid #ccc; }
+  .popup h1 { font-size: 16px; margin: 0; }
+  .popup p { margin: 0; display: flex; gap: 6px; align-items: center; color: #5a3d00; }
+  .popup button { font: inherit; }
+  .zoom2 { zoom: 2; }
+  .zoom2 .popup p img { width: 16px; height: 16px; }
 </style>
 </head>
 <body>
@@ -259,6 +280,69 @@
 <div class="log">
   <p class="ui-sysline"><span class="ui-sprite ui-glyph-hop"></span><span><b>Oli</b> skipped ahead to stay in sync</span></p>
   <p class="ui-sysline"><span class="ui-sprite ui-glyph-onair-0"></span><span><b>Kit</b> went back to live</span></p>
+</div></div>
+  </div>
+</section>
+<section id="safety">
+  <h2>Set (f) (OME-193): safety states in context: TV shelf at 1×, page chrome at 2×</h2>
+  <div class="page ui-room" style="width:960px;height:60px"><div class="ui-tv-shelf" style="left:200px;top:6px;width:560px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon is-cooling" aria-disabled="true" aria-label="Pause for everyone: available again in 2 seconds"><span class="ui-sprite ui-wait" style="animation:none;background-position:var(--w3)"></span></button><span class="ui-chip self"><span class="ui-sprite ui-glyph-snail"></span>Slow down</span><span class="ui-readout">12:30</span><div class="ui-seek" style="--pos:0.3"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><span class="ui-plate" title="Source: YouTube"><span class="ui-sprite ui-glyph-src-video"></span><span class="ui-plate-name">YouTube</span></span></div></div></div>
+  <p class="tv-cap">1 · Slow down: you pressed the shared key too often. It rests (darker wood) and its icon becomes the timer ring, which drains back to the icon. The "Slow down" chip is in the mustard "only you" rim: only you are slowed.</p>
+  <div class="sf-row">
+    <div class="sf-stage ui-room"><div class="rail" style="left:12px;bottom:12px">
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-play"></span><span><b>Kit</b> played</span></p>
+      <p class="ui-sysline self"><span class="ui-sprite ui-glyph-retry"></span><span><b>Your share</b> didn't go through. Try again in <time>12 s</time></span></p>
+      <p class="ui-sysline self"><span class="ui-sprite ui-glyph-snail"></span><span><b>Easy!</b> You can skip again in <time>3 s</time></span></p>
+    </div></div>
+    <div class="sf-col"><div class="popup"><h1>Share a video</h1><p><img src="../ui/popup/retry-16.png" width="16" height="16" alt="">Share didn't go through. Try again in 12 s.</p></div><span class="tv-cap" style="margin:0">popup at 1× (retry-16.png)</span></div>
+  </div>
+  <p class="tv-cap">2 · Share retry: a system line only you see (mustard bar, not the room's glow bar) and the extension popup's key icon, on the popup's plain white.</p>
+  <div class="zoom2" style="width:fit-content"><div class="popup" style="width:320px"><h1>Share a video</h1><p><img src="../ui/popup/retry-32.png" alt="">Share didn't go through. Try again in 12 s.</p></div></div>
+  <p class="tv-cap">popup at 2× (retry-32.png, drawn at 32 px, not upscaled)</p>
+  <div class="sf-row">
+    <div class="sf-col">
+      <span class="sf-status"><span class="ui-sprite ui-dot-connecting"></span>Reconnecting<span class="ui-sprite ui-dots" style="animation:none;background-position:var(--d1)"></span></span>
+      <div class="ui-panel sf-notice"><span class="ui-sprite ui-icon-unplugged"></span><p>Connection dropped. Reconnecting by itself: you'll be back in your seat.</p></div>
+    </div>
+    <div class="sf-col">
+      <span class="sf-status"><span class="ui-sprite ui-dot-paused"></span>Paused by the room</span>
+      <div class="ui-panel sf-notice"><span class="ui-sprite ui-icon-resting"></span><p>The room paused your connection: lots of messages at once. Take a breather.</p><button class="ui-button" disabled>Rejoin in 20 s</button></div>
+      <div class="ui-panel sf-notice"><span class="ui-sprite ui-icon-resting"></span><p>The room paused your connection: lots of messages at once. Take a breather.</p><button class="ui-button">Rejoin</button></div>
+    </div>
+  </div>
+  <p class="tv-cap">3 · Normal drop (left): mustard lamp, plug, running dots, no button. Closed by the server (right): pause lamp, the snail resting in its shell, still, and a Rejoin key that waits out the delay. No rust, no warn icon.</p>
+  <div class="sf-list" role="list">
+    <a class="ui-card" href="#" role="listitem"><span class="ui-sprite ui-door-open"></span><span class="sf-card-body"><strong>Movie night</strong><span>Watching: Sunset timelapse</span></span><span class="sf-count"><span class="ui-sprite ui-icon-people"></span>6 / 25</span></a>
+    <a class="ui-card is-hover" href="#" role="listitem"><span class="ui-sprite ui-door-open"></span><span class="sf-card-body"><strong>Study hall</strong><span>Nothing on yet</span></span><span class="sf-count"><span class="ui-sprite ui-icon-people"></span>2 / 25</span></a>
+    <div class="ui-card is-full" role="listitem" aria-disabled="true"><span class="ui-sprite ui-door-full"></span><span class="sf-card-body"><strong>Launch party</strong><span>Everyone's in. Try again soon</span></span><span class="sf-count"><span class="ui-sprite ui-icon-people"></span>25 / 25</span><span class="ui-pill-full">Full</span></div>
+  </div>
+  <p class="tv-cap">4 · Room list: open door = come in (idle, hover). Room full (ADR 0006, 25 members): the door is shut with a hanger on the knob, the card dims, and a calm "Full" pill replaces the link.</p>
+</section>
+<section id="safety-states">
+  <h2>Set (f) pieces: page chrome 2× (top) and room scale 1× (bottom)</h2>
+  <div class="ui-panel" style="display:grid;gap:18px;width:fit-content">
+<div class="grid"><span class="hd"></span><span class="hd">idle</span><span class="hd">cooling (ring drains)</span><span class="hd"></span><span class="hd">disabled</span>
+<span class="lbl">Shared key</span><span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button></span><span><button class="ui-button shared icon is-cooling" aria-disabled="true" aria-label="Pause for everyone: available again in 3 seconds"><span class="ui-sprite ui-wait" style="animation:none"></span></button> <button class="ui-button shared icon is-cooling" aria-disabled="true" aria-label="Pause for everyone: available again in 2 seconds"><span class="ui-sprite ui-wait" style="animation:none;background-position:var(--w3)"></span></button> <button class="ui-button shared icon is-cooling" aria-disabled="true" aria-label="Pause for everyone: available again in 1 second"><span class="ui-sprite ui-wait" style="animation:none;background-position:var(--w6)"></span></button></span><span></span><span><button class="ui-button shared icon" disabled aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button></span>
+<span class="lbl">Timer ring 0..7</span><span style="grid-column: span 4"><span class="ui-sprite ui-wait-0"></span> <span class="ui-sprite ui-wait-1"></span> <span class="ui-sprite ui-wait-2"></span> <span class="ui-sprite ui-wait-3"></span> <span class="ui-sprite ui-wait-4"></span> <span class="ui-sprite ui-wait-5"></span> <span class="ui-sprite ui-wait-6"></span> <span class="ui-sprite ui-wait-7"></span></span>
+<span class="lbl">Chips / pills</span><span><span class="ui-chip self"><span class="ui-sprite ui-glyph-snail"></span>Slow down</span></span><span><span class="ui-pill-full">Full</span></span><span></span><span></span>
+<span class="lbl">Glyphs / lamps</span><span><span class="ui-sprite ui-glyph-snail"></span> <span class="ui-sprite ui-glyph-retry"></span></span><span><span class="ui-sprite ui-glyph-dots-0"></span> <span class="ui-sprite ui-glyph-dots-1"></span> <span class="ui-sprite ui-glyph-dots-2"></span></span><span><span class="ui-sprite ui-dot-connecting"></span> vs <span class="ui-sprite ui-dot-paused"></span></span><span></span>
+<span class="lbl">Icons</span><span><span class="ui-sprite ui-icon-retry"></span></span><span><span class="ui-sprite ui-icon-unplugged"></span> vs <span class="ui-sprite ui-icon-resting"></span></span><span><span class="ui-sprite ui-door-open"></span> <span class="ui-sprite ui-door-full"></span></span><span></span>
+</div>
+<div class="log">
+  <p class="ui-sysline self"><span class="ui-sprite ui-glyph-retry"></span><span><b>Your share</b> didn't go through. Try again in <time>12 s</time></span></p>
+  <p class="ui-sysline self"><span class="ui-sprite ui-glyph-snail"></span><span><b>Easy!</b> You can skip again in <time>3 s</time></span></p>
+  <p class="ui-sysline"><span class="ui-sprite ui-glyph-pause"></span><span><b>Ana</b> paused</span></p>
+</div>
+    <div class="ui-room" style="display:grid;gap:10px"><div class="grid"><span class="hd"></span><span class="hd">idle</span><span class="hd">cooling (ring drains)</span><span class="hd"></span><span class="hd">disabled</span>
+<span class="lbl">Shared key</span><span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button></span><span><button class="ui-button shared icon is-cooling" aria-disabled="true" aria-label="Pause for everyone: available again in 3 seconds"><span class="ui-sprite ui-wait" style="animation:none"></span></button> <button class="ui-button shared icon is-cooling" aria-disabled="true" aria-label="Pause for everyone: available again in 2 seconds"><span class="ui-sprite ui-wait" style="animation:none;background-position:var(--w3)"></span></button> <button class="ui-button shared icon is-cooling" aria-disabled="true" aria-label="Pause for everyone: available again in 1 second"><span class="ui-sprite ui-wait" style="animation:none;background-position:var(--w6)"></span></button></span><span></span><span><button class="ui-button shared icon" disabled aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button></span>
+<span class="lbl">Timer ring 0..7</span><span style="grid-column: span 4"><span class="ui-sprite ui-wait-0"></span> <span class="ui-sprite ui-wait-1"></span> <span class="ui-sprite ui-wait-2"></span> <span class="ui-sprite ui-wait-3"></span> <span class="ui-sprite ui-wait-4"></span> <span class="ui-sprite ui-wait-5"></span> <span class="ui-sprite ui-wait-6"></span> <span class="ui-sprite ui-wait-7"></span></span>
+<span class="lbl">Chips / pills</span><span><span class="ui-chip self"><span class="ui-sprite ui-glyph-snail"></span>Slow down</span></span><span><span class="ui-pill-full">Full</span></span><span></span><span></span>
+<span class="lbl">Glyphs / lamps</span><span><span class="ui-sprite ui-glyph-snail"></span> <span class="ui-sprite ui-glyph-retry"></span></span><span><span class="ui-sprite ui-glyph-dots-0"></span> <span class="ui-sprite ui-glyph-dots-1"></span> <span class="ui-sprite ui-glyph-dots-2"></span></span><span><span class="ui-sprite ui-dot-connecting"></span> vs <span class="ui-sprite ui-dot-paused"></span></span><span></span>
+<span class="lbl">Icons</span><span><span class="ui-sprite ui-icon-retry"></span></span><span><span class="ui-sprite ui-icon-unplugged"></span> vs <span class="ui-sprite ui-icon-resting"></span></span><span><span class="ui-sprite ui-door-open"></span> <span class="ui-sprite ui-door-full"></span></span><span></span>
+</div>
+<div class="log">
+  <p class="ui-sysline self"><span class="ui-sprite ui-glyph-retry"></span><span><b>Your share</b> didn't go through. Try again in <time>12 s</time></span></p>
+  <p class="ui-sysline self"><span class="ui-sprite ui-glyph-snail"></span><span><b>Easy!</b> You can skip again in <time>3 s</time></span></p>
+  <p class="ui-sysline"><span class="ui-sprite ui-glyph-pause"></span><span><b>Ana</b> paused</span></p>
 </div></div>
   </div>
 </section>
