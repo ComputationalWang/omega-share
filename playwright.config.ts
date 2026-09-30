@@ -15,6 +15,9 @@ if (available.web) {
   servers.push({ command: `bun run --filter @omega/web ${mode} -- --port ${String(PORTS.web)} --strictPort`, url: URLS.web, reuseExistingServer: !process.env["CI"], env: { VITE_SERVER_URL: URLS.server } });
 }
 
+// Chrome's own default: sound needs a user activation (item 3 of the real-YouTube checklist relies on it).
+const AUTOPLAY_DEFAULT = "--autoplay-policy=document-user-activation-required";
+
 export default defineConfig({
   outputDir: "test-results",
   reporter: process.env["CI"] ? [["list"], ["html", { open: "never" }]] : "list",
@@ -26,6 +29,8 @@ export default defineConfig({
     // The sync suite drives the shared lobby with 8 clients (pause, seek), so it runs alone, after the rest (OME-90).
     { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", testIgnore: "**/sync.e2e.ts", use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     { name: "e2e-sync", testDir: "e2e", testMatch: "**/sync.e2e.ts", workers: 1, dependencies: ["e2e"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    // Opt-in real-YouTube sign-off checks (OME-91, docs/qa/m1b-real-youtube.md): real network, headed, never in CI. `bun run e2e:real`.
+    { name: "e2e-real", testDir: "e2e/real", testMatch: "**/*.real.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium", headless: false, launchOptions: { args: [AUTOPLAY_DEFAULT] } } },
     { name: "perf", testDir: "perf", testMatch: "**/*.perf.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
   ],
 });
