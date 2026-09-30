@@ -84,7 +84,7 @@ export const share = (request: APIRequestContext, id: string): Promise<void> => 
 
 /** The YouTube player frame (cross-origin, but Playwright can evaluate in it). */
 export async function ytFrame(page: Page, id: string, timeout = 20_000): Promise<Frame> {
-  const find = (): Frame | undefined => page.frames().find((f) => URL.canParse(f.url()) && new URL(f.url()).pathname === `/embed/${id}`);
+  const find = (): Frame | undefined => page.frames().find((f) => !f.isDetached() && URL.canParse(f.url()) && new URL(f.url()).pathname === `/embed/${id}`);
   await expect.poll(() => find() !== undefined, { timeout, message: `player frame for ${id}` }).toBe(true);
   const found = find();
   if (found === undefined) throw new Error(`player frame for ${id} went away`);
