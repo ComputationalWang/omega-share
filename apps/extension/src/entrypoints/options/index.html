@@ -15,8 +15,9 @@
   <body>
     <form id="form">
       <label for="url">Server URL</label>
-      <input id="url" data-testid="server-url-input" type="url" required placeholder="http://localhost:8787" />
-      <button type="submit" data-testid="server-url-save">Save</button>
+      <input id="url" data-testid="server-url-input" type="url" required placeholder="http://localhost:8787 or https://your-tunnel.example" />
+      <small>Use <code>http://localhost:&lt;port&gt;</code> or an <code>https://</code> address, with no path.</small>
+      <button type="submit" id="save" data-testid="server-url-save">Save</button>
       <p id="status" data-testid="server-url-status" role="status"></p>
     </form>
     <script type="module" src="./main.ts"></script>

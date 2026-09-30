@@ -1,4 +1,4 @@
-import { DEFAULT_SERVER_BASE_URL, hostPermissionPattern, parseServerBaseUrl } from "./settings";
+import { DEFAULT_SERVER_BASE_URL, SERVER_BASE_URL_KEY, hostPermissionPattern, parseServerBaseUrl } from "./settings";
 
 /** The browser calls the options page makes; injected so failures can be tested. */
 export interface SaveDeps {
@@ -8,6 +8,26 @@ export interface SaveDeps {
   readonly store: (origin: string) => Promise<void>;
   /** `permissions.remove({ origins: [pattern] })` */
   readonly removeOrigin: (pattern: string) => Promise<unknown>;
+}
+
+/** The slice of `browser.permissions` the options page uses. */
+export interface PermissionsLike {
+  request(permissions: { origins?: string[] }): Promise<boolean>;
+  remove(permissions: { origins?: string[] }): Promise<boolean>;
+}
+
+/** The slice of `browser.storage.local` the options page uses. */
+export interface StorageLike {
+  set(items: Record<string, unknown>): Promise<void>;
+}
+
+/** Binds `SaveDeps` to the real (or a fake) `permissions` and `storage.local`. */
+export function browserSaveDeps(permissions: PermissionsLike, storage: StorageLike): SaveDeps {
+  return {
+    requestOrigin: (pattern) => permissions.request({ origins: [pattern] }),
+    store: (origin) => storage.set({ [SERVER_BASE_URL_KEY]: origin }),
+    removeOrigin: (pattern) => permissions.remove({ origins: [pattern] }),
+  };
 }
 
 export type SaveResult = { readonly ok: true; readonly origin: string; readonly message: string } | { readonly ok: false; readonly message: string };
