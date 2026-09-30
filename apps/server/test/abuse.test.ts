@@ -277,6 +277,33 @@ describe("M3 room limiters (threat model §6)", () => {
   });
 });
 
+describe("M3 room limiters are not the sender's flood", () => {
+  test("[Seek war] a control refused by the room limiter gets its own notice and never counts toward the sender's 4029 streak", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now });
+    const a = await join(t, "alice");
+    const b = await join(t, "bob");
+    const c = await join(t, "carol");
+    expect((await postShare(t, JSON.stringify({ url: YT }), { token: tokenOf(a.snapshot) })).status).toBe(200);
+    const url = (await c.client.next("embed-changed")).embed?.url ?? "";
+    for (const m of [a, b]) for (let i = 0; i < 4; i++) m.client.send({ type: "control", url, playing: true, position: 10 * i });
+    for (let i = 0; i < 8; i++) await c.client.next("playback");
+    // Carol stays inside her own burst of 4 each time, so every refusal is the room's.
+    for (let round = 0; round < 15; round++) {
+      for (let i = 0; i < 4; i++) {
+        c.client.send({ type: "control", url, playing: false, position: 5 });
+        const refused = await c.client.next("error");
+        expect(refused.code).toBe("rate_limited");
+      }
+      // 1 s refills carol's 4 and the room's 4; alice takes the room's 4 again.
+      clock.ms += 1000;
+      for (let i = 0; i < 4; i++) a.client.send({ type: "control", url, playing: true, position: 10 * i });
+      for (let i = 0; i < 4; i++) await c.client.next("playback");
+    }
+    expect(c.client.socket.readyState).toBe(WebSocket.OPEN);
+  });
+});
+
 describe("M3 per-key limiters (threat model §6, ADR 0015 client key)", () => {
   test("[Reconnect churn] upgrade: 10 per key pass, the 11th gets HTTP 429 with Retry-After, other keys and a refill pass", async () => {
     const clock = fakeClock();
@@ -382,8 +409,8 @@ describe("M3 escalation closes (threat model §6)", () => {
     await Bun.sleep(50);
     clock.ms += 1000;
     await pingPong(a.client);
-    // A frame that passes ends the streak.
-    for (let i = 0; i < 5; i++) a.client.send(chat(`again ${String(i)}`));
+    // A frame that passes ends the streak; the chat bucket has refilled one token.
+    a.client.send(chat("again"));
     for (let i = 0; i < 50; i++) a.client.send(chat(`spam ${String(i)}`));
     expect((await a.client.closed).code).toBe(CLOSE_CODES.RATE_LIMITED);
   });

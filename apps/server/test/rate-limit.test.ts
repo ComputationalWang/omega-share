@@ -68,6 +68,8 @@ describe("isLoopbackKey", () => {
     for (const ip of ["127.0.0.1", "127.8.9.10", "::1", "::ffff:127.0.0.1"]) expect(isLoopbackKey(addressKey(ip))).toBe(true);
     for (const ip of ["203.0.113.7", "10.0.0.2", "2001:db8::1", "128.0.0.1"]) expect(isLoopbackKey(addressKey(ip))).toBe(false);
     expect(isLoopbackKey("proxy:unknown")).toBe(false);
+    // Same /64 key as ::1 before, but not loopback: ::2, hex-form IPv4-mapped, the unspecified address.
+    for (const ip of ["::2", "::ffff:0102:0304", "::"]) expect(isLoopbackKey(addressKey(ip))).toBe(false);
   });
 });
 
