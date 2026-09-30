@@ -58,7 +58,7 @@ describe("seatViews", () => {
   });
 });
 
-const embed = { provider: "youtube", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" } as const;
+const embed = { provider: "youtube", videoId: "dQw4w9WgXcQ", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" } as const;
 const playingAt10: PlaybackState = { playing: true, position: 10, rate: 1, at: 1_000_000, rev: 3, action: "play", by: "b" };
 const pausedAt10: PlaybackState = { ...playingAt10, playing: false, action: "pause" };
 const target = (playback: PlaybackState | null): PlaybackTarget => ({ embed, playback });

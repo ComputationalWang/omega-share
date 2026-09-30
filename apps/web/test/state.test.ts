@@ -89,7 +89,7 @@ describe("reduce", () => {
 
   test("embed-changed sets and clears the embed", () => {
     let s = server(joined(), { type: "embed-changed", embed, by: null });
-    expect(s.room?.embed?.videoId).toBe("dQw4w9WgXcQ");
+    expect(s.room?.embed?.url).toBe("https://www.youtube.com/embed/dQw4w9WgXcQ");
     s = server(s, { type: "embed-changed", embed: null, by: "a" });
     expect(s.room?.embed).toBeNull();
   });

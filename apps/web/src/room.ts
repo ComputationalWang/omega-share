@@ -209,7 +209,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   }
 
   let tvIframe: HTMLIFrameElement | null = null;
-  const mountPlayer = (iframe: HTMLIFrameElement, videoId: string): void => {
+  const mountPlayer = (iframe: HTMLIFrameElement, videoId: string, embedUrl: string): void => {
     syncNotice.hidden = true;
     void loadYouTubeApi().then((r) => {
       if (tvIframe !== iframe) return;
@@ -218,7 +218,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         syncNotice.hidden = false;
         return;
       }
-      playback.attach(attachYouTube(r.yt, iframe, { videoId, now: () => performance.now() }), videoId);
+      playback.attach(attachYouTube(r.yt, iframe, { videoId, now: () => performance.now() }), embedUrl);
     });
   };
 
@@ -339,7 +339,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         iframe.setAttribute("sandbox", tf.sandbox);
         tvIframe = iframe;
         tv.replaceChildren(iframe);
-        mountPlayer(iframe, embed.videoId);
+        // tvFrame() only renders YouTube until the Twitch/Vimeo frames land (OME-124).
+        if (embed.provider === "youtube") mountPlayer(iframe, embed.videoId, embed.url);
       }
     }
   };

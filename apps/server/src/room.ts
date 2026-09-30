@@ -69,7 +69,7 @@ export class Room {
 
   /** Applies a member's `control`; returns the new playback, or null if it's for no/another embed. */
   control(memberId: MemberId, control: Control): PlaybackState | null {
-    const next = applyControl(this.playback, this.embed?.videoId ?? null, control, memberId, Date.now());
+    const next = applyControl(this.playback, this.embed?.url ?? null, control, memberId, Date.now());
     if (next === null) return null;
     this.playback = next;
     this.rev = next.rev;

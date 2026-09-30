@@ -123,10 +123,10 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
     if (last === undefined) throw new Error("relay-latency: no clients joined");
     const seat = last.firstFreeSeat;
     const action = opts.action === "control" ? "control" : seat === null ? "chat" : "sit";
-    const videoId = last.embed?.videoId ?? null;
+    const url = last.embed?.url ?? null;
     const found = last.playback;
     if (action === "control") {
-      if (videoId === null) throw new Error("relay-latency: control mode needs an embed in the room");
+      if (url === null) throw new Error("relay-latency: control mode needs an embed in the room");
       if (samples + 1 > clients * CONTROL_BURST) {
         throw new Error(`relay-latency: control mode needs clients ≥ (samples + 1) / ${String(CONTROL_BURST)}`);
       }
@@ -162,7 +162,7 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
           action === "sit"
             ? { type: "sit", seat: target }
             : action === "control"
-              ? { type: "control", videoId, playing: s % 2 === 1, position }
+              ? { type: "control", url, playing: s % 2 === 1, position }
               : { type: "chat", text: `probe ${String(s)}` },
         ),
       );
@@ -178,7 +178,7 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
         };
       });
       const position = expectedPosition(found, Date.now());
-      restorer.socket.send(JSON.stringify({ type: "control", videoId, playing: found.playing, position }));
+      restorer.socket.send(JSON.stringify({ type: "control", url, playing: found.playing, position }));
       await withTimeout(restored, timeoutMs, "restore");
     }
 

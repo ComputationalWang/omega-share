@@ -28,7 +28,8 @@ const ALLOW = "autoplay; encrypted-media; picture-in-picture; fullscreen";
  */
 export function tvFrame(embed: unknown, pageOrigin: string = location.origin, nocookie: boolean = USE_NOCOOKIE): TvFrame | null {
   const r = v.safeParse(EmbedSchema, embed);
-  if (!r.success) return null;
+  // Twitch and Vimeo get their own frames and players in OME-124; until then, nothing renders.
+  if (!r.success || r.output.provider !== "youtube") return null;
   const origin = httpOrigin(pageOrigin);
   if (origin === null) return null;
   const src = new URL(r.output.url);

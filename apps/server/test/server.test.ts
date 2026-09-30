@@ -52,7 +52,7 @@ describe("POST /rooms/:id/share", () => {
 
   test("rejects a URL off the provider allowlist with 400 and no broadcast", async () => {
     const { client } = await join("alice");
-    for (const url of ["https://evil.example/watch?v=dQw4w9WgXcQ", "javascript:alert(1)", "https://vimeo.com/1"]) {
+    for (const url of ["https://evil.example/watch?v=dQw4w9WgXcQ", "javascript:alert(1)", "https://clips.twitch.tv/SomeClip", "https://vimeo.com/event/1"]) {
       const res = await share(JSON.stringify({ url }));
       expect(res.status).toBe(400);
       const body = await shareJson(res);

@@ -1,6 +1,6 @@
 import * as v from "valibot";
 import { CHAT_MAX_LENGTH, ERROR_MESSAGE_MAX_LENGTH, MAX_CLIENT_MESSAGE_BYTES, MAX_SERVER_MESSAGE_BYTES } from "./constants";
-import { EmbedSchema, YoutubeVideoIdSchema } from "./embed";
+import { EmbedSchema, MAX_EMBED_URL_LENGTH } from "./embed";
 import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
   AvatarSchema,
@@ -38,9 +38,15 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("ping"), id: PingIdSchema }),
   /**
    * Desired room playback. Seek while playing = `{ playing: true, position }`.
-   * Needs `join`; `videoId` must match the current embed, else `error: no_embed`.
+   * Needs `join`; `url` must equal the current `embed.url`, else `error: no_embed`.
+   * For a live embed (`playbackCaps(embed).live`) the server ignores `position`.
    */
-  v.strictObject({ type: v.literal("control"), videoId: YoutubeVideoIdSchema, playing: v.boolean(), position: PositionSchema }),
+  v.strictObject({
+    type: v.literal("control"),
+    url: v.pipe(v.string(), v.maxLength(MAX_EMBED_URL_LENGTH)),
+    playing: v.boolean(),
+    position: PositionSchema,
+  }),
 ]);
 export type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 

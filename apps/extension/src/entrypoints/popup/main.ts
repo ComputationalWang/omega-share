@@ -1,4 +1,4 @@
-import type { Embed } from "@omega/shared";
+import type { Embed, Provider } from "@omega/shared";
 import { browser } from "wxt/browser";
 import { type ScanOutcome, scanTab } from "../../embeds";
 import { FALLBACK_ROOMS, type RoomList, loadRooms } from "../../rooms";
@@ -45,6 +45,13 @@ function render(outcome: ScanOutcome): void {
 }
 
 /** `null`: the tab could not be read, so neither the list nor "no video found" applies. */
+const PROVIDER_NAMES: Readonly<Record<Provider, string>> = { youtube: "YouTube", twitch: "Twitch", vimeo: "Vimeo" };
+
+/** What the user sees for an embed: the video id, or the channel for Twitch live. */
+function embedId(embed: Embed): string {
+  return embed.provider === "twitch" && embed.kind === "live" ? embed.channel : embed.videoId;
+}
+
 function renderEmbeds(embeds: readonly Embed[] | null): void {
   if (embeds === null) {
     ui.empty.hidden = true;
@@ -61,10 +68,11 @@ function renderEmbeds(embeds: readonly Embed[] | null): void {
       input.value = embed.url;
       input.checked = i === 0;
       const label = document.createElement("label");
-      label.append(input, `YouTube · ${embed.videoId}`);
+      const id = embedId(embed);
+      label.append(input, `${PROVIDER_NAMES[embed.provider]} · ${id}`);
       const li = document.createElement("li");
       li.dataset["testid"] = "embed-item";
-      li.dataset["videoId"] = embed.videoId;
+      li.dataset["videoId"] = id;
       li.append(label);
       return li;
     }),

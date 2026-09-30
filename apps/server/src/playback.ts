@@ -2,7 +2,8 @@ import { MAX_POSITION_S, type MemberId, type PlaybackState } from "@omega/shared
 
 /** A `control` message's payload. */
 export interface Control {
-  videoId: string;
+  /** Canonical `Embed.url` of the video being controlled. */
+  url: string;
   playing: boolean;
   position: number;
 }
@@ -24,16 +25,16 @@ export function expectedPosition(state: PlaybackState, now: number): number {
 
 /**
  * Applies `control` from `by` (last write wins). Returns null when there is no embed or
- * `control.videoId` is not the current one.
+ * `control.url` is not the current embed's url.
  */
 export function applyControl(
   state: PlaybackState | null,
-  videoId: string | null,
+  embedUrl: string | null,
   control: Control,
   by: MemberId,
   now: number,
 ): PlaybackState | null {
-  if (state === null || videoId === null || control.videoId !== videoId) return null;
+  if (state === null || embedUrl === null || control.url !== embedUrl) return null;
   const position = clamp(control.position);
   const action =
     Math.abs(position - expectedPosition(state, now)) > SEEK_THRESHOLD_S ? "seek" : control.playing ? "play" : "pause";

@@ -1,5 +1,6 @@
 export * from "./constants";
 export * from "./embed";
+export * from "./capabilities";
 export * from "./room";
 export * from "./playback";
 export * from "./share";

@@ -47,10 +47,10 @@ export interface PlaybackControllerOptions<Timer> {
 }
 
 export interface PlaybackController {
-  /** The room's embed and playback, after every state change. A new videoId drops the player; a new playback object hard-seeks. */
+  /** The room's embed and playback, after every state change. A new embed url drops the player; a new playback object hard-seeks. */
   setRoom(t: PlaybackTarget): void;
-  /** The player built for `videoId`. Refused (and destroyed) if the room has moved on. */
-  attach(player: PlayerAdapter, videoId: string): void;
+  /** The player built for the embed with canonical `embedUrl`. Refused (and destroyed) if the room has moved on. */
+  attach(player: PlayerAdapter, embedUrl: string): void;
   /** Shared: play/pause for everyone. False if nothing was sent. */
   togglePlay(): boolean;
   /** Shared: seek for everyone, seconds. */
@@ -76,7 +76,7 @@ const clampVolume = (v: number): number => (Number.isFinite(v) ? Math.min(100, M
  */
 export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Timer>): PlaybackController {
   let target: PlaybackTarget = { embed: null, playback: null };
-  let videoId: string | null = null;
+  let embedUrl: string | null = null;
   let pb: PlaybackState | null = null;
   let player: PlayerAdapter | null = null;
   let loop: SyncLoop | null = null;
@@ -127,7 +127,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     const hasVideo = !refused && player?.ready() === true;
     const playing = !refused && (pb?.playing ?? false);
     // Pausing a playing room needs the server clock for the position; playing a paused one doesn't.
-    const canControl = !refused && pb !== null && videoId !== null && (!pb.playing || o.clock.ready);
+    const canControl = !refused && pb !== null && embedUrl !== null && (!pb.playing || o.clock.ready);
     if (
       c.hasVideo === hasVideo &&
       c.canControl === canControl &&
@@ -185,10 +185,10 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   return {
     setRoom(t) {
       target = t;
-      const id = t.embed?.videoId ?? null;
-      if (id !== videoId) {
+      const url = t.embed?.url ?? null;
+      if (url !== embedUrl) {
         detach();
-        videoId = id;
+        embedUrl = url;
       }
       const next = t.playback ?? null;
       if (next !== pb) {
@@ -197,8 +197,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       }
       refresh();
     },
-    attach(p, id) {
-      if (id !== videoId) {
+    attach(p, url) {
+      if (url !== embedUrl) {
         p.destroy();
         return;
       }

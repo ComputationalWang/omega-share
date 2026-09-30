@@ -44,7 +44,7 @@ type Control = Extract<ClientMessage, { type: "control" }>;
 
 function control(t: PlaybackTarget, playing: boolean, position: number): Control | null {
   if (t.embed === null || Number.isNaN(position)) return null;
-  return { type: "control", videoId: t.embed.videoId, playing, position: Math.min(MAX_POSITION_S, Math.max(0, position)) };
+  return { type: "control", url: t.embed.url, playing, position: Math.min(MAX_POSITION_S, Math.max(0, position)) };
 }
 
 /** The shared play/pause key: flip the room, at the room's position now (server clock). */
