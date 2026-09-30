@@ -50,7 +50,7 @@ async function enter(page: Page, nickname: string): Promise<void> {
   await page.locator(site.nicknameInput).fill(nickname);
   await page.locator(site.avatarOption).first().click();
   await page.locator(site.joinButton).click();
-  await expect(page.locator(`${site.room}, ${site.roomRefused}:visible`).first()).toBeVisible();
+  await expect(page.locator(`${site.room}:visible, ${site.roomRefused}:visible`).first()).toBeVisible();
 }
 
 /** Joins the lobby over a raw WebSocket opened by `page` (so from its address) and keeps it open; resolves with the first reply. */
