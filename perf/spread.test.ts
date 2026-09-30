@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { PlaybackState } from "@omega/shared";
-import { driftMs, spread, summarizeFrames } from "./spread";
+import { arrivalSpread, driftMs, spread, summarizeFrames } from "./spread";
 
 const playing: PlaybackState = { playing: true, position: 10, rate: 1, at: 1_000_000, rev: 3, action: "play", by: null };
 const paused: PlaybackState = { ...playing, playing: false, action: "pause" };
@@ -81,5 +81,21 @@ describe("summarizeFrames: vsync p95 plus the raw numbers ADR 0009 asks for", ()
     expect(s.note).toBe("10 frames, 0 missed vsync (0.0%), raw p95 16.67 ms");
     const f = summarizeFrames(Array.from({ length: 10 }, () => 16.9), V);
     expect(f.note).toBe("10 frames, 0 missed vsync (0.0%), raw p95 16.90 ms; ⚠ raw p95 16.90 ms > 16.7 ms");
+  });
+});
+
+describe("arrivalSpread: when a live pause/play reached each client (OME-131)", () => {
+  test("spread is last minus first arrival; latency is last arrival minus the action", () => {
+    const a = arrivalSpread(1_000, [1_040, 1_010, 1_130]);
+    expect(a.spreadMs).toBe(120);
+    expect(a.latencyMs).toBe(130);
+  });
+
+  test("an arrival before the action is a stale reading and throws", () => {
+    expect(() => arrivalSpread(1_000, [1_020, 999])).toThrow("before the action");
+  });
+
+  test("needs at least two clients", () => {
+    expect(() => arrivalSpread(1_000, [1_020])).toThrow("at least two");
   });
 });
