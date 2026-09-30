@@ -17,6 +17,9 @@ interface Expected {
   readonly player: (room: Page) => Promise<void>;
 }
 
+// OME-244: Twitch's mature gate can't be detected from outside its player, so every Twitch embed shows this hint.
+const TWITCH_HINT = "If the Twitch player asks, press Start Watching in it.";
+
 /** The SDK builds `https://player.twitch.tv?…` inside our `.tv-sdk` box; match the origin, then pin the ids. */
 async function twitchSrc(room: Page): Promise<URL> {
   const frame = room.locator(`${site.sharedVideo} iframe[src^="https://player.twitch.tv"]`);
@@ -35,6 +38,7 @@ const EXPECTED: readonly Expected[] = [
     player: async (room) => {
       const src = new URL((await room.locator(site.sharedVideo).getAttribute("src")) ?? "");
       expect(`${src.origin}${src.pathname}`).toBe(`https://www.youtube-nocookie.com/embed/${VIDEO_ID}`);
+      await expect(room.locator(site.tvHint)).toBeHidden();
     },
   },
   {
@@ -44,6 +48,7 @@ const EXPECTED: readonly Expected[] = [
       const src = await twitchSrc(room);
       expect([src.searchParams.get("channel"), src.searchParams.get("video")]).toEqual(["somechannel", null]);
       await expect(room.locator('[data-testid="live-pill"]')).toBeVisible();
+      await expect(room.locator(site.tvHint)).toHaveText(TWITCH_HINT);
     },
   },
   {
@@ -53,6 +58,7 @@ const EXPECTED: readonly Expected[] = [
       const src = await twitchSrc(room);
       expect([src.searchParams.get("video"), src.searchParams.get("channel")]).toEqual(["v1234567890", null]);
       await expect(room.locator('[data-testid="live-pill"]')).toBeHidden();
+      await expect(room.locator(site.tvHint)).toHaveText(TWITCH_HINT);
     },
   },
   {
@@ -64,6 +70,7 @@ const EXPECTED: readonly Expected[] = [
       expect(src.searchParams.get("h")).toBe("8272103f6e");
       // None of the page's own player params (badge, app_id, player_id…) survive the canonical form.
       expect(src.searchParams.has("app_id")).toBe(false);
+      await expect(room.locator(site.tvHint)).toBeHidden();
     },
   },
 ];

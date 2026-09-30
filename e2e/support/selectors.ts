@@ -37,4 +37,6 @@ export const site = {
   systemLine: id("system-line"),
   catchingNotice: id("catching-notice"),
   syncNotice: id("sync-notice"),
+  // OME-244: the one-line provider hint under the TV (Twitch mature gate).
+  tvHint: id("tv-hint"),
 } as const;
