@@ -3,11 +3,11 @@
 import { expect } from "@playwright/test";
 import type { APIRequestContext, Browser, Page } from "@playwright/test";
 import { DEFAULT_ROOM_ID, parseServerMessage, type PlaybackState } from "@omega/shared";
-import { URLS } from "../e2e/support/apps";
 import { rawSnapshot } from "../e2e/support/bots";
 import { EMBED_URL } from "../e2e/support/network";
 import type { Client } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
+import { joinForToken, postShare } from "../e2e/support/share";
 import { spread, type ClientSample, type Spread } from "./spread";
 
 /** docs/perf-budgets.md: Sync row. */
@@ -18,28 +18,17 @@ export const SETTLE_MS = 2000;
 export const PLAYING = 1;
 export const PAUSED = 2;
 
-const SHARE_URL = `${URLS.server}/rooms/${DEFAULT_ROOM_ID}/share`;
-
 export const fakeState = (page: Page): Promise<number | null> => page.evaluate(() => window.__fakeYt?.state ?? null);
 
-/** Share the test video into the lobby (a fresh `load` at 0, playing). Waits out the per-IP share limiter's 429s. */
+/** Share the test video into the lobby (a fresh `load` at 0, playing). Joins as a member for a share token (OME-128); waits out 429s. */
 export async function shareVideo(request: APIRequestContext): Promise<void> {
-  // QA-local (OME-128 review): join as a hidden member to get a share token.
-  const wsUrl = `${URLS.server.replace(/^http/, "ws")}/rooms/${DEFAULT_ROOM_ID}/ws`;
-  const ws = new WebSocket(wsUrl);
-  const token = await new Promise<string>((resolve, reject) => {
-    ws.addEventListener("open", () => { ws.send(JSON.stringify({ type: "join", nickname: "qasharer", avatar: 0 })); });
-    ws.addEventListener("message", (ev) => {
-      const d = String(ev.data); if (!d.includes('"snapshot"')) return;
-      const m = /"shareToken":"([^"]+)"/.exec(d); if (m?.[1] !== undefined) resolve(m[1]); else reject(new Error("no token"));
-    });
-    ws.addEventListener("error", () => { reject(new Error("ws error")); });
-  });
+  const member = await joinForToken(DEFAULT_ROOM_ID, "sharer");
   try {
-    await expect
-      .poll(async () => (await request.post(SHARE_URL, { data: { url: EMBED_URL }, headers: { authorization: `Bearer ${token}` } })).status(), { timeout: 20_000, intervals: [1_000] })
-      .toBe(200);
-  } finally { ws.close(); }
+    const res = await postShare(request, DEFAULT_ROOM_ID, member.token, EMBED_URL);
+    expect(res.status()).toBe(200);
+  } finally {
+    member.close();
+  }
 }
 
 export async function waitPlaying(clients: readonly Client[]): Promise<void> {
