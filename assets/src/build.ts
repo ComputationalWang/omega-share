@@ -26,6 +26,7 @@ import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders } from "./ui";
+import { CATCHUP_FRAME_MS, buildPlaybackFrames, playbackCss } from "./playback";
 
 const ROOT = join(import.meta.dir, "..");
 const POSES: readonly Pose[] = ["idle", "sit"];
@@ -486,10 +487,11 @@ function tagLiftByAvatar(images: Map<string, Uint8Array>): Record<string, Record
 
 /** Set (c): UI chrome atlas, plus each 9-slice/cursor as its own PNG for CSS `border-image`. */
 function buildUi(avatarImages: Map<string, Uint8Array>): void {
-  const frames = buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w);
+  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames()];
   registerKeys("ui", frames.map((f) => f.key));
   const byKey = new Map(frames.map((f) => [f.key, f]));
   if (byKey.size !== frames.length) throw new Error("duplicate ui key");
+  for (const f of frames) if (f.borders) assertStretchable(f.key, f.img, f.w, f.h, f.borders);
   const { placed, w: sheetW, h: sheetH } = pack(frames, 256);
   const sheet = new Uint8Array(sheetW * sheetH);
   const atlasFrames: Record<string, Frame & { borders?: Borders }> = {};
@@ -532,6 +534,8 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
         // Optional per-head lift (2 px over that avatar's own top pixel), so tags hug each head.
         tagLiftByAvatar: tagLiftByAvatar(avatarImages),
         tokens: uiTokens(),
+        // Set (e): the catching-up hourglass loops catchup/0..3 at this frame time.
+        catchupFrameMs: CATCHUP_FRAME_MS,
       },
     },
   };
@@ -539,10 +543,27 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
   const rects = Object.fromEntries(Object.entries(atlasFrames).map(([k, f]) => [k, f.frame]));
   const borders: Record<string, Borders> = {};
   for (const f of frames) if (f.borders) borders[f.key] = f.borders;
-  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders));
+  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects));
   const bg = colorIndex("wall", 1);
   const big = upscale(sheet, sheetW, sheetH, 4).map((v) => (v === 0 ? bg : v));
   writeFileSync(join(ROOT, "preview", "ui-sheet@4x.png"), encodeIndexedPng(sheetW * 4, sheetH * 4, big, PALETTE));
+}
+
+/** A 9-slice may only stretch flat colour: every column of the top/bottom/centre bands between the side
+ *  slices must be identical, and every row of the left/right/centre bands between the top and bottom slices too.
+ *  Catches a chamfer that pokes past its slice (it would smear into a visible band when stretched). */
+function assertStretchable(key: string, img: Uint8Array, w: number, h: number, b: Borders): void {
+  const px = (x: number, y: number): number => img[y * w + x] ?? -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = b.left + 1; x < w - b.right; x++) {
+      if (px(x, y) !== px(b.left, y)) throw new Error(`${key}: column ${String(x)} differs from ${String(b.left)} at row ${String(y)}; widen the side slices`);
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    for (let y = b.top + 1; y < h - b.bottom; y++) {
+      if (px(x, y) !== px(x, b.top)) throw new Error(`${key}: row ${String(y)} differs from ${String(b.top)} at column ${String(x)}; widen the top/bottom slices`);
+    }
+  }
 }
 
 /** Re-index a tiny image to just the colours it uses (index 0 stays transparent); saves ~200 B of PLTE per file. */
@@ -577,6 +598,7 @@ function uiTokens(): Record<string, string> {
     ok: RAMPS.teal[0],
     bubbleText: RAMPS.outline[1],
     disabledText: RAMPS.cream[2],
+    glow: RAMPS.glow[0],
   };
 }
 
