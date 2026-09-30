@@ -2,17 +2,16 @@
 // - sync.spread.<provider>: as sync.perf.ts, 8 clients, worst of 2 rounds of pause / play / seek, 2 s after each.
 //   Twitch live has no position (ADR 0014 §3): worst first-to-last client applying a pause / play-from-live,
 //   acting as soon as every client plays, like a user right after joining (OME-170).
-// - site.frameP95.twitch*: as site.perf.ts, 8 avatars with a Twitch VOD or live stream playing (Vimeo's row is there).
+// - site.frameP95.twitch* (+ ADR 0017's frameWorkP95 / missedVsync rows): as site.perf.ts, 8 avatars with a Twitch VOD or live stream playing (Vimeo's rows are there).
 import { expect, test } from "@playwright/test";
 import type { Browser } from "@playwright/test";
 import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { joinRoom, leaveAll, type Client } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
-import { VSYNC_MS, frameTimes } from "./frames";
+import { recordFrameRows, tracedFrames } from "./frames";
 import { recordMetric } from "./metrics";
 import { fakePlaying, measureLiveArrival, measureProviderSpread, providerCase, shareProvider, waitProviderPlaying, type ProviderCase } from "./providers";
-import { summarizeFrames } from "./spread";
 import { SETTLE_MS } from "./sync";
 
 const CLIENTS = 8;
@@ -101,10 +100,9 @@ test("sync: spread after pause/play-from-live, 8 clients, twitchLive", async ({ 
 
 for (const key of ["twitchVod", "twitchLive"] as const) {
   test(`site: p95 frame time with 8 avatars and ${key} playing`, async ({ browser, request }) => {
-    const id = `site.frameP95.${key}`;
     const why = pending();
     if (why !== null) {
-      recordMetric({ id, pending: why });
+      for (const id of [`site.frameP95.${key}`, `site.frameWorkP95.${key}`, `site.missedVsync.${key}`]) recordMetric({ id, pending: why });
       return;
     }
     test.setTimeout(120_000);
@@ -114,11 +112,10 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
     try {
       const [observer] = clients;
       if (!observer) throw new Error("no clients");
-      const samples = await frameTimes(observer.page, 5000);
+      const w = await tracedFrames(browser, observer.page, 5000);
       expect(await fakePlaying(observer.page, c.provider)).toBe(true);
-      expect(samples.length).toBeGreaterThan(0);
-      const f = summarizeFrames(samples, VSYNC_MS);
-      recordMetric({ id, value: f.p95, note: `${f.note}; ${c.label} playing (fake SDK)` });
+      expect(w.samples.length).toBeGreaterThan(0);
+      recordFrameRows(key, w, `${c.label} playing (fake SDK)`);
     } finally {
       await leaveAll(clients);
     }

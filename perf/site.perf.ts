@@ -4,9 +4,8 @@ import { PENDING, URLS, available } from "../e2e/support/apps";
 import { joinRoom, leaveAll } from "../e2e/support/room";
 import { joinForToken, postShare } from "../e2e/support/share";
 import { site } from "../e2e/support/selectors";
-import { VSYNC_MS, frameTimes } from "./frames";
+import { recordFrameRows, tracedFrames } from "./frames";
 import { recordMetric } from "./metrics";
-import { summarizeFrames } from "./spread";
 import { PLAYING, fakeState, shareVideo, waitPlaying } from "./sync";
 
 interface LongTaskStore { __omegaLongTaskEnds: number[] }
@@ -46,7 +45,8 @@ test("site: time to interactive", async ({ page }) => {
 
 test("site: p95 frame time with 8 avatars and video playing", async ({ browser, request }) => {
   if (!available.web || !available.server) {
-    recordMetric({ id: "site.frameP95", pending: available.web ? PENDING.server : PENDING.web });
+    const pending = available.web ? PENDING.server : PENDING.web;
+    for (const id of ["site.frameP95", "site.frameWorkP95.youtube", "site.missedVsync.youtube"]) recordMetric({ id, pending });
     return;
   }
   test.setTimeout(120_000);
@@ -57,11 +57,10 @@ test("site: p95 frame time with 8 avatars and video playing", async ({ browser, 
     const [observer] = clients;
     if (!observer) throw new Error("no clients");
     await waitPlaying(clients);
-    const samples = await frameTimes(observer.page, 5000);
+    const w = await tracedFrames(browser, observer.page, 5000);
     expect(await fakeState(observer.page)).toBe(PLAYING);
-    expect(samples.length).toBeGreaterThan(0);
-    const f = summarizeFrames(samples, VSYNC_MS);
-    recordMetric({ id: "site.frameP95", value: f.p95, note: `${f.note}; video playing (fake player)` });
+    expect(w.samples.length).toBeGreaterThan(0);
+    recordFrameRows("youtube", w, "video playing (fake player)");
   } finally {
     await leaveAll(clients);
   }
@@ -70,7 +69,8 @@ test("site: p95 frame time with 8 avatars and video playing", async ({ browser, 
 // OME-164: the same budget with a Vimeo embed playing on the fake SDK (OME-121), through the real Vimeo adapter.
 test("site: p95 frame time with 8 avatars and a Vimeo video playing", async ({ browser, request }) => {
   if (!available.web || !available.server) {
-    recordMetric({ id: "site.frameP95.vimeo", pending: available.web ? PENDING.server : PENDING.web });
+    const pending = available.web ? PENDING.server : PENDING.web;
+    for (const id of ["site.frameP95.vimeo", "site.frameWorkP95.vimeo", "site.missedVsync.vimeo"]) recordMetric({ id, pending });
     return;
   }
   test.setTimeout(120_000);
@@ -88,11 +88,10 @@ test("site: p95 frame time with 8 avatars and a Vimeo video playing", async ({ b
       await expect(c.page.locator(site.sharedVideo)).toBeVisible({ timeout: 15_000 });
       await expect.poll(() => c.page.evaluate(() => window.__fakeVimeo?.paused ?? null), { timeout: 15_000 }).toBe(false);
     }
-    const samples = await frameTimes(observer.page, 5000);
+    const w = await tracedFrames(browser, observer.page, 5000);
     expect(await observer.page.evaluate(() => window.__fakeVimeo?.paused)).toBe(false);
-    expect(samples.length).toBeGreaterThan(0);
-    const f = summarizeFrames(samples, VSYNC_MS);
-    recordMetric({ id: "site.frameP95.vimeo", value: f.p95, note: `${f.note}; Vimeo playing (fake SDK)` });
+    expect(w.samples.length).toBeGreaterThan(0);
+    recordFrameRows("vimeo", w, "Vimeo playing (fake SDK)");
   } finally {
     await leaveAll(clients);
   }

@@ -8,7 +8,7 @@ export interface Budget {
   readonly metric: string;
   /** Exact text of the Metric column in docs/perf-budgets.md. */
   readonly docMetric: string;
-  readonly unit: "KB" | "MB" | "ms" | "count";
+  readonly unit: "KB" | "MB" | "ms" | "%" | "count";
   readonly limit: number;
   readonly comparator: Comparator;
   /** Load-test row: budget `of`, held with `members` people in the room (the doc's "People in a room" cell). */
@@ -17,6 +17,18 @@ export interface Budget {
 
 const LOAD_DOC = "People in a room without breaking the budgets above";
 
+/** Frame-spec providers, in `site.frameWorkP95.<provider>` / `site.missedVsync.<provider>` ids. YouTube's frame p95 is plain `site.frameP95`. */
+export const FRAME_PROVIDERS = ["youtube", "twitchVod", "twitchLive", "vimeo"] as const;
+export type FrameProvider = (typeof FRAME_PROVIDERS)[number];
+
+const PROVIDER_LABEL: Record<FrameProvider, string> = { youtube: "YouTube", twitchVod: "Twitch VOD", twitchLive: "Twitch live", vimeo: "Vimeo" };
+
+// ADR 0017 (OME-185/OME-192): the headroom a quantised rAF p95 can't show — observer main-thread work, and missed vsyncs as their own row.
+const HEADROOM: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
+  { id: `site.frameWorkP95.${p}`, area: "Site", metric: `Main-thread work p95 per frame, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Main-thread work per frame, 8 avatars + video playing", unit: "ms", limit: 8, comparator: "<=" },
+  { id: `site.missedVsync.${p}`, area: "Site", metric: `Missed vsyncs, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Missed vsyncs, 8 avatars + video playing", unit: "%", limit: 1, comparator: "<=" },
+]);
+
 export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
@@ -24,6 +36,7 @@ export const BUDGETS: readonly Budget[] = [
   { id: "site.frameP95.vimeo", area: "Site", metric: "p95 frame time, 8 avatars + Vimeo video", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
   { id: "site.frameP95.twitchVod", area: "Site", metric: "p95 frame time, 8 avatars + Twitch VOD", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
   { id: "site.frameP95.twitchLive", area: "Site", metric: "p95 frame time, 8 avatars + Twitch live", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
+  ...HEADROOM,
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
   { id: "sync.spread", area: "Sync", metric: "Spread after play/pause/seek", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   // M2 (OME-131): one merge-blocking row per provider. Twitch live has no position: its spread is first-to-last client applying a pause / play-from-live.
