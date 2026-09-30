@@ -13,7 +13,7 @@ import { BUBBLE_OFFSET_Y, SEATS, STANDING, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayou
 import type { PlayerError } from "./player/adapter";
 import { PLAYERS, createPlayerMounter } from "./player/registry";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
-import { initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
+import { catchingUp, initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
 import { tvFrame, type TvFrame } from "./tv";
 
 export interface RoomOptions {
@@ -186,25 +186,29 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let tvKey: string | null = null;
   let drawnSeats: readonly unknown[] | undefined;
   let drawnMembers: readonly unknown[] | undefined;
-  let catchTag: HTMLElement | null = null;
-  const hourglass = el("span", { className: "ui-sprite ui-catchup", ariaHidden: "true" });
   const syslineEls = new Map<number, HTMLElement>();
   let shownError: ViewState["lastError"] = null;
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
   const tagEls = new Map<MemberId, HTMLElement>();
   const bubbleEls = new Map<MemberId, HTMLElement>();
+  /** The hourglass on each catching tag; a tag removed with its member takes its hourglass along. */
+  const hourglasses = new Map<HTMLElement, HTMLElement>();
 
-  /** My own tag carries the hourglass while my player catches up (local only in M1b). */
+  /** A tag carries the hourglass while that member catches up: mine from my player, others' from the server (ADR 0019). */
   const applyCatching = (): void => {
-    const self = state.self === null ? null : (tagEls.get(state.self) ?? null);
-    const want = pbView?.catching === true ? self : null;
-    if (want === catchTag) return;
-    catchTag?.classList.remove("catching");
-    hourglass.remove();
-    catchTag = want;
-    if (want !== null) {
-      want.classList.add("catching");
-      want.prepend(hourglass);
+    for (const [id, tag] of tagEls) {
+      const want = id === state.self ? pbView?.catching === true : catchingUp(state, id);
+      const glass = hourglasses.get(tag);
+      if (want === (glass !== undefined)) continue;
+      tag.classList.toggle("catching", want);
+      if (glass !== undefined) {
+        glass.remove();
+        hourglasses.delete(tag);
+      } else {
+        const g = el("span", { className: "ui-sprite ui-catchup", ariaHidden: "true" });
+        tag.prepend(g);
+        hourglasses.set(tag, g);
+      }
     }
   };
 
@@ -321,6 +325,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (members.has(id)) continue;
       e.remove();
       tagEls.delete(id);
+      hourglasses.delete(e);
     }
     for (const m of members.values()) {
       let e = tagEls.get(m.id);
@@ -431,7 +436,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       shareToken.onEvent(e);
       if (e.type === "message") {
         if (e.msg.type === "pong") clock.onPong(e.msg.id, e.msg.at);
-        else dispatch({ type: "server", msg: e.msg, now: Date.now() });
+        else {
+          if (e.msg.type === "snapshot") playback.joined();
+          dispatch({ type: "server", msg: e.msg, now: Date.now() });
+        }
       } else {
         if (e.type === "disconnected") clock.stop();
         dispatch(e);

@@ -41,6 +41,11 @@ export interface ViewState {
   readonly refusal: Refusal | null;
   /** Client time (the `now` of the events, ms) until which the server asked us to hold off (`rate_limited`); 0 = none. */
   readonly cooldownUntil: number;
+  /**
+   * Other members whose player is catching up (ADR 0019, advisory). Kept outside `room.members`
+   * so a toggle doesn't redraw the scene. My own tag uses the local playback view instead.
+   */
+  readonly catching: readonly MemberId[];
 }
 
 export interface ErrorNotice {
@@ -54,7 +59,7 @@ export type ViewEvent =
   | { readonly type: "server"; readonly msg: ServerMessage; readonly now: number }
   | { readonly type: "tick"; readonly now: number };
 
-export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], syslines: [], lastError: null, refusal: null, cooldownUntil: 0 };
+export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [] };
 
 /** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
 const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused";
@@ -62,6 +67,16 @@ const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "
 /** True while the server's `rate_limited` hint says to hold off sending chat. */
 export function coolingDown(state: ViewState, now: number): boolean {
   return now < state.cooldownUntil;
+}
+
+/** True while the server says this member is catching up. */
+export function catchingUp(state: ViewState, id: MemberId): boolean {
+  return state.catching.includes(id);
+}
+
+function withCatching(state: ViewState, id: MemberId, on: boolean): ViewState {
+  if (catchingUp(state, id) === on) return state;
+  return { ...state, catching: on ? [...state.catching, id] : state.catching.filter((m) => m !== id) };
 }
 
 const hasMember = (room: RoomState, id: MemberId): boolean => room.members.some((m) => m.id === id);
@@ -84,7 +99,16 @@ function withPlayback(state: ViewState, room: RoomState, pb: PlaybackState | nul
 function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState {
   switch (msg.type) {
     case "snapshot":
-      return { ...state, status: "open", self: msg.self, room: msg.room, bubbles: [], syslines: [], lastError: null };
+      return {
+        ...state,
+        status: "open",
+        self: msg.self,
+        room: msg.room,
+        bubbles: [],
+        syslines: [],
+        lastError: null,
+        catching: msg.room.members.filter((m) => m.catching === true).map((m) => m.id),
+      };
     case "room-full":
       return { ...initialState, status: "full" };
     case "error": {
@@ -98,10 +122,12 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       const until = now + (msg.retryAfterMs ?? CHAT_COOLDOWN_DEFAULT_MS);
       return { ...state, lastError, cooldownUntil: Math.max(state.cooldownUntil, until) };
     }
-    case "member-joined":
-      return withRoom(state, (room) =>
+    case "member-joined": {
+      const next = withRoom(state, (room) =>
         hasMember(room, msg.member.id) ? null : { ...room, members: [...room.members, msg.member] },
       );
+      return next === state ? state : withCatching(next, msg.member.id, msg.member.catching === true);
+    }
     case "member-left": {
       const next = withRoom(state, (room) =>
         hasMember(room, msg.memberId)
@@ -112,7 +138,7 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
             }
           : null,
       );
-      return next === state ? state : { ...next, bubbles: next.bubbles.filter((b) => b.memberId !== msg.memberId) };
+      return next === state ? state : withCatching({ ...next, bubbles: next.bubbles.filter((b) => b.memberId !== msg.memberId) }, msg.memberId, false);
     }
     case "seat-changed":
       return withRoom(state, (room) => {
@@ -137,8 +163,9 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       const bubble: Bubble = { memberId: msg.memberId, text: msg.text, expiresAt: now + BUBBLE_MS };
       return { ...state, bubbles: [...state.bubbles.filter((b) => b.memberId !== msg.memberId), bubble] };
     }
+    case "member-status":
+      return state.room === null || !hasMember(state.room, msg.memberId) ? state : withCatching(state, msg.memberId, msg.catching);
     case "pong":
-    case "member-status": // Shown by the web half of OME-101 (ADR 0019).
       return state;
   }
 }

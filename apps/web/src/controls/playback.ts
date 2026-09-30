@@ -42,7 +42,7 @@ export interface ControllerClock {
 }
 
 export interface PlaybackControllerOptions<Timer> {
-  /** The room connection. Only the shared transport and in-player clicks use it. */
+  /** The room connection: the shared transport, in-player clicks and my catching-up `status`. */
   readonly send: (msg: ClientMessage) => boolean;
   readonly clock: ControllerClock;
   /** Monotonic client ms. */
@@ -66,6 +66,8 @@ export interface PlaybackController {
   toggleMute(): void;
   /** After a blocked autoplay; must run in a user gesture. */
   unmute(): void;
+  /** A fresh join (snapshot): the server has forgotten my `status`, so it goes out again if I'm catching up. */
+  joined(): void;
   tick(): void;
   start(): void;
   stop(): void;
@@ -91,6 +93,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   let muted = false;
   let needsUnmute = false;
   let catchup: Catchup = NOT_CATCHING;
+  /** The `catching` the server last got from us (ADR 0019); a fresh join starts at false. */
+  let sentCatching = false;
   let error: PlayerError | null = null;
   let provider: Provider | null = null;
   let live = false;
@@ -206,6 +210,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     o.clock.tick();
     loop?.tick();
     catchup = player === null || error !== null ? NOT_CATCHING : stepCatchup(catchup, { now: o.now(), playerState: player.state(), roomPlaying: pb?.playing ?? false });
+    // Already held for CATCHUP_SHOW_MS by stepCatchup, so a changed value goes straight out. A failed send retries next tick.
+    if (catchup.catching !== sentCatching && o.send({ type: "status", catching: catchup.catching })) sentCatching = catchup.catching;
     refresh();
   }
 
@@ -283,6 +289,9 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       refresh();
     },
     tick,
+    joined() {
+      sentCatching = false;
+    },
     start() {
       timer ??= o.setInterval(tick, SYNC_INTERVAL_MS);
     },
