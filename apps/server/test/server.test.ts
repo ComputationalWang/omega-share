@@ -42,7 +42,9 @@ describe("POST /rooms/:id/share", () => {
     const res = await share(JSON.stringify({ url: WATCH_URL }), { origin: EXTENSION_ORIGIN });
     expect(res.status).toBe(200);
     expect(await shareJson(res)).toEqual({ ok: true, embed: CANONICAL });
-    expect(await client.next("embed-changed")).toEqual({ type: "embed-changed", embed: CANONICAL, by: null });
+    const changed = await client.next("embed-changed");
+    expect(changed).toMatchObject({ type: "embed-changed", embed: CANONICAL, by: null });
+    expect(changed.playback).toMatchObject({ playing: true, position: 0, action: "load", by: null });
 
     const { snapshot } = await join("bob");
     expect(snapshot.room.embed).toEqual(CANONICAL);
@@ -177,6 +179,7 @@ describe("WebSocket /rooms/:id/ws", () => {
       seats: [null, null, null, null, null, null, null, null],
       members: [{ id: a.snapshot.self, nickname: "alice", avatar: 1 }],
       embed: null,
+      playback: null,
     });
 
     const b = await join("bob", 2);
