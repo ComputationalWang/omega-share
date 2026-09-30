@@ -11,6 +11,7 @@ import {
   RoomStateSchema,
   SeatIndexSchema,
 } from "./room";
+import { ShareTokenSchema } from "./share";
 
 /**
  * Trimmed, 1–280 chars. No control, format (zero-width, bidi, BOM) or line/paragraph
@@ -48,8 +49,16 @@ export type ErrorCode = (typeof ERROR_CODES)[number];
 
 // Server → client. Unknown keys are stripped so the server can add fields.
 export const ServerMessageSchema = v.variant("type", [
-  /** First message after a successful join. */
-  v.object({ type: v.literal("snapshot"), self: MemberIdSchema, room: RoomStateSchema }),
+  /**
+   * First message after a successful join. `shareToken` authorizes this member's
+   * `POST /rooms/:id/share` until they leave; it is never broadcast (absent from pre-M2 servers).
+   */
+  v.object({
+    type: v.literal("snapshot"),
+    self: MemberIdSchema,
+    room: RoomStateSchema,
+    shareToken: v.optional(ShareTokenSchema),
+  }),
   v.object({ type: v.literal("member-joined"), member: MemberSchema }),
   v.object({ type: v.literal("member-left"), memberId: MemberIdSchema }),
   v.object({ type: v.literal("seat-changed"), memberId: MemberIdSchema, seat: v.nullable(SeatIndexSchema) }),
@@ -61,8 +70,9 @@ export const ServerMessageSchema = v.variant("type", [
     at: ServerTimeSchema,
   }),
   /**
-   * `by` is null when the embed came from `POST /rooms/:id/share`. `playback` is the
-   * new embed's `load` state (null iff `embed` is null; absent from pre-M1b servers).
+   * `by` is the member who shared it; null means server-initiated (or a pre-M2 server's
+   * anonymous share). `playback` is the new embed's `load` state (null iff `embed` is
+   * null; absent from pre-M1b servers).
    */
   v.pipe(
     v.object({
