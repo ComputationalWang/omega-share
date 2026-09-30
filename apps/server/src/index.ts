@@ -9,5 +9,6 @@ try {
   process.exit(1);
 }
 
-const server = startServer({ port: config.port, hostname: config.hostname, siteOrigin: config.siteOrigin });
-console.log(`omega-share server on ${server.url.href} (site origin ${config.siteOrigin})`);
+const server = startServer(config);
+const via = config.publicOrigin === null ? "" : `, public origin ${config.publicOrigin}`;
+console.log(`omega-share server on ${server.url.href} (site origin ${config.siteOrigin}${via})`);

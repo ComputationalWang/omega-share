@@ -19,12 +19,20 @@ import {
 } from "@omega/shared";
 import { KeyedLimiter, TokenBucket, addressKey, readBodyCapped } from "./rate-limit";
 import { Room } from "./room";
+import { mountSite } from "./static";
 
 export interface ServerOptions {
   port: number;
+  /** Default `127.0.0.1`: only the tunnel agent (or the operator) reaches the server (ADR 0015 §3). */
   hostname?: string;
-  /** The site's origin, e.g. `http://localhost:5173`. Only it and extension origins may call the API. */
+  /** The dev site's origin, e.g. `http://localhost:5173`. It, the public origin, our own loopback origins and extension origins may call the API. */
   siteOrigin: string;
+  /** The tunnel's `https://` origin; its host joins the Host allowlist and it joins the Origin allowlist. */
+  publicOrigin?: string | null;
+  /** Serve this built site (`apps/web/dist`, absolute path) on the same origin as the API. */
+  staticDir?: string | null;
+  /** Allowed extension ids; null or absent allows any Chromium extension id. */
+  extensionIds?: readonly string[] | null;
   /** Sockets that have not joined within this are closed. Default 10 s. */
   joinTimeoutMs?: number;
   /** Open WebSockets allowed per client address. Default 50. */
@@ -57,6 +65,16 @@ const CONTROL_PER_SECOND = 4;
 const SHARE_BURST = 5;
 const SHARE_PER_SECOND = 1 / 3;
 const WS_PATH = /^\/rooms\/([^/]+)\/ws$/;
+/**
+ * On every response. The header CSP carries only `frame-ancestors` (a `<meta>` CSP can't); header and
+ * meta CSPs intersect, so the `<meta>` in index.html stays the single source for the rest.
+ */
+const SECURITY_HEADERS: Readonly<Record<string, string>> = {
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "content-security-policy": "frame-ancestors 'none'",
+};
+const plain = (status: number, text: string): Response => new Response(text, { status, headers: SECURITY_HEADERS });
 /** Any Chromium extension id. Pin to our published id once it exists (see README). */
 const EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/;
 
@@ -69,8 +87,15 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   const connectionsPerIp = new Map<string, number>();
   const shareLimiter = new KeyedLimiter(SHARE_BURST, SHARE_PER_SECOND);
 
-  const isAllowedOrigin = (origin: string): boolean => origin === opts.siteOrigin || EXTENSION_ORIGIN.test(origin);
-  /** Browsers always send Origin; non-browser clients may omit it and are not a CSRF vector. */
+  // Filled in once Bun has picked the port (tests use port 0); no request arrives before that.
+  const allowedHosts = new Set<string>();
+  const allowedOrigins = new Set<string>([opts.siteOrigin]);
+  const extensionOrigins = opts.extensionIds?.map((id) => `chrome-extension://${id}`) ?? null;
+  const isAllowedOrigin = (origin: string): boolean =>
+    allowedOrigins.has(origin) || (extensionOrigins === null ? EXTENSION_ORIGIN.test(origin) : extensionOrigins.includes(origin));
+  /** Refuses DNS rebinding: only our public host and loopback names on our port (ADR 0015 §4). */
+  const hostOk = (req: Request): boolean => allowedHosts.has(req.headers.get("host")?.toLowerCase() ?? "");
+  /** Browsers always send Origin cross-origin; non-browser clients may omit it and are not a CSRF vector. */
   const originOk = (req: Request): boolean => {
     const origin = req.headers.get("origin");
     return origin === null || isAllowedOrigin(origin);
@@ -79,18 +104,23 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   const ipOf = (req: Request): string => addressKey(server.requestIP(req)?.address ?? "unknown");
 
   const app = new Hono();
+  app.use("*", async (c, next) => {
+    await next();
+    for (const [k, value] of Object.entries(SECURITY_HEADERS)) c.res.headers.set(k, value);
+  });
   app.use(
     "/rooms/*",
     cors({
       origin: (origin) => (isAllowedOrigin(origin) ? origin : null),
       allowMethods: ["GET", "POST"],
-      allowHeaders: ["content-type"],
+      allowHeaders: ["content-type", "authorization", "ngrok-skip-browser-warning"],
       maxAge: 600,
     }),
   );
 
-  /** Readiness probe (Playwright webServer, supervisors). */
-  app.get("/", (c) => c.text("omega-share server"));
+  /** Readiness probe (supervisors). Without a static site, `GET /` answers too (Playwright webServer). */
+  app.get("/healthz", (c) => c.text("ok"));
+  if (opts.staticDir == null) app.get("/", (c) => c.text("omega-share server"));
 
   app.get("/rooms", (c) => {
     const listed = [...rooms.values()].slice(0, MAX_LISTED_ROOMS);
@@ -103,8 +133,6 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       const body: ShareResponse = { ok: false, error: { code, message } };
       return c.json(body, status);
     };
-    // Not a ShareResponse: the contract has no code for it, and only a hostile page can trigger it.
-    if (!originOk(c.req.raw)) return c.text("forbidden origin", 403);
     const room = rooms.get(c.req.param("id"));
     if (room === undefined) return fail(404, "room_not_found", "unknown room");
     if (!shareLimiter.take(ipOf(c.req.raw))) return fail(429, "rate_limited", "too many shares, slow down");
@@ -130,6 +158,8 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     const body: ShareResponse = { ok: true, embed };
     return c.json(body);
   });
+
+  if (opts.staticDir != null) mountSite(app, opts.staticDir);
 
   const sendError = (ws: Conn, code: ErrorCode, message: string): void => {
     ws.send(encode({ type: "error", code, message }));
@@ -217,19 +247,22 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
 
   const server: Server<ConnData> = Bun.serve<ConnData>({
     port: opts.port,
-    ...(opts.hostname === undefined ? {} : { hostname: opts.hostname }),
+    hostname: opts.hostname ?? "127.0.0.1",
     maxRequestBodySize: 64 * 1024,
     fetch(req, srv) {
+      // Before routing, for HTTP and upgrades alike (ADR 0015 §4).
+      if (!hostOk(req)) return plain(421, "misdirected request");
+      // Not a ShareResponse: the contract has no code for it, and only a hostile page can trigger it.
+      if (!originOk(req)) return plain(403, "forbidden origin");
       // Cheap test first so ordinary HTTP requests skip URL parsing.
       if (!req.url.includes("/ws")) return app.fetch(req);
       const match = WS_PATH.exec(new URL(req.url).pathname);
       if (match === null) return app.fetch(req);
       const room = rooms.get(match[1] ?? "");
-      if (room === undefined) return new Response("unknown room", { status: 404 });
-      if (!originOk(req)) return new Response("forbidden origin", { status: 403 });
+      if (room === undefined) return plain(404, "unknown room");
       const ip = ipOf(req);
       const open = connectionsPerIp.get(ip) ?? 0;
-      if (open >= maxConnectionsPerIp) return new Response("too many connections", { status: 429 });
+      if (open >= maxConnectionsPerIp) return plain(429, "too many connections");
       const data: ConnData = {
         room,
         ip,
@@ -240,7 +273,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
         controlLimited: false,
         joinTimer: null,
       };
-      if (!srv.upgrade(req, { data })) return new Response("expected a WebSocket upgrade", { status: 426 });
+      if (!srv.upgrade(req, { data })) return plain(426, "expected a WebSocket upgrade");
       connectionsPerIp.set(ip, open + 1);
       return undefined;
     },
@@ -272,5 +305,15 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       },
     },
   });
+  const port = String(server.port);
+  for (const name of ["localhost", "127.0.0.1", "[::1]"]) {
+    allowedHosts.add(`${name}:${port}`);
+    // A page served from here (STATIC_DIR, or anything else on our port) is us.
+    allowedOrigins.add(`http://${name}:${port}`);
+  }
+  if (opts.publicOrigin != null) {
+    allowedHosts.add(new URL(opts.publicOrigin).host);
+    allowedOrigins.add(opts.publicOrigin);
+  }
   return server;
 }

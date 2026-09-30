@@ -106,10 +106,10 @@ describe("abuse limits", () => {
     const body = Buffer.from(JSON.stringify({ url: "https://youtu.be/" + "é".repeat(2100) }));
     expect(body.toString().length).toBeLessThan(4096);
     expect(body.length).toBeGreaterThan(4096);
-    // Raw HTTP so there is no content-length: fetch() would add one.
-    const head = `POST /rooms/lobby/share HTTP/1.1\r\nhost: x\r\ncontent-type: application/json\r\ntransfer-encoding: chunked\r\nconnection: close\r\n\r\n`;
-    const raw = Buffer.concat([Buffer.from(head + body.length.toString(16) + "\r\n"), body, Buffer.from("\r\n0\r\n\r\n")]);
     const port = t.server.port ?? 0;
+    // Raw HTTP so there is no content-length: fetch() would add one.
+    const head = `POST /rooms/lobby/share HTTP/1.1\r\nhost: 127.0.0.1:${String(port)}\r\ncontent-type: application/json\r\ntransfer-encoding: chunked\r\nconnection: close\r\n\r\n`;
+    const raw = Buffer.concat([Buffer.from(head + body.length.toString(16) + "\r\n"), body, Buffer.from("\r\n0\r\n\r\n")]);
     const response = await new Promise<string>((resolve) => {
       let got = "";
       void Bun.connect({
