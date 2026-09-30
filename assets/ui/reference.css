@@ -221,10 +221,14 @@
 
 /* LIVE pill. Put a .ui-sprite.ui-onair inside, before the word. .is-behind = paused or not at the live edge. */
 .ui-live { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-live.png") 4 fill / calc(4 * var(--ui-px)) stretch; color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.ui-onair { --f0: 0 calc(-188 * var(--ui-px)); --f1: calc(-9 * var(--ui-px)) calc(-188 * var(--ui-px)); width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--f0); animation: ui-onair 1400ms steps(1) infinite; }
-@keyframes ui-onair { 0% { background-position: var(--f0); } 50% { background-position: var(--f1); } }
+/* Frame 1 (lit) is a layer over frame 0 (dim) that blinks by opacity only, so the compositor runs it and the page's main thread
+ * stays idle while a live stream plays (OME-201). Both frames share one silhouette, so lit fully covers dim. */
+.ui-onair { --f0: 0 calc(-188 * var(--ui-px)); --f1: calc(-9 * var(--ui-px)) calc(-188 * var(--ui-px)); position: relative; width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--f0); }
+.ui-onair::after { content: ""; position: absolute; inset: 0; background: inherit; background-position: var(--f1); opacity: 0; animation: ui-onair 1400ms steps(1) infinite; }
+@keyframes ui-onair { 0% { opacity: 0; } 50% { opacity: 1; } }
 .ui-live.is-behind { border-image-source: url("slices/pill-behind.png"); color: var(--ui-muted); }
-.ui-live.is-behind .ui-onair { animation: none; background-position: calc(-241 * var(--ui-px)) calc(-187 * var(--ui-px)); }
+.ui-live.is-behind .ui-onair { background-position: calc(-241 * var(--ui-px)) calc(-187 * var(--ui-px)); }
+.ui-live.is-behind .ui-onair::after { display: none; }
 /* How far behind live the room is: a normal .ui-readout with .behind ("−0:42"). Hide it at the live edge. */
 .ui-readout.behind { color: var(--ui-muted); }
 /* Back to live: a wood .ui-button.shared.icon (it moves everyone). Disabled at the live edge. */
@@ -254,7 +258,7 @@
 .ui-resync { --f0: calc(-17 * var(--ui-px)) calc(-145 * var(--ui-px)); --f1: calc(-34 * var(--ui-px)) calc(-145 * var(--ui-px)); --f2: calc(-51 * var(--ui-px)) calc(-145 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--f2); animation: ui-resync 1000ms steps(1) 1 both; }
 @keyframes ui-resync { 0% { background-position: var(--f0); } 16% { background-position: var(--f1); } 36% { background-position: var(--f2); } 100% { background-position: var(--f2); } }
 .ui-tag.resynced .ui-resync { position: absolute; right: 100%; top: 50%; translate: calc(-1 * var(--ui-px)) -50%; }
-@media (prefers-reduced-motion: reduce) { .ui-onair, .ui-resync { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .ui-onair::after, .ui-resync { animation: none; } }
 
 /* ---- Set (f) (OME-193): M3 safety states. Friendly waits, never alarms: no rust, no warn icon.
  * Snail = too fast. Round arrow = try your share again. Timer dial = how long to wait. Mustard bar = only you see this.

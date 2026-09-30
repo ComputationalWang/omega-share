@@ -231,6 +231,10 @@ follow the same rule: **wood = shared**. Two new materials each have one job: **
 - **`.compact` shelf** (360 px viewport): the note and the plate/hint words drop (`.ui-plate-name`, `.ui-hint-text`), and the lamp, pill,
   glyphs and keys stay. Keep the full name in the plate's `title`/`aria-label`.
 - **Motion:** `prefers-reduced-motion` holds `glyph/onair/0` and shows `resync/2` straight away.
+- **Blink cost (OME-201):** the lamp blinks by `opacity` only (`glyph/onair/1` on a `::after` layer over `/0`), so Chromium runs it on
+  the compositor and a live room does no per-frame style work. When porting, keep `.ui-onair` `position: relative` and never animate its
+  `background-position`. The catching-up hourglass (`.ui-catchup`, 4 frames) still steps `background-position`: it only shows while
+  someone is behind, and 4 frames don't fit on the 2 pseudo-elements.
 - **Scale:** these pieces follow `--ui-px` like set (e). The shelf is `.ui-room` (1×). Text is 11 px at 2× and 9 px at 1×, except the plate name (10 px at 1×); the note is 12 px / 11 px.
 
 ## Set (f) safety states (OME-193, `ui/`)

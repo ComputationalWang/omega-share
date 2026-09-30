@@ -173,10 +173,14 @@ export function liveCss(rects: Readonly<Record<string, { x: number; y: number }>
 
 /* LIVE pill. Put a .ui-sprite.ui-onair inside, before the word. .is-behind = paused or not at the live edge. */
 .ui-live { ${nineRule("pill/live")} color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.ui-onair { --f0: ${at("glyph/onair/0")}; --f1: ${at("glyph/onair/1")}; width: ${u(8)}; height: ${u(8)}; background-position: var(--f0); animation: ui-onair ${String(ONAIR_FRAME_MS * 2)}ms steps(1) infinite; }
-@keyframes ui-onair { 0% { background-position: var(--f0); } 50% { background-position: var(--f1); } }
+/* Frame 1 (lit) is a layer over frame 0 (dim) that blinks by opacity only, so the compositor runs it and the page's main thread
+ * stays idle while a live stream plays (OME-201). Both frames share one silhouette, so lit fully covers dim. */
+.ui-onair { --f0: ${at("glyph/onair/0")}; --f1: ${at("glyph/onair/1")}; position: relative; width: ${u(8)}; height: ${u(8)}; background-position: var(--f0); }
+.ui-onair::after { content: ""; position: absolute; inset: 0; background: inherit; background-position: var(--f1); opacity: 0; animation: ui-onair ${String(ONAIR_FRAME_MS * 2)}ms steps(1) infinite; }
+@keyframes ui-onair { 0% { opacity: 0; } 50% { opacity: 1; } }
 .ui-live.is-behind { border-image-source: ${slice("pill/behind")}; color: var(--ui-muted); }
-.ui-live.is-behind .ui-onair { animation: none; background-position: ${at("glyph/onair-off")}; }
+.ui-live.is-behind .ui-onair { background-position: ${at("glyph/onair-off")}; }
+.ui-live.is-behind .ui-onair::after { display: none; }
 /* How far behind live the room is: a normal .ui-readout with .behind ("−0:42"). Hide it at the live edge. */
 .ui-readout.behind { color: var(--ui-muted); }
 /* Back to live: a wood .ui-button.shared.icon (it moves everyone). Disabled at the live edge. */
@@ -206,6 +210,6 @@ export function liveCss(rects: Readonly<Record<string, { x: number; y: number }>
 .ui-resync { --f0: ${at("resync/0")}; --f1: ${at("resync/1")}; --f2: ${at("resync/2")}; width: ${u(16)}; height: ${u(16)}; background-position: var(--f2); animation: ui-resync ${String(total)}ms steps(1) 1 both; }
 @keyframes ui-resync { 0% { background-position: var(--f0); } ${String(p1)}% { background-position: var(--f1); } ${String(p2)}% { background-position: var(--f2); } 100% { background-position: var(--f2); } }
 .ui-tag.resynced .ui-resync { position: absolute; right: 100%; top: 50%; translate: ${u(-1)} -50%; }
-@media (prefers-reduced-motion: reduce) { .ui-onair, .ui-resync { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .ui-onair::after, .ui-resync { animation: none; } }
 `;
 }
