@@ -141,11 +141,21 @@ export function createWs({ joinTimeoutMs, shareGrants, publish, release, now = m
         return admit(ws, ws.data.chatBucket, "too many chat messages, slow down");
       case "sit":
         return admit(ws, ws.data.sitBucket, "too many seat changes, slow down");
-      case "control":
-        return (
-          admit(ws, ws.data.controlBucket, "too many playback changes, slow down") &&
-          admit(ws, roomControlBucket(ws.data.room), "this room is changing playback too fast, slow down")
+      case "control": {
+        if (!admit(ws, ws.data.controlBucket, "too many playback changes, slow down")) return false;
+        // The room's limit is everyone's, not this sender's flood: a notice every time, and no streak (ADR 0018 §2).
+        const roomBucket = roomControlBucket(ws.data.room);
+        if (roomBucket.take()) return true;
+        ws.send(
+          encode({
+            type: "error",
+            code: "rate_limited",
+            message: "this room is changing playback too fast, slow down",
+            retryAfterMs: roomBucket.retryAfterMs(),
+          }),
         );
+        return false;
+      }
       case "join":
         if (!ws.data.keyed || joins.take(ws.data.ip)) return true;
         refuse(ws, joins.retryAfterMs(ws.data.ip), "too many joins, slow down");

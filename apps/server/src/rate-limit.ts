@@ -88,6 +88,8 @@ export function addressKey(ip: string): string {
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
   if (mapped?.[1] !== undefined) return mapped[1];
   if (!ip.includes(":")) return ip;
+  // Its own key, so `isLoopbackKey` can't match other addresses of ::/64 (::2, hex-form IPv4-mapped).
+  if (ip === "::1") return ip;
   const [head = "", tail = ""] = ip.split("::", 2);
   const h = head === "" ? [] : head.split(":");
   const t = ip.includes("::") && tail !== "" ? tail.split(":") : [];
@@ -100,13 +102,12 @@ export function addressKey(ip: string): string {
 
 const LOOPBACK_V4 = /^(?:::ffff:)?127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/i;
 const isLoopback = (ip: string): boolean => ip === "::1" || LOOPBACK_V4.test(ip);
-const LOOPBACK_V6_KEY = addressKey("::1");
 
 /**
  * Whether a client key (from `clientKey`) is a loopback peer: local dev, tests and the load probe. The
  * per-key WS limits skip these. Behind the tunnel the key is the forwarded client address, never loopback.
  */
-export const isLoopbackKey = (key: string): boolean => key === LOOPBACK_V6_KEY || LOOPBACK_V4.test(key);
+export const isLoopbackKey = (key: string): boolean => key === "::1" || LOOPBACK_V4.test(key);
 
 /**
  * Rate-limit key for a request (ADR 0015 §5). `X-Forwarded-For` counts only with `trustProxy` and a

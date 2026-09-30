@@ -21,6 +21,7 @@
 
 - A frame passes L1 first. Then it passes its own type's limiter, and for `control` the room limiter too. `retryAfterMs` is the time until the refusing bucket has a token, capped at `RETRY_AFTER_MAX_MS`.
 - A `control` that passes L2 but fails the room limiter still uses up its L2 token. That is harmless, and it keeps the check simple.
+- **Fairness, accepted for M3:** the room refills at 4/s, which is one socket's L2 rate. So one member seeking at their own limit can hold everyone else's `control` refused. Those victims are never escalated (§2), and the relay fan-out stays bounded, which is the threat model's goal. The real fix is a host or DJ role (feature proposal P-A). A per-member fair share would only move the problem to key rotation.
 - The member cap waits for the board's answer to B2 on OME-183. It is one named constant in `room.ts`.
 
 ### 2. Streaks and escalation
@@ -29,10 +30,12 @@
 - The first drop of a streak gets the one `rate_limited` notice. When a streak reaches 50 drops, the server closes the socket with `4029`.
 - A `bad_message` neither extends nor ends a streak. The socket's 20th `bad_message` over its lifetime closes it with `4400`.
 - `nickname_taken`, `too_many_members`, `already_joined` and `not_joined` are not drops.
+- **A room-limit refusal is not a drop either.** It is the room's budget, not the sender's flood. It gets a `rate_limited` notice every time, since the sender's own L2 already bounds how often, and it leaves the streak alone. Otherwise one flooder could get honest members closed with 4029.
+- Any accepted frame ends a streak, `ping` included. A flooder that slips in a `ping` every 49 drops is never closed, but L1 still holds it to 10 frames/s, and it earns at most one notice per 50 frames.
 
 ### 3. Loopback peers skip the per-key limits
 
-The join limiter, the upgrade limiter and the member cap skip a client key that is a loopback address (`isLoopbackKey`: `127.0.0.0/8`, or the `::1` key). The per-socket and per-room limits apply to every socket.
+The join limiter, the upgrade limiter and the member cap skip a client key that is a loopback address (`isLoopbackKey`: `127.0.0.0/8`, or exactly `::1`. `addressKey` gives `::1` its own key rather than the `::/64` key, so `::2` and hex-form IPv4-mapped addresses are not loopback). The per-socket and per-room limits apply to every socket.
 
 - **Why:** without the tunnel, the server binds `127.0.0.1` by default (ADR 0015 §3), so every local client shares one key. That includes the dev site, the e2e bots, the relay probe (25 sockets) and the load test. The per-key limits would make one developer look like a squatter. This follows the existing precedent: C1 already allows 50 sockets per key locally and 10 behind the proxy.
 - **Behind the tunnel** (`TRUST_PROXY`), the key is the rightmost `X-Forwarded-For` entry. That is the real client, and it is never loopback. A request with a missing or unparseable header falls into the shared `proxy:unknown` key, which *is* limited.
