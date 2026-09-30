@@ -269,7 +269,7 @@ test.describe("M1b sync, 8 clients", () => {
         "script-src-elem inline",
       ]),
     );
-    // Provoked on purpose, so take them off the zero-violation fixture's list (OME-191).
+    // Provoked on purpose, so take them off the zero-violation fixture's list (OME-198).
     await expect.poll(() => csp.enforced.length).toBe(3);
     expect(csp.drain().map((v) => `${v.effectiveDirective} ${v.blockedURI}`)).toEqual(blocked.violations);
   });

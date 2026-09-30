@@ -1,7 +1,9 @@
-// Zero-CSP-violation fixture (OME-191, threat model §8). Every e2e spec takes `test` from here, directly or via
+// Zero-CSP-violation fixture (OME-198, threat model §8). Every e2e spec takes `test` from here, directly or via
 // support/extension.ts or tunnel-support.ts. An init script forwards `securitypolicyviolation` events from every
-// frame of every watched context. At teardown, any enforced violation fails the test, and report-only ones
-// (Trusted Types in M3) are attached as `csp-report-only.json` without failing it.
+// frame of every watched context, and CSP console errors are recorded too. Each violation normally shows up once in
+// each channel, so a console error beyond the event count means one the init script couldn't see (a worker, an
+// extension page). At teardown, any enforced violation fails the test, and report-only ones (Trusted Types in M3)
+// are attached as `csp-report-only.json` without failing it.
 // The default `context` is watched automatically. Contexts made by hand must be wrapped: `watchCsp(await browser.newContext())`.
 import { test as base, type BrowserContext } from "@playwright/test";
 
@@ -19,8 +21,13 @@ export interface CspViolation {
 export interface CspRecorder {
   readonly enforced: readonly CspViolation[];
   readonly reportOnly: readonly CspViolation[];
+  /** Enforced CSP console errors this test, including ones whose event was drained. */
+  readonly console: readonly string[];
   /** Removes and returns the enforced violations, for tests that provoke one on purpose. */
   readonly drain: () => CspViolation[];
+  /** Removes and returns the enforced console lines matching `pattern`, for console-only ones provoked on purpose
+   * (e.g. a refused `frame-ancestors`, which fires no event in the embedder). */
+  readonly drainConsole: (pattern: RegExp) => string[];
 }
 
 const BINDING = "__omegaCspViolation";
@@ -29,12 +36,22 @@ const BINDING = "__omegaCspViolation";
 // events, beforeAll contexts) stay queued and fail the next teardown instead of being lost.
 const enforced: CspViolation[] = [];
 const reportOnly: CspViolation[] = [];
+const consoleEnforced: string[] = [];
+const consoleReportOnly: string[] = [];
+let enforcedEvents = 0; // drained ones included, to match against consoleEnforced
 const watched = new WeakSet<BrowserContext>();
 
 const recorder: CspRecorder = {
   enforced,
   reportOnly,
+  console: consoleEnforced,
   drain: () => enforced.splice(0),
+  drainConsole: (pattern) => {
+    const matched = consoleEnforced.filter((t) => pattern.test(t));
+    const kept = consoleEnforced.filter((t) => !pattern.test(t));
+    consoleEnforced.splice(0, consoleEnforced.length, ...kept);
+    return matched;
+  },
 };
 
 function forwardViolations(binding: string): void {
@@ -77,7 +94,19 @@ function record(raw: unknown): void {
     sample: str(raw, "sample"),
     originalPolicy: str(raw, "originalPolicy"),
   };
-  (v.disposition === "report" ? reportOnly : enforced).push(v);
+  if (v.disposition === "report") {
+    reportOnly.push(v);
+  } else {
+    enforced.push(v);
+    enforcedEvents += 1;
+  }
+}
+
+const CSP_CONSOLE = /Content Security Policy|Trusted ?Types?\b|'Trusted(HTML|Script|ScriptURL)'/;
+
+function recordConsole(type: string, text: string): void {
+  if (type !== "error" || !CSP_CONSOLE.test(text)) return;
+  (text.startsWith("[Report Only]") ? consoleReportOnly : consoleEnforced).push(text);
 }
 
 /** Starts recording CSP violations in `context` (idempotent) and returns it. Call before opening pages. */
@@ -88,6 +117,9 @@ export async function watchCsp<C extends BrowserContext>(context: C): Promise<C>
     record(v);
   });
   await context.addInitScript(forwardViolations, BINDING);
+  context.on("console", (msg) => {
+    recordConsole(msg.type(), msg.text());
+  });
   return context;
 }
 
@@ -104,12 +136,17 @@ export const test = base.extend<{ csp: CspRecorder }>({
     async ({}, use, testInfo) => {
       await use(recorder);
       const reports = reportOnly.splice(0);
-      if (reports.length > 0) {
-        await testInfo.attach("csp-report-only.json", { body: JSON.stringify(reports, null, 2), contentType: "application/json" });
+      const reportLines = consoleReportOnly.splice(0);
+      if (reports.length > 0 || reportLines.length > 0) {
+        const body = JSON.stringify({ violations: reports, console: reportLines }, null, 2);
+        await testInfo.attach("csp-report-only.json", { body, contentType: "application/json" });
       }
-      const failures = enforced.splice(0);
+      const failures = enforced.splice(0).map(describe);
+      const lines = consoleEnforced.splice(0);
+      failures.push(...lines.slice(enforcedEvents).map((t) => `console only: ${t}`));
+      enforcedEvents = 0;
       if (failures.length > 0) {
-        throw new Error(`${String(failures.length)} enforced CSP violation(s):\n${failures.map((v) => `  - ${describe(v)}`).join("\n")}`);
+        throw new Error(`${String(failures.length)} enforced CSP violation(s):\n${failures.map((f) => `  - ${f}`).join("\n")}`);
       }
     },
     { auto: true },

@@ -21,7 +21,7 @@ test.describe("extension", () => {
     expect(new URL((await rooms).url()).origin).toBe(new URL(URLS.server).origin);
   });
 
-  test("the popup is watched by the zero-CSP-violation fixture (OME-191)", async ({ context, openPopup, csp }) => {
+  test("the popup is watched by the zero-CSP-violation fixture (OME-198)", async ({ context, openPopup, csp }) => {
     const page = await context.newPage();
     await gotoFixture(page, "youtube-embed");
     const p = await openPopup(page);

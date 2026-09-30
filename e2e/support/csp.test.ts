@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { ROOT } from "./apps";
 
-// OME-191 (threat model §8): the zero-CSP-violation fixture must cover every e2e spec, so nothing may bypass it.
+// OME-198 (threat model §8): the zero-CSP-violation fixture must cover every e2e spec, so nothing may bypass it.
 const E2E = join(ROOT, "e2e");
 const sources = readdirSync(E2E, { recursive: true, encoding: "utf8" })
   .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.startsWith("fixtures"))

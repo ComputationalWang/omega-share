@@ -233,7 +233,7 @@ test.describe("tunnel safety through the local reverse proxy", () => {
     expect((await share(b.token, freshClient())).status).toBe(200);
   });
 
-  test("T-12/T-13/T-16 site and WebSocket work over https/wss on the public origin; no mixed content, framing refused, token never in a URL", async ({ newTunnelContext }) => {
+  test("T-12/T-13/T-16 site and WebSocket work over https/wss on the public origin; no mixed content, framing refused, token never in a URL", async ({ newTunnelContext, csp }) => {
     const urls: string[] = [];
     const sockets: string[] = [];
     const ctxA = await newTunnelContext();
@@ -272,6 +272,9 @@ test.describe("tunnel safety through the local reverse proxy", () => {
     }, framed);
     expect((await blocked).failure()?.errorText).toContain("ERR_BLOCKED_BY_RESPONSE");
     await expect(evil.frameLocator("iframe").locator(site.nicknameInput)).toHaveCount(0);
+    // Provoked on purpose, and console-only (no event fires in the embedder), so acknowledge it (OME-198).
+    await expect.poll(() => csp.console.filter((t) => t.includes("frame-ancestors")).length).toBe(1);
+    expect(csp.drainConsole(/frame-ancestors 'none'/)).toHaveLength(1);
   });
 
   test("Twitch parent is the public host", async ({ lane, newTunnelContext }) => {

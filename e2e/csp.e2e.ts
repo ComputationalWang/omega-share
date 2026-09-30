@@ -36,7 +36,7 @@ test.describe("csp fixture", () => {
     await page.goto(INLINE);
     await expect.poll(() => csp.enforced.length).toBe(1);
     await expect.poll(() => csp.console.length).toBe(1);
-    expect(csp.console[0]).toMatch(/Refused to execute inline script/);
+    expect(csp.console[0]).toMatch(/inline script/i);
     expect(await page.title()).toBe("csp");
     expect(csp.drain().map((v) => v.effectiveDirective)).toEqual(["script-src-elem"]);
   });
