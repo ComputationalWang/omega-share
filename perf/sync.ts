@@ -24,9 +24,22 @@ export const fakeState = (page: Page): Promise<number | null> => page.evaluate((
 
 /** Share the test video into the lobby (a fresh `load` at 0, playing). Waits out the per-IP share limiter's 429s. */
 export async function shareVideo(request: APIRequestContext): Promise<void> {
-  await expect
-    .poll(async () => (await request.post(SHARE_URL, { data: { url: EMBED_URL } })).status(), { timeout: 20_000, intervals: [1_000] })
-    .toBe(200);
+  // QA-local (OME-128 review): join as a hidden member to get a share token.
+  const wsUrl = `${URLS.server.replace(/^http/, "ws")}/rooms/${DEFAULT_ROOM_ID}/ws`;
+  const ws = new WebSocket(wsUrl);
+  const token = await new Promise<string>((resolve, reject) => {
+    ws.addEventListener("open", () => { ws.send(JSON.stringify({ type: "join", nickname: "qasharer", avatar: 0 })); });
+    ws.addEventListener("message", (ev) => {
+      const d = String(ev.data); if (!d.includes('"snapshot"')) return;
+      const m = /"shareToken":"([^"]+)"/.exec(d); if (m?.[1] !== undefined) resolve(m[1]); else reject(new Error("no token"));
+    });
+    ws.addEventListener("error", () => { reject(new Error("ws error")); });
+  });
+  try {
+    await expect
+      .poll(async () => (await request.post(SHARE_URL, { data: { url: EMBED_URL }, headers: { authorization: `Bearer ${token}` } })).status(), { timeout: 20_000, intervals: [1_000] })
+      .toBe(200);
+  } finally { ws.close(); }
 }
 
 export async function waitPlaying(clients: readonly Client[]): Promise<void> {
