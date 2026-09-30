@@ -188,11 +188,12 @@ describe("attachVimeo", () => {
     expect(adapter.time()).toBe(90);
   });
 
-  test("ready() rejected: PrivacyError → refused, PasswordError → restricted, anything else → other (the OME-110 notice path)", async () => {
+  test("ready() rejected: PrivacyError → refused, PasswordError → restricted, NotFoundError → not-found, anything else → other (the OME-110 notice path)", async () => {
     for (const [name, reason] of [
       ["PrivacyError", "refused"],
       ["PasswordError", "restricted"],
-      ["NotFoundError", "other"],
+      ["NotFoundError", "not-found"],
+      ["UnsupportedError", "other"],
     ] as const) {
       const { adapter, p, events, timers } = setup();
       p.readyP.reject(named(name));
@@ -228,6 +229,9 @@ describe("attachVimeo", () => {
     expect(events).toEqual([]);
     p.fire("error", { name: "PrivacyError", message: "private" });
     expect(events).toEqual([{ type: "error", reason: "refused", code: "PrivacyError" }]);
+    events.length = 0;
+    p.fire("error", { name: "NotFoundError", message: "not found" });
+    expect(events).toEqual([{ type: "error", reason: "not-found", code: "NotFoundError" }]);
   });
 
   test("play() rejected by the browser → mute, play again, autoplay-blocked once", async () => {
