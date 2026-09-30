@@ -186,6 +186,47 @@ Since ADR 0012 the YouTube player and its control bar are **unscaled page boxes 
 - Preview: `preview/ui-tv.png`, the page at a 960 px container (560×315 player) and at a 360 px viewport (356×200, `.compact`).
   `preview/tv-video@1x.png` is the stand-in video frame it uses.
 
+## M2 live chrome (OME-120, `ui/`)
+
+Additions to set (e) for M2's providers. They're in the same files (`ui/ui.png` / `ui.json`, `ui/slices/`, the end of `ui/reference.css`) and
+follow the same rule: **wood = shared**. Two new materials each have one job: **rust = on air** (a status light, never a control) and
+**brass = the TV's nameplate** (what kind of source is on). Previews: `preview/ui-live.png` (in the TV shelf at 560 px and 356 px) and
+`preview/ui-live-states.png` (every piece at 2× and 1×).
+
+| Key | Size | Slice | Use |
+|---|---|---|---|
+| `pill/live` | 12×12 | 4 | LIVE pill at the live edge: bright rust rim, dark rust fill, cream text (7.5:1). A status, not a button. |
+| `pill/behind` | 12×12 | 4 | Same pill with the light off (paused live, or behind the edge): dim rust rim, charcoal fill, lilac text. |
+| `glyph/onair/<0\|1>` | 8×8 | — | On-air lamp inside the pill: cream ↔ rust blink, loops at `meta.omega.onairFrameMs` (700 ms). |
+| `glyph/onair-off` | 8×8 | — | Lamp out: charcoal ring. Used in `pill/behind`. |
+| `icon/tolive`, `icon/tolive-off` | 16×16 | — | Back-to-live key icon (play's 2:1 stair running into a bar). Goes on a `button/shared` key: it moves everyone. |
+| `chip/hint` | 12×12 | 4 | Seek-only hint: charcoal on charcoal, the quietest chip. With `glyph/hop`. |
+| `glyph/hop` | 8×8 | — | Glow staircase: "keeps in sync in steps", not a smooth ramp. Also the system-line glyph for a resync jump. |
+| `resync/<0..2>` | 16×16 | — | One-shot tag sticker: a glow double chevron slides right and lands (`meta.omega.resyncFrameMs` = 160, 200, 640 ms). Anchor `(8,8)`. |
+| `plate/source` | 12×12 | 4 | Brass provider plate with four corner rivets. Plum system-font text (8:1). |
+| `glyph/src-<video\|live>` | 8×8 | — | Glyphs engraved in the plate: a screen with a play mark (on-demand) and `((•))` (live broadcast). Generic kinds of source, not provider marks. |
+
+- **Live transport** (`.ui-tv-shelf > .ui-transport`, the same slot as set (e)): `chip/shared` · play/pause key · `.ui-live` pill ·
+  `.ui-live-note` (one muted line where the scrubber was, e.g. "Live: everyone watches the same moment") · `.ui-readout.behind` ("−0:42",
+  hidden at the edge) · back-to-live key · `.ui-plate`. There's **no seek** in live mode, so don't render `.ui-seek` at all (a disabled
+  scrubber would suggest it could come back).
+  - **At the live edge:** `.ui-live` (lamp blinking), readout hidden, back-to-live `disabled`.
+  - **Paused live / behind:** `.ui-live.is-behind` (lamp out), the readout shows the gap, back-to-live enabled. Label it
+    "Back to live for everyone"; the play key keeps "Play for everyone" (it resumes from the paused point).
+- **Seek-only hint:** for a provider that can't nudge its playback rate, drift is fixed with small jumps. Add
+  `<span class="ui-hint" title="…"><span class="ui-sprite ui-glyph-hop"></span><span class="ui-hint-text">syncs by skipping</span></span>`
+  just before the plate. It's static and never animates. When a viewer is jumped back into sync, add `.resynced` to their tag
+  with a `.ui-sprite.ui-resync` inside (same spot as the catching-up hourglass) and remove it after 1 s, optionally with a system line
+  (`glyph/hop` · "**Oli** skipped ahead to stay in sync"). Buffering and ads still use the set (e) hourglass.
+- **Provider plate:** `<span class="ui-plate"><span class="ui-sprite ui-glyph-src-live"></span><span class="ui-plate-name">Twitch</span></span>`.
+  The name is **plain text in the system font, in plum on brass**: never a provider's logo, colour or lettering, and never an image of a name.
+  Pick the glyph by content kind, not provider (`src-live` for a live stream, `src-video` for anything on demand, including a Twitch VOD).
+  It ends every transport, VOD or live, so the TV always says what's on.
+- **`.compact` shelf** (360 px viewport): the note and the plate/hint words drop (`.ui-plate-name`, `.ui-hint-text`), and the lamp, pill,
+  glyphs and keys stay. Keep the full name in the plate's `title`/`aria-label`.
+- **Motion:** `prefers-reduced-motion` holds `glyph/onair/0` and shows `resync/2` straight away.
+- **Scale:** these pieces follow `--ui-px` like set (e). The shelf is `.ui-room` (1×). Text is 11 px at 2× and 9 px at 1×; the note is 12 px / 11 px.
+
 ## Motion atlas (`avatars/motion.json`, set d)
 
 Same format as the avatar atlas (PixiJS v8, 32×64 cells, no trim, no rotation, anchor = floor point `(16, 61)`).
@@ -222,13 +263,15 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 | `avatars/avatars.json` | 24 075 raw / 1 492 gz |
 | `avatars/motion.png` (set d, lazy) | 14 601 |
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
-| `room/room.png` | 8 330 |
+| `room/room.png` | 8 335 |
 | `room/room.json` | 13 823 raw / 1 192 gz |
-| `ui/ui.png` (sets c + e + M1b TV frame) | 5 106 |
-| `ui/ui.json` (sets c + e + M1b TV frame) | 29 960 raw / 1 911 gz |
-| `ui/slices/*.png` (39 files, palettes trimmed to the colours used) | 6 356 |
-| `ui/reference.css` (if ported as-is) | 22 153 raw / 4 604 gz |
-| **total shipped art** | **≈ 51.8 KB of 300 KB** (51 806 B; 33 417 B without the lazy set d) |
+| `ui/ui.png` (sets c + e + M1b TV frame + M2 live) | 5 462 |
+| `ui/ui.json` (sets c + e + M1b TV frame + M2 live) | 35 059 raw / 2 116 gz |
+| `ui/slices/*.png` (43 files, palettes trimmed to the colours used) | 6 968 |
+| `ui/reference.css` (if ported as-is) | 28 281 raw / 5 705 gz |
+| **total shipped art** | **≈ 54.1 KB of 300 KB** (54 085 B; 35 696 B without the lazy set d) |
+
+M2 live chrome (OME-120) adds ≈ 2.2 KB: `ui.png` +347, `ui.json` +205 gz, 4 slices +592, `reference.css` +1 057 gz. The sheet stays 256×256.
 
 "gz" is zlib **level 9** with no file name (what `build.ts` prints; `gzip -9nc <file> | wc -c` agrees within 4 B).
 Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B more per file, e.g. for `ui.json` and `reference.css`.
