@@ -102,8 +102,8 @@ const GLYPHS: Record<string, readonly string[]> = {
 const SOURCE: Record<string, readonly string[]> = {
   // A screen with a play mark: on-demand video.
   video: ["........", "ooooooo.", "o.o...o.", "o.oo..o.", "o.o...o.", "ooooooo.", "........", "........"],
-  // A point sending waves both ways, ((•)): a live broadcast.
-  live: ["........", ".o....o.", "o..oo..o", "o..oo..o", ".o....o.", "........", "........", "........"],
+  // A plain broadcast dot, the on-air lamp cut into brass: a live stream. (OME-137: the old ((•)) read as goggles.)
+  live: ["........", "..ooo...", ".ooooo..", ".ooooo..", ".ooooo..", "..ooo...", "........", "........"],
 };
 
 // Resync, one-shot on a name tag: a glow double chevron (the seek glyph, sticker-sized) slides right and lands.
@@ -183,7 +183,8 @@ export function liveCss(rects: Readonly<Record<string, { x: number; y: number }>
 .ui-button:disabled .ui-icon-tolive, .ui-button.is-disabled .ui-icon-tolive { background-position: ${at("icon/tolive-off")}; }
 /* Where the scrubber was: one muted line saying why there is none. Drop it first when space runs out. */
 .ui-live-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-muted); font-size: 12px; font-weight: 500; }
-.ui-room .ui-live, .ui-room .ui-hint, .ui-room .ui-plate { font-size: 9px; }
+.ui-room .ui-live, .ui-room .ui-hint { font-size: 9px; }
+.ui-room .ui-plate { font-size: 10px; }
 .ui-room .ui-live-note { font-size: 11px; }
 
 /* Seek-only hint: the provider can't nudge its speed, so drift is fixed by small jumps. Quiet on purpose. */
@@ -194,12 +195,16 @@ export function liveCss(rects: Readonly<Record<string, { x: number; y: number }>
 
 /* Narrow shelf (.compact): keep the lamp, the pill word, the glyphs; drop the note and the plate/hint words. */
 .ui-tv-shelf.compact .ui-live-note, .ui-tv-shelf.compact .ui-plate-name, .ui-tv-shelf.compact .ui-hint-text { display: none; }
+/* At 1× (.ui-room) the hint is glyph-only by default: its words would be the smallest text on the shelf. They stay in the
+ * DOM for screen readers (visually hidden, not display: none); the chip's title spells it out on hover. Opt back in with .wordy. */
+.ui-room .ui-hint:not(.wordy) .ui-hint-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Resync, one-shot on a tag: add .resynced when a seek-only viewer was jumped back into sync, remove after ${String(total)} ms.
- * Hangs off the tag's left end like the catching-up hourglass (overlap 3 art px). */
+ * Hangs off the tag's left end with a 2 art px gap. The landed chevrons reach the sticker's right edge, so unlike the
+ * centred hourglass it must not overlap the tag (OME-137: it ran into the name). */
 .ui-resync { --f0: ${at("resync/0")}; --f1: ${at("resync/1")}; --f2: ${at("resync/2")}; width: ${u(16)}; height: ${u(16)}; background-position: var(--f2); animation: ui-resync ${String(total)}ms steps(1) 1 both; }
 @keyframes ui-resync { 0% { background-position: var(--f0); } ${String(p1)}% { background-position: var(--f1); } ${String(p2)}% { background-position: var(--f2); } 100% { background-position: var(--f2); } }
-.ui-tag.resynced .ui-resync { position: absolute; right: 100%; top: 50%; translate: ${u(3)} -50%; }
+.ui-tag.resynced .ui-resync { position: absolute; right: 100%; top: 50%; translate: ${u(-1)} -50%; }
 @media (prefers-reduced-motion: reduce) { .ui-onair, .ui-resync { animation: none; } }
 `;
 }

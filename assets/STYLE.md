@@ -157,7 +157,7 @@ Three ways to show "this is live, you can't scrub it" were weighed first:
 - **Seek-only** is the quietest thing on the shelf: a charcoal chip with a glow staircase glyph ("keeps up in steps, not a smooth ramp").
   The one-shot resync sticker is the seek glyph's double chevron at sticker size, sliding right, with a speed dash on the middle frame.
 - **Brass plate = what's on.** The TV has a riveted brass nameplate, like old sets had. The provider's name is plain system-font text engraved
-  in plum. The glyph describes the *kind* of source (a screen with a play mark, or `((•))` for a broadcast), never the provider. There are no
+  in plum. The glyph describes the *kind* of source (a screen with a play mark, or a plain broadcast dot for a live stream), never the provider. There are no
   third-party logos, colours or lettering anywhere, and the plate looks the same for every provider.
 - No new colours: still the 67.
 
