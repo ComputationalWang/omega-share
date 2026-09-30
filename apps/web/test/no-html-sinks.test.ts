@@ -12,9 +12,21 @@ describe("findHtmlSinks", () => {
       "new DOMParser().parseFromString(x, 'text/html');",
       "range.createContextualFragment(x);",
       "frame.srcdoc = x;",
+      "el.setHTMLUnsafe(x);",
+      "Document.parseHTMLUnsafe(x);",
     ].join("\n");
     expect(findHtmlSinks(sample).sort()).toEqual(
-      ["DOMParser", "createContextualFragment", "document.write", "innerHTML", "insertAdjacentHTML", "outerHTML", "srcdoc"].sort(),
+      [
+        "DOMParser",
+        "createContextualFragment",
+        "document.write",
+        "innerHTML",
+        "insertAdjacentHTML",
+        "outerHTML",
+        "parseHTMLUnsafe",
+        "setHTMLUnsafe",
+        "srcdoc",
+      ].sort(),
     );
   });
   test("ignores clean code", () => {
