@@ -1,8 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { MAX_POSITION_S, type PlaybackState } from "@omega/shared";
+import { MAX_POSITION_S, canonicalizeEmbed, type Embed, type PlaybackState } from "@omega/shared";
 import { applyControl, expectedPosition, loadPlayback } from "../src/playback";
 
 const URL = "https://www.youtube.com/embed/dQw4w9WgXcQ";
+function embedOf(url: string): Embed {
+  const e = canonicalizeEmbed(url);
+  if (e === null) throw new Error(`not an embed: ${url}`);
+  return e;
+}
+const YT = embedOf(URL);
 const ALICE = "11111111-1111-4111-8111-111111111111";
 const BOB = "22222222-2222-4222-8222-222222222222";
 const T0 = 1_700_000_000_000;
@@ -41,47 +47,74 @@ describe("expectedPosition", () => {
 
 describe("applyControl", () => {
   test("pause at the extrapolated position is a pause by the sender", () => {
-    const next = applyControl(loaded(), URL, { url: URL, playing: false, position: 10.4 }, ALICE, T0 + 10_000);
+    const next = applyControl(loaded(), YT, { url: URL, playing: false, position: 10.4 }, ALICE, T0 + 10_000);
     expect(next).toEqual({ playing: false, position: 10.4, rate: 1, at: T0 + 10_000, rev: 1, action: "pause", by: ALICE });
   });
 
   test("play from a paused state within 1 s of where it stopped is a play", () => {
     const paused: PlaybackState = { ...loaded(3), playing: false, position: 42 };
-    const next = applyControl(paused, URL, { url: URL, playing: true, position: 42.9 }, BOB, T0 + 60_000);
+    const next = applyControl(paused, YT, { url: URL, playing: true, position: 42.9 }, BOB, T0 + 60_000);
     expect(next?.action).toBe("play");
     expect(next?.rev).toBe(4);
   });
 
   test("a position more than 1 s from the extrapolated one is a seek, playing or not", () => {
-    const playing = applyControl(loaded(), URL, { url: URL, playing: true, position: 120 }, ALICE, T0 + 10_000);
+    const playing = applyControl(loaded(), YT, { url: URL, playing: true, position: 120 }, ALICE, T0 + 10_000);
     expect(playing?.action).toBe("seek");
-    const paused = applyControl(loaded(), URL, { url: URL, playing: false, position: 8.9 }, ALICE, T0 + 10_000);
+    const paused = applyControl(loaded(), YT, { url: URL, playing: false, position: 8.9 }, ALICE, T0 + 10_000);
     expect(paused?.action).toBe("seek");
   });
 
   test("last write wins: each accepted control replaces the state and bumps rev", () => {
-    const a = applyControl(loaded(), URL, { url: URL, playing: false, position: 5 }, ALICE, T0 + 5000);
+    const a = applyControl(loaded(), YT, { url: URL, playing: false, position: 5 }, ALICE, T0 + 5000);
     if (a === null) throw new Error("rejected");
-    const b = applyControl(a, URL, { url: URL, playing: true, position: 300 }, BOB, T0 + 5001);
+    const b = applyControl(a, YT, { url: URL, playing: true, position: 300 }, BOB, T0 + 5001);
     expect(b).toEqual({ playing: true, position: 300, rate: 1, at: T0 + 5001, rev: 2, action: "seek", by: BOB });
   });
 
   test("clamps the position into [0, MAX_POSITION_S]", () => {
-    const hi = applyControl(loaded(), URL, { url: URL, playing: true, position: MAX_POSITION_S + 50 }, ALICE, T0);
+    const hi = applyControl(loaded(), YT, { url: URL, playing: true, position: MAX_POSITION_S + 50 }, ALICE, T0);
     expect(hi?.position).toBe(MAX_POSITION_S);
-    const lo = applyControl(loaded(), URL, { url: URL, playing: true, position: -3 }, ALICE, T0);
+    const lo = applyControl(loaded(), YT, { url: URL, playing: true, position: -3 }, ALICE, T0);
     expect(lo?.position).toBe(0);
   });
 
   test("a control for a video other than the current embed is rejected", () => {
-    expect(applyControl(loaded(), URL, { url: "https://www.youtube.com/embed/aaaaaaaaaaa", playing: false, position: 0 }, ALICE, T0)).toBeNull();
+    expect(applyControl(loaded(), YT, { url: "https://www.youtube.com/embed/aaaaaaaaaaa", playing: false, position: 0 }, ALICE, T0)).toBeNull();
   });
 
   test("a control must name the canonical embed url, not another form of the same video", () => {
-    expect(applyControl(loaded(), URL, { url: "https://youtu.be/dQw4w9WgXcQ", playing: false, position: 0 }, ALICE, T0)).toBeNull();
+    expect(applyControl(loaded(), YT, { url: "https://youtu.be/dQw4w9WgXcQ", playing: false, position: 0 }, ALICE, T0)).toBeNull();
   });
 
   test("a control with no embed is rejected", () => {
     expect(applyControl(null, null, { url: URL, playing: false, position: 0 }, ALICE, T0)).toBeNull();
   });
+});
+
+describe("applyControl on a live embed (ADR 0014 §3)", () => {
+  const LIVE = embedOf("https://www.twitch.tv/somechannel");
+  const at = (s: number) => T0 + s * 1000;
+
+  test("ignores the position: a far-off position while playing is a play at 0, not a seek", () => {
+    const next = applyControl(loaded(), LIVE, { url: LIVE.url, playing: true, position: 300 }, ALICE, at(10));
+    expect(next).toEqual({ playing: true, position: 0, rate: 1, at: at(10), rev: 1, action: "play", by: ALICE });
+  });
+
+  test("pause and resume are shared, always at position 0", () => {
+    const paused = applyControl(loaded(), LIVE, { url: LIVE.url, playing: false, position: 42 }, ALICE, at(10));
+    expect(paused).toMatchObject({ playing: false, position: 0, action: "pause" });
+    const resumed = applyControl(paused, LIVE, { url: LIVE.url, playing: true, position: 0 }, BOB, at(70));
+    expect(resumed).toMatchObject({ playing: true, position: 0, action: "play", by: BOB });
+  });
+});
+
+describe("applyControl on seekable non-YouTube embeds", () => {
+  for (const url of ["https://www.twitch.tv/videos/123456789", "https://vimeo.com/76979871"]) {
+    const e = embedOf(url);
+    test(`${e.url}: a far-off position is a seek`, () => {
+      const next = applyControl(loaded(), e, { url: e.url, playing: true, position: 95 }, ALICE, T0 + 10_000);
+      expect(next).toMatchObject({ playing: true, position: 95, action: "seek" });
+    });
+  }
 });
