@@ -6,13 +6,14 @@ import { createConnection, type Connection, type SocketLike } from "./connection
 import { trackShareToken } from "./share-token";
 import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
+import { chatView, refusalCard } from "./controls/feedback";
 import { mountErrorText, playerErrorText } from "./controls/player-error";
 import { chatIntent, seatViews, sitIntent } from "./intents";
 import { BUBBLE_OFFSET_Y, SEATS, STANDING, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
 import type { PlayerError } from "./player/adapter";
 import { PLAYERS, createPlayerMounter } from "./player/registry";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
-import { initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
+import { initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
 import { tvFrame, type TvFrame } from "./tv";
 
 export interface RoomOptions {
@@ -86,6 +87,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const notice = el("p", { className: "notice", role: "alert", hidden: true }, "room-notice");
   const full = el("div", { className: "room-full", hidden: true }, "room-full");
   full.append(el("h2", { textContent: "This room is full" }), el("p", { textContent: "Try again in a little while." }));
+  // Refused join (nickname_taken, too_many_members): the connection has stopped. Back to the landing to retry.
+  const refused = el("div", { className: "room-full", hidden: true }, "room-refused");
+  const refusedTitle = el("h2");
+  const refusedBody = el("p");
+  const refusedAction = el("a", { className: "enter", href: location.pathname }, "room-refused-action");
+  refused.append(refusedTitle, refusedBody, refusedAction);
+  let shownRefusal: Refusal | null = null;
 
   // The TV and its control bar sit above the scaled stage, unscaled, so the player keeps
   // YouTube's minimum size and no room layer can stack over it (layout.ts `roomLayout`).
@@ -116,7 +124,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   const chatForm = el("form", { className: "chat" });
   const chatInput = el("input", { type: "text", maxLength: 280, placeholder: "Say something…", autocomplete: "off", ariaLabel: "Chat message" }, "chat-input");
-  chatForm.append(chatInput, el("button", { type: "submit", textContent: "Say" }));
+  const chatSend = el("button", { type: "submit", textContent: "Say" }, "chat-send");
+  chatForm.append(chatInput, chatSend);
 
   let state = initialState;
   let conn: Connection | null = null;
@@ -155,7 +164,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const view: RoomView = await createRoomView();
   view.canvas.className = "scene";
   stage.append(view.canvas, overlay, tags, bubbles, rail);
-  opts.root.replaceChildren(status, wrap, personal.root, syncNotice, notice, chatForm, full);
+  opts.root.replaceChildren(status, wrap, personal.root, syncNotice, notice, chatForm, full, refused);
 
   /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
   let tvProvider: Embed["provider"] | null = null;
@@ -243,6 +252,21 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     wrap.hidden = !shown.stage;
     chatForm.hidden = !shown.chat;
     full.hidden = !shown.full;
+    refused.hidden = shown.refused === null;
+    if (shown.refused !== shownRefusal) {
+      shownRefusal = shown.refused;
+      if (shown.refused !== null) {
+        const card = refusalCard(shown.refused);
+        refusedTitle.textContent = card.title;
+        refusedBody.textContent = card.body;
+        refusedAction.textContent = card.action;
+        refused.dataset["code"] = shown.refused;
+      }
+    }
+    const chat = chatView(s, Date.now());
+    chatForm.dataset["cooldown"] = String(chat.cooling);
+    chatSend.disabled = chat.cooling;
+    if (chatInput.placeholder !== chat.placeholder) chatInput.placeholder = chat.placeholder;
 
     const placements: AvatarPlacement[] = [];
     const at = new Map<MemberId, Point>();
@@ -381,7 +405,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const dispatch = (e: ViewEvent): void => {
     const next = reduce(state, e);
     if (next === state) return;
-    const expiriesChanged = next.bubbles !== state.bubbles || next.syslines !== state.syslines;
+    const expiriesChanged = next.bubbles !== state.bubbles || next.syslines !== state.syslines || next.cooldownUntil !== state.cooldownUntil;
     const prevRoom = state.room;
     state = next;
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
@@ -429,6 +453,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   });
   chatForm.addEventListener("submit", (ev) => {
     ev.preventDefault();
+    // Held while the server says rate_limited; the text stays in the box for when it reopens.
+    if (chatView(state, Date.now()).cooling) return;
     const msg = chatIntent(chatInput.value);
     if (msg !== null && c.send(msg)) chatInput.value = "";
   });
