@@ -48,11 +48,12 @@ test("site: p95 frame time with 8 avatars and video playing", async ({ browser, 
     return;
   }
   test.setTimeout(120_000);
+  // Share before joining, so every client is on this video, not a previous spec's.
+  await shareVideo(request);
   const clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${DEFAULT_ROOM_ID}`, count: 8, nicknamePrefix: "fps" });
   try {
     const [observer] = clients;
     if (!observer) throw new Error("no clients");
-    await shareVideo(request);
     await waitPlaying(clients);
     const samples = await frameTimes(observer.page, 5000);
     expect(await fakeState(observer.page)).toBe(PLAYING);

@@ -9,7 +9,7 @@ import { PENDING, URLS, available } from "./support/apps";
 import { VIDEO_ID } from "./support/network";
 import { joinRoom, leaveAll, type Client } from "./support/room";
 import { site } from "./support/selectors";
-import { PLAYING, PAUSED, SPREAD_BUDGET_MS, SETTLE_MS, fakeState, measureSpread, roomPlayback, sampleClients, shareVideo, waitPlaying } from "../perf/sync";
+import { PLAYING, PAUSED, SPREAD_BUDGET_MS, SETTLE_MS, fakeState, measureSpread, roomPlayback, shareVideo, waitPlaying } from "../perf/sync";
 
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
 
@@ -19,6 +19,12 @@ const pair = (clients: readonly Client[]): [Client, Client] => {
   const [a, b] = clients;
   if (!a || !b) throw new Error("need two clients");
   return [a, b];
+};
+
+const only = (clients: readonly Client[]): Client => {
+  const [a] = clients;
+  if (!a || clients.length !== 1) throw new Error("need one client");
+  return a;
 };
 
 async function attach(info: TestInfo, name: string, body: unknown): Promise<void> {
@@ -39,9 +45,10 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("play, pause and seek: spread ≤ 500 ms 2 s later", async ({ browser, request }, info) => {
+    // Share first: joining after means no client can still be playing the previous test's video.
+    await shareVideo(request);
     clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 8, nicknamePrefix: "sync" });
     const [a] = pair(clients);
-    await shareVideo(request);
     await waitPlaying(clients);
 
     const results: Record<string, unknown> = {};
@@ -62,6 +69,7 @@ test.describe("M1b sync, 8 clients", () => {
     await step("play", () => a.page.locator(site.playToggle).click(), (playing) => {
       expect(playing).toBe(true);
     });
+    for (const c of clients) expect(await fakeState(c.page)).toBe(PLAYING);
     await step("seek", () => a.page.locator(site.seek).fill("120"), (playing, position) => {
       expect(playing).toBe(true);
       expect(position).toBeCloseTo(120, 0);
@@ -71,26 +79,31 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("a late joiner is within 500 ms", async ({ browser, request }, info) => {
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 7, nicknamePrefix: "early" });
     await shareVideo(request);
+    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 7, nicknamePrefix: "early" });
     await waitPlaying(clients);
-    await clients[0]?.page.locator(site.seek).fill("200");
-    await clients[0]?.page.waitForTimeout(3000);
+    const [first] = pair(clients);
+    await first.page.locator(site.seek).fill("200");
+    await first.page.waitForTimeout(3000);
+    const seeked = await roomPlayback(browser);
+    expect(seeked.action).toBe("seek");
+    expect(seeked.position).toBeGreaterThanOrEqual(200);
 
     const late = await joinRoom(browser, { roomUrl: ROOM_URL, count: 1, nicknamePrefix: "late" });
     clients.push(...late);
     await waitPlaying(late);
-    await clients[0]?.page.waitForTimeout(SETTLE_MS);
+    await first.page.waitForTimeout(SETTLE_MS);
     const m = await measureSpread(browser, clients);
     await attach(info, "late-joiner", m);
+    expect(m.playback.rev).toBe(seeked.rev);
     expect(m.playback.playing).toBe(true);
     expect(m.spreadMs, `drifts ${m.drifts.map((d) => d.toFixed(0)).join(", ")} ms (late joiner last)`).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
   });
 
   test("a 3 s buffer on one client doesn't pause the room, and it catches up", async ({ browser, request }, info) => {
+    await shareVideo(request);
     clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 8, nicknamePrefix: "buf" });
     const [a, b] = pair(clients);
-    await shareVideo(request);
     await waitPlaying(clients);
     const before = await roomPlayback(browser);
 
@@ -112,9 +125,9 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("an ad on one client doesn't pause the room", async ({ browser, request }, info) => {
+    await shareVideo(request);
     clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 8, nicknamePrefix: "ad" });
     const [, b] = pair(clients);
-    await shareVideo(request);
     await waitPlaying(clients);
     const before = await roomPlayback(browser);
     const lines = await Promise.all(clients.map((c) => c.page.locator(site.systemLine).count()));
@@ -134,9 +147,9 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("a click-pause inside the player becomes a room pause, with a system line in the chat", async ({ browser, request }) => {
+    await shareVideo(request);
     clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 8, nicknamePrefix: "click" });
     const [a] = pair(clients);
-    await shareVideo(request);
     await waitPlaying(clients);
 
     // A has been watching for a bit (clear of the adapter's 1 s echo window), then clicks the video itself.
@@ -153,9 +166,9 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("a volume change on A doesn't affect B", async ({ browser, request }) => {
+    await shareVideo(request);
     clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 8, nicknamePrefix: "vol" });
     const [a, b] = pair(clients);
-    await shareVideo(request);
     await waitPlaying(clients);
     const before = await roomPlayback(browser);
     const bVolume = await volumeOf(b.page);
@@ -173,8 +186,8 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("the iframe's sandbox, allow and src are the canonical form", async ({ browser, request }) => {
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 2, nicknamePrefix: "frame" });
     await shareVideo(request);
+    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 2, nicknamePrefix: "frame" });
     await waitPlaying(clients);
     for (const c of clients) {
       await expect(c.page.locator("iframe")).toHaveCount(1);
@@ -201,7 +214,7 @@ test.describe("M1b sync, 8 clients", () => {
 
   test("the CSP blocks a non-allowlisted script", async ({ browser }) => {
     clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 1, nicknamePrefix: "csp" });
-    const [{ page }] = clients as [Client];
+    const { page } = only(clients);
     // If CSP let them through, these would run and bump the counter.
     const pwn = { contentType: "text/javascript", body: "window.__pwned = (window.__pwned ?? 0) + 1;" };
     for (const url of ["https://evil.example/pwn.js", "https://www.youtube.com/not-the-api.js"]) {
@@ -242,9 +255,9 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("our tab URL is unchanged after a player popup", async ({ browser, request }) => {
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 1, nicknamePrefix: "popup" });
-    const [{ page, context }] = clients as [Client];
     await shareVideo(request);
+    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 1, nicknamePrefix: "popup" });
+    const { page, context } = only(clients);
     await waitPlaying(clients);
     const url = page.url();
     const frame = page.frames().find((f) => f !== page.mainFrame() && new URL(f.url()).hostname === "www.youtube-nocookie.com");
@@ -277,7 +290,6 @@ test.describe("M1b sync, 8 clients", () => {
     await expect(page.locator(site.room)).toBeVisible();
     await expect(page.locator(site.sharedVideo)).toBeVisible();
     // The room keeps playing in our tab.
-    expect(await sampleClients(clients)).toHaveLength(1);
     expect(await fakeState(page)).toBe(PLAYING);
   });
 });

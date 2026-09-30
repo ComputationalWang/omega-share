@@ -17,11 +17,12 @@ test("sync: spread after play/pause/seek, 8 clients", async ({ browser, request 
     return;
   }
   test.setTimeout(180_000);
+  // Share before joining, so every client is on this video, not a previous spec's.
+  await shareVideo(request);
   const clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${DEFAULT_ROOM_ID}`, count: CLIENTS, nicknamePrefix: "spread" });
   try {
     const [a] = clients;
     if (!a) throw new Error("no clients");
-    await shareVideo(request);
     await waitPlaying(clients);
     const worst = { pause: 0, play: 0, seek: 0 };
     for (let round = 0; round < ROUNDS; round++) {

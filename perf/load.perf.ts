@@ -21,6 +21,7 @@ test("load: 25 in a room with video playing — relay latency and site frame tim
     return;
   }
   test.setTimeout(120_000);
+  await shareVideo(request);
   const clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${DEFAULT_ROOM_ID}`, count: 1, nicknamePrefix: "load-site" });
   // Seats 0–5 held by bots, 6 is the probe seat, the site client takes 7: all 8 seats in use, 17 standing.
   // Each bot chats every 3 s (~8 chats/s room-wide) and a sit or stand goes out every 100 ms.
@@ -34,7 +35,6 @@ test("load: 25 in a room with video playing — relay latency and site frame tim
   try {
     const [client] = clients;
     if (!client) throw new Error("no site client");
-    await shareVideo(request);
     await waitPlaying(clients);
     await expect(client.page.locator(site.nicknameTag)).toHaveCount(MAX_ROOM_MEMBERS);
     const siteSeat = client.page.locator(`${site.seat}[data-seat="7"]`);
