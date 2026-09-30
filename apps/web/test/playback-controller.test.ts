@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { ClientMessage, PlaybackState } from "@omega/shared";
+import { playbackCaps, type ClientMessage, type PlaybackState } from "@omega/shared";
 import { CATCHUP_SHOW_MS } from "../src/controls/catchup";
 import { createPlaybackController, type PlaybackView } from "../src/controls/playback";
 import type { PlaybackTarget } from "../src/intents";
@@ -352,5 +352,83 @@ describe("YouTube refuses the video (OME-110)", () => {
     expect(h.c.view().error).toEqual({ reason: "not-found", code: "100" });
     h.c.setRoom(h.room(OTHER, pb({ rev: 2 })));
     expect(h.c.view().error).toBeNull();
+  });
+});
+
+const LIVE = { provider: "twitch", kind: "live", channel: "some_streamer", url: "https://player.twitch.tv/?channel=some_streamer" } as const;
+const VOD = { provider: "twitch", kind: "vod", videoId: "1234567890", url: "https://player.twitch.tv/?video=v1234567890" } as const;
+
+describe("live embeds (Twitch live, OME-125)", () => {
+  const live = (over: Partial<PlaybackState> = {}) => {
+    const h = harness({ caps: playbackCaps(LIVE), rates: [1], duration: 0, state: "playing" });
+    h.c.setRoom({ embed: LIVE, playback: pb(over) });
+    return h;
+  };
+
+  test("the view says live and which provider; no position or duration", () => {
+    const h = live();
+    h.t.now = 60_000;
+    expect(h.c.view()).toMatchObject({ live: true, provider: "twitch", seekOnly: false, position: 0, duration: 0 });
+  });
+
+  test("seek is refused: nothing is sent", () => {
+    const h = live({ playing: false });
+    expect(h.c.seek(30)).toBe(false);
+    expect(h.sent).toEqual([]);
+  });
+
+  test("pause and play-from-live are shared, even before the server clock is synced", () => {
+    const h = live({ playing: true });
+    h.clock.ready = false;
+    expect(h.c.view().canControl).toBe(true);
+    expect(h.c.togglePlay()).toBe(true);
+    expect(h.sent).toEqual([{ type: "control", url: LIVE.url, playing: false, position: 0 }]);
+  });
+
+  test("a late joiner to a playing live room plays (= the live edge) and never seeks", () => {
+    const h = harness({ caps: playbackCaps(LIVE), rates: [1], duration: 0, state: "cued" });
+    h.c.setRoom({ embed: LIVE, playback: pb({ playing: true, position: 5000, at: SERVER_OFFSET - 3_600_000 }) });
+    h.c.attach(h.player, LIVE.url);
+    h.run(2000);
+    expect(h.player.calls.some((c) => c.op === "play")).toBe(true);
+    expect(h.player.calls.some((c) => c.op === "seek" || c.op === "rate")).toBe(false);
+  });
+});
+
+describe("provider plate and seek-only hint in the view", () => {
+  test("YouTube: fine sync, no hint; Twitch VOD: seek-only", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb()));
+    expect(h.c.view()).toMatchObject({ live: false, provider: "youtube", seekOnly: false });
+    h.c.setRoom({ embed: VOD, playback: pb({ rev: 2 }) });
+    expect(h.c.view()).toMatchObject({ live: false, provider: "twitch", seekOnly: true });
+    h.c.setRoom({ embed: null, playback: null });
+    expect(h.c.view()).toMatchObject({ live: false, provider: null, seekOnly: false });
+  });
+});
+
+describe("an offline channel clears itself (research M2 §2.1)", () => {
+  test("offline shows the notice and stops driving the player; the next state event clears it and sync resumes", () => {
+    const h = harness({ caps: playbackCaps(LIVE), rates: [1], duration: 0, state: "paused" });
+    h.c.setRoom({ embed: LIVE, playback: pb({ playing: true }) });
+    h.c.attach(h.player, LIVE.url);
+    h.player.emit({ type: "error", reason: "offline", code: "offline" });
+    expect(h.c.view().error).toEqual({ reason: "offline", code: "offline" });
+    h.player.calls.length = 0;
+    h.run(2000);
+    expect(h.player.calls).toEqual([]);
+    h.player.emit({ type: "state", state: "paused" });
+    expect(h.c.view().error).toBeNull();
+    h.run(1000);
+    expect(h.player.calls).toContainEqual({ op: "play" });
+  });
+
+  test("a refusal is not cleared by a later state event", () => {
+    const h = harness({ state: "playing" });
+    h.c.setRoom(h.room(VIDEO, pb()));
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    h.player.emit({ type: "error", reason: "refused", code: "150" });
+    h.player.emit({ type: "state", state: "playing" });
+    expect(h.c.view().error).toEqual({ reason: "refused", code: "150" });
   });
 });

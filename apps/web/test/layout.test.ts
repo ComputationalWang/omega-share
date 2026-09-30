@@ -132,3 +132,24 @@ describe("SYSLINE_RAIL: the chat system-line caption rail", () => {
     expect(intersects(onPage, l.controls)).toBe(false);
   });
 });
+
+describe("roomLayout: Twitch's 400×300 minimum (research M2 §2.1, §6.4)", () => {
+  test.each(WIDTHS)("with a Twitch embed the TV is at least 400×300 at width %p", (width) => {
+    const { tv, controls } = roomLayout(width, "twitch");
+    expect(tv.w).toBeGreaterThanOrEqual(400);
+    expect(tv.h).toBeGreaterThanOrEqual(300);
+    expect(Math.abs(tv.w / tv.h - 16 / 9)).toBeLessThan(0.01);
+    expect(controls.w).toBe(tv.w);
+  });
+
+  test("at 360 px the Twitch TV is 534×300 (the page scrolls sideways); YouTube and Vimeo keep 356×200", () => {
+    expect(roomLayout(360, "twitch").tv).toMatchObject({ w: 534, h: 300 });
+    expect(roomLayout(360, "youtube").tv).toMatchObject({ w: 356, h: 200 });
+    expect(roomLayout(360, "vimeo").tv).toMatchObject({ w: 356, h: 200 });
+    expect(roomLayout(360).tv).toMatchObject({ w: 356, h: 200 });
+  });
+
+  test("wide windows are the same for every provider", () => {
+    expect(roomLayout(1920, "twitch")).toEqual(roomLayout(1920, "youtube"));
+  });
+});

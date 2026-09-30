@@ -81,13 +81,15 @@ describe("createPlayerMounter", () => {
 });
 
 describe("PLAYERS (the page's registry)", () => {
-  test("Twitch and Vimeo have no adapter yet (OME-125, OME-126): unsupported, nothing loaded", async () => {
+  test("Vimeo has no adapter yet (OME-126): unsupported, nothing loaded", async () => {
     const mount = createPlayerMounter(PLAYERS);
-    const results: MountResult[] = [await mount(ctx(twitch)), await mount(ctx(vimeo))];
-    expect(results).toEqual([
-      { ok: false, reason: "unsupported" },
-      { ok: false, reason: "unsupported" },
-    ]);
+    expect(await mount(ctx(vimeo))).toEqual({ ok: false, reason: "unsupported" });
+  });
+
+  test("Twitch is the SDK adapter (OME-125): handed an iframe instead of a container, it refuses before the SDK loads", async () => {
+    const mount = createPlayerMounter(PLAYERS);
+    const c = ctx(twitch);
+    expect(await mount({ ...c, target: { iframe: {} as HTMLIFrameElement, container: c.target.container } })).toEqual({ ok: false, reason: "invalid" });
   });
 
   test("YouTube without our iframe is refused before the IFrame API loads", async () => {
