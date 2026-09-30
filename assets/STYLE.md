@@ -42,7 +42,7 @@ All three render the same scene with the same sprites. Only the palette and the 
 - Shading runs after mirroring, so SW frames are lit from the top-left too, not mirrored light.
 - Room faces follow the same rule: top = highlight, SW-facing = base, SE-facing = shade. So the right wall is lit
   and the left wall sits in shade.
-- Room light (set b): the TV casts a cool, dithered `glow` halo. The sconces and floor lamp are warm (cream/mustard).
+- Room light (set b): the TV casts a cool `glow` line round its bezel. The sconces and floor lamp are warm (cream/mustard).
 
 ## Avatars
 | id | Silhouette cue | Palette | Accessory |
@@ -70,8 +70,8 @@ All three render the same scene with the same sprites. Only the palette and the 
 ## Room (set b)
 - **Mood:** a small home cinema at dusk. Honey plank floor, navy rug with a mustard border, violet lozenge
   wallpaper over warm wood wainscoting, and a window onto a dusk skyline. An original ringed-planet film poster, globe sconces,
-  a plant and a floor lamp. Wine-velvet club chairs face a wood-framed TV mounted across the corner above a media console.
-- **Construction:** room pieces are 3D boxes, ray-cast per pixel (`src/iso.ts`). Wall height is 212 px and thickness is 4 units.
+  a plant and a floor lamp. Wine-velvet club chairs face a big wood-framed TV hung across the corner on a media shelf (speakers at both ends, a sunken slot for the shared transport).
+- **Construction:** room pieces are 3D boxes, ray-cast per pixel (`src/iso.ts`). Wall height is 232 px (212 before M1b) and thickness is 4 units.
   Chairs have a separate front layer (backrest + near armrest) that draws over the sitter.
 - **Armchair:** a 14 px backrest (6 px above the 11 px arms, so it reads as a club chair, not a pouf) with button tufts,
   a 3 px seat cushion with a shade seam where it meets the mustard-piped base. Four facings: `ne`/`nw` face the TV
@@ -131,6 +131,14 @@ Three ways to say "this button affects everyone" were tried on paper before any 
   in cream shade (`icon/*-off`), so disabled doesn't rely on colour or on opacity (no alpha: 1-bit only).
 - No new colours: set (e) is built from the existing 67.
 
+## M1b TV (OME-92)
+- **The player is sacred:** 384×216, and nothing is ever painted over it. The bezel (10 px sides and top, 8 px bottom) lies wholly outside it.
+- **The shelf is the remote's home:** the shared transport docks in a flat, sunken night slot (plum shadow top-left, lit lip bottom-right,
+  like the seek track), set into the TV's own wood. That's the same "wood = shared" rule as set (e): the controls belong to the TV, so to everyone.
+- **Charm lives at the edges, never in the slot:** speaker cabinets with a woofer ring on the dot mesh, a succulent and a tape stack on the
+  ledge ends, two brass gussets under the shelf. The slot itself stays one flat colour, so any transport width sits cleanly on it.
+- The same bezel/shelf pixels ship as DOM 9-slices (`tvframe/*`), so a player outside the stage keeps the room's frame. No new colours.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -139,6 +147,7 @@ Three ways to say "this button affects everyone" were tried on paper before any 
 | (c) UI chrome | `ui/ui.png` + `ui.json` (gz) + `ui/slices/*.png` + `reference.css` (gz) | 3 240 + 1 161 + 3 506 + 2 029 ≈ **9.9 KB** |
 | (e) playback (M1b) | added to the (c) files: `ui.png` + `ui.json` (gz) + 16 slices + `reference.css` (gz) | 16 233 total for (c)+(e), so **≈ 6.4 KB** for (e) |
 | (d) motion (lazy, M5) | `avatars/motion.png` + `motion.json` (gz) | 14 423 + 3 788 ≈ **18.2 KB** |
-| total art budget | | ≤ 300 KB (≈ 50.7 KB used) |
+| M1b TV | `tv/0` redraw + taller walls (in `room.png`), 2 slices, CSS | room ≈ **+1.7 KB**, UI ≈ +2.3 KB |
+| total art budget | | ≤ 300 KB (≈ 54.3 KB used) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.

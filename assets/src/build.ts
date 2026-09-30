@@ -23,10 +23,11 @@ import {
 } from "./motion";
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
-import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
+import { SEAT_DIRS, STAGE_ORIGIN, TILE, TV_CONTROLS, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders } from "./ui";
 import { CATCHUP_FRAME_MS, buildPlaybackFrames, playbackCss } from "./playback";
+import { buildTvFrames, tvCss } from "./tv";
 
 const ROOT = join(import.meta.dir, "..");
 const POSES: readonly Pose[] = ["idle", "sit"];
@@ -337,7 +338,9 @@ function buildRoom(avatarImages: Map<string, Uint8Array>): void {
         seatHeight: SEAT_HEIGHT,
         wallHeight: WALL_H,
         layers: { floor: 0, wall: 1, back: 2, avatar: 3, front: 4 },
-        tv: { frame: "tv/0", screen: TV_SCREEN },
+        // screen = the iframe rect, controls = the transport slot under it; both relative to the tv/0 anchor.
+        // stageOrigin = the layout.ts ORIGIN_X/Y this art is drawn for (bezel top at y 7, slot clear of back-row tags).
+        tv: { frame: "tv/0", screen: TV_SCREEN, controls: TV_CONTROLS, stageOrigin: STAGE_ORIGIN },
         seats: [{ frame: "armchair", dirs: SEAT_DIRS }],
         layout,
       },
@@ -353,7 +356,7 @@ function buildRoom(avatarImages: Map<string, Uint8Array>): void {
 
 /** The whole room exactly as the web lays it out (apps/web/src/layout.ts), with people in it. */
 function buildRoomScene(frames: readonly RoomFrame[], avatars: Map<string, Uint8Array>, layout: ReturnType<typeof defaultLayout>): void {
-  const W = 960, H = 600, ORIGIN_X = W / 2, ORIGIN_Y = 220;
+  const W = 960, H = 600, ORIGIN_X = STAGE_ORIGIN.x, ORIGIN_Y = STAGE_ORIGIN.y;
   const cellCenter = (c: number, r: number): { x: number; y: number } => ({ x: ORIGIN_X + (c - r) * 32, y: ORIGIN_Y + (c + r + 1) * 16 });
   // Mirrors layout.ts SEAT_CELLS / STANDING; seats face the TV.
   const SEAT_CELLS: readonly (readonly [number, number])[] = [[1, 5], [2, 4], [4, 2], [5, 1], [3, 7], [4, 6], [6, 4], [7, 3]];
@@ -487,7 +490,7 @@ function tagLiftByAvatar(images: Map<string, Uint8Array>): Record<string, Record
 
 /** Set (c): UI chrome atlas, plus each 9-slice/cursor as its own PNG for CSS `border-image`. */
 function buildUi(avatarImages: Map<string, Uint8Array>): void {
-  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames()];
+  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildTvFrames()];
   registerKeys("ui", frames.map((f) => f.key));
   const byKey = new Map(frames.map((f) => [f.key, f]));
   if (byKey.size !== frames.length) throw new Error("duplicate ui key");
@@ -543,7 +546,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
   const rects = Object.fromEntries(Object.entries(atlasFrames).map(([k, f]) => [k, f.frame]));
   const borders: Record<string, Borders> = {};
   for (const f of frames) if (f.borders) borders[f.key] = f.borders;
-  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects));
+  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss());
   const bg = colorIndex("wall", 1);
   const big = upscale(sheet, sheetW, sheetH, 4).map((v) => (v === 0 ? bg : v));
   writeFileSync(join(ROOT, "preview", "ui-sheet@4x.png"), encodeIndexedPng(sheetW * 4, sheetH * 4, big, PALETTE));

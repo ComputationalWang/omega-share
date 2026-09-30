@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Set (c) + (e) preview: the reference CSS applied to mock-ups of the landing form and the room chrome.
+<!-- Set (c) + (e) + M1b TV preview: the reference CSS applied to mock-ups of the landing form and the room chrome.
      Screenshots: bun assets/src/shoot-ui.ts (writes preview/ui-*.png). Not shipped. -->
 <html lang="en">
 <head>
@@ -53,6 +53,13 @@
   .grid .hd { font-size: 11px; color: var(--ui-muted); letter-spacing: .08em; text-transform: uppercase; }
   .seekbox { width: 150px; }
   .log { display: grid; gap: 4px; justify-items: start; }
+  /* M1b TV (OME-92) */
+  .tv-row { display: flex; gap: 24px; align-items: flex-start; margin-top: 16px; }
+  .tv-col { display: grid; gap: 6px; justify-items: center; }
+  .tv-col .cap { font-size: 11px; color: var(--ui-muted); font-weight: 500; }
+  .phone { width: 360px; background: var(--ui-page); outline: 1px dashed var(--ui-muted); display: grid; justify-items: center; padding: 8px 0; }
+  .player { background: url("room@1x.png") -288px -17px; image-rendering: pixelated; }
+  .ui-tv-slot .ui-seek, .ui-tv-shelf .ui-seek { min-width: 0; }
 </style>
 </head>
 <body>
@@ -109,18 +116,18 @@
     </div>
     <div class="stage ui-room">
       <!-- seat cursors sit on the seat tile's anchor (cellCenter): mine = Wren's seat (2,4), free = empty (7,3), taken = Juniper's (3,7); drawn before the tags so tags stay on top -->
-      <span class="ui-seat-cursor mine" style="left:416px;top:332px"></span>
-      <span class="ui-seat-cursor" style="left:608px;top:396px"></span>
-      <span class="ui-seat-cursor taken" style="left:352px;top:396px"></span>
+      <span class="ui-seat-cursor mine" style="left:416px;top:360px"></span>
+      <span class="ui-seat-cursor" style="left:608px;top:424px"></span>
+      <span class="ui-seat-cursor taken" style="left:352px;top:424px"></span>
       <!-- tags/bubbles over the seated avatars of preview/room@1x.png (cells from layout.ts); tag top = seat y − ui.json tagLiftByAvatar[id].sit -->
-      <span class="ui-tag" style="left:352px;top:289px">Ada</span>
-      <span class="ui-tag self" style="left:416px;top:286px">Wren</span>
-      <span class="ui-tag" style="left:544px;top:291px">Moss</span>
-      <span class="ui-tag" style="left:608px;top:289px">Kit</span>
-      <span class="ui-tag" style="left:352px;top:355px">Juniper</span>
-      <span class="ui-tag" style="left:416px;top:353px">Oli</span>
-      <span class="ui-bubble" style="left:416px;top:262px">this bit is my favourite</span>
-      <span class="ui-bubble" style="left:608px;top:265px">shh!!</span>
+      <span class="ui-tag" style="left:352px;top:317px">Ada</span>
+      <span class="ui-tag self" style="left:416px;top:314px">Wren</span>
+      <span class="ui-tag" style="left:544px;top:319px">Moss</span>
+      <span class="ui-tag" style="left:608px;top:317px">Kit</span>
+      <span class="ui-tag" style="left:352px;top:383px">Juniper</span>
+      <span class="ui-tag" style="left:416px;top:381px">Oli</span>
+      <span class="ui-bubble" style="left:352px;top:359px">this bit is my favourite</span>
+      <span class="ui-bubble" style="left:576px;top:424px">shh!!</span>
     </div>
     <form class="chat" onsubmit="return false">
       <input class="ui-input" placeholder="Say something…">
@@ -134,18 +141,18 @@
   <h2>Synced playback (set e)</h2>
   <div class="pb-wrap">
     <div class="pb-stage ui-room">
-      <span class="ui-tag" style="left:352px;top:289px">Ada</span>
-      <span class="ui-tag self" style="left:416px;top:286px">Wren</span>
-      <span class="ui-tag" style="left:544px;top:291px">Moss</span>
-      <span class="ui-tag" style="left:608px;top:289px">Kit</span>
-      <span class="ui-tag" style="left:352px;top:355px">Juniper</span>
-      <span class="ui-tag catching" style="left:416px;top:353px" title="Oli is catching up (buffering or an ad). The room keeps playing.">Oli<span class="ui-sprite ui-catchup"></span></span>
+      <span class="ui-tag" style="left:352px;top:317px">Ada</span>
+      <span class="ui-tag self" style="left:416px;top:314px">Wren</span>
+      <span class="ui-tag" style="left:544px;top:319px">Moss</span>
+      <span class="ui-tag" style="left:608px;top:317px">Kit</span>
+      <span class="ui-tag" style="left:352px;top:383px">Juniper</span>
+      <span class="ui-tag catching" style="left:416px;top:381px" title="Oli is catching up (buffering or an ad). The room keeps playing.">Oli<span class="ui-sprite ui-catchup"></span></span>
       <div class="rail" aria-live="polite">
         <p class="ui-sysline"><span class="ui-sprite ui-glyph-play"></span><span><b>Kit</b> played</span></p>
         <p class="ui-sysline"><span class="ui-sprite ui-glyph-seek"></span><span><b>Ben</b> skipped to <time>12:30</time></span></p>
         <p class="ui-sysline"><span class="ui-sprite ui-glyph-pause"></span><span><b>Ana</b> paused</span></p>
       </div>
-      <span class="ui-bubble" style="left:608px;top:265px">wait for me!</span>
+      <span class="ui-bubble" style="left:352px;top:359px">wait for me!</span>
     </div>
     <div class="bar">
       <div class="ui-panel" role="group" aria-label="Shared playback: affects everyone">
@@ -181,6 +188,34 @@
         <p class="ui-sysline"><span class="ui-sprite ui-glyph-pause"></span><span><b>Ana</b> paused</span></p>
         <p class="ui-sysline"><span class="ui-sprite ui-glyph-seek"></span><span><b>Ben</b> skipped to <time>12:30</time></span></p>
       </div>
+    </div>
+  </div>
+</section>
+<section id="tv">
+  <h2>M1b TV (OME-92): 384×216 player, transport in the shelf slot — room 1× (stage origin 480,248)</h2>
+  <div class="pb-stage ui-room">
+    <span class="ui-tag" style="left:352px;top:317px">Ada</span>
+    <span class="ui-tag self" style="left:416px;top:314px">Wren</span>
+    <span class="ui-tag" style="left:544px;top:319px">Moss</span>
+    <span class="ui-tag" style="left:608px;top:317px">Kit</span>
+    <span class="ui-tag" style="left:352px;top:383px">Juniper</span>
+    <span class="ui-tag" style="left:416px;top:381px">Oli</span>
+    <!-- meta.omega.tv.controls = {x:-192,y:-15,w:384,h:44} from the tv/0 anchor (480,264) -->
+    <div class="ui-tv-slot" style="left:288px;top:249px;width:384px;height:44px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span></div></div>
+    <div class="rail" aria-live="polite">
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-pause"></span><span><b>Ana</b> paused</span></p>
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-play"></span><span><b>Kit</b> played</span></p>
+    </div>
+    <span class="ui-bubble" style="left:608px;top:449px">best part</span>
+  </div>
+  <div class="tv-row ui-room">
+    <div class="tv-col">
+      <div class="ui-tv"><div class="ui-tv-bezel"><div class="player" style="width:384px;height:216px"></div></div><div class="ui-tv-shelf"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">12:30</span><div class="ui-seek" style="--pos:0.3"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span></div></div></div>
+      <span class="cap">Outside the stage: .ui-tv (tvframe/bezel + tvframe/shelf), 384×216 player</span>
+    </div>
+    <div class="tv-col">
+      <div class="phone"><div class="ui-tv compact"><div class="ui-tv-bezel"><div class="player" style="width:356px;height:200px"></div></div><div class="ui-tv-shelf"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">12:30</span><div class="ui-seek" style="--pos:0.3"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span></div></div></div></div>
+      <span class="cap">360 px viewport: .ui-tv.compact, 356×200 player</span>
     </div>
   </div>
 </section>
