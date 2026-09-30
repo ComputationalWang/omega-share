@@ -1,7 +1,7 @@
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["eslint.config.js", ".claude/**", "graft/**", "**/dist/**", "**/.output/**", "**/.wxt/**", "**/node_modules/**", "company/**"] },
+  { ignores: ["eslint.config.js", ".claude/**", "graft/**", "**/dist/**", "**/.output/**", "**/.wxt/**", "**/node_modules/**", "company/**", "playwright-report/**", "test-results/**"] },
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
   {
