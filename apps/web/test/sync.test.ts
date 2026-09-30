@@ -405,6 +405,21 @@ describe("sync loop", () => {
     expect(h.player.calls).toEqual([{ op: "play" }, { op: "pause" }]);
   });
 
+  test("a new room state goes out on the next tick even within RESEND_MS of the loop's own play (OME-170)", () => {
+    const h = harness({ caps: CAPS.twitchLive, rates: [1], state: "cued", position: 0 });
+    h.loop.start();
+    h.loop.setPlayback(room({ position: 0 }));
+    h.run(250);
+    expect(h.player.calls).toEqual([{ op: "play" }]);
+    h.loop.setPlayback(room({ rev: 2, action: "pause", playing: false, position: 0, at: h.clock.serverNow() }));
+    h.run(250);
+    expect(h.player.calls).toEqual([{ op: "play" }, { op: "pause" }]);
+    // 500 ms after the loop's own play: the room resumes; it must not wait out RESEND_MS.
+    h.loop.setPlayback(room({ rev: 3, action: "play", playing: true, position: 0, at: h.clock.serverNow() }));
+    h.run(250);
+    expect(h.player.calls).toEqual([{ op: "play" }, { op: "pause" }, { op: "play" }]);
+  });
+
   test("Twitch VOD: seek-only from the start even if the player lists rates", () => {
     const h = harness({ caps: CAPS.twitchVod });
     h.loop.start();
