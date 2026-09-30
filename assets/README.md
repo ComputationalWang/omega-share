@@ -8,14 +8,14 @@ assets/
   avatars/avatars.json  # shipped: PixiJS v8 spritesheet atlas
   avatars/motion.png    # set d (M5, lazy-load): 1024×512 indexed PNG-8, walk / breathe / wave / emote icons
   avatars/motion.json   # set d: PixiJS v8 atlas + meta.omega.anims (frames, per-frame ms, loop)
-  room/room.png         # shipped: 512×512 indexed PNG-8 (set b: floor, rug, walls, seats, TV, props)
+  room/room.png         # shipped: 512×1024 indexed PNG-8 (set b: floor, rug, walls, seats, TV + media shelf, props)
   room/room.json        # shipped: PixiJS v8 spritesheet atlas + meta.omega room contract
-  ui/ui.png             # shipped: 256×128 indexed PNG-8 (set c: 9-slices, cursor, icons, dots, portraits, wordmark;
-                        #   set e: playback keys, seek/volume, chips, system line, catching-up hourglass)
+  ui/ui.png             # shipped: 256×256 indexed PNG-8 (set c: 9-slices, cursor, icons, dots, portraits, wordmark;
+                        #   set e: playback keys, seek/volume, chips, system line, catching-up hourglass; M1b: tvframe/*)
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
   ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
-  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e),
+  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV),
                         #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated)
   src/                  # generator (Bun, no deps) + mood boards
 ```
@@ -62,25 +62,27 @@ in `apps/web/src/layout.ts`. Place the sprite there, with no per-item offsets.
 |---|---|---|---|
 | `floor/0`, `floor/1` | 64×32 | every floor cell | Honey planks. Tiles partition pixels half-open, so they tessellate with no gaps or overlaps. |
 | `rug/<c\|ne\|se\|sw\|nw\|n\|e\|s\|w>` | 64×32 | rug cells | 9-slice. Parts name the screen side of the rug rim; edge tiles include the floor planks outside the rug. |
-| `wall/l/<plain\|window0\|window1\|sconce>` | 39×233 | `(0,row)` | Stands on the cell's top-left edge. `window0` at row r needs `window1` at r+1. |
-| `wall/r/<plain\|poster0\|poster1\|sconce>` | 39×233 | `(col,0)` | Stands on the cell's top-right edge. `poster0` at col c needs `poster1` at c+1. |
+| `wall/l/<plain\|window0\|window1\|sconce>` | 39×253 | `(0,row)` | Stands on the cell's top-left edge. `window0` at row r needs `window1` at r+1. |
+| `wall/r/<plain\|poster0\|poster1\|sconce>` | 39×253 | `(col,0)` | Stands on the cell's top-right edge. `poster0` at col c needs `poster1` at c+1. |
 | `wall/corner` | | `(0,0)` | Top cap of the back corner. |
 | `wall/l/end`, `wall/r/end` | | `(0,9)`, `(9,0)` | Open wall ends at the front. |
 | `armchair/<ne\|nw>/back`, `…/front` | 52×36 | seat cell | Faces the TV (sitter seen from behind). Draw `back`, then the seated avatar, then `front`. Seat surface is 8 px above the anchor (`seatHeight`). |
 | `armchair/<se\|sw>/back`, `…/front` | 52×44 | seat cell | Faces the camera (sitter's face visible, use `sit/se` / `sit/sw`). Same three-layer draw; `front` is just the near armrest. For seats that face into the room rather than the TV. |
-| `tv/0` | 340×250 | `(0,0)` | Corner media console + wall-mounted TV + a 1 px cool glow line. The screen is painted "off"; `meta.omega.tv.screen` is the iframe rect (it starts at pixel (10, 13) of the frame, inside the bezel). |
+| `tv/0` | 458×303 | `(0,0)` | M1b: 384×216 wall-hung TV across the corner, on a media shelf with speaker cabinets, a flat transport slot and brass gussets, plus a 1 px cool glow line. The screen is painted "off". `meta.omega.tv.screen` is the iframe rect and `meta.omega.tv.controls` the transport slot (see *M1b TV* below). |
 | `plant/0`, `lamp/0` | | any free cell | Floor props. |
 
 - **Walls** tile as flat 32 px columns, and only their top edge is outlined, so segments butt with no seams. Draw floor → walls → `tv/0`
   as one static background (it never changes, so it can be cached into a single texture).
 - **Z order** for everything else: sort by `(floorY, floorX, layer)` with `meta.omega.layers`
   (`back 2`, `avatar 3`, `front 4`).
-- **`meta.omega.tv.screen = {x:-160, y:-212, w:320, h:180}`**, relative to the `tv/0` anchor. With the anchor at
-  `cellCenter(0,0)` = (480,236), this is exactly today's `TV` rect in `layout.ts`.
-- **The console covers the back corner cells** `col+row <= 1` (and the back half of `col+row = 2`). Don't seat or stand anyone there.
+- **`meta.omega.tv`** (relative to the `tv/0` anchor at `cellCenter(0,0)`): `screen {x:-192, y:-247, w:384, h:216}`,
+  `controls {x:-192, y:-15, w:384, h:44}`, `stageOrigin {x:480, y:248}`. See *M1b TV* below.
+- **The TV and shelf hang in front of the back corner cells.** Don't seat or stand anyone at `col+row <= 4` (an avatar there would
+  draw over the shelf, since the TV is part of the static background).
 - **`meta.omega.layout`** is a suggested default room for the 10×10 floor: `floor[row][col]` keys, `walls.l[row]`,
-  `walls.r[col]`, `props[]`. Seats are **not** in it; they stay in `layout.ts`. `preview/room@1x.png` renders exactly this layout
-  with the `layout.ts` seats, plus two preview-only camera-facing chairs (`armchair/sw` at (1,8), `armchair/se` at (8,1)) so the `se`/`sw` sprites are checked in context.
+  `walls.r[col]`, `props[]`. Since M1b the window and poster sit on the last two wall segments (8–9), clear of the TV, and the
+  sconces aren't placed (the shelf would cut their halo); their frames stay in the atlas. Seats are **not** in it; they stay in `layout.ts`. `preview/room@1x.png` renders exactly this layout
+  with the `layout.ts` seats at the suggested `stageOrigin`, plus two preview-only camera-facing chairs (`armchair/sw` at (1,8), `armchair/se` at (8,1)) so the `se`/`sw` sprites are checked in context.
 - Contract review: [OME-31](/OME/issues/OME-31).
 
 ## UI atlas (`ui/`, set c)
@@ -160,6 +162,43 @@ The TV's cool **glow** marks what the video says: seek progress and chat system 
 - **Scale:** everything follows `--ui-px`: 2× below the stage, 1× inside `.ui-room`. Text sizes: readout 13 px / 11 px, chips 11 px / 9 px.
   Sprites in `reference.css` now scale with `--ui-px` too (they were fixed 2× before; values at 2× are unchanged).
 
+## M1b TV (OME-92): bigger player + transport slot
+
+YouTube's rules need a ≥ 200×200 px player with nothing over it (`docs/research/m1b-youtube-sync.md` §3.4), so the M1b TV is
+**384×216** (16:9). It stays ≥ 356×200 at any stage scale ≥ 0.93. Directly under it, the media shelf has a flat **transport slot**
+where the set (e) shared transport goes, outside the player rect. Previews: `preview/room@1x.png` / `@2x.png` and
+`preview/ui-tv.png` (the transport docked in the room, plus the DOM frame at 384×216 and on a 360 px viewport).
+
+**In the stage** (the room art at 1×): place `tv/0` at `cellCenter(0,0)` as before, then
+
+| Rect | Relative to the `tv/0` anchor | On the stage, with `stageOrigin` (480, 248) |
+|---|---|---|
+| `tv.screen`: the iframe | `{x:-192, y:-247, w:384, h:216}` | `{x:288, y:17, w:384, h:216}` |
+| `tv.controls`: the transport slot | `{x:-192, y:-15, w:384, h:44}` | `{x:288, y:249, w:384, h:44}` |
+
+- **Why `stageOrigin` moved** from `ORIGIN_Y = 220` to `248`: the bezel top then lands at y 7, and the slot clears the back-row name tags
+  (sit tags are 19 px tall at 1×) by 2 px. The floor's front corner ends at y 568 of the 600 px stage. Walls are now 232 px tall, so the
+  corner cap peaks at y 8, just behind the TV's top edge.
+- **Slot contents:** one row of `.ui-transport` straight on the slot, no `.ui-panel` (the shelf is the panel): `chip/shared` · play/pause key ·
+  readout · seek · readout. Wrap it in `.ui-tv-slot` at the `controls` rect. The key is 28 px tall, so it clears the 44 px slot by 8 px each side.
+  Personal volume stays in page chrome (it's "only you", never on the shared TV).
+- The 8 px bezel bottom, 4 px ledge and 4 px rail separate the slot from the player, so the controls never touch the iframe rect.
+- **Back-row chat bubbles** would overlap the slot. Nudge them sideways or clamp them below the slot (y ≥ 295). Bubbles must never cover the screen rect.
+- Coupling: `apps/web/test/room-atlas.test.ts` checks that `anchor + tv.screen` equals `layout.ts` `TV`, so this atlas has to land with
+  the layout change (OME-84): `TV = {x:288, y:17, w:384, h:216}`, `ORIGIN_Y = 248`.
+
+**Outside the stage** (the player out of the CSS-scaled stage, e.g. narrow windows): the same bezel and shelf are 9-slices in `ui/`.
+
+| Key | Size | Slice (t r b l) | Use |
+|---|---|---|---|
+| `tvframe/bezel` | 26×24 | 12 12 10 12 | The `tv/0` bezel with a plum ring round the hole. No `fill`: the iframe is the content box. |
+| `tvframe/shelf` | 78×58 | 28 38 29 38 | Ledge + front face + speakers. **Fixed height 58**: only the slot's flat middle stretches (sideways). |
+
+- Markup and rules are at the end of `ui/reference.css` (`.ui-tv`, `.ui-tv-bezel`, `.ui-tv-shelf`, `.ui-tv.compact`). Use `--ui-px: 1px`.
+- The shelf is 50 px wider than the bezel (its speakers), and its slot is exactly the player's width. The transport is positioned over the slot.
+- **`.compact`** (below ~380 CSS px): the bezel keeps only its top and bottom bars and the shelf only its slot, so a 356×200 player
+  fits a 360 px viewport. The border-image width *is* the border width, so a zero side border paints nothing, and nothing ever draws over the iframe.
+
 ## Motion atlas (`avatars/motion.json`, set d)
 
 Same format as the avatar atlas (PixiJS v8, 32×64 cells, no trim, no rotation, anchor = floor point `(16, 61)`).
@@ -196,13 +235,13 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 | `avatars/avatars.json` | 24 075 raw / 1 492 gz |
 | `avatars/motion.png` (set d, lazy) | 14 601 |
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
-| `room/room.png` | 8 947 |
-| `room/room.json` | 13 829 raw / 1 192 gz |
-| `ui/ui.png` (sets c + e) | 4 506 |
-| `ui/ui.json` (sets c + e) | 29 151 raw / 1 837 gz |
-| `ui/slices/*.png` (37 files, palettes trimmed to the colours used) | 5 858 |
-| `ui/reference.css` (if ported as-is) | 20 513 raw / 4 032 gz |
-| **total shipped art** | **≈ 50.7 KB of 300 KB** (50 679 B; 32 290 B without the lazy set d) |
+| `room/room.png` | 10 594 |
+| `room/room.json` | 13 991 raw / 1 229 gz |
+| `ui/ui.png` (sets c + e + M1b TV) | 5 159 |
+| `ui/ui.json` (sets c + e + M1b TV) | 29 966 raw / 1 920 gz |
+| `ui/slices/*.png` (39 files, palettes trimmed to the colours used) | 6 393 |
+| `ui/reference.css` (if ported as-is) | 22 923 raw / 4 676 gz |
+| **total shipped art** | **≈ 54.3 KB of 300 KB** (54 278 B; 35 889 B without the lazy set d) |
 
 "gz" is zlib **level 9** with no file name (what `build.ts` prints; `gzip -9nc <file> | wc -c` agrees within 4 B).
 Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B more per file, e.g. for `ui.json` and `reference.css`.
