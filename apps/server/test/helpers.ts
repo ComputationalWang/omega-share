@@ -27,8 +27,8 @@ export class Client {
   private waiter: (() => void) | null = null;
   closed: Promise<CloseEvent>;
 
-  constructor(url: string, origin?: string) {
-    this.socket = origin === undefined ? new WebSocket(url) : new WebSocket(url, { headers: { Origin: origin } });
+  constructor(url: string, origin?: string, headers: Record<string, string> = {}) {
+    this.socket = new WebSocket(url, { headers: origin === undefined ? headers : { ...headers, Origin: origin } });
     this.socket.addEventListener("message", (e: MessageEvent) => {
       const msg = typeof e.data === "string" ? parseServerMessage(e.data) : null;
       if (msg === null) throw new Error(`server sent an invalid frame: ${String(e.data)}`);
@@ -40,8 +40,8 @@ export class Client {
     });
   }
 
-  static async open(url: string, origin?: string): Promise<Client> {
-    const c = new Client(url, origin);
+  static async open(url: string, origin?: string, headers?: Record<string, string>): Promise<Client> {
+    const c = new Client(url, origin, headers);
     await new Promise<void>((resolve, reject) => {
       c.socket.addEventListener("open", () => {
         resolve();
