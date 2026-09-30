@@ -1,4 +1,4 @@
-import { MAX_POSITION_S, type MemberId, type PlaybackState } from "@omega/shared";
+import { MAX_POSITION_S, playbackCaps, type Embed, type MemberId, type PlaybackState } from "@omega/shared";
 
 /** A `control` message's payload. */
 export interface Control {
@@ -25,18 +25,24 @@ export function expectedPosition(state: PlaybackState, now: number): number {
 
 /**
  * Applies `control` from `by` (last write wins). Returns null when there is no embed or
- * `control.url` is not the current embed's url.
+ * `control.url` is not the current embed's url. On a live embed the position is always 0
+ * and a control is only a play or a pause (ADR 0014 §3).
  */
 export function applyControl(
   state: PlaybackState | null,
-  embedUrl: string | null,
+  embed: Embed | null,
   control: Control,
   by: MemberId,
   now: number,
 ): PlaybackState | null {
-  if (state === null || embedUrl === null || control.url !== embedUrl) return null;
-  const position = clamp(control.position);
+  if (state === null || embed?.url !== control.url) return null;
+  const live = playbackCaps(embed).live;
+  const position = live ? 0 : clamp(control.position);
   const action =
-    Math.abs(position - expectedPosition(state, now)) > SEEK_THRESHOLD_S ? "seek" : control.playing ? "play" : "pause";
+    !live && Math.abs(position - expectedPosition(state, now)) > SEEK_THRESHOLD_S
+      ? "seek"
+      : control.playing
+        ? "play"
+        : "pause";
   return { playing: control.playing, position, rate: state.rate, at: now, rev: state.rev + 1, action, by };
 }
