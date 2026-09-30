@@ -30,8 +30,10 @@ const WS_PATH = `/rooms/${ROOM}/ws`;
 const SHARE_PATH = `/rooms/${ROOM}/share`;
 const PUBLIC_WS = `wss://omega.test${WS_PATH}`;
 const TWITCH_CHANNEL_URL = "https://www.twitch.tv/omegatestchannel";
-/** The site renders Twitch once its player lands (OME-124/OME-125 own `apps/web/src/player/twitch*`). */
-const SITE_HAS_TWITCH = existsSync(join(ROOT, "apps/web/src/player/twitch.ts"));
+/** The site renders Twitch once its bundle loads the Embed SDK (OME-124/OME-125); until then this test is fixme. */
+const TWITCH_SDK = "player.twitch.tv/js/embed/v1.js";
+const siteLoadsTwitch = (siteDir: string): boolean =>
+  walk(siteDir).some((f) => f.endsWith(".js") && readFileSync(f, "utf8").includes(TWITCH_SDK));
 
 /** A distinct synthetic client per call, so tests never share a rate-limit bucket by accident. */
 let nextClient = 1;
@@ -108,6 +110,12 @@ test.describe("tunnel safety through the local reverse proxy", () => {
       up.close();
       expect(up.status, host).toBe(421);
     }
+    // X-Forwarded-Host is never believed: ngrok passes a client's through (ADR 0015 §5).
+    const xfh = { "x-forwarded-host": "omega.test" };
+    expect((await tunnelRequest({ path: "/rooms", host: "rebind.test", headers: xfh })).status).toBe(421);
+    const xfhUp = await tunnelUpgrade({ path: WS_PATH, host: "rebind.test", headers: xfh });
+    xfhUp.close();
+    expect(xfhUp.status).toBe(421);
     // The public host itself is fine.
     expect((await tunnelRequest({ path: "/rooms" })).status).toBe(200);
   });
@@ -209,7 +217,7 @@ test.describe("tunnel safety through the local reverse proxy", () => {
     }
   });
 
-  test("per-client share limit holds behind the proxy; spoofed XFF and X-Forwarded-Host are ignored", async ({ newTunnelContext }) => {
+  test("per-client share limit holds behind the proxy; a spoofed XFF entry is ignored", async ({ newTunnelContext }) => {
     const page = await blankPage(await newTunnelContext(), PUBLIC_ORIGIN);
     const a = await joinInPage(page, "sharer-a");
     const b = await joinInPage(page, "sharer-b");
@@ -217,7 +225,7 @@ test.describe("tunnel safety through the local reverse proxy", () => {
     // Burst 5 per client, spread over two members so no single member's bucket is the limit.
     const burst = [a, a, a, b, b];
     for (const [i, m] of burst.entries()) expect((await share(m.token, x)).status, `share ${String(i + 1)}`).toBe(200);
-    const spoofed = await share(b.token, x, { "x-forwarded-for": freshClient(), "x-forwarded-host": "omega.test" });
+    const spoofed = await share(b.token, x, { "x-forwarded-for": freshClient() });
     expect(spoofed.status).toBe(429);
     expect(JSON.parse(spoofed.body)).toMatchObject({ ok: false, error: { code: "rate_limited" } });
     // Another client with the same member is its own bucket (b has used 2 of 5).
@@ -239,10 +247,9 @@ test.describe("tunnel safety through the local reverse proxy", () => {
 
     const record = await ada.evaluate((k) => sessionStorage.getItem(k), SHARE_TOKEN_STORAGE_KEY);
     expect(record).not.toBeNull();
-    const { roomId, token } = JSON.parse(record ?? "{}") as { roomId?: unknown; token?: unknown };
+    const { roomId, token } = readRecord(record);
     expect(roomId).toBe(ROOM);
-    expect(token).toMatch(/^[A-Za-z0-9_-]{22}$/);
-    for (const u of [...urls, ...sockets, ada.url()]) expect(u).not.toContain(String(token));
+    for (const u of [...urls, ...sockets, ada.url()]) expect(u).not.toContain(token);
 
     await ada.locator(site.chatInput).fill("hello through the tunnel");
     await ada.locator(site.chatInput).press("Enter");
@@ -253,22 +260,23 @@ test.describe("tunnel safety through the local reverse proxy", () => {
     expect(String(doc.headers["content-security-policy"])).toContain("frame-ancestors 'none'");
     expect(doc.headers["x-content-type-options"]).toBe("nosniff");
 
+    // Chromium refuses to render the framed document (net::ERR_BLOCKED_BY_RESPONSE).
     const evil = await blankPage(ctxA, EVIL_ORIGIN);
+    const framed = `${PUBLIC_ORIGIN}${ROOM_PATH}`;
+    const blocked = evil.waitForEvent("requestfailed", (r) => r.url() === framed && r.frame() !== evil.mainFrame());
     await evil.evaluate((src) => {
       const f = document.createElement("iframe");
       f.src = src;
       document.body.append(f);
-    }, `${PUBLIC_ORIGIN}${ROOM_PATH}`);
-    // Chromium blocks the frame: it never gets the site's document (no nickname input inside it).
-    await evil.waitForTimeout(1_000);
-    expect(evil.frames().map((f) => f.url()).filter((u) => u.startsWith(PUBLIC_ORIGIN))).toEqual([]);
+    }, framed);
+    expect((await blocked).failure()?.errorText).toContain("ERR_BLOCKED_BY_RESPONSE");
     await expect(evil.frameLocator("iframe").locator(site.nicknameInput)).toHaveCount(0);
   });
 
-  test("Twitch parent is the public host", async ({ newTunnelContext }) => {
-    test.fixme(!SITE_HAS_TWITCH, "apps/web renders no Twitch player yet (OME-124/OME-125)");
+  test("Twitch parent is the public host", async ({ lane, newTunnelContext }) => {
+    test.fixme(!siteLoadsTwitch(lane.siteDir), "the site bundle doesn't load the Twitch Embed SDK yet (OME-124/OME-125)");
     const page = await enterRoom(await newTunnelContext(), "twitch-watcher");
-    const { token } = JSON.parse((await page.evaluate((k) => sessionStorage.getItem(k), SHARE_TOKEN_STORAGE_KEY)) ?? "{}") as { token: string };
+    const { token } = readRecord(await page.evaluate((k) => sessionStorage.getItem(k), SHARE_TOKEN_STORAGE_KEY));
     expect((await share(token, freshClient(), {}, TWITCH_CHANNEL_URL)).status).toBe(200);
     const frame = page.locator('iframe[src^="https://player.twitch.tv/"]');
     await expect(frame).toHaveCount(1);
@@ -284,9 +292,11 @@ test.describe("tunnel safety through the local reverse proxy", () => {
     const dir = mkdtempSync(join(tmpdir(), "omega-ext-tunnel-"));
     cpSync(EXTENSION_DIR, dir, { recursive: true });
     const manifestPath = join(dir, "manifest.json");
-    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { host_permissions?: string[] };
-    manifest.host_permissions = [...(manifest.host_permissions ?? []), `${PUBLIC_ORIGIN}/*`];
-    writeFileSync(manifestPath, JSON.stringify(manifest));
+    const manifest: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
+    if (typeof manifest !== "object" || manifest === null) throw new Error("e2e manifest.json is not an object");
+    const listed: unknown = "host_permissions" in manifest ? manifest.host_permissions : [];
+    const granted: unknown[] = Array.isArray(listed) ? listed : [];
+    writeFileSync(manifestPath, JSON.stringify({ ...manifest, host_permissions: [...granted, `${PUBLIC_ORIGIN}/*`] }));
 
     const context = await chromium.launchPersistentContext("", {
       channel: "chromium",
@@ -374,6 +384,17 @@ test.describe("tunnel safety through the local reverse proxy", () => {
     expect(hits).toEqual([]);
   });
 });
+
+/** The site's `sessionStorage["omega.share"]`: exactly `{ roomId, token }` with a 22-char base64url token (ADR 0015). */
+function readRecord(raw: string | null): { roomId: string; token: string } {
+  if (raw === null) throw new Error(`no ${SHARE_TOKEN_STORAGE_KEY} record`);
+  const rec: unknown = JSON.parse(raw);
+  if (typeof rec !== "object" || rec === null || Object.keys(rec).sort().join() !== "roomId,token") throw new Error(`bad record: ${String(raw.length)} chars`);
+  const roomId = "roomId" in rec ? rec.roomId : null;
+  const token = "token" in rec ? rec.token : null;
+  if (typeof roomId !== "string" || typeof token !== "string" || !/^[A-Za-z0-9_-]{22}$/.test(token)) throw new Error("bad record fields");
+  return { roomId, token };
+}
 
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));

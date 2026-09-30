@@ -6,7 +6,7 @@
 // Test-only knob: `x-fixture-client: <ip>` is stripped and appended to XFF instead of the socket peer, so one run
 // can play many clients. Requests for `evil.test` never reach the server: they get a blank hostile page.
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { request, type IncomingMessage, type OutgoingHttpHeaders } from "node:http";
 import { createServer } from "node:https";
 import { connect, type Socket } from "node:net";
@@ -41,6 +41,11 @@ const EVIL_PAGE = "<!doctype html><title>evil.test</title><p>a hostile page</p>"
  */
 export function makeTestCertificate(): { cert: string; key: string } {
   const dir = mkdtempSync(join(tmpdir(), "omega-proxy-tls-"));
+  try {
+    execFileSync("openssl", ["version"], { stdio: "ignore" });
+  } catch {
+    throw new Error("the tunnel proxy fixture needs `openssl` (1.1.1+) on PATH to make its throwaway certificate");
+  }
   const key = join(dir, "key.pem");
   const cert = join(dir, "cert.pem");
   execFileSync(
@@ -49,7 +54,9 @@ export function makeTestCertificate(): { cert: string; key: string } {
       "-addext", `subjectAltName=DNS:${PUBLIC_HOST},DNS:${EVIL_HOST}`],
     { stdio: "ignore" },
   );
-  return { cert: readFileSync(cert, "utf8"), key: readFileSync(key, "utf8") };
+  const pair = { cert: readFileSync(cert, "utf8"), key: readFileSync(key, "utf8") };
+  rmSync(dir, { recursive: true, force: true });
+  return pair;
 }
 
 const hostName = (req: IncomingMessage): string => (req.headers.host ?? "").replace(/:\d+$/, "").toLowerCase();
@@ -118,6 +125,7 @@ export async function startTunnelProxy({ port, upstreamPort }: ProxyOptions): Pr
       if (!res.headersSent) res.writeHead(502, { "content-type": "text/plain" });
       res.end("bad gateway");
     });
+    res.on("close", () => upstream.destroy());
     req.pipe(upstream);
   });
 

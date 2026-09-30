@@ -3,7 +3,7 @@
 // one server, one proxy per run.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { request } from "node:https";
 import type { Socket } from "node:net";
 import { tmpdir } from "node:os";
@@ -13,11 +13,18 @@ import { EXTENSION_DIR, PORTS, ROOT, extensionBuildError } from "./support/apps"
 import { stubExternalNetwork } from "./support/network";
 import { EVIL_HOST, PUBLIC_HOST, startTunnelProxy, type TunnelProxy } from "./fixtures/proxy";
 
+function portFrom(name: string, fallback: number): number {
+  const raw = process.env[name];
+  const port = raw === undefined ? fallback : Number(raw);
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error(`${name} must be a port number, got ${String(raw)}`);
+  return port;
+}
+
 export const TUNNEL_PORTS = {
   /** 4430 by default; QA2's alternate lane (OMEGA_FIXTURE_PORT=4410) lands on 4440. */
-  proxy: Number(process.env["OMEGA_PROXY_PORT"] ?? PORTS.fixtures + 30),
+  proxy: portFrom("OMEGA_PROXY_PORT", PORTS.fixtures + 30),
   /** Next to the ordinary server, so both lanes can run side by side. */
-  server: Number(process.env["OMEGA_TUNNEL_SERVER_PORT"] ?? PORTS.server + 1),
+  server: portFrom("OMEGA_TUNNEL_SERVER_PORT", PORTS.server + 1),
 } as const;
 
 export const PUBLIC_ORIGIN = `https://${PUBLIC_HOST}`;
@@ -55,19 +62,29 @@ function buildSite(): string {
   return outDir;
 }
 
-async function waitHealthy(port: number, child: ChildProcess, log: () => string): Promise<void> {
+/**
+ * Waits for *our* child's startup line, not just any answer on the port: a stale server from another run or a
+ * retry could answer /healthz there without tunnel mode, and the suite would test the wrong thing.
+ */
+async function waitStarted(port: number, child: ChildProcess, log: () => string): Promise<void> {
+  const line = `omega-share server on http://127.0.0.1:${String(port)}/`;
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error(`tunnel server exited ${String(child.exitCode)}:\n${log()}`);
-    try {
-      const r = await fetch(`http://127.0.0.1:${String(port)}/healthz`);
-      if (r.ok) return;
-    } catch {
-      // not up yet
-    }
+    if (log().includes(line) && log().includes(`public origin ${PUBLIC_ORIGIN}`)) return;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  throw new Error(`tunnel server not healthy on :${String(port)}:\n${log()}`);
+  throw new Error(`tunnel server did not start on :${String(port)}:\n${log()}`);
+}
+
+function stopChild(child: ChildProcess): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+  return new Promise((resolve) => {
+    child.once("exit", () => {
+      resolve();
+    });
+    child.kill();
+  });
 }
 
 async function startLane(): Promise<TunnelLane & { stop: () => Promise<void> }> {
@@ -89,20 +106,22 @@ async function startLane(): Promise<TunnelLane & { stop: () => Promise<void> }> 
   child.stdout.on("data", (d: Buffer) => (output += d.toString()));
   child.stderr.on("data", (d: Buffer) => (output += d.toString()));
   const log = (): string => output;
+  let proxy: TunnelProxy;
   try {
-    await waitHealthy(TUNNEL_PORTS.server, child, log);
+    await waitStarted(TUNNEL_PORTS.server, child, log);
+    proxy = await startTunnelProxy({ port: TUNNEL_PORTS.proxy, upstreamPort: TUNNEL_PORTS.server });
   } catch (err) {
-    child.kill();
+    await stopChild(child);
     throw err;
   }
-  const proxy = await startTunnelProxy({ port: TUNNEL_PORTS.proxy, upstreamPort: TUNNEL_PORTS.server });
   return {
     proxy,
     serverLog: log,
     siteDir,
     stop: async () => {
       await proxy.close();
-      child.kill();
+      await stopChild(child);
+      rmSync(siteDir, { recursive: true, force: true });
     },
   };
 }
