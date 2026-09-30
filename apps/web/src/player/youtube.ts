@@ -5,6 +5,11 @@ import type { YtEvent, YtNamespace } from "./youtube-types";
 export const ECHO_WINDOW_MS = 1000;
 /** A duration further than this from the content's reads as an ad (research §1.4). */
 const AD_DURATION_TOLERANCE_S = 1;
+/**
+ * A duration-only "ad" that lasts this long means we learned the wrong content
+ * duration (a pre-roll that reports the content id): re-learn it.
+ */
+export const AD_RELEARN_MS = 120_000;
 
 const STATES: Readonly<Record<number, PlayerState>> = {
   [-1]: "unstarted",
@@ -36,6 +41,12 @@ export function attachYouTube(yt: YtNamespace, iframe: HTMLIFrameElement, opts: 
   /** What our last command should have produced; null until we've issued one (autoplay at load is not an intent). */
   let expected: "playing" | "paused" | null = null;
   let lastCommandAt = Number.NEGATIVE_INFINITY;
+  /** Last playing/paused seen, ignoring buffering; null after load, cue, end or an ad. Only a change between settled states can be the user. */
+  let settled: "playing" | "paused" | null = null;
+  /** The playing video id, refreshed on player events (not per poll). */
+  let playingId: string | null = null;
+  /** When the duration rule alone started calling this an ad; -1 = it isn't. */
+  let durationAdSince = -1;
 
   const emit = (e: PlayerEvent) => {
     if (destroyed) return;
@@ -51,15 +62,26 @@ export function attachYouTube(yt: YtNamespace, iframe: HTMLIFrameElement, opts: 
       onReady: () => {
         if (destroyed) return;
         isReady = true;
+        readId();
         learnDuration();
         emit({ type: "ready" });
       },
       onStateChange: (e: YtEvent) => {
         if (destroyed) return;
-        const s = inAd() ? "ad" : mapState(e.data);
+        readId();
+        const raw = mapState(e.data);
+        if (raw === "playing" || raw === "paused") learnDuration();
+        const s = inAd() ? "ad" : raw;
         emit({ type: "state", state: s });
-        if (s !== "playing" && s !== "paused") return;
-        if (expected === null || s === expected || opts.now() - lastCommandAt < ECHO_WINDOW_MS) return;
+        if (s === "buffering") return;
+        if (s !== "playing" && s !== "paused") {
+          settled = null;
+          return;
+        }
+        const from = settled;
+        settled = s;
+        if (from === null || from === s || expected === null || s === expected) return;
+        if (opts.now() - lastCommandAt < ECHO_WINDOW_MS) return;
         expected = s;
         emit({ type: "intent", playing: s === "playing", position: time() });
       },
@@ -84,22 +106,28 @@ export function attachYouTube(yt: YtNamespace, iframe: HTMLIFrameElement, opts: 
     const d = player.getDuration();
     return typeof d === "number" && Number.isFinite(d) && d > 0 ? d : 0;
   }
-  /** The playing video's id, or null if the player doesn't say. */
-  function playingId(): string | null {
+  function readId(): void {
     const vd = player.getVideoData();
-    if (typeof vd !== "object" || vd === null || !("video_id" in vd)) return null;
-    return typeof vd.video_id === "string" && vd.video_id !== "" ? vd.video_id : null;
+    const id = typeof vd === "object" && vd !== null && "video_id" in vd ? vd.video_id : null;
+    playingId = typeof id === "string" && id !== "" ? id : null;
   }
   function learnDuration(): void {
-    if (contentDuration > 0 || playingId() !== opts.videoId) return;
+    if (contentDuration > 0 || playingId !== opts.videoId) return;
     contentDuration = duration();
   }
   function inAd(): boolean {
-    const id = playingId();
-    if (id !== null && id !== opts.videoId) return true;
-    learnDuration();
+    if (playingId !== null && playingId !== opts.videoId) return true;
     const d = duration();
-    return contentDuration > 0 && d > 0 && Math.abs(d - contentDuration) > AD_DURATION_TOLERANCE_S;
+    if (contentDuration <= 0 || d <= 0 || Math.abs(d - contentDuration) <= AD_DURATION_TOLERANCE_S) {
+      durationAdSince = -1;
+      return false;
+    }
+    const now = opts.now();
+    if (durationAdSince < 0) durationAdSince = now;
+    if (now - durationAdSince <= AD_RELEARN_MS) return true;
+    contentDuration = d;
+    durationAdSince = -1;
+    return false;
   }
 
   return {

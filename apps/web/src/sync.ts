@@ -14,8 +14,12 @@ export const MAX_NUDGE = 0.1;
 export const NUDGE_SPAN_MS = 5000;
 /** How long a nudge runs before we check the media really plays at that rate. */
 export const RATE_CHECK_MS = 2000;
-/** A slope closer to 1 than this means the requested rate isn't applied. */
+/** A nudge is "applied" if the slope moved at least half the requested amount, and at least this much. */
 export const RATE_EFFECT_MIN = 0.01;
+/** After the user clicks play/pause in the player, leave it alone this long while the room answers. */
+export const INTENT_HOLD_MS = 1000;
+/** Don't re-send the same play/pause more often than this while the player is slow to react. */
+export const RESEND_MS = 1000;
 export const BURST_SLOW = 0.75;
 export const BURST_FAST = 1.25;
 const SEEK_LATENCY_ALPHA = 0.25;
@@ -49,6 +53,8 @@ export interface DecideInput {
   /** Last 3 drift samples, ms, player − room (+ = ahead). Taken only while stable-playing. */
   samples: ArrayLike<number>;
   sampleCount: number;
+  /** The newest sample, ms. Ends a nudge early; the median lags by a tick. */
+  lastDriftMs: number;
   /** An explicit action, join or embed change is pending: seek regardless of drift. */
   hardSeek: boolean;
   /** The rate we last set. */
@@ -88,8 +94,14 @@ export function decide(i: DecideInput): Correction {
   if (abs > SEEK_THRESHOLD_MS) return seekTo(expected, room, i.seekLatencyMs);
   if (abs <= DEAD_BAND_MS) return i.rate !== 1 ? RATE_ONE : NONE;
   const ahead = drift > 0;
-  // Hold a nudge that already points the right way until we're back in the dead band.
-  if (ahead ? i.rate < 1 : i.rate > 1) return NONE;
+  const newestAgrees = ahead ? i.lastDriftMs > DEAD_BAND_MS : i.lastDriftMs < -DEAD_BAND_MS;
+  if (i.rate !== 1) {
+    // Hold a nudge that points the right way until the newest sample says we're there.
+    if (ahead ? i.rate < 1 : i.rate > 1) return newestAgrees ? NONE : RATE_ONE;
+    if (!newestAgrees) return RATE_ONE;
+  } else if (!newestAgrees) {
+    return NONE;
+  }
   if (i.mode === "burst") return { kind: "rate", rate: ahead ? BURST_SLOW : BURST_FAST };
   const n = Math.min(MAX_NUDGE, abs / NUDGE_SPAN_MS);
   return { kind: "rate", rate: ahead ? 1 - n : 1 + n };
@@ -117,7 +129,8 @@ export function initialRateMode(rates: readonly number[]): RateMode {
  * time advanced per wall second while `requested` was set.
  */
 export function nextRateMode(mode: RateMode, requested: number, slope: number, rates: readonly number[]): RateMode {
-  if (mode === "seek-only" || requested === 1 || Math.abs(slope - 1) >= RATE_EFFECT_MIN) return mode;
+  if (mode === "seek-only" || requested === 1) return mode;
+  if (Math.abs(slope - 1) >= Math.max(RATE_EFFECT_MIN, Math.abs(requested - 1) / 2)) return mode;
   if (mode === "fine" && rates.includes(BURST_SLOW) && rates.includes(BURST_FAST)) return "burst";
   return "seek-only";
 }
@@ -153,6 +166,8 @@ export interface SyncLoop {
   tick(): void;
   start(): void;
   stop(): void;
+  /** stop() and detach from the player. */
+  destroy(): void;
   readonly mode: RateMode;
   readonly seekLatencyMs: number;
 }
@@ -172,6 +187,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     stableForMs: 0,
     samples,
     sampleCount: 0,
+    lastDriftMs: 0,
     hardSeek: false,
     rate: 1,
     mode: "fine",
@@ -187,6 +203,12 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
   let checkPos = 0;
   /** Compensation used by the last seek while playing, ms; -1 = nothing to learn. */
   let pendingComp = -1;
+  let holdUntil = Number.NEGATIVE_INFINITY;
+  let lastPlayAt = Number.NEGATIVE_INFINITY;
+  let lastPauseAt = Number.NEGATIVE_INFINITY;
+  const off = p.onEvent((e) => {
+    if (e.type === "intent") holdUntil = o.now() + INTENT_HOLD_MS;
+  });
 
   const unstable = (now: number) => {
     input.sampleCount = 0;
@@ -207,10 +229,12 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
       modeKnown = true;
     }
     const now = o.now();
+    if (now < holdUntil) return;
     const st = p.state();
     if (st !== lastState) {
       lastState = st;
       unstable(now);
+      if (st === "ad") pendingComp = -1;
     }
     const t = p.time();
     const serverNow = o.clock.serverNow();
@@ -219,7 +243,9 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     input.playerState = st;
     input.stableForMs = now - stateSince;
     if (st === "playing" && room.playing && input.stableForMs >= STABLE_MS) {
-      samples[next] = (t - expectedPosition(room, serverNow)) * 1000;
+      const d = (t - expectedPosition(room, serverNow)) * 1000;
+      samples[next] = d;
+      input.lastDriftMs = d;
       next = (next + 1) % 3;
       if (input.sampleCount < 3) input.sampleCount++;
     }
@@ -244,9 +270,13 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
       case "none":
         return;
       case "play":
+        if (now - lastPlayAt < RESEND_MS) return;
+        lastPlayAt = now;
         p.play();
         return;
       case "pause":
+        if (now - lastPauseAt < RESEND_MS) return;
+        lastPauseAt = now;
         p.pause();
         return;
       case "rate":
@@ -258,8 +288,13 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
         input.hardSeek = false;
         if (input.rate !== 1) setRate(1);
         p.seek(c.to);
-        if (c.play) p.play();
-        else p.pause();
+        if (c.play) {
+          lastPlayAt = now;
+          p.play();
+        } else {
+          lastPauseAt = now;
+          p.pause();
+        }
         pendingComp = c.play && st === "playing" ? input.seekLatencyMs : -1;
         unstable(now);
         return;
@@ -270,6 +305,8 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     setPlayback(pb) {
       input.room = pb;
       input.hardSeek = pb !== null;
+      holdUntil = Number.NEGATIVE_INFINITY;
+      pendingComp = -1;
     },
     tick,
     start() {
@@ -278,6 +315,10 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     stop() {
       if (timer !== null) o.clearInterval(timer);
       timer = null;
+    },
+    destroy() {
+      this.stop();
+      off();
     },
     get mode() {
       return input.mode;

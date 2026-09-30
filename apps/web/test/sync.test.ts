@@ -133,7 +133,7 @@ describe("decide: guards", () => {
   test("drift is the median of 3, so one outlier sample does nothing", () => {
     expect(decide(input(0, { samples: [50, 3000, 60] }))).toEqual({ kind: "none" });
     expect(decide(input(0, { samples: [3000, -40, 2900] }))).toEqual({ kind: "seek", to: 10, play: true });
-    expect(rateOf(decide(input(0, { samples: [200, 190, -5000] })))).toBeCloseTo(0.962, 6);
+    expect(rateOf(decide(input(0, { samples: [200, -5000, 190], lastDriftMs: 190 })))).toBeCloseTo(0.962, 6);
   });
 });
 
