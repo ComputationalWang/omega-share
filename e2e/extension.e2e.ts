@@ -1,5 +1,5 @@
 // Extension smoke: loads unpacked, stays event-driven, lists only allowlisted embeds.
-import { PENDING, available } from "./support/apps";
+import { PENDING, URLS, available } from "./support/apps";
 import { expect, test } from "./support/extension";
 import { gotoFixture } from "./support/network";
 import { popup } from "./support/selectors";
@@ -10,6 +10,15 @@ test.describe("extension", () => {
   test("loads unpacked and exposes an MV3 service worker", ({ extensionId, serviceWorker }) => {
     expect(extensionId).toMatch(/^[a-p]{32}$/);
     expect(serviceWorker.url()).toContain(`chrome-extension://${extensionId}/`);
+  });
+
+  test("popup talks to URLS.server, not the built-in default", async ({ context, openPopup }) => {
+    // The popup requests `GET /rooms` on open; on OMEGA_SERVER_PORT runs it must not fall back to :8787 (OME-111).
+    const page = await context.newPage();
+    await gotoFixture(page, "youtube-embed");
+    const rooms = context.waitForEvent("request", (r) => new URL(r.url()).pathname === "/rooms");
+    await openPopup(page);
+    expect(new URL((await rooms).url()).origin).toBe(new URL(URLS.server).origin);
   });
 
   test("lists the YouTube embed", async ({ context, openPopup }) => {
