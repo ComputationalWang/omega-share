@@ -1,5 +1,6 @@
 // M1b smoke (OME-89): the shared transport in one context drives the player in another, through the real server,
 // the real clock sync, sync loop and YouTube adapter, against the fake iframe_api (OME-85). QA's full sync specs are OME-90.
+// It drives the shared lobby, so it runs in the serial e2e-sync project, not alongside acceptance (OME-154).
 import { expect, test } from "@playwright/test";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { DEFAULT_ROOM_ID } from "@omega/shared";
