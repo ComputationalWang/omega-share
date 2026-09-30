@@ -41,9 +41,18 @@ legend { padding: 0; margin-bottom: 6px; }
 .stage { position: absolute; top: 0; left: 0; width: 960px; height: 600px; transform-origin: 0 0; }
 .scene { position: absolute; inset: 0; width: 960px; height: 600px; }
 /* The TV box is the player rect (>= 356x200, layout.ts); the bezel is an outline so it never eats into it. */
-.tv { position: absolute; background: #000; outline: 6px solid #0d0b14; border-radius: 2px; display: grid; place-items: center; }
-/* Reserved for the set (e) shared transport + personal volume (OME-89). Placeholder until then. */
-.controls { position: absolute; border-radius: 6px; background: var(--panel); }
+.tv { position: absolute; background: #000; display: grid; place-items: center; }
+/* Reserved for the set (e) shared transport + personal volume (OME-89); the shelf is its slot. */
+.controls { position: absolute; }
+/* TV frame, copied from the end of assets/ui/reference.css (OME-92/95, ADR 0012); keep in step with it.
+ * border-image-outset is ink overflow: it never covers the player and never adds scroll. roomLayout().compact
+ * toggles .compact when the side ink wouldn't fit. */
+.ui-tv-frame { border: 0 solid transparent; border-image: url("../../../assets/ui/slices/tvframe-bezel.png") 6 6 8 6 / 6px 6px 8px 6px / 6px 6px 8px 6px stretch; image-rendering: pixelated; }
+.ui-tv-shelf { box-sizing: border-box; height: 44px; display: flex; align-items: center; padding: 0 6px; border: 0 solid transparent; border-image: url("../../../assets/ui/slices/tvframe-shelf.png") 1 38 6 38 fill / 1px 38px 6px 38px / 1px 38px 6px 38px stretch; image-rendering: pixelated; }
+.ui-tv-shelf > .ui-transport { flex: 1; min-width: 0; }
+.ui-tv-shelf .ui-seek { min-width: 0; }
+.ui-tv-shelf.compact { border-image-width: 1px 0 6px 0; border-image-outset: 1px 0 6px 0; }
+.ui-tv-frame.compact { border-image-width: 6px 0 8px 0; border-image-outset: 6px 0 8px 0; }
 .tv iframe { width: 100%; height: 100%; border: 0; }
 .tv-empty { margin: 16px; color: var(--muted); text-align: center; font-size: 0.9em; }
 .overlay, .tags, .bubbles { position: absolute; inset: 0; pointer-events: none; }

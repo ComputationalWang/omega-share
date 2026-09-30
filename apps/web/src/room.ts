@@ -86,8 +86,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const stage = el("div", { className: "stage" }, "room");
   const clip = el("div", { className: "stage-clip" });
   clip.append(stage);
-  const tv = el("div", { className: "tv" });
-  const controls = el("div", { className: "controls" });
+  const tv = el("div", { className: "tv ui-tv-frame" });
+  const controls = el("div", { className: "controls ui-tv-shelf" });
   const wrap = el("div", { className: "stage-wrap", hidden: true });
   wrap.append(tv, controls, clip);
   const tvEmpty = el("p", { className: "tv-empty", textContent: "Share a video with the extension to watch it here." });
@@ -116,6 +116,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const l = roomLayout(wrap.clientWidth);
     box(tv, l.tv);
     box(controls, l.controls);
+    tv.classList.toggle("compact", l.compact.tv);
+    controls.classList.toggle("compact", l.compact.controls);
     box(clip, l.stage);
     stage.style.transform = `scale(${String(l.scale)})`;
     wrap.style.height = `${String(l.height)}px`;

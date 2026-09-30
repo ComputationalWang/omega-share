@@ -34,8 +34,10 @@ export interface Rect {
  */
 const TV_MIN_W = 356;
 const TV_MAX_W = 560;
-/** Room for the TV's bezel, drawn as an outline outside the player rect. */
+/** Room for the TV's bezel, painted outside the player rect (`.ui-tv-frame`, border-image-outset). */
 const TV_BEZEL = 6;
+/** The media shelf's speakers, painted outside the control bar each side (`.ui-tv-shelf`). */
+const SHELF_SPEAKER = 38;
 const GAP = 8;
 /** Set (e) chrome at 1×: 8 px panel border + 4 px padding around a 20 px key, top and bottom. */
 export const CONTROL_BAR_H = 44;
@@ -47,7 +49,11 @@ export interface RoomLayout {
   readonly stage: Rect;
   readonly scale: number;
   readonly height: number;
+  /** `.compact` on the TV frame / shelf: its side ink wouldn't fit in the container, so it's dropped. */
+  readonly compact: { readonly tv: boolean; readonly controls: boolean };
 }
+
+const sidesFit = (r: Rect, side: number, width: number): boolean => r.x >= side && r.x + r.w + side <= width;
 
 export function roomLayout(containerWidth: number): RoomLayout {
   const width = Math.floor(containerWidth);
@@ -56,7 +62,8 @@ export function roomLayout(containerWidth: number): RoomLayout {
   const controls = { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
   const scale = Math.min(1, width / STAGE_W);
   const stage = { x: 0, y: controls.y + controls.h + GAP, w: STAGE_W * scale, h: STAGE_H * scale };
-  return { tv, controls, stage, scale, height: stage.y + stage.h };
+  const compact = { tv: !sidesFit(tv, TV_BEZEL, width), controls: !sidesFit(controls, SHELF_SPEAKER, width) };
+  return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
 }
 
 /** A stage-space rect on the page. */
