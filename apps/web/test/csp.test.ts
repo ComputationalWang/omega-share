@@ -24,13 +24,34 @@ describe("index.html CSP (ADR 0011, ADR 0014 §5)", () => {
     ]);
   });
 
-  test("frames: the YouTube hosts plus the Twitch and Vimeo player hosts only", () => {
+  test("frames: youtube-nocookie plus the Twitch and Vimeo player hosts only", () => {
     expect(csp().get("frame-src")).toEqual([
-      "https://www.youtube.com",
       "https://www.youtube-nocookie.com",
       "https://player.twitch.tv",
       "https://player.vimeo.com",
     ]);
+  });
+
+  test("styles, images, workers and connections are pinned", () => {
+    const c = csp();
+    expect(c.get("style-src")).toEqual(["'self'"]);
+    expect(c.get("img-src")).toEqual(["'self'", "data:"]);
+    expect(c.get("worker-src")).toEqual(["'self'"]);
+    expect(c.get("connect-src")).toEqual([
+      "'self'",
+      "ws://localhost:8787",
+      "http://localhost:8787",
+      "ws://localhost:5173",
+    ]);
+  });
+
+  test("no unsafe keywords, blob: or scheme-wide ws:/wss: anywhere; no frame-ancestors in a meta", () => {
+    const c = csp();
+    const all = [...c.values()].flat();
+    for (const banned of ["'unsafe-inline'", "'unsafe-eval'", "blob:", "ws:", "wss:", "http:", "https:", "*"]) {
+      expect(all).not.toContain(banned);
+    }
+    expect(c.has("frame-ancestors")).toBe(false);
   });
 
   test("the rest stays locked down", () => {
