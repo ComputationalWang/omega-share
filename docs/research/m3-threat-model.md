@@ -69,7 +69,7 @@ User strings that reach other clients:
 |---|---|---|---|
 | Nickname | `NicknameSchema`: trim, NFC, 1–20, letters+marks/digits/`_.-`, single spaces, no Hangul fillers (`packages/shared/src/room.ts:13,20-28`) | NFC | web `textContent` in a `.tag-name` span (`apps/web/src/room.ts:302`); system lines via `textContent` (`controls/dom.ts:1,16`) |
 | Chat text | `ChatTextSchema`: trim, 1–280, no `Cc`/`Cf`/`Zl`/`Zp` except ZWJ, no fillers, something visible (`messages.ts:20-28`) | **none** | `textContent` in `.bubble` (`room.ts:325`), clipped by `max-height: 180px; overflow: hidden` (`style.css:61`) |
-| Room id | `RoomIdSchema` `^[a-z0-9-]{1,32}$` (`packages/shared/src/room.ts:6`) | n/a | web route falls back to the default room on a parse failure; extension `new Option(...)` (`apps/extension/src/entrypoints/popup/main.ts:86`) |
+| Room id | `RoomIdSchema` `^[a-z0-9-]{1,32}$` (`packages/shared/src/room.ts:7`) | n/a | web route falls back to the default room on a parse failure; extension `new Option(...)` (`apps/extension/src/entrypoints/popup/main.ts:86`) |
 | Share URL | `canonicalizeEmbed`: ≤ 2048, http(s) only, no userinfo or port, exact host `Set`s, strict id regexes (`packages/shared/src/embed.ts:190-205,10,86-87,114,148`); the server rebuilds the URL (`server.ts:194`) | rebuilt canonical URL | never shown as text; the iframe `src` is rebuilt from a re-parsed `EmbedSchema` (`apps/web/src/tv.ts:67`) |
 | Titles | none: no titles on the wire | | |
 | Error `message` | server constants; ≤ 200 (`messages.ts:101`) | | `textContent` (web `room.ts:44-45` maps codes to fixed text; extension `share.ts` via `textContent`) |
