@@ -26,6 +26,13 @@ describe("tvFrame", () => {
     expect([...src.searchParams.keys()]).toHaveLength(7);
   });
 
+  test("Twitch and Vimeo embeds render nothing until their frames land (OME-124)", () => {
+    const twitch = { provider: "twitch", kind: "live", channel: "some_streamer", url: "https://player.twitch.tv/?channel=some_streamer" };
+    const vimeo = { provider: "vimeo", videoId: "76979871", hash: null, url: "https://player.vimeo.com/video/76979871" };
+    expect(tvFrame(twitch, ORIGIN)).toBeNull();
+    expect(tvFrame(vimeo, ORIGIN)).toBeNull();
+  });
+
   test("the nocookie flag off keeps the canonical www.youtube.com host", () => {
     const f = tvFrame(good, ORIGIN, false);
     expect(f).not.toBeNull();

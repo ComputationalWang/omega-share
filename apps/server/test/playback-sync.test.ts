@@ -76,7 +76,7 @@ describe("playback", () => {
     const b = await join("bob");
     const c = await join("carol");
     const rev = a.snapshot.room.playback?.rev ?? -1;
-    b.client.send({ type: "control", videoId: VIDEO, playing: false, position: 95 });
+    b.client.send({ type: "control", url: `https://www.youtube.com/embed/${VIDEO}`, playing: false, position: 95 });
     for (const m of [a, b, c]) {
       const { playback } = await m.client.next("playback");
       expect(playback).toMatchObject({ playing: false, position: 95, action: "seek", by: b.snapshot.self, rev: rev + 1 });
@@ -86,7 +86,7 @@ describe("playback", () => {
   test("a late joiner's snapshot carries the current playback", async () => {
     await share();
     const a = await join("alice");
-    a.client.send({ type: "control", videoId: VIDEO, playing: false, position: 12.5 });
+    a.client.send({ type: "control", url: `https://www.youtube.com/embed/${VIDEO}`, playing: false, position: 12.5 });
     const { playback } = await a.client.next("playback");
     const late = await join("late");
     expect(late.snapshot.room.playback).toEqual(playback);
@@ -95,7 +95,7 @@ describe("playback", () => {
   test("a new share resets playback to load with a higher rev", async () => {
     await share();
     const a = await join("alice");
-    a.client.send({ type: "control", videoId: VIDEO, playing: false, position: 40 });
+    a.client.send({ type: "control", url: `https://www.youtube.com/embed/${VIDEO}`, playing: false, position: 40 });
     const { playback: paused } = await a.client.next("playback");
     await share(OTHER);
     const changed = await a.client.next("embed-changed");
@@ -106,17 +106,17 @@ describe("playback", () => {
   test("control needs join", async () => {
     await share();
     const c = await open();
-    c.send({ type: "control", videoId: VIDEO, playing: false, position: 0 });
+    c.send({ type: "control", url: `https://www.youtube.com/embed/${VIDEO}`, playing: false, position: 0 });
     expect((await c.next("error")).code).toBe("not_joined");
   });
 
   test("control for a stale video or with no embed is refused with no_embed and not published", async () => {
     const a = await join("alice");
     const b = await join("bob");
-    a.client.send({ type: "control", videoId: VIDEO, playing: false, position: 0 });
+    a.client.send({ type: "control", url: `https://www.youtube.com/embed/${VIDEO}`, playing: false, position: 0 });
     expect((await a.client.next("error")).code).toBe("no_embed");
     await share();
-    a.client.send({ type: "control", videoId: OTHER, playing: false, position: 0 });
+    a.client.send({ type: "control", url: `https://www.youtube.com/embed/${OTHER}`, playing: false, position: 0 });
     expect((await a.client.next("error")).code).toBe("no_embed");
     await b.client.none("playback");
   });
@@ -125,7 +125,7 @@ describe("playback", () => {
     await share();
     const a = await join("alice");
     const b = await join("bob");
-    for (let i = 0; i < 6; i++) a.client.send({ type: "control", videoId: VIDEO, playing: i % 2 === 0, position: i * 10 });
+    for (let i = 0; i < 6; i++) a.client.send({ type: "control", url: `https://www.youtube.com/embed/${VIDEO}`, playing: i % 2 === 0, position: i * 10 });
     expect((await a.client.next("error")).code).toBe("rate_limited");
     let seen = 0;
     for (;;) {
@@ -138,7 +138,7 @@ describe("playback", () => {
     }
     expect(seen).toBe(4);
     // Other members are not affected.
-    b.client.send({ type: "control", videoId: VIDEO, playing: true, position: 0 });
+    b.client.send({ type: "control", url: `https://www.youtube.com/embed/${VIDEO}`, playing: true, position: 0 });
     expect((await a.client.next("playback")).playback.by).toBe(b.snapshot.self);
   });
 });
