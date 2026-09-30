@@ -16,6 +16,9 @@ const EMBEDS_THIRD_PARTY = `${URLS.fixtures}/__csp/embeds-third-party`;
 /** Ours even though it's another origin: every loopback origin is a server we run (site, server, fixtures). */
 const LOOPBACK_OTHER = `${URLS.fixtures.replace("localhost", "127.0.0.1")}/__csp/enforced`;
 const EMBEDS_LOOPBACK = `${URLS.fixtures}/__csp/embeds-loopback`;
+/** Our page, where a third-party script (a provider's API) does something our policy blocks: still ours. */
+const THIRD_PARTY_SCRIPT = "https://cdn.third-party.test/api.js";
+const RUNS_THIRD_PARTY = `${URLS.fixtures}/__csp/runs-third-party`;
 const html = (body: string): string => `<!doctype html><title>csp</title><body>${body}</body>`;
 
 test.describe("csp fixture", () => {
@@ -41,6 +44,12 @@ test.describe("csp fixture", () => {
       r.fulfill({ contentType: "text/html", headers: { "content-security-policy": "img-src 'none'" }, body: html(`<img src="/blocked.png">`) }),
     );
     await context.route(EMBEDS_LOOPBACK, (r) => r.fulfill({ contentType: "text/html", body: html(`<iframe src="${LOOPBACK_OTHER}"></iframe>`) }));
+    await context.route(THIRD_PARTY_SCRIPT, (r) =>
+      r.fulfill({ contentType: "text/javascript", body: `const i = document.createElement("img"); i.src = "/blocked.png"; document.body.append(i);` }),
+    );
+    await context.route(RUNS_THIRD_PARTY, (r) =>
+      r.fulfill({ contentType: "text/html", headers: { "content-security-policy": "img-src 'none'" }, body: html(`<script src="${THIRD_PARTY_SCRIPT}"></script>`) }),
+    );
     await context.route(CLEAN, (r) =>
       r.fulfill({ contentType: "text/html", headers: { "content-security-policy": STRICT }, body: html(`<p id="ok">clean</p>`) }),
     );
@@ -106,13 +115,21 @@ test.describe("csp fixture", () => {
     expect(csp.thirdParty[0]?.effectiveDirective).toBe("script-src-elem");
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 200))));
     expect(csp.enforced).toEqual([]);
-    expect(csp.console).toEqual([]);
   });
 
-  test("a violation in a loopback frame of another origin still fails the test", async ({ page, csp }) => {
-    test.fail(); // loopback origins are ours (site, server, fixtures on other ports)
+  test("a violation in a loopback frame of another origin is ours", async ({ page, csp }) => {
     await page.goto(EMBEDS_LOOPBACK);
     await expect.poll(() => csp.enforced.length).toBe(1);
+    expect(csp.drain().map((v) => [v.effectiveDirective, v.documentURI])).toEqual([["img-src", LOOPBACK_OTHER]]);
+    expect(csp.thirdParty).toEqual([]);
+  });
+
+  test("a violation in our page caused by a third-party script is ours, event and console", async ({ page, csp }) => {
+    await page.goto(RUNS_THIRD_PARTY);
+    await expect.poll(() => csp.enforced.length).toBe(1);
+    await expect.poll(() => csp.console.length).toBe(1);
+    expect(csp.drain().map((v) => v.documentURI)).toEqual([RUNS_THIRD_PARTY]);
+    expect(csp.thirdParty).toEqual([]);
   });
 
   test("a hand-made context is watched once wrapped", async ({ browser, csp }) => {
