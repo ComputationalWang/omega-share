@@ -21,6 +21,7 @@ bun install
 bun run check   # typecheck + lint + unit tests
 bun run e2e     # Playwright + Chromium
 ```
+In development `apps/server` binds `127.0.0.1` and checks the `Host` header ([ADR 0015](docs/adr/0015-public-tunnel-and-share-token.md) items 3 and 4), so opening it from another machine or a phone on your LAN is refused or gets `421`. That is intended: to share a session beyond this machine, use the tunnel below.
 
 ## Host a public session (tunnel)
 One `apps/server` process serves the built site, the API and the WebSocket on one origin, bound to `127.0.0.1`. The operator's own ngrok puts it on the internet ([ADR 0015](docs/adr/0015-public-tunnel-and-share-token.md)):

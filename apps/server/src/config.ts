@@ -36,7 +36,8 @@ function parseOrigin(key: string, raw: string, httpOnLoopback: boolean): string 
     return fail(key, "not a URL");
   }
   if (url.username !== "" || url.password !== "") fail(key, "must not contain credentials");
-  if (url.pathname !== "/" || url.search !== "" || url.hash !== "") fail(key, "must be an origin, with no path or query");
+  // URL drops an empty "?" or "#", so check the raw string too.
+  if (url.pathname !== "/" || /[?#]/.test(raw)) fail(key, "must be an origin, with no path or query");
   const httpOk = httpOnLoopback && url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname);
   if (url.protocol !== "https:" && !httpOk) fail(key, httpOnLoopback ? "must be https (http only on loopback)" : "must be https");
   return url.origin;

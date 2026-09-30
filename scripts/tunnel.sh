@@ -6,7 +6,7 @@
 #
 # ngrok is the operator's own install, never a repo dependency. It reads its authtoken from
 # NGROK_AUTHTOKEN (a Paperclip secret) or from the operator's own ngrok config. This script never
-# reads, prints or passes the token. Stop it (Ctrl-C) when the session ends: the URL is public.
+# reads, prints or passes the token, and the server process runs without it. Stop it (Ctrl-C) when the session ends: the URL is public.
 set -euo pipefail
 
 usage() {
@@ -14,9 +14,15 @@ usage() {
   exit 2
 }
 
-public_url="${1:-}"
+(( $# >= 1 && $# <= 2 )) || usage
+public_url="$1"
 dry_run=0
-[[ "${2:-}" == "--dry-run" ]] && dry_run=1
+# Anything but an exact --dry-run is refused: a typo must never start a real public tunnel.
+case "${2:-}" in
+  "") ;;
+  --dry-run) dry_run=1 ;;
+  *) usage ;;
+esac
 # A bare https origin: the server refuses anything else, so fail here with a clearer message.
 [[ "$public_url" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || usage
 
@@ -30,7 +36,7 @@ tunnel=(ngrok http "127.0.0.1:$port" --url "$public_url")
 
 if (( dry_run )); then
   echo "bun run --filter @omega/web build"
-  echo "${server_env[*]} bun apps/server/src/index.ts"
+  echo "env -u NGROK_AUTHTOKEN ${server_env[*]} bun apps/server/src/index.ts"
   echo "${tunnel[*]}"
   exit 0
 fi
@@ -39,7 +45,7 @@ command -v ngrok >/dev/null || { echo "ngrok is not installed (see docs/ops/tunn
 
 cd "$root"
 bun run --filter @omega/web build
-env "${server_env[@]}" bun apps/server/src/index.ts &
+env -u NGROK_AUTHTOKEN "${server_env[@]}" bun apps/server/src/index.ts &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true' EXIT INT TERM
 
