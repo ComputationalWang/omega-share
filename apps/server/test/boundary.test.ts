@@ -2,8 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as v from "valibot";
+import { ShareResponseSchema, type RoomId } from "@omega/shared";
 import { startServer } from "../src/server";
-import { Client, EXTENSION_ORIGIN, SITE_ORIGIN, start, type TestServer } from "./helpers";
+import { Client, EXTENSION_ORIGIN, SITE_ORIGIN, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 const PUBLIC_ORIGIN = "https://quiet-otter.ngrok-free.app";
 const PUBLIC_HOST = "quiet-otter.ngrok-free.app";
@@ -31,10 +33,26 @@ function site(): string {
   return dist;
 }
 
+/** The production policy, pinned as literals (threat model §4). The web meta must be a superset of this. */
+const CSP =
+  "default-src 'self'; " +
+  "script-src 'self' https://www.youtube.com/iframe_api https://www.youtube.com/s/player/ https://player.twitch.tv/js/embed/v1.js https://player.vimeo.com/api/player.js; " +
+  "style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; " +
+  "frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://player.vimeo.com; " +
+  "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+const CSP_REPORT_ONLY = "require-trusted-types-for 'script'; trusted-types omega-sdk";
+const PERMISSIONS_POLICY =
+  "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), hid=(), bluetooth=(), display-capture=()";
+
 function expectSecurityHeaders(res: Response): void {
   expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   expect(res.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
-  expect(res.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+  expect(res.headers.get("content-security-policy")).toBe(CSP);
+  expect(res.headers.get("content-security-policy-report-only")).toBe(CSP_REPORT_ONLY);
+  expect(res.headers.get("permissions-policy")).toBe(PERMISSIONS_POLICY);
+  expect(res.headers.get("cross-origin-opener-policy")).toBe("same-origin");
+  expect(res.headers.get("cross-origin-resource-policy")).toBe("same-origin");
+  expect(res.headers.get("cross-origin-embedder-policy")).toBeNull();
 }
 
 describe("bind (T-11)", () => {
@@ -138,9 +156,15 @@ describe("Origin allowlist (T-04, T-05)", () => {
 });
 
 describe("responses", () => {
-  test("carry nosniff, a referrer policy and frame-ancestors 'none' (T-13)", async () => {
+  test("carry the strict CSP, TT report-only, Permissions-Policy, COOP and CORP (T-13, W-CSP)", async () => {
     t = start();
     for (const path of ["/", "/healthz", "/rooms", "/nope"]) expectSecurityHeaders(await get(path));
+  });
+
+  test("the Permissions-Policy leaves the player features to the iframes' allow attribute", async () => {
+    t = start();
+    const policy = (await get("/rooms")).headers.get("permissions-policy") ?? "";
+    for (const feature of ["autoplay", "fullscreen", "picture-in-picture", "encrypted-media"]) expect(policy).not.toContain(feature);
   });
 
   test("GET /healthz is the readiness probe; GET / still answers without a static site", async () => {
@@ -172,7 +196,10 @@ describe("serving the built site on the same origin (STATIC_DIR)", () => {
     expect(res.headers.get("content-type") ?? "").toContain("javascript");
     expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
     expect(await res.text()).toBe("console.log(1)");
-    expect((await get("/assets/missing-00000000.js")).status).toBe(404);
+    expectSecurityHeaders(res);
+    const missing = await get("/assets/missing-00000000.js");
+    expect(missing.status).toBe(404);
+    expectSecurityHeaders(missing);
     expect((await get("/favicon.png")).status).toBe(404);
   });
 
@@ -203,5 +230,71 @@ describe("serving the built site on the same origin (STATIC_DIR)", () => {
     clients.push(c);
     c.send({ type: "join", nickname: "same-origin", avatar: 0 });
     expect((await c.next("snapshot")).room.members).toHaveLength(1);
+  });
+});
+
+describe("room share limiter (§6 share spam)", () => {
+  const URL_BODY = JSON.stringify({ url: "https://youtu.be/dQw4w9WgXcQ" });
+  /** Members on distinct forwarded addresses, so only the room limiter can trip. */
+  async function members(server: TestServer, roomId: RoomId, n: number): Promise<string[]> {
+    return Promise.all(
+      Array.from({ length: n }, async (_, i) => {
+        const r = await Client.join(server.ws(roomId), `${roomId}-${String(i)}`, 0);
+        clients.push(r.client);
+        return tokenOf(r.snapshot);
+      }),
+    );
+  }
+  const shareAs = (server: TestServer, token: string, i: number, roomId: RoomId = "lobby", body = URL_BODY) =>
+    postShare(server, body, { roomId, token, headers: { "x-forwarded-for": `198.51.100.${String(i)}` } });
+
+  test("a room takes a burst of 2 switches, then answers 429 with Retry-After and retryAfterMs", async () => {
+    t = start({ trustProxy: true });
+    const tokens = await members(t, "lobby", 3);
+    const statuses: number[] = [];
+    for (const [i, token] of tokens.entries()) {
+      const res = await shareAs(t, token, i);
+      statuses.push(res.status);
+      if (res.status !== 429) continue;
+      expectSecurityHeaders(res);
+      const retryAfter = Number(res.headers.get("retry-after"));
+      expect(Number.isInteger(retryAfter)).toBe(true);
+      expect(retryAfter).toBeGreaterThanOrEqual(1);
+      expect(retryAfter).toBeLessThanOrEqual(10);
+      const body = v.parse(ShareResponseSchema, await res.json());
+      if (body.ok) throw new Error("expected a refusal");
+      expect(body.error.code).toBe("rate_limited");
+      expect(body.error.retryAfterMs).toBeGreaterThan(0);
+      expect(body.error.retryAfterMs).toBeLessThanOrEqual(retryAfter * 1000);
+    }
+    expect(statuses).toEqual([200, 200, 429]);
+  });
+
+  test("another room is unaffected", async () => {
+    t = start({ trustProxy: true, rooms: ["lobby", "den"] });
+    const lobby = await members(t, "lobby", 3);
+    for (const [i, token] of lobby.entries()) await shareAs(t, token, i);
+    const [den = ""] = await members(t, "den", 1);
+    expect((await shareAs(t, den, 50, "den")).status).toBe(200);
+  });
+
+  test("a refused URL doesn't use up the room's switches", async () => {
+    t = start({ trustProxy: true });
+    const tokens = await members(t, "lobby", 4);
+    const bad = JSON.stringify({ url: "https://evil.example/video" });
+    expect((await shareAs(t, tokens[0] ?? "", 0, "lobby", bad)).status).toBe(400);
+    expect((await shareAs(t, tokens[1] ?? "", 1, "lobby", bad)).status).toBe(400);
+    expect((await shareAs(t, tokens[2] ?? "", 2)).status).toBe(200);
+    expect((await shareAs(t, tokens[3] ?? "", 3)).status).toBe(200);
+  });
+
+  test("every share 429 carries Retry-After, including the failed-attempt limiter", async () => {
+    t = start();
+    let res: Response | null = null;
+    for (let i = 0; i < 40 && res?.status !== 429; i++) res = await postShare(t, URL_BODY, { token: "B".repeat(22) });
+    expect(res?.status).toBe(429);
+    expect(Number(res?.headers.get("retry-after"))).toBeGreaterThanOrEqual(1);
+    const body = v.parse(ShareResponseSchema, await res?.json());
+    expect(body.ok ? null : body.error.retryAfterMs).toBeGreaterThan(0);
   });
 });
