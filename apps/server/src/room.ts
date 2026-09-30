@@ -41,6 +41,8 @@ export class Room {
   private readonly held = new Map<MemberId, Held>();
   private readonly nameKeys = new Set<string>();
   private readonly perClient = new Map<string, number>();
+  /** Members whose player is catching up (ADR 0019, advisory). */
+  private readonly catching = new Set<MemberId>();
   private readonly seats: (MemberId | null)[] = Array.from({ length: SEAT_COUNT }, () => null);
   private embed: Embed | null = null;
   /** Null iff there is no embed. */
@@ -75,6 +77,7 @@ export class Room {
   leave(memberId: MemberId): void {
     this.free(memberId);
     this.members.delete(memberId);
+    this.catching.delete(memberId);
     const held = this.held.get(memberId);
     if (held === undefined) return;
     this.held.delete(memberId);
@@ -94,6 +97,16 @@ export class Room {
     this.free(memberId);
     if (seat !== null) this.seats[seat] = memberId;
     return "ok";
+  }
+
+  /** Records a member's advisory catching-up flag (ADR 0019); never touches playback. */
+  setCatching(memberId: MemberId, catching: boolean): void {
+    if (catching && this.members.has(memberId)) this.catching.add(memberId);
+    else this.catching.delete(memberId);
+  }
+
+  isCatching(memberId: MemberId): boolean {
+    return this.catching.has(memberId);
   }
 
   /** Sets the embed and restarts playback at 0 (or clears it); returns the new playback. `by` is the sharer. */
@@ -117,7 +130,8 @@ export class Room {
     return {
       id: this.id,
       seats: [...this.seats],
-      members: [...this.members.values()],
+      // Absent means false, so only catching members carry the field.
+      members: [...this.members.values()].map((m) => (this.catching.has(m.id) ? { ...m, catching: true } : m)),
       embed: this.embed,
       playback: this.playback,
     };

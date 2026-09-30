@@ -29,6 +29,8 @@ export interface ServerOptions {
   rooms?: readonly RoomId[];
   /** Clock for the WS limiters (tests inject one so a refill needs no sleep). Default: monotonic. */
   now?: Clock;
+  /** `member-status` coalescing interval (ADR 0019 §3). Default 1 s; tests shorten it. */
+  statusIntervalMs?: number;
 }
 
 const WS_PATH = /^\/rooms\/([^/]+)\/ws$/;
@@ -69,6 +71,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     shareGrants,
     publish,
     now: opts.now ?? monotonic,
+    ...(opts.statusIntervalMs === undefined ? {} : { statusIntervalMs: opts.statusIntervalMs }),
     release(ip) {
       connections--;
       const left = (connectionsPerIp.get(ip) ?? 1) - 1;

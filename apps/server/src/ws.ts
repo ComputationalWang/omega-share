@@ -33,7 +33,18 @@ export interface ConnData {
   /** `bad_message`s over the socket's life. */
   badMessages: number;
   joinTimer: Timer | null;
+  /** `member-status` coalescing for this socket's member (ADR 0019 §3). */
+  status: StatusRelay;
 }
+interface StatusRelay {
+  /** Last `catching` published for the member; a fresh member starts at false. */
+  sent: boolean;
+  /** When it was published (`now` ms); -Infinity before the first. */
+  at: number;
+  /** The trailing publish, while one is pending. */
+  timer: Timer | null;
+}
+const freshStatus = (): StatusRelay => ({ sent: false, at: Number.NEGATIVE_INFINITY, timer: null });
 type Conn = ServerWebSocket<ConnData>;
 
 // Rates are server-private (ADR 0016 §1); the numbers are the threat model's §6.
@@ -62,6 +73,8 @@ const MAX_BAD_MESSAGES = 20;
 /** Bun closes a socket (1006) whose unsent data passes this, instead of buffering up to 16 MB. */
 const BACKPRESSURE_LIMIT = 256 * 1024;
 const IDLE_TIMEOUT_S = 60;
+/** At most one `member-status` per member per this, trailing edge (ADR 0019 §3). */
+const STATUS_INTERVAL_MS = 1000;
 
 const encode = (msg: ServerMessage): string => JSON.stringify(msg);
 /** 16 random bytes, base64url without padding: 22 chars (ADR 0015). */
@@ -76,6 +89,8 @@ export interface WsDeps {
   release: (ip: string) => void;
   /** Clock for every limiter. Default: monotonic `performance.now()`. */
   now?: Clock;
+  /** `member-status` coalescing interval. Default STATUS_INTERVAL_MS; tests shorten it. */
+  statusIntervalMs?: number;
 }
 
 export interface Ws {
@@ -85,7 +100,14 @@ export interface Ws {
   websocket: WebSocketHandler<ConnData>;
 }
 
-export function createWs({ joinTimeoutMs, shareGrants, publish, release, now = monotonic }: WsDeps): Ws {
+export function createWs({
+  joinTimeoutMs,
+  shareGrants,
+  publish,
+  release,
+  now = monotonic,
+  statusIntervalMs = STATUS_INTERVAL_MS,
+}: WsDeps): Ws {
   const upgrades = new KeyedLimiter(UPGRADE_BURST, UPGRADE_PER_SECOND, 1024, now);
   const joins = new KeyedLimiter(JOIN_BURST, JOIN_PER_SECOND, 1024, now);
   const roomControls = new Map<Room, TokenBucket>();
@@ -125,8 +147,22 @@ export function createWs({ joinTimeoutMs, shareGrants, publish, release, now = m
     ws.data.joinTimer = null;
   };
 
+  /** Publishes the member's current `catching` if it differs from the last one published. */
+  const flushStatus = (ws: Conn, memberId: MemberId): void => {
+    const status = ws.data.status;
+    status.timer = null;
+    const catching = ws.data.room.isCatching(memberId);
+    if (catching === status.sent) return;
+    status.sent = catching;
+    status.at = now();
+    publish(ws.data.room.topic, encode({ type: "member-status", memberId, catching }));
+  };
+
   const depart = (ws: Conn, memberId: MemberId, closing: boolean): void => {
     ws.data.memberId = null;
+    // The flag leaves with the member: `member-left` says it all (ADR 0019 §3).
+    if (ws.data.status.timer !== null) clearTimeout(ws.data.status.timer);
+    ws.data.status = freshStatus();
     if (ws.data.shareToken !== null) shareGrants.delete(ws.data.shareToken);
     ws.data.shareToken = null;
     ws.data.room.leave(memberId);
@@ -230,9 +266,16 @@ export function createWs({ joinTimeoutMs, shareGrants, publish, release, now = m
         publish(room.topic, encode({ type: "playback", playback }));
         return;
       }
-      case "status":
-        // Accepted and ignored until OME-101 stores and broadcasts it (ADR 0019).
+      case "status": {
+        // State, not an event: store it, publish on change, at most once per interval per member.
+        room.setCatching(memberId, msg.catching);
+        const status = ws.data.status;
+        if (status.timer !== null) return;
+        const wait = status.at + statusIntervalMs - now();
+        if (wait <= 0) flushStatus(ws, memberId);
+        else status.timer = setTimeout(flushStatus, wait, ws, memberId);
         return;
+      }
     }
   };
 
@@ -256,6 +299,7 @@ export function createWs({ joinTimeoutMs, shareGrants, publish, release, now = m
       dropped: 0,
       badMessages: 0,
       joinTimer: null,
+      status: freshStatus(),
     }),
     websocket: {
       maxPayloadLength: MAX_CLIENT_MESSAGE_BYTES,
