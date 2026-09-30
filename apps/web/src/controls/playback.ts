@@ -1,6 +1,6 @@
 import type { ClientMessage, PlaybackState } from "@omega/shared";
 import { playerIntent, seekIntent, togglePlayIntent, type PlaybackTarget } from "../intents";
-import type { PlayerAdapter, PlayerEvent } from "../player/adapter";
+import type { PlayerAdapter, PlayerError, PlayerEvent } from "../player/adapter";
 import { SYNC_INTERVAL_MS, createSyncLoop, expectedPosition, type SyncLoop } from "../sync";
 import { NOT_CATCHING, stepCatchup, type Catchup } from "./catchup";
 
@@ -24,7 +24,7 @@ export interface PlaybackView {
   /** This client's player is buffering or in an ad while the room plays. */
   readonly catching: boolean;
   /** YouTube refused the video on this client (onError code). The transport is frozen; the site shows why. */
-  readonly error: number | null;
+  readonly error: PlayerError | null;
 }
 
 /** What the controller needs of the clock-sync module (`ClockSync` fits). */
@@ -85,7 +85,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   let muted = false;
   let needsUnmute = false;
   let catchup: Catchup = NOT_CATCHING;
-  let error: number | null = null;
+  let error: PlayerError | null = null;
   let timer: Timer | null = null;
   let current: PlaybackView = {
     hasVideo: false,
@@ -162,7 +162,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       }
       case "error":
         // Keep the player (its own "Video unavailable" stays visible) but stop driving it.
-        error = e.code;
+        error = { reason: e.reason, code: e.code };
         loop?.destroy();
         loop = null;
         catchup = NOT_CATCHING;

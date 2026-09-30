@@ -1,4 +1,7 @@
-import type { PlayerAdapter, PlayerEvent, PlayerState } from "./adapter";
+import { playbackCaps, type Embed } from "@omega/shared";
+import type { PlayerAdapter, PlayerErrorReason, PlayerEvent, PlayerState } from "./adapter";
+import type { AdapterFactory } from "./registry";
+import { loadYouTubeApi } from "./youtube-loader";
 import type { YtEvent, YtNamespace } from "./youtube-types";
 
 /** Player state events this soon after our own command are its echo, not the user (research §1.5). */
@@ -21,9 +24,11 @@ const STATES: Readonly<Record<number, PlayerState>> = {
 };
 const ONE: readonly number[] = [1];
 
+export type YouTubeEmbed = Extract<Embed, { provider: "youtube" }>;
+
 export interface AttachOptions {
   /** The room's video; anything else playing in the player is treated as an ad. */
-  readonly videoId: string;
+  readonly embed: YouTubeEmbed;
   /** Monotonic ms, for the echo window. */
   readonly now: () => number;
 }
@@ -33,6 +38,7 @@ export interface AttachOptions {
  * `new YT.Player(div, { videoId })`: that would let the API choose src, sandbox and allow.
  */
 export function attachYouTube(yt: YtNamespace, iframe: HTMLIFrameElement, opts: AttachOptions): PlayerAdapter {
+  const videoId = opts.embed.videoId;
   const listeners = new Set<(e: PlayerEvent) => void>();
   let isReady = false;
   let destroyed = false;
@@ -86,7 +92,8 @@ export function attachYouTube(yt: YtNamespace, iframe: HTMLIFrameElement, opts: 
         emit({ type: "intent", playing: s === "playing", position: time() });
       },
       onError: (e: YtEvent) => {
-        emit({ type: "error", code: typeof e.data === "number" && Number.isInteger(e.data) ? e.data : -1 });
+        const code = typeof e.data === "number" && Number.isInteger(e.data) ? e.data : -1;
+        emit({ type: "error", reason: errorReason(code), code: String(code) });
       },
       onAutoplayBlocked: () => {
         if (destroyed) return;
@@ -112,11 +119,11 @@ export function attachYouTube(yt: YtNamespace, iframe: HTMLIFrameElement, opts: 
     playingId = typeof id === "string" && id !== "" ? id : null;
   }
   function learnDuration(): void {
-    if (contentDuration > 0 || playingId !== opts.videoId) return;
+    if (contentDuration > 0 || playingId !== videoId) return;
     contentDuration = duration();
   }
   function inAd(): boolean {
-    if (playingId !== null && playingId !== opts.videoId) return true;
+    if (playingId !== null && playingId !== videoId) return true;
     const d = duration();
     if (contentDuration <= 0 || d <= 0 || Math.abs(d - contentDuration) <= AD_DURATION_TOLERANCE_S) {
       durationAdSince = -1;
@@ -131,6 +138,7 @@ export function attachYouTube(yt: YtNamespace, iframe: HTMLIFrameElement, opts: 
   }
 
   return {
+    caps: playbackCaps(opts.embed),
     ready: () => isReady && !destroyed,
     play() {
       if (!isReady || destroyed) return;
@@ -184,6 +192,21 @@ export function attachYouTube(yt: YtNamespace, iframe: HTMLIFrameElement, opts: 
     },
   };
 }
+
+/** 101/150: the owner doesn't allow embedding; 100: removed or private (research M1b §1.1). */
+function errorReason(code: number): PlayerErrorReason {
+  if (code === 101 || code === 150) return "refused";
+  return code === 100 ? "not-found" : "other";
+}
+
+/** The registry's YouTube factory: loads the IFrame API only now, then attaches to the iframe `tvFrame()` built. */
+export const mountYouTube: AdapterFactory<YouTubeEmbed> = async (c) => {
+  const iframe = c.target.iframe;
+  if (c.frame.kind !== "iframe" || iframe === null) return { ok: false, reason: "invalid" };
+  const r = await loadYouTubeApi();
+  if (!r.ok) return { ok: false, reason: r.reason === "timeout" ? "timeout" : "load-failed" };
+  return { ok: true, player: attachYouTube(r.yt, iframe, { embed: c.embed, now: c.now }) };
+};
 
 function mapState(n: unknown): PlayerState {
   return (typeof n === "number" ? STATES[n] : undefined) ?? "unstarted";

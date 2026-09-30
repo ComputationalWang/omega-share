@@ -1,19 +1,19 @@
 // Room screen. Loaded lazily after Enter so PixiJS stays out of the initial bundle.
 import "pixi.js/unsafe-eval";
-import type { Avatar, ClientMessage, ErrorCode, MemberId, Nickname, RoomId } from "@omega/shared";
+import type { Avatar, ClientMessage, Embed, ErrorCode, MemberId, Nickname, RoomId } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
 import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
-import { playerErrorText } from "./controls/player-error";
+import { mountErrorText, playerErrorText } from "./controls/player-error";
 import { chatIntent, seatViews, sitIntent } from "./intents";
 import { BUBBLE_OFFSET_Y, SEATS, STANDING, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
-import { attachYouTube } from "./player/youtube";
-import { loadYouTubeApi } from "./player/youtube-loader";
+import type { PlayerError } from "./player/adapter";
+import { PLAYERS, createPlayerMounter } from "./player/registry";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
 import { initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
-import { tvFrame } from "./tv";
+import { tvFrame, type TvFrame } from "./tv";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -130,7 +130,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     document,
   });
   let pbView: PlaybackView | null = null;
-  let shownPlayerError: number | null = null;
+  let shownPlayerError: PlayerError | null = null;
   let ctlFrame = 0;
   const playback = createPlaybackController({
     send,
@@ -169,7 +169,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   let frame = 0;
   let expiryTimer: ReturnType<typeof setTimeout> | null = null;
-  let tvSrc: string | null = null;
+  let tvKey: string | null = null;
   let drawnSeats: readonly unknown[] | undefined;
   let drawnMembers: readonly unknown[] | undefined;
   let catchTag: HTMLElement | null = null;
@@ -209,17 +209,23 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
   }
 
-  let tvIframe: HTMLIFrameElement | null = null;
-  const mountPlayer = (iframe: HTMLIFrameElement, videoId: string, embedUrl: string): void => {
+  const mount = createPlayerMounter(PLAYERS);
+  /** What the TV shows now: the iframe we built, or the container a provider SDK renders into. */
+  let tvScreen: HTMLElement | null = null;
+  const mountPlayer = (embed: Embed, frame: TvFrame, screenEl: HTMLElement, iframe: HTMLIFrameElement | null): void => {
     syncNotice.hidden = true;
-    void loadYouTubeApi().then((r) => {
-      if (tvIframe !== iframe) return;
+    // Only the shown embed's provider module and SDK load, and only now (ADR 0014, research §5).
+    void mount({ embed, frame, target: { iframe, container: screenEl }, now: () => performance.now() }).then((r) => {
+      if (tvScreen !== screenEl) {
+        if (r.ok) r.player.destroy();
+        return;
+      }
       if (!r.ok) {
-        syncNotice.textContent = "The video plays here without sync: the YouTube player API didn't load.";
+        syncNotice.textContent = mountErrorText(embed.provider, r.reason);
         syncNotice.hidden = false;
         return;
       }
-      playback.attach(attachYouTube(r.yt, iframe, { videoId, now: () => performance.now() }), embedUrl);
+      playback.attach(r.player, embed.url);
     });
   };
 
@@ -329,19 +335,24 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const syncTv = (s: ViewState): void => {
     const embed = s.room?.embed ?? null;
     const tf = tvFrame(embed);
-    const nextSrc = tf?.src ?? null;
-    if (nextSrc !== tvSrc) {
-      tvSrc = nextSrc;
+    const nextKey = tf?.key ?? null;
+    if (nextKey !== tvKey) {
+      tvKey = nextKey;
       if (tf === null || embed === null) {
-        tvIframe = null;
+        tvScreen = null;
         tv.replaceChildren(tvEmpty);
-      } else {
+      } else if (tf.kind === "iframe") {
         const iframe = el("iframe", { src: tf.src, allow: tf.allow, referrerPolicy: tf.referrerPolicy, title: "Shared video" }, "shared-video");
         iframe.setAttribute("sandbox", tf.sandbox);
-        tvIframe = iframe;
+        tvScreen = iframe;
         tv.replaceChildren(iframe);
-        // tvFrame() only renders YouTube until the Twitch/Vimeo frames land (OME-124).
-        if (embed.provider === "youtube") mountPlayer(iframe, embed.videoId, embed.url);
+        mountPlayer(embed, tf, iframe, iframe);
+      } else {
+        // The Twitch SDK builds its own iframe inside a fresh container; its adapter checks the result (ADR 0014 §5).
+        const box = el("div", { className: "tv-sdk" }, "shared-video");
+        tvScreen = box;
+        tv.replaceChildren(box);
+        mountPlayer(embed, tf, box, null);
       }
     }
   };

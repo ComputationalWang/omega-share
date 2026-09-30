@@ -1,4 +1,4 @@
-import type { PlaybackState } from "@omega/shared";
+import type { PlaybackCaps, PlaybackState } from "@omega/shared";
 import type { PlayerAdapter, PlayerState } from "./player/adapter";
 
 // Thresholds: ADR 0011, research §1.2–§1.3.
@@ -31,8 +31,11 @@ export const BURST_FAST = 1.25;
 const SEEK_LATENCY_ALPHA = 0.25;
 const MAX_SEEK_LATENCY_MS = 2000;
 
-/** fine: 1 ± ≤10 %; burst: 0.75/1.25 only; seek-only: no rate changes, seek above 500 ms. */
-export type RateMode = "fine" | "burst" | "seek-only";
+/**
+ * fine: 1 ± ≤10 %; burst: 0.75/1.25 only; seek-only: no rate changes, seek above 500 ms;
+ * live: can't seek (Twitch live), so only play/pause is matched (ADR 0014 §3).
+ */
+export type RateMode = "fine" | "burst" | "seek-only" | "live";
 
 export type Correction =
   | { readonly kind: "none" }
@@ -80,6 +83,7 @@ export function expectedPosition(room: PlaybackState, serverNowMs: number): numb
 export function decide(i: DecideInput): Correction {
   const room = i.room;
   if (room === null || i.playerState === "ad") return NONE;
+  if (i.mode === "live") return decideLive(i, room);
   const expected = expectedPosition(room, i.serverNowMs);
   if (i.hardSeek) return seekTo(expected, room, i.seekLatencyMs);
   if (i.playerState === "buffering") return NONE;
@@ -113,6 +117,14 @@ export function decide(i: DecideInput): Correction {
   return { kind: "rate", rate: ahead ? 1 - n : 1 + n };
 }
 
+/** Live: no position to match. Play (= back to the live edge) or pause like the room; a hard seek is just that. */
+function decideLive(i: DecideInput, room: PlaybackState): Correction {
+  if (i.rate !== 1) return RATE_ONE;
+  if (i.playerState === "buffering") return NONE;
+  if (!room.playing) return i.playerState === "playing" ? PAUSE : NONE;
+  return i.playerState === "playing" ? NONE : PLAY;
+}
+
 function seekTo(expected: number, room: PlaybackState, latencyMs: number): Correction {
   const to = room.playing ? expected + (latencyMs / 1000) * room.rate : expected;
   return { kind: "seek", to, play: room.playing };
@@ -125,8 +137,13 @@ function median3(s: ArrayLike<number>): number {
   return Math.max(Math.min(a, b), Math.min(Math.max(a, b), c));
 }
 
-/** Fine nudges unless the player offers nothing but 1× (live streams). */
-export function initialRateMode(rates: readonly number[]): RateMode {
+/**
+ * From the embed's static caps first: no seek → live; no rate → seek-only. Otherwise
+ * fine nudges unless the player offers nothing but 1× (a Vimeo probe that failed).
+ */
+export function initialRateMode(rates: readonly number[], caps: PlaybackCaps): RateMode {
+  if (caps.live || !caps.seek) return "live";
+  if (caps.rate === "no") return "seek-only";
   return rates.some((r) => r !== 1) ? "fine" : "seek-only";
 }
 
@@ -135,7 +152,7 @@ export function initialRateMode(rates: readonly number[]): RateMode {
  * time advanced per wall second while `requested` was set.
  */
 export function nextRateMode(mode: RateMode, requested: number, slope: number, rates: readonly number[]): RateMode {
-  if (mode === "seek-only" || requested === 1) return mode;
+  if (mode === "seek-only" || mode === "live" || requested === 1) return mode;
   if (Math.abs(slope - 1) >= Math.max(RATE_EFFECT_MIN, Math.abs(requested - 1) / 2)) return mode;
   if (mode === "fine" && rates.includes(BURST_SLOW) && rates.includes(BURST_FAST)) return "burst";
   return "seek-only";
@@ -231,7 +248,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     const room = input.room;
     if (room === null || !o.clock.ready || !p.ready()) return;
     if (!modeKnown) {
-      input.mode = initialRateMode(p.rates());
+      input.mode = initialRateMode(p.rates(), p.caps);
       modeKnown = true;
     }
     const now = o.now();
@@ -248,7 +265,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     input.playerTime = t;
     input.playerState = st;
     input.stableForMs = now - stateSince;
-    if (st === "playing" && room.playing && input.stableForMs >= STABLE_MS) {
+    if (st === "playing" && room.playing && input.mode !== "live" && input.stableForMs >= STABLE_MS) {
       const d = (t - expectedPosition(room, serverNow)) * 1000;
       samples[next] = d;
       input.lastDriftMs = d;

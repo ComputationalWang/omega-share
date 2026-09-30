@@ -5,13 +5,14 @@ import { spawn } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { playbackCaps } from "@omega/shared";
 import { chromium, expect, test } from "@playwright/test";
 import type { Browser, Page } from "@playwright/test";
 import type { PlaybackView } from "../../apps/web/src/controls/playback";
 import { BURST_FAST, BURST_SLOW, initialRateMode, nextRateMode } from "../../apps/web/src/sync";
 import { site } from "../support/selectors";
 import {
-  AD_IDS, BASELINE_ID, cdpTargets, closeAll, cspViolations, enter, EVIDENCE_DIR, rawTab, record, ROOM_URL, sampleVideo, share, shot, slope, spreadOver,
+  AD_IDS, BASELINE_ID, cdpTargets, closeAll, cspViolations, embedUrl, enter, EVIDENCE_DIR, rawTab, record, ROOM_URL, sampleVideo, share, shot, slope, spreadOver,
   waitVideoPlaying, watchPage, ytFrame,
 } from "./real";
 
@@ -116,7 +117,7 @@ test("5 · effective rate at 1.05: getCurrentTime slope over 30 s + video.playba
   };
   const at1 = await measure(1, 10);
   const at105 = await measure(1.05, 30);
-  const rungAfterCheck = nextRateMode(initialRateMode(setup), 1.05, at105.slope, setup);
+  const rungAfterCheck = nextRateMode(initialRateMode(setup, playbackCaps({ provider: "youtube", videoId: BASELINE_ID, url: embedUrl(BASELINE_ID) })), 1.05, at105.slope, setup);
   // The sync loop's own check, replayed: set a nudge, then slope = Δ getCurrentTime / Δ wall over RATE_CHECK_MS (2 s)
   // from the moment of the set call, exactly as createSyncLoop does. Rates are the ones the loop sends since OME-109
   // (whole 0.05 steps, ADR 0013); off-grid rates are only probed for what the <video> really plays (YouTube floors them).

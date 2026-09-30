@@ -329,7 +329,7 @@ describe("capabilities (ADR 0014 §3, research §6.3)", () => {
   };
   for (const mode of ["fine", "burst", "seek-only", "live"] as const) {
     test(`decide table: ${mode}`, () => {
-      const got = scenarios.map(([name, { drift, ...over }]) => [name, decide(input(drift, { mode, ...over }))]);
+      const got: unknown[][] = scenarios.map(([name, { drift, ...over }]) => [name, decide(input(drift, { mode, ...over }))]);
       const want = scenarios.map(([name], i) => [name, expected[mode][i]]);
       expect(got).toEqual(want);
     });
