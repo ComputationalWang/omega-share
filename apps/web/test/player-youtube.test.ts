@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { PlayerEvent, PlayerState } from "../src/player/adapter";
-import { ECHO_WINDOW_MS, attachYouTube } from "../src/player/youtube";
+import { AD_RELEARN_MS, ECHO_WINDOW_MS, attachYouTube } from "../src/player/youtube";
 import { fakeYt, type FakeYtPlayer } from "./support/fake-yt";
 
 const VIDEO = "dQw4w9WgXcQ";
@@ -103,17 +103,34 @@ describe("attachYouTube", () => {
   test("ad heuristic: another video id, or a duration unlike the content's, reads as 'ad'", () => {
     const { adapter, p, ready } = setup();
     ready();
-    p.playerState = 1;
+    p.fire("onStateChange", 1);
     expect(adapter.state()).toBe("playing");
     p.videoData = { video_id: "fake-ad-0001" };
+    p.fire("onStateChange", 1);
     expect(adapter.state()).toBe("ad");
     p.videoData = { video_id: VIDEO };
+    p.fire("onStateChange", 1);
     p.duration = 15;
     expect(adapter.state()).toBe("ad");
     p.duration = 214;
     expect(adapter.state()).toBe("playing");
     p.videoData = null;
+    p.fire("onStateChange", 1);
     expect(adapter.state()).toBe("playing");
+  });
+
+  test("the video id is read on player events, not on every state() poll", () => {
+    const { adapter, p, ready } = setup();
+    ready();
+    p.fire("onStateChange", 1);
+    let reads = 0;
+    const orig = p.getVideoData.bind(p);
+    p.getVideoData = () => {
+      reads++;
+      return orig();
+    };
+    for (let i = 0; i < 10; i++) adapter.state();
+    expect(reads).toBe(0);
   });
 
   test("an ad at load doesn't poison the content duration", () => {
@@ -121,10 +138,33 @@ describe("attachYouTube", () => {
     p.videoData = { video_id: "fake-ad-0001" };
     p.duration = 15;
     p.fire("onReady");
-    p.playerState = 1;
+    p.fire("onStateChange", 1);
     expect(adapter.state()).toBe("ad");
     p.videoData = { video_id: VIDEO };
     p.duration = 214;
+    p.fire("onStateChange", 1);
+    expect(adapter.state()).toBe("playing");
+    p.duration = 15;
+    expect(adapter.state()).toBe("ad");
+  });
+
+  test("a pre-roll that reports the content id is learned as the content only until it's proven wrong", () => {
+    const { t, adapter, p } = setup();
+    // onReady before metadata: no duration yet.
+    p.videoData = { video_id: VIDEO };
+    p.duration = 0;
+    p.fire("onReady");
+    // Pre-roll reports the content id and its own 15 s duration.
+    p.duration = 15;
+    p.fire("onStateChange", 1);
+    expect(adapter.state()).toBe("playing");
+    // Real content starts: duration differs, so it first reads as an ad...
+    t.now = 16_000;
+    p.duration = 214;
+    p.fire("onStateChange", 1);
+    expect(adapter.state()).toBe("ad");
+    // ...but a mismatch that only the duration rule sees, and that lasts past AD_RELEARN_MS, re-learns the content.
+    t.now = 16_000 + AD_RELEARN_MS + 1;
     expect(adapter.state()).toBe("playing");
     p.duration = 15;
     expect(adapter.state()).toBe("ad");
@@ -155,10 +195,38 @@ describe("attachYouTube", () => {
     const { t, adapter, p, events, ready } = setup();
     ready();
     adapter.pause();
+    p.fire("onStateChange", 2);
     t.now = 5000;
     p.currentTime = 7;
+    p.fire("onStateChange", 3);
     p.fire("onStateChange", 1);
     expect(intents(events)).toEqual([{ type: "intent", playing: true, position: 7 }]);
+  });
+
+  test("a slow autoplay after our pause (load → buffering → playing) is not an intent", () => {
+    const { t, adapter, p, events, ready } = setup();
+    ready();
+    adapter.pause();
+    t.now = 1500;
+    p.fire("onStateChange", -1);
+    p.fire("onStateChange", 3);
+    t.now = 2500;
+    p.fire("onStateChange", 1);
+    expect(intents(events)).toEqual([]);
+  });
+
+  test("the first play/pause after an ad is not an intent", () => {
+    const { t, adapter, p, events, ready } = setup();
+    ready();
+    adapter.play();
+    p.fire("onStateChange", 1);
+    t.now = 5000;
+    p.videoData = { video_id: "fake-ad-0001" };
+    p.fire("onStateChange", 1);
+    t.now = 20_000;
+    p.videoData = { video_id: VIDEO };
+    p.fire("onStateChange", 2);
+    expect(intents(events)).toEqual([]);
   });
 
   test("echoes of our own commands are not intents", () => {

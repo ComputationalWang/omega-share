@@ -31,6 +31,7 @@ function input(driftMs: number, over: Partial<DecideInput> = {}): DecideInput {
     stableForMs: 1000,
     samples: [driftMs, driftMs, driftMs],
     sampleCount: 3,
+    lastDriftMs: driftMs,
     hardSeek: false,
     rate: 1,
     mode: "fine",
@@ -90,6 +91,18 @@ describe("decide: thresholds", () => {
 
   test("a nudge in the wrong direction is replaced", () => {
     expect(rateOf(decide(input(-300, { rate: 0.96 })))).toBeCloseTo(1.06, 6);
+  });
+
+  test("a nudge ends as soon as the newest sample is back in the dead band or has crossed over (no overshoot from median lag)", () => {
+    expect(decide(input(150, { rate: 0.97, lastDriftMs: 60 }))).toEqual({ kind: "rate", rate: 1 });
+    expect(decide(input(150, { mode: "burst", rate: 0.75, lastDriftMs: -20 }))).toEqual({ kind: "rate", rate: 1 });
+    expect(decide(input(-150, { mode: "burst", rate: 1.25, lastDriftMs: 30 }))).toEqual({ kind: "rate", rate: 1 });
+    expect(decide(input(150, { rate: 0.97, lastDriftMs: 130 }))).toEqual({ kind: "none" });
+  });
+
+  test("a nudge doesn't start when the newest sample disagrees with the median", () => {
+    expect(decide(input(200, { lastDriftMs: 50 }))).toEqual({ kind: "none" });
+    expect(decide(input(200, { lastDriftMs: -300 }))).toEqual({ kind: "none" });
   });
 
   test("back inside the dead band the rate returns to 1", () => {
@@ -197,6 +210,8 @@ describe("decide: fallback ladder", () => {
       ["fine", 1.05, 1.004, ALL_RATES, "burst"],
       ["fine", 0.95, 0.995, ALL_RATES, "burst"],
       ["fine", 1.05, 1.0, [0.5, 1, 2], "seek-only"],
+      ["fine", 1.1, 1.03, ALL_RATES, "burst"],
+      ["fine", 1.1, 1.06, ALL_RATES, "fine"],
       ["burst", 1.25, 1.24, ALL_RATES, "burst"],
       ["burst", 1.25, 1.0, ALL_RATES, "seek-only"],
       ["seek-only", 1, 1, ALL_RATES, "seek-only"],
@@ -377,6 +392,54 @@ describe("sync loop", () => {
     const seek = h.player.calls.findLast((c) => c.op === "seek");
     expect(seek?.op).toBe("seek");
     if (seek?.op === "seek") expect(seek.to).toBeCloseTo(100.25 + before / 1000, 6);
+  });
+
+  test("after a click-pause intent the loop holds off until the room answers", () => {
+    const h = harness();
+    h.loop.start();
+    h.loop.setPlayback(room({ at: 1_000_000 }));
+    h.run(1000);
+    h.player.calls.length = 0;
+    h.player.setState("paused");
+    h.player.emit({ type: "intent", playing: false, position: h.player.time() });
+    h.run(750);
+    expect(h.player.calls).toEqual([]);
+    h.loop.setPlayback(room({ rev: 2, action: "pause", playing: false, position: h.player.time(), at: h.clock.serverNow() }));
+    h.run(250);
+    expect(h.player.calls.map((c) => c.op)).toEqual(["seek", "pause"]);
+  });
+
+  test("an unanswered intent stops holding after 1 s", () => {
+    const h = harness();
+    h.loop.start();
+    h.loop.setPlayback(room({ at: 1_000_000 }));
+    h.run(1000);
+    h.player.calls.length = 0;
+    h.player.setState("paused");
+    h.player.emit({ type: "intent", playing: false, position: h.player.time() });
+    h.run(1500);
+    expect(h.player.calls.some((c) => c.op === "play")).toBe(true);
+  });
+
+  test("play is not re-sent every tick while the player is slow to start", () => {
+    const h = harness({ state: "cued", ignorePlay: true });
+    h.loop.start();
+    h.loop.setPlayback(room());
+    h.run(2250);
+    expect(h.player.calls.filter((c) => c.op === "play").length).toBeLessThanOrEqual(3);
+  });
+
+  test("an ad between a seek and its first samples isn't learned as seek latency", () => {
+    const h = harness();
+    h.loop.start();
+    h.loop.setPlayback(room({ at: 1_000_000 }));
+    h.run(250);
+    h.player.setState("ad");
+    h.run(2000);
+    h.player.shift(-0.8);
+    h.player.setState("playing");
+    h.run(2000);
+    expect(h.loop.seekLatencyMs).toBe(0);
   });
 
   test("player state is read by the loop, events are not needed", () => {
