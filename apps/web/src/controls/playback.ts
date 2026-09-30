@@ -23,6 +23,8 @@ export interface PlaybackView {
   readonly needsUnmute: boolean;
   /** This client's player is buffering or in an ad while the room plays. */
   readonly catching: boolean;
+  /** YouTube refused the video on this client (onError code). The transport is frozen; the site shows why. */
+  readonly error: number | null;
 }
 
 /** What the controller needs of the clock-sync module (`ClockSync` fits). */
@@ -83,6 +85,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   let muted = false;
   let needsUnmute = false;
   let catchup: Catchup = NOT_CATCHING;
+  let error: number | null = null;
   let timer: Timer | null = null;
   let current: PlaybackView = {
     hasVideo: false,
@@ -94,6 +97,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     muted,
     needsUnmute,
     catching: false,
+    error,
   };
 
   const detach = (): void => {
@@ -105,6 +109,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     player = null;
     catchup = NOT_CATCHING;
     needsUnmute = false;
+    error = null;
   };
 
   const applyVolume = (): void => {
@@ -113,15 +118,16 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   };
 
   const refresh = (): PlaybackView => {
-    const duration = player?.duration() ?? 0;
-    let position = pb === null ? 0 : o.clock.ready ? expectedPosition(pb, o.clock.serverNow()) : pb.position;
+    const refused = error !== null;
+    const duration = refused ? 0 : (player?.duration() ?? 0);
+    let position = pb === null || refused ? 0 : o.clock.ready ? expectedPosition(pb, o.clock.serverNow()) : pb.position;
     if (duration > 0 && position > duration) position = duration;
     position = Math.floor(position);
     const c = current;
-    const hasVideo = player?.ready() === true;
-    const playing = pb?.playing ?? false;
+    const hasVideo = !refused && player?.ready() === true;
+    const playing = !refused && (pb?.playing ?? false);
     // Pausing a playing room needs the server clock for the position; playing a paused one doesn't.
-    const canControl = pb !== null && videoId !== null && (!pb.playing || o.clock.ready);
+    const canControl = !refused && pb !== null && videoId !== null && (!pb.playing || o.clock.ready);
     if (
       c.hasVideo === hasVideo &&
       c.canControl === canControl &&
@@ -131,11 +137,12 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       c.volume === volume &&
       c.muted === muted &&
       c.needsUnmute === needsUnmute &&
-      c.catching === catchup.catching
+      c.catching === catchup.catching &&
+      c.error === error
     ) {
       return c;
     }
-    current = { hasVideo, canControl, playing, position, duration, volume, muted, needsUnmute, catching: catchup.catching };
+    current = { hasVideo, canControl, playing, position, duration, volume, muted, needsUnmute, catching: catchup.catching, error };
     o.onView?.(current);
     return current;
   };
@@ -149,12 +156,18 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
         needsUnmute = true;
         break;
       case "intent": {
-        const msg = playerIntent(target, e.playing, e.position);
+        const msg = error === null ? playerIntent(target, e.playing, e.position) : null;
         if (msg !== null) o.send(msg);
         break;
       }
-      case "state":
       case "error":
+        // Keep the player (its own "Video unavailable" stays visible) but stop driving it.
+        error = e.code;
+        loop?.destroy();
+        loop = null;
+        catchup = NOT_CATCHING;
+        break;
+      case "state":
         return;
     }
     refresh();
@@ -165,7 +178,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   function tick(): void {
     o.clock.tick();
     loop?.tick();
-    catchup = player === null ? NOT_CATCHING : stepCatchup(catchup, { now: o.now(), playerState: player.state(), roomPlaying: pb?.playing ?? false });
+    catchup = player === null || error !== null ? NOT_CATCHING : stepCatchup(catchup, { now: o.now(), playerState: player.state(), roomPlaying: pb?.playing ?? false });
     refresh();
   }
 
@@ -198,13 +211,14 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       refresh();
     },
     togglePlay() {
-      if (pb === null || (pb.playing && !o.clock.ready)) return false;
+      if (error !== null || pb === null || (pb.playing && !o.clock.ready)) return false;
       const msg = togglePlayIntent(target, pb.playing ? o.clock.serverNow() : pb.at);
       // A room left "playing" after the video ended would otherwise pause past the end.
       const duration = player?.duration() ?? 0;
       return send(msg !== null && duration > 0 && msg.position > duration ? { ...msg, position: duration } : msg);
     },
     seek(position) {
+      if (error !== null) return false;
       return send(seekIntent(target, position));
     },
     setVolume(v) {

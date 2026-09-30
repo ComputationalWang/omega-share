@@ -5,6 +5,7 @@ import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
+import { playerErrorText } from "./controls/player-error";
 import { chatIntent, seatViews, sitIntent } from "./intents";
 import { BUBBLE_OFFSET_Y, SEATS, STANDING, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
 import { attachYouTube } from "./player/youtube";
@@ -128,6 +129,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     document,
   });
   let pbView: PlaybackView | null = null;
+  let shownPlayerError: number | null = null;
   let ctlFrame = 0;
   const playback = createPlaybackController({
     send,
@@ -198,6 +200,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     transport.update(v);
     personal.update(v);
     applyCatching();
+    if (v.error !== shownPlayerError) {
+      shownPlayerError = v.error;
+      // The only other sync notice (API didn't load) never has a player, so there's no error to clash with.
+      syncNotice.textContent = v.error === null ? "" : playerErrorText(v.error);
+      syncNotice.hidden = v.error === null;
+    }
   }
 
   let tvIframe: HTMLIFrameElement | null = null;
