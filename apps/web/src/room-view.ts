@@ -1,5 +1,5 @@
 // The PixiJS layer: floor, seats and placeholder avatars. Rendered on demand (no ticker), so an idle room costs no frames.
-import { Application, Container, Graphics } from "pixi.js";
+import { Application, Container, Graphics, Ticker } from "pixi.js";
 import { AVATAR_COUNT, type MemberId } from "@omega/shared";
 import { AVATAR_COLORS, FLOOR_CELLS, SEATS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 
@@ -41,6 +41,18 @@ function drawAvatar(g: Graphics, avatar: number): void {
   g.fill(color).stroke({ color: 0x111111, width: 2 });
 }
 
+/**
+ * Stop `ticker`'s rAF loop for good and return a pump that runs its listeners once. Pixi's SchedulerSystem (GC timers)
+ * and EventsTicker sit on Ticker.system, which auto-starts and would otherwise tick every frame of an idle room (OME-185).
+ */
+export function quietSystemTicker(ticker: Ticker): () => void {
+  ticker.autoStart = false;
+  ticker.stop();
+  return () => {
+    ticker.update();
+  };
+}
+
 export async function createRoomView(): Promise<RoomView> {
   const app = new Application();
   await app.init({
@@ -54,6 +66,7 @@ export async function createRoomView(): Promise<RoomView> {
     preference: "webgl",
   });
   app.ticker.stop();
+  const pumpSystem = quietSystemTicker(Ticker.system);
 
   const floor = new Graphics();
   for (let c = 0; c < FLOOR_CELLS; c++) {
@@ -103,6 +116,7 @@ export async function createRoomView(): Promise<RoomView> {
         entry.g.destroy();
         pool.delete(id);
       }
+      pumpSystem();
       app.render();
     },
     destroy() {
