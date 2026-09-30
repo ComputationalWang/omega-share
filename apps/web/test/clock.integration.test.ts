@@ -36,7 +36,7 @@ function realSocket(url: string): SocketLike {
   };
   ws.onopen = () => s.onopen?.();
   ws.onmessage = (ev) => s.onmessage?.({ data: ev.data });
-  ws.onclose = () => s.onclose?.();
+  ws.onclose = (ev) => s.onclose?.({ code: ev.code });
   return s;
 }
 
