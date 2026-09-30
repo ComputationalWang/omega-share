@@ -23,8 +23,6 @@ import { SETTLE_MS, SPREAD_BUDGET_MS, roomPlayback } from "../perf/sync";
 
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
 const CLIENTS = 4;
-/** RESEND_MS (1 s) plus a 250 ms sync tick and margin: the loop's own start-up play() no longer throttles a room play. */
-const STEADY_MS = 1500;
 const LIVE_URL = `https://player.twitch.tv/?channel=${TWITCH_CHANNEL}`;
 const livePill = '[data-testid="live-pill"]';
 const toLive = '[data-testid="to-live"]';
@@ -134,8 +132,6 @@ test.describe("M2 provider sync, 4 clients", () => {
       await expect(cl.page.locator(toLive)).toBeDisabled();
     }
 
-    // Steady state: past the loop's 1 s resend window for its own start-up play() (OME-170 covers acting sooner).
-    await a.page.waitForTimeout(STEADY_MS);
     const pause = await measureLiveArrival(clients, "pause", () => a.page.locator(site.playToggle).click());
     await waitProviderPlaying(clients, c.provider, false);
     const paused = await roomPlayback(browser);
@@ -162,8 +158,7 @@ test.describe("M2 provider sync, 4 clients", () => {
   });
 
   test("Twitch live: resuming right after mount still reaches every client within 500 ms", async ({ browser, request }) => {
-    // OME-170: the loop's RESEND_MS guard holds a new room play back for up to ~1.25 s after its own start-up play().
-    test.fixme(true, "OME-170: RESEND_MS throttles a new room play within 1 s of the loop's own play()");
+    // OME-170 regression: the loop's own start-up play() must not throttle a new room play (RESEND_MS).
     await shareProvider(request, providerCase("twitchLive").shareUrl);
     clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: CLIENTS, nicknamePrefix: "live-early" });
     const a = first(clients);

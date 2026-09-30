@@ -1,6 +1,7 @@
 // M2 per-provider budgets (OME-131), against the production build and the fake SDKs (OME-121):
 // - sync.spread.<provider>: as sync.perf.ts, 8 clients, worst of 2 rounds of pause / play / seek, 2 s after each.
-//   Twitch live has no position (ADR 0014 §3): worst first-to-last client applying a pause / play-from-live.
+//   Twitch live has no position (ADR 0014 §3): worst first-to-last client applying a pause / play-from-live,
+//   acting as soon as every client plays, like a user right after joining (OME-170).
 // - site.frameP95.twitch*: as site.perf.ts, 8 avatars with a Twitch VOD or live stream playing (Vimeo's row is there).
 import { expect, test } from "@playwright/test";
 import type { Browser } from "@playwright/test";
@@ -16,8 +17,6 @@ import { SETTLE_MS } from "./sync";
 
 const CLIENTS = 8;
 const ROUNDS = 2;
-/** Past the loop's 1 s resend window for its own start-up play() (OME-170). */
-const STEADY_MS = 1500;
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
 
 const pending = (): string | null => (!available.web ? PENDING.web : !available.server ? PENDING.server : null);
@@ -82,16 +81,13 @@ test("sync: spread after pause/play-from-live, 8 clients, twitchLive", async ({ 
   try {
     const [a] = clients;
     if (!a) throw new Error("no clients");
-    await a.page.waitForTimeout(STEADY_MS);
     const worst = { pause: { spreadMs: 0, latencyMs: 0 }, play: { spreadMs: 0, latencyMs: 0 } };
     for (let round = 0; round < ROUNDS; round++) {
       const pause = await measureLiveArrival(clients, "pause", () => a.page.locator(site.playToggle).click());
       await waitProviderPlaying(clients, c.provider, false);
-      await a.page.waitForTimeout(STEADY_MS);
-      const play = await measureLiveArrival(clients, "play", () => a.page.locator('[data-testid="to-live"]').click());
+        const play = await measureLiveArrival(clients, "play", () => a.page.locator('[data-testid="to-live"]').click());
       await waitProviderPlaying(clients, c.provider);
-      await a.page.waitForTimeout(STEADY_MS);
-      for (const [k, r] of [["pause", pause], ["play", play]] as const) {
+        for (const [k, r] of [["pause", pause], ["play", play]] as const) {
         worst[k] = { spreadMs: Math.max(worst[k].spreadMs, r.spreadMs), latencyMs: Math.max(worst[k].latencyMs, r.latencyMs) };
       }
     }
