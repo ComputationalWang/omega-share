@@ -10,6 +10,8 @@ class FakeSocket implements SocketLike {
   onclose: ((ev: { code: number }) => void) | null = null;
   onerror: (() => void) | null = null;
   closeCode: number | null = null;
+  /** Like a real socket: close() only starts the closing handshake; finishClose() delivers onclose later. */
+  deferClose = false;
   constructor(readonly url: string) {}
   send(data: string): void {
     this.sent.push(data);
@@ -18,7 +20,10 @@ class FakeSocket implements SocketLike {
     if (this.closed) return;
     this.closed = true;
     this.closeCode = code;
-    this.onclose?.({ code });
+    if (!this.deferClose) this.onclose?.({ code });
+  }
+  finishClose(): void {
+    this.onclose?.({ code: this.closeCode ?? 1005 });
   }
   open(): void {
     this.onopen?.();
@@ -333,5 +338,34 @@ describe("refused joins and rate_limited (ADR 0016 §4)", () => {
     last().open();
     last().receive(error("seat_taken"));
     expect(last().closed).toBe(false);
+  });
+});
+
+describe("close handshakes that finish later (real sockets)", () => {
+  test("resume() right after close(), before the old socket's close lands, still reconnects", () => {
+    const c = connect();
+    last().open();
+    last().receive(snapshot);
+    const old = last();
+    old.deferClose = true;
+    c.close();
+    c.resume();
+    old.finishClose();
+    expect(sockets).toHaveLength(2);
+    last().open();
+    expect(c.send({ type: "sit", seat: 0 })).toBe(true);
+  });
+
+  test("a rate_limited hint doesn't outlive close(): after resume() a plain drop uses the normal backoff", () => {
+    const c = connect();
+    last().open();
+    const old = last();
+    old.deferClose = true;
+    old.receive({ type: "error", code: "rate_limited", message: "slow", retryAfterMs: 30_000 });
+    c.close();
+    c.resume();
+    old.finishClose();
+    last().drop();
+    expect(runRetry()).toBe(500);
   });
 });

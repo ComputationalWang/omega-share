@@ -234,6 +234,13 @@ describe("refused joins (ADR 0016 §4)", () => {
     expect(s.refusal).toBe("too_many_members");
   });
 
+  test("once joined on this connection, a stray refusal is ignored (the connection ignores it too)", () => {
+    const s = refuse(joined(), "nickname_taken");
+    expect(s.status).toBe("open");
+    expect(s.refusal).toBeNull();
+    expect(screen(s).stage).toBe(true);
+  });
+
   test("other errors are not refusals", () => {
     const s = server(joined(), { type: "error", code: "seat_taken", message: "no" });
     expect(s.status).toBe("open");
