@@ -102,6 +102,11 @@ const ROLES: RoleMap = {
   r: { ramp: "rust", hi: true },
   g: { ramp: "glow", hi: true },
   o: { ramp: "outline", tone: 1 },
+  // Key icons (play, pause, sound, muted): flat highlight tone, no shade edge. At 1× the shaded cream melted into
+  // the wood/night faces; one ramp step up keeps them crisp at both scales.
+  i: { ramp: "cream", tone: 0 },
+  y: { ramp: "mustard", tone: 0 },
+  q: { ramp: "rust", tone: 0 },
   // Flat sticker roles (catching-up hourglass): base tone + auto shade, no highlight band, like the emotes.
   W: { ramp: "wood" },
   G: { ramp: "glow" },
@@ -121,16 +126,16 @@ const ICONS: Record<string, readonly string[]> = {
     "................",
     "................",
     "................",
-    "....cc..........",
-    "....cccc........",
-    "....cccccc......",
-    "....cccccccc....",
-    "....cccccccccc..",
-    "....cccccccccc..",
-    "....cccccccc....",
-    "....cccccc......",
-    "....cccc........",
-    "....cc..........",
+    "....ii..........",
+    "....iiii........",
+    "....iiiiii......",
+    "....iiiiiiii....",
+    "....iiiiiiiiii..",
+    "....iiiiiiiiii..",
+    "....iiiiiiii....",
+    "....iiiiii......",
+    "....iiii........",
+    "....ii..........",
     "................",
     "................",
     "................",
@@ -139,16 +144,16 @@ const ICONS: Record<string, readonly string[]> = {
     "................",
     "................",
     "................",
-    "...cccc..cccc...",
-    "...cccc..cccc...",
-    "...cccc..cccc...",
-    "...cccc..cccc...",
-    "...cccc..cccc...",
-    "...cccc..cccc...",
-    "...cccc..cccc...",
-    "...cccc..cccc...",
-    "...cccc..cccc...",
-    "...cccc..cccc...",
+    "...iiii..iiii...",
+    "...iiii..iiii...",
+    "...iiii..iiii...",
+    "...iiii..iiii...",
+    "...iiii..iiii...",
+    "...iiii..iiii...",
+    "...iiii..iiii...",
+    "...iiii..iiii...",
+    "...iiii..iiii...",
+    "...iiii..iiii...",
     "................",
     "................",
     "................",
@@ -157,16 +162,16 @@ const ICONS: Record<string, readonly string[]> = {
     "................",
     "................",
     "................",
-    "......cc...m....",
-    ".....ccc....m...",
-    "....cccc..m..m..",
-    ".ccccccc...m.m..",
-    ".ccccccc...m..m.",
-    ".ccccccc...m..m.",
-    ".ccccccc...m.m..",
-    "....cccc..m..m..",
-    ".....ccc....m...",
-    "......cc...m....",
+    "......ii...yy...",
+    ".....iii....yy..",
+    "....iiii.y...yy.",
+    ".iiiiiii.yy..yy.",
+    ".iiiiiii..y..yy.",
+    ".iiiiiii..y..yy.",
+    ".iiiiiii.yy..yy.",
+    "....iiii.y...yy.",
+    ".....iii....yy..",
+    "......ii...yy...",
     "................",
     "................",
     "................",
@@ -175,16 +180,16 @@ const ICONS: Record<string, readonly string[]> = {
     "................",
     "................",
     "................",
-    "......cc........",
-    ".....ccc........",
-    ".ccccccc.rr..rr.",
-    ".ccccccc..rrrr..",
-    ".ccccccc...rr...",
-    ".ccccccc...rr...",
-    ".ccccccc..rrrr..",
-    ".ccccccc.rr..rr.",
-    ".....ccc........",
-    "......cc........",
+    "......ii........",
+    ".....iii........",
+    ".iiiiiii.qq..qq.",
+    ".iiiiiii..qqqq..",
+    ".iiiiiii...qq...",
+    ".iiiiiii...qq...",
+    ".iiiiiii..qqqq..",
+    ".iiiiiii.qq..qq.",
+    ".....iii........",
+    "......ii........",
     "................",
     "................",
     "................",
@@ -259,7 +264,7 @@ function volumeKnob(state: KeyState | "disabled"): UiFrame {
 }
 
 // Catching-up hourglass: a flat 16×16 sticker (wood posts, glow glass, mustard sand) in 4 frames:
-// sand on top, sand running, sand below, then the glass turns on its side before it starts again.
+// sand on top, sand running, sand below, then the glass on its side (turning over) before it starts again.
 const HOURGLASS: readonly (readonly string[])[] = [
   [
     "WWWWWWWWWW",
@@ -305,13 +310,24 @@ const HOURGLASS: readonly (readonly string[])[] = [
   ],
 ];
 
-function transpose(rows: readonly string[]): string[] {
-  const w = rows[0]?.length ?? 0;
-  return Array.from({ length: w }, (_, x) => rows.map((r) => r.charAt(x)).join(""));
-}
+// Frame 3: the glass lying on its side mid-turn (clockwise, so the full bulb is now on the left), caps left and
+// right, the neck in the middle, and the sand slumped into the bottom of that bulb. Drawn, not rotated: a
+// transposed frame 2 left the sand standing up the wall and read as a box.
+const HOURGLASS_SIDE: readonly string[] = [
+  "W..........W",
+  "WWWWWWWWWWWW",
+  "WGGG....GGGW",
+  "WGGGG..GGGGW",
+  "WSSGGGGGGGGW",
+  "WSSSGGGGGGGW",
+  "WSSSS..GGGGW",
+  "WSSS....GGGW",
+  "WWWWWWWWWWWW",
+  "W..........W",
+];
 
 function hourglass(n: number): UiFrame {
-  const src = n < 3 ? HOURGLASS[n] : transpose(HOURGLASS[2] ?? []);
+  const src = n < 3 ? HOURGLASS[n] : HOURGLASS_SIDE;
   if (!src) throw new Error(`no hourglass frame ${String(n)}`);
   const w = src[0]?.length ?? 0;
   const g: Grid = blank(16, 16);
@@ -342,7 +358,7 @@ export function buildPlaybackFrames(): UiFrame[] {
   // Disabled keys dim their icon too: cream → cream shade (the disabled-text token), colour → charcoal.
   for (const name of OFF_ICONS) {
     const rows = ICONS[name];
-    if (rows) out.push(art(`icon/${name}-off`, rows.map((r) => r.replace(/c/g, "C").replace(/[mrk]/g, "x")), 8, 8));
+    if (rows) out.push(art(`icon/${name}-off`, rows.map((r) => r.replace(/i/g, "C").replace(/[yq]/g, "x")), 8, 8));
   }
   for (const [name, rows] of Object.entries(GLYPHS)) out.push(art(`glyph/${name}`, rows, 4, 4));
   for (let n = 0; n < 4; n++) out.push(hourglass(n));

@@ -124,7 +124,9 @@ Three ways to say "this button affects everyone" were tried on paper before any 
 - **The TV's glow** (cool, the one cold light in the room) marks what comes from the video: the seek fill and the system-line bar and actor names.
 - **System lines** are dark strips with a glow bar and a glyph, and never cream. Cream cards with tails are people talking.
 - **Catching up** is an emote-style sticker (flat tones, auto shade, plum outline, no highlight band): a wood/glow/mustard hourglass that
-  turns over every 4 frames. It hangs off the name tag, and the name goes lilac italic. Nothing else dims or waits.
+  turns over every 4 frames (frame 3 lies on its side, sand pooled in the low bulb). It hangs off the name tag, and the name goes lilac italic. Nothing else dims or waits.
+- **Key icons** (play, pause, sound, muted) are flat in the highlight tone with no shade edge: one ramp step brighter than set (c)'s
+  icons, because the shaded cream melted into the wood/night faces at 1×. The sound waves are 2 px arcs.
 - **States** follow set (c): hover brightens one ramp step (cream lit edge), pressed loses the 2 px lip, and disabled is charcoal with the icon
   in cream shade (`icon/*-off`), so disabled doesn't rely on colour or on opacity (no alpha: 1-bit only).
 - No new colours: set (e) is built from the existing 67.
