@@ -9,9 +9,10 @@ import { expect, test } from "./support/extension";
 import { EMBED_URL, VIDEO_ID, gotoFixture, stubExternalNetwork } from "./support/network";
 import { clickSettled } from "./support/room";
 import { popup, site } from "./support/selectors";
+import { joinForToken, postShare } from "./support/share";
 
+const SHARER = "sharer";
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
-const SHARE_URL = `${URLS.server}/rooms/${DEFAULT_ROOM_ID}/share`;
 
 interface SiteClient {
   readonly context: BrowserContext;
@@ -51,6 +52,13 @@ test.describe("M1a acceptance", () => {
     test.setTimeout(60_000);
 
     await test.step("1. popup lists the fixture embed in canonical form and shares it to the default room", async () => {
+      // The popup reads the share token from an open room tab of the site (OME-130): join first and keep the tab open.
+      const roomTab = await context.newPage();
+      await roomTab.goto(ROOM_URL);
+      await roomTab.locator(site.nicknameInput).fill(SHARER);
+      await roomTab.locator(`${site.avatarOption}[data-avatar="3"]`).click();
+      await roomTab.locator(site.joinButton).click();
+      await expect(roomTab.locator(site.room)).toBeVisible();
       const tab = await context.newPage();
       await gotoFixture(tab, "youtube-embed");
       const p = await openPopup(tab);
@@ -105,8 +113,10 @@ test.describe("M1a acceptance", () => {
           await expect(c.page.locator("iframe")).toHaveCount(1);
 
           // Tags follow join order, which is racy here; compare as a set.
-          await expect(c.page.locator(site.nicknameTag)).toHaveCount(people.length);
-          expect((await c.page.locator(site.nicknameTag).allInnerTexts()).toSorted()).toEqual(people.map((p) => p.nickname).toSorted());
+          // The extension's room tab is a fifth member (standing): it wears a tag too, but takes no seat.
+          const everyone = [...people.map((p) => p.nickname), SHARER];
+          await expect(c.page.locator(site.nicknameTag)).toHaveCount(everyone.length);
+          expect((await c.page.locator(site.nicknameTag).allInnerTexts()).toSorted()).toEqual(everyone.toSorted());
           for (const [i, p] of people.entries()) {
             await expect(seat(c.page, i)).toHaveAttribute("data-occupied", "true");
             if (c.nickname !== p.nickname) await expect(seat(c.page, i)).toHaveAttribute("aria-label", `Seat ${String(i + 1)}, taken by ${p.nickname}`);
@@ -142,17 +152,15 @@ test.describe("M1a acceptance", () => {
   });
 
   test("4b. direct POST of a non-allowlisted URL → 400, room embed unchanged", async ({ browser, request }) => {
-    for (const url of ["https://clips.twitch.tv/SomeClipSlug", "https://vimeo.com/event/123", "https://www.youtube.com.evil.test/embed/aqz-KE-bpKQ", "javascript:alert(1)"]) {
-      // The per-IP share limiter (5 burst, 1 per 3 s) runs before validation; wait out a 429 from earlier shares.
-      let res = await request.post(SHARE_URL, { data: { url } });
-      await expect
-        .poll(async () => {
-          if (res.status() === 429) res = await request.post(SHARE_URL, { data: { url } });
-          return res.status();
-        }, { timeout: 15_000, intervals: [1_000] })
-        .not.toBe(429);
-      expect(res.status(), url).toBe(400);
-      expect(await res.json()).toMatchObject({ ok: false, error: { code: "unsupported_url" } });
+    const member = await joinForToken(DEFAULT_ROOM_ID, "direct-poster");
+    try {
+      for (const url of ["https://clips.twitch.tv/SomeClipSlug", "https://vimeo.com/event/123", "https://www.youtube.com.evil.test/embed/aqz-KE-bpKQ", "javascript:alert(1)"]) {
+        const res = await postShare(request, DEFAULT_ROOM_ID, member.token, url);
+        expect(res.status(), url).toBe(400);
+        expect(await res.json()).toMatchObject({ ok: false, error: { code: "unsupported_url" } });
+      }
+    } finally {
+      member.close();
     }
     expect((await serverRoom(browser)).embed?.url).toBe(EMBED_URL);
   });

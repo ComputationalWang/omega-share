@@ -7,9 +7,9 @@ import { PENDING, URLS, available } from "./support/apps";
 import { EMBED_URL } from "./support/network";
 import { joinRoom, leaveAll } from "./support/room";
 import { site } from "./support/selectors";
+import { joinForToken, postShare } from "./support/share";
 
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
-const SHARE_URL = `${URLS.server}/rooms/${DEFAULT_ROOM_ID}/share`;
 /** YT.PlayerState */
 const PLAYING = 1;
 const PAUSED = 2;
@@ -17,10 +17,12 @@ const PAUSED = 2;
 const fakeState = (page: Page) => page.evaluate(() => window.__fakeYt?.state ?? null);
 
 async function share(request: APIRequestContext): Promise<void> {
-  // The per-IP share limiter (5 burst, 1 per 3 s) is shared with other specs; wait out a 429.
-  await expect
-    .poll(async () => (await request.post(SHARE_URL, { data: { url: EMBED_URL } })).status(), { timeout: 15_000, intervals: [1_000] })
-    .toBe(200);
+  const member = await joinForToken(DEFAULT_ROOM_ID, "smoke-sharer");
+  try {
+    expect((await postShare(request, DEFAULT_ROOM_ID, member.token, EMBED_URL)).status()).toBe(200);
+  } finally {
+    member.close();
+  }
 }
 
 test.describe("M1b sync smoke", () => {
