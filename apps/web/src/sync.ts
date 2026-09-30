@@ -10,8 +10,14 @@ export const SEEK_ONLY_THRESHOLD_MS = 500;
 /** Drift is only trusted after the player has been playing this long. */
 export const STABLE_MS = 500;
 export const MAX_NUDGE = 0.1;
-/** Nudge = 1 ± min(MAX_NUDGE, |drift| / NUDGE_SPAN_MS). */
+/**
+ * YouTube floors setPlaybackRate to 0.05 steps (1.02 plays at 1×, 0.98 at 0.95; OME-109),
+ * so a fine nudge is a whole number of steps: 1 ± min(MAX_NUDGE, ⌈|drift| / NUDGE_SPAN_MS / step⌉ · step).
+ */
+export const RATE_STEP = 0.05;
 export const NUDGE_SPAN_MS = 5000;
+const STEP_SPAN_MS = NUDGE_SPAN_MS * RATE_STEP;
+const MAX_STEPS = Math.round(MAX_NUDGE / RATE_STEP);
 /** How long a nudge runs before we check the media really plays at that rate. */
 export const RATE_CHECK_MS = 2000;
 /** A nudge is "applied" if the slope moved at least half the requested amount, and at least this much. */
@@ -103,7 +109,7 @@ export function decide(i: DecideInput): Correction {
     return NONE;
   }
   if (i.mode === "burst") return { kind: "rate", rate: ahead ? BURST_SLOW : BURST_FAST };
-  const n = Math.min(MAX_NUDGE, abs / NUDGE_SPAN_MS);
+  const n = Math.min(MAX_STEPS, Math.ceil(abs / STEP_SPAN_MS)) * RATE_STEP;
   return { kind: "rate", rate: ahead ? 1 - n : 1 + n };
 }
 
