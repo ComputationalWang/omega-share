@@ -17,6 +17,8 @@ export interface UiFrame extends RoomFrame {
   borders?: Borders;
   /** Also written as a standalone PNG in `ui/slices/` for CSS `border-image`. */
   slice?: boolean;
+  /** Drawn at exactly its middle-band height (never stretched vertically), so its side slices may carry detail. */
+  fixedHeight?: boolean;
 }
 
 const c = (ramp: RampName, tone: Tone): number => colorIndex(ramp, tone);

@@ -1,15 +1,13 @@
 // Set (b): room shell (floor, rug, walls), seats and the TV. Every frame is anchored at the
 // floor point of the cell it belongs to (the tile centre), in 1× pixels.
 import { SEAT_HEIGHT } from "./avatars";
-import { box, renderSolids, type Facing, type Solid, type Vec3 } from "./iso";
+import { addOutline, box, renderSolids, type Facing, type Solid, type Vec3 } from "./iso";
 import { OUTLINE, colorIndex, type RampName, type Tone } from "./palette";
 import { render as renderRoles, type Grid, type RoleMap } from "./sprite";
 
 export const TILE = { w: 64, h: 32 } as const;
-/** Wall height above the floor, px. With the suggested origin (back corner at y 248) the corner cap peaks at y 8, just behind the TV top. */
-export const WALL_H = 232;
-/** Wall decorations sit this much higher than on the old 212 px wall, so they keep their place in the wallpaper band. */
-const DECOR_Z = 12;
+/** Wall height above the floor, px. With the web's origin (back corner at y 220) the top sits at y 8. */
+export const WALL_H = 212;
 const WALL_T = 4;
 
 export interface RoomFrame {
@@ -129,15 +127,15 @@ function wallPaint(variant: WallVariant, s: number, z: number, lit: boolean): Pa
   // Continuous coordinate across a two-segment decoration (window, poster), 0 at the seam.
   const w = variant.endsWith("0") ? s - 8 : variant.endsWith("1") ? s + 8 : s;
   if (variant === "window0" || variant === "window1") {
-    const p = windowPaint(w, z - DECOR_Z, lit);
+    const p = windowPaint(w, z, lit);
     if (p) return p;
   }
   if (variant === "poster0" || variant === "poster1") {
-    const p = posterPaint(w, z - DECOR_Z, lit);
+    const p = posterPaint(w, z, lit);
     if (p) return p;
   }
   if (variant === "sconce") {
-    const p = sconcePaint(s, z - DECOR_Z, lit);
+    const p = sconcePaint(s, z, lit);
     if (p) return p;
   }
   // Baseboard, wainscot panel, chair rail, wallpaper, crown.
@@ -226,7 +224,7 @@ function sconcePaint(s: number, z: number, lit: boolean): Paint | null {
   const dz = z - 128;
   const r = Math.sqrt(ds * ds * 2.2 + dz * dz);
   const px = Math.floor(s * 2) + Math.floor(z);
-  if (z >= 56 - DECOR_Z && z < WALL_H - 5 - DECOR_Z && r < 18 && px % 2 === 0) return r < 11 ? ["mustard", 2] : ["wall", lit ? 0 : 1];
+  if (z >= 56 && z < WALL_H - 5 && r < 18 && px % 2 === 0) return r < 11 ? ["mustard", 2] : ["wall", lit ? 0 : 1];
   return null;
 }
 
@@ -342,13 +340,13 @@ function armchairFrames(dir: SeatDir): RoomFrame[] {
   return [cropTo(`armchair/${dir}/back`, backImg), cropTo(`armchair/${dir}/front`, frontImg)];
 }
 
-// ---------------------------------------------------------------- TV + media shelf
+// ---------------------------------------------------------------- TV (console + projector) and the DOM TV frame painters
 
-/** Bezel widths outside the screen rect (px). The screen rect itself is never painted over by anything else. */
-export const TV_BEZEL = { side: 10, top: 10, bottom: 8 } as const;
-/** Media shelf under the TV: its front face starts 4 px below the bezel (the ledge top shows in between),
- *  a 4 px top rail, then the transport slot, a 4 px bottom rail; speaker cabinets at both ends. */
-export const TV_SHELF = { half: 228, ledge: 4, rail: 4, speaker: 36 } as const;
+/** DOM bezel widths outside the player rect (px, 1 art px = 1 CSS px), outline included. They fit layout.ts (ADR 0012):
+ *  6 px above the player (tv.y = 6) and the 8 px gap between the player and the control bar. */
+export const TV_BEZEL = { side: 6, top: 6, bottom: 8 } as const;
+/** Speaker cabinet width on each side of the transport slot (jamb 2 + grille 32 + end 2), and the rail under the slot. */
+export const TV_SHELF = { speaker: 36, rail: 4 } as const;
 
 interface Rect {
   readonly x: number;
@@ -365,19 +363,21 @@ interface Rect {
 export function bezelPaint(x: number, y: number, s: Rect): Paint | null {
   const sx1 = s.x + s.w, sy1 = s.y + s.h;
   if (x >= s.x && x < sx1 && y >= s.y && y < sy1) return null;
-  // Inner lip (2 px charcoal), then warm wood with a highlight band top/left and a shade band bottom/right.
-  if (x >= s.x - 2 && x < sx1 + 2 && y >= s.y - 2 && y < sy1 + 2) return ["charcoal", 2];
+  // Out from the player: 1 px charcoal lip, then wood, then the plum outline (added by the caller).
+  // Top/left: lip, 1 base, 3 highlight. Bottom: lip, 2 base, then 4 shade; right: lip, 1 base, 3 shade.
+  if (x >= s.x - 1 && x < sx1 + 1 && y >= s.y - 1 && y < sy1 + 1) return ["charcoal", 2];
   // Power light in the bottom-right corner (inside the 9-slice corner, so the slice stays stretchable).
-  if (y >= sy1 + 3 && y < sy1 + 5 && x >= sx1 + 3 && x < sx1 + 6) return ["glow", 0];
-  if (x < s.x - TV_BEZEL.side + 3 || y < s.y - TV_BEZEL.top + 3) return ["wood", 0];
-  if (x >= sx1 + TV_BEZEL.side - 3 || y >= sy1 + TV_BEZEL.bottom - 3) return ["wood", 2];
+  if (y >= sy1 + 3 && y < sy1 + 5 && x >= sx1 + 1 && x < sx1 + 4) return ["glow", 0];
+  if (y >= sy1 + 3) return ["wood", 2];
+  if (x < s.x - 2 || y < s.y - 2) return ["wood", 0];
+  if (x >= sx1 + 2) return ["wood", 2];
   return ["wood", 1];
 }
 
 /**
- * Front of the media shelf. `x` runs −half..half, `y` from the top of the front face (0) down; `slot` is the
- * transport slot rect in the same space. The slot is a flat sunken well (plum shadow top/left, lit lip
- * bottom/right), like the set (e) seek track, so the transport reads as set into the furniture.
+ * Front of the media shelf (DOM `tvframe/shelf`). `x` runs −half..half, `y` from the top of the front face (0) down;
+ * `slot` is the transport slot rect in the same space, a flat sunken well (plum shadow top/left, lit lip bottom/right)
+ * like the set (e) seek track, so the transport reads as set into the furniture. Speaker cabinets fill both ends.
  */
 export function shelfPaint(x: number, y: number, half: number, h: number, slot: Rect): Paint {
   const sx1 = slot.x + slot.w, sy1 = slot.y + slot.h;
@@ -404,95 +404,89 @@ export function shelfPaint(x: number, y: number, half: number, h: number, slot: 
   return ["wood", 1];
 }
 
-/** Where the video goes, relative to the `tv/0` anchor (= cellCenter(0,0)). 16:9, 384×216. */
-export const TV_SCREEN = { x: -192, y: -247, w: 384, h: 216 } as const;
-/** The transport slot directly under the TV, same anchor. Nothing is drawn here but a flat well: the set (e)
- *  shared transport goes on top of it, outside the player rect. */
-export const TV_CONTROLS = { x: -192, y: TV_SCREEN.y + TV_SCREEN.h + TV_BEZEL.bottom + TV_SHELF.ledge + TV_SHELF.rail, w: 384, h: 44 } as const;
-/** Suggested stage origin (layout.ts ORIGIN_X/Y) for this TV: the bezel top lands at y 7 and the back-row
- *  name tags (sit, 19 px tall) clear the slot by 2 px. */
-export const STAGE_ORIGIN = { x: 480, y: 248 } as const;
+/** The projector's slide gate on the `tv/0` console (relative to its anchor = cellCenter(0,0)): 16:9, lit.
+ *  (It's the bounding box of the lens glass.) Decorative since ADR 0012: the live player is page chrome above the stage, framed by `tvframe/*` in the UI atlas. */
+export const TV_SCREEN = { x: -12, y: -13, w: 16, h: 9 } as const;
 
 function tvFrame(): RoomFrame {
-  // Cell (0,0) frame, anchored at the world origin. The TV's front is the vertical plane u+v = K, so a
-  // point on it projects to (2(u−v), K − z): screen rects map to z ranges directly. The plane never meets the
-  // walls in the picture (it hangs in front of the corner), exactly like the old corner TV.
-  const K = 100;
+  // Cell (0,0) frame: the room's back corner is at u = v = −8. The picture is up on the big screen above the room
+  // (page chrome); down here is the corner console with the little projector that "throws" it.
   const plane = (nu: number, nv: number, nz: number, d: number): { n: Vec3; d: number } => ({ n: { u: nu, v: nv, z: nz }, d });
-  const s = TV_SCREEN, B = TV_BEZEL, S = TV_SHELF;
-  const bx = s.w / 2 + B.side;
-  const yTop = s.y - B.top, yBot = s.y + s.h + B.bottom;
-  const screenXY = (p: Vec3): { x: number; y: number } => ({ x: 2 * (p.u - p.v), y: p.u + p.v - p.z });
-  const tv: Solid = {
+  // Corner media console: a triangle against both walls, front plane u+v = 40, 20 px tall.
+  const CF = 24;
+  const half = 2 * (CF + 8);
+  const console_: Solid = {
     ramp: "wood",
-    planes: [plane(1, 1, 0, K), plane(-1, -1, 0, -(K - 3)), plane(1, -1, 0, bx / 2), plane(-1, 1, 0, bx / 2), plane(0, 0, 1, K - yTop), plane(0, 0, -1, -(K - yBot))],
+    planes: [plane(-1, 0, 0, 8), plane(0, -1, 0, 8), plane(1, 1, 0, CF), plane(0, 0, 1, 20), plane(0, 0, -1, 0)],
     paint: (p, f) => {
-      if (f === "top") return ["charcoal", 0];
-      const { x, y } = screenXY(p);
-      const b = bezelPaint(x, y, s);
-      if (b) return b;
-      // Screen "off": deep night glass with a diagonal sheen.
-      const diag = x - (y - s.y) * 1.2;
-      if (diag > -72 && diag < -54) return ["night", 1];
-      if (diag > -46 && diag < -42) return ["night", 1];
-      return ["night", 2];
-    },
-  };
-  // Shelf: deeper than the TV (front K+4), so a 4 px ledge top shows under the bezel and 7 px beyond it.
-  const KS = K + S.ledge;
-  const fTop = yBot + S.ledge; // front face top (screen y)
-  const fBot = TV_CONTROLS.y + TV_CONTROLS.h + S.rail;
-  const slotLocal = { x: TV_CONTROLS.x, y: TV_CONTROLS.y - fTop, w: TV_CONTROLS.w, h: TV_CONTROLS.h };
-  const shelf: Solid = {
-    ramp: "wood",
-    planes: [plane(1, 1, 0, KS), plane(-1, -1, 0, -(K - 3)), plane(1, -1, 0, S.half / 2), plane(-1, 1, 0, S.half / 2), plane(0, 0, 1, KS - fTop), plane(0, 0, -1, -(KS - fBot))],
-    paint: (p, f) => {
-      if (f === "top") {
-        // Ledge top: highlight, with a shade line where it meets the bezel.
-        return p.u + p.v < K + 1 ? ["wood", 2] : ["wood", 0];
+      if (f === "top") return ["wood", 1];
+      const x = 2 * (p.u - p.v);
+      const z = p.z;
+      if (z < 2) return ["charcoal", 2]; // plinth
+      if (z >= 18) return ["wood", 0]; // top lip
+      // Speaker grilles at both ends, doors with brass knobs between.
+      const g = half - 26;
+      if (Math.abs(x) > g) {
+        if (Math.abs(x) > half - 4) return ["wood", 2];
+        const dot = Math.floor(x) % 3 === 0 && Math.floor(z) % 3 === 0;
+        return dot ? ["charcoal", 0] : ["charcoal", 2];
       }
-      const { x, y } = screenXY(p);
-      return shelfPaint(Math.floor(x), Math.floor(y - fTop), S.half, fBot - fTop, slotLocal);
+      const dw = (2 * g) / 2;
+      const door = Math.floor((x + g) / dw);
+      const dx = x + g - door * dw;
+      if (dx < 1.5 || z < 4 || z >= 16.5) return ["wood", 2];
+      if (Math.abs(dx - dw / 2) < 1.5 && z >= 9 && z < 11) return ["mustard", 0];
+      return ["wood", 1];
     },
   };
-  // Two brass gussets under the shelf (8 px wide at the top, tapering over 7 px), so it reads as hung on the wall.
-  const bracket = (cx: number): Solid => ({
-    ramp: "mustard",
-    tones: { other: 1 },
-    planes: [
-      plane(1, 1, 0, KS - 1), plane(-1, -1, 0, -(K - 3)), plane(0, 0, 1, KS - fBot),
-      // |x − cx| ≤ 4 − (y − fBot)/2, with x = 2(u−v), y = u+v−z.
-      plane(2.5, -1.5, -0.5, 4 + cx + fBot / 2), plane(-1.5, 2.5, -0.5, 4 - cx + fBot / 2),
-    ],
-    paint: (p) => (screenXY(p).x < cx ? ["mustard", 0] : ["mustard", 2]),
-  });
-  // Little things on the ledge ends: a potted succulent (left), a stack of tapes (right).
-  const zLedge = KS - fTop;
-  const onLedge = (x: number, half: number, z0: number, z1: number, ramp: RampName, extra: Omit<Solid, "planes" | "ramp"> = {}): Solid => {
-    const c = K + 0.5;
-    const uc = (c + x / 2) / 2, vc = (c - x / 2) / 2;
-    return box(uc - half, uc + half, vc - half, vc + half, z0, z1, ramp, extra);
+  // Little things on the console top: a potted succulent (left), a tape stack (right).
+  const pot = box(12, 16, -6, -2, 20, 26, "rust");
+  const leaf1 = box(12.5, 15.5, -5.5, -2.5, 26, 32, "olive");
+  const tapes = [0, 1, 2].map((i) => box(-6, 0, 8, 14, 20 + i * 2, 22 + i * 2, i === 1 ? "teal" : "charcoal", { tones: { top: 0, sw: 1, se: 2 } }));
+  // Retro projector on the console. Its front is a camera-facing plane u+v = 18, so the lens glass is a clean
+  // screen-space ellipse; TV_SCREEN is the glass's 16×9 bounding box.
+  const PF = 18, PB = 8, PZ0 = 20, PZ1 = PF + 16;
+  const s = TV_SCREEN;
+  const lcx = s.x + s.w / 2, lcy = s.y + s.h / 2;
+  const projector: Solid = {
+    ramp: "cream",
+    planes: [plane(1, 1, 0, PF), plane(-1, -1, 0, -PB), plane(1, -1, 0, 7), plane(-1, 1, 0, 7), plane(0, 0, 1, PZ1), plane(0, 0, -1, -PZ0)],
+    paint: (p, f) => {
+      if (f === "top") return ["cream", 0];
+      const x = 2 * (p.u - p.v) + 0.5, y = p.u + p.v - p.z + 0.5;
+      const e = ((x - lcx) / (s.w / 2)) ** 2 + ((y - lcy) / (s.h / 2)) ** 2;
+      if (e < 1) {
+        // Lit glass: bright top-left, cooler bottom-right.
+        const t = (x - lcx) / s.w + (y - lcy) / s.h;
+        return ["glow", t < -0.25 ? 0 : t < 0.3 ? 1 : 2];
+      }
+      if (e < 1.6) return ["charcoal", e < 1.3 ? 2 : 1]; // lens barrel rim
+      if (x > 8 && x < 13 && Math.floor(y) % 2 === 0 && y > -14 && y < -4) return ["cream", 2]; // vent
+      if (y > -3) return ["cream", 2]; // foot
+      return null;
+    },
   };
-  const xEnd = (bx + S.half) / 2 + 1;
-  const pot = onLedge(-xEnd, 1.5, zLedge, zLedge + 6, "rust");
-  const leaf = onLedge(-xEnd, 1.2, zLedge + 6, zLedge + 13, "olive", { paint: (p, f) => (f === "top" ? ["olive", 0] : Math.floor(p.z) % 3 === 0 ? ["olive", 2] : null) });
-  const tapes = [0, 1, 2].map((i) => onLedge(xEnd, 1.6, zLedge + i * 2, zLedge + 2 + i * 2, i === 1 ? "teal" : "charcoal", { tones: { top: 0, sw: 1, se: 2 } }));
-  const C = { w: 2 * S.half + 24, h: -yTop + fBot + 24, ax: S.half + 12, ay: -yTop + 12 };
-  const r = renderSolids([shelf, tv, bracket(-150), bracket(150), pot, leaf, ...tapes], C.w, C.h, C.ax, C.ay, "all");
-  // Cool glow line 2 px off the bezel on the top and sides (binary alpha, no dither), never on the shelf.
+  const r = renderSolids([console_, pot, leaf1, ...tapes, projector], CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay + 0, "all");
   const img = r.img;
-  for (let py = 0; py < C.h; py++) {
-    for (let px = 0; px < C.w; px++) {
-      const i = py * C.w + px;
-      if ((img[i] ?? 0) !== 0) continue;
-      const x = px - C.ax, y = py - C.ay;
-      if (y >= yBot) continue;
-      const dx = x < -bx ? -bx - x : x >= bx ? x - bx + 1 : 0;
-      const dy = y < yTop - 3 ? yTop - 3 - y : 0; // the TV's 3 px top face sits above the bezel
-      if (Math.max(dx, dy) === 2) img[i] = colorIndex("glow", 2);
+  // Two film reels standing on the projector (drawn flat, facing the camera), then outline them.
+  const reel = (cx: number, cy: number): void => {
+    for (let dy = -6; dy <= 6; dy++) {
+      for (let dx = -6; dx <= 6; dx++) {
+        const d = Math.hypot(dx, dy);
+        if (d > 5.6) continue;
+        let paint: Paint = d > 4.6 ? (dx + dy < 0 ? ["charcoal", 0] : ["charcoal", 2]) : ["charcoal", 1];
+        if (d < 1.5) paint = ["cream", 0];
+        for (const a of [0, 2.094, 4.189]) {
+          if (Math.hypot(dx - 2.8 * Math.cos(a - 1.57), dy - 2.8 * Math.sin(a - 1.57)) < 1.3) paint = ["charcoal", 2];
+        }
+        img[(CANVAS.ay + cy + dy) * CANVAS.w + CANVAS.ax + cx + dx] = colorIndex(paint[0], paint[1]);
+      }
     }
-  }
-  return crop("tv/0", img, C.w, C.h, C.ax, C.ay);
+  };
+  reel(-6, -27);
+  reel(6, -28);
+  addOutline(img, CANVAS.w, CANVAS.h);
+  return crop("tv/0", img, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay);
 }
 
 // ---------------------------------------------------------------- props (role-grid, like avatars)
@@ -650,10 +644,7 @@ export function defaultLayout(): {
     }
     floor.push(row);
   }
-  // The big TV and its shelf cover rows/cols 0–6 of both walls near the corner, so the window and poster sit on
-  // the last two segments. The sconces stay in the atlas but aren't in the default room: their halo would be cut
-  // by the shelf, and the TV + floor lamp already light it.
-  const l = ["plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "window0", "window1"].map((v) => `wall/l/${v}`);
-  const rr = ["plain", "plain", "plain", "plain", "plain", "plain", "plain", "plain", "poster0", "poster1"].map((v) => `wall/r/${v}`);
+  const l = ["plain", "plain", "plain", "plain", "plain", "window0", "window1", "plain", "sconce", "plain"].map((v) => `wall/l/${v}`);
+  const rr = ["plain", "plain", "plain", "plain", "plain", "poster0", "poster1", "plain", "sconce", "plain"].map((v) => `wall/r/${v}`);
   return { floor, walls: { l, r: rr }, props: [{ frame: "plant/0", col: 0, row: 9 }, { frame: "lamp/0", col: 9, row: 0 }] };
 }

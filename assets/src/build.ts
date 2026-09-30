@@ -23,7 +23,7 @@ import {
 } from "./motion";
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
-import { SEAT_DIRS, STAGE_ORIGIN, TILE, TV_CONTROLS, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
+import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders } from "./ui";
 import { CATCHUP_FRAME_MS, buildPlaybackFrames, playbackCss } from "./playback";
@@ -338,9 +338,9 @@ function buildRoom(avatarImages: Map<string, Uint8Array>): void {
         seatHeight: SEAT_HEIGHT,
         wallHeight: WALL_H,
         layers: { floor: 0, wall: 1, back: 2, avatar: 3, front: 4 },
-        // screen = the iframe rect, controls = the transport slot under it; both relative to the tv/0 anchor.
-        // stageOrigin = the layout.ts ORIGIN_X/Y this art is drawn for (bezel top at y 7, slot clear of back-row tags).
-        tv: { frame: "tv/0", screen: TV_SCREEN, controls: TV_CONTROLS, stageOrigin: STAGE_ORIGIN },
+        // Since ADR 0012 the player is page chrome above the stage (framed by ui tvframe/*); tv/0 is the corner console and
+        // `screen` is its projector's lit 16:9 gate, relative to the tv/0 anchor. Decorative: never put the iframe here.
+        tv: { frame: "tv/0", screen: TV_SCREEN },
         seats: [{ frame: "armchair", dirs: SEAT_DIRS }],
         layout,
       },
@@ -356,7 +356,7 @@ function buildRoom(avatarImages: Map<string, Uint8Array>): void {
 
 /** The whole room exactly as the web lays it out (apps/web/src/layout.ts), with people in it. */
 function buildRoomScene(frames: readonly RoomFrame[], avatars: Map<string, Uint8Array>, layout: ReturnType<typeof defaultLayout>): void {
-  const W = 960, H = 600, ORIGIN_X = STAGE_ORIGIN.x, ORIGIN_Y = STAGE_ORIGIN.y;
+  const W = 960, H = 600, ORIGIN_X = W / 2, ORIGIN_Y = 220;
   const cellCenter = (c: number, r: number): { x: number; y: number } => ({ x: ORIGIN_X + (c - r) * 32, y: ORIGIN_Y + (c + r + 1) * 16 });
   // Mirrors layout.ts SEAT_CELLS / STANDING; seats face the TV.
   const SEAT_CELLS: readonly (readonly [number, number])[] = [[1, 5], [2, 4], [4, 2], [5, 1], [3, 7], [4, 6], [6, 4], [7, 3]];
@@ -389,8 +389,6 @@ function buildRoomScene(frames: readonly RoomFrame[], avatars: Map<string, Uint8
   draw("wall/l/end", l9.x, l9.y);
   draw("wall/r/end", r9.x, r9.y);
   draw("tv/0", c00.x, c00.y);
-  // A frame of "video" in the screen rect (preview only; the web puts the iframe here).
-  fakeVideo(img, W, c00.x + TV_SCREEN.x, c00.y + TV_SCREEN.y, TV_SCREEN.w, TV_SCREEN.h);
   // Depth-sorted items: (floorY, floorX, layer).
   const items: { key: string; x: number; y: number; layer: number }[] = [];
   const sitters = ["juno", "pip", "mo", "kiki", "mo", "juno"];
@@ -414,6 +412,10 @@ function buildRoomScene(frames: readonly RoomFrame[], avatars: Map<string, Uint8
   items.sort((a, b) => a.y - b.y || a.x - b.x || a.layer - b.layer);
   for (const it of items) draw(it.key, it.x, it.y);
   writeFileSync(join(ROOT, "preview", "room@1x.png"), encodeIndexedPng(W, H, img, PALETTE));
+  // A stand-in video frame at the player's max size (560×315, ADR 0012), for preview/ui.html's TV mock-ups.
+  const vid = new Uint8Array(560 * 315);
+  fakeVideo(vid, 560, 0, 0, 560, 315);
+  writeFileSync(join(ROOT, "preview", "tv-video@1x.png"), encodeIndexedPng(560, 315, vid, PALETTE));
   writeFileSync(join(ROOT, "preview", "room@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
 }
 
@@ -494,7 +496,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
   registerKeys("ui", frames.map((f) => f.key));
   const byKey = new Map(frames.map((f) => [f.key, f]));
   if (byKey.size !== frames.length) throw new Error("duplicate ui key");
-  for (const f of frames) if (f.borders) assertStretchable(f.key, f.img, f.w, f.h, f.borders);
+  for (const f of frames) if (f.borders) assertStretchable(f.key, f.img, f.w, f.h, f.borders, f.fixedHeight === true);
   const { placed, w: sheetW, h: sheetH } = pack(frames, 256);
   const sheet = new Uint8Array(sheetW * sheetH);
   const atlasFrames: Record<string, Frame & { borders?: Borders }> = {};
@@ -555,14 +557,15 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
 /** A 9-slice may only stretch flat colour: every column of the top/bottom/centre bands between the side
  *  slices must be identical, and every row of the left/right/centre bands between the top and bottom slices too.
  *  Catches a chamfer that pokes past its slice (it would smear into a visible band when stretched). */
-function assertStretchable(key: string, img: Uint8Array, w: number, h: number, b: Borders): void {
+function assertStretchable(key: string, img: Uint8Array, w: number, h: number, b: Borders, fixedHeight: boolean): void {
   const px = (x: number, y: number): number => img[y * w + x] ?? -1;
   for (let y = 0; y < h; y++) {
     for (let x = b.left + 1; x < w - b.right; x++) {
       if (px(x, y) !== px(b.left, y)) throw new Error(`${key}: column ${String(x)} differs from ${String(b.left)} at row ${String(y)}; widen the side slices`);
     }
   }
-  for (let x = 0; x < w; x++) {
+  // A fixed-height slice only stretches sideways: its centre column must still be flat, its side slices needn't be.
+  for (let x = fixedHeight ? b.left : 0; x < (fixedHeight ? w - b.right : w); x++) {
     for (let y = b.top + 1; y < h - b.bottom; y++) {
       if (px(x, y) !== px(x, b.top)) throw new Error(`${key}: row ${String(y)} differs from ${String(b.top)} at column ${String(x)}; widen the top/bottom slices`);
     }

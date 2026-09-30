@@ -61,50 +61,50 @@
 /* Sprites from ui.png, scaled by --ui-px like the 9-slices (2× in page chrome, 1× in .ui-room): icons (16 art px), status dots,
  * portraits, wordmark, playback glyphs, seek head, volume knob and the catching-up hourglass. */
 .ui-sprite { display: inline-block; flex: none; background: url("ui.png") no-repeat; background-size: calc(256 * var(--ui-px)) calc(256 * var(--ui-px)); }
-.ui-catchup-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-50 * var(--ui-px)) calc(-101 * var(--ui-px)); }
-.ui-catchup-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-105 * var(--ui-px)); }
-.ui-catchup-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-67 * var(--ui-px)) calc(-108 * var(--ui-px)); }
-.ui-catchup-3 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-84 * var(--ui-px)) calc(-108 * var(--ui-px)); }
-.ui-dot-connecting { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-239 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-dot-offline { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-248 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-dot-online { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: 0 calc(-143 * var(--ui-px)); }
-.ui-glyph-catchup { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-215 * var(--ui-px)) calc(-151 * var(--ui-px)); }
-.ui-glyph-everyone { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-215 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-glyph-pause { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-224 * var(--ui-px)) calc(-151 * var(--ui-px)); }
-.ui-glyph-play { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-233 * var(--ui-px)) calc(-151 * var(--ui-px)); }
-.ui-glyph-seek { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-242 * var(--ui-px)) calc(-151 * var(--ui-px)); }
-.ui-glyph-you { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: 0 calc(-152 * var(--ui-px)); }
-.ui-icon-chat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-108 * var(--ui-px)); }
-.ui-icon-close { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-211 * var(--ui-px)) calc(-108 * var(--ui-px)); }
-.ui-icon-leave { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-228 * var(--ui-px)) calc(-108 * var(--ui-px)); }
-.ui-icon-muted { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-109 * var(--ui-px)); }
-.ui-icon-muted-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-118 * var(--ui-px)); }
-.ui-icon-pause { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-122 * var(--ui-px)); }
-.ui-icon-pause-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-people { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-play { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-play-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-seat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-send { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-share { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-sound { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-sound-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-tv { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-warn { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-you { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-logo-0 { width: calc(80 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: calc(-113 * var(--ui-px)) calc(-107 * var(--ui-px)); }
+.ui-catchup-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-94 * var(--ui-px)); }
+.ui-catchup-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-148 * var(--ui-px)) calc(-101 * var(--ui-px)); }
+.ui-catchup-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-165 * var(--ui-px)) calc(-101 * var(--ui-px)); }
+.ui-catchup-3 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-106 * var(--ui-px)); }
+.ui-dot-connecting { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-232 * var(--ui-px)) calc(-140 * var(--ui-px)); }
+.ui-dot-offline { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-241 * var(--ui-px)) calc(-140 * var(--ui-px)); }
+.ui-dot-online { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-11 * var(--ui-px)) calc(-141 * var(--ui-px)); }
+.ui-glyph-catchup { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-20 * var(--ui-px)) calc(-141 * var(--ui-px)); }
+.ui-glyph-everyone { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-208 * var(--ui-px)) calc(-140 * var(--ui-px)); }
+.ui-glyph-pause { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-29 * var(--ui-px)) calc(-141 * var(--ui-px)); }
+.ui-glyph-play { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-38 * var(--ui-px)) calc(-141 * var(--ui-px)); }
+.ui-glyph-seek { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-47 * var(--ui-px)) calc(-141 * var(--ui-px)); }
+.ui-glyph-you { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-56 * var(--ui-px)) calc(-141 * var(--ui-px)); }
+.ui-icon-chat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-182 * var(--ui-px)) calc(-106 * var(--ui-px)); }
+.ui-icon-close { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-199 * var(--ui-px)) calc(-106 * var(--ui-px)); }
+.ui-icon-leave { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-216 * var(--ui-px)) calc(-106 * var(--ui-px)); }
+.ui-icon-muted { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-233 * var(--ui-px)) calc(-106 * var(--ui-px)); }
+.ui-icon-muted-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-107 * var(--ui-px)); }
+.ui-icon-pause { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-107 * var(--ui-px)); }
+.ui-icon-pause-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-107 * var(--ui-px)); }
+.ui-icon-people { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-107 * var(--ui-px)); }
+.ui-icon-play { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-107 * var(--ui-px)); }
+.ui-icon-play-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-111 * var(--ui-px)); }
+.ui-icon-seat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-111 * var(--ui-px)); }
+.ui-icon-send { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-118 * var(--ui-px)); }
+.ui-icon-share { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-118 * var(--ui-px)); }
+.ui-icon-sound { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-123 * var(--ui-px)); }
+.ui-icon-sound-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-123 * var(--ui-px)); }
+.ui-icon-tv { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-123 * var(--ui-px)); }
+.ui-icon-warn { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-123 * var(--ui-px)); }
+.ui-icon-you { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-123 * var(--ui-px)); }
+.ui-logo-0 { width: calc(80 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: calc(-67 * var(--ui-px)) calc(-89 * var(--ui-px)); }
 .ui-portrait-juno { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-209 * var(--ui-px)) 0; }
 .ui-portrait-kiki { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-209 * var(--ui-px)) calc(-33 * var(--ui-px)); }
 .ui-portrait-mo { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-144 * var(--ui-px)) calc(-34 * var(--ui-px)); }
-.ui-portrait-pip { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: 0 calc(-59 * var(--ui-px)); }
-.ui-seek-head-disabled { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-135 * var(--ui-px)); }
-.ui-seek-head-hover { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-139 * var(--ui-px)); }
-.ui-seek-head-idle { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-45 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-seek-head-press { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-56 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-volume-knob-disabled { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-171 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-volume-knob-hover { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-182 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-volume-knob-idle { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-193 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-volume-knob-press { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-142 * var(--ui-px)); }
+.ui-portrait-pip { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: 0 calc(-52 * var(--ui-px)); }
+.ui-seek-head-disabled { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-66 * var(--ui-px)) calc(-124 * var(--ui-px)); }
+.ui-seek-head-hover { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-77 * var(--ui-px)) calc(-124 * var(--ui-px)); }
+.ui-seek-head-idle { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-88 * var(--ui-px)) calc(-124 * var(--ui-px)); }
+.ui-seek-head-press { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-99 * var(--ui-px)) calc(-124 * var(--ui-px)); }
+.ui-volume-knob-disabled { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-164 * var(--ui-px)) calc(-140 * var(--ui-px)); }
+.ui-volume-knob-hover { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-175 * var(--ui-px)) calc(-140 * var(--ui-px)); }
+.ui-volume-knob-idle { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-186 * var(--ui-px)) calc(-140 * var(--ui-px)); }
+.ui-volume-knob-press { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-197 * var(--ui-px)) calc(-140 * var(--ui-px)); }
 
 /* ---- Set (e): synced playback (M1b). Wood = shared (everyone), mustard rim on night = only you, TV glow = the video. ---- */
 .ui-transport, .ui-volume, .ui-seek, .ui-vol-track, .ui-readout, .ui-chip, .ui-sysline, .ui-seek-fill, .ui-vol-fill { image-rendering: pixelated; box-sizing: border-box; }
@@ -123,10 +123,10 @@
 .ui-button.icon { width: calc(26 * var(--ui-px)); height: calc(28 * var(--ui-px)); min-height: 0; padding: 0 0 calc(2 * var(--ui-px)); gap: 0; }
 .ui-button.icon:active, .ui-button.icon.is-press { padding: calc(2 * var(--ui-px)) 0 0; }
 .ui-button.icon:disabled, .ui-button.icon.is-disabled { padding: 0 0 calc(2 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-play, .ui-button.is-disabled .ui-icon-play { background-position: calc(-102 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-pause, .ui-button.is-disabled .ui-icon-pause { background-position: calc(-51 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-sound, .ui-button.is-disabled .ui-icon-sound { background-position: calc(-187 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-muted, .ui-button.is-disabled .ui-icon-muted { background-position: calc(-34 * var(--ui-px)) calc(-118 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-play, .ui-button.is-disabled .ui-icon-play { background-position: calc(-17 * var(--ui-px)) calc(-111 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-pause, .ui-button.is-disabled .ui-icon-pause { background-position: calc(-85 * var(--ui-px)) calc(-107 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-sound, .ui-button.is-disabled .ui-icon-sound { background-position: calc(-170 * var(--ui-px)) calc(-123 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-muted, .ui-button.is-disabled .ui-icon-muted { background-position: calc(-51 * var(--ui-px)) calc(-107 * var(--ui-px)); }
 
 /* Seek bar. Put the fill and head inside, and set --pos (0..1) on the bar. For a11y, lay a transparent
  * <input type="range"> over it (opacity 0, inset 0) and keep the art as decoration. */
@@ -159,29 +159,24 @@
 
 /* Catching up: the hourglass sticker hangs off the left end of that user's name tag; the room keeps playing.
  * Frames catchup/0..3 at 320 ms (the CSS below steps through them). */
-.ui-catchup { --f0: calc(-50 * var(--ui-px)) calc(-101 * var(--ui-px)); --f1: calc(-17 * var(--ui-px)) calc(-105 * var(--ui-px)); --f2: calc(-67 * var(--ui-px)) calc(-108 * var(--ui-px)); --f3: calc(-84 * var(--ui-px)) calc(-108 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--f0); animation: ui-catchup 1280ms steps(1) infinite; }
+.ui-catchup { --f0: calc(-34 * var(--ui-px)) calc(-94 * var(--ui-px)); --f1: calc(-148 * var(--ui-px)) calc(-101 * var(--ui-px)); --f2: calc(-165 * var(--ui-px)) calc(-101 * var(--ui-px)); --f3: 0 calc(-106 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--f0); animation: ui-catchup 1280ms steps(1) infinite; }
 @keyframes ui-catchup { 0% { background-position: var(--f0); } 25% { background-position: var(--f1); } 50% { background-position: var(--f2); } 75% { background-position: var(--f3); } }
 /* The tag must already be positioned (it is, in the room). The sticker overlaps the tag's left end by 3 art px. */
 .ui-tag.catching { color: var(--ui-muted); font-style: italic; }
 .ui-tag.catching .ui-catchup { position: absolute; right: 100%; top: 50%; translate: calc(3 * var(--ui-px)) -50%; }
 @media (prefers-reduced-motion: reduce) { .ui-catchup { animation: none; } }
 
-/* ---- M1b TV frame (OME-92): the room's tv/0 bezel + media shelf as DOM, for a player outside the scaled stage. ----
- * <div class="ui-tv">
- *   <div class="ui-tv-bezel"><iframe …></iframe></div>      <- the iframe is the content box; nothing overlaps it
- *   <div class="ui-tv-shelf"><div class="ui-transport">…</div></div>
- * </div>
- * Use --ui-px: 1px (room scale). Below ~380 CSS px, add .compact: the bezel keeps only its top and bottom bars and the
- * shelf only its slot, so a 356 px player still fits a 360 px viewport. The border-image width is the border width
- * (no "/ width"), so a zero side border draws no side slice: nothing is ever painted over the iframe. */
-.ui-tv { display: flex; flex-direction: column; align-items: center; width: fit-content; image-rendering: pixelated; }
-.ui-tv-bezel { box-sizing: content-box; border-style: solid; border-color: transparent; border-width: calc(12 * var(--ui-px)) calc(12 * var(--ui-px)) calc(10 * var(--ui-px)) calc(12 * var(--ui-px)); border-image: url("slices/tvframe-bezel.png") 12 12 10 12 stretch; line-height: 0; }
-.ui-tv-bezel > iframe { display: block; border: 0; }
-/* The shelf is wider than the bezel by its speakers; its slot is exactly the player's width. Fixed height: only the slot stretches. */
-.ui-tv-shelf { position: relative; box-sizing: border-box; height: calc(58 * var(--ui-px)); width: calc(100% + calc(50 * var(--ui-px))); margin-top: calc(-1 * var(--ui-px)); border-style: solid; border-color: transparent; border-width: calc(28 * var(--ui-px)) calc(38 * var(--ui-px)) calc(29 * var(--ui-px)) calc(38 * var(--ui-px)); border-image: url("slices/tvframe-shelf.png") 28 38 29 38 fill stretch; }
-.ui-tv-shelf > .ui-transport { position: absolute; left: 0; right: 0; top: calc(-19 * var(--ui-px)); height: calc(44 * var(--ui-px)); padding: 0 calc(6 * var(--ui-px)); box-sizing: border-box; }
-.ui-tv.compact .ui-tv-bezel { border-left-width: 0; border-right-width: 0; }
-.ui-tv.compact .ui-tv-shelf { width: 100%; border-left-width: 0; border-right-width: 0; }
-.ui-tv.compact .ui-tv-shelf > .ui-transport { left: 0; right: 0; }
-/* In the room (player inside the stage), put the transport straight on the painted slot: meta.omega.tv.controls. */
-.ui-tv-slot { position: absolute; display: flex; align-items: center; box-sizing: border-box; padding: 0 calc(6 * var(--ui-px)); }
+/* ---- M1b TV frame (OME-92, ADR 0012): dress the page-level player and control bar in the room's wood. ----
+ * Put .ui-tv-frame on the player box (.tv) and .ui-tv-shelf on the control bar box (.controls), at the rects
+ * roomLayout() gives. border-image-outset paints outside each box (ink overflow: no layout change, no scrollbars),
+ * so nothing ever covers the player. The bezel needs 6 px above the player (tv.y) and fills the 8 px gap below it;
+ * the shelf needs 6 px under the bar (the gap to the stage is 8) and 38 px each side for its speakers.
+ * The bar box is the transport slot: lay .ui-transport straight in it (no .ui-panel). */
+.ui-tv-frame { border: 0 solid transparent; border-image: url("slices/tvframe-bezel.png") 6 6 8 6 / 6px 6px 8px 6px / 6px 6px 8px 6px stretch; image-rendering: pixelated; }
+.ui-tv-shelf { box-sizing: border-box; height: 44px; display: flex; align-items: center; padding: 0 6px; border: 0 solid transparent; border-image: url("slices/tvframe-shelf.png") 1 38 6 38 fill / 1px 38px 6px 38px / 1px 38px 6px 38px stretch; image-rendering: pixelated; }
+.ui-tv-shelf > .ui-transport { flex: 1; min-width: 0; }
+.ui-tv-shelf .ui-seek { min-width: 0; }
+/* When the speakers don't fit beside the bar (container narrower than the bar + 76 px): drop them, keep the slot's rails. */
+.ui-tv-shelf.compact { border-image-width: 1px 0 6px 0; border-image-outset: 1px 0 6px 0; }
+/* Same for the bezel sides on a 360 px viewport (the 356 px player leaves 2 px each side). */
+.ui-tv-frame.compact { border-image-width: 6px 0 8px 0; border-image-outset: 6px 0 8px 0; }
