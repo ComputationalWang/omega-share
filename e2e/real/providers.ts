@@ -14,12 +14,17 @@ const HOSTS: Readonly<Record<RealProvider, string>> = { twitch: "player.twitch.t
  * Real ids, overridable because Twitch VODs expire and channels go on and off air. Pick fresh ones on twitch.tv:
  * a VOD from the Videos tab (uploads don't expire), a live channel from Browse, a mature one (the "Mature" tag).
  */
+const list = (v: string): string[] => v.split(",").map((x) => x.trim()).filter((x) => x !== "");
+
 export const REAL = {
   /** An upload on the official `twitch` channel (72 min), so it doesn't expire like past broadcasts. */
   twitchVod: process.env["OMEGA_REAL_TWITCH_VOD"] ?? "2784566594",
-  /** Must be live when the run starts. Not flagged mature, so no gate. */
-  twitchLive: process.env["OMEGA_REAL_TWITCH_LIVE"] ?? "valorant",
-  /** Live and flagged mature (a logged-out viewer gets the content gate). */
+  /** Candidates, in order: the spec uses the first one live when it runs, and skips (with the list) if none is. */
+  twitchLive: list(process.env["OMEGA_REAL_TWITCH_LIVE"] ?? "valorant,caedrel,esl_csgo,riotgames,kaicenat,xqc"),
+  /**
+   * Live and flagged mature. Twitch's embed often plays these ungated for a logged-out viewer (OME-218): then there is
+   * nothing to refuse, and the case is recorded as not run instead of failing.
+   */
   twitchMature: process.env["OMEGA_REAL_TWITCH_MATURE"] ?? "ironmouse",
   /** A real login with no stream right now (Twitch's developer channel is rarely live). */
   twitchOffline: process.env["OMEGA_REAL_TWITCH_OFFLINE"] ?? "twitchdev",

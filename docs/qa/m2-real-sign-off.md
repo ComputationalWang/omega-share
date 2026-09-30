@@ -18,8 +18,8 @@ bunx playwright test --project=e2e-real real-providers   # Twitch + Vimeo only (
   | Env | Default | Needs to be |
   |---|---|---|
   | `OMEGA_REAL_TWITCH_VOD` | `2784566594` (an upload on `twitch`; uploads don't expire) | a public VOD |
-  | `OMEGA_REAL_TWITCH_LIVE` | `valorant` | **live now**, not mature |
-  | `OMEGA_REAL_TWITCH_MATURE` | `ironmouse` | live now, "Mature" tag |
+  | `OMEGA_REAL_TWITCH_LIVE` | `valorant,caedrel,esl_csgo,riotgames,kaicenat,xqc` | comma-separated candidates: the spec shares the first one **live now** (`tried` in the evidence), and skips with the list if none is |
+  | `OMEGA_REAL_TWITCH_MATURE` | `ironmouse` | live now, "Mature" tag. If the embed plays it ungated (usual for a logged-out viewer), the case is recorded under `notRun`, not failed |
   | `OMEGA_REAL_TWITCH_OFFLINE` | `twitchdev` | exists, not live |
   | `OMEGA_REAL_VIMEO` | `1084537` (Big Buck Bunny, 597 s) | public, ≥ 6 min |
   | `OMEGA_REAL_VIMEO_GONE` | `999999999999` | `player.vimeo.com/video/<id>/config` answers 404 |
