@@ -311,6 +311,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     renderSyslines(rail, s.syslines, syslineEls);
     applyCatching();
 
+  };
+
+  /**
+   * Swap the TV iframe with the embed. Runs from dispatch, not the next frame: rAF doesn't fire in a
+   * background tab, and the old video must not keep playing (unsynced) after the controller dropped it.
+   */
+  const syncTv = (s: ViewState): void => {
     const embed = s.room?.embed ?? null;
     const tf = tvFrame(embed);
     const nextSrc = tf?.src ?? null;
@@ -347,7 +354,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     state = next;
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
-    if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) playback.setRoom(room ?? { embed: null, playback: null });
+    if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {
+      playback.setRoom(room ?? { embed: null, playback: null });
+      syncTv(next);
+    }
     if (expiriesChanged) scheduleExpiry();
     if (frame === 0) frame = requestAnimationFrame(render);
   };
@@ -397,6 +407,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (ev.persisted) c.resume();
   });
 
+  syncTv(state);
   render();
   pbView = playback.view();
   renderControls();

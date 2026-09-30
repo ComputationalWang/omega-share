@@ -12,7 +12,7 @@ export interface PlaybackView {
   readonly canControl: boolean;
   /** The room's (shared) state, not this player's. */
   readonly playing: boolean;
-  /** The room's position now, seconds. */
+  /** The room's position now, whole seconds (so the view changes once a second, not every tick). */
   readonly position: number;
   /** Seconds; 0 = unknown (the seek bar stays disabled). */
   readonly duration: number;
@@ -116,10 +116,12 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     const duration = player?.duration() ?? 0;
     let position = pb === null ? 0 : o.clock.ready ? expectedPosition(pb, o.clock.serverNow()) : pb.position;
     if (duration > 0 && position > duration) position = duration;
+    position = Math.floor(position);
     const c = current;
     const hasVideo = player?.ready() === true;
     const playing = pb?.playing ?? false;
-    const canControl = pb !== null && videoId !== null;
+    // Pausing a playing room needs the server clock for the position; playing a paused one doesn't.
+    const canControl = pb !== null && videoId !== null && (!pb.playing || o.clock.ready);
     if (
       c.hasVideo === hasVideo &&
       c.canControl === canControl &&
@@ -196,8 +198,11 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       refresh();
     },
     togglePlay() {
-      if (!o.clock.ready) return false;
-      return send(togglePlayIntent(target, o.clock.serverNow()));
+      if (pb === null || (pb.playing && !o.clock.ready)) return false;
+      const msg = togglePlayIntent(target, pb.playing ? o.clock.serverNow() : pb.at);
+      // A room left "playing" after the video ended would otherwise pause past the end.
+      const duration = player?.duration() ?? 0;
+      return send(msg !== null && duration > 0 && msg.position > duration ? { ...msg, position: duration } : msg);
     },
     seek(position) {
       return send(seekIntent(target, position));
@@ -205,10 +210,19 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     setVolume(v) {
       volume = clampVolume(v);
       muted = false;
+      // A volume change is a user gesture: lift a blocked autoplay's mute too.
+      if (needsUnmute) {
+        needsUnmute = false;
+        player?.unmute();
+      }
       applyVolume();
       refresh();
     },
     toggleMute() {
+      if (needsUnmute) {
+        this.unmute();
+        return;
+      }
       muted = !muted;
       if (!muted) player?.unmute();
       applyVolume();

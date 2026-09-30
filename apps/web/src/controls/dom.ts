@@ -61,6 +61,15 @@ export function createTransport(c: PlaybackController): Widget {
     shownSecond = -1;
     c.seek(Number(input.value));
   });
+  // Released on the same value or cancelled: no `change`, so don't stay frozen in "dragging". Deferred so a
+  // `change` from the same release still reads the dragged value first.
+  const endDrag = (): void => {
+    setTimeout(() => {
+      dragging = false;
+      shownSecond = -1;
+    }, 0);
+  };
+  for (const type of ["pointerup", "pointercancel", "blur"]) input.addEventListener(type, endDrag);
 
   return {
     root,
