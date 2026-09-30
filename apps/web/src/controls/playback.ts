@@ -29,7 +29,7 @@ export interface PlaybackView {
   readonly provider: Provider | null;
   /** A live stream: no position to share, so no scrubber; only pause / play-from-live (ADR 0014 §3). */
   readonly live: boolean;
-  /** The provider can't set the rate, so drift is fixed by small jumps (the seek-only hint). */
+  /** Drift is fixed by small jumps (the seek-only hint): the provider can't set the rate, or the sync loop fell back (rejected Vimeo rate probe). */
   readonly seekOnly: boolean;
 }
 
@@ -94,6 +94,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   let error: PlayerError | null = null;
   let provider: Provider | null = null;
   let live = false;
+  /** From the embed's static caps (Twitch VOD); the loop can also fall back at runtime (a rejected Vimeo rate probe). */
+  let capsSeekOnly = false;
   let seekOnly = false;
   let timer: Timer | null = null;
   let current: PlaybackView = {
@@ -145,6 +147,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     const playing = !refused && (pb?.playing ?? false);
     // Pausing a playing room needs the server clock for the position; playing a paused one doesn't. Live has no position.
     const canControl = !refused && pb !== null && embedUrl !== null && (!pb.playing || live || o.clock.ready);
+    seekOnly = capsSeekOnly || loop?.mode === "seek-only";
     if (
       c.hasVideo === hasVideo &&
       c.canControl === canControl &&
@@ -216,7 +219,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
         const caps = t.embed === null ? null : playbackCaps(t.embed);
         provider = t.embed?.provider ?? null;
         live = caps?.live === true;
-        seekOnly = caps !== null && !caps.live && caps.rate === "no";
+        capsSeekOnly = caps !== null && !caps.live && caps.rate === "no";
       }
       const next = t.playback ?? null;
       if (next !== pb) {

@@ -73,8 +73,9 @@ test.describe("M2 provider sync, 4 clients", () => {
       await expect(a.page.locator(plate)).toContainText(c.provider === "twitch" ? "Twitch" : "Vimeo");
       await expect(a.page.locator(livePill)).toBeHidden();
       await expect(a.page.locator(site.seek)).toBeVisible();
-      // Twitch has no playback rate at all, so its VOD says it syncs by skipping (ADR 0014 §3).
-      if (c.provider === "twitch") await expect(a.page.locator(seekOnlyHint)).toBeVisible();
+      // Twitch has no playback rate at all, so its VOD says it syncs by skipping (ADR 0014 §3); so does a Vimeo whose rate probe was rejected (OME-172).
+      if (rate) await expect(a.page.locator(seekOnlyHint)).toBeHidden();
+      else await expect(a.page.locator(seekOnlyHint)).toBeVisible();
 
       const results: Record<string, unknown> = {};
       const step = async (action: "pause" | "play" | "seek", act: () => Promise<void>, playing: boolean, position?: number) => {
