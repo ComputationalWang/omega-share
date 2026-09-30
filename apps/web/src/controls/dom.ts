@@ -1,4 +1,5 @@
 // DOM for the set (e) playback chrome (assets/README.md "Playback chrome"). Text only: every string goes in via textContent.
+import type { Provider } from "@omega/shared";
 import type { Sysline } from "../state";
 import type { PlaybackController, PlaybackView } from "./playback";
 import { formatClock } from "./sysline";
@@ -25,7 +26,13 @@ export interface Widget {
   update(v: PlaybackView): void;
 }
 
-/** Shared transport for the TV's control-bar slot: chip · play/pause · current · seek · duration. */
+/** Plain system-font names for the TV's nameplate (assets/README.md "Provider plate"): never a logo. */
+const PROVIDER_NAMES: Readonly<Record<Provider, string>> = { youtube: "YouTube", twitch: "Twitch", vimeo: "Vimeo" };
+
+/**
+ * Shared transport for the TV's control-bar slot: chip · play/pause · current · seek · duration · [hint] · plate.
+ * Live (assets/README.md "Live transport"): chip · play/pause · LIVE pill · note · back-to-live · plate; no seek.
+ */
 export function createTransport(c: PlaybackController): Widget {
   const root = el("div", { className: "ui-transport", role: "group", ariaLabel: "Shared playback: affects everyone" });
   const chip = el("span", { className: "ui-chip shared" });
@@ -39,7 +46,18 @@ export function createTransport(c: PlaybackController): Widget {
   const input = range("Seek for everyone", "seek");
   input.disabled = true;
   seek.append(el("div", { className: "ui-seek-fill" }), sprite("ui-seek-head ui-seek-head-idle"), input);
-  root.append(chip, key, cur, seek, dur);
+  const pill = el("span", { className: "ui-live", hidden: true }, "live-pill");
+  pill.append(sprite("ui-onair"), "Live");
+  const note = el("span", { className: "ui-live-note", textContent: "Live: everyone watches the same moment", hidden: true });
+  const toLive = el("button", { type: "button", className: "ui-button shared icon", ariaLabel: "Back to live for everyone", disabled: true, hidden: true }, "to-live");
+  toLive.append(sprite("ui-icon-tolive"));
+  const hint = el("span", { className: "ui-hint", title: "This player can't change its speed, so it keeps in sync by skipping", hidden: true }, "seek-only-hint");
+  hint.append(sprite("ui-glyph-hop"), el("span", { className: "ui-hint-text", textContent: "syncs by skipping" }));
+  const plateGlyph = sprite("ui-glyph-src-video");
+  const plateName = el("span", { className: "ui-plate-name" });
+  const plate = el("span", { className: "ui-plate", hidden: true }, "provider-plate");
+  plate.append(plateGlyph, plateName);
+  root.append(chip, key, cur, seek, dur, pill, note, toLive, hint, plate);
 
   let dragging = false;
   let last: PlaybackView | null = null;
@@ -48,6 +66,10 @@ export function createTransport(c: PlaybackController): Widget {
   let shownSecond = -1;
   key.addEventListener("click", () => {
     c.togglePlay();
+  });
+  // Resuming a live stream is the jump to the live edge; enabled only while the room is paused.
+  toLive.addEventListener("click", () => {
+    if (last?.playing === false) c.togglePlay();
   });
   input.addEventListener("input", () => {
     dragging = true;
@@ -76,10 +98,24 @@ export function createTransport(c: PlaybackController): Widget {
     update(v) {
       const prev = last;
       last = v;
-      if (prev?.playing !== v.playing) {
+      if (prev?.provider !== v.provider || prev.live !== v.live || prev.seekOnly !== v.seekOnly) {
+        for (const e of [cur, seek, dur]) e.hidden = v.live;
+        for (const e of [pill, note, toLive]) e.hidden = !v.live;
+        hint.hidden = !v.seekOnly;
+        plate.hidden = v.provider === null;
+        const name = v.provider === null ? "" : PROVIDER_NAMES[v.provider];
+        setText(plateName, name);
+        plate.title = name;
+        plate.ariaLabel = name;
+        // By content kind, not provider: a Twitch VOD is on-demand video.
+        plateGlyph.className = `ui-sprite ${v.live ? "ui-glyph-src-live" : "ui-glyph-src-video"}`;
+      }
+      if (prev?.playing !== v.playing || prev.live !== v.live) {
         key.ariaLabel = v.playing ? "Pause for everyone" : "Play for everyone";
         icon.className = `ui-sprite ${v.playing ? "ui-icon-pause" : "ui-icon-play"}`;
+        pill.classList.toggle("is-behind", !v.playing);
       }
+      if (prev?.canControl !== v.canControl || prev.playing !== v.playing) toLive.disabled = !v.canControl || v.playing;
       const seekable = v.canControl && v.duration > 0;
       if (prev?.canControl !== v.canControl) key.disabled = !v.canControl;
       if (prev?.canControl !== v.canControl || prev.duration !== v.duration) {

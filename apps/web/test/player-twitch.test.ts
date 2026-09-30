@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { playbackCaps } from "@omega/shared";
-import type { PlayerEvent } from "../src/player/adapter";
+import type { PlayerErrorReason, PlayerEvent } from "../src/player/adapter";
 import {
   AD_FROZEN_MS,
   ECHO_WINDOW_MS,
@@ -14,6 +14,11 @@ import type { TwitchLoad } from "../src/player/twitch-loader";
 import { asTwitchNamespace } from "../src/player/twitch-types";
 import { tvFrame, type TvTwitch } from "../src/tv";
 import { FakeContainer, fakeTwitch, iframe, sdkSrc, type FakeTwitchPlayer } from "./support/fake-twitch";
+
+/** A constructor whose instances have none of the player's methods. */
+class NotAPlayer {
+  readonly kind = "not-a-player";
+}
 
 const ORIGIN = "https://abc.ngrok-free.app";
 const LIVE = { provider: "twitch", kind: "live", channel: "some_streamer", url: "https://player.twitch.tv/?channel=some_streamer" } as const;
@@ -320,7 +325,7 @@ describe("attachTwitch", () => {
   });
 
   test("error codes map to provider-neutral reasons", () => {
-    const cases: [unknown, string, string][] = [
+    const cases: [unknown, PlayerErrorReason, string][] = [
       [{ code: 1 }, "restricted", "1"],
       [{ code: 5 }, "restricted", "5"],
       [{ code: 6 }, "restricted", "6"],
@@ -335,7 +340,7 @@ describe("attachTwitch", () => {
       const { p, events, ready } = setup();
       ready();
       p.fire("error", params);
-      expect(events.filter((e) => e.type === "error")).toEqual([{ type: "error", reason, code }] as PlayerEvent[]);
+      expect(events.filter((e) => e.type === "error")).toEqual([{ type: "error", reason, code }]);
     }
   });
 
@@ -383,7 +388,7 @@ describe("attachTwitch", () => {
   });
 
   test("a constructed object that isn't a player is refused", () => {
-    const ns = asTwitchNamespace({ Player: class {} });
+    const ns = asTwitchNamespace({ Player: NotAPlayer });
     if (ns === null) throw new Error("guard");
     const box = new FakeContainer();
     const r = attachTwitch(ns, box.asElement(), { embed: VOD, frame: frameOf(VOD), now: () => 0, setTimeout: () => 0, clearTimeout: () => undefined });
@@ -393,7 +398,7 @@ describe("attachTwitch", () => {
 
 describe("asTwitchNamespace (boundary guard for window.Twitch)", () => {
   test("accepts an object with a Player constructor only", () => {
-    expect(asTwitchNamespace({ Player: class {} })).not.toBeNull();
+    expect(asTwitchNamespace({ Player: NotAPlayer })).not.toBeNull();
     for (const bad of [undefined, null, 1, "Twitch", {}, { Player: 1 }, { Player: {} }]) expect(asTwitchNamespace(bad)).toBeNull();
   });
 });

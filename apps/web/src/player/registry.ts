@@ -32,10 +32,10 @@ export type AdapterRegistry = { readonly [P in Provider]: () => Promise<AdapterF
 
 const unsupported: AdapterFactory = () => Promise.resolve({ ok: false, reason: "unsupported" });
 
-/** The page's registry. Twitch and Vimeo adapters land in OME-125 and OME-126. */
+/** The page's registry. The Vimeo adapter lands in OME-126. */
 export const PLAYERS: AdapterRegistry = {
   youtube: () => import("./youtube").then((m) => m.mountYouTube),
-  twitch: () => Promise.resolve(unsupported),
+  twitch: () => import("./twitch").then((m) => m.mountTwitch),
   vimeo: () => Promise.resolve(unsupported),
 };
 

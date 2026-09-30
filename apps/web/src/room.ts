@@ -154,8 +154,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   stage.append(view.canvas, overlay, tags, bubbles, rail);
   opts.root.replaceChildren(status, wrap, personal.root, syncNotice, notice, chatForm, full);
 
+  /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
+  let tvProvider: Embed["provider"] | null = null;
   const fit = (): void => {
-    const l = roomLayout(wrap.clientWidth);
+    const l = roomLayout(wrap.clientWidth, tvProvider);
     box(tv, l.tv);
     box(controls, l.controls);
     tv.classList.toggle("compact", l.compact.tv);
@@ -339,6 +341,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const nextKey = tf?.key ?? null;
     if (nextKey !== tvKey) {
       tvKey = nextKey;
+      const provider = tf === null ? null : (embed?.provider ?? null);
+      if (provider !== tvProvider) {
+        tvProvider = provider;
+        fit();
+      }
       if (tf === null || embed === null) {
         tvScreen = null;
         tv.replaceChildren(tvEmpty);

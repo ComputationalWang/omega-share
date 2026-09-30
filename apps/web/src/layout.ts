@@ -1,4 +1,4 @@
-import { MAX_ROOM_MEMBERS, SEAT_COUNT } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, SEAT_COUNT, type Provider } from "@omega/shared";
 
 /** Logical stage size; the DOM stage is CSS-scaled to fit, the canvas matches it 1:1. */
 export const STAGE_W = 960;
@@ -33,6 +33,8 @@ export interface Rect {
  * of ours covers it. So the TV lives outside the scaled stage, at 16:9 and never below 356×200.
  */
 const TV_MIN_W = 356;
+/** Twitch: "Embedded video windows must be at least 400x300 pixels" (research M2 §2.1) → 534×300 at 16:9. */
+const TWITCH_TV_MIN_W = 534;
 const TV_MAX_W = 560;
 /** Room for the TV's bezel, painted outside the player rect (`.ui-tv-frame`, border-image-outset). */
 const TV_BEZEL = 6;
@@ -55,9 +57,11 @@ export interface RoomLayout {
 
 const sidesFit = (r: Rect, side: number, width: number): boolean => r.x >= side && r.x + r.w + side <= width;
 
-export function roomLayout(containerWidth: number): RoomLayout {
+/** `provider`: the room's embed, for its minimum player size (ADR 0012; Twitch's is larger). */
+export function roomLayout(containerWidth: number, provider: Provider | null = null): RoomLayout {
   const width = Math.floor(containerWidth);
-  const tvW = Math.max(TV_MIN_W, Math.min(TV_MAX_W, width - 2 * TV_BEZEL));
+  const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
+  const tvW = Math.max(min, Math.min(TV_MAX_W, width - 2 * TV_BEZEL));
   const tv = { x: Math.max(0, Math.floor((width - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
   const controls = { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
   const scale = Math.min(1, width / STAGE_W);

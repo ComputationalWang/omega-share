@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
+
 import { TWITCH_LOAD_TIMEOUT_MS, TWITCH_SDK_URL, createTwitchLoader, type TwitchLoaderEnv } from "../src/player/twitch-loader";
+
+/** A constructor whose instances have none of the player's methods. */
+class NotAPlayer {
+  readonly kind = "not-a-player";
+}
 
 interface Timer {
   fn: () => void;
@@ -7,7 +13,7 @@ interface Timer {
   cleared: boolean;
 }
 
-function env(initial: unknown = undefined) {
+function env(initial?: unknown) {
   const g = { Twitch: initial };
   const scripts: { src: string; onLoad: () => void; onError: () => void }[] = [];
   const timers: Timer[] = [];
@@ -26,7 +32,7 @@ function env(initial: unknown = undefined) {
   return { e, g, scripts, timers };
 }
 
-const validTwitch = (): unknown => ({ Player: class {} });
+const validTwitch = (): unknown => ({ Player: NotAPlayer });
 
 describe("twitch loader", () => {
   test("injects the served v1.js once per page, however many callers", async () => {

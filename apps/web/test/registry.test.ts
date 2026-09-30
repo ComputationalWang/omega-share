@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Embed } from "@omega/shared";
-import { PLAYERS, createPlayerMounter, type AdapterFactory, type AdapterRegistry, type MountContext, type MountResult } from "../src/player/registry";
+import { PLAYERS, createPlayerMounter, type AdapterFactory, type AdapterRegistry, type MountContext } from "../src/player/registry";
 import { tvFrame } from "../src/tv";
 import { FakePlayer } from "./support/fake-player";
 

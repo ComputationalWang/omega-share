@@ -1,4 +1,4 @@
-import type { ClientMessage, PlaybackState } from "@omega/shared";
+import { playbackCaps, type ClientMessage, type PlaybackState, type Provider } from "@omega/shared";
 import { playerIntent, seekIntent, togglePlayIntent, type PlaybackTarget } from "../intents";
 import type { PlayerAdapter, PlayerError, PlayerEvent } from "../player/adapter";
 import { SYNC_INTERVAL_MS, createSyncLoop, expectedPosition, type SyncLoop } from "../sync";
@@ -23,8 +23,14 @@ export interface PlaybackView {
   readonly needsUnmute: boolean;
   /** This client's player is buffering or in an ad while the room plays. */
   readonly catching: boolean;
-  /** YouTube refused the video on this client (onError code). The transport is frozen; the site shows why. */
+  /** The provider refused the video on this client, or (offline) the channel is off air. The transport is frozen; the site shows why. */
   readonly error: PlayerError | null;
+  /** The room's embed provider, for the TV's nameplate; null without an embed. */
+  readonly provider: Provider | null;
+  /** A live stream: no position to share, so no scrubber; only pause / play-from-live (ADR 0014 §3). */
+  readonly live: boolean;
+  /** The provider can't set the rate, so drift is fixed by small jumps (the seek-only hint). */
+  readonly seekOnly: boolean;
 }
 
 /** What the controller needs of the clock-sync module (`ClockSync` fits). */
@@ -86,6 +92,9 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   let needsUnmute = false;
   let catchup: Catchup = NOT_CATCHING;
   let error: PlayerError | null = null;
+  let provider: Provider | null = null;
+  let live = false;
+  let seekOnly = false;
   let timer: Timer | null = null;
   let current: PlaybackView = {
     hasVideo: false,
@@ -98,6 +107,9 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     needsUnmute,
     catching: false,
     error,
+    provider,
+    live,
+    seekOnly,
   };
 
   const detach = (): void => {
@@ -117,17 +129,22 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     player.setVolume(muted ? 0 : volume);
   };
 
+  const startLoop = (p: PlayerAdapter): void => {
+    loop = createSyncLoop({ player: p, clock: o.clock, now: o.now, setInterval: o.setInterval, clearInterval: o.clearInterval });
+    loop.setPlayback(pb);
+  };
+
   const refresh = (): PlaybackView => {
     const refused = error !== null;
-    const duration = refused ? 0 : (player?.duration() ?? 0);
-    let position = pb === null || refused ? 0 : o.clock.ready ? expectedPosition(pb, o.clock.serverNow()) : pb.position;
+    const duration = refused || live ? 0 : (player?.duration() ?? 0);
+    let position = pb === null || refused || live ? 0 : o.clock.ready ? expectedPosition(pb, o.clock.serverNow()) : pb.position;
     if (duration > 0 && position > duration) position = duration;
     position = Math.floor(position);
     const c = current;
     const hasVideo = !refused && player?.ready() === true;
     const playing = !refused && (pb?.playing ?? false);
-    // Pausing a playing room needs the server clock for the position; playing a paused one doesn't.
-    const canControl = !refused && pb !== null && embedUrl !== null && (!pb.playing || o.clock.ready);
+    // Pausing a playing room needs the server clock for the position; playing a paused one doesn't. Live has no position.
+    const canControl = !refused && pb !== null && embedUrl !== null && (!pb.playing || live || o.clock.ready);
     if (
       c.hasVideo === hasVideo &&
       c.canControl === canControl &&
@@ -138,11 +155,14 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       c.muted === muted &&
       c.needsUnmute === needsUnmute &&
       c.catching === catchup.catching &&
-      c.error === error
+      c.error === error &&
+      c.provider === provider &&
+      c.live === live &&
+      c.seekOnly === seekOnly
     ) {
       return c;
     }
-    current = { hasVideo, canControl, playing, position, duration, volume, muted, needsUnmute, catching: catchup.catching, error };
+    current = { hasVideo, canControl, playing, position, duration, volume, muted, needsUnmute, catching: catchup.catching, error, provider, live, seekOnly };
     o.onView?.(current);
     return current;
   };
@@ -168,7 +188,11 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
         catchup = NOT_CATCHING;
         break;
       case "state":
-        return;
+        // Offline clears itself: the adapter reports a state again once the channel is back on air.
+        if (error?.reason !== "offline" || player === null) return;
+        error = null;
+        startLoop(player);
+        break;
     }
     refresh();
   };
@@ -189,6 +213,10 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       if (url !== embedUrl) {
         detach();
         embedUrl = url;
+        const caps = t.embed === null ? null : playbackCaps(t.embed);
+        provider = t.embed?.provider ?? null;
+        live = caps?.live === true;
+        seekOnly = caps !== null && !caps.live && caps.rate === "no";
       }
       const next = t.playback ?? null;
       if (next !== pb) {
@@ -204,21 +232,23 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       }
       detach();
       player = p;
-      loop = createSyncLoop({ player: p, clock: o.clock, now: o.now, setInterval: o.setInterval, clearInterval: o.clearInterval });
-      loop.setPlayback(pb);
+      startLoop(p);
       offPlayer = p.onEvent(onPlayer);
       if (p.ready()) applyVolume();
       refresh();
     },
     togglePlay() {
-      if (error !== null || pb === null || (pb.playing && !o.clock.ready)) return false;
+      if (error !== null || pb === null) return false;
+      // Live: pause / play-from-live only; the server ignores the position (messages.ts `control`).
+      if (live) return send(playerIntent(target, !pb.playing, 0));
+      if (pb.playing && !o.clock.ready) return false;
       const msg = togglePlayIntent(target, pb.playing ? o.clock.serverNow() : pb.at);
       // A room left "playing" after the video ended would otherwise pause past the end.
       const duration = player?.duration() ?? 0;
       return send(msg !== null && duration > 0 && msg.position > duration ? { ...msg, position: duration } : msg);
     },
     seek(position) {
-      if (error !== null) return false;
+      if (error !== null || live) return false;
       return send(seekIntent(target, position));
     },
     setVolume(v) {
