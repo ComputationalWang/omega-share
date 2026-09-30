@@ -141,8 +141,8 @@ test.describe("M1a acceptance", () => {
     await expect(p.locator(popup.shareButton)).toBeHidden();
   });
 
-  test("4b. direct POST of a non-YouTube URL → 400, room embed unchanged", async ({ browser, request }) => {
-    for (const url of ["https://vimeo.com/76979871", "https://www.youtube.com.evil.test/embed/aqz-KE-bpKQ", "javascript:alert(1)"]) {
+  test("4b. direct POST of a non-allowlisted URL → 400, room embed unchanged", async ({ browser, request }) => {
+    for (const url of ["https://clips.twitch.tv/SomeClipSlug", "https://vimeo.com/event/123", "https://www.youtube.com.evil.test/embed/aqz-KE-bpKQ", "javascript:alert(1)"]) {
       // The per-IP share limiter (5 burst, 1 per 3 s) runs before validation; wait out a 429 from earlier shares.
       let res = await request.post(SHARE_URL, { data: { url } });
       await expect
