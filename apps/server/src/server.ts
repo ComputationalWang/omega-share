@@ -17,7 +17,7 @@ import {
   type ShareErrorCode,
   type ShareResponse,
 } from "@omega/shared";
-import { KeyedLimiter, TokenBucket, addressKey, readBodyCapped } from "./rate-limit";
+import { KeyedLimiter, TokenBucket, clientKey, readBodyCapped } from "./rate-limit";
 import { Room } from "./room";
 import { mountSite } from "./static";
 
@@ -35,8 +35,12 @@ export interface ServerOptions {
   extensionIds?: readonly string[] | null;
   /** Sockets that have not joined within this are closed. Default 10 s. */
   joinTimeoutMs?: number;
-  /** Open WebSockets allowed per client address. Default 50. */
+  /** Key limits by the rightmost `X-Forwarded-For` entry when the peer is loopback (the tunnel agent). */
+  trustProxy?: boolean;
+  /** Open WebSockets allowed per client. Default 10 behind the proxy, 50 locally (the load test). */
   maxConnectionsPerIp?: number;
+  /** Open WebSockets allowed in total, whatever their clients. Default 200. */
+  maxConnections?: number;
 }
 
 interface ConnData {
@@ -82,7 +86,10 @@ const encode = (msg: ServerMessage): string => JSON.stringify(msg);
 
 export function startServer(opts: ServerOptions): Server<ConnData> {
   const joinTimeoutMs = opts.joinTimeoutMs ?? 10_000;
-  const maxConnectionsPerIp = opts.maxConnectionsPerIp ?? 50;
+  const trustProxy = opts.trustProxy ?? false;
+  const maxConnectionsPerIp = opts.maxConnectionsPerIp ?? (trustProxy ? 10 : 50);
+  const maxConnections = opts.maxConnections ?? 200;
+  let connections = 0;
   const rooms = new Map<string, Room>([[DEFAULT_ROOM_ID, new Room(DEFAULT_ROOM_ID)]]);
   const connectionsPerIp = new Map<string, number>();
   const shareLimiter = new KeyedLimiter(SHARE_BURST, SHARE_PER_SECOND);
@@ -100,8 +107,8 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     const origin = req.headers.get("origin");
     return origin === null || isAllowedOrigin(origin);
   };
-  /** The socket peer: expose the server directly, since behind a proxy every user shares one key (README). */
-  const ipOf = (req: Request): string => addressKey(server.requestIP(req)?.address ?? "unknown");
+  const ipOf = (req: Request): string =>
+    clientKey(server.requestIP(req)?.address ?? "unknown", req.headers.get("x-forwarded-for"), trustProxy);
 
   const app = new Hono();
   app.use("*", async (c, next) => {
@@ -260,6 +267,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       if (match === null) return app.fetch(req);
       const room = rooms.get(match[1] ?? "");
       if (room === undefined) return plain(404, "unknown room");
+      if (connections >= maxConnections) return plain(503, "server full");
       const ip = ipOf(req);
       const open = connectionsPerIp.get(ip) ?? 0;
       if (open >= maxConnectionsPerIp) return plain(429, "too many connections");
@@ -275,6 +283,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       };
       if (!srv.upgrade(req, { data })) return plain(426, "expected a WebSocket upgrade");
       connectionsPerIp.set(ip, open + 1);
+      connections++;
       return undefined;
     },
     websocket: {
@@ -298,6 +307,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       },
       close(ws) {
         clearJoinTimer(ws);
+        connections--;
         const left = (connectionsPerIp.get(ws.data.ip) ?? 1) - 1;
         if (left === 0) connectionsPerIp.delete(ws.data.ip);
         else connectionsPerIp.set(ws.data.ip, left);

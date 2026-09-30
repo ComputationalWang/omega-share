@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 /** Classic token bucket: `burst` tokens, refilled at `perSecond`. Allocation-free per call. */
 export class TokenBucket {
   private tokens: number;
@@ -70,6 +72,21 @@ export function addressKey(ip: string): string {
     .slice(0, 4)
     .map((g) => parseInt(g, 16).toString(16))
     .join(":") + "::/64";
+}
+
+const LOOPBACK_V4 = /^(?:::ffff:)?127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/i;
+const isLoopback = (ip: string): boolean => ip === "::1" || LOOPBACK_V4.test(ip);
+
+/**
+ * Rate-limit key for a request (ADR 0015 §5). `X-Forwarded-For` counts only with `trustProxy` and a
+ * loopback peer (the tunnel agent), and then only its rightmost entry: the tunnel appends it, so a
+ * client can't choose it. Anything else there shares one `proxy:unknown` bucket.
+ */
+export function clientKey(peer: string, forwardedFor: string | null, trustProxy: boolean): string {
+  if (!trustProxy || !isLoopback(peer)) return addressKey(peer);
+  // Headers.get joins repeated headers with ", ", so this is also the last header's last entry.
+  const last = forwardedFor?.slice(forwardedFor.lastIndexOf(",") + 1).trim() ?? "";
+  return isIP(last) === 0 ? "proxy:unknown" : addressKey(last);
 }
 
 /** Reads a request body as UTF-8, or returns null once it exceeds `maxBytes` (without buffering the rest). */
