@@ -26,6 +26,11 @@ describe("scripts/tunnel.sh (ADR 0015 §2)", () => {
     },
   );
 
+  test("refuses PORT=0 (ngrok can't point at it)", () => {
+    const r = Bun.spawnSync(["bash", SCRIPT, URL, "--dry-run"], { env: { PATH: process.env["PATH"] ?? "", PORT: "0" }, stdout: "pipe", stderr: "pipe" });
+    expect(r.exitCode).toBe(2);
+  });
+
   test("a dry run shows the loopback-only server and tunnel it would start", () => {
     const r = run(URL, "--dry-run");
     expect(r.code).toBe(0);

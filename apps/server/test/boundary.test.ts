@@ -184,6 +184,15 @@ describe("serving the built site on the same origin (STATIC_DIR)", () => {
     }
   });
 
+  test("a NUL byte in the path is a plain 404, not a 500 with a stack trace", async () => {
+    t = start({ staticDir: site() });
+    for (const path of ["/foo%00.txt", "/assets/x%00.js", "/r/%00"]) {
+      const res = await get(path);
+      expect(res.status).toBe(404);
+      expect(await res.text()).not.toContain("at ");
+    }
+  });
+
   test("the API and the WebSocket keep their routes, and the served page's origin may use them", async () => {
     t = start({ staticDir: site() });
     const self = `http://127.0.0.1:${port()}`;

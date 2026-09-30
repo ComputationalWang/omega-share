@@ -114,6 +114,23 @@ describe("share token lifecycle (ADR 0015 §7)", () => {
   });
 });
 
+describe("failed share attempts", () => {
+  test("a garbage-token flood from a client can't lock out a member sharing from the same address", async () => {
+    t = start();
+    const token = tokenOf((await join("alice")).snapshot);
+    for (let i = 0; i < 10; i++) await share({ token: "B".repeat(22) });
+    expect((await share({ token })).status).toBe(200);
+  });
+
+  test("but it is itself rate limited, so token guessing stays bounded", async () => {
+    t = start();
+    const statuses: number[] = [];
+    for (let i = 0; i < 40; i++) statuses.push((await share({ token: "B".repeat(22) })).status);
+    expect(statuses[0]).toBe(401);
+    expect(statuses.at(-1)).toBe(429);
+  });
+});
+
 describe("share limits behind the tunnel (T-10)", () => {
   const as = (xff: string, token: string): ShareInit => ({ token, headers: { "x-forwarded-for": xff } });
 
