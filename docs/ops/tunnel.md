@@ -54,4 +54,6 @@ Parsed at startup. A bad value exits non-zero with a message naming the variable
 | `STATIC_DIR` | unset | Built site to serve on the same origin. It must contain `index.html`. |
 | `EXTENSION_IDS` | unset (any id) | Comma-separated extension ids allowed as an `Origin`. |
 
-Limits behind the proxy: 10 sockets per client, 200 in total (503 past that). Shares: burst 5 then 1 per 3 s, per client and per member, and burst 20 then 2/s overall. `POST /rooms/:id/share` always needs the sharing member's `Authorization: Bearer <shareToken>`, which comes from their `snapshot`. Readiness: `GET /healthz`.
+Limits behind the proxy: 10 sockets per client, 200 in total (503 past that). Shares: burst 5 then 1 per 3 s, per client and per member, and burst 20 then 2/s overall. Unauthorized share attempts have their own per-client bucket (burst 20, 1/s), so token guessing can't use up a member's allowance.
+
+Assumptions to confirm against real ngrok ([OME-133](/OME/issues/OME-133)): ngrok *appends* the client address to `X-Forwarded-For` (so the rightmost entry is not client-controlled). If a tunnel sends no parseable address, every client falls into one `proxy:unknown` bucket: safe, but one noisy client then slows everyone. Set `EXTENSION_IDS` once the extension has a published id; until then any extension origin passes the `Origin` check (the share token is what authorizes a share). `POST /rooms/:id/share` always needs the sharing member's `Authorization: Bearer <shareToken>`, which comes from their `snapshot`. Readiness: `GET /healthz`.

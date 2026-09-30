@@ -75,6 +75,9 @@ const CONTROL_PER_SECOND = 4;
 /** Per client and per member: 5 shares at once, then one every 3 s. */
 const SHARE_BURST = 5;
 const SHARE_PER_SECOND = 1 / 3;
+/** Per client: unauthorized share attempts (bad or missing token). */
+const FAILED_SHARE_BURST = 20;
+const FAILED_SHARE_PER_SECOND = 1;
 /** All shares together, whatever the key (ADR 0015 §6): bounds many-address floods. */
 const GLOBAL_SHARE_BURST = 20;
 const GLOBAL_SHARE_PER_SECOND = 2;
@@ -89,7 +92,7 @@ const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   "content-security-policy": "frame-ancestors 'none'",
 };
 const plain = (status: number, text: string): Response => new Response(text, { status, headers: SECURITY_HEADERS });
-/** Any Chromium extension id. Pin to our published id once it exists (see README). */
+/** Any Chromium extension id, unless `extensionIds` (EXTENSION_IDS) pins the published ones. */
 const EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/;
 
 const encode = (msg: ServerMessage): string => JSON.stringify(msg);
@@ -112,6 +115,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   const connectionsPerIp = new Map<string, number>();
   const shareLimiter = new KeyedLimiter(SHARE_BURST, SHARE_PER_SECOND);
   const globalShares = new TokenBucket(GLOBAL_SHARE_BURST, GLOBAL_SHARE_PER_SECOND);
+  const failedShares = new KeyedLimiter(FAILED_SHARE_BURST, FAILED_SHARE_PER_SECOND);
   const shareGrants = new Map<ShareToken, ShareGrant>();
 
   // Filled in once Bun has picked the port (tests use port 0); no request arrives before that.
@@ -162,12 +166,17 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     };
     const room = rooms.get(c.req.param("id"));
     if (room === undefined) return fail(404, "room_not_found", "unknown room");
-    // Per client first, so token guessing burns only the guesser's bucket.
-    if (!shareLimiter.take(ipOf(c.req.raw))) return fail(429, "rate_limited", "too many shares, slow down");
+    const ip = ipOf(c.req.raw);
     const token = parseShareAuthorization(c.req.header("authorization"));
     const grant = token === null ? undefined : shareGrants.get(token);
-    if (grant?.room !== room) return fail(401, "unauthorized", "join the room to share into it");
-    if (!grant.bucket.take() || !globalShares.take()) return fail(429, "rate_limited", "too many shares, slow down");
+    // Failures have their own bucket, so guessing is bounded without locking out members on the same address.
+    if (grant?.room !== room) {
+      if (!failedShares.take(ip)) return fail(429, "rate_limited", "too many shares, slow down");
+      return fail(401, "unauthorized", "join the room to share into it");
+    }
+    if (!shareLimiter.take(ip) || !grant.bucket.take() || !globalShares.take()) {
+      return fail(429, "rate_limited", "too many shares, slow down");
+    }
     if (Number(c.req.header("content-length") ?? 0) > MAX_SHARE_BODY_BYTES) {
       return fail(413, "payload_too_large", "body too large");
     }

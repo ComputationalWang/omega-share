@@ -22,7 +22,7 @@ dry_run=0
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 port="${PORT:-8787}"
-[[ "$port" =~ ^[0-9]+$ ]] || usage
+[[ "$port" =~ ^[1-9][0-9]{0,4}$ ]] || usage
 static_dir="$root/apps/web/dist"
 server_env=(PUBLIC_ORIGIN="$public_url" TRUST_PROXY=loopback HOST=127.0.0.1 PORT="$port" STATIC_DIR="$static_dir")
 # Point ngrok at 127.0.0.1 explicitly: its default "localhost" may resolve to ::1 first.
@@ -43,11 +43,13 @@ env "${server_env[@]}" bun apps/server/src/index.ts &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true' EXIT INT TERM
 
-# Wait for readiness so the first visitor doesn't hit a dead tunnel.
+# Wait for readiness so the first visitor doesn't hit a dead tunnel; never go public without it.
+ready=0
 for _ in $(seq 1 50); do
-  curl -fsS -o /dev/null "http://127.0.0.1:$port/healthz" && break
+  if curl -fsS -o /dev/null "http://127.0.0.1:$port/healthz" 2>/dev/null; then ready=1; break; fi
   kill -0 "$server_pid" 2>/dev/null || { echo "server exited; see its error above" >&2; exit 1; }
   sleep 0.1
 done
+(( ready )) || { echo "server not ready on 127.0.0.1:$port after 5 s; not starting the tunnel" >&2; exit 1; }
 
 "${tunnel[@]}"

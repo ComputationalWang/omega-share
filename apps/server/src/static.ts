@@ -39,6 +39,8 @@ const files = (root: string, path?: string, cacheControl?: string) =>
  */
 export function mountSite(app: Hono, root: string): void {
   const index = files(root, "index.html", "no-cache");
+  // Bun.file throws on a NUL byte; answer 404 instead of a 500 and a logged stack.
+  app.use("*", (c, next) => (/%00|\0/.test(c.req.path) ? Promise.resolve(c.notFound()) : next()));
   // Vite content-hashes everything under /assets; a miss there is a 404, never the SPA shell.
   app.use("/assets/*", files(root, undefined, IMMUTABLE));
   app.all("/assets/*", (c) => c.notFound());
