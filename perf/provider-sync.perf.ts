@@ -85,9 +85,9 @@ test("sync: spread after pause/play-from-live, 8 clients, twitchLive", async ({ 
     for (let round = 0; round < ROUNDS; round++) {
       const pause = await measureLiveArrival(clients, "pause", () => a.page.locator(site.playToggle).click());
       await waitProviderPlaying(clients, c.provider, false);
-        const play = await measureLiveArrival(clients, "play", () => a.page.locator('[data-testid="to-live"]').click());
+      const play = await measureLiveArrival(clients, "play", () => a.page.locator('[data-testid="to-live"]').click());
       await waitProviderPlaying(clients, c.provider);
-        for (const [k, r] of [["pause", pause], ["play", play]] as const) {
+      for (const [k, r] of [["pause", pause], ["play", play]] as const) {
         worst[k] = { spreadMs: Math.max(worst[k].spreadMs, r.spreadMs), latencyMs: Math.max(worst[k].latencyMs, r.latencyMs) };
       }
     }
