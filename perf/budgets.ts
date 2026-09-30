@@ -21,6 +21,7 @@ export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
   { id: "site.frameP95", area: "Site", metric: "p95 frame time, 8 avatars + video", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
+  { id: "site.frameP95.vimeo", area: "Site", metric: "p95 frame time, 8 avatars + Vimeo video", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
   { id: "sync.spread", area: "Sync", metric: "Spread after play/pause/seek", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   { id: "server.relayLatency", area: "Server", metric: "Relay latency, control action", docMetric: "Relay latency for a control action, localhost", unit: "ms", limit: 50, comparator: "<=" },

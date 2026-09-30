@@ -17,7 +17,7 @@ const EMBED_HOSTS = new Set(["www.youtube.com", "www.youtube-nocookie.com"]);
 const FAKE_IFRAME_API = `(${installFakeYt.toString()})(window);`;
 // Fake Twitch and Vimeo SDKs (OME-121, research §7.1), served at the exact URLs the M2 CSP allows.
 const FAKE_TWITCH_SDK = `(${installFakeTwitch.toString()})(window);`;
-const FAKE_VIMEO_SDK = `(${installFakeVimeo.toString()})(window);`;
+export const FAKE_VIMEO_SDK = `(${installFakeVimeo.toString()})(window);`;
 const LOCAL = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 export async function stubExternalNetwork(context: BrowserContext): Promise<void> {
@@ -52,6 +52,24 @@ export async function stubExternalNetwork(context: BrowserContext): Promise<void
         return;
       }
       await route.fulfill({ contentType: "text/html", body: `<!doctype html><title>stub</title><p>stub for ${url.hostname}</p>` });
+    },
+  );
+}
+
+const REAL_VIMEO = join(FIXTURES, "vimeo-real-sdk");
+
+/**
+ * The real, pinned `@vimeo/player` (`fixtures/vimeo-real-sdk/player.js`, MIT) for `/api/player.js`, and a small Vimeo
+ * postMessage protocol stub (`embed.html`) for every other `player.vimeo.com` URL (OME-164). Call after
+ * `stubExternalNetwork`: later routes win.
+ */
+export async function serveRealVimeoSdk(context: BrowserContext): Promise<void> {
+  await context.route(
+    (url) => url.protocol === "https:" && url.hostname === "player.vimeo.com",
+    async (route) => {
+      const sdk = new URL(route.request().url()).pathname === "/api/player.js";
+      const body = readFileSync(join(REAL_VIMEO, sdk ? "player.js" : "embed.html"), "utf8");
+      await route.fulfill({ contentType: sdk ? "text/javascript" : "text/html", body });
     },
   );
 }

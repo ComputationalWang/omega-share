@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset="utf-8"><title>QA Vimeo protocol stub</title></head><body style="margin:0;background:#000">
+<script>
+// Minimal player.vimeo.com side of the Vimeo postMessage protocol, driven by the real pinned player.js (OME-164).
+// window.__methods: every method call received. window.__emit(event): post that event to the parent, as the player would.
+const id = Number(location.pathname.split("/")[2]);
+let t = 0, playing = false, rate = 1, last = performance.now();
+const cur = () => (playing ? t + ((performance.now() - last) / 1000) * rate : t);
+const send = (o) => parent.postMessage(JSON.stringify(o), "*");
+const data = () => ({ seconds: cur(), duration: 600, percent: cur() / 600 });
+window.__methods = [];
+window.__emit = (event) => send({ event, data: data() });
+addEventListener("message", (e) => {
+  let m = e.data;
+  if (typeof m === "string") { try { m = JSON.parse(m); } catch { return; } }
+  if (!m || !m.method) return;
+  window.__methods.push(m.method);
+  const reply = (value) => send({ method: m.method, value });
+  switch (m.method) {
+    case "ping": send({ event: "ready" }); return;
+    case "addEventListener": case "removeEventListener": return;
+    case "getVideoId": reply(id); return;
+    case "getDuration": reply(600); return;
+    case "getCurrentTime": reply(cur()); return;
+    case "setPlaybackRate": rate = m.value; reply(m.value); send({ event: "playbackratechange", data: { playbackRate: rate } }); return;
+    case "play": t = cur(); last = performance.now(); playing = true; reply(); send({ event: "play", data: data() }); send({ event: "playing", data: data() }); return;
+    case "pause": t = cur(); playing = false; reply(); send({ event: "pause", data: data() }); return;
+    case "setCurrentTime": t = m.value; last = performance.now(); reply(m.value); send({ event: "seeked", data: data() }); return;
+    default: reply(undefined);
+  }
+});
+setInterval(() => { if (playing) send({ event: "timeupdate", data: data() }); }, 250);
+send({ event: "ready" });
+</script></body></html>

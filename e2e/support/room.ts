@@ -15,13 +15,16 @@ export interface JoinOptions {
   readonly roomUrl: string;
   readonly count: number;
   readonly nicknamePrefix?: string;
+  /** Runs on each new context after the network stub and before the page opens, e.g. to add routes (later routes win). */
+  readonly setup?: (context: BrowserContext, index: number) => Promise<void>;
 }
 
-export async function joinRoom(browser: Browser, { roomUrl, count, nicknamePrefix = "tester" }: JoinOptions): Promise<Client[]> {
+export async function joinRoom(browser: Browser, { roomUrl, count, nicknamePrefix = "tester", setup }: JoinOptions): Promise<Client[]> {
   return Promise.all(
     Array.from({ length: count }, async (_, i) => {
       const context = await browser.newContext();
       await stubExternalNetwork(context);
+      await setup?.(context, i);
       const page = await context.newPage();
       await page.goto(roomUrl);
       const nickname = `${nicknamePrefix}-${String(i + 1)}`;

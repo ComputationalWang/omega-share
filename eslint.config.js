@@ -1,7 +1,7 @@
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["eslint.config.js", ".claude/**", "graft/**", "**/dist/**", "**/.output/**", "**/.wxt/**", "**/node_modules/**", "company/**", "playwright-report/**", "test-results/**"] },
+  { ignores: ["eslint.config.js", ".claude/**", "graft/**", "**/dist/**", "**/.output/**", "**/.wxt/**", "**/node_modules/**", "company/**", "playwright-report/**", "test-results/**", "e2e/fixtures/vimeo-real-sdk/player.js"] },
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
   {

@@ -2,6 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { joinRoom, leaveAll } from "../e2e/support/room";
+import { joinForToken, postShare } from "../e2e/support/share";
+import { site } from "../e2e/support/selectors";
 import { VSYNC_MS, frameTimes } from "./frames";
 import { recordMetric } from "./metrics";
 import { summarizeFrames } from "./spread";
@@ -60,6 +62,37 @@ test("site: p95 frame time with 8 avatars and video playing", async ({ browser, 
     expect(samples.length).toBeGreaterThan(0);
     const f = summarizeFrames(samples, VSYNC_MS);
     recordMetric({ id: "site.frameP95", value: f.p95, note: `${f.note}; video playing (fake player)` });
+  } finally {
+    await leaveAll(clients);
+  }
+});
+
+// OME-164: the same budget with a Vimeo embed playing on the fake SDK (OME-121), through the real Vimeo adapter.
+test("site: p95 frame time with 8 avatars and a Vimeo video playing", async ({ browser, request }) => {
+  if (!available.web || !available.server) {
+    recordMetric({ id: "site.frameP95.vimeo", pending: available.web ? PENDING.server : PENDING.web });
+    return;
+  }
+  test.setTimeout(120_000);
+  const sharer = await joinForToken(DEFAULT_ROOM_ID, "vimeo-sharer");
+  try {
+    expect((await postShare(request, DEFAULT_ROOM_ID, sharer.token, "https://vimeo.com/76979871")).status()).toBe(200);
+  } finally {
+    sharer.close();
+  }
+  const clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${DEFAULT_ROOM_ID}`, count: 8, nicknamePrefix: "fps-vimeo" });
+  try {
+    const [observer] = clients;
+    if (!observer) throw new Error("no clients");
+    for (const c of clients) {
+      await expect(c.page.locator(site.sharedVideo)).toBeVisible({ timeout: 15_000 });
+      await expect.poll(() => c.page.evaluate(() => window.__fakeVimeo?.paused ?? null), { timeout: 15_000 }).toBe(false);
+    }
+    const samples = await frameTimes(observer.page, 5000);
+    expect(await observer.page.evaluate(() => window.__fakeVimeo?.paused)).toBe(false);
+    expect(samples.length).toBeGreaterThan(0);
+    const f = summarizeFrames(samples, VSYNC_MS);
+    recordMetric({ id: "site.frameP95.vimeo", value: f.p95, note: `${f.note}; Vimeo playing (fake SDK)` });
   } finally {
     await leaveAll(clients);
   }
