@@ -18,6 +18,7 @@ function pb(over: Partial<PlaybackState> = {}): PlaybackState {
 function harness(playerOpts: Omit<Partial<FakePlayerOptions>, "now"> = {}) {
   const t = { now: 0 };
   const sent: ClientMessage[] = [];
+  const net = { up: true };
   const views: PlaybackView[] = [];
   const clock = { ready: true, ticks: 0, serverNow: () => t.now + SERVER_OFFSET, tick: () => {
       clock.ticks++;
@@ -26,6 +27,7 @@ function harness(playerOpts: Omit<Partial<FakePlayerOptions>, "now"> = {}) {
   const timers: { fn: () => void; cleared: boolean }[] = [];
   const c = createPlaybackController({
     send: (m) => {
+      if (!net.up) return false;
       sent.push(m);
       return true;
     },
@@ -50,7 +52,7 @@ function harness(playerOpts: Omit<Partial<FakePlayerOptions>, "now"> = {}) {
     }
   };
   const room = (videoId: string, playback: PlaybackState | null): PlaybackTarget => ({ embed: embedOf(videoId), playback });
-  return { t, sent, views, clock, timers, c, player, run, room };
+  return { t, sent, net, views, clock, timers, c, player, run, room };
 }
 
 describe("personal volume is local only", () => {
@@ -449,5 +451,70 @@ describe("an offline channel clears itself (research M2 §2.1)", () => {
     h.player.emit({ type: "error", reason: "refused", code: "150" });
     h.player.emit({ type: "state", state: "playing" });
     expect(h.c.view().error).toEqual({ reason: "refused", code: "150" });
+  });
+});
+
+describe("my catching-up status goes to the room (OME-214, ADR 0019)", () => {
+  const statuses = (sent: readonly ClientMessage[]) => sent.filter((m) => m.type === "status");
+  const catchingHarness = () => {
+    const h = harness({ state: "playing", position: 10 });
+    h.c.setRoom(h.room(VIDEO, pb({ position: 10, at: SERVER_OFFSET })));
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    h.run(500);
+    return h;
+  };
+
+  test("sends status only when catching changes: once on, once off", () => {
+    const h = catchingHarness();
+    h.player.setState("buffering");
+    h.run(CATCHUP_SHOW_MS + SYNC_INTERVAL_MS);
+    expect(statuses(h.sent)).toEqual([{ type: "status", catching: true }]);
+    h.run(5 * SYNC_INTERVAL_MS);
+    expect(statuses(h.sent)).toHaveLength(1);
+    h.player.setState("playing");
+    h.run(5 * SYNC_INTERVAL_MS);
+    expect(statuses(h.sent)).toEqual([
+      { type: "status", catching: true },
+      { type: "status", catching: false },
+    ]);
+  });
+
+  test("a stall shorter than CATCHUP_SHOW_MS sends nothing", () => {
+    const h = catchingHarness();
+    h.player.setState("buffering");
+    h.run(SYNC_INTERVAL_MS);
+    h.player.setState("playing");
+    h.run(CATCHUP_SHOW_MS * 2);
+    expect(statuses(h.sent)).toEqual([]);
+  });
+
+  test("a send that didn't go out is retried on a later tick", () => {
+    const h = catchingHarness();
+    h.net.up = false;
+    h.player.setState("buffering");
+    h.run(CATCHUP_SHOW_MS + SYNC_INTERVAL_MS);
+    expect(statuses(h.sent)).toEqual([]);
+    h.net.up = true;
+    h.run(SYNC_INTERVAL_MS);
+    expect(statuses(h.sent)).toEqual([{ type: "status", catching: true }]);
+  });
+
+  test("after a fresh join the server knows nothing, so a catching client says so again", () => {
+    const h = catchingHarness();
+    h.player.setState("buffering");
+    h.run(CATCHUP_SHOW_MS + SYNC_INTERVAL_MS);
+    h.c.joined();
+    h.run(SYNC_INTERVAL_MS);
+    expect(statuses(h.sent)).toEqual([
+      { type: "status", catching: true },
+      { type: "status", catching: true },
+    ]);
+  });
+
+  test("a fresh join while not catching sends nothing", () => {
+    const h = catchingHarness();
+    h.c.joined();
+    h.run(SYNC_INTERVAL_MS * 4);
+    expect(statuses(h.sent)).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Member, RoomState, ServerMessage } from "@omega/shared";
 import type { PlaybackState } from "@omega/shared";
-import { BUBBLE_MS, CHAT_COOLDOWN_DEFAULT_MS, MAX_SYSLINES, SYSLINE_MS, coolingDown, initialState, nextExpiry, reduce, screen, type ViewState } from "../src/state";
+import { BUBBLE_MS, CHAT_COOLDOWN_DEFAULT_MS, MAX_SYSLINES, SYSLINE_MS, catchingUp, coolingDown, initialState, nextExpiry, reduce, screen, type ViewState } from "../src/state";
 
 const alice: Member = { id: "a", nickname: "alice", avatar: 0 };
 const bob: Member = { id: "b", nickname: "bob", avatar: 1 };
@@ -285,5 +285,55 @@ describe("chat cooldown after rate_limited", () => {
   test("no cooldown by default", () => {
     expect(coolingDown(joined(), 0)).toBe(false);
     expect(nextExpiry(joined())).toBeNull();
+  });
+});
+
+describe("other members catching up (ADR 0019)", () => {
+  test("a snapshot with a catching member shows them catching; absent means not", () => {
+    const s = joined(room({ members: [alice, { ...bob, catching: true }, { ...carol, catching: false }] }));
+    expect(catchingUp(s, "b")).toBe(true);
+    expect(catchingUp(s, "c")).toBe(false);
+    expect(catchingUp(s, "a")).toBe(false);
+  });
+
+  test("member-status toggles a member on and off without touching members or seats", () => {
+    const before = joined();
+    const on = server(before, { type: "member-status", memberId: "b", catching: true });
+    expect(catchingUp(on, "b")).toBe(true);
+    expect(on.room?.members).toBe(before.room?.members);
+    expect(on.room?.seats).toBe(before.room?.seats);
+    const off = server(on, { type: "member-status", memberId: "b", catching: false });
+    expect(catchingUp(off, "b")).toBe(false);
+  });
+
+  test("a repeated member-status changes nothing", () => {
+    const on = server(joined(), { type: "member-status", memberId: "b", catching: true });
+    expect(server(on, { type: "member-status", memberId: "b", catching: true })).toBe(on);
+    const s = joined();
+    expect(server(s, { type: "member-status", memberId: "b", catching: false })).toBe(s);
+  });
+
+  test("member-status for someone not in the room is ignored", () => {
+    const s = joined();
+    expect(server(s, { type: "member-status", memberId: "zzz", catching: true })).toBe(s);
+  });
+
+  test("a member who joins already catching shows it", () => {
+    const s = server(joined(), { type: "member-joined", member: { ...carol, catching: true } });
+    expect(catchingUp(s, "c")).toBe(true);
+  });
+
+  test("a catching member who leaves is forgotten, even if they come back", () => {
+    let s = server(joined(), { type: "member-status", memberId: "b", catching: true });
+    s = server(s, { type: "member-left", memberId: "b" });
+    expect(catchingUp(s, "b")).toBe(false);
+    s = server(s, { type: "member-joined", member: bob });
+    expect(catchingUp(s, "b")).toBe(false);
+  });
+
+  test("a new snapshot replaces what we knew", () => {
+    let s = server(joined(), { type: "member-status", memberId: "b", catching: true });
+    s = server(s, { type: "snapshot", self: "a", room: room() });
+    expect(catchingUp(s, "b")).toBe(false);
   });
 });
