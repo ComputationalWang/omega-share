@@ -67,7 +67,7 @@ function browserSocket(url: string): SocketLike {
   };
   ws.onopen = () => s.onopen?.();
   ws.onmessage = (ev: MessageEvent<unknown>) => s.onmessage?.({ data: ev.data });
-  ws.onclose = () => s.onclose?.();
+  ws.onclose = (ev) => s.onclose?.({ code: ev.code });
   ws.onerror = () => s.onerror?.();
   return s;
 }
