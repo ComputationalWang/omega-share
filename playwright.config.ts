@@ -30,10 +30,11 @@ export default defineConfig({
     // The smoke joins them: in parallel with acceptance's shares it saw another spec's state land between A's pause and B's poll (OME-154).
     // The Vimeo suite re-shares the lobby with a Vimeo video in every case, so it joins them too (OME-164).
     // So do the provider sync and share-from-extension suites (OME-131).
-    { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", testIgnore: ["**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts", "**/tunnel*.e2e.ts"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", testIgnore: ["**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts", "**/tunnel*.e2e.ts", "**/abuse.e2e.ts"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     { name: "e2e-sync", testDir: "e2e", testMatch: ["**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts"], workers: 1, dependencies: ["e2e"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     // Tunnel safety (OME-132): its own tunnel-mode server behind a local TLS proxy on fixed ports, so one worker.
-    { name: "e2e-tunnel", testDir: "e2e", testMatch: "**/tunnel*.e2e.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    // The M3 abuse suite (OME-191) runs here too, on a lane of its own so its spent limits never reach the tunnel specs.
+    { name: "e2e-tunnel", testDir: "e2e", testMatch: ["**/tunnel*.e2e.ts", "**/abuse.e2e.ts"], workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     // Opt-in real sign-off checks: YouTube (OME-91, docs/qa/m1b-real-youtube.md), Twitch/Vimeo/tunnel (OME-133, docs/qa/m2-real-sign-off.md).
     // Real network, headed, never in CI. `bun run e2e:real` runs it on a virtual display via e2e/support/headed.ts (OME-210, docs/qa/headed-on-xvfb.md).
     { name: "e2e-real", testDir: "e2e/real", testMatch: "**/*.real.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium", headless: false, launchOptions: { args: [AUTOPLAY_DEFAULT] } } },

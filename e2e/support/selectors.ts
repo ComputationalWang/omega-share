@@ -20,6 +20,11 @@ export const site = {
   sharedVideo: id("shared-video"),
   nicknameTag: id("nickname-tag"),
   roomFull: id("room-full"),
+  // M3 safety states (OME-189): a refused join (`data-code` is the refusal) and the connection line.
+  roomRefused: id("room-refused"),
+  roomRefusedAction: id("room-refused-action"),
+  connectionStatus: id("connection-status"),
+  chatSend: id("chat-send"),
   roomNotice: id("room-notice"),
   // Set (e) playback chrome (OME-89).
   playToggle: id("play-toggle"),
