@@ -10,7 +10,7 @@ import { chromium } from "@playwright/test";
 import { expect, test, watchCsp } from "../support/csp";
 import type { Browser, Page } from "@playwright/test";
 import type { PlaybackView } from "../../apps/web/src/controls/playback";
-import { BURST_FAST, BURST_SLOW, initialRateMode, nextRateMode } from "../../apps/web/src/sync";
+import { BURST_FAST, BURST_SLOW, initialRateMode, MAX_NUDGE, nextRateMode, SEEK_THRESHOLD_MS, STABLE_MS, SYNC_INTERVAL_MS } from "../../apps/web/src/sync";
 import { URLS } from "../support/apps";
 import { site } from "../support/selectors";
 import {
@@ -329,13 +329,29 @@ test("6 · buffering under Slow 4G doesn't pause the room; the slow client catch
     }
     const throttled = await spreadOver(fa, fb, 8, 250);
     for (const s of sessions) await s.send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
-    await b.page.waitForTimeout(8_000);
-    const recovered = await spreadOver(fa, fb, 8, 250);
+    // A residual under the seek threshold is only nudged, at ≤ MAX_NUDGE (100 ms/s), so a stall late in the throttled
+    // window can leave ~1 s to close after the rebuffer (OME-225: -688 ms 8 s in, shrinking 112 ms/s). Budget: 8 s to
+    // rebuffer and land any seek, then the stable/median wait, then nudging from the threshold down to 500 ms.
+    const recoverWithinMs = 8_000 + STABLE_MS + 3 * SYNC_INTERVAL_MS + (SEEK_THRESHOLD_MS - 500) / MAX_NUDGE;
+    const tUnthrottled = Date.now();
+    const windows: { t: number; maxAbsMs: number; samplesMs: number[] }[] = [];
+    let recovered: { maxAbsMs: number; samplesMs: number[] } | null = null;
+    while (Date.now() - tUnthrottled < recoverWithinMs) {
+      const t = Date.now() - tUnthrottled;
+      const w = await spreadOver(fa, fb, 4, 250);
+      windows.push({ t, ...w });
+      // Every sample counts: a paused or ad sample is dropped by spreadOver and must not pass as "in sync".
+      if (w.samplesMs.length === 4 && w.maxAbsMs < 500) {
+        recovered = w;
+        break;
+      }
+    }
+    const recoveredAfterMs = recovered === null ? null : Date.now() - tUnthrottled;
     await shot(b.page, "06-slow4g");
     const caught = trace.filter((x) => x.slowCatching === true).length;
-    record("06-slow4g", { conditions, roomAlwaysPlaying: trace.every((x) => x.roomPlaying === true), catchingSamples: caught, throttled, recovered, trace });
+    record("06-slow4g", { conditions, roomAlwaysPlaying: trace.every((x) => x.roomPlaying === true), catchingSamples: caught, throttled, recoverWithinMs, recoveredAfterMs, recovered, windows, trace });
     expect(trace.every((x) => x.roomPlaying === true), "room never paused").toBe(true);
-    expect(recovered.maxAbsMs).toBeLessThan(500);
+    expect(recovered, `the slow client is back within 500 ms of the room inside ${String(recoverWithinMs)} ms of unthrottling`).not.toBeNull();
   } finally {
     await closeAll(a.context, b.context);
   }
