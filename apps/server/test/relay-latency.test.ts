@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { MAX_ROOM_MEMBERS } from "@omega/shared";
 import { measureRelayLatency } from "../src/relay-latency";
-import { start, type TestServer } from "./helpers";
+import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 /** docs/perf-budgets.md: relay latency for a control action, localhost. */
 const BUDGET_MS = 50;
@@ -29,12 +29,14 @@ test(`relay latency with a full room of ${String(MAX_ROOM_MEMBERS)} stays within
 });
 
 test(`control → playback relay with a full room stays within ${String(BUDGET_MS)} ms at p95`, async () => {
-  const res = await fetch(`${t.http}/rooms/lobby/share`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }),
+  // Share as a member who then leaves, so the probe can fill the room.
+  const sharer = await Client.join(t.ws(), "sharer");
+  const res = await postShare(t, JSON.stringify({ url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }), {
+    token: tokenOf(sharer.snapshot),
   });
   expect(res.status).toBe(200);
+  sharer.client.close();
+  await sharer.client.closed;
   const result = await measureRelayLatency({ url: t.ws(), clients: MAX_ROOM_MEMBERS, samples: 50, action: "control" });
   expect(result.action).toBe("control");
   expect(result.samples).toBe(50);

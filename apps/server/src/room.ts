@@ -59,10 +59,10 @@ export class Room {
     return "ok";
   }
 
-  /** Sets the embed and restarts playback at 0 (or clears it); returns the new playback. */
-  setEmbed(embed: Embed | null): PlaybackState | null {
+  /** Sets the embed and restarts playback at 0 (or clears it); returns the new playback. `by` is the sharer. */
+  setEmbed(embed: Embed | null, by: MemberId | null = null): PlaybackState | null {
     this.embed = embed;
-    this.playback = embed === null ? null : loadPlayback(this.rev, Date.now());
+    this.playback = embed === null ? null : loadPlayback(this.rev, Date.now(), by);
     if (this.playback !== null) this.rev = this.playback.rev;
     return this.playback;
   }

@@ -43,16 +43,21 @@ describe("share token lifecycle (ADR 0015 §7)", () => {
   });
 
   test("no token, or a malformed Authorization header, is 401 unauthorized with no broadcast (T-01, T-15)", async () => {
-    t = start();
+    // Distinct forwarded clients, so the per-client share bucket doesn't trip first.
+    t = start({ trustProxy: true });
     const a = await join("alice");
     const token = tokenOf(a.snapshot);
-    const headers = [`Basic ${token}`, `Bearer ${token} `, `Bearer  ${token}`, `Bearer ${token}x`, "Bearer", token];
-    const responses = [await share(), ...(await Promise.all(headers.map((authorization) => share({ headers: { authorization } }))))];
+    const auth = ["", `Basic ${token}`, `Bearer  ${token}`, `Bearer ${token}x`, "Bearer", token];
+    const responses = await Promise.all(
+      auth.map((authorization, i) =>
+        share({ headers: { "x-forwarded-for": `198.51.100.${String(i)}`, ...(authorization === "" ? {} : { authorization }) } }),
+      ),
+    );
     for (const res of responses) {
       expect(res.status).toBe(401);
       expect(await errorCode(res)).toBe("unauthorized");
     }
-    const unknown = await share({ token: "A".repeat(22) });
+    const unknown = await share({ token: "A".repeat(22), headers: { "x-forwarded-for": "198.51.100.99" } });
     expect(unknown.status).toBe(401);
     await a.client.none("embed-changed");
   });

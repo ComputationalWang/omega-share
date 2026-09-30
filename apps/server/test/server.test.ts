@@ -48,8 +48,8 @@ describe("POST /rooms/:id/share", () => {
     expect(changed).toMatchObject({ type: "embed-changed", embed: CANONICAL, by: snapshot.self });
     expect(changed.playback).toMatchObject({ playing: true, position: 0, action: "load", by: snapshot.self });
 
-    const { snapshot } = await join("bob");
-    expect(snapshot.room.embed).toEqual(CANONICAL);
+    const bob = await join("bob");
+    expect(bob.snapshot.room.embed).toEqual(CANONICAL);
   });
 
   test("rejects a URL off the provider allowlist with 400 and no broadcast", async () => {

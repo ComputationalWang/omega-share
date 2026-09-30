@@ -9,6 +9,8 @@ import {
   ShareRequestSchema,
   canonicalizeEmbed,
   parseClientMessage,
+  parseShareAuthorization,
+  type RoomId,
   type ClientMessage,
   type ErrorCode,
   type MemberId,
@@ -16,6 +18,7 @@ import {
   type ServerMessage,
   type ShareErrorCode,
   type ShareResponse,
+  type ShareToken,
 } from "@omega/shared";
 import { KeyedLimiter, TokenBucket, clientKey, readBodyCapped } from "./rate-limit";
 import { Room } from "./room";
@@ -41,12 +44,16 @@ export interface ServerOptions {
   maxConnectionsPerIp?: number;
   /** Open WebSockets allowed in total, whatever their clients. Default 200. */
   maxConnections?: number;
+  /** Rooms that exist. Default: just the lobby. */
+  rooms?: readonly RoomId[];
 }
 
 interface ConnData {
   room: Room;
   ip: string;
   memberId: MemberId | null;
+  /** Authorizes this member's shares while joined; only ever sent to this socket. */
+  shareToken: ShareToken | null;
   bucket: TokenBucket;
   /** Already told this socket it is rate limited; stay quiet until it slows down. */
   limited: boolean;
@@ -65,9 +72,12 @@ const WS_PER_SECOND = 10;
 /** Per socket, `control` only: 4/s (docs/research/m1b-youtube-sync.md §6). */
 const CONTROL_BURST = 4;
 const CONTROL_PER_SECOND = 4;
-/** Per address: 5 shares at once, then one every 3 s. */
+/** Per client and per member: 5 shares at once, then one every 3 s. */
 const SHARE_BURST = 5;
 const SHARE_PER_SECOND = 1 / 3;
+/** All shares together, whatever the key (ADR 0015 §6): bounds many-address floods. */
+const GLOBAL_SHARE_BURST = 20;
+const GLOBAL_SHARE_PER_SECOND = 2;
 const WS_PATH = /^\/rooms\/([^/]+)\/ws$/;
 /**
  * On every response. The header CSP carries only `frame-ancestors` (a `<meta>` CSP can't); header and
@@ -83,6 +93,14 @@ const plain = (status: number, text: string): Response => new Response(text, { s
 const EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/;
 
 const encode = (msg: ServerMessage): string => JSON.stringify(msg);
+/** 16 random bytes, base64url without padding: 22 chars (ADR 0015). */
+const mintShareToken = (): ShareToken => Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64url");
+
+interface ShareGrant {
+  room: Room;
+  memberId: MemberId;
+  bucket: TokenBucket;
+}
 
 export function startServer(opts: ServerOptions): Server<ConnData> {
   const joinTimeoutMs = opts.joinTimeoutMs ?? 10_000;
@@ -90,9 +108,11 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   const maxConnectionsPerIp = opts.maxConnectionsPerIp ?? (trustProxy ? 10 : 50);
   const maxConnections = opts.maxConnections ?? 200;
   let connections = 0;
-  const rooms = new Map<string, Room>([[DEFAULT_ROOM_ID, new Room(DEFAULT_ROOM_ID)]]);
+  const rooms = new Map<string, Room>((opts.rooms ?? [DEFAULT_ROOM_ID]).map((id) => [id, new Room(id)]));
   const connectionsPerIp = new Map<string, number>();
   const shareLimiter = new KeyedLimiter(SHARE_BURST, SHARE_PER_SECOND);
+  const globalShares = new TokenBucket(GLOBAL_SHARE_BURST, GLOBAL_SHARE_PER_SECOND);
+  const shareGrants = new Map<ShareToken, ShareGrant>();
 
   // Filled in once Bun has picked the port (tests use port 0); no request arrives before that.
   const allowedHosts = new Set<string>();
@@ -136,13 +156,18 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   });
 
   app.post("/rooms/:id/share", async (c) => {
-    const fail = (status: 400 | 404 | 413 | 429, code: ShareErrorCode, message: string) => {
+    const fail = (status: 400 | 401 | 404 | 413 | 429, code: ShareErrorCode, message: string) => {
       const body: ShareResponse = { ok: false, error: { code, message } };
       return c.json(body, status);
     };
     const room = rooms.get(c.req.param("id"));
     if (room === undefined) return fail(404, "room_not_found", "unknown room");
+    // Per client first, so token guessing burns only the guesser's bucket.
     if (!shareLimiter.take(ipOf(c.req.raw))) return fail(429, "rate_limited", "too many shares, slow down");
+    const token = parseShareAuthorization(c.req.header("authorization"));
+    const grant = token === null ? undefined : shareGrants.get(token);
+    if (grant?.room !== room) return fail(401, "unauthorized", "join the room to share into it");
+    if (!grant.bucket.take() || !globalShares.take()) return fail(429, "rate_limited", "too many shares, slow down");
     if (Number(c.req.header("content-length") ?? 0) > MAX_SHARE_BODY_BYTES) {
       return fail(413, "payload_too_large", "body too large");
     }
@@ -160,8 +185,8 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     const embed = canonicalizeEmbed(parsed.output.url);
     if (embed === null) return fail(400, "unsupported_url", "not a supported video URL");
 
-    const playback = room.setEmbed(embed);
-    server.publish(room.topic, encode({ type: "embed-changed", embed, by: null, playback }));
+    const playback = room.setEmbed(embed, grant.memberId);
+    server.publish(room.topic, encode({ type: "embed-changed", embed, by: grant.memberId, playback }));
     const body: ShareResponse = { ok: true, embed };
     return c.json(body);
   });
@@ -185,6 +210,8 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
 
   const depart = (ws: Conn, memberId: MemberId, closing: boolean): void => {
     ws.data.memberId = null;
+    if (ws.data.shareToken !== null) shareGrants.delete(ws.data.shareToken);
+    ws.data.shareToken = null;
     ws.data.room.leave(memberId);
     if (!closing) ws.unsubscribe(ws.data.room.topic);
     server.publish(ws.data.room.topic, encode({ type: "member-left", memberId }));
@@ -210,7 +237,10 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       }
       clearJoinTimer(ws);
       ws.data.memberId = member.id;
-      ws.send(encode({ type: "snapshot", self: member.id, room: room.snapshot() }));
+      const shareToken = mintShareToken();
+      ws.data.shareToken = shareToken;
+      shareGrants.set(shareToken, { room, memberId: member.id, bucket: new TokenBucket(SHARE_BURST, SHARE_PER_SECOND) });
+      ws.send(encode({ type: "snapshot", self: member.id, room: room.snapshot(), shareToken }));
       ws.subscribe(room.topic);
       ws.publish(room.topic, encode({ type: "member-joined", member }));
       return;
@@ -275,6 +305,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
         room,
         ip,
         memberId: null,
+        shareToken: null,
         bucket: new TokenBucket(WS_BURST, WS_PER_SECOND),
         limited: false,
         controlBucket: new TokenBucket(CONTROL_BURST, CONTROL_PER_SECOND),

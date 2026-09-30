@@ -13,9 +13,9 @@ const SEEK_THRESHOLD_S = 1;
 
 const clamp = (s: number): number => Math.min(MAX_POSITION_S, Math.max(0, s));
 
-/** The `load` state of a freshly shared embed. `prevRev` is the room's last rev (-1 if none). */
-export function loadPlayback(prevRev: number, now: number): PlaybackState {
-  return { playing: true, position: 0, rate: 1, at: now, rev: prevRev + 1, action: "load", by: null };
+/** The `load` state of a freshly shared embed. `prevRev` is the room's last rev (-1 if none); `by` is the sharer. */
+export function loadPlayback(prevRev: number, now: number, by: MemberId | null = null): PlaybackState {
+  return { playing: true, position: 0, rate: 1, at: now, rev: prevRev + 1, action: "load", by };
 }
 
 /** Where the video should be at server time `now`. */
