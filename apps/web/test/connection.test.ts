@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { CLOSE_CODES, RATE_LIMITED_RECONNECT_MS, type ServerMessage } from "@omega/shared";
-import { HANDSHAKE_TIMEOUT_MS, createConnection, type ConnectionEvent, type SocketLike } from "../src/connection";
+import { HANDSHAKE_TIMEOUT_MS, REFUSED_RETRY_BUDGET_MS, createConnection, type ConnectionEvent, type SocketLike } from "../src/connection";
 
 class FakeSocket implements SocketLike {
   sent: string[] = [];
@@ -289,6 +289,68 @@ describe("refused joins and rate_limited (ADR 0016 §4)", () => {
       c.resume();
       expect(sockets).toHaveLength(1);
       expect(c.send({ type: "sit", seat: 0 })).toBe(false);
+    });
+  }
+
+  for (const code of ["nickname_taken", "too_many_members"] as const) {
+    test(`${code} on a reconnect is retried: the server may still hold our dead member until it sees the old socket close`, () => {
+      connect(() => 0);
+      last().open();
+      last().receive(snapshot);
+      last().drop();
+      runRetry();
+      last().open();
+      const before = events.length;
+      last().receive(error(code));
+      expect(last().closed).toBe(true);
+      // No refusal reaches the room (no card for our own name), only the drop.
+      expect(events.slice(before)).toEqual([{ type: "disconnected" }]);
+      // Never sooner than the un-jittered backoff, even with jitter at its minimum.
+      expect(runRetry()).toBe(1000);
+      expect(sockets).toHaveLength(3);
+      last().open();
+      last().receive(snapshot);
+      expect(events.at(-1)).toEqual({ type: "message", msg: snapshot });
+    });
+
+    test(`${code} on a reconnect gives up after REFUSED_RETRY_BUDGET_MS of refusals and then shows the refusal`, () => {
+      const c = connect();
+      last().open();
+      last().receive(snapshot);
+      last().drop();
+      runRetry();
+      let waited = 0;
+      for (let i = 0; i < 100; i++) {
+        last().open();
+        last().receive(error(code));
+        if (timers.length === 0) break;
+        waited += runRetry();
+      }
+      expect(timers).toHaveLength(0);
+      expect(waited).toBeGreaterThanOrEqual(REFUSED_RETRY_BUDGET_MS - 5000);
+      expect(waited).toBeLessThan(REFUSED_RETRY_BUDGET_MS + 5000);
+      expect(events.slice(-2)).toEqual([{ type: "message", msg: error(code) }, { type: "disconnected" }]);
+      c.resume();
+      expect(timers).toHaveLength(0);
+    });
+
+    test(`${code} retries get a fresh budget after the next snapshot`, () => {
+      connect();
+      last().open();
+      last().receive(snapshot);
+      for (let round = 0; round < 2; round++) {
+        last().drop();
+        runRetry();
+        let waited = 0;
+        while (waited < REFUSED_RETRY_BUDGET_MS - 10_000) {
+          last().open();
+          last().receive(error(code));
+          waited += runRetry();
+        }
+        last().open();
+        last().receive(snapshot);
+      }
+      expect(events.at(-1)).toEqual({ type: "message", msg: snapshot });
     });
   }
 
