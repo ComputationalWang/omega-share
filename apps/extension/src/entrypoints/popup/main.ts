@@ -1,10 +1,12 @@
-import type { Embed, Provider } from "@omega/shared";
+import { type Embed, type Provider, SHARE_TOKEN_STORAGE_KEY } from "@omega/shared";
 import { browser } from "wxt/browser";
 import { type ScanOutcome, scanTab } from "../../embeds";
-import { FALLBACK_ROOMS, type RoomList, loadRooms } from "../../rooms";
+import { FALLBACK_ROOMS, type RoomList, type RoomsProbe, loadRooms } from "../../rooms";
 import { collectCandidateUrls } from "../../scan";
-import { SERVER_BASE_URL_KEY, readServerBaseUrl } from "../../settings";
+import { serverStatus } from "../../server-status";
+import { SERVER_BASE_URL_KEY, hostPermissionPattern, readServerBaseUrl } from "../../settings";
 import { shareEmbed } from "../../share";
+import { readShareTokens } from "../../share-token";
 
 function byId<T extends HTMLElement>(id: string, type: new () => T): T {
   const el = document.getElementById(id);
@@ -21,6 +23,7 @@ const ui = {
   room: byId("room", HTMLSelectElement),
   share: byId("share", HTMLButtonElement),
   status: byId("status", HTMLParagraphElement),
+  server: byId("server-status", HTMLParagraphElement),
   options: byId("options", HTMLButtonElement),
 };
 
@@ -89,30 +92,77 @@ function showStatus(state: "ok" | "error", message: string): void {
   ui.status.textContent = message;
 }
 
+interface ServerState {
+  readonly origin: string;
+  readonly permitted: boolean;
+  readonly probe: RoomsProbe;
+  readonly tokens: ReadonlyMap<string, string>;
+}
+
+/** Share stays off until the server state is known, then follows the §5.4 table for the selected room. */
+let server: ServerState | null = null;
+
+function renderServer(): void {
+  const status = server === null ? null : serverStatus({ ...server, hasToken: server.tokens.has(ui.room.value) });
+  ui.share.disabled = status?.canShare !== true;
+  ui.server.hidden = status?.message === null || status === null;
+  ui.server.textContent = status?.message ?? "";
+  ui.options.dataset["emphasis"] = String(status?.openOptions === true);
+}
+
+/** The listed rooms, plus any room we hold a token for; the first token's room is pre-selected. */
+function roomsWithTokens(list: RoomList, tokens: ReadonlyMap<string, string>): RoomList {
+  const [first] = tokens.keys();
+  if (first === undefined) return list;
+  const extra = [...tokens.keys()].filter((id) => !list.rooms.some((r) => r.id === id)).map((id) => ({ id, label: id }));
+  return { rooms: [...list.rooms, ...extra], selected: first };
+}
+
+async function loadServer(origin: string): Promise<ServerState> {
+  const fetchServer = (u: string, init: RequestInit): Promise<Response> => fetch(u, init);
+  const [permitted, probe, tokens] = await Promise.all([
+    browser.permissions.contains({ origins: [hostPermissionPattern(origin)] }).catch(() => false),
+    loadRooms({ baseUrl: origin, fetch: fetchServer }),
+    // One-shot, read-only injection into open room tabs, like the embed scan (ADR 0005, 0015).
+    readShareTokens(origin, {
+      queryTabs: (patterns) => browser.tabs.query({ url: patterns }),
+      readSession: (tabId) =>
+        browser.scripting
+          .executeScript({ target: { tabId }, func: (key: string) => sessionStorage.getItem(key), args: [SHARE_TOKEN_STORAGE_KEY] })
+          .then((results) => results[0]?.result),
+    }),
+  ]);
+  return { origin, permitted, probe, tokens };
+}
+
 const serverBaseUrl = browser.storage.local.get(SERVER_BASE_URL_KEY).then((items) => readServerBaseUrl(items[SERVER_BASE_URL_KEY]));
 
 renderRooms(FALLBACK_ROOMS);
+renderServer();
 void scan().then(render);
-// One `GET /rooms` per popup open; it falls back to the default room, so share works either way.
-void serverBaseUrl.then((baseUrl) => loadRooms({ baseUrl, fetch: (u, init) => fetch(u, init) })).then((probe) => {
-  renderRooms(probe.kind === "ok" ? probe.list : FALLBACK_ROOMS);
+// One `GET /rooms` per popup open, in parallel with the scan so the embed list isn't held up.
+void serverBaseUrl.then(loadServer).then((state) => {
+  server = state;
+  renderRooms(roomsWithTokens(state.probe.kind === "ok" ? state.probe.list : FALLBACK_ROOMS, state.tokens));
+  renderServer();
 });
+
+ui.room.addEventListener("change", renderServer);
 
 ui.form.addEventListener("submit", (event) => {
   event.preventDefault();
   const selected = ui.embeds.querySelector<HTMLInputElement>("input[name=embed]:checked");
-  if (selected === null) return;
+  if (selected === null || server === null) return;
+  const { origin, tokens } = server;
+  const roomId = ui.room.value;
   ui.share.disabled = true;
   ui.status.hidden = true;
-  void serverBaseUrl
-    .then((baseUrl) => shareEmbed({ baseUrl, roomId: ui.room.value, url: selected.value, fetch: (u, init) => fetch(u, init) }))
+  void shareEmbed({ baseUrl: origin, roomId, url: selected.value, token: tokens.get(roomId) ?? null, fetch: (u, init) => fetch(u, init) })
     .then((result) => {
-      if (result.ok) showStatus("ok", `Shared to ${ui.room.value}.`);
+      if (result.ok) showStatus("ok", `Shared to ${roomId}.`);
       else showStatus("error", result.message);
     })
-    .finally(() => {
-      ui.share.disabled = false;
-    });
+    .finally(renderServer);
 });
 
 ui.options.addEventListener("click", () => {
