@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { ServerMessage } from "@omega/shared";
+import { CLOSE_CODES, RATE_LIMITED_RECONNECT_MS, type ServerMessage } from "@omega/shared";
 import { HANDSHAKE_TIMEOUT_MS, createConnection, type ConnectionEvent, type SocketLike } from "../src/connection";
 
 class FakeSocket implements SocketLike {
@@ -7,16 +7,18 @@ class FakeSocket implements SocketLike {
   closed = false;
   onopen: (() => void) | null = null;
   onmessage: ((ev: { data: unknown }) => void) | null = null;
-  onclose: (() => void) | null = null;
+  onclose: ((ev: { code: number }) => void) | null = null;
   onerror: (() => void) | null = null;
+  closeCode: number | null = null;
   constructor(readonly url: string) {}
   send(data: string): void {
     this.sent.push(data);
   }
-  close(): void {
+  close(code = 1005): void {
     if (this.closed) return;
     this.closed = true;
-    this.onclose?.();
+    this.closeCode = code;
+    this.onclose?.({ code });
   }
   open(): void {
     this.onopen?.();
@@ -24,9 +26,10 @@ class FakeSocket implements SocketLike {
   receive(msg: ServerMessage | string): void {
     this.onmessage?.({ data: typeof msg === "string" ? msg : JSON.stringify(msg) });
   }
-  drop(): void {
+  /** The server (or the network) closes the socket; 1006 is an abnormal drop. */
+  drop(code = 1006): void {
     this.closed = true;
-    this.onclose?.();
+    this.onclose?.({ code });
   }
 }
 
@@ -68,6 +71,15 @@ function last(): FakeSocket {
 function runTimer(): number {
   const t = timers.find((x) => x.ms !== HANDSHAKE_TIMEOUT_MS);
   if (t !== undefined) timers = timers.filter((x) => x !== t);
+  if (t === undefined) throw new Error("no timer");
+  t.fn();
+  return t.ms;
+}
+
+/** Runs the only pending timer, which must be the reconnect: its delay can equal the handshake timeout. */
+function runRetry(): number {
+  expect(timers).toHaveLength(1);
+  const t = timers.pop();
   if (t === undefined) throw new Error("no timer");
   t.fn();
   return t.ms;
@@ -211,5 +223,115 @@ describe("createConnection", () => {
     last().drop();
     c.resume();
     expect(sockets).toHaveLength(1);
+  });
+});
+
+describe("close codes (ADR 0016 §5)", () => {
+  test("4029 rate-limited: waits RATE_LIMITED_RECONNECT_MS before reconnecting, jitter or not", () => {
+    connect(() => 0);
+    last().open();
+    last().receive(snapshot);
+    last().drop(CLOSE_CODES.RATE_LIMITED);
+    expect(RATE_LIMITED_RECONNECT_MS).toBe(10_000);
+    expect(runRetry()).toBe(10_000);
+    expect(sockets).toHaveLength(2);
+  });
+
+  test("4400 bad messages: reconnects at the maximum backoff, even on the first drop", () => {
+    connect(() => 0);
+    last().open();
+    last().receive(snapshot);
+    last().drop(CLOSE_CODES.BAD_MESSAGES);
+    expect(runRetry()).toBe(5000);
+  });
+
+  test("4001 join timeout and 1006 drops reconnect with the normal backoff", () => {
+    connect();
+    last().open();
+    last().drop(CLOSE_CODES.JOIN_TIMEOUT);
+    expect(runRetry()).toBe(500);
+    last().drop(1006);
+    expect(runRetry()).toBe(1000);
+  });
+
+  test("4002 room full: stops, even if the room-full message was lost", () => {
+    const c = connect();
+    last().open();
+    last().drop(CLOSE_CODES.ROOM_FULL);
+    expect(timers).toHaveLength(0);
+    c.resume();
+    expect(sockets).toHaveLength(1);
+  });
+});
+
+describe("refused joins and rate_limited (ADR 0016 §4)", () => {
+  const error = (code: "nickname_taken" | "too_many_members" | "rate_limited" | "seat_taken", retryAfterMs?: number): ServerMessage => ({
+    type: "error",
+    code,
+    message: "no",
+    ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
+  });
+
+  for (const code of ["nickname_taken", "too_many_members"] as const) {
+    test(`${code}: delivers the error, closes the unjoined socket and never rejoins with the same name`, () => {
+      const c = connect();
+      last().open();
+      last().receive(error(code));
+      expect(events.slice(-2)).toEqual([{ type: "message", msg: error(code) }, { type: "disconnected" }]);
+      expect(last().closed).toBe(true);
+      expect(last().closeCode).toBe(1000);
+      expect(timers).toHaveLength(0);
+      c.resume();
+      expect(sockets).toHaveLength(1);
+      expect(c.send({ type: "sit", seat: 0 })).toBe(false);
+    });
+  }
+
+  test("rate_limited before the snapshot (join limiter): closes and rejoins only after retryAfterMs", () => {
+    connect();
+    last().open();
+    last().receive(error("rate_limited", 3000));
+    expect(last().closed).toBe(true);
+    expect(runRetry()).toBe(3000);
+    expect(sockets).toHaveLength(2);
+  });
+
+  test("rate_limited before the snapshot never rejoins sooner than the normal backoff", () => {
+    connect();
+    for (let i = 0; i < 3; i++) {
+      last().drop();
+      runRetry();
+    }
+    last().open();
+    last().receive(error("rate_limited", 100));
+    expect(runRetry()).toBe(4000);
+  });
+
+  test("rate_limited before the snapshot without a hint (pre-M3 server) waits RATE_LIMITED_RECONNECT_MS", () => {
+    connect();
+    last().open();
+    last().receive(error("rate_limited"));
+    expect(last().closed).toBe(true);
+    expect(runRetry()).toBe(RATE_LIMITED_RECONNECT_MS);
+  });
+
+  test("rate_limited after joining is only reported: the socket stays up and nothing is retried", () => {
+    const c = connect();
+    last().open();
+    last().receive(snapshot);
+    const sent = last().sent.length;
+    last().receive(error("rate_limited", 2000));
+    expect(events.at(-1)).toEqual({ type: "message", msg: error("rate_limited", 2000) });
+    expect(last().closed).toBe(false);
+    expect(timers).toHaveLength(0);
+    expect(last().sent).toHaveLength(sent);
+    expect(c.send({ type: "sit", seat: 1 })).toBe(true);
+  });
+
+  test("other errors before the snapshot keep the socket (the handshake timeout still applies)", () => {
+    connect();
+    last().open();
+    last().receive(error("seat_taken"));
+    expect(last().closed).toBe(false);
   });
 });
