@@ -17,5 +17,10 @@ export default defineConfig({
       ...(mode === "e2e" ? ["http://localhost/*", "https://www.youtube.com/*"] : []),
     ],
     optional_host_permissions: ["http://*/*", "https://*/*"],
+    // Threat model §10 X: pin the extension-page CSP instead of relying on Chrome's default.
+    // connect-src stays open because the user picks the server origin.
+    content_security_policy: {
+      extension_pages: "script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    },
   }),
 });
