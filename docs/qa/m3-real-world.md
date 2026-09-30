@@ -13,10 +13,13 @@ OMEGA_REAL_AD_WARM=1 OMEGA_REAL_AD_TAG=-warm bun run e2e:real -- real-ads   # Pa
 ngrok http 127.0.0.1:8807                                            # read the https host from the Forwarding line / :4040 API
 PUBLIC_ORIGIN=https://<host> TRUST_PROXY=loopback HOST=127.0.0.1 PORT=8807 STATIC_DIR=$PWD/apps/web/dist bun apps/server/src/index.ts
 OMEGA_REAL_TUNNEL_ORIGIN=https://<host> OMEGA_REAL_TUNNEL_PORT=8807 bun run e2e:real -- real-abuse   # ~1 min
+
+bun run e2e:real -- -g M3-twitch-gate   # Part C, ~1 min
 ```
 
 - Specs: `e2e/real/real-ads.real.ts` (Part A) and `e2e/real/real-abuse.real.ts` (Part B). They run headed on Xvfb (`docs/qa/headed-on-xvfb.md`). Evidence goes to `e2e/real/results/m3-*.json` / `.png` (git-ignored).
 - **Part A doesn't use Playwright's browser.** Playwright gives every page a user activation, which a real visitor doesn't have. So the spec spawns two Chromium processes itself, each with a fresh, logged-out profile, no extensions and the default autoplay policy, and drives them over raw CDP (`rawTab` in `real.ts`). The join click is a trusted CDP mouse event, like a user's. Each provider iframe is read through its own CDP target (site isolation). `OMEGA_REAL_AD_BROWSER` selects another Chromium binary, and `OMEGA_REAL_AD_YT` / `OMEGA_REAL_AD_TWITCH` override the candidate lists.
+- **Part C** is `M3-twitch-gate` in `e2e/real/real-providers.real.ts` ([OME-246](/OME/issues/OME-246)). It picks the first live channel that shows Twitch's content-classification gate to a logged-out viewer, from the top channels of M-rated game categories (`OMEGA_REAL_TWITCH_GATED_CATEGORIES`, default GTA V, Warzone, Dead by Daylight), or from `OMEGA_REAL_TWITCH_GATED`. If none is gated, the case is recorded under `notRun` and skipped, like the ungated case in M2 P4.
 - **Part B runs over one public address.** Every client on this machine reaches the server as one address (the XFF entry that ngrok appends), the honest pair included. So each case uses a small volume, the cases run in an order that leaves the per-address buckets enough room, and every case ends with an honest-pair play/pause check. The whole run sends about 90 requests through the tunnel.
 
 ## Checklist
@@ -32,11 +35,20 @@ OMEGA_REAL_TUNNEL_ORIGIN=https://<host> OMEGA_REAL_TUNNEL_PORT=8807 bun run e2e:
 | B4 | **Share spam**: shares with a spoofed XFF on each | The room's switch limit answers 429 `rate_limited` with `Retry-After` and `retryAfterMs` |
 | B5 | **Spoofed `X-Forwarded-For`**: 25 unauthorized shares, each with a new XFF | 20 (plus refill) × 401, then 429: ngrok appends the real address, so spoofing gives no fresh buckets |
 | B6 | **Connection flood**: raw joins until the per-address member cap, then a sequential upgrade loop, then one upgrade with a spoofed XFF | The 6th member from the address (the honest pair are 2 of the 5) gets `too_many_members`. The loop gets 429 `reconnecting too fast` with `Retry-After`, and so does the spoofed upgrade. The honest pair stays connected. |
+| C | **Twitch mature gate** ([OME-244](/OME/issues/OME-244)): 2 logged-out browsers, a live channel labelled "Mature-rated game" | Both members see the hint "If the Twitch player asks, press Start Watching in it." and the gate in their own player. The gate isn't a room error. After A presses *Start Watching*, B is still gated and the room keeps playing. After both press, a pause and a play from A reach both real players (sanity bound 2 s, as M2 live). |
 | all B | **Honest pair**, after every case: A presses play/pause | Both real YouTube players follow, with a spread ≤ 500 ms (Sync row, `docs/perf-budgets.md`) |
 
 ## Results
 
 Newest first.
+
+### 2026-10-01 · `main` @ 78f68c2 · Chrome for Testing (Playwright 1.63.0), headed on Xvfb · QA ([OME-246](/OME/issues/OME-246))
+
+#### Part C: PASS
+
+`xqc` (live, GTA V, "It may contain: Mature-rated game") was the first candidate and was gated for both members. Both saw the hint, and the room showed LIVE with no error while gated. After A pressed *Start Watching*, B was still gated and both rooms were still playing. After B pressed it too, no pre-roll followed. A's pause reached both players in 330 / 330 ms (spread 0) and A's play in 332 / 273 ms (spread 59). Both were playing at the end, with no error. Evidence: `m3-twitch-gate.json`, `m3-twitch-gate-{gated,after}-{1,2}.png`.
+
+Note: the hint renders under the personal controls at y ≈ 1116 px at any window size (page height 1202 px), so at 1280×720, 1440×900 and 1920×1080 it's below the fold, under the floor. The gate itself fills the TV and has its own button, so nobody is stuck. This is a UX note for the hint's placement, not a fail.
 
 ### 2026-09-30 22:07–22:32 UTC · `main` @ 5f097ae · Chrome for Testing (Playwright 1.63.0), headed on Xvfb · QA ([OME-194](/OME/issues/OME-194))
 

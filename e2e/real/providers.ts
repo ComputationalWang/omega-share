@@ -26,6 +26,13 @@ export const REAL = {
    * nothing to refuse, and the case is recorded as not run instead of failing.
    */
   twitchMature: process.env["OMEGA_REAL_TWITCH_MATURE"] ?? "ironmouse",
+  /**
+   * Live channels that show Twitch's content-classification gate ("Mature-rated game", Start Watching) to a logged-out
+   * viewer (OME-246). Unset: picked at run time from `twitchGatedCategories`, since who is live changes by the hour.
+   */
+  twitchGated: list(process.env["OMEGA_REAL_TWITCH_GATED"] ?? ""),
+  /** Twitch directory categories for M-rated games, whose streams carry the "Mature-rated game" label. */
+  twitchGatedCategories: list(process.env["OMEGA_REAL_TWITCH_GATED_CATEGORIES"] ?? "grand-theft-auto-v,call-of-duty-warzone,dead-by-daylight"),
   /** A real login with no stream right now (Twitch's developer channel is rarely live). */
   twitchOffline: process.env["OMEGA_REAL_TWITCH_OFFLINE"] ?? "twitchdev",
   /** No such login. */
@@ -154,6 +161,24 @@ export async function arrival(frames: readonly Frame[], paused: boolean, start: 
     await new Promise((r) => setTimeout(r, 50));
   }
   return at;
+}
+
+/** Twitch's content-classification gate button, inside the cross-origin player (seen 2026-10-01, OME-246). */
+export const TWITCH_START_WATCHING = '[data-a-target="content-classification-gate-overlay-start-watching-button"]';
+
+/** Twitch's content-classification gate is showing in this player frame. */
+export const gateShown = (frame: Frame): Promise<boolean> => frame.locator(TWITCH_START_WATCHING).isVisible().catch(() => false);
+
+/** The first `perCategory` live channels listed on each Twitch directory category page (logged out, top viewers first). */
+export async function liveInCategories(page: Page, categories: readonly string[], perCategory = 3): Promise<string[]> {
+  const found: string[] = [];
+  for (const c of categories) {
+    await page.goto(`https://www.twitch.tv/directory/category/${c}`, { waitUntil: "domcontentloaded" });
+    await page.locator('a[data-a-target="preview-card-channel-link"]').first().waitFor({ timeout: 20_000 }).catch(() => undefined);
+    const logins = await page.locator('a[data-a-target="preview-card-channel-link"]').evaluateAll((as) => as.map((a) => (a instanceof HTMLAnchorElement ? (new URL(a.href).pathname.split("/")[1] ?? "") : "")));
+    found.push(...logins.filter((x) => x !== "").slice(0, perCategory));
+  }
+  return [...new Set(found)];
 }
 
 /** The site's visible notices (player-error / mount / sync / system line). */

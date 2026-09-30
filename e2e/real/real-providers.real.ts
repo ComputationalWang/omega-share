@@ -5,7 +5,7 @@ import { chromium } from "@playwright/test";
 import { expect, test, watchCsp } from "../support/csp";
 import type { APIRequestContext, Browser, Frame } from "@playwright/test";
 import { site } from "../support/selectors";
-import { REAL, arrival, mediaSpread, providerFrame, sampleMedia, seekTo, siteNotices, twitchLiveUrl, twitchVodUrl, view, vimeoUrl, waitMediaPlaying } from "./providers";
+import { REAL, TWITCH_START_WATCHING, arrival, gateShown, liveInCategories, mediaSpread, providerFrame, sampleMedia, seekTo, siteNotices, twitchLiveUrl, twitchVodUrl, view, vimeoUrl, waitMediaPlaying } from "./providers";
 import type { MediaSample, RealProvider } from "./providers";
 import { closeAll, enter, record, requireVirtualDisplay, shareUrl, shot } from "./real";
 import type { Client } from "./real";
@@ -188,6 +188,90 @@ test("M2-twitch-live · pause and play-from-live reach both browsers; no scrubbe
     expect(playArrival.every((x) => x !== null), "both real players resumed").toBe(true);
     // The live spread budget is board question B1 (ADR 0014): recorded, only a sanity bound here.
     expect(result.pause.spreadMs ?? Infinity).toBeLessThan(2_000);
+  } finally {
+    await closeAll(...browsers);
+  }
+});
+
+test("M3-twitch-gate · a mature-gated live channel: both members see the Start Watching hint, press it, and stay in sync", async ({ request }) => {
+  const { browsers, a, b } = await twoBrowsers("real-gate");
+  try {
+    // Discovery runs in its own tab so the room pages stay in the room.
+    const scout = await a.context.newPage();
+    const candidates = REAL.twitchGated.length > 0 ? REAL.twitchGated : await liveInCategories(scout, REAL.twitchGatedCategories);
+    await scout.close();
+    const tried: { channel: string; outcome: "gated" | "ungated" | "no-frame" }[] = [];
+    let channel: string | null = null;
+    for (const c of candidates.slice(0, 8)) {
+      await shareUrl(request, twitchLiveUrl(c));
+      const frame = await providerFrame(a.page, "twitch", c, 15_000).catch(() => null);
+      const gated = frame !== null && (await expect.poll(() => gateShown(frame), { timeout: 15_000 }).toBe(true).then(() => true, () => false));
+      tried.push({ channel: c, outcome: frame === null ? "no-frame" : gated ? "gated" : "ungated" });
+      if (gated) {
+        channel = c;
+        break;
+      }
+    }
+    if (channel === null) {
+      record("m3-twitch-gate", { notRun: "no live candidate showed the mature gate to a logged-out viewer; set OMEGA_REAL_TWITCH_GATED", tried });
+      test.skip(true, `no gated Twitch channel live now (${tried.map((x) => `${x.channel}: ${x.outcome}`).join(", ")}); set OMEGA_REAL_TWITCH_GATED`);
+      return;
+    }
+    const [fa, fb] = await frames(a, b, "twitch", channel);
+    await expect.poll(() => gateShown(fb), { timeout: 15_000, message: "browser 2 sees the gate too" }).toBe(true);
+    const hints = await Promise.all([a, b].map(async (c) => ({ visible: await c.page.locator(site.tvHint).isVisible(), text: (await c.page.locator(site.tvHint).textContent())?.trim() ?? null })));
+    const gatedViews = await Promise.all([view(a.page), view(b.page)]);
+    await Promise.all([shot(a.page, "m3-twitch-gate-gated-1"), shot(b.page, "m3-twitch-gate-gated-2")]);
+
+    // Each member has their own gate. Browser 1 presses first: browser 2 stays gated and nobody's room state changes.
+    await fa.locator(TWITCH_START_WATCHING).click();
+    await expect.poll(() => gateShown(fa), { timeout: 10_000, message: "browser 1's gate goes away" }).toBe(false);
+    await a.page.waitForTimeout(3_000);
+    const halfway = { bStillGated: await gateShown(fb), views: (await Promise.all([view(a.page), view(b.page)])).map((v) => ({ playing: v?.playing ?? null, error: v?.error ?? null })) };
+    await fb.locator(TWITCH_START_WATCHING).click();
+    await expect.poll(() => gateShown(fb), { timeout: 10_000, message: "browser 2's gate goes away" }).toBe(false);
+    const ads = await Promise.all([waitMediaPlaying(a, fa), waitMediaPlaying(b, fb)]);
+    await a.page.waitForTimeout(3_000);
+
+    const pauseAt = Date.now();
+    await a.page.locator(site.playToggle).click();
+    const pauseArrival = await arrival([fa, fb], true, pauseAt);
+    await a.page.waitForTimeout(2_000);
+    const playAt = Date.now();
+    await a.page.locator(site.playToggle).click();
+    const playArrival = await arrival([fa, fb], false, playAt, 10_000);
+    await a.page.waitForTimeout(3_000);
+    const final = await Promise.all([sampleMedia(fa), sampleMedia(fb)]);
+    const finalViews = await Promise.all([view(a.page), view(b.page)]);
+    await Promise.all([shot(a.page, "m3-twitch-gate-after-1"), shot(b.page, "m3-twitch-gate-after-2")]);
+    const spread = (xs: (number | null)[]): number | null => (xs.every((x) => x !== null) ? Math.max(...(xs)) - Math.min(...(xs)) : null);
+    const result = {
+      channel,
+      tried,
+      hints,
+      gatedViews: gatedViews.map((v) => ({ live: v?.live ?? null, playing: v?.playing ?? null, error: v?.error ?? null })),
+      halfway,
+      adsAfterGate: ads.map((x) => x.length),
+      pause: { arrivalMs: pauseArrival, spreadMs: spread(pauseArrival) },
+      play: { arrivalMs: playArrival, spreadMs: spread(playArrival) },
+      finalPlaying: final.map((s) => (s === null ? null : !s.paused)),
+      finalViews: finalViews.map((v) => ({ playing: v?.playing ?? null, error: v?.error ?? null })),
+      notices: await Promise.all([siteNotices(a.page), siteNotices(b.page)]),
+    };
+    record("m3-twitch-gate", result);
+    for (const h of hints) {
+      expect(h.visible, "the Start Watching hint shows for every member").toBe(true);
+      expect(h.text).toBe("If the Twitch player asks, press Start Watching in it.");
+    }
+    for (const v of result.gatedViews) expect(v.error, "the gate isn't a room error").toBeNull();
+    expect(halfway.bStillGated, "one member's Start Watching doesn't lift another's gate").toBe(true);
+    for (const v of halfway.views) expect(v, "one member pressing Start Watching leaves the room playing").toEqual({ playing: true, error: null });
+    expect(pauseArrival.every((x) => x !== null), "both real players paused after the gate").toBe(true);
+    expect(playArrival.every((x) => x !== null), "both real players resumed after the gate").toBe(true);
+    // Live spread is board question B1 (ADR 0014): a sanity bound, as in M2-twitch-live.
+    expect(result.pause.spreadMs ?? Infinity).toBeLessThan(2_000);
+    expect(result.finalPlaying).toEqual([true, true]);
+    for (const v of result.finalViews) expect(v).toEqual({ playing: true, error: null });
   } finally {
     await closeAll(...browsers);
   }
