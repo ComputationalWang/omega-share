@@ -41,11 +41,18 @@ const BACKOFF_BASE_MS = 500;
 export const BACKOFF_MAX_MS = 5000;
 /** A socket with no snapshot by then is dropped and retried. */
 export const HANDSHAKE_TIMEOUT_MS = 10_000;
+/**
+ * How long a client that was in the room keeps retrying refused rejoins. The server holds a dead member's
+ * name (and per-IP member slot) until it sees the old socket close, up to its 60 s idle timeout after a
+ * half-open drop (sleep/wake, Wi-Fi handover); the margin covers that plus our own detection lag.
+ */
+export const REFUSED_RETRY_BUDGET_MS = 70_000;
 
 /**
  * One WebSocket per client. Re-joins after drops with capped, jittered exponential backoff and acts on the
- * close codes (ADR 0016 §5). Stops on room-full, on a refused join (`nickname_taken`, `too_many_members`:
- * rejoining with the same name can't succeed) or close().
+ * close codes (ADR 0016 §5). Stops on room-full, on a refused first join (`nickname_taken`, `too_many_members`:
+ * rejoining with the same name can't succeed) or close(). A refused *re*join may be our own stale member, so it
+ * is retried at the un-jittered backoff for REFUSED_RETRY_BUDGET_MS before it counts as a refusal.
  */
 export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connection {
   const random = opts.random ?? Math.random;
@@ -57,6 +64,12 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
   let attempts = 0;
   /** Set when this socket's join was rate-limited: the reconnect waits at least this long. */
   let retryAfter: number | null = null;
+  /** Some socket of this connection got a snapshot: a later refusal may be our own dead member. */
+  let everJoined = false;
+  /** This socket's rejoin was refused and is being retried. */
+  let refusedRetry = false;
+  /** Backoff spent on refused rejoins since the last snapshot. */
+  let refusedWaited = 0;
   let retryTimer: Timer | null = null;
   let handshakeTimer: Timer | null = null;
 
@@ -87,6 +100,8 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       if (msg === null) return;
       if (msg.type === "snapshot") {
         joined = true;
+        everJoined = true;
+        refusedWaited = 0;
         attempts = 0;
         clearHandshake();
       }
@@ -94,10 +109,17 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
         stopped = true;
         clearHandshake();
       }
+      const refused = !joined && msg.type === "error" && (msg.code === "nickname_taken" || msg.code === "too_many_members");
+      // A refused rejoin within budget stays out of the room state: no refusal card for our own name.
+      if (refused && everJoined && refusedWaited < REFUSED_RETRY_BUDGET_MS) {
+        refusedRetry = true;
+        s.close(1000);
+        return;
+      }
       opts.onEvent({ type: "message", msg });
       if (msg.type !== "error" || joined) return;
       // A refused join leaves the socket open and unjoined (ADR 0016 §4); drop it rather than wait for 4001.
-      if (msg.code === "nickname_taken" || msg.code === "too_many_members") {
+      if (refused) {
         stopped = true;
         s.close(1000);
       } else if (msg.code === "rate_limited") {
@@ -117,6 +139,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       if (stopped) return;
       const delay = retryDelay(ev.code);
       retryAfter = null;
+      refusedRetry = false;
       retryTimer = opts.setTimer(() => {
         retryTimer = null;
         if (!closed && !stopped) connect();
@@ -130,6 +153,10 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
     attempts++;
     if (code === CLOSE_CODES.RATE_LIMITED) return RATE_LIMITED_RECONNECT_MS;
     if (code === CLOSE_CODES.BAD_MESSAGES) return BACKOFF_MAX_MS;
+    if (refusedRetry) {
+      refusedWaited += nominal;
+      return nominal;
+    }
     const backoff = Math.round(nominal * (0.5 + random() / 2));
     // Server-paced: never sooner than it asked, never sooner than the backoff, so this can't become a loop.
     return retryAfter === null ? backoff : Math.max(retryAfter, nominal);
@@ -149,6 +176,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       retryTimer = null;
       clearHandshake();
       retryAfter = null;
+      refusedRetry = false;
       // Forget the socket now: its close event may land after a resume(), and must not count for the new one.
       const s = socket;
       socket = null;
