@@ -35,7 +35,7 @@ let events: ConnectionEvent[];
 let timers: { id: number; fn: () => void; ms: number }[];
 let nextId = 0;
 
-function connect(random: () => number = () => 1) {
+function connect(random: () => number = () => 1, onOpen?: () => void) {
   return createConnection({
     url: "ws://x/rooms/lobby/ws",
     join: { type: "join", nickname: "zoe", avatar: 1 },
@@ -54,6 +54,7 @@ function connect(random: () => number = () => 1) {
       timers = timers.filter((t) => t.id !== id);
     },
     random,
+    ...(onOpen === undefined ? {} : { onOpen }),
   });
 }
 
@@ -91,6 +92,21 @@ describe("createConnection", () => {
     expect(events).toEqual([{ type: "connecting" }]);
     last().open();
     expect(last().sent.map((s) => JSON.parse(s) as unknown)).toEqual([{ type: "join", nickname: "zoe", avatar: 1 }]);
+  });
+
+  test("onOpen runs before join, with the socket already sendable (clock pings go first)", () => {
+    let opens = 0;
+    const conn = connect(undefined, () => {
+      opens++;
+      expect(conn.send({ type: "ping", id: 7 })).toBe(true);
+    });
+    last().open();
+    expect(opens).toBe(1);
+    expect(last().sent.map((x) => JSON.parse(x).type)).toEqual(["ping", "join"]);
+    last().drop();
+    runTimer();
+    last().open();
+    expect(opens).toBe(2);
   });
 
   test("delivers parsed server messages and drops invalid frames", () => {
