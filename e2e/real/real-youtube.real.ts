@@ -13,9 +13,11 @@ import type { PlaybackView } from "../../apps/web/src/controls/playback";
 import { BURST_FAST, BURST_SLOW, initialRateMode, nextRateMode } from "../../apps/web/src/sync";
 import { site } from "../support/selectors";
 import {
-  AD_IDS, BASELINE_ID, cdpTargets, closeAll, cspViolations, embedUrl, enter, EVIDENCE_DIR, rawTab, record, ROOM_URL, sampleVideo, share, shot, slope, spreadOver,
+  AD_IDS, BASELINE_ID, cdpTargets, closeAll, cspViolations, embedUrl, enter, EVIDENCE_DIR, rawTab, record, requireVirtualDisplay, ROOM_URL, sampleVideo, share, shot, slope, spreadOver,
   waitVideoPlaying, watchPage, ytFrame,
 } from "./real";
+
+test.beforeAll(requireVirtualDisplay);
 
 /** Embedding disabled by the owner (`playableInEmbed: false`, oEmbed 401). Override with OMEGA_REAL_NOEMBED_ID. */
 const NOEMBED_ID = process.env["OMEGA_REAL_NOEMBED_ID"] ?? "s5qx1X78ujE";

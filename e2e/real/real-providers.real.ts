@@ -7,8 +7,10 @@ import type { Browser, Frame } from "@playwright/test";
 import { site } from "../support/selectors";
 import { REAL, arrival, mediaSpread, providerFrame, sampleMedia, seekTo, siteNotices, twitchLiveUrl, twitchVodUrl, view, vimeoUrl, waitMediaPlaying } from "./providers";
 import type { MediaSample, RealProvider } from "./providers";
-import { closeAll, enter, record, shareUrl, shot } from "./real";
+import { closeAll, enter, record, requireVirtualDisplay, shareUrl, shot } from "./real";
 import type { Client } from "./real";
+
+test.beforeAll(requireVirtualDisplay);
 
 /** docs/perf-budgets.md, Sync row. */
 const SPREAD_BUDGET_MS = 500;

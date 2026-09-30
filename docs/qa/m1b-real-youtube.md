@@ -11,7 +11,7 @@ OMEGA_WEB_PORT=5191 OMEGA_SERVER_PORT=8797 OMEGA_FIXTURE_PORT=4491 bun run e2e:r
 ```
 
 - Spec: `e2e/real/real-youtube.real.ts`, helpers in `e2e/real/real.ts`. Project `e2e-real` in `playwright.config.ts`. It's never part of `bun run e2e` or CI.
-- It needs a display (headed), and it uses the **dev** web build, because it reads `window.__omega.room.playback()`.
+- It runs headed on a virtual display (Xvfb) by default, so no windows open on the desktop. To watch, set `E2E_REAL_ON_DESKTOP=1`; see `docs/qa/headed-on-xvfb.md`. It uses the **dev** web build, because it reads `window.__omega.room.playback()`.
 - Evidence: `e2e/real/results/<item>.json` and `.png` (git-ignored; Playwright empties `test-results/` on every run). Attach them to the sign-off issue.
 - Video IDs can be overridden when YouTube changes them: `OMEGA_REAL_NOEMBED_ID`, `OMEGA_REAL_AGE_ID`, `OMEGA_REAL_AD_IDS` (comma-separated).
   - To find a fresh embedding-disabled ID: `curl "https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=<id>"` returns **401**, and the watch page has `"playableInEmbed":false`.

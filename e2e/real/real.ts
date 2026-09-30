@@ -7,8 +7,15 @@ import type { APIRequestContext, Browser, BrowserContext, Frame, Page } from "@p
 import { DEFAULT_ROOM_ID } from "@omega/shared";
 import type { PlaybackView } from "../../apps/web/src/controls/playback";
 import { ROOT, URLS } from "../support/apps";
+import { desktopLeak } from "../support/xvfb";
 import { site } from "../support/selectors";
 import { joinForToken, postShare } from "../support/share";
+
+/** `test.beforeAll` in every real spec: headed Chromium only through `bun run e2e:real`, so it lands on Xvfb, not the desktop (OME-210). */
+export function requireVirtualDisplay(): void {
+  const leak = desktopLeak(process.env);
+  if (leak !== null) throw new Error(leak);
+}
 
 export const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
 /** Not under test-results/: Playwright empties that at the start of every run. Git-ignored. */

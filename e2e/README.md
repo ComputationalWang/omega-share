@@ -9,6 +9,7 @@ bun run perf                       # builds apps, runs perf checks, prints the b
 bun run perf --no-build            # reuse existing builds
 bun run perf --strict              # pending budgets also fail
 bun run perf --soak                # also the 10 min JS heap soak (post-merge full suite); OMEGA_SOAK_MS shortens it, but a short soak stays PENDING
+bun run e2e:real                   # opt-in real-provider checks, headed on a virtual display (Xvfb); E2E_REAL_ON_DESKTOP=1 to watch. docs/qa/headed-on-xvfb.md
 ```
 
 Specs are named `*.e2e.ts` / `*.perf.ts` (not `*.spec.ts`) so `bun test` doesn't pick them up.

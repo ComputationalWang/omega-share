@@ -14,8 +14,10 @@ import { EXTENSION_DIR, URLS } from "../support/apps";
 import { VIDEO_ID } from "../support/network";
 import { popup, site } from "../support/selectors";
 import { REAL, mediaSpread, providerFrame, twitchVodUrl, vimeoUrl, waitMediaPlaying } from "./providers";
-import { closeAll, record, sampleVideo, shot, spreadOver, waitVideoPlaying, ytFrame } from "./real";
+import { closeAll, record, requireVirtualDisplay, sampleVideo, shot, spreadOver, waitVideoPlaying, ytFrame } from "./real";
 import type { Client } from "./real";
+
+test.beforeAll(requireVirtualDisplay);
 
 const ORIGIN = process.env["OMEGA_REAL_TUNNEL_ORIGIN"]?.replace(/\/$/, "");
 /** The tunnel server's loopback port (not the dev server's): the Host check is tested there, as a rebinding page would. */

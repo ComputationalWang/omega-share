@@ -10,7 +10,7 @@ bun run e2e:real                                      # all real specs: YouTube 
 bunx playwright test --project=e2e-real real-providers   # Twitch + Vimeo only (about 3 min)
 ```
 
-- Specs: `e2e/real/real-providers.real.ts` and `e2e/real/real-tunnel.real.ts`, with helpers in `e2e/real/providers.ts` and `e2e/real/real.ts`. They run headed on the real network, use the **dev** web build (they read `window.__omega.room.playback()`), and never run in CI.
+- Specs: `e2e/real/real-providers.real.ts` and `e2e/real/real-tunnel.real.ts`, with helpers in `e2e/real/providers.ts` and `e2e/real/real.ts`. They run headed on the real network (on Xvfb by default, see `docs/qa/headed-on-xvfb.md`), use the **dev** web build (they read `window.__omega.room.playback()`), and never run in CI.
 - Evidence goes to `e2e/real/results/m2-<item>.json` and `.png` (git-ignored). Attach it to the sign-off issue.
 - The spec reads the real `<video>` inside each provider's cross-origin player iframe (`currentTime`, `paused`, `playbackRate`, Twitch's ad label, overlay text). It never changes what the site does.
 - Twitch VODs expire and channels go on and off air, so pick fresh ids on twitch.tv when a default stops working:
