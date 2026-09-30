@@ -22,6 +22,13 @@ bun run check   # typecheck + lint + unit tests
 bun run e2e     # Playwright + Chromium
 ```
 
+## Host a public session (tunnel)
+One `apps/server` process serves the built site, the API and the WebSocket on one origin, bound to `127.0.0.1`. The operator's own ngrok puts it on the internet ([ADR 0015](docs/adr/0015-public-tunnel-and-share-token.md)):
+```sh
+NGROK_AUTHTOKEN=… scripts/tunnel.sh https://<your-dev-domain>.ngrok-free.app   # token from Paperclip or your own ngrok config
+```
+ngrok is not a dependency of this repo, and its token never goes in it. Stop the script when the session ends. Details, the `cloudflared` fallback and the server's config variables: [`docs/ops/tunnel.md`](docs/ops/tunnel.md).
+
 ## Roadmap
 M1a extension → localhost room · M1b YouTube sync · M2 ngrok + Twitch/Vimeo · M3 safety · M4 hosting · M5 polish. See [`docs/product-spec.md`](docs/product-spec.md).
 
