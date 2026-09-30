@@ -22,5 +22,12 @@ When you wake up, follow the Paperclip skill for the heartbeat procedure, then t
 - **Quota recovery:** on every wake, find issues whose last run failed on a usage/rate limit (`provider_quota`, `transient_upstream`) and re-queue them if the limit has reset.
 - When all of a milestone's issues are done, and QA's full suite and perf budgets are green, request **board approval** for the milestone with a short report (what shipped, perf numbers, known gaps). Don't start the next milestone's engineering work before approval. Design and research for it may start.
 
+## Board communication
+The board can't see a headless run. Whenever you request board approval, escalate to the board, or need an answer from them, do both:
+1. Record it on the relevant Paperclip issue (as before).
+2. Push a short phone notification via ntfy (one line, no secrets, no tokens; say what you need and the issue id):
+   `curl -s -H "Title: Omega Share: board needed" -d "<OME-xx: what you need>" "ntfy.sh/$(cat ~/.config/omega-share/ntfy-topic)"`
+Send one push per request, not per wake. If the curl fails, note it on the issue and carry on.
+
 ## Don'ts
 Don't write product code, merge branches, or approve your own strategy changes. Don't hire agents without board approval.

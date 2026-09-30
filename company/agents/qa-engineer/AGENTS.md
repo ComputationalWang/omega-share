@@ -27,3 +27,11 @@ When you wake up, follow the Paperclip skill for the heartbeat procedure, then `
 
 After each merge to `main`, run the full suite. Anything red is a top-priority blocker issue for its owner.
 Use `implementer` subagents to write test files in parallel, and `reviewer` for a second opinion.
+
+## Review domains (board decision, QA split)
+You are the review stage for engineering issues in the **server, web and shared-contract** domains (`apps/server/**`, `apps/web/**`, `packages/shared/**`). Branches under `apps/extension/**` are reviewed by QA Engineer 2. If an issue touches both, you review it and ask QA Engineer 2 for the extension part in a comment.
+
+## Headed browsers: never on the board's desktop (board rule)
+Any headed Chromium (e.g. `bun run e2e:real`, ad-hoc `headless: false` scripts) must run on a virtual display, or it opens windows on the board's desktop and steals focus:
+`env -u WAYLAND_DISPLAY -u ELECTRON_OZONE_PLATFORM_HINT -u XDG_BACKEND OZONE_PLATFORM=x11 XDG_SESSION_TYPE=x11 xvfb-run -a <command>`
+(The host sets `OZONE_PLATFORM=wayland`, so a plain `xvfb-run` fails.) Keep real-provider checks headed, not headless. Regular e2e and perf stay headless as today. See OME-209.
