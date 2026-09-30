@@ -7,7 +7,13 @@ export const BUBBLE_MS = 6000;
 export const MAX_SYSLINES = 3;
 export const SYSLINE_MS = 6000;
 
-export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full";
+/** How long chat stays in cooldown after a `rate_limited` that carries no `retryAfterMs` (pre-M3 server). */
+export const CHAT_COOLDOWN_DEFAULT_MS = 1000;
+
+export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused";
+
+/** Why the server refused our join (ADR 0016 §4). The connection has stopped; the user has to act. */
+export type Refusal = "nickname_taken" | "too_many_members";
 
 export interface Bubble {
   readonly memberId: MemberId;
@@ -31,6 +37,10 @@ export interface ViewState {
   readonly syslines: readonly Sysline[];
   /** A new object per server error, so the UI can show each one. */
   readonly lastError: ErrorNotice | null;
+  /** Set with status "refused". */
+  readonly refusal: Refusal | null;
+  /** Client time (the `now` of the events, ms) until which the server asked us to hold off (`rate_limited`); 0 = none. */
+  readonly cooldownUntil: number;
 }
 
 export interface ErrorNotice {
@@ -44,7 +54,15 @@ export type ViewEvent =
   | { readonly type: "server"; readonly msg: ServerMessage; readonly now: number }
   | { readonly type: "tick"; readonly now: number };
 
-export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], syslines: [], lastError: null };
+export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], syslines: [], lastError: null, refusal: null, cooldownUntil: 0 };
+
+/** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
+const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused";
+
+/** True while the server's `rate_limited` hint says to hold off sending chat. */
+export function coolingDown(state: ViewState, now: number): boolean {
+  return now < state.cooldownUntil;
+}
 
 const hasMember = (room: RoomState, id: MemberId): boolean => room.members.some((m) => m.id === id);
 
@@ -69,8 +87,13 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       return { ...state, status: "open", self: msg.self, room: msg.room, bubbles: [], syslines: [], lastError: null };
     case "room-full":
       return { ...initialState, status: "full" };
-    case "error":
-      return { ...state, lastError: { code: msg.code, at: now } };
+    case "error": {
+      const lastError = { code: msg.code, at: now };
+      if (msg.code === "nickname_taken" || msg.code === "too_many_members") return { ...initialState, status: "refused", refusal: msg.code, lastError };
+      if (msg.code !== "rate_limited") return { ...state, lastError };
+      const until = now + (msg.retryAfterMs ?? CHAT_COOLDOWN_DEFAULT_MS);
+      return { ...state, lastError, cooldownUntil: Math.max(state.cooldownUntil, until) };
+    }
     case "member-joined":
       return withRoom(state, (room) =>
         hasMember(room, msg.member.id) ? null : { ...room, members: [...room.members, msg.member] },
@@ -120,25 +143,27 @@ export function reduce(state: ViewState, event: ViewEvent): ViewState {
     case "server":
       return onServer(state, event.msg, event.now);
     case "connecting":
-      return state.status === "full" ? state : { ...state, status: "connecting" };
+      return stopped(state) ? state : { ...state, status: "connecting" };
     case "disconnected":
-      return state.status === "full" ? state : { ...state, status: "reconnecting", bubbles: [] };
+      return stopped(state) ? state : { ...state, status: "reconnecting", bubbles: [] };
     case "tick": {
       const kept = state.bubbles.filter((b) => b.expiresAt > event.now);
       const lines = state.syslines.filter((l) => l.expiresAt > event.now);
-      if (kept.length === state.bubbles.length && lines.length === state.syslines.length) return state;
+      const cooled = state.cooldownUntil !== 0 && state.cooldownUntil <= event.now;
+      if (kept.length === state.bubbles.length && lines.length === state.syslines.length && !cooled) return state;
       return {
         ...state,
         bubbles: kept.length === state.bubbles.length ? state.bubbles : kept,
         syslines: lines.length === state.syslines.length ? state.syslines : lines,
+        cooldownUntil: cooled ? 0 : state.cooldownUntil,
       };
     }
   }
 }
 
-/** When the next bubble or system line expires, or null if there are none. */
+/** When the next bubble, system line or chat cooldown expires, or null if there are none. */
 export function nextExpiry(state: ViewState): number | null {
-  let min: number | null = null;
+  let min: number | null = state.cooldownUntil === 0 ? null : state.cooldownUntil;
   for (const b of state.bubbles) if (min === null || b.expiresAt < min) min = b.expiresAt;
   for (const l of state.syslines) if (min === null || l.expiresAt < min) min = l.expiresAt;
   return min;
@@ -148,10 +173,11 @@ export interface Screen {
   readonly stage: boolean;
   readonly chat: boolean;
   readonly full: boolean;
+  readonly refused: Refusal | null;
 }
 
 /** Which room-screen regions are laid out. The stage wrap has a fixed height, so it leaves the flow when not in a room. */
 export function screen(state: ViewState): Screen {
-  const inRoom = state.room !== null && state.status !== "full";
-  return { stage: inRoom, chat: inRoom, full: state.status === "full" };
+  const inRoom = state.room !== null && !stopped(state);
+  return { stage: inRoom, chat: inRoom, full: state.status === "full", refused: state.status === "refused" ? state.refusal : null };
 }

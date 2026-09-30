@@ -36,6 +36,7 @@ const STATUS_TEXT: Record<ViewState["status"], string> = {
   open: "",
   reconnecting: "Connection lost, reconnecting…",
   full: "",
+  refused: "",
 };
 
 const NOTICE_MS = 3000;
