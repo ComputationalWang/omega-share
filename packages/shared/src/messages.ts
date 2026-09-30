@@ -1,6 +1,13 @@
 import * as v from "valibot";
-import { CHAT_MAX_LENGTH, ERROR_MESSAGE_MAX_LENGTH, MAX_CLIENT_MESSAGE_BYTES, MAX_SERVER_MESSAGE_BYTES } from "./constants";
-import { EmbedSchema, MAX_EMBED_URL_LENGTH } from "./embed";
+import {
+  CHAT_MAX_LENGTH,
+  CHAT_MAX_MARK_RUN,
+  ERROR_MESSAGE_MAX_LENGTH,
+  MAX_CLIENT_MESSAGE_BYTES,
+  MAX_EMBED_URL_LENGTH,
+  MAX_SERVER_MESSAGE_BYTES,
+} from "./constants";
+import { EmbedSchema } from "./embed";
 import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
   AvatarSchema,
@@ -11,18 +18,28 @@ import {
   RoomStateSchema,
   SeatIndexSchema,
 } from "./room";
-import { ShareTokenSchema } from "./share";
+import { RetryAfterMsSchema, ShareTokenSchema } from "./share";
+
+/** Anything but controls, format characters (zero-width, bidi, BOM) and line/paragraph separators. */
+const CHAT_CHAR = String.raw`[^\p{Cc}\p{Cf}\p{Zl}\p{Zp}]`;
+/** ZWJ only inside an emoji sequence: pictograph (+ marks/skin tone), ZWJ, pictograph. */
+const CHAT_ZWJ = String.raw`(?<=\p{Extended_Pictographic}[\p{M}\u{1F3FB}-\u{1F3FF}]*)\u200D(?=\p{Extended_Pictographic})`;
+const CHAT_SHAPE = new RegExp(`^(?:${CHAT_CHAR}|${CHAT_ZWJ})*$`, "u");
+const CHAT_MARK_STACK = new RegExp(String.raw`\p{M}{${String(CHAT_MAX_MARK_RUN + 1)}}`, "u");
 
 /**
- * Trimmed, 1–280 chars. No control, format (zero-width, bidi, BOM) or line/paragraph
- * separator characters, except ZWJ for emoji sequences. Must contain something visible.
+ * Trimmed and NFC-normalized, 1–280 chars. No control, format (zero-width, bidi, BOM) or
+ * line/paragraph separator characters, except ZWJ inside emoji sequences. At most 3
+ * combining marks in a row. Must contain something visible.
  */
 export const ChatTextSchema = v.pipe(
   v.string(),
   v.trim(),
+  v.normalize("NFC"),
   v.minLength(1),
   v.maxLength(CHAT_MAX_LENGTH),
-  v.regex(/^(?:[^\p{Cc}\p{Cf}\p{Zl}\p{Zp}]|\u200D)*$/u),
+  v.regex(CHAT_SHAPE),
+  v.check((s) => !CHAT_MARK_STACK.test(s), "too many combining marks"),
   v.check((s) => !INVISIBLE_LETTERS.test(s), "invisible characters"),
   v.regex(/[\p{L}\p{N}\p{P}\p{S}]/u, "nothing visible"),
 );
@@ -50,7 +67,19 @@ export const ClientMessageSchema = v.variant("type", [
 ]);
 export type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 
-export const ERROR_CODES = ["bad_message", "not_joined", "already_joined", "seat_taken", "rate_limited", "no_embed"] as const;
+export const ERROR_CODES = [
+  "bad_message",
+  "not_joined",
+  "already_joined",
+  "seat_taken",
+  /** Carries `retryAfterMs` from M3 servers. */
+  "rate_limited",
+  "no_embed",
+  /** `join` refused: another member's `nicknameKey` matches. The socket stays open, unjoined. */
+  "nickname_taken",
+  /** `join` refused: too many members from this address in the room. The socket stays open, unjoined. */
+  "too_many_members",
+] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
 // Server → client. Unknown keys are stripped so the server can add fields.
@@ -99,6 +128,8 @@ export const ServerMessageSchema = v.variant("type", [
     type: v.literal("error"),
     code: v.picklist(ERROR_CODES),
     message: v.pipe(v.string(), v.maxLength(ERROR_MESSAGE_MAX_LENGTH)),
+    /** Set with `rate_limited`: wait this long before retrying. */
+    retryAfterMs: v.optional(RetryAfterMsSchema),
   }),
 ]);
 export type ServerMessage = v.InferOutput<typeof ServerMessageSchema>;

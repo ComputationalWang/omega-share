@@ -46,6 +46,8 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   not_joined: "Still joining, try again in a moment.",
   already_joined: "You're already in this room.",
   no_embed: "That video isn't playing here any more.",
+  nickname_taken: "Someone in this room already has that name.",
+  too_many_members: "Too many people from your network are in this room.",
 };
 
 /** Adapts the DOM WebSocket to the connection's SocketLike. */

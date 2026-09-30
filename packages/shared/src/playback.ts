@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { MAX_POSITION_S, PING_ID_MAX } from "./constants";
+import { MAX_POSITION_S, PING_ID_MAX, PLAYBACK_RATE_MAX, PLAYBACK_RATE_MIN } from "./constants";
 import { MemberIdSchema } from "./ids";
 
 /** Server time, ms since epoch. */
@@ -24,7 +24,7 @@ export const PlaybackStateSchema = v.object({
   /** Seconds, true at server time `at`. */
   position: PositionSchema,
   /** Always 1 in M1b; a range now so a shared rate later doesn't break old clients. */
-  rate: v.pipe(v.number(), v.minValue(0.25), v.maxValue(2)),
+  rate: v.pipe(v.number(), v.finite(), v.minValue(PLAYBACK_RATE_MIN), v.maxValue(PLAYBACK_RATE_MAX)),
   at: ServerTimeSchema,
   /** +1 per accepted change. Clients drop states with an older `rev`. */
   rev: v.pipe(v.number(), v.integer(), v.minValue(0)),

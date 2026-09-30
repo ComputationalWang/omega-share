@@ -1,7 +1,5 @@
 import * as v from "valibot";
-
-/** Longest input URL we will even try to parse. */
-export const MAX_URL_LENGTH = 2048;
+import { MAX_URL_LENGTH } from "./constants";
 
 /** Providers we can embed and control (ADR 0002, ADR 0014). */
 export const PROVIDERS = ["youtube", "twitch", "vimeo"] as const;
@@ -79,8 +77,6 @@ export const EmbedSchema = v.variant("provider", [
 ]);
 export type Embed = v.InferOutput<typeof EmbedSchema>;
 
-/** Longest canonical Embed.url is ~70 chars (Vimeo id 12 + hash 32); 128 leaves room. */
-export const MAX_EMBED_URL_LENGTH = 128;
 
 /** Host → how the video id is found in that host's URLs. */
 const WATCH_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com"]);

@@ -1,6 +1,6 @@
 import * as v from "valibot";
-import { ERROR_MESSAGE_MAX_LENGTH } from "./constants";
-import { EmbedSchema, MAX_URL_LENGTH } from "./embed";
+import { ERROR_MESSAGE_MAX_LENGTH, MAX_URL_LENGTH, RETRY_AFTER_MAX_MS } from "./constants";
+import { EmbedSchema } from "./embed";
 import { RoomIdSchema } from "./room";
 
 /** Length of a share token: 16 random bytes as base64url without padding (ADR 0015). */
@@ -41,6 +41,12 @@ export const ShareRequestSchema = v.strictObject({
 });
 export type ShareRequest = v.InferOutput<typeof ShareRequestSchema>;
 
+/**
+ * How long to wait before trying again, in ms. Sent with `rate_limited` (WS `error` and
+ * share responses); absent from M2 servers.
+ */
+export const RetryAfterMsSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(RETRY_AFTER_MAX_MS));
+
 export const SHARE_ERROR_CODES = [
   "invalid_body",
   "unsupported_url",
@@ -59,6 +65,8 @@ export const ShareResponseSchema = v.variant("ok", [
     error: v.object({
       code: v.picklist(SHARE_ERROR_CODES),
       message: v.pipe(v.string(), v.maxLength(ERROR_MESSAGE_MAX_LENGTH)),
+      /** With `rate_limited`; the server also sends `Retry-After` in seconds. */
+      retryAfterMs: v.optional(RetryAfterMsSchema),
     }),
   }),
 ]);

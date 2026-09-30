@@ -123,7 +123,7 @@ describe("error message", () => {
   });
 
   test("share error carries retryAfterMs", () => {
-    const body = { ok: false, error: { code: "rate_limited", message: "slow down", retryAfterMs: 3000 } };
+    const body = { ok: false, error: { code: "rate_limited", message: "slow down", retryAfterMs: 3000 } } as const;
     expect(v.parse(ShareResponseSchema, body)).toEqual(body);
     accepts(ShareResponseSchema, { ok: false, error: { code: "rate_limited", message: "" } });
     rejects(ShareResponseSchema, { ok: false, error: { code: "rate_limited", message: "", retryAfterMs: 1.5 } });
