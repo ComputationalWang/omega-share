@@ -10,11 +10,12 @@ assets/
   avatars/motion.json   # set d: PixiJS v8 atlas + meta.omega.anims (frames, per-frame ms, loop)
   room/room.png         # shipped: 512×512 indexed PNG-8 (set b: floor, rug, walls, seats, TV, props)
   room/room.json        # shipped: PixiJS v8 spritesheet atlas + meta.omega room contract
-  ui/ui.png             # shipped: 256×128 indexed PNG-8 (set c: 9-slices, cursor, icons, dots, portraits, wordmark)
+  ui/ui.png             # shipped: 256×128 indexed PNG-8 (set c: 9-slices, cursor, icons, dots, portraits, wordmark;
+                        #   set e: playback keys, seek/volume, chips, system line, catching-up hourglass)
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
   ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
-  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots,
+  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e),
                         #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated)
   src/                  # generator (Bun, no deps) + mood boards
 ```
@@ -23,7 +24,8 @@ Rebuild everything (deterministic): `bun assets/src/build.ts`. It prints the byt
 Re-shoot the UI previews after a build: `bun assets/src/shoot-ui.ts` (uses the repo's Playwright + Chromium).
 - Avatars are role-letter templates in `src/avatars.ts`. Room pieces in `src/room.ts` are ray-cast from
   3D boxes by `src/iso.ts`, so every edge sits on the exact 2:1 grid. Palette ramps are in `src/palette.ts`.
-- The build fails if an avatar touches its cell border, or if a frame id repeats across sets (Pixi caches textures by key).
+- The build fails if an avatar touches its cell border, if a frame id repeats across sets (Pixi caches textures by key), or if a
+  9-slice would stretch anything but flat colour (a corner poking past its slice).
 
 ## Avatar atlas (PixiJS v8 native spritesheet JSON, TexturePacker "hash" style)
 
@@ -113,6 +115,51 @@ exactly how to use them; copy the rules you need into `apps/web`. The slice file
   plum `#2b1d2f`; text on dark chrome is cream `#fff7ea`. Every text/fill pair in the tokens is ≥ 5:1 (WCAG AA).
 - System font stays (no webfont bytes). Only the wordmark is lettered.
 
+## Playback chrome (set e, M1b synced controls)
+
+Same files as set (c): the frames are in `ui/ui.png` / `ui/ui.json`, the 9-slices in `ui/slices/`, and the rules are at the end of
+`ui/reference.css`. Previews: `preview/ui-playback.png` (in the room) and `preview/ui-playback-states.png` (every state at 2× and 1×).
+
+**The one rule: the material says who a control affects.** Shared (everyone) = the TV's **wood + brass**, inside a wood `panel/0`,
+labelled by `chip/shared` + `glyph/everyone`. Personal (only you) = **night blue in the mustard "you" rim** (the rim `tag/self` uses),
+inside its own `panel/self` pod, labelled by `chip/self` + `glyph/you`. Never put a personal control in the wood panel or the other way round.
+The TV's cool **glow** marks what the video says: seek progress and chat system lines.
+
+| Key | Size | Slice | Use |
+|---|---|---|---|
+| `button/shared/<idle\|hover\|press>` | 16×20 | 5 | Wood key for play/pause. Same lip/press rules as `button/primary`. Disabled uses `button/primary/disabled`. |
+| `button/self/<idle\|hover\|press>` | 16×20 | 5 | Night key in a mustard rim, for mute. Disabled uses `button/primary/disabled`. |
+| `icon/<play\|pause\|sound\|muted>` | 16×16 | — | Key icons. `icon/<name>-off` are the disabled versions (cream shade + charcoal); the CSS swaps them on `:disabled`. |
+| `icon/you` | 16×16 | — | Headphones: the "only you" mark at icon size. |
+| `seek/track`, `seek/track-disabled` | 12×10 | 4 | Sunken night groove (charcoal when disabled). Fixed height 10. |
+| `seek/fill` | 4×6 | 1 top/bottom | Glow progress, drawn inside the track from its content box's left edge (see CSS `.ui-seek-fill`). |
+| `seek/head/<idle\|hover\|press\|disabled>` | 10×16 | — | Wood grip, brass cap. Anchor `(5,8)` = centre on the fill end. Hover = cream cap; press sits 1 px lower. |
+| `volume/track` | 10×8 | 4 | Thinner groove (fixed height 8, no stretchable rows). |
+| `volume/fill` | 4×4 | 1 top/bottom | Mustard fill. Hide it when muted. |
+| `volume/knob/<idle\|hover\|press\|disabled>` | 10×10 | — | Round mustard bead. Anchor = centre. Round vs the seek's tall grip, so the two sliders never read alike. |
+| `readout/0` | 10×10 | 4 | Time well: cream tabular digits, `12:30` / `1:02:45`. |
+| `panel/self` | 16×16 | 6 | The personal pod (mustard rim between plum lines, night fill). |
+| `chip/shared`, `chip/self` | 12×12 | 4 | "EVERYONE" / "ONLY YOU" labels. Always with their glyph, so it's not colour alone. |
+| `chat/system` | 14×12 | 4 (left 5) | System line: dark strip with a glow bar down the left. No tail. |
+| `glyph/<play\|pause\|seek\|catchup\|everyone\|you>` | 8×8 (`everyone` 12×8) | — | One-line glyphs for system lines and chips. |
+| `catchup/<0..3>` | 16×16 | — | Hourglass sticker: sand on top, running, below, then the glass turns on its side. Loops at `meta.omega.catchupFrameMs` (320 ms). Anchor `(8,15)`. |
+
+- **Shared transport** (`.ui-panel > .ui-transport`): `chip/shared` · play/pause key · `readout` (current) · seek · `readout` (duration).
+  The head of the panel also says who acted last ("last: **Ana** paused"), which repeats that the controls are shared. Give the group
+  `aria-label="Shared playback: affects everyone"`, and label the key "Play for everyone" / "Pause for everyone".
+- **Seek / volume:** the art is decoration. Set `--pos` / `--vol` (0..1) on the track and lay a transparent `<input type="range">` over it
+  for keyboard and screen readers. Pixi: `NineSliceSprite` for the track and fill, a sprite for the head at `(fillEnd, trackCentreY)`.
+- **Personal volume** (`.ui-volume`): `chip/self` · mute key (`icon/sound` ↔ `icon/muted`) · volume track. `aria-label="Your volume: only you hear this"`.
+- **Chat system line** (`.ui-sysline`): glyph + **actor** (glow, bold) + verb + `<time>` in cream. User chat stays in cream bubbles over the
+  avatar, so the two can't be confused (dark strip + glow bar + glyph vs cream card + tail). Recommended home: a caption rail at the stage's
+  bottom-left, room scale, newest at the bottom, at most 3 lines, each fades after about 6 s; mirror it in an `aria-live="polite"` region.
+- **Catching up:** put `.ui-sprite.ui-catchup` inside that user's name tag and add `.catching` to the tag. The hourglass hangs off the tag's left
+  end (overlapping it by 3 art px), and the name goes lilac italic. Everyone else keeps playing: nothing else in the room changes.
+  For yourself, show a `panel/0` notice with the same hourglass ("You're catching up: the room kept playing…"). `prefers-reduced-motion`
+  holds frame 0.
+- **Scale:** everything follows `--ui-px`: 2× below the stage, 1× inside `.ui-room`. Text sizes: readout 13 px / 11 px, chips 11 px / 9 px.
+  Sprites in `reference.css` now scale with `--ui-px` too (they were fixed 2× before; values at 2× are unchanged).
+
 ## Motion atlas (`avatars/motion.json`, set d)
 
 Same format as the avatar atlas (PixiJS v8, 32×64 cells, no trim, no rotation, anchor = floor point `(16, 61)`).
@@ -151,11 +198,11 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
 | `room/room.png` | 8 947 |
 | `room/room.json` | 13 829 raw / 1 192 gz |
-| `ui/ui.png` | 3 145 |
-| `ui/ui.json` | 14 216 raw / 1 208 gz |
-| `ui/slices/*.png` (21 files, palettes trimmed to the colours used) | 3 506 |
-| `ui/reference.css` (if ported as-is) | 6 998 raw / 2 015 gz |
-| **total shipped art** | **≈ 44.3 KB of 300 KB** (44 320 B; 25 931 B without the lazy set d) |
+| `ui/ui.png` (sets c + e) | 4 506 |
+| `ui/ui.json` (sets c + e) | 29 151 raw / 1 837 gz |
+| `ui/slices/*.png` (37 files, palettes trimmed to the colours used) | 5 858 |
+| `ui/reference.css` (if ported as-is) | 20 513 raw / 4 032 gz |
+| **total shipped art** | **≈ 50.7 KB of 300 KB** (50 679 B; 32 290 B without the lazy set d) |
 
 "gz" is zlib **level 9** with no file name (what `build.ts` prints; `gzip -9nc <file> | wc -c` agrees within 4 B).
-Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B more per file, e.g. 1 227 for `ui.json`, 2 034 for `reference.css`.
+Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B more per file, e.g. for `ui.json` and `reference.css`.

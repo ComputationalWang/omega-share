@@ -13,6 +13,7 @@
   --ui-ok: #6fd0c4;
   --ui-bubble-text: #2b1d2f;
   --ui-disabled-text: #cbbd9f;
+  --ui-glow: #e8fbff;
   --ui-px: 2px; /* one art pixel in page chrome */
 }
 .ui-room { --ui-px: 1px; } /* inside the 960×600 stage the chrome matches the room's 1× art */
@@ -57,22 +58,110 @@
 .ui-seat-cursor.mine { background-image: url("slices/cursor-mine.png"); }
 .ui-seat-cursor.taken { background-image: url("slices/cursor-taken.png"); }
 
-/* Sprites from ui.png at 2×: icons (16 art px), status dots, portraits, wordmark. */
-.ui-sprite { display: inline-block; flex: none; background: url("ui.png") no-repeat; background-size: 512px 256px; }
-.ui-dot-connecting { width: 16px; height: 16px; background-position: -60px -168px; }
-.ui-dot-offline { width: 16px; height: 16px; background-position: -78px -168px; }
-.ui-dot-online { width: 16px; height: 16px; background-position: -268px -168px; }
-.ui-icon-chat { width: 32px; height: 32px; background-position: -34px -134px; }
-.ui-icon-close { width: 32px; height: 32px; background-position: -68px -134px; }
-.ui-icon-leave { width: 32px; height: 32px; background-position: -442px -134px; }
-.ui-icon-people { width: 32px; height: 32px; background-position: -476px -134px; }
-.ui-icon-seat { width: 32px; height: 32px; background-position: -166px -148px; }
-.ui-icon-send { width: 32px; height: 32px; background-position: -200px -148px; }
-.ui-icon-share { width: 32px; height: 32px; background-position: -234px -148px; }
-.ui-icon-tv { width: 32px; height: 32px; background-position: -102px -152px; }
-.ui-icon-warn { width: 32px; height: 32px; background-position: 0px -168px; }
-.ui-logo-0 { width: 160px; height: 34px; background-position: -280px -132px; }
-.ui-portrait-juno { width: 64px; height: 64px; background-position: -390px 0px; }
-.ui-portrait-kiki { width: 64px; height: 64px; background-position: -390px -66px; }
-.ui-portrait-mo { width: 64px; height: 64px; background-position: 0px -68px; }
-.ui-portrait-pip { width: 64px; height: 64px; background-position: -66px -68px; }
+/* Sprites from ui.png, scaled by --ui-px like the 9-slices (2× in page chrome, 1× in .ui-room): icons (16 art px), status dots,
+ * portraits, wordmark, playback glyphs, seek head, volume knob and the catching-up hourglass. */
+.ui-sprite { display: inline-block; flex: none; background: url("ui.png") no-repeat; background-size: calc(256 * var(--ui-px)) calc(128 * var(--ui-px)); }
+.ui-catchup-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-240 * var(--ui-px)) calc(-67 * var(--ui-px)); }
+.ui-catchup-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-100 * var(--ui-px)) calc(-76 * var(--ui-px)); }
+.ui-catchup-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-117 * var(--ui-px)) calc(-76 * var(--ui-px)); }
+.ui-catchup-3 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-134 * var(--ui-px)) calc(-76 * var(--ui-px)); }
+.ui-dot-connecting { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-224 * var(--ui-px)) calc(-118 * var(--ui-px)); }
+.ui-dot-offline { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-233 * var(--ui-px)) calc(-118 * var(--ui-px)); }
+.ui-dot-online { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-242 * var(--ui-px)) calc(-118 * var(--ui-px)); }
+.ui-glyph-catchup { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-185 * var(--ui-px)) calc(-119 * var(--ui-px)); }
+.ui-glyph-everyone { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-81 * var(--ui-px)) calc(-111 * var(--ui-px)); }
+.ui-glyph-pause { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-119 * var(--ui-px)); }
+.ui-glyph-play { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-203 * var(--ui-px)) calc(-119 * var(--ui-px)); }
+.ui-glyph-seek { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: 0 calc(-120 * var(--ui-px)); }
+.ui-glyph-you { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-81 * var(--ui-px)) calc(-120 * var(--ui-px)); }
+.ui-icon-chat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-151 * var(--ui-px)) calc(-76 * var(--ui-px)); }
+.ui-icon-close { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-168 * var(--ui-px)) calc(-76 * var(--ui-px)); }
+.ui-icon-leave { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-223 * var(--ui-px)) calc(-84 * var(--ui-px)); }
+.ui-icon-muted { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-240 * var(--ui-px)) calc(-84 * var(--ui-px)); }
+.ui-icon-muted-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-185 * var(--ui-px)) calc(-85 * var(--ui-px)); }
+.ui-icon-pause { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-202 * var(--ui-px)) calc(-85 * var(--ui-px)); }
+.ui-icon-pause-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-86 * var(--ui-px)); }
+.ui-icon-people { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-100 * var(--ui-px)) calc(-93 * var(--ui-px)); }
+.ui-icon-play { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-117 * var(--ui-px)) calc(-93 * var(--ui-px)); }
+.ui-icon-play-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-134 * var(--ui-px)) calc(-93 * var(--ui-px)); }
+.ui-icon-seat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-151 * var(--ui-px)) calc(-93 * var(--ui-px)); }
+.ui-icon-send { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-168 * var(--ui-px)) calc(-93 * var(--ui-px)); }
+.ui-icon-share { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-94 * var(--ui-px)); }
+.ui-icon-sound { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-94 * var(--ui-px)); }
+.ui-icon-sound-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-94 * var(--ui-px)); }
+.ui-icon-tv { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-94 * var(--ui-px)); }
+.ui-icon-warn { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-219 * var(--ui-px)) calc(-101 * var(--ui-px)); }
+.ui-icon-you { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-236 * var(--ui-px)) calc(-101 * var(--ui-px)); }
+.ui-logo-0 { width: calc(80 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: calc(-19 * var(--ui-px)) calc(-76 * var(--ui-px)); }
+.ui-portrait-juno { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) 0; }
+.ui-portrait-kiki { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-33 * var(--ui-px)); }
+.ui-portrait-mo { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: 0 calc(-34 * var(--ui-px)); }
+.ui-portrait-pip { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-33 * var(--ui-px)) calc(-34 * var(--ui-px)); }
+.ui-seek-head-disabled { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-94 * var(--ui-px)); }
+.ui-seek-head-hover { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-202 * var(--ui-px)) calc(-102 * var(--ui-px)); }
+.ui-seek-head-idle { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-103 * var(--ui-px)); }
+.ui-seek-head-press { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-96 * var(--ui-px)) calc(-110 * var(--ui-px)); }
+.ui-volume-knob-disabled { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-37 * var(--ui-px)) calc(-111 * var(--ui-px)); }
+.ui-volume-knob-hover { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-48 * var(--ui-px)) calc(-111 * var(--ui-px)); }
+.ui-volume-knob-idle { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-59 * var(--ui-px)) calc(-111 * var(--ui-px)); }
+.ui-volume-knob-press { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-70 * var(--ui-px)) calc(-111 * var(--ui-px)); }
+
+/* ---- Set (e): synced playback (M1b). Wood = shared (everyone), mustard rim on night = only you, TV glow = the video. ---- */
+.ui-transport, .ui-volume, .ui-seek, .ui-vol-track, .ui-readout, .ui-chip, .ui-sysline, .ui-seek-fill, .ui-vol-fill { image-rendering: pixelated; box-sizing: border-box; }
+
+/* Shared transport: sits in a .ui-panel (the TV's wood). Label it with a .ui-chip.shared ("Everyone"). */
+.ui-transport { display: flex; align-items: center; gap: calc(4 * var(--ui-px)); }
+.ui-button.shared { border-image-source: url("slices/button-shared-idle.png"); color: var(--ui-text); }
+.ui-button.shared:hover, .ui-button.shared.is-hover { border-image-source: url("slices/button-shared-hover.png"); }
+.ui-button.shared:active, .ui-button.shared.is-press { border-image-source: url("slices/button-shared-press.png"); }
+/* Personal keys: night face in the mustard "you" rim. */
+.ui-button.self { border-image-source: url("slices/button-self-idle.png"); color: var(--ui-accent); }
+.ui-button.self:hover, .ui-button.self.is-hover { border-image-source: url("slices/button-self-hover.png"); }
+.ui-button.self:active, .ui-button.self.is-press { border-image-source: url("slices/button-self-press.png"); }
+.ui-button.shared:disabled, .ui-button.self:disabled, .ui-button.shared.is-disabled, .ui-button.self.is-disabled { border-image-source: url("slices/button-primary-disabled.png"); }
+/* Icon-only key (play/pause, mute): exactly one 16 px icon on the face. */
+.ui-button.icon { width: calc(26 * var(--ui-px)); height: calc(28 * var(--ui-px)); min-height: 0; padding: 0 0 calc(2 * var(--ui-px)); gap: 0; }
+.ui-button.icon:active, .ui-button.icon.is-press { padding: calc(2 * var(--ui-px)) 0 0; }
+.ui-button.icon:disabled, .ui-button.icon.is-disabled { padding: 0 0 calc(2 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-play, .ui-button.is-disabled .ui-icon-play { background-position: calc(-134 * var(--ui-px)) calc(-93 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-pause, .ui-button.is-disabled .ui-icon-pause { background-position: 0 calc(-86 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-sound, .ui-button.is-disabled .ui-icon-sound { background-position: calc(-51 * var(--ui-px)) calc(-94 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-muted, .ui-button.is-disabled .ui-icon-muted { background-position: calc(-185 * var(--ui-px)) calc(-85 * var(--ui-px)); }
+
+/* Seek bar. Put the fill and head inside, and set --pos (0..1) on the bar. For a11y, lay a transparent
+ * <input type="range"> over it (opacity 0, inset 0) and keep the art as decoration. */
+.ui-seek { position: relative; flex: 1; min-width: calc(40 * var(--ui-px)); height: calc(10 * var(--ui-px)); border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/seek-track.png") 4 4 fill / calc(4 * var(--ui-px)) stretch; }
+.ui-seek.is-disabled { border-image-source: url("slices/seek-track-disabled.png"); }
+.ui-seek-fill { position: absolute; left: 0; top: calc(-2 * var(--ui-px)); height: calc(6 * var(--ui-px)); width: calc(100% * var(--pos, 0)); border-style: solid; border-color: transparent; border-width: calc(1 * var(--ui-px)); border-image: url("slices/seek-fill.png") 1 1 fill / calc(1 * var(--ui-px)) stretch; border-left-width: 0; border-right-width: 0; }
+.ui-seek.is-disabled .ui-seek-fill { display: none; }
+.ui-seek-head { position: absolute; top: calc(-7 * var(--ui-px)); left: calc(100% * var(--pos, 0) - calc(5 * var(--ui-px))); }
+
+/* Time readout: sunken night well, cream tabular digits. */
+.ui-readout { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/readout-0.png") 4 4 fill / calc(4 * var(--ui-px)) stretch; display: inline-flex; align-items: center; padding: 0; color: var(--ui-text); font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 700; line-height: 1; min-height: calc(14 * var(--ui-px)); white-space: nowrap; }
+
+/* Personal volume: its own pod, never inside the wood panel. */
+.ui-volume { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/panel-self.png") 6 6 fill / calc(6 * var(--ui-px)) stretch; display: inline-flex; align-items: center; gap: calc(4 * var(--ui-px)); padding: 0 calc(2 * var(--ui-px)); color: var(--ui-accent); }
+.ui-vol-track { position: relative; width: calc(40 * var(--ui-px)); height: calc(8 * var(--ui-px)); border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/volume-track.png") 4 4 fill / calc(4 * var(--ui-px)) stretch; }
+.ui-vol-fill { position: absolute; left: 0; top: calc(-2 * var(--ui-px)); height: calc(4 * var(--ui-px)); width: calc(100% * var(--vol, 1)); border-style: solid; border-color: transparent; border-width: calc(1 * var(--ui-px)); border-image: url("slices/volume-fill.png") 1 1 fill / calc(1 * var(--ui-px)) stretch; border-left-width: 0; border-right-width: 0; }
+.ui-vol-knob { position: absolute; top: calc(-5 * var(--ui-px)); left: calc(100% * var(--vol, 1) - calc(5 * var(--ui-px))); }
+.ui-volume.is-muted .ui-vol-fill, .ui-vol-track.is-disabled .ui-vol-fill { display: none; }
+
+/* Chips: who a control affects. Always paired with a glyph/icon, so it never relies on colour. */
+.ui-chip { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/chip-shared.png") 4 4 fill / calc(4 * var(--ui-px)) stretch; display: inline-flex; align-items: center; gap: calc(2 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); font-size: 11px; font-weight: 700; line-height: 1; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.ui-room .ui-readout { font-size: 11px; }
+.ui-room .ui-chip { font-size: 9px; }
+.ui-chip.self { border-image-source: url("slices/chip-self.png"); color: var(--ui-accent); }
+
+/* Chat system line ("Ana paused"): dark strip + glow bar + glyph. User chat stays in cream bubbles over avatars. */
+.ui-sysline { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(5 * var(--ui-px)); border-image: url("slices/chat-system.png") 4 4 4 5 fill / calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(4 * var(--ui-px)) calc(5 * var(--ui-px)) stretch; display: flex; align-items: center; gap: calc(2 * var(--ui-px)); margin: 0; padding: 0 calc(1 * var(--ui-px)); width: fit-content; color: var(--ui-muted); font-size: 12px; font-weight: 500; line-height: 1.2; }
+.ui-sysline b { color: var(--ui-glow); font-weight: 700; }
+.ui-sysline time { color: var(--ui-text); font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* Catching up: the hourglass sticker hangs off the left end of that user's name tag; the room keeps playing.
+ * Frames catchup/0..3 at 320 ms (the CSS below steps through them). */
+.ui-catchup { --f0: calc(-240 * var(--ui-px)) calc(-67 * var(--ui-px)); --f1: calc(-100 * var(--ui-px)) calc(-76 * var(--ui-px)); --f2: calc(-117 * var(--ui-px)) calc(-76 * var(--ui-px)); --f3: calc(-134 * var(--ui-px)) calc(-76 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--f0); animation: ui-catchup 1280ms steps(1) infinite; }
+@keyframes ui-catchup { 0% { background-position: var(--f0); } 25% { background-position: var(--f1); } 50% { background-position: var(--f2); } 75% { background-position: var(--f3); } }
+/* The tag must already be positioned (it is, in the room). The sticker overlaps the tag's left end by 3 art px. */
+.ui-tag.catching { color: var(--ui-muted); font-style: italic; }
+.ui-tag.catching .ui-catchup { position: absolute; right: 100%; top: 50%; translate: calc(3 * var(--ui-px)) -50%; }
+@media (prefers-reduced-motion: reduce) { .ui-catchup { animation: none; } }

@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Set (c) preview: the reference CSS applied to mock-ups of the landing form and the room chrome.
+<!-- Set (c) + (e) preview: the reference CSS applied to mock-ups of the landing form and the room chrome.
      Screenshots: bun assets/src/shoot-ui.ts (writes preview/ui-*.png). Not shipped. -->
 <html lang="en">
 <head>
@@ -23,7 +23,6 @@
   .error { color: var(--ui-error); font-size: 13px; margin: 0; min-height: 1.3em; display: flex; gap: 6px; align-items: center; }
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .ui-button { font-size: 15px; }
-  .ui-button .ui-sprite { width: 32px; height: 32px; }
 
   .room-wrap { width: 960px; }
   .topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
@@ -37,6 +36,23 @@
   .chat { display: flex; gap: 8px; margin-top: 8px; }
   .chat .ui-input { flex: 1; font: inherit; font-weight: 500; }
   .notice { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+
+  /* Set (e) playback preview */
+  .pb-wrap { width: 960px; }
+  .pb-stage { position: relative; width: 960px; height: 600px; background: url("room@1x.png"); image-rendering: pixelated; }
+  .pb-stage > * { position: absolute; }
+  .bar { display: flex; gap: 8px; align-items: stretch; margin-top: 8px; }
+  .bar > .ui-panel { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 2px 8px 6px; }
+  .bar-head { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 500; color: var(--ui-muted); }
+  .bar-head b { color: var(--ui-glow); }
+  .ui-volume { flex-direction: column; align-items: flex-start; gap: 4px; padding: 2px 8px 6px; }
+  .ui-volume .row { gap: 10px; flex-wrap: nowrap; }
+  .rail { left: 16px; bottom: 16px; display: grid; gap: 3px; justify-items: start; }
+  .grid { display: grid; grid-template-columns: 140px repeat(4, auto); gap: 14px 18px; align-items: center; justify-items: start; }
+  .grid .lbl { font-size: 12px; color: var(--ui-muted); font-weight: 500; }
+  .grid .hd { font-size: 11px; color: var(--ui-muted); letter-spacing: .08em; text-transform: uppercase; }
+  .seekbox { width: 150px; }
+  .log { display: grid; gap: 4px; justify-items: start; }
 </style>
 </head>
 <body>
@@ -111,6 +127,61 @@
       <button class="ui-button"><span class="ui-sprite ui-icon-send"></span>Send</button>
     </form>
     <div class="notice ui-panel"><span class="ui-sprite ui-icon-warn"></span>The room is full (8/8). You can still watch and chat.</div>
+  </div>
+</section>
+
+<section id="playback">
+  <h2>Synced playback (set e)</h2>
+  <div class="pb-wrap">
+    <div class="pb-stage ui-room">
+      <span class="ui-tag" style="left:352px;top:289px">Ada</span>
+      <span class="ui-tag self" style="left:416px;top:286px">Wren</span>
+      <span class="ui-tag" style="left:544px;top:291px">Moss</span>
+      <span class="ui-tag" style="left:608px;top:289px">Kit</span>
+      <span class="ui-tag" style="left:352px;top:355px">Juniper</span>
+      <span class="ui-tag catching" style="left:416px;top:353px" title="Oli is catching up (buffering or an ad). The room keeps playing.">Oli<span class="ui-sprite ui-catchup"></span></span>
+      <div class="rail" aria-live="polite">
+        <p class="ui-sysline"><span class="ui-sprite ui-glyph-play"></span><span><b>Kit</b> played</span></p>
+        <p class="ui-sysline"><span class="ui-sprite ui-glyph-seek"></span><span><b>Ben</b> skipped to <time>12:30</time></span></p>
+        <p class="ui-sysline"><span class="ui-sprite ui-glyph-pause"></span><span><b>Ana</b> paused</span></p>
+      </div>
+      <span class="ui-bubble" style="left:608px;top:265px">wait for me!</span>
+    </div>
+    <div class="bar">
+      <div class="ui-panel" role="group" aria-label="Shared playback: affects everyone">
+        <div class="bar-head"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><span>Play, pause and seek change the video for the whole room · last: <b>Ana</b> paused</span></div>
+        <div class="ui-transport">
+          <button class="ui-button shared icon" aria-label="Play for everyone"><span class="ui-sprite ui-icon-play"></span></button>
+          <span class="ui-readout">12:30</span>
+          <div class="ui-seek" style="--pos:0.3"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div>
+          <span class="ui-readout">41:07</span>
+        </div>
+      </div>
+      <div class="ui-volume" role="group" aria-label="Your volume: only you hear this">
+        <span class="ui-chip self"><span class="ui-sprite ui-glyph-you"></span>Only you</span>
+        <div class="row"><button class="ui-button self icon" aria-label="Mute (only you)"><span class="ui-sprite ui-icon-sound"></span></button><div class="ui-vol-track" style="--vol:0.7"><span class="ui-vol-fill"></span><span class="ui-sprite ui-vol-knob ui-volume-knob-idle"></span></div></div>
+      </div>
+    </div>
+    <div class="notice ui-panel"><span class="ui-sprite ui-catchup"></span>You're catching up: the room kept playing, so you'll join at 12:34.</div>
+  </div>
+</section>
+
+<section id="playback-states">
+  <h2>Playback states: page chrome 2× (top) and room scale 1× (bottom)</h2>
+  <div class="ui-panel" style="display:grid;gap:18px;width:fit-content">
+    <div class="grid "><span class="hd"></span><span class="hd">idle</span><span class="hd">hover</span><span class="hd">pressed</span><span class="hd">disabled</span><span class="lbl">Shared · play</span><span><button class="ui-button shared icon idle"><span class="ui-sprite ui-icon-play"></span></button></span><span><button class="ui-button shared icon is-hover"><span class="ui-sprite ui-icon-play"></span></button></span><span><button class="ui-button shared icon is-press"><span class="ui-sprite ui-icon-play"></span></button></span><span><button class="ui-button shared icon" disabled><span class="ui-sprite ui-icon-play"></span></button></span><span class="lbl">Shared · pause</span><span><button class="ui-button shared icon idle"><span class="ui-sprite ui-icon-pause"></span></button></span><span><button class="ui-button shared icon is-hover"><span class="ui-sprite ui-icon-pause"></span></button></span><span><button class="ui-button shared icon is-press"><span class="ui-sprite ui-icon-pause"></span></button></span><span><button class="ui-button shared icon" disabled><span class="ui-sprite ui-icon-pause"></span></button></span><span class="lbl">Shared · seek</span><span><div class="seekbox"><div class="ui-seek" style="--pos:0.4"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div></div></span><span><div class="seekbox"><div class="ui-seek" style="--pos:0.4"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-hover"></span></div></div></span><span><div class="seekbox"><div class="ui-seek" style="--pos:0.4"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-press"></span></div></div></span><span><div class="seekbox"><div class="ui-seek is-disabled" style="--pos:0.4"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-disabled"></span></div></div></span><span class="lbl">Yours · sound</span><span><button class="ui-button self icon idle"><span class="ui-sprite ui-icon-sound"></span></button></span><span><button class="ui-button self icon is-hover"><span class="ui-sprite ui-icon-sound"></span></button></span><span><button class="ui-button self icon is-press"><span class="ui-sprite ui-icon-sound"></span></button></span><span><button class="ui-button self icon" disabled><span class="ui-sprite ui-icon-sound"></span></button></span><span class="lbl">Yours · muted</span><span><button class="ui-button self icon idle"><span class="ui-sprite ui-icon-muted"></span></button></span><span><button class="ui-button self icon is-hover"><span class="ui-sprite ui-icon-muted"></span></button></span><span><button class="ui-button self icon is-press"><span class="ui-sprite ui-icon-muted"></span></button></span><span><button class="ui-button self icon" disabled><span class="ui-sprite ui-icon-muted"></span></button></span><span class="lbl">Yours · volume</span><span><div class="ui-vol-track" style="--vol:0.6"><span class="ui-vol-fill"></span><span class="ui-sprite ui-vol-knob ui-volume-knob-idle"></span></div></span><span><div class="ui-vol-track" style="--vol:0.6"><span class="ui-vol-fill"></span><span class="ui-sprite ui-vol-knob ui-volume-knob-hover"></span></div></span><span><div class="ui-vol-track" style="--vol:0.6"><span class="ui-vol-fill"></span><span class="ui-sprite ui-vol-knob ui-volume-knob-press"></span></div></span><span><div class="ui-vol-track is-disabled" style="--vol:0.6"><span class="ui-vol-fill"></span><span class="ui-sprite ui-vol-knob ui-volume-knob-disabled"></span></div></span><span class="lbl">Labels</span><span><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span></span><span><span class="ui-chip self"><span class="ui-sprite ui-glyph-you"></span>Only you</span></span><span><span class="ui-readout">1:02:45</span></span><span><span class="ui-readout">0:00</span></span><span class="lbl">Catching up</span><span><span class="ui-sprite ui-catchup-0"></span></span><span><span class="ui-sprite ui-catchup-1"></span></span><span><span class="ui-sprite ui-catchup-2"></span></span><span><span class="ui-sprite ui-catchup-3"></span></span></div>
+    <div class="log">
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-pause"></span><span><b>Ana</b> paused</span></p>
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-seek"></span><span><b>Ben</b> skipped to <time>12:30</time></span></p>
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-catchup"></span><span><b>Oli</b> is catching up</span></p>
+      <span class="ui-bubble" style="margin-top:4px;translate:none">user chat stays a bubble</span>
+    </div>
+    <div class="ui-room" style="display:grid;gap:10px"><div class="grid "><span class="hd"></span><span class="hd">idle</span><span class="hd">hover</span><span class="hd">pressed</span><span class="hd">disabled</span><span class="lbl">Shared · play</span><span><button class="ui-button shared icon idle"><span class="ui-sprite ui-icon-play"></span></button></span><span><button class="ui-button shared icon is-hover"><span class="ui-sprite ui-icon-play"></span></button></span><span><button class="ui-button shared icon is-press"><span class="ui-sprite ui-icon-play"></span></button></span><span><button class="ui-button shared icon" disabled><span class="ui-sprite ui-icon-play"></span></button></span><span class="lbl">Shared · pause</span><span><button class="ui-button shared icon idle"><span class="ui-sprite ui-icon-pause"></span></button></span><span><button class="ui-button shared icon is-hover"><span class="ui-sprite ui-icon-pause"></span></button></span><span><button class="ui-button shared icon is-press"><span class="ui-sprite ui-icon-pause"></span></button></span><span><button class="ui-button shared icon" disabled><span class="ui-sprite ui-icon-pause"></span></button></span><span class="lbl">Shared · seek</span><span><div class="seekbox"><div class="ui-seek" style="--pos:0.4"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div></div></span><span><div class="seekbox"><div class="ui-seek" style="--pos:0.4"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-hover"></span></div></div></span><span><div class="seekbox"><div class="ui-seek" style="--pos:0.4"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-press"></span></div></div></span><span><div class="seekbox"><div class="ui-seek is-disabled" style="--pos:0.4"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-disabled"></span></div></div></span><span class="lbl">Yours · sound</span><span><button class="ui-button self icon idle"><span class="ui-sprite ui-icon-sound"></span></button></span><span><button class="ui-button self icon is-hover"><span class="ui-sprite ui-icon-sound"></span></button></span><span><button class="ui-button self icon is-press"><span class="ui-sprite ui-icon-sound"></span></button></span><span><button class="ui-button self icon" disabled><span class="ui-sprite ui-icon-sound"></span></button></span><span class="lbl">Yours · muted</span><span><button class="ui-button self icon idle"><span class="ui-sprite ui-icon-muted"></span></button></span><span><button class="ui-button self icon is-hover"><span class="ui-sprite ui-icon-muted"></span></button></span><span><button class="ui-button self icon is-press"><span class="ui-sprite ui-icon-muted"></span></button></span><span><button class="ui-button self icon" disabled><span class="ui-sprite ui-icon-muted"></span></button></span><span class="lbl">Yours · volume</span><span><div class="ui-vol-track" style="--vol:0.6"><span class="ui-vol-fill"></span><span class="ui-sprite ui-vol-knob ui-volume-knob-idle"></span></div></span><span><div class="ui-vol-track" style="--vol:0.6"><span class="ui-vol-fill"></span><span class="ui-sprite ui-vol-knob ui-volume-knob-hover"></span></div></span><span><div class="ui-vol-track" style="--vol:0.6"><span class="ui-vol-fill"></span><span class="ui-sprite ui-vol-knob ui-volume-knob-press"></span></div></span><span><div class="ui-vol-track is-disabled" style="--vol:0.6"><span class="ui-vol-fill"></span><span class="ui-sprite ui-vol-knob ui-volume-knob-disabled"></span></div></span><span class="lbl">Labels</span><span><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span></span><span><span class="ui-chip self"><span class="ui-sprite ui-glyph-you"></span>Only you</span></span><span><span class="ui-readout">1:02:45</span></span><span><span class="ui-readout">0:00</span></span><span class="lbl">Catching up</span><span><span class="ui-sprite ui-catchup-0"></span></span><span><span class="ui-sprite ui-catchup-1"></span></span><span><span class="ui-sprite ui-catchup-2"></span></span><span><span class="ui-sprite ui-catchup-3"></span></span></div>
+      <div class="log">
+        <p class="ui-sysline"><span class="ui-sprite ui-glyph-pause"></span><span><b>Ana</b> paused</span></p>
+        <p class="ui-sysline"><span class="ui-sprite ui-glyph-seek"></span><span><b>Ben</b> skipped to <time>12:30</time></span></p>
+      </div>
+    </div>
   </div>
 </section>
 </body>

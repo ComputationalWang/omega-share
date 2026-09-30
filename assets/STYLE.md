@@ -111,13 +111,32 @@ All three render the same scene with the same sprites. Only the palette and the 
   Each has a pop-in (at least 8 px, so it never flickers as a speck), a settled frame and a pulse (a beat, a squeeze, a tilt, a jolt, palms together).
   They float just above the name tag and read at 1× on floor, rug and walls.
 
+## Playback (set e)
+Three ways to say "this button affects everyone" were tried on paper before any pixels:
+
+| | Direction | Verdict |
+|---|---|---|
+| A | Colour-coded: teal = shared, pink = personal | Rejected: colour alone, and it borrows Pip's and Kiki's hues. |
+| B | One bar, with a "remote held by …" token | Rejected: implies someone owns the remote, and the spec says anyone can press. |
+| **C** | **Two materials** from the room: shared = the TV's wood + brass, personal = night blue in the mustard "you" rim | **Chosen.** It reuses meanings people already learned (wood = the TV, the mustard rim = you on `tag/self`), and each group also carries a chip with a glyph, so it's never colour alone. |
+
+- **Shapes differ too:** the seek head is a tall wood grip with grip ridges; the volume knob is a round mustard bead. The volume track is thinner.
+- **The TV's glow** (cool, the one cold light in the room) marks what comes from the video: the seek fill and the system-line bar and actor names.
+- **System lines** are dark strips with a glow bar and a glyph, and never cream. Cream cards with tails are people talking.
+- **Catching up** is an emote-style sticker (flat tones, auto shade, plum outline, no highlight band): a wood/glow/mustard hourglass that
+  turns over every 4 frames. It hangs off the name tag, and the name goes lilac italic. Nothing else dims or waits.
+- **States** follow set (c): hover brightens one ramp step (cream lit edge), pressed loses the 2 px lip, and disabled is charcoal with the icon
+  in cream shade (`icon/*-off`), so disabled doesn't rely on colour or on opacity (no alpha: 1-bit only).
+- No new colours: set (e) is built from the existing 67.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
 | (a) avatars | `avatars/avatars.png` + `avatars.json` (gz) | 4 428 + 1 492 ≈ **5.9 KB** |
 | (b) room | `room/room.png` + `room.json` (gz) | 8 721 + 1 147 ≈ **9.9 KB** |
 | (c) UI chrome | `ui/ui.png` + `ui.json` (gz) + `ui/slices/*.png` + `reference.css` (gz) | 3 240 + 1 161 + 3 506 + 2 029 ≈ **9.9 KB** |
+| (e) playback (M1b) | added to the (c) files: `ui.png` + `ui.json` (gz) + 16 slices + `reference.css` (gz) | 16 233 total for (c)+(e), so **≈ 6.4 KB** for (e) |
 | (d) motion (lazy, M5) | `avatars/motion.png` + `motion.json` (gz) | 14 423 + 3 788 ≈ **18.2 KB** |
-| total art budget | | ≤ 300 KB (≈ 44.1 KB used) |
+| total art budget | | ≤ 300 KB (≈ 50.7 KB used) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.

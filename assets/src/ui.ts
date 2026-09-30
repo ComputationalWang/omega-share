@@ -23,7 +23,7 @@ const c = (ramp: RampName, tone: Tone): number => colorIndex(ramp, tone);
 const O = OUTLINE;
 const T = 0; // transparent
 
-type Edge = "t" | "b" | "l" | "r";
+export type Edge = "t" | "b" | "l" | "r";
 
 /** Depth of (x, y) inside a w×h rect with chamfered corners (r px), and the nearest edge.
  *  Diagonal rings are 2 px wide per row, so they step cleanly like the room's 2:1 edges. */
@@ -45,7 +45,7 @@ function ring(w: number, h: number, r: number, x: number, y: number): { d: numbe
 
 type Paint = (d: number, edge: Edge) => number;
 
-function slab(w: number, h: number, r: number, paint: Paint): Uint8Array {
+export function slab(w: number, h: number, r: number, paint: Paint): Uint8Array {
   const img = new Uint8Array(w * h);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -56,10 +56,10 @@ function slab(w: number, h: number, r: number, paint: Paint): Uint8Array {
   return img;
 }
 
-const lit = (e: Edge): boolean => e === "t" || e === "l";
-const all = (n: number): Borders => ({ left: n, top: n, right: n, bottom: n });
+export const lit = (e: Edge): boolean => e === "t" || e === "l";
+export const all = (n: number): Borders => ({ left: n, top: n, right: n, bottom: n });
 
-function nine(key: string, w: number, h: number, img: Uint8Array, borders: Borders): UiFrame {
+export function nine(key: string, w: number, h: number, img: Uint8Array, borders: Borders): UiFrame {
   return { key, w, h, img, ax: 0, ay: 0, borders, slice: true };
 }
 
@@ -459,6 +459,10 @@ interface Rect {
 }
 const px = (n: number): string => `${String(n)}px`;
 const kebab = (key: string): string => key.replace(/\//g, "-");
+/** Art pixels → CSS length that follows the chrome scale (`--ui-px`). */
+const u = (n: number): string => (n === 0 ? "0" : `calc(${String(n)} * var(--ui-px))`);
+/** Atlas keys that CSS draws as plain sprites from ui.png (the rest are 9-slices in ui/slices/). */
+const SPRITE_KEY = /^(icon|dot|portrait|logo|glyph|catchup|seek\/head|volume\/knob)\//;
 
 /** `ui/reference.css`: the design spec for the DOM chrome, generated so sprite offsets never drift.
  *  9-slices scale with `--ui-px` (2px in page chrome, 1px inside the room stage); sprites are baked at 2×. */
@@ -470,8 +474,8 @@ export function referenceCss(rects: Readonly<Record<string, Rect>>, sheet: { w: 
   const src = (key: string): string => `border-image-source: ${slice(key)};`;
   const tok = Object.entries(tokens).map(([k, v]) => `  --ui-${k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)}: ${v};`).join("\n");
   const sprites = Object.entries(rects)
-    .filter(([k]) => /^(icon|dot|portrait|logo)\//.test(k))
-    .map(([k, r]) => `.ui-${kebab(k)} { width: ${px(r.w * 2)}; height: ${px(r.h * 2)}; background-position: ${px(-r.x * 2)} ${px(-r.y * 2)}; }`)
+    .filter(([k]) => SPRITE_KEY.test(k))
+    .map(([k, r]) => `.ui-${kebab(k)} { width: ${u(r.w)}; height: ${u(r.h)}; background-position: ${u(-r.x)} ${u(-r.y)}; }`)
     .join("\n");
   const tail = rects["bubble/tail"] ?? { x: 0, y: 0, w: 14, h: 5 };
   const cur = rects["cursor/free"] ?? { x: 0, y: 0, w: 64, h: 33 };
@@ -524,8 +528,9 @@ ${tok}
 .ui-seat-cursor.mine { background-image: ${slice("cursor/mine")}; }
 .ui-seat-cursor.taken { background-image: ${slice("cursor/taken")}; }
 
-/* Sprites from ui.png at 2×: icons (16 art px), status dots, portraits, wordmark. */
-.ui-sprite { display: inline-block; flex: none; background: url("ui.png") no-repeat; background-size: ${px(sheet.w * 2)} ${px(sheet.h * 2)}; }
+/* Sprites from ui.png, scaled by --ui-px like the 9-slices (2× in page chrome, 1× in .ui-room): icons (16 art px), status dots,
+ * portraits, wordmark, playback glyphs, seek head, volume knob and the catching-up hourglass. */
+.ui-sprite { display: inline-block; flex: none; background: url("ui.png") no-repeat; background-size: ${u(sheet.w)} ${u(sheet.h)}; }
 ${sprites}
 `;
 }
