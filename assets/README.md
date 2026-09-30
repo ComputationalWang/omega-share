@@ -238,28 +238,29 @@ follow the same rule: **wood = shared**. Two new materials each have one job: **
 M3's limits, drawn as "wait a moment" and never as an alarm: **no rust and no warn icon anywhere in this set** (rust means on air or
 a real error). They use the same files as sets (c)/(e) (`ui/ui.png` / `ui.json`, `ui/slices/`, the end of `ui/reference.css`) plus
 two standalone popup PNGs. Previews: `preview/ui-safety.png` (in context: shelf, system lines, popup 1×/2×, notices, room list) and
-`preview/ui-safety-states.png` (every piece at 2× and 1×). **Each motif has one job:** snail = too fast · timer ring = how long to wait ·
-mustard bar = only you see this · plug = the network dropped · shut door with a hanger = the room is full.
+`preview/ui-safety-states.png` (every piece at 2× and 1×). **Each motif has one job:** snail = too fast · round arrow = try your share again · timer dial = how long to wait ·
+mustard bar = only you see this · plug = the network dropped · mug = the room paused you · shut door with a hanger = the room is full.
+OME-200 polish: the snail, the 16 px arrow and the dial were redrawn for 1×, and the server-close icon is a mug now, so the snail means one thing only.
 
 | Key | Size | Slice | Use |
 |---|---|---|---|
 | `button/shared/cool` | 16×20 | 5 | A rate-limited shared key resting: still wood (it's still everyone's key), a ramp step darker, charcoal lip. Not `disabled` (charcoal all over). |
-| `wait/<0..7>` | 16×16 | — | Timer ring. `0` is full; each frame spends one more eighth, clockwise from 12 o'clock (cream arc, plum groove, 2×2 hub). One-shot over the server's retry-after: frame = `floor(elapsed / total × 8)`. Anchor = centre. |
-| `glyph/snail` | 12×8 | — | "Take it slow": the slow-down chip and rate-limit system lines. |
+| `wait/<0..7>` | 16×16 | — | Timer dial. `0` is full; each frame spends one more eighth, clockwise from 12 o'clock (a filled cream wedge on plum, so every frame drops a whole slice and the middle ones read apart at 1×). One-shot over the server's retry-after: frame = `floor(elapsed / total × 8)`. Anchor = centre. |
+| `glyph/snail` | 12×8 | — | "Take it slow": the slow-down chip and rate-limit system lines, nothing else. Heading right: round mustard shell with one plum curl, cream foot, raised head on a bold eye stalk. |
 | `chat/system-self` | 14×12 | 4 (left 5) | System line only you see: set (e)'s strip with a **mustard** bar instead of the glow bar. |
 | `glyph/retry` | 8×8 | — | Round mustard arrow, for "your share didn't go through". |
-| `icon/retry`, `icon/retry-2x` | 16×16, 32×32 | — | Round arrow round a clock face: "try again later". The 32 px one is drawn, not upscaled. Also shipped as `ui/popup/retry-16.png` / `retry-32.png`. |
+| `icon/retry`, `icon/retry-2x` | 16×16, 32×32 | — | One bold round arrow, clockwise, with a wide gap at the top right and nothing inside (a clock face there read as a target at 1×): "try again". The 32 px one is drawn, not upscaled. Also shipped as `ui/popup/retry-16.png` / `retry-32.png`. |
 | `icon/unplugged` | 16×16 | — | Normal disconnect: a mustard plug pulled out of its cream socket (prongs line up with the holes). |
 | `glyph/dots/<0..2>` | 12×8 | — | "Reconnecting" loader: one dot lifted in turn, `meta.omega.dotsFrameMs` (240 ms), loop. |
-| `icon/resting` | 16×16 | — | Closed by the server (flood/policy): the snail tucked in its shell with a small "z". Still, never animated. |
+| `icon/resting` | 16×16 | — | Closed by the server (flood/policy): a cream mug with the paused lamp's two plum bars on it and steam: "take a breather". Still, never animated. |
 | `dot/paused` | 8×8 | — | Top-bar lamp for "paused by the room": a pale lamp with two plum pause bars (a shape, so it isn't colour alone next to the plain `dot/*` discs). |
 | `card/room/<idle\|hover\|full>` | 16×16 | 6 | Room-list card: dusk glass in a wood rim (hover = cream lit edge). `full` = shade rim, charcoal glass. |
 | `door/<open\|full>` | 16×24 | — | Card thumbnail, anchor bottom centre `(8,24)`. `open`: lamplight in the doorway and on the floor. `full`: door shut, a cream hanger on the knob with three little heads. |
 | `pill/full` | 12×12 | 4 | Calm "Full" pill: charcoal, cream rim, cream text (≥ 5:1). |
 
 - **1 · Slow down** (`.ui-button.shared.is-cooling`): swap the key's icon for `<span class="ui-sprite ui-wait" style="--cool: 3s">`,
-  and the CSS drains the ring once over `--cool`. Use `aria-disabled="true"`, not `disabled`, so the key keeps focus. Relabel it
-  ("Pause for everyone: available again in 3 seconds"), and drop `.is-cooling` when the ring is empty. Next to it, put a `.ui-chip.self`
+  and the CSS drains the dial once over `--cool`. Use `aria-disabled="true"`, not `disabled`, so the key keeps focus. Relabel it
+  ("Pause for everyone: available again in 3 seconds"), and drop `.is-cooling` when the dial is empty. Next to it, put a `.ui-chip.self`
   with `glyph/snail` + "Slow down". It's in the "only you" rim because only you are slowed. Optionally, show a self line: `glyph/snail` · "**Easy!** You can skip again in `<time>3 s</time>`".
 - **2 · Share retry.** Room: `.ui-sysline.self` · `glyph/retry` · "**Your share** didn't go through. Try again in `<time>12 s</time>`". Recount the
   `<time>` each second and drop the line when it reaches 0. Popup (plain HTML): `<img src="retry-16.png" srcset="retry-16.png 1x, retry-32.png 2x" width="16" height="16" alt="">`
@@ -268,7 +269,8 @@ mustard bar = only you see this · plug = the network dropped · shut door with 
   - **Normal drop:** `dot/connecting` + "Reconnecting" + `.ui-dots`, and a `panel/0` notice with `icon/unplugged` ("Connection dropped.
     Reconnecting by itself…"). There's **no button**: it retries by itself.
   - **Closed by the server:** `dot/paused` + "Paused by the room", and a `panel/0` notice with `icon/resting` ("The room paused your
-    connection: lots of messages at once.") plus a primary **Rejoin** key. The key is disabled ("Rejoin in 20 s") until the delay is over. Nothing moves.
+    connection: lots of messages at once.") plus a primary **Rejoin** key. Until the delay is over it's `.ui-button.is-waiting` with `aria-disabled="true"` ("Rejoin in 20 s"): the charcoal
+    disabled face with full cream text (9:1), because the countdown is meant to be read. Nothing moves.
 - **4 · Room full** (ADR 0006, the 26th member): `.ui-card.is-full` with `door/full`, the count "25 / 25" and a `.ui-pill-full`. Render the card as a
   `div` with `aria-disabled="true"`, not a link. Open rooms are `a.ui-card` with `door/open` (hover/focus = the cream edge).
 - **Motion:** `prefers-reduced-motion` stops the dots and shows `wait/0` (the countdown text still carries the time).

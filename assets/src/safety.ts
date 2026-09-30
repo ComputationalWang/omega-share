@@ -1,8 +1,10 @@
 // Set (f), M3 safety states (OME-193): the limits people will hit, drawn so they read as "wait a moment", never as an alarm.
 // Same palette, plum outline and top-left light as sets (c)/(e). No rust and no warn icon anywhere in this set: rust means
 // "on air" (M2) or a real error (set c), and none of these are errors. Each motif has exactly one job:
-//   snail        = "too fast": the slow-down chip, the rate-limit system line, and (tucked in its shell) a server-closed connection.
-//   timer ring   = how long to wait. It drains clockwise from 12 o'clock and is the only moving part of a cooldown.
+//   snail        = "too fast": the slow-down chip and the rate-limit system line. Nothing else.
+//   round arrow  = your share didn't go through, try again.
+//   timer dial   = how long to wait. Its cream wedge drains clockwise from 12 o'clock; the only moving part of a cooldown.
+//   mug          = the room paused your connection (flood/policy): take a breather.
 //   mustard bar  = a line only you see (set e's "you" colour), e.g. your share didn't go through. Glow bars stay the room's news.
 //   plug         = the network dropped; it reconnects by itself.
 //   door + tag   = the room is full; its door is shut with a hanger on the knob.
@@ -70,6 +72,7 @@ const ROLES: RoleMap = {
   i: { ramp: "cream", tone: 0 },
   C: { ramp: "cream", tone: 2 },
   y: { ramp: "mustard", tone: 0 },
+  Y: { ramp: "mustard", tone: 1 },
   // Auto-shaded surfaces (base + shade edge, highlight band where flagged).
   c: { ramp: "cream", hi: true },
   m: { ramp: "mustard", hi: true },
@@ -92,8 +95,9 @@ function art(keyName: string, rows: readonly string[], ax?: number, ay?: number)
   return { key: keyName, w, h, img: render(g, ROLES), ax: ax ?? w / 2, ay: ay ?? h / 2 };
 }
 
-/** Timer ring, 16×16: `wait/0` is full, each later frame has one more eighth spent, clockwise from 12 o'clock.
- *  Remaining = cream highlight, spent = a plum groove, so it reads without colour (a shrinking arc) on wood, night or white. */
+/** Timer, 16×16: `wait/0` is full, each later frame has one more eighth spent, clockwise from 12 o'clock.
+ *  A filled dial, not a thin ring: remaining = a cream wedge, spent = plum, so each frame drops a whole slice of cream and
+ *  the middle frames (half-way, most of the way) read apart at 1× by area. No colour needed on wood, night or white. */
 export const WAIT_FRAMES = 8;
 function waitRing(n: number): UiFrame {
   const S = 16, cx = 7.5, cy = 7.5;
@@ -102,10 +106,8 @@ function waitRing(n: number): UiFrame {
     let row = "";
     for (let x = 0; x < S; x++) {
       const dx = x - cx, dy = y - cy;
-      const r = Math.hypot(dx, dy);
-      if (r > 6.1 || r < 3.9) {
-        // Centre hub: a 2×2 cream dot, the dial's pin.
-        row += r < 1 ? "i" : ".";
+      if (Math.hypot(dx, dy) > 6.1) {
+        row += ".";
         continue;
       }
       // Angle clockwise from 12 o'clock, in eighths.
@@ -120,14 +122,14 @@ function waitRing(n: number): UiFrame {
 
 // 12×8 one-line glyphs (10×6 art + outline), same size as `glyph/everyone`.
 const WIDE_GLYPHS: Record<string, readonly string[]> = {
-  // A snail: mustard shell with a plum spiral, cream body and two eye stalks. "Take it slow."
+  // A snail heading right: a round mustard shell with one plum curl, a cream foot and a raised head on one bold eye stalk. "Take it slow."
   snail: [
     "............",
-    ".c..c.......",
-    "..cc...mmm..",
-    "..cc..mmomm.",
-    "..cc.mmocmm.",
-    "..ccmmmoomm.",
+    "..yyyy....i.",
+    ".yyYYYM...c.",
+    ".yYooYM..cc.",
+    ".yYYoYM.ccc.",
+    ".YooMMM.ccc.",
     ".cccccccccc.",
     "............",
   ],
@@ -147,22 +149,23 @@ const GLYPHS: Record<string, readonly string[]> = {
 
 // 16×16 icons.
 const ICONS: Record<string, readonly string[]> = {
-  // Try again later: a round mustard arrow around a small cream clock face. The popup's 1× key icon.
+  // Try again: one bold round mustard arrow, clockwise, with a wide gap at the top right so it can't close into a ring.
+  // Nothing inside it (a clock face there read as a target at 1×). The popup's 1× key icon.
   retry: [
     "................",
-    "................",
-    ".....mmmmm.m....",
-    "....mm...mmm....",
-    "...mm...mmmm....",
-    "...m............",
-    "..mm...cc...mm..",
-    "..m...cccc...m..",
-    "..m...cccc...m..",
-    "..mm...cc...mm..",
-    "...m.......m....",
-    "...mm.....mm....",
-    "....mm...mm.....",
-    ".....mmmmm......",
+    "........y.......",
+    ".....yyyYy......",
+    "....yyYYYYy.....",
+    "...yYY..YY......",
+    "..yyY...Y.......",
+    "..yY............",
+    "..yY........YM..",
+    "..yY........YM..",
+    "..yY........YM..",
+    "..yyY......YMM..",
+    "...yYY....YYM...",
+    "....YYYYYYMM....",
+    ".....MMMMMM.....",
     "................",
     "................",
   ],
@@ -185,22 +188,23 @@ const ICONS: Record<string, readonly string[]> = {
     "................",
     "................",
   ],
-  // Closed by the server (flood/policy): the snail tucked into its shell, with a small cream "z". Resting, not broken.
+  // Closed by the server (flood/policy): a cream mug with the paused lamp's two plum bars on it and steam curling up.
+  // "Take a breather": its own motif, so the snail only ever means "too fast". Resting, not broken.
   resting: [
     "................",
-    "...........ii...",
-    "............i...",
-    "...........ii...",
-    "....mmmmm.......",
-    "...mmoooom......",
-    "..mmomm.mom.....",
-    "..momcoomom.....",
-    "..momcmmmom.....",
-    "..mmoommmm......",
-    "..mmmoooom......",
-    "...mmmmmm.......",
-    ".cccccccccc.....",
+    "......i...i.....",
+    "......i...i.....",
+    ".....i...i......",
+    ".....i...i......",
     "................",
+    "..cccccccccc....",
+    "..cWWWWWWWWc....",
+    "..cccccccccccc..",
+    "..cccoccoccc..c.",
+    "..cccoccoccc..c.",
+    "..cccoccocccccc.",
+    "..cccccccccc....",
+    "...cccccccc.....",
     "................",
     "................",
   ],
@@ -264,37 +268,37 @@ const DOORS: Record<string, readonly string[]> = {
   ],
 };
 
-/** The same "try again later" icon drawn at 32×32 for the popup's 2× (hi-dpi) key icon: not an upscale, it has a
- *  shaded 4 px arrow, a clock face with hands and a real arrowhead. */
+/** The same round arrow drawn at 32×32 for the popup's 2× (hi-dpi) key icon: not an upscale, a shaded 4 px stroke
+ *  with a real arrowhead, and the same gap at the top right. */
 const RETRY_2X: readonly string[] = [
   "................................",
   "................................",
+  "................m...............",
+  "................mm..............",
+  "...........mmmmmmmm.............",
+  ".........mmmmmmmmmmm............",
+  "........mmmmmmmmmmmm............",
+  ".......mmmmmmmmmmmm.............",
+  "......mmmmmmm...mm..............",
+  ".....mmmmmm.....m...............",
   "................................",
-  "................................",
-  "...........mmmmmmmmm...m........",
-  ".........mmmmmmmmmmmmmmmm.......",
-  "........mmmmm.....mmmmmmm.......",
-  ".......mmmm........mmmmmm.......",
-  "......mmmm........mmmmmmm.......",
-  ".....mmmm........mmmmmmmm.......",
-  ".....mmm........................",
-  "....mmmm......................  ",
-  "....mmm.......cccccc.......mmm..",
-  "....mmm......cccccccc......mmm..",
-  "...mmmm.....ccccoccccc.....mmmm.",
-  "...mmm......ccccoccccc......mmm.",
-  "...mmm......ccccoccccc......mmm.",
-  "...mmm......ccccooocccc.....mmm.",
-  "...mmmm.....cccccccccc.....mmmm.",
-  "....mmm......cccccccc......mmm..",
-  "....mmm.......cccccc.......mmm..",
-  "....mmmm..................mmmm..",
-  ".....mmmm................mmmm...",
-  "......mmmm..............mmmm....",
-  ".......mmmmm..........mmmmm.....",
-  "........mmmmmmmmmmmmmmmmmm......",
-  "..........mmmmmmmmmmmmmm........",
-  "................................",
+  "....mmmmm...............mmmm....",
+  "....mmmmm..............mmmmm....",
+  "....mmmm................mmmm....",
+  "....mmmm................mmmm....",
+  "....mmmm................mmmm....",
+  "....mmmm................mmmm....",
+  "....mmmm................mmmm....",
+  "....mmmm................mmmm....",
+  "....mmmmm..............mmmmm....",
+  "....mmmmm..............mmmmm....",
+  ".....mmmmm............mmmmm.....",
+  ".....mmmmmm..........mmmmmm.....",
+  "......mmmmmmm......mmmmmmm......",
+  ".......mmmmmmmmmmmmmmmmmm.......",
+  "........mmmmmmmmmmmmmmmm........",
+  ".........mmmmmmmmmmmmmm.........",
+  "...........mmmmmmmmmm...........",
   "................................",
   "................................",
   "................................",
@@ -307,7 +311,7 @@ export function buildSafetyFrames(): UiFrame[] {
   for (const [name, rows] of Object.entries(WIDE_GLYPHS)) out.push(art(`glyph/${name}`, rows));
   for (const [name, rows] of Object.entries(GLYPHS)) out.push(art(name.startsWith("dot/") ? name : `glyph/${name}`, rows));
   for (const [name, rows] of Object.entries(ICONS)) out.push(art(`icon/${name}`, rows));
-  out.push(art("icon/retry-2x", RETRY_2X.map((r) => r.replace(/ /g, "."))));
+  out.push(art("icon/retry-2x", RETRY_2X));
   for (const [name, rows] of Object.entries(DOORS)) out.push(art(`door/${name}`, rows, 8, 24));
   return out;
 }
@@ -336,16 +340,17 @@ export function safetyCss(rects: Readonly<Record<string, { x: number; y: number 
   const dotVars = [0, 1, 2].map((n) => `--d${String(n)}: ${at(`glyph/dots/${String(n)}`)};`).join(" ");
   return `
 /* ---- Set (f) (OME-193): M3 safety states. Friendly waits, never alarms: no rust, no warn icon.
- * Snail = too fast. Timer ring = how long to wait. Mustard bar = only you see this. Plug = network dropped. Shut door = room full. */
+ * Snail = too fast. Round arrow = try your share again. Timer dial = how long to wait. Mustard bar = only you see this.
+ * Plug = network dropped. Mug = the room paused you, take a breather. Shut door = room full. */
 
-/* Slow down: a rate-limited shared key rests (darker wood, charcoal lip) and its icon becomes the timer ring, which drains once
+/* Slow down: a rate-limited shared key rests (darker wood, charcoal lip) and its icon becomes the timer dial, which drains once
  * over --cool (the server's retry-after). Use aria-disabled="true" (not disabled) so it keeps focus and its label, e.g.
- * "Pause for everyone: available again in 3 seconds". Remove .is-cooling when the ring is empty. */
+ * "Pause for everyone: available again in 3 seconds". Remove .is-cooling when the dial is empty. */
 .ui-button.shared.is-cooling { ${src("button/shared/cool")} cursor: default; padding: 0 0 ${u(2)}; }
 .ui-wait { ${waitVars} width: ${u(16)}; height: ${u(16)}; background-position: var(--w0); animation: ui-wait var(--cool, 3s) steps(1) 1 both; }
 @keyframes ui-wait { ${waitKeys} 100% { background-position: var(--w${String(WAIT_FRAMES - 1)}); } }
 /* The slow-down chip is a .ui-chip.self (it only slows you): glyph/snail + "Slow down". Put it where .ui-live-note / the seek's
- * left end would be, and drop it with the ring. */
+ * left end would be, and drop it with the dial. */
 
 /* A line only you see (e.g. your share didn't go through): the system strip with the mustard "you" bar. */
 .ui-sysline.self { border-image-source: ${slice("chat/system-self")}; }
@@ -353,7 +358,10 @@ export function safetyCss(rects: Readonly<Record<string, { x: number; y: number 
 
 /* Connection. Normal drop: dot/connecting + "Reconnecting" + the dots loader, no button (it retries by itself).
  * Closed by the server (flood/policy): dot/paused + icon/resting in a panel notice, and a primary "Rejoin" key that waits out
- * the server's delay (disabled, "Rejoin in 20 s") before it lights up. Different lamp, icon, motion and action, and neither is rust. */
+ * the server's delay ("Rejoin in 20 s") before it lights up. Different lamp, icon, motion and action, and neither is rust.
+ * While it waits the key is .is-waiting with aria-disabled="true": the charcoal disabled face but full cream text (9:1, not the
+ * disabled text's floor), because the countdown is something to read, not a dead control. */
+.ui-button.is-waiting { ${src("button/primary/disabled")} color: var(--ui-text); cursor: default; padding-top: 0; padding-bottom: ${u(2)}; }
 .ui-dots { ${dotVars} width: ${u(12)}; height: ${u(8)}; background-position: var(--d0); animation: ui-dots ${String(DOTS_FRAME_MS * 3)}ms steps(1) infinite; }
 @keyframes ui-dots { 0% { background-position: var(--d0); } 33.333% { background-position: var(--d1); } 66.667% { background-position: var(--d2); } }
 
