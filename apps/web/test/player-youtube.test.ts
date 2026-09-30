@@ -170,6 +170,17 @@ describe("attachYouTube", () => {
     expect(adapter.state()).toBe("ad");
   });
 
+  test("duration() is the room video's, 0 until known, and never an ad's", () => {
+    const { adapter, p, ready } = setup();
+    expect(adapter.duration()).toBe(0);
+    ready();
+    expect(adapter.duration()).toBe(214);
+    p.videoData = { video_id: "adAdAdAdAdA" };
+    p.duration = 15;
+    p.fire("onStateChange", 1);
+    expect(adapter.duration()).toBe(214);
+  });
+
   test("state changes are forwarded as events", () => {
     const { p, events, ready } = setup();
     ready();
