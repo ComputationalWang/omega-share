@@ -1,0 +1,198 @@
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { startServer } from "../src/server";
+import { Client, EXTENSION_ORIGIN, SITE_ORIGIN, start, type TestServer } from "./helpers";
+
+const PUBLIC_ORIGIN = "https://quiet-otter.ngrok-free.app";
+const PUBLIC_HOST = "quiet-otter.ngrok-free.app";
+
+let t: TestServer | null = null;
+const clients: Client[] = [];
+afterEach(async () => {
+  for (const c of clients.splice(0)) c.close();
+  await t?.server.stop(true);
+  t = null;
+});
+
+const port = (): string => String(t?.server.port);
+const get = (path: string, headers: Record<string, string> = {}) => fetch(`${t?.http ?? ""}${path}`, { headers });
+const upgrade = (headers: Record<string, string>) => get("/rooms/lobby/ws", { upgrade: "websocket", ...headers });
+
+/** A built site: index.html, a hashed asset, and a file outside the root that must never be served. */
+function site(): string {
+  const parent = mkdtempSync(join(tmpdir(), "omega-site-"));
+  writeFileSync(join(parent, "secret.txt"), "outside the root");
+  const dist = join(parent, "dist");
+  mkdirSync(join(dist, "assets"), { recursive: true });
+  writeFileSync(join(dist, "index.html"), "<!doctype html><title>omega</title>");
+  writeFileSync(join(dist, "assets", "main-Ab12Cd34.js"), "console.log(1)");
+  return dist;
+}
+
+function expectSecurityHeaders(res: Response): void {
+  expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+  expect(res.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
+  expect(res.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+}
+
+describe("bind (T-11)", () => {
+  test("listens on 127.0.0.1 unless told otherwise", async () => {
+    const server = startServer({ port: 0, siteOrigin: SITE_ORIGIN });
+    try {
+      expect(server.hostname).toBe("127.0.0.1");
+    } finally {
+      await server.stop(true);
+    }
+  });
+});
+
+describe("Host allowlist (T-06, DNS rebinding)", () => {
+  test("an unknown Host is refused with 421 on every route, before routing", async () => {
+    t = start({ publicOrigin: PUBLIC_ORIGIN });
+    for (const host of ["evil.example", `evil.example:${port()}`, `${PUBLIC_HOST}.evil.example`, `127.0.0.2:${port()}`]) {
+      for (const path of ["/", "/healthz", "/rooms", "/nope"]) {
+        const res = await get(path, { host });
+        expect(res.status).toBe(421);
+        expectSecurityHeaders(res);
+      }
+      const share = await fetch(`${t.http}/rooms/lobby/share`, { method: "POST", headers: { host }, body: "{}" });
+      expect(share.status).toBe(421);
+    }
+  });
+
+  test("a WebSocket upgrade with an unknown Host is refused with 421", async () => {
+    t = start({ publicOrigin: PUBLIC_ORIGIN });
+    expect((await upgrade({ host: "evil.example" })).status).toBe(421);
+    expect((await upgrade({ host: `evil.example:${port()}`, origin: PUBLIC_ORIGIN })).status).toBe(421);
+  });
+
+  test("the public host and loopback names on our port are accepted, in any case", async () => {
+    t = start({ publicOrigin: PUBLIC_ORIGIN });
+    for (const host of [PUBLIC_HOST, "Quiet-Otter.NGROK-free.app", `localhost:${port()}`, `127.0.0.1:${port()}`, `[::1]:${port()}`, `LOCALHOST:${port()}`]) {
+      expect((await get("/rooms", { host })).status).toBe(200);
+    }
+  });
+
+  test("without a public origin only loopback names are accepted (localhost dev unchanged)", async () => {
+    t = start();
+    expect((await get("/rooms", { host: `localhost:${port()}` })).status).toBe(200);
+    expect((await get("/rooms", { host: PUBLIC_HOST })).status).toBe(421);
+    expect((await get("/rooms", { host: "localhost:1" })).status).toBe(421);
+  });
+});
+
+describe("Origin allowlist (T-04, T-05)", () => {
+  test("the public origin may call the API and connect", async () => {
+    t = start({ publicOrigin: PUBLIC_ORIGIN });
+    const res = await get("/rooms", { origin: PUBLIC_ORIGIN });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("access-control-allow-origin")).toBe(PUBLIC_ORIGIN);
+    const c = await Client.open(t.ws(), PUBLIC_ORIGIN);
+    clients.push(c);
+    c.send({ type: "join", nickname: "tunnel", avatar: 0 });
+    expect((await c.next("snapshot")).room.members).toHaveLength(1);
+  });
+
+  test("any other Origin is refused with 403, on plain GETs and upgrades alike", async () => {
+    t = start({ publicOrigin: PUBLIC_ORIGIN });
+    for (const origin of ["https://evil.test", "http://quiet-otter.ngrok-free.app", `${PUBLIC_ORIGIN}.evil.test`, "null"]) {
+      const res = await get("/rooms", { origin });
+      expect(res.status).toBe(403);
+      expect(res.headers.get("access-control-allow-origin")).toBeNull();
+      expectSecurityHeaders(res);
+      expect((await upgrade({ origin })).status).toBe(403);
+    }
+  });
+
+  test("the site and extension origins stay allowed, and the dev site is unchanged", async () => {
+    t = start();
+    for (const origin of [SITE_ORIGIN, EXTENSION_ORIGIN]) {
+      const res = await get("/rooms", { origin });
+      expect(res.status).toBe(200);
+      expect(res.headers.get("access-control-allow-origin")).toBe(origin);
+    }
+    expect((await get("/rooms", { origin: PUBLIC_ORIGIN })).status).toBe(403);
+  });
+
+  test("EXTENSION_IDS narrows extension origins to the listed ids", async () => {
+    t = start({ extensionIds: ["ponmlkjihgfedcbaponmlkjihgfedcba"] });
+    expect((await get("/rooms", { origin: "chrome-extension://ponmlkjihgfedcbaponmlkjihgfedcba" })).status).toBe(200);
+    expect((await get("/rooms", { origin: EXTENSION_ORIGIN })).status).toBe(403);
+  });
+
+  test("CORS preflight allows the share token and ngrok headers", async () => {
+    t = start({ publicOrigin: PUBLIC_ORIGIN });
+    const res = await fetch(`${t.http}/rooms/lobby/share`, {
+      method: "OPTIONS",
+      headers: {
+        origin: EXTENSION_ORIGIN,
+        "access-control-request-method": "POST",
+        "access-control-request-headers": "authorization,content-type,ngrok-skip-browser-warning",
+      },
+    });
+    const allowed = (res.headers.get("access-control-allow-headers") ?? "").toLowerCase();
+    for (const h of ["authorization", "content-type", "ngrok-skip-browser-warning"]) expect(allowed).toContain(h);
+  });
+});
+
+describe("responses", () => {
+  test("carry nosniff, a referrer policy and frame-ancestors 'none' (T-13)", async () => {
+    t = start();
+    for (const path of ["/", "/healthz", "/rooms", "/nope"]) expectSecurityHeaders(await get(path));
+  });
+
+  test("GET /healthz is the readiness probe; GET / still answers without a static site", async () => {
+    t = start();
+    const health = await get("/healthz");
+    expect(health.status).toBe(200);
+    expect(await health.text()).toBe("ok");
+    expect((await get("/")).status).toBe(200);
+  });
+});
+
+describe("serving the built site on the same origin (STATIC_DIR)", () => {
+  test("/ and site routes get index.html, not cached", async () => {
+    t = start({ staticDir: site(), publicOrigin: PUBLIC_ORIGIN });
+    for (const path of ["/", "/r/lobby", "/r/some-room"]) {
+      const res = await get(path, { host: PUBLIC_HOST });
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type") ?? "").toContain("text/html");
+      expect(res.headers.get("cache-control")).toBe("no-cache");
+      expect(await res.text()).toContain("<title>omega</title>");
+      expectSecurityHeaders(res);
+    }
+  });
+
+  test("hashed assets are immutable; a missing asset is 404, not index.html", async () => {
+    t = start({ staticDir: site() });
+    const res = await get("/assets/main-Ab12Cd34.js");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type") ?? "").toContain("javascript");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(await res.text()).toBe("console.log(1)");
+    expect((await get("/assets/missing-00000000.js")).status).toBe(404);
+    expect((await get("/favicon.png")).status).toBe(404);
+  });
+
+  test("never serves a file outside the root", async () => {
+    t = start({ staticDir: site() });
+    for (const path of ["/%2e%2e/secret.txt", "/assets/%2e%2e/%2e%2e/secret.txt", "/..%2fsecret.txt", "//secret.txt"]) {
+      const res = await get(path);
+      expect(await res.text()).not.toContain("outside the root");
+    }
+  });
+
+  test("the API and the WebSocket keep their routes, and the served page's origin may use them", async () => {
+    t = start({ staticDir: site() });
+    const self = `http://127.0.0.1:${port()}`;
+    const rooms = await get("/rooms", { origin: self });
+    expect(rooms.status).toBe(200);
+    expect(rooms.headers.get("content-type") ?? "").toContain("application/json");
+    const c = await Client.open(t.ws(), `http://localhost:${port()}`);
+    clients.push(c);
+    c.send({ type: "join", nickname: "same-origin", avatar: 0 });
+    expect((await c.next("snapshot")).room.members).toHaveLength(1);
+  });
+});
