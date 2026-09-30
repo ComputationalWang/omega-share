@@ -405,6 +405,25 @@ describe("provider plate and seek-only hint in the view", () => {
     h.c.setRoom({ embed: null, playback: null });
     expect(h.c.view()).toMatchObject({ live: false, provider: null, seekOnly: false });
   });
+
+  test("Vimeo whose rate probe was rejected: the hint shows once the loop falls back to seek-only", () => {
+    const vimeo = { provider: "vimeo", videoId: "76979871", hash: null, url: "https://player.vimeo.com/video/76979871" } as const;
+    const h = harness({ caps: playbackCaps(vimeo), rates: [1], state: "playing" });
+    h.c.setRoom({ embed: vimeo, playback: pb() });
+    expect(h.c.view()).toMatchObject({ provider: "vimeo", seekOnly: false });
+    h.c.attach(h.player, vimeo.url);
+    h.run(SYNC_INTERVAL_MS);
+    expect(h.c.view()).toMatchObject({ provider: "vimeo", seekOnly: true });
+  });
+
+  test("Vimeo whose rate probe succeeded: no hint", () => {
+    const vimeo = { provider: "vimeo", videoId: "76979871", hash: null, url: "https://player.vimeo.com/video/76979871" } as const;
+    const h = harness({ caps: playbackCaps(vimeo), rates: [0.5, 0.75, 1, 1.25, 1.5, 2], state: "playing" });
+    h.c.setRoom({ embed: vimeo, playback: pb() });
+    h.c.attach(h.player, vimeo.url);
+    h.run(SYNC_INTERVAL_MS);
+    expect(h.c.view()).toMatchObject({ provider: "vimeo", seekOnly: false });
+  });
 });
 
 describe("an offline channel clears itself (research M2 §2.1)", () => {
