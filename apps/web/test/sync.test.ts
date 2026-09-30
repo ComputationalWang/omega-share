@@ -63,20 +63,23 @@ describe("decide: thresholds", () => {
     expect(decide(input(0))).toBe(decide(input(20)));
   });
 
-  test("100 ms – 1 s: rate nudge 1 ± min(0.1, |drift| / 5 s), ahead slows down, behind speeds up", () => {
+  test("100 ms – 1 s: rate nudge on YouTube's 0.05 grid — ±0.05 up to 250 ms, ±0.1 above; ahead slows down, behind speeds up", () => {
     const table: [number, number][] = [
-      [101, 1 - 0.0202],
-      [200, 0.96],
-      [-200, 1.04],
+      [101, 0.95],
+      [-101, 1.05],
+      [200, 0.95],
+      [-200, 1.05],
       [250, 0.95],
-      [-400, 1.08],
+      [-250, 1.05],
+      [251, 0.9],
+      [-400, 1.1],
       [500, 0.9],
       [-500, 1.1],
       [800, 0.9],
       [-1000, 1.1],
       [1000, 0.9],
     ];
-    for (const [d, r] of table) expect(rateOf(decide(input(d)))).toBeCloseTo(r, 6);
+    for (const [d, r] of table) expect(rateOf(decide(input(d)))).toBe(r);
   });
 
   test("above 1 s: seek to the expected position", () => {
@@ -90,7 +93,7 @@ describe("decide: thresholds", () => {
   });
 
   test("a nudge in the wrong direction is replaced", () => {
-    expect(rateOf(decide(input(-300, { rate: 0.96 })))).toBeCloseTo(1.06, 6);
+    expect(rateOf(decide(input(-300, { rate: 0.96 })))).toBe(1.1);
   });
 
   test("a nudge ends as soon as the newest sample is back in the dead band or has crossed over (no overshoot from median lag)", () => {
@@ -133,7 +136,7 @@ describe("decide: guards", () => {
   test("drift is the median of 3, so one outlier sample does nothing", () => {
     expect(decide(input(0, { samples: [50, 3000, 60] }))).toEqual({ kind: "none" });
     expect(decide(input(0, { samples: [3000, -40, 2900] }))).toEqual({ kind: "seek", to: 10, play: true });
-    expect(rateOf(decide(input(0, { samples: [200, -5000, 190], lastDriftMs: 190 })))).toBeCloseTo(0.962, 6);
+    expect(rateOf(decide(input(0, { samples: [200, -5000, 190], lastDriftMs: 190 })))).toBe(0.95);
   });
 });
 
@@ -341,6 +344,24 @@ describe("sync loop", () => {
     expect(h.loop.mode).toBe("fine");
     expect(Math.abs(h.player.time() - expectedPosition(room({ at: 1_000_000 }), h.clock.serverNow()))).toBeLessThanOrEqual(0.1);
   });
+
+  // YouTube floors setPlaybackRate to 0.05 steps (OME-109): 1.02 and 1.03 play at 1×, 0.98 at 0.95.
+  for (const drift of [-0.12, -0.2, 0.15, -0.4, 0.6]) {
+    test(`on a player with a 0.05 rate step, fine nudges apply and stay on "fine" (drift ${String(drift)} s)`, () => {
+      const h = harness({ rateStep: 0.05 });
+      h.loop.start();
+      h.loop.setPlayback(room({ at: 1_000_000 }));
+      h.run(250);
+      h.player.shift(drift);
+      h.player.calls.length = 0;
+      h.run(15_000);
+      expect(h.loop.mode).toBe("fine");
+      const rates = h.player.calls.flatMap((c) => (c.op === "rate" ? [c.rate] : []));
+      expect(rates.some((r) => r !== 1)).toBe(true);
+      expect(rates.filter((r) => ![0.9, 0.95, 1, 1.05, 1.1].includes(r))).toEqual([]);
+      expect(Math.abs(h.player.time() - expectedPosition(room({ at: 1_000_000 }), h.clock.serverNow()))).toBeLessThanOrEqual(0.1);
+    });
+  }
 
   test("fine rates that aren't really applied fall back to 0.75/1.25 bursts", () => {
     const h = harness({ applies: (r) => r === 1 || r === 0.75 || r === 1.25 });

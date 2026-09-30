@@ -14,6 +14,8 @@ export interface FakePlayerOptions {
   rates?: readonly number[];
   /** Which requested rates the media actually plays at. Others play at 1. Default: all. */
   applies?: (rate: number) => boolean;
+  /** The media plays the requested rate floored to this step, as YouTube does (OME-109): 1.02 → 1, 0.98 → 0.95. */
+  rateStep?: number;
   /** ms the player sits in "buffering" after a seek while playing, content clock frozen. */
   seekLatencyMs?: number;
   ready?: boolean;
@@ -54,7 +56,9 @@ export class FakePlayer implements PlayerAdapter {
     }
     if (this.st === "playing") {
       const applies = this.o.applies ?? (() => true);
-      const eff = applies(this.reqRate) ? this.reqRate : 1;
+      const step = this.o.rateStep;
+      const req = step === undefined ? this.reqRate : Math.floor(this.reqRate / step + 1e-9) * step;
+      const eff = applies(req) ? req : 1;
       this.pos += ((t - this.last) / 1000) * eff;
     }
     this.last = t;
