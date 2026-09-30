@@ -65,6 +65,13 @@ describe("budgets", () => {
     expect(FRAME_PROVIDERS).toEqual(["youtube", "twitchVod", "twitchLive", "vimeo"]);
   });
 
+  test("relay latency under flood is its own row at the relay budget (threat model §8 Q, OME-192)", () => {
+    const base = BUDGETS.find((x) => x.id === "server.relayLatency");
+    const b = BUDGETS.find((x) => x.id === "server.relayLatencyFlood");
+    expect(b?.docMetric).toBe("Relay latency for a control action under flood, localhost");
+    expect([b?.area, b?.limit, b?.unit, b?.comparator]).toEqual([base?.area, base?.limit, base?.unit, base?.comparator]);
+  });
+
   test("limits match docs/perf-budgets.md", () => {
     for (const b of BUDGETS) {
       if (b.load !== undefined) continue;
