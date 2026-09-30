@@ -1,6 +1,6 @@
 # ADR 0007 — Share endpoint is unauthenticated in M1a
 
-**Status:** accepted (2026-09-29) · [OME-5](/OME/issues/OME-5), QA finding in [OME-22](/OME/issues/OME-22) · revisit before M3 safety work
+**Status:** superseded by [ADR 0015](0015-public-tunnel-and-share-token.md) (2026-09-30) · was accepted 2026-09-29 · [OME-5](/OME/issues/OME-5), QA finding in [OME-22](/OME/issues/OME-22)
 
 **Decision:** `POST /rooms/:id/share` requires no member token in M1a. Any caller can change the room's video:
 - browsers, only from the site or an extension origin (Origin check + CORS);
