@@ -5,7 +5,10 @@ import { stubExternalNetwork } from "./network";
 
 // `chrome` exists inside the extension's service worker; these are the only bits the harness uses.
 interface ChromeTab { readonly id?: number; readonly url?: string }
-declare const chrome: { tabs: { query(q: Record<string, never>): Promise<ChromeTab[]> } };
+declare const chrome: {
+  tabs: { query(q: Record<string, never>): Promise<ChromeTab[]> };
+  storage: { local: { set(items: Record<string, string>): Promise<void> } };
+};
 
 export interface ExtensionFixtures {
   readonly context: BrowserContext;
@@ -33,6 +36,8 @@ export const test = base.extend<ExtensionFixtures>({
   },
   serviceWorker: async ({ context }, use) => {
     const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
+    // Point the popup at this run's server; otherwise it falls back to :8787 on OMEGA_SERVER_PORT runs (OME-111).
+    await sw.evaluate((url) => chrome.storage.local.set({ serverBaseUrl: url }), URLS.server);
     await use(sw);
   },
   extensionId: async ({ serviceWorker }, use) => {
