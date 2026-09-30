@@ -22,6 +22,19 @@ const LOCAL_PORT = Number(process.env["OMEGA_REAL_TUNNEL_PORT"] ?? "8787");
 const ROOM_PATH = `/r/${DEFAULT_ROOM_ID}`;
 const SHARE_PATH = `/rooms/${DEFAULT_ROOM_ID}/share`;
 const FOREIGN = "https://example.com";
+/** ngrok's free plan answers browser traffic with a warning page (the "interstitial"); cloudflared doesn't. */
+const NGROK = ORIGIN !== undefined && /\.ngrok(-free)?\.(app|dev|io)$/.test(new URL(ORIGIN).hostname);
+/** What the extension sends on every server request (apps/extension/src/settings.ts) so it never sees that page. */
+const SKIP_WARNING: Record<string, string> = NGROK ? { "ngrok-skip-browser-warning": "1" } : {};
+/**
+ * A browser context past the interstitial, so the checks below test the server, not ngrok's warning page. Only requests
+ * to the tunnel get the header: context-wide `extraHTTPHeaders` also reach the providers, and YouTube's player won't start.
+ */
+async function skipping(b: Browser): Promise<BrowserContext> {
+  const context = await b.newContext();
+  if (NGROK) await context.route(`${origin()}/**`, (route) => route.continue({ headers: { ...route.request().headers(), ...SKIP_WARNING } }));
+  return context;
+}
 
 test.skip(ORIGIN === undefined, "set OMEGA_REAL_TUNNEL_ORIGIN to the public https origin of a running tunnel (docs/qa/m2-real-sign-off.md)");
 test.describe.configure({ mode: "serial" });
@@ -32,13 +45,21 @@ const origin = (): string => {
   return ORIGIN;
 };
 
-async function enterVia(context: BrowserContext, nickname: string): Promise<Client> {
+/** Opens the room as a visitor would. If ngrok shows its interstitial, clicks *Visit Site* and says so. */
+async function enterVia(context: BrowserContext, nickname: string): Promise<Client & { readonly interstitial: boolean }> {
   const page = await context.newPage();
   await page.goto(`${origin()}${ROOM_PATH}`);
+  const visit = page.getByRole("button", { name: "Visit Site" });
+  await page.locator(site.nicknameInput).or(visit).first().waitFor();
+  const interstitial = await visit.isVisible();
+  if (interstitial) {
+    await shot(page, `m2-tunnel-interstitial-${nickname}`);
+    await visit.click();
+  }
   await page.locator(site.nicknameInput).fill(nickname);
   await page.locator(site.joinButton).click();
   await page.locator(site.room).waitFor();
-  return { context, page, nickname };
+  return { context, page, nickname, interstitial };
 }
 
 /** The member's share token as the site stores it (sessionStorage, ADR 0015). */
@@ -48,6 +69,27 @@ async function tokenOf(page: Page): Promise<string> {
   const rec: unknown = JSON.parse(raw ?? "null");
   if (typeof rec !== "object" || rec === null || !("token" in rec) || typeof rec.token !== "string") throw new Error("no share token record");
   return rec.token;
+}
+
+/** ngrok's local inspector (the agent's web UI API). The run owns the only ngrok session, so its log is ours. */
+const NGROK_API = process.env["OMEGA_REAL_NGROK_API"] ?? "http://127.0.0.1:4040";
+
+/** For each "METHOD /path": whether ngrok's latest such request carried `ngrok-skip-browser-warning`. */
+async function ngrokSawHeader(wanted: readonly string[]): Promise<Record<string, boolean>> {
+  const res: unknown = await (await fetch(`${NGROK_API}/api/requests/http?limit=100`)).json();
+  const list: unknown = typeof res === "object" && res !== null && "requests" in res ? res.requests : [];
+  const seen: Record<string, boolean> = {};
+  const items: unknown[] = Array.isArray(list) ? list : [];
+  for (const r of items) {
+    const req: unknown = typeof r === "object" && r !== null && "request" in r ? r.request : null;
+    if (typeof req !== "object" || req === null || !("method" in req) || !("uri" in req) || !("headers" in req)) continue;
+    const key = `${String(req.method)} ${String(req.uri)}`;
+    // Newest first: keep the first hit per key.
+    if (!wanted.includes(key) || key in seen) continue;
+    const headers = typeof req.headers === "object" && req.headers !== null ? Object.keys(req.headers) : [];
+    seen[key] = headers.some((h) => h.toLowerCase() === "ngrok-skip-browser-warning");
+  }
+  return Object.fromEntries(wanted.map((k) => [k, seen[k] ?? false]));
 }
 
 /** A plain HTTP request to the loopback listener with any Host (Node's fetch won't send a custom Host). */
@@ -66,9 +108,9 @@ test("tunnel-1 · the site, the API and the WebSocket over the public https orig
   const one: Browser = await chromium.launch({ headless: false });
   const two: Browser = await chromium.launch({ headless: false });
   try {
-    const health = await fetch(`${origin()}/healthz`);
-    const a = await enterVia(await one.newContext(), "tunnel-a");
-    const b = await enterVia(await two.newContext(), "tunnel-b");
+    const health = await fetch(`${origin()}/healthz`, { headers: SKIP_WARNING });
+    const a = await enterVia(await skipping(one), "tunnel-a");
+    const b = await enterVia(await skipping(two), "tunnel-b");
     const wsUrls: string[] = [];
     b.page.on("websocket", (ws) => wsUrls.push(ws.url()));
     await a.page.locator(site.chatInput).fill("hello over the tunnel");
@@ -102,8 +144,9 @@ test("tunnel-2 · the extension, configured with the tunnel URL, shares; a secon
     const sw = ext.serviceWorkers()[0] ?? (await ext.waitForEvent("serviceworker"));
     await sw.evaluate((url) => chrome.storage.local.set({ serverBaseUrl: url }), origin());
     const extensionId = new URL(sw.url()).host;
+    // No extra headers in the extension's browser: a first-time visitor, so on ngrok the interstitial shows once.
     const a = await enterVia(ext, "tunnel-ext");
-    const b = await enterVia(await other.newContext(), "tunnel-viewer");
+    const b = await enterVia(await skipping(other), "tunnel-viewer");
     const source = await ext.newPage();
     await source.goto(`${URLS.fixtures}/youtube-embed.html`);
     const tabId = await sw.evaluate(async (u) => (await chrome.tabs.query({})).find((t) => t.url === u)?.id, source.url());
@@ -115,6 +158,10 @@ test("tunnel-2 · the extension, configured with the tunnel URL, shares; a secon
     await p.locator(popup.shareButton).click();
     await expect(p.locator(popup.shareStatus)).toHaveAttribute("data-state", "ok");
     await p.close();
+    // The popup's requests carry the cookie *Visit Site* set, so they'd pass anyway; ngrok's own request log shows they
+    // also carry the header (tunnel-5 shows the header alone passes). Clearing the cookie instead breaks the room page:
+    // its lazy chunks (youtube-*.js, twitch-*.js) then get the warning page.
+    const popupHeader = NGROK ? await ngrokSawHeader(["GET /rooms", `POST ${SHARE_PATH}`]) : null;
 
     const [fa, fb] = [await ytFrame(a.page, VIDEO_ID), await ytFrame(b.page, VIDEO_ID)];
     await Promise.all([waitVideoPlaying(fa), waitVideoPlaying(fb)]);
@@ -134,7 +181,7 @@ test("tunnel-2 · the extension, configured with the tunnel URL, shares; a secon
       const r: unknown = JSON.parse(sessionStorage.getItem(k) ?? "null");
       return typeof r === "object" && r !== null && "token" in r && typeof r.token === "string" ? r.token : "";
     }, SHARE_TOKEN_STORAGE_KEY);
-    const tw = await request.post(`${origin()}${SHARE_PATH}`, { headers: { authorization: `Bearer ${token}`, origin: origin() }, data: { url: twitchVodUrl(REAL.twitchVod) } });
+    const tw = await request.post(`${origin()}${SHARE_PATH}`, { headers: { ...SKIP_WARNING, authorization: `Bearer ${token}`, origin: origin() }, data: { url: twitchVodUrl(REAL.twitchVod) } });
     const [ta, tb] = [await providerFrame(a.page, "twitch", `v${REAL.twitchVod}`), await providerFrame(b.page, "twitch", `v${REAL.twitchVod}`)];
     const parent = new URL(ta.url()).searchParams.getAll("parent");
     await Promise.all([waitMediaPlaying(a, ta), waitMediaPlaying(b, tb)]);
@@ -142,8 +189,11 @@ test("tunnel-2 · the extension, configured with the tunnel URL, shares; a secon
     const twitchSteady = await mediaSpread(ta, tb, 12, 500);
 
     const result = {
+      interstitialInExtBrowser: a.interstitial,
+      popupHeader,
       ytOrigin,
       ytSteady,
+      paused: paused.map((s) => (s === null ? null : { currentTime: s.currentTime, paused: s.paused, ad: s.ad, errorText: s.errorText })),
       bothPaused: paused.every((s) => s?.paused === true),
       pausedDiffMs: paused[0] && paused[1] ? Math.round((paused[0].currentTime - paused[1].currentTime) * 1000) : null,
       ytAfterPlay,
@@ -152,6 +202,8 @@ test("tunnel-2 · the extension, configured with the tunnel URL, shares; a secon
       twitchSteady,
     };
     record("m2-tunnel-2", result);
+    expect(a.interstitial).toBe(NGROK);
+    if (popupHeader !== null) expect(Object.values(popupHeader), "the popup sends ngrok-skip-browser-warning").toEqual([true, true]);
     expect(ytOrigin).toBe(origin());
     expect(ytSteady.maxAbsMs).toBeLessThanOrEqual(500);
     expect(result.bothPaused).toBe(true);
@@ -166,13 +218,14 @@ test("tunnel-2 · the extension, configured with the tunnel URL, shares; a secon
 });
 
 test("tunnel-3 · a foreign page is refused: cross-origin share 403 (even with a stolen token), cross-site WebSocket refused", async ({ browser, request }) => {
-  const member = await enterVia(await browser.newContext(), "tunnel-victim");
-  const foreignCtx = await browser.newContext();
+  const member = await enterVia(await skipping(browser), "tunnel-victim");
+  // The foreign context skips the interstitial too, so on ngrok a refusal is the server's, not ngrok's page.
+  const foreignCtx = await skipping(browser);
   try {
     const token = await tokenOf(member.page);
     // Tunnel-2 left the lobby on Twitch; the foreign attempts try Vimeo, so a Vimeo plate would mean one got through.
     const url = vimeoUrl(REAL.vimeo);
-    const stolen = await request.post(`${origin()}${SHARE_PATH}`, { headers: { authorization: `Bearer ${token}`, origin: FOREIGN }, data: { url } });
+    const stolen = await request.post(`${origin()}${SHARE_PATH}`, { headers: { ...SKIP_WARNING, authorization: `Bearer ${token}`, origin: FOREIGN }, data: { url } });
     // From a real foreign page: the browser adds Origin itself.
     const foreign = await foreignCtx.newPage();
     await foreign.goto(FOREIGN);
@@ -194,7 +247,7 @@ test("tunnel-3 · a foreign page is refused: cross-origin share 403 (even with a
     await member.page.waitForTimeout(2_000);
     const plateAfterForeign = await member.page.locator('[data-testid="provider-plate"]').textContent().catch(() => null);
     // Control, by design (ADR 0007/0015): a token holder outside any browser (no Origin) may share; the token is the gate.
-    const noOrigin = await request.post(`${origin()}${SHARE_PATH}`, { headers: { authorization: `Bearer ${token}` }, data: { url } });
+    const noOrigin = await request.post(`${origin()}${SHARE_PATH}`, { headers: { ...SKIP_WARNING, authorization: `Bearer ${token}` }, data: { url } });
     const result = { stolenTokenForeignOrigin: stolen.status(), fromForeignPage: fromPage, hostEvil, hostPublic, plateAfterForeign, tokenNoOriginControl: noOrigin.status() };
     record("m2-tunnel-3", result);
     expect(stolen.status()).toBe(403);
@@ -216,7 +269,7 @@ test("tunnel-4 · the real tunnel's X-Forwarded-For can't be spoofed into fresh 
   const statuses: number[] = [];
   for (let i = 0; i < 30; i++) {
     const r = await request.post(`${origin()}${SHARE_PATH}`, {
-      headers: { origin: origin(), authorization: "Bearer AAAAAAAAAAAAAAAAAAAAAA", "x-forwarded-for": `198.51.100.${String(i + 1)}` },
+      headers: { ...SKIP_WARNING, origin: origin(), authorization: "Bearer AAAAAAAAAAAAAAAAAAAAAA", "x-forwarded-for": `198.51.100.${String(i + 1)}` },
       data: { url: twitchVodUrl(REAL.twitchVod) },
     });
     statuses.push(r.status());
@@ -224,6 +277,38 @@ test("tunnel-4 · the real tunnel's X-Forwarded-For can't be spoofed into fresh 
   record("m2-tunnel-4", { statuses, limited: statuses.filter((s) => s === 429).length });
   expect(statuses.slice(0, 5).every((s) => s === 401)).toBe(true);
   expect(statuses.filter((s) => s === 429).length, "spoofed XFF didn't reset the bucket").toBeGreaterThan(0);
+});
+
+test("tunnel-5 · ngrok only: a first-time browser visitor gets the interstitial, *Visit Site* reaches the room; the skip header bypasses it", async () => {
+  test.skip(!NGROK, "ngrok-only check: cloudflared shows no interstitial");
+  // Raw requests first, with a browser User-Agent: what ngrok answers with and without the extension's header.
+  const ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+  const probe = async (headers: Record<string, string>): Promise<{ status: number; ngrokError: string | null; app: boolean }> => {
+    const r = await fetch(`${origin()}${ROOM_PATH}`, { headers: { "user-agent": ua, accept: "text/html", ...headers } });
+    const body = await r.text();
+    return { status: r.status, ngrokError: r.headers.get("ngrok-error-code"), app: body.includes('<main id="app"') };
+  };
+  const raw = await probe({});
+  const withHeader = await probe({ "ngrok-skip-browser-warning": "1" });
+  const fresh: Browser = await chromium.launch({ headless: false });
+  try {
+    const a = await enterVia(await fresh.newContext(), "tunnel-fresh");
+    // After *Visit Site* the room works as usual: the WebSocket is up (the member got a share token).
+    const token = await tokenOf(a.page);
+    const again = await a.page.goto(`${origin()}${ROOM_PATH}`);
+    const secondVisitInterstitial = await a.page.getByRole("button", { name: "Visit Site" }).isVisible();
+    await shot(a.page, "m2-tunnel-5-after-visit");
+    const result = { raw, withHeader, firstVisitInterstitial: a.interstitial, joined: token.length > 0, secondVisitStatus: again?.status() ?? null, secondVisitInterstitial };
+    record("m2-tunnel-5", result);
+    expect(raw.ngrokError, "no header: the warning page").toBe("ERR_NGROK_6024");
+    expect(raw.app).toBe(false);
+    expect(withHeader.ngrokError).toBeNull();
+    expect(withHeader.app).toBe(true);
+    expect(a.interstitial).toBe(true);
+    expect(secondVisitInterstitial, "shown once per browser").toBe(false);
+  } finally {
+    await fresh.close();
+  }
 });
 
 declare const chrome: {
