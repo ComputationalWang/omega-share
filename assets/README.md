@@ -76,7 +76,7 @@ in `apps/web/src/layout.ts`. Place the sprite there, with no per-item offsets.
 - **Z order** for everything else: sort by `(floorY, floorX, layer)` with `meta.omega.layers`
   (`back 2`, `avatar 3`, `front 4`).
 - **`meta.omega.tv.screen = {x:-12, y:-13, w:16, h:9}`**, relative to the `tv/0` anchor: the 16:9 bounding box of the projector's
-  lit lens. It's decorative. Never put the iframe there: the player is page chrome (ADR 0012).
+  lit lens (teal inner ring, glow glass, a 3 px white glint top-left so it reads as a lens at 1×). It's decorative. Never put the iframe there: the player is page chrome (ADR 0012).
 - **The console covers the back corner cells** `col+row <= 1` (and the back half of `col+row = 2`). Don't seat or stand anyone there.
 - **`meta.omega.layout`** is a suggested default room for the 10×10 floor: `floor[row][col]` keys, `walls.l[row]`,
   `walls.r[col]`, `props[]`. Seats are **not** in it; they stay in `layout.ts`. `preview/room@1x.png` renders exactly this layout
@@ -168,19 +168,20 @@ Since ADR 0012 the YouTube player and its control bar are **unscaled page boxes 
 
 | Key | Size | Slice (t r b l) | Put it on | Notes |
 |---|---|---|---|---|
-| `tvframe/bezel` | 14×16 | 6 6 8 6 | the player box | Charcoal lip, wood (highlight top/left, shade bottom/right), plum outline, glow power light bottom-right. Centre transparent. |
+| `tvframe/bezel` | 14×16 | 6 6 8 6 | the player box | Charcoal lip, wood (highlight top/left, shade bottom/right), plum outline, cream corner glint top-left, brass knob bottom-left and glow power light bottom-right (all inside the corner slices, so they never stretch). Centre transparent. |
 | `tvframe/shelf` | 78×51 | 1 38 6 38 | the control bar box | Media shelf: the bar box *is* its sunken night transport slot. Speaker cabinets (woofer ring on a dot mesh) either side, rail under it. **Fixed height 44**: only the slot stretches, sideways. |
 
 - **CSS** (`ui/reference.css`, end): `.ui-tv-frame` on the player box and `.ui-tv-shelf` on the control bar. Both use `border-image-outset`,
   so the art is painted *outside* each box as ink overflow: no layout change, no scrollbars, and **nothing is ever drawn over the player**.
   Plain CSS px (1 art px = 1 CSS px, like `roomLayout`), not `--ui-px`.
 - **It fits the gaps exactly:** the bezel needs 6 px above the player (`tv.y` is 6) and fills the 8 px gap below it. The shelf's top outline shares
-  the bezel's last row. Its lip, rail and outline take 6 of the 8 px above the stage. Speakers take 38 px each side of the bar.
+  the bezel's last row: the bezel's 8 px bottom outset and the shelf's 1 px top outset overlap by exactly 1 px, and both paint the plum
+  outline there, so the overlap is harmless (whichever box paints last wins, same colour). Its lip, rail and outline take 6 of the 8 px above the stage. Speakers take 38 px each side of the bar.
 - **Slot contents:** one row of `.ui-transport` straight in the bar, no `.ui-panel` (the shelf is the panel): `chip/shared` · play/pause key
   · readout · seek · readout. The 28 px key leaves 8 px above and below it. Personal volume stays elsewhere in page chrome: it's "only you",
   so it never goes on the shared TV.
-- **Narrow containers:** add `.compact` to the shelf when the container is narrower than the bar + 76 px (the speakers are dropped, the rails
-  stay). Add it to the bezel on a 360 px viewport, where the 356 px player leaves 2 px a side (only the top and bottom bars stay). The art is ink
+- **Narrow containers:** add `.compact` to the shelf when `container width < bar width + 76 px` (76 = the two 38 px speaker outsets; the
+  speakers are dropped, the rails stay). Add it to the bezel on a 360 px viewport, where the 356 px player leaves 2 px a side (only the top and bottom bars stay). The art is ink
   overflow, so without `.compact` it's clipped at the viewport edge, never scrolled.
 - Preview: `preview/ui-tv.png`, the page at a 960 px container (560×315 player) and at a 360 px viewport (356×200, `.compact`).
   `preview/tv-video@1x.png` is the stand-in video frame it uses.

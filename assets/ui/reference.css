@@ -170,13 +170,15 @@
  * Put .ui-tv-frame on the player box (.tv) and .ui-tv-shelf on the control bar box (.controls), at the rects
  * roomLayout() gives. border-image-outset paints outside each box (ink overflow: no layout change, no scrollbars),
  * so nothing ever covers the player. The bezel needs 6 px above the player (tv.y) and fills the 8 px gap below it;
+ * the shelf's 1 px top outset overlaps the bezel's last row by 1 px: both are the plum outline there, so it's harmless;
  * the shelf needs 6 px under the bar (the gap to the stage is 8) and 38 px each side for its speakers.
  * The bar box is the transport slot: lay .ui-transport straight in it (no .ui-panel). */
 .ui-tv-frame { border: 0 solid transparent; border-image: url("slices/tvframe-bezel.png") 6 6 8 6 / 6px 6px 8px 6px / 6px 6px 8px 6px stretch; image-rendering: pixelated; }
 .ui-tv-shelf { box-sizing: border-box; height: 44px; display: flex; align-items: center; padding: 0 6px; border: 0 solid transparent; border-image: url("slices/tvframe-shelf.png") 1 38 6 38 fill / 1px 38px 6px 38px / 1px 38px 6px 38px stretch; image-rendering: pixelated; }
 .ui-tv-shelf > .ui-transport { flex: 1; min-width: 0; }
 .ui-tv-shelf .ui-seek { min-width: 0; }
-/* When the speakers don't fit beside the bar (container narrower than the bar + 76 px): drop them, keep the slot's rails. */
+/* Add .compact when the speakers don't fit beside the bar, i.e. container width < bar width + 76 px (38 px each side):
+ * drop them, keep the slot's rails. */
 .ui-tv-shelf.compact { border-image-width: 1px 0 6px 0; border-image-outset: 1px 0 6px 0; }
 /* Same for the bezel sides on a 360 px viewport (the 356 px player leaves 2 px each side). */
 .ui-tv-frame.compact { border-image-width: 6px 0 8px 0; border-image-outset: 6px 0 8px 0; }

@@ -368,7 +368,14 @@ export function bezelPaint(x: number, y: number, s: Rect): Paint | null {
   if (x >= s.x - 1 && x < sx1 + 1 && y >= s.y - 1 && y < sy1 + 1) return ["charcoal", 2];
   // Power light in the bottom-right corner (inside the 9-slice corner, so the slice stays stretchable).
   if (y >= sy1 + 3 && y < sy1 + 5 && x >= sx1 + 1 && x < sx1 + 4) return ["glow", 0];
+  // A brass tuning knob in the bottom-left corner, lit top-left like everything else.
+  if (y >= sy1 + 3 && y < sy1 + 5 && x >= s.x - 4 && x < s.x - 2) {
+    const k = x - (s.x - 4) + (y - (sy1 + 3));
+    return ["mustard", k === 0 ? 0 : k === 1 ? 1 : 2];
+  }
   if (y >= sy1 + 3) return ["wood", 2];
+  // Top-left corner glint on the bevel (the frame's outer corner, just inside the outline).
+  if ((x === s.x - 5 && y <= s.y - 4) || (y === s.y - 5 && x <= s.x - 4)) return ["cream", 0];
   if (x < s.x - 2 || y < s.y - 2) return ["wood", 0];
   if (x >= sx1 + 2) return ["wood", 2];
   return ["wood", 1];
@@ -456,9 +463,12 @@ function tvFrame(): RoomFrame {
       const x = 2 * (p.u - p.v) + 0.5, y = p.u + p.v - p.z + 0.5;
       const e = ((x - lcx) / (s.w / 2)) ** 2 + ((y - lcy) / (s.h / 2)) ** 2;
       if (e < 1) {
-        // Lit glass: bright top-left, cooler bottom-right.
-        const t = (x - lcx) / s.w + (y - lcy) / s.h;
-        return ["glow", t < -0.25 ? 0 : t < 0.3 ? 1 : 2];
+        // Lit glass read as a lens at 1×: a deep teal ring inside the rim, a glow body darkening to the bottom-right,
+        // and a hard specular glint top-left, placed below (pale-dark-pale is what the eye reads as curved glass).
+        if (e > 0.62) return ["teal", 2];
+        const gx = x - lcx, gy = y - lcy;
+        const t = gx / s.w - gy / s.h;
+        return ["glow", t > 0.3 ? 1 : 2]; // a lit crescent top-right, opposite the glint
       }
       if (e < 1.6) return ["charcoal", e < 1.3 ? 2 : 1]; // lens barrel rim
       if (x > 8 && x < 13 && Math.floor(y) % 2 === 0 && y > -14 && y < -4) return ["cream", 2]; // vent
@@ -485,6 +495,10 @@ function tvFrame(): RoomFrame {
   };
   reel(-6, -27);
   reel(6, -28);
+  // Specular glint on the lens: a 3 px bar and a 1 px tail, pixel-placed so it stays crisp at 1×.
+  for (const [gx, gy] of [[-9, -11], [-8, -11], [-7, -11], [-10, -10]] as const) {
+    img[(CANVAS.ay + gy) * CANVAS.w + CANVAS.ax + gx] = colorIndex("glow", 0);
+  }
   addOutline(img, CANVAS.w, CANVAS.h);
   return crop("tv/0", img, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay);
 }

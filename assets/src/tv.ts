@@ -70,13 +70,15 @@ export function tvCss(): string {
  * Put .ui-tv-frame on the player box (.tv) and .ui-tv-shelf on the control bar box (.controls), at the rects
  * roomLayout() gives. border-image-outset paints outside each box (ink overflow: no layout change, no scrollbars),
  * so nothing ever covers the player. The bezel needs ${String(b.top)} px above the player (tv.y) and fills the ${String(b.bottom)} px gap below it;
+ * the shelf's ${String(sh.top)} px top outset overlaps the bezel's last row by ${String(sh.top)} px: both are the plum outline there, so it's harmless;
  * the shelf needs ${String(sh.bottom)} px under the bar (the gap to the stage is 8) and ${String(sh.left)} px each side for its speakers.
  * The bar box is the transport slot: lay .ui-transport straight in it (no .ui-panel). */
 .ui-tv-frame { border: 0 solid transparent; border-image: url("slices/tvframe-bezel.png") ${nums(b)} / ${trbl(b)} / ${trbl(b)} stretch; image-rendering: pixelated; }
 .ui-tv-shelf { box-sizing: border-box; height: ${px(SLOT_H)}; display: flex; align-items: center; padding: 0 6px; border: 0 solid transparent; border-image: url("slices/tvframe-shelf.png") ${nums(sh)} fill / ${trbl(sh)} / ${trbl(sh)} stretch; image-rendering: pixelated; }
 .ui-tv-shelf > .ui-transport { flex: 1; min-width: 0; }
 .ui-tv-shelf .ui-seek { min-width: 0; }
-/* When the speakers don't fit beside the bar (container narrower than the bar + ${String(sh.left + sh.right)} px): drop them, keep the slot's rails. */
+/* Add .compact when the speakers don't fit beside the bar, i.e. container width < bar width + ${String(sh.left + sh.right)} px (${String(sh.left)} px each side):
+ * drop them, keep the slot's rails. */
 .ui-tv-shelf.compact { border-image-width: ${trbl(sh, false)}; border-image-outset: ${trbl(sh, false)}; }
 /* Same for the bezel sides on a 360 px viewport (the 356 px player leaves 2 px each side). */
 .ui-tv-frame.compact { border-image-width: ${trbl(b, false)}; border-image-outset: ${trbl(b, false)}; }
