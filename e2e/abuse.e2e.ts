@@ -210,16 +210,16 @@ test.describe("abuse through the reverse proxy; an honest pair stays in sync", (
     const context = await contextFrom(tunnelBrowser, attacker());
     const opened: number[] = [];
     const closes: { code: number | undefined; at: number }[] = [];
-    let first: WebSocketRoute | null = null;
+    const servers: WebSocketRoute[] = [];
     try {
       const page = await context.newPage();
       await page.routeWebSocket(/\/rooms\/[^/]+\/ws$/, (ws) => {
         opened.push(Date.now());
         const server = ws.connectToServer();
-        first ??= server;
+        servers.push(server);
         server.onClose((code, reason) => {
           closes.push({ code, at: Date.now() });
-          void ws.close({ code, reason });
+          void ws.close(code === undefined ? {} : { code, reason: reason ?? "" });
         });
       });
       await enter(page, "flooder");
@@ -228,8 +228,8 @@ test.describe("abuse through the reverse proxy; an honest pair stays in sync", (
       expect(opened).toHaveLength(1);
 
       // The page's own socket sends 80 chats at once: 5 pass the chat bucket, then 50 drops in a row close it.
-      const server: WebSocketRoute | null = first;
-      if (server === null) throw new Error("the room socket was not routed");
+      const [server] = servers;
+      if (server === undefined) throw new Error("the room socket was not routed");
       for (let i = 0; i < 80; i++) server.send(JSON.stringify({ type: "chat", text: `flood ${String(i)}` }));
 
       await expect.poll(() => closes[0]?.code, { timeout: 5_000 }).toBe(CLOSE_CODES.RATE_LIMITED);

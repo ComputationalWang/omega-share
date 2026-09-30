@@ -28,6 +28,14 @@ export const TUNNEL_PORTS = {
   server: portFrom("OMEGA_TUNNEL_SERVER_PORT", PORTS.server + 1),
 } as const;
 
+export interface LanePorts {
+  readonly proxy: number;
+  readonly server: number;
+}
+
+/** The abuse suite's own lane (OME-191), so the limits it spends never reach the tunnel specs: 4432/8790 by default. */
+export const ABUSE_PORTS: LanePorts = { proxy: TUNNEL_PORTS.proxy + 2, server: TUNNEL_PORTS.server + 2 };
+
 export const PUBLIC_ORIGIN = `https://${PUBLIC_HOST}`;
 export const EVIL_ORIGIN = `https://${EVIL_HOST}`;
 /**
@@ -37,9 +45,10 @@ export const EVIL_ORIGIN = `https://${EVIL_HOST}`;
 export const SENTINEL_AUTHTOKEN = `2fakeTestOnly${randomBytes(12).toString("hex")}_OME132sentinelAuthtoken`;
 
 /** Chromium resolves both test hosts to the proxy; the page gets a real https Origin and a secure context. */
-export const TUNNEL_BROWSER_ARGS = [
-  `--host-resolver-rules=MAP ${PUBLIC_HOST} 127.0.0.1:${String(TUNNEL_PORTS.proxy)}, MAP ${EVIL_HOST} 127.0.0.1:${String(TUNNEL_PORTS.proxy)}`,
+const browserArgs = (proxy: number): string[] => [
+  `--host-resolver-rules=MAP ${PUBLIC_HOST} 127.0.0.1:${String(proxy)}, MAP ${EVIL_HOST} 127.0.0.1:${String(proxy)}`,
 ];
+export const TUNNEL_BROWSER_ARGS = browserArgs(TUNNEL_PORTS.proxy);
 
 export interface TunnelLane {
   readonly proxy: TunnelProxy;
@@ -88,14 +97,14 @@ function stopChild(child: ChildProcess): Promise<void> {
   });
 }
 
-async function startLane(): Promise<TunnelLane & { stop: () => Promise<void> }> {
+async function startLane(ports: LanePorts): Promise<TunnelLane & { stop: () => Promise<void> }> {
   const siteDir = buildSite();
   let output = "";
   const child = spawn("bun", ["apps/server/src/index.ts"], {
     cwd: ROOT,
     env: {
       ...process.env,
-      PORT: String(TUNNEL_PORTS.server),
+      PORT: String(ports.server),
       HOST: "127.0.0.1",
       PUBLIC_ORIGIN,
       TRUST_PROXY: "loopback",
@@ -109,8 +118,8 @@ async function startLane(): Promise<TunnelLane & { stop: () => Promise<void> }> 
   const log = (): string => output;
   let proxy: TunnelProxy;
   try {
-    await waitStarted(TUNNEL_PORTS.server, child, log);
-    proxy = await startTunnelProxy({ port: TUNNEL_PORTS.proxy, upstreamPort: TUNNEL_PORTS.server });
+    await waitStarted(ports.server, child, log);
+    proxy = await startTunnelProxy({ port: ports.proxy, upstreamPort: ports.server });
   } catch (err) {
     await stopChild(child);
     throw err;
@@ -177,6 +186,9 @@ export function tunnelRequest({ port = TUNNEL_PORTS.proxy, method = "GET", path,
 export interface Upgrade {
   /** 101 when the server accepted the WebSocket, else its refusal status. */
   readonly status: number;
+  readonly headers: Readonly<Record<string, string | string[] | undefined>>;
+  /** The refusal's body; empty for an accepted socket. */
+  readonly body: string;
   readonly close: () => void;
 }
 
@@ -200,11 +212,15 @@ export function tunnelUpgrade({ port = TUNNEL_PORTS.proxy, path, host = PUBLIC_H
       },
     });
     req.on("upgrade", (res, socket: Socket) => {
-      resolve({ status: res.statusCode ?? 101, close: () => socket.destroy() });
+      resolve({ status: res.statusCode ?? 101, headers: res.headers, body: "", close: () => socket.destroy() });
     });
     req.on("response", (res) => {
-      res.resume();
-      resolve({ status: res.statusCode ?? 0, close: () => req.destroy() });
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (c: string) => (body += c));
+      res.on("end", () => {
+        resolve({ status: res.statusCode ?? 0, headers: res.headers, body, close: () => req.destroy() });
+      });
     });
     req.on("error", reject);
     req.end();
@@ -234,10 +250,11 @@ export async function passTunnelHosts(context: BrowserContext): Promise<void> {
   );
 }
 
-export const test = base.extend<TunnelTestFixtures, TunnelWorkerFixtures>({
+/** The lane fixtures on `ports`: one site build, server and proxy per worker, and a browser that resolves to that proxy. */
+const laneTest = (ports: LanePorts) => base.extend<TunnelTestFixtures, TunnelWorkerFixtures>({
   lane: [
     async ({}, use) => {
-      const lane = await startLane();
+      const lane = await startLane(ports);
       await use(lane);
       await lane.stop();
     },
@@ -245,7 +262,7 @@ export const test = base.extend<TunnelTestFixtures, TunnelWorkerFixtures>({
   ],
   tunnelBrowser: [
     async ({}, use) => {
-      const browser = await chromium.launch({ channel: "chromium", args: TUNNEL_BROWSER_ARGS });
+      const browser = await chromium.launch({ channel: "chromium", args: browserArgs(ports.proxy) });
       await use(browser);
       await browser.close();
     },
@@ -262,5 +279,8 @@ export const test = base.extend<TunnelTestFixtures, TunnelWorkerFixtures>({
     await Promise.all(opened.map((c) => c.close()));
   },
 });
+
+export const test = laneTest(TUNNEL_PORTS);
+export const abuseTest = laneTest(ABUSE_PORTS);
 
 export { expect } from "@playwright/test";
