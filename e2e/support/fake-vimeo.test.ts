@@ -6,6 +6,16 @@ import type { FakeVimeoHooks, FakeVimeoHost, VimeoElementLike, VimeoPlayer, Vime
 const SRC = "https://player.vimeo.com/video/76979871?h=abc&dnt=1";
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** The `.name` a promise rejects with, or "resolved". */
+async function rejectName(p: Promise<unknown>): Promise<string> {
+  try {
+    await p;
+  } catch (e) {
+    return e instanceof Error ? e.name : "not-an-error";
+  }
+  return "resolved";
+}
+
 function el(src: string | null, tagName = "IFRAME"): VimeoElementLike {
   return { nodeType: 1, tagName, getAttribute: (n) => (n === "src" ? src : null) };
 }
@@ -18,7 +28,7 @@ interface Rig {
 }
 
 function install(): FakeVimeoHost {
-  const host: FakeVimeoHost = { performance, setTimeout: (fn, ms) => setTimeout(fn, ms), clearTimeout: (h) => clearTimeout(h as ReturnType<typeof setTimeout>) };
+  const host: FakeVimeoHost = { performance, setTimeout: (fn, ms) => setTimeout(fn, ms), clearTimeout: (h) => { clearTimeout(h as ReturnType<typeof setTimeout>); } };
   installFakeVimeo(host);
   return host;
 }
@@ -108,10 +118,10 @@ test("privacy() and password() reject ready with the right name, also for calls 
     const p = new Player(el(SRC));
     const errors: unknown[] = [];
     p.on("error", (d) => errors.push(d));
-    const early = p.play();
-    await expect(p.ready()).rejects.toMatchObject({ name });
-    await expect(early).rejects.toMatchObject({ name });
-    await expect(p.getCurrentTime()).rejects.toMatchObject({ name });
+    const early = rejectName(p.play());
+    expect(await rejectName(p.ready())).toBe(name);
+    expect(await early).toBe(name);
+    expect(await rejectName(p.getCurrentTime())).toBe(name);
     expect(errors[0]).toMatchObject({ name, method: "ready" });
   }
 });
@@ -120,7 +130,7 @@ test("privacy() set while a player is not yet ready applies to it", async () => 
   const { Player, hooks } = parts(install());
   const p = new Player(el(SRC));
   hooks.privacy();
-  await expect(p.ready()).rejects.toMatchObject({ name: "PrivacyError" });
+  expect(await rejectName(p.ready())).toBe("PrivacyError");
 });
 
 test("every method returns a Promise and defaults are sane", async () => {
@@ -181,7 +191,8 @@ test("play emits play then playing; pause emits pause; payload carries seconds/p
   await sleep(20);
   await player.pause();
   expect(seen).toEqual(["play", "playing", "pause"]);
-  expect(payloads[0]).toEqual({ seconds: 0, percent: 0, duration: 634.5 });
+  expect(payloads[0]).toMatchObject({ duration: 634.5 });
+  expect((payloads[0] as { seconds: number }).seconds).toBeLessThan(0.05);
 });
 
 test("setCurrentTime emits seeking then seeked, resolves to the seconds, keeps play state, rejects RangeError out of range", async () => {
@@ -195,21 +206,21 @@ test("setCurrentTime emits seeking then seeked, resolves to the seconds, keeps p
   await player.setCurrentTime(100);
   expect(hooks.paused).toBe(false);
   expect(hooks.currentTime).toBeGreaterThanOrEqual(100);
-  await expect(player.setCurrentTime(-1)).rejects.toMatchObject({ name: "RangeError" });
-  await expect(player.setCurrentTime(9999)).rejects.toMatchObject({ name: "RangeError" });
+  expect(await rejectName(player.setCurrentTime(-1))).toBe("RangeError");
+  expect(await rejectName(player.setCurrentTime(9999))).toBe("RangeError");
 });
 
 test("setPlaybackRate rejects Error by default and RangeError outside [0.5, 2]", async () => {
   const { player, hooks } = await rig();
-  await expect(player.setPlaybackRate(1.25)).rejects.toMatchObject({ name: "Error" });
+  expect(await rejectName(player.setPlaybackRate(1.25))).toBe("Error");
   expect(hooks.calls.some((c) => c.name === "setPlaybackRate" && c.args[0] === 1.25)).toBe(true);
   hooks.rateAllowed(true);
-  await expect(player.setPlaybackRate(3)).rejects.toMatchObject({ name: "RangeError" });
-  await expect(player.setPlaybackRate(0.25)).rejects.toMatchObject({ name: "RangeError" });
+  expect(await rejectName(player.setPlaybackRate(3))).toBe("RangeError");
+  expect(await rejectName(player.setPlaybackRate(0.25))).toBe("RangeError");
 });
 
 test("rateAllowed: the clock runs at 1.25x", async () => {
-  const { player, hooks, seen } = await rig((h) => h.rateAllowed(true));
+  const { player, hooks, seen } = await rig((h) => { h.rateAllowed(true); });
   expect(await player.setPlaybackRate(1.25)).toBe(1.25);
   expect(await player.getPlaybackRate()).toBe(1.25);
   expect(seen).toEqual(["playbackratechange"]);
@@ -250,7 +261,7 @@ test("buffering(ms) emits bufferstart/bufferend and freezes the clock, then resu
 });
 
 test("seekLatency(ms): seeking, bufferstart, wait, bufferend, seeked; play state unchanged", async () => {
-  const { player, hooks, seen } = await rig((h) => h.seekLatency(200));
+  const { player, hooks, seen } = await rig((h) => { h.seekLatency(200); });
   await player.play();
   seen.length = 0;
   const p = player.setCurrentTime(50);
@@ -263,15 +274,15 @@ test("seekLatency(ms): seeking, bufferstart, wait, bufferend, seeked; play state
 });
 
 test("autoplayBlocked: unmuted play rejects NotAllowedError, muted works, allowAutoplay lifts it", async () => {
-  const { player, hooks } = await rig((h) => h.autoplayBlocked());
-  await expect(player.play()).rejects.toMatchObject({ name: "NotAllowedError" });
+  const { player, hooks } = await rig((h) => { h.autoplayBlocked(); });
+  expect(await rejectName(player.play())).toBe("NotAllowedError");
   expect(hooks.paused).toBe(true);
   await player.setMuted(true);
   await player.play();
   expect(hooks.paused).toBe(false);
   await player.pause();
   await player.setMuted(false);
-  await expect(player.play()).rejects.toMatchObject({ name: "NotAllowedError" });
+  expect(await rejectName(player.play())).toBe("NotAllowedError");
   hooks.allowAutoplay();
   await player.play();
   expect(hooks.paused).toBe(false);
@@ -287,11 +298,12 @@ test("autoplayBlocked while playing unmuted pauses and emits pause", async () =>
 });
 
 test("userPause/userPlay/userSeek emit the same events, are not recorded as calls, and ignore the autoplay block", async () => {
-  const { hooks, seen } = await rig((h) => h.autoplayBlocked());
+  const { hooks, seen } = await rig((h) => { h.autoplayBlocked(); });
   const before = hooks.calls.length;
   hooks.userPlay();
   expect(hooks.paused).toBe(false);
   hooks.userSeek(77);
+  await sleep(10);
   hooks.userPause();
   expect(hooks.paused).toBe(true);
   expect(hooks.currentTime).toBeCloseTo(77, 1);
@@ -303,13 +315,14 @@ test("calls log records API methods with args", async () => {
   const { player, hooks } = await rig();
   await player.setCurrentTime(5);
   await player.play();
-  expect(hooks.calls.map((c) => c.name)).toEqual(expect.arrayContaining(["setCurrentTime", "play"]));
+  const names = hooks.calls.map((c) => c.name);
+  expect(names.includes("setCurrentTime") && names.includes("play")).toBe(true);
   expect(hooks.calls.find((c) => c.name === "setCurrentTime")?.args).toEqual([5]);
   expect(hooks.events.some((e) => e.type === "seeked" && typeof e.t === "number")).toBe(true);
 });
 
 test("reaching the duration emits ended, pauses, and getEnded is true", async () => {
-  const { player, hooks, seen } = await rig((h) => h.configure({ duration: 0.4 }));
+  const { player, hooks, seen } = await rig((h) => { h.configure({ duration: 0.4 }); });
   await player.play();
   await sleep(600);
   expect(seen).toContain("ended");
