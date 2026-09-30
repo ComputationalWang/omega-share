@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const SCRIPT = join(import.meta.dir, "../../../scripts/tunnel.sh");
@@ -48,5 +49,45 @@ describe("scripts/tunnel.sh (ADR 0015 §2)", () => {
     expect(script).not.toContain("--authtoken");
     expect(script).not.toMatch(/set -[a-z]*x|printenv|^\s*env\s*$/m);
     expect(script).not.toContain("add-authtoken");
+  });
+
+  // Stand-ins for bun, curl and ngrok that record what they were started with instead of doing it.
+  const withFakes = (fn: (dir: string, run: (...args: string[]) => number) => void) => {
+    const dir = mkdtempSync(join(tmpdir(), "omega-tunnel-"));
+    const fake = (name: string, body: string) => {
+      writeFileSync(join(dir, name), `#!/usr/bin/env bash\n${body}\n`);
+      chmodSync(join(dir, name), 0o755);
+    };
+    fake("bun", `[[ "$1" == run ]] && { touch "${dir}/built"; exit 0; }\necho "\${NGROK_AUTHTOKEN-unset}" > "${dir}/server.env"\nexec sleep 5`);
+    fake("curl", "exit 0");
+    fake("ngrok", `echo "\${NGROK_AUTHTOKEN-unset}" > "${dir}/ngrok.env"`);
+    const runWithFakes = (...args: string[]) =>
+      Bun.spawnSync(["bash", SCRIPT, ...args], {
+        env: { PATH: `${dir}:${process.env["PATH"] ?? ""}`, HOME: process.env["HOME"] ?? "", NGROK_AUTHTOKEN: CANARY, PORT: "18787" },
+        stdout: "pipe",
+        stderr: "pipe",
+      }).exitCode;
+    try {
+      fn(dir, runWithFakes);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  test.each([["--dryrun"], ["-n"], ["--dry-run", "extra"]])("an unknown or extra flag %p exits 2 and starts nothing", (...flags: string[]) => {
+    withFakes((dir, runWithFakes) => {
+      expect(runWithFakes(URL, ...flags)).toBe(2);
+      expect(existsSync(join(dir, "built"))).toBe(false);
+      expect(existsSync(join(dir, "server.env"))).toBe(false);
+      expect(existsSync(join(dir, "ngrok.env"))).toBe(false);
+    });
+  });
+
+  test("the server never holds NGROK_AUTHTOKEN; ngrok still gets it (T-14)", () => {
+    withFakes((dir, runWithFakes) => {
+      expect(runWithFakes(URL)).toBe(0);
+      expect(readFileSync(join(dir, "server.env"), "utf8").trim()).toBe("unset");
+      expect(readFileSync(join(dir, "ngrok.env"), "utf8").trim()).toBe(CANARY);
+    });
   });
 });
