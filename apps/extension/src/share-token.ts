@@ -5,7 +5,7 @@ import { isLoopbackOrigin } from "./settings";
 /** Room tabs read per popup open; each is one `executeScript`. */
 const MAX_TABS = 8;
 /** `{"roomId":…,"token":…}` with the longest room id fits well inside this. */
-const MAX_RECORD_LENGTH = 512;
+export const MAX_RECORD_LENGTH = 512;
 
 /** The browser calls the popup makes; injected so the flow can be tested. */
 export interface TokenDeps {
@@ -13,6 +13,16 @@ export interface TokenDeps {
   readonly queryTabs: (patterns: string[]) => Promise<readonly { readonly id?: number | undefined }[]>;
   /** One-shot `scripting.executeScript` that returns `sessionStorage["omega.share"]`, unparsed. */
   readonly readSession: (tabId: number) => Promise<unknown>;
+}
+
+/**
+ * Injected into a room tab by `scripting.executeScript({ func, args: [key, MAX_RECORD_LENGTH] })`,
+ * so it must stay self-contained. Oversized values stay in the page: a hostile page can't
+ * stall the popup with a multi-MB string being structured-cloned across.
+ */
+export function readRecordInPage(key: string, max: number, storage: Pick<Storage, "getItem"> = sessionStorage): string | null {
+  const value = storage.getItem(key);
+  return value !== null && value.length <= max ? value : null;
 }
 
 /**

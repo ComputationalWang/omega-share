@@ -6,7 +6,7 @@ import { collectCandidateUrls } from "../../scan";
 import { serverStatus } from "../../server-status";
 import { SERVER_BASE_URL_KEY, hostPermissionPattern, readServerBaseUrl } from "../../settings";
 import { shareEmbed } from "../../share";
-import { readShareTokens } from "../../share-token";
+import { MAX_RECORD_LENGTH, readRecordInPage, readShareTokens } from "../../share-token";
 
 function byId<T extends HTMLElement>(id: string, type: new () => T): T {
   const el = document.getElementById(id);
@@ -128,7 +128,7 @@ async function loadServer(origin: string): Promise<ServerState> {
       queryTabs: (patterns) => browser.tabs.query({ url: patterns }),
       readSession: (tabId) =>
         browser.scripting
-          .executeScript({ target: { tabId }, func: (key: string) => sessionStorage.getItem(key), args: [SHARE_TOKEN_STORAGE_KEY] })
+          .executeScript({ target: { tabId }, func: readRecordInPage, args: [SHARE_TOKEN_STORAGE_KEY, MAX_RECORD_LENGTH] })
           .then((results) => results[0]?.result),
     }),
   ]);
