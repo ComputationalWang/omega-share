@@ -22,7 +22,7 @@ test.describe("source link", () => {
   });
 
   test("in the room at 1280x720 it stays clear of the stage", async ({ browser }) => {
-    const clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${DEFAULT_ROOM_ID}`, count: 1 });
+    const clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${DEFAULT_ROOM_ID}`, count: 1, nicknamePrefix: "src" });
     try {
       const page = clients[0]?.page;
       if (page === undefined) throw new Error("no client");

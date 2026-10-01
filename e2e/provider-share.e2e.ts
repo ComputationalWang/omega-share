@@ -106,8 +106,10 @@ test.describe("M2 share from the extension → room shows the right provider", (
 
     const listed = await (async () => {
       const p = await openPopup(source);
-      await expect(p.locator(popup.embedItem)).toHaveCount(4);
-      const values = await p.locator(`${popup.embedItem} input[name=embed]`).evaluateAll((els) => els.map((e) => (e instanceof HTMLInputElement ? e.value : "")));
+      // Lookalikes on real public hosts are listed too, as generic, never synced (OME-293): only the synced ones are under test.
+      const synced = `${popup.embedItem}:not([data-provider="generic"])`;
+      await expect(p.locator(synced)).toHaveCount(4);
+      const values = await p.locator(`${synced} input[name=embed]`).evaluateAll((els) => els.map((e) => (e instanceof HTMLInputElement ? e.value : "")));
       await p.close();
       return values;
     })();
