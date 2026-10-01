@@ -149,6 +149,12 @@ describe("scene: a set (g) layout", () => {
     expect(standDepth(cellCenter(3, 5))).toBeGreaterThan(front);
   });
 
+  test("of two sitters on one sofa, the nearer one draws over the farther one", () => {
+    const far = scene.seats[0]?.z ?? NaN;
+    const near = scene.seats[1]?.z ?? NaN;
+    expect(near).toBeGreaterThan(far);
+  });
+
   test("a sitter sorts with its own piece, not a neighbour's", () => {
     const wingFront = sprite(scene, "furniture/wingback/ginger/ne/front").z;
     const wingBack = sprite(scene, "furniture/wingback/ginger/ne/back").z;
