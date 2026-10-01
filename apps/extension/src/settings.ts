@@ -47,6 +47,15 @@ export function readServerBaseUrl(stored: unknown): string {
   return parsed.ok ? parsed.origin : DEFAULT_SERVER_BASE_URL;
 }
 
+/** The hosts that are our own site for `origin` (already parsed): never listed as a generic embed. */
+export function ownHostsOf(origin: string): string[] {
+  try {
+    return [new URL(origin).hostname];
+  } catch {
+    return [];
+  }
+}
+
 /** Whether `origin` (already parsed) is this computer. */
 export function isLoopbackOrigin(origin: string): boolean {
   try {

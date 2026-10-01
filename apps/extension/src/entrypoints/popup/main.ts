@@ -4,7 +4,7 @@ import { type ScanOutcome, scanTab } from "../../embeds";
 import { FALLBACK_ROOMS, type RoomList, type RoomsProbe, loadRooms } from "../../rooms";
 import { collectCandidateUrls } from "../../scan";
 import { serverStatus } from "../../server-status";
-import { SERVER_BASE_URL_KEY, hostPermissionPattern, readServerBaseUrl } from "../../settings";
+import { SERVER_BASE_URL_KEY, hostPermissionPattern, ownHostsOf, readServerBaseUrl } from "../../settings";
 import { shareEmbed } from "../../share";
 import { MAX_RECORD_LENGTH, readRecordInPage, readShareTokens } from "../../share-token";
 
@@ -38,7 +38,9 @@ async function targetTabId(): Promise<number | undefined> {
 async function scan(): Promise<ScanOutcome> {
   const tabId = await targetTabId();
   if (tabId === undefined) return { kind: "unreadable" };
-  return scanTab(() => browser.scripting.executeScript({ target: { tabId }, func: collectCandidateUrls }));
+  // Our own site is never a generic embed. The storage read started at popup load, so this is ~free.
+  const ownHosts = ownHostsOf(await serverBaseUrl);
+  return scanTab(() => browser.scripting.executeScript({ target: { tabId }, func: collectCandidateUrls }), ownHosts);
 }
 
 function render(outcome: ScanOutcome): void {
