@@ -114,8 +114,12 @@ export async function startTunnelProxy({ port, upstreamPort }: ProxyOptions): Pr
       res.writeHead(404, { "content-type": "text/html", "ngrok-error-code": "ERR_NGROK_3200" }).end(OFFLINE_PAGE);
       return;
     }
+    // `Connection` is hop-by-hop: the client's `close` must not reach our pooled keep-alive agent, or the next request
+    // on that socket dies as "socket hang up" and concurrent clients see 502 (OME-281).
+    const headers = forwardedHeaders(req);
+    delete headers["connection"];
     const upstream = request(
-      { host: "127.0.0.1", port: upstreamPort, method: req.method, path: req.url, headers: forwardedHeaders(req) },
+      { host: "127.0.0.1", port: upstreamPort, method: req.method, path: req.url, headers },
       (up) => {
         res.writeHead(up.statusCode ?? 502, up.rawHeaders);
         up.pipe(res);
