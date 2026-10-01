@@ -2,6 +2,7 @@ export * from "./constants";
 export * from "./embed";
 export * from "./capabilities";
 export * from "./room";
+export * from "./layout";
 export * from "./playback";
 export * from "./share";
 export * from "./messages";

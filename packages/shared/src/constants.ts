@@ -1,6 +1,10 @@
 /** Room everyone lands in until M2 adds more rooms. */
 export const DEFAULT_ROOM_ID = "lobby";
 export const SEAT_COUNT = 8;
+/** The room floor is FLOOR_CELLS × FLOOR_CELLS iso cells. */
+export const FLOOR_CELLS = 10;
+/** Most pieces in a room layout (ADR 0021); a full layout is ~2 KB of a snapshot. */
+export const MAX_FURNITURE = 32;
 export const AVATAR_COUNT = 4;
 /** People in one room; matches the load-test budget in docs/perf-budgets.md. */
 export const MAX_ROOM_MEMBERS = 25;
@@ -19,7 +23,7 @@ export const MAX_URL_LENGTH = 2048;
 export const MAX_EMBED_URL_LENGTH = 128;
 /** Largest WebSocket frame the server accepts from a client, in UTF-8 bytes. */
 export const MAX_CLIENT_MESSAGE_BYTES = 4096;
-/** Largest frame a client accepts; must fit a worst-case full-room snapshot (~4.7 KB). */
+/** Largest frame a client accepts; must fit a worst-case full-room snapshot (~4.7 KB, ~6.8 KB with a full layout). */
 export const MAX_SERVER_MESSAGE_BYTES = 16384;
 /** Most rooms `GET /rooms` returns; keeps the extension dropdown and body (~6 KB) small. */
 export const MAX_LISTED_ROOMS = 100;

@@ -91,7 +91,7 @@ describe("DEFAULT_LAYOUT", () => {
 
   test("round-trips through JSON in a snapshot", () => {
     const room: RoomState = { id: "lobby", seats: Array<null>(SEAT_COUNT).fill(null), members: [], embed: null, playback: null, layout: DEFAULT_LAYOUT };
-    const msg = parseServerMessage(JSON.stringify({ type: "snapshot", you: "m1", room }));
+    const msg = parseServerMessage(JSON.stringify({ type: "snapshot", self: "m1", room }));
     expect(msg?.type === "snapshot" ? msg.room.layout : null).toEqual(DEFAULT_LAYOUT);
   });
 });
@@ -153,7 +153,7 @@ describe("accepted layouts", () => {
     }
     const room = { id: "a".repeat(32), seats: members.slice(0, 8).map((m) => m.id), members, embed: null, playback: null, layout: { furniture } };
     accepts(RoomStateSchema, room);
-    const frame = JSON.stringify({ type: "snapshot", you: members[0]?.id, room });
+    const frame = JSON.stringify({ type: "snapshot", self: members[0]?.id, room });
     expect(new TextEncoder().encode(frame).length).toBeLessThan(MAX_SERVER_MESSAGE_BYTES);
   });
 });
@@ -263,15 +263,15 @@ describe("the catalogue matches the art", () => {
   test.each(furnitureMeta.meta.omega.pieces.map((p) => [p.id === "rug" ? "runner" : p.id, p] as const))("%s: facings, variants, layer, footprints and seats", (kind, piece) => {
     const spec = FURNITURE[v.parse(v.picklist(FURNITURE_KINDS), kind)];
     expect(atlasId(kind)).toBe(piece.id);
-    expect([...spec.facings].sort()).toEqual([...piece.dirs].sort());
+    expect(spec.facings.map(String).sort()).toEqual([...piece.dirs].sort());
     expect(spec.variants).toBe(piece.colours.length);
     expect(spec.layer).toBe(piece.layer === "wall" ? "wall" : piece.layer === "floor" ? "floor" : "object");
     for (const facing of spec.facings) {
       const fp = piece.footprintByDir[facing];
       const cells = footprintCells({ kind: v.parse(v.picklist(FURNITURE_KINDS), kind), col: 0, row: 0, facing });
       expect(cells.length).toBe((fp?.cols ?? 0) * (fp?.rows ?? 0));
-      const seats = (piece.seatsByDir?.[facing] ?? []).map((s) => [s.col, s.row, s.dir]);
-      const ours = spec.seats ? cells.map(([c, r]) => [c, r, facing]) : [];
+      const seats = (piece.seatsByDir?.[facing] ?? []).map((s): (number | string)[] => [s.col, s.row, s.dir]);
+      const ours = spec.seats ? cells.map(([c, r]): (number | string)[] => [c, r, facing]) : [];
       expect(ours).toEqual(seats);
     }
   });
@@ -282,18 +282,20 @@ describe("the catalogue matches the art", () => {
   );
 
   test("the room armchair faces every way and seats one", () => {
-    expect([...FURNITURE.armchair.facings].sort()).toEqual([...(roomMeta.meta.omega.seats[0]?.dirs ?? [])].sort());
+    expect(FURNITURE.armchair.facings.map(String).sort()).toEqual([...(roomMeta.meta.omega.seats[0]?.dirs ?? [])].sort());
     expect(footprintCells({ kind: "armchair", col: 0, row: 0, facing: "ne" })).toEqual([[0, 0]]);
     expect(FURNITURE.armchair.seats).toBe(true);
   });
 
   test("the room rug is the 7×7 rug painted into the default floor", () => {
     const rugCells = new Set(footprintCells({ kind: "rug", col: 1, row: 1, facing: "se" }).map(([c, r]) => `${String(c)},${String(r)}`));
-    roomMeta.meta.omega.layout.floor.forEach((rowKeys, r) =>
+    const painted = new Set<string>();
+    roomMeta.meta.omega.layout.floor.forEach((rowKeys, r) => {
       rowKeys.forEach((key, c) => {
-        expect(`${String(c)},${String(r)} ${String(key.startsWith("rug/"))}`).toBe(`${String(c)},${String(r)} ${String(rugCells.has(`${String(c)},${String(r)}`))}`);
-      }),
-    );
+        if (key.startsWith("rug/")) painted.add(`${String(c)},${String(r)}`);
+      });
+    });
+    expect([...painted].sort()).toEqual([...rugCells].sort());
   });
 
   test("WALL_FIXTURE_SEGMENTS are the window, poster and sconce segments of both walls", () => {
