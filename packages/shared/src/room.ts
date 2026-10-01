@@ -9,6 +9,7 @@ import {
 } from "./constants";
 import { EmbedSchema } from "./embed";
 import { MemberIdSchema } from "./ids";
+import { RoomLayoutSchema } from "./layout";
 import { OptionalPlaybackSchema } from "./playback";
 
 export const RoomIdSchema = v.pipe(v.string(), v.regex(new RegExp(`^[a-z0-9-]{1,${String(ROOM_ID_MAX_LENGTH)}}$`)));
@@ -82,6 +83,8 @@ export const RoomStateSchema = v.pipe(
     embed: v.nullable(EmbedSchema),
     /** Null iff `embed` is null. Absent only from a pre-M1b server (treat as null). */
     playback: OptionalPlaybackSchema,
+    /** The room's furniture (ADR 0021). Absent from a pre-M4 server: draw DEFAULT_LAYOUT. */
+    layout: v.optional(RoomLayoutSchema),
   }),
   v.check((x) => x.embed !== null || (x.playback ?? null) === null, "playback without embed"),
   v.check((r) => new Set(r.members.map((m) => m.id)).size === r.members.length, "duplicate member id"),

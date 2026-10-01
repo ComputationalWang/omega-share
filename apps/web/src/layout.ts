@@ -1,4 +1,4 @@
-import { MAX_ROOM_MEMBERS, SEAT_COUNT, type Provider } from "@omega/shared";
+import { FLOOR_CELLS, MAX_ROOM_MEMBERS, SEAT_COUNT, type Provider } from "@omega/shared";
 
 /** Logical stage size; the DOM stage is CSS-scaled to fit, the canvas matches it 1:1. */
 export const STAGE_W = 960;
@@ -6,7 +6,7 @@ export const STAGE_H = 600;
 
 export const TILE_W = 64;
 export const TILE_H = 32;
-export const FLOOR_CELLS = 10;
+export { FLOOR_CELLS };
 /** Screen position of the floor's back corner. */
 const ORIGIN_X = STAGE_W / 2;
 const ORIGIN_Y = 220;
