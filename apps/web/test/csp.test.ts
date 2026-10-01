@@ -70,12 +70,20 @@ describe("index.html CSP (ADR 0011, ADR 0014 §5)", () => {
 
 describe("index.html CSP vs the server header (apps/server/src/headers.ts is the source of truth)", () => {
   const DEV_ORIGINS = ["ws://localhost:8787", "http://localhost:8787", "ws://localhost:5173"];
+  const TT_DIRECTIVES = ["require-trusted-types-for", "trusted-types"];
+
+  test("Trusted Types live in the header only; the dev-only meta sets none (the Vite dev client hits TT sinks)", () => {
+    const meta = csp();
+    for (const name of TT_DIRECTIVES) expect([name, meta.has(name)]).toEqual([name, false]);
+  });
 
   test("the meta allows everything the header allows, so the two intersect to the header in production", () => {
     const meta = csp();
     for (const [name, values] of parse(SERVER_CSP)) {
       // Ignored in a meta (and Chrome logs an error for it); the header alone enforces it.
       if (name === "frame-ancestors") continue;
+      // Restrictions, not allowances (ADR 0025): a meta without them is the looser side.
+      if (TT_DIRECTIVES.includes(name)) continue;
       const have = meta.get(name) ?? [];
       expect([name, values.filter((v) => !have.includes(v))]).toEqual([name, []]);
     }
