@@ -188,6 +188,33 @@ describe("attachVimeo", () => {
     expect(adapter.time()).toBe(90);
   });
 
+  test("the player's own skip over a media gap (a seeked ~1.5 s ahead, unasked) is no intent; the clock still takes it (OME-324)", async () => {
+    // As recorded from real player.js on vimeo.com/1084537: timeupdate jumps 19.479 → 20.928, then `seeked` at 20.928.
+    const { t, adapter, p, events, ready } = setup();
+    await ready();
+    adapter.play();
+    p.fire("play", { seconds: 19, percent: 0, duration: 597 });
+    t.now = 10_000;
+    p.fire("timeupdate", { seconds: 19.229, percent: 0, duration: 597 });
+    t.now = 10_250;
+    p.fire("timeupdate", { seconds: 19.479, percent: 0, duration: 597 });
+    t.now = 10_500;
+    p.fire("timeupdate", { seconds: 20.928, percent: 0, duration: 597 });
+    p.fire("seeked", { seconds: 20.928, percent: 0.035, duration: 597 });
+    // The same skip with `seeked` ahead of its timeupdate.
+    t.now = 20_000;
+    p.fire("timeupdate", { seconds: 30.4, percent: 0, duration: 597 });
+    t.now = 20_250;
+    p.fire("seeked", { seconds: 32.1, percent: 0.05, duration: 597 });
+    expect(intents(events)).toEqual([]);
+    expect(adapter.time()).toBeCloseTo(32.1, 6);
+    // A real scrub from there is still the user's.
+    t.now = 30_000;
+    p.fire("timeupdate", { seconds: 41.85, percent: 0, duration: 597 });
+    p.fire("seeked", { seconds: 120, percent: 0.2, duration: 597 });
+    expect(intents(events)).toEqual([{ type: "intent", playing: true, position: 120 }]);
+  });
+
   test("ready() rejected: PrivacyError → refused, PasswordError → restricted, NotFoundError → not-found, anything else → other (the OME-110 notice path)", async () => {
     for (const [name, reason] of [
       ["PrivacyError", "refused"],
