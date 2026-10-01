@@ -109,6 +109,8 @@ async function startLane(ports: LanePorts): Promise<TunnelLane & { stop: () => P
       PUBLIC_ORIGIN,
       TRUST_PROXY: "loopback",
       STATIC_DIR: siteDir,
+      // Fresh rooms every lane: no lobby embed persisted from an earlier run (OME-280).
+      DB_PATH: ":memory:",
       NGROK_AUTHTOKEN: SENTINEL_AUTHTOKEN,
     },
     stdio: ["ignore", "pipe", "pipe"],

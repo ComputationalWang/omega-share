@@ -8,7 +8,7 @@ const servers: Extract<WebServer, readonly unknown[]>[number][] = [
 // App servers are added once their `dev` script exists (OME-5 / OME-6). Perf runs the web app via `preview` (production build).
 // Each side is told the other's URL so OMEGA_*_PORT overrides keep the server's origin check and the site's WS target in step.
 if (available.server) {
-  servers.push({ command: "bun run --filter @omega/server dev", url: URLS.server, reuseExistingServer: !process.env["CI"], env: { PORT: String(PORTS.server), SITE_ORIGIN: URLS.web } });
+  servers.push({ command: "bun run --filter @omega/server dev", url: URLS.server, reuseExistingServer: !process.env["CI"], env: { PORT: String(PORTS.server), SITE_ORIGIN: URLS.web, DB_PATH: ":memory:" } });
 }
 if (available.web) {
   const mode = process.env["OMEGA_WEB_MODE"] === "preview" && "preview" in scripts("web") ? "preview" : "dev";
