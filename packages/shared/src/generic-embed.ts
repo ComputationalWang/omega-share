@@ -13,8 +13,11 @@ const LABEL = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/;
  * literal (`2130706433`, `0x7f.1`, `127.1`); IPv6 literals fail `LABEL` on `[`.
  */
 const TLD = /^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/;
-/** Special-use and private-network names: they only resolve inside someone's network. */
-const PRIVATE_SUFFIXES = ["localhost", "local", "internal", "localdomain", "lan", "home", "corp", "intranet", "arpa"] as const;
+/** Special-use, reserved and private-network names: they never resolve publicly, or only inside someone's network. */
+const PRIVATE_SUFFIXES = [
+  "localhost", "local", "internal", "localdomain", "lan", "home", "corp", "intranet", "arpa",
+  "test", "example", "invalid", "onion", "alt",
+] as const;
 /** Public wildcard DNS that answers with loopback or with an IP spelled in the name. */
 const IP_IN_DNS_DOMAINS = ["localtest.me", "lvh.me", "vcap.me", "localhost.direct", "nip.io", "sslip.io", "xip.io", "traefik.me"] as const;
 
@@ -30,8 +33,23 @@ function isPublicDnsName(host: string): boolean {
   return !underDomain(host, PRIVATE_SUFFIXES) && !underDomain(host, IP_IN_DNS_DOMAINS);
 }
 
+/**
+ * `host` as the URL parser would store it (trimmed, lowercase, punycode, no trailing dot),
+ * or null if it is not a bare hostname. The server runs its configured own hosts through
+ * this at startup and refuses to start on a null.
+ */
+export function normalizeHostname(host: string): string | null {
+  const h = host.trim().replace(/\.$/, "");
+  if (h === "" || /[/:?#@\\\s]/.test(h)) return null;
+  try {
+    return new URL(`https://${h}/`).hostname;
+  } catch {
+    return null;
+  }
+}
+
 export interface GenericEmbedOptions {
-  /** Our own hostnames; they and their subdomains are rejected. The server passes its public host(s). */
+  /** Our own hostnames; they and their subdomains are rejected. Normalised with `normalizeHostname`. */
   readonly ownHosts?: readonly string[];
 }
 
@@ -85,7 +103,7 @@ export function canonicalizeGenericEmbed(input: string, opts: GenericEmbedOption
   const host = url.hostname;
   if (!isPublicDnsName(host)) return null;
   if (syncedProviderFor(host) !== undefined) return null;
-  const own = (opts.ownHosts ?? []).map((h) => h.toLowerCase());
+  const own = (opts.ownHosts ?? []).map(normalizeHostname).filter((h) => h !== null);
   if (underDomain(host, own)) return null;
   const href = url.href;
   if (href.length > MAX_GENERIC_EMBED_URL_LENGTH) return null;
