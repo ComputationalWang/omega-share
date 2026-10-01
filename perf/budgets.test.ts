@@ -62,7 +62,14 @@ describe("budgets", () => {
         expect([b?.area, b?.docMetric, b?.unit, b?.limit, b?.comparator]).toEqual(["Site", r.docMetric, r.unit, r.limit, "<="]);
       }
     }
-    expect(FRAME_PROVIDERS).toEqual(["youtube", "twitchVod", "twitchLive", "vimeo"]);
+    expect(FRAME_PROVIDERS).toEqual(["youtube", "twitchVod", "twitchLive", "vimeo", "generic"]);
+  });
+
+  test("a loaded generic embed has its own frame p95 row at the base budget (ADR 0024, OME-294)", () => {
+    const b = BUDGETS.find((x) => x.id === "site.frameP95");
+    const row = BUDGETS.find((x) => x.id === "site.frameP95.generic");
+    expect(row).toBeDefined();
+    expect([row?.docMetric, row?.limit, row?.unit, row?.comparator]).toEqual([b?.docMetric, b?.limit, b?.unit, b?.comparator]);
   });
 
   test("relay latency under flood is its own row at the relay budget (threat model §8 Q, OME-192)", () => {

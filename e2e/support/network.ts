@@ -74,6 +74,6 @@ export async function serveRealVimeoSdk(context: BrowserContext): Promise<void> 
   );
 }
 
-export async function gotoFixture(page: Page, name: "youtube-embed" | "providers-embed" | "watch-url" | "non-allowlisted" | "no-video"): Promise<void> {
+export async function gotoFixture(page: Page, name: "youtube-embed" | "providers-embed" | "watch-url" | "non-allowlisted" | "no-video" | "generic-embed"): Promise<void> {
   await page.goto(name === "watch-url" ? WATCH_URL : `/${name}.html`);
 }
