@@ -30,28 +30,24 @@ Client→server schemas are **strict** (unknown keys are rejected). Server→cli
 | `MAX_POSITION_S` | 43200 (12 h, largest playback position) |
 | `PING_ID_MAX` | 2³¹ − 1 |
 
-## Embeds (provider allowlist)
+## Embeds (two tiers, ADR 0014 + ADR 0024)
 
-`canonicalizeEmbed(url: string): Embed | null`. Pure, never throws. Accepts only:
+**Synced tier.** `canonicalizeEmbed(url: string): Embed | null` dispatches through `SYNCED_PROVIDERS` (YouTube, Twitch, Vimeo; each `{ id, ownsHost, canonicalize }`). Scheme `http`/`https` (output always `https`), no credentials, no explicit port. Every `Embed.url` is rebuilt from its ids, and `EmbedSchema` checks it. See `test/embed*.test.ts` for the accepted URL shapes.
 
-- `youtube.com`, `www.`, `m.` → `/watch?v=ID` (exactly one `v`)
-- `youtu.be/ID`
-- `youtube.com/embed/ID`, `youtube-nocookie.com/embed/ID` (with or without `www.`)
+**Generic tier.** `canonicalizeGenericEmbed(url, { ownHosts? }): GenericEmbed | null` → `{ provider: "generic", host, url }`. `https:` only, no userinfo, default port, a public DNS name (no IP literal, no `localhost`/`.local`/`.internal`/… or IP-in-DNS domain), not one of `ownHosts`, not a synced provider's host. `url` is the canonical `URL.href` (≤ `MAX_GENERIC_EMBED_URL_LENGTH` = 1024), and `host` is punycode. Not synced: it never carries playback state.
 
-Scheme must be `http`/`https` (the output is always `https`). No credentials, no explicit port. ID is `[A-Za-z0-9_-]{11}` and not a reserved slug (`videoseries`, `live_stream`). Anything else, such as other hosts, lookalike hosts, `javascript:`/`data:`, `/shorts/` or playlists, returns `null`.
-
-`Embed = { provider: "youtube", videoId, url }`, where `url` is always `https://www.youtube.com/embed/<videoId>`. `EmbedSchema` checks this, so a parsed `Embed.url` is safe to use as an iframe `src`. Never build an iframe from any other string.
+`canonicalizeAnyEmbed(url, { generic, ownHosts? })` is the share path (synced first, then generic when `generic` is on). `AnyEmbed = Embed | GenericEmbed` is the wire type (`AnyEmbedSchema`); `isSyncedEmbed` narrows it. Only a parsed `Embed.url` or `GenericEmbed.url` may become an iframe `src`, and the generic one only with ADR 0024's fixed sandbox.
 
 ## Room state
 
 ```ts
 Member    = { id: MemberId, nickname: Nickname, avatar: 0..3 }
-RoomState = { id: RoomId, seats: (MemberId | null)[8], members: Member[≤25], embed: Embed | null, playback?: PlaybackState | null }
+RoomState = { id: RoomId, seats: (MemberId | null)[8], members: Member[≤25], embed: AnyEmbed | null, playback?: PlaybackState | null }
 ```
 
 - `RoomId`: `[a-z0-9-]{1,32}`. `MemberId`: `[A-Za-z0-9_-]{1,64}`, assigned by the server.
 - `Nickname`: trimmed and NFC-normalized, 1–20 UTF-16 units of letters (combining marks allowed after a letter), digits and `_ . -`, with single spaces between words. No emoji, controls or invisible characters (including Hangul fillers).
-- Invariants: member ids are unique, and every seat occupant is a member seated only once. `playback` is non-null only when `embed` is non-null.
+- Invariants: member ids are unique, and every seat occupant is a member seated only once. `playback` is non-null only when `embed` is a synced embed.
 
 ## Nickname key: `@omega/shared/confusables` (server only, ADR 0023)
 
@@ -74,14 +70,14 @@ PlaybackState = {
 ```
 
 - Expected position at server time `t`: `position + (playing ? (t − at) / 1000 × rate : 0)`. Server time ≈ client time + clock offset from `ping`/`pong`.
-- **Server invariant:** `RoomState.playback` and `embed-changed.playback` are null iff `embed` is null.
+- **Server invariant:** `RoomState.playback` and `embed-changed.playback` are null iff `embed` is null or generic.
 - **Backward compatibility:** a pre-M1b server omits `playback`. The field is optional on the client, and **absent means null**: play the embed unsynced. Clients reject `playback` without an `embed`.
 
 ## HTTP: `POST /rooms/:id/share`
 
 - Request `ShareRequest`: `{ url: string }` (≤ 2048). This is the raw URL; the server canonicalizes it.
 - Response `ShareResponse`:
-  - `{ ok: true, embed: Embed }`
+  - `{ ok: true, embed: AnyEmbed }`
   - `{ ok: false, error: { code, message } }`, where `code` ∈ `invalid_body | unsupported_url | room_not_found | rate_limited | payload_too_large`
 
 On success, the server broadcasts `embed-changed` with `by: null`.
