@@ -110,7 +110,7 @@ describe("per-key HTTP request limit", () => {
 
   const lan = Object.values(networkInterfaces())
     .flat()
-    .find((a) => a !== undefined && a.family === "IPv4" && !a.internal)?.address;
+    .find((a) => a?.family === "IPv4" && !a.internal)?.address;
   test.skipIf(lan === undefined)("spoofed X-Forwarded-For from a non-loopback peer is ignored (T-08)", async () => {
     t = start({ trustProxy: true, now, hostname: "0.0.0.0" });
     const port = String(t.server.port);
@@ -133,11 +133,11 @@ describe("global in-flight HTTP cap", () => {
     const { client, snapshot } = await Client.join(t.ws(), "slow", 0, { "x-forwarded-for": "198.51.100.1" });
     clients.push(client);
     // A share whose body never finishes holds its slot until we end it.
-    let finish = (): void => {};
+    const held: { finish?: () => void } = {};
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new TextEncoder().encode('{"url":"https://youtu.be/dQw4w9WgXcQ"'));
-        finish = () => {
+        held.finish = () => {
           controller.enqueue(new TextEncoder().encode("}"));
           controller.close();
         };
@@ -152,7 +152,7 @@ describe("global in-flight HTTP cap", () => {
     const full = await getAs("198.51.100.2");
     expect(full.status).toBe(503);
     expect(Number(full.headers.get("retry-after"))).toBeGreaterThanOrEqual(1);
-    finish();
+    held.finish?.();
     expect((await slow).status).toBe(200);
     expect((await getAs("198.51.100.2")).status).toBe(200);
   });
