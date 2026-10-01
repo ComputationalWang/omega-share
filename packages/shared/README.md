@@ -53,6 +53,12 @@ RoomState = { id: RoomId, seats: (MemberId | null)[8], members: Member[≤25], e
 - `Nickname`: trimmed and NFC-normalized, 1–20 UTF-16 units of letters (combining marks allowed after a letter), digits and `_ . -`, with single spaces between words. No emoji, controls or invisible characters (including Hangul fillers).
 - Invariants: member ids are unique, and every seat occupant is a member seated only once. `playback` is non-null only when `embed` is non-null.
 
+## Nickname key: `@omega/shared/confusables` (server only, ADR 0023)
+
+- `nicknameKey(nickname)`: per-room uniqueness key, the UTS #39 skeleton made case-insensitive. "Alice", "ALICE", "Аӏісе" (Cyrillic), "A1ice" and "Alicé" collide. "Alicia" and "Алиса" do not.
+- `skeleton(s)`: plain TR39 skeleton. `CONFUSABLES_VERSION`: the Unicode version of the table (18.0.0).
+- The table (`src/confusables-table.ts`, ~82 KB) is generated: `bun run --filter @omega/shared gen:confusables`. **Never import this entry from the web or the extension.** The main entry's `nicknameKey` is the M3 key, kept until the server switches.
+
 ## Playback (M1b, ADR 0002 + ADR 0011)
 
 ```ts
