@@ -85,7 +85,7 @@ The web and the extension need no flag of their own. The web renders only what t
 - A generic embed **never carries playback state**. `playback` must be null in `RoomState` and in `embed-changed` (`playbackMatchesEmbed`), and the schemas reject the message otherwise. The README's server invariant is now: `playback` is null iff `embed` is null **or generic**.
 - `control` on a generic embed gets `error: no_embed`, because there is no synced embed to control. `control.url` stays capped at `MAX_EMBED_URL_LENGTH` (128), which is only for synced URLs.
 - `status { catching }` is meaningless for the generic tier. The web doesn't send it there, and the server ignores it.
-- **Size:** a 1024-character URL plus its host adds about 1.3 KB to a snapshot. A worst-case full-room snapshot stays under 7 KB, well inside `MAX_SERVER_MESSAGE_BYTES` (16 KB). A contract test covers this.
+- **Size:** a 1024-character URL plus its host adds about 1.3 KB to a snapshot. A worst-case full-room snapshot with a full ADR 0021 layout and a maximum-length generic embed measures 7.2 KB, well inside `MAX_SERVER_MESSAGE_BYTES` (16 KB). A contract test covers this.
 - **Compatibility:** the site and the server ship together (ADR 0015). An older extension that receives a generic embed in a share response fails to parse it and shows its offline/error text. It can only get one if it sent a generic URL, and old extensions only send synced ones.
 
 ## Consequences
