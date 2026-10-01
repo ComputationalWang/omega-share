@@ -154,8 +154,9 @@ export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publi
 
     // Store first: if the write fails the share fails, and memory never runs ahead of the DB.
     persistEmbed(room, embed);
-    const playback = room.setEmbed(embed, grant.memberId);
+    const { playback, uncaught } = room.setEmbed(embed, grant.memberId);
     publish(room.topic, encode({ type: "embed-changed", embed, by: grant.memberId, playback }));
+    for (const memberId of uncaught) publish(room.topic, encode({ type: "member-status", memberId, catching: false }));
     const body: ShareResponse = { ok: true, embed };
     return c.json(body);
   });

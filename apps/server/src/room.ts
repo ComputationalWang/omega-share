@@ -34,6 +34,12 @@ interface Held {
   client: string | null;
 }
 
+/** What `Room.setEmbed` changed besides the embed. */
+export interface EmbedSwitch {
+  playback: PlaybackState | null;
+  uncaught: readonly MemberId[];
+}
+
 /**
  * One in-memory room: up to MAX_ROOM_MEMBERS members, SEAT_COUNT seats (ADR 0006).
  * Members stand until they sit; anyone beyond the seated ones spectates.
@@ -46,6 +52,8 @@ export class Room {
   private readonly perClient = new Map<string, number>();
   /** Members whose player is catching up (ADR 0019, advisory). */
   private readonly catching = new Set<MemberId>();
+  /** Members the room was last told (`member-status`) are catching; the relay publishes the difference. */
+  private readonly announced = new Set<MemberId>();
   private readonly seats: (MemberId | null)[] = Array.from({ length: SEAT_COUNT }, () => null);
   private embed: AnyEmbed | null = null;
   /** Null iff there is no embed or it is generic (ADR 0024 §7): a generic embed is never synced. */
@@ -94,6 +102,7 @@ export class Room {
     this.free(memberId);
     this.members.delete(memberId);
     this.catching.delete(memberId);
+    this.announced.delete(memberId);
     const held = this.held.get(memberId);
     if (held === undefined) return;
     this.held.delete(memberId);
@@ -125,20 +134,36 @@ export class Room {
     return this.catching.has(memberId);
   }
 
+  /** The member's catching if the room was last told otherwise, now recorded as told; else null. */
+  takeCatchingChange(memberId: MemberId): boolean | null {
+    const catching = this.catching.has(memberId);
+    if (catching === this.announced.has(memberId)) return null;
+    if (catching) this.announced.add(memberId);
+    else this.announced.delete(memberId);
+    return catching;
+  }
+
   /** True while the room shows a generic (unsynced) embed. */
   hasGenericEmbed(): boolean {
     return this.embed !== null && !isSyncedEmbed(this.embed);
   }
 
   /**
-   * Sets the embed and restarts playback at 0; returns the new playback. `by` is the sharer.
-   * Null embed, or a generic one, clears playback.
+   * Sets the embed and restarts playback at 0. `by` is the sharer.
+   * Null embed, or a generic one, clears playback and every catching flag (ADR 0024 §7):
+   * `uncaught` lists the members the room must now be told are not catching.
    */
-  setEmbed(embed: AnyEmbed | null, by: MemberId | null = null): PlaybackState | null {
+  setEmbed(embed: AnyEmbed | null, by: MemberId | null = null): EmbedSwitch {
     this.embed = embed;
     this.playback = embed === null || !isSyncedEmbed(embed) ? null : loadPlayback(this.rev, Date.now(), by);
-    if (this.playback !== null) this.rev = this.playback.rev;
-    return this.playback;
+    if (this.playback !== null) {
+      this.rev = this.playback.rev;
+      return { playback: this.playback, uncaught: [] };
+    }
+    const uncaught = [...this.announced];
+    this.catching.clear();
+    this.announced.clear();
+    return { playback: null, uncaught };
   }
 
   /** Applies a member's `control`; returns the new playback, or null if it's for no/another/a generic embed. */
