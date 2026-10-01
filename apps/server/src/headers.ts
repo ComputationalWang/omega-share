@@ -1,7 +1,10 @@
+const SYNCED_FRAMES = "frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://player.vimeo.com";
+
 /**
  * Security headers on every response (threat model §4). This is the production policy: production is
  * always same-origin (ADR 0015 §1). Header and `<meta>` CSPs intersect, so the meta in
  * `apps/web/index.html` must be a superset of `CSP` that only adds the dev origins.
+ * `CSP` is the policy with GENERIC_EMBEDS=off; `CSP_WITH_GENERIC` (the default) also frames `https:`.
  */
 export const CSP = [
   "default-src 'self'",
@@ -12,12 +15,18 @@ export const CSP = [
   // CSP3 'self' matches the page's own ws:/wss: origin.
   "connect-src 'self'",
   "worker-src 'self'",
-  "frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://player.vimeo.com",
+  SYNCED_FRAMES,
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
   "frame-ancestors 'none'",
 ].join("; ");
+
+/**
+ * The generic tier frames any https page (ADR 0024 §4). The three synced origins stay listed so the
+ * synced tier still works if `https:` goes. `script-src` is the same as in `CSP`.
+ */
+export const CSP_WITH_GENERIC = CSP.replace(SYNCED_FRAMES, `${SYNCED_FRAMES} https:`);
 
 /** Report-only in M3 (enforce in M4 if the real-provider run is clean). No `report-to`: no public report sink. */
 export const CSP_REPORT_ONLY = "require-trusted-types-for 'script'; trusted-types omega-sdk";
@@ -40,13 +49,22 @@ export const PERMISSIONS_POLICY = [
   .map((feature) => `${feature}=()`)
   .join(", ");
 
+export type SecurityHeaders = Readonly<Record<string, string>>;
+
 /** No COEP: `require-corp` would block the provider iframes and scripts, which send no CORP. */
-export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
-  "x-content-type-options": "nosniff",
-  "referrer-policy": "strict-origin-when-cross-origin",
-  "content-security-policy": CSP,
-  "content-security-policy-report-only": CSP_REPORT_ONLY,
-  "permissions-policy": PERMISSIONS_POLICY,
-  "cross-origin-opener-policy": "same-origin",
-  "cross-origin-resource-policy": "same-origin",
-};
+const headersWith = (csp: string): SecurityHeaders =>
+  Object.freeze({
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "content-security-policy": csp,
+    "content-security-policy-report-only": CSP_REPORT_ONLY,
+    "permissions-policy": PERMISSIONS_POLICY,
+    "cross-origin-opener-policy": "same-origin",
+    "cross-origin-resource-policy": "same-origin",
+  });
+
+const WITH_GENERIC = headersWith(CSP_WITH_GENERIC);
+const SYNCED_ONLY = headersWith(CSP);
+
+/** The headers for every response; `frame-src` follows the GENERIC_EMBEDS switch (ADR 0024 §4). */
+export const securityHeaders = (genericEmbeds: boolean): SecurityHeaders => (genericEmbeds ? WITH_GENERIC : SYNCED_ONLY);

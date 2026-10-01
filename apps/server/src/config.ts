@@ -1,4 +1,5 @@
 import { existsSync, realpathSync } from "node:fs";
+import { normalizeHostname } from "@omega/shared";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 /** Dev default for `DB_PATH`: `apps/server/data/omega.db` (git-ignored), never under a static dir. */
@@ -21,6 +22,12 @@ export interface ServerConfig {
   extensionIds: string[] | null;
   /** Absolute path of the SQLite file, or `:memory:` (tests). Never inside `staticDir` (D5). */
   dbPath: string;
+  /** `GENERIC_EMBEDS=on|off` (default on): the generic embed tier's kill switch (ADR 0024 §5). */
+  genericEmbeds: boolean;
+  /** `GENERIC_EMBED_DENYLIST`: normalised domains refused for generic embeds, with their subdomains (§6). */
+  genericEmbedDenylist: string[];
+  /** Our hostnames, normalised: `localhost` plus the site's and the public origin's DNS hosts (§1). */
+  ownHosts: string[];
 }
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -58,6 +65,21 @@ function realish(path: string): string {
 function isInside(child: string, parent: string): boolean {
   const rel = relative(parent, child);
   return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+/** IP literals are never a generic embed's host, so they need no own-host entry. */
+const isIpLiteral = (host: string): boolean => host.startsWith("[") || /^\d+\.\d+\.\d+\.\d+$/.test(host);
+
+/** Our own hostnames for the generic tier's own-host rule, normalised; throws on an entry that isn't a hostname. */
+export function ownHostsFor(siteOrigin: string, publicOrigin: string | null): string[] {
+  const hosts = new Set<string>(["localhost"]);
+  for (const origin of [siteOrigin, publicOrigin]) {
+    if (origin === null) continue;
+    const host = new URL(origin).hostname;
+    if (isIpLiteral(host)) continue;
+    hosts.add(normalizeHostname(host) ?? fail("own host", `${JSON.stringify(host)} is not a hostname`));
+  }
+  return [...hosts];
 }
 
 export function parseConfig(env: Env): ServerConfig {
@@ -98,5 +120,26 @@ export function parseConfig(env: Env): ServerConfig {
     if (isInside(dbPath, staticDir) || isInside(realish(dbPath), site)) fail("DB_PATH", "must not be inside STATIC_DIR");
   }
 
-  return { port, hostname, siteOrigin, publicOrigin, trustProxy: rawTrust === "loopback", staticDir, extensionIds, dbPath };
+  const rawGeneric = env["GENERIC_EMBEDS"] ?? "on";
+  if (rawGeneric !== "on" && rawGeneric !== "off") fail("GENERIC_EMBEDS", "must be on or off");
+
+  const rawDeny = env["GENERIC_EMBED_DENYLIST"] ?? "";
+  const genericEmbedDenylist =
+    rawDeny === ""
+      ? []
+      : rawDeny.split(",").map((d) => normalizeHostname(d) ?? fail("GENERIC_EMBED_DENYLIST", "expected comma-separated domains"));
+
+  return {
+    port,
+    hostname,
+    siteOrigin,
+    publicOrigin,
+    trustProxy: rawTrust === "loopback",
+    staticDir,
+    extensionIds,
+    dbPath,
+    genericEmbeds: rawGeneric === "on",
+    genericEmbedDenylist,
+    ownHosts: ownHostsFor(siteOrigin, publicOrigin),
+  };
 }

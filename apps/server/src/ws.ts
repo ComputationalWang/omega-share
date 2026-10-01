@@ -9,6 +9,7 @@ import {
   type ServerMessage,
   type ShareToken,
 } from "@omega/shared";
+import type { SecurityHeaders } from "./headers";
 import { newShareGrant, plain, type ShareGrant } from "./http";
 import { KeyedLimiter, TokenBucket, isLoopbackKey, monotonic, type Clock } from "./rate-limit";
 import type { Room } from "./room";
@@ -91,6 +92,8 @@ export interface WsDeps {
   now?: Clock;
   /** `member-status` coalescing interval. Default STATUS_INTERVAL_MS; tests shorten it. */
   statusIntervalMs?: number;
+  /** Security headers for the upgrade gate's own responses. */
+  headers: SecurityHeaders;
 }
 
 export interface Ws {
@@ -107,6 +110,7 @@ export function createWs({
   release,
   now = monotonic,
   statusIntervalMs = STATUS_INTERVAL_MS,
+  headers,
 }: WsDeps): Ws {
   const upgrades = new KeyedLimiter(UPGRADE_BURST, UPGRADE_PER_SECOND, 1024, now);
   const joins = new KeyedLimiter(JOIN_BURST, JOIN_PER_SECOND, 1024, now);
@@ -267,6 +271,8 @@ export function createWs({
         return;
       }
       case "status": {
+        // Catching up means nothing without sync (ADR 0024 §7).
+        if (room.hasGenericEmbed()) return;
         // State, not an event: store it, publish on change, at most once per interval per member.
         room.setCatching(memberId, msg.catching);
         const status = ws.data.status;
@@ -282,7 +288,7 @@ export function createWs({
   return {
     admitUpgrade(ip) {
       if (isLoopbackKey(ip) || upgrades.take(ip)) return null;
-      const res = plain(429, "reconnecting too fast");
+      const res = plain(429, "reconnecting too fast", headers);
       res.headers.set("retry-after", String(Math.ceil(upgrades.retryAfterMs(ip) / 1000)));
       return res;
     },

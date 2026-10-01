@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as joinPath } from "node:path";
 import * as v from "valibot";
-import { ShareResponseSchema } from "@omega/shared";
+import { ShareResponseSchema, type GenericEmbed } from "@omega/shared";
 import type { ServerOptions } from "../src/server";
 import { openDatabase } from "../src/store/db";
 import { RoomStore } from "../src/store/rooms";
@@ -12,7 +12,7 @@ import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 /** A generic-tier URL (ADR 0024 §1) and the embed it canonicalises to. */
 const GENERIC_URL = "https://Videos.Example-Host.net:443/embed/abc?t=10#start";
-const GENERIC = { provider: "generic", host: "videos.example-host.net", url: "https://videos.example-host.net/embed/abc?t=10#start" };
+const GENERIC: GenericEmbed = { provider: "generic", host: "videos.example-host.net", url: "https://videos.example-host.net/embed/abc?t=10#start" };
 const YOUTUBE_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 const PUBLIC_ORIGIN = "https://quiet-otter.ngrok-free.app";
 
