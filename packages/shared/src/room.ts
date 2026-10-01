@@ -31,7 +31,8 @@ const LATIN_LOOKALIKES = /[\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Armenian
  * UTF-16 units of letters (each with at most 2 combining marks), digits, `_ . -`, with
  * single spaces between words. No emoji, controls, bidi or zero-width characters: they
  * are rejected, not stripped. Latin letters never mix with Cyrillic, Greek, Armenian or
- * Cherokee ones. Full confusables matching (UTS #39) is M4 (ADR 0016).
+ * Cherokee ones. Full confusables matching (UTS #39) is the uniqueness key in
+ * `@omega/shared/confusables` (ADR 0023).
  */
 export const NicknameSchema = v.pipe(
   v.string(),
@@ -52,8 +53,9 @@ export function normalizeNickname(input: unknown): Nickname | null {
 }
 
 /**
- * Uniqueness key: two members of a room may not share one. Case-, width- and
- * accent-insensitive, so "José" and "jose" collide (deliberately conservative).
+ * M3 uniqueness key: case-, width- and accent-insensitive, so "José" and "jose" collide.
+ * Superseded by `nicknameKey` from `@omega/shared/confusables` (UTS #39 skeleton,
+ * ADR 0023); kept until the server switches. It misses "A1ice" and all-Cyrillic twins.
  */
 export function nicknameKey(nickname: Nickname): string {
   return nickname.normalize("NFKC").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
