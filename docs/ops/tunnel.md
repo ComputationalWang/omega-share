@@ -56,6 +56,8 @@ Parsed at startup. A bad value exits non-zero with a message naming the variable
 | `TRUST_PROXY` | `off` | `loopback`: key rate limits by the rightmost `X-Forwarded-For` entry, and only when the peer is loopback (the tunnel agent). Without it, every tunnelled client shares one bucket, and a warning is logged. |
 | `STATIC_DIR` | unset | Built site to serve on the same origin. It must contain `index.html`. |
 | `EXTENSION_IDS` | unset (any id) | Comma-separated extension ids allowed as an `Origin`. |
+| `GENERIC_EMBEDS` | `on` | `on` or `off` (anything else fails startup). `off` is the generic embed tier's kill switch (ADR 0024 §5): generic URLs get `unsupported_url`, a stored generic embed is restored as no embed, and the CSP `frame-src` drops `https:`. |
+| `GENERIC_EMBED_DENYLIST` | empty | Comma-separated domains refused as generic embeds, each with its subdomains (ADR 0024 §6). A denied host gets `unsupported_url`. An entry that is not a bare hostname fails startup. |
 
 Limits behind the proxy: 10 sockets per client, 200 in total (503 past that). Shares: burst 5 then 1 per 3 s, per client and per member, and burst 20 then 2/s overall. Unauthorized share attempts have their own per-client bucket (burst 20, 1/s), so token guessing can't use up a member's allowance.
 
