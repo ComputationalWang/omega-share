@@ -15,10 +15,13 @@ assets/
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
   ui/popup/*.png        # set f: the extension popup's key icon as standalone files, drawn at 16 px (1×) and 32 px (2×)
+  ui/edit.png           # set h (lazy, owners only): 256×1024 indexed PNG-8, edit grid, placement markers, handles, tray thumbnails, swatches
+  ui/edit.json          # set h: PixiJS v8 atlas for ui/edit.png
   furniture/furniture.png  # set g (M4/M5, lazy-load): 1024×512 indexed PNG-8, furniture catalogue v1
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
   ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
-  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame),
+  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame, ui-owner*.png = set h),
+                        #   owner-edit@1x/@2x.png (set h edit mode in the room),
                         #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated)
   src/                  # generator (Bun, no deps) + mood boards
 ```
@@ -282,6 +285,61 @@ OME-200 polish: the snail, the 16 px arrow and the dial were redrawn for 1×, an
 - **Motion:** `prefers-reduced-motion` stops the dots and shows `wait/0` (the countdown text still carries the time).
 - **Scale:** follows `--ui-px` like the other sets (2× page chrome, 1× in `.ui-room`, e.g. on the TV shelf). No new colours: still the 67.
 
+## Set (h) owner edit mode, furniture tray, private rooms (OME-276, `ui/`)
+
+Chrome for M4 room ownership and M5 customization. The page chrome (toggle, tray, tabs, cubbies, tickets, pills, icons, the private door) joins
+sets (c)/(e)/(f) in `ui/ui.png` / `ui.json`, `ui/slices/` and the end of `ui/reference.css`. **The owner's edit kit is a separate lazy atlas,
+`ui/edit.png` + `ui/edit.json`:** the grid, placement markers, handles, tray thumbnails and swatches. Load it when an owner presses "Edit room".
+Guests never fetch it. Previews: `preview/owner-edit@1x.png` / `@2x` (edit mode in the room, Pixi scale), `preview/ui-owner.png` (in context),
+`preview/ui-owner-tray.png` (the whole catalogue in the tray at 2× and 1×) and `preview/ui-owner-states.png` (every piece and state, create room,
+invites, room list). **Each motif has one job:** mustard rim on night = only you (the owner) see or do this · wood = the room's furniture ·
+closed teal ring + dots = fits · dashed rust ring + hatching = can't go there · ticket = invite link · key = invite only · little house = the host.
+
+**Room scale (Pixi, 1×, `ui/edit.json`).** All anchors follow the furniture rule (the anchor cell's floor point, `cellCenter(col, row)`):
+
+| Key | Size | Anchor | Use |
+|---|---|---|---|
+| `edit/grid` | 64×32 | (32, 16) | One floor cell's share of the edit grid. Draw it at **every** floor cell centre, on the floor layer, over rugs and under walls, the console and objects. Each pixel belongs to one cell, so neighbours never overdraw. Together they make a dashed 2 px groove, cream on the top edges and plum on the lower ones, lit like everything else. |
+| `place/<ok\|no\|sel>/<C>x<R>` | 64×33 … 160×81 | (32·R, 16) | Footprint marker on the floor layer under the piece, anchored like the piece. `C×R` = `footprintByDir[dir]` (1x1, 2x1, 1x2, 3x2, 2x3). `ok` = closed teal ring + a dot field (fits). `no` = dashed rust ring + hatching (blocked: occupied, off the floor, in the console's `col + row <= 2` corner). `sel` = closed mustard ring (the placed piece you picked). State is shape first, so it never relies on colour alone. |
+| `place/<ok\|no>/wall-<se\|sw>` | 37×55 | same as `furniture/frame/*/<dir>/back` | Wall-slot marker for a print: a ring 2 px outside the print's silhouette, so it follows the wall's slant. Draw it with the walls, before the wall layer. |
+| `handle/<rotate\|remove>/<idle\|hover>` | 20×20 | centre | Round night handles in the mustard rim (hover = cream rim), floating over the picked piece. Suggested spot: 52 px above its anchor, 14 px either side. `rotate` = a quarter-turn arrow over a floor diamond (next facing in `dirs`). `remove` = arrow into an open box: "pack it back in the tray" (not a bin; nothing is lost). Hit area = the whole 20 px disc. |
+
+- **The held piece** (picked from the tray or being moved) draws at **alpha 0.75** over its marker, depth-sorted like a placed piece. The PNG preview
+  shows it dithered, because the indexed preview has no alpha.
+- **Order on the floor layer:** floor tiles → rugs → `edit/grid` → `place/*` → (walls, console, wall markers, prints) → objects → handles.
+- Only the owner sees any of this. Guests see the room as usual while the owner edits.
+
+**Page chrome (DOM, 2× page / 1× in `.ui-room`, `ui/ui.png` + slices):**
+
+| Key | Size | Slice | Use |
+|---|---|---|---|
+| `button/self/on` | 16×20 | 5 | The "Edit room" key latched on (`.ui-button.self[aria-pressed="true"]`): a filled mustard face, pressed (no lip), plum label "Done". Idle/hover are set (e)'s `button/self/*` with `icon/arrange`. |
+| `tray/0` | 24×24 | 10 | Furniture tray: a planked wooden drawer with a sunken night well (`.ui-tray`, under the stage). |
+| `tab/<idle\|hover\|on>` | 16×14 | 5 5 4 5 | Tray tabs (`.ui-tabs > .ui-tab[role=tab]`). `on` (`aria-selected="true"`) is the lit wood face whose bottom runs into the tray rim (1 art px overlap, already in the CSS). Tabs: Seats `glyph/tab-seats`, Decor `glyph/tab-decor`, Floor & wall `glyph/tab-floor`. |
+| `slot/<idle\|hover\|held\|off>` | 16×16 | 6 | Cubby, one per piece (`.ui-slot`): dusk glass in a wood rim. hover/focus = cream edge, `held` (`aria-pressed="true"`) = mustard double rim (it's in your hand), `off` (`aria-disabled="true"`) = charcoal glass (the room has `MAX_FURNITURE` pieces). |
+| `thumb/<id>/<colour>` *(edit.png)* | ≤ 44×40 | — | Tray thumbnail for every catalogue piece and colour (17). The catalogue model re-cast at ≤ ½ scale (same light, tones, outline), not a shrunk sprite. Seats face `se`, the runner `ne`. Centre it in the cubby. |
+| `glyph/fp-<1x1\|2x1\|3x2\|wall>` | 12×8 | — | Footprint glyph, bottom-left in each cubby (`.ui-fp`): how much floor it takes, or "wall". |
+| `swatch/<colour>` + `swatch/ring` *(edit.png)* | 10×10, 14×14 | — | Variant chips under the tray (`.ui-swatches > .ui-swatch[role=radio]`), one per colour in the piece's `colours`. The picked one shows its mustard ring. Prints get a tiny picture of their art. |
+| `ticket/<idle\|copied\|expired>` | 34×20 | 4 6 4 15, fixed height | Invite link field (`.ui-ticket`): a cinema ticket, plum mono text on cream. `copied` stamps a teal check on the stub. `expired` tears the stub off, greys the card and strikes the text. |
+| `pill/private` | 12×12 | 4 | "Invite only" pill: night with a cream rim, always with `glyph/key` and the words. |
+| `door/private` | 16×24 | — | Room-list card thumbnail for a private room (like `door/open` / `door/full`): shut door with a brass key in the lock. |
+| `icon/<arrange\|create\|key\|copy\|copied\|expired>` | 16×16 | — | Edit room · Create room (door + spark) · Invite (brass key) · Copy (the ticket and a copy behind it) · Copied (the ticket with a check) · Expired (the torn ticket). |
+| `glyph/<host\|key\|check\|pieces>` | 8×8 | — | The host's little house (before the owner's name on their tag and in the room list) · invite only · copied · piece count. |
+
+- **Edit toggle:** only the owner gets the key, in the top bar next to Invite. `aria-pressed` carries the state; the label swaps "Edit room" ↔ "Done".
+- **Tray:** a tab row over the tray, cubbies in a scrolling row, and beside it the picked piece's name, its swatches and the count ("19 / 32 pieces";
+  `MAX_FURNITURE = 32` per the M4 research). At the cap every cubby is `off`; moving placed pieces still works.
+- **Create room:** `.ui-panel` form with `icon/create`, a name `.ui-input`, and a "Who can come in" radio pair built from `.ui-picker` (open: `door/open`,
+  invite only: `door/private`), then the primary "Create room" key.
+- **Invite states** (`.ui-panel` + `.ui-ticket` + key). The text says each state, so neither colour nor the stamp has to do it alone:
+  - **idle:** `icon/key` "Invite link: anyone with it can come in." + ticket + secondary key `icon/copy` "Copy".
+  - **copied:** `icon/copied` "Copied. Paste it to a friend." + `ticket.is-copied` + key `glyph/check` "Copied". Back to idle after about 2 s.
+  - **expired:** `icon/expired` "This link has expired." + `ticket.is-expired` + primary key `icon/key` "New link".
+  - **full:** opening an invite to a full room reuses set (f)'s `.ui-card.is-full` + `door/full` + `.ui-pill-full`, and says the invite itself is still good
+    ("Your invite is fine. The room is full. Try again soon"). An expired invite on landing gets the dimmed card with `door/private` and `icon/expired`.
+- **Room list:** private rooms use `door/private` + `.ui-pill-private` next to the name. "You're invited: …" cards are links (`a.ui-card`).
+- **Scale:** like the other sets, `--ui-px` (2× page chrome, 1× in `.ui-room`). No new colours: still the 67.
+
 ## Motion atlas (`avatars/motion.json`, set d)
 
 Same format as the avatar atlas (PixiJS v8, 32×64 cells, no trim, no rotation, anchor = floor point `(16, 61)`).
@@ -367,14 +425,20 @@ Place the sprite there, with no per-item offsets. A piece covers `footprintByDir
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
 | `room/room.png` | 8 335 |
 | `room/room.json` | 13 823 raw / 1 192 gz |
-| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f) | 6 492 |
-| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f) | 43 732 raw / 2 436 gz |
-| `ui/slices/*.png` (49 files, palettes trimmed to the colours used) | 7 923 |
+| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h) | 7 476 |
+| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h) | 54 496 raw / 2 792 gz |
+| `ui/edit.png` (set h, lazy, owners only) | 8 889 |
+| `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
+| `ui/slices/*.png` (62 files, palettes trimmed to the colours used) | 10 166 |
 | `ui/popup/*.png` (set f) | 471 |
-| `ui/reference.css` (if ported as-is) | 36 406 raw / 7 282 gz |
+| `ui/reference.css` (if ported as-is) | 53 101 raw / 9 959 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **≈ 82.8 KB of 300 KB** (82 786 B; 40 049 B without the lazy sets d and g) |
+| **total shipped art** | **≈ 99.3 KB of 300 KB** (99 269 B; 46 309 B without the lazy sets d, g and h's edit kit) |
+
+Set (h) (OME-276) adds **≈ 16.1 KB** against `main`. The lazy edit kit (`ui/edit.png` + gz `edit.json`) is 10 223 B and only loads for an owner in
+edit mode. Everything else adds ≈ 6.3 KB: `ui.png` +1 076, `ui.json` +356 gz, 13 new slices +2 243 (a browser only fetches a slice once a rule uses it), and
+`reference.css` +2.4 KB gz. The eager sheet stays 256×256.
 
 Set (g) (OME-261) adds **24 348 B (≈ 23.8 KB, 8 % of the 300 KB art budget)** as one extra request, made only by rooms that use the catalogue.
 `docs/perf-budgets.md` has no per-atlas line (the art budget is the 300 KB above); the JS budget is untouched because the atlas is fetched, not bundled.

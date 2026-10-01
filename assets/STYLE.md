@@ -207,6 +207,30 @@ Three directions were weighed before any pixels:
 - **Original, no lettering:** the prints are a dusk mountain range and a moonlit tide with a sailboat. The cart has no sign; the popcorn says it.
 - **Depth:** no depth-sorted piece is longer than 2 tiles, so centre sorting stays exact (see `README.md`). Long things (the 3×2 kilim) live on the floor layer.
 
+## Set (h) owner edit mode and private rooms (OME-276)
+Three directions were weighed before any pixels:
+
+| | Direction | Verdict |
+|---|---|---|
+| A | Builder's blueprint: a cyan wireframe grid, a cold blue overlay on the whole room, a toolbar of tool icons | Rejected: it turns the room into a CAD screen, and cold cyan competes with the TV, which must stay the one cold light. |
+| B | Flat app chrome: a white bottom sheet with list rows, green/red tints for placement | Rejected: it ignores the room's materials. Green/red alone fails for colour-blind owners, and red already means "on air" or "wrong". |
+| **C** | **"Rearranging the living room":** the tray is a wooden drawer of cubbies (wood = the room's stuff), edit mode wears the owner's mustard "only you" rim, and placement is told by shape: a closed ring with dots fits, a dashed ring with hatching doesn't. Invites are cinema tickets and invite-only rooms have a key in the door. | **Chosen.** It reuses meanings people have already learned (wood = shared things, mustard rim = only you, a shut door = you can't just walk in) and adds two room-sized objects (ticket, key) instead of abstract icons. |
+
+- **Only you:** edit mode is the owner's own view, so the toggle, the picked-piece ring and the handles carry the mustard rim from sets (e)/(f).
+  The latched "Done" key is the same key filled mustard and pressed, so on/off is a change of shape (no lip), not just colour.
+- **Fits / doesn't fit, never colour alone:** `ok` = closed teal ring + a sparse dot field. `no` = rust ring broken into dashes + diagonal hatching.
+  Both have a plum stroke so they hold on honey wood, rugs and velvet alike. Wall slots use the same pair as a ring hugging the print's slanted silhouette.
+- **A quiet grid:** a 2 px groove, cream on top and plum below like a bevel lit from the top left, dashed so it doesn't cage the room. It stays on for the whole session without fighting the furniture.
+- **Remove isn't destroy:** the handle is an arrow into an open box (pack it back in the tray), not a bin, because removed pieces go back to the catalogue.
+- **Thumbnails are re-cast, not shrunk:** each tray thumbnail is the set (g) model ray-cast again at ≤ ½ scale, so its light, tones and outline match the catalogue
+  (a downscaled sprite would blur into new colours and lose the outline).
+- **Invite link = a ticket:** cream card with a stub. Copied stamps a teal check on the stub. Expired tears the stub off and greys the card. A full room
+  reuses set (f)'s shut door with the hanger, and the text says the invite itself is still good.
+- **Private = a key:** a shut door with a brass key in the lock on the room list, and an "Invite only" pill that always shows the key glyph and the words.
+  The host gets a little house glyph before their name.
+- **Lazy by design:** only owners in edit mode need the grid, markers, handles and thumbnails, so they live in their own sheet (`ui/edit.png`).
+- No new colours: still the 67.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -218,6 +242,7 @@ Three directions were weighed before any pixels:
 | M1b TV frame | 2 slices + CSS; `tv/0` shrinks to the console + projector | UI ≈ +1.7 KB, room ≈ −0.6 KB |
 | (f) safety states (M3) | added to the (c) files: `ui.png` + `ui.json` (gz) + 6 slices + `reference.css` (gz) + 2 popup PNGs | **≈ 4.1 KB** |
 | (g) furniture (lazy, M4/M5) | `furniture/furniture.png` + `furniture.json` (gz) | 21 930 + 2 418 ≈ **23.8 KB** |
-| total art budget | | ≤ 300 KB (≈ 82.8 KB used) |
+| (h) owner + private rooms | `ui/edit.png` + `edit.json` (gz, lazy, owners only) · added to the (c) files: `ui.png` + `ui.json` (gz) + 13 slices + `reference.css` (gz) | 8 889 + 1 334 ≈ **10.0 KB** lazy · **≈ 6.3 KB** eager |
+| total art budget | | ≤ 300 KB (≈ 99.3 KB used) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.
