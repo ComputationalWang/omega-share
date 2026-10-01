@@ -160,7 +160,8 @@ describe("the store is never on the relay path (OME-280)", () => {
         return (...args: unknown[]) => {
           calls.push(String(prop));
           if (relaying) throw new Error(`store.${String(prop)} called on the relay path`);
-          return Reflect.apply(value, target, args);
+          const out: unknown = Reflect.apply(value, target, args);
+          return out;
         };
       },
     });
