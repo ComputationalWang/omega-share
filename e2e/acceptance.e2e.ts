@@ -1,19 +1,20 @@
 // M1a sign-off (OME-9): share from the extension → 4 site clients see the embed, each other seated with nickname tags,
 // and a chat bubble. Plus the negative checks: non-YouTube share → 400, 9th sitter can't sit, 26th arrival sees "Room full".
-// Serial, in the e2e-sync lane: every test shares the server's one in-memory lobby and counts who is in it (OME-314).
+// Serial, in the e2e-sync lane: the tests build on one room of their own and count who is in it (OME-314, OME-341).
 import type { Browser, BrowserContext, Page } from "@playwright/test";
-import { DEFAULT_ROOM_ID, MAX_ROOM_MEMBERS, SEAT_COUNT, parseServerMessage, type RoomState } from "@omega/shared";
-import { PENDING, URLS, available } from "./support/apps";
+import { MAX_ROOM_MEMBERS, SEAT_COUNT, parseServerMessage, type RoomState } from "@omega/shared";
+import { PENDING, available } from "./support/apps";
 import { rawSnapshot, spawnBots } from "./support/bots";
 import { expect, test } from "./support/extension";
 import { EMBED_URL, VIDEO_ID, gotoFixture, stubExternalNetwork } from "./support/network";
 import { watchCsp } from "./support/csp";
-import { clickSettled } from "./support/room";
+import { clickSettled, roomsFor } from "./support/room";
 import { popup, site } from "./support/selectors";
 import { joinForToken, postShare } from "./support/share";
 
 const SHARER = "sharer";
-const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
+const ROOM = roomsFor("acceptance")();
+const ROOM_URL = ROOM.url;
 
 interface SiteClient {
   readonly context: BrowserContext;
@@ -33,9 +34,9 @@ async function arrive(browser: Browser, nickname: string, avatar: number): Promi
   return { context, page, nickname };
 }
 
-/** The server's view of the lobby, parsed at the boundary. */
+/** The server's view of the room, parsed at the boundary. */
 async function serverRoom(browser: Browser): Promise<RoomState> {
-  const msg = parseServerMessage(await rawSnapshot(browser, DEFAULT_ROOM_ID));
+  const msg = parseServerMessage(await rawSnapshot(browser, ROOM.id));
   if (msg?.type !== "snapshot") throw new Error("expected a snapshot");
   return msg.room;
 }
@@ -52,7 +53,7 @@ test.describe("M1a acceptance", () => {
   test("share from the extension; 4 people see the embed, each other seated, and chat", async ({ browser, context, openPopup }, info) => {
     test.setTimeout(60_000);
 
-    await test.step("1. popup lists the fixture embed in canonical form and shares it to the default room", async () => {
+    await test.step("1. popup lists the fixture embed in canonical form and shares it to the room", async () => {
       // The popup reads the share token from an open room tab of the site (OME-130): join first and keep the tab open.
       const roomTab = await context.newPage();
       await roomTab.goto(ROOM_URL);
@@ -66,7 +67,8 @@ test.describe("M1a acceptance", () => {
       await expect(p.locator(popup.embedItem)).toHaveCount(1);
       await expect(p.locator(popup.embedItem)).toHaveAttribute("data-video-id", VIDEO_ID);
       await expect(p.locator(`${popup.embedItem} input[name=embed]`)).toHaveValue(EMBED_URL);
-      await expect(p.locator(popup.roomSelect)).toHaveValue(DEFAULT_ROOM_ID);
+      // The room of the open room tab, not the lobby, is preselected.
+      await expect(p.locator(popup.roomSelect)).toHaveValue(ROOM.id);
       await p.locator(popup.shareButton).click();
       await expect(p.locator(popup.shareStatus)).toHaveAttribute("data-state", "ok");
       await info.attach("popup-shared", { body: await p.screenshot(), contentType: "image/png" });
@@ -153,10 +155,10 @@ test.describe("M1a acceptance", () => {
   });
 
   test("4b. direct POST of a non-allowlisted URL → 400, room embed unchanged", async ({ browser, request }) => {
-    const member = await joinForToken(DEFAULT_ROOM_ID, "direct-poster");
+    const member = await joinForToken(ROOM.id, "direct-poster");
     try {
       for (const url of ["https://clips.twitch.tv/SomeClipSlug", "https://vimeo.com/event/123", "https://www.youtube.com.evil.test/embed/aqz-KE-bpKQ", "javascript:alert(1)"]) {
-        const res = await postShare(request, DEFAULT_ROOM_ID, member.token, url);
+        const res = await postShare(request, ROOM.id, member.token, url);
         expect(res.status(), url).toBe(400);
         expect(await res.json()).toMatchObject({ ok: false, error: { code: "unsupported_url" } });
       }
@@ -167,7 +169,7 @@ test.describe("M1a acceptance", () => {
   });
 
   test("4c. with all 8 seats taken, a 9th person cannot sit", async ({ browser }) => {
-    const bots = await spawnBots(browser, DEFAULT_ROOM_ID, Array.from({ length: SEAT_COUNT }, (_, i) => ({ nickname: `sitter-${String(i + 1)}`, seat: i })));
+    const bots = await spawnBots(browser, ROOM.id, Array.from({ length: SEAT_COUNT }, (_, i) => ({ nickname: `sitter-${String(i + 1)}`, seat: i })));
     const ninth = await arrive(browser, "ninth", 3);
     try {
       expect(bots.joined).toBe(SEAT_COUNT);
@@ -190,7 +192,7 @@ test.describe("M1a acceptance", () => {
   });
 
   test(`4d. room full: arrival #${String(MAX_ROOM_MEMBERS + 1)} sees "Room full" and no stage`, async ({ browser }, info) => {
-    const bots = await spawnBots(browser, DEFAULT_ROOM_ID, Array.from({ length: MAX_ROOM_MEMBERS + 5 }, (_, i) => ({ nickname: `filler-${String(i + 1)}` })));
+    const bots = await spawnBots(browser, ROOM.id, Array.from({ length: MAX_ROOM_MEMBERS + 5 }, (_, i) => ({ nickname: `filler-${String(i + 1)}` })));
     try {
       expect(bots.sawRoomFull).toBe(true);
       const late = await arrive(browser, "latecomer", 1);

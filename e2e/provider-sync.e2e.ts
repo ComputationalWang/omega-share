@@ -1,13 +1,13 @@
 // M2 provider sync (OME-131): 4 contexts in one room, the real server, clock sync, sync loop and the Twitch and Vimeo
 // adapters (OME-125, OME-126) against the fake SDKs (OME-121). Spread = max − min of (expected − actual) 2 s after
 // each action, as in sync.e2e.ts; Twitch live has no position, so there it is when the pause / play-from-live landed
-// on each client (perf/spread.ts arrivalSpread). Runs in the `e2e-sync` project: every case re-shares the lobby.
+// on each client (perf/spread.ts arrivalSpread). Runs in the `e2e-sync` project; every case shares into a room of its own (OME-341).
 import { expect, test } from "./support/csp";
 import type { BrowserContext, TestInfo } from "@playwright/test";
-import { DEFAULT_ROOM_ID, parseServerMessage } from "@omega/shared";
+import { parseServerMessage } from "@omega/shared";
 import { PENDING, URLS, available } from "./support/apps";
 import { FAKE_VIMEO_SDK } from "./support/network";
-import { joinRoom, leaveAll, type Client } from "./support/room";
+import { joinRoom, leaveAll, roomsFor, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import {
   TWITCH_CHANNEL,
@@ -21,7 +21,7 @@ import {
 } from "../perf/providers";
 import { SETTLE_MS, SPREAD_BUDGET_MS, roomPlayback } from "../perf/sync";
 
-const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
+const nextRoom = roomsFor("provider-sync");
 const CLIENTS = 4;
 const LIVE_URL = `https://player.twitch.tv/?channel=${TWITCH_CHANNEL}`;
 const livePill = '[data-testid="live-pill"]';
@@ -66,8 +66,9 @@ test.describe("M2 provider sync, 4 clients", () => {
   ];
   for (const { c, name, rate } of seekable) {
     test(`${name}: play, pause and seek: spread ≤ 500 ms 2 s later`, async ({ browser, request }, info) => {
-      await shareProvider(request, c.shareUrl);
-      clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: CLIENTS, nicknamePrefix: `${c.key}-sync`, ...(rate ? { setup: vimeoRateAllowed } : {}) });
+      const room = nextRoom();
+      await shareProvider(request, c.shareUrl, room.id);
+      clients = await joinRoom(browser, { roomUrl: room.url, count: CLIENTS, nicknamePrefix: `${c.key}-sync`, ...(rate ? { setup: vimeoRateAllowed } : {}) });
       const a = first(clients);
       await waitProviderPlaying(clients, c.provider);
       await expect(a.page.locator(plate)).toContainText(c.provider === "twitch" ? "Twitch" : "Vimeo");
@@ -81,7 +82,7 @@ test.describe("M2 provider sync, 4 clients", () => {
       const step = async (action: "pause" | "play" | "seek", act: () => Promise<void>, playing: boolean, position?: number) => {
         await act();
         await a.page.waitForTimeout(SETTLE_MS);
-        const m = await measureProviderSpread(browser, clients, c.provider);
+        const m = await measureProviderSpread(browser, clients, c.provider, room.id);
         results[action] = m;
         expect(m.playback.action, action).toBe(action);
         expect(m.playback.playing).toBe(playing);
@@ -102,29 +103,31 @@ test.describe("M2 provider sync, 4 clients", () => {
   }
 
   test("Twitch VOD: a late joiner is within 500 ms", async ({ browser, request }, info) => {
+    const room = nextRoom();
     const c = providerCase("twitchVod");
-    await shareProvider(request, c.shareUrl);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: CLIENTS - 1, nicknamePrefix: "tw-early" });
+    await shareProvider(request, c.shareUrl, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: CLIENTS - 1, nicknamePrefix: "tw-early" });
     await waitProviderPlaying(clients, c.provider);
     await first(clients).page.locator(site.seek).fill("300");
     await first(clients).page.waitForTimeout(SETTLE_MS);
-    const seeked = await roomPlayback(browser);
+    const seeked = await roomPlayback(browser, room.id);
     expect(seeked.action).toBe("seek");
 
-    const late = await joinRoom(browser, { roomUrl: ROOM_URL, count: 1, nicknamePrefix: "tw-late" });
+    const late = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "tw-late" });
     clients.push(...late);
     await waitProviderPlaying(late, c.provider);
     await first(clients).page.waitForTimeout(SETTLE_MS);
-    const m = await measureProviderSpread(browser, clients, c.provider);
+    const m = await measureProviderSpread(browser, clients, c.provider, room.id);
     await attach(info, "late-joiner", m);
     expect(m.playback.rev).toBe(seeked.rev);
     expect(m.spreadMs, `drifts ${m.drifts.map((d) => d.toFixed(0)).join(", ")} ms (late joiner last)`).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
   });
 
   test("Twitch live: pause and play-from-live reach every client within 500 ms; no seek anywhere", async ({ browser, request }, info) => {
+    const room = nextRoom();
     const c = providerCase("twitchLive");
-    await shareProvider(request, c.shareUrl);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: CLIENTS, nicknamePrefix: "live" });
+    await shareProvider(request, c.shareUrl, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: CLIENTS, nicknamePrefix: "live" });
     const a = first(clients);
     await waitProviderPlaying(clients, c.provider);
     for (const cl of clients) {
@@ -135,7 +138,7 @@ test.describe("M2 provider sync, 4 clients", () => {
 
     const pause = await measureLiveArrival(clients, "pause", () => a.page.locator(site.playToggle).click());
     await waitProviderPlaying(clients, c.provider, false);
-    const paused = await roomPlayback(browser);
+    const paused = await roomPlayback(browser, room.id);
     expect([paused.playing, paused.position, paused.action]).toEqual([false, 0, "pause"]);
     for (const cl of clients) await expect(cl.page.locator(site.systemLine).last()).toHaveText(cl === a ? "You paused" : `${a.nickname} paused`);
 
@@ -143,7 +146,7 @@ test.describe("M2 provider sync, 4 clients", () => {
     await expect(a.page.locator(toLive)).toBeEnabled();
     const play = await measureLiveArrival(clients, "play", () => a.page.locator(toLive).click());
     await waitProviderPlaying(clients, c.provider);
-    const resumed = await roomPlayback(browser);
+    const resumed = await roomPlayback(browser, room.id);
     expect([resumed.playing, resumed.position]).toEqual([true, 0]);
 
     // Server `at` splits click → server from server → clients.
@@ -159,9 +162,10 @@ test.describe("M2 provider sync, 4 clients", () => {
   });
 
   test("Twitch live: resuming right after mount still reaches every client within 500 ms", async ({ browser, request }) => {
+    const room = nextRoom();
     // OME-170 regression: the loop's own start-up play() must not throttle a new room play (RESEND_MS).
-    await shareProvider(request, providerCase("twitchLive").shareUrl);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: CLIENTS, nicknamePrefix: "live-early" });
+    await shareProvider(request, providerCase("twitchLive").shareUrl, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: CLIENTS, nicknamePrefix: "live-early" });
     const a = first(clients);
     await waitProviderPlaying(clients, "twitch");
     await measureLiveArrival(clients, "pause", () => a.page.locator(site.playToggle).click());
@@ -171,13 +175,14 @@ test.describe("M2 provider sync, 4 clients", () => {
   });
 
   test("Twitch live: a forged control with a position is stored at 0 and never seeks a client", async ({ browser, request }) => {
-    await shareProvider(request, providerCase("twitchLive").shareUrl);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 2, nicknamePrefix: "live-forge" });
+    const room = nextRoom();
+    await shareProvider(request, providerCase("twitchLive").shareUrl, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "live-forge" });
     await waitProviderPlaying(clients, "twitch");
-    const before = await roomPlayback(browser);
+    const before = await roomPlayback(browser, room.id);
 
     // A raw member that bypasses the site's live transport: pause with a position, then play with another.
-    const ws = new WebSocket(`${URLS.server.replace(/^http/, "ws")}/rooms/${DEFAULT_ROOM_ID}/ws`);
+    const ws = new WebSocket(`${URLS.server.replace(/^http/, "ws")}/rooms/${room.id}/ws`);
     const errors: string[] = [];
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -197,12 +202,12 @@ test.describe("M2 provider sync, 4 clients", () => {
     });
     try {
       ws.send(JSON.stringify({ type: "control", url: LIVE_URL, playing: false, position: 300 }));
-      await expect.poll(async () => (await roomPlayback(browser)).rev, { timeout: 5_000 }).toBeGreaterThan(before.rev);
-      const p1 = await roomPlayback(browser);
+      await expect.poll(async () => (await roomPlayback(browser, room.id)).rev, { timeout: 5_000 }).toBeGreaterThan(before.rev);
+      const p1 = await roomPlayback(browser, room.id);
       expect([p1.playing, p1.position]).toEqual([false, 0]);
       ws.send(JSON.stringify({ type: "control", url: LIVE_URL, playing: true, position: 1800 }));
-      await expect.poll(async () => (await roomPlayback(browser)).playing, { timeout: 5_000 }).toBe(true);
-      expect((await roomPlayback(browser)).position).toBe(0);
+      await expect.poll(async () => (await roomPlayback(browser, room.id)).playing, { timeout: 5_000 }).toBe(true);
+      expect((await roomPlayback(browser, room.id)).position).toBe(0);
       await waitProviderPlaying(clients, "twitch");
       await first(clients).page.waitForTimeout(1000);
     } finally {

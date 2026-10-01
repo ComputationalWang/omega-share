@@ -37,11 +37,11 @@ export function providerCase(key: ProviderCase["key"]): ProviderCase {
   return c;
 }
 
-/** Share `url` into the lobby before anyone joins, so every client mounts it (a fresh load at 0, playing). */
-export async function shareProvider(request: APIRequestContext, url: string): Promise<void> {
-  const member = await joinForToken(DEFAULT_ROOM_ID, "provider-sharer");
+/** Share `url` into `roomId` before anyone joins, so every client mounts it (a fresh load at 0, playing). */
+export async function shareProvider(request: APIRequestContext, url: string, roomId: string = DEFAULT_ROOM_ID): Promise<void> {
+  const member = await joinForToken(roomId, "provider-sharer");
   try {
-    expect((await postShare(request, DEFAULT_ROOM_ID, member.token, url)).status()).toBe(200);
+    expect((await postShare(request, roomId, member.token, url)).status()).toBe(200);
   } finally {
     member.close();
   }
@@ -81,9 +81,9 @@ export function sampleProvider(clients: readonly Client[], provider: FakeProvide
 }
 
 /** As perf/sync.ts measureSpread, for a Twitch VOD or Vimeo client set. */
-export async function measureProviderSpread(browser: Browser, clients: readonly Client[], provider: FakeProvider): Promise<SpreadMeasurement> {
+export async function measureProviderSpread(browser: Browser, clients: readonly Client[], provider: FakeProvider, roomId: string = DEFAULT_ROOM_ID): Promise<SpreadMeasurement> {
   const samples = await sampleProvider(clients, provider);
-  const playback = await roomPlayback(browser);
+  const playback = await roomPlayback(browser, roomId);
   return { ...spread(playback, samples), playback };
 }
 

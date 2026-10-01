@@ -1,16 +1,15 @@
 // M1b smoke (OME-89): the shared transport in one context drives the player in another, through the real server,
 // the real clock sync, sync loop and YouTube adapter, against the fake iframe_api (OME-85). QA's full sync specs are OME-90.
-// It drives the shared lobby, so it runs in the serial e2e-sync project, not alongside acceptance (OME-154).
+// It drives a room of its own (OME-341); it runs in the e2e-sync project with the other sync specs (OME-154).
 import { expect, test } from "./support/csp";
 import type { APIRequestContext, Page } from "@playwright/test";
-import { DEFAULT_ROOM_ID } from "@omega/shared";
-import { PENDING, URLS, available } from "./support/apps";
+import { PENDING, available } from "./support/apps";
 import { EMBED_URL } from "./support/network";
-import { joinRoom, leaveAll } from "./support/room";
+import { joinRoom, leaveAll, roomsFor } from "./support/room";
 import { site } from "./support/selectors";
 import { joinForToken, postShare } from "./support/share";
 
-const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
+const ROOM = roomsFor("sync-smoke")();
 /** YT.PlayerState */
 const PLAYING = 1;
 const PAUSED = 2;
@@ -18,9 +17,9 @@ const PAUSED = 2;
 const fakeState = (page: Page) => page.evaluate(() => window.__fakeYt?.state ?? null);
 
 async function share(request: APIRequestContext): Promise<void> {
-  const member = await joinForToken(DEFAULT_ROOM_ID, "smoke-sharer");
+  const member = await joinForToken(ROOM.id, "smoke-sharer");
   try {
-    expect((await postShare(request, DEFAULT_ROOM_ID, member.token, EMBED_URL)).status()).toBe(200);
+    expect((await postShare(request, ROOM.id, member.token, EMBED_URL)).status()).toBe(200);
   } finally {
     member.close();
   }
@@ -31,7 +30,7 @@ test.describe("M1b sync smoke", () => {
   test.fixme(!available.server, PENDING.server);
 
   test("pause and play in context A → context B pauses and plays; B sees who did it", async ({ browser, request }) => {
-    const clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 2, nicknamePrefix: "smoke" });
+    const clients = await joinRoom(browser, { roomUrl: ROOM.url, count: 2, nicknamePrefix: "smoke" });
     const [a, b] = clients;
     if (!a || !b) throw new Error("need two clients");
     try {

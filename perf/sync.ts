@@ -20,11 +20,11 @@ export const PAUSED = 2;
 
 export const fakeState = (page: Page): Promise<number | null> => page.evaluate(() => window.__fakeYt?.state ?? null);
 
-/** Share the test video into the lobby (a fresh `load` at 0, playing). Joins as a member for a share token (OME-128); waits out 429s. */
-export async function shareVideo(request: APIRequestContext): Promise<void> {
-  const member = await joinForToken(DEFAULT_ROOM_ID, "sharer");
+/** Share the test video into `roomId` (a fresh `load` at 0, playing). Joins as a member for a share token (OME-128); waits out 429s. */
+export async function shareVideo(request: APIRequestContext, roomId: string = DEFAULT_ROOM_ID): Promise<void> {
+  const member = await joinForToken(roomId, "sharer");
   try {
-    const res = await postShare(request, DEFAULT_ROOM_ID, member.token, EMBED_URL);
+    const res = await postShare(request, roomId, member.token, EMBED_URL);
     expect(res.status()).toBe(200);
   } finally {
     member.close();
@@ -54,8 +54,8 @@ export function sampleClients(clients: readonly Client[]): Promise<ClientSample[
 }
 
 /** The room's playback as the server holds it (a throwaway observer's snapshot). */
-export async function roomPlayback(browser: Browser): Promise<PlaybackState> {
-  const msg = parseServerMessage(await rawSnapshot(browser, DEFAULT_ROOM_ID));
+export async function roomPlayback(browser: Browser, roomId: string = DEFAULT_ROOM_ID): Promise<PlaybackState> {
+  const msg = parseServerMessage(await rawSnapshot(browser, roomId));
   if (msg?.type !== "snapshot") throw new Error("no snapshot");
   const p = msg.room.playback;
   if (p === undefined || p === null) throw new Error("room has no playback");
@@ -70,8 +70,8 @@ export interface SpreadMeasurement extends Spread {
  * Sample every client now, then read the room state they're compared against. Callers check `playback.action`,
  * so a change landing in between shows up as a wrong action rather than a bogus spread.
  */
-export async function measureSpread(browser: Browser, clients: readonly Client[]): Promise<SpreadMeasurement> {
+export async function measureSpread(browser: Browser, clients: readonly Client[], roomId: string = DEFAULT_ROOM_ID): Promise<SpreadMeasurement> {
   const samples = await sampleClients(clients);
-  const playback = await roomPlayback(browser);
+  const playback = await roomPlayback(browser, roomId);
   return { ...spread(playback, samples), playback };
 }

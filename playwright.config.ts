@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { PORTS, URLS, available, scripts } from "./e2e/support/apps";
 
@@ -7,8 +9,10 @@ const servers: Extract<WebServer, readonly unknown[]>[number][] = [
 ];
 // App servers are added once their `dev` script exists (OME-5 / OME-6). Perf runs the web app via `preview` (production build).
 // Each side is told the other's URL so OMEGA_*_PORT overrides keep the server's origin check and the site's WS target in step.
+// The server boots from a fresh DB holding the lobby and the test rooms (e2e/support/test-rooms.ts, OME-341), one file per port.
 if (available.server) {
-  servers.push({ command: "bun run --filter @omega/server dev", url: URLS.server, reuseExistingServer: !process.env["CI"], env: { PORT: String(PORTS.server), SITE_ORIGIN: URLS.web, DB_PATH: ":memory:" } });
+  const db = join(tmpdir(), `omega-e2e-${String(PORTS.server)}.db`);
+  servers.push({ command: `bun e2e/fixtures/seed-rooms.ts ${db} && bun run --filter @omega/server dev`, url: URLS.server, reuseExistingServer: !process.env["CI"], env: { PORT: String(PORTS.server), SITE_ORIGIN: URLS.web, DB_PATH: db } });
 }
 if (available.web) {
   const mode = process.env["OMEGA_WEB_MODE"] === "preview" && "preview" in scripts("web") ? "preview" : "dev";
@@ -26,13 +30,12 @@ export default defineConfig({
   use: { baseURL: URLS.fixtures, trace: "retain-on-failure", screenshot: "only-on-failure" },
   webServer: servers,
   projects: [
-    // The sync suites pause, play and seek the shared lobby (the server hosts only that room), so they run alone, after the rest (OME-90).
-    // The smoke joins them: in parallel with acceptance's shares it saw another spec's state land between A's pause and B's poll (OME-154).
-    // The Vimeo suite re-shares the lobby with a Vimeo video in every case, so it joins them too (OME-164).
-    // So do the provider sync and share-from-extension suites (OME-131).
-    // And M1a acceptance: it counts every nickname tag in the lobby, so a parallel spec's member makes it see extra people (OME-314).
+    // The sync suites pause, play and seek a room, so they once shared the server's only room, the lobby, and ran alone
+    // after the rest (OME-90, 154, 164, 131, 314). Now each test has a seeded room of its own (OME-341,
+    // e2e/support/test-rooms.ts), so they run alongside `e2e`. They keep a lane: each spec stays serial in one worker,
+    // and the lane's worker cap keeps 8-client spread checks from starving each other of CPU.
     { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", testIgnore: ["**/acceptance.e2e.ts", "**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts", "**/tunnel*.e2e.ts", "**/abuse.e2e.ts", "**/http-flood.e2e.ts"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
-    { name: "e2e-sync", testDir: "e2e", testMatch: ["**/acceptance.e2e.ts", "**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts"], workers: 1, dependencies: ["e2e"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    { name: "e2e-sync", testDir: "e2e", testMatch: ["**/acceptance.e2e.ts", "**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts"], workers: 4, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     // Tunnel safety (OME-132): its own tunnel-mode server behind a local TLS proxy on fixed ports, so one worker.
     // The M3 abuse suite (OME-191) and the HTTP flood suite (OME-281) run here too, each on a lane of its own so their spent limits never reach the tunnel specs.
     { name: "e2e-tunnel", testDir: "e2e", testMatch: ["**/tunnel*.e2e.ts", "**/abuse.e2e.ts", "**/http-flood.e2e.ts"], workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },

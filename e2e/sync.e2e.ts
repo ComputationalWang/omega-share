@@ -1,17 +1,16 @@
 // M1b sync suite (OME-90): 8 contexts in one room, the real server, clock sync, sync loop and YouTube adapter,
 // against the fake iframe_api (OME-85). Spread = max − min of (expected − actual) across clients, 2 s after an
 // action; each client stamps its own sample with wall-clock time, which the server shares on localhost.
-// Runs in its own Playwright project after `e2e`, one worker, because every spec shares the lobby.
+// Each test has a room of its own (OME-341), so the suite runs alongside the rest; tests stay serial in one worker.
 import { expect, test } from "./support/csp";
 import type { Page, TestInfo } from "@playwright/test";
-import { DEFAULT_ROOM_ID } from "@omega/shared";
-import { PENDING, URLS, available } from "./support/apps";
+import { PENDING, available } from "./support/apps";
 import { VIDEO_ID } from "./support/network";
-import { joinRoom, leaveAll, type Client } from "./support/room";
+import { joinRoom, leaveAll, roomsFor, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import { PLAYING, PAUSED, SPREAD_BUDGET_MS, SETTLE_MS, fakeState, measureSpread, roomPlayback, shareVideo, waitPlaying } from "../perf/sync";
 
-const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
+const nextRoom = roomsFor("sync");
 
 test.describe.configure({ mode: "serial" });
 
@@ -45,9 +44,10 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("play, pause and seek: spread ≤ 500 ms 2 s later", async ({ browser, request }, info) => {
+    const room = nextRoom();
     // Share first: joining after means no client can still be playing the previous test's video.
-    await shareVideo(request);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 8, nicknamePrefix: "sync" });
+    await shareVideo(request, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 8, nicknamePrefix: "sync" });
     const [a] = pair(clients);
     await waitPlaying(clients);
 
@@ -55,7 +55,7 @@ test.describe("M1b sync, 8 clients", () => {
     const step = async (name: string, act: () => Promise<void>, check: (playing: boolean, position: number) => void) => {
       await act();
       await a.page.waitForTimeout(SETTLE_MS);
-      const m = await measureSpread(browser, clients);
+      const m = await measureSpread(browser, clients, room.id);
       results[name] = m;
       check(m.playback.playing, m.playback.position);
       expect(m.playback.action, name).toBe(name);
@@ -79,21 +79,22 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("a late joiner is within 500 ms", async ({ browser, request }, info) => {
-    await shareVideo(request);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 7, nicknamePrefix: "early" });
+    const room = nextRoom();
+    await shareVideo(request, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 7, nicknamePrefix: "early" });
     await waitPlaying(clients);
     const [first] = pair(clients);
     await first.page.locator(site.seek).fill("200");
     await first.page.waitForTimeout(3000);
-    const seeked = await roomPlayback(browser);
+    const seeked = await roomPlayback(browser, room.id);
     expect(seeked.action).toBe("seek");
     expect(seeked.position).toBeGreaterThanOrEqual(200);
 
-    const late = await joinRoom(browser, { roomUrl: ROOM_URL, count: 1, nicknamePrefix: "late" });
+    const late = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "late" });
     clients.push(...late);
     await waitPlaying(late);
     await first.page.waitForTimeout(SETTLE_MS);
-    const m = await measureSpread(browser, clients);
+    const m = await measureSpread(browser, clients, room.id);
     await attach(info, "late-joiner", m);
     expect(m.playback.rev).toBe(seeked.rev);
     expect(m.playback.playing).toBe(true);
@@ -101,54 +102,57 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("a 3 s buffer on one client doesn't pause the room, and it catches up", async ({ browser, request }, info) => {
-    await shareVideo(request);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 8, nicknamePrefix: "buf" });
+    const room = nextRoom();
+    await shareVideo(request, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 8, nicknamePrefix: "buf" });
     const [a, b] = pair(clients);
     await waitPlaying(clients);
-    const before = await roomPlayback(browser);
+    const before = await roomPlayback(browser, room.id);
 
     await b.page.evaluate(() => window.__fakeYt?.buffering(3000));
     await b.page.waitForTimeout(1500);
     // Mid-stall: nobody else stopped, the room didn't change, and B says it's catching up.
     for (const c of clients) if (c !== b) expect(await fakeState(c.page), c.nickname).toBe(PLAYING);
-    const during = await roomPlayback(browser);
+    const during = await roomPlayback(browser, room.id);
     expect(during.rev).toBe(before.rev);
     expect(during.playing).toBe(true);
     await expect(b.page.locator(site.catchingNotice)).toBeVisible();
     await expect(a.page.locator(site.catchingNotice)).toBeHidden();
 
     // After the stall B is ~3 s behind; the sync loop pulls it back.
-    await expect.poll(async () => (await measureSpread(browser, clients)).spreadMs, { timeout: 10_000, intervals: [500] }).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
-    expect((await roomPlayback(browser)).rev).toBe(before.rev);
+    await expect.poll(async () => (await measureSpread(browser, clients, room.id)).spreadMs, { timeout: 10_000, intervals: [500] }).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
+    expect((await roomPlayback(browser, room.id)).rev).toBe(before.rev);
     await expect(b.page.locator(site.catchingNotice)).toBeHidden();
-    await attach(info, "after-buffer", await measureSpread(browser, clients));
+    await attach(info, "after-buffer", await measureSpread(browser, clients, room.id));
   });
 
   test("an ad on one client doesn't pause the room", async ({ browser, request }, info) => {
-    await shareVideo(request);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 8, nicknamePrefix: "ad" });
+    const room = nextRoom();
+    await shareVideo(request, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 8, nicknamePrefix: "ad" });
     const [, b] = pair(clients);
     await waitPlaying(clients);
-    const before = await roomPlayback(browser);
+    const before = await roomPlayback(browser, room.id);
     const lines = await Promise.all(clients.map((c) => c.page.locator(site.systemLine).count()));
 
     await b.page.evaluate(() => window.__fakeYt?.ad(4000));
     await b.page.waitForTimeout(2000);
     for (const c of clients) if (c !== b) expect(await fakeState(c.page), c.nickname).toBe(PLAYING);
-    const during = await roomPlayback(browser);
+    const during = await roomPlayback(browser, room.id);
     expect(during.rev).toBe(before.rev);
     expect(during.playing).toBe(true);
     // No pause/play line anywhere: the ad never reached the room.
     for (const [i, c] of clients.entries()) await expect(c.page.locator(site.systemLine)).toHaveCount(lines[i] ?? 0);
 
-    await expect.poll(async () => (await measureSpread(browser, clients)).spreadMs, { timeout: 10_000, intervals: [500] }).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
-    expect((await roomPlayback(browser)).rev).toBe(before.rev);
-    await attach(info, "after-ad", await measureSpread(browser, clients));
+    await expect.poll(async () => (await measureSpread(browser, clients, room.id)).spreadMs, { timeout: 10_000, intervals: [500] }).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
+    expect((await roomPlayback(browser, room.id)).rev).toBe(before.rev);
+    await attach(info, "after-ad", await measureSpread(browser, clients, room.id));
   });
 
   test("a click-pause inside the player becomes a room pause, with a system line in the chat", async ({ browser, request }) => {
-    await shareVideo(request);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 8, nicknamePrefix: "click" });
+    const room = nextRoom();
+    await shareVideo(request, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 8, nicknamePrefix: "click" });
     const [a] = pair(clients);
     await waitPlaying(clients);
 
@@ -160,14 +164,15 @@ test.describe("M1b sync, 8 clients", () => {
       await expect(c.page.locator(site.systemLine).last()).toHaveText(c === a ? "You paused" : `${a.nickname} paused`);
       await expect(c.page.locator(site.playToggle)).toHaveAttribute("aria-label", "Play for everyone");
     }
-    const p = await roomPlayback(browser);
+    const p = await roomPlayback(browser, room.id);
     expect(p.playing).toBe(false);
     expect(p.action).toBe("pause");
   });
 
   test("YouTube refusing the embed (error 150) shows a site notice and freezes this client's transport", async ({ browser, request }) => {
-    await shareVideo(request);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 2, nicknamePrefix: "noembed" });
+    const room = nextRoom();
+    await shareVideo(request, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "noembed" });
     const [a, b] = pair(clients);
     await waitPlaying(clients);
 
@@ -179,15 +184,16 @@ test.describe("M1b sync, 8 clients", () => {
     // Only the refused client: the room keeps playing for the others.
     await expect(b.page.locator(site.syncNotice)).toBeHidden();
     await expect(b.page.locator(site.playToggle)).toBeEnabled();
-    expect((await roomPlayback(browser)).playing).toBe(true);
+    expect((await roomPlayback(browser, room.id)).playing).toBe(true);
   });
 
   test("a volume change on A doesn't affect B", async ({ browser, request }) => {
-    await shareVideo(request);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 8, nicknamePrefix: "vol" });
+    const room = nextRoom();
+    await shareVideo(request, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 8, nicknamePrefix: "vol" });
     const [a, b] = pair(clients);
     await waitPlaying(clients);
-    const before = await roomPlayback(browser);
+    const before = await roomPlayback(browser, room.id);
     const bVolume = await volumeOf(b.page);
     const bSlider = await b.page.locator(site.volume).inputValue();
 
@@ -199,12 +205,13 @@ test.describe("M1b sync, 8 clients", () => {
       expect(await volumeOf(c.page), c.nickname).toBe(bVolume);
       await expect(c.page.locator(site.volume)).toHaveValue(bSlider);
     }
-    expect((await roomPlayback(browser)).rev).toBe(before.rev);
+    expect((await roomPlayback(browser, room.id)).rev).toBe(before.rev);
   });
 
   test("the iframe's sandbox, allow and src are the canonical form", async ({ browser, request }) => {
-    await shareVideo(request);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 2, nicknamePrefix: "frame" });
+    const room = nextRoom();
+    await shareVideo(request, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "frame" });
     await waitPlaying(clients);
     for (const c of clients) {
       await expect(c.page.locator("iframe")).toHaveCount(1);
@@ -230,7 +237,8 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("the CSP blocks a non-allowlisted script", async ({ browser, csp }) => {
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 1, nicknamePrefix: "csp" });
+    const room = nextRoom();
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "csp" });
     const { page } = only(clients);
     // If CSP let them through, these would run and bump the counter.
     const pwn = { contentType: "text/javascript", body: "window.__pwned = (window.__pwned ?? 0) + 1;" };
@@ -275,8 +283,9 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("our tab URL is unchanged after a player popup", async ({ browser, request }) => {
-    await shareVideo(request);
-    clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 1, nicknamePrefix: "popup" });
+    const room = nextRoom();
+    await shareVideo(request, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "popup" });
     const { page, context } = only(clients);
     await waitPlaying(clients);
     const url = page.url();

@@ -1,16 +1,16 @@
 // Generic tier through the extension (OME-294, ADR 0024): a local fixture page embeds a video from a host we don't
-// sync; the popup lists it as "not synced" and shares it into the lobby. In the room, a click-to-load card comes
+// sync; the popup lists it as "not synced" and shares it into a room of its own (OME-341). In the room, a click-to-load card comes
 // first and nothing reaches that host before Load; after Load there is exactly one iframe with the ADR's fixed
 // attributes, and the embed (hostile here) can't navigate the room or open popups, by script or by a clicked link.
-// The host is never on the real network: the spec's routes serve it. Runs in `e2e-sync` (provider-*): it replaces the lobby's video.
+// The host is never on the real network: the spec's routes serve it. Runs in `e2e-sync` with the other provider-* specs.
 import type { Page, Request } from "@playwright/test";
-import { DEFAULT_ROOM_ID } from "@omega/shared";
 import { expect, test } from "./support/extension";
-import { PENDING, URLS, available } from "./support/apps";
+import { PENDING, available } from "./support/apps";
 import { gotoFixture } from "./support/network";
+import { roomsFor } from "./support/room";
 import { popup, site } from "./support/selectors";
 
-const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
+const ROOM = roomsFor("provider-generic")();
 const HOST = "video.omega-fixture.org";
 const EMBED_URL = `https://${HOST}/embed/42`;
 const EVIL = "evil.omega-fixture.org";
@@ -65,7 +65,7 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     // The popup reads the share token from an open room tab of the site (OME-130/OME-142).
     const room = await context.newPage();
     const roomHits = captureHost(room, HOST);
-    await room.goto(ROOM_URL);
+    await room.goto(ROOM.url);
     await room.locator(site.nicknameInput).fill("generic-share");
     await room.locator(site.avatarOption).first().click();
     await room.locator(site.joinButton).click();
@@ -138,7 +138,7 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     const log = await inner.locator("#log li").evaluateAll((lis) => lis.map((li) => [li.getAttribute("data-k"), li.textContent]));
     await info.attach("hostile-embed-log.json", { body: JSON.stringify(log, null, 2), contentType: "application/json" });
 
-    expect(room.url()).toBe(ROOM_URL);
+    expect(room.url()).toBe(ROOM.url);
     await expect(room.locator(site.room)).toBeVisible();
     expect(context.pages().length).toBe(pagesBefore);
     expect(evil).toEqual([]);

@@ -1,13 +1,13 @@
 // M2 share → room (OME-131): on a page with all three providers, the popup shares each listed embed in turn and the
-// room tab mounts that provider's player with its canonical ids. Runs in `e2e-sync` because each share replaces the lobby's video.
+// room tab mounts that provider's player with its canonical ids. Runs in `e2e-sync`, in a room of its own (OME-341).
 import { expect, test } from "./support/extension";
-import { DEFAULT_ROOM_ID } from "@omega/shared";
 import type { Page } from "@playwright/test";
 import { PENDING, URLS, available } from "./support/apps";
 import { EMBED_URL, VIDEO_ID, gotoFixture } from "./support/network";
+import { roomsFor } from "./support/room";
 import { popup, site } from "./support/selectors";
 
-const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
+const nextRoom = roomsFor("provider-share");
 const plate = '[data-testid="provider-plate"]';
 
 interface Expected {
@@ -94,13 +94,17 @@ test.describe("M2 share from the extension → room shows the right provider", (
 
   test("each of the 4 embeds on the providers page lands in the room as its provider", async ({ context, openPopup }, info) => {
     test.setTimeout(120_000);
-    // The popup reads the share token from an open room tab of the site (OME-130/OME-142): join and keep it open.
+    // The popup reads the share token from an open room tab of the site (OME-130/OME-142) and preselects that room.
+    // Each embed goes to a room of its own: one room takes a new video only every 10 s (OME-341).
     const room = await context.newPage();
-    await room.goto(ROOM_URL);
-    await room.locator(site.nicknameInput).fill("provider-share");
-    await room.locator(site.avatarOption).first().click();
-    await room.locator(site.joinButton).click();
-    await expect(room.locator(site.room)).toBeVisible();
+    const enter = async (): Promise<void> => {
+      await room.goto(nextRoom().url);
+      await room.locator(site.nicknameInput).fill("provider-share");
+      await room.locator(site.avatarOption).first().click();
+      await room.locator(site.joinButton).click();
+      await expect(room.locator(site.room)).toBeVisible();
+    };
+    await enter();
     const source = await context.newPage();
     await gotoFixture(source, "providers-embed");
 
@@ -117,7 +121,8 @@ test.describe("M2 share from the extension → room shows the right provider", (
 
     for (const e of EXPECTED) {
       await test.step(`${e.plate}: ${e.url}`, async () => {
-        // The server's per-IP share limiter (5 burst, 1 per 3 s) is shared with every spec, so retry a refused share.
+        if (EXPECTED.indexOf(e) > 0) await enter();
+        // The browser's shares all come from 127.0.0.1, one client to the share limiter (5 burst, 1 per 3 s), so retry a refused share.
         await expect
           .poll(async () => {
             const p = await openPopup(source);
