@@ -1,9 +1,9 @@
-import { RoomIdSchema, ShareRequestSchema, ShareResponseSchema, ShareTokenSchema, type Embed } from "@omega/shared";
+import { RoomIdSchema, ShareRequestSchema, ShareResponseSchema, ShareTokenSchema, type AnyEmbed } from "@omega/shared";
 import * as v from "valibot";
 import { STATUS_TEXT } from "./server-status";
 import { SERVER_REQUEST_HEADERS, SERVER_REQUEST_INIT } from "./settings";
 
-export type ShareResult = { readonly ok: true; readonly embed: Embed } | { readonly ok: false; readonly message: string };
+export type ShareResult = { readonly ok: true; readonly embed: AnyEmbed } | { readonly ok: false; readonly message: string };
 
 export interface ShareOptions {
   readonly baseUrl: string;

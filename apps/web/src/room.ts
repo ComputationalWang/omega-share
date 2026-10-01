@@ -1,6 +1,6 @@
 // Room screen. Loaded lazily after Enter so PixiJS stays out of the initial bundle.
 import "pixi.js/unsafe-eval";
-import type { Avatar, ClientMessage, Embed, ErrorCode, MemberId, Nickname, RoomId } from "@omega/shared";
+import { isSyncedEmbed, type AnyEmbed, type Avatar, type ClientMessage, type Embed, type ErrorCode, type MemberId, type Nickname, type RoomId } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
@@ -72,6 +72,11 @@ function browserSocket(url: string): SocketLike {
   ws.onclose = (ev) => s.onclose?.({ code: ev.code });
   ws.onerror = () => s.onerror?.();
   return s;
+}
+
+/** The synced embed, or null. Until the generic tier's load card lands (ADR 0024, OME-292), a generic embed shows the empty TV. */
+function syncedOnly(e: AnyEmbed | null | undefined): Embed | null {
+  return e != null && isSyncedEmbed(e) ? e : null;
 }
 
 function place(e: HTMLElement, p: Point): void {
@@ -370,7 +375,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
    * background tab, and the old video must not keep playing (unsynced) after the controller dropped it.
    */
   const syncTv = (s: ViewState): void => {
-    const embed = s.room?.embed ?? null;
+    const embed = syncedOnly(s.room?.embed);
     const tf = tvFrame(embed);
     const nextKey = tf?.key ?? null;
     if (nextKey !== tvKey) {
@@ -422,7 +427,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
     if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {
-      playback.setRoom(room ?? { embed: null, playback: null });
+      playback.setRoom(room === null ? { embed: null, playback: null } : { embed: syncedOnly(room.embed), playback: room.playback ?? null });
       syncTv(next);
     }
     if (expiriesChanged) scheduleExpiry();

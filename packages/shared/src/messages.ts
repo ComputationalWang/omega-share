@@ -7,7 +7,7 @@ import {
   MAX_EMBED_URL_LENGTH,
   MAX_SERVER_MESSAGE_BYTES,
 } from "./constants";
-import { EmbedSchema } from "./embed";
+import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
 import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
   AvatarSchema,
@@ -55,7 +55,8 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("ping"), id: PingIdSchema }),
   /**
    * Desired room playback. Seek while playing = `{ playing: true, position }`.
-   * Needs `join`; `url` must equal the current `embed.url`, else `error: no_embed`.
+   * Needs `join`; `url` must equal the current synced `embed.url`, else `error: no_embed`
+   * (a generic embed is never synced, ADR 0024).
    * For a live embed (`playbackCaps(embed).live`) the server ignores `position`.
    */
   v.strictObject({
@@ -112,16 +113,16 @@ export const ServerMessageSchema = v.variant("type", [
   /**
    * `by` is the member who shared it; null means server-initiated (or a pre-M2 server's
    * anonymous share). `playback` is the new embed's `load` state (null iff `embed` is
-   * null; absent from pre-M1b servers).
+   * null or generic, ADR 0024; absent from pre-M1b servers).
    */
   v.pipe(
     v.object({
       type: v.literal("embed-changed"),
-      embed: v.nullable(EmbedSchema),
+      embed: v.nullable(AnyEmbedSchema),
       by: v.nullable(MemberIdSchema),
       playback: OptionalPlaybackSchema,
     }),
-    v.check((x) => x.embed !== null || (x.playback ?? null) === null, "playback without embed"),
+    v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
   ),
   /** A member's `catching` changed. Coalesced by the server; the latest value always arrives. */
   v.object({ type: v.literal("member-status"), memberId: MemberIdSchema, catching: v.boolean() }),

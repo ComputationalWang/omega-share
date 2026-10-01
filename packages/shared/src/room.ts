@@ -7,7 +7,7 @@ import {
   ROOM_ID_MAX_LENGTH,
   SEAT_COUNT,
 } from "./constants";
-import { EmbedSchema } from "./embed";
+import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
 import { MemberIdSchema } from "./ids";
 import { RoomLayoutSchema } from "./layout";
 import { OptionalPlaybackSchema } from "./playback";
@@ -82,13 +82,13 @@ export const RoomStateSchema = v.pipe(
     /** Always SEAT_COUNT long; `seats[i]` is the occupant's member id or null. */
     seats: v.pipe(v.array(v.nullable(MemberIdSchema)), v.length(SEAT_COUNT)),
     members: v.pipe(v.array(MemberSchema), v.maxLength(MAX_ROOM_MEMBERS)),
-    embed: v.nullable(EmbedSchema),
-    /** Null iff `embed` is null. Absent only from a pre-M1b server (treat as null). */
+    embed: v.nullable(AnyEmbedSchema),
+    /** Null iff `embed` is null or generic (ADR 0024). Absent only from a pre-M1b server (treat as null). */
     playback: OptionalPlaybackSchema,
     /** The room's furniture (ADR 0021). Absent from a pre-M4 server: draw DEFAULT_LAYOUT. */
     layout: v.optional(RoomLayoutSchema),
   }),
-  v.check((x) => x.embed !== null || (x.playback ?? null) === null, "playback without embed"),
+  v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
   v.check((r) => new Set(r.members.map((m) => m.id)).size === r.members.length, "duplicate member id"),
   v.check((r) => {
     const ids = new Set(r.members.map((m) => m.id));
