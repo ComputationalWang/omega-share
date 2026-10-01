@@ -38,7 +38,8 @@ const CSP =
   "default-src 'self'; " +
   "script-src 'self' https://www.youtube.com/iframe_api https://www.youtube.com/s/player/ https://player.twitch.tv/js/embed/v1.js https://player.vimeo.com/api/player.js; " +
   "style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; " +
-  "frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://player.vimeo.com; " +
+  // `https:` for the generic tier while GENERIC_EMBEDS is on, the default (ADR 0024 §4).
+  "frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://player.vimeo.com https:; " +
   "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 const CSP_REPORT_ONLY = "require-trusted-types-for 'script'; trusted-types omega-sdk";
 const PERMISSIONS_POLICY =

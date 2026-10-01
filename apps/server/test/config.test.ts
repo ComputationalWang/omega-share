@@ -21,6 +21,9 @@ describe("parseConfig (ADR 0015 §3)", () => {
       staticDir: null,
       extensionIds: null,
       dbPath: DEFAULT_DB_PATH,
+      genericEmbeds: true,
+      genericEmbedDenylist: [],
+      ownHosts: ["localhost"],
     });
   });
 
@@ -43,6 +46,9 @@ describe("parseConfig (ADR 0015 §3)", () => {
       staticDir,
       extensionIds: ["abcdefghijklmnopabcdefghijklmnop", "ponmlkjihgfedcbaponmlkjihgfedcba"],
       dbPath: DEFAULT_DB_PATH,
+      genericEmbeds: true,
+      genericEmbedDenylist: [],
+      ownHosts: ["localhost", "quiet-otter.ngrok-free.app"],
     });
   });
 
@@ -87,6 +93,42 @@ describe("parseConfig (ADR 0015 §3)", () => {
     for (const o of ["http://127.0.0.1:5173", "http://[::1]:5173", "https://omega.example"]) {
       expect(parseConfig({ SITE_ORIGIN: o }).siteOrigin).toBe(o);
     }
+  });
+});
+
+describe("generic embeds (ADR 0024 §5, §6)", () => {
+  test("GENERIC_EMBEDS is on unless set to off; any other value fails startup", () => {
+    expect(parseConfig({ GENERIC_EMBEDS: "on" }).genericEmbeds).toBe(true);
+    expect(parseConfig({ GENERIC_EMBEDS: "off" }).genericEmbeds).toBe(false);
+    for (const bad of ["", "true", "1", "OFF", "yes"]) {
+      expect(() => parseConfig({ GENERIC_EMBEDS: bad })).toThrow(/GENERIC_EMBEDS/);
+    }
+  });
+
+  test("GENERIC_EMBED_DENYLIST is comma-separated domains, normalised; empty means none", () => {
+    expect(parseConfig({ GENERIC_EMBED_DENYLIST: "" }).genericEmbedDenylist).toEqual([]);
+    expect(parseConfig({ GENERIC_EMBED_DENYLIST: " Bad.Video.net. , evil.tv" }).genericEmbedDenylist).toEqual([
+      "bad.video.net",
+      "evil.tv",
+    ]);
+  });
+
+  test.each(["evil.tv/path", "evil.tv:443", "user@evil.tv", "evil.tv,,", "https://evil.tv"])(
+    "a denylist entry that is not a bare hostname fails startup: %p",
+    (raw) => {
+      expect(() => parseConfig({ GENERIC_EMBED_DENYLIST: raw })).toThrow(/GENERIC_EMBED_DENYLIST/);
+    },
+  );
+
+  test("own hosts: localhost, the site's host and the public host, normalised; IP literals are left out", () => {
+    expect(parseConfig({ SITE_ORIGIN: "https://Watch.Example.org", PUBLIC_ORIGIN: "https://quiet-otter.ngrok-free.app" }).ownHosts).toEqual([
+      "localhost",
+      "watch.example.org",
+      "quiet-otter.ngrok-free.app",
+    ]);
+    // An IP literal can never be a generic embed's host, so it needs no own-host entry.
+    expect(parseConfig({ SITE_ORIGIN: "http://127.0.0.1:5173" }).ownHosts).toEqual(["localhost"]);
+    expect(parseConfig({ SITE_ORIGIN: "http://[::1]:5173" }).ownHosts).toEqual(["localhost"]);
   });
 });
 
