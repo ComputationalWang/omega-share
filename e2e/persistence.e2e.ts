@@ -1,11 +1,12 @@
 // Restart persistence (OME-281, OME-277/OME-280): rooms, layout and the last embed live in a SQLite file, so a server
 // that is killed and started again on the same DB_PATH comes back with the same TV and the same layout, and the
-// clients' own reconnect carries them back into the room without a page reload.
+// clients' own reconnect carries them back into the room without a page reload. The DB is seeded with the set (g)
+// test layout, so the same server also proves a layout that only exists in the DB renders and its seats work.
 //
 // This spec owns its server and its site (own ports, a temp DB file), so killing the server never touches the shared
 // lobby server the other specs use. The site is the Vite dev server pointed at that server (VITE_SERVER_URL), the same
-// pattern as playwright.config.ts; no production build is needed. The DB is seeded with a layout that is not the
-// default, so a restart that lost the DB would show.
+// pattern as playwright.config.ts; no production build is needed. The seeded layout is not the default, so a restart
+// that lost the DB would show.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -15,6 +16,8 @@ import { ROOT } from "./support/apps";
 import { EMBED_URL } from "./support/network";
 import { clickSettled, joinRoom, leaveAll } from "./support/room";
 import { site } from "./support/selectors";
+import { scene, seatedBetween, selfId } from "./support/scene";
+import { SET_G, SET_G_SEAT_PIECE } from "./fixtures/layouts";
 import { expect, test } from "./support/csp";
 
 function portFrom(name: string, fallback: number): number {
@@ -129,6 +132,41 @@ test.describe("restart persistence (own server, own DB file)", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  test("a set (g) layout seeded in the DB renders, and sitting works on its seats", async ({ browser }) => {
+    const served = await observe("observer-layout");
+    expect(served.room.layout, "the layout comes from the DB, not DEFAULT_LAYOUT").toEqual(SET_G);
+
+    const clients = await joinRoom(browser, { roomUrl: ROOM_URL, count: 2, nicknamePrefix: "layout" });
+    const [a, b] = clients;
+    if (a === undefined || b === undefined) throw new Error("expected two clients");
+    try {
+      // Every seat-giving set (g) piece is drawn (back and front), from the lazy atlas.
+      for (const c of clients) {
+        await expect(c.page.locator(site.seat)).toHaveCount(8);
+        await expect
+          .poll(async () => {
+            const order = await scene(c.page);
+            return SET_G_SEAT_PIECE.every((p) => order.includes(`furniture/${p}/back`) && order.includes(`furniture/${p}/front`));
+          }, { timeout: 15_000 })
+          .toBe(true);
+      }
+
+      // A sits on a sofa (seat 2), B on the wingback (seat 6); each is drawn between its piece's back and front.
+      for (const [c, seat] of [[a, 2], [b, 6]] as const) {
+        await clickSettled(c.page, c.page.locator(`${site.seat}[data-seat="${String(seat)}"]`));
+        await expect(c.page.locator(`[data-seat="${String(seat)}"]`)).toHaveClass(/mine/);
+        const self = await selfId(c.page);
+        const piece = SET_G_SEAT_PIECE[seat] ?? "";
+        await expect.poll(() => seatedBetween(c.page, self, piece)).toBe(true);
+      }
+      await expect(a.page.locator('[data-seat="6"]')).toHaveAttribute("aria-label", /taken by layout-2/);
+      await expect(b.page.locator('[data-seat="2"]')).toHaveAttribute("aria-label", /taken by layout-1/);
+      await test.info().attach("db-layout-set-g-seated.png", { body: await a.page.locator(site.room).screenshot(), contentType: "image/png" });
+    } finally {
+      await leaveAll(clients);
+    }
+  });
+
   test("a killed and restarted server restores the TV paused at 0 and the same layout; clients reconnect and can sit", async ({ browser }) => {
     const before = await observe("observer-before");
     expect(before.room.embed).toBeNull();
@@ -198,6 +236,8 @@ test.describe("restart persistence (own server, own DB file)", () => {
       await expect(a.page.locator('[data-seat="0"]')).toHaveAttribute("data-occupied", "true");
       await expect(b.page.locator('[data-seat="0"]')).toHaveAttribute("data-occupied", "true");
       await expect(b.page.locator('[data-seat="0"]')).toHaveAttribute("aria-label", /taken by persist-1/);
+      const self = await selfId(a.page);
+      await expect.poll(() => seatedBetween(a.page, self, SET_G_SEAT_PIECE[0] ?? "")).toBe(true);
     } finally {
       await leaveAll(clients);
     }

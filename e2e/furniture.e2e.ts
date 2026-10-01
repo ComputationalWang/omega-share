@@ -1,33 +1,15 @@
 // Furniture from snapshot.room.layout (OME-278, ADR 0021). The server doesn't hand out custom layouts yet, so the room
 // socket is routed and its snapshots rewritten: no layout (a pre-M4 server), DEFAULT_LAYOUT, or a test layout with set (g) pieces.
 import type { Page, Request } from "@playwright/test";
-import * as v from "valibot";
 import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type RoomLayout } from "@omega/shared";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { site } from "./support/selectors";
+import { scene, seatedBetween, selfId } from "./support/scene";
+import { SET_G, SET_G_SEAT_PIECE } from "./fixtures/layouts";
 
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
-
-/** Two sofas and a couch take seats 0–5, then a wingback and a beanbag; plus a runner, a print, a bookcase and props. */
-const SET_G: RoomLayout = {
-  furniture: [
-    { kind: "tv", col: 0, row: 0, facing: "se" },
-    { kind: "runner", col: 4, row: 4, facing: "ne", variant: 1 },
-    { kind: "sofa", col: 2, row: 5, facing: "ne" },
-    { kind: "sofa", col: 5, row: 2, facing: "nw", variant: 1 },
-    { kind: "couch", col: 3, row: 7, facing: "nw" },
-    { kind: "wingback", col: 1, row: 6, facing: "ne" },
-    { kind: "beanbag", col: 7, row: 3, facing: "nw" },
-    { kind: "frame", col: 3, row: 0, facing: "sw" },
-    { kind: "bookshelf", col: 6, row: 0, facing: "sw" },
-    { kind: "arclamp", col: 8, row: 8, facing: "sw" },
-    { kind: "popcorn", col: 0, row: 9, facing: "se" },
-  ],
-};
-/** Seat i of SET_G → the piece it sits on (its back/front frames). */
-const SEAT_PIECE = ["sofa/velvet/ne", "sofa/velvet/ne", "sofa/navy/nw", "sofa/navy/nw", "couch/cream/nw", "couch/cream/nw", "wingback/ginger/ne", "beanbag/blush/nw"];
 
 type Rewrite = { readonly layout: RoomLayout } | "none";
 
@@ -58,22 +40,6 @@ async function enter(page: Page, nickname: string): Promise<void> {
   await expect(page.locator(site.connectionStatus)).toHaveText("");
 }
 
-/** The room handle's dev-build hooks (main.ts `window.__omega`). */
-async function debugCall(page: Page, path: "scene" | "self"): Promise<unknown> {
-  return page.evaluate((path) => {
-    const debug: unknown = Reflect.get(window, "__omega");
-    const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
-    if (typeof room !== "object" || room === null) return null;
-    if (path === "scene") {
-      const scene: unknown = Reflect.get(room, "scene");
-      return typeof scene === "function" ? (Reflect.apply(scene, room, []) as unknown) : null;
-    }
-    const state: unknown = Reflect.get(room, "state");
-    const s: unknown = typeof state === "function" ? Reflect.apply(state, room, []) : null;
-    return typeof s === "object" && s !== null ? (Reflect.get(s, "self") as unknown) : null;
-  }, path);
-}
-const scene = async (page: Page): Promise<string[]> => v.parse(v.array(v.string()), await debugCall(page, "scene"));
 const furnitureOnly = (s: readonly string[]): string[] => s.filter((x) => !x.startsWith("avatar:"));
 const isAtlas = (r: Request): boolean => /furniture[^/]*\.(png|json|js)(\?|$)/.test(r.url()) && !r.url().includes("/src/furniture.ts");
 
@@ -132,16 +98,10 @@ test.describe("furniture from the room layout", () => {
       await seats.nth(seat).click();
       await expect(seats.nth(seat)).toHaveClass(/mine/);
 
-      const self = v.parse(v.string(), await debugCall(page, "self"));
-      const piece = SEAT_PIECE[seat] ?? "";
+      const self = await selfId(page);
+      const piece = SET_G_SEAT_PIECE[seat] ?? "";
       await expect
-        .poll(async () => {
-          const order = await scene(page);
-          const back = order.indexOf(`furniture/${piece}/back`);
-          const me = order.indexOf(`avatar:${self}`);
-          const front = order.indexOf(`furniture/${piece}/front`);
-          return back >= 0 && back < me && me < front;
-        })
+        .poll(() => seatedBetween(page, self, piece))
         .toBe(true);
       await test.info().attach("room-set-g-seated.png", { body: await page.locator(site.room).screenshot(), contentType: "image/png" });
     } finally {
