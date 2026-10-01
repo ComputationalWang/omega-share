@@ -161,4 +161,56 @@ test.describe("csp: site", () => {
       await leaveAll(clients);
     }
   });
+
+  // Moved from sync.e2e.ts (OME-341): it needs a room, not a video.
+  test("the CSP blocks a non-allowlisted script", async ({ browser, csp }) => {
+    const clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${DEFAULT_ROOM_ID}`, count: 1, nicknamePrefix: "csp-block" });
+    try {
+      const [client] = clients;
+      if (!client) throw new Error("no client");
+      const { page } = client;
+      // If CSP let them through, these would run and bump the counter.
+      const pwn = { contentType: "text/javascript", body: "window.__pwned = (window.__pwned ?? 0) + 1;" };
+      for (const url of ["https://evil.example/pwn.js", "https://www.youtube.com/not-the-api.js"]) {
+        await page.route(url, (r) => r.fulfill(pwn));
+      }
+      const blocked = await page.evaluate(async (urls) => {
+        const violations: string[] = [];
+        document.addEventListener("securitypolicyviolation", (e) => violations.push(`${e.effectiveDirective} ${e.blockedURI}`));
+        const load = (src: string) =>
+          new Promise<string>((resolve) => {
+            const s = document.createElement("script");
+            s.src = src;
+            s.onload = () => {
+              resolve("loaded");
+            };
+            s.onerror = () => {
+              resolve("blocked");
+            };
+            document.head.append(s);
+          });
+        const results = await Promise.all(urls.map(load));
+        // Inline script too: script-src has no 'unsafe-inline'.
+        const inline = document.createElement("script");
+        inline.textContent = "window.__pwned = (window.__pwned ?? 0) + 1;";
+        document.head.append(inline);
+        await new Promise((r) => setTimeout(r, 100));
+        return { results, violations, pwned: (window as unknown as { __pwned?: number }).__pwned ?? 0 };
+      }, ["https://evil.example/pwn.js", "https://www.youtube.com/not-the-api.js"]);
+      expect(blocked.results).toEqual(["blocked", "blocked"]);
+      expect(blocked.pwned).toBe(0);
+      expect(blocked.violations).toEqual(
+        expect.arrayContaining([
+          "script-src-elem https://evil.example/pwn.js",
+          "script-src-elem https://www.youtube.com/not-the-api.js",
+          "script-src-elem inline",
+        ]),
+      );
+      // Provoked on purpose, so take them off the zero-violation fixture's list (OME-198).
+      await expect.poll(() => csp.enforced.length).toBe(3);
+      expect(csp.drain().map((v) => `${v.effectiveDirective} ${v.blockedURI}`)).toEqual(blocked.violations);
+    } finally {
+      await leaveAll(clients);
+    }
+  });
 });

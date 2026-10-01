@@ -34,8 +34,8 @@ export default defineConfig({
     // after the rest (OME-90, 154, 164, 131, 314). Now each test has a seeded room of its own (OME-341,
     // e2e/support/test-rooms.ts), so they run alongside `e2e`. They keep a lane: each spec stays serial in one worker,
     // and the lane's worker cap keeps 8-client spread checks from starving each other of CPU.
-    { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", testIgnore: ["**/acceptance.e2e.ts", "**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts", "**/tunnel*.e2e.ts", "**/abuse.e2e.ts", "**/http-flood.e2e.ts"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
-    { name: "e2e-sync", testDir: "e2e", testMatch: ["**/acceptance.e2e.ts", "**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts"], workers: 4, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", testIgnore: ["**/acceptance.e2e.ts", "**/sync.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts", "**/tunnel*.e2e.ts", "**/abuse.e2e.ts", "**/http-flood.e2e.ts"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    { name: "e2e-sync", testDir: "e2e", testMatch: ["**/acceptance.e2e.ts", "**/sync.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts"], workers: 4, use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     // Tunnel safety (OME-132): its own tunnel-mode server behind a local TLS proxy on fixed ports, so one worker.
     // The M3 abuse suite (OME-191) and the HTTP flood suite (OME-281) run here too, each on a lane of its own so their spent limits never reach the tunnel specs.
     { name: "e2e-tunnel", testDir: "e2e", testMatch: ["**/tunnel*.e2e.ts", "**/abuse.e2e.ts", "**/http-flood.e2e.ts"], workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },

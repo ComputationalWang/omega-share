@@ -100,6 +100,11 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     await expect(card).toContainText(/not synced/i);
     await expect(room.getByTestId("not-synced")).toBeVisible();
     await expect(room.locator("iframe")).toHaveCount(0);
+    // No sync controls or volume for a generic embed, and no hint before Load (folded in from generic-embed-card, OME-292/OME-341).
+    await expect(room.getByTestId("generic-hint")).toBeHidden();
+    await expect(room.locator(site.playToggle)).toHaveCount(0);
+    await expect(room.locator(site.volume)).toBeHidden();
+    await expect(room.locator(site.muteToggle)).toBeHidden();
     // Give a stray favicon, preconnect or prefetch time to show up.
     await room.waitForTimeout(1_000);
     expect(roomHits).toEqual([]);
@@ -121,9 +126,11 @@ test.describe("generic embed shared from the extension → click-to-load in the 
       sandbox: "allow-scripts allow-same-origin allow-presentation",
       allow: "fullscreen; autoplay",
       referrerpolicy: "no-referrer",
+      title: `Shared video from ${HOST}`,
     });
     expect(Object.keys(attrs).sort()).toEqual(["allow", "data-testid", "referrerpolicy", "sandbox", "src", "title"]);
     expect(roomHits).toEqual([EMBED_URL]);
+    await expect(room.getByTestId("generic-hint")).toHaveText("Blank? This site doesn't allow embedding.");
 
     // The hostile embed tries every way out, each with a real user activation inside the frame: script, then links.
     const inner = room.frameLocator(site.sharedVideo);

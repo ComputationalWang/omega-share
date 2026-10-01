@@ -66,10 +66,16 @@ test.describe("M1b sync, 8 clients", () => {
       expect(playing).toBe(false);
     });
     for (const c of clients) expect(await fakeState(c.page)).toBe(PAUSED);
+    // Everyone else sees who did it (folded in from the old sync-smoke spec, OME-89/OME-341).
+    for (const c of clients.slice(1)) {
+      await expect(c.page.locator(site.systemLine).last()).toHaveText(`${a.nickname} paused`);
+      await expect(c.page.locator(site.playToggle)).toHaveAttribute("aria-label", "Play for everyone");
+    }
     await step("play", () => a.page.locator(site.playToggle).click(), (playing) => {
       expect(playing).toBe(true);
     });
     for (const c of clients) expect(await fakeState(c.page)).toBe(PLAYING);
+    for (const c of clients.slice(1)) await expect(c.page.locator(site.systemLine).last()).toHaveText(`${a.nickname} pressed play`);
     await step("seek", () => a.page.locator(site.seek).fill("120"), (playing, position) => {
       expect(playing).toBe(true);
       expect(position).toBeCloseTo(120, 0);
@@ -205,81 +211,12 @@ test.describe("M1b sync, 8 clients", () => {
       expect(await volumeOf(c.page), c.nickname).toBe(bVolume);
       await expect(c.page.locator(site.volume)).toHaveValue(bSlider);
     }
+    // Mute is personal too.
+    await a.page.locator(site.muteToggle).click();
+    await expect(a.page.locator(site.muteToggle)).toHaveAttribute("aria-pressed", "true");
+    for (const c of clients) if (c !== a) await expect(c.page.locator(site.muteToggle), c.nickname).toHaveAttribute("aria-pressed", "false");
+    expect(await fakeState(b.page)).toBe(PLAYING);
     expect((await roomPlayback(browser, room.id)).rev).toBe(before.rev);
-  });
-
-  test("the iframe's sandbox, allow and src are the canonical form", async ({ browser, request }) => {
-    const room = nextRoom();
-    await shareVideo(request, room.id);
-    clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "frame" });
-    await waitPlaying(clients);
-    for (const c of clients) {
-      await expect(c.page.locator("iframe")).toHaveCount(1);
-      const tv = c.page.locator(site.sharedVideo);
-      expect(await tv.evaluate((e) => e.tagName)).toBe("IFRAME");
-      expect(await tv.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox");
-      expect(await tv.getAttribute("allow")).toBe("autoplay; encrypted-media; picture-in-picture; fullscreen");
-      expect(await tv.getAttribute("referrerpolicy")).toBe("strict-origin-when-cross-origin");
-      const origin = new URL(c.page.url()).origin;
-      const src = new URL((await tv.getAttribute("src")) ?? "");
-      expect(`${src.origin}${src.pathname}`).toBe(`https://www.youtube-nocookie.com/embed/${VIDEO_ID}`);
-      expect(Object.fromEntries(src.searchParams)).toEqual({
-        enablejsapi: "1",
-        origin,
-        controls: "0",
-        disablekb: "1",
-        playsinline: "1",
-        rel: "0",
-        autoplay: "1",
-      });
-      expect(src.hash).toBe("");
-    }
-  });
-
-  test("the CSP blocks a non-allowlisted script", async ({ browser, csp }) => {
-    const room = nextRoom();
-    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "csp" });
-    const { page } = only(clients);
-    // If CSP let them through, these would run and bump the counter.
-    const pwn = { contentType: "text/javascript", body: "window.__pwned = (window.__pwned ?? 0) + 1;" };
-    for (const url of ["https://evil.example/pwn.js", "https://www.youtube.com/not-the-api.js"]) {
-      await page.route(url, (r) => r.fulfill(pwn));
-    }
-    const blocked = await page.evaluate(async (urls) => {
-      const violations: string[] = [];
-      document.addEventListener("securitypolicyviolation", (e) => violations.push(`${e.effectiveDirective} ${e.blockedURI}`));
-      const load = (src: string) =>
-        new Promise<string>((resolve) => {
-          const s = document.createElement("script");
-          s.src = src;
-          s.onload = () => {
-            resolve("loaded");
-          };
-          s.onerror = () => {
-            resolve("blocked");
-          };
-          document.head.append(s);
-        });
-      const results = await Promise.all(urls.map(load));
-      // Inline script too: script-src has no 'unsafe-inline'.
-      const inline = document.createElement("script");
-      inline.textContent = "window.__pwned = (window.__pwned ?? 0) + 1;";
-      document.head.append(inline);
-      await new Promise((r) => setTimeout(r, 100));
-      return { results, violations, pwned: (window as unknown as { __pwned?: number }).__pwned ?? 0 };
-    }, ["https://evil.example/pwn.js", "https://www.youtube.com/not-the-api.js"]);
-    expect(blocked.results).toEqual(["blocked", "blocked"]);
-    expect(blocked.pwned).toBe(0);
-    expect(blocked.violations).toEqual(
-      expect.arrayContaining([
-        "script-src-elem https://evil.example/pwn.js",
-        "script-src-elem https://www.youtube.com/not-the-api.js",
-        "script-src-elem inline",
-      ]),
-    );
-    // Provoked on purpose, so take them off the zero-violation fixture's list (OME-198).
-    await expect.poll(() => csp.enforced.length).toBe(3);
-    expect(csp.drain().map((v) => `${v.effectiveDirective} ${v.blockedURI}`)).toEqual(blocked.violations);
   });
 
   test("our tab URL is unchanged after a player popup", async ({ browser, request }) => {

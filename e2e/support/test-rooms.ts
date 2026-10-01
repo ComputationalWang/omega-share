@@ -8,7 +8,6 @@
 export const SPEC_ROOMS = {
   acceptance: 1,
   sync: 10,
-  "sync-smoke": 1,
   vimeo: 4,
   "provider-sync": 7,
   "provider-share": 4,

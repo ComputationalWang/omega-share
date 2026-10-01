@@ -11,7 +11,7 @@ const sources = readdirSync(E2E, { recursive: true, encoding: "utf8" })
 const count = (text: string, re: RegExp): number => text.match(re)?.length ?? 0;
 
 test("the scan sees the specs", () => {
-  expect(sources.some((s) => s.file === "e2e/room.e2e.ts")).toBe(true);
+  expect(sources.some((s) => s.file === "e2e/sync.e2e.ts")).toBe(true);
 });
 
 test("no spec or helper takes `test` from @playwright/test directly (only support/csp.ts may)", () => {

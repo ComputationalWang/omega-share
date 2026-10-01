@@ -108,11 +108,24 @@ test.describe("M1a acceptance", () => {
         for (const c of clients) {
           const tv = c.page.locator(site.sharedVideo);
           await expect(tv).toHaveCount(1);
+          expect(await tv.evaluate((e) => e.tagName)).toBe("IFRAME");
+          // The canonical frame (folded in from sync.e2e.ts, OME-341): fixed sandbox (no top navigation), allow and referrer policy.
+          expect(await tv.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox");
+          expect(await tv.getAttribute("allow")).toBe("autoplay; encrypted-media; picture-in-picture; fullscreen");
+          expect(await tv.getAttribute("referrerpolicy")).toBe("strict-origin-when-cross-origin");
           const src = new URL((await tv.getAttribute("src")) ?? "");
-          // The room stores the canonical www URL; tvFrame() renders it on the nocookie host with the IFrame API params (OME-88).
+          // The room stores the canonical www URL; tvFrame() renders it on the nocookie host with exactly the IFrame API params (OME-88).
           expect(`${src.origin}${src.pathname}`).toBe(`https://www.youtube-nocookie.com/embed/${VIDEO_ID}`);
-          expect(src.searchParams.get("enablejsapi")).toBe("1");
-          expect(src.searchParams.get("origin")).toBe(new URL(c.page.url()).origin);
+          expect(Object.fromEntries(src.searchParams)).toEqual({
+            enablejsapi: "1",
+            origin: new URL(c.page.url()).origin,
+            controls: "0",
+            disablekb: "1",
+            playsinline: "1",
+            rel: "0",
+            autoplay: "1",
+          });
+          expect(src.hash).toBe("");
           await expect(c.page.locator("iframe")).toHaveCount(1);
 
           // Tags follow join order, which is racy here; compare as a set.
