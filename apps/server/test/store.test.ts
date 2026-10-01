@@ -169,17 +169,17 @@ describe("RoomStore", () => {
     const { rooms } = store();
     rooms.createRoom({ id: "lobby", title: "", createdAt: 1, layout: DEFAULT_LAYOUT });
     const noTv: RoomLayout = { furniture: DEFAULT_LAYOUT.furniture.filter((f) => f.kind !== "tv") };
-    expect(() => rooms.setLayout("lobby", noTv)).toThrow();
+    expect(() => { rooms.setLayout("lobby", noTv); }).toThrow();
     const forged = { ...YOUTUBE, url: "https://evil.example/embed/dQw4w9WgXcQ" };
-    expect(() => rooms.setEmbed("lobby", forged)).toThrow();
-    expect(() => rooms.createRoom({ id: "Not A Room", title: "", createdAt: 1, layout: DEFAULT_LAYOUT })).toThrow();
+    expect(() => { rooms.setEmbed("lobby", forged); }).toThrow();
+    expect(() => { rooms.createRoom({ id: "Not A Room", title: "", createdAt: 1, layout: DEFAULT_LAYOUT }); }).toThrow();
     expect(rooms.listRooms()[0]).toMatchObject({ layout: DEFAULT_LAYOUT, embed: null });
   });
 
   test("setLayout or setEmbed on an unknown room throws", () => {
     const { rooms } = store();
-    expect(() => rooms.setLayout("ghost", DEFAULT_LAYOUT)).toThrow(/ghost/);
-    expect(() => rooms.setEmbed("ghost", YOUTUBE)).toThrow(/ghost/);
+    expect(() => { rooms.setLayout("ghost", DEFAULT_LAYOUT); }).toThrow(/ghost/);
+    expect(() => { rooms.setEmbed("ghost", YOUTUBE); }).toThrow(/ghost/);
   });
 
   test("a corrupt layout row fails loudly on read (D4)", () => {
