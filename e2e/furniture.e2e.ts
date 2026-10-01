@@ -5,6 +5,7 @@ import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type RoomLayout } from "@omega/shared"
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
+import { clickSettled } from "./support/room";
 import { site } from "./support/selectors";
 import { scene, seatedBetween, selfId } from "./support/scene";
 import { SET_G, SET_G_SEAT_PIECE } from "./fixtures/layouts";
@@ -95,7 +96,7 @@ test.describe("furniture from the room layout", () => {
       let seat = -1;
       for (let i = 0; i < 6 && seat < 0; i++) if ((await seats.nth(i).getAttribute("data-occupied")) === "false") seat = i;
       expect(seat).toBeGreaterThanOrEqual(0);
-      await seats.nth(seat).click();
+      await clickSettled(page, seats.nth(seat));
       await expect(seats.nth(seat)).toHaveClass(/mine/);
 
       const self = await selfId(page);
