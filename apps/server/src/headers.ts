@@ -17,10 +17,11 @@ export const CSP = [
   "base-uri 'none'",
   "form-action 'none'",
   "frame-ancestors 'none'",
+  // Enforced Trusted Types (ADR 0025): our loader policy plus the real YouTube `iframe_api` policy, nothing else.
+  // Never add a wildcard or 'allow-duplicates'; `script-src` path scoping is the control that bounds script loads.
+  "require-trusted-types-for 'script'",
+  "trusted-types omega-sdk youtube-widget-api",
 ].join("; ");
-
-/** Report-only in M3 (enforce in M4 if the real-provider run is clean). No `report-to`: no public report sink. */
-export const CSP_REPORT_ONLY = "require-trusted-types-for 'script'; trusted-types omega-sdk";
 
 /**
  * Powerful features we never use. Autoplay, fullscreen, picture-in-picture and encrypted-media stay
@@ -45,7 +46,6 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   "x-content-type-options": "nosniff",
   "referrer-policy": "strict-origin-when-cross-origin",
   "content-security-policy": CSP,
-  "content-security-policy-report-only": CSP_REPORT_ONLY,
   "permissions-policy": PERMISSIONS_POLICY,
   "cross-origin-opener-policy": "same-origin",
   "cross-origin-resource-policy": "same-origin",
