@@ -1,5 +1,8 @@
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, realpathSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+
+/** Dev default for `DB_PATH`: `apps/server/data/omega.db` (git-ignored), never under a static dir. */
+export const DEFAULT_DB_PATH = join(import.meta.dir, "../data/omega.db");
 
 /** Validated startup config (ADR 0015 §3). A bad value throws, naming the variable. */
 export interface ServerConfig {
@@ -16,6 +19,8 @@ export interface ServerConfig {
   staticDir: string | null;
   /** Allowed Chromium extension ids, or null for any. */
   extensionIds: string[] | null;
+  /** Absolute path of the SQLite file, or `:memory:` (tests). Never inside `staticDir` (D5). */
+  dbPath: string;
 }
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -41,6 +46,18 @@ function parseOrigin(key: string, raw: string, httpOnLoopback: boolean): string 
   const httpOk = httpOnLoopback && url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname);
   if (url.protocol !== "https:" && !httpOk) fail(key, httpOnLoopback ? "must be https (http only on loopback)" : "must be https");
   return url.origin;
+}
+
+/** `path` with symlinks resolved as far as it exists (the DB file itself may not yet). */
+function realish(path: string): string {
+  if (existsSync(path)) return realpathSync(path);
+  const parent = dirname(path);
+  return parent === path ? path : join(realish(parent), basename(path));
+}
+
+function isInside(child: string, parent: string): boolean {
+  const rel = relative(parent, child);
+  return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 export function parseConfig(env: Env): ServerConfig {
@@ -72,5 +89,14 @@ export function parseConfig(env: Env): ServerConfig {
     if (extensionIds.some((id) => !EXTENSION_ID.test(id))) fail("EXTENSION_IDS", "expected comma-separated extension ids");
   }
 
-  return { port, hostname, siteOrigin, publicOrigin, trustProxy: rawTrust === "loopback", staticDir, extensionIds };
+  const rawDb = env["DB_PATH"] ?? DEFAULT_DB_PATH;
+  if (rawDb === "") fail("DB_PATH", "must not be empty");
+  const dbPath = rawDb === ":memory:" ? rawDb : resolve(rawDb);
+  // serveStatic must never be able to hand out the database.
+  if (staticDir !== null && dbPath !== ":memory:") {
+    const site = realish(staticDir);
+    if (isInside(dbPath, staticDir) || isInside(realish(dbPath), site)) fail("DB_PATH", "must not be inside STATIC_DIR");
+  }
+
+  return { port, hostname, siteOrigin, publicOrigin, trustProxy: rawTrust === "loopback", staticDir, extensionIds, dbPath };
 }
