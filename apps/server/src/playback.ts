@@ -18,6 +18,11 @@ export function loadPlayback(prevRev: number, now: number, by: MemberId | null =
   return { playing: true, position: 0, rate: 1, at: now, rev: prevRev + 1, action: "load", by };
 }
 
+/** The state of an embed restored from the DB after a restart: paused at 0, by no one (OME-280). */
+export function restoredPlayback(now: number): PlaybackState {
+  return { playing: false, position: 0, rate: 1, at: now, rev: 0, action: "pause", by: null };
+}
+
 /** Where the video should be at server time `now`. */
 export function expectedPosition(state: PlaybackState, now: number): number {
   return state.playing ? clamp(state.position + ((now - state.at) / 1000) * state.rate) : state.position;

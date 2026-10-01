@@ -1,4 +1,5 @@
 import {
+  DEFAULT_LAYOUT,
   MAX_ROOM_MEMBERS,
   SEAT_COUNT,
   type Avatar,
@@ -8,12 +9,13 @@ import {
   type Nickname,
   type PlaybackState,
   type RoomId,
+  type RoomLayout,
   type RoomState,
   type RoomSummary,
   type SeatIndex,
 } from "@omega/shared";
 import { nicknameKey } from "@omega/shared/confusables";
-import { applyControl, loadPlayback, type Control } from "./playback";
+import { applyControl, loadPlayback, restoredPlayback, type Control } from "./playback";
 
 export type SitResult = "ok" | "seat_taken";
 export type JoinResult = { ok: true; member: Member } | { ok: false; reason: "room_full" | "too_many_members" | "nickname_taken" };
@@ -50,8 +52,21 @@ export class Room {
   /** Last rev handed out; survives embed changes so clients never see rev go back. */
   private rev = -1;
 
-  constructor(readonly id: RoomId) {
+  /** The room's furniture (ADR 0021); it only changes through the store. */
+  readonly layout: RoomLayout;
+
+  /** `embed` is the last one shared before a restart: it comes back paused at 0. */
+  constructor(
+    readonly id: RoomId,
+    init: { layout?: RoomLayout; embed?: Embed | null } = {},
+  ) {
     this.topic = `room:${id}`;
+    this.layout = init.layout ?? DEFAULT_LAYOUT;
+    if (init.embed != null) {
+      this.embed = init.embed;
+      this.playback = restoredPlayback(Date.now());
+      this.rev = this.playback.rev;
+    }
   }
 
   /**
@@ -134,6 +149,7 @@ export class Room {
       members: [...this.members.values()].map((m) => (this.catching.has(m.id) ? { ...m, catching: true } : m)),
       embed: this.embed,
       playback: this.playback,
+      layout: this.layout,
     };
   }
 
