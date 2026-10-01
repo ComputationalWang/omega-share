@@ -18,10 +18,10 @@ export interface Budget {
 const LOAD_DOC = "People in a room without breaking the budgets above";
 
 /** Frame-spec providers, in `site.frameWorkP95.<provider>` / `site.missedVsync.<provider>` ids. YouTube's frame p95 is plain `site.frameP95`. */
-export const FRAME_PROVIDERS = ["youtube", "twitchVod", "twitchLive", "vimeo"] as const;
+export const FRAME_PROVIDERS = ["youtube", "twitchVod", "twitchLive", "vimeo", "generic"] as const;
 export type FrameProvider = (typeof FRAME_PROVIDERS)[number];
 
-const PROVIDER_LABEL: Record<FrameProvider, string> = { youtube: "YouTube", twitchVod: "Twitch VOD", twitchLive: "Twitch live", vimeo: "Vimeo" };
+const PROVIDER_LABEL: Record<FrameProvider, string> = { youtube: "YouTube", twitchVod: "Twitch VOD", twitchLive: "Twitch live", vimeo: "Vimeo", generic: "generic embed" };
 
 // ADR 0017 (OME-185/OME-192): the headroom a quantised rAF p95 can't show — observer main-thread work, and missed vsyncs as their own row.
 const HEADROOM: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
@@ -36,6 +36,7 @@ export const BUDGETS: readonly Budget[] = [
   { id: "site.frameP95.vimeo", area: "Site", metric: "p95 frame time, 8 avatars + Vimeo video", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
   { id: "site.frameP95.twitchVod", area: "Site", metric: "p95 frame time, 8 avatars + Twitch VOD", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
   { id: "site.frameP95.twitchLive", area: "Site", metric: "p95 frame time, 8 avatars + Twitch live", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
+  { id: "site.frameP95.generic", area: "Site", metric: "p95 frame time, 8 avatars + generic embed", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
   ...HEADROOM,
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
   { id: "sync.spread", area: "Sync", metric: "Spread after play/pause/seek", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },

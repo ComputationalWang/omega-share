@@ -96,3 +96,48 @@ test("site: p95 frame time with 8 avatars and a Vimeo video playing", async ({ b
     await leaveAll(clients);
   }
 });
+
+// OME-294: the same budget with a generic embed (ADR 0024) loaded in every client. The host is routed to a local page
+// that repaints every frame (a stand-in for a playing video); there is no playback to wait for, the tier isn't synced.
+const GENERIC_HOST = "video.omega-fixture.org";
+const GENERIC_PAGE = `<!doctype html><title>generic</title><style>
+  html, body { margin: 0; height: 100%; background: #111; overflow: hidden; }
+  div { width: 40%; height: 40%; background: #4a8; animation: m 1s linear infinite alternate; }
+  @keyframes m { from { transform: translateX(0) rotate(0); } to { transform: translateX(120%) rotate(180deg); } }
+</style><div></div>`;
+
+test("site: p95 frame time with 8 avatars and a generic embed loaded", async ({ browser, request }) => {
+  if (!available.web || !available.server) {
+    const pending = available.web ? PENDING.server : PENDING.web;
+    for (const id of ["site.frameP95.generic", "site.frameWorkP95.generic", "site.missedVsync.generic"]) recordMetric({ id, pending });
+    return;
+  }
+  test.setTimeout(120_000);
+  const sharer = await joinForToken(DEFAULT_ROOM_ID, "generic-sharer");
+  try {
+    expect((await postShare(request, DEFAULT_ROOM_ID, sharer.token, `https://${GENERIC_HOST}/embed/42`)).status()).toBe(200);
+  } finally {
+    sharer.close();
+  }
+  const clients = await joinRoom(browser, {
+    roomUrl: `${URLS.web}/r/${DEFAULT_ROOM_ID}`,
+    count: 8,
+    nicknamePrefix: "fps-generic",
+    setup: async (context) => {
+      await context.route(`https://${GENERIC_HOST}/**`, (route) => route.fulfill({ contentType: "text/html", body: GENERIC_PAGE }));
+    },
+  });
+  try {
+    const [observer] = clients;
+    if (!observer) throw new Error("no clients");
+    for (const c of clients) {
+      await c.page.getByTestId("generic-load").click({ timeout: 15_000 });
+      await expect(c.page.frameLocator(site.sharedVideo).locator("div")).toBeVisible({ timeout: 15_000 });
+    }
+    const w = await tracedFrames(browser, observer.page, 5000);
+    expect(w.samples.length).toBeGreaterThan(0);
+    recordFrameRows("generic", w, "generic embed loaded (local page repainting every frame)");
+  } finally {
+    await leaveAll(clients);
+  }
+});
