@@ -58,6 +58,8 @@ describe("collectCandidateUrls on fixture pages", () => {
   });
 });
 
+const generic = (url: string): GenericEmbed => ({ provider: "generic", host: new URL(url).hostname, url });
+
 const TWITCH_LIVE: Embed = { provider: "twitch", kind: "live", channel: "somechannel", url: "https://player.twitch.tv/?channel=somechannel" };
 const TWITCH_VOD: Embed = { provider: "twitch", kind: "vod", videoId: "1234567890", url: "https://player.twitch.tv/?video=v1234567890" };
 const VIMEO: Embed = { provider: "vimeo", videoId: "76979871", hash: null, url: "https://player.vimeo.com/video/76979871" };
@@ -77,14 +79,42 @@ describe("collectCandidateUrls on Twitch + Vimeo fixture pages", () => {
     ]);
   });
 
-  test("providers-embed: clips, collections, live events and lookalike hosts are all found but none are listed", () => {
+  const rejectedIframes = (doc: Document): string[] =>
+    [...doc.querySelectorAll("iframe")].slice(5).map((f) => new URL(f.getAttribute("src") ?? "", doc.baseURI).href);
+
+  test("providers-embed: clips, collections and Vimeo live events are found but not listed at all, synced or generic", () => {
     const doc = load("providers-embed", "http://localhost:4400/providers-embed.html", OWN_PAGES);
-    const rejected = [...doc.querySelectorAll("iframe")].slice(5).map((f) => new URL(f.getAttribute("src") ?? "", doc.baseURI).href);
-    expect(rejected).toHaveLength(10);
+    const rejected = rejectedIframes(doc).slice(0, 4);
+    expect(rejected).toEqual([
+      "https://clips.twitch.tv/embed?clip=AwkwardHelplessSalamanderSwiftRage&parent=localhost",
+      "https://www.twitch.tv/somechannel/clip/AwkwardHelplessSalamanderSwiftRage",
+      "https://player.twitch.tv/?collection=abcDEF123&video=1234567890&parent=localhost",
+      "https://vimeo.com/event/123456/embed",
+    ]);
     const found = collectCandidateUrls(doc);
     for (const url of rejected) {
       expect(found.urls).toContain(url);
-      expect(listEmbeds({ urls: [url], media: [url] }).filter(isSyncedEmbed)).toEqual([]);
+      expect(found.media).toContain(url);
+      expect(listEmbeds({ urls: [url], media: [url] })).toEqual([]);
+    }
+  });
+
+  test("providers-embed: lookalike and path-spoof hosts are never synced; public ones are generic under their own host, .example ones are dropped", () => {
+    const doc = load("providers-embed", "http://localhost:4400/providers-embed.html", OWN_PAGES);
+    const lookalikes = rejectedIframes(doc).slice(4);
+    const expected: Record<string, readonly GenericEmbed[]> = {
+      "https://player.twitch.tv.evil.example/?channel=somechannel": [],
+      "https://player-twitch.tv/?channel=somechannel": [generic("https://player-twitch.tv/?channel=somechannel")],
+      "https://evil.example/player.twitch.tv/?channel=somechannel": [],
+      "https://player.vimeo.com.evil.example/video/76979871": [],
+      "https://vimeo.co/76979871": [generic("https://vimeo.co/76979871")],
+      "https://evil.example/player.vimeo.com/video/76979871": [],
+    };
+    expect(lookalikes).toEqual(Object.keys(expected));
+    const found = collectCandidateUrls(doc);
+    for (const url of lookalikes) {
+      expect(found.urls).toContain(url);
+      expect(listEmbeds({ urls: [url], media: [url] })).toEqual([...(expected[url] ?? [])]);
     }
   });
 
@@ -112,8 +142,6 @@ describe("collectCandidateUrls on Twitch + Vimeo fixture pages", () => {
     });
   }
 });
-
-const generic = (url: string): GenericEmbed => ({ provider: "generic", host: new URL(url).hostname, url });
 
 describe("collectCandidateUrls on the generic-embeds fixture page", () => {
   const doc = (): Document => load("generic-embeds", "http://localhost:4400/generic-embeds.html", OWN_PAGES);
