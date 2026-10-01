@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture: other (not synced) embeds</title></head>
+<body>
+<h1>Generic embeds: only the public https ones are listed, after the synced ones</h1>
+<!-- Allowed: a public https host that is not a synced provider. -->
+<iframe id="allowed" src="https://videos.example.org/embed/42" width="320" height="180"></iframe>
+<!-- Rejected: IP literal. -->
+<iframe id="ip-literal" src="https://203.0.113.7/embed/42" width="320" height="180"></iframe>
+<!-- Rejected: javascript: URL. -->
+<iframe id="js-url" src="javascript:alert(1)" width="320" height="180"></iframe>
+<!-- Synced provider: listed once, as YouTube, before any generic embed. -->
+<iframe id="youtube" src="https://www.youtube.com/embed/aqz-KE-bpKQ" width="320" height="180"></iframe>
+<!-- Allowed: a direct <video src> and a <video><source>. -->
+<video id="video-src" src="https://cdn.example.org/clip.mp4"></video>
+<video id="video-source"><source src="https://cdn.example.org/other.webm" type="video/webm"></video>
+<!-- Rejected: relative to an http://localhost page, a blob: source, http:. -->
+<video id="video-local" src="/local.mp4"></video>
+<video id="video-blob" src="blob:https://videos.example.org/00000000-0000-0000-0000-000000000000"></video>
+<iframe id="http" src="http://videos.example.org/embed/7" width="320" height="180"></iframe>
+<!-- Duplicate of #allowed: listed once. -->
+<iframe id="allowed-again" src="https://videos.example.org/embed/42" width="320" height="180"></iframe>
+</body></html>

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Embed } from "@omega/shared";
+import type { Embed, GenericEmbed } from "@omega/shared";
 import { Window } from "happy-dom";
 import { listEmbeds } from "../src/embeds";
 import { collectCandidateUrls } from "../src/scan";
@@ -28,31 +28,31 @@ const EMBED: Embed = { provider: "youtube", videoId: "aqz-KE-bpKQ", url: "https:
 describe("collectCandidateUrls on fixture pages", () => {
   test("youtube-embed: finds the iframe", () => {
     const doc = load("youtube-embed", "http://localhost:4400/youtube-embed.html");
-    expect(collectCandidateUrls(doc)).toContain("https://www.youtube.com/embed/aqz-KE-bpKQ");
+    expect(collectCandidateUrls(doc).urls).toContain("https://www.youtube.com/embed/aqz-KE-bpKQ");
     expect(listEmbeds(collectCandidateUrls(doc))).toEqual([EMBED]);
   });
 
   test("watch-url: the page URL itself is the video", () => {
     const doc = load("watch-url", "https://www.youtube.com/watch?v=aqz-KE-bpKQ");
-    expect(collectCandidateUrls(doc)[0]).toBe("https://www.youtube.com/watch?v=aqz-KE-bpKQ");
+    expect(collectCandidateUrls(doc).urls[0]).toBe("https://www.youtube.com/watch?v=aqz-KE-bpKQ");
     expect(listEmbeds(collectCandidateUrls(doc))).toEqual([EMBED]);
   });
 
   test("non-allowlisted: nothing survives canonicalization", () => {
     const doc = load("non-allowlisted", "http://localhost:4400/non-allowlisted.html");
-    expect(collectCandidateUrls(doc).length).toBeGreaterThan(1);
+    expect(collectCandidateUrls(doc).urls.length).toBeGreaterThan(1);
     expect(listEmbeds(collectCandidateUrls(doc))).toEqual([]);
   });
 
   test("no-video: only the page URL", () => {
     const doc = load("no-video", "http://localhost:4400/no-video.html");
-    expect(collectCandidateUrls(doc)).toEqual(["http://localhost:4400/no-video.html"]);
+    expect(collectCandidateUrls(doc)).toEqual({ urls: ["http://localhost:4400/no-video.html"], media: [] });
   });
 
   test("also reads <embed src> and <object data>, resolved against the page", () => {
     const window = new Window({ url: "https://www.youtube.com/", settings: { disableIframePageLoading: true } });
     window.document.write('<embed src="/embed/aqz-KE-bpKQ"><object data="https://youtu.be/dQw4w9WgXcQ"></object>');
-    const urls = collectCandidateUrls(window.document as unknown as Document);
+    const { urls } = collectCandidateUrls(window.document as unknown as Document);
     expect(urls).toContain("https://www.youtube.com/embed/aqz-KE-bpKQ");
     expect(urls).toContain("https://youtu.be/dQw4w9WgXcQ");
   });
@@ -75,8 +75,8 @@ describe("collectCandidateUrls on Twitch + Vimeo fixture pages", () => {
     expect(rejected).toHaveLength(10);
     const found = collectCandidateUrls(doc);
     for (const url of rejected) {
-      expect(found).toContain(url);
-      expect(listEmbeds([url])).toEqual([]);
+      expect(found.urls).toContain(url);
+      expect(listEmbeds({ urls: [url], media: [url] })).toEqual([]);
     }
   });
 
@@ -99,8 +99,45 @@ describe("collectCandidateUrls on Twitch + Vimeo fixture pages", () => {
   for (const { url, expected } of watchPages) {
     test(`watch page ${url}`, () => {
       const doc = load("watch-page", url, OWN_PAGES);
-      expect(collectCandidateUrls(doc)).toEqual([url]);
+      expect(collectCandidateUrls(doc).urls).toEqual([url]);
       expect(listEmbeds(collectCandidateUrls(doc))).toEqual([...expected]);
     });
   }
+});
+
+const generic = (url: string): GenericEmbed => ({ provider: "generic", host: new URL(url).hostname, url });
+
+describe("collectCandidateUrls on the generic-embeds fixture page", () => {
+  const doc = (): Document => load("generic-embeds", "http://localhost:4400/generic-embeds.html", OWN_PAGES);
+
+  test("lists the synced embed first, then the allowed iframe and <video> sources once each; IP-literal, javascript:, http:, blob: and local are dropped", () => {
+    expect(listEmbeds(collectCandidateUrls(doc()))).toEqual([
+      EMBED,
+      generic("https://videos.example.org/embed/42"),
+      generic("https://cdn.example.org/clip.mp4"),
+      generic("https://cdn.example.org/other.webm"),
+    ]);
+  });
+
+  test("media holds iframe, <video src> and <video><source src>, resolved against the page; the page URL is not media", () => {
+    const { media } = collectCandidateUrls(doc());
+    expect(media).toContain("https://203.0.113.7/embed/42");
+    expect(media).toContain("javascript:alert(1)");
+    expect(media).toContain("https://cdn.example.org/other.webm");
+    expect(media).toContain("http://localhost:4400/local.mp4");
+    expect(media).not.toContain("http://localhost:4400/generic-embeds.html");
+  });
+
+  test("<embed> and <object> are synced candidates only, never generic media", () => {
+    const window = new Window({ url: "https://news.example.org/", settings: { disableIframePageLoading: true } });
+    window.document.write('<embed src="https://videos.example.org/a.swf"><object data="https://videos.example.org/b.pdf"></object>');
+    const scanned = collectCandidateUrls(window.document as unknown as Document);
+    expect(scanned.media).toEqual([]);
+    expect(listEmbeds(scanned)).toEqual([]);
+  });
+
+  test("the non-allowlisted e2e page still lists nothing", () => {
+    const page = load("non-allowlisted", "http://localhost:4400/non-allowlisted.html");
+    expect(listEmbeds(collectCandidateUrls(page))).toEqual([]);
+  });
 });
