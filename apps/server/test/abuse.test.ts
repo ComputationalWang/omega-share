@@ -384,6 +384,19 @@ describe("M3 nickname uniqueness (threat model §3, ADR 0016 §2)", () => {
     expect((await copycat.closed).code).toBe(CLOSE_CODES.JOIN_TIMEOUT);
   });
 
+  test("[Name impersonation] a UTS #39 confusable of a member's name gets nickname_taken, a different name joins (ADR 0023)", async () => {
+    t = start();
+    await join(t, "Alice");
+    const copycat = await open(t.ws());
+    // "Аӏісе": all Cyrillic, escaped so the test reads unambiguously.
+    for (const nickname of ["\u0410\u04cf\u0456\u0441\u0435", "A1ice"]) {
+      copycat.send({ type: "join", nickname, avatar: 1 });
+      expect((await copycat.next("error")).code).toBe("nickname_taken");
+    }
+    copycat.send({ type: "join", nickname: "Alicia", avatar: 1 });
+    await copycat.next("snapshot");
+  });
+
   test("[Name impersonation] the name is free again once its member leaves", async () => {
     t = start();
     const alice = await join(t, "alice");
