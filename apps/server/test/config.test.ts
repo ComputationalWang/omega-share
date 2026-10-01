@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseConfig } from "../src/config";
+import { DEFAULT_DB_PATH, parseConfig } from "../src/config";
 
 const dist = (): string => {
   const dir = mkdtempSync(join(tmpdir(), "omega-dist-"));
@@ -20,6 +20,7 @@ describe("parseConfig (ADR 0015 §3)", () => {
       trustProxy: false,
       staticDir: null,
       extensionIds: null,
+      dbPath: DEFAULT_DB_PATH,
     });
   });
 
@@ -41,6 +42,7 @@ describe("parseConfig (ADR 0015 §3)", () => {
       trustProxy: true,
       staticDir,
       extensionIds: ["abcdefghijklmnopabcdefghijklmnop", "ponmlkjihgfedcbaponmlkjihgfedcba"],
+      dbPath: DEFAULT_DB_PATH,
     });
   });
 
@@ -72,6 +74,7 @@ describe("parseConfig (ADR 0015 §3)", () => {
     ["STATIC_DIR", "/nonexistent/omega-dist"],
     ["EXTENSION_IDS", "not-an-id"],
     ["HOST", ""],
+    ["DB_PATH", ""],
   ])("refuses %s=%p", (key, value) => {
     expect(() => parseConfig({ [key]: value })).toThrow(key);
   });
@@ -84,6 +87,37 @@ describe("parseConfig (ADR 0015 §3)", () => {
     for (const o of ["http://127.0.0.1:5173", "http://[::1]:5173", "https://omega.example"]) {
       expect(parseConfig({ SITE_ORIGIN: o }).siteOrigin).toBe(o);
     }
+  });
+});
+
+describe("DB_PATH (research D5)", () => {
+  test("defaults to apps/server/data/omega.db, outside any static dir", () => {
+    expect(DEFAULT_DB_PATH).toBe(join(import.meta.dir, "../data/omega.db"));
+  });
+
+  test("takes :memory: as is, and resolves a relative path", () => {
+    expect(parseConfig({ DB_PATH: ":memory:" }).dbPath).toBe(":memory:");
+    expect(parseConfig({ DB_PATH: "omega.db" }).dbPath).toBe(join(process.cwd(), "omega.db"));
+  });
+
+  test("refuses a DB_PATH inside STATIC_DIR, however it is spelled", () => {
+    const staticDir = dist();
+    for (const p of [join(staticDir, "omega.db"), join(staticDir, "assets", "omega.db"), `${staticDir}/./x/../omega.db`]) {
+      expect(() => parseConfig({ STATIC_DIR: staticDir, DB_PATH: p })).toThrow("DB_PATH");
+    }
+  });
+
+  test("refuses a DB_PATH reached through a symlink into STATIC_DIR", () => {
+    const staticDir = dist();
+    const link = join(mkdtempSync(join(tmpdir(), "omega-link-")), "site");
+    symlinkSync(staticDir, link);
+    expect(() => parseConfig({ STATIC_DIR: staticDir, DB_PATH: join(link, "omega.db") })).toThrow("DB_PATH");
+  });
+
+  test("a sibling directory that only shares the prefix is fine", () => {
+    const staticDir = dist();
+    const p = `${staticDir}-data/omega.db`;
+    expect(parseConfig({ STATIC_DIR: staticDir, DB_PATH: p }).dbPath).toBe(p);
   });
 });
 
