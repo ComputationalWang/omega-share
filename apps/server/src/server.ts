@@ -1,8 +1,9 @@
 import type { Server } from "bun";
-import { DEFAULT_ROOM_ID, type RoomId, type ShareToken } from "@omega/shared";
+import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type Embed, type RoomId, type ShareToken } from "@omega/shared";
 import { createHttpApp, plain, type ShareGrant } from "./http";
 import { clientKey, monotonic, type Clock } from "./rate-limit";
 import { Room } from "./room";
+import type { RoomStore } from "./store/rooms";
 import { createWs, type ConnData } from "./ws";
 
 export interface ServerOptions {
@@ -25,12 +26,35 @@ export interface ServerOptions {
   maxConnectionsPerIp?: number;
   /** Open WebSockets allowed in total, whatever their clients. Default 200. */
   maxConnections?: number;
-  /** Rooms that exist. Default: just the lobby. */
+  /** Rooms that exist. Default: just the lobby. With a store, these are seeded if missing. */
   rooms?: readonly RoomId[];
+  /**
+   * Where rooms, layouts and last embeds persist (OME-280). Read once at boot, written only on a
+   * share; never on the relay path. Absent: rooms live in memory with DEFAULT_LAYOUT.
+   */
+  store?: RoomPersistence | null;
   /** Clock for the WS limiters (tests inject one so a refill needs no sleep). Default: monotonic. */
   now?: Clock;
   /** `member-status` coalescing interval (ADR 0019 §3). Default 1 s; tests shorten it. */
   statusIntervalMs?: number;
+}
+
+/** The slice of RoomStore the server uses. */
+export type RoomPersistence = Pick<RoomStore, "listRooms" | "createRoom" | "setEmbed">;
+
+/** Every stored room, plus the configured ones the store lacks, seeded with DEFAULT_LAYOUT. */
+function loadRooms(configured: readonly RoomId[], store: RoomPersistence | null): Map<string, Room> {
+  const rooms = new Map<string, Room>();
+  if (store !== null) {
+    for (const r of store.listRooms()) rooms.set(r.id, new Room(r.id, { layout: r.layout, embed: r.embed }));
+  }
+  const now = Date.now();
+  for (const id of configured) {
+    if (rooms.has(id)) continue;
+    store?.createRoom({ id, title: "", createdAt: now, layout: DEFAULT_LAYOUT });
+    rooms.set(id, new Room(id));
+  }
+  return rooms;
 }
 
 const WS_PATH = /^\/rooms\/([^/]+)\/ws$/;
@@ -42,7 +66,8 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   const maxConnectionsPerIp = opts.maxConnectionsPerIp ?? (trustProxy ? 10 : 50);
   const maxConnections = opts.maxConnections ?? 200;
   let connections = 0;
-  const rooms = new Map<string, Room>((opts.rooms ?? [DEFAULT_ROOM_ID]).map((id) => [id, new Room(id)]));
+  const store = opts.store ?? null;
+  const rooms = loadRooms(opts.rooms ?? [DEFAULT_ROOM_ID], store);
   const connectionsPerIp = new Map<string, number>();
   const shareGrants = new Map<ShareToken, ShareGrant>();
 
@@ -65,7 +90,11 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     server.publish(topic, data);
   };
 
-  const app = createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publish, staticDir: opts.staticDir ?? null });
+  const persistEmbed = (room: Room, embed: Embed): void => {
+    store?.setEmbed(room.id, embed);
+  };
+
+  const app = createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publish, persistEmbed, staticDir: opts.staticDir ?? null });
   const ws = createWs({
     joinTimeoutMs: opts.joinTimeoutMs ?? 10_000,
     shareGrants,
