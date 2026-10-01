@@ -16,7 +16,8 @@ import { PLAYERS, createPlayerMounter } from "./player/registry";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
 import { catchingUp, initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
-import { tvFrame, type TvFrame } from "./tv";
+import { genericFrame, tvFrame, type TvFrame } from "./tv";
+import { createGenericTv } from "./controls/generic-tv";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -78,7 +79,7 @@ function browserSocket(url: string): SocketLike {
   return s;
 }
 
-/** The synced embed, or null. Until the generic tier's load card lands (ADR 0024, OME-292), a generic embed shows the empty TV. */
+/** What the sync loop plays: the synced embed, or null (a generic embed is never synced, ADR 0024). */
 function syncedOnly(e: AnyEmbed | null | undefined): Embed | null {
   return e != null && isSyncedEmbed(e) ? e : null;
 }
@@ -425,11 +426,17 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
    * background tab, and the old video must not keep playing (unsynced) after the controller dropped it.
    */
   const syncTv = (s: ViewState): void => {
-    const embed = syncedOnly(s.room?.embed);
+    const any = s.room?.embed ?? null;
+    if (any !== null && !isSyncedEmbed(any)) {
+      showGeneric(any);
+      return;
+    }
+    const embed = syncedOnly(any);
     const tf = tvFrame(embed);
     const nextKey = tf?.key ?? null;
     if (nextKey !== tvKey) {
       tvKey = nextKey;
+      showSyncChrome(true);
       const provider = tf === null ? null : (embed?.provider ?? null);
       if (provider !== tvProvider) {
         tvProvider = provider;
@@ -455,6 +462,37 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         mountPlayer(embed, tf, box, null);
       }
     }
+  };
+
+  /** The sync controls and your volume belong to the synced tier; the generic tier's strip takes their slot. */
+  const showSyncChrome = (synced: boolean): void => {
+    if (synced && controls.firstChild !== transport.root) controls.replaceChildren(transport.root);
+    personal.root.hidden = !synced;
+  };
+
+  /** A generic embed (ADR 0024 §3): the load card, and after Load one sandboxed iframe. No player, no sync loop. */
+  const showGeneric = (embed: unknown): void => {
+    const gf = genericFrame(embed);
+    const nextKey = gf === null ? null : `generic:${gf.key}`;
+    if (nextKey === tvKey) return;
+    tvKey = nextKey;
+    tvScreen = null;
+    syncNotice.hidden = true;
+    tvHint.hidden = true;
+    if (tvProvider !== null) {
+      tvProvider = null;
+      fit();
+    }
+    showSyncChrome(false);
+    if (gf === null) {
+      // Our own host or a malformed embed: render nothing from it.
+      controls.replaceChildren();
+      tv.replaceChildren(tvEmpty);
+      return;
+    }
+    const g = createGenericTv(gf);
+    tv.replaceChildren(g.screen);
+    controls.replaceChildren(g.strip);
   };
 
   const scheduleExpiry = (): void => {
