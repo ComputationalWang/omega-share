@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import * as v from "valibot";
-import { MAX_ROOM_MEMBERS, RoomStateSchema, SEAT_COUNT, nicknameKey, parseServerMessage } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, RoomStateSchema, SEAT_COUNT, parseServerMessage } from "@omega/shared";
+import { nicknameKey } from "@omega/shared/confusables";
 import { Client, start, type TestServer } from "./helpers";
 
 // [Malformed frames] threat model §8: a seeded PRNG sends 10k frames. Invariants: the server never
