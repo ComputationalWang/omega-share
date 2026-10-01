@@ -1,6 +1,6 @@
 import type { Server } from "bun";
 import { DEFAULT_ROOM_ID, type RoomId, type ShareToken } from "@omega/shared";
-import { createHttpApp, plain, type ShareGrant } from "./http";
+import { MAX_HTTP_IN_FLIGHT, createHttpApp, createHttpGate, plain, type ShareGrant } from "./http";
 import { clientKey, monotonic, type Clock } from "./rate-limit";
 import { Room } from "./room";
 import { createWs, type ConnData } from "./ws";
@@ -25,9 +25,11 @@ export interface ServerOptions {
   maxConnectionsPerIp?: number;
   /** Open WebSockets allowed in total, whatever their clients. Default 200. */
   maxConnections?: number;
+  /** HTTP requests handled at once, whatever their clients; more get 503. Default 256. */
+  maxHttpInFlight?: number;
   /** Rooms that exist. Default: just the lobby. */
   rooms?: readonly RoomId[];
-  /** Clock for the WS limiters (tests inject one so a refill needs no sleep). Default: monotonic. */
+  /** Clock for the WS and HTTP limiters (tests inject one so a refill needs no sleep). Default: monotonic. */
   now?: Clock;
   /** `member-status` coalescing interval (ADR 0019 §3). Default 1 s; tests shorten it. */
   statusIntervalMs?: number;
@@ -66,6 +68,10 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   };
 
   const app = createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publish, staticDir: opts.staticDir ?? null });
+  const http = createHttpGate((req) => app.fetch(req), {
+    now: opts.now ?? monotonic,
+    maxInFlight: opts.maxHttpInFlight ?? MAX_HTTP_IN_FLIGHT,
+  });
   const ws = createWs({
     joinTimeoutMs: opts.joinTimeoutMs ?? 10_000,
     shareGrants,
@@ -90,9 +96,9 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       // Not a ShareResponse: the contract has no code for it, and only a hostile page can trigger it.
       if (!originOk(req)) return plain(403, "forbidden origin");
       // Cheap test first so ordinary HTTP requests skip URL parsing.
-      if (!req.url.includes("/ws")) return app.fetch(req);
+      if (!req.url.includes("/ws")) return http(req, ipOf(req));
       const match = WS_PATH.exec(new URL(req.url).pathname);
-      if (match === null) return app.fetch(req);
+      if (match === null) return http(req, ipOf(req));
       const room = rooms.get(match[1] ?? "");
       if (room === undefined) return plain(404, "unknown room");
       if (connections >= maxConnections) return plain(503, "server full");

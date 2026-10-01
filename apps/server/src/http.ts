@@ -15,7 +15,7 @@ import {
   type ShareToken,
 } from "@omega/shared";
 import { SECURITY_HEADERS } from "./headers";
-import { KeyedLimiter, TokenBucket, readBodyCapped } from "./rate-limit";
+import { KeyedLimiter, TokenBucket, isLoopbackKey, readBodyCapped, type Clock } from "./rate-limit";
 import type { Room } from "./room";
 import { mountSite } from "./static";
 
@@ -33,7 +33,42 @@ const GLOBAL_SHARE_PER_SECOND = 2;
 /** Per room: 2 switches at once, then one every 10 s (threat model §6; any member may share until B1). */
 const ROOM_SHARE_BURST = 2;
 const ROOM_SHARE_PER_SECOND = 0.1;
+/**
+ * Per client key, every HTTP route (threat model §10). A cold page load is about 30 requests (index, JS
+ * chunks, CSS, atlas, source maps with devtools open, `/rooms`), so a burst of 120 covers a load and a few
+ * reloads; 20/s sustained is more than any person browsing needs.
+ */
+const HTTP_BURST = 120;
+const HTTP_PER_SECOND = 20;
+/** HTTP requests being handled at once, whatever their keys. Default for `ServerOptions.maxHttpInFlight`. */
+export const MAX_HTTP_IN_FLIGHT = 256;
 export const plain = (status: number, text: string): Response => new Response(text, { status, headers: SECURITY_HEADERS });
+const withRetryAfter = (res: Response, ms: number): Response => {
+  res.headers.set("retry-after", String(Math.max(1, Math.ceil(ms / 1000))));
+  return res;
+};
+
+/**
+ * Wraps the HTTP app (not WebSocket upgrades, which have their own limiter, ADR 0018) in a per-key request
+ * bucket (429) and a global in-flight cap (503). Loopback keys skip the per-key bucket, as in ADR 0018 §3.
+ */
+export function createHttpGate(
+  handle: (req: Request) => Response | Promise<Response>,
+  { now, maxInFlight }: { now: Clock; maxInFlight: number },
+): (req: Request, key: string) => Promise<Response> {
+  const requests = new KeyedLimiter(HTTP_BURST, HTTP_PER_SECOND, 1024, now);
+  let inFlight = 0;
+  return async (req, key) => {
+    if (!isLoopbackKey(key) && !requests.take(key)) return withRetryAfter(plain(429, "too many requests"), requests.retryAfterMs(key));
+    if (inFlight >= maxInFlight) return withRetryAfter(plain(503, "server busy"), 1000);
+    inFlight++;
+    try {
+      return await handle(req);
+    } finally {
+      inFlight--;
+    }
+  };
+}
 
 const encode = (msg: ServerMessage): string => JSON.stringify(msg);
 
