@@ -33,9 +33,12 @@ export type FurnitureManifest = v.InferOutput<typeof FurnitureManifestSchema>;
 /** `meta.omega.layers` (back 2, avatar 3, front 4); fixed by the art contract, so a client without the atlas sorts the same. */
 const AVATAR_LAYER = 3;
 
-/** Depth for zIndex: by floor y, then x, then layer (assets/README.md). Stage px are whole numbers well inside 4096. */
-function depth(x: number, y: number, layer: number): number {
-  return (Math.round(y) * 4096 + Math.round(x) + 1024) * 8 + layer;
+/**
+ * Depth for zIndex: by floor y, then x, then layer (assets/README.md), then `near` (which sitter on a multi-seat piece:
+ * sitters share their piece's sort point, so the nearer one breaks the tie). Stage px are whole numbers well inside 4096.
+ */
+function depth(x: number, y: number, layer: number, near = 0): number {
+  return ((Math.round(y) * 4096 + Math.round(x) + 1024) * 8 + layer) * 8 + near;
 }
 
 /** Depth of an avatar standing (or sitting on a placeholder seat) at `p`. */
@@ -121,7 +124,9 @@ export function sceneOf(layout: RoomLayout, manifest: FurnitureManifest | null):
     if (!spec.seats) continue;
     for (const [c, r] of footprintCells(f)) {
       const at = cellCenter(c, r);
-      const z = drawn === null ? standDepth(at) : depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers.avatar);
+      // Cells further from the anchor are nearer the camera (+col and +row both step down the screen).
+      const near = c - f.col + (r - f.row);
+      const z = drawn === null ? standDepth(at) : depth(anchor.x + drawn.sort.x, anchor.y + drawn.sort.y, drawn.layers.avatar, near);
       seats.push({ at, z, marker: f.kind === "armchair" });
     }
   }
