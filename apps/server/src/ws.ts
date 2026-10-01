@@ -38,14 +38,12 @@ export interface ConnData {
   status: StatusRelay;
 }
 interface StatusRelay {
-  /** Last `catching` published for the member; a fresh member starts at false. */
-  sent: boolean;
   /** When it was published (`now` ms); -Infinity before the first. */
   at: number;
   /** The trailing publish, while one is pending. */
   timer: Timer | null;
 }
-const freshStatus = (): StatusRelay => ({ sent: false, at: Number.NEGATIVE_INFINITY, timer: null });
+const freshStatus = (): StatusRelay => ({ at: Number.NEGATIVE_INFINITY, timer: null });
 type Conn = ServerWebSocket<ConnData>;
 
 // Rates are server-private (ADR 0016 §1); the numbers are the threat model's §6.
@@ -155,9 +153,9 @@ export function createWs({
   const flushStatus = (ws: Conn, memberId: MemberId): void => {
     const status = ws.data.status;
     status.timer = null;
-    const catching = ws.data.room.isCatching(memberId);
-    if (catching === status.sent) return;
-    status.sent = catching;
+    // The room keeps what was last published, so a server-side clear (embed switch) is seen here too.
+    const catching = ws.data.room.takeCatchingChange(memberId);
+    if (catching === null) return;
     status.at = now();
     publish(ws.data.room.topic, encode({ type: "member-status", memberId, catching }));
   };
