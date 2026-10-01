@@ -21,14 +21,17 @@ const HOSTILE = `<!doctype html><title>hostile embed</title>
 <a id="top-link" href="https://${EVIL}/link-top" target="_top">top</a>
 <a id="popup-link" href="https://${EVIL}/link-popup" target="_blank">popup</a>
 <ul id="log"></ul>
+<button id="escape">escape</button>
 <script>
   const log = (k, v) => { const li = document.createElement("li"); li.dataset.k = k; li.textContent = v; document.getElementById("log").append(li); };
   const attempt = (k, f) => { try { log(k, String(f())); } catch (e) { log(k, "threw " + e.name); } };
-  attempt("top-href", () => { top.location.href = "https://${EVIL}/script-top"; return "no throw"; });
-  attempt("top-assign", () => { top.location.assign("https://${EVIL}/script-assign"); return "no throw"; });
-  attempt("open", () => (window.open("https://${EVIL}/script-popup") === null ? "null" : "window"));
-  attempt("parent-dom", () => parent.document.title);
-  log("done", "yes");
+  // Run on a click, so each attempt has a user activation: without the sandbox, a cross-origin frame may then
+  // navigate the top page and open a popup, so only the sandbox can stop these.
+  document.getElementById("escape").addEventListener("click", () => {
+    attempt("open", () => (window.open("https://${EVIL}/script-popup") === null ? "null" : "window"));
+    attempt("top-href", () => { top.location.href = "https://${EVIL}/script-top"; return "no throw"; });
+    log("done", "yes");
+  });
 </script>`;
 
 /** Requests to `host` made by `page` (or its frames), from Playwright's request events: the network capture. */
@@ -103,6 +106,9 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     expect(routed.length).toBe(routedBeforeShare);
     const resources = await room.evaluate((h) => performance.getEntriesByType("resource").map((e) => e.name).filter((n) => n.includes(h)), HOST);
     expect(resources).toEqual([]);
+    // Resource hints never show as requests: none may name the host either (ADR 0024 §3).
+    const hints = await room.evaluate((h) => [...document.querySelectorAll("link")].filter((l) => l.href.includes(h)).map((l) => l.outerHTML), HOST);
+    expect(hints).toEqual([]);
     await info.attach("room-card-before-load", { body: await room.screenshot(), contentType: "image/png" });
 
     await room.getByTestId("generic-load").click();
@@ -119,12 +125,15 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     expect(Object.keys(attrs).sort()).toEqual(["allow", "data-testid", "referrerpolicy", "sandbox", "src", "title"]);
     expect(roomHits).toEqual([EMBED_URL]);
 
-    // The hostile embed ran its escape attempts; now click its links too (a real user activation inside the frame).
+    // The hostile embed tries every way out, each with a real user activation inside the frame: script, then links.
     const inner = room.frameLocator(site.sharedVideo);
-    await expect(inner.locator('[data-k="done"]')).toHaveText("yes");
+    await expect(inner.locator("#ready")).toHaveText("generic fixture");
     const pagesBefore = context.pages().length;
+    await inner.locator("#escape").click();
+    await expect(inner.locator('[data-k="done"]')).toHaveText("yes");
     await inner.locator("#top-link").click();
     await inner.locator("#popup-link").click();
+    // Navigations and popups start asynchronously: give a successful escape time to show.
     await room.waitForTimeout(1_000);
     const log = await inner.locator("#log li").evaluateAll((lis) => lis.map((li) => [li.getAttribute("data-k"), li.textContent]));
     await info.attach("hostile-embed-log.json", { body: JSON.stringify(log, null, 2), contentType: "application/json" });
@@ -133,7 +142,8 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     await expect(room.locator(site.room)).toBeVisible();
     expect(context.pages().length).toBe(pagesBefore);
     expect(evil).toEqual([]);
-    expect(Object.fromEntries(log)).toMatchObject({ open: "null", "parent-dom": "threw SecurityError" });
+    // window.open is refused (null) by the sandbox even with a user activation.
+    expect(Object.fromEntries(log)).toMatchObject({ open: "null" });
     // The frame itself is still the embed: a blocked top navigation must not have navigated it either.
     await expect(inner.locator("#ready")).toHaveText("generic fixture");
     await expect(room.getByTestId("not-synced")).toBeVisible();

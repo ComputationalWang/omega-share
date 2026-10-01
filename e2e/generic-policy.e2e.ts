@@ -94,17 +94,19 @@ function join(port: number, nickname: string): Promise<Member> {
   });
 }
 
-/** POSTs a share, waiting out the share limiters (429) so every URL gets a real verdict. */
+/** POSTs a share, waiting out the share limiters (429, for the `retryAfterMs` they name) so every URL gets a real verdict. */
 async function share(request: APIRequestContext, port: number, token: string, url: string): Promise<{ status: number; body: unknown }> {
   const post = () => request.post(`http://127.0.0.1:${String(port)}/rooms/${DEFAULT_ROOM_ID}/share`, { data: { url }, headers: { authorization: `Bearer ${token}` } });
-  let res = await post();
-  await expect
-    .poll(async () => {
-      if (res.status() === 429) res = await post();
-      return res.status();
-    }, { timeout: 30_000, intervals: [1_000] })
-    .not.toBe(429);
-  return { status: res.status(), body: await res.json() };
+  const deadline = Date.now() + 30_000;
+  for (;;) {
+    const res = await post();
+    const body: unknown = await res.json();
+    if (res.status() !== 429) return { status: res.status(), body };
+    if (Date.now() > deadline) throw new Error(`still rate limited after 30 s: ${url}`);
+    const error: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "error") : null;
+    const wait: unknown = typeof error === "object" && error !== null ? Reflect.get(error, "retryAfterMs") : null;
+    await new Promise((r) => setTimeout(r, (typeof wait === "number" ? wait : 1_000) + 50));
+  }
 }
 
 const UNSUPPORTED = { ok: false, error: { code: "unsupported_url" } };
@@ -125,7 +127,17 @@ const REFUSED: readonly (readonly [string, string])[] = [
   ["localhost subdomain", "https://video.localhost/embed/42"],
   [".local", "https://nas.local/embed/42"],
   [".internal", "https://media.corp.internal/embed/42"],
+  ["non-default port", "https://video.omega-fixture.org:8443/embed/42"],
+  ["IPv4 in hex", "https://0x7f.1/embed/42"],
+  ["IPv4-mapped IPv6", "https://[::ffff:127.0.0.1]/embed/42"],
+  [".lan", "https://tv.lan/embed/42"],
+  [".home.arpa", "https://nas.home.arpa/embed/42"],
+  ["IP-in-DNS (nip.io)", "https://127.0.0.1.nip.io/embed/42"],
+  ["a synced provider's host that isn't a valid player", "https://www.youtube.com/feed/trending"],
+  ["a Twitch clip", "https://clips.twitch.tv/SomeClip"],
   ["our own host", `${SITE_ORIGIN}/r/lobby`],
+  ["our own host, uppercase", "https://WATCH.Omega-Fixture.org/r/lobby"],
+  ["our own host, trailing dot", "https://watch.omega-fixture.org./r/lobby"],
   ["our own host's subdomain", "https://cdn.watch.omega-fixture.org/v.mp4"],
   ["denylisted host", `https://${DENIED}/embed/42`],
   ["denylisted host's subdomain", `https://player.${DENIED}/embed/42`],
@@ -187,7 +199,15 @@ test.describe("generic tier policy on real servers", () => {
   });
 
   test("CSP frame-src: https: with the switch on, only the three provider origins with it off", async ({ request }, info) => {
-    const csp = async (port: number): Promise<string> => (await request.get(`http://127.0.0.1:${String(port)}/healthz`)).headers()["content-security-policy"] ?? "";
+    // Every route carries the same header: the health check, the site's paths (404 without STATIC_DIR) and the API.
+    const csp = async (port: number): Promise<string> => {
+      const policies = new Set<string>();
+      for (const path of ["/healthz", "/", `/r/${DEFAULT_ROOM_ID}`, `/rooms/${DEFAULT_ROOM_ID}/share`]) {
+        policies.add((await request.get(`http://127.0.0.1:${String(port)}${path}`)).headers()["content-security-policy"] ?? "");
+      }
+      expect(policies.size, `one policy on every route of :${String(port)}`).toBe(1);
+      return [...policies][0] ?? "";
+    };
     const [withGeneric, syncedOnly] = [await csp(ON_PORT), await csp(OFF_PORT)];
     await info.attach("csp-headers.json", { body: JSON.stringify({ on: withGeneric, off: syncedOnly }, null, 2), contentType: "application/json" });
     const frameSrc = (policy: string) => policy.split(";").map((d) => d.trim()).filter((d) => d.startsWith("frame-src "));

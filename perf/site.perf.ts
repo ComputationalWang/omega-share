@@ -98,13 +98,22 @@ test("site: p95 frame time with 8 avatars and a Vimeo video playing", async ({ b
 });
 
 // OME-294: the same budget with a generic embed (ADR 0024) loaded in every client. The host is routed to a local page
-// that repaints every frame (a stand-in for a playing video); there is no playback to wait for, the tier isn't synced.
+// that repaints every frame (a stand-in for a playing video): a compositor animation plus a full canvas redraw on its
+// own main thread each rAF. There is no playback to wait for, the tier isn't synced.
 const GENERIC_HOST = "video.omega-fixture.org";
 const GENERIC_PAGE = `<!doctype html><title>generic</title><style>
   html, body { margin: 0; height: 100%; background: #111; overflow: hidden; }
   div { width: 40%; height: 40%; background: #4a8; animation: m 1s linear infinite alternate; }
   @keyframes m { from { transform: translateX(0) rotate(0); } to { transform: translateX(120%) rotate(180deg); } }
-</style><div></div>`;
+</style><div></div><canvas width="640" height="360"></canvas><script>
+  const g = document.querySelector("canvas").getContext("2d");
+  const draw = (t) => {
+    for (let i = 0; i < 64; i++) { g.fillStyle = "hsl(" + ((t / 10 + i * 5) % 360) + ",60%,50%)"; g.fillRect((i % 8) * 80, Math.floor(i / 8) * 45, 80, 45); }
+    window.__genericFrames = (window.__genericFrames || 0) + 1;
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
+</script>`;
 
 test("site: p95 frame time with 8 avatars and a generic embed loaded", async ({ browser, request }) => {
   if (!available.web || !available.server) {
@@ -134,8 +143,13 @@ test("site: p95 frame time with 8 avatars and a generic embed loaded", async ({ 
       await c.page.getByTestId("generic-load").click({ timeout: 15_000 });
       await expect(c.page.frameLocator(site.sharedVideo).locator("div")).toBeVisible({ timeout: 15_000 });
     }
+    const inner = observer.page.frameLocator(site.sharedVideo);
+    const framesIn = () => inner.locator("canvas").evaluate(() => Number(Reflect.get(window, "__genericFrames") ?? 0));
+    const before = await framesIn();
     const w = await tracedFrames(browser, observer.page, 5000);
     expect(w.samples.length).toBeGreaterThan(0);
+    // The embed kept drawing while we measured: the cost of a live third-party frame is in the window.
+    expect(await framesIn()).toBeGreaterThan(before + 100);
     recordFrameRows("generic", w, "generic embed loaded (local page repainting every frame)");
   } finally {
     await leaveAll(clients);
