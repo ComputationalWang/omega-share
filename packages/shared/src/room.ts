@@ -52,15 +52,6 @@ export function normalizeNickname(input: unknown): Nickname | null {
   return result.success ? result.output : null;
 }
 
-/**
- * M3 uniqueness key: case-, width- and accent-insensitive, so "José" and "jose" collide.
- * Superseded by `nicknameKey` from `@omega/shared/confusables` (UTS #39 skeleton,
- * ADR 0023); kept until the server switches. It misses "A1ice" and all-Cyrillic twins.
- */
-export function nicknameKey(nickname: Nickname): string {
-  return nickname.normalize("NFKC").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
-}
-
 export const AvatarSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(AVATAR_COUNT - 1));
 export type Avatar = v.InferOutput<typeof AvatarSchema>;
 
