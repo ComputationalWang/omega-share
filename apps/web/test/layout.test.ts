@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { SEATS, STAGE_H, STAGE_W, STANDING, SYSLINE_RAIL, bubbleRect, roomLayout, stageToPage, tagRect, type Rect } from "../src/layout";
+import { DEFAULT_LAYOUT } from "@omega/shared";
+import { seatPoints, standingPoints } from "../src/furniture";
+import { STAGE_H, STAGE_W, SYSLINE_RAIL, bubbleRect, roomLayout, stageToPage, tagRect, type Rect } from "../src/layout";
+
+const SEATS = seatPoints(DEFAULT_LAYOUT);
+const STANDING = standingPoints(DEFAULT_LAYOUT);
 
 const intersects = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const inside = (a: Rect, b: Rect): boolean => a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h;
