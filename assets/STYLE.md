@@ -183,6 +183,30 @@ Three ways to tell someone "you hit a limit" were weighed first:
 - **Popup key icon:** drawn twice, at 16 px and 32 px (a 2 px arrow at 16, a shaded 4 px one at 32, same wide gap, nothing inside so it can't read as a target), never upscaled, and outlined so it works on the popup's plain white.
 - No new colours: still the 67.
 
+## Furniture catalogue (set g, OME-261)
+Three directions were weighed before any pixels:
+
+| | Direction | Verdict |
+|---|---|---|
+| A | Mid-century showroom: tapered legs, teak, one shape per piece in many colours | Rejected: tidy, but every piece looks like the same box and the room loses its cosy mess. |
+| B | Retro arcade lounge: neon trims, chrome, glossy vinyl | Rejected: it needs bright cold colours, and the TV's glow must stay the one cold light. |
+| **C** | **"Living room after dark":** soft, worn-in pieces in the room's own materials (velvet, linen, tan leather, honey wood, brass) plus a few watch-night props (popcorn cart, snack table) | **Chosen.** It extends set (b) instead of competing with it, and the props say "movie night" without lettering or logos. |
+
+- **Same construction as set (b):** every piece is modelled once as solids in its own frame and ray-cast into each facing, so light is
+  top-left on all four (never mirrored light). Curved things (beanbag, lamp shade, pots, table tops, the globe) use an ellipsoid or cylinder
+  in the same caster: a curved pixel takes the tone of the way its surface faces, so they shade like the boxes.
+- **Outline, palette, density:** 1 px plum outline around each piece, no inner outlines (parts separate by the shade tone), 1 art px = 1 screen px,
+  indexed PNG-8 with 1-bit alpha. **No new colours:** still the 67.
+- **Seats match the room's:** every sitting surface is exactly 8 px above its seat tile's centre, and the backrest/near arm is a separate
+  `front` layer that draws over the sitter, so set (a)'s `sit` frames drop straight in. Two seats per sofa, one per chair.
+- **Silhouettes differ at 1×:** club sofa (tall tufted back, arms, legs), lounge couch (low, deep, no legs, cushions above the frame line),
+  wingback (tallest back, stepped wings), beanbag (round, no corners). The lamp's arc, the monstera's split leaves and the cart's striped awning
+  read at 1× without colour.
+- **Colour variants avoid the avatars' main hues on big seats** (mustard, teal, rust and lilac belong to Juno, Pip, Mo and Kiki), so a sitter
+  never melts into the cushion: velvet/navy sofas, cream/olive couches, ginger leather, blush/navy beanbags. Small props may use them (a teal pot, a rust cart).
+- **Original, no lettering:** the prints are a dusk mountain range and a moonlit tide with a sailboat. The cart has no sign; the popcorn says it.
+- **Depth:** no depth-sorted piece is longer than 2 tiles, so centre sorting stays exact (see `README.md`). Long things (the 3×2 kilim) live on the floor layer.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -193,6 +217,7 @@ Three ways to tell someone "you hit a limit" were weighed first:
 | (d) motion (lazy, M5) | `avatars/motion.png` + `motion.json` (gz) | 14 423 + 3 788 ≈ **18.2 KB** |
 | M1b TV frame | 2 slices + CSS; `tv/0` shrinks to the console + projector | UI ≈ +1.7 KB, room ≈ −0.6 KB |
 | (f) safety states (M3) | added to the (c) files: `ui.png` + `ui.json` (gz) + 6 slices + `reference.css` (gz) + 2 popup PNGs | **≈ 4.1 KB** |
-| total art budget | | ≤ 300 KB (≈ 58.4 KB used) |
+| (g) furniture (lazy, M4/M5) | `furniture/furniture.png` + `furniture.json` (gz) | 21 930 + 2 418 ≈ **23.8 KB** |
+| total art budget | | ≤ 300 KB (≈ 82.8 KB used) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.

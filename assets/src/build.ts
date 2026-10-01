@@ -23,6 +23,7 @@ import {
 } from "./motion";
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
+import { buildFurniture, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders } from "./ui";
@@ -907,6 +908,258 @@ function buildMotionScene(sprites: Sprites): void {
   writeFileSync(join(ROOT, "preview", "motion-scene@1x.png"), encodeIndexedPng(SW, SH, out, PALETTE));
 }
 
+// ---------------------------------------------------------------- set (g): furniture catalogue (M4/M5, lazy)
+
+interface FurnItem { key: string; x: number; y: number; sx: number; sy: number; layer: number }
+/** One placed catalogue piece: its layers and sitters, all sorted at the piece's sort point (manifest `sortByDir`). */
+function placePiece(meta: PieceMeta, colour: string, dir: FurnDir, ax: number, ay: number, sitters: readonly string[] = []): FurnItem[] {
+  const sort = meta.sortByDir[dir] ?? { x: 0, y: 0 };
+  const sx = ax + sort.x, sy = ay + sort.y;
+  const base = `furniture/${meta.id}/${colour}/${dir}`;
+  const out: FurnItem[] = [{ key: `${base}/back`, x: ax, y: ay, sx, sy, layer: 2 }];
+  (meta.seatsByDir?.[dir] ?? []).forEach((seat, i) => {
+    const who = sitters[i];
+    if (who === undefined) return;
+    out.push({ key: `${who}/sit/${seat.dir}/0`, x: ax + (seat.col - seat.row) * 32, y: ay + (seat.col + seat.row) * 16, sx, sy, layer: 3 });
+  });
+  if (meta.layersByDir[dir]?.includes("front") === true) out.push({ key: `${base}/front`, x: ax, y: ay, sx, sy, layer: 4 });
+  return out;
+}
+
+function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string, Uint8Array>): void {
+  const { frames, pieces } = buildFurniture();
+  registerKeys("furniture", frames.map((f) => f.key));
+  const seen = new Set<string>();
+  for (const f of frames) {
+    if (seen.has(f.key)) throw new Error(`duplicate furniture key ${f.key}`);
+    seen.add(f.key);
+  }
+  const { placed, w: sheetW, h: sheetH } = pack(frames, 1024);
+  const sheet = new Uint8Array(sheetW * sheetH);
+  const atlasFrames: Record<string, Frame> = {};
+  for (const p of placed.sort((a, b) => a.key.localeCompare(b.key))) {
+    blit(sheet, sheetW, p.img, p.w, p.h, p.x, p.y);
+    atlasFrames[p.key] = {
+      frame: { x: p.x, y: p.y, w: p.w, h: p.h },
+      rotated: false,
+      trimmed: false,
+      spriteSourceSize: { x: 0, y: 0, w: p.w, h: p.h },
+      sourceSize: { w: p.w, h: p.h },
+      anchor: { x: p.ax / p.w, y: p.ay / p.h },
+    };
+  }
+  const dir = join(ROOT, "furniture");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "furniture.png"), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
+  const atlas = {
+    frames: atlasFrames,
+    meta: {
+      app: "omega-share assets/src/build.ts",
+      version: "1",
+      image: "furniture.png",
+      format: "RGBA8888",
+      size: { w: sheetW, h: sheetH },
+      scale: "1",
+      omega: {
+        license: "CC-BY-SA-4.0",
+        tile: TILE,
+        seatHeight: SEAT_HEIGHT,
+        key: "furniture/<id>/<colour>/<dir>/<back|front>",
+        layers: { floor: 0, wall: 1, back: 2, avatar: 3, front: 4 },
+        pieces,
+      },
+    },
+  };
+  writeFileSync(join(dir, "furniture.json"), JSON.stringify(atlas, null, 1) + "\n");
+  const bg = colorIndex("wall", 1);
+  const big = upscale(sheet, sheetW, sheetH, 2).map((v) => (v === 0 ? bg : v));
+  writeFileSync(join(ROOT, "preview", "furniture-atlas@2x.png"), encodeIndexedPng(sheetW * 2, sheetH * 2, big, PALETTE));
+  const all = new Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>();
+  for (const f of [...roomFrames, ...frames]) all.set(f.key, f);
+  for (const [k, a] of avatars) all.set(k, { img: a, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
+  buildFurnitureSheet(pieces, all);
+  buildFurnitureRoom(pieces, all, "furniture-room", showroom());
+  buildFurnitureRoom(pieces, all, "furniture-layout", sampleLayout());
+}
+
+type FurnSprites = Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>;
+function drawSprite(img: Uint8Array, W: number, H: number, all: FurnSprites, key: string, x: number, y: number): void {
+  const f = all.get(key);
+  if (!f) throw new Error(`missing ${key}`);
+  blitAt(img, W, H, f.img, f.w, f.h, x - f.ax, y - f.ay);
+}
+
+/** Every frame of the catalogue: one row per piece and colour, one column per dir, on floor tiles (wall pieces on a wall). */
+function buildFurnitureSheet(pieces: readonly PieceMeta[], all: FurnSprites): void {
+  const W = 1000;
+  const rows: { meta: PieceMeta; colour: string }[] = [];
+  for (const m of pieces) for (const c of m.colours) rows.push({ meta: m, colour: c });
+  // Row height from what each row draws: the tallest frame above its anchor (or a wall), the deepest below.
+  const rowsH: number[] = [];
+  const tops: number[] = [];
+  for (const r of rows) {
+    let up = 16, down = 16;
+    for (const d of r.meta.dirs) {
+      for (const layer of r.meta.layersByDir[d] ?? []) {
+        const f = all.get(`furniture/${r.meta.id}/${r.colour}/${d}/${layer}`);
+        if (f) { up = Math.max(up, f.ay); down = Math.max(down, f.h - f.ay); }
+      }
+      const fp = r.meta.footprintByDir[d] ?? { cols: 1, rows: 1 };
+      down = Math.max(down, (fp.cols + fp.rows - 1) * 16);
+    }
+    if (r.meta.mount === "wall") up = Math.max(up, 120);
+    if (r.meta.seatsByDir) up = Math.max(up, 52);
+    tops.push(up + 6);
+    rowsH.push(up + down + 12);
+  }
+  const H = rowsH.reduce((a, b) => a + b, 0) + 20;
+  const img = new Uint8Array(W * H).fill(colorIndex("night", 2));
+  const who = ["juno", "pip", "mo", "kiki"];
+  let y0 = 10, n = 0;
+  rows.forEach((r, ri) => {
+    const rh = rowsH[ri] ?? 100;
+    const ay = y0 + (tops[ri] ?? 60);
+    r.meta.dirs.forEach((d, di) => {
+      const ax = 90 + di * 240;
+      const fp = r.meta.footprintByDir[d] ?? { cols: 1, rows: 1 };
+      if (r.meta.mount === "wall") {
+        drawSprite(img, W, H, all, "floor/0", ax, ay);
+        // Only the wall's lower part fits the row: draw it clipped to the row.
+        const wall = all.get(d === "sw" ? "wall/r/plain" : "wall/l/plain");
+        if (wall) blitClipped(img, W, H, wall, ax, ay, y0);
+      } else {
+        for (let c = 0; c < Math.max(fp.cols, 1); c++) for (let rr = 0; rr < Math.max(fp.rows, 1); rr++) drawSprite(img, W, H, all, `floor/${String((c + rr) % 2)}`, ax + (c - rr) * 32, ay + (c + rr) * 16);
+      }
+      const sitters = [who[n % 4] ?? "juno", who[(n + 1) % 4] ?? "pip"];
+      n++;
+      // Seats appear twice: empty, then occupied, so the cushion and the sitter's fit can both be checked.
+      const items = placePiece(r.meta, r.colour, d, ax, ay, r.meta.seatsByDir ? sitters : []);
+      items.sort((a, b) => a.sy - b.sy || a.sx - b.sx || a.layer - b.layer);
+      for (const it of items) drawSprite(img, W, H, all, it.key, it.x, it.y);
+    });
+    y0 += rh;
+  });
+  writeFileSync(join(ROOT, "preview", "furniture-sheet@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+}
+
+function blitClipped(img: Uint8Array, W: number, H: number, f: { img: Uint8Array; w: number; h: number; ax: number; ay: number }, x: number, y: number, minY: number): void {
+  for (let yy = 0; yy < f.h; yy++) {
+    const py = y - f.ay + yy;
+    if (py < minY || py >= H) continue;
+    for (let xx = 0; xx < f.w; xx++) {
+      const v = f.img[yy * f.w + xx] ?? 0;
+      const px = x - f.ax + xx;
+      if (v !== 0 && px >= 0 && px < W) img[py * W + px] = v;
+    }
+  }
+}
+
+interface Placement {
+  id: string;
+  colour: string;
+  dir: FurnDir;
+  col: number;
+  row: number;
+  sitters?: string[];
+}
+const cellAt = (c: number, r: number): { x: number; y: number } => ({ x: 480 + (c - r) * 32, y: 220 + (c + r + 1) * 16 });
+
+/** Showroom: the current room (default floor, walls, console) holding at least one of every piece, both facings shown. */
+function showroom(): { placements: Placement[]; standing: [string, number, number][] } {
+  return {
+    placements: [
+      { id: "bookshelf", colour: "wood", dir: "sw", col: 2, row: 0 },
+      { id: "bookshelf", colour: "wood", dir: "se", col: 0, row: 2 },
+      { id: "frame", colour: "dusk", dir: "sw", col: 7, row: 0 },
+      { id: "frame", colour: "tide", dir: "se", col: 0, row: 7 },
+      { id: "rug", colour: "teal", dir: "nw", col: 8, row: 1 },
+      { id: "rug", colour: "lilac", dir: "ne", col: 1, row: 8 },
+      { id: "sofa", colour: "velvet", dir: "ne", col: 2, row: 5, sitters: ["juno", "kiki"] },
+      { id: "couch", colour: "cream", dir: "nw", col: 5, row: 2, sitters: ["mo"] },
+      { id: "wingback", colour: "ginger", dir: "ne", col: 4, row: 6, sitters: ["pip"] },
+      { id: "beanbag", colour: "blush", dir: "nw", col: 6, row: 5, sitters: ["kiki"] },
+      { id: "beanbag", colour: "navy", dir: "ne", col: 3, row: 7 },
+      { id: "sidetable", colour: "wood", dir: "sw", col: 4, row: 5 },
+      { id: "arclamp", colour: "brass", dir: "se", col: 1, row: 4 },
+      { id: "arclamp", colour: "brass", dir: "sw", col: 4, row: 1 },
+      { id: "monstera", colour: "rust", dir: "se", col: 0, row: 9 },
+      { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 0 },
+      { id: "popcorn", colour: "rust", dir: "sw", col: 8, row: 5 },
+      { id: "popcorn", colour: "rust", dir: "se", col: 5, row: 8 },
+      { id: "sofa", colour: "navy", dir: "sw", col: 7, row: 7 },
+      { id: "couch", colour: "olive", dir: "se", col: 9, row: 6 },
+    ],
+    standing: [["juno/idle/se/0", 6, 9]],
+  };
+}
+
+/** A sample room: two sofas angled at the screen, snacks between them, beanbags up front, and a reading corner. */
+function sampleLayout(): { placements: Placement[]; standing: [string, number, number][] } {
+  return {
+    placements: [
+      { id: "bookshelf", colour: "wood", dir: "se", col: 0, row: 3 },
+      { id: "frame", colour: "tide", dir: "se", col: 0, row: 7 },
+      { id: "frame", colour: "dusk", dir: "sw", col: 3, row: 0 },
+      { id: "frame", colour: "tide", dir: "sw", col: 4, row: 0 },
+      { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 0 },
+      { id: "rug", colour: "lilac", dir: "ne", col: 0, row: 8 },
+      { id: "sofa", colour: "velvet", dir: "ne", col: 2, row: 5, sitters: ["kiki", "juno"] },
+      { id: "sofa", colour: "velvet", dir: "nw", col: 5, row: 2, sitters: ["pip"] },
+      { id: "sidetable", colour: "wood", dir: "sw", col: 4, row: 4 },
+      { id: "beanbag", colour: "blush", dir: "nw", col: 6, row: 5 },
+      { id: "beanbag", colour: "navy", dir: "ne", col: 5, row: 6 },
+      { id: "wingback", colour: "ginger", dir: "se", col: 1, row: 8, sitters: ["mo"] },
+      { id: "arclamp", colour: "brass", dir: "se", col: 0, row: 8 },
+      { id: "popcorn", colour: "rust", dir: "sw", col: 8, row: 3 },
+      { id: "couch", colour: "olive", dir: "sw", col: 7, row: 8 },
+      { id: "monstera", colour: "rust", dir: "se", col: 9, row: 7 },
+    ],
+    standing: [],
+  };
+}
+
+function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name: string, plan: { placements: Placement[]; standing: [string, number, number][] }): void {
+  const W = 960, H = 600;
+  const img = new Uint8Array(W * H).fill(colorIndex("night", 2));
+  const layout = defaultLayout();
+  const draw = (key: string, x: number, y: number): void => { drawSprite(img, W, H, all, key, x, y); };
+  layout.floor.forEach((row, r) => { row.forEach((key, c) => { draw(key, cellAt(c, r).x, cellAt(c, r).y); }); });
+  for (let i = 0; i < 10; i++) {
+    draw(layout.walls.l[i] ?? "wall/l/plain", cellAt(0, i).x, cellAt(0, i).y);
+    draw(layout.walls.r[i] ?? "wall/r/plain", cellAt(i, 0).x, cellAt(i, 0).y);
+  }
+  draw("wall/corner", cellAt(0, 0).x, cellAt(0, 0).y);
+  draw("wall/l/end", cellAt(0, 9).x, cellAt(0, 9).y);
+  draw("wall/r/end", cellAt(9, 0).x, cellAt(9, 0).y);
+  draw("tv/0", cellAt(0, 0).x, cellAt(0, 0).y);
+  const byId = new Map(pieces.map((p) => [p.id, p]));
+  const meta = (id: string): PieceMeta => {
+    const m = byId.get(id);
+    if (!m) throw new Error(`no piece ${id}`);
+    return m;
+  };
+  // Floor layer (rugs) and wall layer (frames) go with the static background; everything else is depth-sorted.
+  for (const layer of ["floor", "wall"] as const) {
+    for (const p of plan.placements.filter((q) => meta(q.id).layer === layer)) {
+      const a = cellAt(p.col, p.row);
+      draw(`furniture/${p.id}/${p.colour}/${p.dir}/back`, a.x, a.y);
+    }
+  }
+  const items: FurnItem[] = [];
+  for (const p of plan.placements.filter((q) => meta(q.id).layer === "object")) {
+    const a = cellAt(p.col, p.row);
+    items.push(...placePiece(meta(p.id), p.colour, p.dir, a.x, a.y, p.sitters ?? []));
+  }
+  for (const [key, c, r] of plan.standing) {
+    const a = cellAt(c, r);
+    items.push({ key, x: a.x, y: a.y, sx: a.x, sy: a.y, layer: 3 });
+  }
+  items.sort((a, b) => a.sy - b.sy || a.sx - b.sx || a.layer - b.layer);
+  for (const it of items) draw(it.key, it.x, it.y);
+  writeFileSync(join(ROOT, "preview", `${name}@1x.png`), encodeIndexedPng(W, H, img, PALETTE));
+  writeFileSync(join(ROOT, "preview", `${name}@2x.png`), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+}
+
 function slicesFiles(): string[] {
   return readdirSync(join(ROOT, "ui", "slices")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/slices/${n}`);
 }
@@ -919,6 +1172,15 @@ function report(): void {
     total += size;
     console.log(`${f}: ${String(buf.length)} B${f.endsWith(".json") ? ` (${String(size)} B gz)` : ""}`);
   }
+  let furn = 0;
+  for (const f of ["furniture/furniture.png", "furniture/furniture.json"]) {
+    const buf = readFileSync(join(ROOT, f));
+    const size = f.endsWith(".png") ? buf.length : gzipSync(buf, { level: 9 }).length;
+    furn += size;
+    console.log(`${f}: ${String(buf.length)} B${f.endsWith(".json") ? ` (${String(size)} B gz)` : ""}`);
+  }
+  total += furn;
+  console.log(`set (g) furniture (lazy, M4/M5): ${String(furn)} B`);
   console.log(`art total (png + gz json): ${String(total)} B of 307200`);
 }
 
@@ -927,6 +1189,7 @@ mkdirSync(join(ROOT, "src", "moodboards"), { recursive: true });
 const avatarImages = buildAvatars();
 buildScene(avatarImages);
 buildRoom(avatarImages);
+buildFurnitureSet(buildRoomFrames(), avatarImages);
 buildUi(avatarImages);
 buildMotion(avatarImages);
 console.log(`palette: ${String(PALETTE.length - 1)} colours`);

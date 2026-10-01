@@ -15,6 +15,8 @@ assets/
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
   ui/popup/*.png        # set f: the extension popup's key icon as standalone files, drawn at 16 px (1×) and 32 px (2×)
+  furniture/furniture.png  # set g (M4/M5, lazy-load): 1024×512 indexed PNG-8, furniture catalogue v1
+  furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
   ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
   preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame),
                         #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated)
@@ -308,6 +310,53 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
   floor, rug, velvet and the dark walls.
 - Contract: accepted in `docs/adr/0010-motion-atlas.md` ([OME-57](/OME/issues/OME-57)).
 
+## Furniture atlas (`furniture/furniture.json`, set g, M4/M5)
+
+Furniture catalogue v1 for customizable rooms. It's a separate, lazy sheet: the default room doesn't need it, so load it only when a room
+uses a catalogue piece (or the M5 customization UI opens). Same PixiJS v8 format as the room atlas, and the same anchor rule.
+Previews: `preview/furniture-sheet@2x.png` (every frame, seats empty and occupied), `preview/furniture-room@1x.png` / `@2x` (every piece
+in the current room, both facings), `preview/furniture-layout@1x.png` / `@2x` (a sample layout), `preview/furniture-atlas@2x.png` (the sheet).
+
+**Frame key:** `furniture/<id>/<colour>/<dir>/<back|front>`. Every key starts with `furniture/`, so nothing collides with the
+room's `armchair`, `plant` or `lamp` in Pixi's texture cache.
+
+**Anchor = the floor point of the piece's anchor cell:** the tile centre `cellCenter(col, row)` of the footprint's lowest col and row.
+Place the sprite there, with no per-item offsets. A piece covers `footprintByDir[dir]` cells from that cell toward +col and +row.
+
+| id | Piece | Colours (first = default) | Dirs | Footprint (ne/sw) | Seats | Notes |
+|---|---|---|---|---|---|---|
+| `sofa` | Club sofa | `velvet`, `navy` | ne nw se sw | 2×1 | 2 | The room's armchair grown to two seats: tufted back, mustard piping, split cushion. |
+| `couch` | Lounge couch | `cream`, `olive` | ne nw se sw | 2×1 | 2 | Low and deep: charcoal plinth, slouchy back cushions, bolster arms. |
+| `wingback` | Wingback chair | `ginger` | ne nw se sw | 1×1 | 1 | Tan leather, stepped wings, brass studs, channel-stitched back. |
+| `beanbag` | Beanbag | `blush`, `navy` | ne nw se sw | 1×1 | 1 | Squashed body + back hump. No `front` layer when it faces the camera (se/sw). |
+| `sidetable` | Snack table | `wood` | se sw | 1×1 | — | Round pedestal table with a popcorn bowl and a mug. |
+| `arclamp` | Arc lamp | `brass` | se sw | 1×1 | — | Marble foot, brass arc, cream bell shade; the shade hangs inside its own cell. |
+| `monstera` | Monstera | `rust`, `teal` (pot) | se sw | 1×1 | — | Split leaves (role grid, mirrored then shaded) in a round pot. |
+| `popcorn` | Popcorn cart | `rust` | se sw | 1×1 | — | Striped cart, glass case of popcorn, two-tier awning, spoked wheel. |
+| `bookshelf` | Bookcase | `wood` | se sw | 2×1 | — | **Wall-backed:** `sw` stands against the right wall (row 0), `se` against the left wall (col 0). Back half of the cells only. |
+| `rug` | Kilim runner | `lilac`, `teal` | ne nw | 3×2 | — | **Floor layer**, walkable. `ne` runs along cols (3×2), `nw` along rows (2×3). |
+| `frame` | Framed print | `dusk`, `tide` (artwork) | se sw | wall | — | **Wall layer.** `sw` hangs on the right wall at `(col, 0)`, `se` on the left wall at `(0, row)`. Use a `plain` wall segment (not a window, poster or sconce). |
+
+- **Dirs** name the way the piece faces (where a sitter looks). `ne`/`nw` face the TV corner (backrest toward the camera, sitter seen from behind),
+  `se`/`sw` face the camera. Same facing rule as the room armchair (`col < row` → `ne`, otherwise `nw`). Pieces that only need two facings
+  (tables, lamps, plants, the cart, wall pieces) ship `se`/`sw`, and the rug ships its two orientations `ne`/`nw`.
+- **`meta.omega.pieces[]`** is the contract: `{ id, label, kind, mount, layer, colours, dirs, footprint, footprintByDir, sortByDir, seatsByDir?, walkable, layersByDir }`.
+  - `footprintByDir[dir] = {cols, rows}`: ne/sw keep `footprint`, nw/se swap it.
+  - `layer`: `floor` (rugs: draw with the floor, under everything), `wall` (frames: draw with the walls, part of the static background), or `object` (depth-sorted).
+  - `sortByDir[dir] = {x, y}`: the **z-sort floor point**, in px from the anchor. It's the footprint's centre, e.g. `(16, 8)` for a 2×1 piece. Sort objects by
+    `(anchor + sort).y`, then `.x`, then `meta.omega.layers` (`back 2`, `avatar 3`, `front 4`). Centre sorting is exact for 1×1, 2×1 and 1×2 pieces next to
+    1×1 avatars, which is why no object is longer than 2 tiles (the 3×2 rug is on the floor layer, so it never sorts).
+  - `seatsByDir[dir] = [{col, row, dir}]`: seat cells relative to the anchor cell. Draw `<avatar>/sit/<dir>/<n>` at that cell's `cellCenter`.
+    The sitting surface is 8 px above it (`meta.omega.seatHeight`), like the room's seats.
+  - **Sitters sort with their seat's piece**, not their own cell: draw `back`, then every sitter on that piece, then `front`, all at the piece's sort point.
+    (On a 2-seat sofa the far sitter's own cell would sort in front of the sofa's sort point, and the backrest would cover the wrong person.)
+  - `layersByDir[dir]`: `["back"]` or `["back", "front"]`. `front` is only what stands between a sitter and the camera (backrest when facing
+    ne/nw, the near arm). Non-seats have `back` only. Both layers of one facing share one rect size and anchor.
+  - `walkable`: rugs and wall frames don't block a cell; everything else does.
+- **Wall frames** hang 76–108 px above the floor point, so they clear the 56 px wainscot and the bookcase (62 px plus its cactus) on neighbouring segments.
+- **Footprint check for M4:** the console still covers `col + row <= 2`. Don't place pieces there.
+- Contract: proposed here, for the M4 layout contract (Lead Engineer). Nothing in `apps/` reads it yet.
+
 ## Budget
 
 | File | Bytes |
@@ -323,7 +372,13 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 | `ui/slices/*.png` (49 files, palettes trimmed to the colours used) | 7 923 |
 | `ui/popup/*.png` (set f) | 471 |
 | `ui/reference.css` (if ported as-is) | 36 406 raw / 7 282 gz |
-| **total shipped art** | **≈ 58.4 KB of 300 KB** (58 438 B; 40 049 B without the lazy set d) |
+| `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
+| `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
+| **total shipped art** | **≈ 82.8 KB of 300 KB** (82 786 B; 40 049 B without the lazy sets d and g) |
+
+Set (g) (OME-261) adds **24 348 B (≈ 23.8 KB, 8 % of the 300 KB art budget)** as one extra request, made only by rooms that use the catalogue.
+`docs/perf-budgets.md` has no per-atlas line (the art budget is the 300 KB above); the JS budget is untouched because the atlas is fetched, not bundled.
+The sheet is 1024×512 (72 frames, 11 pieces). Its colour variants are baked, so each one costs real bytes: about 1–3 KB per variant.
 
 Set (f) (OME-193) adds ≈ 4.1 KB against `main`: `ui.png` +1 030, `ui.json` +331 gz, 6 slices +955, `reference.css` +1 273 gz, popup PNGs +471. The sheet stays 256×256.
 
