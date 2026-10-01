@@ -15,6 +15,9 @@ const HTTP_PER_SECOND = 20;
 /** More than the bucket can ever hold plus what refills while the flood runs. */
 const FLOOD_CAP = HTTP_BURST * 4;
 
+/** A thrown error or an unhandled rejection in the server's output (not a log line that merely says "error"). */
+const SERVER_FAULT = /\b(Error|TypeError|RangeError):|uncaught|unhandled/i;
+
 /** A distinct synthetic address per call (documentation range), so no two cases share a bucket. */
 let nextClient = 1;
 const freshClient = (): string => `198.51.100.${String(nextClient++)}`;
@@ -49,13 +52,28 @@ async function watchedFrom(newContext: () => Promise<BrowserContext>, client: st
   return { page, responses };
 }
 
-/** Loads the room page, joins, and waits until the room shows (so HTML, every asset and the WebSocket have all been used). */
+/**
+ * Loads the room page, joins, and waits until the room shows and the socket is up (so HTML, every asset and the
+ * WebSocket have all been used). `page.on("response")` never sees the upgrade, so the socket is checked on its own: it
+ * opened and was not closed or errored.
+ */
 async function loadAndJoin(page: Page, nickname: string): Promise<void> {
+  const sockets: { url: string; closed: boolean; errors: string[] }[] = [];
+  page.on("websocket", (ws) => {
+    const s = { url: ws.url(), closed: false, errors: [] as string[] };
+    sockets.push(s);
+    ws.on("close", () => (s.closed = true));
+    ws.on("socketerror", (e) => s.errors.push(e));
+  });
   await page.goto(ROOM_URL, { waitUntil: "load" });
   await page.locator(site.nicknameInput).fill(nickname);
   await page.locator(site.avatarOption).first().click();
   await page.locator(site.joinButton).click();
   await expect(page.locator(site.room)).toBeVisible();
+  await expect(page.locator(site.connectionStatus)).toHaveText("");
+  const room = sockets.filter((s) => /\/rooms\/[^/]+\/ws$/.test(s.url));
+  expect(room.length, "the room socket was opened").toBeGreaterThan(0);
+  expect(room.map((s) => ({ closed: s.closed, errors: s.errors }))).toEqual(room.map(() => ({ closed: false, errors: [] })));
 }
 
 const limited = (responses: readonly Response[]): string[] => responses.filter((r) => r.status() === 429).map((r) => r.url());
@@ -76,7 +94,6 @@ async function floodWhile(client: string, running: () => boolean): Promise<{ ok:
 
 test.describe("HTTP flood limits (ADR 0022)", () => {
   test("one client IP flooding an endpoint gets 429 with a numeric Retry-After once its bucket is spent", async ({ lane }) => {
-    expect(lane.siteDir).not.toBe(""); // the lane (server + proxy) is up
     const { ok, refused } = await flood(freshClient());
     expect(refused, `no 429 within ${String(FLOOD_CAP)} requests`).not.toBeNull();
     // The whole burst is served first (a few extra tokens refill while the loop runs), then it is refused.
@@ -86,6 +103,7 @@ test.describe("HTTP flood limits (ADR 0022)", () => {
     expect(typeof retryAfter).toBe("string");
     expect(retryAfter).toMatch(/^\d+$/);
     expect(Number(retryAfter)).toBeGreaterThan(0);
+    expect(lane.serverLog()).not.toMatch(SERVER_FAULT);
   });
 
   test("a normal page load (HTML, assets, WebSocket) from another address, while a flood is on, is never limited", async ({ newTunnelContext, lane }) => {
@@ -102,7 +120,7 @@ test.describe("HTTP flood limits (ADR 0022)", () => {
 
     expect(honest.responses.filter((r) => r.url().startsWith(PUBLIC_ORIGIN)).length, "site HTML and its assets were fetched").toBeGreaterThan(2);
     expect(limited(honest.responses)).toEqual([]);
-    expect(lane.serverLog()).not.toMatch(/error/i);
+    expect(lane.serverLog()).not.toMatch(SERVER_FAULT);
   });
 
   test("a single normal page load, subresources included, from a fresh IP never hits 429", async ({ newTunnelContext }) => {

@@ -4,7 +4,8 @@
 // test layout, so the same server also proves a layout that only exists in the DB renders and its seats work.
 //
 // This spec owns its server and its site (own ports, a temp DB file), so killing the server never touches the shared
-// lobby server the other specs use. The site is the Vite dev server pointed at that server (VITE_SERVER_URL), the same
+// lobby server the other specs use. CSP here is index.html's meta policy only: Vite dev never sends the server's
+// header-only directives (Trusted Types), which the tunnel lane covers. The site is the Vite dev server pointed at that server (VITE_SERVER_URL), the same
 // pattern as playwright.config.ts; no production build is needed. The seeded layout is not the default, so a restart
 // that lost the DB would show.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
@@ -41,7 +42,8 @@ class Proc {
   output = "";
   readonly child: ChildProcess;
   constructor(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv) {
-    this.child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
+    // Own process group, so stop() reaches what a wrapper (`bunx vite`) started, not just the wrapper.
+    this.child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"], detached: true });
     this.child.stdout?.on("data", (d: Buffer) => (this.output += d.toString()));
     this.child.stderr?.on("data", (d: Buffer) => (this.output += d.toString()));
   }
@@ -53,16 +55,30 @@ class Proc {
       if (await ready()) return;
       await new Promise((r) => setTimeout(r, 100));
     }
+    await this.stop("SIGKILL");
     throw new Error(`${what} not ready in 30 s:\n${this.output}`);
   }
+  /** Signals the whole process group; escalates to SIGKILL if it hasn't exited within 5 s. */
   stop(signal: NodeJS.Signals): Promise<void> {
     const c = this.child;
-    if (c.exitCode !== null || c.signalCode !== null) return Promise.resolve();
+    if (c.exitCode !== null || c.signalCode !== null || c.pid === undefined) return Promise.resolve();
+    const pid = c.pid;
+    const kill = (s: NodeJS.Signals): void => {
+      try {
+        process.kill(-pid, s);
+      } catch {
+        // already gone
+      }
+    };
     return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        kill("SIGKILL");
+      }, 5_000);
       c.once("exit", () => {
+        clearTimeout(timer);
         resolve();
       });
-      c.kill(signal);
+      kill(signal);
     });
   }
 }
@@ -100,8 +116,8 @@ test.describe("restart persistence (own server, own DB file)", () => {
 
   let dir = "";
   let dbPath = "";
-  let server: Proc;
-  let web: Proc;
+  let server: Proc | undefined;
+  let web: Proc | undefined;
 
   const startServer = async (): Promise<Proc> => {
     const proc = new Proc("bun", ["apps/server/src/index.ts"], ROOT, {
@@ -121,14 +137,15 @@ test.describe("restart persistence (own server, own DB file)", () => {
     const seed = spawnSync("bun", ["e2e/fixtures/seed-room.ts", dbPath], { cwd: ROOT, encoding: "utf8" });
     if (seed.status !== 0) throw new Error(`seeding the DB failed:\n${seed.stdout}\n${seed.stderr}`);
     server = await startServer();
-    web = new Proc("bunx", ["vite", "--port", String(WEB_PORT), "--strictPort", "--host", "localhost"], join(ROOT, "apps/web"), {
+    const vite = new Proc("bunx", ["vite", "--port", String(WEB_PORT), "--strictPort", "--host", "localhost"], join(ROOT, "apps/web"), {
       VITE_SERVER_URL: SERVER_URL,
     });
-    await web.waitFor("vite", async () => (await fetch(WEB_URL).then((r) => r.ok, () => false)) && web.output.includes(String(WEB_PORT)));
+    web = vite;
+    await vite.waitFor("vite", async () => (await fetch(WEB_URL).then((r) => r.ok, () => false)) && vite.output.includes(String(WEB_PORT)));
   });
 
   test.afterAll(async () => {
-    await Promise.all([server.stop("SIGKILL"), web.stop("SIGTERM")]);
+    await Promise.all([server?.stop("SIGKILL"), web?.stop("SIGTERM")]);
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -201,8 +218,8 @@ test.describe("restart persistence (own server, own DB file)", () => {
       expect(live.room.layout).toEqual(layoutBefore);
 
       // Kill the server hard (no graceful shutdown) and bring it back on the same DB file and port.
-      await server.stop("SIGKILL");
-      await expect(a.page.locator(site.connectionStatus)).not.toHaveText("", { timeout: 15_000 });
+      await server?.stop("SIGKILL");
+      for (const c of clients) await expect(c.page.locator(site.connectionStatus)).not.toHaveText("", { timeout: 15_000 });
       server = await startServer();
 
       // The clients' own reconnect (capped backoff, <= 5 s) rejoins them. No reload.
