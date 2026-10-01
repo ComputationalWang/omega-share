@@ -1,6 +1,9 @@
 import type { Server } from "bun";
-import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type Embed, type RoomId, type ShareToken } from "@omega/shared";
-import { createHttpApp, plain, type ShareGrant } from "./http";
+import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type AnyEmbed, type RoomId, type ShareToken } from "@omega/shared";
+import { ownHostsFor } from "./config";
+import { EmbedPolicy } from "./embed-policy";
+import { securityHeaders } from "./headers";
+import { createHttpApp, plain as plainWith, type ShareGrant } from "./http";
 import { clientKey, monotonic, type Clock } from "./rate-limit";
 import { Room } from "./room";
 import type { RoomStore } from "./store/rooms";
@@ -37,16 +40,26 @@ export interface ServerOptions {
   now?: Clock;
   /** `member-status` coalescing interval (ADR 0019 §3). Default 1 s; tests shorten it. */
   statusIntervalMs?: number;
+  /** GENERIC_EMBEDS: accept the generic embed tier (ADR 0024). Default true. */
+  genericEmbeds?: boolean;
+  /** Domains refused for generic embeds, with their subdomains (GENERIC_EMBED_DENYLIST). Default none. */
+  genericEmbedDenylist?: readonly string[];
+  /** Our own hostnames, refused as generic embeds. Default: `ownHostsFor(siteOrigin, publicOrigin)`. */
+  ownHosts?: readonly string[];
 }
 
 /** The slice of RoomStore the server uses. */
 export type RoomPersistence = Pick<RoomStore, "listRooms" | "createRoom" | "setEmbed">;
 
-/** Every stored room, plus the configured ones the store lacks, seeded with DEFAULT_LAYOUT. */
-function loadRooms(configured: readonly RoomId[], store: RoomPersistence | null): Map<string, Room> {
+/**
+ * Every stored room, plus the configured ones the store lacks, seeded with DEFAULT_LAYOUT. A stored
+ * embed the policy no longer accepts (GENERIC_EMBEDS=off, a newly denied host) comes back as null;
+ * the row keeps it, so switching back restores it.
+ */
+function loadRooms(configured: readonly RoomId[], store: RoomPersistence | null, embeds: EmbedPolicy): Map<string, Room> {
   const rooms = new Map<string, Room>();
   if (store !== null) {
-    for (const r of store.listRooms()) rooms.set(r.id, new Room(r.id, { layout: r.layout, embed: r.embed }));
+    for (const r of store.listRooms()) rooms.set(r.id, new Room(r.id, { layout: r.layout, embed: embeds.restore(r.embed) }));
   }
   const now = Date.now();
   for (const id of configured) {
@@ -67,7 +80,14 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   const maxConnections = opts.maxConnections ?? 200;
   let connections = 0;
   const store = opts.store ?? null;
-  const rooms = loadRooms(opts.rooms ?? [DEFAULT_ROOM_ID], store);
+  const embeds = new EmbedPolicy({
+    genericEmbeds: opts.genericEmbeds ?? true,
+    ownHosts: opts.ownHosts ?? ownHostsFor(opts.siteOrigin, opts.publicOrigin ?? null),
+    denylist: opts.genericEmbedDenylist ?? [],
+  });
+  const headers = securityHeaders(embeds.genericEmbeds);
+  const plain = (status: number, text: string): Response => plainWith(status, text, headers);
+  const rooms = loadRooms(opts.rooms ?? [DEFAULT_ROOM_ID], store, embeds);
   const connectionsPerIp = new Map<string, number>();
   const shareGrants = new Map<ShareToken, ShareGrant>();
 
@@ -90,15 +110,16 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     server.publish(topic, data);
   };
 
-  const persistEmbed = (room: Room, embed: Embed): void => {
+  const persistEmbed = (room: Room, embed: AnyEmbed): void => {
     store?.setEmbed(room.id, embed);
   };
 
-  const app = createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publish, persistEmbed, staticDir: opts.staticDir ?? null });
+  const app = createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publish, persistEmbed, embeds, headers, staticDir: opts.staticDir ?? null });
   const ws = createWs({
     joinTimeoutMs: opts.joinTimeoutMs ?? 10_000,
     shareGrants,
     publish,
+    headers,
     now: opts.now ?? monotonic,
     ...(opts.statusIntervalMs === undefined ? {} : { statusIntervalMs: opts.statusIntervalMs }),
     release(ip) {

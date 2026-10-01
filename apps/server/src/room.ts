@@ -3,7 +3,7 @@ import {
   MAX_ROOM_MEMBERS,
   SEAT_COUNT,
   type Avatar,
-  type Embed,
+  type AnyEmbed,
   type Member,
   type MemberId,
   type Nickname,
@@ -13,6 +13,7 @@ import {
   type RoomState,
   type RoomSummary,
   type SeatIndex,
+  isSyncedEmbed,
   nicknameKey,
 } from "@omega/shared";
 import { applyControl, loadPlayback, restoredPlayback, type Control } from "./playback";
@@ -46,8 +47,8 @@ export class Room {
   /** Members whose player is catching up (ADR 0019, advisory). */
   private readonly catching = new Set<MemberId>();
   private readonly seats: (MemberId | null)[] = Array.from({ length: SEAT_COUNT }, () => null);
-  private embed: Embed | null = null;
-  /** Null iff there is no embed. */
+  private embed: AnyEmbed | null = null;
+  /** Null iff there is no embed or it is generic (ADR 0024 §7): a generic embed is never synced. */
   private playback: PlaybackState | null = null;
   /** Last rev handed out; survives embed changes so clients never see rev go back. */
   private rev = -1;
@@ -58,12 +59,12 @@ export class Room {
   /** `embed` is the last one shared before a restart: it comes back paused at 0. */
   constructor(
     readonly id: RoomId,
-    init: { layout?: RoomLayout; embed?: Embed | null } = {},
+    init: { layout?: RoomLayout; embed?: AnyEmbed | null } = {},
   ) {
     this.topic = `room:${id}`;
     this.layout = init.layout ?? DEFAULT_LAYOUT;
-    if (init.embed != null) {
-      this.embed = init.embed;
+    this.embed = init.embed ?? null;
+    if (this.embed !== null && isSyncedEmbed(this.embed)) {
       this.playback = restoredPlayback(Date.now());
       this.rev = this.playback.rev;
     }
@@ -124,16 +125,25 @@ export class Room {
     return this.catching.has(memberId);
   }
 
-  /** Sets the embed and restarts playback at 0 (or clears it); returns the new playback. `by` is the sharer. */
-  setEmbed(embed: Embed | null, by: MemberId | null = null): PlaybackState | null {
+  /** True while the room shows a generic (unsynced) embed. */
+  hasGenericEmbed(): boolean {
+    return this.embed !== null && !isSyncedEmbed(this.embed);
+  }
+
+  /**
+   * Sets the embed and restarts playback at 0; returns the new playback. `by` is the sharer.
+   * Null embed, or a generic one, clears playback.
+   */
+  setEmbed(embed: AnyEmbed | null, by: MemberId | null = null): PlaybackState | null {
     this.embed = embed;
-    this.playback = embed === null ? null : loadPlayback(this.rev, Date.now(), by);
+    this.playback = embed === null || !isSyncedEmbed(embed) ? null : loadPlayback(this.rev, Date.now(), by);
     if (this.playback !== null) this.rev = this.playback.rev;
     return this.playback;
   }
 
-  /** Applies a member's `control`; returns the new playback, or null if it's for no/another embed. */
+  /** Applies a member's `control`; returns the new playback, or null if it's for no/another/a generic embed. */
   control(memberId: MemberId, control: Control): PlaybackState | null {
+    if (this.embed === null || !isSyncedEmbed(this.embed)) return null;
     const next = applyControl(this.playback, this.embed, control, memberId, Date.now());
     if (next === null) return null;
     this.playback = next;

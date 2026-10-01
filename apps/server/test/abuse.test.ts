@@ -3,6 +3,7 @@ import { connect, type Socket } from "node:net";
 import * as v from "valibot";
 import { CLOSE_CODES, MAX_CLIENT_MESSAGE_BYTES, ShareResponseSchema } from "@omega/shared";
 import { measureRelayLatency } from "../src/relay-latency";
+import { securityHeaders } from "../src/headers";
 import { createWs } from "../src/ws";
 import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
 
@@ -498,7 +499,13 @@ describe("M3 transport limits (threat model §6)", () => {
   });
 
   test("[Slow reader] [Idle policy implicit] the WebSocket handler pins backpressure and idle settings", () => {
-    const { websocket } = createWs({ joinTimeoutMs: 1000, shareGrants: new Map(), publish: () => undefined, release: () => undefined });
+    const { websocket } = createWs({
+      joinTimeoutMs: 1000,
+      shareGrants: new Map(),
+      publish: () => undefined,
+      release: () => undefined,
+      headers: securityHeaders(true),
+    });
     expect(websocket.backpressureLimit).toBe(256 * 1024);
     expect(websocket.closeOnBackpressureLimit).toBe(true);
     expect(websocket.idleTimeout).toBe(60);

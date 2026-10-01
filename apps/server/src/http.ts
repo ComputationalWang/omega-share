@@ -5,9 +5,8 @@ import {
   MAX_LISTED_ROOMS,
   RETRY_AFTER_MAX_MS,
   ShareRequestSchema,
-  canonicalizeEmbed,
   parseShareAuthorization,
-  type Embed,
+  type AnyEmbed,
   type MemberId,
   type RoomListResponse,
   type ServerMessage,
@@ -15,7 +14,8 @@ import {
   type ShareResponse,
   type ShareToken,
 } from "@omega/shared";
-import { SECURITY_HEADERS } from "./headers";
+import type { EmbedPolicy } from "./embed-policy";
+import type { SecurityHeaders } from "./headers";
 import { KeyedLimiter, TokenBucket, readBodyCapped } from "./rate-limit";
 import type { Room } from "./room";
 import { mountSite } from "./static";
@@ -34,7 +34,7 @@ const GLOBAL_SHARE_PER_SECOND = 2;
 /** Per room: 2 switches at once, then one every 10 s (threat model §6; any member may share until B1). */
 const ROOM_SHARE_BURST = 2;
 const ROOM_SHARE_PER_SECOND = 0.1;
-export const plain = (status: number, text: string): Response => new Response(text, { status, headers: SECURITY_HEADERS });
+export const plain = (status: number, text: string, headers: SecurityHeaders): Response => new Response(text, { status, headers });
 
 const encode = (msg: ServerMessage): string => JSON.stringify(msg);
 
@@ -57,11 +57,15 @@ export interface HttpDeps {
   ipOf: (req: Request) => string;
   publish: (topic: string, data: string) => void;
   /** Writes the room's new embed through to the store (OME-280); throws if it can't. */
-  persistEmbed: (room: Room, embed: Embed) => void;
+  persistEmbed: (room: Room, embed: AnyEmbed) => void;
+  /** What a shared URL may become (ADR 0024). */
+  embeds: EmbedPolicy;
+  /** `securityHeaders(embeds.genericEmbeds)`, set on every response. */
+  headers: SecurityHeaders;
   staticDir: string | null;
 }
 
-export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publish, persistEmbed, staticDir }: HttpDeps): Hono {
+export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publish, persistEmbed, embeds, headers, staticDir }: HttpDeps): Hono {
   const shareLimiter = new KeyedLimiter(SHARE_BURST, SHARE_PER_SECOND);
   const globalShares = new TokenBucket(GLOBAL_SHARE_BURST, GLOBAL_SHARE_PER_SECOND);
   const failedShares = new KeyedLimiter(FAILED_SHARE_BURST, FAILED_SHARE_PER_SECOND);
@@ -79,7 +83,7 @@ export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publi
   const app = new Hono();
   app.use("*", async (c, next) => {
     await next();
-    for (const [k, value] of Object.entries(SECURITY_HEADERS)) c.res.headers.set(k, value);
+    for (const [k, value] of Object.entries(headers)) c.res.headers.set(k, value);
   });
   app.use(
     "/rooms/*",
@@ -142,7 +146,8 @@ export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publi
     }
     const parsed = v.safeParse(ShareRequestSchema, json);
     if (!parsed.success) return fail(400, "invalid_body", "expected { url: string }");
-    const embed = canonicalizeEmbed(parsed.output.url);
+    // A denied host gets the same answer as any other refused URL (ADR 0024 §6).
+    const embed = embeds.accept(parsed.output.url);
     if (embed === null) return fail(400, "unsupported_url", "not a supported video URL");
     // Last, so a refused request never uses up the room's switches.
     if (!roomBucket(room).take()) return limited(ROOM_SHARE_PER_SECOND);

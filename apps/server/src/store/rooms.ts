@@ -1,6 +1,6 @@
 import type { Database, Statement } from "bun:sqlite";
 import * as v from "valibot";
-import { EmbedSchema, RoomIdSchema, RoomLayoutSchema, type Embed, type RoomId, type RoomLayout } from "@omega/shared";
+import { AnyEmbedSchema, RoomIdSchema, RoomLayoutSchema, type AnyEmbed, type RoomId, type RoomLayout } from "@omega/shared";
 
 export interface StoredRoom {
   id: RoomId;
@@ -8,7 +8,7 @@ export interface StoredRoom {
   /** Unix ms. */
   createdAt: number;
   layout: RoomLayout;
-  embed: Embed | null;
+  embed: AnyEmbed | null;
 }
 
 /** The DB file is a boundary too (D4): hand edits, restores and old versions all pass this parse. */
@@ -17,7 +17,7 @@ const RowSchema = v.object({
   title: v.string(),
   created_at: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
   layout: v.pipe(v.string(), v.parseJson(), RoomLayoutSchema),
-  embed: v.nullable(v.pipe(v.string(), v.parseJson(), EmbedSchema)),
+  embed: v.nullable(v.pipe(v.string(), v.parseJson(), AnyEmbedSchema)),
 });
 
 const NewRoomSchema = v.object({
@@ -27,7 +27,7 @@ const NewRoomSchema = v.object({
   layout: RoomLayoutSchema,
 });
 
-const NullableEmbedSchema = v.nullable(EmbedSchema);
+const NullableEmbedSchema = v.nullable(AnyEmbedSchema);
 
 type Row = Record<keyof v.InferInput<typeof RowSchema>, unknown>;
 
@@ -71,7 +71,7 @@ export class RoomStore {
     if (this.#setLayout.run(json, id).changes === 0) throw new Error(`no room ${JSON.stringify(id)}`);
   }
 
-  setEmbed(id: RoomId, embed: Embed | null): void {
+  setEmbed(id: RoomId, embed: AnyEmbed | null): void {
     const parsed = v.parse(NullableEmbedSchema, embed);
     const json = parsed === null ? null : JSON.stringify(parsed);
     if (this.#setEmbed.run(json, id).changes === 0) throw new Error(`no room ${JSON.stringify(id)}`);
