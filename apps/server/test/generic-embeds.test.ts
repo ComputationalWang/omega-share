@@ -177,6 +177,80 @@ describe("a generic embed's sync state stays inert (ADR 0024 §7)", () => {
   });
 });
 
+describe("switching to a generic embed clears catching (ADR 0024 §7)", () => {
+  /** alice shares YouTube, bob says he is catching up and the room hears it. */
+  async function catchingOnSynced(server: TestServer) {
+    const alice = await join(server, "alice");
+    const bob = await join(server, "bob");
+    const token = { token: tokenOf(alice.snapshot) };
+    expect((await postShare(server, JSON.stringify({ url: YOUTUBE_URL }), token)).status).toBe(200);
+    await bob.client.next("embed-changed");
+    bob.client.send({ type: "status", catching: true });
+    const heard = { type: "member-status", memberId: bob.snapshot.self, catching: true } as const;
+    expect(await alice.client.next("member-status")).toEqual(heard);
+    expect(await bob.client.next("member-status")).toEqual(heard);
+    return { alice, bob, token };
+  }
+
+  test("a late joiner's snapshot no longer shows the member catching", async () => {
+    const server = boot({ statusIntervalMs: 10 });
+    const { bob, token } = await catchingOnSynced(server);
+    expect((await postShare(server, JSON.stringify({ url: GENERIC_URL }), token)).status).toBe(200);
+    await bob.client.next("embed-changed");
+    // Dropped while generic: it must not be the only way out.
+    bob.client.send({ type: "status", catching: false });
+    await Bun.sleep(50);
+    const late = await join(server, "carol");
+    expect(late.snapshot.room.members.map((m) => [m.nickname, m.catching ?? false])).toEqual([
+      ["alice", false],
+      ["bob", false],
+      ["carol", false],
+    ]);
+  });
+
+  test("the room hears member-status catching false right after embed-changed", async () => {
+    const server = boot({ statusIntervalMs: 10 });
+    const { alice, bob, token } = await catchingOnSynced(server);
+    expect((await postShare(server, JSON.stringify({ url: GENERIC_URL }), token)).status).toBe(200);
+    await alice.client.next("embed-changed");
+    expect(await alice.client.next("member-status")).toEqual({ type: "member-status", memberId: bob.snapshot.self, catching: false });
+    expect(await bob.client.next("member-status")).toEqual({ type: "member-status", memberId: bob.snapshot.self, catching: false });
+    await alice.client.none("member-status", 100);
+  });
+
+  test("back on a synced embed, catching true is published again", async () => {
+    // Restart on a restored YouTube room first: the room's share burst only covers two switches.
+    expect((await share(bootWithDb(), YOUTUBE_URL)).status).toBe(200);
+    await stop();
+    const server = bootWithDb({ statusIntervalMs: 10 });
+    const alice = await join(server, "alice");
+    const bob = await join(server, "bob");
+    const token = { token: tokenOf(alice.snapshot) };
+    bob.client.send({ type: "status", catching: true });
+    expect((await alice.client.next("member-status")).catching).toBe(true);
+    expect((await postShare(server, JSON.stringify({ url: GENERIC_URL }), token)).status).toBe(200);
+    expect((await alice.client.next("member-status")).catching).toBe(false);
+    expect((await postShare(server, JSON.stringify({ url: YOUTUBE_URL }), token)).status).toBe(200);
+    await bob.client.next("embed-changed");
+    await bob.client.next("embed-changed");
+    await Bun.sleep(30);
+    bob.client.send({ type: "status", catching: true });
+    expect(await alice.client.next("member-status")).toEqual({ type: "member-status", memberId: bob.snapshot.self, catching: true });
+  });
+
+  test("members who were not catching get no member-status", async () => {
+    const server = boot({ statusIntervalMs: 10 });
+    const watcher = await join(server, "bob");
+    const { status } = await share(server, YOUTUBE_URL);
+    expect(status).toBe(200);
+    await watcher.client.next("embed-changed");
+    const second = await postShare(server, JSON.stringify({ url: GENERIC_URL }), { token: tokenOf(watcher.snapshot) });
+    expect(second.status).toBe(200);
+    await watcher.client.next("embed-changed");
+    await watcher.client.none("member-status", 100);
+  });
+});
+
 describe("a generic embed persists like any other (OME-280)", () => {
   test("it comes back after a restart, still with playback null", async () => {
     let server = bootWithDb();
