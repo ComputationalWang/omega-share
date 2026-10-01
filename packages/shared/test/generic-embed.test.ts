@@ -13,6 +13,7 @@ import {
   canonicalizeEmbed,
   canonicalizeGenericEmbed,
   isSyncedEmbed,
+  normalizeHostname,
   parseServerMessage,
   type GenericEmbed,
 } from "../src/index";
@@ -38,8 +39,8 @@ describe("canonicalizeGenericEmbed: accepted", () => {
     ],
     [
       "IDN host is stored as punycode (homographs stay visible)",
-      "https://bücher.example/e",
-      { provider: "generic", host: "xn--bcher-kva.example", url: "https://xn--bcher-kva.example/e" },
+      "https://bücher.de/e",
+      { provider: "generic", host: "xn--bcher-kva.de", url: "https://xn--bcher-kva.de/e" },
     ],
   ];
   for (const [name, input, expected] of table) {
@@ -85,6 +86,11 @@ describe("canonicalizeGenericEmbed: rejected", () => {
     [".localdomain", "https://box.localdomain/embed"],
     [".lan", "https://router.lan/embed"],
     ["reverse-DNS .arpa", "https://1.0.0.127.in-addr.arpa/"],
+    ["reserved .test", "https://example.test/embed"],
+    ["reserved .example", "https://player.example/embed"],
+    ["reserved .invalid", "https://player.invalid/embed"],
+    ["reserved .onion", "https://abc.onion/embed"],
+    ["reserved .alt", "https://abc.alt/embed"],
     ["wildcard loopback DNS (localtest.me)", "https://a.localtest.me/embed"],
     ["wildcard loopback DNS (lvh.me)", "https://lvh.me/embed"],
     ["IP-in-DNS (nip.io)", "https://127.0.0.1.nip.io/embed"],
@@ -127,6 +133,20 @@ describe("canonicalizeGenericEmbed: own origin", () => {
   });
   test("accepts a sibling host that only shares a suffix", () => {
     expect(canonicalizeGenericEmbed("https://notomega.example.org/x", opts)?.host).toBe("notomega.example.org");
+  });
+  test("own hosts are normalised: case, trailing dot, IDN, whitespace", () => {
+    const messy = { ownHosts: [" Share.Example.ORG. ", "bücher.de"] };
+    expect(canonicalizeGenericEmbed("https://x.share.example.org/", messy)).toBeNull();
+    expect(canonicalizeGenericEmbed("https://share.example.org/", messy)).toBeNull();
+    expect(canonicalizeGenericEmbed("https://xn--bcher-kva.de/", messy)).toBeNull();
+  });
+  test("normalizeHostname gives the canonical host, or null for a non-hostname", () => {
+    expect(normalizeHostname(" Share.Example.ORG. ")).toBe("share.example.org");
+    expect(normalizeHostname("bücher.de")).toBe("xn--bcher-kva.de");
+    expect(normalizeHostname("localhost")).toBe("localhost");
+    expect(normalizeHostname("https://share.example.org/")).toBeNull();
+    expect(normalizeHostname("share.example.org:8080")).toBeNull();
+    expect(normalizeHostname("")).toBeNull();
   });
   test("accepts other hosts", () => {
     expect(canonicalizeGenericEmbed("https://player.example.com/embed/42", opts)).toEqual(GENERIC);
