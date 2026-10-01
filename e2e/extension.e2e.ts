@@ -1,4 +1,4 @@
-// Extension smoke: loads unpacked, stays event-driven, lists only allowlisted embeds.
+// Extension smoke: loads unpacked, stays event-driven, lists allowlisted embeds as synced and nothing else as synced.
 import { PENDING, URLS, available } from "./support/apps";
 import { expect, test } from "./support/extension";
 import { gotoFixture } from "./support/network";
@@ -38,11 +38,13 @@ test.describe("extension", () => {
   });
 
   test("lists exactly the YouTube, Twitch live, Twitch VOD and Vimeo embeds on a mixed page", async ({ context, openPopup }) => {
-    // Clips, collections, Vimeo events and lookalike hosts are on the page too and must not be listed (OME-129).
+    // Clips, collections, Vimeo events and lookalike hosts are on the page too and must not be listed as synced (OME-129).
     const page = await context.newPage();
     await gotoFixture(page, "providers-embed");
     const p = await openPopup(page);
-    await expect(p.locator(popup.embedItem)).toHaveCount(4);
+    await expect(p.locator(`${popup.embedItem}:not([data-provider="generic"])`)).toHaveCount(4);
+    // Lookalikes on real public hosts are only ever generic: after the synced ones, labelled with their own host (ADR 0024, OME-293).
+    await expect(p.locator(popup.embedItem)).toHaveText([/YouTube/, /Twitch/, /Twitch/, /Vimeo/, "player-twitch.tv · not synced", "vimeo.co · not synced"]);
   });
 
   test("lists the video on a watch URL", async ({ context, openPopup }) => {

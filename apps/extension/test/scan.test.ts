@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Embed, GenericEmbed } from "@omega/shared";
+import { type Embed, type GenericEmbed, isSyncedEmbed } from "@omega/shared";
 import { Window } from "happy-dom";
 import { listEmbeds } from "../src/embeds";
 import { collectCandidateUrls } from "../src/scan";
@@ -66,7 +66,15 @@ const VIMEO_UNLISTED: Embed = { ...VIMEO, hash: "8272103f6e", url: "https://play
 describe("collectCandidateUrls on Twitch + Vimeo fixture pages", () => {
   test("providers-embed: lists YouTube, Twitch live, Twitch VOD and Vimeo once each, in page order", () => {
     const doc = load("providers-embed", "http://localhost:4400/providers-embed.html", OWN_PAGES);
-    expect(listEmbeds(collectCandidateUrls(doc))).toEqual([EMBED, TWITCH_LIVE, TWITCH_VOD, VIMEO_UNLISTED]);
+    expect(listEmbeds(collectCandidateUrls(doc)).filter(isSyncedEmbed)).toEqual([EMBED, TWITCH_LIVE, TWITCH_VOD, VIMEO_UNLISTED]);
+  });
+
+  test("providers-embed: lookalikes on real public hosts are only ever generic, labelled with their own host, after the synced ones", () => {
+    const doc = load("providers-embed", "http://localhost:4400/providers-embed.html", OWN_PAGES);
+    expect(listEmbeds(collectCandidateUrls(doc)).slice(4)).toEqual([
+      { provider: "generic", host: "player-twitch.tv", url: "https://player-twitch.tv/?channel=somechannel" },
+      { provider: "generic", host: "vimeo.co", url: "https://vimeo.co/76979871" },
+    ]);
   });
 
   test("providers-embed: clips, collections, live events and lookalike hosts are all found but none are listed", () => {
@@ -76,7 +84,7 @@ describe("collectCandidateUrls on Twitch + Vimeo fixture pages", () => {
     const found = collectCandidateUrls(doc);
     for (const url of rejected) {
       expect(found.urls).toContain(url);
-      expect(listEmbeds({ urls: [url], media: [url] })).toEqual([]);
+      expect(listEmbeds({ urls: [url], media: [url] }).filter(isSyncedEmbed)).toEqual([]);
     }
   });
 
