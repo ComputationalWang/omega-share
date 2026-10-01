@@ -7,6 +7,7 @@ import {
   ShareRequestSchema,
   canonicalizeEmbed,
   parseShareAuthorization,
+  type Embed,
   type MemberId,
   type RoomListResponse,
   type ServerMessage,
@@ -55,10 +56,12 @@ export interface HttpDeps {
   isAllowedOrigin: (origin: string) => boolean;
   ipOf: (req: Request) => string;
   publish: (topic: string, data: string) => void;
+  /** Writes the room's new embed through to the store (OME-280); throws if it can't. */
+  persistEmbed: (room: Room, embed: Embed) => void;
   staticDir: string | null;
 }
 
-export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publish, staticDir }: HttpDeps): Hono {
+export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publish, persistEmbed, staticDir }: HttpDeps): Hono {
   const shareLimiter = new KeyedLimiter(SHARE_BURST, SHARE_PER_SECOND);
   const globalShares = new TokenBucket(GLOBAL_SHARE_BURST, GLOBAL_SHARE_PER_SECOND);
   const failedShares = new KeyedLimiter(FAILED_SHARE_BURST, FAILED_SHARE_PER_SECOND);
@@ -144,6 +147,8 @@ export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publi
     // Last, so a refused request never uses up the room's switches.
     if (!roomBucket(room).take()) return limited(ROOM_SHARE_PER_SECOND);
 
+    // Store first: if the write fails the share fails, and memory never runs ahead of the DB.
+    persistEmbed(room, embed);
     const playback = room.setEmbed(embed, grant.memberId);
     publish(room.topic, encode({ type: "embed-changed", embed, by: grant.memberId, playback }));
     const body: ShareResponse = { ok: true, embed };

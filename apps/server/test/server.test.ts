@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as v from "valibot";
-import { CLOSE_CODES, MAX_ROOM_MEMBERS, RoomListResponseSchema, ShareResponseSchema } from "@omega/shared";
+import { CLOSE_CODES, DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, RoomListResponseSchema, ShareResponseSchema } from "@omega/shared";
 import { Client, EXTENSION_ORIGIN, SITE_ORIGIN, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 const WATCH_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
@@ -178,6 +178,7 @@ describe("WebSocket /rooms/:id/ws", () => {
       members: [{ id: a.snapshot.self, nickname: "alice", avatar: 1 }],
       embed: null,
       playback: null,
+      layout: DEFAULT_LAYOUT,
     });
 
     const b = await join("bob", 2);
