@@ -39,8 +39,9 @@ const CSP =
   "script-src 'self' https://www.youtube.com/iframe_api https://www.youtube.com/s/player/ https://player.twitch.tv/js/embed/v1.js https://player.vimeo.com/api/player.js; " +
   "style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; " +
   "frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://player.vimeo.com; " +
-  "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
-const CSP_REPORT_ONLY = "require-trusted-types-for 'script'; trusted-types omega-sdk";
+  "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; " +
+  // Enforced Trusted Types (ADR 0025): exactly our policy plus YouTube's loader policy. No wildcard, no 'allow-duplicates'.
+  "require-trusted-types-for 'script'; trusted-types omega-sdk youtube-widget-api";
 const PERMISSIONS_POLICY =
   "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), hid=(), bluetooth=(), display-capture=()";
 
@@ -48,7 +49,7 @@ function expectSecurityHeaders(res: Response): void {
   expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   expect(res.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
   expect(res.headers.get("content-security-policy")).toBe(CSP);
-  expect(res.headers.get("content-security-policy-report-only")).toBe(CSP_REPORT_ONLY);
+  expect(res.headers.get("content-security-policy-report-only")).toBeNull();
   expect(res.headers.get("permissions-policy")).toBe(PERMISSIONS_POLICY);
   expect(res.headers.get("cross-origin-opener-policy")).toBe("same-origin");
   expect(res.headers.get("cross-origin-resource-policy")).toBe("same-origin");
@@ -189,7 +190,7 @@ describe("Origin allowlist (T-04, T-05)", () => {
 });
 
 describe("responses", () => {
-  test("carry the strict CSP, TT report-only, Permissions-Policy, COOP and CORP (T-13, W-CSP)", async () => {
+  test("carry the strict CSP with enforced Trusted Types, Permissions-Policy, COOP and CORP (T-13, W-CSP)", async () => {
     t = start();
     for (const path of ["/", "/healthz", "/rooms", "/nope"]) expectSecurityHeaders(await get(path));
   });
