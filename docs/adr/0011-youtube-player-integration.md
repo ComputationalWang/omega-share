@@ -24,6 +24,6 @@
 
 **Why:** reimplementing the undocumented postMessage protocol is brittle, and YouTube's terms forbid player changes the API doesn't document. Attaching to our own element keeps src/sandbox/allow under our control. The spike (§5) showed the API costs about 12 KB of scripts loaded after join, 0.5 MB of heap, and no long tasks or frame-time change.
 
-**Accepted risk:** first-party YouTube code now runs in our origin and can reach the DOM and the WebSocket. The path-scoped CSP narrows it to the two script paths the loader uses. If we ever enforce Trusted Types, we must allow the `youtube-widget-api` policy.
+**Accepted risk:** first-party YouTube code now runs in our origin and can reach the DOM and the WebSocket. The path-scoped CSP narrows it to the two script paths the loader uses. If we ever enforce Trusted Types, we must allow the `youtube-widget-api` policy. (Done in ADR 0025.)
 
 **Consequences:** the TV must be at least 200×200 CSS px after scaling (YouTube RMF). Chat bubbles, tags and the control bar must never intersect the TV rect. Both are owned by the M1b web/layout issues.
