@@ -36,11 +36,12 @@ async function withLayout(page: Page, rewrite: Rewrite): Promise<void> {
   await page.routeWebSocket(/\/rooms\/[^/]+\/ws$/, (ws) => {
     const server = ws.connectToServer();
     server.onMessage((m) => {
-      if (typeof m !== "string") return ws.send(m);
-      const msg: unknown = JSON.parse(m);
-      if (typeof msg !== "object" || msg === null || Reflect.get(msg, "type") !== "snapshot") return ws.send(m);
-      const room: unknown = Reflect.get(msg, "room");
-      if (typeof room !== "object" || room === null) return ws.send(m);
+      const msg: unknown = typeof m === "string" ? JSON.parse(m) : null;
+      const room: unknown = typeof msg === "object" && msg !== null && Reflect.get(msg, "type") === "snapshot" ? Reflect.get(msg, "room") : null;
+      if (typeof room !== "object" || room === null) {
+        ws.send(m);
+        return;
+      }
       if (rewrite === "none") Reflect.deleteProperty(room, "layout");
       else Reflect.set(room, "layout", rewrite.layout);
       ws.send(JSON.stringify(msg));
