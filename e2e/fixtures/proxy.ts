@@ -117,7 +117,7 @@ export async function startTunnelProxy({ port, upstreamPort }: ProxyOptions): Pr
     // `Connection` is hop-by-hop: the client's `close` must not reach our pooled keep-alive agent, or the next request
     // on that socket dies as "socket hang up" and concurrent clients see 502 (OME-281).
     const headers = forwardedHeaders(req);
-    delete headers["connection"];
+    delete headers.connection;
     const upstream = request(
       { host: "127.0.0.1", port: upstreamPort, method: req.method, path: req.url, headers },
       (up) => {
