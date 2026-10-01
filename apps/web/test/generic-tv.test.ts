@@ -6,7 +6,7 @@ import type { TvGeneric } from "../src/tv";
 // A real DOM for this file only; the other web tests stay DOM-free.
 beforeAll(() => {
   // No page loads inside iframes: the test must never reach the network.
-  GlobalRegistrator.register({ settings: { disableIframePageLoading: true } });
+  GlobalRegistrator.register({ settings: { navigation: { disableChildFrameNavigation: true } } });
 });
 afterAll(async () => {
   await GlobalRegistrator.unregister();
