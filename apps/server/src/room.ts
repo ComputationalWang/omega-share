@@ -11,8 +11,8 @@ import {
   type RoomState,
   type RoomSummary,
   type SeatIndex,
-  nicknameKey,
 } from "@omega/shared";
+import { nicknameKey } from "@omega/shared/confusables";
 import { applyControl, loadPlayback, type Control } from "./playback";
 
 export type SitResult = "ok" | "seat_taken";
