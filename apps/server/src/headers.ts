@@ -68,3 +68,6 @@ const SYNCED_ONLY = headersWith(CSP);
 
 /** The headers for every response; `frame-src` follows the GENERIC_EMBEDS switch (ADR 0024 §4). */
 export const securityHeaders = (genericEmbeds: boolean): SecurityHeaders => (genericEmbeds ? WITH_GENERIC : SYNCED_ONLY);
+
+/** One year, no `includeSubDomains` or `preload` yet (research M4 D1). Sent only to an https `PUBLIC_ORIGIN` host (server.ts). */
+export const HSTS = "max-age=31536000";
