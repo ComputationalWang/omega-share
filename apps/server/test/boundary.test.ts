@@ -101,6 +101,39 @@ describe("Host allowlist (T-06, DNS rebinding)", () => {
   });
 });
 
+describe("HSTS (threat model §10, research M4 D1)", () => {
+  const HSTS = "max-age=31536000";
+  const hsts = (res: Response): string | null => res.headers.get("strict-transport-security");
+
+  test("an https public origin gets HSTS on every response to the public host, refusals included", async () => {
+    t = start({ publicOrigin: PUBLIC_ORIGIN });
+    for (const path of ["/healthz", "/rooms", "/nope"]) expect(hsts(await get(path, { host: PUBLIC_HOST }))).toBe(HSTS);
+    expect(hsts(await get("/rooms", { host: PUBLIC_HOST, origin: "https://evil.test" }))).toBe(HSTS);
+    const refused = await get("/rooms/nowhere/ws", { host: PUBLIC_HOST, upgrade: "websocket" });
+    expect(refused.status).toBe(404);
+    expect(hsts(refused)).toBe(HSTS);
+  });
+
+  test("the same server never sends HSTS to its loopback names (plain http, localhost dev)", async () => {
+    t = start({ publicOrigin: PUBLIC_ORIGIN });
+    for (const host of [`localhost:${port()}`, `127.0.0.1:${port()}`, `[::1]:${port()}`]) {
+      const res = await get("/rooms", { host });
+      expect(res.status).toBe(200);
+      expect(hsts(res)).toBeNull();
+    }
+  });
+
+  test("no HSTS without a public origin, or with a plain-http one", async () => {
+    t = start();
+    expect(hsts(await get("/rooms"))).toBeNull();
+    await t.server.stop(true);
+    t = start({ publicOrigin: "http://quiet-otter.ngrok-free.app" });
+    const res = await get("/rooms", { host: PUBLIC_HOST });
+    expect(res.status).toBe(200);
+    expect(hsts(res)).toBeNull();
+  });
+});
+
 describe("Origin allowlist (T-04, T-05)", () => {
   test("the public origin may call the API and connect", async () => {
     t = start({ publicOrigin: PUBLIC_ORIGIN });
