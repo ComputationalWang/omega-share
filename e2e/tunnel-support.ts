@@ -36,6 +36,9 @@ export interface LanePorts {
 /** The abuse suite's own lane (OME-191), so the limits it spends never reach the tunnel specs: 4432/8790 by default. */
 export const ABUSE_PORTS: LanePorts = { proxy: TUNNEL_PORTS.proxy + 2, server: TUNNEL_PORTS.server + 2 };
 
+/** The HTTP flood suite's lane (OME-281): its spent per-key buckets never reach the tunnel or abuse specs: 4434/8792 by default. */
+export const FLOOD_PORTS: LanePorts = { proxy: TUNNEL_PORTS.proxy + 4, server: TUNNEL_PORTS.server + 4 };
+
 export const PUBLIC_ORIGIN = `https://${PUBLIC_HOST}`;
 export const EVIL_ORIGIN = `https://${EVIL_HOST}`;
 /**
@@ -284,5 +287,6 @@ const laneTest = (ports: LanePorts) => base.extend<TunnelTestFixtures, TunnelWor
 
 export const test = laneTest(TUNNEL_PORTS);
 export const abuseTest = laneTest(ABUSE_PORTS);
+export const floodTest = laneTest(FLOOD_PORTS);
 
 export { expect } from "@playwright/test";
