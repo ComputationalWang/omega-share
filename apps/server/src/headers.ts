@@ -50,3 +50,6 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   "cross-origin-opener-policy": "same-origin",
   "cross-origin-resource-policy": "same-origin",
 };
+
+/** One year, no `includeSubDomains` or `preload` yet (research M4 D1). Sent only to an https `PUBLIC_ORIGIN` host (server.ts). */
+export const HSTS = "max-age=31536000";

@@ -1,5 +1,6 @@
 import type { Server } from "bun";
 import { DEFAULT_ROOM_ID, type RoomId, type ShareToken } from "@omega/shared";
+import { HSTS } from "./headers";
 import { createHttpApp, plain, type ShareGrant } from "./http";
 import { clientKey, monotonic, type Clock } from "./rate-limit";
 import { Room } from "./room";
@@ -80,31 +81,45 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     },
   });
 
+  /** HSTS goes only to the https public host: never to loopback names, plain http or localhost dev (research M4 D1). */
+  const publicUrl = opts.publicOrigin == null ? null : new URL(opts.publicOrigin);
+  const hstsHost = publicUrl?.protocol === "https:" ? publicUrl.host : null;
+  const withHsts = (res: Response): Response => {
+    res.headers.set("strict-transport-security", HSTS);
+    return res;
+  };
+
+  const route = (req: Request, srv: Server<ConnData>): Response | Promise<Response> | undefined => {
+    // Before routing, for HTTP and upgrades alike (ADR 0015 §4).
+    if (!hostOk(req)) return plain(421, "misdirected request");
+    // Not a ShareResponse: the contract has no code for it, and only a hostile page can trigger it.
+    if (!originOk(req)) return plain(403, "forbidden origin");
+    // Cheap test first so ordinary HTTP requests skip URL parsing.
+    if (!req.url.includes("/ws")) return app.fetch(req);
+    const match = WS_PATH.exec(new URL(req.url).pathname);
+    if (match === null) return app.fetch(req);
+    const room = rooms.get(match[1] ?? "");
+    if (room === undefined) return plain(404, "unknown room");
+    if (connections >= maxConnections) return plain(503, "server full");
+    const ip = ipOf(req);
+    const open = connectionsPerIp.get(ip) ?? 0;
+    if (open >= maxConnectionsPerIp) return plain(429, "too many connections");
+    const refused = ws.admitUpgrade(ip);
+    if (refused !== null) return refused;
+    if (!srv.upgrade(req, { data: ws.connData(room, ip) })) return plain(426, "expected a WebSocket upgrade");
+    connectionsPerIp.set(ip, open + 1);
+    connections++;
+    return undefined;
+  };
+
   const server: Server<ConnData> = Bun.serve<ConnData>({
     port: opts.port,
     hostname: opts.hostname ?? "127.0.0.1",
     maxRequestBodySize: 64 * 1024,
     fetch(req, srv) {
-      // Before routing, for HTTP and upgrades alike (ADR 0015 §4).
-      if (!hostOk(req)) return plain(421, "misdirected request");
-      // Not a ShareResponse: the contract has no code for it, and only a hostile page can trigger it.
-      if (!originOk(req)) return plain(403, "forbidden origin");
-      // Cheap test first so ordinary HTTP requests skip URL parsing.
-      if (!req.url.includes("/ws")) return app.fetch(req);
-      const match = WS_PATH.exec(new URL(req.url).pathname);
-      if (match === null) return app.fetch(req);
-      const room = rooms.get(match[1] ?? "");
-      if (room === undefined) return plain(404, "unknown room");
-      if (connections >= maxConnections) return plain(503, "server full");
-      const ip = ipOf(req);
-      const open = connectionsPerIp.get(ip) ?? 0;
-      if (open >= maxConnectionsPerIp) return plain(429, "too many connections");
-      const refused = ws.admitUpgrade(ip);
-      if (refused !== null) return refused;
-      if (!srv.upgrade(req, { data: ws.connData(room, ip) })) return plain(426, "expected a WebSocket upgrade");
-      connectionsPerIp.set(ip, open + 1);
-      connections++;
-      return undefined;
+      const res = route(req, srv);
+      if (res === undefined || hstsHost === null || req.headers.get("host")?.toLowerCase() !== hstsHost) return res;
+      return res instanceof Promise ? res.then(withHsts) : withHsts(res);
     },
     websocket: ws.websocket,
   });
