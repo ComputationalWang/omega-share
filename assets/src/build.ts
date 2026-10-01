@@ -1269,24 +1269,24 @@ function slicesFiles(): string[] {
   return readdirSync(join(ROOT, "ui", "slices")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/slices/${n}`);
 }
 
+/** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
+ *  level 9, for every file under assets/ that ships, eager and lazy. Lazy sheets: motion (set d), furniture (set g), edit kit (set h). */
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "furniture/furniture.png", "furniture/furniture.json", "ui/edit.png", "ui/edit.json"]);
+
 function report(): void {
-  let total = 0;
-  for (const f of ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles()]) {
+  const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, "ui/reference.css", "furniture/furniture.png", "furniture/furniture.json"];
+  let total = 0, lazy = 0;
+  for (const f of files) {
     const buf = readFileSync(join(ROOT, f));
-    const size = f.endsWith(".png") ? buf.length : gzipSync(buf, { level: 9 }).length;
+    const text = !f.endsWith(".png");
+    const size = text ? gzipSync(buf, { level: 9 }).length : buf.length;
     total += size;
-    console.log(`${f}: ${String(buf.length)} B${f.endsWith(".json") ? ` (${String(size)} B gz)` : ""}`);
+    if (LAZY.has(f)) lazy += size;
+    console.log(`${f}: ${String(buf.length)} B${text ? ` (${String(size)} B gz)` : ""}`);
   }
-  let furn = 0;
-  for (const f of ["furniture/furniture.png", "furniture/furniture.json"]) {
-    const buf = readFileSync(join(ROOT, f));
-    const size = f.endsWith(".png") ? buf.length : gzipSync(buf, { level: 9 }).length;
-    furn += size;
-    console.log(`${f}: ${String(buf.length)} B${f.endsWith(".json") ? ` (${String(size)} B gz)` : ""}`);
-  }
-  total += furn;
-  console.log(`set (g) furniture (lazy, M4/M5): ${String(furn)} B`);
-  console.log(`art total (png + gz json): ${String(total)} B of 307200`);
+  console.log(`lazy sheets (sets d, g, h edit kit): ${String(lazy)} B; eager: ${String(total - lazy)} B`);
+  console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 307200`);
 }
 
 mkdirSync(join(ROOT, "preview"), { recursive: true });

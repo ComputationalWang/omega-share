@@ -60,8 +60,9 @@ function cellOf(x: number, y: number): [number, number] {
 
 /** `edit/grid`: one floor cell's share of the edit grid. Draw it at every floor cell's centre (anchor (32, 16)).
  *  Each pixel belongs to exactly one cell, so neighbours never overdraw: a cell paints its own edge pixels, cream on its
- *  top-left/top-right edges and plum on the lower two. Side by side they make one 2 px groove, lit on top like everything else,
- *  dashed 6 on / 2 off on a screen-x rhythm that lines up across cells. Quiet enough to leave on for a whole edit session. */
+ *  top-left/top-right edges and plum on the lower two. Side by side they make one 3 px groove, lit on top like everything else,
+ *  dashed 7 on / 1 off on a screen-x rhythm that lines up across cells. The lit edge is 2 px (cream, then cream shade) so the
+ *  groove still reads at 1× over the starry carpet and the parquet, and stays quiet enough to leave on for a whole edit session. */
 function gridCell(): UiFrame {
   const W = 64, H = 32;
   const img = new Uint8Array(W * H);
@@ -73,8 +74,9 @@ function gridCell(): UiFrame {
         const [a, b] = cellOf(x - 32 + dx, y - 16 + dy);
         return a !== 0 || b !== 0;
       };
-      if (x % 8 >= 6) continue;
+      if (x % 8 >= 7) continue;
       if (other(0, -1)) img[y * W + x] = c("cream", 0);
+      else if (other(0, -2)) img[y * W + x] = c("cream", 2);
       else if (other(0, 1)) img[y * W + x] = O;
     }
   }
@@ -469,12 +471,47 @@ const GLYPHS: Record<string, readonly string[]> = {
   "tab-floor": ["........", ".wwwwww.", ".wlllll.", "........", "..llll..", "llllllll", "..llll..", "........"],
 };
 
-// 12×8 footprint glyphs for the slot corner: how much floor the piece takes (or "wall").
+/** Footprint glyph for the slot corner: the piece's floor cells as a tiny iso plan, 8×4 px per cell (the room's 2:1 grid at
+ *  1/8 scale), so 2x1 runs down-right (+col) and 1x2 down-left (+row) like the piece itself. Cream cells, cream-shade seams
+ *  between them, and a plum outline so it reads over the thumbnail and the dusk glass at 1×. */
+function footprintGlyph(cols: number, rows: number): string[] {
+  const TILE = ["..####..", "########", "########", "..####.."];
+  const W = (cols + rows) * 4 + 2, H = (cols + rows) * 2 + 2;
+  const hits = new Uint8Array(W * H);
+  for (let r = 0; r < rows; r++) {
+    for (let col = 0; col < cols; col++) {
+      const x0 = 1 + (col - r + rows - 1) * 4, y0 = 1 + (col + r) * 2;
+      TILE.forEach((line, ty) => {
+        for (let tx = 0; tx < line.length; tx++) {
+          const i = (y0 + ty) * W + x0 + tx;
+          if (line[tx] === "#") hits[i] = (hits[i] ?? 0) + 1;
+        }
+      });
+    }
+  }
+  const at = (x: number, y: number): number => (x >= 0 && y >= 0 && x < W && y < H ? hits[y * W + x] ?? 0 : 0);
+  const out: string[] = [];
+  for (let y = 0; y < H; y++) {
+    let line = "";
+    for (let x = 0; x < W; x++) {
+      const n = at(x, y);
+      if (n > 1) line += "o";
+      else if (n === 1) line += "i";
+      else line += at(x + 1, y) || at(x - 1, y) || at(x, y + 1) || at(x, y - 1) ? "o" : ".";
+    }
+    out.push(line);
+  }
+  return out;
+}
+
 const FOOTPRINTS: Record<string, readonly string[]> = {
-  "1x1": ["............", "............", ".....ii.....", "...iiiiii...", ".....ii.....", "............", "............", "............"],
-  "2x1": ["............", "............", ".....iiii...", "...iiiiiiii.", ".iiiiiiii...", "...iiii.....", "............", "............"],
-  "3x2": ["............", "...iiiiii...", ".iiiiiiiiii.", "iiiiiiiiiiii", ".iiiiiiiiii.", "...iiiiii...", "............", "............"],
-  wall: ["............", "..wwwwwwww..", "..wiiiiiiw..", "..wiiiiiiw..", "..wiiiiiiw..", "..wwwwwwww..", "............", "............"],
+  "1x1": footprintGlyph(1, 1),
+  "2x1": footprintGlyph(2, 1),
+  "1x2": footprintGlyph(1, 2),
+  "3x2": footprintGlyph(3, 2),
+  "2x3": footprintGlyph(2, 3),
+  // Wall: a little framed print, outlined like the floor plans.
+  wall: ["oooooooooo", "owwwwwwwwo", "owiiiiiiwo", "owiiiiiiwo", "owiiiiiiwo", "owwwwwwwwo", "oooooooooo"],
 };
 
 /** Room-list thumbnail for a private room, 16×24 (like `door/open` / `door/full`): the door is shut and a brass key sits in a
@@ -567,7 +604,7 @@ export function buildOwnerFrames(printSe: RoomFrame, printSw: RoomFrame, thumbs:
   out.push(privatePill(), ticket("idle"), ticket("copied"), ticket("expired"));
   for (const [n, rows] of Object.entries(ICONS)) out.push(art(`icon/${n}`, rows, 8, 8));
   for (const [n, rows] of Object.entries(GLYPHS)) out.push(art(`glyph/${n}`, rows, 4, 4));
-  for (const [n, rows] of Object.entries(FOOTPRINTS)) out.push(art(`glyph/fp-${n}`, rows, 6, 4));
+  for (const [n, rows] of Object.entries(FOOTPRINTS)) out.push(art(`glyph/fp-${n}`, rows));
   out.push(art("door/private", DOOR_PRIVATE, 8, 24));
   for (const s of SWATCHES) out.push(swatch(s));
   out.push(swatchRing());

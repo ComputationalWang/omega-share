@@ -299,7 +299,7 @@ closed teal ring + dots = fits · dashed rust ring + hatching = can't go there �
 
 | Key | Size | Anchor | Use |
 |---|---|---|---|
-| `edit/grid` | 64×32 | (32, 16) | One floor cell's share of the edit grid. Draw it at **every** floor cell centre, on the floor layer, over rugs and under walls, the console and objects. Each pixel belongs to one cell, so neighbours never overdraw. Together they make a dashed 2 px groove, cream on the top edges and plum on the lower ones, lit like everything else. |
+| `edit/grid` | 64×32 | (32, 16) | One floor cell's share of the edit grid. Draw it at **every** floor cell centre, on the floor layer, over rugs and under walls, the console and objects. Each pixel belongs to one cell, so neighbours never overdraw. Together they make a dashed 3 px groove (7 on, 1 off): cream then cream shade on the top edges, plum on the lower ones, lit like everything else. The 2 px lit edge keeps it readable at 1× over the starry carpet and the parquet. |
 | `place/<ok\|no\|sel>/<C>x<R>` | 64×33 … 160×81 | (32·R, 16) | Footprint marker on the floor layer under the piece, anchored like the piece. `C×R` = `footprintByDir[dir]` (1x1, 2x1, 1x2, 3x2, 2x3). `ok` = closed teal ring + a dot field (fits). `no` = dashed rust ring + hatching (blocked: occupied, off the floor, in the console's `col + row <= 2` corner). `sel` = closed mustard ring (the placed piece you picked). State is shape first, so it never relies on colour alone. |
 | `place/<ok\|no>/wall-<se\|sw>` | 37×55 | same as `furniture/frame/*/<dir>/back` | Wall-slot marker for a print: a ring 2 px outside the print's silhouette, so it follows the wall's slant. Draw it with the walls, before the wall layer. |
 | `handle/<rotate\|remove>/<idle\|hover>` | 20×20 | centre | Round night handles in the mustard rim (hover = cream rim), floating over the picked piece. Suggested spot: 52 px above its anchor, 14 px either side. `rotate` = a quarter-turn arrow over a floor diamond (next facing in `dirs`). `remove` = arrow into an open box: "pack it back in the tray" (not a bin; nothing is lost). Hit area = the whole 20 px disc. |
@@ -318,7 +318,7 @@ closed teal ring + dots = fits · dashed rust ring + hatching = can't go there �
 | `tab/<idle\|hover\|on>` | 16×14 | 5 5 4 5 | Tray tabs (`.ui-tabs > .ui-tab[role=tab]`). `on` (`aria-selected="true"`) is the lit wood face whose bottom runs into the tray rim (1 art px overlap, already in the CSS). Tabs: Seats `glyph/tab-seats`, Decor `glyph/tab-decor`, Floor & wall `glyph/tab-floor`. |
 | `slot/<idle\|hover\|held\|off>` | 16×16 | 6 | Cubby, one per piece (`.ui-slot`): dusk glass in a wood rim. hover/focus = cream edge, `held` (`aria-pressed="true"`) = mustard double rim (it's in your hand), `off` (`aria-disabled="true"`) = charcoal glass (the room has `MAX_FURNITURE` pieces). |
 | `thumb/<id>/<colour>` *(edit.png)* | ≤ 44×40 | — | Tray thumbnail for every catalogue piece and colour (17). The catalogue model re-cast at ≤ ½ scale (same light, tones, outline), not a shrunk sprite. Seats face `se`, the runner `ne`. Centre it in the cubby. |
-| `glyph/fp-<1x1\|2x1\|3x2\|wall>` | 12×8 | — | Footprint glyph, bottom-left in each cubby (`.ui-fp`): how much floor it takes, or "wall". |
+| `glyph/fp-<1x1\|2x1\|1x2\|3x2\|2x3\|wall>` | 10×6 · 14×8 · 22×12 · wall 10×7 | — | Footprint glyph, bottom-left in each cubby (`.ui-fp`): the piece's floor cells as a tiny iso plan (8×4 px per cell, plum seams and outline), or "wall". Pick `footprintByDir[dir]` for the facing the thumbnail shows, so the plan slants like the piece: the two-seaters and the bookcase show `se`, which is `1x2`. |
 | `swatch/<colour>` + `swatch/ring` *(edit.png)* | 10×10, 14×14 | — | Variant chips under the tray (`.ui-swatches > .ui-swatch[role=radio]`), one per colour in the piece's `colours`. The picked one shows its mustard ring. Prints get a tiny picture of their art. |
 | `ticket/<idle\|copied\|expired>` | 34×20 | 4 6 4 15, fixed height | Invite link field (`.ui-ticket`): a cinema ticket, plum mono text on cream. `copied` stamps a teal check on the stub. `expired` tears the stub off, greys the card and strikes the text. |
 | `pill/private` | 12×12 | 4 | "Invite only" pill: night with a cream rim, always with `glyph/key` and the words. |
@@ -339,6 +339,11 @@ closed teal ring + dots = fits · dashed rust ring + hatching = can't go there �
     ("Your invite is fine. The room is full. Try again soon"). An expired invite on landing gets the dimmed card with `door/private` and `icon/expired`.
 - **Room list:** private rooms use `door/private` + `.ui-pill-private` next to the name. "You're invited: …" cards are links (`a.ui-card`).
 - **Scale:** like the other sets, `--ui-px` (2× page chrome, 1× in `.ui-room`). No new colours: still the 67.
+- **`ui/edit.png` is 256×1024, and rows 709–1023 are reserved.** Sheets are powers of two (ADR 0004). The edit kit's frames cover
+  138 570 px², more than a 256×512 sheet holds (131 072), so the next size down can't fit them. The frames end at y 708. The rows below
+  are room for M5 growth (thumbnails and markers for catalogue v2) without changing the sheet size. Empty rows cost almost nothing in the PNG
+  (they compress to a few bytes), and the 1 MB texture only exists for an owner in edit mode.
+- **Bytes:** counted on the basis in § Budget. The edit kit is 10 259 B (lazy, owners only); set (h) as a whole is in that table.
 
 ## Motion atlas (`avatars/motion.json`, set d)
 
@@ -417,6 +422,10 @@ Place the sprite there, with no per-item offsets. A piece covers `footprintByDir
 
 ## Budget
 
+**One basis, used everywhere in this README:** bytes on the wire. PNGs count as stored, and text files (JSON, CSS) count gzipped at level 9.
+The total covers every file under `assets/` that ships, eager and lazy. `bun assets/src/build.ts` prints exactly these numbers (its last two lines
+are the lazy/eager split and the total). Previews and `src/` don't ship and aren't counted.
+
 | File | Bytes |
 |---|---|
 | `avatars/avatars.png` | 4 426 |
@@ -425,16 +434,20 @@ Place the sprite there, with no per-item offsets. A piece covers `footprintByDir
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
 | `room/room.png` | 8 335 |
 | `room/room.json` | 13 823 raw / 1 192 gz |
-| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h) | 7 476 |
-| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h) | 54 496 raw / 2 792 gz |
-| `ui/edit.png` (set h, lazy, owners only) | 8 889 |
+| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h) | 7 558 |
+| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h) | 55 121 raw / 2 883 gz |
+| `ui/edit.png` (set h, lazy, owners only) | 8 925 |
 | `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
 | `ui/slices/*.png` (62 files, palettes trimmed to the colours used) | 10 166 |
-| `ui/popup/*.png` (set f) | 471 |
-| `ui/reference.css` (if ported as-is) | 53 101 raw / 9 959 gz |
+| `ui/popup/*.png` (set f) | 409 |
+| `ui/reference.css` (if ported as-is) | 53 367 raw / 10 014 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **≈ 99.3 KB of 300 KB** (99 269 B; 46 309 B without the lazy sets d, g and h's edit kit) |
+| **total shipped art** | **99 471 B (≈ 97.1 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 46 475 B; lazy sets d, g and h's edit kit 52 996 B |
+
+Set (h) polish (OME-296): the stronger grid, six iso footprint glyphs (up from four), and the build now counts `reference.css` and the popup
+PNGs, so its total matches this table. The submission's 99.3 KB and the build's earlier 88.8 KB were the same art counted two ways: the gap was
+`reference.css` (gz) plus the popup PNGs.
 
 Set (h) (OME-276) adds **≈ 16.1 KB** against `main`. The lazy edit kit (`ui/edit.png` + gz `edit.json`) is 10 223 B and only loads for an owner in
 edit mode. Everything else adds ≈ 6.3 KB: `ui.png` +1 076, `ui.json` +356 gz, 13 new slices +2 243 (a browser only fetches a slice once a rule uses it), and

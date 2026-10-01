@@ -220,7 +220,7 @@ Three directions were weighed before any pixels:
   The latched "Done" key is the same key filled mustard and pressed, so on/off is a change of shape (no lip), not just colour.
 - **Fits / doesn't fit, never colour alone:** `ok` = closed teal ring + a sparse dot field. `no` = rust ring broken into dashes + diagonal hatching.
   Both have a plum stroke so they hold on honey wood, rugs and velvet alike. Wall slots use the same pair as a ring hugging the print's slanted silhouette.
-- **A quiet grid:** a 2 px groove, cream on top and plum below like a bevel lit from the top left, dashed so it doesn't cage the room. It stays on for the whole session without fighting the furniture.
+- **A quiet grid:** a 3 px groove, cream and cream shade on top and plum below like a bevel lit from the top left, dashed so it doesn't cage the room. It stays on for the whole session without fighting the furniture.
 - **Remove isn't destroy:** the handle is an arrow into an open box (pack it back in the tray), not a bin, because removed pieces go back to the catalogue.
 - **Thumbnails are re-cast, not shrunk:** each tray thumbnail is the set (g) model ray-cast again at ≤ ½ scale, so its light, tones and outline match the catalogue
   (a downscaled sprite would blur into new colours and lose the outline).
