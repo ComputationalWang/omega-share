@@ -1,9 +1,10 @@
 // Generic tier policy on real server processes (OME-294, ADR 0024 §2, §4–§6). Two servers of our own, so the
 // switch and the denylist never reach the lobby server: one with GENERIC_EMBEDS=on (the default) and a denylist,
 // one with GENERIC_EMBEDS=off. Every refused URL must get `unsupported_url` and leave the room's embed alone;
-// the CSP header's frame-src follows the switch. Alt ports (QA2 owns 4410/5183/8797, persistence 5193/8807).
+// the CSP header's frame-src follows the switch. Alt ports (QA2 owns 4410/5183/8797, persistence 5193/8807, Server
+// Engineer 8817).
 import { spawn, type ChildProcess } from "node:child_process";
-import type { APIRequestContext } from "@playwright/test";
+import { request as httpRequest } from "node:http";
 import { DEFAULT_ROOM_ID, parseServerMessage, type RoomState } from "@omega/shared";
 import { ROOT } from "./support/apps";
 import { EMBED_URL } from "./support/network";
@@ -16,8 +17,8 @@ function portFrom(name: string, fallback: number): number {
   return port;
 }
 
-const ON_PORT = portFrom("OMEGA_GENERIC_ON_PORT", 8817);
-const OFF_PORT = portFrom("OMEGA_GENERIC_OFF_PORT", 8827);
+const ON_PORT = portFrom("OMEGA_GENERIC_ON_PORT", 8837);
+const OFF_PORT = portFrom("OMEGA_GENERIC_OFF_PORT", 8847);
 /** The site's own host: the generic tier refuses it and its subdomains (ADR 0024 §2). */
 const SITE_ORIGIN = "https://watch.omega-fixture.org";
 const DENIED = "denied-videos.org";
@@ -94,20 +95,56 @@ function join(port: number, nickname: string): Promise<Member> {
   });
 }
 
-/** POSTs a share, waiting out the share limiters (429, for the `retryAfterMs` they name) so every URL gets a real verdict. */
-async function share(request: APIRequestContext, port: number, token: string, url: string): Promise<{ status: number; body: unknown }> {
-  const post = () => request.post(`http://127.0.0.1:${String(port)}/rooms/${DEFAULT_ROOM_ID}/share`, { data: { url }, headers: { authorization: `Bearer ${token}` } });
+/** One POST to the lobby's share endpoint, sent from the loopback address `from` (the share limiters key by it). */
+function post(port: number, token: string, url: string, from: string): Promise<{ status: number; body: unknown }> {
+  const data = JSON.stringify({ url });
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      {
+        host: "127.0.0.1",
+        port,
+        localAddress: from,
+        method: "POST",
+        path: `/rooms/${DEFAULT_ROOM_ID}/share`,
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "content-length": Buffer.byteLength(data) },
+      },
+      (res) => {
+        let text = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk: string) => (text += chunk));
+        res.on("end", () => {
+          try {
+            resolve({ status: res.statusCode ?? 0, body: JSON.parse(text) as unknown });
+          } catch (err) {
+            reject(err instanceof Error ? err : new Error(String(err)));
+          }
+        });
+      },
+    );
+    req.on("error", reject);
+    req.end(data);
+  });
+}
+
+/**
+ * POSTs a share, waiting out the share limiters (429, for the `retryAfterMs` they name) so every URL gets a real
+ * verdict. `from` picks the loopback source address: Linux routes all of 127/8 to lo, so each address is its own
+ * client to the per-client limiter (OME-341). The limiters themselves are abuse.e2e.ts's job.
+ */
+async function share(port: number, token: string, url: string, from = "127.0.0.1"): Promise<{ status: number; body: unknown }> {
   const deadline = Date.now() + 30_000;
   for (;;) {
-    const res = await post();
-    const body: unknown = await res.json();
-    if (res.status() !== 429) return { status: res.status(), body };
+    const res = await post(port, token, url, from);
+    if (res.status !== 429) return res;
     if (Date.now() > deadline) throw new Error(`still rate limited after 30 s: ${url}`);
-    const error: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "error") : null;
+    const error: unknown = typeof res.body === "object" && res.body !== null ? Reflect.get(res.body, "error") : null;
     const wait: unknown = typeof error === "object" && error !== null ? Reflect.get(error, "retryAfterMs") : null;
     await new Promise((r) => setTimeout(r, (typeof wait === "number" ? wait : 1_000) + 50));
   }
 }
+
+/** Sharers in the room at once, well under MAX_ROOM_MEMBERS with the watching member. */
+const BATCH = 8;
 
 const UNSUPPORTED = { ok: false, error: { code: "unsupported_url" } };
 
@@ -161,18 +198,28 @@ test.describe("generic tier policy on real servers", () => {
     off?.stop();
   });
 
-  test("GENERIC_EMBEDS=on: every unsafe URL gets unsupported_url and the room's embed is unchanged", async ({ request }, info) => {
+  test("GENERIC_EMBEDS=on: every unsafe URL gets unsupported_url and the room's embed is unchanged", async ({}, info) => {
     const member = await join(ON_PORT, "policy-on");
     try {
       // A safe generic URL is accepted first, so "unchanged" means it is still there after every refusal.
-      const ok = await share(request, ON_PORT, member.token, GENERIC_URL);
+      const ok = await share(ON_PORT, member.token, GENERIC_URL);
       expect(ok).toEqual({ status: 200, body: { ok: true, embed: { provider: "generic", host: "video.omega-fixture.org", url: GENERIC_URL } } });
       await expect.poll(() => member.embed()).toMatchObject({ provider: "generic", url: GENERIC_URL });
 
+      // Each refused URL comes from a member and an address of its own, so no verdict waits on another's share
+      // bucket. In batches: the room holds MAX_ROOM_MEMBERS.
       const verdicts: { case: string; url: string; status: number; body: unknown }[] = [];
-      for (const [name, url] of REFUSED) {
-        const res = await share(request, ON_PORT, member.token, url);
-        verdicts.push({ case: name, url, ...res });
+      for (let start = 0; start < REFUSED.length; start += BATCH) {
+        const batch = REFUSED.slice(start, start + BATCH).map(async ([name, url], j) => {
+          const i = start + j;
+          const sharer = await join(ON_PORT, `policy-on-${String(i)}`);
+          try {
+            return { case: name, url, ...(await share(ON_PORT, sharer.token, url, `127.0.0.${String(i + 2)}`)) };
+          } finally {
+            sharer.close();
+          }
+        });
+        verdicts.push(...(await Promise.all(batch)));
       }
       await info.attach("generic-on-verdicts.json", { body: JSON.stringify(verdicts, null, 2), contentType: "application/json" });
       for (const v of verdicts) {
@@ -185,13 +232,13 @@ test.describe("generic tier policy on real servers", () => {
     }
   });
 
-  test("GENERIC_EMBEDS=off: a safe generic URL gets unsupported_url; YouTube still shares", async ({ request }) => {
+  test("GENERIC_EMBEDS=off: a safe generic URL gets unsupported_url; YouTube still shares", async () => {
     const member = await join(OFF_PORT, "policy-off");
     try {
-      expect(await share(request, OFF_PORT, member.token, GENERIC_URL)).toMatchObject({ status: 400, body: UNSUPPORTED });
-      expect(await share(request, OFF_PORT, member.token, "https://videos.example-host.net/embed/abc")).toMatchObject({ status: 400, body: UNSUPPORTED });
+      expect(await share(OFF_PORT, member.token, GENERIC_URL)).toMatchObject({ status: 400, body: UNSUPPORTED });
+      expect(await share(OFF_PORT, member.token, "https://videos.example-host.net/embed/abc")).toMatchObject({ status: 400, body: UNSUPPORTED });
       expect(member.embed()).toBeNull();
-      const yt = await share(request, OFF_PORT, member.token, EMBED_URL);
+      const yt = await share(OFF_PORT, member.token, EMBED_URL);
       expect(yt).toMatchObject({ status: 200, body: { ok: true, embed: { provider: "youtube" } } });
     } finally {
       member.close();
