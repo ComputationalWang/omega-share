@@ -89,6 +89,23 @@ describe("listEmbeds: other https embeds (generic tier, not synced)", () => {
   }
 });
 
+describe("listEmbeds: our own site is never a generic embed", () => {
+  const own = ["omega.example.org"];
+
+  test("an iframe of the configured server host or a subdomain is dropped; other hosts stay", () => {
+    const media = ["https://omega.example.org/rooms/lobby", "https://www.omega.example.org/r/1", "https://videos.example.org/e/1", "https://notomega.example.org/e/2"];
+    expect(listEmbeds(scan([], media), own)).toEqual([generic("https://videos.example.org/e/1"), generic("https://notomega.example.org/e/2")]);
+  });
+
+  test("synced embeds are unaffected", () => {
+    expect(listEmbeds(scan([`https://www.youtube.com/embed/${A}`], []), ["www.youtube.com"])).toEqual([embed(A)]);
+  });
+
+  test("without own hosts the own-site iframe is listed (unchanged default)", () => {
+    expect(listEmbeds(scan([], ["https://omega.example.org/rooms/lobby"]))).toEqual([generic("https://omega.example.org/rooms/lobby")]);
+  });
+});
+
 describe("scanTab", () => {
   const WATCH = "https://www.youtube.com/watch?v=aqz-KE-bpKQ";
   const EMBED_URL = "https://www.youtube.com/embed/aqz-KE-bpKQ";
@@ -96,6 +113,11 @@ describe("scanTab", () => {
   test("lists the embeds from the top frame's result", async () => {
     const r = await scanTab(() => Promise.resolve([{ result: scan([WATCH], ["https://videos.example.org/e/1"]) }]));
     expect(r).toEqual({ kind: "embeds", embeds: [{ provider: "youtube", videoId: "aqz-KE-bpKQ", url: EMBED_URL }, generic("https://videos.example.org/e/1")] });
+  });
+
+  test("passes own hosts through to the list", async () => {
+    const r = await scanTab(() => Promise.resolve([{ result: scan([], ["https://omega.example.org/r/1", "https://videos.example.org/e/1"]) }]), ["omega.example.org"]);
+    expect(r).toEqual({ kind: "embeds", embeds: [generic("https://videos.example.org/e/1")] });
   });
 
   test("a readable page with nothing supported is an empty list", async () => {
