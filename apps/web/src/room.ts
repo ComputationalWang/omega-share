@@ -13,6 +13,7 @@ import { layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } f
 import { BUBBLE_OFFSET_Y, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
 import type { PlayerError } from "./player/adapter";
 import { PLAYERS, createPlayerMounter } from "./player/registry";
+import type { FurnitureAtlas } from "./furniture-atlas";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
 import { catchingUp, initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
 import { tvFrame, type TvFrame } from "./tv";
@@ -202,6 +203,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let seats: Point[] = [];
   let standing: Point[] = [];
   let scene = sceneOf(layoutOf(null), null);
+  /** The set (g) atlas once loaded: later layouts build their scene with it straight away. */
+  let atlas: FurnitureAtlas | null = null;
+  /** The drawn layout's content; a re-join snapshot parses a new but equal layout, which keeps the scene. */
+  let layoutKey = "";
   let shownError: ViewState["lastError"] = null;
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
   const tagEls = new Map<MemberId, HTMLElement>();
@@ -266,27 +271,36 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** Rebuild furniture, seats and standing spots for a new layout; the set (g) atlas loads only if the layout needs it. */
   const applyLayout = (next: RoomLayout): void => {
     layout = next;
+    const key = JSON.stringify(next);
+    if (key === layoutKey) return;
+    layoutKey = key;
     seats = seatPoints(next);
     standing = standingPoints(next);
-    scene = sceneOf(next, null);
-    view.setScene(scene, null);
+    const needsAtlas = usesSetG(next);
+    const ready = needsAtlas ? atlas : null;
+    scene = sceneOf(next, ready?.manifest ?? null);
+    view.setScene(scene, ready);
     seatButtons.forEach((b, i) => {
       const p = seats[i];
       if (p !== undefined) place(b, p);
     });
     drawnSeats = undefined;
-    if (!usesSetG(next)) return;
+    if (!needsAtlas || ready !== null) return;
     void import("./furniture-atlas")
       .then((m) => m.loadFurnitureAtlas())
-      .then((atlas) => {
+      .then((loaded) => {
+        atlas = loaded;
         if (layout !== next) return;
-        scene = sceneOf(next, atlas.manifest);
-        view.setScene(scene, atlas);
+        scene = sceneOf(next, loaded.manifest);
+        view.setScene(scene, loaded);
         drawnSeats = undefined;
         if (frame === 0) frame = requestAnimationFrame(render);
       })
-      // Without the sheet the room still works: placeholder floor, seats and avatars. The next layout retries.
-      .catch(() => undefined);
+      // Without the sheet the room still works: placeholder floor, seats and avatars. The next snapshot retries.
+      .catch((e: unknown) => {
+        if (layout === next) layoutKey = "";
+        console.warn("furniture atlas failed to load", e);
+      });
   };
 
   const render = (): void => {
