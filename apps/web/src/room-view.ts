@@ -1,18 +1,26 @@
-// The PixiJS layer: floor, seats and placeholder avatars. Rendered on demand (no ticker), so an idle room costs no frames.
-import { Application, Container, Graphics, Ticker } from "pixi.js";
+// The PixiJS layer: floor, furniture, seats and placeholder avatars. Rendered on demand (no ticker), so an idle room costs no frames.
+import { Application, Container, Graphics, Sprite, Ticker } from "pixi.js";
 import { AVATAR_COUNT, type MemberId } from "@omega/shared";
-import { AVATAR_COLORS, FLOOR_CELLS, SEATS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
+import type { FurnitureAtlas } from "./furniture-atlas";
+import type { Scene } from "./furniture";
+import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 
 export interface AvatarPlacement {
   readonly id: MemberId;
   readonly avatar: number;
   readonly at: Point;
+  /** Depth among furniture and other avatars (furniture.ts: a sitter takes its seat's, others `standDepth`). */
+  readonly z: number;
 }
 
 export interface RoomView {
   readonly canvas: HTMLCanvasElement;
+  /** The room's furniture and seat markers; rebuilt once per layout change (or when the atlas arrives). Draws on the next `update`. */
+  setScene(scene: Scene, atlas: FurnitureAtlas | null): void;
   /** Seat occupancy and who stands where; redraws once. */
   update(seatTaken: readonly boolean[], avatars: readonly AvatarPlacement[]): void;
+  /** Labels in draw order (floor, furniture frame keys, `seat:<i>`, `avatar:<id>`), for e2e depth checks. */
+  drawOrder(): string[];
   destroy(): void;
 }
 
@@ -68,25 +76,55 @@ export async function createRoomView(): Promise<RoomView> {
   app.ticker.stop();
   const pumpSystem = quietSystemTicker(Ticker.system);
 
-  const floor = new Graphics();
+  const floor = new Graphics({ label: "floor" });
   for (let c = 0; c < FLOOR_CELLS; c++) {
     for (let r = 0; r < FLOOR_CELLS; r++) diamond(floor, cellCenter(c, r), TILE_W, TILE_H).fill((c + r) % 2 ? 0x3a3450 : 0x443d5e);
   }
-  const seats = SEATS.map((p) => {
-    const g = new Graphics();
-    g.position.set(p.x, p.y);
-    return g;
-  });
-  const avatarLayer = new Container({ sortableChildren: true });
-  app.stage.addChild(floor, ...seats, avatarLayer);
+  // Static: the floor, then rugs and wall pieces in furniture order. Objects sort with the avatars by depth.
+  const background = new Container();
+  background.addChild(floor);
+  const markerLayer = new Container();
+  const objectLayer = new Container({ sortableChildren: true });
+  app.stage.addChild(background, markerLayer, objectLayer);
 
+  /** Marker per placeholder seat, by seat index. */
+  let markers: (Graphics | null)[] = [];
+  let lastTaken: (boolean | null)[] = [];
+  let furniture: Sprite[] = [];
   const pool = new Map<MemberId, { g: Graphics; avatar: number }>();
-  const lastTaken: (boolean | null)[] = SEATS.map(() => null);
+
+  const render = (): void => {
+    pumpSystem();
+    app.render();
+  };
 
   return {
     canvas: app.canvas,
+    setScene(scene, atlas) {
+      for (const s of furniture) s.destroy();
+      for (const m of markers) m?.destroy();
+      furniture = [];
+      // Rugs, then wall pieces, then objects; the background keeps that order, objects sort by depth.
+      const ordered = atlas === null ? [] : ["floor", "wall", "object"].flatMap((layer) => scene.sprites.filter((f) => f.layer === layer));
+      for (const f of ordered) {
+        const texture = atlas?.texture(f.key);
+        if (texture === undefined) continue;
+        const s = new Sprite({ texture, label: f.key, x: f.x, y: f.y, zIndex: f.z });
+        furniture.push(s);
+        (f.layer === "object" ? objectLayer : background).addChild(s);
+      }
+      markers = scene.seats.map((seat, i) => {
+        if (!seat.marker) return null;
+        const g = new Graphics({ label: `seat:${String(i)}` });
+        g.position.set(seat.at.x, seat.at.y);
+        markerLayer.addChild(g);
+        return g;
+      });
+      lastTaken = markers.map(() => null);
+    },
     update(seatTaken, avatars) {
-      seats.forEach((g, i) => {
+      markers.forEach((g, i) => {
+        if (g === null) return;
         const taken = seatTaken[i] ?? false;
         if (lastTaken[i] === taken) return;
         lastTaken[i] = taken;
@@ -100,24 +138,27 @@ export async function createRoomView(): Promise<RoomView> {
         seen.add(a.id);
         let entry = pool.get(a.id);
         if (entry === undefined) {
-          entry = { g: new Graphics(), avatar: -1 };
+          entry = { g: new Graphics({ label: `avatar:${a.id}` }), avatar: -1 };
           pool.set(a.id, entry);
-          avatarLayer.addChild(entry.g);
+          objectLayer.addChild(entry.g);
         }
         if (entry.avatar !== a.avatar) {
           drawAvatar(entry.g, a.avatar);
           entry.avatar = a.avatar;
         }
         entry.g.position.set(a.at.x, a.at.y);
-        entry.g.zIndex = a.at.y;
+        entry.g.zIndex = a.z;
       }
       for (const [id, entry] of pool) {
         if (seen.has(id)) continue;
         entry.g.destroy();
         pool.delete(id);
       }
-      pumpSystem();
-      app.render();
+      render();
+    },
+    drawOrder() {
+      const sorted = [...objectLayer.children].sort((a, b) => a.zIndex - b.zIndex);
+      return [...background.children, ...markerLayer.children, ...sorted].map((c) => c.label);
     },
     destroy() {
       app.destroy(true, { children: true });

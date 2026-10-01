@@ -1,4 +1,4 @@
-import { FLOOR_CELLS, MAX_ROOM_MEMBERS, SEAT_COUNT, type Provider } from "@omega/shared";
+import { FLOOR_CELLS, type Provider } from "@omega/shared";
 
 /** Logical stage size; the DOM stage is CSS-scaled to fit, the canvas matches it 1:1. */
 export const STAGE_W = 960;
@@ -97,27 +97,6 @@ export function bubbleRect(p: Point): Rect {
  * Room scale, up to MAX_SYSLINES lines, newest at the bottom; clear of every seat, standing spot and tag.
  */
 export const SYSLINE_RAIL: Rect = { x: 12, y: 510, w: 288, h: 78 };
-
-/** Two rows of four facing the TV, split by an aisle. */
-const SEAT_CELLS: readonly (readonly [number, number])[] = [
-  [1, 5], [2, 4], [4, 2], [5, 1],
-  [3, 7], [4, 6], [6, 4], [7, 3],
-];
-export const SEATS: readonly Point[] = SEAT_CELLS.map(([c, r]) => cellCenter(c, r));
-
-/** Spots for members without a seat, at the front of the room, filled in order. */
-export const STANDING: readonly Point[] = (() => {
-  const spots: Point[] = [];
-  for (const sum of [13, 15, 17, 12, 14, 16]) {
-    for (let col = 0; col < FLOOR_CELLS; col++) {
-      const row = sum - col;
-      if (row >= 0 && row < FLOOR_CELLS) spots.push(cellCenter(col, row));
-    }
-  }
-  return spots.slice(0, MAX_ROOM_MEMBERS);
-})();
-
-if (SEATS.length !== SEAT_COUNT) throw new Error("layout: seat count mismatch");
 
 /** Placeholder avatar colours until the sprites land. */
 export const AVATAR_COLORS: readonly number[] = [0xe4572e, 0x29335c, 0xf3a712, 0x669bbc];

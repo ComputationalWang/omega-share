@@ -50,7 +50,7 @@ function vimeoUrl(id: string, hash: string | null): string {
 const CANONICAL = "url is not the canonical embed url";
 
 /**
- * A validated embed. Every variant's `url` is rebuilt from its ids, so a parsed
+ * A validated synced embed (YouTube, Twitch, Vimeo). Every variant's `url` is rebuilt from its ids, so a parsed
  * Embed is safe to use as an iframe `src` (ADR 0003, ADR 0014).
  */
 export const EmbedSchema = v.variant("provider", [
@@ -178,9 +178,50 @@ function vimeoEmbed(url: URL): Embed | null {
   return { provider: "vimeo", videoId: id, hash, url: vimeoUrl(id, hash) };
 }
 
+/** Host is `domain` or one of its subdomains. */
+function underDomain(host: string, domains: readonly string[]): boolean {
+  return domains.some((d) => host === d || host.endsWith("." + d));
+}
+
 /**
- * Turn a supported video URL into its canonical embed, or null if the URL is not
- * on the provider allowlist. Pure; never throws.
+ * One synced provider: the hosts it owns and how its URLs become a canonical embed.
+ * Adding a synced provider is one entry here plus its `Embed` variant and its web
+ * player adapter (ADR 0024 §2).
+ */
+export interface SyncedProvider {
+  readonly id: Provider;
+  /** Every host this provider serves. A URL on one of them is never a generic embed. */
+  ownsHost(host: string): boolean;
+  /** The canonical embed for a URL on one of this provider's hosts, or null. */
+  canonicalize(url: URL): Embed | null;
+}
+
+const YOUTUBE_DOMAINS = ["youtube.com", "youtu.be", "youtube-nocookie.com"] as const;
+const TWITCH_DOMAINS = ["twitch.tv"] as const;
+const VIMEO_DOMAINS = ["vimeo.com"] as const;
+
+/** The synced tier, in `PROVIDERS` order. */
+export const SYNCED_PROVIDERS: readonly SyncedProvider[] = Object.freeze([
+  { id: "youtube", ownsHost: (h: string) => underDomain(h, YOUTUBE_DOMAINS), canonicalize: youtubeEmbed },
+  {
+    id: "twitch",
+    ownsHost: (h: string) => underDomain(h, TWITCH_DOMAINS),
+    canonicalize: (url: URL) => {
+      const ids = extractTwitch(url);
+      return ids === null ? null : twitchEmbed(ids);
+    },
+  },
+  { id: "vimeo", ownsHost: (h: string) => underDomain(h, VIMEO_DOMAINS), canonicalize: vimeoEmbed },
+]);
+
+/** The synced provider that owns `host`, if any. */
+export function syncedProviderFor(host: string): SyncedProvider | undefined {
+  return SYNCED_PROVIDERS.find((p) => p.ownsHost(host));
+}
+
+/**
+ * Turn a supported video URL into its canonical synced embed, or null if no synced
+ * provider can play it. Pure; never throws. Generic embeds: `canonicalizeAnyEmbed`.
  */
 export function canonicalizeEmbed(input: string): Embed | null {
   if (input.length > MAX_URL_LENGTH) return null;
@@ -192,12 +233,5 @@ export function canonicalizeEmbed(input: string): Embed | null {
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") return null;
   if (url.username !== "" || url.password !== "" || url.port !== "") return null;
-
-  const host = url.hostname;
-  if (host === TWITCH_PLAYER_HOST || TWITCH_SITE_HOSTS.has(host)) {
-    const ids = extractTwitch(url);
-    return ids === null ? null : twitchEmbed(ids);
-  }
-  if (host === VIMEO_PLAYER_HOST || VIMEO_SITE_HOSTS.has(host)) return vimeoEmbed(url);
-  return youtubeEmbed(url);
+  return syncedProviderFor(url.hostname)?.canonicalize(url) ?? null;
 }

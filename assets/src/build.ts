@@ -23,14 +23,15 @@ import {
 } from "./motion";
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
-import { buildFurniture, type FurnDir, type PieceMeta } from "./furniture";
+import { THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
-import { buildUiFrames, referenceCss, type Borders } from "./ui";
+import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
 import { CATCHUP_FRAME_MS, buildPlaybackFrames, playbackCss } from "./playback";
 import { buildTvFrames, tvCss } from "./tv";
 import { ONAIR_FRAME_MS, RESYNC_FRAME_MS, buildLiveFrames, liveCss } from "./live";
 import { DOTS_FRAME_MS, POPUP_ICONS, WAIT_FRAMES, buildSafetyFrames, safetyCss } from "./safety";
+import { buildOwnerFrames, ownerCss } from "./owner";
 
 const ROOT = join(import.meta.dir, "..");
 const POSES: readonly Pose[] = ["idle", "sit"];
@@ -494,8 +495,17 @@ function tagLiftByAvatar(images: Map<string, Uint8Array>): Record<string, Record
 }
 
 /** Set (c): UI chrome atlas, plus each 9-slice/cursor as its own PNG for CSS `border-image`. */
-function buildUi(avatarImages: Map<string, Uint8Array>): void {
-  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildLiveFrames(), ...buildTvFrames(), ...buildSafetyFrames()];
+function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly RoomFrame[]): UiFrame[] {
+  const print = (dir: string): RoomFrame => {
+    const f = furniture.find((x) => x.key === `furniture/frame/dusk/${dir}/back`);
+    if (!f) throw new Error(`missing print ${dir}`);
+    return f;
+  };
+  const owner = buildOwnerFrames(print("se"), print("sw"), buildThumbs());
+  // Set (h): the owner's edit kit (grid, markers, handles, tray thumbnails, swatches) is its own lazy atlas, ui/edit.png:
+  // only a room owner who presses "Edit room" loads it. Everything any member sees (door, host/key glyphs, invite icons) stays in ui.png.
+  const editKit = owner.filter((f) => EDIT_KIT.test(f.key));
+  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildLiveFrames(), ...buildTvFrames(), ...buildSafetyFrames(), ...owner.filter((f) => !EDIT_KIT.test(f.key))];
   registerKeys("ui", frames.map((f) => f.key));
   const byKey = new Map(frames.map((f) => [f.key, f]));
   if (byKey.size !== frames.length) throw new Error("duplicate ui key");
@@ -558,7 +568,8 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
   const rects = Object.fromEntries(Object.entries(atlasFrames).map(([k, f]) => [k, f.frame]));
   const borders: Record<string, Borders> = {};
   for (const f of frames) if (f.borders) borders[f.key] = f.borders;
-  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects) + safetyCss(rects));
+  const edit = writeAtlas(dir, "edit", editKit, "ui");
+  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects) + safetyCss(rects) + ownerCss(edit.rects, edit.size, THUMB_BOX));
   // Set (f): the extension popup is plain HTML, so its key icon ships as two standalone files (drawn 1× and 2×, not upscaled).
   mkdirSync(join(dir, "popup"), { recursive: true });
   for (const [file, k] of Object.entries(POPUP_ICONS)) {
@@ -570,6 +581,32 @@ function buildUi(avatarImages: Map<string, Uint8Array>): void {
   const bg = colorIndex("wall", 1);
   const big = upscale(sheet, sheetW, sheetH, 4).map((v) => (v === 0 ? bg : v));
   writeFileSync(join(ROOT, "preview", "ui-sheet@4x.png"), encodeIndexedPng(sheetW * 4, sheetH * 4, big, PALETTE));
+  return [...frames, ...editKit];
+}
+
+const EDIT_KIT = /^(edit|place|handle|thumb|swatch)\//;
+
+/** A plain Pixi/TexturePacker atlas (`<name>.png` + `<name>.json`) for a lazy sub-set; returns frame rects for the CSS. */
+function writeAtlas(dir: string, name: string, frames: readonly UiFrame[], set: string): { rects: Record<string, { x: number; y: number; w: number; h: number }>; size: { w: number; h: number } } {
+  registerKeys(set, frames.map((f) => f.key));
+  const { placed, w, h } = pack(frames, 256);
+  const sheet = new Uint8Array(w * h);
+  const out: Record<string, Frame> = {};
+  for (const p of placed.sort((a, b) => a.key.localeCompare(b.key))) {
+    blit(sheet, w, p.img, p.w, p.h, p.x, p.y);
+    out[p.key] = {
+      frame: { x: p.x, y: p.y, w: p.w, h: p.h },
+      rotated: false,
+      trimmed: false,
+      spriteSourceSize: { x: 0, y: 0, w: p.w, h: p.h },
+      sourceSize: { w: p.w, h: p.h },
+      anchor: { x: p.ax / p.w, y: p.ay / p.h },
+    };
+  }
+  writeFileSync(join(dir, `${name}.png`), encodeIndexedPng(w, h, sheet, PALETTE));
+  const atlas = { frames: out, meta: { app: "omega-share assets/src/build.ts", version: "1", image: `${name}.png`, format: "RGBA8888", size: { w, h }, scale: "1", omega: { license: "CC-BY-SA-4.0", roomScale: 1, uiScale: 2 } } };
+  writeFileSync(join(dir, `${name}.json`), JSON.stringify(atlas, null, 1) + "\n");
+  return { rects: Object.fromEntries(Object.entries(out).map(([k, f]) => [k, f.frame])), size: { w, h } };
 }
 
 /** A 9-slice may only stretch flat colour: every column of the top/bottom/centre bands between the side
@@ -926,7 +963,7 @@ function placePiece(meta: PieceMeta, colour: string, dir: FurnDir, ax: number, a
   return out;
 }
 
-function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string, Uint8Array>): void {
+function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string, Uint8Array>): { frames: RoomFrame[]; pieces: PieceMeta[]; all: FurnSprites } {
   const { frames, pieces } = buildFurniture();
   registerKeys("furniture", frames.map((f) => f.key));
   const seen = new Set<string>();
@@ -980,6 +1017,7 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   buildFurnitureSheet(pieces, all);
   buildFurnitureRoom(pieces, all, "furniture-room", showroom());
   buildFurnitureRoom(pieces, all, "furniture-layout", sampleLayout());
+  return { frames, pieces, all };
 }
 
 type FurnSprites = Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>;
@@ -1061,6 +1099,8 @@ interface Placement {
   col: number;
   row: number;
   sitters?: string[];
+  /** Set (h): the piece is in the owner's hand, not placed yet. */
+  ghost?: boolean;
 }
 const cellAt = (c: number, r: number): { x: number; y: number } => ({ x: 480 + (c - r) * 32, y: 220 + (c + r + 1) * 16 });
 
@@ -1118,12 +1158,46 @@ function sampleLayout(): { placements: Placement[]; standing: [string, number, n
   };
 }
 
-function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name: string, plan: { placements: Placement[]; standing: [string, number, number][] }): void {
+type Draw = (key: string, x: number, y: number) => void;
+interface RoomHooks {
+  /** After the floor layer (rugs), before walls and objects: edit grid, footprint markers. */
+  floor?: (draw: Draw) => void;
+  /** After walls and the console, before wall-layer pieces: wall-slot markers. */
+  wall?: (draw: Draw) => void;
+  /** After every object: handles and anything floating above the room. */
+  top?: (draw: Draw) => void;
+}
+
+function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name: string, plan: { placements: Placement[]; standing: [string, number, number][] }, hooks: RoomHooks = {}): void {
   const W = 960, H = 600;
   const img = new Uint8Array(W * H).fill(colorIndex("night", 2));
   const layout = defaultLayout();
   const draw = (key: string, x: number, y: number): void => { drawSprite(img, W, H, all, key, x, y); };
+  // A held piece (set h) is a ghost: every other pixel on a checkerboard, so its footprint marker reads through (Pixi: alpha).
+  const ghost = (key: string, x: number, y: number): void => {
+    const f = all.get(key);
+    if (!f) throw new Error(`missing ${key}`);
+    const ox = x - f.ax, oy = y - f.ay;
+    for (let yy = 0; yy < f.h; yy++) for (let xx = 0; xx < f.w; xx++) {
+      const v = f.img[yy * f.w + xx] ?? 0, px = ox + xx, py = oy + yy;
+      if (v !== 0 && (px + py) % 2 === 0 && px >= 0 && py >= 0 && px < W && py < H) img[py * W + px] = v;
+    }
+  };
+  const byId = new Map(pieces.map((p) => [p.id, p]));
+  const meta = (id: string): PieceMeta => {
+    const m = byId.get(id);
+    if (!m) throw new Error(`no piece ${id}`);
+    return m;
+  };
+  const drawLayer = (layer: "floor" | "wall"): void => {
+    for (const p of plan.placements.filter((q) => meta(q.id).layer === layer)) {
+      const a = cellAt(p.col, p.row);
+      (p.ghost === true ? ghost : draw)(`furniture/${p.id}/${p.colour}/${p.dir}/back`, a.x, a.y);
+    }
+  };
   layout.floor.forEach((row, r) => { row.forEach((key, c) => { draw(key, cellAt(c, r).x, cellAt(c, r).y); }); });
+  // Edit mode lays the grid and markers on the floor (over rugs) before the walls and console stand on it.
+  if (hooks.floor) { drawLayer("floor"); hooks.floor(draw); }
   for (let i = 0; i < 10; i++) {
     draw(layout.walls.l[i] ?? "wall/l/plain", cellAt(0, i).x, cellAt(0, i).y);
     draw(layout.walls.r[i] ?? "wall/r/plain", cellAt(i, 0).x, cellAt(i, 0).y);
@@ -1132,56 +1206,87 @@ function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name
   draw("wall/l/end", cellAt(0, 9).x, cellAt(0, 9).y);
   draw("wall/r/end", cellAt(9, 0).x, cellAt(9, 0).y);
   draw("tv/0", cellAt(0, 0).x, cellAt(0, 0).y);
-  const byId = new Map(pieces.map((p) => [p.id, p]));
-  const meta = (id: string): PieceMeta => {
-    const m = byId.get(id);
-    if (!m) throw new Error(`no piece ${id}`);
-    return m;
-  };
   // Floor layer (rugs) and wall layer (frames) go with the static background; everything else is depth-sorted.
-  for (const layer of ["floor", "wall"] as const) {
-    for (const p of plan.placements.filter((q) => meta(q.id).layer === layer)) {
-      const a = cellAt(p.col, p.row);
-      draw(`furniture/${p.id}/${p.colour}/${p.dir}/back`, a.x, a.y);
-    }
-  }
-  const items: FurnItem[] = [];
+  if (!hooks.floor) drawLayer("floor");
+  hooks.wall?.(draw);
+  drawLayer("wall");
+  const items: (FurnItem & { ghost?: boolean })[] = [];
   for (const p of plan.placements.filter((q) => meta(q.id).layer === "object")) {
     const a = cellAt(p.col, p.row);
-    items.push(...placePiece(meta(p.id), p.colour, p.dir, a.x, a.y, p.sitters ?? []));
+    items.push(...placePiece(meta(p.id), p.colour, p.dir, a.x, a.y, p.sitters ?? []).map((it) => ({ ...it, ghost: p.ghost === true })));
   }
   for (const [key, c, r] of plan.standing) {
     const a = cellAt(c, r);
     items.push({ key, x: a.x, y: a.y, sx: a.x, sy: a.y, layer: 3 });
   }
   items.sort((a, b) => a.sy - b.sy || a.sx - b.sx || a.layer - b.layer);
-  for (const it of items) draw(it.key, it.x, it.y);
+  for (const it of items) (it.ghost === true ? ghost : draw)(it.key, it.x, it.y);
+  hooks.top?.(draw);
   writeFileSync(join(ROOT, "preview", `${name}@1x.png`), encodeIndexedPng(W, H, img, PALETTE));
   writeFileSync(join(ROOT, "preview", `${name}@2x.png`), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+}
+
+// ---------------------------------------------------------------- set (h): owner edit mode in the room (1×, Pixi)
+
+/** `owner-edit@1x/2x.png`: the sample room in edit mode, one of each marker state at once (a real session shows one held piece):
+ *  the grid on every floor cell; the velvet sofa picked (mustard ring) with its rotate/remove handles; a navy beanbag held over
+ *  free floor (teal ring + dots); a popcorn cart held over the snack table (rust dashed ring + hatching); and two wall slots for a
+ *  print (free = teal, taken = rust). Held pieces draw solid here; Pixi shows them at 0.75 alpha. */
+function buildOwnerPreviews(set: { pieces: PieceMeta[]; all: FurnSprites }, ui: readonly UiFrame[]): void {
+  const all: FurnSprites = new Map(set.all);
+  for (const f of ui) all.set(f.key, f);
+  const base = sampleLayout();
+  const plan = {
+    placements: [
+      ...base.placements,
+      { id: "beanbag", colour: "navy", dir: "se" as const, col: 7, row: 4, ghost: true },
+      { id: "popcorn", colour: "rust", dir: "sw" as const, col: 4, row: 4, ghost: true },
+      { id: "frame", colour: "tide", dir: "sw" as const, col: 6, row: 0, ghost: true },
+    ],
+    standing: base.standing,
+  };
+  const at = (c: number, r: number): { x: number; y: number } => cellAt(c, r);
+  buildFurnitureRoom(set.pieces, all, "owner-edit", plan, {
+    floor: (draw) => {
+      for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) draw("edit/grid", at(c, r).x, at(c, r).y);
+      draw("place/sel/2x1", at(2, 5).x, at(2, 5).y);
+      draw("place/ok/1x1", at(7, 4).x, at(7, 4).y);
+      draw("place/no/1x1", at(4, 4).x, at(4, 4).y);
+    },
+    wall: (draw) => {
+      draw("place/ok/wall-sw", at(6, 0).x, at(6, 0).y);
+      draw("place/no/wall-sw", at(4, 0).x, at(4, 0).y);
+    },
+    top: (draw) => {
+      const s = at(2, 5);
+      draw("handle/rotate/idle", s.x - 14, s.y - 52);
+      draw("handle/remove/hover", s.x + 14, s.y - 52);
+    },
+  });
 }
 
 function slicesFiles(): string[] {
   return readdirSync(join(ROOT, "ui", "slices")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/slices/${n}`);
 }
 
+/** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
+ *  level 9, for every file under assets/ that ships, eager and lazy. Lazy sheets: motion (set d), furniture (set g), edit kit (set h). */
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "furniture/furniture.png", "furniture/furniture.json", "ui/edit.png", "ui/edit.json"]);
+
 function report(): void {
-  let total = 0;
-  for (const f of ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", ...slicesFiles()]) {
+  const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, "ui/reference.css", "furniture/furniture.png", "furniture/furniture.json"];
+  let total = 0, lazy = 0;
+  for (const f of files) {
     const buf = readFileSync(join(ROOT, f));
-    const size = f.endsWith(".png") ? buf.length : gzipSync(buf, { level: 9 }).length;
+    const text = !f.endsWith(".png");
+    const size = text ? gzipSync(buf, { level: 9 }).length : buf.length;
     total += size;
-    console.log(`${f}: ${String(buf.length)} B${f.endsWith(".json") ? ` (${String(size)} B gz)` : ""}`);
+    if (LAZY.has(f)) lazy += size;
+    console.log(`${f}: ${String(buf.length)} B${text ? ` (${String(size)} B gz)` : ""}`);
   }
-  let furn = 0;
-  for (const f of ["furniture/furniture.png", "furniture/furniture.json"]) {
-    const buf = readFileSync(join(ROOT, f));
-    const size = f.endsWith(".png") ? buf.length : gzipSync(buf, { level: 9 }).length;
-    furn += size;
-    console.log(`${f}: ${String(buf.length)} B${f.endsWith(".json") ? ` (${String(size)} B gz)` : ""}`);
-  }
-  total += furn;
-  console.log(`set (g) furniture (lazy, M4/M5): ${String(furn)} B`);
-  console.log(`art total (png + gz json): ${String(total)} B of 307200`);
+  console.log(`lazy sheets (sets d, g, h edit kit): ${String(lazy)} B; eager: ${String(total - lazy)} B`);
+  console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 307200`);
 }
 
 mkdirSync(join(ROOT, "preview"), { recursive: true });
@@ -1189,8 +1294,9 @@ mkdirSync(join(ROOT, "src", "moodboards"), { recursive: true });
 const avatarImages = buildAvatars();
 buildScene(avatarImages);
 buildRoom(avatarImages);
-buildFurnitureSet(buildRoomFrames(), avatarImages);
-buildUi(avatarImages);
+const furnitureSet = buildFurnitureSet(buildRoomFrames(), avatarImages);
+const uiFrames = buildUi(avatarImages, furnitureSet.frames);
+buildOwnerPreviews(furnitureSet, uiFrames);
 buildMotion(avatarImages);
 console.log(`palette: ${String(PALETTE.length - 1)} colours`);
 report();

@@ -7,7 +7,7 @@ import {
   ROOM_ID_MAX_LENGTH,
   SEAT_COUNT,
 } from "./constants";
-import { EmbedSchema } from "./embed";
+import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
 import { MemberIdSchema } from "./ids";
 import { RoomLayoutSchema } from "./layout";
 import { OptionalPlaybackSchema } from "./playback";
@@ -31,7 +31,8 @@ const LATIN_LOOKALIKES = /[\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Armenian
  * UTF-16 units of letters (each with at most 2 combining marks), digits, `_ . -`, with
  * single spaces between words. No emoji, controls, bidi or zero-width characters: they
  * are rejected, not stripped. Latin letters never mix with Cyrillic, Greek, Armenian or
- * Cherokee ones. Full confusables matching (UTS #39) is M4 (ADR 0016).
+ * Cherokee ones. Full confusables matching (UTS #39) is the uniqueness key in
+ * `@omega/shared/confusables` (ADR 0023).
  */
 export const NicknameSchema = v.pipe(
   v.string(),
@@ -49,14 +50,6 @@ export type Nickname = v.InferOutput<typeof NicknameSchema>;
 export function normalizeNickname(input: unknown): Nickname | null {
   const result = v.safeParse(NicknameSchema, input);
   return result.success ? result.output : null;
-}
-
-/**
- * Uniqueness key: two members of a room may not share one. Case-, width- and
- * accent-insensitive, so "José" and "jose" collide (deliberately conservative).
- */
-export function nicknameKey(nickname: Nickname): string {
-  return nickname.normalize("NFKC").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
 }
 
 export const AvatarSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(AVATAR_COUNT - 1));
@@ -80,13 +73,13 @@ export const RoomStateSchema = v.pipe(
     /** Always SEAT_COUNT long; `seats[i]` is the occupant's member id or null. */
     seats: v.pipe(v.array(v.nullable(MemberIdSchema)), v.length(SEAT_COUNT)),
     members: v.pipe(v.array(MemberSchema), v.maxLength(MAX_ROOM_MEMBERS)),
-    embed: v.nullable(EmbedSchema),
-    /** Null iff `embed` is null. Absent only from a pre-M1b server (treat as null). */
+    embed: v.nullable(AnyEmbedSchema),
+    /** Null iff `embed` is null or generic (ADR 0024). Absent only from a pre-M1b server (treat as null). */
     playback: OptionalPlaybackSchema,
     /** The room's furniture (ADR 0021). Absent from a pre-M4 server: draw DEFAULT_LAYOUT. */
     layout: v.optional(RoomLayoutSchema),
   }),
-  v.check((x) => x.embed !== null || (x.playback ?? null) === null, "playback without embed"),
+  v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
   v.check((r) => new Set(r.members.map((m) => m.id)).size === r.members.length, "duplicate member id"),
   v.check((r) => {
     const ids = new Set(r.members.map((m) => m.id));

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_SERVER_BASE_URL, hostPermissionPattern, parseServerBaseUrl, readServerBaseUrl } from "../src/settings";
+import { DEFAULT_SERVER_BASE_URL, hostPermissionPattern, ownHostsOf, parseServerBaseUrl, readServerBaseUrl } from "../src/settings";
 
 describe("parseServerBaseUrl", () => {
   const ok: readonly [string, string][] = [
@@ -83,5 +83,17 @@ describe("stored setting", () => {
   test("host permission pattern covers exactly that origin", () => {
     expect(hostPermissionPattern("http://localhost:8787")).toBe("http://localhost:8787/*");
     expect(hostPermissionPattern("https://abc123.ngrok-free.app")).toBe("https://abc123.ngrok-free.app/*");
+  });
+});
+
+describe("ownHostsOf", () => {
+  test("the server origin's hostname, without port", () => {
+    expect(ownHostsOf("https://omega.example.org")).toEqual(["omega.example.org"]);
+    expect(ownHostsOf("http://localhost:8787")).toEqual(["localhost"]);
+    expect(ownHostsOf("https://[::1]:8443")).toEqual(["[::1]"]);
+  });
+
+  test("an unparseable origin is no own hosts", () => {
+    expect(ownHostsOf("not a url")).toEqual([]);
   });
 });

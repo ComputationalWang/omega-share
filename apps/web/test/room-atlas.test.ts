@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
-import { cellCenter, SEATS, TILE_H, TILE_W } from "../src/layout";
+import { DEFAULT_LAYOUT } from "@omega/shared";
+import { seatPoints } from "../src/furniture";
+import { cellCenter, TILE_H, TILE_W } from "../src/layout";
+
+const SEATS = seatPoints(DEFAULT_LAYOUT);
 
 // The room atlas (assets/room/room.json, OME-31 contract) and layout.ts must agree on geometry:
 // every room frame is anchored at cellCenter(col,row), and tv.screen is relative to the tv/0 anchor at (0,0).

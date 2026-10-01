@@ -20,6 +20,8 @@ export const site = {
   sharedVideo: id("shared-video"),
   nicknameTag: id("nickname-tag"),
   roomFull: id("room-full"),
+  // OME-272: the AGPL-3.0 §13 source offer in the site footer.
+  sourceLink: id("source-link"),
   // M3 safety states (OME-189): a refused join (`data-code` is the refusal) and the connection line.
   roomRefused: id("room-refused"),
   roomRefusedAction: id("room-refused-action"),

@@ -4,7 +4,7 @@ A Habbo-inspired social watch room: a web extension finds a video embed on the p
 
 ## Priorities (in this order)
 1. **Performance** of site and extension — budgets in `docs/perf-budgets.md` are merge-blocking.
-2. **Safety** — validate every boundary, allowlist embed providers, never render arbitrary iframes.
+2. **Safety** — validate every boundary. Embeds: synced providers by allowlist; anything else only through the generic tier (ADR 0024: validated, sandboxed, click-to-load). Never build an iframe from an unparsed string.
 3. **UX / looks** — usable first, pretty later. Design work runs in parallel but never blocks engineering.
 
 ## Stack (see ADR 0001)

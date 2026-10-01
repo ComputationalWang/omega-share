@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import { devConnectSrc, withConnectSrc } from "./csp";
+import { sourceUrl, withSourceLink } from "./source";
 
 /** Keeps the meta CSP's dev origins in step with VITE_SERVER_URL and the dev server port (see csp.ts). */
 function cspDevOrigins(mode: string): Plugin {
@@ -16,7 +17,13 @@ function cspDevOrigins(mode: string): Plugin {
   };
 }
 
+/** Fills the footer's AGPL-3.0 §13 Source link (see source.ts). */
+function sourceLink(mode: string): Plugin {
+  const url = sourceUrl(process.env["VITE_SOURCE_URL"] ?? loadEnv(mode, process.cwd(), "VITE_")["VITE_SOURCE_URL"]);
+  return { name: "omega-source-link", transformIndexHtml: { order: "pre", handler: (html) => withSourceLink(html, url) } };
+}
+
 export default defineConfig(({ mode }) => ({
-  plugins: [cspDevOrigins(mode)],
+  plugins: [cspDevOrigins(mode), sourceLink(mode)],
   build: { target: "es2023", sourcemap: true, reportCompressedSize: true },
 }));

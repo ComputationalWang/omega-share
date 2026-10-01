@@ -89,15 +89,16 @@ function facingOf(n: Vec3): Facing {
  * Render solids into a w×h index image. (ox, oy) is the screen position of world origin
  * (u=v=z=0). Returns palette indices; outline is added around the whole silhouette.
  */
-export function renderSolids(solids: readonly Solid[], w: number, h: number, ox: number, oy: number, outline: "all" | "top" | "none" = "all"): Rendered {
+export function renderSolids(solids: readonly Solid[], w: number, h: number, ox: number, oy: number, outline: "all" | "top" | "none" = "all", scale = 1): Rendered {
   const out = new Uint8Array(w * h);
   const ids = new Int16Array(w * h).fill(-1);
   const depth = new Float64Array(w * h).fill(-Infinity);
   for (let py = 0; py < h; py++) {
     for (let px = 0; px < w; px++) {
       // Point on the z=0 plane that projects to this pixel centre.
-      const sx = px + 0.5 - ox;
-      const sy = py + 0.5 - oy;
+      // `scale` < 1 casts the same world at a coarser pixel grid (set h's tray thumbnails), so light and shading stay identical.
+      const sx = (px + 0.5 - ox) / scale;
+      const sy = (py + 0.5 - oy) / scale;
       const base: Vec3 = { u: (sy + sx / 2) / 2, v: (sy - sx / 2) / 2, z: 0 };
       for (let si = 0; si < solids.length; si++) {
         const s = solids[si];

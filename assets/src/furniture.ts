@@ -368,8 +368,8 @@ const LEAVES: readonly { a: number; len: number; w: number; stem: number }[] = [
   { a: 2, len: 15, w: 13, stem: 7 },
 ];
 /** Fenestrated leaves around a stem base at (cx, h-1) of a w×h grid; deterministic, drawn back to front. */
-function monsteraGrid(): Grid {
-  const W = 49, H = 46, cx = 24, by = H - 1;
+function monsteraGrid(s = 1): Grid {
+  const W = Math.round(49 * s), H = Math.round(46 * s), cx = 24, by = 45;
   const g: Grid = Array.from({ length: H }, () => Array.from({ length: W }, () => "."));
   const set = (x: number, y: number, ch: string): void => {
     const row = g[y];
@@ -379,7 +379,7 @@ function monsteraGrid(): Grid {
     const t = (L.a * Math.PI) / 180;
     const dx = Math.sin(t), dy = -Math.cos(t);
     // Stem: a gentle curve out from the base.
-    for (let s = 0; s <= L.stem; s += 0.5) set(Math.round(cx + dx * s * (0.6 + 0.4 * (s / L.stem))), Math.round(by + dy * s), "s");
+    for (let q = 0; q <= L.stem; q += 0.5) set(Math.floor((cx + dx * q * (0.6 + 0.4 * (q / L.stem)) + 0.5) * s), Math.floor((by + dy * q + 0.5) * s), "s");
     const sx = cx + dx * L.stem, sy = by + dy * L.stem;
     // Blade tilts further out than the stem and droops a little at the tip.
     const bt = t * 1.35;
@@ -389,7 +389,7 @@ function monsteraGrid(): Grid {
     const ch = ["A", "B", "C"][i % 3] ?? "A";
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
-        const px = x + 0.5 - sx, py = y + 0.5 - sy;
+        const px = (x + 0.5) / s - sx, py = (y + 0.5) / s - sy;
         const a = px * ux + py * uy;
         const b = -px * uy + py * ux;
         const ca = a - L.len / 2;
@@ -405,39 +405,39 @@ function monsteraGrid(): Grid {
   return g;
 }
 
-function monstera(dir: FurnDir, pot: RampName): Uint8Array {
+function monstera(dir: FurnDir, pot: RampName, s = 1, cv: Canvas = CANVAS): Uint8Array {
   const k = new Kit(dir);
   const rimPaint: LPaint = (_p, f) => (f === "top" ? ["hairDark", 1] : null);
   k.ell({ x: 0, y: 0, z: 0 }, { x: 4, y: 4, z: Infinity }, [-8, 8, -8, 8, 0, 9], pot, {
     paint: (p, f) => (f !== "top" && p.z > 4 && p.z < 5 ? [pot, 0] : null),
   });
   k.ell({ x: 0, y: 0, z: 0 }, { x: 4.8, y: 4.8, z: Infinity }, [-8, 8, -8, 8, 9, 11], pot, { paint: rimPaint });
-  const r = renderSolids(k.parts.map((p) => p.solid), CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "none");
-  const g0 = monsteraGrid();
+  const r = renderSolids(k.parts.map((p) => p.solid), cv.w, cv.h, cv.ax, cv.ay, "none", s);
+  const g0 = monsteraGrid(s);
   const g = dir === "sw" ? g0 : mirror(g0);
   const leaves = renderRoles(g, LEAF_ROLES);
   const gw = g[0]?.length ?? 0, gh = g.length;
   // Stem base sits on the soil, 1 px below the pot rim's top.
-  const ox = CANVAS.ax - 24, oy = CANVAS.ay - 11 - gh + 1;
+  const ox = cv.ax - Math.round(24 * s), oy = cv.ay - Math.round(11 * s) - gh + 1;
   for (let y = 0; y < gh; y++) {
     for (let x = 0; x < gw; x++) {
       const v = leaves[y * gw + x] ?? 0;
-      if (v !== 0) r.img[(oy + y) * CANVAS.w + ox + x] = v;
+      if (v !== 0) r.img[(oy + y) * cv.w + ox + x] = v;
     }
   }
-  addOutline(r.img, CANVAS.w, CANVAS.h);
+  addOutline(r.img, cv.w, cv.h);
   return r.img;
 }
 
 // ---------------------------------------------------------------- rug (flat, floor layer)
 
 /** Kilim runner, 3×2 tiles: rounded corners, a stepped-diamond field, and cream tassels on the short ends. */
-function rugImage(dir: "ne" | "nw", field: RampName, accent: RampName): Uint8Array {
-  const img = new Uint8Array(CANVAS.w * CANVAS.h);
+function rugImage(dir: "ne" | "nw", field: RampName, accent: RampName, s = 1, cv: Canvas = CANVAS): Uint8Array {
+  const img = new Uint8Array(cv.w * cv.h);
   const X0 = -7, X1 = 39, Y0 = -6, Y1 = 22, R = 3;
-  for (let py = 0; py < CANVAS.h; py++) {
-    for (let px = 0; px < CANVAS.w; px++) {
-      const sx = px + 0.5 - CANVAS.ax, sy = py + 0.5 - CANVAS.ay;
+  for (let py = 0; py < cv.h; py++) {
+    for (let px = 0; px < cv.w; px++) {
+      const sx = (px + 0.5 - cv.ax) / s, sy = (py + 0.5 - cv.ay) / s;
       const u = (sy + sx / 2) / 2, v = (sy - sx / 2) / 2;
       const { x, y } = dir === "ne" ? { x: u, y: v } : { x: v, y: u };
       let p: Paint | null = null;
@@ -448,10 +448,10 @@ function rugImage(dir: "ne" | "nw", field: RampName, accent: RampName): Uint8Arr
         const cxr = Math.max(X0 + R - x, x - (X1 - R), 0), cyr = Math.max(Y0 + R - y, y - (Y1 - R), 0);
         if (cxr * cxr + cyr * cyr <= R * R) p = rugPaint(x - X0, y - Y0, X1 - X0, Y1 - Y0, field, accent);
       }
-      if (p) img[py * CANVAS.w + px] = colorIndex(p[0], p[1]);
+      if (p) img[py * cv.w + px] = colorIndex(p[0], p[1]);
     }
   }
-  addOutline(img, CANVAS.w, CANVAS.h);
+  addOutline(img, cv.w, cv.h);
   return img;
 }
 function rugPaint(x: number, y: number, w: number, h: number, field: RampName, accent: RampName): Paint {
@@ -507,7 +507,7 @@ interface PieceDef {
   seats?: readonly number[];
   walkable?: boolean;
   build?: (k: Kit, colour: string) => void;
-  image?: (dir: FurnDir, colour: string) => Uint8Array;
+  image?: (dir: FurnDir, colour: string, s?: number, cv?: Canvas) => Uint8Array;
 }
 
 const ALL: readonly FurnDir[] = ["ne", "nw", "se", "sw"];
@@ -519,17 +519,18 @@ export const PIECES: readonly PieceDef[] = [
   { id: "beanbag", label: "Beanbag", kind: "seat", colours: ["blush", "navy"], dirs: ALL, cols: 1, rows: 1, seats: [0], build: (k, c) => { beanbag(k, asRamp(c)); } },
   { id: "sidetable", label: "Snack table", kind: "table", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { sideTable(k); } },
   { id: "arclamp", label: "Arc lamp", kind: "light", colours: ["brass"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { arcLamp(k); } },
-  { id: "monstera", label: "Monstera", kind: "plant", colours: ["rust", "teal"], dirs: ["se", "sw"], cols: 1, rows: 1, image: (d, c) => monstera(d, asRamp(c)) },
+  { id: "monstera", label: "Monstera", kind: "plant", colours: ["rust", "teal"], dirs: ["se", "sw"], cols: 1, rows: 1, image: (d, c, s, cv) => monstera(d, asRamp(c), s, cv) },
   { id: "popcorn", label: "Popcorn cart", kind: "fun", colours: ["rust"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { popcornCart(k); } },
   { id: "bookshelf", label: "Bookcase", kind: "storage", colours: ["wood"], dirs: ["se", "sw"], cols: 2, rows: 1, build: (k) => { bookshelf(k); } },
   {
     id: "rug", label: "Kilim runner", kind: "rug", layer: "floor", colours: ["lilac", "teal"], dirs: ["ne", "nw"], cols: 3, rows: 2, walkable: true,
-    image: (d, c) => rugImage(d === "nw" ? "nw" : "ne", c === "teal" ? "teal" : "lilac", c === "teal" ? "mustard" : "pink"),
+    image: (d, c, s, cv) => rugImage(d === "nw" ? "nw" : "ne", c === "teal" ? "teal" : "lilac", c === "teal" ? "mustard" : "pink", s, cv),
   },
   { id: "frame", label: "Framed print", kind: "wall", mount: "wall", layer: "wall", colours: ["dusk", "tide"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k, c) => { wallFrame(k, c === "tide" ? "tide" : "dusk"); } },
 ];
 
-const CANVAS = { w: 480, h: 400, ax: 220, ay: 300 } as const;
+interface Canvas { w: number; h: number; ax: number; ay: number }
+const CANVAS: Canvas = { w: 480, h: 400, ax: 220, ay: 300 };
 
 function crop(key: string, img: Uint8Array, box0?: { x0: number; y0: number; w: number; h: number }): RoomFrame & { rect: { x0: number; y0: number; w: number; h: number } } {
   let rect = box0;
@@ -622,4 +623,41 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
     pieces.push(meta);
   }
   return { frames, pieces };
+}
+
+// ---------------------------------------------------------------- set (h): tray thumbnails
+
+/** Largest thumbnail, art px: what fits inside a `slot/*` (set h) with a 2 px margin. */
+export const THUMB_BOX = { w: 44, h: 40 } as const;
+
+/** Picker-tray thumbnail of one piece + colour: the same model re-cast at a smaller scale (≤ ½, so it fits THUMB_BOX),
+ *  not a downscaled sprite, so the light, tones and plum outline are the catalogue's own. Seats show their default
+ *  `se` facing (toward the camera); the rug shows `ne`. Anchor = the visual centre (centre it in the slot). */
+export function buildThumbs(): RoomFrame[] {
+  const cv: Canvas = { w: 240, h: 200, ax: 110, ay: 150 };
+  const out: RoomFrame[] = [];
+  for (const def of PIECES) {
+    const dir: FurnDir = def.dirs.includes("se") ? "se" : "ne";
+    for (const colour of def.colours) {
+      const at = (s: number): Uint8Array => {
+        if (def.image) return def.image(dir, colour, s, cv);
+        const k = new Kit(dir);
+        def.build?.(k, colour);
+        return renderSolids(k.parts.map((p) => p.solid), cv.w, cv.h, cv.ax, cv.ay, "all", s).img;
+      };
+      let s = 0.5;
+      for (;;) {
+        const img = at(s);
+        let x0 = cv.w, y0 = cv.h, x1 = -1, y1 = -1;
+        for (let y = 0; y < cv.h; y++) for (let x = 0; x < cv.w; x++) if ((img[y * cv.w + x] ?? 0) !== 0) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+        const w = x1 - x0 + 1, h = y1 - y0 + 1;
+        if (w > THUMB_BOX.w || h > THUMB_BOX.h) { s -= 1 / 32; continue; }
+        const crop = new Uint8Array(w * h);
+        for (let y = 0; y < h; y++) crop.set(img.subarray((y0 + y) * cv.w + x0, (y0 + y) * cv.w + x0 + w), y * w);
+        out.push({ key: `thumb/${def.id}/${colour}`, w, h, img: crop, ax: Math.floor(w / 2), ay: Math.floor(h / 2) });
+        break;
+      }
+    }
+  }
+  return out;
 }

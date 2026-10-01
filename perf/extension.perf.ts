@@ -9,18 +9,18 @@ test.describe("extension perf", () => {
 
   test("popup opened → embeds listed", async ({ context, openPopup }) => {
     const page = await context.newPage();
-    // All three providers plus rejected clips/events/lookalikes, so the scan does its full M2 work (OME-144).
+    // All three providers plus rejected clips/events and lookalikes (listed as generic), so the scan does its full work (OME-144, OME-293).
     await gotoFixture(page, "providers-embed");
     const runs: number[] = [];
     for (let i = 0; i < 5; i++) {
       const p = await openPopup(page);
-      await p.locator(popup.embedItem).nth(3).waitFor();
+      await p.locator(popup.embedItem).nth(5).waitFor();
       // performance.now() is relative to the popup's navigation start.
       runs.push(await p.evaluate(() => performance.now()));
-      await expect(p.locator(popup.embedItem)).toHaveCount(4);
+      await expect(p.locator(popup.embedItem)).toHaveCount(6);
       await p.close();
     }
-    recordMetric({ id: "ext.popupToList", value: p95(runs), note: `p95 of ${String(runs.length)} opens on providers-embed (4 embeds)` });
+    recordMetric({ id: "ext.popupToList", value: p95(runs), note: `p95 of ${String(runs.length)} opens on providers-embed (4 synced + 2 generic embeds)` });
   });
 });
 

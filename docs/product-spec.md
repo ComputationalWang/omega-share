@@ -10,7 +10,7 @@ A Habbo-inspired isometric room on a website. People join a room, pick one of 4 
 - **Seats**: click a free seat to sit there. Walking/pathfinding comes later (UX phase).
 - **Chat**: speech bubbles above avatars. Not saved.
 - **Extension**: the popup scans the active tab for supported embeds, turns watch URLs into embed URLs (e.g. `youtube.com/watch?v=X` → `youtube.com/embed/X`), lists them, and the user picks one and a room (a dropdown; only one room for now). The extension POSTs `/rooms/:id/share` to the configured server base URL, which is `http://localhost:<port>` for now and the ngrok/hosted URL later. No content scripts run until the popup is opened, and there is no persistent background worker.
-- **Providers**: only providers whose player can be synced — YouTube (M1b), then Twitch and Vimeo (M2). Anything else is rejected, both by the extension and by the server's allowlist.
+- **Providers** (ADR 0024): two tiers. **Synced**: YouTube (M1b), then Twitch and Vimeo (M2); everyone's play/pause/seek is shared. **Generic** (M4): any other `https:` embed that passes the shared URL validation (no IP literals, private hosts, userinfo or non-https schemes). It is **not synced**: each viewer clicks Load on a card ("Video from host · not synced"), then plays it on their own in a locked-down sandboxed iframe. The server can turn the generic tier off (`GENERIC_EMBEDS=off`) and keeps a host denylist.
 
 ## Synced playback (M1b+)
 - One embed per room. Play/pause/seek are **shared**: anyone's action applies to everyone. **Volume/mute is per user.**

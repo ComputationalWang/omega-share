@@ -1,6 +1,6 @@
 // Room screen. Loaded lazily after Enter so PixiJS stays out of the initial bundle.
 import "pixi.js/unsafe-eval";
-import type { Avatar, ClientMessage, Embed, ErrorCode, MemberId, Nickname, RoomId } from "@omega/shared";
+import { SEAT_COUNT, isSyncedEmbed, type AnyEmbed, type Avatar, type ClientMessage, type Embed, type ErrorCode, type MemberId, type Nickname, type RoomId, type RoomLayout } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
@@ -9,9 +9,11 @@ import { createPlaybackController, type PlaybackView } from "./controls/playback
 import { chatView, refusalCard } from "./controls/feedback";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, seatViews, sitIntent } from "./intents";
-import { BUBBLE_OFFSET_Y, SEATS, STANDING, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
+import { layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
+import { BUBBLE_OFFSET_Y, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
 import type { PlayerError } from "./player/adapter";
 import { PLAYERS, createPlayerMounter } from "./player/registry";
+import type { FurnitureAtlas } from "./furniture-atlas";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
 import { catchingUp, initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
 import { tvFrame, type TvFrame } from "./tv";
@@ -29,6 +31,8 @@ export interface RoomHandle {
   readonly send: (msg: ClientMessage) => boolean;
   /** What the playback chrome shows (QA reads it in dev builds). */
   readonly playback: () => PlaybackView;
+  /** The scene's draw order (room-view.ts `drawOrder`), for e2e depth checks. */
+  readonly scene: () => string[];
 }
 
 const STATUS_TEXT: Record<ViewState["status"], string> = {
@@ -74,6 +78,11 @@ function browserSocket(url: string): SocketLike {
   return s;
 }
 
+/** The synced embed, or null. Until the generic tier's load card lands (ADR 0024, OME-292), a generic embed shows the empty TV. */
+function syncedOnly(e: AnyEmbed | null | undefined): Embed | null {
+  return e != null && isSyncedEmbed(e) ? e : null;
+}
+
 function place(e: HTMLElement, p: Point): void {
   e.style.transform = `translate(${String(p.x)}px, ${String(p.y)}px)`;
 }
@@ -108,10 +117,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const tvEmpty = el("p", { className: "tv-empty", textContent: "Share a video with the extension to watch it here." });
   tv.append(tvEmpty);
   const overlay = el("div", { className: "overlay" });
-  const seatButtons = SEATS.map((p, i) => {
+  // Placed from the room's layout on each render that changes it (applyLayout).
+  const seatButtons = Array.from({ length: SEAT_COUNT }, (_, i) => {
     const b = el("button", { type: "button", className: "seat" }, "seat");
     b.dataset["seat"] = String(i);
-    place(b, p);
     return b;
   });
   overlay.append(...seatButtons);
@@ -189,6 +198,15 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let drawnSeats: readonly unknown[] | undefined;
   let drawnMembers: readonly unknown[] | undefined;
   const syslineEls = new Map<number, HTMLElement>();
+  /** The drawn layout (furniture.ts): seats, standing spots and the scene follow it; null until the first render. */
+  let layout: RoomLayout | null = null;
+  let seats: Point[] = [];
+  let standing: Point[] = [];
+  let scene = sceneOf(layoutOf(null), null);
+  /** The set (g) atlas once loaded: later layouts build their scene with it straight away. */
+  let atlas: FurnitureAtlas | null = null;
+  /** The drawn layout's content; a re-join snapshot parses a new but equal layout, which keeps the scene. */
+  let layoutKey = "";
   let shownError: ViewState["lastError"] = null;
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
   const tagEls = new Map<MemberId, HTMLElement>();
@@ -250,9 +268,46 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     });
   };
 
+  /** Rebuild furniture, seats and standing spots for a new layout; the set (g) atlas loads only if the layout needs it. */
+  const applyLayout = (next: RoomLayout): void => {
+    layout = next;
+    const key = JSON.stringify(next);
+    if (key === layoutKey) return;
+    layoutKey = key;
+    seats = seatPoints(next);
+    standing = standingPoints(next);
+    const needsAtlas = usesSetG(next);
+    const ready = needsAtlas ? atlas : null;
+    scene = sceneOf(next, ready?.manifest ?? null);
+    view.setScene(scene, ready);
+    seatButtons.forEach((b, i) => {
+      const p = seats[i];
+      if (p !== undefined) place(b, p);
+    });
+    drawnSeats = undefined;
+    if (!needsAtlas || ready !== null) return;
+    void import("./furniture-atlas")
+      .then((m) => m.loadFurnitureAtlas())
+      .then((loaded) => {
+        atlas = loaded;
+        if (layout !== next) return;
+        scene = sceneOf(next, loaded.manifest);
+        view.setScene(scene, loaded);
+        drawnSeats = undefined;
+        if (frame === 0) frame = requestAnimationFrame(render);
+      })
+      // Without the sheet the room still works: placeholder floor, seats and avatars. The next snapshot retries.
+      .catch((e: unknown) => {
+        if (layout === next) layoutKey = "";
+        console.warn("furniture atlas failed to load", e);
+      });
+  };
+
   const render = (): void => {
     frame = 0;
     const s = state;
+    const nextLayout = layoutOf(s.room);
+    if (nextLayout !== layout) applyLayout(nextLayout);
     status.textContent = STATUS_TEXT[s.status];
     const shown = screen(s);
     wrap.hidden = !shown.stage;
@@ -278,18 +333,18 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const at = new Map<MemberId, Point>();
     const views = seatViews(s);
     for (const v of views) {
-      const p = SEATS[v.index];
+      const p = seats[v.index];
       if (v.member !== null && p !== undefined) {
-        placements.push({ id: v.member.id, avatar: v.member.avatar, at: p });
+        placements.push({ id: v.member.id, avatar: v.member.avatar, at: p, z: scene.seats[v.index]?.z ?? standDepth(p) });
         at.set(v.member.id, p);
       }
     }
     let k = 0;
     for (const m of s.room?.members ?? []) {
       if (at.has(m.id)) continue;
-      const p = STANDING[k++];
+      const p = standing[k++];
       if (p === undefined) continue;
-      placements.push({ id: m.id, avatar: m.avatar, at: p });
+      placements.push({ id: m.id, avatar: m.avatar, at: p, z: standDepth(p) });
       at.set(m.id, p);
     }
     // Chat, bubbles and playback leave seats/members untouched, so the scene is only redrawn when they change.
@@ -370,7 +425,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
    * background tab, and the old video must not keep playing (unsynced) after the controller dropped it.
    */
   const syncTv = (s: ViewState): void => {
-    const embed = s.room?.embed ?? null;
+    const embed = syncedOnly(s.room?.embed);
     const tf = tvFrame(embed);
     const nextKey = tf?.key ?? null;
     if (nextKey !== tvKey) {
@@ -422,7 +477,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
     if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {
-      playback.setRoom(room ?? { embed: null, playback: null });
+      playback.setRoom(room === null ? { embed: null, playback: null } : { embed: syncedOnly(room.embed), playback: room.playback ?? null });
       syncTv(next);
     }
     if (expiriesChanged) scheduleExpiry();
@@ -486,5 +541,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder() };
 }

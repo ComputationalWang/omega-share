@@ -24,7 +24,7 @@
  * prints the result as JSON and exits 1 when p95 exceeds `--budget` (default 50).
  */
 import { parseArgs } from "node:util";
-import { parseServerMessage, type Embed, type PlaybackState, type SeatIndex, type ServerMessage } from "@omega/shared";
+import { parseServerMessage, type AnyEmbed, type PlaybackState, type SeatIndex, type ServerMessage } from "@omega/shared";
 import { expectedPosition } from "./playback";
 import { TokenBucket } from "./rate-limit";
 import { CHAT_PER_SECOND, CONTROL_BURST, ROOM_CONTROL_BURST, ROOM_CONTROL_PER_SECOND } from "./ws";
@@ -66,7 +66,7 @@ interface Probe {
   socket: WebSocket;
   self: string;
   firstFreeSeat: SeatIndex | null;
-  embed: Embed | null;
+  embed: AnyEmbed | null;
   playback: PlaybackState | null;
   onMessage: ((msg: ServerMessage) => void) | null;
   /** `rate_limited` notices this socket received. */

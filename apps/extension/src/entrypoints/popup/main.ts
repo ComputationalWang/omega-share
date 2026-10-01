@@ -1,10 +1,10 @@
-import { type Embed, type Provider, SHARE_TOKEN_STORAGE_KEY } from "@omega/shared";
+import { type AnyEmbed, type Embed, type Provider, SHARE_TOKEN_STORAGE_KEY } from "@omega/shared";
 import { browser } from "wxt/browser";
 import { type ScanOutcome, scanTab } from "../../embeds";
 import { FALLBACK_ROOMS, type RoomList, type RoomsProbe, loadRooms } from "../../rooms";
 import { collectCandidateUrls } from "../../scan";
 import { serverStatus } from "../../server-status";
-import { SERVER_BASE_URL_KEY, hostPermissionPattern, readServerBaseUrl } from "../../settings";
+import { SERVER_BASE_URL_KEY, hostPermissionPattern, ownHostsOf, readServerBaseUrl } from "../../settings";
 import { shareEmbed } from "../../share";
 import { MAX_RECORD_LENGTH, readRecordInPage, readShareTokens } from "../../share-token";
 
@@ -38,7 +38,9 @@ async function targetTabId(): Promise<number | undefined> {
 async function scan(): Promise<ScanOutcome> {
   const tabId = await targetTabId();
   if (tabId === undefined) return { kind: "unreadable" };
-  return scanTab(() => browser.scripting.executeScript({ target: { tabId }, func: collectCandidateUrls }));
+  // Our own site is never a generic embed. The storage read started at popup load, so this is ~free.
+  const ownHosts = ownHostsOf(await serverBaseUrl);
+  return scanTab(() => browser.scripting.executeScript({ target: { tabId }, func: collectCandidateUrls }), ownHosts);
 }
 
 function render(outcome: ScanOutcome): void {
@@ -55,7 +57,12 @@ function embedId(embed: Embed): string {
   return embed.provider === "twitch" && embed.kind === "live" ? embed.channel : embed.videoId;
 }
 
-function renderEmbeds(embeds: readonly Embed[] | null): void {
+/** The list label: provider and id, or the host and "not synced" for a generic embed (ADR 0024). */
+function embedLabel(embed: AnyEmbed): string {
+  return embed.provider === "generic" ? `${embed.host} · not synced` : `${PROVIDER_NAMES[embed.provider]} · ${embedId(embed)}`;
+}
+
+function renderEmbeds(embeds: readonly AnyEmbed[] | null): void {
   if (embeds === null) {
     ui.empty.hidden = true;
     ui.form.hidden = true;
@@ -71,11 +78,12 @@ function renderEmbeds(embeds: readonly Embed[] | null): void {
       input.value = embed.url;
       input.checked = i === 0;
       const label = document.createElement("label");
-      const id = embedId(embed);
-      label.append(input, `${PROVIDER_NAMES[embed.provider]} · ${id}`);
+      label.append(input, embedLabel(embed));
       const li = document.createElement("li");
       li.dataset["testid"] = "embed-item";
-      li.dataset["videoId"] = id;
+      li.dataset["provider"] = embed.provider;
+      if (embed.provider === "generic") li.dataset["host"] = embed.host;
+      else li.dataset["videoId"] = embedId(embed);
       li.append(label);
       return li;
     }),

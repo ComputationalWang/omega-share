@@ -8,6 +8,11 @@ import type { VimeoNamespace } from "./vimeo-types";
 export const ECHO_WINDOW_MS = 1000;
 /** The first `seeked` this soon after our own seek is its echo. */
 export const SEEK_ECHO_MS = 5000;
+/**
+ * A `seeked` that lands this close to where the media already was is player.js skipping a gap in the stream
+ * (vimeo.com/1084537 jumps 19.48 → 20.93 s by itself, OME-324), not the user: no intent, the sync loop absorbs it.
+ */
+export const GAP_JUMP_S = 2;
 /** No answer from the iframe by then (blocked, wrong domain, gone) → the notice path, as for Twitch. */
 export const READY_TIMEOUT_MS = 10_000;
 /** `time()` extrapolates the last pushed time by at most this (research M2 §6.2). */
@@ -57,6 +62,8 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
   // Media clock: the last pushed time and when it arrived; time() extrapolates from there.
   let base = 0;
   let baseAt = o.now();
+  /** `time()` just before the last push moved `base`: a skip's `timeupdate` can arrive ahead of its `seeked`. */
+  let pushedFrom = 0;
 
   const emit = (e: PlayerEvent) => {
     if (destroyed) return;
@@ -81,6 +88,7 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
     if (typeof data !== "object" || data === null) return;
     const s = "seconds" in data ? data.seconds : undefined;
     if (typeof s === "number" && Number.isFinite(s) && s >= 0) {
+      pushedFrom = time();
       base = s;
       baseAt = o.now();
     }
@@ -140,7 +148,11 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
         take(d);
         return;
       }
+      const pushed = base;
+      const from = time();
       take(d);
+      // Measure from before the jump, whether its timeupdate came first (base already there) or not.
+      if (Math.abs(base - (base === pushed ? pushedFrom : from)) <= GAP_JUMP_S) return;
       if (expected === null || settled === null) return;
       emit({ type: "intent", playing: settled === "playing", position: base });
     },

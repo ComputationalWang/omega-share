@@ -61,81 +61,101 @@
 /* Sprites from ui.png, scaled by --ui-px like the 9-slices (2× in page chrome, 1× in .ui-room): icons (16 art px), status dots,
  * portraits, wordmark, playback glyphs, seek head, volume knob and the catching-up hourglass. */
 .ui-sprite { display: inline-block; flex: none; background: url("ui.png") no-repeat; background-size: calc(256 * var(--ui-px)) calc(256 * var(--ui-px)); }
-.ui-catchup-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-109 * var(--ui-px)); }
-.ui-catchup-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-81 * var(--ui-px)) calc(-110 * var(--ui-px)); }
-.ui-catchup-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-110 * var(--ui-px)); }
-.ui-catchup-3 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-124 * var(--ui-px)); }
-.ui-door-full { width: calc(16 * var(--ui-px)); height: calc(24 * var(--ui-px)); background-position: calc(-177 * var(--ui-px)) calc(-59 * var(--ui-px)); }
-.ui-door-open { width: calc(16 * var(--ui-px)); height: calc(24 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-66 * var(--ui-px)); }
-.ui-dot-connecting { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-74 * var(--ui-px)) calc(-178 * var(--ui-px)); }
-.ui-dot-offline { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-13 * var(--ui-px)) calc(-179 * var(--ui-px)); }
-.ui-dot-online { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-74 * var(--ui-px)) calc(-187 * var(--ui-px)); }
-.ui-dot-paused { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-214 * var(--ui-px)) calc(-187 * var(--ui-px)); }
-.ui-glyph-catchup { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-223 * var(--ui-px)) calc(-187 * var(--ui-px)); }
-.ui-glyph-dots-0 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-61 * var(--ui-px)) calc(-178 * var(--ui-px)); }
-.ui-glyph-dots-1 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-156 * var(--ui-px)) calc(-178 * var(--ui-px)); }
-.ui-glyph-dots-2 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: 0 calc(-179 * var(--ui-px)); }
-.ui-glyph-everyone { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-61 * var(--ui-px)) calc(-187 * var(--ui-px)); }
-.ui-glyph-hop { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-232 * var(--ui-px)) calc(-187 * var(--ui-px)); }
-.ui-glyph-onair-off { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-241 * var(--ui-px)) calc(-187 * var(--ui-px)); }
-.ui-glyph-onair-0 { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: 0 calc(-188 * var(--ui-px)); }
-.ui-glyph-onair-1 { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-9 * var(--ui-px)) calc(-188 * var(--ui-px)); }
-.ui-glyph-pause { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-18 * var(--ui-px)) calc(-188 * var(--ui-px)); }
-.ui-glyph-play { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-27 * var(--ui-px)) calc(-188 * var(--ui-px)); }
-.ui-glyph-retry { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-36 * var(--ui-px)) calc(-188 * var(--ui-px)); }
-.ui-glyph-seek { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-45 * var(--ui-px)) calc(-188 * var(--ui-px)); }
-.ui-glyph-snail { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-156 * var(--ui-px)) calc(-187 * var(--ui-px)); }
-.ui-glyph-src-live { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-96 * var(--ui-px)) calc(-188 * var(--ui-px)); }
-.ui-glyph-src-video { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-105 * var(--ui-px)) calc(-188 * var(--ui-px)); }
-.ui-glyph-you { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-114 * var(--ui-px)) calc(-188 * var(--ui-px)); }
-.ui-icon-chat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-124 * var(--ui-px)); }
-.ui-icon-close { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-98 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-leave { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-muted { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-muted-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-pause { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-125 * var(--ui-px)); }
-.ui-icon-pause-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-115 * var(--ui-px)) calc(-126 * var(--ui-px)); }
-.ui-icon-people { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-81 * var(--ui-px)) calc(-127 * var(--ui-px)); }
-.ui-icon-play { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-127 * var(--ui-px)); }
-.ui-icon-play-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-128 * var(--ui-px)); }
-.ui-icon-resting { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-128 * var(--ui-px)); }
-.ui-icon-retry { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-128 * var(--ui-px)); }
+.ui-catchup-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-127 * var(--ui-px)); }
+.ui-catchup-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-127 * var(--ui-px)); }
+.ui-catchup-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-129 * var(--ui-px)); }
+.ui-catchup-3 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-129 * var(--ui-px)); }
+.ui-door-full { width: calc(16 * var(--ui-px)); height: calc(24 * var(--ui-px)); background-position: calc(-202 * var(--ui-px)) calc(-66 * var(--ui-px)); }
+.ui-door-open { width: calc(16 * var(--ui-px)); height: calc(24 * var(--ui-px)); background-position: calc(-219 * var(--ui-px)) calc(-66 * var(--ui-px)); }
+.ui-door-private { width: calc(16 * var(--ui-px)); height: calc(24 * var(--ui-px)); background-position: calc(-236 * var(--ui-px)) calc(-66 * var(--ui-px)); }
+.ui-dot-connecting { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-84 * var(--ui-px)) calc(-210 * var(--ui-px)); }
+.ui-dot-offline { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-93 * var(--ui-px)) calc(-210 * var(--ui-px)); }
+.ui-dot-online { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-210 * var(--ui-px)); }
+.ui-dot-paused { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-199 * var(--ui-px)) calc(-210 * var(--ui-px)); }
+.ui-glyph-catchup { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-208 * var(--ui-px)) calc(-210 * var(--ui-px)); }
+.ui-glyph-check { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-217 * var(--ui-px)) calc(-210 * var(--ui-px)); }
+.ui-glyph-dots-0 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-243 * var(--ui-px)) calc(-208 * var(--ui-px)); }
+.ui-glyph-dots-1 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: 0 calc(-210 * var(--ui-px)); }
+.ui-glyph-dots-2 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-13 * var(--ui-px)) calc(-210 * var(--ui-px)); }
+.ui-glyph-everyone { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-47 * var(--ui-px)) calc(-210 * var(--ui-px)); }
+.ui-glyph-fp-1x1 { width: calc(10 * var(--ui-px)); height: calc(6 * var(--ui-px)); background-position: calc(-110 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-glyph-fp-1x2 { width: calc(14 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-169 * var(--ui-px)) calc(-208 * var(--ui-px)); }
+.ui-glyph-fp-2x1 { width: calc(14 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-184 * var(--ui-px)) calc(-208 * var(--ui-px)); }
+.ui-glyph-fp-2x3 { width: calc(22 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-117 * var(--ui-px)) calc(-195 * var(--ui-px)); }
+.ui-glyph-fp-3x2 { width: calc(22 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-140 * var(--ui-px)) calc(-195 * var(--ui-px)); }
+.ui-glyph-fp-wall { width: calc(10 * var(--ui-px)); height: calc(7 * var(--ui-px)); background-position: calc(-99 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-glyph-hop { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-226 * var(--ui-px)) calc(-210 * var(--ui-px)); }
+.ui-glyph-host { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-169 * var(--ui-px)) calc(-217 * var(--ui-px)); }
+.ui-glyph-key { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-178 * var(--ui-px)) calc(-217 * var(--ui-px)); }
+.ui-glyph-onair-off { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-217 * var(--ui-px)); }
+.ui-glyph-onair-0 { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-235 * var(--ui-px)) calc(-217 * var(--ui-px)); }
+.ui-glyph-onair-1 { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-244 * var(--ui-px)) calc(-217 * var(--ui-px)); }
+.ui-glyph-pause { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: 0 calc(-219 * var(--ui-px)); }
+.ui-glyph-pieces { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-9 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-glyph-play { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-18 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-glyph-retry { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-27 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-glyph-seek { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-36 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-glyph-snail { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-60 * var(--ui-px)) calc(-210 * var(--ui-px)); }
+.ui-glyph-src-live { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-45 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-glyph-src-video { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-54 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-glyph-tab-decor { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-63 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-glyph-tab-floor { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-72 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-glyph-tab-seats { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-81 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-glyph-you { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-90 * var(--ui-px)) calc(-219 * var(--ui-px)); }
+.ui-icon-arrange { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-129 * var(--ui-px)); }
+.ui-icon-chat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-206 * var(--ui-px)) calc(-129 * var(--ui-px)); }
+.ui-icon-close { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-223 * var(--ui-px)) calc(-129 * var(--ui-px)); }
+.ui-icon-copied { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-240 * var(--ui-px)) calc(-129 * var(--ui-px)); }
+.ui-icon-copy { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-131 * var(--ui-px)); }
+.ui-icon-create { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-144 * var(--ui-px)); }
+.ui-icon-expired { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-144 * var(--ui-px)); }
+.ui-icon-key { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-144 * var(--ui-px)); }
+.ui-icon-leave { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-144 * var(--ui-px)); }
+.ui-icon-muted { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-144 * var(--ui-px)); }
+.ui-icon-muted-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-144 * var(--ui-px)); }
+.ui-icon-pause { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-144 * var(--ui-px)); }
+.ui-icon-pause-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-144 * var(--ui-px)); }
+.ui-icon-people { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-146 * var(--ui-px)); }
+.ui-icon-play { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-146 * var(--ui-px)); }
+.ui-icon-play-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-146 * var(--ui-px)); }
+.ui-icon-resting { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-146 * var(--ui-px)); }
+.ui-icon-retry { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-146 * var(--ui-px)); }
 .ui-icon-retry-2x { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-209 * var(--ui-px)) 0; }
-.ui-icon-seat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-128 * var(--ui-px)); }
-.ui-icon-send { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-132 * var(--ui-px)) calc(-141 * var(--ui-px)); }
-.ui-icon-share { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-149 * var(--ui-px)) calc(-141 * var(--ui-px)); }
-.ui-icon-sound { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-98 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-icon-sound-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-icon-tolive { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-icon-tolive-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-icon-tv { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-icon-unplugged { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-115 * var(--ui-px)) calc(-143 * var(--ui-px)); }
-.ui-icon-warn { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-144 * var(--ui-px)); }
-.ui-icon-you { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-166 * var(--ui-px)) calc(-144 * var(--ui-px)); }
-.ui-logo-0 { width: calc(80 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: 0 calc(-110 * var(--ui-px)); }
+.ui-icon-seat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-146 * var(--ui-px)); }
+.ui-icon-send { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-148 * var(--ui-px)); }
+.ui-icon-share { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-161 * var(--ui-px)); }
+.ui-icon-sound { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-161 * var(--ui-px)); }
+.ui-icon-sound-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-161 * var(--ui-px)); }
+.ui-icon-tolive { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-161 * var(--ui-px)); }
+.ui-icon-tolive-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-161 * var(--ui-px)); }
+.ui-icon-tv { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-161 * var(--ui-px)); }
+.ui-icon-unplugged { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-161 * var(--ui-px)); }
+.ui-icon-warn { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-161 * var(--ui-px)); }
+.ui-icon-you { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-163 * var(--ui-px)); }
+.ui-logo-0 { width: calc(80 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: calc(-125 * var(--ui-px)) calc(-126 * var(--ui-px)); }
 .ui-portrait-juno { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-209 * var(--ui-px)) calc(-33 * var(--ui-px)); }
 .ui-portrait-kiki { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-144 * var(--ui-px)) calc(-34 * var(--ui-px)); }
 .ui-portrait-mo { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: 0 calc(-52 * var(--ui-px)); }
 .ui-portrait-pip { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-33 * var(--ui-px)) calc(-52 * var(--ui-px)); }
-.ui-resync-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-145 * var(--ui-px)); }
-.ui-resync-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-145 * var(--ui-px)); }
-.ui-resync-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-145 * var(--ui-px)); }
-.ui-seek-head-disabled { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-160 * var(--ui-px)); }
-.ui-seek-head-hover { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-166 * var(--ui-px)) calc(-161 * var(--ui-px)); }
-.ui-seek-head-idle { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-162 * var(--ui-px)); }
-.ui-seek-head-press { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-11 * var(--ui-px)) calc(-162 * var(--ui-px)); }
-.ui-volume-knob-disabled { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-240 * var(--ui-px)) calc(-176 * var(--ui-px)); }
-.ui-volume-knob-hover { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-96 * var(--ui-px)) calc(-177 * var(--ui-px)); }
-.ui-volume-knob-idle { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-107 * var(--ui-px)) calc(-177 * var(--ui-px)); }
-.ui-volume-knob-press { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-118 * var(--ui-px)) calc(-177 * var(--ui-px)); }
-.ui-wait-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-132 * var(--ui-px)) calc(-158 * var(--ui-px)); }
-.ui-wait-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-149 * var(--ui-px)) calc(-158 * var(--ui-px)); }
-.ui-wait-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-159 * var(--ui-px)); }
-.ui-wait-3 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-183 * var(--ui-px)) calc(-159 * var(--ui-px)); }
-.ui-wait-4 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-200 * var(--ui-px)) calc(-159 * var(--ui-px)); }
-.ui-wait-5 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-217 * var(--ui-px)) calc(-159 * var(--ui-px)); }
-.ui-wait-6 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-234 * var(--ui-px)) calc(-159 * var(--ui-px)); }
-.ui-wait-7 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-160 * var(--ui-px)); }
+.ui-resync-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-163 * var(--ui-px)); }
+.ui-resync-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-163 * var(--ui-px)); }
+.ui-resync-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-163 * var(--ui-px)); }
+.ui-seek-head-disabled { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-180 * var(--ui-px)); }
+.ui-seek-head-hover { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-215 * var(--ui-px)) calc(-180 * var(--ui-px)); }
+.ui-seek-head-idle { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-226 * var(--ui-px)) calc(-180 * var(--ui-px)); }
+.ui-seek-head-press { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) calc(-180 * var(--ui-px)); }
+.ui-volume-knob-disabled { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-125 * var(--ui-px)) calc(-208 * var(--ui-px)); }
+.ui-volume-knob-hover { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-208 * var(--ui-px)); }
+.ui-volume-knob-idle { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-147 * var(--ui-px)) calc(-208 * var(--ui-px)); }
+.ui-volume-knob-press { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-158 * var(--ui-px)) calc(-208 * var(--ui-px)); }
+.ui-wait-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-178 * var(--ui-px)); }
+.ui-wait-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-178 * var(--ui-px)); }
+.ui-wait-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-178 * var(--ui-px)); }
+.ui-wait-3 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-178 * var(--ui-px)); }
+.ui-wait-4 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-178 * var(--ui-px)); }
+.ui-wait-5 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-178 * var(--ui-px)); }
+.ui-wait-6 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-180 * var(--ui-px)); }
+.ui-wait-7 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-180 * var(--ui-px)); }
 
 /* ---- Set (e): synced playback (M1b). Wood = shared (everyone), mustard rim on night = only you, TV glow = the video. ---- */
 .ui-transport, .ui-volume, .ui-seek, .ui-vol-track, .ui-readout, .ui-chip, .ui-sysline, .ui-seek-fill, .ui-vol-fill { image-rendering: pixelated; box-sizing: border-box; }
@@ -154,10 +174,10 @@
 .ui-button.icon { width: calc(26 * var(--ui-px)); height: calc(28 * var(--ui-px)); min-height: 0; padding: 0 0 calc(2 * var(--ui-px)); gap: 0; }
 .ui-button.icon:active, .ui-button.icon.is-press { padding: calc(2 * var(--ui-px)) 0 0; }
 .ui-button.icon:disabled, .ui-button.icon.is-disabled { padding: 0 0 calc(2 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-play, .ui-button.is-disabled .ui-icon-play { background-position: 0 calc(-128 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-pause, .ui-button.is-disabled .ui-icon-pause { background-position: calc(-115 * var(--ui-px)) calc(-126 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-sound, .ui-button.is-disabled .ui-icon-sound { background-position: calc(-187 * var(--ui-px)) calc(-142 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-muted, .ui-button.is-disabled .ui-icon-muted { background-position: calc(-221 * var(--ui-px)) calc(-125 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-play, .ui-button.is-disabled .ui-icon-play { background-position: calc(-102 * var(--ui-px)) calc(-146 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-pause, .ui-button.is-disabled .ui-icon-pause { background-position: calc(-187 * var(--ui-px)) calc(-144 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-sound, .ui-button.is-disabled .ui-icon-sound { background-position: calc(-34 * var(--ui-px)) calc(-161 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-muted, .ui-button.is-disabled .ui-icon-muted { background-position: calc(-153 * var(--ui-px)) calc(-144 * var(--ui-px)); }
 
 /* Seek bar. Put the fill and head inside, and set --pos (0..1) on the bar. For a11y, lay a transparent
  * <input type="range"> over it (opacity 0, inset 0) and keep the art as decoration. */
@@ -190,7 +210,7 @@
 
 /* Catching up: the hourglass sticker hangs off the left end of that user's name tag; the room keeps playing.
  * Frames catchup/0..3 at 320 ms (the CSS below steps through them). */
-.ui-catchup { --f0: calc(-119 * var(--ui-px)) calc(-109 * var(--ui-px)); --f1: calc(-81 * var(--ui-px)) calc(-110 * var(--ui-px)); --f2: calc(-170 * var(--ui-px)) calc(-110 * var(--ui-px)); --f3: calc(-136 * var(--ui-px)) calc(-124 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--f0); animation: ui-catchup 1280ms steps(1) infinite; }
+.ui-catchup { --f0: calc(-17 * var(--ui-px)) calc(-127 * var(--ui-px)); --f1: calc(-34 * var(--ui-px)) calc(-127 * var(--ui-px)); --f2: calc(-68 * var(--ui-px)) calc(-129 * var(--ui-px)); --f3: calc(-85 * var(--ui-px)) calc(-129 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--f0); animation: ui-catchup 1280ms steps(1) infinite; }
 @keyframes ui-catchup { 0% { background-position: var(--f0); } 25% { background-position: var(--f1); } 50% { background-position: var(--f2); } 75% { background-position: var(--f3); } }
 /* The tag must already be positioned (it is, in the room). The sticker overlaps the tag's left end by 3 art px. */
 .ui-tag.catching { color: var(--ui-muted); font-style: italic; }
@@ -223,16 +243,16 @@
 .ui-live { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-live.png") 4 fill / calc(4 * var(--ui-px)) stretch; color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 /* Frame 1 (lit) is a layer over frame 0 (dim) that blinks by opacity only, so the compositor runs it and the page's main thread
  * stays idle while a live stream plays (OME-201). Both frames share one silhouette, so lit fully covers dim. */
-.ui-onair { --f0: 0 calc(-188 * var(--ui-px)); --f1: calc(-9 * var(--ui-px)) calc(-188 * var(--ui-px)); position: relative; width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--f0); }
+.ui-onair { --f0: calc(-235 * var(--ui-px)) calc(-217 * var(--ui-px)); --f1: calc(-244 * var(--ui-px)) calc(-217 * var(--ui-px)); position: relative; width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--f0); }
 .ui-onair::after { content: ""; position: absolute; inset: 0; background: inherit; background-position: var(--f1); opacity: 0; animation: ui-onair 1400ms steps(1) infinite; }
 @keyframes ui-onair { 0% { opacity: 0; } 50% { opacity: 1; } }
 .ui-live.is-behind { border-image-source: url("slices/pill-behind.png"); color: var(--ui-muted); }
-.ui-live.is-behind .ui-onair { background-position: calc(-241 * var(--ui-px)) calc(-187 * var(--ui-px)); }
+.ui-live.is-behind .ui-onair { background-position: calc(-187 * var(--ui-px)) calc(-217 * var(--ui-px)); }
 .ui-live.is-behind .ui-onair::after { display: none; }
 /* How far behind live the room is: a normal .ui-readout with .behind ("−0:42"). Hide it at the live edge. */
 .ui-readout.behind { color: var(--ui-muted); }
 /* Back to live: a wood .ui-button.shared.icon (it moves everyone). Disabled at the live edge. */
-.ui-button:disabled .ui-icon-tolive, .ui-button.is-disabled .ui-icon-tolive { background-position: calc(-221 * var(--ui-px)) calc(-142 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-tolive, .ui-button.is-disabled .ui-icon-tolive { background-position: calc(-136 * var(--ui-px)) calc(-161 * var(--ui-px)); }
 /* Where the scrubber was: one muted line saying why there is none. Drop it first when space runs out. */
 .ui-live-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-muted); font-size: 12px; font-weight: 500; }
 .ui-room .ui-live, .ui-room .ui-hint { font-size: 9px; }
@@ -255,7 +275,7 @@
  * Hangs off the tag's left end: the sticker moves 1 art px further left (translate -1), and its art leaves 1 empty column on the
  * right, so the visible gap is 2 art px (4 screen px at 2×). The landed chevrons nearly reach the sticker's right edge, so unlike the
  * centred hourglass it must not overlap the tag (OME-137: it ran into the name). */
-.ui-resync { --f0: calc(-17 * var(--ui-px)) calc(-145 * var(--ui-px)); --f1: calc(-34 * var(--ui-px)) calc(-145 * var(--ui-px)); --f2: calc(-51 * var(--ui-px)) calc(-145 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--f2); animation: ui-resync 1000ms steps(1) 1 both; }
+.ui-resync { --f0: calc(-102 * var(--ui-px)) calc(-163 * var(--ui-px)); --f1: calc(-204 * var(--ui-px)) calc(-163 * var(--ui-px)); --f2: calc(-221 * var(--ui-px)) calc(-163 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--f2); animation: ui-resync 1000ms steps(1) 1 both; }
 @keyframes ui-resync { 0% { background-position: var(--f0); } 16% { background-position: var(--f1); } 36% { background-position: var(--f2); } 100% { background-position: var(--f2); } }
 .ui-tag.resynced .ui-resync { position: absolute; right: 100%; top: 50%; translate: calc(-1 * var(--ui-px)) -50%; }
 @media (prefers-reduced-motion: reduce) { .ui-onair::after, .ui-resync { animation: none; } }
@@ -268,7 +288,7 @@
  * over --cool (the server's retry-after). Use aria-disabled="true" (not disabled) so it keeps focus and its label, e.g.
  * "Pause for everyone: available again in 3 seconds". Remove .is-cooling when the dial is empty. */
 .ui-button.shared.is-cooling { border-image-source: url("slices/button-shared-cool.png"); cursor: default; padding: 0 0 calc(2 * var(--ui-px)); }
-.ui-wait { --w0: calc(-132 * var(--ui-px)) calc(-158 * var(--ui-px)); --w1: calc(-149 * var(--ui-px)) calc(-158 * var(--ui-px)); --w2: calc(-85 * var(--ui-px)) calc(-159 * var(--ui-px)); --w3: calc(-183 * var(--ui-px)) calc(-159 * var(--ui-px)); --w4: calc(-200 * var(--ui-px)) calc(-159 * var(--ui-px)); --w5: calc(-217 * var(--ui-px)) calc(-159 * var(--ui-px)); --w6: calc(-234 * var(--ui-px)) calc(-159 * var(--ui-px)); --w7: calc(-102 * var(--ui-px)) calc(-160 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--w0); animation: ui-wait var(--cool, 3s) steps(1) 1 both; }
+.ui-wait { --w0: calc(-34 * var(--ui-px)) calc(-178 * var(--ui-px)); --w1: calc(-119 * var(--ui-px)) calc(-178 * var(--ui-px)); --w2: calc(-136 * var(--ui-px)) calc(-178 * var(--ui-px)); --w3: calc(-153 * var(--ui-px)) calc(-178 * var(--ui-px)); --w4: calc(-170 * var(--ui-px)) calc(-178 * var(--ui-px)); --w5: calc(-187 * var(--ui-px)) calc(-178 * var(--ui-px)); --w6: calc(-68 * var(--ui-px)) calc(-180 * var(--ui-px)); --w7: calc(-85 * var(--ui-px)) calc(-180 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--w0); animation: ui-wait var(--cool, 3s) steps(1) 1 both; }
 @keyframes ui-wait { 0% { background-position: var(--w0); } 12.5% { background-position: var(--w1); } 25% { background-position: var(--w2); } 37.5% { background-position: var(--w3); } 50% { background-position: var(--w4); } 62.5% { background-position: var(--w5); } 75% { background-position: var(--w6); } 87.5% { background-position: var(--w7); } 100% { background-position: var(--w7); } }
 /* The slow-down chip is a .ui-chip.self (it only slows you): glyph/snail + "Slow down". Put it where .ui-live-note / the seek's
  * left end would be, and drop it with the dial. */
@@ -283,7 +303,7 @@
  * While it waits the key is .is-waiting with aria-disabled="true": the charcoal disabled face but full cream text (9:1, not the
  * disabled text's floor), because the countdown is something to read, not a dead control. */
 .ui-button.is-waiting { border-image-source: url("slices/button-primary-disabled.png"); color: var(--ui-text); cursor: default; padding-top: 0; padding-bottom: calc(2 * var(--ui-px)); }
-.ui-dots { --d0: calc(-61 * var(--ui-px)) calc(-178 * var(--ui-px)); --d1: calc(-156 * var(--ui-px)) calc(-178 * var(--ui-px)); --d2: 0 calc(-179 * var(--ui-px)); width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--d0); animation: ui-dots 720ms steps(1) infinite; }
+.ui-dots { --d0: calc(-243 * var(--ui-px)) calc(-208 * var(--ui-px)); --d1: 0 calc(-210 * var(--ui-px)); --d2: calc(-13 * var(--ui-px)) calc(-210 * var(--ui-px)); width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--d0); animation: ui-dots 720ms steps(1) infinite; }
 @keyframes ui-dots { 0% { background-position: var(--d0); } 33.333% { background-position: var(--d1); } 66.667% { background-position: var(--d2); } }
 
 /* Room-list card: dusk glass in a wood rim, door thumbnail on the left. .is-full dims it and shuts the door. */
@@ -293,3 +313,89 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-pill-full { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-full.png") 4 fill / calc(4 * var(--ui-px)) stretch; display: inline-flex; align-items: center; padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; line-height: 1; white-space: nowrap; image-rendering: pixelated; box-sizing: border-box; }
 .ui-room .ui-pill-full { font-size: 9px; }
 @media (prefers-reduced-motion: reduce) { .ui-dots { animation: none; } .ui-wait { animation: none; background-position: var(--w0); } }
+
+/* ---- Set (h) (OME-276): room owner edit mode, furniture tray, create room and private-room invites.
+ * Mustard rim on night = only you (the owner) see or do this. Wood = the room's furniture. Teal ring + dots = fits;
+ * rust dashed ring + hatching = can't go there. Ticket = invite. Key = invite only. Little house = the room's host.
+ * The grid, footprint markers and rotate/remove handles live in the room (Pixi, 1×): see assets/README.md. */
+.ui-tray, .ui-tab, .ui-slot, .ui-ticket, .ui-pill-private, .ui-swatch { image-rendering: pixelated; box-sizing: border-box; }
+
+/* Lazy sheet: edit.png (+ edit.json for Pixi) holds the owner's edit kit. Load it when "Edit room" is pressed, never for guests. */
+.ui-handle-remove-hover, .ui-handle-remove-idle, .ui-handle-rotate-hover, .ui-handle-rotate-idle, .ui-swatch-blush, .ui-swatch-brass, .ui-swatch-cream, .ui-swatch-dusk, .ui-swatch-ginger, .ui-swatch-lilac, .ui-swatch-navy, .ui-swatch-olive, .ui-swatch-ring, .ui-swatch-rust, .ui-swatch-teal, .ui-swatch-tide, .ui-swatch-velvet, .ui-swatch-wood, .ui-thumb-arclamp-brass, .ui-thumb-beanbag-blush, .ui-thumb-beanbag-navy, .ui-thumb-bookshelf-wood, .ui-thumb-couch-cream, .ui-thumb-couch-olive, .ui-thumb-frame-dusk, .ui-thumb-frame-tide, .ui-thumb-monstera-rust, .ui-thumb-monstera-teal, .ui-thumb-popcorn-rust, .ui-thumb-rug-lilac, .ui-thumb-rug-teal, .ui-thumb-sidetable-wood, .ui-thumb-sofa-navy, .ui-thumb-sofa-velvet, .ui-thumb-wingback-ginger { background-image: url("edit.png"); background-size: calc(256 * var(--ui-px)) calc(1024 * var(--ui-px)); }
+.ui-handle-remove-hover { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-423 * var(--ui-px)); }
+.ui-handle-remove-idle { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: calc(-216 * var(--ui-px)) calc(-423 * var(--ui-px)); }
+.ui-handle-rotate-hover { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-444 * var(--ui-px)); }
+.ui-handle-rotate-idle { width: calc(20 * var(--ui-px)); height: calc(20 * var(--ui-px)); background-position: calc(-216 * var(--ui-px)) calc(-444 * var(--ui-px)); }
+.ui-swatch-blush { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-229 * var(--ui-px)) calc(-484 * var(--ui-px)); }
+.ui-swatch-brass { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-240 * var(--ui-px)) calc(-484 * var(--ui-px)); }
+.ui-swatch-cream { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-229 * var(--ui-px)) calc(-495 * var(--ui-px)); }
+.ui-swatch-dusk { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-240 * var(--ui-px)) calc(-495 * var(--ui-px)); }
+.ui-swatch-ginger { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-214 * var(--ui-px)) calc(-499 * var(--ui-px)); }
+.ui-swatch-lilac { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-502 * var(--ui-px)); }
+.ui-swatch-navy { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-225 * var(--ui-px)) calc(-506 * var(--ui-px)); }
+.ui-swatch-olive { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-236 * var(--ui-px)) calc(-506 * var(--ui-px)); }
+.ui-swatch-ring { width: calc(14 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-214 * var(--ui-px)) calc(-484 * var(--ui-px)); }
+.ui-swatch-rust { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-206 * var(--ui-px)) calc(-510 * var(--ui-px)); }
+.ui-swatch-teal { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-513 * var(--ui-px)); }
+.ui-swatch-tide { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-217 * var(--ui-px)) calc(-517 * var(--ui-px)); }
+.ui-swatch-velvet { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-228 * var(--ui-px)) calc(-517 * var(--ui-px)); }
+.ui-swatch-wood { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-239 * var(--ui-px)) calc(-517 * var(--ui-px)); }
+.ui-thumb-arclamp-brass { width: calc(22 * var(--ui-px)); height: calc(25 * var(--ui-px)); background-position: calc(-222 * var(--ui-px)) calc(-299 * var(--ui-px)); }
+.ui-thumb-beanbag-blush { width: calc(25 * var(--ui-px)); height: calc(18 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-465 * var(--ui-px)); }
+.ui-thumb-beanbag-navy { width: calc(25 * var(--ui-px)); height: calc(18 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-465 * var(--ui-px)); }
+.ui-thumb-bookshelf-wood { width: calc(30 * var(--ui-px)); height: calc(39 * var(--ui-px)); background-position: calc(-194 * var(--ui-px)) calc(-112 * var(--ui-px)); }
+.ui-thumb-couch-cream { width: calc(42 * var(--ui-px)); height: calc(28 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-214 * var(--ui-px)); }
+.ui-thumb-couch-olive { width: calc(42 * var(--ui-px)); height: calc(28 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-243 * var(--ui-px)); }
+.ui-thumb-frame-dusk { width: calc(16 * var(--ui-px)); height: calc(25 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-300 * var(--ui-px)); }
+.ui-thumb-frame-tide { width: calc(16 * var(--ui-px)); height: calc(25 * var(--ui-px)); background-position: calc(-212 * var(--ui-px)) calc(-325 * var(--ui-px)); }
+.ui-thumb-monstera-rust { width: calc(21 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-399 * var(--ui-px)); }
+.ui-thumb-monstera-teal { width: calc(21 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-217 * var(--ui-px)) calc(-399 * var(--ui-px)); }
+.ui-thumb-popcorn-rust { width: calc(26 * var(--ui-px)); height: calc(27 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-thumb-rug-lilac { width: calc(44 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-351 * var(--ui-px)); }
+.ui-thumb-rug-teal { width: calc(44 * var(--ui-px)); height: calc(23 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-375 * var(--ui-px)); }
+.ui-thumb-sidetable-wood { width: calc(18 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-484 * var(--ui-px)); }
+.ui-thumb-sofa-navy { width: calc(42 * var(--ui-px)); height: calc(30 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-152 * var(--ui-px)); }
+.ui-thumb-sofa-velvet { width: calc(42 * var(--ui-px)); height: calc(30 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-183 * var(--ui-px)); }
+.ui-thumb-wingback-ginger { width: calc(26 * var(--ui-px)); height: calc(26 * var(--ui-px)); background-position: calc(-222 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+
+/* Edit toggle: a personal key (.ui-button.self) with icon/arrange + "Edit room". aria-pressed="true" latches it: a filled mustard
+ * face that has lost its lip, plum label ("Done"). Only the owner gets this key. */
+.ui-button.self[aria-pressed="true"], .ui-button.self.is-on { border-image-source: url("slices/button-self-on.png"); color: var(--ui-on-primary); padding-top: calc(2 * var(--ui-px)); padding-bottom: 0; }
+
+/* Furniture tray: a wooden drawer under the stage. Tabs sit on its top rim (the open tab's bottom row covers the rim's outline). */
+.ui-tray { border-style: solid; border-color: transparent; border-width: calc(10 * var(--ui-px)); border-image: url("slices/tray-0.png") 10 fill / calc(10 * var(--ui-px)) stretch; display: flex; gap: calc(3 * var(--ui-px)); padding: calc(1 * var(--ui-px)); overflow-x: auto; scrollbar-width: thin; }
+.ui-tabs { display: flex; gap: calc(1 * var(--ui-px)); padding-left: calc(6 * var(--ui-px)); margin-bottom: calc(-1 * var(--ui-px)); position: relative; }
+.ui-tab { border-style: solid; border-color: transparent; border-width: calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(4 * var(--ui-px)); border-image: url("slices/tab-idle.png") 5 5 4 fill / calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(4 * var(--ui-px)) stretch; display: inline-flex; align-items: center; gap: calc(2 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); min-height: calc(14 * var(--ui-px)); background: none; color: var(--ui-muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.ui-tab:hover, .ui-tab.is-hover { border-image-source: url("slices/tab-hover.png"); color: var(--ui-text); }
+.ui-tab[aria-selected="true"] { border-image-source: url("slices/tab-on.png"); color: var(--ui-text); }
+.ui-tab:focus-visible { outline: var(--ui-px) solid var(--ui-text); outline-offset: var(--ui-px); }
+
+/* Cubby: one catalogue piece. Centre its thumb/<id>/<colour> (≤ 44×40 art px) inside; footprint glyph bottom-left.
+ * Pressed (aria-pressed="true") = it's in your hand: mustard double rim. aria-disabled="true" = the room is at MAX_FURNITURE. */
+.ui-slot { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/slot-idle.png") 6 fill / calc(6 * var(--ui-px)) stretch; position: relative; display: grid; place-items: center; width: calc(52 * var(--ui-px)); height: calc(50 * var(--ui-px)); padding: 0; background: none; cursor: grab; flex: none; }
+.ui-slot:hover, .ui-slot.is-hover, .ui-slot:focus-visible { border-image-source: url("slices/slot-hover.png"); outline: none; }
+.ui-slot[aria-pressed="true"] { border-image-source: url("slices/slot-held.png"); cursor: grabbing; }
+.ui-slot[aria-disabled="true"] { border-image-source: url("slices/slot-off.png"); cursor: default; }
+.ui-slot .ui-fp { position: absolute; left: calc(1 * var(--ui-px)); bottom: calc(1 * var(--ui-px)); }
+/* Variant swatches under the tray: one 10 px chip per colour (<button class="ui-swatch" role="radio"> holding the swatch sprite and a
+ * .ui-sprite.ui-swatch-ring); the picked one shows its mustard ring. */
+.ui-swatches { display: flex; gap: calc(3 * var(--ui-px)); align-items: center; }
+.ui-swatch { position: relative; width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); padding: 0; border: 0; background: none; cursor: pointer; }
+.ui-swatch > .ui-sprite { display: block; }
+.ui-swatch > .ui-swatch-ring { display: none; position: absolute; left: calc(-2 * var(--ui-px)); top: calc(-2 * var(--ui-px)); }
+.ui-swatch[aria-checked="true"] > .ui-swatch-ring { display: block; }
+.ui-swatch:focus-visible { outline: var(--ui-px) solid var(--ui-text); outline-offset: calc(3 * var(--ui-px)); }
+
+/* Invite link: a cinema ticket, fixed 20 art px tall. The link text sits on the card in plum; the stub is decoration.
+ * .is-copied stamps a teal check on the stub (pair it with "Copied" on the key, glyph/check); .is-expired tears the stub off and greys it. */
+.ui-ticket { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(6 * var(--ui-px)) calc(4 * var(--ui-px)) calc(15 * var(--ui-px)); border-image: url("slices/ticket-idle.png") 4 6 4 15 fill / calc(4 * var(--ui-px)) calc(6 * var(--ui-px)) calc(4 * var(--ui-px)) calc(15 * var(--ui-px)) stretch; height: calc(20 * var(--ui-px)); display: flex; align-items: center; padding: 0 calc(1 * var(--ui-px)); color: var(--ui-bubble-text); font: 600 13px/1 ui-monospace, monospace; white-space: nowrap; overflow: hidden; min-width: 0; }
+.ui-ticket > span { overflow: hidden; text-overflow: ellipsis; }
+.ui-ticket.is-copied { border-image-source: url("slices/ticket-copied.png"); }
+.ui-ticket.is-expired { border-image-source: url("slices/ticket-expired.png"); color: var(--ui-panel); text-decoration: line-through; }
+.ui-room .ui-ticket { font-size: 10px; }
+
+/* Private room: "Invite only" pill (glyph/key + words), cream rim on night. */
+.ui-pill-private { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-private.png") 4 fill / calc(4 * var(--ui-px)) stretch; display: inline-flex; align-items: center; gap: calc(2 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; line-height: 1; white-space: nowrap; }
+.ui-room .ui-pill-private { font-size: 9px; }
+/* The host's name tag carries glyph/host before the name. */
+.ui-tag .ui-glyph-host { vertical-align: -1px; margin-right: calc(1 * var(--ui-px)); }

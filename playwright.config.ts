@@ -30,8 +30,9 @@ export default defineConfig({
     // The smoke joins them: in parallel with acceptance's shares it saw another spec's state land between A's pause and B's poll (OME-154).
     // The Vimeo suite re-shares the lobby with a Vimeo video in every case, so it joins them too (OME-164).
     // So do the provider sync and share-from-extension suites (OME-131).
-    { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", testIgnore: ["**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts", "**/tunnel*.e2e.ts", "**/abuse.e2e.ts", "**/http-flood.e2e.ts"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
-    { name: "e2e-sync", testDir: "e2e", testMatch: ["**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts"], workers: 1, dependencies: ["e2e"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    // And M1a acceptance: it counts every nickname tag in the lobby, so a parallel spec's member makes it see extra people (OME-314).
+    { name: "e2e", testDir: "e2e", testMatch: "**/*.e2e.ts", testIgnore: ["**/acceptance.e2e.ts", "**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts", "**/tunnel*.e2e.ts", "**/abuse.e2e.ts", "**/http-flood.e2e.ts"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
+    { name: "e2e-sync", testDir: "e2e", testMatch: ["**/acceptance.e2e.ts", "**/sync.e2e.ts", "**/sync-smoke.e2e.ts", "**/vimeo.e2e.ts", "**/provider-*.e2e.ts"], workers: 1, dependencies: ["e2e"], use: { ...devices["Desktop Chrome"], channel: "chromium" } },
     // Tunnel safety (OME-132): its own tunnel-mode server behind a local TLS proxy on fixed ports, so one worker.
     // The M3 abuse suite (OME-191) and the HTTP flood suite (OME-281) run here too, each on a lane of its own so their spent limits never reach the tunnel specs.
     { name: "e2e-tunnel", testDir: "e2e", testMatch: ["**/tunnel*.e2e.ts", "**/abuse.e2e.ts", "**/http-flood.e2e.ts"], workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium" } },

@@ -20,10 +20,10 @@ import {
   RoomIdSchema,
   ServerMessageSchema,
   ShareResponseSchema,
-  nicknameKey,
   normalizeNickname,
   parseClientMessage,
 } from "../src/index";
+import * as shared from "../src/index";
 
 // M3 contract (OME-186, ADR 0016, docs/research/m3-threat-model.md §7).
 
@@ -196,19 +196,9 @@ describe("normalizeNickname", () => {
 });
 
 describe("nicknameKey", () => {
-  const key = (s: string): string => nicknameKey(v.parse(NicknameSchema, s));
-
-  test("collides for case, width and accents", () => {
-    expect(key("Alice")).toBe(key("alice"));
-    expect(key("Alice")).toBe(key("ＡＬＩＣＥ"));
-    expect(key("José")).toBe(key("jose"));
-    expect(key("Zoë")).toBe(key("zoe\u0308"));
-  });
-
-  test("keeps different names apart", () => {
-    expect(key("alice")).not.toBe(key("alicia"));
-    expect(key("bob 2")).not.toBe(key("bob2"));
-    expect(key("李雷")).not.toBe(key("李"));
+  // OME-304: the M3 key is gone; the only key is the UTS #39 one in @omega/shared/confusables.
+  test("is not exported from the main entry", () => {
+    expect("nicknameKey" in shared).toBe(false);
   });
 });
 

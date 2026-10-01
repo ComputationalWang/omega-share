@@ -1,4 +1,4 @@
-// Screenshots of preview/ui.html (sets c, e, the M1b TV and the M2 live chrome, set f safety states) at 1× for design review. Not part of the zero-dependency build:
+// Screenshots of preview/ui.html (sets c, e, the M1b TV and the M2 live chrome, set f safety states, set h owner edit mode / tray / invites) at 1× for design review. Not part of the zero-dependency build:
 // uses the repo's Playwright + Chromium. Run: bun assets/src/shoot-ui.ts (after bun assets/src/build.ts).
 import { chromium } from "@playwright/test";
 import { join } from "node:path";
@@ -9,7 +9,7 @@ const browser = await chromium.launch();
 try {
   const page = await browser.newPage({ viewport: { width: 1040, height: 900 }, deviceScaleFactor: 1 });
   await page.goto(pathToFileURL(join(PREVIEW, "ui.html")).href, { waitUntil: "networkidle" });
-  for (const id of ["landing", "states", "room", "playback", "playback-states", "tv", "live", "live-states", "safety", "safety-states"]) {
+  for (const id of ["landing", "states", "room", "playback", "playback-states", "tv", "live", "live-states", "safety", "safety-states", "owner", "owner-tray", "owner-states"]) {
     await page.locator(`#${id}`).screenshot({ path: join(PREVIEW, `ui-${id}.png`) });
   }
 } finally {

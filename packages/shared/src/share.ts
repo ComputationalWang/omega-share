@@ -1,6 +1,6 @@
 import * as v from "valibot";
 import { ERROR_MESSAGE_MAX_LENGTH, MAX_URL_LENGTH, RETRY_AFTER_MAX_MS } from "./constants";
-import { EmbedSchema } from "./embed";
+import { AnyEmbedSchema } from "./generic-embed";
 import { RoomIdSchema } from "./room";
 
 /** Length of a share token: 16 random bytes as base64url without padding (ADR 0015). */
@@ -34,7 +34,7 @@ export type ShareTokenRecord = v.InferOutput<typeof ShareTokenRecordSchema>;
 
 /**
  * Body of `POST /rooms/:id/share`. The raw page/embed URL; the server runs
- * `canonicalizeEmbed` on it, so the extension never has to be trusted.
+ * `canonicalizeAnyEmbed` on it, so the extension never has to be trusted.
  */
 export const ShareRequestSchema = v.strictObject({
   url: v.pipe(v.string(), v.maxLength(MAX_URL_LENGTH)),
@@ -59,7 +59,7 @@ export const SHARE_ERROR_CODES = [
 export type ShareErrorCode = (typeof SHARE_ERROR_CODES)[number];
 
 export const ShareResponseSchema = v.variant("ok", [
-  v.object({ ok: v.literal(true), embed: EmbedSchema }),
+  v.object({ ok: v.literal(true), embed: AnyEmbedSchema }),
   v.object({
     ok: v.literal(false),
     error: v.object({

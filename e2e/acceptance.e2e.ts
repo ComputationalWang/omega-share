@@ -1,6 +1,6 @@
 // M1a sign-off (OME-9): share from the extension → 4 site clients see the embed, each other seated with nickname tags,
 // and a chat bubble. Plus the negative checks: non-YouTube share → 400, 9th sitter can't sit, 26th arrival sees "Room full".
-// Serial: every test shares the server's one in-memory lobby.
+// Serial, in the e2e-sync lane: every test shares the server's one in-memory lobby and counts who is in it (OME-314).
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { DEFAULT_ROOM_ID, MAX_ROOM_MEMBERS, SEAT_COUNT, parseServerMessage, type RoomState } from "@omega/shared";
 import { PENDING, URLS, available } from "./support/apps";
