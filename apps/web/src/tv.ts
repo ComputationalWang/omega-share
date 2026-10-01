@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { EmbedSchema, type Embed } from "@omega/shared";
+import { EmbedSchema, GenericEmbedSchema, normalizeHostname, type Embed } from "@omega/shared";
 
 /** An iframe the site builds itself (YouTube, Vimeo). */
 export interface TvIframe {
@@ -31,6 +31,19 @@ export interface TvTwitch {
 
 export type TvFrame = TvIframe | TvTwitch;
 
+/** The generic tier's iframe (ADR 0024 §2b): every attribute is a constant except `src` and the host in `title`. */
+export interface TvGeneric {
+  readonly kind: "generic";
+  readonly key: string;
+  /** Punycode hostname, shown on the load card as text. */
+  readonly host: string;
+  readonly src: string;
+  readonly sandbox: string;
+  readonly allow: string;
+  readonly referrerPolicy: ReferrerPolicy;
+  readonly title: string;
+}
+
 /** The iframe host we render (ADR 0011). The wire `Embed.url` stays canonical `www.youtube.com`. */
 export const NOCOOKIE_ORIGIN = "https://www.youtube-nocookie.com";
 /** Flip to false to fall back to the canonical host if the IFrame API stops attaching to nocookie. */
@@ -55,6 +68,10 @@ const VIMEO_PARAMS: readonly (readonly [string, string])[] = [
   ["byline", "0"],
   ["portrait", "0"],
 ];
+/** No popups, no top navigation, no forms or modals (ADR 0024 §2b). */
+const GENERIC_SANDBOX = "allow-scripts allow-same-origin allow-presentation";
+/** Load is the viewer saying "play this"; no encrypted-media (ADR 0024 §2b). */
+const GENERIC_ALLOW = "fullscreen; autoplay";
 /** Twitch query keys that pick the content; exactly one of them may appear, once. */
 const TWITCH_CONTENT_KEYS = ["channel", "video", "collection"] as const;
 
@@ -78,6 +95,20 @@ export function tvFrame(embed: unknown, pageOrigin: string = location.origin, no
     case "twitch":
       return twitchFrame(e, page.hostname);
   }
+}
+
+/**
+ * The only place a generic embed becomes a frame: `embed` must parse as a canonical
+ * `GenericEmbed`, and its host must not be this page's host (`pageHost`) or under it,
+ * which the schema can't know. Otherwise null.
+ */
+export function genericFrame(embed: unknown, pageHost: string = location.hostname): TvGeneric | null {
+  const r = v.safeParse(GenericEmbedSchema, embed);
+  if (!r.success) return null;
+  const { host, url } = r.output;
+  const own = normalizeHostname(pageHost);
+  if (own === null || host === own || host.endsWith(`.${own}`)) return null;
+  return { kind: "generic", key: url, host, src: url, sandbox: GENERIC_SANDBOX, allow: GENERIC_ALLOW, referrerPolicy: "no-referrer", title: `Shared video from ${host}` };
 }
 
 function youtubeFrame(url: string, origin: string, nocookie: boolean): TvIframe {
