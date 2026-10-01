@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { NOCOOKIE_ORIGIN, tvFrame, twitchIframeMatches, type TvFrame, type TvIframe, type TvTwitch } from "../src/tv";
+import { NOCOOKIE_ORIGIN, genericFrame, tvFrame, twitchIframeMatches, type TvFrame, type TvIframe, type TvTwitch } from "../src/tv";
 
 const good = { provider: "youtube", videoId: "dQw4w9WgXcQ", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" };
 const ORIGIN = "http://localhost:5173";
@@ -199,5 +199,58 @@ describe("twitchIframeMatches (post-render check, research §4.1 W1)", () => {
     for (const b of bad) expect([b, twitchIframeMatches(b, live)]).toEqual([b, false]);
     expect(twitchIframeMatches("https://player.twitch.tv?video=v1", vod)).toBe(false);
     expect(twitchIframeMatches("https://player.twitch.tv?video=v1234567890&channel=some_streamer", vod)).toBe(false);
+  });
+});
+
+describe("genericFrame (ADR 0024 §2b)", () => {
+  const generic = { provider: "generic", host: "media.example.org", url: "https://media.example.org/embed/42?t=3" };
+  const PAGE = "watch.omega-share.org";
+
+  test("exactly the ADR's sandbox, allow, referrer policy and title; src is the parsed url", () => {
+    expect(genericFrame(generic, PAGE)).toEqual({
+      kind: "generic",
+      key: "https://media.example.org/embed/42?t=3",
+      host: "media.example.org",
+      src: "https://media.example.org/embed/42?t=3",
+      sandbox: "allow-scripts allow-same-origin allow-presentation",
+      allow: "fullscreen; autoplay",
+      referrerPolicy: "no-referrer",
+      title: "Shared video from media.example.org",
+    });
+  });
+
+  test("the host shows as punycode, as the wire carries it", () => {
+    const idn = { provider: "generic", host: "xn--bcher-kva.example.org", url: "https://xn--bcher-kva.example.org/v" };
+    expect(genericFrame(idn, PAGE)?.title).toBe("Shared video from xn--bcher-kva.example.org");
+  });
+
+  test("nothing renders from an unparsed or non-canonical generic embed", () => {
+    const bad: unknown[] = [
+      null,
+      "https://media.example.org/embed/42",
+      { provider: "generic", host: "media.example.org", url: "http://media.example.org/embed/42" },
+      { provider: "generic", host: "evil.example.org", url: "https://media.example.org/embed/42" },
+      { provider: "generic", host: "media.example.org", url: "https://Media.example.org/embed/42" },
+      { provider: "generic", host: "localhost", url: "https://localhost/x" },
+      { provider: "generic", host: "player.vimeo.com", url: "https://player.vimeo.com/video/1" },
+      { provider: "generic", host: "media.example.org", url: "javascript:alert(1)" },
+      good,
+    ];
+    for (const b of bad) expect([b, genericFrame(b, PAGE)]).toEqual([b, null]);
+  });
+
+  test("extra keys on the wire never reach the frame's attributes", () => {
+    const extra = { ...generic, sandbox: "allow-top-navigation", allow: "camera", referrerPolicy: "unsafe-url", title: "x" };
+    expect(genericFrame(extra, PAGE)).toEqual(genericFrame(generic, PAGE));
+  });
+
+  test("refuses our own host and its subdomains (the schema can't know them)", () => {
+    const own = (host: string): unknown => ({ provider: "generic", host, url: `https://${host}/r/lobby` });
+    expect(genericFrame(own("watch.omega-share.org"), PAGE)).toBeNull();
+    expect(genericFrame(own("cdn.watch.omega-share.org"), PAGE)).toBeNull();
+    expect(genericFrame(own("watch.omega-share.org"), "WATCH.omega-share.org.")).toBeNull();
+    // A sibling or a look-alike suffix is someone else's site.
+    expect(genericFrame(own("omega-share.org"), PAGE)).not.toBeNull();
+    expect(genericFrame(own("evilwatch.omega-share.org"), PAGE)).not.toBeNull();
   });
 });
