@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { CSP as SERVER_CSP } from "../../server/src/headers";
+// The default production policy: GENERIC_EMBEDS=on frames `https:` (ADR 0024 §4).
+import { CSP_WITH_GENERIC as SERVER_CSP } from "../../server/src/headers";
 
 const html = await Bun.file(new URL("../index.html", import.meta.url)).text();
 
@@ -18,7 +19,7 @@ function parse(policy: string): Map<string, string[]> {
   return out;
 }
 
-describe("index.html CSP (ADR 0011, ADR 0014 §5)", () => {
+describe("index.html CSP (ADR 0011, ADR 0014 §5, ADR 0024 §4)", () => {
   test("scripts: self, the two YouTube API paths and the exact Twitch/Vimeo SDK files, never a whole host", () => {
     expect(csp().get("script-src")).toEqual([
       "'self'",
@@ -29,11 +30,12 @@ describe("index.html CSP (ADR 0011, ADR 0014 §5)", () => {
     ]);
   });
 
-  test("frames: youtube-nocookie plus the Twitch and Vimeo player hosts only", () => {
+  test("frames: youtube-nocookie, the Twitch and Vimeo player hosts, and https: for the generic tier", () => {
     expect(csp().get("frame-src")).toEqual([
       "https://www.youtube-nocookie.com",
       "https://player.twitch.tv",
       "https://player.vimeo.com",
+      "https:",
     ]);
   });
 
@@ -50,9 +52,9 @@ describe("index.html CSP (ADR 0011, ADR 0014 §5)", () => {
     ]);
   });
 
-  test("no unsafe keywords, blob: or scheme-wide ws:/wss: anywhere; no frame-ancestors in a meta", () => {
+  test("no unsafe keywords, blob: or scheme-wide sources anywhere (https: only in frame-src); no frame-ancestors in a meta", () => {
     const c = csp();
-    const all = [...c.values()].flat();
+    const all = [...c.entries()].flatMap(([name, values]) => (name === "frame-src" ? values.filter((v) => v !== "https:") : values));
     for (const banned of ["'unsafe-inline'", "'unsafe-eval'", "blob:", "ws:", "wss:", "http:", "https:", "*"]) {
       expect(all).not.toContain(banned);
     }
