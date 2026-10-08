@@ -24,6 +24,7 @@ function setup(opts: { reduced?: boolean } = {}) {
   let now = 0;
   const rafs: (() => void)[] = [];
   const timers: { fn: () => void; ms: number }[] = [];
+  let cleared = 0;
   const draws: { id: string; pose: Pose; frame: string | null }[] = [];
   let renders = 0;
   const walks = createWalks({ reducedMotion: () => opts.reduced ?? false });
@@ -38,7 +39,9 @@ function setup(opts: { reduced?: boolean } = {}) {
       timers.push({ fn, ms });
       return timers.length;
     },
-    clearTimer: () => undefined,
+    clearTimer: () => {
+      cleared++;
+    },
     reducedMotion: () => opts.reduced ?? false,
     draw: (who, _avatar, pose, frame) => draws.push({ id: who, pose: { ...pose }, frame }),
     render: () => {
@@ -52,6 +55,7 @@ function setup(opts: { reduced?: boolean } = {}) {
     rafs,
     timers,
     renders: () => renders,
+    cleared: () => cleared,
     at: (t: number) => {
       now = t;
     },
@@ -132,5 +136,50 @@ describe("animator", () => {
     s.walks.place([{ id: id("a"), at: cellCenter(5, 1), z: 1, seatFacing: "nw" }], 0);
     s.anim.set([{ id: id("a"), avatar: 3 }]);
     expect(s.draws.at(-1)?.frame).toBe("kiki/sit/nw/0");
+  });
+});
+
+describe("animator teardown and idle cost", () => {
+  test("dispose: a queued frame or breathe timer does nothing afterwards, and nothing new is scheduled", () => {
+    const s = setup();
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 5, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(0); // at rest: a breathe timer is pending
+    expect(s.timers.length).toBe(1);
+    s.walks.place([standAt("a", 5, 8)], 10);
+    s.anim.set([{ id: id("a"), avatar: 0 }]); // walking: a frame is queued
+    expect(s.rafs.length).toBe(1);
+    s.anim.dispose();
+    expect(s.cleared()).toBeGreaterThan(0);
+    const draws = s.draws.length;
+    s.frame(100);
+    s.timers[0]?.fn();
+    s.anim.setFrames(frames);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    expect(s.draws.length).toBe(draws);
+    expect(s.renders()).toBe(1);
+    expect(s.rafs.length).toBe(0);
+  });
+
+  test("breathing redraws land on a shared 400 ms clock: 25 people at rest render at most every 400 ms", () => {
+    const s = setup();
+    s.anim.setFrames(frames);
+    const people = Array.from({ length: 25 }, (_, i) => standAt(`p${String(i)}`, i % 10, 9 - Math.floor(i / 10)));
+    s.walks.place(people, 0);
+    s.anim.set(people.map((p, i) => ({ id: p.id, avatar: i % 4 })));
+    let t = 0;
+    s.frame(t);
+    while (t < 10_000) {
+      const timer = s.timers.at(-1);
+      if (timer === undefined) break;
+      t += timer.ms;
+      expect(t % 400).toBe(0);
+      s.timers.length = 0;
+      timer.fn();
+      s.frame(t);
+    }
+    expect(t).toBeGreaterThanOrEqual(10_000);
+    expect(s.renders()).toBeLessThanOrEqual(10_000 / 400 + 1);
   });
 });
