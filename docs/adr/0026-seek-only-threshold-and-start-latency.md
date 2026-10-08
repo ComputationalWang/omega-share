@@ -1,6 +1,6 @@
 # ADR 0026 — Seek-only threshold is 250 ms; resumes compensate learned start-up latency
 
-**Status:** accepted (2026-10-08) · Lead · [OME-392](/OME/issues/OME-392) (found in [OME-377](/OME/issues/OME-377)) · amends `docs/research/m1b-youtube-sync.md` §2 and `docs/research/m2-twitch-vimeo-sync.md` (seek-only "500 ms threshold")
+**Status:** accepted (2026-10-08) · Lead · [OME-392](/OME/issues/OME-392) (found in [OME-377](/OME/issues/OME-377)) · amends `docs/research/m1b-youtube-sync.md` §2 and `docs/research/m2-twitch-vimeo-sync.md` (seek-only "500 ms threshold") · amended by [ADR 0027](0027-seek-only-park-and-twitch-clock.md) (seek-only parks; paused threshold 250 ms)
 
 **Context:** The Sync budget in `docs/perf-budgets.md` is ≤ 500 ms spread **between clients**. Seek-only players (Twitch VOD, Vimeo with rates rejected) seeked only when *their own* drift from the room passed 500 ms. Two clients drifting opposite ways could sit ~1 s apart without either correcting. A headed M2-twitch-vod run held 524 ms for 5 samples (~1.3 s). Separately, every resume (paused → play) started > 1 s behind the room: the hard seek was compensated with the *while-playing* seek latency, which a resume never trains, and start-up from pause costs more. Both clients then hard-seeked ~3 s later on different ticks, causing a visible ~1 s jump.
 
