@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { playbackCaps, type Embed, type PlaybackCaps, type PlaybackState } from "@omega/shared";
 import type { PlayerState } from "../src/player/adapter";
 import {
+  PARK_LEAD_MS,
   SYNC_INTERVAL_MS,
   createSyncLoop,
   decide,
@@ -50,6 +51,7 @@ function input(driftMs: number, over: Partial<DecideInput> = {}): DecideInput {
     mode: "fine",
     seekLatencyMs: 0,
     startLatencyMs: 0,
+    parkAt: -1,
     ...over,
   };
 }
@@ -101,9 +103,9 @@ describe("decide: thresholds", () => {
     expect(decide(input(-3000))).toEqual({ kind: "seek", to: 10, play: true });
   });
 
-  test("seek-only seeks above 250 ms, half the 500 ms pairwise budget, so two clients can't sit 500+ ms apart (OME-392)", () => {
-    expect(decide(input(251, { mode: "seek-only" }))).toEqual({ kind: "seek", to: 10, play: true });
-    expect(decide(input(-251, { mode: "seek-only" }))).toEqual({ kind: "seek", to: 10, play: true });
+  test("seek-only corrects above 250 ms, half the 500 ms pairwise budget, so two clients can't sit 500+ ms apart (OME-392)", () => {
+    expect(decide(input(251, { mode: "seek-only" })).kind).toBe("park");
+    expect(decide(input(-251, { mode: "seek-only" })).kind).toBe("park");
     expect(decide(input(250, { mode: "seek-only" }))).toEqual({ kind: "none" });
     expect(decide(input(-250, { mode: "seek-only" }))).toEqual({ kind: "none" });
   });
@@ -176,10 +178,14 @@ describe("decide: play state", () => {
     expect(decide(input(0, { room: room({ playing: false }) }))).toEqual({ kind: "pause" });
   });
 
-  test("room paused, player paused: only a > 1 s difference seeks, and it stays paused", () => {
+  test("room paused, player paused: a > 250 ms difference seeks in every mode (half the pairwise budget), and it stays paused (OME-396)", () => {
     const paused = room({ playing: false });
-    expect(decide(input(600, { room: paused, playerState: "paused" }))).toEqual({ kind: "none" });
-    expect(decide(input(1500, { room: paused, playerState: "paused" }))).toEqual({ kind: "seek", to: 10, play: false });
+    for (const mode of ["fine", "burst", "seek-only"] as const) {
+      expect(decide(input(250, { mode, room: paused, playerState: "paused" }))).toEqual({ kind: "none" });
+      expect(decide(input(-250, { mode, room: paused, playerState: "paused" }))).toEqual({ kind: "none" });
+      expect(decide(input(251, { mode, room: paused, playerState: "paused" }))).toEqual({ kind: "seek", to: 10, play: false });
+      expect(decide(input(-600, { mode, room: paused, playerState: "paused" }))).toEqual({ kind: "seek", to: 10, play: false });
+    }
   });
 });
 
@@ -217,6 +223,46 @@ describe("decide: start-up latency (OME-392)", () => {
   });
 });
 
+describe("decide: seek-only parks instead of seeking while playing (OME-396)", () => {
+  test("a park seeks paused to the room + PARK_LEAD_MS + the start-up latency, so the play can land on the room clock", () => {
+    expect(PARK_LEAD_MS).toBe(1000);
+    expect(decide(input(-3000, { mode: "seek-only" }))).toEqual({ kind: "park", to: 11 });
+    expect(decide(input(700, { mode: "seek-only", startLatencyMs: 60 }))).toEqual({ kind: "park", to: 11.06 });
+    expect(decide(input(-400, { mode: "seek-only", room: room({ rate: 2 }) }))).toEqual({ kind: "park", to: 12 });
+  });
+
+  test("a hard seek parks a playing or buffering player, and a paused one far from the room", () => {
+    expect(decide(input(0, { mode: "seek-only", hardSeek: true }))).toEqual({ kind: "park", to: 11 });
+    expect(decide(input(0, { mode: "seek-only", hardSeek: true, playerState: "buffering" }))).toEqual({ kind: "park", to: 11 });
+    expect(decide(input(-251, { mode: "seek-only", hardSeek: true, playerState: "paused" }))).toEqual({ kind: "park", to: 11 });
+  });
+
+  test("a resume near the room and a cold join still seek and play (OME-392 path)", () => {
+    expect(decide(input(-250, { mode: "seek-only", hardSeek: true, playerState: "paused", startLatencyMs: 60 }))).toEqual({ kind: "seek", to: 10.06, play: true });
+    expect(decide(input(0, { mode: "seek-only", hardSeek: true, playerState: "cued" }))).toEqual({ kind: "seek", to: 10, play: true });
+  });
+
+  test("parked: wait while the room is more than half a tick (+ start-up latency) away, then unpark", () => {
+    const parked = (parkAt: number, over: Partial<DecideInput> = {}) =>
+      decide(input(0, { mode: "seek-only", playerState: "paused", stableForMs: 0, sampleCount: 0, parkAt, ...over }));
+    expect(parked(11)).toEqual({ kind: "none" });
+    expect(parked(10.126)).toEqual({ kind: "none" });
+    expect(parked(10.125)).toEqual({ kind: "unpark" });
+    expect(parked(9)).toEqual({ kind: "unpark" });
+    expect(parked(10.2, { startLatencyMs: 80 })).toEqual({ kind: "unpark" });
+    // The pause may not show yet: still wait.
+    expect(parked(11, { playerState: "playing" })).toEqual({ kind: "none" });
+    expect(parked(10.1, { playerState: "playing" })).toEqual({ kind: "unpark" });
+    expect(parked(11, { playerState: "buffering" })).toEqual({ kind: "none" });
+  });
+
+  test("fine and burst still seek while playing", () => {
+    expect(decide(input(-3000)).kind).toBe("seek");
+    expect(decide(input(-3000, { mode: "burst" })).kind).toBe("seek");
+    expect(decide(input(0, { hardSeek: true })).kind).toBe("seek");
+  });
+});
+
 describe("decide: fallback ladder", () => {
   test("burst mode nudges with 0.75 / 1.25", () => {
     expect(decide(input(300, { mode: "burst" }))).toEqual({ kind: "rate", rate: 0.75 });
@@ -225,9 +271,9 @@ describe("decide: fallback ladder", () => {
     expect(decide(input(1500, { mode: "burst" })).kind).toBe("seek");
   });
 
-  test("seek-only mode never changes rate and seeks above 250 ms", () => {
+  test("seek-only mode never changes rate and parks above 250 ms", () => {
     expect(decide(input(200, { mode: "seek-only" }))).toEqual({ kind: "none" });
-    expect(decide(input(-251, { mode: "seek-only" }))).toEqual({ kind: "seek", to: 10, play: true });
+    expect(decide(input(-251, { mode: "seek-only" }))).toEqual({ kind: "park", to: 11 });
     expect(decide(input(200, { mode: "seek-only", rate: 1.04 }))).toEqual({ kind: "rate", rate: 1 });
   });
 
@@ -305,9 +351,9 @@ describe("capabilities (ADR 0014 §3, research §6.3)", () => {
       { kind: "none" },
       { kind: "none" },
       { kind: "none" },
-      { kind: "seek", to: 10, play: true },
-      { kind: "seek", to: 10, play: true },
-      { kind: "seek", to: 10, play: true },
+      { kind: "park", to: 11 },
+      { kind: "park", to: 11 },
+      { kind: "park", to: 11 },
       { kind: "seek", to: 10, play: true },
       { kind: "pause" },
       { kind: "seek", to: 10, play: false },
@@ -438,11 +484,55 @@ describe("sync loop", () => {
     expect(h.player.calls).toEqual([{ op: "play" }, { op: "pause" }, { op: "play" }]);
   });
 
+  test("seek-only: drift parks once (seek paused, play when the room gets there) and lands on the room clock, without the stall a seek while playing has (OME-396)", () => {
+    const h = harness({ caps: CAPS.twitchVod, rates: [1], seekLatencyMs: 1500 });
+    h.loop.start();
+    h.loop.setPlayback(room({ at: 1_000_000 }));
+    h.run(3000);
+    h.player.calls.length = 0;
+    h.player.shift(-2);
+    h.run(1000);
+    expect(h.player.calls).toEqual([
+      { op: "seek", to: expect.closeTo(expectedPosition(room(), h.clock.serverNow()) + 0.5, 6) as number },
+      { op: "pause" },
+    ]);
+    expect(h.player.state()).toBe("paused");
+    h.run(10_000);
+    expect(h.player.calls.map((c) => c.op)).toEqual(["seek", "pause", "play"]);
+    expect(h.player.state()).toBe("playing");
+    expect(Math.abs(h.player.time() - expectedPosition(room(), h.clock.serverNow()))).toBeLessThanOrEqual(0.01);
+  });
+
+  test("seek-only: a park learns the start-up latency, so the next one lands on the room clock (OME-396)", () => {
+    const h = harness({ caps: CAPS.twitchVod, rates: [1], startLatencyMs: 60 });
+    h.loop.start();
+    h.loop.setPlayback(room({ at: 1_000_000 }));
+    h.run(5000);
+    expect(h.loop.startLatencyMs).toBeCloseTo(60, 6);
+    h.player.shift(1);
+    h.run(10_000);
+    expect(h.player.calls.filter((c) => c.op === "seek")).toHaveLength(2);
+    expect(Math.abs(h.player.time() - expectedPosition(room(), h.clock.serverNow()))).toBeLessThanOrEqual(0.01);
+  });
+
+  test("seek-only: a new room state while parked cancels the park", () => {
+    const h = harness({ caps: CAPS.twitchVod, rates: [1] });
+    h.loop.start();
+    h.loop.setPlayback(room({ at: 1_000_000 }));
+    h.run(250);
+    expect(h.player.calls.map((c) => c.op)).toEqual(["seek", "pause"]);
+    h.loop.setPlayback(room({ rev: 2, action: "pause", playing: false, position: 10.25, at: h.clock.serverNow() }));
+    h.run(3000);
+    expect(h.player.calls.map((c) => c.op)).toEqual(["seek", "pause", "seek", "pause"]);
+    expect(h.player.state()).toBe("paused");
+  });
+
   test("Twitch VOD: seek-only from the start even if the player lists rates", () => {
     const h = harness({ caps: CAPS.twitchVod });
     h.loop.start();
     h.loop.setPlayback(room({ at: 1_000_000 }));
-    h.run(250);
+    // The join parks a playing player; let it play again first.
+    h.run(2000);
     h.player.calls.length = 0;
     h.player.shift(0.2);
     h.run(3000);
@@ -562,7 +652,8 @@ describe("sync loop", () => {
     const h = harness({ rates: [1] });
     h.loop.start();
     h.loop.setPlayback(room({ at: 1_000_000 }));
-    h.run(250);
+    // The join parks a playing player; let it play again first.
+    h.run(2000);
     expect(h.loop.mode).toBe("seek-only");
     h.player.shift(-0.7);
     h.player.calls.length = 0;
