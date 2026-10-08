@@ -142,6 +142,13 @@ describe("RoomTitleSchema", () => {
     }
   });
 
+  test("refuses keycap emoji built from a digit or # and combining marks", () => {
+    expect(title("Room #\uFE0F\u20E3")).toBeNull();
+    expect(title("Room 1\uFE0F\u20E3")).toBeNull();
+    expect(title("Room 1\u20E3")).toBeNull();
+    expect(title("Room \u2764\uFE0E")).toBeNull();
+  });
+
   test("refuses mixed Latin and Cyrillic, and mark stacks", () => {
     expect(title("Fil\u043Cs")).toBeNull();
     expect(title(`x${"\u0301".repeat(2)}`)).not.toBeNull();
