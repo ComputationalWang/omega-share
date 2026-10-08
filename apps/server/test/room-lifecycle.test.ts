@@ -54,6 +54,24 @@ describe("RoomRegistry.removeRoom", () => {
     expect(registry.removeRoom(room ?? fail())).toBe(false);
   });
 
+  test("removing a room sends its members no member-left fan-out: they just get ROOM_CLOSED (OME-423 note #2)", async () => {
+    const registry = new RoomRegistry();
+    t = start({ registry });
+    registry.addRoom(new Room("film-club"));
+    const members = await Promise.all(["alice", "bob", "carol"].map((name) => Client.join(t?.ws("film-club") ?? fail(), name)));
+    for (const m of members) clients.push(m.client);
+    // Everyone has seen everyone join before the room goes.
+    await members[0]?.client.next("member-joined");
+    await members[0]?.client.next("member-joined");
+    await members[1]?.client.next("member-joined");
+
+    registry.removeRoom(registry.get("film-club") ?? fail());
+    for (const m of members) {
+      expect((await m.client.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
+      expect(m.client.raw.filter((frame) => frame.includes('"member-left"'))).toEqual([]);
+    }
+  });
+
   test("an upgrade to a removed room gets 404, and a re-created room of the same id refuses the old members' share tokens", async () => {
     const registry = new RoomRegistry();
     t = start({ registry });
