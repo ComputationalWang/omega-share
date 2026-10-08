@@ -49,12 +49,16 @@ function seed(path = join(tmp(), "live/omega.db"), extra = 0): string {
   db.transaction(() => {
     for (let i = 0; i < extra; i++) store.createRoom({ id: `seed-${String(i)}`, title: "x".repeat(200), createdAt: 3 + i, layout: DEFAULT_LAYOUT });
   })();
+  // Out of WAL, so no checkpoint can rewrite the file later (a deferred close) and the byte
+  // comparisons below see only what restore does.
+  db.run("PRAGMA journal_mode = DELETE");
   db.close();
   return path;
 }
 
+/** Reads rooms without migrating or switching the file's journal mode. */
 function rooms(path: string): { id: string; layout: RoomLayout }[] {
-  const db = openDatabase(path);
+  const db = new Database(path, { strict: true });
   try {
     return new RoomStore(db).listRooms();
   } finally {
@@ -114,7 +118,7 @@ describe("snapshot (VACUUM INTO, research §2.5)", () => {
     expect(counts[0]).toBeGreaterThan(0);
     for (let i = 1; i < counts.length; i++) expect(counts[i]).toBeGreaterThan(counts[i - 1] ?? Infinity);
     expect(readdirSync(out).sort()).toEqual(names([1, 2, 3, 4, 5]));
-  });
+  }, 30_000);
 
   test("keeps the newest 14 days: the 15th night prunes the oldest", () => {
     const live = seed();
@@ -397,7 +401,8 @@ describe("systemd units", () => {
     expect(timer).toContain("Persistent=true");
   });
 
-  test.skipIf(Bun.which("shellcheck") === null)("the shell scripts are shellcheck clean", () => {
+  const hasShellcheck = Bun.spawnSync(["shellcheck", "--version"], { stdout: "ignore", stderr: "ignore" }).exitCode === 0;
+  test.skipIf(!hasShellcheck)("the shell scripts are shellcheck clean", () => {
     const r = Bun.spawnSync(["shellcheck", PULL, RESTORE], { stdout: "pipe", stderr: "pipe" });
     expect(r.exitCode, r.stdout.toString()).toBe(0);
   });

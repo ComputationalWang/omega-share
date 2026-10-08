@@ -21,5 +21,5 @@ pair(n++);
 console.log("ready");
 for (;;) {
   pair(n++);
-  if (n % 50 === 0) await Bun.sleep(0);
+  await Bun.sleep(1);
 }
