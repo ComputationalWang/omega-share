@@ -10,10 +10,10 @@ export const SYSLINE_MS = 6000;
 /** How long chat stays in cooldown after a `rate_limited` that carries no `retryAfterMs` (pre-M3 server). */
 export const CHAT_COOLDOWN_DEFAULT_MS = 1000;
 
-export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused";
+export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused" | "closed";
 
 /** Why the server refused our join (ADR 0016 §4). The connection has stopped; the user has to act. */
-export type Refusal = "nickname_taken" | "too_many_members";
+export type Refusal = "nickname_taken" | "too_many_members" | "invite_required";
 
 export interface Bubble {
   readonly memberId: MemberId;
@@ -56,13 +56,14 @@ export interface ErrorNotice {
 export type ViewEvent =
   | { readonly type: "connecting" }
   | { readonly type: "disconnected" }
+  | { readonly type: "room-closed" }
   | { readonly type: "server"; readonly msg: ServerMessage; readonly now: number }
   | { readonly type: "tick"; readonly now: number };
 
 export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [] };
 
 /** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
-const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused";
+const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed";
 
 /** True while the server's `rate_limited` hint says to hold off sending chat. */
 export function coolingDown(state: ViewState, now: number): boolean {
@@ -113,7 +114,7 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       return { ...initialState, status: "full" };
     case "error": {
       const lastError = { code: msg.code, at: now };
-      if (msg.code === "nickname_taken" || msg.code === "too_many_members") {
+      if (msg.code === "nickname_taken" || msg.code === "too_many_members" || msg.code === "invite_required") {
         // Only a join is refused (ADR 0016 §4). Once this connection is in, the connection ignores it; so do we.
         if (state.status === "open") return { ...state, lastError };
         return { ...initialState, status: "refused", refusal: msg.code, lastError };
@@ -183,6 +184,8 @@ export function reduce(state: ViewState, event: ViewEvent): ViewState {
       return stopped(state) ? state : { ...state, status: "connecting" };
     case "disconnected":
       return stopped(state) ? state : { ...state, status: "reconnecting", bubbles: [] };
+    case "room-closed":
+      return { ...initialState, status: "closed" };
     case "tick": {
       const kept = state.bubbles.filter((b) => b.expiresAt > event.now);
       const lines = state.syslines.filter((l) => l.expiresAt > event.now);
@@ -211,10 +214,12 @@ export interface Screen {
   readonly chat: boolean;
   readonly full: boolean;
   readonly refused: Refusal | null;
+  /** The room was deleted or collected (4004). */
+  readonly closed: boolean;
 }
 
 /** Which room-screen regions are laid out. The stage wrap has a fixed height, so it leaves the flow when not in a room. */
 export function screen(state: ViewState): Screen {
   const inRoom = state.room !== null && !stopped(state);
-  return { stage: inRoom, chat: inRoom, full: state.status === "full", refused: state.status === "refused" ? state.refusal : null };
+  return { stage: inRoom, chat: inRoom, full: state.status === "full", refused: state.status === "refused" ? state.refusal : null, closed: state.status === "closed" };
 }

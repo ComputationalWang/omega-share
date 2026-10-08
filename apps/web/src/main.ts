@@ -1,7 +1,8 @@
 // Landing: nickname + avatar + one Enter click (which also satisfies autoplay). Keep this entry tiny; the room loads on demand.
-import type { Avatar } from "@omega/shared";
+import { DEFAULT_ROOM_ID, type Avatar } from "@omega/shared";
 import { loadProfile, saveProfile, validateNickname } from "./profile";
-import { roomIdFromPath, serverBaseUrl, wsUrl } from "./route";
+import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
+import { loadRoomSecrets, takeInviteKey, type SecretsStore } from "./room-secrets";
 import type * as RoomModule from "./room";
 import type { RoomHandle } from "./room";
 
@@ -23,9 +24,21 @@ const input = must("#nickname", HTMLInputElement);
 const error = must("#nickname-error", HTMLElement);
 const enter = must("[data-testid=join-button]", HTMLButtonElement);
 const roomRoot = must("#room-root", HTMLElement);
+const homeRoot = must("#home-root", HTMLElement);
 const options = [...document.querySelectorAll<HTMLButtonElement>("[data-testid=avatar-option]")];
 
-const roomId = roomIdFromPath(location.pathname);
+const pathRoom = roomIdInPath(location.pathname);
+// The `localStorage` getter itself throws when storage is blocked; go through it lazily so the strip below still runs.
+const storage: SecretsStore = {
+  getItem: (k) => localStorage.getItem(k),
+  setItem: (k, value) => {
+    localStorage.setItem(k, value);
+  },
+};
+// First, before anything that can load a provider SDK (they all load from the room chunk, imported below): the Twitch
+// SDK reads location.href, so a private room's `#k=` key is saved and dropped from the URL here (ADR 0028).
+takeInviteKey(location, history, storage, pathRoom);
+const roomId = pathRoom ?? DEFAULT_ROOM_ID;
 const serverUrl = serverBaseUrl(import.meta.env.VITE_SERVER_URL, location, import.meta.env.DEV);
 const debug = { roomId, room: null as RoomHandle | null };
 if (import.meta.env.DEV) window.__omega = debug;
@@ -71,8 +84,18 @@ form.addEventListener("submit", (ev) => {
   void loadRoom()
     .then(({ startRoom }) => {
       form.hidden = true;
+      homeRoot.hidden = true;
       roomRoot.hidden = false;
-      return startRoom({ root: roomRoot, roomId, socketUrl: wsUrl(serverUrl, roomId), nickname: r.nickname, avatar });
+      return startRoom({
+        root: roomRoot,
+        roomId,
+        socketUrl: wsUrl(serverUrl, roomId),
+        nickname: r.nickname,
+        avatar,
+        secret: loadRoomSecrets(storage).rooms[roomId],
+        secrets: storage,
+        origin: location.origin,
+      });
     })
     .then((room) => {
       debug.room = room;
@@ -80,10 +103,31 @@ form.addEventListener("submit", (ev) => {
     .catch((e: unknown) => {
       console.error(e);
       form.hidden = false;
+      homeRoot.hidden = pathRoom !== null;
       roomRoot.hidden = true;
       enter.disabled = false;
       error.textContent = "Could not open the room. Try again.";
     });
 });
+
+// The home page (not a room link) also gets the rooms panel: create, your rooms, open rooms. A lazy chunk after first paint.
+if (pathRoom === null) {
+  homeRoot.hidden = false;
+  const mountHome = (): void => {
+    void import("./home").then(({ mountHome }) =>
+      mountHome({
+        root: homeRoot,
+        serverUrl,
+        store: storage,
+        fetch: (url, init) => fetch(url, init),
+        navigate: (path) => {
+          location.assign(path);
+        },
+      }),
+    );
+  };
+  if (document.readyState === "complete") mountHome();
+  else window.addEventListener("load", mountHome, { once: true });
+}
 
 performance.mark("omega:interactive");

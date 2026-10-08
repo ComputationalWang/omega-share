@@ -1,11 +1,16 @@
 import * as v from "valibot";
 import { DEFAULT_ROOM_ID, RoomIdSchema, type RoomId } from "@omega/shared";
 
-/** `/r/<room>` → room id; anything else (or an invalid id) → the default room. */
-export function roomIdFromPath(pathname: string): RoomId {
+/** `/r/<room>` → room id; anything else (or an invalid id) → null. */
+export function roomIdInPath(pathname: string): RoomId | null {
   const m = /^\/r\/([^/]+)\/?$/.exec(pathname);
   const r = v.safeParse(RoomIdSchema, m?.[1]);
-  return r.success ? r.output : DEFAULT_ROOM_ID;
+  return r.success ? r.output : null;
+}
+
+/** `/r/<room>` → room id; anything else (or an invalid id) → the default room. */
+export function roomIdFromPath(pathname: string): RoomId {
+  return roomIdInPath(pathname) ?? DEFAULT_ROOM_ID;
 }
 
 export function wsUrl(serverUrl: string, roomId: RoomId): string {

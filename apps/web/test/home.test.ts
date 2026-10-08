@@ -89,7 +89,7 @@ describe("create room (POST /rooms)", () => {
     const post = calls.find((c) => c.init?.method === "POST");
     expect(post?.url).toBe(`${SERVER}/rooms`);
     expect(new Headers(post?.init?.headers).get("content-type")).toBe("application/json");
-    expect(JSON.parse(String(post?.init?.body))).toEqual({ title: "Movie night", visibility: "private" });
+    expect(JSON.parse(typeof post?.init?.body === "string" ? post.init.body : "null")).toEqual({ title: "Movie night", visibility: "private" });
     expect(loadRoomSecrets(store).rooms[ROOM]).toEqual({ ownerToken: OWNER, inviteKey: KEY });
     expect(navigated).toEqual([`/r/${ROOM}`]);
   });
@@ -99,7 +99,7 @@ describe("create room (POST /rooms)", () => {
     const root = await mount();
     await submit(root, "Open house", false);
     const post = calls.find((c) => c.init?.method === "POST");
-    expect(JSON.parse(String(post?.init?.body))).toEqual({ title: "Open house", visibility: "public" });
+    expect(JSON.parse(typeof post?.init?.body === "string" ? post.init.body : "null")).toEqual({ title: "Open house", visibility: "public" });
     expect(loadRoomSecrets(store).rooms[ROOM]).toEqual({ ownerToken: OWNER });
   });
 

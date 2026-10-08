@@ -29,6 +29,19 @@ button, input { font: inherit; color: inherit; }
 .lede { margin: 0 0 8px; color: var(--muted); }
 .landing input { padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--bg); }
 .landing input[aria-invalid="true"] { border-color: var(--error); }
+/* Rooms panel on the home page and the room's invite link (OME-409). Plain until design set (i). */
+.home { max-width: 360px; margin: 0 auto 10vh; display: grid; gap: 16px; }
+.home > * { display: grid; gap: 8px; background: var(--panel); padding: 24px; border-radius: 12px; }
+.home h2 { margin: 0; font-size: 1.1em; }
+.home input[type="text"], .invite input { padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--bg); }
+.home .check { display: flex; gap: 8px; align-items: center; }
+.room-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.room-list a { color: var(--accent); }
+.room-list .role, .room-list .count { color: var(--muted); font-size: 0.9em; }
+.link { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.invite { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.invite input { flex: 1; min-width: 12em; }
+.invite-note { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 0.9em; }
 .error { min-height: 1.4em; margin: 0; color: var(--error); font-size: 0.9em; }
 fieldset { border: 0; padding: 0; margin: 0; }
 legend { padding: 0; margin-bottom: 6px; }

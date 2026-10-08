@@ -218,7 +218,7 @@ describe("refused joins (ADR 0016 §4)", () => {
       expect(s.status).toBe("refused");
       expect(s.refusal).toBe(code);
       expect(s.room).toBeNull();
-      expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: code });
+      expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: code, closed: false });
     });
   }
 

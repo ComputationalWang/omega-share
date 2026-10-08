@@ -4,6 +4,8 @@ import { SEAT_COUNT, isSyncedEmbed, layoutSeats, type AnyEmbed, type Avatar, typ
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
+import { forgetRoom, inviteLink, joinMessage, type RoomSecret, type SecretsStore } from "./room-secrets";
+import { createInviteControl } from "./controls/invite";
 import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { chatView, refusalCard } from "./controls/feedback";
@@ -28,6 +30,12 @@ export interface RoomOptions {
   readonly socketUrl: string;
   readonly nickname: Nickname;
   readonly avatar: Avatar;
+  /** This room's owner token and invite key from `omega.rooms`, if the browser holds any (ADR 0028). */
+  readonly secret: RoomSecret | undefined;
+  /** Where `omega.rooms` lives: a closed room is forgotten. */
+  readonly secrets: SecretsStore;
+  /** The site origin the invite link starts with. */
+  readonly origin: string;
 }
 
 export interface RoomHandle {
@@ -46,6 +54,7 @@ const STATUS_TEXT: Record<ViewState["status"], string> = {
   reconnecting: "Connection lost, reconnecting…",
   full: "",
   refused: "",
+  closed: "",
 };
 
 const NOTICE_MS = 3000;
@@ -102,13 +111,23 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const notice = el("p", { className: "notice", role: "alert", hidden: true }, "room-notice");
   const full = el("div", { className: "room-full", hidden: true }, "room-full");
   full.append(el("h2", { textContent: "This room is full" }), el("p", { textContent: "Try again in a little while." }));
-  // Refused join (nickname_taken, too_many_members): the connection has stopped. Back to the landing to retry.
+  // Refused join (nickname_taken, too_many_members, invite_required): the connection has stopped. Back to the landing to retry.
   const refused = el("div", { className: "room-full", hidden: true }, "room-refused");
   const refusedTitle = el("h2");
   const refusedBody = el("p");
   const refusedAction = el("a", { className: "enter", href: location.pathname }, "room-refused-action");
   refused.append(refusedTitle, refusedBody, refusedAction);
   let shownRefusal: Refusal | null = null;
+  // 4004: the room was deleted or collected. The connection has stopped; nothing here can bring it back.
+  const closed = el("div", { className: "room-full", hidden: true }, "room-closed");
+  closed.append(
+    el("h2", { textContent: "This room was closed" }),
+    el("p", { textContent: "Its owner deleted it, or nobody used it for a long time." }),
+    el("a", { className: "enter", href: "/", textContent: "Go to the home page" }),
+  );
+  const writeText = (t: string): Promise<void> => ("clipboard" in navigator ? navigator.clipboard.writeText(t) : Promise.reject(new Error("no clipboard")));
+  const invite = createInviteControl(inviteLink(opts.origin, opts.roomId, opts.secret?.inviteKey), opts.secret?.inviteKey !== undefined, writeText);
+  invite.hidden = true;
 
   // The TV and its control bar sit above the scaled stage, unscaled, so the player keeps
   // YouTube's minimum size and no room layer can stack over it (layout.ts `roomLayout`).
@@ -191,7 +210,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   view.canvas.className = "scene";
   stage.append(view.canvas, overlay, tags, bubbles, rail);
   // The provider hint sits right above the TV, next to what it's about (OME-251): below the stage it's off-screen.
-  opts.root.replaceChildren(status, tvHint, wrap, personal.root, syncNotice, notice, chatForm, full, refused);
+  opts.root.replaceChildren(status, tvHint, wrap, personal.root, syncNotice, notice, chatForm, invite, full, refused, closed);
 
   /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
   let tvProvider: Embed["provider"] | null = null;
@@ -334,6 +353,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     chatForm.hidden = !shown.chat;
     full.hidden = !shown.full;
     refused.hidden = shown.refused === null;
+    invite.hidden = !shown.stage;
+    if (closed.hidden === shown.closed) {
+      closed.hidden = !shown.closed;
+      if (shown.closed) forgetRoom(opts.secrets, opts.roomId);
+    }
     if (shown.refused !== shownRefusal) {
       shownRefusal = shown.refused;
       if (shown.refused !== null) {
@@ -545,7 +569,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const shareToken = trackShareToken(sessionStorage, opts.roomId);
   const c: Connection = createConnection({
     url: opts.socketUrl,
-    join: { type: "join", nickname: opts.nickname, avatar: opts.avatar },
+    join: joinMessage(opts.nickname, opts.avatar, opts.secret),
     createSocket: browserSocket,
     onOpen: () => {
       clock.start();

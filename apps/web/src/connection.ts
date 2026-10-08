@@ -13,6 +13,8 @@ export interface SocketLike {
 export type ConnectionEvent =
   | { readonly type: "connecting" }
   | { readonly type: "disconnected" }
+  /** 4004: the room was deleted or collected (ADR 0028). Terminal: the connection has stopped for good. */
+  | { readonly type: "room-closed" }
   | { readonly type: "message"; readonly msg: ServerMessage };
 
 export interface ConnectionOptions<Timer = unknown> {
@@ -50,8 +52,8 @@ export const REFUSED_RETRY_BUDGET_MS = 70_000;
 
 /**
  * One WebSocket per client. Re-joins after drops with capped, jittered exponential backoff and acts on the
- * close codes (ADR 0016 §5). Stops on room-full, on a refused first join (`nickname_taken`, `too_many_members`:
- * rejoining with the same name can't succeed) or close(). A refused *re*join may be our own stale member, so it
+ * close codes (ADR 0016 §5). Stops on room-full, on a closed room (4004), on a refused first join (`nickname_taken`,
+ * `too_many_members`, `invite_required`: rejoining with the same name or key can't succeed) or close(). A refused *re*join may be our own stale member, so it
  * is retried at the un-jittered backoff for REFUSED_RETRY_BUDGET_MS before it counts as a refusal.
  */
 export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connection {
@@ -109,7 +111,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
         stopped = true;
         clearHandshake();
       }
-      const refused = !joined && msg.type === "error" && (msg.code === "nickname_taken" || msg.code === "too_many_members");
+      const refused = !joined && msg.type === "error" && (msg.code === "nickname_taken" || msg.code === "too_many_members" || msg.code === "invite_required");
       // A refused rejoin within budget stays out of the room state: no refusal card for our own name.
       if (refused && everJoined && refusedWaited < REFUSED_RETRY_BUDGET_MS) {
         refusedRetry = true;
@@ -134,6 +136,11 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       socket = null;
       clearHandshake();
       if (closed) return;
+      if (ev.code === CLOSE_CODES.ROOM_CLOSED) {
+        stopped = true;
+        opts.onEvent({ type: "room-closed" });
+        return;
+      }
       opts.onEvent({ type: "disconnected" });
       if (ev.code === CLOSE_CODES.ROOM_FULL) stopped = true;
       if (stopped) return;

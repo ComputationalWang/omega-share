@@ -16,7 +16,7 @@ describe("boot order (OME-409)", () => {
 
   test("the strip runs at top level, not inside a callback that could run late", () => {
     const line = main.split("\n").find((l) => l.includes("takeInviteKey("));
-    expect(line).toMatch(/^const \w+ = takeInviteKey\(/);
+    expect(line).toMatch(/^(const \w+ = )?takeInviteKey\(/);
   });
 
   test("main.ts has no static import of a player or the room (those load provider SDKs)", () => {
