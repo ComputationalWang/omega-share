@@ -128,6 +128,8 @@ export interface HttpDeps {
   unpersistRoom: (room: Room) => void;
   /** Whether a (normalised) room title contains a ROOM_TITLE_BLOCKLIST term. */
   titleBlocked: (title: string) => boolean;
+  /** Unix ms for `created_at` (room GC's clock). */
+  wallNow: () => number;
 }
 
 /**
@@ -158,6 +160,7 @@ export function createHttpApp({
   persistRoom,
   unpersistRoom,
   titleBlocked,
+  wallNow,
 }: HttpDeps): Hono {
   const creates = new KeyedLimiter(ROOM_CREATE_KEY_BURST, 1000 / ROOM_CREATE_KEY_REFILL_MS, 1024, now);
   const globalCreates = new TokenBucket(ROOM_CREATE_GLOBAL_BURST, 1000 / ROOM_CREATE_GLOBAL_REFILL_MS, now);
@@ -240,7 +243,7 @@ export function createHttpApp({
     const room: NewRoom = {
       id,
       title,
-      createdAt: Date.now(),
+      createdAt: wallNow(),
       layout: DEFAULT_LAYOUT,
       visibility,
       pinned: false,

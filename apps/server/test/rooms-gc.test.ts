@@ -178,6 +178,12 @@ function recordingStore(rows: StoredRoom[]) {
     setEmbed: (id) => {
       writes.push(`embed ${id}`);
     },
+    setLayout: (id) => {
+      writes.push(`layout ${id}`);
+    },
+    setTitle: (id) => {
+      writes.push(`title ${id}`);
+    },
     setLastActive: (id, at) => {
       writes.push(`active ${id} ${String(at)}`);
     },
@@ -254,7 +260,7 @@ describe("the server's GC (startServer)", () => {
       row(ID_C, T0, T0 + 10 * DAY), // empty for 10 days
     ]);
     t = start({ store, wallNow: clock.now });
-    expect(writes.sort()).toEqual([`delete ${ID_A}`, `delete ${ID_B}`]);
+    expect(writes.filter((w) => w.startsWith("delete")).sort()).toEqual([`delete ${ID_A}`, `delete ${ID_B}`]);
     expect((await fetch(`${t.http}/rooms/${ID_A}/ws`, { headers: { upgrade: "websocket" } })).status).toBe(404);
     const listed = (await (await fetch(`${t.http}/rooms`)).json()) as { rooms: { id: string }[] };
     expect(listed.rooms.map((r) => r.id)).toEqual(["lobby", ID_C]);

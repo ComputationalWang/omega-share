@@ -77,6 +77,8 @@ export class Room {
   private readonly ownerHash: Uint8Array | null;
   /** SHA-256 of the invite key (private rooms), or null. */
   readonly inviteHash: Uint8Array | null;
+  /** Unix ms the room last became occupied or empty; null if nobody ever joined. Room GC reads it. */
+  lastActiveAt: number | null;
 
   /**
    * `embed` is the last one shared before a restart: it comes back paused at 0. Without the
@@ -93,6 +95,7 @@ export class Room {
       createdAt?: number;
       ownerHash?: Uint8Array | null;
       inviteHash?: Uint8Array | null;
+      lastActiveAt?: number | null;
     } = {},
   ) {
     this.topic = `room:${id}`;
@@ -103,6 +106,7 @@ export class Room {
     this.createdAt = init.createdAt ?? Date.now();
     this.ownerHash = init.ownerHash ?? null;
     this.inviteHash = init.inviteHash ?? null;
+    this.lastActiveAt = init.lastActiveAt ?? null;
     this.embed = init.embed ?? null;
     if (this.embed !== null && isSyncedEmbed(this.embed)) {
       this.playback = restoredPlayback(Date.now());
@@ -125,6 +129,10 @@ export class Room {
 
   setTitle(title: string): void {
     this.currentTitle = title;
+  }
+
+  get memberCount(): number {
+    return this.members.size;
   }
 
   /**

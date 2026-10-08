@@ -94,6 +94,7 @@ describe("RoomRegistry.removeRoom", () => {
       listRooms: () => [],
       createRoom: () => undefined,
       deleteRoom: () => true,
+      setLastActive: () => undefined,
       setEmbed: (id: RoomId) => {
         stored.push(id);
       },

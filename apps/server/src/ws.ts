@@ -116,6 +116,8 @@ export interface WsDeps {
   persistTitle: (room: Room, title: string) => void;
   /** ROOM_TITLE_BLOCKLIST, as `POST /rooms` applies it: a rename can't get round it. */
   titleBlocked: (title: string) => boolean;
+  /** The room just went from 0 to 1 member or from 1 to 0 (room GC's `last_active_at`). Never per message. */
+  occupancyChanged?: (room: Room) => void;
 }
 
 export interface Ws {
@@ -125,6 +127,8 @@ export interface Ws {
   /** The grant `token` holds in `room`, if a member of that room holds it. */
   shareGrant: (room: Room, token: ShareToken) => ShareGrant | undefined;
   websocket: WebSocketHandler<ConnData>;
+  /** Whether any socket, joined or still joining, is open on the room. */
+  hasSockets: (room: Room) => boolean;
 }
 
 export function createWs({
@@ -138,6 +142,7 @@ export function createWs({
   persistLayout,
   persistTitle,
   titleBlocked,
+  occupancyChanged = () => undefined,
 }: WsDeps): Ws {
   const upgrades = new KeyedLimiter(UPGRADE_BURST, UPGRADE_PER_SECOND, 1024, now);
   const joins = new KeyedLimiter(JOIN_BURST, JOIN_PER_SECOND, 1024, now);
@@ -219,6 +224,8 @@ export function createWs({
     }
     ws.data.shareToken = null;
     ws.data.room.leave(memberId);
+    // Not when the room itself is going: its row is about to be deleted.
+    if (ws.data.room.memberCount === 0 && rooms.has(ws.data.room)) occupancyChanged(ws.data.room);
     if (!closing) ws.unsubscribe(ws.data.room.topic);
     if (announce) publish(ws.data.room.topic, encode({ type: "member-left", memberId }));
   };
@@ -309,6 +316,7 @@ export function createWs({
       ws.send(encode(owner ? { ...snapshot, owner: true } : snapshot));
       ws.subscribe(room.topic);
       ws.publish(room.topic, encode({ type: "member-joined", member }));
+      if (room.memberCount === 1) occupancyChanged(room);
       return;
     }
     if (memberId === null) {
@@ -413,6 +421,7 @@ export function createWs({
 
   return {
     shareGrant: (room, token) => grants.peek(room)?.get(token),
+    hasSockets: (room) => sockets.peek(room) !== undefined,
     admitUpgrade(ip) {
       if (isLoopbackKey(ip) || upgrades.take(ip)) return null;
       const res = plain(429, "reconnecting too fast", headers);

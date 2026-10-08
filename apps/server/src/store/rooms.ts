@@ -89,6 +89,7 @@ export class RoomStore {
   readonly #setLayout: Statement<unknown, [string, string]>;
   readonly #setEmbed: Statement<unknown, [string | null, string]>;
   readonly #setTitle: Statement<unknown, [string, string]>;
+  readonly #setLastActive: Statement<unknown, [number, string]>;
 
   constructor(db: Database) {
     this.#list = db.prepare(
@@ -101,6 +102,7 @@ export class RoomStore {
     this.#setLayout = db.prepare("UPDATE rooms SET layout = ? WHERE id = ?");
     this.#setEmbed = db.prepare("UPDATE rooms SET embed = ? WHERE id = ?");
     this.#setTitle = db.prepare("UPDATE rooms SET title = ? WHERE id = ?");
+    this.#setLastActive = db.prepare("UPDATE rooms SET last_active_at = ? WHERE id = ?");
   }
 
   listRooms(): StoredRoom[] {
@@ -150,5 +152,11 @@ export class RoomStore {
     const parsed = v.parse(NullableEmbedSchema, embed);
     const json = parsed === null ? null : JSON.stringify(parsed);
     if (this.#setEmbed.run(json, id).changes === 0) throw new Error(`no room ${JSON.stringify(id)}`);
+  }
+
+  /** Room GC's clock (threat model §1.3): written when the room fills or empties, never per message. */
+  setLastActive(id: RoomId, at: number): void {
+    const ms = v.parse(UnixMsSchema, at);
+    if (this.#setLastActive.run(ms, id).changes === 0) throw new Error(`no room ${JSON.stringify(id)}`);
   }
 }

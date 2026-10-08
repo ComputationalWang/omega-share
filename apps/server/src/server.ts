@@ -8,6 +8,7 @@ import { MAX_HTTP_IN_FLIGHT, createHttpApp, createHttpGate, plain as plainWith }
 import { clientKey, monotonic, type Clock } from "./rate-limit";
 import { Room } from "./room";
 import { RoomRegistry } from "./rooms";
+import { ROOM_GC_INTERVAL_MS, startRoomGc } from "./rooms-gc";
 import type { RoomStore } from "./store/rooms";
 import { createWs, type ConnData } from "./ws";
 
@@ -54,10 +55,17 @@ export interface ServerOptions {
   ownHosts?: readonly string[];
   /** ROOM_TITLE_BLOCKLIST: titles containing one of these (case and lookalikes folded) can't be created or listed. Default none. */
   roomTitleBlocklist?: readonly string[];
+  /** Unix ms clock for `created_at`, `last_active_at` and room GC (tests inject one). Default `Date.now`. */
+  wallNow?: () => number;
+  /** Room GC sweep interval; it also sweeps at boot. Default ROOM_GC_INTERVAL_MS (1 h). */
+  roomGcIntervalMs?: number;
 }
 
 /** The slice of RoomStore the server uses. */
-export type RoomPersistence = Pick<RoomStore, "listRooms" | "createRoom" | "deleteRoom" | "setEmbed" | "setLayout" | "setTitle">;
+export type RoomPersistence = Pick<
+  RoomStore,
+  "listRooms" | "createRoom" | "deleteRoom" | "setEmbed" | "setLayout" | "setTitle" | "setLastActive"
+>;
 
 /** Whitespace, punctuation and symbols: `bad word` and `b.a.d-w_o r d` match a blocklisted `badword` (OME-439). */
 const SEPARATORS = /[\p{Z}\p{P}\p{S}\s]/gu;
@@ -79,15 +87,20 @@ function titleBlocker(terms: readonly string[]): (title: string) => boolean {
  * embed the policy no longer accepts (GENERIC_EMBEDS=off, a newly denied host) comes back as null;
  * the row keeps it, so switching back restores it.
  */
-function loadRooms(rooms: RoomRegistry, configured: readonly RoomId[], store: RoomPersistence | null, embeds: EmbedPolicy): void {
+function loadRooms(
+  rooms: RoomRegistry,
+  configured: readonly RoomId[],
+  store: RoomPersistence | null,
+  embeds: EmbedPolicy,
+  now: number,
+): void {
   if (store !== null) {
     for (const r of store.listRooms()) rooms.addRoom(new Room(r.id, { ...r, embed: embeds.restore(r.embed) }));
   }
-  const now = Date.now();
   for (const id of configured) {
     if (rooms.get(id) !== undefined) continue;
     store?.createRoom({ id, title: "", createdAt: now, layout: DEFAULT_LAYOUT });
-    rooms.addRoom(new Room(id));
+    rooms.addRoom(new Room(id, { createdAt: now }));
   }
 }
 
@@ -101,6 +114,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   const maxConnections = opts.maxConnections ?? 200;
   let connections = 0;
   const store = opts.store ?? null;
+  const wallNow = opts.wallNow ?? Date.now;
   const embeds = new EmbedPolicy({
     genericEmbeds: opts.genericEmbeds ?? true,
     ownHosts: opts.ownHosts ?? ownHostsFor(opts.siteOrigin, opts.publicOrigin ?? null),
@@ -109,7 +123,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   const headers = securityHeaders(embeds.genericEmbeds);
   const plain = (status: number, text: string): Response => plainWith(status, text, headers);
   const rooms = opts.registry ?? new RoomRegistry();
-  loadRooms(rooms, opts.rooms ?? [DEFAULT_ROOM_ID], store, embeds);
+  loadRooms(rooms, opts.rooms ?? [DEFAULT_ROOM_ID], store, embeds, wallNow());
   const connectionsPerIp = new Map<string, number>();
 
   // Filled in once Bun has picked the port (tests use port 0); no request arrives before that.
@@ -136,6 +150,17 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   };
 
   const titleBlocked = titleBlocker(opts.roomTitleBlocklist ?? []);
+
+  /** Room GC's clock: memory first, so a failed write can only make GC late (the row keeps an older time), never lose the room. */
+  const markActive = (room: Room, at: number): void => {
+    room.lastActiveAt = at;
+    try {
+      store?.setLastActive(room.id, at);
+    } catch (err) {
+      console.error(`could not store last_active_at for room ${room.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
   const ws = createWs({
     joinTimeoutMs: opts.joinTimeoutMs ?? 10_000,
     rooms,
@@ -149,6 +174,9 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     },
     titleBlocked,
     now: opts.now ?? monotonic,
+    occupancyChanged: (room) => {
+      markActive(room, wallNow());
+    },
     ...(opts.statusIntervalMs === undefined ? {} : { statusIntervalMs: opts.statusIntervalMs }),
     release(ip) {
       connections--;
@@ -177,6 +205,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       store?.deleteRoom(room.id);
     },
     titleBlocked,
+    wallNow,
     shareGrant: ws.shareGrant,
     now: opts.now ?? monotonic,
     isAllowedOrigin,
@@ -187,6 +216,8 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     headers,
     staticDir: opts.staticDir ?? null,
   });
+  // After the onRemove hooks above, so the boot sweep already closes sockets and deletes rows.
+  startRoomGc({ rooms, wallNow, busy: ws.hasSockets, touch: markActive, intervalMs: opts.roomGcIntervalMs ?? ROOM_GC_INTERVAL_MS });
   const http = createHttpGate((req) => app.fetch(req), {
     now: opts.now ?? monotonic,
     maxInFlight: opts.maxHttpInFlight ?? MAX_HTTP_IN_FLIGHT,

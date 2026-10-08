@@ -208,6 +208,7 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
       setEmbed: () => undefined,
       setLayout: () => undefined,
       setTitle: () => undefined,
+      setLastActive: () => undefined,
     };
     const registry = new RoomRegistry();
     t = start({ trustProxy: true, store, registry });
@@ -331,6 +332,7 @@ describe("DELETE /rooms/:id (ADR 0028 §1, §2)", () => {
       setEmbed: () => undefined,
       setLayout: () => undefined,
       setTitle: () => undefined,
+      setLastActive: () => undefined,
     };
     t = start({ trustProxy: true, store });
     const { room, ownerToken } = await created(await create({ title: "Den", visibility: "public" }));
