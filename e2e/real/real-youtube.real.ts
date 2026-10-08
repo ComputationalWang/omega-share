@@ -71,7 +71,11 @@ test("5 · effective rate at 1.05: getCurrentTime slope over 30 s + video.playba
   // (a) Raw player, outside the sync loop: attach the API to a nocookie iframe on a localhost page, like tvFrame() does.
   const ctx = await watchCsp(await browser.newContext());
   const page = await ctx.newPage();
-  await page.goto(`${ROOM_URL.replace(/\/r\/.*$/, "")}/`);
+  // A blank page on the site's origin, served by the test: no site CSP, so the raw `<script src>` below needs no
+  // Trusted Types policy when the server enforces them (OME-376), and the app never creates its own `omega-sdk`.
+  const rawUrl = `${ROOM_URL.replace(/\/r\/.*$/, "")}/__raw-player`;
+  await page.route(rawUrl, (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>raw player</title><body></body>" }));
+  await page.goto(rawUrl);
   const setup = await page.evaluate(async (id) => {
     document.body.replaceChildren();
     const f = document.createElement("iframe");
