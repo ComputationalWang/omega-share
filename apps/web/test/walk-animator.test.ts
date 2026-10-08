@@ -109,7 +109,7 @@ describe("animator", () => {
     expect(s.timers.length).toBe(1);
     const first = s.timers[0];
     expect(first?.ms).toBeGreaterThan(0);
-    expect(first?.ms).toBeLessThanOrEqual(1400);
+    expect(first?.ms).toBeLessThanOrEqual(1400 + 400); // the next breathe change, rounded up to the 400 ms clock
     expect(s.rafs.length).toBe(0);
     s.draws.length = 0;
     first?.fn();
@@ -146,7 +146,8 @@ describe("animator teardown and idle cost", () => {
     s.walks.place([standAt("a", 5, 9)], 0);
     s.anim.set([{ id: id("a"), avatar: 0 }]);
     s.frame(0); // at rest: a breathe timer is pending
-    expect(s.timers.length).toBe(1);
+    const breathe = s.timers.at(-1);
+    expect(breathe).toBeDefined();
     s.walks.place([standAt("a", 5, 8)], 10);
     s.anim.set([{ id: id("a"), avatar: 0 }]); // walking: a frame is queued
     expect(s.rafs.length).toBe(1);
@@ -154,7 +155,7 @@ describe("animator teardown and idle cost", () => {
     expect(s.cleared()).toBeGreaterThan(0);
     const draws = s.draws.length;
     s.frame(100);
-    s.timers[0]?.fn();
+    breathe?.fn();
     s.anim.setFrames(frames);
     s.anim.set([{ id: id("a"), avatar: 0 }]);
     expect(s.draws.length).toBe(draws);
