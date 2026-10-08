@@ -359,6 +359,23 @@ describe("layout-set and title-set (ADR 0028 §6)", () => {
     await owner.client.next("layout-changed");
   });
 
+  test("a title-set to a blocklisted title is refused like at creation: nothing is stored or broadcast", async () => {
+    db = openDatabase(":memory:");
+    t = start({ trustProxy: true, store: new RoomStore(db), roomTitleBlocklist: ["forbidden"] });
+    const room = await createRoom("public");
+    const owner = await joined(room.room.id, "olive", { ownerToken: room.ownerToken });
+    const guest = await joined(room.room.id, "bob");
+    owner.client.send({ type: "title-set", title: "Forbidden films" });
+    const err = await owner.client.next("error");
+    expect(err.code).toBe("bad_message");
+    expect(err.message).toBe("that title isn't allowed");
+    await guest.client.none("title-changed", 100);
+    expect(new RoomStore(db).listRooms().find((r) => r.id === room.room.id)?.title).toBe("Friday films");
+    // The owner may still rename it to something allowed.
+    owner.client.send({ type: "title-set", title: "Saturday films" });
+    expect((await guest.client.next("title-changed")).title).toBe("Saturday films");
+  });
+
   test("an unchanged title or layout is a no-op: no broadcast, no write", async () => {
     t = start({ trustProxy: true });
     const room = await createRoom("public");
