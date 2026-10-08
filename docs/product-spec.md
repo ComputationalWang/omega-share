@@ -30,5 +30,6 @@ Everything lives in the server's memory until M4 (then SQLite).
 | **M3** | Safety hardening (rate limits, input sanitization, CSP, abuse cases) |
 | **M4** | Hosting + SQLite; customizable rooms begin |
 | **M5** | Prettify / UX polish (walking, animations, room customization UI) |
+| **M6** | Public beta: owner moderation (kick, mute, who controls playback), a playback queue, a 20-room load test and metrics on the hosted box, a Chrome Web Store–ready extension |
 
 Design (avatars, room, furniture) runs alongside from M1a, and engineering uses placeholder shapes until approved sprites land.
