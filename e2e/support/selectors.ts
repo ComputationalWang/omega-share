@@ -22,6 +22,18 @@ export const site = {
   roomFull: id("room-full"),
   // OME-272: the AGPL-3.0 §13 source offer in the site footer.
   sourceLink: id("source-link"),
+  // Created rooms (OME-409, ADR 0028): the home page's create form and lists, the room's invite link, the 4004 state.
+  createRoomForm: id("create-room-form"),
+  createRoomTitle: id("create-room-title"),
+  createRoomPrivate: id("create-room-private"),
+  createRoomSubmit: id("create-room-submit"),
+  createRoomError: id("create-room-error"),
+  publicRoomLink: id("public-room-link"),
+  yourRoom: id("your-room"),
+  yourRoomLink: id("your-room-link"),
+  inviteLink: id("invite-link"),
+  inviteCopy: id("invite-copy"),
+  roomClosed: id("room-closed"),
   // M3 safety states (OME-189): a refused join (`data-code` is the refusal) and the connection line.
   roomRefused: id("room-refused"),
   roomRefusedAction: id("room-refused-action"),

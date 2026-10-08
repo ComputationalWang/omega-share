@@ -431,3 +431,54 @@ describe("close handshakes that finish later (real sockets)", () => {
     expect(runRetry()).toBe(500);
   });
 });
+
+describe("created rooms (ADR 0028)", () => {
+  test("4004 room closed: reports room-closed instead of a drop, stops and never reconnects", () => {
+    const c = connect();
+    last().open();
+    last().receive(snapshot);
+    last().drop(CLOSE_CODES.ROOM_CLOSED);
+    expect(events.at(-1)).toEqual({ type: "room-closed" });
+    expect(events).not.toContainEqual({ type: "disconnected" });
+    expect(timers).toHaveLength(0);
+    c.resume();
+    expect(sockets).toHaveLength(1);
+  });
+
+  test("4004 before a snapshot (the room went while we joined) stops too", () => {
+    connect();
+    last().drop(CLOSE_CODES.ROOM_CLOSED);
+    expect(events.at(-1)).toEqual({ type: "room-closed" });
+    expect(timers).toHaveLength(0);
+  });
+
+  test("invite_required: a private room refused our join, so the unjoined socket is closed and never retried", () => {
+    const refusal: ServerMessage = { type: "error", code: "invite_required", message: "private" };
+    const c = connect();
+    last().open();
+    last().receive(refusal);
+    expect(events.slice(-2)).toEqual([{ type: "message", msg: refusal }, { type: "disconnected" }]);
+    expect(last().closed).toBe(true);
+    expect(timers).toHaveLength(0);
+    c.resume();
+    expect(sockets).toHaveLength(1);
+  });
+
+  test("the join carries what the caller gave it (owner token, invite key) unchanged", () => {
+    const join = { type: "join", nickname: "zoe", avatar: 1, ownerToken: "o".repeat(22), inviteKey: "k".repeat(22) } as const;
+    createConnection({
+      url: "ws://x/rooms/r/ws",
+      join,
+      createSocket: (url) => {
+        const s = new FakeSocket(url);
+        sockets.push(s);
+        return s;
+      },
+      onEvent: (e) => events.push(e),
+      setTimer: () => 0,
+      clearTimer: () => undefined,
+    });
+    last().open();
+    expect(JSON.parse(last().sent.at(-1) ?? "null")).toEqual(join);
+  });
+});

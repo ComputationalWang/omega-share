@@ -137,15 +137,15 @@ describe("screen", () => {
   // stage inside it) or it pushes the room-full message below the fold (OME-6 QA).
   test("room-full takes the stage wrap and chat out of the flow and shows the message", () => {
     const s = server(joined(), { type: "room-full" });
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: true, refused: null });
+    expect(screen(s)).toEqual({ stage: false, chat: false, full: true, refused: null, closed: false });
   });
 
   test("an open room shows the stage and chat, not the full message", () => {
-    expect(screen(joined())).toEqual({ stage: true, chat: true, full: false, refused: null });
+    expect(screen(joined())).toEqual({ stage: true, chat: true, full: false, refused: null, closed: false });
   });
 
   test("before the first snapshot nothing is laid out", () => {
-    expect(screen(reduce(initialState, { type: "connecting" }))).toEqual({ stage: false, chat: false, full: false, refused: null });
+    expect(screen(reduce(initialState, { type: "connecting" }))).toEqual({ stage: false, chat: false, full: false, refused: null, closed: false });
   });
 });
 
@@ -335,5 +335,22 @@ describe("other members catching up (ADR 0019)", () => {
     let s = server(joined(), { type: "member-status", memberId: "b", catching: true });
     s = server(s, { type: "snapshot", self: "a", room: room() });
     expect(catchingUp(s, "b")).toBe(false);
+  });
+});
+
+describe("created rooms (ADR 0028)", () => {
+  test("room-closed is terminal: the room leaves the screen and later connection events don't bring it back", () => {
+    let s = reduce(joined(), { type: "room-closed" });
+    expect(s.status).toBe("closed");
+    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: true });
+    s = reduce(s, { type: "disconnected" });
+    s = reduce(s, { type: "connecting" });
+    expect(s.status).toBe("closed");
+  });
+
+  test("invite_required before joining is a refusal, like nickname_taken", () => {
+    const s = server(reduce(initialState, { type: "connecting" }), { type: "error", code: "invite_required", message: "private" });
+    expect(s.status).toBe("refused");
+    expect(screen(s).refused).toBe("invite_required");
   });
 });

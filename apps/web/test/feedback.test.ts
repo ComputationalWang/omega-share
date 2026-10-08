@@ -39,3 +39,11 @@ describe("chatView", () => {
     expect(chatView(s, 3000)).toEqual({ cooling: false, placeholder: "Say something…" });
   });
 });
+
+describe("refusalCard: private rooms (ADR 0028)", () => {
+  test("invite_required: says the room is private and that an invite link gets you in", () => {
+    const card = refusalCard("invite_required");
+    expect(card.title).toBe("This room is private");
+    expect(card.body).toContain("invite link");
+  });
+});
