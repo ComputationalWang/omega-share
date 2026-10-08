@@ -40,6 +40,8 @@ export const MAX_CREATE_BODY_BYTES = 1024;
 /** Per client key: this many creations at once, then one every ROOM_CREATE_KEY_REFILL_MS. */
 export const ROOM_CREATE_KEY_BURST = 2;
 export const ROOM_CREATE_KEY_REFILL_MS = 10 * 60_000;
+/** Max `retryAfterMs` on a `POST /rooms` 429: the key bucket's full refill, above the shared `RETRY_AFTER_MAX_MS`. */
+export const ROOM_CREATE_RETRY_AFTER_MAX_MS = ROOM_CREATE_KEY_REFILL_MS;
 /** Whole server: this many creations at once, then one every ROOM_CREATE_GLOBAL_REFILL_MS. */
 export const ROOM_CREATE_GLOBAL_BURST = 10;
 export const ROOM_CREATE_GLOBAL_REFILL_MS = 60_000;

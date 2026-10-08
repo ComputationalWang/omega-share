@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { ERROR_MESSAGE_MAX_LENGTH } from "./constants";
+import { ERROR_MESSAGE_MAX_LENGTH, ROOM_CREATE_RETRY_AFTER_MAX_MS } from "./constants";
 import { RoomIdSchema, RoomTitleSchema } from "./room";
 import { RetryAfterMsSchema, SHARE_TOKEN_LENGTH, ShareTokenSchema } from "./share";
 
@@ -48,6 +48,8 @@ export const CREATE_ROOM_ERROR_CODES = [
   "rate_limited",
   /** HTTP 503: `MAX_ROOMS` reached. The server refuses; it never evicts a room. */
   "too_many_rooms",
+  /** HTTP 503: the server couldn't save the room. Nothing was created; try again later. */
+  "unavailable",
 ] as const;
 export type CreateRoomErrorCode = (typeof CREATE_ROOM_ERROR_CODES)[number];
 
@@ -56,17 +58,19 @@ export const DELETE_ROOM_ERROR_CODES = [
   /** Missing or malformed bearer, or not this room's owner token. HTTP 401. */
   "unauthorized",
   "rate_limited",
+  /** HTTP 503: the server couldn't delete the stored room. The room stays; try again later. */
+  "unavailable",
 ] as const;
 export type DeleteRoomErrorCode = (typeof DELETE_ROOM_ERROR_CODES)[number];
 
-const failure = <const C extends readonly [string, ...string[]]>(codes: C) =>
+const failure = <const C extends readonly [string, ...string[]]>(codes: C, retryAfterMs: v.GenericSchema<number> = RetryAfterMsSchema) =>
   v.object({
     ok: v.literal(false),
     error: v.object({
       code: v.picklist(codes),
       message: v.pipe(v.string(), v.maxLength(ERROR_MESSAGE_MAX_LENGTH)),
       /** With `rate_limited`. */
-      retryAfterMs: v.optional(RetryAfterMsSchema),
+      retryAfterMs: v.optional(retryAfterMs),
     }),
   });
 
@@ -82,7 +86,8 @@ export const CreateRoomResponseSchema = v.variant("ok", [
     }),
     v.check((r) => (r.inviteKey !== undefined) === (r.room.visibility === "private"), "invite key iff private"),
   ),
-  failure(CREATE_ROOM_ERROR_CODES),
+  // A creation 429 may wait out the key bucket's full 10 min refill.
+  failure(CREATE_ROOM_ERROR_CODES, v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(ROOM_CREATE_RETRY_AFTER_MAX_MS))),
 ]);
 export type CreateRoomResponse = v.InferOutput<typeof CreateRoomResponseSchema>;
 

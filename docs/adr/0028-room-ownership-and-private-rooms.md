@@ -49,6 +49,10 @@
 ### 8. Limit values live in `packages/shared` (narrows ADR 0016 §1)
 ADR 0016 keeps rate numbers server-private. The creation buckets, `MAX_ROOMS`, the GC ages and the edit rate are exported from `@omega/shared` instead. The server's HTTP, WS and GC modules, the QA suite and the site's copy ("rooms close after 14 days empty") need one source of truth. Changing them is therefore a contract change. **Clients still must not enforce them**: they react to `rate_limited` / `retryAfterMs`, `too_many_rooms` and 4004. The M3 buckets stay server-private.
 
+### 9. Store failures and the creation wait (OME-441)
+- `POST /rooms` and `DELETE /rooms/:id` answer **503 `unavailable`** when the store write fails. Nothing changed: no room was created, or the room was kept. Delete removes the row first and only then the live room, so a failed delete never answers `ok` and never brings the row back at the next boot.
+- A creation 429's `retryAfterMs` may be as long as `ROOM_CREATE_RETRY_AFTER_MAX_MS` (= `ROOM_CREATE_KEY_REFILL_MS`, 10 min), so the client waits out the real refill instead of retrying every 60 s. Every other `retryAfterMs` (share, WS, delete) keeps the `RETRY_AFTER_MAX_MS` cap of 60 s.
+
 ## Consequences
 - The contract is additive and optional on the server → client side: old clients strip `owner` and `title` and drop the new message types. The new client messages are new variants; the site and server deploy together.
 - The server currently closes removed rooms with 1001 (OME-403). The server issue switches it to `ROOM_CLOSED`.
