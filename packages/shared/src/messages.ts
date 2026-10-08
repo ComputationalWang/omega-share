@@ -47,6 +47,11 @@ export const ChatTextSchema = v.pipe(
   v.regex(/[\p{L}\p{N}\p{P}\p{S}]/u, "nothing visible"),
 );
 
+/** Emote bubbles in the avatar motion atlas (`emote/<kind>`), plus `wave` (a per-avatar animation). */
+export const EMOTE_KINDS = ["clap", "exclaim", "heart", "laugh", "question", "wave"] as const;
+export const EmoteKindSchema = v.picklist(EMOTE_KINDS);
+export type EmoteKind = v.InferOutput<typeof EmoteKindSchema>;
+
 // Client → server. Strict: unknown keys are rejected, not stripped.
 export const ClientMessageSchema = v.variant("type", [
   /**
@@ -87,6 +92,8 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("layout-set"), layout: RoomLayoutInputSchema }),
   /** Owner only (`not_owner` otherwise): rename the room. */
   v.strictObject({ type: v.literal("title-set"), title: RoomTitleSchema }),
+  /** Needs `join`. Rate-limited per member (EMOTE_BURST, EMOTE_REFILL_MS); never stored. */
+  v.strictObject({ type: v.literal("emote"), kind: EmoteKindSchema }),
 ]);
 export type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 
@@ -157,6 +164,8 @@ export const ServerMessageSchema = v.variant("type", [
   v.object({ type: v.literal("layout-changed"), layout: RoomLayoutSchema, by: MemberIdSchema }),
   /** The owner renamed the room. */
   v.object({ type: v.literal("title-changed"), title: RoomTitleSchema, by: MemberIdSchema }),
+  /** A member emoted (sender included). Fire-and-forget: not stored, never in a snapshot, so late joiners don't see it. */
+  v.object({ type: v.literal("emoted"), memberId: MemberIdSchema, kind: EmoteKindSchema }),
   /** Sent instead of a snapshot when the room is at MAX_ROOM_MEMBERS; the server then closes. */
   v.object({ type: v.literal("room-full") }),
   v.object({

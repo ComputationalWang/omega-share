@@ -55,6 +55,13 @@ export const ROOM_GC_SWEEP_MS = 60 * 60_000;
 export const ROOM_EDIT_BURST = 2;
 export const ROOM_EDIT_REFILL_MS = 2000;
 
+/**
+ * Per member, `emote` (wave included): this many at once, then one every EMOTE_REFILL_MS. Over it, the
+ * server answers `rate_limited` with `retryAfterMs` and drops the emote; it counts against the per-socket frame limit too.
+ */
+export const EMOTE_BURST = 3;
+export const EMOTE_REFILL_MS = 1000;
+
 /** Cap on human-readable error messages sent over the wire. */
 export const ERROR_MESSAGE_MAX_LENGTH = 200;
 /** Longest seekable playback position we accept, in seconds (12 h). */

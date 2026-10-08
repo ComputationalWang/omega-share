@@ -169,6 +169,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // The site doesn't send owner edits yet (ADR 0028); W1/X1 apply these.
     case "layout-changed":
     case "title-changed":
+    // Drawn by W-emote; never part of the view state (OME-413).
+    case "emoted":
       return state;
   }
 }

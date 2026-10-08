@@ -209,6 +209,8 @@ export function createWs({
       case "status":
       case "layout-set":
       case "title-set":
+      // Ignored by `handle` until S6 adds the per-member emote bucket and the `emoted` fan-out (OME-413).
+      case "emote":
         return true;
     }
   };
@@ -292,6 +294,9 @@ export function createWs({
       case "title-set":
         // Nobody joins as the owner until created rooms land (ADR 0028).
         sendError(ws, "not_owner", "only the room's owner can do that");
+        return;
+      case "emote":
+        // S6 fans this out as `emoted` (OME-413).
         return;
     }
   };
