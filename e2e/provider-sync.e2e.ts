@@ -7,8 +7,9 @@ import type { BrowserContext, TestInfo } from "@playwright/test";
 import { parseServerMessage } from "@omega/shared";
 import { PENDING, URLS, available } from "./support/apps";
 import { FAKE_VIMEO_SDK } from "./support/network";
-import { joinRoom, leaveAll, roomsFor, type Client } from "./support/room";
+import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import type { RoomName } from "./support/test-rooms";
 import {
   TWITCH_CHANNEL,
   fakePlaying,
@@ -21,7 +22,6 @@ import {
 } from "../perf/providers";
 import { SETTLE_MS, SPREAD_BUDGET_MS, roomPlayback } from "../perf/sync";
 
-const nextRoom = roomsFor("provider-sync");
 const CLIENTS = 4;
 const LIVE_URL = `https://player.twitch.tv/?channel=${TWITCH_CHANNEL}`;
 const livePill = '[data-testid="live-pill"]';
@@ -29,7 +29,8 @@ const toLive = '[data-testid="to-live"]';
 const seekOnlyHint = '[data-testid="seek-only-hint"]';
 const plate = '[data-testid="provider-plate"]';
 
-test.describe.configure({ mode: "serial" });
+// Each test has its own room, so they spread over the lane's workers (OME-341).
+test.describe.configure({ mode: "parallel" });
 
 const first = (clients: readonly Client[]): Client => {
   const [a] = clients;
@@ -59,14 +60,14 @@ test.describe("M2 provider sync, 4 clients", () => {
   test.fixme(!available.server, PENDING.server);
   test.setTimeout(90_000);
 
-  const seekable: { c: ProviderCase; name: string; rate?: true }[] = [
-    { c: providerCase("twitchVod"), name: "Twitch VOD (seek-only)" },
-    { c: providerCase("vimeo"), name: "Vimeo, rate rejected (seek-only fallback)" },
-    { c: providerCase("vimeo"), name: "Vimeo, rate allowed", rate: true },
+  const seekable: { c: ProviderCase; name: string; room: RoomName<"provider-sync">; rate?: true }[] = [
+    { c: providerCase("twitchVod"), name: "Twitch VOD (seek-only)", room: "twvod" },
+    { c: providerCase("vimeo"), name: "Vimeo, rate rejected (seek-only fallback)", room: "vimeo" },
+    { c: providerCase("vimeo"), name: "Vimeo, rate allowed", room: "vimeo-rate", rate: true },
   ];
-  for (const { c, name, rate } of seekable) {
+  for (const { c, name, room: roomName, rate } of seekable) {
     test(`${name}: play, pause and seek: spread ≤ 500 ms 2 s later`, async ({ browser, request }, info) => {
-      const room = nextRoom();
+      const room = testRoom("provider-sync", roomName);
       await shareProvider(request, c.shareUrl, room.id);
       clients = await joinRoom(browser, { roomUrl: room.url, count: CLIENTS, nicknamePrefix: `${c.key}-sync`, ...(rate ? { setup: vimeoRateAllowed } : {}) });
       const a = first(clients);
@@ -103,15 +104,14 @@ test.describe("M2 provider sync, 4 clients", () => {
   }
 
   test("Twitch VOD: a late joiner is within 500 ms", async ({ browser, request }, info) => {
-    const room = nextRoom();
+    const room = testRoom("provider-sync", "twvod-late");
     const c = providerCase("twitchVod");
     await shareProvider(request, c.shareUrl, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: CLIENTS - 1, nicknamePrefix: "tw-early" });
     await waitProviderPlaying(clients, c.provider);
     await first(clients).page.locator(site.seek).fill("300");
-    await first(clients).page.waitForTimeout(SETTLE_MS);
+    await expect.poll(async () => (await roomPlayback(browser, room.id)).action, { timeout: 5_000 }).toBe("seek");
     const seeked = await roomPlayback(browser, room.id);
-    expect(seeked.action).toBe("seek");
 
     const late = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "tw-late" });
     clients.push(...late);
@@ -124,7 +124,7 @@ test.describe("M2 provider sync, 4 clients", () => {
   });
 
   test("Twitch live: pause and play-from-live reach every client within 500 ms; no seek anywhere", async ({ browser, request }, info) => {
-    const room = nextRoom();
+    const room = testRoom("provider-sync", "live");
     const c = providerCase("twitchLive");
     await shareProvider(request, c.shareUrl, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: CLIENTS, nicknamePrefix: "live" });
@@ -162,7 +162,7 @@ test.describe("M2 provider sync, 4 clients", () => {
   });
 
   test("Twitch live: resuming right after mount still reaches every client within 500 ms", async ({ browser, request }) => {
-    const room = nextRoom();
+    const room = testRoom("provider-sync", "live-early");
     // OME-170 regression: the loop's own start-up play() must not throttle a new room play (RESEND_MS).
     await shareProvider(request, providerCase("twitchLive").shareUrl, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: CLIENTS, nicknamePrefix: "live-early" });
@@ -175,7 +175,7 @@ test.describe("M2 provider sync, 4 clients", () => {
   });
 
   test("Twitch live: a forged control with a position is stored at 0 and never seeks a client", async ({ browser, request }) => {
-    const room = nextRoom();
+    const room = testRoom("provider-sync", "live-forge");
     await shareProvider(request, providerCase("twitchLive").shareUrl, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "live-forge" });
     await waitProviderPlaying(clients, "twitch");

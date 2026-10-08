@@ -2,7 +2,7 @@
 import type { Browser, BrowserContext, Locator, Page } from "@playwright/test";
 import { URLS } from "./apps";
 import { site } from "./selectors";
-import { specRoomIds, type RoomSpec } from "./test-rooms";
+import { testRoomId, type RoomName, type RoomSpec } from "./test-rooms";
 import { watchCsp } from "./csp";
 import { stubExternalNetwork } from "./network";
 
@@ -19,18 +19,10 @@ export interface TestRoom {
   readonly url: string;
 }
 
-/**
- * Hands out `spec`'s seeded rooms (e2e/support/test-rooms.ts) in order, one per call. Call it once per test in a
- * serial spec; a retry re-imports the spec and starts over, and every test shares its video first anyway.
- */
-export function roomsFor(spec: RoomSpec): () => TestRoom {
-  const ids = specRoomIds(spec);
-  let next = 0;
-  return () => {
-    const id = ids[next++];
-    if (id === undefined) throw new Error(`${spec} used all ${String(ids.length)} of its rooms: raise SPEC_ROOMS["${spec}"] in e2e/support/test-rooms.ts`);
-    return { id, url: `${URLS.web}/r/${id}` };
-  };
+/** `spec`'s seeded room `name` (e2e/support/test-rooms.ts). */
+export function testRoom<S extends RoomSpec>(spec: S, name: RoomName<S>): TestRoom {
+  const id = testRoomId(spec, name);
+  return { id, url: `${URLS.web}/r/${id}` };
 }
 
 export interface JoinOptions {

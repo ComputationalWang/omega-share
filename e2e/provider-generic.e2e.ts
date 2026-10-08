@@ -7,10 +7,10 @@ import type { Page, Request } from "@playwright/test";
 import { expect, test } from "./support/extension";
 import { PENDING, available } from "./support/apps";
 import { gotoFixture } from "./support/network";
-import { roomsFor } from "./support/room";
+import { testRoom } from "./support/room";
 import { popup, site } from "./support/selectors";
 
-const ROOM = roomsFor("provider-generic")();
+const ROOM = testRoom("provider-generic", "main");
 const HOST = "video.omega-fixture.org";
 const EMBED_URL = `https://${HOST}/embed/42`;
 const EVIL = "evil.omega-fixture.org";

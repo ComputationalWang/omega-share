@@ -1,18 +1,17 @@
 // M1b sync suite (OME-90): 8 contexts in one room, the real server, clock sync, sync loop and YouTube adapter,
 // against the fake iframe_api (OME-85). Spread = max − min of (expected − actual) across clients, 2 s after an
 // action; each client stamps its own sample with wall-clock time, which the server shares on localhost.
-// Each test has a room of its own (OME-341), so the suite runs alongside the rest; tests stay serial in one worker.
+// Each test has a room of its own (OME-341), so the suite runs alongside the rest, its tests in parallel.
 import { expect, test } from "./support/csp";
 import type { Page, TestInfo } from "@playwright/test";
 import { PENDING, available } from "./support/apps";
 import { VIDEO_ID } from "./support/network";
-import { joinRoom, leaveAll, roomsFor, type Client } from "./support/room";
+import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import { PLAYING, PAUSED, SPREAD_BUDGET_MS, SETTLE_MS, fakeState, measureSpread, roomPlayback, shareVideo, waitPlaying } from "../perf/sync";
 
-const nextRoom = roomsFor("sync");
-
-test.describe.configure({ mode: "serial" });
+// Each test has its own room, so they spread over the lane's workers (OME-341).
+test.describe.configure({ mode: "parallel" });
 
 const pair = (clients: readonly Client[]): [Client, Client] => {
   const [a, b] = clients;
@@ -44,7 +43,7 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("play, pause and seek: spread ≤ 500 ms 2 s later", async ({ browser, request }, info) => {
-    const room = nextRoom();
+    const room = testRoom("sync", "spread");
     // Share first: joining after means no client can still be playing the previous test's video.
     await shareVideo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 8, nicknamePrefix: "sync" });
@@ -85,15 +84,14 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("a late joiner is within 500 ms", async ({ browser, request }, info) => {
-    const room = nextRoom();
+    const room = testRoom("sync", "late");
     await shareVideo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 7, nicknamePrefix: "early" });
     await waitPlaying(clients);
     const [first] = pair(clients);
     await first.page.locator(site.seek).fill("200");
-    await first.page.waitForTimeout(3000);
+    await expect.poll(async () => (await roomPlayback(browser, room.id)).action, { timeout: 5_000 }).toBe("seek");
     const seeked = await roomPlayback(browser, room.id);
-    expect(seeked.action).toBe("seek");
     expect(seeked.position).toBeGreaterThanOrEqual(200);
 
     const late = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "late" });
@@ -108,7 +106,7 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("a 3 s buffer on one client doesn't pause the room, and it catches up", async ({ browser, request }, info) => {
-    const room = nextRoom();
+    const room = testRoom("sync", "buffer");
     await shareVideo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 8, nicknamePrefix: "buf" });
     const [a, b] = pair(clients);
@@ -133,7 +131,7 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("an ad on one client doesn't pause the room", async ({ browser, request }, info) => {
-    const room = nextRoom();
+    const room = testRoom("sync", "ad");
     await shareVideo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 8, nicknamePrefix: "ad" });
     const [, b] = pair(clients);
@@ -156,7 +154,7 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("a click-pause inside the player becomes a room pause, with a system line in the chat", async ({ browser, request }) => {
-    const room = nextRoom();
+    const room = testRoom("sync", "click");
     await shareVideo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 8, nicknamePrefix: "click" });
     const [a] = pair(clients);
@@ -176,7 +174,7 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("YouTube refusing the embed (error 150) shows a site notice and freezes this client's transport", async ({ browser, request }) => {
-    const room = nextRoom();
+    const room = testRoom("sync", "err150");
     await shareVideo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "noembed" });
     const [a, b] = pair(clients);
@@ -194,7 +192,7 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("a volume change on A doesn't affect B", async ({ browser, request }) => {
-    const room = nextRoom();
+    const room = testRoom("sync", "volume");
     await shareVideo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 8, nicknamePrefix: "vol" });
     const [a, b] = pair(clients);
@@ -220,7 +218,7 @@ test.describe("M1b sync, 8 clients", () => {
   });
 
   test("our tab URL is unchanged after a player popup", async ({ browser, request }) => {
-    const room = nextRoom();
+    const room = testRoom("sync", "popup");
     await shareVideo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "popup" });
     const { page, context } = only(clients);

@@ -2,21 +2,25 @@
 // from a DB seeded with these (e2e/fixtures/seed-rooms.ts), so none of them touches the lobby and they run in
 // parallel with everything else. One room per test where tests don't build on each other: a fresh room has no
 // previous video, and the per-room share bucket (2 at once, then 1 per 10 s) never paces back-to-back cases.
+// Rooms are named, not handed out in order, so a spec's tests can run on any worker in any order.
 // No imports: the seed script reads this under bun before any server exists.
 
-/** Rooms per spec. A spec that asks for more than its count fails loudly; bump the number here. */
+/** Each spec's rooms, by name. A room id is `e2e-<spec>-<name>`, at most ROOM_ID_MAX_LENGTH (32) characters. */
 export const SPEC_ROOMS = {
-  acceptance: 1,
-  sync: 10,
-  vimeo: 4,
-  "provider-sync": 7,
-  "provider-share": 4,
-  "provider-generic": 1,
+  acceptance: ["main"],
+  sync: ["spread", "late", "buffer", "ad", "click", "err150", "volume", "popup"],
+  vimeo: ["src", "pause", "privacy", "forged"],
+  "provider-sync": ["twvod", "vimeo", "vimeo-rate", "twvod-late", "live", "live-early", "live-forge"],
+  "provider-share": ["1", "2", "3", "4"],
+  "provider-generic": ["main"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
+export type RoomName<S extends RoomSpec> = (typeof SPEC_ROOMS)[S][number];
 
-export const specRoomIds = (spec: RoomSpec): string[] => Array.from({ length: SPEC_ROOMS[spec] }, (_, i) => `e2e-${spec}-${String(i + 1)}`);
+export const testRoomId = <S extends RoomSpec>(spec: S, name: RoomName<S>): string => `e2e-${spec}-${name}`;
 
 /** Every seeded test room, in seeding order (the lobby is seeded first, so `GET /rooms` still lists it first). */
-export const TEST_ROOM_IDS: readonly string[] = (Object.keys(SPEC_ROOMS) as RoomSpec[]).flatMap(specRoomIds);
+export const TEST_ROOM_IDS: readonly string[] = (Object.keys(SPEC_ROOMS) as RoomSpec[]).flatMap((spec) =>
+  SPEC_ROOMS[spec].map((name: string) => `e2e-${spec}-${name}`),
+);

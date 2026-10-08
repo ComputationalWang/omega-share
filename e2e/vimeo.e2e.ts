@@ -7,19 +7,19 @@ import { expect, test } from "./support/csp";
 import type { Frame, Page } from "@playwright/test";
 import { PENDING, available } from "./support/apps";
 import { FAKE_VIMEO_SDK, serveRealVimeoSdk } from "./support/network";
-import { joinRoom, leaveAll, roomsFor, type Client } from "./support/room";
+import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { joinForToken, postShare } from "./support/share";
 import { site } from "./support/selectors";
 import { roomPlayback } from "../perf/sync";
 
-const nextRoom = roomsFor("vimeo");
 const VIMEO_ID = "76979871";
 const REFUSED = "This video can't play here: the owner doesn't allow playback on other sites.";
 
 /** window of fixtures/vimeo-real-sdk/embed.html, the player-side protocol stub. */
 interface StubWindow { __methods: string[]; __emit: (event: string) => void }
 
-test.describe.configure({ mode: "serial" });
+// Each test has its own room, so they spread over the lane's workers (OME-341).
+test.describe.configure({ mode: "parallel" });
 
 const pair = (clients: readonly Client[]): [Client, Client] => {
   const [a, b] = clients;
@@ -59,7 +59,7 @@ test.describe("Vimeo in the room, fake SDK", () => {
   test.setTimeout(90_000);
 
   test("our iframe has the canonical dnt=1 src, and a rejected rate probe leaves the player seek-only", async ({ browser, request }) => {
-    const room = nextRoom();
+    const room = testRoom("vimeo", "src");
     await shareVimeo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "vfake" });
     const [a] = pair(clients);
@@ -76,7 +76,7 @@ test.describe("Vimeo in the room, fake SDK", () => {
   });
 
   test("a user pause inside the Vimeo player becomes a room pause, with the system line", async ({ browser, request }) => {
-    const room = nextRoom();
+    const room = testRoom("vimeo", "pause");
     await shareVimeo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "vpause" });
     const [a, b] = pair(clients);
@@ -92,7 +92,7 @@ test.describe("Vimeo in the room, fake SDK", () => {
   });
 
   test("PrivacyError shows the refused notice on that client only; the room keeps playing", async ({ browser, request }) => {
-    const room = nextRoom();
+    const room = testRoom("vimeo", "privacy");
     await shareVimeo(request, room.id);
     clients = await joinRoom(browser, {
       roomUrl: room.url,
@@ -120,7 +120,7 @@ test.describe("Vimeo in the room, real player.js: forged postMessage", () => {
   test.setTimeout(90_000);
 
   test("a forged pause from the wrong origin or source is ignored; the same event from our iframe pauses the room", async ({ browser, request }) => {
-    const room = nextRoom();
+    const room = testRoom("vimeo", "forged");
     await shareVimeo(request, room.id);
     clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "vreal", setup: serveRealVimeoSdk });
     const [a, b] = pair(clients);

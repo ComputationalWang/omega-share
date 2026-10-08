@@ -4,10 +4,10 @@ import { expect, test } from "./support/extension";
 import type { Page } from "@playwright/test";
 import { PENDING, URLS, available } from "./support/apps";
 import { EMBED_URL, VIDEO_ID, gotoFixture } from "./support/network";
-import { roomsFor } from "./support/room";
+import { testRoom } from "./support/room";
 import { popup, site } from "./support/selectors";
+import type { RoomName } from "./support/test-rooms";
 
-const nextRoom = roomsFor("provider-share");
 const plate = '[data-testid="provider-plate"]';
 
 interface Expected {
@@ -97,14 +97,14 @@ test.describe("M2 share from the extension → room shows the right provider", (
     // The popup reads the share token from an open room tab of the site (OME-130/OME-142) and preselects that room.
     // Each embed goes to a room of its own: one room takes a new video only every 10 s (OME-341).
     const room = await context.newPage();
-    const enter = async (): Promise<void> => {
-      await room.goto(nextRoom().url);
+    const enter = async (name: RoomName<"provider-share">): Promise<void> => {
+      await room.goto(testRoom("provider-share", name).url);
       await room.locator(site.nicknameInput).fill("provider-share");
       await room.locator(site.avatarOption).first().click();
       await room.locator(site.joinButton).click();
       await expect(room.locator(site.room)).toBeVisible();
     };
-    await enter();
+    await enter("1");
     const source = await context.newPage();
     await gotoFixture(source, "providers-embed");
 
@@ -119,9 +119,12 @@ test.describe("M2 share from the extension → room shows the right provider", (
     })();
     expect([...listed].sort()).toEqual(EXPECTED.map((e) => e.url).sort());
 
-    for (const e of EXPECTED) {
+    const rooms = ["1", "2", "3", "4"] as const;
+    for (const [i, e] of EXPECTED.entries()) {
       await test.step(`${e.plate}: ${e.url}`, async () => {
-        if (EXPECTED.indexOf(e) > 0) await enter();
+        const name = rooms[i];
+        if (name === undefined) throw new Error("more embeds than provider-share rooms");
+        if (i > 0) await enter(name);
         // The browser's shares all come from 127.0.0.1, one client to the share limiter (5 burst, 1 per 3 s), so retry a refused share.
         await expect
           .poll(async () => {

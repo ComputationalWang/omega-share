@@ -8,12 +8,12 @@ import { rawSnapshot, spawnBots } from "./support/bots";
 import { expect, test } from "./support/extension";
 import { EMBED_URL, VIDEO_ID, gotoFixture, stubExternalNetwork } from "./support/network";
 import { watchCsp } from "./support/csp";
-import { clickSettled, roomsFor } from "./support/room";
+import { clickSettled, testRoom } from "./support/room";
 import { popup, site } from "./support/selectors";
 import { joinForToken, postShare } from "./support/share";
 
 const SHARER = "sharer";
-const ROOM = roomsFor("acceptance")();
+const ROOM = testRoom("acceptance", "main");
 const ROOM_URL = ROOM.url;
 
 interface SiteClient {
