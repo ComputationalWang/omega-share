@@ -50,7 +50,7 @@ export interface WalksOptions {
 }
 
 export interface Walks {
-  /** The layout's walk grid (path.ts `walkGrid`). Everyone's next spot is then taken without a walk. */
+  /** The layout's walk grid (path.ts `walkGrid`). If it changed, everyone's next spot is taken without a walk. */
   setGrid(grid: Uint8Array): void;
   /** Everyone's spot now. The first call with people in it (my snapshot) places them without a walk. */
   place(targets: readonly WalkTarget[], now: number): void;
@@ -171,6 +171,7 @@ export function createWalks(opts: WalksOptions): Walks {
 
   return {
     setGrid(g) {
+      if (g.length === grid.length && g.every((b, i) => b === grid[i])) return;
       grid = g;
       snapNext = true;
     },
