@@ -5,8 +5,11 @@ import type { PlayerAdapter, PlayerState } from "./player/adapter";
 export const SYNC_INTERVAL_MS = 250;
 export const DEAD_BAND_MS = 100;
 export const SEEK_THRESHOLD_MS = 1000;
-/** Seek threshold when the player can't change rate at all. */
-export const SEEK_ONLY_THRESHOLD_MS = 500;
+/**
+ * Seek threshold when the player can't change rate at all: half the 500 ms pairwise
+ * budget, so two clients each within it stay within the budget of each other (OME-392).
+ */
+export const SEEK_ONLY_THRESHOLD_MS = 250;
 /** Drift is only trusted after the player has been playing this long. */
 export const STABLE_MS = 500;
 export const MAX_NUDGE = 0.1;
@@ -32,7 +35,7 @@ const SEEK_LATENCY_ALPHA = 0.25;
 const MAX_SEEK_LATENCY_MS = 2000;
 
 /**
- * fine: 1 ± ≤10 %; burst: 0.75/1.25 only; seek-only: no rate changes, seek above 500 ms;
+ * fine: 1 ± ≤10 %; burst: 0.75/1.25 only; seek-only: no rate changes, seek above 250 ms;
  * live: can't seek (Twitch live), so only play/pause is matched (ADR 0014 §3).
  */
 export type RateMode = "fine" | "burst" | "seek-only" | "live";

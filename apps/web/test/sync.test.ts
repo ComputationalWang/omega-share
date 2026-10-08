@@ -214,10 +214,10 @@ describe("decide: fallback ladder", () => {
     expect(decide(input(1500, { mode: "burst" })).kind).toBe("seek");
   });
 
-  test("seek-only mode never changes rate and seeks above 500 ms", () => {
-    expect(decide(input(400, { mode: "seek-only" }))).toEqual({ kind: "none" });
-    expect(decide(input(-501, { mode: "seek-only" }))).toEqual({ kind: "seek", to: 10, play: true });
-    expect(decide(input(300, { mode: "seek-only", rate: 1.04 }))).toEqual({ kind: "rate", rate: 1 });
+  test("seek-only mode never changes rate and seeks above 250 ms", () => {
+    expect(decide(input(200, { mode: "seek-only" }))).toEqual({ kind: "none" });
+    expect(decide(input(-251, { mode: "seek-only" }))).toEqual({ kind: "seek", to: 10, play: true });
+    expect(decide(input(200, { mode: "seek-only", rate: 1.04 }))).toEqual({ kind: "rate", rate: 1 });
   });
 
   test("initial mode: fine rates unless the player only offers 1×", () => {
