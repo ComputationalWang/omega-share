@@ -100,6 +100,9 @@ async function snapshotOrError(c: Client): Promise<string> {
   throw new Error("no snapshot or error");
 }
 
+/** A function, so the compiler doesn't narrow `readyState` across awaits. */
+const isOpen = (c: Client): boolean => c.socket.readyState === WebSocket.OPEN;
+
 /** A well-formed secret that matches nothing: 22 base64url chars. */
 const WRONG = "AAAAAAAAAAAAAAAAAAAAAA";
 
@@ -264,6 +267,42 @@ describe("join with an owner token (ADR 0028 §3)", () => {
     const c = await open(priv.room.id, address);
     c.send({ type: "join", nickname: "mallory", avatar: 0 });
     expect((await c.next("error")).code).toBe("invite_required");
+  });
+});
+
+describe("failed secrets: 4400 and retryAfterMs (QA notes on OME-447)", () => {
+  test("wrong owner tokens count toward the 4400 bad-message close, even while they still join as a guest", async () => {
+    const clock = fakeClock();
+    t = start({ trustProxy: true, now: clock.now });
+    const room = await createRoom("public");
+    const c = await open(room.room.id);
+    for (let i = 0; i < 40 && isOpen(c); i++) {
+      clock.ms += 5000;
+      const seen = c.raw.length;
+      c.send({ type: "leave" });
+      c.send({ type: "join", nickname: "mallory", avatar: 0, ownerToken: WRONG });
+      // The leave has no reply; wait for the join's (snapshot, rate_limited) or the close.
+      for (let w = 0; w < 200 && c.raw.length === seen && isOpen(c); w++) await Bun.sleep(5);
+    }
+    expect((await c.closed).code).toBe(CLOSE_CODES.BAD_MESSAGES);
+  });
+
+  test("a join refused by a dry failed-invite bucket carries retryAfterMs, at most 30 s", async () => {
+    t = start({ trustProxy: true });
+    const room = await createRoom("private");
+    const c = await open(room.room.id);
+    let err = await (async () => {
+      c.send({ type: "join", nickname: "mallory", avatar: 0, inviteKey: WRONG });
+      return c.next("error");
+    })();
+    for (let i = 0; i < 10 && err.code !== "rate_limited"; i++) {
+      c.send({ type: "join", nickname: "mallory", avatar: 0, inviteKey: WRONG });
+      err = await c.next("error");
+    }
+    expect(err.code).toBe("rate_limited");
+    expect(err.message).toContain("wrong invite keys");
+    expect(err.retryAfterMs).toBeGreaterThan(0);
+    expect(err.retryAfterMs).toBeLessThanOrEqual(30_000);
   });
 });
 
