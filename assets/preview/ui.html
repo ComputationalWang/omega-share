@@ -137,7 +137,7 @@
   /* Set (j) house rules + queue (OME-422) */
   .hj-row { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
   .hj-col { display: grid; gap: 8px; justify-items: start; }
-  .hj-stage { position: relative; width: 960px; height: 300px; background: url("room@1x.png") 0 -120px; image-rendering: pixelated; }
+  .hj-stage { position: relative; width: 960px; height: 400px; background: url("room@1x.png") 0 -100px; image-rendering: pixelated; }
   .hj-stage > * { position: absolute; }
   .hj-menu { translate: -50% -100%; }
   .hj-tag { display: inline-flex; align-items: center; gap: 2px; }
@@ -627,20 +627,21 @@
 <section id="house">
   <h2>Set (j) (OME-422): house rules in the room, room at 1× (Pixi) with the TV shelf and chat at 1×</h2>
   <div class="hj-stage ui-room">
-    <span class="ui-tag" style="left:352px;top:169px">Ada</span>
-    <span class="ui-tag self" style="left:416px;top:166px">Wren</span>
-    <span class="ui-tag" style="left:544px;top:171px">Moss</span>
-    <span class="ui-tag hj-tag" style="left:608px;top:169px">Kit<span class="ui-sprite ui-glyph-chat-mute"></span></span>
-    <span class="ui-tag" style="left:352px;top:235px">Juniper</span>
-    <span class="ui-tag" style="left:416px;top:233px">Oli</span>
-    <div class="ui-emotes ui-modmenu hj-menu" role="menu" aria-label="Moss" style="left:544px;top:148px">
+    <span class="ui-tag" style="left:352px;top:189px">Ada</span>
+    <span class="ui-tag self" style="left:416px;top:186px">Wren</span>
+    <span class="ui-tag" style="left:544px;top:191px">Sol</span>
+    <span class="ui-tag hj-tag" style="left:608px;top:189px">Kit<span class="ui-sprite ui-glyph-chat-mute"></span></span>
+    <span class="ui-tag" style="left:352px;top:255px">Juniper</span>
+    <span class="ui-tag" style="left:416px;top:253px">Oli</span>
+    <span class="ui-tag" style="left:704px;top:238px">Moss</span>
+    <div class="ui-emotes ui-modmenu hj-menu" role="menu" aria-label="Moss" style="left:704px;top:217px">
       <div class="head"><span class="ui-sprite ui-portrait-mo"></span><span class="name">Moss</span><button class="ui-sprite ui-qx" aria-label="Close menu"></button></div>
       <span class="ui-modsep"></span>
       <button class="ui-modrow is-hover" role="menuitem"><span class="ui-sprite ui-icon-chat-mute"></span>Mute chat</button>
       <button class="ui-modrow" role="menuitem"><span class="ui-sprite ui-icon-remove"></span>Remove from room</button>
     </div>
   </div>
-  <p class="tv-cap">Wren is the host and clicked Moss: the menu is the emote picker's tray (mustard rim = only you see it), its tail on Moss's tag. A portrait and the name say who it's about; the wood × (Esc) closes it. Kit is already muted: in the host's view a zipped bubble sits in Kit's tag.</p>
+  <p class="tv-cap">Wren is the host and clicked Moss (on the sofa by the lamp, so the menu opens over the wall, not the TV or the desk): the menu is the emote picker's tray (mustard rim = only you see it), its tail on Moss's tag. A portrait and the name say who it's about; the wood × (Esc) closes it. Kit is already muted: in the host's view a zipped bubble sits in Kit's tag.</p>
   <div class="hj-row ui-room">
     <div class="hj-col">
       <div class="page" style="width:600px;height:44px"><div class="ui-tv-shelf" style="left:20px;top:6px;width:560px"><div class="ui-transport" role="group" aria-label="Shared playback: only the host controls it"><span class="ui-chip"><span class="ui-sprite ui-glyph-host"></span>Host</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span></div></div></div>

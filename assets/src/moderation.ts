@@ -174,9 +174,10 @@ const ICONS: Record<string, readonly string[]> = {
 
 const GLYPHS: Record<string, readonly string[]> = {
   // Beside a muted member's name tag (the host's view) and on the "muted your chat" line: a tiny zipped bubble.
-  "chat-mute": ["........", ".cccccc.", ".cccccc.", ".oCoCoo.", ".ccccyc.", "..c...y.", "........", "........"],
+  // 6×6 art like set (e)'s line glyphs (OME-434: the old 6×4 one shrank to a speck at 1×): plum and mustard teeth for contrast.
+  "chat-mute": ["........", ".cccccc.", ".cccccc.", ".oyoyoo.", ".cccccc.", ".ccccc..", "..c.....", "........"],
   // On the "only the host controls playback" line: a tiny remote with its glow lens and play key.
-  remote: ["........", "..www...", "..wGw...", "..www...", "..wkw...", "..www...", "..www...", "........"],
+  remote: ["........", "..wwww..", "..wGGw..", "..wwww..", "..wkkw..", "..wwww..", "..wkkw..", "........"],
 };
 
 // ------------------------------------------------------------------ build + CSS

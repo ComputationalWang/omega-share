@@ -270,6 +270,10 @@ Three directions were weighed before any pixels:
   whose wedge is set (f)'s timer dial at 10 of 60 minutes: you can come back, after a wait.
 - **Zip = muted by the host.** The speaker with a cross stays "sound off on your side" (set e). A muted chat field turns from night blue to a charcoal well with
   the reason in it, and the line in the log has the mustard "only you" bar (set f), because only you are told.
+- **At 1× the line glyphs are a hint, the words are the message.** `glyph/remote` and `glyph/chat-mute` are 8×8 in a 12 px line (the log, the muted name tag).
+  OME-434 grew them to the full 6×6 like set (e)'s line glyphs (the remote 4 px wide with two key rows, the zip in plum and mustard teeth), but they stay small
+  in the room. Always pair them with the words ("Only the host controls playback now", "The host muted your chat"). In the name tag, the host's menu says
+  "Unmute chat", so the glyph only says "already muted" to the one person who can change it.
 - **Remove isn't rust.** Rust stays for the one irreversible action (set i's close-for-good). A removal ends in 10 minutes, so the menu asks first in a
   charcoal row with plain keys.
 - **The menu is the host's own tool,** so it is the emote picker's tray: night in the mustard "only you" rim, a tail to the member's name tag. Rows reuse the

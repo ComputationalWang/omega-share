@@ -41,9 +41,9 @@
 
   /* screenshot 1: the room */
   #shot-room { width: 1280px; height: 800px; }
-  #shot-room .tvbox { left: 162px; top: 76px; width: 560px; height: 315px; background: url("tv-video@1x.png") 0 0 / 100% 100%; image-rendering: pixelated; }
-  #shot-room .ui-tv-shelf { left: 162px; top: 399px; width: 560px; }
-  #shot-room .stage { left: 24px; top: 457px; width: 836px; height: 323px; background-image: url("room@1x.png"); background-position: -62px -204px; }
+  #shot-room .tvbox { left: 218px; top: 72px; width: 448px; height: 252px; background: url("tv-video@1x.png") 0 0 / 100% 100%; image-rendering: auto; }
+  #shot-room .ui-tv-shelf { left: 202px; top: 332px; width: 480px; }
+  #shot-room .stage { left: 24px; top: 386px; width: 836px; height: 414px; background-image: url("room@1x.png"); background-position: -62px -132px; }
   #shot-room .stage > * { position: absolute; }
   #shot-room .side { left: 876px; top: 72px; width: 380px; bottom: 20px; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); }
   #shot-room .log { align-content: end; }
@@ -94,27 +94,31 @@
   <div class="tvbox ui-tv-frame"></div>
   <div class="ui-tv-shelf ui-room"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">12:30</span><div class="ui-seek" style="--pos:0.3"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span></div></div>
   <div class="stage art ui-room">
-    <span class="ui-tag" style="left:290px;top:85px">Ada</span>
-    <span class="ui-tag self" style="left:354px;top:82px">Wren</span>
-    <span class="ui-tag" style="left:482px;top:87px">Moss</span>
-    <span class="ui-tag" style="left:546px;top:85px">Kit</span>
-    <span class="ui-tag" style="left:290px;top:151px">Juniper</span>
-    <span class="ui-tag" style="left:354px;top:149px">Oli</span>
-    <span class="ui-bubble" style="left:354px;top:58px">this bit is my favourite</span>
-    <span class="ui-bubble" style="left:546px;top:61px">the colours!!</span>
-    <span class="ui-sprite ui-emote-pick-heart" style="left:474px;top:53px"></span>
+    <span class="ui-tag" style="left:290px;top:157px">Ada</span>
+    <span class="ui-tag self" style="left:354px;top:154px">Wren</span>
+    <span class="ui-tag" style="left:482px;top:159px">Moss</span>
+    <span class="ui-tag" style="left:546px;top:157px">Kit</span>
+    <span class="ui-tag" style="left:290px;top:223px">Juniper</span>
+    <span class="ui-tag" style="left:354px;top:221px">Oli</span>
+    <span class="ui-bubble" style="left:354px;top:130px">this bit is my favourite</span>
+    <span class="ui-bubble" style="left:546px;top:133px">the colours!!</span>
+    <span class="ui-sprite ui-emote-pick-heart" style="left:474px;top:125px"></span>
   </div>
   <div class="side">
     <section class="ui-panel ui-queue q" aria-label="Up next">
-      <div class="head"><span class="ui-sprite ui-icon-queue"></span><h3>Up next</h3><span class="n">3 / 20</span></div>
+      <div class="head"><span class="ui-sprite ui-icon-queue"></span><h3>Up next</h3><span class="n">6 / 20</span></div>
       <ol class="ui-qlist">
         <li class="ui-qrow is-next"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Rain on a tin roof</span><span class="meta"><span class="ui-sprite ui-head-kiki"></span>Kit</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
         <li class="ui-qrow"><span class="ui-sprite ui-qsrc-live"></span><span class="body"><span class="title">Night train cab view</span><span class="meta"><span class="ui-sprite ui-head-mo"></span>Moss</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
         <li class="ui-qrow"><span class="ui-sprite ui-qsrc-generic"></span><span class="body"><span class="title">Pottery wheel</span><span class="meta"><span class="ui-sprite ui-head-juno"></span>Ada</span></span><span class="ui-chip solo"><span class="ui-sprite ui-glyph-outsync"></span>Not synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-live"></span><span class="body"><span class="title">Owl nest cam</span><span class="meta"><span class="ui-sprite ui-head-pip"></span>Wren</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Bread from scratch</span><span class="meta"><span class="ui-sprite ui-head-juno"></span>Oli</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-generic"></span><span class="body"><span class="title">Lantern walk</span><span class="meta"><span class="ui-sprite ui-head-mo"></span>Moss</span></span><span class="ui-chip solo"><span class="ui-sprite ui-glyph-outsync"></span>Not synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
       </ol>
       <div class="paste"><span class="ui-sprite ui-icon-link"></span><input class="ui-input" placeholder="Paste a video link"><button class="ui-button"><span class="ui-sprite ui-icon-queue-add"></span>Add</button></div>
     </section>
     <div class="log">
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-remote"></span><span><b>Wren</b> gave the remote to everyone</span></p>
       <p class="ui-sysline"><span class="ui-sprite ui-glyph-play"></span><span><b>Kit</b> played</span></p>
       <p class="ui-sysline"><span class="ui-sprite ui-glyph-seek"></span><span><b>Moss</b> skipped to <time>12:30</time></span></p>
     </div>
