@@ -94,6 +94,18 @@ describe("deploy/journald", () => {
     expect(p).toContain('install -m 0644 "$here/journald/omega-share.conf" /etc/systemd/journald.conf.d/');
     expect(p).toMatch(/systemctl restart systemd-journald/);
   });
+
+  test("a `logs` phase re-ships only the Caddyfile and the journald drop-in, and base runs it too (OME-386)", () => {
+    const p = read("provision.sh");
+    const body = /^logs\(\) \{\n([\s\S]*?)^\}$/m.exec(p)?.[1] ?? "";
+    const at = (s: string) => body.indexOf(s);
+    expect(at('install -m 0644 "$here/journald/omega-share.conf" /etc/systemd/journald.conf.d/')).toBeGreaterThanOrEqual(0);
+    expect(at("caddy validate --config /etc/caddy/Caddyfile")).toBeGreaterThan(at('install -m 0644 "$here/Caddyfile" /etc/caddy/Caddyfile'));
+    expect(at("systemctl restart caddy")).toBeGreaterThan(at("caddy validate"));
+    expect(body).not.toMatch(/nft|useradd|apt-get|PUBKEY/);
+    expect(/^base\(\) \{\n[\s\S]*?^\}$/m.exec(p)?.[0]).toMatch(/^\s*logs$/m);
+    expect(p).toMatch(/^\s*logs\) logs ;;$/m);
+  });
 });
 
 describe("deploy/nftables.conf", () => {
