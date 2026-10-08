@@ -13,6 +13,7 @@ export const SPEC_ROOMS = {
   "provider-sync": ["twvod", "vimeo", "vimeo-rate", "twvod-late", "live", "live-early", "live-forge"],
   "provider-share": ["1", "2", "3", "4"],
   "provider-generic": ["main"],
+  "room-view": ["main"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
