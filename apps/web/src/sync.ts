@@ -10,6 +10,13 @@ export const SEEK_THRESHOLD_MS = 1000;
  * budget, so two clients each within it stay within the budget of each other (OME-392).
  */
 export const SEEK_ONLY_THRESHOLD_MS = 250;
+/** A paused player further than this from the room seeks (every mode): half the pairwise budget too (ADR 0027). */
+export const PAUSED_THRESHOLD_MS = 250;
+/**
+ * Seek-only parks instead of seeking while playing (a Twitch seek stalls 0.4–2.7 s, unpredictably):
+ * seek this far ahead of the room while paused, then play when the room gets there (ADR 0027).
+ */
+export const PARK_LEAD_MS = 1000;
 /** Drift is only trusted after the player has been playing this long. */
 export const STABLE_MS = 500;
 export const MAX_NUDGE = 0.1;
@@ -35,7 +42,7 @@ const SEEK_LATENCY_ALPHA = 0.25;
 const MAX_SEEK_LATENCY_MS = 2000;
 
 /**
- * fine: 1 ± ≤10 %; burst: 0.75/1.25 only; seek-only: no rate changes, seek above 250 ms;
+ * fine: 1 ± ≤10 %; burst: 0.75/1.25 only; seek-only: no rate changes, park above 250 ms;
  * live: can't seek (Twitch live), so only play/pause is matched (ADR 0014 §3).
  */
 export type RateMode = "fine" | "burst" | "seek-only" | "live";
@@ -46,11 +53,16 @@ export type Correction =
   | { readonly kind: "pause" }
   /** Seek, then play or pause to match the room. */
   | { readonly kind: "seek"; readonly to: number; readonly play: boolean }
+  /** Seek to `to` and pause there; play once the room reaches it (seek-only). */
+  | { readonly kind: "park"; readonly to: number }
+  /** The room has reached the park: play. */
+  | { readonly kind: "unpark" }
   | { readonly kind: "rate"; readonly rate: number };
 
 const NONE: Correction = { kind: "none" };
 const PLAY: Correction = { kind: "play" };
 const PAUSE: Correction = { kind: "pause" };
+const UNPARK: Correction = { kind: "unpark" };
 const RATE_ONE: Correction = { kind: "rate", rate: 1 };
 
 /** Mutable on purpose: the loop reuses one instance per tick. */
@@ -76,6 +88,8 @@ export interface DecideInput {
   seekLatencyMs: number;
   /** Estimated time a stopped player takes from seek + play until it plays, ms (OME-392). */
   startLatencyMs: number;
+  /** Where a park left the player paused, s; -1 = not parked. */
+  parkAt: number;
 }
 
 /** The room's position at server time `serverNowMs`, seconds. */
@@ -90,11 +104,18 @@ export function decide(i: DecideInput): Correction {
   if (room === null || i.playerState === "ad") return NONE;
   if (i.mode === "live") return decideLive(i, room);
   const expected = expectedPosition(room, i.serverNowMs);
-  if (i.hardSeek) return seekTo(expected, room, hardSeekLatency(i));
+  if (i.hardSeek) {
+    if (i.mode === "seek-only" && room.playing && parkOnHardSeek(i, expected)) return park(expected, room, i.startLatencyMs);
+    return seekTo(expected, room, hardSeekLatency(i));
+  }
   if (i.playerState === "buffering") return NONE;
   if (!room.playing) {
     if (i.playerState === "playing") return PAUSE;
-    return Math.abs(i.playerTime - expected) * 1000 > SEEK_THRESHOLD_MS ? seekTo(expected, room, 0) : NONE;
+    return Math.abs(i.playerTime - expected) * 1000 > PAUSED_THRESHOLD_MS ? seekTo(expected, room, 0) : NONE;
+  }
+  if (i.parkAt >= 0) {
+    const waitMs = ((i.parkAt - expected) * 1000) / room.rate - i.startLatencyMs;
+    return waitMs > SYNC_INTERVAL_MS / 2 ? NONE : UNPARK;
   }
   if (i.playerState === "ended") return NONE;
   if (i.playerState !== "playing") return PLAY;
@@ -103,7 +124,7 @@ export function decide(i: DecideInput): Correction {
   const drift = median3(i.samples);
   const abs = Math.abs(drift);
   if (i.mode === "seek-only") {
-    if (abs > SEEK_ONLY_THRESHOLD_MS) return seekTo(expected, room, i.seekLatencyMs);
+    if (abs > SEEK_ONLY_THRESHOLD_MS) return park(expected, room, i.startLatencyMs);
     return i.rate !== 1 ? RATE_ONE : NONE;
   }
   if (abs > SEEK_THRESHOLD_MS) return seekTo(expected, room, i.seekLatencyMs);
@@ -134,6 +155,17 @@ function decideLive(i: DecideInput, room: PlaybackState): Correction {
 function hardSeekLatency(i: DecideInput): number {
   if (i.playerState === "playing" || i.playerState === "buffering") return i.seekLatencyMs;
   return i.playerState === "paused" ? i.startLatencyMs : 0;
+}
+
+/** Seek-only: park a playing or buffering player, or a paused one far from the room; a resume near it or a cold join seeks. */
+function parkOnHardSeek(i: DecideInput, expected: number): boolean {
+  if (i.playerState === "playing" || i.playerState === "buffering") return true;
+  return i.playerState === "paused" && Math.abs(i.playerTime - expected) * 1000 > SEEK_ONLY_THRESHOLD_MS;
+}
+
+/** Far enough ahead that the paused seek has loaded, plus what the play will take, so it starts on the room clock. */
+function park(expected: number, room: PlaybackState, startLatencyMs: number): Correction {
+  return { kind: "park", to: expected + ((PARK_LEAD_MS + startLatencyMs) / 1000) * room.rate };
 }
 
 function seekTo(expected: number, room: PlaybackState, latencyMs: number): Correction {
@@ -228,6 +260,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     mode: "fine",
     seekLatencyMs: 0,
     startLatencyMs: 0,
+    parkAt: -1,
   };
   let timer: Timer | null = null;
   let modeKnown = false;
@@ -250,6 +283,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     if (e.type !== "intent") return;
     holdUntil = o.now() + INTENT_HOLD_MS;
     pendingComp = -1;
+    input.parkAt = -1;
   });
 
   const unstable = (now: number) => {
@@ -349,6 +383,25 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
         pendingComp = !c.play ? -1 : st === "playing" ? input.seekLatencyMs : pendingStart ? input.startLatencyMs : -1;
         unstable(now);
         return;
+      case "park":
+        input.hardSeek = false;
+        if (input.rate !== 1) setRate(1);
+        p.seek(c.to);
+        lastPauseAt = now;
+        p.pause();
+        input.parkAt = c.to;
+        pendingComp = -1;
+        unstable(now);
+        return;
+      case "unpark":
+        // A play from paused: the residual trains the start-up latency, as a resume does.
+        input.parkAt = -1;
+        lastPlayAt = now;
+        p.play();
+        pendingStart = true;
+        pendingComp = input.startLatencyMs;
+        unstable(now);
+        return;
     }
   }
 
@@ -356,6 +409,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     setPlayback(pb) {
       input.room = pb;
       input.hardSeek = pb !== null;
+      input.parkAt = -1;
       holdUntil = Number.NEGATIVE_INFINITY;
       // RESEND_MS only suppresses repeats within one room state (OME-170).
       lastPlayAt = Number.NEGATIVE_INFINITY;
