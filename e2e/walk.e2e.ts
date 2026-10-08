@@ -1,8 +1,9 @@
 // Walking (OME-408): every client walks avatars to their new spot itself; the motion sheets load after join.
-import { expect, test } from "./support/csp";
+import { expect, test, watchCsp } from "./support/csp";
 import type { Page, Request } from "@playwright/test";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
+import { stubExternalNetwork } from "./support/network";
 import { site } from "./support/selectors";
 
 test.fixme(!available.web, PENDING.web);
@@ -50,7 +51,8 @@ test("the room draws on a 2D canvas (ADR 0029): no WebGL readback each frame whi
 });
 
 test("the motion sheets load after join, not on the landing page", async ({ browser }) => {
-  const context = await browser.newContext();
+  const context = await watchCsp(await browser.newContext());
+  await stubExternalNetwork(context);
   const page = await context.newPage();
   const seen: string[] = [];
   page.on("request", (r) => {
