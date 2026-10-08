@@ -99,7 +99,7 @@ async function listedIds(f: Fixture): Promise<string[]> {
 describe("rooms list", () => {
   test("one row per room: id, title, visibility, created, last active, pinned and members, oldest first", async () => {
     const f = boot((store) => {
-      store.createRoom({ id: ID_A, title: "Film club", createdAt: T0 - 2 * HOUR, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
+      store.createRoom({ id: ID_A, title: "Film club", createdAt: T0 - HOUR / 2, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
     });
     clients.push((await Client.join(f.t.ws(ID_A), "Ada")).client);
 
@@ -112,7 +112,7 @@ describe("rooms list", () => {
         id: ID_A,
         title: "Film club",
         visibility: "public",
-        created: "2026-09-30T22:00:00.000Z",
+        created: "2026-09-30T23:30:00.000Z",
         "last active": "2026-10-01T00:00:00.000Z",
         pinned: "no",
         members: "1",
@@ -127,7 +127,7 @@ describe("rooms list", () => {
     const made = await createRoom(f, "Secret club", "private");
     const { code, out } = await cli(f.socket, "rooms", "list");
     expect(code).toBe(0);
-    expect(rowsOf(out).find((r) => r.id === made.room.id)).toMatchObject({ title: "Secret club", visibility: "private", pinned: "no" });
+    expect(rowsOf(out).find((r) => r["id"] === made.room.id)).toMatchObject({ title: "Secret club", visibility: "private", pinned: "no" });
     for (const secret of [made.ownerToken, made.inviteKey ?? "missing invite key"]) {
       const hash = createHash("sha256").update(secret).digest();
       for (const shape of [secret, hash.toString("hex"), hash.toString("base64"), hash.toString("base64url")]) {
@@ -148,7 +148,7 @@ describe("rooms list", () => {
     const { out } = await cli(f.socket, "rooms", "list");
     expect(out).not.toContain("\u001b");
     expect(out).not.toContain("‮");
-    expect(rowsOf(out).find((r) => r.id === ID_A)?.["title"]).toBe("a\\u001b[2Jb\\u0009c\\u202ed");
+    expect(rowsOf(out).find((r) => r["id"] === ID_A)?.["title"]).toBe("a\\u001b[2Jb\\u0009c\\u202ed");
   });
 });
 
@@ -199,7 +199,7 @@ describe("rooms pin|unpin <id>", () => {
     expect(pinned.code).toBe(0);
     expect(pinned.out).toBe(`pinned ${ID_A}`);
     expect(f.store.listRooms().find((r) => r.id === ID_A)?.pinned).toBe(true);
-    expect(rowsOf((await cli(f.socket, "rooms", "list")).out).find((r) => r.id === ID_A)?.["pinned"]).toBe("yes");
+    expect(rowsOf((await cli(f.socket, "rooms", "list")).out).find((r) => r["id"] === ID_A)?.["pinned"]).toBe("yes");
     expect(gc(T0 + 2 * HOUR)).toEqual([]);
     expect(f.rooms.get(ID_A)).toBeDefined();
 

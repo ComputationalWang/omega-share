@@ -69,8 +69,8 @@ export class Room {
   private currentTitle: string;
   /** Fixed at creation; private rooms are never listed (ADR 0028 §4). */
   readonly visibility: RoomVisibility;
-  /** Seeded: never collected, no owner (ADR 0028 §2). */
-  readonly pinned: boolean;
+  /** Never collected by GC: seeded rooms, and rooms the operator pins (`cli.ts rooms pin`). */
+  pinned: boolean;
   /** Unix ms; the list shows newer rooms first. */
   readonly createdAt: number;
   /** SHA-256 of the owner token, or null (pinned). Never the token itself. */

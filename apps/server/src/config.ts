@@ -84,6 +84,18 @@ export function ownHostsFor(siteOrigin: string, publicOrigin: string | null): st
   return [...hosts];
 }
 
+/**
+ * The operator CLI's Unix socket (`cli.ts`): `ADMIN_SOCKET`, else `admin.sock` beside `DB_PATH`, so it
+ * shares the DB's owner-only directory. Null when `ADMIN_SOCKET=off` or the DB is `:memory:`.
+ */
+export function adminSocketFor(env: Env): string | null {
+  const raw = env["ADMIN_SOCKET"];
+  if (raw === "off") return null;
+  if (raw !== undefined) return raw === "" ? fail("ADMIN_SOCKET", "must not be empty") : resolve(raw);
+  const db = env["DB_PATH"] ?? DEFAULT_DB_PATH;
+  return db === ":memory:" ? null : join(dirname(resolve(db)), "admin.sock");
+}
+
 export function parseConfig(env: Env): ServerConfig {
   const rawPort = env["PORT"] ?? "8787";
   const port = /^\d{1,5}$/.test(rawPort) ? Number(rawPort) : NaN;

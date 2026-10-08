@@ -89,6 +89,7 @@ export class RoomStore {
   readonly #setLayout: Statement<unknown, [string, string]>;
   readonly #setEmbed: Statement<unknown, [string | null, string]>;
   readonly #setTitle: Statement<unknown, [string, string]>;
+  readonly #setPinned: Statement<unknown, [number, string]>;
   readonly #setLastActive: Statement<unknown, [number, string]>;
 
   constructor(db: Database) {
@@ -102,6 +103,7 @@ export class RoomStore {
     this.#setLayout = db.prepare("UPDATE rooms SET layout = ? WHERE id = ?");
     this.#setEmbed = db.prepare("UPDATE rooms SET embed = ? WHERE id = ?");
     this.#setTitle = db.prepare("UPDATE rooms SET title = ? WHERE id = ?");
+    this.#setPinned = db.prepare("UPDATE rooms SET pinned = ? WHERE id = ?");
     this.#setLastActive = db.prepare("UPDATE rooms SET last_active_at = ? WHERE id = ?");
   }
 
@@ -158,5 +160,10 @@ export class RoomStore {
   setLastActive(id: RoomId, at: number): void {
     const ms = v.parse(UnixMsSchema, at);
     if (this.#setLastActive.run(ms, id).changes === 0) throw new Error(`no room ${JSON.stringify(id)}`);
+  }
+
+  /** Pins (GC never collects it) or unpins a room (operator CLI). */
+  setPinned(id: RoomId, pinned: boolean): void {
+    if (this.#setPinned.run(pinned ? 1 : 0, id).changes === 0) throw new Error(`no room ${JSON.stringify(id)}`);
   }
 }
