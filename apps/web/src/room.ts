@@ -55,6 +55,8 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   no_embed: "That video isn't playing here any more.",
   nickname_taken: "Someone in this room already has that name.",
   too_many_members: "Too many people from your network are in this room.",
+  invite_required: "This room is private. You need an invite link to join.",
+  not_owner: "Only the room's owner can do that.",
 };
 
 /** Adapts the DOM WebSocket to the connection's SocketLike. */

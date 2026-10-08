@@ -1,6 +1,6 @@
 import * as v from "valibot";
 import { MAX_LISTED_ROOMS, MAX_ROOM_MEMBERS, SEAT_COUNT } from "./constants";
-import { RoomIdSchema } from "./room";
+import { RoomIdSchema, RoomTitleSchema } from "./room";
 
 const count = (max: number) => v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(max));
 
@@ -9,6 +9,8 @@ export const RoomSummarySchema = v.pipe(
     id: RoomIdSchema,
     memberCount: count(MAX_ROOM_MEMBERS),
     seatedCount: count(SEAT_COUNT),
+    /** Absent from servers before ADR 0028 and for a room that has none. */
+    title: v.optional(RoomTitleSchema),
   }),
   v.check((r) => r.seatedCount <= r.memberCount, "more seated than members"),
 );

@@ -6,5 +6,6 @@ export * from "./room";
 export * from "./layout";
 export * from "./playback";
 export * from "./share";
+export * from "./room-ownership";
 export * from "./messages";
 export * from "./rooms-list";

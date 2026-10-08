@@ -10,6 +10,8 @@ export const AVATAR_COUNT = 4;
 export const MAX_ROOM_MEMBERS = 25;
 /** Room ids are `[a-z0-9-]`, 1 to this many characters. */
 export const ROOM_ID_MAX_LENGTH = 32;
+/** Room titles: UTF-16 units, counted after NFKC normalisation (ADR 0028). */
+export const ROOM_TITLE_MAX_LENGTH = 32;
 /** UTF-16 units, counted after NFKC normalisation. */
 export const NICKNAME_MAX_LENGTH = 20;
 /** Most combining marks in a row in a nickname. */
@@ -27,6 +29,32 @@ export const MAX_CLIENT_MESSAGE_BYTES = 4096;
 export const MAX_SERVER_MESSAGE_BYTES = 16384;
 /** Most rooms `GET /rooms` returns; keeps the extension dropdown and body (~6 KB) small. */
 export const MAX_LISTED_ROOMS = 100;
+/** Largest `POST /rooms` body, in bytes; a real one is ~110 B (ADR 0028). */
+export const MAX_CREATE_BODY_BYTES = 1024;
+
+/*
+ * Room creation, cap, GC and owner edits (ADR 0028). Enforced by the server; shared so tests and
+ * the site's copy agree with it. Clients learn about them only through `rate_limited`,
+ * `too_many_rooms` and `ROOM_CLOSED`.
+ */
+/** Per client key: this many creations at once, then one every ROOM_CREATE_KEY_REFILL_MS. */
+export const ROOM_CREATE_KEY_BURST = 2;
+export const ROOM_CREATE_KEY_REFILL_MS = 10 * 60_000;
+/** Whole server: this many creations at once, then one every ROOM_CREATE_GLOBAL_REFILL_MS. */
+export const ROOM_CREATE_GLOBAL_BURST = 10;
+export const ROOM_CREATE_GLOBAL_REFILL_MS = 60_000;
+/** Stored rooms, pinned ones included. At the cap the server refuses (`too_many_rooms`) and never evicts. */
+export const MAX_ROOMS = 500;
+/** A created room nobody ever joined is deleted this long after creation. */
+export const ROOM_GC_NEVER_JOINED_MS = 60 * 60_000;
+/** A created room is deleted after it has been empty this long. Pinned (seeded) rooms never are. */
+export const ROOM_GC_EMPTY_MS = 14 * 24 * 60 * 60_000;
+/** How often the GC sweep runs (and once at boot). */
+export const ROOM_GC_SWEEP_MS = 60 * 60_000;
+/** Per owner socket, `layout-set` and `title-set` together: this many at once, then one every ROOM_EDIT_REFILL_MS. */
+export const ROOM_EDIT_BURST = 2;
+export const ROOM_EDIT_REFILL_MS = 2000;
+
 /** Cap on human-readable error messages sent over the wire. */
 export const ERROR_MESSAGE_MAX_LENGTH = 200;
 /** Longest seekable playback position we accept, in seconds (12 h). */
@@ -59,5 +87,7 @@ export const CLOSE_CODES = {
   RATE_LIMITED: 4029,
   /** Too many malformed frames. Reconnect at maximum backoff. */
   BAD_MESSAGES: 4400,
+  /** The room was deleted by its owner or by GC (ADR 0028). Don't reconnect; say the room is closed. */
+  ROOM_CLOSED: 4004,
 } as const;
 export type CloseCode = (typeof CLOSE_CODES)[keyof typeof CLOSE_CODES];

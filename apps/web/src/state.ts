@@ -166,6 +166,9 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     case "member-status":
       return state.room === null || !hasMember(state.room, msg.memberId) ? state : withCatching(state, msg.memberId, msg.catching);
     case "pong":
+    // The site doesn't send owner edits yet (ADR 0028); W1/X1 apply these.
+    case "layout-changed":
+    case "title-changed":
       return state;
   }
 }

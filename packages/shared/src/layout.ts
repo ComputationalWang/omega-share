@@ -104,20 +104,27 @@ function onItsWall(f: Placed): boolean {
   return spec.layer !== "wall" || !WALL_FIXTURE_SEGMENTS.includes(f.facing === "sw" ? f.col : f.row);
 }
 
-export const FurnitureSchema = v.pipe(
-  v.object({
-    kind: FurnitureKindSchema,
-    col: CellSchema,
-    row: CellSchema,
-    facing: FacingSchema,
-    /** Absent means 0. */
-    variant: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
-  }),
-  v.check((f) => FURNITURE[f.kind].facings.includes(f.facing), "facing the piece does not have"),
-  v.check((f) => (f.variant ?? 0) < FURNITURE[f.kind].variants, "variant the piece does not have"),
-  v.check((f) => footprintCells(f).every(([c, r]) => c < FLOOR_CELLS && r < FLOOR_CELLS), "piece off the floor"),
-  v.check((f) => onItsWall(f), "piece off its wall"),
-);
+const FURNITURE_ENTRIES = {
+  kind: FurnitureKindSchema,
+  col: CellSchema,
+  row: CellSchema,
+  facing: FacingSchema,
+  /** Absent means 0. */
+  variant: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+};
+
+/** One piece's rules on top of its fields; `base` decides whether unknown keys are stripped or refused. */
+const furniture = (base: v.ObjectSchema<typeof FURNITURE_ENTRIES, undefined> | v.StrictObjectSchema<typeof FURNITURE_ENTRIES, undefined>) =>
+  v.pipe(
+    base,
+    v.check((f) => FURNITURE[f.kind].facings.includes(f.facing), "facing the piece does not have"),
+    v.check((f) => (f.variant ?? 0) < FURNITURE[f.kind].variants, "variant the piece does not have"),
+    v.check((f) => footprintCells(f).every(([c, r]) => c < FLOOR_CELLS && r < FLOOR_CELLS), "piece off the floor"),
+    v.check((f) => onItsWall(f), "piece off its wall"),
+  );
+
+/** A placed piece, server → client: unknown keys are stripped. */
+export const FurnitureSchema = furniture(v.object(FURNITURE_ENTRIES));
 export type Furniture = v.InferOutput<typeof FurnitureSchema>;
 
 export interface Seat {
@@ -149,17 +156,26 @@ function disjoint(furniture: readonly Placed[], layer: FurnitureSpec["layer"]): 
   return true;
 }
 
-export const RoomLayoutSchema = v.pipe(
-  v.object({
-    furniture: v.pipe(v.array(FurnitureSchema), v.maxLength(MAX_FURNITURE)),
-  }),
-  v.check((l) => l.furniture.filter((f) => f.kind === "tv").length === 1, "exactly one tv"),
-  v.check((l) => layoutSeats(l).length === SEAT_COUNT, "seat cells must total SEAT_COUNT"),
-  v.check((l) => disjoint(l.furniture, "object"), "solid pieces overlap"),
-  v.check((l) => disjoint(l.furniture, "floor"), "rugs overlap"),
-  v.check((l) => disjoint(l.furniture, "wall"), "wall pieces share a segment"),
-);
+const layoutEntries = (piece: ReturnType<typeof furniture>) => ({ furniture: v.pipe(v.array(piece), v.maxLength(MAX_FURNITURE)) });
+type LayoutEntries = ReturnType<typeof layoutEntries>;
+
+/** The layout's rules on top of its pieces' (ADR 0021 §3). */
+const roomLayout = (base: v.ObjectSchema<LayoutEntries, undefined> | v.StrictObjectSchema<LayoutEntries, undefined>) =>
+  v.pipe(
+    base,
+    v.check((l) => l.furniture.filter((f) => f.kind === "tv").length === 1, "exactly one tv"),
+    v.check((l) => layoutSeats(l).length === SEAT_COUNT, "seat cells must total SEAT_COUNT"),
+    v.check((l) => disjoint(l.furniture, "object"), "solid pieces overlap"),
+    v.check((l) => disjoint(l.furniture, "floor"), "rugs overlap"),
+    v.check((l) => disjoint(l.furniture, "wall"), "wall pieces share a segment"),
+  );
+
+/** Server → client (snapshot, `layout-changed`): unknown keys are stripped so the server can add fields. */
+export const RoomLayoutSchema = roomLayout(v.object(layoutEntries(FurnitureSchema)));
 export type RoomLayout = v.InferOutput<typeof RoomLayoutSchema>;
+
+/** Client → server (`layout-set`, ADR 0028): the same rules, but unknown keys are refused, on the layout and on each piece. */
+export const RoomLayoutInputSchema = roomLayout(v.strictObject(layoutEntries(furniture(v.strictObject(FURNITURE_ENTRIES)))));
 
 /** Two rows of four armchairs facing the TV, split by an aisle (the pre-M4 `SEAT_CELLS`). */
 const DEFAULT_SEAT_CELLS = [

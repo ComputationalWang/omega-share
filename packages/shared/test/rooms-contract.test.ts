@@ -144,7 +144,8 @@ describe("RoomTitleSchema", () => {
 
   test("refuses mixed Latin and Cyrillic, and mark stacks", () => {
     expect(title("Fil\u043Cs")).toBeNull();
-    expect(title(`a${"\u0301".repeat(3)}`)).toBeNull();
+    expect(title(`x${"\u0301".repeat(2)}`)).not.toBeNull();
+    expect(title(`x${"\u0301".repeat(3)}`)).toBeNull();
     expect(title("Филь\u043Cы")).toBe("Филь\u043Cы");
   });
 });

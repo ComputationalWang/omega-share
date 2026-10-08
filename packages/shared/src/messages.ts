@@ -16,8 +16,11 @@ import {
   MemberSchema,
   NicknameSchema,
   RoomStateSchema,
+  RoomTitleSchema,
   SeatIndexSchema,
 } from "./room";
+import { RoomLayoutInputSchema, RoomLayoutSchema } from "./layout";
+import { InviteKeySchema, OwnerTokenSchema } from "./room-ownership";
 import { RetryAfterMsSchema, ShareTokenSchema } from "./share";
 
 /** Anything but controls, format characters (zero-width, bidi, BOM) and line/paragraph separators. */
@@ -46,7 +49,17 @@ export const ChatTextSchema = v.pipe(
 
 // Client → server. Strict: unknown keys are rejected, not stripped.
 export const ClientMessageSchema = v.variant("type", [
-  v.strictObject({ type: v.literal("join"), nickname: NicknameSchema, avatar: AvatarSchema }),
+  /**
+   * `ownerToken` makes this member the room's owner if it matches (a wrong one joins as a guest).
+   * A private room needs a matching `inviteKey` or `ownerToken`, else `error: invite_required` (ADR 0028).
+   */
+  v.strictObject({
+    type: v.literal("join"),
+    nickname: NicknameSchema,
+    avatar: AvatarSchema,
+    ownerToken: v.optional(OwnerTokenSchema),
+    inviteKey: v.optional(InviteKeySchema),
+  }),
   v.strictObject({ type: v.literal("leave") }),
   /** `seat: null` stands up. */
   v.strictObject({ type: v.literal("sit"), seat: v.nullable(SeatIndexSchema) }),
@@ -70,6 +83,10 @@ export const ClientMessageSchema = v.variant("type", [
    * change, after it has held for 500 ms (web `CATCHUP_SHOW_MS`). Counts against the per-socket frame limit.
    */
   v.strictObject({ type: v.literal("status"), catching: v.boolean() }),
+  /** Owner only (`not_owner` otherwise): replace the room's whole layout. Last write wins; seats keep their indices (ADR 0028). */
+  v.strictObject({ type: v.literal("layout-set"), layout: RoomLayoutInputSchema }),
+  /** Owner only (`not_owner` otherwise): rename the room. */
+  v.strictObject({ type: v.literal("title-set"), title: RoomTitleSchema }),
 ]);
 export type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 
@@ -85,6 +102,10 @@ export const ERROR_CODES = [
   "nickname_taken",
   /** `join` refused: too many members from this address in the room. The socket stays open, unjoined. */
   "too_many_members",
+  /** `join` to a private room without a matching `inviteKey` or `ownerToken`. The socket stays open, unjoined. */
+  "invite_required",
+  /** `layout-set` or `title-set` from a member who didn't join with the owner token. */
+  "not_owner",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -99,6 +120,8 @@ export const ServerMessageSchema = v.variant("type", [
     self: MemberIdSchema,
     room: RoomStateSchema,
     shareToken: v.optional(ShareTokenSchema),
+    /** True when this member joined with the room's owner token; only in their own snapshot (ADR 0028). */
+    owner: v.optional(v.boolean()),
   }),
   v.object({ type: v.literal("member-joined"), member: MemberSchema }),
   v.object({ type: v.literal("member-left"), memberId: MemberIdSchema }),
@@ -130,6 +153,10 @@ export const ServerMessageSchema = v.variant("type", [
   v.object({ type: v.literal("pong"), id: PingIdSchema, at: ServerTimeSchema }),
   /** The room's playback changed; published to every member. */
   v.object({ type: v.literal("playback"), playback: PlaybackStateSchema }),
+  /** The owner replaced the layout. Seats keep their indices: draw seat `i` at the new `i`-th seat cell. */
+  v.object({ type: v.literal("layout-changed"), layout: RoomLayoutSchema, by: MemberIdSchema }),
+  /** The owner renamed the room. */
+  v.object({ type: v.literal("title-changed"), title: RoomTitleSchema, by: MemberIdSchema }),
   /** Sent instead of a snapshot when the room is at MAX_ROOM_MEMBERS; the server then closes. */
   v.object({ type: v.literal("room-full") }),
   v.object({

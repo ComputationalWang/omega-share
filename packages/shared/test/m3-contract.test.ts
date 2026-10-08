@@ -80,6 +80,7 @@ describe("CLOSE_CODES", () => {
       SLOW_CONSUMER: 4003,
       RATE_LIMITED: 4029,
       BAD_MESSAGES: 4400,
+      ROOM_CLOSED: 4004,
     });
   });
 

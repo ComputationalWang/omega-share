@@ -5,6 +5,7 @@ import {
   NICKNAME_MAX_LENGTH,
   NICKNAME_MAX_MARK_RUN,
   ROOM_ID_MAX_LENGTH,
+  ROOM_TITLE_MAX_LENGTH,
   SEAT_COUNT,
 } from "./constants";
 import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
@@ -20,11 +21,27 @@ export { MemberIdSchema, type MemberId } from "./ids";
 /** Letters that render as blank space (Hangul fillers). */
 export const INVISIBLE_LETTERS = /[\u115F\u1160\u3164\uFFA0]/u;
 
-const NICKNAME_WORD = `(?:[\\p{L}\\p{N}_.-]\\p{M}{0,${String(NICKNAME_MAX_MARK_RUN)}})+`;
-const NICKNAME_SHAPE = new RegExp(`^${NICKNAME_WORD}(?: ${NICKNAME_WORD})*$`, "u");
+/** A word: letters (each with at most 2 combining marks), digits and `chars`. */
+const nameShape = (chars: string): RegExp => {
+  const word = `(?:[\\p{L}\\p{N}${chars}]\\p{M}{0,${String(NICKNAME_MAX_MARK_RUN)}})+`;
+  return new RegExp(`^${word}(?: ${word})*$`, "u");
+};
 const LATIN = /\p{Script=Latin}/u;
 /** Scripts with letters that pass for Latin ones ("Аlice" with a Cyrillic А). */
 const LATIN_LOOKALIKES = /[\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Armenian}\p{Script=Cherokee}]/u;
+
+/** NFKC → trim → 1..`max` units of `shape`; no invisible letters; Latin never mixed with its lookalikes. */
+const nameSchema = (max: number, shape: RegExp) =>
+  v.pipe(
+    v.string(),
+    v.normalize("NFKC"),
+    v.trim(),
+    v.minLength(1),
+    v.maxLength(max),
+    v.regex(shape),
+    v.check((s) => !INVISIBLE_LETTERS.test(s), "invisible characters"),
+    v.check((s) => !(LATIN.test(s) && LATIN_LOOKALIKES.test(s)), "mixed scripts"),
+  );
 
 /**
  * NFKC-normalized (folds fullwidth and compatibility forms), then trimmed, then 1–20
@@ -34,16 +51,7 @@ const LATIN_LOOKALIKES = /[\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Armenian
  * Cherokee ones. Full confusables matching (UTS #39) is the uniqueness key in
  * `@omega/shared/confusables` (ADR 0023).
  */
-export const NicknameSchema = v.pipe(
-  v.string(),
-  v.normalize("NFKC"),
-  v.trim(),
-  v.minLength(1),
-  v.maxLength(NICKNAME_MAX_LENGTH),
-  v.regex(NICKNAME_SHAPE),
-  v.check((s) => !INVISIBLE_LETTERS.test(s), "invisible characters"),
-  v.check((s) => !(LATIN.test(s) && LATIN_LOOKALIKES.test(s)), "mixed scripts"),
-);
+export const NicknameSchema = nameSchema(NICKNAME_MAX_LENGTH, nameShape("_.\\-"));
 export type Nickname = v.InferOutput<typeof NicknameSchema>;
 
 /** The nickname `NicknameSchema` makes of `input`, or null if it has none. Never throws. */
@@ -51,6 +59,13 @@ export function normalizeNickname(input: unknown): Nickname | null {
   const result = v.safeParse(NicknameSchema, input);
   return result.success ? result.output : null;
 }
+
+/**
+ * A room's name (ADR 0028). It is listed publicly, so it gets the nickname rules, 1–32 units, plus
+ * the punctuation a title needs: `' ! ? & , : # + ( )`. No `<`, `>`, `/` or quotes; still rendered as text only.
+ */
+export const RoomTitleSchema = nameSchema(ROOM_TITLE_MAX_LENGTH, nameShape("_.\\-'!?&,:#+()"));
+export type RoomTitle = v.InferOutput<typeof RoomTitleSchema>;
 
 export const AvatarSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(AVATAR_COUNT - 1));
 export type Avatar = v.InferOutput<typeof AvatarSchema>;

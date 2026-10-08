@@ -16,14 +16,18 @@ export type ShareToken = v.InferOutput<typeof ShareTokenSchema>;
 const BEARER = /^bearer ([A-Za-z0-9_-]{22})$/i;
 
 /**
- * Token from an `Authorization: Bearer <token>` header, or null when the header is
- * missing or malformed. Boundary parser for the share endpoint; never throws.
+ * The 22-char token from an `Authorization: Bearer <token>` header, or null when the header is
+ * missing or malformed. Boundary parser for share and owner tokens (ADR 0015, 0028); never throws.
+ * It checks the shape only: the caller checks the token against the room.
  */
-export function parseShareAuthorization(header: string | null | undefined): ShareToken | null {
+export function parseBearer(header: string | null | undefined): string | null {
   // Bounds the regex input; a valid header is exactly "Bearer " + 22 chars.
   if (header?.length !== 7 + SHARE_TOKEN_LENGTH) return null;
   return BEARER.exec(header)?.[1] ?? null;
 }
+
+/** `parseBearer` for the share endpoint. */
+export const parseShareAuthorization: (header: string | null | undefined) => ShareToken | null = parseBearer;
 
 /** `sessionStorage` key the site writes its share record under; the extension reads it. */
 export const SHARE_TOKEN_STORAGE_KEY = "omega.share";

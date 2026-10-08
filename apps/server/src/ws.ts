@@ -207,6 +207,8 @@ export function createWs({
       case "leave":
       case "ping":
       case "status":
+      case "layout-set":
+      case "title-set":
         return true;
     }
   };
@@ -286,6 +288,11 @@ export function createWs({
         else status.timer = setTimeout(flushStatus, wait, ws, memberId);
         return;
       }
+      case "layout-set":
+      case "title-set":
+        // Nobody joins as the owner until created rooms land (ADR 0028).
+        sendError(ws, "not_owner", "only the room's owner can do that");
+        return;
     }
   };
 
