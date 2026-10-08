@@ -111,7 +111,7 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     }
   };
   const offMessages = o.messages((source) => {
-    if (source === frameWindow && isReady && !destroyed) sample();
+    if (frameWindow !== null && source === frameWindow && isReady && !destroyed) sample();
   });
   function readPlayback(): string {
     const s = player.getPlayerState?.();

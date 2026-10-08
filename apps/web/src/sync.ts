@@ -119,7 +119,8 @@ export function decide(i: DecideInput): Correction {
   }
   if (i.parkAt >= 0) {
     const waitMs = ((i.parkAt - expected) * 1000) / room.rate - i.startLatencyMs;
-    return waitMs > SYNC_INTERVAL_MS / 2 ? NONE : UNPARK;
+    if (waitMs <= SYNC_INTERVAL_MS / 2) return UNPARK;
+    return i.playerState === "playing" ? PAUSE : NONE;
   }
   if (i.playerState === "ended") return NONE;
   if (i.playerState !== "playing") return PLAY;
@@ -369,6 +370,8 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
         checkPos = t;
         return;
       case "seek":
+        // Re-seeking a paused player that still reads off: once per RESEND_MS, not every tick (a hard seek resets the throttle).
+        if (!c.play && st === "paused" && !input.hardSeek && now - lastPauseAt < RESEND_MS) return;
         input.hardSeek = false;
         if (input.rate !== 1) setRate(1);
         p.seek(c.to);
@@ -396,16 +399,20 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
         pendingComp = -1;
         unstable(now);
         return;
-      case "unpark":
-        // A play from paused: the residual trains the start-up latency, as a resume does.
+      case "unpark": {
+        // A play from paused: the residual trains the start-up latency, as a resume does. Not if the
+        // tick came late (throttled tab, an ad): the residual would be the lateness, not the start.
+        const room = input.room;
+        const lateMs = room === null ? 0 : ((expectedPosition(room, input.serverNowMs) - input.parkAt) * 1000) / room.rate + input.startLatencyMs;
         input.parkAt = -1;
         lastPlayAt = now;
         p.play();
         pendingStart = true;
         pendingUnpark = true;
-        pendingComp = input.startLatencyMs;
+        pendingComp = lateMs > SYNC_INTERVAL_MS ? -1 : input.startLatencyMs;
         unstable(now);
         return;
+      }
     }
   }
 
