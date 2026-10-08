@@ -63,10 +63,10 @@ export class Room {
   /** Last rev handed out; survives embed changes so clients never see rev go back. */
   private rev = -1;
 
-  /** The room's furniture (ADR 0021); it only changes through the store. */
-  readonly layout: RoomLayout;
+  /** The room's furniture (ADR 0021); the owner replaces it with `layout-set` (ADR 0028 §6). */
+  private currentLayout: RoomLayout;
   /** Empty for a seeded room without one; then the list shows no title. */
-  readonly title: string;
+  private currentTitle: string;
   /** Fixed at creation; private rooms are never listed (ADR 0028 §4). */
   readonly visibility: RoomVisibility;
   /** Seeded: never collected, no owner (ADR 0028 §2). */
@@ -96,8 +96,8 @@ export class Room {
     } = {},
   ) {
     this.topic = `room:${id}`;
-    this.layout = init.layout ?? DEFAULT_LAYOUT;
-    this.title = init.title ?? "";
+    this.currentLayout = init.layout ?? DEFAULT_LAYOUT;
+    this.currentTitle = init.title ?? "";
     this.visibility = init.visibility ?? "public";
     this.pinned = init.pinned ?? true;
     this.createdAt = init.createdAt ?? Date.now();
@@ -108,6 +108,23 @@ export class Room {
       this.playback = restoredPlayback(Date.now());
       this.rev = this.playback.rev;
     }
+  }
+
+  get layout(): RoomLayout {
+    return this.currentLayout;
+  }
+
+  get title(): string {
+    return this.currentTitle;
+  }
+
+  /** Replaces the layout. Seats keep their indices: every valid layout has SEAT_COUNT seat cells (ADR 0028 §6). */
+  setLayout(layout: RoomLayout): void {
+    this.currentLayout = layout;
+  }
+
+  setTitle(title: string): void {
+    this.currentTitle = title;
   }
 
   /**
@@ -223,6 +240,11 @@ export class Room {
   /** Whether `token` is this room's owner token (constant-time; a pinned room has no owner). */
   isOwner(token: string): boolean {
     return secretMatches(this.ownerHash, token);
+  }
+
+  /** Whether `key` is this private room's invite key (constant-time; a public room has none). */
+  isInvited(key: string): boolean {
+    return secretMatches(this.inviteHash, key);
   }
 
   summary(): RoomSummary {

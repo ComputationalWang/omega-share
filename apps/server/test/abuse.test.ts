@@ -519,6 +519,8 @@ describe("M3 transport limits (threat model §6)", () => {
       publish: () => undefined,
       release: () => undefined,
       headers: securityHeaders(true),
+      persistLayout: () => undefined,
+      persistTitle: () => undefined,
     });
     expect(websocket.backpressureLimit).toBe(256 * 1024);
     expect(websocket.closeOnBackpressureLimit).toBe(true);

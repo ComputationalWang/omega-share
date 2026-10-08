@@ -80,15 +80,24 @@ const pick = ({ ownerToken, inviteKey }: JoinInit) => ({
  * frames). With a fake clock, advances it `stepMs` per frame so the per-socket and per-key limiters refill.
  */
 async function untilClosed(c: Client, stepMs: number, send: () => void, clock?: { ms: number }): Promise<void> {
-  let closed = false;
-  void c.closed.then(() => {
-    closed = true;
-  });
-  for (let i = 0; i < 40 && !closed; i++) {
+  for (let i = 0; i < 40 && c.socket.readyState === WebSocket.OPEN; i++) {
     if (clock !== undefined) clock.ms += stepMs;
     send();
     await Promise.race([c.next("error").catch(() => undefined), c.closed]);
   }
+}
+
+/** "snapshot", or the error code, whichever reply comes first. */
+async function snapshotOrError(c: Client): Promise<string> {
+  for (let waited = 0; waited < 1000; waited += 5) {
+    for (const frame of c.raw) {
+      const msg = JSON.parse(frame) as { type: string; code?: string };
+      if (msg.type === "snapshot") return "snapshot";
+      if (msg.type === "error" && msg.code !== undefined) return msg.code;
+    }
+    await Bun.sleep(5);
+  }
+  throw new Error("no snapshot or error");
 }
 
 /** A well-formed secret that matches nothing: 22 base64url chars. */
@@ -106,7 +115,7 @@ describe("join a private room (ADR 0028 §4)", () => {
   test("without an invite key: invite_required, the socket stays open and unjoined, and members hear nothing", async () => {
     t = start({ trustProxy: true });
     const room = await createRoom("private");
-    const inside = await joined(room.room.id, "alice", { inviteKey: room.inviteKey });
+    const inside = await joined(room.room.id, "alice", { inviteKey: room.inviteKey ?? fail() });
     const c = await open(room.room.id);
     c.send({ type: "join", nickname: "mallory", avatar: 0 });
     expect((await c.next("error")).code).toBe("invite_required");
@@ -243,7 +252,7 @@ describe("join with an owner token (ADR 0028 §3)", () => {
       clock.ms += 5000;
       const c = await open(room.room.id, address);
       c.send({ type: "join", nickname: `m${String(i)}`, avatar: 0, ownerToken: WRONG });
-      codes.push(await Promise.race([c.next("snapshot").then(() => "snapshot"), c.next("error").then((e) => e.code)]));
+      codes.push(await snapshotOrError(c));
       c.close();
       await c.closed;
     }
@@ -375,8 +384,6 @@ describe("layout-set and title-set (ADR 0028 §6)", () => {
     try {
       owner.client.send({ type: "title-set", title: "Never stored" });
       await guest.client.none("title-changed", 100);
-      const late = await joined(room.room.id, "carol");
-      void late;
       const list = (await (await fetch(`${server().http}/rooms`)).json()) as { rooms: { id: string; title?: string }[] };
       expect(list.rooms.find((r) => r.id === room.room.id)?.title).toBe("Friday films");
     } finally {
@@ -400,11 +407,11 @@ describe("secrets never leave (ADR 0028 §3)", () => {
       const room = await createRoom("private");
       const secrets = [room.ownerToken, room.inviteKey ?? fail()];
       const owner = await joined(room.room.id, "olive", { ownerToken: room.ownerToken });
-      const guest = await joined(room.room.id, "bob", { inviteKey: room.inviteKey });
+      const guest = await joined(room.room.id, "bob", { inviteKey: room.inviteKey ?? fail() });
       const refused = await open(room.room.id);
       refused.send({ type: "join", nickname: "mallory", avatar: 0, inviteKey: WRONG });
       await refused.next("error");
-      const wrongOwner = await joined(room.room.id, "eve", { ownerToken: WRONG, inviteKey: room.inviteKey });
+      const wrongOwner = await joined(room.room.id, "eve", { ownerToken: WRONG, inviteKey: room.inviteKey ?? fail() });
       owner.client.send({ type: "title-set", title: "Renamed" });
       owner.client.send({ type: "layout-set", layout: movedLayout() });
       await guest.client.next("title-changed");

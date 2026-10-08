@@ -2,7 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT } from "@omega/shared";
 import { Client, start, type TestServer } from "./helpers";
 
-// ADR 0028: layout-set and title-set are owner-only. Until rooms can be created, no member is an owner.
+// ADR 0028: layout-set and title-set are owner-only. A pinned room (the lobby) has no owner, so nobody in it is one.
+// Created rooms and their owners: room-auth.test.ts.
 
 let t: TestServer | undefined;
 const clients: Client[] = [];
@@ -18,7 +19,7 @@ async function join(server: TestServer, nickname: string) {
   return r;
 }
 
-describe("owner-only messages before room ownership exists", () => {
+describe("owner-only messages in an ownerless (pinned) room", () => {
   test("a joined member's layout-set and title-set get not_owner and change nothing", async () => {
     t = start();
     const a = await join(t, "alice");

@@ -57,7 +57,7 @@ export interface ServerOptions {
 }
 
 /** The slice of RoomStore the server uses. */
-export type RoomPersistence = Pick<RoomStore, "listRooms" | "createRoom" | "deleteRoom" | "setEmbed">;
+export type RoomPersistence = Pick<RoomStore, "listRooms" | "createRoom" | "deleteRoom" | "setEmbed" | "setLayout" | "setTitle">;
 
 /** Whitespace, punctuation and symbols: `bad word` and `b.a.d-w_o r d` match a blocklisted `badword` (OME-439). */
 const SEPARATORS = /[\p{Z}\p{P}\p{S}\s]/gu;
@@ -140,6 +140,12 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     rooms,
     publish,
     headers,
+    persistLayout(room, layout) {
+      store?.setLayout(room.id, layout);
+    },
+    persistTitle(room, title) {
+      store?.setTitle(room.id, title);
+    },
     now: opts.now ?? monotonic,
     ...(opts.statusIntervalMs === undefined ? {} : { statusIntervalMs: opts.statusIntervalMs }),
     release(ip) {

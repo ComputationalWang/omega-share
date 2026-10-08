@@ -88,6 +88,7 @@ export class RoomStore {
   readonly #delete: Statement<unknown, [string]>;
   readonly #setLayout: Statement<unknown, [string, string]>;
   readonly #setEmbed: Statement<unknown, [string | null, string]>;
+  readonly #setTitle: Statement<unknown, [string, string]>;
 
   constructor(db: Database) {
     this.#list = db.prepare(
@@ -99,6 +100,7 @@ export class RoomStore {
     this.#delete = db.prepare("DELETE FROM rooms WHERE id = ?");
     this.#setLayout = db.prepare("UPDATE rooms SET layout = ? WHERE id = ?");
     this.#setEmbed = db.prepare("UPDATE rooms SET embed = ? WHERE id = ?");
+    this.#setTitle = db.prepare("UPDATE rooms SET title = ? WHERE id = ?");
   }
 
   listRooms(): StoredRoom[] {
@@ -137,6 +139,11 @@ export class RoomStore {
   setLayout(id: RoomId, layout: RoomLayout): void {
     const json = JSON.stringify(v.parse(RoomLayoutSchema, layout));
     if (this.#setLayout.run(json, id).changes === 0) throw new Error(`no room ${JSON.stringify(id)}`);
+  }
+
+  setTitle(id: RoomId, title: string): void {
+    const parsed = v.parse(TitleSchema, title);
+    if (this.#setTitle.run(parsed, id).changes === 0) throw new Error(`no room ${JSON.stringify(id)}`);
   }
 
   setEmbed(id: RoomId, embed: AnyEmbed | null): void {

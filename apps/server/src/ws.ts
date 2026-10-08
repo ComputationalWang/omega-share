@@ -2,10 +2,13 @@ import type { ServerWebSocket, WebSocketHandler } from "bun";
 import {
   CLOSE_CODES,
   MAX_CLIENT_MESSAGE_BYTES,
+  ROOM_EDIT_BURST,
+  ROOM_EDIT_REFILL_MS,
   parseClientMessage,
   type ClientMessage,
   type ErrorCode,
   type MemberId,
+  type RoomLayout,
   type ServerMessage,
   type ShareToken,
 } from "@omega/shared";
@@ -25,12 +28,16 @@ export interface ConnData {
   memberId: MemberId | null;
   /** Authorizes this member's shares while joined; only ever sent to this socket. */
   shareToken: ShareToken | null;
+  /** Joined with the room's owner token (ADR 0028 §3): may send `layout-set` and `title-set`. */
+  owner: boolean;
   /** L1: every frame. */
   bucket: TokenBucket;
   chatBucket: TokenBucket;
   sitBucket: TokenBucket;
   /** L2: `control` only, so seek wars stay bounded. */
   controlBucket: TokenBucket;
+  /** Owner edits, `layout-set` and `title-set` together (ADR 0028 §6). */
+  editBucket: TokenBucket;
   /** Frames dropped in a row by any limiter. The first of a streak gets the one `rate_limited` notice. */
   dropped: number;
   /** `bad_message`s over the socket's life. */
@@ -68,6 +75,15 @@ const JOIN_BURST = 6;
 const JOIN_PER_SECOND = 0.2;
 const UPGRADE_BURST = 10;
 const UPGRADE_PER_SECOND = 0.5;
+/**
+ * Per client key: joins with a wrong owner token or a missing or wrong invite key (ADR 0028 §3, §4).
+ * Tighter than the join limiter, so it binds: a real client never retries a wrong secret (tokens
+ * don't rotate), it only sends what it stored.
+ */
+const FAILED_OWNER_BURST = 5;
+const FAILED_OWNER_PER_SECOND = 1 / 30;
+const FAILED_INVITE_BURST = 5;
+const FAILED_INVITE_PER_SECOND = 1 / 30;
 /** Escalation: close with CLOSE_CODES.RATE_LIMITED / BAD_MESSAGES. */
 const MAX_DROPPED_IN_A_ROW = 50;
 const MAX_BAD_MESSAGES = 20;
@@ -95,6 +111,9 @@ export interface WsDeps {
   statusIntervalMs?: number;
   /** Security headers for the upgrade gate's own responses. */
   headers: SecurityHeaders;
+  /** Writes an owner's edit through to the store; throws if it can't, and then nothing changes. */
+  persistLayout: (room: Room, layout: RoomLayout) => void;
+  persistTitle: (room: Room, title: string) => void;
 }
 
 export interface Ws {
@@ -114,9 +133,14 @@ export function createWs({
   now = monotonic,
   statusIntervalMs = STATUS_INTERVAL_MS,
   headers,
+  persistLayout,
+  persistTitle,
 }: WsDeps): Ws {
   const upgrades = new KeyedLimiter(UPGRADE_BURST, UPGRADE_PER_SECOND, 1024, now);
   const joins = new KeyedLimiter(JOIN_BURST, JOIN_PER_SECOND, 1024, now);
+  // Loopback peers too, like failed shares: a wrong secret is never local dev's normal path.
+  const failedOwners = new KeyedLimiter(FAILED_OWNER_BURST, FAILED_OWNER_PER_SECOND, 1024, now);
+  const failedInvites = new KeyedLimiter(FAILED_INVITE_BURST, FAILED_INVITE_PER_SECOND, 1024, now);
   const roomControls = rooms.perRoom(() => new TokenBucket(ROOM_CONTROL_BURST, ROOM_CONTROL_PER_SECOND, now));
   /** Every open socket on the room, joined or not, so `removeRoom` can close them. Dropped when empty. */
   const sockets = rooms.perRoom(() => new Set<Conn>());
@@ -125,6 +149,23 @@ export function createWs({
 
   const sendError = (ws: Conn, code: ErrorCode, message: string): void => {
     ws.send(encode({ type: "error", code, message }));
+  };
+
+  /** Counts a `bad_message`-like failure; closes with BAD_MESSAGES and returns false at the limit. */
+  const countBad = (ws: Conn): boolean => {
+    if (++ws.data.badMessages < MAX_BAD_MESSAGES) return true;
+    ws.close(CLOSE_CODES.BAD_MESSAGES, "too many bad messages");
+    return false;
+  };
+  /**
+   * A join with a wrong secret: counts toward the 4400 close and takes from `limiter`. True if the
+   * caller may go on; false once the socket is closing or the bucket is dry (then `rate_limited`).
+   */
+  const failedSecret = (ws: Conn, limiter: KeyedLimiter, message: string): boolean => {
+    if (!countBad(ws)) return false;
+    if (limiter.take(ws.data.ip)) return true;
+    ws.send(encode({ type: "error", code: "rate_limited", message, retryAfterMs: limiter.retryAfterMs(ws.data.ip) }));
+    return false;
   };
 
   /** Drops a frame: one notice per streak, and a close once the streak is MAX_DROPPED_IN_A_ROW long. */
@@ -164,6 +205,7 @@ export function createWs({
   /** `announce` false when the whole room is going: every socket closes with ROOM_CLOSED, so a `member-left` per member is waste. */
   const depart = (ws: Conn, memberId: MemberId, closing: boolean, announce = true): void => {
     ws.data.memberId = null;
+    ws.data.owner = false;
     // The flag leaves with the member: `member-left` says it all (ADR 0019 §3).
     if (ws.data.status.timer !== null) clearTimeout(ws.data.status.timer);
     ws.data.status = freshStatus();
@@ -204,11 +246,13 @@ export function createWs({
         if (!ws.data.keyed || joins.take(ws.data.ip)) return true;
         refuse(ws, joins.retryAfterMs(ws.data.ip), "too many joins, slow down");
         return false;
+      case "layout-set":
+      case "title-set":
+        // Non-owners get not_owner (or not_joined) in `handle`; only the owner's edits take from the bucket.
+        return !ws.data.owner || admit(ws, ws.data.editBucket, "too many room edits, slow down");
       case "leave":
       case "ping":
       case "status":
-      case "layout-set":
-      case "title-set":
       // Ignored by `handle` until S6 adds the per-member emote bucket and the `emoted` fan-out (OME-413).
       case "emote":
         return true;
@@ -227,6 +271,17 @@ export function createWs({
         sendError(ws, "already_joined", "already joined");
         return;
       }
+      // Secrets are compared by hash in constant time and never echoed or logged (ADR 0028 §3).
+      const owner = msg.ownerToken !== undefined && room.isOwner(msg.ownerToken);
+      // A wrong owner token still joins, as a guest, while its bucket lasts.
+      if (msg.ownerToken !== undefined && !owner && !failedSecret(ws, failedOwners, "too many wrong owner tokens, slow down")) return;
+      if (room.visibility === "private" && !owner && !(msg.inviteKey !== undefined && room.isInvited(msg.inviteKey))) {
+        // Like nickname_taken: the socket stays open and unjoined, and hears nothing from the room.
+        if (failedSecret(ws, failedInvites, "too many wrong invite keys, slow down")) {
+          sendError(ws, "invite_required", "this room is private: use its invite link");
+        }
+        return;
+      }
       const joined = room.join(msg.nickname, msg.avatar, ws.data.keyed ? ws.data.ip : null);
       if (!joined.ok) {
         if (joined.reason === "room_full") {
@@ -242,10 +297,13 @@ export function createWs({
       const member = joined.member;
       clearJoinTimer(ws);
       ws.data.memberId = member.id;
+      ws.data.owner = owner;
       const shareToken = mintShareToken();
       ws.data.shareToken = shareToken;
       grants.get(room).set(shareToken, newShareGrant(member.id));
-      ws.send(encode({ type: "snapshot", self: member.id, room: room.snapshot(), shareToken }));
+      const snapshot = { type: "snapshot", self: member.id, room: room.snapshot(), shareToken } as const;
+      // Only the owner's own snapshot says so; nothing about ownership is ever broadcast.
+      ws.send(encode(owner ? { ...snapshot, owner: true } : snapshot));
       ws.subscribe(room.topic);
       ws.publish(room.topic, encode({ type: "member-joined", member }));
       return;
@@ -292,13 +350,46 @@ export function createWs({
       }
       case "layout-set":
       case "title-set":
-        // Nobody joins as the owner until created rooms land (ADR 0028).
-        sendError(ws, "not_owner", "only the room's owner can do that");
+        if (!ws.data.owner) {
+          sendError(ws, "not_owner", "only the room's owner can do that");
+          countBad(ws);
+          return;
+        }
+        if (msg.type === "layout-set") setLayout(room, memberId, msg.layout);
+        else setTitle(room, memberId, msg.title);
         return;
       case "emote":
         // S6 fans this out as `emoted` (OME-413).
         return;
     }
+  };
+
+  /** Store first: if the write fails nothing changes, so memory never runs ahead of the DB. */
+  const persisted = (room: Room, what: string, write: () => void): boolean => {
+    try {
+      write();
+      return true;
+    } catch (err) {
+      console.error(`could not save room ${room.id}'s ${what}: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
+  };
+  /** Last write wins; seats keep their indices, so nobody is unseated (ADR 0028 §6). */
+  const setLayout = (room: Room, by: MemberId, layout: RoomLayout): void => {
+    if (JSON.stringify(layout) === JSON.stringify(room.layout)) return;
+    if (!persisted(room, "layout", () => {
+      persistLayout(room, layout);
+    })) return;
+    room.setLayout(layout);
+    publish(room.topic, encode({ type: "layout-changed", layout, by }));
+  };
+  const setTitle = (room: Room, by: MemberId, title: string): void => {
+    if (title === room.title) return;
+    if (!persisted(room, "title", () => {
+      persistTitle(room, title);
+    })) return;
+    room.setTitle(title);
+    publish(room.topic, encode({ type: "title-changed", title, by }));
   };
 
   // The room is already unregistered: depart revokes each member's grant, then the socket closes.
@@ -326,10 +417,12 @@ export function createWs({
       keyed: !isLoopbackKey(ip),
       memberId: null,
       shareToken: null,
+      owner: false,
       bucket: new TokenBucket(WS_BURST, WS_PER_SECOND, now),
       chatBucket: new TokenBucket(CHAT_BURST, CHAT_PER_SECOND, now),
       sitBucket: new TokenBucket(SIT_BURST, SIT_PER_SECOND, now),
       controlBucket: new TokenBucket(CONTROL_BURST, CONTROL_PER_SECOND, now),
+      editBucket: new TokenBucket(ROOM_EDIT_BURST, 1000 / ROOM_EDIT_REFILL_MS, now),
       dropped: 0,
       badMessages: 0,
       joinTimer: null,
@@ -355,7 +448,7 @@ export function createWs({
         const msg = typeof raw === "string" ? parseClientMessage(raw) : null;
         if (msg === null) {
           sendError(ws, "bad_message", "invalid message");
-          if (++ws.data.badMessages >= MAX_BAD_MESSAGES) ws.close(CLOSE_CODES.BAD_MESSAGES, "too many bad messages");
+          countBad(ws);
           return;
         }
         if (!admitType(ws, msg)) return;

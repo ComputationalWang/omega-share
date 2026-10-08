@@ -97,6 +97,8 @@ describe("RoomRegistry.removeRoom", () => {
       setEmbed: (id: RoomId) => {
         stored.push(id);
       },
+      setLayout: () => undefined,
+      setTitle: () => undefined,
     };
     t = start({ registry, store });
     registry.addRoom(new Room("film-club"));
