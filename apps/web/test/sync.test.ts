@@ -255,10 +255,14 @@ describe("decide: seek-only parks instead of seeking while playing (OME-396)", (
     expect(parked(10.125)).toEqual({ kind: "unpark" });
     expect(parked(9)).toEqual({ kind: "unpark" });
     expect(parked(10.2, { startLatencyMs: 80 })).toEqual({ kind: "unpark" });
-    // The pause may not show yet: still wait.
-    expect(parked(11, { playerState: "playing" })).toEqual({ kind: "none" });
+    // Still playing while waiting: pause (again; the loop throttles the resend).
+    expect(parked(11, { playerState: "playing" })).toEqual({ kind: "pause" });
     expect(parked(10.1, { playerState: "playing" })).toEqual({ kind: "unpark" });
     expect(parked(11, { playerState: "buffering" })).toEqual({ kind: "none" });
+  });
+
+  test("parked but still playing (the pause didn't take): pause again while waiting", () => {
+    expect(decide(input(0, { mode: "seek-only", parkAt: 11, stableForMs: 0, sampleCount: 0 }))).toEqual({ kind: "pause" });
   });
 
   test("fine and burst still seek while playing", () => {
@@ -532,6 +536,31 @@ describe("sync loop", () => {
     h.run(5000);
     expect(h.player.calls).toEqual([{ op: "play" }]);
     expect(Math.abs(h.player.time() - expectedPosition(resumed, h.clock.serverNow()))).toBeLessThanOrEqual(0.25);
+  });
+
+  test("seek-only: a late unpark (ticks throttled past the park) doesn't train the start-up latency (OME-396)", () => {
+    const h = harness({ caps: CAPS.twitchVod, rates: [1] });
+    h.loop.start();
+    h.loop.setPlayback(room({ at: 1_000_000 }));
+    h.run(250);
+    expect(h.player.calls.map((c) => c.op)).toEqual(["seek", "pause"]);
+    // A background tab: no ticks for 5 s.
+    h.t.now += 5000;
+    h.run(3000);
+    expect(h.loop.startLatencyMs).toBe(0);
+  });
+
+  test("a paused re-seek is sent at most once per RESEND_MS, even if the paused clock keeps reading off (OME-396)", () => {
+    const h = harness({ state: "paused" });
+    h.loop.start();
+    h.loop.setPlayback(room({ playing: false, action: "pause", at: h.clock.serverNow() }));
+    h.run(250);
+    h.player.calls.length = 0;
+    for (let i = 0; i < 8; i++) {
+      h.player.shift(0.3);
+      h.run(250);
+    }
+    expect(h.player.calls.filter((c) => c.op === "seek")).toHaveLength(2);
   });
 
   test("seek-only: a new room state while parked cancels the park", () => {

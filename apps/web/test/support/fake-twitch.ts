@@ -6,7 +6,7 @@ export type TwitchCall = [name: string, ...args: unknown[]];
 export interface FakeIframe {
   readonly tagName: string;
   /** Stands in for the frame's window: the `source` of its postMessages. */
-  readonly contentWindow: object;
+  readonly contentWindow: object | null;
   getAttribute(name: string): string | null;
 }
 
@@ -125,6 +125,6 @@ export function fakeTwitch(o: FakeTwitchOptions = {}): { twitch: { Player: unkno
   return { twitch: { Player }, players };
 }
 
-export function iframe(src: string, tagName = "IFRAME"): FakeIframe {
-  return { tagName, contentWindow: {}, getAttribute: (n) => (n === "src" ? src : null) };
+export function iframe(src: string, tagName = "IFRAME", contentWindow: object | null = {}): FakeIframe {
+  return { tagName, contentWindow, getAttribute: (n) => (n === "src" ? src : null) };
 }

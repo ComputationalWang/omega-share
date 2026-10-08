@@ -14,7 +14,7 @@ import {
 import type { TwitchLoad } from "../src/player/twitch-loader";
 import { asTwitchNamespace } from "../src/player/twitch-types";
 import { tvFrame, type TvTwitch } from "../src/tv";
-import { FakeContainer, fakeTwitch, iframe, sdkSrc, type FakeTwitchPlayer } from "./support/fake-twitch";
+import { FakeContainer, fakeTwitch, iframe, sdkSrc, type FakeTwitchOptions, type FakeTwitchPlayer } from "./support/fake-twitch";
 
 /** A constructor whose instances have none of the player's methods. */
 class NotAPlayer {
@@ -37,10 +37,10 @@ interface Timer {
   cleared: boolean;
 }
 
-function setup(embed: TwitchEmbed = VOD) {
+function setup(embed: TwitchEmbed = VOD, o: FakeTwitchOptions = {}) {
   const t = { now: 0 };
   const timers: Timer[] = [];
-  const { twitch, players } = fakeTwitch();
+  const { twitch, players } = fakeTwitch(o);
   const ns = asTwitchNamespace(twitch);
   if (ns === null) throw new Error("fake Twitch rejected by the guard");
   const box = new FakeContainer();
@@ -242,6 +242,18 @@ describe("attachTwitch", () => {
     expect(adapter.time()).toBeCloseTo(11.06, 6);
     adapter.destroy();
     expect(messages.size).toBe(0);
+  });
+
+  test("without an iframe window to match, no message reads the cache (a null source isn't ours)", () => {
+    const { t, adapter, ready, push, deliver } = setup(VOD, { render: (opts) => [iframe(sdkSrc(opts), "IFRAME", null)] });
+    ready();
+    push({ playback: "Playing", time: 10 });
+    expect(adapter.time()).toBeCloseTo(10.2, 6);
+    t.now += 1060;
+    push({ time: 10.86 });
+    deliver(null);
+    t.now += 240;
+    expect(adapter.time()).toBeCloseTo(11.06, 6);
   });
 
   test("a fresh push right after play doesn't overshoot by the lag: the lower of it and the previous reading wins (OME-396)", () => {
