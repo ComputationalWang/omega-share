@@ -60,11 +60,18 @@ export function normalizeNickname(input: unknown): Nickname | null {
   return result.success ? result.output : null;
 }
 
+/** Variation selectors and the combining keycap: the marks that turn text into emoji. */
+const EMOJI_MARKS = /[\uFE0E\uFE0F\u20E3]/u;
+
 /**
  * A room's name (ADR 0028). It is listed publicly, so it gets the nickname rules, 1–32 units, plus
  * the punctuation a title needs: `' ! ? & , : # + ( )`. No `<`, `>`, `/` or quotes; still rendered as text only.
  */
-export const RoomTitleSchema = nameSchema(ROOM_TITLE_MAX_LENGTH, nameShape("_.\\-'!?&,:#+()"));
+export const RoomTitleSchema = v.pipe(
+  nameSchema(ROOM_TITLE_MAX_LENGTH, nameShape("_.\\-'!?&,:#+()")),
+  // Keycaps ("#️⃣", "1️⃣") are a base plus combining marks, so the word shape alone lets them through.
+  v.check((s) => !EMOJI_MARKS.test(s), "emoji"),
+);
 export type RoomTitle = v.InferOutput<typeof RoomTitleSchema>;
 
 export const AvatarSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(AVATAR_COUNT - 1));
