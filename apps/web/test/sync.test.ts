@@ -100,6 +100,13 @@ describe("decide: thresholds", () => {
     expect(decide(input(-3000))).toEqual({ kind: "seek", to: 10, play: true });
   });
 
+  test("seek-only seeks above 250 ms, half the 500 ms pairwise budget, so two clients can't sit 500+ ms apart (OME-392)", () => {
+    expect(decide(input(251, { mode: "seek-only" }))).toEqual({ kind: "seek", to: 10, play: true });
+    expect(decide(input(-251, { mode: "seek-only" }))).toEqual({ kind: "seek", to: 10, play: true });
+    expect(decide(input(250, { mode: "seek-only" }))).toEqual({ kind: "none" });
+    expect(decide(input(-250, { mode: "seek-only" }))).toEqual({ kind: "none" });
+  });
+
   test("a nudge in the right direction is held until drift is back inside the dead band", () => {
     expect(decide(input(300, { rate: 0.96 }))).toEqual({ kind: "none" });
     expect(decide(input(-300, { rate: 1.04 }))).toEqual({ kind: "none" });
@@ -426,11 +433,11 @@ describe("sync loop", () => {
     h.loop.setPlayback(room({ at: 1_000_000 }));
     h.run(250);
     h.player.calls.length = 0;
-    h.player.shift(0.3);
+    h.player.shift(0.2);
     h.run(3000);
     expect(h.loop.mode).toBe("seek-only");
     expect(h.player.calls).toEqual([]);
-    h.player.shift(0.4);
+    h.player.shift(0.1);
     h.run(3000);
     expect(h.player.calls.some((c) => c.op === "rate")).toBe(false);
     expect(h.player.calls[0]?.op).toBe("seek");
