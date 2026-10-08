@@ -45,28 +45,28 @@ describe("walks", () => {
   test("someone who joins later walks in from the door, then stands at their spot", () => {
     const { walks, sample } = setup();
     walks.place([sitAt("a", 1, 5)], 0);
-    walks.place([sitAt("a", 1, 5), standAt("b", 6, 9)], 1000);
+    walks.place([sitAt("a", 1, 5), standAt("b", 6, 9)], 1050);
     // Door (9,9) → (6,9): three tiles towards -col, i.e. nw.
-    expect(sample("b", 1000)).toMatchObject({ ...centerOf(DOOR), walking: true, dir: "nw", sitting: false });
-    expect(walks.walking(1000)).toBe(true);
-    const half = sample("b", 1000 + TILE_MS / 2);
+    expect(sample("b", 1050)).toMatchObject({ ...centerOf(DOOR), walking: true, dir: "nw", sitting: false });
+    expect(walks.walking(1050)).toBe(true);
+    const half = sample("b", 1050 + TILE_MS / 2);
     const door = centerOf(DOOR);
     const next = cellCenter(8, 9);
     expect(half).toMatchObject({ x: (door.x + next.x) / 2, y: (door.y + next.y) / 2, walking: true });
     expect(half?.z).toBe(standDepth({ x: (door.x + next.x) / 2, y: (door.y + next.y) / 2 }));
-    expect(sample("b", 1000 + 3 * TILE_MS)).toMatchObject({ ...cellCenter(6, 9), walking: false, sitting: false });
-    expect(walks.walking(1000 + 3 * TILE_MS)).toBe(false);
+    expect(sample("b", 1050 + 3 * TILE_MS)).toMatchObject({ ...cellCenter(6, 9), walking: false, sitting: false });
+    expect(walks.walking(1050 + 3 * TILE_MS)).toBe(false);
   });
 
   test("a seat change walks from the previous seat to the new one, then sits facing the seat's way", () => {
     const { walks, sample } = setup();
     walks.place([sitAt("a", 4, 6, "ne", 111)], 0);
-    walks.place([sitAt("a", 4, 2, "nw", 222)], 5000);
-    const start = sample("a", 5000);
+    walks.place([sitAt("a", 4, 2, "nw", 222)], 4950);
+    const start = sample("a", 4950);
     expect(start).toMatchObject({ ...cellCenter(4, 6), walking: true, sitting: false });
     // Done after (path length - 1) tiles, never sooner.
     const path = findPath(grid, 46, 42) ?? [];
-    const end = 5000 + (path.length - 1) * TILE_MS;
+    const end = 4950 + (path.length - 1) * TILE_MS;
     expect(sample("a", end - 1)?.walking).toBe(true);
     expect(sample("a", end)).toMatchObject({ ...cellCenter(4, 2), z: 222, walking: false, sitting: true, dir: "nw" });
   });
@@ -157,8 +157,8 @@ describe("walks", () => {
     walks.place([standAt("a", 4, 9), standAt("b", 5, 9), standAt("c", 6, 9)], 0);
     const rests = ["a", "b", "c"].map((w) => sample(w, 0)?.restMs);
     expect(new Set(rests).size).toBeGreaterThan(1);
-    walks.place([standAt("a", 4, 8), standAt("b", 5, 9), standAt("c", 6, 9)], 100);
-    expect(sample("a", 100 + TILE_MS + 50)?.restMs).toBe(50);
+    walks.place([standAt("a", 4, 8), standAt("b", 5, 9), standAt("c", 6, 9)], 150);
+    expect(sample("a", 150 + TILE_MS + 50)?.restMs).toBe(50);
   });
 });
 
@@ -184,4 +184,28 @@ test("the same layout again (its furniture atlas arriving) doesn't stop the next
   walks.place([standAt("a", 5, 5)], 0);
   walks.sample(id("a"), 0, pose);
   expect(pose.walking).toBe(true);
+});
+
+describe("walks move in whole steps (ADR 0010 stepPx: 8 × 4 px a 150 ms frame)", () => {
+  test("the avatar holds each step for the whole frame, then moves one step on", () => {
+    const { walks, sample } = setup();
+    walks.place([standAt("a", 5, 9)], 0);
+    walks.place([standAt("a", 5, 6)], 0); // -row: ne, i.e. +x, -y on screen
+    const start = cellCenter(5, 9);
+    for (const t of [0, 75, 149]) expect(sample("a", t)).toMatchObject({ x: start.x, y: start.y });
+    for (const t of [150, 225, 299]) expect(sample("a", t)).toMatchObject({ x: start.x + 8, y: start.y - 4 });
+    expect(sample("a", 300)).toMatchObject({ x: start.x + 16, y: start.y - 8 });
+  });
+
+  test("walks start on a shared 150 ms clock: asked for at 1000, it starts at 1050 and waits at its spot until then", () => {
+    const { walks, sample } = setup();
+    walks.place([standAt("a", 5, 9)], 0);
+    walks.place([standAt("a", 5, 8)], 1000);
+    const start = cellCenter(5, 9);
+    expect(sample("a", 1000)).toMatchObject({ x: start.x, y: start.y, walking: true, step: 0 });
+    expect(sample("a", 1199)).toMatchObject({ x: start.x, y: start.y, step: 0 });
+    expect(sample("a", 1200)).toMatchObject({ x: start.x + 8, y: start.y - 4, step: 1 });
+    expect(sample("a", 1050 + TILE_MS - 1)?.walking).toBe(true);
+    expect(sample("a", 1050 + TILE_MS)).toMatchObject({ ...cellCenter(5, 8), walking: false });
+  });
 });

@@ -79,22 +79,31 @@ describe("animator", () => {
     expect(s.timers.length).toBe(0);
   });
 
-  test("a walk runs one frame at a time until it arrives, then stops asking for frames", () => {
+  test("a walk redraws once per 150 ms step (ADR 0010 stepPx): a timer to the shared step clock, then one frame", () => {
     const s = setup();
     s.anim.setFrames(frames);
     s.walks.place([standAt("a", 5, 9)], 0);
     s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(0);
     s.walks.place([standAt("a", 5, 8)], 0); // one tile, -row: ne
     s.anim.set([{ id: id("a"), avatar: 0 }]);
     s.anim.set([{ id: id("a"), avatar: 0 }]);
-    expect(s.rafs.length).toBe(1); // never two loops
+    expect(s.rafs.length).toBe(0); // no per-frame loop
+    expect(s.timers.at(-1)?.ms).toBe(150);
+    const before = s.renders();
     s.draws.length = 0;
-    expect(s.frame(160)).toBe(true);
-    expect(s.draws.at(-1)?.frame).toBe("walk/juno/ne/1");
-    expect(s.renders()).toBe(1);
-    let t = 160;
-    while (s.frame((t += 16))) if (t > 5000) break;
-    expect(t).toBeLessThan(700);
+    let t = 0;
+    for (let i = 0; i < 10; i++) {
+      const timer = s.timers.at(-1);
+      if (timer === undefined || s.draws.at(-1)?.pose.walking === false) break;
+      t += timer.ms;
+      s.timers.length = 0;
+      timer.fn();
+      expect(s.frame(t + 5)).toBe(true);
+      if (i === 0) expect(s.draws.at(-1)?.frame).toBe("walk/juno/ne/1");
+    }
+    // Steps at 150, 300, 450, then at rest at 600: four redraws for the tile.
+    expect(s.renders() - before).toBe(4);
     expect(s.draws.at(-1)?.pose.walking).toBe(false);
     expect(s.draws.at(-1)?.frame).toMatch(/^(juno\/idle\/ne\/0|breathe\/juno\/idle\/ne\/1)$/);
   });
@@ -140,7 +149,7 @@ describe("animator", () => {
 });
 
 describe("animator teardown and idle cost", () => {
-  test("dispose: a queued frame or breathe timer does nothing afterwards, and nothing new is scheduled", () => {
+  test("dispose: a queued step or breathe timer does nothing afterwards, and nothing new is scheduled", () => {
     const s = setup();
     s.anim.setFrames(frames);
     s.walks.place([standAt("a", 5, 9)], 0);
@@ -149,13 +158,15 @@ describe("animator teardown and idle cost", () => {
     const breathe = s.timers.at(-1);
     expect(breathe).toBeDefined();
     s.walks.place([standAt("a", 5, 8)], 10);
-    s.anim.set([{ id: id("a"), avatar: 0 }]); // walking: a frame is queued
-    expect(s.rafs.length).toBe(1);
+    s.anim.set([{ id: id("a"), avatar: 0 }]); // walking: a step timer is queued
+    const step = s.timers.at(-1);
+    expect(step).not.toBe(breathe);
     s.anim.dispose();
     expect(s.cleared()).toBeGreaterThan(0);
     const draws = s.draws.length;
-    s.frame(100);
     breathe?.fn();
+    step?.fn();
+    s.frame(150);
     s.anim.setFrames(frames);
     s.anim.set([{ id: id("a"), avatar: 0 }]);
     expect(s.draws.length).toBe(draws);
