@@ -35,7 +35,7 @@ base() {
   fi
   apt-get update -qq
   apt-get -y -qq full-upgrade
-  apt-get -y -qq install caddy sqlite3 unzip curl rsync nftables unattended-upgrades polkitd
+  apt-get -y -qq install caddy sqlite3 sudo unzip curl rsync nftables unattended-upgrades polkitd
 
   # Unattended upgrades: security pockets (Ubuntu default) plus Caddy; reboot for kernels at 04:30 UTC.
   install -m 0644 "$here/apt/20auto-upgrades" /etc/apt/apt.conf.d/20auto-upgrades
@@ -51,10 +51,16 @@ base() {
   install -m 0644 "$here/polkit/50-omega-share-deploy.rules" /etc/polkit-1/rules.d/50-omega-share-deploy.rules
 
   install -d -m 0755 -o deploy -g deploy /opt/omega-share /opt/omega-share/releases
-  # Backups: written by the service user, readable by deploy for the off-box pull (setgid group).
-  install -d -m 2750 -o omega-share -g deploy /var/backups/omega-share
-  install -d -m 0755 /usr/local/lib/omega-share
-  install -m 0755 "$here/backup.sh" /usr/local/lib/omega-share/backup.sh
+  # Backups (docs/ops/backup.md): 0600 snapshots in a 0700 dir, all the service user's. A re-run
+  # takes a box off the old setgid-deploy layout and drops the old sqlite3 script.
+  install -d -m 0700 -o omega-share -g omega-share /var/backups/omega-share
+  chown -R omega-share:omega-share /var/backups/omega-share
+  chmod -R go= /var/backups/omega-share
+  rm -f /usr/local/lib/omega-share/backup.sh
+  rmdir /usr/local/lib/omega-share 2>/dev/null || true
+  # The off-box pull runs only the read-only rsync sender as the service user.
+  visudo -cf "$here/backup/sudoers.omega-backup"
+  install -m 0440 "$here/backup/sudoers.omega-backup" /etc/sudoers.d/omega-backup
 
   # Bun, pinned and checked against the hash committed in deploy/ (not one fetched beside the zip),
   # root-owned so a deploy can't swap the runtime. A version bump updates both files.
@@ -70,10 +76,11 @@ base() {
 
   install -m 0644 "$here/Caddyfile" /etc/caddy/Caddyfile
   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-  install -m 0644 "$here/omega-share.service" "$here/omega-share-backup.service" "$here/omega-share-backup.timer" /etc/systemd/system/
+  install -m 0644 "$here/omega-share.service" /etc/systemd/system/
+  install -m 0644 "$here/backup/omega-share-backup.service" "$here/backup/omega-share-backup.timer" /etc/systemd/system/
   systemctl daemon-reload
-  systemctl enable omega-share.service omega-share-backup.timer
-  systemctl start omega-share-backup.timer
+  systemctl enable omega-share.service
+  systemctl enable --now omega-share-backup.timer
   systemctl restart caddy # admin off: no `caddy reload`
 
   # Firewall: load with an automatic rollback in case it cuts this session; confirm with `firewall-ok`.

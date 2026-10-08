@@ -41,4 +41,11 @@ for old in "${snaps[@]:keep}"; do
   rm -f -- "${dest:?}/$old"
   echo "pruned $old"
 done
-echo "pulled to $dest: newest $(find "$dest" -maxdepth 1 -type f -name "$pattern" -printf '%f\n' | sort | tail -n 1)"
+newest=$(find "$dest" -maxdepth 1 -type f -name "$pattern" -printf '%f\n' | sort | tail -n 1)
+[[ -n $newest ]] || { echo "pull.sh: no snapshot pulled" >&2; exit 1; }
+# rsync -t keeps the box's mtime: nothing newer than 36 h means the nightly snapshot is failing.
+if [[ -z $(find "$dest/$newest" -mmin -2160) ]]; then
+  echo "pull.sh: newest snapshot $newest is older than 36 h: check omega-share-backup.service on the box" >&2
+  exit 1
+fi
+echo "pulled to $dest: newest $newest"

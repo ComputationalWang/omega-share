@@ -1,6 +1,6 @@
 # Backups and restore
 
-Research: `docs/research/m4-hosting-and-sqlite.md` §2.5 · [OME-358](/OME/issues/OME-358) · deploy kit: [OME-357](/OME/issues/OME-357)
+Research: `docs/research/m4-hosting-and-sqlite.md` §2.5 · [OME-358](/OME/issues/OME-358) · deploy kit: `deploy/provision.sh` ([OME-356](/OME/issues/OME-356), wired in [OME-363](/OME/issues/OME-363))
 
 The server keeps rooms, layouts and each room's last embed in one SQLite file (`DB_PATH`, WAL mode). The data is low-sensitivity: no IPs, no chat, no names. Backups still go only to places the operator alone can reach.
 
@@ -14,7 +14,7 @@ Retention counts snapshots, not days. A box that was off for a month still has i
 
 ## Paths and names
 
-These defaults have to match the deploy kit ([OME-357](/OME/issues/OME-357)). Every script reads them from the environment, so a different layout only needs different values:
+These defaults match the deploy kit (`deploy/omega-share.service`, `deploy/provision.sh`; `apps/server/test/deploy-kit.test.ts` pins that they agree). Every script reads them from the environment, so a different layout only needs different values:
 
 | What | Default | Override |
 | --- | --- | --- |
@@ -36,7 +36,7 @@ These defaults have to match the deploy kit ([OME-357](/OME/issues/OME-357)). Ev
 
 The unit runs as the service user with `UMask=0077`, no network (`PrivateNetwork=yes`), a read-only system, and write access only to the snapshot directory and the DB's directory. A WAL reader writes the `-shm` file, so it needs the DB's directory too. The timer fires at 03:30 UTC (± 20 min) and catches up at boot after a night the box was off (`Persistent=true`).
 
-Install (the deploy kit's bootstrap does this; by hand as root):
+Install (`deploy/provision.sh base` does this, plus the pull's sudoers rule; by hand as root):
 
 ```sh
 install -d -o omega-share -g omega-share -m 0700 /var/backups/omega-share

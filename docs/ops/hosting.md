@@ -49,46 +49,33 @@ ssh $A admin@$SERVER_IP "sudo bash omega-deploy/provision.sh ssh"           # on
 
 On a brand-new box, the first run is `root@` with the board's key. The `ssh` phase then turns root login off.
 
-## Backups
+## Backups and restore
 
-- **On the box:** `omega-share-backup.timer` fires daily at 03:15 UTC (± 10 min). It runs `backup.sh` as `omega-share`: a `VACUUM INTO` snapshot, then `PRAGMA integrity_check`. The result is `/var/backups/omega-share/omega-YYYY-MM-DD.db`, kept for 14 days. To check it: `systemctl list-timers omega-share-backup.timer`.
-- **Off the box:** `deploy/pull-backups.sh` rsyncs the snapshots as `deploy` into `~/.local/share/omega-share/backups` (mode 0700) on the operator machine and keeps them for 60 days. A daily user timer runs it there:
+The runbook is [`docs/ops/backup.md`](backup.md). `provision.sh base` installs all of it (OME-363):
+
+- **On the box:** `omega-share-backup.timer` (03:30 UTC ± 20 min, `Persistent=true`) runs `apps/server/scripts/backup.ts snapshot` from the current release as `omega-share`. It writes a checked `/var/backups/omega-share/omega-YYYY-MM-DD.db` (0600, in a 0700 dir) and keeps the newest 14. To check it: `systemctl list-timers omega-share-backup.timer`.
+- **Off the box:** `deploy/backup/pull.sh` rsyncs the snapshots as `deploy` to the operator machine and keeps the newest 14. `/etc/sudoers.d/omega-backup` lets `deploy` run only the read-only rsync sender as `omega-share`. A daily user timer runs it there:
 
   ```ini
   # ~/.config/systemd/user/omega-share-pull-backups.service
   [Service]
   Type=oneshot
   EnvironmentFile=%h/Projects/omega-share/.env
-  ExecStart=/bin/sh -c 'DEPLOY_HOST=deploy@$SERVER_IP DEPLOY_KEY=$DEPLOY_KEY_PATH exec %h/Projects/omega-share/deploy/pull-backups.sh'
+  ExecStart=/bin/sh -c 'OMEGA_BACKUP_SOURCE=deploy@$SERVER_IP:/var/backups/omega-share/ OMEGA_BACKUP_DEST=%h/.local/share/omega-share/backups OMEGA_BACKUP_SSH_KEY=$DEPLOY_KEY_PATH exec %h/Projects/omega-share/deploy/backup/pull.sh'
   # ~/.config/systemd/user/omega-share-pull-backups.timer
   [Timer]
-  OnCalendar=*-*-* 04:00:00 UTC
+  OnCalendar=*-*-* 05:30:00 UTC
   Persistent=true
   [Install]
   WantedBy=timers.target
   ```
 
   Enable it with `systemctl --user enable --now omega-share-pull-backups.timer`. `Persistent=true` catches up after the machine was off.
-
-## Restore (and the drill)
-
-As `admin` (sudo; `ssh -o IdentitiesOnly=yes -i ~/.config/omega-share/admin-key admin@$SERVER_IP`):
-
-```sh
-snap=/var/backups/omega-share/omega-YYYY-MM-DD.db      # or scp an off-box copy up first
-sqlite3 -readonly "$snap" 'PRAGMA integrity_check'      # must print ok
-systemctl stop omega-share
-mv /var/lib/omega-share/omega.db /root/omega.db.before-restore
-rm -f /var/lib/omega-share/omega.db-wal /var/lib/omega-share/omega.db-shm
-install -m 0600 -o omega-share -g omega-share "$snap" /var/lib/omega-share/omega.db
-systemctl start omega-share
-sqlite3 -readonly /var/lib/omega-share/omega.db 'select id, length(layout), embed from rooms'
-curl -s http://127.0.0.1:8787/rooms
-```
+- **Restore:** as `admin`, from the box's copy of `deploy/`, run `bash deploy/backup/restore.sh /var/backups/omega-share/omega-YYYY-MM-DD.db`. It verifies the snapshot before it stops anything. See [backup.md § Restore](backup.md#restore).
 
 After a restore, rooms, layouts and each room's last embed come back, with playback paused at 0. Presence, chat and share tokens are memory-only by design.
 
-**Drill record, 2026-10-08 (go-live, OME-356):** the drill started with `lobby` holding the Vimeo embed from the headed smoke. The snapshot was taken with the timer's own unit. The live DB was then moved away to simulate a loss, and the snapshot was restored. After the restart, the same `lobby` row came back (layout of 597 bytes, the same Vimeo embed), with `user_version` 1, `integrity_check` ok and `/rooms` listing `lobby`. The off-box pull of that snapshot also passed `integrity_check`.
+**Drill record, 2026-10-08 (go-live, OME-356, with the earlier sqlite3 `backup.sh` that OME-363 replaced):** the drill started with `lobby` holding the Vimeo embed from the headed smoke. The snapshot was taken with the timer's own unit. The live DB was then moved away to simulate a loss, and the snapshot was restored. After the restart, the same `lobby` row came back (layout of 597 bytes, the same Vimeo embed), with `user_version` 1, `integrity_check` ok and `/rooms` listing `lobby`. The off-box pull of that snapshot also passed `integrity_check`.
 
 ## Checks
 

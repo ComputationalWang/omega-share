@@ -20,6 +20,8 @@ Environment=PUBLIC_ORIGIN=https://omega-share.duckdns.org
 Environment=SITE_ORIGIN=https://omega-share.duckdns.org
 Environment=STATIC_DIR=/opt/omega-share/current/apps/web/dist
 Environment=DB_PATH=/var/lib/omega-share/omega.db
+# Optional per-box overrides (e.g. DB_PATH); the backup unit reads the same file.
+EnvironmentFile=-/etc/omega-share/env
 ExecStart=/usr/local/bin/bun /opt/omega-share/current/apps/server/src/index.ts
 Restart=on-failure
 RestartSec=2

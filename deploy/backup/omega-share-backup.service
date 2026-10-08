@@ -3,6 +3,8 @@
 [Unit]
 Description=omega-share nightly SQLite snapshot (VACUUM INTO, keeps 14)
 Documentation=file:///opt/omega-share/current/docs/ops/backup.md
+# Until the server's first start there is no DB to snapshot (backup.ts never creates one).
+ConditionPathExists=/var/lib/omega-share/omega.db
 
 [Service]
 Type=oneshot
