@@ -137,7 +137,9 @@ describe("walks", () => {
   test("a new layout puts everyone straight at their new spot", () => {
     const { walks, sample } = setup();
     walks.place([sitAt("a", 1, 5)], 0);
-    walks.setGrid(walkGrid(DEFAULT_LAYOUT));
+    const moved = walkGrid(DEFAULT_LAYOUT);
+    moved[0] = 0; // the TV went elsewhere
+    walks.setGrid(moved);
     walks.place([sitAt("a", 7, 3)], 10);
     expect(sample("a", 10)).toMatchObject({ ...cellCenter(7, 3), walking: false });
   });
