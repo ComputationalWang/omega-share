@@ -1,4 +1,5 @@
-// The PixiJS layer: floor, furniture, seats and placeholder avatars. Rendered on demand (no ticker), so an idle room costs no frames.
+// The PixiJS layer: floor, furniture, seats and avatars, on the 2D canvas renderer (ADR 0029). Rendered on demand (no ticker): frames
+// run only while someone walks (walk/), so an idle room costs no frames.
 import { Application, Container, Graphics, Sprite, Ticker } from "pixi.js";
 import { AVATAR_COUNT, type MemberId } from "@omega/shared";
 import type { FurnitureAtlas } from "./furniture-atlas";
@@ -83,7 +84,9 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     autoStart: false,
     resolution: Math.min(2, globalThis.devicePixelRatio || 1),
     autoDensity: true,
-    preference: "webgl",
+    // 2D canvas, not WebGL (ADR 0029): under software compositing a WebGL canvas is read back from the GPU process on
+    // every frame (~6 ms main thread), which walking avatars would pay 60 times a second.
+    preference: "canvas",
   });
   app.ticker.stop();
   const pumpSystem = quietSystemTicker(Ticker.system);
