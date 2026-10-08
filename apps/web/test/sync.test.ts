@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { playbackCaps, type Embed, type PlaybackCaps, type PlaybackState } from "@omega/shared";
 import type { PlayerState } from "../src/player/adapter";
 import {
+  PARK_FAR_LEAD_MS,
   PARK_LEAD_MS,
   SYNC_INTERVAL_MS,
   createSyncLoop,
@@ -229,6 +230,14 @@ describe("decide: seek-only parks instead of seeking while playing (OME-396)", (
     expect(decide(input(-3000, { mode: "seek-only" }))).toEqual({ kind: "park", to: 11 });
     expect(decide(input(700, { mode: "seek-only", startLatencyMs: 60 }))).toEqual({ kind: "park", to: 11.06 });
     expect(decide(input(-400, { mode: "seek-only", room: room({ rate: 2 }) }))).toEqual({ kind: "park", to: 12 });
+  });
+
+  test("a jump of more than 10 s parks PARK_FAR_LEAD_MS ahead: the target isn't buffered, and loading it takes longer", () => {
+    expect(PARK_FAR_LEAD_MS).toBe(2000);
+    expect(decide(input(-10_001, { mode: "seek-only" }))).toEqual({ kind: "park", to: 12 });
+    expect(decide(input(10_001, { mode: "seek-only", startLatencyMs: 50 }))).toEqual({ kind: "park", to: 12.05 });
+    expect(decide(input(-10_000, { mode: "seek-only" }))).toEqual({ kind: "park", to: 11 });
+    expect(decide(input(-290_000, { mode: "seek-only", hardSeek: true }))).toEqual({ kind: "park", to: 12 });
   });
 
   test("a hard seek parks a playing or buffering player, and a paused one far from the room", () => {
@@ -503,16 +512,17 @@ describe("sync loop", () => {
     expect(Math.abs(h.player.time() - expectedPosition(room(), h.clock.serverNow()))).toBeLessThanOrEqual(0.01);
   });
 
-  test("seek-only: a park learns the start-up latency, so the next one lands on the room clock (OME-396)", () => {
+  test("seek-only: a park eases its play latency into the start-up estimate (EWMA, not the first sample whole), so one load stall can't make later parks aim far ahead (OME-396)", () => {
     const h = harness({ caps: CAPS.twitchVod, rates: [1], startLatencyMs: 60 });
     h.loop.start();
     h.loop.setPlayback(room({ at: 1_000_000 }));
     h.run(5000);
-    expect(h.loop.startLatencyMs).toBeCloseTo(60, 6);
+    expect(h.loop.startLatencyMs).toBeCloseTo(15, 6);
     h.player.shift(1);
     h.run(10_000);
     expect(h.player.calls.filter((c) => c.op === "seek")).toHaveLength(2);
-    expect(Math.abs(h.player.time() - expectedPosition(room(), h.clock.serverNow()))).toBeLessThanOrEqual(0.01);
+    expect(h.loop.startLatencyMs).toBeCloseTo(26.25, 6);
+    expect(Math.abs(h.player.time() - expectedPosition(room(), h.clock.serverNow()))).toBeLessThanOrEqual(0.05);
   });
 
   test("seek-only: a resume plays without a seek and isn't parked on the next tick (OME-396)", () => {
