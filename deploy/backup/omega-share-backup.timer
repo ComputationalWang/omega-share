@@ -1,0 +1,11 @@
+# Nightly at 03:30 UTC (± 20 min); a missed night (box off) runs at the next boot.
+[Unit]
+Description=Nightly omega-share SQLite snapshot
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+RandomizedDelaySec=20m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

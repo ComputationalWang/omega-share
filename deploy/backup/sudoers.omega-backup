@@ -1,0 +1,5 @@
+# /etc/sudoers.d/omega-backup (0440; check it with visudo -cf before installing). Lets the deploy
+# user run only the read-only rsync sender as the service user, so deploy/backup/pull.sh can read
+# the 0600 snapshots. The sender side cannot write, and the service user can read nothing the
+# server itself can't.
+deploy ALL=(omega-share) NOPASSWD: /usr/bin/rsync --server --sender *

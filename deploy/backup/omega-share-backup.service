@@ -1,0 +1,42 @@
+# Nightly SQLite snapshot (runbook: docs/ops/backup.md). Started by omega-share-backup.timer.
+# VACUUM INTO runs alongside the server; the snapshot is checked, then renamed into place.
+[Unit]
+Description=omega-share nightly SQLite snapshot (VACUUM INTO, keeps 14)
+Documentation=file:///opt/omega-share/current/docs/ops/backup.md
+
+[Service]
+Type=oneshot
+User=omega-share
+Group=omega-share
+Environment=DB_PATH=/var/lib/omega-share/omega.db
+Environment=BACKUP_DIR=/var/backups/omega-share
+# The server's env file (DB_PATH) wins over the default above when it exists.
+EnvironmentFile=-/etc/omega-share/env
+ExecStart=/usr/local/bin/bun /opt/omega-share/current/apps/server/scripts/backup.ts snapshot
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ReadWritePaths=/var/backups/omega-share
+# The live DB's directory: a reader of a WAL database writes its -shm.
+ReadWritePaths=/var/lib/omega-share
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# No MemoryDenyWriteExecute: Bun's JIT needs writable+executable pages.

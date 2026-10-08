@@ -23,6 +23,11 @@ function loadMigrations(dir: string): Migration[] {
   });
 }
 
+/** The schema version this code migrates to: the newest migration's number. */
+export function latestMigration(dir: string = MIGRATIONS_DIR): number {
+  return loadMigrations(dir).length;
+}
+
 function userVersion(db: Database): number {
   return db.query<{ user_version: number }, []>("PRAGMA user_version").get()?.user_version ?? 0;
 }
