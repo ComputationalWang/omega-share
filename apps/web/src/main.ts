@@ -2,7 +2,7 @@
 import { DEFAULT_ROOM_ID, type Avatar } from "@omega/shared";
 import { loadProfile, saveProfile, validateNickname } from "./profile";
 import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
-import { loadRoomSecrets, takeInviteKey, type SecretsStore } from "./room-secrets";
+import { loadRoomSecrets, secretFor, takeInviteKey, type SecretsStore } from "./room-secrets";
 import type * as RoomModule from "./room";
 import type { RoomHandle } from "./room";
 
@@ -37,7 +37,7 @@ const storage: SecretsStore = {
 };
 // First, before anything that can load a provider SDK (they all load from the room chunk, imported below): the Twitch
 // SDK reads location.href, so a private room's `#k=` key is saved and dropped from the URL here (ADR 0028).
-takeInviteKey(location, history, storage, pathRoom);
+const invited = takeInviteKey(location, history, storage, pathRoom);
 const roomId = pathRoom ?? DEFAULT_ROOM_ID;
 const serverUrl = serverBaseUrl(import.meta.env.VITE_SERVER_URL, location, import.meta.env.DEV);
 const debug = { roomId, room: null as RoomHandle | null };
@@ -92,7 +92,7 @@ form.addEventListener("submit", (ev) => {
         socketUrl: wsUrl(serverUrl, roomId),
         nickname: r.nickname,
         avatar,
-        secret: loadRoomSecrets(storage).rooms[roomId],
+        secret: secretFor(loadRoomSecrets(storage), roomId, invited),
         secrets: storage,
         origin: location.origin,
       });

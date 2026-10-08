@@ -88,6 +88,12 @@ export function takeInviteKey(
   return key;
 }
 
+/** What `join` uses for `id`: the stored record, with a key just taken from the URL on top (storage may have refused it). */
+export function secretFor(secrets: RoomSecrets, id: RoomId, invited: InviteKey | null): RoomSecret | undefined {
+  const stored = secrets.rooms[id];
+  return invited === null ? stored : { ...stored, inviteKey: invited };
+}
+
 /** The link "Copy invite link" hands out: the room URL, plus the key in the fragment for a private room. */
 export function inviteLink(origin: string, id: RoomId, inviteKey?: InviteKey): string {
   return `${origin}/r/${id}${inviteKey === undefined ? "" : `#k=${inviteKey}`}`;

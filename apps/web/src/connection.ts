@@ -112,8 +112,10 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
         clearHandshake();
       }
       const refused = !joined && msg.type === "error" && (msg.code === "nickname_taken" || msg.code === "too_many_members" || msg.code === "invite_required");
-      // A refused rejoin within budget stays out of the room state: no refusal card for our own name.
-      if (refused && everJoined && refusedWaited < REFUSED_RETRY_BUDGET_MS) {
+      // A refused rejoin within budget stays out of the room state: no refusal card for our own name. A refused
+      // invite key can't be our own dead member, so that one is final at once.
+      const ownGhost = refused && msg.code !== "invite_required";
+      if (ownGhost && everJoined && refusedWaited < REFUSED_RETRY_BUDGET_MS) {
         refusedRetry = true;
         s.close(1000);
         return;

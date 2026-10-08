@@ -37,6 +37,7 @@ const ERRORS: Record<CreateRoomErrorCode, string> = {
   unavailable: "The server couldn't save the room. Try again later.",
 };
 const NETWORK_ERROR = "Could not reach the server. Try again.";
+const STORAGE_ERROR = "This browser won't keep the room's keys (site storage is blocked or full), so you couldn't manage or rejoin it. Allow storage for this site and try again.";
 
 function minutes(ms: number): string {
   const m = Math.ceil(ms / 60_000);
@@ -97,7 +98,12 @@ export function mountHome(opts: HomeOptions): Home {
           fail(res.error.code === "rate_limited" && wait !== undefined ? `You've made a lot of rooms. Try again ${minutes(wait)}.` : ERRORS[res.error.code]);
           return;
         }
-        rememberRoom(opts.store, res.room.id, res.inviteKey === undefined ? { ownerToken: res.ownerToken } : { ownerToken: res.ownerToken, inviteKey: res.inviteKey });
+        const saved = rememberRoom(opts.store, res.room.id, res.inviteKey === undefined ? { ownerToken: res.ownerToken } : { ownerToken: res.ownerToken, inviteKey: res.inviteKey });
+        // Without its secrets the room can't be managed, and a private one can't even be joined: say so, don't go.
+        if (!saved) {
+          fail(STORAGE_ERROR);
+          return;
+        }
         opts.navigate(`/r/${res.room.id}`);
       })
       .catch(() => {
@@ -117,8 +123,16 @@ export function mountHome(opts: HomeOptions): Home {
         const li = el("li", {}, "your-room");
         li.dataset["owner"] = String(secret.ownerToken !== undefined);
         const a = el("a", { href: `/r/${id}`, textContent: titles.get(id) ?? id }, "your-room-link");
+        const owner = secret.ownerToken !== undefined;
         const forget = el("button", { type: "button", className: "link", textContent: "Forget" }, "your-room-forget");
+        // The owner token can't be recovered (research §2.4), so forgetting a room you own takes a second click.
+        let armed = !owner;
         forget.addEventListener("click", () => {
+          if (!armed) {
+            armed = true;
+            forget.textContent = "Forget for good? You can't undo this";
+            return;
+          }
           forgetRoom(opts.store, id);
           renderYours();
         });

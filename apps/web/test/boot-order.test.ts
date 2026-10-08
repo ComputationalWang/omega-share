@@ -22,7 +22,7 @@ describe("boot order (OME-409)", () => {
   test("the key taken at boot reaches the join even when storage couldn't keep it", () => {
     const name = /const (\w+) = takeInviteKey\(/.exec(main)?.[1];
     expect(name).toBeDefined();
-    expect(main).toMatch(new RegExp(`secretFor\\([^)]*, ${name ?? "?"}\\)`));
+    expect(main).toMatch(new RegExp(`secretFor\\(.*, ${name ?? "?"}\\)`));
   });
 
   test("main.ts has no static import of a player or the room (those load provider SDKs)", () => {
