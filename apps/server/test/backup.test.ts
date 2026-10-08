@@ -14,6 +14,7 @@ import { Client } from "./helpers";
 const REPO = join(import.meta.dir, "../../..");
 const CLI = join(import.meta.dir, "../scripts/backup.ts");
 const WRITER = join(import.meta.dir, "fixtures/backup-writer.ts");
+const CRASH_WRITER = join(import.meta.dir, "fixtures/backup-crash-writer.ts");
 const PULL = join(REPO, "deploy/backup/pull.sh");
 const RESTORE = join(REPO, "deploy/backup/restore.sh");
 const UNIT = join(REPO, "deploy/backup/omega-share-backup.service");
@@ -246,13 +247,17 @@ describe("restore", () => {
     expect(rooms(previous).map((r) => r.id)).toEqual(["lobby", "den", "beta"]);
   });
 
-  test("a death mid-swap never leaves DB_PATH missing: the old DB stays until the new one lands atomically", () => {
+  test("a death mid-swap never leaves DB_PATH missing or stale: the old DB, WAL frames folded in, stays until the new one lands atomically", () => {
     const snap = snapshot(seed(join(tmp(), "src/omega.db")), join(tmp(), "backups"), NIGHT);
     const live = seed();
     const db = openDatabase(live);
     new RoomStore(db).createRoom({ id: "beta", title: "", createdAt: 9, layout: DEFAULT_LAYOUT });
     db.run("PRAGMA journal_mode = DELETE");
     db.close();
+    // Then the server is stopped the usual way: WAL mode, rows only in frames never checkpointed.
+    const crash = Bun.spawnSync([process.execPath, CRASH_WRITER, live], { stdout: "pipe", stderr: "pipe" });
+    expect(crash.signalCode).toBe("SIGKILL");
+    expect(statSync(`${live}-wal`).size).toBeGreaterThan(0);
 
     // The process dies the moment it tries to move the restored copy into place.
     const real = fs.renameSync;
@@ -267,7 +272,7 @@ describe("restore", () => {
     rename.mockRestore();
 
     expect(existsSync(live)).toBe(true);
-    expect(rooms(live).map((r) => r.id)).toEqual(["lobby", "den", "beta"]);
+    expect(rooms(live).map((r) => r.id)).toEqual(["lobby", "den", "beta", "crash-a", "crash-b"]);
   });
 
   test("restores into a wiped DB_PATH", () => {
