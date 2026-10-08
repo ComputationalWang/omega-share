@@ -1,6 +1,6 @@
 # ADR 0015 — Public tunnel: single origin, proxy-aware boundary, member-bound share token
 
-**Status:** accepted (2026-09-30) · [OME-123](/OME/issues/OME-123), research [OME-119](/OME/issues/OME-119) (`docs/research/m2-tunnel-safety.md`) · **supersedes [ADR 0007](0007-share-endpoint-auth.md)** · gating (item 7) waits on board decision B3
+**Status:** accepted (2026-09-30); §1 (tunnel as the public deploy) **superseded by [ADR 0020](0020-hosted-topology.md)** for the hosted site, the tunnel stays a local fallback · [OME-123](/OME/issues/OME-123), research [OME-119](/OME/issues/OME-119) (`docs/research/m2-tunnel-safety.md`) · **supersedes [ADR 0007](0007-share-endpoint-auth.md)** · gating (item 7) waits on board decision B3
 
 **Context:** M2 makes the app reachable from the internet through a tunnel. A tunnel exposes one port, makes every peer `127.0.0.1`, and publishes a URL that doesn't change (the free ngrok dev domain is fixed). ADR 0007 assumed the flow was local and that per-address limits were meaningful. Neither holds now.
 

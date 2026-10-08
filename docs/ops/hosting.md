@@ -1,0 +1,97 @@
+# Hosting runbook (ADR 0020)
+
+Production: **https://omega-share.duckdns.org**. One Hetzner CAX11 (aarch64, Ubuntu 26.04 LTS), with Caddy in front of `apps/server` on `127.0.0.1:8787`. The kit is in `deploy/`.
+
+## Access
+
+These board-local values are not in the repo. They live in the operator's `.env`, and the keys go into Paperclip secrets:
+
+| Value | Where |
+|---|---|
+| `SERVER_IP` | operator `.env` |
+| deploy key (`deploy@`) | `DEPLOY_KEY_PATH` in `.env`; Paperclip secret |
+| admin key (`admin@`, sudo) | `~/.config/omega-share/admin-key` on the operator machine; Paperclip secret |
+| DuckDNS token | operator `.env`; Paperclip secret |
+
+Root login and passwords are off. Only `deploy` and `admin` can log in over SSH. `deploy` can restart `omega-share.service` but has no sudo. `admin` has sudo. Agents never run sudo, so a root-level change is an operator task as `admin`.
+
+## Deploy
+
+From a clean checkout of the commit to ship (a laptop or CI, never the box):
+
+```sh
+DEPLOY_HOST=deploy@$SERVER_IP DEPLOY_KEY=$DEPLOY_KEY_PATH deploy/deploy.sh --dry-run   # shows each step
+DEPLOY_HOST=deploy@$SERVER_IP DEPLOY_KEY=$DEPLOY_KEY_PATH deploy/deploy.sh
+```
+
+The script refuses a dirty tree and a Bun that differs from `.bun-version` (checked both locally and on the box). It ends with a `/healthz` check on the box. Afterwards, check from outside: `curl -sI https://omega-share.duckdns.org/healthz`.
+
+**Rollback:** list `/opt/omega-share/releases/` (the 5 newest are kept). Then, as `deploy`:
+
+```sh
+ln -sfn /opt/omega-share/releases/<older-sha> /opt/omega-share/current.new && mv -T /opt/omega-share/current.new /opt/omega-share/current
+systemctl restart omega-share
+```
+
+A rollback across a DB migration doesn't work: the server refuses a DB whose `user_version` is newer than the code. In that case, restore the snapshot taken before the deploy (below).
+
+## Provision (a new box, or after changing a root-owned file)
+
+Root-owned files are the unit files, the Caddyfile, nftables, sshd, polkit, apt and Bun. They change only through `deploy/provision.sh`, run as root. The script is idempotent:
+
+```sh
+rsync -a deploy/ .bun-version admin@$SERVER_IP:omega-deploy/
+ssh admin@$SERVER_IP "sudo DEPLOY_PUBKEY='…' ADMIN_PUBKEY='…' bash omega-deploy/provision.sh base"
+ssh admin@$SERVER_IP "sudo bash omega-deploy/provision.sh firewall-ok"   # from a NEW session, within 3 min
+ssh admin@$SERVER_IP "sudo bash omega-deploy/provision.sh ssh"           # once deploy@ and admin@ both log in
+```
+
+On a brand-new box, the first run is `root@` with the board's key. The `ssh` phase then turns root login off.
+
+## Backups
+
+- **On the box:** `omega-share-backup.timer` fires daily at 03:15 UTC (± 10 min). It runs `backup.sh` as `omega-share`: a `VACUUM INTO` snapshot, then `PRAGMA integrity_check`. The result is `/var/backups/omega-share/omega-YYYY-MM-DD.db`, kept for 14 days. To check it: `systemctl list-timers omega-share-backup.timer`.
+- **Off the box:** `deploy/pull-backups.sh` rsyncs the snapshots as `deploy` into `~/.local/share/omega-share/backups` (mode 0700) on the operator machine and keeps them for 60 days. A daily user timer runs it there:
+
+  ```ini
+  # ~/.config/systemd/user/omega-share-pull-backups.service
+  [Service]
+  Type=oneshot
+  EnvironmentFile=%h/Projects/omega-share/.env
+  ExecStart=/bin/sh -c 'DEPLOY_HOST=deploy@$SERVER_IP DEPLOY_KEY=$DEPLOY_KEY_PATH exec %h/Projects/omega-share/deploy/pull-backups.sh'
+  # ~/.config/systemd/user/omega-share-pull-backups.timer
+  [Timer]
+  OnCalendar=*-*-* 04:00:00 UTC
+  Persistent=true
+  [Install]
+  WantedBy=timers.target
+  ```
+
+  Enable it with `systemctl --user enable --now omega-share-pull-backups.timer`. `Persistent=true` catches up after the machine was off.
+
+## Restore (and the drill)
+
+As `admin` (sudo):
+
+```sh
+snap=/var/backups/omega-share/omega-YYYY-MM-DD.db      # or scp an off-box copy up first
+sqlite3 -readonly "$snap" 'PRAGMA integrity_check'      # must print ok
+systemctl stop omega-share
+mv /var/lib/omega-share/omega.db /root/omega.db.before-restore
+rm -f /var/lib/omega-share/omega.db-wal /var/lib/omega-share/omega.db-shm
+install -m 0600 -o omega-share -g omega-share "$snap" /var/lib/omega-share/omega.db
+systemctl start omega-share
+sqlite3 -readonly /var/lib/omega-share/omega.db 'select id, length(layout), embed from rooms'
+curl -s http://127.0.0.1:8787/rooms
+```
+
+After a restore, rooms, layouts and each room's last embed come back, with playback paused at 0. Presence, chat and share tokens are memory-only by design.
+
+**Drill record, 2026-10-08 (go-live, OME-356):** the drill started with `lobby` holding the Vimeo embed from the headed smoke. The snapshot was taken with the timer's own unit. The live DB was then moved away to simulate a loss, and the snapshot was restored. After the restart, the same `lobby` row came back (layout of 597 bytes, the same Vimeo embed), with `user_version` 1, `integrity_check` ok and `/rooms` listing `lobby`. The off-box pull of that snapshot also passed `integrity_check`.
+
+## Checks
+
+- Open ports from outside: only 22, 80 and 443 (`for p in 22 80 443 2019 8787; do timeout 4 bash -c "echo >/dev/tcp/$SERVER_IP/$p" && echo "$p open"; done`).
+- The Host allowlist on the box: `curl -H 'Host: evil.example' 127.0.0.1:8787/healthz` returns 421.
+- Headed smoke from outside, on a virtual display: `OMEGA_REAL_TUNNEL_ORIGIN=https://omega-share.duckdns.org bun e2e/support/headed.ts bunx playwright test --project=e2e-real e2e/real/real-tunnel.real.ts --grep "tunnel-[124]"`. Tunnel-3 checks the Host rule on *this* machine's port 8787, so against the box, use the curl above instead.
+- Logs (as `admin`): `journalctl -u omega-share`, `journalctl -u caddy`. Caddy keeps no access log.
