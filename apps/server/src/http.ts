@@ -22,6 +22,7 @@ import {
   type DeleteRoomResponse,
   type MemberId,
   type RoomListResponse,
+  type RoomSummary,
   type ServerMessage,
   type ShareErrorCode,
   type ShareResponse,
@@ -130,10 +131,14 @@ export interface HttpDeps {
  * Pinned rooms first, in seed order (the lobby leads), so a flood of new rooms can't push them out;
  * then created rooms, the busiest first, then the newest (research §3.5).
  */
-function listOrder(a: Room, b: Room): number {
+interface Listed {
+  room: Room;
+  summary: RoomSummary;
+}
+function listOrder({ room: a, summary: sa }: Listed, { room: b, summary: sb }: Listed): number {
   if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
   if (a.pinned) return a.createdAt - b.createdAt;
-  return b.summary().memberCount - a.summary().memberCount || b.createdAt - a.createdAt;
+  return sb.memberCount - sa.memberCount || b.createdAt - a.createdAt;
 }
 
 export function createHttpApp({
@@ -158,6 +163,9 @@ export function createHttpApp({
   const failedShares = new KeyedLimiter(FAILED_SHARE_BURST, FAILED_SHARE_PER_SECOND, 1024, now);
   // Dropped with the room (RoomRegistry.removeRoom).
   const roomShares = rooms.perRoom(() => new TokenBucket(ROOM_SHARE_BURST, ROOM_SHARE_PER_SECOND, now));
+  // Folding a title is about 10 µs, so the verdict is kept per room rather than redone for every list
+  // request (OME-439). A title change (title-set) must `drop` the room's entry.
+  const listable = rooms.perRoom((room) => room.visibility === "public" && !titleBlocked(room.title));
 
   const app = new Hono();
   app.use("*", async (c, next) => {
@@ -180,11 +188,10 @@ export function createHttpApp({
 
   app.get("/rooms", (c) => {
     // At most MAX_ROOMS (500) rooms: filtering and sorting them per request is microseconds (research P2).
-    const listed = [...rooms.values()]
-      .filter((r) => r.visibility === "public" && !titleBlocked(r.title))
-      .sort(listOrder)
-      .slice(0, MAX_LISTED_ROOMS);
-    const body: RoomListResponse = { rooms: listed.map((r) => r.summary()) };
+    const listed: Listed[] = [];
+    for (const room of rooms.values()) if (listable.get(room)) listed.push({ room, summary: room.summary() });
+    listed.sort(listOrder);
+    const body: RoomListResponse = { rooms: listed.slice(0, MAX_LISTED_ROOMS).map((l) => l.summary) };
     return c.json(body);
   });
 
@@ -236,7 +243,15 @@ export function createHttpApp({
       inviteHash: inviteKey === null ? null : hashSecret(inviteKey),
     };
     // Store first: if the write fails the creation fails, and memory never runs ahead of the DB.
-    persistRoom(room);
+    try {
+      persistRoom(room);
+    } catch (err) {
+      console.error(`could not store new room ${id}: ${err instanceof Error ? err.message : String(err)}`);
+      // The server's failure, not the client's: it keeps its creations.
+      creates.refund(ip);
+      globalCreates.refund();
+      return fail(503, "too_many_rooms", "can't create rooms right now, try again later");
+    }
     rooms.addRoom(new Room(id, room));
     const body: CreateRoomResponse =
       inviteKey === null

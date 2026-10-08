@@ -60,12 +60,16 @@ export interface ServerOptions {
 export type RoomPersistence = Pick<RoomStore, "listRooms" | "createRoom" | "deleteRoom" | "setEmbed">;
 
 /** Folds case and lookalikes (UTS #39 skeleton, ADR 0022) so "BADW0RD" matches "badword". */
+/** Whitespace, punctuation and symbols: `bad word` and `b.a.d-w_o r d` match a blocklisted `badword` (OME-439). */
+const SEPARATORS = /[\p{Z}\p{P}\p{S}\s]/gu;
+const blockKey = (text: string): string => nicknameKey(text).replace(SEPARATORS, "");
+
 function titleBlocker(terms: readonly string[]): (title: string) => boolean {
-  const keys = terms.map((term) => nicknameKey(term)).filter((key) => key !== "");
+  const keys = terms.map(blockKey).filter((key) => key !== "");
   if (keys.length === 0) return () => false;
   return (title) => {
     if (title === "") return false;
-    const key = nicknameKey(title);
+    const key = blockKey(title);
     return keys.some((k) => key.includes(k));
   };
 }

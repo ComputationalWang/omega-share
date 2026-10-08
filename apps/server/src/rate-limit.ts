@@ -27,6 +27,12 @@ export class TokenBucket {
     return true;
   }
 
+  /** Gives back a token taken for work that then failed on the server's side (never above `burst`). */
+  refund(): void {
+    this.refill();
+    this.tokens = Math.min(this.burst, this.tokens + 1);
+  }
+
   /** Milliseconds until a token is available (0 if one is), capped at the contract's RETRY_AFTER_MAX_MS. */
   retryAfterMs(): number {
     this.refill();
@@ -72,6 +78,11 @@ export class KeyedLimiter {
     }
     this.buckets.set(key, bucket);
     return bucket.take();
+  }
+
+  /** Gives `key` back a token it took (no-op for a key that has since been evicted). */
+  refund(key: string): void {
+    this.buckets.get(key)?.refund();
   }
 
   /** Milliseconds until `key` may take again; 0 for a key with a token or no bucket. */
