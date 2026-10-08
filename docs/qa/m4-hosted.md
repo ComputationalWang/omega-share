@@ -4,7 +4,7 @@ QA Engineer 2, 2026-10-08, 17:05–18:05 UTC, from the QA box (one residential a
 
 **Deployed revision: `9f2e8498e37fae4c3c3b5f1be718e23076e51a4c`** (`main@9f2e849`, OME-363). `/opt/omega-share/current` points to that release ([OME-375](/OME/issues/OME-375)). This agrees with what is visible from outside: the site bundle (`index-geJTK_y0.js` / `index-8HHdnAtf.css`) is unchanged since `48cc7b8`, and the enforced TT and HSTS headers mean the server is ≥ `9995b63`.
 
-**Verdict: green, with one known issue.** Caddy's error log writes client IPs when the upstream is down (§6). The Lead filed it as [OME-386](/OME/issues/OME-386). Restart persistence was not observed (§7). Test-harness gap: [OME-378](/OME/issues/OME-378) (QA Engineer, not blocking).
+**Verdict: green.** The Caddy error log wrote client IPs while the upstream was down (§6). [OME-386](/OME/issues/OME-386) fixed it, and the fix is live (log filter + 14-day journal retention). Restart persistence passed on the box (§7). Test-harness gap: [OME-378](/OME/issues/OME-378) (QA Engineer, not blocking).
 
 ## 1. Hosted smoke (4 browsers, headless)
 Scratch script `smoke.ts` (attached to OME-360). It drives the real UI like the e2e specs do: same `data-testid` contract, `clickSettled` for seats.
@@ -81,10 +81,14 @@ Plus the earlier `providers.ts` Twitch run: `chynao_o` again showed an ad label 
 | CSP | one header CSP: `require-trusted-types-for 'script'; trusted-types omega-sdk youtube-widget-api`, `frame-ancestors 'none'`, `object-src 'none'`, `frame-src … https:` (generic tier). No report-only header. TT enforced in the page (§1) |
 | 429 + `Retry-After` on an HTTP burst | 400 × `GET /healthz` over one HTTP/2 connection: **131 × 200, 269 × 429**, every 429 with **`Retry-After: 1`**. `/healthz` was back to 200 after 8 s. tunnel-4: 20 × 401 then 10 × 429 with a fresh spoofed `X-Forwarded-For` each time |
 | ports | TCP **22, 80, 443 open**. **8787, 2019 (Caddy admin), 3000, 5173 closed/filtered** |
-| no IP addresses in the server logs | **app: pass.** `journalctl -u omega-share` since 16:00 UTC: 89 lines, 6 IP-shaped matches, all the loopback bind line `server on http://127.x.x.x:8787/`. No client IP, and the window covers QA2's bursts, refused tokens, joins and shares. **Caddy: known issue [OME-386](/OME/issues/OME-386).** 188 lines, 13 matches: 5 ACME validators, 3 loopback admin lines (before admin was turned off at 16:37), and **5 `http.log.error` 502 entries with a real client `remote_ip`/`client_ip` and headers** (16:12–16:16, app down during deploys). None of them fall in QA2's window. The access log is off ([OME-375](/OME/issues/OME-375), board run 18:22 UTC) |
+| no IP addresses in the server logs | **app: pass.** `journalctl -u omega-share` since 16:00 UTC: 89 lines, 6 IP-shaped matches, all the loopback bind line `server on http://127.x.x.x:8787/`. No client IP, and the window covers QA2's bursts, refused tokens, joins and shares. **Caddy: fixed in [OME-386](/OME/issues/OME-386)** (`3e1cfcc`/`27df5fe`: a global `log` filter drops `remote_ip`/`client_ip`/headers, the journal keeps 14 days, and the old entries were vacuumed to 0). Before the fix: 188 lines, 13 matches: 5 ACME validators, 3 loopback admin lines (before admin was turned off at 16:37), and **5 `http.log.error` 502 entries with a real client `remote_ip`/`client_ip` and headers** (16:12–16:16, app down during deploys). None of them fall in QA2's window. The access log is off ([OME-375](/OME/issues/OME-375), board run 18:22 UTC) |
 
-## 7. Restart persistence: not observed
-- The board ran `systemctl restart omega-share` (as `deploy`) at **2026-10-08T18:22:25Z**. The service came back `active` and `/healthz` returned 200 ([OME-375](/OME/issues/OME-375)).
-- Before the restart, QA2 had left the lobby on Vimeo `1084537`. At 18:24:18Z, a WS join snapshot from outside showed the lobby on **Twitch live `shroud`**: `action: load`, rev 3, `at` 18:23:39Z, 1 member. Another client shared it 74 s after the restart, most likely the parallel QA run on [OME-378](/OME/issues/OME-378), whose candidate list contains `shroud`. So the snapshot can't show whether the Vimeo embed survived the restart.
-- Coverage meanwhile: `e2e/persistence.e2e.ts` (restart of a real server keeps rooms, layouts and the last embed, paused at 0) and the OME-358 restore drill.
-- A before/after probe that one person can run around a single restart is with the Lead in the review issue.
+## 7. Restart persistence: pass (Lead probe, [OME-387](/OME/issues/OME-387))
+- The first attempt (board restart at 18:22:25Z) wasn't observable: another client shared Twitch `shroud` into the lobby 74 s later, before QA2's outside snapshot.
+- The Lead ran a single-person before/after WS-snapshot probe around one restart at 18:30Z. `/rooms` showed `memberCount` 0 before and after. The restart ran as `deploy`, `ActiveEnterTimestamp` 18:30:12 UTC.
+
+```
+before  {"at":"2026-10-08T18:30:12.368Z","embed":{"provider":"vimeo","videoId":"1084537","hash":null,"url":"https://player.vimeo.com/video/1084537"},"playback":{"playing":true,"position":300,"rate":1,"at":1791483988891,"rev":11,"action":"seek","by":"d3ef8475-…"}}
+after   {"at":"2026-10-08T18:30:15.957Z","embed":{"provider":"vimeo","videoId":"1084537","hash":null,"url":"https://player.vimeo.com/video/1084537"},"playback":{"playing":false,"position":0,"rate":1,"at":1791484212997,"rev":0,"action":"pause","by":null}}
+```
+- The embed is the same before and after. Playback resets by design to paused at 0 (`rev` 0, `at` after the restart).
