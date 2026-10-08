@@ -57,7 +57,7 @@ steps=(
   "git -C $root archive $sha package.json bun.lock .bun-version apps/server packages/shared | tar -x -C $stage"
   "mkdir -p $stage/apps/web && cp -a $root/apps/web/dist $stage/apps/web/"
   "cd $stage && bun install --frozen-lockfile --production --ignore-scripts --filter @omega/server"
-  "rsync -a --delete --link-dest=$base/current/ -e 'ssh ${ssh_opts[*]}' $stage/ $host:$release/"
+  "rsync -a --delete --chmod=Dgo+rx,Fgo+r --link-dest=$base/current/ -e 'ssh ${ssh_opts[*]}' $stage/ $host:$release/"
 )
 
 for s in "${steps[@]}"; do
