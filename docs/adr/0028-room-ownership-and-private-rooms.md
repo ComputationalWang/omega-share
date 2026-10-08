@@ -1,0 +1,55 @@
+# ADR 0028 — Room ownership, creation and private rooms
+
+**Status:** accepted (2026-10-08) · Lead · [OME-402](/OME/issues/OME-402) · plan [OME-400](/OME/issues/OME-400) · research `docs/research/m4-rooms-threat-model.md` ([OME-275](/OME/issues/OME-275)) · amends [ADR 0015](0015-public-tunnel-and-share-token.md) §8 and [ADR 0016](0016-m3-limits-names-and-close-codes.md) §1 (both narrowly, see below)
+
+**Context:** M5 lets people create rooms, own them (edit the layout, rename, delete) and make them private. Today the room set is fixed at startup and every room is public and listed. The threat model in `docs/research/m4-rooms-threat-model.md` (R1) weighs creation spam, the owner secret, private-room links that leak through the Twitch SDK, and whether abuse controls need persistence. This ADR records the decisions and the `packages/shared` contract.
+
+## Decision
+
+### 1. Anyone may create a room, within limits
+- `POST /rooms { title, visibility }` (`CreateRoomRequestSchema`, strict, body ≤ `MAX_CREATE_BODY_BYTES` = 1024). **The server picks the id**: 16 random bytes as lowercase base32, 26 chars, which fits `RoomIdSchema` unchanged. Public and private rooms use the same id format, and seeded rooms keep their slugs. Every room starts from `DEFAULT_LAYOUT`.
+- Answer: `CreateRoomResponseSchema`. A 201 carries `room { id, title, visibility }`, `ownerToken` and, **only for a private room**, `inviteKey` (the schema checks "invite key iff private"). Errors: `invalid_body` 400, `payload_too_large` 413, `rate_limited` 429 + `Retry-After`, `too_many_rooms` 503.
+- Limits (R1 §1.2): per client key `ROOM_CREATE_KEY_BURST` = 2 at once, then one every `ROOM_CREATE_KEY_REFILL_MS` = 10 min (malformed bodies take from the same bucket). Server-wide `ROOM_CREATE_GLOBAL_BURST` = 10, then one every `ROOM_CREATE_GLOBAL_REFILL_MS` = 1 min. At most `MAX_ROOMS` = 500 stored rooms, pinned ones included.
+- **At the cap the server refuses (`too_many_rooms`) and never evicts.** If it evicted, anyone could delete other people's rooms just by creating new ones.
+- `DELETE /rooms/:id` with `Authorization: Bearer <ownerToken>` (`DeleteRoomResponseSchema`): `room_not_found` 404, then a failed-auth bucket per key, then `unauthorized` 401, as on the share endpoint.
+
+### 2. GC; seeded rooms are pinned
+- Seeded rooms (`lobby`, operator-made) are **pinned** and never collected. They have no owner.
+- A created room that **nobody ever joined** is deleted `ROOM_GC_NEVER_JOINED_MS` (1 h) after creation. A created room that has been **empty for** `ROOM_GC_EMPTY_MS` (14 days) is deleted. An occupied room is never collected. The sweep runs every `ROOM_GC_SWEEP_MS` (1 h) and at boot.
+- Owner delete and GC share one path: close every socket with **`CLOSE_CODES.ROOM_CLOSED` = 4004**, which revokes their share grants, then delete the row. Nothing is kept: no tombstone, because 128-bit ids are never reissued. Only nightly backups hold the row, for at most 14 days. A client that gets 4004 **stops reconnecting** and says the room is closed.
+
+### 3. Owner token: a bearer secret, kept in `localStorage`
+- `OwnerTokenSchema` has the share-token shape: 16 random bytes as base64url, 22 chars. It is minted **once**, in the 201 body, and never appears in a URL, snapshot, broadcast or log. The server stores only `SHA-256(token)`, compares with `timingSafeEqual`, and looks it up **by room id**, never by token. It doesn't expire or rotate in v1, and **there is no recovery**: a lost token leaves an ownerless room that GC collects once it is idle.
+- `parseBearer(header)` is the one boundary parser for `Authorization: Bearer` (share and owner tokens), with an exact-length guard before the regex. `parseShareAuthorization` stays as an alias.
+- It allows **only** `layout-set`, `title-set` (WS, after `join { ownerToken }`) and `DELETE`. Visibility is fixed at creation. Share, seek, mute and kick don't depend on ownership.
+- On the socket a matching `join.ownerToken` makes the member the owner, and **only their own** `snapshot` carries `owner: true`. A wrong token doesn't fail the join: the member joins as a guest, and the server takes the attempt from a failed-owner bucket.
+- **The site keeps it in `localStorage[ROOM_SECRETS_STORAGE_KEY]` (`"omega.rooms"`), not `sessionStorage`.** This is the one place it departs from ADR 0015 §7, and it has to: ownership has to outlive the tab. The value is `RoomSecretsSchema` (`{ v: 1, rooms: { <roomId>: { ownerToken?, inviteKey? } } }`, strict, at most `MAX_ROOM_SECRETS` = 50 rooms, oldest dropped). The site parses it with Valibot on every read. **The extension never reads it.** It reads only `omega.share`.
+
+### 4. Private rooms: the invite key goes only in the fragment
+- A room id is **not** a secret: the Twitch SDK sends `location.href` to Twitch (ADR 0015 §8). A private room therefore also needs an **invite key**: `InviteKeySchema`, with the same shape. The server stores only its SHA-256.
+- Invite link: `/r/<id>#k=<inviteKey>`. **This narrows ADR 0015 §8** ("tokens and invites never go in URLs") for invite keys only. The key lives only in the **fragment**, which browsers never send to a server or in a `Referer`. The site reads it with `inviteKeyFromHash` (exactly `#k=` + 22 chars, length-checked, never throws), stores it in `omega.rooms`, and removes it with `history.replaceState` **at boot, before any provider SDK loads**. Owner and share tokens keep the full ADR 0015 rule.
+- `join.inviteKey`: a private room needs a matching invite key or owner token. Otherwise the server answers **`error invite_required`**, like `nickname_taken`: the socket stays open and unjoined, with no snapshot and no broadcasts. Failed keys take from a failed-invite bucket and count toward 4400.
+- Private rooms are **never in `GET /rooms`**. `Referrer-Policy` stays `strict-origin-when-cross-origin` (`no-referrer` breaks YouTube and Vimeo). `/r/*` gets `X-Robots-Tag: noindex, nofollow`.
+
+### 5. Room titles get the nickname rules
+`RoomTitleSchema`: NFKC → trim → 1..`ROOM_TITLE_MAX_LENGTH` (32) UTF-16 units. It reuses the nickname rules through one builder: letters with at most 2 marks each, digits, single spaces, no controls, bidi, zero-width, invisible letters or emoji, and no Latin mixed with Cyrillic, Greek, Armenian or Cherokee. It allows a little more punctuation than a nickname: `_ . - ' ! ? & , : # + ( )`. It still refuses `<`, `>`, `/` and quotes, and titles are rendered as text only. `RoomSummary.title` is optional (absent from older servers). **Widening the title alphabet later is a breaking change:** a client with the old schema would reject the whole `GET /rooms` body. Widen it only together with the site and extension.
+
+### 6. Layout editing on the socket
+- Client: `layout-set { layout: RoomLayoutInputSchema }` and `title-set { title }`, both owner-only. A non-owner gets **`error not_owner`**. Until the server issues for created rooms land, nobody is an owner, so every `layout-set`/`title-set` gets `not_owner`.
+- `RoomLayoutInputSchema` applies **the same rules** as `RoomLayoutSchema` (ADR 0021 §3), built from the same field entries and check builders, but on `strictObject` for the layout and for every piece (client frames are strict, ADR 0016 §6). `RoomLayoutSchema` stays non-strict for server → client.
+- `layout-set` is a **whole layout**, not a diff, so the last write wins and the result is always valid. **Seats keep their indices**: a valid layout always has `SEAT_COUNT` seat cells, and clients draw seat `i` at the new `i`-th seat cell.
+- Server: `layout-changed { layout, by }` and `title-changed { title, by }`, published to the room.
+- Owner edits (`layout-set` and `title-set` together) are limited per socket to `ROOM_EDIT_BURST` = 2, then one every `ROOM_EDIT_REFILL_MS` = 2 s. Only these messages write to the store.
+- Sizes: a full valid `layout-set` (32 pieces, every field set) and even 32 copies of the longest kind name stay within about half of `MAX_CLIENT_MESSAGE_BYTES` (4 KB). `rooms-contract.test.ts` pins this, so a new longer kind can't grow past the cap unnoticed.
+
+### 7. No personal data persisted for abuse controls
+- Every abuse control stays an **in-memory bucket keyed by client address**, as today, and a restart resets them. **No address, hashed address, key or user agent is written to disk, and no room row records its creator.** A hashed address is still personal data (GDPR Art. 4(5); *Breyer*), and bans set without moderators would mostly punish shared addresses.
+- **Break-glass, designed but not built:** if a sustained attack ever needs a ban that survives restarts, it gets a table `bans(key_hmac BLOB PRIMARY KEY, expires_at INTEGER NOT NULL)` with `HMAC-SHA256(BAN_PEPPER, clientKey)`. The pepper is an env secret that never goes into the DB. The TTL is at most 7 days, purged by the GC sweep. Only the operator sets bans, through the CLI, never automatically. The privacy notice is updated before first use, and the table needs its own ADR and issue. Edge rate limits (Caddy, a shielding proxy) come first.
+
+### 8. Limit values live in `packages/shared` (narrows ADR 0016 §1)
+ADR 0016 keeps rate numbers server-private. The creation buckets, `MAX_ROOMS`, the GC ages and the edit rate are exported from `@omega/shared` instead. The server's HTTP, WS and GC modules, the QA suite and the site's copy ("rooms close after 14 days empty") need one source of truth. Changing them is therefore a contract change. **Clients still must not enforce them**: they react to `rate_limited` / `retryAfterMs`, `too_many_rooms` and 4004. The M3 buckets stay server-private.
+
+## Consequences
+- The contract is additive and optional on the server → client side: old clients strip `owner` and `title` and drop the new message types. The new client messages are new variants; the site and server deploy together.
+- The server currently closes removed rooms with 1001 (OME-403). The server issue switches it to `ROOM_CLOSED`.
+- Follow-ups (OME-400 plan): server creation, delete and GC, owner and invite auth on join and edits, the site's create form, invite link and "your rooms" list, the layout editor (lazy chunk), the extension listing rooms from open tabs (never reading `omega.rooms`), the privacy notice, and the operator CLI.
