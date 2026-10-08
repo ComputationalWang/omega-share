@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -125,6 +125,26 @@ describe("sweepRooms: what GC collects (threat model §1.3)", () => {
     sweepRooms({ rooms, wallNow: () => T0 + 2 * HOUR, busy: idle, touch: () => undefined });
     expect(ended).toEqual([room]);
     expect(perRoom.size).toBe(0);
+  });
+  test("a removal that throws is logged and the sweep goes on to the other due rooms (QA2 note on OME-450)", () => {
+    const first = createdRoom(ID_A, T0, null);
+    const second = createdRoom(ID_B, T0, null);
+    const rooms = registryOf(first, second);
+    rooms.onRemove((r) => {
+      if (r === first) throw new Error("disk I/O error");
+    });
+    const errors = spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      let removed: RoomId[] = [];
+      expect(() => {
+        removed = sweepRooms({ rooms, wallNow: () => T0 + 2 * HOUR, busy: idle, touch: () => undefined });
+      }).not.toThrow();
+      expect(removed).toEqual([ID_B]);
+      expect(rooms.get(ID_B)).toBeUndefined();
+      expect(errors).toHaveBeenCalledTimes(1);
+    } finally {
+      errors.mockRestore();
+    }
   });
 });
 
@@ -313,5 +333,15 @@ describe("the server's GC (startServer)", () => {
     await Bun.sleep(80);
     expect(registry.get(ID_A) ?? null).toBeNull();
     expect(writes).toContain(`delete ${ID_A}`);
+  });
+
+  test("server.stop() also stops the GC: a stopped server's store is never swept again (QA2 note on OME-450)", async () => {
+    const clock = wallClock();
+    const { store, writes } = recordingStore([row(ID_A, T0, null)]);
+    const stopped = start({ store, wallNow: clock.now, roomGcIntervalMs: 20 });
+    await stopped.server.stop(true);
+    clock.ms = T0 + 2 * HOUR;
+    await Bun.sleep(80);
+    expect(writes.filter((w) => w.startsWith("delete"))).toEqual([]);
   });
 });
