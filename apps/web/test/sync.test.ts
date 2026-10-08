@@ -554,6 +554,25 @@ describe("sync loop", () => {
     expect(Math.abs(h.player.time() - expectedPosition(resumed, h.clock.serverNow()))).toBeLessThanOrEqual(0.01);
   });
 
+  test("seek-only: a seek that arrives between ticks parks far enough ahead that the unpark lands on a tick, on the room clock (OME-452)", () => {
+    const h = harness({ caps: CAPS.twitchVod, rates: [1] });
+    h.loop.start();
+    h.loop.setPlayback(room({ at: 1_000_000 }));
+    h.run(3000);
+    h.player.calls.length = 0;
+    // The seek lands 100 ms into this client's tick phase.
+    h.t.now += 100;
+    const seeked = room({ rev: 2, action: "seek", position: 60, at: h.clock.serverNow() });
+    h.loop.setPlayback(seeked);
+    expect(h.player.calls.map((c) => c.op)).toEqual(["seek", "pause"]);
+    // Back on the tick grid.
+    h.t.now += SYNC_INTERVAL_MS - 100;
+    for (const tm of h.timers) if (!tm.cleared) tm.fn();
+    h.run(3000);
+    expect(h.player.calls.map((c) => c.op)).toEqual(["seek", "pause", "play"]);
+    expect(Math.abs(h.player.time() - expectedPosition(seeked, h.clock.serverNow()))).toBeLessThanOrEqual(0.01);
+  });
+
   test("a room state that arrives before start() waits for the loop to run", () => {
     const h = harness({ caps: CAPS.twitchVod, rates: [1], state: "paused" });
     h.loop.setPlayback(room({ at: h.clock.serverNow() }));
