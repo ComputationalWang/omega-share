@@ -143,3 +143,53 @@ describe("deploy/deploy.sh", () => {
     });
   });
 });
+
+describe("review hardening (OME-356)", () => {
+  test("Caddy's admin API is off: the app sandbox can reach loopback TCP", () => {
+    expect(read("Caddyfile")).toMatch(/^\s*admin off\s*$/m);
+  });
+
+  test("every dynamic nftables set expires and is bounded; IPv6 SSH is metered per /64", () => {
+    const nft = read("nftables.conf");
+    const sets = [...nft.matchAll(/set (\w+) \{([^}]*)\}/g)];
+    expect(sets.length).toBeGreaterThanOrEqual(4);
+    for (const [, , body] of sets) {
+      expect(body).toMatch(/timeout \d+m;/);
+      expect(body).toMatch(/size \d+;/);
+    }
+    expect(nft).toMatch(/add @ssh_meter6 \{ ip6 saddr and ffff:ffff:ffff:ffff:: limit rate/);
+  });
+
+  test("the in-progress snapshot never matches the published name, and the pull takes dated files only", () => {
+    expect(read("backup.sh")).toMatch(/tmp="\$dir\/\.omega-new\.db"/);
+    expect(read("backup.sh")).toContain(".timeout 5000");
+    expect(read("pull-backups.sh")).toContain("omega-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].db");
+    expect(read("pull-backups.sh")).not.toMatch(/'omega-\*\.db'/);
+  });
+
+  test("the backup unit waits for the DB; the off-box pull fails when the newest snapshot is stale", () => {
+    expect(unitKeys(read("omega-share-backup.service")).get("ConditionPathExists")?.at(-1)).toBe("/var/lib/omega-share/omega.db");
+    expect(read("pull-backups.sh")).toMatch(/-mmin -\d+/);
+  });
+
+  test("the server unit tolerates a burst of restarts", () => {
+    const unit = unitKeys(read("omega-share.service"));
+    expect(unit.get("StartLimitIntervalSec")?.at(-1)).toBe("60");
+    expect(unit.get("StartLimitBurst")?.at(-1)).toBe("10");
+  });
+
+  test("Bun is checked against a hash committed in the repo, not one fetched beside the binary", () => {
+    expect(readFileSync(join(DEPLOY, "bun-linux-aarch64.sha256"), "utf8")).toMatch(/^[0-9a-f]{64} {2}bun\.zip\n$/);
+    expect(read("provision.sh")).not.toContain("SHASUMS256.txt");
+  });
+
+  test("a failed health check puts the previous release back", () => {
+    const script = read("deploy.sh");
+    expect(script).toMatch(/prev="\$\(readlink -f/);
+    expect(script).toContain("rolled back to");
+  });
+
+  test("the site is built from the archived commit, not the working tree", () => {
+    expect(read("deploy.sh")).not.toContain("cd $root && bun run --filter @omega/web build");
+  });
+});
