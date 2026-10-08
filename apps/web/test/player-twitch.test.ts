@@ -4,6 +4,7 @@ import type { PlayerErrorReason, PlayerEvent } from "../src/player/adapter";
 import {
   AD_FROZEN_MS,
   ECHO_WINDOW_MS,
+  PUSH_LAG_MS,
   READY_TIMEOUT_MS,
   SEEK_ECHO_MS,
   attachTwitch,
@@ -44,10 +45,15 @@ function setup(embed: TwitchEmbed = VOD) {
   if (ns === null) throw new Error("fake Twitch rejected by the guard");
   const box = new FakeContainer();
   const frame = frameOf(embed);
+  const messages = new Set<(source: unknown) => void>();
   const adapter = attachTwitch(ns, box.asElement(), {
     embed,
     frame,
     now: () => t.now,
+    messages: (fn) => {
+      messages.add(fn);
+      return () => messages.delete(fn);
+    },
     setTimeout: (fn, ms) => {
       const h = { fn, ms, cleared: false };
       timers.push(h);
@@ -76,7 +82,11 @@ function setup(embed: TwitchEmbed = VOD) {
     }
     if (s.time !== undefined) p.currentTime = s.time;
   };
-  return { t, timers, p, box, frame, adapter, events, ready, push };
+  /** A postMessage reaches the page (the SDK's own listener has already updated its cache). Default: from our player's iframe. */
+  const deliver = (source: unknown = box.children[0]?.contentWindow) => {
+    for (const fn of messages) fn(source);
+  };
+  return { t, timers, p, box, frame, adapter, events, ready, push, deliver, messages };
 }
 
 const intents = (events: PlayerEvent[]) => events.filter((e) => e.type === "intent");
@@ -169,20 +179,100 @@ describe("attachTwitch", () => {
     expect(adapter.state()).toBe("ended");
   });
 
-  test("time extrapolates the cached currentTime while playing, capped at +1 s; not while paused", () => {
+  test("time extrapolates the cached currentTime while playing, capped at +1 s past the push; not while paused", () => {
     const { t, adapter, ready, push } = setup();
     ready();
     push({ playback: "Playing", time: 100 });
-    expect(adapter.time()).toBe(100);
-    t.now += 200;
+    // A periodic push carries a currentTime PUSH_LAG_MS old (OME-396).
     expect(adapter.time()).toBeCloseTo(100.2, 6);
+    t.now += 200;
+    expect(adapter.time()).toBeCloseTo(100.4, 6);
     push({ time: 100.25 });
-    expect(adapter.time()).toBeCloseTo(100.25, 6);
+    expect(adapter.time()).toBeCloseTo(100.4, 6);
     t.now += 1500;
-    expect(adapter.time()).toBeCloseTo(101.25, 6);
+    expect(adapter.time()).toBeCloseTo(101.4, 6);
     push({ playback: "Idle", time: 101.5 });
     t.now += 800;
     expect(adapter.time()).toBe(101.5);
+  });
+
+  test("a periodic push while playing is PUSH_LAG_MS old; a paused one is exact (OME-396)", () => {
+    expect(PUSH_LAG_MS).toBe(200);
+    const { t, adapter, ready, push, deliver } = setup();
+    ready();
+    push({ playback: "Idle", time: 40 });
+    deliver();
+    expect(adapter.time()).toBe(40);
+    push({ playback: "Playing" });
+    deliver();
+    t.now += 1060;
+    push({ time: 40.86 });
+    deliver();
+    expect(adapter.time()).toBeCloseTo(41.06, 6);
+    t.now += 1060;
+    push({ time: 41.92 });
+    deliver();
+    t.now += 100;
+    expect(adapter.time()).toBeCloseTo(42.22, 6);
+  });
+
+  test("the cache is read when our iframe's message arrives, so time runs from the push, not from the next tick (OME-396)", () => {
+    const { t, adapter, ready, push, deliver } = setup();
+    ready();
+    push({ playback: "Playing", time: 10 });
+    deliver();
+    t.now += 1060;
+    push({ time: 10.86 });
+    deliver();
+    // The sync loop reads 240 ms later: the push arrived then, so the clock has run 240 ms since.
+    t.now += 240;
+    expect(adapter.time()).toBeCloseTo(11.3, 6);
+  });
+
+  test("messages from other windows don't read the cache; destroy() stops listening", () => {
+    const { t, adapter, ready, push, deliver, messages } = setup();
+    ready();
+    push({ playback: "Playing", time: 10 });
+    deliver();
+    t.now += 1060;
+    push({ time: 10.86 });
+    deliver({});
+    t.now += 240;
+    // Read only now: the push is taken as arriving at this read.
+    expect(adapter.time()).toBeCloseTo(11.06, 6);
+    adapter.destroy();
+    expect(messages.size).toBe(0);
+  });
+
+  test("a fresh push right after play doesn't overshoot by the lag: the lower of it and the previous reading wins (OME-396)", () => {
+    const { t, adapter, ready, push, deliver } = setup();
+    ready();
+    push({ playback: "Idle", time: 16.278 });
+    deliver();
+    t.now += 1000;
+    // Play: the state push holds the paused position; ~230 ms later a fresh push (not 200 ms old).
+    push({ playback: "Playing" });
+    deliver();
+    t.now += 229;
+    push({ time: 16.549 });
+    deliver();
+    expect(adapter.time()).toBeCloseTo(16.507, 6);
+    // The next periodic push is 200 ms old again and is taken as is.
+    t.now += 999;
+    push({ time: 17.35 });
+    deliver();
+    expect(adapter.time()).toBeCloseTo(17.55, 6);
+  });
+
+  test("a reading far from the carried one (a jump) is taken as is, lag added", () => {
+    const { t, adapter, ready, push, deliver } = setup();
+    ready();
+    push({ playback: "Playing", time: 5 });
+    deliver();
+    t.now += 1000;
+    push({ time: 300 });
+    deliver();
+    expect(adapter.time()).toBeCloseTo(300.2, 6);
   });
 
   test("a seek moves time at once; the stale cached value until the next push doesn't undo it", () => {
@@ -207,8 +297,8 @@ describe("attachTwitch", () => {
     expect(adapter.state()).toBe("playing");
     t.now += 100;
     expect(adapter.state()).toBe("ad");
-    // No extrapolation while the room's video isn't showing.
-    expect(adapter.time()).toBe(10);
+    // No extrapolation while the room's video isn't showing (the reading keeps its push lag).
+    expect(adapter.time()).toBeCloseTo(10 + PUSH_LAG_MS / 1000, 6);
     push({ time: 10.25 });
     expect(adapter.state()).toBe("playing");
   });
@@ -391,7 +481,7 @@ describe("attachTwitch", () => {
     const ns = asTwitchNamespace({ Player: NotAPlayer });
     if (ns === null) throw new Error("guard");
     const box = new FakeContainer();
-    const r = attachTwitch(ns, box.asElement(), { embed: VOD, frame: frameOf(VOD), now: () => 0, setTimeout: () => 0, clearTimeout: () => undefined });
+    const r = attachTwitch(ns, box.asElement(), { embed: VOD, frame: frameOf(VOD), now: () => 0, setTimeout: () => 0, clearTimeout: () => undefined, messages: () => () => undefined });
     expect(r).toBeNull();
   });
 });
