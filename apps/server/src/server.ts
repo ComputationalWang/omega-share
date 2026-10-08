@@ -217,7 +217,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     staticDir: opts.staticDir ?? null,
   });
   // After the onRemove hooks above, so the boot sweep already closes sockets and deletes rows.
-  startRoomGc({ rooms, wallNow, busy: ws.hasSockets, touch: markActive, intervalMs: opts.roomGcIntervalMs ?? ROOM_GC_INTERVAL_MS });
+  const gc = startRoomGc({ rooms, wallNow, busy: ws.hasSockets, touch: markActive, intervalMs: opts.roomGcIntervalMs ?? ROOM_GC_INTERVAL_MS });
   const http = createHttpGate((req) => app.fetch(req), {
     now: opts.now ?? monotonic,
     maxInFlight: opts.maxHttpInFlight ?? MAX_HTTP_IN_FLIGHT,
@@ -277,5 +277,11 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     allowedHosts.add(new URL(opts.publicOrigin).host);
     allowedOrigins.add(opts.publicOrigin);
   }
+  // Stopping the server stops its GC too, so a stopped server's store is never swept again.
+  const stopServer = server.stop.bind(server);
+  server.stop = (closeActiveConnections?: boolean) => {
+    gc.stop();
+    return stopServer(closeActiveConnections);
+  };
   return server;
 }

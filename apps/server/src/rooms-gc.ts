@@ -40,8 +40,17 @@ export function sweepRooms({ rooms, wallNow, busy, touch }: RoomGcDeps): RoomId[
     if (room.memberCount > 0) touch(room, now);
     else if (!busy(room) && expired(room, now)) due.push(room);
   }
-  for (const room of due) rooms.removeRoom(room);
-  return due.map((room) => room.id);
+  const removed: RoomId[] = [];
+  for (const room of due) {
+    // One room's failure (a store error in an onRemove hook) must not leave the others for another hour.
+    try {
+      rooms.removeRoom(room);
+      removed.push(room.id);
+    } catch (err) {
+      console.error(`room GC could not remove room ${room.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return removed;
 }
 
 /** Sweeps now and then every `intervalMs` (default ROOM_GC_INTERVAL_MS). The timer never keeps the process alive. */
