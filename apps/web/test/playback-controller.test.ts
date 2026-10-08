@@ -518,3 +518,27 @@ describe("my catching-up status goes to the room (OME-214, ADR 0019)", () => {
     expect(statuses(h.sent)).toEqual([]);
   });
 });
+
+describe("a new room state reaches the player at once (OME-452)", () => {
+  test("a resume plays as the room state arrives, not on the next tick, so clients don't lag by their tick phase", () => {
+    const h = harness({ state: "paused", position: 10 });
+    h.c.start();
+    h.c.setRoom(h.room(VIDEO, pb({ playing: false, action: "pause", position: 10, at: SERVER_OFFSET })));
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    h.run(SYNC_INTERVAL_MS * 2);
+    h.player.calls.length = 0;
+    // The resume lands 240 ms into this client's tick phase.
+    h.t.now += 240;
+    h.c.setRoom(h.room(VIDEO, pb({ rev: 2, position: 10, at: h.clock.serverNow() })));
+    expect(h.player.calls.map((c) => c.op)).toContain("play");
+  });
+
+  test("before start() a room state waits for the timer", () => {
+    const h = harness({ state: "paused", position: 10 });
+    h.c.setRoom(h.room(VIDEO, pb({ playing: false, action: "pause", position: 10, at: SERVER_OFFSET })));
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    h.player.calls.length = 0;
+    h.c.setRoom(h.room(VIDEO, pb({ rev: 2, position: 10, at: h.clock.serverNow() })));
+    expect(h.player.calls.map((c) => c.op)).not.toContain("play");
+  });
+});
