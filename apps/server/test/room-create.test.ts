@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as v from "valibot";
+import * as confusables from "@omega/shared/confusables";
 import {
   CLOSE_CODES,
   CreateRoomResponseSchema,
@@ -21,7 +22,8 @@ import {
 import { Room } from "../src/room";
 import { RoomRegistry } from "../src/rooms";
 import { openDatabase } from "../src/store/db";
-import { RoomStore } from "../src/store/rooms";
+import { RoomStore, type NewRoom } from "../src/store/rooms";
+import type { RoomPersistence } from "../src/server";
 import { Client, SITE_ORIGIN, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 /** `POST /rooms`, `DELETE /rooms/:id`, the public list and `/r/*` headers (ADR 0028 §1, §2, §4, §7; OME-404). */
@@ -181,6 +183,45 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
     }
     expect((await create({ title: "Good room", visibility: "public" })).status).toBe(201);
   });
+
+  test("the blocklist ignores whitespace and punctuation between letters: 'bad word', 'b.a.d-w_o r d' are refused", async () => {
+    t = start({ trustProxy: true, roomTitleBlocklist: ["badword"] });
+    for (const title of ["bad word", "b.a.d-w_o r d", "Bad, Word!"]) {
+      const res = await create({ title, visibility: "public" });
+      expect(res.status).toBe(400);
+      expect(await errorOf(res)).toBe("invalid_body");
+    }
+    expect((await create({ title: "Bade word", visibility: "public" })).status).toBe(201);
+  });
+
+  test("a store that can't write answers a typed 503 (no-store, nothing created) and gives the creation back", async () => {
+    let failing = false;
+    const writes: NewRoom[] = [];
+    const store: RoomPersistence = {
+      listRooms: () => [],
+      createRoom: (room) => {
+        if (failing) throw new Error("database is locked");
+        writes.push(room);
+      },
+      deleteRoom: () => true,
+      setEmbed: () => undefined,
+    };
+    const registry = new RoomRegistry();
+    t = start({ trustProxy: true, store, registry });
+    const size = registry.size;
+    const address = "198.51.100.220";
+    failing = true;
+    for (let i = 0; i < ROOM_CREATE_KEY_BURST + 1; i++) {
+      const res = await create({ title: "Den", visibility: "public" }, { address });
+      expect(res.status).toBe(503);
+      expect(res.headers.get("cache-control")).toBe("no-store");
+      expect(await errorOf(res)).toBe("too_many_rooms");
+    }
+    expect(registry.size).toBe(size);
+    // The failed writes cost the client nothing: its whole burst is still there.
+    failing = false;
+    for (let i = 0; i < ROOM_CREATE_KEY_BURST; i++) expect((await create({ title: "Den", visibility: "public" }, { address })).status).toBe(201);
+  });
 });
 
 describe("creation limits (ADR 0028 §1)", () => {
@@ -331,6 +372,21 @@ describe("GET /rooms lists public rooms only (ADR 0028 §4, research §3.5)", ()
     t = start({ registry, roomTitleBlocklist: ["spam"] });
     registry.addRoom(new Room("aaaaaaaaaaaaaaaaaaaaaaaaaa", { title: "Spam palace", pinned: false }));
     expect((await listed()).map((r) => r.id)).toEqual(["lobby"]);
+  });
+
+  test("titles are checked against the blocklist once per room, not on every list request", async () => {
+    const registry = new RoomRegistry();
+    t = start({ registry, roomTitleBlocklist: ["spam"] });
+    for (let i = 0; i < 50; i++) registry.addRoom(new Room(`room-${String(i).padStart(21, "0")}`, { title: `Room ${String(i)}`, pinned: false }));
+    registry.addRoom(new Room("aaaaaaaaaaaaaaaaaaaaaaaaaa", { title: "Spam palace", pinned: false }));
+    expect(await listed()).toHaveLength(51);
+    const fold = spyOn(confusables, "nicknameKey");
+    try {
+      for (let i = 0; i < 3; i++) expect((await listed()).map((r) => r.id)).not.toContain("aaaaaaaaaaaaaaaaaaaaaaaaaa");
+      expect(fold).toHaveBeenCalledTimes(0);
+    } finally {
+      fold.mockRestore();
+    }
   });
 });
 
