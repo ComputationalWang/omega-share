@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
+import * as fs from "node:fs";
 import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -144,11 +145,12 @@ describe("rooms list", () => {
     // Seeded rooms may carry any stored title the DB parse accepts; force a hostile one in memory.
     const room = f.rooms.get(ID_A);
     if (room === undefined) throw new Error("no room");
-    Object.defineProperty(room, "title", { value: "a\u001b[2Jb\tc‮d" });
+    Object.defineProperty(room, "title", { value: "a\u001b[2Jb\tc\u202ed\ne\u0085f\u2028g\u{e0041}h\u200bi" });
     const { out } = await cli(f.socket, "rooms", "list");
-    expect(out).not.toContain("\u001b");
-    expect(out).not.toContain("‮");
-    expect(rowsOf(out).find((r) => r["id"] === ID_A)?.["title"]).toBe("a\\u001b[2Jb\\u0009c\\u202ed");
+    for (const ch of ["\u001b", "\u202e", "\u0085", "\u2028", "\u{e0041}", "\u200b"]) expect(out).not.toContain(ch);
+    expect(rowsOf(out).find((r) => r["id"] === ID_A)?.["title"]).toBe(
+      "a\\u001b[2Jb\\u0009c\\u202ed\\u000ae\\u0085f\\u2028g\\u{e0041}h\\u200bi",
+    );
   });
 });
 
@@ -179,12 +181,26 @@ describe("rooms delete <id>", () => {
     expect(f.rooms.get("lobby")).toBeDefined();
   });
 
-  test("deletes a pinned room too (it comes back empty at the next boot only if configured)", async () => {
+  test("deletes a pinned room too; a configured one is seeded again, empty, at the next boot", async () => {
     const f = boot();
     const { code } = await cli(f.socket, "rooms", "delete", "lobby");
     expect(code).toBe(0);
     expect(f.rooms.get("lobby")).toBeUndefined();
     expect(f.store.listRooms()).toEqual([]);
+    await f.t.server.stop(true);
+    t = start({ store: f.store, registry: new RoomRegistry(), wallNow: f.clock.now });
+    expect(f.store.listRooms().map((r) => [r.id, r.pinned, r.embed])).toEqual([["lobby", true, null]]);
+  });
+
+  test("deletes a row the live server no longer has (a re-run after a failed store write)", async () => {
+    const f = boot();
+    // In the store, not in memory: what a removal whose row delete failed leaves behind.
+    f.store.createRoom({ id: ID_B, title: "Leftover", createdAt: T0, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
+    expect(f.rooms.get(ID_B)).toBeUndefined();
+    const { code, out } = await cli(f.socket, "rooms", "delete", ID_B);
+    expect(code).toBe(0);
+    expect(out).toBe(`deleted ${ID_B}`);
+    expect(f.store.listRooms().map((r) => r.id)).not.toContain(ID_B);
   });
 });
 
@@ -219,6 +235,15 @@ describe("rooms pin|unpin <id>", () => {
     expect(await listedIds(f)).toEqual(["lobby", newer.room.id, older.room.id]);
     await cli(f.socket, "rooms", "pin", older.room.id);
     expect(await listedIds(f)).toEqual(["lobby", older.room.id, newer.room.id]);
+  });
+
+  test("unpin refuses a seeded room (no owner): GC would end it and only a restart brings it back", async () => {
+    const f = boot();
+    const { code, err } = await cli(f.socket, "rooms", "unpin", "lobby");
+    expect(code).toBe(1);
+    expect(err).toBe("lobby is a seeded room with no owner: it stays pinned (delete it instead)");
+    expect(f.rooms.get("lobby")?.pinned).toBe(true);
+    expect(f.store.listRooms().find((r) => r.id === "lobby")?.pinned).toBe(true);
   });
 
   test("pinning an unknown room exits 1", async () => {
@@ -259,6 +284,52 @@ describe("the admin socket", () => {
     // A crash leaves the socket file behind; the next boot must still bind.
     admin = startAdmin({ rooms: f.rooms, store: f.store, socketPath: f.socket });
     expect((await cli(f.socket, "rooms", "list")).code).toBe(0);
+  });
+
+  test("is bound owner-only, not chmod-ed after the fact, whatever the process umask", () => {
+    dir = mkdtempSync(join(tmpdir(), "omega-cli-"));
+    db = openDatabase(join(dir, "omega.db"));
+    const path = join(dir, "admin.sock");
+    const before = process.umask(0o002);
+    const chmod = spyOn(fs, "chmodSync").mockImplementation(() => undefined);
+    let after: number;
+    try {
+      admin = startAdmin({ rooms: new RoomRegistry(), store: new RoomStore(db), socketPath: path });
+    } finally {
+      chmod.mockRestore();
+      after = process.umask(before);
+    }
+    expect(statSync(path).mode & 0o777).toBe(0o600);
+    // The process umask is back as it was: only the bind ran under 0177.
+    expect(after).toBe(0o002);
+  });
+
+  test("if the socket can't be secured, nothing is left listening and the socket file is gone", () => {
+    dir = mkdtempSync(join(tmpdir(), "omega-cli-"));
+    const store = new RoomStore((db = openDatabase(join(dir, "omega.db"))));
+    const path = join(dir, "admin.sock");
+    const chmod = spyOn(fs, "chmodSync").mockImplementation(() => {
+      throw new Error("EPERM");
+    });
+    try {
+      expect(() => startAdmin({ rooms: new RoomRegistry(), store, socketPath: path })).toThrow(/EPERM/);
+    } finally {
+      chmod.mockRestore();
+    }
+    expect(existsSync(path)).toBe(false);
+  });
+
+  test("answers only its four routes: other methods 405, other paths 404, bodies over 1 KB refused", async () => {
+    const f = boot();
+    const call = (path: string, init: RequestInit = {}) => fetch(`http://localhost${path}`, { ...init, unix: f.socket });
+    expect((await call("/rooms", { method: "PUT" })).status).toBe(405);
+    expect((await call("/rooms/lobby")).status).toBe(405);
+    expect((await call("/rooms/lobby/pin")).status).toBe(405);
+    expect((await call("/rooms/lobby/frob", { method: "POST" })).status).toBe(404);
+    expect((await call("/rooms/LOBBY", { method: "DELETE" })).status).toBe(404);
+    expect((await call("/")).status).toBe(404);
+    expect((await call("/rooms/lobby/pin", { method: "POST", body: "x".repeat(2048) })).status).toBe(413);
+    expect(f.rooms.get("lobby")?.pinned).toBe(true);
   });
 
   test("refuses to replace a path that isn't a socket", () => {
