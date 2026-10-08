@@ -172,3 +172,14 @@ test("a new target on the cell just ahead mid-step finishes the step instead of 
   walks.sample(id("a"), 600, pose);
   expect(pose).toMatchObject({ ...cellCenter(8, 5), walking: false });
 });
+
+test("the same layout again (its furniture atlas arriving) doesn't stop the next walk", () => {
+  const walks = createWalks({ reducedMotion: () => false });
+  walks.setGrid(grid);
+  const pose = emptyPose();
+  walks.place([standAt("a", 9, 5)], 0);
+  walks.setGrid(walkGrid(DEFAULT_LAYOUT));
+  walks.place([standAt("a", 5, 5)], 0);
+  walks.sample(id("a"), 0, pose);
+  expect(pose.walking).toBe(true);
+});
