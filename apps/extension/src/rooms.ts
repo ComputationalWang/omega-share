@@ -48,3 +48,17 @@ export async function loadRooms({ baseUrl, fetch }: LoadRoomsOptions): Promise<R
   const rooms = parsed.output.rooms.map((r) => ({ id: r.id, label: `${r.title ?? r.id} (${String(r.memberCount)})` }));
   return { kind: "ok", list: { rooms, selected: rooms.some((r) => r.id === DEFAULT_ROOM_ID) ? DEFAULT_ROOM_ID : first.id } };
 }
+
+/**
+ * The dropdown: rooms open in the user's site tabs first, then the listed ones (threat model §3.5).
+ * Tab rooms include private rooms, which `GET /rooms` never lists; a listed one keeps its title label.
+ * Pre-selects the first tab room holding a share token, else the first tab room: that's where the user can share.
+ */
+export function withRoomTabs(list: RoomList, tabs: { readonly rooms: readonly string[]; readonly tokens: ReadonlyMap<string, string> }): RoomList {
+  const [first] = tabs.rooms;
+  if (first === undefined) return list;
+  const label = (id: string): string => list.rooms.find((r) => r.id === id)?.label ?? id;
+  const open = tabs.rooms.map((id) => ({ id, label: label(id) }));
+  const rest = list.rooms.filter((r) => !tabs.rooms.includes(r.id));
+  return { rooms: [...open, ...rest], selected: tabs.rooms.find((id) => tabs.tokens.has(id)) ?? first };
+}
