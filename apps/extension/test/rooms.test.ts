@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { loadRooms } from "../src/rooms";
+import { loadRooms, withRoomTabs } from "../src/rooms";
 
 const BASE = "http://localhost:8787";
 const json = (body: unknown, status = 200) =>
@@ -102,4 +102,56 @@ describe("loadRooms", () => {
       expect(await loadRooms({ baseUrl: BASE, fetch: mock(o.response) })).toEqual({ kind: o.kind });
     });
   }
+});
+
+describe("withRoomTabs: the dropdown is the open room tabs first, then the listed rooms (threat model §3.5)", () => {
+  const PRIVATE = "abcdefghijklmnopqrstuvwxyz";
+  const listed = {
+    rooms: [
+      { id: "lobby", label: "lobby (3)" },
+      { id: "movies", label: "Movie night (7)" },
+    ],
+    selected: "lobby",
+  };
+  const T = "AAAAAAAAAAAAAAAAAAAAAA";
+
+  test("no open room tabs: the listed rooms unchanged", () => {
+    expect(withRoomTabs(listed, { rooms: [], tokens: new Map() })).toEqual(listed);
+  });
+
+  test("a private room open in a tab is added (by id) and selected when it holds a token", () => {
+    expect(withRoomTabs(listed, { rooms: [PRIVATE], tokens: new Map([[PRIVATE, T]]) })).toEqual({
+      rooms: [
+        { id: PRIVATE, label: PRIVATE },
+        { id: "lobby", label: "lobby (3)" },
+        { id: "movies", label: "Movie night (7)" },
+      ],
+      selected: PRIVATE,
+    });
+  });
+
+  test("a listed room open in a tab moves first and keeps its title label, never listed twice", () => {
+    expect(withRoomTabs(listed, { rooms: ["movies"], tokens: new Map() })).toEqual({
+      rooms: [
+        { id: "movies", label: "Movie night (7)" },
+        { id: "lobby", label: "lobby (3)" },
+      ],
+      selected: "movies",
+    });
+  });
+
+  test("the first tab room holding a token is selected over earlier tabs without one", () => {
+    expect(withRoomTabs(listed, { rooms: [PRIVATE, "movies"], tokens: new Map([["movies", T]]) }).selected).toBe("movies");
+  });
+
+  test("the server unreachable: the tab rooms still come first, the lobby fallback after", () => {
+    const fallback = { rooms: [{ id: "lobby", label: "lobby" }], selected: "lobby" };
+    expect(withRoomTabs(fallback, { rooms: [PRIVATE], tokens: new Map() })).toEqual({
+      rooms: [
+        { id: PRIVATE, label: PRIVATE },
+        { id: "lobby", label: "lobby" },
+      ],
+      selected: PRIVATE,
+    });
+  });
 });
