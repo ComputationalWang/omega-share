@@ -59,10 +59,10 @@ export class FakePlayer implements PlayerAdapter {
   private sync(): void {
     const t = this.o.now();
     if (this.resumeAt >= 0 && t >= this.resumeAt) {
+      // The media starts at resumeAt, not at the first read after it.
+      this.last = this.resumeAt;
       this.resumeAt = -1;
       this.st = "playing";
-      this.last = t;
-      return;
     }
     if (this.st === "playing") {
       const applies = this.o.applies ?? (() => true);

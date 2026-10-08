@@ -49,6 +49,7 @@ function input(driftMs: number, over: Partial<DecideInput> = {}): DecideInput {
     rate: 1,
     mode: "fine",
     seekLatencyMs: 0,
+    startLatencyMs: 0,
     ...over,
   };
 }

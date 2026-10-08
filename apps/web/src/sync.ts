@@ -74,6 +74,8 @@ export interface DecideInput {
   mode: RateMode;
   /** Estimated time a seek takes to land while playing, ms. */
   seekLatencyMs: number;
+  /** Estimated time a stopped player takes from seek + play until it plays, ms (OME-392). */
+  startLatencyMs: number;
 }
 
 /** The room's position at server time `serverNowMs`, seconds. */
@@ -88,7 +90,10 @@ export function decide(i: DecideInput): Correction {
   if (room === null || i.playerState === "ad") return NONE;
   if (i.mode === "live") return decideLive(i, room);
   const expected = expectedPosition(room, i.serverNowMs);
-  if (i.hardSeek) return seekTo(expected, room, i.seekLatencyMs);
+  if (i.hardSeek) {
+    const moving = i.playerState === "playing" || i.playerState === "buffering";
+    return seekTo(expected, room, moving ? i.seekLatencyMs : i.startLatencyMs);
+  }
   if (i.playerState === "buffering") return NONE;
   if (!room.playing) {
     if (i.playerState === "playing") return PAUSE;
@@ -165,9 +170,9 @@ export function nextRateMode(mode: RateMode, requested: number, slope: number, r
  * EWMA of how long a seek takes to land. A seek aimed `compensationMs` ahead that
  * then measures `residualDriftMs` took `compensation − residual` ms.
  */
-export function updateSeekLatency(prevMs: number, compensationMs: number, residualDriftMs: number): number {
+export function updateSeekLatency(prevMs: number, compensationMs: number, residualDriftMs: number, alpha = SEEK_LATENCY_ALPHA): number {
   const sample = Math.min(MAX_SEEK_LATENCY_MS, Math.max(0, compensationMs - residualDriftMs));
-  return prevMs + SEEK_LATENCY_ALPHA * (sample - prevMs);
+  return prevMs + alpha * (sample - prevMs);
 }
 
 /** What the loop needs of the clock-sync module. */
@@ -196,6 +201,7 @@ export interface SyncLoop {
   destroy(): void;
   readonly mode: RateMode;
   readonly seekLatencyMs: number;
+  readonly startLatencyMs: number;
 }
 
 /**
@@ -218,6 +224,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     rate: 1,
     mode: "fine",
     seekLatencyMs: 0,
+    startLatencyMs: 0,
   };
   let timer: Timer | null = null;
   let modeKnown = false;
@@ -229,11 +236,17 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
   let checkPos = 0;
   /** Compensation used by the last seek while playing, ms; -1 = nothing to learn. */
   let pendingComp = -1;
+  /** The pending seek was a resume from "paused": it measures start-up latency, not seek latency. */
+  let pendingStart = false;
+  /** No start-up sample yet: the first one replaces the 0 prior instead of easing in from it. */
+  let startLearned = false;
   let holdUntil = Number.NEGATIVE_INFINITY;
   let lastPlayAt = Number.NEGATIVE_INFINITY;
   let lastPauseAt = Number.NEGATIVE_INFINITY;
   const off = p.onEvent((e) => {
-    if (e.type === "intent") holdUntil = o.now() + INTENT_HOLD_MS;
+    if (e.type !== "intent") return;
+    holdUntil = o.now() + INTENT_HOLD_MS;
+    pendingComp = -1;
   });
 
   const unstable = (now: number) => {
@@ -276,7 +289,13 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
       if (input.sampleCount < 3) input.sampleCount++;
     }
     if (pendingComp >= 0 && input.sampleCount === 3) {
-      input.seekLatencyMs = updateSeekLatency(input.seekLatencyMs, pendingComp, median3(samples));
+      const residual = median3(samples);
+      if (!pendingStart) {
+        input.seekLatencyMs = updateSeekLatency(input.seekLatencyMs, pendingComp, residual);
+      } else {
+        input.startLatencyMs = updateSeekLatency(input.startLatencyMs, pendingComp, residual, startLearned ? undefined : 1);
+        startLearned = true;
+      }
       pendingComp = -1;
     }
     if (checkFrom >= 0 && now - checkFrom >= RATE_CHECK_MS) {
@@ -299,6 +318,8 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
         if (now - lastPlayAt < RESEND_MS) return;
         lastPlayAt = now;
         p.play();
+        // A start that needed another play (blocked autoplay, slow load) doesn't measure latency.
+        pendingComp = -1;
         return;
       case "pause":
         if (now - lastPauseAt < RESEND_MS) return;
@@ -321,7 +342,10 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
           lastPauseAt = now;
           p.pause();
         }
-        pendingComp = c.play && st === "playing" ? input.seekLatencyMs : -1;
+        // Learn from a seek while playing, or a resume from paused (OME-392). A cold join
+        // (cued, unstarted) includes loading the media, so it would overshoot later resumes.
+        pendingStart = st === "paused";
+        pendingComp = !c.play ? -1 : st === "playing" ? input.seekLatencyMs : pendingStart ? input.startLatencyMs : -1;
         unstable(now);
         return;
     }
@@ -354,6 +378,9 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     },
     get seekLatencyMs() {
       return input.seekLatencyMs;
+    },
+    get startLatencyMs() {
+      return input.startLatencyMs;
     },
   };
 }
