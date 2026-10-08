@@ -160,9 +160,9 @@ describe("wiring: room playback → sync loop → player", () => {
     h.run(1000);
     h.player.calls.length = 0;
     h.c.setRoom(h.room(VIDEO, pb({ rev: 2, action: "seek", position: 100, at: h.t.now + SERVER_OFFSET })));
-    h.run(SYNC_INTERVAL_MS);
+    // Applied as it arrives, not on the next tick (OME-452).
     const seek = h.player.calls.find((c) => c.op === "seek");
-    expect(seek?.op === "seek" ? seek.to : -1).toBeCloseTo(100.25, 2);
+    expect(seek?.op === "seek" ? seek.to : -1).toBeCloseTo(100, 2);
   });
 
   test("the same state again (a re-render) does not re-seek", () => {

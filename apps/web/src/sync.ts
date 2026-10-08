@@ -90,6 +90,8 @@ export interface DecideInput {
   startLatencyMs: number;
   /** Where a park left the player paused, s; -1 = not parked. */
   parkAt: number;
+  /** Time to the loop's next tick, ms: 0 on a tick, more when a new room state is applied between ticks. */
+  tickPhaseMs: number;
 }
 
 /** The room's position at server time `serverNowMs`, seconds. */
@@ -162,9 +164,12 @@ function hardSeekLatency(i: DecideInput): number {
   return i.playerState === "paused" ? i.startLatencyMs : 0;
 }
 
-/** Far enough ahead that the paused seek has loaded, plus what the play will take, so it starts on the room clock. */
+/**
+ * Far enough ahead that the paused seek has loaded, plus what the play will take, so it starts on the room clock.
+ * Plus the time to the next tick: the unpark runs on a tick, so a park between ticks would unpark up to half a tick off (OME-452).
+ */
 function park(expected: number, i: DecideInput, room: PlaybackState): Correction {
-  return { kind: "park", to: expected + ((PARK_LEAD_MS + i.startLatencyMs) / 1000) * room.rate };
+  return { kind: "park", to: expected + ((PARK_LEAD_MS + i.startLatencyMs + i.tickPhaseMs) / 1000) * room.rate };
 }
 
 function seekTo(expected: number, room: PlaybackState, latencyMs: number): Correction {
@@ -260,6 +265,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
     seekLatencyMs: 0,
     startLatencyMs: 0,
     parkAt: -1,
+    tickPhaseMs: 0,
   };
   let timer: Timer | null = null;
   let modeKnown = false;
@@ -277,6 +283,8 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
   let startLearned = false;
   /** The pending start is an unpark: a load stall can make it land late, so it always eases in (OME-396). */
   let pendingUnpark = false;
+  /** When the last tick ran, client ms; -∞ = the loop isn't ticking yet. */
+  let tickAt = Number.NEGATIVE_INFINITY;
   let holdUntil = Number.NEGATIVE_INFINITY;
   let lastPlayAt = Number.NEGATIVE_INFINITY;
   let lastPauseAt = Number.NEGATIVE_INFINITY;
@@ -299,14 +307,20 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
   };
 
   function tick(): void {
+    tickAt = o.now();
+    step(tickAt);
+  }
+
+  /** One sync step at client ms `now`, on a tick or between ticks. */
+  function step(now: number): void {
     const room = input.room;
     if (room === null || !o.clock.ready || !p.ready()) return;
     if (!modeKnown) {
       input.mode = initialRateMode(p.rates(), p.caps);
       modeKnown = true;
     }
-    const now = o.now();
     if (now < holdUntil) return;
+    input.tickPhaseMs = (SYNC_INTERVAL_MS - ((now - tickAt) % SYNC_INTERVAL_MS)) % SYNC_INTERVAL_MS;
     const st = p.state();
     if (st !== lastState) {
       lastState = st;
@@ -428,7 +442,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
       pendingComp = -1;
       // Act now, not on the next tick: every client gets the state within ms of the others, but its
       // tick phase is anywhere in 0–250 ms, and a seek-only resume would lag by that much (OME-452).
-      if (timer !== null) tick();
+      if (tickAt > Number.NEGATIVE_INFINITY) step(o.now());
     },
     tick,
     start() {

@@ -52,6 +52,7 @@ function input(driftMs: number, over: Partial<DecideInput> = {}): DecideInput {
     seekLatencyMs: 0,
     startLatencyMs: 0,
     parkAt: -1,
+    tickPhaseMs: 0,
     ...over,
   };
 }
@@ -669,10 +670,10 @@ describe("sync loop", () => {
   test("join hard-seeks to the room position and plays", () => {
     const h = harness({ state: "cued", position: 0 });
     h.loop.start();
-    // room: 10 s at server 1_000_000, playing → applied at once (client t=0), so 10 s (OME-452)
+    // room: 10 s at server 1_000_000, playing → at client t=250 expect 10.25 s
     h.loop.setPlayback(room());
     h.run(250);
-    expect(h.player.calls.slice(0, 2)).toEqual([{ op: "seek", to: 10 }, { op: "play" }]);
+    expect(h.player.calls.slice(0, 2)).toEqual([{ op: "seek", to: 10.25 }, { op: "play" }]);
   });
 
   test("a new playback state (explicit action) hard-seeks; steady state then makes no calls", () => {
