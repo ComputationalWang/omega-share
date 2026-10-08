@@ -237,8 +237,8 @@ describe("decide: seek-only parks instead of seeking while playing (OME-396)", (
     expect(decide(input(-251, { mode: "seek-only", hardSeek: true, playerState: "paused" }))).toEqual({ kind: "park", to: 11 });
   });
 
-  test("a resume near the room and a cold join still seek and play (OME-392 path)", () => {
-    expect(decide(input(-250, { mode: "seek-only", hardSeek: true, playerState: "paused", startLatencyMs: 60 }))).toEqual({ kind: "seek", to: 10.06, play: true });
+  test("a resume near the room just plays: the paused player is already there, and a seek would drop its buffer; a cold join still seeks", () => {
+    expect(decide(input(-250, { mode: "seek-only", hardSeek: true, playerState: "paused", startLatencyMs: 60 }))).toEqual({ kind: "play" });
     expect(decide(input(0, { mode: "seek-only", hardSeek: true, playerState: "cued" }))).toEqual({ kind: "seek", to: 10, play: true });
   });
 
@@ -354,7 +354,7 @@ describe("capabilities (ADR 0014 §3, research §6.3)", () => {
       { kind: "park", to: 11 },
       { kind: "park", to: 11 },
       { kind: "park", to: 11 },
-      { kind: "seek", to: 10, play: true },
+      { kind: "play" },
       { kind: "pause" },
       { kind: "seek", to: 10, play: false },
       { kind: "play" },
@@ -513,6 +513,19 @@ describe("sync loop", () => {
     h.run(10_000);
     expect(h.player.calls.filter((c) => c.op === "seek")).toHaveLength(2);
     expect(Math.abs(h.player.time() - expectedPosition(room(), h.clock.serverNow()))).toBeLessThanOrEqual(0.01);
+  });
+
+  test("seek-only: a resume plays without a seek and isn't parked on the next tick (OME-396)", () => {
+    const h = harness({ caps: CAPS.twitchVod, rates: [1], state: "paused" });
+    h.loop.start();
+    h.loop.setPlayback(room({ playing: false, action: "pause", at: h.clock.serverNow() }));
+    h.run(500);
+    h.player.calls.length = 0;
+    const resumed = room({ rev: 2, at: h.clock.serverNow() });
+    h.loop.setPlayback(resumed);
+    h.run(5000);
+    expect(h.player.calls).toEqual([{ op: "play" }]);
+    expect(Math.abs(h.player.time() - expectedPosition(resumed, h.clock.serverNow()))).toBeLessThanOrEqual(0.25);
   });
 
   test("seek-only: a new room state while parked cancels the park", () => {
