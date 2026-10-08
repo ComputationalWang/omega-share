@@ -14,6 +14,7 @@ export const SPEC_ROOMS = {
   "provider-share": ["1", "2", "3", "4"],
   "provider-generic": ["main"],
   "room-view": ["main"],
+  walk: ["main", "reduced"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
