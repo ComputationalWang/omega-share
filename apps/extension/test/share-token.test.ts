@@ -1,5 +1,9 @@
-import { describe, expect, test } from "bun:test";
-import { MAX_RECORD_LENGTH, readRecordInPage, readShareTokens, roomTabPatterns, type TokenDeps } from "../src/share-token";
+import { afterEach, describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { MAX_RECORD_LENGTH, readRecordInPage, readRoomTabs, roomTabPatterns, type TokenDeps } from "../src/share-token";
+
+const readShareTokens = async (origin: string, deps: TokenDeps) => (await readRoomTabs(origin, deps)).tokens;
 
 const TOKEN = "AAAAAAAAAAAAAAAAAAAAAA";
 const TOKEN2 = "abcdefghijklmnopqrstuv";
@@ -24,7 +28,7 @@ function fake(tabs: Record<number, FakeTab>, opts: { failing?: readonly number[]
         queried.push([...patterns]);
         return Promise.resolve([...Object.entries(tabs).map(([id, t]) => ({ id: Number(id), url: t.url })), {}]);
       },
-      readSession: (tabId) => {
+      inject: (tabId) => {
         read.push(tabId);
         if (opts.failing?.includes(tabId) === true) return Promise.reject(new Error("tab discarded"));
         return Promise.resolve(tabs[tabId]?.value);
@@ -118,9 +122,93 @@ describe("readShareTokens", () => {
   test("a failed tab query yields no tokens, never a throw", async () => {
     const tokens = await readShareTokens("http://localhost:8787", {
       queryTabs: () => Promise.reject(new Error("no permission")),
-      readSession: () => Promise.resolve(null),
+      inject: () => Promise.resolve(null),
     });
     expect(tokens.size).toBe(0);
+  });
+});
+
+describe("readRoomTabs: rooms open in the user's site tabs (threat model §3.5)", () => {
+  test("every open room tab's room is listed in tab order, with or without a share token, once each", async () => {
+    // A private room never appears in GET /rooms; its open tab is how the user can still share into it.
+    const f = fake({ 3: at("abcdefghijklmnopqrstuvwxyz", null), 4: at("lobby"), 5: at("abcdefghijklmnopqrstuvwxyz") });
+    const tabs = await readRoomTabs("http://localhost:8787", f.deps);
+    expect(tabs.rooms).toEqual(["abcdefghijklmnopqrstuvwxyz", "lobby"]);
+    expect([...tabs.tokens]).toEqual([
+      ["lobby", TOKEN],
+      ["abcdefghijklmnopqrstuvwxyz", TOKEN],
+    ]);
+  });
+
+  test("tabs whose URL is not a room page add no room", async () => {
+    const f = fake({ 1: { url: "http://localhost:5173/r/Lobby", value: null }, 2: { url: undefined, value: null } });
+    expect((await readRoomTabs("http://localhost:8787", f.deps)).rooms).toEqual([]);
+  });
+
+  test("rooms come from tab URLs, so tabs past the 8 injected still list their room", async () => {
+    const tabs: Record<number, FakeTab> = {};
+    for (let i = 1; i <= 12; i++) tabs[i] = at(`room-${String(i)}`);
+    const f = fake(tabs);
+    expect((await readRoomTabs("http://localhost:8787", f.deps)).rooms).toHaveLength(12);
+    expect(f.read).toHaveLength(8);
+  });
+
+  test("a failed tab query lists no rooms, never a throw", async () => {
+    const tabs = await readRoomTabs("http://localhost:8787", { queryTabs: () => Promise.reject(new Error("x")), inject: () => Promise.resolve(null) });
+    expect(tabs.rooms).toEqual([]);
+  });
+});
+
+describe("never reads the site's owner tokens or invite keys (ADR 0028, threat model S3)", () => {
+  const realLocal = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const realSession = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+  afterEach(() => {
+    for (const [name, d] of [["localStorage", realLocal], ["sessionStorage", realSession]] as const) {
+      if (d === undefined) Reflect.deleteProperty(globalThis, name);
+      else Object.defineProperty(globalThis, name, d);
+    }
+  });
+
+  /** A room tab's storage holding both the share record and the site's room secrets; every access is logged. */
+  function spyStorage(log: string[], area: string, items: Record<string, string>): Storage {
+    return new Proxy({} as Storage, {
+      get: (_, prop) => {
+        log.push(`${area}.${String(prop)}`);
+        if (prop === "getItem") return (key: string) => (log.push(`${area}.getItem(${key})`), items[key] ?? null);
+        return undefined;
+      },
+    });
+  }
+
+  test("the script injected into a room tab touches sessionStorage['omega.share'] only, never localStorage", async () => {
+    const log: string[] = [];
+    const secrets = JSON.stringify({ lobby: { ownerToken: "o".repeat(43), inviteKey: "k".repeat(22) } });
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: spyStorage(log, "localStorage", { "omega.rooms": secrets }) });
+    Object.defineProperty(globalThis, "sessionStorage", {
+      configurable: true,
+      value: spyStorage(log, "sessionStorage", { "omega.share": record("lobby", TOKEN), "omega.rooms": secrets }),
+    });
+    const injected: unknown[][] = [];
+    const tabs = await readRoomTabs("http://localhost:8787", {
+      queryTabs: () => Promise.resolve([{ id: 1, url: "http://localhost:5173/r/lobby" }]),
+      // Runs the injected function here, against the spied storages, as executeScript would in the tab.
+      inject: (_tabId, func, args) => {
+        injected.push([...args]);
+        return Promise.resolve(func(...args));
+      },
+    });
+    expect(tabs.tokens.get("lobby")).toBe(TOKEN);
+    expect(injected).toEqual([["omega.share", MAX_RECORD_LENGTH]]);
+    expect(log.filter((l) => l.includes("(")).sort()).toEqual(["sessionStorage.getItem(omega.share)"]);
+    expect(log.some((l) => l.startsWith("localStorage"))).toBe(false);
+  });
+
+  test("no extension source names the room secrets key, localStorage, an owner token or an invite key", () => {
+    const src = join(import.meta.dir, "../src");
+    const files = readdirSync(src, { recursive: true, encoding: "utf8" }).filter((f) => /\.(ts|html)$/.test(f));
+    expect(files.length).toBeGreaterThan(5);
+    const forbidden = /omega\.rooms|ROOM_SECRETS_STORAGE_KEY|RoomSecrets|localStorage|ownerToken|OwnerToken|inviteKey|InviteKey/;
+    expect(files.filter((f) => forbidden.test(readFileSync(join(src, f), "utf8")))).toEqual([]);
   });
 });
 
