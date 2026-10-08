@@ -275,6 +275,23 @@ describe("restore", () => {
     expect(rooms(live).map((r) => r.id)).toEqual(["lobby", "den", "beta", "crash-a", "crash-b"]);
   });
 
+  test("refuses, before touching DB_PATH, while another connection holds the DB (the server is still running)", () => {
+    const snap = snapshot(seed(join(tmp(), "src/omega.db")), join(tmp(), "backups"), NIGHT);
+    const live = seed();
+    const server = openDatabase(live);
+    cleanups.push(() => {
+      server.close();
+    });
+    new RoomStore(server).createRoom({ id: "beta", title: "", createdAt: 9, layout: DEFAULT_LAYOUT });
+    server.run("BEGIN");
+    server.query("SELECT count(*) FROM rooms").get();
+
+    expect(() => restore(snap, live, NIGHT)).toThrow("busy");
+    server.run("COMMIT");
+    expect(readdirSync(join(live, "..")).filter((f) => f.includes("pre-restore") || f.includes("restore-tmp"))).toEqual([]);
+    expect(rooms(live).map((r) => r.id)).toEqual(["lobby", "den", "beta"]);
+  });
+
   test("restores into a wiped DB_PATH", () => {
     const snap = snapshot(seed(), join(tmp(), "backups"), NIGHT);
     const live = join(tmp(), "wiped/omega.db");
