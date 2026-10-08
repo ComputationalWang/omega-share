@@ -415,6 +415,21 @@ describe("layout-set and title-set (ADR 0028 §6)", () => {
     expect((await guest.client.next("title-changed")).title).toBe("Saturday films");
   });
 
+  test("a stored room whose title a later blocklist hides is listed again once the owner renames it to a clean title", async () => {
+    db = openDatabase(":memory:");
+    t = start({ trustProxy: true, store: new RoomStore(db) });
+    const room = await createRoom("public", "Friday films");
+    await server().server.stop(true);
+    // Restarted with "friday" now on ROOM_TITLE_BLOCKLIST: the stored room is kept but unlisted.
+    t = start({ trustProxy: true, store: new RoomStore(db), roomTitleBlocklist: ["friday"] });
+    const ids = async () => ((await (await fetch(`${server().http}/rooms`)).json()) as { rooms: { id: string }[] }).rooms.map((r) => r.id);
+    expect(await ids()).not.toContain(room.room.id);
+    const owner = await joined(room.room.id, "olive", { ownerToken: room.ownerToken });
+    owner.client.send({ type: "title-set", title: "Saturday films" });
+    await owner.client.next("title-changed");
+    expect(await ids()).toContain(room.room.id);
+  });
+
   test("an unchanged title or layout is a no-op: no broadcast, no write", async () => {
     t = start({ trustProxy: true });
     const room = await createRoom("public");
