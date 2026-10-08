@@ -207,6 +207,16 @@ describe("decide: hard seek", () => {
   });
 });
 
+describe("decide: start-up latency (OME-392)", () => {
+  test("a hard seek on a paused player aims ahead by the start-up latency; a cold player (cued, unstarted) doesn't, since it isn't learned from them", () => {
+    const at = (playerState: PlayerState) => decide(input(0, { hardSeek: true, playerState, startLatencyMs: 800, seekLatencyMs: 200 }));
+    expect(at("paused")).toEqual({ kind: "seek", to: 10.8, play: true });
+    expect(at("cued")).toEqual({ kind: "seek", to: 10, play: true });
+    expect(at("unstarted")).toEqual({ kind: "seek", to: 10, play: true });
+    expect(at("playing")).toEqual({ kind: "seek", to: 10.2, play: true });
+  });
+});
+
 describe("decide: fallback ladder", () => {
   test("burst mode nudges with 0.75 / 1.25", () => {
     expect(decide(input(300, { mode: "burst" }))).toEqual({ kind: "rate", rate: 0.75 });
