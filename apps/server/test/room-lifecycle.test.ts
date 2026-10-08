@@ -108,7 +108,7 @@ describe("RoomRegistry.removeRoom", () => {
   test("1000 rooms created, used and removed: every per-room map is back at its baseline", async () => {
     const clock = fakeClock();
     const registry = new RoomRegistry();
-    t = start({ registry, now: clock.now, maxConnections: 1000 });
+    t = start({ registry, now: clock.now, maxConnections: 2000, maxConnectionsPerIp: 2000 });
     const baseline = registry.perRoomSizes();
     const lobby = await Client.join(t.ws(), "lobby-regular");
     clients.push(lobby.client);
@@ -119,19 +119,23 @@ describe("RoomRegistry.removeRoom", () => {
     const BATCH = 50;
     const members: Client[] = [];
     for (let from = 0; from < ROOMS; from += BATCH) {
-      await Promise.all(
+      const batch = await Promise.all(
         Array.from({ length: BATCH }, async (_, j) => {
           const id = `room-${String(from + j)}`;
           registry.addRoom(new Room(id));
-          const { client, snapshot } = await Client.join(t?.ws(id) ?? fail(), "alice");
-          members.push(client);
-          clock.ms += 10_000;
-          expect((await share(id, tokenOf(snapshot))).status).toBe(200);
-          const url = (await client.next("embed-changed")).embed?.url ?? "";
-          client.send({ type: "control", url, playing: true, position: 1 });
-          await client.next("playback");
+          const joined = await Client.join(t?.ws(id) ?? fail(), "alice");
+          members.push(joined.client);
+          return { id, ...joined };
         }),
       );
+      // One at a time, each after a refill: the per-key and global share buckets see a calm client.
+      for (const { id, client, snapshot } of batch) {
+        clock.ms += 10_000;
+        expect((await share(id, tokenOf(snapshot))).status).toBe(200);
+        const url = (await client.next("embed-changed")).embed?.url ?? "";
+        client.send({ type: "control", url, playing: true, position: 1 });
+        await client.next("playback");
+      }
     }
     expect(registry.size).toBe(ROOMS + 1);
     // Sockets, share grants, share buckets and control buckets: at least four entries per room.

@@ -13,6 +13,7 @@ import type { SecurityHeaders } from "./headers";
 import { newShareGrant, plain, type ShareGrant } from "./http";
 import { KeyedLimiter, TokenBucket, isLoopbackKey, monotonic, type Clock } from "./rate-limit";
 import type { Room } from "./room";
+import type { RoomRegistry } from "./rooms";
 
 export interface ConnData {
   room: Room;
@@ -72,6 +73,8 @@ const MAX_BAD_MESSAGES = 20;
 /** Bun closes a socket (1006) whose unsent data passes this, instead of buffering up to 16 MB. */
 const BACKPRESSURE_LIMIT = 256 * 1024;
 const IDLE_TIMEOUT_S = 60;
+/** Until C1/S2 bring ROOM_CLOSED (4004): the standard "going away". */
+const ROOM_GONE = 1001;
 /** At most one `member-status` per member per this, trailing edge (ADR 0019 §3). */
 const STATUS_INTERVAL_MS = 1000;
 
@@ -82,7 +85,8 @@ const mintShareToken = (): ShareToken => Buffer.from(crypto.getRandomValues(new 
 export interface WsDeps {
   /** Sockets that have not joined within this are closed. */
   joinTimeoutMs: number;
-  shareGrants: Map<ShareToken, ShareGrant>;
+  /** Live rooms; their sockets and share grants are kept per room and end with it. */
+  rooms: RoomRegistry;
   publish: (topic: string, data: string) => void;
   /** The socket closed: give its slot back to the upgrade gate (server.ts). */
   release: (ip: string) => void;
@@ -95,15 +99,17 @@ export interface WsDeps {
 }
 
 export interface Ws {
-  /** Upgrade limiter, asked after the connection caps and before the upgrade: a 429, or null to admit. */
+  /** Upgrade limiter, asked before the room lookup and the connection caps: a 429, or null to admit. */
   admitUpgrade: (ip: string) => Response | null;
   connData: (room: Room, ip: string) => ConnData;
+  /** The grant `token` holds in `room`, if a member of that room holds it. */
+  shareGrant: (room: Room, token: ShareToken) => ShareGrant | undefined;
   websocket: WebSocketHandler<ConnData>;
 }
 
 export function createWs({
   joinTimeoutMs,
-  shareGrants,
+  rooms,
   publish,
   release,
   now = monotonic,
@@ -112,15 +118,11 @@ export function createWs({
 }: WsDeps): Ws {
   const upgrades = new KeyedLimiter(UPGRADE_BURST, UPGRADE_PER_SECOND, 1024, now);
   const joins = new KeyedLimiter(JOIN_BURST, JOIN_PER_SECOND, 1024, now);
-  const roomControls = new Map<Room, TokenBucket>();
-  const roomControlBucket = (room: Room): TokenBucket => {
-    let bucket = roomControls.get(room);
-    if (bucket === undefined) {
-      bucket = new TokenBucket(ROOM_CONTROL_BURST, ROOM_CONTROL_PER_SECOND, now);
-      roomControls.set(room, bucket);
-    }
-    return bucket;
-  };
+  const roomControls = rooms.perRoom(() => new TokenBucket(ROOM_CONTROL_BURST, ROOM_CONTROL_PER_SECOND, now));
+  /** Every open socket on the room, joined or not, so `removeRoom` can close them. Dropped when empty. */
+  const sockets = rooms.perRoom(() => new Set<Conn>());
+  /** Share tokens of the room's joined members. Dropped when empty. */
+  const grants = rooms.perRoom(() => new Map<ShareToken, ShareGrant>());
 
   const sendError = (ws: Conn, code: ErrorCode, message: string): void => {
     ws.send(encode({ type: "error", code, message }));
@@ -165,7 +167,11 @@ export function createWs({
     // The flag leaves with the member: `member-left` says it all (ADR 0019 §3).
     if (ws.data.status.timer !== null) clearTimeout(ws.data.status.timer);
     ws.data.status = freshStatus();
-    if (ws.data.shareToken !== null) shareGrants.delete(ws.data.shareToken);
+    const held = grants.peek(ws.data.room);
+    if (held !== undefined && ws.data.shareToken !== null) {
+      held.delete(ws.data.shareToken);
+      if (held.size === 0) grants.drop(ws.data.room);
+    }
     ws.data.shareToken = null;
     ws.data.room.leave(memberId);
     if (!closing) ws.unsubscribe(ws.data.room.topic);
@@ -182,7 +188,7 @@ export function createWs({
       case "control": {
         if (!admit(ws, ws.data.controlBucket, "too many playback changes, slow down")) return false;
         // The room's limit is everyone's, not this sender's flood: a notice every time, and no streak (ADR 0018 §2).
-        const roomBucket = roomControlBucket(ws.data.room);
+        const roomBucket = roomControls.get(ws.data.room);
         if (roomBucket.take()) return true;
         ws.send(
           encode({
@@ -234,7 +240,7 @@ export function createWs({
       ws.data.memberId = member.id;
       const shareToken = mintShareToken();
       ws.data.shareToken = shareToken;
-      shareGrants.set(shareToken, newShareGrant(room, member.id));
+      grants.get(room).set(shareToken, newShareGrant(member.id));
       ws.send(encode({ type: "snapshot", self: member.id, room: room.snapshot(), shareToken }));
       ws.subscribe(room.topic);
       ws.publish(room.topic, encode({ type: "member-joined", member }));
@@ -283,7 +289,19 @@ export function createWs({
     }
   };
 
+  // The room is already unregistered: depart revokes each member's grant, then the socket closes.
+  rooms.onRemove((room) => {
+    const open = sockets.peek(room);
+    if (open === undefined) return;
+    for (const ws of [...open]) {
+      clearJoinTimer(ws);
+      if (ws.data.memberId !== null) depart(ws, ws.data.memberId, true);
+      ws.close(ROOM_GONE, "room closed");
+    }
+  });
+
   return {
+    shareGrant: (room, token) => grants.peek(room)?.get(token),
     admitUpgrade(ip) {
       if (isLoopbackKey(ip) || upgrades.take(ip)) return null;
       const res = plain(429, "reconnecting too fast", headers);
@@ -312,6 +330,12 @@ export function createWs({
       idleTimeout: IDLE_TIMEOUT_S,
       sendPings: true,
       open(ws) {
+        // Upgraded as its room went.
+        if (!rooms.has(ws.data.room)) {
+          ws.close(ROOM_GONE, "room closed");
+          return;
+        }
+        sockets.get(ws.data.room).add(ws);
         armJoinTimer(ws);
       },
       message(ws, raw) {
@@ -328,6 +352,8 @@ export function createWs({
       },
       close(ws) {
         clearJoinTimer(ws);
+        const open = sockets.peek(ws.data.room);
+        if (open !== undefined && open.delete(ws) && open.size === 0) sockets.drop(ws.data.room);
         release(ws.data.ip);
         if (ws.data.memberId !== null) depart(ws, ws.data.memberId, true);
       },

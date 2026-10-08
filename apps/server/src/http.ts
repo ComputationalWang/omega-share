@@ -18,6 +18,7 @@ import type { EmbedPolicy } from "./embed-policy";
 import type { SecurityHeaders } from "./headers";
 import { KeyedLimiter, TokenBucket, isLoopbackKey, readBodyCapped, type Clock } from "./rate-limit";
 import type { Room } from "./room";
+import type { RoomRegistry } from "./rooms";
 import { mountSite } from "./static";
 
 /** Share bodies are `{ url }` with url ≤ 2048 chars; anything bigger is refused unread. */
@@ -73,21 +74,22 @@ export function createHttpGate(
 
 const encode = (msg: ServerMessage): string => JSON.stringify(msg);
 
-/** What a joined member's share token authorizes. Minted on join (ws.ts), revoked on leave. */
+/** What a joined member's share token authorizes in its room. Minted on join (ws.ts), revoked on leave. */
 export interface ShareGrant {
-  room: Room;
   memberId: MemberId;
   bucket: TokenBucket;
 }
-export const newShareGrant = (room: Room, memberId: MemberId): ShareGrant => ({
-  room,
+export const newShareGrant = (memberId: MemberId): ShareGrant => ({
   memberId,
   bucket: new TokenBucket(SHARE_BURST, SHARE_PER_SECOND),
 });
 
 export interface HttpDeps {
-  rooms: ReadonlyMap<string, Room>;
-  shareGrants: ReadonlyMap<ShareToken, ShareGrant>;
+  rooms: RoomRegistry;
+  /** The grant `token` holds in `room` (ws.ts), if any. */
+  shareGrant: (room: Room, token: ShareToken) => ShareGrant | undefined;
+  /** Clock for the share limiters. */
+  now: Clock;
   isAllowedOrigin: (origin: string) => boolean;
   ipOf: (req: Request) => string;
   publish: (topic: string, data: string) => void;
@@ -100,20 +102,12 @@ export interface HttpDeps {
   staticDir: string | null;
 }
 
-export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publish, persistEmbed, embeds, headers, staticDir }: HttpDeps): Hono {
-  const shareLimiter = new KeyedLimiter(SHARE_BURST, SHARE_PER_SECOND);
-  const globalShares = new TokenBucket(GLOBAL_SHARE_BURST, GLOBAL_SHARE_PER_SECOND);
-  const failedShares = new KeyedLimiter(FAILED_SHARE_BURST, FAILED_SHARE_PER_SECOND);
-  // Rooms are fixed at startup, so this holds at most one bucket per room.
-  const roomShares = new Map<Room, TokenBucket>();
-  const roomBucket = (room: Room): TokenBucket => {
-    let bucket = roomShares.get(room);
-    if (bucket === undefined) {
-      bucket = new TokenBucket(ROOM_SHARE_BURST, ROOM_SHARE_PER_SECOND);
-      roomShares.set(room, bucket);
-    }
-    return bucket;
-  };
+export function createHttpApp({ rooms, shareGrant, now, isAllowedOrigin, ipOf, publish, persistEmbed, embeds, headers, staticDir }: HttpDeps): Hono {
+  const shareLimiter = new KeyedLimiter(SHARE_BURST, SHARE_PER_SECOND, 1024, now);
+  const globalShares = new TokenBucket(GLOBAL_SHARE_BURST, GLOBAL_SHARE_PER_SECOND, now);
+  const failedShares = new KeyedLimiter(FAILED_SHARE_BURST, FAILED_SHARE_PER_SECOND, 1024, now);
+  // Dropped with the room (RoomRegistry.removeRoom).
+  const roomShares = rooms.perRoom(() => new TokenBucket(ROOM_SHARE_BURST, ROOM_SHARE_PER_SECOND, now));
 
   const app = new Hono();
   app.use("*", async (c, next) => {
@@ -159,9 +153,9 @@ export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publi
     if (room === undefined) return fail(404, "room_not_found", "unknown room");
     const ip = ipOf(c.req.raw);
     const token = parseShareAuthorization(c.req.header("authorization"));
-    const grant = token === null ? undefined : shareGrants.get(token);
+    const grant = token === null ? undefined : shareGrant(room, token);
     // Failures have their own bucket, so guessing is bounded without locking out members on the same address.
-    if (grant?.room !== room) {
+    if (grant === undefined) {
       if (!failedShares.take(ip)) return limited(FAILED_SHARE_PER_SECOND);
       return fail(401, "unauthorized", "join the room to share into it");
     }
@@ -172,6 +166,8 @@ export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publi
     }
     const text = await readBodyCapped(c.req.raw, MAX_SHARE_BODY_BYTES);
     if (text === null) return fail(413, "payload_too_large", "body too large");
+    // The room may have gone while the body arrived: never store or publish into it.
+    if (!rooms.has(room)) return fail(404, "room_not_found", "unknown room");
 
     let json: unknown;
     try {
@@ -185,7 +181,7 @@ export function createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publi
     const embed = embeds.accept(parsed.output.url);
     if (embed === null) return fail(400, "unsupported_url", "not a supported video URL");
     // Last, so a refused request never uses up the room's switches.
-    if (!roomBucket(room).take()) return limited(ROOM_SHARE_PER_SECOND);
+    if (!roomShares.get(room).take()) return limited(ROOM_SHARE_PER_SECOND);
 
     // Store first: if the write fails the share fails, and memory never runs ahead of the DB.
     persistEmbed(room, embed);

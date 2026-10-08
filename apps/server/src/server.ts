@@ -1,11 +1,12 @@
 import type { Server } from "bun";
-import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type AnyEmbed, type RoomId, type ShareToken } from "@omega/shared";
+import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type AnyEmbed, type RoomId } from "@omega/shared";
 import { ownHostsFor } from "./config";
 import { EmbedPolicy } from "./embed-policy";
 import { HSTS, securityHeaders } from "./headers";
-import { MAX_HTTP_IN_FLIGHT, createHttpApp, createHttpGate, plain as plainWith, type ShareGrant } from "./http";
+import { MAX_HTTP_IN_FLIGHT, createHttpApp, createHttpGate, plain as plainWith } from "./http";
 import { clientKey, monotonic, type Clock } from "./rate-limit";
 import { Room } from "./room";
+import { RoomRegistry } from "./rooms";
 import type { RoomStore } from "./store/rooms";
 import { createWs, type ConnData } from "./ws";
 
@@ -33,6 +34,8 @@ export interface ServerOptions {
   maxHttpInFlight?: number;
   /** Rooms that exist. Default: just the lobby. With a store, these are seeded if missing. */
   rooms?: readonly RoomId[];
+  /** The live rooms, seeded here from `rooms` and the store. Tests pass their own to add and remove rooms. */
+  registry?: RoomRegistry;
   /**
    * Where rooms, layouts and last embeds persist (OME-280). Read once at boot, written only on a
    * share; never on the relay path. Absent: rooms live in memory with DEFAULT_LAYOUT.
@@ -58,18 +61,16 @@ export type RoomPersistence = Pick<RoomStore, "listRooms" | "createRoom" | "setE
  * embed the policy no longer accepts (GENERIC_EMBEDS=off, a newly denied host) comes back as null;
  * the row keeps it, so switching back restores it.
  */
-function loadRooms(configured: readonly RoomId[], store: RoomPersistence | null, embeds: EmbedPolicy): Map<string, Room> {
-  const rooms = new Map<string, Room>();
+function loadRooms(rooms: RoomRegistry, configured: readonly RoomId[], store: RoomPersistence | null, embeds: EmbedPolicy): void {
   if (store !== null) {
-    for (const r of store.listRooms()) rooms.set(r.id, new Room(r.id, { layout: r.layout, embed: embeds.restore(r.embed) }));
+    for (const r of store.listRooms()) rooms.addRoom(new Room(r.id, { layout: r.layout, embed: embeds.restore(r.embed) }));
   }
   const now = Date.now();
   for (const id of configured) {
-    if (rooms.has(id)) continue;
+    if (rooms.get(id) !== undefined) continue;
     store?.createRoom({ id, title: "", createdAt: now, layout: DEFAULT_LAYOUT });
-    rooms.set(id, new Room(id));
+    rooms.addRoom(new Room(id));
   }
-  return rooms;
 }
 
 const WS_PATH = /^\/rooms\/([^/]+)\/ws$/;
@@ -89,9 +90,9 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   });
   const headers = securityHeaders(embeds.genericEmbeds);
   const plain = (status: number, text: string): Response => plainWith(status, text, headers);
-  const rooms = loadRooms(opts.rooms ?? [DEFAULT_ROOM_ID], store, embeds);
+  const rooms = opts.registry ?? new RoomRegistry();
+  loadRooms(rooms, opts.rooms ?? [DEFAULT_ROOM_ID], store, embeds);
   const connectionsPerIp = new Map<string, number>();
-  const shareGrants = new Map<ShareToken, ShareGrant>();
 
   // Filled in once Bun has picked the port (tests use port 0); no request arrives before that.
   const allowedHosts = new Set<string>();
@@ -116,15 +117,9 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     store?.setEmbed(room.id, embed);
   };
 
-  const app = createHttpApp({ rooms, shareGrants, isAllowedOrigin, ipOf, publish, persistEmbed, embeds, headers, staticDir: opts.staticDir ?? null });
-  const http = createHttpGate((req) => app.fetch(req), {
-    now: opts.now ?? monotonic,
-    maxInFlight: opts.maxHttpInFlight ?? MAX_HTTP_IN_FLIGHT,
-    headers,
-  });
   const ws = createWs({
     joinTimeoutMs: opts.joinTimeoutMs ?? 10_000,
-    shareGrants,
+    rooms,
     publish,
     headers,
     now: opts.now ?? monotonic,
@@ -135,6 +130,23 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       if (left === 0) connectionsPerIp.delete(ip);
       else connectionsPerIp.set(ip, left);
     },
+  });
+  const app = createHttpApp({
+    rooms,
+    shareGrant: ws.shareGrant,
+    now: opts.now ?? monotonic,
+    isAllowedOrigin,
+    ipOf,
+    publish,
+    persistEmbed,
+    embeds,
+    headers,
+    staticDir: opts.staticDir ?? null,
+  });
+  const http = createHttpGate((req) => app.fetch(req), {
+    now: opts.now ?? monotonic,
+    maxInFlight: opts.maxHttpInFlight ?? MAX_HTTP_IN_FLIGHT,
+    headers,
   });
 
   /** HSTS goes only to the https public host: never to loopback names, plain http or localhost dev (research M4 D1). */
@@ -154,14 +166,15 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     if (!req.url.includes("/ws")) return http(req, ipOf(req));
     const match = WS_PATH.exec(new URL(req.url).pathname);
     if (match === null) return http(req, ipOf(req));
+    const ip = ipOf(req);
+    // Before the lookup, so probing for room ids costs a token like a real upgrade (threat model S5).
+    const refused = ws.admitUpgrade(ip);
+    if (refused !== null) return refused;
     const room = rooms.get(match[1] ?? "");
     if (room === undefined) return plain(404, "unknown room");
     if (connections >= maxConnections) return plain(503, "server full");
-    const ip = ipOf(req);
     const open = connectionsPerIp.get(ip) ?? 0;
     if (open >= maxConnectionsPerIp) return plain(429, "too many connections");
-    const refused = ws.admitUpgrade(ip);
-    if (refused !== null) return refused;
     if (!srv.upgrade(req, { data: ws.connData(room, ip) })) return plain(426, "expected a WebSocket upgrade");
     connectionsPerIp.set(ip, open + 1);
     connections++;
