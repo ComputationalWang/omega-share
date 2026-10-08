@@ -1,8 +1,9 @@
-// Drives avatar motion without a ticker (OME-185 keeps the room render-on-demand): one rAF loop only while someone walks;
-// at rest, one timer to the next breathe frame change, then one rAF (a hidden tab never renders).
+// Drives avatar motion without a ticker (OME-185 keeps the room render-on-demand). While someone walks, one timer per
+// 150 ms step (walkers share the step clock, walks.ts); at rest, one timer to the next breathe change on a 400 ms clock.
+// Each timer then asks for one rAF, so a hidden tab never renders.
 import type { MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, type MotionFrames } from "./motion";
-import { emptyPose, type Pose, type Walks } from "./walks";
+import { WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
 
 /** Breathing redraws wait for this shared clock, so a room at rest renders at most 2.5 times a second however full. */
 export const BREATHE_TICK_MS = 400;
@@ -91,8 +92,10 @@ export function createAnimator(o: AnimatorOptions): Animator {
       timer = null;
     }
     if (disposed) return;
-    if (o.walks.walking(now)) requestFrame();
-    else if (nextBreath !== Infinity) {
+    if (o.walks.walking(now)) {
+      const at = (Math.floor(now / WALK_FRAME_MS) + 1) * WALK_FRAME_MS;
+      timer = o.setTimer(onTimer, at - now);
+    } else if (nextBreath !== Infinity) {
       const at = Math.ceil((now + nextBreath) / BREATHE_TICK_MS) * BREATHE_TICK_MS;
       timer = o.setTimer(onTimer, at - now);
     }

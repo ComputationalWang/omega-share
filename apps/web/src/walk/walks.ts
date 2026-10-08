@@ -1,6 +1,8 @@
 // Who walks where (OME-408). The server says who sits where; each client walks the avatars there itself, from the door
 // (someone who joined) or from where they were. Time-based: a hidden tab that comes back finds everyone arrived.
-// A path is found once per target change; `sample` is per frame and allocates nothing.
+// Avatars move in whole steps, one per walk frame (ADR 0010 `stepPx`), and every walk starts on a shared step clock, so
+// all walkers step together and the room redraws at most once a step. A path is found once per target change;
+// `sample` allocates nothing.
 import type { MemberId } from "@omega/shared";
 import { standDepth } from "../furniture";
 import { TILE_H, TILE_W, type Point } from "../layout";
@@ -86,6 +88,11 @@ function jitter(id: string): number {
   return Math.abs(h) % REST_SPREAD_MS;
 }
 
+/** The next tick of the shared step clock at or after `now`: when a walk asked for at `now` starts. */
+const stepClock = (now: number): number => Math.ceil(now / WALK_FRAME_MS) * WALK_FRAME_MS;
+/** Walk time rounded down to the step being shown; 0 before the walk starts. */
+const stepTime = (t: number): number => (t <= 0 ? 0 : Math.floor(t / WALK_FRAME_MS) * WALK_FRAME_MS);
+
 const sameTarget = (a: WalkTarget, b: WalkTarget): boolean => a.at.x === b.at.x && a.at.y === b.at.y && a.z === b.z && a.seatFacing === b.seatFacing;
 
 export function createWalks(opts: WalksOptions): Walks {
@@ -131,14 +138,14 @@ export function createWalks(opts: WalksOptions): Walks {
       py = p.y;
     }
     if (ms === 0) e.xs.length = e.ys.length = e.cells.length = e.ts.length = 0;
-    e.start = now;
-    e.restAt = now + ms;
+    e.start = ms === 0 ? now : stepClock(now);
+    e.restAt = e.start + ms;
   }
 
   function sampleEntry(e: Entry, now: number, out: Pose): void {
-    const t = now - e.start;
+    const t = stepTime(now - e.start);
     const total = e.ts.at(-1) ?? 0;
-    if (t < total) {
+    if (now - e.start < total) {
       let i = 1;
       while (i < e.ts.length - 1 && (e.ts[i] ?? 0) <= t) i++;
       const t0 = e.ts[i - 1] ?? 0;
@@ -205,7 +212,7 @@ export function createWalks(opts: WalksOptions): Walks {
           continue;
         }
         // Mid-step between two cells: route from the one ahead, or turn back to the one behind.
-        const tt = now - e.start;
+        const tt = stepTime(now - e.start);
         let i = 1;
         while (i < e.ts.length - 1 && (e.ts[i] ?? 0) <= tt) i++;
         const ahead = e.cells[i] ?? -1;
