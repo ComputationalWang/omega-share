@@ -1,4 +1,4 @@
-// Screenshots of preview/ui.html (sets c, e, the M1b TV and the M2 live chrome, set f safety states, set h owner edit mode / tray / invites) at 1× for design review. Not part of the zero-dependency build:
+// Screenshots of preview/ui.html (sets c, e, the M1b TV and the M2 live chrome, set f safety states, set h owner edit mode / tray / invites, set i rooms you own + emotes) at 1×; set (i) also at 2× device pixels for design review. Not part of the zero-dependency build:
 // uses the repo's Playwright + Chromium. Run: bun assets/src/shoot-ui.ts (after bun assets/src/build.ts).
 import { chromium } from "@playwright/test";
 import { join } from "node:path";
@@ -11,6 +11,15 @@ try {
   await page.goto(pathToFileURL(join(PREVIEW, "ui.html")).href, { waitUntil: "networkidle" });
   for (const id of ["landing", "states", "room", "playback", "playback-states", "tv", "live", "live-states", "safety", "safety-states", "owner", "owner-tray", "owner-states"]) {
     await page.locator(`#${id}`).screenshot({ path: join(PREVIEW, `ui-${id}.png`) });
+  }
+  // Set (i) (OME-416): each section at 1× and 2× device pixels.
+  for (const scale of [1, 2]) {
+    const hd = await browser.newPage({ viewport: { width: 1040, height: 900 }, deviceScaleFactor: scale });
+    await hd.goto(pathToFileURL(join(PREVIEW, "ui.html")).href, { waitUntil: "networkidle" });
+    for (const id of ["rooms", "rooms-closed", "rooms-live", "rooms-states"]) {
+      await hd.locator(`#${id}`).screenshot({ path: join(PREVIEW, `ui-${id}@${String(scale)}x.png`) });
+    }
+    await hd.close();
   }
 } finally {
   await browser.close();

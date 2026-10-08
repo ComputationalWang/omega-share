@@ -97,6 +97,41 @@
   .ow-invite .row { flex-wrap: nowrap; }
   .ow-invite .ui-ticket { flex: 1; }
   .ow-name { font-size: 15px; display: flex; gap: 8px; align-items: center; }
+  /* Set (i) rooms you own + emotes (OME-416) */
+  .rm-row { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  .rm-form { width: 400px; display: grid; gap: 10px; }
+  .rm-form .ui-input { font: inherit; font-weight: 500; }
+  .rm-field { display: grid; gap: 4px; }
+  .rm-hint { display: flex; justify-content: space-between; font-size: 12px; font-weight: 500; color: var(--ui-muted); }
+  .rm-switch { display: flex; gap: 12px; align-items: center; }
+  .rm-switch .txt { display: grid; gap: 2px; font-size: 13px; }
+  .rm-switch .txt span { font-size: 12px; font-weight: 500; color: var(--ui-muted); display: flex; gap: 6px; align-items: center; }
+  .rm-wait { font-size: 12px; font-weight: 500; color: var(--ui-muted); margin: 0; }
+  .rm-list { display: grid; gap: 8px; width: 640px; }
+  .rm-head { display: flex; align-items: center; gap: 10px; }
+  .rm-head h3 { margin: 0; font-size: 15px; flex: 1; display: flex; gap: 8px; align-items: center; }
+  .ui-mine .body { display: grid; gap: 2px; flex: 1; min-width: 0; }
+  .ui-mine .body strong { font-size: 15px; display: flex; gap: 8px; align-items: center; }
+  .ui-mine .body span { font-size: 12px; font-weight: 500; color: var(--ui-muted); display: flex; gap: 4px; align-items: center; }
+  .ui-mine .acts { display: flex; gap: 6px; align-items: center; }
+  .ui-mine .ui-button { font-size: 13px; }
+  .ui-mine .ui-button.sq { padding-left: 2px; padding-right: 2px; }
+  .rm-empty { font-size: 13px; font-weight: 500; color: var(--ui-muted); display: flex; gap: 8px; align-items: center; padding: 6px 4px; }
+  .rm-state { width: 400px; display: grid; gap: 10px; justify-items: center; text-align: center; }
+  .rm-state h3 { margin: 0; font-size: 17px; }
+  .rm-state p { margin: 0; font-size: 13px; font-weight: 500; color: var(--ui-muted); }
+  .rm-state .row { justify-content: center; flex-wrap: nowrap; }
+  .rm-state .err { color: var(--ui-error); font-size: 13px; display: flex; gap: 6px; align-items: center; margin: 0; text-align: left; }
+  .rm-paste { display: flex; gap: 8px; width: 100%; }
+  .rm-paste .ui-slot-ticket { flex: 1; }
+  .rm-stage { position: relative; width: 960px; height: 600px; background: url("room@1x.png"); image-rendering: pixelated; }
+  .rm-stage > * { position: absolute; }
+  .rm-stage .ui-scrim { inset: 0; }
+  .rm-stage .rm-state { left: 50%; top: 50%; translate: -50% -50%; }
+  .rm-pop { translate: -50% -100%; }
+  .rm-bar { display: flex; gap: 8px; margin-top: 8px; align-items: flex-end; position: relative; }
+  .rm-bar .ui-input { flex: 1; font: inherit; font-weight: 500; }
+  .rm-bar .ui-emotes { position: absolute; left: -48px; bottom: calc(100% + 16px); }
   .zoom2 { zoom: 2; }
   .zoom2 .popup p img { width: 16px; height: 16px; }
 </style>
@@ -433,6 +468,135 @@
     <div class="ui-card is-full" role="listitem" aria-disabled="true"><span class="ui-sprite ui-door-private"></span><span class="sf-card-body"><strong>Invite expired</strong><span>Ask the host for a new link</span></span><span class="ui-sprite ui-icon-expired"></span></div>
   </div>
   <p class="tv-cap">Room list and invite landing: a private room's door is shut with the key in the lock, plus the "Invite only" pill (glyph + words, never colour alone). The little house marks the host. Opening an invite to a full room reuses set (f)'s full card and says the invite itself is still good. An expired invite gets the dimmed card and the torn-ticket icon.</p>
+</section>
+<section id="rooms">
+  <h2>Set (i) (OME-416): create a room and your rooms, page chrome 2×</h2>
+  <div class="rm-row">
+    <form class="ui-panel rm-form" onsubmit="return false">
+      <div style="display:flex;gap:8px;align-items:center"><span class="ui-sprite ui-icon-create"></span><strong>Create a room</strong></div>
+      <div class="rm-field"><label for="t0">Room name</label>
+      <input id="t0" class="ui-input is-focus" value="Friday cartoons" autocomplete="off">
+      <span class="rm-hint"><span>Everyone in the room sees this.</span><span>15 / 40</span></span></div>
+      <div class="rm-switch"><button type="button" class="ui-sprite ui-switch" role="switch" aria-checked="false" aria-label="Invite only"></button><span class="txt"><b>Invite only: off</b><span><span class="ui-sprite ui-glyph-open"></span>Anyone can find it on the room list.</span></span></div>
+      <button type="submit" class="ui-button"><span class="ui-sprite ui-icon-create"></span>Create room</button>
+    </form>
+    <form class="ui-panel rm-form" onsubmit="return false">
+      <div style="display:flex;gap:8px;align-items:center"><span class="ui-sprite ui-icon-create"></span><strong>Create a room</strong></div>
+      <div class="rm-field"><label for="t1">Room name</label>
+      <input id="t1" class="ui-input" value="Book club" autocomplete="off">
+      <span class="rm-hint"><span>Everyone in the room sees this.</span><span>9 / 40</span></span></div>
+      <div class="rm-switch"><button type="button" class="ui-sprite ui-switch" role="switch" aria-checked="true" aria-label="Invite only"></button><span class="txt"><b>Invite only: on</b><span><span class="ui-sprite ui-glyph-key"></span>Only people with your link can come in.</span></span></div>
+      <button type="submit" class="ui-button"><span class="ui-sprite ui-icon-create"></span>Create room</button>
+    </form>
+  </div>
+  <div class="rm-row" style="margin-top:18px">
+    <form class="ui-panel rm-form" onsubmit="return false">
+      <div style="display:flex;gap:8px;align-items:center"><span class="ui-sprite ui-icon-create"></span><strong>Create a room</strong></div>
+      <div class="rm-field"><label for="t3">Room name</label>
+      <input id="t3" class="ui-input" aria-invalid="true" value="" placeholder="Name your room" autocomplete="off">
+      <p class="error"><span class="ui-sprite ui-icon-warn"></span>Give your room a name.</p></div>
+      <div class="rm-switch"><button type="button" class="ui-sprite ui-switch is-hover" role="switch" aria-checked="false" aria-label="Invite only"></button><span class="txt"><b>Invite only: off</b><span><span class="ui-sprite ui-glyph-open"></span>Anyone can find it on the room list.</span></span></div>
+      <button type="submit" class="ui-button is-waiting" aria-disabled="true"><span class="ui-wait ui-sprite" style="--cool:600s;animation-delay:-400s"></span>New room in 9 min</button>
+      <p class="rm-wait">You made two rooms just now. The ones you made still work: they’re in your rooms.</p>
+    </form>
+    <div class="rm-list" role="list" style="width:560px">
+      <div class="rm-head"><h3><span class="ui-sprite ui-glyph-host"></span>Your rooms</h3><button class="ui-button secondary"><span class="ui-sprite ui-icon-create"></span>New room</button></div>
+      <div class="ui-mine" role="listitem"><span class="ui-sprite ui-door-private"></span><span class="body"><strong>Book club<span class="ui-pill-private"><span class="ui-sprite ui-glyph-key"></span>Invite only</span></strong><span><span class="ui-sprite ui-icon-people"></span>3 inside · watching: Sunset timelapse</span></span><span class="acts"><button class="ui-button secondary">Enter</button><button class="ui-button secondary sq" aria-label="Copy invite link"><span class="ui-sprite ui-icon-copy"></span></button><button class="ui-button secondary sq" aria-label="Close room"><span class="ui-sprite ui-icon-closed"></span></button></span></div>
+      <div class="ui-mine is-hover" role="listitem"><span class="ui-sprite ui-door-open"></span><span class="body"><strong>Friday cartoons</strong><span>Nobody inside · last visit yesterday</span></span><span class="acts"><button class="ui-button secondary">Enter</button><button class="ui-button secondary sq" aria-label="Close room"><span class="ui-sprite ui-icon-closed"></span></button></span></div>
+      <div class="ui-mine" role="listitem"><span class="ui-sprite ui-door-open"></span><span class="body"><strong>Old movie night</strong><span><span class="ui-sprite ui-glyph-moon"></span>Nobody’s been in for 12 days: it closes in 2 days unless someone visits.</span></span><span class="acts"><button class="ui-button secondary">Enter</button><button class="ui-button secondary sq" aria-label="Close room"><span class="ui-sprite ui-icon-closed"></span></button></span></div>
+      <div class="ui-mine is-confirm" role="listitem"><span class="ui-sprite ui-door-closed"></span><span class="body"><strong>Close Book club for good?</strong><span>Everyone inside goes back to the room list. Invite links stop working.</span></span><span class="acts"><button class="ui-button secondary">Keep it</button><button class="ui-button danger"><span class="ui-sprite ui-icon-closed"></span>Close room</button></span></div>
+      <div class="rm-head" style="margin-top:6px"><h3><span class="ui-sprite ui-glyph-host"></span>Your rooms (empty)</h3></div>
+      <div class="rm-empty"><span class="ui-sprite ui-icon-create"></span>You haven’t made a room yet. Make one and invite friends.</div>
+    </div>
+  </div>
+  <p class="tv-cap">The switch is a door bolt: off = the knob on the left shows the open door (anyone can find the room); on = slid right showing the key (invite only). The other option is ghosted in the track and the line beside it says the state in words. Too many new rooms reuses set (f): the key rests with the timer dial and says how long. "Your rooms" rows wear the mustard "only you" line inside the room card's wood rim. The moon only means closed or closing. Closing is a two-step: the row becomes the question (charcoal glass, rust line) with the one rust key in the whole UI.</p>
+</section>
+<section id="rooms-closed">
+  <h2>Set (i): room closed (4004) and invite required, page chrome 2×</h2>
+  <div class="rm-row">
+    <div class="ui-panel rm-state">
+      <span class="ui-sprite ui-scene ui-scene-closed"></span>
+      <h3>This room has closed</h3>
+      <p>Its host closed it, or nobody came by for a while. The lights are off.</p>
+      <div class="row"><button class="ui-button"><span class="ui-sprite ui-icon-tv"></span>Find a room</button><button class="ui-button secondary"><span class="ui-sprite ui-icon-create"></span>Make your own</button></div>
+    </div>
+    <div class="ui-panel rm-state">
+      <span class="ui-sprite ui-scene ui-scene-invite"></span>
+      <h3>This room is invite only</h3>
+      <p>Someone’s home. Ask the host for an invite link, then paste it here.</p>
+      <div class="rm-paste"><input class="ui-slot-ticket is-focus" placeholder="Paste an invite link" aria-label="Invite link"><button class="ui-button"><span class="ui-sprite ui-icon-key"></span>Go in</button></div>
+    </div>
+  </div>
+  <div class="rm-row" style="margin-top:18px">
+    <div class="ui-panel rm-state">
+      <span class="ui-sprite ui-scene ui-scene-invite"></span>
+      <h3>This room is invite only</h3>
+      <div class="rm-paste"><input class="ui-slot-ticket" aria-invalid="true" value="omega.share/r/7fk2-old1" aria-label="Invite link"><button class="ui-button"><span class="ui-sprite ui-icon-key"></span>Go in</button></div>
+      <p class="err"><span class="ui-sprite ui-icon-warn"></span>That link doesn’t open this room any more. Ask for a new one.</p>
+    </div>
+  </div>
+  <p class="tv-cap">Two doors, two meanings. Closed: lights out, night in the fanlight, the sconce off, no light under the door, and the moon hanger on the knob. Invite only: someone’s home (warm fanlight, lit sconce, lamplight under the door), the lock has an empty keyhole and a dashed ghost ticket hangs beside it: you need a ticket. The paste slot is that ticket’s empty outline; a bad link turns it into set (h)’s torn ticket.</p>
+</section>
+<section id="rooms-live">
+  <h2>Set (i) in the room: emote picker open, and the room closing mid-film (4004); room at 1× (Pixi), page chrome 2×</h2>
+  <div class="room-wrap" style="padding-left:48px">
+    <div class="stage ui-room">
+      <span class="ui-tag" style="left:352px;top:289px">Ada</span>
+      <span class="ui-tag self" style="left:416px;top:286px">Wren</span>
+      <span class="ui-tag" style="left:544px;top:291px">Moss</span>
+      <span class="ui-tag" style="left:608px;top:289px">Kit</span>
+      <span class="ui-sprite ui-emote-pick-heart rm-pop" style="left:416px;top:272px"></span>
+      <span class="ui-sprite ui-emote-pick-laugh rm-pop" style="left:544px;top:277px"></span>
+      <span class="ui-sprite ui-emote-pick-wave rm-pop" style="left:608px;top:275px"></span>
+    </div>
+    <form class="rm-bar" onsubmit="return false">
+      <div class="ui-emotes" role="menu" aria-label="Emotes" style="--ui-tail-x: 66px">
+        <button class="ui-emote" role="menuitem" aria-label="Heart" aria-keyshortcuts="1" title="Heart (1)"><span class="ui-sprite ui-emote-pick-heart"></span></button>
+        <button class="ui-emote is-press" role="menuitem" aria-label="Laugh" aria-keyshortcuts="2" title="Laugh (2)"><span class="ui-sprite ui-emote-pick-laugh"></span></button>
+        <button class="ui-emote is-hover" role="menuitem" aria-label="Question" aria-keyshortcuts="3" title="Question (3)"><span class="ui-sprite ui-emote-pick-question"></span></button>
+        <button class="ui-emote" role="menuitem" aria-label="Surprise" aria-keyshortcuts="4" title="Surprise (4)"><span class="ui-sprite ui-emote-pick-exclaim"></span></button>
+        <button class="ui-emote" role="menuitem" aria-label="Clap" aria-keyshortcuts="5" title="Clap (5)"><span class="ui-sprite ui-emote-pick-clap"></span></button>
+        <span class="ui-sprite ui-emotes-sep"></span>
+        <button class="ui-emote" role="menuitem" aria-label="Wave" aria-keyshortcuts="6" title="Wave (6)"><span class="ui-sprite ui-emote-pick-wave"></span></button>
+      </div>
+      <button class="ui-button self is-press" aria-expanded="true" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button>
+      <input class="ui-input" placeholder="Say something…">
+      <button class="ui-button"><span class="ui-sprite ui-icon-send"></span>Send</button>
+    </form>
+  </div>
+  <p class="tv-cap">The emote key is personal (night face, mustard rim), and so is its picker: a tray with a tail down to the key. Five stickers from the motion atlas, a groove, then the wave (your avatar’s own gesture, seated or standing). Keys 1-6 pick (aria-keyshortcuts + the title; no digits on the cells). Hover = a sunken well with a cream lit edge; pressed = the mustard rim. Above the avatars: the same stickers at 1×, over the name tags.</p>
+  <div class="room-wrap" style="margin-top:12px">
+    <div class="rm-stage ui-room"><span class="ui-scrim"></span>
+      <div class="ui-panel rm-state" style="width:300px">
+        <span class="ui-sprite ui-scene ui-scene-closed"></span>
+        <h3>The host closed this room</h3>
+        <p>The film stops here. Thanks for watching together.</p>
+        <div class="row"><button class="ui-button"><span class="ui-sprite ui-icon-tv"></span>Find a room</button></div>
+      </div>
+    </div>
+  </div>
+  <p class="tv-cap">Mid-session 4004: a 1-bit plum dither (no alpha) dims the stage, and the closed card sits on top. Inside .ui-room the chrome is 1×, the same pieces at room scale.</p>
+</section>
+<section id="rooms-states">
+  <h2>Set (i) pieces and states: page chrome 2× (panel) and room scale 1× (strip below)</h2>
+  <div class="ui-panel" style="display:grid;gap:18px;width:fit-content">
+<div class="grid"><span class="hd"></span><span class="hd">idle</span><span class="hd">hover</span><span class="hd">on / pressed / focus</span><span class="hd">off / cooling / error</span>
+<span class="lbl">Invite-only switch: off</span><span><button type="button" class="ui-sprite ui-switch" role="switch" aria-checked="false" aria-label="Invite only"></button></span><span><button type="button" class="ui-sprite ui-switch is-hover" role="switch" aria-checked="false" aria-label="Invite only"></button></span><span></span><span><button type="button" class="ui-sprite ui-switch" role="switch" aria-checked="false" aria-label="Invite only" disabled></button></span>
+<span class="lbl">Invite-only switch: on</span><span><button type="button" class="ui-sprite ui-switch" role="switch" aria-checked="true" aria-label="Invite only"></button></span><span><button type="button" class="ui-sprite ui-switch is-hover" role="switch" aria-checked="true" aria-label="Invite only"></button></span><span></span><span><button type="button" class="ui-sprite ui-switch" role="switch" aria-checked="true" aria-label="Invite only" disabled></button></span>
+<span class="lbl">Close key (confirm only)</span><span><button class="ui-button danger"><span class="ui-sprite ui-icon-closed"></span>Close room</button></span><span><button class="ui-button danger is-hover"><span class="ui-sprite ui-icon-closed"></span>Close room</button></span><span><button class="ui-button danger is-press"><span class="ui-sprite ui-icon-closed"></span>Close room</button></span><span></span>
+<span class="lbl">Invite slot</span><span><input class="ui-slot-ticket" placeholder="Paste a link" style="width:170px"></span><span></span><span><input class="ui-slot-ticket is-focus" value="omega.share/r/7fk2" style="width:170px"></span><span><input class="ui-slot-ticket" aria-invalid="true" value="omega.share/r/old1" style="width:170px"></span>
+<span class="lbl">Emote key</span><span><button class="ui-button self"><span class="ui-sprite ui-icon-emote"></span></button></span><span><button class="ui-button self is-hover"><span class="ui-sprite ui-icon-emote"></span></button></span><span><button class="ui-button self is-press"><span class="ui-sprite ui-icon-emote"></span></button></span><span><button class="ui-button self is-cooling" aria-disabled="true"><span class="ui-sprite ui-wait" style="--cool:4s"></span></button></span>
+<span class="lbl">Emote cell</span><span><button class="ui-emote"><span class="ui-sprite ui-emote-pick-heart"></span></button></span><span><button class="ui-emote is-hover"><span class="ui-sprite ui-emote-pick-heart"></span></button></span><span><button class="ui-emote is-press"><span class="ui-sprite ui-emote-pick-heart"></span></button></span><span><button class="ui-emote" aria-disabled="true"><span class="ui-sprite ui-emote-pick-heart"></span></button></span>
+<span class="lbl">Your-rooms row</span><span><span class="ui-mine" style="width:110px;height:40px"></span></span><span><span class="ui-mine is-hover" style="width:110px;height:40px"></span></span><span><span class="ui-mine is-confirm" style="width:110px;height:40px"></span></span><span></span>
+<span class="lbl">Icons, glyphs, doors</span><span style="grid-column: span 4;display:flex;gap:10px;align-items:end"><span class="ui-sprite ui-icon-closed"></span><span class="ui-sprite ui-icon-emote"></span><span class="ui-sprite ui-glyph-moon"></span><span class="ui-sprite ui-glyph-open"></span> · <span class="ui-sprite ui-door-open"></span><span class="ui-sprite ui-door-private"></span><span class="ui-sprite ui-door-full"></span><span class="ui-sprite ui-door-locked"></span><span class="ui-sprite ui-door-closed"></span> · <span class="ui-sprite ui-emote-pick-heart"></span><span class="ui-sprite ui-emote-pick-laugh"></span><span class="ui-sprite ui-emote-pick-question"></span><span class="ui-sprite ui-emote-pick-exclaim"></span><span class="ui-sprite ui-emote-pick-clap"></span><span class="ui-sprite ui-emote-pick-wave"></span></span>
+</div>
+  </div>
+  <div class="ui-room" style="margin-top:14px;display:flex;gap:16px;align-items:end">
+    <button type="button" class="ui-sprite ui-switch" role="switch" aria-checked="false" aria-label="Invite only"></button> <button type="button" class="ui-sprite ui-switch" role="switch" aria-checked="true" aria-label="Invite only"></button>
+    <div class="ui-emotes"><button class="ui-emote"><span class="ui-sprite ui-emote-pick-heart"></span></button><button class="ui-emote is-hover"><span class="ui-sprite ui-emote-pick-laugh"></span></button><button class="ui-emote"><span class="ui-sprite ui-emote-pick-question"></span></button><button class="ui-emote"><span class="ui-sprite ui-emote-pick-exclaim"></span></button><button class="ui-emote"><span class="ui-sprite ui-emote-pick-clap"></span></button><span class="ui-sprite ui-emotes-sep"></span><button class="ui-emote"><span class="ui-sprite ui-emote-pick-wave"></span></button></div>
+    <span class="ui-sprite ui-scene-closed"></span><span class="ui-sprite ui-scene-invite"></span>
+    <span class="ui-sprite ui-door-locked"></span><span class="ui-sprite ui-door-closed"></span><span class="ui-sprite ui-icon-closed"></span><span class="ui-sprite ui-icon-emote"></span>
+  </div>
 </section>
 </body>
 </html>

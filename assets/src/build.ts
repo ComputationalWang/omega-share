@@ -32,6 +32,7 @@ import { buildTvFrames, tvCss } from "./tv";
 import { ONAIR_FRAME_MS, RESYNC_FRAME_MS, buildLiveFrames, liveCss } from "./live";
 import { DOTS_FRAME_MS, POPUP_ICONS, WAIT_FRAMES, buildSafetyFrames, safetyCss } from "./safety";
 import { buildOwnerFrames, ownerCss } from "./owner";
+import { buildRoomsFrames, buildRoomsScenes, roomsCss } from "./rooms";
 
 const ROOT = join(import.meta.dir, "..");
 const POSES: readonly Pose[] = ["idle", "sit"];
@@ -505,7 +506,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
   // Set (h): the owner's edit kit (grid, markers, handles, tray thumbnails, swatches) is its own lazy atlas, ui/edit.png:
   // only a room owner who presses "Edit room" loads it. Everything any member sees (door, host/key glyphs, invite icons) stays in ui.png.
   const editKit = owner.filter((f) => EDIT_KIT.test(f.key));
-  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildLiveFrames(), ...buildTvFrames(), ...buildSafetyFrames(), ...owner.filter((f) => !EDIT_KIT.test(f.key))];
+  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildLiveFrames(), ...buildTvFrames(), ...buildSafetyFrames(), ...owner.filter((f) => !EDIT_KIT.test(f.key)), ...buildRoomsFrames()];
   registerKeys("ui", frames.map((f) => f.key));
   const byKey = new Map(frames.map((f) => [f.key, f]));
   if (byKey.size !== frames.length) throw new Error("duplicate ui key");
@@ -569,7 +570,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
   const borders: Record<string, Borders> = {};
   for (const f of frames) if (f.borders) borders[f.key] = f.borders;
   const edit = writeAtlas(dir, "edit", editKit, "ui");
-  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects) + safetyCss(rects) + ownerCss(edit.rects, edit.size, THUMB_BOX));
+  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects) + safetyCss(rects) + ownerCss(edit.rects, edit.size, THUMB_BOX) + roomsCss(rects));
   // Set (f): the extension popup is plain HTML, so its key icon ships as two standalone files (drawn 1× and 2×, not upscaled).
   mkdirSync(join(dir, "popup"), { recursive: true });
   for (const [file, k] of Object.entries(POPUP_ICONS)) {
@@ -577,6 +578,14 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
     if (!f) throw new Error(`missing ${k}`);
     const small = compactPalette(f.img);
     writeFileSync(join(dir, "popup", `${file}.png`), encodeIndexedPng(f.w, f.h, small.pixels, small.palette));
+  }
+  // Set (i): the closed / invite-required vignettes are standalone PNGs, fetched only by the pages that show them.
+  mkdirSync(join(dir, "scenes"), { recursive: true });
+  const scenes = buildRoomsScenes();
+  registerKeys("ui", scenes.map((f) => f.key));
+  for (const f of scenes) {
+    const small = compactPalette(f.img);
+    writeFileSync(join(dir, "scenes", `${f.key.slice("scene/".length)}.png`), encodeIndexedPng(f.w, f.h, small.pixels, small.palette));
   }
   const bg = colorIndex("wall", 1);
   const big = upscale(sheet, sheetW, sheetH, 4).map((v) => (v === 0 ? bg : v));
@@ -1270,22 +1279,24 @@ function slicesFiles(): string[] {
 }
 
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
- *  level 9, for every file under assets/ that ships, eager and lazy. Lazy sheets: motion (set d), furniture (set g), edit kit (set h). */
+ *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
+ *  and the closed / invite-required scenes (set i, fetched only by those pages). */
 const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "furniture/furniture.png", "furniture/furniture.json", "ui/edit.png", "ui/edit.json"]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, "ui/reference.css", "furniture/furniture.png", "furniture/furniture.json"];
+  const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "furniture/furniture.png", "furniture/furniture.json"];
   let total = 0, lazy = 0;
   for (const f of files) {
     const buf = readFileSync(join(ROOT, f));
     const text = !f.endsWith(".png");
     const size = text ? gzipSync(buf, { level: 9 }).length : buf.length;
     total += size;
-    if (LAZY.has(f)) lazy += size;
+    if (LAZY.has(f) || f.startsWith("ui/scenes/")) lazy += size;
     console.log(`${f}: ${String(buf.length)} B${text ? ` (${String(size)} B gz)` : ""}`);
   }
-  console.log(`lazy sheets (sets d, g, h edit kit): ${String(lazy)} B; eager: ${String(total - lazy)} B`);
+  console.log(`lazy (sets d, g, h edit kit, i scenes): ${String(lazy)} B; eager: ${String(total - lazy)} B`);
   console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 307200`);
 }
 

@@ -231,6 +231,28 @@ Three directions were weighed before any pixels:
 - **Lazy by design:** only owners in edit mode need the grid, markers, handles and thumbnails, so they live in their own sheet (`ui/edit.png`).
 - No new colours: still the 67.
 
+## Set (i) rooms you own + emotes (OME-416)
+Three directions were weighed before any pixels:
+
+| | Direction | Verdict |
+|---|---|---|
+| A | Signage: "CLOSED" / "PRIVATE" plates and a red no-entry sign | Rejected: it needs lettering on the art (we keep words in the system font), and red/no-entry reads as "you did something wrong". |
+| B | Flat app states: a big grey icon, a padlock, a modal | Rejected: a padlock means "security" and a grey icon says nothing about *why*. It drops the room's materials. |
+| **C** | **"At the door":** each state is the same doorway in the room's own materials, lit differently. Closed = lights out (night in the fanlight, the sconce off, a moon hanger). Invite only = someone's home (warm light under the door) and an empty keyhole with a ghost ticket. | **Chosen.** The two states read apart without colour (stars vs a lit fanlight, hanger vs keyhole, dark vs lit sill), and they extend set (h)'s door-and-key family instead of adding a new one. |
+
+- **Moon = closed or closing, only.** The hanger on a closed door, the close key, the "closes in N days if nobody visits" note. It never means "sleep" or "away".
+- **The switch is a bolt:** a sunken night track and the wood knob (set c's key recipe). Position + glyph carry the state (door left / key right), and the
+  other option is ghosted in the track. The words beside it say the state too.
+- **Only you, again:** your rooms and your emote picker carry the mustard rim of sets (e)/(f)/(h). The emote key is a personal key, so a burst of emotes
+  rests it like set (f)'s shared cool key (a step darker, charcoal lip, the timer dial).
+- **Rust = irreversible:** the danger key exists for one action (close a room for good), only on the confirm step, always with the moon and the words.
+  It joins rust's other meanings (on air, a real error) because closing for good is the one place where "stop and read" is the point.
+- **Emote picker icons are the motion atlas's own pixels:** each cell renders the emote's settled frame with its own roles. The wave is new and drawn the
+  same way (flat blush palm + cream ticks, auto shade, plum outline, no highlight band). It sits after a groove, since it's your avatar's gesture.
+- **Dimming without alpha:** a 50 % 1-bit plum dither (`scrim/0`), so the 4004 card can sit on the room and the whole UI stays 1-bit alpha.
+- **Vignettes** are 72×64 front-on doorways (page chrome, like the room-list doors), with one plum outline, top-left light and the room's ramps.
+- No new colours: still the 67.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -243,6 +265,7 @@ Three directions were weighed before any pixels:
 | (f) safety states (M3) | added to the (c) files: `ui.png` + `ui.json` (gz) + 6 slices + `reference.css` (gz) + 2 popup PNGs | **≈ 4.1 KB** |
 | (g) furniture (lazy, M4/M5) | `furniture/furniture.png` + `furniture.json` (gz) | 21 930 + 2 418 ≈ **23.8 KB** |
 | (h) owner + private rooms | `ui/edit.png` + `edit.json` (gz, lazy, owners only) · added to the (c) files: `ui.png` + `ui.json` (gz) + 13 slices + `reference.css` (gz) | 8 889 + 1 334 ≈ **10.0 KB** lazy · **≈ 6.3 KB** eager |
-| total art budget | | ≤ 300 KB (≈ 99.3 KB used) |
+| (i) rooms + emotes | added to the (c) files: `ui.png` + `ui.json` (gz) + 16 slices + `reference.css` (gz) · `ui/scenes/*.png` (lazy) | **≈ 6.8 KB** eager · **1.3 KB** lazy |
+| total art budget | | ≤ 300 KB (≈ 105.3 KB used) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.
