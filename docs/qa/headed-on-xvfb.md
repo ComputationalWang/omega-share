@@ -43,7 +43,7 @@ OMEGA_WEB_URL=https://omega-share.duckdns.org OMEGA_SERVER_URL=https://omega-sha
 ```
 
 - `ROOM_URL`, `shareUrl` and `joinForToken` follow the two URLs; the share carries no `Origin`, which the server allows (ADR 0015).
-- A production build has no `window.__omega`. `e2e/real/room-view.ts` then reads the room from the page: *playing* from the play key's label ("Pause for everyone"), *catching* from my own tag (`nickname-tag.self.catching`), *live* / *seekOnly* from the live pill and the "syncs by skipping" hint, *canControl* from the play key being enabled, and *error* from the sync notice's text. Join is ready once the join button is there and the document has loaded. `e2e/room-view.e2e.ts` keeps the DOM reading equal to `__omega` on a dev build.
+- A production build has no `window.__omega`. `e2e/real/room-view.ts` then reads the room from the page: *playing* from the play key's label ("Pause for everyone"), *catching* from my own tag (`nickname-tag.self.catching`), *live* / *seekOnly* from the live pill and the "syncs by skipping" hint, *canControl* from the play key being enabled, and *error* from the sync notice's text. Join is ready once the document has loaded and `main.ts` has run (the avatar options get their `tabindex` in the same pass that wires Enter). `e2e/room-view.e2e.ts` keeps the DOM reading equal to `__omega` on a dev build.
 - Still dev-only: `real-youtube.real.ts` (it reads `hasVideo`, `needsUnmute` and the volume, which the DOM doesn't show).
 - The hosted box rate-limits joins and shares: keep to a few clients and narrow the run (`OMEGA_REAL_AD_YT`, `OMEGA_REAL_AD_TWITCH`, `-g`). Everything shared lands in the public lobby.
 
