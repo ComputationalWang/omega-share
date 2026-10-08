@@ -124,6 +124,35 @@ describe("nightly backup wiring (OME-358 engine, OME-363)", () => {
     expect(backup.get("ConditionPathExists")?.at(-1)).toBe("/var/lib/omega-share/omega.db");
   });
 
+  test("a re-run clears a migrated dir's setgid bit and restarts the timer onto the new schedule (OME-382)", () => {
+    const p = provision();
+    expect(p).toContain("chmod g-s /var/backups/omega-share");
+    expect(p.indexOf("systemctl restart omega-share-backup.timer")).toBeGreaterThan(p.indexOf("systemctl enable --now omega-share-backup.timer"));
+  });
+
+  test("the unit's hard-coded DB paths match its default and an env-file override is documented as needing a drop-in (OME-382)", () => {
+    const text = read("backup/omega-share-backup.service");
+    const backup = unitKeys(text);
+    const db = backup.get("Environment")?.find((e) => e.startsWith("DB_PATH="))?.slice("DB_PATH=".length) ?? "";
+    expect(backup.get("ConditionPathExists")?.at(-1)).toBe(db);
+    expect(backup.get("ReadWritePaths")).toContain(db.replace(/\/[^/]+$/, ""));
+    expect(text).not.toMatch(/\bwins\b/);
+    expect(text).toMatch(/drop-in/);
+    // The release ships apps/server only, so a docs/ path under current/ would dangle.
+    expect(backup.get("Documentation")?.at(-1)).toMatch(/^https:\/\//);
+  });
+
+  test("docs claim no more for the sudoers rule than deploy already has, and restore runs from the box's kit copy (OME-382)", () => {
+    const docs = (name: string) => readFileSync(join(DEPLOY, "../docs", name), "utf8");
+    const sudoers = read("backup/sudoers.omega-backup");
+    for (const [name, text] of [["sudoers", sudoers], ["hosting.md", docs("ops/hosting.md")], ["backup.md", docs("ops/backup.md")]] as const) {
+      expect(text, name).not.toMatch(/read-only rsync|sender only reads|sender side cannot write/);
+    }
+    expect(sudoers).toMatch(/no more than deploy already has/);
+    expect(docs("ops/hosting.md")).toContain("bash omega-deploy/backup/restore.sh");
+    expect(docs("ops/hosting.md")).not.toContain("bash deploy/backup/restore.sh");
+  });
+
   test("a release carries apps/server, so the snapshot script ships with every deploy", () => {
     expect(read("deploy.sh")).toMatch(/archive "\$rel" [^\n]*apps\/server /);
   });
