@@ -47,6 +47,8 @@ ssh $A admin@$SERVER_IP "sudo bash omega-deploy/provision.sh firewall-ok"   # fr
 ssh $A admin@$SERVER_IP "sudo bash omega-deploy/provision.sh ssh"           # once deploy@ and admin@ both log in
 ```
 
+To change only the Caddyfile or the journald retention on a running box, rsync as above and run `provision.sh logs`. It touches no users, packages or firewall.
+
 On a brand-new box, the first run is `root@` with the board's key. The `ssh` phase then turns root login off.
 
 ## Backups and restore

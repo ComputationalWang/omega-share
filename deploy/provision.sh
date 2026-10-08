@@ -4,9 +4,11 @@
 #
 #   DEPLOY_PUBKEY='ssh-ed25519 …' ADMIN_PUBKEY='ssh-ed25519 …' bash provision.sh base
 #   bash provision.sh ssh      # only after `ssh deploy@` and `ssh admin@` both work
+#   bash provision.sh logs     # re-ship only the Caddyfile and journald retention
 #
 # base: packages + unattended upgrades, users, pinned Bun, Caddy, nftables, units, backups.
 # ssh:  root login and passwords off, only deploy and admin may log in.
+# logs: the Caddyfile and journald retention only (also part of base).
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -75,20 +77,13 @@ base() {
     rm -r -f "$tmp"
   fi
 
-  # The journal is persistent and sshd logs peer IPs: keep 14 days (OME-386).
-  install -d -m 0755 /etc/systemd/journald.conf.d
-  install -m 0644 "$here/journald/omega-share.conf" /etc/systemd/journald.conf.d/
-  systemctl restart systemd-journald
-
-  install -m 0644 "$here/Caddyfile" /etc/caddy/Caddyfile
-  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
   install -m 0644 "$here/omega-share.service" /etc/systemd/system/
   install -m 0644 "$here/backup/omega-share-backup.service" "$here/backup/omega-share-backup.timer" /etc/systemd/system/
   systemctl daemon-reload
   systemctl enable omega-share.service
   systemctl enable --now omega-share-backup.timer
   systemctl restart omega-share-backup.timer # an already-active timer keeps its old schedule otherwise
-  systemctl restart caddy # admin off: no `caddy reload`
+  logs
 
   # Firewall: load with an automatic rollback in case it cuts this session; confirm with `firewall-ok`.
   nft -c -f "$here/nftables.conf"
@@ -99,6 +94,17 @@ base() {
   nft -f /etc/nftables.conf
   systemctl enable nftables.service
   echo "nftables loaded; run 'bash provision.sh firewall-ok' from a NEW ssh session within 3 minutes"
+}
+
+# Caddyfile and journal retention: what decides which IPs reach the disk (ADR 0020 §3, OME-386).
+logs() {
+  # The journal is persistent and sshd logs peer IPs: keep 14 days.
+  install -d -m 0755 /etc/systemd/journald.conf.d
+  install -m 0644 "$here/journald/omega-share.conf" /etc/systemd/journald.conf.d/
+  systemctl restart systemd-journald
+  install -m 0644 "$here/Caddyfile" /etc/caddy/Caddyfile
+  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+  systemctl restart caddy # admin off: no `caddy reload`
 }
 
 firewall_ok() {
@@ -121,6 +127,7 @@ ssh_hardening() {
 case "${1:-}" in
   base) base ;;
   firewall-ok) firewall_ok ;;
+  logs) logs ;;
   ssh) ssh_hardening ;;
-  *) echo "usage: provision.sh base|firewall-ok|ssh" >&2; exit 2 ;;
+  *) echo "usage: provision.sh base|firewall-ok|ssh|logs" >&2; exit 2 ;;
 esac
