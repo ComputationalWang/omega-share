@@ -53,9 +53,24 @@ test("DOM room view matches __omega: playing, self catching (ad), paused; join r
   // A production build: no __omega at all. The view says where it read from, and the landing page reports ready.
   await a.page.evaluate(() => { delete window.__omega; });
   expect(await roomView(a.page)).toMatchObject({ source: "dom", playing: false });
+  // The sync notice also carries mount failures, which aren't player errors; a player error maps back to its reason.
+  const notice = (text: string) => a.page.evaluate((t) => {
+    const n = document.querySelector<HTMLElement>('[data-testid="sync-notice"]');
+    if (n === null) throw new Error("no sync notice");
+    n.textContent = t;
+    n.hidden = false;
+  }, text);
+  await notice("Sync for Vimeo videos isn't ready yet.");
+  expect((await roomView(a.page)).error).toBeNull();
+  await notice("This video can't play here: the player didn't match the room's video.");
+  expect((await roomView(a.page)).error).toBeNull();
+  await notice("This video can't play here: the channel is offline.");
+  expect((await roomView(a.page)).error).toEqual({ reason: "offline" });
   const fresh = await a.context.newPage();
   await fresh.addInitScript(() => { Object.defineProperty(window, "__omega", { set() { /* a production build never sets it */ }, get: () => undefined }); });
   await fresh.goto(room.url);
   await expect.poll(() => fresh.evaluate(joinReady)).toBe(true);
+  // Not joined: no room to read, so nothing reads as paused.
+  expect(await roomView(fresh)).toEqual({ source: "none", playing: null, catching: null, live: null, seekOnly: null, canControl: null, error: null });
   expect(await fresh.evaluate(() => window.__omega)).toBeUndefined();
 });
