@@ -15,6 +15,7 @@ import {
   ROOM_CREATE_GLOBAL_REFILL_MS,
   ROOM_CREATE_KEY_BURST,
   ROOM_CREATE_KEY_REFILL_MS,
+  ROOM_CREATE_RETRY_AFTER_MAX_MS,
   RoomListResponseSchema,
   type CreateRoomResponse,
   type RoomListResponse,
@@ -194,7 +195,7 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
     expect((await create({ title: "Bade word", visibility: "public" })).status).toBe(201);
   });
 
-  test("a store that can't write answers a typed 503 (no-store, nothing created) and gives the creation back", async () => {
+  test("a store that can't write answers a typed 503 unavailable (no-store, nothing created) and gives the creation back", async () => {
     let failing = false;
     const writes: NewRoom[] = [];
     const store: RoomPersistence = {
@@ -215,7 +216,7 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
       const res = await create({ title: "Den", visibility: "public" }, { address });
       expect(res.status).toBe(503);
       expect(res.headers.get("cache-control")).toBe("no-store");
-      expect(await errorOf(res)).toBe("too_many_rooms");
+      expect(await errorOf(res)).toBe("unavailable");
     }
     expect(registry.size).toBe(size);
     // The failed writes cost the client nothing: its whole burst is still there.
@@ -242,6 +243,23 @@ describe("creation limits (ADR 0028 §1)", () => {
     expect((await create({ title: "Den", visibility: "public" }, { address: "198.51.100.201" })).status).toBe(201);
     clock.ms += ROOM_CREATE_KEY_REFILL_MS;
     expect((await create({ title: "Den", visibility: "public" }, { address })).status).toBe(201);
+  });
+
+  test("the per-key 429 gives the real wait, past the 60 s cap of other limits: the full refill, then what's left of it", async () => {
+    const clock = fakeClock();
+    t = start({ trustProxy: true, now: clock.now });
+    const address = "198.51.100.230";
+    for (let i = 0; i < ROOM_CREATE_KEY_BURST; i++) expect((await create({ title: "Den", visibility: "public" }, { address })).status).toBe(201);
+    const waitOf = async (): Promise<{ header: string | null; ms: number | undefined }> => {
+      const res = await create({ title: "Den", visibility: "public" }, { address });
+      expect(res.status).toBe(429);
+      const body = v.parse(CreateRoomResponseSchema, await res.json());
+      return { header: res.headers.get("retry-after"), ms: body.ok ? undefined : body.error.retryAfterMs };
+    };
+    expect(ROOM_CREATE_RETRY_AFTER_MAX_MS).toBe(600_000);
+    expect(await waitOf()).toEqual({ header: "600", ms: 600_000 });
+    clock.ms += 4 * 60_000;
+    expect(await waitOf()).toEqual({ header: "360", ms: 360_000 });
   });
 
   test("malformed bodies take from the same per-key bucket", async () => {
@@ -297,6 +315,34 @@ describe("DELETE /rooms/:id (ADR 0028 §1, §2)", () => {
     const share = await postShare(server(), JSON.stringify({ url: "https://youtu.be/dQw4w9WgXcQ" }), { roomId: room.id, token: tokenOf(a.snapshot) });
     expect(share.status).toBe(404);
     expect((await del(room.id, `Bearer ${ownerToken}`)).status).toBe(404);
+  });
+
+  test("a store that can't delete the row answers 503 unavailable and keeps the room: its sockets stay open, the owner can try again", async () => {
+    let failing = false;
+    const store: RoomPersistence = {
+      listRooms: () => [],
+      createRoom: () => undefined,
+      deleteRoom: () => {
+        if (failing) throw new Error("disk I/O error");
+        return true;
+      },
+      setEmbed: () => undefined,
+    };
+    t = start({ trustProxy: true, store });
+    const { room, ownerToken } = await created(await create({ title: "Den", visibility: "public" }));
+    const a = await Client.join(server().ws(room.id), "alice");
+    clients.push(a.client);
+    failing = true;
+    const res = await del(room.id, `Bearer ${ownerToken}`);
+    expect(res.status).toBe(503);
+    expect(v.parse(DeleteRoomResponseSchema, await res.json())).toMatchObject({ ok: false, error: { code: "unavailable" } });
+    // Nothing changed: the room is still listed and its members are still in it.
+    expect((await listed()).map((r) => r.id)).toContain(room.id);
+    a.client.send({ type: "ping", id: 7 });
+    await a.client.next("pong");
+    failing = false;
+    expect((await del(room.id, `Bearer ${ownerToken}`)).status).toBe(200);
+    expect((await a.client.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
   });
 
   test("unknown room is 404 room_not_found; a missing, malformed or wrong bearer is 401 unauthorized; another room's token doesn't work", async () => {
