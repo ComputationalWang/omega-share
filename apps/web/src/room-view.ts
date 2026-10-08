@@ -230,6 +230,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       return [...background.children, ...markerLayer.children, ...sorted].map((c) => c.label);
     },
     destroy() {
+      animator.dispose();
       app.destroy(true, { children: true });
     },
   };

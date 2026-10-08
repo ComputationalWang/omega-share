@@ -19,6 +19,7 @@ import { catchingUp, initialState, nextExpiry, reduce, screen, type Refusal, typ
 import { genericFrame, tvFrame, type TvFrame } from "./tv";
 import { createGenericTv } from "./controls/generic-tv";
 import { walkGrid } from "./walk/path";
+import { standingSpots } from "./walk/standing";
 import type { Dir } from "./walk/walks";
 
 export interface RoomOptions {
@@ -217,6 +218,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let layout: RoomLayout | null = null;
   let seats: Point[] = [];
   let seatFacings: Dir[] = [];
+  /** Who stands on which standing spot; kept across renders so a departure doesn't move the others. */
+  let standSpots = new Map<MemberId, number>();
   let grid: Uint8Array = new Uint8Array(0);
   let standing: Point[] = [];
   let scene = sceneOf(layoutOf(null), null);
@@ -356,10 +359,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         at.set(v.member.id, p);
       }
     }
-    let k = 0;
-    for (const m of s.room?.members ?? []) {
-      if (at.has(m.id)) continue;
-      const p = standing[k++];
+    const standers = (s.room?.members ?? []).filter((m) => !at.has(m.id));
+    standSpots = standingSpots(standers.map((m) => m.id), standing.length, standSpots);
+    for (const m of standers) {
+      const i = standSpots.get(m.id);
+      const p = i === undefined ? undefined : standing[i];
       if (p === undefined) continue;
       placements.push({ id: m.id, avatar: m.avatar, at: p, z: standDepth(p), seatFacing: null });
       at.set(m.id, p);

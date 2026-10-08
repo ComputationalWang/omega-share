@@ -4,6 +4,9 @@ import type { MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, type MotionFrames } from "./motion";
 import { emptyPose, type Pose, type Walks } from "./walks";
 
+/** Breathing redraws wait for this shared clock, so a room at rest renders at most 2.5 times a second however full. */
+export const BREATHE_TICK_MS = 400;
+
 export interface AnimatedAvatar {
   readonly id: MemberId;
   readonly avatar: number;
@@ -26,6 +29,8 @@ export interface Animator {
   set(avatars: readonly AnimatedAvatar[]): void;
   /** The motion atlas arrived: redraw everyone with it on the next frame. */
   setFrames(frames: MotionFrames): void;
+  /** The room is gone: drop any queued frame or timer and never draw again. */
+  dispose(): void;
 }
 
 export function createAnimator(o: AnimatorOptions): Animator {
@@ -33,6 +38,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
   let frames: MotionFrames | null = null;
   let framePending = false;
   let timer: unknown = null;
+  let disposed = false;
   const pose = emptyPose();
 
   function frameKey(avatar: number, p: Pose, still: boolean): string | null {
@@ -61,6 +67,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
 
   const tick = (): void => {
     framePending = false;
+    if (disposed) return;
     const now = o.now();
     const next = drawAll(now);
     o.render();
@@ -68,7 +75,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
   };
 
   function requestFrame(): void {
-    if (framePending) return;
+    if (framePending || disposed) return;
     framePending = true;
     o.raf(tick);
   }
@@ -83,12 +90,17 @@ export function createAnimator(o: AnimatorOptions): Animator {
       o.clearTimer(timer);
       timer = null;
     }
+    if (disposed) return;
     if (o.walks.walking(now)) requestFrame();
-    else if (nextBreath !== Infinity) timer = o.setTimer(onTimer, nextBreath);
+    else if (nextBreath !== Infinity) {
+      const at = Math.ceil((now + nextBreath) / BREATHE_TICK_MS) * BREATHE_TICK_MS;
+      timer = o.setTimer(onTimer, at - now);
+    }
   }
 
   return {
     set(avatars) {
+      if (disposed) return;
       list = avatars;
       const now = o.now();
       schedule(now, drawAll(now));
@@ -96,6 +108,11 @@ export function createAnimator(o: AnimatorOptions): Animator {
     setFrames(f) {
       frames = f;
       requestFrame();
+    },
+    dispose() {
+      disposed = true;
+      if (timer !== null) o.clearTimer(timer);
+      timer = null;
     },
   };
 }
