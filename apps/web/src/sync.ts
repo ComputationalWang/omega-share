@@ -17,9 +17,6 @@ export const PAUSED_THRESHOLD_MS = 250;
  * seek this far ahead of the room while paused, then play when the room gets there (ADR 0027).
  */
 export const PARK_LEAD_MS = 1000;
-/** A jump further than this lands outside the buffer: park PARK_FAR_LEAD_MS ahead so the target can load first. */
-export const PARK_FAR_MS = 10_000;
-export const PARK_FAR_LEAD_MS = 2000;
 /** Drift is only trusted after the player has been playing this long. */
 export const STABLE_MS = 500;
 export const MAX_NUDGE = 0.1;
@@ -166,8 +163,7 @@ function hardSeekLatency(i: DecideInput): number {
 
 /** Far enough ahead that the paused seek has loaded, plus what the play will take, so it starts on the room clock. */
 function park(expected: number, i: DecideInput, room: PlaybackState): Correction {
-  const lead = Math.abs(i.playerTime - expected) * 1000 > PARK_FAR_MS ? PARK_FAR_LEAD_MS : PARK_LEAD_MS;
-  return { kind: "park", to: expected + ((lead + i.startLatencyMs) / 1000) * room.rate };
+  return { kind: "park", to: expected + ((PARK_LEAD_MS + i.startLatencyMs) / 1000) * room.rate };
 }
 
 function seekTo(expected: number, room: PlaybackState, latencyMs: number): Correction {
