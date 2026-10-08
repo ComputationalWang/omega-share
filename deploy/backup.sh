@@ -5,9 +5,10 @@
 set -eu
 dir=/var/backups/omega-share
 db=/var/lib/omega-share/omega.db
-tmp="$dir/omega-new.db"
+# A dot name: never matches the omega-*.db glob that rotation and the off-box pull use.
+tmp="$dir/.omega-new.db"
 rm -f "$tmp"
-sqlite3 "$db" "VACUUM INTO '$tmp'"
+sqlite3 -cmd '.timeout 5000' "$db" "VACUUM INTO '$tmp'"
 [ "$(sqlite3 -readonly "$tmp" 'PRAGMA integrity_check')" = ok ] || { echo "snapshot failed integrity_check" >&2; exit 1; }
 mv "$tmp" "$dir/omega-$(date -u +%F).db"
 find "$dir" -name 'omega-*.db' -mtime +14 -delete

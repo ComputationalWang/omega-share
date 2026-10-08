@@ -29,8 +29,8 @@ base() {
   export DEBIAN_FRONTEND=noninteractive
 
   # Caddy's own signed repo: Ubuntu's caddy package is years behind.
-  if [[ ! -f /usr/share/keyrings/caddy-stable-archive-keyring.gpg ]]; then
-    curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  if [[ ! -s /usr/share/keyrings/caddy-stable-archive-keyring.gpg || ! -s /etc/apt/sources.list.d/caddy-stable.list ]]; then
+    curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
     curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt > /etc/apt/sources.list.d/caddy-stable.list
   fi
   apt-get update -qq
@@ -56,13 +56,13 @@ base() {
   install -d -m 0755 /usr/local/lib/omega-share
   install -m 0755 "$here/backup.sh" /usr/local/lib/omega-share/backup.sh
 
-  # Bun, pinned and checksum-verified, root-owned so a deploy can't swap the runtime.
+  # Bun, pinned and checked against the hash committed in deploy/ (not one fetched beside the zip),
+  # root-owned so a deploy can't swap the runtime. A version bump updates both files.
   if [[ "$(/usr/local/bin/bun --version 2>/dev/null || true)" != "$bun_version" ]]; then
     local tmp; tmp="$(mktemp -d)"
     local url="https://github.com/oven-sh/bun/releases/download/bun-v$bun_version"
     curl -fsSL -o "$tmp/bun.zip" "$url/bun-linux-aarch64.zip"
-    curl -fsSL -o "$tmp/SHASUMS256.txt" "$url/SHASUMS256.txt"
-    (cd "$tmp" && grep ' bun-linux-aarch64.zip$' SHASUMS256.txt | sed 's/bun-linux-aarch64.zip$/bun.zip/' | sha256sum -c -)
+    (cd "$tmp" && sha256sum -c "$here/bun-linux-aarch64.sha256")
     unzip -q "$tmp/bun.zip" -d "$tmp"
     install -m 0755 "$tmp/bun-linux-aarch64/bun" /usr/local/bin/bun
     rm -r -f "$tmp"
@@ -74,13 +74,14 @@ base() {
   systemctl daemon-reload
   systemctl enable omega-share.service omega-share-backup.timer
   systemctl start omega-share-backup.timer
-  systemctl reload-or-restart caddy
+  systemctl restart caddy # admin off: no `caddy reload`
 
   # Firewall: load with an automatic rollback in case it cuts this session; confirm with `firewall-ok`.
   nft -c -f "$here/nftables.conf"
   systemctl disable --now ufw 2>/dev/null || true
   install -m 0644 "$here/nftables.conf" /etc/nftables.conf
-  systemd-run --unit=omega-nft-rollback --on-active=180 /usr/sbin/nft flush ruleset >/dev/null
+  systemctl stop omega-nft-rollback.timer omega-nft-rollback.service 2>/dev/null || true
+  systemd-run --collect --unit=omega-nft-rollback --on-active=180 /usr/sbin/nft flush ruleset >/dev/null
   nft -f /etc/nftables.conf
   systemctl enable nftables.service
   echo "nftables loaded; run 'bash provision.sh firewall-ok' from a NEW ssh session within 3 minutes"
@@ -97,8 +98,9 @@ ssh_hardening() {
   done
   install -m 0644 "$here/sshd/00-omega-share.conf" /etc/ssh/sshd_config.d/00-omega-share.conf
   sshd -t
-  systemctl reload ssh
   passwd -l root >/dev/null
+  # Socket-activated sshd reads the config per connection; a reload only matters if the service runs.
+  systemctl reload ssh 2>/dev/null || echo "note: ssh.service not running (socket activation); config applies to new connections"
   echo "root login off; only deploy and admin may log in"
 }
 

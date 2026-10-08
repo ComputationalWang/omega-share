@@ -2,6 +2,8 @@
 # The server owns CSP, HSTS and every security header, and the client IP: Caddy appends the
 # peer to X-Forwarded-For and ignores the client's own value (no proxy is trusted). No access log (D6).
 {
+	# No admin API: the app's sandbox may open loopback TCP, and the API could rewrite Caddy's config.
+	admin off
 	servers {
 		protocols h1 h2
 	}

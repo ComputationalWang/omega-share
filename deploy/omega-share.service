@@ -4,6 +4,9 @@
 Description=omega-share server
 After=network-online.target
 Wants=network-online.target
+# deploy can't reset-failed (polkit allows start/stop/restart only), so allow a burst of restarts.
+StartLimitIntervalSec=60
+StartLimitBurst=10
 
 [Service]
 Type=simple

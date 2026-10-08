@@ -2,6 +2,9 @@
 [Unit]
 Description=omega-share nightly DB snapshot
 
+# Until the server's first start there is nothing to back up (and sqlite3 would create an empty DB).
+ConditionPathExists=/var/lib/omega-share/omega.db
+
 [Service]
 Type=oneshot
 User=omega-share

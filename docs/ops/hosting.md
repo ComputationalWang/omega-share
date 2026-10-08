@@ -40,10 +40,11 @@ A rollback across a DB migration doesn't work: the server refuses a DB whose `us
 Root-owned files are the unit files, the Caddyfile, nftables, sshd, polkit, apt and Bun. They change only through `deploy/provision.sh`, run as root. The script is idempotent:
 
 ```sh
-rsync -a deploy/ .bun-version admin@$SERVER_IP:omega-deploy/
-ssh admin@$SERVER_IP "sudo DEPLOY_PUBKEY='…' ADMIN_PUBKEY='…' bash omega-deploy/provision.sh base"
-ssh admin@$SERVER_IP "sudo bash omega-deploy/provision.sh firewall-ok"   # from a NEW session, within 3 min
-ssh admin@$SERVER_IP "sudo bash omega-deploy/provision.sh ssh"           # once deploy@ and admin@ both log in
+A="-o IdentitiesOnly=yes -i ~/.config/omega-share/admin-key"   # sshd allows 3 tries: offer only this key
+rsync -a -e "ssh $A" deploy/ .bun-version admin@$SERVER_IP:omega-deploy/
+ssh $A admin@$SERVER_IP "sudo DEPLOY_PUBKEY='…' ADMIN_PUBKEY='…' bash omega-deploy/provision.sh base"
+ssh $A admin@$SERVER_IP "sudo bash omega-deploy/provision.sh firewall-ok"   # from a NEW session, within 3 min
+ssh $A admin@$SERVER_IP "sudo bash omega-deploy/provision.sh ssh"           # once deploy@ and admin@ both log in
 ```
 
 On a brand-new box, the first run is `root@` with the board's key. The `ssh` phase then turns root login off.
@@ -71,7 +72,7 @@ On a brand-new box, the first run is `root@` with the board's key. The `ssh` pha
 
 ## Restore (and the drill)
 
-As `admin` (sudo):
+As `admin` (sudo; `ssh -o IdentitiesOnly=yes -i ~/.config/omega-share/admin-key admin@$SERVER_IP`):
 
 ```sh
 snap=/var/backups/omega-share/omega-YYYY-MM-DD.db      # or scp an off-box copy up first
@@ -94,4 +95,5 @@ After a restore, rooms, layouts and each room's last embed come back, with playb
 - Open ports from outside: only 22, 80 and 443 (`for p in 22 80 443 2019 8787; do timeout 4 bash -c "echo >/dev/tcp/$SERVER_IP/$p" && echo "$p open"; done`).
 - The Host allowlist on the box: `curl -H 'Host: evil.example' 127.0.0.1:8787/healthz` returns 421.
 - Headed smoke from outside, on a virtual display: `OMEGA_REAL_TUNNEL_ORIGIN=https://omega-share.duckdns.org bun e2e/support/headed.ts bunx playwright test --project=e2e-real e2e/real/real-tunnel.real.ts --grep "tunnel-[124]"`. Tunnel-3 checks the Host rule on *this* machine's port 8787, so against the box, use the curl above instead.
-- Logs (as `admin`): `journalctl -u omega-share`, `journalctl -u caddy`. Caddy keeps no access log.
+- Logs (as `admin`): `journalctl -u omega-share`, `journalctl -u caddy`. Caddy keeps no access log and has no admin API (`admin off`), so Caddyfile changes take `systemctl restart caddy`.
+- Off-box pull fails loudly if the newest snapshot is older than 36 h: that is the backup alarm.

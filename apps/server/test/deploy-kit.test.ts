@@ -87,7 +87,7 @@ describe("deploy/nftables.conf", () => {
 describe("deploy/omega-share-backup.*", () => {
   test("snapshots with VACUUM INTO as the service user, nightly", () => {
     const svc = read("omega-share-backup.service");
-    expect(read("backup.sh")).toMatch(/sqlite3 "\$db" "VACUUM INTO/);
+    expect(read("backup.sh")).toMatch(/sqlite3 .*"\$db" "VACUUM INTO/);
     expect(unitKeys(svc).get("ExecStart")?.at(-1)).toBe("/usr/local/lib/omega-share/backup.sh");
     expect(unitKeys(svc).get("User")?.at(-1)).toBe("omega-share");
     expect(read("omega-share-backup.timer")).toMatch(/OnCalendar=.*\d\d:\d\d/);
@@ -131,7 +131,7 @@ describe("deploy/deploy.sh", () => {
       expect(r.code).toBe(0);
       expect(r.out).toContain("bun run --filter @omega/web build");
       expect(r.out).toMatch(/rsync .* deploy@203\.0\.113\.7:\/opt\/omega-share\/releases\/[0-9a-f]{40}\//);
-      expect(r.out).toContain("ln -sfn /opt/omega-share/releases/");
+      expect(r.out).toMatch(/flip \/opt\/omega-share\/releases\/[0-9a-f]{40}\n/);
       expect(r.out).toContain("systemctl restart omega-share");
       expect(r.out).not.toMatch(/ssh [^\n]*\b(bun install|vite|build)\b/);
     });
@@ -153,9 +153,11 @@ describe("review hardening (OME-356)", () => {
     const nft = read("nftables.conf");
     const sets = [...nft.matchAll(/set (\w+) \{([^}]*)\}/g)];
     expect(sets.length).toBeGreaterThanOrEqual(4);
-    for (const [, , body] of sets) {
-      expect(body).toMatch(/timeout \d+m;/);
+    for (const [, name, body] of sets) {
       expect(body).toMatch(/size \d+;/);
+      // A ct count set frees an entry when its last connection closes (and the kernel refuses a timeout on it).
+      const connCount = new RegExp(`@${name ?? ""} \\{[^}]*ct count`).test(nft);
+      if (!connCount) expect(body).toMatch(/timeout \d+m;/);
     }
     expect(nft).toMatch(/add @ssh_meter6 \{ ip6 saddr and ffff:ffff:ffff:ffff:: limit rate/);
   });
@@ -185,7 +187,7 @@ describe("review hardening (OME-356)", () => {
 
   test("a failed health check puts the previous release back", () => {
     const script = read("deploy.sh");
-    expect(script).toMatch(/prev="\$\(readlink -f/);
+    expect(script).toMatch(/prev=\\"\\\$\(readlink -f/);
     expect(script).toContain("rolled back to");
   });
 
