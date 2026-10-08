@@ -14,7 +14,12 @@ secret_path='(\.ssh/|\.config/gh/|\.gnupg/|\.aws/|\.netrc|\.git-credentials|\.pa
 case "$tool" in
   Bash)
     cmd=$(jq -r '.tool_input.command // ""' <<<"$input")
-    grep -Eq '(^|[;&|[:space:]])sudo([[:space:]]|$)' <<<"$cmd" && deny "sudo is not allowed for company agents."
+    # sudo (board decision 2026-10-08): local = plain file commands inside this repo; over ssh = full
+    # control, but only on the hosted omega-share box. The parsing lives in sudo-policy.py (fails closed).
+    if grep -Eq '(^|[^A-Za-z0-9_./-])sudo([^A-Za-z0-9_-]|$)' <<<"$cmd"; then
+      why=$(jq -n --arg command "$cmd" --arg cwd "$(jq -r '.cwd // "."' <<<"$input")" --arg root "$allowed_root" '{command:$command,cwd:$cwd,root:$root}' \
+        | python3 "$(dirname "${BASH_SOURCE[0]}")/sudo-policy.py") || deny "${why:-sudo is not allowed here.}"
+    fi
     grep -Eq 'git[[:space:]]+push.*(--force|[[:space:]]-f([[:space:]]|$)|--force-with-lease|[[:space:]]\+[^[:space:]]+)' <<<"$cmd" && deny "Force pushes are not allowed."
     grep -Eq "$secret_path" <<<"$cmd" && deny "Credential directories are off-limits."
     # rm with recursive+force flags: every absolute/home target must live under the repo root.

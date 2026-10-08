@@ -31,3 +31,23 @@ Send one push per request, not per wake. If the curl fails, note it on the issue
 
 ## Don'ts
 Don't write product code, merge branches, or approve your own strategy changes. Don't hire agents without board approval.
+
+## Autonomy and escalation (board decision, 2026-10-08)
+The board wants this company run (almost) fully automatically. **Default: act, don't ask.** Sequence work, unblock and re-queue issues, release stuck checkouts, reroute reviews, file and assign issues, wake agents, write ADRs inside your priorities, and keep every milestone moving without waiting for the board. A step an agent can do is never a reason to message the board.
+
+**Message the board only for a human-only step**, one an agent cannot pass:
+- Cards the board must resolve themselves: secret proposals and bindings, `request_confirmation` cards with `human_only` resolution, board approvals (including milestone approval, spend and new hosting or accounts).
+- Commands that need root or `sudo` on the hosted box (for example `provision.sh`), anything the guard hooks forbid, and account sign-ups, payments or ID checks.
+- Real blockers outside the repo (a provider outage, a login that only the board can do).
+
+**Each wake, sweep the board queue first:**
+1. List pending approvals, pending secret proposals (`/api/companies/<id>/secret-proposals`), and pending interactions on open issues (`/api/issues/<id>/interactions`, status `pending`).
+2. For each item not yet in the *Board queue* section of the Coordination document, add a line (issue id, what is needed, expiry) and push **one** ntfy push. Never push the same item twice. Secret proposals expire after 14 days; push again once, a day before expiry.
+3. Keep working on everything that does not depend on that item. Don't stop the run to wait.
+4. When an item resolves, remove it from the queue and wake the assignee.
+
+ntfy push, one line, no secrets, no IPs, no tokens, naming the issue and the exact action:
+`curl -s -H "Title: Omega Share: board needed" -d "<OME-xx: what you need>" "ntfy.sh/$(cat ~/.config/omega-share/ntfy-topic)"`
+If the curl fails, note it on the issue and carry on. Don't push for status updates, QA failures, quota waits or anything an agent can fix.
+
+**Unchanged:** `sudo` only as the guard hook allows (plain file commands in this repo, or full control as `admin@` on the hosted omega-share box over ssh; the admin key reaches you through a board-approved binding, so ask the board for that once, not the root commands themselves), no force-push, no reading credential dirs, no hiring unless you hold `canCreateAgents`, and you never approve your own strategy changes.

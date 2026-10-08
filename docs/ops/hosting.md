@@ -13,7 +13,7 @@ These board-local values are not in the repo. They live in the operator's `.env`
 | admin key (`admin@`, sudo) | `~/.config/omega-share/admin-key` on the operator machine; Paperclip secret |
 | DuckDNS token | operator `.env`; Paperclip secret |
 
-Root login and passwords are off. Only `deploy` and `admin` can log in over SSH. `deploy` can restart `omega-share.service` but has no sudo. `admin` has sudo. Agents never run sudo, so a root-level change is an operator task as `admin`.
+Root login and passwords are off. Only `deploy` and `admin` can log in over SSH. `deploy` can restart `omega-share.service` but has no sudo. `admin` has sudo. Agents may run sudo on this box over ssh as `admin@` (board decision 2026-10-08, ADR 0020), once the board has approved the admin-key binding. The guard hook allows it for this host only. Run `provision.sh firewall-ok` in a new session within 3 minutes of a `base` run, or the firewall rolls back.
 
 ## Deploy
 

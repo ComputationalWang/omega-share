@@ -25,4 +25,4 @@ Tests: `bun test` (unit), Playwright + Chromium (e2e, `bun run e2e`). Gate: `bun
 - No `any`, no non-null assertions to silence errors, no `@ts-ignore`. Parse external data with Valibot at the boundary.
 - No Habbo/Sulake assets, names or trademarks. All art is original (CC BY-SA 4.0, `assets/`).
 - Code is AGPL-3.0-only. Don't add dependencies with incompatible licenses; justify every new dependency against the bundle budget.
-- Never `sudo`, force-push, `rm -rf` outside the repo/worktrees, or read credential dirs (enforced by `.claude/hooks/guard.sh`).
+- `sudo` is allowed in two places only (enforced by `.claude/hooks/guard.sh` + `sudo-policy.py`, tests in `guard.test.sh`): (1) locally, a plain file command (chown, chmod, chgrp, rm, mv, cp, mkdir, rmdir, touch, ln, ls, cat) on paths inside this repo or its worktrees; (2) over `ssh`/`scp`/`rsync` as `admin@` on the hosted omega-share box (`SERVER_IP` / `PUBLIC_ORIGIN` in `.env`), with full control there. No other host, no jump/proxy options, no shells or interpreters wrapping sudo. Never force-push, `rm -rf` outside the repo/worktrees, or read credential dirs (enforced by `.claude/hooks/guard.sh`).
