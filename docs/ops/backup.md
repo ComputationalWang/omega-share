@@ -32,7 +32,7 @@ These defaults match the deploy kit (`deploy/omega-share.service`, `deploy/provi
 1. writes into a hidden `.omega-<date>.db.tmp`, created `0600` before SQLite touches it;
 2. checks the copy: `PRAGMA integrity_check`, foreign keys, a schema version this code knows, and every room row parsed by the server's own `RoomStore`;
 3. switches the copy out of WAL so it is one self-contained file, then fsyncs it and renames it to `omega-<UTC date>.db`. A second run on the same day replaces that day's file;
-4. prunes everything but the newest 14 `omega-<date>.db` files. Nothing else in the directory is touched.
+4. prunes everything but the newest 14 `omega-<date>.db` files, plus any `.omega-<date>.db.tmp` untouched for an hour (left by a run killed mid-`VACUUM`; a failed run removes its own). Nothing else in the directory is touched.
 
 The unit runs as the service user with `UMask=0077`, no network (`PrivateNetwork=yes`), a read-only system, and write access only to the snapshot directory and the DB's directory. A WAL reader writes the `-shm` file, so it needs the DB's directory too. The timer fires at 03:30 UTC (± 20 min) and catches up at boot after a night the box was off (`Persistent=true`).
 
@@ -82,10 +82,10 @@ It runs these steps:
 
 1. **Integrity check.** It runs `backup.ts verify` as the service user: `PRAGMA integrity_check`, foreign keys, the schema version, and every room and layout parsed. A corrupt, truncated, forged or empty snapshot is refused here, **before** anything stops, so a bad file costs no downtime.
 2. **Stop the service.** `systemctl stop omega-share`.
-3. **Copy to `DB_PATH`.** It runs `backup.ts restore` as the service user, so the owner is right, and the file gets mode `0600`. It checks the copy once more, then moves the old database (and its `-wal`) aside to `<DB_PATH>.pre-restore-<UTC stamp>`, deletes any stale `-wal` and `-shm`, and renames the copy into place. A stale WAL is never replayed onto the restored file. If this step refuses, the service starts again on the old database, and the script exits 1.
+3. **Copy to `DB_PATH`.** It runs `backup.ts restore` as the service user, so the owner is right, and the file gets mode `0600`. It checks the copy once more, then folds the old database's `-wal` into its main file (a stopped server leaves committed rows there; this refuses if anything still holds the database), keeps it aside as `<DB_PATH>.pre-restore-<UTC stamp>` (a hard link, or a copy where links fail), deletes any stale `-wal` and `-shm`, and renames the copy over `DB_PATH` in one atomic step. `DB_PATH` is never missing or missing rows, even if the process dies midway, and a stale WAL is never replayed onto the restored file. If this step refuses, the service starts again on the old database, and the script exits 1. If `DB_PATH` is somehow gone by then, the service stays stopped instead of creating an empty database: put the newest `pre-restore` file back (see below) or rerun the script.
 4. **Start and check.** `systemctl start omega-share`. Then it polls `http://127.0.0.1:8787/rooms` (`OMEGA_CHECK_URL`) and prints the room list. **Then check by hand:** open a room in the browser and confirm its furniture is where it was.
 
-To undo a restore, stop the service, move `<DB_PATH>.pre-restore-<stamp>` (and its `-wal`, if any) back to `DB_PATH`, and start the service. Delete old `pre-restore` files once you're sure.
+To undo a restore, stop the service, move `<DB_PATH>.pre-restore-<stamp>` back to `DB_PATH` (it is one self-contained file), and start the service. Delete old `pre-restore` files once you're sure.
 
 Without the wrapper (for example, a different service manager), do the same steps by hand: `backup.ts verify <file>`, stop, `DB_PATH=… backup.ts restore <file>` as the service user, start.
 

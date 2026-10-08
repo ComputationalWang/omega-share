@@ -6,7 +6,8 @@
 # 1. verify the snapshot as the service user (a bad snapshot costs no downtime),
 # 2. stop the service, 3. restore it to DB_PATH as the service user (owner right, mode 0600,
 # the old DB kept aside), 4. start the service and list the rooms it serves.
-# If step 3 refuses, the service starts again on the old database and this exits 1.
+# If step 3 refuses, the service starts again on the old database and this exits 1; if DB_PATH
+# is gone by then, the service stays stopped (it would create and serve an empty database).
 set -euo pipefail
 
 usage() {
@@ -33,6 +34,11 @@ systemctl stop "$service"
 
 echo "3/4 restore to $db"
 if ! runuser -u "$user" -- env DB_PATH="$db" "${backup[@]}" restore "$snap"; then
+  # Never start on a missing DB: the server would create an empty one and serve it.
+  if [[ ! -f $db ]]; then
+    echo "restore.sh: restore failed and $db is missing; $service stays stopped. Put back the newest $db.pre-restore-* or rerun this script" >&2
+    exit 1
+  fi
   echo "restore.sh: restore refused; starting $service again on the previous database" >&2
   systemctl start "$service"
   exit 1
