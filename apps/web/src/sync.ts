@@ -105,7 +105,11 @@ export function decide(i: DecideInput): Correction {
   if (i.mode === "live") return decideLive(i, room);
   const expected = expectedPosition(room, i.serverNowMs);
   if (i.hardSeek) {
-    if (i.mode === "seek-only" && room.playing && parkOnHardSeek(i, expected)) return park(expected, room, i.startLatencyMs);
+    if (i.mode === "seek-only" && room.playing && i.playerState !== "cued" && i.playerState !== "unstarted" && i.playerState !== "ended") {
+      // A paused player near the room is already there: a seek would only drop its buffer (OME-396).
+      const near = i.playerState === "paused" && Math.abs(i.playerTime - expected) * 1000 <= SEEK_ONLY_THRESHOLD_MS;
+      return near ? PLAY : park(expected, room, i.startLatencyMs);
+    }
     return seekTo(expected, room, hardSeekLatency(i));
   }
   if (i.playerState === "buffering") return NONE;
@@ -155,12 +159,6 @@ function decideLive(i: DecideInput, room: PlaybackState): Correction {
 function hardSeekLatency(i: DecideInput): number {
   if (i.playerState === "playing" || i.playerState === "buffering") return i.seekLatencyMs;
   return i.playerState === "paused" ? i.startLatencyMs : 0;
-}
-
-/** Seek-only: park a playing or buffering player, or a paused one far from the room; a resume near it or a cold join seeks. */
-function parkOnHardSeek(i: DecideInput, expected: number): boolean {
-  if (i.playerState === "playing" || i.playerState === "buffering") return true;
-  return i.playerState === "paused" && Math.abs(i.playerTime - expected) * 1000 > SEEK_ONLY_THRESHOLD_MS;
 }
 
 /** Far enough ahead that the paused seek has loaded, plus what the play will take, so it starts on the room clock. */
@@ -353,6 +351,8 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
         return;
       case "play":
         if (now - lastPlayAt < RESEND_MS) return;
+        // A seek-only resume (and live) answers a hard seek with a plain play.
+        input.hardSeek = false;
         lastPlayAt = now;
         p.play();
         return;
