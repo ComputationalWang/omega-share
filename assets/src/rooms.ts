@@ -252,7 +252,9 @@ function toggle(on: boolean, state: "idle" | "hover" | "off"): UiFrame {
  *  invite = someone's home: the wall lit, a warm fanlight and a lit sconce, lamplight under the door, a brass lock plate with
  *           an empty keyhole, and a dashed ghost ticket beside it ("you need a ticket"). */
 const SCENE = { w: 72, h: 64 } as const;
-function vignette(kind: "closed" | "invite"): UiFrame {
+/** Set (j) (OME-422) adds `removed`: the same lit doorway as `invite` (people are inside), shut, with no lock plate, and a wall clock
+ *  beside it whose cream wedge is the set (f) timer dial at 10 of 60 minutes: you can come back, after a wait. */
+export function vignette(kind: "closed" | "invite" | "removed"): UiFrame {
   const { w: W, h: H } = SCENE;
   const g = blank(W, H);
   const dark = kind === "closed";
@@ -301,6 +303,20 @@ function vignette(kind: "closed" | "invite"): UiFrame {
       const inMoon = Math.hypot(x - 3, y - 3) < 3.3, bite = Math.hypot(x - 5, y - 1.6) < 2.6;
       if (inMoon && !bite) put(dx + dw - 8 + x, 36 + y, "m");
     }
+  } else if (kind === "removed") {
+    rect(dx, 46, dw, 1, "y");
+    rect(dx + 2, 47, dw - 4, 1, "y");
+    for (let x = dx + 4; x < dx + dw - 4; x += 3) put(x, 48, "y");
+    // Wall clock: a wood rim, a plum face, the cream wedge from 12 o'clock to 2 (10 minutes), a mustard centre pin.
+    const cx = 60.5, cy = 25.5;
+    for (let y = 16; y < 36; y++) for (let x = 50; x < 72; x++) {
+      const r = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+      if (r < 7.2) put(x, y, r >= 5.6 ? "w" : "o");
+      const ang = Math.atan2(x + 0.5 - cx, -(y + 0.5 - cy));
+      if (r < 5.4 && ang >= 0 && ang < Math.PI / 3) put(x, y, "i");
+    }
+    put(60, 25, "m");
+    for (const [x, y] of [[60, 20], [65, 25], [60, 30], [55, 25]] as const) put(x, y, "C");
   } else {
     // Lamplight under the door, spilling a little onto the floor.
     rect(dx, 46, dw, 1, "y");
@@ -323,7 +339,7 @@ function vignette(kind: "closed" | "invite"): UiFrame {
   rect(dx + 1, 53, dw - 2, 1, "o");
   rect(dx + 1, 58, dw - 2, 1, "o");
   for (let x = dx + 3; x < dx + dw - 2; x += 4) put(x, 55, dark ? "Q" : "m");
-  if (!dark) {
+  if (kind === "invite") {
     // The ghost ticket you'd need: a dashed cream-shade outline of set (h)'s ticket, its stub towards the keyhole.
     const tx = 54, ty = 25, tw = 14, th = 9;
     for (let x = tx; x < tx + tw; x++) { if ((x - tx) % 3 !== 2) { put(x, ty, "C"); put(x, ty + th - 1, "C"); } }

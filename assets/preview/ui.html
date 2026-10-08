@@ -134,6 +134,30 @@
   .rm-bar { display: flex; gap: 8px; margin-top: 8px; align-items: flex-end; position: relative; }
   .rm-bar .ui-input { flex: 1; font: inherit; font-weight: 500; }
   .rm-bar .ui-emotes { position: absolute; left: -48px; bottom: calc(100% + 16px); }
+  /* Set (j) house rules + queue (OME-422) */
+  .hj-row { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  .hj-col { display: grid; gap: 8px; justify-items: start; }
+  .hj-stage { position: relative; width: 960px; height: 300px; background: url("room@1x.png") 0 -120px; image-rendering: pixelated; }
+  .hj-stage > * { position: absolute; }
+  .hj-menu { translate: -50% -100%; }
+  .hj-tag { display: inline-flex; align-items: center; gap: 2px; }
+  .hj-log { display: grid; gap: 4px; justify-items: start; }
+  .hj-chat { display: flex; gap: 8px; align-items: center; width: 560px; }
+  .hj-chat .ui-input { flex: 1; font: inherit; font-weight: 500; }
+  .hj-set { width: 400px; display: grid; gap: 10px; }
+  .hj-set h3 { margin: 0; font-size: 15px; display: flex; gap: 8px; align-items: center; }
+  .hj-set p { margin: 0; font-size: 12px; font-weight: 500; color: var(--ui-muted); }
+  .hj-seg { display: flex; gap: 8px; }
+  .hj-seg .ui-picker { width: auto; height: auto; padding: 2px 10px 2px 4px; display: inline-flex; gap: 6px; align-items: center; font: inherit; font-size: 13px; color: var(--ui-text); }
+  .hj-q { width: 460px; }
+  .hj-q .head { display: flex; align-items: center; gap: 8px; }
+  .hj-q .head h3 { margin: 0; font-size: 15px; flex: 1; }
+  .hj-q .head .n { font-size: 12px; font-weight: 600; color: var(--ui-muted); font-variant-numeric: tabular-nums; }
+  .hj-q .body { display: grid; gap: 2px; min-width: 0; }
+  .hj-paste { display: flex; gap: 8px; align-items: center; }
+  .hj-paste .ui-input { flex: 1; min-width: 0; font: inherit; font-weight: 500; }
+  .hj-q .error { margin: 0; }
+  .hj-q .full { display: flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 500; color: var(--ui-muted); margin: 0; }
   .zoom2 { zoom: 2; }
   .zoom2 .popup p img { width: 16px; height: 16px; }
 </style>
@@ -598,6 +622,120 @@
     <div class="ui-emotes"><button class="ui-emote"><span class="ui-sprite ui-emote-pick-heart"></span></button><button class="ui-emote is-hover"><span class="ui-sprite ui-emote-pick-laugh"></span></button><button class="ui-emote"><span class="ui-sprite ui-emote-pick-question"></span></button><button class="ui-emote"><span class="ui-sprite ui-emote-pick-exclaim"></span></button><button class="ui-emote"><span class="ui-sprite ui-emote-pick-clap"></span></button><span class="ui-sprite ui-emotes-sep"></span><button class="ui-emote"><span class="ui-sprite ui-emote-pick-wave"></span></button></div>
     <span class="ui-sprite ui-scene-closed"></span><span class="ui-sprite ui-scene-invite"></span>
     <span class="ui-sprite ui-door-locked"></span><span class="ui-sprite ui-door-closed"></span><span class="ui-sprite ui-icon-closed"></span><span class="ui-sprite ui-icon-emote"></span>
+  </div>
+</section>
+<section id="house">
+  <h2>Set (j) (OME-422): house rules in the room, room at 1× (Pixi) with the TV shelf and chat at 1×</h2>
+  <div class="hj-stage ui-room">
+    <span class="ui-tag" style="left:352px;top:169px">Ada</span>
+    <span class="ui-tag self" style="left:416px;top:166px">Wren</span>
+    <span class="ui-tag" style="left:544px;top:171px">Moss</span>
+    <span class="ui-tag hj-tag" style="left:608px;top:169px">Kit<span class="ui-sprite ui-glyph-chat-mute"></span></span>
+    <span class="ui-tag" style="left:352px;top:235px">Juniper</span>
+    <span class="ui-tag" style="left:416px;top:233px">Oli</span>
+    <div class="ui-emotes ui-modmenu hj-menu" role="menu" aria-label="Moss" style="left:544px;top:148px">
+      <div class="head"><span class="ui-sprite ui-portrait-mo"></span><span class="name">Moss</span><button class="ui-sprite ui-qx" aria-label="Close menu"></button></div>
+      <span class="ui-modsep"></span>
+      <button class="ui-modrow is-hover" role="menuitem"><span class="ui-sprite ui-icon-chat-mute"></span>Mute chat</button>
+      <button class="ui-modrow" role="menuitem"><span class="ui-sprite ui-icon-remove"></span>Remove from room</button>
+    </div>
+  </div>
+  <p class="tv-cap">Wren is the host and clicked Moss: the menu is the emote picker's tray (mustard rim = only you see it), its tail on Moss's tag. A portrait and the name say who it's about; the wood × (Esc) closes it. Kit is already muted: in the host's view a zipped bubble sits in Kit's tag.</p>
+  <div class="hj-row ui-room">
+    <div class="hj-col">
+      <div class="page" style="width:600px;height:44px"><div class="ui-tv-shelf" style="left:20px;top:6px;width:560px"><div class="ui-transport" role="group" aria-label="Shared playback: only the host controls it"><span class="ui-chip"><span class="ui-sprite ui-glyph-host"></span>Host</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span></div></div></div>
+      <div class="page" style="width:600px;height:44px"><div class="ui-tv-shelf" style="left:20px;top:6px;width:560px"><div class="ui-transport" role="group" aria-label="Shared playback: only the host controls it"><span class="ui-chip"><span class="ui-sprite ui-glyph-host"></span>Host</span><button class="ui-button shared icon is-held" aria-disabled="true" aria-label="Only the host controls playback"><span class="ui-sprite ui-icon-pause-off"></span></button><span class="ui-readout">25:31</span><div class="ui-seek is-disabled" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-disabled"></span></div><span class="ui-readout">41:07</span></div></div></div>
+    </div>
+    <div class="hj-log">
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-remote"></span><span>Only the host controls playback now</span></p>
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-remote"></span><span><b>Wren</b> gave the remote to everyone</span></p>
+      <p class="ui-sysline self"><span class="ui-sprite ui-glyph-chat-mute"></span><span><b>The host</b> muted your chat. You can still watch and emote.</span></p>
+    </div>
+  </div>
+  <p class="tv-cap">Host only: the shelf chip reads the house glyph + "Host" instead of "Everyone". The host's own keys stay wood keys (top). Everyone else (below) sees them sunk into the shelf (no lip: nothing to press), icons in the off tone, the scrubber locked. Not charcoal (that's off) and no dial (that's resting). The room is told once in the log (glow bar); a mute is told only to you (mustard bar).</p>
+  <div class="ui-room hj-chat"><input class="ui-input is-muted" readonly placeholder="The host muted your chat" aria-label="Chat (muted by the host)"><button class="ui-button" disabled><span class="ui-sprite ui-icon-send"></span>Send</button></div>
+  <p class="tv-cap">Your chat when muted: the field turns to a charcoal well (not the night blue you type into) and says why; Send is off. Emotes still work.</p>
+</section>
+<section id="house-page">
+  <h2>Set (j): the playback setting and "you were removed", page chrome 2×</h2>
+  <div class="hj-row">
+    <div class="ui-panel hj-set">
+      <h3><span class="ui-sprite ui-icon-remote"></span>Who controls playback</h3>
+      <div class="hj-seg" role="radiogroup" aria-label="Who controls playback"><button class="ui-picker" role="radio" aria-checked="true"><span class="ui-sprite ui-icon-remote"></span>Everyone</button><button class="ui-picker is-hover" role="radio" aria-checked="false"><span class="ui-sprite ui-icon-remote-host"></span>Only me</button></div>
+      <p>Anyone in the room can play, pause and skip. Everyone sees who did it.</p>
+    </div>
+    <div class="ui-panel hj-set">
+      <h3><span class="ui-sprite ui-icon-remote-host"></span>Who controls playback</h3>
+      <div class="hj-seg" role="radiogroup" aria-label="Who controls playback"><button class="ui-picker" role="radio" aria-checked="false"><span class="ui-sprite ui-icon-remote"></span>Everyone</button><button class="ui-picker" role="radio" aria-checked="true"><span class="ui-sprite ui-icon-remote-host"></span>Only me</button></div>
+      <p>Only you can play, pause and skip. Everyone else sees “Host” on the remote.</p>
+    </div>
+  </div>
+  <div class="hj-row" style="margin-top:18px">
+    <div class="ui-panel rm-state">
+      <span class="ui-sprite ui-scene ui-scene-removed"></span>
+      <h3>You were removed from this room</h3>
+      <p>The host asked you to leave. You can come back in 10 minutes.</p>
+      <div class="row"><button class="ui-button is-waiting" aria-disabled="true"><span class="ui-wait ui-sprite" style="--cool:600s;animation-delay:-120s"></span>Rejoin in 8 min</button><button class="ui-button secondary"><span class="ui-sprite ui-icon-tv"></span>Find a room</button></div>
+    </div>
+    <div class="ui-panel rm-state">
+      <span class="ui-sprite ui-scene ui-scene-removed"></span>
+      <h3>You were removed from this room</h3>
+      <p>The wait is over. You can go back in if you like.</p>
+      <div class="row"><button class="ui-button">Rejoin</button><button class="ui-button secondary"><span class="ui-sprite ui-icon-tv"></span>Find a room</button></div>
+    </div>
+  </div>
+  <p class="tv-cap">The setting reuses set (c)'s picker frames as two radio tiles (mustard double rim = your choice), each with its remote and the words. Removed: the same doorway as set (i), lit (people are still inside), shut, no lock, and a wall clock showing the 10 minute wait as the set (f) timer dial. The Rejoin key waits it out with the dial and the minutes in words, then turns primary.</p>
+</section>
+<section id="queue">
+  <h2>Set (j): the queue panel ("Up next"), page chrome 2×</h2>
+  <div class="hj-row">
+    <section class="ui-panel ui-queue hj-q" aria-label="Up next">
+      <div class="head"><span class="ui-sprite ui-icon-queue"></span><h3>Up next</h3><span class="n">5 / 20</span></div>
+      <ol class="ui-qlist">
+        <li class="ui-qrow is-next"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Sunset timelapse over the bay</span><span class="meta"><span class="ui-sprite ui-head-kiki"></span>Kit</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove Sunset timelapse over the bay"></button></li>
+        <li class="ui-qrow is-hover"><span class="ui-sprite ui-qsrc-live"></span><span class="body"><span class="title">Night train cab view (live)</span><span class="meta"><span class="ui-sprite ui-head-mo"></span>Moss</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx is-hover" aria-label="Remove Night train cab view"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-generic"></span><span class="body"><span class="title">Pottery wheel, start to finish</span><span class="meta"><span class="ui-sprite ui-head-juno"></span>Ada</span></span><span class="ui-chip solo"><span class="ui-sprite ui-glyph-outsync"></span>Not synced</span><button class="ui-sprite ui-qx" aria-label="Remove Pottery wheel"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">A very long title that keeps going well past the edge of the panel</span><span class="meta"><span class="ui-sprite ui-head-pip"></span>Wren</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Rain on a tin roof, 2 hours</span><span class="meta"><span class="ui-sprite ui-head-kiki"></span>Kit</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+      </ol>
+      <div class="hj-paste"><span class="ui-sprite ui-icon-link"></span><input class="ui-input" placeholder="Paste a video link" aria-label="Paste a video link"><button class="ui-button"><span class="ui-sprite ui-icon-queue-add"></span>Add</button></div>
+    </section>
+    <div class="hj-col">
+      <section class="ui-panel ui-queue hj-q" aria-label="Up next">
+        <div class="head"><span class="ui-sprite ui-icon-queue"></span><h3>Up next</h3><span class="n">0 / 20</span></div>
+        <div class="ui-qempty"><span class="ui-sprite ui-queue-empty"></span>Nothing up next. Paste a video link to load a reel.</div>
+        <div class="hj-paste"><span class="ui-sprite ui-icon-link"></span><input class="ui-input is-focus" value="https://" aria-label="Paste a video link"><button class="ui-button"><span class="ui-sprite ui-icon-queue-add"></span>Add</button></div>
+      </section>
+      <section class="ui-panel ui-queue hj-q" aria-label="Up next">
+        <div class="head"><span class="ui-sprite ui-icon-queue"></span><h3>Up next</h3><span class="n">20 / 20</span></div>
+        <div class="hj-paste"><span class="ui-sprite ui-icon-link"></span><input class="ui-input" aria-invalid="true" value="ftp://files.local/movie.mkv" aria-label="Paste a video link"><button class="ui-button" disabled><span class="ui-sprite ui-icon-queue-add"></span>Add</button></div>
+        <p class="error"><span class="ui-sprite ui-icon-warn"></span>That link can’t play here. Try a video page’s https link.</p>
+        <p class="full"><span class="ui-pill-full">Full</span>The queue is full (20). Remove one to add another.</p>
+      </section>
+    </div>
+  </div>
+  <p class="tv-cap">Each row: a tiny wood-bezelled screen for the kind of source (play mark = video, rust on-air dot = live stream, a chain link on a dark screen = a pasted page), the title, who added it (their avatar's head at word size + the name) and the ADR 0024 chip: “Synced” in the TV's wood with two seek bars in step, or “Not synced” in a plain cream-shade rim with the bars out of step. The first row plays next (the TV's glow bar). The wood × (shared: the queue is the room's) shows for the host and for whoever added the row. Empty: the room's projector with empty reel arms and dashed ghost reels.</p>
+</section>
+<section id="setj-states">
+  <h2>Set (j) pieces and states: page chrome 2× (panel) and room scale 1× (strip below)</h2>
+  <div class="ui-panel" style="display:grid;gap:18px;width:fit-content">
+<div class="grid"><span class="hd"></span><span class="hd">idle</span><span class="hd">hover</span><span class="hd">pressed · focus</span><span class="hd">asking / held / off</span>
+<span class="lbl">Menu row</span><span class="ui-emotes" style="padding:0"><button class="ui-modrow" style="width:150px"><span class="ui-sprite ui-icon-chat-mute"></span>Mute chat</button></span><span class="ui-emotes"><button class="ui-modrow is-hover" style="width:150px"><span class="ui-sprite ui-icon-chat-mute"></span>Mute chat</button></span><span class="ui-emotes"><button class="ui-modrow is-press" style="width:150px"><span class="ui-sprite ui-icon-remove"></span>Remove</button></span><span class="ui-emotes"><span class="ui-modrow is-ask" style="width:190px">Remove Moss for 10 min? <button class="ui-button secondary">Keep</button><button class="ui-button">Remove</button></span></span>
+<span class="lbl">Shared key, host only</span><span><button class="ui-button shared icon"><span class="ui-sprite ui-icon-play"></span></button></span><span><button class="ui-button shared icon is-hover"><span class="ui-sprite ui-icon-play"></span></button></span><span><button class="ui-button shared icon is-press"><span class="ui-sprite ui-icon-play"></span></button></span><span class="pair"><button class="ui-button shared icon is-held" aria-disabled="true"><span class="ui-sprite ui-icon-play-off"></span></button><span class="na">held · vs</span><button class="ui-button shared icon is-cooling"><span class="ui-sprite ui-wait" style="--cool:4s"></span></button><button class="ui-button shared icon" disabled><span class="ui-sprite ui-icon-play-off"></span></button></span>
+<span class="lbl">Chat field</span><span><input class="ui-input" placeholder="Say something…" style="width:160px"></span><span class="na">n/a</span><span><input class="ui-input is-focus" value="hi all" style="width:160px"></span><span><input class="ui-input is-muted" readonly placeholder="Chat muted" style="width:160px"></span>
+<span class="lbl">Queue row</span><span><span class="ui-qrow" style="width:120px;height:48px"></span></span><span><span class="ui-qrow is-hover" style="width:120px;height:48px"></span></span><span class="na">n/a</span><span class="pair"><span class="ui-qrow is-next" style="width:120px;height:48px"></span><span class="na">first row: plays next</span></span>
+<span class="lbl">Remove × (queue, menu)</span><span><button class="ui-sprite ui-qx"></button></span><span><button class="ui-sprite ui-qx is-hover"></button></span><span class="pair"><button class="ui-sprite ui-qx is-press"></button><button class="ui-sprite ui-qx is-focus"></button></span><span class="na">hidden if not yours</span>
+<span class="lbl">Synced / not (ADR 0024)</span><span style="grid-column: span 4;display:flex;gap:10px;align-items:center"><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><span class="ui-chip solo"><span class="ui-sprite ui-glyph-outsync"></span>Not synced</span><span class="ui-chip"><span class="ui-sprite ui-glyph-host"></span>Host</span><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span></span>
+<span class="lbl">Icons, glyphs, tiles, heads</span><span style="grid-column: span 4;display:flex;gap:10px;align-items:end"><span class="ui-sprite ui-icon-remove"></span><span class="ui-sprite ui-icon-chat-mute"></span><span class="ui-sprite ui-icon-remote"></span><span class="ui-sprite ui-icon-remote-host"></span><span class="ui-sprite ui-icon-queue"></span><span class="ui-sprite ui-icon-queue-add"></span><span class="ui-sprite ui-icon-link"></span> · <span class="ui-sprite ui-glyph-chat-mute"></span><span class="ui-sprite ui-glyph-remote"></span><span class="ui-sprite ui-glyph-insync"></span><span class="ui-sprite ui-glyph-outsync"></span> · <span class="ui-sprite ui-qsrc-video"></span><span class="ui-sprite ui-qsrc-live"></span><span class="ui-sprite ui-qsrc-generic"></span> · <span class="ui-sprite ui-head-juno"></span><span class="ui-sprite ui-head-pip"></span><span class="ui-sprite ui-head-mo"></span><span class="ui-sprite ui-head-kiki"></span> · <span class="ui-sprite ui-queue-empty"></span></span>
+</div>
+  </div>
+  <div class="ui-room" style="margin-top:14px;display:flex;gap:14px;align-items:end;width:fit-content;background:url('room@1x.png') -150px -395px;padding:12px">
+    <span class="ui-sprite ui-icon-remove"></span><span class="ui-sprite ui-icon-chat-mute"></span><span class="ui-sprite ui-icon-remote"></span><span class="ui-sprite ui-icon-remote-host"></span><span class="ui-sprite ui-icon-queue"></span><span class="ui-sprite ui-icon-link"></span>
+    <span class="ui-tag hj-tag">Kit<span class="ui-sprite ui-glyph-chat-mute"></span></span>
+    <span class="ui-sprite ui-qsrc-video"></span><span class="ui-sprite ui-qsrc-live"></span><span class="ui-sprite ui-qsrc-generic"></span>
+    <span class="ui-sprite ui-head-juno"></span><span class="ui-sprite ui-head-pip"></span><span class="ui-sprite ui-head-mo"></span><span class="ui-sprite ui-head-kiki"></span>
+    <span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><span class="ui-chip solo"><span class="ui-sprite ui-glyph-outsync"></span>Not synced</span>
+    <span class="ui-sprite ui-scene-removed"></span>
   </div>
 </section>
 </body>

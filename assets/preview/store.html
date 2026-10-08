@@ -1,0 +1,171 @@
+<!doctype html>
+<!-- Set (j) (OME-422): the Chrome Web Store kit's promo tile (440×280) and two screenshots (1280×800), composed from the real
+     reference CSS and the preview renders. Mock rooms, names and titles only: no real channels, sites or logos.
+     Shot by bun assets/src/shoot-ui.ts into assets/store/. Not shipped with the site. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>omega-share Web Store kit</title>
+<link rel="stylesheet" href="../ui/reference.css">
+<style>
+  body { margin: 0; background: #111; color: var(--ui-text); font: 600 15px/1.35 system-ui, sans-serif; display: grid; gap: 24px; padding: 24px; justify-content: start; }
+  .shot { position: relative; overflow: hidden; background: var(--ui-page); }
+  .shot > * { position: absolute; }
+  .art { image-rendering: pixelated; background-repeat: no-repeat; }
+  .ui-panel h3 { margin: 0; font-size: 15px; }
+
+  /* promo */
+  #promo { width: 440px; height: 280px; }
+  #promo .art { inset: 0; background-image: url("furniture-room@1x.png"); background-size: 1920px 1200px; background-position: -600px -560px; }
+  #promo .card { left: 12px; top: 12px; width: 196px; display: grid; gap: 4px; padding: 4px 6px 6px; }
+  #promo .card p { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.25; }
+  #promo .card .ui-logo-0 { --ui-px: 2px; }
+
+  /* shared page bits */
+  .topbar { left: 0; right: 0; top: 0; height: 52px; display: flex; align-items: center; gap: 14px; padding: 0 24px; box-sizing: border-box; background: var(--ui-panel); border-bottom: 2px solid var(--ui-page); }
+  .topbar strong { font-size: 16px; display: flex; gap: 8px; align-items: center; }
+  .status, .count { display: flex; gap: 6px; align-items: center; color: var(--ui-muted); font-size: 13px; font-weight: 500; }
+  .spacer { flex: 1; }
+  .side { display: grid; gap: 10px; align-content: start; }
+  .q .head { display: flex; align-items: center; gap: 8px; }
+  .q .head h3 { flex: 1; }
+  .q .head .n { font-size: 12px; color: var(--ui-muted); }
+  .q .body { display: grid; gap: 2px; min-width: 0; }
+  .paste { display: flex; gap: 8px; align-items: center; }
+  .paste .ui-input { flex: 1; min-width: 0; font: inherit; font-weight: 500; }
+  .log { display: grid; gap: 4px; justify-items: start; }
+  .chat { display: flex; gap: 8px; }
+  .chat .ui-input { flex: 1; min-width: 0; font: inherit; font-weight: 500; }
+  .ui-tag { translate: -50% -100%; }
+  .ui-bubble { translate: -50% -100%; max-width: 200px; font-size: 12px; font-weight: 500; line-height: 1.25; }
+
+  /* screenshot 1: the room */
+  #shot-room { width: 1280px; height: 800px; }
+  #shot-room .tvbox { left: 162px; top: 76px; width: 560px; height: 315px; background: url("tv-video@1x.png") 0 0 / 100% 100%; image-rendering: pixelated; }
+  #shot-room .ui-tv-shelf { left: 162px; top: 399px; width: 560px; }
+  #shot-room .stage { left: 24px; top: 457px; width: 836px; height: 323px; background-image: url("room@1x.png"); background-position: -62px -204px; }
+  #shot-room .stage > * { position: absolute; }
+  #shot-room .side { left: 876px; top: 72px; width: 380px; bottom: 20px; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); }
+  #shot-room .log { align-content: end; }
+
+  /* screenshot 2: share from any page */
+  #shot-share { width: 1280px; height: 800px; background: var(--ui-page); }
+  .browser { left: 24px; top: 24px; width: 780px; height: 752px; background: #f3f1ee; border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 1px #000; color: #222; font: 14px/1.4 system-ui, sans-serif; }
+  .browser .tabs { height: 38px; background: #dcd8d2; display: flex; align-items: end; padding: 0 10px; gap: 6px; }
+  .browser .tab { background: #f3f1ee; border-radius: 8px 8px 0 0; padding: 8px 14px; font-size: 12px; width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .browser .bar { height: 42px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-bottom: 1px solid #ddd; }
+  .browser .url { flex: 1; background: #fff; border-radius: 16px; padding: 6px 14px; color: #555; font-size: 13px; }
+  .browser .ext { width: 24px; height: 24px; border-radius: 6px; outline: 2px solid #5a3d00; outline-offset: 2px; background: url("../store/icon-32.png") center / 24px 24px no-repeat; image-rendering: pixelated; }
+  .browser .page { padding: 22px 40px; }
+  .browser .page h1 { font-size: 22px; margin: 14px 0 6px; }
+  .browser .page p { margin: 0 0 8px; color: #555; }
+  .browser .player { width: 700px; height: 394px; background: url("tv-video@1x.png") 0 0 / 100% 100%; image-rendering: pixelated; border-radius: 4px; position: relative; }
+  .browser .player::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: linear-gradient(90deg, #c2553a 38%, #0004 38%); }
+  .browser .lines i { display: block; height: 10px; background: #e2ded8; border-radius: 5px; margin: 10px 0; }
+  .popup { left: 470px; top: 112px; width: 320px; background: #fff; color: #222; font: 14px/1.4 system-ui, sans-serif; padding: 14px; box-sizing: border-box; display: grid; gap: 10px; border-radius: 8px; box-shadow: 0 6px 24px #0006, 0 0 0 1px #0002; }
+  .popup h1 { font-size: 16px; margin: 0; }
+  .popup ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .popup li { display: flex; gap: 8px; align-items: center; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
+  .popup li.on { border-color: #b9822a; background: #fff8e6; }
+  .popup li small { display: block; color: #666; font-size: 12px; }
+  .popup form { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+  .popup select { flex: 1; font: inherit; padding: 4px; }
+  .popup button { font: inherit; font-weight: 700; padding: 6px 14px; }
+  .popup .ok { margin: 0; color: #23706f; font-size: 13px; }
+  #shot-share .side { left: 828px; top: 24px; width: 428px; grid-template-columns: minmax(0, 1fr); }
+  .ui-room .ui-tag.mod { display: inline-flex; gap: 2px; align-items: center; }
+  .mini { position: relative; width: 428px; height: 232px; background-image: url("furniture-room@1x.png"); background-position: -270px -250px; image-rendering: pixelated; }
+  .mini > * { position: absolute; }
+  .seg { display: flex; gap: 8px; }
+  .seg .ui-picker { width: auto; height: auto; padding: 2px 10px 2px 4px; display: inline-flex; gap: 6px; align-items: center; font: inherit; font-size: 13px; color: var(--ui-text); }
+  .set p { margin: 0; font-size: 12px; font-weight: 500; color: var(--ui-muted); }
+  .set { display: grid; gap: 8px; }
+</style>
+</head>
+<body>
+
+<div id="promo" class="shot">
+  <div class="art"></div>
+  <div class="ui-panel card"><span class="ui-sprite ui-logo-0"></span><p>Watch videos together in a cosy pixel room.</p></div>
+</div>
+
+<div id="shot-room" class="shot">
+  <div class="topbar"><span class="ui-sprite ui-logo-0"></span><strong><span class="ui-sprite ui-icon-tv"></span>Movie night</strong><span class="status"><span class="ui-sprite ui-dot-online"></span>Connected</span><span class="spacer"></span><span class="count"><span class="ui-sprite ui-icon-people"></span>6 / 25</span><button class="ui-button secondary"><span class="ui-sprite ui-icon-leave"></span>Leave</button></div>
+  <div class="tvbox ui-tv-frame"></div>
+  <div class="ui-tv-shelf ui-room"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">12:30</span><div class="ui-seek" style="--pos:0.3"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span></div></div>
+  <div class="stage art ui-room">
+    <span class="ui-tag" style="left:290px;top:85px">Ada</span>
+    <span class="ui-tag self" style="left:354px;top:82px">Wren</span>
+    <span class="ui-tag" style="left:482px;top:87px">Moss</span>
+    <span class="ui-tag" style="left:546px;top:85px">Kit</span>
+    <span class="ui-tag" style="left:290px;top:151px">Juniper</span>
+    <span class="ui-tag" style="left:354px;top:149px">Oli</span>
+    <span class="ui-bubble" style="left:354px;top:58px">this bit is my favourite</span>
+    <span class="ui-bubble" style="left:546px;top:61px">the colours!!</span>
+    <span class="ui-sprite ui-emote-pick-heart" style="left:474px;top:53px"></span>
+  </div>
+  <div class="side">
+    <section class="ui-panel ui-queue q" aria-label="Up next">
+      <div class="head"><span class="ui-sprite ui-icon-queue"></span><h3>Up next</h3><span class="n">3 / 20</span></div>
+      <ol class="ui-qlist">
+        <li class="ui-qrow is-next"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Rain on a tin roof</span><span class="meta"><span class="ui-sprite ui-head-kiki"></span>Kit</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-live"></span><span class="body"><span class="title">Night train cab view</span><span class="meta"><span class="ui-sprite ui-head-mo"></span>Moss</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-generic"></span><span class="body"><span class="title">Pottery wheel</span><span class="meta"><span class="ui-sprite ui-head-juno"></span>Ada</span></span><span class="ui-chip solo"><span class="ui-sprite ui-glyph-outsync"></span>Not synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+      </ol>
+      <div class="paste"><span class="ui-sprite ui-icon-link"></span><input class="ui-input" placeholder="Paste a video link"><button class="ui-button"><span class="ui-sprite ui-icon-queue-add"></span>Add</button></div>
+    </section>
+    <div class="log">
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-play"></span><span><b>Kit</b> played</span></p>
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-seek"></span><span><b>Moss</b> skipped to <time>12:30</time></span></p>
+    </div>
+    <form class="chat" onsubmit="return false"><input class="ui-input" placeholder="Say something…"><button class="ui-button"><span class="ui-sprite ui-icon-send"></span>Send</button></form>
+  </div>
+</div>
+
+<div id="shot-share" class="shot">
+  <div class="browser">
+    <div class="tabs"><span class="tab">Sunset timelapse over the bay</span></div>
+    <div class="bar"><span class="url">https://a-video-page.test/watch/sunset-over-the-bay</span><span class="ext" aria-label="omega-share"></span></div>
+    <div class="page">
+      <div class="player"></div>
+      <h1>Sunset timelapse over the bay</h1>
+      <p>40 minutes of the sun going down over still water.</p>
+      <div class="lines"><i style="width:90%"></i><i style="width:72%"></i><i style="width:80%"></i></div>
+    </div>
+  </div>
+  <div class="popup">
+    <h1>Share a video</h1>
+    <ul>
+      <li class="on"><input type="radio" checked aria-label="Sunset timelapse"><span>Sunset timelapse over the bay<small>Video · synced for everyone</small></span></li>
+      <li><input type="radio" aria-label="Embedded clip"><span>Embedded clip<small>Not synced: each person plays it</small></span></li>
+    </ul>
+    <form onsubmit="return false"><label for="r">Room</label><select id="r"><option>Movie night</option></select><button>Share</button></form>
+    <p class="ok">Shared to Movie night. It's up next.</p>
+  </div>
+  <div class="side">
+    <section class="ui-panel ui-queue q" aria-label="Up next">
+      <div class="head"><span class="ui-sprite ui-icon-queue"></span><h3>Up next</h3><span class="n">2 / 20</span></div>
+      <ol class="ui-qlist">
+        <li class="ui-qrow is-next"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Sunset timelapse over the bay</span><span class="meta"><span class="ui-sprite ui-head-pip"></span>Wren</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Rain on a tin roof</span><span class="meta"><span class="ui-sprite ui-head-kiki"></span>Kit</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+      </ol>
+    </section>
+    <div class="mini ui-room">
+      <span class="ui-tag mod" style="left:110px;top:58px">Juno</span>
+      <div class="ui-emotes ui-modmenu" role="menu" aria-label="Juno" style="left:150px;top:6px">
+        <div class="head"><span class="ui-sprite ui-portrait-juno"></span><span class="name">Juno</span><button class="ui-sprite ui-qx" aria-label="Close menu"></button></div>
+        <span class="ui-modsep"></span>
+        <button class="ui-modrow is-hover" role="menuitem"><span class="ui-sprite ui-icon-chat-mute"></span>Mute chat</button>
+        <button class="ui-modrow" role="menuitem"><span class="ui-sprite ui-icon-remove"></span>Remove from room</button>
+      </div>
+    </div>
+    <div class="ui-panel set">
+      <h3>Who controls playback</h3>
+      <div class="seg" role="radiogroup" aria-label="Who controls playback"><button class="ui-picker" role="radio" aria-checked="false"><span class="ui-sprite ui-icon-remote"></span>Everyone</button><button class="ui-picker" role="radio" aria-checked="true"><span class="ui-sprite ui-icon-remote-host"></span>Only me</button></div>
+      <p>Your room, your rules: hand the remote round, or keep it.</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

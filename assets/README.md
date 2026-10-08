@@ -15,13 +15,14 @@ assets/
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
   ui/popup/*.png        # set f: the extension popup's key icon as standalone files, drawn at 16 px (1×) and 32 px (2×)
-  ui/scenes/*.png       # set i (lazy): the "room closed" and "invite required" vignettes, standalone 72×64 PNGs
+  ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required" and "you were removed" vignettes, standalone 72×64 PNGs
   ui/edit.png           # set h (lazy, owners only): 256×1024 indexed PNG-8, edit grid, placement markers, handles, tray thumbnails, swatches
   ui/edit.json          # set h: PixiJS v8 atlas for ui/edit.png
   furniture/furniture.png  # set g (M4/M5, lazy-load): 1024×512 indexed PNG-8, furniture catalogue v1
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
+  store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
   ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
-  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame, ui-owner*.png = set h, ui-rooms*@1x/@2x.png = set i),
+  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame, ui-owner*.png = set h, ui-rooms*@1x/@2x.png = set i, ui-house*/ui-queue/ui-setj-states@1x/@2x.png = set j), store.html (set j store kit source),
                         #   owner-edit@1x/@2x.png (set h edit mode in the room),
                         #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated)
   src/                  # generator (Bun, no deps) + mood boards
@@ -408,6 +409,85 @@ mustard rim = only you · rust key = the one irreversible action.
 | `scenes/invite.png` | 784 | invite-required page |
 | **set (i) total** | **8 471 B** (slices 2 577, scenes 1 331, sheet + atlas + CSS 4 563) | |
 
+## Set (j) house rules, queue panel, Web Store kit (OME-422, `ui/` + `store/`)
+
+Chrome for M6: the host's moderation menu on an avatar, the "who controls playback" setting, the three notices (removed with the
+10 min wait, chat muted, only the host controls playback), the "Up next" queue panel, and the Chrome Web Store kit. The UI pieces join
+sets (c)/(e)/(f)/(h)/(i) in `ui/ui.png` / `ui.json`, `ui/slices/` and the end of `ui/reference.css` (code: `src/moderation.ts`, `src/queue.ts`);
+the removed vignette is a lazy `ui/scenes/removed.png` like set (i)'s. Previews (each at 1× and 2× device pixels):
+`preview/ui-house@*.png` (menu open in the room, host-only shelf, notices, muted chat), `ui-house-page@*.png` (the setting, the removed page),
+`ui-queue@*.png` (full, empty, errors) and `ui-setj-states@*.png` (every piece and state, page 2× and room 1×).
+**Each motif has one job:** remote = who controls playback (the house badge = only the host) · pointing hand into a lit doorway = shown out ·
+zip = chat muted by the host · timer dial = how long (set f) · tiny screen = the kind of source (never the provider) · seek bars in step / out of
+step = synced / not synced (ADR 0024) · ghost reels = nothing queued · wood = shared · mustard rim = only you.
+
+| Key | Size | Slice | Use |
+|---|---|---|---|
+| `menu/row/<idle\|hover\|press\|ask>` | 12×12 | 4 | `.ui-modrow[role=menuitem]` inside the moderation menu. The menu itself is `.ui-emotes.ui-modmenu` (set i's tray + tail: mustard rim = only the host sees it), tail on the member's name tag. idle = flat, hover/focus = sunken well with the cream lit edge, press = mustard rim (the emote cell's recipe, stretched into a row). `ask` (`.is-ask`) = the row turned into "Remove Moss for 10 min?" with Keep / Remove keys: charcoal well, cream-shade edge. |
+| `menu/sep` | 4×2 | — (repeat-x) | `.ui-modsep`: groove under the menu's header (portrait, name, the wood × that closes it). |
+| `button/shared/held` | 16×20 | 5 | `.ui-button.shared.is-held` (`aria-disabled`): a shared key when only the host controls playback, as everyone else sees it. Still wood, sunk into the shelf (plum shadow top-left, lit lip bottom-right, no lip to press), icon in its `-off` tone. Not charcoal (= off) and no dial (= resting). The shelf chip becomes `glyph/host` + "Host". |
+| `input/muted` | 18×18 | 6 | `.ui-input.is-muted` (readonly): your chat field while the host has muted you. Charcoal well, no ring, the reason as its placeholder; Send is disabled. |
+| `queue/row/<idle\|hover\|next>` | 16×16 | 4 | `.ui-qrow` in `ol.ui-qlist` (≤ 20, scrolls after 8). Dusk glass without a wood rim, so 20 stay calm. hover = cream lit edge. `next` (`.is-next`, the first row) = the TV's glow bar down the left: plays next. |
+| `chip/solo` | 12×12 | 4 | `.ui-chip.solo` + `glyph/outsync` + "Not synced": ADR 0024's generic tier, a flat cream-shade rim on charcoal (not the TV's wood). Synced uses the existing `.ui-chip` (wood) + `glyph/insync` + "Synced". Always with the words. |
+| `qx/<idle\|hover\|press>` | 12×12 | — (sprite) | `button.ui-sprite.ui-qx`: remove a queue row (and close the moderation menu). A little wood key (shared) with a cream ×. Focus = set (c)'s cream ring. Only rendered for the host and whoever added the row. |
+| `qsrc/<video\|live\|generic>` | 14×12 | — | The row's kind of source, a tiny wood-bezelled screen: play mark (a synced video), the rust on-air dot (a live stream, like the LIVE pill) or a chain link on a dark screen (a pasted page, not synced). Never a provider logo or colour; the provider's name can go in words. |
+| `head/<juno\|pip\|mo\|kiki>` | 12×13 | — | "Added by": the avatar's head at word size, each with its set (a) silhouette cue (puff + headphones, beanie + pom + glasses, bucket hat + beard, twin buns), before the name. |
+| `queue/empty` | 48×32 | — | `.ui-qempty`: the room's cream projector on its shelf, lens dark, reel arms empty with dashed ghost reels. With one line: "Nothing up next. Paste a video link to load a reel." |
+| `icon/<remove\|chat-mute\|remote\|remote-host\|queue\|queue-add\|link>` | 16×16 | — | Remove from room (a cream hand pointing into a lit doorway) · mute chat (the chat bubble zipped shut; unmute uses `icon/chat`) · everyone controls playback (the wood remote: glow lens, play key, keypad) · only the host does (the remote + the cream house) · the queue (three rows of tiny screen + title) · add to the queue · paste a link (two chain links). |
+| `glyph/<chat-mute\|remote\|insync\|outsync>` | 8×8 | — | In a muted member's tag (host's view) and on the "muted your chat" line · on the "only the host controls playback" line · the synced chip (two seek bars, heads in step, glow) · the not-synced chip (heads out of step, cream shade). |
+| `scene/removed` *(ui/scenes/removed.png)* | 72×64 | — | `.ui-scene.ui-scene-removed`, page chrome 2×. Set (i)'s doorway, lit (people are still inside), shut, no lock, and a wall clock beside it whose cream wedge is the 10 min wait as the set (f) timer dial. |
+
+- **Moderation menu (host only, never on yourself):** click a member's avatar → `.ui-emotes.ui-modmenu[role=menu]` with a header (`.ui-portrait-<avatar>`,
+  the name, `.ui-qx` close, Esc), `.ui-modsep`, then "Mute chat" (`icon/chat-mute`) ↔ "Unmute chat" (`icon/chat`) and "Remove from room" (`icon/remove`).
+  Remove asks first (`.is-ask`). Remove isn't rust: rust stays for the one irreversible action (closing a room); a removal ends after 10 min.
+- **Who controls playback (room setting):** two `.ui-picker[role=radio]` tiles (set c's frames, the mustard double rim = your choice): `icon/remote`
+  "Everyone" / `icon/remote-host` "Only me", and a line that says what it means. The host's own shelf shows the chip as `glyph/host` "Host".
+- **Only the host controls playback (everyone else):** shared keys `.is-held`, scrubber `.is-disabled`, chip `glyph/host` "Host", and once in the log
+  a `.ui-sysline` (glow bar = room news) with `glyph/remote`: "Only the host controls playback now" / "Wren gave the remote to everyone".
+- **The host muted your chat:** `.ui-sysline.self` (mustard bar = only you) with `glyph/chat-mute`, the chat field `.is-muted`, Send disabled. Emotes still work.
+  In the host's view, the muted member's tag carries `glyph/chat-mute`.
+- **You were removed:** a `.ui-panel` with `scene/removed`, "You were removed from this room", the wait in words, then set (f)'s `.ui-button.is-waiting`
+  with `.ui-wait` over 600 s ("Rejoin in 8 min"), which turns into the primary "Rejoin" when it's done, plus "Find a room". Mid-film, lay set (i)'s
+  `.ui-scrim` over the stage and centre the same card (1× inside `.ui-room`).
+- **Queue panel:** `.ui-panel.ui-queue` with `icon/queue` "Up next" and the count "n / 20"; rows: `qsrc/*`, the title (one line, ellipsis) over
+  `head/*` + the name, the synced chip, `.ui-qx`. Then the paste row: `icon/link`, `.ui-input` "Paste a video link", primary "Add" (`icon/queue-add`).
+  A bad link: set (c)'s `aria-invalid` + `icon/warn` + words. Full: "20 / 20", Add disabled, set (f)'s "Full" pill + "Remove one to add another".
+- No new colours: still the 67. The sheet stays 256×512 (set j uses some of the rows set (i) left free).
+
+**Set (j) bytes, per file** (bytes on the wire, the README's one basis):
+
+| File | Bytes | Loaded |
+|---|---|---|
+| `ui/ui.png` set (j) share (icons ×7, glyphs ×4, `qx/*` ×3, `qsrc/*` ×3, `head/*` ×4, `queue/empty`, plus the slices' sheet copies) | +1 448 | eager (whole sheet) |
+| `ui/ui.json` set (j) frames | +402 gz | eager |
+| `ui/reference.css` set (j) rules | +2 109 gz | eager (via `apps/web/src/style.css`) |
+| `slices/menu-row-idle\|hover\|press\|ask.png` + `menu-sep.png` | 116 + 147 + 148 + 148 + 107 | menu open (host) |
+| `slices/button-shared-held.png` | 148 | host-only playback (guests) |
+| `slices/input-muted.png` | 155 | when you're muted |
+| `slices/queue-row-idle\|hover\|next.png` | 151 + 151 + 160 | queue has rows |
+| `slices/chip-solo.png` | 140 | a not-synced row |
+| `scenes/removed.png` | 793 | removed page / card (lazy) |
+| **set (j) total** | **6 323 B** (slices 1 571, scene 793, sheet + atlas + CSS 3 959) | eager 5 530, lazy 793 |
+
+### Chrome Web Store kit (`store/`)
+
+Not site art: the icons ship inside the extension package, the rest is the store listing. Mock rooms, names and titles only: no real channels,
+sites or logos (the mock page's address is a reserved `.test` name).
+
+| File | Size | What |
+|---|---|---|
+| `store/icon-16.png` | 16×16, 192 B | The room's wood TV showing the dusk stand-in picture (lilac sky, the sun on a teal sea). Drawn at 16 art px. |
+| `store/icon-32.png` | 32×32, 268 B | + rabbit-ear antenna, the sun's glitter, the glow power light. Drawn at 32 art px. |
+| `store/icon-48.png` | 48×48, 429 B | + two avatars watching from behind (Juno's cloud puff over a mustard hood, Kiki's twin buns over a lilac collar). Drawn at 48 art px. |
+| `store/icon-128.png` | 128×128, 612 B | The 64 art px icon at 2× (whole pixels, never resampled), with Chrome's 16 px transparent margin (96 px of art). |
+| `store/promo-440x280.png` | 440×280 | Small promo tile: the furnished room (set g) at 2× with the wordmark and one line on a panel. RGB, no alpha. |
+| `store/screenshot-1-room.png` | 1280×800 | A watch room: the TV and its shelf, the room with tags, bubbles and an emote, the queue panel, system lines and chat. |
+| `store/screenshot-2-share.png` | 1280×800 | Share from any page: a mock video page with the extension popup open (the real popup's plain HTML), the shared video landing in "Up next", the host's moderation menu in a furnished room, and the playback setting. |
+
+Each icon is drawn natively per size by `src/store.ts` (so each keeps the plum outline and whole pixels); `bun assets/src/build.ts` writes them and
+prints their bytes (1 501 B for all four) apart from the art budget. The promo tile and screenshots are composed in `preview/store.html` from the
+real reference CSS and preview renders, and `bun assets/src/shoot-ui.ts` shoots them at their exact sizes.
+
 ## Motion atlas (`avatars/motion.json`, set d)
 
 Same format as the avatar atlas (PixiJS v8, 32×64 cells, no trim, no rotation, anchor = floor point `(16, 61)`).
@@ -497,17 +577,21 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
 | `room/room.png` | 8 335 |
 | `room/room.json` | 13 823 raw / 1 192 gz |
-| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i) | 9 771 |
-| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h + i) | 67 363 raw / 3 424 gz |
+| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i + j) | 11 219 |
+| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h + i + j) | 78 600 raw / 3 826 gz |
 | `ui/edit.png` (set h, lazy, owners only) | 8 925 |
 | `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
-| `ui/slices/*.png` (78 files, palettes trimmed to the colours used) | 12 743 |
+| `ui/slices/*.png` (89 files, palettes trimmed to the colours used) | 14 314 |
 | `ui/popup/*.png` (set f) | 409 |
-| `ui/scenes/*.png` (set i, lazy) | 1 331 |
-| `ui/reference.css` (if ported as-is) | 62 453 raw / 11 823 gz |
+| `ui/scenes/*.png` (sets i + j, lazy) | 2 124 |
+| `ui/reference.css` (if ported as-is) | 72 748 raw / 13 932 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **107 942 B (≈ 105.4 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 53 615 B; lazy (sets d, g, h's edit kit, i's scenes) 54 327 B |
+| **total shipped art** | **114 265 B (≈ 111.6 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 59 145 B; lazy (sets d, g, h's edit kit, i's and j's scenes) 55 120 B |
+
+Set (j) (OME-422) adds **6 323 B (≈ 6.2 KB)** against `main` (107 942 → 114 265): `ui.png` +1 448, `ui.json` +402 gz, 11 new slices +1 571,
+`reference.css` +2 109 gz, and the lazy `scenes/removed.png` 793 (per file: § Set (j) bytes). Eager +5 530, lazy +793. The extension icons
+(`store/icon-*.png`, 1 501 B) ship in the extension, not the site, and are reported apart; the promo tile and screenshots are store listing only.
 
 Set (i) (OME-416 + OME-427 polish) adds **8 471 B (≈ 8.3 KB)** against `main` (99 471 → 107 942): `ui.png` +2 213, `ui.json` +541 gz, 16 new slices +2 577
 (a browser only fetches a slice once a rule uses it), `reference.css` +1 809 gz, and the two lazy scenes 1 331 (per file: § Set (i) bytes). Eager +7 140, lazy +1 331.

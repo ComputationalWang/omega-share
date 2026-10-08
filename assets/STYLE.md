@@ -253,6 +253,41 @@ Three directions were weighed before any pixels:
 - **Vignettes** are 72×64 front-on doorways (page chrome, like the room-list doors), with one plum outline, top-left light and the room's ramps.
 - No new colours: still the 67.
 
+## Set (j) house rules, queue, Web Store kit (OME-422)
+Three directions were weighed before any pixels:
+
+| | Direction | Verdict |
+|---|---|---|
+| A | Bouncer and courtroom: a shield, a gavel, a red "banned" stamp, a velvet rope | Rejected: punitive. It piles more meanings on rust/red, and a gavel says "you were judged" when most removals are a host tidying their room. |
+| B | Admin console: a kebab menu of text rows, flat toggles, the queue as a grey table with provider logos | Rejected: it drops the room's materials, provider logos are off limits, and nothing tells synced from not without colour. |
+| **C** | **"House rules":** the host's own living-room objects. The **remote** says who controls playback; removing someone is **showing them to the door** (a pointing hand into a lit doorway, a wall clock for the wait); muting is a **zipped** speech bubble. The queue is the projector's reel line, with **tiny TV screens** for the kind of source. | **Chosen.** Each state is an object with its own shape, it extends sets (e)/(f)/(i) (wood = shared, timer dial = how long, the doorway) instead of adding an alarm language, and nobody needs a logo. |
+
+- **The remote = who controls playback.** It's wood (the TV's, so everyone's, set e) with a glow lens. "Only the host" is the same remote with set (h)'s cream house
+  badged on it. For everyone else the shared keys **sink into the shelf**: still wood, with a plum shadow top-left and no lip, so there's nothing to press. That's a
+  third key state next to set (c)'s disabled (charcoal) and set (f)'s resting (a step darker, a charcoal lip, the dial), and it reads apart from both by shape.
+- **Shown out ≠ left.** Set (c)'s leave icon is a teal arrow out of a door (you went yourself). Removed is a cream hand pointing into a lit doorway (someone showed you
+  out). The removed vignette is set (i)'s doorway lit and shut (people are still inside, unlike `closed`), with no lock (unlike `invite`), and a wall clock
+  whose wedge is set (f)'s timer dial at 10 of 60 minutes: you can come back, after a wait.
+- **Zip = muted by the host.** The speaker with a cross stays "sound off on your side" (set e). A muted chat field turns from night blue to a charcoal well with
+  the reason in it, and the line in the log has the mustard "only you" bar (set f), because only you are told.
+- **Remove isn't rust.** Rust stays for the one irreversible action (set i's close-for-good). A removal ends in 10 minutes, so the menu asks first in a
+  charcoal row with plain keys.
+- **The menu is the host's own tool,** so it is the emote picker's tray: night in the mustard "only you" rim, a tail to the member's name tag. Rows reuse the
+  emote cell's recipe (flat, sunken cream edge on hover, mustard rim pressed).
+- **The queue is the room's,** so its × is a little wood key. Rows are dusk glass without the card's wood rim, so 20 of them stay calm. The first row
+  wears the TV's glow bar ("plays next").
+- **Source tiles describe the kind, never the provider** (the M2 brass plate rule): a play mark for a video, the rust on-air dot for a live stream (as on the LIVE
+  pill), a chain link on a dark screen for a pasted page. No logos, colours or lettering from anyone else.
+- **Synced vs not (ADR 0024) by shape, not colour:** two little seek bars with their heads **in step** (glow fill, on the wood chip) or **out of step** (cream
+  shade, on a plain cream-shade chip). Always with the words "Synced" / "Not synced".
+- **Who added it** is the avatar's head at word size, 12×13, each with its set (a) silhouette cue: Juno's puff and headphones, Pip's beanie, pom and glasses,
+  Mo's brim and beard, Kiki's buns. They read apart at 1× on the night rows.
+- **Empty is a projector with no reels:** set (b)'s cream projector on its shelf, lens dark, with dashed ghost reels on empty arms. "Load a reel."
+- **Store icon:** the room's wood TV showing the dusk picture, drawn natively at 16, 32, 48 and 64 art px (the 128 px icon is 64 at 2×). It gains detail
+  as it grows (the antenna and the sun's glitter from 32, two avatars watching from behind from 48), but never by shrinking a big drawing, so every size keeps
+  the plum outline and whole pixels.
+- No new colours: still the 67.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -266,6 +301,8 @@ Three directions were weighed before any pixels:
 | (g) furniture (lazy, M4/M5) | `furniture/furniture.png` + `furniture.json` (gz) | 21 930 + 2 418 ≈ **23.8 KB** |
 | (h) owner + private rooms | `ui/edit.png` + `edit.json` (gz, lazy, owners only) · added to the (c) files: `ui.png` + `ui.json` (gz) + 13 slices + `reference.css` (gz) | 8 889 + 1 334 ≈ **10.0 KB** lazy · **≈ 6.3 KB** eager |
 | (i) rooms + emotes | added to the (c) files: `ui.png` + `ui.json` (gz) + 16 slices + `reference.css` (gz) · `ui/scenes/*.png` (lazy) | **≈ 6.8 KB** eager · **1.3 KB** lazy |
-| total art budget | | ≤ 300 KB (≈ 105.3 KB used) |
+| (j) house rules + queue | added to the (c) files: `ui.png` + `ui.json` (gz) + 11 slices + `reference.css` (gz) · `ui/scenes/removed.png` (lazy) | **≈ 5.4 KB** eager · **0.8 KB** lazy |
+| (j) extension icons | `store/icon-16\|32\|48\|128.png` (in the extension package, not the site) | 1 501 B ≈ **1.5 KB** |
+| total art budget | | ≤ 300 KB (≈ 111.6 KB used) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.
