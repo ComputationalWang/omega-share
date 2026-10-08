@@ -75,6 +75,11 @@ base() {
     rm -r -f "$tmp"
   fi
 
+  # The journal is persistent and sshd logs peer IPs: keep 14 days (OME-386).
+  install -d -m 0755 /etc/systemd/journald.conf.d
+  install -m 0644 "$here/journald/omega-share.conf" /etc/systemd/journald.conf.d/
+  systemctl restart systemd-journald
+
   install -m 0644 "$here/Caddyfile" /etc/caddy/Caddyfile
   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
   install -m 0644 "$here/omega-share.service" /etc/systemd/system/

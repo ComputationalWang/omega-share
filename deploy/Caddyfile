@@ -1,9 +1,22 @@
 # Caddy in front of the loopback server (ADR 0020). TLS by ACME; HTTP redirects to HTTPS.
 # The server owns CSP, HSTS and every security header, and the client IP: Caddy appends the
-# peer to X-Forwarded-For and ignores the client's own value (no proxy is trusted). No access log (D6).
+# peer to X-Forwarded-For and ignores the client's own value (no proxy is trusted). No access log (D6),
+# and the default logger drops request IPs and headers, which `http.log.error` would write on a 502 (OME-386).
 {
 	# No admin API: the app's sandbox may open loopback TCP, and the API could rewrite Caddy's config.
 	admin off
+	log default {
+		output stderr
+		format filter {
+			request>remote_ip delete
+			request>remote_port delete
+			request>client_ip delete
+			request>headers delete
+			# ACME challenge entries name the validator's address.
+			remote delete
+			wrap json
+		}
+	}
 	servers {
 		protocols h1 h2
 	}
