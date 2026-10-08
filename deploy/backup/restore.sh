@@ -36,7 +36,7 @@ echo "3/4 restore to $db"
 if ! runuser -u "$user" -- env DB_PATH="$db" "${backup[@]}" restore "$snap"; then
   # Never start on a missing DB: the server would create an empty one and serve it.
   if [[ ! -f $db ]]; then
-    echo "restore.sh: restore failed and $db is missing; $service stays stopped. Put back the newest $db.pre-restore-* (with its -wal) or rerun this script" >&2
+    echo "restore.sh: restore failed and $db is missing; $service stays stopped. Put back the newest $db.pre-restore-* or rerun this script" >&2
     exit 1
   fi
   echo "restore.sh: restore refused; starting $service again on the previous database" >&2
