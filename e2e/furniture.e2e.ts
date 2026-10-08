@@ -7,7 +7,7 @@ import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { clickSettled } from "./support/room";
 import { site } from "./support/selectors";
-import { scene, seatedBetween, selfId } from "./support/scene";
+import { WALK_SETTLE_MS, scene, seatedBetween, selfId } from "./support/scene";
 import { SET_G, SET_G_SEAT_PIECE } from "./fixtures/layouts";
 
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
@@ -102,7 +102,7 @@ test.describe("furniture from the room layout", () => {
       const self = await selfId(page);
       const piece = SET_G_SEAT_PIECE[seat] ?? "";
       await expect
-        .poll(() => seatedBetween(page, self, piece))
+        .poll(() => seatedBetween(page, self, piece), { timeout: WALK_SETTLE_MS })
         .toBe(true);
       await test.info().attach("room-set-g-seated.png", { body: await page.locator(site.room).screenshot(), contentType: "image/png" });
     } finally {

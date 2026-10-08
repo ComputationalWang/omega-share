@@ -1,6 +1,6 @@
 // Room screen. Loaded lazily after Enter so PixiJS stays out of the initial bundle.
 import "pixi.js/unsafe-eval";
-import { SEAT_COUNT, isSyncedEmbed, type AnyEmbed, type Avatar, type ClientMessage, type Embed, type ErrorCode, type MemberId, type Nickname, type RoomId, type RoomLayout } from "@omega/shared";
+import { SEAT_COUNT, isSyncedEmbed, layoutSeats, type AnyEmbed, type Avatar, type ClientMessage, type Embed, type ErrorCode, type MemberId, type Nickname, type RoomId, type RoomLayout } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
@@ -18,6 +18,8 @@ import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view
 import { catchingUp, initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
 import { genericFrame, tvFrame, type TvFrame } from "./tv";
 import { createGenericTv } from "./controls/generic-tv";
+import { walkGrid } from "./walk/path";
+import type { Dir } from "./walk/walks";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -174,7 +176,17 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   controls.append(transport.root);
   const personal = createPersonal(playback);
 
-  const view: RoomView = await createRoomView();
+  const tagEls = new Map<MemberId, HTMLElement>();
+  const bubbleEls = new Map<MemberId, HTMLElement>();
+  // Tags and bubbles ride along with a walking avatar.
+  const view: RoomView = await createRoomView({
+    onMove: (id, x, y) => {
+      const tag = tagEls.get(id);
+      if (tag !== undefined) place(tag, { x, y: y + TAG_OFFSET_Y });
+      const bubble = bubbleEls.get(id);
+      if (bubble !== undefined) place(bubble, { x, y: y + BUBBLE_OFFSET_Y });
+    },
+  });
   view.canvas.className = "scene";
   stage.append(view.canvas, overlay, tags, bubbles, rail);
   // The provider hint sits right above the TV, next to what it's about (OME-251): below the stage it's off-screen.
@@ -204,6 +216,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** The drawn layout (furniture.ts): seats, standing spots and the scene follow it; null until the first render. */
   let layout: RoomLayout | null = null;
   let seats: Point[] = [];
+  let seatFacings: Dir[] = [];
+  let grid: Uint8Array = new Uint8Array(0);
   let standing: Point[] = [];
   let scene = sceneOf(layoutOf(null), null);
   /** The set (g) atlas once loaded: later layouts build their scene with it straight away. */
@@ -212,8 +226,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let layoutKey = "";
   let shownError: ViewState["lastError"] = null;
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
-  const tagEls = new Map<MemberId, HTMLElement>();
-  const bubbleEls = new Map<MemberId, HTMLElement>();
   /** The hourglass on each catching tag; a tag removed with its member takes its hourglass along. */
   const hourglasses = new Map<HTMLElement, HTMLElement>();
 
@@ -278,11 +290,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (key === layoutKey) return;
     layoutKey = key;
     seats = seatPoints(next);
+    seatFacings = layoutSeats(next).map((s) => s.facing);
+    grid = walkGrid(next);
     standing = standingPoints(next);
     const needsAtlas = usesSetG(next);
     const ready = needsAtlas ? atlas : null;
     scene = sceneOf(next, ready?.manifest ?? null);
-    view.setScene(scene, ready);
+    view.setScene(scene, ready, grid);
     seatButtons.forEach((b, i) => {
       const p = seats[i];
       if (p !== undefined) place(b, p);
@@ -295,7 +309,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         atlas = loaded;
         if (layout !== next) return;
         scene = sceneOf(next, loaded.manifest);
-        view.setScene(scene, loaded);
+        view.setScene(scene, loaded, grid);
         drawnSeats = undefined;
         if (frame === 0) frame = requestAnimationFrame(render);
       })
@@ -338,7 +352,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     for (const v of views) {
       const p = seats[v.index];
       if (v.member !== null && p !== undefined) {
-        placements.push({ id: v.member.id, avatar: v.member.avatar, at: p, z: scene.seats[v.index]?.z ?? standDepth(p) });
+        placements.push({ id: v.member.id, avatar: v.member.avatar, at: p, z: scene.seats[v.index]?.z ?? standDepth(p), seatFacing: seatFacings[v.index] ?? null });
         at.set(v.member.id, p);
       }
     }
@@ -347,7 +361,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (at.has(m.id)) continue;
       const p = standing[k++];
       if (p === undefined) continue;
-      placements.push({ id: m.id, avatar: m.avatar, at: p, z: standDepth(p) });
+      placements.push({ id: m.id, avatar: m.avatar, at: p, z: standDepth(p), seatFacing: null });
       at.set(m.id, p);
     }
     // Chat, bubbles and playback leave seats/members untouched, so the scene is only redrawn when they change.
@@ -396,7 +410,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         tags.append(e);
       }
       e.classList.toggle("self", m.id === s.self);
-      const p = at.get(m.id);
+      const p = view.position(m.id) ?? at.get(m.id);
       if (p !== undefined) place(e, { x: p.x, y: p.y + TAG_OFFSET_Y });
     }
 
@@ -407,7 +421,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       bubbleEls.delete(id);
     }
     for (const b of s.bubbles) {
-      const p = at.get(b.memberId);
+      const p = view.position(b.memberId) ?? at.get(b.memberId);
       let e = bubbleEls.get(b.memberId);
       if (e === undefined) {
         e = el("p", { className: "bubble" }, "chat-message");

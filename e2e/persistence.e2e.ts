@@ -17,7 +17,7 @@ import { ROOT } from "./support/apps";
 import { EMBED_URL } from "./support/network";
 import { clickSettled, joinRoom, leaveAll } from "./support/room";
 import { site } from "./support/selectors";
-import { scene, seatedBetween, selfId } from "./support/scene";
+import { WALK_SETTLE_MS, scene, seatedBetween, selfId } from "./support/scene";
 import { SET_G, SET_G_SEAT_PIECE } from "./fixtures/layouts";
 import { expect, test } from "./support/csp";
 
@@ -174,7 +174,7 @@ test.describe("restart persistence (own server, own DB file)", () => {
         await expect(c.page.locator(`[data-seat="${String(seat)}"]`)).toHaveClass(/mine/);
         const self = await selfId(c.page);
         const piece = SET_G_SEAT_PIECE[seat] ?? "";
-        await expect.poll(() => seatedBetween(c.page, self, piece)).toBe(true);
+        await expect.poll(() => seatedBetween(c.page, self, piece), { timeout: WALK_SETTLE_MS }).toBe(true);
       }
       await expect(a.page.locator('[data-seat="6"]')).toHaveAttribute("aria-label", /taken by layout-2/);
       await expect(b.page.locator('[data-seat="2"]')).toHaveAttribute("aria-label", /taken by layout-1/);
@@ -254,7 +254,7 @@ test.describe("restart persistence (own server, own DB file)", () => {
       await expect(b.page.locator('[data-seat="0"]')).toHaveAttribute("data-occupied", "true");
       await expect(b.page.locator('[data-seat="0"]')).toHaveAttribute("aria-label", /taken by persist-1/);
       const self = await selfId(a.page);
-      await expect.poll(() => seatedBetween(a.page, self, SET_G_SEAT_PIECE[0] ?? "")).toBe(true);
+      await expect.poll(() => seatedBetween(a.page, self, SET_G_SEAT_PIECE[0] ?? ""), { timeout: WALK_SETTLE_MS }).toBe(true);
     } finally {
       await leaveAll(clients);
     }

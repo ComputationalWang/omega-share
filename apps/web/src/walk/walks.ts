@@ -91,7 +91,7 @@ const sameTarget = (a: WalkTarget, b: WalkTarget): boolean => a.at.x === b.at.x 
 export function createWalks(opts: WalksOptions): Walks {
   const route = opts.route ?? findPath;
   const entries = new Map<MemberId, Entry>();
-  let grid = new Uint8Array(0);
+  let grid: Uint8Array = new Uint8Array(0);
   let seeded = false;
   let snapNext = false;
   const scratch = emptyPose();

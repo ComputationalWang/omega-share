@@ -21,6 +21,8 @@ async function debugCall(page: Page, path: "scene" | "self"): Promise<unknown> {
 export const scene = async (page: Page): Promise<string[]> => v.parse(v.array(v.string()), await debugCall(page, "scene"));
 /** Our own member id. */
 export const selfId = async (page: Page): Promise<string> => v.parse(v.string(), await debugCall(page, "self"));
+/** Avatars walk to a seat before they take its depth (OME-408, 600 ms a tile); poll seated checks at least this long. */
+export const WALK_SETTLE_MS = 15_000;
 /** True once `avatar:<self>` is drawn between `furniture/<piece>/back` and `.../front`. */
 export async function seatedBetween(page: Page, self: string, piece: string): Promise<boolean> {
   const order = await scene(page);

@@ -31,7 +31,11 @@ export interface Cycle {
   readonly ms: readonly number[];
 }
 
+export type FrameRects = v.InferOutput<typeof FramesSchema>;
+
 export interface MotionFrames {
+  /** Each sheet's frame rects and anchors, as parsed: motion.png's, then avatars.png's. */
+  readonly sheets: { readonly motion: FrameRects; readonly avatars: FrameRects };
   /** walk[avatar][dir][step]: frame keys. */
   readonly walk: readonly (readonly (readonly string[])[])[];
   /** rest[avatar].idle|sit[dir]: the breathe cycle. */
@@ -51,6 +55,7 @@ export function parseMotion(motionJson: unknown, avatarsJson: unknown): MotionFr
   };
   const ids = sheet.meta.omega.avatars.map((a) => a.id);
   return {
+    sheets: { motion: motion.frames, avatars: sheet.frames },
     walk: ids.map((id) =>
       DIRS.map((d) => {
         const a = anim(`walk/${id}/${d}`, WALK_FRAMES);

@@ -4,6 +4,9 @@ import { AVATAR_COUNT, type MemberId } from "@omega/shared";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import type { Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
+import { createAnimator } from "./walk/animator";
+import type { MotionAtlas } from "./walk/motion-atlas";
+import { createWalks, type Dir } from "./walk/walks";
 
 export interface AvatarPlacement {
   readonly id: MemberId;
@@ -11,14 +14,23 @@ export interface AvatarPlacement {
   readonly at: Point;
   /** Depth among furniture and other avatars (furniture.ts: a sitter takes its seat's, others `standDepth`). */
   readonly z: number;
+  /** The seat's facing if they sit, null if they stand (walk/walks.ts). */
+  readonly seatFacing: Dir | null;
+}
+
+export interface RoomViewOptions {
+  /** An avatar moved while walking (stage px), for the DOM name tags and bubbles. */
+  readonly onMove?: (id: MemberId, x: number, y: number) => void;
 }
 
 export interface RoomView {
   readonly canvas: HTMLCanvasElement;
   /** The room's furniture and seat markers; rebuilt once per layout change (or when the atlas arrives). Draws on the next `update`. */
-  setScene(scene: Scene, atlas: FurnitureAtlas | null): void;
-  /** Seat occupancy and who stands where; redraws once. */
+  setScene(scene: Scene, atlas: FurnitureAtlas | null, walkGrid: Uint8Array): void;
+  /** Seat occupancy and who sits or stands where; redraws once, then walks anyone whose spot changed (walk/). */
   update(seatTaken: readonly boolean[], avatars: readonly AvatarPlacement[]): void;
+  /** Where an avatar is drawn now (mid-walk, between cells), stage px. */
+  position(id: MemberId): Point | undefined;
   /** Labels in draw order (floor, furniture frame keys, `seat:<i>`, `avatar:<id>`), for e2e depth checks. */
   drawOrder(): string[];
   destroy(): void;
@@ -61,7 +73,7 @@ export function quietSystemTicker(ticker: Ticker): () => void {
   };
 }
 
-export async function createRoomView(): Promise<RoomView> {
+export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomView> {
   const app = new Application();
   await app.init({
     width: STAGE_W,
@@ -91,16 +103,56 @@ export async function createRoomView(): Promise<RoomView> {
   let markers: (Graphics | null)[] = [];
   let lastTaken: (boolean | null)[] = [];
   let furniture: Sprite[] = [];
-  const pool = new Map<MemberId, { g: Graphics; avatar: number }>();
+  /** Per member: the placeholder shape until the motion atlas is in, then a sprite. `x`/`y` is where it's drawn. */
+  const pool = new Map<MemberId, { node: Graphics | Sprite; avatar: number; x: number; y: number }>();
 
   const render = (): void => {
     pumpSystem();
     app.render();
   };
 
+  // Walking (OME-408): every client walks avatars to their spot itself; frames run only while someone walks.
+  const reduced = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
+  const walks = createWalks({ reducedMotion: () => reduced.matches });
+  let motion: MotionAtlas | null = null;
+  let motionLoad = false;
+  const animator = createAnimator({
+    walks,
+    now: () => performance.now(),
+    raf: (fn) => requestAnimationFrame(fn),
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => {
+      clearTimeout(h as ReturnType<typeof setTimeout>);
+    },
+    reducedMotion: () => reduced.matches,
+    draw(id, avatar, pose, frame) {
+      const entry = pool.get(id);
+      if (entry === undefined) return;
+      const texture = frame === null ? undefined : motion?.texture(frame);
+      if (texture !== undefined) {
+        if (!(entry.node instanceof Sprite)) {
+          const sprite = new Sprite({ texture, label: entry.node.label });
+          objectLayer.addChild(sprite);
+          entry.node.destroy();
+          entry.node = sprite;
+        } else if (entry.node.texture !== texture) entry.node.texture = texture;
+      } else if (entry.node instanceof Graphics && entry.avatar !== avatar) drawAvatar(entry.node, avatar);
+      entry.avatar = avatar;
+      entry.node.position.set(pose.x, pose.y);
+      entry.node.zIndex = pose.z;
+      if (entry.x !== pose.x || entry.y !== pose.y) {
+        entry.x = pose.x;
+        entry.y = pose.y;
+        opts.onMove?.(id, pose.x, pose.y);
+      }
+    },
+    render,
+  });
+
   return {
     canvas: app.canvas,
-    setScene(scene, atlas) {
+    setScene(scene, atlas, walkGrid) {
+      walks.setGrid(walkGrid);
       for (const s of furniture) s.destroy();
       for (const m of markers) m?.destroy();
       furniture = [];
@@ -136,25 +188,39 @@ export async function createRoomView(): Promise<RoomView> {
       const seen = new Set<MemberId>();
       for (const a of avatars) {
         seen.add(a.id);
-        let entry = pool.get(a.id);
-        if (entry === undefined) {
-          entry = { g: new Graphics({ label: `avatar:${a.id}` }), avatar: -1 };
-          pool.set(a.id, entry);
-          objectLayer.addChild(entry.g);
-        }
-        if (entry.avatar !== a.avatar) {
-          drawAvatar(entry.g, a.avatar);
-          entry.avatar = a.avatar;
-        }
-        entry.g.position.set(a.at.x, a.at.y);
-        entry.g.zIndex = a.z;
+        if (pool.has(a.id)) continue;
+        const g = new Graphics({ label: `avatar:${a.id}` });
+        drawAvatar(g, a.avatar);
+        pool.set(a.id, { node: g, avatar: a.avatar, x: NaN, y: NaN });
+        objectLayer.addChild(g);
       }
       for (const [id, entry] of pool) {
         if (seen.has(id)) continue;
-        entry.g.destroy();
+        entry.node.destroy();
         pool.delete(id);
       }
+      walks.place(avatars, performance.now());
+      animator.set(avatars);
       render();
+      // The motion sheets load once people are in the room (after join), never on first paint (ADR 0010).
+      if (!motionLoad && avatars.length > 0) {
+        motionLoad = true;
+        void import("./walk/motion-atlas")
+          .then((m) => m.loadMotionAtlas())
+          .then((loaded) => {
+            motion = loaded;
+            animator.setFrames(loaded.frames);
+          })
+          // Without the sheets the room still works: placeholder avatars that walk. The next join retries.
+          .catch((e: unknown) => {
+            motionLoad = false;
+            console.warn("motion atlas failed to load", e);
+          });
+      }
+    },
+    position(id) {
+      const e = pool.get(id);
+      return e === undefined || Number.isNaN(e.x) ? undefined : { x: e.x, y: e.y };
     },
     drawOrder() {
       const sorted = [...objectLayer.children].sort((a, b) => a.zIndex - b.zIndex);
