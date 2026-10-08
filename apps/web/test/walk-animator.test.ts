@@ -14,7 +14,7 @@ const motion: unknown = await Bun.file(new URL("../../../assets/avatars/motion.j
 const avatars: unknown = await Bun.file(new URL("../../../assets/avatars/avatars.json", import.meta.url)).json();
 const frames = parseMotion(motion, avatars);
 
-const id = (s: string): MemberId => s as MemberId;
+const id = (s: string): MemberId => s;
 const standAt = (who: string, col: number, row: number): WalkTarget => {
   const at = cellCenter(col, row);
   return { id: id(who), at, z: standDepth(at), seatFacing: null };

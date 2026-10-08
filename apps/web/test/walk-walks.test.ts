@@ -9,7 +9,7 @@ import { createWalks, emptyPose, type Dir, type WalkTarget } from "../src/walk/w
 // ADR 0010 walk contract: 150 ms per frame, 4 frames per tile → 600 ms per tile.
 
 const TILE_MS = 600;
-const id = (s: string): MemberId => s as MemberId;
+const id = (s: string): MemberId => s;
 const grid = walkGrid(DEFAULT_LAYOUT);
 
 const sitAt = (who: string, col: number, row: number, facing: Dir = col < row ? "ne" : "nw", z = 999): WalkTarget => ({ id: id(who), at: cellCenter(col, row), z, seatFacing: facing });
