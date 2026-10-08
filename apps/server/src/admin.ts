@@ -1,4 +1,4 @@
-import { chmodSync, lstatSync, unlinkSync } from "node:fs";
+import { chmodSync, lstatSync, rmSync, unlinkSync } from "node:fs";
 import * as v from "valibot";
 import { RoomIdSchema, RoomVisibilitySchema, type RoomId } from "@omega/shared";
 import type { RoomRegistry } from "./rooms";
@@ -22,11 +22,11 @@ export const AdminRoomSchema = v.strictObject({
   title: v.string(),
   visibility: RoomVisibilitySchema,
   /** Unix ms. */
-  createdAt: v.number(),
+  createdAt: v.pipe(v.number(), v.safeInteger()),
   /** Unix ms the room last became occupied or empty; null if nobody ever joined. */
-  lastActiveAt: v.nullable(v.number()),
+  lastActiveAt: v.nullable(v.pipe(v.number(), v.safeInteger())),
   pinned: v.boolean(),
-  members: v.number(),
+  members: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
 });
 export type AdminRoom = v.InferOutput<typeof AdminRoomSchema>;
 export const AdminRoomListSchema = v.strictObject({ rooms: v.array(AdminRoomSchema) });
@@ -81,6 +81,8 @@ function handle(req: Request, { rooms, store }: AdminOptions): Response {
   if (req.method !== "POST") return json(405, { error: "method not allowed" });
   if (room === undefined) return noRoom(roomId);
   const pinned = verb === "pin";
+  // A seeded room has no owner to delete it; unpinned, GC would end it and only a restart re-seeds it.
+  if (!pinned && !room.hasOwner) return json(409, { error: `${roomId} is a seeded room with no owner: it stays pinned (delete it instead)` });
   // Store first: if the write fails, memory still matches the row.
   store.setPinned(roomId, pinned);
   room.pinned = pinned;
@@ -99,21 +101,39 @@ function clearStaleSocket(path: string): void {
   unlinkSync(path);
 }
 
-/** Listens on `socketPath` (mode 0600). Throws if the path is taken by something that isn't a socket. */
+/**
+ * Listens on `socketPath`, mode 0600 from the moment it exists: the bind runs under umask 0177, so
+ * there is no window before the chmod (which stays, for a filesystem that ignores the umask). Throws
+ * if the path is taken by something that isn't a socket, or if the socket can't be secured; then
+ * nothing is left listening.
+ */
 export function startAdmin(opts: AdminOptions): AdminServer {
   clearStaleSocket(opts.socketPath);
-  const server = Bun.serve({
-    unix: opts.socketPath,
-    maxRequestBodySize: 1024,
-    fetch(req) {
-      try {
-        return handle(req, opts);
-      } catch (err) {
-        return json(500, { error: err instanceof Error ? err.message : String(err) });
-      }
-    },
-  });
-  chmodSync(opts.socketPath, 0o600);
+  const umask = process.umask(0o177);
+  let server: ReturnType<typeof Bun.serve>;
+  try {
+    server = Bun.serve({
+      unix: opts.socketPath,
+      maxRequestBodySize: 1024,
+      fetch(req) {
+        try {
+          return handle(req, opts);
+        } catch (err) {
+          return json(500, { error: err instanceof Error ? err.message : String(err) });
+        }
+      },
+    });
+  } finally {
+    process.umask(umask);
+  }
+  try {
+    chmodSync(opts.socketPath, 0o600);
+  } catch (err) {
+    void server.stop(true);
+    // Bun unlinks it on stop; make sure, without failing if it did.
+    rmSync(opts.socketPath, { force: true });
+    throw err;
+  }
   return {
     stop: async () => {
       await server.stop(true);

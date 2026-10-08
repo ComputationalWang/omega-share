@@ -131,6 +131,11 @@ export class Room {
     this.currentTitle = title;
   }
 
+  /** Whether the room has an owner token. Seeded rooms don't. */
+  get hasOwner(): boolean {
+    return this.ownerHash !== null;
+  }
+
   get memberCount(): number {
     return this.members.size;
   }

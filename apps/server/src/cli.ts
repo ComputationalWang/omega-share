@@ -22,6 +22,9 @@ export interface CliIo {
   err: (line: string) => void;
 }
 
+/** The server answers from memory at once; a hung one shouldn't hang the operator's ssh session. */
+const FETCH_TIMEOUT_MS = 10_000;
+
 const USAGE = "usage: cli.ts rooms list | rooms delete <id> | rooms pin <id> | rooms unpin <id>";
 
 type Command = { verb: "list" } | { verb: "delete" | "pin" | "unpin"; id: RoomId };
@@ -97,7 +100,7 @@ export async function runCli(argv: readonly string[], io: CliIo): Promise<number
   let res: Response;
   try {
     // The host is ignored on a Unix socket; the server listens nowhere else.
-    res = await fetch(`http://localhost${path}`, { method, unix: socket });
+    res = await fetch(`http://localhost${path}`, { method, unix: socket, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   } catch (err) {
     io.err(`no server on ${socket}: ${err instanceof Error ? err.message : String(err)}`);
     return 1;

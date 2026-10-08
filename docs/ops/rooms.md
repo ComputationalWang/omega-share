@@ -38,9 +38,9 @@ ssh $A admin@$SERVER_IP "$ROOMS list"
 | `rooms list` | Every live room, private ones included, oldest first | A tab-separated table: `id`, `title`, `visibility`, `created`, `last active`, `pinned`, `members` |
 | `rooms delete <id>` | Ends the room (see above) | `deleted <id>` |
 | `rooms pin <id>` | GC never collects the room | `pinned <id>` |
-| `rooms unpin <id>` | GC may collect it again (1 h after creation if nobody ever joined, 14 days after it last emptied) | `unpinned <id>` |
+| `rooms unpin <id>` | GC may collect it again (1 h after creation if nobody ever joined, 14 days after it last emptied). Refused for a seeded room | `unpinned <id>` |
 
-Exit codes: `0` done; `1` no such room, no server on the socket, or a server error; `2` bad usage or a malformed id (ids are `[a-z0-9-]`, at most 32 characters). Bad usage never reaches the server.
+Exit codes: `0` done; `1` no such room, no server on the socket (or no answer within 10 s), a refused unpin, or a server error; `2` bad usage or a malformed id (ids are `[a-z0-9-]`, at most 32 characters). Bad usage never reaches the server.
 
 `list` never prints owner tokens, invite keys or their hashes, and the server's answer doesn't contain them. Times are UTC ISO 8601. `last active` is when the room last became occupied or empty (`never` if nobody ever joined). An untitled room shows `-`. Control and format characters in a title (escape sequences, tabs, bidi overrides) are printed as `\uXXXX`, so a hostile title can't rewrite your terminal. Copy ids from the `id` column, never from a title.
 
@@ -58,7 +58,7 @@ If `delete` prints an error after the room was already removed from memory (a fa
 
 Pin a room the operator wants to keep however long it sits empty (an event room, for example). Pinning doesn't change ownership: a created room keeps its owner, who can still rename or delete it. Pinned rooms come first in `GET /rooms`.
 
-Seeded rooms (`lobby`) are pinned and ownerless. Don't unpin them. An unpinned room nobody has joined for an hour is collected at the next hourly sweep, and the lobby only comes back, empty, at the next restart. Deleting `lobby` behaves the same way: it is gone until the next restart re-seeds it.
+Seeded rooms (`lobby`) are pinned and ownerless, and `unpin` refuses them (exit 1): with no owner to delete it, an unpinned seed would be collected by GC and come back, empty, only at the next restart. `delete lobby` does work. The lobby is gone until the next restart re-seeds it, empty.
 
 ## Without a running server
 
