@@ -40,19 +40,21 @@ test("DOM room view matches __omega: playing, self catching (ad), paused; join r
   expect(await agreed(a.page)).toEqual({ playing: true, catching: false, live: false, seekOnly: false, canControl: true, error: null });
 
   await a.page.evaluate(() => window.__fakeYt?.ad(4000));
+  await expect.poll(async () => (await roomView(a.page)).catching, { message: "__omega: catching in the ad" }).toBe(true);
   expect(await agreed(a.page)).toMatchObject({ playing: true, catching: true });
   await expect(b.page.locator(`${site.nicknameTag}.catching`)).toHaveText(["view-1"]);
   await expect.poll(async () => (await roomView(a.page, "dom")).catching, { timeout: 10_000 }).toBe(false);
 
   await a.page.locator(site.playToggle).click();
   await expect.poll(() => fakeState(b.page)).toBe(PAUSED);
+  await expect.poll(async () => (await roomView(a.page)).playing, { message: "__omega: paused" }).toBe(false);
   expect(await agreed(a.page)).toMatchObject({ playing: false, catching: false });
 
   // A production build: no __omega at all. The view says where it read from, and the landing page reports ready.
   await a.page.evaluate(() => { delete window.__omega; });
   expect(await roomView(a.page)).toMatchObject({ source: "dom", playing: false });
   const fresh = await a.context.newPage();
-  await fresh.addInitScript(() => { Object.defineProperty(window, "__omega", { set() {}, get: () => undefined }); });
+  await fresh.addInitScript(() => { Object.defineProperty(window, "__omega", { set() { /* a production build never sets it */ }, get: () => undefined }); });
   await fresh.goto(room.url);
   await expect.poll(() => fresh.evaluate(joinReady)).toBe(true);
   expect(await fresh.evaluate(() => window.__omega)).toBeUndefined();

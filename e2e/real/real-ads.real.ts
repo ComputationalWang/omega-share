@@ -15,6 +15,7 @@ import { site } from "../support/selectors";
 import { REAL, twitchLiveUrl } from "./providers";
 import { cdpTargets, embedUrl, EVIDENCE_DIR, rawTab, record, requireVirtualDisplay, ROOM_URL, shareUrl } from "./real";
 import type { RawTab } from "./real";
+import { joinReady, roomViewJs, type RoomView } from "./room-view";
 
 test.beforeAll(requireVirtualDisplay);
 test.describe.configure({ mode: "serial" });
@@ -62,7 +63,7 @@ async function launch(name: string, port: number): Promise<Raw> {
 /** Joins the lobby as a user would: types a name and clicks *Enter* with a trusted mouse click (a real activation). */
 async function enterLobby(r: Raw): Promise<void> {
   await r.tab.eval(`location.href = ${JSON.stringify(ROOM_URL)}`);
-  await expect.poll(() => r.tab.eval<boolean>("location.pathname.startsWith('/r/') && window.__omega !== undefined"), { timeout: 15_000 }).toBe(true);
+  await expect.poll(() => r.tab.eval<boolean>(joinReady), { timeout: 15_000 }).toBe(true);
   await r.tab.eval(`(() => { const i = document.querySelector('${site.nicknameInput}'); i.value = ${JSON.stringify(r.name)};
     i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
   await r.tab.click(site.joinButton);
@@ -76,10 +77,13 @@ interface PageState {
   readonly catchingTags: string[];
 }
 
-const pageState = (r: Raw): Promise<PageState> =>
-  r.tab.eval<PageState>(`(() => { const v = window.__omega?.room?.playback() ?? null;
-    return { playing: v?.playing ?? null, selfCatching: v?.catching ?? null,
-      catchingTags: [...document.querySelectorAll('${site.nicknameTag}.catching')].map((e) => e.textContent.trim()) }; })()`);
+const pageState = async (r: Raw): Promise<PageState> => {
+  const [v, catchingTags] = await Promise.all([
+    r.tab.eval<RoomView>(roomViewJs()),
+    r.tab.eval<string[]>(`[...document.querySelectorAll('${site.nicknameTag}.catching')].map((e) => e.textContent.trim())`),
+  ]);
+  return { playing: v.playing, selfCatching: v.catching, catchingTags };
+};
 
 interface PlayerState {
   readonly t: number;

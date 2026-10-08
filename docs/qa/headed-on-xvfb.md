@@ -30,6 +30,23 @@ It also passes `-s "-screen 0 1920x1080x24"`, because xvfb-run's default 640×48
 
 If `xvfb-run` isn't installed, the wrapper falls back to the old behavior (windows on the desktop) and prints `headed: xvfb-run not found …` with the package to install (Arch: `xorg-server-xvfb`, Debian/Ubuntu: `xvfb`).
 
+## Against a hosted origin (production build)
+
+The real specs can target a deployed site instead of the local dev servers ([OME-378](/OME/issues/OME-378)). Point both URLs at the origin; Playwright then finds them answering and starts no local web or game server:
+
+```sh
+OMEGA_WEB_URL=https://omega-share.duckdns.org OMEGA_SERVER_URL=https://omega-share.duckdns.org \
+  bun e2e/support/headed.ts bunx playwright test --project=e2e-real e2e/real/real-ads.real.ts
+# Twitch live and Vimeo, same origin:
+OMEGA_WEB_URL=https://omega-share.duckdns.org OMEGA_SERVER_URL=https://omega-share.duckdns.org \
+  bun e2e/support/headed.ts bunx playwright test --project=e2e-real e2e/real/real-providers.real.ts -g "M2-vimeo|M2-twitch-live"
+```
+
+- `ROOM_URL`, `shareUrl` and `joinForToken` follow the two URLs; the share carries no `Origin`, which the server allows (ADR 0015).
+- A production build has no `window.__omega`. `e2e/real/room-view.ts` then reads the room from the page: *playing* from the play key's label ("Pause for everyone"), *catching* from my own tag (`nickname-tag.self.catching`), *live* / *seekOnly* from the live pill and the "syncs by skipping" hint, *canControl* from the play key being enabled, and *error* from the sync notice's text. Join is ready once the join button is there and the document has loaded. `e2e/room-view.e2e.ts` keeps the DOM reading equal to `__omega` on a dev build.
+- Still dev-only: `real-youtube.real.ts` (it reads `hasVideo`, `needsUnmute` and the volume, which the DOM doesn't show).
+- The hosted box rate-limits joins and shares: keep to a few clients and narrow the run (`OMEGA_REAL_AD_YT`, `OMEGA_REAL_AD_TWITCH`, `-g`). Everything shared lands in the public lobby.
+
 ## How to watch a run
 
 - **Live:** `E2E_REAL_ON_DESKTOP=1 bun run e2e:real`. Only do this on your own desktop, never on the board's.

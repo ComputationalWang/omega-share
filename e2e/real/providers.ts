@@ -2,10 +2,10 @@
 // Like real.ts for YouTube: nothing is stubbed. The spec reads the real <video> inside each provider's player iframe.
 import { expect } from "@playwright/test";
 import type { Frame, Page } from "@playwright/test";
-import type { PlaybackView } from "../../apps/web/src/controls/playback";
 import { site } from "../support/selectors";
 import type { Client } from "./real";
 import { heldMaxAbsMs, needsConfirmSample } from "./spread";
+import { roomView, type RoomView } from "./room-view";
 
 export type RealProvider = "twitch" | "vimeo";
 
@@ -50,7 +50,8 @@ export const twitchVodUrl = (id: string): string => `https://www.twitch.tv/video
 export const twitchLiveUrl = (login: string): string => `https://www.twitch.tv/${login}`;
 export const vimeoUrl = (id: string): string => `https://vimeo.com/${id}`;
 
-export const view = (page: Page): Promise<PlaybackView | null> => page.evaluate(() => window.__omega?.room?.playback() ?? null);
+/** The room as this page shows it: __omega on a dev build, the DOM on a production build (the hosted origin). */
+export const view = (page: Page): Promise<RoomView> => roomView(page);
 
 /**
  * The provider's player frame for `id` (a Twitch channel / `v<id>`, a Vimeo id): cross-origin, but Playwright can
@@ -117,7 +118,7 @@ export async function waitMediaPlaying(c: Client, frame: Frame, timeout = 120_00
   const t0 = Date.now();
   for (;;) {
     const [s, v] = await Promise.all([sampleMedia(frame), view(c.page)]);
-    trace.push({ t: Date.now() - t0, ad: s?.ad ?? false, roomPlaying: v?.playing ?? null, catching: v?.catching ?? null });
+    trace.push({ t: Date.now() - t0, ad: s?.ad ?? false, roomPlaying: v.playing, catching: v.catching });
     if (s !== null && !s.paused && !s.ad && s.currentTime > 0.5) return trace.filter((x) => x.ad);
     if (Date.now() - t0 > timeout) throw new Error(`${c.nickname}: real video not playing after ${String(timeout)} ms (last: ${JSON.stringify(s)})`);
     await c.page.waitForTimeout(500);

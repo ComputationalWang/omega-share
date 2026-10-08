@@ -50,11 +50,11 @@ async function shareLiveChannel(request: APIRequestContext, a: Client, candidate
     const t0 = Date.now();
     while (frame !== null && Date.now() - t0 < perChannel) {
       const [s, v] = await Promise.all([sampleMedia(frame), view(a.page)]);
-      if (v !== null && v.error !== null && v.error.reason !== "offline") {
+      if (v.error !== null && v.error.reason !== "offline") {
         outcome = "error";
         break;
       }
-      if (v?.error?.reason === "offline" && s !== null && /offline/i.test(s.overlay)) {
+      if (v.error?.reason === "offline" && s !== null && /offline/i.test(s.overlay)) {
         outcome = "offline";
         break;
       }
@@ -113,12 +113,12 @@ for (const c of seekable) {
       const result = {
         url: c.url,
         plate: await a.page.locator('[data-testid="provider-plate"]').textContent(),
-        seekOnly: va?.seekOnly ?? null,
-        live: va?.live ?? null,
+        seekOnly: va.seekOnly,
+        live: va.live,
         videoRates: (await Promise.all([sampleMedia(fa), sampleMedia(fb)])).map((s) => s?.playbackRate ?? null),
         adsBeforeContent: ads.map((x) => ({ samples: x.length, roomAlwaysPlaying: x.every((s) => s.roomPlaying !== false), catchingSeen: x.some((s) => s.catching === true) })),
         steady,
-        paused: { bothPaused: paused.every((p) => p?.paused === true), pausedDiffMs, roomPlaying: pausedViews.map((v) => v?.playing ?? null) },
+        paused: { bothPaused: paused.every((p) => p?.paused === true), pausedDiffMs, roomPlaying: pausedViews.map((v) => v.playing) },
         afterPlay,
         seek: { target, positions: seeked.map((s) => s?.currentTime ?? null), lagBehindRoomMs4s: seeked.map(lag), afterSeek, lagBehindRoomMs10s: lagMs },
         notices: await siteNotices(a.page),
@@ -155,7 +155,7 @@ test("M2-twitch-live · pause and play-from-live reach both browsers; no scrubbe
     await a.page.waitForTimeout(3_000);
     const va = await view(a.page);
     const chrome = {
-      live: va?.live ?? null,
+      live: va.live,
       livePill: await a.page.locator('[data-testid="live-pill"]').isVisible(),
       seekVisible: await a.page.locator(site.seek).isVisible(),
     };
@@ -227,7 +227,7 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
     await fa.locator(TWITCH_START_WATCHING).click();
     await expect.poll(() => gateShown(fa), { timeout: 10_000, message: "browser 1's gate goes away" }).toBe(false);
     await a.page.waitForTimeout(3_000);
-    const halfway = { bStillGated: await gateShown(fb), views: (await Promise.all([view(a.page), view(b.page)])).map((v) => ({ playing: v?.playing ?? null, error: v?.error ?? null })) };
+    const halfway = { bStillGated: await gateShown(fb), views: (await Promise.all([view(a.page), view(b.page)])).map((v) => ({ playing: v.playing, error: v.error })) };
     await fb.locator(TWITCH_START_WATCHING).click();
     await expect.poll(() => gateShown(fb), { timeout: 10_000, message: "browser 2's gate goes away" }).toBe(false);
     const ads = await Promise.all([waitMediaPlaying(a, fa), waitMediaPlaying(b, fb)]);
@@ -249,13 +249,13 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
       channel,
       tried,
       hints,
-      gatedViews: gatedViews.map((v) => ({ live: v?.live ?? null, playing: v?.playing ?? null, error: v?.error ?? null })),
+      gatedViews: gatedViews.map((v) => ({ live: v.live, playing: v.playing, error: v.error })),
       halfway,
       adsAfterGate: ads.map((x) => x.length),
       pause: { arrivalMs: pauseArrival, spreadMs: spread(pauseArrival) },
       play: { arrivalMs: playArrival, spreadMs: spread(playArrival) },
       finalPlaying: final.map((s) => (s === null ? null : !s.paused)),
-      finalViews: finalViews.map((v) => ({ playing: v?.playing ?? null, error: v?.error ?? null })),
+      finalViews: finalViews.map((v) => ({ playing: v.playing, error: v.error })),
       notices: await Promise.all([siteNotices(a.page), siteNotices(b.page)]),
     };
     record("m3-twitch-gate", result);
@@ -303,9 +303,9 @@ test("M2-refused · refused, gone, offline and mature-gated embeds: the site say
         ad: s?.ad ?? false,
         overlay: s?.overlay ?? "(no frame)",
         siteNotices: await siteNotices(a.page),
-        playing: v?.playing ?? null,
-        canControl: v?.canControl ?? null,
-        error: v?.error ?? null,
+        playing: v.playing,
+        canControl: v.canControl,
+        error: v.error,
       };
     }
     const notRun = REAL.vimeoRefused === undefined ? ["vimeo-refused: set OMEGA_REAL_VIMEO_REFUSED to a domain-restricted id"] : [];
