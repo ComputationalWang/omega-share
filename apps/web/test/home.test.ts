@@ -200,6 +200,24 @@ describe("your rooms (localStorage omega.rooms)", () => {
     expect(loadRoomSecrets(store).rooms).toEqual({});
   });
 
+  test("a first forget click made before the room list loads stays armed when the list arrives (OME-458)", async () => {
+    rememberRoom(store, ROOM, { ownerToken: OWNER });
+    const { mountHome } = await import("../src/home");
+    const root = document.createElement("section");
+    document.body.replaceChildren(root);
+    let release: (r: Response) => void = () => undefined;
+    const pending = new Promise<Response>((r) => {
+      release = r;
+    });
+    const { ready } = mountHome({ root, serverUrl: SERVER, store, fetch: () => pending, navigate: (path) => navigated.push(path) });
+    byTestId(root, "your-room-forget", HTMLButtonElement).click();
+    release(json(200, { rooms: [] }));
+    await ready;
+    expect(byTestId(root, "your-room-forget", HTMLButtonElement).textContent).toContain("can't undo");
+    byTestId(root, "your-room-forget", HTMLButtonElement).click();
+    expect(loadRoomSecrets(store).rooms).toEqual({});
+  });
+
   test("the list never shows an owner token or invite key", async () => {
     rememberRoom(store, ROOM, { ownerToken: OWNER, inviteKey: KEY });
     const root = await mount();

@@ -85,6 +85,34 @@ describe("rememberRoom / forgetRoom", () => {
     expect(ids).not.toContain("room-1");
   });
 
+  test("invite-only rooms are dropped before any room you own, however old it is (OME-458)", () => {
+    const s = new MemoryStore();
+    rememberRoom(s, ROOM, { ownerToken: OWNER });
+    // 50 well-formed #k= links (each saved before the key is known to work) must not push the owner token out.
+    for (let i = 0; i < MAX_ROOM_SECRETS + 5; i++) rememberRoom(s, `room-${String(i)}`, { inviteKey: KEY });
+    const rooms = loadRoomSecrets(s).rooms;
+    expect(Object.keys(rooms)).toHaveLength(MAX_ROOM_SECRETS);
+    expect(rooms[ROOM]).toEqual({ ownerToken: OWNER });
+    expect(Object.keys(rooms)).not.toContain("room-0");
+    expect(Object.keys(rooms)).toContain(`room-${String(MAX_ROOM_SECRETS + 4)}`);
+  });
+
+  test("with only owned rooms left, the oldest owned room goes", () => {
+    const s = new MemoryStore();
+    for (let i = 0; i < MAX_ROOM_SECRETS + 1; i++) rememberRoom(s, `room-${String(i)}`, { ownerToken: OWNER });
+    const ids = Object.keys(loadRoomSecrets(s).rooms);
+    expect(ids).toHaveLength(MAX_ROOM_SECRETS);
+    expect(ids).not.toContain("room-0");
+    expect(ids).toContain(`room-${String(MAX_ROOM_SECRETS)}`);
+  });
+
+  test("a digit-only id (seeded rooms like /r/7) is never saved: it can't own a secret and would sort as the oldest", () => {
+    const s = new MemoryStore();
+    rememberRoom(s, ROOM, { inviteKey: KEY });
+    expect(rememberRoom(s, "7", { inviteKey: KEY })).toBe(false);
+    expect(Object.keys(loadRoomSecrets(s).rooms)).toEqual([ROOM]);
+  });
+
   test("forgetRoom removes one room and keeps the rest", () => {
     const s = new MemoryStore();
     rememberRoom(s, ROOM, { ownerToken: OWNER });
