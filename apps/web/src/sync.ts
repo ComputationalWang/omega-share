@@ -17,6 +17,9 @@ export const PAUSED_THRESHOLD_MS = 250;
  * seek this far ahead of the room while paused, then play when the room gets there (ADR 0027).
  */
 export const PARK_LEAD_MS = 1000;
+/** A jump further than this lands outside the buffer: park PARK_FAR_LEAD_MS ahead so the target can load first. */
+export const PARK_FAR_MS = 10_000;
+export const PARK_FAR_LEAD_MS = 2000;
 /** Drift is only trusted after the player has been playing this long. */
 export const STABLE_MS = 500;
 export const MAX_NUDGE = 0.1;
@@ -108,7 +111,7 @@ export function decide(i: DecideInput): Correction {
     if (i.mode === "seek-only" && room.playing && i.playerState !== "cued" && i.playerState !== "unstarted" && i.playerState !== "ended") {
       // A paused player near the room is already there: a seek would only drop its buffer (OME-396).
       const near = i.playerState === "paused" && Math.abs(i.playerTime - expected) * 1000 <= SEEK_ONLY_THRESHOLD_MS;
-      return near ? PLAY : park(expected, room, i.startLatencyMs);
+      return near ? PLAY : park(expected, i, room);
     }
     return seekTo(expected, room, hardSeekLatency(i));
   }
@@ -128,7 +131,7 @@ export function decide(i: DecideInput): Correction {
   const drift = median3(i.samples);
   const abs = Math.abs(drift);
   if (i.mode === "seek-only") {
-    if (abs > SEEK_ONLY_THRESHOLD_MS) return park(expected, room, i.startLatencyMs);
+    if (abs > SEEK_ONLY_THRESHOLD_MS) return park(expected, i, room);
     return i.rate !== 1 ? RATE_ONE : NONE;
   }
   if (abs > SEEK_THRESHOLD_MS) return seekTo(expected, room, i.seekLatencyMs);
@@ -162,8 +165,9 @@ function hardSeekLatency(i: DecideInput): number {
 }
 
 /** Far enough ahead that the paused seek has loaded, plus what the play will take, so it starts on the room clock. */
-function park(expected: number, room: PlaybackState, startLatencyMs: number): Correction {
-  return { kind: "park", to: expected + ((PARK_LEAD_MS + startLatencyMs) / 1000) * room.rate };
+function park(expected: number, i: DecideInput, room: PlaybackState): Correction {
+  const lead = Math.abs(i.playerTime - expected) * 1000 > PARK_FAR_MS ? PARK_FAR_LEAD_MS : PARK_LEAD_MS;
+  return { kind: "park", to: expected + ((lead + i.startLatencyMs) / 1000) * room.rate };
 }
 
 function seekTo(expected: number, room: PlaybackState, latencyMs: number): Correction {
@@ -274,6 +278,8 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
   let pendingStart = false;
   /** No start-up sample yet: the first one replaces the 0 prior instead of easing in from it. */
   let startLearned = false;
+  /** The pending start is an unpark: a load stall can make it land late, so it always eases in (OME-396). */
+  let pendingUnpark = false;
   let holdUntil = Number.NEGATIVE_INFINITY;
   let lastPlayAt = Number.NEGATIVE_INFINITY;
   let lastPauseAt = Number.NEGATIVE_INFINITY;
@@ -328,7 +334,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
       if (!pendingStart) {
         input.seekLatencyMs = updateSeekLatency(input.seekLatencyMs, pendingComp, residual);
       } else {
-        input.startLatencyMs = updateSeekLatency(input.startLatencyMs, pendingComp, residual, startLearned ? undefined : 1);
+        input.startLatencyMs = updateSeekLatency(input.startLatencyMs, pendingComp, residual, startLearned || pendingUnpark ? undefined : 1);
         startLearned = true;
       }
       pendingComp = -1;
@@ -380,6 +386,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
         // Learn from a seek while playing, or a resume from paused (OME-392). A cold join
         // (cued, unstarted) includes loading the media, so it would overshoot later resumes.
         pendingStart = st === "paused";
+        pendingUnpark = false;
         pendingComp = !c.play ? -1 : st === "playing" ? input.seekLatencyMs : pendingStart ? input.startLatencyMs : -1;
         unstable(now);
         return;
@@ -399,6 +406,7 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
         lastPlayAt = now;
         p.play();
         pendingStart = true;
+        pendingUnpark = true;
         pendingComp = input.startLatencyMs;
         unstable(now);
         return;
