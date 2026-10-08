@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -84,13 +84,48 @@ describe("deploy/nftables.conf", () => {
   });
 });
 
-describe("deploy/omega-share-backup.*", () => {
-  test("snapshots with VACUUM INTO as the service user, nightly", () => {
-    const svc = read("omega-share-backup.service");
-    expect(read("backup.sh")).toMatch(/sqlite3 .*"\$db" "VACUUM INTO/);
-    expect(unitKeys(svc).get("ExecStart")?.at(-1)).toBe("/usr/local/lib/omega-share/backup.sh");
-    expect(unitKeys(svc).get("User")?.at(-1)).toBe("omega-share");
-    expect(read("omega-share-backup.timer")).toMatch(/OnCalendar=.*\d\d:\d\d/);
+describe("nightly backup wiring (OME-358 engine, OME-363)", () => {
+  const provision = () => read("provision.sh");
+
+  test("the kit ships one backup: deploy/backup/**, no second snapshot script or pull", () => {
+    for (const gone of ["backup.sh", "omega-share-backup.service", "omega-share-backup.timer", "pull-backups.sh"]) {
+      expect(existsSync(join(DEPLOY, gone)), gone).toBe(false);
+      expect(provision()).not.toContain(`"$here/${gone}"`);
+    }
+  });
+
+  test("provision makes a 0700 service-user backup dir and enables the timer from deploy/backup", () => {
+    expect(provision()).toContain("install -d -m 0700 -o omega-share -g omega-share /var/backups/omega-share");
+    expect(provision()).toContain('install -m 0644 "$here/backup/omega-share-backup.service" "$here/backup/omega-share-backup.timer" /etc/systemd/system/');
+    expect(provision()).toMatch(/systemctl enable --now omega-share-backup\.timer/);
+  });
+
+  test("provision checks the pull sudoers rule with visudo -cf before installing it 0440", () => {
+    const p = provision();
+    const check = p.indexOf('visudo -cf "$here/backup/sudoers.omega-backup"');
+    const put = p.indexOf('install -m 0440 "$here/backup/sudoers.omega-backup" /etc/sudoers.d/omega-backup');
+    expect(check).toBeGreaterThan(-1);
+    expect(put).toBeGreaterThan(check);
+    const rules = read("backup/sudoers.omega-backup").split("\n").filter((l) => l.trim() !== "" && !l.startsWith("#"));
+    expect(rules).toEqual(["deploy ALL=(omega-share) NOPASSWD: /usr/bin/rsync --server --sender *"]);
+  });
+
+  test("the snapshot unit uses the server unit's user, DB, env file, Bun and checkout, and waits for the DB", () => {
+    const server = unitKeys(read("omega-share.service"));
+    const backup = unitKeys(read("backup/omega-share-backup.service"));
+    expect(backup.get("User")?.at(-1)).toBe(server.get("User")?.at(-1));
+    const dbPath = (keys: Map<string, string[]>) => keys.get("Environment")?.find((e) => e.startsWith("DB_PATH="));
+    expect(dbPath(backup)).toBe(dbPath(server));
+    expect(server.get("EnvironmentFile")?.at(-1)).toBe("-/etc/omega-share/env");
+    expect(backup.get("EnvironmentFile")?.at(-1)).toBe("-/etc/omega-share/env");
+    const [bun, entry] = (server.get("ExecStart")?.at(-1) ?? "").split(" ");
+    const app = entry?.replace(/\/apps\/server\/src\/index\.ts$/, "");
+    expect(backup.get("ExecStart")?.at(-1)).toBe(`${bun ?? ""} ${app ?? ""}/apps/server/scripts/backup.ts snapshot`);
+    expect(backup.get("ConditionPathExists")?.at(-1)).toBe("/var/lib/omega-share/omega.db");
+  });
+
+  test("a release carries apps/server, so the snapshot script ships with every deploy", () => {
+    expect(read("deploy.sh")).toMatch(/archive "\$rel" [^\n]*apps\/server /);
   });
 });
 
@@ -160,18 +195,6 @@ describe("review hardening (OME-356)", () => {
       if (!connCount) expect(body).toMatch(/timeout \d+m;/);
     }
     expect(nft).toMatch(/add @ssh_meter6 \{ ip6 saddr and ffff:ffff:ffff:ffff:: limit rate/);
-  });
-
-  test("the in-progress snapshot never matches the published name, and the pull takes dated files only", () => {
-    expect(read("backup.sh")).toMatch(/tmp="\$dir\/\.omega-new\.db"/);
-    expect(read("backup.sh")).toContain(".timeout 5000");
-    expect(read("pull-backups.sh")).toContain("omega-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].db");
-    expect(read("pull-backups.sh")).not.toMatch(/'omega-\*\.db'/);
-  });
-
-  test("the backup unit waits for the DB; the off-box pull fails when the newest snapshot is stale", () => {
-    expect(unitKeys(read("omega-share-backup.service")).get("ConditionPathExists")?.at(-1)).toBe("/var/lib/omega-share/omega.db");
-    expect(read("pull-backups.sh")).toMatch(/-mmin -\d+/);
   });
 
   test("the server unit tolerates a burst of restarts", () => {

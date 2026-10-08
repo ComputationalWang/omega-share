@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, truncateSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, truncateSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_LAYOUT, type RoomLayout, type RoomListResponse } from "@omega/shared";
@@ -374,6 +374,17 @@ describe("pull.sh (off-box copy, run on the operator's machine)", () => {
     expect(readdirSync(dest).sort()).toEqual(names([7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]));
     expect(mode(dest)).toBe(0o700);
     for (const f of readdirSync(dest)) expect(mode(join(dest, f))).toBe(0o600);
+  });
+
+  test("fails loudly when the newest snapshot on the box is older than 36 h (the backup alarm)", () => {
+    const src = box();
+    const old = new Date(Date.now() - 37 * 3600_000);
+    for (const f of readdirSync(src)) utimesSync(join(src, f), old, old);
+    const dest = join(tmp(), "offbox");
+    const r = pull({ OMEGA_BACKUP_SOURCE: `${src}/`, OMEGA_BACKUP_DEST: dest, OMEGA_BACKUP_RSYNC_PATH: "rsync" });
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("older than 36 h");
+    expect(readdirSync(dest)).toHaveLength(14);
   });
 
   test("a failed pull prunes nothing", () => {
