@@ -15,6 +15,14 @@ export const AD_FROZEN_MS = 2000;
 export const READY_TIMEOUT_MS = 10_000;
 /** Extrapolation past the last pushed time is capped, as YouTube's widget does (research M2 §6.2). */
 const MAX_EXTRAPOLATE_S = 1;
+/**
+ * The iframe's periodic UPDATE_STATE (~1.06 s) carries a currentTime this old while playing (196–211 ms measured,
+ * ADR 0027). Pushes right after play/seek are fresh; the previous reading carried forward catches those.
+ */
+export const PUSH_LAG_MS = 200;
+const PUSH_LAG_S = PUSH_LAG_MS / 1000;
+/** A playing reading this close above the carried previous one is the same timeline (a fresh push), not a jump. */
+const SAME_TIMELINE_S = 2 * PUSH_LAG_S;
 
 const ONE: readonly number[] = [1];
 const EVENTS: readonly TwitchEventName[] = ["ready", "play", "playing", "pause", "ended", "online", "offline", "playbackBlocked", "seek", "error"];
@@ -29,6 +37,8 @@ export interface TwitchAttachOptions<Timer> {
   readonly now: () => number;
   readonly setTimeout: (fn: () => void, ms: number) => Timer;
   readonly clearTimeout: (t: Timer) => void;
+  /** Subscribe to the page's postMessages by `source`; returns unsubscribe. The SDK updates its cache from them. */
+  readonly messages: (fn: (source: unknown) => void) => () => void;
 }
 
 /**
@@ -54,31 +64,55 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
   let seekSentAt = Number.NEGATIVE_INFINITY;
   // Media clock (VOD): the SDK's cached currentTime only changes on the iframe's pushes, so keep
   // the last value read, and when our view of it (`base`) last moved, and extrapolate from there.
+  // The cache is read as each of our iframe's messages arrives, so `baseAt` is the push's arrival.
   let cached = Number.NaN;
   let base = 0;
   let baseAt = o.now();
   let playback = "";
+  /** The previous playing reading (lag added) and when (ms); -Infinity = none since the clock last stopped or jumped. */
+  let prevRead = 0;
+  let prevReadAt = Number.NEGATIVE_INFINITY;
+  const frameWindow: unknown = iframeWindow(container);
 
   const emit = (e: PlayerEvent) => {
     if (destroyed) return;
     for (const l of listeners) l(e);
   };
 
-  /** Read the SDK's cache. No allocation: runs on every sync tick. */
+  const moved = (at: number, now: number): void => {
+    base = at;
+    baseAt = now;
+    prevRead = at;
+    prevReadAt = now;
+  };
+  /** Read the SDK's cache. No allocation: runs on every sync tick and our iframe's messages. */
   const sample = (): void => {
     const now = o.now();
-    const t = player.getCurrentTime();
-    if (typeof t === "number" && Number.isFinite(t) && t >= 0 && t !== cached) {
-      cached = t;
-      base = t;
-      baseAt = now;
-    }
     const pb = readPlayback();
     if (pb !== playback) {
       playback = pb;
+      // The clock starts or stops here, from where it is.
+      moved(base, now);
+    }
+    const t = player.getCurrentTime();
+    if (typeof t === "number" && Number.isFinite(t) && t >= 0 && t !== cached) {
+      cached = t;
+      if (live || playback !== "Playing") {
+        base = t;
+        prevReadAt = Number.NEGATIVE_INFINITY;
+      } else {
+        const read = t + PUSH_LAG_S;
+        const carried = prevRead + (now - prevReadAt) / 1000;
+        base = carried < read && read - carried <= SAME_TIMELINE_S ? carried : read;
+        prevRead = read;
+        prevReadAt = now;
+      }
       baseAt = now;
     }
   };
+  const offMessages = o.messages((source) => {
+    if (source === frameWindow && isReady && !destroyed) sample();
+  });
   function readPlayback(): string {
     const s = player.getPlayerState?.();
     if (typeof s === "object" && s !== null && "playback" in s && typeof s.playback === "string") return s.playback;
@@ -138,8 +172,7 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     }
     const at = typeof params === "object" && params !== null && "position" in params ? params.position : undefined;
     const position = typeof at === "number" && Number.isFinite(at) && at >= 0 ? at : time();
-    base = position;
-    baseAt = now;
+    moved(position, now);
     if (expected === null || settled === null) return;
     emit({ type: "intent", playing: settled === "playing", position });
   };
@@ -209,8 +242,7 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     seek(seconds) {
       if (!usable() || live) return;
       seekSentAt = o.now();
-      base = seconds;
-      baseAt = seekSentAt;
+      moved(seconds, seekSentAt);
       player.seek(seconds);
     },
     setRate() {
@@ -241,6 +273,7 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
       destroyed = true;
       isReady = false;
       o.clearTimeout(readyTimer);
+      offMessages();
       listeners.clear();
       for (const name of EVENTS) player.removeEventListener(name, handlers[name]);
       player.destroy?.();
@@ -257,6 +290,12 @@ function errorReason(code: string): PlayerErrorReason {
 /** The frame is this embed's: same content id, so the post-render check compares against the room's video. */
 function frameIsEmbed(f: TvTwitch, e: TwitchEmbed): boolean {
   return e.kind === "live" ? f.options.channel === e.channel : f.options.video === `v${e.videoId}`;
+}
+
+/** The window our player's messages come from: the SDK's iframe, rendered synchronously by the Player constructor. */
+function iframeWindow(container: HTMLElement): unknown {
+  const f = container.children[0];
+  return f !== undefined && "contentWindow" in f ? f.contentWindow : null;
 }
 
 /** The post-render check (research M2 §4.1): exactly one iframe in our container, and it is the room's player. */
@@ -281,6 +320,15 @@ export function createTwitchMount(load: () => Promise<TwitchLoad>): AdapterFacto
       setTimeout: (fn, ms) => setTimeout(fn, ms),
       clearTimeout: (t) => {
         clearTimeout(t);
+      },
+      messages: (fn) => {
+        const h = (e: MessageEvent) => {
+          fn(e.source);
+        };
+        addEventListener("message", h);
+        return () => {
+          removeEventListener("message", h);
+        };
       },
     });
     if (player === null || !renderedOk(box, frame)) {
