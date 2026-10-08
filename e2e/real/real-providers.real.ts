@@ -12,7 +12,7 @@ import type { Client } from "./real";
 
 test.beforeAll(requireVirtualDisplay);
 
-/** docs/perf-budgets.md, Sync row. */
+/** docs/perf-budgets.md, Sync row. Checked on offsets held for two samples in a row: ./spread.ts (OME-377). */
 const SPREAD_BUDGET_MS = 500;
 
 test.setTimeout(300_000);
@@ -84,7 +84,7 @@ for (const c of seekable) {
       const ads = await Promise.all([waitMediaPlaying(a, fa), waitMediaPlaying(b, fb)]);
       await a.page.waitForTimeout(5_000);
       const va = await view(a.page);
-      const steady = await mediaSpread(fa, fb, 16, 500);
+      const steady = await mediaSpread(fa, fb, 16, 500, SPREAD_BUDGET_MS);
 
       await a.page.locator(site.playToggle).click();
       await a.page.waitForTimeout(2_500);
@@ -93,7 +93,7 @@ for (const c of seekable) {
 
       await a.page.locator(site.playToggle).click();
       await a.page.waitForTimeout(3_000);
-      const afterPlay = await mediaSpread(fa, fb, 10, 250);
+      const afterPlay = await mediaSpread(fa, fb, 10, 250, SPREAD_BUDGET_MS);
 
       const target = 300;
       const seekAt = Date.now();
@@ -102,7 +102,7 @@ for (const c of seekable) {
       const seeked = await Promise.all([sampleMedia(fa), sampleMedia(fb)]);
       /** How far a player is behind the room clock (target + time since the seek), at that sample's own time. */
       const lag = (s: MediaSample | null): number | null => (s === null ? null : Math.round((target + (s.t - seekAt) / 1000 - s.currentTime) * 1000));
-      const afterSeek = await mediaSpread(fa, fb, 10, 250);
+      const afterSeek = await mediaSpread(fa, fb, 10, 250, SPREAD_BUDGET_MS);
       // Buffering after a seek puts both behind the room clock for a moment; the sync loop must bring them back.
       await a.page.waitForTimeout(6_000);
       const later = await Promise.all([sampleMedia(fa), sampleMedia(fb)]);
@@ -126,14 +126,14 @@ for (const c of seekable) {
       record(`m2-${c.key}`, result);
       expect(result.live, "not live").toBe(false);
       expect(steady.samplesMs.length, "steady samples").toBeGreaterThan(5);
-      expect(steady.maxAbsMs).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
+      expect(steady.heldMaxAbsMs).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
       expect(result.paused.bothPaused, "a pause from browser 1 pauses browser 2's real player").toBe(true);
       expect(Math.abs(pausedDiffMs ?? Infinity)).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
-      expect(afterPlay.maxAbsMs).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
+      expect(afterPlay.heldMaxAbsMs).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
       // Both really moved to the seek target (so <video>.currentTime is the media position, not an MSE timeline).
       for (const l of result.seek.lagBehindRoomMs4s) expect(Math.abs(l ?? Infinity), "near the seek target 4 s after it").toBeLessThan(5_000);
       for (const l of lagMs) expect(Math.abs(l ?? Infinity), "caught up with the room clock 10 s after the seek").toBeLessThan(1_000);
-      expect(afterSeek.maxAbsMs).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
+      expect(afterSeek.heldMaxAbsMs).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
     } finally {
       await closeAll(...browsers);
     }

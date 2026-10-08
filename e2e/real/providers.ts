@@ -5,6 +5,7 @@ import type { Frame, Page } from "@playwright/test";
 import type { PlaybackView } from "../../apps/web/src/controls/playback";
 import { site } from "../support/selectors";
 import type { Client } from "./real";
+import { heldMaxAbsMs, needsConfirmSample } from "./spread";
 
 export type RealProvider = "twitch" | "vimeo";
 
@@ -126,15 +127,20 @@ export async function waitMediaPlaying(c: Client, frame: Frame, timeout = 120_00
 /** How far `a` is ahead of `b` in ms, after moving `b`'s reading to `a`'s sample time at `b`'s rate. */
 const offsetMs = (a: MediaSample, b: MediaSample): number => (a.currentTime - (b.currentTime + ((a.t - b.t) / 1000) * b.playbackRate)) * 1000;
 
-/** Worst |offset| over `n` sample pairs `everyMs` apart; pairs where either side is paused or in an ad are skipped. */
-export async function mediaSpread(a: Frame, b: Frame, n: number, everyMs: number): Promise<{ maxAbsMs: number; samplesMs: number[] }> {
+/**
+ * Offsets over `n` sample pairs `everyMs` apart; pairs where either side is paused or in an ad are skipped.
+ * `maxAbsMs` is the plain worst, kept as evidence; `heldMaxAbsMs` is what budgets check (see ./spread.ts, OME-377).
+ * A window that ends over `budgetMs` takes up to two more samples, so a drift starting at its end still shows.
+ */
+export async function mediaSpread(a: Frame, b: Frame, n: number, everyMs: number, budgetMs = Infinity): Promise<{ maxAbsMs: number; heldMaxAbsMs: number; samplesMs: number[] }> {
   const samplesMs: number[] = [];
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < n + 2; i++) {
+    if (i >= n && !needsConfirmSample(samplesMs, budgetMs)) break;
     const [sa, sb] = await Promise.all([sampleMedia(a), sampleMedia(b)]);
     if (sa !== null && sb !== null && !sa.paused && !sb.paused && !sa.ad && !sb.ad) samplesMs.push(Math.round(offsetMs(sa, sb)));
     await new Promise((r) => setTimeout(r, everyMs));
   }
-  return { maxAbsMs: samplesMs.length === 0 ? Number.NaN : Math.max(...samplesMs.map(Math.abs)), samplesMs };
+  return { maxAbsMs: samplesMs.length === 0 ? Number.NaN : Math.max(...samplesMs.map(Math.abs)), heldMaxAbsMs: heldMaxAbsMs(samplesMs), samplesMs };
 }
 
 /** Our shared seek bar, driven like a user dragging it. */
