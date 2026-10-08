@@ -165,6 +165,21 @@ export function snapshot(dbPath: string, dir: string, now: Date = new Date()): s
   return final;
 }
 
+/**
+ * Folds `dbPath`'s -wal into the main file and empties it. A stopped server (no SIGTERM handler)
+ * leaves committed frames there that the main file alone doesn't have. Throws when another
+ * connection holds the DB, i.e. the server is still running.
+ */
+function checkpoint(dbPath: string): void {
+  const db = new Database(dbPath, { readwrite: true, create: false, strict: true });
+  try {
+    const r = db.query<{ busy: number }, []>("PRAGMA wal_checkpoint(TRUNCATE)").get();
+    if (r?.busy !== 0) throw new Error(`${dbPath} is busy: stop the server first`);
+  } finally {
+    db.close();
+  }
+}
+
 /** A hard link where the filesystem allows one (instant, no space), else a full copy. */
 function keepAside(from: string, to: string): void {
   try {
@@ -179,7 +194,7 @@ const stamp = (now: Date): string => now.toISOString().replace(/[-:]/g, "").repl
 
 /**
  * Replaces `dbPath` with a verified copy of `snapshotPath`. The server must be stopped. Nothing at
- * `dbPath` changes unless the snapshot passes; the old DB (with its -wal) is kept aside as
+ * `dbPath` changes unless the snapshot passes; the old DB (its -wal checkpointed in) is kept aside as
  * `<db>.pre-restore-<stamp>`, so a restore can be undone, and `dbPath` is never missing midway. A stale -wal/-shm never meets the new file.
  */
 export function restore(snapshotPath: string, dbPath: string, now: Date = new Date()): { rooms: number; previous: string | null } {
@@ -198,13 +213,19 @@ export function restore(snapshotPath: string, dbPath: string, now: Date = new Da
     throw new Error(`refusing to restore ${snapshotPath}: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // The old DB is linked (or copied) aside, never moved: DB_PATH exists at every instant, and the
-  // rename below replaces it atomically. A death before it leaves the old DB in place.
+  // The old DB, its WAL folded in first, is linked (or copied) aside, never moved: DB_PATH exists
+  // whole at every instant, and the rename below replaces it atomically. A death before it leaves
+  // the old DB in place.
   let previous: string | null = null;
   if (existsSync(dbPath)) {
+    try {
+      checkpoint(dbPath);
+    } catch (err) {
+      rmSync(tmp, { force: true });
+      throw new Error(`refusing to restore over ${dbPath}: ${err instanceof Error ? err.message : String(err)}`);
+    }
     previous = `${dbPath}.pre-restore-${stamp(now)}`;
     keepAside(dbPath, previous);
-    if (existsSync(`${dbPath}-wal`)) renameSync(`${dbPath}-wal`, `${previous}-wal`);
     fsyncPath(dir);
   }
   for (const f of [`${dbPath}-wal`, `${dbPath}-shm`, `${dbPath}-journal`]) rmSync(f, { force: true });
