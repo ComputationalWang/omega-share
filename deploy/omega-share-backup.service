@@ -1,0 +1,18 @@
+# Runs deploy/backup.sh (VACUUM INTO snapshot) as the service user. Started by the timer.
+[Unit]
+Description=omega-share nightly DB snapshot
+
+[Service]
+Type=oneshot
+User=omega-share
+Group=omega-share
+UMask=0027
+ExecStart=/usr/local/lib/omega-share/backup.sh
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ReadWritePaths=/var/lib/omega-share /var/backups/omega-share
+CapabilityBoundingSet=

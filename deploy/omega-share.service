@@ -1,0 +1,57 @@
+# omega-share server (ADR 0020). Installed to /etc/systemd/system by deploy/provision.sh.
+# Loopback only: Caddy on the same box is the only way in. Hardening per research D7.
+[Unit]
+Description=omega-share server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=omega-share
+Group=omega-share
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=8787
+Environment=TRUST_PROXY=loopback
+Environment=PUBLIC_ORIGIN=https://omega-share.duckdns.org
+Environment=SITE_ORIGIN=https://omega-share.duckdns.org
+Environment=STATIC_DIR=/opt/omega-share/current/apps/web/dist
+Environment=DB_PATH=/var/lib/omega-share/omega.db
+ExecStart=/usr/local/bin/bun /opt/omega-share/current/apps/server/src/index.ts
+Restart=on-failure
+RestartSec=2
+StateDirectory=omega-share
+StateDirectoryMode=0700
+
+# Sandbox
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/omega-share
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RemoveIPC=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+UMask=0077
+MemoryMax=512M
+TasksMax=256
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

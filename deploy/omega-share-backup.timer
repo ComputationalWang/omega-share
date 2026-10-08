@@ -1,0 +1,10 @@
+[Unit]
+Description=omega-share nightly DB snapshot
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

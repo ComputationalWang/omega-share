@@ -1,0 +1,9 @@
+// The deploy user may start, stop and restart omega-share.service, and nothing else (ADR 0020).
+polkit.addRule(function (action, subject) {
+  if (action.id === "org.freedesktop.systemd1.manage-units" &&
+      action.lookup("unit") === "omega-share.service" &&
+      ["start", "stop", "restart"].indexOf(action.lookup("verb")) !== -1 &&
+      subject.user === "deploy") {
+    return polkit.Result.YES;
+  }
+});

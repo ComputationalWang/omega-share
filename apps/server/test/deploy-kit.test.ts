@@ -75,7 +75,7 @@ describe("deploy/nftables.conf", () => {
 
   test("drops by default and opens only 22, 80 and 443", () => {
     expect(nft).toMatch(/type filter hook input priority 0; policy drop;/);
-    const ports = [...nft.matchAll(/dport \{?\s*([\d, ]+?)\s*\}? /g)].flatMap((m) => (m[1] ?? "").split(/[,\s]+/).filter(Boolean));
+    const ports = [...nft.matchAll(/dport (\{[^}]*\}|\d+)/g)].flatMap((m) => (m[1] ?? "").match(/\d+/g) ?? []);
     expect(new Set(ports)).toEqual(new Set(["22", "80", "443"]));
   });
 
@@ -87,7 +87,8 @@ describe("deploy/nftables.conf", () => {
 describe("deploy/omega-share-backup.*", () => {
   test("snapshots with VACUUM INTO as the service user, nightly", () => {
     const svc = read("omega-share-backup.service");
-    expect(svc).toContain("VACUUM INTO");
+    expect(read("backup.sh")).toMatch(/sqlite3 "\$db" "VACUUM INTO/);
+    expect(unitKeys(svc).get("ExecStart")?.at(-1)).toBe("/usr/local/lib/omega-share/backup.sh");
     expect(unitKeys(svc).get("User")?.at(-1)).toBe("omega-share");
     expect(read("omega-share-backup.timer")).toMatch(/OnCalendar=.*\d\d:\d\d/);
   });

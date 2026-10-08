@@ -1,0 +1,13 @@
+# Caddy in front of the loopback server (ADR 0020). TLS by ACME; HTTP redirects to HTTPS.
+# The server owns CSP, HSTS and every security header, and the client IP: Caddy appends the
+# peer to X-Forwarded-For and ignores the client's own value (no proxy is trusted). No access log (D6).
+{
+	servers {
+		protocols h1 h2
+	}
+}
+
+omega-share.duckdns.org {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8787
+}

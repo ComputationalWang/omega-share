@@ -1,0 +1,8 @@
+// omega-share (ADR 0020): also take Caddy updates from its own repo, and reboot for kernel
+// updates at a quiet hour. Ubuntu's 50unattended-upgrades keeps the security pockets.
+Unattended-Upgrade::Origins-Pattern {
+	"site=dl.cloudsmith.io,label=caddy-stable";
+};
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:30";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
