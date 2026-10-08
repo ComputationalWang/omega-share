@@ -96,3 +96,8 @@ legend { padding: 0; margin-bottom: 6px; }
 .tv-hint { margin: 0 0 8px; }
 .chat[data-cooldown="true"] input, .chat[data-cooldown="true"] button { opacity: 0.6; }
 .room-full .enter { display: inline-block; margin-top: 12px; text-decoration: none; }
+
+.privacy { max-width: 640px; margin: 6vh auto; padding: 0 16px; line-height: 1.5; }
+.privacy h2 { margin: 1.4em 0 0.3em; font-size: 1.1rem; }
+.privacy p { margin: 0 0 0.8em; }
+.privacy a { color: var(--accent); }

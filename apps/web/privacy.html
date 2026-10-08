@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://www.youtube.com/iframe_api https://www.youtube.com/s/player/ https://player.twitch.tv/js/embed/v1.js https://player.vimeo.com/api/player.js; style-src 'self'; img-src 'self' data:; connect-src 'self' ws://localhost:8787 http://localhost:8787 ws://localhost:5173; worker-src 'self'; frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://player.vimeo.com https:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>Privacy · omega-share</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main class="privacy">
+      <h1>Privacy</h1>
+      <p>omega-share has no accounts, no cookies, no analytics and no tracking. This page says what we keep, where, and for how long.</p>
+
+      <h2>In your browser</h2>
+      <p>Your nickname and avatar are stored in your browser (local storage) so you don't have to pick them again. They are sent to the room you join while you are in it, and are never written to our disk. Clear your site data to remove them.</p>
+
+      <h2>On our server</h2>
+      <p>Each room is one database row: its id, title, layout, the video being shown, whether it is public or private, timestamps, and a hash of the room's owner key and invite key. We keep hashes, never the keys themselves. A room title is whatever its creator typed, so don't put a real name in it. The room's owner can delete the room at any time, and that removes the whole row.</p>
+      <p>We store no IP addresses, no accounts, no email addresses and no record of who created or joined a room.</p>
+
+      <h2>In memory only</h2>
+      <p>To stop floods and abuse, rate limits count requests per network address in memory only. Those counts are never written to disk and are gone when the server restarts. Who is in a room right now, and what they are watching, is also held in memory only.</p>
+
+      <h2>Backups and logs</h2>
+      <p>Nightly backups of the room database are kept for 14 days, so a deleted room is gone from them after at most 14 days. The web server keeps no access log, and system logs are deleted after 14 days.</p>
+
+      <h2>Videos</h2>
+      <p>A video plays in the provider's own player (YouTube, Twitch or Vimeo), which loads in your browser while you are in the room, so that provider sees your visit under its own privacy policy. Any other shared page loads only when you click it.</p>
+
+      <h2>Questions and deletion</h2>
+      <p>Because nothing ties a room to a person, we can't look up "your" data. If a room needs to go and you can't delete it yourself, open an issue on the project's source repository and the operator will remove it.</p>
+      <p><a href="/">Back to omega-share</a></p>
+    </main>
+    <footer class="site-footer">
+      <a href="%OMEGA_SOURCE_URL%" target="_blank" rel="noopener noreferrer" data-testid="source-link">Source</a> · <a href="/privacy.html" data-testid="privacy-link" aria-current="page">Privacy</a>
+    </footer>
+  </body>
+</html>

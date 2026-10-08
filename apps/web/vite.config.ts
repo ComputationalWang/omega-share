@@ -25,5 +25,11 @@ function sourceLink(mode: string): Plugin {
 
 export default defineConfig(({ mode }) => ({
   plugins: [cspDevOrigins(mode), sourceLink(mode)],
-  build: { target: "es2023", sourcemap: true, reportCompressedSize: true },
+  build: {
+    target: "es2023",
+    sourcemap: true,
+    reportCompressedSize: true,
+    // The privacy notice (OME-411) is a second, script-free page; it adds nothing to the room's JS.
+    rolldownOptions: { input: { index: "index.html", privacy: "privacy.html" } },
+  },
 }));
