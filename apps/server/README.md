@@ -18,7 +18,10 @@ bun run --filter @omega/server start   # or `dev` to restart on file changes
 
 ## API
 
-- `GET /rooms` → `RoomListResponse`
+- `GET /rooms` → `RoomListResponse`: public rooms only, pinned (seeded) rooms first, then the busiest, then the newest; titles shown, rooms whose title matches `ROOM_TITLE_BLOCKLIST` left out.
+- `POST /rooms` with `{ title, visibility }` → 201 `CreateRoomResponse` (ADR 0028). The server picks a 26-char base32 id and starts from `DEFAULT_LAYOUT`. The owner token (and, for a private room, the invite key) is only in the `no-store` body; the store keeps their SHA-256. 400 `invalid_body`, 413 `payload_too_large` (> 1 KB), 429 `rate_limited` (2 per key, then 1 / 10 min; 10 server-wide, then 1 / min), 503 `too_many_rooms` at `MAX_ROOMS` (never evicts).
+- `DELETE /rooms/:id` with `Authorization: Bearer <ownerToken>` → `DeleteRoomResponse`. 404, then 401 (failed attempts take from a per-key bucket → 429). The room's sockets close with `ROOM_CLOSED` (4004), their share grants are revoked, then the row is deleted. Seeded rooms have no owner.
+- `/r/*` responses carry `X-Robots-Tag: noindex, nofollow`.
 - `POST /rooms/:id/share` with `{ url }` → `ShareResponse`. The server runs `canonicalizeEmbed` itself. Returns 400 `invalid_body` / `unsupported_url`, 404 `room_not_found`, 413 `payload_too_large` (> 4 KB), and 403 for a foreign `Origin`. On success, it broadcasts `embed-changed` (`by: null`) with the new embed's `load` playback.
 - `GET /rooms/:id/ws` upgrades to a WebSocket. Unknown room → 404, foreign `Origin` → 403. Every frame is parsed with `parseClientMessage`. Invalid frames get `error bad_message` and are otherwise ignored. Frames over 4 KB close the socket (`maxPayloadLength`).
 

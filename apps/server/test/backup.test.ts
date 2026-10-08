@@ -50,7 +50,7 @@ function seed(path = join(tmp(), "live/omega.db"), extra = 0): string {
   store.createRoom({ id: "lobby", title: "", createdAt: 1, layout: DEFAULT_LAYOUT });
   store.createRoom({ id: "den", title: "Den", createdAt: 2, layout: MOVED });
   db.transaction(() => {
-    for (let i = 0; i < extra; i++) store.createRoom({ id: `seed-${String(i)}`, title: "x".repeat(200), createdAt: 3 + i, layout: DEFAULT_LAYOUT });
+    for (let i = 0; i < extra; i++) store.createRoom({ id: `seed-${String(i)}`, title: "x".repeat(32), createdAt: 3 + i, layout: DEFAULT_LAYOUT });
   })();
   // Out of WAL, so no checkpoint can rewrite the file later (a deferred close) and the byte
   // comparisons below see only what restore does.

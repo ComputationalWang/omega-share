@@ -14,6 +14,7 @@ import { newShareGrant, plain, type ShareGrant } from "./http";
 import { KeyedLimiter, TokenBucket, isLoopbackKey, monotonic, type Clock } from "./rate-limit";
 import type { Room } from "./room";
 import type { RoomRegistry } from "./rooms";
+import { mintSecret } from "./secrets";
 
 export interface ConnData {
   room: Room;
@@ -73,14 +74,12 @@ const MAX_BAD_MESSAGES = 20;
 /** Bun closes a socket (1006) whose unsent data passes this, instead of buffering up to 16 MB. */
 const BACKPRESSURE_LIMIT = 256 * 1024;
 const IDLE_TIMEOUT_S = 60;
-/** Until C1/S2 bring ROOM_CLOSED (4004): the standard "going away". */
-const ROOM_GONE = 1001;
 /** At most one `member-status` per member per this, trailing edge (ADR 0019 §3). */
 const STATUS_INTERVAL_MS = 1000;
 
 const encode = (msg: ServerMessage): string => JSON.stringify(msg);
 /** 16 random bytes, base64url without padding: 22 chars (ADR 0015). */
-const mintShareToken = (): ShareToken => Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64url");
+const mintShareToken = (): ShareToken => mintSecret();
 
 export interface WsDeps {
   /** Sockets that have not joined within this are closed. */
@@ -303,7 +302,7 @@ export function createWs({
     for (const ws of [...open]) {
       clearJoinTimer(ws);
       if (ws.data.memberId !== null) depart(ws, ws.data.memberId, true);
-      ws.close(ROOM_GONE, "room closed");
+      ws.close(CLOSE_CODES.ROOM_CLOSED, "room closed");
     }
   });
 
@@ -339,7 +338,7 @@ export function createWs({
       open(ws) {
         // Upgraded as its room went.
         if (!rooms.has(ws.data.room)) {
-          ws.close(ROOM_GONE, "room closed");
+          ws.close(CLOSE_CODES.ROOM_CLOSED, "room closed");
           return;
         }
         sockets.get(ws.data.room).add(ws);

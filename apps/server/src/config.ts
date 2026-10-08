@@ -28,6 +28,8 @@ export interface ServerConfig {
   genericEmbedDenylist: string[];
   /** Our hostnames, normalised: `localhost` plus the site's and the public origin's DNS hosts (§1). */
   ownHosts: string[];
+  /** `ROOM_TITLE_BLOCKLIST`: terms a room title may not contain, folded for case and lookalikes (ADR 0028, research S8). */
+  roomTitleBlocklist: string[];
 }
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -141,5 +143,9 @@ export function parseConfig(env: Env): ServerConfig {
     genericEmbeds: rawGeneric === "on",
     genericEmbedDenylist,
     ownHosts: ownHostsFor(siteOrigin, publicOrigin),
+    roomTitleBlocklist: (env["ROOM_TITLE_BLOCKLIST"] ?? "")
+      .split(",")
+      .map((term) => term.trim())
+      .filter((term) => term !== ""),
   };
 }

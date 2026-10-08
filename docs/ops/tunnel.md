@@ -58,6 +58,7 @@ Parsed at startup. A bad value exits non-zero with a message naming the variable
 | `EXTENSION_IDS` | unset (any id) | Comma-separated extension ids allowed as an `Origin`. |
 | `GENERIC_EMBEDS` | `on` | `on` or `off` (anything else fails startup). `off` is the generic embed tier's kill switch (ADR 0024 §5): generic URLs get `unsupported_url`, a stored generic embed is restored as no embed, and the CSP `frame-src` drops `https:`. |
 | `GENERIC_EMBED_DENYLIST` | empty | Comma-separated domains refused as generic embeds, each with its subdomains (ADR 0024 §6). A denied host gets `unsupported_url`. An entry that is not a bare hostname fails startup. |
+| `ROOM_TITLE_BLOCKLIST` | empty | Comma-separated terms a room title may not contain, matched ignoring case and lookalike letters (`BADW0RD` matches `badword`). A matching title gets `invalid_body` on `POST /rooms`, and existing rooms whose titles match drop out of `GET /rooms` (ADR 0028). |
 
 Limits behind the proxy: 10 sockets per client, 200 in total (503 past that). Shares: burst 5 then 1 per 3 s, per client and per member, and burst 20 then 2/s overall. Unauthorized share attempts have their own per-client bucket (burst 20, 1/s), so token guessing can't use up a member's allowance.
 

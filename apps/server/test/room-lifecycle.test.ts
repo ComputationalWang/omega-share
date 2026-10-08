@@ -75,7 +75,7 @@ describe("RoomRegistry.removeRoom", () => {
     const store: RoomPersistence = {
       listRooms: () => [],
       createRoom: () => undefined,
-      deleteRoom: () => undefined,
+      deleteRoom: () => true,
       setEmbed: (id: RoomId) => {
         stored.push(id);
       },

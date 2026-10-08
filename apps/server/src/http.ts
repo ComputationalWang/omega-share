@@ -2,11 +2,24 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import * as v from "valibot";
 import {
+  CreateRoomRequestSchema,
+  DEFAULT_LAYOUT,
+  MAX_CREATE_BODY_BYTES,
   MAX_LISTED_ROOMS,
+  MAX_ROOMS,
   RETRY_AFTER_MAX_MS,
+  ROOM_CREATE_GLOBAL_BURST,
+  ROOM_CREATE_GLOBAL_REFILL_MS,
+  ROOM_CREATE_KEY_BURST,
+  ROOM_CREATE_KEY_REFILL_MS,
   ShareRequestSchema,
+  parseBearer,
   parseShareAuthorization,
   type AnyEmbed,
+  type CreateRoomErrorCode,
+  type CreateRoomResponse,
+  type DeleteRoomErrorCode,
+  type DeleteRoomResponse,
   type MemberId,
   type RoomListResponse,
   type ServerMessage,
@@ -17,9 +30,11 @@ import {
 import type { EmbedPolicy } from "./embed-policy";
 import type { SecurityHeaders } from "./headers";
 import { KeyedLimiter, TokenBucket, isLoopbackKey, readBodyCapped, type Clock } from "./rate-limit";
-import type { Room } from "./room";
+import { Room } from "./room";
 import type { RoomRegistry } from "./rooms";
+import { hashSecret, mintSecret, newRoomId } from "./secrets";
 import { mountSite } from "./static";
+import type { NewRoom } from "./store/rooms";
 
 /** Share bodies are `{ url }` with url ≤ 2048 chars; anything bigger is refused unread. */
 const MAX_SHARE_BODY_BYTES = 4096;
@@ -35,6 +50,11 @@ const GLOBAL_SHARE_PER_SECOND = 2;
 /** Per room: 2 switches at once, then one every 10 s (threat model §6; any member may share until B1). */
 const ROOM_SHARE_BURST = 2;
 const ROOM_SHARE_PER_SECOND = 0.1;
+/** Per client: failed `DELETE /rooms/:id` attempts (bad or missing owner token), as for shares. */
+const FAILED_DELETE_BURST = 20;
+const FAILED_DELETE_PER_SECOND = 1;
+/** Site routes (`/r/<id>`): a private room's link posted somewhere public must not be indexed (ADR 0028 §4). */
+const ROBOTS = "noindex, nofollow";
 /**
  * Per client key, every HTTP route (threat model §10). A cold page load is about 30 requests (index, JS
  * chunks, CSS, atlas, source maps with devtools open, `/rooms`), so a burst of 120 covers a load and a few
@@ -100,9 +120,39 @@ export interface HttpDeps {
   /** `securityHeaders(embeds.genericEmbeds)`, set on every response. */
   headers: SecurityHeaders;
   staticDir: string | null;
+  /** Writes a created room to the store (ADR 0028); throws if it can't. */
+  persistRoom: (room: NewRoom) => void;
+  /** Whether a (normalised) room title contains a ROOM_TITLE_BLOCKLIST term. */
+  titleBlocked: (title: string) => boolean;
 }
 
-export function createHttpApp({ rooms, shareGrant, now, isAllowedOrigin, ipOf, publish, persistEmbed, embeds, headers, staticDir }: HttpDeps): Hono {
+/**
+ * Pinned rooms first, in seed order (the lobby leads), so a flood of new rooms can't push them out;
+ * then created rooms, the busiest first, then the newest (research §3.5).
+ */
+function listOrder(a: Room, b: Room): number {
+  if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+  if (a.pinned) return a.createdAt - b.createdAt;
+  return b.summary().memberCount - a.summary().memberCount || b.createdAt - a.createdAt;
+}
+
+export function createHttpApp({
+  rooms,
+  shareGrant,
+  now,
+  isAllowedOrigin,
+  ipOf,
+  publish,
+  persistEmbed,
+  embeds,
+  headers,
+  staticDir,
+  persistRoom,
+  titleBlocked,
+}: HttpDeps): Hono {
+  const creates = new KeyedLimiter(ROOM_CREATE_KEY_BURST, 1000 / ROOM_CREATE_KEY_REFILL_MS, 1024, now);
+  const globalCreates = new TokenBucket(ROOM_CREATE_GLOBAL_BURST, 1000 / ROOM_CREATE_GLOBAL_REFILL_MS, now);
+  const failedDeletes = new KeyedLimiter(FAILED_DELETE_BURST, FAILED_DELETE_PER_SECOND, 1024, now);
   const shareLimiter = new KeyedLimiter(SHARE_BURST, SHARE_PER_SECOND, 1024, now);
   const globalShares = new TokenBucket(GLOBAL_SHARE_BURST, GLOBAL_SHARE_PER_SECOND, now);
   const failedShares = new KeyedLimiter(FAILED_SHARE_BURST, FAILED_SHARE_PER_SECOND, 1024, now);
@@ -113,24 +163,109 @@ export function createHttpApp({ rooms, shareGrant, now, isAllowedOrigin, ipOf, p
   app.use("*", async (c, next) => {
     await next();
     for (const [k, value] of Object.entries(headers)) c.res.headers.set(k, value);
+    if (c.req.path.startsWith("/r/")) c.res.headers.set("x-robots-tag", ROBOTS);
   });
-  app.use(
-    "/rooms/*",
-    cors({
-      origin: (origin) => (isAllowedOrigin(origin) ? origin : null),
-      allowMethods: ["GET", "POST"],
-      allowHeaders: ["content-type", "authorization", "ngrok-skip-browser-warning"],
-      maxAge: 600,
-    }),
-  );
+  const apiCors = cors({
+    origin: (origin) => (isAllowedOrigin(origin) ? origin : null),
+    allowMethods: ["GET", "POST", "DELETE"],
+    allowHeaders: ["content-type", "authorization", "ngrok-skip-browser-warning"],
+    maxAge: 600,
+  });
+  app.use("/rooms", apiCors);
+  app.use("/rooms/*", apiCors);
 
   /** Readiness probe (supervisors). Without a static site, `GET /` answers too (Playwright webServer). */
   app.get("/healthz", (c) => c.text("ok"));
   if (staticDir === null) app.get("/", (c) => c.text("omega-share server"));
 
   app.get("/rooms", (c) => {
-    const listed = [...rooms.values()].slice(0, MAX_LISTED_ROOMS);
+    // At most MAX_ROOMS (500) rooms: filtering and sorting them per request is microseconds (research P2).
+    const listed = [...rooms.values()]
+      .filter((r) => r.visibility === "public" && !titleBlocked(r.title))
+      .sort(listOrder)
+      .slice(0, MAX_LISTED_ROOMS);
     const body: RoomListResponse = { rooms: listed.map((r) => r.summary()) };
+    return c.json(body);
+  });
+
+  app.post("/rooms", async (c) => {
+    c.header("cache-control", "no-store");
+    const fail = (status: 400 | 413 | 503, code: CreateRoomErrorCode, message: string) => {
+      const body: CreateRoomResponse = { ok: false, error: { code, message } };
+      return c.json(body, status);
+    };
+    const limited = (retryAfterMs: number) => {
+      const ms = Math.max(1000, Math.min(RETRY_AFTER_MAX_MS, retryAfterMs));
+      c.header("retry-after", String(Math.ceil(ms / 1000)));
+      const body: CreateRoomResponse = { ok: false, error: { code: "rate_limited", message: "too many new rooms, try again later", retryAfterMs: ms } };
+      return c.json(body, 429);
+    };
+    const ip = ipOf(c.req.raw);
+    // Before reading the body: malformed spam costs a creation too (ADR 0028 §1).
+    if (!creates.take(ip)) return limited(creates.retryAfterMs(ip));
+    if (Number(c.req.header("content-length") ?? 0) > MAX_CREATE_BODY_BYTES) return fail(413, "payload_too_large", "body too large");
+    const text = await readBodyCapped(c.req.raw, MAX_CREATE_BODY_BYTES);
+    if (text === null) return fail(413, "payload_too_large", "body too large");
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return fail(400, "invalid_body", "body is not JSON");
+    }
+    const parsed = v.safeParse(CreateRoomRequestSchema, json);
+    if (!parsed.success) return fail(400, "invalid_body", "expected { title, visibility }");
+    const { title, visibility } = parsed.output;
+    if (titleBlocked(title)) return fail(400, "invalid_body", "that title isn't allowed");
+    // Refuse, never evict: evicting would let anyone delete other people's rooms by creating new ones.
+    if (rooms.size >= MAX_ROOMS) return fail(503, "too_many_rooms", "too many rooms right now, try again later");
+    if (!globalCreates.take()) return limited(globalCreates.retryAfterMs());
+
+    let id = newRoomId();
+    // 128 random bits: a clash with a live room is never expected, but never reuse an id.
+    while (rooms.get(id) !== undefined) id = newRoomId();
+    const ownerToken = mintSecret();
+    const inviteKey = visibility === "private" ? mintSecret() : null;
+    const room: NewRoom = {
+      id,
+      title,
+      createdAt: Date.now(),
+      layout: DEFAULT_LAYOUT,
+      visibility,
+      pinned: false,
+      ownerHash: hashSecret(ownerToken),
+      inviteHash: inviteKey === null ? null : hashSecret(inviteKey),
+    };
+    // Store first: if the write fails the creation fails, and memory never runs ahead of the DB.
+    persistRoom(room);
+    rooms.addRoom(new Room(id, room));
+    const body: CreateRoomResponse =
+      inviteKey === null
+        ? { ok: true, room: { id, title, visibility }, ownerToken }
+        : { ok: true, room: { id, title, visibility }, ownerToken, inviteKey };
+    return c.json(body, 201);
+  });
+
+  app.delete("/rooms/:id", (c) => {
+    const fail = (status: 401 | 404, code: DeleteRoomErrorCode, message: string) => {
+      const body: DeleteRoomResponse = { ok: false, error: { code, message } };
+      return c.json(body, status);
+    };
+    const room = rooms.get(c.req.param("id"));
+    if (room === undefined) return fail(404, "room_not_found", "unknown room");
+    const token = parseBearer(c.req.header("authorization"));
+    if (token === null || !room.isOwner(token)) {
+      const ip = ipOf(c.req.raw);
+      if (!failedDeletes.take(ip)) {
+        const retryAfterMs = Math.max(1000, failedDeletes.retryAfterMs(ip));
+        c.header("retry-after", String(Math.ceil(retryAfterMs / 1000)));
+        const body: DeleteRoomResponse = { ok: false, error: { code: "rate_limited", message: "too many attempts, slow down", retryAfterMs } };
+        return c.json(body, 429);
+      }
+      return fail(401, "unauthorized", "only the room's owner can delete it");
+    }
+    // One path with GC and the operator: sockets close with ROOM_CLOSED (revoking their share grants), then the row goes.
+    rooms.removeRoom(room);
+    const body: DeleteRoomResponse = { ok: true };
     return c.json(body);
   });
 

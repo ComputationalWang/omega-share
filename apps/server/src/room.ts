@@ -12,11 +12,13 @@ import {
   type RoomLayout,
   type RoomState,
   type RoomSummary,
+  type RoomVisibility,
   type SeatIndex,
   isSyncedEmbed,
 } from "@omega/shared";
 import { nicknameKey } from "@omega/shared/confusables";
 import { applyControl, loadPlayback, restoredPlayback, type Control } from "./playback";
+import { secretMatches } from "./secrets";
 
 export type SitResult = "ok" | "seat_taken";
 export type JoinResult = { ok: true; member: Member } | { ok: false; reason: "room_full" | "too_many_members" | "nickname_taken" };
@@ -63,14 +65,44 @@ export class Room {
 
   /** The room's furniture (ADR 0021); it only changes through the store. */
   readonly layout: RoomLayout;
+  /** Empty for a seeded room without one; then the list shows no title. */
+  readonly title: string;
+  /** Fixed at creation; private rooms are never listed (ADR 0028 §4). */
+  readonly visibility: RoomVisibility;
+  /** Seeded: never collected, no owner (ADR 0028 §2). */
+  readonly pinned: boolean;
+  /** Unix ms; the list shows newer rooms first. */
+  readonly createdAt: number;
+  /** SHA-256 of the owner token, or null (pinned). Never the token itself. */
+  private readonly ownerHash: Uint8Array | null;
+  /** SHA-256 of the invite key (private rooms), or null. */
+  readonly inviteHash: Uint8Array | null;
 
-  /** `embed` is the last one shared before a restart: it comes back paused at 0. */
+  /**
+   * `embed` is the last one shared before a restart: it comes back paused at 0. Without the
+   * ADR 0028 fields the room is a seed: pinned, public, ownerless.
+   */
   constructor(
     readonly id: RoomId,
-    init: { layout?: RoomLayout; embed?: AnyEmbed | null } = {},
+    init: {
+      layout?: RoomLayout;
+      embed?: AnyEmbed | null;
+      title?: string;
+      visibility?: RoomVisibility;
+      pinned?: boolean;
+      createdAt?: number;
+      ownerHash?: Uint8Array | null;
+      inviteHash?: Uint8Array | null;
+    } = {},
   ) {
     this.topic = `room:${id}`;
     this.layout = init.layout ?? DEFAULT_LAYOUT;
+    this.title = init.title ?? "";
+    this.visibility = init.visibility ?? "public";
+    this.pinned = init.pinned ?? true;
+    this.createdAt = init.createdAt ?? Date.now();
+    this.ownerHash = init.ownerHash ?? null;
+    this.inviteHash = init.inviteHash ?? null;
     this.embed = init.embed ?? null;
     if (this.embed !== null && isSyncedEmbed(this.embed)) {
       this.playback = restoredPlayback(Date.now());
@@ -188,10 +220,16 @@ export class Room {
     };
   }
 
+  /** Whether `token` is this room's owner token (constant-time; a pinned room has no owner). */
+  isOwner(token: string): boolean {
+    return secretMatches(this.ownerHash, token);
+  }
+
   summary(): RoomSummary {
     let seatedCount = 0;
     for (const s of this.seats) if (s !== null) seatedCount++;
-    return { id: this.id, memberCount: this.members.size, seatedCount };
+    const counts = { id: this.id, memberCount: this.members.size, seatedCount };
+    return this.title === "" ? counts : { ...counts, title: this.title };
   }
 
   private free(memberId: MemberId): void {

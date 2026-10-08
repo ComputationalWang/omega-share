@@ -78,6 +78,12 @@ describe("migrations (research §2.3)", () => {
       { name: "created_at", type: "INTEGER", notnull: 1, pk: 0 },
       { name: "layout", type: "TEXT", notnull: 1, pk: 0 },
       { name: "embed", type: "TEXT", notnull: 0, pk: 0 },
+      // 0002 (ADR 0028): nothing that records who created a room.
+      { name: "visibility", type: "TEXT", notnull: 1, pk: 0 },
+      { name: "pinned", type: "INTEGER", notnull: 1, pk: 0 },
+      { name: "owner_hash", type: "BLOB", notnull: 0, pk: 0 },
+      { name: "invite_hash", type: "BLOB", notnull: 0, pk: 0 },
+      { name: "last_active_at", type: "INTEGER", notnull: 0, pk: 0 },
     ]);
     // STRICT + CHECK: a 33-character id never lands.
     expect(() => db.run("INSERT INTO rooms (id, created_at, layout) VALUES (?, 0, '{}')", ["a".repeat(33)])).toThrow();
@@ -223,7 +229,7 @@ describe("migration 0002: created rooms (ADR 0028)", () => {
     const path = join(tempDir(), "omega.db");
     const only0001 = migrations({ [REAL_MIGRATIONS[0] ?? "missing"]: readFileSync(join(MIGRATIONS_DIR, REAL_MIGRATIONS[0] ?? "missing"), "utf8") });
     const old = openDatabase(path, only0001);
-    new RoomStore(old).createRoom({ id: "den", title: "Den", createdAt: 5, layout: DEFAULT_LAYOUT });
+    old.run("INSERT INTO rooms (id, title, created_at, layout) VALUES ('den', 'Den', 5, ?)", [JSON.stringify(DEFAULT_LAYOUT)]);
     expect(userVersion(old)).toBe(1);
     old.close();
 

@@ -1,30 +1,76 @@
 import type { Database, Statement } from "bun:sqlite";
 import * as v from "valibot";
-import { AnyEmbedSchema, RoomIdSchema, RoomLayoutSchema, type AnyEmbed, type RoomId, type RoomLayout } from "@omega/shared";
+import {
+  AnyEmbedSchema,
+  RoomIdSchema,
+  RoomLayoutSchema,
+  RoomTitleSchema,
+  RoomVisibilitySchema,
+  type AnyEmbed,
+  type RoomId,
+  type RoomLayout,
+  type RoomVisibility,
+} from "@omega/shared";
 
 export interface StoredRoom {
   id: RoomId;
+  /** Empty for a seeded room that has none. */
   title: string;
   /** Unix ms. */
   createdAt: number;
   layout: RoomLayout;
   embed: AnyEmbed | null;
+  /** Fixed at creation (ADR 0028 §4). */
+  visibility: RoomVisibility;
+  /** Seeded rooms: never collected, no owner (ADR 0028 §2). */
+  pinned: boolean;
+  /** SHA-256 of the owner token; null for a pinned room. */
+  ownerHash: Uint8Array | null;
+  /** SHA-256 of the invite key; private rooms only. */
+  inviteHash: Uint8Array | null;
+  /** Unix ms the room last became empty or occupied; null if nobody ever joined. */
+  lastActiveAt: number | null;
 }
+
+/** What `createRoom` takes. Without the ADR 0028 fields it is a seed: pinned, public, ownerless. */
+export interface NewRoom {
+  id: string;
+  title: string;
+  createdAt: number;
+  layout: RoomLayout;
+  visibility?: RoomVisibility;
+  pinned?: boolean;
+  ownerHash?: Uint8Array | null;
+  inviteHash?: Uint8Array | null;
+}
+
+const TitleSchema = v.union([v.literal(""), RoomTitleSchema]);
+const UnixMsSchema = v.pipe(v.number(), v.safeInteger(), v.minValue(0));
+const HashSchema = v.nullable(v.pipe(v.instance(Uint8Array), v.check((h) => h.length === 32, "expected 32 bytes")));
 
 /** The DB file is a boundary too (D4): hand edits, restores and old versions all pass this parse. */
 const RowSchema = v.object({
   id: RoomIdSchema,
-  title: v.string(),
-  created_at: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
+  title: TitleSchema,
+  created_at: UnixMsSchema,
   layout: v.pipe(v.string(), v.parseJson(), RoomLayoutSchema),
   embed: v.nullable(v.pipe(v.string(), v.parseJson(), AnyEmbedSchema)),
+  visibility: RoomVisibilitySchema,
+  pinned: v.picklist([0, 1]),
+  owner_hash: HashSchema,
+  invite_hash: HashSchema,
+  last_active_at: v.nullable(UnixMsSchema),
 });
 
 const NewRoomSchema = v.object({
   id: RoomIdSchema,
-  title: v.string(),
-  createdAt: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
+  title: TitleSchema,
+  createdAt: UnixMsSchema,
   layout: RoomLayoutSchema,
+  visibility: v.optional(RoomVisibilitySchema, "public"),
+  pinned: v.optional(v.boolean(), true),
+  ownerHash: v.optional(HashSchema, null),
+  inviteHash: v.optional(HashSchema, null),
 });
 
 const NullableEmbedSchema = v.nullable(AnyEmbedSchema);
@@ -38,13 +84,19 @@ type Row = Record<keyof v.InferInput<typeof RowSchema>, unknown>;
  */
 export class RoomStore {
   readonly #list: Statement<Row, []>;
-  readonly #insert: Statement<unknown, [string, string, number, string]>;
+  readonly #insert: Statement<unknown, [string, string, number, string, string, number, Uint8Array | null, Uint8Array | null]>;
+  readonly #delete: Statement<unknown, [string]>;
   readonly #setLayout: Statement<unknown, [string, string]>;
   readonly #setEmbed: Statement<unknown, [string | null, string]>;
 
   constructor(db: Database) {
-    this.#list = db.prepare("SELECT id, title, created_at, layout, embed FROM rooms ORDER BY created_at, id");
-    this.#insert = db.prepare("INSERT INTO rooms (id, title, created_at, layout) VALUES (?, ?, ?, ?)");
+    this.#list = db.prepare(
+      "SELECT id, title, created_at, layout, embed, visibility, pinned, owner_hash, invite_hash, last_active_at FROM rooms ORDER BY created_at, id",
+    );
+    this.#insert = db.prepare(
+      "INSERT INTO rooms (id, title, created_at, layout, visibility, pinned, owner_hash, invite_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    );
+    this.#delete = db.prepare("DELETE FROM rooms WHERE id = ?");
     this.#setLayout = db.prepare("UPDATE rooms SET layout = ? WHERE id = ?");
     this.#setEmbed = db.prepare("UPDATE rooms SET embed = ? WHERE id = ?");
   }
@@ -57,13 +109,29 @@ export class RoomStore {
         throw new Error(`corrupt rooms row ${where}: ${v.summarize(parsed.issues)}`);
       }
       const r = parsed.output;
-      return { id: r.id, title: r.title, createdAt: r.created_at, layout: r.layout, embed: r.embed };
+      return {
+        id: r.id,
+        title: r.title,
+        createdAt: r.created_at,
+        layout: r.layout,
+        embed: r.embed,
+        visibility: r.visibility,
+        pinned: r.pinned === 1,
+        ownerHash: r.owner_hash,
+        inviteHash: r.invite_hash,
+        lastActiveAt: r.last_active_at,
+      };
     });
   }
 
-  createRoom(room: { id: string; title: string; createdAt: number; layout: RoomLayout }): void {
+  createRoom(room: NewRoom): void {
     const r = v.parse(NewRoomSchema, room);
-    this.#insert.run(r.id, r.title, r.createdAt, JSON.stringify(r.layout));
+    this.#insert.run(r.id, r.title, r.createdAt, JSON.stringify(r.layout), r.visibility, r.pinned ? 1 : 0, r.ownerHash, r.inviteHash);
+  }
+
+  /** Deletes the room's row (owner delete, GC, operator). False if there was none. */
+  deleteRoom(id: RoomId): boolean {
+    return this.#delete.run(id).changes > 0;
   }
 
   setLayout(id: RoomId, layout: RoomLayout): void {

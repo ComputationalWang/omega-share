@@ -89,7 +89,8 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
     t = start({ trustProxy: true });
     const res = await create({ title: "Friday films", visibility: "public" });
     const body = await created(res);
-    expect(body.room).toEqual({ id: expect.stringMatching(BASE32_ID), title: "Friday films", visibility: "public" });
+    expect(body.room.id).toMatch(BASE32_ID);
+    expect(body.room).toEqual({ id: body.room.id, title: "Friday films", visibility: "public" });
     expect(body.ownerToken).toMatch(/^[A-Za-z0-9_-]{22}$/);
     expect(body.inviteKey).toBeUndefined();
     // The secrets are only in the body: never in a header, and never cached.

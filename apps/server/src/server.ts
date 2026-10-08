@@ -1,5 +1,6 @@
 import type { Server } from "bun";
 import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type AnyEmbed, type RoomId } from "@omega/shared";
+import { nicknameKey } from "@omega/shared/confusables";
 import { ownHostsFor } from "./config";
 import { EmbedPolicy } from "./embed-policy";
 import { HSTS, securityHeaders } from "./headers";
@@ -51,10 +52,23 @@ export interface ServerOptions {
   genericEmbedDenylist?: readonly string[];
   /** Our own hostnames, refused as generic embeds. Default: `ownHostsFor(siteOrigin, publicOrigin)`. */
   ownHosts?: readonly string[];
+  /** ROOM_TITLE_BLOCKLIST: titles containing one of these (case and lookalikes folded) can't be created or listed. Default none. */
+  roomTitleBlocklist?: readonly string[];
 }
 
 /** The slice of RoomStore the server uses. */
-export type RoomPersistence = Pick<RoomStore, "listRooms" | "createRoom" | "setEmbed">;
+export type RoomPersistence = Pick<RoomStore, "listRooms" | "createRoom" | "deleteRoom" | "setEmbed">;
+
+/** Folds case and lookalikes (UTS #39 skeleton, ADR 0022) so "BADW0RD" matches "badword". */
+function titleBlocker(terms: readonly string[]): (title: string) => boolean {
+  const keys = terms.map((term) => nicknameKey(term)).filter((key) => key !== "");
+  if (keys.length === 0) return () => false;
+  return (title) => {
+    if (title === "") return false;
+    const key = nicknameKey(title);
+    return keys.some((k) => key.includes(k));
+  };
+}
 
 /**
  * Every stored room, plus the configured ones the store lacks, seeded with DEFAULT_LAYOUT. A stored
@@ -63,7 +77,7 @@ export type RoomPersistence = Pick<RoomStore, "listRooms" | "createRoom" | "setE
  */
 function loadRooms(rooms: RoomRegistry, configured: readonly RoomId[], store: RoomPersistence | null, embeds: EmbedPolicy): void {
   if (store !== null) {
-    for (const r of store.listRooms()) rooms.addRoom(new Room(r.id, { layout: r.layout, embed: embeds.restore(r.embed) }));
+    for (const r of store.listRooms()) rooms.addRoom(new Room(r.id, { ...r, embed: embeds.restore(r.embed) }));
   }
   const now = Date.now();
   for (const id of configured) {
@@ -131,8 +145,22 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       else connectionsPerIp.set(ip, left);
     },
   });
+  // After createWs's hook: a removed room's sockets close with ROOM_CLOSED and their share grants
+  // are revoked before its row is deleted (ADR 0028 §2). Owner delete, GC and the operator all end here.
+  rooms.onRemove((room) => {
+    try {
+      store?.deleteRoom(room.id);
+    } catch (err) {
+      // The room is gone from memory; its row comes back at the next boot, where GC or the operator can end it.
+      console.error(`could not delete room ${room.id} from the store: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  });
   const app = createHttpApp({
     rooms,
+    persistRoom: (room) => {
+      store?.createRoom(room);
+    },
+    titleBlocked: titleBlocker(opts.roomTitleBlocklist ?? []),
     shareGrant: ws.shareGrant,
     now: opts.now ?? monotonic,
     isAllowedOrigin,
