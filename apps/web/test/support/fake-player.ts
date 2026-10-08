@@ -24,6 +24,8 @@ export interface FakePlayerOptions {
   rateStep?: number;
   /** ms the player sits in "buffering" after a seek while playing, content clock frozen. */
   seekLatencyMs?: number;
+  /** ms the player sits in "buffering" after play() from a stop (paused, cued), content clock frozen. */
+  startLatencyMs?: number;
   ready?: boolean;
   /** play() is recorded but does nothing (loading, or a blocked autoplay). */
   ignorePlay?: boolean;
@@ -94,7 +96,14 @@ export class FakePlayer implements PlayerAdapter {
   play(): void {
     this.sync();
     this.calls.push({ op: "play" });
-    if (this.resumeAt < 0 && this.o.ignorePlay !== true) this.st = "playing";
+    if (this.resumeAt >= 0 || this.o.ignorePlay === true || this.st === "playing") return;
+    const lat = this.o.startLatencyMs ?? 0;
+    if (lat > 0) {
+      this.st = "buffering";
+      this.resumeAt = this.o.now() + lat;
+    } else {
+      this.st = "playing";
+    }
   }
   pause(): void {
     this.sync();

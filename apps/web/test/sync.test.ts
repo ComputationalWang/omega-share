@@ -585,6 +585,39 @@ describe("sync loop", () => {
     if (seek?.op === "seek") expect(seek.to).toBeCloseTo(100.25 + before / 1000, 6);
   });
 
+  test("a resume learns the player's start-up latency from its first sample; the next resume starts that far ahead and lands on the room (OME-392)", () => {
+    const h = harness({ state: "paused", startLatencyMs: 800 });
+    h.loop.start();
+    h.loop.setPlayback(room({ playing: false, action: "pause", at: h.clock.serverNow() }));
+    h.run(250);
+    h.loop.setPlayback(room({ rev: 2, at: h.clock.serverNow() }));
+    h.run(3000);
+    expect(h.loop.startLatencyMs).toBeCloseTo(800, 6);
+    // A seek while playing is a different cost: not learned from a resume.
+    expect(h.loop.seekLatencyMs).toBe(0);
+
+    h.loop.setPlayback(room({ rev: 3, action: "pause", playing: false, position: h.player.time(), at: h.clock.serverNow() }));
+    h.run(500);
+    const resumed = room({ rev: 4, position: h.player.time(), at: h.clock.serverNow() });
+    h.loop.setPlayback(resumed);
+    h.player.calls.length = 0;
+    h.run(250);
+    const seek = h.player.calls[0];
+    expect(seek?.op).toBe("seek");
+    if (seek?.op === "seek") expect(seek.to).toBeCloseTo(resumed.position + 0.25 + 0.8, 6);
+    h.run(1000);
+    expect(h.player.state()).toBe("playing");
+    expect(Math.abs(h.player.time() - expectedPosition(resumed, h.clock.serverNow()))).toBeLessThanOrEqual(0.01);
+  });
+
+  test("a join (cold player) isn't learned as start-up latency", () => {
+    const h = harness({ state: "cued", startLatencyMs: 800 });
+    h.loop.start();
+    h.loop.setPlayback(room({ at: h.clock.serverNow() }));
+    h.run(3000);
+    expect(h.loop.startLatencyMs).toBe(0);
+  });
+
   test("after a click-pause intent the loop holds off until the room answers", () => {
     const h = harness();
     h.loop.start();
