@@ -159,3 +159,16 @@ describe("walks", () => {
     expect(sample("a", 100 + TILE_MS + 50)?.restMs).toBe(50);
   });
 });
+
+test("a new target on the cell just ahead mid-step finishes the step instead of jumping", () => {
+  const walks = createWalks({ reducedMotion: () => false });
+  walks.setGrid(grid);
+  const pose = emptyPose();
+  walks.place([standAt("a", 9, 5)], 0);
+  walks.place([standAt("a", 5, 5)], 0);
+  walks.place([standAt("a", 8, 5)], 300); // half way to (8,5)
+  walks.sample(id("a"), 300, pose);
+  expect(pose.walking).toBe(true);
+  walks.sample(id("a"), 600, pose);
+  expect(pose).toMatchObject({ ...cellCenter(8, 5), walking: false });
+});
