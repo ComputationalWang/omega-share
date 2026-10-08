@@ -161,7 +161,8 @@ export function createWs({
     publish(ws.data.room.topic, encode({ type: "member-status", memberId, catching }));
   };
 
-  const depart = (ws: Conn, memberId: MemberId, closing: boolean): void => {
+  /** `announce` false when the whole room is going: every socket closes with ROOM_CLOSED, so a `member-left` per member is waste. */
+  const depart = (ws: Conn, memberId: MemberId, closing: boolean, announce = true): void => {
     ws.data.memberId = null;
     // The flag leaves with the member: `member-left` says it all (ADR 0019 §3).
     if (ws.data.status.timer !== null) clearTimeout(ws.data.status.timer);
@@ -174,7 +175,7 @@ export function createWs({
     ws.data.shareToken = null;
     ws.data.room.leave(memberId);
     if (!closing) ws.unsubscribe(ws.data.room.topic);
-    publish(ws.data.room.topic, encode({ type: "member-left", memberId }));
+    if (announce) publish(ws.data.room.topic, encode({ type: "member-left", memberId }));
   };
 
   /** Passes the frame's own limiters (L1 already passed), or refuses it and returns false. */
@@ -301,7 +302,7 @@ export function createWs({
     if (open === undefined) return;
     for (const ws of [...open]) {
       clearJoinTimer(ws);
-      if (ws.data.memberId !== null) depart(ws, ws.data.memberId, true);
+      if (ws.data.memberId !== null) depart(ws, ws.data.memberId, true, false);
       ws.close(CLOSE_CODES.ROOM_CLOSED, "room closed");
     }
   });
