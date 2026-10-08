@@ -538,6 +538,28 @@ describe("sync loop", () => {
     expect(Math.abs(h.player.time() - expectedPosition(resumed, h.clock.serverNow()))).toBeLessThanOrEqual(0.25);
   });
 
+  test("seek-only: a resume goes out as the room state arrives, not on the next tick, so clients don't lag by their tick phase and park (OME-452)", () => {
+    const h = harness({ caps: CAPS.twitchVod, rates: [1], state: "paused" });
+    h.loop.start();
+    h.loop.setPlayback(room({ playing: false, action: "pause", at: h.clock.serverNow() }));
+    h.run(500);
+    h.player.calls.length = 0;
+    // The resume lands 240 ms into this client's tick phase.
+    h.t.now += 240;
+    const resumed = room({ rev: 2, at: h.clock.serverNow() });
+    h.loop.setPlayback(resumed);
+    expect(h.player.calls).toEqual([{ op: "play" }]);
+    h.run(5000);
+    expect(h.player.calls).toEqual([{ op: "play" }]);
+    expect(Math.abs(h.player.time() - expectedPosition(resumed, h.clock.serverNow()))).toBeLessThanOrEqual(0.01);
+  });
+
+  test("a room state that arrives before start() waits for the loop to run", () => {
+    const h = harness({ caps: CAPS.twitchVod, rates: [1], state: "paused" });
+    h.loop.setPlayback(room({ at: h.clock.serverNow() }));
+    expect(h.player.calls).toEqual([]);
+  });
+
   test("seek-only: a late unpark (ticks throttled past the park) doesn't train the start-up latency (OME-396)", () => {
     const h = harness({ caps: CAPS.twitchVod, rates: [1] });
     h.loop.start();
