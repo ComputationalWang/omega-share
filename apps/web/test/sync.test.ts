@@ -650,10 +650,10 @@ describe("sync loop", () => {
   test("join hard-seeks to the room position and plays", () => {
     const h = harness({ state: "cued", position: 0 });
     h.loop.start();
-    // room: 10 s at server 1_000_000, playing → at client t=250 expect 10.25 s
+    // room: 10 s at server 1_000_000, playing → applied at once (client t=0), so 10 s (OME-452)
     h.loop.setPlayback(room());
     h.run(250);
-    expect(h.player.calls.slice(0, 2)).toEqual([{ op: "seek", to: 10.25 }, { op: "play" }]);
+    expect(h.player.calls.slice(0, 2)).toEqual([{ op: "seek", to: 10 }, { op: "play" }]);
   });
 
   test("a new playback state (explicit action) hard-seeks; steady state then makes no calls", () => {
@@ -666,7 +666,7 @@ describe("sync loop", () => {
     expect(h.player.calls).toEqual([]);
     h.loop.setPlayback(room({ rev: 2, action: "seek", position: 60, at: h.clock.serverNow() }));
     h.run(250);
-    expect(h.player.calls[0]).toEqual({ op: "seek", to: 60.25 });
+    expect(h.player.calls[0]).toEqual({ op: "seek", to: 60 });
   });
 
   test("a small drift is nudged with the playback rate and closes", () => {
@@ -754,7 +754,7 @@ describe("sync loop", () => {
     h.run(250);
     const seek = h.player.calls.findLast((c) => c.op === "seek");
     expect(seek?.op).toBe("seek");
-    if (seek?.op === "seek") expect(seek.to).toBeCloseTo(100.25 + before / 1000, 6);
+    if (seek?.op === "seek") expect(seek.to).toBeCloseTo(100 + before / 1000, 6);
   });
 
   test("a resume learns the player's start-up latency from its first sample; the next resume starts that far ahead and lands on the room (OME-392)", () => {
@@ -771,12 +771,12 @@ describe("sync loop", () => {
     h.loop.setPlayback(room({ rev: 3, action: "pause", playing: false, position: h.player.time(), at: h.clock.serverNow() }));
     h.run(500);
     const resumed = room({ rev: 4, position: h.player.time(), at: h.clock.serverNow() });
-    h.loop.setPlayback(resumed);
     h.player.calls.length = 0;
-    h.run(250);
+    h.loop.setPlayback(resumed);
     const seek = h.player.calls[0];
     expect(seek?.op).toBe("seek");
-    if (seek?.op === "seek") expect(seek.to).toBeCloseTo(resumed.position + 0.25 + 0.8, 6);
+    if (seek?.op === "seek") expect(seek.to).toBeCloseTo(resumed.position + 0.8, 6);
+    h.run(250);
     h.run(1000);
     expect(h.player.state()).toBe("playing");
     expect(Math.abs(h.player.time() - expectedPosition(resumed, h.clock.serverNow()))).toBeLessThanOrEqual(0.01);

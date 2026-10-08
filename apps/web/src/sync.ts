@@ -426,6 +426,9 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
       lastPlayAt = Number.NEGATIVE_INFINITY;
       lastPauseAt = Number.NEGATIVE_INFINITY;
       pendingComp = -1;
+      // Act now, not on the next tick: every client gets the state within ms of the others, but its
+      // tick phase is anywhere in 0–250 ms, and a seek-only resume would lag by that much (OME-452).
+      if (timer !== null) tick();
     },
     tick,
     start() {
