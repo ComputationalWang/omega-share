@@ -12,6 +12,7 @@ import {
   ROOM_CREATE_GLOBAL_REFILL_MS,
   ROOM_CREATE_KEY_BURST,
   ROOM_CREATE_KEY_REFILL_MS,
+  ROOM_CREATE_RETRY_AFTER_MAX_MS,
   ShareRequestSchema,
   parseBearer,
   parseShareAuthorization,
@@ -123,6 +124,8 @@ export interface HttpDeps {
   staticDir: string | null;
   /** Writes a created room to the store (ADR 0028); throws if it can't. */
   persistRoom: (room: NewRoom) => void;
+  /** Deletes an owner-deleted room's row (ADR 0028 §2); throws if it can't. */
+  unpersistRoom: (room: Room) => void;
   /** Whether a (normalised) room title contains a ROOM_TITLE_BLOCKLIST term. */
   titleBlocked: (title: string) => boolean;
 }
@@ -153,6 +156,7 @@ export function createHttpApp({
   headers,
   staticDir,
   persistRoom,
+  unpersistRoom,
   titleBlocked,
 }: HttpDeps): Hono {
   const creates = new KeyedLimiter(ROOM_CREATE_KEY_BURST, 1000 / ROOM_CREATE_KEY_REFILL_MS, 1024, now);
@@ -202,14 +206,15 @@ export function createHttpApp({
       return c.json(body, status);
     };
     const limited = (retryAfterMs: number) => {
-      const ms = Math.max(1000, Math.min(RETRY_AFTER_MAX_MS, retryAfterMs));
+      // Not RETRY_AFTER_MAX_MS: the per-key bucket refills in 10 min, and a shorter answer only earns more refusals.
+      const ms = Math.max(1000, Math.min(ROOM_CREATE_RETRY_AFTER_MAX_MS, retryAfterMs));
       c.header("retry-after", String(Math.ceil(ms / 1000)));
       const body: CreateRoomResponse = { ok: false, error: { code: "rate_limited", message: "too many new rooms, try again later", retryAfterMs: ms } };
       return c.json(body, 429);
     };
     const ip = ipOf(c.req.raw);
     // Before reading the body: malformed spam costs a creation too (ADR 0028 §1).
-    if (!creates.take(ip)) return limited(creates.retryAfterMs(ip));
+    if (!creates.take(ip)) return limited(creates.retryAfterMs(ip, ROOM_CREATE_RETRY_AFTER_MAX_MS));
     if (Number(c.req.header("content-length") ?? 0) > MAX_CREATE_BODY_BYTES) return fail(413, "payload_too_large", "body too large");
     const text = await readBodyCapped(c.req.raw, MAX_CREATE_BODY_BYTES);
     if (text === null) return fail(413, "payload_too_large", "body too large");
@@ -250,7 +255,7 @@ export function createHttpApp({
       // The server's failure, not the client's: it keeps its creations.
       creates.refund(ip);
       globalCreates.refund();
-      return fail(503, "too_many_rooms", "can't create rooms right now, try again later");
+      return fail(503, "unavailable", "can't create rooms right now, try again later");
     }
     rooms.addRoom(new Room(id, room));
     const body: CreateRoomResponse =
@@ -261,7 +266,7 @@ export function createHttpApp({
   });
 
   app.delete("/rooms/:id", (c) => {
-    const fail = (status: 401 | 404, code: DeleteRoomErrorCode, message: string) => {
+    const fail = (status: 401 | 404 | 503, code: DeleteRoomErrorCode, message: string) => {
       const body: DeleteRoomResponse = { ok: false, error: { code, message } };
       return c.json(body, status);
     };
@@ -278,7 +283,14 @@ export function createHttpApp({
       }
       return fail(401, "unauthorized", "only the room's owner can delete it");
     }
-    // One path with GC and the operator: sockets close with ROOM_CLOSED (revoking their share grants), then the row goes.
+    // The row first: "deleted" must mean the owner hash is gone from disk, not that it comes back at the next boot.
+    try {
+      unpersistRoom(room);
+    } catch (err) {
+      console.error(`could not delete room ${room.id} from the store: ${err instanceof Error ? err.message : String(err)}`);
+      return fail(503, "unavailable", "couldn't delete the room right now, try again later");
+    }
+    // Then the one path with GC and the operator: sockets close with ROOM_CLOSED, revoking their share grants.
     rooms.removeRoom(room);
     const body: DeleteRoomResponse = { ok: true };
     return c.json(body);

@@ -33,11 +33,11 @@ export class TokenBucket {
     this.tokens = Math.min(this.burst, this.tokens + 1);
   }
 
-  /** Milliseconds until a token is available (0 if one is), capped at the contract's RETRY_AFTER_MAX_MS. */
-  retryAfterMs(): number {
+  /** Milliseconds until a token is available (0 if one is), capped at `max` (by default the contract's RETRY_AFTER_MAX_MS). */
+  retryAfterMs(max = RETRY_AFTER_MAX_MS): number {
     this.refill();
     if (this.tokens >= 1) return 0;
-    return Math.min(RETRY_AFTER_MAX_MS, Math.ceil(((1 - this.tokens) / this.perSecond) * 1000));
+    return Math.min(max, Math.ceil(((1 - this.tokens) / this.perSecond) * 1000));
   }
 
   private refill(): void {
@@ -86,8 +86,8 @@ export class KeyedLimiter {
   }
 
   /** Milliseconds until `key` may take again; 0 for a key with a token or no bucket. */
-  retryAfterMs(key: string): number {
-    return this.buckets.get(key)?.retryAfterMs() ?? 0;
+  retryAfterMs(key: string, max = RETRY_AFTER_MAX_MS): number {
+    return this.buckets.get(key)?.retryAfterMs(max) ?? 0;
   }
 }
 

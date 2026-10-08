@@ -59,11 +59,11 @@ export interface ServerOptions {
 /** The slice of RoomStore the server uses. */
 export type RoomPersistence = Pick<RoomStore, "listRooms" | "createRoom" | "deleteRoom" | "setEmbed">;
 
-/** Folds case and lookalikes (UTS #39 skeleton, ADR 0022) so "BADW0RD" matches "badword". */
 /** Whitespace, punctuation and symbols: `bad word` and `b.a.d-w_o r d` match a blocklisted `badword` (OME-439). */
 const SEPARATORS = /[\p{Z}\p{P}\p{S}\s]/gu;
 const blockKey = (text: string): string => nicknameKey(text).replace(SEPARATORS, "");
 
+/** Folds case and lookalikes (UTS #39 skeleton, ADR 0022) so "BADW0RD" matches "badword", and drops separators. */
 function titleBlocker(terms: readonly string[]): (title: string) => boolean {
   const keys = terms.map(blockKey).filter((key) => key !== "");
   if (keys.length === 0) return () => false;
@@ -150,7 +150,8 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     },
   });
   // After createWs's hook: a removed room's sockets close with ROOM_CLOSED and their share grants
-  // are revoked before its row is deleted (ADR 0028 §2). Owner delete, GC and the operator all end here.
+  // are revoked before its row is deleted (ADR 0028 §2). GC and the operator end here; an owner's
+  // delete has already removed the row (`unpersistRoom`), so this is a no-op for it.
   rooms.onRemove((room) => {
     try {
       store?.deleteRoom(room.id);
@@ -163,6 +164,9 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     rooms,
     persistRoom: (room) => {
       store?.createRoom(room);
+    },
+    unpersistRoom: (room) => {
+      store?.deleteRoom(room.id);
     },
     titleBlocked: titleBlocker(opts.roomTitleBlocklist ?? []),
     shareGrant: ws.shareGrant,
