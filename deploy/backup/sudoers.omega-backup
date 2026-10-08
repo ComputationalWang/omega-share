@@ -1,5 +1,7 @@
 # /etc/sudoers.d/omega-backup (0440; check it with visudo -cf before installing). Lets the deploy
-# user run only the read-only rsync sender as the service user, so deploy/backup/pull.sh can read
-# the 0600 snapshots. The sender side cannot write, and the service user can read nothing the
-# server itself can't.
+# user run the rsync sender as the service user, so deploy/backup/pull.sh can read the 0600
+# snapshots. The sender only reads, but it reads ANY path the service user can: the snapshots,
+# and also the live DB and /etc/omega-share/env. That gives deploy nothing new, because deploy
+# already ships the code that runs as the service user. Pinning the source path here wouldn't
+# narrow it: sudoers' `*` matches spaces, so a caller can append more paths.
 deploy ALL=(omega-share) NOPASSWD: /usr/bin/rsync --server --sender *

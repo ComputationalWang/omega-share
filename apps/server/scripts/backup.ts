@@ -15,6 +15,7 @@ import {
   copyFileSync,
   existsSync,
   fsyncSync,
+  linkSync,
   mkdirSync,
   mkdtempSync,
   openSync,
@@ -34,6 +35,9 @@ export const KEEP = 14;
 export const DEFAULT_BACKUP_DIR = "/var/backups/omega-share";
 
 const SNAPSHOT_FILE = /^omega-\d{4}-\d{2}-\d{2}\.db$/;
+const SNAPSHOT_TMP = /^\.omega-\d{4}-\d{2}-\d{2}\.db\.tmp$/;
+/** A snapshot temp file untouched this long was left by a killed run (VACUUM INTO keeps writing to a live one). */
+const STALE_TMP_MS = 60 * 60 * 1000;
 const MAGIC = "SQLite format 3\0";
 
 /** `omega-YYYY-MM-DD.db`, the UTC date. */
@@ -104,16 +108,25 @@ export function verifySnapshot(path: string): { rooms: number } {
   }
 }
 
-/** Removes all but the newest `keep` `omega-<date>.db` files in `dir`; returns what it removed. */
+/**
+ * Removes all but the newest `keep` `omega-<date>.db` files in `dir`, and any `.omega-<date>.db.tmp`
+ * a killed snapshot left behind (untouched for an hour); returns what it removed.
+ */
 export function prune(dir: string, keep: number = KEEP): string[] {
-  const old = readdirSync(dir)
+  const files = readdirSync(dir);
+  const old = files
     .filter((f) => SNAPSHOT_FILE.test(f))
     .sort()
     .reverse()
     .slice(keep)
     .map((f) => join(dir, f));
-  for (const f of old) rmSync(f, { force: true });
-  return old;
+  const cutoff = Date.now() - STALE_TMP_MS;
+  const stale = files
+    .filter((f) => SNAPSHOT_TMP.test(f))
+    .map((f) => join(dir, f))
+    .filter((f) => (statSync(f, { throwIfNoEntry: false })?.mtimeMs ?? Infinity) < cutoff);
+  for (const f of [...old, ...stale]) rmSync(f, { force: true });
+  return [...old, ...stale];
 }
 
 /**
@@ -127,38 +140,47 @@ export function snapshot(dbPath: string, dir: string, now: Date = new Date()): s
   const tmp = join(dir, `.${snapshotName(now)}.tmp`);
   rmSync(tmp, { force: true });
   closeSync(openSync(tmp, "wx", 0o600)); // VACUUM INTO accepts an empty file and keeps its mode
-
-  const src = new Database(dbPath, { readwrite: true, create: false, strict: true });
   try {
-    src.run("PRAGMA busy_timeout = 5000");
-    src.run("VACUUM INTO ?", [tmp]);
-  } catch (err) {
-    rmSync(tmp, { force: true });
-    throw err;
+    const src = new Database(dbPath, { readwrite: true, create: false, strict: true });
+    try {
+      src.run("PRAGMA busy_timeout = 5000");
+      src.run("VACUUM INTO ?", [tmp]);
+    } finally {
+      src.close();
+    }
+    try {
+      check(tmp);
+    } catch (err) {
+      throw new Error(`snapshot of ${dbPath} failed its own check: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    chmodSync(tmp, 0o600);
+    fsyncPath(tmp);
+    renameSync(tmp, final);
   } finally {
-    src.close();
-  }
-
-  try {
-    check(tmp);
-  } catch (err) {
+    // Gone after a good rename; otherwise a full-size copy no later night would reuse.
     rmSync(tmp, { force: true });
-    throw new Error(`snapshot of ${dbPath} failed its own check: ${err instanceof Error ? err.message : String(err)}`);
   }
-  chmodSync(tmp, 0o600);
-  fsyncPath(tmp);
-  renameSync(tmp, final);
   fsyncPath(dir);
   prune(dir);
   return final;
+}
+
+/** A hard link where the filesystem allows one (instant, no space), else a full copy. */
+function keepAside(from: string, to: string): void {
+  try {
+    linkSync(from, to);
+  } catch {
+    copyFileSync(from, to);
+    fsyncPath(to);
+  }
 }
 
 const stamp = (now: Date): string => now.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
 
 /**
  * Replaces `dbPath` with a verified copy of `snapshotPath`. The server must be stopped. Nothing at
- * `dbPath` changes unless the snapshot passes; the old DB (with its -wal) moves aside to
- * `<db>.pre-restore-<stamp>`, so a restore can be undone. A stale -wal/-shm never meets the new file.
+ * `dbPath` changes unless the snapshot passes; the old DB (with its -wal) is kept aside as
+ * `<db>.pre-restore-<stamp>`, so a restore can be undone, and `dbPath` is never missing midway. A stale -wal/-shm never meets the new file.
  */
 export function restore(snapshotPath: string, dbPath: string, now: Date = new Date()): { rooms: number; previous: string | null } {
   const dir = dirname(dbPath);
@@ -176,11 +198,14 @@ export function restore(snapshotPath: string, dbPath: string, now: Date = new Da
     throw new Error(`refusing to restore ${snapshotPath}: ${err instanceof Error ? err.message : String(err)}`);
   }
 
+  // The old DB is linked (or copied) aside, never moved: DB_PATH exists at every instant, and the
+  // rename below replaces it atomically. A death before it leaves the old DB in place.
   let previous: string | null = null;
   if (existsSync(dbPath)) {
     previous = `${dbPath}.pre-restore-${stamp(now)}`;
-    renameSync(dbPath, previous);
+    keepAside(dbPath, previous);
     if (existsSync(`${dbPath}-wal`)) renameSync(`${dbPath}-wal`, `${previous}-wal`);
+    fsyncPath(dir);
   }
   for (const f of [`${dbPath}-wal`, `${dbPath}-shm`, `${dbPath}-journal`]) rmSync(f, { force: true });
   renameSync(tmp, dbPath);
