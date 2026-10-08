@@ -42,6 +42,29 @@ describe("loadRooms", () => {
     expect(init?.method).toBe("GET");
   });
 
+  test("a titled room is labelled with its title (ADR 0028); an untitled one keeps its id", async () => {
+    const fetch = mock(() =>
+      Promise.resolve(
+        json({
+          rooms: [
+            { id: "lobby", memberCount: 3, seatedCount: 1 },
+            { id: "abcdefghijklmnopqrstuvwxyz", memberCount: 7, seatedCount: 2, title: "Movie night" },
+          ],
+        }),
+      ),
+    );
+    expect(await loadRooms({ baseUrl: BASE, fetch })).toEqual({
+      kind: "ok",
+      list: {
+        rooms: [
+          { id: "lobby", label: "lobby (3)" },
+          { id: "abcdefghijklmnopqrstuvwxyz", label: "Movie night (7)" },
+        ],
+        selected: "lobby",
+      },
+    });
+  });
+
   test("sends the tunnel headers: skips ngrok's browser warning, carries edge cookies, never follows a redirect", async () => {
     const fetch = mock<(url: string, init: RequestInit) => Promise<Response>>(() => Promise.resolve(json({ rooms: [] })));
     await loadRooms({ baseUrl: BASE, fetch });
