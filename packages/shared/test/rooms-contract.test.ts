@@ -19,6 +19,10 @@ import {
   ROOM_CREATE_GLOBAL_REFILL_MS,
   ROOM_CREATE_KEY_BURST,
   ROOM_CREATE_KEY_REFILL_MS,
+  ROOM_CREATE_RETRY_AFTER_MAX_MS,
+  RETRY_AFTER_MAX_MS,
+  ServerMessageSchema,
+  ShareResponseSchema,
   ROOM_EDIT_BURST,
   ROOM_EDIT_REFILL_MS,
   ROOM_GC_EMPTY_MS,
@@ -192,6 +196,26 @@ describe("POST /rooms and DELETE /rooms/:id", () => {
       expect(ok(DeleteRoomResponseSchema, { ok: false, error: { code, message: "no" } })).toBe(true);
     }
     expect(ok(DeleteRoomResponseSchema, { ok: false, error: { code: "too_many_rooms", message: "no" } })).toBe(false);
+  });
+
+  test("create and delete answer 503 unavailable when the store write fails (OME-441)", () => {
+    expect(ok(CreateRoomResponseSchema, { ok: false, error: { code: "unavailable", message: "try again" } })).toBe(true);
+    expect(ok(DeleteRoomResponseSchema, { ok: false, error: { code: "unavailable", message: "try again" } })).toBe(true);
+  });
+
+  test("the creation 429 carries the full key refill wait; share and WS keep the 60 s cap (OME-441)", () => {
+    expect(ROOM_CREATE_RETRY_AFTER_MAX_MS).toBe(ROOM_CREATE_KEY_REFILL_MS);
+    const created = (retryAfterMs: number) => ({ ok: false, error: { code: "rate_limited", message: "slow", retryAfterMs } });
+    expect(ok(CreateRoomResponseSchema, created(ROOM_CREATE_KEY_REFILL_MS))).toBe(true);
+    expect(ok(CreateRoomResponseSchema, created(ROOM_CREATE_KEY_REFILL_MS + 1))).toBe(false);
+    expect(ok(CreateRoomResponseSchema, created(-1))).toBe(false);
+    expect(ok(CreateRoomResponseSchema, created(1.5))).toBe(false);
+    // Delete's failure bucket refills at 1/s: it keeps the shared cap.
+    expect(ok(DeleteRoomResponseSchema, created(RETRY_AFTER_MAX_MS))).toBe(true);
+    expect(ok(DeleteRoomResponseSchema, created(RETRY_AFTER_MAX_MS + 1))).toBe(false);
+    expect(ok(ShareResponseSchema, created(RETRY_AFTER_MAX_MS + 1))).toBe(false);
+    const wsError = { type: "error", code: "rate_limited", message: "", retryAfterMs: RETRY_AFTER_MAX_MS + 1 };
+    expect(ok(ServerMessageSchema, wsError)).toBe(false);
   });
 
   test("a room summary may carry a title", () => {
