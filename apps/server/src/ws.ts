@@ -114,6 +114,8 @@ export interface WsDeps {
   /** Writes an owner's edit through to the store; throws if it can't, and then nothing changes. */
   persistLayout: (room: Room, layout: RoomLayout) => void;
   persistTitle: (room: Room, title: string) => void;
+  /** ROOM_TITLE_BLOCKLIST, as `POST /rooms` applies it: a rename can't get round it. */
+  titleBlocked: (title: string) => boolean;
 }
 
 export interface Ws {
@@ -135,6 +137,7 @@ export function createWs({
   headers,
   persistLayout,
   persistTitle,
+  titleBlocked,
 }: WsDeps): Ws {
   const upgrades = new KeyedLimiter(UPGRADE_BURST, UPGRADE_PER_SECOND, 1024, now);
   const joins = new KeyedLimiter(JOIN_BURST, JOIN_PER_SECOND, 1024, now);
@@ -356,7 +359,7 @@ export function createWs({
           return;
         }
         if (msg.type === "layout-set") setLayout(room, memberId, msg.layout);
-        else setTitle(room, memberId, msg.title);
+        else setTitle(ws, room, memberId, msg.title);
         return;
       case "emote":
         // S6 fans this out as `emoted` (OME-413).
@@ -383,8 +386,13 @@ export function createWs({
     room.setLayout(layout);
     publish(room.topic, encode({ type: "layout-changed", layout, by }));
   };
-  const setTitle = (room: Room, by: MemberId, title: string): void => {
+  const setTitle = (ws: Conn, room: Room, by: MemberId, title: string): void => {
     if (title === room.title) return;
+    if (titleBlocked(title)) {
+      // A valid frame, so it doesn't count toward 4400; the contract has no closer code.
+      sendError(ws, "bad_message", "that title isn't allowed");
+      return;
+    }
     if (!persisted(room, "title", () => {
       persistTitle(room, title);
     })) return;

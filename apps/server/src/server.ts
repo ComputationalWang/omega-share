@@ -135,6 +135,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     store?.setEmbed(room.id, embed);
   };
 
+  const titleBlocked = titleBlocker(opts.roomTitleBlocklist ?? []);
   const ws = createWs({
     joinTimeoutMs: opts.joinTimeoutMs ?? 10_000,
     rooms,
@@ -146,6 +147,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     persistTitle(room, title) {
       store?.setTitle(room.id, title);
     },
+    titleBlocked,
     now: opts.now ?? monotonic,
     ...(opts.statusIntervalMs === undefined ? {} : { statusIntervalMs: opts.statusIntervalMs }),
     release(ip) {
@@ -174,7 +176,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     unpersistRoom: (room) => {
       store?.deleteRoom(room.id);
     },
-    titleBlocked: titleBlocker(opts.roomTitleBlocklist ?? []),
+    titleBlocked,
     shareGrant: ws.shareGrant,
     now: opts.now ?? monotonic,
     isAllowedOrigin,
