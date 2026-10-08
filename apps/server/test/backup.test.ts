@@ -1,9 +1,11 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import * as fs from "node:fs";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, truncateSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_LAYOUT, type RoomLayout, type RoomListResponse } from "@omega/shared";
+import { DEFAULT_LAYOUT, RoomListResponseSchema, type RoomLayout } from "@omega/shared";
+import * as v from "valibot";
 import { KEEP, prune, restore, snapshot, verifySnapshot } from "../scripts/backup";
 import { openDatabase } from "../src/store/db";
 import { RoomStore } from "../src/store/rooms";
@@ -120,6 +122,26 @@ describe("snapshot (VACUUM INTO, research §2.5)", () => {
     expect(readdirSync(out).sort()).toEqual(names([1, 2, 3, 4, 5]));
   }, 30_000);
 
+  test("leaves no temp file behind when the final rename fails", () => {
+    const live = seed();
+    const out = join(tmp(), "backups");
+    mkdirSync(join(out, "omega-2026-10-08.db", "in-the-way"), { recursive: true }); // rename onto a full dir throws
+    expect(() => snapshot(live, out, NIGHT)).toThrow();
+    expect(readdirSync(out)).toEqual(["omega-2026-10-08.db"]);
+  });
+
+  test("sweeps temp files a killed run left behind on an earlier night", () => {
+    const live = seed();
+    const out = join(tmp(), "backups");
+    mkdirSync(out, { mode: 0o700 });
+    const stale = join(out, ".omega-2026-10-06.db.tmp");
+    writeFileSync(stale, "x".repeat(4096));
+    const old = new Date("2026-10-06T03:31:00Z");
+    utimesSync(stale, old, old);
+    snapshot(live, out, NIGHT);
+    expect(readdirSync(out)).toEqual(["omega-2026-10-08.db"]);
+  });
+
   test("keeps the newest 14 days: the 15th night prunes the oldest", () => {
     const live = seed();
     const out = join(tmp(), "backups");
@@ -138,6 +160,20 @@ describe("prune", () => {
     writeFileSync(join(out, "omega-latest.db"), "not a dated snapshot");
     expect(prune(out).sort()).toEqual(names([1, 2, 3, 4, 5, 6]).map((n) => join(out, n)));
     expect(readdirSync(out).sort()).toEqual([...names([7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]), "notes.txt", "omega-latest.db"].sort());
+  });
+
+  test("removes stale temp files a killed snapshot left, but not one still being written", () => {
+    const out = join(tmp(), "backups");
+    mkdirSync(out);
+    const stale = join(out, ".omega-2026-09-01.db.tmp");
+    const fresh = join(out, ".omega-2026-09-02.db.tmp");
+    writeFileSync(stale, "x");
+    writeFileSync(fresh, "x");
+    const old = new Date(Date.now() - 2 * 24 * 3600 * 1000);
+    utimesSync(stale, old, old);
+    writeFileSync(join(out, ".other.tmp"), "not ours");
+    expect(prune(out)).toEqual([stale]);
+    expect(readdirSync(out).sort()).toEqual([".omega-2026-09-02.db.tmp", ".other.tmp"]);
   });
 
   test("with 14 or fewer, removes nothing", () => {
@@ -208,6 +244,30 @@ describe("restore", () => {
     expect(result.previous).not.toBeNull();
     const previous = result.previous ?? "";
     expect(rooms(previous).map((r) => r.id)).toEqual(["lobby", "den", "beta"]);
+  });
+
+  test("a death mid-swap never leaves DB_PATH missing: the old DB stays until the new one lands atomically", () => {
+    const snap = snapshot(seed(join(tmp(), "src/omega.db")), join(tmp(), "backups"), NIGHT);
+    const live = seed();
+    const db = openDatabase(live);
+    new RoomStore(db).createRoom({ id: "beta", title: "", createdAt: 9, layout: DEFAULT_LAYOUT });
+    db.run("PRAGMA journal_mode = DELETE");
+    db.close();
+
+    // The process dies the moment it tries to move the restored copy into place.
+    const real = fs.renameSync;
+    const rename = spyOn(fs, "renameSync").mockImplementation((from, to) => {
+      if (to === live) throw new Error("killed");
+      real(from, to);
+    });
+    cleanups.push(() => {
+      rename.mockRestore();
+    });
+    expect(() => restore(snap, live, NIGHT)).toThrow("killed");
+    rename.mockRestore();
+
+    expect(existsSync(live)).toBe(true);
+    expect(rooms(live).map((r) => r.id)).toEqual(["lobby", "den", "beta"]);
   });
 
   test("restores into a wiped DB_PATH", () => {
@@ -296,6 +356,26 @@ fi
     expect(sha(live)).toBe(before);
   });
 
+  test("restore.sh will not start the service on a missing DB_PATH after a failed restore", () => {
+    const { bin, log } = stubs();
+    // runuser that dies in the middle of the swap, after DB_PATH is gone.
+    writeFileSync(
+      join(bin, "runuser"),
+      `#!/usr/bin/env bash\necho "runuser $1 $2" >> "${log}"\nshift 3\nif [[ " $* " == *" restore "* ]]; then rm -f "$DB_PATH"; exit 137; fi\nexec "$@"\n`,
+    );
+    const live = seed();
+    const snap = snapshot(seed(join(tmp(), "src/omega.db")), join(tmp(), "backups"), NIGHT);
+    const r = Bun.spawnSync(["bash", RESTORE, snap], {
+      env: { PATH: `${bin}:${process.env["PATH"] ?? ""}`, DB_PATH: live, OMEGA_BUN: process.execPath, OMEGA_APP_DIR: REPO },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(r.exitCode).not.toBe(0);
+    expect(r.stderr.toString()).toContain(live);
+    expect(readFileSync(log, "utf8")).toContain("systemctl stop");
+    expect(readFileSync(log, "utf8")).not.toContain("systemctl start");
+  });
+
   test("restore drill: seed rooms and layout, snapshot, wipe, restore, start the server, rooms and layout are back", async () => {
     // Seed and snapshot through the CLI, like the nightly timer.
     const live = seed();
@@ -336,7 +416,7 @@ fi
     ]);
     expect(mode(live)).toBe(0o600);
 
-    const list = (await (await fetch(`http://127.0.0.1:${String(port)}/rooms`)).json()) as RoomListResponse;
+    const list = v.parse(RoomListResponseSchema, await (await fetch(`http://127.0.0.1:${String(port)}/rooms`)).json());
     expect(list.rooms.map((r) => r.id)).toEqual(["lobby", "den"]);
     const { client, snapshot: snap2 } = await Client.join(`ws://127.0.0.1:${String(port)}/rooms/den/ws`, "alice");
     cleanups.push(() => {
