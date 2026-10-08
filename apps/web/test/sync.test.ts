@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { playbackCaps, type Embed, type PlaybackCaps, type PlaybackState } from "@omega/shared";
 import type { PlayerState } from "../src/player/adapter";
 import {
-  PARK_FAR_LEAD_MS,
   PARK_LEAD_MS,
   SYNC_INTERVAL_MS,
   createSyncLoop,
@@ -232,12 +231,9 @@ describe("decide: seek-only parks instead of seeking while playing (OME-396)", (
     expect(decide(input(-400, { mode: "seek-only", room: room({ rate: 2 }) }))).toEqual({ kind: "park", to: 12 });
   });
 
-  test("a jump of more than 10 s parks PARK_FAR_LEAD_MS ahead: the target isn't buffered, and loading it takes longer", () => {
-    expect(PARK_FAR_LEAD_MS).toBe(2000);
-    expect(decide(input(-10_001, { mode: "seek-only" }))).toEqual({ kind: "park", to: 12 });
-    expect(decide(input(10_001, { mode: "seek-only", startLatencyMs: 50 }))).toEqual({ kind: "park", to: 12.05 });
-    expect(decide(input(-10_000, { mode: "seek-only" }))).toEqual({ kind: "park", to: 11 });
-    expect(decide(input(-290_000, { mode: "seek-only", hardSeek: true }))).toEqual({ kind: "park", to: 12 });
+  test("a far jump parks PARK_LEAD_MS ahead too: a paused Twitch seek outside the buffer doesn't preload, so a longer lead only lands later (ADR 0027)", () => {
+    expect(decide(input(-10_001, { mode: "seek-only" }))).toEqual({ kind: "park", to: 11 });
+    expect(decide(input(-290_000, { mode: "seek-only", hardSeek: true, startLatencyMs: 50 }))).toEqual({ kind: "park", to: 11.05 });
   });
 
   test("a hard seek parks a playing or buffering player, and a paused one far from the room", () => {
