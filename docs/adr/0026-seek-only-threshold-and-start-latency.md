@@ -6,7 +6,7 @@
 
 **Decision:**
 - `SEEK_ONLY_THRESHOLD_MS = 250` (`apps/web/src/sync.ts`), half the pairwise budget. Two clients each within it stay within budget of each other. The median-of-3 plus `STABLE_MS` still limits a player to one seek per ~1.25 s, so this can't become a seek storm faster than that.
-- The sync loop keeps a second estimate, `startLatencyMs`, next to `seekLatencyMs`. It learns only from a seek + play issued while the player was `paused`. The first sample replaces the 0 prior, and later samples use the same EWMA. A hard seek on a stopped player (paused, cued, unstarted, ended) aims that far ahead. A seek on a playing or buffering player keeps using `seekLatencyMs`.
-- Not learned: a cold join (cued/unstarted includes loading the media and would overshoot later resumes), a start that needed a re-sent `play`, and a start interrupted by a user intent or an ad.
+- The sync loop keeps a second estimate, `startLatencyMs`, next to `seekLatencyMs`. It learns only from a seek + play issued while the player was `paused`. The first sample replaces the 0 prior, and later samples use the same EWMA. A hard seek on a paused player aims that far ahead. A seek on a playing or buffering player keeps using `seekLatencyMs`. A cold player (cued, unstarted, ended) gets no compensation, since its start isn't what the estimate measures.
+- Not learned: a cold join (cued/unstarted includes loading the media and would overshoot later resumes), and a start interrupted by a user intent or an ad. A slow start that triggers a re-sent `play` still counts: those starts need the compensation most.
 
 **Consequences:** the first resume in a session still lands behind by the start-up latency, then corrects. Later resumes start on the room clock. If Twitch VOD seek-only oscillates at 250 ms on real networks (HLS rebuffer), raise it per mode in a new ADR. Do not quietly go back to 500, because that breaks the pairwise budget.

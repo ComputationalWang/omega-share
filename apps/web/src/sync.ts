@@ -90,10 +90,7 @@ export function decide(i: DecideInput): Correction {
   if (room === null || i.playerState === "ad") return NONE;
   if (i.mode === "live") return decideLive(i, room);
   const expected = expectedPosition(room, i.serverNowMs);
-  if (i.hardSeek) {
-    const moving = i.playerState === "playing" || i.playerState === "buffering";
-    return seekTo(expected, room, moving ? i.seekLatencyMs : i.startLatencyMs);
-  }
+  if (i.hardSeek) return seekTo(expected, room, hardSeekLatency(i));
   if (i.playerState === "buffering") return NONE;
   if (!room.playing) {
     if (i.playerState === "playing") return PAUSE;
@@ -131,6 +128,12 @@ function decideLive(i: DecideInput, room: PlaybackState): Correction {
   if (i.playerState === "buffering") return NONE;
   if (!room.playing) return i.playerState === "playing" ? PAUSE : NONE;
   return i.playerState === "playing" ? NONE : PLAY;
+}
+
+/** Matches what each estimate is learned from: a cold player's start includes loading, so it gets none. */
+function hardSeekLatency(i: DecideInput): number {
+  if (i.playerState === "playing" || i.playerState === "buffering") return i.seekLatencyMs;
+  return i.playerState === "paused" ? i.startLatencyMs : 0;
 }
 
 function seekTo(expected: number, room: PlaybackState, latencyMs: number): Correction {
@@ -318,8 +321,6 @@ export function createSyncLoop<Timer>(o: SyncLoopOptions<Timer>): SyncLoop {
         if (now - lastPlayAt < RESEND_MS) return;
         lastPlayAt = now;
         p.play();
-        // A start that needed another play (blocked autoplay, slow load) doesn't measure latency.
-        pendingComp = -1;
         return;
       case "pause":
         if (now - lastPauseAt < RESEND_MS) return;
