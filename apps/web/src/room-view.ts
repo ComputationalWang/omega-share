@@ -1,5 +1,5 @@
 // The PixiJS layer: floor, furniture, seats and avatars, on the 2D canvas renderer (ADR 0029). Rendered on demand (no ticker): frames
-// run only while someone walks (walk/), so an idle room costs no frames.
+// run only while someone walks, and breathing redraws only when its frame changes (walk/animator.ts).
 import { Application, Container, Graphics, Sprite, Ticker } from "pixi.js";
 import { AVATAR_COUNT, type MemberId } from "@omega/shared";
 import type { FurnitureAtlas } from "./furniture-atlas";
