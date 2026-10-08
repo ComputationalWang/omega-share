@@ -466,11 +466,30 @@ const WAVE: EmoteDef = {
   accent: [],
 };
 
-/** Picker cell icon: the emote's settled frame, centred in 16×16, rendered with its own roles exactly as in the motion atlas. */
+/** Picker-only art for the two thin stickers, so they hold their own at 1× next to the 11 px heart and laugh (OME-427).
+ *  exclaim = the accent frame's "one size up" bar with a 4 px dot; clap = the settled V palms, three rows taller. */
+const PICK_ART: Readonly<Record<string, readonly string[]>> = {
+  exclaim: [".XXXX.", "XXXXXX", "XXXXXX", "XXXXXX", ".XXXX.", ".XXXX.", "..XX..", "..XX..", "......", "......", ".XXXX.", ".XXXX."],
+  clap: [
+    "h.h......h.h",
+    "hhhh....hhhh",
+    "hhhh....hhhh",
+    "hhhh....hhhh",
+    "hhhhh..hhhhh",
+    "hhhhh..hhhhh",
+    ".hhhh..hhhh.",
+    "..hhh..hhh..",
+    "..hhh..hhh..",
+    "..cc....cc..",
+  ],
+};
+
+/** Picker cell icon: the emote's settled frame (or its PICK_ART / accent stand-in), centred in 16×16, with its own roles. */
 function pick(e: EmoteDef): UiFrame {
   const g = blank(16, 16);
-  const w = Math.max(...e.art.map((r) => r.length));
-  stamp(g, e.art, Math.floor((16 - w) / 2), Math.floor((16 - e.art.length) / 2));
+  const rows = PICK_ART[e.id] ?? e.art;
+  const w = Math.max(...rows.map((r) => r.length));
+  stamp(g, rows, Math.floor((16 - w) / 2), Math.floor((16 - rows.length) / 2));
   return grid(`emote-pick/${e.id}`, g, e.roles, 8, 8);
 }
 
@@ -543,7 +562,9 @@ ${["emote-pick/heart", "emote-pick/laugh", "emote-pick/question", "emote-pick/ex
 .ui-switch[aria-checked="true"]:hover, .ui-switch[aria-checked="true"].is-hover { ${pos("switch/private/hover")} }
 .ui-switch:disabled { ${pos("switch/public/off")} cursor: default; }
 .ui-switch[aria-checked="true"]:disabled { ${pos("switch/private/off")} }
-.ui-switch:focus-visible { outline: var(--ui-px) solid var(--ui-text); outline-offset: var(--ui-px); }
+/* Pressed: the hover frame pushed down 1 art px (like the buttons' content drop); it flips on release. */
+.ui-switch:active:not(:disabled), .ui-switch.is-press { translate: 0 var(--ui-px); }
+.ui-switch:focus-visible, .ui-switch.is-focus { outline: var(--ui-px) solid var(--ui-text); outline-offset: var(--ui-px); }
 
 /* Close a room for good (confirm step only): .ui-button.danger + icon/closed + "Close room". Cream text on rust. */
 .ui-button.danger { ${src("button/danger/idle")} color: var(--ui-text); }
@@ -558,6 +579,8 @@ ${["emote-pick/heart", "emote-pick/laugh", "emote-pick/question", "emote-pick/ex
 .ui-mine { ${nineRule("card/mine/idle", 7)} display: flex; align-items: center; gap: ${u(4)}; padding: 0 ${u(1)}; color: var(--ui-text); }
 .ui-mine:hover, .ui-mine.is-hover, .ui-mine:focus-within { ${src("card/mine/hover")} }
 .ui-mine.is-confirm { ${src("card/mine/confirm")} }
+/* The moon's crescent sits on its right edge, so give it air before the "closes in" words (OME-427). */
+.ui-mine .ui-glyph-moon { flex: none; margin-right: calc(3 * var(--ui-px)); }
 
 /* Paste an invite (the invite-required page): an empty ticket-shaped slot, ${String(SLOT.h)} art px tall. Focus = mustard edge. */
 .ui-slot-ticket { border-style: solid; border-color: transparent; border-width: ${skw}; border-image: ${slice("ticket/slot-idle")} ${sk} fill / ${skw} stretch; height: ${u(SLOT.h)}; background: none; color: var(--ui-text); font: 600 13px/1 ui-monospace, monospace; padding: 0 ${u(1)}; outline: none; min-width: 0; }

@@ -357,7 +357,7 @@ mustard rim = only you · rust key = the one irreversible action.
 
 | Key | Size | Slice | Use |
 |---|---|---|---|
-| `switch/<public\|private>/<idle\|hover\|off>` | 32×16 | — (sprite) | Invite-only switch (`button.ui-sprite.ui-switch[role=switch]`, `aria-checked`). A night track and a wood knob that slides like a bolt: off = knob left with the open door, on = knob right with the brass key. The other option is ghosted in the track. Always put the state in words next to it ("Invite only: on"). `off` = disabled (charcoal knob). |
+| `switch/<public\|private>/<idle\|hover\|off>` | 32×16 | — (sprite) | Invite-only switch (`button.ui-sprite.ui-switch[role=switch]`, `aria-checked`). A night track and a wood knob that slides like a bolt: off = knob left with the open door, on = knob right with the brass key. The other option is ghosted in the track. Always put the state in words next to it ("Invite only: on"). `off` = disabled (charcoal knob). Pressed (`:active`, `.is-press`) = the hover frame 1 art px lower; it flips on release. Focus (`:focus-visible`, `.is-focus`) = set (c)'s 1 art px cream ring. |
 | `card/mine/<idle\|hover\|confirm>` | 18×18 | 7 | "Your rooms" row (`.ui-mine`): set (f)'s room card with the mustard "only you" line inside the wood rim. `confirm` (`.is-confirm`) = rust line, charcoal glass, while it asks "Close <title> for good?". |
 | `button/danger/<idle\|hover\|press>` | 16×20 | 5 | `.ui-button.danger`: the rust key, only on that confirm step, always with `icon/closed` + "Close room". |
 | `button/self/cool` | 16×20 | 5 | `.ui-button.self.is-cooling`: your emote key resting after a burst (`aria-disabled`), with set (f)'s `.ui-wait` dial over the retry-after. |
@@ -365,11 +365,11 @@ mustard rim = only you · rust key = the one irreversible action.
 | `emotes/tray` + `emotes/tail` | 16×16, 16×6 | 6 | `.ui-emotes[role=menu]`: the picker, night in the mustard rim, with a 2:1 tail down to the emote key. Set `--ui-tail-x` to the key's centre (from the tray's padding edge). The tail's top 3 rows open the tray's bottom rim. |
 | `emotes/slot/<idle\|hover\|press\|cool>` | 12×12 | 4 | `.ui-emote[role=menuitem]`, 24 art px. idle = flat, hover/focus = sunken well with a cream lit edge, press = mustard rim, cool (`aria-disabled`) = charcoal well. |
 | `emotes/sep` | 2×14 | — | Groove between the 5 stickers and the wave. |
-| `emote-pick/<heart\|laugh\|question\|exclaim\|clap\|wave>` | 16×16 | — | Picker icons: the motion atlas's settled emote frame (same roles, so the same pixels), centred. `wave` is new: an open blush palm with two cream motion ticks, in the sticker style. In the room (1×) they double as a static fallback for the floating sticker. Keys 1–6 (`aria-keyshortcuts`, said in the title; no digits on the cells). |
+| `emote-pick/<heart\|laugh\|question\|exclaim\|clap\|wave>` | 16×16 | — | Picker icons: the motion atlas's settled emote frame (same roles, so the same pixels), centred, except two thin ones drawn a size up so they hold their own at 1× next to the 11 px heart and laugh: `exclaim` (6×12, a heavier bar and a 4 px dot) and `clap` (12×10, the same V palms, taller). Each sits in a 24 art px `emotes/slot` cell, at page 2× and room 1× alike. `wave` is new: an open blush palm with two cream motion ticks, in the sticker style. In the room (1×) they double as a static fallback for the floating sticker. Keys 1–6 (`aria-keyshortcuts`, said in the title; no digits on the cells). |
 | `scrim/0` | 2×4 | — (tile) | `.ui-scrim`: 1-bit plum dither, 50 %, to dim the stage behind the 4004 card mid-session. No alpha. |
 | `door/<closed\|locked>` | 16×24 | — | Room-list thumbnails beside `door/open\|full\|private`: closed = dark wood, plum sill, moon hanger. locked = shut, empty keyhole, lamplight under the door. |
 | `icon/<closed\|emote>` | 16×16 | — | Close room / room closed (a door hanger with a hole, a slit and a crescent moon) · the emote key (a cream line face, so it can't be mistaken for the filled laugh sticker). |
-| `glyph/<moon\|open>` | 8×8 | — | "Closes in N days if nobody visits" · "anyone can come in" (beside the switch). |
+| `glyph/<moon\|open>` | 8×8 | — | "Closes in N days if nobody visits" · "anyone can come in" (beside the switch). In `.ui-mine` the moon gets 3 art px of margin before the words (its crescent sits on its right edge). |
 | `scene/<closed\|invite>` *(ui/scenes/\*.png)* | 72×64 | — | `.ui-scene.ui-scene-<closed\|invite>`, page chrome 2× (144×128 CSS px). Not in the sheet. closed = lights out: night in the fanlight, the sconce off, no light under the door, the moon hanger on the knob. invite = someone's home: warm fanlight, lit sconce, lamplight under the door, an empty keyhole, a dashed ghost ticket on the wall. |
 
 - **Create room:** `.ui-panel` form: `icon/create` heading, the name `.ui-input` with a hint and an `n / max` count, the switch row, then the primary key.
@@ -387,6 +387,26 @@ mustard rim = only you · rust key = the one irreversible action.
 - **Sheet:** `ui.png` is now 256×512. The frames cover 59 346 px² (90 % of 256×256), more than the skyline packer fits with its 1 px gutters, so the
   next power of two is the honest size. Rows 282–511 are free for M5/M6. The PNG grows by bytes, not by the empty rows; decoded it's 512 KB of RGBA.
 - No new colours: still the 67.
+- **States sheet:** `ui-rooms-states@*` marks the cells a piece doesn't have as "n/a" (the close key has no disabled state: it only exists on the
+  confirm step; the paste slot is a text field, so it has no hover; a your-rooms row has no off state, it's either there or closed).
+
+**Set (i) bytes, per file** (what each one costs on the wire; the sheet frames have no file of their own, so they're counted in `ui.png`):
+
+| File | Bytes | Loaded |
+|---|---|---|
+| `ui/ui.png` set (i) share (switch ×6, emote-pick ×6, `emotes/sep`, `door/closed\|locked`, `icon/closed\|emote`, `glyph/moon\|open`) | +2 213 | eager (whole sheet) |
+| `ui/ui.json` set (i) frames | +541 gz | eager |
+| `ui/reference.css` set (i) rules | +1 809 gz | eager (via `apps/web/src/style.css`) |
+| `slices/button-danger-idle\|hover\|press.png` | 155 + 155 + 149 | on the confirm step |
+| `slices/button-self-cool.png` | 155 | when the emote key cools |
+| `slices/card-mine-idle\|hover\|confirm.png` | 191 × 3 | your-rooms page |
+| `slices/ticket-slot-idle\|focus.png` | 214 × 2 | invite-required page |
+| `slices/emotes-tray.png` + `emotes-tail.png` | 168 + 135 | picker open |
+| `slices/emotes-slot-idle\|hover\|press\|cool.png` | 116 + 147 + 148 + 144 | picker open |
+| `slices/scrim-0.png` | 104 | 4004 mid-session |
+| `scenes/closed.png` | 547 | 4004 page / card |
+| `scenes/invite.png` | 784 | invite-required page |
+| **set (i) total** | **8 471 B** (slices 2 577, scenes 1 331, sheet + atlas + CSS 4 563) | |
 
 ## Motion atlas (`avatars/motion.json`, set d)
 
@@ -477,20 +497,20 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
 | `room/room.png` | 8 335 |
 | `room/room.json` | 13 823 raw / 1 192 gz |
-| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i) | 9 755 |
+| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i) | 9 771 |
 | `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h + i) | 67 363 raw / 3 424 gz |
 | `ui/edit.png` (set h, lazy, owners only) | 8 925 |
 | `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
 | `ui/slices/*.png` (78 files, palettes trimmed to the colours used) | 12 743 |
 | `ui/popup/*.png` (set f) | 409 |
 | `ui/scenes/*.png` (set i, lazy) | 1 331 |
-| `ui/reference.css` (if ported as-is) | 62 057 raw / 11 692 gz |
+| `ui/reference.css` (if ported as-is) | 62 453 raw / 11 823 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **107 795 B (≈ 105.3 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 53 468 B; lazy (sets d, g, h's edit kit, i's scenes) 54 327 B |
+| **total shipped art** | **107 942 B (≈ 105.4 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 53 615 B; lazy (sets d, g, h's edit kit, i's scenes) 54 327 B |
 
-Set (i) (OME-416) adds **8 324 B (≈ 8.1 KB)** against `main` (99 471 → 107 795): `ui.png` +2 197, `ui.json` +541 gz, 16 new slices +2 577
-(a browser only fetches a slice once a rule uses it), `reference.css` +1 678 gz, and the two lazy scenes 1 331. Eager +6 993, lazy +1 331.
+Set (i) (OME-416 + OME-427 polish) adds **8 471 B (≈ 8.3 KB)** against `main` (99 471 → 107 942): `ui.png` +2 213, `ui.json` +541 gz, 16 new slices +2 577
+(a browser only fetches a slice once a rule uses it), `reference.css` +1 809 gz, and the two lazy scenes 1 331 (per file: § Set (i) bytes). Eager +7 140, lazy +1 331.
 `apps/web/src/style.css` imports `reference.css`, so its gz growth reaches the site's CSS; the perf budget gates initial JS, which is untouched.
 
 Set (h) polish (OME-296): the stronger grid, six iso footprint glyphs (up from four), and the build now counts `reference.css` and the popup

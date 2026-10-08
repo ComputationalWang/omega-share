@@ -427,7 +427,9 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-switch[aria-checked="true"]:hover, .ui-switch[aria-checked="true"].is-hover { background-position: calc(-106 * var(--ui-px)) calc(-134 * var(--ui-px)); }
 .ui-switch:disabled { background-position: calc(-114 * var(--ui-px)) calc(-164 * var(--ui-px)); cursor: default; }
 .ui-switch[aria-checked="true"]:disabled { background-position: calc(-81 * var(--ui-px)) calc(-151 * var(--ui-px)); }
-.ui-switch:focus-visible { outline: var(--ui-px) solid var(--ui-text); outline-offset: var(--ui-px); }
+/* Pressed: the hover frame pushed down 1 art px (like the buttons' content drop); it flips on release. */
+.ui-switch:active:not(:disabled), .ui-switch.is-press { translate: 0 var(--ui-px); }
+.ui-switch:focus-visible, .ui-switch.is-focus { outline: var(--ui-px) solid var(--ui-text); outline-offset: var(--ui-px); }
 
 /* Close a room for good (confirm step only): .ui-button.danger + icon/closed + "Close room". Cream text on rust. */
 .ui-button.danger { border-image-source: url("slices/button-danger-idle.png"); color: var(--ui-text); }
@@ -442,6 +444,8 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-mine { border-style: solid; border-color: transparent; border-width: calc(7 * var(--ui-px)); border-image: url("slices/card-mine-idle.png") 7 fill / calc(7 * var(--ui-px)) stretch; display: flex; align-items: center; gap: calc(4 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); color: var(--ui-text); }
 .ui-mine:hover, .ui-mine.is-hover, .ui-mine:focus-within { border-image-source: url("slices/card-mine-hover.png"); }
 .ui-mine.is-confirm { border-image-source: url("slices/card-mine-confirm.png"); }
+/* The moon's crescent sits on its right edge, so give it air before the "closes in" words (OME-427). */
+.ui-mine .ui-glyph-moon { flex: none; margin-right: calc(3 * var(--ui-px)); }
 
 /* Paste an invite (the invite-required page): an empty ticket-shaped slot, 20 art px tall. Focus = mustard edge. */
 .ui-slot-ticket { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)) calc(6 * var(--ui-px)) calc(4 * var(--ui-px)) calc(17 * var(--ui-px)); border-image: url("slices/ticket-slot-idle.png") 4 6 4 17 fill / calc(4 * var(--ui-px)) calc(6 * var(--ui-px)) calc(4 * var(--ui-px)) calc(17 * var(--ui-px)) stretch; height: calc(20 * var(--ui-px)); background: none; color: var(--ui-text); font: 600 13px/1 ui-monospace, monospace; padding: 0 calc(1 * var(--ui-px)); outline: none; min-width: 0; }
