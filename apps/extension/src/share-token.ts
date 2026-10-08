@@ -1,4 +1,4 @@
-import { type RoomId, RoomIdSchema, type ShareToken, ShareTokenRecordSchema } from "@omega/shared";
+import { type RoomId, RoomIdSchema, SHARE_TOKEN_STORAGE_KEY, type ShareToken, ShareTokenRecordSchema } from "@omega/shared";
 import * as v from "valibot";
 import { isLoopbackOrigin } from "./settings";
 
@@ -11,8 +11,18 @@ export const MAX_RECORD_LENGTH = 512;
 export interface TokenDeps {
   /** `tabs.query({ url: patterns })`: only tabs we hold host permission for match. */
   readonly queryTabs: (patterns: string[]) => Promise<readonly { readonly id?: number | undefined; readonly url?: string | undefined }[]>;
-  /** One-shot `scripting.executeScript` that returns `sessionStorage["omega.share"]`, unparsed. */
-  readonly readSession: (tabId: number) => Promise<unknown>;
+  /**
+   * One-shot `scripting.executeScript({ target: { tabId }, func, args })`, returning the first frame's result.
+   * Only `readRecordInPage` with `SHARE_TOKEN_STORAGE_KEY` is ever injected: the site's room secrets
+   * (owner tokens and invite keys) stay unread (ADR 0028).
+   */
+  readonly inject: (tabId: number, func: typeof readRecordInPage, args: [key: string, max: number]) => Promise<unknown>;
+}
+
+/** What the open room tabs say: their rooms in tab order (incl. private ones), and the share tokens found. */
+export interface RoomTabs {
+  readonly rooms: readonly RoomId[];
+  readonly tokens: ReadonlyMap<RoomId, ShareToken>;
 }
 
 /**
@@ -35,28 +45,30 @@ export function roomTabPatterns(origin: string): string[] {
 }
 
 /**
- * Reads each open room tab's share token record (ADR 0015 item 7). A record only counts for the
- * room in its own tab's `/r/<id>` URL, so a planted record can't shadow another room's token.
+ * Lists the rooms open in the user's site tabs, from their `/r/<id>` URLs alone (threat model §3.5),
+ * and reads each room tab's share token record (ADR 0015 item 7). A record only counts for the
+ * room in its own tab's URL, so a planted record can't shadow another room's token.
  * Hostile or missing records are skipped; never throws.
  */
-export async function readShareTokens(origin: string, deps: TokenDeps): Promise<ReadonlyMap<RoomId, ShareToken>> {
-  let tabs: { id: number; roomId: RoomId }[];
+export async function readRoomTabs(origin: string, deps: TokenDeps): Promise<RoomTabs> {
+  let all: { id: number; roomId: RoomId }[];
   try {
-    tabs = (await deps.queryTabs(roomTabPatterns(origin)))
-      .flatMap((t) => {
-        const roomId = roomIdFromTabUrl(t.url);
-        return t.id === undefined || roomId === null ? [] : [{ id: t.id, roomId }];
-      })
-      .slice(0, MAX_TABS);
+    all = (await deps.queryTabs(roomTabPatterns(origin))).flatMap((t) => {
+      const roomId = roomIdFromTabUrl(t.url);
+      return t.id === undefined || roomId === null ? [] : [{ id: t.id, roomId }];
+    });
   } catch {
-    return new Map();
+    return { rooms: [], tokens: new Map() };
   }
-  const records = await Promise.all(tabs.map((t) => deps.readSession(t.id).then(parseRecord, () => null)));
+  const rooms = [...new Set(all.map((t) => t.roomId))];
+  const tabs = all.slice(0, MAX_TABS);
+  const read = (tabId: number): Promise<unknown> => deps.inject(tabId, readRecordInPage, [SHARE_TOKEN_STORAGE_KEY, MAX_RECORD_LENGTH]);
+  const records = await Promise.all(tabs.map((t) => read(t.id).then(parseRecord, () => null)));
   const tokens = new Map<RoomId, ShareToken>();
   records.forEach((r, i) => {
     if (r !== null && r.roomId === tabs[i]?.roomId && !tokens.has(r.roomId)) tokens.set(r.roomId, r.token);
   });
-  return tokens;
+  return { rooms, tokens };
 }
 
 /** The site's `/r/<room>` path (see `apps/web/src/route.ts`), strictly: no default room. */
