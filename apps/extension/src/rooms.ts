@@ -45,6 +45,6 @@ export async function loadRooms({ baseUrl, fetch }: LoadRoomsOptions): Promise<R
   if (!parsed.success) return { kind: "offline" };
   const [first] = parsed.output.rooms;
   if (first === undefined) return { kind: "ok", list: FALLBACK_ROOMS };
-  const rooms = parsed.output.rooms.map((r) => ({ id: r.id, label: `${r.id} (${String(r.memberCount)})` }));
+  const rooms = parsed.output.rooms.map((r) => ({ id: r.id, label: `${r.title ?? r.id} (${String(r.memberCount)})` }));
   return { kind: "ok", list: { rooms, selected: rooms.some((r) => r.id === DEFAULT_ROOM_ID) ? DEFAULT_ROOM_ID : first.id } };
 }
