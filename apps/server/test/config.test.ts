@@ -24,6 +24,7 @@ describe("parseConfig (ADR 0015 §3)", () => {
       genericEmbeds: true,
       genericEmbedDenylist: [],
       ownHosts: ["localhost"],
+      roomTitleBlocklist: [],
     });
   });
 
@@ -129,6 +130,14 @@ describe("generic embeds (ADR 0024 §5, §6)", () => {
     // An IP literal can never be a generic embed's host, so it needs no own-host entry.
     expect(parseConfig({ SITE_ORIGIN: "http://127.0.0.1:5173" }).ownHosts).toEqual(["localhost"]);
     expect(parseConfig({ SITE_ORIGIN: "http://[::1]:5173" }).ownHosts).toEqual(["localhost"]);
+  });
+});
+
+describe("ROOM_TITLE_BLOCKLIST (ADR 0028, research S8)", () => {
+  test("comma-separated terms, trimmed, empty ones dropped; unset or empty means none", () => {
+    expect(parseConfig({}).roomTitleBlocklist).toEqual([]);
+    expect(parseConfig({ ROOM_TITLE_BLOCKLIST: "" }).roomTitleBlocklist).toEqual([]);
+    expect(parseConfig({ ROOM_TITLE_BLOCKLIST: " spam , Scam,," }).roomTitleBlocklist).toEqual(["spam", "Scam"]);
   });
 });
 

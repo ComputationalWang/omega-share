@@ -149,7 +149,21 @@ describe("RoomStore", () => {
   test("createRoom then listRooms gives the room back, embed null", () => {
     const { rooms } = store();
     rooms.createRoom({ id: "lobby", title: "Lobby", createdAt: 1_700_000_000_000, layout: DEFAULT_LAYOUT });
-    expect(rooms.listRooms()).toEqual([{ id: "lobby", title: "Lobby", createdAt: 1_700_000_000_000, layout: DEFAULT_LAYOUT, embed: null }]);
+    expect(rooms.listRooms()).toEqual([
+      {
+        id: "lobby",
+        title: "Lobby",
+        createdAt: 1_700_000_000_000,
+        layout: DEFAULT_LAYOUT,
+        embed: null,
+        // A room made without an owner is a seed: pinned, public, no secrets (ADR 0028 §2).
+        visibility: "public",
+        pinned: true,
+        ownerHash: null,
+        inviteHash: null,
+        lastActiveAt: null,
+      },
+    ]);
   });
 
   test("setLayout and setEmbed write through; setEmbed(null) clears the TV", () => {
@@ -198,5 +212,76 @@ describe("RoomStore", () => {
     const forged = JSON.stringify({ ...YOUTUBE, url: "https://evil.example/" });
     b.db.run("INSERT INTO rooms (id, title, created_at, layout, embed) VALUES ('forged', '', 1, ?, ?)", [JSON.stringify(DEFAULT_LAYOUT), forged]);
     expect(() => b.rooms.listRooms()).toThrow(/forged/);
+  });
+});
+
+describe("migration 0002: created rooms (ADR 0028)", () => {
+  const HASH_A = new Uint8Array(32).fill(1);
+  const HASH_B = new Uint8Array(32).fill(2);
+
+  test("a 0001 database migrates: its rows become pinned public rooms with no owner, no invite and never active", () => {
+    const path = join(tempDir(), "omega.db");
+    const only0001 = migrations({ [REAL_MIGRATIONS[0] ?? "missing"]: readFileSync(join(MIGRATIONS_DIR, REAL_MIGRATIONS[0] ?? "missing"), "utf8") });
+    const old = openDatabase(path, only0001);
+    new RoomStore(old).createRoom({ id: "den", title: "Den", createdAt: 5, layout: DEFAULT_LAYOUT });
+    expect(userVersion(old)).toBe(1);
+    old.close();
+
+    const db = openDatabase(path);
+    expect(userVersion(db)).toBe(2);
+    expect(new RoomStore(db).listRooms()).toEqual([
+      { id: "den", title: "Den", createdAt: 5, layout: DEFAULT_LAYOUT, embed: null, visibility: "public", pinned: true, ownerHash: null, inviteHash: null, lastActiveAt: null },
+    ]);
+    db.close();
+  });
+
+  test("an owned private room round-trips its hashes, unpinned; deleteRoom removes the row and says whether there was one", () => {
+    const rooms = new RoomStore(openDatabase(":memory:"));
+    rooms.createRoom({
+      id: "abcdefghijklmnopqrstuvwxyz",
+      title: "Hidden",
+      createdAt: 7,
+      layout: DEFAULT_LAYOUT,
+      visibility: "private",
+      pinned: false,
+      ownerHash: HASH_A,
+      inviteHash: HASH_B,
+    });
+    expect(rooms.listRooms()).toEqual([
+      {
+        id: "abcdefghijklmnopqrstuvwxyz",
+        title: "Hidden",
+        createdAt: 7,
+        layout: DEFAULT_LAYOUT,
+        embed: null,
+        visibility: "private",
+        pinned: false,
+        ownerHash: HASH_A,
+        inviteHash: HASH_B,
+        lastActiveAt: null,
+      },
+    ]);
+    expect(rooms.deleteRoom("abcdefghijklmnopqrstuvwxyz")).toBe(true);
+    expect(rooms.deleteRoom("abcdefghijklmnopqrstuvwxyz")).toBe(false);
+    expect(rooms.listRooms()).toEqual([]);
+  });
+
+  test("refuses a hash that isn't 32 bytes, a title that fails RoomTitleSchema and an unknown visibility", () => {
+    const rooms = new RoomStore(openDatabase(":memory:"));
+    const base = { id: "den", title: "Den", createdAt: 1, layout: DEFAULT_LAYOUT };
+    expect(() => { rooms.createRoom({ ...base, ownerHash: new Uint8Array(31) }); }).toThrow();
+    expect(() => { rooms.createRoom({ ...base, title: "<b>" }); }).toThrow();
+    expect(() => { rooms.createRoom({ ...base, visibility: "secret" as "public" }); }).toThrow();
+    expect(rooms.listRooms()).toEqual([]);
+  });
+
+  test("a row with a bad visibility, pinned flag or hash fails loudly on read (D4); the table CHECKs refuse them too", () => {
+    const db = openDatabase(":memory:");
+    const layout = JSON.stringify(DEFAULT_LAYOUT);
+    expect(() => db.run("INSERT INTO rooms (id, created_at, layout, visibility) VALUES ('a', 1, ?, 'secret')", [layout])).toThrow();
+    expect(() => db.run("INSERT INTO rooms (id, created_at, layout, pinned) VALUES ('b', 1, ?, 2)", [layout])).toThrow();
+    expect(() => db.run("INSERT INTO rooms (id, created_at, layout, owner_hash) VALUES ('c', 1, ?, x'00')", [layout])).toThrow();
+    db.run("INSERT INTO rooms (id, title, created_at, layout) VALUES ('d', '<b>', 1, ?)", [layout]);
+    expect(() => new RoomStore(db).listRooms()).toThrow(/"d"/);
   });
 });

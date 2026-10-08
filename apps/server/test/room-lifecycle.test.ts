@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import type { RoomId } from "@omega/shared";
+import { CLOSE_CODES, type RoomId } from "@omega/shared";
 import { Room } from "../src/room";
 import { RoomRegistry } from "../src/rooms";
 import type { RoomPersistence } from "../src/server";
@@ -42,8 +42,8 @@ describe("RoomRegistry.removeRoom", () => {
     expect(room).toBeDefined();
     expect(registry.removeRoom(room ?? fail())).toBe(true);
 
-    expect((await joined.client.closed).code).toBe(1001);
-    expect((await lurker.closed).code).toBe(1001);
+    expect((await joined.client.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
+    expect((await lurker.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
     lobby.client.send({ type: "chat", text: "still here" });
     expect((await lobby.client.next("chat")).text).toBe("still here");
     expect(registry.get("film-club")).toBeUndefined();
@@ -75,6 +75,7 @@ describe("RoomRegistry.removeRoom", () => {
     const store: RoomPersistence = {
       listRooms: () => [],
       createRoom: () => undefined,
+      deleteRoom: () => undefined,
       setEmbed: (id: RoomId) => {
         stored.push(id);
       },
