@@ -56,9 +56,10 @@ base() {
   install -d -m 0700 -o omega-share -g omega-share /var/backups/omega-share
   chown -R omega-share:omega-share /var/backups/omega-share
   chmod -R go= /var/backups/omega-share
+  chmod g-s /var/backups/omega-share # neither install -d nor go= clears a directory's setgid bit
   rm -f /usr/local/lib/omega-share/backup.sh
   rmdir /usr/local/lib/omega-share 2>/dev/null || true
-  # The off-box pull runs only the read-only rsync sender as the service user.
+  # The off-box pull runs the rsync sender as the service user: no more than deploy already has.
   visudo -cf "$here/backup/sudoers.omega-backup"
   install -m 0440 "$here/backup/sudoers.omega-backup" /etc/sudoers.d/omega-backup
 
@@ -81,6 +82,7 @@ base() {
   systemctl daemon-reload
   systemctl enable omega-share.service
   systemctl enable --now omega-share-backup.timer
+  systemctl restart omega-share-backup.timer # an already-active timer keeps its old schedule otherwise
   systemctl restart caddy # admin off: no `caddy reload`
 
   # Firewall: load with an automatic rollback in case it cuts this session; confirm with `firewall-ok`.

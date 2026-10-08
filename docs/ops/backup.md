@@ -19,7 +19,7 @@ These defaults match the deploy kit (`deploy/omega-share.service`, `deploy/provi
 | What | Default | Override |
 | --- | --- | --- |
 | Service and its user | `omega-share` | `OMEGA_SERVICE`, `OMEGA_USER` (restore.sh); `User=` in the unit |
-| Live database | `/var/lib/omega-share/omega.db` | `DB_PATH` (also read from `/etc/omega-share/env` by the unit) |
+| Live database | `/var/lib/omega-share/omega.db` | `DB_PATH` (also read from `/etc/omega-share/env` by the unit; a different path there also needs a drop-in for the unit's `ConditionPathExists` and `ReadWritePaths`) |
 | Snapshots | `/var/backups/omega-share` (0700, service user) | `BACKUP_DIR` |
 | App checkout | `/opt/omega-share/current` | `OMEGA_APP_DIR` |
 | Bun | `/usr/local/bin/bun` | `OMEGA_BUN` |
@@ -57,7 +57,7 @@ runuser -u omega-share -- /usr/local/bin/bun /opt/omega-share/current/apps/serve
 
 ## Off-box copy (on the operator's machine)
 
-`deploy/backup/pull.sh` runs where the operator works, not on the box. It needs `rsync` and `ssh`. It pulls only finished `omega-<date>.db` files (an in-progress `.tmp` never matches), writes them `0600` into a `0700` directory, and then keeps the newest 14. If the pull fails, it prunes nothing.
+`deploy/backup/pull.sh` runs where the operator works, not on the box. It needs `rsync`, `ssh`, bash 4 or newer and GNU `find` (on macOS, install them with Homebrew). It pulls only finished `omega-<date>.db` files (an in-progress `.tmp` never matches), writes them `0600` into a `0700` directory, and then keeps the newest 14. If the pull fails, it prunes nothing.
 
 ```sh
 OMEGA_BACKUP_SOURCE=deploy@<box>:/var/backups/omega-share/ \
@@ -67,7 +67,7 @@ deploy/backup/pull.sh
 ```
 
 - **The key comes from the environment.** `OMEGA_BACKUP_SSH_KEY` is a path to the deploy key. The script passes it to `ssh -i` with `BatchMode=yes` and `IdentitiesOnly=yes`, and never reads or prints the key. The box's host key must already be in `known_hosts`, because batch mode never asks.
-- **Reading 0600 files.** The snapshots belong to the service user, so the remote side of rsync runs as that user. Install `deploy/backup/sudoers.omega-backup` as `/etc/sudoers.d/omega-backup` (mode `0440`, check it with `visudo -cf` first). It lets the `deploy` user run only the rsync *sender* (`--server --sender`) as `omega-share`. The sender only reads, and `omega-share` can read nothing the server itself can't. Change `OMEGA_BACKUP_RSYNC_PATH` only if the box is laid out differently.
+- **Reading 0600 files.** The snapshots belong to the service user, so the remote side of rsync runs as that user. Install `deploy/backup/sudoers.omega-backup` as `/etc/sudoers.d/omega-backup` (mode `0440`, check it with `visudo -cf` first). It lets the `deploy` user run the rsync *sender* (`--server --sender`) as `omega-share`. The rule is not read-only, because the trailing `*` lets server-parsed options such as `--log-file` write as `omega-share`. It grants no more than `deploy` already has, though: `deploy` ships the code that `omega-share` runs. Change `OMEGA_BACKUP_RSYNC_PATH` only if the box is laid out differently.
 - **Schedule it** on the operator's machine. Run it daily, after the box's 03:30–03:50 UTC window. For example, with a user crontab entry: `30 5 * * * OMEGA_BACKUP_SOURCE=… OMEGA_BACKUP_DEST=… OMEGA_BACKUP_SSH_KEY=… /path/to/deploy/backup/pull.sh`. If the operator's machine is off, the next run catches up, because rsync copies every snapshot it doesn't have yet.
 
 ## Restore

@@ -54,7 +54,7 @@ On a brand-new box, the first run is `root@` with the board's key. The `ssh` pha
 The runbook is [`docs/ops/backup.md`](backup.md). `provision.sh base` installs all of it (OME-363):
 
 - **On the box:** `omega-share-backup.timer` (03:30 UTC ± 20 min, `Persistent=true`) runs `apps/server/scripts/backup.ts snapshot` from the current release as `omega-share`. It writes a checked `/var/backups/omega-share/omega-YYYY-MM-DD.db` (0600, in a 0700 dir) and keeps the newest 14. To check it: `systemctl list-timers omega-share-backup.timer`.
-- **Off the box:** `deploy/backup/pull.sh` rsyncs the snapshots as `deploy` to the operator machine and keeps the newest 14. `/etc/sudoers.d/omega-backup` lets `deploy` run only the read-only rsync sender as `omega-share`. A daily user timer runs it there:
+- **Off the box:** `deploy/backup/pull.sh` rsyncs the snapshots as `deploy` to the operator machine and keeps the newest 14. `/etc/sudoers.d/omega-backup` lets `deploy` run the rsync sender as `omega-share`. That is no more than `deploy` already has, since it ships the code `omega-share` runs. `pull.sh` needs bash 4 or newer and GNU `find`. A daily user timer runs it there:
 
   ```ini
   # ~/.config/systemd/user/omega-share-pull-backups.service
@@ -71,7 +71,7 @@ The runbook is [`docs/ops/backup.md`](backup.md). `provision.sh base` installs a
   ```
 
   Enable it with `systemctl --user enable --now omega-share-pull-backups.timer`. `Persistent=true` catches up after the machine was off.
-- **Restore:** as `admin`, from the box's copy of `deploy/`, run `bash deploy/backup/restore.sh /var/backups/omega-share/omega-YYYY-MM-DD.db`. It verifies the snapshot before it stops anything. See [backup.md § Restore](backup.md#restore).
+- **Restore:** as `admin`, from the box's copy of the kit (`~/omega-deploy/`, see Provision), run `bash omega-deploy/backup/restore.sh /var/backups/omega-share/omega-YYYY-MM-DD.db`. It verifies the snapshot before it stops anything. See [backup.md § Restore](backup.md#restore).
 
 After a restore, rooms, layouts and each room's last embed come back, with playback paused at 0. Presence, chat and share tokens are memory-only by design.
 

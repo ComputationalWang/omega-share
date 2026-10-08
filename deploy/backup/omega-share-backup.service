@@ -2,8 +2,9 @@
 # VACUUM INTO runs alongside the server; the snapshot is checked, then renamed into place.
 [Unit]
 Description=omega-share nightly SQLite snapshot (VACUUM INTO, keeps 14)
-Documentation=file:///opt/omega-share/current/docs/ops/backup.md
-# Until the server's first start there is no DB to snapshot (backup.ts never creates one).
+Documentation=https://github.com/ComputationalWang/omega-share/blob/main/docs/ops/backup.md
+# Until the server's first start there is no DB to snapshot (backup.ts never creates one), so the
+# run is skipped, not delayed. This path and ReadWritePaths below are the default DB_PATH's.
 ConditionPathExists=/var/lib/omega-share/omega.db
 
 [Service]
@@ -12,7 +13,9 @@ User=omega-share
 Group=omega-share
 Environment=DB_PATH=/var/lib/omega-share/omega.db
 Environment=BACKUP_DIR=/var/backups/omega-share
-# The server's env file (DB_PATH) wins over the default above when it exists.
+# The server's env file is read too. A DB_PATH set there moves the DB this unit snapshots, but not
+# ConditionPathExists or ReadWritePaths: such a box needs a drop-in that sets both, or every run is
+# skipped and only pull.sh's 36 h alarm notices.
 EnvironmentFile=-/etc/omega-share/env
 ExecStart=/usr/local/bin/bun /opt/omega-share/current/apps/server/scripts/backup.ts snapshot
 UMask=0077
