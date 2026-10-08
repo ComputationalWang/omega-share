@@ -66,7 +66,33 @@ describe("deploy/Caddyfile", () => {
   test("leaves CSP and client IP to the server, and logs no IPs (D3, D6)", () => {
     expect(caddy).not.toMatch(/Content-Security-Policy/i);
     expect(caddy).not.toContain("trusted_proxies");
-    expect(caddy).not.toMatch(/^\s*log\b/m);
+    // No access log: the site block has no `log` directive.
+    const site = caddy.slice(caddy.indexOf("omega-share.duckdns.org {"));
+    expect(site).not.toMatch(/^\s*log\b/m);
+  });
+
+  test("the default logger drops request IPs and headers, so a 502 error entry carries neither (OME-386)", () => {
+    // Global options: the first top-level block. `http.log.error` and every other logger go through `log default`.
+    const global = /^\{\n([\s\S]*?)^\}$/m.exec(caddy)?.[1] ?? "";
+    const logBlock = /^\tlog default \{\n([\s\S]*?)^\t\}$/m.exec(global)?.[1] ?? "";
+    const filter = /format filter \{\n([\s\S]*?)^\t\t\}$/m.exec(logBlock)?.[1] ?? "";
+    const deleted = new Set([...filter.matchAll(/^\s*(\S+) delete$/gm)].map((m) => m[1]));
+    for (const field of ["request>remote_ip", "request>remote_port", "request>client_ip", "request>headers", "remote"]) {
+      expect(deleted).toContain(field);
+    }
+    expect(filter).toMatch(/^\s*wrap json$/m);
+    expect(logBlock).toMatch(/^\s*output stderr$/m);
+  });
+});
+
+describe("deploy/journald", () => {
+  test("provision bounds the persistent journal to 14 days with a drop-in: sshd logs peer IPs (OME-386)", () => {
+    const conf = unitKeys(read("journald/omega-share.conf"));
+    expect(conf.get("MaxRetentionSec")).toEqual(["14day"]);
+    const p = read("provision.sh");
+    expect(p).toContain("install -d -m 0755 /etc/systemd/journald.conf.d");
+    expect(p).toContain('install -m 0644 "$here/journald/omega-share.conf" /etc/systemd/journald.conf.d/');
+    expect(p).toMatch(/systemctl restart systemd-journald/);
   });
 });
 
