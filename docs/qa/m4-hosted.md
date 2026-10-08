@@ -2,9 +2,9 @@
 
 QA Engineer 2, 2026-10-08, 17:05–18:05 UTC, from the QA box (one residential address, ~16 ms from the box). Every browser run was headless or headed on Xvfb (`e2e/support/headed.ts`). `hyprctl clients` showed no "Google Chrome for Testing" window after each headed run. Local helpers ran on QA2's alt ports (4410/5183/8797).
 
-**Deployed revision.** From outside, the site bundle (`index-geJTK_y0.js` / `index-8HHdnAtf.css`) is the one built from `main` since `48cc7b8`: no `apps/web` or `packages/shared` change landed after it. The response headers carry the Trusted Types enforcement and HSTS, so the server is at least `9995b63`. The exact SHA (`readlink /opt/omega-share/current`) comes from the box: [OME-375](/OME/issues/OME-375). `main` was at `9f2e849` during the run.
+**Deployed revision: `9f2e8498e37fae4c3c3b5f1be718e23076e51a4c`** (`main@9f2e849`, OME-363). `/opt/omega-share/current` points to that release ([OME-375](/OME/issues/OME-375)). This agrees with what is visible from outside: the site bundle (`index-geJTK_y0.js` / `index-8HHdnAtf.css`) is unchanged since `48cc7b8`, and the enforced TT and HSTS headers mean the server is ≥ `9995b63`.
 
-**Verdict: green.** No reds, so no defect sub-issues. Two follow-ups: on-box evidence ([OME-375](/OME/issues/OME-375), Lead) and a test-harness gap ([OME-378](/OME/issues/OME-378), QA Engineer, not blocking).
+**Verdict: green, with one known issue.** Caddy's error log writes client IPs when the upstream is down (§6). The Lead filed it as [OME-386](/OME/issues/OME-386). Restart persistence was not observed (§7). Test-harness gap: [OME-378](/OME/issues/OME-378) (QA Engineer, not blocking).
 
 ## 1. Hosted smoke (4 browsers, headless)
 Scratch script `smoke.ts` (attached to OME-360). It drives the real UI like the e2e specs do: same `data-testid` contract, `clickSettled` for seats.
@@ -81,11 +81,10 @@ Plus the earlier `providers.ts` Twitch run: `chynao_o` again showed an ad label 
 | CSP | one header CSP: `require-trusted-types-for 'script'; trusted-types omega-sdk youtube-widget-api`, `frame-ancestors 'none'`, `object-src 'none'`, `frame-src … https:` (generic tier). No report-only header. TT enforced in the page (§1) |
 | 429 + `Retry-After` on an HTTP burst | 400 × `GET /healthz` over one HTTP/2 connection: **131 × 200, 269 × 429**, every 429 with **`Retry-After: 1`**. `/healthz` was back to 200 after 8 s. tunnel-4: 20 × 401 then 10 × 429 with a fresh spoofed `X-Forwarded-For` each time |
 | ports | TCP **22, 80, 443 open**. **8787, 2019 (Caddy admin), 3000, 5173 closed/filtered** |
-| no IP addresses in the server logs | needs `journalctl` as `admin`: [OME-375](/OME/issues/OME-375) item 2. The traffic above (bursts, refused tokens, joins) is the logging test load |
+| no IP addresses in the server logs | **app: pass.** `journalctl -u omega-share` since 16:00 UTC: 89 lines, 6 IP-shaped matches, all the loopback bind line `server on http://127.x.x.x:8787/`. No client IP, and the window covers QA2's bursts, refused tokens, joins and shares. **Caddy: known issue [OME-386](/OME/issues/OME-386).** 188 lines, 13 matches: 5 ACME validators, 3 loopback admin lines (before admin was turned off at 16:37), and **5 `http.log.error` 502 entries with a real client `remote_ip`/`client_ip` and headers** (16:12–16:16, app down during deploys). None of them fall in QA2's window. The access log is off ([OME-375](/OME/issues/OME-375), board run 18:22 UTC) |
 
-## 7. Waiting on the box ([OME-375](/OME/issues/OME-375), Lead)
-1. Exact deployed SHA.
-2. Address count in `journalctl -u omega-share` / `-u caddy` since 16:00 UTC.
-3. One `systemctl restart omega-share`. QA2 left the lobby on Vimeo `1084537`, playing. After the restart, QA2 checks from outside that the lobby still holds that embed, paused at 0 (rooms, layouts and last embed persist; playback resets by design, hosting.md).
-
-QA2 adds these to this report once OME-375 closes.
+## 7. Restart persistence: not observed
+- The board ran `systemctl restart omega-share` (as `deploy`) at **2026-10-08T18:22:25Z**. The service came back `active` and `/healthz` returned 200 ([OME-375](/OME/issues/OME-375)).
+- Before the restart, QA2 had left the lobby on Vimeo `1084537`. At 18:24:18Z, a WS join snapshot from outside showed the lobby on **Twitch live `shroud`**: `action: load`, rev 3, `at` 18:23:39Z, 1 member. Another client shared it 74 s after the restart, most likely the parallel QA run on [OME-378](/OME/issues/OME-378), whose candidate list contains `shroud`. So the snapshot can't show whether the Vimeo embed survived the restart.
+- Coverage meanwhile: `e2e/persistence.e2e.ts` (restart of a real server keeps rooms, layouts and the last embed, paused at 0) and the OME-358 restore drill.
+- A before/after probe that one person can run around a single restart is with the Lead in the review issue.
