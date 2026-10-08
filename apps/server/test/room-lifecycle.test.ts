@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import type { AnyEmbed, RoomId } from "@omega/shared";
+import type { RoomId } from "@omega/shared";
 import { Room } from "../src/room";
 import { RoomRegistry } from "../src/rooms";
 import type { RoomPersistence } from "../src/server";
@@ -9,9 +9,9 @@ import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 let t: TestServer | null = null;
 const clients: Client[] = [];
-afterEach(() => {
+afterEach(async () => {
   for (const c of clients.splice(0)) c.close();
-  t?.server.stop(true);
+  await t?.server.stop(true);
   t = null;
 });
 
@@ -47,7 +47,8 @@ describe("RoomRegistry.removeRoom", () => {
     lobby.client.send({ type: "chat", text: "still here" });
     expect((await lobby.client.next("chat")).text).toBe("still here");
     expect(registry.get("film-club")).toBeUndefined();
-    expect((await fetch(`${t.http}/rooms`).then((r) => r.json())) as unknown).toEqual({
+    const listed: unknown = await fetch(`${t.http}/rooms`).then((r) => r.json());
+    expect(listed).toEqual({
       rooms: [{ id: "lobby", memberCount: 1, seatedCount: 0 }],
     });
     expect(registry.removeRoom(room ?? fail())).toBe(false);
@@ -74,7 +75,7 @@ describe("RoomRegistry.removeRoom", () => {
     const store: RoomPersistence = {
       listRooms: () => [],
       createRoom: () => undefined,
-      setEmbed: (id: RoomId, _embed: AnyEmbed) => {
+      setEmbed: (id: RoomId) => {
         stored.push(id);
       },
     };
