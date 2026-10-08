@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_ROOM_SECRETS, ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
-import { forgetRoom, inviteLink, joinMessage, loadRoomSecrets, rememberRoom, takeInviteKey } from "../src/room-secrets";
+import { forgetRoom, inviteLink, joinMessage, loadRoomSecrets, rememberRoom, secretFor, takeInviteKey } from "../src/room-secrets";
 
 const OWNER = "o".repeat(21) + "A";
 const KEY = "k".repeat(21) + "_";
@@ -171,6 +171,23 @@ describe("takeInviteKey: the #k= fragment is read, saved and stripped at boot (A
     const p = page(`https://omega.example/r/${ROOM}#k=${KEY}`);
     expect(takeInviteKey(p.loc, p.history, s, ROOM)).toBe(KEY);
     expect(p.loc.hash).toBe("");
+  });
+});
+
+describe("secretFor: what the join uses", () => {
+  test("the stored record, when there is no fresh key", () => {
+    const s = new MemoryStore();
+    rememberRoom(s, ROOM, { ownerToken: OWNER, inviteKey: KEY });
+    expect(secretFor(loadRoomSecrets(s), ROOM, null)).toEqual({ ownerToken: OWNER, inviteKey: KEY });
+    expect(secretFor(loadRoomSecrets(s), "lobby", null)).toBeUndefined();
+  });
+
+  test("the key just taken from the URL wins, even when storage couldn't keep it", () => {
+    const s = new MemoryStore();
+    s.failWrites = true;
+    const p = page(`https://omega.example/r/${ROOM}#k=${KEY}`);
+    const invited = takeInviteKey(p.loc, p.history, s, ROOM);
+    expect(secretFor(loadRoomSecrets(s), ROOM, invited)).toEqual({ inviteKey: KEY });
   });
 });
 

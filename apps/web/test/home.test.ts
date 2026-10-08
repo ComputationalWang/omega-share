@@ -19,10 +19,12 @@ const KEY = "k".repeat(21) + "_";
 
 class MemoryStore {
   readonly data = new Map<string, string>();
+  failWrites = false;
   getItem(k: string): string | null {
     return this.data.get(k) ?? null;
   }
   setItem(k: string, value: string): void {
+    if (this.failWrites) throw new Error("QuotaExceededError");
     this.data.set(k, value);
   }
 }
@@ -134,6 +136,16 @@ describe("create room (POST /rooms)", () => {
   });
 });
 
+describe("create room when storage is blocked", () => {
+  test("the room's secrets can't be saved: stays on the page and says why instead of opening an unmanageable room", async () => {
+    store.failWrites = true;
+    const root = await mount();
+    await submit(root, "Movie night", true);
+    expect(navigated).toEqual([]);
+    expect(byTestId(root, "create-room-error", HTMLElement).textContent).toContain("storage");
+  });
+});
+
 describe("public rooms (GET /rooms)", () => {
   test("lists each room as a link to /r/<id>, its title as text only", async () => {
     listed = [
@@ -169,12 +181,23 @@ describe("your rooms (localStorage omega.rooms)", () => {
     expect(all(root, "your-room").map((li) => li.getAttribute("data-owner"))).toEqual(["true", "false"]);
   });
 
-  test("forget removes the room from storage and from the list", async () => {
-    rememberRoom(store, ROOM, { ownerToken: OWNER });
+  test("forget removes an invited room from storage and from the list", async () => {
+    rememberRoom(store, ROOM, { inviteKey: KEY });
     const root = await mount();
     byTestId(root, "your-room-forget", HTMLButtonElement).click();
     expect(loadRoomSecrets(store).rooms).toEqual({});
     expect(all(root, "your-room")).toHaveLength(0);
+  });
+
+  test("forgetting a room you own takes a second click: the owner token can't be recovered", async () => {
+    rememberRoom(store, ROOM, { ownerToken: OWNER });
+    const root = await mount();
+    const forget = byTestId(root, "your-room-forget", HTMLButtonElement);
+    forget.click();
+    expect(loadRoomSecrets(store).rooms[ROOM]).toEqual({ ownerToken: OWNER });
+    expect(forget.textContent).toContain("can't undo");
+    byTestId(root, "your-room-forget", HTMLButtonElement).click();
+    expect(loadRoomSecrets(store).rooms).toEqual({});
   });
 
   test("the list never shows an owner token or invite key", async () => {

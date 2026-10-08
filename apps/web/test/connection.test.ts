@@ -464,6 +464,19 @@ describe("created rooms (ADR 0028)", () => {
     expect(sockets).toHaveLength(1);
   });
 
+  test("invite_required on a rejoin is final at once: unlike a name, a refused key is never our own dead member", () => {
+    const refusal: ServerMessage = { type: "error", code: "invite_required", message: "private" };
+    connect();
+    last().open();
+    last().receive(snapshot);
+    last().drop();
+    runRetry();
+    last().open();
+    last().receive(refusal);
+    expect(events.slice(-2)).toEqual([{ type: "message", msg: refusal }, { type: "disconnected" }]);
+    expect(timers).toHaveLength(0);
+  });
+
   test("the join carries what the caller gave it (owner token, invite key) unchanged", () => {
     const join = { type: "join", nickname: "zoe", avatar: 1, ownerToken: "o".repeat(22), inviteKey: "k".repeat(22) } as const;
     createConnection({

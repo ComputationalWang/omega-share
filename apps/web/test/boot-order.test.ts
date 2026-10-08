@@ -19,6 +19,12 @@ describe("boot order (OME-409)", () => {
     expect(line).toMatch(/^(const \w+ = )?takeInviteKey\(/);
   });
 
+  test("the key taken at boot reaches the join even when storage couldn't keep it", () => {
+    const name = /const (\w+) = takeInviteKey\(/.exec(main)?.[1];
+    expect(name).toBeDefined();
+    expect(main).toMatch(new RegExp(`secretFor\\([^)]*, ${name ?? "?"}\\)`));
+  });
+
   test("main.ts has no static import of a player or the room (those load provider SDKs)", () => {
     const statics = [...main.matchAll(/^import (?!type)[^;]*from "([^"]+)"/gm)].map((m) => m[1]);
     for (const s of statics) expect(s).not.toMatch(/player|\.\/room$|sdk/);
