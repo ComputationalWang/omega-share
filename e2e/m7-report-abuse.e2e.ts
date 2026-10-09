@@ -44,7 +44,8 @@ import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import { TEST_ROOM_IDS } from "./support/test-rooms";
 
-const SERVER_PORT = PORTS.server + 6;
+// +6 is moderation-queue-abuse's server; the two run in parallel in a full suite.
+const SERVER_PORT = PORTS.server + 8;
 const SITE_ORIGIN = `http://localhost:${String(PORTS.web)}`;
 /** A thrown error or an unhandled rejection in the server's output (not a log line that merely says "error"). */
 const SERVER_FAULT = /\b(Error|TypeError|RangeError):|uncaught|unhandled/i;
