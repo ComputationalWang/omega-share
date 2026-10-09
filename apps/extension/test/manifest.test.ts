@@ -120,3 +120,9 @@ test("only the e2e builds carry the background's e2e popup opener", () => {
   expect(code("firefox e2e")).toContain("omega-e2e-popup");
   for (const name of ["production", "firefox production"]) expect(code(name)).not.toContain("omega-e2e-popup");
 });
+
+test("the store builds' background stays empty: no e2e code or its imports bundled in (OME-593)", () => {
+  for (const name of ["production", "firefox production"]) {
+    expect(readFileSync(join(outDir(name), "background.js")).byteLength, name).toBeLessThan(2048);
+  }
+});
