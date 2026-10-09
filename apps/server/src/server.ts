@@ -1,5 +1,5 @@
 import type { Server } from "bun";
-import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type AnyEmbed, type QueueItemId, type RoomId } from "@omega/shared";
+import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, QUEUE_MAX, type AnyEmbed, type QueueItemId, type RoomId } from "@omega/shared";
 import { nicknameKey } from "@omega/shared/confusables";
 import { ownHostsFor } from "./config";
 import { EmbedPolicy } from "./embed-policy";
@@ -129,10 +129,13 @@ function loadRooms(
     for (const r of store.listRooms()) {
       const embed = embeds.restore(r.embed);
       // Items the policy no longer accepts are left out; their rows stay, as for the embed.
-      const queue = r.queue.flatMap((i) => {
+      const restored = r.queue.flatMap((i) => {
         const again = embeds.restore(i.embed);
-        return again === null ? [] : [{ id: i.id, embed: again }];
+        return again === null || i.id === r.itemId ? [] : [{ id: i.id, embed: again }];
       });
+      // Hidden rows don't count toward QUEUE_MAX while hidden, so a flip back can bring more: keep the oldest.
+      if (restored.length > QUEUE_MAX) logError("store.queue", new Error(`restored queue over QUEUE_MAX: ${String(restored.length - QUEUE_MAX)} items left out`));
+      const queue = restored.slice(0, QUEUE_MAX);
       rooms.addRoom(new Room(r.id, { ...r, embed, itemId: embed === null ? null : r.itemId, queue, itemSince: since }));
     }
   }

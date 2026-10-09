@@ -119,7 +119,11 @@ export function createQueue({ rooms, embeds, publish, store, now }: QueueDeps): 
       if (refused !== null) return refused;
       if (!actor.addBucket.take()) return { code: "rate_limited", retryAfterMs: actor.addBucket.retryAfterMs() };
       const roomBucket = roomAdds.get(room);
-      if (!roomBucket.take()) return { code: "rate_limited", retryAfterMs: roomBucket.retryAfterMs() };
+      if (!roomBucket.take()) {
+        // The room's limit is everyone's: the member keeps their own add.
+        actor.addBucket.refund();
+        return { code: "rate_limited", retryAfterMs: roomBucket.retryAfterMs() };
+      }
       return null;
     },
 
