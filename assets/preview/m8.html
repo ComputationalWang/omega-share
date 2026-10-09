@@ -1,0 +1,360 @@
+<!doctype html>
+<!-- Set (l) (OME-644), M8 mock-ups: floating chat bubbles (stacking, float motion, reduced motion), the emote wheel, the wide desktop
+     layout with "Press Enter to chat". Uses ../ui/reference.css only (no app code); the script at the end is a reference implementation
+     of the bubble stacking rule in assets/README.md § Set (l). Screenshots: bun assets/src/shoot-m8.ts. Not shipped. Art CC BY-SA 4.0. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>omega-share M8 (set l)</title>
+<link rel="stylesheet" href="../ui/reference.css">
+<style>
+  body { margin: 0; background: #1c1420; color: var(--ui-text); font: 600 15px/1.35 system-ui, sans-serif; }
+  section { padding: 24px; width: fit-content; }
+  h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ui-muted); margin: 0 0 12px; }
+  h3.cap { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ui-accent); margin: 0 0 6px; font-weight: 700; }
+  .cap-p { font-size: 11px; color: var(--ui-muted); font-weight: 500; margin: 8px 0 0; max-width: 1280px; line-height: 1.45; }
+  .row { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  .col { display: grid; gap: 8px; justify-items: start; align-content: start; }
+  .lbl { font-size: 10px; color: var(--ui-muted); font-weight: 600; }
+  .z4 { zoom: 4; } .z2 { zoom: 2; }
+  .screen { position: relative; overflow: hidden; background: var(--ui-page); outline: 1px solid #4a3a52; }
+  .screen > * { position: absolute; }
+  .video { background: url("tv-video@1x.png") 0 0 / 100% 100%; image-rendering: pixelated; }
+  .stage { position: relative; width: 960px; height: 600px; background: url("room@1x.png"); image-rendering: pixelated; overflow: hidden; }
+  .stage .layer { position: absolute; inset: 0; }
+  /* Frozen previews: every float animation is paused at the bubble's age (negative delay), so shots are deterministic. */
+  .frozen .ui-float { animation-play-state: paused; transition: none; }
+  .note { position: absolute; z-index: 5; font: 600 10px/1.3 system-ui; color: #2b1d2f; background: #fff7ea; padding: 3px 6px; box-shadow: 0 0 0 1px #2b1d2f; max-width: 220px; }
+  .guide { position: absolute; z-index: 4; outline: 1px dashed #e8fbff; pointer-events: none; }
+  .tip { position: absolute; width: 3px; height: 3px; margin: -1px 0 0 -1px; background: #e8fbff; box-shadow: 0 0 0 1px #2b1d2f; z-index: 6; }
+  .fo { position: absolute; z-index: 7; width: 16px; height: 16px; border-radius: 50%; background: #fff; color: #2b1d2f; font: 800 10px/16px system-ui; text-align: center; box-shadow: 0 0 0 2px #2b1d2f; }
+  .tbl { border-collapse: collapse; font-size: 12px; font-weight: 500; }
+  .tbl th, .tbl td { border: 1px solid #4a3a52; padding: 5px 8px; text-align: left; vertical-align: top; }
+  .tbl th { color: var(--ui-accent); font-weight: 700; }
+  .strip-t { display: grid; grid-template-columns: repeat(8, 120px); gap: 6px; }
+  .cell { position: relative; height: 92px; background: url("room@1x.png") -296px -236px; image-rendering: pixelated; outline: 1px solid #4a3a52; overflow: hidden; }
+  .cell .t { position: absolute; left: 3px; bottom: 2px; font: 700 10px system-ui; color: #fff7ea; text-shadow: 0 1px 0 #2b1d2f; }
+  .chatlog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; overflow: hidden; --ui-px: 1px; }
+  .chatlog .ui-fs-line { font-size: 13px; }
+  .hintline { font-size: 11px; font-weight: 500; color: var(--ui-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .hintline .ui-kbd { font-size: 10px; }
+</style>
+</head>
+<body>
+
+<!-- =============================================================== pieces -->
+<section id="m8-pieces">
+  <h2>Set (l) pieces at 4× (left), and at 1× / 2× (right)</h2>
+  <div class="row">
+    <div class="col">
+      <div class="ui-room z4" style="display:flex;gap:6px;align-items:flex-start;background:#6d5584;padding:4px">
+        <span class="ui-float frozen" style="position:relative;animation:none">Hi</span>
+        <span class="ui-float is-self" style="position:relative;animation:none">Hi</span>
+      </div>
+      <span class="lbl">bubble/float · bubble/float-self + tail-s (14×14, slices 5 5 6 5; tail 12×7)</span>
+      <div class="ui-room z4" style="display:flex;gap:10px;align-items:flex-start;background:#6d5584;padding:4px 4px 10px">
+        <span class="ui-float tail-sw" style="position:relative;animation:none;--tail-x:3px">left</span>
+        <span class="ui-float tail-se" style="position:relative;animation:none;--tail-x:calc(100% - 3px)">right</span>
+        <span class="ui-float is-stacked" style="position:relative;animation:none"><span class="say"><b class="who">Bo</b>up</span></span>
+      </div>
+      <span class="lbl">tail-sw · tail-se (12×7, lean 2:1 to a speaker past the edge) · stacked (no tail, names the speaker)</span>
+    </div>
+    <div class="col">
+      <div style="display:flex;gap:14px;align-items:flex-end;background:var(--ui-panel);padding:6px;--ui-px:1px" class="z4">
+        <span id="disc"></span>
+        <div class="col" style="gap:4px">
+          <div style="display:flex;gap:3px" id="slotstates"></div>
+          <div style="display:flex;gap:3px;align-items:center" id="misc"></div>
+        </div>
+      </div>
+      <span class="lbl">wheel/disc 77×77 · wheel/slot idle · hover · selected · press · cool (21×21) · wheel/focus 27 · wheel/hub 21 · wheel/tail 9×7 · icon/wheel · kbd/0 (12×12, slices 3 4 4 4)</span>
+    </div>
+    <div class="col">
+      <div class="ui-room" style="background:#6d5584;padding:16px 10px 12px;display:flex;gap:14px;align-items:flex-start">
+        <p class="ui-float" style="position:relative;animation:none;max-width:168px"><span class="say">here it comes, the green flash</span></p>
+        <p class="ui-float is-self" style="position:relative;animation:none;max-width:168px"><span class="say">brb, more popcorn</span></p>
+      </div>
+      <span class="lbl">1× art (room scale), 12/15 px words</span>
+      <div class="ui-room z2" style="background:#6d5584;padding:16px 10px 12px;display:flex;gap:14px;align-items:flex-start">
+        <p class="ui-float" style="position:relative;animation:none;max-width:168px"><span class="say">here it comes, the green flash</span></p>
+        <p class="ui-float is-self" style="position:relative;animation:none;max-width:168px"><span class="say">brb, more popcorn</span></p>
+      </div>
+      <span class="lbl">2× (zoomed stage on a big screen)</span>
+      <div class="hintline" style="--ui-px:2px">Press <kbd class="ui-kbd">Enter</kbd> to chat · <kbd class="ui-kbd">T</kbd> emotes · <kbd class="ui-kbd">Esc</kbd> back</div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== bubbles in the room -->
+<section id="m8-bubbles">
+  <h2>1 · Bubbles in the room (stage 960×600 at 1×): six speakers, two stacks, your own bubble</h2>
+  <div class="row">
+    <div class="stage ui-room frozen" id="stage1"><div class="layer" id="bubbles1" aria-hidden="true"></div></div>
+    <div class="col" style="max-width:300px">
+      <table class="tbl">
+        <tr><th>who</th><th>age</th><th>said</th></tr>
+        <tbody id="legend1"></tbody>
+      </table>
+      <p class="cap-p">White dots (mock-up annotation only, not product; they show through cards because they're drawn on top): each speaker's bubble anchor (floor y − tagLiftByAvatar, the spot 2 px over the head). Newest first, every bubble takes its
+      anchor; if its whole path (the box plus the 24 px it will still rise) would touch a newer one, it moves straight up above it, 3 px clear, and loses its tail
+      (it can't point at the speaker any more), so it names the speaker in bold instead. Remy spoke twice: the older line sits on top of the newer, Ana's (older still) above both. Known limit: a stacked card can cover the heads of people seated behind (Remy's older card here); their name tags hang under their feet, so who is who stays readable, and the card is gone in 5 s.
+      Kit (you) got pushed up by Sol's newer line just below. Your own bubble wears the mustard "you" rim, like your name tag.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== float motion -->
+<section id="m8-float">
+  <h2>2 · Float motion: one bubble over its 5 s life (top) and with reduced motion (bottom)</h2>
+  <div class="strip-t ui-room frozen" id="tl"></div>
+  <div class="strip-t ui-room frozen" id="tlr" style="margin-top:6px"></div>
+  <div class="row" style="margin-top:14px;align-items:center">
+    <svg width="560" height="150" viewBox="0 0 560 150" role="img" aria-label="Opacity and rise over the 5 second life">
+      <rect x="40" y="10" width="500" height="110" fill="#24264a" stroke="#4a3a52"/>
+      <g stroke="#4a3a52"><line x1="40" y1="65" x2="540" y2="65"/><line x1="40" y1="120" x2="540" y2="120"/></g>
+      <g font-size="10" fill="#cbbd9f" font-family="system-ui"><text x="6" y="14">1</text><text x="6" y="124">0</text>
+        <text x="36" y="136">0</text><text x="46" y="148">120 ms</text><text x="390" y="136">3.6 s</text><text x="430" y="148">4 s (reduced)</text><text x="528" y="136">5 s</text></g>
+      <polyline id="op" fill="none" stroke="#f7d36b" stroke-width="2"/>
+      <polyline id="opr" fill="none" stroke="#6fd0c4" stroke-width="2" stroke-dasharray="4 3"/>
+      <polyline id="rise" fill="none" stroke="#e8fbff" stroke-width="1"/>
+    </svg>
+    <table class="tbl" style="max-width:600px">
+      <tr><th></th><th>Default</th><th>Reduced motion</th></tr>
+      <tr><td>Appear</td><td>opacity 0 → 1 in 120 ms (3 steps)</td><td>at once</td></tr>
+      <tr><td>Rise</td><td>24 stage px over 5 s, <code>steps(24)</code>: 1 whole px every ~208 ms (crisp, never blurred)</td><td>none</td></tr>
+      <tr><td>Fade</td><td>hold to 3.6 s, then ease-in to 0 by 5 s (<code>cubic-bezier(.55,0,1,.45)</code>: readable longest, gone fast)</td><td>hold to 4 s, linear to 0 by 5 s</td></tr>
+      <tr><td>Pushed up a stack</td><td><code>--push</code> on <code>transform</code>, 160 ms, 4 steps</td><td>jumps</td></tr>
+      <tr><td>Leaves early (9th bubble, off the top)</td><td><code>.is-leaving</code>: fade 160 ms</td><td>removed at once</td></tr>
+    </table>
+  </div>
+  <p class="cap-p">Yellow: opacity (default). Teal dashed: opacity (reduced motion). White: rise (0 to 24 px). Everything runs on the compositor (<code>opacity</code>, <code>translate</code>, <code>transform</code>): no layout or paint per frame, and nothing moves at all once a bubble is gone.</p>
+</section>
+
+<!-- =============================================================== emote wheel -->
+<section id="m8-wheel">
+  <h2>3 · Emote wheel (T): over your own bubble spot, page chrome 2×</h2>
+  <div class="row">
+    <div class="screen" style="width:520px;height:330px;background:url('room@1x.png') -330px -150px;image-rendering:pixelated" id="wheelroom">
+      <div class="ui-wheel" role="menu" aria-label="Emotes" id="w1" style="--ui-px:2px"></div>
+      <span class="note" style="left:8px;bottom:8px">T (focus not in a field) opens it with Heart selected. ← → ↑ ↓ go round, 1–6 send at once, Enter / Space sends, Esc or T closes. Focus comes back where it was.</span>
+    </div>
+    <div class="col">
+      <h3 class="cap">States (2×)</h3>
+      <div class="row" style="gap:18px" id="wstates"></div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:16px">
+    <div class="col">
+      <h3 class="cap">Touch: the wheel key by the chat input (phone, 390 px)</h3>
+      <div class="screen ui-touch" style="width:390px;height:300px;background:url('room@1x.png') -390px -230px;image-rendering:pixelated">
+        <div class="ui-wheel" role="menu" aria-label="Emotes" id="w2" style="--ui-px:2px"></div>
+        <form class="ui-composer" style="left:8px;right:8px;bottom:8px;--ui-px:2px" onsubmit="return false">
+          <button class="ui-button self icon" aria-label="Emotes" aria-expanded="true" aria-haspopup="menu"><span class="ui-sprite ui-icon-wheel"></span></button>
+          <div class="field"><input class="ui-input" placeholder="Say something…" aria-label="Message"></div>
+          <button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button>
+        </form>
+      </div>
+      <p class="cap-p" style="max-width:390px">The key (icon/wheel: six beads, the top one lit) sits left of the field, <code>aria-haspopup="menu"</code>, <code>aria-expanded</code>. Tap opens the same wheel over your avatar; with no avatar in view (watch-only, panned away) it docks centred above the composer, without a tail. Slots are 42 CSS px at 2×, the 44 px <code>.ui-touch</code> hit areas fit between them.</p>
+    </div>
+    <div class="col">
+      <h3 class="cap">Cooling (the server slowed your emotes)</h3>
+      <div class="screen" style="width:240px;height:240px;background:url('room@1x.png') -470px -240px;image-rendering:pixelated">
+        <div class="ui-wheel no-tail" role="menu" aria-label="Emotes" id="w3" style="--ui-px:2px;left:43px;top:52px"></div>
+      </div>
+      <p class="cap-p" style="max-width:240px">Every slot <code>aria-disabled</code> (charcoal well, sticker dimmed), the hub shows set (f)'s draining wait dial and the chip says how long.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== wide desktop -->
+<section id="m8-desktop">
+  <h2>4 · Wide desktop (1280×720): chat column beside the room, "Press Enter to chat"</h2>
+  <div class="screen" style="width:1280px;height:720px" id="wide">
+    <div class="video ui-tv-frame" style="left:200px;top:6px;width:560px;height:315px"></div>
+    <div class="ui-tv-shelf ui-room" style="left:200px;top:329px;width:560px">
+      <div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span></div>
+    </div>
+    <div class="stage ui-room frozen" style="left:16px;top:381px;width:928px;height:339px;background-position:-16px -186px" id="stage2"><div class="layer" id="bubbles2" aria-hidden="true"></div></div>
+    <aside class="ui-chatcol" aria-label="Chat" style="left:960px;top:0;width:320px;height:720px">
+      <div class="ui-chatcol-head"><span class="ui-sprite ui-icon-chat"></span>Chat<span class="n">7 / 25</span><button class="ui-button self icon" aria-label="Pop out the chat"><span class="ui-sprite ui-icon-popout"></span></button></div>
+      <ol class="chatlog" role="log" aria-live="polite" aria-label="Chat messages" id="log"></ol>
+      <div class="col" style="gap:6px;justify-items:stretch">
+        <form class="ui-composer" onsubmit="return false">
+          <button class="ui-button self icon" aria-label="Emotes" aria-haspopup="menu" aria-expanded="false" aria-keyshortcuts="T"><span class="ui-sprite ui-icon-wheel"></span></button>
+          <div class="field"><input class="ui-input" placeholder=" " aria-label="Message (Enter)" aria-keyshortcuts="Enter"><span class="ui-chat-hint" aria-hidden="true">Press <kbd class="ui-kbd">Enter</kbd> to chat</span></div>
+          <button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button>
+        </form>
+        <div class="hintline"><kbd class="ui-kbd">T</kbd> emotes <kbd class="ui-kbd">Esc</kbd> back to the room</div>
+      </div>
+    </aside>
+    <div class="guide" style="left:16px;top:381px;width:928px;height:339px"><span class="note" style="position:static;display:inline-block">stage: 1×, a 928×339 window panned to the seats (panTo)</span></div>
+    <span class="fo" style="left:206px;top:340px">1</span><span class="fo" style="left:300px;top:340px">2</span><span class="fo" style="left:30px;top:520px">3</span>
+    <span class="fo" style="left:1252px;top:10px">4</span><span class="fo" style="left:966px;top:300px">5</span><span class="fo" style="left:966px;top:652px">6</span><span class="fo" style="left:1040px;top:652px">7</span><span class="fo" style="left:1252px;top:652px">8</span>
+  </div>
+  <div class="row" style="margin-top:16px">
+    <div class="col">
+      <h3 class="cap">The composer: idle (hint) · focused (Enter pressed) · typing</h3>
+      <div class="ui-chatcol" style="width:320px;height:auto;display:grid;gap:10px">
+        <form class="ui-composer" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-wheel"></span></button><div class="field"><input class="ui-input" placeholder=" " aria-label="Message"><span class="ui-chat-hint" aria-hidden="true">Press <kbd class="ui-kbd">Enter</kbd> to chat</span></div><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+        <form class="ui-composer" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-wheel"></span></button><div class="field"><input class="ui-input is-focus" placeholder="Say something…" aria-label="Message"></div><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+        <form class="ui-composer" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-wheel"></span></button><div class="field"><input class="ui-input is-focus" value="the green flash!!" aria-label="Message"></div><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+      </div>
+    </div>
+    <p class="cap-p" style="max-width:820px">The empty space at the top of the column is the idle state: the log is pinned to the foot (newest by the composer) and fills upward as people talk. Wide layout (≥ 1024 px, landscape): the column is set (k)'s strip standing beside the room, its wood spine on the stage side, full viewport height. The TV keeps ADR 0012's 560×315 max with the shelf under it;
+    the stage below is a <b>1× window</b> onto the 960×600 stage panned to the seats (the phone layout's <code>panTo</code>), rather than the whole stage scaled to 0.56, so avatars, tags and bubbles stay crisp at native size. At ≥ 1080 px tall the whole stage fits and the window is the full stage.
+    "Press <b>Enter</b> to chat" shows on the empty, unfocused field only (the keycap is drawn, the words are text); it hides on focus, on any text, and on touch screens. The field's label carries the same words for screen readers (<code>aria-keyshortcuts="Enter"</code>).
+    Focus order (white badges): 1 pause · 2 seek · 3 the room (seats) · 4 pop out · 5 the log · 6 emotes · 7 message · 8 send.</p>
+  </div>
+</section>
+
+<script>
+  // ---- Reference: the bubble stacking rule (assets/README.md § Set (l)). Stage px; newest first.
+  const B = { rise: 24, gap: 3, margin: 4, tailBelow: 4, lifeMs: 5000 };
+  function layoutBubbles(layer, list, view) {
+    // view: the visible stage window {x, y, w, h} (the whole stage, or a panned window).
+    const placed = [];
+    layer.textContent = "";
+    for (const b of [...list].sort((p, q) => p.age - q.age)) {
+      const el = document.createElement("p");
+      el.className = "ui-float" + (b.self ? " is-self" : "");
+      el.innerHTML = `<span class="say">${b.text}</span>`;
+      el.style.animationDelay = `-${b.age}ms, -${b.age}ms`;
+      layer.append(el);
+      const w = el.offsetWidth, h = el.offsetHeight;
+      let left = Math.max(view.x + B.margin, Math.min(view.x + view.w - B.margin - w, Math.round(b.x - w / 2)));
+      let bottom = b.y - B.tailBelow;
+      let stacked = false;
+      for (let moved = true; moved; ) {
+        moved = false;
+        for (const p of placed) {
+          const top = bottom - h - B.rise;
+          if (left < p.left + p.w + B.gap && p.left < left + w + B.gap && top < p.bottom + B.gap && p.top < bottom + B.gap) {
+            bottom = p.top - B.gap;
+            stacked = moved = true;
+          }
+        }
+      }
+      const top = bottom - h;
+      if (top - B.rise < view.y) { el.remove(); continue; } // off the top: it leaves early (fade 160 ms)
+      if (stacked) {
+        el.classList.add("is-stacked");
+        el.innerHTML = `<span class="say"><b class="who">${b.who}</b>${b.text}</span>`;
+      } else {
+        const tx = b.x - left;
+        if (tx < 6) el.classList.add("tail-sw");
+        else if (tx > w - 6) el.classList.add("tail-se");
+        el.style.setProperty("--tail-x", `${tx}px`);
+      }
+      el.style.left = `${left - view.x}px`;
+      el.style.top = `${top - view.y}px`;
+      placed.push({ left, w, top: top - B.rise, bottom });
+      const dot = document.createElement("i");
+      dot.className = "tip";
+      dot.style.left = `${b.x - view.x}px`; dot.style.top = `${b.y - view.y}px`;
+      layer.append(dot);
+    }
+    return placed;
+  }
+  // Speakers in preview/room@1x.png: floor point − tagLiftByAvatar (ui.json meta.omega).
+  const S = {
+    ana: { who: "Ana", x: 352, y: 332 - 43 }, // juno, seat (1,5)
+    bo: { who: "Bo", x: 416, y: 332 - 46 }, // pip, seat (2,4)
+    remy: { who: "Remy", x: 352, y: 396 - 41 }, // mo, seat (3,7)
+    kit: { who: "You", x: 576, y: 444 - 45, self: true }, // kiki standing (8,5)
+    sol: { who: "Sol", x: 576, y: 476 - 45 }, // juno standing (9,6)
+    wren: { who: "Wren", x: 704, y: 380 - 41 }, // mo, camera-facing chair (8,1)
+  };
+  const SAID = [
+    ["ana", 3900, "did anyone else hear the cat in the background"],
+    ["bo", 2900, "omg the twist"],
+    ["kit", 2300, "brb, more popcorn"],
+    ["remy", 1700, "this soundtrack is so good"],
+    ["wren", 1100, "rewind 10 s pls"],
+    ["remy", 500, "ok one more episode"],
+    ["sol", 150, "same"],
+  ];
+  const list = SAID.map(([k, age, text]) => ({ ...S[k], age, text }));
+  layoutBubbles(document.getElementById("bubbles1"), list, { x: 0, y: 0, w: 960, h: 600 });
+  document.getElementById("legend1").innerHTML = SAID.map(([k, age, text]) => `<tr><td>${S[k].who}</td><td>${(age / 1000).toFixed(1)} s</td><td>${text}</td></tr>`).join("");
+  layoutBubbles(document.getElementById("bubbles2"), list.filter((b) => b.age < 3000), { x: 16, y: 186, w: 928, h: 339 });
+
+  // ---- Float timeline cells: one bubble frozen at each age.
+  const AGES = [0, 40, 120, 1000, 2500, 3600, 4300, 4800];
+  for (const [id, reduced] of [["tl", false], ["tlr", true]]) {
+    const host = document.getElementById(id);
+    for (const t of AGES) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const p = document.createElement("p");
+      p.className = "ui-float";
+      p.innerHTML = `<span class="say">here it comes</span>`;
+      p.style.left = "22px"; p.style.top = "36px"; p.style.setProperty("--tail-x", "38px");
+      if (reduced) p.style.animation = `ui-float-life-reduced 5000ms linear -${t}ms both paused`;
+      else p.style.animationDelay = `-${t}ms, -${t}ms`;
+      cell.append(p);
+      const lab = document.createElement("span");
+      lab.className = "t"; lab.textContent = (t < 1000 ? `${t} ms` : `${t / 1000} s`) + (reduced ? " · reduced" : "");
+      cell.append(lab);
+      host.append(cell);
+    }
+  }
+  // Curves for the chart.
+  const X = (t) => 40 + (t / 5000) * 500, Y = (o) => 120 - o * 110;
+  const ease = (x) => { // cubic-bezier(.55,0,1,.45) by bisection
+    const bz = (a, b, s) => 3 * a * s * (1 - s) ** 2 + 3 * b * s * s * (1 - s) + s ** 3;
+    let lo = 0, hi = 1; for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (bz(0.55, 1, m) < x) lo = m; else hi = m; } return bz(0, 0.45, lo);
+  };
+  const pts = [];
+  for (let t = 0; t <= 5000; t += 20) {
+    let o = t < 120 ? Math.floor((t / 120) * 3) / 3 : t < 3600 ? 1 : 1 - ease((t - 3600) / 1400);
+    pts.push(`${X(t)},${Y(o)}`);
+  }
+  document.getElementById("op").setAttribute("points", pts.join(" "));
+  document.getElementById("opr").setAttribute("points", [[0, 1], [4000, 1], [5000, 0]].map(([t, o]) => `${X(t)},${Y(o)}`).join(" "));
+  const rp = []; for (let t = 0; t <= 5000; t += 10) rp.push(`${X(t)},${120 - Math.floor((t / 5000) * 24) * (110 / 24)}`);
+  document.getElementById("rise").setAttribute("points", rp.join(" "));
+
+  // ---- Wheels.
+  const ORDER = [["heart", "Heart"], ["laugh", "Laugh"], ["question", "Question"], ["exclaim", "Surprise"], ["clap", "Clap"], ["wave", "Wave"]];
+  function wheel(el, { sel = 0, hover = -1, press = -1, focus = true, cool = false, label = true } = {}) {
+    el.innerHTML = ORDER.map(([id, name], k) => {
+      const cls = ["ui-wheel-slot", k === hover ? "is-hover" : "", k === sel && !cool ? "is-selected" : "", k === sel && focus && !cool ? "is-focus" : "", k === press ? "is-press" : ""].join(" ");
+      return `<button class="${cls}" role="menuitem" aria-label="${name}" aria-keyshortcuts="${k + 1}" ${cool ? 'aria-disabled="true"' : ""} tabindex="${k === sel ? 0 : -1}"><span class="ui-sprite ui-emote-pick-${id}"></span></button>`;
+    }).join("") + `<span class="ui-wheel-hub">${cool ? '<span class="ui-sprite ui-wait-3"></span>' : sel >= 0 ? `<span class="ui-sprite ui-emote-pick-${ORDER[sel][0]}"></span>` : '<span class="ui-sprite ui-icon-emote"></span>'}</span>`
+      + (label ? `<span class="ui-chip self ui-wheel-label">${cool ? "Emotes in 3 s" : `${ORDER[sel][1]} <kbd class="ui-kbd is-small">${sel + 1}</kbd>`}</span>` : "");
+  }
+  // Wheel 1: over Kit (you, kiki standing at stage (576, 399)); the room crop starts at (330, 150): tail tip at (246, 249) in the crop.
+  const w1 = document.getElementById("w1");
+  wheel(w1, { sel: 1, hover: 1 });
+  w1.style.left = `${246 - 77}px`; w1.style.top = `${249 - 154 - 8}px`;
+  const states = document.getElementById("wstates");
+  for (const [title, opts] of [["Pointer over Laugh (hover)", { sel: -1, hover: 1, focus: false }], ["Keyboard: Question selected + focus ring", { sel: 2 }], ["Pressing Clap", { sel: 4, press: 4, focus: false }]]) {
+    const c = document.createElement("div");
+    c.className = "col";
+    c.innerHTML = `<div style="position:relative;width:154px;height:200px"><div class="ui-wheel no-tail" style="--ui-px:2px;left:0;top:40px"></div></div><span class="lbl">${title}</span>`;
+    states.append(c);
+    wheel(c.querySelector(".ui-wheel"), opts.sel < 0 ? { ...opts, sel: -1, label: false } : opts);
+  }
+  // Wheel 2: phone; your avatar (pip standing, stage (320, 396)) is out of this crop, so it docks centred above the composer, no tail.
+  const w2 = document.getElementById("w2");
+  wheel(w2, { sel: 0, focus: false });
+  w2.classList.add("no-tail");
+  w2.style.left = `${195 - 77}px`; w2.style.top = `${300 - 8 - 44 - 154 - 10}px`;
+  wheel(document.getElementById("w3"), { sel: 0, cool: true });
+
+  // ---- The column's log.
+  const LOG = [["faded", "Sol", "that skyline is unreal"], ["settled", "Ana", "did anyone else hear the cat in the background"], ["settled", "Bo", "omg the twist"], ["settled", "You", "brb, more popcorn"],
+    ["settled", "Remy", "this soundtrack is so good"], ["fresh", "Wren", "rewind 10 s pls"], ["fresh", "Remy", "ok one more episode"], ["fresh", "Sol", "same"]];
+  document.getElementById("log").innerHTML = LOG.map(([age, who, text]) => `<li class="ui-fs-line ${age === "fresh" ? "" : `is-${age}`}"><b>${who}</b> ${text}</li>`).join("");
+
+  // The raw pieces row, at 1 art px (the .z2 wrapper zooms it), drawn with the reference CSS classes.
+  document.getElementById("disc").outerHTML = `<span style="position:relative;display:inline-block;width:77px;height:84px"><span class="ui-wheel no-tail" style="left:0;top:0;animation:none"></span></span>`;
+  document.getElementById("slotstates").innerHTML = ["", "is-hover", "is-selected", "is-press", ""].map((c, i) =>
+    `<span class="ui-wheel-slot ${c}" style="position:relative;left:0;top:0" ${i === 4 ? 'aria-disabled="true"' : ""}></span>`).join("");
+  document.getElementById("misc").innerHTML = `<span style="position:relative;display:inline-block;width:27px;height:27px"><span class="ui-wheel-slot is-focus" style="left:3px;top:3px"></span></span>`
+    + `<span class="ui-wheel-hub" style="position:relative;left:0;top:0"></span><span class="ui-sprite ui-icon-wheel"></span>`
+    + `<img src="../ui/slices/wheel-tail.png" style="image-rendering:pixelated"><img src="../ui/slices/kbd-0.png" style="image-rendering:pixelated">`;
+  document.body.dataset.ready = "1";
+</script>
+</body>
+</html>

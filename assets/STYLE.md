@@ -354,6 +354,36 @@ Three directions were weighed before any pixels:
   "Reported" with a check until you leave. The line "it goes to them only" must match the Lead's abuse-report contract.
 - No new colours: still the 67.
 
+## Set (l) bubbles, emote wheel, smooth walk, wide desktop (OME-644, M8)
+Three directions were weighed for the bubbles before any pixels:
+
+| | Direction | Verdict |
+|---|---|---|
+| A | A chat river: every line rises from its speaker in one shared upward stream, older lines scrolling off the top | Rejected: it's the signature of the rooms we take our spirit from, not ours to borrow; and a shared stream hides who said what once three people talk. |
+| B | Comic balloons: round white ovals, soft drop shadow, alpha fade | Rejected: anti-aliased curves and a soft shadow break the 1-bit alpha rule and the plum outline, and white is louder than the TV. |
+| **C** | **"The line you just read, floating over the speaker":** set (k)'s fresh cream card one size up with a 2 px plum foot, a pixel tail on the speaker's head, a slow whole-pixel rise, newest nearest the heads | **Chosen.** One meaning across the app (cream card = people talking, in the log, the strip and the room), it reads on floor, rug, velvet and the dark walls, and stacks stay attributable. |
+
+- **A bubble is the chat line, floating.** Same cream card as the fresh strip line, so a message looks the same wherever you meet it. The 2 px plum foot (a second outline row)
+  lifts it off busy art without a soft shadow. Your own bubble wears tag/self's mustard rim: mustard = you, as everywhere.
+- **The tail says who.** It always points at the head (the tip 2 px over it). Straight down normally; leaning 2:1 (the room's own edge angle) when the box had to stay inside
+  the stage or the phone's window. A bubble pushed up a stack can't point any more, so it loses the tail and names the speaker in bold. Never a tail that points at the wrong person.
+- **Motion is whole pixels:** a 24 px rise in 24 one-pixel steps over 5 s, a 3-step fade-in, an ease-in fade out (readable longest, gone fast). Nothing scales,
+  nothing blurs between pixels. Reduced motion: no rise and no slide, just show, hold, fade.
+- **Stacks:** newest nearest the heads; an older bubble whose path (its box and the rise still ahead) would meet a newer one moves up above it, 3 px clear. So bubbles never
+  overlap at any moment, and at most 8 are up (2 per speaker).
+- **The emote wheel is set (i)'s picker made round:** the same night tray in the mustard "yours" rim, the same six stickers in the same order (keys 1–6), clockwise from 12.
+  It opens over your own head with a tail to it, because the emote will appear there. Spoke grooves between the slots make it read as a wheel before you look at the stickers.
+  States by shape, not colour alone: hover = a cream lit edge; selected = a mustard rim; keyboard focus = a separate round cream ring outside the slot (set c's focus ring, made round);
+  press = the sticker drops 1 px into a deeper well; cooling = charcoal, dimmed, with the wait dial in the hub. The hub previews what Enter would send.
+- **The touch key** (`icon/wheel`) is six beads round a little face with the top bead lit: "pick one from the ring". It sits left of the message field, with the field and Send.
+- **Smooth walk:** 8 frames at 75 ms. Even frames are the Basic tier's 4 frames, pixel for pixel, so the tiers can swap mid-stride. The odd frames are in-betweens:
+  **recoil** (the free foot leaves the floor and starts its swing, the body still low) and **reach** (the swinging foot 1 px above the floor, about to land, the body still up).
+  Arms move half a swing (1 row) on the in-betweens. The supporting sole stays on y 60 on every frame, so the feet never skate while the sprite moves (4, 2) px per frame.
+- **Wide desktop:** the chat column is the strip standing beside the room, spine to the stage. "Press [Enter] to chat" is the only hint drawn into a field, and it
+  goes the moment you focus or type. Keycaps (`kbd/0`) are page chrome only: at 1× a 12 px key can't hold a word. The stage stays at 1× as a window onto the seats
+  rather than shrinking (the same call as set (k)'s phone watch-only: at 0.56× the silhouettes smudge).
+- No new colours: still the 67.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -370,6 +400,7 @@ Three directions were weighed before any pixels:
 | (j) house rules + queue | added to the (c) files: `ui.png` + `ui.json` (gz) + 11 slices + `reference.css` (gz) · `ui/scenes/removed.png` (lazy) | **≈ 5.4 KB** eager · **0.8 KB** lazy |
 | (j) extension icons | `store/icon-16\|32\|48\|128.png` (in the extension package, not the site) | 1 501 B ≈ **1.5 KB** |
 | (k) full screen + pop-out, quality, report (M7) | added to the (c) files: `ui.png` + `ui.json` (gz) + 4 slices + `reference.css` (gz) · `ui/scenes/chat-away.png` + `room-away.png` (lazy) | **≈ 4.7 KB** eager · **0.7 KB** lazy |
-| total art budget | | ≤ 300 KB (≈ 117.0 KB used, as printed by `bun assets/src/build.ts`) |
+| (l) bubbles, wheel, smooth walk (M8) | added to the (c) files: `ui.png` + `ui.json` (gz) + 7 slices + `reference.css` (gz) · `avatars/motion.png` + `motion.json` (gz, lazy) | **≈ 5.3 KB** eager · **4.9 KB** lazy |
+| total art budget | | ≤ 300 KB (≈ 127.2 KB used, as printed by `bun assets/src/build.ts`) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.
