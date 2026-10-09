@@ -336,12 +336,13 @@ describe("refused bodies", () => {
 
 describe("cross-site simple POSTs (OME-698)", () => {
   // A body a browser can send cross-site without a preflight: text/plain, form encodings, or no type at all.
+  // Bytes, not a string: fetch would add text/plain itself, and the no-type case would never be sent.
   for (const type of ["text/plain", "text/plain;charset=UTF-8", "application/x-www-form-urlencoded", "multipart/form-data; boundary=x", null]) {
     test(`content-type ${String(type)}: 415 invalid_body, nothing stored, no bucket used`, async () => {
       const f = boot();
       const headers: Record<string, string> = { "x-forwarded-for": "198.51.100.7" };
       if (type !== null) headers["content-type"] = type;
-      const res = await fetch(`${f.t.http}/rooms/${ROOM}/report`, { method: "POST", headers, body: JSON.stringify({ reason: "spam" }) });
+      const res = await fetch(`${f.t.http}/rooms/${ROOM}/report`, { method: "POST", headers, body: new TextEncoder().encode(JSON.stringify({ reason: "spam" })) });
       expect(res.status).toBe(415);
       const parsed = await answer(res);
       expect(parsed.ok ? null : parsed.error.code).toBe("invalid_body");

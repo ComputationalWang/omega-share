@@ -166,7 +166,7 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
     for (const type of ["text/plain", "application/x-www-form-urlencoded", null]) {
       const headers: Record<string, string> = { "x-forwarded-for": address };
       if (type !== null) headers["content-type"] = type;
-      const res = await fetch(`${server().http}/rooms`, { method: "POST", headers, body: JSON.stringify({ title: "Den", visibility: "public" }) });
+      const res = await fetch(`${server().http}/rooms`, { method: "POST", headers, body: new TextEncoder().encode(JSON.stringify({ title: "Den", visibility: "public" })) });
       expect(res.status).toBe(415);
       expect(await errorOf(res)).toBe("invalid_body");
     }
