@@ -25,6 +25,11 @@ export const site = {
   // The phone watch layout (OME-596): the TV box, and the cropped window the 1× room is dragged around in.
   tv: id("tv"),
   roomWindow: id("room-window"),
+  // Full screen (OME-597): our wrapper (the full-screen element), its enter/exit key, the chat strip and its collapse key.
+  fsRoot: id("fs-root"),
+  fullscreenToggle: id("fullscreen-toggle"),
+  fsStrip: id("fs-strip"),
+  fsStripToggle: id("fs-strip-toggle"),
   nicknameTag: id("nickname-tag"),
   roomFull: id("room-full"),
   // OME-272: the AGPL-3.0 §13 source offer in the site footer.

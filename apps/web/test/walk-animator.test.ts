@@ -350,3 +350,59 @@ describe("emotes", () => {
     expect(at.length).toBeLessThanOrEqual(8 + 4);
   });
 });
+
+// OME-597 (M7 W2): in full screen the room is hidden, so its render loop stops: nothing is drawn or scheduled while
+// paused, and on resume one frame draws everyone where they are now (a walk that ended meanwhile lands at its spot).
+describe("animator pause (full screen)", () => {
+  test("paused: queued step and breathe timers draw nothing, and new placements schedule nothing", () => {
+    const s = setup();
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 5, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(0);
+    s.walks.place([standAt("a", 5, 8)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]); // walking: a step timer is queued
+    const step = s.timers.at(-1);
+    s.anim.pause(true);
+    expect(s.cleared()).toBeGreaterThan(0);
+    const draws = s.draws.length;
+    const renders = s.renders();
+    s.timers.length = 0;
+    step?.fn();
+    s.frame(150);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.anim.emote(id("a"), "wave");
+    expect(s.draws.length).toBe(draws);
+    expect(s.renders()).toBe(renders);
+    expect(s.timers.length).toBe(0);
+    expect(s.rafs.length).toBe(0);
+  });
+
+  test("resume: one frame draws everyone at their current pose, then the usual schedule picks up", () => {
+    const s = setup();
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 5, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(0);
+    s.anim.pause(true);
+    s.walks.place([standAt("a", 5, 8)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.anim.pause(false);
+    expect(s.rafs.length).toBe(1);
+    const renders = s.renders();
+    s.draws.length = 0;
+    expect(s.frame(5000)).toBe(true);
+    expect(s.renders()).toBe(renders + 1);
+    expect(s.draws.at(-1)?.pose).toMatchObject({ walking: false, x: cellCenter(5, 8).x, y: cellCenter(5, 8).y });
+    // At rest again: the next breathe change is one timer away.
+    expect(s.timers.length).toBeGreaterThan(0);
+  });
+
+  test("pause(false) when not paused queues nothing", () => {
+    const s = setup();
+    s.anim.setFrames(frames);
+    s.frame(0);
+    s.anim.pause(false);
+    expect(s.rafs.length).toBe(0);
+  });
+});
