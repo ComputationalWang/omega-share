@@ -21,7 +21,7 @@ export const SPEC_ROOMS = {
   "queue-perf": ["frames", "spread"],
   "chat-log": ["lines", "keys", "reduced"],
   "chat-perf": ["frames"],
-  "phone-layout": ["stack", "touch", "narrow", "drag", "keys"],
+  "phone-layout": ["stack", "touch", "narrow", "drag", "keys", "afterdrag"],
   "phone-perf": ["frames"],
 } as const;
 

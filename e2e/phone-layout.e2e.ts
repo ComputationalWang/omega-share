@@ -28,7 +28,7 @@ test.afterEach(async () => {
   contexts = [];
 });
 
-async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys", options: BrowserContextOptions = PHONE): Promise<Page> {
+async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag", options: BrowserContextOptions = PHONE): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("phone-layout", name).url, count: 1, nicknamePrefix: `ph${name}`, contextOptions: () => options });
   const c = clients[0];
   if (c === undefined) throw new Error("no client");
@@ -175,6 +175,35 @@ test("the room window drags sideways, a tap on a seat still sits, and sitting ce
   const cx = mine.x + mine.width / 2;
   expect(cx).toBeGreaterThanOrEqual(winNow.x);
   expect(cx).toBeLessThanOrEqual(winNow.x + winNow.width);
+});
+
+test("after a finger drag (no click follows it), the next keyboard Enter on a seat still sits (OME-614)", async ({ browser }) => {
+  const page = await one(browser, "afterdrag");
+  const win = page.locator(site.roomWindow);
+  await win.scrollIntoViewIfNeeded();
+  await frames(page);
+  const box = await win.boundingBox();
+  if (box === null) throw new Error("no window");
+  const before = await stageTransform(page);
+  // A real touch drag over CDP: Chrome fires no click after it, unlike a mouse drag.
+  const cdp = await page.context().newCDPSession(page);
+  const x = Math.round(box.x + box.width / 2);
+  const y = Math.round(box.y + 20);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  for (let i = 1; i <= 10; i++) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x - i * 8, y }] });
+    await frames(page);
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await frames(page);
+  expect((await stageTransform(page)).x).toBeLessThan(before.x);
+
+  const seat = page.locator(`${site.seat}[data-occupied="false"]`).first();
+  await page.keyboard.press("Shift");
+  await seat.focus();
+  await frames(page);
+  await page.keyboard.press("Enter");
+  await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
 });
 
 test("keyboard: Tab reaches every seat, a focused seat is panned into the window with a visible ring, Enter sits", async ({ browser }) => {
