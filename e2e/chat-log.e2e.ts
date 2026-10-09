@@ -129,4 +129,7 @@ test("ADR 0030 notices in the log: my mute (only me), and someone removed (every
   await owner.locator(`${site.modRemove} button`).click();
   await owner.locator(site.modConfirm).click();
   for (const p of [owner, kit]) await expect(p.locator(site.chatLogLine).filter({ hasText: "removed" })).toHaveText(["moss was removed by the host"]);
+  // Removed myself: the card says so, and the log stays up above it with the only-you line.
+  await expect(moss.locator(site.chatLog)).toBeVisible();
+  await expect(moss.locator(`${site.chatLogLine}:has(.ui-sysline.self)`).last()).toHaveText("The host removed you from the room");
 });

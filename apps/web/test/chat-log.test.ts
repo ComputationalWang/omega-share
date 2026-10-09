@@ -164,6 +164,20 @@ describe("chat log: ageing by tone", () => {
     expect(b?.classList.contains("is-faded")).toBe(true);
   });
 
+  test("fade: a new line settles on time even while an older line's fade is the armed timer", async () => {
+    const { lines, chat, advance } = await setup("fade");
+    chat("Kit", "a");
+    advance(10_000);
+    chat("Kit", "b");
+    advance(15_999);
+    expect(lines()[1]?.classList.contains("is-settled")).toBe(false);
+    advance(16_000);
+    expect(lines()[1]?.classList.contains("is-settled")).toBe(true);
+    expect(lines()[0]?.classList.contains("is-faded")).toBe(false);
+    advance(20_000);
+    expect(lines()[0]?.classList.contains("is-faded")).toBe(true);
+  });
+
   test("one timer for the whole log, however many lines", async () => {
     const { chat, advance, timers } = await setup("fade");
     for (let i = 0; i < 30; i++) {

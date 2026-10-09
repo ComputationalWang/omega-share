@@ -22,6 +22,7 @@ const WINDOW_MS = 5000;
 /** ws.ts: a socket's chat bucket holds 5 and refills at 1 a second. */
 const CHAT_BURST = 5;
 const CHAT_EVERY_MS = 1000;
+const REFILL_MS = (CHAT_BURST + 1) * CHAT_EVERY_MS;
 /** The log's cap (apps/web/src/chat/log.ts CHAT_LOG_CAP). */
 const LOG_CAP = 50;
 
@@ -105,7 +106,8 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
     const measure = async (p: FrameProvider, label: string): Promise<void> => {
       await expect(log).toBeInViewport();
       await expect(observer.page.locator(site.room)).toBeInViewport();
-      await observer.page.waitForTimeout(1000);
+      // A full refill of every sender's chat bucket (5 at 1/s) since the last round, so the burst is never refused.
+      await observer.page.waitForTimeout(REFILL_MS);
       const [w, sent] = await Promise.all([tracedFrames(browser, observer.page, WINDOW_MS), burst(senders, p)]);
       // The burst reached the observer: its last line is this round's, and the log never grows past its cap.
       await expect(lines.last()).toContainText(`${p} `);
