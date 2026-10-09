@@ -37,6 +37,7 @@ import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, type PopState } from "./popout/channel";
 import { createChatRelay, type ChatRelay } from "./popout/relay";
+import { createReport } from "./report/dialog";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -79,6 +80,7 @@ const STATUS_TEXT: Record<ViewState["status"], string> = {
   full: "",
   refused: "",
   closed: "",
+  "taken-down": "",
   kicked: "",
 };
 
@@ -191,13 +193,15 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const refusedAction = el("a", { className: "enter", href: location.pathname }, "room-refused-action");
   refused.append(refusedTitle, refusedBody, refusedAction);
   let shownRefusal: Refusal | null = null;
-  // 4004: the room was deleted or collected. The connection has stopped; nothing here can bring it back.
+  // 4004: the room was deleted or collected; 4006: the operators took it down after a report (ADR 0033 §6). The connection
+  // has stopped; nothing here can bring it back.
   const closed = el("div", { className: "room-full", hidden: true }, "room-closed");
-  closed.append(
-    el("h2", { textContent: "This room was closed" }),
-    el("p", { textContent: "Its owner deleted it, or nobody used it for a long time." }),
-    el("a", { className: "enter", href: "/", textContent: "Go to the home page" }),
-  );
+  const closedBody = el("p");
+  closed.append(el("h2", { textContent: "This room was closed" }), closedBody, el("a", { className: "enter", href: "/", textContent: "Go to the home page" }));
+  // "Report this room" (OME-601, ADR 0033): a guest's quiet key, the last stop of the room. Not made at all in a room you own.
+  const report = opts.secret?.ownerToken === undefined ? createReport({ roomId: opts.roomId, serverUrl: opts.serverUrl, fetch: (url, init) => fetch(url, init), leave: () => { location.assign("/"); } }) : null;
+  const foot = el("div", { className: "room-foot", hidden: true }, "room-foot");
+  if (report !== null) foot.append(report.key, report.dialog);
   // 4005: the owner removed us (ADR 0030). The connection has stopped; Rejoin waits out the cooldown, then reloads.
   const kicked = el("div", { className: "room-full", hidden: true }, "room-kicked");
   const kickedTitle = el("h2");
@@ -476,7 +480,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     } else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     if (!on) focusBefore = null;
   };
-  opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked);
+  opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked, foot);
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
   const placeChat = (): void => {
     if (fs.mode() !== "off") stripHead.after(chatLog.root, chatForm, chatAway);
@@ -835,9 +839,20 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       kicked.hidden = !shown.kicked;
       if (shown.kicked) renderKicked(s.kickedUntil);
     }
-    if (closed.hidden === shown.closed) {
-      closed.hidden = !shown.closed;
-      if (shown.closed) forgetRoom(opts.secrets, opts.roomId);
+    const isClosed = shown.closed !== false;
+    if (closed.hidden === isClosed) {
+      closed.hidden = !isClosed;
+      if (shown.closed !== false) {
+        closed.dataset["reason"] = shown.closed;
+        closedBody.textContent = shown.closed === "taken-down" ? "This room was closed by the omega-share team after a report." : "Its owner deleted it, or nobody used it for a long time.";
+        forgetRoom(opts.secrets, opts.roomId);
+      }
+    }
+    // Nothing left to report once the room is gone, and an owner never reports their own room.
+    const footShown = report !== null && !isClosed && !s.owner;
+    if (foot.hidden === footShown) {
+      foot.hidden = !footShown;
+      if (!footShown && report?.isOpen() === true) report.close();
     }
     if (shown.refused !== shownRefusal) {
       shownRefusal = shown.refused;
@@ -1143,6 +1158,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   });
   // Keys 1–6 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
   window.addEventListener("keydown", (ev) => {
+    // The report dialog is modal: the room's keys wait until it closes.
+    if (report?.isOpen() === true) return;
     if (moderation?.key(ev) === true) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
     else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && fs.key(ev.key, typingIn(ev.target), ev.repeat)) ev.preventDefault();

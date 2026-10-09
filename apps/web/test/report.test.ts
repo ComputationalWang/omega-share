@@ -44,8 +44,8 @@ async function setup(answers: Answer[] = [RECEIVED()]) {
     },
   });
   document.body.replaceChildren(report.key, report.dialog);
-  const q = <T extends Element>(sel: string): T => {
-    const e = report.dialog.querySelector<T>(sel);
+  const q = (sel: string): HTMLElement => {
+    const e = report.dialog.querySelector<HTMLElement>(sel);
     if (e === null) throw new Error(`no ${sel}`);
     return e;
   };
@@ -55,17 +55,27 @@ async function setup(answers: Answer[] = [RECEIVED()]) {
     if (r === undefined) throw new Error(`no reason ${value}`);
     r.click();
   };
-  const note = (): HTMLTextAreaElement => q<HTMLTextAreaElement>("[data-testid=report-note]");
+  const note = (): HTMLTextAreaElement => {
+    const e = q("[data-testid=report-note]");
+    if (!(e instanceof HTMLTextAreaElement)) throw new Error("no note field");
+    return e;
+  };
   const type = (text: string): void => {
     note().value = text;
     note().dispatchEvent(new Event("input", { bubbles: true }));
   };
-  const send = q<HTMLButtonElement>("[data-testid=report-send]");
+  const sendKey = q("[data-testid=report-send]");
+  if (!(sendKey instanceof HTMLButtonElement)) throw new Error("no send key");
+  const send = sendKey;
   const settle = async (): Promise<void> => {
     for (let i = 0; i < 10; i++) await Promise.resolve();
     await new Promise((r) => setTimeout(r, 0));
   };
-  const bodyOf = (i: number): unknown => JSON.parse(String(calls[i]?.init.body));
+  const bodyOf = (i: number): unknown => {
+    const body = calls[i]?.init.body;
+    if (typeof body !== "string") throw new Error("no JSON body");
+    return JSON.parse(body);
+  };
   const visible = (id: string): boolean => {
     const e = report.dialog.querySelector<HTMLElement>(`[data-testid=${id}]`);
     if (e === null) return false;
@@ -115,7 +125,7 @@ describe("the foot key", () => {
     report.key.click();
     pick("spam");
     type("buy coins");
-    q<HTMLButtonElement>("[data-testid=report-cancel]").click();
+    q("[data-testid=report-cancel]").click();
     expect(report.isOpen()).toBe(false);
     expect(document.activeElement).toBe(report.key);
     report.key.click();
@@ -161,7 +171,7 @@ describe("what it sends (ADR 0033: only reason and note)", () => {
     report.key.click();
     expect(note().maxLength).toBe(REPORT_NOTE_MAX_LENGTH);
     type("The chat keeps posting slurs at people who join.");
-    expect(q("[data-testid=report-count]").textContent).toBe("47 / 300");
+    expect(q("[data-testid=report-count]").textContent).toBe("48 / 300");
     expect(note().getAttribute("aria-describedby")).toBe(q("[data-testid=report-count]").id);
   });
 
@@ -210,7 +220,7 @@ describe("answers", () => {
     expect(q("[data-testid=report-sent] h2").textContent).toBe("Thanks, we got it");
     expect(q("[data-testid=report-sent]").textContent).toContain("Someone will look at this room. We can't reply here.");
     expect(visible("report-already")).toBe(false);
-    const close = q<HTMLButtonElement>("[data-testid=report-close]");
+    const close = q("[data-testid=report-close]");
     expect(document.activeElement).toBe(close);
     close.click();
     expect(report.isOpen()).toBe(false);
@@ -233,7 +243,7 @@ describe("answers", () => {
     expect(visible("report-sent")).toBe(true);
     expect(visible("report-already")).toBe(true);
     expect(q("[data-testid=report-already]").textContent).toBe("You already reported this room. One report is enough.");
-    q<HTMLButtonElement>("[data-testid=report-close]").click();
+    q("[data-testid=report-close]").click();
     expect(report.reported()).toBe(true);
   });
 
@@ -243,7 +253,7 @@ describe("answers", () => {
     pick("danger");
     send.click();
     await settle();
-    q<HTMLButtonElement>("[data-testid=report-leave]").click();
+    q("[data-testid=report-leave]").click();
     expect(left()).toBe(1);
   });
 
@@ -259,7 +269,7 @@ describe("answers", () => {
     const why = q("[data-testid=report-failed-text]");
     expect(why.getAttribute("role")).toBe("alert");
     expect(why.textContent).toBe("Check your connection and try again. Your words are still here.");
-    const retry = q<HTMLButtonElement>("[data-testid=report-retry]");
+    const retry = q("[data-testid=report-retry]");
     expect(visible("report-retry")).toBe(true);
     expect(document.activeElement).toBe(retry);
     expect(note().value).toBe("slurs");
@@ -312,7 +322,7 @@ describe("answers", () => {
     for (const answer of [
       json(503, { ok: false, error: { code: "unavailable", message: "later" } }),
       new Response("<html>bad gateway</html>", { status: 502 }),
-      json(202, { ok: true, status: "received", reportId: 7 }),
+      json(202, { ok: true, status: "maybe" }),
       json(429, { ok: false, error: { code: "rate_limited", message: "x", retryAfterMs: REPORT_KEY_REFILL_MS + 1 } }),
     ]) {
       const { report, pick, send, settle, q, visible } = await setup([answer]);
@@ -333,7 +343,7 @@ describe("answers", () => {
     type("slurs");
     send.click();
     await settle();
-    q<HTMLButtonElement>("[data-testid=report-failed-cancel]").click();
+    q("[data-testid=report-failed-cancel]").click();
     expect(report.isOpen()).toBe(false);
     expect(document.activeElement).toBe(report.key);
     expect(report.key.hasAttribute("aria-disabled")).toBe(false);

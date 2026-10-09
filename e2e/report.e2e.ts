@@ -24,7 +24,7 @@ test.afterEach(async () => {
 const REPORT_PATH = /\/rooms\/[^/]+\/report$/;
 
 async function join(name: RoomName<"report">, browser: Parameters<typeof joinRoom>[0], setup?: Parameters<typeof joinRoom>[1]["setup"]): Promise<Page> {
-  clients = await joinRoom(browser, { roomUrl: testRoom("report", name).url, count: 1, nicknamePrefix: `rp${name}`, setup });
+  clients = await joinRoom(browser, { roomUrl: testRoom("report", name).url, count: 1, nicknamePrefix: `rp${name}`, ...(setup === undefined ? {} : { setup }) });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   await expect(page.locator(site.connectionStatus)).toHaveText("");
@@ -49,10 +49,11 @@ test("a guest reports the room with the keyboard only: the real server gets { re
   await expect(key).toHaveText("Report room");
   // The last tab stop of the room: nothing in the room comes after it.
   const after = await key.evaluate((k) => {
-    const room = k.closest("[data-testid=room]");
+    // The room screen is the page's <main>; the site footer after it is the site's, not the room's.
+    const room = k.closest("main");
     if (room === null) return -1;
     const all = [...room.querySelectorAll<HTMLElement>("a[href], button, input, textarea, select, [tabindex]")].filter((e) => !e.closest("[hidden]") && e.tabIndex >= 0 && !(e instanceof HTMLButtonElement && e.disabled) && e.getClientRects().length > 0 && !e.closest("dialog"));
-    return all.length - 1 - all.indexOf(k);
+    return k instanceof HTMLElement ? all.length - 1 - all.indexOf(k) : -1;
   });
   expect(after).toBe(0);
 
@@ -72,7 +73,7 @@ test("a guest reports the room with the keyboard only: the real server gets { re
   await page.keyboard.press("Tab");
   expect(await focusedTestId(page)).toBe("report-note");
   await page.keyboard.type("The chat keeps posting slurs at people who join.");
-  await expect(page.locator(site.reportCount)).toHaveText("47 / 300");
+  await expect(page.locator(site.reportCount)).toHaveText("48 / 300");
   await page.keyboard.press("Tab");
   expect(await focusedTestId(page)).toBe("report-cancel");
   await page.keyboard.press("Tab");

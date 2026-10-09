@@ -125,6 +125,19 @@ legend { padding: 0; margin-bottom: 6px; }
 .chat[data-cooldown="true"] input, .chat[data-cooldown="true"] button { opacity: 0.6; }
 .room-full .enter { display: inline-block; margin-top: 12px; text-decoration: none; }
 
+/* "Report this room" (OME-601, ADR 0033, set k): the guest's quiet key at the room's foot (1×), and the dialog at 2× on the
+ * room's dither scrim. No motion: it appears and goes in one frame. */
+.room-foot { --ui-px: 1px; display: flex; justify-content: flex-end; align-items: center; margin-top: 8px; }
+.room-foot .report-key { font-size: 11px; }
+.ui-button.report-key.is-disabled { border-image-source: url("../../../assets/ui/slices/button-primary-disabled.png"); color: var(--ui-disabled-text); cursor: default; }
+.report-dialog { --ui-px: 2px; margin: auto; background: transparent; width: min(calc(100vw - 16px), 480px); max-width: none; max-height: calc(100dvh - 16px); overflow: auto; }
+.report-dialog:has(> form[hidden]) { width: min(calc(100vw - 16px), 380px); }
+.report-dialog .ui-report { width: auto; }
+.report-dialog::backdrop { background: url("../../../assets/ui/slices/scrim-0.png") 0 0 / 2px 4px; image-rendering: pixelated; }
+.report-dialog .report-note { display: grid; gap: 4px; font-size: 12px; font-weight: 700; }
+.report-dialog .optional { font-weight: 500; color: var(--ui-muted); }
+.report-dialog .report-note-error { color: var(--error); }
+
 .privacy { max-width: 640px; margin: 6vh auto; padding: 0 16px; line-height: 1.5; }
 .privacy h2 { margin: 1.4em 0 0.3em; font-size: 1.1rem; }
 .privacy p { margin: 0 0 0.8em; }

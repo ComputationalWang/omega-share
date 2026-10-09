@@ -13,8 +13,8 @@ export interface SocketLike {
 export type ConnectionEvent =
   | { readonly type: "connecting" }
   | { readonly type: "disconnected" }
-  /** 4004: the room was deleted or collected (ADR 0028). Terminal: the connection has stopped for good. */
-  | { readonly type: "room-closed" }
+  /** 4004: the room was deleted or collected (ADR 0028); 4006 (`takenDown`): the operators took it down after a report (ADR 0033 §6). Terminal: the connection has stopped for good. */
+  | { readonly type: "room-closed"; readonly takenDown?: true }
   /** 4005: the owner kicked us, or we came back inside the rejoin cooldown (ADR 0030). Terminal, like room-closed. */
   | { readonly type: "kicked"; readonly wasIn: boolean }
   | { readonly type: "message"; readonly msg: ServerMessage };
@@ -54,7 +54,7 @@ export const REFUSED_RETRY_BUDGET_MS = 70_000;
 
 /**
  * One WebSocket per client. Re-joins after drops with capped, jittered exponential backoff and acts on the
- * close codes (ADR 0016 §5). Stops on room-full, on a closed room (4004), on a kick (4005), on a refused first join (`nickname_taken`,
+ * close codes (ADR 0016 §5). Stops on room-full, on a closed room (4004) or a takedown (4006), on a kick (4005), on a refused first join (`nickname_taken`,
  * `too_many_members`, `invite_required`: rejoining with the same name or key can't succeed) or close(). A refused *re*join may be our own stale member, so it
  * is retried at the un-jittered backoff for REFUSED_RETRY_BUDGET_MS before it counts as a refusal.
  */
@@ -140,9 +140,9 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       socket = null;
       clearHandshake();
       if (closed) return;
-      if (ev.code === CLOSE_CODES.ROOM_CLOSED) {
+      if (ev.code === CLOSE_CODES.ROOM_CLOSED || ev.code === CLOSE_CODES.TAKEN_DOWN) {
         stopped = true;
-        opts.onEvent({ type: "room-closed" });
+        opts.onEvent(ev.code === CLOSE_CODES.TAKEN_DOWN ? { type: "room-closed", takenDown: true } : { type: "room-closed" });
         return;
       }
       if (ev.code === CLOSE_CODES.KICKED) {

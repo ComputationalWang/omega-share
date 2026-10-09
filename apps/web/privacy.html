@@ -26,6 +26,10 @@
       <h2>In memory only</h2>
       <p>To stop floods and abuse, rate limits count requests per network address in memory only. Those counts are never written to disk and are gone when the server restarts. Who is in a room right now, and what they are watching, is also held in memory only.</p>
 
+      <h2 id="reports">Reports</h2>
+      <p>"Report room" in a room sends a report that goes to the people who run omega-share only, not to the room's host or anyone in it. A report holds the reason you picked, your note if you wrote one, the room's id and title, and the address of the video playing when you sent it. Before the note is stored, email addresses, IP addresses and phone numbers in it are replaced with placeholders.</p>
+      <p>A report keeps nothing about you: no IP address, nickname, account or browser details. To spot the same browser reporting a room twice, the server remembers in memory only that a report came from your network address, never on disk. Every report is deleted 30 days after it was sent, whatever happened to it, and is then gone once it has rotated out of the last 14 nightly backups. We can't reply to a report.</p>
+
       <h2>Backups and logs</h2>
       <p>Nightly backups of the room database are kept for 14 days, so a deleted room is gone from them after at most 14 days. The web server keeps no access log, and system logs are deleted after 14 days.</p>
 

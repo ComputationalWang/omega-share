@@ -10,7 +10,7 @@ export const SYSLINE_MS = 6000;
 /** How long chat stays in cooldown after a `rate_limited` that carries no `retryAfterMs` (pre-M3 server). */
 export const CHAT_COOLDOWN_DEFAULT_MS = 1000;
 
-export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused" | "closed" | "kicked";
+export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused" | "closed" | "taken-down" | "kicked";
 
 /** Why the server refused our join (ADR 0016 §4). The connection has stopped; the user has to act. */
 export type Refusal = "nickname_taken" | "too_many_members" | "invite_required";
@@ -66,7 +66,8 @@ export interface ErrorNotice {
 export type ViewEvent =
   | { readonly type: "connecting" }
   | { readonly type: "disconnected" }
-  | { readonly type: "room-closed" }
+  /** 4004, or 4006 with `takenDown` (ADR 0033 §6). */
+  | { readonly type: "room-closed"; readonly takenDown?: true }
   /** 4005 (ADR 0030); `until` is when the rejoin cooldown ends, client ms, or null if we can't know (a bounce). */
   | { readonly type: "kicked"; readonly until: number | null }
   | { readonly type: "server"; readonly msg: ServerMessage; readonly now: number }
@@ -75,7 +76,7 @@ export type ViewEvent =
 export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null };
 
 /** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
-const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "kicked";
+const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "taken-down" || s.status === "kicked";
 
 /** True while the server's `rate_limited` hint says to hold off sending chat. */
 export function coolingDown(state: ViewState, now: number): boolean {
@@ -253,7 +254,7 @@ export function reduce(state: ViewState, event: ViewEvent): ViewState {
     case "disconnected":
       return stopped(state) ? state : { ...state, status: "reconnecting", bubbles: [] };
     case "room-closed":
-      return { ...initialState, status: "closed" };
+      return { ...initialState, status: event.takenDown === true ? "taken-down" : "closed" };
     case "kicked":
       return { ...initialState, status: "kicked", kickedUntil: event.until };
     case "tick": {
@@ -284,8 +285,8 @@ export interface Screen {
   readonly chat: boolean;
   readonly full: boolean;
   readonly refused: Refusal | null;
-  /** The room was deleted or collected (4004). */
-  readonly closed: boolean;
+  /** The room was deleted or collected (4004), or taken down by the operators after a report (4006, ADR 0033 §6). */
+  readonly closed: false | "deleted" | "taken-down";
   /** The owner removed me (4005, ADR 0030). */
   readonly kicked: boolean;
 }
@@ -293,5 +294,5 @@ export interface Screen {
 /** Which room-screen regions are laid out. The stage wrap has a fixed height, so it leaves the flow when not in a room. */
 export function screen(state: ViewState): Screen {
   const inRoom = state.room !== null && !stopped(state);
-  return { stage: inRoom, chat: inRoom, full: state.status === "full", refused: state.status === "refused" ? state.refusal : null, closed: state.status === "closed", kicked: state.status === "kicked" };
+  return { stage: inRoom, chat: inRoom, full: state.status === "full", refused: state.status === "refused" ? state.refusal : null, closed: state.status === "closed" ? "deleted" : state.status === "taken-down" ? "taken-down" : false, kicked: state.status === "kicked" };
 }
