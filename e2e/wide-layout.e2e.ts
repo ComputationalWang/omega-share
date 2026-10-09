@@ -189,7 +189,9 @@ test("a long log stays at its foot when the chat changes column (1024 px) and in
   }));
   const log = page.locator(site.chatLog);
   await expect(log.locator(site.chatLogLine)).toHaveCount(20);
-  const atFoot = (): Promise<boolean> => log.evaluate((e) => e.scrollHeight > e.clientHeight && e.scrollHeight - e.scrollTop - e.clientHeight <= 2);
+  const atFoot = (): Promise<boolean> => log.evaluate((e) => e.scrollHeight - e.scrollTop - e.clientHeight <= 2);
+  // It overflows the column's log, and the reader is at its foot.
+  expect(await log.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
   await expect.poll(atFoot).toBe(true);
 
   await page.setViewportSize({ width: 1000, height: 720 });
@@ -202,6 +204,7 @@ test("a long log stays at its foot when the chat changes column (1024 px) and in
   await page.locator(site.fullscreenToggle).click();
   await expect.poll(() => page.evaluate(() => document.fullscreenElement !== null)).toBe(true);
   expect(await atFoot()).toBe(true);
+  await expect(log.locator(site.chatLogLine).last()).toBeInViewport();
   await page.evaluate(() => document.exitFullscreen());
   await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true);
   expect(await atFoot()).toBe(true);

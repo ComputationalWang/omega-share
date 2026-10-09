@@ -135,17 +135,30 @@ export function createChatLog<H>(opts: ChatLogOptions<H>): ChatLog {
     focused = false;
     hold();
   });
+  /** The reader is at the foot: new lines and a new box (the chat changing column, full screen's strip) keep them there. */
+  const atFoot = (): boolean => root.scrollHeight - root.scrollTop - root.clientHeight <= 2;
+  let following = true;
+  root.addEventListener("scroll", () => {
+    // A box that was just moved reads 0 tall (or reset to the top) until it's laid out again: that's not the reader.
+    if (root.clientHeight > 0) following = atFoot();
+  }, { passive: true });
+  // Moving the log resets its scroll, and the strip settles its size after full screen starts (QA OME-658).
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(() => {
+      if (following && root.clientHeight > 0) root.scrollTop = root.scrollHeight;
+    }).observe(root);
+  }
 
   return {
     root,
     append(entry) {
       // Stick to the foot if the reader is there; someone scrolled up to read stays put.
-      const atFoot = root.scrollHeight - root.scrollTop - root.clientHeight <= 2;
+      const stick = following || atFoot();
       const line: Line = { el: lineEl(entry), born: heldSince ?? opts.now(), stage: 0 };
       lines.push(line);
       root.append(line.el);
       if (lines.length > cap) lines.shift()?.el.remove();
-      if (atFoot) root.scrollTop = root.scrollHeight;
+      if (stick) root.scrollTop = root.scrollHeight;
       // In fade mode the armed timer may be an older line's fade, due after this line settles.
       if (heldSince === null && (timer === null || dueAt(line) < armedAt)) schedule();
     },
