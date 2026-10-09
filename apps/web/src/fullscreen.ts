@@ -26,7 +26,7 @@ export interface FullscreenEnv {
     exitFullscreen(): Promise<void>;
     addEventListener(type: "fullscreenchange", fn: () => void): void;
   };
-  readonly history: { readonly state: unknown; pushState(state: unknown, unused: string): void; back(): void };
+  readonly history: { readonly state: unknown; pushState(state: unknown, unused: string): void; replaceState(state: unknown, unused: string): void; back(): void };
   readonly window: { addEventListener(type: "popstate", fn: (ev: { readonly state: unknown }) => void): void };
   readonly orientation: OrientationLike | undefined;
   readonly onChange: (mode: FullscreenMode) => void;
@@ -44,15 +44,30 @@ export interface Fullscreen {
   key(key: string, typing: boolean, repeat?: boolean): boolean;
 }
 
-const ours = (state: unknown): boolean => typeof state === "object" && state !== null && STATE_KEY in state;
+const marked = (state: unknown): state is Record<string, unknown> => typeof state === "object" && state !== null && STATE_KEY in state;
+/** Each entry we push carries its own token: an entry left marked by an earlier page load (a reload mid-mode) isn't ours. */
+let nextToken = Date.now();
 
 export function createFullscreen(env: FullscreenEnv): Fullscreen {
+  // A reload in the CSS mode lands on our old entry: it's the page's own entry now, so drop the marker.
+  const start = env.history.state;
+  if (marked(start)) {
+    const rest: Record<string, unknown> = { ...start };
+    Reflect.deleteProperty(rest, STATE_KEY);
+    env.history.replaceState(Object.keys(rest).length > 0 ? rest : null, "");
+  }
+  /** The token on the entry this mode pushed, or null. */
+  let token: number | null = null;
+  const ours = (state: unknown): boolean => token !== null && marked(state) && state[STATE_KEY] === token;
   let mode: FullscreenMode = "off";
   let entering = false;
   /** Our history entry is being popped: its popstate is on the way, so another exit must not pop the room's. */
   let popping = false;
   const set = (next: FullscreenMode): void => {
-    if (next === "off") popping = false;
+    if (next === "off") {
+      popping = false;
+      token = null;
+    }
     if (next === mode) return;
     mode = next;
     env.onChange(next);
@@ -81,7 +96,8 @@ export function createFullscreen(env: FullscreenEnv): Fullscreen {
     // Anything else is a provider's own full screen (its iframe), on top of ours or on its own: not our mode.
   });
   env.window.addEventListener("popstate", (ev) => {
-    if (mode === "pseudo" && !ours(ev.state)) set("off");
+    // Leaving our entry (Back, or our own pop) ends the mode; so does any pop we asked for.
+    if (mode === "pseudo" && (popping || !ours(ev.state))) set("off");
   });
 
   const enter = async (): Promise<void> => {
@@ -101,7 +117,8 @@ export function createFullscreen(env: FullscreenEnv): Fullscreen {
           // Refused (no user activation, a policy, iOS): the CSS mode below.
         }
       }
-      env.history.pushState({ [STATE_KEY]: true }, "");
+      token = ++nextToken;
+      env.history.pushState({ [STATE_KEY]: token }, "");
       set("pseudo");
     } finally {
       entering = false;

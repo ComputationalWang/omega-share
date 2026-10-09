@@ -414,6 +414,23 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     void fs.toggle();
   });
   /** In full screen the room is hidden and stops drawing; the log and field move into the strip and back. */
+  /**
+   * The CSS mode covers the page but doesn't take it away: make everything beside the wrapper and its ancestors inert
+   * (no tab stops, out of the accessibility tree), as element full screen does, and give it back on the way out.
+   */
+  let inertBehind: HTMLElement[] = [];
+  const setBehindInert = (on: boolean): void => {
+    for (const e of inertBehind) e.inert = false;
+    inertBehind = [];
+    if (!on) return;
+    for (let node: HTMLElement = wrap; node.parentElement !== null && node !== document.body; node = node.parentElement) {
+      for (const sib of node.parentElement.children) {
+        if (sib === node || !(sib instanceof HTMLElement) || sib.inert) continue;
+        sib.inert = true;
+        inertBehind.push(sib);
+      }
+    }
+  };
   /** Where focus was before full screen, if full screen hid it (a seat in the room): it goes back there on the way out. */
   let focusBefore: HTMLElement | null = null;
   const onFullscreen = (mode: FullscreenMode): void => {
@@ -431,6 +448,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     unread = 0;
     chatLog.setAgeing(on ? "fade" : "settle");
     placeChat();
+    setBehindInert(mode === "pseudo");
     renderStrip();
     fit();
     if (wasInRoom) {
