@@ -35,6 +35,7 @@ import { buildOwnerFrames, ownerCss } from "./owner";
 import { buildRoomsFrames, buildRoomsScenes, roomsCss } from "./rooms";
 import { buildModerationFrames, buildModerationScenes, moderationCss } from "./moderation";
 import { buildQueueFrames, queueCss } from "./queue";
+import { buildFullscreenFrames, buildFullscreenScenes, fullscreenCss, STRIP_AGES } from "./fullscreen";
 import { buildStoreIcons } from "./store";
 
 const ROOT = join(import.meta.dir, "..");
@@ -509,7 +510,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
   // Set (h): the owner's edit kit (grid, markers, handles, tray thumbnails, swatches) is its own lazy atlas, ui/edit.png:
   // only a room owner who presses "Edit room" loads it. Everything any member sees (door, host/key glyphs, invite icons) stays in ui.png.
   const editKit = owner.filter((f) => EDIT_KIT.test(f.key));
-  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildLiveFrames(), ...buildTvFrames(), ...buildSafetyFrames(), ...owner.filter((f) => !EDIT_KIT.test(f.key)), ...buildRoomsFrames(), ...buildModerationFrames(), ...buildQueueFrames()];
+  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildLiveFrames(), ...buildTvFrames(), ...buildSafetyFrames(), ...owner.filter((f) => !EDIT_KIT.test(f.key)), ...buildRoomsFrames(), ...buildModerationFrames(), ...buildQueueFrames(), ...buildFullscreenFrames()];
   registerKeys("ui", frames.map((f) => f.key));
   const byKey = new Map(frames.map((f) => [f.key, f]));
   if (byKey.size !== frames.length) throw new Error("duplicate ui key");
@@ -565,6 +566,8 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
         // glyph/dots/0..2 loops while reconnecting.
         waitFrames: WAIT_FRAMES,
         dotsFrameMs: DOTS_FRAME_MS,
+        // Set (k) (OME-541): full-screen strip line ages in ms (fresh → settled → faded → gone) and the one dither frame between.
+        stripAges: STRIP_AGES,
       },
     },
   };
@@ -573,7 +576,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
   const borders: Record<string, Borders> = {};
   for (const f of frames) if (f.borders) borders[f.key] = f.borders;
   const edit = writeAtlas(dir, "edit", editKit, "ui");
-  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects) + safetyCss(rects) + ownerCss(edit.rects, edit.size, THUMB_BOX) + roomsCss(rects) + moderationCss() + queueCss(rects));
+  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects) + safetyCss(rects) + ownerCss(edit.rects, edit.size, THUMB_BOX) + roomsCss(rects) + moderationCss() + queueCss(rects) + fullscreenCss());
   // Set (f): the extension popup is plain HTML, so its key icon ships as two standalone files (drawn 1× and 2×, not upscaled).
   mkdirSync(join(dir, "popup"), { recursive: true });
   for (const [file, k] of Object.entries(POPUP_ICONS)) {
@@ -584,7 +587,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
   }
   // Set (i): the closed / invite-required vignettes are standalone PNGs, fetched only by the pages that show them.
   mkdirSync(join(dir, "scenes"), { recursive: true });
-  const scenes = [...buildRoomsScenes(), ...buildModerationScenes()];
+  const scenes = [...buildRoomsScenes(), ...buildModerationScenes(), ...buildFullscreenScenes()];
   registerKeys("ui", scenes.map((f) => f.key));
   for (const f of scenes) {
     const small = compactPalette(f.img);

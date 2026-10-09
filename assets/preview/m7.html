@@ -1,0 +1,428 @@
+<!doctype html>
+<!-- Set (k) (OME-541), M7 mock-ups: full screen with a chat strip (desktop + phone), pop-out chat / room windows, the phone
+     watch-only layout, focus states and reduced-motion variants. Uses ../ui/reference.css only (no app code).
+     Screenshots: bun assets/src/shoot-ui.ts (writes preview/ui-m7-*.png). Not shipped. Art CC BY-SA 4.0. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>omega-share M7 layouts (set k)</title>
+<link rel="stylesheet" href="../ui/reference.css">
+<style>
+  body { margin: 0; background: #1c1420; color: var(--ui-text); font: 600 15px/1.35 system-ui, sans-serif; }
+  section { padding: 24px; width: fit-content; }
+  h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ui-muted); margin: 0 0 12px; }
+  h3.cap { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ui-accent); margin: 0 0 6px; font-weight: 700; }
+  .cap-p { font-size: 11px; color: var(--ui-muted); font-weight: 500; margin: 8px 0 0; max-width: 1280px; line-height: 1.45; }
+  .row { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  .col { display: grid; gap: 8px; justify-items: start; align-content: start; }
+  .spacer { flex: 1; }
+
+  /* Screens (device frames are annotation, not product). */
+  .screen { position: relative; overflow: hidden; background: var(--ui-page); outline: 1px solid #4a3a52; }
+  .screen > * { position: absolute; }
+  .video { background: url("tv-video@1x.png") 0 0 / 100% 100%; image-rendering: pixelated; }
+  .room { background: url("room@1x.png"); image-rendering: pixelated; }
+  .phone { border-radius: 28px; outline: 6px solid #0e0a10; }
+  .osbar { left: 0; right: 0; top: 0; height: 22px; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font: 600 11px system-ui; color: var(--ui-muted); box-sizing: border-box; }
+  .kbd { left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(135deg, #3a3040 0 6px, #2f2734 6px 12px); color: #b9a9c6; font: 600 11px system-ui; display: grid; place-items: center; letter-spacing: .06em; text-transform: uppercase; }
+  .oswin { position: relative; background: var(--ui-page); outline: 1px solid #4a3a52; }
+  .oswin .tb { height: 28px; background: #e9e4ee; color: #333; font: 500 12px system-ui; display: flex; align-items: center; gap: 8px; padding: 0 10px; }
+  .oswin .tb i { width: 10px; height: 10px; border-radius: 50%; background: #c9c1cf; display: inline-block; }
+  .oswin .tb .t { flex: 1; text-align: center; }
+  .oswin .body { position: relative; }
+
+  /* Strip contents */
+  .ui-fs-strip .head { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
+  .ui-fs-strip .head .n { font-size: 12px; font-weight: 600; color: var(--ui-muted); display: flex; align-items: center; gap: 2px; }
+  .ui-fs-strip .foot { display: flex; gap: 4px; align-items: center; }
+  .ui-fs-strip .foot .ui-input { flex: 1; min-width: 0; font: inherit; font-size: 13px; font-weight: 500; }
+  .ui-fs-lines .ui-sysline { font-size: 11px; }
+  .ui-fs-lines .emo { display: inline-flex; vertical-align: middle; }
+  .chatlog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; overflow: hidden; }
+  .chatlog .ui-fs-line { font-size: 13px; }
+
+  /* Annotation: focus order badges and call-outs (preview only, not product). */
+  .fo { position: absolute; z-index: 5; width: 16px; height: 16px; border-radius: 50%; background: #fff; color: #2b1d2f; font: 800 10px/16px system-ui; text-align: center; box-shadow: 0 0 0 2px #2b1d2f; }
+  .note { position: absolute; z-index: 5; font: 600 10px/1.3 system-ui; color: #2b1d2f; background: #fff7ea; padding: 3px 6px; box-shadow: 0 0 0 1px #2b1d2f; max-width: 210px; }
+  .rect-guide { position: absolute; z-index: 4; outline: 1px dashed #e8fbff; pointer-events: none; }
+  .rect-guide span { position: absolute; left: 4px; top: 4px; font: 600 10px system-ui; color: #2b1d2f; background: #e8fbff; padding: 1px 4px; }
+
+  /* Pieces sheet */
+  .pieces { display: grid; grid-template-columns: repeat(4, auto); gap: 14px 22px; align-items: center; justify-items: start; }
+  .pieces .lbl { font-size: 11px; color: var(--ui-muted); font-weight: 500; }
+  .z4 { zoom: 4; }
+  .z2 { zoom: 2; }
+  .frames { display: flex; gap: 10px; align-items: flex-end; }
+  .frames .f { display: grid; gap: 4px; justify-items: start; }
+  .frames .t { font-size: 10px; color: var(--ui-muted); font-weight: 600; }
+  .frames .ui-fs-line { white-space: nowrap; }
+  .frames .x { font-size: 18px; color: var(--ui-muted); align-self: center; }
+  .tbl { border-collapse: collapse; font-size: 12px; font-weight: 500; }
+  .tbl th, .tbl td { border: 1px solid #4a3a52; padding: 5px 8px; text-align: left; vertical-align: top; }
+  .tbl th { color: var(--ui-accent); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<section id="m7-pieces">
+  <h2>Set (k) pieces at 4× (left) and in use at 1× / 2×</h2>
+  <div class="row">
+    <div class="ui-room z4" style="display:grid;grid-template-columns:repeat(4,16px);gap:4px;background:var(--ui-panel);padding:4px">
+      <span class="ui-sprite ui-icon-fullscreen"></span><span class="ui-sprite ui-icon-fullscreen-exit"></span><span class="ui-sprite ui-icon-strip-hide"></span><span class="ui-sprite ui-icon-strip-show"></span>
+      <span class="ui-sprite ui-icon-popout"></span><span class="ui-sprite ui-icon-popout-back"></span><span class="ui-sprite ui-icon-popout-room"></span><span class="ui-sprite ui-icon-popout-room-back"></span>
+    </div>
+    <div class="ui-room z4" style="display:flex;gap:4px;background:var(--ui-panel);padding:4px;align-items:flex-start">
+      <span class="ui-sprite ui-scene ui-scene-chat-away"></span><span class="ui-sprite ui-scene ui-scene-room-away"></span>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== 1. desktop full screen, strip open -->
+<section id="m7-desktop">
+  <h2>1 · Full screen, desktop (1280×720 screen, chrome at 1×): the strip open, focus in the message field</h2>
+  <div class="screen ui-room" style="width:1280px;height:720px">
+    <div class="video" style="left:0;top:58px;width:980px;height:551px"></div>
+    <div class="ui-tv-shelf" style="left:38px;top:617px;width:904px">
+      <div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><span class="ui-plate" title="Source: YouTube"><span class="ui-sprite ui-glyph-src-video"></span><span class="ui-plate-name">YouTube</span></span><button class="ui-button self icon" aria-label="Exit full screen" aria-keyshortcuts="Escape"><span class="ui-sprite ui-icon-fullscreen-exit"></span></button></div>
+    </div>
+    <aside class="ui-fs-strip" aria-label="Chat" style="left:980px;top:0;width:300px;height:720px">
+      <div class="head"><span class="ui-sprite ui-icon-chat"></span>Chat<span class="spacer"></span><span class="n"><span class="ui-sprite ui-icon-people"></span>7 / 8</span><button class="ui-button self icon" aria-label="Collapse chat to the input bar" aria-expanded="true"><span class="ui-sprite ui-icon-strip-hide"></span></button></div>
+      <ol class="ui-fs-lines" role="log" aria-live="polite" tabindex="0" aria-label="Chat messages" data-lines="full"></ol>
+      <form class="foot" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes" aria-expanded="false"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input is-focus" value="it's the green fl" aria-label="Message"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+    </aside>
+    <div class="rect-guide" style="left:0;top:58px;width:980px;height:551px"><span>player rect 980×551 (16:9) · nothing of ours inside it</span></div>
+    <span class="fo" style="left:80px;top:612px">1</span><span class="fo" style="left:200px;top:612px">2</span><span class="fo" style="left:906px;top:612px">3</span>
+    <span class="fo" style="left:1258px;top:36px">4</span><span class="fo" style="left:990px;top:300px">5</span><span class="fo" style="left:984px;top:676px">6</span><span class="fo" style="left:1100px;top:672px">7</span><span class="fo" style="left:1252px;top:672px">8</span>
+  </div>
+  <p class="cap-p">The full-screen element is our wrapper (picture + strip), not the provider's iframe, so sync and the strip keep running. The picture keeps 16:9 at the largest size that leaves the strip clear, centred on the
+  page colour; the TV shelf stays under it (the remote doesn't move). The strip is the TV cabinet's side panel: dusk glass, a wood spine on the picture's side. Lines age by tone, newest at the foot:
+  <b>fresh</b> cream cards (people talking, as in the room) → <b>settled</b> night cards → <b>faded</b> words only → gone from the strip (still in the log). The field never fades or moves.
+  Focus order (white badges): 1 pause · 2 seek · 3 exit full screen (the key you pressed to enter, so focus stays where you were) · 4 collapse · 5 the log (scrollable, <code>role=log</code>, polite live region) · 6 emotes · 7 message · 8 send.
+  <b>Enter</b> anywhere in full screen jumps to the message field; <b>Esc</b> always leaves full screen (the browser owns it) and keeps the draft.</p>
+</section>
+
+<!-- =============================================================== 1b. collapsed band, pinned strip, the enter control -->
+<section id="m7-band">
+  <h2>1 · Full screen, desktop: collapsed to the input bar · strip pinned by focus · the enter key in the page</h2>
+  <div class="screen ui-room" style="width:1280px;height:720px">
+    <div class="video" style="left:46px;top:0;width:1187px;height:668px"></div>
+    <div class="ui-tv-shelf ui-fs-band" style="left:38px;top:676px;width:1204px">
+      <div class="ui-transport" role="group" aria-label="Shared playback: affects everyone" style="flex:0 1 560px"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span></div>
+      <button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input" placeholder="Say something… (Enter)" aria-label="Message"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button>
+      <button class="ui-button self icon is-focus" style="outline:var(--ui-px) solid var(--ui-text);outline-offset:var(--ui-px)" aria-label="Show chat, 3 new messages" aria-expanded="false"><span class="ui-sprite ui-icon-strip-show"></span></button><span class="ui-chip self" aria-hidden="true">3 new</span>
+      <button class="ui-button self icon" aria-label="Exit full screen"><span class="ui-sprite ui-icon-fullscreen-exit"></span></button>
+    </div>
+    <div class="rect-guide" style="left:46px;top:0;width:1187px;height:668px"><span>player rect 1187×668 · the band sits under it, never over</span></div>
+    <span class="note" style="left:980px;top:600px">Focus on "show chat": cream outline. The mustard chip counts what you missed; the key's label says it too.</span>
+  </div>
+  <p class="cap-p">Collapsed, the strip folds into the shelf: the picture grows to the width it can take above one 44 px band, and the band carries the remote, then your field (still always reachable), then
+  "show chat" with an unread chip (mustard: it's only your count) and exit. Nothing appears over the picture, so there are no messages here, only the count. The strip remembers open/collapsed for next time.</p>
+  <div class="row" style="margin-top:16px">
+    <div class="col">
+      <h3 class="cap">Strip pinned (hover or keyboard focus inside it)</h3>
+      <div class="screen ui-room" style="width:300px;height:420px">
+        <aside class="ui-fs-strip is-pinned" aria-label="Chat" style="left:0;top:0;width:300px;height:420px">
+          <div class="head"><span class="ui-sprite ui-icon-chat"></span>Chat<span class="spacer"></span><span class="n"><span class="ui-sprite ui-icon-people"></span>7 / 8</span><button class="ui-button self icon" style="outline:var(--ui-px) solid var(--ui-text);outline-offset:var(--ui-px)" aria-label="Collapse chat"><span class="ui-sprite ui-icon-strip-hide"></span></button></div>
+          <ol class="ui-fs-lines" data-lines="full"></ol>
+          <form class="foot" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input" placeholder="Say something…" aria-label="Message"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+        </aside>
+      </div>
+      <p class="cap-p" style="max-width:300px">While the pointer or focus is in the strip nothing ages, and faded lines come back as settled cards, so a line never vanishes while you're reading it (WCAG 2.2.2).</p>
+    </div>
+    <div class="col">
+      <h3 class="cap">Enter: the key on the TV shelf, in the page (1×)</h3>
+      <div class="screen ui-room" style="width:640px;height:56px;outline:0">
+        <div class="ui-tv-shelf" style="left:40px;top:6px;width:560px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon" aria-label="Full screen" aria-keyshortcuts="F"><span class="ui-sprite ui-icon-fullscreen"></span></button></div></div>
+      </div>
+      <div class="screen ui-room" style="width:640px;height:56px;outline:0">
+        <div class="ui-tv-shelf" style="left:40px;top:6px;width:560px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon" style="outline:var(--ui-px) solid var(--ui-text);outline-offset:var(--ui-px)" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button></div></div>
+      </div>
+      <p class="cap-p" style="max-width:640px">The full-screen key ends the shelf: a personal key (night face, mustard rim), because it changes only your screen. Keyboard: Tab to it, or <b>F</b> when focus isn't in a text field.
+      Focused (bottom): the cream outline every key uses. In full screen the same key in the same place turns to "exit" (brackets turned in). The provider's own full-screen button is hidden where the
+      provider allows it (research OME-540 decides), so there's one way in.</p>
+      <h3 class="cap" style="margin-top:8px">Key states (2×)</h3>
+      <div class="row" style="gap:10px">
+        <button class="ui-button self icon" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button>
+        <button class="ui-button self icon is-hover" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button>
+        <button class="ui-button self icon is-press" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button>
+        <button class="ui-button self icon" style="outline:var(--ui-px) solid var(--ui-text);outline-offset:var(--ui-px)" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button>
+        <button class="ui-button self icon" aria-label="Exit"><span class="ui-sprite ui-icon-fullscreen-exit"></span></button>
+        <button class="ui-button self icon" aria-label="Collapse"><span class="ui-sprite ui-icon-strip-hide"></span></button>
+        <button class="ui-button self icon" aria-label="Show"><span class="ui-sprite ui-icon-strip-show"></span></button>
+        <button class="ui-button self icon" aria-label="Pop out chat"><span class="ui-sprite ui-icon-popout"></span></button>
+        <button class="ui-button self icon" aria-label="Pop out room"><span class="ui-sprite ui-icon-popout-room"></span></button>
+      </div>
+      <p class="cap-p">idle · hover · pressed (no lip) · focused · then exit, collapse, show, pop out chat, pop out room.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== 2. phone full screen -->
+<section id="m7-phone">
+  <h2>2 · Full screen, phone: portrait, landscape resting, landscape typing (CSS px, chrome at 1×)</h2>
+  <div class="row">
+    <div class="col">
+      <h3 class="cap">Portrait 390×844</h3>
+      <div class="screen phone ui-room" style="width:390px;height:844px">
+        <div class="video" style="left:0;top:0;width:390px;height:219px"></div>
+        <div class="ui-tv-shelf compact" style="left:0;top:227px;width:390px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon" aria-label="Exit full screen"><span class="ui-sprite ui-icon-fullscreen-exit"></span></button></div></div>
+        <aside class="ui-fs-strip" aria-label="Chat" style="left:0;top:279px;width:390px;height:565px">
+          <div class="head"><span class="ui-sprite ui-icon-chat"></span>Chat<span class="spacer"></span><span class="n"><span class="ui-sprite ui-icon-people"></span>7 / 8</span></div>
+          <ol class="ui-fs-lines" role="log" aria-live="polite" data-lines="portrait"></ol>
+          <form class="foot" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input" placeholder="Say something…" aria-label="Message"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+        </aside>
+        <div class="rect-guide" style="left:0;top:0;width:390px;height:219px"><span>player 390×219</span></div>
+      </div>
+      <p class="cap-p" style="max-width:390px">Video on top at full width, the compact shelf (no speakers), then chat to the bottom. There's room, so lines settle but don't fade away here: the strip is the whole lower half.
+      No collapse key: in portrait the chat is the point. Rotate to watch bigger.</p>
+    </div>
+    <div class="col">
+      <h3 class="cap">Landscape 844×390, resting</h3>
+      <div class="screen phone ui-room" style="width:844px;height:390px">
+        <div class="video" style="left:0;top:0;width:693px;height:390px"></div>
+        <aside class="ui-fs-strip" aria-label="Chat" style="left:693px;top:0;width:151px;height:390px;gap:4px;padding-left:2px">
+          <div class="head" style="gap:2px"><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout" style="font-size:11px">25:31</span><span class="spacer"></span><button class="ui-button self icon" aria-label="Exit full screen"><span class="ui-sprite ui-icon-fullscreen-exit"></span></button></div>
+          <ol class="ui-fs-lines" role="log" aria-live="polite" data-lines="narrow" style="font-size:12px"></ol>
+          <div class="foot"><button class="ui-button self" style="flex:1;font-size:13px" aria-label="Write a message"><span class="ui-sprite ui-icon-chat"></span>Say…</button></div>
+        </aside>
+        <div class="rect-guide" style="left:0;top:0;width:693px;height:390px"><span>player 693×390 (full height)</span></div>
+      </div>
+      <p class="cap-p" style="max-width:844px">"Overlay input" without covering the picture: a 16:9 picture on a 19.5:9 phone leaves a 151 px side bar, and the chat lives there (the overlay sits on our letterbox, not on the player).
+      Top: pause + time + exit. Then the last few lines, ageing as on desktop. Foot: one "Say…" key, a big thumb target.</p>
+      <h3 class="cap" style="margin-top:8px">Landscape, typing (the system keyboard takes the lower half)</h3>
+      <div class="screen phone ui-room" style="width:844px;height:390px">
+        <div class="video" style="left:0;top:0;width:242px;height:136px"></div>
+        <ol class="ui-fs-lines" data-lines="typing" style="left:252px;top:6px;width:580px;height:128px"></ol>
+        <form class="ui-tv-shelf compact" onsubmit="return false" style="left:0;top:136px;width:844px;display:flex;gap:4px;padding:0 6px"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input is-focus" value="the green fla" aria-label="Message" style="flex:1;font:inherit;font-size:13px;font-weight:500"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+        <div class="kbd" style="top:180px">system keyboard</div>
+        <div class="rect-guide" style="left:0;top:0;width:242px;height:136px"><span>player</span></div>
+      </div>
+      <p class="cap-p" style="max-width:844px">While you type, the visual viewport is short. The picture shrinks to the top-left (still 16:9, still uncovered, still playing in sync); the latest lines sit beside it; the field is a full-width bar right on
+      the keyboard. Send or tapping the picture area closes the keyboard and returns to resting. iPhone has no element full screen: the same layout runs as a CSS full-viewport page (research OME-540 confirms).</p>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== 3. pop-out windows -->
+<section id="m7-popout">
+  <h2>3 · Pop-out (desktop): the chat-only window and the whole-room window on a second monitor</h2>
+  <div class="row">
+    <div class="col">
+      <h3 class="cap">Chat window 380×640</h3>
+      <div class="oswin" style="width:380px">
+        <div class="tb"><i></i><i></i><i></i><span class="t">Chat · Movie night · omega-share</span></div>
+        <div class="body ui-room" style="height:612px">
+          <div class="ui-pop" style="position:absolute;inset:6px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:6px;padding:4px">
+            <div style="display:flex;align-items:center;gap:4px;font-size:13px;font-weight:700"><span class="ui-sprite ui-icon-chat"></span>Chat<span class="spacer"></span><span style="display:flex;align-items:center;gap:2px;font-size:12px;color:var(--ui-muted)"><span class="ui-sprite ui-icon-people"></span>7 / 8</span><button class="ui-button self icon" style="outline:var(--ui-px) solid var(--ui-text);outline-offset:var(--ui-px)" aria-label="Put chat back in the page"><span class="ui-sprite ui-icon-popout-back"></span></button></div>
+            <ol class="chatlog" role="log" aria-live="polite" tabindex="0" data-lines="popout"></ol>
+            <form style="display:flex;gap:4px" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input" placeholder="Say something…" aria-label="Message" style="flex:1;min-width:0;font:inherit;font-size:13px;font-weight:500"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+          </div>
+        </div>
+      </div>
+      <p class="cap-p" style="max-width:380px">The mustard rim says "yours" the moment it lands on the other monitor. No fading here: it's a chat window, so it's a full log. New lines since you last looked are fresh cream cards and turn settled when the window is focused.
+      Top right: "put back" (focused here). No second connection: the main tab keeps the one socket and relays.</p>
+    </div>
+    <div class="col">
+      <h3 class="cap">Whole-room window 1280×668 (the room + chat; the picture stays in the main tab)</h3>
+      <div class="oswin" style="width:1280px">
+        <div class="tb"><i></i><i></i><i></i><span class="t">Movie night · omega-share</span></div>
+        <div class="body ui-room" style="height:640px">
+          <div class="ui-pop" style="position:absolute;left:6px;top:6px;width:968px;height:628px;padding:0"><div class="room" style="width:960px;height:600px;margin:4px 0 0 0"></div></div>
+          <span class="ui-tag" style="position:absolute;left:358px;top:299px;translate:-50% -100%">Ada</span>
+          <span class="ui-tag self" style="position:absolute;left:422px;top:296px;translate:-50% -100%">Wren</span>
+          <span class="ui-bubble" style="position:absolute;left:422px;top:262px;translate:-50% -100%;font-size:12px;font-weight:500">the green flash!</span>
+          <span class="ui-tag" style="position:absolute;left:550px;top:301px;translate:-50% -100%">Sol</span>
+          <span class="ui-tag" style="position:absolute;left:614px;top:299px;translate:-50% -100%">Kit</span>
+          <span class="ui-tag" style="position:absolute;left:358px;top:365px;translate:-50% -100%">Juniper</span>
+          <span class="ui-tag" style="position:absolute;left:422px;top:363px;translate:-50% -100%">Oli</span>
+          <span class="ui-tag" style="position:absolute;left:710px;top:348px;translate:-50% -100%">Moss</span>
+          <div style="position:absolute;left:24px;top:22px;display:flex;gap:8px;align-items:center"><span class="ui-plate"><span class="ui-sprite ui-glyph-src-video"></span><span class="ui-plate-name">Playing on your main screen · 25:31</span></span></div>
+          <aside class="ui-fs-strip" aria-label="Chat" style="position:absolute;left:980px;top:6px;width:294px;height:628px">
+            <div class="head"><span class="ui-sprite ui-icon-chat"></span>Chat<span class="spacer"></span><span class="n"><span class="ui-sprite ui-icon-people"></span>7 / 8</span><button class="ui-button self icon" aria-label="Put the room back in the page"><span class="ui-sprite ui-icon-popout-room-back"></span></button></div>
+            <ol class="chatlog" role="log" aria-live="polite" tabindex="0" data-lines="popout"></ol>
+            <form class="foot" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input is-focus" placeholder="Say something…" aria-label="Message"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+          </aside>
+        </div>
+      </div>
+      <p class="cap-p" style="max-width:1280px">For the watcher with a big TV on one screen and friends on the other: the main tab goes full screen with the picture alone (no strip), and this window holds the room at 1× (Pixi, the one renderer moves here) and the chat beside it.
+      The brass plate says where the picture is and the room's time. Seats, emotes and chat work here exactly as in the page. Focus is in the message field (mustard ring).</p>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== 3b. what stays in the main page -->
+<section id="m7-away">
+  <h2>3 · Pop-out: what stays in the main page, how to bring it back, and when the main tab goes away (page chrome 2×, room 1×)</h2>
+  <div class="row">
+    <div class="col">
+      <h3 class="cap">Chat popped out: the chat row's place</h3>
+      <div class="screen" style="width:960px;height:300px;outline:0">
+        <div class="room" style="left:0;top:0;width:960px;height:120px;background-position:0 -330px"></div>
+        <div class="ui-panel ui-away" style="left:220px;top:132px;width:520px;grid-template-columns:auto 1fr auto;justify-items:start;text-align:left;align-items:center">
+          <span class="ui-sprite ui-scene ui-scene-chat-away"></span>
+          <p><b style="color:var(--ui-text)">Chat is in its own window.</b><br>Bubbles still show over the avatars here.</p>
+          <button class="ui-button self" style="outline:var(--ui-px) solid var(--ui-text);outline-offset:var(--ui-px)"><span class="ui-sprite ui-icon-popout-back"></span>Bring chat back</button>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <h3 class="cap">Room popped out: the stage's place</h3>
+      <div class="screen" style="width:600px;height:250px;outline:0">
+        <div class="ui-panel ui-away" style="left:40px;top:10px;width:520px">
+          <span class="ui-sprite ui-scene ui-scene-room-away"></span>
+          <p><b style="color:var(--ui-text)">The room is in its own window.</b><br>The picture stays here; the room and chat are over there.</p>
+          <div class="row" style="justify-content:center;gap:8px"><button class="ui-button self"><span class="ui-sprite ui-icon-popout-room-back"></span>Bring the room back</button><button class="ui-button secondary">Show the window</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:12px">
+    <div class="col">
+      <h3 class="cap">The pop-out after the main tab closed</h3>
+      <div class="oswin" style="width:380px">
+        <div class="tb"><i></i><i></i><i></i><span class="t">Chat · Movie night · omega-share</span></div>
+        <div class="body" style="height:300px;display:grid;place-items:center">
+          <div class="ui-panel ui-away" style="width:330px">
+            <span class="ui-sprite ui-icon-unplugged" style="zoom:1"></span>
+            <p><b style="color:var(--ui-text)">The room's tab was closed.</b><br>This window talks through it, so it left the room too.</p>
+            <div class="row" style="justify-content:center;gap:8px"><button class="ui-button">Open the room here</button><button class="ui-button secondary">Close</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col" style="max-width:520px">
+      <h3 class="cap">How it comes back</h3>
+      <table class="tbl">
+        <tr><th>You do</th><th>What happens</th></tr>
+        <tr><td>"Bring chat back" (page) or the ↙ key (window)</td><td>The window closes, the chat row returns in place, focus lands in the message field.</td></tr>
+        <tr><td>Close the window (OS ×)</td><td>Same: chat comes back in place. No dialog.</td></tr>
+        <tr><td>"Show the window"</td><td>Raises the pop-out (it may be behind or on the other screen).</td></tr>
+        <tr><td>Close or reload the main tab</td><td>The pop-out shows the set (f) plug (it lost the room, nothing to fix there) and offers to open the room in itself.</td></tr>
+      </table>
+      <p class="cap-p">The placeholder uses the arrow's own meaning: mustard = you moved it. The vignette is the room's wall with a window: through it, what went away (bubbles, or the room's floor with seats facing the TV glow); on this side, a dashed ghost where it hung.
+      Placeholders are a <code>role=status</code> region announced once; the bring-back key is the first focus stop in its place.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== 4. phone watch-only -->
+<section id="m7-watch">
+  <h2>4 · Phone watch-only layout (390 px wide, scrolls): video, room, chat stacked, no editor</h2>
+  <div class="row">
+    <div class="col">
+      <div class="screen phone ui-room" style="width:390px;height:844px">
+        <div class="osbar"><span>9:41</span><span>omega-share</span></div>
+        <div style="left:8px;top:26px;right:8px;height:28px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700"><span class="ui-sprite ui-icon-tv"></span>Movie night<span class="spacer"></span><span style="display:flex;align-items:center;gap:2px;font-size:12px;color:var(--ui-muted)"><span class="ui-sprite ui-icon-people"></span>7 / 8</span><button class="ui-button secondary icon" aria-label="Leave the room"><span class="ui-sprite ui-icon-leave"></span></button></div>
+        <div class="video ui-tv-frame compact" style="left:0;top:66px;width:390px;height:219px"></div>
+        <div class="ui-tv-shelf compact" style="left:0;top:293px;width:390px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button></div></div>
+        <div class="room" style="left:0;top:345px;width:390px;height:250px;background-position:-285px -200px"></div>
+        <span class="ui-tag" style="left:73px;top:434px;translate:-50% -100%">Ada</span>
+        <span class="ui-tag self" style="left:137px;top:431px;translate:-50% -100%">Wren</span>
+        <span class="ui-tag" style="left:265px;top:436px;translate:-50% -100%">Sol</span>
+        <span class="ui-tag" style="left:329px;top:434px;translate:-50% -100%">Kit</span>
+        <span class="ui-tag" style="left:73px;top:500px;translate:-50% -100%">Juniper</span>
+        <span class="ui-tag" style="left:137px;top:498px;translate:-50% -100%">Oli</span>
+        <span class="note" style="left:8px;top:572px;font-size:9px;padding:1px 4px">◂ drag to look around ▸</span>
+        <ol class="chatlog" role="log" aria-live="polite" data-lines="watch" style="left:8px;top:603px;width:374px;height:178px"></ol>
+        <form style="left:6px;right:6px;top:790px;display:flex;gap:4px" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input is-focus" placeholder="Say something…" aria-label="Message" style="flex:1;min-width:0;font:inherit;font-size:13px;font-weight:500"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+        <div class="rect-guide" style="left:0;top:345px;width:390px;height:250px"><span>room at 1× (never scaled down), cropped to the seats</span></div>
+      </div>
+    </div>
+    <div class="col" style="max-width:560px">
+      <h3 class="cap">Rules</h3>
+      <table class="tbl">
+        <tr><th>Part</th><th>Phone (≤ 600 px wide)</th></tr>
+        <tr><td>Top bar</td><td>Room name, people count, leave. No edit key, no tray, no owner kit (the edit atlas never loads). Owners see one line in chat: "Arrange the room on a computer."</td></tr>
+        <tr><td>TV</td><td>Full width, 16:9, compact bezel (no sides) and the compact shelf. Full screen key at its end.</td></tr>
+        <tr><td>Room</td><td>At <b>1×, never scaled</b> (whole pixels, readable avatars). The stage is cropped to the seats and can be dragged sideways; it starts centred on your own seat. Tap a seat to sit, tap an avatar for their tag.</td></tr>
+        <tr><td>Chat</td><td>The last lines as settled cards (no fading, there's space), the field always at the foot, emotes before it. The field stays above the keyboard.</td></tr>
+        <tr><td>Pop-out</td><td>Not offered on phones (no second window).</td></tr>
+        <tr><td>Focus order</td><td>leave · pause · seek · full screen · room (one stop; arrow keys move the seat cursor, Enter sits) · log · emotes · message · send.</td></tr>
+      </table>
+      <p class="cap-p">Today a 360 px phone shrinks the whole 960 px stage to ~0.4×, where avatars are 16 px smudges. Cropping keeps set (a)'s silhouettes exactly as drawn and gives the room a reason to be touched.</p>
+      <h3 class="cap" style="margin-top:6px">Focus on the room (one tab stop, the seat cursor moves with arrows)</h3>
+      <div class="screen ui-room" style="width:390px;height:190px;outline:0">
+        <div class="room" style="left:0;top:0;width:390px;height:190px;background-position:-285px -230px;outline:2px solid var(--ui-text);outline-offset:-2px"></div>
+        <span class="ui-seat-cursor" style="left:259px;top:171px"></span>
+        <span class="ui-tag" style="left:330px;top:150px;translate:-50% -100%">Free seat · Enter</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== motion + reduced motion -->
+<section id="m7-motion">
+  <h2>Motion and reduced motion, per layout (room 1× pieces shown at 2×)</h2>
+  <div class="row">
+    <div class="col">
+      <h3 class="cap">A line ages (motion)</h3>
+      <div class="frames ui-room z2">
+        <div class="f"><span class="t">0 s</span><span class="ui-fs-line"><b>Ada</b> here it comes</span></div><span class="x">›</span>
+        <div class="f"><span class="t">6 s · 1 frame</span><span class="ui-fs-line is-turning"><b>Ada</b> here it comes</span></div><span class="x">›</span>
+        <div class="f"><span class="t">6.12 s</span><span class="ui-fs-line is-settled"><b>Ada</b> here it comes</span></div><span class="x">›</span>
+        <div class="f"><span class="t">20 s · 1 frame</span><span class="ui-fs-line is-settled is-turning"><b>Ada</b> here it comes</span></div><span class="x">›</span>
+        <div class="f"><span class="t">20.12 s</span><span class="ui-fs-line is-faded"><b>Ada</b> here it comes</span></div>
+      </div>
+      <h3 class="cap" style="margin-top:8px">Reduced motion</h3>
+      <div class="frames ui-room z2">
+        <div class="f"><span class="t">0 s</span><span class="ui-fs-line"><b>Ada</b> here it comes</span></div><span class="x">›</span>
+        <div class="f"><span class="t">6 s</span><span class="ui-fs-line is-settled"><b>Ada</b> here it comes</span></div><span class="x">›</span>
+        <div class="f"><span class="t">20 s</span><span class="ui-fs-line is-faded"><b>Ada</b> here it comes</span></div>
+      </div>
+      <p class="cap-p" style="max-width:640px">No alpha anywhere: ageing is a change of card, with one 120 ms frame of set (i)'s 1-bit dither in between. Reduced motion keeps the ages (they carry meaning) and swaps at once. New lines never slide in either way; they appear at the foot and the list steps up.</p>
+    </div>
+    <div class="col" style="max-width:640px">
+      <table class="tbl">
+        <tr><th>Layout</th><th>Motion</th><th>prefers-reduced-motion</th></tr>
+        <tr><td>Enter / exit full screen</td><td>The browser's own switch; the strip is already in place (no slide-in).</td><td>Same (nothing of ours animates).</td></tr>
+        <tr><td>Desktop strip</td><td>Lines age with the one-frame dither. The shelf under the picture hides after 3 s without pointer movement (steps down in 2 frames) and returns on move or focus.</td><td>Lines swap at once. The shelf never hides.</td></tr>
+        <tr><td>Collapse / show</td><td>The picture re-fits in one step (no tween: a resizing player would stutter). The unread chip appears with no bounce.</td><td>Same.</td></tr>
+        <tr><td>Phone portrait / landscape</td><td>As desktop. Typing: the picture jumps to its small rect when the keyboard opens.</td><td>Same jump (it was never a tween).</td></tr>
+        <tr><td>Pop-out windows</td><td>Fresh → settled when the window gets focus. Room: set (d) walk, breathe, emotes as in the page.</td><td>Room follows set (d)'s reduced rules (no walk, settled emote frames). Chat as left.</td></tr>
+        <tr><td>Placeholder</td><td>Static vignette.</td><td>Same.</td></tr>
+        <tr><td>Phone watch-only</td><td>Dragging the room pans 1:1 with the finger (whole pixels); no fling.</td><td>Same; centring on your seat is a jump, not a scroll.</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Preview only: the same message set in every mock-up, in the age each line would have.
+  const L = {
+    faded1: ["faded", "Sol", "that skyline is unreal"],
+    faded2: ["faded", "Kit", "who picked this one? 10/10"],
+    sys: ["sys", "Wren", "paused"],
+    sys2: ["sys", "Wren", "played"],
+    s1: ["settled", "Juniper", "brb popcorn"],
+    s2: ["settled", "Oli", "the boat!! look at the boat"],
+    s3: ["settled", "Moss", "wait for the green flash at the very end"],
+    f1: ["fresh", "Ada", "here it comes"],
+    f2: ["fresh", "Kit", "ooooh"],
+  };
+  const SETS = {
+    full: ["faded1", "faded2", "sys", "sys2", "s1", "s2", "s3", "f1", "f2"],
+    portrait: ["faded1", "faded2", "sys", "sys2", "s1", "s2", "s3", "f1", "f2"],
+    narrow: ["s2", "s3", "f1", "f2"],
+    typing: ["s3", "f1", "f2"],
+    popout: ["faded1", "faded2", "sys", "sys2", "s1", "s2", "s3", "f1", "f2"],
+    watch: ["s1", "s2", "s3", "f1", "f2"],
+  };
+  for (const el of document.querySelectorAll("[data-lines]")) {
+    const set = el.getAttribute("data-lines");
+    for (const k of SETS[set]) {
+      let [age, who, text] = L[k];
+      // Pop-out and phone portrait/watch keep a full log: no faded lines there.
+      if (age === "faded" && (set === "popout" || set === "portrait" || set === "watch")) age = "settled";
+      const li = document.createElement("li");
+      if (age === "sys") {
+        li.innerHTML = `<p class="ui-sysline"><span class="ui-sprite ui-glyph-${text === "paused" ? "pause" : "play"}"></span><span><b>${who}</b> ${text}</span></p>`;
+      } else {
+        li.className = "ui-fs-line" + (age === "fresh" ? "" : ` is-${age}`);
+        li.innerHTML = `<b>${who}</b> ${text}`;
+      }
+      el.appendChild(li);
+    }
+  }
+</script>
+</body>
+</html>

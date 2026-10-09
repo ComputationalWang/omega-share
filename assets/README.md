@@ -15,14 +15,15 @@ assets/
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
   ui/popup/*.png        # set f: the extension popup's key icon as standalone files, drawn at 16 px (1×) and 32 px (2×)
-  ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required" and "you were removed" vignettes, standalone 72×64 PNGs
+  ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required" and "you were removed" vignettes, standalone 72×64 PNGs;
+                        #   set k (lazy): the "chat / room is in its own window" vignettes, 56×40
   ui/edit.png           # set h (lazy, owners only): 256×1024 indexed PNG-8, edit grid, placement markers, handles, tray thumbnails, swatches
   ui/edit.json          # set h: PixiJS v8 atlas for ui/edit.png
   furniture/furniture.png  # set g (M4/M5, lazy-load): 1024×512 indexed PNG-8, furniture catalogue v1
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
   store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
   ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
-  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame, ui-owner*.png = set h, ui-rooms*@1x/@2x.png = set i, ui-house*/ui-queue/ui-setj-states@1x/@2x.png = set j), store.html (set j store kit source),
+  preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame, ui-owner*.png = set h, ui-rooms*@1x/@2x.png = set i, ui-house*/ui-queue/ui-setj-states@1x/@2x.png = set j), m7.html + ui-m7-*@1x/@2x.png (set k, M7 layouts), store.html (set j store kit source),
                         #   owner-edit@1x/@2x.png (set h edit mode in the room),
                         #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated)
                         #   ui-sheet@4x.png is ui/ui.png at 4×, so it is 1024×2048 on purpose: the sheet's height is a power of two with headroom
@@ -31,7 +32,7 @@ assets/
 ```
 
 Rebuild everything (deterministic): `bun assets/src/build.ts`. It prints the byte budget.
-Re-shoot the UI previews after a build: `bun assets/src/shoot-ui.ts` (uses the repo's Playwright + Chromium).
+Re-shoot the UI previews after a build: `bun assets/src/shoot-ui.ts` (uses the repo's Playwright + Chromium); the M7 mock-ups: `bun assets/src/shoot-m7.ts`.
 - Avatars are role-letter templates in `src/avatars.ts`. Room pieces in `src/room.ts` are ray-cast from
   3D boxes by `src/iso.ts`, so every edge sits on the exact 2:1 grid. Palette ramps are in `src/palette.ts`.
 - The build fails if an avatar touches its cell border, if a frame id repeats across sets (Pixi caches textures by key), or if a
@@ -490,6 +491,31 @@ Each icon is drawn natively per size by `src/store.ts` (so each keeps the plum o
 prints their bytes (1 501 B for all four) apart from the art budget. The promo tile and screenshots are composed in `preview/store.html` from the
 real reference CSS and preview renders, and `bun assets/src/shoot-ui.ts` shoots them at their exact sizes.
 
+## Set (k) full screen, pop-out, phone watch-only (OME-541, M7, `ui/`)
+
+Mock-ups and chrome for M7: full screen with a chat strip (desktop: strip open and collapsed to the input bar; phone: portrait, landscape,
+landscape while typing), the pop-out chat window and whole-room window, what stays in the page and how it comes back, and the phone
+watch-only layout. The pieces join the other sets in `ui/ui.png` / `ui.json`, `ui/slices/` and the end of `ui/reference.css` (code: `src/fullscreen.ts`);
+the two "it's in its own window" vignettes are lazy `ui/scenes/*-away.png`. Mock-ups: `preview/m7.html`, shot by `bun assets/src/shoot-m7.ts`
+into `preview/ui-m7-<pieces|desktop|band|phone|popout|away|watch|motion>@1x|2x.png`. The white numbered badges on the mock-ups are the focus order
+(annotation, not product). The rules are in `STYLE.md` § Set (k).
+**The player is sacred in full screen too:** the dashed rects on the mock-ups are the player; no strip, band, line or field is ever inside one.
+
+| Key | Size | Slice | Use |
+|---|---|---|---|
+| `fs/strip` | 16×16 | 2 2 2 5 | `aside.ui-fs-strip` (`role` on its log: `ol.ui-fs-lines[role=log][aria-live=polite]`): the TV cabinet's side panel. Dusk glass, the wood spine on its left (the picture's side). Head · lines · foot (emotes, field, Send). |
+| `fs/line/<fresh\|settled>` | 12×12 | 4 | `.ui-fs-line` (fresh: cream card, plum words) → `.is-settled` (night card, cream words) → `.is-faded` (no card, lilac words) → removed. Ages in `ui.json` `meta.omega.stripAges` (6 s, 20 s, 45 s). On each change add `.is-turning` for one 120 ms frame (set i's `scrim/0` dither over the card; none under reduced motion). `.ui-fs-strip:hover`, `:focus-within` or `.is-pinned` = nothing ages and faded lines show settled. |
+| `fs/pop` | 14×14 | 6 | `.ui-pop`: the content of a popped-out window (chat-only or whole room) in a 2 px mustard rim: yours, on the other monitor. |
+| `icon/fullscreen`, `icon/fullscreen-exit` | 16×16 | — | On a `.ui-button.self.icon` at the end of the TV shelf (`aria-keyshortcuts="F"` when focus isn't in a field). Corner brackets out = enter; turned in = exit. Same key, same place. |
+| `icon/strip-hide`, `icon/strip-show` | 16×16 | — | Collapse the strip to the band (in the strip's head, `aria-expanded="true"`) · show it again (in the band, with a `.ui-chip.self` "3 new" after it and the count in its label). |
+| `icon/popout`, `icon/popout-room` | 16×16 | — | Pop out the chat (at the end of the chat row) · the whole room (in the room's top bar). A wood window with a bubble / a floor tile and seat, the mustard arrow leaving through its open corner. Desktop only. |
+| `icon/popout-back`, `icon/popout-room-back` | 16×16 | — | Bring it back: in the popped-out window's head and on the page placeholder (`.ui-button.self` with the words). The arrow comes in. |
+| `scene/<chat\|room>-away` *(ui/scenes/\*.png)* | 56×40 | — | `.ui-scene.ui-scene-<chat\|room>-away` in `.ui-panel.ui-away` (a `role=status` placeholder where the chat row or the stage was). The room's wall with a wood window: through it two bubbles / the floor with two chairs facing the TV's glow; on this side a dashed ghost; a mustard arrow to the window. |
+
+Layout numbers the mock-ups use (CSS px): desktop 1280×720 with the strip open = picture 980×551 at (0, 58), shelf under it, strip 300 wide;
+collapsed = picture 1187×668 at (46, 0), one 44 px band. Phone portrait 390×844 = picture 390×219 on top; landscape 844×390 = picture 693×390
+plus a 151 px column; typing = picture 242×136 top-left and the field on the keyboard. Watch-only = the stage at 1× cropped to 390×250 around the seats.
+
 ## Motion atlas (`avatars/motion.json`, set d)
 
 Same format as the avatar atlas (PixiJS v8, 32×64 cells, no trim, no rotation, anchor = floor point `(16, 61)`).
@@ -579,17 +605,20 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
 | `room/room.png` | 8 335 |
 | `room/room.json` | 13 823 raw / 1 192 gz |
-| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i + j) | 11 219 |
-| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h + i + j) | 78 600 raw / 3 826 gz |
+| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k) | 11 695 |
+| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k) | 82 844 raw / 4 061 gz |
 | `ui/edit.png` (set h, lazy, owners only) | 8 925 |
 | `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
-| `ui/slices/*.png` (89 files, palettes trimmed to the colours used) | 14 314 |
+| `ui/slices/*.png` (93 files, palettes trimmed to the colours used) | 14 910 |
 | `ui/popup/*.png` (set f) | 409 |
-| `ui/scenes/*.png` (sets i + j, lazy) | 2 124 |
-| `ui/reference.css` (if ported as-is) | 72 748 raw / 13 932 gz |
+| `ui/scenes/*.png` (sets i + j + k, lazy) | 2 825 |
+| `ui/reference.css` (if ported as-is) | 79 544 raw / 15 384 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **114 265 B (≈ 111.6 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 59 145 B; lazy (sets d, g, h's edit kit, i's and j's scenes) 55 120 B |
+| **total shipped art** | **117 725 B (≈ 115.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 61 904 B; lazy (sets d, g, h's edit kit, i's, j's and k's scenes) 55 821 B |
+
+Set (k) (OME-541) adds **3 458 B (≈ 3.4 KB)** against `main` (114 267 → 117 725): `ui.png` +474, `ui.json` +235 gz, 4 new slices +596,
+`reference.css` +1 452 gz, and the two lazy scenes 701 (`chat-away.png` 310, `room-away.png` 391). Eager +2 757, lazy +701.
 
 Set (j) (OME-422) adds **6 323 B (≈ 6.2 KB)** against `main` (107 942 → 114 265): `ui.png` +1 448, `ui.json` +402 gz, 11 new slices +1 571,
 `reference.css` +2 109 gz, and the lazy `scenes/removed.png` 793 (per file: § Set (j) bytes). Eager +5 530, lazy +793. The extension icons

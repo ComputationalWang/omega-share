@@ -292,6 +292,50 @@ Three directions were weighed before any pixels:
   the plum outline and whole pixels.
 - No new colours: still the 67.
 
+## Set (k) full screen, pop-out, phone watch-only (OME-541, M7)
+Three directions were weighed before any pixels:
+
+| | Direction | Verdict |
+|---|---|---|
+| A | Stream-site overlay: chat as translucent text over the bottom-right of the picture, input floating on the video | Rejected: it paints over the player (ADR 0012, YouTube's minimum player rules), text over a moving picture is unreadable on bright scenes, and translucency breaks the 1-bit alpha rule. |
+| B | Hide chat in full screen; show a toast per message | Rejected: the board asked for chat in full screen, a toast still covers the picture, and toasts that vanish are an accessibility trap. |
+| **C** | **"The TV gets big, the cabinet comes with it":** the picture keeps 16:9 at the largest size that leaves room beside it (desktop, phone landscape) or under it (collapsed, phone portrait); the chat strip is the TV cabinet's side panel; the shelf (the remote) stays under the picture. Pop-outs carry a bubble or a floor tile out through a little wood window. | **Chosen.** Nothing of ours ever touches the player rect. It reuses the room's materials and meanings (wood = the TV's, mustard = only you, cream card = people talking, set i's dither = dimming without alpha), and a 16:9 picture on a 16:10 or 19.5:9 screen leaves exactly the letterbox the strip needs. |
+
+- **The player is sacred in full screen too.** The full-screen element is our wrapper (picture + strip), never the provider's iframe. The picture is the largest 16:9 rect
+  that leaves the strip (desktop: 300 px at the side), the band (collapsed: one 44 px shelf under it) or the side column (phone landscape: the 151 px letterbox) clear.
+  "Overlay input" on a phone means overlaying *our letterbox*, not the picture.
+- **Only you:** full screen, collapsing the strip and popping out change only your own screen, so their keys are personal keys (`.ui-button.self`) and their arrows are
+  mustard. The unread chip on "show chat" is `.ui-chip.self` (only your count). The pop-out window's content sits in a 2 px mustard rim (`fs/pop`), so it reads as yours on the other monitor.
+- **Corner brackets = full screen.** They are set (c)'s free-seat brackets: out round a small picture = make it big; turned in = put it back. Same key, same place
+  (the end of the TV shelf), the glyph flips. The provider's own full-screen button goes where the provider lets us hide it, so there's one way in.
+- **The strip is the cabinet's side panel:** dusk glass (`fs/strip`) with the TV's wood spine on the picture side. Head: chat icon, people count, collapse. Foot: emotes, the field, Send.
+  The field never fades, moves or hides while you're in full screen. Enter anywhere jumps to it; Esc always leaves full screen (the browser owns it) and the draft stays.
+- **Messages age by tone, not alpha:** fresh = the room's cream card (people talking) → settled (6 s) = the same card in night glass → faded (20 s) = words only in lilac →
+  gone from the strip (45 s; it stays in the log). Ages are in `ui.json` `meta.omega.stripAges`. Each step shows one 120 ms frame of set (i)'s 1-bit dither (`scrim/0`) over the card.
+  **Pinned:** while the pointer or keyboard focus is in the strip nothing ages and faded lines come back as settled cards, so nothing vanishes while you read (WCAG 2.2.2).
+  The strip is `role="log"` (a polite live region), so screen readers hear every line whatever its tone.
+- **Collapse to the input bar:** the strip folds into the shelf. The picture grows to the width it can take above one band, and the band carries the remote, your field, "show chat"
+  with the unread chip, and exit. No messages appear in collapsed mode (there's nowhere that isn't the picture), only the count.
+- **Phone:** portrait = picture on top at full width, the compact shelf, chat below to the foot (lines settle but don't fade: there's room). Landscape = picture at full height on the
+  left, the letterbox column holds pause, time, exit, the last lines and one big "Say…" key. While typing the visual viewport is short: the picture jumps to a small 16:9 rect
+  at the top-left (still uncovered and in sync), the last lines sit beside it, and the field is a full-width bar on the keyboard. iPhone has no element full screen:
+  the same layout runs as a CSS full-viewport page.
+- **Pop-out:** the chat window is the log + the field in the mustard rim; it never fades (it's a chat window), and lines that arrived since you last looked are fresh until
+  it's focused. The whole-room window holds the stage at 1× (the one Pixi renderer moves there) and the chat beside it; a brass plate says where the picture is and the
+  room's time. The main tab keeps the one connection.
+- **What stays behind** is a panel with a vignette (`ui/scenes/chat-away.png`, `room-away.png`, lazy): the room's wall with a wood window. Through it, what went
+  away (two bubbles, or the floor with two velvet chairs facing the TV's glow); on this side, a dashed cream-shade ghost where it hung; a mustard arrow (you moved it).
+  The bring-back key reuses the window icon with the arrow coming home (`icon/popout-back`, `icon/popout-room-back`). Closing the window by its × brings things back too.
+  If the main tab closes, the pop-out shows set (f)'s plug (it lost the room) and offers to open the room in itself. It's never an alarm.
+- **Phone watch-only:** the room is shown at **1×, never scaled down**: it's cropped to the seats and dragged sideways (whole pixels), starting centred on your seat.
+  At 0.4× the set (a) silhouettes turn to smudges. No edit key, tray or owner kit (the lazy edit atlas never loads); owners get one line, "Arrange the room on a computer".
+  The room is one tab stop: the arrow keys move the seat cursor, Enter sits.
+- **Focus:** every key keeps set (c)'s cream outline, and fields keep the mustard ring. The focus order is drawn on each mock-up (`preview/ui-m7-*.png`, the white numbered badges are annotation only).
+  Entering full screen leaves focus on the key you pressed (now "exit"). Bringing chat back puts focus in the message field.
+- **Reduced motion:** ages still change (they carry meaning) but swap at once, with no dither frame. The full-screen shelf never auto-hides. Nothing slides in any case:
+  the strip is in place when full screen starts, collapse re-fits the picture in one step (a tweened player would stutter), and the typing jump is a jump.
+- No new colours: still the 67.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -307,6 +351,7 @@ Three directions were weighed before any pixels:
 | (i) rooms + emotes | added to the (c) files: `ui.png` + `ui.json` (gz) + 16 slices + `reference.css` (gz) · `ui/scenes/*.png` (lazy) | **≈ 6.8 KB** eager · **1.3 KB** lazy |
 | (j) house rules + queue | added to the (c) files: `ui.png` + `ui.json` (gz) + 11 slices + `reference.css` (gz) · `ui/scenes/removed.png` (lazy) | **≈ 5.4 KB** eager · **0.8 KB** lazy |
 | (j) extension icons | `store/icon-16\|32\|48\|128.png` (in the extension package, not the site) | 1 501 B ≈ **1.5 KB** |
-| total art budget | | ≤ 300 KB (≈ 111.6 KB used) |
+| (k) full screen + pop-out (M7) | added to the (c) files: `ui.png` + `ui.json` (gz) + 4 slices + `reference.css` (gz) · `ui/scenes/chat-away.png` + `room-away.png` (lazy) | **≈ 2.7 KB** eager · **0.7 KB** lazy |
+| total art budget | | ≤ 300 KB (≈ 115.0 KB used, as printed by `bun assets/src/build.ts`) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.
