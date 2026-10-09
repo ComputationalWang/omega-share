@@ -124,18 +124,19 @@ OME-593; research and the CEO's decisions are in R-M7c ([OME-546](/OME/issues/OM
 
 **License:** GNU Affero General Public License v3.0 only. If AGPL isn't in the list, pick "Custom license" and paste `LICENSE`.
 
-**Privacy policy:** https://omega-share.duckdns.org/privacy.html#extension (its Extension section names the two data categories below)
+**Privacy policy:** https://omega-share.duckdns.org/privacy.html#extension (its Extension section names the three data categories below)
 
 **Images:** the icon is `assets/store/icon-128.png` (AMO also takes 64×64; the 128 px file scales). Screenshots are the two 1280×800 files from the Images table above.
 
 ## Data collection (what Firefox shows at install)
 
-The manifest declares `data_collection_permissions.required: ["websiteContent", "browsingActivity"]`. The listing and any reviewer question must match:
+The manifest declares `data_collection_permissions.required: ["websiteContent", "browsingActivity", "authenticationInfo"]`. The listing and any reviewer question must match:
 
 | Category | Why |
 |---|---|
 | Website content | When you click Share or Add to queue, the address of a video embedded in the page you are on goes to the omega-share server you chose. |
 | Browsing activity | When the video is the page itself (for example, a YouTube watch page), that address is a page you visited. |
+| Authentication information | The room share token, read from your open room tab and sent as a bearer token, only to the omega-share server you chose and only when you click Share or Add to queue. It proves you are in the room; it is not a password or account login. |
 
 Nothing is optional, so there is no opt-in screen. Mozilla's policy 6.2.2.2 treats a send that is the direct result of a single deliberate user action (the Share click) as consented. There are no analytics and no other transmission.
 
@@ -147,7 +148,7 @@ Nothing is optional, so there is no opt-in screen. Mozilla's policy 6.2.2.2 trea
 > 2. In another tab, open a YouTube video page, for example https://www.youtube.com/watch?v=aqz-KE-bpKQ.
 > 3. Click the omega share toolbar button. The popup lists the video. Pick the room and click Share: the video plays in the room tab. Or click Add to queue to add it after the current video.
 >
-> The extension reads a page only when its popup is opened (activeTab + scripting.executeScript of one bundled, read-only function). It has no content scripts, its event page has no listeners, and it loads no remote code. The code is bundled and minified with WXT/Vite, not obfuscated. SOURCE-BUILD.md in the source upload rebuilds the identical zip.
+> The extension reads a page only when its popup is opened (activeTab + scripting.executeScript of one bundled, read-only function). It has no content scripts, its event page has no listeners, and it loads no remote code. On Share it also reads the room share token from the open room tab (on the server you chose) and sends it to that server as a bearer token, which is why the manifest declares authentication information. The code is bundled and minified with WXT/Vite, not obfuscated. SOURCE-BUILD.md in the source upload rebuilds the identical zip.
 
 ## Manual check before submitting (QA, headed, on a virtual display)
 

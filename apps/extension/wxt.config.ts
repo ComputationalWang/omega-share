@@ -9,12 +9,14 @@ const icons = Object.fromEntries(ICON_SIZES.map((size) => [size, `icon/${size}.p
 /**
  * Firefox only (OME-593, decisions on OME-546). The add-on ID is permanent on AMO: never change it.
  * 140 is the first Firefox that reads `data_collection_permissions`. Share sends the chosen embed URL, which can be
- * the page URL itself, so both categories are declared. Desktop only: no `gecko_android`.
+ * the page URL itself (websiteContent, browsingActivity), and the room share token read from the open room tab as
+ * `Authorization: Bearer` (authenticationInfo, OME-695). The Chrome listing declares the same three, and an
+ * under-declared category risks an AMO rejection of a permanent first listing. Desktop only: no `gecko_android`.
  */
 const GECKO = {
   id: "omega-share@omega-share.duckdns.org",
   strict_min_version: "140.0",
-  data_collection_permissions: { required: ["websiteContent", "browsingActivity"] },
+  data_collection_permissions: { required: ["websiteContent", "browsingActivity", "authenticationInfo"] },
 } as const;
 
 // Permissions (ADR 0005): activeTab + scripting inject the one-shot scan when the popup opens,

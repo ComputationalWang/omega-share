@@ -12,7 +12,8 @@ export type StoreBrowser = "chrome" | "firefox";
 /** OME-593, decisions on OME-546: the AMO add-on ID is permanent, and these values are fixed with it. */
 export const GECKO_ID = "omega-share@omega-share.duckdns.org";
 export const GECKO_STRICT_MIN_VERSION = "140.0";
-export const GECKO_DATA_COLLECTION = ["websiteContent", "browsingActivity"] as const;
+/** OME-695: Share also sends the room share token (authenticationInfo), as the Chrome listing already says. */
+export const GECKO_DATA_COLLECTION = ["websiteContent", "browsingActivity", "authenticationInfo"] as const;
 /** Exactly one https origin: the hosted server. No wildcard host, no path. */
 const HOSTED_ORIGIN_PATTERN = /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)+\/\*$/;
 
