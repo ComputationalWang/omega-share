@@ -112,6 +112,18 @@ describe("emote picker", () => {
     expect(sent.at(-1)).toEqual({ type: "emote", kind: "laugh" });
   });
 
+  test("focus leaving the picker (a click elsewhere) closes it; moving between its cells doesn't", async () => {
+    const { key, menu, items } = await setup();
+    const outside = document.createElement("button");
+    document.body.append(outside);
+    key.click();
+    items[1]?.focus();
+    expect(menu.hidden).toBe(false);
+    outside.focus();
+    expect(menu.hidden).toBe(true);
+    expect(key.getAttribute("aria-expanded")).toBe("false");
+  });
+
   test("an emote that couldn't be sent (offline) costs no token", async () => {
     const { key, press } = await setup(false);
     for (let i = 0; i < EMOTE_BURST + 2; i++) press("1");
