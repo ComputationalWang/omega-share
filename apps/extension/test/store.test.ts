@@ -76,10 +76,64 @@ describe("checkStoreManifest (the packaging guard)", () => {
     ["a version that isn't package.json's", { ...good, version: "0.0.1" }, /version/],
     ["missing icons", { ...good, icons: { "128": "icon/128.png" } }, /icons/],
     ["not an object", "nope", /manifest/],
+    ["Firefox-only keys", { ...good, browser_specific_settings: { gecko: { id: "omega-share@omega-share.duckdns.org" } } }, /browser_specific_settings/],
   ];
   for (const [name, manifest, problem] of bad) {
     test(`rejects ${name}`, () => {
       const problems = checkStoreManifest(manifest, "1.2.3");
+      expect(problems.length).toBeGreaterThan(0);
+      expect(problems.join("\n")).toMatch(problem);
+    });
+  }
+});
+
+describe("checkStoreManifest for Firefox (OME-593)", () => {
+  const gecko = {
+    id: "omega-share@omega-share.duckdns.org",
+    strict_min_version: "140.0",
+    data_collection_permissions: { required: ["websiteContent", "browsingActivity"] },
+  };
+  const { background: _serviceWorker, ...chromeKeys } = {
+    manifest_version: 3,
+    name: "omega share",
+    version: "1.2.3",
+    icons: { "16": "icon/16.png", "32": "icon/32.png", "48": "icon/48.png", "128": "icon/128.png" },
+    permissions: ["activeTab", "scripting", "storage"],
+    host_permissions: ["https://omega-share.duckdns.org/*"],
+    optional_host_permissions: ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"],
+    background: { service_worker: "background.js" },
+  };
+  const good = { ...chromeKeys, background: { scripts: ["background.js"] }, options_ui: { page: "options.html", open_in_tab: true }, browser_specific_settings: { gecko } };
+
+  test("accepts the Firefox store manifest", () => {
+    expect(checkStoreManifest(good, "1.2.3", "firefox")).toEqual([]);
+  });
+
+  test("the Chrome guard still rejects it, and the Firefox guard rejects the Chrome manifest", () => {
+    expect(checkStoreManifest(good, "1.2.3")).not.toEqual([]);
+    expect(checkStoreManifest({ ...chromeKeys, background: { service_worker: "background.js" } }, "1.2.3", "firefox")).not.toEqual([]);
+  });
+
+  const bad: readonly [string, unknown, RegExp][] = [
+    ["a service worker (Firefox has none)", { ...good, background: { service_worker: "background.js" } }, /background/],
+    ["a persistent background page", { ...good, background: { scripts: ["background.js"], persistent: true } }, /background/],
+    ["no gecko ID", { ...good, browser_specific_settings: { gecko: { ...gecko, id: undefined } } }, /gecko\.id/],
+    ["another gecko ID (it is permanent)", { ...good, browser_specific_settings: { gecko: { ...gecko, id: "omega@example.com" } } }, /gecko\.id/],
+    ["no strict_min_version", { ...good, browser_specific_settings: { gecko: { ...gecko, strict_min_version: undefined } } }, /strict_min_version/],
+    ["an older strict_min_version", { ...good, browser_specific_settings: { gecko: { ...gecko, strict_min_version: "128.0" } } }, /strict_min_version/],
+    ["no data_collection_permissions", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: undefined } } }, /data_collection_permissions/],
+    ["data collection declared as none", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: { required: ["none"] } } } }, /data_collection_permissions/],
+    ["only websiteContent", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: { required: ["websiteContent"] } } } }, /data_collection_permissions/],
+    ["optional data collection", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: { required: gecko.data_collection_permissions.required, optional: ["technicalAndInteraction"] } } } }, /data_collection_permissions/],
+    ["an Android listing", { ...good, browser_specific_settings: { gecko, gecko_android: { strict_min_version: "142.0" } } }, /gecko_android/],
+    ["options inside about:addons", { ...good, options_ui: { page: "options.html", open_in_tab: false } }, /open_in_tab/],
+    ["the e2e build's extra host permissions", { ...good, host_permissions: [...good.host_permissions, "http://localhost/*"] }, /host_permissions/],
+    ["an extra permission", { ...good, permissions: [...good.permissions, "tabs"] }, /permissions/],
+    ["content scripts", { ...good, content_scripts: [{ matches: ["https://*/*"], js: ["c.js"] }] }, /content_scripts/],
+  ];
+  for (const [name, manifest, problem] of bad) {
+    test(`rejects ${name}`, () => {
+      const problems = checkStoreManifest(manifest, "1.2.3", "firefox");
       expect(problems.length).toBeGreaterThan(0);
       expect(problems.join("\n")).toMatch(problem);
     });
