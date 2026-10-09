@@ -18,6 +18,12 @@ export type LogEvent =
 
 const MAX_MESSAGE = 240;
 /**
+ * The redactions see at most this much of the message: EMAIL backtracks quadratically on a long run without
+ * whitespace, so an uncapped message could stall the loop. A fragment cut here can only reach the 240-char
+ * output if redaction first shrank the prefix by ~1800 chars, and the quote cut drops the tail outright.
+ */
+const MAX_SCRUBBED = 2048;
+/**
  * From the first quote to the end of the message. A quoted value can itself hold a quote, escaped
  * (`JSON.stringify`) or not (Valibot), so no closing quote can be trusted: over-redact instead (OME-536).
  */
@@ -30,6 +36,7 @@ const IPV6 = /(?<![\w:])(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?![\w:])/gi;
 /** Every redaction runs before the cap, so the cap never cuts an address to a fragment the patterns miss (OME-548). */
 function scrub(message: string): string {
   const redacted = message
+    .slice(0, MAX_SCRUBBED)
     .replace(QUOTED, (q) => `${q.charAt(0)}…${q.charAt(0)}`)
     .replace(EMAIL, "<email>")
     .replace(IPV4, "<ip>")
