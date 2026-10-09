@@ -539,6 +539,36 @@ describe("POST /rooms/:id/queue (ADR 0031 §2)", () => {
     expect(v.parse(QueueAddResponseSchema, await res.json())).toMatchObject({ ok: false, error: { code: "rate_limited" } });
   });
 
+  test("the control policy is checked again once a slow body has arrived", async () => {
+    t = start({ trustProxy: true });
+    const room = await createRoom();
+    const id = room.room.id;
+    const owner = await joined(id, "olive", { ownerToken: room.ownerToken, address: freshAddress() });
+    const guest = await joined(id, "mallory", { address: freshAddress() });
+    await owner.client.next("member-joined");
+    let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        controller = c;
+      },
+    });
+    const pending = fetch(`${server().http}/rooms/${id}/queue`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${tokenOf(guest.snapshot)}`, "x-forwarded-for": freshAddress() },
+      body,
+    });
+    const ctl = (): ReadableStreamDefaultController<Uint8Array> => controller ?? fail();
+    ctl().enqueue(new TextEncoder().encode('{"url":'));
+    await Bun.sleep(50);
+    owner.client.send({ type: "control-policy", policy: "owner" });
+    await guest.client.next("control-policy-changed");
+    ctl().enqueue(new TextEncoder().encode(`${JSON.stringify(watch(1))}}`));
+    ctl().close();
+    const res = await pending;
+    expect(res.status).toBe(403);
+    await owner.client.none("queue-changed", 100);
+  });
+
   test(`409 queue_full at ${String(QUEUE_MAX)}`, async () => {
     const c = clock();
     t = start({ now: c.now });
@@ -571,6 +601,29 @@ describe("persistence (ADR 0031 §6)", () => {
     const back = await joined();
     expect(back.snapshot.room.itemId).toBe(current);
     expect(back.snapshot.room.queue).toEqual(queue.map((i) => ({ ...i, by: null })));
+  });
+
+  test("after a restart the restored item is current anew: ended waits out the debounce again", async () => {
+    const c = clock();
+    db = openDatabase(dbFile());
+    t = start({ store: new RoomStore(db), now: c.now });
+    const alice = await joined();
+    const current = await share(alice);
+    await added(alice.client, watch(1));
+    c.ms += QUEUE_ENDED_DEBOUNCE_MS;
+    for (const cl of clients.splice(0)) cl.close();
+    await t.server.stop(true);
+    db.close();
+
+    db = openDatabase(dbFile());
+    t = start({ store: new RoomStore(db), now: c.now });
+    const back = await joined();
+    // Restored paused at 0, so position 0 matches the room clock: only the debounce stands in the way.
+    back.client.send({ type: "ended", itemId: current, position: 0 });
+    await back.client.none("embed-changed", 150);
+    c.ms += QUEUE_ENDED_DEBOUNCE_MS;
+    back.client.send({ type: "ended", itemId: current, position: 0 });
+    expect((await back.client.next("embed-changed")).embed?.url).toBe(embedUrl(1));
   });
 
   test("an item the policy no longer accepts (GENERIC_EMBEDS off) is left out after the restart", async () => {
