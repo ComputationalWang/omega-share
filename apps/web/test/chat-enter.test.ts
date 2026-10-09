@@ -20,13 +20,15 @@ interface Key {
   altKey?: boolean;
   shiftKey?: boolean;
   isComposing?: boolean;
+  repeat?: boolean;
+  defaultPrevented?: boolean;
 }
 
 async function setup() {
   const { chatKey } = await import("../src/chat/enter");
   const input = document.createElement("input");
   document.body.append(input);
-  const ev = (k: Key) => ({ ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, isComposing: false, ...k });
+  const ev = (k: Key) => ({ ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, isComposing: false, repeat: false, defaultPrevented: false, ...k });
   return { chatKey: (k: Key) => chatKey(ev(k), input), input };
 }
 
@@ -54,7 +56,7 @@ describe("chatKey: Enter", () => {
 
   test("on a role=button / role=link / role=radio element, or a contenteditable, it keeps its own meaning", async () => {
     const { chatKey } = await setup();
-    for (const role of ["button", "link", "radio", "menuitem", "tab", "option", "checkbox", "switch"]) {
+    for (const role of ["button", "link", "radio", "menuitem", "menuitemcheckbox", "menuitemradio", "tab", "option", "checkbox", "switch", "textbox", "searchbox", "combobox", "treeitem", "gridcell"]) {
       const e = document.createElement("div");
       e.setAttribute("role", role);
       document.body.append(e);
@@ -81,6 +83,16 @@ describe("chatKey: Enter", () => {
     for (const m of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { isComposing: true }]) {
       expect(chatKey({ key: "Enter", target: document.body, ...m })).toBe(null);
     }
+  });
+
+  test("held down (auto-repeat) it does nothing: a held Enter never reaches the field to send a draft", async () => {
+    const { chatKey } = await setup();
+    expect(chatKey({ key: "Enter", target: document.body, repeat: true })).toBe(null);
+  });
+
+  test("already handled by someone else (defaultPrevented) it does nothing", async () => {
+    const { chatKey } = await setup();
+    expect(chatKey({ key: "Enter", target: document.body, defaultPrevented: true })).toBe(null);
   });
 
   test("in the chat field itself it is the form's (send), not ours", async () => {

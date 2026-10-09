@@ -143,6 +143,17 @@ test("keyboard only: Enter → type → Enter sends and stays; Esc hands the key
   await seat.focus();
   await page.keyboard.press("Enter");
   expect(await focusedIs(input)).toBe(false);
+
+  // Typing while the window crosses 1024 px (the chat moves column): the field keeps focus and the draft.
+  await input.focus();
+  await page.keyboard.type("half a line");
+  await page.setViewportSize({ width: 1000, height: 720 });
+  await expect.poll(() => page.locator(site.room).evaluate((r) => r.closest(".room-wide") === null)).toBe(true);
+  expect(await focusedIs(input)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect.poll(() => page.locator(site.room).evaluate((r) => r.closest(".room-wide") !== null)).toBe(true);
+  expect(await focusedIs(input)).toBe(true);
+  await expect(input).toHaveValue("half a line");
 });
 
 test("full screen: Enter jumps to the strip's chat field and it sends from there", async ({ browser }) => {
