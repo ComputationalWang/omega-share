@@ -17,13 +17,51 @@ const SPREAD_BUDGET_MS = 500;
 
 test.setTimeout(300_000);
 
+/** One raw Twitch SDK event as the page received it: wall-clock ms, the iframe's eventName, and playback on state pushes. */
+interface SdkEvent { readonly t: number; readonly event: string; readonly playback?: string }
+
+declare global {
+  interface Window { __twitchSdkLog?: SdkEvent[] }
+}
+
+/**
+ * Logs the Twitch iframe's postMessages (the SDK's only input: events on namespace "twitch-embed*", research M2 §2)
+ * into window.__twitchSdkLog. UPDATE_STATE is kept only when its playback changes. Runs before the site's scripts.
+ */
+function logTwitchSdk(): void {
+  const log: SdkEvent[] = [];
+  window.__twitchSdkLog = log;
+  let playback = "";
+  addEventListener("message", (ev: MessageEvent<unknown>) => {
+    const d = ev.data;
+    if (log.length >= 1000 || typeof d !== "object" || d === null || !("namespace" in d) || !("eventName" in d)) return;
+    if (typeof d.namespace !== "string" || !d.namespace.startsWith("twitch-embed") || typeof d.eventName !== "string") return;
+    const p = "params" in d && typeof d.params === "object" && d.params !== null && "playback" in d.params ? d.params.playback : undefined;
+    const pb = typeof p === "string" ? p : undefined;
+    if (d.eventName === "UPDATE_STATE") {
+      if (pb === undefined || pb === playback) return;
+      playback = pb;
+    }
+    log.push(pb === undefined ? { t: Date.now(), event: d.eventName } : { t: Date.now(), event: d.eventName, playback: pb });
+  });
+}
+
+/** Each page's raw Twitch SDK events, times relative to `zero` (ms). */
+const sdkEvents = (clients: readonly Client[], zero: number): Promise<SdkEvent[][]> =>
+  Promise.all(clients.map(async (c) => (await c.page.evaluate(() => window.__twitchSdkLog ?? [])).map((e) => ({ ...e, t: e.t - zero }))));
+
 /** Two Chromium processes with their own profiles (the "2+ browsers" of the checklist), each in the lobby. */
-async function twoBrowsers(prefix: string): Promise<{ browsers: Browser[]; a: Client; b: Client }> {
+async function twoBrowsers(prefix: string, opts: { twitchLog?: true } = {}): Promise<{ browsers: Browser[]; a: Client; b: Client }> {
   const browsers = [await chromium.launch({ headless: false }), await chromium.launch({ headless: false })];
   const [one, two] = browsers;
   if (one === undefined || two === undefined) throw new Error("no browsers");
-  const a = await enter(await watchCsp(await one.newContext()), `${prefix}-1`);
-  const b = await enter(await watchCsp(await two.newContext()), `${prefix}-2`);
+  const context = async (br: Browser) => {
+    const c = await watchCsp(await br.newContext());
+    if (opts.twitchLog) await c.addInitScript(logTwitchSdk);
+    return c;
+  };
+  const a = await enter(await context(one), `${prefix}-1`);
+  const b = await enter(await context(two), `${prefix}-2`);
   return { browsers, a, b };
 }
 
@@ -141,7 +179,8 @@ for (const c of seekable) {
 }
 
 test("M2-twitch-live · pause and play-from-live reach both browsers; no scrubber; ads as found", async ({ request }) => {
-  const { browsers, a, b } = await twoBrowsers("real-live");
+  // OME-500: each page's raw SDK events, to confirm or refute a mid-roll slate (pause/play by itself) after a resume.
+  const { browsers, a, b } = await twoBrowsers("real-live", { twitchLog: true });
   try {
     const live = await shareLiveChannel(request, a, REAL.twitchLive);
     const { channel } = live;
@@ -180,6 +219,8 @@ test("M2-twitch-live · pause and play-from-live reach both browsers; no scrubbe
       play: { arrivalMs: playArrival, spreadMs: spread(playArrival) },
       finalPlaying: final.map((s) => (s === null ? null : !s.paused)),
       notices: await siteNotices(a.page),
+      /** t = ms after the pause click; the play click is at playAt − pauseAt. */
+      sdkEvents: { playAtMs: playAt - pauseAt, pages: await sdkEvents([a, b], pauseAt) },
     };
     record("m2-twitch-live", result);
     expect(chrome.live).toBe(true);
