@@ -122,9 +122,15 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
     quality = cur;
     emit({ type: "quality" });
   };
-  /** One round trip after ready; never per tick. The active entry is the one playing. */
+  /**
+   * One round trip after ready; never per tick. The active entry is the one playing. A video lists its qualities even
+   * when its owner's plan may not set them (QA OME-661), so before any key shows, setQuality(the active id) — a no-op
+   * where allowed — has to pass. No active entry: nothing safe to probe with, so no key.
+   */
   const readQualities = async (): Promise<void> => {
-    const list = await player.getQualities().catch(() => null);
+    const list: unknown = await Promise.resolve()
+      .then(() => player.getQualities())
+      .catch(() => null);
     if (gone() || qualityRefused) return;
     const next = parseQualities(list, "id", "label");
     let cur: string | null = null;
@@ -134,6 +140,17 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
         const id = q.id;
         if (typeof id === "string" && next.some((o) => o.id === id)) cur = id;
       }
+    }
+    if (cur === null) return;
+    const allowed = await player.setQuality(cur).then(
+      () => true,
+      () => false,
+    );
+    // No option is listed yet, so set() can't have refused in between.
+    if (gone()) return;
+    if (!allowed) {
+      qualityRefused = true;
+      return;
     }
     setQualities(next, cur);
   };

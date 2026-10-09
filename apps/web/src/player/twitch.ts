@@ -138,8 +138,8 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     const from = rawQuality;
     rawQuality = q;
     if (from === null || q === quality || (inQualityEcho() && q === qualityBefore)) return;
+    if (!inQualityEcho()) qualityBefore = quality;
     qualitySetAt = now;
-    qualityBefore = quality;
     readQualities();
   };
   const offMessages = o.messages((source) => {
@@ -326,8 +326,9 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
       current: () => (isReady ? quality : null),
       set(id) {
         if (!usable() || !qualities.some((q) => q.id === id) || player.setQuality === undefined) return;
+        // A second pick inside the window keeps the first one's "before": that's what the stale cache still says.
+        if (!inQualityEcho()) qualityBefore = quality;
         qualitySetAt = o.now();
-        qualityBefore = quality;
         player.setQuality(id);
         // getQuality() is the iframe's last push, still the old one: take ours until the next re-read.
         quality = id;
