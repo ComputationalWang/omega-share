@@ -1,6 +1,6 @@
 import { expect, test } from "../e2e/support/csp";
 import { PENDING, available } from "../e2e/support/apps";
-import { embedLabels, embedsListedAt, launchFirefoxWithExtension, openFixture, openPopup } from "../e2e/support/firefox";
+import { embedLabels, embedsListedAt, launchFirefoxWithExtension, missedOpens, openFixture, openPopup } from "../e2e/support/firefox";
 import { BUDGETS } from "./budgets";
 import { p95, recordMetric } from "./metrics";
 
@@ -29,7 +29,7 @@ test.describe("extension perf (Firefox)", () => {
         await popup.close();
       }
       const value = p95(runs);
-      recordMetric({ id: "ext.firefox.popupToList", value, note: `p95 of ${String(RUNS)} opens on providers-embed, headless Firefox via BiDi` });
+      recordMetric({ id: "ext.firefox.popupToList", value, note: `p95 of ${String(RUNS)} opens on providers-embed, headless Firefox via BiDi (${String(missedOpens.count)} harness re-opens)` });
       const budget = BUDGETS.find((b) => b.id === "ext.firefox.popupToList");
       expect(value).toBeLessThanOrEqual(budget?.limit ?? 0);
     } finally {

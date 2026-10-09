@@ -64,26 +64,33 @@ export async function openFixture(browser: Browser, name: string): Promise<Page>
 }
 
 let opens = 0;
+/** Hash changes that opened no popup and were retried (see openPopup). */
+export const missedOpens = { count: 0 };
 
 /**
  * Opens the popup as a tab pointed at `target`, like the Chromium harness's `?tabId=`. Setting the hash makes the
  * e2e background open it and point the extension at this run's server. Resolves once the popup page exists.
+ * Firefox now and then drops the tabs.onUpdated event for a fragment change (about 1 in 20 here), so a hash that
+ * opens nothing within 2 s is set again. Timing is unaffected: the perf row is measured from the popup's own start.
  */
 export async function openPopup(browser: Browser, target: Page): Promise<Page> {
   const before = new Set(await browser.pages());
-  opens += 1;
-  const hash = `${OPEN_POPUP_HASH}=${encodeURIComponent(URLS.server)}&n=${String(opens)}`;
-  await target.evaluate((h) => {
-    location.hash = h;
-  }, hash);
-  const deadline = Date.now() + 10_000;
-  while (Date.now() < deadline) {
-    for (const page of await browser.pages()) {
-      if (before.has(page)) continue;
-      const href = await page.evaluate(() => location.href).catch(() => "");
-      if (href.startsWith("moz-extension://") && href.includes("/popup.html?tabId=")) return page;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt > 0) missedOpens.count += 1;
+    opens += 1;
+    const hash = `${OPEN_POPUP_HASH}=${encodeURIComponent(URLS.server)}&n=${String(opens)}`;
+    await target.evaluate((h) => {
+      location.hash = h;
+    }, hash);
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline) {
+      for (const page of await browser.pages()) {
+        if (before.has(page)) continue;
+        const href = await page.evaluate(() => location.href).catch(() => "");
+        if (href.startsWith("moz-extension://") && href.includes("/popup.html?tabId=")) return page;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
     }
-    await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(`popup did not open for ${target.url()} — is ${FIREFOX_EXTENSION_DIR} the Firefox e2e build?`);
 }
