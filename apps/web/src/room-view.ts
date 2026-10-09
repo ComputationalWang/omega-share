@@ -36,6 +36,9 @@ export interface RoomView {
   readonly editLayer: Container;
   /** Draw once now, after the editor changed its layer. */
   redraw(): void;
+  /** Full screen hides the room (OME-597): stop drawing until resumed, then draw once as things are now. */
+  setPaused(paused: boolean): void;
+  readonly paused: () => boolean;
   /** `id` emoted (OME-415): a one-shot on the render loop. Nothing under prefers-reduced-motion (room.ts shows a badge). */
   emote(id: MemberId, kind: EmoteKind): void;
   /** The motion frame each is drawn with now, and their sticker's (null: none), for e2e checks. */
@@ -120,7 +123,9 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   /** Per member: the placeholder shape until the motion atlas is in, then a sprite. `x`/`y` is where it's drawn. */
   const pool = new Map<MemberId, { node: Graphics | Sprite; avatar: number; x: number; y: number; frame: string | null; sticker: Sprite | null; stickerFrame: string | null }>();
 
+  let paused = false;
   const render = (): void => {
+    if (paused) return;
     pumpSystem();
     app.render();
   };
@@ -254,6 +259,13 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     },
     editLayer,
     redraw: render,
+    setPaused(next) {
+      if (next === paused) return;
+      paused = next;
+      // Resuming queues one frame that draws everyone where they are now (a walk may have ended meanwhile).
+      animator.pause(next);
+    },
+    paused: () => paused,
     emote(id, kind) {
       animator.emote(id, kind);
     },

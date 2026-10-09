@@ -87,6 +87,83 @@ export function roomLayout(containerWidth: number, provider: Provider | null = n
   return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
 }
 
+/** Full screen (OME-597, set k `ui-m7-desktop`): the chat strip's width beside the picture, and on a small landscape screen. */
+export const FS_STRIP_W = 300;
+const FS_STRIP_NARROW_W = 160;
+/** Below this width a 300 px strip would take too much of the picture (a phone held sideways). */
+const FS_STRIP_WIDE_FROM = 1000;
+/** The band's transport (set k `ui-m7-band`: `flex: 0 1 560px`). */
+const FS_BAND_TRANSPORT_W = 560;
+
+export type StripMode = "open" | "band";
+
+/**
+ * Full screen in `width`×`height` CSS px. `at`: "side" (strip open beside the picture, landscape), "below" (strip open
+ * under the picture, portrait or too narrow for both), "band" (collapsed to one bar under the picture).
+ * `strip`: the strip's box, or in "band" the field and keys after the transport. The picture keeps 16:9, its ADR 0012
+ * minimum (Twitch's is larger), and the largest size that leaves the strip or band clear; nothing overlaps.
+ */
+export interface FullscreenLayout {
+  readonly at: "side" | "below" | "band";
+  readonly tv: Rect;
+  readonly controls: Rect;
+  readonly strip: Rect;
+  readonly compact: { readonly tv: boolean; readonly controls: boolean };
+}
+
+export function fullscreenLayout(width: number, height: number, provider: Provider | null, strip: StripMode): FullscreenLayout {
+  const w = Math.floor(width);
+  const h = Math.floor(height);
+  const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
+  const below = GAP + CONTROL_BAR_H;
+  /** The largest 16:9 picture in aw×ah, never under the minimum. */
+  const fitTv = (aw: number, ah: number): { w: number; h: number } => {
+    const tw = Math.max(min, Math.min(aw, Math.floor((ah * 16) / 9)));
+    return { w: tw, h: Math.round((tw * 9) / 16) };
+  };
+  /** The shelf under the picture, its speakers inside the picture's width when they fit. */
+  const shelf = (tv: Rect): Rect => {
+    const fits = tv.w - 2 * SHELF_SPEAKER >= TV_MIN_W;
+    return fits
+      ? { x: tv.x + SHELF_SPEAKER, y: tv.y + tv.h + GAP, w: tv.w - 2 * SHELF_SPEAKER, h: CONTROL_BAR_H }
+      : { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
+  };
+  const compactOf = (controls: Rect, tv: Rect): { tv: boolean; controls: boolean } => ({ tv: true, controls: controls.w === tv.w });
+
+  if (strip === "band") {
+    const pic = fitTv(w, h - below);
+    const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - below) / 2)), ...pic };
+    const y = tv.y + tv.h + GAP;
+    if (w < FS_STRIP_WIDE_FROM && h > w) {
+      // Portrait: the shelf, then the field on its own bar.
+      const controls = { x: 0, y, w, h: CONTROL_BAR_H };
+      return { at: "band", tv, controls, strip: { x: 0, y: y + CONTROL_BAR_H + GAP, w, h: CONTROL_BAR_H }, compact: { tv: true, controls: true } };
+    }
+    const bx = SHELF_SPEAKER;
+    const bw = w - 2 * SHELF_SPEAKER;
+    const controls = { x: bx, y, w: Math.min(FS_BAND_TRANSPORT_W, Math.floor(bw / 2)), h: CONTROL_BAR_H };
+    // The shelf's right speaker is painted outside the transport box: the field starts after it.
+    const sx = controls.x + controls.w + SHELF_SPEAKER;
+    return { at: "band", tv, controls, strip: { x: sx, y, w: bx + bw - sx, h: CONTROL_BAR_H }, compact: { tv: true, controls: false } };
+  }
+
+  const stripW = w >= FS_STRIP_WIDE_FROM ? FS_STRIP_W : FS_STRIP_NARROW_W;
+  const aw = w - stripW;
+  const side = w > h && aw >= min && h - below >= Math.round((min * 9) / 16);
+  if (side) {
+    const pic = fitTv(aw, h - below);
+    const tv = { x: Math.max(0, Math.floor((aw - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - below) / 2)), ...pic };
+    const controls = shelf(tv);
+    return { at: "side", tv, controls, strip: { x: aw, y: 0, w: stripW, h }, compact: compactOf(controls, tv) };
+  }
+  // Portrait (or too narrow for both): the picture full width on top, the shelf, then the strip down to the bottom.
+  const tw = Math.max(min, w);
+  const tv = { x: 0, y: 0, w: tw, h: Math.round((tw * 9) / 16) };
+  const controls = { x: 0, y: tv.h + GAP, w, h: CONTROL_BAR_H };
+  const sy = controls.y + controls.h + GAP;
+  return { at: "below", tv, controls, strip: { x: 0, y: sy, w, h: Math.max(0, h - sy) }, compact: { tv: true, controls: true } };
+}
+
 /** The top-left of a `view`-sized window onto the stage centred on `centre` (stage px), kept on the stage, whole pixels. */
 export function panTo(view: { readonly w: number; readonly h: number }, centre: Point): Point {
   const clamp = (v: number, max: number): number => Math.max(0, Math.min(Math.max(0, max), Math.round(v)));

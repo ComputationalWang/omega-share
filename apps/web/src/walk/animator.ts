@@ -38,6 +38,8 @@ export interface Animator {
   setFrames(frames: MotionFrames): void;
   /** `id` emoted: play it once from now. Nothing under prefers-reduced-motion (room.ts shows a static badge). */
   emote(id: MemberId, kind: EmoteKind): void;
+  /** Full screen hides the room (OME-597): paused, nothing is drawn or scheduled; on resume one frame draws everyone now. */
+  pause(paused: boolean): void;
   /** The room is gone: drop any queued frame or timer and never draw again. */
   dispose(): void;
 }
@@ -48,6 +50,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
   let framePending = false;
   let timer: unknown = null;
   let disposed = false;
+  let paused = false;
   const pose = emptyPose();
   /** Per member: when their wave started (NaN: none), and the sticker playing (null: none) since when. */
   const plays = new Map<MemberId, { wave: number; sticker: StickerKind | null; stickerAt: number }>();
@@ -106,7 +109,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
 
   const tick = (): void => {
     framePending = false;
-    if (disposed) return;
+    if (disposed || paused) return;
     const now = o.now();
     const next = drawAll(now);
     o.render();
@@ -114,7 +117,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
   };
 
   function requestFrame(): void {
-    if (framePending || disposed) return;
+    if (framePending || disposed || paused) return;
     framePending = true;
     o.raf(tick);
   }
@@ -129,7 +132,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       o.clearTimer(timer);
       timer = null;
     }
-    if (disposed) return;
+    if (disposed || paused) return;
     let wait = nextEmote;
     if (o.walks.walking(now)) {
       const at = (Math.floor(now / WALK_FRAME_MS) + 1) * WALK_FRAME_MS;
@@ -146,6 +149,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       if (disposed) return;
       list = avatars;
       for (const id of plays.keys()) if (!avatars.some((a) => a.id === id)) plays.delete(id);
+      if (paused) return;
       const now = o.now();
       schedule(now, drawAll(now));
     },
@@ -154,7 +158,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       requestFrame();
     },
     emote(id, kind) {
-      if (disposed || o.reducedMotion() || !list.some((a) => a.id === id)) return;
+      if (disposed || paused || o.reducedMotion() || !list.some((a) => a.id === id)) return;
       let play = plays.get(id);
       if (play === undefined) {
         play = { wave: NaN, sticker: null, stickerAt: 0 };
@@ -167,6 +171,14 @@ export function createAnimator(o: AnimatorOptions): Animator {
         play.stickerAt = now;
       }
       requestFrame();
+    },
+    pause(next) {
+      if (next === paused || disposed) return;
+      paused = next;
+      if (paused) {
+        if (timer !== null) o.clearTimer(timer);
+        timer = null;
+      } else requestFrame();
     },
     dispose() {
       disposed = true;

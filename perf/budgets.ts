@@ -43,6 +43,15 @@ const PHONE: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
   { id: `phone.missedVsync.${p}`, area: "Site", metric: `Missed vsyncs on a phone, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Missed vsyncs on a phone, 8 avatars + video playing", unit: "%", limit: 1, comparator: "<=" },
 ]);
 
+// OME-597 (M7 W2): the same three frame budgets in full screen with the chat strip open, and the longest task while entering
+// or leaving full screen (perf/fullscreen.perf.ts).
+const FULLSCREEN: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
+  { id: `fs.frameP95.${p}`, area: "Site", metric: `p95 frame time in full screen, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Frame rate in full screen, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
+  { id: `fs.workP95.${p}`, area: "Site", metric: `Main-thread work p95 per frame in full screen, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Main-thread work per frame in full screen, 8 avatars + video playing", unit: "ms", limit: 8, comparator: "<=" },
+  { id: `fs.missedVsync.${p}`, area: "Site", metric: `Missed vsyncs in full screen, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Missed vsyncs in full screen, 8 avatars + video playing", unit: "%", limit: 1, comparator: "<=" },
+  { id: `fs.toggleLongTask.${p}`, area: "Site", metric: `Longest task entering or leaving full screen, ${PROVIDER_LABEL[p]}`, docMetric: "Longest task entering or leaving full screen", unit: "ms", limit: 50, comparator: "<=" },
+]);
+
 export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
@@ -54,6 +63,7 @@ export const BUDGETS: readonly Budget[] = [
   ...HEADROOM,
   ...CHAT_BURST,
   ...PHONE,
+  ...FULLSCREEN,
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
   { id: "sync.spread", area: "Sync", metric: "Spread after play/pause/seek", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   // M2 (OME-131): one merge-blocking row per provider. Twitch live has no position: its spread is first-to-last client applying a pause / play-from-live.

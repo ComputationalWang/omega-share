@@ -7,7 +7,7 @@ import { trackShareToken } from "./share-token";
 import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
 import { forgetRoom, inviteLink, joinMessage, type RoomSecret, type SecretsStore } from "./room-secrets";
 import { createInviteControl } from "./controls/invite";
-import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
+import { createPersonal, createTransport, el, renderSyslines, sprite } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { createQueuePanel } from "./controls/queue-panel";
 import { chatView, kickedCard, refusalCard } from "./controls/feedback";
@@ -15,7 +15,8 @@ import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, seatViews, sitIntent } from "./intents";
 import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
-import { BUBBLE_OFFSET_Y, PHONE_QUERY, STAGE_H, STAGE_W, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
+import { BUBBLE_OFFSET_Y, PHONE_QUERY, STAGE_H, STAGE_W, SYSLINE_RAIL, TAG_OFFSET_Y, fullscreenLayout, roomLayout, type Point, type Rect, type StripMode } from "./layout";
+import { createFullscreen, type FullscreenMode } from "./fullscreen";
 import { createRoomWindow } from "./room-window";
 import type { PlayerError } from "./player/adapter";
 import { PLAYERS, createPlayerMounter } from "./player/registry";
@@ -64,6 +65,8 @@ export interface RoomHandle {
   readonly avatarFrames: (id: MemberId) => { avatar: string | null; sticker: string | null } | undefined;
   /** How many times the "Up next" rows were rebuilt, for e2e "once per queue change" checks. */
   readonly queueRenders: () => number;
+  /** Is the room's render loop paused (full screen hides it, OME-597)? For e2e checks. */
+  readonly roomPaused: () => boolean;
 }
 
 const STATUS_TEXT: Record<ViewState["status"], string> = {
@@ -78,6 +81,29 @@ const STATUS_TEXT: Record<ViewState["status"], string> = {
 };
 
 const NOTICE_MS = 3000;
+/** The full-screen strip's last open/collapsed state on this device (set k: "the strip remembers"). */
+const STRIP_STORAGE_KEY = "omega.fsStrip";
+
+function storedStrip(): StripMode {
+  try {
+    return localStorage.getItem(STRIP_STORAGE_KEY) === "band" ? "band" : "open";
+  } catch {
+    return "open";
+  }
+}
+
+function storeStrip(mode: StripMode): void {
+  try {
+    localStorage.setItem(STRIP_STORAGE_KEY, mode);
+  } catch {
+    // Storage off (private mode): it's remembered for this page only.
+  }
+}
+
+/** Typing somewhere: letters belong to the field, not to the page's keys. */
+function typingIn(t: EventTarget | null): boolean {
+  return t instanceof HTMLElement && (t.isContentEditable || t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement);
+}
 const ERROR_TEXT: Record<ErrorCode, string> = {
   seat_taken: "Someone just took that seat.",
   rate_limited: "Slow down a little.",
@@ -217,7 +243,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   clip.append(stage);
   const tv = el("div", { className: "tv ui-tv-frame" }, "tv");
   const controls = el("div", { className: "controls ui-tv-shelf" });
-  const wrap = el("div", { className: "stage-wrap", hidden: true });
+  // The full-screen element (OME-597): an existing ancestor of the TV, so going full screen moves no node and the
+  // provider's iframe never reloads.
+  const wrap = el("div", { className: "stage-wrap", hidden: true }, "fs-root");
   wrap.append(tv, controls, clip);
   const tvEmpty = el("p", { className: "tv-empty", textContent: "Share a video with the extension, or paste a link under Up next, to watch it here." });
   tv.append(tvEmpty);
@@ -260,6 +288,50 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
 
+  // Full screen (OME-597, set k `ui-m7-desktop` / `ui-m7-band`). The key ends the shelf (a personal key: it changes only
+  // your screen). The strip is the TV cabinet's side panel: while full screen lasts the chat log (fading) and the field
+  // move into it, beside the picture or under it, or it collapses to the field on one band under the picture.
+  const fsKey = el("button", { type: "button", className: "ui-button self icon fs-key", ariaLabel: "Full screen" }, "fullscreen-toggle");
+  fsKey.setAttribute("aria-keyshortcuts", "F");
+  const fsIcon = sprite("ui-icon-fullscreen");
+  fsKey.append(fsIcon);
+  const strip = el("aside", { className: "fs-strip ui-fs-strip", ariaLabel: "Chat", hidden: true }, "fs-strip");
+  const stripHead = el("div", { className: "fs-strip-head" });
+  const stripToggle = el("button", { type: "button", className: "ui-button self icon" }, "fs-strip-toggle");
+  const stripIcon = sprite("ui-icon-strip-hide");
+  stripToggle.append(stripIcon);
+  // Mustard: only your own count of what you missed while collapsed; the key's label says it too.
+  const unreadChip = el("span", { className: "ui-chip self fs-unread", ariaHidden: "true", hidden: true });
+  stripHead.append(sprite("ui-icon-chat"), el("span", { className: "fs-strip-title", textContent: "Chat" }));
+  strip.append(stripHead);
+  wrap.append(strip);
+  let stripMode: StripMode = storedStrip();
+  let unread = 0;
+  const renderStrip = (): void => {
+    const open = stripMode === "open";
+    strip.dataset["strip"] = stripMode;
+    stripToggle.ariaExpanded = String(open);
+    stripToggle.ariaLabel = open ? "Collapse chat to the input bar" : unread > 0 ? `Show chat, ${String(unread)} new message${unread === 1 ? "" : "s"}` : "Show chat";
+    stripIcon.className = `ui-sprite ${open ? "ui-icon-strip-hide" : "ui-icon-strip-show"}`;
+    unreadChip.textContent = `${String(unread)} new`;
+    unreadChip.hidden = open || unread === 0;
+    // Open, the key heads the strip; collapsed, it follows the field on the band. Focus stays on it either way.
+    const home = open ? stripHead : strip;
+    if (stripToggle.parentElement !== home || home.lastElementChild !== unreadChip) {
+      const focused = document.activeElement === stripToggle;
+      home.append(stripToggle, unreadChip);
+      if (focused) stripToggle.focus({ preventScroll: true });
+    }
+  };
+  stripToggle.addEventListener("click", () => {
+    stripMode = stripMode === "open" ? "band" : "open";
+    unread = 0;
+    storeStrip(stripMode);
+    renderStrip();
+    fit();
+  });
+  renderStrip();
+
   let state = initialState;
   let conn: Connection | null = null;
   const send = (m: ClientMessage): boolean => conn?.send(m) ?? false;
@@ -291,7 +363,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
   const transport = createTransport(playback);
-  controls.append(transport.root);
+  controls.append(transport.root, fsKey);
   const personal = createPersonal(playback);
   // "Up next" (ADR 0031): the room's queue under the TV. Its rows are text; it redraws only when the queue changes.
   const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname] });
@@ -325,10 +397,44 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const editorPanel = el("div", { className: "editor-panel" });
   // Set (k) phone watch layout (OME-596): TV full width, the room at 1× in a window you drag, chat right under it, no editor.
   const phone = globalThis.matchMedia(PHONE_QUERY);
+  const fs = createFullscreen({
+    target: wrap,
+    isTarget: (e) => e === wrap,
+    document,
+    history,
+    window,
+    orientation: globalThis.screen.orientation,
+    onChange: (mode) => {
+      onFullscreen(mode);
+    },
+  });
+  fsKey.addEventListener("click", () => {
+    void fs.toggle();
+  });
+  /** In full screen the room is hidden and stops drawing; the log and field move into the strip and back. */
+  const onFullscreen = (mode: FullscreenMode): void => {
+    const on = mode !== "off";
+    // Moving a focused field blurs it: give focus back to where it was (the draft is the same node, so it stays).
+    const focused = document.activeElement;
+    wrap.classList.toggle("is-fs", on);
+    wrap.classList.toggle("is-pseudo-fs", mode === "pseudo");
+    clip.hidden = on;
+    view.setPaused(on);
+    strip.hidden = !on;
+    fsKey.ariaLabel = on ? "Exit full screen" : "Full screen";
+    fsIcon.className = `ui-sprite ${on ? "ui-icon-fullscreen-exit" : "ui-icon-fullscreen"}`;
+    unread = 0;
+    chatLog.setAgeing(on ? "fade" : "settle");
+    placeChat();
+    renderStrip();
+    fit();
+    if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
+  };
   opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked);
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
   const placeChat = (): void => {
-    if (phone.matches) wrap.after(chatLog.root, chatForm);
+    if (fs.mode() !== "off") stripHead.after(chatLog.root, chatForm);
+    else if (phone.matches) wrap.after(chatLog.root, chatForm);
     else notice.after(chatLog.root, chatForm);
     // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch).
     opts.root.classList.toggle("ui-touch", phone.matches);
@@ -341,6 +447,17 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const roomWindow = createRoomWindow(clip, stage, () => seatsMiddle);
   let seatsMiddle: Point = { x: STAGE_W / 2, y: STAGE_H / 2 };
   const fit = (): void => {
+    if (fs.mode() !== "off") {
+      const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvProvider, stripMode);
+      box(tv, l.tv);
+      box(controls, l.controls);
+      box(strip, l.strip);
+      strip.dataset["at"] = l.at;
+      tv.classList.toggle("compact", l.compact.tv);
+      controls.classList.toggle("compact", l.compact.controls);
+      wrap.style.height = "";
+      return;
+    }
     const onPhone = phone.matches;
     const l = roomLayout(wrap.clientWidth, tvProvider, onPhone);
     box(tv, l.tv);
@@ -627,6 +744,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     status.textContent = STATUS_TEXT[s.status];
     const shown = screen(s);
     wrap.hidden = !shown.stage;
+    // Removed, closed or full: no picture to watch any more.
+    if (!shown.stage && fs.mode() !== "off") fs.exit();
     chatForm.hidden = !shown.chat;
     // Removed (ADR 0030): the log stays up above the card, ending with the only-you line.
     chatLog.root.hidden = !shown.chat && !shown.kicked;
@@ -802,7 +921,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   /** The sync controls and your volume belong to the synced tier; the generic tier's strip takes their slot. */
   const showSyncChrome = (synced: boolean): void => {
-    if (synced && controls.firstChild !== transport.root) controls.replaceChildren(transport.root);
+    if (synced && controls.firstChild !== transport.root) controls.replaceChildren(transport.root, fsKey);
     personal.root.hidden = !synced;
   };
 
@@ -823,13 +942,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     showSyncChrome(false);
     if (gf === null) {
       // Our own host or a malformed embed: render nothing from it.
-      controls.replaceChildren();
+      controls.replaceChildren(fsKey);
       tv.replaceChildren(tvEmpty);
       return;
     }
     const g = createGenericTv(gf);
     tv.replaceChildren(g.screen);
-    controls.replaceChildren(g.strip);
+    controls.replaceChildren(g.strip, fsKey);
   };
 
   const scheduleExpiry = (): void => {
@@ -846,7 +965,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const dispatch = (e: ViewEvent): void => {
     const next = reduce(state, e);
     if (next === state) return;
-    for (const entry of logEntries(state, next, e)) chatLog.append(entry);
+    for (const entry of logEntries(state, next, e)) {
+      chatLog.append(entry);
+      // Collapsed in full screen: count what others said while the lines are out of sight.
+      if (stripMode === "band" && fs.mode() !== "off" && entry.kind === "chat" && !entry.self) {
+        unread++;
+        renderStrip();
+      }
+    }
     const expiriesChanged = next.bubbles !== state.bubbles || next.syslines !== state.syslines || next.cooldownUntil !== state.cooldownUntil;
     const prevRoom = state.room;
     const prevOwner = state.owner;
@@ -912,6 +1038,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   window.addEventListener("keydown", (ev) => {
     if (moderation?.key(ev) === true) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
+    else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && fs.key(ev.key, typingIn(ev.target))) ev.preventDefault();
+    else if (ev.key === "Enter" && fs.mode() !== "off" && !chatForm.hidden && (ev.target === document.body || ev.target === wrap || ev.target === chatLog.root)) {
+      // Set k: Enter anywhere in full screen jumps to the message field.
+      ev.preventDefault();
+      chatInput.focus();
+    }
   });
   // Close on unload so the server frees the seat now; a bfcache restore reconnects.
   window.addEventListener("pagehide", () => {
@@ -932,5 +1064,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => layoutBuilds, avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => layoutBuilds, avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused() };
 }

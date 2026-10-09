@@ -139,7 +139,7 @@ test("collapse to the input bar: the field stays, the picture grows, the show-ch
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
 });
 
-test("keyboard: the key enters and keeps focus, F toggles outside text fields, Enter jumps to the field, Esc leaves", async ({ browser }) => {
+test("keyboard: the key enters and keeps focus, F toggles outside text fields, Enter jumps to the field, the browser's exit is followed", async ({ browser }) => {
   const [a] = await join(browser, "keys");
   if (!a) throw new Error("no client");
   const page = a.page;
@@ -161,8 +161,9 @@ test("keyboard: the key enters and keeps focus, F toggles outside text fields, E
   await expect(page.locator(site.chatInput)).toHaveValue("f");
   expect(await inFullscreen(page)).toBe(true);
 
-  // Esc always leaves (the browser owns it), and the draft stays.
-  await page.keyboard.press("Escape");
+  // Esc always leaves: the browser owns it, and an automated key press never reaches the browser's own handling, so do
+  // what it does on Esc (the real key is checked headed, docs/research/m7-fullscreen-and-popout.md). The draft stays.
+  await page.evaluate(() => document.exitFullscreen());
   await expect.poll(() => inFullscreen(page)).toBe(false);
   await expect(page.locator(site.chatInput)).toHaveValue("f");
 

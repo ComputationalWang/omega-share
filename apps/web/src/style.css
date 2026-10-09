@@ -202,3 +202,22 @@ legend { padding: 0; margin-bottom: 6px; }
 /* The seek and volume art stay as drawn; their transparent inputs grow to 44 px tall, centred on the track (whose padding box is ~0 tall). */
 .ui-touch .ui-seek input, .ui-touch .ui-vol-track input { top: 50%; bottom: auto; height: 44px; translate: 0 -50%; }
 .ui-touch .chat-log { max-height: 148px; }
+
+/* ---- Full screen (OME-597, set k `ui-m7-desktop` / `ui-m7-band`): our wrapper, never the provider's iframe. room.ts places the
+ * picture, shelf and strip from layout.ts `fullscreenLayout` (absolute, like the room page): nothing of ours over the player. ---- */
+.stage-wrap.is-fs { background: var(--bg); overflow: hidden; }
+/* No element full screen (iPhone Safari): the same layout as a full-viewport page, clear of the notch and the home bar. */
+.stage-wrap.is-pseudo-fs { position: fixed; z-index: 10; top: env(safe-area-inset-top); left: env(safe-area-inset-left); right: env(safe-area-inset-right); width: auto; height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+body:has(.is-pseudo-fs) { overflow: hidden; }
+.controls > .fs-key { flex: none; margin-left: 4px; }
+.fs-strip { position: absolute; --ui-px: 1px; }
+.fs-strip-head { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
+.fs-strip-title { flex: 1; }
+.fs-strip .chat-log { max-height: none; min-height: 0; margin: 0; }
+.fs-strip .chat { margin: 0; min-width: 0; }
+.fs-strip .chat input { min-width: 0; }
+.fs-unread { flex: none; }
+/* Collapsed: the field and the show-chat key on one bar under the picture; the lines are out of sight (only the count). */
+.fs-strip[data-strip="band"] { display: flex; align-items: center; gap: 4px; padding-block: 0; }
+.fs-strip[data-strip="band"] .fs-strip-head, .fs-strip[data-strip="band"] .chat-log { display: none; }
+.fs-strip[data-strip="band"] .chat { flex: 1; }
