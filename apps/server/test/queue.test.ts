@@ -692,6 +692,41 @@ describe("persistence (ADR 0031 §6)", () => {
     expect((await carol.client.next("error")).code).toBe("queue_full");
   });
 
+  test("a row cut past the cap at restore is gone for good: a later add is kept over it after the next restart", async () => {
+    const c = clock();
+    const boot = async (genericEmbeds: boolean): Promise<void> => {
+      for (const cl of clients.splice(0)) cl.close();
+      await t?.server.stop(true);
+      db?.close();
+      db = openDatabase(dbFile());
+      t = start({ store: new RoomStore(db), now: c.now, genericEmbeds });
+    };
+    await boot(true);
+    const alice = await joined();
+    await share(alice);
+    for (let i = 0; i < QUEUE_MAX; i++) {
+      c.ms += QUEUE_ADD_MEMBER_REFILL_MS;
+      await added(alice.client, `${GENERIC_URL}${String(i)}`);
+    }
+    await boot(false);
+    const bob = await joined();
+    c.ms += QUEUE_ADD_MEMBER_REFILL_MS;
+    await added(bob.client, watch(1)); // Y, cut at the next restore
+
+    await boot(true);
+    const carol = await joined();
+    const first = carol.snapshot.room.queue?.[0]?.id ?? "missing";
+    carol.client.send({ type: "queue-remove", itemId: first });
+    await carol.client.next("queue-changed");
+    c.ms += QUEUE_ADD_MEMBER_REFILL_MS;
+    const shown = await added(carol.client, watch(2)); // Z
+    expect(shown.at(-1)?.embed.url).toBe(embedUrl(2));
+
+    await boot(true);
+    const dave = await joined();
+    expect(dave.snapshot.room.queue?.map((i) => i.id)).toEqual(shown.map((i) => i.id));
+  });
+
   test("an item the policy no longer accepts (GENERIC_EMBEDS off) is left out after the restart", async () => {
     db = openDatabase(dbFile());
     t = start({ store: new RoomStore(db) });
