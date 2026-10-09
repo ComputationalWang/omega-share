@@ -334,6 +334,37 @@ describe("refused bodies", () => {
   });
 });
 
+describe("cross-site simple POSTs (OME-698)", () => {
+  // A body a browser can send cross-site without a preflight: text/plain, form encodings, or no type at all.
+  for (const type of ["text/plain", "text/plain;charset=UTF-8", "application/x-www-form-urlencoded", "multipart/form-data; boundary=x", null]) {
+    test(`content-type ${String(type)}: 415 invalid_body, nothing stored, no bucket used`, async () => {
+      const f = boot();
+      const headers: Record<string, string> = { "x-forwarded-for": "198.51.100.7" };
+      if (type !== null) headers["content-type"] = type;
+      const res = await fetch(`${f.t.http}/rooms/${ROOM}/report`, { method: "POST", headers, body: JSON.stringify({ reason: "spam" }) });
+      expect(res.status).toBe(415);
+      const parsed = await answer(res);
+      expect(parsed.ok ? null : parsed.error.code).toBe("invalid_body");
+      expect(rows(f)).toEqual([]);
+      // The refusal is free: the same client still has its whole burst.
+      expect((await report(f, ROOM, { reason: "spam" })).status).toBe(202);
+    });
+  }
+
+  test("application/json with a charset is accepted", async () => {
+    const f = boot();
+    expect((await report(f, ROOM, { reason: "spam" }, "198.51.100.7", { "content-type": "Application/JSON; charset=utf-8" })).status).toBe(202);
+  });
+
+  test("a foreign or opaque Origin: 403, nothing stored", async () => {
+    const f = boot();
+    for (const origin of ["https://evil.example", "null"]) {
+      expect((await report(f, ROOM, { reason: "spam" }, "198.51.100.7", { origin })).status).toBe(403);
+    }
+    expect(rows(f)).toEqual([]);
+  });
+});
+
 describe("redactNote", () => {
   test("replaces emails, IPv4 and IPv6 addresses and phone-like runs; keeps links", () => {
     expect(redactNote("mail ada.l@example.org now")).toBe("mail <email> now");
