@@ -1,8 +1,10 @@
 import { DEFAULT_CONTROL_POLICY, MAX_POSITION_S, playbackCaps, type QueueItemId, type ClientMessage, type ControlPolicy, type PlaybackState, type Provider } from "@omega/shared";
 import { playerIntent, seekIntent, togglePlayIntent, type PlaybackTarget } from "../intents";
 import type { PlayerAdapter, PlayerError, PlayerEvent } from "../player/adapter";
+import { NO_QUALITIES, type QualityOption } from "../player/quality";
 import { SYNC_INTERVAL_MS, createSyncLoop, expectedPosition, type SyncLoop } from "../sync";
 import { NOT_CATCHING, stepCatchup, type Catchup } from "./catchup";
+import type { QualityMemory } from "./quality";
 
 /** Everything the playback chrome renders. A new object only when something in it changed. */
 export interface PlaybackView {
@@ -35,6 +37,10 @@ export interface PlaybackView {
   readonly policy: ControlPolicy;
   /** Only the owner controls playback and I'm not the owner: the shared keys sink into the shelf (set j). */
   readonly held: boolean;
+  /** This user only (OME-599): the qualities my player can be set to; empty = no picker. Never on the wire. */
+  readonly qualities: readonly QualityOption[];
+  /** The id of the quality my player is on; null if unknown. */
+  readonly quality: string | null;
 }
 
 /** The room's control policy as it applies to me (state.ts `controlPolicy`, `controlHeld`). */
@@ -60,6 +66,8 @@ export interface PlaybackControllerOptions<Timer> {
   readonly setInterval: (fn: () => void, ms: number) => Timer;
   readonly clearInterval: (t: Timer) => void;
   readonly onView?: (v: PlaybackView) => void;
+  /** This device's quality per provider (OME-599). Absent: nothing is remembered. */
+  readonly qualityMemory?: QualityMemory;
 }
 
 export interface PlaybackController {
@@ -76,6 +84,8 @@ export interface PlaybackController {
   /** Personal. */
   setVolume(volume: number): void;
   toggleMute(): void;
+  /** Personal (OME-599): my player's quality, remembered on this device for this provider. */
+  setQuality(id: string): void;
   /** After a blocked autoplay; must run in a user gesture. */
   unmute(): void;
   /** A fresh join (snapshot): the server has forgotten my `status`, so it goes out again if I'm catching up. */
@@ -118,6 +128,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   let timer: Timer | null = null;
   /** The queue item whose end we already reported (ADR 0031 §4: once per item). */
   let endedSent: QueueItemId | null = null;
+  /** The player the remembered quality was applied to (once per player, when its list has it). */
+  let restored: PlayerAdapter | null = null;
   let current: PlaybackView = {
     hasVideo: false,
     canControl: false,
@@ -134,6 +146,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     seekOnly,
     policy,
     held,
+    qualities: NO_QUALITIES,
+    quality: null,
   };
 
   const detach = (): void => {
@@ -170,6 +184,9 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     // Pausing a playing room needs the server clock for the position; playing a paused one doesn't. Live has no position.
     const canControl = !refused && !held && pb !== null && embedUrl !== null && (!pb.playing || live || o.clock.ready);
     seekOnly = capsSeekOnly || loop?.mode === "seek-only";
+    const q = refused ? undefined : player?.quality;
+    const qualities = q?.options() ?? NO_QUALITIES;
+    const quality = qualities.length === 0 ? null : (q?.current() ?? null);
     if (
       c.hasVideo === hasVideo &&
       c.canControl === canControl &&
@@ -185,11 +202,13 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       c.live === live &&
       c.seekOnly === seekOnly &&
       c.policy === policy &&
-      c.held === held
+      c.held === held &&
+      c.qualities === qualities &&
+      c.quality === quality
     ) {
       return c;
     }
-    current = { hasVideo, canControl, playing, position, duration, volume, muted, needsUnmute, catching: catchup.catching, error, provider, live, seekOnly, policy, held };
+    current = { hasVideo, canControl, playing, position, duration, volume, muted, needsUnmute, catching: catchup.catching, error, provider, live, seekOnly, policy, held, qualities, quality };
     o.onView?.(current);
     return current;
   };
@@ -202,10 +221,25 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     if (o.send({ type: "ended", itemId: id, position: Math.min(MAX_POSITION_S, Math.max(0, player.time())) })) endedSent = id;
   };
 
+  /** Put my player on this device's remembered quality, once, as soon as its list has it. Not a new choice: nothing is saved. */
+  const restoreQuality = (): void => {
+    const q = player?.quality;
+    if (q === undefined || player === null || restored === player || provider === null) return;
+    const options = q.options();
+    if (options.length === 0) return;
+    restored = player;
+    const id = o.qualityMemory?.load(provider) ?? null;
+    if (id !== null && id !== q.current() && options.some((x) => x.id === id)) q.set(id);
+  };
+
   const onPlayer = (e: PlayerEvent): void => {
     switch (e.type) {
       case "ready":
         applyVolume();
+        restoreQuality();
+        break;
+      case "quality":
+        restoreQuality();
         break;
       case "autoplay-blocked":
         needsUnmute = true;
@@ -280,7 +314,10 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       player = p;
       startLoop(p);
       offPlayer = p.onEvent(onPlayer);
-      if (p.ready()) applyVolume();
+      if (p.ready()) {
+        applyVolume();
+        restoreQuality();
+      }
       refresh();
     },
     togglePlay() {
@@ -306,6 +343,15 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
         player?.unmute();
       }
       applyVolume();
+      refresh();
+    },
+    setQuality(id) {
+      const q = error === null ? player?.quality : undefined;
+      if (q === undefined || provider === null || !q.options().some((x) => x.id === id)) return;
+      // A choice made before the list arrived for this player stands: don't restore over it.
+      restored = player;
+      q.set(id);
+      o.qualityMemory?.save(provider, id);
       refresh();
     },
     toggleMute() {

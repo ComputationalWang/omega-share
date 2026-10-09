@@ -28,6 +28,8 @@ const base: PlaybackView = {
   seekOnly: false,
   policy: "everyone",
   held: false,
+  qualities: [],
+  quality: null,
 };
 
 async function setup() {

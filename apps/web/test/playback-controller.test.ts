@@ -43,7 +43,7 @@ function harness(playerOpts: Omit<Partial<FakePlayerOptions>, "now"> = {}, quali
       h.cleared = true;
     },
     onView: (v) => views.push(v),
-    qualityMemory,
+    ...(qualityMemory === undefined ? {} : { qualityMemory }),
   });
   const player = new FakePlayer({ now: () => t.now, state: "cued", position: 0, duration: 212, ...playerOpts });
   const run = (ms: number) => {
