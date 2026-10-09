@@ -61,12 +61,6 @@ export async function leaveAll(clients: readonly Client[]): Promise<void> {
 }
 
 /**
- * Click after scrolling `target` into view and letting two frames land. Right after a programmatic scroll,
- * Chromium can route the click by the previous frame's hit-test data, so a seat that scrolls up to where the
- * cross-origin TV iframe just was gets its click delivered to the iframe instead (OME-89). Users scroll first
- * and click later, so only instant scroll-then-click automation needs this.
- */
-/**
  * Clicks a key that closes its own window and waits for the close. The window can go before the click's input round
  * trip returns, which Playwright reports as "Target page, context or browser has been closed" (OME-674); that error is
  * the expected outcome here, any other one is not.
@@ -81,6 +75,12 @@ export async function clickClosing(page: Page, target: Locator): Promise<void> {
   ]);
 }
 
+/**
+ * Click after scrolling `target` into view and letting two frames land. Right after a programmatic scroll,
+ * Chromium can route the click by the previous frame's hit-test data, so a seat that scrolls up to where the
+ * cross-origin TV iframe just was gets its click delivered to the iframe instead (OME-89). Users scroll first
+ * and click later, so only instant scroll-then-click automation needs this.
+ */
 export async function clickSettled(page: Page, target: Locator): Promise<void> {
   await target.scrollIntoViewIfNeeded();
   await page.evaluate(
