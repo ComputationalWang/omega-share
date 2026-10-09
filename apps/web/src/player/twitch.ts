@@ -7,6 +7,12 @@ import { asTwitchPlayer, type TwitchEventName, type TwitchNamespace, type Twitch
 
 /** Play/pause events this soon after our own command are its echo, not the user (as for YouTube). */
 export const ECHO_WINDOW_MS = 1000;
+/**
+ * Live: our play reloads at the live edge, where Twitch can run a mid-roll slate that the SDK reports as
+ * pause/play with no ad signal (OME-497). A player pause/play this soon after our play is the provider's;
+ * the sync loop re-plays a paused player while the room plays.
+ */
+export const LIVE_RESUME_MS = 5000;
 /** A seek event this soon after our own seek is its echo; Twitch VODs are HLS, so a seek can take seconds. */
 export const SEEK_ECHO_MS = 5000;
 /** The SDK has no ad signal: a VOD that says Playing while its clock hasn't moved for this long is in an ad (research M2 §1.4). */
@@ -157,7 +163,8 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     const from = settled;
     settled = s;
     if (from === null || from === s || expected === null || s === expected) return;
-    if (o.now() - lastCommandAt < ECHO_WINDOW_MS) return;
+    const since = o.now() - lastCommandAt;
+    if (since < ECHO_WINDOW_MS || (live && expected === "playing" && since < LIVE_RESUME_MS)) return;
     expected = s;
     emit({ type: "intent", playing: s === "playing", position: time() });
   };
