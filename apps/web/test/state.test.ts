@@ -384,4 +384,11 @@ describe("owner edits arrive live (OME-410)", () => {
     expect(server(s, { type: "snapshot", self: "a", room: room() }).title).toBe("Friday films");
     expect(reduce(s, { type: "room-closed" }).title).toBeNull();
   });
+
+  test("the snapshot seeds the title; a later title-changed or titled snapshot replaces it", () => {
+    const s = joined(room({ title: "Friday films" }));
+    expect(s.title).toBe("Friday films");
+    expect(server(s, { type: "title-changed", title: "Sunday films", by: "b" }).title).toBe("Sunday films");
+    expect(server(s, { type: "snapshot", self: "a", room: room({ title: "Late films" }) }).title).toBe("Late films");
+  });
 });
