@@ -85,6 +85,8 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
   let qualitySetAt = Number.NEGATIVE_INFINITY;
   let qualities: readonly QualityOption[] = NO_QUALITIES;
   let quality: string | null = null;
+  /** The quality before our last pick: the SDK's stale cache reads as this for a while. */
+  let qualityBefore: string | null = null;
   const frameWindow: unknown = iframeWindow(container);
 
   const emit = (e: PlayerEvent) => {
@@ -162,7 +164,9 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
   const readQualities = (): void => {
     const next = parseQualities(player.getQualities?.(), "group", "name");
     const q = player.getQuality?.();
-    const cur = typeof q === "string" && next.some((o) => o.id === q) ? q : null;
+    let cur = typeof q === "string" && next.some((o) => o.id === q) ? q : null;
+    // Right after our pick the SDK's cache still says the old quality (no change event): keep ours until the window ends.
+    if (inQualityEcho() && cur === qualityBefore && quality !== null && next.some((o) => o.id === quality)) cur = quality;
     if (sameQualities(next, qualities) && cur === quality) return;
     qualities = next;
     quality = cur;
@@ -185,7 +189,8 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     const since = o.now() - lastCommandAt;
     if (since < ECHO_WINDOW_MS || (live && expected === "playing" && since < LIVE_RESUME_MS)) return;
     if (inQualityEcho()) {
-      // The switch's own pause/play: the sync loop puts this player back where the room is.
+      // The switch's own pause/play: the sync loop puts this player back where the room is. The trade-off: a member's
+      // own pause in these 5 s is dropped too (the loop resumes them), as is one in the 5 s after a remembered pick on load.
       expected = s;
       return;
     }
@@ -303,6 +308,7 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
       set(id) {
         if (!usable() || !qualities.some((q) => q.id === id) || player.setQuality === undefined) return;
         qualitySetAt = o.now();
+        qualityBefore = quality;
         player.setQuality(id);
         // getQuality() is the iframe's last push, still the old one: take ours until the next re-read.
         quality = id;

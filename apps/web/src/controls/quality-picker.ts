@@ -164,7 +164,18 @@ export function createQualityPicker<Timer>(c: Pick<PlaybackController, "setQuali
     e.preventDefault();
     e.stopPropagation();
   });
+  /** A press inside the menu: Safari and macOS Firefox don't focus a pressed button, so the row blurs to nothing first. */
+  let pressing = false;
+  menu.addEventListener("pointerdown", () => {
+    pressing = true;
+  });
+  for (const end of ["pointerup", "pointercancel"] as const) {
+    document.addEventListener(end, () => {
+      pressing = false;
+    });
+  }
   menu.addEventListener("focusout", (e) => {
+    if (pressing) return;
     const to = e.relatedTarget;
     if (to instanceof Node && (menu.contains(to) || to === key)) return;
     setOpen(false, false);
