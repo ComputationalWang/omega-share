@@ -174,6 +174,33 @@ test.describe("M2 provider sync, 4 clients", () => {
     expect(play.latencyMs, `clients ${play.arrivals.map((t) => (t - play.at).toFixed(0)).join(", ")} ms after the click`).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
   });
 
+  test("Twitch live: a mid-roll slate on one player right after a resume is not a room pause (OME-500)", async ({ browser, request }) => {
+    const room = testRoom("provider-sync", "live-ad");
+    await shareProvider(request, providerCase("twitchLive").shareUrl, room.id);
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "live-ad" });
+    const [a, b] = clients;
+    if (!a || !b) throw new Error("need 2 clients");
+    await waitProviderPlaying(clients, "twitch");
+    await a.page.locator(site.playToggle).click();
+    await waitProviderPlaying(clients, "twitch", false);
+    await expect(a.page.locator(toLive)).toBeEnabled();
+    await a.page.locator(toLive).click();
+    await expect.poll(async () => (await roomPlayback(browser, room.id)).playing, { timeout: 5_000 }).toBe(true);
+    const resumed = await roomPlayback(browser, room.id);
+
+    // Twitch reports the slate at the live edge as the player pausing and playing by itself, with no ad signal.
+    await b.page.waitForTimeout(1500);
+    await b.page.evaluate(() => {
+      window.__fakeTwitch?.liveAdBreak(2000);
+    });
+    expect(await b.page.evaluate(() => window.__fakeTwitch?.playback)).toBe("Idle");
+    await waitProviderPlaying(clients, "twitch");
+    await b.page.waitForTimeout(1000);
+    // Any pause (and the re-play after it) would have bumped the revision.
+    const after = await roomPlayback(browser, room.id);
+    expect([after.playing, after.rev], "the room is still on A's resume").toEqual([true, resumed.rev]);
+  });
+
   test("Twitch live: a forged control with a position is stored at 0 and never seeks a client", async ({ browser, request }) => {
     const room = testRoom("provider-sync", "live-forge");
     await shareProvider(request, providerCase("twitchLive").shareUrl, room.id);
