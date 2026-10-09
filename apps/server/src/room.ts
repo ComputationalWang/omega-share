@@ -239,7 +239,7 @@ export class Room {
   }
 
   snapshot(): RoomState {
-    return {
+    const state: RoomState = {
       id: this.id,
       seats: [...this.seats],
       // Absent means false, so only catching members carry the field.
@@ -248,6 +248,8 @@ export class Room {
       playback: this.playback,
       layout: this.layout,
     };
+    // Like the summary: an untitled (seeded) room sends no title key.
+    return this.title === "" ? state : { ...state, title: this.title };
   }
 
   /** Whether `token` is this room's owner token (constant-time; a pinned room has no owner). */
