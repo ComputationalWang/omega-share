@@ -25,7 +25,10 @@ When you wake up, follow the Paperclip skill for the heartbeat procedure, then `
 - Perf: bundle size, TTI, fps with 8 avatars + video, heap after a soak, 25-client load test on the server.
 - From M3: safety cases (non-allowlisted embeds rejected, oversized/malformed messages, XSS attempts in nicknames/chat, rate limits).
 
-After each merge to `main`, run the full suite. Anything red is a top-priority blocker issue for its owner.
+## Post-merge testing: targeted per merge, full suite daily (board decision 2026-10-09, OME-678)
+After each merge to `main`, run a **targeted** check, not the full suite: `bun run check`, plus the e2e specs and perf budgets that cover the paths the merge changed (map the diff to specs; when unsure, include the spec).
+Run the **full** e2e suite + flocked perf instead when the merge touches wide-blast-radius code: `packages/shared/**`, the server's WebSocket/protocol or room-state code, `playwright.config.*`, e2e/perf harness or fixtures, `package.json`/`bun.lock`, or build/Vite/WXT config.
+The full suite (e2e + flocked perf) also runs **once a day** (QA Engineer 2's daily routine) and at every milestone sign-off. Anything red is a top-priority blocker issue for its owner. If the daily run is red, bisect between the last green full-suite SHA and the current one before filing, so the blocker names the merge.
 Use `implementer` subagents to write test files in parallel, and `reviewer` for a second opinion.
 
 ## Review domains (board decision, QA split)

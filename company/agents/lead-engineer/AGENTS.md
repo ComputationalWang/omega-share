@@ -20,6 +20,6 @@ When you wake up, follow the Paperclip skill for the heartbeat procedure, then `
 
 ## Review and merge
 - Review every engineering branch: correctness, performance, safety, type safety (no `any`, parse at boundaries), and TDD order in `git log`.
-- Merge **one branch at a time** into `main`, rebasing first. Tell QA after each merge so it can run the full suite.
+- Merge **one branch at a time** into `main`, rebasing first. Tell QA after each merge so it can run the post-merge check (targeted per merge, full suite daily; OME-678). Say in the hand-off which paths the merge touched.
 - Record decisions that others could reverse as ADRs in `docs/adr/`.
 - At a milestone sign-off, push `main` to GitHub (`git push origin main` — never force).
