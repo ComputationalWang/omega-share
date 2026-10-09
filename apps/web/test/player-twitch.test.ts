@@ -703,7 +703,8 @@ describe("attachTwitch quality (per viewer, OME-599)", () => {
     ready();
     const frame = box.children[0];
     adapter.quality?.set("480p30");
-    expect(box.children).toEqual([frame]);
+    expect(box.children).toHaveLength(1);
+    expect(box.children[0]).toBe(frame);
     expect(p.calls.filter(([n]) => n === "destroy")).toEqual([]);
   });
 

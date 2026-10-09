@@ -12,6 +12,10 @@ export interface VimeoPlayer {
   setMuted(muted: boolean): Promise<unknown>;
   getVideoId(): Promise<unknown>;
   getDuration(): Promise<unknown>;
+  /** `[{ label, id, active }]`; settable only on Plus/PRO/Business owners' videos (research R-M7b). */
+  getQualities(): Promise<unknown>;
+  /** Rejects where the owner's plan doesn't allow it (TypeError or RangeError). */
+  setQuality(id: string): Promise<unknown>;
   destroy(): Promise<unknown>;
   on(event: string, callback: (data?: unknown) => void): void;
   off(event: string, callback?: (data?: unknown) => void): void;
