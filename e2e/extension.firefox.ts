@@ -60,7 +60,10 @@ test.describe("Firefox extension", () => {
     await p.$eval(popup.roomSelect, (select, id) => {
       if (select instanceof HTMLSelectElement) select.value = id;
     }, testRoom("ext-firefox", "share").id);
-    await p.click(popup.shareButton);
+    // BiDi input actions are refused in extension (privileged) pages, so click from inside the page.
+    await p.$eval(popup.shareButton, (button) => {
+      if (button instanceof HTMLButtonElement) button.click();
+    });
     await p.waitForFunction((s) => document.querySelector<HTMLElement>(s)?.dataset["state"] !== undefined, { timeout: 10_000 }, popup.shareStatus);
     const status = await p.$eval(popup.shareStatus, (el) => ({ state: el.getAttribute("data-state"), text: el.textContent }));
     expect(status).toEqual({ state: "ok", text: expect.stringContaining("e2e-ext-firefox-share") });
