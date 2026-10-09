@@ -1,7 +1,20 @@
 import { MAX_URL_LENGTH } from "@omega/shared";
 
 /** Local `apps/server` (`PORT` defaults to 8787 in the e2e harness). */
-export const DEFAULT_SERVER_BASE_URL = "http://localhost:8787";
+const LOCAL_SERVER_BASE_URL = "http://localhost:8787";
+/** The hosted server (`PUBLIC_ORIGIN`): the store build's default, so it works out of the box and never talks cleartext (R1, OME-509). */
+const HOSTED_SERVER_BASE_URL = "https://omega-share.duckdns.org";
+
+/** The default server for a WXT build mode: hosted for `production` (the store build), local for dev and e2e. */
+export function defaultServerBaseUrl(mode: string | undefined): string {
+  return mode === "production" ? HOSTED_SERVER_BASE_URL : LOCAL_SERVER_BASE_URL;
+}
+
+/**
+ * `defaultServerBaseUrl` for this build. Vite inlines `MODE`, so this ternary folds and the store bundle
+ * carries only the hosted origin (the function itself is for `wxt.config.ts`). `MODE` is unset under `bun test`.
+ */
+export const DEFAULT_SERVER_BASE_URL = import.meta.env.MODE === "production" ? HOSTED_SERVER_BASE_URL : LOCAL_SERVER_BASE_URL;
 export const SERVER_BASE_URL_KEY = "serverBaseUrl";
 
 export type ParsedServerBaseUrl = { readonly ok: true; readonly origin: string } | { readonly ok: false; readonly message: string };
@@ -21,7 +34,7 @@ const IP_LITERAL = /^(\d{1,3}(\.\d{1,3}){3}|\[.*\])$/;
  */
 export function parseServerBaseUrl(input: string): ParsedServerBaseUrl {
   const trimmed = input.trim();
-  if (trimmed === "" || trimmed.length > MAX_URL_LENGTH) return { ok: false, message: "Enter a URL like http://localhost:8787." };
+  if (trimmed === "" || trimmed.length > MAX_URL_LENGTH) return { ok: false, message: `Enter a URL like ${DEFAULT_SERVER_BASE_URL}.` };
   if (INNER_WHITESPACE_OR_CONTROL.test(trimmed)) return { ok: false, message: "That is not a valid URL." };
   let url: URL;
   try {

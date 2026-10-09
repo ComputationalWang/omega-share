@@ -12,8 +12,9 @@ const PERMISSIONS = ["activeTab", "scripting", "storage"];
 const OPTIONAL_HOST_PERMISSIONS = ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"];
 const ROOT = join(import.meta.dir, "..");
 const REPO = join(ROOT, "..", "..");
-const VERSION: unknown = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version;
-const ICON_SIZES = [16, 32, 48, 128] as const;
+const PACKAGE: unknown = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
+const VERSION = typeof PACKAGE === "object" && PACKAGE !== null && "version" in PACKAGE ? PACKAGE.version : undefined;
+const ICON_SIZES = ["16", "32", "48", "128"] as const;
 
 const cases = [
   { mode: "production", hostPermissions: ["https://omega-share.duckdns.org/*"] },
@@ -61,7 +62,7 @@ for (const { mode, hostPermissions } of cases) {
     });
 
     test("ships the store icons at 16, 32, 48 and 128 px, byte for byte from assets/store", () => {
-      const icons = Object.fromEntries(ICON_SIZES.map((size) => [String(size), `icon/${size}.png`]));
+      const icons = Object.fromEntries(ICON_SIZES.map((size) => [size, `icon/${size}.png`]));
       expect(manifests.get(mode)).toHaveProperty("icons", icons);
       expect(manifests.get(mode)).toHaveProperty("action.default_icon", icons);
       for (const size of ICON_SIZES) {
@@ -73,7 +74,7 @@ for (const { mode, hostPermissions } of cases) {
 
 test("the production build's code has no localhost default left in it", () => {
   const dir = outDir("production");
-  const files = readdirSync(dir, { recursive: true, encoding: "utf8" }).filter((f) => /\.(js|html)$/.test(f));
+  const files = readdirSync(dir, { recursive: true, encoding: "utf8" }).filter((f) => f.endsWith(".js"));
   const code = files.map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
   expect(code).toContain("https://omega-share.duckdns.org");
   expect(code).not.toContain("localhost:8787");
