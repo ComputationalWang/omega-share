@@ -4,6 +4,7 @@
 // brings the chat back. Desktop only, and only where BroadcastChannel exists. The channel schema, relay and window logic
 // are unit tests (apps/web/test/popout-*.test.ts); the room tab's frames with the window open are perf/popout.perf.ts.
 import type { Browser, BrowserContext, BrowserContextOptions, Page } from "@playwright/test";
+import { MAX_ROOM_MEMBERS } from "@omega/shared";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
@@ -20,14 +21,14 @@ test.afterEach(async () => {
   clients = [];
 });
 
-/** Counts the WebSockets each page of the context opens (an init script, so it runs before any app code). */
+/** Counts the room WebSockets each page of the context opens (an init script, so it runs before any app code; the dev server's own HMR socket isn't one). */
 function countSockets(): void {
   const Native = window.WebSocket;
   Reflect.set(window, "__sockets", 0);
   window.WebSocket = class extends Native {
     constructor(url: string | URL, protocols?: string | string[]) {
       super(url, protocols);
-      Reflect.set(window, "__sockets", Number(Reflect.get(window, "__sockets")) + 1);
+      if (/\/rooms\/[^/]+\/ws$/.test(new URL(url, location.href).pathname)) Reflect.set(window, "__sockets", Number(Reflect.get(window, "__sockets")) + 1);
     }
   };
 }
@@ -72,7 +73,7 @@ test("pop out: the chat moves to its own window over the one socket, both ways; 
   const pop = await popOut(a.page, a.context);
   expect(new URL(pop.url()).pathname).toBe("/chat.html");
   // Opened with noopener: the window has no handle on the room tab.
-  expect(await pop.evaluate(() => window.opener)).toBeNull();
+  expect(await pop.evaluate(() => window.opener === null)).toBe(true);
   // The backlog came over, and both ways work from here.
   await expect(pop.locator(site.chatLogLine)).toHaveText(["porelay-2 before"]);
   await say(b.page, "to the window");
@@ -86,7 +87,7 @@ test("pop out: the chat moves to its own window over the one socket, both ways; 
   // One WebSocket for this user: the room tab's. The window opened none, so it never joined (one member each).
   expect(await sockets(a.page)).toBe(1);
   expect(await sockets(pop)).toBe(0);
-  await expect(pop.locator(site.popoutPeople)).toHaveText("2 / 8");
+  await expect(pop.locator(site.popoutPeople)).toHaveText(`2 / ${String(MAX_ROOM_MEMBERS)}`);
   // The page: no log or field, the set (k) placeholder (a status region) with its bring-back key.
   await expect(a.page.locator(site.chatLog)).toBeHidden();
   await expect(a.page.locator(site.chatInput)).toBeHidden();
@@ -167,7 +168,7 @@ function hideable(): void {
 const setHidden = (p: Page, on: boolean): Promise<void> =>
   p.evaluate((h) => {
     const f: unknown = Reflect.get(window, "__setHidden");
-    if (typeof f === "function") f(h);
+    if (typeof f === "function") Reflect.apply(f, null, [h]);
   }, on);
 
 test("the room tab hidden behind the window: chat still relays both ways; on return the player catches up by seek", async ({ browser, request }) => {

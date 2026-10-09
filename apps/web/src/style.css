@@ -223,3 +223,26 @@ body:has(.is-pseudo-fs) { overflow: hidden; }
 /* Out of sight, still the polite live region a screen reader hears (display: none would silence it). */
 .fs-strip[data-strip="band"] .chat-log { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .fs-strip[data-strip="band"] .chat { flex: 1; }
+
+/* ---- Pop-out chat (OME-598, set k `ui-m7-popout` / `ui-m7-away`, desktop only). The key ends the chat row; while the
+ * chat is in its window the row's place is the placeholder (page 2×). The window: the mustard rim, head, log, field. ---- */
+.pop-out { --ui-px: 1px; display: flex; align-items: center; }
+.chat-away { --ui-px: 2px; grid-template-columns: auto 1fr auto; align-items: center; justify-items: start; text-align: left; gap: 12px; margin-top: 8px; }
+.chat-away b { color: var(--ui-text); }
+.chat-away .ui-button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 700; }
+.popout-page { height: 100vh; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.popout-page main { max-width: none; width: 100%; min-height: 0; padding: 6px; display: grid; }
+.popout-footer { margin: 0; padding: 0 8px 4px; font-size: 0.75rem; }
+.popout { --ui-px: 1px; position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 6px; min-height: 0; padding: 4px; }
+.popout-head { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
+.popout-title { flex: 1; }
+.popout-people { display: flex; align-items: center; gap: 2px; font-size: 12px; color: var(--ui-muted); }
+.popout .chat-log { max-height: none; min-height: 0; margin: 0; }
+.popout-chat { display: flex; align-items: center; gap: 4px; }
+.popout-chat input { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 6px; border: 1px solid #554d73; background: var(--panel); font-size: 13px; }
+.popout-chat input:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
+.popout-chat input.is-muted { border-color: #3a3442; background: #2a2630; color: var(--muted); cursor: not-allowed; }
+.popout-chat[data-cooldown="true"] input, .popout-chat button:disabled { opacity: 0.6; }
+.popout-gone { --ui-px: 2px; position: absolute; left: 8px; right: 8px; top: 25%; z-index: 2; }
+.popout-gone-keys { display: flex; justify-content: center; gap: 8px; }
+.popout-gone .ui-button { font: inherit; font-weight: 700; }

@@ -32,6 +32,8 @@ export interface ChatLog {
   readonly root: HTMLOListElement;
   append(entry: ChatLogEntry): void;
   setAgeing(ageing: ChatLogAgeing): void;
+  /** Drop every line (the pop-out's log when its room tab sends the backlog again). */
+  clear(): void;
 }
 
 interface Line {
@@ -146,6 +148,10 @@ export function createChatLog<H>(opts: ChatLogOptions<H>): ChatLog {
       if (atFoot) root.scrollTop = root.scrollHeight;
       // In fade mode the armed timer may be an older line's fade, due after this line settles.
       if (heldSince === null && (timer === null || dueAt(line) < armedAt)) schedule();
+    },
+    clear() {
+      for (const l of lines.splice(0)) l.el.remove();
+      schedule();
     },
     setAgeing(next) {
       if (next === ageing) return;

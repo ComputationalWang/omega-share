@@ -1,6 +1,6 @@
 // Room screen. Loaded lazily after Enter so PixiJS stays out of the initial bundle.
 import "pixi.js/unsafe-eval";
-import { SEAT_COUNT, isSyncedEmbed, layoutSeats, type AnyEmbed, type Avatar, type ClientMessage, type EmoteKind, type Embed, type ErrorCode, type MemberId, type Nickname, type RoomId, type RoomLayout } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, SEAT_COUNT, isSyncedEmbed, layoutSeats, type AnyEmbed, type Avatar, type ClientMessage, type EmoteKind, type Embed, type ErrorCode, type MemberId, type Nickname, type RoomId, type RoomLayout } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
@@ -35,6 +35,8 @@ import { createEmoteBadges } from "./emote/badges";
 import { EMOTE_LIFT } from "./walk/animator";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
+import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, type PopState } from "./popout/channel";
+import { createChatRelay, type ChatRelay } from "./popout/relay";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -277,7 +279,19 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       clearTimeout(h as ReturnType<typeof setTimeout>);
     },
   });
-  chatForm.append(picker.root, chatInput, chatSend);
+  // Pop-out chat (OME-598, set k): the key ends the chat row; while the chat is in its window the row's place holds the
+  // set (k) placeholder with a bring-back key. Desktop only, and only where BroadcastChannel exists.
+  const popKey = el("button", { type: "button", className: "ui-button self icon", ariaLabel: "Pop out chat", title: "Pop out chat" }, "chat-popout");
+  popKey.append(sprite("ui-icon-popout"));
+  const popOut = el("span", { className: "pop-out", hidden: true });
+  popOut.append(popKey);
+  chatForm.append(picker.root, chatInput, chatSend, popOut);
+  const chatAway = el("div", { className: "ui-panel ui-away chat-away", role: "status", hidden: true }, "chat-away");
+  const chatAwayText = el("p");
+  chatAwayText.append(el("b", { textContent: "Chat is in its own window." }), el("br"), "Bubbles still show over the avatars here.");
+  const bringBack = el("button", { type: "button", className: "ui-button self" }, "chat-bring-back");
+  bringBack.append(sprite("ui-icon-popout-back"), "Bring chat back");
+  chatAway.append(el("span", { className: "ui-sprite ui-scene ui-scene-chat-away", ariaHidden: "true" }), chatAwayText, bringBack);
   // The chat log (OME-594): the same component moves into the full-screen strip (W2) and the pop-out (W3).
   const chatLog = createChatLog({
     ageing: "settle",
@@ -465,9 +479,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked);
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
   const placeChat = (): void => {
-    if (fs.mode() !== "off") stripHead.after(chatLog.root, chatForm);
-    else if (phone.matches) wrap.after(chatLog.root, chatForm);
-    else notice.after(chatLog.root, chatForm);
+    if (fs.mode() !== "off") stripHead.after(chatLog.root, chatForm, chatAway);
+    else if (phone.matches) wrap.after(chatLog.root, chatForm, chatAway);
+    else notice.after(chatLog.root, chatForm, chatAway);
     // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch).
     opts.root.classList.toggle("ui-touch", phone.matches);
   };
@@ -758,6 +772,39 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   /** The seat the phone's window last centred on, so it follows me when I sit, and only then. */
   let centredSeat = -1;
+  /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
+  let relay: ChatRelay | null = null;
+  let popped = false;
+  /** The chat row's place: the log and the field, or (popped out) the placeholder; the pop-out key only where it works. */
+  const renderChatRow = (s: ViewState): void => {
+    const shown = screen(s);
+    // Removed, closed or full: nothing to say any more, so the chat comes home (the log stays above a removal's card).
+    if (popped && !shown.chat) relay?.bringBack();
+    chatForm.hidden = !shown.chat || popped;
+    // Removed (ADR 0030): the log stays up above the card, ending with the only-you line.
+    chatLog.root.hidden = (!shown.chat && !shown.kicked) || popped;
+    chatAway.hidden = !popped;
+    popOut.hidden = !popoutSupported({ hasChannel: relay !== null, phone: phone.matches });
+  };
+  /** What the pop-out window shows of the room: the head count, and whether (and why not) it may send. */
+  const popState = (s: ViewState): PopState => {
+    const chat = chatView(s, Date.now());
+    return { title: s.title, people: s.room?.members.length ?? 0, cap: MAX_ROOM_MEMBERS, open: screen(s).chat, cooling: chat.cooling, muted: chat.muted, placeholder: chat.placeholder };
+  };
+  const onPopped = (on: boolean): void => {
+    const focused = document.activeElement;
+    popped = on;
+    renderChatRow(state);
+    if (on) {
+      relay?.update(popState(state));
+      // The row went away under focus: the bring-back key is the first stop in its place.
+      if (focused instanceof HTMLElement && chatForm.contains(focused)) bringBack.focus({ preventScroll: true });
+    } else if (focused === null || focused === document.body || chatAway.contains(focused)) {
+      // Set k: the chat row returns in place with focus in the message field.
+      chatInput.focus({ preventScroll: true });
+    }
+  };
+
   const render = (): void => {
     frame = 0;
     const s = state;
@@ -778,9 +825,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     wrap.hidden = !shown.stage;
     // Removed, closed or full: no picture to watch any more.
     if (!shown.stage && fs.mode() !== "off") fs.exit();
-    chatForm.hidden = !shown.chat;
-    // Removed (ADR 0030): the log stays up above the card, ending with the only-you line.
-    chatLog.root.hidden = !shown.chat && !shown.kicked;
+    renderChatRow(s);
     full.hidden = !shown.full;
     refused.hidden = shown.refused === null;
     invite.hidden = !shown.stage;
@@ -999,6 +1044,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (next === state) return;
     for (const entry of logEntries(state, next, e)) {
       chatLog.append(entry);
+      // Popped out: the window gets the line now, not on the next frame (a hidden tab draws none).
+      relay?.append(entry);
       // Collapsed in full screen: count what others said while the lines are out of sight.
       if (stripMode === "band" && fs.mode() !== "off" && entry.kind === "chat" && !entry.self) {
         unread++;
@@ -1017,6 +1064,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
     if (next.owner !== prevOwner || next.room?.controlPolicy !== prevRoom?.controlPolicy) playback.setControl({ policy: controlPolicy(next), held: controlHeld(next) });
     if (expiriesChanged) scheduleExpiry();
+    if (popped) relay?.update(popState(next));
     if (frame === 0) frame = requestAnimationFrame(render);
   };
 
@@ -1050,6 +1098,30 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   });
 
   conn = c;
+  // R-M7a Q3 (a): the pop-out talks to this tab over a BroadcastChannel named for the room and this page load (never
+  // kept: a duplicated tab must not share it, and a reload leaves the window on the set k plug); this tab keeps the socket.
+  const tab = randomId("t");
+  relay =
+    typeof BroadcastChannel === "function"
+      ? createChatRelay({
+          channel: browserChannel(channelName(opts.roomId, tab)),
+          send: (m) => c.send(m),
+          openWindow: () => {
+            window.open(popoutUrl(opts.roomId, tab), "_blank", "noopener,popup,width=380,height=640");
+          },
+          onPopped,
+          setTimer: (fn, ms) => setTimeout(fn, ms),
+          clearTimer: (h) => {
+            clearTimeout(h);
+          },
+        })
+      : null;
+  popKey.addEventListener("click", () => {
+    relay?.popOut();
+  });
+  bringBack.addEventListener("click", () => {
+    relay?.bringBack();
+  });
   playback.start();
   if (kickedTill !== null) dispatch({ type: "kicked", until: kickedTill });
 
@@ -1079,6 +1151,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   });
   // Close on unload so the server frees the seat now; a bfcache restore reconnects.
   window.addEventListener("pagehide", () => {
+    relay?.close();
     c.close();
     shareToken.clear();
     clock.stop();
@@ -1088,6 +1161,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   });
 
   phone.addEventListener("change", () => {
+    // No pop-out on a phone (set k): a window narrowed that far takes its chat back.
+    if (phone.matches) relay?.bringBack();
+    renderChatRow(state);
     fit();
     placeChat();
     requestRender();

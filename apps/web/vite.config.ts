@@ -30,6 +30,7 @@ export default defineConfig(({ mode }) => ({
     sourcemap: true,
     reportCompressedSize: true,
     // The privacy notice (OME-411) is a second, script-free page; it adds nothing to the room's JS.
-    rolldownOptions: { input: { index: "index.html", privacy: "privacy.html" } },
+    // The pop-out chat (OME-598) is a third page with its own small chunk: no Pixi, no socket.
+    rolldownOptions: { input: { index: "index.html", privacy: "privacy.html", chat: "chat.html" } },
   },
 }));
