@@ -32,9 +32,16 @@ export interface ServerConfig {
   roomTitleBlocklist: string[];
   /** `METRICS_PORT`: Prometheus text on 127.0.0.1 only (OME-504), or null when unset or `off`. */
   metricsPort: number | null;
+  /** `MAX_CONNECTIONS`: open WebSockets allowed in total (OME-573). Default 1024. */
+  maxConnections: number;
 }
 
 type Env = Readonly<Record<string, string | undefined>>;
+
+/** The M6 hosted target (20 rooms × 25 people = 500 sockets) with 2× headroom (OME-573). */
+export const DEFAULT_MAX_CONNECTIONS = 1024;
+/** Under the unit's `LimitNOFILE=4096`, so 1024 descriptors stay free for HTTP, SQLite and metrics. */
+const MAX_CONNECTIONS_CEILING = 3072;
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const EXTENSION_ID = /^[a-p]{32}$/;
@@ -141,6 +148,11 @@ export function parseConfig(env: Env): ServerConfig {
   if (metricsPort !== null && !(metricsPort <= 65535)) fail("METRICS_PORT", "must be off or 0–65535");
   if (metricsPort !== null && metricsPort !== 0 && metricsPort === port) fail("METRICS_PORT", "must differ from PORT");
 
+  const rawMax = env["MAX_CONNECTIONS"];
+  const maxConnections = rawMax === undefined ? DEFAULT_MAX_CONNECTIONS : /^\d{1,4}$/.test(rawMax) ? Number(rawMax) : NaN;
+  if (!(maxConnections >= 1 && maxConnections <= MAX_CONNECTIONS_CEILING))
+    fail("MAX_CONNECTIONS", `must be an integer from 1 to ${String(MAX_CONNECTIONS_CEILING)}`);
+
   const rawGeneric = env["GENERIC_EMBEDS"] ?? "on";
   if (rawGeneric !== "on" && rawGeneric !== "off") fail("GENERIC_EMBEDS", "must be on or off");
 
@@ -167,5 +179,6 @@ export function parseConfig(env: Env): ServerConfig {
       .map((term) => term.trim())
       .filter((term) => term !== ""),
     metricsPort,
+    maxConnections,
   };
 }

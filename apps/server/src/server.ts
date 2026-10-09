@@ -1,7 +1,7 @@
 import type { Server } from "bun";
 import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, QUEUE_MAX, type AnyEmbed, type QueueItemId, type RoomId } from "@omega/shared";
 import { nicknameKey } from "@omega/shared/confusables";
-import { ownHostsFor } from "./config";
+import { DEFAULT_MAX_CONNECTIONS, ownHostsFor } from "./config";
 import { EmbedPolicy } from "./embed-policy";
 import { HSTS, securityHeaders } from "./headers";
 import { MAX_HTTP_IN_FLIGHT, createHttpApp, createHttpGate, plain as plainWith } from "./http";
@@ -33,7 +33,7 @@ export interface ServerOptions {
   trustProxy?: boolean;
   /** Open WebSockets allowed per client. Default 10 behind the proxy, 50 locally (the load test). */
   maxConnectionsPerIp?: number;
-  /** Open WebSockets allowed in total, whatever their clients. Default 200. */
+  /** Open WebSockets allowed in total, whatever their clients. Default 1024 (`MAX_CONNECTIONS`, OME-573). */
   maxConnections?: number;
   /** HTTP requests handled at once, whatever their clients; more get 503. Default 256. */
   maxHttpInFlight?: number;
@@ -154,7 +154,7 @@ const EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/;
 export function startServer(opts: ServerOptions): OmegaServer {
   const trustProxy = opts.trustProxy ?? false;
   const maxConnectionsPerIp = opts.maxConnectionsPerIp ?? (trustProxy ? 10 : 50);
-  const maxConnections = opts.maxConnections ?? 200;
+  const maxConnections = opts.maxConnections ?? DEFAULT_MAX_CONNECTIONS;
   let connections = 0;
   const store = opts.store ?? null;
   const wallNow = opts.wallNow ?? Date.now;

@@ -26,6 +26,7 @@ describe("parseConfig (ADR 0015 §3)", () => {
       ownHosts: ["localhost"],
       roomTitleBlocklist: [],
       metricsPort: null,
+      maxConnections: 1024,
     });
   });
 
@@ -53,6 +54,7 @@ describe("parseConfig (ADR 0015 §3)", () => {
       ownHosts: ["localhost", "quiet-otter.ngrok-free.app"],
       roomTitleBlocklist: [],
       metricsPort: null,
+      maxConnections: 1024,
     });
   });
 
