@@ -47,15 +47,13 @@ bun run ext:store
 
 | Slot | File | Size |
 |---|---|---|
-| Store icon | `assets/store/icon-128.png` | 128×128 (artwork 100×100, 14 px transparent padding; Google suggests 96×96 with 16 px, which is a guideline, not a rejection reason) |
+| Store icon | `assets/store/icon-128.png` | 128×128 (artwork 96×96, 16 px transparent padding, as Google suggests) |
 | Small promo tile | `assets/store/promo-440x280.png` | 440×280 |
 | Screenshot 1 | `assets/store/screenshot-1-room.png` | 1280×800 |
-| Screenshot 2 | `assets/store/screenshot-2-share.png` | 1280×800 |
+| Screenshot 2 | `assets/store/screenshot-2-share.png` | 1280×800 (the real popup, shot by `assets/src/shoot-popup.ts`) |
 | Marquee | none | optional, skipped |
 
 The manifest icons (16, 32, 48, 128) are copied from the same files at build time.
-
-**Before upload:** `screenshot-2-share.png` predates "Add to queue", and its popup is a mock-up rather than the real one. The store asks for screenshots that show the actual experience, so refresh it from the real popup first (Designer follow-up).
 
 ## Privacy practices tab
 

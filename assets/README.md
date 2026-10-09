@@ -485,11 +485,13 @@ sites or logos (the mock page's address is a reserved `.test` name).
 | `store/icon-128.png` | 128×128, 612 B | The 64 art px icon at 2× (whole pixels, never resampled), with Chrome's 16 px transparent margin (96 px of art). |
 | `store/promo-440x280.png` | 440×280 | Small promo tile: the furnished room (set g) at 2× with the wordmark and one line on a panel. RGB, no alpha. |
 | `store/screenshot-1-room.png` | 1280×800 | A watch room: the TV and its shelf, the room with tags, bubbles and an emote, the queue panel, system lines and chat. |
-| `store/screenshot-2-share.png` | 1280×800 | Share from any page: a mock video page with the extension popup open (the real popup's plain HTML), the shared video landing in "Up next", the host's moderation menu in a furnished room, and the playback setting. |
+| `store/screenshot-2-share.png` | 1280×800 | Share from any page: a mock video page with the real extension popup open (shot by `src/shoot-popup.ts` from the e2e build against a throwaway server: a YouTube video found, "Movie night (3)" selected, Share and Add to queue live; shown at 1.5×), the video waiting in "Up next" under the site's own title for it, the host's moderation menu in a furnished room, and the playback setting with the site's wording. |
 
 Each icon is drawn natively per size by `src/store.ts` (so each keeps the plum outline and whole pixels); `bun assets/src/build.ts` writes them and
-prints their bytes (1 501 B for all four) apart from the art budget. The promo tile and screenshots are composed in `preview/store.html` from the
-real reference CSS and preview renders, and `bun assets/src/shoot-ui.ts` shoots them at their exact sizes.
+prints their bytes (1 498 B for all four; the 128 px icon is 96×96 of art in 16 px of margin) apart from the art budget. The promo tile and screenshots are composed in `preview/store.html` from the
+real reference CSS and preview renders, and `bun assets/src/shoot-ui.ts` shoots them at their exact sizes. Screenshot 2's popup is
+`preview/store-popup.png`: refresh it with `bun run --filter @omega/extension build:e2e && bun assets/src/shoot-popup.ts` before `shoot-ui.ts`
+(ports 4470/8877, override with `OMEGA_SHOT_PAGE_PORT` / `OMEGA_SHOT_SERVER_PORT`).
 
 ## Set (k) full screen, pop-out, phone watch-only (OME-541, M7, `ui/`)
 

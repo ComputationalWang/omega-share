@@ -97,7 +97,7 @@ export interface StoreImage { file: string; w: number; h: number; pixels: Uint8A
 /** icon-16/32/48 at 1×; icon-128 = the 64 art px icon at 2× (Chrome asks for 96 px of art inside 16 px of margin). */
 export function buildStoreIcons(): StoreImage[] {
   const out: StoreImage[] = [];
-  for (const [S, pad, k] of [[16, 0, 1], [32, 0, 1], [48, 1, 1], [64, 7, 2]] as const) {
+  for (const [S, pad, k] of [[16, 0, 1], [32, 0, 1], [48, 1, 1], [64, 8, 2]] as const) {
     const g = icon(S, pad);
     const img = render(g, ROLES);
     out.push({ file: `icon-${String(S * k)}.png`, w: S * k, h: S * k, pixels: k === 1 ? img : upscale(img, S, S, k), palette: PALETTE });

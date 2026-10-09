@@ -62,16 +62,8 @@
   .browser .player { width: 700px; height: 394px; background: url("tv-video@1x.png") 0 0 / 100% 100%; image-rendering: pixelated; border-radius: 4px; position: relative; }
   .browser .player::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: linear-gradient(90deg, #c2553a 38%, #0004 38%); }
   .browser .lines i { display: block; height: 10px; background: #e2ded8; border-radius: 5px; margin: 10px 0; }
-  .popup { left: 470px; top: 112px; width: 320px; background: #fff; color: #222; font: 14px/1.4 system-ui, sans-serif; padding: 14px; box-sizing: border-box; display: grid; gap: 10px; border-radius: 8px; box-shadow: 0 6px 24px #0006, 0 0 0 1px #0002; }
-  .popup h1 { font-size: 16px; margin: 0; }
-  .popup ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-  .popup li { display: flex; gap: 8px; align-items: center; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
-  .popup li.on { border-color: #b9822a; background: #fff8e6; }
-  .popup li small { display: block; color: #666; font-size: 12px; }
-  .popup form { display: flex; gap: 8px; align-items: center; font-size: 13px; }
-  .popup select { flex: 1; font: inherit; padding: 4px; }
-  .popup button { font: inherit; font-weight: 700; padding: 6px 14px; }
-  .popup .ok { margin: 0; color: #23706f; font-size: 13px; }
+  /* The real extension popup (src/shoot-popup.ts: its 320 px layout shot at 2× device pixels), shown at 1.5× for legibility under the toolbar icon. */
+  .popup { left: 310px; top: 112px; width: 480px; height: 233px; background: #fff url("store-popup.png") 0 0 / 480px 232.5px no-repeat; border-radius: 8px; box-shadow: 0 6px 24px #0006, 0 0 0 1px #0002; }
   #shot-share .side { left: 828px; top: 24px; width: 428px; grid-template-columns: minmax(0, 1fr); }
   .ui-room .ui-tag.mod { display: inline-flex; gap: 2px; align-items: center; }
   .mini { position: relative; width: 428px; height: 232px; background-image: url("furniture-room@1x.png"); background-position: -270px -250px; image-rendering: pixelated; }
@@ -137,21 +129,13 @@
       <div class="lines"><i style="width:90%"></i><i style="width:72%"></i><i style="width:80%"></i></div>
     </div>
   </div>
-  <div class="popup">
-    <h1>Share a video</h1>
-    <ul>
-      <li class="on"><input type="radio" checked aria-label="Sunset timelapse"><span>Sunset timelapse over the bay<small>Video · synced for everyone</small></span></li>
-      <li><input type="radio" aria-label="Embedded clip"><span>Embedded clip<small>Not synced: each person plays it</small></span></li>
-    </ul>
-    <form onsubmit="return false"><label for="r">Room</label><select id="r"><option>Movie night</option></select><button>Share</button></form>
-    <p class="ok">Shared to Movie night. It's up next.</p>
-  </div>
+  <div class="popup" role="img" aria-label="The omega-share popup: a YouTube video found, the Movie night room selected, Share and Add to queue"></div>
   <div class="side">
     <section class="ui-panel ui-queue q" aria-label="Up next">
       <div class="head"><span class="ui-sprite ui-icon-queue"></span><h3>Up next</h3><span class="n">2 / 20</span></div>
       <ol class="ui-qlist">
-        <li class="ui-qrow is-next"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Sunset timelapse over the bay</span><span class="meta"><span class="ui-sprite ui-head-pip"></span>Wren</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
-        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Rain on a tin roof</span><span class="meta"><span class="ui-sprite ui-head-kiki"></span>Kit</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow is-next"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">YouTube video sunsetBay40</span><span class="meta"><span class="ui-sprite ui-head-pip"></span>Wren</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Vimeo video 76979871</span><span class="meta"><span class="ui-sprite ui-head-kiki"></span>Kit</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
       </ol>
     </section>
     <div class="mini ui-room">
@@ -166,7 +150,7 @@
     <div class="ui-panel set">
       <h3>Who controls playback</h3>
       <div class="seg" role="radiogroup" aria-label="Who controls playback"><button class="ui-picker" role="radio" aria-checked="false"><span class="ui-sprite ui-icon-remote"></span>Everyone</button><button class="ui-picker" role="radio" aria-checked="true"><span class="ui-sprite ui-icon-remote-host"></span>Only me</button></div>
-      <p>Your room, your rules: hand the remote round, or keep it.</p>
+      <p>Only you can play, pause and skip. Everyone else sees “Host” on the remote.</p>
     </div>
   </div>
 </div>
