@@ -426,6 +426,18 @@ describe("GET /rooms lists public rooms only (ADR 0028 §4, research §3.5)", ()
     expect((await listed()).map((r) => r.id)).toEqual(["lobby"]);
   });
 
+  test("a renamed room's list verdict follows its new title: blocked → clean is listed, clean → blocked is not", async () => {
+    const registry = new RoomRegistry();
+    t = start({ registry, roomTitleBlocklist: ["spam"] });
+    const room = new Room("aaaaaaaaaaaaaaaaaaaaaaaaaa", { title: "Spam palace", pinned: false });
+    registry.addRoom(room);
+    expect((await listed()).map((r) => r.id)).toEqual(["lobby"]);
+    room.setTitle("Film club");
+    expect(await listed()).toContainEqual({ id: room.id, title: "Film club", memberCount: 0, seatedCount: 0 });
+    room.setTitle("Spam palace");
+    expect((await listed()).map((r) => r.id)).toEqual(["lobby"]);
+  });
+
   test("titles are checked against the blocklist once per room, not on every list request", async () => {
     const registry = new RoomRegistry();
     t = start({ registry, roomTitleBlocklist: ["spam"] });
