@@ -70,4 +70,21 @@ describe("privacy notice (OME-411)", () => {
     expect(t).toMatch(/nightly backups[^.]*14 days/i);
     expect(t).toMatch(/rate limit[^.]*in memory/i);
   });
+
+  test("has a linkable Extension section that the Web Store listing points to (R1, OME-509)", () => {
+    expect(privacy).toMatch(/<h2 id="extension">The browser extension<\/h2>/);
+    const section = text(`<main>${/<h2 id="extension">[\s\S]*?(?=<h2|<\/main>)/.exec(privacy)?.[0] ?? ""}</main>`);
+    // What it reads, and when.
+    expect(section).toMatch(/only when you open (it|the extension)/i);
+    expect(section).toMatch(/addresses of the videos embedded in that page/i);
+    expect(section).toMatch(/share token/i);
+    // Where it goes: the chosen server only, on a click.
+    expect(section).toMatch(/only to the omega-share server you chose/i);
+    expect(section).toMatch(/when you click Share or Add to queue/i);
+    // What it keeps.
+    expect(section).toMatch(/server address[^.]*stored in the extension/i);
+    // Limited Use.
+    expect(section).toMatch(/never sold/i);
+    expect(section).toMatch(/no analytics/i);
+  });
 });
