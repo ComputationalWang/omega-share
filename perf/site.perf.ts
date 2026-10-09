@@ -6,6 +6,7 @@ import { joinForToken, postShare } from "../e2e/support/share";
 import { site } from "../e2e/support/selectors";
 import { recordFrameRows, tracedFrames } from "./frames";
 import { recordMetric } from "./metrics";
+import { GENERIC_HOST, GENERIC_PAGE } from "./providers";
 import { PLAYING, fakeState, shareVideo, waitPlaying } from "./sync";
 
 interface LongTaskStore { __omegaLongTaskEnds: number[] }
@@ -97,24 +98,7 @@ test("site: p95 frame time with 8 avatars and a Vimeo video playing", async ({ b
   }
 });
 
-// OME-294: the same budget with a generic embed (ADR 0024) loaded in every client. The host is routed to a local page
-// that repaints every frame (a stand-in for a playing video): a compositor animation plus a full canvas redraw on its
-// own main thread each rAF. There is no playback to wait for, the tier isn't synced.
-const GENERIC_HOST = "video.omega-fixture.org";
-const GENERIC_PAGE = `<!doctype html><title>generic</title><style>
-  html, body { margin: 0; height: 100%; background: #111; overflow: hidden; }
-  div { width: 40%; height: 40%; background: #4a8; animation: m 1s linear infinite alternate; }
-  @keyframes m { from { transform: translateX(0) rotate(0); } to { transform: translateX(120%) rotate(180deg); } }
-</style><div></div><canvas width="640" height="360"></canvas><script>
-  const g = document.querySelector("canvas").getContext("2d");
-  const draw = (t) => {
-    for (let i = 0; i < 64; i++) { g.fillStyle = "hsl(" + ((t / 10 + i * 5) % 360) + ",60%,50%)"; g.fillRect((i % 8) * 80, Math.floor(i / 8) * 45, 80, 45); }
-    window.__genericFrames = (window.__genericFrames || 0) + 1;
-    requestAnimationFrame(draw);
-  };
-  requestAnimationFrame(draw);
-</script>`;
-
+// OME-294: the same budget with a generic embed (ADR 0024) loaded in every client (GENERIC_PAGE, providers.ts).
 test("site: p95 frame time with 8 avatars and a generic embed loaded", async ({ browser, request }) => {
   if (!available.web || !available.server) {
     const pending = available.web ? PENDING.server : PENDING.web;

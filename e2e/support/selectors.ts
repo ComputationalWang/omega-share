@@ -18,6 +18,9 @@ export const site = {
   seat: id("seat"),
   chatInput: id("chat-input"),
   chatMessage: id("chat-message"),
+  // The chat log (OME-594): capped, role=log, one <li> per line.
+  chatLog: id("chat-log"),
+  chatLogLine: id("chat-log-line"),
   sharedVideo: id("shared-video"),
   nicknameTag: id("nickname-tag"),
   roomFull: id("room-full"),

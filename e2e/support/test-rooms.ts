@@ -19,6 +19,8 @@ export const SPEC_ROOMS = {
   polish: ["every", "late", "drop"],
   "provider-queue": ["main", "ended", "generic", "yt", "twvod", "vimeo", "mixed"],
   "queue-perf": ["frames", "spread"],
+  "chat-log": ["lines", "keys", "reduced"],
+  "chat-perf": ["frames"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

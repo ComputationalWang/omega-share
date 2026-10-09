@@ -25,6 +25,24 @@ export const TWITCH_VOD_ID = "1234567890";
 export const TWITCH_CHANNEL = "omegatestchannel";
 export const VIMEO_ID = "76979871";
 
+// OME-294: the stand-in for a loaded generic embed (ADR 0024), shared by site.perf.ts and chat.perf.ts. The host is routed to a local page
+// that repaints every frame (a stand-in for a playing video): a compositor animation plus a full canvas redraw on its
+// own main thread each rAF. There is no playback to wait for, the tier isn't synced.
+export const GENERIC_HOST = "video.omega-fixture.org";
+export const GENERIC_PAGE = `<!doctype html><title>generic</title><style>
+  html, body { margin: 0; height: 100%; background: #111; overflow: hidden; }
+  div { width: 40%; height: 40%; background: #4a8; animation: m 1s linear infinite alternate; }
+  @keyframes m { from { transform: translateX(0) rotate(0); } to { transform: translateX(120%) rotate(180deg); } }
+</style><div></div><canvas width="640" height="360"></canvas><script>
+  const g = document.querySelector("canvas").getContext("2d");
+  const draw = (t) => {
+    for (let i = 0; i < 64; i++) { g.fillStyle = "hsl(" + ((t / 10 + i * 5) % 360) + ",60%,50%)"; g.fillRect((i % 8) * 80, Math.floor(i / 8) * 45, 80, 45); }
+    window.__genericFrames = (window.__genericFrames || 0) + 1;
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
+</script>`;
+
 export const PROVIDER_CASES: readonly ProviderCase[] = [
   { key: "twitchVod", label: "Twitch VOD", provider: "twitch", shareUrl: `https://www.twitch.tv/videos/${TWITCH_VOD_ID}`, live: false },
   { key: "twitchLive", label: "Twitch live", provider: "twitch", shareUrl: `https://www.twitch.tv/${TWITCH_CHANNEL}`, live: true },
