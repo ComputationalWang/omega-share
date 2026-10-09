@@ -2,7 +2,7 @@
 // Flags: --no-build (use existing builds), --strict (pending budgets also fail), --soak (also run the 10 min heap soak).
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { EXTENSION_SHIPPED_DIR, ROOT, URLS, WEB_DIST_DIR, scripts } from "../e2e/support/apps";
+import { EXTENSION_SHIPPED_DIR, FIREFOX_SHIPPED_DIR, ROOT, URLS, WEB_DIST_DIR, scripts } from "../e2e/support/apps";
 import { BUDGETS, evaluate, renderReport, type Measurement } from "./budgets";
 import { RESULTS_DIR, readMetrics, recordMetric } from "./metrics";
 import { checkManifest, initialJsGzipKb } from "./static-checks";
@@ -35,18 +35,20 @@ if (existsSync(join(WEB_DIST_DIR, "index.html"))) {
 } else {
   recordMetric({ id: "site.initialJsGzip", pending: "apps/web/dist not built (OME-6)" });
 }
-// Manifest budgets apply to the shipped build, not the e2e build with its extra host permissions.
-const manifestPath = join(EXTENSION_SHIPPED_DIR, "manifest.json");
-if (existsSync(manifestPath)) {
-  const m = checkManifest(JSON.parse(readFileSync(manifestPath, "utf8")));
-  recordMetric({ id: "ext.contentScripts", value: m.contentScripts });
-  const bg: Measurement = { id: "ext.persistentBackground", value: m.persistentBackground.length };
-  recordMetric(m.persistentBackground.length > 0 ? { ...bg, note: m.persistentBackground.join("; ") } : bg);
-} else {
-  for (const id of ["ext.contentScripts", "ext.persistentBackground"]) recordMetric({ id, pending: "extension not built (OME-7)" });
+// Manifest budgets apply to the shipped builds, not the e2e builds with their extra host permissions.
+for (const [browser, dir, prefix] of [["chrome", EXTENSION_SHIPPED_DIR, "ext"], ["firefox", FIREFOX_SHIPPED_DIR, "ext.firefox"]] as const) {
+  const manifestPath = join(dir, "manifest.json");
+  if (existsSync(manifestPath)) {
+    const m = checkManifest(JSON.parse(readFileSync(manifestPath, "utf8")), browser);
+    recordMetric({ id: `${prefix}.contentScripts`, value: m.contentScripts });
+    const bg: Measurement = { id: `${prefix}.persistentBackground`, value: m.persistentBackground.length };
+    recordMetric(m.persistentBackground.length > 0 ? { ...bg, note: m.persistentBackground.join("; ") } : bg);
+  } else {
+    for (const id of [`${prefix}.contentScripts`, `${prefix}.persistentBackground`]) recordMetric({ id, pending: `${browser} extension not built (OME-7, OME-593)` });
+  }
 }
 
-// Runtime checks (Playwright, Chromium). Web is served from the production build.
+// Runtime checks (Playwright, Chromium; the Firefox popup row drives Firefox through Puppeteer/BiDi). Web is served from the production build.
 const soak: Record<string, string> = args.has("--soak") ? { OMEGA_PERF_SOAK: "1" } : {};
 const pwExit = run(["bunx", "playwright", "test", "--project=perf"], { OMEGA_WEB_MODE: "preview", ...soak });
 

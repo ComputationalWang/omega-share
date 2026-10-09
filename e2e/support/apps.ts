@@ -24,6 +24,8 @@ export const URLS = {
 export const EXTENSION_DIR = process.env["OMEGA_EXTENSION_DIR"] ?? join(ROOT, "apps/extension/.output/chrome-mv3-e2e");
 /** The build we ship. Static manifest checks (`bun run perf`) run against this one. */
 export const EXTENSION_SHIPPED_DIR = join(ROOT, "apps/extension/.output/chrome-mv3");
+/** The Firefox build we ship (OME-593). */
+export const FIREFOX_SHIPPED_DIR = join(ROOT, "apps/extension/.output/firefox-mv3");
 export const WEB_DIST_DIR = join(ROOT, "apps/web/dist");
 
 export function scripts(app: "web" | "server" | "extension"): Record<string, string> {

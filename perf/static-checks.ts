@@ -9,8 +9,11 @@ export interface ManifestCheck {
 
 const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
 
-/** Checks the built MV3 manifest: no declared content scripts, event-driven service worker only. */
-export function checkManifest(manifest: unknown): ManifestCheck {
+/**
+ * Checks the built MV3 manifest: no declared content scripts, and an event-driven background only: a service worker
+ * in Chrome, a non-persistent event page (`scripts`) in Firefox, whose MV3 has no service worker (OME-593).
+ */
+export function checkManifest(manifest: unknown, browser: "chrome" | "firefox" = "chrome"): ManifestCheck {
   if (!isRecord(manifest)) throw new Error("manifest.json is not an object");
   const cs = manifest["content_scripts"];
   const contentScripts = Array.isArray(cs) ? cs.length : 0;
@@ -20,7 +23,8 @@ export function checkManifest(manifest: unknown): ManifestCheck {
   if (isRecord(bg)) {
     if (bg["persistent"] === true) violations.push("background.persistent is true");
     if ("page" in bg) violations.push("background.page is set");
-    if ("scripts" in bg) violations.push("background.scripts is set");
+    if (browser === "chrome" && "scripts" in bg) violations.push("background.scripts is set");
+    if (browser === "firefox" && "service_worker" in bg) violations.push("background.service_worker is set (Firefox ignores it)");
   }
   return { contentScripts, persistentBackground: violations };
 }
