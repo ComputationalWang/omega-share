@@ -111,7 +111,10 @@ test("collapse to the input bar: the field stays, the picture grows, the show-ch
 
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await expect(page.locator(site.fsStrip).locator(site.chatLog)).toBeHidden();
+  // Out of sight, not out of the accessibility tree: the log is still the polite live region screen readers hear.
+  const hiddenLog = page.locator(site.fsStrip).locator(site.chatLog);
+  await expect(page.getByRole("log", { name: "Chat messages" })).toBeAttached();
+  expect(await hiddenLog.evaluate((el) => [getComputedStyle(el).display !== "none", el.getBoundingClientRect().width <= 1])).toEqual([true, true]);
   await expect(page.locator(site.chatInput)).toBeVisible();
   const band = await box(page.locator(site.tv));
   expect(band.width).toBeGreaterThan(open.width);
@@ -127,7 +130,7 @@ test("collapse to the input bar: the field stays, the picture grows, the show-ch
 
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-label", "Collapse chat to the input bar");
-  await expect(page.locator(site.fsStrip).locator(site.chatLog)).toBeVisible();
+  expect(await hiddenLog.evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThan(100);
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
 
@@ -232,4 +235,18 @@ test("a phone in portrait: the strip fills the screen under the picture, keys ar
   expect(strip.y + strip.height).toBeCloseTo(844, 0);
   const field = await box(page.locator(site.chatInput));
   expect(field.height).toBeGreaterThanOrEqual(44);
+});
+
+test("entering from a seat (keyboard), focus lands on the exit key; leaving gives it back to the seat", async ({ browser }) => {
+  const [a] = await join(browser, "seatfocus");
+  if (!a) throw new Error("no client");
+  const page = a.page;
+  const seat = page.locator(site.seat).first();
+  await seat.focus();
+  await page.keyboard.press("f");
+  await expect.poll(() => inFullscreen(page)).toBe(true);
+  await expect(page.locator(site.fullscreenToggle)).toBeFocused();
+  await page.keyboard.press("f");
+  await expect.poll(() => inFullscreen(page)).toBe(false);
+  await expect(seat).toBeFocused();
 });

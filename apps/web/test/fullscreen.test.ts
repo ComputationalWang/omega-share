@@ -98,7 +98,7 @@ describe("fullscreenLayout: collapsed to the input bar (the band)", () => {
 });
 
 /** A fake browser: element full screen (or not), the history stack, orientation lock. */
-function setup(opts: { native?: "ok" | "reject" | "missing"; lock?: "ok" | "reject" | "throw" | "missing"; disabled?: boolean } = {}) {
+function setup(opts: { native?: "ok" | "reject" | "missing"; lock?: "ok" | "reject" | "throw" | "missing"; disabled?: boolean; asyncPop?: boolean } = {}) {
   const native = opts.native ?? "ok";
   const target = { id: "wrap" };
   const nested = { id: "provider-iframe" };
@@ -106,6 +106,7 @@ function setup(opts: { native?: "ok" | "reject" | "missing"; lock?: "ok" | "reje
   const fsListeners: (() => void)[] = [];
   const popListeners: ((ev: { state: unknown }) => void)[] = [];
   const stack: unknown[] = [null];
+  const pending: (() => void)[] = [];
   const calls: string[] = [];
   const modes: FullscreenMode[] = [];
   const fire = (): void => {
@@ -151,8 +152,13 @@ function setup(opts: { native?: "ok" | "reject" | "missing"; lock?: "ok" | "reje
       },
       back: () => {
         calls.push("back");
-        stack.pop();
-        for (const f of popListeners) f({ state: stack.at(-1) });
+        // A real popstate comes later, in its own task.
+        const pop = (): void => {
+          stack.pop();
+          for (const f of popListeners) f({ state: stack.at(-1) });
+        };
+        if (opts.asyncPop === true) pending.push(pop);
+        else pop();
       },
     },
     window: {
@@ -198,6 +204,10 @@ function setup(opts: { native?: "ok" | "reject" | "missing"; lock?: "ok" | "reje
     /** The Back gesture / button. */
     back: (): void => {
       env.history.back();
+    },
+    /** Deliver the popstates still queued (asyncPop). */
+    flushPops: (): void => {
+      for (const f of pending.splice(0)) f();
     },
     depth: (): number => stack.length,
   };
@@ -331,5 +341,40 @@ describe("createFullscreen: keys", () => {
 
   test("Esc while off is not ours", () => {
     expect(setup().fs.key("Escape", false)).toBe(false);
+  });
+});
+
+// OME-597 review: races and repeats.
+describe("createFullscreen: races", () => {
+  test("pseudo: exit called again before its popstate arrives pops our entry only once (never the room's)", async () => {
+    const s = setup({ native: "missing", asyncPop: true });
+    await s.fs.enter();
+    s.fs.exit();
+    s.fs.exit();
+    s.fs.exit();
+    expect(s.calls.filter((c) => c === "back")).toHaveLength(1);
+    s.flushPops();
+    expect(s.fs.mode()).toBe("off");
+    expect(s.depth()).toBe(1);
+  });
+
+  test("the browser leaves full screen before our request's promise settles: the mode stays off", async () => {
+    const s = setup();
+    // The request succeeds, then the user presses Esc at once: the exit's fullscreenchange lands first.
+    const entering = s.fs.enter();
+    s.browserExit();
+    await entering;
+    expect(s.fs.mode()).toBe("off");
+    expect(s.modes).not.toContain("pseudo");
+  });
+
+  test("a held F (key repeat) is swallowed: one toggle per press", async () => {
+    const s = setup();
+    expect(s.fs.key("f", false)).toBe(true);
+    await Promise.resolve();
+    expect(s.fs.mode()).toBe("native");
+    expect(s.fs.key("f", false, true)).toBe(true);
+    expect(s.fs.key("f", false, true)).toBe(true);
+    expect(s.fs.mode()).toBe("native");
   });
 });
