@@ -6,10 +6,12 @@ import {
   RoomLayoutSchema,
   RoomTitleSchema,
   RoomVisibilitySchema,
+  SeatIndexSchema,
   type AnyEmbed,
   type RoomId,
   type RoomLayout,
   type RoomVisibility,
+  type SeatIndex,
 } from "@omega/shared";
 
 export interface StoredRoom {
@@ -30,6 +32,13 @@ export interface StoredRoom {
   inviteHash: Uint8Array | null;
   /** Unix ms the room last became empty or occupied; null if nobody ever joined. */
   lastActiveAt: number | null;
+}
+
+/** A seat held across a graceful restart (ADR 0032): the name only as SHA-256 of its nickname key. */
+export interface SeatHold {
+  roomId: RoomId;
+  nameHash: Uint8Array;
+  seat: SeatIndex;
 }
 
 /** What `createRoom` takes. Without the ADR 0028 fields it is a seed: pinned, public, ownerless. */
@@ -75,6 +84,12 @@ const NewRoomSchema = v.object({
 
 const NullableEmbedSchema = v.nullable(AnyEmbedSchema);
 
+const SeatHoldRowSchema = v.object({
+  room_id: RoomIdSchema,
+  name_hash: v.pipe(v.instance(Uint8Array), v.check((h) => h.length === 32, "expected 32 bytes")),
+  seat: SeatIndexSchema,
+});
+
 type Row = Record<keyof v.InferInput<typeof RowSchema>, unknown>;
 
 /**
@@ -91,8 +106,14 @@ export class RoomStore {
   readonly #setTitle: Statement<unknown, [string, string]>;
   readonly #setPinned: Statement<unknown, [number, string]>;
   readonly #setLastActive: Statement<unknown, [number, string]>;
+  readonly #db: Database;
+  readonly #listHolds: Statement<Record<keyof v.InferInput<typeof SeatHoldRowSchema>, unknown>, []>;
+  readonly #insertHold: Statement<unknown, [string, Uint8Array, number]>;
 
   constructor(db: Database) {
+    this.#db = db;
+    this.#listHolds = db.prepare("SELECT room_id, name_hash, seat FROM seat_holds ORDER BY room_id, seat");
+    this.#insertHold = db.prepare("INSERT OR REPLACE INTO seat_holds (room_id, name_hash, seat) VALUES (?, ?, ?)");
     this.#list = db.prepare(
       "SELECT id, title, created_at, layout, embed, visibility, pinned, owner_hash, invite_hash, last_active_at FROM rooms ORDER BY created_at, id",
     );
@@ -165,5 +186,26 @@ export class RoomStore {
   /** Pins (GC never collects it) or unpins a room (operator CLI). */
   setPinned(id: RoomId, pinned: boolean): void {
     if (this.#setPinned.run(pinned ? 1 : 0, id).changes === 0) throw new Error(`no room ${JSON.stringify(id)}`);
+  }
+
+  /** Replaces the stored holds with these (graceful restart, ADR 0032). Holds for unknown rooms fail the write. */
+  saveSeatHolds(holds: readonly SeatHold[]): void {
+    this.#db.transaction(() => {
+      this.#db.run("DELETE FROM seat_holds");
+      for (const h of holds) this.#insertHold.run(h.roomId, h.nameHash, h.seat);
+    })();
+  }
+
+  /** The stored holds, deleted as they are read: a hold is used by one boot at most. Bad rows are dropped. */
+  takeSeatHolds(): SeatHold[] {
+    return this.#db.transaction(() => {
+      const holds: SeatHold[] = [];
+      for (const row of this.#listHolds.all()) {
+        const parsed = v.safeParse(SeatHoldRowSchema, row);
+        if (parsed.success) holds.push({ roomId: parsed.output.room_id, nameHash: new Uint8Array(parsed.output.name_hash), seat: parsed.output.seat });
+      }
+      this.#db.run("DELETE FROM seat_holds");
+      return holds;
+    })();
   }
 }

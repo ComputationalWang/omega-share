@@ -37,6 +37,7 @@ import type { RoomRegistry } from "./rooms";
 import { hashSecret, mintSecret, newRoomId } from "./secrets";
 import { mountSite } from "./static";
 import type { NewRoom } from "./store/rooms";
+import { logError } from "./log";
 
 /** Share bodies are `{ url }` with url ≤ 2048 chars; anything bigger is refused unread. */
 const MAX_SHARE_BODY_BYTES = 4096;
@@ -263,7 +264,7 @@ export function createHttpApp({
     try {
       persistRoom(room);
     } catch (err) {
-      console.error(`could not store new room ${id}: ${err instanceof Error ? err.message : String(err)}`);
+      logError("store.new_room", err);
       // The server's failure, not the client's: it keeps its creations.
       creates.refund(ip);
       globalCreates.refund();
@@ -299,7 +300,7 @@ export function createHttpApp({
     try {
       unpersistRoom(room);
     } catch (err) {
-      console.error(`could not delete room ${room.id} from the store: ${err instanceof Error ? err.message : String(err)}`);
+      logError("store.delete_room", err);
       return fail(503, "unavailable", "couldn't delete the room right now, try again later");
     }
     // Then the one path with GC and the operator: sockets close with ROOM_CLOSED, revoking their share grants.

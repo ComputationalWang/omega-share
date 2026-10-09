@@ -3,6 +3,8 @@ import { formatLogLine, logError } from "../src/log";
 import { Client, start, type TestServer } from "./helpers";
 import type { RoomPersistence } from "../src/server";
 
+const parse = (line: string) => JSON.parse(line) as { level?: string; event?: string; error?: string };
+
 // OME-504: error lines go to stderr (journald on the box) and carry no personal data.
 describe("logger", () => {
   test("a line is one JSON object: level, a fixed event name and the error's class", () => {
@@ -17,7 +19,7 @@ describe("logger", () => {
     for (const secret of ["secret-room-id", "My Private Title", "203.0.113.7", "2001:db8::1", "fe80::1", "mail@example.com"]) {
       expect(line).not.toContain(secret);
     }
-    expect(JSON.parse(line).error).toBe('Error: no room "…": "…" from <ip>, [<ip>]:443 or <ip> by <email>');
+    expect(parse(line).error).toBe('Error: no room "…": "…" from <ip>, [<ip>]:443 or <ip> by <email>');
   });
 
   test("caps the message length", () => {
@@ -26,7 +28,7 @@ describe("logger", () => {
   });
 
   test("a non-Error value is logged by type only", () => {
-    expect(JSON.parse(formatLogLine("error", "gc.sweep", "alice at 10.0.0.1")).error).toBe("non-Error string");
+    expect(parse(formatLogLine("error", "gc.sweep", "alice at 10.0.0.1")).error).toBe("non-Error string");
   });
 
   test("logError writes one line to stderr", () => {
@@ -73,7 +75,7 @@ describe("server error lines", () => {
       for (const line of lines) {
         expect(line).not.toContain(roomId);
         expect(line).not.toContain("nick-in-log");
-        expect(JSON.parse(line).event).toBe("store.last_active");
+        expect(parse(line).event).toBe("store.last_active");
       }
     } finally {
       spy.mockRestore();

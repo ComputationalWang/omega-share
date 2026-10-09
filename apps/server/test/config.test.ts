@@ -52,6 +52,7 @@ describe("parseConfig (ADR 0015 §3)", () => {
       genericEmbedDenylist: [],
       ownHosts: ["localhost", "quiet-otter.ngrok-free.app"],
       roomTitleBlocklist: [],
+      metricsPort: null,
     });
   });
 

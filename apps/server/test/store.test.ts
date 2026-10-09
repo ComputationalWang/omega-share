@@ -234,7 +234,7 @@ describe("migration 0002: created rooms (ADR 0028)", () => {
     old.close();
 
     const db = openDatabase(path);
-    expect(userVersion(db)).toBe(2);
+    expect(userVersion(db)).toBe(REAL_MIGRATIONS.length);
     expect(new RoomStore(db).listRooms()).toEqual([
       { id: "den", title: "Den", createdAt: 5, layout: DEFAULT_LAYOUT, embed: null, visibility: "public", pinned: true, ownerHash: null, inviteHash: null, lastActiveAt: null },
     ]);

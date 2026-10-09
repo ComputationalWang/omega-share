@@ -21,6 +21,10 @@ import type { Room } from "./room";
 import type { RoomRegistry } from "./rooms";
 import { mintSecret } from "./secrets";
 
+export { SERVICE_RESTART };
+import { logError } from "./log";
+import { Metrics, SERVICE_RESTART, type CountedClose } from "./metrics";
+
 export interface ConnData {
   room: Room;
   /** Client key (ADR 0015 §5). */
@@ -122,6 +126,10 @@ export interface WsDeps {
   titleBlocked: (title: string) => boolean;
   /** The room just went from 0 to 1 member or from 1 to 0 (room GC's `last_active_at`). Never per message. */
   occupancyChanged?: (room: Room) => void;
+  /** Relay times and close counts for `GET /metrics` (OME-504). */
+  metrics?: Metrics;
+  /** Unix ms clock for seat holds after a restart. Default `Date.now`. */
+  wallNow?: () => number;
 }
 
 export interface Ws {
@@ -133,6 +141,8 @@ export interface Ws {
   websocket: WebSocketHandler<ConnData>;
   /** Whether any socket, joined or still joining, is open on the room. */
   hasSockets: (room: Room) => boolean;
+  /** Closes every socket with SERVICE_RESTART: clients reconnect on their own (graceful restart, OME-504). */
+  closeAll: () => void;
 }
 
 export function createWs({
@@ -147,6 +157,8 @@ export function createWs({
   persistTitle,
   titleBlocked,
   occupancyChanged = () => undefined,
+  metrics = new Metrics(),
+  wallNow = Date.now,
 }: WsDeps): Ws {
   const upgrades = new KeyedLimiter(UPGRADE_BURST, UPGRADE_PER_SECOND, 1024, now);
   const joins = new KeyedLimiter(JOIN_BURST, JOIN_PER_SECOND, 1024, now);
@@ -159,6 +171,12 @@ export function createWs({
   /** Share tokens of the room's joined members. Dropped when empty. */
   const grants = rooms.perRoom(() => new Map<ShareToken, ShareGrant>());
 
+  /** Every close the server sends goes through here, so `GET /metrics` counts it. */
+  const closeWith = (ws: Conn, code: CountedClose, reason: string): void => {
+    metrics.countClose(code);
+    ws.close(code, reason);
+  };
+
   const sendError = (ws: Conn, code: ErrorCode, message: string): void => {
     ws.send(encode({ type: "error", code, message }));
   };
@@ -166,7 +184,7 @@ export function createWs({
   /** Counts a `bad_message`-like failure; closes with BAD_MESSAGES and returns false at the limit. */
   const countBad = (ws: Conn): boolean => {
     if (++ws.data.badMessages < MAX_BAD_MESSAGES) return true;
-    ws.close(CLOSE_CODES.BAD_MESSAGES, "too many bad messages");
+    closeWith(ws, CLOSE_CODES.BAD_MESSAGES, "too many bad messages");
     return false;
   };
   /**
@@ -183,7 +201,7 @@ export function createWs({
   /** Drops a frame: one notice per streak, and a close once the streak is MAX_DROPPED_IN_A_ROW long. */
   const refuse = (ws: Conn, retryAfterMs: number, message: string): void => {
     if (ws.data.dropped++ === 0) ws.send(encode({ type: "error", code: "rate_limited", message, retryAfterMs }));
-    if (ws.data.dropped >= MAX_DROPPED_IN_A_ROW) ws.close(CLOSE_CODES.RATE_LIMITED, "rate limited");
+    if (ws.data.dropped >= MAX_DROPPED_IN_A_ROW) closeWith(ws, CLOSE_CODES.RATE_LIMITED, "rate limited");
   };
   /** Passes `bucket`, or refuses the frame and returns false. */
   const admit = (ws: Conn, bucket: TokenBucket, message: string): boolean => {
@@ -195,7 +213,7 @@ export function createWs({
   const armJoinTimer = (ws: Conn): void => {
     ws.data.joinTimer = setTimeout(() => {
       ws.data.joinTimer = null;
-      if (ws.data.memberId === null) ws.close(CLOSE_CODES.JOIN_TIMEOUT, "join timeout");
+      if (ws.data.memberId === null) closeWith(ws, CLOSE_CODES.JOIN_TIMEOUT, "join timeout");
     }, joinTimeoutMs);
   };
   const clearJoinTimer = (ws: Conn): void => {
@@ -304,7 +322,7 @@ export function createWs({
       if (!joined.ok) {
         if (joined.reason === "room_full") {
           ws.send(encode({ type: "room-full" }));
-          ws.close(CLOSE_CODES.ROOM_FULL, "room full");
+          closeWith(ws, CLOSE_CODES.ROOM_FULL, "room full");
         } else if (joined.reason === "nickname_taken") {
           sendError(ws, "nickname_taken", "that name is taken in this room");
         } else {
@@ -314,6 +332,8 @@ export function createWs({
       }
       const member = joined.member;
       clearJoinTimer(ws);
+      // Back after a restart under the same name: the seat it held, in its snapshot and, after the join, for the room.
+      const heldSeat = room.claimHeldSeat(member.id, wallNow());
       ws.data.memberId = member.id;
       ws.data.owner = owner;
       const shareToken = mintShareToken();
@@ -324,6 +344,7 @@ export function createWs({
       ws.send(encode(owner ? { ...snapshot, owner: true } : snapshot));
       ws.subscribe(room.topic);
       ws.publish(room.topic, encode({ type: "member-joined", member }));
+      if (heldSeat !== null) ws.publish(room.topic, encode({ type: "seat-changed", memberId: member.id, seat: heldSeat }));
       if (room.memberCount === 1) occupancyChanged(room);
       return;
     }
@@ -396,19 +417,19 @@ export function createWs({
   };
 
   /** Store first: if the write fails nothing changes, so memory never runs ahead of the DB. */
-  const persisted = (room: Room, what: string, write: () => void): boolean => {
+  const persisted = (event: "store.layout" | "store.title", write: () => void): boolean => {
     try {
       write();
       return true;
     } catch (err) {
-      console.error(`could not save room ${room.id}'s ${what}: ${err instanceof Error ? err.message : String(err)}`);
+      logError(event, err);
       return false;
     }
   };
   /** Last write wins; seats keep their indices, so nobody is unseated (ADR 0028 §6). */
   const setLayout = (room: Room, by: MemberId, layout: RoomLayout): void => {
     if (JSON.stringify(layout) === JSON.stringify(room.layout)) return;
-    if (!persisted(room, "layout", () => {
+    if (!persisted("store.layout", () => {
       persistLayout(room, layout);
     })) return;
     room.setLayout(layout);
@@ -421,7 +442,7 @@ export function createWs({
       sendError(ws, "bad_message", "that title isn't allowed");
       return;
     }
-    if (!persisted(room, "title", () => {
+    if (!persisted("store.title", () => {
       persistTitle(room, title);
     })) return;
     room.setTitle(title);
@@ -435,11 +456,19 @@ export function createWs({
     for (const ws of [...open]) {
       clearJoinTimer(ws);
       if (ws.data.memberId !== null) depart(ws, ws.data.memberId, true, false);
-      ws.close(CLOSE_CODES.ROOM_CLOSED, "room closed");
+      closeWith(ws, CLOSE_CODES.ROOM_CLOSED, "room closed");
     }
   });
 
   return {
+    closeAll() {
+      for (const room of rooms.values()) {
+        for (const ws of [...(sockets.peek(room) ?? [])]) {
+          clearJoinTimer(ws);
+          closeWith(ws, SERVICE_RESTART, "server restarting");
+        }
+      }
+    },
     shareGrant: (room, token) => grants.peek(room)?.get(token),
     hasSockets: (room) => sockets.peek(room) !== undefined,
     admitUpgrade(ip) {
@@ -475,13 +504,14 @@ export function createWs({
       open(ws) {
         // Upgraded as its room went.
         if (!rooms.has(ws.data.room)) {
-          ws.close(CLOSE_CODES.ROOM_CLOSED, "room closed");
+          closeWith(ws, CLOSE_CODES.ROOM_CLOSED, "room closed");
           return;
         }
         sockets.get(ws.data.room).add(ws);
         armJoinTimer(ws);
       },
       message(ws, raw) {
+        const t0 = performance.now();
         if (!admit(ws, ws.data.bucket, "too many messages, slow down")) return;
         const msg = typeof raw === "string" ? parseClientMessage(raw) : null;
         if (msg === null) {
@@ -492,6 +522,7 @@ export function createWs({
         if (!admitType(ws, msg)) return;
         ws.data.dropped = 0;
         handle(ws, msg);
+        metrics.observeRelay(performance.now() - t0);
       },
       close(ws) {
         clearJoinTimer(ws);

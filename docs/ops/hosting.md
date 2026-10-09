@@ -84,5 +84,21 @@ After a restore, rooms, layouts and each room's last embed come back, with playb
 - Open ports from outside: only 22, 80 and 443 (`for p in 22 80 443 2019 8787; do timeout 4 bash -c "echo >/dev/tcp/$SERVER_IP/$p" && echo "$p open"; done`).
 - The Host allowlist on the box: `curl -H 'Host: evil.example' 127.0.0.1:8787/healthz` returns 421.
 - Headed smoke from outside, on a virtual display: `OMEGA_REAL_TUNNEL_ORIGIN=https://omega-share.duckdns.org bun e2e/support/headed.ts bunx playwright test --project=e2e-real e2e/real/real-tunnel.real.ts --grep "tunnel-[124]"`. Tunnel-3 checks the Host rule on *this* machine's port 8787, so against the box, use the curl above instead.
-- Logs (as `admin`): `journalctl -u omega-share`, `journalctl -u caddy`. Caddy keeps no access log and has no admin API (`admin off`), so Caddyfile changes take `systemctl restart caddy`. Caddy's default logger deletes request IPs, ports and headers, so an upstream 502 is logged with only the method, host and URI, and no site visitor's IP reaches the journal (ADR 0020 §3, OME-386). The journal is persistent and kept for 14 days (`deploy/journald/omega-share.conf`). sshd's entries name SSH peers. To check, run `journalctl -u caddy -o cat | grep -cE 'remote_ip|client_ip|"headers"'` with root. It should print 0.
+- Logs (as `admin`): `journalctl -u omega-share`, `journalctl -u caddy`. The server's error lines are one JSON object each, with a fixed `event` name and no room id, title, nickname or address (ADR 0032 §4). To list only those, run `journalctl -u omega-share -o cat | grep '^{"level":"error"'`. Caddy keeps no access log and has no admin API (`admin off`), so Caddyfile changes take `systemctl restart caddy`. Caddy's default logger deletes request IPs, ports and headers, so an upstream 502 is logged with only the method, host and URI, and no site visitor's IP reaches the journal (ADR 0020 §3, OME-386). The journal is persistent and kept for 14 days (`deploy/journald/omega-share.conf`). sshd's entries name SSH peers. To check, run `journalctl -u caddy -o cat | grep -cE 'remote_ip|client_ip|"headers"'` with root. It should print 0.
 - Off-box pull fails loudly if the newest snapshot is older than 36 h: that is the backup alarm.
+
+## Metrics, logs and restarts (OME-504, ADR 0032)
+
+- **Metrics** are served on `127.0.0.1:9464` only (`METRICS_PORT` in `deploy/omega-share.service`). Caddy doesn't proxy them and the firewall doesn't open the port, so read them over ssh:
+
+  ```sh
+  ssh -i "$DEPLOY_KEY_PATH" deploy@$SERVER_IP 'curl -s 127.0.0.1:9464/metrics'
+  # one series:
+  ssh -i "$DEPLOY_KEY_PATH" deploy@$SERVER_IP 'curl -s 127.0.0.1:9464/metrics | grep ^omega_sockets'
+  # or forward the port and point a local Prometheus or browser at localhost:9464:
+  ssh -i "$DEPLOY_KEY_PATH" -N -L 9464:127.0.0.1:9464 deploy@$SERVER_IP
+  ```
+
+  Series: `omega_rooms`, `omega_sockets`, `omega_members`, `omega_relay_latency_seconds` (histogram of the server's own relay time per frame; `_sum / _count` is the mean), `omega_ws_closes_total{code}` (4029 = flooders cut off, 4004 = rooms closed, 1012 = restarts, 4400 / 4001 / 4002), `process_resident_memory_bytes` and `process_uptime_seconds`. Nothing in it names an address, nickname, room or title. A forwarded port needs `Host: localhost:9464` or `127.0.0.1:9464`; anything else gets 421.
+- **Logs** go to journald (see Checks above). Rotation is in `deploy/journald/omega-share.conf`: 14 days, at most 256 MB in total, files rotated at 32 MB or daily. Re-ship it with `provision.sh logs`. To see the usage, run `journalctl --disk-usage`.
+- **Restart** (`systemctl restart omega-share`, which is what `deploy.sh` does) is graceful. On SIGTERM the server stops accepting, closes every socket with 1012, saves who sat where (as name hashes, for 30 s), checkpoints and closes the database and exits 0 within `TimeoutStopSec=10s`. Clients reconnect on their own and come back in their seats with the same embed. Playback restarts paused at 0. To check a restart, run `journalctl -u omega-share -n 20`. It should show no `"level":"error"` line between `Stopping` and `Started`, and `omega_ws_closes_total{code="1012"}` resets to 0 with the new process.

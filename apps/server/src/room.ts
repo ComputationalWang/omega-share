@@ -29,6 +29,18 @@ export type JoinResult = { ok: true; member: Member } | { ok: false; reason: "ro
  */
 export const MAX_MEMBERS_PER_CLIENT = 5;
 
+/** How long after a restart a seat waits for its member to rejoin under the same name (OME-504, ADR 0032). */
+export const SEAT_HOLD_MS = 30_000;
+
+/** A seated member's name, as SHA-256 of its `nicknameKey`, and seat: what a graceful restart keeps (ADR 0032). */
+export interface HeldSeat {
+  nameHash: Uint8Array;
+  seat: SeatIndex;
+}
+
+const nameHash = (nameKey: string): Uint8Array => new Uint8Array(new Bun.CryptoHasher("sha256").update(nameKey).digest());
+const hex = (bytes: Uint8Array): string => Buffer.from(bytes).toString("hex");
+
 interface Held {
   /** `nicknameKey` of the member's nickname: unique per room. */
   nameKey: string;
@@ -62,6 +74,9 @@ export class Room {
   private playback: PlaybackState | null = null;
   /** Last rev handed out; survives embed changes so clients never see rev go back. */
   private rev = -1;
+  /** Seats held across a restart, by hex name hash, until `holdsUntil` (Unix ms). Each is used at most once. */
+  private holds = new Map<string, SeatIndex>();
+  private holdsUntil = 0;
 
   /** The room's furniture (ADR 0021); the owner replaces it with `layout-set` (ADR 0028 §6). */
   private currentLayout: RoomLayout;
@@ -184,6 +199,43 @@ export class Room {
     this.free(memberId);
     if (seat !== null) this.seats[seat] = memberId;
     return "ok";
+  }
+
+  /** Seated members, for a graceful restart: name hashes only, never the nickname (ADR 0032). */
+  heldSeats(): HeldSeat[] {
+    const held: HeldSeat[] = [];
+    this.seats.forEach((memberId, seat) => {
+      const nameKey = memberId === null ? undefined : this.held.get(memberId)?.nameKey;
+      if (nameKey !== undefined) held.push({ nameHash: nameHash(nameKey), seat });
+    });
+    return held;
+  }
+
+  /** Holds these seats for members rejoining under the same name until `until` (Unix ms). */
+  holdSeats(holds: readonly HeldSeat[], until: number): void {
+    this.holds = new Map(holds.map((h) => [hex(h.nameHash), h.seat]));
+    this.holdsUntil = until;
+  }
+
+  /**
+   * Sits a just-joined member on the seat held for its name, if the hold hasn't expired and the seat is
+   * free; returns the seat, or null. The hold is spent either way.
+   */
+  claimHeldSeat(memberId: MemberId, now: number): SeatIndex | null {
+    if (this.holds.size === 0) return null;
+    if (now > this.holdsUntil) {
+      this.holds.clear();
+      return null;
+    }
+    const nameKey = this.held.get(memberId)?.nameKey;
+    if (nameKey === undefined) return null;
+    const key = hex(nameHash(nameKey));
+    const seat = this.holds.get(key);
+    if (seat === undefined) return null;
+    this.holds.delete(key);
+    if (this.seats[seat] !== null) return null;
+    this.seats[seat] = memberId;
+    return seat;
   }
 
   /** Records a member's advisory catching-up flag (ADR 0019); never touches playback. */

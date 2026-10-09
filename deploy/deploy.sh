@@ -7,8 +7,8 @@
 # ignored files and local env never reach a release: the site (vite) and the server's production
 # node_modules (pure JS, so arch-independent). The release goes to
 # /opt/omega-share/releases/<commit>, `current` is flipped and the service restarted; if
-# /healthz doesn't answer, the previous release is put back. A restart drops sockets for a
-# second or two; clients reconnect with backoff.
+# /healthz doesn't answer, the previous release is put back. A restart is graceful (ADR 0032):
+# sockets close with 1012 and clients reconnect on their own, back in their seats.
 set -euo pipefail
 
 usage() {

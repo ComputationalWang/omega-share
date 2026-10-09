@@ -20,11 +20,17 @@ Environment=PUBLIC_ORIGIN=https://omega-share.duckdns.org
 Environment=SITE_ORIGIN=https://omega-share.duckdns.org
 Environment=STATIC_DIR=/opt/omega-share/current/apps/web/dist
 Environment=DB_PATH=/var/lib/omega-share/omega.db
+# GET /metrics on 127.0.0.1 only (OME-504). Caddy never proxies it and nftables doesn't open it:
+# read it over ssh, see docs/ops/hosting.md.
+Environment=METRICS_PORT=9464
 # Optional per-box overrides (e.g. DB_PATH); the backup unit reads the same file.
 EnvironmentFile=-/etc/omega-share/env
 ExecStart=/usr/local/bin/bun /opt/omega-share/current/apps/server/src/index.ts
 Restart=on-failure
 RestartSec=2
+# Graceful restart (OME-504): SIGTERM closes sockets with 1012, keeps seats and closes the DB, then exits 0.
+KillSignal=SIGTERM
+TimeoutStopSec=10s
 StateDirectory=omega-share
 StateDirectoryMode=0700
 

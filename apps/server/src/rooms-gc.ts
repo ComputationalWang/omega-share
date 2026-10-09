@@ -1,6 +1,7 @@
 import type { RoomId } from "@omega/shared";
 import type { Room } from "./room";
 import type { RoomRegistry } from "./rooms";
+import { logError } from "./log";
 
 /** How often GC sweeps; it also sweeps once at boot (threat model §1.3). */
 export const ROOM_GC_INTERVAL_MS = 60 * 60 * 1000;
@@ -47,7 +48,7 @@ export function sweepRooms({ rooms, wallNow, busy, touch }: RoomGcDeps): RoomId[
       rooms.removeRoom(room);
       removed.push(room.id);
     } catch (err) {
-      console.error(`room GC could not remove room ${room.id}: ${err instanceof Error ? err.message : String(err)}`);
+      logError("gc.remove", err);
     }
   }
   return removed;
@@ -59,7 +60,7 @@ export function startRoomGc(deps: RoomGcDeps & { intervalMs?: number }): { stop:
     try {
       sweepRooms(deps);
     } catch (err) {
-      console.error(`room GC sweep failed: ${err instanceof Error ? err.message : String(err)}`);
+      logError("gc.sweep", err);
     }
   };
   sweep();

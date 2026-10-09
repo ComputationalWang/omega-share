@@ -6,11 +6,13 @@ import { EmbedPolicy } from "./embed-policy";
 import { HSTS, securityHeaders } from "./headers";
 import { MAX_HTTP_IN_FLIGHT, createHttpApp, createHttpGate, plain as plainWith } from "./http";
 import { clientKey, monotonic, type Clock } from "./rate-limit";
-import { Room } from "./room";
+import { Room, SEAT_HOLD_MS } from "./room";
 import { RoomRegistry } from "./rooms";
 import { ROOM_GC_INTERVAL_MS, startRoomGc } from "./rooms-gc";
-import type { RoomStore } from "./store/rooms";
+import type { RoomStore, SeatHold } from "./store/rooms";
 import { createWs, type ConnData } from "./ws";
+import { logError } from "./log";
+import { Metrics } from "./metrics";
 
 export interface ServerOptions {
   port: number;
@@ -59,7 +61,23 @@ export interface ServerOptions {
   wallNow?: () => number;
   /** Room GC sweep interval; it also sweeps at boot. Default ROOM_GC_INTERVAL_MS (1 h). */
   roomGcIntervalMs?: number;
+  /** Seats the last process held at its graceful restart (ADR 0032): kept SEAT_HOLD_MS for their names. */
+  seatHolds?: readonly SeatHold[];
 }
+
+/** The Bun server, plus what the process's lifecycle needs (OME-504). */
+export interface OmegaServer extends Server<ConnData> {
+  /** Prometheus text for `GET /metrics` (served by `startMetrics` on its own loopback port). */
+  metricsText(): string;
+  /**
+   * Graceful restart: stops accepting, closes every socket with SERVICE_RESTART (clients reconnect on
+   * their own) and resolves, once they are closed, with the seats held, for the store to keep.
+   */
+  drain(): Promise<SeatHold[]>;
+}
+
+/** How long `drain` waits for clients to answer the close before cutting them off. */
+const DRAIN_GRACE_MS = 3000;
 
 /** The slice of RoomStore the server uses. */
 export type RoomPersistence = Pick<
@@ -108,7 +126,7 @@ const WS_PATH = /^\/rooms\/([^/]+)\/ws$/;
 /** Any Chromium extension id, unless `extensionIds` (EXTENSION_IDS) pins the published ones. */
 const EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/;
 
-export function startServer(opts: ServerOptions): Server<ConnData> {
+export function startServer(opts: ServerOptions): OmegaServer {
   const trustProxy = opts.trustProxy ?? false;
   const maxConnectionsPerIp = opts.maxConnectionsPerIp ?? (trustProxy ? 10 : 50);
   const maxConnections = opts.maxConnections ?? 200;
@@ -124,6 +142,11 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
   const plain = (status: number, text: string): Response => plainWith(status, text, headers);
   const rooms = opts.registry ?? new RoomRegistry();
   loadRooms(rooms, opts.rooms ?? [DEFAULT_ROOM_ID], store, embeds, wallNow());
+  for (const room of rooms.values()) {
+    const held = opts.seatHolds?.filter((h) => h.roomId === room.id) ?? [];
+    if (held.length > 0) room.holdSeats(held, wallNow() + SEAT_HOLD_MS);
+  }
+  const metrics = new Metrics();
   const connectionsPerIp = new Map<string, number>();
 
   // Filled in once Bun has picked the port (tests use port 0); no request arrives before that.
@@ -157,7 +180,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     try {
       store?.setLastActive(room.id, at);
     } catch (err) {
-      console.error(`could not store last_active_at for room ${room.id}: ${err instanceof Error ? err.message : String(err)}`);
+      logError("store.last_active", err);
     }
   };
 
@@ -174,6 +197,8 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     },
     titleBlocked,
     now: opts.now ?? monotonic,
+    metrics,
+    wallNow,
     occupancyChanged: (room) => {
       markActive(room, wallNow());
     },
@@ -193,7 +218,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       store?.deleteRoom(room.id);
     } catch (err) {
       // The room is gone from memory; its row comes back at the next boot, where GC or the operator can end it.
-      console.error(`could not delete room ${room.id} from the store: ${err instanceof Error ? err.message : String(err)}`);
+      logError("store.delete_room", err);
     }
   });
   const app = createHttpApp({
@@ -256,7 +281,7 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
     return undefined;
   };
 
-  const server: Server<ConnData> = Bun.serve<ConnData>({
+  const bunServer: Server<ConnData> = Bun.serve<ConnData>({
     port: opts.port,
     hostname: opts.hostname ?? "127.0.0.1",
     maxRequestBodySize: 64 * 1024,
@@ -266,6 +291,23 @@ export function startServer(opts: ServerOptions): Server<ConnData> {
       return res instanceof Promise ? res.then(withHsts) : withHsts(res);
     },
     websocket: ws.websocket,
+  });
+  const server = Object.assign(bunServer, {
+    metricsText: () => {
+      let members = 0;
+      for (const room of rooms.values()) members += room.memberCount;
+      return metrics.render({ rooms: rooms.size, sockets: connections, members });
+    },
+    drain: async () => {
+      const holds: SeatHold[] = [];
+      for (const room of rooms.values()) for (const h of room.heldSeats()) holds.push({ roomId: room.id, ...h });
+      // Stop listening first, so nothing joins between the snapshot of seats and the closes.
+      const closed = server.stop(false);
+      ws.closeAll();
+      await Promise.race([closed, Bun.sleep(DRAIN_GRACE_MS)]);
+      await server.stop(true);
+      return holds;
+    },
   });
   const port = String(server.port);
   for (const name of ["localhost", "127.0.0.1", "[::1]"]) {

@@ -30,6 +30,8 @@ export interface ServerConfig {
   ownHosts: string[];
   /** `ROOM_TITLE_BLOCKLIST`: terms a room title may not contain, folded for case and lookalikes (ADR 0028, research S8). */
   roomTitleBlocklist: string[];
+  /** `METRICS_PORT`: Prometheus text on 127.0.0.1 only (OME-504), or null when unset or `off`. */
+  metricsPort: number | null;
 }
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -134,6 +136,11 @@ export function parseConfig(env: Env): ServerConfig {
     if (isInside(dbPath, staticDir) || isInside(realish(dbPath), site)) fail("DB_PATH", "must not be inside STATIC_DIR");
   }
 
+  const rawMetrics = env["METRICS_PORT"] ?? "off";
+  const metricsPort = rawMetrics === "off" ? null : /^\d{1,5}$/.test(rawMetrics) ? Number(rawMetrics) : NaN;
+  if (metricsPort !== null && !(metricsPort <= 65535)) fail("METRICS_PORT", "must be off or 0–65535");
+  if (metricsPort !== null && metricsPort !== 0 && metricsPort === port) fail("METRICS_PORT", "must differ from PORT");
+
   const rawGeneric = env["GENERIC_EMBEDS"] ?? "on";
   if (rawGeneric !== "on" && rawGeneric !== "off") fail("GENERIC_EMBEDS", "must be on or off");
 
@@ -159,5 +166,6 @@ export function parseConfig(env: Env): ServerConfig {
       .split(",")
       .map((term) => term.trim())
       .filter((term) => term !== ""),
+    metricsPort,
   };
 }

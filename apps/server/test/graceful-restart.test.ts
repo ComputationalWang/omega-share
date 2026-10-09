@@ -52,7 +52,16 @@ describe("drain (in process)", () => {
       expect(new TextDecoder().decode(h.nameHash)).not.toContain("nick");
     }
     // Stopped accepting: a new upgrade fails.
-    await expect(Client.open(t.ws())).rejects.toThrow();
+    let refused = false;
+    await Client.open(t.ws()).then(
+      (late) => {
+        late.close();
+      },
+      () => {
+        refused = true;
+      },
+    );
+    expect(refused).toBe(true);
   });
 
   test("a rejoin under the same name (any case or lookalike) gets its seat back; others don't; holds expire", async () => {
@@ -128,7 +137,7 @@ describe("RoomStore seat holds", () => {
 
 /** A free loopback port: bind 0, read it, let go. */
 function freePort(): number {
-  const s = Bun.listen({ hostname: "127.0.0.1", port: 0, socket: { data() {} } });
+  const s = Bun.listen({ hostname: "127.0.0.1", port: 0, socket: { data: () => undefined } });
   const port = s.port;
   s.stop(true);
   return port;

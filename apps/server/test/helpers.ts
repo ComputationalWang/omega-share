@@ -1,13 +1,12 @@
-import type { Server } from "bun";
 import { parseServerMessage, type ServerMessage } from "@omega/shared";
-import { startServer, type ServerOptions } from "../src/server";
+import { startServer, type OmegaServer, type ServerOptions } from "../src/server";
 
 export const SITE_ORIGIN = "http://localhost:5173";
 export const EXTENSION_ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop";
 const TIMEOUT_MS = 1000;
 
 export interface TestServer {
-  server: Server<unknown>;
+  server: OmegaServer;
   http: string;
   ws: (roomId?: string) => string;
 }

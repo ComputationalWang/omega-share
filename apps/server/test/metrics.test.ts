@@ -17,7 +17,7 @@ let clients: Client[] = [];
 afterEach(() => {
   for (const c of clients) c.close();
   clients = [];
-  m?.stop(true);
+  void m?.stop(true);
   m = null;
   void t.server.stop(true);
 });
