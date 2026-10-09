@@ -117,6 +117,9 @@ describe("server error lines", () => {
       setLayout: () => undefined,
       setTitle: () => undefined,
       setControlPolicy: () => undefined,
+      addQueueItem: () => undefined,
+      removeQueueItem: () => true,
+      advanceQueue: () => undefined,
       setLastActive: (id) => {
         throw new Error(`no room ${JSON.stringify(id)}`);
       },

@@ -86,6 +86,8 @@ describe("migrations (research §2.3)", () => {
       { name: "last_active_at", type: "INTEGER", notnull: 0, pk: 0 },
       // 0004 (ADR 0030 §4): room configuration, not personal data.
       { name: "control_policy", type: "TEXT", notnull: 1, pk: 0 },
+      // 0005 (ADR 0031 §6): the current embed's queue item id.
+      { name: "item_id", type: "TEXT", notnull: 0, pk: 0 },
     ]);
     // STRICT + CHECK: a 33-character id never lands.
     expect(() => db.run("INSERT INTO rooms (id, created_at, layout) VALUES (?, 0, '{}')", ["a".repeat(33)])).toThrow();
@@ -172,6 +174,9 @@ describe("RoomStore", () => {
         lastActiveAt: null,
         // ADR 0030 §4: rooms start with everyone controlling playback.
         controlPolicy: "everyone",
+        // ADR 0031 §6: no current item, nothing queued.
+        itemId: null,
+        queue: [],
       },
     ]);
   });
@@ -240,7 +245,7 @@ describe("migration 0002: created rooms (ADR 0028)", () => {
     const db = openDatabase(path);
     expect(userVersion(db)).toBe(REAL_MIGRATIONS.length);
     expect(new RoomStore(db).listRooms()).toEqual([
-      { id: "den", title: "Den", createdAt: 5, layout: DEFAULT_LAYOUT, embed: null, visibility: "public", pinned: true, ownerHash: null, inviteHash: null, lastActiveAt: null, controlPolicy: "everyone" },
+      { id: "den", title: "Den", createdAt: 5, layout: DEFAULT_LAYOUT, embed: null, visibility: "public", pinned: true, ownerHash: null, inviteHash: null, lastActiveAt: null, controlPolicy: "everyone", itemId: null, queue: [] },
     ]);
     db.close();
   });
@@ -270,6 +275,8 @@ describe("migration 0002: created rooms (ADR 0028)", () => {
         inviteHash: HASH_B,
         lastActiveAt: null,
         controlPolicy: "everyone",
+        itemId: null,
+        queue: [],
       },
     ]);
     expect(rooms.deleteRoom("abcdefghijklmnopqrstuvwxyz")).toBe(true);
@@ -327,5 +334,115 @@ describe("migration 0004: control policy (ADR 0030 §4)", () => {
     }).toThrow();
     expect(() => db.run("UPDATE rooms SET control_policy = 'nobody' WHERE id = 'den'")).toThrow();
     db.close();
+  });
+});
+
+describe("migration 0005: playback queue (ADR 0031 §6)", () => {
+  const VIMEO: Embed = { provider: "vimeo", videoId: "76979871", hash: null, url: "https://player.vimeo.com/video/76979871" };
+  const TWITCH: Embed = { provider: "twitch", kind: "vod", videoId: "1234567890", url: "https://player.twitch.tv/?video=v1234567890" };
+  const store = (path = ":memory:"): { db: Database; rooms: RoomStore } => {
+    const db = openDatabase(path);
+    const rooms = new RoomStore(db);
+    rooms.createRoom({ id: "den", title: "Den", createdAt: 5, layout: DEFAULT_LAYOUT });
+    return { db, rooms };
+  };
+  const queueRows = (db: Database): number => db.query<{ n: number }, []>("SELECT count(*) AS n FROM queue_items").get()?.n ?? -1;
+
+  test("queue_items is STRICT with the §6 columns, keyed by (room_id, id)", () => {
+    const { db } = store();
+    expect(db.query<{ strict: number }, []>("SELECT strict FROM pragma_table_list WHERE name = 'queue_items'").get()?.strict).toBe(1);
+    const cols = db
+      .query<{ name: string; type: string; notnull: number; pk: number }, []>("SELECT name, type, \"notnull\", pk FROM pragma_table_info('queue_items')")
+      .all();
+    expect(cols).toEqual([
+      { name: "room_id", type: "TEXT", notnull: 1, pk: 1 },
+      { name: "id", type: "TEXT", notnull: 1, pk: 2 },
+      { name: "position", type: "INTEGER", notnull: 1, pk: 0 },
+      { name: "embed", type: "TEXT", notnull: 1, pk: 0 },
+    ]);
+    // No `by`: nothing on disk says who queued what (ADR 0028 §7).
+    expect(() => db.run("INSERT INTO queue_items (room_id, id, position, embed) VALUES ('den', ?, 1, '{}')", ["a".repeat(33)])).toThrow();
+    db.close();
+  });
+
+  test("a database at 0004 upgrades: rooms keep their embed, item_id is null and the queue is empty", () => {
+    const path = join(tempDir(), "omega.db");
+    const upTo0004 = migrations(Object.fromEntries(REAL_MIGRATIONS.slice(0, 4).map((f) => [f, readFileSync(join(MIGRATIONS_DIR, f), "utf8")])));
+    const old = openDatabase(path, upTo0004);
+    old.run("INSERT INTO rooms (id, title, created_at, layout, embed) VALUES ('den', 'Den', 5, ?, ?)", [JSON.stringify(DEFAULT_LAYOUT), JSON.stringify(YOUTUBE)]);
+    old.close();
+    const db = openDatabase(path);
+    expect(new RoomStore(db).listRooms()).toMatchObject([{ id: "den", embed: YOUTUBE, itemId: null, queue: [] }]);
+    db.close();
+  });
+
+  test("add, remove and advance write through in play order and survive a reopen", () => {
+    const path = join(tempDir(), "omega.db");
+    const { db, rooms } = store(path);
+    rooms.setEmbed("den", YOUTUBE, "cur");
+    rooms.addQueueItem("den", { id: "a", embed: VIMEO });
+    rooms.addQueueItem("den", { id: "b", embed: TWITCH });
+    rooms.addQueueItem("den", { id: "c", embed: YOUTUBE });
+    expect(rooms.removeQueueItem("den", "b")).toBe(true);
+    expect(rooms.removeQueueItem("den", "b")).toBe(false);
+    rooms.addQueueItem("den", { id: "d", embed: TWITCH });
+    rooms.advanceQueue("den", { id: "a", embed: VIMEO });
+    db.close();
+
+    const again = openDatabase(path);
+    expect(new RoomStore(again).listRooms()).toMatchObject([
+      {
+        id: "den",
+        embed: VIMEO,
+        itemId: "a",
+        queue: [
+          { id: "c", embed: YOUTUBE },
+          { id: "d", embed: TWITCH },
+        ],
+      },
+    ]);
+    again.close();
+  });
+
+  test("a share writes the embed and its item id together; clearing the embed clears the id", () => {
+    const { rooms } = store();
+    rooms.setEmbed("den", YOUTUBE, "first");
+    expect(rooms.listRooms()[0]).toMatchObject({ embed: YOUTUBE, itemId: "first" });
+    rooms.setEmbed("den", null);
+    expect(rooms.listRooms()[0]).toMatchObject({ embed: null, itemId: null });
+  });
+
+  test("refuses a forged embed, a bad item id or an unknown room, and writes nothing", () => {
+    const { db, rooms } = store();
+    const forged = { ...YOUTUBE, url: "https://evil.example/embed/dQw4w9WgXcQ" };
+    expect(() => { rooms.addQueueItem("den", { id: "a", embed: forged }); }).toThrow();
+    expect(() => { rooms.addQueueItem("den", { id: "not ok!", embed: YOUTUBE }); }).toThrow();
+    expect(() => { rooms.addQueueItem("ghost", { id: "a", embed: YOUTUBE }); }).toThrow();
+    expect(() => { rooms.advanceQueue("den", { id: "nope", embed: YOUTUBE }); }).toThrow();
+    expect(queueRows(db)).toBe(0);
+    expect(rooms.listRooms()[0]).toMatchObject({ embed: null, itemId: null });
+  });
+
+  test("deleting a room deletes its queue rows", () => {
+    const { db, rooms } = store();
+    rooms.createRoom({ id: "attic", title: "", createdAt: 6, layout: DEFAULT_LAYOUT });
+    rooms.addQueueItem("den", { id: "a", embed: YOUTUBE });
+    rooms.addQueueItem("den", { id: "b", embed: VIMEO });
+    rooms.addQueueItem("attic", { id: "a", embed: VIMEO });
+    expect(rooms.deleteRoom("den")).toBe(true);
+    expect(queueRows(db)).toBe(1);
+    expect(rooms.listRooms()).toMatchObject([{ id: "attic", queue: [{ id: "a", embed: VIMEO }] }]);
+  });
+
+  test("a queue row that fails to parse is dropped on read, and the rest of the room loads", () => {
+    const { db, rooms } = store();
+    rooms.addQueueItem("den", { id: "a", embed: YOUTUBE });
+    db.run("INSERT INTO queue_items (room_id, id, position, embed) VALUES ('den', 'x', 2, ?)", [JSON.stringify({ ...YOUTUBE, url: "https://evil.example/" })]);
+    db.run("INSERT INTO queue_items (room_id, id, position, embed) VALUES ('den', 'y', 3, 'not json')");
+    rooms.addQueueItem("den", { id: "b", embed: VIMEO });
+    expect(rooms.listRooms()[0]?.queue).toEqual([
+      { id: "a", embed: YOUTUBE },
+      { id: "b", embed: VIMEO },
+    ]);
   });
 });

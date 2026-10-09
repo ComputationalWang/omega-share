@@ -210,6 +210,16 @@ function recordingStore(rows: StoredRoom[]) {
     setLastActive: (id, at) => {
       writes.push(`active ${id} ${String(at)}`);
     },
+    addQueueItem: (id) => {
+      writes.push(`queue-add ${id}`);
+    },
+    removeQueueItem: (id) => {
+      writes.push(`queue-remove ${id}`);
+      return true;
+    },
+    advanceQueue: (id) => {
+      writes.push(`advance ${id}`);
+    },
   };
   return { store, writes };
 }
@@ -225,6 +235,8 @@ const row = (id: RoomId, createdAt: number, lastActiveAt: number | null): Stored
   inviteHash: null,
   lastActiveAt,
   controlPolicy: "everyone",
+  itemId: null,
+  queue: [],
 });
 
 describe("last_active_at moves only on the 0→1 and 1→0 transitions (threat model §1.3)", () => {
