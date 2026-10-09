@@ -155,6 +155,24 @@ describe("readRoomTabs: rooms open in the user's site tabs (threat model §3.5)"
     expect(f.read).toHaveLength(8);
   });
 
+  test("an https server: tabs on another port of its host are ignored, its own origin's tabs are kept (QA OME-689)", async () => {
+    // The port-less pattern matches every port of the host; another site there could plant a record.
+    const f = fake({
+      1: { url: "https://qa682.test:9999/r/other", value: record("other", TOKEN) },
+      2: { url: "https://qa682.test/r/other", value: record("other", TOKEN) },
+      3: { url: "https://qa682.test:8443/r/lobby", value: record("lobby", TOKEN2) },
+    });
+    const tabs = await readRoomTabs("https://qa682.test:8443", f.deps);
+    expect(tabs.rooms).toEqual(["lobby"]);
+    expect([...tabs.tokens]).toEqual([["lobby", TOKEN2]]);
+    expect(f.read).toEqual([3]);
+  });
+
+  test("a loopback server still lists room tabs on any local port", async () => {
+    const f = fake({ 1: { url: "http://127.0.0.1:5173/r/lobby", value: null }, 2: { url: "http://[::1]:4000/r/movies", value: null } });
+    expect((await readRoomTabs("http://localhost:8787", f.deps)).rooms).toEqual(["lobby", "movies"]);
+  });
+
   test("a failed tab query lists no rooms, never a throw", async () => {
     const tabs = await readRoomTabs("http://localhost:8787", { queryTabs: () => Promise.reject(new Error("x")), inject: () => Promise.resolve(null) });
     expect(tabs.rooms).toEqual([]);
