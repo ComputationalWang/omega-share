@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { webExtLint } from "../store/lint";
+import { lintProblems, webExtLint } from "../store/lint";
 import { checkStoreManifest, STORE_ZIP_MAX_BYTES } from "../store/manifest";
 import { buildStorePackage } from "../store/package";
 import { storeZip } from "../store/zip";
@@ -172,7 +172,7 @@ describe("buildStorePackage for Firefox (OME-593)", () => {
   const VERSION = (JSON.parse(readFileSync(join(import.meta.dir, "..", "package.json"), "utf8")) as { version: string }).version;
 
   test(
-    "builds omega-share-<version>-firefox.zip ≤ 500 KB that passes the Firefox guard and web-ext lint with 0 errors and 0 warnings, byte-identical on a rebuild",
+    "builds omega-share-<version>-firefox.zip ≤ 500 KB that passes the Firefox guard and web-ext lint (0 errors; the one warning is the desktop-only Android note), byte-identical on a rebuild",
     async () => {
       const first = await buildStorePackage({ outDir: join(scratch, "fa"), browser: "firefox" });
       const second = await buildStorePackage({ outDir: join(scratch, "fb"), browser: "firefox" });
@@ -187,10 +187,27 @@ describe("buildStorePackage for Firefox (OME-593)", () => {
 
       const dir = join(scratch, "firefox-unzipped");
       unzip(zip, "-q", "-d", dir);
-      expect(await webExtLint(dir)).toEqual({ errors: [], warnings: [] });
+      const lint = await webExtLint(dir);
+      expect(lint.errors).toEqual([]);
+      // Desktop only (CEO decision, OME-546): no gecko_android key, so the linter notes that Firefox for Android 140
+      // would not read data_collection_permissions. Adding gecko_android would list the add-on on Android.
+      expect(lint.warnings.map((w) => w.split(" ")[0])).toEqual(["KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION"]);
+      expect(lintProblems(lint)).toEqual([]);
     },
     180_000,
   );
+});
+
+describe("lintProblems (what fails ext:store)", () => {
+  const android = "KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION manifest.json: Manifest key not supported by the specified minimum Firefox for Android version";
+  test("lets only the desktop-only Android warning through", () => {
+    expect(lintProblems({ errors: [], warnings: [android] })).toEqual([]);
+  });
+  test("fails on any error, and on any other warning", () => {
+    expect(lintProblems({ errors: ["ADDON_ID_REQUIRED manifest.json: x"], warnings: [] })).toEqual(["ADDON_ID_REQUIRED manifest.json: x"]);
+    expect(lintProblems({ errors: [], warnings: [android, "UNSAFE_VAR_ASSIGNMENT popup.js: x"] })).toEqual(["UNSAFE_VAR_ASSIGNMENT popup.js: x"]);
+    expect(lintProblems({ errors: [android], warnings: [] })).toEqual([android]);
+  });
 });
 
 describe("webExtLint", () => {
