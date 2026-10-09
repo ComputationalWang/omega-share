@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { webExtLint } from "../store/lint";
 import { checkStoreManifest, STORE_ZIP_MAX_BYTES } from "../store/manifest";
 import { buildStorePackage } from "../store/package";
 import { storeZip } from "../store/zip";
@@ -165,4 +166,41 @@ describe("buildStorePackage (bun run ext:store)", () => {
     },
     120_000,
   );
+});
+
+describe("buildStorePackage for Firefox (OME-593)", () => {
+  const VERSION = (JSON.parse(readFileSync(join(import.meta.dir, "..", "package.json"), "utf8")) as { version: string }).version;
+
+  test(
+    "builds omega-share-<version>-firefox.zip ≤ 500 KB that passes the Firefox guard and web-ext lint with 0 errors and 0 warnings, byte-identical on a rebuild",
+    async () => {
+      const first = await buildStorePackage({ outDir: join(scratch, "fa"), browser: "firefox" });
+      const second = await buildStorePackage({ outDir: join(scratch, "fb"), browser: "firefox" });
+      expect(first.zipPath).toEndWith(`omega-share-${VERSION}-firefox.zip`);
+      const zip = readFileSync(first.zipPath);
+      expect(zip.byteLength).toBeLessThanOrEqual(STORE_ZIP_MAX_BYTES);
+      expect(first.sha256).toBe(second.sha256);
+
+      const manifest: unknown = JSON.parse(unzipFile(zip, "manifest.json"));
+      expect(checkStoreManifest(manifest, VERSION, "firefox")).toEqual([]);
+      expect(JSON.stringify(manifest)).not.toContain("youtube.com");
+
+      const dir = join(scratch, "firefox-unzipped");
+      unzip(zip, "-q", "-d", dir);
+      expect(await webExtLint(dir)).toEqual({ errors: [], warnings: [] });
+    },
+    180_000,
+  );
+});
+
+describe("webExtLint", () => {
+  test("reports the error and warning a Firefox MV3 manifest without gecko keys gets", async () => {
+    const dir = join(scratch, "lint-bad");
+    execFileSync("mkdir", ["-p", dir]);
+    writeFileSync(join(dir, "manifest.json"), JSON.stringify({ manifest_version: 3, name: "x", version: "1.0.0", background: { scripts: ["bg.js"] } }));
+    writeFileSync(join(dir, "bg.js"), "");
+    const result = await webExtLint(dir);
+    expect(result.errors.join("\n")).toContain("ADDON_ID_REQUIRED");
+    expect(result.warnings.join("\n")).toContain("MISSING_DATA_COLLECTION_PERMISSIONS");
+  }, 60_000);
 });
