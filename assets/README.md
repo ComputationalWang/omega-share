@@ -565,7 +565,9 @@ Walk: `preview/walk8-strip@4x.png` (every frame, in-betweens on the odd columns)
   4. Up to 2 per speaker (a 3rd retires that speaker's oldest) and 8 on screen (a 9th retires the oldest). A bubble whose path would leave the top of the stage retires too.
      Retiring = `.is-leaving` (160 ms fade, 4 steps), then removed.
   5. A moved bubble slides to its new place with `--push` (a `transform`, 160 ms, 4 steps), never by animating `top`.
-- The mock-up's six speakers (`ui-m8-bubbles`) show two stacks (Remy twice over Ana; Sol pushing "You" up) and your own bubble.
+- The mock-up's six speakers (`ui-m8-bubbles`) show two stacks (Remy twice over Ana; Sol pushing "You" up) and your own bubble. The white anchor dots are annotation only.
+- **Known limit:** a stacked card can cover the heads of people seated behind its speaker (Remy's older card in the mock-up). Accepted: name tags hang under the
+  feet (`TAG_OFFSET_Y`), so identity stays readable, and the card is gone within 5 s. Don't push stacks sideways to dodge heads: a sideways stack loses the speaker.
 
 **Emote wheel.** Geometry in `meta.omega.wheel` (art px): slot `k` (0–5, `order`: heart, laugh, question, exclaim, clap, wave = keys 1–6) has its top-left at `slots[k]`,
 every 60° clockwise from 12 o'clock on a 24 px radius; the hub at `hubOrigin`. The CSS places them already (`.ui-wheel-slot:nth-child(k)`).

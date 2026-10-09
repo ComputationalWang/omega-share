@@ -51,13 +51,13 @@
         <span class="ui-float frozen" style="position:relative;animation:none">Hi</span>
         <span class="ui-float is-self" style="position:relative;animation:none">Hi</span>
       </div>
-      <span class="lbl">bubble/float · bubble/float-self + tail-s (14×14, slices 5 5 6 5; tail 10×6)</span>
+      <span class="lbl">bubble/float · bubble/float-self + tail-s (14×14, slices 5 5 6 5; tail 12×7)</span>
       <div class="ui-room z4" style="display:flex;gap:10px;align-items:flex-start;background:#6d5584;padding:4px 4px 10px">
         <span class="ui-float tail-sw" style="position:relative;animation:none;--tail-x:3px">left</span>
         <span class="ui-float tail-se" style="position:relative;animation:none;--tail-x:calc(100% - 3px)">right</span>
         <span class="ui-float is-stacked" style="position:relative;animation:none"><span class="say"><b class="who">Bo</b>up</span></span>
       </div>
-      <span class="lbl">tail-sw · tail-se (12×6, lean 2:1 to a speaker past the edge) · stacked (no tail, names the speaker)</span>
+      <span class="lbl">tail-sw · tail-se (12×7, lean 2:1 to a speaker past the edge) · stacked (no tail, names the speaker)</span>
     </div>
     <div class="col">
       <div style="display:flex;gap:14px;align-items:flex-end;background:var(--ui-panel);padding:6px;--ui-px:1px" class="z4">
@@ -95,9 +95,9 @@
         <tr><th>who</th><th>age</th><th>said</th></tr>
         <tbody id="legend1"></tbody>
       </table>
-      <p class="cap-p">White dots: each speaker's bubble anchor (floor y − tagLiftByAvatar, the spot 2 px over the head). Newest first, every bubble takes its
+      <p class="cap-p">White dots (mock-up annotation only, not product; they show through cards because they're drawn on top): each speaker's bubble anchor (floor y − tagLiftByAvatar, the spot 2 px over the head). Newest first, every bubble takes its
       anchor; if its whole path (the box plus the 24 px it will still rise) would touch a newer one, it moves straight up above it, 3 px clear, and loses its tail
-      (it can't point at the speaker any more), so it names the speaker in bold instead. Remy spoke twice: the older line sits on top of the newer, Ana's (older still) above both.
+      (it can't point at the speaker any more), so it names the speaker in bold instead. Remy spoke twice: the older line sits on top of the newer, Ana's (older still) above both. Known limit: a stacked card can cover the heads of people seated behind (Remy's older card here); their name tags hang under their feet, so who is who stays readable, and the card is gone in 5 s.
       Kit (you) got pushed up by Sol's newer line just below. Your own bubble wears the mustard "you" rim, like your name tag.</p>
     </div>
   </div>
@@ -200,7 +200,7 @@
         <form class="ui-composer" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-wheel"></span></button><div class="field"><input class="ui-input is-focus" value="the green flash!!" aria-label="Message"></div><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
       </div>
     </div>
-    <p class="cap-p" style="max-width:820px">Wide layout (≥ 1024 px, landscape): the column is set (k)'s strip standing beside the room, its wood spine on the stage side, full viewport height. The TV keeps ADR 0012's 560×315 max with the shelf under it;
+    <p class="cap-p" style="max-width:820px">The empty space at the top of the column is the idle state: the log is pinned to the foot (newest by the composer) and fills upward as people talk. Wide layout (≥ 1024 px, landscape): the column is set (k)'s strip standing beside the room, its wood spine on the stage side, full viewport height. The TV keeps ADR 0012's 560×315 max with the shelf under it;
     the stage below is a <b>1× window</b> onto the 960×600 stage panned to the seats (the phone layout's <code>panTo</code>), rather than the whole stage scaled to 0.56, so avatars, tags and bubbles stay crisp at native size. At ≥ 1080 px tall the whole stage fits and the window is the full stage.
     "Press <b>Enter</b> to chat" shows on the empty, unfocused field only (the keycap is drawn, the words are text); it hides on focus, on any text, and on touch screens. The field's label carries the same words for screen readers (<code>aria-keyshortcuts="Enter"</code>).
     Focus order (white badges): 1 pause · 2 seek · 3 the room (seats) · 4 pop out · 5 the log · 6 emotes · 7 message · 8 send.</p>
