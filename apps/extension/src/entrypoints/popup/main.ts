@@ -42,7 +42,7 @@ async function scan(): Promise<ScanOutcome> {
   if (tabId === undefined) return { kind: "unreadable" };
   // Our own site is never a generic embed. The storage read started at popup load, so this is ~free.
   const ownHosts = ownHostsOf(await serverBaseUrl);
-  return scanTab(() => browser.scripting.executeScript({ target: { tabId }, func: collectCandidateUrls }), ownHosts);
+  return scanTab(() => browser.scripting.executeScript({ target: { tabId }, func: collectCandidateUrls, injectImmediately: true }), ownHosts);
 }
 
 function render(outcome: ScanOutcome): void {

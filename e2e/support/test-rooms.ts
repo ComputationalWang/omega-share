@@ -19,6 +19,7 @@ export const SPEC_ROOMS = {
   polish: ["every", "late", "drop"],
   "provider-queue": ["main", "ended", "generic", "yt", "twvod", "vimeo", "mixed"],
   "queue-perf": ["frames", "spread"],
+  "ext-firefox": ["share"],
   "chat-log": ["lines", "keys", "reduced"],
   "chat-perf": ["frames"],
   "phone-layout": ["stack", "touch", "narrow", "drag", "keys", "afterdrag"],

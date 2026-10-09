@@ -40,6 +40,8 @@ function fake(tabs: Record<number, FakeTab>, opts: { failing?: readonly number[]
 describe("roomTabPatterns", () => {
   test("a tunnel origin: its room pages only", () => {
     expect(roomTabPatterns("https://abc123.ngrok-free.app")).toEqual(["https://abc123.ngrok-free.app/r/*"]);
+    // Firefox never matches a pattern with a port (QA OME-687); a port-less one matches the room tab on any port.
+    expect(roomTabPatterns("https://qa682.test:8968")).toEqual(["https://qa682.test/r/*"]);
   });
   test("a loopback server: room pages on any local port (the dev site runs beside the server)", () => {
     expect(roomTabPatterns("http://localhost:8787")).toEqual(["http://localhost/r/*", "http://127.0.0.1/r/*", "http://[::1]/r/*"]);

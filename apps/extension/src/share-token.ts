@@ -41,7 +41,9 @@ export function readRecordInPage(key: string, max: number, storage: Pick<Storage
  */
 export function roomTabPatterns(origin: string): string[] {
   if (isLoopbackOrigin(origin)) return ["http://localhost/r/*", "http://127.0.0.1/r/*", "http://[::1]/r/*"];
-  return [`${origin}/r/*`];
+  // Port-less, like hostPermissionPattern: Firefox never matches a pattern with a port (QA OME-687).
+  const { protocol, hostname } = new URL(origin);
+  return [`${protocol}//${hostname}/r/*`];
 }
 
 /**

@@ -99,6 +99,26 @@ describe("saveServerBaseUrl", () => {
     expect(calls.removed).toEqual([]);
   });
 
+  test("a server with a port asks for its host on any port, which Firefox can match (QA OME-687)", async () => {
+    const { deps: d, calls } = deps({}, "https://old.example.com");
+    await saveServerBaseUrl("https://qa682.test:8968", d);
+    expect(calls.requested).toEqual(["https://qa682.test/*"]);
+    expect(calls.removed).toEqual(["https://old.example.com/*"]);
+  });
+
+  test("moving to another port on the same host keeps the shared grant", async () => {
+    const { deps: d, calls } = deps({}, "https://qa682.test:8968");
+    const r = await saveServerBaseUrl("https://qa682.test:9443", d);
+    expect(r.ok).toBe(true);
+    expect(calls.removed).toEqual([]);
+  });
+
+  test("leaving a local server on another port never revokes the default's localhost grant", async () => {
+    const { deps: d, calls } = deps({}, "http://localhost:8858");
+    await saveServerBaseUrl(NGROK, d);
+    expect(calls.removed).toEqual([]);
+  });
+
   test("the permission is requested synchronously, inside the user gesture", () => {
     const { deps: d, calls } = deps();
     void saveServerBaseUrl(NGROK, d);
@@ -108,7 +128,7 @@ describe("saveServerBaseUrl", () => {
 
 /** A fake `chrome.permissions` + `storage.local` pair: the manifest's default origin is always granted. */
 class FakeBrowser {
-  readonly granted = new Set<string>(["http://localhost:8787/*"]);
+  readonly granted = new Set<string>(["http://localhost/*"]);
   readonly stored = new Map<string, unknown>();
   answer = true;
   readonly permissions = {
@@ -137,7 +157,7 @@ describe("options page flow against a fake chrome.permissions", () => {
     for (const next of [NGROK, "https://omega.trycloudflare.com", "https://omega.example.com"]) {
       const r = await saveServerBaseUrl(next, d);
       expect(r.ok).toBe(true);
-      expect([...b.granted].sort()).toEqual(["http://localhost:8787/*", `${next}/*`].sort());
+      expect([...b.granted].sort()).toEqual(["http://localhost/*", `${next}/*`].sort());
       expect(b.stored.get("serverBaseUrl")).toBe(next);
     }
   });
@@ -147,7 +167,7 @@ describe("options page flow against a fake chrome.permissions", () => {
     const d = browserSaveDeps(b.permissions, b.storage);
     await saveServerBaseUrl(NGROK, d);
     await saveServerBaseUrl("http://localhost:8787", d);
-    expect([...b.granted]).toEqual(["http://localhost:8787/*"]);
+    expect([...b.granted]).toEqual(["http://localhost/*"]);
     expect(b.stored.get("serverBaseUrl")).toBe("http://localhost:8787");
   });
 
@@ -166,7 +186,7 @@ describe("options page flow against a fake chrome.permissions", () => {
     b.answer = false;
     const r = await saveServerBaseUrl("https://omega.example.com", d);
     expect(r.ok).toBe(false);
-    expect([...b.granted].sort()).toEqual(["http://localhost:8787/*", `${NGROK}/*`].sort());
+    expect([...b.granted].sort()).toEqual(["http://localhost/*", `${NGROK}/*`].sort());
     expect(b.stored.get("serverBaseUrl")).toBe(NGROK);
   });
 
@@ -179,7 +199,7 @@ describe("options page flow against a fake chrome.permissions", () => {
     await saveServerBaseUrl(X, d); // both tabs open showing X
     await saveServerBaseUrl(Y, d); // tab A: X → Y
     await saveServerBaseUrl(Z, d); // tab B, still showing X
-    expect([...b.granted].sort()).toEqual(["http://localhost:8787/*", `${Z}/*`].sort());
+    expect([...b.granted].sort()).toEqual(["http://localhost/*", `${Z}/*`].sort());
     expect(b.stored.get("serverBaseUrl")).toBe(Z);
   });
 

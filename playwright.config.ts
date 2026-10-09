@@ -42,6 +42,9 @@ export default defineConfig({
     // Opt-in real sign-off checks: YouTube (OME-91, docs/qa/m1b-real-youtube.md), Twitch/Vimeo/tunnel (OME-133, docs/qa/m2-real-sign-off.md).
     // Real network, headed, never in CI. `bun run e2e:real` runs it on a virtual display via e2e/support/headed.ts (OME-210, docs/qa/headed-on-xvfb.md).
     { name: "e2e-real", testDir: "e2e/real", testMatch: "**/*.real.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium", headless: false, launchOptions: { args: [AUTOPLAY_DEFAULT] } } },
+    // Firefox lane (OME-593): Playwright can't load Firefox extensions, so these specs launch Firefox themselves
+    // through Puppeteer over BiDi (e2e/support/firefox.ts) and use only the web servers above. `bun run ext:firefox`.
+    { name: "ext-firefox", testDir: "e2e", testMatch: "**/*.firefox.ts", workers: 1 },
     // Tracing off: the trace screencast of every context is software-composited on the shared viz thread and drops vsyncs (ADR 0017).
     { name: "perf", testDir: "perf", testMatch: "**/*.perf.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium", trace: "off" } },
   ],

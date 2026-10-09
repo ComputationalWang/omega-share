@@ -95,6 +95,10 @@ export const BUDGETS: readonly Budget[] = [
   { id: "ext.popupToList", area: "Extension", metric: "Popup opened → embeds listed", docMetric: "Popup opened → embeds listed", unit: "ms", limit: 300, comparator: "<=" },
   { id: "ext.contentScripts", area: "Extension", metric: "Declared content scripts", docMetric: "Content scripts on page load", unit: "count", limit: 0, comparator: "<=" },
   { id: "ext.persistentBackground", area: "Extension", metric: "Persistent background violations", docMetric: "Persistent background", unit: "count", limit: 0, comparator: "<=" },
+  // Firefox build (OME-593): the same budgets, measured in headless Firefox through Puppeteer/BiDi.
+  { id: "ext.firefox.popupToList", area: "Extension", metric: "Popup opened → embeds listed, Firefox", docMetric: "Popup opened → embeds listed, Firefox", unit: "ms", limit: 300, comparator: "<=" },
+  { id: "ext.firefox.contentScripts", area: "Extension", metric: "Declared content scripts, Firefox", docMetric: "Content scripts on page load, Firefox", unit: "count", limit: 0, comparator: "<=" },
+  { id: "ext.firefox.persistentBackground", area: "Extension", metric: "Persistent background violations, Firefox", docMetric: "Persistent background, Firefox", unit: "count", limit: 0, comparator: "<=" },
   { id: "load.relayLatency", area: "Load test", metric: "Relay latency p95, 25 in room + traffic", docMetric: LOAD_DOC, unit: "ms", limit: 50, comparator: "<=", load: { of: "server.relayLatency", members: 25 } },
   { id: "load.frameP95", area: "Load test", metric: "p95 frame time, 25 in room + traffic", docMetric: LOAD_DOC, unit: "ms", limit: 16.7, comparator: "<=", load: { of: "site.frameP95", members: 25 } },
 ];

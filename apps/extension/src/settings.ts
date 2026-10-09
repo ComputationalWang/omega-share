@@ -90,7 +90,13 @@ export const SERVER_REQUEST_HEADERS: Readonly<Record<string, string>> = { "ngrok
  */
 export const SERVER_REQUEST_INIT = { credentials: "include", redirect: "manual" } as const satisfies RequestInit;
 
-/** Host permission match pattern for exactly this origin. */
+/**
+ * The host permission for a server origin: its scheme and host, **without the port**. Firefox never matches a pattern
+ * that has a port (permissions.contains, tabs.query and executeScript all fail, QA OME-687), while a port-less pattern
+ * matches every port there and in Chrome. So a grant covers that host on any port, and it is in the manifest's
+ * `optional_host_permissions` (`https://*\/*`, `http://localhost/*`, …), so Firefox lets Options request it.
+ */
 export function hostPermissionPattern(origin: string): string {
-  return `${origin}/*`;
+  const { protocol, hostname } = new URL(origin);
+  return `${protocol}//${hostname}/*`;
 }

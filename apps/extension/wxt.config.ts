@@ -6,6 +6,17 @@ import { defaultServerBaseUrl, hostPermissionPattern } from "./src/settings";
 const ICON_SIZES = ["16", "32", "48", "128"] as const;
 const icons = Object.fromEntries(ICON_SIZES.map((size) => [size, `icon/${size}.png`]));
 
+/**
+ * Firefox only (OME-593, decisions on OME-546). The add-on ID is permanent on AMO: never change it.
+ * 140 is the first Firefox that reads `data_collection_permissions`. Share sends the chosen embed URL, which can be
+ * the page URL itself, so both categories are declared. Desktop only: no `gecko_android`.
+ */
+const GECKO = {
+  id: "omega-share@omega-share.duckdns.org",
+  strict_min_version: "140.0",
+  data_collection_permissions: { required: ["websiteContent", "browsingActivity"] },
+} as const;
+
 // Permissions (ADR 0005): activeTab + scripting inject the one-shot scan when the popup opens,
 // storage keeps the server URL, and the only host permission is the default server origin:
 // the hosted https server in the production (store) build, the local server in dev and e2e.
@@ -19,17 +30,25 @@ export default defineConfig({
         files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/store/icon-${size}.png`, import.meta.url)), relativeDest: `icon/${size}.png` });
       }
     },
+    // Firefox would embed the options page in about:addons, where the permissions.request gesture is untested: use a tab.
+    "build:manifestGenerated": (wxt, manifest) => {
+      if (wxt.config.browser === "firefox" && manifest.options_ui !== undefined) manifest.options_ui.open_in_tab = true;
+    },
   },
-  manifest: ({ mode }) => ({
+  manifest: ({ mode, browser }) => ({
+    ...(browser === "firefox" ? { browser_specific_settings: { gecko: GECKO } } : {}),
     name: "omega share",
     description: "Share the video on this page into an omega-share room.",
     icons,
     action: { default_icon: icons },
     permissions: ["activeTab", "scripting", "storage"],
     host_permissions: [
-      hostPermissionPattern(defaultServerBaseUrl(mode)),
-      // e2e/perf only: Playwright opens the popup as a tab and can't grant activeTab.
-      ...(mode === "e2e" ? ["http://localhost/*", "https://www.youtube.com/*"] : []),
+      ...new Set([
+        hostPermissionPattern(defaultServerBaseUrl(mode)),
+        // e2e/perf only: Playwright opens the popup as a tab and can't grant activeTab. Port-less patterns cover every
+        // port (the default server's http://localhost/* included), so e2e runs on any OMEGA_SERVER_PORT (QA OME-611, OME-687).
+        ...(mode === "e2e" ? ["http://localhost/*", "https://www.youtube.com/*"] : []),
+      ]),
     ],
     // What parseServerBaseUrl accepts: https anywhere, cleartext only on this computer (any port).
     optional_host_permissions: ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"],

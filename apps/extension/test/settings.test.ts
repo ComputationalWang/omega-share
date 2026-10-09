@@ -84,9 +84,14 @@ describe("stored setting", () => {
   test("uses a valid stored origin", () => {
     expect(readServerBaseUrl("https://abc123.ngrok-free.app")).toBe("https://abc123.ngrok-free.app");
   });
-  test("host permission pattern covers exactly that origin", () => {
-    expect(hostPermissionPattern("http://localhost:8787")).toBe("http://localhost:8787/*");
+  // QA OME-687 (Firefox 157): a match pattern with a port never matches in Firefox (permissions.contains, tabs.query,
+  // executeScript all fail), while a port-less one matches every port, as it does in Chrome. So the grant is the host.
+  test("host permission pattern covers that origin's scheme and host, on any port", () => {
     expect(hostPermissionPattern("https://abc123.ngrok-free.app")).toBe("https://abc123.ngrok-free.app/*");
+    expect(hostPermissionPattern("http://localhost:8787")).toBe("http://localhost/*");
+    expect(hostPermissionPattern("https://qa682.test:8968")).toBe("https://qa682.test/*");
+    expect(hostPermissionPattern("http://[::1]:8858")).toBe("http://[::1]/*");
+    expect(hostPermissionPattern("http://127.0.0.1:3000")).toBe("http://127.0.0.1/*");
   });
 });
 

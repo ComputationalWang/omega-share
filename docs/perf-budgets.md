@@ -1,6 +1,6 @@
 # Performance budgets (merge-blocking)
 
-QA measures these on every merge (Playwright + Chromium). A regression past a budget blocks the merge, and the fix gets top priority.
+QA measures these on every merge (Playwright + Chromium; the Firefox rows in headless Firefox through Puppeteer/BiDi). A regression past a budget blocks the merge, and the fix gets top priority.
 
 | Area | Metric | Budget |
 |---|---|---|
@@ -33,4 +33,7 @@ QA measures these on every merge (Playwright + Chromium). A regression past a bu
 | Extension | Popup opened → embeds listed | ≤ 300 ms |
 | Extension | Content scripts on page load | none (inject on popup open only) |
 | Extension | Persistent background | none (event-driven service worker only) |
+| Extension | Popup opened → embeds listed, Firefox | ≤ 300 ms p95, headless Firefox through Puppeteer/BiDi (`bun run ext:firefox`, OME-593) |
+| Extension | Content scripts on page load, Firefox | none (inject on popup open only) |
+| Extension | Persistent background, Firefox | none (non-persistent event page: Firefox MV3 has no service worker — ADR 0005) |
 | Load test | People in a room without breaking the budgets above | 25 |
