@@ -1,6 +1,8 @@
 import type { ServerWebSocket, WebSocketHandler } from "bun";
 import {
   CLOSE_CODES,
+  EMOTE_BURST,
+  EMOTE_REFILL_MS,
   MAX_CLIENT_MESSAGE_BYTES,
   ROOM_EDIT_BURST,
   ROOM_EDIT_REFILL_MS,
@@ -38,6 +40,8 @@ export interface ConnData {
   controlBucket: TokenBucket;
   /** Owner edits, `layout-set` and `title-set` together (ADR 0028 §6). */
   editBucket: TokenBucket;
+  /** `emote`, per member (one socket each), so leave and rejoin doesn't refill it. */
+  emoteBucket: TokenBucket;
   /** Frames dropped in a row by any limiter. The first of a streak gets the one `rate_limited` notice. */
   dropped: number;
   /** `bad_message`s over the socket's life. */
@@ -260,11 +264,12 @@ export function createWs({
       case "title-set":
         // Non-owners get not_owner (or not_joined) in `handle`; only the owner's edits take from the bucket.
         return !ws.data.owner || admit(ws, ws.data.editBucket, "too many room edits, slow down");
+      case "emote":
+        // Unjoined sockets get not_joined in `handle`.
+        return ws.data.memberId === null || admit(ws, ws.data.emoteBucket, "too many emotes, slow down");
       case "leave":
       case "ping":
       case "status":
-      // Ignored by `handle` until S6 adds the per-member emote bucket and the `emoted` fan-out (OME-413).
-      case "emote":
         return true;
     }
   };
@@ -370,7 +375,8 @@ export function createWs({
         else setTitle(ws, room, memberId, msg.title);
         return;
       case "emote":
-        // S6 fans this out as `emoted` (OME-413).
+        // Fire-and-forget: never stored, never in a snapshot.
+        publish(room.topic, encode({ type: "emoted", memberId, kind: msg.kind }));
         return;
     }
   };
@@ -440,6 +446,7 @@ export function createWs({
       sitBucket: new TokenBucket(SIT_BURST, SIT_PER_SECOND, now),
       controlBucket: new TokenBucket(CONTROL_BURST, CONTROL_PER_SECOND, now),
       editBucket: new TokenBucket(ROOM_EDIT_BURST, 1000 / ROOM_EDIT_REFILL_MS, now),
+      emoteBucket: new TokenBucket(EMOTE_BURST, 1000 / EMOTE_REFILL_MS, now),
       dropped: 0,
       badMessages: 0,
       joinTimer: null,

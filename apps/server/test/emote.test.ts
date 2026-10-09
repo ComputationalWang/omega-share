@@ -94,7 +94,10 @@ describe("emote limits", () => {
     const a = await join("alice");
     const b = await join("bob");
     for (let i = 0; i < EMOTE_BURST; i++) a.client.send({ type: "emote", kind: "clap" });
-    for (let i = 0; i < EMOTE_BURST; i++) await b.client.next("emoted");
+    for (let i = 0; i < EMOTE_BURST; i++) {
+      await a.client.next("emoted");
+      await b.client.next("emoted");
+    }
     b.client.send({ type: "emote", kind: "heart" });
     expect(await a.client.next("emoted")).toEqual({ type: "emoted", memberId: b.snapshot.self, kind: "heart" });
   });
@@ -116,7 +119,7 @@ describe("emote limits", () => {
       listRooms: () => real.listRooms(),
       createRoom: (...args) => {
         calls.push("createRoom");
-        return real.createRoom(...args);
+        real.createRoom(...args);
       },
       deleteRoom: (...args) => {
         calls.push("deleteRoom");
@@ -124,19 +127,19 @@ describe("emote limits", () => {
       },
       setEmbed: (...args) => {
         calls.push("setEmbed");
-        return real.setEmbed(...args);
+        real.setEmbed(...args);
       },
       setLayout: (...args) => {
         calls.push("setLayout");
-        return real.setLayout(...args);
+        real.setLayout(...args);
       },
       setTitle: (...args) => {
         calls.push("setTitle");
-        return real.setTitle(...args);
+        real.setTitle(...args);
       },
       setLastActive: (...args) => {
         calls.push("setLastActive");
-        return real.setLastActive(...args);
+        real.setLastActive(...args);
       },
     };
     t = start({ store });

@@ -16,15 +16,17 @@
  *
  * With `flood`, one of the `clients` sockets is an attacker instead of a probe: it sends chat at 10× the
  * per-socket limit (100/s) for the whole run and rejoins whenever the server closes it (threat model §8).
- * Every other member also chats at the server's sustained chat rate (legitimate traffic at its limit).
+ * Every other member also chats at the server's sustained chat rate and emotes at the sustained emote rate
+ * (legitimate traffic at its limits).
  * Samples are then spread 20 ms apart, so they span the attacker's closes and rejoins. The result counts
- * the attacker's `rate_limited` notices and close codes, and any `rate_limited` a member got (should be 0).
+ * the attacker's `rate_limited` notices and close codes, the members' emotes that came back as `emoted`, and any
+ * `rate_limited` a member got (should be 0).
  *
  * CLI: `bun run --filter @omega/server bench:relay -- --url ws://127.0.0.1:8787/rooms/lobby/ws [--action control] [--flood]`
  * prints the result as JSON and exits 1 when p95 exceeds `--budget` (default 50).
  */
 import { parseArgs } from "node:util";
-import { parseServerMessage, type AnyEmbed, type PlaybackState, type SeatIndex, type ServerMessage } from "@omega/shared";
+import { EMOTE_KINDS, EMOTE_REFILL_MS, parseServerMessage, type AnyEmbed, type PlaybackState, type SeatIndex, type ServerMessage } from "@omega/shared";
 import { expectedPosition } from "./playback";
 import { TokenBucket } from "./rate-limit";
 import { CHAT_PER_SECOND, CONTROL_BURST, ROOM_CONTROL_BURST, ROOM_CONTROL_PER_SECOND } from "./ws";
@@ -50,8 +52,11 @@ export interface RelayLatencyResult {
   p50: number;
   p95: number;
   max: number;
-  /** Flood only: the members' background chat, and `rate_limited` notices any member received. */
-  members?: { chats: number; rateLimited: number };
+  /**
+   * Flood only: the members' background chat and emotes sent, their emotes that came back as `emoted`,
+   * and `rate_limited` notices any member received.
+   */
+  members?: { chats: number; emotes: number; emoted: number; rateLimited: number };
   /** Flood only: frames the attacker sent, its `rate_limited` notices, and its close codes (count per code). */
   attacker?: { sent: number; rateLimited: number; closes: Record<string, number> };
 }
@@ -71,6 +76,8 @@ interface Probe {
   onMessage: ((msg: ServerMessage) => void) | null;
   /** `rate_limited` notices this socket received. */
   rateLimited: number;
+  /** This member's own emotes relayed back to it. */
+  emoted: number;
 }
 
 /** The attacker's pace: 10× the server's per-socket limit of 10/s. */
@@ -105,7 +112,7 @@ function connect(url: string, index: number, origin: string | undefined, sockets
   return new Promise((resolve, reject) => {
     const socket = origin === undefined ? new WebSocket(url) : new WebSocket(url, { headers: { Origin: origin } });
     sockets.push(socket);
-    const probe: Probe = { socket, self: "", firstFreeSeat: null, embed: null, playback: null, onMessage: null, rateLimited: 0 };
+    const probe: Probe = { socket, self: "", firstFreeSeat: null, embed: null, playback: null, onMessage: null, rateLimited: 0, emoted: 0 };
     socket.addEventListener("open", () => {
       socket.send(JSON.stringify({ type: "join", nickname: `probe-${String(index)}`, avatar: index % 4 }));
     });
@@ -113,6 +120,7 @@ function connect(url: string, index: number, origin: string | undefined, sockets
       const msg = typeof e.data === "string" ? parseServerMessage(e.data) : null;
       if (msg === null) return;
       if (msg.type === "error" && msg.code === "rate_limited") probe.rateLimited++;
+      if (msg.type === "emoted" && msg.memberId === probe.self) probe.emoted++;
       if (msg.type === "snapshot" && probe.self === "") {
         probe.self = msg.self;
         const free = msg.room.seats.indexOf(null);
@@ -184,6 +192,7 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
   const attacker: AttackerStats = { sent: 0, rateLimited: 0, closes: {} };
   const chatTimers: Timer[] = [];
   let memberChats = 0;
+  let memberEmotes = 0;
   try {
     // The attacker joins first, so the probes' room is already under flood.
     if (flood) stopFlood = startFlooder(opts.url, opts.origin, sockets, attacker);
@@ -204,15 +213,21 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
       }
     }
     if (flood) {
-      // Every member chats at the sustained chat rate, staggered, for the rest of the run.
-      const everyMs = 1000 / CHAT_PER_SECOND;
+      // Every member chats and emotes at the sustained rates, staggered, for the rest of the run.
+      const every = (ms: number, i: number, tick: () => void): void => {
+        chatTimers.push(setTimeout(() => chatTimers.push(setInterval(tick, ms)), (ms * i) / probes.length));
+      };
       probes.forEach((p, i) => {
-        const tick = (): void => {
+        every(1000 / CHAT_PER_SECOND, i, () => {
           if (p.socket.readyState !== WebSocket.OPEN) return;
           p.socket.send(JSON.stringify({ type: "chat", text: "member chat" }));
           memberChats++;
-        };
-        chatTimers.push(setTimeout(() => chatTimers.push(setInterval(tick, everyMs)), (everyMs * i) / probes.length));
+        });
+        every(EMOTE_REFILL_MS, i, () => {
+          if (p.socket.readyState !== WebSocket.OPEN) return;
+          p.socket.send(JSON.stringify({ type: "emote", kind: EMOTE_KINDS[memberEmotes % EMOTE_KINDS.length] }));
+          memberEmotes++;
+        });
       });
     }
     let actor = last;
@@ -288,7 +303,12 @@ export async function measureRelayLatency(opts: RelayLatencyOptions): Promise<Re
       max: times[times.length - 1] ?? 0,
       ...(flood
         ? {
-            members: { chats: memberChats, rateLimited: probes.reduce((n, p) => n + p.rateLimited, 0) },
+            members: {
+              chats: memberChats,
+              emotes: memberEmotes,
+              emoted: probes.reduce((n, p) => n + p.emoted, 0),
+              rateLimited: probes.reduce((n, p) => n + p.rateLimited, 0),
+            },
             attacker: { ...attacker, closes: { ...attacker.closes } },
           }
         : {}),
