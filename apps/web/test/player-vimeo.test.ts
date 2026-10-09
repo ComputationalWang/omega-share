@@ -347,3 +347,78 @@ describe("createVimeoMount", () => {
     if (r.ok) r.player.destroy();
   });
 });
+
+const VIMEO_QUALITIES = [
+  { label: "Auto", id: "auto", active: true },
+  { label: "1080p", id: "1080p", active: false },
+  { label: "720p", id: "720p", active: false },
+];
+
+describe("attachVimeo quality (per viewer, OME-599)", () => {
+  test("after ready, a non-empty getQualities() becomes the options; the active one is current; a quality event says so", async () => {
+    const { adapter, p, events, ready } = setup();
+    p.qualities = VIMEO_QUALITIES;
+    expect(adapter.quality?.options()).toEqual([]);
+    await ready();
+    await flush();
+    expect(adapter.quality?.options()).toEqual([
+      { id: "auto", label: "Auto" },
+      { id: "1080p", label: "1080p" },
+      { id: "720p", label: "720p" },
+    ]);
+    expect(adapter.quality?.current()).toBe("auto");
+    expect(events).toContainEqual({ type: "quality" });
+  });
+
+  test("an empty or garbled list (free-plan owner, an old SDK) → no options and no quality event", async () => {
+    for (const q of [[], "auto", null, [{ id: 3 }, { label: "x" }]]) {
+      const { adapter, p, events, ready } = setup();
+      p.qualities = q;
+      await ready();
+      await flush();
+      expect(adapter.quality?.options()).toEqual([]);
+      expect(events.filter((e) => e.type === "quality")).toEqual([]);
+    }
+  });
+
+  test("set() calls setQuality with a listed id; current follows the qualitychange event", async () => {
+    const { adapter, p, events, ready } = setup();
+    p.qualities = VIMEO_QUALITIES;
+    await ready();
+    await flush();
+    clear(p);
+    adapter.quality?.set("720p");
+    adapter.quality?.set("8k");
+    expect(p.calls).toEqual([["setQuality", "720p"]]);
+    await flush();
+    p.fire("qualitychange", { quality: "720p" });
+    expect(adapter.quality?.current()).toBe("720p");
+    expect(events.at(-1)).toEqual({ type: "quality" });
+  });
+
+  test("a rejected setQuality (any error type) means unsupported: the options go away for good", async () => {
+    const { adapter, p, events, ready } = setup();
+    p.qualities = VIMEO_QUALITIES;
+    p.qualityRejects = true;
+    await ready();
+    await flush();
+    const before = events.filter((e) => e.type === "quality").length;
+    adapter.quality?.set("720p");
+    await flush();
+    expect(adapter.quality?.options()).toEqual([]);
+    expect(events.filter((e) => e.type === "quality")).toHaveLength(before + 1);
+    adapter.quality?.set("720p");
+    expect(p.calls.filter(([n]) => n === "setQuality")).toHaveLength(1);
+  });
+
+  test("never by remounting: set() keeps the one SDK player on our iframe", async () => {
+    const { adapter, p, players, ready } = setup();
+    p.qualities = VIMEO_QUALITIES;
+    await ready();
+    await flush();
+    adapter.quality?.set("1080p");
+    await flush();
+    expect(players).toHaveLength(1);
+    expect(p.calls.filter(([n]) => n === "destroy")).toEqual([]);
+  });
+});

@@ -6,6 +6,7 @@ import {
   ECHO_WINDOW_MS,
   LIVE_RESUME_MS,
   PUSH_LAG_MS,
+  QUALITY_ECHO_MS,
   READY_TIMEOUT_MS,
   SEEK_ECHO_MS,
   attachTwitch,
@@ -625,5 +626,167 @@ describe("createTwitchMount", () => {
     if (yt === null) throw new Error("frame");
     expect(await mount({ ...ctx(LIVE, box), frame: yt })).toEqual({ ok: false, reason: "invalid" });
     expect(loads).toBe(0);
+  });
+});
+
+/** What the served v1.js caches from the iframe: objects whose `group` is what `setQuality()` takes. */
+const TWITCH_QUALITIES = [
+  { name: "Auto", group: "auto" },
+  { name: "1080p60 (source)", group: "chunked", isDefault: true },
+  { name: "720p60", group: "720p60" },
+  { name: "480p", group: "480p30" },
+];
+
+describe("attachTwitch quality (per viewer, OME-599)", () => {
+  test("options are the SDK's list as { id: group, label: name }; current is getQuality()", () => {
+    const { adapter, p, ready } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    p.quality = "chunked";
+    ready();
+    expect(adapter.quality?.options()).toEqual([
+      { id: "auto", label: "Auto" },
+      { id: "chunked", label: "1080p60 (source)" },
+      { id: "720p60", label: "720p60" },
+      { id: "480p30", label: "480p" },
+    ]);
+    expect(adapter.quality?.current()).toBe("chunked");
+  });
+
+  test("the list is guarded: plain strings are taken as both id and label; garbage and duplicates are dropped", () => {
+    const { adapter, p, ready } = setup(LIVE);
+    p.qualities = ["160p30", { group: "360p30" }, { name: "no group" }, 42, null, { group: "" }, { group: "360p30", name: "again" }, { group: "x".repeat(200) }];
+    ready();
+    expect(adapter.quality?.options()).toEqual([
+      { id: "160p30", label: "160p30" },
+      { id: "360p30", label: "360p30" },
+    ]);
+  });
+
+  test("not ready, or a list that isn't an array → no options (no picker)", () => {
+    const { adapter, p, ready } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    expect(adapter.quality?.options()).toEqual([]);
+    p.qualities = "chunked";
+    ready();
+    expect(adapter.quality?.options()).toEqual([]);
+  });
+
+  test("the list is re-read when the player starts playing (Twitch fills it after ready), with a quality event when it changed", () => {
+    const { adapter, p, events, ready, push } = setup();
+    ready();
+    expect(adapter.quality?.options()).toEqual([]);
+    p.qualities = TWITCH_QUALITIES;
+    push({ playback: "Playing", time: 1 });
+    p.fire("playing");
+    expect(adapter.quality?.options()).toHaveLength(4);
+    expect(events.filter((e) => e.type === "quality")).toHaveLength(1);
+    p.fire("playing");
+    expect(events.filter((e) => e.type === "quality")).toHaveLength(1);
+  });
+
+  test("set() calls setQuality with a listed id and emits a quality event; an unlisted id sends nothing", () => {
+    const { adapter, p, events, ready } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    clear(p);
+    adapter.quality?.set("720p60");
+    expect(p.calls).toEqual([["setQuality", "720p60"]]);
+    expect(adapter.quality?.current()).toBe("720p60");
+    expect(events.at(-1)).toEqual({ type: "quality" });
+    adapter.quality?.set("4k");
+    expect(p.calls).toEqual([["setQuality", "720p60"]]);
+  });
+
+  test("never by remounting: set() keeps the one player and its iframe", () => {
+    const { adapter, p, box, ready } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    const frame = box.children[0];
+    adapter.quality?.set("480p30");
+    expect(box.children).toHaveLength(1);
+    expect(box.children[0]).toBe(frame);
+    expect(p.calls.filter(([n]) => n === "destroy")).toEqual([]);
+  });
+
+  test("a quality switch is never a room action: its pause/play and seek inside the echo window send no intent", () => {
+    const { t, adapter, p, events, ready, push } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    adapter.play();
+    push({ playback: "Playing", time: 20 });
+    p.fire("playing");
+    t.now += 10_000;
+    adapter.quality?.set("480p30");
+    t.now += 300;
+    push({ playback: "Idle", time: 30.3 });
+    p.fire("pause");
+    t.now += QUALITY_ECHO_MS - 1000;
+    push({ playback: "Playing", time: 30.3 });
+    p.fire("seek", { position: 30.3 });
+    p.fire("playing");
+    expect(intents(events)).toEqual([]);
+    // After the window the member's own pause counts again.
+    t.now += 2000;
+    push({ playback: "Idle", time: 32 });
+    p.fire("pause");
+    expect(intents(events)).toEqual([{ type: "intent", playing: false, position: 32 }]);
+  });
+
+  test("live: a quality switch's pause/play is not an intent either", () => {
+    const { t, adapter, p, events, ready, push } = setup(LIVE);
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    adapter.play();
+    push({ playback: "Playing" });
+    p.fire("playing");
+    t.now += LIVE_RESUME_MS + 1000;
+    adapter.quality?.set("720p60");
+    push({ playback: "Idle" });
+    p.fire("pause");
+    push({ playback: "Playing" });
+    p.fire("playing");
+    expect(intents(events)).toEqual([]);
+  });
+
+  test("before ready or after destroy, set() sends nothing", () => {
+    const { adapter, p, ready } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    adapter.quality?.set("720p60");
+    ready();
+    adapter.destroy();
+    adapter.quality?.set("720p60");
+    expect(p.calls.filter(([n]) => n === "setQuality")).toEqual([]);
+  });
+});
+
+describe("attachTwitch quality: the SDK's stale cache (OME-599 review)", () => {
+  test("a playing event inside the echo window doesn't revert the pick to the cache's old quality; the cache wins after it", () => {
+    const { t, adapter, p, events, ready, push } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    adapter.quality?.set("720p60");
+    // The iframe hasn't pushed the new quality yet.
+    p.quality = "auto";
+    t.now += 1000;
+    push({ playback: "Playing", time: 5 });
+    p.fire("playing");
+    expect(adapter.quality?.current()).toBe("720p60");
+    const n = events.filter((e) => e.type === "quality").length;
+    // After the window the player's own report is the truth, whatever it says.
+    t.now += QUALITY_ECHO_MS;
+    p.fire("playing");
+    expect(adapter.quality?.current()).toBe("auto");
+    expect(events.filter((e) => e.type === "quality")).toHaveLength(n + 1);
+  });
+
+  test("inside the window a different listed quality from the player (it settled elsewhere) is taken at once", () => {
+    const { t, adapter, p, ready } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    adapter.quality?.set("720p60");
+    p.quality = "480p30";
+    t.now += 1000;
+    p.fire("playing");
+    expect(adapter.quality?.current()).toBe("480p30");
   });
 });

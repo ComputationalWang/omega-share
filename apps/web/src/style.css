@@ -309,3 +309,16 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 @container (max-width: 720px) { .ui-plate-name, .ui-hint-text, .ui-live-note { display: none; } }
 @container (max-width: 520px) { .ui-chip { font-size: 0; gap: 0; } .ui-volume > .ui-chip { display: none; } }
 .ui-touch .controls .ui-vol-track { width: 48px; }
+
+/* ---- Quality, only you (OME-599, set k `ui-m7-quality`). The key ends the shelf before full screen; the tray (the moderation
+ * menu's, mustard rim) hangs under the shelf in the page, over the room, never over the picture; in full screen it is a row in
+ * the shelf's place (the rest of the shelf steps aside while it's open). */
+.controls > .quality-key { flex: none; margin-left: 4px; }
+.quality-menu { --ui-px: 1px; }
+.stage-wrap > .quality-menu { position: absolute; z-index: 3; }
+.quality-rows { display: grid; gap: 1px; }
+.controls.is-quality-row > :not(.quality-menu) { display: none; }
+.controls > .quality-menu.is-row { flex: 1; min-width: 0; overflow-x: auto; }
+.quality-menu.is-row .quality-rows { display: flex; }
+.quality-menu.is-row > .foot { display: none; }
+.quality-menu.is-row > .ui-qx { flex: none; margin-left: auto; }

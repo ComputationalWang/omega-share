@@ -9,6 +9,8 @@ import { forgetRoom, inviteLink, joinMessage, type RoomSecret, type SecretsStore
 import { createInviteControl } from "./controls/invite";
 import { createPersonal, createTransport, el, sprite } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
+import { createQualityPicker } from "./controls/quality-picker";
+import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { chatView, kickedCard, refusalCard } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
@@ -389,11 +391,53 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       relay?.tv({ video: v.hasVideo, playing: v.playing, position: Math.max(0, Math.floor(v.position)), live: v.live, catching: v.catching });
       if (ctlFrame === 0) ctlFrame = requestAnimationFrame(renderControls);
     },
+    // This device's quality per provider (OME-599). The `localStorage` getter itself throws when storage is blocked.
+    qualityMemory: qualityMemory({
+      getItem: (k) => localStorage.getItem(k),
+      setItem: (k, v) => {
+        localStorage.setItem(k, v);
+      },
+    }),
   });
   const transport = createTransport(playback);
   const personal = createPersonal(playback);
-  // The volume pod rides in the shelf, right under the picture (OME-642): you reach for it while you watch.
-  controls.append(transport.root, personal.pod, fsKey);
+  // Quality, only you (OME-599, set k `ui-m7-quality`): a key before full screen, only where the player can be set.
+  const quality = createQualityPicker(playback, {
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    clearTimeout: (h) => {
+      clearTimeout(h);
+    },
+  });
+  /** The synced tier's shelf. The volume pod rides in it, right under the picture (OME-642): you reach for it while you watch. */
+  const syncShelf = (): void => {
+    controls.replaceChildren(transport.root, personal.pod, quality.key, fsKey);
+  };
+  syncShelf();
+  /** In the page the list hangs under the shelf, over the room (ours), its tail on the key; never over the picture. */
+  const placeQuality = (): void => {
+    if (!quality.isOpen() || quality.menu.parentElement !== wrap) return;
+    const m = quality.menu;
+    const k = quality.key;
+    const right = controls.offsetLeft + k.offsetLeft + k.offsetWidth / 2;
+    const left = Math.max(0, right - m.offsetWidth + 24);
+    m.style.left = `${String(left)}px`;
+    m.style.top = `${String(controls.offsetTop + controls.offsetHeight + 8)}px`;
+    m.style.setProperty("--ui-tail-x", `${String(right - left)}px`);
+  };
+  quality.onToggle((open) => {
+    // Full screen: the list takes the shelf's place, so nothing grows over the picture.
+    const row = fs.mode() !== "off";
+    controls.classList.toggle("is-quality-row", open && row);
+    if (!open) {
+      quality.menu.remove();
+      return;
+    }
+    if (row) controls.append(quality.menu);
+    else {
+      wrap.append(quality.menu);
+      placeQuality();
+    }
+  });
   // "Up next" (ADR 0031): the room's queue under the TV. Its rows are text; it redraws only when the queue changes.
   const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname] });
 
@@ -447,6 +491,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const wasInRoom = on && focused instanceof HTMLElement && clip.contains(focused);
     wrap.classList.toggle("is-fs", on);
     wrap.classList.toggle("is-pseudo-fs", mode === "pseudo");
+    // The quality list is a row in full screen, a tray under the shelf in the page: it closes as the layout changes.
+    quality.setRow(on);
     renderRoomPlace();
     fsKey.ariaLabel = on ? "Exit full screen" : "Full screen";
     fsIcon.className = `ui-sprite ${on ? "ui-icon-fullscreen-exit" : "ui-icon-fullscreen"}`;
@@ -545,7 +591,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // The room popped out: the wrap ends where the stage would start, and the placeholder follows it.
     wrap.style.height = `${String(roomOut() ? l.stage.y : l.height)}px`;
   };
-  new ResizeObserver(fit).observe(wrap);
+  /** Layout first, then the open quality tray follows its key. */
+  const relayout = (): void => {
+    fit();
+    placeQuality();
+  };
+  new ResizeObserver(relayout).observe(wrap);
   fit();
 
   let frame = 0;
@@ -566,6 +617,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (v === null) return;
     transport.update(v);
     personal.update(v);
+    quality.update(v);
     roomStage.applyCatching(state, v.catching);
     if (v.error !== shownPlayerError) {
       shownPlayerError = v.error;
@@ -906,7 +958,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   /** The sync controls and your volume belong to the synced tier; the generic tier's strip takes their slot. */
   const showSyncChrome = (synced: boolean): void => {
-    if (synced && controls.firstChild !== transport.root) controls.replaceChildren(transport.root, fsKey);
+    // The whole synced shelf, the volume pod too (after a generic item the strip had its slot).
+    if (synced && controls.firstChild !== transport.root) syncShelf();
     personal.root.hidden = !synced;
   };
 

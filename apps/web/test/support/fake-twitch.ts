@@ -50,6 +50,10 @@ export class FakeTwitchPlayer {
   ended: unknown = false;
   /** false = the player has no getPlayerState() (older SDK). */
   hasPlayerState = true;
+  /** `getQualities()`: the SDK's cached list, objects like `{ name: "720p60", group: "720p60" }`. */
+  qualities: unknown = [];
+  /** `getQuality()`: the group of the quality playing. */
+  quality: unknown = "auto";
 
   constructor(
     readonly target: unknown,
@@ -91,6 +95,16 @@ export class FakeTwitchPlayer {
   }
   getEnded(): unknown {
     return this.ended;
+  }
+  getQualities(): unknown {
+    return this.qualities;
+  }
+  getQuality(): unknown {
+    return this.quality;
+  }
+  setQuality(q: string): void {
+    this.calls.push(["setQuality", q]);
+    this.quality = q;
   }
   addEventListener(name: string, cb: (p?: unknown) => void): void {
     this.listeners.set(name, [...(this.listeners.get(name) ?? []), cb]);

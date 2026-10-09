@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { playbackCaps, type ClientMessage, type PlaybackState } from "@omega/shared";
 import { CATCHUP_SHOW_MS } from "../src/controls/catchup";
 import { createPlaybackController, type PlaybackView } from "../src/controls/playback";
+import type { QualityMemory } from "../src/controls/quality";
 import type { PlaybackTarget } from "../src/intents";
 import { SYNC_INTERVAL_MS } from "../src/sync";
 import { FakePlayer, type FakePlayerOptions } from "./support/fake-player";
@@ -15,7 +16,7 @@ function pb(over: Partial<PlaybackState> = {}): PlaybackState {
   return { playing: true, position: 10, rate: 1, at: SERVER_OFFSET, rev: 1, action: "play", by: "b", ...over };
 }
 
-function harness(playerOpts: Omit<Partial<FakePlayerOptions>, "now"> = {}) {
+function harness(playerOpts: Omit<Partial<FakePlayerOptions>, "now"> = {}, qualityMemory?: QualityMemory) {
   const t = { now: 0 };
   const sent: ClientMessage[] = [];
   const net = { up: true };
@@ -42,6 +43,7 @@ function harness(playerOpts: Omit<Partial<FakePlayerOptions>, "now"> = {}) {
       h.cleared = true;
     },
     onView: (v) => views.push(v),
+    ...(qualityMemory === undefined ? {} : { qualityMemory }),
   });
   const player = new FakePlayer({ now: () => t.now, state: "cued", position: 0, duration: 212, ...playerOpts });
   const run = (ms: number) => {
@@ -660,5 +662,94 @@ describe("ended reports (queue, ADR 0031)", () => {
     h.net.up = true;
     h.player.emit({ type: "state", state: "ended" });
     expect(ended(h)).toHaveLength(1);
+  });
+});
+
+describe("per-viewer quality (OME-599): local, remembered per device, never synced", () => {
+  const TWITCH = { provider: "twitch", kind: "vod", videoId: "1234567890", url: "https://player.twitch.tv/?video=v1234567890" } as const;
+  const VIMEO = { provider: "vimeo", videoId: "76979871", hash: null, url: "https://player.vimeo.com/video/76979871" } as const;
+  const LIST = [
+    { id: "auto", label: "Auto" },
+    { id: "720p60", label: "720p60" },
+    { id: "480p30", label: "480p" },
+  ];
+  const memory = (stored: Partial<Record<string, string>> = {}) => {
+    const saved: [string, string][] = [];
+    const m: QualityMemory = {
+      load: (p) => stored[p] ?? null,
+      save: (p, id) => {
+        saved.push([p, id]);
+      },
+    };
+    return { m, saved };
+  };
+
+  test("a player without a quality capability (YouTube) shows no picker", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb()));
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    expect(h.c.view().qualities).toEqual([]);
+    expect(h.c.view().quality).toBeNull();
+  });
+
+  test("the player's list and current quality are in the view; a quality event refreshes it", () => {
+    const h = harness({ caps: playbackCaps(TWITCH), qualities: [] });
+    h.c.setRoom({ embed: TWITCH, playback: pb() });
+    h.c.attach(h.player, TWITCH.url);
+    expect(h.c.view().qualities).toEqual([]);
+    h.player.setQualities(LIST, "auto");
+    expect(h.views.at(-1)?.qualities).toEqual(LIST);
+    expect(h.views.at(-1)?.quality).toBe("auto");
+  });
+
+  test("setQuality goes to my player and my device's memory for that provider, never on the wire", () => {
+    const { m, saved } = memory();
+    const h = harness({ caps: playbackCaps(TWITCH), qualities: LIST }, m);
+    h.c.setRoom({ embed: TWITCH, playback: pb() });
+    h.c.attach(h.player, TWITCH.url);
+    h.c.setQuality("480p30");
+    expect(h.player.calls.filter((c) => c.op === "quality")).toEqual([{ op: "quality", id: "480p30" }]);
+    expect(saved).toEqual([["twitch", "480p30"]]);
+    expect(h.sent).toEqual([]);
+    expect(h.c.view().quality).toBe("480p30");
+  });
+
+  test("the remembered quality is applied once when this video lists it", () => {
+    const { m, saved } = memory({ vimeo: "720p60" });
+    const h = harness({ caps: playbackCaps(VIMEO), qualities: [] }, m);
+    h.c.setRoom({ embed: VIMEO, playback: pb() });
+    h.c.attach(h.player, VIMEO.url);
+    expect(h.player.calls.filter((c) => c.op === "quality")).toEqual([]);
+    h.player.setQualities(LIST, "auto");
+    h.player.setQualities(LIST, "auto");
+    expect(h.player.calls.filter((c) => c.op === "quality")).toEqual([{ op: "quality", id: "720p60" }]);
+    // Restoring isn't a new choice: nothing is written back.
+    expect(saved).toEqual([]);
+    expect(h.sent).toEqual([]);
+  });
+
+  test("a remembered quality this video doesn't list leaves the provider's default; another provider's memory isn't used", () => {
+    const { m } = memory({ twitch: "1080p", youtube: "720p60" });
+    const h = harness({ caps: playbackCaps(TWITCH), qualities: LIST }, m);
+    h.c.setRoom({ embed: TWITCH, playback: pb() });
+    h.c.attach(h.player, TWITCH.url);
+    h.player.setQualities(LIST, "auto");
+    expect(h.player.calls.filter((c) => c.op === "quality")).toEqual([]);
+  });
+
+  test("a player that's already listing when attached gets the remembered quality at once", () => {
+    const { m } = memory({ twitch: "480p30" });
+    const h = harness({ caps: playbackCaps(TWITCH), qualities: LIST }, m);
+    h.c.setRoom({ embed: TWITCH, playback: pb() });
+    h.c.attach(h.player, TWITCH.url);
+    expect(h.player.calls.filter((c) => c.op === "quality")).toEqual([{ op: "quality", id: "480p30" }]);
+  });
+
+  test("a refused video has no picker", () => {
+    const h = harness({ caps: playbackCaps(TWITCH), qualities: LIST });
+    h.c.setRoom({ embed: TWITCH, playback: pb() });
+    h.c.attach(h.player, TWITCH.url);
+    h.player.emit({ type: "error", reason: "restricted", code: "6" });
+    expect(h.c.view().qualities).toEqual([]);
   });
 });

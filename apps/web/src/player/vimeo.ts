@@ -1,5 +1,6 @@
 import { playbackCaps, type Embed } from "@omega/shared";
 import type { PlayerAdapter, PlayerErrorReason, PlayerEvent, PlayerState } from "./adapter";
+import { NO_QUALITIES, parseQualities, sameQualities, type QualityOption } from "./quality";
 import type { AdapterFactory } from "./registry";
 import { loadVimeoApi, type VimeoLoad } from "./vimeo-loader";
 import type { VimeoNamespace } from "./vimeo-types";
@@ -21,7 +22,7 @@ const MAX_EXTRAPOLATE_S = 1;
 export const VIMEO_RATES: readonly number[] = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const ONE: readonly number[] = [1];
 /** Every SDK event we listen to. */
-const EVENTS = ["play", "playing", "pause", "ended", "timeupdate", "seeked", "bufferstart", "bufferend", "playbackratechange", "error"] as const;
+const EVENTS = ["play", "playing", "pause", "ended", "timeupdate", "seeked", "bufferstart", "bufferend", "playbackratechange", "qualitychange", "error"] as const;
 type VimeoEventName = (typeof EVENTS)[number];
 
 export type VimeoEmbed = Extract<Embed, { provider: "vimeo" }>;
@@ -64,6 +65,10 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
   let baseAt = o.now();
   /** `time()` just before the last push moved `base`: a skip's `timeupdate` can arrive ahead of its `seeked`. */
   let pushedFrom = 0;
+  /** Per-viewer quality (OME-599): empty until getQualities() answers, and for good once a setQuality is refused. */
+  let qualities: readonly QualityOption[] = NO_QUALITIES;
+  let quality: string | null = null;
+  let qualityRefused = false;
 
   const emit = (e: PlayerEvent) => {
     if (destroyed) return;
@@ -110,6 +115,28 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
     if (buffering && phase !== "ended") return "buffering";
     return phase;
   }
+
+  const setQualities = (next: readonly QualityOption[], cur: string | null): void => {
+    if (sameQualities(next, qualities) && cur === quality) return;
+    qualities = next;
+    quality = cur;
+    emit({ type: "quality" });
+  };
+  /** One round trip after ready; never per tick. The active entry is the one playing. */
+  const readQualities = async (): Promise<void> => {
+    const list = await player.getQualities().catch(() => null);
+    if (gone() || qualityRefused) return;
+    const next = parseQualities(list, "id", "label");
+    let cur: string | null = null;
+    if (Array.isArray(list)) {
+      for (const q of list as readonly unknown[]) {
+        if (typeof q !== "object" || q === null || !("active" in q) || q.active !== true || !("id" in q)) continue;
+        const id = q.id;
+        if (typeof id === "string" && next.some((o) => o.id === id)) cur = id;
+      }
+    }
+    setQualities(next, cur);
+  };
 
   /** A play/pause event: ours (echo) or the user's (intent). */
   const settle = (s: "playing" | "paused", data: unknown): void => {
@@ -165,6 +192,10 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
       baseAt = o.now();
       emit({ type: "state", state: state() });
     },
+    qualitychange: (d) => {
+      const q = typeof d === "object" && d !== null && "quality" in d ? d.quality : undefined;
+      if (typeof q === "string" && qualities.some((o) => o.id === q)) setQualities(qualities, q);
+    },
     playbackratechange: (d) => {
       const r = typeof d === "object" && d !== null && "playbackRate" in d ? d.playbackRate : undefined;
       if (typeof r === "number" && Number.isFinite(r) && r > 0) rate = r;
@@ -200,6 +231,7 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
     isReady = true;
     o.clearTimeout(readyTimer);
     emit({ type: "ready" });
+    void readQualities();
   };
   player.ready().then(startup, (err: unknown) => {
     const code = errorName(err);
@@ -263,6 +295,19 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
     duration: () => contentDuration,
     state,
     rates: () => (rateOk ? VIMEO_RATES : ONE),
+    quality: {
+      options: () => qualities,
+      current: () => quality,
+      set(id) {
+        if (!usable() || qualityRefused || !qualities.some((q) => q.id === id)) return;
+        player.setQuality(id).catch(() => {
+          // The owner's plan doesn't allow it: hide the picker for this video.
+          if (destroyed) return;
+          qualityRefused = true;
+          setQualities(NO_QUALITIES, null);
+        });
+      },
+    },
     onEvent(cb) {
       listeners.add(cb);
       return () => listeners.delete(cb);

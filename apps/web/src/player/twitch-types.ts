@@ -20,6 +20,12 @@ export interface TwitchPlayer {
   getEnded(): unknown;
   /** Undocumented, in the served code: `{ playback: "Idle" | "Ready" | "Buffering" | "Playing" | "Ended", … }`. */
   getPlayerState?: () => unknown;
+  /** The SDK's cached list: `[{ name: "720p60", group: "720p60", … }]` (research R-M7b). */
+  getQualities?: () => unknown;
+  /** The group playing now. */
+  getQuality?: () => unknown;
+  /** Takes a `group`. No change event is documented. */
+  setQuality?: (group: string) => void;
   addEventListener(name: TwitchEventName, cb: (params?: unknown) => void): void;
   removeEventListener(name: TwitchEventName, cb: (params?: unknown) => void): void;
   destroy?: () => void;
@@ -46,7 +52,7 @@ export function asTwitchNamespace(x: unknown): TwitchNamespace | null {
 export function asTwitchPlayer(x: unknown): TwitchPlayer | null {
   if (typeof x !== "object" || x === null) return null;
   for (const m of METHODS) if (!(m in x) || typeof (x as Record<string, unknown>)[m] !== "function") return null;
-  for (const m of ["getPlayerState", "destroy"] as const) if (m in x && typeof (x as Record<string, unknown>)[m] !== "function") return null;
+  for (const m of ["getPlayerState", "destroy", "getQualities", "getQuality", "setQuality"] as const) if (m in x && typeof (x as Record<string, unknown>)[m] !== "function") return null;
   // Checked above: every method we call exists.
   return x as TwitchPlayer;
 }

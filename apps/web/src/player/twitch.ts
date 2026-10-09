@@ -2,7 +2,10 @@ import { playbackCaps, type Embed } from "@omega/shared";
 import { twitchIframeMatches, type TvTwitch } from "../tv";
 import type { PlayerAdapter, PlayerErrorReason, PlayerEvent, PlayerState } from "./adapter";
 import type { AdapterFactory } from "./registry";
+import { NO_QUALITIES, QUALITY_ECHO_MS, parseQualities, sameQualities, type QualityOption } from "./quality";
 import { loadTwitchApi, type TwitchLoad } from "./twitch-loader";
+
+export { QUALITY_ECHO_MS };
 import { asTwitchPlayer, type TwitchEventName, type TwitchNamespace, type TwitchPlayer } from "./twitch-types";
 
 /** Play/pause events this soon after our own command are its echo, not the user (as for YouTube). */
@@ -78,6 +81,12 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
   /** The previous playing reading (lag added) and when (ms); -Infinity = none since the clock last stopped or jumped. */
   let prevRead = 0;
   let prevReadAt = Number.NEGATIVE_INFINITY;
+  /** When we last asked for a quality; its pause/play and seek are the echo. */
+  let qualitySetAt = Number.NEGATIVE_INFINITY;
+  let qualities: readonly QualityOption[] = NO_QUALITIES;
+  let quality: string | null = null;
+  /** The quality before our last pick: the SDK's stale cache reads as this for a while. */
+  let qualityBefore: string | null = null;
   const frameWindow: unknown = iframeWindow(container);
 
   const emit = (e: PlayerEvent) => {
@@ -151,6 +160,20 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     return base + Math.min(MAX_EXTRAPOLATE_S, frozenFor() / 1000);
   }
 
+  /** Re-read the SDK's cached list and quality (no change event exists); a quality event if either changed. */
+  const readQualities = (): void => {
+    const next = parseQualities(player.getQualities?.(), "group", "name");
+    const q = player.getQuality?.();
+    let cur = typeof q === "string" && next.some((o) => o.id === q) ? q : null;
+    // Right after our pick the SDK's cache still says the old quality (no change event): keep ours until the window ends.
+    if (inQualityEcho() && cur === qualityBefore && quality !== null && next.some((o) => o.id === quality)) cur = quality;
+    if (sameQualities(next, qualities) && cur === quality) return;
+    qualities = next;
+    quality = cur;
+    emit({ type: "quality" });
+  };
+  const inQualityEcho = (): boolean => o.now() - qualitySetAt < QUALITY_ECHO_MS;
+
   const command = (exp: "playing" | "paused") => {
     expected = exp;
     lastCommandAt = o.now();
@@ -165,6 +188,12 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     if (from === null || from === s || expected === null || s === expected) return;
     const since = o.now() - lastCommandAt;
     if (since < ECHO_WINDOW_MS || (live && expected === "playing" && since < LIVE_RESUME_MS)) return;
+    if (inQualityEcho()) {
+      // The switch's own pause/play: the sync loop puts this player back where the room is. The trade-off: a member's
+      // own pause in these 5 s is dropped too (the loop resumes them), as is one in the 5 s after a remembered pick on load.
+      expected = s;
+      return;
+    }
     expected = s;
     emit({ type: "intent", playing: s === "playing", position: time() });
   };
@@ -180,7 +209,7 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     const at = typeof params === "object" && params !== null && "position" in params ? params.position : undefined;
     const position = typeof at === "number" && Number.isFinite(at) && at >= 0 ? at : time();
     moved(position, now);
-    if (expected === null || settled === null) return;
+    if (expected === null || settled === null || inQualityEcho()) return;
     emit({ type: "intent", playing: settled === "playing", position });
   };
 
@@ -190,12 +219,14 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
       isReady = true;
       o.clearTimeout(readyTimer);
       emit({ type: "ready" });
+      readQualities();
     },
     play: () => {
       settle("playing");
     },
     playing: () => {
       settle("playing");
+      if (isReady) readQualities();
     },
     pause: () => {
       settle("paused");
@@ -271,6 +302,19 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     },
     state,
     rates: () => ONE,
+    quality: {
+      options: () => (isReady ? qualities : NO_QUALITIES),
+      current: () => (isReady ? quality : null),
+      set(id) {
+        if (!usable() || !qualities.some((q) => q.id === id) || player.setQuality === undefined) return;
+        qualitySetAt = o.now();
+        qualityBefore = quality;
+        player.setQuality(id);
+        // getQuality() is the iframe's last push, still the old one: take ours until the next re-read.
+        quality = id;
+        emit({ type: "quality" });
+      },
+    },
     onEvent(cb) {
       listeners.add(cb);
       return () => listeners.delete(cb);
