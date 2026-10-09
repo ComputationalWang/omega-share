@@ -46,6 +46,10 @@ export interface ViewState {
    * so a toggle doesn't redraw the scene. My own tag uses the local playback view instead.
    */
   readonly catching: readonly MemberId[];
+  /** I joined with this room's owner token (`snapshot.owner`, ADR 0028): the layout editor is offered. */
+  readonly owner: boolean;
+  /** The room's title from the last `title-changed`; the snapshot carries none, so null until a rename. */
+  readonly title: string | null;
 }
 
 export interface ErrorNotice {
@@ -60,7 +64,7 @@ export type ViewEvent =
   | { readonly type: "server"; readonly msg: ServerMessage; readonly now: number }
   | { readonly type: "tick"; readonly now: number };
 
-export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [] };
+export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null };
 
 /** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
 const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed";
@@ -109,6 +113,7 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
         syslines: [],
         lastError: null,
         catching: msg.room.members.filter((m) => m.catching === true).map((m) => m.id),
+        owner: msg.owner === true,
       };
     case "room-full":
       return { ...initialState, status: "full" };
@@ -166,10 +171,12 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     }
     case "member-status":
       return state.room === null || !hasMember(state.room, msg.memberId) ? state : withCatching(state, msg.memberId, msg.catching);
-    case "pong":
-    // The site doesn't send owner edits yet (ADR 0028); W1/X1 apply these.
+    // Owner edits (ADR 0028): seats keep their indices, so only the layout changes; the scene follows it (room.ts).
     case "layout-changed":
+      return withRoom(state, (room) => ({ ...room, layout: msg.layout }));
     case "title-changed":
+      return state.room === null ? state : { ...state, title: msg.title };
+    case "pong":
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
       return state;
