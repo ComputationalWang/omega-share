@@ -78,6 +78,38 @@ describe("chatKey: Enter", () => {
     expect(chatKey({ key: "Enter", target: p })).toBe(null);
   });
 
+  test("with a role=dialog or role=menu open around the focus (the member menu) it does nothing", async () => {
+    const { chatKey } = await setup();
+    for (const role of ["dialog", "menu", "alertdialog"]) {
+      const d = document.createElement("div");
+      d.setAttribute("role", role);
+      const p = document.createElement("p");
+      p.tabIndex = 0;
+      d.append(p);
+      document.body.append(d);
+      expect(chatKey({ key: "Enter", target: p })).toBe(null);
+      d.remove();
+    }
+  });
+
+  test("with focus on the page but a menu or dialog open (the member menu, the emote picker) it does nothing; a hidden one doesn't count", async () => {
+    const { chatKey } = await setup();
+    const menu = document.createElement("div");
+    menu.setAttribute("role", "menu");
+    menu.hidden = true;
+    document.body.append(menu);
+    expect(chatKey({ key: "Enter", target: document.body })).toBe("focus");
+    menu.hidden = false;
+    expect(chatKey({ key: "Enter", target: document.body })).toBe(null);
+    menu.remove();
+    const mod = document.createElement("div");
+    mod.setAttribute("role", "dialog");
+    document.body.append(mod);
+    expect(chatKey({ key: "Enter", target: document.body })).toBe(null);
+    mod.remove();
+    expect(chatKey({ key: "Enter", target: document.body })).toBe("focus");
+  });
+
   test("with a modifier, or while an IME is composing, it does nothing", async () => {
     const { chatKey } = await setup();
     for (const m of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { isComposing: true }]) {
@@ -108,6 +140,11 @@ describe("chatKey: Enter", () => {
 });
 
 describe("chatKey: Escape", () => {
+  test("while an IME is composing it is the IME's (dismissing the candidates), not a blur", async () => {
+    const { chatKey, input } = await setup();
+    expect(chatKey({ key: "Escape", target: input, isComposing: true })).toBe(null);
+  });
+
   test("in the chat field it blurs back to the room", async () => {
     const { chatKey, input } = await setup();
     expect(chatKey({ key: "Escape", target: input })).toBe("blur");

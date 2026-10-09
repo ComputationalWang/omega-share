@@ -174,3 +174,49 @@ test("full screen: Enter jumps to the strip's chat field and it sends from there
   // Back on the page, the volume is under the picture again.
   await volumeUnderPicture(page);
 });
+
+test("a long log stays at its foot when the chat changes column (1024 px) and in and out of full screen; new lines stay in view", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("wide", "scroll").url, count: 4, nicknamePrefix: "wdscroll", contextOptions: () => DESKTOP(1280, 720) });
+  const [a] = clients;
+  if (a === undefined) throw new Error("no client");
+  const page = a.page;
+  // 4 × 5 lines (the server's chat burst): taller than the column's log.
+  await Promise.all(clients.map(async (c, i) => {
+    for (let n = 0; n < 5; n++) {
+      await c.page.locator(site.chatInput).fill(`line ${String(i)}-${String(n)}`);
+      await c.page.locator(site.chatInput).press("Enter");
+    }
+  }));
+  const log = page.locator(site.chatLog);
+  await expect(log.locator(site.chatLogLine)).toHaveCount(20);
+  const atFoot = (): Promise<boolean> => log.evaluate((e) => e.scrollHeight - e.scrollTop - e.clientHeight <= 2);
+  // It overflows the column's log, and the reader is at its foot.
+  expect(await log.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
+  await expect.poll(atFoot).toBe(true);
+
+  await page.setViewportSize({ width: 1000, height: 720 });
+  await expect.poll(() => page.locator(site.room).evaluate((r) => r.closest(".room-wide") === null)).toBe(true);
+  expect(await log.evaluate((e) => e.scrollHeight - e.scrollTop - e.clientHeight <= 2)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect.poll(() => page.locator(site.room).evaluate((r) => r.closest(".room-wide") !== null)).toBe(true);
+  expect(await atFoot()).toBe(true);
+
+  await page.locator(site.fullscreenToggle).click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement !== null)).toBe(true);
+  expect(await atFoot()).toBe(true);
+  await expect(log.locator(site.chatLogLine).last()).toBeInViewport();
+  await page.evaluate(() => document.exitFullscreen());
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true);
+  expect(await atFoot()).toBe(true);
+
+  // And it still follows: a new line lands in view.
+  const b = clients[1];
+  if (b === undefined) throw new Error("no second client");
+  await b.page.waitForTimeout(1100);
+  await b.page.locator(site.chatInput).fill("after the moves");
+  await b.page.locator(site.chatInput).press("Enter");
+  const latest = log.locator(site.chatLogLine).last();
+  await expect(latest).toContainText("after the moves");
+  await expect(latest).toBeInViewport();
+  expect(await atFoot()).toBe(true);
+});

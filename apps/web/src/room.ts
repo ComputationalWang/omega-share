@@ -489,6 +489,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Moving a focused field blurs it: give focus back to where it was (the draft is the same node, so it stays).
     const focused = document.activeElement;
     const wasInRoom = on && focused instanceof HTMLElement && clip.contains(focused);
+    const restoreScroll = holdScroll();
     wrap.classList.toggle("is-fs", on);
     wrap.classList.toggle("is-pseudo-fs", mode === "pseudo");
     // The quality list is a row in full screen, a tray under the shelf in the page: it closes as the layout changes.
@@ -502,6 +503,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     setBehindInert(mode === "pseudo");
     renderStrip();
     fit();
+    restoreScroll();
     if (wasInRoom) {
       // The room is hidden now: the key you pressed to enter (or the exit key, for F) holds focus meanwhile.
       focusBefore = focused;
@@ -514,6 +516,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (!on) focusBefore = null;
   };
   opts.root.replaceChildren(roomTop, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked, side, foot);
+  /**
+   * Moving a scrolled box resets its scroll (QA OME-658): call before a move and the returned function after the layout
+   * settles. A log at its foot goes back to its foot (so it keeps following new lines); otherwise it keeps its place.
+   */
+  const holdScroll = (): (() => void) => {
+    const held = [chatLog.root, queuePanel.root].map((e) => ({ e, top: e.scrollTop, foot: e.scrollHeight - e.scrollTop - e.clientHeight <= 2 }));
+    return () => {
+      for (const h of held) h.e.scrollTop = h.foot ? h.e.scrollHeight : h.top;
+    };
+  };
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
   const placeChat = (): void => {
     const two = wide.matches;
@@ -1145,12 +1157,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const onMedia = (): void => {
     // Moving a focused node blurs it: whatever you were typing in keeps focus when the chat changes column.
     const focused = document.activeElement;
+    const restoreScroll = holdScroll();
     // No pop-out on a phone (set k): a window narrowed that far takes its chat back.
     if (phone.matches) relay?.bringBack();
     renderChatRow(state);
     placeChat();
     if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     fit();
+    restoreScroll();
     render();
     requestRender();
   };
