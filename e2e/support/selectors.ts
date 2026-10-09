@@ -68,4 +68,5 @@ export const site = {
   editorRename: id("editor-rename"),
   editorDelete: id("editor-delete"),
   editorDeleteConfirm: id("editor-delete-confirm"),
+  editorRoomMessage: id("editor-room-message"),
 } as const;

@@ -71,6 +71,10 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   const ownerReq: string[] = [];
   const guestReq: string[] = [];
   const owner = await newPage(browser, ownerReq);
+  const titleSets: string[] = [];
+  owner.on("websocket", (ws) => ws.on("framesent", (f) => {
+    if (typeof f.payload === "string" && f.payload.includes('"title-set"')) titleSets.push(f.payload);
+  }));
   await owner.goto(`${URLS.web}/`);
   await owner.locator(site.createRoomTitle).fill("Edit me");
   await owner.locator(site.createRoomSubmit).click();
@@ -87,6 +91,8 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   await owner.locator(site.editRoom).click();
   await expect(owner.locator(site.editRoom)).toHaveAttribute("aria-pressed", "true");
   await expect(owner.locator(site.editorTray)).toBeVisible();
+  // The name field starts with the room's name (the snapshot carries it, OME-473).
+  await expect(owner.locator(site.editorTitle)).toHaveValue("Edit me");
   expect(ownerReq.some((u) => EDITOR_URL.test(u))).toBe(true);
 
   // Move the lamp from (9,0) to (8,1) and put a popcorn cart at (9,9): one save, one layout-changed.
@@ -119,6 +125,15 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   await owner.locator(site.editorTitle).fill("Friday films");
   await owner.locator(site.editorRename).click();
   for (const p of [owner, guest]) await expect(p.locator(site.roomTitle)).toHaveText("Friday films");
+  await expect(owner.locator(site.editorRoomMessage)).toHaveText("Renamed.");
+  // Renaming to the name it already has settles at once without a title-set: the server would answer an unchanged
+  // title with nothing, so "Renaming…" would wait on an unrelated update (OME-482).
+  titleSets.length = 0;
+  await owner.locator(site.editorRoomMessage).evaluate((el) => (el.textContent = ""));
+  await owner.locator(site.editorRename).click();
+  await expect(owner.locator(site.editorRoomMessage)).toHaveText("Renamed.", { timeout: 200 });
+  await owner.waitForTimeout(300);
+  expect(titleSets).toEqual([]);
 
   // Delete: a second press confirms, then everyone sees the room closed.
   await owner.locator(site.editorDelete).click();

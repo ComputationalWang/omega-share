@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT, FURNITURE, FURNITURE_KINDS, MAX_FURNITURE, RoomLayoutSchema, type RoomLayout } from "@omega/shared";
 import * as v from "valibot";
-import { TRAY_TABS, defaultFacing, fits, move, pieceAt, place, problemText, problems, reconcile, remove, rotate } from "../src/editor/draft";
+import { TRAY_TABS, defaultFacing, fits, layoutKey, move, pieceAt, place, problemText, problems, reconcile, remove, rotate, sameLayout } from "../src/editor/draft";
 
 // DEFAULT_LAYOUT indices: 0 tv, 1 rug, 2..9 armchairs ([1,5] [2,4] [4,2] [5,1] [3,7] [4,6] [6,4] [7,3]), 10 lamp, 11 plant.
 const L = DEFAULT_LAYOUT;
@@ -200,5 +200,30 @@ describe("reconcile: the room's layout changed under the editor (OME-410 review)
   test("a different save elsewhere keeps our unsaved draft and says so", () => {
     const mine = remove(L, 11);
     expect(reconcile({ saved: L, draft: mine, next: copy(lampMoved), saving: false })).toEqual({ draft: mine, outcome: "conflict" });
+  });
+});
+
+describe("sameLayout / layoutKey: by content, not by how the objects were written (OME-482)", () => {
+  const sofa: RoomLayout = { furniture: [...remove(remove(L, 3), 2).furniture, { kind: "sofa", col: 1, row: 5, facing: "ne" }] };
+  const recolouredBack: RoomLayout = { furniture: sofa.furniture.map((f) => (f.kind === "sofa" ? { ...f, variant: 0 } : f)) };
+  const reordered: RoomLayout = { furniture: sofa.furniture.map((f) => ({ facing: f.facing, row: f.row, col: f.col, kind: f.kind })) };
+
+  test("a piece recoloured back to variant 0 is the same as one with no variant", () => {
+    expect(sameLayout(recolouredBack, sofa)).toBe(true);
+    expect(layoutKey(recolouredBack)).toBe(layoutKey(sofa));
+  });
+  test("key order inside a piece doesn't matter", () => {
+    expect(sameLayout(reordered, sofa)).toBe(true);
+    expect(layoutKey(reordered)).toBe(layoutKey(sofa));
+  });
+  test("a real recolour, move or reorder of pieces is a change", () => {
+    const recoloured: RoomLayout = { furniture: sofa.furniture.map((f) => (f.kind === "sofa" ? { ...f, variant: 1 } : f)) };
+    const moved = move(L, 10, 8, 1);
+    expect(sameLayout(recoloured, sofa)).toBe(false);
+    expect(moved !== null && sameLayout(moved, L)).toBe(false);
+    expect(sameLayout({ furniture: [...L.furniture].reverse() }, L)).toBe(false);
+  });
+  test("reconcile: a snapshot with an explicit variant 0 is no change", () => {
+    expect(reconcile({ saved: sofa, draft: sofa, next: recolouredBack, saving: false }).outcome).toBe("same");
   });
 });
