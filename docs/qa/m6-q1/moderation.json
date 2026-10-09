@@ -1,0 +1,38 @@
+{
+  "ownerMenuClosed": {
+    "p95": 16.666666666666668,
+    "missedPct": 0,
+    "missed": 0,
+    "frames": 300,
+    "maxMs": 16.800000000000182,
+    "rawP95": 16.700000000000728,
+    "workP95": 2.056,
+    "workMax": 2.647,
+    "traced": 300
+  },
+  "ownerMenuOpen": {
+    "p95": 16.666666666666668,
+    "missedPct": 0,
+    "missed": 0,
+    "frames": 300,
+    "maxMs": 16.80000000000109,
+    "rawP95": 16.700000000000728,
+    "workP95": 0.363,
+    "workMax": 2.691,
+    "traced": 300
+  },
+  "ownerMenuAsking": {
+    "p95": 16.666666666666668,
+    "missedPct": 0,
+    "missed": 0,
+    "frames": 300,
+    "maxMs": 16.799999999999272,
+    "rawP95": 16.700000000000728,
+    "workP95": 0.322,
+    "workMax": 2.683,
+    "traced": 300
+  },
+  "moderationChunk": [
+    "http://localhost:5283/assets/moderation-CzBOTvE1.js 5908 B raw"
+  ]
+}

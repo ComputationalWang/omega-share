@@ -1,0 +1,426 @@
+[
+  {
+    "budget": {
+      "id": "site.initialJsGzip",
+      "area": "Site",
+      "metric": "Initial JS (gzipped)",
+      "docMetric": "Initial JS (gzipped)",
+      "unit": "KB",
+      "limit": 200,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 10.5712890625,
+    "note": "1 initial JS files"
+  },
+  {
+    "budget": {
+      "id": "site.tti",
+      "area": "Site",
+      "metric": "Time to interactive, localhost",
+      "docMetric": "Time to interactive, localhost",
+      "unit": "ms",
+      "limit": 1500,
+      "comparator": "<"
+    },
+    "status": "pass",
+    "value": 21
+  },
+  {
+    "budget": {
+      "id": "site.frameP95",
+      "area": "Site",
+      "metric": "p95 frame time, 8 avatars + video",
+      "docMetric": "Frame rate, 8 avatars + video playing",
+      "unit": "ms",
+      "limit": 16.7,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 16.666666666666668,
+    "note": "301 frames, 0 missed vsync (0.0%), raw p95 16.80 ms; ⚠ raw p95 16.80 ms > 16.7 ms; video playing (fake player)"
+  },
+  {
+    "budget": {
+      "id": "site.frameP95.vimeo",
+      "area": "Site",
+      "metric": "p95 frame time, 8 avatars + Vimeo video",
+      "docMetric": "Frame rate, 8 avatars + video playing",
+      "unit": "ms",
+      "limit": 16.7,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 16.666666666666668,
+    "note": "300 frames, 0 missed vsync (0.0%), raw p95 16.70 ms; ⚠ raw p95 16.70 ms > 16.7 ms; Vimeo playing (fake SDK)"
+  },
+  {
+    "budget": {
+      "id": "site.frameP95.twitchVod",
+      "area": "Site",
+      "metric": "p95 frame time, 8 avatars + Twitch VOD",
+      "docMetric": "Frame rate, 8 avatars + video playing",
+      "unit": "ms",
+      "limit": 16.7,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 16.666666666666668,
+    "note": "301 frames, 0 missed vsync (0.0%), raw p95 16.80 ms; ⚠ raw p95 16.80 ms > 16.7 ms; Twitch VOD playing (fake SDK)"
+  },
+  {
+    "budget": {
+      "id": "site.frameP95.twitchLive",
+      "area": "Site",
+      "metric": "p95 frame time, 8 avatars + Twitch live",
+      "docMetric": "Frame rate, 8 avatars + video playing",
+      "unit": "ms",
+      "limit": 16.7,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 16.666666666666668,
+    "note": "301 frames, 0 missed vsync (0.0%), raw p95 16.70 ms; ⚠ raw p95 16.70 ms > 16.7 ms; Twitch live playing (fake SDK)"
+  },
+  {
+    "budget": {
+      "id": "site.frameP95.generic",
+      "area": "Site",
+      "metric": "p95 frame time, 8 avatars + generic embed",
+      "docMetric": "Frame rate, 8 avatars + video playing",
+      "unit": "ms",
+      "limit": 16.7,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 16.666666666666668,
+    "note": "301 frames, 0 missed vsync (0.0%), raw p95 16.70 ms; ⚠ raw p95 16.70 ms > 16.7 ms; generic embed loaded (local page repainting every frame)"
+  },
+  {
+    "budget": {
+      "id": "site.frameWorkP95.youtube",
+      "area": "Site",
+      "metric": "Main-thread work p95 per frame, 8 avatars + YouTube",
+      "docMetric": "Main-thread work per frame, 8 avatars + video playing",
+      "unit": "ms",
+      "limit": 8,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 1.727,
+    "note": "301 traced frames, max 3.46 ms; video playing (fake player)"
+  },
+  {
+    "budget": {
+      "id": "site.missedVsync.youtube",
+      "area": "Site",
+      "metric": "Missed vsyncs, 8 avatars + YouTube",
+      "docMetric": "Missed vsyncs, 8 avatars + video playing",
+      "unit": "%",
+      "limit": 1,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 0,
+    "note": "0 of 301 frames; Playwright tracing off; video playing (fake player)"
+  },
+  {
+    "budget": {
+      "id": "site.frameWorkP95.twitchVod",
+      "area": "Site",
+      "metric": "Main-thread work p95 per frame, 8 avatars + Twitch VOD",
+      "docMetric": "Main-thread work per frame, 8 avatars + video playing",
+      "unit": "ms",
+      "limit": 8,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 1.63,
+    "note": "301 traced frames, max 3.03 ms; Twitch VOD playing (fake SDK)"
+  },
+  {
+    "budget": {
+      "id": "site.missedVsync.twitchVod",
+      "area": "Site",
+      "metric": "Missed vsyncs, 8 avatars + Twitch VOD",
+      "docMetric": "Missed vsyncs, 8 avatars + video playing",
+      "unit": "%",
+      "limit": 1,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 0,
+    "note": "0 of 301 frames; Playwright tracing off; Twitch VOD playing (fake SDK)"
+  },
+  {
+    "budget": {
+      "id": "site.frameWorkP95.twitchLive",
+      "area": "Site",
+      "metric": "Main-thread work p95 per frame, 8 avatars + Twitch live",
+      "docMetric": "Main-thread work per frame, 8 avatars + video playing",
+      "unit": "ms",
+      "limit": 8,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 1.965,
+    "note": "301 traced frames, max 3.36 ms; Twitch live playing (fake SDK)"
+  },
+  {
+    "budget": {
+      "id": "site.missedVsync.twitchLive",
+      "area": "Site",
+      "metric": "Missed vsyncs, 8 avatars + Twitch live",
+      "docMetric": "Missed vsyncs, 8 avatars + video playing",
+      "unit": "%",
+      "limit": 1,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 0,
+    "note": "0 of 301 frames; Playwright tracing off; Twitch live playing (fake SDK)"
+  },
+  {
+    "budget": {
+      "id": "site.frameWorkP95.vimeo",
+      "area": "Site",
+      "metric": "Main-thread work p95 per frame, 8 avatars + Vimeo",
+      "docMetric": "Main-thread work per frame, 8 avatars + video playing",
+      "unit": "ms",
+      "limit": 8,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 1.922,
+    "note": "300 traced frames, max 3.01 ms; Vimeo playing (fake SDK)"
+  },
+  {
+    "budget": {
+      "id": "site.missedVsync.vimeo",
+      "area": "Site",
+      "metric": "Missed vsyncs, 8 avatars + Vimeo",
+      "docMetric": "Missed vsyncs, 8 avatars + video playing",
+      "unit": "%",
+      "limit": 1,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 0,
+    "note": "0 of 300 frames; Playwright tracing off; Vimeo playing (fake SDK)"
+  },
+  {
+    "budget": {
+      "id": "site.frameWorkP95.generic",
+      "area": "Site",
+      "metric": "Main-thread work p95 per frame, 8 avatars + generic embed",
+      "docMetric": "Main-thread work per frame, 8 avatars + video playing",
+      "unit": "ms",
+      "limit": 8,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 2.462,
+    "note": "301 traced frames, max 3.99 ms; generic embed loaded (local page repainting every frame)"
+  },
+  {
+    "budget": {
+      "id": "site.missedVsync.generic",
+      "area": "Site",
+      "metric": "Missed vsyncs, 8 avatars + generic embed",
+      "docMetric": "Missed vsyncs, 8 avatars + video playing",
+      "unit": "%",
+      "limit": 1,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 0,
+    "note": "0 of 301 frames; Playwright tracing off; generic embed loaded (local page repainting every frame)"
+  },
+  {
+    "budget": {
+      "id": "site.heapAfterSoak",
+      "area": "Site",
+      "metric": "JS heap after 10 min soak (after GC)",
+      "docMetric": "JS heap after 10 min in room",
+      "unit": "MB",
+      "limit": 150,
+      "comparator": "<="
+    },
+    "status": "pending",
+    "note": "slow (10 min): run `bun run perf --soak`"
+  },
+  {
+    "budget": {
+      "id": "sync.spread",
+      "area": "Sync",
+      "metric": "Spread after play/pause/seek",
+      "docMetric": "Spread between clients after play/pause/seek",
+      "unit": "ms",
+      "limit": 500,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 0.5502929687679625,
+    "note": "pause 0 / play 1 / seek 1 ms, worst of 2 rounds, 8 clients, fake player"
+  },
+  {
+    "budget": {
+      "id": "sync.spread.twitchVod",
+      "area": "Sync",
+      "metric": "Spread after play/pause/seek, Twitch VOD",
+      "docMetric": "Spread between clients after play/pause/seek",
+      "unit": "ms",
+      "limit": 500,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 15.300244130194152,
+    "note": "pause 0 / play 15 / seek 3 ms, worst of 2 rounds, 8 clients, fake SDK, no rate → seek-only"
+  },
+  {
+    "budget": {
+      "id": "sync.spread.twitchLive",
+      "area": "Sync",
+      "metric": "Spread after pause/play-from-live, Twitch live",
+      "docMetric": "Spread between clients after play/pause/seek",
+      "unit": "ms",
+      "limit": 500,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 15.2001953125,
+    "note": "pause 15 (last client +44) / play 15 (last client +46) ms, first-to-last client, worst of 2 rounds, 8 clients, fake SDK"
+  },
+  {
+    "budget": {
+      "id": "sync.spread.vimeo",
+      "area": "Sync",
+      "metric": "Spread after play/pause/seek, Vimeo (seek-only)",
+      "docMetric": "Spread between clients after play/pause/seek",
+      "unit": "ms",
+      "limit": 500,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 16.300048820674373,
+    "note": "pause 0 / play 16 / seek 1 ms, worst of 2 rounds, 8 clients, fake SDK, rate rejected → seek-only"
+  },
+  {
+    "budget": {
+      "id": "queue.advanceSpread",
+      "area": "Sync",
+      "metric": "Queue advance spread, 8 clients, YouTube",
+      "docMetric": "Spread between clients after a queue advance",
+      "unit": "ms",
+      "limit": 1500,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 248.7998046875,
+    "note": "205 / 249 / 91 ms, worst of 3 advances on ended, 8 clients, fake YouTube, http://localhost:8967"
+  },
+  {
+    "budget": {
+      "id": "server.relayLatency",
+      "area": "Server",
+      "metric": "Relay latency, control action",
+      "docMetric": "Relay latency for a control action, localhost",
+      "unit": "ms",
+      "limit": 50,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 0.9424269999999524,
+    "note": "control seek → playback at all 25 sockets, p95 of 50; sit/stand p95 0.3 ms"
+  },
+  {
+    "budget": {
+      "id": "server.relayLatencyFlood",
+      "area": "Server",
+      "metric": "Relay latency, control action, under flood",
+      "docMetric": "Relay latency for a control action under flood, localhost",
+      "unit": "ms",
+      "limit": 50,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 1.0421080000000984,
+    "note": "control seek → playback at 24 members, p95 of 50; members sent 288 chats, 0 rate_limited; attacker sent 1287, got 24 rate_limited, closes 4029×23"
+  },
+  {
+    "budget": {
+      "id": "ext.popupToList",
+      "area": "Extension",
+      "metric": "Popup opened → embeds listed",
+      "docMetric": "Popup opened → embeds listed",
+      "unit": "ms",
+      "limit": 300,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 68.89999999850988,
+    "note": "p95 of 5 opens on providers-embed (4 synced + 2 generic embeds)"
+  },
+  {
+    "budget": {
+      "id": "ext.contentScripts",
+      "area": "Extension",
+      "metric": "Declared content scripts",
+      "docMetric": "Content scripts on page load",
+      "unit": "count",
+      "limit": 0,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 0
+  },
+  {
+    "budget": {
+      "id": "ext.persistentBackground",
+      "area": "Extension",
+      "metric": "Persistent background violations",
+      "docMetric": "Persistent background",
+      "unit": "count",
+      "limit": 0,
+      "comparator": "<="
+    },
+    "status": "pass",
+    "value": 0
+  },
+  {
+    "budget": {
+      "id": "load.relayLatency",
+      "area": "Load test",
+      "metric": "Relay latency p95, 25 in room + traffic",
+      "docMetric": "People in a room without breaking the budgets above",
+      "unit": "ms",
+      "limit": 50,
+      "comparator": "<=",
+      "load": {
+        "of": "server.relayLatency",
+        "members": 25
+      }
+    },
+    "status": "pass",
+    "value": 2.5,
+    "note": "81 sit/stand samples (slowest of 24 bots in one page, client queueing included); 25 members, 1752 chats + 2253 seat changes received by bots, 0 error frames (no rate_limited) with M3 limits on"
+  },
+  {
+    "budget": {
+      "id": "load.frameP95",
+      "area": "Load test",
+      "metric": "p95 frame time, 25 in room + traffic",
+      "docMetric": "People in a room without breaking the budgets above",
+      "unit": "ms",
+      "limit": 16.7,
+      "comparator": "<=",
+      "load": {
+        "of": "site.frameP95",
+        "members": 25
+      }
+    },
+    "status": "pass",
+    "value": 16.666666666666668,
+    "note": "481 frames, 0 missed vsync (0.0%), raw p95 16.70 ms; ⚠ raw p95 16.70 ms > 16.7 ms; 8 seated + 17 standing; video playing (fake player)"
+  }
+]
