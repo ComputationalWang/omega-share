@@ -25,8 +25,11 @@ export const MAX_URL_LENGTH = 2048;
 export const MAX_EMBED_URL_LENGTH = 128;
 /** Largest WebSocket frame the server accepts from a client, in UTF-8 bytes. */
 export const MAX_CLIENT_MESSAGE_BYTES = 4096;
-/** Largest frame a client accepts; must fit a worst-case full-room snapshot (~4.7 KB, ~6.8 KB with a full layout). */
-export const MAX_SERVER_MESSAGE_BYTES = 16384;
+/**
+ * Largest frame a client accepts; must fit a worst-case full-room snapshot: ~6.8 KB with a full layout,
+ * ~36 KB with QUEUE_MAX generic items at the longest url (ADR 0031).
+ */
+export const MAX_SERVER_MESSAGE_BYTES = 65536;
 /** Most rooms `GET /rooms` returns; keeps the extension dropdown and body (~6 KB) small. */
 export const MAX_LISTED_ROOMS = 100;
 /** Largest `POST /rooms` body, in bytes; a real one is ~110 B (ADR 0028). */
@@ -75,6 +78,22 @@ export const MUTE_MEMORY_MS = 10 * 60_000;
 /** Per owner socket, `kick`, `mute` and `control-policy` together: this many at once, then one every MODERATION_REFILL_MS. */
 export const MODERATION_BURST = 5;
 export const MODERATION_REFILL_MS = 1000;
+
+/*
+ * Playback queue (ADR 0031). Enforced by the server; shared so tests and the site's copy agree with it.
+ */
+/** Upcoming items per room, the current one not counted. A `queue-add` past it is answered `queue_full`. */
+export const QUEUE_MAX = 20;
+/** Per member, `queue-add`: this many at once, then one every QUEUE_ADD_MEMBER_REFILL_MS. */
+export const QUEUE_ADD_MEMBER_BURST = 3;
+export const QUEUE_ADD_MEMBER_REFILL_MS = 10_000;
+/** Per room, every member's `queue-add` together: this many at once, then one every QUEUE_ADD_ROOM_REFILL_MS. */
+export const QUEUE_ADD_ROOM_BURST = 10;
+export const QUEUE_ADD_ROOM_REFILL_MS = 3_000;
+/** An `ended` for an item that became current less than this long ago is ignored (a broken embed can't skip the queue). */
+export const QUEUE_ENDED_DEBOUNCE_MS = 3_000;
+/** An `ended` is valid only if its `position` is within this many seconds of the room clock (rejects pre-seek and local-only seeks). */
+export const QUEUE_ENDED_TOLERANCE_S = 5;
 
 /** Cap on human-readable error messages sent over the wire. */
 export const ERROR_MESSAGE_MAX_LENGTH = 200;

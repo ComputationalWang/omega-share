@@ -54,7 +54,7 @@ describe("constants", () => {
     expect(NICKNAME_MAX_LENGTH).toBe(20);
     expect(MAX_ROOM_MEMBERS).toBe(25);
     expect(MAX_CLIENT_MESSAGE_BYTES).toBe(4096);
-    expect(MAX_SERVER_MESSAGE_BYTES).toBe(16384);
+    expect(MAX_SERVER_MESSAGE_BYTES).toBe(65536);
   });
 });
 

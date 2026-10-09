@@ -305,7 +305,7 @@ describe("frame size", () => {
 
 describe("POST /rooms/:id/queue (the extension's add to queue)", () => {
   test("answers with the stored item", () => {
-    const body = { ok: true, item: item("q2", GENERIC) };
+    const body = { ok: true as const, item: item("q2", GENERIC) };
     expect(v.parse(QueueAddResponseSchema, body)).toEqual(body);
   });
 

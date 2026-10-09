@@ -86,6 +86,8 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   muted: "The room's owner muted your chat.",
   control_owner_only: "Only the room's owner can control the video here.",
   bad_target: "That person isn't in this room any more.",
+  queue_full: "The queue is full.",
+  unsupported_url: "That link can't be played here.",
 };
 
 /** Adapts the DOM WebSocket to the connection's SocketLike. */

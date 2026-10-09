@@ -1,6 +1,7 @@
 import * as v from "valibot";
 import { ERROR_MESSAGE_MAX_LENGTH, MAX_URL_LENGTH, RETRY_AFTER_MAX_MS } from "./constants";
 import { AnyEmbedSchema } from "./generic-embed";
+import { QueueItemSchema } from "./queue";
 import { RoomIdSchema } from "./room";
 
 /** Length of a share token: 16 random bytes as base64url without padding (ADR 0015). */
@@ -61,6 +62,8 @@ export const SHARE_ERROR_CODES = [
   "unauthorized",
   /** The room's control policy is `owner` and the token's member isn't the owner (ADR 0030). HTTP 403. */
   "control_owner_only",
+  /** `POST /rooms/:id/queue` only: the room already has QUEUE_MAX upcoming items (ADR 0031). HTTP 409. */
+  "queue_full",
 ] as const;
 export type ShareErrorCode = (typeof SHARE_ERROR_CODES)[number];
 
@@ -77,3 +80,21 @@ export const ShareResponseSchema = v.variant("ok", [
   }),
 ]);
 export type ShareResponse = v.InferOutput<typeof ShareResponseSchema>;
+
+/**
+ * Response of `POST /rooms/:id/queue` (ADR 0031): the extension's "Add to queue". Same body, bearer share token,
+ * parser and errors as a share, plus `queue_full`; it takes from the same buckets as the WebSocket `queue-add`.
+ * On success the room also gets `queue-changed`.
+ */
+export const QueueAddResponseSchema = v.variant("ok", [
+  v.object({ ok: v.literal(true), item: QueueItemSchema }),
+  v.object({
+    ok: v.literal(false),
+    error: v.object({
+      code: v.picklist(SHARE_ERROR_CODES),
+      message: v.pipe(v.string(), v.maxLength(ERROR_MESSAGE_MAX_LENGTH)),
+      retryAfterMs: v.optional(RetryAfterMsSchema),
+    }),
+  }),
+]);
+export type QueueAddResponse = v.InferOutput<typeof QueueAddResponseSchema>;

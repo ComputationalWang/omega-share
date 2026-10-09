@@ -233,6 +233,9 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       const next = { ...state, room: { ...room, controlPolicy: msg.policy } };
       return withModLine(next, policyLine(msg.policy, msg.by, room.members, state.self), now);
     }
+    case "queue-changed":
+      // Queue state lands with W2 (OME-508, ADR 0031).
+      return state;
   }
 }
 

@@ -291,6 +291,11 @@ export function createWs({
       case "kick":
       case "mute":
       case "control-policy":
+      // Queue buckets (QUEUE_ADD_*) land with S2 (OME-506, ADR 0031).
+      case "queue-add":
+      case "queue-remove":
+      case "queue-advance":
+      case "ended":
         return true;
     }
   };
@@ -412,6 +417,15 @@ export function createWs({
           return;
         }
         sendError(ws, "bad_message", "not supported yet");
+        return;
+      case "queue-add":
+      case "queue-remove":
+      case "queue-advance":
+        // The playback queue lands with S2 (OME-506, ADR 0031). Until then: refused, nothing written.
+        sendError(ws, "bad_message", "not supported yet");
+        return;
+      case "ended":
+        // Ignored without an error, like a stale report (ADR 0031); S2 advances the queue on it.
         return;
     }
   };

@@ -6,6 +6,7 @@ import {
   MAX_CLIENT_MESSAGE_BYTES,
   MAX_EMBED_URL_LENGTH,
   MAX_SERVER_MESSAGE_BYTES,
+  MAX_URL_LENGTH,
 } from "./constants";
 import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
 import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
@@ -21,6 +22,7 @@ import {
   SeatIndexSchema,
 } from "./room";
 import { RoomLayoutInputSchema, RoomLayoutSchema } from "./layout";
+import { QueueItemIdSchema, QueueSchema } from "./queue";
 import { InviteKeySchema, OwnerTokenSchema } from "./room-ownership";
 import { RetryAfterMsSchema, ShareTokenSchema } from "./share";
 
@@ -106,6 +108,26 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("mute"), memberId: MemberIdSchema, muted: v.boolean() }),
   /** Who controls playback; broadcast as `control-policy-changed`. Setting the current policy is a no-op. */
   v.strictObject({ type: v.literal("control-policy"), policy: ControlPolicySchema }),
+  /*
+   * Playback queue (ADR 0031). Each needs `join` and passes the room's control policy like `control` does
+   * (`control_owner_only` otherwise). A stale or unknown item id is ignored without an error: it's a race.
+   */
+  /**
+   * Queue a raw page or embed URL. The server runs the share parser on it (`canonicalizeAnyEmbed`) and stores
+   * only the result, else `unsupported_url`. Rate-limited per member and per room (`rate_limited`); `queue_full` at QUEUE_MAX.
+   */
+  v.strictObject({ type: v.literal("queue-add"), url: v.pipe(v.string(), v.maxLength(MAX_URL_LENGTH)) }),
+  /** Drop an upcoming item. */
+  v.strictObject({ type: v.literal("queue-remove"), itemId: QueueItemIdSchema }),
+  /** Manual next: applies only while `fromItemId` is the current item, so two clicks skip one item. The only way past live and generic items. */
+  v.strictObject({ type: v.literal("queue-advance"), fromItemId: QueueItemIdSchema }),
+  /**
+   * The player reached the end of the current item (client rule in ADR 0031: not in an ad, the provider's video id
+   * is the item's, not live). Not subject to the control policy. The first valid report advances the queue; the
+   * server ignores reports for another item, a live or generic embed, an item current for under
+   * QUEUE_ENDED_DEBOUNCE_MS, or a `position` more than QUEUE_ENDED_TOLERANCE_S from the room clock.
+   */
+  v.strictObject({ type: v.literal("ended"), itemId: QueueItemIdSchema, position: PositionSchema }),
 ]);
 export type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 
@@ -131,6 +153,10 @@ export const ERROR_CODES = [
   "control_owner_only",
   /** `kick` or `mute` naming no member of this room, or the sender themselves. */
   "bad_target",
+  /** `queue-add` while the room already has QUEUE_MAX upcoming items. */
+  "queue_full",
+  /** `queue-add` with a URL the share parser refuses (not a synced provider, and not a valid generic embed or generic is off). */
+  "unsupported_url",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -174,9 +200,17 @@ export const ServerMessageSchema = v.variant("type", [
       embed: v.nullable(AnyEmbedSchema),
       by: v.nullable(MemberIdSchema),
       playback: OptionalPlaybackSchema,
+      /** The new current item's id (ADR 0031): every share and every advance gets one. Absent with a null embed, or from a pre-M6 server. */
+      itemId: v.optional(QueueItemIdSchema),
     }),
     v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
+    v.check((x) => x.itemId === undefined || x.embed !== null, "item id without an embed"),
   ),
+  /**
+   * The upcoming queue changed (ADR 0031): the whole list, in play order. `by` is who added or removed an item,
+   * or advanced; null when an `ended` report advanced it. On an advance, `embed-changed` (with the new `itemId`) comes first.
+   */
+  v.object({ type: v.literal("queue-changed"), queue: QueueSchema, by: v.nullable(MemberIdSchema) }),
   /** A member's `catching` changed. Coalesced by the server; the latest value always arrives. */
   v.object({ type: v.literal("member-status"), memberId: MemberIdSchema, catching: v.boolean() }),
   /** Reply to `ping`. `at` = server ms when it answered. */

@@ -9,9 +9,10 @@ import {
   SEAT_COUNT,
 } from "./constants";
 import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
-import { MemberIdSchema } from "./ids";
+import { MemberIdSchema, QueueItemIdSchema } from "./ids";
 import { RoomLayoutSchema } from "./layout";
 import { OptionalPlaybackSchema } from "./playback";
+import { QueueSchema } from "./queue";
 
 export const RoomIdSchema = v.pipe(v.string(), v.regex(new RegExp(`^[a-z0-9-]{1,${String(ROOM_ID_MAX_LENGTH)}}$`)));
 export type RoomId = v.InferOutput<typeof RoomIdSchema>;
@@ -116,7 +117,13 @@ export const RoomStateSchema = v.pipe(
     layout: v.optional(RoomLayoutSchema),
     /** Who controls playback (ADR 0030). Absent from a pre-M6 server: DEFAULT_CONTROL_POLICY. */
     controlPolicy: v.optional(ControlPolicySchema),
+    /** The current embed's queue item id, for `ended` and `queue-advance` (ADR 0031). Absent with no embed, or from a pre-M6 server. */
+    itemId: v.optional(QueueItemIdSchema),
+    /** Upcoming items (ADR 0031), not counting the current one. Absent from a pre-M6 server: empty. */
+    queue: v.optional(QueueSchema),
   }),
+  v.check((r) => r.itemId === undefined || r.embed !== null, "item id without an embed"),
+  v.check((r) => r.itemId === undefined || !(r.queue ?? []).some((i) => i.id === r.itemId), "current item also queued"),
   v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
   v.check((r) => new Set(r.members.map((m) => m.id)).size === r.members.length, "duplicate member id"),
   v.check((r) => {
