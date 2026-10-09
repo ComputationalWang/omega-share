@@ -73,17 +73,23 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
     }
     down = null;
     clip.classList.remove("is-dragging");
+    // A mouse drag's click comes in this same task, right after pointerup; a finger drag sends none. Either way the drop
+    // ends here, so it can never eat a later click (a keyboard Enter on a seat, a switch or screen-reader activation).
+    if (dragged) setTimeout(() => {
+      dragged = false;
+    }, 0);
   };
   clip.addEventListener("pointerup", end);
   clip.addEventListener("pointercancel", (ev) => {
     end(ev);
     dragged = false;
   });
-  // A drag's click would sit on whatever seat it ended over: drop it, before the seat layer sees it.
+  // A drag's click would sit on whatever seat it ended over: drop it, before the seat layer sees it. Only a pointer's
+  // click (detail > 0): keyboard and assistive-tech clicks have detail 0 and always go through.
   clip.addEventListener(
     "click",
     (ev) => {
-      if (!dragged) return;
+      if (!dragged || ev.detail === 0) return;
       dragged = false;
       ev.stopPropagation();
       ev.preventDefault();
