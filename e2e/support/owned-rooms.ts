@@ -6,7 +6,7 @@
 // No imports: the seed script reads this under bun before any server exists.
 
 /** A room per use. Names are letters only, so the id stays valid base32 (a-z, 2-7). */
-export const OWNED_ROOM_NAMES = ["invite", "owner", "delete", "ux", "extlist", "extopen", "extsecret", "extdelete"] as const;
+export const OWNED_ROOM_NAMES = ["invite", "owner", "delete", "ux", "extlist", "extopen", "extsecret", "extdelete", "real"] as const;
 export type OwnedRoomName = (typeof OWNED_ROOM_NAMES)[number];
 
 export interface OwnedRoom {
