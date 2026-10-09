@@ -27,13 +27,14 @@ const IPV4 = /\b\d{1,3}(?:\.\d{1,3}){3}\b/g;
 /** Two or more colon-joined hex groups with a `::` or at least 3 colons: IPv6, not `a: b` prose. */
 const IPV6 = /(?<![\w:])(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?![\w:])/gi;
 
+/** Every redaction runs before the cap, so the cap never cuts an address to a fragment the patterns miss (OME-548). */
 function scrub(message: string): string {
-  const unquoted = message.replace(QUOTED, (q) => `${q.charAt(0)}…${q.charAt(0)}`);
-  const short = unquoted.length > MAX_MESSAGE ? `${unquoted.slice(0, MAX_MESSAGE)}…` : unquoted;
-  return short
+  const redacted = message
+    .replace(QUOTED, (q) => `${q.charAt(0)}…${q.charAt(0)}`)
     .replace(EMAIL, "<email>")
     .replace(IPV4, "<ip>")
     .replace(IPV6, (m) => (m.includes("::") || m.split(":").length > 3 ? "<ip>" : m));
+  return redacted.length > MAX_MESSAGE ? `${redacted.slice(0, MAX_MESSAGE)}…` : redacted;
 }
 
 export function formatLogLine(level: "error", event: LogEvent, err?: unknown): string {
