@@ -114,7 +114,7 @@ test("collapse to the input bar: the field stays, the picture grows, the show-ch
   // Out of sight, not out of the accessibility tree: the log is still the polite live region screen readers hear.
   const hiddenLog = page.locator(site.fsStrip).locator(site.chatLog);
   await expect(page.getByRole("log", { name: "Chat messages" })).toBeAttached();
-  expect(await hiddenLog.evaluate((el) => [getComputedStyle(el).display !== "none", el.getBoundingClientRect().width <= 1])).toEqual([true, true]);
+  expect(await hiddenLog.evaluate((el) => [getComputedStyle(el).display !== "none", el.getBoundingClientRect().width <= 1, el.tabIndex])).toEqual([true, true, -1]);
   await expect(page.locator(site.chatInput)).toBeVisible();
   const band = await box(page.locator(site.tv));
   expect(band.width).toBeGreaterThan(open.width);

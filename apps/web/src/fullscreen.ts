@@ -37,8 +37,11 @@ export interface Fullscreen {
   enter(): Promise<void>;
   exit(): void;
   toggle(): Promise<void>;
-  /** A key pressed anywhere: F toggles (not while `typing` in a field), Esc leaves the pseudo mode. True if handled. */
-  key(key: string, typing: boolean): boolean;
+  /**
+   * A key pressed anywhere: F toggles (not while `typing` in a field), Esc leaves the pseudo mode. True if handled.
+   * A held key's repeats are swallowed: one toggle per press.
+   */
+  key(key: string, typing: boolean, repeat?: boolean): boolean;
 }
 
 const ours = (state: unknown): boolean => typeof state === "object" && state !== null && STATE_KEY in state;
@@ -46,7 +49,10 @@ const ours = (state: unknown): boolean => typeof state === "object" && state !==
 export function createFullscreen(env: FullscreenEnv): Fullscreen {
   let mode: FullscreenMode = "off";
   let entering = false;
+  /** Our history entry is being popped: its popstate is on the way, so another exit must not pop the room's. */
+  let popping = false;
   const set = (next: FullscreenMode): void => {
+    if (next === "off") popping = false;
     if (next === mode) return;
     mode = next;
     env.onChange(next);
@@ -86,6 +92,8 @@ export function createFullscreen(env: FullscreenEnv): Fullscreen {
       if (env.document.fullscreenEnabled !== false && request !== undefined) {
         try {
           await request.call(env.target, { navigationUI: "hide" });
+          // Esc may have left again before this promise settled: trust the document, not the promise.
+          if (!env.isTarget(env.document.fullscreenElement)) return;
           set("native");
           await lockLandscape();
           return;
@@ -108,8 +116,11 @@ export function createFullscreen(env: FullscreenEnv): Fullscreen {
       });
     } else if (mode === "pseudo") {
       // Pop our own entry (its popstate turns the mode off), so a later Back leaves the room as usual.
-      if (ours(env.history.state)) env.history.back();
-      else set("off");
+      if (popping) return;
+      if (ours(env.history.state)) {
+        popping = true;
+        env.history.back();
+      } else set("off");
     }
   };
 
@@ -122,7 +133,9 @@ export function createFullscreen(env: FullscreenEnv): Fullscreen {
       exit();
       return Promise.resolve();
     },
-    key(key, typing) {
+    key(key, typing, repeat = false) {
+      const ownsKey = (key === "Escape" && mode === "pseudo") || ((key === "f" || key === "F") && !typing);
+      if (ownsKey && repeat) return true;
       if (key === "Escape" && mode === "pseudo") {
         exit();
         return true;

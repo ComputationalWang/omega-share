@@ -315,6 +315,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     stripIcon.className = `ui-sprite ${open ? "ui-icon-strip-hide" : "ui-icon-strip-show"}`;
     unreadChip.textContent = `${String(unread)} new`;
     unreadChip.hidden = open || unread === 0;
+    // Collapsed in full screen the log is out of sight: no invisible tab stop.
+    chatLog.root.tabIndex = !open && !strip.hidden ? -1 : 0;
     // Open, the key heads the strip; collapsed, it follows the field on the band. Focus stays on it either way.
     const home = open ? stripHead : strip;
     if (stripToggle.parentElement !== home || home.lastElementChild !== unreadChip) {
@@ -412,10 +414,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     void fs.toggle();
   });
   /** In full screen the room is hidden and stops drawing; the log and field move into the strip and back. */
+  /** Where focus was before full screen, if full screen hid it (a seat in the room): it goes back there on the way out. */
+  let focusBefore: HTMLElement | null = null;
   const onFullscreen = (mode: FullscreenMode): void => {
     const on = mode !== "off";
     // Moving a focused field blurs it: give focus back to where it was (the draft is the same node, so it stays).
     const focused = document.activeElement;
+    const wasInRoom = on && focused instanceof HTMLElement && clip.contains(focused);
     wrap.classList.toggle("is-fs", on);
     wrap.classList.toggle("is-pseudo-fs", mode === "pseudo");
     clip.hidden = on;
@@ -428,7 +433,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     placeChat();
     renderStrip();
     fit();
-    if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
+    if (wasInRoom) {
+      // The room is hidden now: the key you pressed to enter (or the exit key, for F) holds focus meanwhile.
+      focusBefore = focused;
+      fsKey.focus({ preventScroll: true });
+    } else if (!on && focusBefore !== null && (document.activeElement === fsKey || document.activeElement === document.body)) {
+      const back = focusBefore;
+      focusBefore = null;
+      if (back.isConnected) back.focus({ preventScroll: true });
+    } else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
+    if (!on) focusBefore = null;
   };
   opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked);
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
@@ -1038,7 +1052,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   window.addEventListener("keydown", (ev) => {
     if (moderation?.key(ev) === true) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
-    else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && fs.key(ev.key, typingIn(ev.target))) ev.preventDefault();
+    else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && fs.key(ev.key, typingIn(ev.target), ev.repeat)) ev.preventDefault();
     else if (ev.key === "Enter" && fs.mode() !== "off" && !chatForm.hidden && (ev.target === document.body || ev.target === wrap || ev.target === chatLog.root)) {
       // Set k: Enter anywhere in full screen jumps to the message field.
       ev.preventDefault();
