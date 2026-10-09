@@ -88,6 +88,11 @@ describe("shareEmbed", () => {
       message: "No such room",
     },
     {
+      name: "the room's owner-only control policy (403 control_owner_only)",
+      response: () => Promise.resolve(json({ ok: false, error: { code: "control_owner_only", message: "Only the owner can do that." } }, 403)),
+      message: "Only the room's owner can change what plays in this room.",
+    },
+    {
       name: "a rate limit",
       response: () => Promise.resolve(json({ ok: false, error: { code: "rate_limited", message: "Slow down" } }, 429)),
       message: "Slow down",
