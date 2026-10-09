@@ -201,10 +201,14 @@ test("bringing the room back (window key, page key, OS ×) reloads nothing and n
   await expect(a.page.locator(site.roomAway)).toBeHidden();
   await expect(a.page.locator(site.chatInput)).toBeVisible();
   expect(await roomPaused(a.page)).toBe(false);
-  // The OS ×.
+  // The OS ×, after someone sat while the room was out: back in the page, the room shows it at once (review).
   pop = await popRoom(a.page, a.context);
+  await clickSettled(b.page, b.page.locator(`${site.seat}[data-seat="3"]`));
+  await expect(pop.locator(`${site.seat}[data-seat="3"]`)).toHaveAttribute("data-occupied", "true");
   await pop.close({ runBeforeUnload: true });
   await expect(a.page.locator(site.room)).toBeVisible();
+  await expect(a.page.locator(`${site.seat}[data-seat="3"]`)).toHaveAttribute("data-occupied", "true");
+  await expect(a.page.locator(site.nicknameTag)).toHaveCount(2);
   // The page's key, by keyboard: focus lands back in the room's place (the message field, as with the chat).
   pop = await popRoom(a.page, a.context);
   closed = pop.waitForEvent("close");

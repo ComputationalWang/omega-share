@@ -263,6 +263,10 @@ describe("chat relay (room tab)", () => {
 // paused), the picture's time for its plate, and each emote. Its seat clicks come back here to be sent on the socket.
 const MEMBER = { id: "m1", nickname: "Ada", avatar: 2 };
 const ROOM = { id: "movie-night", seats: [null, null, null, null, null, null, null, null], members: [MEMBER], embed: null, playback: null };
+/** A room-view as sent when the room didn't change: everything but the room. */
+function withoutRoom<T extends { room: unknown }>(v: T): Omit<T, "room"> {
+  return Object.fromEntries(Object.entries(v).filter(([k]) => k !== "room")) as Omit<T, "room">;
+}
 const VIEW = { status: "open", self: "m1", room: ROOM, bubbles: [], syslines: [], catching: [] } as const;
 const TV = { video: true, playing: true, position: 61, live: false, catching: false };
 
@@ -322,10 +326,24 @@ describe("room relay (OME-600)", () => {
     expect(take()).toEqual([]);
     const bubbles = [{ memberId: "m1", text: "hi", expiresAt: 6000 }];
     relay.view({ ...VIEW, bubbles });
-    expect(take()).toEqual([{ t: "room-view", ...VIEW, bubbles }]);
+    expect(take().map((m) => m.t)).toEqual(["room-view"]);
+  });
+
+  test("the room itself goes over only when it changed: a bubble or a line sends the rest, not the room again (review)", async () => {
+    const { relay, take, from } = await setup();
+    relay.view(VIEW);
+    from({ t: "pop-ready", pop: "r1", kind: "room" });
+    expect(take().find((m) => m.t === "room-view")).toEqual({ t: "room-view", ...VIEW });
+    const bubbles = [{ memberId: "m1", text: "hi", expiresAt: 6000 }];
+    relay.view({ ...VIEW, bubbles });
+    const rest = withoutRoom(VIEW);
+    expect(take()).toEqual([{ t: "room-view", ...rest, bubbles }]);
     const room = { ...ROOM, seats: ["m1", null, null, null, null, null, null, null] };
     relay.view({ ...VIEW, bubbles, room });
     expect(take()).toEqual([{ t: "room-view", ...VIEW, bubbles, room }]);
+    // A window adopted again (reloaded) gets the room whatever it was sent before.
+    from({ t: "pop-ready", pop: "r2", kind: "room" });
+    expect(take().find((m) => m.t === "room-view")).toEqual({ t: "room-view", ...VIEW, bubbles, room });
   });
 
   test("the plate goes over when the picture's time or state changed; emotes go over at once", async () => {

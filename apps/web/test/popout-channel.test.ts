@@ -74,6 +74,8 @@ describe("whole-room window messages (OME-600)", () => {
     const ok: unknown[] = [
       VIEW,
       { ...VIEW, status: "reconnecting", self: null, room: null, bubbles: [], syslines: [], catching: [] },
+      // The room left out: unchanged since the last one (review).
+      { t: "room-view", status: "open", self: "m1", bubbles: [], syslines: [], catching: [] },
       { t: "room-tv", video: true, playing: true, position: 1531, live: false, catching: false },
       { t: "room-emote", member: "m1", kind: "wave" },
       { t: "room-raise" },

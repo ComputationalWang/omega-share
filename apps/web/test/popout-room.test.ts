@@ -18,6 +18,10 @@ afterAll(async () => {
 
 const MEMBER = { id: "m1", nickname: "Ada", avatar: 2 };
 const ROOM = { id: "movie-night", seats: [null, null, null, null, null, null, null, null], members: [MEMBER], embed: null, playback: null };
+/** A room-view as sent when the room didn't change: everything but the room. */
+function withoutRoom<T extends { room: unknown }>(v: T): Omit<T, "room"> {
+  return Object.fromEntries(Object.entries(v).filter(([k]) => k !== "room")) as Omit<T, "room">;
+}
 const VIEW = { t: "room-view", status: "open", self: "m1", room: ROOM, bubbles: [], syslines: [], catching: [] } as const;
 const TV = { t: "room-tv", video: true, playing: true, position: 1531, live: false, catching: false } as const;
 
@@ -108,6 +112,19 @@ describe("whole-room window", () => {
     expect(renders[0]?.s.room?.members).toEqual([MEMBER]);
     frame();
     expect(renders).toHaveLength(1);
+  });
+
+  test("a room-view without the room keeps the room it has: the same object, so the stage redraws nothing it needn't (review)", async () => {
+    const { from, frame, adopt, renders } = await setup();
+    adopt();
+    from(VIEW);
+    frame();
+    const rest = withoutRoom(VIEW);
+    from({ ...rest, bubbles: [{ memberId: "m1", text: "hi", expiresAt: 5 }] });
+    frame();
+    expect(renders).toHaveLength(2);
+    expect(renders[1]?.s.room).toBe(renders[0]?.s.room ?? null);
+    expect(renders[1]?.s.bubbles).toHaveLength(1);
   });
 
   test("a malformed room is never drawn", async () => {
