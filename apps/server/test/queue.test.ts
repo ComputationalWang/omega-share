@@ -176,6 +176,28 @@ describe("queue-add (ADR 0031 §2, §3)", () => {
     expect(await added(alice.client, watch(50))).toHaveLength(QUEUE_ADD_MEMBER_BURST + 1);
   });
 
+  test("a refusal by the room's bucket gives the member's add back: other members' traffic can't drain it", async () => {
+    const c = clock();
+    t = start({ now: c.now });
+    const quiet = await joined();
+    const members = [];
+    for (let m = 0; m < Math.ceil(QUEUE_ADD_ROOM_BURST / QUEUE_ADD_MEMBER_BURST); m++) members.push(await joined());
+    let n = 0;
+    for (const m of members) {
+      for (let i = 0; i < QUEUE_ADD_MEMBER_BURST && n < QUEUE_ADD_ROOM_BURST; i++) {
+        add(m.client, watch(n++));
+        await quiet.client.next("queue-changed");
+      }
+    }
+    for (let i = 0; i < QUEUE_ADD_MEMBER_BURST; i++) {
+      add(quiet.client, watch(100 + i));
+      expect((await quiet.client.next("error")).code).toBe("rate_limited");
+    }
+    // One room add is back; the quiet member, refused only by the room, still has all of theirs.
+    c.ms += QUEUE_ADD_ROOM_REFILL_MS;
+    expect(await added(quiet.client, watch(200))).toHaveLength(QUEUE_ADD_ROOM_BURST + 1);
+  });
+
   test("the buckets come before the parse: refused URLs spend the member's adds", async () => {
     const c = clock();
     t = start({ now: c.now });
@@ -624,6 +646,38 @@ describe("persistence (ADR 0031 §6)", () => {
     c.ms += QUEUE_ENDED_DEBOUNCE_MS;
     back.client.send({ type: "ended", itemId: current, position: 0 });
     expect((await back.client.next("embed-changed")).embed?.url).toBe(embedUrl(1));
+  });
+
+  test(`rows hidden by the policy can't push a restored queue past ${String(QUEUE_MAX)}: the oldest are kept and the room stays joinable`, async () => {
+    const c = clock();
+    const boot = async (genericEmbeds: boolean): Promise<void> => {
+      for (const cl of clients.splice(0)) cl.close();
+      await t?.server.stop(true);
+      db?.close();
+      db = openDatabase(dbFile());
+      t = start({ store: new RoomStore(db), now: c.now, genericEmbeds });
+    };
+    await boot(true);
+    const alice = await joined();
+    let generic: QueueItem[] = [];
+    for (let i = 0; i < QUEUE_MAX; i++) {
+      c.ms += QUEUE_ADD_MEMBER_REFILL_MS;
+      generic = await added(alice.client, `${GENERIC_URL}${String(i)}`);
+    }
+    // Hidden by the kill switch, the 20 generic rows leave room for a 21st row.
+    await boot(false);
+    const bob = await joined();
+    expect(bob.snapshot.room.queue ?? []).toEqual([]);
+    c.ms += QUEUE_ADD_MEMBER_REFILL_MS;
+    await added(bob.client, watch(1));
+
+    await boot(true);
+    // Client.join throws on a frame the contract refuses, as every site client would.
+    const carol = await joined();
+    expect(carol.snapshot.room.queue?.map((i) => i.id)).toEqual(generic.map((i) => i.id));
+    c.ms += QUEUE_ADD_MEMBER_REFILL_MS;
+    add(carol.client, watch(2));
+    expect((await carol.client.next("error")).code).toBe("queue_full");
   });
 
   test("an item the policy no longer accepts (GENERIC_EMBEDS off) is left out after the restart", async () => {
