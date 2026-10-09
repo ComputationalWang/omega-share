@@ -57,10 +57,27 @@ export interface RoomLayout {
 
 const sidesFit = (r: Rect, side: number, width: number): boolean => r.x >= side && r.x + r.w + side <= width;
 
-/** `provider`: the room's embed, for its minimum player size (ADR 0012; Twitch's is larger). */
-export function roomLayout(containerWidth: number, provider: Provider | null = null): RoomLayout {
+/** Set (k) phone watch layout (OME-596): at most this wide, the room page stacks TV, room and chat, with no editor. */
+export const PHONE_MAX_W = 600;
+export const PHONE_QUERY = `(max-width: ${String(PHONE_MAX_W)}px)`;
+/** The phone's room window: the stage at 1×, cropped to this height (set k: "cropped to the seats"). */
+export const PHONE_ROOM_H = 270;
+
+/**
+ * `provider`: the room's embed, for its minimum player size (ADR 0012; Twitch's is larger).
+ * `phone`: set (k)'s watch layout. The TV is full width (still never under its minimum), bezel and shelf compact, and
+ * `stage` is a window onto the unscaled stage, as wide as the container and PHONE_ROOM_H tall (`panTo` picks the view).
+ */
+export function roomLayout(containerWidth: number, provider: Provider | null = null, phone = false): RoomLayout {
   const width = Math.floor(containerWidth);
   const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
+  if (phone) {
+    const w = Math.max(min, width);
+    const tv = { x: 0, y: TV_BEZEL, w, h: Math.round((w * 9) / 16) };
+    const controls = { x: 0, y: tv.y + tv.h + GAP, w, h: CONTROL_BAR_H };
+    const stage = { x: 0, y: controls.y + controls.h + GAP, w: Math.min(width, STAGE_W), h: PHONE_ROOM_H };
+    return { tv, controls, stage, scale: 1, height: stage.y + stage.h, compact: { tv: true, controls: true } };
+  }
   const tvW = Math.max(min, Math.min(TV_MAX_W, width - 2 * TV_BEZEL));
   const tv = { x: Math.max(0, Math.floor((width - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
   const controls = { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
@@ -68,6 +85,12 @@ export function roomLayout(containerWidth: number, provider: Provider | null = n
   const stage = { x: 0, y: controls.y + controls.h + GAP, w: STAGE_W * scale, h: STAGE_H * scale };
   const compact = { tv: !sidesFit(tv, TV_BEZEL, width), controls: !sidesFit(controls, SHELF_SPEAKER, width) };
   return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
+}
+
+/** The top-left of a `view`-sized window onto the stage centred on `centre` (stage px), kept on the stage, whole pixels. */
+export function panTo(view: { readonly w: number; readonly h: number }, centre: Point): Point {
+  const clamp = (v: number, max: number): number => Math.max(0, Math.min(Math.max(0, max), Math.round(v)));
+  return { x: clamp(centre.x - view.w / 2, STAGE_W - view.w), y: clamp(centre.y - view.h / 2, STAGE_H - view.h) };
 }
 
 /** A stage-space rect on the page. */

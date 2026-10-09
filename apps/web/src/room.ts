@@ -15,7 +15,8 @@ import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, seatViews, sitIntent } from "./intents";
 import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
-import { BUBBLE_OFFSET_Y, STAGE_W, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
+import { BUBBLE_OFFSET_Y, PHONE_QUERY, STAGE_H, STAGE_W, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
+import { createRoomWindow } from "./room-window";
 import type { PlayerError } from "./player/adapter";
 import { PLAYERS, createPlayerMounter } from "./player/registry";
 import type { FurnitureAtlas } from "./furniture-atlas";
@@ -127,6 +128,19 @@ function syncedOnly(e: AnyEmbed | null | undefined): Embed | null {
   return e != null && isSyncedEmbed(e) ? e : null;
 }
 
+/** The middle of the seats' bounding box (stage px): where the phone's room window looks first. */
+function middleOf(points: readonly Point[]): Point {
+  if (points.length === 0) return { x: STAGE_W / 2, y: STAGE_H / 2 };
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const p of points) {
+    x0 = Math.min(x0, p.x);
+    x1 = Math.max(x1, p.x);
+    y0 = Math.min(y0, p.y);
+    y1 = Math.max(y1, p.y);
+  }
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
+}
+
 function place(e: HTMLElement, p: Point): void {
   e.style.transform = `translate(${String(p.x)}px, ${String(p.y)}px)`;
 }
@@ -199,9 +213,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // YouTube's minimum size and no room layer can stack over it (layout.ts `roomLayout`).
   // .ui-room: set (e)/(c) chrome inside the stage is at the room's 1× art scale.
   const stage = el("div", { className: "stage ui-room" }, "room");
-  const clip = el("div", { className: "stage-clip" });
+  const clip = el("div", { className: "stage-clip" }, "room-window");
   clip.append(stage);
-  const tv = el("div", { className: "tv ui-tv-frame" });
+  const tv = el("div", { className: "tv ui-tv-frame" }, "tv");
   const controls = el("div", { className: "controls ui-tv-shelf" });
   const wrap = el("div", { className: "stage-wrap", hidden: true });
   wrap.append(tv, controls, clip);
@@ -309,18 +323,36 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // The owner's "Edit room" key (set (h)): made only for the owner, and the editor chunk loads only when it's pressed.
   const editBar = el("div", { className: "edit-bar" });
   const editorPanel = el("div", { className: "editor-panel" });
+  // Set (k) phone watch layout (OME-596): TV full width, the room at 1× in a window you drag, chat right under it, no editor.
+  const phone = globalThis.matchMedia(PHONE_QUERY);
   opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked);
+  /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
+  const placeChat = (): void => {
+    if (phone.matches) wrap.after(chatLog.root, chatForm);
+    else notice.after(chatLog.root, chatForm);
+    // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch).
+    opts.root.classList.toggle("ui-touch", phone.matches);
+  };
+  placeChat();
 
   /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
   let tvProvider: Embed["provider"] | null = null;
+  /** The phone's window looks at the middle of the seats until you drag it, sit, or focus something off-screen. */
+  const roomWindow = createRoomWindow(clip, stage, () => seatsMiddle);
+  let seatsMiddle: Point = { x: STAGE_W / 2, y: STAGE_H / 2 };
   const fit = (): void => {
-    const l = roomLayout(wrap.clientWidth, tvProvider);
+    const onPhone = phone.matches;
+    const l = roomLayout(wrap.clientWidth, tvProvider, onPhone);
     box(tv, l.tv);
     box(controls, l.controls);
     tv.classList.toggle("compact", l.compact.tv);
     controls.classList.toggle("compact", l.compact.controls);
     box(clip, l.stage);
-    stage.style.transform = `scale(${String(l.scale)})`;
+    if (onPhone) roomWindow.set(true, l.stage.w, l.stage.h);
+    else {
+      roomWindow.set(false, 0, 0);
+      stage.style.transform = `scale(${String(l.scale)})`;
+    }
     wrap.style.height = `${String(l.height)}px`;
   };
   new ResizeObserver(fit).observe(wrap);
@@ -421,6 +453,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     layoutKey = key;
     layoutBuilds++;
     seats = seatPoints(next);
+    seatsMiddle = middleOf(seats);
+    if (phone.matches) fit();
     seatFacings = layoutSeats(next).map((s) => s.facing);
     grid = walkGrid(next);
     standing = standingPoints(next);
@@ -539,10 +573,17 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       });
   };
 
-  /** Only the owner, in an open room, gets the key; it isn't in the DOM for anyone else. */
+  /** Said once per page, the first time an owner is in their open room on a phone. */
+  let arrangeHinted = false;
+  /** Only the owner, in an open room, gets the key; it isn't in the DOM for anyone else. Never on a phone (set k). */
   const renderEditToggle = (s: ViewState): void => {
     const ownerToken = opts.secret?.ownerToken;
-    const want = s.owner && ownerToken !== undefined && screen(s).stage;
+    const owns = s.owner && ownerToken !== undefined && screen(s).stage;
+    if (owns && phone.matches && !arrangeHinted && s.status === "open") {
+      arrangeHinted = true;
+      chatLog.append({ kind: "system", line: { glyph: "host", actor: null, verb: "Arrange the room on a computer.", time: null, self: true } });
+    }
+    const want = owns && !phone.matches;
     if (!want) {
       if (editToggle !== null) {
         closeEditor();
@@ -566,11 +607,19 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     editToggle = b;
   };
 
+  /** The seat the phone's window last centred on, so it follows me when I sit, and only then. */
+  let centredSeat = -1;
   const render = (): void => {
     frame = 0;
     const s = state;
     const nextLayout = preview ?? layoutOf(s.room);
     if (nextLayout !== layout) applyLayout(nextLayout);
+    const mySeat = s.self === null ? -1 : (s.room?.seats.indexOf(s.self) ?? -1);
+    if (mySeat !== centredSeat) {
+      centredSeat = mySeat;
+      const p = seats[mySeat];
+      if (p !== undefined) roomWindow.centre(p);
+    }
     if (title.textContent !== (s.title ?? "")) title.textContent = s.title ?? "";
     title.hidden = s.title === null;
     renderEditToggle(s);
@@ -874,6 +923,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (ev.persisted) c.resume();
   });
 
+  phone.addEventListener("change", () => {
+    fit();
+    placeChat();
+    requestRender();
+  });
   syncTv(state);
   render();
   pbView = playback.view();

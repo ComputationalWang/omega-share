@@ -185,6 +185,8 @@ test("keyboard: Tab reaches every seat, a focused seat is panned into the window
   const n = await seats.count();
   for (const i of [0, n - 1]) {
     const s = seats.nth(i);
+    // A key press first, as a keyboard user's last input: then focus shows its ring (:focus-visible).
+    await page.keyboard.press("Shift");
     await s.focus();
     await frames(page);
     const b = await s.boundingBox();
