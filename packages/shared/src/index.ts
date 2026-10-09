@@ -9,4 +9,5 @@ export * from "./playback";
 export * from "./share";
 export * from "./room-ownership";
 export * from "./messages";
+export * from "./report";
 export * from "./rooms-list";

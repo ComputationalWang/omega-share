@@ -131,5 +131,23 @@ export const CLOSE_CODES = {
   ROOM_CLOSED: 4004,
   /** The owner kicked this member (ADR 0030), or a join came back within KICK_COOLDOWN_MS. Don't reconnect; say so. */
   KICKED: 4005,
+  /** The operators took the room down after a report (ADR 0033). Don't reconnect; show the takedown notice. */
+  TAKEN_DOWN: 4006,
 } as const;
 export type CloseCode = (typeof CLOSE_CODES)[keyof typeof CLOSE_CODES];
+
+/** Abuse reports, `POST /rooms/:id/report` (ADR 0033). */
+/** Longest report note, in UTF-16 code units after trimming and normalizing. */
+export const REPORT_NOTE_MAX_LENGTH = 300;
+/** Cap on the raw `POST /rooms/:id/report` body; the largest valid body is under 1 KiB. */
+export const MAX_REPORT_BODY_BYTES = 2048;
+/** Per client key: this many reports at once, then one every REPORT_KEY_REFILL_MS. Also the longest `retryAfterMs`. */
+export const REPORT_KEY_BURST = 3;
+export const REPORT_KEY_REFILL_MS = 10 * 60_000;
+/** Per reported room, across all reporters: this many at once, then one every REPORT_ROOM_REFILL_MS. */
+export const REPORT_ROOM_BURST = 20;
+export const REPORT_ROOM_REFILL_MS = 60_000;
+/** Most open reports stored on the whole server; past it new reports get `unavailable` (503). */
+export const REPORT_MAX_OPEN = 1000;
+/** Every report row is deleted this long after it was received, whatever its state. */
+export const REPORT_RETENTION_MS = 30 * 24 * 60 * 60_000;

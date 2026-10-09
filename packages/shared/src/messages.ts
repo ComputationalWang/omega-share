@@ -34,21 +34,25 @@ const CHAT_SHAPE = new RegExp(`^(?:${CHAT_CHAR}|${CHAT_ZWJ})*$`, "u");
 const CHAT_MARK_STACK = new RegExp(String.raw`\p{M}{${String(CHAT_MAX_MARK_RUN + 1)}}`, "u");
 
 /**
- * Trimmed and NFC-normalized, 1–280 chars. No control, format (zero-width, bidi, BOM) or
+ * Trimmed and NFC-normalized, 1–`maxLength` chars. No control, format (zero-width, bidi, BOM) or
  * line/paragraph separator characters, except ZWJ inside emoji sequences. At most 3
- * combining marks in a row. Must contain something visible.
+ * combining marks in a row. Must contain something visible. Chat's rules, shared with report notes (ADR 0033).
  */
-export const ChatTextSchema = v.pipe(
-  v.string(),
-  v.trim(),
-  v.normalize("NFC"),
-  v.minLength(1),
-  v.maxLength(CHAT_MAX_LENGTH),
-  v.regex(CHAT_SHAPE),
-  v.check((s) => !CHAT_MARK_STACK.test(s), "too many combining marks"),
-  v.check((s) => !INVISIBLE_LETTERS.test(s), "invisible characters"),
-  v.regex(/[\p{L}\p{N}\p{P}\p{S}]/u, "nothing visible"),
-);
+export const plainTextSchema = (maxLength: number) =>
+  v.pipe(
+    v.string(),
+    v.trim(),
+    v.normalize("NFC"),
+    v.minLength(1),
+    v.maxLength(maxLength),
+    v.regex(CHAT_SHAPE),
+    v.check((s) => !CHAT_MARK_STACK.test(s), "too many combining marks"),
+    v.check((s) => !INVISIBLE_LETTERS.test(s), "invisible characters"),
+    v.regex(/[\p{L}\p{N}\p{P}\p{S}]/u, "nothing visible"),
+  );
+
+/** `plainTextSchema` at 1–280 chars. */
+export const ChatTextSchema = plainTextSchema(CHAT_MAX_LENGTH);
 
 /** Emote bubbles in the avatar motion atlas (`emote/<kind>`), plus `wave` (a per-avatar animation). */
 export const EMOTE_KINDS = ["clap", "exclaim", "heart", "laugh", "question", "wave"] as const;
