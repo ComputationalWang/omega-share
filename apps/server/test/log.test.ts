@@ -1,7 +1,17 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import * as v from "valibot";
 import { formatLogLine, logError } from "../src/log";
 import { Client, start, type TestServer } from "./helpers";
 import type { RoomPersistence } from "../src/server";
+
+function vError(f: () => unknown): Error {
+  try {
+    f();
+  } catch (err) {
+    if (err instanceof Error) return err;
+  }
+  throw new Error("expected an Error");
+}
 
 const parse = (line: string) => JSON.parse(line) as { level?: string; event?: string; error?: string };
 
@@ -14,12 +24,34 @@ describe("logger", () => {
   });
 
   test("redacts quoted values, addresses and emails from error messages", () => {
-    const err = new Error('no room "secret-room-id": "My Private Title" from 203.0.113.7, [2001:db8::1]:443 or fe80::1 by mail@example.com');
+    const err = new Error('write failed from 203.0.113.7, [2001:db8::1]:443 or fe80::1 by mail@example.com: no room "secret-room-id": "My Private Title"');
     const line = formatLogLine("error", "store.title", err);
     for (const secret of ["secret-room-id", "My Private Title", "203.0.113.7", "2001:db8::1", "fe80::1", "mail@example.com"]) {
       expect(line).not.toContain(secret);
     }
-    expect(parse(line).error).toBe('Error: no room "…": "…" from <ip>, [<ip>]:443 or <ip> by <email>');
+    expect(parse(line).error).toBe('Error: write failed from <ip>, [<ip>]:443 or <ip> by <email>: no room "…"');
+  });
+
+  // OME-536: a quoted value may itself hold a quote, escaped (JSON.stringify) or not (Valibot), so the
+  // scrub over-redacts: everything from the first quote to the end of the message goes.
+  test("a quoted value holding a quote leaks none of its characters", () => {
+    const cases: [Error, string][] = [
+      [vError(() => v.parse(v.number(), 'Ali"ce Secret')), 'ValiError: Invalid type: Expected number but received "…"'],
+      [vError(() => v.parse(v.number(), "Ali'ce Secret")), 'ValiError: Invalid type: Expected number but received "…"'],
+      [new Error(`Room ${JSON.stringify('Ali"ceSecretNick')} not found`), 'Error: Room "…"'],
+      [new Error("no room 'Ali'ce Secret' here"), "Error: no room '…'"],
+    ];
+    for (const [err, expected] of cases) {
+      const line = formatLogLine("error", "store.title", err);
+      for (const secret of ["Ali", "ce Secret", "ceSecret", "Secret", "Nick", "here"]) expect(line).not.toContain(secret);
+      expect(parse(line).error).toBe(expected);
+    }
+  });
+
+  test("a quoted value cut off by the length cap is still redacted", () => {
+    const line = formatLogLine("error", "store.title", new Error(`no room "${"s".repeat(300)}"`));
+    expect(line).not.toContain("sss");
+    expect(parse(line).error).toBe('Error: no room "…"');
   });
 
   test("caps the message length", () => {
