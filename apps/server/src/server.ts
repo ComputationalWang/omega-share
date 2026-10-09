@@ -114,7 +114,8 @@ function titleBlocker(terms: readonly string[]): (title: string) => boolean {
 /**
  * Every stored room, plus the configured ones the store lacks, seeded with DEFAULT_LAYOUT. A stored
  * embed the policy no longer accepts (GENERIC_EMBEDS=off, a newly denied host) comes back as null;
- * the row keeps it, so switching back restores it.
+ * the row keeps it, so switching back restores it. Queue items get the same treatment. A restored current item
+ * counts as current from `since` (monotonic), so `ended` waits out the debounce again (ADR 0031 §4).
  */
 function loadRooms(
   rooms: RoomRegistry,
@@ -122,6 +123,7 @@ function loadRooms(
   store: RoomPersistence | null,
   embeds: EmbedPolicy,
   now: number,
+  since: number,
 ): void {
   if (store !== null) {
     for (const r of store.listRooms()) {
@@ -131,7 +133,7 @@ function loadRooms(
         const again = embeds.restore(i.embed);
         return again === null ? [] : [{ id: i.id, embed: again }];
       });
-      rooms.addRoom(new Room(r.id, { ...r, embed, itemId: embed === null ? null : r.itemId, queue }));
+      rooms.addRoom(new Room(r.id, { ...r, embed, itemId: embed === null ? null : r.itemId, queue, itemSince: since }));
     }
   }
   for (const id of configured) {
@@ -160,7 +162,7 @@ export function startServer(opts: ServerOptions): OmegaServer {
   const headers = securityHeaders(embeds.genericEmbeds);
   const plain = (status: number, text: string): Response => plainWith(status, text, headers);
   const rooms = opts.registry ?? new RoomRegistry();
-  loadRooms(rooms, opts.rooms ?? [DEFAULT_ROOM_ID], store, embeds, wallNow());
+  loadRooms(rooms, opts.rooms ?? [DEFAULT_ROOM_ID], store, embeds, wallNow(), (opts.now ?? monotonic)());
   for (const room of rooms.values()) {
     const held = opts.seatHolds?.filter((h) => h.roomId === room.id) ?? [];
     if (held.length > 0) room.holdSeats(held, wallNow() + SEAT_HOLD_MS);

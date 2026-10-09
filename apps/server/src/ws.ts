@@ -21,7 +21,7 @@ import {
 import type { SecurityHeaders } from "./headers";
 import { newShareGrant, plain, type ShareGrant } from "./http";
 import { KeyedLimiter, TokenBucket, isLoopbackKey, monotonic, type Clock } from "./rate-limit";
-import type { Queue, QueueActor, QueueRefusal } from "./queue";
+import type { Queue, QueueActor, QueueAddRefusal, QueueRefusal } from "./queue";
 import type { Room } from "./room";
 import type { RoomRegistry } from "./rooms";
 import { mintSecret } from "./secrets";
@@ -490,7 +490,7 @@ export function createWs({
   const actorOf = (ws: Conn, memberId: MemberId): QueueActor => ({ memberId, owner: ws.data.owner, addBucket: ws.data.queueBucket });
 
   /** None of these counts toward the 4400 close (ADR 0031 §3). A failed store write says nothing, as for owner edits. */
-  const queueRefused = (ws: Conn, refused: QueueRefusal): void => {
+  const queueRefused = (ws: Conn, refused: QueueRefusal | QueueAddRefusal): void => {
     switch (refused.code) {
       case "control_owner_only":
         sendError(ws, "control_owner_only", "only the room's owner changes the queue here");

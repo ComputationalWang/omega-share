@@ -141,6 +141,8 @@ export class Room {
       itemId?: QueueItemId | null;
       /** The stored upcoming items; after a restart nobody is known to have added them. */
       queue?: readonly { id: QueueItemId; embed: AnyEmbed }[];
+      /** When the restored item becomes current again, on the server's monotonic clock: the `ended` debounce runs from here. */
+      itemSince?: number;
     } = {},
   ) {
     this.topic = `room:${id}`;
@@ -155,6 +157,7 @@ export class Room {
     this.currentControlPolicy = init.controlPolicy ?? DEFAULT_CONTROL_POLICY;
     this.embed = init.embed ?? null;
     if (this.embed !== null) this.currentItemId = init.itemId ?? newItemId();
+    this.currentSince = init.itemSince ?? Number.NEGATIVE_INFINITY;
     this.upcoming = (init.queue ?? []).filter((i) => i.id !== this.currentItemId).map((i) => ({ id: i.id, embed: i.embed, by: null }));
     if (this.embed !== null && isSyncedEmbed(this.embed)) {
       this.playback = restoredPlayback(Date.now());

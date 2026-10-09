@@ -32,9 +32,11 @@ export interface QueueActor {
   addBucket: TokenBucket;
 }
 
-export type QueueRefusal =
-  | { code: "control_owner_only" }
-  | { code: "rate_limited"; retryAfterMs: number }
+/** Why `admit`, `remove` or `advance` refused: the control policy, or an add bucket. */
+export type QueueRefusal = { code: "control_owner_only" } | { code: "rate_limited"; retryAfterMs: number };
+
+/** Why `add` refused an admitted URL. */
+export type QueueAddRefusal =
   | { code: "unsupported_url" }
   | { code: "queue_full" }
   /** The store write failed: nothing changed, and the adds were given back. */
@@ -59,7 +61,7 @@ export interface Queue {
    */
   admit: (room: Room, actor: QueueActor) => QueueRefusal | null;
   /** After `admit`: parses `url` with the share parser, checks QUEUE_MAX, stores, then tells the room. */
-  add: (room: Room, actor: QueueActor, url: string) => QueueItem | QueueRefusal;
+  add: (room: Room, actor: QueueActor, url: string) => QueueItem | QueueAddRefusal;
   /** `queue-remove`: refused under the owner policy; an item that isn't there is ignored (null). */
   remove: (room: Room, actor: QueueActor, itemId: QueueItemId) => QueueRefusal | null;
   /** `queue-advance`: refused under the owner policy; ignored (null) unless `fromItemId` is current. */

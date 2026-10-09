@@ -420,6 +420,8 @@ export function createHttpApp({
     if (text === null) return fail(413, "payload_too_large", "body too large");
     // The room may have gone, or the member left, while the body arrived.
     if (!rooms.has(room) || token === null || shareGrant(room, token) !== grant) return fail(404, "room_not_found", "unknown room");
+    // Or the owner closed the queue to guests.
+    if (room.controlPolicy === "owner" && !grant.owner) return fail(403, "control_owner_only", "only the room's owner changes the queue here");
     let json: unknown;
     try {
       json = JSON.parse(text);
@@ -438,7 +440,7 @@ export function createHttpApp({
         return fail(400, "unsupported_url", "not a supported video URL");
       case "queue_full":
         return fail(409, "queue_full", "the queue is full");
-      default:
+      case "unavailable":
         return plain(503, "can't queue right now, try again later", headers);
     }
   });
