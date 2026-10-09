@@ -167,6 +167,9 @@ test("keyboard: the key enters and keeps focus, F toggles outside text fields, E
   await expect.poll(() => inFullscreen(page)).toBe(false);
   await expect(page.locator(site.chatInput)).toHaveValue("f");
 
+  // A person presses F a moment later: right as Chromium finishes leaving, a new request can be refused (and the
+  // refusal falls back to the CSS mode, which is not element full screen).
+  await page.waitForTimeout(500);
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
