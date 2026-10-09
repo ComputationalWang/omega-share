@@ -6,6 +6,8 @@ import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { site } from "./support/selectors";
+import { ownedRoom } from "./support/owned-rooms";
+import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -19,9 +21,18 @@ test.afterEach(async () => {
 /** The owner chunk (Vite dev: /src/owner/moderation.ts; a build: moderation-<hash>.js). */
 const MODERATION_URL = /\/owner\/moderation|\/moderation-[\w-]+\.js/;
 
-async function newPage(browser: Browser, requests: string[], frames: string[]): Promise<Page> {
+async function newPage(browser: Browser, requests: string[], frames: string[], secrets?: string): Promise<Page> {
   const context = await watchCsp(await browser.newContext());
   contexts.push(context);
+  // The owner's browser holds the seeded room's secrets the way room-secrets.ts stores them after a creation.
+  if (secrets !== undefined) {
+    await context.addInitScript(
+      ([origin, key, value]) => {
+        if (location.origin === origin && localStorage.getItem(key ?? "") === null) localStorage.setItem(key ?? "", value ?? "");
+      },
+      [URLS.web, ROOM_SECRETS_STORAGE_KEY, secrets],
+    );
+  }
   await stubExternalNetwork(context);
   const page = await context.newPage();
   page.on("request", (r) => requests.push(r.url()));
@@ -44,14 +55,13 @@ test("only the owner loads the moderation tools: a guest's tag opens Mute / Remo
   const ownerReq: string[] = [];
   const guestReq: string[] = [];
   const ownerFrames: string[] = [];
-  const owner = await newPage(browser, ownerReq, ownerFrames);
-  await owner.goto(`${URLS.web}/`);
-  await owner.locator(site.createRoomTitle).fill("House rules");
-  await owner.locator(site.createRoomSubmit).click();
-  await owner.waitForURL(/\/r\/[a-z2-7]{26}$/);
+  // A seeded owned room (support/owned-rooms.ts): POST /rooms is rate limited and rooms-web spends it.
+  const { id, ownerToken, inviteKey } = ownedRoom("mod");
+  const owner = await newPage(browser, ownerReq, ownerFrames, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } }));
+  await owner.goto(`${URLS.web}/r/${id}`);
   await enter(owner, "host");
   const guest = await newPage(browser, guestReq, []);
-  await guest.goto(owner.url());
+  await guest.goto(`${URLS.web}/r/${id}#k=${inviteKey}`);
   await enter(guest, "kit");
 
   // The owner gets the setting (Everyone by default); the guest gets nothing, and never fetches the chunk.

@@ -8,10 +8,15 @@ import { joinRoom, leaveAll, type Client } from "../e2e/support/room";
 import { stubExternalNetwork } from "../e2e/support/network";
 import { watchCsp } from "../e2e/support/csp";
 import { site } from "../e2e/support/selectors";
+import { ownedRoom } from "../e2e/support/owned-rooms";
+import { ROOM_SECRETS_STORAGE_KEY, SHARE_TOKEN_STORAGE_KEY } from "@omega/shared";
+import * as v from "valibot";
+import { EMBED_URL } from "../e2e/support/network";
+import { postShare } from "../e2e/support/share";
 import { VSYNC_MS, tracedFrames } from "./frames";
 import { RESULTS_DIR, p95 } from "./metrics";
 import { summarizeFrames } from "./spread";
-import { PLAYING, fakeState, shareVideo, waitPlaying } from "./sync";
+import { PLAYING, fakeState, waitPlaying } from "./sync";
 
 const out: Record<string, unknown> = {};
 const row = ({ samples, workMs }: { samples: number[]; workMs: number[] }) => {
@@ -27,16 +32,23 @@ test("moderation: owner frames with the member menu open (8 avatars + video)", a
   const owner = await ctx.newPage();
   const chunks: string[] = [];
   owner.on("response", async (r) => { if (/\/assets\/moderation-[\w-]+\.js$/.test(r.url())) chunks.push(`${r.url()} ${String((await r.body()).length)} B raw`); });
-  await owner.goto(`${URLS.web}/`);
-  await owner.locator(site.createRoomTitle).fill("Perf moderation");
-  await owner.locator(site.createRoomSubmit).click();
-  await owner.waitForURL(/\/r\/[a-z2-7]{26}$/);
-  const id = owner.url().split("/").pop() ?? "";
+  // A seeded owned room (e2e/support/owned-rooms.ts): POST /rooms is rate limited and editor.perf spends it.
+  const { id, ownerToken, inviteKey } = ownedRoom("modperf");
+  await ctx.addInitScript(
+    ([origin, key, value]) => {
+      if (location.origin === origin && localStorage.getItem(key ?? "") === null) localStorage.setItem(key ?? "", value ?? "");
+    },
+    [URLS.web, ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } })],
+  );
+  await owner.goto(`${URLS.web}/r/${id}`);
   await owner.locator(site.nicknameInput).fill("owner");
   await owner.locator(site.joinButton).click();
   await expect(owner.locator(site.room)).toBeVisible();
-  await shareVideo(request, id);
-  const guests = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${id}`, count: 7, nicknamePrefix: "md" });
+  // The room is private, so the owner shares with their own share token (the extension's path, ADR 0015 §7).
+  const record = await owner.evaluate((k) => sessionStorage.getItem(k), SHARE_TOKEN_STORAGE_KEY);
+  const { token } = v.parse(v.object({ token: v.string() }), JSON.parse(record ?? "null"));
+  expect((await postShare(request, id, token, EMBED_URL)).status()).toBe(200);
+  const guests = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${id}#k=${inviteKey}`, count: 7, nicknamePrefix: "md" });
   const all: Client[] = [{ context: ctx, page: owner, nickname: "owner", avatarIndex: 0 }, ...guests];
   try {
     await waitPlaying(all);

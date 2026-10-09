@@ -5,8 +5,8 @@
 // One room per test that mutates or deletes one: a deleted room is gone for the rest of the run (and for a retry).
 // No imports: the seed script reads this under bun before any server exists.
 
-/** A room per use. Names are letters only, so the id stays valid base32 (a-z, 2-7). */
-export const OWNED_ROOM_NAMES = ["invite", "owner", "delete", "ux", "extlist", "extopen", "extsecret", "extdelete", "real", "refused"] as const;
+/** A room per use. Names are letters only, so the id stays valid base32 (a-z, 2-7), and at most 9 long so the owner token stays 22 chars. */
+export const OWNED_ROOM_NAMES = ["invite", "owner", "delete", "ux", "extlist", "extopen", "extsecret", "extdelete", "real", "refused", "mod", "modperf"] as const;
 export type OwnedRoomName = (typeof OWNED_ROOM_NAMES)[number];
 
 export interface OwnedRoom {
