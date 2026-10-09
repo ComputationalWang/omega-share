@@ -128,6 +128,16 @@ test("pop out room: the window draws the room and the chat; the page keeps the p
   const video = await a.page.locator(site.sharedVideo).elementHandle();
   const pop = await popRoom(a.page, a.context);
   expect(new URL(pop.url()).pathname).toBe("/room.html");
+  // The window fits itself: no scrollbars, nothing clipped under one (QA OME-646: the chat panel's rim spilled 3 px).
+  for (const size of [{ width: 1280, height: 668 }, { width: 900, height: 500 }]) {
+    await pop.setViewportSize(size);
+    await expect
+      .poll(() => pop.evaluate(() => [document.documentElement.scrollWidth <= document.documentElement.clientWidth, document.documentElement.scrollHeight <= document.documentElement.clientHeight]))
+      .toEqual([true, true]);
+    const back = await pop.locator(site.popoutBack).boundingBox();
+    const send = await pop.locator(site.chatSend).boundingBox();
+    for (const b of [back, send]) expect(b !== null && b.x + b.width <= size.width && b.y + b.height <= size.height).toBe(true);
+  }
   expect(await pop.evaluate(() => window.opener === null)).toBe(true);
   await expect(pop).toHaveTitle(/omega-share$/);
   // The room: both members' tags, the eight seats, the backlog in the chat column (a full log).
