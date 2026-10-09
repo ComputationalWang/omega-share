@@ -245,6 +245,21 @@ export class RoomStore {
     this.#insertQueueItem.run(roomId, id, JSON.stringify(embed), roomId);
   }
 
+  /**
+   * An add into a room with no current item (ADR 0031 §5, "Starting from an empty room"), in one
+   * transaction: appends `item`, then the queue's `head` (usually `item`) leaves it and becomes current.
+   * Throws, changing nothing, if either step fails.
+   */
+  addQueueItemAndStart(roomId: RoomId, item: StoredQueueItem, head: StoredQueueItem): void {
+    const added = v.parse(QueueItemSchema, item);
+    const started = v.parse(QueueItemSchema, head);
+    this.#db.transaction(() => {
+      this.#insertQueueItem.run(roomId, added.id, JSON.stringify(added.embed), roomId);
+      if (this.#deleteQueueItem.run(roomId, started.id).changes === 0) throw new Error(`no queue item ${JSON.stringify(started.id)}`);
+      if (this.#setEmbed.run(JSON.stringify(started.embed), started.id, roomId).changes === 0) throw new Error(`no room ${JSON.stringify(roomId)}`);
+    })();
+  }
+
   /** `queue-remove`: false if the room had no such item. */
   removeQueueItem(roomId: RoomId, itemId: QueueItemId): boolean {
     return this.#deleteQueueItem.run(roomId, itemId).changes > 0;

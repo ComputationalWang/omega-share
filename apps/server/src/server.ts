@@ -94,6 +94,7 @@ export type RoomPersistence = Pick<
   | "addQueueItem"
   | "removeQueueItem"
   | "advanceQueue"
+  | "addQueueItemAndStart"
 >;
 
 /** Whitespace, punctuation and symbols: `bad word` and `b.a.d-w_o r d` match a blocklisted `badword` (OME-439). */

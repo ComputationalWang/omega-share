@@ -212,6 +212,7 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
       addQueueItem: () => undefined,
       removeQueueItem: () => true,
       advanceQueue: () => undefined,
+      addQueueItemAndStart: () => undefined,
       setLastActive: () => undefined,
     };
     const registry = new RoomRegistry();
@@ -340,6 +341,7 @@ describe("DELETE /rooms/:id (ADR 0028 §1, §2)", () => {
       addQueueItem: () => undefined,
       removeQueueItem: () => true,
       advanceQueue: () => undefined,
+      addQueueItemAndStart: () => undefined,
       setLastActive: () => undefined,
     };
     t = start({ trustProxy: true, store });

@@ -398,14 +398,14 @@ export class Room {
   }
 
   /**
-   * Makes the first upcoming item current at `since` (ADR 0031 §5): its embed loads at 0, by nobody.
-   * Null with an empty queue.
+   * Makes the first upcoming item current at `since` (ADR 0031 §5): its embed loads at 0, by `by`
+   * (nobody for an advance, the adder when an add starts an empty room). Null with an empty queue.
    */
-  advance(since: number): { item: QueueItem; embedSwitch: EmbedSwitch } | null {
+  advance(since: number, by: MemberId | null = null): { item: QueueItem; embedSwitch: EmbedSwitch } | null {
     const [item, ...rest] = this.upcoming;
     if (item === undefined) return null;
     this.upcoming = rest;
-    return { item, embedSwitch: this.setEmbed(item.embed, null, item.id, since) };
+    return { item, embedSwitch: this.setEmbed(item.embed, by, item.id, since) };
   }
 
   /**

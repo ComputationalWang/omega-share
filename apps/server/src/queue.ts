@@ -22,7 +22,7 @@ import type { RoomRegistry } from "./rooms";
 import type { RoomStore } from "./store/rooms";
 
 /** The store writes a queue action makes: one each (ADR 0031 §6). */
-export type QueuePersistence = Pick<RoomStore, "addQueueItem" | "removeQueueItem" | "advanceQueue">;
+export type QueuePersistence = Pick<RoomStore, "addQueueItem" | "addQueueItemAndStart" | "removeQueueItem" | "advanceQueue">;
 
 /** Who is changing the queue: the member, whether they joined as owner, and their add bucket. */
 export interface QueueActor {
@@ -60,7 +60,10 @@ export interface Queue {
    * bucket, then the room's. Null when they pass (the buckets are spent), else why not.
    */
   admit: (room: Room, actor: QueueActor) => QueueRefusal | null;
-  /** After `admit`: parses `url` with the share parser, checks QUEUE_MAX, stores, then tells the room. */
+  /**
+   * After `admit`: parses `url` with the share parser, checks QUEUE_MAX, stores, then tells the room.
+   * In a room with no current item the same write starts the queue's head (ADR 0031 §5).
+   */
   add: (room: Room, actor: QueueActor, url: string) => QueueItem | QueueAddRefusal;
   /** `queue-remove`: refused under the owner policy; an item that isn't there is ignored (null). */
   remove: (room: Room, actor: QueueActor, itemId: QueueItemId) => QueueRefusal | null;
@@ -96,19 +99,27 @@ export function createQueue({ rooms, embeds, publish, store, now }: QueueDeps): 
     publish(room.topic, encode({ type: "queue-changed", queue: [...room.queue], by }));
   };
 
-  /** One synchronous step (ADR 0031 §5): store, then memory, then embed-changed (the spread's critical path) and queue-changed. */
+  /**
+   * Memory and frames of an advance whose write has landed (ADR 0031 §5): embed-changed (the spread's
+   * critical path, by `startedBy`) and then queue-changed (by `by`).
+   */
+  const started = (room: Room, startedBy: MemberId | null, by: MemberId | null): void => {
+    const advanced = room.advance(now(), startedBy);
+    if (advanced === null) return;
+    const { item, embedSwitch } = advanced;
+    publish(room.topic, encode({ type: "embed-changed", embed: item.embed, by: startedBy, playback: embedSwitch.playback, itemId: item.id }));
+    queueChanged(room, by);
+    for (const memberId of embedSwitch.uncaught) publish(room.topic, encode({ type: "member-status", memberId, catching: false }));
+  };
+
+  /** One synchronous step (ADR 0031 §5): store, then memory and frames. */
   const advanceNow = (room: Room, by: MemberId | null): void => {
     const next = room.queue[0];
     if (next === undefined) return;
     if (!persisted((s) => {
       s.advanceQueue(room.id, { id: next.id, embed: next.embed });
     })) return;
-    const advanced = room.advance(now());
-    if (advanced === null) return;
-    const { item, embedSwitch } = advanced;
-    publish(room.topic, encode({ type: "embed-changed", embed: item.embed, by: null, playback: embedSwitch.playback, itemId: item.id }));
-    queueChanged(room, by);
-    for (const memberId of embedSwitch.uncaught) publish(room.topic, encode({ type: "member-status", memberId, catching: false }));
+    started(room, null, by);
   };
 
   return {
@@ -134,8 +145,12 @@ export function createQueue({ rooms, embeds, publish, store, now }: QueueDeps): 
       // Refuse, never evict.
       if (room.queue.length >= QUEUE_MAX) return { code: "queue_full" };
       const item: QueueItem = { id: newItemId(), embed, by: actor.memberId };
+      // Nothing for ended or queue-advance to name: the add starts the head itself (normally `item`;
+      // a queue left over after a dropped embed row plays first).
+      const start = room.itemId === null ? (room.queue[0] ?? item) : null;
       if (!persisted((s) => {
-        s.addQueueItem(room.id, { id: item.id, embed });
+        if (start === null) s.addQueueItem(room.id, { id: item.id, embed });
+        else s.addQueueItemAndStart(room.id, { id: item.id, embed }, { id: start.id, embed: start.embed });
       })) {
         // The server's failure, not the member's: they keep their adds.
         actor.addBucket.refund();
@@ -143,7 +158,8 @@ export function createQueue({ rooms, embeds, publish, store, now }: QueueDeps): 
         return { code: "unavailable" };
       }
       room.enqueue(item);
-      queueChanged(room, actor.memberId);
+      if (start === null) queueChanged(room, actor.memberId);
+      else started(room, actor.memberId, actor.memberId);
       return item;
     },
 

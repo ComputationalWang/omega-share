@@ -104,6 +104,7 @@ describe("RoomRegistry.removeRoom", () => {
       addQueueItem: () => undefined,
       removeQueueItem: () => true,
       advanceQueue: () => undefined,
+      addQueueItemAndStart: () => undefined,
     };
     t = start({ registry, store });
     registry.addRoom(new Room("film-club"));

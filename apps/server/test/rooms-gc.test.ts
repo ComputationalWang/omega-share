@@ -220,6 +220,9 @@ function recordingStore(rows: StoredRoom[]) {
     advanceQueue: (id) => {
       writes.push(`advance ${id}`);
     },
+    addQueueItemAndStart: (id) => {
+      writes.push(`queue-start ${id}`);
+    },
   };
   return { store, writes };
 }

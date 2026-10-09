@@ -120,6 +120,7 @@ describe("server error lines", () => {
       addQueueItem: () => undefined,
       removeQueueItem: () => true,
       advanceQueue: () => undefined,
+      addQueueItemAndStart: () => undefined,
       setLastActive: (id) => {
         throw new Error(`no room ${JSON.stringify(id)}`);
       },
