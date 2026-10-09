@@ -188,7 +188,10 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
       }
       next.hidden = held || queue.length === 0 || s.room?.itemId === undefined;
       const p = pending;
-      if (p !== null && (s.room?.itemId !== p.current || queue.some((i) => i.by !== null && i.by === s.self && !p.mine.has(i.id)))) pending = null;
+      // A new current item answers the add only if the room had none at the send (my add started it, ADR 0031 §5);
+      // otherwise it's someone else's share or advance.
+      const started = p !== null && p.current === undefined && s.room?.itemId !== undefined;
+      if (p !== null && (started || queue.some((i) => i.by !== null && i.by === s.self && !p.mine.has(i.id)))) pending = null;
       if (s.lastError !== shownError) {
         shownError = s.lastError;
         const answer = pending !== null && s.lastError !== null && now() - pending.at <= ADD_ANSWER_MS ? pending : null;
