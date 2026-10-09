@@ -79,8 +79,9 @@ test("a seat change walks: the others see the tag pass between the spot and the 
   const path = await tagPath(a.page, "walker-2", 8000, () => b.page.locator(`${site.seat}[data-seat="0"]`).click());
   expect(path.length, `positions: ${path.join(" | ")}`).toBeGreaterThan(10);
   // At rest on the seat: the tag hangs below the seat's floor point (layout.ts TAG_OFFSET_Y = 10).
-  const seatAt = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(await seat.evaluate((e) => (e as HTMLElement).style.transform));
-  expect(path.at(-1)).toBe(`translate(${seatAt?.[1] ?? "?"}px, ${String(Number(seatAt?.[2]) + 10)}px)`);
+  // The seat is placed with the translate property ("x y", or "x" when y is 0).
+  const seatAt = /^([-\d.]+)px(?: ([-\d.]+)px)?$/.exec(await seat.evaluate((e) => (e as HTMLElement).style.translate));
+  expect(path.at(-1)).toBe(`translate(${seatAt?.[1] ?? "?"}px, ${String(Number(seatAt?.[2] ?? "0") + 10)}px)`);
 });
 
 test("prefers-reduced-motion: the others' avatars jump straight to the seat", async ({ browser }) => {

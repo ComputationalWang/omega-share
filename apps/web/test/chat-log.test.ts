@@ -56,9 +56,12 @@ async function setup(ageing: Ageing = "settle", cap?: number) {
 
 describe("chat log: structure and accessibility", () => {
   test("is a polite live log, keyboard-reachable, with a label", async () => {
-    const { log } = await setup();
-    expect(log.root.tagName).toBe("OL");
+    const { log, chat } = await setup();
     expect(log.root.getAttribute("role")).toBe("log");
+    // role=log replaces a list's role, so its lines are not <li>s: a list item needs a list parent (axe `listitem`, OME-701).
+    chat("Kit", "hi");
+    expect(["OL", "UL"]).not.toContain(log.root.tagName);
+    expect(log.root.querySelectorAll("li")).toHaveLength(0);
     expect(log.root.getAttribute("aria-live")).toBe("polite");
     expect(log.root.getAttribute("aria-label")).toBe("Chat messages");
     expect(log.root.tabIndex).toBe(0);

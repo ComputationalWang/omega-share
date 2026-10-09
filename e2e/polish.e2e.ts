@@ -55,10 +55,11 @@ const avatarOf = async (page: Page, id: string): Promise<string> => (await frame
 
 /** Where a tag rests when its member sits on `seat` on `page`. */
 async function seatTagAt(page: Page, seat: number): Promise<string> {
-  const t = await page.locator(`${site.seat}[data-seat="${String(seat)}"]`).evaluate((e) => (e as HTMLElement).style.transform);
-  const at = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(t);
-  if (at?.[1] === undefined || at[2] === undefined) throw new Error(`seat ${String(seat)}: no translate in "${t}"`);
-  return `translate(${at[1]}px, ${String(Number(at[2]) + TAG_OFFSET_Y)}px)`;
+  // A seat is placed with the translate property ("x y", or "x" when y is 0); a tag with transform: translate(x, y).
+  const t = await page.locator(`${site.seat}[data-seat="${String(seat)}"]`).evaluate((e) => (e as HTMLElement).style.translate);
+  const at = /^([-\d.]+)px(?: ([-\d.]+)px)?$/.exec(t);
+  if (at?.[1] === undefined) throw new Error(`seat ${String(seat)}: no translate in "${t}"`);
+  return `translate(${at[1]}px, ${String(Number(at[2] ?? "0") + TAG_OFFSET_Y)}px)`;
 }
 
 /** Every distinct transform `nickname`'s tag takes on `page` over `ms`, sampled each frame from now. */

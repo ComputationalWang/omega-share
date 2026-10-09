@@ -64,7 +64,7 @@ test.describe("furniture from the room layout", () => {
         await enter(page, `fallback-${String(i)}`);
         await expect(page.locator(site.seat)).toHaveCount(8);
         draws.push(furnitureOnly(await scene(page)));
-        seatBoxes.push(await page.locator(site.seat).evaluateAll((els) => els.map((e) => (e instanceof HTMLElement ? e.style.transform : ""))));
+        seatBoxes.push(await page.locator(site.seat).evaluateAll((els) => els.map((e) => (e instanceof HTMLElement ? e.style.translate : ""))));
         await test.info().attach(`room-${i === 0 ? "no-layout" : "default-layout"}.png`, { body: await page.locator(site.room).screenshot(), contentType: "image/png" });
         expect(atlas).toEqual([]);
       } finally {
