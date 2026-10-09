@@ -23,7 +23,7 @@ import furnitureJson from "../../../../assets/furniture/furniture.json";
 import { el } from "../controls/dom";
 import { FurnitureManifestSchema } from "../furniture";
 import { cellCenter } from "../layout";
-import { TRAY_TABS, defaultFacing, type TrayTab, fits, pieceAt, place, problemText, problems, remove, rotate } from "./draft";
+import { TRAY_TABS, defaultFacing, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate } from "./draft";
 import { loadEditAtlas, type EditAtlas } from "./edit-atlas";
 import { markerKeys, slotAt, type MarkerState, type Slot } from "./pick";
 
@@ -44,6 +44,8 @@ export interface EditorContext {
   readonly serverUrl: string;
   readonly ownerToken: OwnerToken;
   readonly fetch: (url: string, init?: RequestInit) => Promise<Response>;
+  /** False once this editor was closed; checked after the edit kit loads, before anything is mounted. */
+  readonly alive: () => boolean;
 }
 
 export interface Editor {
@@ -122,6 +124,8 @@ function moved(layout: RoomLayout, index: number, slot: Slot): RoomLayout | null
 
 export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   const atlas: EditAtlas = await loadEditAtlas();
+  // Closed (or closed and reopened) while the kit loaded: touch nothing a newer editor may own.
+  if (!ctx.alive()) return { update: () => undefined, destroy: () => undefined };
 
   let saved = ctx.saved();
   let draft = saved;
@@ -129,6 +133,8 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   let selected: number | null = null;
   let hover: Slot | null = null;
   let tab: TrayTab["id"] = "seats";
+  /** A `layout-set` went out and its `layout-changed` hasn't come back. */
+  let saving = false;
 
   // ---- Room layer: the grid once, markers per change (set (h) order: floor → rugs → grid → markers → objects).
   const grid = new Container({ label: "edit-grid" });
@@ -268,7 +274,8 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   });
   saveBtn.addEventListener("click", () => {
     if (problems(draft).length > 0 || same(draft, saved)) return;
-    if (ctx.send({ type: "layout-set", layout: draft })) say("Saving…");
+    saving = ctx.send({ type: "layout-set", layout: draft });
+    if (saving) say("Saving…");
     else say("Not connected. Try again in a moment.");
   });
   resetBtn.addEventListener("click", () => {
@@ -394,15 +401,16 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
 
   return {
     update() {
-      const nextSaved = ctx.saved();
-      if (nextSaved !== saved) {
-        const landed = same(nextSaved, draft);
-        const wasDirty = !same(draft, saved);
-        saved = nextSaved;
-        // Our save came back: the draft is the room now. A save from elsewhere replaces an untouched draft only.
-        if (landed) say("Saved.");
-        if (landed || !wasDirty) setDraft(saved, landed ? selected : null);
-        else refresh();
+      const next = ctx.saved();
+      if (next !== saved) {
+        const r = reconcile({ saved, draft, next, saving });
+        saved = next;
+        if (r.outcome === "saved") {
+          saving = false;
+          say("Saved.");
+        } else if (r.outcome === "conflict") say("The room was changed somewhere else. Save puts your version back.");
+        // Same content (a re-join snapshot) or our own save: the selection still points at the same piece.
+        setDraft(r.draft, r.outcome === "replaced" ? null : selected);
       }
       const title = ctx.title();
       if (title !== null && document.activeElement !== titleInput && titleInput.value !== title) titleInput.value = title;
@@ -412,7 +420,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       ctx.preview(null);
       hit.remove();
       root.remove();
-      ctx.view.editLayer.removeChildren();
+      ctx.view.editLayer.removeChild(grid, markers);
       grid.destroy({ children: true });
       markers.destroy({ children: true });
       ctx.view.redraw();

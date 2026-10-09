@@ -398,6 +398,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
           serverUrl: opts.serverUrl,
           ownerToken,
           fetch: (url, init) => fetch(url, init),
+          alive: () => gen === editorGen,
         }),
       )
       .then((e) => {

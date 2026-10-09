@@ -168,3 +168,21 @@ export const TRAY_TABS: readonly TrayTab[] = [
   { id: "decor", label: "Decor", kinds: kindsWhere((k) => !isSeat(k) && !isFlat(k)) },
   { id: "floor", label: "Floor & wall", kinds: kindsWhere((k) => !isSeat(k) && isFlat(k)) },
 ];
+
+const sameLayout = (a: Layout, b: Layout): boolean => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * The room's saved layout became `next` while the owner edits `draft` (`saving`: we sent a `layout-set` not yet answered).
+ * By content, since a re-join snapshot parses an equal but new layout. `same`: nothing changed, keep the draft (and the
+ * selection). `saved`: our save came back. `replaced`: an untouched draft follows a save from elsewhere (another tab).
+ * `conflict`: someone else saved while ours is unsaved; we keep ours, and Save replaces theirs.
+ */
+export function reconcile(r: { readonly saved: Layout; readonly draft: Layout; readonly next: Layout; readonly saving: boolean }): {
+  readonly draft: Layout;
+  readonly outcome: "same" | "saved" | "replaced" | "conflict";
+} {
+  if (sameLayout(r.next, r.saved)) return { draft: r.draft, outcome: "same" };
+  if (sameLayout(r.next, r.draft)) return { draft: r.next, outcome: r.saving ? "saved" : "replaced" };
+  if (sameLayout(r.draft, r.saved)) return { draft: r.next, outcome: "replaced" };
+  return { draft: r.draft, outcome: "conflict" };
+}
