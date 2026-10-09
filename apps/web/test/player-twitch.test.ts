@@ -758,3 +758,35 @@ describe("attachTwitch quality (per viewer, OME-599)", () => {
     expect(p.calls.filter(([n]) => n === "setQuality")).toEqual([]);
   });
 });
+
+describe("attachTwitch quality: the SDK's stale cache (OME-599 review)", () => {
+  test("a playing event inside the echo window doesn't revert the pick to the cache's old quality; the cache wins after it", () => {
+    const { t, adapter, p, events, ready, push } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    adapter.quality?.set("720p60");
+    // The iframe hasn't pushed the new quality yet.
+    p.quality = "auto";
+    t.now += 1000;
+    push({ playback: "Playing", time: 5 });
+    p.fire("playing");
+    expect(adapter.quality?.current()).toBe("720p60");
+    const n = events.filter((e) => e.type === "quality").length;
+    // After the window the player's own report is the truth, whatever it says.
+    t.now += QUALITY_ECHO_MS;
+    p.fire("playing");
+    expect(adapter.quality?.current()).toBe("auto");
+    expect(events.filter((e) => e.type === "quality")).toHaveLength(n + 1);
+  });
+
+  test("inside the window a different listed quality from the player (it settled elsewhere) is taken at once", () => {
+    const { t, adapter, p, ready } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    adapter.quality?.set("720p60");
+    p.quality = "480p30";
+    t.now += 1000;
+    p.fire("playing");
+    expect(adapter.quality?.current()).toBe("480p30");
+  });
+});

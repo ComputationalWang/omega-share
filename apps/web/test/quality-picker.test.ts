@@ -212,3 +212,22 @@ describe("quality picker (only you)", () => {
     expect(p.menu.querySelector("img")).toBeNull();
   });
 });
+
+describe("quality picker in browsers that don't focus a button on press (OME-599 review)", () => {
+  test("a press on a row blurs it with no relatedTarget (Safari, macOS Firefox): the menu stays open and the click picks", async () => {
+    const { p, rows, picked } = await setup();
+    p.update(base);
+    p.key.click();
+    const r = rows()[2];
+    if (r === undefined) throw new Error("no row");
+    r.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    rows()[0]?.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: null }));
+    expect(p.isOpen()).toBe(true);
+    r.click();
+    document.dispatchEvent(new MouseEvent("pointerup", { bubbles: true }));
+    expect(picked).toEqual(["720p60"]);
+    // Once the press is over, focus leaving closes it again.
+    r.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: null }));
+    expect(p.isOpen()).toBe(false);
+  });
+});
