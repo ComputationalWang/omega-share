@@ -200,6 +200,15 @@ describe("paste a link", () => {
     expect((q("queue-url") as HTMLInputElement).value).toBe("https://example.org/videos/42");
   });
 
+  test("someone else's share or advance while my add is in flight doesn't swallow its refusal (QA OME-569 F1)", async () => {
+    const { paste, server, q } = await setup();
+    paste("https://example.org/videos/42");
+    server({ type: "embed-changed", embed: yt("aaaaaaaaaaa"), by: "kit", playback: null, itemId: "other" });
+    server({ type: "error", code: "unsupported_url", message: "no" });
+    expect(q("queue-problem").textContent).toBe("That link can't be played in this room.");
+    expect((q("queue-url") as HTMLInputElement).value).toBe("https://example.org/videos/42");
+  });
+
   test("once my item is in the list, a later error (say, chat's rate limit) isn't the add's", async () => {
     const { paste, server, q } = await setup();
     paste("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
