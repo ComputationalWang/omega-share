@@ -383,7 +383,7 @@ describe("retention", () => {
     expect((await report(f, ROOM, { reason: "spam" })).status).toBe(202);
   });
 
-  test("the room GC sweep purges them", async () => {
+  test("the room GC sweep purges them", () => {
     const d = openDatabase(":memory:");
     db = d;
     const reportStore = new ReportStore(d);

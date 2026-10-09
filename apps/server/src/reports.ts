@@ -97,11 +97,11 @@ export interface ReportsAdmin {
   dismissRoom(roomId: RoomId): number;
   /** Ends the room for good (ADR 0033 §5). Throws, changing nothing, if the tombstone can't be written. */
   takedown(roomId: RoomId): { live: boolean };
-  isTakenDown(id: string): boolean;
+  isTakenDown: (id: string) => boolean;
   /** Retention: the GC sweep runs it. */
-  purge(): void;
+  purge: () => void;
   readonly dedupSize: number;
-  openCount(): number;
+  openCount: () => number;
 }
 
 export interface Reports extends ReportsAdmin {
@@ -216,7 +216,7 @@ export function createReports({ rooms, store, deleteRoomRow, metrics, now, wallN
       return { live };
     },
     isTakenDown: (id) => takenDown.has(id),
-    purge() {
+    purge: () => {
       const now = wallNow();
       store.purge(now - REPORT_RETENTION_MS + 1);
       dedup.expire(now - REPORT_RETENTION_MS);
