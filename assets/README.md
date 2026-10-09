@@ -515,6 +515,12 @@ into `preview/ui-m7-<pieces|desktop|band|phone|popout|away|watch|quality|report|
 | `icon/report` | 16×16 | — | "Report room" on a `.ui-button.secondary` with words (foot of the chat column / last line of the phone page; hidden for owners). Opens `form.ui-panel.ui-report[role=dialog][aria-modal]`: `h2`, `p`, `fieldset` of `label.ui-reason` (visually hidden `input[type=radio]` + `glyph/radio-off\|on`; `.is-focus` = `:focus-within`), `textarea.ui-input` (300) + `.count`, `.acts` (Cancel `.secondary`, Send). |
 | `glyph/radio-off`, `glyph/radio-on` | 8×8 | — | The report reasons. A cream-shade ring round a night well; picked = cream ring and pip. |
 
+**Touch targets (phones):** put `.ui-touch` on the root of every phone layout (full screen portrait and landscape, watch-only, the report dialog); a coarse pointer gets the
+same rules anywhere. Every key, menu row, reason row and × gets a transparent `::before` hit area of at least **44×44 CSS px** centred on it (the art keeps its 24–28 px
+size), icon keys get 9 px side margins so neighbouring hit areas never overlap, fields grow to 44 px and the seek bar's hit area is 44 px tall. The dashed boxes on
+`ui-m7-phone` / `ui-m7-watch` are those hit areas (annotation). **Scroll cue:** `.ui-fs-rail` (`--top` 0–1 = where you are, `--size` = the visible share), a 2 px rail on
+the strip log's right edge, shown only when there's more above.
+
 Layout numbers the mock-ups use (CSS px): desktop 1280×720 with the strip open = picture 980×551 at (0, 58), shelf under it, strip 300 wide;
 collapsed = picture 1187×668 at (46, 0), one 44 px band. Phone portrait 390×844 = picture 390×219 on top; landscape 844×390 = picture 693×390
 plus a 151 px column; typing = picture 242×136 top-left and the field on the keyboard. Watch-only = the stage at 1× cropped to 390×250 around the seats.
@@ -615,14 +621,15 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `ui/slices/*.png` (93 files, palettes trimmed to the colours used) | 14 910 |
 | `ui/popup/*.png` (set f) | 409 |
 | `ui/scenes/*.png` (sets i + j + k, lazy) | 2 825 |
-| `ui/reference.css` (if ported as-is) | 84 691 raw / 16 486 gz |
+| `ui/reference.css` (if ported as-is) | 86 845 raw / 17 106 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **119 026 B (≈ 116.2 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 63 205 B; lazy (sets d, g, h's edit kit, i's, j's and k's scenes) 55 821 B |
+| **total shipped art** | **119 646 B (≈ 116.8 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 63 825 B; lazy (sets d, g, h's edit kit, i's, j's and k's scenes) 55 821 B |
 
-Set (k) (OME-541) adds **4 759 B (≈ 4.6 KB)** against `main` (114 267 → 119 026). The layouts: `ui.png` +474, `ui.json` +235 gz, 4 new slices +596,
+Set (k) (OME-541) adds **5 379 B (≈ 5.3 KB)** against `main` (114 267 → 119 646). The layouts: `ui.png` +474, `ui.json` +235 gz, 4 new slices +596,
 `reference.css` +1 452 gz, and the two lazy scenes 701 (`chat-away.png` 310, `room-away.png` 391). Items 5 and 6 (quality, report): +1 301, all eager
-(`ui.png` +149 for 4 sprites, `ui.json` gz and `reference.css` gz for the rest; no new slices). Eager +4 058, lazy +701.
+(`ui.png` +149 for 4 sprites, `ui.json` gz and `reference.css` gz for the rest; no new slices). Round 1 fixes (touch hit areas, scroll rail): +620 `reference.css` gz.
+Eager +4 678, lazy +701.
 
 Set (j) (OME-422) adds **6 323 B (≈ 6.2 KB)** against `main` (107 942 → 114 265): `ui.png` +1 448, `ui.json` +402 gz, 11 new slices +1 571,
 `reference.css` +2 109 gz, and the lazy `scenes/removed.png` 793 (per file: § Set (j) bytes). Eager +5 530, lazy +793. The extension icons

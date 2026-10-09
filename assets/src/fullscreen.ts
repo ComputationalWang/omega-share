@@ -337,6 +337,29 @@ export function fullscreenCss(): string {
 .ui-scene-chat-away { background-image: url("scenes/chat-away.png"); }
 .ui-scene-room-away { background-image: url("scenes/room-away.png"); }
 
+/* Touch (judge round 1): on phones every key, row and field is at least 44×44 CSS px to the finger; the art keeps its size. Put .ui-touch on
+ * the phone layouts' root (full screen portrait/landscape, watch-only, the report dialog); a coarse pointer gets the same rules anywhere.
+ * Keys get a transparent ::before hit area and 9 px side margins, so two neighbouring 26 px keys sit 44 px apart and their hit areas
+ * never overlap. Fields and the seek bar grow their own box to 44 px. */
+.ui-touch .ui-button, .ui-touch .ui-modrow, .ui-touch .ui-reason, .ui-touch .ui-qx { position: relative; }
+.ui-touch .ui-button::before, .ui-touch .ui-modrow::before, .ui-touch .ui-reason::before, .ui-touch .ui-qx::before { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); translate: -50% -50%; }
+.ui-touch .ui-button.icon, .ui-touch .ui-qx { margin-inline: 9px; }
+.ui-touch .ui-input { min-height: 44px; }
+.ui-touch .ui-seek::before { content: ""; position: absolute; inset: -17px 0; }
+@media (pointer: coarse) {
+  .ui-button, .ui-modrow, .ui-reason, .ui-qx { position: relative; }
+  .ui-button::before, .ui-modrow::before, .ui-reason::before, .ui-qx::before { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); translate: -50% -50%; }
+  .ui-button.icon, .ui-qx { margin-inline: 9px; }
+  .ui-input { min-height: 44px; }
+  .ui-seek::before { content: ""; position: absolute; inset: -17px 0; }
+}
+
+/* Scroll cue (judge round 1): the strip's log scrolls (wheel, keys when focused, drag on touch). When there is more above, a 2 px rail
+ * runs down its right edge with a cream-shade thumb for where you are: <span class="ui-fs-rail" style="--top: 0.6; --size: 0.3">
+ * inside .ui-fs-strip, positioned over the log's right edge by the app. No arrows, no fade. */
+.ui-fs-rail { position: absolute; width: ${u(2)}; background: var(--ui-page); }
+.ui-fs-rail::after { content: ""; position: absolute; left: 0; right: 0; top: calc(var(--top, 1) * (100% - var(--size, 0.3) * 100%)); height: calc(var(--size, 0.3) * 100%); background: var(--ui-muted); }
+
 /* ---- Item 5, quality (only you). The key is a .ui-button.self icon/quality at the shelf's end, before full screen. It changes
  * only your own player and is remembered on this device; nothing goes to the room. The menu is the moderation menu's tray
  * (mustard rim = only you see it) and always opens into our own space: under the shelf in the page, down inside the strip in

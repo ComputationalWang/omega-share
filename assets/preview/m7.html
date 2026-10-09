@@ -47,6 +47,11 @@
   .rect-guide { position: absolute; z-index: 4; outline: 1px dashed #e8fbff; pointer-events: none; }
   .rect-guide span { position: absolute; left: 4px; top: 4px; font: 600 10px system-ui; color: #2b1d2f; background: #e8fbff; padding: 1px 4px; }
 
+  /* Touch hit areas (annotation): the dashed boxes are the 44×44 CSS px .ui-touch hit areas; the art inside keeps its size. */
+  .show-hits .ui-button::before, .show-hits .ui-modrow::before, .show-hits .ui-reason::before, .show-hits .ui-qx::before, .show-hits .ui-seek::before { outline: 1px dashed #e8fbff; outline-offset: -1px; z-index: 6; pointer-events: none; }
+  .show-hits .ui-input { box-shadow: 0 0 0 1px #e8fbff55; }
+  .lbl1 { font-size: 10px; color: var(--ui-muted); font-weight: 600; text-align: center; }
+
   /* Pieces sheet */
   .pieces { display: grid; grid-template-columns: repeat(4, auto); gap: 14px 22px; align-items: center; justify-items: start; }
   .pieces .lbl { font-size: 11px; color: var(--ui-muted); font-weight: 500; }
@@ -76,6 +81,10 @@
       <span class="ui-sprite ui-scene ui-scene-chat-away"></span><span class="ui-sprite ui-scene ui-scene-room-away"></span>
     </div>
   </div>
+  <h2 style="margin-top:16px">The keys as they ship: 1× (top) and 2× (bottom), with their words</h2>
+  <div class="ui-room " style="display:flex;gap:4px;background:var(--ui-panel);padding:8px;margin-top:12px"><div style="display:grid;justify-items:center;gap:3px;width:78px"><button class="ui-button self icon" aria-label="full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button><span class="lbl1">full screen</span></div><div style="display:grid;justify-items:center;gap:3px;width:78px"><button class="ui-button self icon" aria-label="exit"><span class="ui-sprite ui-icon-fullscreen-exit"></span></button><span class="lbl1">exit</span></div><div style="display:grid;justify-items:center;gap:3px;width:78px"><button class="ui-button self icon" aria-label="collapse"><span class="ui-sprite ui-icon-strip-hide"></span></button><span class="lbl1">collapse</span></div><div style="display:grid;justify-items:center;gap:3px;width:78px"><button class="ui-button self icon" aria-label="show chat"><span class="ui-sprite ui-icon-strip-show"></span></button><span class="lbl1">show chat</span></div><div style="display:grid;justify-items:center;gap:3px;width:78px"><button class="ui-button self icon" aria-label="pop out chat"><span class="ui-sprite ui-icon-popout"></span></button><span class="lbl1">pop out chat</span></div><div style="display:grid;justify-items:center;gap:3px;width:78px"><button class="ui-button self icon" aria-label="chat back"><span class="ui-sprite ui-icon-popout-back"></span></button><span class="lbl1">chat back</span></div><div style="display:grid;justify-items:center;gap:3px;width:78px"><button class="ui-button self icon" aria-label="pop out room"><span class="ui-sprite ui-icon-popout-room"></span></button><span class="lbl1">pop out room</span></div><div style="display:grid;justify-items:center;gap:3px;width:78px"><button class="ui-button self icon" aria-label="room back"><span class="ui-sprite ui-icon-popout-room-back"></span></button><span class="lbl1">room back</span></div><div style="display:grid;justify-items:center;gap:3px;width:78px"><button class="ui-button self icon" aria-label="quality"><span class="ui-sprite ui-icon-quality"></span></button><span class="lbl1">quality</span></div><div style="display:grid;justify-items:center;gap:3px;width:78px"><button class="ui-button self icon" aria-label="report"><span class="ui-sprite ui-icon-report"></span></button><span class="lbl1">report</span></div></div>
+  <div class="" style="display:flex;gap:4px;background:var(--ui-panel);padding:8px;margin-top:12px"><div style="display:grid;justify-items:center;gap:3px;width:92px"><button class="ui-button self icon" aria-label="full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button><span class="lbl1">full screen</span></div><div style="display:grid;justify-items:center;gap:3px;width:92px"><button class="ui-button self icon" aria-label="exit"><span class="ui-sprite ui-icon-fullscreen-exit"></span></button><span class="lbl1">exit</span></div><div style="display:grid;justify-items:center;gap:3px;width:92px"><button class="ui-button self icon" aria-label="collapse"><span class="ui-sprite ui-icon-strip-hide"></span></button><span class="lbl1">collapse</span></div><div style="display:grid;justify-items:center;gap:3px;width:92px"><button class="ui-button self icon" aria-label="show chat"><span class="ui-sprite ui-icon-strip-show"></span></button><span class="lbl1">show chat</span></div><div style="display:grid;justify-items:center;gap:3px;width:92px"><button class="ui-button self icon" aria-label="pop out chat"><span class="ui-sprite ui-icon-popout"></span></button><span class="lbl1">pop out chat</span></div><div style="display:grid;justify-items:center;gap:3px;width:92px"><button class="ui-button self icon" aria-label="chat back"><span class="ui-sprite ui-icon-popout-back"></span></button><span class="lbl1">chat back</span></div><div style="display:grid;justify-items:center;gap:3px;width:92px"><button class="ui-button self icon" aria-label="pop out room"><span class="ui-sprite ui-icon-popout-room"></span></button><span class="lbl1">pop out room</span></div><div style="display:grid;justify-items:center;gap:3px;width:92px"><button class="ui-button self icon" aria-label="room back"><span class="ui-sprite ui-icon-popout-room-back"></span></button><span class="lbl1">room back</span></div><div style="display:grid;justify-items:center;gap:3px;width:92px"><button class="ui-button self icon" aria-label="quality"><span class="ui-sprite ui-icon-quality"></span></button><span class="lbl1">quality</span></div><div style="display:grid;justify-items:center;gap:3px;width:92px"><button class="ui-button self icon" aria-label="report"><span class="ui-sprite ui-icon-report"></span></button><span class="lbl1">report</span></div></div>
+  <p class="cap-p">The two pop-out keys differ by what's in the window (a cream bubble, or a velvet seat on a floor tile) and by where they sit: "Pop out chat" ends the chat row, "Pop out room" is in the room's top bar, never side by side. Each has its words as tooltip and accessible label.</p>
 </section>
 
 <!-- =============================================================== 1. desktop full screen, strip open -->
@@ -88,7 +97,7 @@
     </div>
     <aside class="ui-fs-strip" aria-label="Chat" style="left:980px;top:0;width:300px;height:720px">
       <div class="head"><span class="ui-sprite ui-icon-chat"></span>Chat<span class="spacer"></span><span class="n"><span class="ui-sprite ui-icon-people"></span>7 / 8</span><button class="ui-button self icon" aria-label="Collapse chat to the input bar" aria-expanded="true"><span class="ui-sprite ui-icon-strip-hide"></span></button></div>
-      <ol class="ui-fs-lines" role="log" aria-live="polite" tabindex="0" aria-label="Chat messages" data-lines="full"></ol>
+      <ol class="ui-fs-lines" role="log" aria-live="polite" tabindex="0" aria-label="Chat messages" data-lines="full"></ol><span class="ui-fs-rail" style="right:4px;top:40px;height:620px;--top:1;--size:0.35"></span>
       <form class="foot" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes" aria-expanded="false"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input is-focus" value="it's the green fl" aria-label="Message"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
     </aside>
     <div class="rect-guide" style="left:0;top:58px;width:980px;height:551px"><span>player rect 980×551 (16:9) · nothing of ours inside it</span></div>
@@ -122,7 +131,7 @@
     <div class="col">
       <h3 class="cap">Strip pinned (hover or keyboard focus inside it)</h3>
       <div class="screen ui-room" style="width:300px;height:420px">
-        <aside class="ui-fs-strip is-pinned" aria-label="Chat" style="left:0;top:0;width:300px;height:420px">
+        <aside class="ui-fs-strip is-pinned" aria-label="Chat" style="left:0;top:0;width:300px;height:420px"><span class="ui-fs-rail" style="right:4px;top:40px;height:330px;--top:0.55;--size:0.3"></span>
           <div class="head"><span class="ui-sprite ui-icon-chat"></span>Chat<span class="spacer"></span><span class="n"><span class="ui-sprite ui-icon-people"></span>7 / 8</span><button class="ui-button self icon" style="outline:var(--ui-px) solid var(--ui-text);outline-offset:var(--ui-px)" aria-label="Collapse chat"><span class="ui-sprite ui-icon-strip-hide"></span></button></div>
           <ol class="ui-fs-lines" data-lines="full"></ol>
           <form class="foot" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input" placeholder="Say something…" aria-label="Message"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
@@ -160,11 +169,11 @@
 
 <!-- =============================================================== 2. phone full screen -->
 <section id="m7-phone">
-  <h2>2 · Full screen, phone: portrait, landscape resting, landscape typing (CSS px, chrome at 1×)</h2>
+  <h2>2 · Full screen, phone: portrait, landscape resting, landscape typing (CSS px, chrome at 1×; dashed = the 44×44 px touch hit areas)</h2>
   <div class="row">
     <div class="col">
       <h3 class="cap">Portrait 390×844</h3>
-      <div class="screen phone ui-room" style="width:390px;height:844px">
+      <div class="screen phone ui-room ui-touch show-hits" style="width:390px;height:844px">
         <div class="video" style="left:0;top:0;width:390px;height:219px"></div>
         <div class="ui-tv-shelf compact" style="left:0;top:227px;width:390px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon" aria-label="Exit full screen"><span class="ui-sprite ui-icon-fullscreen-exit"></span></button></div></div>
         <aside class="ui-fs-strip" aria-label="Chat" style="left:0;top:279px;width:390px;height:565px">
@@ -179,7 +188,7 @@
     </div>
     <div class="col">
       <h3 class="cap">Landscape 844×390, resting</h3>
-      <div class="screen phone ui-room" style="width:844px;height:390px">
+      <div class="screen phone ui-room ui-touch show-hits" style="width:844px;height:390px">
         <div class="video" style="left:0;top:0;width:693px;height:390px"></div>
         <aside class="ui-fs-strip" aria-label="Chat" style="left:693px;top:0;width:151px;height:390px;gap:4px;padding-left:2px">
           <div class="head" style="gap:2px"><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout" style="font-size:11px">25:31</span><span class="spacer"></span><button class="ui-button self icon" aria-label="Exit full screen"><span class="ui-sprite ui-icon-fullscreen-exit"></span></button></div>
@@ -191,7 +200,7 @@
       <p class="cap-p" style="max-width:844px">"Overlay input" without covering the picture: a 16:9 picture on a 19.5:9 phone leaves a 151 px side bar, and the chat lives there (the overlay sits on our letterbox, not on the player).
       Top: pause + time + exit. Then the last few lines, ageing as on desktop. Foot: one "Say…" key, a big thumb target.</p>
       <h3 class="cap" style="margin-top:8px">Landscape, typing (the system keyboard takes the lower half)</h3>
-      <div class="screen phone ui-room" style="width:844px;height:390px">
+      <div class="screen phone ui-room ui-touch show-hits" style="width:844px;height:390px">
         <div class="video" style="left:0;top:0;width:242px;height:136px"></div>
         <ol class="ui-fs-lines" data-lines="typing" style="left:252px;top:6px;width:580px;height:128px"></ol>
         <form class="ui-tv-shelf compact" onsubmit="return false" style="left:0;top:136px;width:844px;display:flex;gap:4px;padding:0 6px"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input is-focus" value="the green fla" aria-label="Message" style="flex:1;font:inherit;font-size:13px;font-weight:500"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
@@ -258,7 +267,7 @@
     <div class="col">
       <h3 class="cap">Chat popped out: the chat row's place</h3>
       <div class="screen" style="width:960px;height:300px;outline:0">
-        <div class="room" style="left:0;top:0;width:960px;height:120px;background-position:0 -330px"></div>
+        <div class="room" style="left:0;top:0;width:960px;height:120px;background-position:0 -282px"></div>
         <div class="ui-panel ui-away" style="left:220px;top:132px;width:520px;grid-template-columns:auto 1fr auto;justify-items:start;text-align:left;align-items:center">
           <span class="ui-sprite ui-scene ui-scene-chat-away"></span>
           <p><b style="color:var(--ui-text)">Chat is in its own window.</b><br>Bubbles still show over the avatars here.</p>
@@ -308,25 +317,25 @@
 
 <!-- =============================================================== 4. phone watch-only -->
 <section id="m7-watch">
-  <h2>4 · Phone watch-only layout (390 px wide, scrolls): video, room, chat stacked, no editor</h2>
+  <h2>4 · Phone watch-only layout (390 px wide, scrolls): video, room, chat stacked, no editor (dashed = 44×44 px hit areas)</h2>
   <div class="row">
     <div class="col">
-      <div class="screen phone ui-room" style="width:390px;height:844px">
+      <div class="screen phone ui-room ui-touch show-hits" style="width:390px;height:844px">
         <div class="osbar"><span>9:41</span><span>omega-share</span></div>
         <div style="left:8px;top:26px;right:8px;height:28px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700"><span class="ui-sprite ui-icon-tv"></span>Movie night<span class="spacer"></span><span style="display:flex;align-items:center;gap:2px;font-size:12px;color:var(--ui-muted)"><span class="ui-sprite ui-icon-people"></span>7 / 8</span><button class="ui-button secondary icon" aria-label="Leave the room"><span class="ui-sprite ui-icon-leave"></span></button></div>
         <div class="video ui-tv-frame compact" style="left:0;top:66px;width:390px;height:219px"></div>
         <div class="ui-tv-shelf compact" style="left:0;top:293px;width:390px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button></div></div>
-        <div class="room" style="left:0;top:345px;width:390px;height:250px;background-position:-285px -200px"></div>
-        <span class="ui-tag" style="left:73px;top:434px;translate:-50% -100%">Ada</span>
-        <span class="ui-tag self" style="left:137px;top:431px;translate:-50% -100%">Wren</span>
-        <span class="ui-tag" style="left:265px;top:436px;translate:-50% -100%">Sol</span>
-        <span class="ui-tag" style="left:329px;top:434px;translate:-50% -100%">Kit</span>
-        <span class="ui-tag" style="left:73px;top:500px;translate:-50% -100%">Juniper</span>
-        <span class="ui-tag" style="left:137px;top:498px;translate:-50% -100%">Oli</span>
-        <span class="note" style="left:8px;top:572px;font-size:9px;padding:1px 4px">◂ drag to look around ▸</span>
+        <div class="room" style="left:0;top:345px;width:390px;height:240px;background-position:-285px -215px"></div>
+        <span class="ui-tag" style="left:73px;top:419px;translate:-50% -100%">Ada</span>
+        <span class="ui-tag self" style="left:137px;top:416px;translate:-50% -100%">Wren</span>
+        <span class="ui-tag" style="left:265px;top:421px;translate:-50% -100%">Sol</span>
+        <span class="ui-tag" style="left:329px;top:419px;translate:-50% -100%">Kit</span>
+        <span class="ui-tag" style="left:73px;top:485px;translate:-50% -100%">Juniper</span>
+        <span class="ui-tag" style="left:137px;top:483px;translate:-50% -100%">Oli</span>
+        <span class="note" style="left:50%;translate:-50% 0;top:589px;font-size:9px;padding:1px 4px">◂ drag the room to look around ▸</span>
         <ol class="chatlog" role="log" aria-live="polite" data-lines="watch" style="left:8px;top:603px;width:374px;height:178px"></ol>
         <form style="left:6px;right:6px;top:790px;display:flex;gap:4px" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input is-focus" placeholder="Say something…" aria-label="Message" style="flex:1;min-width:0;font:inherit;font-size:13px;font-weight:500"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
-        <div class="rect-guide" style="left:0;top:345px;width:390px;height:250px"><span>room at 1× (never scaled down), cropped to the seats</span></div>
+        <div class="rect-guide" style="left:0;top:345px;width:390px;height:240px"><span>room at 1× (never scaled down), cropped to the seats</span></div>
       </div>
     </div>
     <div class="col" style="max-width:560px">
@@ -456,8 +465,8 @@
         <div style="left:8px;right:8px;top:120px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ui-muted)"><span>Movie night · 7 / 8</span><span class="spacer"></span><button class="ui-button secondary" style="font-size:11px" aria-haspopup="dialog"><span class="ui-sprite ui-icon-report"></span>Report room</button></div>
       </div>
       <h3 class="cap" style="margin-top:6px">Phone watch-only: the last line of the page</h3>
-      <div class="screen ui-room" style="width:300px;height:44px">
-        <div style="left:8px;right:8px;top:8px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ui-muted)"><span>Source · Privacy</span><span class="spacer"></span><button class="ui-button secondary" style="font-size:11px;outline:1px solid var(--ui-text);outline-offset:1px"><span class="ui-sprite ui-icon-report"></span>Report room</button></div>
+      <div class="screen ui-room ui-touch show-hits" style="width:300px;height:56px">
+        <div style="left:8px;right:8px;top:14px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ui-muted)"><span>Source · Privacy</span><span class="spacer"></span><button class="ui-button secondary" style="font-size:11px;outline:1px solid var(--ui-text);outline-offset:1px"><span class="ui-sprite ui-icon-report"></span>Report room</button></div>
       </div>
       <p class="cap-p" style="max-width:300px">A quiet secondary key with words, never an icon alone, never next to Leave or the host's tools. It's the last tab stop of the room page (focus shown on the phone one). Not shown in rooms you own. Pop-out room window: same line at its foot. Not in full screen (leave it first).</p>
     </div>

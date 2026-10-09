@@ -334,6 +334,8 @@ Three directions were weighed before any pixels:
   Entering full screen leaves focus on the key you pressed (now "exit"). Bringing chat back puts focus in the message field.
 - **Reduced motion:** ages still change (they carry meaning) but swap at once, with no dither frame. The full-screen shelf never auto-hides. Nothing slides in any case:
   the strip is in place when full screen starts, collapse re-fits the picture in one step (a tweened player would stutter), and the typing jump is a jump.
+- **Touch (judge round 1):** on phones every key, row and field is at least 44×44 CSS px to the finger (`.ui-touch`, or any coarse pointer). The art doesn't grow: a
+  transparent hit area does, and icon keys keep 9 px apart from their neighbours so two hit areas never overlap. The strip log shows a 2 px scroll rail when there's more above.
 - **Quality (item 5, only you):** `icon/quality` is the set's little glow picture in its wood bezel with a cream ladder under it (picture quality, not a signal meter),
   on a `.ui-button.self` at the end of the shelf, before full screen. The list is the moderation menu's tray (mustard rim = only you see it), headed "Quality · ONLY YOU",
   rows are `menuitemradio` with the check on the current one; it lists exactly what this video offers, Auto on top ("720p60 now" beside it). It always opens into our own
@@ -365,7 +367,7 @@ Three directions were weighed before any pixels:
 | (i) rooms + emotes | added to the (c) files: `ui.png` + `ui.json` (gz) + 16 slices + `reference.css` (gz) · `ui/scenes/*.png` (lazy) | **≈ 6.8 KB** eager · **1.3 KB** lazy |
 | (j) house rules + queue | added to the (c) files: `ui.png` + `ui.json` (gz) + 11 slices + `reference.css` (gz) · `ui/scenes/removed.png` (lazy) | **≈ 5.4 KB** eager · **0.8 KB** lazy |
 | (j) extension icons | `store/icon-16\|32\|48\|128.png` (in the extension package, not the site) | 1 501 B ≈ **1.5 KB** |
-| (k) full screen + pop-out, quality, report (M7) | added to the (c) files: `ui.png` + `ui.json` (gz) + 4 slices + `reference.css` (gz) · `ui/scenes/chat-away.png` + `room-away.png` (lazy) | **≈ 4.0 KB** eager · **0.7 KB** lazy |
+| (k) full screen + pop-out, quality, report (M7) | added to the (c) files: `ui.png` + `ui.json` (gz) + 4 slices + `reference.css` (gz) · `ui/scenes/chat-away.png` + `room-away.png` (lazy) | **≈ 4.6 KB** eager · **0.7 KB** lazy |
 | total art budget | | ≤ 300 KB (≈ 115.0 KB used, as printed by `bun assets/src/build.ts`) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.
