@@ -250,3 +250,47 @@ test("entering from a seat (keyboard), focus lands on the exit key; leaving give
   await expect.poll(() => inFullscreen(page)).toBe(false);
   await expect(seat).toBeFocused();
 });
+
+// OME-628 (QA): in the CSS mode the page behind the wrapper is out of reach (as in element full screen), and a reload
+// in the middle of it doesn't leave the next one stuck.
+test("CSS mode: Tab stays inside the wrapper, and after a reload it still enters and leaves", async ({ browser }) => {
+  const [a] = await join(browser, "pseudotab", 1, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, () => {
+    Reflect.deleteProperty(Element.prototype, "requestFullscreen");
+    Object.defineProperty(Document.prototype, "fullscreenEnabled", { get: () => false });
+  });
+  if (!a) throw new Error("no client");
+  const page = a.page;
+  const root = page.locator(site.fsRoot);
+  await page.locator(site.fullscreenToggle).click();
+  await expect(root).toHaveClass(/is-pseudo-fs/);
+  await page.locator(site.chatSend).focus();
+  for (let i = 0; i < 12; i++) {
+    await page.keyboard.press("Tab");
+    const inside = await page.evaluate((sel) => {
+      const active = document.activeElement;
+      return active === null || active === document.body || document.querySelector(sel)?.contains(active) === true;
+    }, site.fsRoot);
+    expect(inside, `Tab ${String(i + 1)}`).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(root).not.toHaveClass(/is-pseudo-fs/);
+  // Behind it, the page is reachable again.
+  expect(await page.locator(site.inviteCopy).evaluate((el) => el.closest("[inert]") === null)).toBe(true);
+
+  // Reload in the middle of the CSS mode, then go in and out again.
+  await page.locator(site.fullscreenToggle).click();
+  await expect(root).toHaveClass(/is-pseudo-fs/);
+  await page.reload();
+  await page.locator(site.nicknameInput).fill("fspseudotab-r");
+  await page.locator(site.avatarOption).first().click();
+  await page.locator(site.joinButton).click();
+  await page.locator(site.room).waitFor();
+  await page.locator(site.fullscreenToggle).click();
+  await expect(root).toHaveClass(/is-pseudo-fs/);
+  await page.keyboard.press("Escape");
+  await expect(root).not.toHaveClass(/is-pseudo-fs/);
+  await page.locator(site.fullscreenToggle).click();
+  await expect(root).toHaveClass(/is-pseudo-fs/);
+  await page.locator(site.fullscreenToggle).click();
+  await expect(root).not.toHaveClass(/is-pseudo-fs/);
+});

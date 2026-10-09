@@ -98,14 +98,14 @@ describe("fullscreenLayout: collapsed to the input bar (the band)", () => {
 });
 
 /** A fake browser: element full screen (or not), the history stack, orientation lock. */
-function setup(opts: { native?: "ok" | "reject" | "missing"; lock?: "ok" | "reject" | "throw" | "missing"; disabled?: boolean; asyncPop?: boolean } = {}) {
+function setup(opts: { native?: "ok" | "reject" | "missing"; lock?: "ok" | "reject" | "throw" | "missing"; disabled?: boolean; asyncPop?: boolean; initialState?: unknown } = {}) {
   const native = opts.native ?? "ok";
   const target = { id: "wrap" };
   const nested = { id: "provider-iframe" };
   let fullscreenElement: object | null = null;
   const fsListeners: (() => void)[] = [];
   const popListeners: ((ev: { state: unknown }) => void)[] = [];
-  const stack: unknown[] = [null];
+  const stack: unknown[] = [opts.initialState ?? null];
   const pending: (() => void)[] = [];
   const calls: string[] = [];
   const modes: FullscreenMode[] = [];
@@ -149,6 +149,10 @@ function setup(opts: { native?: "ok" | "reject" | "missing"; lock?: "ok" | "reje
       pushState: (state) => {
         calls.push("pushState");
         stack.push(state);
+      },
+      replaceState: (state) => {
+        calls.push("replaceState");
+        stack[stack.length - 1] = state;
       },
       back: () => {
         calls.push("back");
@@ -210,6 +214,7 @@ function setup(opts: { native?: "ok" | "reject" | "missing"; lock?: "ok" | "reje
       for (const f of pending.splice(0)) f();
     },
     depth: (): number => stack.length,
+    state: (): unknown => stack.at(-1),
   };
 }
 
@@ -376,5 +381,36 @@ describe("createFullscreen: races", () => {
     expect(s.fs.key("f", false, true)).toBe(true);
     expect(s.fs.key("f", false, true)).toBe(true);
     expect(s.fs.mode()).toBe("native");
+  });
+});
+
+// OME-628 (QA): a reload while in the CSS mode leaves the page on an entry that still carries our marker.
+describe("createFullscreen: a reload in the CSS mode", () => {
+  const stale = { omegaFullscreen: true };
+
+  test.each([false, true])("entering again and leaving (our key, async popstate %p) turns the mode off", async (asyncPop) => {
+    const s = setup({ native: "missing", initialState: stale, asyncPop });
+    await s.fs.enter();
+    s.fs.exit();
+    s.flushPops();
+    expect(s.fs.mode()).toBe("off");
+    expect(s.depth()).toBe(1);
+    // And again: never stuck.
+    await s.fs.enter();
+    expect(s.fs.key("Escape", false)).toBe(true);
+    s.flushPops();
+    expect(s.fs.mode()).toBe("off");
+  });
+
+  test("Back leaves it too", async () => {
+    const s = setup({ native: "missing", initialState: stale });
+    await s.fs.enter();
+    s.back();
+    expect(s.fs.mode()).toBe("off");
+  });
+
+  test("the stale marker on the page's own entry is cleared at start", () => {
+    const s = setup({ native: "missing", initialState: { ...stale, other: 1 } });
+    expect(s.state()).toEqual({ other: 1 });
   });
 });
