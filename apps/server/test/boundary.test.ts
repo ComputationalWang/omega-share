@@ -9,6 +9,7 @@ import { Client, EXTENSION_ORIGIN, SITE_ORIGIN, postShare, start, tokenOf, type 
 
 const PUBLIC_ORIGIN = "https://quiet-otter.ngrok-free.app";
 const PUBLIC_HOST = "quiet-otter.ngrok-free.app";
+const FIREFOX_ORIGIN = "moz-extension://0e8d6a7c-0000-4000-8000-000000000611";
 
 let t: TestServer | null = null;
 const clients: Client[] = [];
@@ -173,6 +174,42 @@ describe("Origin allowlist (T-04, T-05)", () => {
     t = start({ extensionIds: ["ponmlkjihgfedcbaponmlkjihgfedcba"] });
     expect((await get("/rooms", { origin: "chrome-extension://ponmlkjihgfedcbaponmlkjihgfedcba" })).status).toBe(200);
     expect((await get("/rooms", { origin: EXTENSION_ORIGIN })).status).toBe(403);
+  });
+
+  test("Firefox extension origins (per-install UUID) may preflight and POST a share, even with EXTENSION_IDS pinned (OME-617)", async () => {
+    t = start({ extensionIds: ["ponmlkjihgfedcbaponmlkjihgfedcba"] });
+    const preflight = await fetch(`${t.http}/rooms/lobby/share`, {
+      method: "OPTIONS",
+      headers: {
+        origin: FIREFOX_ORIGIN,
+        "access-control-request-method": "POST",
+        "access-control-request-headers": "authorization,content-type",
+      },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-origin")).toBe(FIREFOX_ORIGIN);
+    const c = await Client.open(t.ws());
+    clients.push(c);
+    c.send({ type: "join", nickname: "fox", avatar: 0 });
+    const token = tokenOf(await c.next("snapshot"));
+    const res = await postShare(t, JSON.stringify({ url: "https://youtu.be/dQw4w9WgXcQ" }), { token, origin: FIREFOX_ORIGIN });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("access-control-allow-origin")).toBe(FIREFOX_ORIGIN);
+  });
+
+  test("malformed moz-extension origins are refused with 403", async () => {
+    t = start();
+    for (const origin of [
+      "moz-extension://evil.com",
+      `${FIREFOX_ORIGIN}.evil.com`,
+      "moz-extension://0E8D6A7C-0000-4000-8000-000000000611",
+      "moz-extension://0e8d6a7c00004000800000000000061100000",
+      `${FIREFOX_ORIGIN}:8080`,
+      "moz-extension://",
+    ]) {
+      expect((await get("/rooms", { origin })).status).toBe(403);
+      expect((await upgrade({ origin })).status).toBe(403);
+    }
   });
 
   test("CORS preflight allows the share token and ngrok headers", async () => {
