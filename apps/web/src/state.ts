@@ -58,6 +58,9 @@ export interface ViewState {
   readonly kickedUntil: number | null;
 }
 
+/** What the room's stage draws (stage.ts): the page's own state, or the slice the room tab mirrors to its room window (OME-600). */
+export type StageState = Pick<ViewState, "status" | "self" | "room" | "bubbles" | "syslines" | "catching">;
+
 export interface ErrorNotice {
   readonly code: ErrorCode;
   readonly at: number;
@@ -84,7 +87,7 @@ export function coolingDown(state: ViewState, now: number): boolean {
 }
 
 /** True while the server says this member is catching up. */
-export function catchingUp(state: ViewState, id: MemberId): boolean {
+export function catchingUp(state: Pick<ViewState, "catching">, id: MemberId): boolean {
   return state.catching.includes(id);
 }
 

@@ -3,10 +3,14 @@
 // the socket, under the tab's own cooldown and mute. One pop-out per tab: the newest window that says it's ready is
 // adopted (any other is told to go and is ignored from then on), and its chat is sent once however often a message
 // arrives (de-duplicated by the window's sequence number).
-import type { ClientMessage } from "@omega/shared";
+// OME-600 (W3b): the whole-room window is the same channel's other kind of window. Still one window per tab, whichever
+// kind; a room window also gets what the stage draws (mirrored as it changes, so the page's renderer can pause), the
+// picture's time for its plate, and each emote, and its seat clicks come back here to be sent.
+import type { ClientMessage, EmoteKind, MemberId } from "@omega/shared";
 import { CHAT_LOG_CAP, type ChatLogEntry } from "../chat/log";
 import { chatIntent } from "../intents";
-import { parsePopMessage, type PopChannel, type PopState } from "./channel";
+import type { StageState } from "../state";
+import { parsePopMessage, type PopChannel, type PopKind, type PopState, type PopTv } from "./channel";
 
 /**
  * A window that's gone without a word (crashed, killed) is let go after this long without a message. Generous: a
@@ -19,22 +23,34 @@ export interface ChatRelayOptions<H> {
   readonly channel: PopChannel;
   /** The room's socket (Connection.send): true if it went out. */
   readonly send: (m: ClientMessage) => boolean;
-  /** Opens the pop-out window (window.open, noopener). */
-  readonly openWindow: () => void;
-  /** The chat moved into the window (true) or came back to the page (false). */
+  /** Opens the pop-out window of that kind (window.open, noopener). */
+  readonly openWindow: (kind: PopKind) => void;
+  /** The chat (or the room) moved into the window, or another kind of window took over (true); it came back to the page (false). */
   readonly onPopped: (on: boolean) => void;
+  /** A seat clicked in the room window: the page sits or stands (sitIntent) and sends it. */
+  readonly onSeat: (seat: number) => void;
   readonly setTimer: (fn: () => void, ms: number) => H;
   readonly clearTimer: (h: H) => void;
 }
 
 export interface ChatRelay {
   popped(): boolean;
-  popOut(): void;
+  /** Which window is adopted, if any. */
+  kind(): PopKind | null;
+  popOut(kind?: PopKind): void;
   bringBack(): void;
   /** A new chat log line (the page's log gets it too). */
   append(entry: ChatLogEntry): void;
   /** The room's chat state; posted when popped out and changed. */
   update(s: PopState): void;
+  /** What the stage draws; posted to a room window when it changed. */
+  view(s: StageState): void;
+  /** The plate and my catching-up flag; posted to a room window when changed. */
+  tv(t: PopTv): void;
+  /** Someone emoted: a room window draws it. */
+  emote(member: MemberId, kind: EmoteKind): void;
+  /** "Show the window": ask the adopted window to come to the front. */
+  raise(): void;
   /** The room tab is going away (pagehide). */
   close(): void;
   /** Back from the back/forward cache: the chat is home; a window still open says ready and is adopted again. */
@@ -44,12 +60,24 @@ export interface ChatRelay {
 const sameState = (a: PopState | null, b: PopState): boolean =>
   a !== null && a.title === b.title && a.people === b.people && a.cap === b.cap && a.open === b.open && a.cooling === b.cooling && a.muted === b.muted && a.placeholder === b.placeholder;
 
+/** What the stage draws is the same: the same objects (the reducer keeps them when they don't change). */
+const sameStage = (a: StageState | null, b: StageState): boolean =>
+  a !== null && a.status === b.status && a.self === b.self && a.room === b.room && a.bubbles === b.bubbles && a.syslines === b.syslines && a.catching === b.catching;
+
+const sameTv = (a: PopTv | null, b: PopTv): boolean =>
+  a !== null && a.video === b.video && a.playing === b.playing && a.position === b.position && a.live === b.live && a.catching === b.catching;
+
 export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
   const backlog: ChatLogEntry[] = [];
   let state: PopState | null = null;
   /** The last state the window was sent. */
   let posted: PopState | null = null;
+  let stage: StageState | null = null;
+  let postedStage: StageState | null = null;
+  let tv: PopTv | null = null;
+  let postedTv: PopTv | null = null;
   let active: string | null = null;
+  let activeKind: PopKind | null = null;
   let lastSeq = -1;
   let lease: H | null = null;
 
@@ -68,25 +96,43 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
     posted = state;
     o.channel.post({ t: "room-state", ...state });
   };
+  const postStage = (): void => {
+    if (activeKind !== "room" || stage === null || sameStage(postedStage, stage)) return;
+    postedStage = stage;
+    // Only the slice: the page's state has more (errors, the owner flag, …) that the window has no use for.
+    const { status, self, room, bubbles, syslines, catching } = stage;
+    o.channel.post({ t: "room-view", status, self, room, bubbles, syslines, catching });
+  };
+  const postTv = (): void => {
+    if (activeKind !== "room" || tv === null || sameTv(postedTv, tv)) return;
+    postedTv = tv;
+    o.channel.post({ t: "room-tv", ...tv });
+  };
 
   const release = (): void => {
     if (active === null) return;
     active = null;
+    activeKind = null;
     posted = null;
     renew();
     o.onPopped(false);
   };
 
-  const adopt = (pop: string): void => {
-    const was = active;
+  const adopt = (pop: string, kind: PopKind): void => {
+    const was = activeKind;
     active = pop;
+    activeKind = kind;
     lastSeq = -1;
     posted = null;
+    postedStage = null;
+    postedTv = null;
     renew();
     o.channel.post({ t: "room-adopt", pop });
     o.channel.post({ t: "room-log", reset: true, entries: backlog.slice() });
     postState();
-    if (was === null) o.onPopped(true);
+    postStage();
+    postTv();
+    if (was !== kind) o.onPopped(true);
   };
 
   /** Chat, unless the room holds it (cooling or muted, as the page's own form would). */
@@ -113,7 +159,7 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
     if (m === null) return;
     switch (m.t) {
       case "pop-ready":
-        adopt(m.pop);
+        adopt(m.pop, m.kind ?? "chat");
         return;
       case "pop-ping":
         fromActive(m.pop);
@@ -123,6 +169,9 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
         return;
       case "pop-emote":
         sent(m.pop, m.seq, () => o.send({ type: "emote", kind: m.kind }));
+        return;
+      case "pop-sit":
+        if (activeKind === "room" && fromActive(m.pop)) o.onSeat(m.seat);
         return;
       case "pop-back":
       case "pop-bye":
@@ -136,6 +185,10 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
       case "room-said":
       case "room-back":
       case "room-gone":
+      case "room-view":
+      case "room-tv":
+      case "room-emote":
+      case "room-raise":
         return;
     }
   });
@@ -143,8 +196,9 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
 
   return {
     popped: () => active !== null,
-    popOut() {
-      o.openWindow();
+    kind: () => activeKind,
+    popOut(kind = "chat") {
+      o.openWindow(kind);
     },
     bringBack() {
       if (active === null) return;
@@ -159,6 +213,20 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
     update(s) {
       state = s;
       if (active !== null) postState();
+    },
+    view(s) {
+      stage = s;
+      postStage();
+    },
+    tv(t) {
+      tv = t;
+      postTv();
+    },
+    emote(member, kind) {
+      if (activeKind === "room") o.channel.post({ t: "room-emote", member, kind });
+    },
+    raise() {
+      if (active !== null) o.channel.post({ t: "room-raise" });
     },
     close() {
       o.channel.post({ t: "room-gone" });

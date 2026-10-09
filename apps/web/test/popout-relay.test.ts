@@ -303,6 +303,15 @@ describe("room relay (OME-600)", () => {
     expect(take()).toEqual([]);
   });
 
+  test("only the stage's slice goes over, not the rest of the page's state (the window parses it strictly)", async () => {
+    const { relay, take, from } = await setup();
+    from({ t: "pop-ready", pop: "r1", kind: "room" });
+    take();
+    const page = { ...VIEW, lastError: null, owner: true, title: "Movie night" };
+    relay.view(page);
+    expect(take()).toEqual([{ t: "room-view", ...VIEW }]);
+  });
+
   test("the room goes over as the tab's state changes, and only when what the stage draws changed", async () => {
     const { relay, take, from } = await setup();
     relay.view(VIEW);

@@ -7,7 +7,7 @@ import type { RoomId } from "@omega/shared";
 import { createChatLog } from "../chat/log";
 import { el, sprite } from "../controls/dom";
 import { createEmotePicker } from "../emote/picker";
-import { parsePopMessage, type PopChannel } from "./channel";
+import { parsePopMessage, type PopChannel, type PopKind, type RoomSideMessage } from "./channel";
 
 /** How often the window tells its room tab it's still there (relay.ts POP_LEASE_MS lets it go after long silence). */
 export const POP_PING_MS = 5000;
@@ -20,6 +20,12 @@ export interface PopoutViewOptions<H> {
   /** This window load's id. */
   readonly pop: string;
   readonly roomId: RoomId;
+  /** The chat window (W3) or the whole-room window's chat column (W3b, OME-600). Default: chat. */
+  readonly kind?: PopKind;
+  /** A room window's side (popout/room-pop.ts): the stage's state, the plate, emotes, and "come to the front". */
+  readonly onRoom?: (m: RoomSideMessage) => void;
+  /** The room tab went away (true) or a room tab adopted this window again (false). */
+  readonly onGone?: (gone: boolean) => void;
   readonly channel: PopChannel;
   readonly closeWindow: () => void;
   readonly navigate: (url: string) => void;
@@ -34,10 +40,19 @@ export interface PopoutView {
   key(ev: KeyboardEvent): boolean;
   /** The window is closing (pagehide): tell the room tab. */
   bye(): void;
+  /** A seat clicked in the room window: the room tab sits or stands. False while there's no room tab to ask. */
+  sit(seat: number): boolean;
 }
 
 export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
   const { pop } = o;
+  const kind = o.kind ?? "chat";
+  const room = kind === "room";
+  const backLabel = room ? "Put the room back in the page" : "Put chat back in the page";
+  /** A chat window says nothing of its kind, as W3 did. */
+  const ready = (): void => {
+    o.channel.post(room ? { t: "pop-ready", pop, kind } : { t: "pop-ready", pop });
+  };
   let seq = 0;
   /** The pop-say waiting for its answer: the field clears when it went out. */
   let pending: number | null = null;
@@ -48,9 +63,9 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
   const frame = el("div", { className: "ui-pop popout" });
   const head = el("div", { className: "popout-head" });
   const people = el("span", { className: "popout-people-n" }, "popout-people");
-  const back = el("button", { type: "button", className: "ui-button self icon", title: "Put chat back in the page" }, "popout-back");
-  back.setAttribute("aria-label", "Put chat back in the page");
-  back.append(sprite("ui-icon-popout-back"));
+  const back = el("button", { type: "button", className: "ui-button self icon", title: backLabel }, "popout-back");
+  back.setAttribute("aria-label", backLabel);
+  back.append(sprite(room ? "ui-icon-popout-room-back" : "ui-icon-popout-back"));
   const count = el("span", { className: "popout-people" });
   count.append(sprite("ui-icon-people"), people, el("span", { className: "sr-only", textContent: " people" }));
   head.append(sprite("ui-icon-chat"), el("span", { className: "popout-title", textContent: "Chat" }), count, back);
@@ -105,12 +120,14 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
   /** Superseded by a newer window: for good (it never answers the room tab again). */
   let moved = false;
   const setGone = (on: boolean): void => {
+    const was = gone;
     gone = on;
     away.hidden = !on;
-    awayTitle.textContent = moved ? "Chat moved to another window." : "The room's tab was closed or reloaded.";
+    awayTitle.textContent = moved ? (room ? "The room moved to another window." : "Chat moved to another window.") : "The room's tab was closed or reloaded.";
     awayBody.textContent = moved ? "Use that window, or close this one." : "This window talks through it, so it left the room too.";
     openRoom.hidden = moved;
     renderForm();
+    if (was !== on) o.onGone?.(on);
   };
   renderForm();
 
@@ -126,7 +143,7 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
     if (m === null) return;
     switch (m.t) {
       case "room-hello":
-        if (!moved) o.channel.post({ t: "pop-ready", pop });
+        if (!moved) ready();
         return;
       case "room-adopt":
         if (m.pop !== pop) {
@@ -156,7 +173,7 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
         for (const e of m.entries) log.append(e);
         return;
       case "room-state":
-        o.document.title = m.title === null ? "Chat · omega-share" : `Chat · ${m.title} · omega-share`;
+        o.document.title = room ? (m.title === null ? "Room · omega-share" : `${m.title} · omega-share`) : m.title === null ? "Chat · omega-share" : `Chat · ${m.title} · omega-share`;
         people.textContent = `${String(m.people)} / ${String(m.cap)}`;
         held = m.cooling || m.muted || !m.open;
         if (input.placeholder !== m.placeholder) input.placeholder = m.placeholder;
@@ -178,12 +195,19 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
       case "room-gone":
         setGone(true);
         return;
+      case "room-view":
+      case "room-tv":
+      case "room-emote":
+      case "room-raise":
+        if (room && adopted && !moved) o.onRoom?.(m);
+        return;
       // A window's own kind (another window's): not for us.
       case "pop-ready":
       case "pop-ping":
       case "pop-say":
       case "pop-emote":
       case "pop-back":
+      case "pop-sit":
       case "pop-bye":
         return;
     }
@@ -208,12 +232,17 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
     o.closeWindow();
   });
 
-  o.channel.post({ t: "pop-ready", pop });
+  ready();
 
   return {
     key: (ev) => adopted && !gone && picker.key(ev),
     bye() {
       o.channel.post({ t: "pop-bye", pop });
+    },
+    sit(seat) {
+      if (!adopted || gone) return false;
+      o.channel.post({ t: "pop-sit", pop, seat });
+      return true;
     },
   };
 }

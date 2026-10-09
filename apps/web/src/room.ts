@@ -1,41 +1,35 @@
 // Room screen. Loaded lazily after Enter so PixiJS stays out of the initial bundle.
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, SEAT_COUNT, isSyncedEmbed, layoutSeats, type AnyEmbed, type Avatar, type ClientMessage, type EmoteKind, type Embed, type ErrorCode, type MemberId, type Nickname, type RoomId, type RoomLayout } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, isSyncedEmbed, type AnyEmbed, type Avatar, type ClientMessage, type EmoteKind, type Embed, type ErrorCode, type MemberId, type Nickname, type RoomId, type RoomLayout } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
 import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
 import { forgetRoom, inviteLink, joinMessage, type RoomSecret, type SecretsStore } from "./room-secrets";
 import { createInviteControl } from "./controls/invite";
-import { createPersonal, createTransport, el, renderSyslines, sprite } from "./controls/dom";
+import { createPersonal, createTransport, el, sprite } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { createQueuePanel } from "./controls/queue-panel";
 import { chatView, kickedCard, refusalCard } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
-import { chatIntent, seatViews, sitIntent } from "./intents";
-import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
-import { BUBBLE_OFFSET_Y, PHONE_QUERY, STAGE_H, STAGE_W, SYSLINE_RAIL, TAG_OFFSET_Y, fullscreenLayout, roomLayout, type Point, type Rect, type StripMode } from "./layout";
+import { chatIntent, sitIntent } from "./intents";
+import { layoutOf } from "./furniture";
+import { PHONE_QUERY, STAGE_H, STAGE_W, TAG_OFFSET_Y, fullscreenLayout, roomLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createFullscreen, type FullscreenMode } from "./fullscreen";
 import { createRoomWindow } from "./room-window";
 import type { PlayerError } from "./player/adapter";
 import { PLAYERS, createPlayerMounter } from "./player/registry";
-import type { FurnitureAtlas } from "./furniture-atlas";
-import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
-import { catchingUp, controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
+import { createStage, type Stage } from "./stage";
+import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
 import { genericFrame, tvFrame, type TvFrame } from "./tv";
 import { createGenericTv } from "./controls/generic-tv";
-import { walkGrid } from "./walk/path";
-import { standingSpots } from "./walk/standing";
-import type { Dir } from "./walk/walks";
 import type { Editor } from "./editor/editor";
 import type { Moderation } from "./owner/moderation";
 import { createEmotePicker } from "./emote/picker";
-import { createEmoteBadges } from "./emote/badges";
-import { EMOTE_LIFT } from "./walk/animator";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
-import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, type PopState } from "./popout/channel";
+import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
 import { createChatRelay, type ChatRelay } from "./popout/relay";
 import { createReport } from "./report/dialog";
 
@@ -171,10 +165,6 @@ function middleOf(points: readonly Point[]): Point {
   return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
 }
 
-function place(e: HTMLElement, p: Point): void {
-  e.style.transform = `translate(${String(p.x)}px, ${String(p.y)}px)`;
-}
-
 function box(e: HTMLElement, r: Rect): void {
   Object.assign(e.style, { left: `${String(r.x)}px`, top: `${String(r.y)}px`, width: `${String(r.w)}px`, height: `${String(r.h)}px` });
 }
@@ -244,8 +234,19 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   // The TV and its control bar sit above the scaled stage, unscaled, so the player keeps
   // YouTube's minimum size and no room layer can stack over it (layout.ts `roomLayout`).
-  // .ui-room: set (e)/(c) chrome inside the stage is at the room's 1× art scale.
-  const stage = el("div", { className: "stage ui-room" }, "room");
+  // Under prefers-reduced-motion an emote is a static badge over the avatar instead of an animation (OME-415).
+  const reducedMotion = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
+  const roomStage: Stage = await createStage({
+    reducedMotion,
+    requestRender: () => {
+      requestRender();
+    },
+    onLayout: (points) => {
+      seatsMiddle = middleOf(points);
+      if (phone.matches) fit();
+    },
+  });
+  const { root: stage, overlay, tags, view } = roomStage;
   const clip = el("div", { className: "stage-clip" }, "room-window");
   clip.append(stage);
   const tv = el("div", { className: "tv ui-tv-frame" }, "tv");
@@ -256,19 +257,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   wrap.append(tv, controls, clip);
   const tvEmpty = el("p", { className: "tv-empty", textContent: "Share a video with the extension, or paste a link under Up next, to watch it here." });
   tv.append(tvEmpty);
-  const overlay = el("div", { className: "overlay" });
-  // Placed from the room's layout on each render that changes it (applyLayout).
-  const seatButtons = Array.from({ length: SEAT_COUNT }, (_, i) => {
-    const b = el("button", { type: "button", className: "seat" }, "seat");
-    b.dataset["seat"] = String(i);
-    return b;
-  });
-  overlay.append(...seatButtons);
-  const tags = el("div", { className: "tags" });
-  const bubbles = el("div", { className: "bubbles", ariaLive: "polite" });
-  // Chat system lines ("Ana paused"): caption rail in the stage's bottom-left, text only.
-  const rail = el("div", { className: "syslines", ariaLive: "polite" });
-  box(rail, SYSLINE_RAIL);
   const syncNotice = el("p", { className: "notice sync-notice", role: "status", hidden: true }, "sync-notice");
   const tvHint = el("p", { className: "notice tv-hint", hidden: true }, "tv-hint");
 
@@ -297,6 +285,22 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const bringBack = el("button", { type: "button", className: "ui-button self" }, "chat-bring-back");
   bringBack.append(sprite("ui-icon-popout-back"), "Bring chat back");
   chatAway.append(el("span", { className: "ui-sprite ui-scene ui-scene-chat-away", ariaHidden: "true" }), chatAwayText, bringBack);
+  // Pop-out room (OME-600, set k): the key is in the room's top bar (never beside "Pop out chat"); while the room is in its
+  // window the stage's place holds the set (k) placeholder, the page keeps the picture and the one socket, and its own
+  // renderer is paused (never two running).
+  const roomTop = el("div", { className: "room-top" });
+  const popRoomKey = el("button", { type: "button", className: "ui-button self icon", ariaLabel: "Pop out room", title: "Pop out room", hidden: true }, "room-popout");
+  popRoomKey.append(sprite("ui-icon-popout-room"));
+  roomTop.append(title, popRoomKey);
+  const roomAway = el("div", { className: "ui-panel ui-away room-away", role: "status", hidden: true }, "room-away");
+  const roomAwayText = el("p");
+  roomAwayText.append(el("b", { textContent: "The room is in its own window." }), el("br"), "The picture stays here; the room and chat are over there.");
+  const roomBack = el("button", { type: "button", className: "ui-button self" }, "room-bring-back");
+  roomBack.append(sprite("ui-icon-popout-room-back"), "Bring the room back");
+  const showWindow = el("button", { type: "button", className: "ui-button secondary", textContent: "Show the window" }, "room-show-window");
+  const roomAwayKeys = el("div", { className: "room-away-keys" });
+  roomAwayKeys.append(roomBack, showWindow);
+  roomAway.append(el("span", { className: "ui-sprite ui-scene ui-scene-room-away", ariaHidden: "true" }), roomAwayText, roomAwayKeys);
   // The chat log (OME-594): the same component moves into the full-screen strip (W2) and the pop-out (W3).
   const chatLog = createChatLog({
     ageing: "settle",
@@ -380,6 +384,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
     onView: (v) => {
       pbView = v;
+      // The room window's plate and my hourglass there: from the player's timer, not a frame (a hidden tab draws none).
+      relay?.tv({ video: v.hasVideo, playing: v.playing, position: Math.max(0, Math.floor(v.position)), live: v.live, catching: v.catching });
       if (ctlFrame === 0) ctlFrame = requestAnimationFrame(renderControls);
     },
   });
@@ -389,29 +395,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // "Up next" (ADR 0031): the room's queue under the TV. Its rows are text; it redraws only when the queue changes.
   const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname] });
 
-  const tagEls = new Map<MemberId, HTMLElement>();
-  const bubbleEls = new Map<MemberId, HTMLElement>();
-  // Under prefers-reduced-motion an emote is a static badge over the avatar instead of an animation (OME-415).
-  const reducedMotion = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
-  const badges = createEmoteBadges(bubbles, {
-    setTimer: (fn, ms) => setTimeout(fn, ms),
-    clearTimer: (h) => {
-      clearTimeout(h as ReturnType<typeof setTimeout>);
-    },
-  });
-  const liftOf = (id: MemberId): number => (state.room?.seats.includes(id) === true ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
-  // Tags, bubbles and emote badges ride along with a walking avatar.
-  const view: RoomView = await createRoomView({
-    onMove: (id, x, y) => {
-      badges.move(id, x, y - liftOf(id));
-      const tag = tagEls.get(id);
-      if (tag !== undefined) place(tag, { x, y: y + TAG_OFFSET_Y });
-      const bubble = bubbleEls.get(id);
-      if (bubble !== undefined) place(bubble, { x, y: y + BUBBLE_OFFSET_Y });
-    },
-  });
-  view.canvas.className = "scene";
-  stage.append(view.canvas, overlay, tags, bubbles, rail);
   // The provider hint sits right above the TV, next to what it's about (OME-251): below the stage it's off-screen.
   // The owner's "Edit room" key (set (h)): made only for the owner, and the editor chunk loads only when it's pressed.
   const editBar = el("div", { className: "edit-bar" });
@@ -459,9 +442,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const wasInRoom = on && focused instanceof HTMLElement && clip.contains(focused);
     wrap.classList.toggle("is-fs", on);
     wrap.classList.toggle("is-pseudo-fs", mode === "pseudo");
-    clip.hidden = on;
-    view.setPaused(on);
-    strip.hidden = !on;
+    renderRoomPlace();
     fsKey.ariaLabel = on ? "Exit full screen" : "Full screen";
     fsIcon.className = `ui-sprite ${on ? "ui-icon-fullscreen-exit" : "ui-icon-fullscreen"}`;
     unread = 0;
@@ -481,7 +462,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     } else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     if (!on) focusBefore = null;
   };
-  opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked, foot);
+  opts.root.replaceChildren(roomTop, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked, foot);
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
   const placeChat = (): void => {
     if (fs.mode() !== "off") stripHead.after(chatLog.root, chatForm, chatAway);
@@ -492,6 +473,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   placeChat();
 
+  /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
+  let relay: ChatRelay | null = null;
+  let popped = false;
+  /** The whole room is in the window (OME-600): the page shows the picture only. */
+  const roomOut = (): boolean => popped && relay?.kind() === "room";
   /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
   let tvProvider: Embed["provider"] | null = null;
   /** The phone's window looks at the middle of the seats until you drag it, sit, or focus something off-screen. */
@@ -499,7 +485,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let seatsMiddle: Point = { x: STAGE_W / 2, y: STAGE_H / 2 };
   const fit = (): void => {
     if (fs.mode() !== "off") {
-      const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvProvider, stripMode);
+      // The room popped out: its chat is in the window, so the picture is alone.
+      const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvProvider, roomOut() ? "none" : stripMode);
       box(tv, l.tv);
       box(controls, l.controls);
       box(strip, l.strip);
@@ -521,7 +508,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       roomWindow.set(false, 0, 0);
       stage.style.transform = `scale(${String(l.scale)})`;
     }
-    wrap.style.height = `${String(l.height)}px`;
+    // The room popped out: the wrap ends where the stage would start, and the placeholder follows it.
+    wrap.style.height = `${String(roomOut() ? l.stage.y : l.height)}px`;
   };
   new ResizeObserver(fit).observe(wrap);
   fit();
@@ -529,23 +517,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let frame = 0;
   let expiryTimer: ReturnType<typeof setTimeout> | null = null;
   let tvKey: string | null = null;
-  let drawnSeats: readonly unknown[] | undefined;
-  let drawnMembers: readonly unknown[] | undefined;
-  const syslineEls = new Map<number, HTMLElement>();
-  /** The drawn layout (furniture.ts): seats, standing spots and the scene follow it; null until the first render. */
-  let layout: RoomLayout | null = null;
-  let seats: Point[] = [];
-  let seatFacings: Dir[] = [];
-  /** Who stands on which standing spot; kept across renders so a departure doesn't move the others. */
-  let standSpots = new Map<MemberId, number>();
-  let grid: Uint8Array = new Uint8Array(0);
-  let standing: Point[] = [];
-  let scene = sceneOf(layoutOf(null), null);
-  /** The set (g) atlas once loaded: later layouts build their scene with it straight away. */
-  let atlas: FurnitureAtlas | null = null;
-  /** The drawn layout's content; a re-join snapshot parses a new but equal layout, which keeps the scene. */
-  let layoutKey = "";
-  let layoutBuilds = 0;
   /** The owner's unsaved draft, shown to them instead of the room's layout while they edit. */
   let preview: RoomLayout | null = null;
   let editToggle: HTMLButtonElement | null = null;
@@ -553,29 +524,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** Bumped on each open/close, so a slow chunk load for an editor that was closed meanwhile is dropped. */
   let editorGen = 0;
   let shownError: ViewState["lastError"] = null;
-  /** Where the last render put each member (seat or standing spot), for UI anchored to someone not on screen yet. */
-  let placedAt = new Map<MemberId, Point>();
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
-  /** The hourglass on each catching tag; a tag removed with its member takes its hourglass along. */
-  const hourglasses = new Map<HTMLElement, HTMLElement>();
-
-  /** A tag carries the hourglass while that member catches up: mine from my player, others' from the server (ADR 0019). */
-  const applyCatching = (): void => {
-    for (const [id, tag] of tagEls) {
-      const want = id === state.self ? pbView?.catching === true : catchingUp(state, id);
-      const glass = hourglasses.get(tag);
-      if (want === (glass !== undefined)) continue;
-      tag.classList.toggle("catching", want);
-      if (glass !== undefined) {
-        glass.remove();
-        hourglasses.delete(tag);
-      } else {
-        const g = el("span", { className: "ui-sprite ui-catchup", ariaHidden: "true" });
-        tag.prepend(g);
-        hourglasses.set(tag, g);
-      }
-    }
-  };
 
   function renderControls(): void {
     ctlFrame = 0;
@@ -583,7 +532,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (v === null) return;
     transport.update(v);
     personal.update(v);
-    applyCatching();
+    roomStage.applyCatching(state, v.catching);
     if (v.error !== shownPlayerError) {
       shownPlayerError = v.error;
       // The only other sync notice (API didn't load) never has a player, so there's no error to clash with.
@@ -611,46 +560,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       }
       playback.attach(r.player, embed.url);
     });
-  };
-
-  /** Rebuild furniture, seats and standing spots for a new layout; the set (g) atlas loads only if the layout needs it. */
-  const applyLayout = (next: RoomLayout): void => {
-    layout = next;
-    const key = keyOfLayout(next);
-    if (key === layoutKey) return;
-    layoutKey = key;
-    layoutBuilds++;
-    seats = seatPoints(next);
-    seatsMiddle = middleOf(seats);
-    if (phone.matches) fit();
-    seatFacings = layoutSeats(next).map((s) => s.facing);
-    grid = walkGrid(next);
-    standing = standingPoints(next);
-    const needsAtlas = usesSetG(next);
-    const ready = needsAtlas ? atlas : null;
-    scene = sceneOf(next, ready?.manifest ?? null);
-    view.setScene(scene, ready, grid);
-    seatButtons.forEach((b, i) => {
-      const p = seats[i];
-      if (p !== undefined) place(b, p);
-    });
-    drawnSeats = undefined;
-    if (!needsAtlas || ready !== null) return;
-    void import("./furniture-atlas")
-      .then((m) => m.loadFurnitureAtlas())
-      .then((loaded) => {
-        atlas = loaded;
-        if (layout !== next) return;
-        scene = sceneOf(next, loaded.manifest);
-        view.setScene(scene, loaded, grid);
-        drawnSeats = undefined;
-        if (frame === 0) frame = requestAnimationFrame(render);
-      })
-      // Without the sheet the room still works: placeholder floor, seats and avatars. The next snapshot retries.
-      .catch((e: unknown) => {
-        if (layout === next) layoutKey = "";
-        console.warn("furniture atlas failed to load", e);
-      });
   };
 
   const requestRender = (): void => {
@@ -729,7 +638,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       .then(({ mountModeration }) => {
         if (gen !== moderationGen) return;
         moderation = mountModeration({ stage, tags, bar: editBar, view: () => state, send, stageWidth: STAGE_W, anchor: (id) => {
-          const p = view.position(id) ?? placedAt.get(id);
+          const p = roomStage.anchor(id);
           return p === undefined ? undefined : { x: p.x, y: p.y + TAG_OFFSET_Y };
         } });
         moderation.update();
@@ -751,7 +660,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       arrangeHinted = true;
       chatLog.append({ kind: "system", line: { glyph: "host", actor: null, verb: "Arrange the room on a computer.", time: null, self: true } });
     }
-    const want = owns && !phone.matches;
+    const want = owns && !phone.matches && !roomOut();
     if (!want) {
       if (editToggle !== null) {
         closeEditor();
@@ -777,9 +686,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   /** The seat the phone's window last centred on, so it follows me when I sit, and only then. */
   let centredSeat = -1;
-  /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
-  let relay: ChatRelay | null = null;
-  let popped = false;
+  /** The stage's place: the room (paused in full screen or while it's in its window) or the placeholder. */
+  const renderRoomPlace = (): void => {
+    const on = fs.mode() !== "off";
+    const out = roomOut();
+    clip.hidden = on || out;
+    view.setPaused(on || out);
+    strip.hidden = !on || out;
+    roomAway.hidden = !out;
+    popRoomKey.hidden = out || !screen(state).stage || !popoutSupported({ hasChannel: relay !== null, phone: phone.matches });
+  };
   /** The chat row's place: the log and the field, or (popped out) the placeholder; the pop-out key only where it works. */
   const renderChatRow = (s: ViewState): void => {
     const shown = screen(s);
@@ -788,8 +704,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     chatForm.hidden = !shown.chat || popped;
     // Removed (ADR 0030): the log stays up above the card, ending with the only-you line.
     chatLog.root.hidden = (!shown.chat && !shown.kicked) || popped;
-    chatAway.hidden = !popped;
+    // The room's window holds the chat too: the room's placeholder says so.
+    chatAway.hidden = !popped || roomOut();
     popOut.hidden = !popoutSupported({ hasChannel: relay !== null, phone: phone.matches });
+    renderRoomPlace();
   };
   /** What the pop-out window shows of the room: the head count, and whether (and why not) it may send. */
   const popState = (s: ViewState): PopState => {
@@ -798,27 +716,38 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   const onPopped = (on: boolean): void => {
     const focused = document.activeElement;
+    const wasOut = roomOut();
     popped = on;
+    const out = roomOut();
+    // The editor draws on the stage, which is in the window now.
+    if (out) closeEditor();
     renderChatRow(state);
+    renderEditToggle(state);
+    fit();
     if (on) {
       relay?.update(popState(state));
-      // The row went away under focus: the bring-back key is the first stop in its place.
-      if (focused instanceof HTMLElement && chatForm.contains(focused)) bringBack.focus({ preventScroll: true });
-    } else if (focused === null || focused === document.body || chatAway.contains(focused)) {
+      relay?.view(state);
+      // What went away was under focus: the bring-back key is the first stop in its place.
+      const gone = focused instanceof HTMLElement && (chatForm.contains(focused) || (out && (focused === popRoomKey || clip.contains(focused) || chatAway.contains(focused))));
+      if (gone) (out ? roomBack : bringBack).focus({ preventScroll: true });
+    } else if (focused === null || focused === document.body || chatAway.contains(focused) || roomAway.contains(focused)) {
       // Set k: the chat row returns in place with focus in the message field.
       chatInput.focus({ preventScroll: true });
     }
+    // Back from the window: draw the room once as it is now (it drew nothing while it was out).
+    if (wasOut && !out) requestRender();
   };
 
   const render = (): void => {
     frame = 0;
     const s = state;
-    const nextLayout = preview ?? layoutOf(s.room);
-    if (nextLayout !== layout) applyLayout(nextLayout);
+    // The stage first: it rebuilds the seats for a new layout before anything reads them. Out in its window, the room
+    // is drawn there, not here.
+    if (!roomOut()) roomStage.render(s, preview ?? layoutOf(s.room), pbView?.catching === true);
     const mySeat = s.self === null ? -1 : (s.room?.seats.indexOf(s.self) ?? -1);
     if (mySeat !== centredSeat) {
       centredSeat = mySeat;
-      const p = seats[mySeat];
+      const p = roomStage.seat(mySeat);
       if (p !== undefined) roomWindow.centre(p);
     }
     if (title.textContent !== (s.title ?? "")) title.textContent = s.title ?? "";
@@ -878,34 +807,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     chatForm.dataset["muted"] = String(chat.muted);
     if (chatInput.placeholder !== chat.placeholder) chatInput.placeholder = chat.placeholder;
 
-    const placements: AvatarPlacement[] = [];
-    const at = new Map<MemberId, Point>();
-    placedAt = at;
-    const views = seatViews(s);
-    for (const v of views) {
-      const p = seats[v.index];
-      if (v.member !== null && p !== undefined) {
-        placements.push({ id: v.member.id, avatar: v.member.avatar, at: p, z: scene.seats[v.index]?.z ?? standDepth(p), seatFacing: seatFacings[v.index] ?? null });
-        at.set(v.member.id, p);
-      }
-    }
-    const standers = (s.room?.members ?? []).filter((m) => !at.has(m.id));
-    standSpots = standingSpots(standers.map((m) => m.id), standing.length, standSpots);
-    for (const m of standers) {
-      const i = standSpots.get(m.id);
-      const p = i === undefined ? undefined : standing[i];
-      if (p === undefined) continue;
-      placements.push({ id: m.id, avatar: m.avatar, at: p, z: standDepth(p), seatFacing: null });
-      at.set(m.id, p);
-    }
-    // Chat, bubbles and playback leave seats/members untouched, so the scene is only redrawn when they change.
-    const seatsNow = s.room?.seats;
-    const membersNow = s.room?.members;
-    if (seatsNow !== drawnSeats || membersNow !== drawnMembers) {
-      drawnSeats = seatsNow;
-      drawnMembers = membersNow;
-      view.update(views.map((v) => v.member !== null), placements);
-    }
     if (s.lastError !== shownError) {
       shownError = s.lastError;
       if (s.lastError !== null) {
@@ -918,58 +819,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       }
     }
 
-    for (const v of views) {
-      const b = seatButtons[v.index];
-      if (b === undefined) continue;
-      b.dataset["occupied"] = String(v.member !== null);
-      b.disabled = s.status !== "open";
-      b.classList.toggle("mine", v.isSelf);
-      b.ariaLabel = v.member === null ? `Seat ${String(v.index + 1)}, free` : v.isSelf ? `Seat ${String(v.index + 1)}, yours: stand up` : `Seat ${String(v.index + 1)}, taken by ${v.member.nickname}`;
-    }
-
-    // Nickname tags: exactly one per member, text only.
-    const members = new Map((s.room?.members ?? []).map((m) => [m.id, m]));
-    for (const [id, e] of tagEls) {
-      if (members.has(id)) continue;
-      e.remove();
-      tagEls.delete(id);
-      hourglasses.delete(e);
-    }
-    badges.keep(members);
-    for (const m of members.values()) {
-      let e = tagEls.get(m.id);
-      if (e === undefined) {
-        e = el("span", { className: "tag ui-tag" }, "nickname-tag");
-        e.dataset["member"] = m.id;
-        e.append(el("span", { className: "tag-name", textContent: m.nickname }));
-        tagEls.set(m.id, e);
-        tags.append(e);
-      }
-      e.classList.toggle("self", m.id === s.self);
-      const p = view.position(m.id) ?? at.get(m.id);
-      if (p !== undefined) place(e, { x: p.x, y: p.y + TAG_OFFSET_Y });
-    }
-
-    const live = new Set(s.bubbles.map((b) => b.memberId));
-    for (const [id, e] of bubbleEls) {
-      if (live.has(id)) continue;
-      e.remove();
-      bubbleEls.delete(id);
-    }
-    for (const b of s.bubbles) {
-      const p = view.position(b.memberId) ?? at.get(b.memberId);
-      let e = bubbleEls.get(b.memberId);
-      if (e === undefined) {
-        e = el("p", { className: "bubble" }, "chat-message");
-        bubbleEls.set(b.memberId, e);
-        bubbles.append(e);
-      }
-      if (e.textContent !== b.text) e.textContent = b.text;
-      if (p !== undefined) place(e, { x: p.x, y: p.y + BUBBLE_OFFSET_Y });
-    }
-
-    renderSyslines(rail, s.syslines, syslineEls);
-    applyCatching();
     renderModeration(s);
   };
 
@@ -1086,6 +935,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (expiriesChanged) scheduleExpiry();
     // Always, so a window adopted later starts from the room as it is (only posted while popped out, and if changed).
     relay?.update(popState(next));
+    relay?.view(next);
     // Removed, closed or full while popped out: the window closes now, not on the next frame (a hidden tab draws none).
     if (popped && !screen(next).chat) relay?.bringBack();
     if (frame === 0) frame = requestAnimationFrame(render);
@@ -1093,12 +943,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   const shareToken = trackShareToken(sessionStorage, opts.roomId);
   const emoted = (id: MemberId, kind: EmoteKind): void => {
-    if (!reducedMotion.matches) {
-      view.emote(id, kind);
-      return;
-    }
-    const p = view.position(id);
-    if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
+    relay?.emote(id, kind);
+    if (!roomOut()) roomStage.emote(id, kind, state);
   };
   const kickedStore = sessionStorage;
   const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted };
@@ -1129,10 +975,15 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       ? createChatRelay({
           channel: browserChannel(channelName(opts.roomId, tab)),
           send: (m) => c.send(m),
-          openWindow: () => {
-            window.open(popoutUrl(opts.roomId, tab), "_blank", "noopener,popup,width=380,height=640");
+          openWindow: (kind) => {
+            if (kind === "room") window.open(roomPopoutUrl(opts.roomId, tab), "_blank", "noopener,popup,width=1280,height=668");
+            else window.open(popoutUrl(opts.roomId, tab), "_blank", "noopener,popup,width=380,height=640");
           },
           onPopped,
+          onSeat: (seat) => {
+            const msg = sitIntent(state, seat);
+            if (msg !== null) c.send(msg);
+          },
           setTimer: (fn, ms) => setTimeout(fn, ms),
           clearTimer: (h) => {
             clearTimeout(h);
@@ -1144,6 +995,15 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   });
   bringBack.addEventListener("click", () => {
     relay?.bringBack();
+  });
+  popRoomKey.addEventListener("click", () => {
+    relay?.popOut("room");
+  });
+  roomBack.addEventListener("click", () => {
+    relay?.bringBack();
+  });
+  showWindow.addEventListener("click", () => {
+    relay?.raise();
   });
   playback.start();
   if (kickedTill !== null) dispatch({ type: "kicked", until: kickedTill });
@@ -1199,5 +1059,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => layoutBuilds, avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused() };
 }

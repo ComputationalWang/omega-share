@@ -260,3 +260,21 @@ body:has(.is-pseudo-fs) { overflow: hidden; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .popout-gone-keys { display: flex; justify-content: center; gap: 8px; }
 .popout-gone .ui-button { font: inherit; font-weight: 700; }
+
+/* ---- Pop-out room (OME-600, set k `ui-m7-popout` / `ui-m7-away`, desktop only). The key sits in the room's top bar;
+ * while the room is in its window the stage's place is the placeholder (page 2×). The window: the room at 1× (scaled
+ * down to fit, never up) with the brass plate, the mustard rim, and the chat column beside it. ---- */
+.room-top { --ui-px: 1px; display: flex; align-items: center; gap: 8px; }
+.room-top .room-title { flex: 1; }
+.room-top > .ui-button { margin-left: auto; }
+.room-away { --ui-px: 2px; max-width: 520px; margin: 8px auto 0; }
+.room-away b { color: var(--ui-text); }
+.room-away-keys { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.room-away .ui-button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 700; }
+.poproom-page main { padding: 0; }
+.poproom { position: relative; display: flex; min-height: 0; height: 100%; }
+.poproom-room { --ui-px: 1px; position: relative; flex: none; height: 100%; overflow: hidden; }
+.poproom-clip { position: absolute; overflow: hidden; }
+.poproom-plate { position: absolute; left: 12px; top: 12px; z-index: 1; margin: 0; font-size: 11px; text-transform: none; letter-spacing: 0; }
+.poproom-chat { flex: none; display: grid; min-height: 0; height: 100%; }
+.poproom-chat .popout { height: 100%; }

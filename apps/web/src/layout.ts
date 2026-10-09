@@ -104,14 +104,15 @@ export type StripMode = "open" | "band";
  * minimum (Twitch's is larger), and the largest size that leaves the strip or band clear; nothing overlaps.
  */
 export interface FullscreenLayout {
-  readonly at: "side" | "below" | "band";
+  /** "alone": the room is popped out (OME-600), so the chat is in its window and the picture has the screen. */
+  readonly at: "side" | "below" | "band" | "alone";
   readonly tv: Rect;
   readonly controls: Rect;
   readonly strip: Rect;
   readonly compact: { readonly tv: boolean; readonly controls: boolean };
 }
 
-export function fullscreenLayout(width: number, height: number, provider: Provider | null, strip: StripMode): FullscreenLayout {
+export function fullscreenLayout(width: number, height: number, provider: Provider | null, strip: StripMode | "none"): FullscreenLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
   const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
@@ -129,6 +130,13 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
       : { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
   };
   const compactOf = (controls: Rect, tv: Rect): { tv: boolean; controls: boolean } => ({ tv: true, controls: controls.w === tv.w });
+
+  if (strip === "none") {
+    const pic = fitTv(w, h - below);
+    const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - below) / 2)), ...pic };
+    const controls = shelf(tv);
+    return { at: "alone", tv, controls, strip: { x: 0, y: 0, w: 0, h: 0 }, compact: compactOf(controls, tv) };
+  }
 
   if (strip === "band") {
     const pic = fitTv(w, h - below);
@@ -162,6 +170,33 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   const controls = { x: 0, y: tv.h + GAP, w, h: CONTROL_BAR_H };
   const sy = controls.y + controls.h + GAP;
   return { at: "below", tv, controls, strip: { x: 0, y: sy, w, h: Math.max(0, h - sy) }, compact: { tv: true, controls: true } };
+}
+
+/** The whole-room window's chat column (set k `ui-m7-popout`, OME-600). */
+export const POP_ROOM_CHAT_W = 300;
+
+export interface PopRoomLayout {
+  /** The stage's box once scaled (window px), centred in the room side. */
+  readonly stage: Rect;
+  /** 1× where it fits, smaller where it doesn't; never larger (the room's art is 1× pixel art). */
+  readonly scale: number;
+  readonly chat: Rect;
+}
+
+/** The room window in `width`×`height` CSS px: the room on the left, the chat column on the right. */
+export function popRoomLayout(width: number, height: number): PopRoomLayout {
+  const w = Math.max(0, Math.floor(width));
+  const h = Math.max(0, Math.floor(height));
+  const cw = Math.min(POP_ROOM_CHAT_W, w);
+  const aw = w - cw;
+  const scale = Math.max(0.05, Math.min(1, aw / STAGE_W, h / STAGE_H));
+  const sw = Math.floor(STAGE_W * scale);
+  const sh = Math.floor(STAGE_H * scale);
+  return {
+    stage: { x: Math.max(0, Math.floor((aw - sw) / 2)), y: Math.max(0, Math.floor((h - sh) / 2)), w: sw, h: sh },
+    scale,
+    chat: { x: aw, y: 0, w: cw, h },
+  };
 }
 
 /** The top-left of a `view`-sized window onto the stage centred on `centre` (stage px), kept on the stage, whole pixels. */

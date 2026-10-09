@@ -9,7 +9,7 @@ export interface SeatView {
   readonly isSelf: boolean;
 }
 
-export function seatViews(state: ViewState): SeatView[] {
+export function seatViews(state: Pick<ViewState, "room" | "self">): SeatView[] {
   const room = state.room;
   const views: SeatView[] = [];
   for (let index = 0; index < SEAT_COUNT; index++) {

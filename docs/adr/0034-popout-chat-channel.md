@@ -17,4 +17,4 @@
 ## Consequences
 - One member per person holds with the window open (e2e counts room sockets per page).
 - The window's JS is its own ~15 KB gz chunk; the room tab's frame budget with the window open is its own row (`pop.*`, `docs/perf-budgets.md`).
-- A whole-room pop-out (W3b, [OME-600](/OME/issues/OME-600)) needs a second renderer or a state mirror and is decided separately.
+- A whole-room pop-out (W3b, [OME-600](/OME/issues/OME-600)) needs a second renderer or a state mirror and is decided separately: ADR 0035 (a state mirror, one renderer at a time).

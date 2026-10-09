@@ -3,10 +3,11 @@
 // here and not in packages/shared. It is still a boundary (any same-origin page can post to the channel), so every
 // message is parsed on receipt and anything else is dropped. Room tab → window: `room-*`; window → room tab: `pop-*`.
 import * as v from "valibot";
-import { EmoteKindSchema, RoomIdSchema, type RoomId } from "@omega/shared";
+import { ChatTextSchema, EmoteKindSchema, MAX_ROOM_MEMBERS, MemberIdSchema, RoomIdSchema, RoomStateSchema, SEAT_COUNT, type RoomId } from "@omega/shared";
 import type { ChatLogEntry } from "../chat/log";
 import type { SyslineGlyph } from "../controls/sysline";
 import { CHAT_LOG_CAP } from "../chat/log";
+import { MAX_SYSLINES, type StageState, type Status } from "../state";
 
 const GLYPHS = ["play", "pause", "seek", "remote", "chat-mute", "host"] as const satisfies readonly SyslineGlyph[];
 /** Longer than any line we make (a chat is ≤ 280, a nickname ≤ 20); a cap on what a stray poster can make us draw. */
@@ -41,6 +42,32 @@ const PopStateFields = {
   placeholder: Text,
 };
 
+/** Which window: the chat alone (W3) or the whole room (W3b, OME-600). A W3 window says nothing: chat. */
+const PopKindSchema = v.picklist(["chat", "room"]);
+export type PopKind = v.InferOutput<typeof PopKindSchema>;
+
+const STATUSES = ["idle", "connecting", "open", "reconnecting", "full", "refused", "closed", "kicked"] as const satisfies readonly Status[];
+
+/**
+ * What the room's stage draws, mirrored from the room tab's view state (OME-600). The room is the wire's own schema, so
+ * the window draws only a room the server could have sent; typed as the state's slice, so the two can't drift apart.
+ */
+const StageFields = {
+  status: v.picklist(STATUSES),
+  self: v.nullable(MemberIdSchema),
+  room: v.nullable(RoomStateSchema),
+  bubbles: v.pipe(v.array(v.strictObject({ memberId: MemberIdSchema, text: ChatTextSchema, expiresAt: v.number() })), v.maxLength(MAX_ROOM_MEMBERS), v.readonly()),
+  syslines: v.pipe(
+    v.array(v.strictObject({ ...SystemLineSchema.entries, id: v.pipe(v.number(), v.integer()), expiresAt: v.number() })),
+    v.maxLength(MAX_SYSLINES),
+    v.readonly(),
+  ),
+  catching: v.pipe(v.array(MemberIdSchema), v.maxLength(MAX_ROOM_MEMBERS), v.readonly()),
+};
+
+/** The room window's brass plate and my own catching-up flag, from the room tab's player (whole seconds). */
+const TvFields = { video: v.boolean(), playing: v.boolean(), position: Seq, live: v.boolean(), catching: v.boolean() };
+
 const PopMessageSchema = v.variant("t", [
   /** The room tab started (or reloaded): an open window says it's ready again. */
   v.strictObject({ t: v.literal("room-hello") }),
@@ -54,18 +81,34 @@ const PopMessageSchema = v.variant("t", [
   v.strictObject({ t: v.literal("room-back") }),
   /** The room tab is going away (closed, reloaded, navigated). */
   v.strictObject({ t: v.literal("room-gone") }),
-  v.strictObject({ t: v.literal("pop-ready"), pop: IdSchema }),
+  /** What the room's stage draws (a room window only). */
+  v.strictObject({ t: v.literal("room-view"), ...StageFields }),
+  v.strictObject({ t: v.literal("room-tv"), ...TvFields }),
+  v.strictObject({ t: v.literal("room-emote"), member: MemberIdSchema, kind: EmoteKindSchema }),
+  /** "Show the window" in the page: come to the front. */
+  v.strictObject({ t: v.literal("room-raise") }),
+  v.strictObject({ t: v.literal("pop-ready"), pop: IdSchema, kind: v.exactOptional(PopKindSchema) }),
   v.strictObject({ t: v.literal("pop-ping"), pop: IdSchema }),
   v.strictObject({ t: v.literal("pop-say"), pop: IdSchema, seq: Seq, text: Text }),
   v.strictObject({ t: v.literal("pop-emote"), pop: IdSchema, seq: Seq, kind: EmoteKindSchema }),
   /** The window's put-back key. */
   v.strictObject({ t: v.literal("pop-back"), pop: IdSchema }),
+  /** A seat clicked in the room window: the room tab sits or stands (sitIntent) and sends it. */
+  v.strictObject({ t: v.literal("pop-sit"), pop: IdSchema, seat: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(SEAT_COUNT - 1)) }),
   /** The window is closing (pagehide). */
   v.strictObject({ t: v.literal("pop-bye"), pop: IdSchema }),
 ]);
 
 export type PopMessage = v.InferOutput<typeof PopMessageSchema>;
 export type PopState = Omit<Extract<PopMessage, { t: "room-state" }>, "t">;
+export type PopTv = Omit<Extract<PopMessage, { t: "room-tv" }>, "t">;
+/** What the room window's side takes from the channel (popout/room-pop.ts). */
+export type RoomSideMessage = Extract<PopMessage, { t: "room-view" | "room-tv" | "room-emote" | "room-raise" }>;
+
+/** The stage's state from a room-view message. Typed as the state's slice: a change the message can't carry fails the build. */
+export function stageOf(m: Extract<PopMessage, { t: "room-view" }>): StageState {
+  return { status: m.status, self: m.self, room: m.room, bubbles: m.bubbles, syslines: m.syslines, catching: m.catching };
+}
 
 export function parsePopMessage(data: unknown): PopMessage | null {
   const r = v.safeParse(PopMessageSchema, data);
@@ -107,6 +150,11 @@ export function popoutSupported(o: { readonly hasChannel: boolean; readonly phon
 /** The window's address: the room and the tab ride in the hash (never sent to the server; no secret in either). */
 export function popoutUrl(roomId: RoomId, tab: string): string {
   return `/chat.html#r=${roomId}&t=${tab}`;
+}
+
+/** The whole-room window's address (OME-600): its own page, same hash. */
+export function roomPopoutUrl(roomId: RoomId, tab: string): string {
+  return `/room.html#r=${roomId}&t=${tab}`;
 }
 
 export function readPopoutHash(hash: string): { roomId: RoomId; tab: string } | null {

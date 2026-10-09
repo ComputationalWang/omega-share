@@ -7,10 +7,10 @@
 import type { Browser, BrowserContext, BrowserContextOptions, Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
-import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
+import { clickSettled, joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import type { RoomName } from "./support/test-rooms";
-import { roomPlayback, shareVideo, waitPlaying } from "../perf/sync";
+import { SPREAD_BUDGET_MS, measureSpread, roomPlayback, shareVideo, waitPlaying } from "../perf/sync";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -131,7 +131,7 @@ test("pop out room: the window draws the room and the chat; the page keeps the p
   expect(await pop.evaluate(() => window.opener === null)).toBe(true);
   await expect(pop).toHaveTitle(/omega-share$/);
   // The room: both members' tags, the eight seats, the backlog in the chat column (a full log).
-  await expect(pop.locator(site.nicknameTag)).toHaveText(["prshow-1", "prshow-2"], { useInnerText: true });
+  await expect.poll(async () => (await pop.locator(site.nicknameTag).allInnerTexts()).sort()).toEqual(["prshow-1", "prshow-2"]);
   await expect(pop.locator(site.seat)).toHaveCount(8);
   await expect(pop.locator(`${site.poproomChat} ${site.chatLogLine}`)).toHaveText(["prshow-2 before"]);
   // The brass plate says where the picture is and the room's time.
@@ -141,7 +141,7 @@ test("pop out room: the window draws the room and the chat; the page keeps the p
   expect(await sockets(a.page)).toBe(1);
   expect(await sockets(pop)).toBe(0);
   // The page: the picture in place (the same player, never reloaded), the stage's placeholder, no chat row.
-  expect(await video?.evaluate((e) => e.isConnected)).toBe(true);
+  expect(await video.evaluate((e) => e.isConnected)).toBe(true);
   await expect(a.page.locator(site.room)).toBeHidden();
   await expect(a.page.locator(site.chatInput)).toBeHidden();
   await expect(a.page.locator(site.chatAway)).toBeHidden();
@@ -170,7 +170,7 @@ test("sitting and chatting from the window go through the room tab", async ({ br
   await pop.locator(`${site.seat}[data-seat="2"]`).click();
   await expect.poll(() => mySeat(a.page)).toBe(-1);
   // Someone else's seat in the window says whose it is.
-  await b.page.locator(`${site.seat}[data-seat="5"]`).click();
+  await clickSettled(b.page, b.page.locator(`${site.seat}[data-seat="5"]`));
   await expect(pop.locator(`${site.seat}[data-seat="5"]`)).toHaveAccessibleName("Seat 6, taken by prsit-2");
   await say(pop, "from the window");
   await expect(b.page.locator(site.chatLogLine).last()).toHaveText("prsit-1 from the window");
@@ -214,19 +214,13 @@ test("bringing the room back (window key, page key, OS ×) reloads nothing and n
   await expect(a.page.locator(site.room)).toBeVisible();
   await expect(a.page.locator(site.chatInput)).toBeFocused();
   // No reload, and the same player all along: it kept playing in step with the room.
-  expect(await a.page.evaluate(() => Reflect.get(window, "__noReload"))).toBe(true);
-  expect(await video?.evaluate((e) => e.isConnected)).toBe(true);
-  const expected = await roomPlayback(browser, room.id);
-  expect(expected.playing).toBe(true);
-  await expect
-    .poll(async () => {
-      const t = await a.page.evaluate(() => window.__fakeYt?.player?.getCurrentTime() ?? -1);
-      const now = await roomPlayback(browser, room.id);
-      return Math.abs(t - now.position) < 1.5;
-    }, { timeout: 5_000 })
-    .toBe(true);
+  expect(await a.page.evaluate(() => Reflect.get(window, "__noReload") === true)).toBe(true);
+  expect(await video.evaluate((e) => e.isConnected)).toBe(true);
+  expect((await roomPlayback(browser, room.id)).playing).toBe(true);
+  // In step with the room: the two clients' players stay within the sync budget of each other.
+  await expect.poll(async () => (await measureSpread(browser, [a, b], room.id)).spreadMs, { timeout: 10_000, intervals: [500] }).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
   // Back in the page, the room draws what changed while it was out.
-  await b.page.locator(`${site.seat}[data-seat="1"]`).click();
+  await clickSettled(b.page, b.page.locator(`${site.seat}[data-seat="1"]`));
   await expect(a.page.locator(`${site.seat}[data-seat="1"]`)).toHaveAttribute("data-occupied", "true");
 });
 
@@ -265,8 +259,8 @@ test("keyboard: Tab to the key and Enter; in the window focus starts in the mess
   const seat = pop.locator(`${site.seat}[data-seat="0"]`);
   await seat.focus();
   await expect(seat).toBeFocused();
-  const outline = await seat.evaluate((e) => getComputedStyle(e).outlineStyle);
-  expect(outline).not.toBe("none");
+  // Focus shows as the seat's lit diamond (style.css `.seat:focus-visible`), the same as in the page.
+  expect(await seat.evaluate((e) => e.matches(":focus-visible") && getComputedStyle(e).backgroundColor !== "rgba(0, 0, 0, 0)")).toBe(true);
   await pop.keyboard.press("Enter");
   await expect.poll(() => mySeat(a.page)).toBe(0);
   // "Show the window" asks the window to come forward; "Bring the room back" is the first stop in the placeholder.
@@ -289,7 +283,7 @@ test("the room tab hidden behind the window: the room, chat and seats still reac
   if (a === undefined || b === undefined) throw new Error("no clients");
   const pop = await popRoom(a.page, a.context);
   await setHidden(a.page, true);
-  await b.page.locator(`${site.seat}[data-seat="4"]`).click();
+  await clickSettled(b.page, b.page.locator(`${site.seat}[data-seat="4"]`));
   await expect(pop.locator(`${site.seat}[data-seat="4"]`)).toHaveAttribute("data-occupied", "true");
   await say(b.page, "while hidden");
   await expect(pop.locator(site.chatMessage)).toContainText(["while hidden"]);

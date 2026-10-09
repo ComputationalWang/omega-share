@@ -31,6 +31,7 @@ export default defineConfig(({ mode }) => ({
     reportCompressedSize: true,
     // The privacy notice (OME-411) is a second, script-free page; it adds nothing to the room's JS.
     // The pop-out chat (OME-598) is a third page with its own small chunk: no Pixi, no socket.
-    rolldownOptions: { input: { index: "index.html", privacy: "privacy.html", chat: "chat.html" } },
+    // The pop-out room (OME-600) is a fourth: the stage (Pixi, shared with the room's lazy chunk) and the chat, no socket.
+    rolldownOptions: { input: { index: "index.html", privacy: "privacy.html", chat: "chat.html", room: "room.html" } },
   },
 }));
