@@ -37,6 +37,8 @@ export interface ChatRelay {
   update(s: PopState): void;
   /** The room tab is going away (pagehide). */
   close(): void;
+  /** Back from the back/forward cache: the chat is home; a window still open says ready and is adopted again. */
+  resume(): void;
 }
 
 const sameState = (a: PopState | null, b: PopState): boolean =>
@@ -55,6 +57,8 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
     if (lease !== null) o.clearTimer(lease);
     lease = active === null ? null : o.setTimer(() => {
       lease = null;
+      // Silent that long and still open (throttled hard): tell it to go, so it isn't left open and unheard.
+      o.channel.post({ t: "room-back" });
       release();
     }, POP_LEASE_MS);
   };
@@ -158,6 +162,10 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
     },
     close() {
       o.channel.post({ t: "room-gone" });
+    },
+    resume() {
+      release();
+      o.channel.post({ t: "room-hello" });
     },
   };
 }

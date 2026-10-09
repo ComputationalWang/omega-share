@@ -1064,7 +1064,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
     if (next.owner !== prevOwner || next.room?.controlPolicy !== prevRoom?.controlPolicy) playback.setControl({ policy: controlPolicy(next), held: controlHeld(next) });
     if (expiriesChanged) scheduleExpiry();
-    if (popped) relay?.update(popState(next));
+    // Always, so a window adopted later starts from the room as it is (only posted while popped out, and if changed).
+    relay?.update(popState(next));
+    // Removed, closed or full while popped out: the window closes now, not on the next frame (a hidden tab draws none).
+    if (popped && !screen(next).chat) relay?.bringBack();
     if (frame === 0) frame = requestAnimationFrame(render);
   };
 
@@ -1157,7 +1160,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     clock.stop();
   });
   window.addEventListener("pageshow", (ev) => {
-    if (ev.persisted) c.resume();
+    if (!ev.persisted) return;
+    c.resume();
+    relay?.resume();
   });
 
   phone.addEventListener("change", () => {

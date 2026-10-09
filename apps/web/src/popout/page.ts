@@ -32,5 +32,4 @@ if (root instanceof HTMLElement && at !== null && typeof BroadcastChannel === "f
   window.addEventListener("pagehide", () => {
     view.bye();
   });
-  root.querySelector<HTMLInputElement>("[data-testid=chat-input]")?.focus();
 }

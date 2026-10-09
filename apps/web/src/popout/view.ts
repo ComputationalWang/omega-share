@@ -124,9 +124,14 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
           o.closeWindow();
           return;
         }
-        adopted = true;
         o.clearTimer(wait);
         setGone(false);
+        if (!adopted) {
+          adopted = true;
+          renderForm();
+          // Open from a click in the room tab: you came here to type.
+          input.focus({ preventScroll: true });
+        }
         return;
       case "room-log":
         if (m.reset) log.clear();
@@ -144,6 +149,7 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
         return;
       case "room-said":
         if (m.pop === pop && m.seq === pending) {
+          // One message at a time: the field takes the next once this one is answered.
           pending = null;
           if (m.ok) input.value = "";
         }
@@ -167,7 +173,7 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
 
   form.addEventListener("submit", (ev) => {
     ev.preventDefault();
-    if (!adopted || gone || held) return;
+    if (!adopted || gone || held || pending !== null) return;
     const text = input.value;
     if (text.trim() === "") return;
     pending = ++seq;
