@@ -100,10 +100,13 @@ const encode = (msg: ServerMessage): string => JSON.stringify(msg);
 /** What a joined member's share token authorizes in its room. Minted on join (ws.ts), revoked on leave. */
 export interface ShareGrant {
   memberId: MemberId;
+  /** The member joined with the owner token: may share while the control policy is `owner` (ADR 0030 §4). */
+  owner: boolean;
   bucket: TokenBucket;
 }
-export const newShareGrant = (memberId: MemberId): ShareGrant => ({
+export const newShareGrant = (memberId: MemberId, owner: boolean): ShareGrant => ({
   memberId,
+  owner,
   bucket: new TokenBucket(SHARE_BURST, SHARE_PER_SECOND),
 });
 
@@ -310,7 +313,7 @@ export function createHttpApp({
   });
 
   app.post("/rooms/:id/share", async (c) => {
-    const fail = (status: 400 | 401 | 404 | 413, code: ShareErrorCode, message: string) => {
+    const fail = (status: 400 | 401 | 403 | 404 | 413, code: ShareErrorCode, message: string) => {
       const body: ShareResponse = { ok: false, error: { code, message } };
       return c.json(body, status);
     };
@@ -333,6 +336,10 @@ export function createHttpApp({
     if (grant === undefined) {
       if (!failedShares.take(ip)) return limited(FAILED_SHARE_PER_SECOND);
       return fail(401, "unauthorized", "join the room to share into it");
+    }
+    // Before any limiter: a refused share never uses up the sender's or the room's shares.
+    if (room.controlPolicy === "owner" && !grant.owner) {
+      return fail(403, "control_owner_only", "only the room's owner can change the video here");
     }
     if (!shareLimiter.take(ip) || !grant.bucket.take()) return limited(SHARE_PER_SECOND);
     if (!globalShares.take()) return limited(GLOBAL_SHARE_PER_SECOND);

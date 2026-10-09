@@ -2,12 +2,14 @@ import type { Database, Statement } from "bun:sqlite";
 import * as v from "valibot";
 import {
   AnyEmbedSchema,
+  ControlPolicySchema,
   RoomIdSchema,
   RoomLayoutSchema,
   RoomTitleSchema,
   RoomVisibilitySchema,
   SeatIndexSchema,
   type AnyEmbed,
+  type ControlPolicy,
   type RoomId,
   type RoomLayout,
   type RoomVisibility,
@@ -32,6 +34,8 @@ export interface StoredRoom {
   inviteHash: Uint8Array | null;
   /** Unix ms the room last became empty or occupied; null if nobody ever joined. */
   lastActiveAt: number | null;
+  /** Who controls playback (ADR 0030 §4). */
+  controlPolicy: ControlPolicy;
 }
 
 /** A seat held across a graceful restart (ADR 0032): the name only as SHA-256 of its nickname key. */
@@ -69,6 +73,7 @@ const RowSchema = v.object({
   owner_hash: HashSchema,
   invite_hash: HashSchema,
   last_active_at: v.nullable(UnixMsSchema),
+  control_policy: ControlPolicySchema,
 });
 
 const NewRoomSchema = v.object({
@@ -106,6 +111,7 @@ export class RoomStore {
   readonly #setTitle: Statement<unknown, [string, string]>;
   readonly #setPinned: Statement<unknown, [number, string]>;
   readonly #setLastActive: Statement<unknown, [number, string]>;
+  readonly #setControlPolicy: Statement<unknown, [string, string]>;
   readonly #db: Database;
   readonly #listHolds: Statement<Record<keyof v.InferInput<typeof SeatHoldRowSchema>, unknown>, []>;
   readonly #insertHold: Statement<unknown, [string, Uint8Array, number]>;
@@ -115,7 +121,7 @@ export class RoomStore {
     this.#listHolds = db.prepare("SELECT room_id, name_hash, seat FROM seat_holds ORDER BY room_id, seat");
     this.#insertHold = db.prepare("INSERT OR REPLACE INTO seat_holds (room_id, name_hash, seat) VALUES (?, ?, ?)");
     this.#list = db.prepare(
-      "SELECT id, title, created_at, layout, embed, visibility, pinned, owner_hash, invite_hash, last_active_at FROM rooms ORDER BY created_at, id",
+      "SELECT id, title, created_at, layout, embed, visibility, pinned, owner_hash, invite_hash, last_active_at, control_policy FROM rooms ORDER BY created_at, id",
     );
     this.#insert = db.prepare(
       "INSERT INTO rooms (id, title, created_at, layout, visibility, pinned, owner_hash, invite_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -126,6 +132,7 @@ export class RoomStore {
     this.#setTitle = db.prepare("UPDATE rooms SET title = ? WHERE id = ?");
     this.#setPinned = db.prepare("UPDATE rooms SET pinned = ? WHERE id = ?");
     this.#setLastActive = db.prepare("UPDATE rooms SET last_active_at = ? WHERE id = ?");
+    this.#setControlPolicy = db.prepare("UPDATE rooms SET control_policy = ? WHERE id = ?");
   }
 
   listRooms(): StoredRoom[] {
@@ -147,6 +154,7 @@ export class RoomStore {
         ownerHash: r.owner_hash,
         inviteHash: r.invite_hash,
         lastActiveAt: r.last_active_at,
+        controlPolicy: r.control_policy,
       };
     });
   }
@@ -181,6 +189,12 @@ export class RoomStore {
   setLastActive(id: RoomId, at: number): void {
     const ms = v.parse(UnixMsSchema, at);
     if (this.#setLastActive.run(ms, id).changes === 0) throw new Error(`no room ${JSON.stringify(id)}`);
+  }
+
+  /** The owner's `control-policy` (ADR 0030 §4): a rare owner edit, never on the relay path. */
+  setControlPolicy(id: RoomId, policy: ControlPolicy): void {
+    const parsed = v.parse(ControlPolicySchema, policy);
+    if (this.#setControlPolicy.run(parsed, id).changes === 0) throw new Error(`no room ${JSON.stringify(id)}`);
   }
 
   /** Pins (GC never collects it) or unpins a room (operator CLI). */

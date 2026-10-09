@@ -1,9 +1,12 @@
 import {
+  DEFAULT_CONTROL_POLICY,
   DEFAULT_LAYOUT,
+  MUTE_MEMORY_MS,
   MAX_ROOM_MEMBERS,
   SEAT_COUNT,
   type Avatar,
   type AnyEmbed,
+  type ControlPolicy,
   type Member,
   type MemberId,
   type Nickname,
@@ -64,6 +67,15 @@ export class Room {
   private readonly held = new Map<MemberId, Held>();
   private readonly nameKeys = new Set<string>();
   private readonly perClient = new Map<string, number>();
+  /** Members the owner muted (ADR 0030 §3). In memory only. */
+  private readonly muted = new Set<MemberId>();
+  /**
+   * Client keys → Unix ms: a muted member left from there, so a join from it starts muted until then;
+   * and a member was kicked from there, so joins from it are refused until then (ADR 0030 §2, §3).
+   * In memory only, never stored or logged; expired entries go on the next write.
+   */
+  private readonly mutedClients = new Map<string, number>();
+  private readonly kickedClients = new Map<string, number>();
   /** Members whose player is catching up (ADR 0019, advisory). */
   private readonly catching = new Set<MemberId>();
   /** Members the room was last told (`member-status`) are catching; the relay publishes the difference. */
@@ -82,6 +94,8 @@ export class Room {
   private currentLayout: RoomLayout;
   /** Empty for a seeded room without one; then the list shows no title. */
   private currentTitle: string;
+  /** Who controls playback (ADR 0030 §4); the owner changes it with `control-policy`. */
+  private currentControlPolicy: ControlPolicy;
   /** Fixed at creation; private rooms are never listed (ADR 0028 §4). */
   readonly visibility: RoomVisibility;
   /** Never collected by GC: seeded rooms, and rooms the operator pins (`cli.ts rooms pin`). */
@@ -111,6 +125,7 @@ export class Room {
       ownerHash?: Uint8Array | null;
       inviteHash?: Uint8Array | null;
       lastActiveAt?: number | null;
+      controlPolicy?: ControlPolicy;
     } = {},
   ) {
     this.topic = `room:${id}`;
@@ -122,6 +137,7 @@ export class Room {
     this.ownerHash = init.ownerHash ?? null;
     this.inviteHash = init.inviteHash ?? null;
     this.lastActiveAt = init.lastActiveAt ?? null;
+    this.currentControlPolicy = init.controlPolicy ?? DEFAULT_CONTROL_POLICY;
     this.embed = init.embed ?? null;
     if (this.embed !== null && isSyncedEmbed(this.embed)) {
       this.playback = restoredPlayback(Date.now());
@@ -144,6 +160,62 @@ export class Room {
 
   setTitle(title: string): void {
     this.currentTitle = title;
+  }
+
+  get controlPolicy(): ControlPolicy {
+    return this.currentControlPolicy;
+  }
+
+  setControlPolicy(policy: ControlPolicy): void {
+    this.currentControlPolicy = policy;
+  }
+
+  isMuted(memberId: MemberId): boolean {
+    return this.muted.has(memberId);
+  }
+
+  /** Mutes or unmutes a member; false if that changed nothing. Unmuting also forgets their address (ADR 0030 §3). */
+  setMuted(memberId: MemberId, muted: boolean): boolean {
+    if (!this.members.has(memberId) || muted === this.muted.has(memberId)) return false;
+    if (muted) {
+      this.muted.add(memberId);
+      return true;
+    }
+    this.muted.delete(memberId);
+    const client = this.held.get(memberId)?.client ?? null;
+    if (client !== null) this.mutedClients.delete(client);
+    return true;
+  }
+
+  /** Mutes a just-joined member if a muted member left from its address less than MUTE_MEMORY_MS ago. */
+  restoreMute(memberId: MemberId, now: number): boolean {
+    const client = this.held.get(memberId)?.client ?? null;
+    if (client === null || !Room.live(this.mutedClients, client, now)) return false;
+    this.muted.add(memberId);
+    return true;
+  }
+
+  /** Refuses joins from `client` until `until` (Unix ms): the kick cooldown (ADR 0030 §2). */
+  coolDown(client: string, until: number, now: number): void {
+    Room.remember(this.kickedClients, client, until, now);
+  }
+
+  isCoolingDown(client: string, now: number): boolean {
+    return Room.live(this.kickedClients, client, now);
+  }
+
+  /** Whether `key`'s entry is still running at `now`; an expired one is dropped. */
+  private static live(map: Map<string, number>, key: string, now: number): boolean {
+    const until = map.get(key);
+    if (until === undefined) return false;
+    if (now < until) return true;
+    map.delete(key);
+    return false;
+  }
+
+  private static remember(map: Map<string, number>, key: string, until: number, now: number): void {
+    for (const [k, at] of map) if (at <= now) map.delete(k);
+    map.set(key, until);
   }
 
   /** Whether the room has an owner token. Seeded rooms don't. */
@@ -174,10 +246,14 @@ export class Room {
     return { ok: true, member };
   }
 
-  /** Removes a member and frees their seat, nickname and client slot. */
-  leave(memberId: MemberId): void {
+  /**
+   * Removes a member and frees their seat, nickname and client slot. A muted member's address stays
+   * muted here for MUTE_MEMORY_MS after `now` (Unix ms), so a reconnect doesn't lift it (ADR 0030 §3).
+   */
+  leave(memberId: MemberId, now: number = Date.now()): void {
     this.free(memberId);
     this.members.delete(memberId);
+    const wasMuted = this.muted.delete(memberId);
     this.catching.delete(memberId);
     this.announced.delete(memberId);
     const held = this.held.get(memberId);
@@ -185,6 +261,7 @@ export class Room {
     this.held.delete(memberId);
     this.nameKeys.delete(held.nameKey);
     if (held.client === null) return;
+    if (wasMuted) Room.remember(this.mutedClients, held.client, now + MUTE_MEMORY_MS, now);
     const left = (this.perClient.get(held.client) ?? 1) - 1;
     if (left === 0) this.perClient.delete(held.client);
     else this.perClient.set(held.client, left);
@@ -294,14 +371,23 @@ export class Room {
     const state: RoomState = {
       id: this.id,
       seats: [...this.seats],
-      // Absent means false, so only catching members carry the field.
-      members: [...this.members.values()].map((m) => (this.catching.has(m.id) ? { ...m, catching: true } : m)),
+      // Absent means false, so only catching and muted members carry the fields.
+      members: [...this.members.values()].map((m) => this.view(m)),
       embed: this.embed,
       playback: this.playback,
       layout: this.layout,
+      controlPolicy: this.currentControlPolicy,
     };
     // Like the summary: an untitled (seeded) room sends no title key.
     return this.title === "" ? state : { ...state, title: this.title };
+  }
+
+  /** A member as the room sees it: `catching` and `muted` only when true. */
+  view(member: Member): Member {
+    const catching = this.catching.has(member.id);
+    const muted = this.muted.has(member.id);
+    if (!catching && !muted) return member;
+    return { ...member, ...(catching ? { catching } : {}), ...(muted ? { muted } : {}) };
   }
 
   /** Whether `token` is this room's owner token (constant-time; a pinned room has no owner). */

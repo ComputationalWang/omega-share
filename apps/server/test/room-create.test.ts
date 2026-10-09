@@ -208,6 +208,7 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
       setEmbed: () => undefined,
       setLayout: () => undefined,
       setTitle: () => undefined,
+      setControlPolicy: () => undefined,
       setLastActive: () => undefined,
     };
     const registry = new RoomRegistry();
@@ -332,6 +333,7 @@ describe("DELETE /rooms/:id (ADR 0028 §1, §2)", () => {
       setEmbed: () => undefined,
       setLayout: () => undefined,
       setTitle: () => undefined,
+      setControlPolicy: () => undefined,
       setLastActive: () => undefined,
     };
     t = start({ trustProxy: true, store });
@@ -515,6 +517,6 @@ describe("persistence of created rooms (migration 0002)", () => {
     expect(disk.includes(sha(body.inviteKey ?? fail()))).toBe(true);
     // And no column could hold one.
     const columns = (db ?? fail()).query<{ name: string }, []>("SELECT name FROM pragma_table_info('rooms')").all().map((c) => c.name);
-    expect(columns.sort()).toEqual(["created_at", "embed", "id", "invite_hash", "last_active_at", "layout", "owner_hash", "pinned", "title", "visibility"]);
+    expect(columns.sort()).toEqual(["control_policy", "created_at", "embed", "id", "invite_hash", "last_active_at", "layout", "owner_hash", "pinned", "title", "visibility"]);
   });
 });

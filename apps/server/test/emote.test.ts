@@ -141,6 +141,10 @@ describe("emote limits", () => {
         calls.push("setLastActive");
         real.setLastActive(...args);
       },
+      setControlPolicy: (...args) => {
+        calls.push("setControlPolicy");
+        real.setControlPolicy(...args);
+      },
     };
     t = start({ store });
     const a = await join("alice");

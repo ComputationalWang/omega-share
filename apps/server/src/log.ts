@@ -10,6 +10,7 @@ export type LogEvent =
   | "store.last_active"
   | "store.layout"
   | "store.title"
+  | "store.control_policy"
   | "store.seat_holds"
   | "gc.remove"
   | "gc.sweep"

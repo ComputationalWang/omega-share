@@ -82,7 +82,7 @@ const DRAIN_GRACE_MS = 3000;
 /** The slice of RoomStore the server uses. */
 export type RoomPersistence = Pick<
   RoomStore,
-  "listRooms" | "createRoom" | "deleteRoom" | "setEmbed" | "setLayout" | "setTitle" | "setLastActive"
+  "listRooms" | "createRoom" | "deleteRoom" | "setEmbed" | "setLayout" | "setTitle" | "setLastActive" | "setControlPolicy"
 >;
 
 /** Whitespace, punctuation and symbols: `bad word` and `b.a.d-w_o r d` match a blocklisted `badword` (OME-439). */
@@ -194,6 +194,9 @@ export function startServer(opts: ServerOptions): OmegaServer {
     },
     persistTitle(room, title) {
       store?.setTitle(room.id, title);
+    },
+    persistControlPolicy(room, policy) {
+      store?.setControlPolicy(room.id, policy);
     },
     titleBlocked,
     now: opts.now ?? monotonic,

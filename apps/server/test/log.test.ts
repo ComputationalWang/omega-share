@@ -59,6 +59,7 @@ describe("server error lines", () => {
       setEmbed: () => undefined,
       setLayout: () => undefined,
       setTitle: () => undefined,
+      setControlPolicy: () => undefined,
       setLastActive: (id) => {
         throw new Error(`no room ${JSON.stringify(id)}`);
       },

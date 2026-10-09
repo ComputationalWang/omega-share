@@ -89,13 +89,6 @@ async function roomWithGuests() {
   return { room, id, owner, guest, guestAddress, other };
 }
 
-/** Every text frame `c` gets from now until `ms` later. */
-async function framesFor(c: Client, ms: number): Promise<string[]> {
-  const from = c.raw.length;
-  await Bun.sleep(ms);
-  return c.raw.slice(from);
-}
-
 describe("non-owners: not_owner, and nothing changes (ADR 0030 §1)", () => {
   test("kick from a guest: not_owner, the target stays, nobody hears member-left", async () => {
     t = start({ trustProxy: true });
@@ -260,7 +253,7 @@ describe("mute (ADR 0030 §3)", () => {
     t = start({ trustProxy: true });
     const { owner, guest, other } = await roomWithGuests();
     owner.client.send({ type: "mute", memberId: guest.snapshot.self, muted: true });
-    const expected = { type: "member-muted", memberId: guest.snapshot.self, muted: true };
+    const expected = { type: "member-muted", memberId: guest.snapshot.self, muted: true } as const;
     expect(await other.client.next("member-muted")).toEqual(expected);
     expect(await guest.client.next("member-muted")).toEqual(expected);
     expect(await owner.client.next("member-muted")).toEqual(expected);
@@ -367,7 +360,7 @@ describe("control policy (ADR 0030 §4)", () => {
     await other.client.next("embed-changed");
 
     owner.client.send({ type: "control-policy", policy: "owner" });
-    const expected = { type: "control-policy-changed", policy: "owner", by: owner.snapshot.self };
+    const expected = { type: "control-policy-changed", policy: "owner", by: owner.snapshot.self } as const;
     expect(await other.client.next("control-policy-changed")).toEqual(expected);
     expect(await guest.client.next("control-policy-changed")).toEqual(expected);
 

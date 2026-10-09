@@ -204,6 +204,9 @@ function recordingStore(rows: StoredRoom[]) {
     setTitle: (id) => {
       writes.push(`title ${id}`);
     },
+    setControlPolicy: (id) => {
+      writes.push(`policy ${id}`);
+    },
     setLastActive: (id, at) => {
       writes.push(`active ${id} ${String(at)}`);
     },
@@ -221,6 +224,7 @@ const row = (id: RoomId, createdAt: number, lastActiveAt: number | null): Stored
   ownerHash: OWNER,
   inviteHash: null,
   lastActiveAt,
+  controlPolicy: "everyone",
 });
 
 describe("last_active_at moves only on the 0→1 and 1→0 transitions (threat model §1.3)", () => {

@@ -179,6 +179,7 @@ describe("WebSocket /rooms/:id/ws", () => {
       embed: null,
       playback: null,
       layout: DEFAULT_LAYOUT,
+      controlPolicy: "everyone",
     });
 
     const b = await join("bob", 2);

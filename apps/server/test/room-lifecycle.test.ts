@@ -100,6 +100,7 @@ describe("RoomRegistry.removeRoom", () => {
       },
       setLayout: () => undefined,
       setTitle: () => undefined,
+      setControlPolicy: () => undefined,
     };
     t = start({ registry, store });
     registry.addRoom(new Room("film-club"));
