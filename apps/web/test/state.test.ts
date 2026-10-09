@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Member, RoomState, ServerMessage } from "@omega/shared";
+import { DEFAULT_LAYOUT, type Member, type RoomLayout, type RoomState, type ServerMessage } from "@omega/shared";
 import type { PlaybackState } from "@omega/shared";
 import { BUBBLE_MS, CHAT_COOLDOWN_DEFAULT_MS, MAX_SYSLINES, SYSLINE_MS, catchingUp, coolingDown, initialState, nextExpiry, reduce, screen, type ViewState } from "../src/state";
 
@@ -352,5 +352,36 @@ describe("created rooms (ADR 0028)", () => {
     const s = server(reduce(initialState, { type: "connecting" }), { type: "error", code: "invite_required", message: "private" });
     expect(s.status).toBe("refused");
     expect(screen(s).refused).toBe("invite_required");
+  });
+});
+
+describe("owner edits arrive live (OME-410)", () => {
+  const moved: RoomLayout = { furniture: DEFAULT_LAYOUT.furniture.map((f) => (f.kind === "lamp" ? { ...f, col: 8 } : f)) };
+
+  test("the snapshot says whether I joined as the owner; a rejoin without it makes me a guest", () => {
+    const owner = server(initialState, { type: "snapshot", self: "a", room: room(), owner: true });
+    expect(owner.owner).toBe(true);
+    expect(joined().owner).toBe(false);
+    expect(server(owner, { type: "snapshot", self: "a", room: room() }).owner).toBe(false);
+  });
+
+  test("layout-changed replaces the room's layout and keeps its seats and members objects", () => {
+    const before = joined(room({ layout: DEFAULT_LAYOUT }));
+    const s = server(before, { type: "layout-changed", layout: moved, by: "b" });
+    expect(s.room?.layout).toEqual(moved);
+    expect(s.room?.seats).toBe(before.room?.seats);
+    expect(s.room?.members).toBe(before.room?.members);
+  });
+
+  test("layout-changed before a snapshot doesn't invent a room", () => {
+    expect(server(initialState, { type: "layout-changed", layout: moved, by: "b" }).room).toBeNull();
+  });
+
+  test("title-changed shows the new title; it outlives a rejoin and goes with the room", () => {
+    expect(joined().title).toBeNull();
+    const s = server(joined(), { type: "title-changed", title: "Friday films", by: "b" });
+    expect(s.title).toBe("Friday films");
+    expect(server(s, { type: "snapshot", self: "a", room: room() }).title).toBe("Friday films");
+    expect(reduce(s, { type: "room-closed" }).title).toBeNull();
   });
 });
