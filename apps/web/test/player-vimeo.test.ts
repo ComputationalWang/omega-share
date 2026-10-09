@@ -399,16 +399,58 @@ describe("attachVimeo quality (per viewer, OME-599)", () => {
   test("a rejected setQuality (any error type) means unsupported: the options go away for good", async () => {
     const { adapter, p, events, ready } = setup();
     p.qualities = VIMEO_QUALITIES;
-    p.qualityRejects = true;
     await ready();
     await flush();
+    // The probe passed; this pick is refused anyway.
+    p.qualityRejects = true;
     const before = events.filter((e) => e.type === "quality").length;
     adapter.quality?.set("720p");
     await flush();
     expect(adapter.quality?.options()).toEqual([]);
     expect(events.filter((e) => e.type === "quality")).toHaveLength(before + 1);
     adapter.quality?.set("720p");
+    expect(p.calls.filter(([n]) => n === "setQuality")).toHaveLength(2);
+  });
+
+  test("a probe before the key: setQuality(the active id) once after ready; refused → no options, no quality event (QA OME-661 A)", async () => {
+    const { adapter, p, events, ready } = setup();
+    p.qualities = VIMEO_QUALITIES;
+    p.qualityRejects = true;
+    await ready();
+    await flush();
+    expect(p.calls.filter(([n]) => n === "setQuality")).toEqual([["setQuality", "auto"]]);
+    expect(adapter.quality?.options()).toEqual([]);
+    expect(events.filter((e) => e.type === "quality")).toEqual([]);
+    adapter.quality?.set("720p");
     expect(p.calls.filter(([n]) => n === "setQuality")).toHaveLength(1);
+  });
+
+  test("no active entry → nothing safe to probe with → no options", async () => {
+    const { adapter, p, ready } = setup();
+    p.qualities = [
+      { id: "1080p", label: "1080p", active: false },
+      { id: "720p", label: "720p", active: false },
+    ];
+    await ready();
+    await flush();
+    expect(p.calls.filter(([n]) => n === "setQuality")).toEqual([]);
+    expect(adapter.quality?.options()).toEqual([]);
+  });
+
+  test("an SDK whose getQualities throws (or is missing) leaves no options and doesn't break ready", async () => {
+    for (const broken of [
+      () => {
+        throw new Error("nope");
+      },
+      undefined,
+    ]) {
+      const { adapter, p, events, ready } = setup();
+      Object.defineProperty(p, "getQualities", { value: broken, configurable: true });
+      await ready();
+      await flush();
+      expect(adapter.quality?.options()).toEqual([]);
+      expect(events).toContainEqual({ type: "ready" });
+    }
   });
 
   test("never by remounting: set() keeps the one SDK player on our iframe", async () => {

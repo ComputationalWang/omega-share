@@ -99,6 +99,19 @@ test.describe("quality, only you (M7 W5)", () => {
     await a.page.keyboard.press("Escape");
     await expect(m).toBeHidden();
     await expect(k).toBeFocused();
+
+    // Tab leaves the list in one press, onward from the key (QA OME-661 B); Shift+Tab lands back on the key.
+    await a.page.keyboard.press("Enter");
+    await expect(m).toBeVisible();
+    await a.page.keyboard.press("Tab");
+    await expect(m).toBeHidden();
+    expect(await a.page.evaluate(() => document.activeElement?.getAttribute("data-testid") ?? null)).toBe("fullscreen-toggle");
+    await k.focus();
+    await a.page.keyboard.press("Enter");
+    await expect(m).toBeVisible();
+    await a.page.keyboard.press("Shift+Tab");
+    await expect(m).toBeHidden();
+    await expect(k).toBeFocused();
   });
 
   test("Twitch live: a quality switch's pause/play stays on my screen", async ({ browser, request }) => {

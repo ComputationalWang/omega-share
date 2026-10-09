@@ -231,3 +231,78 @@ describe("quality picker in browsers that don't focus a button on press (OME-599
     expect(p.isOpen()).toBe(false);
   });
 });
+
+describe("quality picker QA findings (OME-661)", () => {
+  test("B: roving tabindex — only the focused row is a tab stop, so Tab never walks the rows", async () => {
+    const { p, rows, press } = await setup();
+    p.update(base);
+    p.key.click();
+    expect(rows().map((r) => r.tabIndex)).toEqual([0, -1, -1, -1]);
+    press(rows()[0] ?? p.menu, "ArrowDown");
+    expect(rows().map((r) => r.tabIndex)).toEqual([-1, 0, -1, -1]);
+  });
+
+  test("B: Tab closes the menu from the key, letting the browser move on; Shift+Tab closes onto the key", async () => {
+    const { p, rows } = await setup();
+    p.update(base);
+    p.key.click();
+    const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    rows()[0]?.dispatchEvent(tab);
+    expect(p.isOpen()).toBe(false);
+    expect(document.activeElement).toBe(p.key);
+    expect(tab.defaultPrevented).toBe(false);
+    p.key.click();
+    const back = new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true });
+    rows()[0]?.dispatchEvent(back);
+    expect(p.isOpen()).toBe(false);
+    expect(document.activeElement).toBe(p.key);
+    expect(back.defaultPrevented).toBe(true);
+  });
+
+  test("B: row mode's close key is a menuitem the arrows reach (after the last row, before the first)", async () => {
+    const { p, rows, press } = await setup();
+    p.setRow(true);
+    p.update(base);
+    p.key.click();
+    const x = p.menu.querySelector<HTMLButtonElement>("[data-testid=quality-close]");
+    expect(x?.getAttribute("role")).toBe("menuitem");
+    expect(x?.tabIndex).toBe(-1);
+    press(rows()[0] ?? p.menu, "End");
+    expect(document.activeElement).toBe(x);
+    press(x ?? p.menu, "ArrowRight");
+    expect(document.activeElement).toBe(rows()[0] ?? null);
+    press(rows()[0] ?? p.menu, "ArrowLeft");
+    expect(document.activeElement).toBe(x);
+  });
+
+  test("D: the wait dial runs as long as the switching state (--cool = the echo window)", async () => {
+    const { p, rows, QUALITY_SWITCH_MS } = await setup();
+    p.update(base);
+    p.key.click();
+    rows()[2]?.click();
+    expect(p.key.style.getPropertyValue("--cool")).toBe(`${String(QUALITY_SWITCH_MS)}ms`);
+  });
+
+  test("a pick still switching is dropped when the next video doesn't list it", async () => {
+    const { p, rows } = await setup();
+    p.update(base);
+    p.key.click();
+    rows()[3]?.click();
+    p.update({ ...base, qualities: [{ id: "auto", label: "Auto" }, { id: "160p", label: "160p" }], quality: "auto" });
+    expect(p.key.classList.contains("is-switching")).toBe(false);
+    expect(p.key.getAttribute("aria-busy")).toBeNull();
+    expect(p.key.ariaLabel).toBe("Quality: Auto. Only you.");
+  });
+
+  test("a new list while open (Twitch re-reads on playing) keeps the menu open, focus on the same quality", async () => {
+    const { p, rows, press } = await setup();
+    p.update(base);
+    p.key.click();
+    press(rows()[0] ?? p.menu, "ArrowDown");
+    p.update({ ...base, qualities: [...LIST, { id: "160p30", label: "160p" }] });
+    expect(p.isOpen()).toBe(true);
+    expect(rows()).toHaveLength(5);
+    expect(document.activeElement).toBe(rows()[1] ?? null);
+    expect(rows()[1]?.tabIndex).toBe(0);
+  });
+});
