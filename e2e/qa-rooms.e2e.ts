@@ -5,16 +5,18 @@
 //     the `Authorization: Bearer` header of the one DELETE;
 //  3. a delete closes a guest's socket with 4004 and the page shows the closed state, without reconnecting;
 //  4. a private room is unlisted; without the key the room is refused and shows nobody; with the key it joins.
-// Rooms are made over the API from a loopback source address of their own (the creation bucket is 2 per client, and
-// the other room specs spend it), except test 2, which creates its room in the UI so the site's own storage and use of the token run.
+// The rooms are seeded (support/owned-rooms.ts: one per test, known secrets, no POST /rooms, whose limiters the other room
+// specs share). Test 2 hands the owner's browser the site's own storage record, so the app uses the token as after a UI
+// creation (rooms-web.e2e.ts covers that). A deleted room stays deleted: run with --retries=0, or a retry of tests 2 and 3 finds no room.
 import { request as httpRequest } from "node:http";
-import { CreateRoomResponseSchema, ROOM_SECRETS_STORAGE_KEY, parseServerMessage } from "@omega/shared";
+import { ROOM_SECRETS_STORAGE_KEY, parseServerMessage } from "@omega/shared";
 import type { Browser, BrowserContext, Page, TestInfo, WebSocket as PwWebSocket } from "@playwright/test";
 import * as v from "valibot";
 import { providerCase } from "../perf/providers";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
+import { ownedRoom } from "./support/owned-rooms";
 import { site } from "./support/selectors";
 import { postShare } from "./support/share";
 import { cellCenter } from "../apps/web/src/layout";
@@ -49,14 +51,10 @@ interface Reply {
   readonly json: unknown;
 }
 
-function apiCall(method: "GET" | "POST" | "DELETE", path: string, opts: { body?: unknown; token?: string } = {}): Promise<Reply> {
-  const data = opts.body === undefined ? "" : JSON.stringify(opts.body);
+function apiCall(method: "GET" | "DELETE", path: string, opts: { token?: string } = {}): Promise<Reply> {
+  const data = "";
   const headers: Record<string, string | number> = {};
   if (opts.token !== undefined) headers["authorization"] = `Bearer ${opts.token}`;
-  if (data !== "") {
-    headers["content-type"] = "application/json";
-    headers["content-length"] = Buffer.byteLength(data);
-  }
   return new Promise((resolve, reject) => {
     const req = httpRequest({ host: "127.0.0.1", port: SERVER.port, localAddress: sourceAddress(), method, path, headers }, (res) => {
       let text = "";
@@ -75,20 +73,6 @@ function apiCall(method: "GET" | "POST" | "DELETE", path: string, opts: { body?:
     req.on("error", reject);
     req.end(data);
   });
-}
-
-interface CreatedRoom {
-  readonly id: string;
-  readonly ownerToken: string;
-  readonly inviteKey: string;
-}
-
-async function createPrivateRoom(title: string): Promise<CreatedRoom> {
-  const res = await apiCall("POST", "/rooms", { body: { title, visibility: "private" } });
-  expect(res.status).toBe(201);
-  const body = v.parse(CreateRoomResponseSchema, res.json);
-  if (!body.ok || body.inviteKey === undefined) throw new Error("expected a private room with an invite key");
-  return { id: body.room.id, ownerToken: body.ownerToken, inviteKey: body.inviteKey };
 }
 
 /** Joins over a raw WebSocket as `secret` says and resolves with the member's share token (from its own snapshot); the token lasts while the socket is open. */
@@ -253,7 +237,7 @@ async function clickCell(page: Page, col: number, row: number): Promise<void> {
 // --- tests ---
 
 test("the invite key is gone before the Twitch SDK loads and appears in no recorded request", async ({ browser, request }, info) => {
-  const room = await createPrivateRoom("QA invite key");
+  const room = ownedRoom("invite");
   // Share a Twitch VOD before anyone is in the room, so the guest's page mounts the Twitch SDK on joining.
   const sharer = await joinForShareToken(room.id, { ownerToken: room.ownerToken });
   try {
@@ -327,18 +311,17 @@ test("the owner token is in no URL, Referer, query or broadcast; only the owner'
   owner.on("request", (r) => {
     if (r.method() === "DELETE") deletes.push(r.url());
   });
-  await owner.goto(`${URLS.web}/`);
-  await owner.locator(site.createRoomTitle).fill("QA owner token");
-  await owner.locator(site.createRoomPrivate).check();
-  await owner.locator(site.createRoomSubmit).click();
-  await owner.waitForURL(/\/r\/[a-z2-7]{26}$/);
-  const roomId = new URL(owner.url()).pathname.split("/")[2] ?? "";
-  const stored = await owner.evaluate((k) => localStorage.getItem(k) ?? "{}", ROOM_SECRETS_STORAGE_KEY);
-  const record = v.parse(v.object({ rooms: v.record(v.string(), v.object({ ownerToken: v.optional(v.string()), inviteKey: v.optional(v.string()) })) }), JSON.parse(stored));
-  const ownerToken = record.rooms[roomId]?.ownerToken ?? "";
-  const inviteKey = record.rooms[roomId]?.inviteKey ?? "";
-  expect(ownerToken).toMatch(/^[A-Za-z0-9_-]{22}$/);
-  expect(inviteKey).toMatch(/^[A-Za-z0-9_-]{22}$/);
+  const { id: roomId, ownerToken, inviteKey } = ownedRoom("owner");
+  // The site's own record, in the format room-secrets.ts writes after a creation: the owner token and the invite key.
+  await ownerCtx.addInitScript(
+    ([origin, key, value]) => {
+      if (location.origin === origin && localStorage.getItem(key ?? "") === null) localStorage.setItem(key ?? "", value ?? "");
+    },
+    [URLS.web, ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [roomId]: { ownerToken, inviteKey } } })],
+  );
+  await owner.goto(`${URLS.web}/r/${roomId}`);
+  pageUrls.push(owner.url());
+  expect(owner.url()).toBe(`${URLS.web}/r/${roomId}`);
   await enter(owner, "qa-owner");
   await expect(owner.locator(site.room)).toBeVisible();
   const link = await owner.locator(site.inviteLink).inputValue();
@@ -413,7 +396,7 @@ test("the owner token is in no URL, Referer, query or broadcast; only the owner'
 });
 
 test("deleting a room closes a guest's socket with 4004 and its page shows the closed state, without reconnecting", async ({ browser }, info) => {
-  const room = await createPrivateRoom("QA delete");
+  const room = ownedRoom("delete");
   const frames: FrameRecord[] = [];
   const context = await newContext(browser);
   const guest = await context.newPage();
@@ -439,8 +422,8 @@ test("deleting a room closes a guest's socket with 4004 and its page shows the c
 });
 
 test("a private room is unlisted; without the key it is refused and shows nobody; with the key it joins", async ({ browser }, info) => {
-  const room = await createPrivateRoom("QA private ux");
-  const publicTitle = "QA private ux";
+  const room = ownedRoom("ux");
+  const publicTitle = room.title;
 
   // Not in the list the API serves, nor on the home page.
   const list = v.parse(v.object({ rooms: v.array(v.looseObject({ id: v.string() })) }), (await apiCall("GET", "/rooms")).json);

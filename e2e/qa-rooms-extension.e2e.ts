@@ -1,13 +1,15 @@
 // QA rooms suite, extension side (OME-417, feature X1 / OME-412, ADR 0028, docs/research/m4-rooms-threat-model.md §3.5).
 // The popup's room dropdown lists public rooms from `GET /rooms` plus the rooms open in site tabs (private ones too, from the
 // tab's own URL), and never reads the site's localStorage["omega.rooms"] (owner tokens, invite keys).
-// Rooms are created over HTTP, each request from its own loopback source address: the per-key creation bucket is 2 (ADR 0028 §1).
-import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
+// The private rooms are seeded (support/owned-rooms.ts, one per test, known secrets), so nothing here is POST /rooms: its limiters are shared
+// with the other room specs. The public room is the lobby. A deleted room stays deleted: run with --retries=0.
+import { DEFAULT_ROOM_ID, ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import { request as httpRequest } from "node:http";
 import type { BrowserContext, Locator, Page } from "@playwright/test";
 import { PENDING, URLS, available } from "./support/apps";
 import { expect, test } from "./support/extension";
 import { gotoFixture } from "./support/network";
+import { ownedRoom } from "./support/owned-rooms";
 import { popup, site } from "./support/selectors";
 
 test.fixme(!available.extension, PENDING.extension);
@@ -23,7 +25,7 @@ const SERVER = new URL(URLS.server);
 let sources = 0;
 
 /** One JSON request to the server, with the site's Origin, sent from a source address no other request in this run has used. */
-function call(method: "GET" | "POST" | "DELETE", path: string, opts: { readonly body?: unknown; readonly headers?: Record<string, string> } = {}): Promise<Reply> {
+function call(method: "GET" | "DELETE", path: string, opts: { readonly body?: unknown; readonly headers?: Record<string, string> } = {}): Promise<Reply> {
   const data = opts.body === undefined ? undefined : JSON.stringify(opts.body);
   const n = sources++;
   const localAddress = `127.${String(100 + (Number(process.env["TEST_PARALLEL_INDEX"] ?? 0) % 100))}.${String(Math.floor(n / 250) % 250)}.${String(1 + (n % 250))}`;
@@ -61,12 +63,6 @@ function call(method: "GET" | "POST" | "DELETE", path: string, opts: { readonly 
   });
 }
 
-interface CreatedRoom {
-  readonly id: string;
-  readonly ownerToken: string;
-  readonly inviteKey: string | null;
-}
-
 function field(o: unknown, key: string): unknown {
   return typeof o === "object" && o !== null ? (Reflect.get(o, key) as unknown) : null;
 }
@@ -74,24 +70,6 @@ function field(o: unknown, key: string): unknown {
 function str(o: unknown, key: string): string | null {
   const value = field(o, key);
   return typeof value === "string" ? value : null;
-}
-
-/** `POST /rooms`, waiting out the server-wide creation bucket (10 at once, then 1 a minute) when other runs spent it. */
-async function createRoom(title: string, visibility: "public" | "private"): Promise<CreatedRoom> {
-  const deadline = Date.now() + 90_000;
-  for (;;) {
-    const res = await call("POST", "/rooms", { body: { title, visibility } });
-    if (res.status === 429 && Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 5_000));
-      continue;
-    }
-    expect(res.status).toBe(201);
-    const room = field(res.json, "room");
-    const id = str(room, "id");
-    const ownerToken = str(res.json, "ownerToken");
-    if (id === null || ownerToken === null) throw new Error(`unexpected create reply: ${JSON.stringify(res.json)}`);
-    return { id, ownerToken, inviteKey: str(res.json, "inviteKey") };
-  }
 }
 
 async function listedRoomIds(): Promise<string[]> {
@@ -124,10 +102,8 @@ async function joinInTab(context: BrowserContext, url: string): Promise<Page> {
 }
 
 test("a private room that is not open in a tab is neither in GET /rooms nor in the popup; a public one is in both", async ({ context, openPopup }) => {
-  const stamp = Date.now().toString(36);
-  const pub = await createRoom(`qa-pub-${stamp}`, "public");
-  const priv = await createRoom(`qa-priv-${stamp}`, "private");
-  expect(priv.inviteKey).not.toBeNull();
+  const pub = { id: DEFAULT_ROOM_ID };
+  const priv = ownedRoom("extlist");
 
   const listed = await listedRoomIds();
   expect(listed).toContain(pub.id);
@@ -140,8 +116,8 @@ test("a private room that is not open in a tab is neither in GET /rooms nor in t
 });
 
 test("a private room open in a tab (invite link) is offered, and sharing into it from the popup lands in the room", async ({ context, openPopup }) => {
-  const priv = await createRoom(`qa-priv-open-${Date.now().toString(36)}`, "private");
-  const tab = await joinInTab(context, `${URLS.web}/r/${priv.id}#k=${priv.inviteKey ?? ""}`);
+  const priv = ownedRoom("extopen");
+  const tab = await joinInTab(context, `${URLS.web}/r/${priv.id}#k=${priv.inviteKey}`);
   // The site strips the key from the address bar.
   expect(tab.url()).toBe(`${URLS.web}/r/${priv.id}`);
   expect(await listedRoomIds()).not.toContain(priv.id);
@@ -164,19 +140,18 @@ test("a private room open in a tab (invite link) is offered, and sharing into it
 });
 
 test("the extension never reads localStorage omega.rooms: a stored private room that is not open is not offered, and no request carries its secrets", async ({ context, openPopup }) => {
-  const stamp = Date.now().toString(36);
-  const pub = await createRoom(`qa-pub-ls-${stamp}`, "public");
-  const real = await createRoom(`qa-priv-ls-${stamp}`, "private");
+  const pub = { id: DEFAULT_ROOM_ID };
+  const real = ownedRoom("extsecret");
   // A made-up room next to a real one whose owner token and invite key really work.
   const fake = { id: "qafakeprivateroomabcdefgh".padEnd(26, "a"), ownerToken: "FakeOwnerToken".padEnd(22, "o"), inviteKey: "FakeInviteKey".padEnd(22, "i") };
   expect([fake.id.length, fake.ownerToken.length, fake.inviteKey.length]).toEqual([26, 22, 22]);
-  const secrets = [real.ownerToken, real.inviteKey ?? "", fake.ownerToken, fake.inviteKey];
+  const secrets = [real.ownerToken, real.inviteKey, fake.ownerToken, fake.inviteKey];
 
   // The site's origin holds the secrets, as after creating rooms there.
   const record = JSON.stringify({
     v: 1,
     rooms: {
-      [real.id]: { ownerToken: real.ownerToken, inviteKey: real.inviteKey ?? undefined },
+      [real.id]: { ownerToken: real.ownerToken, inviteKey: real.inviteKey },
       [fake.id]: { ownerToken: fake.ownerToken, inviteKey: fake.inviteKey },
     },
   });
@@ -213,10 +188,9 @@ test("the extension never reads localStorage omega.rooms: a stored private room 
 });
 
 test("after the owner deletes the private room it is refused for sharing and leaves the dropdown once its tab is closed", async ({ context, openPopup }) => {
-  const stamp = Date.now().toString(36);
-  const priv = await createRoom(`qa-priv-del-${stamp}`, "private");
-  const pub = await createRoom(`qa-pub-del-${stamp}`, "public");
-  const tab = await joinInTab(context, `${URLS.web}/r/${priv.id}#k=${priv.inviteKey ?? ""}`);
+  const priv = ownedRoom("extdelete");
+  const pub = { id: DEFAULT_ROOM_ID };
+  const tab = await joinInTab(context, `${URLS.web}/r/${priv.id}#k=${priv.inviteKey}`);
   const target = await context.newPage();
   await gotoFixture(target, "youtube-embed");
 
