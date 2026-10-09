@@ -67,6 +67,13 @@ const FAILED_DELETE_BURST = 20;
 const FAILED_DELETE_PER_SECOND = 1;
 /** Site routes (`/r/<id>`): a private room's link posted somewhere public must not be indexed (ADR 0028 §4). */
 const ROBOTS = "noindex, nofollow";
+/**
+ * `application/json`, any case, with or without parameters. Unauthenticated POSTs require it: any other type
+ * (text/plain, form encodings, none) is a CORS simple request a hostile page can send through its visitors'
+ * browsers without a preflight, and so without our origin allowlist (OME-698).
+ */
+const JSON_TYPE = /^application\/json\s*(?:;|$)/i;
+const isJson = (contentType: string | undefined): boolean => contentType !== undefined && JSON_TYPE.test(contentType);
 /** Extension pages; which ids are allowed is `isAllowedOrigin`'s call. */
 const EXTENSION_SCHEME = /^(?:chrome|moz)-extension:\/\//;
 /**
@@ -247,7 +254,7 @@ export function createHttpApp({
 
   app.post("/rooms", async (c) => {
     c.header("cache-control", "no-store");
-    const fail = (status: 400 | 413 | 503, code: CreateRoomErrorCode, message: string) => {
+    const fail = (status: 400 | 413 | 415 | 503, code: CreateRoomErrorCode, message: string) => {
       const body: CreateRoomResponse = { ok: false, error: { code, message } };
       return c.json(body, status);
     };
@@ -258,6 +265,8 @@ export function createHttpApp({
       const body: CreateRoomResponse = { ok: false, error: { code: "rate_limited", message: "too many new rooms, try again later", retryAfterMs: ms } };
       return c.json(body, 429);
     };
+    // Before any bucket: a cross-site simple POST is refused for free (OME-698).
+    if (!isJson(c.req.header("content-type"))) return fail(415, "invalid_body", "expected application/json");
     const ip = ipOf(c.req.raw);
     // Before reading the body: malformed spam costs a creation too (ADR 0028 §1).
     if (!creates.take(ip)) return limited(creates.retryAfterMs(ip, ROOM_CREATE_RETRY_AFTER_MAX_MS));
@@ -467,13 +476,13 @@ export function createHttpApp({
   });
 
   /**
-   * "Report this room" (ADR 0033): no token, no seat. Check order: body size → room exists → key bucket →
+   * "Report this room" (ADR 0033): no token, no seat. Check order: content type → body size → room exists → key bucket →
    * parse → room bucket → duplicate → open cap → store, so an unknown id or a malformed body never drains
    * the room's bucket. Nothing about the request is logged or kept.
    */
   app.post("/rooms/:id/report", async (c) => {
     c.header("cache-control", "no-store");
-    const fail = (status: 400 | 404 | 413 | 503, code: ReportErrorCode, message: string) => {
+    const fail = (status: 400 | 404 | 413 | 415 | 503, code: ReportErrorCode, message: string) => {
       reports.count(code);
       const body: ReportResponse = { ok: false, error: { code, message } };
       return c.json(body, status);
@@ -483,6 +492,8 @@ export function createHttpApp({
       const body: ReportResponse = { ok: false, error: { code: "rate_limited", message: "too many reports, try again later", retryAfterMs } };
       return c.json(body, 429);
     };
+    // First: a cross-site simple POST is refused before it costs a bucket or a body read (OME-698).
+    if (!isJson(c.req.header("content-type"))) return fail(415, "invalid_body", "expected application/json");
     if (Number(c.req.header("content-length") ?? 0) > MAX_REPORT_BODY_BYTES) return fail(413, "payload_too_large", "body too large");
     const text = await readBodyCapped(c.req.raw, MAX_REPORT_BODY_BYTES);
     if (text === null) return fail(413, "payload_too_large", "body too large");
