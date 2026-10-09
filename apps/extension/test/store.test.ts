@@ -94,7 +94,7 @@ describe("checkStoreManifest for Firefox (OME-593)", () => {
     strict_min_version: "140.0",
     data_collection_permissions: { required: ["websiteContent", "browsingActivity"] },
   };
-  const { background: _serviceWorker, ...chromeKeys } = {
+  const chromeKeys = {
     manifest_version: 3,
     name: "omega share",
     version: "1.2.3",
@@ -102,7 +102,6 @@ describe("checkStoreManifest for Firefox (OME-593)", () => {
     permissions: ["activeTab", "scripting", "storage"],
     host_permissions: ["https://omega-share.duckdns.org/*"],
     optional_host_permissions: ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"],
-    background: { service_worker: "background.js" },
   };
   const good = { ...chromeKeys, background: { scripts: ["background.js"] }, options_ui: { page: "options.html", open_in_tab: true }, browser_specific_settings: { gecko } };
 

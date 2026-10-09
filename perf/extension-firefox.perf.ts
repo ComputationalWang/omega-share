@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../e2e/support/csp";
 import { PENDING, available } from "../e2e/support/apps";
 import { embedLabels, embedsListedAt, launchFirefoxWithExtension, openFixture, openPopup } from "../e2e/support/firefox";
 import { BUDGETS } from "./budgets";

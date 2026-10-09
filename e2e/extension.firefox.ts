@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/csp";
 import { type FirefoxExtension, embedLabels, launchFirefoxWithExtension, openFixture, openPopup } from "./support/firefox";
 
 // Firefox lane smoke (OME-593): the Firefox e2e build in headless Firefox, through Puppeteer over BiDi.
