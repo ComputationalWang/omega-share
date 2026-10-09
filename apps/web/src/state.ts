@@ -48,7 +48,7 @@ export interface ViewState {
   readonly catching: readonly MemberId[];
   /** I joined with this room's owner token (`snapshot.owner`, ADR 0028): the layout editor is offered. */
   readonly owner: boolean;
-  /** The room's title from the last `title-changed`; the snapshot carries none, so null until a rename. */
+  /** The room's title from the snapshot or the last `title-changed`; null while it has none (or a pre-M5 server). */
   readonly title: string | null;
 }
 
@@ -114,6 +114,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
         lastError: null,
         catching: msg.room.members.filter((m) => m.catching === true).map((m) => m.id),
         owner: msg.owner === true,
+        // An untitled snapshot (an older server, a rejoin) keeps the title we already know.
+        title: msg.room.title ?? state.title,
       };
     case "room-full":
       return { ...initialState, status: "full" };
