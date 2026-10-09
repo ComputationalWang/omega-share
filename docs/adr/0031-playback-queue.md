@@ -19,7 +19,7 @@ Client → server, all `strictObject`:
 - `ended { itemId, position }`: "my player reached the end of this item, here", see §4.
 
 Server → client:
-- `queue-changed { queue, by }`: the **whole** upcoming list after any change. `by` is who added, removed or advanced; null when an `ended` report advanced it. A full list (≤ ~29 KB with 20 generic items at the longest URL, ~3 KB with synced ones) is simpler than deltas, and a client can never drift out of step with it. The per-room add bucket bounds how often it's sent.
+- `queue-changed { queue, by }`: the **whole** upcoming list after any change. `by` is who added, removed or advanced; null when an `ended` report advanced it. A full list (≤ ~26 KB with 20 generic items at the longest URL, ~3 KB with synced ones) is simpler than deltas, and a client can never drift out of step with it. The per-room add bucket bounds how often it's sent.
 - `embed-changed` gains optional `itemId`.
 - **`POST /rooms/:id/queue`** is the extension's "Add to queue" (X1 [OME-509](/OME/issues/OME-509)); it has no socket. Same body (`ShareRequestSchema`), bearer share token, parser, control-policy check and errors as `POST /rooms/:id/share`, plus `queue_full` (HTTP 409). It takes from the same member and room add buckets as the WebSocket `queue-add` (the member is the token's). Response: `QueueAddResponseSchema`, `{ ok: true, item }` or the share error shape.
 - New errors: `queue_full`, `unsupported_url`. Reused: `rate_limited` (+ `retryAfterMs`), `control_owner_only`, `not_joined`.
