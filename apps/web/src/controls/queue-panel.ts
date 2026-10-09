@@ -10,6 +10,8 @@ export interface QueuePanelOptions {
   readonly send: (m: ClientMessage) => boolean;
   /** This site's hostnames: a link to them is refused with its own reason (the server refuses it too, ADR 0024). */
   readonly ownHosts: readonly string[];
+  /** Client ms (Date.now): how long ago an add went out. */
+  readonly now?: () => number;
 }
 
 export interface QueuePanel {
@@ -26,6 +28,9 @@ const HEADS = ["juno", "pip", "mo", "kiki"] as const;
 const NOT_A_LINK = "That isn't a link. Paste the address of a video page.";
 const CANT_PLAY = "That link can't play here. Try a video page's https link.";
 const OWN_SITE = "That's a link to this site. Paste a video page's link.";
+/** An error this long after an add, with no answer seen, isn't taken as the add's (the server answers in milliseconds). */
+const ADD_ANSWER_MS = 5000;
+const NO_ITEMS: readonly QueueItem[] = [];
 const FULL_TEXT = `The queue is full (${String(QUEUE_MAX)}). Remove one to add another.`;
 
 /** The server's answers to a `queue-add`, said under the field. Anything else isn't about the add. */
@@ -94,8 +99,12 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
   let drawnKey = "";
   let renders = 0;
   let shownError: ViewState["lastError"] = null;
-  /** The link of an add the server hasn't answered yet: an error then is about it, and puts it back in the field. */
-  let pending: string | null = null;
+  const now = o.now ?? Date.now;
+  /**
+   * An add the server hasn't answered yet: an error now is about it, and puts the link back in the field. It's answered
+   * once an item of mine that wasn't there at the send shows up (or the current item changes: an add into an empty room starts).
+   */
+  let pending: { url: string; at: number; mine: ReadonlySet<string>; current: string | undefined } | null = null;
 
   const say = (text: string | null): void => {
     problem.hidden = text === null;
@@ -116,7 +125,9 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
       return;
     }
     if (!o.send({ type: "queue-add", url })) return;
-    pending = url;
+    const s = state;
+    const mine = new Set((s?.room?.queue ?? NO_ITEMS).filter((i) => i.by !== null && i.by === s?.self).map((i) => i.id));
+    pending = { url, at: now(), mine, current: s?.room?.itemId };
     input.value = "";
     say(null);
   });
@@ -157,12 +168,10 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
     renders: () => renders,
     update(s) {
       state = s;
-      const queue = s.room?.queue ?? [];
+      const queue = s.room?.queue ?? NO_ITEMS;
       const held = controlHeld(s);
       const key = `${String(held)}|${String(s.owner)}|${s.self ?? ""}`;
       if (queue !== drawnQueue || s.room?.members !== drawnMembers || key !== drawnKey) {
-        // The list moved on (most likely with our item): an error after this isn't the add's.
-        if (queue !== drawnQueue) pending = null;
         drawnQueue = queue;
         drawnMembers = s.room?.members;
         drawnKey = key;
@@ -178,11 +187,14 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
         add.disabled = held || isFull;
       }
       next.hidden = held || queue.length === 0 || s.room?.itemId === undefined;
+      const p = pending;
+      if (p !== null && (s.room?.itemId !== p.current || queue.some((i) => i.by !== null && i.by === s.self && !p.mine.has(i.id)))) pending = null;
       if (s.lastError !== shownError) {
         shownError = s.lastError;
-        const text = s.lastError === null || pending === null ? undefined : ADD_ERRORS[s.lastError.code];
-        if (text !== undefined) {
-          if (input.value === "" && pending !== null) input.value = pending;
+        const answer = pending !== null && s.lastError !== null && now() - pending.at <= ADD_ANSWER_MS ? pending : null;
+        const text = answer === null || s.lastError === null ? undefined : ADD_ERRORS[s.lastError.code];
+        if (answer !== null && text !== undefined) {
+          if (input.value === "") input.value = answer.url;
           pending = null;
           say(text);
         }
