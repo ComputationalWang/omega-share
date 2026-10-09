@@ -1,7 +1,9 @@
 import { chmodSync, lstatSync, rmSync, unlinkSync } from "node:fs";
 import * as v from "valibot";
-import { RoomIdSchema, RoomVisibilitySchema, type RoomId } from "@omega/shared";
+import { REPORT_REASONS, RoomIdSchema, RoomVisibilitySchema, type RoomId } from "@omega/shared";
+import type { ReportsAdmin } from "./reports";
 import type { RoomRegistry } from "./rooms";
+import { ReportIdSchema } from "./store/reports";
 import type { RoomStore } from "./store/rooms";
 
 /**
@@ -14,6 +16,10 @@ import type { RoomStore } from "./store/rooms";
  *   DELETE /rooms/:id       removeRoom, then the row
  *   POST   /rooms/:id/pin   GC never collects it
  *   POST   /rooms/:id/unpin GC may collect it again
+ *   POST   /rooms/:id/takedown          ends the room for good (ADR 0033 §5): 4006, tombstone, reports actioned
+ *   GET    /reports                     open abuse reports, grouped by room
+ *   POST   /reports/:id/dismiss         dismisses one report
+ *   POST   /rooms/:id/reports/dismiss   dismisses the room's open reports
  */
 
 /** One `GET /rooms` entry. Strict, so a field like a hash can't slip into the CLI's output unnoticed. */
@@ -32,9 +38,37 @@ export type AdminRoom = v.InferOutput<typeof AdminRoomSchema>;
 export const AdminRoomListSchema = v.strictObject({ rooms: v.array(AdminRoomSchema) });
 export const AdminErrorSchema = v.object({ error: v.string() });
 
+const UnixMs = v.pipe(v.number(), v.safeInteger());
+const NullableText = v.nullable(v.string());
+/** One open report as the operator sees it: what the table holds (ADR 0033 §3), nothing more. */
+export const AdminReportSchema = v.strictObject({
+  id: ReportIdSchema,
+  createdAt: UnixMs,
+  reason: v.picklist(REPORT_REASONS),
+  note: NullableText,
+  /** The room's title at report time. */
+  title: NullableText,
+  /** What was playing at report time. */
+  embedUrl: NullableText,
+});
+/** A reported room: its state now, and its open reports, newest first. Strict, like AdminRoomSchema. */
+export const AdminReportRoomSchema = v.strictObject({
+  id: RoomIdSchema,
+  state: v.picklist(["live", "taken_down", "gone"]),
+  /** Now; null unless live. */
+  title: NullableText,
+  visibility: v.nullable(RoomVisibilitySchema),
+  members: v.nullable(v.pipe(v.number(), v.safeInteger(), v.minValue(0))),
+  reports: v.array(AdminReportSchema),
+});
+export type AdminReportRoom = v.InferOutput<typeof AdminReportRoomSchema>;
+export const AdminReportListSchema = v.strictObject({ rooms: v.array(AdminReportRoomSchema) });
+
 export interface AdminOptions {
   rooms: RoomRegistry;
   store: Pick<RoomStore, "deleteRoom" | "setPinned">;
+  /** The report queue and takedowns (ADR 0033 §5). Without it, those routes answer 503. */
+  reports?: ReportsAdmin;
   socketPath: string;
 }
 
@@ -46,7 +80,9 @@ const json = (status: number, body: unknown): Response =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const noRoom = (id: string): Response => json(404, { error: `no room ${id}` });
 
-const ROOM_PATH = /^\/rooms\/([^/]+)(?:\/(pin|unpin))?$/;
+const ROOM_PATH = /^\/rooms\/([^/]+)(?:\/(pin|unpin|takedown|reports\/dismiss))?$/;
+const REPORT_PATH = /^\/reports\/([^/]+)\/dismiss$/;
+const noReports = (): Response => json(503, { error: "reports are not available on this server" });
 
 function listRooms(rooms: RoomRegistry): AdminRoom[] {
   return [...rooms.values()]
@@ -62,9 +98,21 @@ function listRooms(rooms: RoomRegistry): AdminRoom[] {
     .sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
-function handle(req: Request, { rooms, store }: AdminOptions): Response {
+function handle(req: Request, { rooms, store, reports }: AdminOptions): Response {
   const { pathname } = new URL(req.url);
   if (pathname === "/rooms") return req.method === "GET" ? json(200, { rooms: listRooms(rooms) }) : json(405, { error: "method not allowed" });
+  if (pathname === "/reports") {
+    if (req.method !== "GET") return json(405, { error: "method not allowed" });
+    return reports === undefined ? noReports() : json(200, { rooms: reports.list() });
+  }
+  const reportMatch = REPORT_PATH.exec(pathname);
+  if (reportMatch !== null) {
+    const id = v.safeParse(ReportIdSchema, reportMatch[1]);
+    if (!id.success) return json(404, { error: "not found" });
+    if (req.method !== "POST") return json(405, { error: "method not allowed" });
+    if (reports === undefined) return noReports();
+    return reports.dismiss(id.output) === 0 ? json(404, { error: `no open report ${id.output}` }) : json(200, { dismissed: 1 });
+  }
   const match = ROOM_PATH.exec(pathname);
   const id = v.safeParse(RoomIdSchema, match?.[1]);
   if (match === null || !id.success) return json(404, { error: "not found" });
@@ -79,6 +127,12 @@ function handle(req: Request, { rooms, store }: AdminOptions): Response {
     return live || stored ? json(200, { deleted: roomId }) : noRoom(roomId);
   }
   if (req.method !== "POST") return json(405, { error: "method not allowed" });
+  if (verb === "takedown" || verb === "reports/dismiss") {
+    if (reports === undefined) return noReports();
+    // A room that is no longer live may still be reported, and taken down.
+    if (verb === "reports/dismiss") return json(200, { dismissed: reports.dismissRoom(roomId) });
+    return json(200, { takenDown: roomId, live: reports.takedown(roomId).live });
+  }
   if (room === undefined) return noRoom(roomId);
   const pinned = verb === "pin";
   // A seeded room has no owner to delete it; unpinned, GC would end it and only a restart re-seeds it.

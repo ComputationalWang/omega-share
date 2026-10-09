@@ -262,14 +262,17 @@ describe("reports list", () => {
     expect((await cli(f.socket, "reports", "list")).out.split("\n")[0]).toBe(`${OTHER}\t(gone)\t-\tmembers -\t1 open\tspam 1`);
   });
 
-  test("escapes control and format characters in titles and notes", async () => {
-    const f = boot(["lobby"], (store) => {
-      store.createRoom({ id: ROOM, title: "Evil‮room", createdAt: T0, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
-    });
-    await report(f, ROOM, { reason: "other", note: "fine note" });
+  test("escapes control and format characters in notes and titles (a hand-edited row)", async () => {
+    const f = boot();
+    f.db.run(
+      "INSERT INTO reports (id, room_id, reason, note, room_title, embed_url, created_at, state) VALUES (?, ?, 'other', ?, ?, NULL, ?, 'open')",
+      ["e".repeat(22), ROOM, "Evil\u202enote", "Bad\u001b[2Jtitle", T0],
+    );
     const { out } = await cli(f.socket, "reports", "list");
-    expect(out).toContain("Evil\\u202eroom");
-    expect(out).not.toContain("‮");
+    expect(out).toContain("Evil\\u202enote");
+    expect(out).toContain("Bad\\u001b[2Jtitle");
+    expect(out).not.toContain("\u202e");
+    expect(out).not.toContain("\u001b");
   });
 });
 

@@ -21,6 +21,8 @@ export interface RoomGcDeps {
    * if the process dies while they are in it (it otherwise last moved when they arrived).
    */
   touch: (room: Room, at: number) => void;
+  /** Runs after each sweep: report retention (ADR 0033 §3). */
+  purge?: () => void;
 }
 
 /** Whether GC should end an idle room at `now`. Pinned rooms never; occupied ones are checked by the caller. */
@@ -61,6 +63,11 @@ export function startRoomGc(deps: RoomGcDeps & { intervalMs?: number }): { stop:
       sweepRooms(deps);
     } catch (err) {
       logError("gc.sweep", err);
+    }
+    try {
+      deps.purge?.();
+    } catch (err) {
+      logError("gc.purge", err);
     }
   };
   sweep();

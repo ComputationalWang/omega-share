@@ -1,4 +1,5 @@
 import type { Server } from "bun";
+import type { Database } from "bun:sqlite";
 import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, QUEUE_MAX, type AnyEmbed, type QueueItemId, type RoomId } from "@omega/shared";
 import { nicknameKey } from "@omega/shared/confusables";
 import { DEFAULT_MAX_CONNECTIONS, ownHostsFor } from "./config";
@@ -6,10 +7,13 @@ import { EmbedPolicy } from "./embed-policy";
 import { HSTS, securityHeaders } from "./headers";
 import { MAX_HTTP_IN_FLIGHT, createHttpApp, createHttpGate, plain as plainWith } from "./http";
 import { createQueue } from "./queue";
+import { createReports, type ReportsAdmin } from "./reports";
 import { clientKey, monotonic, type Clock } from "./rate-limit";
 import { Room, SEAT_HOLD_MS } from "./room";
 import { RoomRegistry } from "./rooms";
 import { ROOM_GC_INTERVAL_MS, startRoomGc } from "./rooms-gc";
+import { openDatabase } from "./store/db";
+import { ReportStore } from "./store/reports";
 import type { RoomStore, SeatHold } from "./store/rooms";
 import { createWs, type ConnData } from "./ws";
 import { logError } from "./log";
@@ -64,6 +68,8 @@ export interface ServerOptions {
   roomGcIntervalMs?: number;
   /** Seats the last process held at its graceful restart (ADR 0032): kept SEAT_HOLD_MS for their names. */
   seatHolds?: readonly SeatHold[];
+  /** Abuse reports and takedowns (ADR 0033), on the same database as `store`. Absent: an in-memory one. */
+  reportStore?: ReportStore | null;
 }
 
 /** The Bun server, plus what the process's lifecycle needs (OME-504). */
@@ -75,6 +81,8 @@ export interface OmegaServer extends Server<ConnData> {
    * their own) and resolves, once they are closed, with the seats held, for the store to keep.
    */
   drain(): Promise<SeatHold[]>;
+  /** The operator's report queue and takedowns, for the admin socket (ADR 0033 §5). */
+  reports: ReportsAdmin;
 }
 
 /** How long `drain` waits for clients to answer the close before cutting them off. */
@@ -125,9 +133,15 @@ function loadRooms(
   embeds: EmbedPolicy,
   now: number,
   since: number,
+  takenDown: (id: string) => boolean,
 ): void {
   if (store !== null) {
     for (const r of store.listRooms()) {
+      // A taken-down room's row that a failed delete left behind (ADR 0033 §5): never served again.
+      if (takenDown(r.id)) {
+        store.deleteRoom(r.id);
+        continue;
+      }
       const embed = embeds.restore(r.embed);
       // Items the policy no longer accepts are left out; their rows stay, as for the embed.
       const restored = r.queue.flatMap((i) => {
@@ -144,7 +158,8 @@ function loadRooms(
     }
   }
   for (const id of configured) {
-    if (rooms.get(id) !== undefined) continue;
+    // A taken-down seed isn't seeded again.
+    if (rooms.get(id) !== undefined || takenDown(id)) continue;
     store?.createRoom({ id, title: "", createdAt: now, layout: DEFAULT_LAYOUT });
     rooms.addRoom(new Room(id, { createdAt: now }));
   }
@@ -169,12 +184,31 @@ export function startServer(opts: ServerOptions): OmegaServer {
   const headers = securityHeaders(embeds.genericEmbeds);
   const plain = (status: number, text: string): Response => plainWith(status, text, headers);
   const rooms = opts.registry ?? new RoomRegistry();
-  loadRooms(rooms, opts.rooms ?? [DEFAULT_ROOM_ID], store, embeds, wallNow(), (opts.now ?? monotonic)());
+  const metrics = new Metrics();
+  // Without a store (tests, the load probe), reports live in a private in-memory database, closed with the server.
+  let ownReportDb: Database | null = null;
+  let reportStore: ReportStore;
+  if (opts.reportStore == null) {
+    ownReportDb = openDatabase(":memory:");
+    reportStore = new ReportStore(ownReportDb);
+  } else {
+    reportStore = opts.reportStore;
+  }
+  const reports = createReports({
+    rooms,
+    store: reportStore,
+    deleteRoomRow: (id) => {
+      store?.deleteRoom(id);
+    },
+    metrics,
+    now: opts.now ?? monotonic,
+    wallNow,
+  });
+  loadRooms(rooms, opts.rooms ?? [DEFAULT_ROOM_ID], store, embeds, wallNow(), (opts.now ?? monotonic)(), reports.isTakenDown);
   for (const room of rooms.values()) {
     const held = opts.seatHolds?.filter((h) => h.roomId === room.id) ?? [];
     if (held.length > 0) room.holdSeats(held, wallNow() + SEAT_HOLD_MS);
   }
-  const metrics = new Metrics();
   const connectionsPerIp = new Map<string, number>();
 
   // Filled in once Bun has picked the port (tests use port 0); no request arrives before that.
@@ -232,6 +266,7 @@ export function startServer(opts: ServerOptions): OmegaServer {
     now: opts.now ?? monotonic,
     metrics,
     wallNow,
+    takenDown: reports.isTakenDown,
     occupancyChanged: (room) => {
       markActive(room, wallNow());
     },
@@ -256,6 +291,7 @@ export function startServer(opts: ServerOptions): OmegaServer {
   });
   const app = createHttpApp({
     queue,
+    reports,
     rooms,
     persistRoom: (room) => {
       store?.createRoom(room);
@@ -276,7 +312,7 @@ export function startServer(opts: ServerOptions): OmegaServer {
     staticDir: opts.staticDir ?? null,
   });
   // After the onRemove hooks above, so the boot sweep already closes sockets and deletes rows.
-  const gc = startRoomGc({ rooms, wallNow, busy: ws.hasSockets, touch: markActive, intervalMs: opts.roomGcIntervalMs ?? ROOM_GC_INTERVAL_MS });
+  const gc = startRoomGc({ rooms, wallNow, busy: ws.hasSockets, touch: markActive, purge: reports.purge, intervalMs: opts.roomGcIntervalMs ?? ROOM_GC_INTERVAL_MS });
   const http = createHttpGate((req) => app.fetch(req), {
     now: opts.now ?? monotonic,
     maxInFlight: opts.maxHttpInFlight ?? MAX_HTTP_IN_FLIGHT,
@@ -304,7 +340,9 @@ export function startServer(opts: ServerOptions): OmegaServer {
     // Before the lookup, so probing for room ids costs a token like a real upgrade (threat model S5).
     const refused = ws.admitUpgrade(ip);
     if (refused !== null) return refused;
-    const room = rooms.get(match[1] ?? "");
+    const id = match[1] ?? "";
+    // A taken-down id still upgrades, to an unregistered stand-in, so the client hears 4006 rather than a bare 404 (ADR 0033 §6).
+    const room = rooms.get(id) ?? (reports.isTakenDown(id) ? new Room(id, { createdAt: 0 }) : undefined);
     if (room === undefined) return plain(404, "unknown room");
     if (connections >= maxConnections) return plain(503, "server full");
     const open = connectionsPerIp.get(ip) ?? 0;
@@ -327,10 +365,11 @@ export function startServer(opts: ServerOptions): OmegaServer {
     websocket: ws.websocket,
   });
   const server = Object.assign(bunServer, {
+    reports,
     metricsText: () => {
       let members = 0;
       for (const room of rooms.values()) members += room.memberCount;
-      return metrics.render({ rooms: rooms.size, sockets: connections, members });
+      return metrics.render({ rooms: rooms.size, sockets: connections, members, openReports: reports.openCount() });
     },
     drain: async () => {
       const holds: SeatHold[] = [];
@@ -357,7 +396,9 @@ export function startServer(opts: ServerOptions): OmegaServer {
   const stopServer = server.stop.bind(server);
   server.stop = (closeActiveConnections?: boolean) => {
     gc.stop();
-    return stopServer(closeActiveConnections);
+    const stopped = stopServer(closeActiveConnections);
+    void stopped.then(() => ownReportDb?.close());
+    return stopped;
   };
   return server;
 }

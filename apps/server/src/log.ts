@@ -14,8 +14,10 @@ export type LogEvent =
   | "store.seat_holds"
   | "store.queue_item"
   | "store.queue"
+  | "store.report"
   | "gc.remove"
   | "gc.sweep"
+  | "gc.purge"
   | "shutdown";
 
 const MAX_MESSAGE = 240;
@@ -43,13 +45,20 @@ const IPV4 = /\b\d{1,3}(?:\.\d{1,3}){3}\b/g;
 /** Two or more colon-joined hex groups with a `::` or at least 3 colons: IPv6, not `a: b` prose. */
 const IPV6 = /(?<![\w:])(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?![\w:])/gi;
 
-/** Every redaction runs before the cap, so the cap never cuts an address to a fragment the patterns miss (OME-548). */
-function scrub(message: string): string {
-  const redacted = head(message)
-    .replace(QUOTED, (q) => `${q.charAt(0)}…${q.charAt(0)}`)
+/**
+ * Emails become `<email>`, IPv4 and IPv6 addresses `<ip>`. Also what an abuse report's note goes through before
+ * it is stored (ADR 0033 §3). The caller bounds `text` first: EMAIL is quadratic on a long run without whitespace.
+ */
+export function redactAddresses(text: string): string {
+  return text
     .replace(EMAIL, "<email>")
     .replace(IPV4, "<ip>")
     .replace(IPV6, (m) => (m.includes("::") || m.split(":").length > 3 ? "<ip>" : m));
+}
+
+/** Every redaction runs before the cap, so the cap never cuts an address to a fragment the patterns miss (OME-548). */
+function scrub(message: string): string {
+  const redacted = redactAddresses(head(message).replace(QUOTED, (q) => `${q.charAt(0)}…${q.charAt(0)}`));
   return redacted.length > MAX_MESSAGE ? `${redacted.slice(0, MAX_MESSAGE)}…` : redacted;
 }
 

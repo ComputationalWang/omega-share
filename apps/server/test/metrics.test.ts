@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Server } from "bun";
-import { CLOSE_CODES } from "@omega/shared";
-import { startMetrics } from "../src/metrics";
+import { CLOSE_CODES, REPORT_REASONS } from "@omega/shared";
+import { REPORT_OUTCOMES, startMetrics } from "../src/metrics";
 import { Room } from "../src/room";
 import { RoomRegistry } from "../src/rooms";
 import { Client, start, type TestServer } from "./helpers";
@@ -35,7 +35,9 @@ function boot(): { registry: RoomRegistry; metricsUrl: string } {
 const wsUrl = (room: string) => t.ws(room);
 
 /** Every line is a comment or `name{label="value"} number` with label values that are numbers or codes. */
-const SAMPLE = /^[a-z_]+(\{(le|code)="(\d+(\.\d+)?(e[+-]?\d+)?|\+Inf)"\})? -?\d+(\.\d+)?(e[+-]?\d+)?$/;
+/** Labels are numbers (`le`, `code`) or one of the report enums (ADR 0033 §3): never free text. */
+const ENUM_LABEL = `(outcome="(${REPORT_OUTCOMES.join("|")})"|reason="(${REPORT_REASONS.join("|")})")`;
+const SAMPLE = new RegExp(`^[a-z_]+(\\{(le|code)="(\\d+(\\.\\d+)?(e[+-]?\\d+)?|\\+Inf)"\\}|\\{${ENUM_LABEL}\\})? -?\\d+(\\.\\d+)?(e[+-]?\\d+)?$`);
 const COMMENT = /^# (HELP|TYPE) [a-z_]+ .+$/;
 
 function sample(text: string, name: string): number {

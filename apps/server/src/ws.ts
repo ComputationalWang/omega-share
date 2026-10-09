@@ -142,6 +142,8 @@ export interface WsDeps {
   wallNow?: () => number;
   /** The playback queue (ADR 0031), shared with the HTTP `POST /rooms/:id/queue`. */
   queue: Queue;
+  /** Whether a room id was taken down (ADR 0033 §5): its sockets close with TAKEN_DOWN, not ROOM_CLOSED. */
+  takenDown?: (id: string) => boolean;
 }
 
 export interface Ws {
@@ -173,6 +175,7 @@ export function createWs({
   metrics = new Metrics(),
   wallNow = Date.now,
   queue,
+  takenDown = () => false,
 }: WsDeps): Ws {
   const upgrades = new KeyedLimiter(UPGRADE_BURST, UPGRADE_PER_SECOND, 1024, now);
   const joins = new KeyedLimiter(JOIN_BURST, JOIN_PER_SECOND, 1024, now);
@@ -572,13 +575,14 @@ export function createWs({
   };
 
   // The room is already unregistered: depart revokes each member's grant, then the socket closes.
-  rooms.onRemove((room) => {
+  rooms.onRemove((room, reason) => {
     const open = sockets.peek(room);
     if (open === undefined) return;
     for (const ws of [...open]) {
       clearJoinTimer(ws);
       if (ws.data.memberId !== null) depart(ws, ws.data.memberId, true, false);
-      closeWith(ws, CLOSE_CODES.ROOM_CLOSED, "room closed");
+      if (reason === "taken_down") closeWith(ws, CLOSE_CODES.TAKEN_DOWN, "room taken down");
+      else closeWith(ws, CLOSE_CODES.ROOM_CLOSED, "room closed");
     }
   });
 
@@ -626,9 +630,10 @@ export function createWs({
       idleTimeout: IDLE_TIMEOUT_S,
       sendPings: true,
       open(ws) {
-        // Upgraded as its room went.
+        // Upgraded as its room went, or to a taken-down id (ADR 0033 §5): closed before any snapshot.
         if (!rooms.has(ws.data.room)) {
-          closeWith(ws, CLOSE_CODES.ROOM_CLOSED, "room closed");
+          if (takenDown(ws.data.room.id)) closeWith(ws, CLOSE_CODES.TAKEN_DOWN, "room taken down");
+          else closeWith(ws, CLOSE_CODES.ROOM_CLOSED, "room closed");
           return;
         }
         sockets.get(ws.data.room).add(ws);

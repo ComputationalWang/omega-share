@@ -6,6 +6,7 @@ import {
   DEFAULT_LAYOUT,
   MAX_CREATE_BODY_BYTES,
   MAX_LISTED_ROOMS,
+  MAX_REPORT_BODY_BYTES,
   MAX_ROOMS,
   RETRY_AFTER_MAX_MS,
   ROOM_CREATE_GLOBAL_BURST,
@@ -13,6 +14,8 @@ import {
   ROOM_CREATE_KEY_BURST,
   ROOM_CREATE_KEY_REFILL_MS,
   ROOM_CREATE_RETRY_AFTER_MAX_MS,
+  ReportRequestSchema,
+  RoomIdSchema,
   ShareRequestSchema,
   parseBearer,
   parseShareAuthorization,
@@ -24,6 +27,8 @@ import {
   type MemberId,
   type QueueAddResponse,
   type QueueItemId,
+  type ReportErrorCode,
+  type ReportResponse,
   type RoomListResponse,
   type RoomSummary,
   type ServerMessage,
@@ -35,6 +40,7 @@ import type { EmbedPolicy } from "./embed-policy";
 import type { SecurityHeaders } from "./headers";
 import { KeyedLimiter, TokenBucket, isLoopbackKey, readBodyCapped, type Clock } from "./rate-limit";
 import type { Queue } from "./queue";
+import type { Reports } from "./reports";
 import { Room, newItemId } from "./room";
 import type { RoomRegistry } from "./rooms";
 import { hashSecret, mintSecret, newRoomId } from "./secrets";
@@ -142,6 +148,8 @@ export interface HttpDeps {
   titleBlocked: (title: string) => boolean;
   /** Unix ms for `created_at` (room GC's clock). */
   wallNow: () => number;
+  /** Abuse reports (ADR 0033): limits, duplicates, the store, and which ids were taken down. */
+  reports: Reports;
 }
 
 /**
@@ -174,6 +182,7 @@ export function createHttpApp({
   titleBlocked,
   wallNow,
   queue,
+  reports,
 }: HttpDeps): Hono {
   const creates = new KeyedLimiter(ROOM_CREATE_KEY_BURST, 1000 / ROOM_CREATE_KEY_REFILL_MS, 1024, now);
   const globalCreates = new TokenBucket(ROOM_CREATE_GLOBAL_BURST, 1000 / ROOM_CREATE_GLOBAL_REFILL_MS, now);
@@ -258,8 +267,8 @@ export function createHttpApp({
     if (!globalCreates.take()) return limited(globalCreates.retryAfterMs());
 
     let id = newRoomId();
-    // 128 random bits: a clash with a live room is never expected, but never reuse an id.
-    while (rooms.get(id) !== undefined) id = newRoomId();
+    // 128 random bits: a clash with a live or taken-down room is never expected, but never reuse an id.
+    while (rooms.get(id) !== undefined || reports.isTakenDown(id)) id = newRoomId();
     const ownerToken = mintSecret();
     const inviteKey = visibility === "private" ? mintSecret() : null;
     const room: NewRoom = {
@@ -443,6 +452,54 @@ export function createHttpApp({
       case "unavailable":
         return plain(503, "can't queue right now, try again later", headers);
     }
+  });
+
+  /**
+   * "Report this room" (ADR 0033): no token, no seat. Check order: body size → room exists → key bucket →
+   * parse → room bucket → duplicate → open cap → store, so an unknown id or a malformed body never drains
+   * the room's bucket. Nothing about the request is logged or kept.
+   */
+  app.post("/rooms/:id/report", async (c) => {
+    c.header("cache-control", "no-store");
+    const fail = (status: 400 | 404 | 413 | 503, code: ReportErrorCode, message: string) => {
+      reports.count(code);
+      const body: ReportResponse = { ok: false, error: { code, message } };
+      return c.json(body, status);
+    };
+    const limited = (retryAfterMs: number) => {
+      c.header("retry-after", String(Math.ceil(retryAfterMs / 1000)));
+      const body: ReportResponse = { ok: false, error: { code: "rate_limited", message: "too many reports, try again later", retryAfterMs } };
+      return c.json(body, 429);
+    };
+    if (Number(c.req.header("content-length") ?? 0) > MAX_REPORT_BODY_BYTES) return fail(413, "payload_too_large", "body too large");
+    const text = await readBodyCapped(c.req.raw, MAX_REPORT_BODY_BYTES);
+    if (text === null) return fail(413, "payload_too_large", "body too large");
+    const id = v.safeParse(RoomIdSchema, c.req.param("id"));
+    // A taken-down room is not in the registry: the same answer as an id that never existed.
+    const room = id.success ? rooms.get(id.output) : undefined;
+    if (room === undefined) return fail(404, "room_not_found", "unknown room");
+    const key = ipOf(c.req.raw);
+    const wait = reports.admitKey(key);
+    if (wait > 0) {
+      reports.count("rate_limited");
+      return limited(wait);
+    }
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return fail(400, "invalid_body", "body is not JSON");
+    }
+    const parsed = v.safeParse(ReportRequestSchema, json);
+    if (!parsed.success) return fail(400, "invalid_body", "expected { reason, note? }");
+    const filed = reports.file(room, key, parsed.output);
+    if ("status" in filed) {
+      const body: ReportResponse = { ok: true, status: filed.status };
+      return c.json(body, filed.status === "received" ? 202 : 200);
+    }
+    if (filed.code === "rate_limited") return limited(filed.retryAfterMs);
+    const body: ReportResponse = { ok: false, error: { code: "unavailable", message: "can't take reports right now, try again later" } };
+    return c.json(body, 503);
   });
 
   if (staticDir !== null) mountSite(app, staticDir);

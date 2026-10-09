@@ -246,7 +246,7 @@ describe("limits", () => {
     db = d;
     const store = new RoomStore(d);
     store.createRoom({ id: ROOM, title: "Film club", createdAt: T0, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
-    t = start({ store, reportStore: new ReportStore(d), now: () => 0 });
+    t = start({ store, reportStore: new ReportStore(d), now: () => 0, wallNow: () => T0 });
     const f: Fixture = { t, db: d, reportStore: new ReportStore(d), rooms: new RoomRegistry(), wall: { ms: T0 }, mono: { ms: 0 } };
     for (let i = 0; i < REPORT_ROOM_BURST; i++) expect((await report(f, ROOM, { reason: "spam" }, null)).status).toBe(202);
     expect((await report(f, ROOM, { reason: "spam" }, null)).status).toBe(429);

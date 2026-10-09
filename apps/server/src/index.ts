@@ -6,6 +6,7 @@ import { startMetrics } from "./metrics";
 import { RoomRegistry } from "./rooms";
 import { startServer } from "./server";
 import { openDatabase } from "./store/db";
+import { ReportStore } from "./store/reports";
 import { RoomStore, type SeatHold } from "./store/rooms";
 
 let config: ServerConfig;
@@ -26,9 +27,11 @@ if (!["127.0.0.1", "::1", "localhost"].includes(config.hostname)) {
 }
 let db: Database;
 let store: RoomStore;
+let reportStore: ReportStore;
 try {
   db = openDatabase(config.dbPath);
   store = new RoomStore(db);
+  reportStore = new ReportStore(db);
 } catch (err) {
   console.error(`DB_PATH ${config.dbPath}: ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
@@ -41,12 +44,12 @@ try {
   logError("store.seat_holds", err);
 }
 const rooms = new RoomRegistry();
-const server = startServer({ ...config, store, registry: rooms, seatHolds });
+const server = startServer({ ...config, store, reportStore, registry: rooms, seatHolds });
 const metrics = config.metricsPort === null ? null : startMetrics({ port: config.metricsPort, render: () => server.metricsText() });
 let admin: AdminServer | null = null;
 if (adminSocket !== null) {
   try {
-    admin = startAdmin({ rooms, store, socketPath: adminSocket });
+    admin = startAdmin({ rooms, store, reports: server.reports, socketPath: adminSocket });
     console.log(`operator CLI socket at ${adminSocket}`);
   } catch (err) {
     // Serving the site matters more than the CLI: say so loudly, keep running.

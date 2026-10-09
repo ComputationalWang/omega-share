@@ -1,5 +1,5 @@
 import type { Server } from "bun";
-import { CLOSE_CODES } from "@omega/shared";
+import { CLOSE_CODES, REPORT_ERROR_CODES, REPORT_REASONS, REPORT_STATUSES, type ReportReason } from "@omega/shared";
 
 /**
  * Server metrics (OME-504), Prometheus text on a loopback-only port that Caddy never proxies.
@@ -18,15 +18,22 @@ const COUNTED_CLOSES = [
   CLOSE_CODES.RATE_LIMITED,
   CLOSE_CODES.BAD_MESSAGES,
   CLOSE_CODES.KICKED,
+  CLOSE_CODES.TAKEN_DOWN,
   SERVICE_RESTART,
 ] as const;
 export type CountedClose = (typeof COUNTED_CLOSES)[number];
+
+/** How a `POST /rooms/:id/report` ended (ADR 0033 §3): its answer's status or error code. */
+export const REPORT_OUTCOMES = [...REPORT_STATUSES, ...REPORT_ERROR_CODES] as const;
+export type ReportOutcome = (typeof REPORT_OUTCOMES)[number];
 
 /** What the live server knows right now, read at scrape time. */
 export interface Gauges {
   rooms: number;
   sockets: number;
   members: number;
+  /** Open abuse reports. */
+  openReports: number;
 }
 
 export class Metrics {
@@ -35,6 +42,9 @@ export class Metrics {
   private relaySum = 0;
   private relayCount = 0;
   private readonly closes = new Map<CountedClose, number>(COUNTED_CLOSES.map((c) => [c, 0]));
+  private readonly reports = new Map<ReportOutcome, number>(REPORT_OUTCOMES.map((o) => [o, 0]));
+  private readonly reasons = new Map<ReportReason, number>(REPORT_REASONS.map((r) => [r, 0]));
+  private takedowns = 0;
 
   /** One relayed frame took `ms` on the server. */
   observeRelay(ms: number): void {
@@ -48,6 +58,16 @@ export class Metrics {
 
   countClose(code: CountedClose): void {
     this.closes.set(code, (this.closes.get(code) ?? 0) + 1);
+  }
+
+  /** One report answered; `reason` only for a stored one. Never a room, key or note. */
+  countReport(outcome: ReportOutcome, reason?: ReportReason): void {
+    this.reports.set(outcome, (this.reports.get(outcome) ?? 0) + 1);
+    if (reason !== undefined) this.reasons.set(reason, (this.reasons.get(reason) ?? 0) + 1);
+  }
+
+  countTakedown(): void {
+    this.takedowns++;
   }
 
   render(g: Gauges): string {
@@ -71,6 +91,15 @@ export class Metrics {
     const closes = "omega_ws_closes_total";
     out.push(`# HELP ${closes} WebSocket closes the server sent, by close code.`, `# TYPE ${closes} counter`);
     for (const [code, n] of this.closes) out.push(`${closes}{code="${String(code)}"} ${String(n)}`);
+
+    const counter = (name: string, help: string, label: string, values: ReadonlyMap<string, number>): void => {
+      out.push(`# HELP ${name} ${help}`, `# TYPE ${name} counter`);
+      for (const [k, n] of values) out.push(`${name}{${label}="${k}"} ${String(n)}`);
+    };
+    counter("omega_reports_total", "Abuse reports answered, by outcome.", "outcome", this.reports);
+    counter("omega_reports_received_total", "Abuse reports stored, by reason.", "reason", this.reasons);
+    gauge("omega_reports_open", "Open abuse reports.", g.openReports);
+    out.push("# HELP omega_takedowns_total Rooms taken down by the operator.", "# TYPE omega_takedowns_total counter", `omega_takedowns_total ${String(this.takedowns)}`);
 
     gauge("process_resident_memory_bytes", "Resident set size.", process.memoryUsage.rss());
     gauge("process_uptime_seconds", "Seconds since the process started.", process.uptime());

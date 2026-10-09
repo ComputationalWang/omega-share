@@ -1,5 +1,8 @@
 import type { Room } from "./room";
 
+/** Why a room ends: `closed` (owner delete, GC, operator delete) or `taken_down` (operator takedown, ADR 0033 §5). */
+export type RemoveReason = "closed" | "taken_down";
+
 /** State kept per live room (a limiter, its sockets…), dropped when the room is removed. */
 export interface PerRoom<T> {
   /** The room's state, created on first use. A room that is not registered gets a fresh value that is never stored. */
@@ -19,7 +22,7 @@ export interface PerRoom<T> {
 export class RoomRegistry {
   private readonly byId = new Map<string, Room>();
   private readonly maps: Map<Room, unknown>[] = [];
-  private readonly closers: ((room: Room) => void)[] = [];
+  private readonly closers: ((room: Room, reason: RemoveReason) => void)[] = [];
 
   get size(): number {
     return this.byId.size;
@@ -48,16 +51,16 @@ export class RoomRegistry {
    * WebSocket layer closes the room's sockets and revokes their share grants), then drops every
    * per-room entry. False if the room was not registered.
    */
-  removeRoom(room: Room): boolean {
+  removeRoom(room: Room, reason: RemoveReason = "closed"): boolean {
     if (!this.has(room)) return false;
     this.byId.delete(room.id);
-    for (const close of this.closers) close(room);
+    for (const close of this.closers) close(room, reason);
     for (const map of this.maps) map.delete(room);
     return true;
   }
 
-  /** Runs `close(room)` whenever a room is removed, before its per-room state is dropped. */
-  onRemove(close: (room: Room) => void): void {
+  /** Runs `close(room, reason)` whenever a room is removed, before its per-room state is dropped. */
+  onRemove(close: (room: Room, reason: RemoveReason) => void): void {
     this.closers.push(close);
   }
 

@@ -10,7 +10,7 @@ The server keeps rooms, layouts and each room's last embed in one SQLite file (`
 | Off-box copy | the operator's machine | newest 14 | `deploy/backup/pull.sh` (rsync over SSH) |
 | Provider disk backup | the cloud provider | per provider | optional, see [Options](#options-not-set-up) |
 
-Retention counts snapshots, not days. A box that was off for a month still has its last 14, and so does the off-box copy.
+Retention counts snapshots, not days. A box that was off for a month still has its last 14, and so does the off-box copy. Snapshots include abuse reports (ADR 0033): a report is gone from every copy only once the last 14 nightly backups were all taken after its 30 days ran out ([rooms.md](rooms.md#abuse-reports)).
 
 ## Paths and names
 
