@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { AVATAR_COUNT } from "@omega/shared";
-import { DIRS, cycleFrame, parseMotion } from "../src/walk/motion";
+import { DIRS, cycleFrame, oneShotFrame, parseMotion } from "../src/walk/motion";
 
 // OME-408: set (d) motion atlas (ADR 0010). Parsed with Valibot at load; every frame a walk or breathe uses must exist
 // in one of the two sheets (breathe frame 0 is the set (a) pose in avatars.json).
@@ -48,6 +48,37 @@ describe("parseMotion", () => {
     expect(() => parseMotion(bad, avatars)).toThrow();
   });
 
+  // OME-415: wave and the emote stickers are one-shots (loop false), named in meta.omega.anims.
+  test("wave is a one-shot per avatar, pose and direction: 6 × 160 ms", () => {
+    const w = m.wave[0]?.sit[DIRS.indexOf("ne")];
+    expect(w).toEqual({
+      frames: ["wave/juno/sit/ne/0", "wave/juno/sit/ne/1", "wave/juno/sit/ne/0", "wave/juno/sit/ne/1", "wave/juno/sit/ne/0", "wave/juno/sit/ne/1"],
+      ms: [160, 160, 160, 160, 160, 160],
+    });
+    expect(m.wave[3]?.idle[DIRS.indexOf("se")]?.frames[0]).toBe("wave/kiki/idle/se/0");
+  });
+
+  test("every sticker emote is a one-shot of its own frames, about 1.3 s", () => {
+    expect(m.emote.heart).toEqual({
+      frames: ["emote/heart/0", "emote/heart/1", "emote/heart/2", "emote/heart/1", "emote/heart/2", "emote/heart/1", "emote/heart/0"],
+      ms: [80, 160, 200, 200, 200, 400, 80],
+    });
+    expect(Object.keys(m.emote).sort()).toEqual(["clap", "exclaim", "heart", "laugh", "question"]);
+  });
+
+  test("refuses a sheet without a wave for some avatar, pose and direction", () => {
+    const bad = clone(motion);
+    delete (bad["meta"] as { omega: { anims: Record<string, unknown> } }).omega.anims["wave/pip/idle/sw"];
+    expect(() => parseMotion(bad, avatars)).toThrow();
+  });
+
+  test("refuses an emote whose timing doesn't match its frames", () => {
+    const bad = clone(motion);
+    const anim = (bad["meta"] as { omega: { anims: Record<string, { ms: number[] }> } }).omega.anims["emote/clap"];
+    anim?.ms.pop();
+    expect(() => parseMotion(bad, avatars)).toThrow();
+  });
+
   test("refuses junk", () => {
     expect(() => parseMotion({}, avatars)).toThrow();
     expect(() => parseMotion(motion, null)).toThrow();
@@ -61,5 +92,17 @@ describe("cycleFrame", () => {
     expect(cycleFrame(ms, 0).nextIn).toBe(1400);
     expect(cycleFrame(ms, 1500).nextIn).toBe(900);
     expect(cycleFrame(ms, -100)).toEqual({ index: 0, nextIn: 1500 });
+  });
+});
+
+describe("oneShotFrame", () => {
+  test("which frame a one-shot shows after t ms and how long until it changes; -1 once it's over", () => {
+    const ms = [80, 160, 200];
+    expect([0, 79, 80, 239, 240, 439].map((t) => oneShotFrame(ms, t).index)).toEqual([0, 0, 1, 1, 2, 2]);
+    expect(oneShotFrame(ms, 100).nextIn).toBe(140);
+    expect(oneShotFrame(ms, 439).nextIn).toBe(1);
+    expect(oneShotFrame(ms, 440)).toEqual({ index: -1, nextIn: Infinity });
+    expect(oneShotFrame(ms, 10_000).index).toBe(-1);
+    expect(oneShotFrame(ms, -50)).toEqual({ index: -1, nextIn: 50 });
   });
 });

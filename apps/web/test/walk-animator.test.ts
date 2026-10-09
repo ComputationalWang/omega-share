@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT, type MemberId } from "@omega/shared";
 import { standDepth } from "../src/furniture";
 import { cellCenter } from "../src/layout";
-import { createAnimator } from "../src/walk/animator";
+import { EMOTE_LIFT, createAnimator } from "../src/walk/animator";
 import { parseMotion } from "../src/walk/motion";
 import { walkGrid } from "../src/walk/path";
 import { createWalks, type Pose, type WalkTarget } from "../src/walk/walks";
@@ -26,6 +26,7 @@ function setup(opts: { reduced?: boolean } = {}) {
   const timers: { fn: () => void; ms: number }[] = [];
   let cleared = 0;
   const draws: { id: string; pose: Pose; frame: string | null }[] = [];
+  const stickers: { id: string; frame: string | null; x: number; y: number }[] = [];
   let renders = 0;
   const walks = createWalks({ reducedMotion: () => opts.reduced ?? false });
   walks.setGrid(walkGrid(DEFAULT_LAYOUT));
@@ -44,6 +45,7 @@ function setup(opts: { reduced?: boolean } = {}) {
     },
     reducedMotion: () => opts.reduced ?? false,
     draw: (who, _avatar, pose, frame) => draws.push({ id: who, pose: { ...pose }, frame }),
+    drawEmote: (who, frame, x, y) => stickers.push({ id: who, frame, x, y }),
     render: () => {
       renders++;
     },
@@ -52,6 +54,7 @@ function setup(opts: { reduced?: boolean } = {}) {
     walks,
     anim,
     draws,
+    stickers,
     rafs,
     timers,
     renders: () => renders,
@@ -193,5 +196,157 @@ describe("animator teardown and idle cost", () => {
     }
     expect(t).toBeGreaterThanOrEqual(10_000);
     expect(s.renders()).toBeLessThanOrEqual(10_000 / 400 + 1);
+  });
+});
+
+// OME-415: `emoted` plays once. A wave swaps the avatar's own frames (wave/<avatar>/idle|sit/<dir>); a sticker is drawn
+// above the avatar. Same timer → rAF loop as breathing, but on the one-shot's exact frame times.
+describe("emotes", () => {
+  /** Runs timers and frames until nothing is pending or `until` passes; returns the times frames ran at. */
+  function run(s: ReturnType<typeof setup>, from: number, until: number): number[] {
+    const at: number[] = [];
+    let t = from;
+    if (s.frame(t)) at.push(t);
+    while (t < until) {
+      const timer = s.timers.at(-1);
+      if (timer === undefined) break;
+      s.timers.length = 0;
+      t += timer.ms;
+      timer.fn();
+      if (s.frame(t)) at.push(t);
+    }
+    return at;
+  }
+
+  function ready(opts: { reduced?: boolean } = {}) {
+    const s = setup(opts);
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 4, 9), { id: id("b"), at: cellCenter(5, 1), z: 1, seatFacing: "nw" }], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }, { id: id("b"), avatar: 3 }]);
+    s.frame(0);
+    s.timers.length = 0;
+    s.draws.length = 0;
+    s.stickers.length = 0;
+    return s;
+  }
+
+  const framesOf = (s: ReturnType<typeof setup>, who: string): (string | null)[] => s.draws.filter((d) => d.id === who).map((d) => d.frame);
+  const lastSticker = (s: ReturnType<typeof setup>, who: string) => s.stickers.filter((d) => d.id === who).at(-1);
+
+  test("a standing wave plays wave/<avatar>/idle/<dir> on 160 ms frames, then the pose comes back", () => {
+    const s = ready({ reduced: false });
+    s.at(1000);
+    s.anim.emote(id("a"), "wave");
+    expect(s.rafs.length).toBe(1);
+    const at = run(s, 1000, 2000);
+    // Breathing may add a frame on its 400 ms clock; the wave's own frame times are all there.
+    expect(at).toEqual(expect.arrayContaining([1000, 1160, 1320, 1480, 1640, 1800, 1960]));
+    const a = framesOf(s, "a").filter((f, i, all) => i === 0 || f !== all[i - 1]);
+    expect(a.slice(0, 6)).toEqual(["wave/juno/idle/ne/0", "wave/juno/idle/ne/1", "wave/juno/idle/ne/0", "wave/juno/idle/ne/1", "wave/juno/idle/ne/0", "wave/juno/idle/ne/1"]);
+    expect(a[6]).toMatch(/^(juno\/idle\/ne\/0|breathe\/juno\/idle\/ne\/1)$/);
+    expect(s.stickers.every((x) => x.frame === null)).toBe(true);
+  });
+
+  test("a seated wave uses the sit pose and the seat's facing", () => {
+    const s = ready();
+    s.at(500);
+    s.anim.emote(id("b"), "wave");
+    s.frame(500);
+    expect(framesOf(s, "b").at(-1)).toBe("wave/kiki/sit/nw/0");
+  });
+
+  test("a sticker plays emote/<kind> above the avatar for its timing, then goes away; the avatar keeps its pose", () => {
+    const s = ready();
+    s.at(1000);
+    s.anim.emote(id("a"), "heart");
+    s.frame(1000);
+    const pose = s.draws.filter((d) => d.id === "a").at(-1)?.pose;
+    expect(lastSticker(s, "a")).toEqual({ id: "a", frame: "emote/heart/0", x: pose?.x ?? NaN, y: (pose?.y ?? NaN) - EMOTE_LIFT.idle });
+    expect(framesOf(s, "a").at(-1)).not.toMatch(/^wave/);
+    expect(s.timers.at(-1)?.ms).toBe(80); // exact, not on the 400 ms breathe clock
+    const at = run(s, 1000, 3000);
+    expect(at).toEqual(expect.arrayContaining([1000, 1080, 1240, 1440, 1640, 1840, 2240, 2320]));
+    const shown = s.stickers.filter((x) => x.id === "a" && x.frame !== null).map((x) => x.frame);
+    expect(shown.filter((f, i) => i === 0 || f !== shown[i - 1])).toEqual([
+      "emote/heart/0", "emote/heart/1", "emote/heart/2", "emote/heart/1", "emote/heart/2", "emote/heart/1", "emote/heart/0",
+    ]);
+    expect(lastSticker(s, "a")?.frame).toBeNull();
+  });
+
+  test("a seated member's sticker sits lower, over the seated head", () => {
+    const s = ready();
+    s.at(0);
+    s.anim.emote(id("b"), "clap");
+    s.frame(0);
+    expect(lastSticker(s, "b")?.y).toBe(cellCenter(5, 1).y - EMOTE_LIFT.sit);
+  });
+
+  test("a new sticker replaces the one still playing, from its first frame", () => {
+    const s = ready();
+    s.at(0);
+    s.anim.emote(id("a"), "heart");
+    s.frame(0);
+    s.at(500);
+    s.anim.emote(id("a"), "laugh");
+    s.frame(500);
+    expect(lastSticker(s, "a")?.frame).toBe("emote/laugh/0");
+  });
+
+  test("a sticker rides along with a walker", () => {
+    const s = ready();
+    s.walks.place([standAt("a", 4, 8), { id: id("b"), at: cellCenter(5, 1), z: 1, seatFacing: "nw" }], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }, { id: id("b"), avatar: 3 }]);
+    s.anim.emote(id("a"), "question");
+    run(s, 0, 700);
+    const moving = s.stickers.filter((x) => x.id === "a" && x.frame !== null);
+    expect(new Set(moving.map((x) => x.y)).size).toBeGreaterThan(1);
+    for (const st of moving) {
+      const d = s.draws.filter((x) => x.id === "a").find((x) => x.pose.x === st.x);
+      expect(d).toBeDefined();
+    }
+  });
+
+  test("prefers-reduced-motion: no frame swaps, no sticker sprite, no timers (room.ts shows a static badge)", () => {
+    const s = ready({ reduced: true });
+    s.anim.emote(id("a"), "wave");
+    s.anim.emote(id("b"), "heart");
+    expect(s.rafs.length).toBe(0);
+    expect(s.timers.length).toBe(0);
+    expect(s.draws.some((d) => d.frame?.startsWith("wave") === true)).toBe(false);
+    expect(s.stickers.some((x) => x.frame !== null)).toBe(false);
+  });
+
+  test("an emote from someone not in the room draws nothing", () => {
+    const s = ready();
+    s.anim.emote(id("zz"), "heart");
+    expect(s.rafs.length).toBe(0);
+    expect(s.stickers.some((x) => x.id === "zz")).toBe(false);
+  });
+
+  test("before the motion atlas is in, emotes draw nothing and leave no timer behind", () => {
+    const s = setup();
+    s.walks.place([standAt("a", 4, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.anim.emote(id("a"), "heart");
+    s.frame(0);
+    expect(s.stickers.every((x) => x.frame === null)).toBe(true);
+    expect(s.timers.length).toBe(0);
+  });
+
+  test("8 people emoting together share their redraws: one render per frame change, not one per person", () => {
+    const s = setup();
+    s.anim.setFrames(frames);
+    const people = Array.from({ length: 8 }, (_, i) => standAt(`p${String(i)}`, i, 9));
+    s.walks.place(people, 0);
+    s.anim.set(people.map((p, i) => ({ id: p.id, avatar: i % 4 })));
+    s.frame(0);
+    s.timers.length = 0;
+    const before = s.renders();
+    s.at(1000);
+    for (const p of people) s.anim.emote(p.id, "heart");
+    const at = run(s, 1000, 2400);
+    // 7 sticker frames + the frame that clears them; breathing changes may add a few on the shared 400 ms clock.
+    expect(s.renders() - before).toBe(at.length);
+    expect(at.length).toBeLessThanOrEqual(8 + 4);
   });
 });

@@ -5,7 +5,7 @@ import { routeConnectionEvent } from "../src/room-events";
 import type { ViewEvent } from "../src/state";
 
 /** A real clock on fake timers: which timers are still pending after the event. */
-function setup(): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[] } {
+function setup(): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[]; emoted: [string, string][] } {
   const pending = new Set<number>();
   let next = 0;
   const clock = createClockSync<number>({
@@ -22,13 +22,15 @@ function setup(): { pending: Set<number>; route: (e: ConnectionEvent) => void; d
   });
   clock.start();
   const dispatched: ViewEvent[] = [];
+  const emoted: [string, string][] = [];
   const sinks = {
+    emoted: (memberId: string, kind: string) => emoted.push([memberId, kind]),
     clock,
     shareToken: { onEvent: () => undefined },
     joined: () => undefined,
     dispatch: (e: ViewEvent) => dispatched.push(e),
   };
-  return { pending, route: (e) => { routeConnectionEvent(e, sinks, 0); }, dispatched };
+  return { pending, route: (e) => { routeConnectionEvent(e, sinks, 0); }, dispatched, emoted };
 }
 
 test("room-closed (4004) stops the clock: no ping timer keeps firing on the terminal screen", () => {
@@ -49,4 +51,11 @@ test("connecting leaves the clock running", () => {
   const { pending, route } = setup();
   route({ type: "connecting" });
   expect(pending.size).toBeGreaterThan(0);
+});
+
+test("emoted goes straight to the scene's emote sink, never through the view state (OME-415)", () => {
+  const { route, dispatched, emoted } = setup();
+  route({ type: "message", msg: { type: "emoted", memberId: "m1", kind: "wave" } });
+  expect(emoted).toEqual([["m1", "wave"]]);
+  expect(dispatched).toEqual([]);
 });
