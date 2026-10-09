@@ -83,6 +83,23 @@ describe("emote picker", () => {
     expect(sent.length).toBe(1);
   });
 
+  test("a key pick with the menu open sends it and closes the menu, like a click (OME-485)", async () => {
+    const { key, menu, press, sent } = await setup();
+    key.click();
+    expect(press("3")).toBe(true);
+    expect(sent).toEqual([{ type: "emote", kind: "question" }]);
+    expect(menu.hidden).toBe(true);
+    expect(key.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  test("a held key sends once: key-repeat is swallowed, not spent on the burst (OME-485)", async () => {
+    const { press, sent, key } = await setup();
+    expect(press("1")).toBe(true);
+    for (let i = 0; i < 5; i++) expect(press("1", { repeat: true })).toBe(true);
+    expect(sent.length).toBe(1);
+    expect(key.classList.contains("is-cooling")).toBe(false);
+  });
+
   test("Escape closes an open menu and gives focus back to the key", async () => {
     const { key, menu, press } = await setup();
     key.click();
