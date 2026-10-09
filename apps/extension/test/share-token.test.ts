@@ -15,7 +15,7 @@ interface FakeTab {
 }
 
 /** A room tab at `/r/<roomId>` holding `value` (by default, that room's well-formed record). */
-const at = (roomId: string, value: unknown = record(roomId, TOKEN)): FakeTab => ({ url: `http://localhost:5173/r/${roomId}`, value });
+const at = (roomId: string, value: unknown = record(roomId, TOKEN), site = "http://localhost:5173"): FakeTab => ({ url: `${site}/r/${roomId}`, value });
 
 function fake(tabs: Record<number, FakeTab>, opts: { failing?: readonly number[] } = {}): { deps: TokenDeps; queried: string[][]; read: number[] } {
   const queried: string[][] = [];
@@ -51,8 +51,9 @@ describe("roomTabPatterns", () => {
 
 describe("readShareTokens", () => {
   test("queries room tabs and parses each tab's sessionStorage record", async () => {
-    const f = fake({ 4: at("lobby"), 9: at("movies", record("movies", TOKEN2)) });
-    const tokens = await readShareTokens("https://abc123.ngrok-free.app", f.deps);
+    const site = "https://abc123.ngrok-free.app";
+    const f = fake({ 4: at("lobby", record("lobby", TOKEN), site), 9: at("movies", record("movies", TOKEN2), site) });
+    const tokens = await readShareTokens(site, f.deps);
     expect([...tokens]).toEqual([
       ["lobby", TOKEN],
       ["movies", TOKEN2],
