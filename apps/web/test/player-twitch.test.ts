@@ -790,3 +790,82 @@ describe("attachTwitch quality: the SDK's stale cache (OME-599 review)", () => {
     expect(adapter.quality?.current()).toBe("480p30");
   });
 });
+
+/**
+ * Twitch's own gear (OME-666): the embed's settings menu can change the quality without us. Real Twitch, VOD and live:
+ * the push right before the switch's `pause` already reads the new getQuality(), then come seek and play/playing.
+ */
+describe("attachTwitch quality: a pick in Twitch's own gear menu (OME-666)", () => {
+  test("VOD: the switch's pause, seek and play send no intent; the key follows the pick; a pause after the window counts", () => {
+    const { t, adapter, p, events, ready, push } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    adapter.play();
+    push({ playback: "Playing", time: 20 });
+    p.fire("playing");
+    t.now += 10_000;
+    // The member picks 480p in Twitch's menu: the cache says so before the pause event, playback still Playing.
+    p.quality = "480p30";
+    p.fire("pause");
+    t.now += 1350;
+    push({ playback: "Buffering", time: 31.2 });
+    p.fire("seek", { position: 31.2 });
+    p.fire("play");
+    p.fire("playing");
+    push({ playback: "Playing", time: 31.3 });
+    expect(intents(events)).toEqual([]);
+    expect(adapter.quality?.current()).toBe("480p30");
+    t.now += QUALITY_ECHO_MS;
+    push({ playback: "Idle", time: 36 });
+    p.fire("pause");
+    expect(intents(events)).toEqual([{ type: "intent", playing: false, position: 36 }]);
+  });
+
+  test("the pick is seen on our iframe's push too, before any event", () => {
+    const { t, adapter, p, events, ready, push, deliver } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    adapter.play();
+    push({ playback: "Playing", time: 20 });
+    p.fire("playing");
+    t.now += 10_000;
+    p.quality = "720p60";
+    deliver();
+    expect(adapter.quality?.current()).toBe("720p60");
+    expect(events.at(-1)).toEqual({ type: "quality" });
+    t.now += 200;
+    p.fire("pause");
+    expect(intents(events)).toEqual([]);
+  });
+
+  test("live: the switch's pause and play send no intent", () => {
+    const { t, adapter, p, events, ready, push } = setup(LIVE);
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    adapter.play();
+    push({ playback: "Playing" });
+    p.fire("playing");
+    t.now += LIVE_RESUME_MS + 1000;
+    p.quality = "720p60";
+    p.fire("pause");
+    t.now += 220;
+    p.fire("play");
+    p.fire("playing");
+    expect(intents(events)).toEqual([]);
+  });
+
+  test("a quality reading that never changes swallows nothing: Auto stays Auto while ABR adapts", () => {
+    const { t, adapter, p, events, ready, push } = setup();
+    ready();
+    adapter.play();
+    push({ playback: "Playing", time: 20 });
+    p.fire("playing");
+    // The list arrives after ready; getQuality() was "auto" all along.
+    p.qualities = TWITCH_QUALITIES;
+    p.fire("playing");
+    t.now += 2000;
+    push({ playback: "Idle", time: 22 });
+    p.fire("pause");
+    expect(intents(events)).toEqual([{ type: "intent", playing: false, position: 22 }]);
+  });
+});
