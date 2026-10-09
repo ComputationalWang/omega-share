@@ -300,10 +300,12 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .room-side > .chat-away, .room-side > .room-away { max-width: none; }
 .room-side .chat input, .room-side .invite input { min-width: 0; }
 .room-side .chat > button { padding-inline: 12px; }
-/* The volume pod in the TV's shelf (OME-642): beside the transport, not squeezed. On a compact shelf the chips keep their
- * glyphs but drop their words, and the pod's own chip goes (its mustard rim and its group's label say "only you"), so
- * the seek bar and the volume track stay wide enough for a 44 px finger. */
+/* The volume pod in the TV's shelf (OME-642): beside the transport, not squeezed. The shelf is a size container: as it
+ * narrows the words go before anything overlaps (the plate's name, the hints), then the chips keep only their glyphs and
+ * the pod's chip goes (its mustard rim and its group's label say "only you"), so on a phone the seek bar and the volume
+ * track keep a 44 px finger. */
+.controls { container-type: inline-size; }
 .controls > .ui-volume { flex: none; margin-left: 4px; }
-.ui-tv-shelf.compact .ui-chip { font-size: 0; gap: 0; }
-.ui-tv-shelf.compact > .ui-volume > .ui-chip { display: none; }
+@container (max-width: 720px) { .ui-plate-name, .ui-hint-text, .ui-live-note { display: none; } }
+@container (max-width: 520px) { .ui-chip { font-size: 0; gap: 0; } .ui-volume > .ui-chip { display: none; } }
 .ui-touch .controls .ui-vol-track { width: 48px; }
