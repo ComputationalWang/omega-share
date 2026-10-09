@@ -22,6 +22,7 @@ export const SPEC_ROOMS = {
   "chat-log": ["lines", "keys", "reduced"],
   "chat-perf": ["frames"],
   "phone-layout": ["stack", "touch", "narrow", "drag", "keys", "afterdrag"],
+  wide: ["w1280", "w1920", "phone", "keys", "fs"],
   "phone-perf": ["frames"],
   fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab"],
   "provider-fullscreen": ["yt", "twvod", "vimeo", "live", "generic"],
