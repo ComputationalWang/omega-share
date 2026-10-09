@@ -206,6 +206,43 @@ describe("what it sends (ADR 0033: only reason and note)", () => {
     await settle();
     expect(visible("report-sent")).toBe(true);
   });
+
+  test("closed while a send is out (QA OME-640): a success still sinks the key, so it never reads 'Report room' and does nothing", async () => {
+    let release: (r: Response) => void = () => undefined;
+    const slow = new Promise<Response>((r) => {
+      release = r;
+    });
+    const { report, pick, send, settle } = await setup([slow]);
+    report.key.click();
+    pick("spam");
+    send.click();
+    report.dialog.close();
+    release(RECEIVED());
+    await settle();
+    expect(report.isOpen()).toBe(false);
+    expect(report.reported()).toBe(true);
+    expect(report.key.textContent).toBe("Reported");
+    expect(report.key.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  test("closed while a send is out and it fails: the key stays a live 'Report room' and reopens the form with the words kept", async () => {
+    let fail: (e: Error) => void = () => undefined;
+    const slow = new Promise<Response>((_, reject) => {
+      fail = reject;
+    });
+    const { report, pick, send, settle, visible } = await setup([slow]);
+    report.key.click();
+    pick("spam");
+    send.click();
+    report.dialog.close();
+    fail(new TypeError("offline"));
+    await settle();
+    expect(report.key.hasAttribute("aria-disabled")).toBe(false);
+    report.key.click();
+    expect(report.isOpen()).toBe(true);
+    expect(visible("report-form")).toBe(true);
+    expect(send.disabled).toBe(false);
+  });
 });
 
 describe("answers", () => {

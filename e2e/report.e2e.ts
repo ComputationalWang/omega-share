@@ -194,11 +194,18 @@ test("a takedown (4006) shows the team's notice, never reconnects, forgets the r
     });
   });
   expect(routes).toHaveLength(1);
+  // Taken down while the guest has the dialog open (QA OME-640): the dialog goes and focus lands on the notice, not <body>.
+  await page.locator(site.reportKey).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(site.reportDialog)).toBeVisible();
+  await page.keyboard.press("ArrowDown");
   takenDown = true;
   await routes[0]?.close({ code: CLOSE_CODES.TAKEN_DOWN, reason: "taken down" });
 
   const notice = page.locator(site.roomClosed);
   await expect(notice).toBeVisible();
+  await expect(page.locator(site.reportDialog)).toBeHidden();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.closest("[data-testid=room-closed]") != null)).toBe(true);
   await expect(notice).toHaveAttribute("data-reason", "taken-down");
   await expect(notice).toContainText("This room was closed by the omega-share team after a report.");
   await expect(page.locator(site.reportKey)).toBeHidden();
