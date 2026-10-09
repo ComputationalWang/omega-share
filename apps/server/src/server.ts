@@ -135,7 +135,10 @@ function loadRooms(
         return again === null || i.id === r.itemId ? [] : [{ id: i.id, embed: again }];
       });
       // Hidden rows don't count toward QUEUE_MAX while hidden, so a flip back can bring more: keep the oldest.
-      if (restored.length > QUEUE_MAX) logError("store.queue", new Error(`restored queue over QUEUE_MAX: ${String(restored.length - QUEUE_MAX)} items left out`));
+      // The rest are deleted, or they would stay ahead of later adds and come back in their place.
+      const cut = restored.slice(QUEUE_MAX);
+      if (cut.length > 0) logError("store.queue", new Error(`restored queue over QUEUE_MAX: ${String(cut.length)} items deleted`));
+      for (const item of cut) store.removeQueueItem(r.id, item.id);
       const queue = restored.slice(0, QUEUE_MAX);
       rooms.addRoom(new Room(r.id, { ...r, embed, itemId: embed === null ? null : r.itemId, queue, itemSince: since }));
     }
