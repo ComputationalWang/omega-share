@@ -54,6 +54,21 @@ describe("logger", () => {
     expect(parse(line).error).toBe('Error: no room "…"');
   });
 
+  // OME-548: the cap runs last, so an address that straddles it is not cut to a fragment the patterns miss.
+  test("an IP or email straddling the length cap is still redacted", () => {
+    const pad = `${"x".repeat(225)} from `;
+    const cases: [string, string, string[]][] = [
+      [`${pad}203.0.113.7`, `Error: ${pad}<ip>`, ["203", "113"]],
+      [`${pad}mail@example.com`, `Error: ${pad}<email>`, ["mail@", "exam"]],
+      [`${pad}2001:db8:85a3::8a2e:370:7334`, `Error: ${pad}<ip>`, ["2001", "db8", "85a3"]],
+    ];
+    for (const [message, expected, secrets] of cases) {
+      const line = formatLogLine("error", "store.title", new Error(message));
+      for (const secret of secrets) expect(line).not.toContain(secret);
+      expect(parse(line).error).toBe(expected);
+    }
+  });
+
   test("caps the message length", () => {
     const line = formatLogLine("error", "store.title", new Error("x".repeat(5000)));
     expect(line.length).toBeLessThan(400);
