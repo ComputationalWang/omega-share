@@ -188,7 +188,7 @@ describe("quality picker (only you)", () => {
     expect(document.activeElement).toBe(rows()[1] ?? null);
     press(rows()[1] ?? p.menu, "ArrowLeft");
     expect(document.activeElement).toBe(rows()[0] ?? null);
-    p.menu.querySelector<HTMLButtonElement>("[aria-label='Close quality']")?.click();
+    p.menu.querySelector<HTMLButtonElement>("[data-testid=quality-close]")?.click();
     expect(p.isOpen()).toBe(false);
     expect(document.activeElement).toBe(p.key);
     p.setRow(false);

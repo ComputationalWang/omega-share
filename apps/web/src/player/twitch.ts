@@ -2,8 +2,10 @@ import { playbackCaps, type Embed } from "@omega/shared";
 import { twitchIframeMatches, type TvTwitch } from "../tv";
 import type { PlayerAdapter, PlayerErrorReason, PlayerEvent, PlayerState } from "./adapter";
 import type { AdapterFactory } from "./registry";
-import { NO_QUALITIES, parseQualities, sameQualities, type QualityOption } from "./quality";
+import { NO_QUALITIES, QUALITY_ECHO_MS, parseQualities, sameQualities, type QualityOption } from "./quality";
 import { loadTwitchApi, type TwitchLoad } from "./twitch-loader";
+
+export { QUALITY_ECHO_MS };
 import { asTwitchPlayer, type TwitchEventName, type TwitchNamespace, type TwitchPlayer } from "./twitch-types";
 
 /** Play/pause events this soon after our own command are its echo, not the user (as for YouTube). */
@@ -16,11 +18,6 @@ export const ECHO_WINDOW_MS = 1000;
 export const LIVE_RESUME_MS = 5000;
 /** A seek event this soon after our own seek is its echo; Twitch VODs are HLS, so a seek can take seconds. */
 export const SEEK_ECHO_MS = 5000;
-/**
- * A quality switch can make the player pause/play or seek (research R-M7b, unverified): play/pause and seek events
- * this soon after our own setQuality are its echo, never a room action.
- */
-export const QUALITY_ECHO_MS = 5000;
 /** The SDK has no ad signal: a VOD that says Playing while its clock hasn't moved for this long is in an ad (research M2 §1.4). */
 export const AD_FROZEN_MS = 2000;
 /** A wrong `parent` shows an in-player error and sends nothing (research M2 §2.1), so a player that never gets ready times out. */
