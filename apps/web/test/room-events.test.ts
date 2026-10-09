@@ -28,6 +28,7 @@ function setup(): { pending: Set<number>; route: (e: ConnectionEvent) => void; d
     clock,
     shareToken: { onEvent: () => undefined },
     joined: () => undefined,
+    kicked: () => 600_000,
     dispatch: (e: ViewEvent) => dispatched.push(e),
   };
   return { pending, route: (e) => { routeConnectionEvent(e, sinks, 0); }, dispatched, emoted };
@@ -58,4 +59,11 @@ test("emoted goes straight to the scene's emote sink, never through the view sta
   route({ type: "message", msg: { type: "emoted", memberId: "m1", kind: "wave" } });
   expect(emoted).toEqual([["m1", "wave"]]);
   expect(dispatched).toEqual([]);
+});
+
+test("kicked (4005, ADR 0030) stops the clock and dispatches the cooldown's end from the kick memory", () => {
+  const { pending, route, dispatched } = setup();
+  route({ type: "kicked" });
+  expect(pending.size).toBe(0);
+  expect(dispatched).toEqual([{ type: "kicked", until: 600_000 }]);
 });

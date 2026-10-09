@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT, type Member, type RoomLayout, type RoomState, type ServerMessage } from "@omega/shared";
 import type { PlaybackState } from "@omega/shared";
-import { BUBBLE_MS, CHAT_COOLDOWN_DEFAULT_MS, MAX_SYSLINES, SYSLINE_MS, catchingUp, coolingDown, initialState, nextExpiry, reduce, screen, type ViewState } from "../src/state";
+import { BUBBLE_MS, CHAT_COOLDOWN_DEFAULT_MS, MAX_SYSLINES, SYSLINE_MS, catchingUp, controlHeld, controlPolicy, coolingDown, initialState, isMuted, nextExpiry, reduce, screen, type ViewState } from "../src/state";
+import { lineText } from "../src/controls/sysline";
 
 const alice: Member = { id: "a", nickname: "alice", avatar: 0 };
 const bob: Member = { id: "b", nickname: "bob", avatar: 1 };
@@ -137,15 +138,15 @@ describe("screen", () => {
   // stage inside it) or it pushes the room-full message below the fold (OME-6 QA).
   test("room-full takes the stage wrap and chat out of the flow and shows the message", () => {
     const s = server(joined(), { type: "room-full" });
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: true, refused: null, closed: false });
+    expect(screen(s)).toEqual({ stage: false, chat: false, full: true, refused: null, closed: false, kicked: false });
   });
 
   test("an open room shows the stage and chat, not the full message", () => {
-    expect(screen(joined())).toEqual({ stage: true, chat: true, full: false, refused: null, closed: false });
+    expect(screen(joined())).toEqual({ stage: true, chat: true, full: false, refused: null, closed: false, kicked: false });
   });
 
   test("before the first snapshot nothing is laid out", () => {
-    expect(screen(reduce(initialState, { type: "connecting" }))).toEqual({ stage: false, chat: false, full: false, refused: null, closed: false });
+    expect(screen(reduce(initialState, { type: "connecting" }))).toEqual({ stage: false, chat: false, full: false, refused: null, closed: false, kicked: false });
   });
 });
 
@@ -218,7 +219,7 @@ describe("refused joins (ADR 0016 §4)", () => {
       expect(s.status).toBe("refused");
       expect(s.refusal).toBe(code);
       expect(s.room).toBeNull();
-      expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: code, closed: false });
+      expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: code, closed: false, kicked: false });
     });
   }
 
@@ -342,7 +343,7 @@ describe("created rooms (ADR 0028)", () => {
   test("room-closed is terminal: the room leaves the screen and later connection events don't bring it back", () => {
     let s = reduce(joined(), { type: "room-closed" });
     expect(s.status).toBe("closed");
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: true });
+    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: true, kicked: false });
     s = reduce(s, { type: "disconnected" });
     s = reduce(s, { type: "connecting" });
     expect(s.status).toBe("closed");
@@ -390,5 +391,85 @@ describe("owner edits arrive live (OME-410)", () => {
     expect(s.title).toBe("Friday films");
     expect(server(s, { type: "title-changed", title: "Sunday films", by: "b" }).title).toBe("Sunday films");
     expect(server(s, { type: "snapshot", self: "a", room: room({ title: "Late films" }) }).title).toBe("Late films");
+  });
+});
+
+describe("owner moderation (ADR 0030, OME-507)", () => {
+  const owned = (r: RoomState = room(), owner = false): ViewState => server(initialState, { type: "snapshot", self: "a", room: r, owner });
+
+  test("the snapshot's muted members and control policy are read; absent fields mean nobody muted and everyone controls", () => {
+    expect(controlPolicy(joined())).toBe("everyone");
+    expect(isMuted(joined(), "b")).toBe(false);
+    const s = joined(room({ members: [alice, { ...bob, muted: true }], controlPolicy: "owner" }));
+    expect(controlPolicy(s)).toBe("owner");
+    expect(isMuted(s, "b")).toBe(true);
+    expect(isMuted(s, "a")).toBe(false);
+  });
+
+  test("member-muted toggles a member's mute without touching the members array (no scene redraw)", () => {
+    const before = joined();
+    let s = server(before, { type: "member-muted", memberId: "b", muted: true });
+    expect(isMuted(s, "b")).toBe(true);
+    expect(s.room?.members).toBe(before.room?.members);
+    s = server(s, { type: "member-muted", memberId: "b", muted: false });
+    expect(isMuted(s, "b")).toBe(false);
+  });
+
+  test("member-muted for someone not in the room is ignored", () => {
+    const before = joined();
+    expect(server(before, { type: "member-muted", memberId: "zz", muted: true })).toBe(before);
+  });
+
+  test("a member who joins muted (the server remembered their address) shows muted; leaving forgets it", () => {
+    let s = server(joined(), { type: "member-joined", member: { ...carol, muted: true } });
+    expect(isMuted(s, "c")).toBe(true);
+    s = server(s, { type: "member-left", memberId: "c", reason: "kicked" });
+    expect(isMuted(s, "c")).toBe(false);
+    expect(s.room?.members.map((m) => m.id)).toEqual(["a", "b"]);
+  });
+
+  test("being muted myself says so once in the log, as an only-you line; unmuting says that too", () => {
+    let s = server(joined(), { type: "member-muted", memberId: "a", muted: true }, 100);
+    expect(isMuted(s, "a")).toBe(true);
+    expect(s.syslines.at(-1)?.self).toBe(true);
+    expect(s.syslines.at(-1)?.glyph).toBe("chat-mute");
+    expect(s.syslines.map(lineText).at(-1)).toBe("The host muted your chat. You can still watch and emote.");
+    s = server(s, { type: "member-muted", memberId: "a", muted: false }, 200);
+    expect(s.syslines.map(lineText).at(-1)).toBe("The host unmuted your chat");
+  });
+
+  test("someone else's mute isn't announced to the room", () => {
+    const s = server(joined(), { type: "member-muted", memberId: "b", muted: true });
+    expect(s.syslines).toEqual([]);
+  });
+
+  test("control-policy-changed updates the policy and tells the room in the log", () => {
+    let s = server(joined(), { type: "control-policy-changed", policy: "owner", by: "b" }, 10);
+    expect(controlPolicy(s)).toBe("owner");
+    expect(s.syslines.map(lineText)).toEqual(["Only the host controls playback now"]);
+    expect(s.syslines[0]?.glyph).toBe("remote");
+    s = server(s, { type: "control-policy-changed", policy: "everyone", by: "b" }, 20);
+    expect(controlPolicy(s)).toBe("everyone");
+    expect(s.syslines.map(lineText)).toEqual(["Only the host controls playback now", "bob gave the remote to everyone"]);
+    // Ids stay unique next to playback lines (keyed by rev) so the rail never drops one.
+    expect(new Set(s.syslines.map((l) => l.id)).size).toBe(2);
+  });
+
+  test("controls are held for a guest under policy owner, never for the owner and never under everyone", () => {
+    const guest = owned(room({ controlPolicy: "owner" }), false);
+    expect(controlHeld(guest)).toBe(true);
+    expect(controlHeld(owned(room({ controlPolicy: "owner" }), true))).toBe(false);
+    expect(controlHeld(owned(room({ controlPolicy: "everyone" }), false))).toBe(false);
+    expect(controlHeld(initialState)).toBe(false);
+  });
+
+  test("kicked is terminal with the time the cooldown ends; the room leaves the screen and stays gone", () => {
+    let s = reduce(joined(), { type: "kicked", until: 600_000 });
+    expect(s.status).toBe("kicked");
+    expect(s.kickedUntil).toBe(600_000);
+    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: false, kicked: true });
+    s = reduce(s, { type: "disconnected" });
+    s = reduce(s, { type: "connecting" });
+    expect(s.status).toBe("kicked");
   });
 });

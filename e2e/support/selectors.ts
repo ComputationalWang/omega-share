@@ -69,4 +69,15 @@ export const site = {
   editorDelete: id("editor-delete"),
   editorDeleteConfirm: id("editor-delete-confirm"),
   editorRoomMessage: id("editor-room-message"),
+  // Owner moderation (OME-507, ADR 0030): the menu and setting are the lazy owner chunk; the notices are in the room chunk.
+  modMenu: id("mod-menu"),
+  modMute: id("mod-mute"),
+  modRemove: id("mod-remove"),
+  modConfirm: id("mod-confirm"),
+  modKeep: id("mod-keep"),
+  modClose: id("mod-close"),
+  controlPolicy: id("control-policy"),
+  controlPolicyOption: id("control-policy-option"),
+  roomKicked: id("room-kicked"),
+  roomKickedRejoin: id("room-kicked-rejoin"),
 } as const;

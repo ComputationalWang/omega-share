@@ -445,6 +445,25 @@ describe("created rooms (ADR 0028)", () => {
     expect(sockets).toHaveLength(1);
   });
 
+  test("4005 kicked (ADR 0030): reports kicked instead of a drop, stops and never reconnects, not even on resume", () => {
+    const c = connect();
+    last().open();
+    last().receive(snapshot);
+    last().drop(CLOSE_CODES.KICKED);
+    expect(events.at(-1)).toEqual({ type: "kicked" });
+    expect(events).not.toContainEqual({ type: "disconnected" });
+    expect(timers).toHaveLength(0);
+    c.resume();
+    expect(sockets).toHaveLength(1);
+  });
+
+  test("4005 before a snapshot (a join inside the rejoin cooldown) is the same notice and stops too", () => {
+    connect();
+    last().drop(CLOSE_CODES.KICKED);
+    expect(events.at(-1)).toEqual({ type: "kicked" });
+    expect(timers).toHaveLength(0);
+  });
+
   test("4004 before a snapshot (the room went while we joined) stops too", () => {
     connect();
     last().drop(CLOSE_CODES.ROOM_CLOSED);

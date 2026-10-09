@@ -142,6 +142,46 @@ describe("shared transport sends control intents", () => {
   });
 });
 
+describe("who controls playback (ADR 0030)", () => {
+  test("by default everyone controls and nothing is held", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb()));
+    expect(h.c.view()).toMatchObject({ policy: "everyone", held: false, canControl: true });
+  });
+
+  test("held (owner-only room, I'm a guest): the transport can't send, and in-player clicks don't become controls", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb({ playing: false })));
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    h.c.setControl({ policy: "owner", held: true });
+    expect(h.c.view()).toMatchObject({ policy: "owner", held: true, canControl: false });
+    expect(h.c.togglePlay()).toBe(false);
+    expect(h.c.seek(30)).toBe(false);
+    h.player.emit({ type: "intent", playing: true, position: 5 });
+    expect(h.sent).toEqual([]);
+  });
+
+  test("the owner of an owner-only room keeps the keys; the view says the policy so the shelf chip reads Host", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb({ playing: false })));
+    h.c.setControl({ policy: "owner", held: false });
+    expect(h.c.view()).toMatchObject({ policy: "owner", held: false, canControl: true });
+    expect(h.c.seek(30)).toBe(true);
+  });
+
+  test("handing the remote back to everyone releases the keys at once", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb({ playing: false })));
+    h.c.setControl({ policy: "owner", held: true });
+    const n = h.views.length;
+    h.c.setControl({ policy: "everyone", held: false });
+    expect(h.views.length).toBe(n + 1);
+    expect(h.c.view()).toMatchObject({ policy: "everyone", held: false, canControl: true });
+    h.c.setControl({ policy: "everyone", held: false });
+    expect(h.views.length).toBe(n + 1);
+  });
+});
+
 describe("wiring: room playback → sync loop → player", () => {
   test("a late joiner hard-seeks to the room's position and plays", () => {
     const h = harness();
