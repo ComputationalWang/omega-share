@@ -69,6 +69,20 @@ describe("logger", () => {
     }
   });
 
+  // OME-579: redactions shrink the head enough that a token cut at the 2048-char redaction bound reaches the output.
+  test("an email or IP straddling the redaction bound leaks no fragment", () => {
+    let head = "";
+    while (head.length < 2030) head += `${"u".repeat(90)}@example.com `;
+    const cases: [string, string[]][] = [
+      [`${head.slice(0, 2034)} alice.secret@example.com tail`, ["alice", "secr"]],
+      [`${head.slice(0, 2040)} 203.0.113.77 tail`, ["203", "113"]],
+    ];
+    for (const [message, secrets] of cases) {
+      const line = formatLogLine("error", "shutdown", new Error(message));
+      for (const secret of secrets) expect(line).not.toContain(secret);
+    }
+  });
+
   test("caps the message length", () => {
     const line = formatLogLine("error", "store.title", new Error("x".repeat(5000)));
     expect(line.length).toBeLessThan(400);
