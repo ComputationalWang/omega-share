@@ -507,3 +507,47 @@ describe("secrets never leave (ADR 0028 §3)", () => {
     }
   });
 });
+
+describe("the snapshot carries the room title (ADR 0028 §6, OME-473)", () => {
+  /** The `room` object of the raw snapshot frame, before any schema strips or fills a key. */
+  function rawRoom(c: Client): Record<string, unknown> {
+    for (const frame of c.raw) {
+      const msg = JSON.parse(frame) as { type: string; room?: Record<string, unknown> };
+      if (msg.type === "snapshot" && msg.room !== undefined) return msg.room;
+    }
+    throw new Error("no snapshot frame");
+  }
+
+  test("a titled room's snapshot has its title", async () => {
+    t = start({ trustProxy: true });
+    const room = await createRoom("public", "Friday films");
+    const owner = await joined(room.room.id, "olive", { ownerToken: room.ownerToken });
+    expect(owner.snapshot.room.title).toBe("Friday films");
+    const guest = await joined(room.room.id, "bob");
+    expect(guest.snapshot.room.title).toBe("Friday films");
+  });
+
+  test("an untitled seeded room (the lobby) sends no title key at all", async () => {
+    t = start({ trustProxy: true });
+    const { client, snapshot } = await joined("lobby", "alice");
+    expect(snapshot.room.title).toBeUndefined();
+    expect("title" in rawRoom(client)).toBe(false);
+  });
+
+  test("after a title-set, a later joiner's snapshot carries the new title", async () => {
+    t = start({ trustProxy: true });
+    const room = await createRoom("public", "Old title");
+    const owner = await joined(room.room.id, "olive", { ownerToken: room.ownerToken });
+    owner.client.send({ type: "title-set", title: "New title" });
+    await owner.client.next("title-changed");
+    const late = await joined(room.room.id, "carol");
+    expect(late.snapshot.room.title).toBe("New title");
+  });
+
+  test("a private room's guest, joined with the invite key, gets the title", async () => {
+    t = start({ trustProxy: true });
+    const room = await createRoom("private", "Secret screening");
+    const guest = await joined(room.room.id, "bob", { inviteKey: room.inviteKey ?? fail() });
+    expect(guest.snapshot.room.title).toBe("Secret screening");
+  });
+});
