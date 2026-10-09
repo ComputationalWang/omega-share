@@ -82,6 +82,7 @@ describe("CLOSE_CODES", () => {
       BAD_MESSAGES: 4400,
       ROOM_CLOSED: 4004,
       KICKED: 4005,
+      TAKEN_DOWN: 4006,
     });
   });
 
