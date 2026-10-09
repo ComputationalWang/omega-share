@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT, FURNITURE, FURNITURE_KINDS, MAX_FURNITURE, RoomLayoutSchema, type RoomLayout } from "@omega/shared";
 import * as v from "valibot";
-import { TRAY_TABS, defaultFacing, fits, move, pieceAt, place, problemText, problems, remove, rotate } from "../src/editor/draft";
+import { TRAY_TABS, defaultFacing, fits, move, pieceAt, place, problemText, problems, reconcile, remove, rotate } from "../src/editor/draft";
 
 // DEFAULT_LAYOUT indices: 0 tv, 1 rug, 2..9 armchairs ([1,5] [2,4] [4,2] [5,1] [3,7] [4,6] [6,4] [7,3]), 10 lamp, 11 plant.
 const L = DEFAULT_LAYOUT;
@@ -176,3 +176,29 @@ describe("TRAY_TABS", () => {
   });
 });
 
+
+describe("reconcile: the room's layout changed under the editor (OME-410 review)", () => {
+  const copy = (l: RoomLayout): RoomLayout => JSON.parse(JSON.stringify(l)) as RoomLayout;
+  const lampMoved = move(L, 10, 8, 1);
+  if (lampMoved === null) throw new Error("fixture: lamp must move to (8,1)");
+
+  test("a re-snapshot of the same layout is no change: the draft, and so the selection, stay", () => {
+    expect(reconcile({ saved: L, draft: L, next: copy(L), saving: false })).toEqual({ draft: L, outcome: "same" });
+    expect(reconcile({ saved: L, draft: lampMoved, next: copy(L), saving: true }).draft).toBe(lampMoved);
+  });
+
+  test("our own save coming back says saved", () => {
+    expect(reconcile({ saved: L, draft: lampMoved, next: copy(lampMoved), saving: true }).outcome).toBe("saved");
+  });
+
+  test("an equal layout saved elsewhere, while we weren't saving, isn't 'saved' by us; an untouched draft just follows", () => {
+    const next = copy(lampMoved);
+    expect(reconcile({ saved: L, draft: lampMoved, next, saving: false }).outcome).toBe("replaced");
+    expect(reconcile({ saved: L, draft: L, next, saving: false })).toEqual({ draft: next, outcome: "replaced" });
+  });
+
+  test("a different save elsewhere keeps our unsaved draft and says so", () => {
+    const mine = remove(L, 11);
+    expect(reconcile({ saved: L, draft: mine, next: copy(lampMoved), saving: false })).toEqual({ draft: mine, outcome: "conflict" });
+  });
+});
