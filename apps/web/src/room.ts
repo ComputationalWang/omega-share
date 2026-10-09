@@ -12,7 +12,7 @@ import { createPlaybackController, type PlaybackView } from "./controls/playback
 import { chatView, refusalCard } from "./controls/feedback";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, seatViews, sitIntent } from "./intents";
-import { layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
+import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
 import { BUBBLE_OFFSET_Y, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
 import type { PlayerError } from "./player/adapter";
 import { PLAYERS, createPlayerMounter } from "./player/registry";
@@ -326,7 +326,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** Rebuild furniture, seats and standing spots for a new layout; the set (g) atlas loads only if the layout needs it. */
   const applyLayout = (next: RoomLayout): void => {
     layout = next;
-    const key = JSON.stringify(next);
+    const key = keyOfLayout(next);
     if (key === layoutKey) return;
     layoutKey = key;
     layoutBuilds++;

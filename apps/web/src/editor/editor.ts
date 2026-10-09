@@ -23,7 +23,7 @@ import furnitureJson from "../../../../assets/furniture/furniture.json";
 import { el } from "../controls/dom";
 import { FurnitureManifestSchema } from "../furniture";
 import { cellCenter } from "../layout";
-import { TRAY_TABS, defaultFacing, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate } from "./draft";
+import { TRAY_TABS, defaultFacing, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
 import { loadEditAtlas, type EditAtlas } from "./edit-atlas";
 import { markerKeys, slotAt, type MarkerState, type Slot } from "./pick";
 
@@ -73,6 +73,7 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   frame: "Print",
 };
 
+const DELETED = "Room deleted.";
 const DELETE_ERRORS: Readonly<Record<DeleteRoomErrorCode, string>> = {
   room_not_found: "This room is already gone.",
   unauthorized: "This browser doesn't hold the room's owner key any more.",
@@ -94,7 +95,6 @@ const coloursOf = (kind: FurnitureKind): readonly string[] => {
 };
 
 const sprite = (name: string): HTMLSpanElement => el("span", { className: `ui-sprite ${name}`, ariaHidden: "true" });
-const same = (a: RoomLayout, b: RoomLayout): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 /** The piece a click would put down: the held kind at the slot, facing the wall it hangs on or its default way. */
 function candidate(kind: FurnitureKind, variant: number, slot: Slot): Furniture | null {
@@ -273,7 +273,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     setDraft(remove(draft, selected), null);
   });
   saveBtn.addEventListener("click", () => {
-    if (problems(draft).length > 0 || same(draft, saved)) return;
+    if (problems(draft).length > 0 || sameLayout(draft, saved)) return;
     saving = ctx.send({ type: "layout-set", layout: draft });
     if (saving) say("Saving…");
     else say("Not connected. Try again in a moment.");
@@ -306,6 +306,11 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       return;
     }
     titleInput.ariaInvalid = "false";
+    // The server answers an unchanged title with nothing, so there'd be no title-changed to settle "Renaming…".
+    if (parsed.output === ctx.title()) {
+      roomMessage.textContent = "Renamed.";
+      return;
+    }
     roomMessage.textContent = ctx.send({ type: "title-set", title: parsed.output }) ? "Renaming…" : "Not connected. Try again in a moment.";
   });
   deleteBtn.addEventListener("click", () => {
@@ -322,7 +327,8 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     roomMessage.textContent = "Deleting…";
     // On success the server closes everyone's socket with 4004, and room.ts shows the closed card.
     void deleteRoom().then((text) => {
-      confirmBtn.disabled = false;
+      // Deleted: the closed card replaces the view, so the button stays off rather than flash back on.
+      confirmBtn.disabled = text === DELETED;
       roomMessage.textContent = text;
     });
   });
@@ -331,7 +337,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       const res = await ctx.fetch(`${ctx.serverUrl}/rooms/${ctx.roomId}`, { method: "DELETE", headers: { authorization: `Bearer ${ctx.ownerToken}` } });
       const parsed = v.safeParse(DeleteRoomResponseSchema, await res.json());
       if (!parsed.success) return DELETE_ERRORS.unavailable;
-      return parsed.output.ok ? "Room deleted." : DELETE_ERRORS[parsed.output.error.code];
+      return parsed.output.ok ? DELETED : DELETE_ERRORS[parsed.output.error.code];
     } catch {
       return "Couldn't reach the server. Try again.";
     }
@@ -347,7 +353,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   function setDraft(next: RoomLayout, select: number | null): void {
     draft = next;
     selected = select;
-    ctx.preview(same(draft, saved) ? null : draft);
+    ctx.preview(sameLayout(draft, saved) ? null : draft);
     refresh();
   }
 
@@ -390,7 +396,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     const found = problems(draft);
     problemList.replaceChildren(...found.map((p) => el("li", { textContent: problemText(p) })));
     count.textContent = `${String(draft.furniture.length)} / ${String(MAX_FURNITURE)} pieces`;
-    const dirty = !same(draft, saved);
+    const dirty = !sameLayout(draft, saved);
     saveBtn.disabled = !dirty || found.length > 0;
     resetBtn.disabled = !dirty;
     hit.classList.toggle("holding", held !== null);

@@ -4,6 +4,12 @@ import * as v from "valibot";
 import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Furniture, type FurnitureKind, type RoomLayout, type RoomState } from "@omega/shared";
 import { cellCenter, type Point } from "./layout";
 
+/**
+ * A layout's content as a string: each piece's fields in a fixed order, an absent variant as 0. Two layouts with the same
+ * key draw the same room, however their objects were written (a parsed snapshot, a recolour back to variant 0).
+ */
+export const layoutKey = (l: RoomLayout): string => l.furniture.map((f) => `${f.kind} ${String(f.col)} ${String(f.row)} ${f.facing} ${String(f.variant ?? 0)}`).join(";");
+
 /** The pieces the room atlas draws (today as the placeholder floor and seat markers); everything else is set (g). */
 const ROOM_KINDS: ReadonlySet<FurnitureKind> = new Set(["armchair", "tv", "lamp", "plant", "rug"]);
 /** Set (g)'s kilim runner is atlas id `rug` (layout.ts in @omega/shared). */

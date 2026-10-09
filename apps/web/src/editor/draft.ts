@@ -13,6 +13,9 @@ import {
   type RoomLayout,
 } from "@omega/shared";
 import * as v from "valibot";
+import { layoutKey } from "../furniture";
+
+export { layoutKey };
 
 /** The owner layout editor's draft model: pure functions over a layout, each returning a new one (or null if the edit would be illegal). */
 
@@ -169,7 +172,8 @@ export const TRAY_TABS: readonly TrayTab[] = [
   { id: "floor", label: "Floor & wall", kinds: kindsWhere((k) => !isSeat(k) && isFlat(k)) },
 ];
 
-const sameLayout = (a: Layout, b: Layout): boolean => JSON.stringify(a) === JSON.stringify(b);
+/** Same content, by `layoutKey`. */
+export const sameLayout = (a: Layout, b: Layout): boolean => a === b || layoutKey(a) === layoutKey(b);
 
 /**
  * The room's saved layout became `next` while the owner edits `draft` (`saving`: we sent a `layout-set` not yet answered).
