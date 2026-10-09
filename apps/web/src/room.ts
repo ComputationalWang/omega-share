@@ -1090,10 +1090,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   });
 
   const onMedia = (): void => {
+    // Moving a focused node blurs it: whatever you were typing in keeps focus when the chat changes column.
+    const focused = document.activeElement;
     // No pop-out on a phone (set k): a window narrowed that far takes its chat back.
     if (phone.matches) relay?.bringBack();
     renderChatRow(state);
     placeChat();
+    if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     fit();
     render();
     requestRender();
