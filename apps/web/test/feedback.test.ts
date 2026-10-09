@@ -71,6 +71,16 @@ describe("kickedCard (ADR 0030, set j \"you were removed\")", () => {
     expect(kickedCard(600_000, 590_000)).toMatchObject({ body: "The host asked you to leave. You can come back in 1 minute.", rejoin: "Rejoin in 1 min", nextChangeMs: 10_000 });
   });
 
+  test("an unknown end (bounced off a cooldown another tab started): no countdown, a Try again key", () => {
+    expect(kickedCard(null, 0)).toEqual({
+      title: "You were removed from this room",
+      body: "The host asked you to leave a little while ago. You can try again in a few minutes.",
+      rejoin: "Try again",
+      ready: true,
+      nextChangeMs: null,
+    });
+  });
+
   test("after it: the wait is over and Rejoin is a plain key", () => {
     expect(kickedCard(600_000, 600_000)).toEqual({
       title: "You were removed from this room",

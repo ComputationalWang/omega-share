@@ -39,6 +39,7 @@ async function setup(owner = true) {
     tags.append(t);
   }
   const sent: ClientMessage[] = [];
+  let anchorAt = { x: 400, y: 310 };
   const mod = mountModeration({
     stage,
     tags,
@@ -48,7 +49,7 @@ async function setup(owner = true) {
       sent.push(m);
       return true;
     },
-    anchor: () => ({ x: 400, y: 310 }),
+    anchor: () => anchorAt,
     stageWidth: 960,
   });
   const tag = (id: string): HTMLElement => {
@@ -57,8 +58,8 @@ async function setup(owner = true) {
     return t;
   };
   const menu = (): HTMLElement | null => stage.querySelector<HTMLElement>("[data-testid=mod-menu]");
-  const row = (testId: string): HTMLButtonElement => {
-    const b = stage.querySelector<HTMLButtonElement>(`[data-testid=${testId}]`);
+  const row = (testId: string): HTMLElement => {
+    const b = stage.querySelector<HTMLElement>(`[data-testid=${testId}]`);
     if (b === null) throw new Error(`no ${testId}`);
     return b;
   };
@@ -67,7 +68,10 @@ async function setup(owner = true) {
     mod.update();
   };
   mod.update();
-  return { mod, sent, tag, tags, bar, menu, row, server, stage };
+  const setAnchor = (p: { x: number; y: number }): void => {
+    anchorAt = p;
+  };
+  return { mod, sent, tag, tags, bar, menu, row, server, stage, setAnchor };
 }
 
 describe("member menu", () => {
@@ -75,7 +79,7 @@ describe("member menu", () => {
     const { tag } = await setup();
     expect(tag("kit").getAttribute("role")).toBe("button");
     expect(tag("kit").tabIndex).toBe(0);
-    expect(tag("kit").getAttribute("aria-haspopup")).toBe("menu");
+    expect(tag("kit").getAttribute("aria-haspopup")).toBe("dialog");
     expect(tag("me").getAttribute("role")).toBeNull();
   });
 
@@ -84,11 +88,15 @@ describe("member menu", () => {
     tag("mo").click();
     const m = menu();
     expect(m).not.toBeNull();
-    expect(m?.getAttribute("role")).toBe("menu");
+    // A small dialog of plain buttons (the Remove row grows Keep / Remove keys, which a menuitem can't hold).
+    expect(m?.getAttribute("role")).toBe("dialog");
+    expect(m?.getAttribute("aria-label")).toBe("<b>Mo</b>");
+    expect(tag("mo").getAttribute("aria-expanded")).toBe("true");
     expect(m?.querySelector(".name")?.textContent).toBe("<b>Mo</b>");
     expect(m?.querySelector("b")).toBeNull();
     expect(m?.querySelector(".ui-portrait-mo")).not.toBeNull();
-    expect([...stage.querySelectorAll("[role=menuitem]")].map((e) => e.textContent)).toEqual(["Mute chat", "Remove from room"]);
+    expect([...stage.querySelectorAll(".ui-modrow")].map((e) => e.textContent)).toEqual(["Mute chat", "Remove from room"]);
+    expect(stage.querySelector("[data-testid=mod-remove] button")?.textContent).toBe("Remove from room");
   });
 
   test("clicking my own tag opens nothing", async () => {
@@ -114,16 +122,16 @@ describe("member menu", () => {
   });
 
   test("Remove asks first (\"Remove Kit for 10 min?\"); Keep backs out, Remove sends kick", async () => {
-    const { tag, menu, row, sent } = await setup();
+    const { tag, menu, row, sent, stage } = await setup();
     tag("kit").click();
-    row("mod-remove").click();
+    stage.querySelector<HTMLButtonElement>("[data-testid=mod-remove] button")?.click();
     expect(sent).toEqual([]);
     expect(row("mod-remove").classList.contains("is-ask")).toBe(true);
     expect(row("mod-remove").textContent).toContain("Remove Kit for 10 min?");
     row("mod-keep").click();
     expect(sent).toEqual([]);
     expect(row("mod-remove").classList.contains("is-ask")).toBe(false);
-    row("mod-remove").click();
+    stage.querySelector<HTMLButtonElement>("[data-testid=mod-remove] button")?.click();
     row("mod-confirm").click();
     expect(sent).toEqual([{ type: "kick", memberId: "kit" }]);
     expect(menu()).toBeNull();
@@ -138,6 +146,37 @@ describe("member menu", () => {
     tag("kit").click();
     row("mod-close").click();
     expect(menu()).toBeNull();
+  });
+
+  test("closing hands focus back to the member's tag", async () => {
+    const { mod, tag } = await setup();
+    tag("kit").focus();
+    tag("kit").click();
+    mod.key(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(document.activeElement).toBe(tag("kit"));
+    expect(tag("kit").getAttribute("aria-expanded")).toBe("false");
+  });
+
+  test("a press outside the menu and the tags closes it; a press inside doesn't", async () => {
+    const { tag, menu, stage, bar } = await setup();
+    tag("kit").click();
+    menu()?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    expect(menu()).not.toBeNull();
+    bar.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    expect(menu()).toBeNull();
+    tag("kit").click();
+    stage.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    expect(menu()).toBeNull();
+  });
+
+  test("the open menu follows its member when they move", async () => {
+    const { mod, tag, menu, setAnchor } = await setup();
+    tag("kit").click();
+    const before = menu()?.style.transform;
+    setAnchor({ x: 500, y: 250 });
+    mod.update();
+    expect(menu()?.style.transform).not.toBe(before);
+    expect(menu()?.style.transform).toBe("translate(500px, 244px)");
   });
 
   test("Enter on a focused tag opens its menu (keyboard)", async () => {
@@ -185,6 +224,16 @@ describe("who controls playback", () => {
     server({ type: "control-policy-changed", policy: "owner", by: "me" });
     expect(tiles(bar).map((b) => b.getAttribute("aria-checked"))).toEqual(["false", "true"]);
     expect(bar.textContent).toContain("Only you can play, pause and skip.");
+  });
+
+  test("radio keys: only the checked tile is in the tab order; arrows pick the other one", async () => {
+    const { bar, sent, server } = await setup();
+    expect(tiles(bar).map((b) => b.tabIndex)).toEqual([0, -1]);
+    tiles(bar)[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    expect(sent).toEqual([{ type: "control-policy", policy: "owner" }]);
+    server({ type: "control-policy-changed", policy: "owner", by: "me" });
+    expect(tiles(bar).map((b) => b.tabIndex)).toEqual([-1, 0]);
+    expect(document.activeElement).toBe(tiles(bar)[1]);
   });
 
   test("picking the policy that's already set sends nothing", async () => {

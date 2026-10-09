@@ -450,7 +450,8 @@ describe("created rooms (ADR 0028)", () => {
     last().open();
     last().receive(snapshot);
     last().drop(CLOSE_CODES.KICKED);
-    expect(events.at(-1)).toEqual({ type: "kicked" });
+    // We were in the room: this is the kick itself, so the full cooldown starts now.
+    expect(events.at(-1)).toEqual({ type: "kicked", wasIn: true });
     expect(events).not.toContainEqual({ type: "disconnected" });
     expect(timers).toHaveLength(0);
     c.resume();
@@ -460,7 +461,8 @@ describe("created rooms (ADR 0028)", () => {
   test("4005 before a snapshot (a join inside the rejoin cooldown) is the same notice and stops too", () => {
     connect();
     last().drop(CLOSE_CODES.KICKED);
-    expect(events.at(-1)).toEqual({ type: "kicked" });
+    // A bounce off a cooldown that started elsewhere (another tab): how much of it is left is unknown.
+    expect(events.at(-1)).toEqual({ type: "kicked", wasIn: false });
     expect(timers).toHaveLength(0);
   });
 

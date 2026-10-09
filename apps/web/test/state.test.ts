@@ -472,4 +472,10 @@ describe("owner moderation (ADR 0030, OME-507)", () => {
     s = reduce(s, { type: "connecting" });
     expect(s.status).toBe("kicked");
   });
+
+  test("kicked with an unknown cooldown end (a bounce from another tab) keeps null", () => {
+    const s = reduce(joined(), { type: "kicked", until: null });
+    expect(s.status).toBe("kicked");
+    expect(s.kickedUntil).toBeNull();
+  });
 });
