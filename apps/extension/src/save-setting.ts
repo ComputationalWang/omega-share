@@ -65,7 +65,10 @@ async function finish(granted: Promise<boolean>, origin: string, deps: SaveDeps)
   } catch {
     return saveFailed(origin);
   }
-  if (previous !== null && previous !== origin && previous !== DEFAULT_SERVER_BASE_URL) {
+  // Grants are per host, not per port (hostPermissionPattern): keep the old one if the new origin or the manifest's
+  // default shares it, e.g. another port on the same tunnel host, or a local server next to the default localhost.
+  const kept = new Set([hostPermissionPattern(origin), hostPermissionPattern(DEFAULT_SERVER_BASE_URL)]);
+  if (previous !== null && !kept.has(hostPermissionPattern(previous))) {
     // Best effort: the new origin is saved either way; a leftover grant is harmless.
     await deps.removeOrigin(hostPermissionPattern(previous)).catch(() => undefined);
   }

@@ -17,12 +17,6 @@ const GECKO = {
   data_collection_permissions: { required: ["websiteContent", "browsingActivity"] },
 } as const;
 
-/** `http://localhost:<OMEGA_SERVER_PORT>/*` when the e2e run sets a port other than the default; digits only. */
-function e2eServerPortHost(): string[] {
-  const port = process.env["OMEGA_SERVER_PORT"];
-  return port !== undefined && /^\d{1,5}$/.test(port) && port !== "8787" ? [`http://localhost:${port}/*`] : [];
-}
-
 // Permissions (ADR 0005): activeTab + scripting inject the one-shot scan when the popup opens,
 // storage keeps the server URL, and the only host permission is the default server origin:
 // the hosted https server in the production (store) build, the local server in dev and e2e.
@@ -49,12 +43,12 @@ export default defineConfig({
     action: { default_icon: icons },
     permissions: ["activeTab", "scripting", "storage"],
     host_permissions: [
-      hostPermissionPattern(defaultServerBaseUrl(mode)),
-      // e2e/perf only: Playwright opens the popup as a tab and can't grant activeTab.
-      ...(mode === "e2e" ? ["http://localhost/*", "https://www.youtube.com/*"] : []),
-      // A run on another server port (OMEGA_SERVER_PORT) needs that port too: Firefox doesn't match it against
-      // http://localhost/* in permissions.contains, so the popup would ask for access instead of sharing (OME-611).
-      ...(mode === "e2e" ? e2eServerPortHost() : []),
+      ...new Set([
+        hostPermissionPattern(defaultServerBaseUrl(mode)),
+        // e2e/perf only: Playwright opens the popup as a tab and can't grant activeTab. Port-less patterns cover every
+        // port (the default server's http://localhost/* included), so e2e runs on any OMEGA_SERVER_PORT (QA OME-611, OME-687).
+        ...(mode === "e2e" ? ["http://localhost/*", "https://www.youtube.com/*"] : []),
+      ]),
     ],
     // What parseServerBaseUrl accepts: https anywhere, cleartext only on this computer (any port).
     optional_host_permissions: ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"],
