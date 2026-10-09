@@ -2,8 +2,8 @@
 // `POST /rooms/:id/queue` with the room tab's share token. Into a room where a video plays it lands in the "Up next" list
 // of every web client and the TV keeps playing; into an empty room it starts playing (ADR 0031 §5, OME-539).
 // Each test (and --repeat-each round) has an owned private room of its own (support/owned-rooms.ts), reached through the invite link, so nothing
-// here is POST /rooms. A room that already played in an earlier attempt isn't empty any more: run with --retries=0.
-import type { BrowserContext, Page } from "@playwright/test";
+// here is POST /rooms. A room that already played in an earlier attempt isn't empty any more, so every attempt (repeat, retry) takes its own.
+import type { BrowserContext, Page, TestInfo } from "@playwright/test";
 import { PENDING, URLS, available } from "./support/apps";
 import { expect, test } from "./support/extension";
 import { gotoFixture } from "./support/network";
@@ -18,11 +18,14 @@ test.fixme(!available.server, PENDING.server);
 const VIMEO_EMBED = "https://player.vimeo.com/video/76979871?h=8272103f6e";
 const TWITCH_VOD_EMBED = "https://player.twitch.tv/?video=v1234567890";
 
-/** One room per --repeat-each round: a room that played isn't empty or clean again (the seeded set has three of each). */
-const roomFor = (kind: "play" | "emp", repeatEachIndex: number): OwnedRoomName => {
-  const names = kind === "play" ? (["extqplaya", "extqplayb", "extqplayc"] as const) : (["extqempa", "extqempb", "extqempc"] as const);
-  const name = names[repeatEachIndex];
-  if (name === undefined) throw new Error("--repeat-each above 3: add owned rooms");
+/**
+ * One room per attempt, `repeatEachIndex * 2 + retry`: a room that played isn't empty or clean again, and CI runs retry
+ * once (playwright.config.ts). The seeded set covers --repeat-each 3 with a retry each.
+ */
+const roomFor = (kind: "play" | "emp", info: TestInfo): OwnedRoomName => {
+  const names = kind === "play" ? (["extqplaya", "extqplayb", "extqplayc", "extqplayd", "extqplaye", "extqplayf"] as const) : (["extqempa", "extqempb", "extqempc", "extqempd", "extqempe", "extqempf"] as const);
+  const name = names[info.repeatEachIndex * 2 + info.retry];
+  if (name === undefined) throw new Error("--repeat-each above 3 or more than one retry: add owned rooms");
   return name;
 };
 
@@ -58,7 +61,7 @@ async function useButton(openPopup: (target: Page) => Promise<Page>, source: Pag
 
 test("Add to queue from the popup puts the page's video in the Up next list of every client; the playing video stays", async ({ context, browser, openPopup }, info) => {
   test.setTimeout(90_000);
-  const { tab, roomId, url } = await joinInTab(context, roomFor("play", info.repeatEachIndex));
+  const { tab, roomId, url } = await joinInTab(context, roomFor("play", info));
   observers = await joinRoom(browser, { roomUrl: url, count: 2, nicknamePrefix: "xq" });
   const [x, y] = observers;
   if (x === undefined || y === undefined) throw new Error("need two observers");
@@ -109,7 +112,7 @@ test("Add to queue from the popup puts the page's video in the Up next list of e
 
 test("Add to queue into an empty room starts the video on every client (ADR 0031 §5)", async ({ context, browser, openPopup }, info) => {
   test.setTimeout(90_000);
-  const { tab, roomId, url } = await joinInTab(context, roomFor("emp", info.repeatEachIndex));
+  const { tab, roomId, url } = await joinInTab(context, roomFor("emp", info));
   observers = await joinRoom(browser, { roomUrl: url, count: 2, nicknamePrefix: "xs" });
   const [x] = observers;
   if (x === undefined) throw new Error("need an observer");
