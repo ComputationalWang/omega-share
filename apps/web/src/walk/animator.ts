@@ -1,12 +1,16 @@
 // Drives avatar motion without a ticker (OME-185 keeps the room render-on-demand). While someone walks, one timer per
 // 150 ms step (walkers share the step clock, walks.ts); at rest, one timer to the next breathe change on a 400 ms clock.
-// Each timer then asks for one rAF, so a hidden tab never renders.
-import type { MemberId } from "@omega/shared";
-import { DIRS, cycleFrame, type MotionFrames } from "./motion";
+// Each timer then asks for one rAF, so a hidden tab never renders. An emote (OME-415) plays once on the same loop, its
+// timers on the one-shot's own frame times: a wave swaps the avatar's frames, a sticker is drawn above the avatar.
+import type { EmoteKind, MemberId } from "@omega/shared";
+import { DIRS, cycleFrame, oneShotFrame, type MotionFrames, type StickerKind } from "./motion";
 import { WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
 
 /** Breathing redraws wait for this shared clock, so a room at rest renders at most 2.5 times a second however full. */
 export const BREATHE_TICK_MS = 400;
+
+/** How far above the floor point a sticker's bottom sits: just over the head, standing or seated. */
+export const EMOTE_LIFT = { idle: 60, sit: 50 } as const;
 
 export interface AnimatedAvatar {
   readonly id: MemberId;
@@ -22,6 +26,8 @@ export interface AnimatorOptions {
   readonly reducedMotion: () => boolean;
   /** Put one avatar at `pose`; `frame` is its motion frame key, null until the atlas is in. */
   readonly draw: (id: MemberId, avatar: number, pose: Pose, frame: string | null) => void;
+  /** Put `id`'s emote sticker (a motion frame key) with its bottom centre at (x, y), or hide it (null). Called on every draw. */
+  readonly drawEmote: (id: MemberId, frame: string | null, x: number, y: number) => void;
   readonly render: () => void;
 }
 
@@ -30,6 +36,8 @@ export interface Animator {
   set(avatars: readonly AnimatedAvatar[]): void;
   /** The motion atlas arrived: redraw everyone with it on the next frame. */
   setFrames(frames: MotionFrames): void;
+  /** `id` emoted: play it once from now. Nothing under prefers-reduced-motion (room.ts shows a static badge). */
+  emote(id: MemberId, kind: EmoteKind): void;
   /** The room is gone: drop any queued frame or timer and never draw again. */
   dispose(): void;
 }
@@ -41,6 +49,10 @@ export function createAnimator(o: AnimatorOptions): Animator {
   let timer: unknown = null;
   let disposed = false;
   const pose = emptyPose();
+  /** Per member: when their wave started (NaN: none), and the sticker playing (null: none) since when. */
+  const plays = new Map<MemberId, { wave: number; sticker: StickerKind | null; stickerAt: number }>();
+  /** Set by drawAll: ms until the next emote frame change (Infinity if none). */
+  let nextEmote = Infinity;
 
   function frameKey(avatar: number, p: Pose, still: boolean): string | null {
     if (frames === null) return null;
@@ -52,13 +64,39 @@ export function createAnimator(o: AnimatorOptions): Animator {
     return cycle.frames[still ? 0 : cycleFrame(cycle.ms, p.restMs).index] ?? null;
   }
 
-  /** Draws everyone at `now`; returns the ms until the next breathe change (Infinity if none). */
+  /** Draws everyone at `now`; returns the ms until the next breathe change (Infinity if none), and sets `nextEmote`. */
   function drawAll(now: number): number {
     const still = o.reducedMotion();
     let next = Infinity;
+    nextEmote = Infinity;
     for (const a of list) {
       if (!o.walks.sample(a.id, now, pose)) continue;
-      o.draw(a.id, a.avatar, pose, frameKey(a.avatar, pose, still));
+      let frame = frameKey(a.avatar, pose, still);
+      let sticker: string | null = null;
+      const play = plays.get(a.id);
+      if (play !== undefined && frames !== null && !still) {
+        if (!Number.isNaN(play.wave) && !pose.walking) {
+          const waves = frames.wave[a.avatar];
+          const cycle = (pose.sitting ? waves?.sit : waves?.idle)?.[DIRS.indexOf(pose.dir)];
+          const f = cycle === undefined ? null : oneShotFrame(cycle.ms, now - play.wave);
+          if (f === null || (f.index < 0 && f.nextIn === Infinity)) play.wave = NaN;
+          else {
+            if (f.index >= 0) frame = cycle?.frames[f.index] ?? frame;
+            nextEmote = Math.min(nextEmote, f.nextIn);
+          }
+        }
+        if (play.sticker !== null) {
+          const cycle = frames.emote[play.sticker];
+          const f = oneShotFrame(cycle.ms, now - play.stickerAt);
+          if (f.index < 0 && f.nextIn === Infinity) play.sticker = null;
+          else {
+            if (f.index >= 0) sticker = cycle.frames[f.index] ?? null;
+            nextEmote = Math.min(nextEmote, f.nextIn);
+          }
+        }
+      }
+      o.draw(a.id, a.avatar, pose, frame);
+      o.drawEmote(a.id, sticker, pose.x, pose.y - (pose.sitting ? EMOTE_LIFT.sit : EMOTE_LIFT.idle));
       if (pose.walking || still || frames === null) continue;
       const cycle = (pose.sitting ? frames.rest[a.avatar]?.sit : frames.rest[a.avatar]?.idle)?.[DIRS.indexOf(pose.dir)];
       if (cycle !== undefined) next = Math.min(next, cycleFrame(cycle.ms, pose.restMs).nextIn);
@@ -92,24 +130,42 @@ export function createAnimator(o: AnimatorOptions): Animator {
       timer = null;
     }
     if (disposed) return;
+    let wait = nextEmote;
     if (o.walks.walking(now)) {
       const at = (Math.floor(now / WALK_FRAME_MS) + 1) * WALK_FRAME_MS;
-      timer = o.setTimer(onTimer, at - now);
+      wait = Math.min(wait, at - now);
     } else if (nextBreath !== Infinity) {
       const at = Math.ceil((now + nextBreath) / BREATHE_TICK_MS) * BREATHE_TICK_MS;
-      timer = o.setTimer(onTimer, at - now);
+      wait = Math.min(wait, at - now);
     }
+    if (wait !== Infinity) timer = o.setTimer(onTimer, wait);
   }
 
   return {
     set(avatars) {
       if (disposed) return;
       list = avatars;
+      for (const id of plays.keys()) if (!avatars.some((a) => a.id === id)) plays.delete(id);
       const now = o.now();
       schedule(now, drawAll(now));
     },
     setFrames(f) {
       frames = f;
+      requestFrame();
+    },
+    emote(id, kind) {
+      if (disposed || o.reducedMotion() || !list.some((a) => a.id === id)) return;
+      let play = plays.get(id);
+      if (play === undefined) {
+        play = { wave: NaN, sticker: null, stickerAt: 0 };
+        plays.set(id, play);
+      }
+      const now = o.now();
+      if (kind === "wave") play.wave = now;
+      else {
+        play.sticker = kind;
+        play.stickerAt = now;
+      }
       requestFrame();
     },
     dispose() {

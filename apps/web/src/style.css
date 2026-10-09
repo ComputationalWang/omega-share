@@ -85,7 +85,7 @@ legend { padding: 0; margin-bottom: 6px; }
 .bubble { position: absolute; left: 0; top: 0; translate: -50% -100%; max-width: 220px; max-height: 180px; overflow: hidden; margin: 0; padding: 6px 10px; border-radius: 10px; background: #fff; color: #1d1a2b; font-size: 13px; overflow-wrap: anywhere; }
 .chat { display: flex; gap: 8px; margin-top: 8px; }
 .chat input { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--panel); }
-.chat button { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #1d1a2b; font-weight: 600; }
+.chat > button { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #1d1a2b; font-weight: 600; }
 .room-full { text-align: center; margin: 15vh auto; }
 .seat:disabled { cursor: default; }
 .notice { margin: 8px 0 0; color: var(--error); }
@@ -130,3 +130,10 @@ legend { padding: 0; margin-bottom: 6px; }
 .editor-problems { margin: 0; padding-left: 1.2em; color: var(--error); }
 .editor-problems:empty { display: none; }
 .editor-confirm p { margin: 0; }
+
+/* ---- Emotes (OME-415, set (i)): the key leads the chat row at 1×; the picker opens above it at page 2×. ---- */
+.emote-picker { --ui-px: 1px; position: relative; display: flex; align-items: center; }
+.emote-picker .ui-emotes { --ui-px: 2px; position: absolute; left: 0; bottom: calc(100% + 14px); z-index: 5; --ui-tail-x: 1px; }
+.ui-button.self.is-cooling { border-image-source: url("../../../assets/ui/slices/button-self-cool.png"); cursor: default; }
+/* prefers-reduced-motion: the picker icon, still, bottom-centred over the avatar. */
+.emote-badge { position: absolute; left: 0; top: 0; translate: -50% -100%; }

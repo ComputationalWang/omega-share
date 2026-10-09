@@ -1,3 +1,4 @@
+import type { EmoteKind, MemberId } from "@omega/shared";
 import type { ClockSync } from "./clock";
 import type { ConnectionEvent } from "./connection";
 import type { ShareTokenTracker } from "./share-token";
@@ -9,6 +10,8 @@ export interface RoomEventSinks {
   /** The snapshot arrived: the join went through. */
   readonly joined: () => void;
   readonly dispatch: (e: ViewEvent) => void;
+  /** Someone emoted (OME-415): straight to the scene; emotes are never view state. */
+  readonly emoted: (memberId: MemberId, kind: EmoteKind) => void;
 }
 
 /** Where one connection event goes. A drop or a closed room (4004) stops the clock's pings until the next open. */
@@ -16,6 +19,7 @@ export function routeConnectionEvent(e: ConnectionEvent, sinks: RoomEventSinks, 
   sinks.shareToken.onEvent(e);
   if (e.type === "message") {
     if (e.msg.type === "pong") sinks.clock.onPong(e.msg.id, e.msg.at);
+    else if (e.msg.type === "emoted") sinks.emoted(e.msg.memberId, e.msg.kind);
     else {
       if (e.msg.type === "snapshot") sinks.joined();
       sinks.dispatch({ type: "server", msg: e.msg, now });

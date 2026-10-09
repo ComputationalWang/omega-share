@@ -1,6 +1,6 @@
 // Room screen. Loaded lazily after Enter so PixiJS stays out of the initial bundle.
 import "pixi.js/unsafe-eval";
-import { SEAT_COUNT, isSyncedEmbed, layoutSeats, type AnyEmbed, type Avatar, type ClientMessage, type Embed, type ErrorCode, type MemberId, type Nickname, type RoomId, type RoomLayout } from "@omega/shared";
+import { SEAT_COUNT, isSyncedEmbed, layoutSeats, type AnyEmbed, type Avatar, type ClientMessage, type EmoteKind, type Embed, type ErrorCode, type MemberId, type Nickname, type RoomId, type RoomLayout } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
@@ -25,6 +25,9 @@ import { walkGrid } from "./walk/path";
 import { standingSpots } from "./walk/standing";
 import type { Dir } from "./walk/walks";
 import type { Editor } from "./editor/editor";
+import { createEmotePicker } from "./emote/picker";
+import { createEmoteBadges } from "./emote/badges";
+import { EMOTE_LIFT } from "./walk/animator";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -51,6 +54,8 @@ export interface RoomHandle {
   readonly scene: () => string[];
   /** How many times the furniture was rebuilt for a new layout, for e2e "once per change" checks. */
   readonly layoutBuilds: () => number;
+  /** A member's motion frame and emote sticker now (room-view.ts `frames`), for e2e emote checks. */
+  readonly avatarFrames: (id: MemberId) => { avatar: string | null; sticker: string | null } | undefined;
 }
 
 const STATUS_TEXT: Record<ViewState["status"], string> = {
@@ -168,7 +173,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const chatForm = el("form", { className: "chat" });
   const chatInput = el("input", { type: "text", maxLength: 280, placeholder: "Say something…", autocomplete: "off", ariaLabel: "Chat message" }, "chat-input");
   const chatSend = el("button", { type: "submit", textContent: "Say" }, "chat-send");
-  chatForm.append(chatInput, chatSend);
+  // The emote key and its picker (OME-415) lead the chat row: both are how you speak up.
+  const picker = createEmotePicker({
+    send: (m) => send(m),
+    now: () => performance.now(),
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => {
+      clearTimeout(h as ReturnType<typeof setTimeout>);
+    },
+  });
+  chatForm.append(picker.root, chatInput, chatSend);
 
   let state = initialState;
   let conn: Connection | null = null;
@@ -206,9 +220,19 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   const tagEls = new Map<MemberId, HTMLElement>();
   const bubbleEls = new Map<MemberId, HTMLElement>();
-  // Tags and bubbles ride along with a walking avatar.
+  // Under prefers-reduced-motion an emote is a static badge over the avatar instead of an animation (OME-415).
+  const reducedMotion = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
+  const badges = createEmoteBadges(bubbles, {
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => {
+      clearTimeout(h as ReturnType<typeof setTimeout>);
+    },
+  });
+  const liftOf = (id: MemberId): number => (state.room?.seats.includes(id) === true ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
+  // Tags, bubbles and emote badges ride along with a walking avatar.
   const view: RoomView = await createRoomView({
     onMove: (id, x, y) => {
+      badges.move(id, x, y - liftOf(id));
       const tag = tagEls.get(id);
       if (tag !== undefined) place(tag, { x, y: y + TAG_OFFSET_Y });
       const bubble = bubbleEls.get(id);
@@ -529,6 +553,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       tagEls.delete(id);
       hourglasses.delete(e);
     }
+    badges.keep(members);
     for (const m of members.values()) {
       let e = tagEls.get(m.id);
       if (e === undefined) {
@@ -667,7 +692,15 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
 
   const shareToken = trackShareToken(sessionStorage, opts.roomId);
-  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, dispatch };
+  const emoted = (id: MemberId, kind: EmoteKind): void => {
+    if (!reducedMotion.matches) {
+      view.emote(id, kind);
+      return;
+    }
+    const p = view.position(id);
+    if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
+  };
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, dispatch, emoted };
   const c: Connection = createConnection({
     url: opts.socketUrl,
     join: joinMessage(opts.nickname, opts.avatar, opts.secret),
@@ -700,6 +733,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const msg = chatIntent(chatInput.value);
     if (msg !== null && c.send(msg)) chatInput.value = "";
   });
+  // Keys 1–6 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
+  window.addEventListener("keydown", (ev) => {
+    if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
+  });
   // Close on unload so the server frees the seat now; a bfcache restore reconnects.
   window.addEventListener("pagehide", () => {
     c.close();
@@ -714,5 +751,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => layoutBuilds };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => layoutBuilds, avatarFrames: (id) => view.frames(id) };
 }

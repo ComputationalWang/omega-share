@@ -1,7 +1,7 @@
 // The PixiJS layer: floor, furniture, seats and avatars, on the 2D canvas renderer (ADR 0029). Rendered on demand (no ticker): frames
 // run only while someone walks, and breathing redraws only when its frame changes (walk/animator.ts).
 import { Application, Container, Graphics, Sprite, Ticker } from "pixi.js";
-import { AVATAR_COUNT, type MemberId } from "@omega/shared";
+import { AVATAR_COUNT, type EmoteKind, type MemberId } from "@omega/shared";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import type { Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
@@ -36,6 +36,10 @@ export interface RoomView {
   readonly editLayer: Container;
   /** Draw once now, after the editor changed its layer. */
   redraw(): void;
+  /** `id` emoted (OME-415): a one-shot on the render loop. Nothing under prefers-reduced-motion (room.ts shows a badge). */
+  emote(id: MemberId, kind: EmoteKind): void;
+  /** The motion frame each is drawn with now, and their sticker's (null: none), for e2e checks. */
+  frames(id: MemberId): { avatar: string | null; sticker: string | null } | undefined;
   /** Labels in draw order (floor, furniture frame keys, `seat:<i>`, `avatar:<id>`), for e2e depth checks. */
   drawOrder(): string[];
   destroy(): void;
@@ -105,14 +109,16 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const editLayer = new Container({ label: "edit" });
   const markerLayer = new Container();
   const objectLayer = new Container({ sortableChildren: true });
-  app.stage.addChild(background, editLayer, markerLayer, objectLayer);
+  // Emote stickers float over everyone (OME-415).
+  const emoteLayer = new Container({ label: "emotes" });
+  app.stage.addChild(background, editLayer, markerLayer, objectLayer, emoteLayer);
 
   /** Marker per placeholder seat, by seat index. */
   let markers: (Graphics | null)[] = [];
   let lastTaken: (boolean | null)[] = [];
   let furniture: Sprite[] = [];
   /** Per member: the placeholder shape until the motion atlas is in, then a sprite. `x`/`y` is where it's drawn. */
-  const pool = new Map<MemberId, { node: Graphics | Sprite; avatar: number; x: number; y: number }>();
+  const pool = new Map<MemberId, { node: Graphics | Sprite; avatar: number; x: number; y: number; frame: string | null; sticker: Sprite | null; stickerFrame: string | null }>();
 
   const render = (): void => {
     pumpSystem();
@@ -146,6 +152,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         } else if (entry.node.texture !== texture) entry.node.texture = texture;
       } else if (entry.node instanceof Graphics && entry.avatar !== avatar) drawAvatar(entry.node, avatar);
       entry.avatar = avatar;
+      entry.frame = texture === undefined ? null : frame;
       entry.node.position.set(pose.x, pose.y);
       entry.node.zIndex = pose.z;
       if (entry.x !== pose.x || entry.y !== pose.y) {
@@ -153,6 +160,24 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         entry.y = pose.y;
         opts.onMove?.(id, pose.x, pose.y);
       }
+    },
+    drawEmote(id, frame, x, y) {
+      const entry = pool.get(id);
+      if (entry === undefined) return;
+      const texture = frame === null ? undefined : motion?.texture(frame);
+      if (texture === undefined) {
+        if (entry.sticker?.visible === true) entry.sticker.visible = false;
+        entry.stickerFrame = null;
+        return;
+      }
+      // One sprite per member, made on their first emote and reused: frame swaps only.
+      if (entry.sticker === null) {
+        entry.sticker = new Sprite({ texture, label: `emote:${id}` });
+        emoteLayer.addChild(entry.sticker);
+      } else if (entry.sticker.texture !== texture) entry.sticker.texture = texture;
+      entry.sticker.position.set(x, y);
+      entry.sticker.visible = true;
+      entry.stickerFrame = frame;
     },
     render,
   });
@@ -199,12 +224,13 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         if (pool.has(a.id)) continue;
         const g = new Graphics({ label: `avatar:${a.id}` });
         drawAvatar(g, a.avatar);
-        pool.set(a.id, { node: g, avatar: a.avatar, x: NaN, y: NaN });
+        pool.set(a.id, { node: g, avatar: a.avatar, x: NaN, y: NaN, frame: null, sticker: null, stickerFrame: null });
         objectLayer.addChild(g);
       }
       for (const [id, entry] of pool) {
         if (seen.has(id)) continue;
         entry.node.destroy();
+        entry.sticker?.destroy();
         pool.delete(id);
       }
       walks.place(avatars, performance.now());
@@ -228,6 +254,13 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     },
     editLayer,
     redraw: render,
+    emote(id, kind) {
+      animator.emote(id, kind);
+    },
+    frames(id) {
+      const e = pool.get(id);
+      return e === undefined ? undefined : { avatar: e.frame, sticker: e.stickerFrame };
+    },
     position(id) {
       const e = pool.get(id);
       return e === undefined || Number.isNaN(e.x) ? undefined : { x: e.x, y: e.y };

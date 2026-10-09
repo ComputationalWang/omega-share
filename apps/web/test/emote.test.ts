@@ -25,7 +25,7 @@ describe("emote bucket", () => {
 
   test("a burst of EMOTE_BURST, then empty until a token refills", () => {
     const b = createEmoteBucket(0);
-    for (let i = 0; i < EMOTE_BURST; i++) expect(b.take(10)).toBe(true);
+    for (let i = 0; i < EMOTE_BURST; i++) expect(b.take(0)).toBe(true);
     expect(b.take(10)).toBe(false);
     expect(b.readyAt(10)).toBe(refill);
     expect(b.take(refill - 1)).toBe(false);

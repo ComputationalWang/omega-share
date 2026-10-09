@@ -10,7 +10,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial
   return e;
 }
 
-const sprite = (name: string): HTMLSpanElement => el("span", { className: `ui-sprite ${name}`, ariaHidden: "true" });
+export const sprite = (name: string): HTMLSpanElement => el("span", { className: `ui-sprite ${name}`, ariaHidden: "true" });
 
 function setText(e: HTMLElement, text: string): void {
   if (e.textContent !== text) e.textContent = text;
