@@ -21,7 +21,7 @@
  *
  * Usage (env from the repo's `.env`: SERVER_IP, DEPLOY_KEY_PATH):
  *   bun scripts/hosted-load.ts setup    --state <file> [--rooms 20]       # private rooms, owner tokens in <file> (0600)
- *   bun scripts/hosted-load.ts run      --state <file> [--clients 25] [--minutes 10] [--public 5] [--drill] [--out perf/results/hosted-load]
+ *   bun scripts/hosted-load.ts run      --state <file> [--clients 25] [--minutes 10] [--public 5] [--use-rooms N] [--drill] [--out perf/results/hosted-load]
  *   bun scripts/hosted-load.ts privacy  --state <file> [--journal <file>] [--out …]   # metrics/logs grep + outside reachability
  *   bun scripts/hosted-load.ts tti      [--runs 5] [--out …]                # hosted TTI, Chromium "Fast 4G"
  *   bun scripts/hosted-load.ts teardown --state <file>                     # deletes the rooms
@@ -69,6 +69,8 @@ const { values: opt, positionals } = parseArgs({
     runs: { type: "string", default: "5" },
     out: { type: "string" },
     "tunnel-port": { type: "string", default: "18787" },
+    /** run: load only the first N rooms of the state file. */
+    "use-rooms": { type: "string" },
   },
 });
 
@@ -129,6 +131,11 @@ class Box {
         "-i", this.key, "-L", `127.0.0.1:${String(this.port)}:127.0.0.1:8787`, this.target],
       { stdout: "inherit", stderr: "inherit" },
     );
+    // Never leave the tunnel behind, whatever way the script ends.
+    const master = this.master;
+    process.on("exit", () => {
+      master.kill();
+    });
     for (let i = 0; i < 100 && !existsSync(this.sock); i++) await sleep(100);
     if (!existsSync(this.sock)) throw new Error("ssh master didn't come up");
   }
@@ -512,6 +519,7 @@ function clientSummary(clients: LoadClient[]) {
 
 async function run(): Promise<void> {
   const state = readState();
+  if (opt["use-rooms"] !== undefined) state.rooms = state.rooms.slice(0, Number(opt["use-rooms"]));
   const perRoom = Number(opt.clients);
   const minutes = Number(opt.minutes);
   const publicCount = Number(opt.public);
@@ -547,7 +555,12 @@ async function run(): Promise<void> {
     c.connect();
     await sleep(20);
   }
-  await waitFor(() => clients.every((c) => c.joined && (c.targetSeat === null || c.seated)), 120_000, "all joined and seated");
+  await waitFor(() => clients.every((c) => c.joined && (c.targetSeat === null || c.seated)), 120_000, "all joined and seated", false).then(() => {
+    const stuck = clients.filter((c) => !c.joined || (c.targetSeat !== null && !c.seated));
+    if (stuck.length === 0) return;
+    const show = stuck.slice(0, 10).map((c) => ({ room: c.roomIndex + 1, client: c.index, via: c.via, joined: c.joined, errors: c.errors, closes: c.closes }));
+    throw new Error(`${String(stuck.length)} clients not joined/seated, e.g. ${JSON.stringify(show)}`);
+  });
   log(`ramp done in ${String(Math.round((now() - ramp0) / 1000))} s`);
 
   // Control: per room, 4 seeks/s through a bucket that mirrors the room's, actors rotating.
@@ -717,7 +730,7 @@ async function privacy(): Promise<void> {
   };
   await probe("https://origin/metrics", `${ORIGIN}/metrics`);
   await probe("https://origin/metrics Host:127.0.0.1:9464", `${ORIGIN}/metrics`, { host: "127.0.0.1:9464" });
-  await probe(`http://${env("SERVER_IP")}:9464/metrics`, `http://${env("SERVER_IP")}:9464/metrics`);
+  await probe("http://$SERVER_IP:9464/metrics", `http://${env("SERVER_IP")}:9464/metrics`);
   await probe("app port via tunnel /metrics", `http://127.0.0.1:${String(box.port)}/metrics`, { host: HOST });
   await probe("metrics port via tunnel-side Host check", `http://127.0.0.1:${String(box.port)}/metrics`, { host: "localhost:9464" });
   box.stop();
