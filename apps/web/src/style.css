@@ -271,10 +271,11 @@ body:has(.is-pseudo-fs) { overflow: hidden; }
 .room-away b { color: var(--ui-text); }
 .room-away-keys { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .room-away .ui-button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 700; }
-.poproom-page main { padding: 0; }
+/* The columns are CSS (the chat column is layout.ts POP_ROOM_CHAT_W wide), so the window's size never follows its content. */
+.poproom-page main { padding: 0; min-width: 0; overflow: hidden; }
 .poproom { position: relative; display: flex; min-height: 0; height: 100%; }
-.poproom-room { --ui-px: 1px; position: relative; flex: none; height: 100%; overflow: hidden; }
+.poproom-room { --ui-px: 1px; position: relative; flex: 1 1 0; min-width: 0; height: 100%; overflow: hidden; }
 .poproom-clip { position: absolute; overflow: hidden; }
 .poproom-plate { position: absolute; left: 12px; top: 12px; z-index: 1; margin: 0; font-size: 11px; text-transform: none; letter-spacing: 0; }
-.poproom-chat { flex: none; display: grid; min-height: 0; height: 100%; }
-.poproom-chat .popout { height: 100%; }
+.poproom-chat { flex: 0 0 300px; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
+.poproom-chat .popout { min-width: 0; height: 100%; }

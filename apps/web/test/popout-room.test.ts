@@ -205,12 +205,13 @@ describe("whole-room window", () => {
     expect(stageRoot.closest("[inert]")).toBeNull();
   });
 
-  test("the stage fits its side: 1× in the set k window, scaled down in a small one", async () => {
+  test("the stage fits inside its side's rim: 1× in the set k window, scaled down in a small one (QA OME-646)", async () => {
     const big = await setup();
     big.popout.fit();
     expect(big.stageRoot.style.transform).toBe("scale(1)");
     const small = await setup({ w: 900, h: 500 });
     small.popout.fit();
-    expect(small.stageRoot.style.transform).toBe("scale(0.625)");
+    // 900 − 300 (chat) − 12 (rim) = 588 px across for 960: 0.6125.
+    expect(small.stageRoot.style.transform).toBe("scale(0.6125)");
   });
 });

@@ -48,6 +48,9 @@ export interface RoomPopout {
   fit(): void;
 }
 
+/** The room side's `.ui-pop` border, CSS px (6 × --ui-px at 1×). */
+const POP_RIM = 6;
+
 /** The plate's words: where the picture is and the room's time (set k: "Playing on your main screen · 25:31"). */
 function plateText(t: PopTv): string {
   if (t.live) return "Live on your main screen";
@@ -134,11 +137,10 @@ export function createRoomPopout<H>(o: RoomPopoutOptions<H>): RoomPopout {
 
   const fit = (): void => {
     const { w, h } = o.size();
-    const l = popRoomLayout(w, h);
+    // The room side's mustard rim (.ui-pop, 6 px at 1×) is inside the window: the stage fits within it.
+    const l = popRoomLayout(w - 2 * POP_RIM, h - 2 * POP_RIM);
     Object.assign(clip.style, { left: `${String(l.stage.x)}px`, top: `${String(l.stage.y)}px`, width: `${String(l.stage.w)}px`, height: `${String(l.stage.h)}px` });
     o.stage.root.style.transform = `scale(${String(l.scale)})`;
-    side.style.width = `${String(l.chat.x)}px`;
-    chat.style.width = `${String(l.chat.w)}px`;
   };
   fit();
 

@@ -137,6 +137,10 @@ test("pop out room: the window draws the room and the chat; the page keeps the p
     const back = await pop.locator(site.popoutBack).boundingBox();
     const send = await pop.locator(site.chatSend).boundingBox();
     for (const b of [back, send]) expect(b !== null && b.x + b.width <= size.width && b.y + b.height <= size.height).toBe(true);
+    // And the room stays inside its own side's rim, clear of the chat column.
+    const side = await pop.locator(site.poproomRoom).boundingBox();
+    const canvas = await pop.locator(`${site.poproomRoom} canvas`).boundingBox();
+    expect(side !== null && canvas !== null && canvas.x >= side.x && canvas.x + canvas.width <= side.x + side.width && canvas.y + canvas.height <= side.y + side.height).toBe(true);
   }
   expect(await pop.evaluate(() => window.opener === null)).toBe(true);
   await expect(pop).toHaveTitle(/omega-share$/);
