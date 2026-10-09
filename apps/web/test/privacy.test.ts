@@ -104,4 +104,12 @@ describe("privacy notice (OME-411)", () => {
     expect(section).toMatch(/never sold/i);
     expect(section).toMatch(/no analytics/i);
   });
+
+  test("the Extension section names both data categories the Firefox add-on declares (OME-593, CEO decision on OME-546)", () => {
+    const section = text(`<main>${/<h2 id="extension">[\s\S]*?(?=<h2|<\/main>)/.exec(privacy)?.[0] ?? ""}</main>`);
+    // Firefox shows data_collection_permissions in its install prompt: websiteContent and browsingActivity.
+    expect(section).toMatch(/Firefox/);
+    expect(section).toMatch(/website content/i);
+    expect(section).toMatch(/browsing activity/i);
+  });
 });
