@@ -936,7 +936,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
     renderModeration(s);
     // The landing form held focus and is gone: once the room (or the card in its place) shows, its first key takes it.
-    if (!landed && s.status !== "idle" && s.status !== "connecting") {
+    if (!landed && s.status !== "idle" && s.status !== "connecting" && s.status !== "reconnecting") {
       landed = true;
       const a = document.activeElement;
       if (a === null || a === document.body || (a instanceof HTMLElement && !a.checkVisibility())) firstKey(opts.root)?.focus({ preventScroll: true });
