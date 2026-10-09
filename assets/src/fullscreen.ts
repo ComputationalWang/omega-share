@@ -376,12 +376,14 @@ export function fullscreenCss(): string {
 .ui-qmenu.is-row { display: inline-flex; align-items: center; }
 .ui-qmenu.is-row::after { content: none; }
 .ui-qmenu.is-row .ui-modsep { width: ${u(2)}; height: ${u(14)}; }
-/* Where we can't set quality the key stays, and opens one sentence instead of a list (.ui-qmenu.is-note). Two honest variants:
- * "Use the player's own menu" (the provider shows its own settings: generic tier, free-plan Vimeo) and "Picked by the player"
- * (YouTube: automatic, no menu anywhere). No disabled list, no fake choices. */
-.ui-qmenu.is-note { max-width: ${u(180)}; }
-.ui-qmenu.is-note p { margin: 0; padding: 0 ${u(1)}; font-size: 12px; font-weight: 500; color: var(--ui-text); line-height: 1.35; }
-.ui-room .ui-qmenu.is-note p { font-size: 11px; }
+/* Where we can't set quality (YouTube, generic tier, Vimeo without a paid owner) there is no key at all: no disabled list, no hint
+ * (research OME-545: the provider's own menu is hidden by our controls=0, so a hint would point at nothing). Show the key only when the
+ * adapter reports a non-empty list; if a set is rejected, hide it from then on.
+ * Quality echo (Twitch): for 5 s after a pick, .ui-button.is-switching carries the wait dial on the key, the picked row shows it too,
+ * and one .ui-sysline.self says only you see the switch. Any pause/play or seek Twitch makes in that window stays on your screen
+ * (the adapter ignores it), then the check settles on what the player reports. */
+.ui-button.self.is-switching { position: relative; }
+.ui-button.self.is-switching .ui-wait { position: absolute; right: ${u(-6)}; top: ${u(-6)}; }
 
 /* ---- Item 6, report this room. A quiet secondary key with icon/report at the end of the room bar's info line (never beside Leave
  * or the host's tools); hidden in rooms you own. The dialog is a plain .ui-panel on the scrim, role="dialog" aria-modal, focus

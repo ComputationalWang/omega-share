@@ -341,9 +341,11 @@ Three directions were weighed before any pixels:
   rows are `menuitemradio` with the check on the current one; it lists exactly what this video offers, Auto on top ("720p60 now" beside it). It always opens into our own
   space: under the shelf in the page (tail up), down inside the strip in full screen (the key moves to the strip head), and as a row that replaces the band when the
   strip is collapsed. A pick shows the check at once and set (c)'s wait dial in its row until the player confirms. Kept on this device, never sent to the room.
-  **Where we can't set it** the key stays and opens one sentence, never a greyed list: "This player sets its own quality. Use the settings menu inside the picture."
-  where that menu really shows (generic tier, free-plan Vimeo), and "YouTube picks the quality for your connection by itself. It can't be changed from here." on
-  YouTube (its menu is hidden with ours; research OME-545). If engineering hides the key there instead, the sentence becomes its tooltip.
+  **Where we can't set it there is no key** (YouTube, the generic tier, Vimeo without a paid owner; research OME-545): no disabled list and no hint,
+  because our embed hides those players' own menus, so a hint would point at nothing. The key appears only when this video offers a list, and goes for good if
+  the player rejects a pick. **Quality echo (Twitch):** for the 5 s after a pick the key and the picked row carry the wait dial (`.is-switching`, `aria-busy`),
+  and one mustard `.ui-sysline.self` says "Your picture is switching to 1080p60. Only you see this." Any pause or jump Twitch makes while switching stays on
+  your screen (the adapter ignores it, so nobody else's video moves); then the check settles on what Twitch reports ("Twitch kept 720p60 for this stream" if it didn't take).
 - **Report this room (item 6):** plain and calm. A secondary key with words, "Report room" with `icon/report` (a cream pennant on a wood pole: no red, no siren), at the
   foot of the chat column (desktop, pop-out room window) or the last line of the page (phone); never beside Leave or the host's tools, not in rooms you own, not in
   full screen. The dialog is the everyday `.ui-panel` on the dither scrim: a title, one sentence on who reads it, six reasons as radio rows (`glyph/radio-off|on`:

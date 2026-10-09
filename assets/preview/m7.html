@@ -362,7 +362,7 @@
 
 <!-- =============================================================== 5. quality (only you) -->
 <section id="m7-quality">
-  <h2>5 · Quality, only you: the key, the menu in the page / strip / band, and where we can't set it (chrome at 1×)</h2>
+  <h2>5 · Quality, only you: the key, the menu in the page / strip / band, the Twitch quality echo, and no key where we can't set it (chrome at 1×)</h2>
   <div class="row">
     <div class="col">
       <h3 class="cap">In the page (Twitch, focus on "720p60")</h3>
@@ -419,36 +419,33 @@
   </div>
   <div class="row" style="margin-top:16px">
     <div class="col">
-      <h3 class="cap">Where we can't set quality: the key stays, it opens one honest sentence</h3>
+      <h3 class="cap">Twitch: the quality echo, the 5 s after a pick</h3>
       <div class="row" style="gap:18px">
         <div class="col">
-          <div class="ui-emotes ui-modmenu ui-qmenu is-note is-below" role="dialog" aria-label="Quality">
-            <div class="head"><span class="ui-sprite ui-icon-quality"></span><span class="name">Quality</span><button class="ui-sprite ui-qx" aria-label="Close"></button></div>
-            <span class="ui-modsep"></span>
-            <p>This player sets its own quality. Use the settings menu inside the picture.</p>
-          </div>
-          <span class="lbl" style="font-size:11px;color:var(--ui-muted)">"Use the player's own menu": a site in the generic tier; free-plan Vimeo (shows its own menu).</span>
+          <div class="screen ui-room" style="width:600px;height:56px;outline:0"><div class="ui-tv-shelf" style="left:20px;top:6px;width:560px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon is-switching" aria-label="Quality: switching to 1080p60. Only you." aria-busy="true"><span class="ui-sprite ui-icon-quality"></span><span class="ui-sprite ui-wait ui-wait-3" style="animation:none"></span></button><button class="ui-button self icon" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button></div></div></div>
+          <div class="ui-room hj-log" style="display:grid;gap:4px;padding-left:20px"><p class="ui-sysline self"><span class="ui-sprite ui-icon-quality"></span><span><b>Your picture</b> is switching to 1080p60. Only you see this.</span></p></div>
+          <span class="lbl" style="font-size:11px;color:var(--ui-muted);max-width:600px">0 to 5 s: the dial sits on the key and in the picked row; one mustard line (only you). If Twitch stutters, pauses or jumps while it switches, that stays on your screen: nobody else's video moves and the log says nothing to the room.</span>
+          <div class="screen ui-room" style="width:600px;height:56px;outline:0;margin-top:6px"><div class="ui-tv-shelf" style="left:20px;top:6px;width:560px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon" aria-label="Quality: 1080p60. Only you."><span class="ui-sprite ui-icon-quality"></span></button><button class="ui-button self icon" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button></div></div></div>
+          <span class="lbl" style="font-size:11px;color:var(--ui-muted);max-width:600px">After 5 s: the dial goes, the check sits on what Twitch reports. If Twitch kept another level, the check moves back to it and the line reads "Twitch kept 720p60 for this stream."</span>
         </div>
         <div class="col">
-          <div class="ui-emotes ui-modmenu ui-qmenu is-note is-below" role="dialog" aria-label="Quality">
-            <div class="head"><span class="ui-sprite ui-icon-quality"></span><span class="name">Quality</span><button class="ui-sprite ui-qx" aria-label="Close"></button></div>
-            <span class="ui-modsep"></span>
-            <p>YouTube picks the quality for your connection by itself. It can't be changed from here.</p>
+          <h3 class="cap" style="margin:0">YouTube, generic, Vimeo without a paid owner: no key</h3>
+          <div class="screen ui-room" style="width:600px;height:56px;outline:0"><div class="ui-tv-shelf" style="left:20px;top:6px;width:560px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button></div></div></div>
+          <span class="lbl" style="font-size:11px;color:var(--ui-muted);max-width:600px">The shelf just doesn't have it: no disabled key, no hint (their own menus are hidden by our embed, so a hint would point at nothing). The key appears only when this video offers a list, and goes for good if the player rejects a pick.</span>
+          <div class="col ui-room" style="background:var(--ui-page);padding:8px;margin-top:6px">
+            <div class="row" style="gap:8px">
+              <button class="ui-button self icon" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
+              <button class="ui-button self icon is-hover" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
+              <button class="ui-button self icon is-press" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
+              <button class="ui-button self icon" style="outline:var(--ui-px) solid var(--ui-text);outline-offset:var(--ui-px)" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
+              <button class="ui-button self icon is-switching" aria-label="Quality: switching to 1080p60. Only you." aria-busy="true"><span class="ui-sprite ui-icon-quality"></span><span class="ui-sprite ui-wait ui-wait-3" style="animation:none"></span></button>
+            </div>
+            <span class="lbl" style="font-size:11px;color:var(--ui-muted)">idle · hover · open · focus · switching (1×)</span>
           </div>
-          <span class="lbl" style="font-size:11px;color:var(--ui-muted)">"Picked by the player": YouTube (no API since 2019, its menu is hidden with ours).</span>
-        </div>
-        <div class="col ui-room" style="background:var(--ui-page);padding:8px">
-          <div class="row" style="gap:8px">
-            <button class="ui-button self icon" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
-            <button class="ui-button self icon is-hover" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
-            <button class="ui-button self icon is-press" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
-            <button class="ui-button self icon" style="outline:var(--ui-px) solid var(--ui-text);outline-offset:var(--ui-px)" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
-          </div>
-          <span class="lbl" style="font-size:11px;color:var(--ui-muted)">idle · hover · open · focus (1×)</span>
         </div>
       </div>
-      <p class="cap-p">Research OME-545 found only Twitch and paid-owner Vimeo accept a quality from us, and that YouTube's own menu is hidden with ours (<code>controls=0</code>). So "use the player's own menu" is said only where that menu really shows; on YouTube the sentence says the player chooses by itself. Never a greyed-out list. If engineering prefers to hide the key on YouTube (the research's call), the sentence moves to the key's tooltip and nothing else changes.
-      Keyboard everywhere: Tab to the key, Enter/Space/↓ opens with focus on the current choice, ↑↓ move, Enter picks, Esc closes and returns focus to the key. Screen readers hear "Quality: Auto (720p60). Only you."</p>
+      <p class="cap-p">Research OME-545: only Twitch and paid-owner Vimeo accept a quality from us. So the picker exists only there. Twitch documents no change event and may pause or seek while it switches, so the 5 s echo window keeps that local, and the check is re-read after it.
+      Keyboard everywhere: Tab to the key, Enter/Space/↓ opens with focus on the current choice, ↑↓ move, Enter picks, Esc closes and returns focus to the key. Screen readers hear "Quality: Auto (720p60). Only you.", and "switching" while the dial shows (<code>aria-busy</code>). Reduced motion: the dial holds one frame for the 5 s.</p>
     </div>
   </div>
 </section>
