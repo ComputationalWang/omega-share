@@ -6,7 +6,7 @@ Original art, CC BY-SA 4.0 (`LICENSE`). Style rules: `STYLE.md`.
 assets/
   avatars/avatars.png   # shipped: 512×256 indexed PNG-8 sprite sheet (set a)
   avatars/avatars.json  # shipped: PixiJS v8 spritesheet atlas
-  avatars/motion.png    # set d (M5, lazy-load): 1024×512 indexed PNG-8, walk / breathe / wave / emote icons
+  avatars/motion.png    # set d (M5, lazy-load): 1024×512 indexed PNG-8, walk / breathe / wave / emote icons; set l: walk8 in-betweens
   avatars/motion.json   # set d: PixiJS v8 atlas + meta.omega.anims (frames, per-frame ms, loop)
   room/room.png         # shipped: 512×512 indexed PNG-8 (set b: floor, rug, walls, seats, corner console + projector, props)
   room/room.json        # shipped: PixiJS v8 spritesheet atlas + meta.omega room contract
@@ -25,7 +25,8 @@ assets/
   ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
   preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame, ui-owner*.png = set h, ui-rooms*@1x/@2x.png = set i, ui-house*/ui-queue/ui-setj-states@1x/@2x.png = set j), m7.html + ui-m7-*@1x/@2x.png (set k, M7 layouts), store.html (set j store kit source),
                         #   owner-edit@1x/@2x.png (set h edit mode in the room),
-                        #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated)
+                        #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated),
+                        #   m8.html + ui-m8-*@1x/@2x.png (set l), walk8-strip@4x.png + walk-tiers@2x.apng (set l, Basic vs Smooth walk)
                         #   ui-sheet@4x.png is ui/ui.png at 4×, so it is 1024×2048 on purpose: the sheet's height is a power of two with headroom
                         #   for later sets, and about 40% of it is still empty (the wall-colour band at the bottom). Not a packing bug.
   src/                  # generator (Bun, no deps) + mood boards
@@ -527,6 +528,69 @@ Layout numbers the mock-ups use (CSS px): desktop 1280×720 with the strip open 
 collapsed = picture 1187×668 at (46, 0), one 44 px band. Phone portrait 390×844 = picture 390×219 on top; landscape 844×390 = picture 693×390
 plus a 151 px column; typing = picture 242×136 top-left and the field on the keyboard. Watch-only = the stage at 1× cropped to 390×250 around the seats.
 
+## Set (l) bubbles, emote wheel, smooth walk, wide desktop (OME-644, M8, `ui/` + `avatars/motion.*`)
+
+M8's polish set: floating chat bubbles over the speakers, the radial emote wheel (T), the 8-frame walk for the Smooth tier and refinements for the wide
+desktop layout ([OME-642](/OME/issues/OME-642)). The UI pieces join the other sets in `ui/ui.png` / `ui.json`, `ui/slices/` and the end of `ui/reference.css`
+(code: `src/chatfloat.ts`); the walk in-betweens are in `avatars/motion.*` (code: `src/motion.ts`). Mock-ups: `preview/m8.html`, shot by `bun assets/src/shoot-m8.ts`
+(runs the build first, prints the budget line; bubbles frozen at fixed ages, so re-runs leave git clean) into `preview/ui-m8-<pieces|bubbles|float|wheel|desktop>@1x|2x.png`.
+Walk: `preview/walk8-strip@4x.png` (every frame, in-betweens on the odd columns) and `preview/walk-tiers@2x.apng` (Basic on top, Smooth below, live speed). Rules: `STYLE.md` § Set (l).
+
+| Key | Size | Slice | Use |
+|---|---|---|---|
+| `bubble/float`, `bubble/float-self` | 14×14 | 5 5 6 5 | `p.ui-float` (room scale, in the stage overlay): set (k)'s fresh cream card one size up, with a 2 px plum foot so it lifts off busy floors. `-self` (`.is-self`) = your own message, in tag/self's mustard rim. |
+| `bubble/tail-<s\|sw\|se>` | 12×7 | — (slice file) | The tail, on `::after`. Top 3 rows open the card's lip, outline and foot; 4 rows show. Anchor = the tip. `s` (default) points straight down; `sw` / `se` (`.tail-sw`, `.tail-se`) lean 2:1 toward a speaker the box had to leave at the stage (or visible window) edge. |
+| `wheel/disc` | 77×77 | — | `.ui-wheel[role=menu]` (page chrome, `--ui-px`): night tray, mustard rim, six spoke grooves, a sunk ring round the hub. |
+| `wheel/slot/<idle\|hover\|selected\|press\|cool>` | 21×21 | — | `.ui-wheel-slot[role=menuitem]`, each holding set (i)'s `.ui-emote-pick-<id>`. idle = sunken well · hover = cream lit edge · selected (`aria-current`, `:focus-visible`, `.is-selected`) = mustard rim · press = mustard rim, deeper well, sticker 1 px down · cool (`aria-disabled`) = charcoal, sticker dimmed. 42 CSS px at 2×. |
+| `wheel/focus` | 27×27 | — | Keyboard focus ring round a slot (`:focus-visible::after`, 3 art px out): 1 px cream between plum, set (c)'s focus language made round. Never on hover. |
+| `wheel/hub` | 21×21 | — | `.ui-wheel-hub`: wood bezel, deep well. Shows the selected sticker (`icon/emote` before a pick, set (f)'s `wait/<n>` while cooling). |
+| `wheel/tail` | 9×7 | — (slice file) | From the rim down to your head. `.no-tail` when the wheel docks (no avatar in view) or is clamped vertically. |
+| `icon/wheel` | 16×16 | — | The touch key by the chat input (`.ui-button.self.icon`, `aria-haspopup="menu"`, `aria-expanded`): six beads round a face, the top one lit. |
+| `kbd/0` | 12×12 | 3 4 4 4, fixed height | `kbd.ui-kbd`: a keycap for hints ("Press [Enter] to chat", "[T] emotes", the wheel's label chip). Page chrome (2×) only. |
+
+**Bubbles: geometry, motion, stacking.** All numbers are in `ui.json` `meta.omega.bubbles` (ms and stage px) and baked into the CSS.
+- **Box:** 12/15 px words, at most 168 px wide (border box) and 3 lines (`.say` clamps; the full text is in the chat log). Bubbles are decorative:
+  the layer is `aria-hidden="true"`, the chat log stays the live region.
+- **Anchor:** the tail tip, at `(floor x, floor y − tagLiftByAvatar[id][pose])`, 2 px over that avatar's head. The card's bottom is 4 px above it (`tailBelow`).
+  JS sets `left`/`top` to the card's resting border box and `--tail-x` to the speaker's x inside it.
+- **Life (default):** 5 s. Opacity 0 → 1 over 120 ms in 3 steps, holds to 3.6 s, then `cubic-bezier(.55, 0, 1, .45)` (ease-in) to 0 at 5 s. It rises 24 px over the whole
+  life in `steps(24)`: one whole stage px every ~208 ms, so the art never blurs between pixels. `opacity` + `translate` only: compositor work, no layout or paint per frame.
+- **Reduced motion:** no rise, no push slide, no fade-in. Shows at once, holds to 4 s, fades linearly to 0 at 5 s; an early exit is instant.
+- **Stacking rule** (reference implementation: the script in `preview/m8.html`). Lay out on every add/remove and when a speaker moves, newest first:
+  1. Each bubble takes its anchor, clamped sideways inside the stage (or the visible window on a phone) with a 4 px margin.
+  2. Its **path** is the box plus the 24 px it will rise. If its path would come within 3 px of a newer bubble's path, it moves straight up until it clears
+     (repeat until nothing touches). So nothing ever overlaps at any moment of the float, and newer lines are always nearest the heads.
+  3. A bubble that moved up is `.is-stacked`: no tail (it can't point at its speaker any more), and the words start with `<b class="who">Name</b>`.
+     A bubble that didn't move but was clamped so the speaker is within 6 px of its edge uses `.tail-sw` / `.tail-se`.
+  4. Up to 2 per speaker (a 3rd retires that speaker's oldest) and 8 on screen (a 9th retires the oldest). A bubble whose path would leave the top of the stage retires too.
+     Retiring = `.is-leaving` (160 ms fade, 4 steps), then removed.
+  5. A moved bubble slides to its new place with `--push` (a `transform`, 160 ms, 4 steps), never by animating `top`.
+- The mock-up's six speakers (`ui-m8-bubbles`) show two stacks (Remy twice over Ana; Sol pushing "You" up) and your own bubble.
+
+**Emote wheel.** Geometry in `meta.omega.wheel` (art px): slot `k` (0–5, `order`: heart, laugh, question, exclaim, clap, wave = keys 1–6) has its top-left at `slots[k]`,
+every 60° clockwise from 12 o'clock on a 24 px radius; the hub at `hubOrigin`. The CSS places them already (`.ui-wheel-slot:nth-child(k)`).
+- **Where:** page chrome at `--ui-px: 2px` (never inside the scaled stage, so it's always 154 CSS px and the slots are touch-sized), its tail tip on your bubble anchor
+  (`stageToPage`). The label chip (`.ui-chip.self.ui-wheel-label`, the emote name + its key in a `kbd.ui-kbd.is-small`) sits above the wheel, not on your avatar.
+  Clamp it inside the stage box; clamped vertically, or with no avatar of yours in view (phone watch-only, panned away), it docks centred above the composer with `.no-tail`.
+- **Keyboard:** T (focus not in a text field) opens it with Heart selected and focused (roving tabindex). → / ↓ next clockwise, ← / ↑ back, Home / End, 1–6 send at once,
+  Enter / Space send the selected one, Esc or T close; Tab closes and moves on. Focus returns to where it was. `role=menu` `aria-label="Emotes"`, items `role=menuitem` with
+  `aria-label` and `aria-keyshortcuts`.
+- **Pointer:** hovering a slot shows `hover` and previews it in the hub; click sends and closes; a click outside closes.
+- **Touch:** the `icon/wheel` key left of the message field opens the same wheel. Slots are 42 CSS px and 3 art px apart, so `.ui-touch` 44 px hit areas don't overlap.
+- **Cooling:** every slot `aria-disabled` (charcoal), the hub shows `wait/<n>`, the chip says "Emotes in 3 s".
+- **Motion:** opens with 4 opacity steps over 80 ms; nothing scales (pixel art never resamples). Reduced motion: it just appears.
+
+**Wide desktop (OME-642 refinements).** `.ui-wide` (≥ 1024 px, landscape) puts `.ui-chatcol` (320 px) beside the TV + shelf + stage, full viewport height, no page scroll.
+- The column is set (k)'s strip (`fs/strip`) standing beside the room, its wood spine on the stage side: head (`icon/chat` "Chat", the count, the pop-out key), the log (1× lines,
+  `role=log`), the composer (`.ui-composer`: wheel key, field, Send) and a hint line ("[T] emotes [Esc] back to the room").
+- **"Press Enter to chat":** `.ui-chat-hint` (with a `kbd.ui-kbd`) lies over the empty, unfocused field; it hides on focus, on any text and on coarse pointers. It's `aria-hidden`;
+  the field's label and `aria-keyshortcuts="Enter"` say the same thing. Use `placeholder=" "` so `:placeholder-shown` works.
+- **The stage at 1280×720:** after the 560×315 TV and its shelf, 339 px are left. Show the stage as a **1× window** panned to the seats (the phone's `panTo`), not
+  the whole stage scaled to 0.56: avatars, tags and bubbles stay at native size. At ≥ 1080 px tall the full stage fits. (Recommendation for engineering; OME-642 can ship either.)
+- Focus order is on the mock-up (`ui-m8-desktop`, white badges): pause · seek · the room · pop out · log · emotes · message · send.
+
+**Bytes:** eager +5 455 B (`ui.png` +1 107, `ui.json` +794 gz, 7 new slices +952, `reference.css` +2 602 gz); lazy +4 978 B (`motion.png` +3 734, `motion.json` +1 244 gz). Set (l) total **+10 433 B**.
+
 ## Motion atlas (`avatars/motion.json`, set d)
 
 Same format as the avatar atlas (PixiJS v8, 32×64 cells, no trim, no rotation, anchor = floor point `(16, 61)`).
@@ -536,6 +600,7 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 | Key | Frames | Notes |
 |---|---|---|
 | `walk/<id>/<dir>/<0-3>` | 4 per dir | Contact (kick-up) → passing → contact (open V) → passing. The body rises 1 px on passing frames, the supporting sole is always on y 60, and both arms swing against the legs (Kiki's popcorn arm stays put). |
+| `walk8/<id>/<dir>/<1\|3\|5\|7>` | 4 per dir (set l) | The Smooth tier's in-betweens: 1 recoil (free foot starts its swing), 3 reach (swinging foot 1 px off the floor), 5 and 7 the same for the other leg; arms at half swing (1 row). In each avatar's second row, columns 16–31. |
 | `breathe/<id>/<pose>/<dir>/1` | 1 per pose × dir | Breathing out: the head settles 1 px onto the collar. Breathing in is the set (a) frame `<id>/<pose>/<dir>/0`. |
 | `wave/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | One arm (the other at rest): `0` forearm upright, hand high; `1` forearm 45° out, hand at cheek height. Standing and seated, all four dirs (seated viewers wave from behind too). |
 | `emote/<heart\|laugh\|question\|exclaim\|clap>/<0-2>` | 3 each, 16×16 | `0` pop-in, `1` settled, `2` pulse. Anchor = bottom centre `(8, 16)`. |
@@ -547,6 +612,10 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
 - **Walk:** `meta.omega.walk = { frameMs: 150, tilesPerCycle: 1, stepPx: {x: 8, y: 4} }`. One 600 ms cycle (two steps) crosses one tile.
   Advance the sprite `(±8, ±4)` per frame along the 2:1 axis of travel, or tween and round to whole pixels on that axis.
   Screen direction → facing: `+col` = `se`, `+row` = `sw`, `−row` = `ne`, `−col` = `nw`. When the walk stops, show `<id>/idle/<dir>/0`.
+- **Smooth walk (set l, M8):** `walk8/<id>/<dir>` is an 8-frame loop at 75 ms (`meta.omega.walk8 = { frameMs: 75, frames: 8, tilesPerCycle: 1, stepPx: {x: 4, y: 2} }`),
+  still one tile per 600 ms cycle. **Its even frames are the 4-frame cycle's own keys** (`walk8` frame 2k = `walk/<id>/<dir>/<k>`), so switching tiers mid-stride
+  never pops: Smooth step = 2 × Basic step. Only the odd frames are new cells. On the Smooth tier, interpolate the position every display frame and round to whole pixels.
+  `walk/*` and `meta.omega.walk` are unchanged (the Basic tier, which `parseMotion` already validates).
 - **Breathe:** `[1400, 1000]` ms. Start each avatar at a random phase so a full room doesn't breathe in unison.
   The blink ticker (set a) wins over the exhale frame for its 120 ms.
 - **Wave** is one-shot (`6 × 160 ms`), then return to the pose's base frame. Seated waves still draw between the chair's `back` and `front` layers.
@@ -612,21 +681,24 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 |---|---|
 | `avatars/avatars.png` | 4 426 |
 | `avatars/avatars.json` | 24 075 raw / 1 492 gz |
-| `avatars/motion.png` (set d, lazy) | 14 601 |
-| `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
+| `avatars/motion.png` (sets d + l, lazy) | 18 335 |
+| `avatars/motion.json` (sets d + l, lazy) | 117 095 raw / 5 032 gz |
 | `room/room.png` | 8 335 |
 | `room/room.json` | 13 823 raw / 1 192 gz |
-| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k) | 11 844 |
-| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k) | 84 105 raw / 4 111 gz |
+| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k + l) | 12 951 |
+| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k + l) | 91 380 raw / 4 905 gz |
 | `ui/edit.png` (set h, lazy, owners only) | 8 925 |
 | `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
-| `ui/slices/*.png` (93 files, palettes trimmed to the colours used) | 14 910 |
+| `ui/slices/*.png` (100 files, palettes trimmed to the colours used) | 15 862 |
 | `ui/popup/*.png` (set f) | 409 |
 | `ui/scenes/*.png` (sets i + j + k, lazy) | 2 825 |
-| `ui/reference.css` (if ported as-is) | 87 121 raw / 17 251 gz |
+| `ui/reference.css` (if ported as-is) | 98 398 raw / 19 853 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **119 791 B (≈ 117.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 63 970 B; lazy (sets d, g, h's edit kit, i's, j's and k's scenes) 55 821 B |
+| **total shipped art** | **130 224 B (≈ 127.2 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 425 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes) 60 799 B |
+
+Set (l) (OME-644) adds **10 433 B (≈ 10.2 KB)** against `main` (119 791 → 130 224): eager +5 455 (`ui.png` +1 107, `ui.json` +794 gz, 7 new slices +952,
+`reference.css` +2 602 gz), lazy +4 978 (the smooth walk's 64 in-between cells: `motion.png` +3 734, `motion.json` +1 244 gz).
 
 Set (k) (OME-541) adds **5 524 B (≈ 5.4 KB)** against `main` (114 267 → 119 791). The layouts: `ui.png` +474, `ui.json` +235 gz, 4 new slices +596,
 `reference.css` +1 452 gz, and the two lazy scenes 701 (`chat-away.png` 310, `room-away.png` 391). Items 5 and 6 (quality, report): +1 301, all eager

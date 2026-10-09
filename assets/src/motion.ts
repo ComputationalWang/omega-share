@@ -144,6 +144,145 @@ function armSwing(view: View, n: number, holds: boolean): Stamp[] {
   return out;
 }
 
+/** Smooth tier (M8): 8 frames at 75 ms, the same one-tile cycle. Even frames 2k ARE the 4-frame cycle's frame k (same keys, same
+ *  pixels), so the two tiers can swap mid-stride with no pop. The odd frames are in-betweens: 1 = recoil (the free foot starts to swing),
+ *  3 = reach (the swinging foot 1 px off the floor, about to land), 5 and 7 the same for the other leg. They take the lift of the frame they
+ *  lead into, so the body still bobs 1 px twice a cycle. */
+export const WALK8_FRAME_MS = 75;
+const WALK8_FRONT: Readonly<Record<1 | 3 | 5 | 7, readonly string[]>> = {
+  // 1 recoil: near leg still planted, far foot dropping from its kick toward the swing (sole 3 px up).
+  1: [
+    "....LLL..lll....",
+    "....LLL..lll....",
+    "....LLL..lll....",
+    "....LLL..lll....",
+    "....LLL..lll....",
+    ".....LLL..ffff..",
+    ".....LLL..fffff.",
+    ".....LLL........",
+    ".....FFFF.......",
+    ".....FFFFF......",
+  ],
+  // 3 reach (lift 1): far leg swung forward, foot 1 px above the floor; near leg leaning back, foot still flat.
+  3: [
+    "....LLL..lll....",
+    "....LLL..lll....",
+    "....LLL..lll....",
+    "....LLL...lll...",
+    "...LLL....lll...",
+    "...LLL.....lll..",
+    "...LLL.....lll..",
+    "..LLL......lll..",
+    "..LLL......ffff.",
+    "..FFFF.....fffff",
+    "..FFFFF.........",
+  ],
+  // 5 recoil: far leg planted, near foot leaving the back of the V (sole 3 px up).
+  5: [
+    "....LLL..lll....",
+    "....LLL..lll....",
+    "....LLL..lll....",
+    "...LLL...lll....",
+    "...LLL....lll...",
+    "..FFFF....lll...",
+    "..FFF.....lll...",
+    "..........lll...",
+    "..........ffff..",
+    "..........fffff.",
+  ],
+  // 7 reach (lift 1): near foot reaching forward 1 px above the floor; far leg planted, heel lifting.
+  7: [
+    "....LLL..lll....",
+    "....LLL..lll....",
+    "....LLL..lll....",
+    "....LLL..lll....",
+    "....LLL..lll....",
+    ".....LLL.lll....",
+    ".....LLL.lll....",
+    ".....LLL.lll....",
+    ".....FFFFlll....",
+    ".....FFFFFfff...",
+    "..........ffff..",
+  ],
+};
+const WALK8_BACK: Readonly<Record<1 | 3 | 5 | 7, readonly string[]>> = {
+  // 1 recoil: near foot down from its high landing, far foot lifting off the trail (sole 2 px up).
+  1: [
+    "....lll..LLL....",
+    "....lll..LLL....",
+    "...lll...LLL....",
+    "...lll...LLL....",
+    "..lll....LLL....",
+    "..lll....LLL....",
+    "..fff....LLL....",
+    "..fff....LLL....",
+    ".........FFF....",
+    ".........FFF....",
+  ],
+  // 3 reach (lift 1): far foot swinging up and away, near leg straight.
+  3: [
+    "....lll..LLL....",
+    "....lll..LLL....",
+    "....lll..LLL....",
+    "....lll..LLL....",
+    ".....lll.LLL....",
+    ".....fff.LLL....",
+    ".....fff.LLL....",
+    ".........LLL....",
+    ".........LLL....",
+    ".........FFF....",
+    ".........FFF....",
+  ],
+  // 5 recoil: far foot down and planted, near heel rising (sole 2 px up).
+  5: [
+    "....lll..LLL....",
+    "....lll..LLL....",
+    "....lll..LLL....",
+    "....lll..LLL....",
+    "....lll..LLL....",
+    "....lll..LLL....",
+    "....lll..FFF....",
+    "....lll..FFF....",
+    "....fff.........",
+    "....fff.........",
+  ],
+  // 7 reach (lift 1): near foot swinging up and away, far leg starting to trail.
+  7: [
+    "....lll..LLL....",
+    "....lll..LLL....",
+    "....lll..LLL....",
+    "....lll...LLL...",
+    "...lll....LLL...",
+    "...lll....FFF...",
+    "...lll....FFF...",
+    "..lll...........",
+    "..lll...........",
+    "..fff...........",
+    "..fff...........",
+  ],
+};
+
+/** Half swing for the in-betweens: the hand 1 row in or out (the contact frames move it 2). Frames 1 and 7 lean the way contact 0 does,
+ *  3 and 5 the way contact 2 does. */
+function armHalfSwing(view: View, k: 1 | 3 | 5 | 7, holds: boolean): Stamp[] {
+  const r = armRoles(view);
+  const tuck = (x: number, e: number): Stamp[] => [{ x: e, y: 8, rows: ["____"] }, { x, y: 7, rows: ["SS"] }];
+  const extend = (x: number, arm: string): Stamp[] => [{ x, y: 8, rows: [arm + arm, "SS"] }];
+  const leftTucks = k === 1 || k === 7;
+  const out: Stamp[] = leftTucks ? tuck(1, -1) : extend(1, r.left);
+  if (!holds) out.push(...(leftTucks ? extend(13, r.right) : tuck(13, 13)));
+  return out;
+}
+
+/** Frame k (0–7) of the smooth-tier walk. Even k defer to `walkMotion(view, k / 2)`. */
+export function walk8Motion(view: View, k: number, holds = false): Motion {
+  if (k % 2 === 0) return walkMotion(view, k / 2, holds);
+  if (k !== 1 && k !== 3 && k !== 5 && k !== 7) throw new Error(`no walk8 frame ${String(k)}`);
+  const legs = (view === "front" ? WALK8_FRONT : WALK8_BACK)[k];
+  return { legs, lift: k === 3 || k === 7 ? 1 : 0, after: armHalfSwing(view, k, holds) };
+}
+export const WALK8_FRAMES = 8;
+
 export function walkMotion(view: View, n: number, holds = false): Motion {
   const legs = (view === "front" ? WALK_FRONT : WALK_BACK)[n];
   if (!legs) throw new Error(`no walk frame ${String(n)}`);

@@ -14,11 +14,14 @@ import {
   WALK_FRAMES,
   WALK_FRAME_MS,
   WALK_TILES_PER_CYCLE,
+  WALK8_FRAMES,
+  WALK8_FRAME_MS,
   WAVE_FRAMES,
   WAVE_MS,
   WAVE_SEQUENCE,
   waveMotion,
   walkMotion,
+  walk8Motion,
   type EmoteDef,
 } from "./motion";
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
@@ -37,6 +40,7 @@ import { buildModerationFrames, buildModerationScenes, moderationCss } from "./m
 import { buildQueueFrames, queueCss } from "./queue";
 import { buildFullscreenFrames, buildFullscreenScenes, fullscreenCss, STRIP_AGES } from "./fullscreen";
 import { buildStoreIcons } from "./store";
+import { BUBBLES, buildChatFloatFrames, chatFloatCss, wheelMeta } from "./chatfloat";
 
 const ROOT = join(import.meta.dir, "..");
 const POSES: readonly Pose[] = ["idle", "sit"];
@@ -510,7 +514,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
   // Set (h): the owner's edit kit (grid, markers, handles, tray thumbnails, swatches) is its own lazy atlas, ui/edit.png:
   // only a room owner who presses "Edit room" loads it. Everything any member sees (door, host/key glyphs, invite icons) stays in ui.png.
   const editKit = owner.filter((f) => EDIT_KIT.test(f.key));
-  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildLiveFrames(), ...buildTvFrames(), ...buildSafetyFrames(), ...owner.filter((f) => !EDIT_KIT.test(f.key)), ...buildRoomsFrames(), ...buildModerationFrames(), ...buildQueueFrames(), ...buildFullscreenFrames()];
+  const frames = [...buildUiFrames(AVATARS.map((a) => a.id), avatarImages, CELL.w), ...buildPlaybackFrames(), ...buildLiveFrames(), ...buildTvFrames(), ...buildSafetyFrames(), ...owner.filter((f) => !EDIT_KIT.test(f.key)), ...buildRoomsFrames(), ...buildModerationFrames(), ...buildQueueFrames(), ...buildFullscreenFrames(), ...buildChatFloatFrames()];
   registerKeys("ui", frames.map((f) => f.key));
   const byKey = new Map(frames.map((f) => [f.key, f]));
   if (byKey.size !== frames.length) throw new Error("duplicate ui key");
@@ -568,6 +572,9 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
         dotsFrameMs: DOTS_FRAME_MS,
         // Set (k) (OME-541): full-screen strip line ages in ms (fresh → settled → faded → gone) and the one dither frame between.
         stripAges: STRIP_AGES,
+        // Set (l) (OME-644, M8): floating bubbles (ms, stage px; the stacking rule is in assets/README.md § Set (l)) and the emote wheel's geometry.
+        bubbles: BUBBLES,
+        wheel: wheelMeta(),
       },
     },
   };
@@ -576,7 +583,7 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
   const borders: Record<string, Borders> = {};
   for (const f of frames) if (f.borders) borders[f.key] = f.borders;
   const edit = writeAtlas(dir, "edit", editKit, "ui");
-  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects) + safetyCss(rects) + ownerCss(edit.rects, edit.size, THUMB_BOX) + roomsCss(rects) + moderationCss() + queueCss(rects) + fullscreenCss());
+  writeFileSync(join(dir, "reference.css"), referenceCss(rects, { w: sheetW, h: sheetH }, uiTokens(), borders) + playbackCss(rects) + tvCss() + liveCss(rects) + safetyCss(rects) + ownerCss(edit.rects, edit.size, THUMB_BOX) + roomsCss(rects) + moderationCss() + queueCss(rects) + fullscreenCss() + chatFloatCss(rects));
   // Set (f): the extension popup is plain HTML, so its key icon ships as two standalone files (drawn 1× and 2×, not upscaled).
   mkdirSync(join(dir, "popup"), { recursive: true });
   for (const [file, k] of Object.entries(POPUP_ICONS)) {
@@ -762,6 +769,22 @@ function buildMotion(base: Map<string, Uint8Array>): void {
         anims[`breathe/${a.id}/${pose}/${dir}`] = { frames: [`${a.id}/${pose}/${dir}/0`, key], ms: [...BREATHE_MS], loop: true };
       }
     }
+    // Row 2i+1, cols 16–31 (the free half, right of the emote icons): the smooth walk's in-betweens, dirs × frames 1, 3, 5, 7.
+    // Even frames of `walk8/*` name the 4-frame cycle's own keys, so a tier switch mid-stride shows the same pixels.
+    col = 16;
+    for (const dir of DIRS) {
+      const keys: string[] = [];
+      for (let k = 0; k < WALK8_FRAMES; k++) {
+        if (k % 2 === 0) {
+          keys.push(`walk/${a.id}/${dir}/${String(k / 2)}`);
+          continue;
+        }
+        const key = `walk8/${a.id}/${dir}/${String(k)}`;
+        cell(key, avatarCell(a, "idle", dir, walk8Motion(viewOf(dir), k, a.holds === true)), 1);
+        keys.push(key);
+      }
+      anims[`walk8/${a.id}/${dir}`] = { frames: keys, ms: keys.map(() => WALK8_FRAME_MS), loop: true };
+    }
   });
   // Emote icons: after the breathe cells on Juno's second row.
   const ex0 = DIRS.length * POSES.length * CELL.w;
@@ -799,6 +822,7 @@ function buildMotion(base: Map<string, Uint8Array>): void {
         floorPoint: FLOOR,
         emoteCell: EMOTE_CELL,
         walk: { frameMs: WALK_FRAME_MS, tilesPerCycle: WALK_TILES_PER_CYCLE, stepPx: { x: TILE.w / 2 / WALK_FRAMES, y: TILE.h / 2 / WALK_FRAMES } },
+        walk8: { frameMs: WALK8_FRAME_MS, frames: WALK8_FRAMES, tilesPerCycle: WALK_TILES_PER_CYCLE, stepPx: { x: TILE.w / 2 / WALK8_FRAMES, y: TILE.h / 2 / WALK8_FRAMES } },
         emotes: EMOTES.map((e) => ({ id: e.id, label: e.label })),
         gestures: [{ id: "wave", label: "Wave" }],
         anims,
@@ -840,12 +864,47 @@ function strip(name: string, cols: number, rows: readonly (readonly string[])[],
 function buildMotionPreviews(sprites: Sprites): void {
   const walkRows = AVATARS.map((a) => DIRS.flatMap((d) => [0, 1, 2, 3].map((n) => `walk/${a.id}/${d}/${String(n)}`)));
   strip("walk-strip@4x.png", 16, walkRows, sprites, CELL.w, CELL.h, true);
+  // Smooth tier: one row per avatar × dir pair, the 8 frames of each dir side by side (in-betweens on the odd columns).
+  const walk8Rows = AVATARS.flatMap((a) => [DIRS.slice(0, 2), DIRS.slice(2)].map((ds) => ds.flatMap((d) => Array.from({ length: WALK8_FRAMES }, (_, k) => (k % 2 === 0 ? `walk/${a.id}/${d}/${String(k / 2)}` : `walk8/${a.id}/${d}/${String(k)}`)))));
+  strip("walk8-strip@4x.png", 16, walk8Rows, sprites, CELL.w, CELL.h, true);
   const idleRows = AVATARS.map((a) => POSES.flatMap((p) => DIRS.flatMap((d) => [`${a.id}/${p}/${d}/0`, `breathe/${a.id}/${p}/${d}/1`])));
   strip("breathe-strip@4x.png", 16, idleRows, sprites, CELL.w, CELL.h, true);
   const icons = EMOTES.flatMap((e) => [0, 1, 2].map((n) => `emote/${e.id}/${String(n)}`));
   const waveRows = AVATARS.map((a) => POSES.flatMap((p) => DIRS.flatMap((d) => [0, 1].map((n) => `wave/${a.id}/${p}/${d}/${String(n)}`))));
   strip("emote-strip@4x.png", 16, [icons, ...waveRows], sprites, CELL.w, CELL.h, true);
   buildMotionScene(sprites);
+  buildWalkTiers(sprites);
+}
+
+/** Set (l) (M8): the two walk tiers side by side, 2×. Top row Basic (4 frames × 150 ms, the sprite steps (8, 4) px per frame),
+ *  bottom row Smooth (8 frames × 75 ms, (4, 2) px per frame; in the app it's interpolated every display frame). Each avatar walks two
+ *  tiles in its own direction and loops. APNG at 75 ms per shot (the Basic row holds each frame for two shots). */
+function buildWalkTiers(sprites: Sprites): void {
+  const CW = 120, CH = 104, W = CW * AVATARS.length, H = CH * 2, S = 2;
+  const STEP: Readonly<Record<Dir, readonly [number, number]>> = { se: [1, 1], sw: [-1, 1], ne: [1, -1], nw: [-1, -1] };
+  const shots: Uint8Array[] = [];
+  for (let k = 0; k < 2 * WALK8_FRAMES; k++) {
+    const img = new Uint8Array(W * H).fill(colorIndex("wall", 1));
+    AVATARS.forEach((a, i) => {
+      const dir = DIRS[i] ?? "se";
+      const [dx, dy] = STEP[dir];
+      for (const smooth of [false, true]) {
+        const ox = i * CW, oy = smooth ? CH : 0;
+        const sx = ox + CW / 2 - dx * 32, sy = oy + 80 - dy * 16;
+        for (let t = 0; t <= 2; t++) floorMark(img, W, sx + dx * 32 * t, sy + dy * 16 * t);
+        const n = smooth ? k : Math.floor(k / 2);
+        const key = smooth
+          ? (n % 2 === 0 ? `walk/${a.id}/${dir}/${String((n % WALK8_FRAMES) / 2)}` : `walk8/${a.id}/${dir}/${String(n % WALK8_FRAMES)}`)
+          : `walk/${a.id}/${dir}/${String(n % WALK_FRAMES)}`;
+        const px = smooth ? 4 : 8, py = smooth ? 2 : 4;
+        const s = sprites.get(key);
+        if (!s) throw new Error(`missing ${key}`);
+        blitAt(img, W, H, s.img, s.w, s.h, sx + dx * px * n - FLOOR.x, sy + dy * py * n - FLOOR.y);
+      }
+    });
+    shots.push(upscale(img, W, H, S));
+  }
+  writeFileSync(join(ROOT, "preview", "walk-tiers@2x.apng"), encodeIndexedApng(W * S, H * S, shots, shots.map(() => WALK8_FRAME_MS), PALETTE));
 }
 
 /** Timeline scene at 1×: two walkers, two sitters, emotes over name-tag plates. Frame strip + APNG. */
