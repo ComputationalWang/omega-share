@@ -9,8 +9,8 @@ export interface RoomEventSinks {
   readonly shareToken: Pick<ShareTokenTracker, "onEvent">;
   /** The snapshot arrived: the join went through. */
   readonly joined: () => void;
-  /** We were kicked (4005): remember it and say when the rejoin cooldown ends (kick-memory.ts), client ms. */
-  readonly kicked: () => number;
+  /** We were kicked (4005): remember it and say when the rejoin cooldown ends (kick-memory.ts), client ms; null = unknown. */
+  readonly kicked: (wasIn: boolean) => number | null;
   readonly dispatch: (e: ViewEvent) => void;
   /** Someone emoted (OME-415): straight to the scene; emotes are never view state. */
   readonly emoted: (memberId: MemberId, kind: EmoteKind) => void;
@@ -29,5 +29,5 @@ export function routeConnectionEvent(e: ConnectionEvent, sinks: RoomEventSinks, 
     return;
   }
   if (e.type === "disconnected" || e.type === "room-closed" || e.type === "kicked") sinks.clock.stop();
-  sinks.dispatch(e.type === "kicked" ? { type: "kicked", until: sinks.kicked() } : e);
+  sinks.dispatch(e.type === "kicked" ? { type: "kicked", until: sinks.kicked(e.wasIn) } : e);
 }

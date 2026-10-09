@@ -54,8 +54,8 @@ export interface ViewState {
   readonly muted: readonly MemberId[];
   /** Moderation lines so far: their sysline ids are the negatives, so they never collide with a playback `rev`. */
   readonly modLines: number;
-  /** Set with status "kicked": client time (Date.now ms) when the rejoin cooldown ends. */
-  readonly kickedUntil: number;
+  /** With status "kicked": client time (Date.now ms) when the rejoin cooldown ends; null = unknown (a bounce). */
+  readonly kickedUntil: number | null;
 }
 
 export interface ErrorNotice {
@@ -67,12 +67,12 @@ export type ViewEvent =
   | { readonly type: "connecting" }
   | { readonly type: "disconnected" }
   | { readonly type: "room-closed" }
-  /** 4005 (ADR 0030); `until` is when the rejoin cooldown ends, client ms. */
-  | { readonly type: "kicked"; readonly until: number }
+  /** 4005 (ADR 0030); `until` is when the rejoin cooldown ends, client ms, or null if we can't know (a bounce). */
+  | { readonly type: "kicked"; readonly until: number | null }
   | { readonly type: "server"; readonly msg: ServerMessage; readonly now: number }
   | { readonly type: "tick"; readonly now: number };
 
-export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: 0 };
+export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null };
 
 /** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
 const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "kicked";
@@ -221,7 +221,7 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
       return state;
-    // Owner moderation (ADR 0030). Only the muted member hears about their mute; the room hears about the policy.
+    // Owner moderation (ADR 0030). Everyone gets `member-muted`, but only the muted member's log says so; everyone's says the policy.
     case "member-muted": {
       if (state.room === null || !hasMember(state.room, msg.memberId)) return state;
       const next = withMuted(state, msg.memberId, msg.muted);

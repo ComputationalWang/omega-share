@@ -27,6 +27,14 @@ export function kickedUntil(storage: KickStorage, roomId: RoomId, now: number): 
   return null;
 }
 
+/**
+ * A join bounced off a cooldown (4005 before any snapshot) at `now`: maybe another tab was kicked, so how much is left
+ * is unknown. Reads a known end back but never starts one.
+ */
+export function bouncedUntil(storage: KickStorage, roomId: RoomId, now: number): number | null {
+  return kickedUntil(storage, roomId, now);
+}
+
 /** We were kicked (4005) at `now`: remember when we may rejoin. A bounce off a running cooldown keeps its end. */
 export function rememberKick(storage: KickStorage, roomId: RoomId, now: number): number {
   const until = kickedUntil(storage, roomId, now) ?? now + KICK_COOLDOWN_MS;

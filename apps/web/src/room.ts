@@ -10,7 +10,7 @@ import { createInviteControl } from "./controls/invite";
 import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { chatView, kickedCard, refusalCard } from "./controls/feedback";
-import { kickedUntil, rememberKick } from "./kick-memory";
+import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, seatViews, sitIntent } from "./intents";
 import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
@@ -169,7 +169,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   );
   let kickedTimer: ReturnType<typeof setTimeout> | null = null;
   /** Fill the card for now and re-arm for the next minute; once the cooldown is over Rejoin is a plain key. */
-  const renderKicked = (until: number): void => {
+  const renderKicked = (until: number | null): void => {
     if (kickedTimer !== null) clearTimeout(kickedTimer);
     kickedTimer = null;
     const card = kickedCard(until, Date.now());
@@ -181,7 +181,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (card.ready) rejoin.removeAttribute("aria-disabled");
     else rejoin.setAttribute("aria-disabled", "true");
     // The dial runs once over what's left of the cooldown (set f's .ui-wait).
-    rejoinIcon.style.setProperty("--cool", `${String(Math.max(0, until - Date.now()))}ms`);
+    if (until !== null) rejoinIcon.style.setProperty("--cool", `${String(Math.max(0, until - Date.now()))}ms`);
     if (card.nextChangeMs !== null) kickedTimer = setTimeout(() => { renderKicked(until); }, card.nextChangeMs);
   };
   const writeText = (t: string): Promise<void> => ("clipboard" in navigator ? navigator.clipboard.writeText(t) : Promise.reject(new Error("no clipboard")));
@@ -486,6 +486,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let moderation: Moderation | null = null;
   /** Bumped when the tools go, so a chunk that loads after that is dropped. */
   let moderationGen = 0;
+  /** The chunk failed to load: don't retry on every render (a reload tries again). */
+  let moderationFailed = false;
   /** The owner's moderation tools (ADR 0030): their own lazy chunk, loaded only on an owner's page. */
   const renderModeration = (s: ViewState): void => {
     const want = s.owner && opts.secret?.ownerToken !== undefined && screen(s).stage;
@@ -501,7 +503,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       moderation.update();
       return;
     }
-    if (moderationGen % 2 === 1) return;
+    if (moderationGen % 2 === 1 || moderationFailed) return;
     const gen = ++moderationGen;
     void import("./owner/moderation")
       .then(({ mountModeration }) => {
@@ -514,6 +516,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       })
       .catch((e: unknown) => {
         console.warn("moderation tools failed to load", e);
+        moderationFailed = true;
         if (gen === moderationGen) moderationGen++;
       });
   };
@@ -796,7 +799,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
   };
   const kickedStore = sessionStorage;
-  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: () => rememberKick(kickedStore, opts.roomId, Date.now()), dispatch, emoted };
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted };
   // Kicked from this room in this tab and the cooldown isn't over (ADR 0030 §2): show the notice, don't even try to join.
   const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
   const c: Connection = kickedTill !== null ? stoppedConnection() : createConnection({

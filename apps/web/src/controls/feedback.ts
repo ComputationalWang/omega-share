@@ -64,9 +64,10 @@ export interface KickedCard {
 
 const MINUTE_MS = 60_000;
 
-/** The card that replaces the room after a kick (4005, ADR 0030 §2). `until` and `now` are client ms. */
-export function kickedCard(until: number, now: number): KickedCard {
+/** The card that replaces the room after a kick (4005, ADR 0030 §2). `until` and `now` are client ms; null = unknown end. */
+export function kickedCard(until: number | null, now: number): KickedCard {
   const title = "You were removed from this room";
+  if (until === null) return { title, body: "The host asked you to leave a little while ago. You can try again in a few minutes.", rejoin: "Try again", ready: true, nextChangeMs: null };
   const left = until - now;
   if (left <= 0) return { title, body: "The wait is over. You can go back in if you like.", rejoin: "Rejoin", ready: true, nextChangeMs: null };
   const minutes = Math.ceil(left / MINUTE_MS);

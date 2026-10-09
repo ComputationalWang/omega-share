@@ -16,7 +16,7 @@ export type ConnectionEvent =
   /** 4004: the room was deleted or collected (ADR 0028). Terminal: the connection has stopped for good. */
   | { readonly type: "room-closed" }
   /** 4005: the owner kicked us, or we came back inside the rejoin cooldown (ADR 0030). Terminal, like room-closed. */
-  | { readonly type: "kicked" }
+  | { readonly type: "kicked"; readonly wasIn: boolean }
   | { readonly type: "message"; readonly msg: ServerMessage };
 
 export interface ConnectionOptions<Timer = unknown> {
@@ -147,7 +147,8 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       }
       if (ev.code === CLOSE_CODES.KICKED) {
         stopped = true;
-        opts.onEvent({ type: "kicked" });
+        // In the room: the kick itself. Before a snapshot: a bounce off a cooldown that may have started elsewhere.
+        opts.onEvent({ type: "kicked", wasIn: joined });
         return;
       }
       opts.onEvent({ type: "disconnected" });
