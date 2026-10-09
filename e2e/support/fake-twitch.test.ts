@@ -267,6 +267,24 @@ test("live: time and duration are 0, seek is recorded but ignored, resume after 
   expect(from(r, 1)).toEqual(["play", "playing", "pause", "play", "seek", "playing"]);
 });
 
+test("liveAdBreak: PAUSE and Idle for the break (app play() is logged but ignored), then PLAY, PLAYING", async () => {
+  const r = await rig({ channel: "chan" });
+  r.player.play();
+  await sleep(50);
+  const n = r.types().length;
+  r.hooks.liveAdBreak(200);
+  expect(r.hooks.playback).toBe("Idle");
+  expect(r.player.isPaused()).toBe(true);
+  r.player.play();
+  expect(r.hooks.commands.at(-1)).toMatchObject({ name: "play", dropped: false });
+  await sleep(100);
+  expect(r.hooks.playback).toBe("Idle");
+  expect(from(r, n)).toEqual(["pause"]);
+  await sleep(200);
+  expect(r.hooks.playback).toBe("Playing");
+  expect(from(r, n)).toEqual(["pause", "play", "playing"]);
+});
+
 test("buffering: playback Buffering, clock frozen, no event, then back to Playing", async () => {
   const r = await rig();
   r.player.play();
