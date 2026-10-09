@@ -582,3 +582,83 @@ describe("a new room state reaches the player at once (OME-452)", () => {
     expect(h.player.calls.map((c) => c.op)).not.toContain("play");
   });
 });
+
+// OME-508 (ADR 0031 §4 client rule): when the player reaches the end of the current queue item, report `ended` once per
+// item id with where the player stopped. Live embeds never end; an ad, a refused video or a held transport don't change that.
+describe("ended reports (queue, ADR 0031)", () => {
+  const ended = (h: ReturnType<typeof harness>) => h.sent.filter((m) => m.type === "ended");
+
+  test("the player's end sends ended once for the current item, with the player's position", () => {
+    const h = harness({ state: "playing", position: 210 });
+    h.c.setRoom({ ...h.room(VIDEO, pb()), itemId: "item-1" });
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    h.player.setState("ended");
+    h.player.emit({ type: "state", state: "ended" });
+    h.player.emit({ type: "state", state: "ended" });
+    expect(ended(h)).toEqual([{ type: "ended", itemId: "item-1", position: 210 }]);
+  });
+
+  test("the same video queued again is a new item: its end is reported too", () => {
+    const h = harness({ state: "playing", position: 210 });
+    h.c.setRoom({ ...h.room(VIDEO, pb()), itemId: "item-1" });
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    h.player.emit({ type: "state", state: "ended" });
+    h.c.setRoom({ ...h.room(VIDEO, pb({ rev: 2, position: 0 })), itemId: "item-2" });
+    h.player.emit({ type: "state", state: "ended" });
+    expect(ended(h).map((m) => m.type === "ended" && m.itemId)).toEqual(["item-1", "item-2"]);
+  });
+
+  test("no item id (a pre-M6 server, or a share before the first queue) sends nothing", () => {
+    const h = harness({ state: "playing" });
+    h.c.setRoom(h.room(VIDEO, pb()));
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    h.player.emit({ type: "state", state: "ended" });
+    expect(ended(h)).toEqual([]);
+  });
+
+  test("other states, ads and a refused video never report an end", () => {
+    const h = harness({ state: "playing" });
+    h.c.setRoom({ ...h.room(VIDEO, pb()), itemId: "item-1" });
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    for (const s of ["paused", "buffering", "ad", "cued", "unstarted"] as const) h.player.emit({ type: "state", state: s });
+    h.player.emit({ type: "error", reason: "refused", code: "150" });
+    h.player.emit({ type: "state", state: "ended" });
+    expect(ended(h)).toEqual([]);
+  });
+
+  test("a live stream never reports an end (Twitch offline is often temporary)", () => {
+    const h = harness({ caps: playbackCaps(LIVE), rates: [1], duration: 0, state: "playing" });
+    h.c.setRoom({ embed: LIVE, playback: pb(), itemId: "item-1" });
+    h.c.attach(h.player, LIVE.url);
+    h.player.emit({ type: "state", state: "ended" });
+    expect(ended(h)).toEqual([]);
+  });
+
+  test("a Twitch VOD reports its end", () => {
+    const h = harness({ caps: playbackCaps(VOD), rates: [1], state: "playing", position: 99 });
+    h.c.setRoom({ embed: VOD, playback: pb(), itemId: "vod-1" });
+    h.c.attach(h.player, VOD.url);
+    h.player.emit({ type: "state", state: "ended" });
+    expect(ended(h)).toEqual([{ type: "ended", itemId: "vod-1", position: 99 }]);
+  });
+
+  test("a held transport still reports the end: ended isn't control (ADR 0031 §3)", () => {
+    const h = harness({ state: "playing", position: 210 });
+    h.c.setControl({ policy: "owner", held: true });
+    h.c.setRoom({ ...h.room(VIDEO, pb()), itemId: "item-1" });
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    h.player.emit({ type: "state", state: "ended" });
+    expect(ended(h)).toHaveLength(1);
+  });
+
+  test("a failed send retries on the player's next end report", () => {
+    const h = harness({ state: "playing", position: 210 });
+    h.c.setRoom({ ...h.room(VIDEO, pb()), itemId: "item-1" });
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    h.net.up = false;
+    h.player.emit({ type: "state", state: "ended" });
+    h.net.up = true;
+    h.player.emit({ type: "state", state: "ended" });
+    expect(ended(h)).toHaveLength(1);
+  });
+});

@@ -479,3 +479,39 @@ describe("owner moderation (ADR 0030, OME-507)", () => {
     expect(s.kickedUntil).toBeNull();
   });
 });
+
+// OME-508 (ADR 0031): the room's queue and the current item's id.
+describe("queue", () => {
+  const vimeo = { provider: "vimeo", videoId: "76979871", hash: null, url: "https://player.vimeo.com/video/76979871" } as const;
+  const item = (id: string, by: string | null = "b") => ({ id, embed: vimeo, by });
+
+  test("a snapshot carries the queue and the current item id", () => {
+    const s = joined(room({ embed, itemId: "now", queue: [item("q1")] }));
+    expect(s.room?.itemId).toBe("now");
+    expect(s.room?.queue?.map((i) => i.id)).toEqual(["q1"]);
+  });
+
+  test("queue-changed replaces the whole upcoming list", () => {
+    let s = joined(room({ embed, itemId: "now", queue: [item("q1"), item("q2")] }));
+    s = server(s, { type: "queue-changed", queue: [item("q2"), item("q3", null)], by: "a" });
+    expect(s.room?.queue?.map((i) => i.id)).toEqual(["q2", "q3"]);
+  });
+
+  test("queue-changed keeps the members and seats objects (no scene redraw)", () => {
+    const before = joined(room({ embed, itemId: "now", queue: [] }));
+    const after = server(before, { type: "queue-changed", queue: [item("q1")], by: "a" });
+    expect(after.room?.members).toBe(before.room?.members);
+    expect(after.room?.seats).toBe(before.room?.seats);
+  });
+
+  test("embed-changed sets the new current item id, and a share without one clears it", () => {
+    const playback: PlaybackState = { playing: true, position: 0, rate: 1, at: 5, rev: 9, action: "load", by: null };
+    let s = joined(room({ embed, itemId: "old", queue: [item("q1")] }));
+    s = server(s, { type: "embed-changed", embed: vimeo, by: null, playback, itemId: "q1" });
+    expect(s.room?.itemId).toBe("q1");
+    s = server(s, { type: "embed-changed", embed, by: "b", playback: { ...playback, rev: 10 } });
+    expect(s.room?.itemId).toBeUndefined();
+    s = server(s, { type: "embed-changed", embed: null, by: "b" });
+    expect(s.room?.itemId).toBeUndefined();
+  });
+});
