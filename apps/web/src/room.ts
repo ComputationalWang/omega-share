@@ -24,6 +24,7 @@ import { createGenericTv } from "./controls/generic-tv";
 import { walkGrid } from "./walk/path";
 import { standingSpots } from "./walk/standing";
 import type { Dir } from "./walk/walks";
+import type { Editor } from "./editor/editor";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -37,6 +38,8 @@ export interface RoomOptions {
   readonly secrets: SecretsStore;
   /** The site origin the invite link starts with. */
   readonly origin: string;
+  /** The server's HTTP origin, for the owner's `DELETE /rooms/:id`. */
+  readonly serverUrl: string;
 }
 
 export interface RoomHandle {
@@ -46,6 +49,8 @@ export interface RoomHandle {
   readonly playback: () => PlaybackView;
   /** The scene's draw order (room-view.ts `drawOrder`), for e2e depth checks. */
   readonly scene: () => string[];
+  /** How many times the furniture was rebuilt for a new layout, for e2e "once per change" checks. */
+  readonly layoutBuilds: () => number;
 }
 
 const STATUS_TEXT: Record<ViewState["status"], string> = {
@@ -109,6 +114,8 @@ function box(e: HTMLElement, r: Rect): void {
 
 export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const status = el("p", { className: "status", role: "status" }, "connection-status");
+  // The title from the last rename (the snapshot carries none yet, OME-473). Text only.
+  const title = el("h2", { className: "room-title", hidden: true }, "room-title");
   const notice = el("p", { className: "notice", role: "alert", hidden: true }, "room-notice");
   const full = el("div", { className: "room-full", hidden: true }, "room-full");
   full.append(el("h2", { textContent: "This room is full" }), el("p", { textContent: "Try again in a little while." }));
@@ -211,7 +218,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   view.canvas.className = "scene";
   stage.append(view.canvas, overlay, tags, bubbles, rail);
   // The provider hint sits right above the TV, next to what it's about (OME-251): below the stage it's off-screen.
-  opts.root.replaceChildren(status, tvHint, wrap, personal.root, syncNotice, notice, chatForm, invite, full, refused, closed);
+  // The owner's "Edit room" key (set (h)): made only for the owner, and the editor chunk loads only when it's pressed.
+  const editBar = el("div", { className: "edit-bar" });
+  const editorPanel = el("div", { className: "editor-panel" });
+  opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, syncNotice, notice, chatForm, invite, full, refused, closed);
 
   /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
   let tvProvider: Embed["provider"] | null = null;
@@ -247,6 +257,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let atlas: FurnitureAtlas | null = null;
   /** The drawn layout's content; a re-join snapshot parses a new but equal layout, which keeps the scene. */
   let layoutKey = "";
+  let layoutBuilds = 0;
+  /** The owner's unsaved draft, shown to them instead of the room's layout while they edit. */
+  let preview: RoomLayout | null = null;
+  let editToggle: HTMLButtonElement | null = null;
+  let editor: Editor | null = null;
+  /** Bumped on each open/close, so a slow chunk load for an editor that was closed meanwhile is dropped. */
+  let editorGen = 0;
   let shownError: ViewState["lastError"] = null;
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
   /** The hourglass on each catching tag; a tag removed with its member takes its hourglass along. */
@@ -312,6 +329,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const key = JSON.stringify(next);
     if (key === layoutKey) return;
     layoutKey = key;
+    layoutBuilds++;
     seats = seatPoints(next);
     seatFacings = layoutSeats(next).map((s) => s.facing);
     grid = walkGrid(next);
@@ -343,11 +361,91 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       });
   };
 
+  const requestRender = (): void => {
+    if (frame === 0) frame = requestAnimationFrame(render);
+  };
+
+  const closeEditor = (): void => {
+    editorGen++;
+    editor?.destroy();
+    editor = null;
+    preview = null;
+    if (editToggle !== null) {
+      editToggle.ariaPressed = "false";
+      editToggle.lastChild?.replaceWith("Edit room");
+    }
+    requestRender();
+  };
+
+  const openEditor = (toggle: HTMLButtonElement, ownerToken: NonNullable<RoomSecret["ownerToken"]>): void => {
+    const gen = ++editorGen;
+    toggle.ariaPressed = "true";
+    toggle.lastChild?.replaceWith("Done");
+    void import("./editor/editor")
+      .then(({ mountEditor }) =>
+        mountEditor({
+          panel: editorPanel,
+          stage,
+          view,
+          saved: () => layoutOf(state.room),
+          title: () => state.title,
+          preview: (l) => {
+            preview = l;
+            requestRender();
+          },
+          send,
+          roomId: opts.roomId,
+          serverUrl: opts.serverUrl,
+          ownerToken,
+          fetch: (url, init) => fetch(url, init),
+        }),
+      )
+      .then((e) => {
+        if (gen !== editorGen) e.destroy();
+        else editor = e;
+      })
+      .catch((e: unknown) => {
+        console.warn("editor failed to load", e);
+        if (gen === editorGen) closeEditor();
+      });
+  };
+
+  /** Only the owner, in an open room, gets the key; it isn't in the DOM for anyone else. */
+  const renderEditToggle = (s: ViewState): void => {
+    const ownerToken = opts.secret?.ownerToken;
+    const want = s.owner && ownerToken !== undefined && screen(s).stage;
+    if (!want) {
+      if (editToggle !== null) {
+        closeEditor();
+        editToggle.remove();
+        editToggle = null;
+      }
+      return;
+    }
+    if (editToggle !== null) {
+      editToggle.disabled = s.status !== "open";
+      return;
+    }
+    const b = el("button", { type: "button", className: "ui-button self" }, "edit-room");
+    b.ariaPressed = "false";
+    b.append(el("span", { className: "ui-sprite ui-icon-arrange", ariaHidden: "true" }), "Edit room");
+    b.addEventListener("click", () => {
+      if (editor !== null || b.ariaPressed === "true") closeEditor();
+      else openEditor(b, ownerToken);
+    });
+    editBar.append(b);
+    editToggle = b;
+  };
+
   const render = (): void => {
     frame = 0;
     const s = state;
-    const nextLayout = layoutOf(s.room);
+    const nextLayout = preview ?? layoutOf(s.room);
     if (nextLayout !== layout) applyLayout(nextLayout);
+    if (title.textContent !== (s.title ?? "")) title.textContent = s.title ?? "";
+    title.hidden = s.title === null;
+    renderEditToggle(s);
+    editor?.update();
     status.textContent = STATUS_TEXT[s.status];
     const shown = screen(s);
     wrap.hidden = !shown.stage;
@@ -615,5 +713,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => layoutBuilds };
 }

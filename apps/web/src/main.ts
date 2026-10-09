@@ -95,6 +95,7 @@ form.addEventListener("submit", (ev) => {
         secret: secretFor(loadRoomSecrets(storage), roomId, invited),
         secrets: storage,
         origin: location.origin,
+        serverUrl,
       });
     })
     .then((room) => {

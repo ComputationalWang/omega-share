@@ -114,3 +114,19 @@ legend { padding: 0; margin-bottom: 6px; }
 .privacy h2 { margin: 1.4em 0 0.3em; font-size: 1.1rem; }
 .privacy p { margin: 0 0 0.8em; }
 .privacy a { color: var(--accent); }
+
+/* Owner layout editor (OME-410, set (h)): the title, the "Edit room" key, the click layer over the stage and the tray. */
+.room-title { margin: 0 0 4px; font-size: 1.25rem; overflow-wrap: anywhere; }
+.edit-bar { display: flex; justify-content: flex-end; margin: 8px 0 0; }
+.edit-bar:empty { display: none; }
+.editor-hit { position: absolute; inset: 0; cursor: pointer; }
+.editor-hit.holding { cursor: copy; }
+.editor { display: grid; gap: 8px; margin: 8px 0; }
+.editor .ui-slot { cursor: pointer; }
+.editor-slot-name { font-size: 11px; line-height: 1.1; text-align: center; color: var(--fg); }
+.editor-piece, .editor-save-row, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.editor-picked, .editor-count, .editor-message { margin: 0; }
+.editor-count { color: var(--muted); }
+.editor-problems { margin: 0; padding-left: 1.2em; color: var(--error); }
+.editor-problems:empty { display: none; }
+.editor-confirm p { margin: 0; }

@@ -32,6 +32,10 @@ export interface RoomView {
   update(seatTaken: readonly boolean[], avatars: readonly AvatarPlacement[]): void;
   /** Where an avatar is drawn now (mid-walk, between cells), stage px. */
   position(id: MemberId): Point | undefined;
+  /** The owner editor's layer (set (h) grid and footprint markers): over the floor, rugs and walls, under seats and objects. */
+  readonly editLayer: Container;
+  /** Draw once now, after the editor changed its layer. */
+  redraw(): void;
   /** Labels in draw order (floor, furniture frame keys, `seat:<i>`, `avatar:<id>`), for e2e depth checks. */
   drawOrder(): string[];
   destroy(): void;
@@ -98,9 +102,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   // Static: the floor, then rugs and wall pieces in furniture order. Objects sort with the avatars by depth.
   const background = new Container();
   background.addChild(floor);
+  const editLayer = new Container({ label: "edit" });
   const markerLayer = new Container();
   const objectLayer = new Container({ sortableChildren: true });
-  app.stage.addChild(background, markerLayer, objectLayer);
+  app.stage.addChild(background, editLayer, markerLayer, objectLayer);
 
   /** Marker per placeholder seat, by seat index. */
   let markers: (Graphics | null)[] = [];
@@ -221,6 +226,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
           });
       }
     },
+    editLayer,
+    redraw: render,
     position(id) {
       const e = pool.get(id);
       return e === undefined || Number.isNaN(e.x) ? undefined : { x: e.x, y: e.y };
