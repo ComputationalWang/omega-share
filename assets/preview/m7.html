@@ -266,9 +266,9 @@
   <div class="row">
     <div class="col">
       <h3 class="cap">Chat popped out: the chat row's place</h3>
-      <div class="screen" style="width:960px;height:300px;outline:0">
-        <div class="room" style="left:0;top:0;width:960px;height:120px;background-position:0 -282px"></div>
-        <div class="ui-panel ui-away" style="left:220px;top:132px;width:520px;grid-template-columns:auto 1fr auto;justify-items:start;text-align:left;align-items:center">
+      <div class="screen" style="width:960px;height:384px;outline:0">
+        <div class="room" style="left:0;top:0;width:960px;height:204px;background-position:0 -282px"></div>
+        <div class="ui-panel ui-away" style="left:220px;top:216px;width:520px;grid-template-columns:auto 1fr auto;justify-items:start;text-align:left;align-items:center">
           <span class="ui-sprite ui-scene ui-scene-chat-away"></span>
           <p><b style="color:var(--ui-text)">Chat is in its own window.</b><br>Bubbles still show over the avatars here.</p>
           <button class="ui-button self" style="outline:var(--ui-px) solid var(--ui-text);outline-offset:var(--ui-px)"><span class="ui-sprite ui-icon-popout-back"></span>Bring chat back</button>
@@ -325,17 +325,17 @@
         <div style="left:8px;top:26px;right:8px;height:28px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700"><span class="ui-sprite ui-icon-tv"></span>Movie night<span class="spacer"></span><span style="display:flex;align-items:center;gap:2px;font-size:12px;color:var(--ui-muted)"><span class="ui-sprite ui-icon-people"></span>7 / 8</span><button class="ui-button secondary icon" aria-label="Leave the room"><span class="ui-sprite ui-icon-leave"></span></button></div>
         <div class="video ui-tv-frame compact" style="left:0;top:66px;width:390px;height:219px"></div>
         <div class="ui-tv-shelf compact" style="left:0;top:293px;width:390px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button></div></div>
-        <div class="room" style="left:0;top:345px;width:390px;height:240px;background-position:-285px -215px"></div>
+        <div class="room" style="left:0;top:345px;width:390px;height:270px;background-position:-285px -215px"></div>
         <span class="ui-tag" style="left:73px;top:419px;translate:-50% -100%">Ada</span>
         <span class="ui-tag self" style="left:137px;top:416px;translate:-50% -100%">Wren</span>
         <span class="ui-tag" style="left:265px;top:421px;translate:-50% -100%">Sol</span>
         <span class="ui-tag" style="left:329px;top:419px;translate:-50% -100%">Kit</span>
         <span class="ui-tag" style="left:73px;top:485px;translate:-50% -100%">Juniper</span>
         <span class="ui-tag" style="left:137px;top:483px;translate:-50% -100%">Oli</span>
-        <span class="note" style="left:50%;translate:-50% 0;top:589px;font-size:9px;padding:1px 4px">◂ drag the room to look around ▸</span>
-        <ol class="chatlog" role="log" aria-live="polite" data-lines="watch" style="left:8px;top:603px;width:374px;height:178px"></ol>
+        <span class="note" style="left:50%;translate:-50% 0;top:619px;font-size:9px;padding:1px 4px">◂ drag the room to look around ▸</span>
+        <ol class="chatlog" role="log" aria-live="polite" data-lines="watch" style="left:8px;top:635px;width:374px;height:148px"></ol>
         <form style="left:6px;right:6px;top:790px;display:flex;gap:4px" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input is-focus" placeholder="Say something…" aria-label="Message" style="flex:1;min-width:0;font:inherit;font-size:13px;font-weight:500"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
-        <div class="rect-guide" style="left:0;top:345px;width:390px;height:240px"><span>room at 1× (never scaled down), cropped to the seats</span></div>
+        <div class="rect-guide" style="left:0;top:345px;width:390px;height:270px"><span>room at 1× (never scaled down), cropped to the seats</span></div>
       </div>
     </div>
     <div class="col" style="max-width:560px">
@@ -351,8 +351,8 @@
       </table>
       <p class="cap-p">Today a 360 px phone shrinks the whole 960 px stage to ~0.4×, where avatars are 16 px smudges. Cropping keeps set (a)'s silhouettes exactly as drawn and gives the room a reason to be touched.</p>
       <h3 class="cap" style="margin-top:6px">Focus on the room (one tab stop, the seat cursor moves with arrows)</h3>
-      <div class="screen ui-room" style="width:390px;height:190px;outline:0">
-        <div class="room" style="left:0;top:0;width:390px;height:190px;background-position:-285px -230px;outline:2px solid var(--ui-text);outline-offset:-2px"></div>
+      <div class="screen ui-room" style="width:390px;height:254px;outline:0">
+        <div class="room" style="left:0;top:0;width:390px;height:254px;background-position:-285px -230px;outline:2px solid var(--ui-text);outline-offset:-2px"></div>
         <span class="ui-seat-cursor" style="left:259px;top:171px"></span>
         <span class="ui-tag" style="left:330px;top:150px;translate:-50% -100%">Free seat · Enter</span>
       </div>
@@ -395,7 +395,7 @@
           <div class="head"><span class="ui-sprite ui-icon-quality"></span><span class="name">Quality</span><span class="ui-chip self">Only you</span></div>
           <span class="ui-modsep"></span>
           <button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>Auto</button>
-          <button class="ui-modrow" role="menuitemradio" aria-checked="true"><span class="ui-sprite ui-glyph-check"></span>1080p60<span class="q-note"><span class="ui-sprite ui-wait ui-wait-3"></span></span></button>
+          <button class="ui-modrow" role="menuitemradio" aria-checked="true"><span class="ui-sprite ui-glyph-check"></span>1080p60<span class="q-note"><span class="ui-sprite ui-wait ui-wait-3" style="animation:none"></span></span></button>
           <button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>720p60</button>
           <button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>480p</button>
           <p class="foot">Only on this device.</p>

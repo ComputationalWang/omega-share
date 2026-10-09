@@ -496,7 +496,7 @@ real reference CSS and preview renders, and `bun assets/src/shoot-ui.ts` shoots 
 Mock-ups and chrome for M7: full screen with a chat strip (desktop: strip open and collapsed to the input bar; phone: portrait, landscape,
 landscape while typing), the pop-out chat window and whole-room window, what stays in the page and how it comes back, and the phone
 watch-only layout, the per-viewer quality menu (item 5) and the report-room key and dialog (item 6). The pieces join the other sets in `ui/ui.png` / `ui.json`, `ui/slices/` and the end of `ui/reference.css` (code: `src/fullscreen.ts`);
-the two "it's in its own window" vignettes are lazy `ui/scenes/*-away.png`. Mock-ups: `preview/m7.html`, shot by `bun assets/src/shoot-m7.ts`
+the two "it's in its own window" vignettes are lazy `ui/scenes/*-away.png`. Mock-ups: `preview/m7.html`, shot by `bun assets/src/shoot-m7.ts` (runs the build first, prints the budget line; animations stopped, so re-runs leave git clean)
 into `preview/ui-m7-<pieces|desktop|band|phone|popout|away|watch|quality|report|motion>@1x|2x.png`. The white numbered badges on the mock-ups are the focus order
 (annotation, not product). The rules are in `STYLE.md` § Set (k).
 **The player is sacred in full screen too:** the dashed rects on the mock-ups are the player; no strip, band, line or field is ever inside one.
@@ -518,7 +518,7 @@ into `preview/ui-m7-<pieces|desktop|band|phone|popout|away|watch|quality|report|
 **Touch targets (phones):** put `.ui-touch` on the root of every phone layout (full screen portrait and landscape, watch-only, the report dialog); a coarse pointer gets the
 same rules anywhere. Every key, menu row, reason row and × gets a transparent `::before` hit area of at least **44×44 CSS px** centred on it (the art keeps its 24–28 px
 size), icon keys get 9 px side margins so neighbouring hit areas never overlap, fields grow to 44 px and the seek bar's hit area is 44 px tall. The dashed boxes on
-`ui-m7-phone` / `ui-m7-watch` are those hit areas (annotation). **Scroll cue:** `.ui-fs-rail` (`--top` 0–1 = where you are, `--size` = the visible share), a 2 px rail on
+`ui-m7-phone` / `ui-m7-watch` are those hit areas (annotation). **Scroll cue:** `.ui-fs-rail` (`--top` 0–1 = where you are, `--size` = the visible share), a 3 px rail with a cream thumb on
 the strip log's right edge, shown only when there's more above.
 
 Layout numbers the mock-ups use (CSS px): desktop 1280×720 with the strip open = picture 980×551 at (0, 58), shelf under it, strip 300 wide;
@@ -621,15 +621,15 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `ui/slices/*.png` (93 files, palettes trimmed to the colours used) | 14 910 |
 | `ui/popup/*.png` (set f) | 409 |
 | `ui/scenes/*.png` (sets i + j + k, lazy) | 2 825 |
-| `ui/reference.css` (if ported as-is) | 87 128 raw / 17 249 gz |
+| `ui/reference.css` (if ported as-is) | 87 121 raw / 17 251 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **119 789 B (≈ 117.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 63 968 B; lazy (sets d, g, h's edit kit, i's, j's and k's scenes) 55 821 B |
+| **total shipped art** | **119 791 B (≈ 117.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 63 970 B; lazy (sets d, g, h's edit kit, i's, j's and k's scenes) 55 821 B |
 
-Set (k) (OME-541) adds **5 522 B (≈ 5.4 KB)** against `main` (114 267 → 119 789). The layouts: `ui.png` +474, `ui.json` +235 gz, 4 new slices +596,
+Set (k) (OME-541) adds **5 524 B (≈ 5.4 KB)** against `main` (114 267 → 119 791). The layouts: `ui.png` +474, `ui.json` +235 gz, 4 new slices +596,
 `reference.css` +1 452 gz, and the two lazy scenes 701 (`chat-away.png` 310, `room-away.png` 391). Items 5 and 6 (quality, report): +1 301, all eager
 (`ui.png` +149 for 4 sprites, `ui.json` gz and `reference.css` gz for the rest; no new slices). Round 1 fixes (touch hit areas, scroll rail): +620 `reference.css` gz.
-Quality per OME-545 (no key where unsupported, the Twitch echo state): +143 `reference.css` gz. Eager +4 821, lazy +701.
+Quality per OME-545 (no key where unsupported, the Twitch echo state): +143 `reference.css` gz. Round 2 fixes (brighter rail): +2. Eager +4 823, lazy +701.
 
 Set (j) (OME-422) adds **6 323 B (≈ 6.2 KB)** against `main` (107 942 → 114 265): `ui.png` +1 448, `ui.json` +402 gz, 11 new slices +1 571,
 `reference.css` +2 109 gz, and the lazy `scenes/removed.png` 793 (per file: § Set (j) bytes). Eager +5 530, lazy +793. The extension icons

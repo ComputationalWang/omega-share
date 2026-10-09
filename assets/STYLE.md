@@ -335,7 +335,7 @@ Three directions were weighed before any pixels:
 - **Reduced motion:** ages still change (they carry meaning) but swap at once, with no dither frame. The full-screen shelf never auto-hides. Nothing slides in any case:
   the strip is in place when full screen starts, collapse re-fits the picture in one step (a tweened player would stutter), and the typing jump is a jump.
 - **Touch (judge round 1):** on phones every key, row and field is at least 44×44 CSS px to the finger (`.ui-touch`, or any coarse pointer). The art doesn't grow: a
-  transparent hit area does, and icon keys keep 9 px apart from their neighbours so two hit areas never overlap. The strip log shows a 2 px scroll rail when there's more above.
+  transparent hit area does, and icon keys keep 9 px apart from their neighbours so two hit areas never overlap. The strip log shows a 3 px scroll rail with a cream thumb when there's more above.
 - **Quality (item 5, only you):** `icon/quality` is the set's little glow picture in its wood bezel with a cream ladder under it (picture quality, not a signal meter),
   on a `.ui-button.self` at the end of the shelf, before full screen. The list is the moderation menu's tray (mustard rim = only you see it), headed "Quality · ONLY YOU",
   rows are `menuitemradio` with the check on the current one; it lists exactly what this video offers, Auto on top ("720p60 now" beside it). It always opens into our own

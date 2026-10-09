@@ -355,10 +355,10 @@ export function fullscreenCss(): string {
 }
 
 /* Scroll cue (judge round 1): the strip's log scrolls (wheel, keys when focused, drag on touch). When there is more above, a 2 px rail
- * runs down its right edge with a cream-shade thumb for where you are: <span class="ui-fs-rail" style="--top: 0.6; --size: 0.3">
+ * runs down its right edge with a cream thumb for where you are: <span class="ui-fs-rail" style="--top: 0.6; --size: 0.3">
  * inside .ui-fs-strip, positioned over the log's right edge by the app. No arrows, no fade. */
-.ui-fs-rail { position: absolute; width: ${u(2)}; background: var(--ui-page); }
-.ui-fs-rail::after { content: ""; position: absolute; left: 0; right: 0; top: calc(var(--top, 1) * (100% - var(--size, 0.3) * 100%)); height: calc(var(--size, 0.3) * 100%); background: var(--ui-muted); }
+.ui-fs-rail { position: absolute; width: ${u(3)}; background: var(--ui-page); }
+.ui-fs-rail::after { content: ""; position: absolute; left: 0; right: 0; top: calc(var(--top, 1) * (100% - var(--size, 0.3) * 100%)); height: calc(var(--size, 0.3) * 100%); background: var(--ui-text); }
 
 /* ---- Item 5, quality (only you). The key is a .ui-button.self icon/quality at the shelf's end, before full screen. It changes
  * only your own player and is remembered on this device; nothing goes to the room. The menu is the moderation menu's tray
