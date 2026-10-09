@@ -1,10 +1,11 @@
 import type { Server } from "bun";
-import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type AnyEmbed, type RoomId } from "@omega/shared";
+import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type AnyEmbed, type QueueItemId, type RoomId } from "@omega/shared";
 import { nicknameKey } from "@omega/shared/confusables";
 import { ownHostsFor } from "./config";
 import { EmbedPolicy } from "./embed-policy";
 import { HSTS, securityHeaders } from "./headers";
 import { MAX_HTTP_IN_FLIGHT, createHttpApp, createHttpGate, plain as plainWith } from "./http";
+import { createQueue } from "./queue";
 import { clientKey, monotonic, type Clock } from "./rate-limit";
 import { Room, SEAT_HOLD_MS } from "./room";
 import { RoomRegistry } from "./rooms";
@@ -82,7 +83,17 @@ const DRAIN_GRACE_MS = 3000;
 /** The slice of RoomStore the server uses. */
 export type RoomPersistence = Pick<
   RoomStore,
-  "listRooms" | "createRoom" | "deleteRoom" | "setEmbed" | "setLayout" | "setTitle" | "setLastActive" | "setControlPolicy"
+  | "listRooms"
+  | "createRoom"
+  | "deleteRoom"
+  | "setEmbed"
+  | "setLayout"
+  | "setTitle"
+  | "setLastActive"
+  | "setControlPolicy"
+  | "addQueueItem"
+  | "removeQueueItem"
+  | "advanceQueue"
 >;
 
 /** Whitespace, punctuation and symbols: `bad word` and `b.a.d-w_o r d` match a blocklisted `badword` (OME-439). */
@@ -113,7 +124,15 @@ function loadRooms(
   now: number,
 ): void {
   if (store !== null) {
-    for (const r of store.listRooms()) rooms.addRoom(new Room(r.id, { ...r, embed: embeds.restore(r.embed) }));
+    for (const r of store.listRooms()) {
+      const embed = embeds.restore(r.embed);
+      // Items the policy no longer accepts are left out; their rows stay, as for the embed.
+      const queue = r.queue.flatMap((i) => {
+        const again = embeds.restore(i.embed);
+        return again === null ? [] : [{ id: i.id, embed: again }];
+      });
+      rooms.addRoom(new Room(r.id, { ...r, embed, itemId: embed === null ? null : r.itemId, queue }));
+    }
   }
   for (const id of configured) {
     if (rooms.get(id) !== undefined) continue;
@@ -168,9 +187,10 @@ export function startServer(opts: ServerOptions): OmegaServer {
     server.publish(topic, data);
   };
 
-  const persistEmbed = (room: Room, embed: AnyEmbed): void => {
-    store?.setEmbed(room.id, embed);
+  const persistEmbed = (room: Room, embed: AnyEmbed, itemId: QueueItemId): void => {
+    store?.setEmbed(room.id, embed, itemId);
   };
+  const queue = createQueue({ rooms, embeds, publish, store, now: opts.now ?? monotonic });
 
   const titleBlocked = titleBlocker(opts.roomTitleBlocklist ?? []);
 
@@ -185,6 +205,7 @@ export function startServer(opts: ServerOptions): OmegaServer {
   };
 
   const ws = createWs({
+    queue,
     joinTimeoutMs: opts.joinTimeoutMs ?? 10_000,
     rooms,
     publish,
@@ -225,6 +246,7 @@ export function startServer(opts: ServerOptions): OmegaServer {
     }
   });
   const app = createHttpApp({
+    queue,
     rooms,
     persistRoom: (room) => {
       store?.createRoom(room);

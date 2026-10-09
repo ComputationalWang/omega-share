@@ -5,6 +5,9 @@ import { CLOSE_CODES, MAX_CLIENT_MESSAGE_BYTES, ShareResponseSchema } from "@ome
 import { measureRelayLatency } from "../src/relay-latency";
 import { securityHeaders } from "../src/headers";
 import { RoomRegistry } from "../src/rooms";
+import { EmbedPolicy } from "../src/embed-policy";
+import { createQueue } from "../src/queue";
+import { monotonic } from "../src/rate-limit";
 import { createWs } from "../src/ws";
 import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
 
@@ -513,9 +516,12 @@ describe("M3 transport limits (threat model §6)", () => {
   });
 
   test("[Slow reader] [Idle policy implicit] the WebSocket handler pins backpressure and idle settings", () => {
+    const rooms = new RoomRegistry();
+    const queue = createQueue({ rooms, embeds: new EmbedPolicy({ genericEmbeds: true, ownHosts: [], denylist: [] }), publish: () => undefined, store: null, now: monotonic });
     const { websocket } = createWs({
+      queue,
       joinTimeoutMs: 1000,
-      rooms: new RoomRegistry(),
+      rooms,
       publish: () => undefined,
       release: () => undefined,
       headers: securityHeaders(true),

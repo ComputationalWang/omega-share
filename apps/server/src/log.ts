@@ -12,6 +12,8 @@ export type LogEvent =
   | "store.title"
   | "store.control_policy"
   | "store.seat_holds"
+  | "store.queue_item"
+  | "store.queue"
   | "gc.remove"
   | "gc.sweep"
   | "shutdown";

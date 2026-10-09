@@ -22,6 +22,8 @@ import {
   type DeleteRoomErrorCode,
   type DeleteRoomResponse,
   type MemberId,
+  type QueueAddResponse,
+  type QueueItemId,
   type RoomListResponse,
   type RoomSummary,
   type ServerMessage,
@@ -32,7 +34,8 @@ import {
 import type { EmbedPolicy } from "./embed-policy";
 import type { SecurityHeaders } from "./headers";
 import { KeyedLimiter, TokenBucket, isLoopbackKey, readBodyCapped, type Clock } from "./rate-limit";
-import { Room } from "./room";
+import type { Queue } from "./queue";
+import { Room, newItemId } from "./room";
 import type { RoomRegistry } from "./rooms";
 import { hashSecret, mintSecret, newRoomId } from "./secrets";
 import { mountSite } from "./static";
@@ -103,11 +106,14 @@ export interface ShareGrant {
   /** The member joined with the owner token: may share while the control policy is `owner` (ADR 0030 §4). */
   owner: boolean;
   bucket: TokenBucket;
+  /** The member's `queue-add` bucket, the same one its socket takes from (ADR 0031 §2). */
+  queueBucket: TokenBucket;
 }
-export const newShareGrant = (memberId: MemberId, owner: boolean): ShareGrant => ({
+export const newShareGrant = (memberId: MemberId, owner: boolean, queueBucket: TokenBucket): ShareGrant => ({
   memberId,
   owner,
   bucket: new TokenBucket(SHARE_BURST, SHARE_PER_SECOND),
+  queueBucket,
 });
 
 export interface HttpDeps {
@@ -119,8 +125,10 @@ export interface HttpDeps {
   isAllowedOrigin: (origin: string) => boolean;
   ipOf: (req: Request) => string;
   publish: (topic: string, data: string) => void;
-  /** Writes the room's new embed through to the store (OME-280); throws if it can't. */
-  persistEmbed: (room: Room, embed: AnyEmbed) => void;
+  /** Writes the room's new embed and its item id through to the store (OME-280, ADR 0031 §1); throws if it can't. */
+  persistEmbed: (room: Room, embed: AnyEmbed, itemId: QueueItemId) => void;
+  /** The playback queue (ADR 0031), shared with the WebSocket. */
+  queue: Queue;
   /** What a shared URL may become (ADR 0024). */
   embeds: EmbedPolicy;
   /** `securityHeaders(embeds.genericEmbeds)`, set on every response. */
@@ -165,6 +173,7 @@ export function createHttpApp({
   unpersistRoom,
   titleBlocked,
   wallNow,
+  queue,
 }: HttpDeps): Hono {
   const creates = new KeyedLimiter(ROOM_CREATE_KEY_BURST, 1000 / ROOM_CREATE_KEY_REFILL_MS, 1024, now);
   const globalCreates = new TokenBucket(ROOM_CREATE_GLOBAL_BURST, 1000 / ROOM_CREATE_GLOBAL_REFILL_MS, now);
@@ -366,12 +375,72 @@ export function createHttpApp({
     if (!roomShares.get(room).take()) return limited(ROOM_SHARE_PER_SECOND);
 
     // Store first: if the write fails the share fails, and memory never runs ahead of the DB.
-    persistEmbed(room, embed);
-    const { playback, uncaught } = room.setEmbed(embed, grant.memberId);
-    publish(room.topic, encode({ type: "embed-changed", embed, by: grant.memberId, playback }));
+    // A share replaces only the current item, under a fresh id (ADR 0031 §1, §5).
+    const itemId = newItemId();
+    persistEmbed(room, embed, itemId);
+    const { playback, uncaught } = room.setEmbed(embed, grant.memberId, itemId, now());
+    publish(room.topic, encode({ type: "embed-changed", embed, by: grant.memberId, playback, itemId }));
     for (const memberId of uncaught) publish(room.topic, encode({ type: "member-status", memberId, catching: false }));
     const body: ShareResponse = { ok: true, embed };
     return c.json(body);
+  });
+
+  /** The extension's "Add to queue" (ADR 0031 §2): a share's token, body and parser, the WebSocket `queue-add`'s checks and buckets. */
+  app.post("/rooms/:id/queue", async (c) => {
+    const fail = (status: 400 | 401 | 403 | 404 | 409 | 413, code: ShareErrorCode, message: string) => {
+      const body: QueueAddResponse = { ok: false, error: { code, message } };
+      return c.json(body, status);
+    };
+    const room = rooms.get(c.req.param("id"));
+    if (room === undefined) return fail(404, "room_not_found", "unknown room");
+    const token = parseShareAuthorization(c.req.header("authorization"));
+    const grant = token === null ? undefined : shareGrant(room, token);
+    if (grant === undefined) {
+      const ip = ipOf(c.req.raw);
+      if (!failedShares.take(ip)) {
+        const retryAfterMs = Math.min(RETRY_AFTER_MAX_MS, Math.ceil(1000 / FAILED_SHARE_PER_SECOND));
+        c.header("retry-after", String(Math.ceil(retryAfterMs / 1000)));
+        const body: QueueAddResponse = { ok: false, error: { code: "rate_limited", message: "too many attempts, slow down", retryAfterMs } };
+        return c.json(body, 429);
+      }
+      return fail(401, "unauthorized", "join the room to queue into it");
+    }
+    const actor = { memberId: grant.memberId, owner: grant.owner, addBucket: grant.queueBucket };
+    // Before the body is read: a flood can't buy URL parsing (ADR 0031 §3).
+    const refused = queue.admit(room, actor);
+    if (refused?.code === "control_owner_only") return fail(403, "control_owner_only", "only the room's owner changes the queue here");
+    if (refused?.code === "rate_limited") {
+      const retryAfterMs = Math.max(1000, refused.retryAfterMs);
+      c.header("retry-after", String(Math.ceil(retryAfterMs / 1000)));
+      const body: QueueAddResponse = { ok: false, error: { code: "rate_limited", message: "too many videos queued, slow down", retryAfterMs } };
+      return c.json(body, 429);
+    }
+    if (Number(c.req.header("content-length") ?? 0) > MAX_SHARE_BODY_BYTES) return fail(413, "payload_too_large", "body too large");
+    const text = await readBodyCapped(c.req.raw, MAX_SHARE_BODY_BYTES);
+    if (text === null) return fail(413, "payload_too_large", "body too large");
+    // The room may have gone, or the member left, while the body arrived.
+    if (!rooms.has(room) || token === null || shareGrant(room, token) !== grant) return fail(404, "room_not_found", "unknown room");
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return fail(400, "invalid_body", "body is not JSON");
+    }
+    const parsed = v.safeParse(ShareRequestSchema, json);
+    if (!parsed.success) return fail(400, "invalid_body", "expected { url: string }");
+    const added = queue.add(room, actor, parsed.output.url);
+    if (!("code" in added)) {
+      const body: QueueAddResponse = { ok: true, item: added };
+      return c.json(body);
+    }
+    switch (added.code) {
+      case "unsupported_url":
+        return fail(400, "unsupported_url", "not a supported video URL");
+      case "queue_full":
+        return fail(409, "queue_full", "the queue is full");
+      default:
+        return plain(503, "can't queue right now, try again later", headers);
+    }
   });
 
   if (staticDir !== null) mountSite(app, staticDir);

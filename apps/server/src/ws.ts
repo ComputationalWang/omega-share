@@ -21,6 +21,7 @@ import {
 import type { SecurityHeaders } from "./headers";
 import { newShareGrant, plain, type ShareGrant } from "./http";
 import { KeyedLimiter, TokenBucket, isLoopbackKey, monotonic, type Clock } from "./rate-limit";
+import type { Queue, QueueActor, QueueRefusal } from "./queue";
 import type { Room } from "./room";
 import type { RoomRegistry } from "./rooms";
 import { mintSecret } from "./secrets";
@@ -52,6 +53,8 @@ export interface ConnData {
   emoteBucket: TokenBucket;
   /** Owner moderation, `kick`, `mute` and `control-policy` together (ADR 0030 §1). */
   moderationBucket: TokenBucket;
+  /** `queue-add`, per member, shared with `POST /rooms/:id/queue` through the share grant (ADR 0031 §2). */
+  queueBucket: TokenBucket;
   /** Frames dropped in a row by any limiter. The first of a streak gets the one `rate_limited` notice. */
   dropped: number;
   /** `bad_message`s over the socket's life. */
@@ -137,6 +140,8 @@ export interface WsDeps {
   metrics?: Metrics;
   /** Unix ms clock for seat holds after a restart. Default `Date.now`. */
   wallNow?: () => number;
+  /** The playback queue (ADR 0031), shared with the HTTP `POST /rooms/:id/queue`. */
+  queue: Queue;
 }
 
 export interface Ws {
@@ -167,6 +172,7 @@ export function createWs({
   occupancyChanged = () => undefined,
   metrics = new Metrics(),
   wallNow = Date.now,
+  queue,
 }: WsDeps): Ws {
   const upgrades = new KeyedLimiter(UPGRADE_BURST, UPGRADE_PER_SECOND, 1024, now);
   const joins = new KeyedLimiter(JOIN_BURST, JOIN_PER_SECOND, 1024, now);
@@ -301,7 +307,7 @@ export function createWs({
       case "kick":
       case "mute":
       case "control-policy":
-      // Queue buckets (QUEUE_ADD_*) land with S2 (OME-506, ADR 0031).
+      // The queue's add buckets come after its control-policy check, in `handle` (ADR 0031 §3).
       case "queue-add":
       case "queue-remove":
       case "queue-advance":
@@ -360,7 +366,7 @@ export function createWs({
       ws.data.owner = owner;
       const shareToken = mintShareToken();
       ws.data.shareToken = shareToken;
-      grants.get(room).set(shareToken, newShareGrant(member.id, owner));
+      grants.get(room).set(shareToken, newShareGrant(member.id, owner, ws.data.queueBucket));
       const snapshot = { type: "snapshot", self: member.id, room: room.snapshot(), shareToken } as const;
       // Only the owner's own snapshot says so; nothing about ownership is ever broadcast.
       ws.send(encode(owner ? { ...snapshot, owner: true } : snapshot));
@@ -368,6 +374,11 @@ export function createWs({
       ws.publish(room.topic, encode({ type: "member-joined", member: room.view(member) }));
       if (heldSeat !== null) ws.publish(room.topic, encode({ type: "seat-changed", memberId: member.id, seat: heldSeat }));
       if (room.memberCount === 1) occupancyChanged(room);
+      return;
+    }
+    if (msg.type === "ended") {
+      // Reports what a player saw: never an error, not even before join (ADR 0031 §4).
+      if (memberId !== null) queue.ended(room, msg.itemId, msg.position);
       return;
     }
     if (memberId === null) {
@@ -459,14 +470,41 @@ export function createWs({
           }
         }
         return;
-      case "queue-add":
-      case "queue-remove":
-      case "queue-advance":
-        // The playback queue lands with S2 (OME-506, ADR 0031). Until then: refused, nothing written.
-        sendError(ws, "bad_message", "not supported yet");
+      case "queue-add": {
+        const actor = actorOf(ws, memberId);
+        const refused = queue.admit(room, actor);
+        const added = refused ?? queue.add(room, actor, msg.url);
+        if ("code" in added) queueRefused(ws, added);
         return;
-      case "ended":
-        // Ignored without an error, like a stale report (ADR 0031); S2 advances the queue on it.
+      }
+      case "queue-remove":
+      case "queue-advance": {
+        const actor = actorOf(ws, memberId);
+        const refused = msg.type === "queue-remove" ? queue.remove(room, actor, msg.itemId) : queue.advance(room, actor, msg.fromItemId);
+        if (refused !== null) queueRefused(ws, refused);
+        return;
+      }
+    }
+  };
+
+  const actorOf = (ws: Conn, memberId: MemberId): QueueActor => ({ memberId, owner: ws.data.owner, addBucket: ws.data.queueBucket });
+
+  /** None of these counts toward the 4400 close (ADR 0031 §3). A failed store write says nothing, as for owner edits. */
+  const queueRefused = (ws: Conn, refused: QueueRefusal): void => {
+    switch (refused.code) {
+      case "control_owner_only":
+        sendError(ws, "control_owner_only", "only the room's owner changes the queue here");
+        return;
+      case "rate_limited":
+        ws.send(encode({ type: "error", code: "rate_limited", message: "too many videos queued, slow down", retryAfterMs: refused.retryAfterMs }));
+        return;
+      case "unsupported_url":
+        sendError(ws, "unsupported_url", "not a supported video URL");
+        return;
+      case "queue_full":
+        sendError(ws, "queue_full", "the queue is full");
+        return;
+      case "unavailable":
         return;
     }
   };
@@ -575,6 +613,7 @@ export function createWs({
       editBucket: new TokenBucket(ROOM_EDIT_BURST, 1000 / ROOM_EDIT_REFILL_MS, now),
       emoteBucket: new TokenBucket(EMOTE_BURST, 1000 / EMOTE_REFILL_MS, now),
       moderationBucket: new TokenBucket(MODERATION_BURST, 1000 / MODERATION_REFILL_MS, now),
+      queueBucket: queue.memberBucket(),
       dropped: 0,
       badMessages: 0,
       joinTimer: null,

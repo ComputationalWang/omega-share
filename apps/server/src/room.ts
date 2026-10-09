@@ -11,6 +11,8 @@ import {
   type MemberId,
   type Nickname,
   type PlaybackState,
+  type QueueItem,
+  type QueueItemId,
   type RoomId,
   type RoomLayout,
   type RoomState,
@@ -40,6 +42,9 @@ export interface HeldSeat {
   nameHash: Uint8Array;
   seat: SeatIndex;
 }
+
+/** A fresh queue item id (ADR 0031 §1): 12 random bytes, base64url, 16 chars. Opaque, never reused. */
+export const newItemId = (): QueueItemId => Buffer.from(crypto.getRandomValues(new Uint8Array(12))).toString("base64url");
 
 const nameHash = (nameKey: string): Uint8Array => new Uint8Array(new Bun.CryptoHasher("sha256").update(nameKey).digest());
 const hex = (bytes: Uint8Array): string => Buffer.from(bytes).toString("hex");
@@ -84,6 +89,12 @@ export class Room {
   private embed: AnyEmbed | null = null;
   /** Null iff there is no embed or it is generic (ADR 0024 §7): a generic embed is never synced. */
   private playback: PlaybackState | null = null;
+  /** The current embed's queue item id (ADR 0031 §1); null iff there is no embed. */
+  private currentItemId: QueueItemId | null = null;
+  /** When the current item became current, on the caller's monotonic clock (the `ended` debounce). */
+  private currentSince = Number.NEGATIVE_INFINITY;
+  /** Upcoming items in play order, at most QUEUE_MAX (ADR 0031 §1). */
+  private upcoming: QueueItem[] = [];
   /** Last rev handed out; survives embed changes so clients never see rev go back. */
   private rev = -1;
   /** Seats held across a restart, by hex name hash, until `holdsUntil` (Unix ms). Each is used at most once. */
@@ -126,6 +137,10 @@ export class Room {
       inviteHash?: Uint8Array | null;
       lastActiveAt?: number | null;
       controlPolicy?: ControlPolicy;
+      /** The stored current item id; one is minted for an embed stored without (before migration 0005). */
+      itemId?: QueueItemId | null;
+      /** The stored upcoming items; after a restart nobody is known to have added them. */
+      queue?: readonly { id: QueueItemId; embed: AnyEmbed }[];
     } = {},
   ) {
     this.topic = `room:${id}`;
@@ -139,6 +154,8 @@ export class Room {
     this.lastActiveAt = init.lastActiveAt ?? null;
     this.currentControlPolicy = init.controlPolicy ?? DEFAULT_CONTROL_POLICY;
     this.embed = init.embed ?? null;
+    if (this.embed !== null) this.currentItemId = init.itemId ?? newItemId();
+    this.upcoming = (init.queue ?? []).filter((i) => i.id !== this.currentItemId).map((i) => ({ id: i.id, embed: i.embed, by: null }));
     if (this.embed !== null && isSyncedEmbed(this.embed)) {
       this.playback = restoredPlayback(Date.now());
       this.rev = this.playback.rev;
@@ -339,13 +356,70 @@ export class Room {
     return this.embed !== null && !isSyncedEmbed(this.embed);
   }
 
+  /** The current embed, or null. */
+  get currentEmbed(): AnyEmbed | null {
+    return this.embed;
+  }
+
+  /** The current playback; null with no embed or a generic one. */
+  get currentPlayback(): PlaybackState | null {
+    return this.playback;
+  }
+
+  /** The current item's id (ADR 0031 §1); null iff there is no embed. */
+  get itemId(): QueueItemId | null {
+    return this.currentItemId;
+  }
+
+  /** When the current item became current, on the clock its setter used. */
+  get itemSince(): number {
+    return this.currentSince;
+  }
+
+  /** The upcoming items, in play order. */
+  get queue(): readonly QueueItem[] {
+    return this.upcoming;
+  }
+
+  /** Appends an upcoming item. The caller checks QUEUE_MAX. */
+  enqueue(item: QueueItem): void {
+    this.upcoming = [...this.upcoming, item];
+  }
+
+  /** Drops an upcoming item; false if there was none with that id. */
+  dequeue(itemId: QueueItemId): boolean {
+    const next = this.upcoming.filter((i) => i.id !== itemId);
+    if (next.length === this.upcoming.length) return false;
+    this.upcoming = next;
+    return true;
+  }
+
   /**
-   * Sets the embed and restarts playback at 0. `by` is the sharer.
+   * Makes the first upcoming item current at `since` (ADR 0031 §5): its embed loads at 0, by nobody.
+   * Null with an empty queue.
+   */
+  advance(since: number): { item: QueueItem; embedSwitch: EmbedSwitch } | null {
+    const [item, ...rest] = this.upcoming;
+    if (item === undefined) return null;
+    this.upcoming = rest;
+    return { item, embedSwitch: this.setEmbed(item.embed, null, item.id, since) };
+  }
+
+  /**
+   * Sets the embed and restarts playback at 0. `by` is the sharer. The embed becomes the current item
+   * `itemId` (minted if null) at `since`; a null embed has no item.
    * Null embed, or a generic one, clears playback and every catching flag (ADR 0024 §7):
    * `uncaught` lists the members the room must now be told are not catching.
    */
-  setEmbed(embed: AnyEmbed | null, by: MemberId | null = null): EmbedSwitch {
+  setEmbed(
+    embed: AnyEmbed | null,
+    by: MemberId | null = null,
+    itemId: QueueItemId | null = null,
+    since = Number.NEGATIVE_INFINITY,
+  ): EmbedSwitch {
     this.embed = embed;
+    this.currentItemId = embed === null ? null : (itemId ?? newItemId());
+    this.currentSince = since;
     this.playback = embed === null || !isSyncedEmbed(embed) ? null : loadPlayback(this.rev, Date.now(), by);
     if (this.playback !== null) {
       this.rev = this.playback.rev;
@@ -378,8 +452,11 @@ export class Room {
       layout: this.layout,
       controlPolicy: this.currentControlPolicy,
     };
-    // Like the summary: an untitled (seeded) room sends no title key.
-    return this.title === "" ? state : { ...state, title: this.title };
+    // Like the summary: an untitled (seeded) room sends no title key; nor an empty queue or no item a queue key.
+    if (this.title !== "") state.title = this.title;
+    if (this.currentItemId !== null) state.itemId = this.currentItemId;
+    if (this.upcoming.length > 0) state.queue = this.upcoming;
+    return state;
   }
 
   /** A member as the room sees it: `catching` and `muted` only when true. */

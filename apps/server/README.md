@@ -23,6 +23,7 @@ bun run --filter @omega/server start   # or `dev` to restart on file changes
 - `DELETE /rooms/:id` with `Authorization: Bearer <ownerToken>` → `DeleteRoomResponse`. 404, then 401 (failed attempts take from a per-key bucket → 429). The room's sockets close with `ROOM_CLOSED` (4004), their share grants are revoked, then the row is deleted. Seeded rooms have no owner.
 - `/r/*` responses carry `X-Robots-Tag: noindex, nofollow`.
 - `POST /rooms/:id/share` with `{ url }` → `ShareResponse`. The server runs `canonicalizeEmbed` itself. Returns 400 `invalid_body` / `unsupported_url`, 404 `room_not_found`, 413 `payload_too_large` (> 4 KB), and 403 for a foreign `Origin`. On success, it broadcasts `embed-changed` (`by: null`) with the new embed's `load` playback.
+- `POST /rooms/:id/queue` with `{ url }` and the member's share token → `QueueAddResponse` (ADR 0031): the extension's "Add to queue". 404, 401, 403 `control_owner_only`, 429 (the member's and the room's add buckets, shared with the WebSocket `queue-add`), 413, 400 `invalid_body` / `unsupported_url`, 409 `queue_full`. On success the room gets `queue-changed`.
 - `GET /rooms/:id/ws` upgrades to a WebSocket. Unknown room → 404, foreign `Origin` → 403. Every frame is parsed with `parseClientMessage`. Invalid frames get `error bad_message` and are otherwise ignored. Frames over 4 KB close the socket (`maxPayloadLength`).
 
 ## Playback (ADR 0011)
@@ -31,6 +32,13 @@ bun run --filter @omega/server start   # or `dev` to restart on file changes
 - Each room holds `playback` (null iff there is no embed). A share resets it to `{playing: true, position: 0, action: "load", by: null}`. `rev` rises by 1 per change, including across embed changes.
 - `control{videoId, playing, position}` needs `join`. A `videoId` that isn't the current embed gets `error no_embed`. Otherwise the server stores `{playing, position, at: Date.now(), rev + 1, action, by}` (last write wins) and publishes `playback` to the room. `action` is `seek` when `position` is more than 1 s from the extrapolated position, else `play`/`pause`. Positions are clamped to `[0, MAX_POSITION_S]`.
 - The snapshot carries `room.playback`. The pure rules live in `src/playback.ts`.
+
+## Queue (ADR 0031)
+
+- `src/queue.ts` holds the checks and writes for the WebSocket and HTTP alike. `queue-add`: joined → control policy → member bucket (3, then 1 / 10 s) → room bucket (10, then 1 / 3 s) → share parser → `QUEUE_MAX` (20, never evicts). `queue-remove` / `queue-advance` follow the control policy, and an item that isn't there is ignored.
+- Every share and advance makes a new current item (`itemId` in `embed-changed` and the snapshot). An advance stores first, then publishes `embed-changed` (by null, a `load`; `playback: null` for a generic item), then `queue-changed`.
+- `ended` advances on the first valid report: the sender joined, the item is current, synced and not live, current for ≥ 3 s, and `position` within 5 s of the room clock. Anything else is ignored silently.
+- Migration `0005` stores `queue_items` (no `by`) and `rooms.item_id`. Each action is one write, and a room's rows go with it (`ON DELETE CASCADE`).
 
 CORS allows only the site origin and extension origins. Requests with no `Origin` (curl, tests) are allowed, because they are not a cross-site risk. The 403 (foreign origin), 429 on upgrade and Bun's transport-level 413 (> 64 KB) are plain text, not `ShareResponse`: check `res.ok`/status before parsing.
 
