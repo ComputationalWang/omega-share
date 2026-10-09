@@ -139,9 +139,9 @@ describe("ReportStore", () => {
 
   test("takedowns are kept, and listed back", () => {
     const store = open();
-    store.addTakedown(ROOM, T0);
-    store.addTakedown(ROOM, T0 + 5);
-    store.addTakedown(OTHER, T0 + 1);
+    expect(store.addTakedown(ROOM, T0)).toBe(true);
+    expect(store.addTakedown(ROOM, T0 + 5)).toBe(false);
+    expect(store.addTakedown(OTHER, T0 + 1)).toBe(true);
     expect(store.takedowns().sort()).toEqual([ROOM, OTHER]);
   });
 });

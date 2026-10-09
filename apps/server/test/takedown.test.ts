@@ -181,6 +181,37 @@ describe("rooms takedown <id>", () => {
     expect((await late.closed).code).toBe(CLOSE_CODES.TAKEN_DOWN);
   });
 
+  test("a re-run on an already taken-down id doesn't count again", async () => {
+    const f = boot();
+    expect((await cli(f.socket, "rooms", "takedown", ROOM)).code).toBe(0);
+    expect((await cli(f.socket, "rooms", "takedown", ROOM)).code).toBe(0);
+    expect(f.t.server.metricsText()).toContain("omega_takedowns_total 1");
+  });
+
+  test("a leftover row whose delete throws at boot is logged; the server starts and the room stays unserved", async () => {
+    const f = boot();
+    const path = join(dir ?? "", "omega.db");
+    expect((await cli(f.socket, "rooms", "takedown", ROOM)).code).toBe(0);
+    f.store.createRoom({ id: ROOM, title: "Film club", createdAt: T0, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
+    await restart();
+    const del = spyOn(RoomStore.prototype, "deleteRoom").mockImplementation(() => {
+      throw new Error("disk I/O error");
+    });
+    const errors = spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const g = boot(["lobby"], () => undefined, path);
+      expect(errors.mock.calls.some((c) => c.some((a) => String(a).includes("store.delete_room")))).toBe(true);
+      expect(g.rooms.get(ROOM)).toBeUndefined();
+      expect(g.rooms.get(OTHER)).toBeDefined();
+      const late = await Client.open(g.t.ws(ROOM));
+      clients.push(late);
+      expect((await late.closed).code).toBe(CLOSE_CODES.TAKEN_DOWN);
+    } finally {
+      del.mockRestore();
+      errors.mockRestore();
+    }
+  });
+
   test("POST /rooms never mints a taken-down id", async () => {
     const f = boot();
     await cli(f.socket, "rooms", "takedown", ROOM);
