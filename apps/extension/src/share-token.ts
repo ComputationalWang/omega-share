@@ -55,8 +55,10 @@ export function roomTabPatterns(origin: string): string[] {
 export async function readRoomTabs(origin: string, deps: TokenDeps): Promise<RoomTabs> {
   let all: { id: number; roomId: RoomId }[];
   try {
+    const loopback = isLoopbackOrigin(origin);
     all = (await deps.queryTabs(roomTabPatterns(origin))).flatMap((t) => {
-      const roomId = roomIdFromTabUrl(t.url);
+      // The port-less pattern matches every port of the host; only the server's own origin counts (QA OME-689).
+      const roomId = loopback || sameOrigin(t.url, origin) ? roomIdFromTabUrl(t.url) : null;
       return t.id === undefined || roomId === null ? [] : [{ id: t.id, roomId }];
     });
   } catch {
@@ -71,6 +73,10 @@ export async function readRoomTabs(origin: string, deps: TokenDeps): Promise<Roo
     if (r !== null && r.roomId === tabs[i]?.roomId && !tokens.has(r.roomId)) tokens.set(r.roomId, r.token);
   });
   return { rooms, tokens };
+}
+
+function sameOrigin(url: string | undefined, origin: string): boolean {
+  return url !== undefined && URL.canParse(url) && new URL(url).origin === new URL(origin).origin;
 }
 
 /** The site's `/r/<room>` path (see `apps/web/src/route.ts`), strictly: no default room. */

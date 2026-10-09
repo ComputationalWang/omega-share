@@ -15,7 +15,7 @@ interface FakeTab {
 }
 
 /** A room tab at `/r/<roomId>` holding `value` (by default, that room's well-formed record). */
-const at = (roomId: string, value: unknown = record(roomId, TOKEN)): FakeTab => ({ url: `http://localhost:5173/r/${roomId}`, value });
+const at = (roomId: string, value: unknown = record(roomId, TOKEN), site = "http://localhost:5173"): FakeTab => ({ url: `${site}/r/${roomId}`, value });
 
 function fake(tabs: Record<number, FakeTab>, opts: { failing?: readonly number[] } = {}): { deps: TokenDeps; queried: string[][]; read: number[] } {
   const queried: string[][] = [];
@@ -51,8 +51,9 @@ describe("roomTabPatterns", () => {
 
 describe("readShareTokens", () => {
   test("queries room tabs and parses each tab's sessionStorage record", async () => {
-    const f = fake({ 4: at("lobby"), 9: at("movies", record("movies", TOKEN2)) });
-    const tokens = await readShareTokens("https://abc123.ngrok-free.app", f.deps);
+    const site = "https://abc123.ngrok-free.app";
+    const f = fake({ 4: at("lobby", record("lobby", TOKEN), site), 9: at("movies", record("movies", TOKEN2), site) });
+    const tokens = await readShareTokens(site, f.deps);
     expect([...tokens]).toEqual([
       ["lobby", TOKEN],
       ["movies", TOKEN2],
@@ -153,6 +154,24 @@ describe("readRoomTabs: rooms open in the user's site tabs (threat model §3.5)"
     const f = fake(tabs);
     expect((await readRoomTabs("http://localhost:8787", f.deps)).rooms).toHaveLength(12);
     expect(f.read).toHaveLength(8);
+  });
+
+  test("an https server: tabs on another port of its host are ignored, its own origin's tabs are kept (QA OME-689)", async () => {
+    // The port-less pattern matches every port of the host; another site there could plant a record.
+    const f = fake({
+      1: { url: "https://qa682.test:9999/r/other", value: record("other", TOKEN) },
+      2: { url: "https://qa682.test/r/other", value: record("other", TOKEN) },
+      3: { url: "https://qa682.test:8443/r/lobby", value: record("lobby", TOKEN2) },
+    });
+    const tabs = await readRoomTabs("https://qa682.test:8443", f.deps);
+    expect(tabs.rooms).toEqual(["lobby"]);
+    expect([...tabs.tokens]).toEqual([["lobby", TOKEN2]]);
+    expect(f.read).toEqual([3]);
+  });
+
+  test("a loopback server still lists room tabs on any local port", async () => {
+    const f = fake({ 1: { url: "http://127.0.0.1:5173/r/lobby", value: null }, 2: { url: "http://[::1]:4000/r/movies", value: null } });
+    expect((await readRoomTabs("http://localhost:8787", f.deps)).rooms).toEqual(["lobby", "movies"]);
   });
 
   test("a failed tab query lists no rooms, never a throw", async () => {
