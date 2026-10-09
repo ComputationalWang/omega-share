@@ -16,27 +16,39 @@ const PACKAGE: unknown = JSON.parse(readFileSync(join(ROOT, "package.json"), "ut
 const VERSION = typeof PACKAGE === "object" && PACKAGE !== null && "version" in PACKAGE ? PACKAGE.version : undefined;
 const ICON_SIZES = ["16", "32", "48", "128"] as const;
 
+// Firefox (OME-593, R-M7c decisions on OME-546): the permanent add-on ID, Firefox 140+ for the data-collection key,
+// desktop only, and both categories Share can send (the embed URL, which may be the page URL itself).
+const GECKO = {
+  id: "omega-share@omega-share.duckdns.org",
+  strict_min_version: "140.0",
+  data_collection_permissions: { required: ["websiteContent", "browsingActivity"] },
+};
+const PRODUCTION_HOSTS = ["https://omega-share.duckdns.org/*"];
+const E2E_HOSTS = ["http://localhost:8787/*", "http://localhost/*", "https://www.youtube.com/*"];
+
 const cases = [
-  { mode: "production", hostPermissions: ["https://omega-share.duckdns.org/*"] },
-  { mode: "e2e", hostPermissions: ["http://localhost:8787/*", "http://localhost/*", "https://www.youtube.com/*"] },
+  { name: "production", browser: "chrome", mode: "production", hostPermissions: PRODUCTION_HOSTS },
+  { name: "e2e", browser: "chrome", mode: "e2e", hostPermissions: E2E_HOSTS },
+  { name: "firefox production", browser: "firefox", mode: "production", hostPermissions: PRODUCTION_HOSTS },
+  { name: "firefox e2e", browser: "firefox", mode: "e2e", hostPermissions: E2E_HOSTS },
 ] as const;
 
 const outRoot = mkdtempSync(join(tmpdir(), "omega-ext-manifest-"));
 const manifests = new Map<string, unknown>();
-const outDir = (mode: string): string => join(outRoot, mode, "chrome-mv3");
+const outDir = (name: string): string => join(outRoot, name, "out");
 
 beforeAll(async () => {
-  for (const { mode } of cases) {
-    await build({ root: ROOT, mode, outDir: join(outRoot, mode), outDirTemplate: "chrome-mv3" });
-    manifests.set(mode, JSON.parse(readFileSync(join(outDir(mode), "manifest.json"), "utf8")));
+  for (const { name, browser, mode } of cases) {
+    await build({ root: ROOT, mode, browser, manifestVersion: 3, outDir: join(outRoot, name), outDirTemplate: "out" });
+    manifests.set(name, JSON.parse(readFileSync(join(outDir(name), "manifest.json"), "utf8")));
   }
-}, 60_000);
+}, 120_000);
 
 afterAll(() => {
   rmSync(outRoot, { recursive: true, force: true });
 });
 
-for (const { mode, hostPermissions } of cases) {
+for (const { name: mode, browser, hostPermissions } of cases) {
   describe(`built manifest (${mode})`, () => {
     test("has exactly the extension_pages CSP", () => {
       expect(manifests.get(mode)).toHaveProperty("content_security_policy", { extension_pages: CSP });
@@ -52,10 +64,26 @@ for (const { mode, hostPermissions } of cases) {
       expect(JSON.stringify(manifests.get(mode))).not.toMatch(/<all_urls>|\*:\/\/\*|http:\/\/\*\//);
     });
 
-    test("no content scripts and a non-persistent service worker", () => {
+    test("no content scripts and a non-persistent background (a service worker in Chrome, an event page in Firefox)", () => {
       expect(manifests.get(mode)).not.toHaveProperty("content_scripts");
-      expect(manifests.get(mode)).toHaveProperty("background", { service_worker: "background.js" });
+      const background = browser === "firefox" ? { scripts: ["background.js"] } : { service_worker: "background.js" };
+      expect(manifests.get(mode)).toHaveProperty("background", background);
     });
+
+    if (browser === "firefox") {
+      test("carries the permanent gecko ID, Firefox 140+, both data-collection categories and nothing for Android", () => {
+        expect(manifests.get(mode)).toHaveProperty("browser_specific_settings", { gecko: GECKO });
+      });
+
+      test("opens the options page in a tab, not inside about:addons", () => {
+        expect(manifests.get(mode)).toHaveProperty("options_ui.open_in_tab", true);
+      });
+    } else {
+      test("has no Firefox-only keys, so Chrome warns about nothing", () => {
+        expect(manifests.get(mode)).not.toHaveProperty("browser_specific_settings");
+        expect(manifests.get(mode)).toHaveProperty("options_ui.open_in_tab", false);
+      });
+    }
 
     test("takes its version from package.json", () => {
       expect(manifests.get(mode)).toHaveProperty("version", VERSION);
@@ -72,10 +100,16 @@ for (const { mode, hostPermissions } of cases) {
   });
 }
 
-test("the production build's code has no localhost default left in it", () => {
-  const dir = outDir("production");
+const code = (name: string): string => {
+  const dir = outDir(name);
   const files = readdirSync(dir, { recursive: true, encoding: "utf8" }).filter((f) => f.endsWith(".js"));
-  const code = files.map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
-  expect(code).toContain("https://omega-share.duckdns.org");
-  expect(code).not.toContain("localhost:8787");
-});
+  return files.map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
+};
+
+for (const name of ["production", "firefox production"]) {
+  test(`the ${name} build's code has no localhost default left in it`, () => {
+    expect(code(name)).toContain("https://omega-share.duckdns.org");
+    expect(code(name)).not.toContain("localhost:8787");
+  });
+}
+
