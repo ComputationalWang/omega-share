@@ -92,6 +92,8 @@ export type Member = v.InferOutput<typeof MemberSchema>;
 export const RoomStateSchema = v.pipe(
   v.object({
     id: RoomIdSchema,
+    /** The room's name (ADR 0028). Absent when it has none, or from a pre-M5 server: learn it from `title-changed`. */
+    title: v.optional(RoomTitleSchema),
     /** Always SEAT_COUNT long; `seats[i]` is the occupant's member id or null. */
     seats: v.pipe(v.array(v.nullable(MemberIdSchema)), v.length(SEAT_COUNT)),
     members: v.pipe(v.array(MemberSchema), v.maxLength(MAX_ROOM_MEMBERS)),

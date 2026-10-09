@@ -39,6 +39,7 @@
 - `RoomLayoutInputSchema` applies **the same rules** as `RoomLayoutSchema` (ADR 0021 §3), built from the same field entries and check builders, but on `strictObject` for the layout and for every piece (client frames are strict, ADR 0016 §6). `RoomLayoutSchema` stays non-strict for server → client.
 - `layout-set` is a **whole layout**, not a diff, so the last write wins and the result is always valid. **Seats keep their indices**: a valid layout always has `SEAT_COUNT` seat cells, and clients draw seat `i` at the new `i`-th seat cell.
 - Server: `layout-changed { layout, by }` and `title-changed { title, by }`, published to the room.
+- The `snapshot`'s `room.title` (optional `RoomTitleSchema`) carries the room's current title to every joiner, guests of a private room included, so a page and the owner's rename box start from it instead of waiting for a `title-changed`. The server omits it when the title is empty (OME-473).
 - Owner edits (`layout-set` and `title-set` together) are limited per socket to `ROOM_EDIT_BURST` = 2, then one every `ROOM_EDIT_REFILL_MS` = 2 s. Only these messages write to the store.
 - Sizes: a full valid `layout-set` (32 pieces, every field set) and even 32 copies of the longest kind name stay within about half of `MAX_CLIENT_MESSAGE_BYTES` (4 KB). `rooms-contract.test.ts` pins this, so a new longer kind can't grow past the cap unnoticed.
 
@@ -54,6 +55,6 @@ ADR 0016 keeps rate numbers server-private. The creation buckets, `MAX_ROOMS`, t
 - A creation 429's `retryAfterMs` may be as long as `ROOM_CREATE_RETRY_AFTER_MAX_MS` (= `ROOM_CREATE_KEY_REFILL_MS`, 10 min), so the client waits out the real refill instead of retrying every 60 s. Every other `retryAfterMs` (share, WS, delete) keeps the `RETRY_AFTER_MAX_MS` cap of 60 s.
 
 ## Consequences
-- The contract is additive and optional on the server → client side: old clients strip `owner` and `title` and drop the new message types. The new client messages are new variants; the site and server deploy together.
+- The contract is additive and optional on the server → client side: old clients strip `owner`, `title` and `room.title` and drop the new message types. The new client messages are new variants; the site and server deploy together.
 - The server currently closes removed rooms with 1001 (OME-403). The server issue switches it to `ROOM_CLOSED`.
 - Follow-ups (OME-400 plan): server creation, delete and GC, owner and invite auth on join and edits, the site's create form, invite link and "your rooms" list, the layout editor (lazy chunk), the extension listing rooms from open tabs (never reading `omega.rooms`), the privacy notice, and the operator CLI.
