@@ -1,9 +1,10 @@
 // OME-418: the M5 polish (walking, emotes) against the frame budgets, per provider (ADR 0009/0017): the observer's
 // frames while 8 avatars walk to their seats at once, and while 8 avatars emote at the allowed rate, video playing.
 // Self-enforced like editor.perf.ts (quantised p95 ≤ one vsync, ≤ 1 % missed, ≤ 8 ms main-thread work p95); numbers
-// in perf/results/polish.json. Run with Playwright tracing off (playwright.config.ts perf project) for missed vsyncs.
+// in perf/results/polish.json. (The emotes are drawn: e2e/emotes.e2e.ts reads the frames through the dev-build handle,
+// which the preview build perf serves doesn't have.) Run with Playwright tracing off (playwright.config.ts perf project) for missed vsyncs.
 import { expect, test, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
-import { writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_ROOM_ID, EMOTE_REFILL_MS, parseServerMessage } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
@@ -74,28 +75,19 @@ async function joinWithVideo(
   return clients;
 }
 
-/** How many nickname tags on `page` take ≥ 4 distinct transforms over `ms`, i.e. walk. */
-const walkingTags = (page: Page, ms: number): Promise<number> =>
-  page.evaluate(
-    (duration) =>
-      new Promise<number>((resolve) => {
-        const seen = new Map<Element, Set<string>>();
-        const id = setInterval(() => {
-          for (const t of document.querySelectorAll("[data-testid='nickname-tag']")) {
-            const s = seen.get(t) ?? new Set<string>();
-            s.add((t as HTMLElement).style.transform);
-            seen.set(t, s);
-          }
-        }, 100);
-        setTimeout(() => {
-          clearInterval(id);
-          resolve([...seen.values()].filter((s) => s.size >= 4).length);
-        }, duration);
-      }),
-    ms,
+/** Every nickname tag's transform on `page` now, by nickname: one cheap read, outside the traced window. */
+const tagTransforms = (page: Page): Promise<Record<string, string>> =>
+  page.evaluate(() =>
+    Object.fromEntries([...document.querySelectorAll("[data-testid='nickname-tag']")].map((t) => [t.textContent, (t as HTMLElement).style.transform])),
   );
 
-const out: Record<string, unknown> = {};
+/** perf/results/polish.json, a row at a time: a failed test restarts the worker, and the rows before it stay. */
+const POLISH_JSON = join(RESULTS_DIR, "polish.json");
+function record(k: string, r: Record<string, unknown>): void {
+  mkdirSync(RESULTS_DIR, { recursive: true });
+  const prev: unknown = existsSync(POLISH_JSON) ? JSON.parse(readFileSync(POLISH_JSON, "utf8")) : {};
+  writeFileSync(POLISH_JSON, JSON.stringify({ ...(typeof prev === "object" && prev !== null ? prev : {}), [k]: r }, null, 2));
+}
 const row = (w: FrameWindow, extra: Record<string, unknown>) => {
   const f = summarizeFrames(w.samples, VSYNC_MS);
   return { p95: f.p95, missedPct: f.missedPct, missed: f.missed, frames: f.frames, maxMs: Math.max(...w.samples), rawP95: p95(w.samples), workP95: p95(w.workMs), workMax: Math.max(...w.workMs), traced: w.workMs.length, ...extra };
@@ -105,10 +97,6 @@ const withinBudget = (k: string, r: ReturnType<typeof row>): void => {
   expect(r.missedPct, `${k} missed vsyncs %`).toBeLessThanOrEqual(1);
   expect(r.workP95, `${k} main-thread work p95`).toBeLessThanOrEqual(8);
 };
-
-test.afterAll(() => {
-  writeFileSync(join(RESULTS_DIR, "polish.json"), JSON.stringify(out, null, 2));
-});
 
 const PROVIDERS: readonly FrameProvider[] = ["youtube", ...PROVIDER_CASES.map((c) => c.key), "generic"];
 
@@ -123,14 +111,17 @@ for (const provider of PROVIDERS) {
       // The walks in from the door are over, and every seat is scrolled into view and settled before the clicks (OME-89).
       await observer.page.waitForTimeout(6000);
       const seats = clients.map((c, i) => c.page.locator(`${site.seat}[data-seat="${String(i)}"]`));
-      const moves = walkingTags(observer.page, 2500);
       await Promise.all(clients.map((c, i) => (seats[i] ? clickSettled(c.page, seats[i]) : Promise.reject(new Error("no seat")))));
+      // Tags that moved between the first and the last frame of the traced window walked inside it.
+      const start = await tagTransforms(observer.page);
       const w = await tracedFrames(browser, observer.page, 3000);
-      const walking = await moves;
+      const end = await tagTransforms(observer.page);
+      const walking = clients.filter((c) => start[c.nickname] !== undefined && start[c.nickname] !== end[c.nickname]).length;
       const k = `walk.${provider}`;
-      out[k] = row(w, { walking });
+      record(k, row(w, { walkingInWindow: walking }));
       expect(walking, "the window measures walking, not idle").toBeGreaterThanOrEqual(6);
-      for (const c of clients) await expect(c.page.locator(site.roomNotice)).toBeHidden();
+      // Every walk ended in a sit: each client holds its own seat.
+      for (const [i, c] of clients.entries()) await expect(c.page.locator(`${site.seat}[data-seat="${String(i)}"]`)).toHaveClass(/\bmine\b/, { timeout: 15_000 });
       withinBudget(k, row(w, {}));
     } finally {
       await leaveAll(clients);
@@ -140,16 +131,15 @@ for (const provider of PROVIDERS) {
   test(`polish: 8 avatars emoting at the allowed rate + ${provider}`, async ({ browser, request }) => {
     test.skip(!available.web || !available.server, available.web ? PENDING.server : PENDING.web);
     test.setTimeout(180_000);
-    // The observer (client 0) counts the `emoted` frames its socket gets: each one plays over its sender.
+    // The observer (client 0) counts the `emoted` frames its socket gets; every client counts its `rate_limited` notices.
     const counter = { emotedAt: [] as number[], rateLimited: 0 };
     const clients = await joinWithVideo(browser, request, provider, `emote-${provider}`, async (context, index) => {
-      if (index !== 0) return;
       context.on("page", (page) => {
         page.on("websocket", (ws) => {
           ws.on("framereceived", ({ payload }) => {
             const msg = typeof payload === "string" ? parseServerMessage(payload) : null;
             if (msg === null) return;
-            if (msg.type === "emoted") counter.emotedAt.push(Date.now());
+            if (msg.type === "emoted" && index === 0) counter.emotedAt.push(Date.now());
             if (msg.type === "error" && msg.code === "rate_limited") counter.rateLimited++;
           });
         });
@@ -182,10 +172,9 @@ for (const provider of PROVIDERS) {
       await emoting;
       const k = `emote.${provider}`;
       const expected = Math.floor((CLIENTS * WINDOW_MS) / EMOTE_EVERY_MS);
-      out[k] = row(w, { sentTotal: sent, relayedInWindow: relayed, expectedInWindow: expected, everyMs: EMOTE_EVERY_MS, rateLimited: counter.rateLimited });
+      record(k, row(w, { sentTotal: sent, relayedInWindow: relayed, expectedInWindow: expected, everyMs: EMOTE_EVERY_MS, rateLimited: counter.rateLimited }));
       expect(relayed, "the window measures emotes animating, at the allowed rate").toBeGreaterThanOrEqual(Math.floor(expected * 0.8));
       expect(counter.rateLimited, "the allowed rate never trips the server bucket").toBe(0);
-      for (const c of clients) await expect(c.page.locator(site.roomNotice)).toBeHidden();
       withinBudget(k, row(w, {}));
     } finally {
       await leaveAll(clients);

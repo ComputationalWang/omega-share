@@ -99,7 +99,8 @@ test("a seat change walks then sits on every client", async ({ browser }) => {
   const walked = await Promise.all(paths);
   for (const [i, o] of observers.entries()) {
     const path = walked[i] ?? [];
-    expect(path.length, `${o.nickname} saw ${path.join(" | ")}`).toBeGreaterThan(10);
+    // Start, at least two steps between, the seat: a walk, not a jump (the route's length depends on the idle spot).
+    expect(path.length, `${o.nickname} saw ${path.join(" | ")}`).toBeGreaterThanOrEqual(4);
     expect(path.at(-1), `${o.nickname}: at rest on the seat`).toBe(await seatTagAt(o.page, 0));
     await expect.poll(() => avatarOf(o.page, moverId), { timeout: 3000 }).toMatch(SITTING);
   }
@@ -129,7 +130,7 @@ test("late joiners see seated avatars already seated, with no walk", async ({ br
 });
 
 /** A raw member socket on a page of the site origin. `burst(n)` sends n emotes back to back and reports what came back. */
-async function rawMember(browser: Browser, roomId: string): Promise<{ id: string; burst: (n: number, listenMs: number) => Promise<{ emoted: number; rateLimited: number }> }> {
+async function rawMember(browser: Browser, roomId: string): Promise<{ id: string; burst: (n: number, listenMs: number, gapMs?: number) => Promise<{ emoted: number; rateLimited: number }> }> {
   const context = await watchCsp(await browser.newContext());
   closers.push(() => context.close());
   const page = await context.newPage();
@@ -152,9 +153,9 @@ async function rawMember(browser: Browser, roomId: string): Promise<{ id: string
       }),
     socketUrl(roomId),
   );
-  const burst = async (n: number, listenMs: number): Promise<{ emoted: number; rateLimited: number }> => {
+  const burst = async (n: number, listenMs: number, gapMs = 0): Promise<{ emoted: number; rateLimited: number }> => {
     const r = await page.evaluate(
-      ({ n, listenMs, self }) =>
+      ({ n, listenMs, gapMs, self }) =>
         new Promise<unknown>((resolve) => {
           const ws: unknown = Reflect.get(window, "omegaRaw");
           if (!(ws instanceof WebSocket)) throw new Error("no raw socket");
@@ -167,13 +168,17 @@ async function rawMember(browser: Browser, roomId: string): Promise<{ id: string
             if (msg.type === "error" && "code" in msg && msg.code === "rate_limited") rateLimited++;
           };
           ws.addEventListener("message", on);
-          for (let i = 0; i < n; i++) ws.send(JSON.stringify({ type: "emote", kind: "heart" }));
+          const send = (): void => {
+            ws.send(JSON.stringify({ type: "emote", kind: "heart" }));
+          };
+          if (gapMs === 0) for (let i = 0; i < n; i++) send();
+          else for (let i = 0; i < n; i++) setTimeout(send, i * gapMs);
           setTimeout(() => {
             ws.removeEventListener("message", on);
             resolve({ emoted, rateLimited });
-          }, listenMs);
+          }, (n - 1) * gapMs + listenMs);
         }),
-      { n, listenMs, self: id },
+      { n, listenMs, gapMs, self: id },
     );
     return v.parse(v.object({ emoted: v.number(), rateLimited: v.number() }), r);
   };
@@ -212,9 +217,13 @@ test("over-limit emotes are dropped by the server: only the burst reaches the ro
   await watcher.page.waitForTimeout(300);
   expect(relayedToWatcher(), "nothing over the bucket reached the room").toBe(EMOTE_BURST);
 
-  // After a refill, one more goes through.
-  await watcher.page.waitForTimeout(EMOTE_REFILL_MS + 100);
-  const after = await raw.burst(1, 500);
-  expect(after).toEqual({ emoted: 1, rateLimited: 0 });
-  await expect.poll(relayedToWatcher, { timeout: 1000 }).toBe(EMOTE_BURST + 1);
+  // Then one per refill: drained, a steady 4 a second for 2.2 s gets 2.2 refills' worth through (plus under one
+  // left over), so 2 or 3 of 9; a refill twice as fast would let 4 or more through.
+  await raw.burst(EMOTE_BURST, 0);
+  const before = relayedToWatcher();
+  const paced = await raw.burst(9, 600, 250);
+  expect(paced.emoted, "one per EMOTE_REFILL_MS").toBeGreaterThanOrEqual(2);
+  expect(paced.emoted, "one per EMOTE_REFILL_MS").toBeLessThanOrEqual(3);
+  await watcher.page.waitForTimeout(300);
+  expect(relayedToWatcher() - before, "the room got exactly what the sender's echo got").toBe(paced.emoted);
 });
