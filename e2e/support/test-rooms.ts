@@ -15,6 +15,7 @@ export const SPEC_ROOMS = {
   "provider-generic": ["main"],
   "room-view": ["main"],
   walk: ["main", "reduced"],
+  emotes: ["sticker", "waver", "typist", "burst", "still"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
