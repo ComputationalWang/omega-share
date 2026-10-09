@@ -64,6 +64,8 @@ export function createChatLog<H>(opts: ChatLogOptions<H>): ChatLog {
   // Oldest first; lines arrive in order, so they come due in order too.
   const lines: Line[] = [];
   let timer: H | null = null;
+  /** When the armed timer is due. */
+  let armedAt = 0;
   let hovered = false;
   let focused = false;
   let heldSince: number | null = null;
@@ -89,7 +91,9 @@ export function createChatLog<H>(opts: ChatLogOptions<H>): ChatLog {
       // A fresh line is due before any later one: no need to look further.
       if (l.stage === 0) break;
     }
-    if (next !== null) timer = opts.setTimer(tick, Math.max(0, next - opts.now()));
+    if (next === null) return;
+    armedAt = next;
+    timer = opts.setTimer(tick, Math.max(0, next - opts.now()));
   };
 
   function tick(): void {
@@ -140,7 +144,8 @@ export function createChatLog<H>(opts: ChatLogOptions<H>): ChatLog {
       root.append(line.el);
       if (lines.length > cap) lines.shift()?.el.remove();
       if (atFoot) root.scrollTop = root.scrollHeight;
-      if (timer === null) schedule();
+      // In fade mode the armed timer may be an older line's fade, due after this line settles.
+      if (heldSince === null && (timer === null || dueAt(line) < armedAt)) schedule();
     },
     setAgeing(next) {
       if (next === ageing) return;

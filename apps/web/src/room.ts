@@ -579,7 +579,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const shown = screen(s);
     wrap.hidden = !shown.stage;
     chatForm.hidden = !shown.chat;
-    chatLog.root.hidden = !shown.chat;
+    // Removed (ADR 0030): the log stays up above the card, ending with the only-you line.
+    chatLog.root.hidden = !shown.chat && !shown.kicked;
     full.hidden = !shown.full;
     refused.hidden = shown.refused === null;
     invite.hidden = !shown.stage;
