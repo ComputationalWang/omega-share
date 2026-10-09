@@ -78,6 +78,17 @@ export const site = {
   modClose: id("mod-close"),
   controlPolicy: id("control-policy"),
   controlPolicyOption: id("control-policy-option"),
+  // "Up next" (OME-508, ADR 0031): the queue panel under the TV.
+  queuePanel: id("queue-panel"),
+  queueCount: id("queue-count"),
+  queueRow: id("queue-row"),
+  queueRemove: id("queue-remove"),
+  queueNext: id("queue-next"),
+  queueUrl: id("queue-url"),
+  queueAdd: id("queue-add"),
+  queueProblem: id("queue-problem"),
+  genericCard: id("generic-card"),
+  genericLoad: id("generic-load"),
   roomKicked: id("room-kicked"),
   roomKickedRejoin: id("room-kicked-rejoin"),
 } as const;
