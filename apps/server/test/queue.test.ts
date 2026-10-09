@@ -115,6 +115,7 @@ describe("queue-add (ADR 0031 §2, §3)", () => {
     const bob = await joined();
     await alice.client.next("member-joined");
     expect(alice.snapshot.room.queue ?? []).toEqual([]);
+    await share(alice);
 
     add(alice.client, watch(1));
     const changed = await bob.client.next("queue-changed");
@@ -158,6 +159,7 @@ describe("queue-add (ADR 0031 §2, §3)", () => {
 
     t = start();
     const on = await joined();
+    await share(on);
     const queue = await added(on.client, GENERIC_URL);
     expect(queue[0]?.embed).toEqual({ provider: "generic", host: "videos.example-host.net", url: GENERIC_URL });
   });
@@ -166,6 +168,7 @@ describe("queue-add (ADR 0031 §2, §3)", () => {
     const c = clock();
     t = start({ now: c.now });
     const alice = await joined();
+    await share(alice);
     for (let i = 0; i < QUEUE_ADD_MEMBER_BURST; i++) await added(alice.client, watch(i));
     add(alice.client, watch(50));
     const err = await alice.client.next("error");
@@ -180,6 +183,8 @@ describe("queue-add (ADR 0031 §2, §3)", () => {
     const c = clock();
     t = start({ now: c.now });
     const quiet = await joined();
+    // A current item, so adds queue (an add into an empty room starts it, ADR 0031 §5).
+    await share(quiet);
     const members = [];
     for (let m = 0; m < Math.ceil(QUEUE_ADD_ROOM_BURST / QUEUE_ADD_MEMBER_BURST); m++) members.push(await joined());
     let n = 0;
@@ -216,6 +221,7 @@ describe("queue-add (ADR 0031 §2, §3)", () => {
     const members = [];
     for (let m = 0; m < Math.ceil(QUEUE_ADD_ROOM_BURST / QUEUE_ADD_MEMBER_BURST) + 1; m++) members.push(await joined());
     const watcher = members[0] ?? fail();
+    await share(watcher);
     let n = 0;
     for (const m of members) {
       for (let i = 0; i < QUEUE_ADD_MEMBER_BURST && n < QUEUE_ADD_ROOM_BURST; i++) {
@@ -236,6 +242,7 @@ describe("queue-add (ADR 0031 §2, §3)", () => {
     const c = clock();
     t = start({ now: c.now });
     const alice = await joined();
+    await share(alice);
     let queue: QueueItem[] = [];
     for (let i = 0; i < QUEUE_MAX; i++) {
       c.ms += QUEUE_ADD_MEMBER_REFILL_MS;
@@ -267,6 +274,7 @@ describe("queue-remove (ADR 0031 §2, §3)", () => {
     const alice = await joined();
     const bob = await joined();
     await alice.client.next("member-joined");
+    await share(alice);
     await added(alice.client, watch(1));
     const queue = await added(alice.client, watch(2));
     await bob.client.next("queue-changed");
@@ -280,6 +288,7 @@ describe("queue-remove (ADR 0031 §2, §3)", () => {
   test("an item that isn't there: ignored, no error and no queue-changed", async () => {
     t = start();
     const alice = await joined();
+    await share(alice);
     const queue = await added(alice.client, watch(1));
     const id = queue[0]?.id;
     alice.client.send({ type: "queue-remove", itemId: id });
@@ -365,8 +374,8 @@ describe("shares and item ids (ADR 0031 §1)", () => {
   test("every share mints a fresh itemId, in embed-changed and the snapshot, and doesn't touch the queue", async () => {
     t = start();
     const alice = await joined();
-    const queue = await added(alice.client, watch(1));
     const first = await share(alice);
+    const queue = await added(alice.client, watch(1));
     const second = await share(alice);
     expect(first).not.toBe(second);
     expect(queue.map((i) => i.id)).not.toContain(first);
@@ -488,8 +497,8 @@ describe("ended (ADR 0031 §4)", () => {
     const c = clock();
     t = start({ now: c.now });
     const alice = await joined();
-    await added(alice.client, GENERIC_URL);
     const current = await share(alice);
+    await added(alice.client, GENERIC_URL);
     await added(alice.client, watch(1));
     alice.client.send({ type: "queue-advance", fromItemId: current });
     const generic = (await alice.client.next("embed-changed")).itemId;
@@ -531,6 +540,7 @@ describe("POST /rooms/:id/queue (ADR 0031 §2)", () => {
   test("a member's token queues the parsed embed: 200 { ok, item }, and the room gets queue-changed", async () => {
     t = start();
     const alice = await joined();
+    await share(alice);
     const res = await postQueue(JSON.stringify({ url: watch(1) }), { token: tokenOf(alice.snapshot) });
     expect(res.status).toBe(200);
     const body = v.parse(QueueAddResponseSchema, await res.json());
@@ -595,6 +605,7 @@ describe("POST /rooms/:id/queue (ADR 0031 §2)", () => {
     const c = clock();
     t = start({ now: c.now });
     const alice = await joined();
+    await share(alice);
     for (let i = 0; i < QUEUE_MAX; i++) {
       c.ms += QUEUE_ADD_MEMBER_REFILL_MS;
       await added(alice.client, watch(i));
@@ -659,6 +670,7 @@ describe("persistence (ADR 0031 §6)", () => {
     };
     await boot(true);
     const alice = await joined();
+    await share(alice);
     let generic: QueueItem[] = [];
     for (let i = 0; i < QUEUE_MAX; i++) {
       c.ms += QUEUE_ADD_MEMBER_REFILL_MS;
@@ -684,6 +696,7 @@ describe("persistence (ADR 0031 §6)", () => {
     db = openDatabase(dbFile());
     t = start({ store: new RoomStore(db) });
     const alice = await joined();
+    await share(alice);
     await added(alice.client, GENERIC_URL);
     const queue = await added(alice.client, watch(1));
     for (const cl of clients.splice(0)) cl.close();
@@ -744,6 +757,7 @@ describe("persistence (ADR 0031 §6)", () => {
     t = start({ trustProxy: true, store: new RoomStore((db = openDatabase(dbFile()))) });
     const room = await createRoom();
     const owner = await joined(room.room.id, "olive", { ownerToken: room.ownerToken, address: freshAddress() });
+    await share(owner, SHARE_BODY, room.room.id);
     await added(owner.client, watch(1));
     await added(owner.client, watch(2));
     const count = (): number => db?.query<{ n: number }, []>("SELECT count(*) AS n FROM queue_items").get()?.n ?? -1;
@@ -751,5 +765,182 @@ describe("persistence (ADR 0031 §6)", () => {
     const res = await fetch(`${server().http}/rooms/${room.room.id}`, { method: "DELETE", headers: { authorization: `Bearer ${room.ownerToken}` } });
     expect(res.status).toBe(200);
     expect(count()).toBe(0);
+  });
+});
+
+describe("starting from an empty room (ADR 0031 §5, OME-543)", () => {
+  interface Row {
+    item_id: string | null;
+    embed: string | null;
+  }
+  const roomRow = (roomId = "lobby"): Row | null => db?.query<Row, [string]>("SELECT item_id, embed FROM rooms WHERE id = ?").get(roomId) ?? null;
+  const queueRows = (roomId = "lobby"): string[] =>
+    (db?.query<{ id: string }, [string]>("SELECT id FROM queue_items WHERE room_id = ? ORDER BY position").all(roomId) ?? []).map((r) => r.id);
+  const typesSince = (c: Client, from: number): string[] => c.raw.slice(from).map((f) => (JSON.parse(f) as { type: string }).type);
+
+  test("a WebSocket add starts the item: embed-changed (by the adder, a load at 0, its id) first, then queue-changed with the rest; stored as current", async () => {
+    const c = clock();
+    db = openDatabase(dbFile());
+    t = start({ store: new RoomStore(db), now: c.now });
+    const alice = await joined();
+    const bob = await joined();
+    await alice.client.next("member-joined");
+    expect(alice.snapshot.room.itemId ?? null).toBeNull();
+    const before = bob.client.raw.length;
+
+    add(alice.client, watch(1));
+    const changed = await bob.client.next("embed-changed");
+    expect(changed.embed).toEqual({ provider: "youtube", videoId: vid(1), url: embedUrl(1) });
+    expect(changed.by).toBe(alice.snapshot.self);
+    expect(changed.playback).toMatchObject({ playing: true, position: 0, action: "load" });
+    expect(changed.itemId).toBeDefined();
+    const after = await bob.client.next("queue-changed");
+    expect(after.by).toBe(alice.snapshot.self);
+    expect(after.queue).toEqual([]);
+    expect(typesSince(bob.client, before).filter((x) => x === "embed-changed" || x === "queue-changed")).toEqual(["embed-changed", "queue-changed"]);
+
+    expect(roomRow()?.item_id).toBe(changed.itemId ?? "missing");
+    expect(roomRow()?.embed).not.toBeNull();
+    expect(queueRows()).toEqual([]);
+    const carol = await joined();
+    expect(carol.snapshot.room.itemId).toBe(changed.itemId ?? "missing");
+    expect(carol.snapshot.room.embed?.url).toBe(embedUrl(1));
+    expect(carol.snapshot.room.queue ?? []).toEqual([]);
+  });
+
+  test("the started item's ended debounce runs from the add, and later adds only queue", async () => {
+    const c = clock();
+    t = start({ now: c.now });
+    const alice = await joined();
+    add(alice.client, watch(1));
+    const current = (await alice.client.next("embed-changed")).itemId;
+    await alice.client.next("queue-changed");
+    expect(await added(alice.client, watch(2))).toHaveLength(1);
+    await alice.client.none("embed-changed", 0);
+    c.ms += QUEUE_ENDED_DEBOUNCE_MS - 1;
+    alice.client.send({ type: "ended", itemId: current, position: 0 });
+    await alice.client.none("embed-changed", 150);
+    c.ms += 1;
+    alice.client.send({ type: "ended", itemId: current, position: 0 });
+    expect((await alice.client.next("embed-changed")).embed?.url).toBe(embedUrl(2));
+  });
+
+  test("a generic first item becomes current with playback null: click-to-load (ADR 0024)", async () => {
+    t = start();
+    const alice = await joined();
+    add(alice.client, GENERIC_URL);
+    const changed = await alice.client.next("embed-changed");
+    expect(changed.embed?.provider).toBe("generic");
+    expect(changed.playback).toBeNull();
+    expect(changed.by).toBe(alice.snapshot.self);
+    expect((await alice.client.next("queue-changed")).queue).toEqual([]);
+  });
+
+  test("POST /rooms/:id/queue into an empty room: 200 { ok, item }, and the item starts (embed-changed by the token's member, then queue-changed)", async () => {
+    db = openDatabase(dbFile());
+    t = start({ store: new RoomStore(db) });
+    const alice = await joined();
+    const before = alice.client.raw.length;
+    const res = await postQueue(JSON.stringify({ url: watch(1) }), { token: tokenOf(alice.snapshot) });
+    expect(res.status).toBe(200);
+    const body = v.parse(QueueAddResponseSchema, await res.json());
+    if (!body.ok) throw new Error(body.error.code);
+    expect(body.item).toMatchObject({ embed: { url: embedUrl(1) }, by: alice.snapshot.self });
+    const changed = await alice.client.next("embed-changed");
+    expect(changed.itemId).toBe(body.item.id);
+    expect(changed.by).toBe(alice.snapshot.self);
+    expect(changed.playback).toMatchObject({ playing: true, position: 0, action: "load" });
+    const after = await alice.client.next("queue-changed");
+    expect(after.queue).toEqual([]);
+    expect(after.by).toBe(alice.snapshot.self);
+    expect(typesSince(alice.client, before).filter((x) => x === "embed-changed" || x === "queue-changed")).toEqual(["embed-changed", "queue-changed"]);
+    expect(roomRow()?.item_id).toBe(body.item.id);
+    expect(queueRows()).toEqual([]);
+  });
+
+  test("a queue left over after a dropped embed row: the add starts its head, oldest first, and appends the new item; queue-advance with no current item stays ignored", async () => {
+    db = openDatabase(dbFile());
+    t = start({ store: new RoomStore(db) });
+    const alice = await joined();
+    await share(alice);
+    await added(alice.client, watch(1));
+    const leftover = await added(alice.client, watch(2));
+    for (const cl of clients.splice(0)) cl.close();
+    await t.server.stop(true);
+    db.run("UPDATE rooms SET embed = NULL, item_id = NULL WHERE id = 'lobby'");
+    db.close();
+
+    db = openDatabase(dbFile());
+    t = start({ store: new RoomStore(db) });
+    const back = await joined();
+    expect(back.snapshot.room.itemId ?? null).toBeNull();
+    expect(back.snapshot.room.queue?.map((i) => i.id)).toEqual(leftover.map((i) => i.id));
+    back.client.send({ type: "queue-advance", fromItemId: leftover[0]?.id ?? "missing" });
+    await back.client.none("embed-changed", 150);
+    await back.client.none("queue-changed", 0);
+
+    add(back.client, watch(3));
+    const changed = await back.client.next("embed-changed");
+    expect(changed.itemId).toBe(leftover[0]?.id ?? "missing");
+    expect(changed.embed?.url).toBe(embedUrl(1));
+    expect(changed.by).toBe(back.snapshot.self);
+    const after = await back.client.next("queue-changed");
+    expect(after.queue.map((i) => i.embed.url)).toEqual([embedUrl(2), embedUrl(3)]);
+    expect(after.queue[0]?.id).toBe(leftover[1]?.id ?? "missing");
+    expect(roomRow()?.item_id).toBe(leftover[0]?.id ?? "missing");
+    expect(queueRows()).toEqual(after.queue.map((i) => i.id));
+  });
+
+  test("a failed store write changes nothing: no row, no current item, no frames", async () => {
+    db = openDatabase(dbFile());
+    t = start({ store: new RoomStore(db) });
+    // The add's insert succeeds and starting the item fails: the whole write must roll back.
+    db.run("CREATE TRIGGER no_start BEFORE UPDATE OF item_id ON rooms WHEN NEW.item_id IS NOT NULL BEGIN SELECT RAISE(ABORT, 'disk on fire'); END");
+    const alice = await joined();
+    add(alice.client, watch(1));
+    await alice.client.none("embed-changed", 150);
+    await alice.client.none("queue-changed", 0);
+    expect(roomRow()).toEqual({ item_id: null, embed: null });
+    expect(queueRows()).toEqual([]);
+    const bob = await joined();
+    expect(bob.snapshot.room.itemId ?? null).toBeNull();
+    expect(bob.snapshot.room.embed ?? null).toBeNull();
+    expect(bob.snapshot.room.queue ?? []).toEqual([]);
+  });
+
+  test("a room that already has a current item: the add only queues (queue-changed, no embed-changed, one addQueueItem)", async () => {
+    t = start();
+    const alice = await joined();
+    const current = await share(alice);
+    const queue = await added(alice.client, watch(1));
+    expect(queue.map((i) => i.embed.url)).toEqual([embedUrl(1)]);
+    await alice.client.none("embed-changed", 100);
+    const bob = await joined();
+    expect(bob.snapshot.room.itemId).toBe(current);
+  });
+
+  test("one store write for the add that starts an item", async () => {
+    db = openDatabase(dbFile());
+    const real = new RoomStore(db);
+    const calls: string[] = [];
+    let watching = false;
+    const spy = new Proxy(real, {
+      get(target, prop, receiver) {
+        const value: unknown = Reflect.get(target, prop, receiver);
+        if (typeof value !== "function") return value;
+        return (...args: unknown[]) => {
+          if (watching) calls.push(String(prop));
+          const out: unknown = Reflect.apply(value, target, args);
+          return out;
+        };
+      },
+    });
+    t = start({ store: spy });
+    const alice = await joined();
+    watching = true;
+    add(alice.client, watch(1));
+    await alice.client.next("embed-changed");
+    await alice.client.next("queue-changed");
+    expect(calls).toHaveLength(1);
   });
 });
