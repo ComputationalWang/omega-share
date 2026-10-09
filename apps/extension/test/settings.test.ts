@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_SERVER_BASE_URL, hostPermissionPattern, ownHostsOf, parseServerBaseUrl, readServerBaseUrl } from "../src/settings";
+import { DEFAULT_SERVER_BASE_URL, defaultServerBaseUrl, hostPermissionPattern, ownHostsOf, parseServerBaseUrl, readServerBaseUrl } from "../src/settings";
 
 describe("parseServerBaseUrl", () => {
   const ok: readonly [string, string][] = [
@@ -69,8 +69,12 @@ describe("parseServerBaseUrl", () => {
 });
 
 describe("stored setting", () => {
-  test("default is the local dev server", () => {
+  test("default is the local dev server outside the store build", () => {
     expect(DEFAULT_SERVER_BASE_URL).toBe("http://localhost:8787");
+    for (const mode of ["development", "e2e", undefined]) expect(defaultServerBaseUrl(mode)).toBe("http://localhost:8787");
+  });
+  test("the production (store) build defaults to the hosted https server (R1: reviewers can't use localhost, no cleartext default)", () => {
+    expect(defaultServerBaseUrl("production")).toBe("https://omega-share.duckdns.org");
   });
   test("falls back to the default when nothing valid is stored", () => {
     for (const stored of [undefined, null, 42, "javascript:alert(1)", { url: "http://x" }]) {
