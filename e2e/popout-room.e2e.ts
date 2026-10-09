@@ -7,7 +7,7 @@
 import type { Browser, BrowserContext, BrowserContextOptions, Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
-import { clickSettled, joinRoom, leaveAll, testRoom, type Client } from "./support/room";
+import { clickClosing, clickSettled, joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import type { RoomName } from "./support/test-rooms";
 import { SPREAD_BUDGET_MS, measureSpread, roomPlayback, shareVideo, waitPlaying } from "../perf/sync";
@@ -208,9 +208,7 @@ test("bringing the room back (window key, page key, OS ×) reloads nothing and n
   const video = await a.page.locator(site.sharedVideo).elementHandle();
   // The window's put-back key.
   let pop = await popRoom(a.page, a.context);
-  let closed = pop.waitForEvent("close");
-  await pop.locator(site.popoutBack).click();
-  await closed;
+  await clickClosing(pop, pop.locator(site.popoutBack));
   await expect(a.page.locator(site.room)).toBeVisible();
   await expect(a.page.locator(site.roomAway)).toBeHidden();
   await expect(a.page.locator(site.chatInput)).toBeVisible();
@@ -225,7 +223,7 @@ test("bringing the room back (window key, page key, OS ×) reloads nothing and n
   await expect(a.page.locator(site.nicknameTag)).toHaveCount(2);
   // The page's key, by keyboard: focus lands back in the room's place (the message field, as with the chat).
   pop = await popRoom(a.page, a.context);
-  closed = pop.waitForEvent("close");
+  const closed = pop.waitForEvent("close");
   await a.page.locator(site.roomBringBack).focus();
   await a.page.keyboard.press("Enter");
   await closed;
