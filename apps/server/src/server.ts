@@ -139,7 +139,11 @@ function loadRooms(
     for (const r of store.listRooms()) {
       // A taken-down room's row that a failed delete left behind (ADR 0033 §5): never served again.
       if (takenDown(r.id)) {
-        store.deleteRoom(r.id);
+        try {
+          store.deleteRoom(r.id);
+        } catch (err) {
+          logError("store.delete_room", err);
+        }
         continue;
       }
       const embed = embeds.restore(r.embed);

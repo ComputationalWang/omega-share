@@ -200,7 +200,7 @@ export function createReports({ rooms, store, deleteRoomRow, metrics, now, wallN
     },
     takedown(roomId) {
       // The tombstone first: if it can't be written, the room is left as it was.
-      store.addTakedown(roomId, wallNow());
+      const added = store.addTakedown(roomId, wallNow());
       takenDown.add(roomId);
       const room = rooms.get(roomId);
       const live = room !== undefined && rooms.removeRoom(room, "taken_down");
@@ -212,7 +212,7 @@ export function createReports({ rooms, store, deleteRoomRow, metrics, now, wallN
       }
       store.actionRoom(roomId);
       dedup.dropRoom(roomId);
-      metrics.countTakedown();
+      if (added) metrics.countTakedown();
       return { live };
     },
     isTakenDown: (id) => takenDown.has(id),

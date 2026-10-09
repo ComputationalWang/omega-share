@@ -136,8 +136,9 @@ export class ReportStore {
     return this.#purge.run(before).changes;
   }
 
-  addTakedown(roomId: RoomId, at: number): void {
-    this.#addTakedown.run(v.parse(RoomIdSchema, roomId), v.parse(UnixMsSchema, at));
+  /** True when this wrote the tombstone; false when the id was already taken down. */
+  addTakedown(roomId: RoomId, at: number): boolean {
+    return this.#addTakedown.run(v.parse(RoomIdSchema, roomId), v.parse(UnixMsSchema, at)).changes > 0;
   }
 
   /** Every taken-down room id. A row that isn't a room id can't match one, and is skipped. */
