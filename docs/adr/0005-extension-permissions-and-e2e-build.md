@@ -22,6 +22,19 @@
 - `optional_host_permissions` is now `https://*/*`, `http://localhost/*`, `http://127.0.0.1/*`, `http://[::1]/*`. That is exactly what `parseServerBaseUrl` accepts; `http://*/*` could never be granted.
 - The store zip is built by `bun run ext:store` from a production build only. A guard on the built manifest refuses the e2e build's extra host permissions (`apps/extension/STORE.md`).
 
+**Note (2026-10-09, [OME-593](/OME/issues/OME-593), Firefox build, R-M7c [OME-546](/OME/issues/OME-546)):**
+- `wxt build -b firefox --mv3` uses the same code and the **same permissions**: `activeTab`, `scripting`, `storage`, the hosted origin, and the same four optional hosts. There are no content scripts. Only the Firefox build gets these keys:
+  - `browser_specific_settings.gecko.id: "omega-share@omega-share.duckdns.org"`. **This ID is permanent**: AMO ties the listing and every user's install to it. Never change it; the packaging guard (`store/manifest.ts`) and the manifest test both pin it.
+  - `strict_min_version: "140.0"`, the first Firefox that reads `data_collection_permissions`.
+  - `data_collection_permissions.required: ["websiteContent", "browsingActivity"]`. Share sends the chosen embed URL, which is sometimes the page URL itself. Firefox shows both categories at install. STORE.md and the privacy page's Extension section name both.
+  - Desktop only: there is no `gecko_android` key, because that key is what lists an add-on for Android. As a result, `web-ext lint` always reports one warning, `KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION` (Android reads the data key only from 142). `store/lint.ts` accepts that one warning by code. Every error and any other warning fails `ext:store`.
+  - `options_ui.open_in_tab: true`. Inside about:addons, the `permissions.request` gesture from the options page is untested.
+- **Background.** Firefox MV3 has no service worker, so the same empty background runs as a non-persistent event page (`background.scripts`, no `persistent`). The guard and the perf manifest check (`ext.firefox.persistentBackground`) accept exactly that.
+- **Host permissions** are granted at install in Firefox 127+, which is below our minimum of 140. A user can revoke them in about:addons; the popup already checks `permissions.contains` first.
+- **Firefox e2e.** Playwright can't load Firefox extensions. The Firefox lane (`bun run ext:firefox`, `e2e/support/firefox.ts`) uses Puppeteer over WebDriver BiDi with a pinned Firefox. BiDi refuses to navigate to `moz-extension://`, so **e2e builds only** register a background `tabs.onUpdated` listener. When a tab's hash is `#omega-e2e-popup=<server>`, it stores that server and opens `popup.html?tabId=<tab>`. `import.meta.env.MODE` compiles the listener out of store builds, and the manifest test checks this.
+- **AMO source submission.** The store build is minified, so `ext:store` also writes a repo-root `omega-share-<v>-sources.zip` with `SOURCE-BUILD.md`. `test/sources.test.ts` unpacks it, follows the steps and gets byte-identical Chrome and Firefox zips.
+- The popup's scan now uses `injectImmediately: true`. The tab is already loaded, and with this flag Firefox no longer waits about 1 s for a background tab to go idle (the e2e popup is a tab, so the target sits in the background).
+
 **Why:** Playwright can't click the toolbar button, so it can't grant `activeTab`. It opens `popup.html?tabId=<n>` as a tab and resolves `n` with `chrome.tabs.query`, and both need host permission for the target page. Adding those permissions to the shipped build would widen what we ask real users for. The e2e variant keeps them out of the shipped build while exercising the same code.
 
-**Revisit if:** Chromium or Playwright gains a way to invoke the action (and so grant `activeTab`) in tests. Then drop the variant and run e2e against the shipped build.
+**Revisit if:** AMO or the board wants an Android listing: add `gecko_android: { strict_min_version: "142.0" }` and drop the accepted lint warning. Also revisit if Chromium or Playwright gains a way to invoke the action (and so grant `activeTab`) in tests. Then drop the variant and run e2e against the shipped build.
