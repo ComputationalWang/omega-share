@@ -23,6 +23,7 @@ const CHAT_EVERY_MS = 1000;
 /** How far each drag moves the room window, and how many pointer moves it takes (one per frame or so). */
 const DRAG_PX = 120;
 const DRAG_STEPS = 24;
+const MOVE_EVERY_MS = 16;
 const PHONE = devices["Pixel 7"];
 
 const ids = (p: FrameProvider): string[] => [`phone.frameP95.${p}`, `phone.workP95.${p}`, `phone.missedVsync.${p}`];
@@ -75,7 +76,11 @@ async function drag(page: Page): Promise<number> {
     const dir = n % 2 === 0 ? -1 : 1;
     await page.mouse.move(x, y);
     await page.mouse.down();
-    for (let i = 1; i <= DRAG_STEPS; i++) await page.mouse.move(x + (dir * DRAG_PX * i) / DRAG_STEPS, y);
+    // About one move a frame, like a finger (a touchscreen reports at the display's rate).
+    for (let i = 1; i <= DRAG_STEPS; i++) {
+      await page.mouse.move(x + (dir * DRAG_PX * i) / DRAG_STEPS, y);
+      await page.waitForTimeout(MOVE_EVERY_MS);
+    }
     await page.mouse.up();
     n++;
   }

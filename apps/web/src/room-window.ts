@@ -1,7 +1,8 @@
 // The phone's room window (OME-596, set k `ui-m7-watch`): the stage at 1× behind a crop you drag sideways. Off the phone
 // it's inert and the stage is scaled to fit as before (room.ts `fit`). A drag only moves the stage's transform (no
-// layout, no canvas redraw); a tap that didn't drag still reaches the seat under it, and keyboard focus on anything in
-// the stage pans it into view.
+// layout, no canvas redraw), at most once a frame: a burst of pointer moves between two frames dirties style once, so the
+// hit tests in between stay cheap. A tap that didn't drag still reaches the seat under it, and keyboard focus on anything
+// in the stage pans it into view.
 import { panTo, type Point } from "./layout";
 
 /** A press that moves less than this is a tap (it sits); more is a drag (it pans, and its click is dropped). */
@@ -39,6 +40,13 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
 
   let down: { id: number; x: number; from: Point } | null = null;
   let dragged = false;
+  /** The latest drag position not yet drawn (client x), and the frame that draws it. */
+  let dragX = 0;
+  let dragFrame = 0;
+  const drawDrag = (): void => {
+    dragFrame = 0;
+    if (down !== null) centre({ x: down.from.x - (dragX - down.x), y: down.from.y });
+  };
   clip.addEventListener("pointerdown", (ev) => {
     if (!active || !ev.isPrimary || ev.button !== 0) return;
     down = { id: ev.pointerId, x: ev.clientX, from: { x: pan.x + view.w / 2, y: pan.y + view.h / 2 } };
@@ -53,10 +61,16 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
       clip.setPointerCapture(ev.pointerId);
       clip.classList.add("is-dragging");
     }
-    centre({ x: down.from.x - dx, y: down.from.y });
+    dragX = ev.clientX;
+    if (dragFrame === 0) dragFrame = requestAnimationFrame(drawDrag);
   });
   const end = (ev: PointerEvent): void => {
     if (down?.id !== ev.pointerId) return;
+    // Where the finger let go is where the window stays.
+    if (dragFrame !== 0) {
+      cancelAnimationFrame(dragFrame);
+      drawDrag();
+    }
     down = null;
     clip.classList.remove("is-dragging");
   };
