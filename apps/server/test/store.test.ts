@@ -84,6 +84,8 @@ describe("migrations (research §2.3)", () => {
       { name: "owner_hash", type: "BLOB", notnull: 0, pk: 0 },
       { name: "invite_hash", type: "BLOB", notnull: 0, pk: 0 },
       { name: "last_active_at", type: "INTEGER", notnull: 0, pk: 0 },
+      // 0004 (ADR 0030 §4): room configuration, not personal data.
+      { name: "control_policy", type: "TEXT", notnull: 1, pk: 0 },
     ]);
     // STRICT + CHECK: a 33-character id never lands.
     expect(() => db.run("INSERT INTO rooms (id, created_at, layout) VALUES (?, 0, '{}')", ["a".repeat(33)])).toThrow();
@@ -168,6 +170,8 @@ describe("RoomStore", () => {
         ownerHash: null,
         inviteHash: null,
         lastActiveAt: null,
+        // ADR 0030 §4: rooms start with everyone controlling playback.
+        controlPolicy: "everyone",
       },
     ]);
   });
@@ -236,7 +240,7 @@ describe("migration 0002: created rooms (ADR 0028)", () => {
     const db = openDatabase(path);
     expect(userVersion(db)).toBe(REAL_MIGRATIONS.length);
     expect(new RoomStore(db).listRooms()).toEqual([
-      { id: "den", title: "Den", createdAt: 5, layout: DEFAULT_LAYOUT, embed: null, visibility: "public", pinned: true, ownerHash: null, inviteHash: null, lastActiveAt: null },
+      { id: "den", title: "Den", createdAt: 5, layout: DEFAULT_LAYOUT, embed: null, visibility: "public", pinned: true, ownerHash: null, inviteHash: null, lastActiveAt: null, controlPolicy: "everyone" },
     ]);
     db.close();
   });
@@ -265,6 +269,7 @@ describe("migration 0002: created rooms (ADR 0028)", () => {
         ownerHash: HASH_A,
         inviteHash: HASH_B,
         lastActiveAt: null,
+        controlPolicy: "everyone",
       },
     ]);
     expect(rooms.deleteRoom("abcdefghijklmnopqrstuvwxyz")).toBe(true);
@@ -289,5 +294,38 @@ describe("migration 0002: created rooms (ADR 0028)", () => {
     expect(() => db.run("INSERT INTO rooms (id, created_at, layout, owner_hash) VALUES ('c', 1, ?, x'00')", [layout])).toThrow();
     db.run("INSERT INTO rooms (id, title, created_at, layout) VALUES ('d', '<b>', 1, ?)", [layout]);
     expect(() => new RoomStore(db).listRooms()).toThrow(/"d"/);
+  });
+});
+
+describe("migration 0004: control policy (ADR 0030 §4)", () => {
+  test("existing rooms migrate to everyone; setControlPolicy writes through and survives a reopen", () => {
+    const path = join(tempDir(), "omega.db");
+    const upTo0003 = migrations(Object.fromEntries(REAL_MIGRATIONS.slice(0, 3).map((f) => [f, readFileSync(join(MIGRATIONS_DIR, f), "utf8")])));
+    const old = openDatabase(path, upTo0003);
+    old.run("INSERT INTO rooms (id, title, created_at, layout) VALUES ('den', 'Den', 5, ?)", [JSON.stringify(DEFAULT_LAYOUT)]);
+    old.close();
+
+    const db = openDatabase(path);
+    const rooms = new RoomStore(db);
+    expect(rooms.listRooms().map((r) => r.controlPolicy)).toEqual(["everyone"]);
+    rooms.setControlPolicy("den", "owner");
+    db.close();
+    const again = openDatabase(path);
+    expect(new RoomStore(again).listRooms().map((r) => r.controlPolicy)).toEqual(["owner"]);
+    again.close();
+  });
+
+  test("refuses an unknown policy or room; and the CHECK refuses a forged value", () => {
+    const db = openDatabase(":memory:");
+    const rooms = new RoomStore(db);
+    rooms.createRoom({ id: "den", title: "Den", createdAt: 5, layout: DEFAULT_LAYOUT });
+    expect(() => {
+      rooms.setControlPolicy("den", "nobody" as "owner");
+    }).toThrow();
+    expect(() => {
+      rooms.setControlPolicy("nope", "owner");
+    }).toThrow();
+    expect(() => db.run("UPDATE rooms SET control_policy = 'nobody' WHERE id = 'den'")).toThrow();
+    db.close();
   });
 });
