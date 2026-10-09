@@ -15,8 +15,10 @@ import {
   QUEUE_ENDED_TOLERANCE_S,
   QUEUE_MAX,
   QueueItemIdSchema,
+  QueueAddResponseSchema,
   QueueItemSchema,
   RoomStateSchema,
+  SHARE_ERROR_CODES,
   ServerMessageSchema,
   parseClientMessage,
   parseServerMessage,
@@ -193,7 +195,8 @@ describe("room state queue", () => {
 describe("server queue-changed", () => {
   test("broadcasts the whole upcoming queue and who changed it", () => {
     const frame = { type: "queue-changed", queue: [item("q2"), item("q3", GENERIC)], by: "m1" };
-    expect(parseServerMessage(JSON.stringify(frame))).toEqual(frame);
+    const parsed: unknown = parseServerMessage(JSON.stringify(frame));
+    expect(parsed).toEqual(frame);
   });
 
   test("by is null when the server advanced on its own (an ended report)", () => {
@@ -213,7 +216,8 @@ describe("server queue-changed", () => {
 describe("server embed-changed itemId", () => {
   test("names the new current item", () => {
     const frame = { type: "embed-changed", embed: YT, by: null, playback: PLAYBACK, itemId: "q2" };
-    expect(parseServerMessage(JSON.stringify(frame))).toEqual(frame);
+    const parsed: unknown = parseServerMessage(JSON.stringify(frame));
+    expect(parsed).toEqual(frame);
   });
 
   test("a generic item becomes current without playback", () => {
@@ -296,5 +300,29 @@ describe("frame size", () => {
   test("a full queue-changed frame parses", () => {
     const raw = JSON.stringify({ type: "queue-changed", queue, by: members[0]?.id });
     expect(parseServerMessage(raw)?.type).toBe("queue-changed");
+  });
+});
+
+describe("POST /rooms/:id/queue (the extension's add to queue)", () => {
+  test("answers with the stored item", () => {
+    const body = { ok: true, item: item("q2", GENERIC) };
+    expect(v.parse(QueueAddResponseSchema, body)).toEqual(body);
+  });
+
+  test.each(["queue_full", "unsupported_url", "rate_limited", "control_owner_only", "unauthorized", "room_not_found"])(
+    "can refuse with %s",
+    (code) => {
+      expect(SHARE_ERROR_CODES).toContain(code as (typeof SHARE_ERROR_CODES)[number]);
+      accepts(QueueAddResponseSchema, { ok: false, error: { code, message: "no" } });
+    },
+  );
+
+  test.each([
+    ["an ok without an item", { ok: true }],
+    ["an ok with a bare embed", { ok: true, embed: YT }],
+    ["an item with a raw url", { ok: true, item: { id: "q1", embed: "https://youtu.be/dQw4w9WgXcQ", by: null } }],
+    ["an unknown error code", { ok: false, error: { code: "nope", message: "no" } }],
+  ])("rejects %s", (_name, input) => {
+    rejects(QueueAddResponseSchema, input);
   });
 });
