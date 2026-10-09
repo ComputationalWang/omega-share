@@ -26,6 +26,9 @@ export interface Widget {
   update(v: PlaybackView): void;
 }
 
+/** What a held shared key says (ADR 0030): the room's owner took the remote. */
+const HELD_LABEL = "Only the host controls playback";
+
 /** Plain system-font names for the TV's nameplate (assets/README.md "Provider plate"): never a logo. */
 const PROVIDER_NAMES: Readonly<Record<Provider, string>> = { youtube: "YouTube", twitch: "Twitch", vimeo: "Vimeo" };
 
@@ -33,10 +36,11 @@ const PROVIDER_NAMES: Readonly<Record<Provider, string>> = { youtube: "YouTube",
  * Shared transport for the TV's control-bar slot: chip · play/pause · current · seek · duration · [hint] · plate.
  * Live (assets/README.md "Live transport"): chip · play/pause · LIVE pill · note · back-to-live · plate; no seek.
  */
-export function createTransport(c: PlaybackController): Widget {
+export function createTransport(c: Pick<PlaybackController, "togglePlay" | "seek">): Widget {
   const root = el("div", { className: "ui-transport", role: "group", ariaLabel: "Shared playback: affects everyone" });
   const chip = el("span", { className: "ui-chip shared" });
-  chip.append(sprite("ui-glyph-everyone"), "Everyone");
+  const chipGlyph = sprite("ui-glyph-everyone");
+  chip.append(chipGlyph, "Everyone");
   const icon = sprite("ui-icon-play");
   const key = el("button", { type: "button", className: "ui-button shared icon", ariaLabel: "Play for everyone", disabled: true }, "play-toggle");
   key.append(icon);
@@ -50,7 +54,8 @@ export function createTransport(c: PlaybackController): Widget {
   pill.append(sprite("ui-onair"), "Live");
   const note = el("span", { className: "ui-live-note", textContent: "Live: everyone watches the same moment", hidden: true });
   const toLive = el("button", { type: "button", className: "ui-button shared icon", ariaLabel: "Back to live for everyone", disabled: true, hidden: true }, "to-live");
-  toLive.append(sprite("ui-icon-tolive"));
+  const toLiveIcon = sprite("ui-icon-tolive");
+  toLive.append(toLiveIcon);
   const hint = el("span", { className: "ui-hint", title: "This player can't change its speed, so it keeps in sync by skipping", hidden: true }, "seek-only-hint");
   hint.append(sprite("ui-glyph-hop"), el("span", { className: "ui-hint-text", textContent: "syncs by skipping" }));
   const plateGlyph = sprite("ui-glyph-src-video");
@@ -65,11 +70,11 @@ export function createTransport(c: PlaybackController): Widget {
   // shelf costs frames (perf budget). The bar and readout move in whole seconds; 1 s is < 1 px on a 10 min video.
   let shownSecond = -1;
   key.addEventListener("click", () => {
-    c.togglePlay();
+    if (last?.held !== true) c.togglePlay();
   });
   // Resuming a live stream is the jump to the live edge; enabled only while the room is paused.
   toLive.addEventListener("click", () => {
-    if (last?.playing === false) c.togglePlay();
+    if (last?.playing === false && !last.held) c.togglePlay();
   });
   input.addEventListener("input", () => {
     dragging = true;
@@ -110,14 +115,30 @@ export function createTransport(c: PlaybackController): Widget {
         // By content kind, not provider: a Twitch VOD is on-demand video.
         plateGlyph.className = `ui-sprite ${v.live ? "ui-glyph-src-live" : "ui-glyph-src-video"}`;
       }
-      if (prev?.playing !== v.playing || prev.live !== v.live) {
-        key.ariaLabel = v.playing ? "Pause for everyone" : "Play for everyone";
-        icon.className = `ui-sprite ${v.playing ? "ui-icon-pause" : "ui-icon-play"}`;
+      if (prev?.policy !== v.policy) {
+        // Owner-only (ADR 0030, set j): the chip says who holds the remote, for the host too.
+        const host = v.policy === "owner";
+        chipGlyph.className = `ui-sprite ${host ? "ui-glyph-host" : "ui-glyph-everyone"}`;
+        chip.lastChild?.replaceWith(host ? "Host" : "Everyone");
+      }
+      if (prev?.playing !== v.playing || prev.live !== v.live || prev.held !== v.held) {
+        // Held keys sink into the shelf: still focusable (aria-disabled), saying why, the icon in its off tone.
+        const off = v.held ? "-off" : "";
+        key.ariaLabel = v.held ? HELD_LABEL : v.playing ? "Pause for everyone" : "Play for everyone";
+        icon.className = `ui-sprite ${v.playing ? "ui-icon-pause" : "ui-icon-play"}${off}`;
+        toLiveIcon.className = `ui-sprite ui-icon-tolive${off}`;
+        toLive.ariaLabel = v.held ? HELD_LABEL : "Back to live for everyone";
+        for (const b of [key, toLive]) {
+          b.classList.toggle("is-held", v.held);
+          if (v.held) b.setAttribute("aria-disabled", "true");
+          else b.removeAttribute("aria-disabled");
+        }
+        root.title = v.held ? HELD_LABEL : "";
         pill.classList.toggle("is-behind", !v.playing);
       }
-      if (prev?.canControl !== v.canControl || prev.playing !== v.playing) toLive.disabled = !v.canControl || v.playing;
+      if (prev?.canControl !== v.canControl || prev.playing !== v.playing || prev.held !== v.held) toLive.disabled = !v.held && (!v.canControl || v.playing);
       const seekable = v.canControl && v.duration > 0;
-      if (prev?.canControl !== v.canControl) key.disabled = !v.canControl;
+      if (prev?.canControl !== v.canControl || prev.held !== v.held) key.disabled = !v.canControl && !v.held;
       if (prev?.canControl !== v.canControl || prev.duration !== v.duration) {
         input.disabled = !seekable;
         seek.classList.toggle("is-disabled", !seekable);
@@ -190,7 +211,8 @@ export function createPersonal(c: PlaybackController): Widget {
 }
 
 function syslineEl(l: Sysline): HTMLElement {
-  const p = el("p", { className: "ui-sysline" }, "system-line");
+  // Only-you lines (my own mute) wear set (j)'s mustard bar.
+  const p = el("p", { className: l.self === true ? "ui-sysline self" : "ui-sysline" }, "system-line");
   p.append(sprite(`ui-glyph-${l.glyph}`));
   if (l.actor !== null) p.append(el("b", { textContent: l.actor }), ` ${l.verb}`);
   else p.append(l.verb);

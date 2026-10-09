@@ -1,6 +1,6 @@
-import type { Member, MemberId, PlaybackState } from "@omega/shared";
+import type { ControlPolicy, Member, MemberId, PlaybackState } from "@omega/shared";
 
-export type SyslineGlyph = "play" | "pause" | "seek";
+export type SyslineGlyph = "play" | "pause" | "seek" | "remote" | "chat-mute";
 
 /**
  * One chat system line, as data: the view renders `actor` in <b> and `time` in <time>,
@@ -11,6 +11,8 @@ export interface SystemLine {
   readonly actor: string | null;
   readonly verb: string;
   readonly time: string | null;
+  /** Only I am told (the mustard "only you" bar, set j): my own mute. */
+  readonly self?: boolean;
 }
 
 /** `12:30`, `1:02:45`. Anything that isn't a finite, non-negative number reads as 0:00. */
@@ -42,6 +44,20 @@ export function systemLine(pb: PlaybackState, members: readonly Member[], self: 
         ? { glyph: "play", actor: null, verb: "Video shared", time: null }
         : { glyph: "play", actor: actorName(pb.by, members, self), verb: "shared a video", time: null };
   }
+}
+
+/** The room's control policy changed (ADR 0030): "Only the host controls playback now", "Ana gave the remote to everyone". */
+export function policyLine(policy: ControlPolicy, by: MemberId, members: readonly Member[], self: MemberId | null): SystemLine {
+  return policy === "owner"
+    ? { glyph: "remote", actor: null, verb: "Only the host controls playback now", time: null }
+    : { glyph: "remote", actor: actorName(by, members, self), verb: "gave the remote to everyone", time: null };
+}
+
+/** The owner muted or unmuted my chat (ADR 0030). Only I see it. */
+export function mutedLine(muted: boolean): SystemLine {
+  return muted
+    ? { glyph: "chat-mute", actor: "The host", verb: "muted your chat. You can still watch and emote.", time: null, self: true }
+    : { glyph: "chat-mute", actor: "The host", verb: "unmuted your chat", time: null, self: true };
 }
 
 /** Plain-text form, for aria and tests. */

@@ -28,7 +28,8 @@ export function trackShareToken(storage: ShareTokenStorage, roomId: RoomId): Sha
   };
   return {
     onEvent(e) {
-      if (e.type === "disconnected") clear();
+      // The server dropped the member (and revoked its token) on a drop, a closed room and a kick.
+      if (e.type === "disconnected" || e.type === "room-closed" || e.type === "kicked") clear();
       if (e.type !== "message") return;
       if (e.msg.type === "room-full") clear();
       if (e.msg.type !== "snapshot") return;

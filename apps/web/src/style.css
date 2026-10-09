@@ -137,3 +137,25 @@ legend { padding: 0; margin-bottom: 6px; }
 .ui-button.self.is-cooling { border-image-source: url("../../../assets/ui/slices/button-self-cool.png"); cursor: default; }
 /* prefers-reduced-motion: the picker icon, still, bottom-centred over the avatar. */
 .emote-badge { position: absolute; left: 0; top: 0; translate: -50% -100%; }
+
+/* Owner moderation (ADR 0030, set j "house rules"). The menu hangs over the member's name tag with its tail on it. */
+.tags.pickable .tag:not(.self) { pointer-events: auto; cursor: pointer; }
+.tags.pickable .tag:not(.self):focus-visible { outline: 1px solid var(--ui-text); outline-offset: 2px; }
+.tag-zip { flex: none; margin-left: 3px; }
+.mod-menu { position: absolute; left: 0; top: 0; translate: -50% -100%; z-index: 2; }
+.mod-menu .ask { flex-basis: 100%; margin-bottom: 4px; }
+.mod-menu .ui-modrow.is-ask { gap: 4px; }
+.mod-policy { display: grid; gap: 6px; margin-right: auto; padding: 8px 10px; max-width: 420px; font-size: 13px; }
+.mod-policy-head { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 700; }
+.mod-policy-tiles { display: flex; gap: 8px; }
+.mod-policy-tile { display: inline-flex; place-items: center; align-items: center; gap: 6px; padding: 2px 8px; color: var(--ui-text); font: inherit; font-weight: 700; }
+.mod-policy-note { margin: 0; color: var(--muted); font-size: 12px; }
+/* Muted by the host: a charcoal well that says why (set j input-muted). */
+.chat input.is-muted { border-color: #3a3442; background: #2a2630; color: var(--muted); cursor: not-allowed; }
+.chat[data-muted="true"] input { opacity: 1; }
+/* Removed (4005): set (j)'s doorway vignette, the wait in words, Rejoin waiting it out, then a way elsewhere. */
+[data-testid="room-kicked"] { display: grid; justify-items: center; gap: 8px; }
+[data-testid="room-kicked"][hidden] { display: none; }
+[data-testid="room-kicked"] .ui-scene { --ui-px: 2px; }
+[data-testid="room-kicked"] .ui-button { --ui-px: 2px; font: inherit; font-weight: 700; }
+[data-testid="room-kicked"] .enter { margin-top: 0; }

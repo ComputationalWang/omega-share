@@ -9,22 +9,24 @@ import { forgetRoom, inviteLink, joinMessage, type RoomSecret, type SecretsStore
 import { createInviteControl } from "./controls/invite";
 import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
-import { chatView, refusalCard } from "./controls/feedback";
+import { chatView, kickedCard, refusalCard } from "./controls/feedback";
+import { kickedUntil, rememberKick } from "./kick-memory";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, seatViews, sitIntent } from "./intents";
 import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
-import { BUBBLE_OFFSET_Y, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
+import { BUBBLE_OFFSET_Y, STAGE_W, SYSLINE_RAIL, TAG_OFFSET_Y, roomLayout, type Point, type Rect } from "./layout";
 import type { PlayerError } from "./player/adapter";
 import { PLAYERS, createPlayerMounter } from "./player/registry";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
-import { catchingUp, initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
+import { catchingUp, controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
 import { genericFrame, tvFrame, type TvFrame } from "./tv";
 import { createGenericTv } from "./controls/generic-tv";
 import { walkGrid } from "./walk/path";
 import { standingSpots } from "./walk/standing";
 import type { Dir } from "./walk/walks";
 import type { Editor } from "./editor/editor";
+import type { Moderation } from "./owner/moderation";
 import { createEmotePicker } from "./emote/picker";
 import { createEmoteBadges } from "./emote/badges";
 import { EMOTE_LIFT } from "./walk/animator";
@@ -66,6 +68,7 @@ const STATUS_TEXT: Record<ViewState["status"], string> = {
   full: "",
   refused: "",
   closed: "",
+  kicked: "",
 };
 
 const NOTICE_MS = 3000;
@@ -107,6 +110,11 @@ function browserSocket(url: string): SocketLike {
   return s;
 }
 
+/** A connection that never connects: a tab still inside its rejoin cooldown (kick-memory.ts). */
+function stoppedConnection(): Connection {
+  return { send: () => false, close: () => undefined, resume: () => undefined };
+}
+
 /** What the sync loop plays: the synced embed, or null (a generic embed is never synced, ADR 0024). */
 function syncedOnly(e: AnyEmbed | null | undefined): Embed | null {
   return e != null && isSyncedEmbed(e) ? e : null;
@@ -141,6 +149,41 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     el("p", { textContent: "Its owner deleted it, or nobody used it for a long time." }),
     el("a", { className: "enter", href: "/", textContent: "Go to the home page" }),
   );
+  // 4005: the owner removed us (ADR 0030). The connection has stopped; Rejoin waits out the cooldown, then reloads.
+  const kicked = el("div", { className: "room-full", hidden: true }, "room-kicked");
+  const kickedTitle = el("h2");
+  const kickedBody = el("p");
+  const rejoinIcon = el("span", { className: "ui-sprite ui-wait", ariaHidden: "true" });
+  const rejoinText = el("span");
+  const rejoin = el("button", { type: "button", className: "ui-button" }, "room-kicked-rejoin");
+  rejoin.append(rejoinIcon, rejoinText);
+  rejoin.addEventListener("click", () => {
+    if (rejoin.getAttribute("aria-disabled") !== "true") location.reload();
+  });
+  kicked.append(
+    el("span", { className: "ui-scene ui-scene-removed", ariaHidden: "true" }),
+    kickedTitle,
+    kickedBody,
+    rejoin,
+    el("a", { className: "enter secondary", href: "/", textContent: "Find a room" }),
+  );
+  let kickedTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Fill the card for now and re-arm for the next minute; once the cooldown is over Rejoin is a plain key. */
+  const renderKicked = (until: number): void => {
+    if (kickedTimer !== null) clearTimeout(kickedTimer);
+    kickedTimer = null;
+    const card = kickedCard(until, Date.now());
+    kickedTitle.textContent = card.title;
+    kickedBody.textContent = card.body;
+    rejoinText.textContent = card.rejoin;
+    rejoin.classList.toggle("is-waiting", !card.ready);
+    rejoinIcon.hidden = card.ready;
+    if (card.ready) rejoin.removeAttribute("aria-disabled");
+    else rejoin.setAttribute("aria-disabled", "true");
+    // The dial runs once over what's left of the cooldown (set f's .ui-wait).
+    rejoinIcon.style.setProperty("--cool", `${String(Math.max(0, until - Date.now()))}ms`);
+    if (card.nextChangeMs !== null) kickedTimer = setTimeout(() => { renderKicked(until); }, card.nextChangeMs);
+  };
   const writeText = (t: string): Promise<void> => ("clipboard" in navigator ? navigator.clipboard.writeText(t) : Promise.reject(new Error("no clipboard")));
   const invite = createInviteControl(inviteLink(opts.origin, opts.roomId, opts.secret?.inviteKey), opts.secret?.inviteKey !== undefined, writeText);
   invite.hidden = true;
@@ -248,7 +291,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // The owner's "Edit room" key (set (h)): made only for the owner, and the editor chunk loads only when it's pressed.
   const editBar = el("div", { className: "edit-bar" });
   const editorPanel = el("div", { className: "editor-panel" });
-  opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, syncNotice, notice, chatForm, invite, full, refused, closed);
+  opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, syncNotice, notice, chatForm, invite, full, refused, closed, kicked);
 
   /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
   let tvProvider: Embed["provider"] | null = null;
@@ -292,6 +335,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** Bumped on each open/close, so a slow chunk load for an editor that was closed meanwhile is dropped. */
   let editorGen = 0;
   let shownError: ViewState["lastError"] = null;
+  /** Where the last render put each member (seat or standing spot), for UI anchored to someone not on screen yet. */
+  let placedAt = new Map<MemberId, Point>();
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
   /** The hourglass on each catching tag; a tag removed with its member takes its hourglass along. */
   const hourglasses = new Map<HTMLElement, HTMLElement>();
@@ -438,6 +483,41 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       });
   };
 
+  let moderation: Moderation | null = null;
+  /** Bumped when the tools go, so a chunk that loads after that is dropped. */
+  let moderationGen = 0;
+  /** The owner's moderation tools (ADR 0030): their own lazy chunk, loaded only on an owner's page. */
+  const renderModeration = (s: ViewState): void => {
+    const want = s.owner && opts.secret?.ownerToken !== undefined && screen(s).stage;
+    if (!want) {
+      if (moderationGen % 2 === 1) {
+        moderationGen++;
+        moderation?.destroy();
+        moderation = null;
+      }
+      return;
+    }
+    if (moderation !== null) {
+      moderation.update();
+      return;
+    }
+    if (moderationGen % 2 === 1) return;
+    const gen = ++moderationGen;
+    void import("./owner/moderation")
+      .then(({ mountModeration }) => {
+        if (gen !== moderationGen) return;
+        moderation = mountModeration({ stage, tags, bar: editBar, view: () => state, send, stageWidth: STAGE_W, anchor: (id) => {
+          const p = view.position(id) ?? placedAt.get(id);
+          return p === undefined ? undefined : { x: p.x, y: p.y + TAG_OFFSET_Y };
+        } });
+        moderation.update();
+      })
+      .catch((e: unknown) => {
+        console.warn("moderation tools failed to load", e);
+        if (gen === moderationGen) moderationGen++;
+      });
+  };
+
   /** Only the owner, in an open room, gets the key; it isn't in the DOM for anyone else. */
   const renderEditToggle = (s: ViewState): void => {
     const ownerToken = opts.secret?.ownerToken;
@@ -481,6 +561,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     full.hidden = !shown.full;
     refused.hidden = shown.refused === null;
     invite.hidden = !shown.stage;
+    if (kicked.hidden === shown.kicked) {
+      kicked.hidden = !shown.kicked;
+      if (shown.kicked) renderKicked(s.kickedUntil);
+    }
     if (closed.hidden === shown.closed) {
       closed.hidden = !shown.closed;
       if (shown.closed) forgetRoom(opts.secrets, opts.roomId);
@@ -498,10 +582,15 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const chat = chatView(s, Date.now());
     chatForm.dataset["cooldown"] = String(chat.cooling);
     chatSend.disabled = chat.cooling;
+    // Muted by the host (ADR 0030, set j): a read-only well that says why. Emotes still work.
+    chatInput.readOnly = chat.muted;
+    chatInput.classList.toggle("is-muted", chat.muted);
+    chatForm.dataset["muted"] = String(chat.muted);
     if (chatInput.placeholder !== chat.placeholder) chatInput.placeholder = chat.placeholder;
 
     const placements: AvatarPlacement[] = [];
     const at = new Map<MemberId, Point>();
+    placedAt = at;
     const views = seatViews(s);
     for (const v of views) {
       const p = seats[v.index];
@@ -561,6 +650,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       let e = tagEls.get(m.id);
       if (e === undefined) {
         e = el("span", { className: "tag ui-tag" }, "nickname-tag");
+        e.dataset["member"] = m.id;
         e.append(el("span", { className: "tag-name", textContent: m.nickname }));
         tagEls.set(m.id, e);
         tags.append(e);
@@ -590,7 +680,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
     renderSyslines(rail, s.syslines, syslineEls);
     applyCatching();
-
+    renderModeration(s);
   };
 
   /**
@@ -683,6 +773,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (next === state) return;
     const expiriesChanged = next.bubbles !== state.bubbles || next.syslines !== state.syslines || next.cooldownUntil !== state.cooldownUntil;
     const prevRoom = state.room;
+    const prevOwner = state.owner;
     state = next;
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
@@ -690,6 +781,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       playback.setRoom(room === null ? { embed: null, playback: null } : { embed: syncedOnly(room.embed), playback: room.playback ?? null });
       syncTv(next);
     }
+    if (next.owner !== prevOwner || next.room?.controlPolicy !== prevRoom?.controlPolicy) playback.setControl({ policy: controlPolicy(next), held: controlHeld(next) });
     if (expiriesChanged) scheduleExpiry();
     if (frame === 0) frame = requestAnimationFrame(render);
   };
@@ -703,8 +795,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const p = view.position(id);
     if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
   };
-  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, dispatch, emoted };
-  const c: Connection = createConnection({
+  const kickedStore = sessionStorage;
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: () => rememberKick(kickedStore, opts.roomId, Date.now()), dispatch, emoted };
+  // Kicked from this room in this tab and the cooldown isn't over (ADR 0030 §2): show the notice, don't even try to join.
+  const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
+  const c: Connection = kickedTill !== null ? stoppedConnection() : createConnection({
     url: opts.socketUrl,
     join: joinMessage(opts.nickname, opts.avatar, opts.secret),
     createSocket: browserSocket,
@@ -722,6 +817,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
   conn = c;
   playback.start();
+  if (kickedTill !== null) dispatch({ type: "kicked", until: kickedTill });
 
   overlay.addEventListener("click", (ev) => {
     if (!(ev.target instanceof HTMLElement)) return;
@@ -738,7 +834,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   });
   // Keys 1–6 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
   window.addEventListener("keydown", (ev) => {
-    if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
+    if (moderation?.key(ev) === true) ev.preventDefault();
+    else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
   });
   // Close on unload so the server frees the seat now; a bfcache restore reconnects.
   window.addEventListener("pagehide", () => {

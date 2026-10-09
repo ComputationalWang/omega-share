@@ -1,4 +1,4 @@
-import { playbackCaps, type ClientMessage, type PlaybackState, type Provider } from "@omega/shared";
+import { DEFAULT_CONTROL_POLICY, playbackCaps, type ClientMessage, type ControlPolicy, type PlaybackState, type Provider } from "@omega/shared";
 import { playerIntent, seekIntent, togglePlayIntent, type PlaybackTarget } from "../intents";
 import type { PlayerAdapter, PlayerError, PlayerEvent } from "../player/adapter";
 import { SYNC_INTERVAL_MS, createSyncLoop, expectedPosition, type SyncLoop } from "../sync";
@@ -8,7 +8,7 @@ import { NOT_CATCHING, stepCatchup, type Catchup } from "./catchup";
 export interface PlaybackView {
   /** A player for the room's video is attached and ready. */
   readonly hasVideo: boolean;
-  /** The room has a video with playback, so the shared transport can send. */
+  /** The room has a video with playback and I may control it, so the shared transport can send. */
   readonly canControl: boolean;
   /** The room's (shared) state, not this player's. */
   readonly playing: boolean;
@@ -31,6 +31,16 @@ export interface PlaybackView {
   readonly live: boolean;
   /** Drift is fixed by small jumps (the seek-only hint): the provider can't set the rate, or the sync loop fell back (rejected Vimeo rate probe). */
   readonly seekOnly: boolean;
+  /** Who controls playback (ADR 0030): under `owner` the shelf chip reads Host instead of Everyone. */
+  readonly policy: ControlPolicy;
+  /** Only the owner controls playback and I'm not the owner: the shared keys sink into the shelf (set j). */
+  readonly held: boolean;
+}
+
+/** The room's control policy as it applies to me (state.ts `controlPolicy`, `controlHeld`). */
+export interface ControlAccess {
+  readonly policy: ControlPolicy;
+  readonly held: boolean;
 }
 
 /** What the controller needs of the clock-sync module (`ClockSync` fits). */
@@ -57,6 +67,8 @@ export interface PlaybackController {
   setRoom(t: PlaybackTarget): void;
   /** The player built for the embed with canonical `embedUrl`. Refused (and destroyed) if the room has moved on. */
   attach(player: PlayerAdapter, embedUrl: string): void;
+  /** Who controls playback, after every state change. Held: no shared intent goes out, from the transport or the player. */
+  setControl(a: ControlAccess): void;
   /** Shared: play/pause for everyone. False if nothing was sent. */
   togglePlay(): boolean;
   /** Shared: seek for everyone, seconds. */
@@ -101,6 +113,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   /** From the embed's static caps (Twitch VOD); the loop can also fall back at runtime (a rejected Vimeo rate probe). */
   let capsSeekOnly = false;
   let seekOnly = false;
+  let policy: ControlPolicy = DEFAULT_CONTROL_POLICY;
+  let held = false;
   let timer: Timer | null = null;
   let current: PlaybackView = {
     hasVideo: false,
@@ -116,6 +130,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     provider,
     live,
     seekOnly,
+    policy,
+    held,
   };
 
   const detach = (): void => {
@@ -150,7 +166,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     const hasVideo = !refused && player?.ready() === true;
     const playing = !refused && (pb?.playing ?? false);
     // Pausing a playing room needs the server clock for the position; playing a paused one doesn't. Live has no position.
-    const canControl = !refused && pb !== null && embedUrl !== null && (!pb.playing || live || o.clock.ready);
+    const canControl = !refused && !held && pb !== null && embedUrl !== null && (!pb.playing || live || o.clock.ready);
     seekOnly = capsSeekOnly || loop?.mode === "seek-only";
     if (
       c.hasVideo === hasVideo &&
@@ -165,11 +181,13 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       c.error === error &&
       c.provider === provider &&
       c.live === live &&
-      c.seekOnly === seekOnly
+      c.seekOnly === seekOnly &&
+      c.policy === policy &&
+      c.held === held
     ) {
       return c;
     }
-    current = { hasVideo, canControl, playing, position, duration, volume, muted, needsUnmute, catching: catchup.catching, error, provider, live, seekOnly };
+    current = { hasVideo, canControl, playing, position, duration, volume, muted, needsUnmute, catching: catchup.catching, error, provider, live, seekOnly, policy, held };
     o.onView?.(current);
     return current;
   };
@@ -183,7 +201,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
         needsUnmute = true;
         break;
       case "intent": {
-        const msg = error === null ? playerIntent(target, e.playing, e.position) : null;
+        // Held: the sync loop puts the player back where the room is.
+        const msg = error === null && !held ? playerIntent(target, e.playing, e.position) : null;
         if (msg !== null) o.send(msg);
         break;
       }
@@ -204,7 +223,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     refresh();
   };
 
-  const send = (msg: ClientMessage | null): boolean => msg !== null && o.send(msg);
+  const send = (msg: ClientMessage | null): boolean => msg !== null && !held && o.send(msg);
 
   function tick(): void {
     o.clock.tick();
@@ -233,6 +252,11 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
         // Applied at once once the loop ticks (OME-452).
         loop?.setPlayback(pb);
       }
+      refresh();
+    },
+    setControl(a) {
+      policy = a.policy;
+      held = a.held;
       refresh();
     },
     attach(p, url) {
