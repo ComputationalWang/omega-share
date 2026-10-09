@@ -53,4 +53,19 @@ export const site = {
   syncNotice: id("sync-notice"),
   // OME-244: the one-line provider hint under the TV (Twitch mature gate).
   tvHint: id("tv-hint"),
+  // Owner layout editor (OME-410): the toggle and title are in the room chunk, the rest is the lazy editor chunk.
+  roomTitle: id("room-title"),
+  editRoom: id("edit-room"),
+  editorTray: id("editor-tray"),
+  editorTab: id("editor-tab"),
+  editorSlot: id("editor-slot"),
+  editorHit: id("editor-hit"),
+  editorRotate: id("editor-rotate"),
+  editorRemove: id("editor-remove"),
+  editorSave: id("editor-save"),
+  editorProblems: id("editor-problems"),
+  editorTitle: id("editor-title"),
+  editorRename: id("editor-rename"),
+  editorDelete: id("editor-delete"),
+  editorDeleteConfirm: id("editor-delete-confirm"),
 } as const;
