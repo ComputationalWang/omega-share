@@ -50,7 +50,7 @@ test("moderation: owner frames with the member menu open (8 avatars + video)", a
     out["ownerMenuOpen"] = row(await tracedFrames(browser, owner, 5000));
     expect(await fakeState(owner)).toBe(PLAYING);
     // Remove asks first: the ask row is on screen too.
-    await owner.locator(site.modRemove).click();
+    await owner.locator(`${site.modRemove} button`).click();
     await expect(owner.locator(site.modConfirm)).toBeVisible();
     out["ownerMenuAsking"] = row(await tracedFrames(browser, owner, 5000));
     out["moderationChunk"] = chunks;

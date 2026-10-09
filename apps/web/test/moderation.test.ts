@@ -229,11 +229,12 @@ describe("who controls playback", () => {
   test("radio keys: only the checked tile is in the tab order; arrows pick the other one", async () => {
     const { bar, sent, server } = await setup();
     expect(tiles(bar).map((b) => b.tabIndex)).toEqual([0, -1]);
+    tiles(bar)[0]?.focus();
     tiles(bar)[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
     expect(sent).toEqual([{ type: "control-policy", policy: "owner" }]);
     server({ type: "control-policy-changed", policy: "owner", by: "me" });
     expect(tiles(bar).map((b) => b.tabIndex)).toEqual([-1, 0]);
-    expect(document.activeElement).toBe(tiles(bar)[1]);
+    expect(document.activeElement).toBe(tiles(bar)[1] ?? null);
   });
 
   test("picking the policy that's already set sends nothing", async () => {

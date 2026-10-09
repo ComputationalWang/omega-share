@@ -78,7 +78,7 @@ test("only the owner loads the moderation tools: a guest's tag opens Mute / Remo
 
   // Remove asks first; Keep backs out without a frame; Escape closes.
   await kitTag.click();
-  await owner.locator(site.modRemove).click();
+  await owner.locator(`${site.modRemove} button`).click();
   await expect(owner.locator(site.modRemove)).toContainText("Remove kit for 10 min?");
   await owner.locator(site.modKeep).click();
   await owner.keyboard.press("Escape");
