@@ -72,8 +72,8 @@ describe("trackShareToken (ADR 0015 §7)", () => {
     }
   });
 
-  test("a kick (4005) or a closed room (4004) clears it too: the server dropped the member", () => {
-    for (const end of [{ type: "kicked", wasIn: true }, { type: "room-closed" }] as const) {
+  test("a kick (4005), a closed room (4004) or a takedown (4006) clears it too: the server dropped the member", () => {
+    for (const end of [{ type: "kicked", wasIn: true }, { type: "room-closed" }, { type: "room-closed", takenDown: true }] as const) {
       const s = new MemoryStorage();
       const t = trackShareToken(s, "lobby");
       t.onEvent(message(snapshot(TOKEN)));

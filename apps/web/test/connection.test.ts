@@ -445,6 +445,25 @@ describe("created rooms (ADR 0028)", () => {
     expect(sockets).toHaveLength(1);
   });
 
+  test("4006 taken down (ADR 0033 §6): room-closed marked takenDown, stops and never reconnects, not even on resume", () => {
+    const c = connect();
+    last().open();
+    last().receive(snapshot);
+    last().drop(CLOSE_CODES.TAKEN_DOWN);
+    expect(events.at(-1)).toEqual({ type: "room-closed", takenDown: true });
+    expect(events).not.toContainEqual({ type: "disconnected" });
+    expect(timers).toHaveLength(0);
+    c.resume();
+    expect(sockets).toHaveLength(1);
+  });
+
+  test("4006 before a snapshot (opening /r/<id> of a taken-down room) is the same notice", () => {
+    connect();
+    last().drop(CLOSE_CODES.TAKEN_DOWN);
+    expect(events.at(-1)).toEqual({ type: "room-closed", takenDown: true });
+    expect(timers).toHaveLength(0);
+  });
+
   test("4005 kicked (ADR 0030): reports kicked instead of a drop, stops and never reconnects, not even on resume", () => {
     const c = connect();
     last().open();

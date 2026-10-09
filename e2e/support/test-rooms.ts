@@ -28,6 +28,7 @@ export const SPEC_ROOMS = {
   "fullscreen-perf": ["frames"],
   popout: ["relay", "back", "reopen", "hidden", "gone", "offer", "twice"],
   "popout-perf": ["frames"],
+  report: ["send", "states", "gone"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

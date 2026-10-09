@@ -343,10 +343,19 @@ describe("created rooms (ADR 0028)", () => {
   test("room-closed is terminal: the room leaves the screen and later connection events don't bring it back", () => {
     let s = reduce(joined(), { type: "room-closed" });
     expect(s.status).toBe("closed");
-    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: true, kicked: false });
+    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: "deleted", kicked: false });
     s = reduce(s, { type: "disconnected" });
     s = reduce(s, { type: "connecting" });
     expect(s.status).toBe("closed");
+  });
+
+  test("a takedown (4006, ADR 0033 §6) is terminal too, and the screen says it was taken down, not deleted", () => {
+    let s = reduce(joined(), { type: "room-closed", takenDown: true });
+    expect(screen(s)).toEqual({ stage: false, chat: false, full: false, refused: null, closed: "taken-down", kicked: false });
+    expect(s.room).toBeNull();
+    s = reduce(s, { type: "disconnected" });
+    s = reduce(s, { type: "connecting" });
+    expect(screen(s).closed).toBe("taken-down");
   });
 
   test("invite_required before joining is a refusal, like nickname_taken", () => {

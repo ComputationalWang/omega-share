@@ -42,6 +42,13 @@ test("room-closed (4004) stops the clock: no ping timer keeps firing on the term
   expect(dispatched).toEqual([{ type: "room-closed" }]);
 });
 
+test("a takedown (4006) stops the clock and reaches the state as a takedown", () => {
+  const { pending, route, dispatched } = setup();
+  route({ type: "room-closed", takenDown: true });
+  expect(pending.size).toBe(0);
+  expect(dispatched).toEqual([{ type: "room-closed", takenDown: true }]);
+});
+
 test("disconnected stops the clock too", () => {
   const { pending, route } = setup();
   route({ type: "disconnected" });

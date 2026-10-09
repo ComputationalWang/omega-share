@@ -71,6 +71,23 @@ describe("privacy notice (OME-411)", () => {
     expect(t).toMatch(/rate limit[^.]*in memory/i);
   });
 
+  test("has a Reports section that says what a report keeps, for how long, and that nothing about the reporter is kept (ADR 0033 §3, OME-601)", () => {
+    expect(privacy).toMatch(/<h2 id="reports">Reports<\/h2>/);
+    const t = text(privacy);
+    const reports = /Reports (.*?) Backups and logs/.exec(t)?.[1] ?? /Reports (.*?) Videos/.exec(t)?.[1] ?? "";
+    expect(reports).toMatch(/goes to the people who run omega-share only/i);
+    expect(reports).toMatch(/reason/i);
+    expect(reports).toMatch(/note/i);
+    expect(reports).toMatch(/title/i);
+    expect(reports).toMatch(/address of the video/i);
+    expect(reports).toMatch(/email addresses, IP addresses and phone numbers/i);
+    expect(reports).toMatch(/nothing about you/i);
+    expect(reports).toMatch(/deleted 30 days/i);
+    // Backups prune by count, not age, so a report can outlast a fixed day count after an outage (QA, OME-604).
+    expect(reports).toMatch(/the last 14 nightly backups/i);
+    expect(reports).not.toMatch(/44 days/);
+  });
+
   test("has a linkable Extension section that the Web Store listing points to (R1, OME-509)", () => {
     expect(privacy).toMatch(/<h2 id="extension">The browser extension<\/h2>/);
     const section = text(`<main>${/<h2 id="extension">[\s\S]*?(?=<h2|<\/main>)/.exec(privacy)?.[0] ?? ""}</main>`);
