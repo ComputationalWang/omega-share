@@ -1,5 +1,6 @@
 import { playbackCaps, type PlaybackCaps } from "@omega/shared";
 import type { PlayerAdapter, PlayerEvent, PlayerState } from "../../src/player/adapter";
+import type { QualityControl, QualityOption } from "../../src/player/quality";
 
 export type FakeCall =
   | { op: "play" }
@@ -7,7 +8,8 @@ export type FakeCall =
   | { op: "seek"; to: number }
   | { op: "rate"; rate: number }
   | { op: "unmute" }
-  | { op: "volume"; volume: number };
+  | { op: "volume"; volume: number }
+  | { op: "quality"; id: string };
 
 /** What a YouTube embed can do; the default for a fake. */
 export const YOUTUBE_CAPS: PlaybackCaps = playbackCaps({ provider: "youtube", videoId: "dQw4w9WgXcQ", url: "https://www.youtube.com/embed/dQw4w9WgXcQ" });
@@ -33,6 +35,8 @@ export interface FakePlayerOptions {
   position?: number;
   /** Content duration, s; 0 = unknown. */
   duration?: number;
+  /** Give the fake a quality capability (Twitch, Vimeo) with this list; absent = none (YouTube). */
+  qualities?: readonly QualityOption[];
 }
 
 /** A PlayerAdapter with a deterministic media clock driven by the test's `now()`. */
@@ -47,6 +51,9 @@ export class FakePlayer implements PlayerAdapter {
   private last: number;
   private resumeAt = -1;
   private listeners = new Set<(e: PlayerEvent) => void>();
+  qualityList: readonly QualityOption[] = [];
+  qualityNow: string | null = null;
+  readonly quality?: QualityControl;
 
   constructor(private readonly o: FakePlayerOptions) {
     this.caps = o.caps ?? YOUTUBE_CAPS;
@@ -54,6 +61,26 @@ export class FakePlayer implements PlayerAdapter {
     this.st = o.state ?? "cued";
     this.pos = o.position ?? 0;
     this.last = o.now();
+    if (o.qualities !== undefined) {
+      this.qualityList = o.qualities;
+      this.quality = {
+        options: () => this.qualityList,
+        current: () => this.qualityNow,
+        set: (id) => {
+          if (!this.qualityList.some((q) => q.id === id)) return;
+          this.calls.push({ op: "quality", id });
+          this.qualityNow = id;
+          this.emit({ type: "quality" });
+        },
+      };
+    }
+  }
+
+  /** Test hook: the provider's list arrives or changes (a quality event follows). */
+  setQualities(list: readonly QualityOption[], current: string | null = null): void {
+    this.qualityList = list;
+    this.qualityNow = current;
+    this.emit({ type: "quality" });
   }
 
   private sync(): void {
