@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "lib": ["ES2023", "DOM", "DOM.Iterable"], "types": ["bun"] },
-  "include": ["src", "test", "wxt.config.ts", ".wxt/wxt.d.ts"]
+  "include": ["src", "store", "test", "wxt.config.ts", ".wxt/wxt.d.ts"]
 }
