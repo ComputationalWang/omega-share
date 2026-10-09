@@ -19,6 +19,7 @@
     "check": "bun run typecheck && bun run lint && bun run test"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@omega/shared": "workspace:*",
     "@playwright/test": "^1.63.0",
     "@puppeteer/browsers": "3.2.4",
