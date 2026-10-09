@@ -44,6 +44,8 @@ export const BUDGETS: readonly Budget[] = [
   { id: "sync.spread.twitchVod", area: "Sync", metric: "Spread after play/pause/seek, Twitch VOD", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   { id: "sync.spread.twitchLive", area: "Sync", metric: "Spread after pause/play-from-live, Twitch live", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   { id: "sync.spread.vimeo", area: "Sync", metric: "Spread after play/pause/seek, Vimeo (seek-only)", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
+  // M6 (OME-508, ADR 0031 §7): a new item means a fresh player load, so it's looser than the play/pause/seek spread.
+  { id: "queue.advanceSpread", area: "Sync", metric: "Queue advance spread, 8 clients, YouTube", docMetric: "Spread between clients after a queue advance", unit: "ms", limit: 1500, comparator: "<=" },
   { id: "server.relayLatency", area: "Server", metric: "Relay latency, control action", docMetric: "Relay latency for a control action, localhost", unit: "ms", limit: 50, comparator: "<=" },
   // Threat model §8 Q (OME-192): 24 members at the allowed chat/control rates + 1 socket flooding chat at 10× L1.
   { id: "server.relayLatencyFlood", area: "Server", metric: "Relay latency, control action, under flood", docMetric: "Relay latency for a control action under flood, localhost", unit: "ms", limit: 50, comparator: "<=" },

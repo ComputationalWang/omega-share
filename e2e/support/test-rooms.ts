@@ -18,6 +18,7 @@ export const SPEC_ROOMS = {
   emotes: ["sticker", "waver", "typist", "burst", "still"],
   polish: ["every", "late", "drop"],
   "provider-queue": ["main", "ended", "generic"],
+  "queue-perf": ["frames", "spread"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
