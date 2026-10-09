@@ -224,6 +224,27 @@ describe("chat relay (room tab)", () => {
     expect(relay.popped()).toBe(false);
   });
 
+  test("a lapsed lease tells the window to go, so it doesn't sit there open and unheard (review)", async () => {
+    const { take, from, advance, POP_LEASE_MS } = await setup();
+    from({ t: "pop-ready", pop: "p1" });
+    take();
+    advance(POP_LEASE_MS + 1);
+    expect(take()).toEqual([{ t: "room-back" }]);
+  });
+
+  test("back from the back/forward cache: the chat is home again and a window still open is asked to say ready (review)", async () => {
+    const { relay, take, from, popped } = await setup();
+    from({ t: "pop-ready", pop: "p1" });
+    relay.close();
+    take();
+    relay.resume();
+    expect(relay.popped()).toBe(false);
+    expect(popped).toEqual([true, false]);
+    expect(take()).toEqual([{ t: "room-hello" }]);
+    from({ t: "pop-ready", pop: "p1" });
+    expect(relay.popped()).toBe(true);
+  });
+
   test("the room tab going away tells the pop-out", async () => {
     const { relay, take, from } = await setup();
     from({ t: "pop-ready", pop: "p1" });

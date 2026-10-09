@@ -4,9 +4,11 @@
 // brings the chat back. Desktop only, and only where BroadcastChannel exists. The channel schema, relay and window logic
 // are unit tests (apps/web/test/popout-*.test.ts); the room tab's frames with the window open are perf/popout.perf.ts.
 import type { Browser, BrowserContext, BrowserContextOptions, Page } from "@playwright/test";
-import { MAX_ROOM_MEMBERS } from "@omega/shared";
-import { expect, test } from "./support/csp";
-import { PENDING, available } from "./support/apps";
+import { MAX_ROOM_MEMBERS, ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
+import { expect, test, watchCsp } from "./support/csp";
+import { PENDING, URLS, available } from "./support/apps";
+import { stubExternalNetwork } from "./support/network";
+import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import type { RoomName } from "./support/test-rooms";
@@ -16,9 +18,12 @@ test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
 
 let clients: Client[] = [];
+let extra: BrowserContext[] = [];
 test.afterEach(async () => {
   await leaveAll(clients);
+  await Promise.all(extra.map((c) => c.close()));
   clients = [];
+  extra = [];
 });
 
 /** Counts the room WebSockets each page of the context opens (an init script, so it runs before any app code; the dev server's own HMR socket isn't one). */
@@ -220,4 +225,46 @@ test("not offered on a phone, nor where BroadcastChannel is missing", async ({ b
   if (old === undefined) throw new Error("no client");
   await expect(old.page.locator(site.chatInput)).toBeVisible();
   await expect(old.page.locator(site.chatPopout)).toBeHidden();
+});
+
+test("muted, then removed, with the room tab hidden: the window says so at once, then closes; the chat is back in the page", async ({ browser }) => {
+  const { id, ownerToken, inviteKey } = ownedRoom("popkick");
+  const open = async (secrets: string | null, nickname: string, init?: () => void): Promise<{ page: Page; context: BrowserContext }> => {
+    const context = await watchCsp(await browser.newContext());
+    extra.push(context);
+    if (secrets !== null) {
+      await context.addInitScript(
+        ([origin, key, value]) => {
+          if (location.origin === origin && localStorage.getItem(key ?? "") === null) localStorage.setItem(key ?? "", value ?? "");
+        },
+        [URLS.web, ROOM_SECRETS_STORAGE_KEY, secrets],
+      );
+    }
+    if (init !== undefined) await context.addInitScript(init);
+    await stubExternalNetwork(context);
+    const page = await context.newPage();
+    await page.goto(`${URLS.web}/r/${id}${secrets === null ? `#k=${inviteKey}` : ""}`);
+    await page.locator(site.nicknameInput).fill(nickname);
+    await page.locator(site.joinButton).click();
+    await expect(page.locator(site.room)).toBeVisible();
+    return { page, context };
+  };
+  const owner = await open(JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } }), "host");
+  const guest = await open(null, "kit", hideable);
+  const pop = await popOut(guest.page, guest.context);
+  await setHidden(guest.page, true);
+  const tag = owner.page.locator(site.nicknameTag).filter({ hasText: "kit" });
+  await tag.click();
+  await owner.page.locator(site.modMute).click();
+  await expect(pop.locator(site.chatInput)).toHaveAttribute("placeholder", "The host muted your chat");
+  await expect(pop.locator(site.chatSend)).toBeDisabled();
+  const closed = pop.waitForEvent("close");
+  await tag.click();
+  await owner.page.locator(`${site.modRemove} button`).click();
+  await owner.page.locator(site.modConfirm).click();
+  // Removed: nothing to say any more, so the window closes without waiting for the hidden tab to draw a frame.
+  await closed;
+  await setHidden(guest.page, false);
+  await expect(guest.page.locator(site.chatAway)).toBeHidden();
+  await expect(guest.page.locator(site.chatLog)).toBeVisible();
 });

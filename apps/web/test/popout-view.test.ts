@@ -147,6 +147,28 @@ describe("pop-out chat window", () => {
     expect(input.value).toBe("");
   });
 
+  test("one message at a time: a second Enter before the room answers sends nothing more (review)", async () => {
+    const { q, take, from, adopt } = await setup();
+    adopt();
+    const input = q("[data-testid=chat-input]", HTMLInputElement);
+    const form = q("form", HTMLFormElement);
+    input.value = "hello";
+    form.requestSubmit();
+    form.requestSubmit();
+    expect(take()).toEqual([{ t: "pop-say", pop: "p1", seq: 1, text: "hello" }]);
+    from({ t: "room-said", pop: "p1", seq: 1, ok: true });
+    expect(input.value).toBe("");
+    input.value = "again";
+    form.requestSubmit();
+    expect(take()).toEqual([{ t: "pop-say", pop: "p1", seq: 2, text: "again" }]);
+  });
+
+  test("adopted, the message field takes focus, so you can type at once (review)", async () => {
+    const { q, adopt } = await setup();
+    adopt();
+    expect(document.activeElement).toBe(q("[data-testid=chat-input]", HTMLInputElement));
+  });
+
   test("an emote goes to the room tab too", async () => {
     const { q, take, adopt, root } = await setup();
     adopt();
