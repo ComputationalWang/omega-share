@@ -159,6 +159,21 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
     expect(ok.headers.get("access-control-allow-origin")).toBe(SITE_ORIGIN);
   });
 
+  test("a body a browser can send cross-site without a preflight (not application/json) is 415 invalid_body and costs no creation (OME-698)", async () => {
+    t = start({ trustProxy: true });
+    const address = freshAddress();
+    const before = await listed();
+    for (const type of ["text/plain", "application/x-www-form-urlencoded", null]) {
+      const headers: Record<string, string> = { "x-forwarded-for": address };
+      if (type !== null) headers["content-type"] = type;
+      const res = await fetch(`${server().http}/rooms`, { method: "POST", headers, body: new TextEncoder().encode(JSON.stringify({ title: "Den", visibility: "public" })) });
+      expect(res.status).toBe(415);
+      expect(await errorOf(res)).toBe("invalid_body");
+    }
+    expect(await listed()).toEqual(before);
+    await created(await create({ title: "Den", visibility: "public" }, { address }));
+  });
+
   test("a CORS preflight from the site allows POST and DELETE with an Authorization header", async () => {
     t = start();
     const res = await fetch(`${server().http}/rooms/abc`, {
