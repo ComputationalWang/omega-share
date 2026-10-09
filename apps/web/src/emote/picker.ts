@@ -110,7 +110,10 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
       if (ev.ctrlKey || ev.altKey || ev.metaKey || typing(ev.target)) return false;
       const kind = kindForKey(ev.key);
       if (kind === null) return false;
+      // A held key sends once; its repeats are ours (swallowed) but spend nothing.
+      if (ev.repeat) return true;
       emote(PICKER_KINDS.indexOf(kind));
+      close();
       return true;
     },
   };
