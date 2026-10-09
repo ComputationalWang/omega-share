@@ -13,6 +13,7 @@ import {
   type CreateRoomResponse,
 } from "@omega/shared";
 import { openDatabase } from "../src/store/db";
+import { ROOM_CONTROL_BURST } from "../src/ws";
 import { RoomStore } from "../src/store/rooms";
 import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
 
@@ -400,6 +401,45 @@ describe("control policy (ADR 0030 §4)", () => {
     await other.client.next("control-policy-changed");
     const late = await joined(id, "carol");
     expect(late.snapshot.room.controlPolicy).toBe("owner");
+  });
+});
+
+describe("control policy: refusals spend nothing (ADR 0030 §4, QA OME-521)", () => {
+  test("owner: guests' refused controls never drain the room's control bucket; the owner's next controls all relay", async () => {
+    const clock = clocks();
+    t = start({ trustProxy: true, now: clock.now, wallNow: clock.wallNow });
+    const { owner, guest, other, id } = await roomWithGuests();
+    expect((await postShare(server(), SHARE_BODY, { roomId: id, token: tokenOf(owner.snapshot) })).status).toBe(200);
+    await other.client.next("embed-changed");
+    owner.client.send({ type: "control-policy", policy: "owner" });
+    await other.client.next("control-policy-changed");
+
+    // The clock never moves: more refusals than the room's whole burst, from two guests.
+    const each = ROOM_CONTROL_BURST / 2 + 2;
+    for (const g of [guest, other]) {
+      for (let i = 0; i < each; i++) {
+        g.client.send({ type: "control", url: EMBED_URL, playing: true, position: i });
+        expect((await g.client.next("error")).code).toBe("control_owner_only");
+      }
+    }
+    for (let i = 0; i < 4; i++) {
+      owner.client.send({ type: "control", url: EMBED_URL, playing: i % 2 === 0, position: i });
+      await other.client.next("playback");
+    }
+  });
+
+  test("owner: a guest's refused shares (403) use up none of their share budget", async () => {
+    const clock = clocks();
+    t = start({ trustProxy: true, now: clock.now, wallNow: clock.wallNow });
+    const { owner, guest, other, id } = await roomWithGuests();
+    owner.client.send({ type: "control-policy", policy: "owner" });
+    await other.client.next("control-policy-changed");
+    for (let i = 0; i < 12; i++) {
+      expect((await postShare(server(), SHARE_BODY, { roomId: id, token: tokenOf(guest.snapshot) })).status).toBe(403);
+    }
+    owner.client.send({ type: "control-policy", policy: "everyone" });
+    await other.client.next("control-policy-changed");
+    expect((await postShare(server(), SHARE_BODY, { roomId: id, token: tokenOf(guest.snapshot) })).status).toBe(200);
   });
 });
 
