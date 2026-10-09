@@ -17,7 +17,7 @@ export const SPEC_ROOMS = {
   walk: ["main", "reduced"],
   emotes: ["sticker", "waver", "typist", "burst", "still"],
   polish: ["every", "late", "drop"],
-  "provider-queue": ["main", "ended", "generic"],
+  "provider-queue": ["main", "ended", "generic", "yt", "twvod", "vimeo", "mixed"],
   "queue-perf": ["frames", "spread"],
 } as const;
 

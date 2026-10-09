@@ -5,6 +5,7 @@ export const popup = {
   embedItem: id("embed-item"),
   embedsEmpty: id("embeds-empty"),
   shareButton: id("share-button"),
+  queueButton: id("queue-button"),
   shareStatus: id("share-status"),
   roomSelect: id("room-select"),
 } as const;

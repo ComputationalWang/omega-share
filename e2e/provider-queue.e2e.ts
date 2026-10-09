@@ -212,3 +212,190 @@ test("a queued generic page stays click-to-load when it becomes current", async 
   await expect(b.page.locator(site.genericCard)).toBeVisible();
   await expect(b.page.locator(site.sharedVideo)).toHaveCount(0);
 });
+
+// ---- Per provider, three clients (OME-510, Q1) ----------------------------------------------------------------------
+// One client queues, everyone sees the same rows, a remove propagates, the video's end advances all three to the same
+// item, and a manual next moves them on again. Each client reports `ended` at most once per item. Generic items sit
+// in a YouTube room: they become current (by the end of the YouTube video, then by next) and stay click-to-load.
+
+const rowIds = (page: Page): Promise<string[]> =>
+  page.locator(site.queueRow).evaluateAll((els) => els.map((e) => (e instanceof HTMLElement ? (e.dataset["item"] ?? "") : "")));
+
+/** The shown player's iframe src: the shared-video element itself, or for Twitch's SDK the iframe it builds inside its container. */
+const playerSrc = (page: Page): Promise<string> =>
+  page.locator(site.sharedVideo).evaluate((el) => (el instanceof HTMLIFrameElement ? el.src : (el.querySelector("iframe")?.src ?? "")));
+const playsId = (page: Page, id: string, timeout = 5_000) => expect.poll(() => playerSrc(page), { timeout }).toContain(id);
+
+const ytUrl = (id: string): string => `https://www.youtube.com/watch?v=${id}`;
+
+interface Queued {
+  readonly url: string;
+  /** What the provider's player URL carries (a generic page has none on its card). */
+  readonly id: string;
+}
+
+interface QueueCase {
+  readonly name: string;
+  readonly room: "yt" | "twvod" | "vimeo" | "mixed";
+  /** What starts the room. */
+  readonly start: Queued;
+  /** Queued in order: the first is removed again, the other two play. */
+  readonly queued: readonly [Queued, Queued, Queued];
+  /** A seek (seconds) close enough to the fake's duration that the video ends within a few seconds. */
+  readonly nearEnd: number;
+  readonly generic: boolean;
+}
+
+const CASES: readonly QueueCase[] = [
+  {
+    name: "YouTube",
+    room: "yt",
+    start: { url: WATCH_URL, id: VIDEO_ID },
+    queued: [
+      { url: OTHER_URL, id: OTHER_ID },
+      { url: ytUrl("9bZkp7q19f0"), id: "9bZkp7q19f0" },
+      { url: ytUrl("kJQP7kiw5Fk"), id: "kJQP7kiw5Fk" },
+    ],
+    nearEnd: 630,
+    generic: false,
+  },
+  {
+    name: "Twitch VOD",
+    room: "twvod",
+    start: { url: "https://www.twitch.tv/videos/1234567890", id: "1234567890" },
+    queued: [
+      { url: "https://www.twitch.tv/videos/1234567891", id: "1234567891" },
+      { url: "https://www.twitch.tv/videos/1234567892", id: "1234567892" },
+      { url: "https://www.twitch.tv/videos/1234567893", id: "1234567893" },
+    ],
+    nearEnd: 3595,
+    generic: false,
+  },
+  {
+    name: "Vimeo",
+    room: "vimeo",
+    start: { url: VIMEO_URL, id: "76979871" },
+    queued: [
+      { url: "https://vimeo.com/76979872", id: "76979872" },
+      { url: "https://vimeo.com/76979873", id: "76979873" },
+      { url: "https://vimeo.com/76979874", id: "76979874" },
+    ],
+    nearEnd: 630,
+    generic: false,
+  },
+  {
+    name: "generic (queued behind YouTube)",
+    room: "mixed",
+    start: { url: WATCH_URL, id: VIDEO_ID },
+    queued: [
+      { url: `https://${GENERIC_HOST}/embed/41`, id: "41" },
+      { url: `https://${GENERIC_HOST}/embed/42`, id: "42" },
+      { url: `https://${GENERIC_HOST}/embed/43`, id: "43" },
+    ],
+    nearEnd: 630,
+    generic: true,
+  },
+];
+
+for (const c of CASES) {
+  test(`${c.name}: three clients see the same queue, a remove reaches all, the end and next move all three to the same item, ended at most once each`, async ({ browser }) => {
+    test.setTimeout(120_000);
+    const hits: string[] = [];
+    const { logs: sent, setup: record } = sentLogs(3);
+    clients = await joinRoom(browser, {
+      roomUrl: testRoom("provider-queue", c.room).url,
+      count: 3,
+      nicknamePrefix: `q${c.room}`,
+      setup: async (context, i) => {
+        await record(context, i);
+        await context.route(`https://${GENERIC_HOST}/**`, async (route) => {
+          hits.push(route.request().url());
+          await route.fulfill({ contentType: "text/html", body: "<!doctype html><title>generic</title><p>generic fixture</p>" });
+        });
+      },
+    });
+    const [a, b, d] = clients;
+    if (a === undefined || b === undefined || d === undefined) throw new Error("need three clients");
+    const [n1, n2, n3] = c.queued;
+
+    // Everyone is on the starting video.
+    await startWith(a.page, c.start.url);
+    for (const k of clients) await playsId(k.page, c.start.id);
+    const first = await itemId(a.page);
+    expect(first).not.toBeNull();
+    for (const k of clients) expect(await itemId(k.page)).toBe(first);
+
+    // a queues two, b a third: all three see the same three rows, in order.
+    await paste(a.page, n1.url);
+    await expect(a.page.locator(site.queueRow)).toHaveCount(1);
+    await paste(a.page, n2.url);
+    await expect(a.page.locator(site.queueRow)).toHaveCount(2);
+    await paste(b.page, n3.url);
+    for (const k of clients) {
+      await expect(k.page.locator(site.queueRow)).toHaveCount(3);
+      await expect(k.page.locator(site.queueCount)).toHaveText("3 / 20");
+    }
+    const all = await rowIds(a.page);
+    expect(new Set(all).size).toBe(3);
+    for (const k of [b, d]) expect(await rowIds(k.page)).toEqual(all);
+    if (c.generic) for (const k of clients) await expect(k.page.locator(site.queueRow).first()).toContainText("Not synced");
+
+    // a removes the head row: all three drop exactly that one, and the next row is now the head.
+    await a.page.locator(`${site.queueRow}:nth-child(1) ${site.queueRemove}`).click();
+    for (const k of clients) {
+      await expect(k.page.locator(site.queueRow)).toHaveCount(2);
+      await expect(k.page.locator(site.queueCount)).toHaveText("2 / 20");
+    }
+    const [, id2, id3] = all;
+    for (const k of clients) expect(await rowIds(k.page)).toEqual([id2, id3]);
+
+    const shows = async (q: Queued): Promise<void> => {
+      for (const k of clients) {
+        if (c.generic) {
+          await expect(k.page.locator(site.genericCard)).toBeVisible({ timeout: 20_000 });
+          await expect(k.page.locator(site.sharedVideo)).toHaveCount(0);
+        } else {
+          await playsId(k.page, q.id, 20_000);
+        }
+      }
+    };
+    // The end of the video: let everyone play past the server's 3 s debounce, then seek close to the end.
+    await a.page.waitForTimeout(3500);
+    await a.page.locator(site.seek).fill(String(c.nearEnd));
+    await shows(n2);
+    for (const k of clients) await expect(k.page.locator(site.queueRow)).toHaveCount(1, { timeout: 20_000 });
+    const second = await itemId(a.page);
+    expect(second).not.toBe(first);
+    for (const k of clients) {
+      expect(await itemId(k.page)).toBe(second);
+      expect(await rowIds(k.page)).toEqual([id3]);
+    }
+
+    // Next now: all three on the last item, the list empty.
+    await d.page.locator(site.queueNext).click();
+    for (const k of clients) {
+      await expect(k.page.locator(site.queueRow)).toHaveCount(0);
+      await expect(k.page.locator(site.queueNext)).toBeHidden();
+    }
+    await shows(n3);
+    const third = await itemId(a.page);
+    expect(third).not.toBe(second);
+    for (const k of clients) expect(await itemId(k.page)).toBe(third);
+
+    // Ended: the first report advanced the room (a client may have moved on before its own player ended); no client
+    // reported the same item twice, and none reported an item that wasn't current when it did.
+    const ended = sent.map((s) => s.filter((m) => m.type === "ended"));
+    for (const e of ended) {
+      const ids = e.map((m) => m["itemId"]);
+      expect(new Set(ids).size).toBe(ids.length);
+      for (const id of ids) expect([first, second]).toContain(id);
+    }
+    if (!c.generic) expect(ended.flat().length).toBeGreaterThan(0);
+    if (c.generic) {
+      // Generic items stay click-to-load through both advances: nothing fetched, nothing loaded, on every viewer.
+      await a.page.waitForTimeout(1000);
+      expect(hits).toEqual([]);
+      for (const k of clients) await expect(k.page.locator(site.sharedVideo)).toHaveCount(0);
+    }
+  });
+}
