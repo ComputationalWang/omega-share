@@ -86,7 +86,8 @@ test("stacked: TV, shelf, room window, chat log, chat row; the room at 1×, no s
   expect(overflow).toBeLessThanOrEqual(0);
 
   // Wider than a phone: back to the scaled stage under the TV, chat in its desktop place.
-  await page.setViewportSize({ width: 1024, height: 900 });
+  // (Under 1024 px: from there, landscape, it is the two-column wide layout, wide-layout.e2e.ts.)
+  await page.setViewportSize({ width: 1000, height: 900 });
   await expect.poll(async () => (await stageTransform(page)).scale).toBeLessThan(1.0001);
   await expect.poll(async () => (await page.locator(site.roomWindow).boundingBox())?.height).toBeGreaterThan(400);
 });
