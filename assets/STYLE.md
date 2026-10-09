@@ -334,6 +334,20 @@ Three directions were weighed before any pixels:
   Entering full screen leaves focus on the key you pressed (now "exit"). Bringing chat back puts focus in the message field.
 - **Reduced motion:** ages still change (they carry meaning) but swap at once, with no dither frame. The full-screen shelf never auto-hides. Nothing slides in any case:
   the strip is in place when full screen starts, collapse re-fits the picture in one step (a tweened player would stutter), and the typing jump is a jump.
+- **Quality (item 5, only you):** `icon/quality` is the set's little glow picture in its wood bezel with a cream ladder under it (picture quality, not a signal meter),
+  on a `.ui-button.self` at the end of the shelf, before full screen. The list is the moderation menu's tray (mustard rim = only you see it), headed "Quality · ONLY YOU",
+  rows are `menuitemradio` with the check on the current one; it lists exactly what this video offers, Auto on top ("720p60 now" beside it). It always opens into our own
+  space: under the shelf in the page (tail up), down inside the strip in full screen (the key moves to the strip head), and as a row that replaces the band when the
+  strip is collapsed. A pick shows the check at once and set (c)'s wait dial in its row until the player confirms. Kept on this device, never sent to the room.
+  **Where we can't set it** the key stays and opens one sentence, never a greyed list: "This player sets its own quality. Use the settings menu inside the picture."
+  where that menu really shows (generic tier, free-plan Vimeo), and "YouTube picks the quality for your connection by itself. It can't be changed from here." on
+  YouTube (its menu is hidden with ours; research OME-545). If engineering hides the key there instead, the sentence becomes its tooltip.
+- **Report this room (item 6):** plain and calm. A secondary key with words, "Report room" with `icon/report` (a cream pennant on a wood pole: no red, no siren), at the
+  foot of the chat column (desktop, pop-out room window) or the last line of the page (phone); never beside Leave or the host's tools, not in rooms you own, not in
+  full screen. The dialog is the everyday `.ui-panel` on the dither scrim: a title, one sentence on who reads it, six reasons as radio rows (`glyph/radio-off|on`:
+  a cream-shade ring round a night well, cream pip when picked), one optional field (300 characters, a counter), Cancel and Send (off until a reason is picked).
+  Then "Thanks, we got it" (focus on Close, Leave offered not pushed), or "That didn't send" (`role=alert`, words kept, Try again). The foot key turns to a sunk
+  "Reported" with a check until you leave. The line "it goes to them only" must match the Lead's abuse-report contract.
 - No new colours: still the 67.
 
 ## Budget
@@ -351,7 +365,7 @@ Three directions were weighed before any pixels:
 | (i) rooms + emotes | added to the (c) files: `ui.png` + `ui.json` (gz) + 16 slices + `reference.css` (gz) · `ui/scenes/*.png` (lazy) | **≈ 6.8 KB** eager · **1.3 KB** lazy |
 | (j) house rules + queue | added to the (c) files: `ui.png` + `ui.json` (gz) + 11 slices + `reference.css` (gz) · `ui/scenes/removed.png` (lazy) | **≈ 5.4 KB** eager · **0.8 KB** lazy |
 | (j) extension icons | `store/icon-16\|32\|48\|128.png` (in the extension package, not the site) | 1 501 B ≈ **1.5 KB** |
-| (k) full screen + pop-out (M7) | added to the (c) files: `ui.png` + `ui.json` (gz) + 4 slices + `reference.css` (gz) · `ui/scenes/chat-away.png` + `room-away.png` (lazy) | **≈ 2.7 KB** eager · **0.7 KB** lazy |
+| (k) full screen + pop-out, quality, report (M7) | added to the (c) files: `ui.png` + `ui.json` (gz) + 4 slices + `reference.css` (gz) · `ui/scenes/chat-away.png` + `room-away.png` (lazy) | **≈ 4.0 KB** eager · **0.7 KB** lazy |
 | total art budget | | ≤ 300 KB (≈ 115.0 KB used, as printed by `bun assets/src/build.ts`) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.

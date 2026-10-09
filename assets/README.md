@@ -495,9 +495,9 @@ real reference CSS and preview renders, and `bun assets/src/shoot-ui.ts` shoots 
 
 Mock-ups and chrome for M7: full screen with a chat strip (desktop: strip open and collapsed to the input bar; phone: portrait, landscape,
 landscape while typing), the pop-out chat window and whole-room window, what stays in the page and how it comes back, and the phone
-watch-only layout. The pieces join the other sets in `ui/ui.png` / `ui.json`, `ui/slices/` and the end of `ui/reference.css` (code: `src/fullscreen.ts`);
+watch-only layout, the per-viewer quality menu (item 5) and the report-room key and dialog (item 6). The pieces join the other sets in `ui/ui.png` / `ui.json`, `ui/slices/` and the end of `ui/reference.css` (code: `src/fullscreen.ts`);
 the two "it's in its own window" vignettes are lazy `ui/scenes/*-away.png`. Mock-ups: `preview/m7.html`, shot by `bun assets/src/shoot-m7.ts`
-into `preview/ui-m7-<pieces|desktop|band|phone|popout|away|watch|motion>@1x|2x.png`. The white numbered badges on the mock-ups are the focus order
+into `preview/ui-m7-<pieces|desktop|band|phone|popout|away|watch|quality|report|motion>@1x|2x.png`. The white numbered badges on the mock-ups are the focus order
 (annotation, not product). The rules are in `STYLE.md` § Set (k).
 **The player is sacred in full screen too:** the dashed rects on the mock-ups are the player; no strip, band, line or field is ever inside one.
 
@@ -511,6 +511,9 @@ into `preview/ui-m7-<pieces|desktop|band|phone|popout|away|watch|motion>@1x|2x.p
 | `icon/popout`, `icon/popout-room` | 16×16 | — | Pop out the chat (at the end of the chat row) · the whole room (in the room's top bar). A wood window with a bubble / a floor tile and seat, the mustard arrow leaving through its open corner. Desktop only. |
 | `icon/popout-back`, `icon/popout-room-back` | 16×16 | — | Bring it back: in the popped-out window's head and on the page placeholder (`.ui-button.self` with the words). The arrow comes in. |
 | `scene/<chat\|room>-away` *(ui/scenes/\*.png)* | 56×40 | — | `.ui-scene.ui-scene-<chat\|room>-away` in `.ui-panel.ui-away` (a `role=status` placeholder where the chat row or the stage was). The room's wall with a wood window: through it two bubbles / the floor with two chairs facing the TV's glow; on this side a dashed ghost; a mustard arrow to the window. |
+| `icon/quality` | 16×16 | — | `.ui-button.self.icon` at the end of the shelf before full screen (in full screen: the strip head), `aria-haspopup="menu"`, label "Quality: Auto (720p60). Only you." Opens `.ui-emotes.ui-modmenu.ui-qmenu.is-below` (`role=menu`): `.ui-modrow[role=menuitemradio][aria-checked]` with a `glyph/check` (hidden unless checked) and an optional `.q-note`; `.foot` "Only on this device." Collapsed strip: `.ui-qmenu.is-row` replaces the band. No API: `.ui-qmenu.is-note` with one `<p>` (two sentences, see STYLE). |
+| `icon/report` | 16×16 | — | "Report room" on a `.ui-button.secondary` with words (foot of the chat column / last line of the phone page; hidden for owners). Opens `form.ui-panel.ui-report[role=dialog][aria-modal]`: `h2`, `p`, `fieldset` of `label.ui-reason` (visually hidden `input[type=radio]` + `glyph/radio-off\|on`; `.is-focus` = `:focus-within`), `textarea.ui-input` (300) + `.count`, `.acts` (Cancel `.secondary`, Send). |
+| `glyph/radio-off`, `glyph/radio-on` | 8×8 | — | The report reasons. A cream-shade ring round a night well; picked = cream ring and pip. |
 
 Layout numbers the mock-ups use (CSS px): desktop 1280×720 with the strip open = picture 980×551 at (0, 58), shelf under it, strip 300 wide;
 collapsed = picture 1187×668 at (46, 0), one 44 px band. Phone portrait 390×844 = picture 390×219 on top; landscape 844×390 = picture 693×390
@@ -605,20 +608,21 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `avatars/motion.json` (set d, lazy) | 87 408 raw / 3 788 gz |
 | `room/room.png` | 8 335 |
 | `room/room.json` | 13 823 raw / 1 192 gz |
-| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k) | 11 695 |
-| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k) | 82 844 raw / 4 061 gz |
+| `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k) | 11 844 |
+| `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k) | 84 105 raw / 4 111 gz |
 | `ui/edit.png` (set h, lazy, owners only) | 8 925 |
 | `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
 | `ui/slices/*.png` (93 files, palettes trimmed to the colours used) | 14 910 |
 | `ui/popup/*.png` (set f) | 409 |
 | `ui/scenes/*.png` (sets i + j + k, lazy) | 2 825 |
-| `ui/reference.css` (if ported as-is) | 79 544 raw / 15 384 gz |
+| `ui/reference.css` (if ported as-is) | 84 691 raw / 16 486 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **117 725 B (≈ 115.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 61 904 B; lazy (sets d, g, h's edit kit, i's, j's and k's scenes) 55 821 B |
+| **total shipped art** | **119 026 B (≈ 116.2 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 63 205 B; lazy (sets d, g, h's edit kit, i's, j's and k's scenes) 55 821 B |
 
-Set (k) (OME-541) adds **3 458 B (≈ 3.4 KB)** against `main` (114 267 → 117 725): `ui.png` +474, `ui.json` +235 gz, 4 new slices +596,
-`reference.css` +1 452 gz, and the two lazy scenes 701 (`chat-away.png` 310, `room-away.png` 391). Eager +2 757, lazy +701.
+Set (k) (OME-541) adds **4 759 B (≈ 4.6 KB)** against `main` (114 267 → 119 026). The layouts: `ui.png` +474, `ui.json` +235 gz, 4 new slices +596,
+`reference.css` +1 452 gz, and the two lazy scenes 701 (`chat-away.png` 310, `room-away.png` 391). Items 5 and 6 (quality, report): +1 301, all eager
+(`ui.png` +149 for 4 sprites, `ui.json` gz and `reference.css` gz for the rest; no new slices). Eager +4 058, lazy +701.
 
 Set (j) (OME-422) adds **6 323 B (≈ 6.2 KB)** against `main` (107 942 → 114 265): `ui.png` +1 448, `ui.json` +402 gz, 11 new slices +1 571,
 `reference.css` +2 109 gz, and the lazy `scenes/removed.png` 793 (per file: § Set (j) bytes). Eager +5 530, lazy +793. The extension icons

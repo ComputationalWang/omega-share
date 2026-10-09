@@ -70,6 +70,7 @@
     <div class="ui-room z4" style="display:grid;grid-template-columns:repeat(4,16px);gap:4px;background:var(--ui-panel);padding:4px">
       <span class="ui-sprite ui-icon-fullscreen"></span><span class="ui-sprite ui-icon-fullscreen-exit"></span><span class="ui-sprite ui-icon-strip-hide"></span><span class="ui-sprite ui-icon-strip-show"></span>
       <span class="ui-sprite ui-icon-popout"></span><span class="ui-sprite ui-icon-popout-back"></span><span class="ui-sprite ui-icon-popout-room"></span><span class="ui-sprite ui-icon-popout-room-back"></span>
+      <span class="ui-sprite ui-icon-quality"></span><span class="ui-sprite ui-icon-report"></span><span class="ui-sprite ui-glyph-radio-off"></span><span class="ui-sprite ui-glyph-radio-on"></span>
     </div>
     <div class="ui-room z4" style="display:flex;gap:4px;background:var(--ui-panel);padding:4px;align-items:flex-start">
       <span class="ui-sprite ui-scene ui-scene-chat-away"></span><span class="ui-sprite ui-scene ui-scene-room-away"></span>
@@ -350,6 +351,160 @@
   </div>
 </section>
 
+<!-- =============================================================== 5. quality (only you) -->
+<section id="m7-quality">
+  <h2>5 · Quality, only you: the key, the menu in the page / strip / band, and where we can't set it (chrome at 1×)</h2>
+  <div class="row">
+    <div class="col">
+      <h3 class="cap">In the page (Twitch, focus on "720p60")</h3>
+      <div class="screen ui-room" style="width:640px;height:370px">
+        <div class="video" style="left:40px;top:0;width:560px;height:150px;background-position:0 -120px;background-size:560px 315px"></div>
+        <div class="rect-guide" style="left:40px;top:0;width:560px;height:150px"><span>player rect (bottom of it) · the menu never covers it</span></div>
+        <div class="ui-tv-shelf" style="left:40px;top:156px;width:560px"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon is-press" aria-label="Quality: Auto (720p60). Only you." aria-haspopup="menu" aria-expanded="true"><span class="ui-sprite ui-icon-quality"></span></button><button class="ui-button self icon" aria-label="Full screen"><span class="ui-sprite ui-icon-fullscreen"></span></button></div></div>
+        <div class="ui-emotes ui-modmenu ui-qmenu is-below" role="menu" aria-label="Quality, only you" style="left:432px;top:204px;--ui-tail-x:116px">
+          <div class="head"><span class="ui-sprite ui-icon-quality"></span><span class="name">Quality</span><span class="ui-chip self">Only you</span></div>
+          <span class="ui-modsep"></span>
+          <button class="ui-modrow" role="menuitemradio" aria-checked="true"><span class="ui-sprite ui-glyph-check"></span>Auto<span class="q-note">720p60 now</span></button>
+          <button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>1080p60</button>
+          <button class="ui-modrow is-hover" role="menuitemradio" aria-checked="false" style="outline:1px solid var(--ui-text)"><span class="ui-sprite ui-glyph-check"></span>720p60</button>
+          <button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>480p</button>
+          <button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>160p</button>
+        </div>
+        <span class="fo" style="left:560px;top:150px">1</span><span class="fo" style="left:412px;top:240px">2</span>
+        <span class="note" style="left:40px;top:220px">The list hangs under the shelf, over the room (ours), its tail on the key. It lists exactly what this video offers, highest first; Auto on top. The pick is kept on this device for this provider and applied to the next video only if it offers the same label.</span>
+      </div>
+    </div>
+    <div class="col">
+      <h3 class="cap">Full screen, strip open: the key in the strip head, the list drops into the strip</h3>
+      <div class="screen ui-room" style="width:300px;height:330px">
+        <aside class="ui-fs-strip" aria-label="Chat" style="left:0;top:0;width:300px;height:330px">
+          <div class="head"><span class="ui-sprite ui-icon-chat"></span>Chat<span class="spacer"></span><button class="ui-button self icon is-press" aria-label="Quality" aria-expanded="true"><span class="ui-sprite ui-icon-quality"></span></button><button class="ui-button self icon" aria-label="Collapse chat"><span class="ui-sprite ui-icon-strip-hide"></span></button></div>
+          <ol class="ui-fs-lines" data-lines="full"></ol>
+          <form class="foot" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input" placeholder="Say something…" aria-label="Message"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+        </aside>
+        <div class="ui-emotes ui-modmenu ui-qmenu is-below" role="menu" aria-label="Quality, only you" style="left:134px;top:44px;--ui-tail-x:116px">
+          <div class="head"><span class="ui-sprite ui-icon-quality"></span><span class="name">Quality</span><span class="ui-chip self">Only you</span></div>
+          <span class="ui-modsep"></span>
+          <button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>Auto</button>
+          <button class="ui-modrow" role="menuitemradio" aria-checked="true"><span class="ui-sprite ui-glyph-check"></span>1080p60<span class="q-note"><span class="ui-sprite ui-wait ui-wait-3"></span></span></button>
+          <button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>720p60</button>
+          <button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>480p</button>
+          <p class="foot">Only on this device.</p>
+        </div>
+      </div>
+      <p class="cap-p" style="max-width:300px">Just picked 1080p60: the tick moves at once and the wait dial turns until the player confirms (reduced motion: the dial holds still on one frame). The menu stays open so you can see it land; Esc or a click outside closes it. The strip pins while it's open.</p>
+    </div>
+  </div>
+  <div class="row" style="margin-top:16px">
+    <div class="col">
+      <h3 class="cap">Full screen, strip collapsed: the list becomes the band (nothing grows over the picture)</h3>
+      <div class="screen ui-room" style="width:900px;height:56px;outline:0">
+        <div class="ui-tv-shelf ui-fs-band" style="left:20px;top:6px;width:860px">
+          <div class="ui-emotes ui-modmenu ui-qmenu is-row" role="menu" aria-label="Quality, only you" style="flex:1"><span class="ui-sprite ui-icon-quality"></span><b style="font-size:12px;padding:0 4px">Quality</b><span class="ui-chip self">Only you</span><span class="ui-modsep"></span>
+            <button class="ui-modrow" role="menuitemradio" aria-checked="true"><span class="ui-sprite ui-glyph-check"></span>Auto</button><button class="ui-modrow" role="menuitemradio" aria-checked="false" style="outline:1px solid var(--ui-text)"><span class="ui-sprite ui-glyph-check"></span>1080p60</button><button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>720p60</button><button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>480p</button><button class="ui-modrow" role="menuitemradio" aria-checked="false"><span class="ui-sprite ui-glyph-check"></span>160p</button>
+            <span class="spacer"></span><button class="ui-sprite ui-qx" aria-label="Close quality"></button></div>
+        </div>
+      </div>
+      <p class="cap-p" style="max-width:900px">The band swaps its contents for the choices while the list is open (left/right arrows move, Enter picks, Esc puts the band back and focus on the key). Phone landscape uses the same choices stacked in its side column; phone portrait uses the page list under the compact shelf, rows at 44 px for thumbs.</p>
+    </div>
+  </div>
+  <div class="row" style="margin-top:16px">
+    <div class="col">
+      <h3 class="cap">Where we can't set quality: the key stays, it opens one honest sentence</h3>
+      <div class="row" style="gap:18px">
+        <div class="col">
+          <div class="ui-emotes ui-modmenu ui-qmenu is-note is-below" role="dialog" aria-label="Quality">
+            <div class="head"><span class="ui-sprite ui-icon-quality"></span><span class="name">Quality</span><button class="ui-sprite ui-qx" aria-label="Close"></button></div>
+            <span class="ui-modsep"></span>
+            <p>This player sets its own quality. Use the settings menu inside the picture.</p>
+          </div>
+          <span class="lbl" style="font-size:11px;color:var(--ui-muted)">"Use the player's own menu": a site in the generic tier; free-plan Vimeo (shows its own menu).</span>
+        </div>
+        <div class="col">
+          <div class="ui-emotes ui-modmenu ui-qmenu is-note is-below" role="dialog" aria-label="Quality">
+            <div class="head"><span class="ui-sprite ui-icon-quality"></span><span class="name">Quality</span><button class="ui-sprite ui-qx" aria-label="Close"></button></div>
+            <span class="ui-modsep"></span>
+            <p>YouTube picks the quality for your connection by itself. It can't be changed from here.</p>
+          </div>
+          <span class="lbl" style="font-size:11px;color:var(--ui-muted)">"Picked by the player": YouTube (no API since 2019, its menu is hidden with ours).</span>
+        </div>
+        <div class="col ui-room" style="background:var(--ui-page);padding:8px">
+          <div class="row" style="gap:8px">
+            <button class="ui-button self icon" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
+            <button class="ui-button self icon is-hover" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
+            <button class="ui-button self icon is-press" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
+            <button class="ui-button self icon" style="outline:var(--ui-px) solid var(--ui-text);outline-offset:var(--ui-px)" aria-label="Quality"><span class="ui-sprite ui-icon-quality"></span></button>
+          </div>
+          <span class="lbl" style="font-size:11px;color:var(--ui-muted)">idle · hover · open · focus (1×)</span>
+        </div>
+      </div>
+      <p class="cap-p">Research OME-545 found only Twitch and paid-owner Vimeo accept a quality from us, and that YouTube's own menu is hidden with ours (<code>controls=0</code>). So "use the player's own menu" is said only where that menu really shows; on YouTube the sentence says the player chooses by itself. Never a greyed-out list. If engineering prefers to hide the key on YouTube (the research's call), the sentence moves to the key's tooltip and nothing else changes.
+      Keyboard everywhere: Tab to the key, Enter/Space/↓ opens with focus on the current choice, ↑↓ move, Enter picks, Esc closes and returns focus to the key. Screen readers hear "Quality: Auto (720p60). Only you."</p>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== 6. report this room -->
+<section id="m7-report">
+  <h2>6 · Report this room: where the key sits, the dialog, sent / failed (dialog at 2×, page pieces at 1×)</h2>
+  <div class="row">
+    <div class="col">
+      <h3 class="cap">Placement: the foot of the chat column (desktop)</h3>
+      <div class="screen ui-room" style="width:300px;height:150px">
+        <ol class="chatlog" data-lines="watch" style="left:8px;top:8px;width:284px;height:70px"></ol>
+        <form style="left:6px;right:6px;top:84px;display:flex;gap:4px" onsubmit="return false"><button class="ui-button self icon" aria-label="Emotes"><span class="ui-sprite ui-icon-emote"></span></button><input class="ui-input" placeholder="Say something…" aria-label="Message" style="flex:1;min-width:0;font:inherit;font-size:13px;font-weight:500"><button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button></form>
+        <div style="left:8px;right:8px;top:120px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ui-muted)"><span>Movie night · 7 / 8</span><span class="spacer"></span><button class="ui-button secondary" style="font-size:11px" aria-haspopup="dialog"><span class="ui-sprite ui-icon-report"></span>Report room</button></div>
+      </div>
+      <h3 class="cap" style="margin-top:6px">Phone watch-only: the last line of the page</h3>
+      <div class="screen ui-room" style="width:300px;height:44px">
+        <div style="left:8px;right:8px;top:8px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ui-muted)"><span>Source · Privacy</span><span class="spacer"></span><button class="ui-button secondary" style="font-size:11px;outline:1px solid var(--ui-text);outline-offset:1px"><span class="ui-sprite ui-icon-report"></span>Report room</button></div>
+      </div>
+      <p class="cap-p" style="max-width:300px">A quiet secondary key with words, never an icon alone, never next to Leave or the host's tools. It's the last tab stop of the room page (focus shown on the phone one). Not shown in rooms you own. Pop-out room window: same line at its foot. Not in full screen (leave it first).</p>
+    </div>
+    <div class="col">
+      <h3 class="cap">The dialog (2×, on the room's dither scrim)</h3>
+      <div class="screen" style="width:560px;height:640px;background:var(--ui-page)">
+        <span class="ui-scrim" style="inset:0"></span>
+        <form class="ui-panel ui-report" role="dialog" aria-modal="true" aria-labelledby="rep-t" style="left:40px;top:16px;width:480px" onsubmit="return false">
+          <h2 id="rep-t"><span class="ui-sprite ui-icon-report"></span>Report this room</h2>
+          <p>Tell the people who run omega-share what's wrong. It goes to them only, not to the host or anyone in the room.</p>
+          <fieldset>
+            <legend>What's wrong?</legend>
+            <label class="ui-reason" style="position:relative"><input type="radio" name="r"><span class="ui-sprite ui-glyph-radio-off"></span>Sexual content</label>
+            <label class="ui-reason"><input type="radio" name="r"><span class="ui-sprite ui-glyph-radio-off"></span>Violence or gore</label>
+            <label class="ui-reason is-focus" style="position:relative"><input type="radio" name="r" checked><span class="ui-sprite ui-glyph-radio-on"></span>Hate or harassment<span class="fo" style="left:-26px;top:2px">1</span></label>
+            <label class="ui-reason"><input type="radio" name="r"><span class="ui-sprite ui-glyph-radio-off"></span>Spam or scams</label>
+            <label class="ui-reason"><input type="radio" name="r"><span class="ui-sprite ui-glyph-radio-off"></span>Someone may be in danger</label>
+            <label class="ui-reason"><input type="radio" name="r"><span class="ui-sprite ui-glyph-radio-off"></span>Something else</label>
+          </fieldset>
+          <label style="display:grid;gap:4px;font-size:12px;font-weight:700;position:relative"><span class="fo" style="left:-26px;top:0">2</span>Anything else we should know? <span style="font-weight:500;color:var(--ui-muted)">(optional)</span>
+            <textarea class="ui-input" rows="3" maxlength="300">The chat keeps posting slurs at people who join.</textarea></label>
+          <span class="count">47 / 300</span>
+          <div class="acts" style="position:relative"><span class="fo" style="right:178px;top:-14px">3</span><span class="fo" style="right:60px;top:-14px">4</span><button class="ui-button secondary" type="button">Cancel</button><button class="ui-button" type="submit">Send report</button></div>
+        </form>
+              </div>
+      <p class="cap-p" style="max-width:560px">Plain on purpose: the everyday panel, the flag in cream (no red, no alarm), short words. Send stays off until a reason is picked. Focus opens on the reason group (badge 1: on the picked reason, or the first one; arrows move and pick, the focused row gets the cream outline), then the text field (2), Cancel (3), Send (4); focus is trapped, Esc = Cancel, and focus goes back to "Report room". The room keeps playing behind the scrim. Text is plain, max 300 characters, no links rendered. The words "goes to them only" must match the contract (Lead's abuse-report issue).</p>
+    </div>
+    <div class="col">
+      <h3 class="cap">After Send (2×)</h3>
+      <div class="ui-panel ui-report" role="dialog" aria-modal="true" style="width:380px">
+        <h2><span class="ui-sprite ui-glyph-check"></span>Thanks, we got it</h2>
+        <p>Someone will look at this room. We can't reply here. If you'd rather not stay, you can leave at any time.</p>
+        <div class="acts"><button class="ui-button secondary" type="button"><span class="ui-sprite ui-icon-leave"></span>Leave room</button><button class="ui-button" type="button" style="outline:2px solid var(--ui-text);outline-offset:2px">Close</button></div>
+      </div>
+      <h3 class="cap" style="margin-top:8px">Couldn't send (offline, or the server said no)</h3>
+      <div class="ui-panel ui-report" role="dialog" aria-modal="true" style="width:380px">
+        <h2><span class="ui-sprite ui-icon-warn"></span>That didn't send</h2>
+        <p role="alert">Check your connection and try again. Your words are still here.</p>
+        <div class="acts"><button class="ui-button secondary" type="button">Cancel</button><button class="ui-button" type="button"><span class="ui-sprite ui-icon-retry"></span>Try again</button></div>
+      </div>
+      <h3 class="cap" style="margin-top:8px">Already reported (one per room per visit)</h3>
+      <div class="ui-room" style="background:var(--ui-page);padding:8px;width:fit-content"><button class="ui-button secondary" disabled style="font-size:11px"><span class="ui-sprite ui-glyph-check"></span>Reported</button></div>
+      <p class="cap-p" style="max-width:380px">After sending, focus lands on Close (Leave is offered, not pushed). The failed state keeps the reason and the words, says it in an alert, and offers Try again. Then the foot key turns to a sunk "Reported" with a check until you leave. No motion: the dialog appears and goes in one frame, with or without reduced motion.</p>
+    </div>
+  </div>
+</section>
+
 <!-- =============================================================== motion + reduced motion -->
 <section id="m7-motion">
   <h2>Motion and reduced motion, per layout (room 1× pieces shown at 2×)</h2>
@@ -381,6 +536,8 @@
         <tr><td>Pop-out windows</td><td>Fresh → settled when the window gets focus. Room: set (d) walk, breathe, emotes as in the page.</td><td>Room follows set (d)'s reduced rules (no walk, settled emote frames). Chat as left.</td></tr>
         <tr><td>Placeholder</td><td>Static vignette.</td><td>Same.</td></tr>
         <tr><td>Phone watch-only</td><td>Dragging the room pans 1:1 with the finger (whole pixels); no fling.</td><td>Same; centring on your seat is a jump, not a scroll.</td></tr>
+        <tr><td>Quality menu</td><td>Opens and closes in one frame (no slide). While a pick is applying, the wait dial turns in the picked row until the player confirms.</td><td>Same open/close; the dial holds one frame, the tick alone says what's picked.</td></tr>
+        <tr><td>Report dialog</td><td>The scrim and panel appear in one frame; nothing moves. The room keeps playing behind it.</td><td>Same.</td></tr>
       </table>
     </div>
   </div>

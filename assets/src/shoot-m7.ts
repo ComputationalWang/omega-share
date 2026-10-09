@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const PREVIEW = join(import.meta.dir, "..", "preview");
-const all = ["m7-pieces", "m7-desktop", "m7-band", "m7-phone", "m7-popout", "m7-away", "m7-watch", "m7-motion"];
+const all = ["m7-pieces", "m7-desktop", "m7-band", "m7-phone", "m7-popout", "m7-away", "m7-watch", "m7-quality", "m7-report", "m7-motion"];
 const only = process.argv.slice(2);
 const ids = only.length > 0 ? only : all;
 const browser = await chromium.launch();

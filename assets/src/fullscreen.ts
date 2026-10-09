@@ -129,6 +129,36 @@ function windowIcon(what: "chat" | "room", out: boolean): UiFrame {
   return frame(`icon/${what === "chat" ? "popout" : "popout-room"}${out ? "" : "-back"}`, g, 8, 8);
 }
 
+// ------------------------------------------------------------------ items 5 and 6 (added to the set on 2026-10-09)
+
+/** Quality (only you): the set's little glow picture in its wood bezel, with a cream ladder under it stepping up from low to high.
+ *  The picture is what makes it "picture quality" and not a signal meter. A personal key like the others in the set. */
+function qualityIcon(): UiFrame {
+  const g = blank(16, 16);
+  box(g, 1, 1, 14, 8, "w"); fill(g, 2, 2, 12, 6, "g"); fill(g, 2, 5, 12, 3, "G");
+  for (let i = 0; i < 4; i++) { const h = 1 + i; fill(g, 2 + 3 * i, 15 - h, 2, h, "c"); }
+  return frame("icon/quality", g, 8, 8);
+}
+
+/** Report this room: a small cream pennant on a wood pole. Calm on purpose: no red, no siren, the same weight as any key. */
+function reportIcon(): UiFrame {
+  const g = blank(16, 16);
+  fill(g, 3, 2, 2, 12, "w"); fill(g, 2, 13, 5, 1, "w");
+  // The pennant: 8 wide, a swallowtail notch on the fly end.
+  fill(g, 5, 2, 8, 6, "c"); put(g, 12, 4, "."); put(g, 12, 5, "."); put(g, 11, 4, "."); put(g, 11, 5, ".");
+  return frame("icon/report", g, 8, 8);
+}
+
+/** A choice in a list (the report reasons): an 8×8 night well; picked = a cream pip in it. */
+function radioGlyph(on: boolean): UiFrame {
+  const g = blank(8, 8);
+  // A cream-shade ring (cream when picked) round a night well, so it reads on the night menu rows.
+  fill(g, 2, 1, 4, 6, on ? "k" : "K"); fill(g, 1, 2, 6, 4, on ? "k" : "K");
+  fill(g, 2, 2, 4, 4, "n");
+  if (on) fill(g, 3, 3, 2, 2, "k");
+  return frame(`glyph/radio-${on ? "on" : "off"}`, g, 4, 4);
+}
+
 // ------------------------------------------------------------------ 9-slices
 
 /** The full-screen strip: dusk glass with the TV cabinet's wood spine on its picture side (left). */
@@ -241,6 +271,7 @@ export function buildFullscreenFrames(): UiFrame[] {
     stripIcon("hide"), stripIcon("show"),
     windowIcon("chat", true), windowIcon("chat", false), windowIcon("room", true), windowIcon("room", false),
     strip(), line("fresh"), line("settled"), popRim(),
+    qualityIcon(), reportIcon(), radioGlyph(false), radioGlyph(true),
   ];
 }
 
@@ -305,5 +336,45 @@ export function fullscreenCss(): string {
 .ui-scene-chat-away, .ui-scene-room-away { width: ${u(56)}; height: ${u(40)}; background-size: 100% 100%; }
 .ui-scene-chat-away { background-image: url("scenes/chat-away.png"); }
 .ui-scene-room-away { background-image: url("scenes/room-away.png"); }
+
+/* ---- Item 5, quality (only you). The key is a .ui-button.self icon/quality at the shelf's end, before full screen. It changes
+ * only your own player and is remembered on this device; nothing goes to the room. The menu is the moderation menu's tray
+ * (mustard rim = only you see it) and always opens into our own space: under the shelf in the page, down inside the strip in
+ * full screen, as a row replacing the band when the strip is collapsed. Never over the player rect (ADR 0012).
+ * <div class="ui-emotes ui-modmenu ui-qmenu" role="menu"> head · rows <button class="ui-modrow" role="menuitemradio"
+ * aria-checked> with glyph/check (hidden unless checked) · a one-line foot "Only on this device". */
+.ui-qmenu .ui-modrow .ui-glyph-check { flex: none; }
+.ui-qmenu .ui-modrow:not([aria-checked="true"]) .ui-glyph-check { visibility: hidden; }
+.ui-qmenu .ui-modrow[aria-checked="true"] { color: var(--ui-accent); }
+.ui-qmenu .ui-modrow .q-note { margin-left: auto; padding-left: ${u(4)}; color: var(--ui-muted); font-weight: 500; }
+.ui-qmenu .foot { font-size: 11px; font-weight: 500; color: var(--ui-muted); padding: ${u(1)} ${u(1)} 0; }
+/* .is-below: the list hangs under its key (page, strip), so the tray's tail points up at it. The band row has no tail. */
+.ui-qmenu.is-below::after { top: auto; bottom: calc(100% + ${u(3)}); rotate: 180deg; }
+.ui-qmenu.is-row { display: inline-flex; align-items: center; }
+.ui-qmenu.is-row::after { content: none; }
+.ui-qmenu.is-row .ui-modsep { width: ${u(2)}; height: ${u(14)}; }
+/* Where we can't set quality the key stays, and opens one sentence instead of a list (.ui-qmenu.is-note). Two honest variants:
+ * "Use the player's own menu" (the provider shows its own settings: generic tier, free-plan Vimeo) and "Picked by the player"
+ * (YouTube: automatic, no menu anywhere). No disabled list, no fake choices. */
+.ui-qmenu.is-note { max-width: ${u(180)}; }
+.ui-qmenu.is-note p { margin: 0; padding: 0 ${u(1)}; font-size: 12px; font-weight: 500; color: var(--ui-text); line-height: 1.35; }
+.ui-room .ui-qmenu.is-note p { font-size: 11px; }
+
+/* ---- Item 6, report this room. A quiet secondary key with icon/report at the end of the room bar's info line (never beside Leave
+ * or the host's tools); hidden in rooms you own. The dialog is a plain .ui-panel on the scrim, role="dialog" aria-modal, focus
+ * trapped, Esc / Cancel closes and returns focus to the key. Reasons are radios (glyph/radio-off|on), one optional text field. */
+.ui-report { display: grid; gap: ${u(4)}; width: min(100%, ${u(208)}); }
+.ui-report h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--ui-text); display: flex; align-items: center; gap: ${u(3)}; text-transform: none; letter-spacing: 0; }
+.ui-report p { margin: 0; font-size: 12px; font-weight: 500; color: var(--ui-muted); line-height: 1.4; }
+.ui-report fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: ${u(1)}; }
+.ui-report legend { font-size: 12px; font-weight: 700; color: var(--ui-text); padding: 0 0 ${u(2)}; }
+.ui-reason { ${nineRule("menu/row/idle", [4, 4, 4, 4])} display: flex; align-items: center; gap: ${u(3)}; min-height: ${u(10)}; padding: 0 ${u(1)}; font-size: 13px; font-weight: 600; color: var(--ui-text); cursor: pointer; }
+.ui-reason input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ui-reason:hover, .ui-reason.is-hover { border-image-source: ${slice("menu/row/hover")}; }
+.ui-reason:focus-within, .ui-reason.is-focus { outline: var(--ui-px) solid var(--ui-text); outline-offset: 0; }
+.ui-reason .ui-sprite { flex: none; }
+.ui-report textarea.ui-input { font: inherit; font-size: 13px; font-weight: 500; resize: vertical; min-height: ${u(40)}; width: 100%; padding: ${u(1)}; }
+.ui-report .count { justify-self: end; font-size: 11px; font-weight: 500; color: var(--ui-muted); margin-top: ${u(-3)}; }
+.ui-report .acts { display: flex; justify-content: flex-end; gap: ${u(3)}; }
 `;
 }
