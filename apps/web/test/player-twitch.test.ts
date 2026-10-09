@@ -779,6 +779,21 @@ describe("attachTwitch quality: the SDK's stale cache (OME-599 review)", () => {
     expect(events.filter((e) => e.type === "quality")).toHaveLength(n + 1);
   });
 
+  test("a second pick inside the window: the cache's original quality still doesn't revert it (QA OME-661 C)", () => {
+    const { t, adapter, p, ready, push } = setup();
+    p.qualities = TWITCH_QUALITIES;
+    ready();
+    adapter.quality?.set("720p60");
+    t.now += 1000;
+    adapter.quality?.set("480p30");
+    // The cache still says what played before either pick.
+    p.quality = "auto";
+    t.now += 1000;
+    push({ playback: "Playing", time: 5 });
+    p.fire("playing");
+    expect(adapter.quality?.current()).toBe("480p30");
+  });
+
   test("inside the window a different listed quality from the player (it settled elsewhere) is taken at once", () => {
     const { t, adapter, p, ready } = setup();
     p.qualities = TWITCH_QUALITIES;

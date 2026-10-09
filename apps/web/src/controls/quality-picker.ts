@@ -32,6 +32,8 @@ export function createQualityPicker<Timer>(c: Pick<PlaybackController, "setQuali
   key.setAttribute("aria-haspopup", "menu");
   key.setAttribute("aria-expanded", "false");
   key.append(sprite("ui-icon-quality"));
+  // The wait dial runs as long as the switching state (its default is the 3 s rejoin cooldown).
+  key.style.setProperty("--cool", `${String(QUALITY_SWITCH_MS)}ms`);
   const wait = sprite("ui-wait");
   const menu = el("div", { className: "ui-emotes ui-modmenu ui-qmenu quality-menu is-below", role: "menu", ariaLabel: "Quality, only you", hidden: true }, "quality-menu");
   const head = el("div", { className: "head" });
@@ -39,7 +41,8 @@ export function createQualityPicker<Timer>(c: Pick<PlaybackController, "setQuali
   head.append(sprite("ui-icon-quality"), el("span", { className: "name", textContent: "Quality" }), selfChip);
   const rowsBox = el("div", { className: "quality-rows" });
   const foot = el("p", { className: "foot", textContent: "Only on this device." });
-  const closeKey = el("button", { type: "button", className: "ui-sprite ui-qx", ariaLabel: "Close quality" }, "quality-close");
+  const closeKey = el("button", { type: "button", className: "ui-sprite ui-qx", role: "menuitem", ariaLabel: "Close quality" }, "quality-close");
+  closeKey.tabIndex = -1;
   menu.append(head, el("span", { className: "ui-modsep" }), rowsBox, foot);
 
   let view: PlaybackView | null = null;
@@ -50,9 +53,13 @@ export function createQualityPicker<Timer>(c: Pick<PlaybackController, "setQuali
   let switchTimer: Timer | null = null;
   let shownList: PlaybackView["qualities"] | null = null;
   const rows: HTMLButtonElement[] = [];
+  /** What the arrows walk: the rows, and in row mode the close key after them (one roving tab stop). */
+  const items: HTMLButtonElement[] = [];
   /** Each row's option id, by row. */
   const ids = new Map<Element, string>();
   let toggled: (open: boolean) => void = () => undefined;
+  /** A press inside the menu: Safari and macOS Firefox don't focus a pressed button, so the row blurs to nothing first. */
+  let pressing = false;
 
   const options = (): PlaybackView["qualities"] => view?.qualities ?? [];
   const labelOf = (id: string | null): string | null => options().find((o) => o.id === id)?.label ?? null;
@@ -73,19 +80,37 @@ export function createQualityPicker<Timer>(c: Pick<PlaybackController, "setQuali
     key.ariaLabel = now === null ? "Quality. Only you." : `Quality: ${now}. Only you.`;
   };
 
+  /** Focus one item and make it the menu's only tab stop: Tab then leaves the menu instead of walking it. */
+  const focusItem = (to: HTMLButtonElement | undefined): void => {
+    if (to === undefined) return;
+    for (const i of items) i.tabIndex = i === to ? 0 : -1;
+    to.focus({ preventScroll: true });
+  };
+  /** A rebuild removes the focused row; its focusout must not close the menu. */
+  let rebuilding = false;
+
   const renderRows = (): void => {
     const list = options();
     if (list !== shownList) {
+      const at = document.activeElement;
+      const focusedId = at instanceof Element && rowsBox.contains(at) ? ids.get(at) : undefined;
       shownList = list;
       rows.length = 0;
       ids.clear();
       for (const o of list) {
         const r = el("button", { type: "button", className: "ui-modrow", role: "menuitemradio" }, "quality-option");
+        r.tabIndex = -1;
         ids.set(r, o.id);
         r.append(sprite("ui-glyph-check"), o.label);
         rows.push(r);
       }
+      items.length = 0;
+      items.push(...rows);
+      if (row) items.push(closeKey);
+      rebuilding = true;
       rowsBox.replaceChildren(...rows);
+      rebuilding = false;
+      if (focusedId !== undefined) focusItem(rows.find((r) => ids.get(r) === focusedId) ?? rows[0]);
     }
     const on = checked();
     for (const r of rows) r.setAttribute("aria-checked", String(ids.get(r) === on));
@@ -102,11 +127,12 @@ export function createQualityPicker<Timer>(c: Pick<PlaybackController, "setQuali
       menu.classList.toggle("is-below", !row);
       if (row) menu.append(closeKey);
       else closeKey.remove();
+      // Row mode can change while closed: the arrows' list follows it.
+      shownList = null;
       renderRows();
       // The room places it first: focus only lands on a connected row.
       toggled(true);
-      const on = rows.find((r) => ids.get(r) === checked()) ?? rows[0];
-      on?.focus({ preventScroll: true });
+      focusItem(rows.find((r) => ids.get(r) === checked()) ?? rows[0]);
       return;
     }
     toggled(false);
@@ -124,15 +150,17 @@ export function createQualityPicker<Timer>(c: Pick<PlaybackController, "setQuali
       if (open) renderRows();
     }, QUALITY_SWITCH_MS);
     c.setQuality(id);
+    // A new pick restarts the dial with its timer.
+    wait.remove();
     renderKey();
     renderRows();
   };
 
   const move = (from: EventTarget | null, by: number): void => {
-    const i = rows.findIndex((r) => r === from);
-    const n = rows.length;
+    const i = items.findIndex((r) => r === from);
+    const n = items.length;
     if (n === 0) return;
-    rows[(((i < 0 ? 0 : i + by) % n) + n) % n]?.focus({ preventScroll: true });
+    focusItem(items[(((i < 0 ? 0 : i + by) % n) + n) % n]);
   };
 
   key.addEventListener("click", () => {
@@ -155,17 +183,22 @@ export function createQualityPicker<Timer>(c: Pick<PlaybackController, "setQuali
   menu.addEventListener("keydown", (e) => {
     const back = row ? "ArrowLeft" : "ArrowUp";
     const fwd = row ? "ArrowRight" : "ArrowDown";
+    pressing = false;
+    if (e.key === "Tab") {
+      // Out in one press (ARIA menu): close onto the key; Tab goes on from there, Shift+Tab stays on it.
+      setOpen(false, true);
+      if (e.shiftKey) e.preventDefault();
+      return;
+    }
     if (e.key === "Escape") setOpen(false, true);
     else if (e.key === fwd) move(e.target, 1);
     else if (e.key === back) move(e.target, -1);
-    else if (e.key === "Home") rows[0]?.focus({ preventScroll: true });
-    else if (e.key === "End") rows.at(-1)?.focus({ preventScroll: true });
+    else if (e.key === "Home") focusItem(items[0]);
+    else if (e.key === "End") focusItem(items.at(-1));
     else return;
     e.preventDefault();
     e.stopPropagation();
   });
-  /** A press inside the menu: Safari and macOS Firefox don't focus a pressed button, so the row blurs to nothing first. */
-  let pressing = false;
   menu.addEventListener("pointerdown", () => {
     pressing = true;
   });
@@ -175,7 +208,7 @@ export function createQualityPicker<Timer>(c: Pick<PlaybackController, "setQuali
     });
   }
   menu.addEventListener("focusout", (e) => {
-    if (pressing) return;
+    if (pressing || rebuilding) return;
     const to = e.relatedTarget;
     if (to instanceof Node && (menu.contains(to) || to === key)) return;
     setOpen(false, false);
@@ -195,9 +228,12 @@ export function createQualityPicker<Timer>(c: Pick<PlaybackController, "setQuali
       view = v;
       if (prev !== null && prev.qualities === v.qualities && prev.quality === v.quality) return;
       const none = v.qualities.length === 0;
-      if (none) {
+      if (none) setOpen(false, false);
+      // A pick still switching that this list doesn't have (a new video) is over.
+      if (pending !== null && !v.qualities.some((o) => o.id === pending)) {
         pending = null;
-        setOpen(false, false);
+        if (switchTimer !== null) t.clearTimeout(switchTimer);
+        switchTimer = null;
       }
       key.hidden = none;
       renderKey();
