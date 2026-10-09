@@ -136,6 +136,11 @@ export interface FakeTwitchHooks {
   buffering(ms: number): void;
   /** Ad for `ms`: playback stays "Playing", clock and cached currentTime frozen, no event; then resumes. */
   ad(ms: number): void;
+  /**
+   * Live mid-roll slate (OME-497): emit PAUSE and go Idle for `ms` (app play() is logged but ignored), then PLAY, PLAYING.
+   * Twitch gives no ad signal here; the app only sees the player pause and play by itself.
+   */
+  liveAdBreak(ms: number): void;
   /** Emit OFFLINE and halt the clock. */
   offline(): void;
   /** Emit ONLINE and resume the clock if playing. */
@@ -182,6 +187,7 @@ export function installFakeTwitch(win: FakeTwitchHost): void {
     state: FakeTwitchPlayerState;
     trueTime(): number;
     buffer(ms: number, ad: boolean): void;
+    adBreak(ms: number): void;
     stop(): void;
     resume(): void;
     block(): void;
@@ -253,6 +259,7 @@ export function installFakeTwitch(win: FakeTwitchHost): void {
     let pushGen = 0;
     let pushTimer: unknown;
     let resumeTo: FakeTwitchPlayback | null = null;
+    let inAdBreak = false;
 
     const dur = () => (live ? 0 : config.duration);
     const trueTime = () => (live ? 0 : running ? Math.min(dur(), base + (now() - since) / 1000) : base);
@@ -324,7 +331,7 @@ export function installFakeTwitch(win: FakeTwitchHost): void {
     };
 
     const doPlay = (user: boolean) => {
-      if (wantsPlay()) return;
+      if (wantsPlay() || inAdBreak) return;
       if (blockAutoplay && !st.muted && !user) {
         emit("playbackBlocked");
         return;
@@ -411,6 +418,19 @@ export function installFakeTwitch(win: FakeTwitchHost): void {
       state: st,
       trueTime,
       buffer: (ms, ad) => { hold(ms, ad, resumeTo ?? st.playback); },
+      adBreak(ms) {
+        doPause();
+        inAdBreak = true;
+        win.setTimeout(() => {
+          inAdBreak = false;
+          if (destroyed) return;
+          setPlayback("Playing");
+          run();
+          push();
+          emit("play");
+          emit("playing");
+        }, ms);
+      },
       stop() {
         cancelHold();
         freeze();
@@ -447,6 +467,7 @@ export function installFakeTwitch(win: FakeTwitchHost): void {
   const hooks: FakeTwitchHooks = {
     buffering: (ms) => { need().buffer(ms, false); },
     ad: (ms) => { need().buffer(ms, true); },
+    liveAdBreak: (ms) => { need().adBreak(ms); },
     offline() {
       const p = need();
       p.stop();
