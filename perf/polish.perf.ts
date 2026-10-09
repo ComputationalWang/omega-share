@@ -5,6 +5,7 @@
 // which the preview build perf serves doesn't have.) Run with Playwright tracing off (playwright.config.ts perf project) for missed vsyncs.
 import { expect, test, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { loadavg } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_ROOM_ID, EMOTE_REFILL_MS, parseServerMessage } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
@@ -13,7 +14,7 @@ import { joinForToken, postShare } from "../e2e/support/share";
 import { site } from "../e2e/support/selectors";
 import type { FrameProvider } from "./budgets";
 import { VSYNC_MS, tracedFrames, type FrameWindow } from "./frames";
-import { RESULTS_DIR, p95 } from "./metrics";
+import { RESULTS_DIR, appendRun, p95 } from "./metrics";
 import { PROVIDER_CASES, providerCase, shareProvider, waitProviderPlaying } from "./providers";
 import { summarizeFrames } from "./spread";
 import { shareVideo, waitPlaying } from "./sync";
@@ -81,21 +82,28 @@ const tagTransforms = (page: Page): Promise<Record<string, string>> =>
     Object.fromEntries([...document.querySelectorAll("[data-testid='nickname-tag']")].map((t) => [t.textContent, (t as HTMLElement).style.transform])),
   );
 
-/** perf/results/polish.json, a row at a time: a failed test restarts the worker, and the rows before it stay. */
+/**
+ * perf/results/polish.json, a run at a time: every repeat of a row (`--repeat-each`), stamped with the time and the
+ * box's 1-minute load average, since frame misses follow load (OME-567). A failed test restarts the worker; the runs
+ * before it stay.
+ */
 const POLISH_JSON = join(RESULTS_DIR, "polish.json");
 function record(k: string, r: Record<string, unknown>): void {
   mkdirSync(RESULTS_DIR, { recursive: true });
   const prev: unknown = existsSync(POLISH_JSON) ? JSON.parse(readFileSync(POLISH_JSON, "utf8")) : {};
-  writeFileSync(POLISH_JSON, JSON.stringify({ ...(typeof prev === "object" && prev !== null ? prev : {}), [k]: r }, null, 2));
+  const run = { at: new Date().toISOString(), load1: Number((loadavg()[0] ?? 0).toFixed(2)), ...r };
+  writeFileSync(POLISH_JSON, JSON.stringify(appendRun(prev, k, run), null, 2));
 }
 const row = (w: FrameWindow, extra: Record<string, unknown>) => {
   const f = summarizeFrames(w.samples, VSYNC_MS);
   return { p95: f.p95, missedPct: f.missedPct, missed: f.missed, frames: f.frames, maxMs: Math.max(...w.samples), rawP95: p95(w.samples), workP95: p95(w.workMs), workMax: Math.max(...w.workMs), traced: w.workMs.length, ...extra };
 };
 const withinBudget = (k: string, r: ReturnType<typeof row>): void => {
-  expect(r.p95, `${k} frame p95`).toBeLessThanOrEqual(VSYNC_MS + 1e-6);
-  expect(r.missedPct, `${k} missed vsyncs %`).toBeLessThanOrEqual(1);
-  expect(r.workP95, `${k} main-thread work p95`).toBeLessThanOrEqual(8);
+  // Every frame assertion says how the window went, so one failure line tells a load burst from a steady cost.
+  const how = `${String(r.missed)}/${String(r.frames)} missed vsyncs (${r.missedPct.toFixed(1)} %), raw p95 ${r.rawP95.toFixed(2)} ms, max ${r.maxMs.toFixed(1)} ms, work p95 ${r.workP95.toFixed(2)} ms, load ${(loadavg()[0] ?? 0).toFixed(2)}`;
+  expect(r.p95, `${k} frame p95; ${how}`).toBeLessThanOrEqual(VSYNC_MS + 1e-6);
+  expect(r.missedPct, `${k} missed vsyncs %; ${how}`).toBeLessThanOrEqual(1);
+  expect(r.workP95, `${k} main-thread work p95; ${how}`).toBeLessThanOrEqual(8);
 };
 
 const PROVIDERS: readonly FrameProvider[] = ["youtube", ...PROVIDER_CASES.map((c) => c.key), "generic"];

@@ -45,3 +45,16 @@ export function p95(samples: readonly number[]): number {
 export function vsyncFrames(deltas: readonly number[], vsyncMs: number): number[] {
   return deltas.map((d) => Math.max(1, Math.round(d / vsyncMs)) * vsyncMs);
 }
+
+/**
+ * A results file of rows that keeps every repeat (OME-567): `key`'s runs in order with `run` appended. A row written
+ * as one object (before OME-567) becomes the first run; anything that isn't an object starts a fresh file.
+ */
+export function appendRun(prev: unknown, key: string, run: Record<string, unknown>): Record<string, unknown[]> {
+  const out: Record<string, unknown[]> = {};
+  if (typeof prev === "object" && prev !== null && !Array.isArray(prev)) {
+    for (const [k, v] of Object.entries(prev)) out[k] = Array.isArray(v) ? [...(v as unknown[])] : [v];
+  }
+  out[key] = [...(out[key] ?? []), run];
+  return out;
+}
