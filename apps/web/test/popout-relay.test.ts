@@ -17,6 +17,8 @@ async function setup(opts: { sendOk?: boolean } = {}) {
   let deliver: (data: unknown) => void = () => undefined;
   const sent: ClientMessage[] = [];
   const popped: boolean[] = [];
+  const seats: number[] = [];
+  const kinds: string[] = [];
   let opened = 0;
   let now = 0;
   const timers = new Map<number, { fn: () => void; at: number }>();
@@ -34,10 +36,12 @@ async function setup(opts: { sendOk?: boolean } = {}) {
       sent.push(m);
       return true;
     },
-    openWindow: () => {
+    openWindow: (kind) => {
       opened++;
+      kinds.push(kind);
     },
     onPopped: (on) => popped.push(on),
+    onSeat: (seat) => seats.push(seat),
     setTimer: (fn, ms) => {
       const id = nextId++;
       timers.set(id, { fn, at: now + ms });
@@ -60,7 +64,7 @@ async function setup(opts: { sendOk?: boolean } = {}) {
     deliver(m);
   };
   const take = (): PopMessage[] => posted.splice(0);
-  return { relay, posted, take, from, sent, popped, opened: () => opened, advance, POP_LEASE_MS };
+  return { relay, posted, take, from, sent, popped, seats, kinds, opened: () => opened, advance, POP_LEASE_MS };
 }
 
 describe("chat relay (room tab)", () => {
@@ -251,5 +255,122 @@ describe("chat relay (room tab)", () => {
     take();
     relay.close();
     expect(take()).toEqual([{ t: "room-gone" }]);
+  });
+});
+
+// OME-600 (M7 W3b): the whole-room window is the same channel's other kind of window. The tab still adopts one window,
+// whichever kind; a room window also gets the stage's state (mirrored, so it draws the one renderer while the page's is
+// paused), the picture's time for its plate, and each emote. Its seat clicks come back here to be sent on the socket.
+const MEMBER = { id: "m1", nickname: "Ada", avatar: 2 };
+const ROOM = { id: "movie-night", seats: [null, null, null, null, null, null, null, null], members: [MEMBER], embed: null, playback: null };
+const VIEW = { status: "open", self: "m1", room: ROOM, bubbles: [], syslines: [], catching: [] } as const;
+const TV = { video: true, playing: true, position: 61, live: false, catching: false };
+
+describe("room relay (OME-600)", () => {
+  test("pop out room opens the room window; once it says ready it gets the log, the chat state, the room and the plate", async () => {
+    const { relay, take, from, popped, kinds } = await setup();
+    relay.append(LINE("one"));
+    relay.update(STATE);
+    relay.view(VIEW);
+    relay.tv(TV);
+    take();
+    relay.popOut("room");
+    expect(kinds).toEqual(["room"]);
+    expect(relay.kind()).toBeNull();
+    from({ t: "pop-ready", pop: "r1", kind: "room" });
+    expect(relay.popped()).toBe(true);
+    expect(relay.kind()).toBe("room");
+    expect(popped).toEqual([true]);
+    expect(take()).toEqual([
+      { t: "room-adopt", pop: "r1" },
+      { t: "room-log", reset: true, entries: [LINE("one")] },
+      { t: "room-state", ...STATE },
+      { t: "room-view", ...VIEW },
+      { t: "room-tv", ...TV },
+    ]);
+  });
+
+  test("a chat window (no kind, as W3 sends) gets no room, no plate and no emotes", async () => {
+    const { relay, take, from } = await setup();
+    relay.view(VIEW);
+    relay.tv(TV);
+    from({ t: "pop-ready", pop: "p1" });
+    expect(relay.kind()).toBe("chat");
+    take();
+    relay.view({ ...VIEW, bubbles: [{ memberId: "m1", text: "hi", expiresAt: 1 }] });
+    relay.tv({ ...TV, position: 62 });
+    relay.emote("m1", "wave");
+    expect(take()).toEqual([]);
+  });
+
+  test("the room goes over as the tab's state changes, and only when what the stage draws changed", async () => {
+    const { relay, take, from } = await setup();
+    relay.view(VIEW);
+    from({ t: "pop-ready", pop: "r1", kind: "room" });
+    take();
+    relay.view(VIEW);
+    relay.view({ ...VIEW });
+    expect(take()).toEqual([]);
+    const bubbles = [{ memberId: "m1", text: "hi", expiresAt: 6000 }];
+    relay.view({ ...VIEW, bubbles });
+    expect(take()).toEqual([{ t: "room-view", ...VIEW, bubbles }]);
+    const room = { ...ROOM, seats: ["m1", null, null, null, null, null, null, null] };
+    relay.view({ ...VIEW, bubbles, room });
+    expect(take()).toEqual([{ t: "room-view", ...VIEW, bubbles, room }]);
+  });
+
+  test("the plate goes over when the picture's time or state changed; emotes go over at once", async () => {
+    const { relay, take, from } = await setup();
+    from({ t: "pop-ready", pop: "r1", kind: "room" });
+    relay.tv(TV);
+    take();
+    relay.tv({ ...TV });
+    expect(take()).toEqual([]);
+    relay.tv({ ...TV, position: 62 });
+    relay.emote("m1", "heart");
+    expect(take()).toEqual([
+      { t: "room-tv", ...TV, position: 62 },
+      { t: "room-emote", member: "m1", kind: "heart" },
+    ]);
+  });
+
+  test("a seat click from the room window comes back to the tab; from a chat window or a stranger it doesn't", async () => {
+    const room = await setup();
+    room.from({ t: "pop-ready", pop: "r1", kind: "room" });
+    room.from({ t: "pop-sit", pop: "r1", seat: 3 });
+    room.from({ t: "pop-sit", pop: "r9", seat: 4 });
+    expect(room.seats).toEqual([3]);
+    const chat = await setup();
+    chat.from({ t: "pop-ready", pop: "p1" });
+    chat.from({ t: "pop-sit", pop: "p1", seat: 3 });
+    expect(chat.seats).toEqual([]);
+  });
+
+  test("popping out the room while the chat is out: the room window takes over, the chat window goes, the page hears of it", async () => {
+    const { relay, take, from, popped } = await setup();
+    relay.view(VIEW);
+    from({ t: "pop-ready", pop: "p1" });
+    take();
+    relay.popOut("room");
+    from({ t: "pop-ready", pop: "r1", kind: "room" });
+    expect(relay.kind()).toBe("room");
+    expect(take()[0]).toEqual({ t: "room-adopt", pop: "r1" });
+    expect(popped).toEqual([true, true]);
+    from({ t: "pop-say", pop: "p1", seq: 1, text: "stale" });
+    expect(take()).toEqual([]);
+  });
+
+  test("show the window asks the adopted window to come to the front; bring back closes either kind", async () => {
+    const { relay, take, from, popped } = await setup();
+    relay.raise();
+    expect(take().filter((m) => m.t === "room-raise")).toEqual([]);
+    from({ t: "pop-ready", pop: "r1", kind: "room" });
+    take();
+    relay.raise();
+    expect(take()).toEqual([{ t: "room-raise" }]);
+    relay.bringBack();
+    expect(take()).toEqual([{ t: "room-back" }]);
+    expect(relay.kind()).toBeNull();
+    expect(popped).toEqual([true, false]);
   });
 });

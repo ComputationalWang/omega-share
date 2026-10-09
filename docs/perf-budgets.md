@@ -22,6 +22,9 @@ QA measures these on every merge (Playwright + Chromium). A regression past a bu
 | Site | Frame rate with the chat popped out, 8 avatars + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), per provider, the room tab (desktop Chromium) with the chat in its pop-out window (`chat.html`, no second Pixi renderer, no second socket) while 7 members chat at 1/s, relayed over the BroadcastChannel — OME-598 |
 | Site | Main-thread work per frame with the chat popped out, 8 avatars + video playing | ≤ 8 ms p95, per provider, same pop-out run — OME-598 |
 | Site | Missed vsyncs with the chat popped out, 8 avatars + video playing | ≤ 1.0 % of frames, per provider, same pop-out run — OME-598 |
+| Site | Frame rate with the room popped out, 25 members + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), each window on its own: the room tab (the picture only, its Pixi renderer paused) and the room window (`room.html`, the one renderer: 25 avatars, 8 seated, someone always walking, and the chat) while 24 members chat at ~8/s room-wide and a seat changes every 100 ms, relayed over the BroadcastChannel — OME-600 |
+| Site | Main-thread work per frame with the room popped out, 25 members + video playing | ≤ 8 ms p95, each window, same pop-out room run — OME-600 |
+| Site | Missed vsyncs with the room popped out, 25 members + video playing | ≤ 1.0 % of frames, each window, same pop-out room run — OME-600 |
 | Site | JS heap after 10 min in room | ≤ 150 MB |
 | Sync | Spread between clients after play/pause/seek | ≤ 500 ms |
 | Sync | Spread between clients after a queue advance | ≤ 1.5 s, first to last of 8 clients playing the next item after a video ends — ADR 0031 §7 |

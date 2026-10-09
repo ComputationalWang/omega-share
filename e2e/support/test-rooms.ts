@@ -29,6 +29,8 @@ export const SPEC_ROOMS = {
   popout: ["relay", "back", "reopen", "hidden", "gone", "offer", "twice"],
   "popout-perf": ["frames"],
   report: ["send", "states", "gone"],
+  "popout-room": ["show", "sit", "back", "fs", "keys", "reduced", "hidden", "chat", "phone"],
+  "popout-room-perf": ["frames"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

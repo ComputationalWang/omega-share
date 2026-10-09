@@ -17,8 +17,10 @@ afterAll(async () => {
 
 const STATE = { t: "room-state", title: "Movie night", people: 7, cap: 8, open: true, cooling: false, muted: false, placeholder: "Say something…" } as const;
 
-async function setup() {
+async function setup(opts: { kind?: "chat" | "room" } = {}) {
   const { createPopoutView, POP_PING_MS, POP_WAIT_MS } = await import("../src/popout/view");
+  const roomSide: unknown[] = [];
+  const goneSeen: boolean[] = [];
   const posted: PopMessage[] = [];
   let deliver: (data: unknown) => void = () => undefined;
   let closed = 0;
@@ -34,6 +36,9 @@ async function setup() {
     document,
     pop: "p1",
     roomId: "movie-night",
+    ...(opts.kind === undefined ? {} : { kind: opts.kind }),
+    onRoom: (m) => roomSide.push(m),
+    onGone: (on) => goneSeen.push(on),
     channel: {
       post: (m) => posted.push(m),
       onMessage: (fn) => {
@@ -89,7 +94,7 @@ async function setup() {
     from(STATE);
     take();
   };
-  return { view, root, q, from, take, adopt, closed: () => closed, went, advance, POP_PING_MS, POP_WAIT_MS };
+  return { view, root, q, from, take, adopt, roomSide, goneSeen, closed: () => closed, went, advance, POP_PING_MS, POP_WAIT_MS };
 }
 
 describe("pop-out chat window", () => {
@@ -283,5 +288,68 @@ describe("pop-out chat window", () => {
     from({ t: "room-log", reset: true, entries: [{ kind: "chat", nickname: "A" }] });
     expect(closed()).toBe(0);
     expect(root.querySelectorAll("[data-testid=chat-log-line]")).toHaveLength(0);
+  });
+});
+
+// OME-600 (M7 W3b): the same window code is the chat column of the whole-room window. It says which window it is, its
+// put-back key puts the room back, and it hands the stage's messages (room, plate, emotes, raise) to the room side.
+describe("pop-out room window's chat column (OME-600)", () => {
+  const VIEW = { t: "room-view", status: "open", self: null, room: null, bubbles: [], syslines: [], catching: [] };
+
+  test("says it's the room window when ready; the put-back key puts the room back; the title is the room's", async () => {
+    const { take, from, q, adopt } = await setup({ kind: "room" });
+    expect(take()).toEqual([{ t: "pop-ready", pop: "p1", kind: "room" }]);
+    from({ t: "room-hello" });
+    expect(take()).toEqual([{ t: "pop-ready", pop: "p1", kind: "room" }]);
+    adopt();
+    const back = q("[data-testid=popout-back]", HTMLButtonElement);
+    expect(back.getAttribute("aria-label")).toBe("Put the room back in the page");
+    expect(back.title).toBe("Put the room back in the page");
+    expect(back.querySelector(".ui-icon-popout-room-back")).not.toBeNull();
+    expect(document.title).toBe("Movie night · omega-share");
+  });
+
+  test("the stage's messages go to the room side, only once adopted and only in a room window", async () => {
+    const room = await setup({ kind: "room" });
+    room.from(VIEW);
+    expect(room.roomSide).toEqual([]);
+    room.adopt();
+    room.from(VIEW);
+    room.from({ t: "room-tv", video: true, playing: false, position: 3, live: false, catching: false });
+    room.from({ t: "room-emote", member: "m1", kind: "wave" });
+    room.from({ t: "room-raise" });
+    room.from({ ...VIEW, status: "nope" });
+    expect(room.roomSide.map((m) => (m as { t: string }).t)).toEqual(["room-view", "room-tv", "room-emote", "room-raise"]);
+    const chat = await setup();
+    chat.adopt();
+    chat.from(VIEW);
+    expect(chat.roomSide).toEqual([]);
+  });
+
+  test("a seat click goes to the room tab only while adopted and the tab is there", async () => {
+    const { view, take, from, adopt } = await setup({ kind: "room" });
+    take();
+    expect(view.sit(2)).toBe(false);
+    adopt();
+    expect(view.sit(2)).toBe(true);
+    expect(take()).toEqual([{ t: "pop-sit", pop: "p1", seat: 2 }]);
+    from({ t: "room-gone" });
+    expect(view.sit(3)).toBe(false);
+    expect(take()).toEqual([]);
+  });
+
+  test("the room side hears when the tab is gone and when it's back", async () => {
+    const { from, adopt, goneSeen } = await setup({ kind: "room" });
+    adopt();
+    from({ t: "room-gone" });
+    from({ t: "room-adopt", pop: "p1" });
+    expect(goneSeen).toEqual([true, false]);
+  });
+
+  test("superseded by another window: the room window says the room moved", async () => {
+    const { from, adopt, q } = await setup({ kind: "room" });
+    adopt();
+    from({ t: "room-adopt", pop: "p2" });
+    expect(q("[data-testid=popout-gone]", HTMLElement).textContent).toContain("The room moved to another window.");
   });
 });

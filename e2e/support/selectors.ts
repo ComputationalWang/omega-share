@@ -39,6 +39,15 @@ export const site = {
   popoutPeople: id("popout-people"),
   popoutGone: id("popout-gone"),
   popoutOpenRoom: id("popout-open-room"),
+  // Pop-out room (OME-600): the room's key in its top bar, the stage's placeholder with its bring-back and show-window
+  // keys; in the window, the room side, the chat column and the brass plate.
+  roomPopout: id("room-popout"),
+  roomAway: id("room-away"),
+  roomBringBack: id("room-bring-back"),
+  roomShowWindow: id("room-show-window"),
+  poproomRoom: id("poproom-room"),
+  poproomChat: id("poproom-chat"),
+  poproomPlate: id("poproom-plate"),
   nicknameTag: id("nickname-tag"),
   roomFull: id("room-full"),
   // OME-272: the AGPL-3.0 §13 source offer in the site footer.
