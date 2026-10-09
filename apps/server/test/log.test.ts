@@ -74,6 +74,16 @@ describe("logger", () => {
     expect(line.length).toBeLessThan(400);
   });
 
+  // The redactions run on the uncapped message; the email pattern backtracks, so a huge message must not stall the loop.
+  test("a huge unquoted message is formatted quickly and still capped", () => {
+    for (const message of ["x".repeat(200_000), "1:".repeat(100_000), "a.".repeat(100_000)]) {
+      const start = performance.now();
+      const line = formatLogLine("error", "gc.sweep", new Error(message));
+      expect(performance.now() - start).toBeLessThan(100);
+      expect(line.length).toBeLessThan(400);
+    }
+  });
+
   test("a non-Error value is logged by type only", () => {
     expect(parse(formatLogLine("error", "gc.sweep", "alice at 10.0.0.1")).error).toBe("non-Error string");
   });
