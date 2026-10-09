@@ -81,8 +81,8 @@ async function join(browser: Browser, room: TestRoom, prefix: string): Promise<[
   if (a === undefined || b === undefined) throw new Error("no clients");
   return [a, b];
 }
-const chatRoom = (): TestRoom => testRoom("popout-perf", "frames");
-const stageRoom = (): TestRoom => testRoom("popout-room-perf", "frames");
+const chatRoom = (): TestRoom => testRoom("m7-spoof", "chat");
+const stageRoom = (): TestRoom => testRoom("m7-spoof", "stage");
 
 async function popOut(a: Client): Promise<Page> {
   const [pop] = await Promise.all([a.context.waitForEvent("page"), a.page.locator(site.chatPopout).click()]);

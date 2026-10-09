@@ -11,9 +11,8 @@
 //     animation/transition events and document.getAnimations()) on chat line arrival, full-screen enter/leave, the strip's
 //     collapse/expand, the pop-out placeholder and the report dialog; and every key/field on those surfaces has a
 //     non-empty accessible name.
-// Rooms: the e2e server seeds a fixed list (support/test-rooms.ts) and this spec owns none of it, so each test borrows a
-// room from a spec whose tests never read what these ones touch (members, chat) at the same moment; none shares a video
-// except the quality test, which uses the room of the Twitch "memory" case. Report answers are mocked in the page, so no
+// Rooms: each test has its own seeded room (support/test-rooms.ts, "m7-a11y"), so a full parallel run never shares one
+// with another spec or test. Report answers are mocked in the page, so no
 // report reaches the shared server state (report.e2e.ts expects the first one from its client to be "received").
 import AxeBuilder from "@axe-core/playwright";
 import type { Browser, BrowserContext, BrowserContextOptions, Page } from "@playwright/test";
@@ -321,7 +320,7 @@ let walked: string[] | null = null;
 test.describe.serial("the keyboard-only walk", () => {
 test("keyboard only, no mouse: join, sit, chat, full screen in and out, chat out and back, report, Close; focus is always visible and never on <body>", async ({ browser }) => {
   walked = null;
-  const room = testRoom("fullscreen", "seatfocus");
+  const room = testRoom("m7-a11y", "walkseat");
   const problems: string[] = [];
   // A second member reads the chat (joined the usual way: this is not the walk under test).
   const [b] = await join(browser, room);
@@ -452,20 +451,20 @@ for (const [title, re, why] of knownBugs) {
 test.describe("axe: zero violations on each new M7 surface", () => {
   for (const [name, w, h] of [["w1280", 1280, 720], ["w1920", 1920, 1080]] as const) {
     test(`wide layout ${String(w)}×${String(h)}`, async ({ browser }) => {
-      const page = await first(browser, testRoom("wide", name), DESKTOP(w, h));
+      const page = await first(browser, testRoom("m7-a11y", name), DESKTOP(w, h));
       await expect(page.locator(site.chatInput)).toBeVisible();
       expect(await violations(page)).toEqual([]);
     });
   }
 
   test("phone layout (390×844, touch)", async ({ browser }) => {
-    const page = await first(browser, testRoom("wide", "phone"), PHONE);
+    const page = await first(browser, testRoom("m7-a11y", "phone"), PHONE);
     await expect(page.locator(site.chatInput)).toBeVisible();
     expect(await violations(page)).toEqual([]);
   });
 
   test("full-screen strip, then its collapsed input bar", async ({ browser }) => {
-    const [a, b] = await join(browser, testRoom("wide", "fs"), 2, DESKTOP(1280, 720));
+    const [a, b] = await join(browser, testRoom("m7-a11y", "fs"), 2, DESKTOP(1280, 720));
     if (a === undefined || b === undefined) throw new Error("need 2 clients");
     await say(b.page, "a line in the strip");
     await a.page.locator(site.fullscreenToggle).focus();
@@ -480,7 +479,7 @@ test.describe("axe: zero violations on each new M7 surface", () => {
   });
 
   test("pop-out chat window (chat.html)", async ({ browser }) => {
-    const [a, b] = await join(browser, testRoom("popout-room", "chat"), 2);
+    const [a, b] = await join(browser, testRoom("m7-a11y", "chatwin"), 2);
     if (a === undefined || b === undefined) throw new Error("need 2 clients");
     await say(b.page, "a line for the window");
     const [pop] = await Promise.all([a.context.waitForEvent("page"), a.page.locator(site.chatPopout).click()]);
@@ -492,7 +491,7 @@ test.describe("axe: zero violations on each new M7 surface", () => {
   });
 
   test("pop-out room window (room.html)", async ({ browser }) => {
-    const [a] = await join(browser, testRoom("popout-room", "keys"));
+    const [a] = await join(browser, testRoom("m7-a11y", "roomwin"));
     if (a === undefined) throw new Error("no client");
     const [pop] = await Promise.all([a.context.waitForEvent("page"), a.page.locator(site.roomPopout).click()]);
     await pop.waitForLoadState();
@@ -505,7 +504,7 @@ test.describe("axe: zero violations on each new M7 surface", () => {
   });
 
   test("quality menu open (fake Twitch VOD)", async ({ browser, request }) => {
-    const room = testRoom("provider-quality", "memory");
+    const room = testRoom("m7-a11y", "quality");
     await shareProvider(request, providerCase("twitchVod").shareUrl, room.id);
     const [a] = await join(browser, room);
     if (a === undefined) throw new Error("no client");
@@ -518,7 +517,7 @@ test.describe("axe: zero violations on each new M7 surface", () => {
   });
 
   test("report dialog open, then the sent state", async ({ browser }) => {
-    const page = await first(browser, testRoom("report", "states"), undefined, async (context) => {
+    const page = await first(browser, testRoom("m7-a11y", "states"), undefined, async (context) => {
       await mockReport(context);
     });
     await openReport(page);
@@ -535,7 +534,7 @@ test.describe("axe: zero violations on each new M7 surface", () => {
 
   test("the takedown notice (4006)", async ({ browser }) => {
     const routes: Parameters<Parameters<BrowserContext["routeWebSocket"]>[1]>[0][] = [];
-    const page = await first(browser, testRoom("report", "gone"), undefined, async (context) => {
+    const page = await first(browser, testRoom("m7-a11y", "gone"), undefined, async (context) => {
       await context.routeWebSocket(/\/rooms\/[^/]+\/ws$/, (ws) => {
         routes.push(ws);
         ws.connectToServer();
@@ -548,7 +547,7 @@ test.describe("axe: zero violations on each new M7 surface", () => {
   });
 
   test("the chat log with lines", async ({ browser }) => {
-    const [a, b] = await join(browser, testRoom("walk", "main"), 2, DESKTOP(1280, 720));
+    const [a, b] = await join(browser, testRoom("m7-a11y", "log"), 2, DESKTOP(1280, 720));
     if (a === undefined || b === undefined) throw new Error("need 2 clients");
     await say(a.page, "first line");
     await say(b.page, "a reply with <b>markup</b> and a rather long run of words that wraps onto the next line of the log");
@@ -560,7 +559,7 @@ test.describe("axe: zero violations on each new M7 surface", () => {
   // The same log component sits in the page, the full-screen strip and chat.html, so one test.fail records it for all three.
   test("known bug: chat lines are <li>s directly inside a role=log <div>, which axe rule `listitem` rejects", async ({ browser }) => {
     test.fail(true, "[data-testid=chat-log] is a div with role=log holding <li> lines: wrap them in a <ul>/<ol> or make them role=listitem inside role=list");
-    const page = await first(browser, testRoom("walk", "main"), DESKTOP(1280, 720));
+    const page = await first(browser, testRoom("m7-a11y", "logone"), DESKTOP(1280, 720));
     await say(page, "a line");
     await expect(page.locator(site.chatLogLine).last()).toContainText("a line");
     expect(await violations(page)).toEqual([]);
@@ -578,7 +577,7 @@ test.describe("reduced motion: nothing animates for more than a blink, every key
   // The control: without the preference the same watcher does see motion, so a quiet log below means the page is still
   // and not that the watcher is blind.
   test("control: with no preference the watcher sees the surfaces move", async ({ browser }) => {
-    const [a, b] = await join(browser, testRoom("room-view", "main"), 2, DESKTOP(1280, 720), async (context, i) => {
+    const [a, b] = await join(browser, testRoom("m7-a11y", "motion"), 2, DESKTOP(1280, 720), async (context, i) => {
       if (i === 0) await watched(context);
     });
     if (a === undefined || b === undefined) throw new Error("need 2 clients");
@@ -589,7 +588,7 @@ test.describe("reduced motion: nothing animates for more than a blink, every key
   });
 
   test("chat line arrival, full-screen enter/leave, strip collapse/expand", async ({ browser }) => {
-    const [a, b] = await join(browser, testRoom("room-view", "main"), 2, reduced(DESKTOP(1280, 720)), async (context, i) => {
+    const [a, b] = await join(browser, testRoom("m7-a11y", "motionrm"), 2, reduced(DESKTOP(1280, 720)), async (context, i) => {
       if (i === 0) await watched(context);
     });
     if (a === undefined || b === undefined) throw new Error("need 2 clients");
@@ -626,7 +625,7 @@ test.describe("reduced motion: nothing animates for more than a blink, every key
   });
 
   test("the pop-out placeholder, the chat window and the room window", async ({ browser }) => {
-    const [a] = await join(browser, testRoom("popout-room", "reduced"), 1, reduced(), async (context) => {
+    const [a] = await join(browser, testRoom("m7-a11y", "reduced"), 1, reduced(), async (context) => {
       await watched(context);
     });
     if (a === undefined) throw new Error("no client");
@@ -652,7 +651,7 @@ test.describe("reduced motion: nothing animates for more than a blink, every key
   });
 
   test("the report dialog opens and sends without motion; its keys are named", async ({ browser }) => {
-    const page = await first(browser, testRoom("report", "send"), reduced(), async (context) => {
+    const page = await first(browser, testRoom("m7-a11y", "send"), reduced(), async (context) => {
       await watched(context);
       await mockReport(context);
     });
@@ -671,7 +670,7 @@ test.describe("reduced motion: nothing animates for more than a blink, every key
   });
 
   test("the quality menu's keys are named and it opens without motion", async ({ browser, request }) => {
-    const room = testRoom("provider-quality", "memory");
+    const room = testRoom("m7-a11y", "qreduced");
     await shareProvider(request, providerCase("twitchVod").shareUrl, room.id);
     const [a] = await join(browser, room, 1, reduced(), async (context) => {
       await watched(context);

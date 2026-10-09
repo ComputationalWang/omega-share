@@ -86,7 +86,7 @@ test("wide: frames per provider at 1920x1080 with a chat burst at the rate limit
     return;
   }
   test.setTimeout(420_000);
-  const room = testRoom("chat-perf", "frames");
+  const room = testRoom("wide-perf", "frames");
   await share(request, room.id, EMBED_URL);
   const clients = await joinRoom(browser, {
     roomUrl: room.url,
