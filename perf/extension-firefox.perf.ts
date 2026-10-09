@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { PENDING, available } from "../e2e/support/apps";
-import { embedLabels, launchFirefoxWithExtension, openFixture, openPopup } from "../e2e/support/firefox";
+import { embedLabels, embedsListedAt, launchFirefoxWithExtension, openFixture, openPopup } from "../e2e/support/firefox";
 import { BUDGETS } from "./budgets";
 import { p95, recordMetric } from "./metrics";
 
 // Firefox row of "Popup opened → embeds listed" (OME-593): the Firefox e2e build in headless Firefox via Puppeteer/BiDi.
-// A proxy like the Chromium row: the popup opens as a tab, and the harness polls each animation frame.
+// A proxy like the Chromium row: the popup opens as a tab (pointed at the fixture tab by `?tabId=`), and an in-page
+// MutationObserver timestamps the list, so BiDi round trips are not counted.
 const RUNS = 30;
 
 test.describe("extension perf (Firefox)", () => {
@@ -22,9 +23,9 @@ test.describe("extension perf (Firefox)", () => {
       const runs: number[] = [];
       for (let i = 0; i < RUNS; i++) {
         const popup = await openPopup(browser, page);
-        expect(await embedLabels(popup, 6)).toHaveLength(6);
         // performance.now() is relative to the popup's navigation start.
-        runs.push(await popup.evaluate(() => performance.now()));
+        runs.push(await embedsListedAt(popup, 6));
+        expect(await embedLabels(popup, 6)).toHaveLength(6);
         await popup.close();
       }
       const value = p95(runs);

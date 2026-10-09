@@ -58,7 +58,8 @@ export async function openFixture(browser: Browser, name: string): Promise<Page>
   const page = await browser.newPage();
   await page.setRequestInterception(true);
   page.on("request", (request) => void stubExternal(request));
-  await page.goto(`${URLS.fixtures}/${name}.html`);
+  // The scan reads iframe `src` attributes only, so the parsed document is enough; stubbed subframes may never "load".
+  await page.goto(`${URLS.fixtures}/${name}.html`, { waitUntil: "domcontentloaded" });
   return page;
 }
 
@@ -89,6 +90,33 @@ export async function openPopup(browser: Browser, target: Page): Promise<Page> {
 
 /** Embed item labels in the popup, once at least `count` are listed. */
 export async function embedLabels(popup: Page, count: number): Promise<string[]> {
-  await popup.waitForFunction((n) => document.querySelectorAll('[data-testid="embed-item"]').length >= n, { polling: "raf", timeout: 10_000 }, count);
+  await popup.waitForFunction((n) => document.querySelectorAll('[data-testid="embed-item"]').length >= n, { polling: "mutation", timeout: 10_000 }, count);
   return popup.$$eval('[data-testid="embed-item"]', (items) => items.map((item) => item.textContent.trim()));
+}
+
+/**
+ * When the popup listed `count` embeds, in ms since its navigation start (`performance.now()`), seen by a
+ * MutationObserver in the page, so BiDi round trips don't count. If they are already listed, it is "now": an upper bound.
+ */
+export async function embedsListedAt(popup: Page, count: number): Promise<number> {
+  return popup.evaluate(
+    (n) =>
+      new Promise<number>((resolve, reject) => {
+        const listed = (): boolean => document.querySelectorAll('[data-testid="embed-item"]').length >= n;
+        if (listed()) {
+          resolve(performance.now());
+          return;
+        }
+        const observer = new MutationObserver(() => {
+          if (!listed()) return;
+          observer.disconnect();
+          resolve(performance.now());
+        });
+        observer.observe(document, { subtree: true, childList: true });
+        setTimeout(() => {
+          reject(new Error(`fewer than ${String(n)} embeds listed after 10 s`));
+        }, 10_000);
+      }),
+    count,
+  );
 }
