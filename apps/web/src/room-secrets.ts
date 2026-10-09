@@ -48,18 +48,27 @@ function save(store: SecretsStore, rooms: Record<string, RoomSecret>): boolean {
 }
 
 /**
- * Merges `secret` into the room's record and makes it the newest; past MAX_ROOM_SECRETS the oldest go. Age is the
- * key order, which JSON keeps (created ids are 26 chars, never array-index keys, which objects would sort first).
+ * Merges `secret` into the room's record and makes it the newest. Past MAX_ROOM_SECRETS, invite-only rooms go first,
+ * oldest first, and only then rooms you own: every `#k=` link is saved before its key is known to work, and an owner
+ * token can't be recovered (OME-458). Age is the key order, which JSON keeps. Digit-only ids (seeded rooms) are
+ * array-index keys, which objects sort first, so they aren't saved: no such room has a secret (created ids are 26 chars).
  */
 export function rememberRoom(store: SecretsStore, id: RoomId, secret: RoomSecret): boolean {
+  if (/^\d+$/.test(id)) return false;
   const { [id]: prev, ...rest } = loadRoomSecrets(store).rooms;
-  const ids = Object.keys(rest);
-  const kept = ids.slice(Math.max(0, ids.length - (MAX_ROOM_SECRETS - 1)));
-  const rooms: Record<string, RoomSecret> = {};
-  for (const k of kept) {
-    const s = rest[k];
-    if (s !== undefined) rooms[k] = s;
+  const entries = Object.entries(rest);
+  let excess = entries.length - (MAX_ROOM_SECRETS - 1);
+  const dropped = new Set<string>();
+  for (const owned of [false, true]) {
+    for (const [k, s] of entries) {
+      if (excess <= 0) break;
+      if ((s.ownerToken !== undefined) !== owned) continue;
+      dropped.add(k);
+      excess -= 1;
+    }
   }
+  const rooms: Record<string, RoomSecret> = {};
+  for (const [k, s] of entries) if (!dropped.has(k)) rooms[k] = s;
   rooms[id] = { ...prev, ...secret };
   return save(store, rooms);
 }

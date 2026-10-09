@@ -115,6 +115,7 @@ export function mountHome(opts: HomeOptions): Home {
   const yours = el("ul", { className: "room-list" }, "your-rooms");
   const yoursSection = el("section", { className: "rooms-yours" });
   yoursSection.append(el("h2", { textContent: "Your rooms" }), yours);
+  const armed = new Set<string>();
   const renderYours = (): void => {
     const rooms = Object.entries(loadRoomSecrets(opts.store).rooms).reverse();
     yoursSection.hidden = rooms.length === 0;
@@ -126,13 +127,18 @@ export function mountHome(opts: HomeOptions): Home {
         const owner = secret.ownerToken !== undefined;
         const forget = el("button", { type: "button", className: "link", textContent: "Forget" }, "your-room-forget");
         // The owner token can't be recovered (research §2.4), so forgetting a room you own takes a second click.
-        let armed = !owner;
+        // Armed rooms live outside the render: the GET /rooms reply re-renders, and must not disarm a first click.
+        const confirm = (): void => {
+          forget.textContent = "Forget for good? You can't undo this";
+        };
+        if (armed.has(id)) confirm();
         forget.addEventListener("click", () => {
-          if (!armed) {
-            armed = true;
-            forget.textContent = "Forget for good? You can't undo this";
+          if (owner && !armed.has(id)) {
+            armed.add(id);
+            confirm();
             return;
           }
+          armed.delete(id);
           forgetRoom(opts.store, id);
           renderYours();
         });

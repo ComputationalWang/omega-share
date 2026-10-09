@@ -4,6 +4,7 @@ import { SEAT_COUNT, isSyncedEmbed, layoutSeats, type AnyEmbed, type Avatar, typ
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
+import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
 import { forgetRoom, inviteLink, joinMessage, type RoomSecret, type SecretsStore } from "./room-secrets";
 import { createInviteControl } from "./controls/invite";
 import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
@@ -567,6 +568,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
 
   const shareToken = trackShareToken(sessionStorage, opts.roomId);
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, dispatch };
   const c: Connection = createConnection({
     url: opts.socketUrl,
     join: joinMessage(opts.nickname, opts.avatar, opts.secret),
@@ -575,17 +577,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       clock.start();
     },
     onEvent: (e) => {
-      shareToken.onEvent(e);
-      if (e.type === "message") {
-        if (e.msg.type === "pong") clock.onPong(e.msg.id, e.msg.at);
-        else {
-          if (e.msg.type === "snapshot") playback.joined();
-          dispatch({ type: "server", msg: e.msg, now: Date.now() });
-        }
-      } else {
-        if (e.type === "disconnected") clock.stop();
-        dispatch(e);
-      }
+      routeConnectionEvent(e, sinks, Date.now());
     },
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (h) => {
