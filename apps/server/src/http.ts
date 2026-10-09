@@ -171,8 +171,17 @@ export function createHttpApp({
   // Dropped with the room (RoomRegistry.removeRoom).
   const roomShares = rooms.perRoom(() => new TokenBucket(ROOM_SHARE_BURST, ROOM_SHARE_PER_SECOND, now));
   // Folding a title is about 10 µs, so the verdict is kept per room rather than redone for every list
-  // request (OME-439). A title change (title-set) must `drop` the room's entry.
-  const listable = rooms.perRoom((room) => room.visibility === "public" && !titleBlocked(room.title));
+  // request (OME-439). It is keyed by the title it was made for, so a title-set re-checks on the next list.
+  const verdicts = rooms.perRoom((): { title: string | null; blocked: boolean } => ({ title: null, blocked: false }));
+  const listable = (room: Room): boolean => {
+    if (room.visibility !== "public") return false;
+    const verdict = verdicts.get(room);
+    if (verdict.title !== room.title) {
+      verdict.title = room.title;
+      verdict.blocked = titleBlocked(room.title);
+    }
+    return !verdict.blocked;
+  };
 
   const app = new Hono();
   app.use("*", async (c, next) => {
@@ -196,7 +205,7 @@ export function createHttpApp({
   app.get("/rooms", (c) => {
     // At most MAX_ROOMS (500) rooms: filtering and sorting them per request is microseconds (research P2).
     const listed: Listed[] = [];
-    for (const room of rooms.values()) if (listable.get(room)) listed.push({ room, summary: room.summary() });
+    for (const room of rooms.values()) if (listable(room)) listed.push({ room, summary: room.summary() });
     listed.sort(listOrder);
     const body: RoomListResponse = { rooms: listed.slice(0, MAX_LISTED_ROOMS).map((l) => l.summary) };
     return c.json(body);
