@@ -48,8 +48,8 @@ After the first valid report the item id is spent: later reports for it fail rul
 ### 5. What an advance does
 In one synchronous step: remove the first upcoming item, make it current with a fresh `rev`, persist, then publish on the room topic — **`embed-changed { embed, by: null, playback, itemId }` first** (it starts the players, so it's on the spread's critical path), then `queue-changed { queue, by }`. A synced item starts with a `load` state (`playing: true`, `position: 0`). **A generic item gets `playback: null` and stays click-to-load for every viewer** (ADR 0024): becoming current never loads its iframe on its own. A share does not touch the queue; it replaces only the current item.
 
-### 6. Persistence: SQLite migration `0003`
-The queue survives a restart, like the room's current embed (`rooms.embed`, migration 0001). S2 adds `apps/server/migrations/0003-queue.sql`:
+### 6. Persistence: SQLite migration `0005`
+The queue survives a restart, like the room's current embed (`rooms.embed`, migration 0001). S2 adds `apps/server/migrations/0005-queue.sql` (0003 is seat holds, 0004 control policy):
 
 ```sql
 CREATE TABLE queue_items (
