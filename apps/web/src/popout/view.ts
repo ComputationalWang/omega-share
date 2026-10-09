@@ -52,7 +52,7 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
   back.setAttribute("aria-label", "Put chat back in the page");
   back.append(sprite("ui-icon-popout-back"));
   const count = el("span", { className: "popout-people" });
-  count.append(sprite("ui-icon-people"), people);
+  count.append(sprite("ui-icon-people"), people, el("span", { className: "sr-only", textContent: " people" }));
   head.append(sprite("ui-icon-chat"), el("span", { className: "popout-title", textContent: "Chat" }), count, back);
 
   const log = createChatLog({ ageing: "settle", now: o.now, setTimer: o.setTimer, clearTimer: o.clearTimer });
@@ -77,10 +77,14 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
   });
   form.append(picker.root, input, send);
 
-  // Set (k) "the pop-out after the main tab closed": the plug, what happened, and what you can do here.
+  // Set (k) "the pop-out after the main tab closed": the plug, what happened, and what you can do here. A reload gives
+  // the room tab a new channel too (ADR 0034), so it reads the same. Superseded by a newer window (and the browser won't
+  // let this one close): it says where the chat went, and only Close is offered.
   const away = el("div", { className: "ui-panel ui-away popout-gone", role: "status", hidden: true }, "popout-gone");
+  const awayTitle = el("b");
+  const awayBody = el("span");
   const awayText = el("p");
-  awayText.append(el("b", { textContent: "The room's tab was closed." }), el("br"), "This window talks through it, so it left the room too.");
+  awayText.append(awayTitle, el("br"), awayBody);
   const openRoom = el("button", { type: "button", className: "ui-button", textContent: "Open the room here" }, "popout-open-room");
   const close = el("button", { type: "button", className: "ui-button secondary", textContent: "Close" }, "popout-close");
   const awayKeys = el("div", { className: "popout-gone-keys" });
@@ -98,9 +102,14 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
     send.disabled = off || held;
     picker.root.inert = off;
   };
+  /** Superseded by a newer window: for good (it never answers the room tab again). */
+  let moved = false;
   const setGone = (on: boolean): void => {
     gone = on;
     away.hidden = !on;
+    awayTitle.textContent = moved ? "Chat moved to another window." : "The room's tab was closed or reloaded.";
+    awayBody.textContent = moved ? "Use that window, or close this one." : "This window talks through it, so it left the room too.";
+    openRoom.hidden = moved;
     renderForm();
   };
   renderForm();
@@ -117,13 +126,22 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
     if (m === null) return;
     switch (m.t) {
       case "room-hello":
-        o.channel.post({ t: "pop-ready", pop });
+        if (!moved) o.channel.post({ t: "pop-ready", pop });
         return;
       case "room-adopt":
         if (m.pop !== pop) {
+          // Not adopted yet: that adopt was for a window that said ready before us; ours is on its way. Never close on it,
+          // or two windows opened at once could both go (QA OME-635).
+          if (!adopted || moved) return;
+          moved = true;
+          adopted = false;
+          o.channel.post({ t: "pop-bye", pop });
           o.closeWindow();
+          // Still here (a window the browser won't let a script close): say so instead of a live-looking dead field.
+          setGone(true);
           return;
         }
+        if (moved) return;
         o.clearTimer(wait);
         setGone(false);
         if (!adopted) {

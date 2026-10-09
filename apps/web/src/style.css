@@ -244,5 +244,6 @@ body:has(.is-pseudo-fs) { overflow: hidden; }
 .popout-chat input.is-muted { border-color: #3a3442; background: #2a2630; color: var(--muted); cursor: not-allowed; }
 .popout-chat[data-cooldown="true"] input, .popout-chat button:disabled { opacity: 0.6; }
 .popout-gone { --ui-px: 2px; position: absolute; left: 8px; right: 8px; top: 25%; z-index: 2; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .popout-gone-keys { display: flex; justify-content: center; gap: 8px; }
 .popout-gone .ui-button { font: inherit; font-weight: 700; }
