@@ -54,7 +54,7 @@ test(`[Relay under flood unmeasured] relay with 24 members and 1 flooder stays w
   console.log(`relay under flood: ${JSON.stringify(result)}`);
 }, 20_000);
 
-test(`[Relay under flood] control relay with 24 members chatting at the allowed rate and 1 flooder at 10× L1 stays within ${String(BUDGET_MS)} ms at p95 (OME-192)`, async () => {
+test(`[Relay under flood] control relay with 24 members chatting and emoting at the allowed rates and 1 flooder at 10× L1 stays within ${String(BUDGET_MS)} ms at p95 (OME-192, OME-414)`, async () => {
   const sharer = await Client.join(t.ws(), "sharer");
   const res = await postShare(t, JSON.stringify({ url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }), {
     token: tokenOf(sharer.snapshot),
@@ -68,6 +68,9 @@ test(`[Relay under flood] control relay with 24 members chatting at the allowed 
   // Legitimate traffic: every member chatted at the server's sustained chat rate, and none was ever rate-limited.
   expect(result.members?.chats).toBeGreaterThanOrEqual(MAX_ROOM_MEMBERS - 1);
   expect(result.members?.rateLimited).toBe(0);
+  // …and emoted at the sustained emote rate (OME-414): every member's emotes reached the room.
+  expect(result.members?.emotes).toBeGreaterThanOrEqual(MAX_ROOM_MEMBERS - 1);
+  expect(result.members?.emoted).toBeGreaterThanOrEqual(MAX_ROOM_MEMBERS - 1);
   // The attacker was throttled (`rate_limited`) and closed with 4029 at least once over the ~13 s run (ADR 0016/0018).
   expect(result.attacker?.sent).toBeGreaterThan(0);
   expect(result.attacker?.rateLimited).toBeGreaterThan(0);
