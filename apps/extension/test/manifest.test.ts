@@ -31,6 +31,11 @@ const cases = [
   { name: "e2e", browser: "chrome", mode: "e2e", hostPermissions: E2E_HOSTS },
   { name: "firefox production", browser: "firefox", mode: "production", hostPermissions: PRODUCTION_HOSTS },
   { name: "firefox e2e", browser: "firefox", mode: "e2e", hostPermissions: E2E_HOSTS },
+  // Firefox's permissions.contains says false for http://localhost:8987/* with only http://localhost/* granted (Chrome
+  // says true), so an e2e build for a run on OMEGA_SERVER_PORT also asks for that port (OME-611). Store builds never do.
+  { name: "firefox e2e on :8987", browser: "firefox", mode: "e2e", serverPort: "8987", hostPermissions: [...E2E_HOSTS, "http://localhost:8987/*"] },
+  { name: "firefox e2e on a bad port", browser: "firefox", mode: "e2e", serverPort: "8987/*,<all_urls>", hostPermissions: E2E_HOSTS },
+  { name: "firefox production with a port set", browser: "firefox", mode: "production", serverPort: "8987", hostPermissions: PRODUCTION_HOSTS },
 ] as const;
 
 const outRoot = mkdtempSync(join(tmpdir(), "omega-ext-manifest-"));
@@ -38,11 +43,17 @@ const manifests = new Map<string, unknown>();
 const outDir = (name: string): string => join(outRoot, name, "out");
 
 beforeAll(async () => {
-  for (const { name, browser, mode } of cases) {
+  const port = process.env["OMEGA_SERVER_PORT"];
+  for (const c of cases) {
+    const { name, browser, mode } = c;
+    if ("serverPort" in c) process.env["OMEGA_SERVER_PORT"] = c.serverPort;
+    else delete process.env["OMEGA_SERVER_PORT"];
     await build({ root: ROOT, mode, browser, manifestVersion: 3, outDir: join(outRoot, name), outDirTemplate: "out" });
     manifests.set(name, JSON.parse(readFileSync(join(outDir(name), "manifest.json"), "utf8")));
   }
-}, 120_000);
+  if (port === undefined) delete process.env["OMEGA_SERVER_PORT"];
+  else process.env["OMEGA_SERVER_PORT"] = port;
+}, 180_000);
 
 afterAll(() => {
   rmSync(outRoot, { recursive: true, force: true });
