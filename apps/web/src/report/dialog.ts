@@ -189,6 +189,8 @@ export function createReport(o: ReportOptions): ReportControl {
     syncForm();
     if (out.sent) {
       done = true;
+      // Closed while the answer was out: nothing will close it again, so the key sinks now.
+      if (!dialog.open) sink();
       already.hidden = !out.already;
       show(sent, sentTitle);
       closeKey.focus();

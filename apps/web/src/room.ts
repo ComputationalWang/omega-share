@@ -197,7 +197,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // has stopped; nothing here can bring it back.
   const closed = el("div", { className: "room-full", hidden: true }, "room-closed");
   const closedBody = el("p");
-  closed.append(el("h2", { textContent: "This room was closed" }), closedBody, el("a", { className: "enter", href: "/", textContent: "Go to the home page" }));
+  const closedHome = el("a", { className: "enter", href: "/", textContent: "Go to the home page" });
+  closed.append(el("h2", { textContent: "This room was closed" }), closedBody, closedHome);
   // "Report this room" (OME-601, ADR 0033): a guest's quiet key, the last stop of the room. Not made at all in a room you own.
   const report = opts.secret?.ownerToken === undefined ? createReport({ roomId: opts.roomId, serverUrl: opts.serverUrl, fetch: (url, init) => fetch(url, init), leave: () => { location.assign("/"); } }) : null;
   const foot = el("div", { className: "room-foot", hidden: true }, "room-foot");
@@ -852,7 +853,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const footShown = report !== null && !isClosed && !s.owner;
     if (foot.hidden === footShown) {
       foot.hidden = !footShown;
-      if (!footShown && report?.isOpen() === true) report.close();
+      if (!footShown && report?.isOpen() === true) {
+        report.close();
+        // The key went with the foot: focus moves to the card in its place, not to <body> (QA OME-640).
+        if (isClosed) closedHome.focus({ preventScroll: true });
+      }
     }
     if (shown.refused !== shownRefusal) {
       shownRefusal = shown.refused;
