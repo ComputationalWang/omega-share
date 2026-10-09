@@ -20,10 +20,13 @@
   "devDependencies": {
     "@omega/shared": "workspace:*",
     "@playwright/test": "^1.63.0",
+    "@puppeteer/browsers": "3.2.4",
     "@types/bun": "^1.4.2",
     "eslint": "^10.11.0",
+    "puppeteer-core": "^25.13.0",
     "typescript": "^6",
     "typescript-eslint": "^8.71.0",
-    "valibot": "^1.5.0"
+    "valibot": "^1.5.0",
+    "web-ext": "^10.7.0"
   }
 }
