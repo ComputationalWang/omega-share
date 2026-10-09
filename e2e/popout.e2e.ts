@@ -207,7 +207,7 @@ test("the room tab closed: the window shows the plug and offers to open the room
   await a.page.close({ runBeforeUnload: true });
   const gone = pop.locator(site.popoutGone);
   await expect(gone).toBeVisible();
-  await expect(gone).toContainText("The room's tab was closed.");
+  await expect(gone).toContainText("The room's tab was closed or reloaded.");
   await expect(pop.locator(site.chatInput)).toBeDisabled();
   await pop.locator(site.popoutOpenRoom).click();
   await expect(pop).toHaveURL(new RegExp(`/r/${testRoom("popout", "gone").id}$`));
@@ -267,4 +267,38 @@ test("muted, then removed, with the room tab hidden: the window says so at once,
   await setHidden(guest.page, false);
   await expect(guest.page.locator(site.chatAway)).toBeHidden();
   await expect(guest.page.locator(site.chatLog)).toBeVisible();
+});
+
+test("two windows opened at once: the page is never left waiting on a window that's gone (QA OME-635)", async ({ browser }) => {
+  // Every pop-out press opens two windows in one task, as a double open would.
+  const [a] = await join(browser, "twice", 1, undefined, () => {
+    const open = window.open.bind(window);
+    window.open = (...args: Parameters<typeof window.open>) => {
+      open(...args);
+      return open(...args);
+    };
+  });
+  if (a === undefined) throw new Error("no client");
+  for (let round = 0; round < 5; round++) {
+    const opened: Page[] = [];
+    const onPage = (p: Page): void => {
+      opened.push(p);
+    };
+    a.context.on("page", onPage);
+    await a.page.locator(site.chatPopout).click();
+    await expect.poll(() => opened.length).toBe(2);
+    await a.page.waitForTimeout(1000);
+    a.context.off("page", onPage);
+    const live = opened.filter((p) => !p.isClosed());
+    // One window survives and is the chat: the page waits on it, and it can talk.
+    expect(live, `round ${String(round)}`).toHaveLength(1);
+    await expect(a.page.locator(site.chatAway)).toBeVisible();
+    const [pop] = live;
+    if (pop === undefined) throw new Error("no window");
+    await expect(pop.locator(site.chatInput)).toBeEnabled();
+    const closed = pop.waitForEvent("close");
+    await a.page.locator(site.chatBringBack).click();
+    await closed;
+    await expect(a.page.locator(site.chatInput)).toBeVisible();
+  }
 });

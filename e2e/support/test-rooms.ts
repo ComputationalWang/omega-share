@@ -26,7 +26,7 @@ export const SPEC_ROOMS = {
   fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab"],
   "provider-fullscreen": ["yt", "twvod", "vimeo", "live", "generic"],
   "fullscreen-perf": ["frames"],
-  popout: ["relay", "back", "reopen", "hidden", "gone", "offer"],
+  popout: ["relay", "back", "reopen", "hidden", "gone", "offer", "twice"],
   "popout-perf": ["frames"],
 } as const;
 

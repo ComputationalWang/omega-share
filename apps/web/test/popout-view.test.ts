@@ -212,6 +212,35 @@ describe("pop-out chat window", () => {
     expect(c.closed()).toBe(0);
   });
 
+  test("two windows ready at once: one not yet adopted ignores an adopt meant for another, so the newest survives (QA OME-635)", async () => {
+    const { from, take, closed, q } = await setup();
+    take();
+    from({ t: "room-adopt", pop: "p0" });
+    expect(closed()).toBe(0);
+    from({ t: "room-adopt", pop: "p1" });
+    expect(closed()).toBe(0);
+    expect(q("[data-testid=chat-input]", HTMLInputElement).disabled).toBe(false);
+  });
+
+  test("superseded, it says goodbye before closing, and if the browser keeps it open it says the chat moved (QA OME-635)", async () => {
+    const { adopt, from, take, closed, q } = await setup();
+    adopt();
+    from({ t: "room-adopt", pop: "p2" });
+    expect(take()).toEqual([{ t: "pop-bye", pop: "p1" }]);
+    expect(closed()).toBe(1);
+    const away = q("[data-testid=popout-gone]", HTMLElement);
+    expect(away.hidden).toBe(false);
+    expect(away.textContent).toContain("Chat moved to another window.");
+    expect(q("[data-testid=popout-open-room]", HTMLButtonElement).hidden).toBe(true);
+    expect(q("[data-testid=chat-input]", HTMLInputElement).disabled).toBe(true);
+  });
+
+  test("the head count has words for a screen reader (QA OME-635)", async () => {
+    const { adopt, root } = await setup();
+    adopt();
+    expect(root.querySelector(".popout-people")?.textContent).toBe("7 / 8 people");
+  });
+
   test("pings the room tab while open, so a window closed without a word is noticed", async () => {
     const { adopt, take, advance, POP_PING_MS } = await setup();
     adopt();
@@ -226,7 +255,7 @@ describe("pop-out chat window", () => {
     const away = q("[data-testid=popout-gone]", HTMLElement);
     expect(away.hidden).toBe(false);
     expect(away.getAttribute("role")).toBe("status");
-    expect(away.textContent).toContain("The room's tab was closed.");
+    expect(away.textContent).toContain("The room's tab was closed or reloaded.");
     expect(away.querySelector(".ui-icon-unplugged")).not.toBeNull();
     expect(q("[data-testid=chat-input]", HTMLInputElement).disabled).toBe(true);
     q("[data-testid=popout-open-room]", HTMLButtonElement).click();
