@@ -1,5 +1,6 @@
-// The chat log (OME-594, M7 W1, set k): one capped list for the room page, the full-screen strip (W2) and the pop-out
-// (W3). DOM, text only. A message is one append and, at the cap, one removal of the oldest: nothing is redrawn.
+// The chat log (OME-594, M7 W1, set k): one capped log for the room page, the full-screen strip (W2) and the pop-out
+// (W3). DOM, text only: a role=log of plain lines, not <li>s (role=log replaces a list's role, so axe's `listitem`
+// fails, OME-701). A message is one append and, at the cap, one removal of the oldest: nothing is redrawn.
 // Lines age by tone, never by alpha (assets/ui/reference.css .ui-fs-line): fresh → settled at 6 s → faded at 20 s, the
 // last only where the log fades (the strip). One timer for the whole log, and nothing ages while the pointer or focus is
 // in it (WCAG 2.2.2): the hold is added to every line's age when it ends. The one-frame scrim on a turn is CSS, and
@@ -29,7 +30,7 @@ export interface ChatLogOptions<H> {
 }
 
 export interface ChatLog {
-  readonly root: HTMLOListElement;
+  readonly root: HTMLDivElement;
   append(entry: ChatLogEntry): void;
   setAgeing(ageing: ChatLogAgeing): void;
   /** Drop every line (the pop-out's log when its room tab sends the backlog again). */
@@ -37,28 +38,28 @@ export interface ChatLog {
 }
 
 interface Line {
-  readonly el: HTMLLIElement;
+  readonly el: HTMLDivElement;
   /** When it arrived, pushed later by every hold since. */
   born: number;
   /** 0 fresh, 1 settled, 2 faded. */
   stage: 0 | 1 | 2;
 }
 
-function lineEl(entry: ChatLogEntry): HTMLLIElement {
+function lineEl(entry: ChatLogEntry): HTMLDivElement {
   if (entry.kind === "system") {
-    const li = el("li", { className: "chat-log-sys" }, "chat-log-line");
-    li.append(syslineEl(entry.line));
-    return li;
+    const line = el("div", { className: "chat-log-sys" }, "chat-log-line");
+    line.append(syslineEl(entry.line));
+    return line;
   }
-  const li = el("li", { className: entry.self ? "ui-fs-line chat-log-line self" : "ui-fs-line chat-log-line" }, "chat-log-line");
-  li.append(el("b", { textContent: entry.nickname }), ` ${entry.text}`);
-  return li;
+  const line = el("div", { className: entry.self ? "ui-fs-line chat-log-line self" : "ui-fs-line chat-log-line" }, "chat-log-line");
+  line.append(el("b", { textContent: entry.nickname }), ` ${entry.text}`);
+  return line;
 }
 
 export function createChatLog<H>(opts: ChatLogOptions<H>): ChatLog {
   const cap = opts.cap ?? CHAT_LOG_CAP;
   let ageing = opts.ageing;
-  const root = el("ol", { className: "ui-fs-lines chat-log", tabIndex: 0 }, "chat-log");
+  const root = el("div", { className: "ui-fs-lines chat-log", tabIndex: 0 }, "chat-log");
   root.setAttribute("role", "log");
   root.setAttribute("aria-live", "polite");
   root.setAttribute("aria-label", opts.label ?? "Chat messages");

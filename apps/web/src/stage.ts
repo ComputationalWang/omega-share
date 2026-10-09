@@ -133,9 +133,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     const ready = needsAtlas ? atlas : null;
     scene = sceneOf(next, ready?.manifest ?? null);
     view.setScene(scene, ready, grid);
+    // The translate property, not transform: style.css turns the seat into the floor diamond with its transform.
     seatButtons.forEach((b, i) => {
       const p = seats[i];
-      if (p !== undefined) place(b, p);
+      if (p !== undefined) b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
     });
     drawnSeats = undefined;
     if (!needsAtlas || ready !== null) return;

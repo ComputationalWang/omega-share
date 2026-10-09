@@ -556,7 +556,7 @@ test.describe("axe: zero violations on each new M7 surface", () => {
   });
 
   // The same log component sits in the page, the full-screen strip and chat.html (OME-701: its lines were bare <li>s).
-  test("chat lines sit in a list inside the role=log, so axe rule `listitem` passes", async ({ browser }) => {
+  test("chat lines are not bare <li>s inside the role=log, so axe rule `listitem` passes", async ({ browser }) => {
     const page = await first(browser, testRoom("m7-a11y", "logone"), DESKTOP(1280, 720));
     await say(page, "a line");
     await expect(page.locator(site.chatLogLine).last()).toContainText("a line");
