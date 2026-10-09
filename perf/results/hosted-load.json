@@ -1,0 +1,615 @@
+{
+  "issue": "OME-511",
+  "at": "2026-10-09T08:08:22.228Z",
+  "release": "fad7d5f9a229cee3eddfb33a40935c08d4179137",
+  "origin": "https://omega-share.duckdns.org",
+  "config": {
+    "rooms": 20,
+    "clientsPerRoom": 25,
+    "clients": 500,
+    "viaWss": 5,
+    "viaTunnel": 495,
+    "minutes": 10,
+    "chatPerMemberPerS": 1,
+    "controlPerRoomPerS": 4,
+    "seatedPerRoom": 8
+  },
+  "budget": {
+    "relayP95Ms": 50,
+    "rssMB": 300,
+    "cpuPercent": 70,
+    "restartS": 5
+  },
+  "checks": {
+    "relayP95": true,
+    "rss": true,
+    "cpu": true,
+    "rateLimited": true,
+    "restart": true
+  },
+  "steady": {
+    "box": {
+      "seconds": 600,
+      "relayFrames": 333861,
+      "relayP50Ms": 0.032,
+      "relayP95Ms": 0.092,
+      "relayP99Ms": 0.171,
+      "relayMeanMs": 0.0384,
+      "cpuAvgPercent": 23.3,
+      "cpuMaxIntervalPercent": 25.7,
+      "rssMaxMB": "82.9",
+      "rows": [
+        {
+          "t": 10,
+          "cpuPercent": 22.5,
+          "rssMB": 82.9,
+          "relayP95Ms": 0.082,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 20,
+          "cpuPercent": 22.3,
+          "rssMB": 79.7,
+          "relayP95Ms": 0.083,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 30,
+          "cpuPercent": 22.3,
+          "rssMB": 81.3,
+          "relayP95Ms": 0.079,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 40,
+          "cpuPercent": 22.2,
+          "rssMB": 81.6,
+          "relayP95Ms": 0.078,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 50,
+          "cpuPercent": 21.9,
+          "rssMB": 80.3,
+          "relayP95Ms": 0.079,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 60,
+          "cpuPercent": 22.5,
+          "rssMB": 80.3,
+          "relayP95Ms": 0.08,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 71,
+          "cpuPercent": 22.7,
+          "rssMB": 82.4,
+          "relayP95Ms": 0.082,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 81,
+          "cpuPercent": 22,
+          "rssMB": 82.4,
+          "relayP95Ms": 0.077,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 91,
+          "cpuPercent": 22.4,
+          "rssMB": 82.3,
+          "relayP95Ms": 0.079,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 101,
+          "cpuPercent": 22.1,
+          "rssMB": 80.9,
+          "relayP95Ms": 0.078,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 111,
+          "cpuPercent": 22.2,
+          "rssMB": 80.1,
+          "relayP95Ms": 0.08,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 121,
+          "cpuPercent": 22.3,
+          "rssMB": 80.1,
+          "relayP95Ms": 0.079,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 131,
+          "cpuPercent": 22.3,
+          "rssMB": 80.1,
+          "relayP95Ms": 0.079,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 141,
+          "cpuPercent": 22,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.075,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 151,
+          "cpuPercent": 22.1,
+          "rssMB": 79.8,
+          "relayP95Ms": 0.08,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 161,
+          "cpuPercent": 22.5,
+          "rssMB": 82.4,
+          "relayP95Ms": 0.078,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 171,
+          "cpuPercent": 22.2,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.081,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 181,
+          "cpuPercent": 21.9,
+          "rssMB": 80.1,
+          "relayP95Ms": 0.076,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 191,
+          "cpuPercent": 22.2,
+          "rssMB": 80.1,
+          "relayP95Ms": 0.078,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 202,
+          "cpuPercent": 22.2,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.081,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 212,
+          "cpuPercent": 22.2,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.079,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 222,
+          "cpuPercent": 22,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.081,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 232,
+          "cpuPercent": 22.6,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.083,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 242,
+          "cpuPercent": 22.5,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.082,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 252,
+          "cpuPercent": 22.5,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.085,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 262,
+          "cpuPercent": 22.8,
+          "rssMB": 80,
+          "relayP95Ms": 0.084,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 272,
+          "cpuPercent": 22.5,
+          "rssMB": 80,
+          "relayP95Ms": 0.084,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 282,
+          "cpuPercent": 22.4,
+          "rssMB": 80,
+          "relayP95Ms": 0.083,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 292,
+          "cpuPercent": 22.5,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.084,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 302,
+          "cpuPercent": 23.4,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.092,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 312,
+          "cpuPercent": 22.8,
+          "rssMB": 80,
+          "relayP95Ms": 0.086,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 323,
+          "cpuPercent": 22.6,
+          "rssMB": 80,
+          "relayP95Ms": 0.085,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 333,
+          "cpuPercent": 22.4,
+          "rssMB": 80,
+          "relayP95Ms": 0.085,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 343,
+          "cpuPercent": 23,
+          "rssMB": 80,
+          "relayP95Ms": 0.091,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 353,
+          "cpuPercent": 23.1,
+          "rssMB": 80,
+          "relayP95Ms": 0.09,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 363,
+          "cpuPercent": 22.2,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.082,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 373,
+          "cpuPercent": 22.5,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.084,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 383,
+          "cpuPercent": 23,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.091,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 393,
+          "cpuPercent": 23.9,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.095,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 403,
+          "cpuPercent": 24.3,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.096,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 413,
+          "cpuPercent": 24.7,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.097,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 423,
+          "cpuPercent": 25.3,
+          "rssMB": 80,
+          "relayP95Ms": 0.099,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 433,
+          "cpuPercent": 24.5,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.097,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 444,
+          "cpuPercent": 25.3,
+          "rssMB": 80.2,
+          "relayP95Ms": 0.098,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 454,
+          "cpuPercent": 25.2,
+          "rssMB": 79.8,
+          "relayP95Ms": 0.098,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 464,
+          "cpuPercent": 25.4,
+          "rssMB": 80,
+          "relayP95Ms": 0.098,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 474,
+          "cpuPercent": 24.8,
+          "rssMB": 80,
+          "relayP95Ms": 0.097,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 484,
+          "cpuPercent": 25.2,
+          "rssMB": 80,
+          "relayP95Ms": 0.098,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 494,
+          "cpuPercent": 25,
+          "rssMB": 80,
+          "relayP95Ms": 0.098,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 504,
+          "cpuPercent": 25,
+          "rssMB": 80,
+          "relayP95Ms": 0.097,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 514,
+          "cpuPercent": 24.2,
+          "rssMB": 80,
+          "relayP95Ms": 0.097,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 524,
+          "cpuPercent": 25.4,
+          "rssMB": 80,
+          "relayP95Ms": 0.099,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 534,
+          "cpuPercent": 25.1,
+          "rssMB": 80,
+          "relayP95Ms": 0.098,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 544,
+          "cpuPercent": 24.7,
+          "rssMB": 80,
+          "relayP95Ms": 0.097,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 555,
+          "cpuPercent": 25.2,
+          "rssMB": 80,
+          "relayP95Ms": 0.098,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 565,
+          "cpuPercent": 25.7,
+          "rssMB": 80.1,
+          "relayP95Ms": 0.099,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 575,
+          "cpuPercent": 24.9,
+          "rssMB": 80.1,
+          "relayP95Ms": 0.097,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 585,
+          "cpuPercent": 24.7,
+          "rssMB": 80,
+          "relayP95Ms": 0.097,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 595,
+          "cpuPercent": 24.6,
+          "rssMB": 80,
+          "relayP95Ms": 0.097,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 600,
+          "cpuPercent": 24.5,
+          "rssMB": 80,
+          "relayP95Ms": 0.095,
+          "sockets": 500,
+          "members": 500
+        }
+      ]
+    },
+    "clients": {
+      "chatsSent": 290712,
+      "controlsSent": 48380,
+      "rateLimited": 0,
+      "errors": {},
+      "closes": {},
+      "chatEchoP50Ms": 18.3,
+      "chatEchoP95Ms": 22,
+      "controlEchoP50Ms": 25.3,
+      "controlEchoP95Ms": 31
+    }
+  },
+  "drill": {
+    "restartCommand": "RESTART-EXIT=0",
+    "restartCommandS": 0.16,
+    "clients": 500,
+    "recovered": 500,
+    "notRecovered": [],
+    "closeCodes": {
+      "1012": 500
+    },
+    "dropToBackP50S": 0.43,
+    "dropToBackP95S": 0.56,
+    "dropToBackMaxS": 0.62,
+    "restartToAllBackS": 0.71,
+    "viaWssMaxS": 0.62,
+    "seatedBack": 160,
+    "seatedExpected": 160,
+    "afterRestart": {
+      "seconds": 61,
+      "relayFrames": 33648,
+      "relayP50Ms": 0.045,
+      "relayP95Ms": 0.099,
+      "relayP99Ms": 0.22,
+      "relayMeanMs": 0.0488,
+      "cpuAvgPercent": 25.6,
+      "cpuMaxIntervalPercent": 26.2,
+      "rssMaxMB": "81.3",
+      "rows": [
+        {
+          "t": 10,
+          "cpuPercent": 26.2,
+          "rssMB": 81.3,
+          "relayP95Ms": 0.127,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 20,
+          "cpuPercent": 26.2,
+          "rssMB": 80.8,
+          "relayP95Ms": 0.099,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 30,
+          "cpuPercent": 25.4,
+          "rssMB": 79.9,
+          "relayP95Ms": 0.098,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 40,
+          "cpuPercent": 24.9,
+          "rssMB": 80.3,
+          "relayP95Ms": 0.098,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 50,
+          "cpuPercent": 25.7,
+          "rssMB": 80.6,
+          "relayP95Ms": 0.098,
+          "sockets": 500,
+          "members": 500
+        },
+        {
+          "t": 61,
+          "cpuPercent": 25.1,
+          "rssMB": 78.6,
+          "relayP95Ms": 0.098,
+          "sockets": 500,
+          "members": 500
+        }
+      ]
+    }
+  },
+  "finalMetrics": "# HELP omega_rooms Live rooms.\n# TYPE omega_rooms gauge\nomega_rooms 22\n# HELP omega_sockets Open WebSockets, joined or not.\n# TYPE omega_sockets gauge\nomega_sockets 0\n# HELP omega_members Joined members, all rooms.\n# TYPE omega_members gauge\nomega_members 0\n# HELP omega_relay_latency_seconds Server time from a frame's arrival to its fan-out.\n# TYPE omega_relay_latency_seconds histogram\nomega_relay_latency_seconds_bucket{le=\"0.00005\"} 19479\nomega_relay_latency_seconds_bucket{le=\"0.0001\"} 33154\nomega_relay_latency_seconds_bucket{le=\"0.00025\"} 34736\nomega_relay_latency_seconds_bucket{le=\"0.0005\"} 34857\nomega_relay_latency_seconds_bucket{le=\"0.001\"} 34877\nomega_relay_latency_seconds_bucket{le=\"0.0025\"} 34888\nomega_relay_latency_seconds_bucket{le=\"0.005\"} 34888\nomega_relay_latency_seconds_bucket{le=\"0.01\"} 34891\nomega_relay_latency_seconds_bucket{le=\"0.025\"} 34891\nomega_relay_latency_seconds_bucket{le=\"0.05\"} 34891\nomega_relay_latency_seconds_bucket{le=\"+Inf\"} 34891\nomega_relay_latency_seconds_sum 1.7740152299995418\nomega_relay_latency_seconds_count 34891\n# HELP omega_ws_closes_total WebSocket closes the server sent, by close code.\n# TYPE omega_ws_closes_total counter\nomega_ws_closes_total{code=\"4001\"} 0\nomega_ws_closes_total{code=\"4002\"} 0\nomega_ws_closes_total{code=\"4004\"} 0\nomega_ws_closes_total{code=\"4029\"} 0\nomega_ws_closes_total{code=\"4400\"} 0\nomega_ws_closes_total{code=\"4005\"} 0\nomega_ws_closes_total{code=\"1012\"} 0\n# HELP process_resident_memory_bytes Resident set size.\n# TYPE process_resident_memory_bytes gauge\nprocess_resident_memory_bytes 83107840\n# HELP process_uptime_seconds Seconds since the process started.\n# TYPE process_uptime_seconds gauge\nprocess_uptime_seconds 62.340081331\n"
+}

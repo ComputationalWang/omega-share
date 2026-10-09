@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-09T08:12:46.288Z",
+  "needles": 584,
+  "metrics": {
+    "bytes": 1716,
+    "lines": 40,
+    "hits": [],
+    "ipv4": [],
+    "ipv6": []
+  },
+  "journal": {
+    "bytes": 12645,
+    "lines": 98,
+    "hits": [],
+    "ipv4": [
+      "127.0.0.1"
+    ],
+    "ipv6": []
+  },
+  "outside": {
+    "https://origin/metrics": "200 no metrics",
+    "https://origin/metrics Host:127.0.0.1:9464": "200 no metrics",
+    "http://$SERVER_IP:9464/metrics": "no answer (TimeoutError)",
+    "app port via tunnel /metrics": "200 no metrics",
+    "metrics port via tunnel-side Host check": "421 no metrics"
+  }
+}

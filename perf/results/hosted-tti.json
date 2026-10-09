@@ -1,0 +1,51 @@
+{
+  "at": "2026-10-09T07:32:32.092Z",
+  "throttling": {
+    "preset": "Fast 4G (Chrome DevTools)",
+    "offline": false,
+    "latency": 165,
+    "downloadThroughput": 1012500,
+    "uploadThroughput": 168750
+  },
+  "target": "< 2500 ms (measured, not blocking in M6)",
+  "results": [
+    {
+      "url": "https://omega-share.duckdns.org/",
+      "tti": [
+        685,
+        441,
+        450,
+        436,
+        442
+      ],
+      "load": [
+        696,
+        448,
+        458,
+        444,
+        449
+      ],
+      "medianMs": 442,
+      "maxMs": 685
+    },
+    {
+      "url": "https://omega-share.duckdns.org/rooms/lobby",
+      "tti": [
+        479,
+        456,
+        454,
+        481,
+        496
+      ],
+      "load": [
+        503,
+        468,
+        461,
+        498,
+        513
+      ],
+      "medianMs": 479,
+      "maxMs": 496
+    }
+  ]
+}
