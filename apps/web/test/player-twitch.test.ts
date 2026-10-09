@@ -4,6 +4,7 @@ import type { PlayerErrorReason, PlayerEvent } from "../src/player/adapter";
 import {
   AD_FROZEN_MS,
   ECHO_WINDOW_MS,
+  LIVE_RESUME_MS,
   PUSH_LAG_MS,
   READY_TIMEOUT_MS,
   SEEK_ECHO_MS,
@@ -348,6 +349,65 @@ describe("attachTwitch", () => {
     p.fire("pause");
     expect(intents(events)).toEqual([{ type: "intent", playing: false, position: 21.5 }]);
     expect(events).toContainEqual({ type: "state", state: "paused" });
+  });
+
+  test("live: a pause/play from the player right after our resume (mid-roll at the live edge) is not an intent", () => {
+    const { t, adapter, p, events, ready, push } = setup(LIVE);
+    ready();
+    adapter.play();
+    push({ playback: "Playing" });
+    p.fire("play");
+    t.now += ECHO_WINDOW_MS + 500;
+    push({ playback: "Idle" });
+    p.fire("pause");
+    expect(events).toContainEqual({ type: "state", state: "paused" });
+    t.now = LIVE_RESUME_MS - 100;
+    push({ playback: "Playing" });
+    p.fire("play");
+    p.fire("playing");
+    expect(events.at(-1)).toEqual({ type: "state", state: "playing" });
+    expect(intents(events)).toEqual([]);
+  });
+
+  test("live: a pause later than the resume window is the member's", () => {
+    const { t, adapter, p, events, ready, push } = setup(LIVE);
+    ready();
+    adapter.play();
+    push({ playback: "Playing" });
+    p.fire("play");
+    t.now += LIVE_RESUME_MS + 100;
+    push({ playback: "Idle" });
+    p.fire("pause");
+    expect(intents(events)).toEqual([{ type: "intent", playing: false, position: 0 }]);
+  });
+
+  test("live: the resume window follows our play only; a play after our pause is the member's", () => {
+    const { t, adapter, p, events, ready, push } = setup(LIVE);
+    ready();
+    adapter.play();
+    push({ playback: "Playing" });
+    p.fire("play");
+    t.now += LIVE_RESUME_MS + 100;
+    adapter.pause();
+    push({ playback: "Idle" });
+    p.fire("pause");
+    t.now += ECHO_WINDOW_MS + 500;
+    push({ playback: "Playing" });
+    p.fire("play");
+    expect(intents(events)).toEqual([{ type: "intent", playing: true, position: 0 }]);
+  });
+
+  test("VOD keeps the 1 s echo window after a resume (no live resume window)", () => {
+    const { t, adapter, p, events, ready, push } = setup();
+    ready();
+    adapter.play();
+    push({ playback: "Playing", time: 20 });
+    p.fire("play");
+    t.now += ECHO_WINDOW_MS + 500;
+    expect(t.now).toBeLessThan(LIVE_RESUME_MS);
+    push({ playback: "Idle", time: 21.5 });
+    p.fire("pause");
+    expect(intents(events)).toEqual([{ type: "intent", playing: false, position: 21.5 }]);
   });
 
   test("play/pause before we ever commanded the player (autoplay at load) is not an intent", () => {
