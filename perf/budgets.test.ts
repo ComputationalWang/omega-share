@@ -222,6 +222,27 @@ describe("checkManifest", () => {
   test("rejects non-object input", () => {
     expect(() => checkManifest("nope")).toThrow();
   });
+  test("Firefox: a non-persistent event page (background.scripts) is clean, as Firefox MV3 has no service worker (OME-593)", () => {
+    expect(checkManifest({ manifest_version: 3, background: { scripts: ["background.js"] } }, "firefox").persistentBackground).toEqual([]);
+  });
+  test("Firefox: a persistent or page background, or a service worker Firefox would ignore, is flagged", () => {
+    expect(checkManifest({ manifest_version: 3, background: { scripts: ["bg.js"], persistent: true } }, "firefox").persistentBackground.length).toBe(1);
+    expect(checkManifest({ manifest_version: 3, background: { page: "bg.html" } }, "firefox").persistentBackground.length).toBe(1);
+    expect(checkManifest({ manifest_version: 3, background: { service_worker: "bg.js" } }, "firefox").persistentBackground.length).toBe(1);
+  });
+});
+
+describe("Firefox extension rows (OME-593)", () => {
+  test("each extension budget has a Firefox row at the same limit, with its own doc row", () => {
+    for (const base of ["ext.popupToList", "ext.contentScripts", "ext.persistentBackground"]) {
+      const b = BUDGETS.find((x) => x.id === base);
+      const ff = BUDGETS.find((x) => x.id === base.replace("ext.", "ext.firefox."));
+      if (b === undefined || ff === undefined) throw new Error(`no ${base} or its Firefox row`);
+      expect([ff.area, ff.limit, ff.unit, ff.comparator]).toEqual([b.area, b.limit, b.unit, b.comparator]);
+      expect(ff.docMetric).toBe(`${b.docMetric}, Firefox`);
+      expect(DOC_ROWS.some(([, metric]) => metric === ff.docMetric)).toBe(true);
+    }
+  });
 });
 
 describe("initialJsGzipKb", () => {

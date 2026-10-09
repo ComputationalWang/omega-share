@@ -113,3 +113,10 @@ for (const name of ["production", "firefox production"]) {
   });
 }
 
+
+// The Firefox lane's popup opener (OME-593): BiDi can't navigate to moz-extension://, so the e2e build's background
+// opens popup.html?tabId= when a tab's hash asks for it. It must never reach a store build.
+test("only the e2e builds carry the background's e2e popup opener", () => {
+  expect(code("firefox e2e")).toContain("omega-e2e-popup");
+  for (const name of ["production", "firefox production"]) expect(code(name)).not.toContain("omega-e2e-popup");
+});
