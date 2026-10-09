@@ -30,7 +30,9 @@ async function setup(r: RoomState = room(), owner = false) {
   let state: ViewState = reduce(initialState, { type: "server", msg: { type: "snapshot", self: "me", room: r, owner }, now: 0 });
   const sent: ClientMessage[] = [];
   const net = { up: true };
+  const clock = { now: 1_000_000 };
   const panel = createQueuePanel({
+    now: () => clock.now,
     send: (m) => {
       if (!net.up) return false;
       sent.push(m);
@@ -54,7 +56,7 @@ async function setup(r: RoomState = room(), owner = false) {
     (q("queue-url") as HTMLInputElement).value = url;
     (q("queue-form") as HTMLFormElement).requestSubmit();
   };
-  return { panel, sent, net, server, q, rows, paste, state: () => state };
+  return { panel, sent, net, clock, server, q, rows, paste, state: () => state };
 }
 
 describe("the list", () => {
@@ -121,6 +123,16 @@ describe("renders once per change, never per frame", () => {
   });
 });
 
+test("a pre-M6 server (no queue in the room) still draws the panel once, not on every update", async () => {
+  const old: RoomState = room();
+  delete old.queue;
+  const { panel, server } = await setup(old);
+  const base = panel.renders();
+  server({ type: "chat", memberId: "kit", text: "hi", at: 1 });
+  server({ type: "playback", playback: { playing: false, position: 3, rate: 1, at: 1, rev: 5, action: "pause", by: "kit" } });
+  expect(panel.renders()).toBe(base);
+});
+
 describe("paste a link", () => {
   test("a video link is sent as queue-add with the raw url, and the field clears", async () => {
     const { sent, paste, q } = await setup();
@@ -177,6 +189,32 @@ describe("paste a link", () => {
     paste("https://example.org/videos/43");
     server({ type: "error", code: "rate_limited", message: "slow", retryAfterMs: 4000 });
     expect(q("queue-problem").textContent).toBe("Too many links at once. Try again in a few seconds.");
+  });
+
+  test("another member's queue change before the server refuses my add doesn't hide the refusal", async () => {
+    const { paste, server, q } = await setup();
+    paste("https://example.org/videos/42");
+    server({ type: "queue-changed", queue: [item("k1", yt("dQw4w9WgXcQ"), "kit")], by: "kit" });
+    server({ type: "error", code: "unsupported_url", message: "no" });
+    expect(q("queue-problem").textContent).toBe("That link can't be played in this room.");
+    expect((q("queue-url") as HTMLInputElement).value).toBe("https://example.org/videos/42");
+  });
+
+  test("once my item is in the list, a later error (say, chat's rate limit) isn't the add's", async () => {
+    const { paste, server, q } = await setup();
+    paste("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    server({ type: "queue-changed", queue: [item("mine", yt("dQw4w9WgXcQ"), "me")], by: "me" });
+    server({ type: "error", code: "rate_limited", message: "slow", retryAfterMs: 1000 });
+    expect(q("queue-problem").hidden).toBe(true);
+    expect((q("queue-url") as HTMLInputElement).value).toBe("");
+  });
+
+  test("an error long after my add (no answer came) isn't the add's", async () => {
+    const { paste, server, q, clock } = await setup();
+    paste("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    clock.now += 10_000;
+    server({ type: "error", code: "rate_limited", message: "slow", retryAfterMs: 1000 });
+    expect(q("queue-problem").hidden).toBe(true);
   });
 
   test("an error that isn't about my add doesn't show here", async () => {
