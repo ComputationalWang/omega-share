@@ -3,6 +3,8 @@ import * as v from "valibot";
 import {
   ClientMessageSchema,
   ERROR_CODES,
+  FLOOR_CELLS,
+  MAX_FURNITURE,
   MAX_GENERIC_EMBED_URL_LENGTH,
   MAX_ROOM_MEMBERS,
   MAX_SERVER_MESSAGE_BYTES,
@@ -22,6 +24,7 @@ import {
   ServerMessageSchema,
   parseClientMessage,
   parseServerMessage,
+  type Furniture,
   type Member,
   type QueueItem,
   type RoomState,
@@ -276,12 +279,23 @@ describe("frame size", () => {
   }));
   const queue = Array.from({ length: QUEUE_MAX }, (_, i) => item(`q${String(i).padStart(31, "0")}`, longGeneric(), members[i]?.id ?? null));
 
+  const fullLayout = (): Furniture[] => {
+    const furniture: Furniture[] = [
+      { kind: "tv", col: 0, row: 0, facing: "se" },
+      ...Array.from({ length: 8 }, (_, i) => ({ kind: "wingback" as const, col: i + 1, row: 9, facing: "sw" as const, variant: 0 })),
+    ];
+    for (let col = 1; col < FLOOR_CELLS && furniture.length < MAX_FURNITURE; col++) {
+      for (let row = 1; row < 9 && furniture.length < MAX_FURNITURE; row++) furniture.push({ kind: "sidetable", col, row, facing: "sw", variant: 0 });
+    }
+    return furniture;
+  };
+
   test("the long generic url is valid and at the cap", () => {
     expect(longGeneric().url).toHaveLength(MAX_GENERIC_EMBED_URL_LENGTH);
     accepts(QueueItemSchema, queue[0]);
   });
 
-  test("a worst-case snapshot with a full queue fits the client frame cap", () => {
+  test("a worst-case snapshot with a full queue and a full layout fits the client frame cap", () => {
     const state = {
       id: "a".repeat(32),
       seats: members.slice(0, 8).map((m) => m.id),
@@ -291,6 +305,7 @@ describe("frame size", () => {
       itemId: "c".repeat(32),
       queue,
       controlPolicy: "owner",
+      layout: { furniture: fullLayout() },
     };
     const raw = JSON.stringify({ type: "snapshot", self: members[0]?.id, room: state, shareToken: "a".repeat(22), owner: true });
     expect(new TextEncoder().encode(raw).length).toBeLessThan(MAX_SERVER_MESSAGE_BYTES);
