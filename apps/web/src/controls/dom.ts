@@ -157,8 +157,11 @@ export function createTransport(c: Pick<PlaybackController, "togglePlay" | "seek
   };
 }
 
-/** Personal controls, below the stage and never on the TV: volume pod, Unmute, and my own catching-up notice. */
-export function createPersonal(c: PlaybackController): Widget {
+/**
+ * Personal controls, never on the TV: the volume `pod` (the room puts it in the TV's shelf, right under the picture,
+ * OME-642), and in `root` Unmute and my own catching-up notice.
+ */
+export function createPersonal(c: PlaybackController): Widget & { readonly pod: HTMLElement } {
   const root = el("div", { className: "room-bar" });
   const pod = el("div", { className: "ui-volume", role: "group", ariaLabel: "Your volume: only you hear this" });
   const chip = el("span", { className: "ui-chip self" });
@@ -177,7 +180,7 @@ export function createPersonal(c: PlaybackController): Widget {
   unmute.append(sprite("ui-icon-sound"), "Unmute");
   const notice = el("p", { className: "ui-panel catching-notice", role: "status", hidden: true }, "catching-notice");
   notice.append(sprite("ui-catchup"), "You're catching up: the room kept playing…");
-  root.append(pod, unmute, notice);
+  root.append(unmute, notice);
 
   mute.addEventListener("click", () => {
     c.toggleMute();
@@ -192,6 +195,7 @@ export function createPersonal(c: PlaybackController): Widget {
   let last: PlaybackView | null = null;
   return {
     root,
+    pod,
     update(v) {
       const prev = last;
       last = v;

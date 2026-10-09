@@ -15,7 +15,7 @@ import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, sitIntent } from "./intents";
 import { layoutOf } from "./furniture";
-import { PHONE_QUERY, STAGE_H, STAGE_W, TAG_OFFSET_Y, fullscreenLayout, roomLayout, type Point, type Rect, type StripMode } from "./layout";
+import { PHONE_QUERY, STAGE_H, STAGE_W, TAG_OFFSET_Y, WIDE_QUERY, fullscreenLayout, roomLayout, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createFullscreen, type FullscreenMode } from "./fullscreen";
 import { createRoomWindow } from "./room-window";
 import type { PlayerError } from "./player/adapter";
@@ -29,6 +29,7 @@ import type { Moderation } from "./owner/moderation";
 import { createEmotePicker } from "./emote/picker";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
+import { chatKey } from "./chat/enter";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
 import { createChatRelay, type ChatRelay } from "./popout/relay";
 import { createReport } from "./report/dialog";
@@ -390,8 +391,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
   const transport = createTransport(playback);
-  controls.append(transport.root, fsKey);
   const personal = createPersonal(playback);
+  // The volume pod rides in the shelf, right under the picture (OME-642): you reach for it while you watch.
+  controls.append(transport.root, personal.pod, fsKey);
   // "Up next" (ADR 0031): the room's queue under the TV. Its rows are text; it redraws only when the queue changes.
   const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname] });
 
@@ -401,6 +403,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const editorPanel = el("div", { className: "editor-panel" });
   // Set (k) phone watch layout (OME-596): TV full width, the room at 1× in a window you drag, chat right under it, no editor.
   const phone = globalThis.matchMedia(PHONE_QUERY);
+  // Desktop wide layout (OME-642): the room on the left, the chat and Up next in a full-height column on the right.
+  const wide = globalThis.matchMedia(WIDE_QUERY);
+  const side = el("div", { className: "room-side", hidden: true }, "room-side");
   const fs = createFullscreen({
     target: wrap,
     isTarget: (e) => e === wrap,
@@ -462,10 +467,21 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     } else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     if (!on) focusBefore = null;
   };
-  opts.root.replaceChildren(roomTop, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked, foot);
+  opts.root.replaceChildren(roomTop, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked, side, foot);
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
   const placeChat = (): void => {
+    const two = wide.matches;
+    opts.root.classList.toggle("room-wide", two);
+    side.hidden = !two;
+    // Wide: the room's placeholder, the invite and Up next head the chat column; otherwise they're back in the page's flow.
+    if (two) side.prepend(roomAway, invite, queuePanel.root);
+    else {
+      wrap.after(roomAway);
+      notice.after(invite);
+      personal.root.after(queuePanel.root);
+    }
     if (fs.mode() !== "off") stripHead.after(chatLog.root, chatForm, chatAway);
+    else if (two) side.append(chatLog.root, chatForm, chatAway);
     else if (phone.matches) wrap.after(chatLog.root, chatForm, chatAway);
     else notice.after(chatLog.root, chatForm, chatAway);
     // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch).
@@ -493,6 +509,24 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       strip.dataset["at"] = l.at;
       tv.classList.toggle("compact", l.compact.tv);
       controls.classList.toggle("compact", l.compact.controls);
+      wrap.style.height = "";
+      return;
+    }
+    if (wide.matches) {
+      // The left column's box sizes it all (the wrap flexes to what the column has left), so the page never scrolls.
+      const w = wrap.clientWidth;
+      const h = wrap.clientHeight;
+      // The room popped out: the picture has the column (its placeholder is in the chat column).
+      const l = roomOut() ? fullscreenLayout(w, h, tvProvider, "none") : wideLayout(w, h, tvProvider);
+      box(tv, l.tv);
+      box(controls, l.controls);
+      tv.classList.toggle("compact", l.compact.tv);
+      controls.classList.toggle("compact", l.compact.controls);
+      if ("stage" in l) {
+        box(clip, l.stage);
+        roomWindow.set(false, 0, 0);
+        stage.style.transform = `scale(${String(l.scale)})`;
+      }
       wrap.style.height = "";
       return;
     }
@@ -808,7 +842,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     chatInput.readOnly = chat.muted;
     chatInput.classList.toggle("is-muted", chat.muted);
     chatForm.dataset["muted"] = String(chat.muted);
-    if (chatInput.placeholder !== chat.placeholder) chatInput.placeholder = chat.placeholder;
+    // Set k (OME-642): with a keyboard, the open field says how to reach it.
+    const hint = chat.cooling || phone.matches ? chat.placeholder : "Press Enter to chat";
+    if (chatInput.placeholder !== hint) chatInput.placeholder = hint;
 
     if (s.lastError !== shownError) {
       shownError = s.lastError;
@@ -1031,10 +1067,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (moderation?.key(ev) === true) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
     else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && fs.key(ev.key, typingIn(ev.target), ev.repeat)) ev.preventDefault();
-    else if (ev.key === "Enter" && fs.mode() !== "off" && !chatForm.hidden && (ev.target === document.body || ev.target === wrap || ev.target === chatLog.root)) {
-      // Set k: Enter anywhere in full screen jumps to the message field.
+    else if (state.status === "open" && !chatForm.hidden) {
+      // Enter with nothing that takes it focused jumps to the message field, here or in full screen; Esc hands back (OME-642).
+      const k = chatKey(ev, chatInput);
+      if (k === null) return;
       ev.preventDefault();
-      chatInput.focus();
+      if (k === "focus") chatInput.focus();
+      else chatInput.blur();
     }
   });
   // Close on unload so the server frees the seat now; a bfcache restore reconnects.
@@ -1050,14 +1089,20 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     relay?.resume();
   });
 
-  phone.addEventListener("change", () => {
+  const onMedia = (): void => {
+    // Moving a focused node blurs it: whatever you were typing in keeps focus when the chat changes column.
+    const focused = document.activeElement;
     // No pop-out on a phone (set k): a window narrowed that far takes its chat back.
     if (phone.matches) relay?.bringBack();
     renderChatRow(state);
-    fit();
     placeChat();
+    if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
+    fit();
+    render();
     requestRender();
-  });
+  };
+  phone.addEventListener("change", onMedia);
+  wide.addEventListener("change", onMedia);
   syncTv(state);
   render();
   pbView = playback.view();

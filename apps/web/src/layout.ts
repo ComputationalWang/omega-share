@@ -87,6 +87,35 @@ export function roomLayout(containerWidth: number, provider: Provider | null = n
   return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
 }
 
+/**
+ * Desktop wide layout (OME-642): at least this wide and landscape, the room page is two columns, the TV, its shelf and
+ * the room on the left and the chat (with Up next) in a full-height column on the right, WIDE_CHAT_W wide (style.css).
+ */
+export const WIDE_MIN_W = 1024;
+export const WIDE_QUERY = `(min-width: ${String(WIDE_MIN_W)}px) and (orientation: landscape)`;
+export const WIDE_CHAT_W = 320;
+/** The TV's share of the left column's height once the shelf is taken off; the room gets the rest. */
+const WIDE_TV_SHARE = 0.45;
+
+/**
+ * The wide layout's left column, `width`×`height` CSS px: the TV (16:9, never under its ADR 0012 minimum, Twitch's is
+ * larger), the shelf right under it, and the stage below, scaled to fit what's left (never up) and centred.
+ */
+export function wideLayout(width: number, height: number, provider: Provider | null): RoomLayout {
+  const w = Math.floor(width);
+  const h = Math.floor(height);
+  const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
+  const rest = Math.max(0, h - (TV_BEZEL + GAP + CONTROL_BAR_H + GAP));
+  const tvW = Math.max(min, Math.min(w - 2 * TV_BEZEL, Math.floor((rest * WIDE_TV_SHARE * 16) / 9)));
+  const tv = { x: Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
+  const controls = { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
+  const sy = controls.y + controls.h + GAP;
+  const scale = Math.max(0.05, Math.min(1, w / STAGE_W, (h - sy) / STAGE_H));
+  const stage = { x: (w - STAGE_W * scale) / 2, y: sy, w: STAGE_W * scale, h: STAGE_H * scale };
+  const compact = { tv: !sidesFit(tv, TV_BEZEL, w), controls: !sidesFit(controls, SHELF_SPEAKER, w) };
+  return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
+}
+
 /** Full screen (OME-597, set k `ui-m7-desktop`): the chat strip's width beside the picture, and on a small landscape screen. */
 export const FS_STRIP_W = 300;
 const FS_STRIP_NARROW_W = 160;
