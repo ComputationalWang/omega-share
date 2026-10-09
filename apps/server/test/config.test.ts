@@ -188,6 +188,23 @@ describe("METRICS_PORT (OME-504)", () => {
   });
 });
 
+describe("MAX_CONNECTIONS (OME-573)", () => {
+  test("unset allows 1024 open sockets: the M6 target of 500 with headroom", () => {
+    expect(parseConfig({}).maxConnections).toBe(1024);
+  });
+
+  test("an integer from 1 to 3072 sets the global socket cap", () => {
+    expect(parseConfig({ MAX_CONNECTIONS: "1" }).maxConnections).toBe(1);
+    expect(parseConfig({ MAX_CONNECTIONS: "600" }).maxConnections).toBe(600);
+    expect(parseConfig({ MAX_CONNECTIONS: "3072" }).maxConnections).toBe(3072);
+  });
+
+  test("anything else fails startup: the cap must leave descriptors for HTTP and SQLite under LimitNOFILE=4096", () => {
+    for (const bad of ["", "0", "-1", "1.5", "abc", "1e3", "3073", "99999999"])
+      expect(() => parseConfig({ MAX_CONNECTIONS: bad })).toThrow("MAX_CONNECTIONS");
+  });
+});
+
 describe("index.ts", () => {
   test("a bad PUBLIC_ORIGIN exits non-zero before listening", () => {
     const r = Bun.spawnSync(["bun", join(import.meta.dir, "../src/index.ts")], {

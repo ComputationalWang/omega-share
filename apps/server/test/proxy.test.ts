@@ -43,6 +43,12 @@ describe("socket limits behind the tunnel (T-09)", () => {
     for (let i = 0; i < 11; i++) await openAs("198.51.100.1");
   });
 
+  test("by default the global ceiling holds the M6 hosted target: 20 rooms × 25 people = 500 sockets (OME-573)", async () => {
+    t = start({ trustProxy: true });
+    for (let i = 0; i < 500; i++) await openAs(`198.51.${String(100 + (i >> 8))}.${String(i & 255)}`);
+    expect((await upgradeAs("203.0.113.1")).status).not.toBe(503);
+  }, 30_000);
+
   test("a global ceiling holds however many addresses the sockets come from", async () => {
     t = start({ trustProxy: true, maxConnections: 5 });
     for (let i = 0; i < 5; i++) await openAs(`198.51.100.${String(i)}`);
