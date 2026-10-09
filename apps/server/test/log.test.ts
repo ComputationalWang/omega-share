@@ -1,0 +1,82 @@
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { formatLogLine, logError } from "../src/log";
+import { Client, start, type TestServer } from "./helpers";
+import type { RoomPersistence } from "../src/server";
+
+// OME-504: error lines go to stderr (journald on the box) and carry no personal data.
+describe("logger", () => {
+  test("a line is one JSON object: level, a fixed event name and the error's class", () => {
+    const line = formatLogLine("error", "store.last_active", new TypeError("boom"));
+    expect(line).not.toContain("\n");
+    expect(JSON.parse(line)).toEqual({ level: "error", event: "store.last_active", error: "TypeError: boom" });
+  });
+
+  test("redacts quoted values, addresses and emails from error messages", () => {
+    const err = new Error('no room "secret-room-id": "My Private Title" from 203.0.113.7, [2001:db8::1]:443 or fe80::1 by mail@example.com');
+    const line = formatLogLine("error", "store.title", err);
+    for (const secret of ["secret-room-id", "My Private Title", "203.0.113.7", "2001:db8::1", "fe80::1", "mail@example.com"]) {
+      expect(line).not.toContain(secret);
+    }
+    expect(JSON.parse(line).error).toBe('Error: no room "…": "…" from <ip>, [<ip>]:443 or <ip> by <email>');
+  });
+
+  test("caps the message length", () => {
+    const line = formatLogLine("error", "store.title", new Error("x".repeat(5000)));
+    expect(line.length).toBeLessThan(400);
+  });
+
+  test("a non-Error value is logged by type only", () => {
+    expect(JSON.parse(formatLogLine("error", "gc.sweep", "alice at 10.0.0.1")).error).toBe("non-Error string");
+  });
+
+  test("logError writes one line to stderr", () => {
+    const spy = spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      logError("gc.sweep", new Error("x"));
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0]).toEqual([formatLogLine("error", "gc.sweep", new Error("x"))]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("server error lines", () => {
+  let t: TestServer | null = null;
+  afterEach(() => {
+    void t?.server.stop(true);
+    t = null;
+  });
+
+  test("a failed store write logs no room id or nickname", async () => {
+    const roomId = "private-room-xyz";
+    const store: RoomPersistence = {
+      listRooms: () => [],
+      createRoom: () => undefined,
+      deleteRoom: () => true,
+      setEmbed: () => undefined,
+      setLayout: () => undefined,
+      setTitle: () => undefined,
+      setLastActive: (id) => {
+        throw new Error(`no room ${JSON.stringify(id)}`);
+      },
+    };
+    const spy = spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      t = start({ store, rooms: [roomId] });
+      const { client } = await Client.join(t.ws(roomId), "nick-in-log");
+      client.close();
+      await client.closed;
+      await Bun.sleep(20);
+      const lines = spy.mock.calls.map((c) => c.map(String).join(" "));
+      expect(lines.length).toBeGreaterThan(0);
+      for (const line of lines) {
+        expect(line).not.toContain(roomId);
+        expect(line).not.toContain("nick-in-log");
+        expect(JSON.parse(line).event).toBe("store.last_active");
+      }
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});

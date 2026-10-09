@@ -6,6 +6,8 @@ import { join } from "node:path";
 // The hosted deploy kit (ADR 0020). These pin the safety properties a later edit must not lose.
 const DEPLOY = join(import.meta.dir, "../../../deploy");
 const read = (name: string) => readFileSync(join(DEPLOY, name), "utf8");
+/** The service's METRICS_PORT (OME-504). */
+const METRICS_PORT = /^Environment=METRICS_PORT=(\d+)$/m.exec(read("omega-share.service"))?.[1] ?? "unset";
 const BUN_VERSION = readFileSync(join(import.meta.dir, "../../../.bun-version"), "utf8").trim();
 
 /** `Key=value` lines of a systemd unit, last one wins (as systemd reads them). */
@@ -52,6 +54,29 @@ describe("deploy/omega-share.service (D7 hardening)", () => {
   test("carries no secret", () => {
     expect(read("omega-share.service")).not.toMatch(/TOKEN|SECRET|PASSWORD|KEY=/i);
   });
+
+  test("serves metrics on their own port and stops with SIGTERM, giving the drain time (OME-504)", () => {
+    expect(env).toContain(`METRICS_PORT=${METRICS_PORT}`);
+    expect(METRICS_PORT).not.toBe("8787");
+    expect(unit.get("KillSignal")?.at(-1)).toBe("SIGTERM");
+    expect(unit.get("TimeoutStopSec")?.at(-1)).toBe("10s");
+    // Restart=on-failure: a clean drain exits 0, and `systemctl restart` starts it again.
+    expect(unit.get("Restart")?.at(-1)).toBe("on-failure");
+  });
+});
+
+describe("metrics stay on the box (OME-504)", () => {
+  test("Caddy never proxies the metrics port or path: its only upstream is the app port", () => {
+    const caddy = read("Caddyfile");
+    expect(caddy).not.toContain(METRICS_PORT);
+    expect(caddy).not.toMatch(/metrics/i);
+    const upstreams = [...caddy.matchAll(/reverse_proxy\s+(\S+)/g)].map((m) => m[1]);
+    expect(upstreams).toEqual(["127.0.0.1:8787"]);
+  });
+
+  test("the firewall doesn't open it", () => {
+    expect(read("nftables.conf")).not.toContain(METRICS_PORT);
+  });
 });
 
 describe("deploy/Caddyfile", () => {
@@ -89,6 +114,10 @@ describe("deploy/journald", () => {
   test("provision bounds the persistent journal to 14 days with a drop-in: sshd logs peer IPs (OME-386)", () => {
     const conf = unitKeys(read("journald/omega-share.conf"));
     expect(conf.get("MaxRetentionSec")).toEqual(["14day"]);
+    // Rotation: the journal stays small on the CAX11's disk and rotates by size and by day (OME-504).
+    expect(conf.get("SystemMaxUse")).toEqual(["256M"]);
+    expect(conf.get("SystemMaxFileSize")).toEqual(["32M"]);
+    expect(conf.get("MaxFileSec")).toEqual(["1day"]);
     const p = read("provision.sh");
     expect(p).toContain("install -d -m 0755 /etc/systemd/journald.conf.d");
     expect(p).toContain('install -m 0644 "$here/journald/omega-share.conf" /etc/systemd/journald.conf.d/');

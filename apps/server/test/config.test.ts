@@ -25,6 +25,7 @@ describe("parseConfig (ADR 0015 §3)", () => {
       genericEmbedDenylist: [],
       ownHosts: ["localhost"],
       roomTitleBlocklist: [],
+      metricsPort: null,
     });
   });
 
@@ -170,6 +171,19 @@ describe("DB_PATH (research D5)", () => {
     const staticDir = dist();
     const p = `${staticDir}-data/omega.db`;
     expect(parseConfig({ STATIC_DIR: staticDir, DB_PATH: p }).dbPath).toBe(p);
+  });
+});
+
+describe("METRICS_PORT (OME-504)", () => {
+  test("off or unset means no metrics listener; a port number turns it on", () => {
+    expect(parseConfig({}).metricsPort).toBeNull();
+    expect(parseConfig({ METRICS_PORT: "off" }).metricsPort).toBeNull();
+    expect(parseConfig({ METRICS_PORT: "9464" }).metricsPort).toBe(9464);
+  });
+
+  test("anything else, or the app's own port, fails startup", () => {
+    for (const bad of ["", "abc", "70000", "-1"]) expect(() => parseConfig({ METRICS_PORT: bad })).toThrow("METRICS_PORT");
+    expect(() => parseConfig({ PORT: "9000", METRICS_PORT: "9000" })).toThrow("METRICS_PORT");
   });
 });
 
