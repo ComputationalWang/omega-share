@@ -38,6 +38,10 @@ export class FakeVimeoPlayer implements VimeoPlayer {
   readonly handlers = new Map<string, Set<(data?: unknown) => void>>();
   videoId: unknown = 76979871;
   duration: unknown = 300;
+  /** `getQualities()`: `[{ label, id, active }]` on a Plus/PRO/Business owner's video; `[]` otherwise. */
+  qualities: unknown = [];
+  /** `setQuality()` rejects, as on a free-plan owner's video (README: TypeError, src: RangeError). */
+  qualityRejects = false;
 
   constructor(
     readonly el: unknown,
@@ -89,6 +93,13 @@ export class FakeVimeoPlayer implements VimeoPlayer {
   }
   getDuration(): Promise<unknown> {
     return Promise.resolve(this.duration);
+  }
+  getQualities(): Promise<unknown> {
+    return Promise.resolve(this.qualities);
+  }
+  setQuality(q: string): Promise<unknown> {
+    this.calls.push(["setQuality", q]);
+    return this.qualityRejects ? Promise.reject(named("RangeError")) : Promise.resolve(q);
   }
   destroy(): Promise<void> {
     this.calls.push(["destroy"]);
