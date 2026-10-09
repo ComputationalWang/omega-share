@@ -22,6 +22,9 @@ export const site = {
   chatLog: id("chat-log"),
   chatLogLine: id("chat-log-line"),
   sharedVideo: id("shared-video"),
+  // The phone watch layout (OME-596): the TV box, and the cropped window the 1× room is dragged around in.
+  tv: id("tv"),
+  roomWindow: id("room-window"),
   nicknameTag: id("nickname-tag"),
   roomFull: id("room-full"),
   // OME-272: the AGPL-3.0 §13 source offer in the site footer.

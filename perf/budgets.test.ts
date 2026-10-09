@@ -81,6 +81,22 @@ describe("budgets", () => {
     }
   });
 
+  test("each provider has frame, work and missed-vsync rows on a phone, at the plain room's budgets (OME-596)", () => {
+    const rows = [
+      { base: "phone.frameP95", plain: "site.frameP95.generic", docMetric: "Frame rate on a phone, 8 avatars + video playing" },
+      { base: "phone.workP95", plain: "site.frameWorkP95.generic", docMetric: "Main-thread work per frame on a phone, 8 avatars + video playing" },
+      { base: "phone.missedVsync", plain: "site.missedVsync.generic", docMetric: "Missed vsyncs on a phone, 8 avatars + video playing" },
+    ];
+    for (const r of rows) {
+      const plain = BUDGETS.find((x) => x.id === r.plain);
+      for (const provider of FRAME_PROVIDERS) {
+        const b = BUDGETS.find((x) => x.id === `${r.base}.${provider}`);
+        expect(b, `${r.base}.${provider}`).toBeDefined();
+        expect([b?.area, b?.docMetric, b?.unit, b?.limit, b?.comparator]).toEqual(["Site", r.docMetric, plain?.unit, plain?.limit, "<="]);
+      }
+    }
+  });
+
   test("a loaded generic embed has its own frame p95 row at the base budget (ADR 0024, OME-294)", () => {
     const b = BUDGETS.find((x) => x.id === "site.frameP95");
     const row = BUDGETS.find((x) => x.id === "site.frameP95.generic");

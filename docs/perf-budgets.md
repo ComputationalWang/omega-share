@@ -12,6 +12,9 @@ QA measures these on every merge (Playwright + Chromium). A regression past a bu
 | Site | Frame rate with a chat burst, 8 avatars + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), per provider, the chat log on screen while 7 members chat at the room's rate limit (a burst of 5 each, then 1/s: `ws.ts` CHAT_BURST / CHAT_PER_SECOND) — OME-594 |
 | Site | Main-thread work per frame with a chat burst, 8 avatars + video playing | ≤ 8 ms p95, per provider, same chat burst — OME-594 |
 | Site | Missed vsyncs with a chat burst, 8 avatars + video playing | ≤ 1.0 % of frames, per provider, same chat burst — OME-594 |
+| Site | Frame rate on a phone, 8 avatars + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), per provider, Playwright mobile emulation of a Pixel-class phone (`devices["Pixel 7"]`: 412×915, DPR 2.625, touch) in the phone watch layout, the room window and the chat log on screen while the room is dragged sideways and 7 members chat at 1/s — OME-596 |
+| Site | Main-thread work per frame on a phone, 8 avatars + video playing | ≤ 8 ms p95, per provider, same phone run — OME-596 |
+| Site | Missed vsyncs on a phone, 8 avatars + video playing | ≤ 1.0 % of frames, per provider, same phone run — OME-596 |
 | Site | JS heap after 10 min in room | ≤ 150 MB |
 | Sync | Spread between clients after play/pause/seek | ≤ 500 ms |
 | Sync | Spread between clients after a queue advance | ≤ 1.5 s, first to last of 8 clients playing the next item after a video ends — ADR 0031 §7 |

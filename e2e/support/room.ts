@@ -1,5 +1,5 @@
 // N browser contexts joining one room with different nicknames and avatars.
-import type { Browser, BrowserContext, Locator, Page } from "@playwright/test";
+import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page } from "@playwright/test";
 import { URLS } from "./apps";
 import { site } from "./selectors";
 import { testRoomId, type RoomName, type RoomSpec } from "./test-rooms";
@@ -32,12 +32,14 @@ export interface JoinOptions {
   readonly nicknamePrefix?: string;
   /** Runs on each new context after the network stub and before the page opens, e.g. to add routes (later routes win). */
   readonly setup?: (context: BrowserContext, index: number) => Promise<void>;
+  /** Context options per client, e.g. a phone (`devices["Pixel 7"]`) for some of them. */
+  readonly contextOptions?: (index: number) => BrowserContextOptions | undefined;
 }
 
-export async function joinRoom(browser: Browser, { roomUrl, count, nicknamePrefix = "tester", setup }: JoinOptions): Promise<Client[]> {
+export async function joinRoom(browser: Browser, { roomUrl, count, nicknamePrefix = "tester", setup, contextOptions }: JoinOptions): Promise<Client[]> {
   return Promise.all(
     Array.from({ length: count }, async (_, i) => {
-      const context = await watchCsp(await browser.newContext());
+      const context = await watchCsp(await browser.newContext(contextOptions?.(i)));
       await stubExternalNetwork(context);
       await setup?.(context, i);
       const page = await context.newPage();

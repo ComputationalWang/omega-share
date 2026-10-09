@@ -21,6 +21,8 @@ export const SPEC_ROOMS = {
   "queue-perf": ["frames", "spread"],
   "chat-log": ["lines", "keys", "reduced"],
   "chat-perf": ["frames"],
+  "phone-layout": ["stack", "touch", "narrow", "drag", "keys"],
+  "phone-perf": ["frames"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
