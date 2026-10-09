@@ -5,6 +5,7 @@ import { FALLBACK_ROOMS, type RoomList, type RoomsProbe, loadRooms, withRoomTabs
 import { collectCandidateUrls } from "../../scan";
 import { serverStatus } from "../../server-status";
 import { SERVER_BASE_URL_KEY, hostPermissionPattern, ownHostsOf, readServerBaseUrl } from "../../settings";
+import { addToQueue } from "../../queue";
 import { shareEmbed } from "../../share";
 import { type RoomTabs, readRoomTabs } from "../../share-token";
 
@@ -22,6 +23,7 @@ const ui = {
   form: byId("share-form", HTMLFormElement),
   room: byId("room", HTMLSelectElement),
   share: byId("share", HTMLButtonElement),
+  queue: byId("queue", HTMLButtonElement),
   status: byId("status", HTMLParagraphElement),
   server: byId("server-status", HTMLParagraphElement),
   options: byId("options", HTMLButtonElement),
@@ -107,12 +109,13 @@ interface ServerState {
   readonly tabs: RoomTabs;
 }
 
-/** Share stays off until the server state is known, then follows the §5.4 table for the selected room. */
+/** Share and Add to queue stay off until the server state is known, then follows the §5.4 table for the selected room. */
 let server: ServerState | null = null;
 
 function renderServer(): void {
   const status = server === null ? null : serverStatus({ ...server, hasToken: server.tabs.tokens.has(ui.room.value) });
   ui.share.disabled = status?.canShare !== true;
+  ui.queue.disabled = ui.share.disabled;
   ui.server.hidden = status?.message === null || status === null;
   ui.server.textContent = status?.message ?? "";
   ui.options.dataset["emphasis"] = String(status?.openOptions === true);
@@ -152,11 +155,15 @@ ui.form.addEventListener("submit", (event) => {
   if (selected === null || server === null) return;
   const { origin, tabs } = server;
   const roomId = ui.room.value;
+  const options = { baseUrl: origin, roomId, url: selected.value, token: tabs.tokens.get(roomId) ?? null, fetch: (u: string, init: RequestInit) => fetch(u, init) };
+  // Enter in the form shares; only the "Add to queue" button queues (ADR 0031).
+  const queue = event.submitter === ui.queue;
   ui.share.disabled = true;
+  ui.queue.disabled = true;
   ui.status.hidden = true;
-  void shareEmbed({ baseUrl: origin, roomId, url: selected.value, token: tabs.tokens.get(roomId) ?? null, fetch: (u, init) => fetch(u, init) })
+  void (queue ? addToQueue(options) : shareEmbed(options))
     .then((result) => {
-      if (result.ok) showStatus("ok", `Shared to ${roomId}.`);
+      if (result.ok) showStatus("ok", queue ? `Added to the queue in ${roomId}.` : `Shared to ${roomId}.`);
       else showStatus("error", result.message);
     })
     .finally(renderServer);

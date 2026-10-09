@@ -25,6 +25,8 @@ export const STATUS_TEXT = {
   signIn: "Sign in to the room in a browser tab first.",
   noToken: "Open the room in a tab to share into it.",
   tokenRejected: "The room didn't accept this share. Reload the room tab and try again.",
+  ownerOnly: "Only the room's owner can change what plays in this room.",
+  queueFull: "The room's queue is full. Try again after the next video starts.",
 } as const;
 
 /** The popup's server status line and Share state (research OME-119 §5.4). */

@@ -4,7 +4,7 @@ main { padding: 12px; display: grid; gap: 8px; }
 h1 { font-size: 16px; margin: 0; }
 ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 li label { display: flex; gap: 6px; align-items: center; word-break: break-all; }
-form { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
 p { margin: 0; }
 [data-state="error"] { color: #b00020; }
 [data-state="ok"] { color: #1b5e20; }
