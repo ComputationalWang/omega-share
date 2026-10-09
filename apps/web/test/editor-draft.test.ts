@@ -103,10 +103,10 @@ describe("remove, place, problems", () => {
   });
   test("the cap is enforced by place and reported by problems", () => {
     let l: RoomLayout = L;
-    for (let r = 1; r < 9 && l.furniture.length < MAX_FURNITURE; r++) {
-      for (const c of [8, 9]) {
-        if (l.furniture.length < MAX_FURNITURE) l = place(l, { kind: "plant", col: c, row: r, facing: "se" }) ?? l;
-      }
+    const free: [number, number][] = [[8, 0], [7, 9]];
+    for (let r = 1; r < 10; r++) free.push([8, r], [9, r]);
+    for (const [c, r] of free) {
+      if (l.furniture.length < MAX_FURNITURE) l = place(l, { kind: "plant", col: c, row: r, facing: "se" }) ?? l;
     }
     expect(l.furniture.length).toBe(MAX_FURNITURE);
     expect(place(l, { kind: "frame", col: 3, row: 0, facing: "sw" })).toBeNull();
@@ -172,7 +172,7 @@ describe("TRAY_TABS", () => {
     expect(tab("seats")).toContain("sofa");
     expect(TRAY_TABS[0]?.kinds.every((k) => FURNITURE[k].seats)).toBe(true);
     expect(tab("decor")).toContain("tv");
-    expect(tab("floor")).toEqual(expect.arrayContaining(["rug", "runner", "frame"]));
+    for (const k of ["rug", "runner", "frame"]) expect(tab("floor")).toContain(k);
   });
 });
 
