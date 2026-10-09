@@ -317,6 +317,17 @@ describe("room ownership on the socket", () => {
     expect(plain?.type === "snapshot" ? plain.owner : "missing").toBeUndefined();
   });
 
+  test("the snapshot may carry the room's title, parsed as a title", () => {
+    const room = { id: "lobby", seats: Array(8).fill(null), members: [], embed: null, playback: null };
+    const titled = parseServerMessage(JSON.stringify({ type: "snapshot", self: "m1", room: { ...room, title: " Ｆｒｉｄａｙ films " } }));
+    expect(titled?.type === "snapshot" ? titled.room.title : undefined).toBe("Friday films");
+    const untitled = parseServerMessage(JSON.stringify({ type: "snapshot", self: "m1", room }));
+    expect(untitled?.type === "snapshot" ? untitled.room.title : "missing").toBeUndefined();
+    for (const title of ["", "a<b", "a\u202Eb", "x".repeat(ROOM_TITLE_MAX_LENGTH + 1), null, 7]) {
+      expect(parseServerMessage(JSON.stringify({ type: "snapshot", self: "m1", room: { ...room, title } }))).toBeNull();
+    }
+  });
+
   test("layout-changed and title-changed say who changed it", () => {
     expect(parseServerMessage(JSON.stringify({ type: "layout-changed", layout: DEFAULT_LAYOUT, by: "m1" }))).toEqual({ type: "layout-changed", layout: DEFAULT_LAYOUT, by: "m1" });
     expect(parseServerMessage(JSON.stringify({ type: "title-changed", title: "Friday films", by: "m1" }))).toEqual({ type: "title-changed", title: "Friday films", by: "m1" });

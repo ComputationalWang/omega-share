@@ -10,6 +10,7 @@ import {
   FurnitureSchema,
   MAX_FURNITURE,
   MAX_SERVER_MESSAGE_BYTES,
+  ROOM_TITLE_MAX_LENGTH,
   RoomLayoutSchema,
   RoomStateSchema,
   SEAT_COUNT,
@@ -145,13 +146,14 @@ describe("accepted layouts", () => {
     accepts(RoomLayoutSchema, full);
   });
 
-  test("a worst-case snapshot with a full layout stays under the server frame cap", () => {
+  test("a worst-case snapshot with a full layout and title stays under the server frame cap", () => {
     const members = Array.from({ length: 25 }, (_, i) => ({ id: `m${String(i).padStart(63, "0")}`, nickname: "W".repeat(20), avatar: 3, catching: true }));
     const furniture: Furniture[] = [TV, ...Array.from({ length: 8 }, (_, i) => ({ kind: "wingback" as const, col: i + 1, row: 9, facing: "sw" as const, variant: 0 }))];
     for (let col = 1; col < FLOOR_CELLS && furniture.length < MAX_FURNITURE; col++) {
       for (let row = 1; row < 9 && furniture.length < MAX_FURNITURE; row++) furniture.push({ kind: "sidetable", col, row, facing: "sw", variant: 0 });
     }
-    const room = { id: "a".repeat(32), seats: members.slice(0, 8).map((m) => m.id), members, embed: null, playback: null, layout: { furniture } };
+    const title = "\u0800".repeat(ROOM_TITLE_MAX_LENGTH);
+    const room = { id: "a".repeat(32), title, seats: members.slice(0, 8).map((m) => m.id), members, embed: null, playback: null, layout: { furniture } };
     accepts(RoomStateSchema, room);
     const frame = JSON.stringify({ type: "snapshot", self: members[0]?.id, room });
     expect(new TextEncoder().encode(frame).length).toBeLessThan(MAX_SERVER_MESSAGE_BYTES);
