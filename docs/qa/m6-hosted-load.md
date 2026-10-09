@@ -1,6 +1,6 @@
 # Hosted capacity, restart drill, metrics privacy, TTI (OME-511, M6 Q2)
 
-2026-10-09, hosted box (CAX11, 2 vCPU arm64), release `fad7d5f`. Script: `scripts/hosted-load.ts`. Raw numbers: `hosted-load.json`, `hosted-privacy.json`, `hosted-tti.json`.
+2026-10-09, hosted box (CAX11, 2 vCPU arm64), release `fad7d5f`. Script: `scripts/hosted-load.ts`. Raw numbers: [`hosted-load.json`](m6-hosted-load/hosted-load.json), [`hosted-privacy.json`](m6-hosted-load/hosted-privacy.json), [`hosted-tti.json`](m6-hosted-load/hosted-tti.json). The script writes them to the git-ignored `perf/results/`, and they were copied here for the record.
 
 ## How the load is generated (per-IP caps)
 
