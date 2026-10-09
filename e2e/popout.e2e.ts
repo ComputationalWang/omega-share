@@ -9,7 +9,7 @@ import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { ownedRoom } from "./support/owned-rooms";
-import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
+import { clickClosing, joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import type { RoomName } from "./support/test-rooms";
 import { roomPlayback, shareVideo, waitPlaying } from "../perf/sync";
@@ -113,9 +113,7 @@ test("closing the window, its put-back key, or the page's bring-back key returns
   await expect(a.page.locator(site.chatInput)).toBeVisible();
   // The window's put-back key: the window closes and the page's chat comes back.
   pop = await popOut(a.page, a.context);
-  const closed = pop.waitForEvent("close");
-  await pop.locator(site.popoutBack).click();
-  await closed;
+  await clickClosing(pop, pop.locator(site.popoutBack));
   await expect(a.page.locator(site.chatInput)).toBeVisible();
   // The page's bring-back key (keyboard): the window closes, focus lands in the message field.
   pop = await popOut(a.page, a.context);

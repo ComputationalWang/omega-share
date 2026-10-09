@@ -66,6 +66,21 @@ export async function leaveAll(clients: readonly Client[]): Promise<void> {
  * cross-origin TV iframe just was gets its click delivered to the iframe instead (OME-89). Users scroll first
  * and click later, so only instant scroll-then-click automation needs this.
  */
+/**
+ * Clicks a key that closes its own window and waits for the close. The window can go before the click's input round
+ * trip returns, which Playwright reports as "Target page, context or browser has been closed" (OME-674); that error is
+ * the expected outcome here, any other one is not.
+ */
+export async function clickClosing(page: Page, target: Locator): Promise<void> {
+  const closed = page.waitForEvent("close");
+  await Promise.all([
+    closed,
+    target.click().catch((e: unknown) => {
+      if (!(e instanceof Error && e.message.includes("Target page, context or browser has been closed"))) throw e;
+    }),
+  ]);
+}
+
 export async function clickSettled(page: Page, target: Locator): Promise<void> {
   await target.scrollIntoViewIfNeeded();
   await page.evaluate(
