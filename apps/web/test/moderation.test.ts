@@ -48,7 +48,8 @@ async function setup(owner = true) {
       sent.push(m);
       return true;
     },
-    position: () => ({ x: 400, y: 300 }),
+    anchor: () => ({ x: 400, y: 310 }),
+    stageWidth: 960,
   });
   const tag = (id: string): HTMLElement => {
     const t = tags.querySelector<HTMLElement>(`[data-member="${id}"]`);
