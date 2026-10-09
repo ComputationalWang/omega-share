@@ -6,6 +6,7 @@ import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { EMBED_URL, stubExternalNetwork } from "./support/network";
+import { ownedRoom } from "./support/owned-rooms";
 import { postShare } from "./support/share";
 import { site } from "./support/selectors";
 
@@ -110,17 +111,11 @@ test("create a private room, invite a guest by link, then close it with 4004", a
   expect(after).not.toContain(roomId);
 });
 
-// The server half (join needs the key) is S4, OME-406; drop the fixme when it merges.
+// A seeded private room, not a UI create: the creation bucket is already spent by the tests above (OME-493).
 test("a guest with the bare room URL of a private room is refused and told why", async ({ browser }) => {
-  test.fixme(true, "needs OME-406: the server checks invite keys on join");
-  const owner = await newPage(browser);
-  await owner.goto(`${URLS.web}/`);
-  await owner.locator(site.createRoomTitle).fill("Closed door");
-  await owner.locator(site.createRoomPrivate).check();
-  await owner.locator(site.createRoomSubmit).click();
-  await owner.waitForURL(/\/r\/[a-z2-7]{26}$/);
+  const room = ownedRoom("refused");
   const stranger = await newPage(browser);
-  await stranger.goto(owner.url());
+  await stranger.goto(`${URLS.web}/r/${room.id}`);
   await enter(stranger, "stranger");
   await expect(stranger.locator(site.roomRefused)).toHaveAttribute("data-code", "invite_required");
   await expect(stranger.locator(site.room)).toBeHidden();
