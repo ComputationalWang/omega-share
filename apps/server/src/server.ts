@@ -168,6 +168,8 @@ function loadRooms(
 const WS_PATH = /^\/rooms\/([^/]+)\/ws$/;
 /** Any Chromium extension id, unless `extensionIds` (EXTENSION_IDS) pins the published ones. */
 const EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/;
+/** Firefox picks a random UUID per install, so it can't be pinned; web pages can't send this scheme (ADR 0015 §4). */
+const FIREFOX_EXTENSION_ORIGIN = /^moz-extension:\/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export function startServer(opts: ServerOptions): OmegaServer {
   const trustProxy = opts.trustProxy ?? false;
@@ -216,7 +218,9 @@ export function startServer(opts: ServerOptions): OmegaServer {
   const allowedOrigins = new Set<string>([opts.siteOrigin]);
   const extensionOrigins = opts.extensionIds?.map((id) => `chrome-extension://${id}`) ?? null;
   const isAllowedOrigin = (origin: string): boolean =>
-    allowedOrigins.has(origin) || (extensionOrigins === null ? EXTENSION_ORIGIN.test(origin) : extensionOrigins.includes(origin));
+    allowedOrigins.has(origin) ||
+    FIREFOX_EXTENSION_ORIGIN.test(origin) ||
+    (extensionOrigins === null ? EXTENSION_ORIGIN.test(origin) : extensionOrigins.includes(origin));
   /** Refuses DNS rebinding: only our public host and loopback names on our port (ADR 0015 §4). */
   const hostOk = (req: Request): boolean => allowedHosts.has(req.headers.get("host")?.toLowerCase() ?? "");
   /** Browsers always send Origin cross-origin; non-browser clients may omit it and are not a CSRF vector. */

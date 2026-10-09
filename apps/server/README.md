@@ -14,7 +14,7 @@ bun run --filter @omega/server start   # or `dev` to restart on file changes
 |---|---|---|
 | `PORT` | `8787` | `0` picks an ephemeral port |
 | `HOST` | all interfaces | e.g. `127.0.0.1` |
-| `SITE_ORIGIN` | `http://localhost:5173` | the only web origin allowed, besides `chrome-extension://<32-char id>` |
+| `SITE_ORIGIN` | `http://localhost:5173` | the only web origin allowed, besides `chrome-extension://<32-char id>` and `moz-extension://<uuid>` |
 
 ## API
 
@@ -45,6 +45,8 @@ bun run --filter @omega/server start   # or `dev` to restart on file changes
 CORS allows only the site origin and extension origins. Requests with no `Origin` (curl, tests) are allowed, because they are not a cross-site risk. The 403 (foreign origin), 429 on upgrade and Bun's transport-level 413 (> 64 KB) are plain text, not `ShareResponse`: check `res.ok`/status before parsing.
 
 `chrome-extension://*` currently accepts any extension id. Pin it to our published id once it exists.
+
+`moz-extension://<uuid>` (lowercase 8-4-4-4-12 hex) is always accepted, also with `EXTENSION_IDS` set: Firefox picks the UUID at random per install, so it can't be pinned (ADR 0015 §4).
 
 ## Abuse limits
 
