@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import * as v from "valibot";
 import {
@@ -67,6 +67,8 @@ const FAILED_DELETE_BURST = 20;
 const FAILED_DELETE_PER_SECOND = 1;
 /** Site routes (`/r/<id>`): a private room's link posted somewhere public must not be indexed (ADR 0028 §4). */
 const ROBOTS = "noindex, nofollow";
+/** Extension pages; which ids are allowed is `isAllowedOrigin`'s call. */
+const EXTENSION_SCHEME = /^(?:chrome|moz)-extension:\/\//;
 /**
  * Per client key, every HTTP route (threat model §10). A cold page load is about 30 requests (index, JS
  * chunks, CSS, atlas, source maps with devtools open, `/rooms`), so a burst of 120 covers a load and a few
@@ -211,12 +213,22 @@ export function createHttpApp({
     for (const [k, value] of Object.entries(headers)) c.res.headers.set(k, value);
     if (c.req.path.startsWith("/r/")) c.res.headers.set("x-robots-tag", ROBOTS);
   });
-  const apiCors = cors({
-    origin: (origin) => (isAllowedOrigin(origin) ? origin : null),
-    allowMethods: ["GET", "POST", "DELETE"],
-    allowHeaders: ["content-type", "authorization", "ngrok-skip-browser-warning"],
-    maxAge: 600,
-  });
+  const corsFor = (credentials: boolean): MiddlewareHandler =>
+    cors({
+      origin: (origin) => (isAllowedOrigin(origin) ? origin : null),
+      allowMethods: ["GET", "POST", "DELETE"],
+      allowHeaders: ["content-type", "authorization", "ngrok-skip-browser-warning"],
+      maxAge: 600,
+      credentials,
+    });
+  // The extension sends credentials for an edge gate's cookie, and Firefox applies CORS to hosts granted at
+  // runtime, so extension origins need Allow-Credentials. Web origins never do: auth is bearer-only (ADR 0015 §4, OME-683).
+  const webCors = corsFor(false);
+  const extensionCors = corsFor(true);
+  const apiCors: MiddlewareHandler = (c, next) => {
+    const origin = c.req.header("origin") ?? "";
+    return (EXTENSION_SCHEME.test(origin) && isAllowedOrigin(origin) ? extensionCors : webCors)(c, next);
+  };
   app.use("/rooms", apiCors);
   app.use("/rooms/*", apiCors);
 

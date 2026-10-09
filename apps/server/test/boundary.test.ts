@@ -212,6 +212,43 @@ describe("Origin allowlist (T-04, T-05)", () => {
     }
   });
 
+  test("extension origins get Access-Control-Allow-Credentials on the preflight and the response (OME-683)", async () => {
+    t = start();
+    for (const origin of [FIREFOX_ORIGIN, EXTENSION_ORIGIN]) {
+      const preflight = await fetch(`${t.http}/rooms`, {
+        method: "OPTIONS",
+        headers: { origin, "access-control-request-method": "GET", "access-control-request-headers": "ngrok-skip-browser-warning" },
+      });
+      expect(preflight.status).toBe(204);
+      expect(preflight.headers.get("access-control-allow-origin")).toBe(origin);
+      expect(preflight.headers.get("access-control-allow-credentials")).toBe("true");
+      const res = await get("/rooms", { origin });
+      expect(res.status).toBe(200);
+      expect(res.headers.get("access-control-allow-origin")).toBe(origin);
+      expect(res.headers.get("access-control-allow-credentials")).toBe("true");
+    }
+  });
+
+  test("web origins never get Access-Control-Allow-Credentials, and a disallowed origin gets no CORS headers (OME-683)", async () => {
+    t = start({ publicOrigin: PUBLIC_ORIGIN });
+    for (const origin of [SITE_ORIGIN, PUBLIC_ORIGIN]) {
+      const res = await get("/rooms", { origin });
+      expect(res.headers.get("access-control-allow-origin")).toBe(origin);
+      expect(res.headers.get("access-control-allow-credentials")).toBeNull();
+    }
+    for (const origin of ["https://evil.test", "moz-extension://evil.com"]) {
+      const preflight = await fetch(`${t.http}/rooms`, {
+        method: "OPTIONS",
+        headers: { origin, "access-control-request-method": "GET" },
+      });
+      const res = await get("/rooms", { origin });
+      for (const r of [preflight, res]) {
+        expect(r.headers.get("access-control-allow-origin")).toBeNull();
+        expect(r.headers.get("access-control-allow-credentials")).toBeNull();
+      }
+    }
+  });
+
   test("CORS preflight allows the share token and ngrok headers", async () => {
     t = start({ publicOrigin: PUBLIC_ORIGIN });
     const res = await fetch(`${t.http}/rooms/lobby/share`, {
