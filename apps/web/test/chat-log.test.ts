@@ -48,7 +48,9 @@ async function setup(ageing: Ageing = "settle", cap?: number) {
     now = t;
   };
   const lines = (): HTMLElement[] => [...log.root.querySelectorAll<HTMLElement>("[data-testid=chat-log-line]")];
-  const chat = (nickname: string, text: string, self = false) => log.append({ kind: "chat", nickname, text, self });
+  const chat = (nickname: string, text: string, self = false): void => {
+    log.append({ kind: "chat", nickname, text, self });
+  };
   return { log, lines, chat, advance, timers };
 }
 

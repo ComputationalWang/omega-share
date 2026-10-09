@@ -1,6 +1,6 @@
 import type { ControlPolicy, Member, MemberId, PlaybackState } from "@omega/shared";
 
-export type SyslineGlyph = "play" | "pause" | "seek" | "remote" | "chat-mute";
+export type SyslineGlyph = "play" | "pause" | "seek" | "remote" | "chat-mute" | "host";
 
 /**
  * One chat system line, as data: the view renders `actor` in <b> and `time` in <time>,
@@ -58,6 +58,16 @@ export function mutedLine(muted: boolean): SystemLine {
   return muted
     ? { glyph: "chat-mute", actor: "The host", verb: "muted your chat. You can still watch and emote.", time: null, self: true }
     : { glyph: "chat-mute", actor: "The host", verb: "unmuted your chat", time: null, self: true };
+}
+
+/** Someone the host removed (ADR 0030 §2, `member-left { reason: "kicked" }`): everyone left in the room sees it. */
+export function removedLine(nickname: string): SystemLine {
+  return { glyph: "host", actor: nickname, verb: "was removed by the host", time: null };
+}
+
+/** The host removed me (4005). Only I see it. */
+export function removedMeLine(): SystemLine {
+  return { glyph: "host", actor: "The host", verb: "removed you from the room", time: null, self: true };
 }
 
 /** Plain-text form, for aria and tests. */

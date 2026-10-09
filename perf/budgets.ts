@@ -29,6 +29,13 @@ const HEADROOM: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
   { id: `site.missedVsync.${p}`, area: "Site", metric: `Missed vsyncs, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Missed vsyncs, 8 avatars + video playing", unit: "%", limit: 1, comparator: "<=" },
 ]);
 
+// OME-594 (M7 W1): the same three frame budgets while the room chats at its rate limit, the chat log on screen (perf/chat.perf.ts).
+const CHAT_BURST: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
+  { id: `chat.frameP95.${p}`, area: "Site", metric: `p95 frame time, chat burst, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Frame rate with a chat burst, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
+  { id: `chat.workP95.${p}`, area: "Site", metric: `Main-thread work p95 per frame, chat burst, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Main-thread work per frame with a chat burst, 8 avatars + video playing", unit: "ms", limit: 8, comparator: "<=" },
+  { id: `chat.missedVsync.${p}`, area: "Site", metric: `Missed vsyncs, chat burst, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Missed vsyncs with a chat burst, 8 avatars + video playing", unit: "%", limit: 1, comparator: "<=" },
+]);
+
 export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
@@ -38,6 +45,7 @@ export const BUDGETS: readonly Budget[] = [
   { id: "site.frameP95.twitchLive", area: "Site", metric: "p95 frame time, 8 avatars + Twitch live", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
   { id: "site.frameP95.generic", area: "Site", metric: "p95 frame time, 8 avatars + generic embed", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
   ...HEADROOM,
+  ...CHAT_BURST,
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
   { id: "sync.spread", area: "Sync", metric: "Spread after play/pause/seek", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   // M2 (OME-131): one merge-blocking row per provider. Twitch live has no position: its spread is first-to-last client applying a pause / play-from-live.

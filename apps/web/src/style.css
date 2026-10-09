@@ -84,6 +84,20 @@ legend { padding: 0; margin-bottom: 6px; }
 .tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .bubble { position: absolute; left: 0; top: 0; translate: -50% -100%; max-width: 220px; max-height: 180px; overflow: hidden; margin: 0; padding: 6px 10px; border-radius: 10px; background: #fff; color: #1d1a2b; font-size: 13px; overflow-wrap: anywhere; }
 .chat { display: flex; gap: 8px; margin-top: 8px; }
+/* The chat log (OME-594, set k): the strip's lines at 1× art. It scrolls; the first line's auto margin keeps a short log at the foot. */
+.chat-log { --ui-px: 1px; justify-content: flex-start; overflow-y: auto; overscroll-behavior: contain; max-height: 168px; margin-top: 8px; padding: 4px; }
+.chat-log > :first-child { margin-top: auto; }
+.chat-log:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
+.chat-log-sys .ui-sysline { max-width: 100%; }
+/* Held (pointer or focus inside): faded lines read as settled again (the ageing itself is held in chat/log.ts). */
+.chat-log:hover .ui-fs-line.is-faded, .chat-log:focus-within .ui-fs-line.is-faded { border-image-source: url("../../../assets/ui/slices/fs-line-settled.png"); border-color: transparent; color: var(--ui-text); }
+/* A turn shows the scrim for one frame (~120 ms), set k "6 s · 1 frame"; reduced motion skips it. One short animation per turn, none at rest. */
+.chat-log .ui-fs-line.is-settled::after, .chat-log .ui-fs-line.is-faded::after { content: ""; position: absolute; inset: calc(-4 * var(--ui-px)); background: url("../../../assets/ui/slices/scrim-0.png") 0 0 / calc(2 * var(--ui-px)) calc(4 * var(--ui-px)); pointer-events: none; animation: chat-turn-settle 120ms step-end forwards; }
+.chat-log .ui-fs-line.is-faded::after { animation-name: chat-turn-fade; }
+@keyframes chat-turn-settle { to { visibility: hidden; } }
+@keyframes chat-turn-fade { to { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .chat-log .ui-fs-line.is-settled::after, .chat-log .ui-fs-line.is-faded::after { content: none; } }
+.chat input:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
 .chat input { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--panel); }
 .chat > button { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #1d1a2b; font-weight: 600; }
 .room-full { text-align: center; margin: 15vh auto; }

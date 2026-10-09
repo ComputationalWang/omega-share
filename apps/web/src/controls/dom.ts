@@ -2,7 +2,7 @@
 import type { Provider } from "@omega/shared";
 import type { Sysline } from "../state";
 import type { PlaybackController, PlaybackView } from "./playback";
-import { formatClock } from "./sysline";
+import { formatClock, type SystemLine } from "./sysline";
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, testId?: string): HTMLElementTagNameMap[K] {
   const e = Object.assign(document.createElement(tag), props);
@@ -210,7 +210,8 @@ export function createPersonal(c: PlaybackController): Widget {
   };
 }
 
-function syslineEl(l: Sysline): HTMLElement {
+/** One system line as DOM: glyph, actor in <b>, time in <time>. The caption rail and the chat log (chat/log.ts) share it. */
+export function syslineEl(l: SystemLine): HTMLElement {
   // Only-you lines (my own mute) wear set (j)'s mustard bar.
   const p = el("p", { className: l.self === true ? "ui-sysline self" : "ui-sysline" }, "system-line");
   p.append(sprite(`ui-glyph-${l.glyph}`));

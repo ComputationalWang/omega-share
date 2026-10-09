@@ -31,6 +31,8 @@ import type { Moderation } from "./owner/moderation";
 import { createEmotePicker } from "./emote/picker";
 import { createEmoteBadges } from "./emote/badges";
 import { EMOTE_LIFT } from "./walk/animator";
+import { createChatLog } from "./chat/log";
+import { logEntries } from "./chat/feed";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -234,6 +236,15 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
   chatForm.append(picker.root, chatInput, chatSend);
+  // The chat log (OME-594): the same component moves into the full-screen strip (W2) and the pop-out (W3).
+  const chatLog = createChatLog({
+    ageing: "settle",
+    now: () => performance.now(),
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => {
+      clearTimeout(h);
+    },
+  });
 
   let state = initialState;
   let conn: Connection | null = null;
@@ -298,7 +309,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // The owner's "Edit room" key (set (h)): made only for the owner, and the editor chunk loads only when it's pressed.
   const editBar = el("div", { className: "edit-bar" });
   const editorPanel = el("div", { className: "editor-panel" });
-  opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatForm, invite, full, refused, closed, kicked);
+  opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked);
 
   /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
   let tvProvider: Embed["provider"] | null = null;
@@ -568,6 +579,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const shown = screen(s);
     wrap.hidden = !shown.stage;
     chatForm.hidden = !shown.chat;
+    chatLog.root.hidden = !shown.chat;
     full.hidden = !shown.full;
     refused.hidden = shown.refused === null;
     invite.hidden = !shown.stage;
@@ -784,6 +796,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const dispatch = (e: ViewEvent): void => {
     const next = reduce(state, e);
     if (next === state) return;
+    for (const entry of logEntries(state, next, e)) chatLog.append(entry);
     const expiriesChanged = next.bubbles !== state.bubbles || next.syslines !== state.syslines || next.cooldownUntil !== state.cooldownUntil;
     const prevRoom = state.room;
     const prevOwner = state.owner;
