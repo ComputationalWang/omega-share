@@ -44,7 +44,11 @@ test("moderation: owner frames with the member menu open (8 avatars + video)", a
     out["ownerMenuClosed"] = row(await tracedFrames(browser, owner, 5000));
     const [g] = guests;
     if (!g) throw new Error("no guest");
-    await owner.locator(site.nicknameTag).filter({ hasText: g.nickname }).click();
+    // The stage sits below the fold at the perf viewport: scroll first and let the page settle, then click.
+    const tag = owner.locator(site.nicknameTag).filter({ hasText: g.nickname });
+    await tag.scrollIntoViewIfNeeded();
+    await owner.waitForTimeout(500);
+    await tag.click();
     await expect(owner.locator(site.modMenu)).toBeVisible();
     await owner.waitForTimeout(1000);
     out["ownerMenuOpen"] = row(await tracedFrames(browser, owner, 5000));
