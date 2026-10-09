@@ -11,6 +11,7 @@ import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
 import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
   AvatarSchema,
+  ControlPolicySchema,
   INVISIBLE_LETTERS,
   MemberIdSchema,
   MemberSchema,
@@ -94,6 +95,17 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("title-set"), title: RoomTitleSchema }),
   /** Needs `join`. Rate-limited per member (EMOTE_BURST, EMOTE_REFILL_MS); never stored. */
   v.strictObject({ type: v.literal("emote"), kind: EmoteKindSchema }),
+  /*
+   * Owner moderation (ADR 0030). Each needs `join` with the owner token: the server checks joined,
+   * then owner (`not_owner`), then the MODERATION_BURST bucket (`rate_limited`), then the target
+   * (`bad_target`), and only then writes or broadcasts anything.
+   */
+  /** Remove another member: they're closed with CLOSE_CODES.KICKED, everyone else gets `member-left { reason: "kicked" }`. */
+  v.strictObject({ type: v.literal("kick"), memberId: MemberIdSchema }),
+  /** Mute or unmute another member's chat; broadcast as `member-muted`. Muted chat is answered `error: muted`. */
+  v.strictObject({ type: v.literal("mute"), memberId: MemberIdSchema, muted: v.boolean() }),
+  /** Who controls playback; broadcast as `control-policy-changed`. Setting the current policy is a no-op. */
+  v.strictObject({ type: v.literal("control-policy"), policy: ControlPolicySchema }),
 ]);
 export type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 
@@ -111,10 +123,20 @@ export const ERROR_CODES = [
   "too_many_members",
   /** `join` to a private room without a matching `inviteKey` or `ownerToken`. The socket stays open, unjoined. */
   "invite_required",
-  /** `layout-set` or `title-set` from a member who didn't join with the owner token. */
+  /** `layout-set`, `title-set`, `kick`, `mute` or `control-policy` from a member who didn't join with the owner token. */
   "not_owner",
+  /** `chat` from a member the owner muted (ADR 0030). The text is dropped. */
+  "muted",
+  /** `control` from a non-owner while the room's control policy is `owner` (ADR 0030). */
+  "control_owner_only",
+  /** `kick` or `mute` naming no member of this room, or the sender themselves. */
+  "bad_target",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
+
+/** Why a member left: on their own (leave, close, timeout) or kicked by the owner (ADR 0030). */
+export const MEMBER_LEFT_REASONS = ["left", "kicked"] as const;
+export type MemberLeftReason = (typeof MEMBER_LEFT_REASONS)[number];
 
 // Server → client. Unknown keys are stripped so the server can add fields.
 export const ServerMessageSchema = v.variant("type", [
@@ -131,7 +153,8 @@ export const ServerMessageSchema = v.variant("type", [
     owner: v.optional(v.boolean()),
   }),
   v.object({ type: v.literal("member-joined"), member: MemberSchema }),
-  v.object({ type: v.literal("member-left"), memberId: MemberIdSchema }),
+  /** `reason` is absent from a pre-M6 server: read it as `left`. */
+  v.object({ type: v.literal("member-left"), memberId: MemberIdSchema, reason: v.optional(v.picklist(MEMBER_LEFT_REASONS)) }),
   v.object({ type: v.literal("seat-changed"), memberId: MemberIdSchema, seat: v.nullable(SeatIndexSchema) }),
   v.object({
     type: v.literal("chat"),
@@ -166,6 +189,10 @@ export const ServerMessageSchema = v.variant("type", [
   v.object({ type: v.literal("title-changed"), title: RoomTitleSchema, by: MemberIdSchema }),
   /** A member emoted (sender included). Fire-and-forget: not stored, never in a snapshot, so late joiners don't see it. */
   v.object({ type: v.literal("emoted"), memberId: MemberIdSchema, kind: EmoteKindSchema }),
+  /** The owner muted or unmuted a member's chat (ADR 0030); published to every member. */
+  v.object({ type: v.literal("member-muted"), memberId: MemberIdSchema, muted: v.boolean() }),
+  /** The owner changed who controls playback (ADR 0030). */
+  v.object({ type: v.literal("control-policy-changed"), policy: ControlPolicySchema, by: MemberIdSchema }),
   /** Sent instead of a snapshot when the room is at MAX_ROOM_MEMBERS; the server then closes. */
   v.object({ type: v.literal("room-full") }),
   v.object({

@@ -182,6 +182,10 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
       return state;
+    case "member-muted":
+    case "control-policy-changed":
+      // Moderation state lands with W1 (OME-507, ADR 0030).
+      return state;
   }
 }
 

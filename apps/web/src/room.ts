@@ -80,6 +80,9 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   too_many_members: "Too many people from your network are in this room.",
   invite_required: "This room is private. You need an invite link to join.",
   not_owner: "Only the room's owner can do that.",
+  muted: "The room's owner muted your chat.",
+  control_owner_only: "Only the room's owner can control the video here.",
+  bad_target: "That person isn't in this room any more.",
 };
 
 /** Adapts the DOM WebSocket to the connection's SocketLike. */

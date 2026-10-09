@@ -80,12 +80,24 @@ export type Avatar = v.InferOutput<typeof AvatarSchema>;
 export const SeatIndexSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(SEAT_COUNT - 1));
 export type SeatIndex = v.InferOutput<typeof SeatIndexSchema>;
 
+/**
+ * Who may send `control` frames and shares (ADR 0030). `owner`: only members who joined with the
+ * owner token. New and seeded rooms start at DEFAULT_CONTROL_POLICY.
+ */
+export const CONTROL_POLICIES = ["everyone", "owner"] as const;
+export const ControlPolicySchema = v.picklist(CONTROL_POLICIES);
+export type ControlPolicy = v.InferOutput<typeof ControlPolicySchema>;
+/** Today's behaviour: anyone in the room controls playback (open board default, ADR 0030). */
+export const DEFAULT_CONTROL_POLICY: ControlPolicy = "everyone";
+
 export const MemberSchema = v.object({
   id: MemberIdSchema,
   nickname: NicknameSchema,
   avatar: AvatarSchema,
   /** Advisory: this member's player is catching up (ADR 0019). Absent means false. */
   catching: v.optional(v.boolean()),
+  /** The owner muted this member's chat (ADR 0030). Absent means false. */
+  muted: v.optional(v.boolean()),
 });
 export type Member = v.InferOutput<typeof MemberSchema>;
 
@@ -102,6 +114,8 @@ export const RoomStateSchema = v.pipe(
     playback: OptionalPlaybackSchema,
     /** The room's furniture (ADR 0021). Absent from a pre-M4 server: draw DEFAULT_LAYOUT. */
     layout: v.optional(RoomLayoutSchema),
+    /** Who controls playback (ADR 0030). Absent from a pre-M6 server: DEFAULT_CONTROL_POLICY. */
+    controlPolicy: v.optional(ControlPolicySchema),
   }),
   v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
   v.check((r) => new Set(r.members.map((m) => m.id)).size === r.members.length, "duplicate member id"),

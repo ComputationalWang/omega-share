@@ -81,6 +81,7 @@ describe("CLOSE_CODES", () => {
       RATE_LIMITED: 4029,
       BAD_MESSAGES: 4400,
       ROOM_CLOSED: 4004,
+      KICKED: 4005,
     });
   });
 

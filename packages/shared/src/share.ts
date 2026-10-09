@@ -59,6 +59,8 @@ export const SHARE_ERROR_CODES = [
   "payload_too_large",
   /** Missing, malformed or revoked share token, or a token for another room. HTTP 401. */
   "unauthorized",
+  /** The room's control policy is `owner` and the token's member isn't the owner (ADR 0030). HTTP 403. */
+  "control_owner_only",
 ] as const;
 export type ShareErrorCode = (typeof SHARE_ERROR_CODES)[number];
 

@@ -270,6 +270,9 @@ export function createWs({
       case "leave":
       case "ping":
       case "status":
+      case "kick":
+      case "mute":
+      case "control-policy":
         return true;
     }
   };
@@ -377,6 +380,17 @@ export function createWs({
       case "emote":
         // Fire-and-forget: never stored, never in a snapshot.
         publish(room.topic, encode({ type: "emoted", memberId, kind: msg.kind }));
+        return;
+      case "kick":
+      case "mute":
+      case "control-policy":
+        // Owner moderation lands with S1 (OME-505, ADR 0030). Until then: refused, nothing written.
+        if (!ws.data.owner) {
+          sendError(ws, "not_owner", "only the room's owner can do that");
+          countBad(ws);
+          return;
+        }
+        sendError(ws, "bad_message", "not supported yet");
         return;
     }
   };

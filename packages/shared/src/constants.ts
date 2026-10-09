@@ -64,6 +64,18 @@ export const ROOM_EDIT_REFILL_MS = 2000;
 export const EMOTE_BURST = 3;
 export const EMOTE_REFILL_MS = 1000;
 
+/*
+ * Owner moderation (ADR 0030). In memory only, keyed by room and client address (ADR 0028 §7):
+ * a restart forgets them, and nothing about who was kicked or muted reaches the disk.
+ */
+/** After a kick, joins to that room from the kicked member's address are closed with KICKED for this long. */
+export const KICK_COOLDOWN_MS = 10 * 60_000;
+/** A muted member's address stays muted in that room this long after they leave, so a reconnect doesn't lift it. */
+export const MUTE_MEMORY_MS = 10 * 60_000;
+/** Per owner socket, `kick`, `mute` and `control-policy` together: this many at once, then one every MODERATION_REFILL_MS. */
+export const MODERATION_BURST = 5;
+export const MODERATION_REFILL_MS = 1000;
+
 /** Cap on human-readable error messages sent over the wire. */
 export const ERROR_MESSAGE_MAX_LENGTH = 200;
 /** Longest seekable playback position we accept, in seconds (12 h). */
@@ -98,5 +110,7 @@ export const CLOSE_CODES = {
   BAD_MESSAGES: 4400,
   /** The room was deleted by its owner or by GC (ADR 0028). Don't reconnect; say the room is closed. */
   ROOM_CLOSED: 4004,
+  /** The owner kicked this member (ADR 0030), or a join came back within KICK_COOLDOWN_MS. Don't reconnect; say so. */
+  KICKED: 4005,
 } as const;
 export type CloseCode = (typeof CLOSE_CODES)[keyof typeof CLOSE_CODES];
