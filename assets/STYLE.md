@@ -369,7 +369,7 @@ Three directions were weighed before any pixels:
 | (i) rooms + emotes | added to the (c) files: `ui.png` + `ui.json` (gz) + 16 slices + `reference.css` (gz) · `ui/scenes/*.png` (lazy) | **≈ 6.8 KB** eager · **1.3 KB** lazy |
 | (j) house rules + queue | added to the (c) files: `ui.png` + `ui.json` (gz) + 11 slices + `reference.css` (gz) · `ui/scenes/removed.png` (lazy) | **≈ 5.4 KB** eager · **0.8 KB** lazy |
 | (j) extension icons | `store/icon-16\|32\|48\|128.png` (in the extension package, not the site) | 1 501 B ≈ **1.5 KB** |
-| (k) full screen + pop-out, quality, report (M7) | added to the (c) files: `ui.png` + `ui.json` (gz) + 4 slices + `reference.css` (gz) · `ui/scenes/chat-away.png` + `room-away.png` (lazy) | **≈ 4.6 KB** eager · **0.7 KB** lazy |
-| total art budget | | ≤ 300 KB (≈ 115.0 KB used, as printed by `bun assets/src/build.ts`) |
+| (k) full screen + pop-out, quality, report (M7) | added to the (c) files: `ui.png` + `ui.json` (gz) + 4 slices + `reference.css` (gz) · `ui/scenes/chat-away.png` + `room-away.png` (lazy) | **≈ 4.7 KB** eager · **0.7 KB** lazy |
+| total art budget | | ≤ 300 KB (≈ 117.0 KB used, as printed by `bun assets/src/build.ts`) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.

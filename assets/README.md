@@ -621,15 +621,15 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `ui/slices/*.png` (93 files, palettes trimmed to the colours used) | 14 910 |
 | `ui/popup/*.png` (set f) | 409 |
 | `ui/scenes/*.png` (sets i + j + k, lazy) | 2 825 |
-| `ui/reference.css` (if ported as-is) | 86 845 raw / 17 106 gz |
+| `ui/reference.css` (if ported as-is) | 87 128 raw / 17 249 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **119 646 B (≈ 116.8 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 63 825 B; lazy (sets d, g, h's edit kit, i's, j's and k's scenes) 55 821 B |
+| **total shipped art** | **119 789 B (≈ 117.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 63 968 B; lazy (sets d, g, h's edit kit, i's, j's and k's scenes) 55 821 B |
 
-Set (k) (OME-541) adds **5 379 B (≈ 5.3 KB)** against `main` (114 267 → 119 646). The layouts: `ui.png` +474, `ui.json` +235 gz, 4 new slices +596,
+Set (k) (OME-541) adds **5 522 B (≈ 5.4 KB)** against `main` (114 267 → 119 789). The layouts: `ui.png` +474, `ui.json` +235 gz, 4 new slices +596,
 `reference.css` +1 452 gz, and the two lazy scenes 701 (`chat-away.png` 310, `room-away.png` 391). Items 5 and 6 (quality, report): +1 301, all eager
 (`ui.png` +149 for 4 sprites, `ui.json` gz and `reference.css` gz for the rest; no new slices). Round 1 fixes (touch hit areas, scroll rail): +620 `reference.css` gz.
-Eager +4 678, lazy +701.
+Quality per OME-545 (no key where unsupported, the Twitch echo state): +143 `reference.css` gz. Eager +4 821, lazy +701.
 
 Set (j) (OME-422) adds **6 323 B (≈ 6.2 KB)** against `main` (107 942 → 114 265): `ui.png` +1 448, `ui.json` +402 gz, 11 new slices +1 571,
 `reference.css` +2 109 gz, and the lazy `scenes/removed.png` 793 (per file: § Set (j) bytes). Eager +5 530, lazy +793. The extension icons
