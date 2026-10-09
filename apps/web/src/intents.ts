@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { ChatTextSchema, MAX_POSITION_S, SEAT_COUNT, type ClientMessage, type Embed, type Member, type PlaybackState } from "@omega/shared";
+import { ChatTextSchema, MAX_POSITION_S, SEAT_COUNT, type ClientMessage, type Embed, type Member, type PlaybackState, type QueueItemId } from "@omega/shared";
 import type { ViewState } from "./state";
 import { expectedPosition } from "./sync";
 
@@ -38,6 +38,8 @@ export function chatIntent(raw: string): ClientMessage | null {
 export interface PlaybackTarget {
   readonly embed: Embed | null;
   readonly playback?: PlaybackState | null | undefined;
+  /** The current queue item's id (ADR 0031), for `ended`; absent from a pre-M6 server. */
+  readonly itemId?: QueueItemId | undefined;
 }
 
 type Control = Extract<ClientMessage, { type: "control" }>;

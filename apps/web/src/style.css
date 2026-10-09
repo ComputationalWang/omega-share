@@ -159,3 +159,14 @@ legend { padding: 0; margin-bottom: 6px; }
 [data-testid="room-kicked"] .ui-scene { --ui-px: 2px; }
 [data-testid="room-kicked"] .ui-button { --ui-px: 2px; font: inherit; font-weight: 700; }
 [data-testid="room-kicked"] .enter { margin-top: 0; }
+
+/* ---- "Up next" (set j `.ui-queue`, OME-508): below the TV, page chrome 2×. The design CSS draws rows, chips and keys. ---- */
+.queue-panel { margin-top: 8px; }
+.queue-head { display: flex; align-items: center; gap: 8px; }
+.queue-head h3 { margin: 0; font-size: 15px; flex: 1; }
+.queue-count { font-size: 12px; font-weight: 700; color: var(--muted); }
+.queue-form { display: flex; align-items: center; gap: 8px; }
+.queue-form .ui-input { flex: 1; min-width: 0; }
+.queue-form .ui-button { display: inline-flex; align-items: center; gap: 6px; }
+.queue-problem { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--accent); font-size: 13px; font-weight: 700; }
+.queue-note { margin: 0; font-size: 12px; color: var(--muted); }

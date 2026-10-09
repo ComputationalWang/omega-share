@@ -44,15 +44,15 @@ async function setup(r: RoomState = room(), owner = false) {
     state = reduce(state, { type: "server", msg, now: 0 });
     panel.update(state);
   };
-  const q = <T extends HTMLElement = HTMLElement>(testId: string): T => {
-    const e = panel.root.querySelector<T>(`[data-testid=${testId}]`);
+  const q = (testId: string): HTMLElement => {
+    const e = panel.root.querySelector<HTMLElement>(`[data-testid=${testId}]`);
     if (e === null) throw new Error(`no ${testId}`);
     return e;
   };
   const rows = (): HTMLElement[] => [...panel.root.querySelectorAll<HTMLElement>("[data-testid=queue-row]")];
   const paste = (url: string): void => {
-    q<HTMLInputElement>("queue-url").value = url;
-    q<HTMLFormElement>("queue-form").requestSubmit();
+    (q("queue-url") as HTMLInputElement).value = url;
+    (q("queue-form") as HTMLFormElement).requestSubmit();
   };
   return { panel, sent, net, server, q, rows, paste, state: () => state };
 }
@@ -111,7 +111,7 @@ describe("renders once per change, never per frame", () => {
     const { panel, server, state } = await setup(room({ queue: [item("a")] }));
     const base = panel.renders();
     for (let i = 0; i < 60; i++) panel.update(state());
-    server({ type: "chat", memberId: "kit", text: "hi" });
+    server({ type: "chat", memberId: "kit", text: "hi", at: 1 });
     server({ type: "playback", playback: { playing: false, position: 3, rate: 1, at: 1, rev: 5, action: "pause", by: "kit" } });
     server({ type: "member-status", memberId: "kit", catching: true });
     expect(panel.renders()).toBe(base);
@@ -126,7 +126,7 @@ describe("paste a link", () => {
     const { sent, paste, q } = await setup();
     paste("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     expect(sent).toEqual([{ type: "queue-add", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }]);
-    expect(q<HTMLInputElement>("queue-url").value).toBe("");
+    expect((q("queue-url") as HTMLInputElement).value).toBe("");
     expect(q("queue-url").getAttribute("aria-invalid")).toBe("false");
   });
 
@@ -156,13 +156,13 @@ describe("paste a link", () => {
     expect(q("queue-url").getAttribute("aria-invalid")).toBe("true");
     expect(q("queue-problem").hidden).toBe(false);
     expect(q("queue-problem").textContent).toBe(reason);
-    expect(q<HTMLInputElement>("queue-url").value).toBe(url);
+    expect((q("queue-url") as HTMLInputElement).value).toBe(url);
   });
 
   test("typing again clears the reason", async () => {
     const { paste, q } = await setup();
     paste("nope");
-    const input = q<HTMLInputElement>("queue-url");
+    const input = (q("queue-url") as HTMLInputElement);
     input.value = "https://";
     input.dispatchEvent(new Event("input"));
     expect(q("queue-problem").hidden).toBe(true);
@@ -172,16 +172,16 @@ describe("paste a link", () => {
   test("the server's refusal of an add shows under the field", async () => {
     const { paste, server, q } = await setup();
     paste("https://example.org/videos/42");
-    server({ type: "error", code: "unsupported_url" });
+    server({ type: "error", code: "unsupported_url", message: "no" });
     expect(q("queue-problem").textContent).toBe("That link can't be played in this room.");
     paste("https://example.org/videos/43");
-    server({ type: "error", code: "rate_limited", retryAfterMs: 4000 });
+    server({ type: "error", code: "rate_limited", message: "slow", retryAfterMs: 4000 });
     expect(q("queue-problem").textContent).toBe("Too many links at once. Try again in a few seconds.");
   });
 
   test("an error that isn't about my add doesn't show here", async () => {
     const { server, q } = await setup();
-    server({ type: "error", code: "rate_limited", retryAfterMs: 1000 });
+    server({ type: "error", code: "rate_limited", message: "slow", retryAfterMs: 1000 });
     expect(q("queue-problem").hidden).toBe(true);
   });
 
@@ -189,13 +189,13 @@ describe("paste a link", () => {
     const full = Array.from({ length: QUEUE_MAX }, (_, i) => item(`i${String(i)}`));
     const { q, paste, sent, server } = await setup(room({ queue: full }));
     expect(q("queue-count").textContent).toBe("20 / 20");
-    expect(q<HTMLButtonElement>("queue-add").disabled).toBe(true);
+    expect((q("queue-add") as HTMLButtonElement).disabled).toBe(true);
     expect(q("queue-full").hidden).toBe(false);
     expect(q("queue-full").textContent).toContain("Remove one to add another");
     paste("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     expect(sent).toEqual([]);
     server({ type: "queue-changed", queue: full.slice(1), by: "kit" });
-    expect(q<HTMLButtonElement>("queue-add").disabled).toBe(false);
+    expect((q("queue-add") as HTMLButtonElement).disabled).toBe(false);
     expect(q("queue-full").hidden).toBe(true);
   });
 });
@@ -225,7 +225,8 @@ describe("remove and play next follow the control policy", () => {
 
   test("Play next hides with nothing queued or no current item id", async () => {
     expect((await setup(room({ queue: [] }))).q("queue-next").hidden).toBe(true);
-    const { itemId: _drop, ...noItem } = room({ queue: [item("a")] });
+    const noItem: RoomState = room({ queue: [item("a")] });
+    delete noItem.itemId;
     expect((await setup(noItem)).q("queue-next").hidden).toBe(true);
   });
 
@@ -233,11 +234,11 @@ describe("remove and play next follow the control policy", () => {
     const { q, rows, server } = await setup(room({ queue: [item("a", yt("dQw4w9WgXcQ"), "me")], controlPolicy: "owner" }));
     expect(rows()[0]?.querySelector("[data-testid=queue-remove]")).toBeNull();
     expect(q("queue-next").hidden).toBe(true);
-    expect(q<HTMLInputElement>("queue-url").disabled).toBe(true);
-    expect(q<HTMLButtonElement>("queue-add").disabled).toBe(true);
+    expect((q("queue-url") as HTMLInputElement).disabled).toBe(true);
+    expect((q("queue-add") as HTMLButtonElement).disabled).toBe(true);
     expect(q("queue-held").hidden).toBe(false);
     server({ type: "control-policy-changed", policy: "everyone", by: "kit" });
-    expect(q<HTMLInputElement>("queue-url").disabled).toBe(false);
+    expect((q("queue-url") as HTMLInputElement).disabled).toBe(false);
     expect(q("queue-held").hidden).toBe(true);
     expect(rows()[0]?.querySelector("[data-testid=queue-remove]")).not.toBeNull();
   });
@@ -245,6 +246,6 @@ describe("remove and play next follow the control policy", () => {
   test("the host keeps every key under the owner policy", async () => {
     const { q } = await setup(room({ queue: [item("a")], controlPolicy: "owner" }), true);
     expect(q("queue-next").hidden).toBe(false);
-    expect(q<HTMLInputElement>("queue-url").disabled).toBe(false);
+    expect((q("queue-url") as HTMLInputElement).disabled).toBe(false);
   });
 });

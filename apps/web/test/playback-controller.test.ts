@@ -605,7 +605,7 @@ describe("ended reports (queue, ADR 0031)", () => {
     h.player.emit({ type: "state", state: "ended" });
     h.c.setRoom({ ...h.room(VIDEO, pb({ rev: 2, position: 0 })), itemId: "item-2" });
     h.player.emit({ type: "state", state: "ended" });
-    expect(ended(h).map((m) => m.type === "ended" && m.itemId)).toEqual(["item-1", "item-2"]);
+    expect(ended(h)).toMatchObject([{ itemId: "item-1" }, { itemId: "item-2" }]);
   });
 
   test("no item id (a pre-M6 server, or a share before the first queue) sends nothing", () => {

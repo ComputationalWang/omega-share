@@ -9,6 +9,7 @@ import { forgetRoom, inviteLink, joinMessage, type RoomSecret, type SecretsStore
 import { createInviteControl } from "./controls/invite";
 import { createPersonal, createTransport, el, renderSyslines } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
+import { createQueuePanel } from "./controls/queue-panel";
 import { chatView, kickedCard, refusalCard } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
@@ -58,6 +59,8 @@ export interface RoomHandle {
   readonly layoutBuilds: () => number;
   /** A member's motion frame and emote sticker now (room-view.ts `frames`), for e2e emote checks. */
   readonly avatarFrames: (id: MemberId) => { avatar: string | null; sticker: string | null } | undefined;
+  /** How many times the "Up next" rows were rebuilt, for e2e "once per queue change" checks. */
+  readonly queueRenders: () => number;
 }
 
 const STATUS_TEXT: Record<ViewState["status"], string> = {
@@ -86,8 +89,8 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   muted: "The room's owner muted your chat.",
   control_owner_only: "Only the room's owner can control the video here.",
   bad_target: "That person isn't in this room any more.",
-  queue_full: "The queue is full.",
-  unsupported_url: "That link can't be played here.",
+  queue_full: "The queue is full. Remove one to add another.",
+  unsupported_url: "That link can't be played in this room.",
 };
 
 /** Adapts the DOM WebSocket to the connection's SocketLike. */
@@ -200,7 +203,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const controls = el("div", { className: "controls ui-tv-shelf" });
   const wrap = el("div", { className: "stage-wrap", hidden: true });
   wrap.append(tv, controls, clip);
-  const tvEmpty = el("p", { className: "tv-empty", textContent: "Share a video with the extension to watch it here." });
+  const tvEmpty = el("p", { className: "tv-empty", textContent: "Share a video with the extension, or paste a link under Up next, to watch it here." });
   tv.append(tvEmpty);
   const overlay = el("div", { className: "overlay" });
   // Placed from the room's layout on each render that changes it (applyLayout).
@@ -265,6 +268,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const transport = createTransport(playback);
   controls.append(transport.root);
   const personal = createPersonal(playback);
+  // "Up next" (ADR 0031): the room's queue under the TV. Its rows are text; it redraws only when the queue changes.
+  const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname] });
 
   const tagEls = new Map<MemberId, HTMLElement>();
   const bubbleEls = new Map<MemberId, HTMLElement>();
@@ -293,7 +298,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // The owner's "Edit room" key (set (h)): made only for the owner, and the editor chunk loads only when it's pressed.
   const editBar = el("div", { className: "edit-bar" });
   const editorPanel = el("div", { className: "editor-panel" });
-  opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, syncNotice, notice, chatForm, invite, full, refused, closed, kicked);
+  opts.root.replaceChildren(title, status, tvHint, wrap, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatForm, invite, full, refused, closed, kicked);
 
   /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
   let tvProvider: Embed["provider"] | null = null;
@@ -566,6 +571,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     full.hidden = !shown.full;
     refused.hidden = shown.refused === null;
     invite.hidden = !shown.stage;
+    queuePanel.root.hidden = !shown.stage;
+    queuePanel.update(s);
     if (kicked.hidden === shown.kicked) {
       kicked.hidden = !shown.kicked;
       if (shown.kicked) renderKicked(s.kickedUntil);
@@ -695,7 +702,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const syncTv = (s: ViewState): void => {
     const any = s.room?.embed ?? null;
     if (any !== null && !isSyncedEmbed(any)) {
-      showGeneric(any);
+      showGeneric(any, s.room?.itemId);
       return;
     }
     const embed = syncedOnly(any);
@@ -738,9 +745,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
 
   /** A generic embed (ADR 0024 §3): the load card, and after Load one sandboxed iframe. No player, no sync loop. */
-  const showGeneric = (embed: unknown): void => {
+  const showGeneric = (embed: unknown, itemId: string | undefined): void => {
     const gf = genericFrame(embed);
-    const nextKey = gf === null ? null : `generic:${gf.key}`;
+    // Keyed by queue item too: the same page queued twice is a new card, so it waits for its own Load click.
+    const nextKey = gf === null ? null : `generic:${itemId ?? ""}:${gf.key}`;
     if (nextKey === tvKey) return;
     tvKey = nextKey;
     tvScreen = null;
@@ -783,7 +791,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
     if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {
-      playback.setRoom(room === null ? { embed: null, playback: null } : { embed: syncedOnly(room.embed), playback: room.playback ?? null });
+      playback.setRoom(room === null ? { embed: null, playback: null } : { embed: syncedOnly(room.embed), playback: room.playback ?? null, itemId: room.itemId });
       syncTv(next);
     }
     if (next.owner !== prevOwner || next.room?.controlPolicy !== prevRoom?.controlPolicy) playback.setControl({ policy: controlPolicy(next), held: controlHeld(next) });
@@ -856,5 +864,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => layoutBuilds, avatarFrames: (id) => view.frames(id) };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => layoutBuilds, avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders() };
 }

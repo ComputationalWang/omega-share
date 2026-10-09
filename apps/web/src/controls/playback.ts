@@ -1,4 +1,4 @@
-import { DEFAULT_CONTROL_POLICY, playbackCaps, type ClientMessage, type ControlPolicy, type PlaybackState, type Provider } from "@omega/shared";
+import { DEFAULT_CONTROL_POLICY, MAX_POSITION_S, playbackCaps, type QueueItemId, type ClientMessage, type ControlPolicy, type PlaybackState, type Provider } from "@omega/shared";
 import { playerIntent, seekIntent, togglePlayIntent, type PlaybackTarget } from "../intents";
 import type { PlayerAdapter, PlayerError, PlayerEvent } from "../player/adapter";
 import { SYNC_INTERVAL_MS, createSyncLoop, expectedPosition, type SyncLoop } from "../sync";
@@ -116,6 +116,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   let policy: ControlPolicy = DEFAULT_CONTROL_POLICY;
   let held = false;
   let timer: Timer | null = null;
+  /** The queue item whose end we already reported (ADR 0031 §4: once per item). */
+  let endedSent: QueueItemId | null = null;
   let current: PlaybackView = {
     hasVideo: false,
     canControl: false,
@@ -192,6 +194,14 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     return current;
   };
 
+  /** The player reached the end of the current item: tell the server once, unless it's live (live never ends) or refused. */
+  const reportEnded = (): void => {
+    const id = target.itemId;
+    if (id === undefined || id === endedSent || live || error !== null || player === null) return;
+    // Not a control: it goes out under the owner policy too (ADR 0031 §3). A failed send retries on the next report.
+    if (o.send({ type: "ended", itemId: id, position: Math.min(MAX_POSITION_S, Math.max(0, player.time())) })) endedSent = id;
+  };
+
   const onPlayer = (e: PlayerEvent): void => {
     switch (e.type) {
       case "ready":
@@ -214,6 +224,8 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
         catchup = NOT_CATCHING;
         break;
       case "state":
+        // YouTube reports an ad or an end-screen click on another video as "ad", never "ended" (youtube.ts `inAd`).
+        if (e.state === "ended") reportEnded();
         // Offline clears itself: the adapter reports a state again once the channel is back on air.
         if (error?.reason !== "offline" || player === null) return;
         error = null;

@@ -194,9 +194,14 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
         if (msg.seat !== null) seats[msg.seat] = msg.memberId;
         return { ...room, seats };
       });
-    case "embed-changed":
+    case "embed-changed": {
       if (state.room === null) return state;
-      return withPlayback(state, state.room, msg.embed === null ? null : (msg.playback ?? null), now, { embed: msg.embed });
+      // The current item's id (ADR 0031) goes with its embed: a share without one clears it.
+      const room: RoomState = { ...state.room };
+      if (msg.itemId === undefined || msg.embed === null) delete room.itemId;
+      else room.itemId = msg.itemId;
+      return withPlayback(state, room, msg.embed === null ? null : (msg.playback ?? null), now, { embed: msg.embed });
+    }
     case "playback": {
       const room = state.room;
       if (room === null) return state;
@@ -233,9 +238,9 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       const next = { ...state, room: { ...room, controlPolicy: msg.policy } };
       return withModLine(next, policyLine(msg.policy, msg.by, room.members, state.self), now);
     }
+    // The whole upcoming list (ADR 0031); members and seats keep their objects, so the scene isn't redrawn.
     case "queue-changed":
-      // Queue state lands with W2 (OME-508, ADR 0031).
-      return state;
+      return withRoom(state, (room) => ({ ...room, queue: msg.queue }));
   }
 }
 
