@@ -92,7 +92,7 @@ describe("checkStoreManifest for Firefox (OME-593)", () => {
   const gecko = {
     id: "omega-share@omega-share.duckdns.org",
     strict_min_version: "140.0",
-    data_collection_permissions: { required: ["websiteContent", "browsingActivity"] },
+    data_collection_permissions: { required: ["websiteContent", "browsingActivity", "authenticationInfo"] },
   };
   const chromeKeys = {
     manifest_version: 3,
@@ -123,6 +123,7 @@ describe("checkStoreManifest for Firefox (OME-593)", () => {
     ["an older strict_min_version", { ...good, browser_specific_settings: { gecko: { ...gecko, strict_min_version: "128.0" } } }, /strict_min_version/],
     ["no data_collection_permissions", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: undefined } } }, /data_collection_permissions/],
     ["data collection declared as none", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: { required: ["none"] } } } }, /data_collection_permissions/],
+    ["no authenticationInfo (Share sends the room share token, OME-695)", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: { required: ["websiteContent", "browsingActivity"] } } } }, /data_collection_permissions/],
     ["only websiteContent", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: { required: ["websiteContent"] } } } }, /data_collection_permissions/],
     ["optional data collection", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: { required: gecko.data_collection_permissions.required, optional: ["technicalAndInteraction"] } } } }, /data_collection_permissions/],
     ["an Android listing", { ...good, browser_specific_settings: { gecko, gecko_android: { strict_min_version: "142.0" } } }, /gecko_android/],
