@@ -19,6 +19,9 @@ QA measures these on every merge (Playwright + Chromium). A regression past a bu
 | Site | Main-thread work per frame in full screen, 8 avatars + video playing | ≤ 8 ms p95, per provider, same full-screen run — OME-597 |
 | Site | Missed vsyncs in full screen, 8 avatars + video playing | ≤ 1.0 % of frames, per provider, same full-screen run — OME-597 |
 | Site | Longest task entering or leaving full screen | ≤ 50 ms (no long task), per provider, `PerformanceObserver("longtask")` for 1 s after each press of the full-screen key — OME-597 |
+| Site | Frame rate with the chat popped out, 8 avatars + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), per provider, the room tab (desktop Chromium) with the chat in its pop-out window (`chat.html`, no second Pixi renderer, no second socket) while 7 members chat at 1/s, relayed over the BroadcastChannel — OME-598 |
+| Site | Main-thread work per frame with the chat popped out, 8 avatars + video playing | ≤ 8 ms p95, per provider, same pop-out run — OME-598 |
+| Site | Missed vsyncs with the chat popped out, 8 avatars + video playing | ≤ 1.0 % of frames, per provider, same pop-out run — OME-598 |
 | Site | JS heap after 10 min in room | ≤ 150 MB |
 | Sync | Spread between clients after play/pause/seek | ≤ 500 ms |
 | Sync | Spread between clients after a queue advance | ≤ 1.5 s, first to last of 8 clients playing the next item after a video ends — ADR 0031 §7 |

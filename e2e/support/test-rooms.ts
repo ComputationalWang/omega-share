@@ -26,6 +26,8 @@ export const SPEC_ROOMS = {
   fullscreen: ["strip", "band", "keys", "pseudo", "phone", "seatfocus", "pseudotab"],
   "provider-fullscreen": ["yt", "twvod", "vimeo", "live", "generic"],
   "fullscreen-perf": ["frames"],
+  popout: ["relay", "back", "reopen", "hidden", "gone", "offer"],
+  "popout-perf": ["frames"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

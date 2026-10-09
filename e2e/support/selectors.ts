@@ -30,6 +30,15 @@ export const site = {
   fullscreenToggle: id("fullscreen-toggle"),
   fsStrip: id("fs-strip"),
   fsStripToggle: id("fs-strip-toggle"),
+  // Pop-out chat (OME-598): the room's key, its placeholder and bring-back key; in the window, its put-back key, the head
+  // count, and the plug shown when the room tab is gone with its "Open the room here" key.
+  chatPopout: id("chat-popout"),
+  chatAway: id("chat-away"),
+  chatBringBack: id("chat-bring-back"),
+  popoutBack: id("popout-back"),
+  popoutPeople: id("popout-people"),
+  popoutGone: id("popout-gone"),
+  popoutOpenRoom: id("popout-open-room"),
   nicknameTag: id("nickname-tag"),
   roomFull: id("room-full"),
   // OME-272: the AGPL-3.0 §13 source offer in the site footer.
