@@ -98,10 +98,12 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
   };
   const postStage = (): void => {
     if (activeKind !== "room" || stage === null || sameStage(postedStage, stage)) return;
-    postedStage = stage;
-    // Only the slice: the page's state has more (errors, the owner flag, …) that the window has no use for.
+    // Only the slice: the page's state has more (errors, the owner flag, …) that the window has no use for. The room
+    // (25 members, the queue, the layout) only when it changed: the window keeps the one it has.
     const { status, self, room, bubbles, syslines, catching } = stage;
-    o.channel.post({ t: "room-view", status, self, room, bubbles, syslines, catching });
+    const sameRoom = postedStage !== null && postedStage.room === room;
+    postedStage = stage;
+    o.channel.post(sameRoom ? { t: "room-view", status, self, bubbles, syslines, catching } : { t: "room-view", status, self, room, bubbles, syslines, catching });
   };
   const postTv = (): void => {
     if (activeKind !== "room" || tv === null || sameTv(postedTv, tv)) return;

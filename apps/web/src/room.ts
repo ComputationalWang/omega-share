@@ -714,11 +714,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const chat = chatView(s, Date.now());
     return { title: s.title, people: s.room?.members.length ?? 0, cap: MAX_ROOM_MEMBERS, open: screen(s).chat, cooling: chat.cooling, muted: chat.muted, placeholder: chat.placeholder };
   };
+  /** The room was out when the relay last said: it changes its kind before it tells us, so we keep our own. */
+  let wasRoomOut = false;
   const onPopped = (on: boolean): void => {
     const focused = document.activeElement;
-    const wasOut = roomOut();
     popped = on;
     const out = roomOut();
+    const wasOut = wasRoomOut;
+    wasRoomOut = out;
     // The editor draws on the stage, which is in the window now.
     if (out) closeEditor();
     renderChatRow(state);

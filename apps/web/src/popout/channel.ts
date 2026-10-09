@@ -82,7 +82,7 @@ const PopMessageSchema = v.variant("t", [
   /** The room tab is going away (closed, reloaded, navigated). */
   v.strictObject({ t: v.literal("room-gone") }),
   /** What the room's stage draws (a room window only). */
-  v.strictObject({ t: v.literal("room-view"), ...StageFields }),
+  v.strictObject({ t: v.literal("room-view"), ...StageFields, room: v.exactOptional(StageFields.room) }),
   v.strictObject({ t: v.literal("room-tv"), ...TvFields }),
   v.strictObject({ t: v.literal("room-emote"), member: MemberIdSchema, kind: EmoteKindSchema }),
   /** "Show the window" in the page: come to the front. */
@@ -105,9 +105,12 @@ export type PopTv = Omit<Extract<PopMessage, { t: "room-tv" }>, "t">;
 /** What the room window's side takes from the channel (popout/room-pop.ts). */
 export type RoomSideMessage = Extract<PopMessage, { t: "room-view" | "room-tv" | "room-emote" | "room-raise" }>;
 
-/** The stage's state from a room-view message. Typed as the state's slice: a change the message can't carry fails the build. */
-export function stageOf(m: Extract<PopMessage, { t: "room-view" }>): StageState {
-  return { status: m.status, self: m.self, room: m.room, bubbles: m.bubbles, syslines: m.syslines, catching: m.catching };
+/**
+ * The stage's state from a room-view message; a message without the room (it didn't change) keeps `room`, the same
+ * object, so the stage sees it unchanged. Typed as the state's slice: a change the message can't carry fails the build.
+ */
+export function stageOf(m: Extract<PopMessage, { t: "room-view" }>, room: StageState["room"]): StageState {
+  return { status: m.status, self: m.self, room: m.room === undefined ? room : m.room, bubbles: m.bubbles, syslines: m.syslines, catching: m.catching };
 }
 
 export function parsePopMessage(data: unknown): PopMessage | null {

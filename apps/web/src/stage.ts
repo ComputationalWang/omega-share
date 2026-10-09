@@ -273,7 +273,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         view.emote(id, kind);
         return;
       }
-      const p = view.position(id);
+      const p = view.position(id) ?? placedAt.get(id);
       if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
     },
     seat: (i) => seats[i],

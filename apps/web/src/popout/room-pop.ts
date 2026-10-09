@@ -81,7 +81,7 @@ export function createRoomPopout<H>(o: RoomPopoutOptions<H>): RoomPopout {
   const onRoom = (m: RoomSideMessage): void => {
     switch (m.t) {
       case "room-view":
-        stage = stageOf(m);
+        stage = stageOf(m, stage?.room ?? null);
         request();
         return;
       case "room-tv":
@@ -96,6 +96,8 @@ export function createRoomPopout<H>(o: RoomPopoutOptions<H>): RoomPopout {
         }
         return;
       case "room-emote":
+        // Over the avatar as the room is now: a member who just came in may not be drawn yet.
+        if (queued) draw();
         o.stage.emote(m.member, m.kind);
         return;
       case "room-raise":
