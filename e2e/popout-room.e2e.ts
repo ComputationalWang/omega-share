@@ -278,6 +278,7 @@ test("reduced motion in the window: an emote is a still badge over the avatar", 
   const [a, b] = await join(browser, "reduced", 2, { reducedMotion: "reduce" });
   if (a === undefined || b === undefined) throw new Error("no clients");
   const pop = await popRoom(a.page, a.context);
+  await expect(pop.locator(site.nicknameTag)).toHaveCount(2);
   await b.page.keyboard.press("3");
   await expect(pop.getByTestId("emote-badge")).toBeVisible();
 });

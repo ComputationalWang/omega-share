@@ -169,6 +169,17 @@ describe("whole-room window", () => {
     expect(emotes).toEqual([["m1", "heart"]]);
   });
 
+  test("an emote right after a change is drawn over the room as it is now: the waiting frame is drawn first", async () => {
+    const { from, adopt, renders, emotes } = await setup();
+    const order: string[] = [];
+    adopt();
+    from(VIEW);
+    expect(renders).toHaveLength(0);
+    from({ t: "room-emote", member: "m1", kind: "wave" });
+    order.push(String(renders.length), String(emotes.length));
+    expect(order).toEqual(["1", "1"]);
+  });
+
   test("a seat click (mouse or keyboard) goes to the room tab to send", async () => {
     const { stageRoot, take, adopt } = await setup();
     adopt();
