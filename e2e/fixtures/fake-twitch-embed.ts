@@ -89,6 +89,10 @@ export interface FakeTwitchPlayer {
   getVideo(): string;
   getPlayerState(): FakeTwitchPlayerState;
   getPlaybackStats(): FakeTwitchPlayerState["stats"];
+  /** OME-599: `[{ name, group }]` once ready (empty before), like the served v1.js cache. */
+  getQualities(): readonly { name: string; group: string }[];
+  getQuality(): string;
+  setQuality(group: string): void;
   addEventListener(name: FakeTwitchEventName, cb: (params?: unknown) => void): void;
   removeEventListener(name: FakeTwitchEventName, cb: (params?: unknown) => void): void;
   destroy(): void;
@@ -163,6 +167,8 @@ export interface FakeTwitchHooks {
   /** TRUE media time in seconds (getCurrentTime() is the stale cached value). 0 for live. */
   readonly currentTime: number;
   readonly playback: FakeTwitchPlayback;
+  /** The group the player is on (OME-599). */
+  readonly quality: string;
   readonly events: readonly FakeTwitchLoggedEvent[];
   readonly commands: readonly FakeTwitchLoggedCommand[];
   readonly options: TwitchPlayerOptions | null;
@@ -172,6 +178,16 @@ export interface FakeTwitchHooks {
 
 export function installFakeTwitch(win: FakeTwitchHost): void {
   if (win.Twitch) return;
+  // Inside the function: the page gets it as installFakeTwitch.toString() (support/network.ts), nothing from this module.
+  /** What the fake offers (OME-599): Twitch's own shape, Auto first. A group is what setQuality() takes. */
+  const FAKE_TWITCH_QUALITIES: readonly { name: string; group: string }[] = [
+    { name: "Auto", group: "auto" },
+    { name: "1080p60 (source)", group: "chunked" },
+    { name: "720p60", group: "720p60" },
+    { name: "480p", group: "480p30" },
+  ];
+  /** A quality switch while playing: Idle for this long (PAUSE), then PLAY, PLAYING (and SEEK on a VOD). The worst case R-M7b fears. */
+  const FAKE_TWITCH_SWITCH_MS = 400;
   const config: FakeTwitchConfig = { duration: 3600, readyDelayMs: 20, pushIntervalMs: 250, neverReady: false };
   const eventLog: FakeTwitchLoggedEvent[] = [];
   const commandLog: FakeTwitchLoggedCommand[] = [];
@@ -186,6 +202,7 @@ export function installFakeTwitch(win: FakeTwitchHost): void {
     options: TwitchPlayerOptions;
     state: FakeTwitchPlayerState;
     trueTime(): number;
+    quality(): string;
     buffer(ms: number, ad: boolean): void;
     adBreak(ms: number): void;
     stop(): void;
@@ -260,6 +277,7 @@ export function installFakeTwitch(win: FakeTwitchHost): void {
     let pushTimer: unknown;
     let resumeTo: FakeTwitchPlayback | null = null;
     let inAdBreak = false;
+    let quality = "auto";
 
     const dur = () => (live ? 0 : config.duration);
     const trueTime = () => (live ? 0 : running ? Math.min(dur(), base + (now() - since) / 1000) : base);
@@ -355,6 +373,26 @@ export function installFakeTwitch(win: FakeTwitchHost): void {
       push();
       emit("pause");
     };
+    /** Twitch may rebuffer on a quality switch: the player pauses and resumes by itself (and seeks, on a VOD). */
+    const doQuality = (group: string) => {
+      if (!FAKE_TWITCH_QUALITIES.some((q) => q.group === group)) return;
+      quality = group;
+      if (!wantsPlay() || inAdBreak) return;
+      cancelHold();
+      freeze();
+      setPlayback("Idle");
+      push();
+      emit("pause");
+      win.setTimeout(() => {
+        if (destroyed || st.playback !== "Idle") return;
+        setPlayback("Playing");
+        run();
+        push();
+        if (!live) emit("seek", { position: base });
+        emit("play");
+        emit("playing");
+      }, FAKE_TWITCH_SWITCH_MS);
+    };
     const doSeek = (seconds: number) => {
       if (live) return;
       const prev = resumeTo ?? st.playback;
@@ -394,6 +432,9 @@ export function installFakeTwitch(win: FakeTwitchHost): void {
       getVideo: () => st.videoID,
       getPlayerState: () => st,
       getPlaybackStats: () => st.stats,
+      getQualities: () => (ready ? FAKE_TWITCH_QUALITIES : []),
+      getQuality: () => quality,
+      setQuality: (g) => { command("setQuality", [g], () => { doQuality(g); }); },
       addEventListener(name, cb) {
         listeners.set(name, [...(listeners.get(name) ?? []), cb]);
       },
@@ -417,6 +458,7 @@ export function installFakeTwitch(win: FakeTwitchHost): void {
       options: { ...options },
       state: st,
       trueTime,
+      quality: () => quality,
       buffer: (ms, ad) => { hold(ms, ad, resumeTo ?? st.playback); },
       adBreak(ms) {
         doPause();
@@ -508,6 +550,9 @@ export function installFakeTwitch(win: FakeTwitchHost): void {
     },
     get playback() {
       return current?.state.playback ?? "Idle";
+    },
+    get quality() {
+      return current?.quality() ?? "auto";
     },
     get events() {
       return eventLog;

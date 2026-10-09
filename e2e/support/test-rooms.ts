@@ -32,6 +32,7 @@ export const SPEC_ROOMS = {
   report: ["send", "states", "gone"],
   "popout-room": ["show", "sit", "back", "fs", "keys", "reduced", "hidden", "chat", "phone"],
   "popout-room-perf": ["frames"],
+  "provider-quality": ["twvod", "live", "fs", "memory", "yt", "generic"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
