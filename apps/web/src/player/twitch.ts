@@ -87,6 +87,8 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
   let quality: string | null = null;
   /** The quality before our last pick: the SDK's stale cache reads as this for a while. */
   let qualityBefore: string | null = null;
+  /** getQuality() as last read; null before ready. A change we didn't ask for is a pick in Twitch's own menu. */
+  let rawQuality: string | null = null;
   const frameWindow: unknown = iframeWindow(container);
 
   const emit = (e: PlayerEvent) => {
@@ -124,6 +126,21 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
       }
       baseAt = now;
     }
+    watchQuality(now);
+  };
+  /**
+   * Twitch's own gear menu can switch the quality (OME-666). On real Twitch the push before the switch's pause already
+   * reads the new getQuality(): open the echo window as for our own pick, so its pause/play and seek aren't the member's.
+   */
+  const watchQuality = (now: number): void => {
+    const q = player.getQuality?.();
+    if (typeof q !== "string" || q === "" || q === rawQuality) return;
+    const from = rawQuality;
+    rawQuality = q;
+    if (from === null || q === quality || (inQualityEcho() && q === qualityBefore)) return;
+    qualitySetAt = now;
+    qualityBefore = quality;
+    readQualities();
   };
   const offMessages = o.messages((source) => {
     if (frameWindow !== null && source === frameWindow && isReady && !destroyed) sample();
@@ -219,6 +236,8 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
       isReady = true;
       o.clearTimeout(readyTimer);
       emit({ type: "ready" });
+      const q = player.getQuality?.();
+      rawQuality = typeof q === "string" && q !== "" ? q : null;
       readQualities();
     },
     play: () => {

@@ -19,7 +19,7 @@ export interface QualityControl {
 }
 
 /**
- * A quality switch can make Twitch pause/play or seek (research R-M7b, unverified): its events this soon after our own
+ * A quality switch makes Twitch pause, seek and play (research R-M7b; seen on real Twitch, OME-666): its events this soon after our own
  * set are the switch's echo, never a room action. The key shows the switch for as long.
  */
 export const QUALITY_ECHO_MS = 5000;
