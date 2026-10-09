@@ -17,6 +17,11 @@
 - Every server request sends `ngrok-skip-browser-warning: 1` with `credentials: "include"` and `redirect: "manual"`.
 - In the shipped build, a room tab on the Vite dev port can't be read, since only `:8787` is granted. Local sharing from the shipped build needs the single-origin server (ADR 0015 item 1).
 
+**Note (2026-10-09, [OME-509](/OME/issues/OME-509), store release, R1 [OME-501](/OME/issues/OME-501)):**
+- The production (store) build's default server, and so its one host permission, is the hosted `https://omega-share.duckdns.org/*`. Dev and e2e builds keep `http://localhost:8787/*`. The mode decides it (`defaultServerBaseUrl` in `src/settings.ts`).
+- `optional_host_permissions` is now `https://*/*`, `http://localhost/*`, `http://127.0.0.1/*`, `http://[::1]/*`. That is exactly what `parseServerBaseUrl` accepts; `http://*/*` could never be granted.
+- The store zip is built by `bun run ext:store` from a production build only. A guard on the built manifest refuses the e2e build's extra host permissions (`apps/extension/STORE.md`).
+
 **Why:** Playwright can't click the toolbar button, so it can't grant `activeTab`. It opens `popup.html?tabId=<n>` as a tab and resolves `n` with `chrome.tabs.query`, and both need host permission for the target page. Adding those permissions to the shipped build would widen what we ask real users for. The e2e variant keeps them out of the shipped build while exercising the same code.
 
 **Revisit if:** Chromium or Playwright gains a way to invoke the action (and so grant `activeTab`) in tests. Then drop the variant and run e2e against the shipped build.
