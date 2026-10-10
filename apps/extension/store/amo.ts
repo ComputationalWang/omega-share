@@ -16,8 +16,8 @@ export interface AmoCredentials {
 
 /** `ext:amo` takes the key from the environment only: never argv, never a file (OME-757, ADR 0038). */
 export function amoCredentialsFromEnv(env: Readonly<Record<string, string | undefined>>): AmoCredentials {
-  const issuer = env.AMO_JWT_ISSUER ?? "";
-  const secret = env.AMO_JWT_SECRET ?? "";
+  const issuer = env["AMO_JWT_ISSUER"] ?? "";
+  const secret = env["AMO_JWT_SECRET"] ?? "";
   const missing = [issuer === "" ? "AMO_JWT_ISSUER" : "", secret === "" ? "AMO_JWT_SECRET" : ""].filter((name) => name !== "");
   if (missing.length > 0) throw new Error(`set ${missing.join(" and ")} in the environment (the AMO API key, never on the command line)`);
   return { issuer, secret };
@@ -95,7 +95,7 @@ export function amoClient({ credentials, fetch: fetchImpl = fetch, now = Date.no
       headers["Content-Type"] = "application/json";
       payload = JSON.stringify(body);
     }
-    const res = await fetchImpl(url, { method, headers, body: payload, redirect: "error" });
+    const res = await fetchImpl(url, { method, headers, body: payload ?? null, redirect: "error" });
     const text = await res.text();
     const where = `AMO ${method} ${new URL(url).pathname}`;
     if (!res.ok) throw new Error(`${where} → ${String(res.status)}: ${text.slice(0, 500)}`);
@@ -136,7 +136,7 @@ export function amoClient({ credentials, fetch: fetchImpl = fetch, now = Date.no
     }),
     upload: guarded(async (zip: Uint8Array, filename: string) => {
       const form = new FormData();
-      form.append("upload", new File([zip], filename, { type: "application/zip" }));
+      form.append("upload", new File([new Uint8Array(zip)], filename, { type: "application/zip" }));
       form.append("channel", "listed");
       const { uuid } = await call(AmoUpload, "POST", `${AMO_API}/addons/upload/`, form);
       for (let poll = 0; poll < UPLOAD_POLLS; poll++) {
@@ -153,7 +153,7 @@ export function amoClient({ credentials, fetch: fetchImpl = fetch, now = Date.no
     createVersion: guarded(async (uploadUuid: string, sources: Uint8Array, filename: string) => {
       const created = await call(AmoVersion, "POST", `${addonUrl}versions/`, { upload: uploadUuid, compatibility: ["firefox", "android"] });
       const form = new FormData();
-      form.append("source", new File([sources], filename, { type: "application/zip" }));
+      form.append("source", new File([new Uint8Array(sources)], filename, { type: "application/zip" }));
       return call(AmoVersion, "PATCH", `${addonUrl}versions/${String(created.id)}/`, form);
     }),
   };

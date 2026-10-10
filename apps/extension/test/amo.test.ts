@@ -17,11 +17,11 @@ describe("amoJwt", () => {
     const jwt = await amoJwt(CREDS, { now: NOW, jti: "jti-1" });
     const { header, payload, signature, signed } = decode(jwt);
     expect(header).toEqual({ alg: "HS256", typ: "JWT" });
-    expect(payload.iss).toBe("user:12345:67");
-    expect(payload.jti).toBe("jti-1");
-    expect(payload.iat).toBe(NOW / 1000);
-    expect(typeof payload.exp).toBe("number");
-    const lifetime = Number(payload.exp) - Number(payload.iat);
+    expect(payload["iss"]).toBe("user:12345:67");
+    expect(payload["jti"]).toBe("jti-1");
+    expect(payload["iat"]).toBe(NOW / 1000);
+    expect(typeof payload["exp"]).toBe("number");
+    const lifetime = Number(payload["exp"]) - Number(payload["iat"]);
     expect(lifetime).toBeGreaterThan(0);
     expect(lifetime).toBeLessThanOrEqual(300);
     // node:crypto's HMAC is an implementation independent of the WebCrypto one under test.
@@ -29,8 +29,8 @@ describe("amoJwt", () => {
   });
 
   test("a fresh jti every call by default, so AMO never sees a replayed token", async () => {
-    const a = decode(await amoJwt(CREDS, { now: NOW })).payload.jti;
-    const b = decode(await amoJwt(CREDS, { now: NOW })).payload.jti;
+    const a = decode(await amoJwt(CREDS, { now: NOW })).payload["jti"];
+    const b = decode(await amoJwt(CREDS, { now: NOW })).payload["jti"];
     expect(typeof a).toBe("string");
     expect(a).not.toBe(b);
   });
@@ -80,7 +80,7 @@ interface Seen {
   readonly url: string;
   readonly auth: string | null;
   readonly contentType: string | null;
-  readonly body: FormData | unknown;
+  readonly body: unknown;
 }
 
 /** A fake AMO at the HTTP boundary: answers by `METHOD url`, in order when a route has several answers, and records each request. */
@@ -90,7 +90,7 @@ function fakeAmo(routes: Record<string, readonly (() => Response)[]>): { fetch: 
   const fake = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const req = new Request(input, init);
     const type = req.headers.get("content-type");
-    const body = req.method === "GET" ? undefined : type?.startsWith("multipart/") ? await req.formData() : JSON.parse(await req.text());
+    const body = req.method === "GET" ? undefined : type?.startsWith("multipart/") ? await req.formData() : (JSON.parse(await req.text()) as unknown);
     seen.push({ method: req.method, url: req.url, auth: req.headers.get("authorization"), contentType: type, body });
     const answers = left.get(`${req.method} ${req.url}`);
     const answer = answers && answers.length > 1 ? answers.shift() : answers?.[0];
@@ -100,6 +100,8 @@ function fakeAmo(routes: Record<string, readonly (() => Response)[]>): { fetch: 
   return { fetch: fake as typeof fetch, seen };
 }
 
+/** The message a promise rejects with; fails the test if it resolves. */
+const failure = (p: Promise<unknown>): Promise<string> => p.then(() => { throw new Error("expected a rejection"); }, (e: unknown) => (e instanceof Error ? e.message : String(e)));
 const json = (body: unknown, status = 200): (() => Response) => () => Response.json(body, { status });
 const client = (fetchImpl: typeof fetch) => amoClient({ credentials: CREDS, fetch: fetchImpl, now: () => NOW, sleep: () => Promise.resolve() });
 
@@ -116,7 +118,7 @@ describe("amoClient requests", () => {
     const [req] = amo.seen;
     expect(req?.auth).toStartWith("JWT ");
     const { payload, signature, signed } = decode(req?.auth?.slice(4) ?? "");
-    expect(payload.iss).toBe(CREDS.issuer);
+    expect(payload["iss"]).toBe(CREDS.issuer);
     expect(signature).toBe(createHmac("sha256", CREDS.secret).update(signed).digest("base64url"));
   });
 
@@ -136,7 +138,7 @@ describe("amoClient requests", () => {
   test("versions() refuses a next link off the AMO API, so the token never leaves for another host", async () => {
     const first = `${ADDON_URL}versions/?filter=all_with_unlisted&page_size=50`;
     const amo = fakeAmo({ [`GET ${first}`]: [json({ count: 2, next: "https://evil.example/api/v5/next", previous: null, results: [V010] })] });
-    await expect(client(amo.fetch).versions()).rejects.toThrow("evil.example");
+    expect(await failure(client(amo.fetch).versions())).toContain("evil.example");
     expect(amo.seen.map((s) => s.url)).toEqual([first]);
   });
 
@@ -171,13 +173,13 @@ describe("amoClient requests", () => {
       url: `${API}/addons/upload/u-2/`,
     };
     const amo = fakeAmo({ [`POST ${API}/addons/upload/`]: [json(done, 201)], [`GET ${API}/addons/upload/u-2/`]: [json(done)] });
-    await expect(client(amo.fetch).upload(new Uint8Array([1]), "x.zip")).rejects.toThrow("Version 0.1.0 already exists.");
+    expect(await failure(client(amo.fetch).upload(new Uint8Array([1]), "x.zip"))).toContain("Version 0.1.0 already exists.");
   });
 
   test("upload() gives up after a bounded wait for AMO's validator", async () => {
     const pending = { uuid: "u-3", channel: "listed", processed: false, valid: false, submitted: false, validation: null, url: `${API}/addons/upload/u-3/` };
     const amo = fakeAmo({ [`POST ${API}/addons/upload/`]: [json(pending, 201)], [`GET ${API}/addons/upload/u-3/`]: [json(pending)] });
-    await expect(client(amo.fetch).upload(new Uint8Array([1]), "x.zip")).rejects.toThrow("u-3");
+    expect(await failure(client(amo.fetch).upload(new Uint8Array([1]), "x.zip"))).toContain("u-3");
   });
 
   test("createVersion() creates the version from the upload, then attaches the sources zip", async () => {
@@ -204,21 +206,21 @@ describe("amoClient requests", () => {
 describe("amoClient responses (Valibot at the boundary)", () => {
   test("a response missing a field it relies on fails, naming the field", async () => {
     const amo = fakeAmo({ [`GET ${ADDON_URL}`]: [json({ ...ADDON, status: undefined })] });
-    await expect(client(amo.fetch).addon()).rejects.toThrow("status");
+    expect(await failure(client(amo.fetch).addon())).toContain("status");
   });
 
   test("a non-2xx answer fails with the status and AMO's message", async () => {
     const amo = fakeAmo({ [`GET ${ADDON_URL}`]: [json({ detail: "Not found." }, 404)] });
-    await expect(client(amo.fetch).addon()).rejects.toThrow(/404.*Not found\./);
+    expect(await failure(client(amo.fetch).addon())).toMatch(/404.*Not found\./);
   });
 });
 
 describe("secret redaction", () => {
   test("an error body echoing the secret, the issuer or the token never reaches the message", async () => {
     let token = "";
-    const fake = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const fake = ((input: RequestInfo | URL, init?: RequestInit) => {
       token = new Request(input, init).headers.get("authorization")?.slice(4) ?? "";
-      return Response.json({ detail: `bad key ${CREDS.issuer} / ${CREDS.secret} / ${token}` }, { status: 401 });
+      return Promise.resolve(Response.json({ detail: `bad key ${CREDS.issuer} / ${CREDS.secret} / ${token}` }, { status: 401 }));
     }) as typeof fetch;
     const err = await client(fake)
       .addon()
