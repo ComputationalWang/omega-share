@@ -104,6 +104,13 @@ describe("gitTree", () => {
     expect(gitTree(d).dirty).toBe(true);
   });
 
+  test("a change under assets/ makes the tree dirty: the web build bundles the art, the extension copies its icons", () => {
+    const d = repo();
+    mkdirSync(join(d, "assets/furniture"), { recursive: true });
+    writeFileSync(join(d, "assets/furniture/furniture.json"), "{}\n");
+    expect(gitTree(d).dirty).toBe(true);
+  });
+
   test("a change outside the build inputs (docs, perf specs) keeps the build", () => {
     const d = repo();
     writeFileSync(join(d, "notes.md"), "y\n");
