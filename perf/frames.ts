@@ -2,8 +2,8 @@
 import type { Browser, Page } from "@playwright/test";
 import type { FrameProvider } from "./budgets";
 import { OBSERVER_MARK, TRACE_CATEGORIES, frameWorkMs } from "./frame-work";
-import { p95, recordMetric } from "./metrics";
-import { summarizeFrames } from "./spread";
+import { recordMetric } from "./metrics";
+import { summarizeWindows } from "./spread";
 
 /** Headless Chromium drives rAF from a fixed 60 Hz begin-frame clock. */
 export const VSYNC_MS = 1000 / 60;
@@ -51,12 +51,20 @@ export async function tracedFrames(browser: Browser, page: Page, ms: number): Pr
   return { samples, workMs: frameWorkMs(trace) };
 }
 
+/** Back-to-back traced windows per frame row (OME-846): one ~300-frame window flips a 1 % missed-vsync budget on one frame. */
+export const FRAME_WINDOWS = 3;
+
+/** `count` back-to-back `tracedFrames` windows on the same, already set-up page: rows from these via `summarizeWindows`. */
+export async function sampledFrames(browser: Browser, page: Page, ms: number, count = FRAME_WINDOWS): Promise<FrameWindow[]> {
+  const windows: FrameWindow[] = [];
+  for (let i = 0; i < count; i++) windows.push(await tracedFrames(browser, page, ms));
+  return windows;
+}
+
 /** The three frame rows of one provider: ADR 0009's quantised p95, and ADR 0017's work p95 and missed vsyncs. */
-export function recordFrameRows(provider: FrameProvider, w: FrameWindow, what: string): void {
-  const f = summarizeFrames(w.samples, VSYNC_MS);
-  const workP95 = p95(w.workMs);
-  const workMax = Math.max(...w.workMs);
+export function recordFrameRows(provider: FrameProvider, windows: readonly FrameWindow[], what: string): void {
+  const f = summarizeWindows(windows, VSYNC_MS);
   recordMetric({ id: provider === "youtube" ? "site.frameP95" : `site.frameP95.${provider}`, value: f.p95, note: `${f.note}; ${what}` });
-  recordMetric({ id: `site.frameWorkP95.${provider}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${workMax.toFixed(2)} ms; ${what}` });
-  recordMetric({ id: `site.missedVsync.${provider}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; Playwright tracing off; ${what}` });
+  recordMetric({ id: `site.frameWorkP95.${provider}`, value: f.workP95, note: `${f.workNote}; ${what}` });
+  recordMetric({ id: `site.missedVsync.${provider}`, value: f.missedPct, note: `${f.missedNote}; Playwright tracing off; ${what}` });
 }
