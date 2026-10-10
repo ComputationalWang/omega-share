@@ -14,6 +14,8 @@ Test-harness oddities that cost real review time. Check here before debugging a 
 
 **Concurrent QA and QA2 full runs** (OME-714). The two lanes' fixed offsets overlap, and CPU sharing flakes popout and sync specs. Before calling it red, check playwright cwds, then rerun the failed files with `--workers=1`. EADDRINUSE on a fixed-port spec is an environment collision, not a regression.
 
+**Two full local runs at once flake the frame-timing specs** (OME-879). At load 30–44 (two agents' `bun run e2e` on one box) walk Smooth, the walk-tier probe control, wheel cooling and popout "two windows" went red for both. Fixed per spec, not by retries: Smooth judges the share of moves shorter than a Basic step; the probe control skips with a reason only when three starts settled Basic *and* the box is over its core count or the page's median rAF is over 20 ms; wheel cooling holds the page's `performance.now` (not `page.clock`, which stalls rAF and hangs the next click); popout polls for the spare window to close. Prove a spec load-tolerant with `OMEGA_E2E_CPU_THROTTLE=N` (`e2e/support/load.ts`, CDP CPU throttle on every page `joinRoom` opens): it reproduces renderer-bound reds (probe at 6×, cooling at 20×) without loading the shared box, but not compositor-bound ones (Smooth, popout).
+
 **Prove "no traffic to port X"** (OME-115): `DEBUG=pw:protocol bun run e2e 2>&1 | grep -E 'Network.(requestWillBeSent|webSocketCreated)'`. This covers the extension's persistent context, which `--trace` doesn't. `ss` polling misses refused connects.
 
 ## Worktrees and the gate

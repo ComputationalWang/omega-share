@@ -285,7 +285,10 @@ test("two windows opened at once: the page is never left waiting on a window tha
     a.context.on("page", onPage);
     await a.page.locator(site.chatPopout).click();
     await expect.poll(() => opened.length).toBe(2);
-    await a.page.waitForTimeout(1000);
+    // The spare closes itself; on a busy box that took longer than a fixed second (OME-879), so wait for it, then hold
+    // a moment to see that the survivor stays.
+    await expect.poll(() => opened.filter((p) => !p.isClosed()).length, { message: `round ${String(round)}`, timeout: 10_000 }).toBe(1);
+    await a.page.waitForTimeout(500);
     a.context.off("page", onPage);
     const live = opened.filter((p) => !p.isClosed());
     // One window survives and is the chat: the page waits on it, and it can talk.

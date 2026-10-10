@@ -5,6 +5,7 @@ import { expect, test } from "./support/csp";
 import * as v from "valibot";
 import type { BrowserContext, Page } from "@playwright/test";
 import { PENDING, available } from "./support/apps";
+import { overloaded } from "./support/load";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 
@@ -72,8 +73,32 @@ async function reachSmooth(walker: Client, observer: Client): Promise<void> {
     await walkAround(walker, 15_000, async () => (await tierOf(observer.page)) === "smooth");
     if ((await tierOf(observer.page)) === "smooth") return;
   }
+  // Three Basic starts on an overloaded box (two full local runs at once, OME-879) are the probe doing its job: Basic is
+  // right for a page that slow. Say so instead of failing, but only when the box is busy or the page itself is too slow
+  // for the probe (tier.ts UPGRADE_MEDIAN_MS); a quiet box or a fast page still fails the check.
+  const load = overloaded();
+  const frame = await medianFrameMs(observer.page);
+  test.skip(load.busy || frame > 20, `the probe settled Basic three room starts in a row on a busy box (${load.why}, median rAF ${frame.toFixed(1)} ms)`);
   await expect(canvas(observer.page), "the probe upgraded in one of three room starts").toHaveAttribute("data-motion", "smooth");
 }
+
+/** The page's median rAF interval over one second (ms). */
+const medianFrameMs = (page: Page): Promise<number> =>
+  page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        const gaps: number[] = [];
+        let last = NaN;
+        const end = performance.now() + 1000;
+        const tick = (t: number): void => {
+          if (!Number.isNaN(last)) gaps.push(t - last);
+          last = t;
+          if (performance.now() < end) requestAnimationFrame(tick);
+          else resolve(gaps.sort((x, y) => x - y)[gaps.length >> 1] ?? Infinity);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
 
 test("static gates: 2 cores, 2 GB or Save-Data keep the room in Basic through walks; an ungated device probes up to Smooth", async ({ browser }) => {
   test.setTimeout(150_000);
