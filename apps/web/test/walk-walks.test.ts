@@ -18,10 +18,11 @@ const standAt = (who: string, col: number, row: number): WalkTarget => {
   return { id: id(who), at, z: standDepth(at), seatFacing: null };
 };
 
-function setup(opts: { reduced?: boolean } = {}) {
+function setup(opts: { reduced?: boolean; smooth?: () => boolean } = {}) {
   let routes = 0;
   const walks = createWalks({
     reducedMotion: () => opts.reduced ?? false,
+    smooth: opts.smooth ?? (() => false),
     route: (g, from, to) => {
       routes++;
       return findPath(g, from, to);
@@ -71,11 +72,11 @@ describe("walks", () => {
     expect(sample("a", end)).toMatchObject({ ...cellCenter(4, 2), z: 222, walking: false, sitting: true, dir: "nw" });
   });
 
-  test("the walk frame steps every 150 ms and loops every tile; direction follows each step's axis", () => {
+  test("the walk frame steps every 150 ms through the 8-frame cycle's even frames and loops every tile; direction follows each step's axis", () => {
     const { walks, sample } = setup();
     walks.place([standAt("a", 5, 9)], 0);
     walks.place([standAt("a", 5, 6)], 0); // three tiles towards -row: ne
-    expect([0, 149, 150, 300, 450, 600].map((t) => sample("a", t)?.step)).toEqual([0, 0, 1, 2, 3, 0]);
+    expect([0, 149, 150, 300, 450, 600].map((t) => sample("a", t)?.step)).toEqual([0, 0, 2, 4, 6, 0]);
     expect(sample("a", 100)?.dir).toBe("ne");
     walks.place([standAt("a", 8, 6)], 1800); // from (5,6): +col is se
     expect(sample("a", 1800 + 10)?.dir).toBe("se");
@@ -186,7 +187,7 @@ test("the same layout again (its furniture atlas arriving) doesn't stop the next
   expect(pose.walking).toBe(true);
 });
 
-describe("walks move in whole steps (ADR 0010 stepPx: 8 × 4 px a 150 ms frame)", () => {
+describe("Basic: walks move in whole steps (ADR 0010 stepPx: 8 × 4 px a 150 ms frame)", () => {
   test("the avatar holds each step for the whole frame, then moves one step on", () => {
     const { walks, sample } = setup();
     walks.place([standAt("a", 5, 9)], 0);
@@ -204,8 +205,86 @@ describe("walks move in whole steps (ADR 0010 stepPx: 8 × 4 px a 150 ms frame)"
     const start = cellCenter(5, 9);
     expect(sample("a", 1000)).toMatchObject({ x: start.x, y: start.y, walking: true, step: 0 });
     expect(sample("a", 1199)).toMatchObject({ x: start.x, y: start.y, step: 0 });
-    expect(sample("a", 1200)).toMatchObject({ x: start.x + 8, y: start.y - 4, step: 1 });
+    expect(sample("a", 1200)).toMatchObject({ x: start.x + 8, y: start.y - 4, step: 2 });
     expect(sample("a", 1050 + TILE_MS - 1)?.walking).toBe(true);
     expect(sample("a", 1050 + TILE_MS)).toMatchObject({ ...cellCenter(5, 8), walking: false });
   });
 });
+
+// OME-731 (ADR 0037): the Smooth tier moves every frame, rounded to whole px, on the 8-frame 75 ms cycle; same paths,
+// same shared start clock, so arrivals match Basic's to the ms.
+describe("Smooth: walks move every frame on the 8 × 75 ms cycle", () => {
+  test("position follows the clock, rounded to whole px; the frame steps every 75 ms through all 8", () => {
+    const { walks, sample } = setup({ smooth: () => true });
+    walks.place([standAt("a", 5, 9)], 0);
+    walks.place([standAt("a", 5, 6)], 0); // ne: +x, -y on screen, 8 × 4 px per 150 ms
+    const start = cellCenter(5, 9);
+    expect(sample("a", 75)).toMatchObject({ x: start.x + 4, y: start.y - 2 });
+    expect(sample("a", 100)).toMatchObject({ x: start.x + 5, y: start.y - 3 });
+    expect(sample("a", 160)).toMatchObject({ x: start.x + 9, y: start.y - 4 });
+    for (let t = 0; t < 1800; t += 7) {
+      const p = sample("a", t);
+      expect(Number.isInteger(p?.x) && Number.isInteger(p?.y)).toBe(true);
+    }
+    expect([0, 74, 75, 150, 525, 599, 600].map((t) => sample("a", t)?.step)).toEqual([0, 0, 1, 2, 7, 7, 0]);
+  });
+
+  test("walks keep the shared 150 ms start clock: asked for at 1000, it starts at 1050 and arrives when Basic's does", () => {
+    const smooth = setup({ smooth: () => true });
+    const basic = setup();
+    for (const s of [smooth, basic]) {
+      s.walks.place([standAt("a", 5, 9), sitAtFor("b")], 0);
+      s.walks.place([standAt("a", 5, 6), sitAt("b", 4, 2, "nw", 222)], 1000);
+    }
+    const start = cellCenter(5, 9);
+    expect(smooth.sample("a", 1049)).toMatchObject({ x: start.x, y: start.y, walking: true, step: 0 });
+    expect(smooth.sample("a", 1050 + 75)).toMatchObject({ x: start.x + 4, y: start.y - 2, step: 1 });
+    for (let t = 1000; t < 1050 + 20 * TILE_MS; t += 25) {
+      expect(smooth.walks.walking(t)).toBe(basic.walks.walking(t));
+      for (const who of ["a", "b"]) expect(smooth.sample(who, t)?.walking).toBe(basic.sample(who, t)?.walking ?? false);
+    }
+    expect(smooth.sample("a", 1050 + 3 * TILE_MS)).toEqual(basic.sample("a", 1050 + 3 * TILE_MS));
+  });
+
+  test("the tiers swap mid-stride with no pop: at any moment Smooth is Basic's step or up to one step on, on its frame or the in-between after it", () => {
+    let on = false;
+    const { walks, sample } = setup({ smooth: () => on });
+    walks.place([standAt("a", 5, 9)], 0);
+    walks.place([standAt("a", 8, 6)], 0);
+    let prev = sample("a", 0);
+    for (let t = 0; t < 4000; t += 13) {
+      on = false;
+      const b = sample("a", t);
+      on = true;
+      const s = sample("a", t);
+      if (b === null || s === null || prev === null) throw new Error("not in the room");
+      if (!b.walking) {
+        expect(s).toEqual(b);
+        continue;
+      }
+      expect(Math.abs(s.x - b.x)).toBeLessThanOrEqual(8);
+      expect(Math.abs(s.y - b.y)).toBeLessThanOrEqual(4);
+      expect([b.step, b.step + 1]).toContain(s.step);
+      // Flipping every sample never moves the avatar backwards along its path.
+      on = t % 2 === 0;
+      const now = sample("a", t);
+      if (now === null) throw new Error("not in the room");
+      expect(Math.hypot(now.x - prev.x, now.y - prev.y)).toBeLessThanOrEqual(16);
+      prev = now;
+    }
+  });
+
+  test("a new spot mid-walk turns from where the avatar is drawn now, not from the last whole step", () => {
+    const { walks, sample } = setup({ smooth: () => true });
+    walks.place([standAt("a", 5, 9)], 0);
+    walks.place([standAt("a", 5, 6)], 0);
+    const before = sample("a", 700);
+    walks.place([standAt("a", 9, 9)], 700);
+    const after = sample("a", 700);
+    expect(after).toMatchObject({ x: before?.x, y: before?.y, walking: true });
+  });
+});
+
+function sitAtFor(who: string): WalkTarget {
+  return sitAt(who, 4, 6, "ne", 111);
+}
