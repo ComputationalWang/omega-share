@@ -22,6 +22,8 @@ export interface Tier {
   readonly smooth: () => boolean;
   /** Still deciding whether to upgrade: the caller also measures a rAF interval next to each render. */
   probing(): boolean;
+  /** Probing, or in a probed Smooth that may still drop: samples count. False once settled or forced. */
+  measuring(): boolean;
   /** One render's post-render work (ms). `walking`: a Smooth frame that drew a walk. */
   work(ms: number, walking: boolean): void;
   /** One rAF interval (ms): next to a Basic render while probing, or between two Smooth walking frames. */
@@ -87,6 +89,7 @@ export function createTier(h: TierHints): Tier {
   return {
     smooth: () => smooth,
     probing: () => state === PROBING,
+    measuring: () => state !== STATIC,
     work(ms, walking) {
       if (state === PROBING) {
         renders++;
@@ -190,13 +193,13 @@ export function createTierProbe(tier: Tier, d: TierProbeDeps): TierProbe {
     pendingStart = NaN;
   };
   const nextFrame = (t: number): void => {
-    tier.interval(t - renderTs);
+    // The probe may have decided meanwhile (the last render's message): this was a Basic frame, not a Smooth walking one.
+    if (tier.probing()) tier.interval(t - renderTs);
   };
   return {
     rendered(start, frameTs, walking) {
+      if (!tier.measuring()) return;
       const probing = tier.probing();
-      const smooth = tier.smooth();
-      if (!probing && !smooth) return;
       if (walking && !Number.isNaN(lastWalkTs)) tier.interval(frameTs - lastWalkTs);
       lastWalkTs = walking ? frameTs : NaN;
       if (probing) {
