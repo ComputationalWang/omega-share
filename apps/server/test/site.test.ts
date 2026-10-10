@@ -13,7 +13,7 @@ import { SITE_ORIGIN, start, type TestServer } from "./helpers";
 
 const PUBLIC_ORIGIN = "https://quiet-otter.ngrok-free.app";
 const PUBLIC_HOST = "quiet-otter.ngrok-free.app";
-const OWNER = "a".repeat(64);
+const OWNER = new Uint8Array(32);
 
 let t: TestServer | null = null;
 afterEach(async () => {
@@ -90,7 +90,7 @@ describe("siteMeta: the share card tags", () => {
   test("a legacy over-long title is cut to the title limit, and og:title stays within 80 characters", () => {
     const title = ogTitle(siteMeta(PUBLIC_ORIGIN, "a".repeat(200))) ?? "";
     expect(title).toBe(`${"a".repeat(32)} · omega-share`);
-    expect([...title].length).toBeLessThanOrEqual(80);
+    expect(Array.from(title).length).toBeLessThanOrEqual(80);
   });
 });
 
@@ -143,7 +143,7 @@ describe("site routes: shell, share card and real 404s", () => {
 
   test("a title the lobby hides (blocklist) gets the generic card too", async () => {
     const store = new RoomStore(openDatabase(join(mkdtempSync(join(tmpdir(), "omega-site-db-")), "omega.db")));
-    store.createRoom({ id: "film-club", title: "Film club", createdAt: 0, layout: DEFAULT_LAYOUT, visibility: "public", pinned: false, ownerHash: OWNER });
+    store.createRoom({ id: "film-club", title: "Film club", createdAt: Date.now(), layout: DEFAULT_LAYOUT, visibility: "public", pinned: false, ownerHash: OWNER });
     t = start({ staticDir: site(), publicOrigin: PUBLIC_ORIGIN, store, roomTitleBlocklist: ["film"] });
     expect(ogTitle(await (await get("/r/film-club")).text())).toBe("omega-share");
   });

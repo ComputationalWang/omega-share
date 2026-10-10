@@ -149,6 +149,8 @@ export interface HttpDeps {
   /** `securityHeaders(embeds.genericEmbeds)`, set on every response. */
   headers: SecurityHeaders;
   staticDir: string | null;
+  /** Absolute origin for the share card's image URL (PUBLIC_ORIGIN, else SITE_ORIGIN). */
+  cardOrigin: string;
   /** Writes a created room to the store (ADR 0028); throws if it can't. */
   persistRoom: (room: NewRoom) => void;
   /** Deletes an owner-deleted room's row (ADR 0028 §2); throws if it can't. */
@@ -186,6 +188,7 @@ export function createHttpApp({
   embeds,
   headers,
   staticDir,
+  cardOrigin,
   persistRoom,
   unpersistRoom,
   titleBlocked,
@@ -525,6 +528,11 @@ export function createHttpApp({
     return c.json(body, 503);
   });
 
-  if (staticDir !== null) mountSite(app, staticDir);
+  // A link preview shows a room's title only where the lobby would list it, and never a taken-down room's (§5.2).
+  const previewTitle = (id: string): string | null => {
+    const room = rooms.get(id);
+    return room !== undefined && !reports.isTakenDown(id) && listable(room) ? room.title : null;
+  };
+  if (staticDir !== null) mountSite(app, staticDir, { origin: cardOrigin, previewTitle });
   return app;
 }
