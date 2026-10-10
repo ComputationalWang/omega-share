@@ -478,10 +478,12 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-slot-ticket[aria-invalid="true"] { border-image-source: url("slices/ticket-expired.png"); color: var(--ui-panel); }
 
 /* Room closed (4004) / invite required: a panel with the scene/<closed|invite> vignette, a heading and one primary way out.
- * Mid-session (the host closed the room while you watched) lay .ui-scrim over the stage first: 1-bit dither, no alpha. */
+ * Mid-session (the host closed the room while you watched) lay .ui-scrim over the stage first: 1-bit dither, no alpha.
+ * Room not found (a link to a room that never existed or is long gone, OME-841): the same panel with scene/not-found. */
 .ui-scene { display: block; width: calc(72 * var(--ui-px)); height: calc(64 * var(--ui-px)); background: none no-repeat 0 0 / 100% 100%; }
 .ui-scene-closed { background-image: url("scenes/closed.png"); }
 .ui-scene-invite { background-image: url("scenes/invite.png"); }
+.ui-scene-not-found { background-image: url("scenes/not-found.png"); }
 .ui-scrim { background: url("slices/scrim-0.png") 0 0 / calc(2 * var(--ui-px)) calc(4 * var(--ui-px)); }
 
 /* Emote picker: <div class="ui-emotes" role="menu"> above the emote key (.ui-button.self + icon/emote). Night tray, mustard rim,

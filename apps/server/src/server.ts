@@ -1,6 +1,7 @@
 import type { Server } from "bun";
 import type { Database } from "bun:sqlite";
-import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, QUEUE_MAX, type AnyEmbed, type QueueItemId, type RoomId } from "@omega/shared";
+import * as v from "valibot";
+import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, QUEUE_MAX, RoomIdSchema, type AnyEmbed, type QueueItemId, type RoomId } from "@omega/shared";
 import { nicknameKey } from "@omega/shared/confusables";
 import { DEFAULT_MAX_CONNECTIONS, ownHostsFor } from "./config";
 import { EmbedPolicy } from "./embed-policy";
@@ -351,12 +352,15 @@ export function startServer(opts: ServerOptions): OmegaServer {
     if (refused !== null) return refused;
     const id = match[1] ?? "";
     // A taken-down id still upgrades, to an unregistered stand-in, so the client hears 4006 rather than a bare 404 (ADR 0033 §6).
-    const room = rooms.get(id) ?? (reports.isTakenDown(id) ? new Room(id, { createdAt: 0 }) : undefined);
+    // So does any other well-formed id (OME-768): ws.ts closes it with 4004 before any snapshot, and the page says "Room not
+    // found" instead of retrying a 404 it can't read. A plain request (no WebSocket handshake) still gets the 404.
+    const known = rooms.get(id) ?? (reports.isTakenDown(id) ? new Room(id, { createdAt: 0 }) : undefined);
+    const room = known ?? (v.is(RoomIdSchema, id) ? new Room(id, { createdAt: 0 }) : undefined);
     if (room === undefined) return plain(404, "unknown room");
     if (connections >= maxConnections) return plain(503, "server full");
     const open = connectionsPerIp.get(ip) ?? 0;
     if (open >= maxConnectionsPerIp) return plain(429, "too many connections");
-    if (!srv.upgrade(req, { data: ws.connData(room, ip) })) return plain(426, "expected a WebSocket upgrade");
+    if (!srv.upgrade(req, { data: ws.connData(room, ip) })) return known === undefined ? plain(404, "unknown room") : plain(426, "expected a WebSocket upgrade");
     connectionsPerIp.set(ip, open + 1);
     connections++;
     return undefined;

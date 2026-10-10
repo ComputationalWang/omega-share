@@ -141,6 +141,17 @@
   <p style="font-size:12px;color:var(--muted)">Upper row on the site's plum page (#2b1d2f), lower row on near-black (#17111a).</p>
 </section>
 
+<section id="m9-notfound">
+  <h2>Room not found (OME-841): scenes/not-found.png beside the other room scenes, page chrome 2× (144×128 CSS)</h2>
+  <div class="row">
+    <figure><img class="px" src="../ui/scenes/not-found.png" width="144" height="128" alt=""><figcaption><b>not-found</b>: no door, a dashed ghost, a question mark</figcaption></figure>
+    <figure><img class="px" src="../ui/scenes/closed.png" width="144" height="128" alt=""><figcaption>closed: a real door, lights out</figcaption></figure>
+    <figure><img class="px" src="../ui/scenes/invite.png" width="144" height="128" alt=""><figcaption>invite: lit, an empty keyhole</figcaption></figure>
+    <figure><img class="px" src="../ui/scenes/removed.png" width="144" height="128" alt=""><figcaption>removed: lit, shut, a wait clock</figcaption></figure>
+    <figure><img class="px" src="../ui/scenes/not-found.png" width="72" height="64" alt=""><figcaption>not-found at 1×</figcaption></figure>
+  </div>
+</section>
+
 <script>
   Promise.all([...document.images].map((i) => (i.complete ? Promise.resolve() : new Promise((r) => { i.onload = i.onerror = r; })))).then(() => { document.body.dataset.ready = "1"; });
 </script>

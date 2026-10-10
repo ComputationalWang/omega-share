@@ -3,7 +3,7 @@
 // OMEGA_FIXTURE_PORT / OMEGA_WEB_PORT / OMEGA_SERVER_PORT (the runner's own ports, so it never collides with a QA agent's e2e).
 import { existsSync, copyFileSync, createWriteStream } from "node:fs";
 import { join, resolve } from "node:path";
-import { queueDir, recoverCrashed, runPending, type Executor } from "./queue";
+import { jobEnv, queueDir, recoverCrashed, runPending, type Executor } from "./queue";
 
 const repo = resolve(process.env["OMEGA_PERF_REPO"] ?? join(import.meta.dir, "../.."));
 const dir = queueDir();
@@ -29,7 +29,7 @@ const exec: Executor = async (job, ctx) => {
     if ((await sh(["git", "checkout", "--detach", "-f", job.sha], worktree, log, ctx.signal)) !== 0) return { exitCode: 1 };
     if (!ctx.reuseBuild && (await sh(["bun", "install", "--frozen-lockfile"], worktree, log, ctx.signal)) !== 0) return { exitCode: 1 };
     const flags = ctx.reuseBuild ? ["--no-build"] : [];
-    const code = await sh(["bun", "perf/run.ts", ...flags, ...job.specs], worktree, log, ctx.signal);
+    const code = await sh(["bun", "perf/run.ts", ...flags, ...job.specs], worktree, log, ctx.signal, jobEnv(job));
     for (const f of ["report.md", "report.json"]) {
       const src = join(worktree, "perf/results", f);
       if (existsSync(src)) copyFileSync(src, join(ctx.jobDir, f));

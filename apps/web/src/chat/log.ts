@@ -31,7 +31,10 @@ export interface ChatLogOptions<H> {
 
 export interface ChatLog {
   readonly root: HTMLDivElement;
-  append(entry: ChatLogEntry): void;
+  /** `from`: who said it (a chat line's member id), so "Hide for me" can take it down later (OME-769). */
+  append(entry: ChatLogEntry, from?: string): void;
+  /** Hide the lines whose speaker `hidden` says, show the rest (OME-769). One pass over the kept lines, per change. */
+  hideFrom(hidden: (from: string) => boolean): void;
   setAgeing(ageing: ChatLogAgeing): void;
   /** Drop every line (the pop-out's log when its room tab sends the backlog again). */
   clear(): void;
@@ -43,6 +46,8 @@ interface Line {
   born: number;
   /** 0 fresh, 1 settled, 2 faded. */
   stage: 0 | 1 | 2;
+  /** Who said it; undefined for system lines. */
+  readonly from: string | undefined;
 }
 
 function lineEl(entry: ChatLogEntry): HTMLDivElement {
@@ -72,6 +77,7 @@ export function createChatLog<H>(opts: ChatLogOptions<H>): ChatLog {
   let hovered = false;
   let focused = false;
   let heldSince: number | null = null;
+  let isHidden: (from: string) => boolean = () => false;
 
   const last = (): 1 | 2 => (ageing === "fade" ? 2 : 1);
   const dueAt = (l: Line): number => l.born + (l.stage === 0 ? SETTLE_MS : FADE_MS);
@@ -152,16 +158,24 @@ export function createChatLog<H>(opts: ChatLogOptions<H>): ChatLog {
 
   return {
     root,
-    append(entry) {
+    append(entry, from) {
       // Stick to the foot if the reader is there; someone scrolled up to read stays put.
       const stick = following || atFoot();
-      const line: Line = { el: lineEl(entry), born: heldSince ?? opts.now(), stage: 0 };
+      const line: Line = { el: lineEl(entry), born: heldSince ?? opts.now(), stage: 0, from };
+      if (from !== undefined && isHidden(from)) line.el.hidden = true;
       lines.push(line);
       root.append(line.el);
       if (lines.length > cap) lines.shift()?.el.remove();
       if (stick) root.scrollTop = root.scrollHeight;
       // In fade mode the armed timer may be an older line's fade, due after this line settles.
       if (heldSince === null && (timer === null || dueAt(line) < armedAt)) schedule();
+    },
+    hideFrom(hidden) {
+      isHidden = hidden;
+      for (const l of lines) {
+        const hide = l.from !== undefined && hidden(l.from);
+        if (l.el.hidden !== hide) l.el.hidden = hide;
+      }
     },
     clear() {
       for (const l of lines.splice(0)) l.el.remove();

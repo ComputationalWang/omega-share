@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { jobStatus, readResult, recoverCrashed, runPending, submitJob, type Executor } from "./queue";
+import { jobEnv, jobStatus, readResult, recoverCrashed, runPending, submitJob, type Executor, type Job } from "./queue";
 
 let dir: string;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "perf-queue-")); });
@@ -24,6 +24,15 @@ describe("submitJob", () => {
   test("rejects a sha that isn't 40 hex chars and specs that aren't perf specs", () => {
     expect(() => submit("main")).toThrow(/sha/);
     expect(() => submit("a".repeat(40), ["../etc/passwd"])).toThrow(/spec/);
+  });
+
+  // OME-733: a forced walk tier per job, so the whole suite can run once on omega.motion=smooth and once on basic (ADR 0037).
+  test("a job can force the walk tier; anything but smooth or basic is refused", () => {
+    const id = submitJob(dir, { sha: "a".repeat(40), specs: [], requester: "qa", issue: "OME-733", motion: "basic" });
+    expect(JSON.parse(readFileSync(join(dir, id, "job.json"), "utf8"))).toMatchObject({ motion: "basic" });
+    const bad = { sha: "a".repeat(40), specs: [], requester: "qa", issue: "OME-733", motion: "fast" };
+    // @ts-expect-error: a job.json written by hand or an old client can carry any string
+    expect(() => submitJob(dir, bad)).toThrow(/motion/);
   });
 });
 
@@ -120,5 +129,18 @@ describe("jobStatus", () => {
 
   test("unknown job", () => {
     expect(jobStatus(dir, "nope").state).toBe("unknown");
+  });
+});
+
+describe("jobEnv", () => {
+  const job = (motion?: "smooth" | "basic"): Job => ({ sha: "a".repeat(40), specs: [], requester: "qa", issue: "OME-733", id: "1", submittedAt: 1, ...(motion ? { motion } : {}) });
+
+  test("a forced tier reaches the perf run as OMEGA_PERF_MOTION", () => {
+    expect(jobEnv(job("smooth"))).toEqual({ OMEGA_PERF_MOTION: "smooth" });
+    expect(jobEnv(job("basic"))).toEqual({ OMEGA_PERF_MOTION: "basic" });
+  });
+
+  test("an unforced job clears OMEGA_PERF_MOTION, so the runner's own env can't force a tier", () => {
+    expect(jobEnv(job())).toEqual({ OMEGA_PERF_MOTION: "" });
   });
 });
