@@ -25,12 +25,6 @@ export function refusalCard(r: Refusal): RefusalCard {
         body: "This room already has as many people from your network as it allows. Try again later, or join from another connection.",
         action: "Try again",
       };
-    case "invite_required":
-      return {
-        title: "This room is private",
-        body: "You need an invite link to join it. Ask someone in the room to send you theirs.",
-        action: "Try again",
-      };
   }
 }
 

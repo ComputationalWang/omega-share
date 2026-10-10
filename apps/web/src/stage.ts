@@ -4,6 +4,7 @@
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
 import { SEAT_COUNT, layoutSeats, type EmoteKind, type MemberId, type RoomLayout } from "@omega/shared";
 import { createFloats } from "./bubbles/floats";
+import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import type { FurnitureAtlas } from "./furniture-atlas";
@@ -85,8 +86,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
   };
   const floats = createFloats(bubbles, { reducedMotion: o.reducedMotion, now: () => Date.now(), ...timers });
-  /** Per speaker, the `expiresAt` of the last bubble handed to `floats`: a new one is a new message. */
-  const floated = new Map<MemberId, number>();
+  const handoff = createHandoff();
   const speaking = new Set<MemberId>();
   const badges = createEmoteBadges(bubbles, timers);
   /** The seats as last drawn, for the emote lift (a sitter's sticker sits lower). */
@@ -253,20 +253,18 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       if (p !== undefined) place(e, { x: p.x, y: p.y + TAG_OFFSET_Y });
     }
 
-    // The state says whose bubbles show (a speaker who left, or a reconnect, takes theirs along). A bubble the floats
-    // haven't had yet is a new message: by its expiry, since a pop-out window parses fresh objects every update.
+    // The state says whose bubbles show (a speaker who left, or a reconnect, takes theirs along). Every line the floats
+    // haven't had yet goes to them, oldest first, even when several landed since the last render (OME-809).
     speaking.clear();
     for (const b of s.bubbles) speaking.add(b.memberId);
     floats.keep(speaking);
-    for (const id of floated.keys()) if (!speaking.has(id)) floated.delete(id);
-    for (const b of s.bubbles) {
-      if (floated.get(b.memberId) === b.expiresAt) continue;
+    handoff.hand(s.bubbles, (b) => {
       const p = view.position(b.memberId) ?? at.get(b.memberId);
       const m = members.get(b.memberId);
-      if (p === undefined || m === undefined) continue;
-      floated.set(b.memberId, b.expiresAt);
+      if (p === undefined || m === undefined) return false;
       floats.say({ id: b.memberId, name: m.nickname, text: b.text, self: b.memberId === s.self, at: { x: p.x, y: p.y - liftOf(b.memberId) }, startedAt: b.expiresAt - BUBBLE_MS });
-    }
+      return true;
+    });
 
     renderSyslines(rail, s.syslines, syslineEls);
     applyCatching(s, selfCatching);
