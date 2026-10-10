@@ -41,6 +41,7 @@ import { buildQueueFrames, queueCss } from "./queue";
 import { buildFullscreenFrames, buildFullscreenScenes, fullscreenCss, STRIP_AGES } from "./fullscreen";
 import { buildStoreIcons } from "./store";
 import { buildPanels, buildShareCard, buildSiteIcons, encodeIco, type SiteSources } from "./site";
+import { buildPopupVignettes } from "./popup";
 import { BUBBLES, buildChatFloatFrames, chatFloatCss, wheelMeta } from "./chatfloat";
 
 const ROOT = join(import.meta.dir, "..");
@@ -593,6 +594,16 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
     const small = compactPalette(f.img);
     writeFileSync(join(dir, "popup", `${file}.png`), encodeIndexedPng(f.w, f.h, small.pixels, small.palette));
   }
+  // OME-842: the popup's three state vignettes (nothing found, can't read this tab, server away), 48×40 + 2×, capped at 3 KB together.
+  let popupStates = 0;
+  for (const f of buildPopupVignettes()) {
+    const small = compactPalette(f.img);
+    const png = encodeIndexedPng(f.w, f.h, small.pixels, small.palette);
+    popupStates += png.length;
+    writeFileSync(join(dir, "popup", f.file), png);
+  }
+  if (popupStates > 3072) throw new Error(`popup state vignettes ${String(popupStates)} B > 3072`);
+  console.log(`popup state vignettes (OME-842): ${String(popupStates)} B of 3072`);
   // Set (i): the closed / invite-required vignettes are standalone PNGs, fetched only by the pages that show them.
   mkdirSync(join(dir, "scenes"), { recursive: true });
   const scenes = [...buildRoomsScenes(), ...buildModerationScenes(), ...buildFullscreenScenes()];
