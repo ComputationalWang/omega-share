@@ -55,10 +55,21 @@ async function joinAgain(page: Page, nickname: string): Promise<void> {
   await page.locator(site.room).waitFor();
 }
 
-/** An unforced, ungated client reaches Smooth once the 30-render probe passes; walks speed the renders up. */
+/**
+ * An unforced, ungated client reaches Smooth once the 30-render probe passes; walks speed the renders up. The probe runs
+ * once per room start, so on a box busy with the full parallel suite it can honestly settle in Basic: then reload (a new
+ * room start probes again), up to three starts.
+ */
 async function reachSmooth(walker: Client, observer: Client): Promise<void> {
-  await walkAround(walker, 40_000, async () => (await tierOf(observer.page)) === "smooth");
-  await expect(canvas(observer.page)).toHaveAttribute("data-motion", "smooth");
+  for (let start = 0; start < 3; start++) {
+    if (start > 0) {
+      await observer.page.reload();
+      await joinAgain(observer.page, `reprobe-${String(start)}`);
+    }
+    await walkAround(walker, 15_000, async () => (await tierOf(observer.page)) === "smooth");
+    if ((await tierOf(observer.page)) === "smooth") return;
+  }
+  await expect(canvas(observer.page), "the probe upgraded in one of three room starts").toHaveAttribute("data-motion", "smooth");
 }
 
 test("static gates: 2 cores, 2 GB or Save-Data keep the room in Basic through walks; an ungated device probes up to Smooth", async ({ browser }) => {

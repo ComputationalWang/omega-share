@@ -170,7 +170,8 @@ test("five speakers, ten lines at once: never more than 8 bubbles shown, the lay
   const [a] = clients;
   if (a === undefined) throw new Error("no client");
   for (const c of clients) await atRest(c.page);
-  const watching = a.page.evaluate(watchPool, 3500);
+  // Long enough to outlast the sends on a busy box (five pages typing in turn); bubbles leaving after 5 s only lower the count.
+  const watching = a.page.evaluate(watchPool, 6000);
   await Promise.all(
     clients.map(async (c, i) => {
       await say(c.page, `speaker ${String(i + 1)} line one`);
