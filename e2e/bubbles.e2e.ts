@@ -6,7 +6,7 @@ import type { Page } from "@playwright/test";
 import * as v from "valibot";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
-import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
+import { clickClosing, joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 
 test.fixme(!available.web, PENDING.web);
@@ -109,4 +109,41 @@ test("2 per speaker: a third line sends the oldest away; the bubbles fade out af
   await expect(a.page.locator(site.chatMessage)).toHaveText(["two", "three"], { useInnerText: true });
   await expect(a.page.locator(site.chatMessage)).toHaveCount(0, { timeout: 7000 });
   await expect(a.page.locator(`${site.room} .float-slot`)).toHaveCount(8);
+});
+
+/** The bubble's box against where it should hang: centred on the head (left = -width/2), the tail straight down. */
+async function expectCentred(page: Page, text: string): Promise<void> {
+  const p = page.locator(".ui-float").filter({ hasText: text });
+  await expect(p).toBeVisible();
+  const box = await p.evaluate((e) => ({ left: parseFloat((e as HTMLElement).style.left), w: (e as HTMLElement).offsetWidth, cls: e.className }));
+  expect(box.w).toBeGreaterThan(0);
+  expect(Math.abs(box.left + box.w / 2)).toBeLessThanOrEqual(1);
+  expect(box.cls).not.toMatch(/tail-sw|tail-se/);
+}
+
+test("a line said while I'm in full screen hangs over the speaker's head once I leave it (QA OME-736 F1)", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("bubbles", "fs").url, count: 2, nicknamePrefix: "bf" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("no clients");
+  await a.page.locator(site.fullscreenToggle).click();
+  await expect.poll(() => a.page.evaluate(() => document.fullscreenElement !== null)).toBe(true);
+  await say(b.page, "said in full screen");
+  await expect(a.page.locator(site.fsStrip).locator(site.chatLogLine).last()).toContainText("said in full screen");
+  await a.page.evaluate(() => document.exitFullscreen());
+  await expect.poll(() => a.page.evaluate(() => document.fullscreenElement === null)).toBe(true);
+  await expectCentred(a.page, "said in full screen");
+});
+
+test("a line said while the room is popped out hangs over the speaker's head once the room comes back", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("bubbles", "popin").url, count: 2, nicknamePrefix: "bp" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("no clients");
+  const [pop] = await Promise.all([a.context.waitForEvent("page"), a.page.locator(site.roomPopout).click()]);
+  await pop.waitForLoadState();
+  await expect(a.page.locator(site.roomAway)).toBeVisible();
+  await say(b.page, "said while popped out");
+  await expect(pop.locator(site.chatMessage)).toHaveText(["said while popped out"], { useInnerText: true });
+  await clickClosing(pop, pop.locator(site.popoutBack));
+  await expect(a.page.locator(site.roomAway)).toBeHidden();
+  await expectCentred(a.page, "said while popped out");
 });

@@ -22,6 +22,8 @@ async function setup(o: { reduced?: boolean } = {}) {
   layer.setAttribute("aria-live", "polite");
   let now = 0;
   let measured = 0;
+  /** False while the stage is hidden (full screen, room popped out): nothing has a layout, every box reads 0×0. */
+  let laidOut = true;
   const timers = new Map<number, { fn: () => void; at: number }>();
   let nextHandle = 1;
   const floats = createFloats(layer, {
@@ -37,7 +39,7 @@ async function setup(o: { reduced?: boolean } = {}) {
     },
     measure: () => {
       measured++;
-      return { w: W, h: H };
+      return laidOut ? { w: W, h: H } : { w: 0, h: 0 };
     },
   });
   /** Move the clock on, firing due timers in order. */
@@ -63,7 +65,7 @@ async function setup(o: { reduced?: boolean } = {}) {
   };
   const texts = () => [...layer.querySelectorAll("[data-testid=chat-message]")].map((e) => e.textContent);
   const push = (text: string) => bubbleOf(text).style.getPropertyValue("--push");
-  return { floats, layer, advance, slots, shown, bubbleOf, texts, push, measured: () => measured, FLOAT_LIFE_MS, FLOAT_LEAVE_MS, setNow: (t: number) => (now = t) };
+  return { floats, layer, advance, slots, shown, bubbleOf, texts, push, measured: () => measured, setLaidOut: (v: boolean) => (laidOut = v), FLOAT_LIFE_MS, FLOAT_LEAVE_MS, setNow: (t: number) => (now = t) };
 }
 
 const say = (id: string, text: string, x: number, y = 300, o: { self?: boolean; startedAt?: number } = {}) => ({
@@ -233,4 +235,35 @@ test("keep: a speaker who left takes their bubbles along", async () => {
   floats.say(say("b", "theirs", 700));
   floats.keep(new Map([["a", null]]));
   expect(texts()).toEqual(["mine"]);
+});
+
+test("said while the stage is hidden: placed and stacked once it shows again, the animation caught up to its age", async () => {
+  const { floats, advance, bubbleOf, push, setLaidOut } = await setup();
+  floats.say(say("a", "before", 480));
+  setLaidOut(false);
+  floats.reflow(); // hidden: nothing to measure
+  advance(1000);
+  floats.say(say("b", "hidden", 500));
+  advance(500);
+  setLaidOut(true);
+  floats.reflow();
+  const p = bubbleOf("hidden");
+  expect(p.style.left).toBe(`${String(-W / 2)}px`);
+  expect(p.style.top).toBe(`${String(-(H + 4))}px`);
+  expect(p.classList.contains("tail-sw") || p.classList.contains("tail-se")).toBe(false);
+  // A hidden subtree drops its CSS animations; shown again they restart, so each is put back at its age.
+  expect(p.style.animationDelay).toBe("-500ms");
+  expect(bubbleOf("before").style.animationDelay).toBe("-1500ms");
+  expect(push("before")).toBe("-29px");
+});
+
+test("an adopted bubble sent away still fades: the leave animation doesn't inherit its head start", async () => {
+  const { floats, bubbleOf, setNow } = await setup();
+  setNow(10_000);
+  floats.say(say("a", "one", 200, 300, { startedAt: 8_000 }));
+  floats.say(say("a", "two", 200));
+  floats.say(say("a", "three", 200));
+  const one = bubbleOf("one");
+  expect(one.classList.contains("is-leaving")).toBe(true);
+  expect(one.style.animationDelay).toBe("-2000ms, 0s");
 });
