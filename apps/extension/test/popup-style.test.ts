@@ -63,8 +63,9 @@ describe("popup state vignettes (OME-857)", () => {
   test("the server-away vignette is hidden until the server is away, and the status text has its own node", () => {
     const window = renderPopup();
     const img = window.document.getElementById("server-away");
-    expect(img?.hidden).toBe(true);
-    expect(img === null ? null : window.getComputedStyle(img).display).toBe("none");
+    if (!(img instanceof window.HTMLImageElement)) throw new Error("#server-away missing");
+    expect(img.hidden).toBe(true);
+    expect(window.getComputedStyle(img).display).toBe("none");
     expect(window.document.getElementById("server-message")?.parentElement?.id).toBe("server-status");
   });
 });
