@@ -15,6 +15,8 @@ export interface ServerStatus {
   readonly canShare: boolean;
   /** Show the "open Options" button next to the message. */
   readonly openOptions: boolean;
+  /** The server can't be reached or isn't answering: the popup shows the "server away" vignette (OME-857). */
+  readonly away: boolean;
 }
 
 /** Status wording, shared with the share call's errors so both say the same thing. */
@@ -31,19 +33,23 @@ export const STATUS_TEXT = {
 
 /** The popup's server status line and Share state (research OME-119 §5.4). */
 export function serverStatus({ origin, permitted, probe, hasToken }: StatusInput): ServerStatus {
-  if (!permitted) return { message: STATUS_TEXT.permission(origin), canShare: false, openOptions: true };
+  if (!permitted) return { message: STATUS_TEXT.permission(origin), canShare: false, openOptions: true, away: false };
   switch (probe.kind) {
     case "unreachable":
-      return off(STATUS_TEXT.unreachable(origin));
+      return away(STATUS_TEXT.unreachable(origin));
     case "offline":
-      return off(STATUS_TEXT.offline(origin));
+      return away(STATUS_TEXT.offline(origin));
     case "sign-in":
       return off(STATUS_TEXT.signIn);
     case "ok":
-      return hasToken ? { message: null, canShare: true, openOptions: false } : off(STATUS_TEXT.noToken);
+      return hasToken ? { message: null, canShare: true, openOptions: false, away: false } : off(STATUS_TEXT.noToken);
   }
 }
 
 function off(message: string): ServerStatus {
-  return { message, canShare: false, openOptions: false };
+  return { message, canShare: false, openOptions: false, away: false };
+}
+
+function away(message: string): ServerStatus {
+  return { ...off(message), away: true };
 }
