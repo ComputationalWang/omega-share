@@ -1,5 +1,5 @@
 // `bun run perf [flags] [perf/<name>.perf.ts ...]`: flags, and the specs a targeted post-merge check (ADR 0036) runs (OME-763).
-export const PERF_FLAGS = ["--no-build", "--strict", "--soak"] as const;
+export const PERF_FLAGS = ["--no-build", "--rebuild", "--strict", "--soak"] as const;
 
 export interface PerfRunArgs {
   readonly flags: ReadonlySet<string>;
@@ -20,5 +20,6 @@ export function perfRunArgs(argv: readonly string[]): PerfRunArgs {
       specs.push(a);
     }
   }
+  if (flags.has("--rebuild") && flags.has("--no-build")) throw new Error("--rebuild and --no-build contradict each other");
   return { flags, specs };
 }
