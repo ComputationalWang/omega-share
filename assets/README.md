@@ -292,11 +292,11 @@ OME-200 polish: the snail, the 16 px arrow and the dial were redrawn for 1×, an
   | File | Size | Bytes (1× + 2×) | Shows | For |
   |---|---|---|---|---|
   | `ui/popup/nothing-found(@2x).png` | 48×40 | 377 + 464 | A small browser page with a dashed charcoal ghost where a video would be, and the brass magnifier that looked | "No supported video found on this page." |
-  | `ui/popup/cant-read(@2x).png` | 48×40 | 335 + 419 | The page's lines behind a brass padlock: the browser keeps this tab to itself | "Can't read this tab. Open a regular web page and try again." |
-  | `ui/popup/server-away(@2x).png` | 48×40 | 342 + 430 | The wood TV (the product mark), screen dark, its cord's plug pulled out of the wall socket | Server unreachable |
-  | **total** | | **2 367 B** of the 3 KB cap (the build throws over it) | | |
+  | `ui/popup/cant-read(@2x).png` | 48×40 | 311 + 372 | A greyed window (wider, dim lines) behind a brass padlock with a cream shackle: the browser keeps this tab to itself | "Can't read this tab. Open a regular web page and try again." |
+  | `ui/popup/server-away(@2x).png` | 48×40 | 349 + 441 | The wood TV (the product mark), screen dark, its cord's big plug (brass prongs) held 3 px clear of the wall socket | Server unreachable |
+  | **total** | | **2 314 B** of the 3 KB cap (the build throws over it) | | |
 
-  They ship in the extension, not the site; the build counts them with `ui/popup/*.png` in the art total (130 263 → 132 630 B of 307 200).
+  They ship in the extension, not the site; the build counts them with `ui/popup/*.png` in the art total (130 263 → 132 577 B of 307 200).
 - **3 · Connection.** They differ in lamp, icon, motion and action:
   - **Normal drop:** `dot/connecting` + "Reconnecting" + `.ui-dots`, and a `panel/0` notice with `icon/unplugged` ("Connection dropped.
     Reconnecting by itself…"). There's **no button**: it retries by itself.

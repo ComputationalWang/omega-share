@@ -32,6 +32,9 @@ const ROLES: RoleMap = {
   k: { ramp: "night", tone: 2 },
   K: { ramp: "night", tone: 1 },
   x: { ramp: "charcoal", hi: true },
+  // A greyed page (one the browser keeps to itself) and its dim lines.
+  s: { ramp: "charcoal", hi: true, group: "s" },
+  S: { ramp: "charcoal", tone: 2, group: "s" },
   c: { ramp: "cream", hi: true, group: "c" },
   C: { ramp: "cream", tone: 2, group: "c" },
   o: { ramp: "outline", tone: 1 },
@@ -59,8 +62,8 @@ function compose(pieces: readonly Piece[]): Uint8Array {
 }
 
 /** A small browser window: tab strip, one tab, the page. Returns the page's top-left. */
-function browser(x: number, y: number, w: number, h: number): { piece: Piece; px: number; py: number } {
-  const piece = new Piece().rect(x, y, w, 5, "n").rect(x + 2, y + 1, 12, 4, "t").rect(x, y + 5, w, h - 5, "p");
+function browser(x: number, y: number, w: number, h: number, page = "p"): { piece: Piece; px: number; py: number } {
+  const piece = new Piece().rect(x, y, w, 5, "n").rect(x + 2, y + 1, 12, 4, page === "p" ? "t" : "x").rect(x, y + 5, w, h - 5, page);
   for (const [i, ch] of [[0, "m"], [1, "l"]] as const) piece.put(x + w - 6 + i * 3, y + 2, ch);
   return { piece, px: x, py: y + 5 };
 }
@@ -82,13 +85,14 @@ function nothingFound(): Uint8Array {
 }
 
 function cantRead(): Uint8Array {
-  const { piece: b, px, py } = browser(2, 2, 44, 32);
-  b.rect(px + 4, py + 3, 20, 2, "l");
-  for (let i = 0; i < 5; i++) b.rect(px + 4, py + 8 + i * 4, i === 4 ? 22 : 36 - ((i * 7) % 9), 2, "l");
-  // Brass padlock over the page: a charcoal shackle, a brass body with a plum keyhole.
+  // A greyed window, wider than nothing-found's, its lines dim: a page the browser keeps to itself.
+  const { piece: b, px, py } = browser(2, 2, 44, 32, "s");
+  b.rect(px + 4, py + 3, 20, 2, "S");
+  for (let i = 0; i < 5; i++) b.rect(px + 4, py + 8 + i * 4, i === 4 ? 22 : 36 - ((i * 7) % 9), 2, "S");
+  // Brass padlock over the page: a cream (steel-bright) shackle that holds on the grey, a brass body with a plum keyhole.
   const lock = new Piece();
   const cx = 24, top = 13;
-  lock.rect(cx - 6, top + 2, 2, 7, "x").rect(cx + 4, top + 2, 2, 7, "x").rect(cx - 5, top, 10, 2, "x").rect(cx - 4, top - 1, 8, 1, "x");
+  lock.rect(cx - 6, top + 2, 2, 7, "c").rect(cx + 4, top + 2, 2, 7, "c").rect(cx - 5, top, 10, 2, "c").rect(cx - 4, top - 1, 8, 1, "c");
   lock.rect(cx - 9, top + 8, 18, 14, "m");
   lock.rect(cx - 1, top + 12, 2, 4, "o").rect(cx - 2, top + 12, 4, 2, "o").rect(cx - 1, top + 16, 2, 2, "o");
   lock.rect(cx - 9, top + 21, 18, 1, "M").rect(cx + 8, top + 8, 1, 14, "M");
@@ -97,18 +101,18 @@ function cantRead(): Uint8Array {
 
 function serverAway(): Uint8Array {
   // The wood TV: cabinet, dark screen with a cream glint, the power lamp off, two feet.
-  const tv = new Piece().rect(3, 6, 28, 24, "w").rect(6, 9, 22, 15, "k").rect(7, 10, 20, 13, "K").rect(6, 9, 22, 1, "k");
-  tv.rect(8, 11, 3, 1, "c").put(8, 12, "c");
-  tv.rect(6, 25, 10, 2, "W").put(26, 26, "x").put(25, 26, "x");
-  tv.rect(6, 30, 4, 3, "W").rect(24, 30, 4, 3, "W");
+  const tv = new Piece().rect(2, 6, 26, 24, "w").rect(5, 9, 20, 15, "k").rect(6, 10, 18, 13, "K").rect(5, 9, 20, 1, "k");
+  tv.rect(7, 11, 3, 1, "c").put(7, 12, "c");
+  tv.rect(5, 25, 9, 2, "W").put(23, 26, "x").put(22, 26, "x");
+  tv.rect(5, 30, 4, 3, "W").rect(21, 30, 4, 3, "W");
   // Antenna: two charcoal rods from a wood knob.
-  const ant = new Piece().rect(15, 4, 4, 2, "w");
-  for (let i = 0; i < 3; i++) { ant.put(14 - i, 3 - i, "x"); ant.put(19 + i, 3 - i, "x"); }
-  // The cord: out of the back, along the floor, ending in a plug that's out of the socket.
-  const cord = new Piece().rect(31, 25, 2, 1, "x").rect(32, 26, 1, 9, "x").rect(32, 35, 4, 1, "x");
-  cord.rect(36, 32, 4, 6, "x").rect(40, 33, 2, 1, "m").rect(40, 36, 2, 1, "m");
-  // The wall socket: a cream plate with two dark slots, a gap of air between it and the plug.
-  const socket = new Piece().rect(44, 28, 3, 11, "c").rect(44, 38, 3, 1, "C").put(44, 33, "k").put(44, 36, "k");
+  const ant = new Piece().rect(13, 4, 4, 2, "w");
+  for (let i = 0; i < 3; i++) { ant.put(12 - i, 3 - i, "x"); ant.put(17 + i, 3 - i, "x"); }
+  // The cord: out of the back, down to the floor, ending in a big plug held clear of the socket. Brass prongs, 3 px long.
+  const cord = new Piece().rect(28, 24, 2, 1, "x").rect(29, 25, 1, 11, "x").rect(29, 35, 3, 1, "x");
+  cord.rect(31, 29, 6, 9, "x").rect(37, 31, 3, 2, "m").rect(37, 35, 3, 2, "m");
+  // The wall socket: a tall cream plate with two dark slots level with the prongs, 3 px of air between them.
+  const socket = new Piece().rect(43, 26, 4, 12, "c").rect(43, 37, 4, 1, "C").rect(43, 31, 1, 2, "k").rect(43, 35, 1, 2, "k");
   return compose([tv, ant, cord, socket]);
 }
 
