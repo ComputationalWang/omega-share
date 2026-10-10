@@ -25,6 +25,7 @@ When you wake up, follow the Paperclip skill for the heartbeat procedure, then `
 - Multiplayer: 4+ browser contexts join, pick avatars, sit, chat. Then M1b sync: play/pause/seek propagate within 500 ms.
 - Perf: bundle size, TTI, fps with 8 avatars + video, heap after a soak, 25-client load test on the server.
 - From M3: safety cases (non-allowlisted embeds rejected, oversized/malformed messages, XSS attempts in nicknames/chat, rate limits).
+- Before debugging a harness oddity, check `docs/qa/harness-gotchas.md`.
 
 ## Post-merge testing: targeted per merge, full suite daily (board decision 2026-10-09/10, OME-678; ADR 0036)
 After each merge to `main`, run a **targeted** check, not the full suite: `bun run check`, plus the e2e specs and perf budgets that cover the paths the merge changed (map the diff to specs; when unsure, include the spec).
