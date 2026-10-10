@@ -42,9 +42,9 @@ export interface FloatMessage {
 export interface Floats {
   say(m: FloatMessage): void;
   /** The speaker's avatar moved (a walk frame): their bubbles ride along. No measuring, no overlap check. */
-  move(id: MemberId, at: Point): void;
-  /** The speaker's walk ended at `at`: re-clamp their bubbles at the stage edge and resolve overlap once. */
-  settle(id: MemberId, at: Point): void;
+  move(id: MemberId, x: number, y: number): void;
+  /** The speaker's walk ended at (x, y): re-clamp their bubbles at the stage edge and resolve overlap once. */
+  settle(id: MemberId, x: number, y: number): void;
   /** Drop the bubbles of anyone not in `ids` (they left). */
   keep(ids: { has(id: MemberId): boolean }): void;
 }
@@ -129,10 +129,10 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     }, FLOAT_LEAVE_MS);
   };
 
-  const anchor = (s: Slot, at: Point): void => {
-    s.ax = at.x;
-    s.ay = at.y;
-    s.outer.style.transform = `translate(${px(at.x)}, ${px(at.y)})`;
+  const anchor = (s: Slot, x: number, y: number): void => {
+    s.ax = x;
+    s.ay = y;
+    s.outer.style.transform = `translate(${px(x)}, ${px(y)})`;
   };
 
   /** Keep the box inside the stage's sides; the tail leans when the speaker is past a straight tail's reach. */
@@ -238,7 +238,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       s.push = 0;
       s.p.style.setProperty("--push", "0px");
       s.outer.hidden = false;
-      anchor(s, m.at);
+      anchor(s, m.at.x, m.at.y);
       const size = measure(s.p);
       s.w = size.w;
       s.h = size.h;
@@ -250,14 +250,14 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       }, FLOAT_LIFE_MS - elapsed);
       resolve();
     },
-    move(id, at) {
-      for (const s of slots) if (s.state !== FREE && s.speaker === id) anchor(s, at);
+    move(id, x, y) {
+      for (const s of slots) if (s.state !== FREE && s.speaker === id) anchor(s, x, y);
     },
-    settle(id, at) {
+    settle(id, x, y) {
       let any = false;
       for (const s of slots) {
         if (s.state === FREE || s.speaker !== id) continue;
-        anchor(s, at);
+        anchor(s, x, y);
         placeBox(s);
         any = true;
       }

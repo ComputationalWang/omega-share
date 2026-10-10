@@ -93,12 +93,12 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     onMove: (id, x, y) => {
       const head = y - liftOf(id);
       badges.move(id, x, head);
-      floats.move(id, { x, y: head });
+      floats.move(id, x, head);
       const tag = tagEls.get(id);
       if (tag !== undefined) place(tag, { x, y: y + TAG_OFFSET_Y });
     },
     onStop: (id, x, y) => {
-      floats.settle(id, { x, y: y - liftOf(id) });
+      floats.settle(id, x, y - liftOf(id));
     },
   });
   view.canvas.className = "scene";

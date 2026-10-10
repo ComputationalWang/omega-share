@@ -219,10 +219,10 @@ test("walking moves the speaker's bubbles only; overlap is resolved when the wal
   floats.say(say("a", "older", 200));
   floats.say(say("b", "newer", 600));
   const m = measured();
-  for (let x = 600; x >= 210; x -= 2) floats.move("b", { x, y: 300 });
+  for (let x = 600; x >= 210; x -= 2) floats.move("b", x, 300);
   expect(shown().find((s) => s.textContent.includes("newer"))?.style.transform).toBe("translate(210px, 300px)");
   expect(push("older")).toBe("0px");
-  floats.settle("b", { x: 210, y: 300 });
+  floats.settle("b", 210, 300);
   expect(push("older")).toBe("-33px");
   expect(measured()).toBe(m);
 });
