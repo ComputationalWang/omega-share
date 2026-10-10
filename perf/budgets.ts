@@ -36,6 +36,13 @@ const CHAT_BURST: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
   { id: `chat.missedVsync.${p}`, area: "Site", metric: `Missed vsyncs, chat burst, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Missed vsyncs with a chat burst, 8 avatars + video playing", unit: "%", limit: 1, comparator: "<=" },
 ]);
 
+// OME-602 (M7 Q1): the same three frame budgets at 1920x1080 in the desktop wide layout (OME-642, the chat a full-height column beside the room) with the chat burst (perf/wide.perf.ts).
+const WIDE: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
+  { id: `wide.frameP95.${p}`, area: "Site", metric: `p95 frame time, 1920x1080 wide layout, chat burst, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Frame rate in the 1920×1080 wide layout with a chat burst, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
+  { id: `wide.workP95.${p}`, area: "Site", metric: `Main-thread work p95 per frame, 1920x1080 wide layout, chat burst, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Main-thread work per frame in the 1920×1080 wide layout with a chat burst, 8 avatars + video playing", unit: "ms", limit: 8, comparator: "<=" },
+  { id: `wide.missedVsync.${p}`, area: "Site", metric: `Missed vsyncs, 1920x1080 wide layout, chat burst, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Missed vsyncs in the 1920×1080 wide layout with a chat burst, 8 avatars + video playing", unit: "%", limit: 1, comparator: "<=" },
+]);
+
 // OME-596 (M7 W4): the same three frame budgets on a Pixel-class phone (mobile emulation) in the phone watch layout (perf/phone.perf.ts).
 const PHONE: readonly Budget[] = FRAME_PROVIDERS.flatMap((p): Budget[] => [
   { id: `phone.frameP95.${p}`, area: "Site", metric: `p95 frame time on a phone, 8 avatars + ${PROVIDER_LABEL[p]}`, docMetric: "Frame rate on a phone, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
@@ -77,6 +84,7 @@ export const BUDGETS: readonly Budget[] = [
   { id: "site.frameP95.generic", area: "Site", metric: "p95 frame time, 8 avatars + generic embed", docMetric: "Frame rate, 8 avatars + video playing", unit: "ms", limit: 16.7, comparator: "<=" },
   ...HEADROOM,
   ...CHAT_BURST,
+  ...WIDE,
   ...PHONE,
   ...FULLSCREEN,
   ...POPOUT,

@@ -35,6 +35,9 @@ export const SPEC_ROOMS = {
   "popout-room": ["show", "sit", "back", "fs", "keys", "reduced", "hidden", "chat", "phone"],
   "popout-room-perf": ["frames"],
   "provider-quality": ["twvod", "live", "fs", "memory", "yt", "generic"],
+  "m7-a11y": ["walkseat", "w1280", "w1920", "phone", "fs", "chatwin", "roomwin", "quality", "states", "gone", "log", "logone", "motion", "motionrm", "reduced", "send", "qreduced"],
+  "m7-spoof": ["chat", "stage"],
+  "wide-perf": ["frames"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
