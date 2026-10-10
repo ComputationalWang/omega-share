@@ -1,0 +1,11 @@
+# Off-box monitor: health, TLS expiry and new abuse reports, pushed to ntfy (docs/ops/hosting.md § Monitoring).
+# A user unit on the operator's machine; needs no root. The topic stays in ~/.config/omega-share/ntfy-topic.
+# Install: install -Dm755 deploy/monitor/monitor.sh ~/.local/libexec/omega-share/monitor.sh
+[Unit]
+Description=omega-share off-box monitor
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/Projects/omega-share/.env
+TimeoutStartSec=2min
+ExecStart=/bin/bash %h/.local/libexec/omega-share/monitor.sh

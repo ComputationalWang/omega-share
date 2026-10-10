@@ -1,0 +1,9 @@
+[Unit]
+Description=omega-share off-box monitor, every 5 min
+
+[Timer]
+OnCalendar=*:0/5
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
