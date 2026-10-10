@@ -93,7 +93,20 @@ async function setup(o: { reduced?: boolean; nameW?: number } = {}) {
     return p;
   };
   const texts = () => [...layer.querySelectorAll("[data-testid=chat-message]")].map((e) => e.textContent);
-  const push = (text: string) => bubbleOf(text).style.getPropertyValue("--push");
+  /**
+   * The bare wrapper between the slot and the bubble carries all its motion (the push, the rise, the fade): restyling it
+   * is cheap, where the bubble's own rules (border image, tail, custom properties) made every step a heavy style pass.
+   */
+  const motionOf = (text: string): HTMLElement => {
+    const m = bubbleOf(text).parentElement;
+    if (!m?.classList.contains("float-motion")) throw new Error(`"${text}" has no motion wrapper`);
+    return m;
+  };
+  /** The push, as a length: the wrapper's `translateY(-Npx)`, "0px" when none. */
+  const push = (text: string): string => {
+    const t = motionOf(text).style.transform;
+    return t === "" ? "0px" : t.replace(/^translateY\((.*)\)$/, "$1");
+  };
   return {
     floats,
     layer,
@@ -102,6 +115,7 @@ async function setup(o: { reduced?: boolean; nameW?: number } = {}) {
     slots,
     shown,
     bubbleOf,
+    motionOf,
     texts,
     push,
     observed: () => observed,
@@ -240,12 +254,12 @@ test("a message lives FLOAT_LIFE_MS, then its node goes back to the pool", async
 });
 
 test("a message adopted mid-life (pop-out) shows its rise so far and leaves on time, at the clock's next step", async () => {
-  const { floats, frame, advance, shown, bubbleOf, setNow, FLOAT_LIFE_MS } = await setup();
+  const { floats, frame, advance, shown, motionOf, setNow, FLOAT_LIFE_MS } = await setup();
   setNow(10_000);
   floats.say(say("a", "late", 480, 300, { startedAt: 8_000 }));
   frame();
   // 2 s old at the clock's step at 10 000 ms: 9 whole steps up.
-  expect(bubbleOf("late").style.translate).toBe("0 -9px");
+  expect(motionOf("late").style.translate).toBe("0 -9px");
   advance(FLOAT_LIFE_MS - 2_000);
   expect(shown()).toHaveLength(1);
   advance(STEP);
@@ -268,22 +282,26 @@ test("one shared step clock: eight bubbles keep one timer between them, and it s
 });
 
 test("the rise is 24 whole-pixel steps over the life, written on the clock's steps (no CSS animation)", async () => {
-  const { floats, frame, advance, bubbleOf } = await setup();
+  const { floats, frame, advance, bubbleOf, motionOf } = await setup();
   floats.say(say("a", "up", 480));
   frame();
-  const p = bubbleOf("up");
+  const p = motionOf("up");
+  // The bubble itself is never restyled by a step.
+  expect(bubbleOf("up").style.translate).toBe("");
   expect(p.style.translate).toBe("");
   advance(1000); // the last step was at 834 ms: 4 steps
   expect(p.style.translate).toBe("0 -4px");
   advance(3999);
   expect(p.style.translate).toBe("0 -23px");
+  expect(bubbleOf("up").style.translate).toBe("");
+  expect(bubbleOf("up").style.opacity).toBe("");
 });
 
 test("shown whole at once, then faded out over the last 28 % of its life on the clock's steps", async () => {
-  const { floats, frame, advance, bubbleOf } = await setup();
+  const { floats, frame, advance, motionOf } = await setup();
   floats.say(say("a", "fade", 480));
   frame();
-  const p = bubbleOf("fade");
+  const p = motionOf("fade");
   expect(p.style.opacity).toBe("");
   advance(3500);
   expect(p.style.opacity).toBe("");
@@ -296,10 +314,10 @@ test("shown whole at once, then faded out over the last 28 % of its life on the 
 });
 
 test("reduced motion: no rise; opaque until 80 % of its life, then a linear fade", async () => {
-  const { floats, frame, advance, bubbleOf } = await setup({ reduced: true });
+  const { floats, frame, advance, motionOf } = await setup({ reduced: true });
   floats.say(say("a", "still", 480));
   frame();
-  const p = bubbleOf("still");
+  const p = motionOf("still");
   advance(3999);
   expect(p.style.translate).toBe("");
   expect(p.style.opacity).toBe("");
@@ -468,7 +486,7 @@ test("keep: a speaker who left takes their bubbles along", async () => {
 });
 
 test("said while the stage is hidden: placed, stacked and shown at its age once it shows again", async () => {
-  const { floats, frame, advance, bubbleOf, push, setLaidOut } = await setup();
+  const { floats, frame, advance, bubbleOf, motionOf, push, setLaidOut } = await setup();
   floats.say(say("a", "before", 480));
   frame();
   setLaidOut(false);
@@ -484,21 +502,20 @@ test("said while the stage is hidden: placed, stacked and shown at its age once 
   expect(p.style.top).toBe(`${String(-(H + 4))}px`);
   expect(p.classList.contains("tail-sw") || p.classList.contains("tail-se")).toBe(false);
   // Both show their rise at the clock's last step (1458 ms): no animation to restart.
-  expect(p.style.translate).toBe("0 -2px");
-  expect(bubbleOf("before").style.translate).toBe("0 -7px");
+  expect(motionOf("hidden").style.translate).toBe("0 -2px");
+  expect(motionOf("before").style.translate).toBe("0 -7px");
   expect(push("before")).toBe("-29px");
 });
 
 test("a bubble sent away drops to half its opacity and is gone at the clock's first step FLOAT_LEAVE_MS on", async () => {
-  const { floats, frame, advance, shown, bubbleOf, FLOAT_LEAVE_MS } = await setup();
+  const { floats, frame, advance, shown, bubbleOf, motionOf, FLOAT_LEAVE_MS } = await setup();
   floats.say(say("a", "one", 200));
   floats.say(say("a", "two", 200));
   frame();
   advance(150);
   floats.say(say("a", "three", 200));
-  const one = bubbleOf("one");
-  expect(one.classList.contains("is-leaving")).toBe(true);
-  expect(one.style.opacity).toBe("0.5");
+  expect(bubbleOf("one").classList.contains("is-leaving")).toBe(true);
+  expect(motionOf("one").style.opacity).toBe("0.5");
   expect(shown()).toHaveLength(3);
   advance(FLOAT_LEAVE_MS); // 310 ms: the step at 209 ms was too soon
   expect(shown()).toHaveLength(3);
