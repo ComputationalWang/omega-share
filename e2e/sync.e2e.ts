@@ -114,14 +114,15 @@ test.describe("M1b sync, 8 clients", () => {
     const before = await roomPlayback(browser, room.id);
 
     await b.page.evaluate(() => window.__fakeYt?.buffering(3000));
-    await b.page.waitForTimeout(1500);
-    // Mid-stall: nobody else stopped, the room didn't change, and B says it's catching up.
+    // The notice shows from ~0.5 s into the stall until it ends at 3 s. Check it first: roomPlayback opens a fresh
+    // context and loads the site, which on a loaded CI runner can outlast the stall (OME-863).
+    await expect(b.page.locator(site.catchingNotice)).toBeVisible({ timeout: 2_500 });
+    await expect(a.page.locator(site.catchingNotice)).toBeHidden();
+    // Nobody else stopped and the room didn't change.
     for (const c of clients) if (c !== b) expect(await fakeState(c.page), c.nickname).toBe(PLAYING);
     const during = await roomPlayback(browser, room.id);
     expect(during.rev).toBe(before.rev);
     expect(during.playing).toBe(true);
-    await expect(b.page.locator(site.catchingNotice)).toBeVisible();
-    await expect(a.page.locator(site.catchingNotice)).toBeHidden();
 
     // After the stall B is ~3 s behind; the sync loop pulls it back.
     await expect.poll(async () => (await measureSpread(browser, clients, room.id)).spreadMs, { timeout: 10_000, intervals: [500] }).toBeLessThanOrEqual(SPREAD_BUDGET_MS);

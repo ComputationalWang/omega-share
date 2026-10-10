@@ -49,10 +49,17 @@ export interface RoomView {
   emote(id: MemberId, kind: EmoteKind): void;
   /** The motion frame each is drawn with now, and their sticker's (null: none), for e2e checks. */
   frames(id: MemberId): { avatar: string | null; sticker: string | null } | undefined;
+  /** "Hide for me" (OME-769): draw this member's avatar dimmed (or not). One alpha write and one draw per change. */
+  setDimmed(id: MemberId, dimmed: boolean): void;
+  /** The avatar's alpha now, for e2e checks. */
+  alpha(id: MemberId): number | undefined;
   /** Labels in draw order (floor, furniture frame keys, `seat:<i>`, `avatar:<id>`), for e2e depth checks. */
   drawOrder(): string[];
   destroy(): void;
 }
+
+/** A hidden member's avatar (OME-769): still there, plainly set apart. */
+export const DIMMED_ALPHA = 0.4;
 
 /** localStorage, or null where reading it throws (storage blocked). */
 function storage(): Storage | null {
@@ -138,6 +145,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   /** Per member: the placeholder shape until the motion atlas is in, then a sprite. `x`/`y` is where it's drawn. */
   const pool = new Map<MemberId, { node: Graphics | Sprite; avatar: number; x: number; y: number; walking: boolean; frame: string | null; sticker: Sprite | null; stickerFrame: string | null }>();
 
+  /** Members drawn dimmed (OME-769); a member's node takes it on when made or swapped for a sprite. */
+  const dimmed = new Set<MemberId>();
+  const alphaOf = (id: MemberId): number => (dimmed.has(id) ? DIMMED_ALPHA : 1);
+
   let paused = false;
   let renders = 0;
   const render = (): void => {
@@ -204,7 +215,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       const texture = frame === null ? undefined : motion?.texture(frame);
       if (texture !== undefined) {
         if (!(entry.node instanceof Sprite)) {
-          const sprite = new Sprite({ texture, label: entry.node.label });
+          const sprite = new Sprite({ texture, label: entry.node.label, alpha: entry.node.alpha });
           objectLayer.addChild(sprite);
           entry.node.destroy();
           entry.node = sprite;
@@ -288,7 +299,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       for (const a of avatars) {
         seen.add(a.id);
         if (pool.has(a.id)) continue;
-        const g = new Graphics({ label: `avatar:${a.id}` });
+        const g = new Graphics({ label: `avatar:${a.id}`, alpha: alphaOf(a.id) });
         drawAvatar(g, a.avatar);
         pool.set(a.id, { node: g, avatar: a.avatar, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null });
         objectLayer.addChild(g);
@@ -331,6 +342,16 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     emote(id, kind) {
       animator.emote(id, kind);
     },
+    setDimmed(id, on) {
+      if (dimmed.has(id) === on) return;
+      if (on) dimmed.add(id);
+      else dimmed.delete(id);
+      const e = pool.get(id);
+      if (e === undefined) return;
+      e.node.alpha = alphaOf(id);
+      render();
+    },
+    alpha: (id) => pool.get(id)?.node.alpha,
     frames(id) {
       const e = pool.get(id);
       return e === undefined ? undefined : { avatar: e.frame, sticker: e.stickerFrame };

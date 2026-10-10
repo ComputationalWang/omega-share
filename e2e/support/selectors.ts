@@ -136,4 +136,19 @@ export const site = {
   reportFailed: id("report-failed"),
   reportFailedText: id("report-failed-text"),
   reportRetry: id("report-retry"),
+  // M9 W2 (OME-768): the first-visit hint, the "?" help key and dialog, and "Room not found".
+  firstHint: id("first-hint"),
+  firstHintClose: id("first-hint-close"),
+  helpKey: id("help-key"),
+  // "Hide for me" (OME-769, M9 W3): the room bar's People key, its list, each row's toggle and the status line.
+  peopleKey: id("people-key"),
+  peoplePanel: id("people-panel"),
+  peopleRow: id("people-row"),
+  peopleToggle: id("people-toggle"),
+  peopleStatus: id("people-status"),
+  helpDialog: id("help-dialog"),
+  helpClose: id("help-close"),
+  notFound: id("room-not-found"),
+  notFoundHome: id("not-found-home"),
+  notFoundRoom: id("not-found-room"),
 } as const;

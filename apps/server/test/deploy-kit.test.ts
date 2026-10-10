@@ -261,6 +261,8 @@ describe("deploy/deploy.sh", () => {
       const r = run(path, { DEPLOY_HOST: "deploy@203.0.113.7" }, "--dry-run");
       expect(r.code).toBe(0);
       expect(r.out).toContain("bun run --filter @omega/web build");
+      // The archive has no .git: the site's footer version comes from the commit being shipped (OME-767).
+      expect(r.out).toMatch(/OMEGA_BUILD_SHA=[0-9a-f]{40} bun run --filter @omega\/web build/);
       expect(r.out).toMatch(/rsync .* deploy@203\.0\.113\.7:\/opt\/omega-share\/releases\/[0-9a-f]{40}\//);
       expect(r.out).toMatch(/flip \/opt\/omega-share\/releases\/[0-9a-f]{40}\n/);
       expect(r.out).toContain("systemctl restart omega-share");

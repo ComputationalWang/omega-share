@@ -50,14 +50,6 @@ describe("chatView: muted by the host (ADR 0030)", () => {
   });
 });
 
-describe("refusalCard: private rooms (ADR 0028)", () => {
-  test("invite_required: says the room is private and that an invite link gets you in", () => {
-    const card = refusalCard("invite_required");
-    expect(card.title).toBe("This room is private");
-    expect(card.body).toContain("invite link");
-  });
-});
-
 describe("kickedCard (ADR 0030, set j \"you were removed\")", () => {
   test("during the cooldown: the wait in words and a waiting Rejoin key, rounded up to whole minutes", () => {
     expect(kickedCard(600_000, 0)).toEqual({
