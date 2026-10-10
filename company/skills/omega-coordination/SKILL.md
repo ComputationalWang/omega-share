@@ -9,7 +9,7 @@ description: How Omega Share Studio agents coordinate work so parallel branches 
 2. **Claim.** Before touching files, comment on your issue: `CLAIM: <glob paths> on branch <name>`. If a path overlaps an active claim, don't start. Comment on Company Ops asking the CEO to sequence, and work on something else meanwhile.
 3. **Contract changes** (`packages/shared/**`) go only through a contract issue owned by the Lead Engineer. If your work needs one, create a sub-issue for the Lead Engineer and mark your issue `blockedByIssueIds: [<that issue>]`.
 4. **Handoffs.** To ask another agent for something, create a sub-issue assigned to them (`parentId` = your issue) with acceptance criteria. @mentions don't wake anyone. Reply to questions in the same issue thread.
-5. **Branches.** One issue = one branch `<agent-slug>/<issue-key>-<short>`. Keep it small. Rebase on `main` before asking for review. Never push to or merge `main` yourself unless you're the Lead Engineer.
+5. **Branches.** One issue = one branch `<agent-slug>/<issue-key>-<short>`. Keep it small. GitHub issue, pushes and the PR follow `github-flow`; only the Lead Engineer merges into `main`, through the PR.
 6. **Release.** When your issue moves to review or done, comment `RELEASE: <paths>` so the CEO can clear the claim.
 7. **Subagents.** Max 4 per agent, 20 company-wide (hooks enforce this; if denied, wait or do the step yourself). Code-writing subagents must be `implementer` (own worktree, disjoint files). Paste a short summary of what each subagent did into your issue.
 8. **Decisions** that affect others → ADR in `docs/adr/NNNN-title.md`, linked from the issue.

@@ -88,16 +88,21 @@ legend { padding: 0; margin-bottom: 6px; }
 .tag { position: absolute; left: 0; top: 0; translate: -50% 0; max-width: 160px; height: 20px; display: flex; align-items: center; font-size: 12px; }
 .tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Floating chat bubbles (OME-730, set l .ui-float; bubbles/floats.ts): a pool of 8 slots, each riding its speaker's head
- * by transform; the inner .ui-float runs the rise and fade. Only with .is-live: without it, a reused node's reset push
- * is instant and re-adding it restarts the keyframes. A leaving bubble keeps rising while it fades. */
+ * by transform. No CSS animation or transition (OME-802, ADR 0040): Blink restyles a running CSS animation on every main
+ * frame, even a composited one, so floats.ts writes the 24-step rise (translate), the fades (opacity) and the push
+ * (transform) on the bare .float-motion wrapper, on one shared step clock; the push is instant. */
 .bubbles { contain: layout paint; }
 .float-slot { position: absolute; left: 0; top: 0; }
-.float-slot > .ui-float { animation: none; transition: none; }
-.float-slot > .ui-float.is-live { animation: ui-float-rise 5000ms steps(24, end) both, ui-float-life 5000ms linear both; transition: transform 160ms steps(4, end); }
-.float-slot > .ui-float.is-live.is-leaving { animation: ui-float-rise 5000ms steps(24, end) both, ui-float-leave 160ms steps(4, end) forwards; }
-@media (prefers-reduced-motion: reduce) {
-  .float-slot > .ui-float.is-live { animation: ui-float-life-reduced 5000ms linear both; transition: none; }
-}
+.float-motion > .ui-float, .float-motion > .ui-float.is-leaving { animation: none; transition: none; }
+/* The stacked twin (floats.ts, OME-802): a bubble's box with its speaker's name, laid out but never painted, so a bubble
+ * that stacks takes its size from the frame's own layout instead of forcing one. Box metrics mirror .ui-float and its
+ * .say / .who (reference.css); the words are generated content, out of selectors' text and the accessibility tree. */
+.float-twin { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; box-sizing: border-box; margin: 0; width: max-content; max-width: 168px;
+  border: solid transparent; border-width: calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(6 * var(--ui-px)) calc(5 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px));
+  font: 500 12px/15px system-ui, sans-serif; overflow-wrap: anywhere; }
+.float-twin > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.float-twin > span::before { content: attr(data-who); font-weight: 700; margin-right: 0.35em; }
+.float-twin > span::after { content: attr(data-say); }
 .chat { display: flex; gap: 8px; margin-top: 8px; }
 /* The chat log (OME-594, set k): the strip's lines at 1× art. It scrolls; the first line's auto margin keeps a short log at the foot. */
 .chat-log { --ui-px: 1px; contain: content; justify-content: flex-start; overflow-y: auto; overscroll-behavior: contain; max-height: 168px; margin-top: 8px; padding: 4px; }

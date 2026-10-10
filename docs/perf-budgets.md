@@ -1,6 +1,6 @@
 # Performance budgets (merge-blocking)
 
-QA measures these on every merge (Playwright + Chromium; the Firefox rows in headless Firefox through Puppeteer/BiDi). A regression past a budget blocks the merge, and the fix gets top priority.
+QA measures these on every merge that touches a perf-relevant path, daily and at sign-off (Playwright + Chromium; the Firefox rows in headless Firefox through Puppeteer/BiDi). A regression past a budget blocks the merge, and the fix gets top priority. When and how often perf runs, and how a verdict is reached: "Sampling and verdicts" below.
 
 | Area | Metric | Budget |
 |---|---|---|
@@ -43,6 +43,16 @@ QA measures these on every merge (Playwright + Chromium; the Firefox rows in hea
 | Extension | Content scripts on page load, Firefox | none (inject on popup open only) |
 | Extension | Persistent background, Firefox | none (non-persistent event page: Firefox MV3 has no service worker — ADR 0005) |
 | Load test | People in a room without breaking the budgets above | 25 |
+
+## Sampling and verdicts
+
+ADR 0036, amendment of 2026-10-10 ([OME-818](/OME/issues/OME-818)).
+
+- **When perf runs.** Perf runs per merge only when the merge touches a perf-relevant path (ADR 0036 lists them), and then only the specs that cover the touched paths. It also runs in full for wide-blast-radius merges, in the daily full run and at every milestone sign-off. Every run is flocked: `flock "$XDG_RUNTIME_DIR/omega-share-perf.lock" bun run perf [perf/<spec>.perf.ts …]`.
+- **One pass is the verdict.** A row's number comes from the samples one pass takes. The row's note prints the sample count. Frame-time, work-per-frame and missed-vsync rows take p95 (or the missed share) over one rAF window of at least 5 s, about 300 frames at 60 Hz (8 s for the popped-out room and the 25-client load test). Sync spreads take the worst of 2 rounds across 8 clients, and queue advances the worst of 3. Landing takes the median of 3 cold loads after a warm-up. The Firefox popup row takes p95 of 30 opens, relay latency p95 of 50 control actions, and the load-test relay row one probe per 100 ms over 8 s. No ×3 reruns of the whole set.
+- **A failing row gets one confirm rerun, of its spec only.** Run `bun run perf --no-build perf/<that spec>.perf.ts` (flocked). The build already matches HEAD, and `bun run perf` skips a matching build on its own anyway. If the confirm passes, the row passes, and the report gives both numbers and marks the first as noise. If it fails, the row is red and blocks as before. One confirm only: a third run never overturns two fails.
+- **Unstable rows take more samples, not more reruns.** If a row's verdict flips between single passes on an unchanged `main`, its spec takes more samples per run (more windows or rounds, with a median or p95 over them) until 3 single passes agree. The daily full run is where flips show.
+- **Build once per sha.** `bun run perf` stamps each build output dir with HEAD's sha (plus the server URL the web build bakes in). It rebuilds only when a stamp is missing or doesn't match, or when the build inputs (`apps/`, `packages/`, `assets/`, `package.json`, `bun.lock`, `tsconfig.base.json`) have uncommitted changes. `--rebuild` forces a build, and is needed after changing a git-ignored env file Vite reads (`.env.local`). `--no-build` skips it (`perf/build-stamp.ts`).
 
 ## Landing
 

@@ -6,6 +6,7 @@ role: designer
 reportsTo: ceo
 skills:
   - omega-coordination
+  - github-flow
   - design-judging
 ---
 
