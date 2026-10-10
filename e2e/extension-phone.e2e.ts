@@ -88,6 +88,34 @@ for (const [width, height] of [[360, 740], [412, 915]] as const) {
   });
 }
 
+  // The options page opens as a tab on Android (OME-743 smoke): without a viewport meta it was laid out at 980 px and
+  // zoomed out, with a 22 px Save button.
+  for (const width of [360, 412] as const) {
+    test(`the options page is readable and usable at ${String(width)} px on ${phone.name}`, async ({ context, extensionId }) => {
+      const page = await context.newPage();
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto(`chrome-extension://${extensionId}/options.html`);
+      await expect(page.locator("[data-testid=server-url-input]")).toBeVisible();
+      expect.soft(await page.evaluate(() => document.querySelector("meta[name=viewport]")?.getAttribute("content"))).toBe("width=device-width, initial-scale=1");
+      const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
+      expect.soft(m.sw).toBeLessThanOrEqual(m.cw);
+      for (const sel of ["[data-testid=server-url-input]", "[data-testid=server-url-save]"]) {
+        const b = await page.locator(sel).boundingBox();
+        expect.soft(b?.height, `${sel} height`).toBeGreaterThanOrEqual(44);
+        expect.soft(b?.width, `${sel} width`).toBeGreaterThanOrEqual(44);
+      }
+      for (const id of ["url", "save"]) {
+        await page.keyboard.press("Tab");
+        const f = await page.evaluate(() => {
+          const e = document.activeElement;
+          const s = e === null ? null : getComputedStyle(e);
+          return { id: e?.id, visible: s !== null && s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0 };
+        });
+        expect.soft(f, `focus ring on ${id}`).toEqual({ id, visible: true });
+      }
+    });
+  }
+
 });
 
 test("on a desktop (a mouse, which hovers) the popup body stays 320 px wide", async ({ context, openPopup }) => {
