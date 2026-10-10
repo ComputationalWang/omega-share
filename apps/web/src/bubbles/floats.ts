@@ -168,7 +168,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     o.clearTimer(s.timer);
     s.state = LEAVING;
     s.text.removeAttribute("data-testid");
-    if (o.reducedMotion.matches) {
+    // Reduced motion exits at once; so does a bubble never sized (it was never placed or shown: nothing to fade).
+    if (o.reducedMotion.matches || !s.measured) {
       free(s);
       return;
     }
