@@ -35,6 +35,11 @@ import { chatKey } from "./chat/enter";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
 import { createChatRelay, type ChatRelay } from "./popout/relay";
 import { createReport } from "./report/dialog";
+import { createHelp } from "./help/dialog";
+import { createFirstHint } from "./help/hint";
+import { createNotFound } from "./not-found";
+import { createHiddenMembers } from "./hide/hidden";
+import { createPeople } from "./hide/people";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -69,6 +74,8 @@ export interface RoomHandle {
   readonly roomPaused: () => boolean;
   /** How many times the room canvas has drawn (room-view.ts `renders`), for e2e "a bubble costs no render" checks. */
   readonly roomRenders: () => number;
+  /** A member's avatar alpha (dimmed when I hid them, OME-769), for e2e checks. */
+  readonly avatarAlpha: (id: MemberId) => number | undefined;
 }
 
 const STATUS_TEXT: Record<ViewState["status"], string> = {
@@ -81,6 +88,7 @@ const STATUS_TEXT: Record<ViewState["status"], string> = {
   closed: "",
   "taken-down": "",
   kicked: "",
+  "not-found": "",
 };
 
 const NOTICE_MS = 3000;
@@ -203,6 +211,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const closedBody = el("p");
   const closedHome = el("a", { className: "enter", href: "/", textContent: "Go to the home page" });
   closed.append(el("h2", { textContent: "This room was closed" }), closedBody, closedHome);
+  // Unknown, deleted, taken down, or private without a working key, and never got in (OME-768): one screen for all of them.
+  const notFound = createNotFound({ serverUrl: opts.serverUrl, fetch: (url, init) => fetch(url, init) });
   // "Report this room" (OME-601, ADR 0033): a guest's quiet key, the last stop of the room. Not made at all in a room you own.
   const report = opts.secret?.ownerToken === undefined ? createReport({ roomId: opts.roomId, serverUrl: opts.serverUrl, fetch: (url, init) => fetch(url, init), leave: () => { location.assign("/"); } }) : null;
   const foot = el("div", { className: "room-foot", hidden: true }, "room-foot");
@@ -308,6 +318,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       const inView = head.x >= seen.x && head.x <= seen.x + seen.w && head.y >= seen.y && head.y <= seen.y + seen.h;
       return { head: inView ? head : null, room };
     },
+    // The hint's emote line is done. It leaves the flow, and the stage is refitted now rather than on the next resize
+    // callback, before the wheel is placed over my head (`firstHint` and `fit` are made below; a wheel only opens once the room is up).
+    onOpen: () => {
+      if (!firstHint.isOpen()) return;
+      firstHint.dismiss();
+      fit();
+    },
   });
   closeWheel = () => {
     picker.close();
@@ -331,7 +348,52 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const roomTop = el("div", { className: "room-top" });
   const popRoomKey = el("button", { type: "button", className: "ui-button self icon", ariaLabel: "Pop out room", title: "Pop out room", hidden: true }, "room-popout");
   popRoomKey.append(sprite("ui-icon-popout-room"));
-  roomTop.append(title, popRoomKey);
+  // The "?" help (OME-768): the room bar's last key; its dialog is built on the first open and never draws on the canvas.
+  const help = createHelp({ owner: () => state.owner && opts.secret?.ownerToken !== undefined });
+  help.key.hidden = true;
+  // "Hide for me" (OME-769): who I hid in this room, in this tab only. Never sent: it filters at intake (room-events.ts),
+  // and the stage, the logs and the pop-out follow each change once.
+  const hidden = createHiddenMembers({
+    // The `sessionStorage` getter itself throws when storage is blocked.
+    getItem: (k) => sessionStorage.getItem(k),
+    setItem: (k, v) => {
+      sessionStorage.setItem(k, v);
+    },
+  }, opts.roomId);
+  const isHidden = (id: string): boolean => hidden.has(id);
+  const people = createPeople({
+    hidden,
+    onChange: (id, on) => {
+      roomStage.hide(id, on);
+      chatLog.hideFrom(isHidden);
+      relay?.hideFrom(isHidden);
+      if (on) dispatch({ type: "hide", memberId: id });
+    },
+  });
+  people.key.hidden = true;
+  for (const id of hidden.ids()) roomStage.hide(id, true);
+  // A right-click, or a long-press on touch (Chromium fires contextmenu for it), on someone else's name tag opens People
+  // on their "Hide for me" button. My own tag keeps the browser's menu.
+  tags.addEventListener("contextmenu", (ev) => {
+    const tag = ev.target instanceof Element ? ev.target.closest<HTMLElement>("[data-member]") : null;
+    const id = tag?.dataset["member"];
+    if (id === undefined || id === state.self || people.key.hidden) return;
+    ev.preventDefault();
+    people.open(id);
+  });
+  roomTop.append(title, popRoomKey, people.key, help.key);
+  // The first-visit hint (OME-768): in the flow under the room bar, so it never covers the picture or the composer.
+  const firstHint = createFirstHint({
+    // The `localStorage` getter itself throws when storage is blocked.
+    storage: {
+      getItem: (k) => localStorage.getItem(k),
+      setItem: (k, v) => {
+        localStorage.setItem(k, v);
+      },
+    },
+    touch: () => globalThis.matchMedia("(hover: none)").matches,
+    next: () => (help.key.hidden ? null : help.key),
+  });
   const roomAway = el("div", { className: "ui-panel ui-away room-away", role: "status", hidden: true }, "room-away");
   const roomAwayText = el("p");
   roomAwayText.append(el("b", { textContent: "The room is in its own window." }), el("br"), "The picture stays here; the room and chat are over there.");
@@ -523,6 +585,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let focusBefore: HTMLElement | null = null;
   const onFullscreen = (mode: FullscreenMode): void => {
     const on = mode !== "off";
+    if (on) firstHint.dismiss();
     // Moving a focused field blurs it: give focus back to where it was (the draft is the same node, so it stays).
     const focused = document.activeElement;
     const wasInRoom = on && focused instanceof HTMLElement && clip.contains(focused);
@@ -555,7 +618,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     if (!on) focusBefore = null;
   };
-  opts.root.replaceChildren(roomTop, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked, side, foot);
+  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, notFound.root, kicked, side, foot, help.dialog);
   /**
    * Moving a scrolled box resets its scroll (QA OME-658): call before a move and the returned function after the layout
    * settles. A log at its foot goes back to its foot (so it keeps following new lines); otherwise it keeps its place.
@@ -888,6 +951,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const mySeat = s.self === null ? -1 : (s.room?.seats.indexOf(s.self) ?? -1);
     if (mySeat !== centredSeat) {
       centredSeat = mySeat;
+      // Sat down: the hint's first thing done.
+      if (mySeat !== -1) firstHint.dismiss();
       const p = roomStage.seat(mySeat);
       if (p !== undefined) roomWindow.centre(p);
     }
@@ -898,6 +963,19 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     status.textContent = STATUS_TEXT[s.status];
     const shown = screen(s);
     wrap.hidden = !shown.stage;
+    help.key.hidden = !shown.stage;
+    people.key.hidden = !shown.stage;
+    if (shown.stage) people.update(s.room?.members ?? [], s.self);
+    else people.close();
+    if (!shown.stage) {
+      firstHint.dismiss();
+      if (help.isOpen()) help.close();
+    } else if (s.status === "open") firstHint.show();
+    if (shown.notFound && notFound.root.hidden) {
+      notFound.show();
+      // A room this browser held keys for that no longer lets us in: nothing left to keep.
+      forgetRoom(opts.secrets, opts.roomId);
+    }
     // Removed, closed or full: no picture to watch any more.
     if (!shown.stage && fs.mode() !== "off") fs.exit();
     renderChatRow(s);
@@ -1061,10 +1139,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const dispatch = (e: ViewEvent): void => {
     const next = reduce(state, e);
     if (next === state) return;
+    // Who said it, so "Hide for me" can take a line down later (OME-769).
+    const from = e.type === "server" && e.msg.type === "chat" ? e.msg.memberId : undefined;
     for (const entry of logEntries(state, next, e)) {
-      chatLog.append(entry);
+      chatLog.append(entry, from);
       // Popped out: the window gets the line now, not on the next frame (a hidden tab draws none).
-      relay?.append(entry);
+      relay?.append(entry, from);
       // Collapsed in full screen: count what others said while the lines are out of sight.
       if (stripMode === "band" && fs.mode() !== "off" && entry.kind === "chat" && !entry.self) {
         unread++;
@@ -1097,7 +1177,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (!roomOut()) roomStage.emote(id, kind, state);
   };
   const kickedStore = sessionStorage;
-  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted };
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted, hidden: isHidden };
   // Kicked from this room in this tab and the cooldown isn't over (ADR 0030 §2): show the notice, don't even try to join.
   const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
   const c: Connection = kickedTill !== null ? stoppedConnection() : createConnection({
@@ -1169,13 +1249,19 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Held while the server says rate_limited; the text stays in the box for when it reopens.
     if (chatView(state, Date.now()).cooling) return;
     const msg = chatIntent(chatInput.value);
-    if (msg !== null && c.send(msg)) chatInput.value = "";
+    if (msg !== null && c.send(msg)) {
+      chatInput.value = "";
+      firstHint.dismiss();
+    }
   });
   // Keys 1–6 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
   window.addEventListener("keydown", (ev) => {
-    // The report dialog is modal: the room's keys wait until it closes.
-    if (report?.isOpen() === true) return;
+    // The report and help dialogs are modal: the room's keys wait until they close.
+    if (report?.isOpen() === true || help.isOpen()) return;
+    // Esc dismisses the first-visit hint and still does whatever else it does here.
+    if (ev.key === "Escape") firstHint.dismiss();
     if (moderation?.key(ev) === true) ev.preventDefault();
+    else if (!help.key.hidden && help.shortcut(ev)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
     else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && fs.key(ev.key, typingIn(ev.target), ev.repeat)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden) {
@@ -1220,5 +1306,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id) };
 }

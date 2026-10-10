@@ -1,5 +1,6 @@
 import { DEFAULT_ROOM_ID, RoomListResponseSchema } from "@omega/shared";
 import * as v from "valibot";
+import { ROOMS_TIMEOUT_MS, withTimeout } from "./request-timeout";
 import { SERVER_REQUEST_HEADERS, SERVER_REQUEST_INIT } from "./settings";
 
 export interface RoomOption {
@@ -14,7 +15,7 @@ export interface RoomList {
 
 /**
  * What one `GET /rooms` says about the server (research OME-119 §5.4):
- * `unreachable` the fetch threw (DNS, TLS, refused), `offline` it answered off the contract
+ * `unreachable` the fetch threw (DNS, TLS, refused) or got no answer within 8 s, `offline` it answered off the contract
  * (non-2xx, or ngrok's HTML error page), `sign-in` an edge gate answered 401 or redirected.
  */
 export type RoomsProbe = { readonly kind: "ok"; readonly list: RoomList } | { readonly kind: "unreachable" | "offline" | "sign-in" };
@@ -31,13 +32,17 @@ export const FALLBACK_ROOMS: RoomList = { rooms: [{ id: DEFAULT_ROOM_ID, label: 
 export async function loadRooms({ baseUrl, fetch }: LoadRoomsOptions): Promise<RoomsProbe> {
   let json: unknown;
   try {
-    const response = await fetch(`${baseUrl}/rooms`, { method: "GET", headers: SERVER_REQUEST_HEADERS, ...SERVER_REQUEST_INIT });
-    if (response.type === "opaqueredirect" || response.status === 401) return { kind: "sign-in" };
-    // Non-2xx bodies (e.g. the 403 for a foreign origin, ngrok's offline page) aren't on the contract.
-    if (!response.ok) return { kind: "offline" };
-    json = await response.json();
+    const reply = await withTimeout(ROOMS_TIMEOUT_MS, async (signal) => {
+      const response = await fetch(`${baseUrl}/rooms`, { method: "GET", headers: SERVER_REQUEST_HEADERS, ...SERVER_REQUEST_INIT, signal });
+      if (response.type === "opaqueredirect" || response.status === 401) return { kind: "sign-in" } as const;
+      // Non-2xx bodies (e.g. the 403 for a foreign origin, ngrok's offline page) aren't on the contract.
+      if (!response.ok) return { kind: "offline" } as const;
+      return { kind: "json", json: (await response.json()) as unknown } as const;
+    });
+    if (reply.kind !== "json") return reply;
+    json = reply.json;
   } catch (error) {
-    // `json()` rejects with a SyntaxError; a failed fetch rejects with a TypeError.
+    // `json()` rejects with a SyntaxError; a failed fetch rejects with a TypeError, a timeout with RequestTimeoutError.
     return { kind: error instanceof SyntaxError ? "offline" : "unreachable" };
   }
 

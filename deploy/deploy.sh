@@ -75,7 +75,7 @@ archive() { # dest paths...
 # 1. The site, built from the archived commit with a clean environment.
 archive "$src"
 in_dir "$src" bun install --frozen-lockfile --ignore-scripts
-in_dir "$src" env -i PATH="$PATH" HOME="$HOME" bun run --filter @omega/web build
+in_dir "$src" env -i PATH="$PATH" HOME="$HOME" OMEGA_BUILD_SHA="$sha" bun run --filter @omega/web build
 # 2. The release: server + shared sources, the built site, production node_modules.
 archive "$rel" package.json bun.lock .bun-version apps/server packages/shared
 run mkdir -p "$rel/apps/web"

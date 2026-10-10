@@ -15,6 +15,7 @@ test.fixme(!available.server, PENDING.server);
 
 const LONG_HOST = `${"a".repeat(50)}.${"b".repeat(50)}.omega-fixture.org`;
 const SHOTS = process.env["OME_743_SHOTS"];
+const WIDE_FONT = "* { letter-spacing: 0.15em !important; }";
 
 async function setup(context: BrowserContext, openPopup: (p: Page) => Promise<Page>): Promise<Page> {
   await context.route(`${URLS.fixtures}/long-host.html`, (route) =>
@@ -49,6 +50,9 @@ for (const [width, height] of [[360, 740], [412, 915]] as const) {
     await popup.reload();
     await expect(popup.locator("[data-testid=embed-item]")).toHaveCount(3);
     await expect(popup.locator("[data-testid=share-button]")).toBeVisible();
+    // The layout must not depend on the system font's width (OME-862: DejaVu Sans on CI overflowed by 7 px).
+    // Letter-spacing stands in for a wide font on any machine.
+    await popup.addStyleTag({ content: WIDE_FONT });
     if (SHOTS !== undefined) await popup.screenshot({ path: `${SHOTS}/popup-${p}-${String(width)}.png` });
 
     expect(await popup.evaluate(() => matchMedia("(hover: none)").matches)).toBe(true);

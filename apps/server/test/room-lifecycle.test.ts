@@ -72,7 +72,7 @@ describe("RoomRegistry.removeRoom", () => {
     }
   });
 
-  test("an upgrade to a removed room gets 404, and a re-created room of the same id refuses the old members' share tokens", async () => {
+  test("an upgrade to a removed room is closed with ROOM_CLOSED before any snapshot, and a re-created room of the same id refuses the old members' share tokens", async () => {
     const registry = new RoomRegistry();
     t = start({ registry });
     registry.addRoom(new Room("film-club"));
@@ -81,7 +81,10 @@ describe("RoomRegistry.removeRoom", () => {
     registry.removeRoom(registry.get("film-club") ?? fail());
     await a.client.closed;
 
-    expect((await fetch(`${t.http}/rooms/film-club/ws`, { headers: { upgrade: "websocket" } })).status).toBe(404);
+    const late = await Client.open(t.ws("film-club"));
+    clients.push(late);
+    expect((await late.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
+    expect(late.raw.filter((r) => r.includes('"snapshot"'))).toEqual([]);
     expect((await share("film-club", tokenOf(a.snapshot))).status).toBe(404);
     registry.addRoom(new Room("film-club"));
     expect((await share("film-club", tokenOf(a.snapshot))).status).toBe(401);

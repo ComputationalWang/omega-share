@@ -14,13 +14,16 @@ export interface RoomEventSinks {
   readonly dispatch: (e: ViewEvent) => void;
   /** Someone emoted (OME-415): straight to the scene; emotes are never view state. */
   readonly emoted: (memberId: MemberId, kind: EmoteKind) => void;
+  /** I hid this member for myself (OME-769): their chat and emotes stop here, before the state, the log or a pop-out. */
+  readonly hidden: (memberId: MemberId) => boolean;
 }
 
-/** Where one connection event goes. A drop, a closed room (4004) or a kick (4005) stops the clock's pings until the next open. */
+/** Where one connection event goes. A hidden member's chat and emotes go nowhere (OME-769): filtered once, at intake. A drop, a closed room (4004) or a kick (4005) stops the clock's pings until the next open. */
 export function routeConnectionEvent(e: ConnectionEvent, sinks: RoomEventSinks, now: number): void {
   sinks.shareToken.onEvent(e);
   if (e.type === "message") {
     if (e.msg.type === "pong") sinks.clock.onPong(e.msg.id, e.msg.at);
+    else if ((e.msg.type === "chat" || e.msg.type === "emoted") && sinks.hidden(e.msg.memberId)) return;
     else if (e.msg.type === "emoted") sinks.emoted(e.msg.memberId, e.msg.kind);
     else {
       if (e.msg.type === "snapshot") sinks.joined();

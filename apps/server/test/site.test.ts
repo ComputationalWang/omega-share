@@ -174,6 +174,26 @@ describe("site routes: shell, share card and real 404s", () => {
     expectSecurityHeaders(res);
   });
 
+  test("a page that ships its own description, icon and manifest tags serves one of each: the server's (OME-767)", async () => {
+    const dist = site();
+    writeFileSync(
+      join(dist, "index.html"),
+      '<!doctype html><html><head><meta charset="utf-8" /><meta name="description" content="Built-in words." />' +
+        '<link rel="icon" href="/favicon.ico" sizes="32x32" /><link rel="apple-touch-icon" href="/apple-touch-icon.png" />' +
+        '<link rel="manifest" href="/manifest.webmanifest" /><title>omega</title></head><body><div id="app"></div></body></html>',
+    );
+    t = start({ staticDir: dist, publicOrigin: PUBLIC_ORIGIN });
+    for (const path of ["/", "/r/lobby"]) {
+      const html = await (await get(path)).text();
+      expect(html).not.toContain("Built-in words.");
+      expect(html.match(/<meta name="description"/g)?.length).toBe(1);
+      expect(html.match(/<link rel="icon"/g)?.length).toBe(1);
+      expect(html.match(/<link rel="apple-touch-icon"/g)?.length).toBe(1);
+      expect(html.match(/<link rel="manifest"/g)?.length).toBe(1);
+      expect(html).toContain('<div id="app"></div>');
+    }
+  });
+
   test("the share card costs under 2 ms p95 on the shell route", async () => {
     t = start({ staticDir: site(), publicOrigin: PUBLIC_ORIGIN });
     const id = await createRoom("Film night", "public");
@@ -206,6 +226,31 @@ describe("robots.txt, icons and the manifest", () => {
     expect(text).not.toMatch(/Disallow: \/r\/?$/m);
     expect(text).not.toContain("Sitemap");
     expectSecurityHeaders(res);
+  });
+
+  test("security.txt (RFC 9116) points at the contact page, is canonical on the public origin and a day-cached", async () => {
+    t = start({ staticDir: site(), publicOrigin: PUBLIC_ORIGIN });
+    const res = await get("/.well-known/security.txt");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=86400");
+    expectSecurityHeaders(res);
+    const text = await res.text();
+    expect(text).toContain(`Contact: ${PUBLIC_ORIGIN}/contact.html\n`);
+    expect(text).toContain(`Canonical: ${PUBLIC_ORIGIN}/.well-known/security.txt\n`);
+    expect(text).toContain("Preferred-Languages: en\n");
+    expect(text).not.toContain("mailto:");
+  });
+
+  test("security.txt Expires is under a year out and not within 30 days: renew it before this fails (docs/ops/hosting.md)", async () => {
+    t = start({ staticDir: site(), publicOrigin: PUBLIC_ORIGIN });
+    const text = await (await get("/.well-known/security.txt")).text();
+    const expires = /^Expires: (\S+)$/m.exec(text)?.[1] ?? "";
+    expect(expires).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    const left = Date.parse(expires) - Date.now();
+    const DAY_MS = 86_400_000;
+    expect(left).toBeGreaterThan(30 * DAY_MS);
+    expect(left).toBeLessThan(365 * DAY_MS);
   });
 
   const pngSize = (bytes: Uint8Array): [number, number] => {
