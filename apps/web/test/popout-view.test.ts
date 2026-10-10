@@ -113,7 +113,7 @@ describe("pop-out chat window", () => {
     const back = q("[data-testid=popout-back]", HTMLButtonElement);
     expect(back.getAttribute("aria-label")).toBe("Put chat back in the page");
     expect(back.querySelector(".ui-icon-popout-back")).not.toBeNull();
-    const log = q("[data-testid=chat-log]", HTMLOListElement);
+    const log = q("[data-testid=chat-log]", HTMLElement);
     expect(log.getAttribute("role")).toBe("log");
     expect(log.getAttribute("aria-live")).toBe("polite");
     expect(log.dataset["ageing"]).toBe("settle");

@@ -172,6 +172,13 @@ function box(e: HTMLElement, r: Rect): void {
   Object.assign(e.style, { left: `${String(r.x)}px`, top: `${String(r.y)}px`, width: `${String(r.w)}px`, height: `${String(r.h)}px` });
 }
 
+const KEYS = "button:not([disabled]), input:not([disabled]):not([type=hidden]), select, textarea, a[href], [tabindex]:not([tabindex='-1'])";
+/** The first key in `root` someone could press now: shown, enabled and not inert. */
+function firstKey(root: HTMLElement): HTMLElement | null {
+  for (const e of root.querySelectorAll<HTMLElement>(KEYS)) if (e.checkVisibility() && e.closest("[inert]") === null) return e;
+  return null;
+}
+
 export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const status = el("p", { className: "status", role: "status" }, "connection-status");
   // The title from the last rename (the snapshot carries none yet, OME-473). Text only.
@@ -186,6 +193,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const refusedAction = el("a", { className: "enter", href: location.pathname }, "room-refused-action");
   refused.append(refusedTitle, refusedBody, refusedAction);
   let shownRefusal: Refusal | null = null;
+  /** Whether the first answer from the server has been shown (and focus placed for a keyboard joiner, OME-701). */
+  let landed = false;
   // 4004: the room was deleted or collected; 4006: the operators took it down after a report (ADR 0033 §6). The connection
   // has stopped; nothing here can bring it back.
   const closed = el("div", { className: "room-full", hidden: true }, "room-closed");
@@ -504,15 +513,18 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     renderStrip();
     fit();
     restoreScroll();
+    // The chat moves back out of the strip, but the strip's own key stays in it and the strip hides (OME-701).
+    const stranded = !on && focused instanceof HTMLElement && strip.contains(focused);
     if (wasInRoom) {
       // The room is hidden now: the key you pressed to enter (or the exit key, for F) holds focus meanwhile.
       focusBefore = focused;
       fsKey.focus({ preventScroll: true });
-    } else if (!on && focusBefore !== null && (document.activeElement === fsKey || document.activeElement === document.body)) {
+    } else if (!on && focusBefore !== null && (stranded || document.activeElement === fsKey || document.activeElement === document.body)) {
       const back = focusBefore;
       focusBefore = null;
-      if (back.isConnected) back.focus({ preventScroll: true });
-    } else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
+      (back.isConnected ? back : fsKey).focus({ preventScroll: true });
+    } else if (stranded) fsKey.focus({ preventScroll: true });
+    else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     if (!on) focusBefore = null;
   };
   opts.root.replaceChildren(roomTop, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, kicked, side, foot);
@@ -923,6 +935,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
 
     renderModeration(s);
+    // The landing form held focus and is gone: once the room (or the card in its place) shows, its first key takes it.
+    if (!landed && s.status !== "idle" && s.status !== "connecting" && s.status !== "reconnecting") {
+      landed = true;
+      const a = document.activeElement;
+      if (a === null || a === document.body || (a instanceof HTMLElement && !a.checkVisibility())) firstKey(opts.root)?.focus({ preventScroll: true });
+    }
   };
 
   /**

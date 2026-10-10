@@ -32,8 +32,6 @@ const DESKTOP = (width: number, height: number): BrowserContextOptions => ({ vie
 const PHONE: BrowserContextOptions = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const REPORT_PATH = /\/rooms\/[^/]+\/report$/;
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
-/** Known product bug (see the test.fail below): chat lines are <li>s in a role=log <div>. The three surfaces that show lines ignore it. */
-const LOG_LIST = ["listitem"];
 
 let clients: Client[] = [];
 let extra: BrowserContext[] = [];
@@ -157,7 +155,7 @@ const paintedContrast = (page: Page, selector: string): Promise<string[]> =>
 async function violations(page: Page, ignore: readonly string[] = []): Promise<string[]> {
   const result = await new AxeBuilder({ page }).withTags(TAGS).exclude("iframe").analyze();
   const out: string[] = [];
-  // `ignore` is for known product bugs that have a test.fail of their own below; everything else must be zero.
+  // `ignore` is for known product bugs that have a test.fail of their own; everything else must be zero.
   const seen = result.violations.filter((v) => !ignore.includes(v.id));
   for (const v of seen) {
     if (v.id !== "color-contrast") {
@@ -304,8 +302,8 @@ async function expectNamed(page: Page, step: string): Promise<void> {
 // --- 1. the keyboard-only walk --------------------------------------------------------------------------------------
 
 /**
- * Product bugs this walk found. The walk itself fails on anything else; each of these has a test.fail below that
- * asserts the walk found none of it, so the day one is fixed its test.fail turns red and gets flipped.
+ * Product bugs this walk found (fixed in OME-701). The walk itself fails on anything else; each of these has a test of
+ * its own below that asserts the walk found none of it, so one finding can't hide another.
  */
 const KNOWN = {
   joinFocus: /^after joining: focus fell to <body>/,
@@ -439,9 +437,9 @@ const knownBugs: readonly [string, RegExp, string][] = [
   ["Esc out of full screen with focus on the strip's key leaves focus on a visible element, not <body>", KNOWN.fsExitFocus, "focus was on [data-testid=fs-strip-toggle], which is hidden again outside full screen; nothing takes focus"],
 ];
 for (const [title, re, why] of knownBugs) {
-  test(`known bug: ${title}`, () => {
+  test(`was a bug (OME-701): ${title}`, () => {
     test.skip(walked === null, "the walk did not run");
-    test.fail(true, `OME-701: ${why}`);
+    test.info().annotations.push({ type: "was", description: why });
     expect((walked ?? []).filter((p) => re.test(p))).toEqual([]);
   });
 }
@@ -472,11 +470,11 @@ test.describe("axe: zero violations on each new M7 surface", () => {
     await a.page.keyboard.press("Enter");
     await expect.poll(() => inFullscreen(a.page)).toBe(true);
     await expect(a.page.locator(site.fsStrip).locator(site.chatLogLine).last()).toContainText("a line in the strip");
-    expect(await violations(a.page, LOG_LIST), "strip").toEqual([]);
+    expect(await violations(a.page), "strip").toEqual([]);
     await a.page.locator(site.fsStripToggle).focus();
     await a.page.keyboard.press("Enter");
     await expect(a.page.locator(site.fsStripToggle)).toHaveAttribute("aria-expanded", "false");
-    expect(await violations(a.page, LOG_LIST), "collapsed input bar").toEqual([]);
+    expect(await violations(a.page), "collapsed input bar").toEqual([]);
   });
 
   test("pop-out chat window (chat.html)", async ({ browser }) => {
@@ -487,7 +485,7 @@ test.describe("axe: zero violations on each new M7 surface", () => {
     await pop.waitForLoadState();
     await expect(pop.locator(site.chatLogLine).last()).toContainText("a line for the window");
     expect(new URL(pop.url()).pathname).toBe("/chat.html");
-    expect(await violations(pop, LOG_LIST), "chat.html").toEqual([]);
+    expect(await violations(pop), "chat.html").toEqual([]);
     expect(await violations(a.page), "the room tab's placeholder").toEqual([]);
   });
 
@@ -554,12 +552,11 @@ test.describe("axe: zero violations on each new M7 surface", () => {
     await say(b.page, "a reply with <b>markup</b> and a rather long run of words that wraps onto the next line of the log");
     await say(a.page, "third line");
     await expect(a.page.locator(site.chatLogLine).last()).toContainText("third line");
-    expect(await violations(a.page, LOG_LIST)).toEqual([]);
+    expect(await violations(a.page)).toEqual([]);
   });
 
-  // The same log component sits in the page, the full-screen strip and chat.html, so one test.fail records it for all three.
-  test("known bug: chat lines are <li>s directly inside a role=log <div>, which axe rule `listitem` rejects", async ({ browser }) => {
-    test.fail(true, "OME-701: [data-testid=chat-log] is a div with role=log holding <li> lines: wrap them in a <ul>/<ol> or make them role=listitem inside role=list");
+  // The same log component sits in the page, the full-screen strip and chat.html (OME-701: its lines were bare <li>s).
+  test("chat lines are not bare <li>s inside the role=log, so axe rule `listitem` passes", async ({ browser }) => {
     const page = await first(browser, testRoom("m7-a11y", "logone"), DESKTOP(1280, 720));
     await say(page, "a line");
     await expect(page.locator(site.chatLogLine).last()).toContainText("a line");
