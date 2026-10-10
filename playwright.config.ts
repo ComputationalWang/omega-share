@@ -20,8 +20,12 @@ if (available.web) {
 }
 
 // `OMEGA_PERF_MOTION=smooth|basic` forces the walk tier (ADR 0037) in every perf context, so the whole suite can run once per tier.
-const perfMotion = process.env["OMEGA_PERF_MOTION"];
-const perfStorage = perfMotion === "smooth" || perfMotion === "basic"
+// Anything else is refused (OME-750): a typo would run the suite unforced while the run reads as forced.
+const perfMotion = process.env["OMEGA_PERF_MOTION"] ?? "";
+if (perfMotion !== "" && perfMotion !== "smooth" && perfMotion !== "basic") {
+  throw new Error(`OMEGA_PERF_MOTION must be smooth, basic or unset, not ${JSON.stringify(perfMotion)}`);
+}
+const perfStorage = perfMotion !== ""
   ? { storageState: { cookies: [], origins: [{ origin: URLS.web, localStorage: [{ name: "omega.motion", value: perfMotion }] }] } }
   : {};
 
