@@ -6,7 +6,7 @@ import { readdirSync } from "node:fs";
 
 const dir = queueDir();
 const arg = process.argv[2];
-const id = arg === "--latest" ? readdirSync(dir).filter((n) => existsSync(join(dir, n, "job.json"))).sort().pop() : arg;
+const id = arg === "--latest" ? (existsSync(dir) ? readdirSync(dir) : []).filter((n) => existsSync(join(dir, n, "job.json"))).sort().pop() : arg;
 if (!id) {
   console.error("usage: bun run perf:result <job-id | --latest>");
   process.exit(3);
