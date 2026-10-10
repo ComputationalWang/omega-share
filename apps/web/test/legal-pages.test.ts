@@ -93,6 +93,11 @@ describe("every legal page is built, served and CSP-clean", () => {
       expect(count(f, /aria-current="page"/g)).toBe(1);
       expect(f).toMatch(new RegExp(`aria-current="page">${label}</a>`));
     });
+
+    // OME-884: a visitor landing here from a share card or a search result needs a way back to the landing page.
+    test(`${file} links back home from its main content, like the privacy page`, () => {
+      expect(count(main(page(file)), /<a href="\/">Back to omega-share<\/a>/g)).toBe(1);
+    });
   }
 
   test("the colours these pages use pass WCAG AA (4.5:1) on the page background", () => {
