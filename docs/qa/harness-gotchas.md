@@ -70,7 +70,7 @@ Test-harness oddities that cost real review time. Check here before debugging a 
 
 ## Perf
 
-**Run perf under the machine-wide lock** (OME-185). `flock "$XDG_RUNTIME_DIR/omega-share-perf.lock" bun run perf`. For the frame row: `OMEGA_WEB_MODE=preview flock ... bunx playwright test --project=perf --trace off perf/site.perf.ts perf/provider-sync.perf.ts -g frame` (expect 0 % missed). `bun run perf` takes spec paths (`perf/chat.perf.ts`), not bare names, and baselines older than 4f09dac run the whole suite.
+**Perf: submit, end the run, read the result next wake** (OME-819). Never `sleep`/poll for perf and no `flock … bun run perf`. `bun run perf:submit --issue OME-n [perf/x.perf.ts …]` queues the committed HEAD and returns at once; end the run; on the next heartbeat `bun run perf:result <job>` (exit 2 = still running: end the run again). Details: `docs/ops/perf-runner.md`. The `flock` recipes below are for hand-run single-spec debugging only.
 
 **Detach long runs** (OME-334). Background jobs die at run teardown and Bash caps at 10 min. Use `setsid nohup bash -c '<cmd>; echo "EXIT=$?"' > log 2>&1 < /dev/null & disown`, then poll `grep -q ^EXIT= log` in loops under 10 min, with the `flock` inside the `bash -c`. Don't wrap `flock` in `timeout` (OME-652): it expires while waiting and orphans your preview, server and fixture processes.
 

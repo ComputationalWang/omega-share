@@ -1,4 +1,5 @@
 import { DEFAULT_CONTROL_POLICY, type ControlPolicy, type ErrorCode, type MemberId, type PlaybackState, type RoomState, type ServerMessage } from "@omega/shared";
+import { FLOAT_PER_SPEAKER } from "./bubbles/floats";
 import { mutedLine, policyLine, systemLine, type SystemLine } from "./controls/sysline";
 
 /** How long a speech bubble stays up. Bubbles are never stored. */
@@ -10,12 +11,18 @@ export const SYSLINE_MS = 6000;
 /** How long chat stays in cooldown after a `rate_limited` that carries no `retryAfterMs` (pre-M3 server). */
 export const CHAT_COOLDOWN_DEFAULT_MS = 1000;
 
-export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused" | "closed" | "taken-down" | "kicked";
+/**
+ * `not-found` (OME-768): a room this page never got into answered that it's gone (4004), taken down (4006), or private
+ * without a working key (`invite_required`). One screen for all of them, so the page never tells a private room from no room.
+ */
+export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused" | "closed" | "taken-down" | "kicked" | "not-found";
 
-/** Why the server refused our join (ADR 0016 §4). The connection has stopped; the user has to act. */
-export type Refusal = "nickname_taken" | "too_many_members" | "invite_required";
+/** Why the server refused our join (ADR 0016 §4). The connection has stopped; the user has to act. A refused invite is `not-found`. */
+export type Refusal = "nickname_taken" | "too_many_members";
 
 export interface Bubble {
+  /** The message's own key, rising for the life of the page (OME-809): the stage hands each id to the floats once. */
+  readonly id: number;
   readonly memberId: MemberId;
   readonly text: string;
   readonly expiresAt: number;
@@ -31,8 +38,10 @@ export interface ViewState {
   readonly status: Status;
   readonly self: MemberId | null;
   readonly room: RoomState | null;
-  /** At most one per member, the newest. */
+  /** A member's last FLOAT_PER_SPEAKER lines, oldest first. Kept by message, so two lines landing before one render both float. */
   readonly bubbles: readonly Bubble[];
+  /** The last bubble id handed out. Never reset, so an id is never reused while the stage may still remember it. */
+  readonly bubbleSeq: number;
   /** Chat system lines from playback changes, oldest first. */
   readonly syslines: readonly Sysline[];
   /** A new object per server error, so the UI can show each one. */
@@ -76,10 +85,10 @@ export type ViewEvent =
   | { readonly type: "server"; readonly msg: ServerMessage; readonly now: number }
   | { readonly type: "tick"; readonly now: number };
 
-export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null };
+export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], bubbleSeq: 0, syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null };
 
 /** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
-const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "taken-down" || s.status === "kicked";
+const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "taken-down" || s.status === "kicked" || s.status === "not-found";
 
 /** True while the server's `rate_limited` hint says to hold off sending chat. */
 export function coolingDown(state: ViewState, now: number): boolean {
@@ -161,13 +170,15 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
         title: msg.room.title ?? state.title,
       };
     case "room-full":
-      return { ...initialState, status: "full" };
+      return { ...initialState, bubbleSeq: state.bubbleSeq, status: "full" };
     case "error": {
       const lastError = { code: msg.code, at: now };
       if (msg.code === "nickname_taken" || msg.code === "too_many_members" || msg.code === "invite_required") {
         // Only a join is refused (ADR 0016 §4). Once this connection is in, the connection ignores it; so do we.
         if (state.status === "open") return { ...state, lastError };
-        return { ...initialState, status: "refused", refusal: msg.code, lastError };
+        // No notice either: its words would say the room is private.
+        if (msg.code === "invite_required") return { ...initialState, bubbleSeq: state.bubbleSeq, status: "not-found" };
+        return { ...initialState, bubbleSeq: state.bubbleSeq, status: "refused", refusal: msg.code, lastError };
       }
       if (msg.code !== "rate_limited") return { ...state, lastError };
       const until = now + (msg.retryAfterMs ?? CHAT_COOLDOWN_DEFAULT_MS);
@@ -216,8 +227,14 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     }
     case "chat": {
       if (state.room === null || !hasMember(state.room, msg.memberId)) return state;
-      const bubble: Bubble = { memberId: msg.memberId, text: msg.text, expiresAt: now + BUBBLE_MS };
-      return { ...state, bubbles: [...state.bubbles.filter((b) => b.memberId !== msg.memberId), bubble] };
+      const id = state.bubbleSeq + 1;
+      const bubble: Bubble = { id, memberId: msg.memberId, text: msg.text, expiresAt: now + BUBBLE_MS };
+      // 2 per speaker: past that, their oldest goes.
+      let theirs = 0;
+      for (const b of state.bubbles) if (b.memberId === msg.memberId) theirs++;
+      let drop = theirs - FLOAT_PER_SPEAKER + 1;
+      const kept = drop > 0 ? state.bubbles.filter((b) => b.memberId !== msg.memberId || drop-- <= 0) : state.bubbles;
+      return { ...state, bubbleSeq: id, bubbles: [...kept, bubble] };
     }
     case "member-status":
       return state.room === null || !hasMember(state.room, msg.memberId) ? state : withCatching(state, msg.memberId, msg.catching);
@@ -257,9 +274,11 @@ export function reduce(state: ViewState, event: ViewEvent): ViewState {
     case "disconnected":
       return stopped(state) ? state : { ...state, status: "reconnecting", bubbles: [] };
     case "room-closed":
-      return { ...initialState, status: event.takenDown === true ? "taken-down" : "closed" };
+      // Never in it on this page (no room yet): to us it doesn't exist. A room we were in says how it ended.
+      if (state.room === null) return { ...initialState, bubbleSeq: state.bubbleSeq, status: "not-found" };
+      return { ...initialState, bubbleSeq: state.bubbleSeq, status: event.takenDown === true ? "taken-down" : "closed" };
     case "kicked":
-      return { ...initialState, status: "kicked", kickedUntil: event.until };
+      return { ...initialState, bubbleSeq: state.bubbleSeq, status: "kicked", kickedUntil: event.until };
     case "tick": {
       const kept = state.bubbles.filter((b) => b.expiresAt > event.now);
       const lines = state.syslines.filter((l) => l.expiresAt > event.now);
@@ -292,10 +311,12 @@ export interface Screen {
   readonly closed: false | "deleted" | "taken-down";
   /** The owner removed me (4005, ADR 0030). */
   readonly kicked: boolean;
+  /** A room this page never got into is gone, taken down or keyless-private (OME-768): "Room not found". */
+  readonly notFound: boolean;
 }
 
 /** Which room-screen regions are laid out. The stage wrap has a fixed height, so it leaves the flow when not in a room. */
 export function screen(state: ViewState): Screen {
   const inRoom = state.room !== null && !stopped(state);
-  return { stage: inRoom, chat: inRoom, full: state.status === "full", refused: state.status === "refused" ? state.refusal : null, closed: state.status === "closed" ? "deleted" : state.status === "taken-down" ? "taken-down" : false, kicked: state.status === "kicked" };
+  return { stage: inRoom, chat: inRoom, full: state.status === "full", refused: state.status === "refused" ? state.refusal : null, closed: state.status === "closed" ? "deleted" : state.status === "taken-down" ? "taken-down" : false, kicked: state.status === "kicked", notFound: state.status === "not-found" };
 }

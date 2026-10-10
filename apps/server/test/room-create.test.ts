@@ -517,7 +517,10 @@ describe("persistence of created rooms (migration 0002)", () => {
     expect((await del(priv.room.id, `Bearer ${priv.ownerToken}`)).status).toBe(200);
     // Deleted means the row is gone: it doesn't come back after the next restart.
     await restart();
-    expect((await fetch(`${server().http}/rooms/${priv.room.id}/ws`, { headers: { upgrade: "websocket" } })).status).toBe(404);
+    const late = await Client.open(server().ws(priv.room.id));
+    clients.push(late);
+    expect((await late.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
+    expect(late.raw.filter((r) => r.includes('"snapshot"'))).toEqual([]);
     expect((await del(pub.room.id, `Bearer ${pub.ownerToken}`)).status).toBe(200);
   });
 

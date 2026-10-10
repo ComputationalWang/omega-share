@@ -176,7 +176,9 @@ Fix the cause, then `ssh $A admin@$SERVER_IP 'sudo systemctl restart caddy'` mak
 2. `ssh $A admin@$SERVER_IP "$CLI rooms list"`: the room's current title, visibility and members.
 3. Decide: nothing to act on, `ssh $A admin@$SERVER_IP "$CLI reports dismiss --room <id>"`; abuse, take it down (next section).
 
-The full procedure, and which links not to open, is in [rooms.md § Takedown](rooms.md#takedown-step-by-step).
+The full procedure, and which links not to open, is in [rooms.md § Takedown](rooms.md#takedown-step-by-step). Never open `playing` URLs while logged in to anything.
+
+If a report suggests someone's life or safety is at risk, tell the police first ([rooms.md § Danger reports](rooms.md#danger-reports-dsa-art-18), DSA Art. 18). Notices that come by email need a receipt and a decision reply ([§ Notices by email](rooms.md#notices-by-email-dsa-art-164-and-165)), and every takedown gets a [statement of reasons](rooms.md#statement-of-reasons-dsa-art-17).
 
 ### Take down a room fast
 
@@ -184,7 +186,7 @@ The full procedure, and which links not to open, is in [rooms.md § Takedown](ro
 ssh $A admin@$SERVER_IP "$CLI rooms takedown <id>"     # expect "taken down <id>"
 ```
 
-One command does it all: every socket in the room closes with 4006 and doesn't reconnect, share grants are revoked, the row is deleted, the id stays dead for good, and the room's open reports are marked actioned. Copy the id from the `/r/<id>` link or the `id` column, never from a title. Record the id, the UTC time and the reason on an issue. If the same kind of title keeps coming back, add it to `ROOM_TITLE_BLOCKLIST` in `/etc/omega-share/env` and restart ([rooms.md](rooms.md#takedown-step-by-step)).
+One command does it all: every socket in the room closes with 4006 and doesn't reconnect, share grants are revoked, the row is deleted, the id stays dead for good, and the room's open reports are marked actioned. Copy the id from the `/r/<id>` link or the `id` column, never from a title. Record the id, the UTC time and the reason on an issue, as a [statement of reasons](rooms.md#statement-of-reasons-dsa-art-17). If the same kind of title keeps coming back, add it to `ROOM_TITLE_BLOCKLIST` in `/etc/omega-share/env` and restart ([rooms.md](rooms.md#takedown-step-by-step)).
 
 ### Roll back a deploy
 

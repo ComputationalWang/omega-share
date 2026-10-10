@@ -112,12 +112,14 @@ test("create a private room, invite a guest by link, then close it with 4004", a
 });
 
 // A seeded private room, not a UI create: the creation bucket is already spent by the tests above (OME-493).
-test("a guest with the bare room URL of a private room is refused and told why", async ({ browser }) => {
+// OME-768: told the same as for an id that doesn't exist, so the screen never tells a private room from no room.
+test("a guest with the bare room URL of a private room gets 'Room not found', never 'this room is private'", async ({ browser }) => {
   const room = ownedRoom("refused");
   const stranger = await newPage(browser);
   await stranger.goto(`${URLS.web}/r/${room.id}`);
   await enter(stranger, "stranger");
-  await expect(stranger.locator(site.roomRefused)).toHaveAttribute("data-code", "invite_required");
+  await expect(stranger.locator(site.notFound)).toBeVisible();
+  await expect(stranger.locator(site.roomRefused)).toBeHidden();
   await expect(stranger.locator(site.room)).toBeHidden();
 });
 
