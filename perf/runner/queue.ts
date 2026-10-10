@@ -214,7 +214,7 @@ export async function runPending(dir: string, exec: Executor, opts: { timeoutMs?
     const invalidLoad = burst.load;
     const passed = outcome.exitCode === 0 && invalidLoad === null;
     if (passed) writeFileSync(lastBuilt, job.sha);
-    else if (invalidLoad === null) rmSync(lastBuilt, { force: true });
+    else rmSync(lastBuilt, { force: true }); // an aborted run may have rebuilt for another sha
     const loadFields = gate && loadAtStart !== undefined
       ? { loadAtStart, loadPeak: Math.max(0, ...samples.map((x) => x.load1)), loadSamples: downsample(samples) }
       : {};
