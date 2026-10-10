@@ -87,6 +87,14 @@ export class ReportStore {
     this.#takedowns = db.prepare("SELECT room_id FROM takedowns");
   }
 
+  /**
+   * `GET /healthz`'s database check (OME-840): reads the schema version, which throws if the database is closed
+   * or unreadable. `query`, not a kept statement: a statement prepared earlier keeps answering after `close()`.
+   */
+  ping(): void {
+    this.#db.query("PRAGMA user_version").get();
+  }
+
   /** Stores one report; past REPORT_MAX_ROWS the oldest closed rows go first, in the same transaction. Throws if it can't. */
   add(report: NewReport): void {
     const r = v.parse(NewReportSchema, report);

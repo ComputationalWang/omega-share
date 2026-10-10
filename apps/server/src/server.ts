@@ -300,6 +300,16 @@ export function startServer(opts: ServerOptions): OmegaServer {
   const app = createHttpApp({
     queue,
     reports,
+    // The report store shares the rooms' database (index.ts), so one read checks both.
+    dbOk: () => {
+      try {
+        reportStore.ping();
+        return true;
+      } catch (err) {
+        logError("store.health", err);
+        return false;
+      }
+    },
     rooms,
     persistRoom: (room) => {
       store?.createRoom(room);

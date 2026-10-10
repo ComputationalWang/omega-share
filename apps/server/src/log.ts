@@ -15,6 +15,7 @@ export type LogEvent =
   | "store.queue_item"
   | "store.queue"
   | "store.report"
+  | "store.health"
   | "gc.remove"
   | "gc.sweep"
   | "gc.purge"
