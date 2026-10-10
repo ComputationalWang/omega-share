@@ -490,10 +490,14 @@ sites or logos (the mock page's address is a reserved `.test` name).
 | `store/promo-440x280.png` | 440×280 | Small promo tile: the furnished room (set g) at 2× with the wordmark and one line on a panel. RGB, no alpha. |
 | `store/screenshot-1-room.png` | 1280×800 | A watch room: the TV and its shelf, the room with tags, bubbles and an emote, the queue panel, system lines and chat. |
 | `store/screenshot-2-share.png` | 1280×800 | Share from any page: a mock video page with the real extension popup open (shot by `src/shoot-popup.ts` from the e2e build against a throwaway server: a YouTube video found, "Movie night (3)" selected, Share and Add to queue live; shown at 1.5×), the video waiting in "Up next" under the site's own title for it, the host's moderation menu in a furnished room, and the playback setting with the site's wording. |
+| `store/screenshot-3-chat.png` | 1280×800, 78 919 B | Round 2 (OME-843), chat and emotes: the wide desktop layout (set l), with the TV and shelf, the seats with floating chat bubbles (two stacked cards name their speaker), a heart and a laugh over two heads, your emote wheel open over you with Heart selected, and the chat column with the "Press Enter to chat" composer. |
+| `store/screenshot-4-queue.png` | 1280×800, 88 407 B | Round 2 (OME-843), the shared queue: the TV near the end of a video, the room with name tags, and "Up next" with five rows (the first plays next, one live, one not synced), a link being pasted with Add under the pointer, and the system lines for who added what. |
+| `store/marquee-1400x560.png` | 1400×560, 54 997 B | Round 2 (OME-843), the optional marquee: the furnished room (set g) at 2× with the wordmark and "Find a video on any page. Watch it together in a cosy pixel room." on a panel, bottom left. |
 
 Each icon is drawn natively per size by `src/store.ts` (so each keeps the plum outline and whole pixels); `bun assets/src/build.ts` writes them and
 prints their bytes (1 498 B for all four; the 128 px icon is 96×96 of art in 16 px of margin) apart from the art budget. The promo tile and screenshots are composed in `preview/store.html` from the
-real reference CSS and preview renders, and `bun assets/src/shoot-ui.ts` shoots them at their exact sizes. Screenshot 2's popup is
+real reference CSS and preview renders, and `bun assets/src/shoot-ui.ts` shoots them at their exact sizes. `src/store-kit.test.ts` checks every kit file's
+pixel size and that it stays under 1 MB. Screenshot 2's popup is
 `preview/store-popup.png`: refresh it with `bun run --filter @omega/extension build:e2e && bun assets/src/shoot-popup.ts` before `shoot-ui.ts`
 (ports 4470/8877, override with `OMEGA_SHOT_PAGE_PORT` / `OMEGA_SHOT_SERVER_PORT`).
 

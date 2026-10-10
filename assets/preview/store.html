@@ -72,6 +72,31 @@
   .seg .ui-picker { width: auto; height: auto; padding: 2px 10px 2px 4px; display: inline-flex; gap: 6px; align-items: center; font: inherit; font-size: 13px; color: var(--ui-text); }
   .set p { margin: 0; font-size: 12px; font-weight: 500; color: var(--ui-muted); }
   .set { display: grid; gap: 8px; }
+
+  /* screenshot 3 (OME-843): chat bubbles over the seats, the emote wheel open over you, the chat column beside the room */
+  #shot-chat, #shot-queue { width: 1280px; height: 800px; }
+  .video { background: url("tv-video@1x.png") 0 0 / 100% 100%; image-rendering: pixelated; }
+  .win { background-image: url("room@1x.png"); image-rendering: pixelated; overflow: hidden; }
+  .win > * { position: absolute; }
+  /* Store shots are stills: bubbles sit settled (no float, no fade), whatever the live motion does. */
+  .win .ui-float { animation: none; opacity: 1; transform: none; }
+  .win .ui-wheel { animation: none; }
+  .chatlog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; overflow: hidden; --ui-px: 1px; }
+  .chatlog .ui-fs-line { font-size: 13px; }
+  .hintline { font-size: 11px; font-weight: 500; color: var(--ui-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .hintline .ui-kbd { font-size: 10px; }
+  .pop { width: 16px; height: 16px; }
+
+  /* screenshot 4 (OME-843): the shared queue, a link going in */
+  #shot-queue .side { left: 792px; top: 72px; width: 464px; grid-template-columns: minmax(0, 1fr); }
+  #shot-queue .paste .ui-input { color: var(--ui-text); }
+
+  /* marquee (OME-843): 1400×560, the furnished room with the name and one line */
+  #marquee { width: 1400px; height: 560px; }
+  #marquee .art { inset: 0; background-image: url("furniture-room@1x.png"); background-size: 1920px 1200px; background-position: -260px -300px; }
+  #marquee .card { left: 40px; bottom: 40px; width: 360px; display: grid; gap: 10px; padding: 10px 14px 14px; }
+  #marquee .card p { margin: 0; font-size: 24px; font-weight: 700; line-height: 1.25; }
+  #marquee .card .ui-logo-0 { --ui-px: 4px; }
 </style>
 </head>
 <body>
@@ -154,6 +179,126 @@
     </div>
   </div>
 </div>
+
+<div id="shot-chat" class="shot">
+  <div class="topbar"><span class="ui-sprite ui-logo-0"></span><strong><span class="ui-sprite ui-icon-tv"></span>Movie night</strong><span class="status"><span class="ui-sprite ui-dot-online"></span>Connected</span><span class="spacer"></span><span class="count"><span class="ui-sprite ui-icon-people"></span>7 / 25</span><button class="ui-button secondary"><span class="ui-sprite ui-icon-leave"></span>Leave</button></div>
+  <div class="video ui-tv-frame" style="left:200px;top:66px;width:560px;height:315px"></div>
+  <div class="ui-tv-shelf ui-room" style="left:200px;top:389px;width:560px">
+    <div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span></div>
+  </div>
+  <div class="win ui-room" id="chat-stage" style="left:16px;top:441px;width:928px;height:359px;background-position:-16px -170px"></div>
+  <aside class="ui-chatcol" aria-label="Chat" style="left:960px;top:52px;width:320px;height:748px">
+    <div class="ui-chatcol-head"><span class="ui-sprite ui-icon-chat"></span>Chat<span class="n">7 / 25</span><button class="ui-button self icon" aria-label="Pop out the chat"><span class="ui-sprite ui-icon-popout"></span></button></div>
+    <ol class="chatlog" role="log" aria-label="Chat messages" id="chat-log"></ol>
+    <div style="display:grid;gap:6px">
+      <form class="ui-composer" onsubmit="return false">
+        <button class="ui-button self icon" aria-label="Emotes" aria-haspopup="menu" aria-expanded="true"><span class="ui-sprite ui-icon-wheel"></span></button>
+        <div class="field"><input class="ui-input" placeholder=" " aria-label="Message (Enter)"><span class="ui-chat-hint" aria-hidden="true">Press <kbd class="ui-kbd">Enter</kbd> to chat</span></div>
+        <button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button>
+      </form>
+      <div class="hintline"><kbd class="ui-kbd">T</kbd> emotes <kbd class="ui-kbd">Esc</kbd> back to the room</div>
+    </div>
+  </aside>
+</div>
+
+<div id="shot-queue" class="shot">
+  <div class="topbar"><span class="ui-sprite ui-logo-0"></span><strong><span class="ui-sprite ui-icon-tv"></span>Movie night</strong><span class="status"><span class="ui-sprite ui-dot-online"></span>Connected</span><span class="spacer"></span><span class="count"><span class="ui-sprite ui-icon-people"></span>6 / 25</span><button class="ui-button secondary"><span class="ui-sprite ui-icon-leave"></span>Leave</button></div>
+  <div class="video ui-tv-frame" style="left:112px;top:72px;width:560px;height:315px"></div>
+  <div class="ui-tv-shelf ui-room" style="left:112px;top:395px;width:560px">
+    <div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><span class="ui-chip"><span class="ui-sprite ui-glyph-everyone"></span>Everyone</span><button class="ui-button shared icon" aria-label="Pause for everyone"><span class="ui-sprite ui-icon-pause"></span></button><span class="ui-readout">38:52</span><div class="ui-seek" style="--pos:0.945"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span></div>
+  </div>
+  <div class="win ui-room" style="left:24px;top:449px;width:736px;height:351px;background-position:-112px -173px">
+    <span class="ui-tag" style="left:240px;top:116px">Ada</span>
+    <span class="ui-tag self" style="left:304px;top:113px">Wren</span>
+    <span class="ui-tag" style="left:432px;top:118px">Moss</span>
+    <span class="ui-tag" style="left:496px;top:116px">Kit</span>
+    <span class="ui-tag" style="left:240px;top:182px">Juniper</span>
+    <span class="ui-tag" style="left:304px;top:180px">Oli</span>
+  </div>
+  <div class="side">
+    <section class="ui-panel ui-queue q" aria-label="Up next">
+      <div class="head"><span class="ui-sprite ui-icon-queue"></span><h3>Up next</h3><span class="n">5 / 20</span></div>
+      <ol class="ui-qlist">
+        <li class="ui-qrow is-next"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Rain on a tin roof, 2 hours</span><span class="meta"><span class="ui-sprite ui-head-kiki"></span>Kit</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow is-hover"><span class="ui-sprite ui-qsrc-live"></span><span class="body"><span class="title">Night train cab view (live)</span><span class="meta"><span class="ui-sprite ui-head-mo"></span>Moss</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-video"></span><span class="body"><span class="title">Bread from scratch</span><span class="meta"><span class="ui-sprite ui-head-juno"></span>Oli</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-generic"></span><span class="body"><span class="title">Pottery wheel, start to finish</span><span class="meta"><span class="ui-sprite ui-head-juno"></span>Ada</span></span><span class="ui-chip solo"><span class="ui-sprite ui-glyph-outsync"></span>Not synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+        <li class="ui-qrow"><span class="ui-sprite ui-qsrc-live"></span><span class="body"><span class="title">Owl nest cam</span><span class="meta"><span class="ui-sprite ui-head-pip"></span>Wren</span></span><span class="ui-chip"><span class="ui-sprite ui-glyph-insync"></span>Synced</span><button class="ui-sprite ui-qx" aria-label="Remove"></button></li>
+      </ol>
+      <div class="paste"><span class="ui-sprite ui-icon-link"></span><input class="ui-input is-focus" value="https://a-video-page.test/lantern-walk" aria-label="Paste a video link"><button class="ui-button is-hover"><span class="ui-sprite ui-icon-queue-add"></span>Add</button></div>
+    </section>
+    <div class="log">
+      <p class="ui-sysline"><span class="ui-sprite ui-icon-queue-add pop"></span><span><b>Oli</b> added <b>Bread from scratch</b></span></p>
+      <p class="ui-sysline"><span class="ui-sprite ui-icon-queue-add pop"></span><span><b>Kit</b> added <b>Rain on a tin roof, 2 hours</b></span></p>
+      <p class="ui-sysline"><span class="ui-sprite ui-glyph-play"></span><span>Plays next when this ends, for everyone</span></p>
+    </div>
+  </div>
+</div>
+
+<div id="marquee" class="shot">
+  <div class="art"></div>
+  <div class="ui-panel card"><span class="ui-sprite ui-logo-0"></span><p>Find a video on any page. Watch it together in a cosy pixel room.</p></div>
+</div>
+
+<script>
+  // Screenshot 3's bubbles: assets/README.md § Set (l)'s stacking rule (newest first, a bubble that would touch a newer one moves up
+  // above it and names its speaker instead of pointing), as in preview/m8.html. Speakers' anchors in room@1x.png stage px.
+  const view = { x: 16, y: 170, w: 928, h: 359 };
+  const S = {
+    ana: { who: "Ana", x: 352, y: 289 }, bo: { who: "Bo", x: 416, y: 286 }, remy: { who: "Remy", x: 352, y: 355 },
+    sol: { who: "Sol", x: 576, y: 431 }, wren: { who: "Wren", x: 704, y: 339 },
+  };
+  const SAID = [["ana", 3900, "did anyone else hear the cat in the background"], ["bo", 2900, "omg the twist"], ["remy", 1700, "this soundtrack is so good"],
+    ["remy", 400, "ok one more episode"]];
+  const stage = document.getElementById("chat-stage");
+  const placed = [];
+  for (const [k, age, text] of [...SAID].sort((p, q) => p[1] - q[1])) {
+    const b = S[k];
+    const el = document.createElement("p");
+    el.className = "ui-float";
+    el.innerHTML = `<span class="say">${text}</span>`;
+    stage.append(el);
+    // Place it; a stacked card gains the speaker's name, so it is measured and placed again in that form.
+    const place = () => {
+      const w = el.offsetWidth, h = el.offsetHeight;
+      const left = Math.max(view.x + 4, Math.min(view.x + view.w - 4 - w, Math.round(b.x - w / 2)));
+      let bottom = b.y - 4, stacked = false;
+      for (let moved = true; moved; ) {
+        moved = false;
+        for (const p of placed) {
+          if (left < p.left + p.w + 3 && p.left < left + w + 3 && bottom - h < p.bottom + 3 && p.top < bottom + 3) { bottom = p.top - 3; stacked = moved = true; }
+        }
+      }
+      return { w, h, left, bottom, stacked };
+    };
+    let at = place();
+    if (at.stacked) { el.innerHTML = `<span class="say"><b class="who">${b.who}</b>${text}</span>`; at = place(); }
+    else el.style.setProperty("--tail-x", `${b.x - at.left}px`);
+    const { w, h, left, bottom } = at;
+    el.style.left = `${left - view.x}px`; el.style.top = `${bottom - h - view.y}px`;
+    placed.push({ left, w, top: bottom - h, bottom });
+  }
+  // Emotes over two heads (the standing friend on the left, Wren: the picker art is the settled sticker frame), and the wheel open over you (Sol, standing; its tail
+  // takes your bubble's spot).
+  for (const [id, x, y] of [["heart", 320 - 8, 398 - 20], ["laugh", 704 - 8, 339 - 20]]) {
+    const e = document.createElement("span");
+    e.className = `ui-sprite ui-emote-pick-${id}`;
+    e.style.left = `${x - view.x}px`; e.style.top = `${y - view.y}px`;
+    stage.append(e);
+  }
+  const ORDER = [["heart", "Heart"], ["laugh", "Laugh"], ["question", "Question"], ["exclaim", "Surprise"], ["clap", "Clap"], ["wave", "Wave"]];
+  const wheel = document.createElement("div");
+  wheel.className = "ui-wheel"; wheel.setAttribute("role", "menu"); wheel.setAttribute("aria-label", "Emotes");
+  wheel.style.cssText = `--ui-px:2px;left:${576 - view.x - 77}px;top:${431 - view.y - 162}px`;
+  const sel = 0;
+  wheel.innerHTML = ORDER.map(([id, name], k) => `<button class="ui-wheel-slot${k === sel ? " is-selected is-focus" : ""}" role="menuitem" aria-label="${name}"><span class="ui-sprite ui-emote-pick-${id}"></span></button>`).join("")
+    + `<span class="ui-wheel-hub"><span class="ui-sprite ui-emote-pick-${ORDER[sel][0]}"></span></span><span class="ui-chip self ui-wheel-label">${ORDER[sel][1]} <kbd class="ui-kbd is-small">1</kbd></span>`;
+  stage.append(wheel);
+  const LOG = [["faded", "Ana", "did anyone else hear the cat in the background"], ["settled", "Bo", "omg the twist"], ["settled", "You", "the green flash!!"],
+    ["settled", "Remy", "this soundtrack is so good"], ["fresh", "Wren", "rewind 10 s pls"], ["fresh", "Remy", "ok one more episode"]];
+  document.getElementById("chat-log").innerHTML = LOG.map(([age, who, text]) => `<li class="ui-fs-line ${age === "fresh" ? "" : `is-${age}`}"><b>${who}</b> ${text}</li>`).join("");
+  document.body.dataset.ready = "1";
+</script>
 
 </body>
 </html>
