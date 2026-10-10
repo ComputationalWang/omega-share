@@ -43,3 +43,14 @@ QA measures these on every merge (Playwright + Chromium; the Firefox rows in hea
 | Extension | Content scripts on page load, Firefox | none (inject on popup open only) |
 | Extension | Persistent background, Firefox | none (non-persistent event page: Firefox MV3 has no service worker — ADR 0005) |
 | Load test | People in a room without breaking the budgets above | 25 |
+
+## Landing
+
+The home page at `/`, measured on the production preview build (`vite preview`, the same build `bun run perf` serves) from a cold cache, before any user interaction: no pointer movement, no focus, no key press. Throttling profile: the one every other perf spec uses, Playwright's `Desktop Chrome` device (1280×720, DPR 1) on localhost with **no CPU and no network throttling**. The landing spec runs three cold loads, each in a fresh browser context, after a warm-up load; transfer is the largest of the three, the timings are their median. Spec: `perf/landing.perf.ts` (OME-763). Targeted post-merge check (ADR 0036) for any change to `apps/web/index.html`, `apps/web/src/main.ts`, `apps/web/src/home.ts`, `apps/web/src/style.css`, `apps/web/public/**` or the web build config: `bun run perf perf/landing.perf.ts`.
+
+| Area | Metric | Budget |
+|---|---|---|
+| Landing | Total transfer at `/` before interaction (gzipped) | ≤ 120 KB: every document, script, stylesheet, image, font and other static response the page fetches before interaction (the home chunk loaded on `load` included), each body gzipped at zlib level 6. API calls (fetch/XHR) are listed in the note but not counted. The lazily warmed room/Pixi chunks are excluded only while they are not fetched before interaction: anything fetched before interaction counts |
+| Landing | Largest Contentful Paint at `/` | ≤ 1.5 s, same throttling profile as the other perf specs (none) |
+| Landing | Cumulative Layout Shift at `/` | ≤ 0.05: every layout shift without recent input from navigation until load + 1 s, summed (no session windowing, so it is never lower than the web-vitals value) |
+| Landing | Longest task before the nickname field is usable | ≤ 50 ms (no long task): `PerformanceObserver("longtask")` entries that start before the field is usable, meaning the later of DOMContentLoaded end and the site's `omega:interactive` mark (set once `main.ts` has wired the form) |

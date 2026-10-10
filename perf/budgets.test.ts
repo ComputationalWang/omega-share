@@ -194,6 +194,32 @@ describe("evaluate", () => {
   });
 });
 
+describe("landing budgets (OME-763)", () => {
+  test("the Landing section has transfer, LCP, CLS and long-task rows at the doc's limits", () => {
+    const want = [
+      { id: "landing.transferGzip", unit: "KB", limit: 120, docMetric: "Total transfer at `/` before interaction (gzipped)" },
+      { id: "landing.lcp", unit: "ms", limit: 1500, docMetric: "Largest Contentful Paint at `/`" },
+      { id: "landing.cls", unit: "score", limit: 0.05, docMetric: "Cumulative Layout Shift at `/`" },
+      { id: "landing.longTask", unit: "ms", limit: 50, docMetric: "Longest task before the nickname field is usable" },
+    ];
+    for (const w of want) {
+      const b = BUDGETS.find((x) => x.id === w.id);
+      expect(b, w.id).toBeDefined();
+      expect([b?.area, b?.docMetric, b?.unit, b?.limit, b?.comparator]).toEqual(["Landing", w.docMetric, w.unit, w.limit, "<="]);
+      expect(DOC_ROWS.some(([area, metric]) => area === "Landing" && metric === w.docMetric), w.docMetric).toBe(true);
+    }
+  });
+
+  test("a CLS score keeps three decimals in the report, so 0.04 and 0.06 don't both read 0.0", () => {
+    const cls = BUDGETS.find((x) => x.id === "landing.cls");
+    if (!cls) throw new Error("no landing.cls");
+    const out = renderReport([evaluate(cls, { id: cls.id, value: 0.062 })]);
+    expect(out).toContain("| 0.062 |");
+    expect(out).toContain("≤ 0.050");
+    expect(out).toContain("FAIL");
+  });
+});
+
 describe("renderReport", () => {
   test("renders a markdown table with statuses and a summary", () => {
     const b = BUDGETS[0];
