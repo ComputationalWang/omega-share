@@ -48,6 +48,19 @@ describe("popup state vignettes (OME-842)", () => {
     }
   });
 
+  test("palette-only with 1-bit alpha: every index is a shipped colour, transparent only at 0", () => {
+    for (const f of files) for (const v of new Set(f.img)) {
+      const col = PALETTE[v];
+      expect(col).toBeDefined();
+      expect(col?.a).toBe(v === 0 ? 0 : 255);
+    }
+  });
+
+  test("cant-read doesn't share nothing-found's page: its window is greyed (a page the browser keeps to itself)", () => {
+    const page = (s: string): number => one.find((f) => f.file === `${s}.png`)?.img[10 * 48 + 36] ?? 0;
+    expect(page("cant-read")).not.toBe(page("nothing-found"));
+  });
+
   test("all six files fit in 3 KB", () => {
     expect(files.reduce((n, f) => n + bytes(f), 0)).toBeLessThanOrEqual(3072);
   });
