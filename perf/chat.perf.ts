@@ -2,7 +2,8 @@
 // Twitch VOD, Twitch live, Vimeo, a loaded generic embed). 8 clients (8 avatars), the observer's chat log on screen;
 // the 7 others each send a burst of CHAT_BURST then one a second (apps/server/src/ws.ts CHAT_BURST / CHAT_PER_SECOND)
 // for the whole traced window, so the log fills to its cap and drops a line per message while the bubbles move too.
-// Rows: chat.frameP95.<p> (quantised p95 ≤ one vsync), chat.workP95.<p> (≤ 8 ms), chat.missedVsync.<p> (≤ 1 %).
+// Rows: chat.frameP95.<p> (quantised p95 ≤ one vsync), chat.workP95.<p> (≤ 8 ms), chat.missedVsync.<p> (≤ 1 %), over
+// FRAME_WINDOWS refill + burst windows per provider (OME-846): missed vsyncs pooled, the p95s the median of the windows.
 import { expect, test } from "@playwright/test";
 import type { APIRequestContext } from "@playwright/test";
 import { PENDING, available } from "../e2e/support/apps";
@@ -11,10 +12,10 @@ import { joinRoom, leaveAll, testRoom, type Client } from "../e2e/support/room";
 import { site } from "../e2e/support/selectors";
 import { joinForToken, postShare } from "../e2e/support/share";
 import { FRAME_PROVIDERS, type FrameProvider } from "./budgets";
-import { VSYNC_MS, tracedFrames, type FrameWindow } from "./frames";
-import { p95, recordMetric } from "./metrics";
+import { FRAME_WINDOWS, VSYNC_MS, tracedFrames, type FrameWindow } from "./frames";
+import { recordMetric } from "./metrics";
 import { GENERIC_HOST, GENERIC_PAGE, PROVIDER_CASES, waitProviderPlaying } from "./providers";
-import { summarizeFrames } from "./spread";
+import { summarizeWindows } from "./spread";
 import { waitPlaying } from "./sync";
 
 const CLIENTS = 8;
@@ -68,13 +69,12 @@ async function burst(senders: readonly Client[], tag: string): Promise<number> {
   return counts.reduce((a, b) => a + b, 0);
 }
 
-function record(p: FrameProvider, w: FrameWindow, what: string): { p95: number; missedPct: number; workP95: number } {
-  const f = summarizeFrames(w.samples, VSYNC_MS);
-  const workP95 = p95(w.workMs);
+function record(p: FrameProvider, ws: readonly FrameWindow[], what: string): { p95: number; missedPct: number; workP95: number } {
+  const f = summarizeWindows(ws, VSYNC_MS);
   recordMetric({ id: `chat.frameP95.${p}`, value: f.p95, note: `${f.note}; ${what}` });
-  recordMetric({ id: `chat.workP95.${p}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
-  recordMetric({ id: `chat.missedVsync.${p}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });
-  return { p95: f.p95, missedPct: f.missedPct, workP95 };
+  recordMetric({ id: `chat.workP95.${p}`, value: f.workP95, note: `${f.workNote}; ${what}` });
+  recordMetric({ id: `chat.missedVsync.${p}`, value: f.missedPct, note: `${f.missedNote}; ${what}` });
+  return { p95: f.p95, missedPct: f.missedPct, workP95: f.workP95 };
 }
 
 test("chat: frames per provider with a chat burst at the rate limit (8 avatars + video, chat log on screen)", async ({ browser, request }) => {
@@ -84,7 +84,7 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
     test.skip(true, why);
     return;
   }
-  test.setTimeout(420_000);
+  test.setTimeout(600_000);
   const room = testRoom("chat-perf", "frames");
   await share(request, room.id, EMBED_URL);
   const clients = await joinRoom(browser, {
@@ -106,13 +106,20 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
     const measure = async (p: FrameProvider, label: string): Promise<void> => {
       await expect(log).toBeInViewport();
       await expect(observer.page.locator(site.room)).toBeInViewport();
-      // A full refill of every sender's chat bucket (5 at 1/s) since the last round, so the burst is never refused.
-      await observer.page.waitForTimeout(REFILL_MS);
-      const [w, sent] = await Promise.all([tracedFrames(browser, observer.page, WINDOW_MS), burst(senders, p)]);
-      // The burst reached the observer: its last line is this round's, and the log never grows past its cap.
-      await expect(lines.last()).toContainText(`${p} `);
-      expect(await lines.count()).toBeLessThanOrEqual(LOG_CAP);
-      rows[p] = { ...record(p, w, `${label} playing, ${String(CLIENTS)} avatars, ${String(sent)} chats from ${String(senders.length)} senders in ${String(WINDOW_MS)} ms (burst ${String(CHAT_BURST)}, then 1/s each)`), sent };
+      const ws: FrameWindow[] = [];
+      let sent = 0;
+      for (let i = 0; i < FRAME_WINDOWS; i++) {
+        // A full refill of every sender's chat bucket (5 at 1/s) since the last window, so the burst is never refused.
+        await observer.page.waitForTimeout(REFILL_MS);
+        const [w, n] = await Promise.all([tracedFrames(browser, observer.page, WINDOW_MS), burst(senders, `${p}#${String(i)}`)]);
+        // The burst reached the observer: its last line is this window's, and the log never grows past its cap.
+        await expect(lines.last()).toContainText(`${p}#${String(i)} `);
+        expect(await lines.count()).toBeLessThanOrEqual(LOG_CAP);
+        ws.push(w);
+        sent += n;
+      }
+      const each = `${String(sent)} chats from ${String(senders.length)} senders over ${String(FRAME_WINDOWS)} × ${String(WINDOW_MS)} ms windows`;
+      rows[p] = { ...record(p, ws, `${label} playing, ${String(CLIENTS)} avatars, ${each} (each window a burst of ${String(CHAT_BURST)}, then 1/s each)`), sent };
     };
 
     await waitPlaying(clients);
