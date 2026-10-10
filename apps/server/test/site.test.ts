@@ -174,6 +174,26 @@ describe("site routes: shell, share card and real 404s", () => {
     expectSecurityHeaders(res);
   });
 
+  test("a page that ships its own description, icon and manifest tags serves one of each: the server's (OME-767)", async () => {
+    const dist = site();
+    writeFileSync(
+      join(dist, "index.html"),
+      '<!doctype html><html><head><meta charset="utf-8" /><meta name="description" content="Built-in words." />' +
+        '<link rel="icon" href="/favicon.ico" sizes="32x32" /><link rel="apple-touch-icon" href="/apple-touch-icon.png" />' +
+        '<link rel="manifest" href="/manifest.webmanifest" /><title>omega</title></head><body><div id="app"></div></body></html>',
+    );
+    t = start({ staticDir: dist, publicOrigin: PUBLIC_ORIGIN });
+    for (const path of ["/", "/r/lobby"]) {
+      const html = await (await get(path)).text();
+      expect(html).not.toContain("Built-in words.");
+      expect(html.match(/<meta name="description"/g)?.length).toBe(1);
+      expect(html.match(/<link rel="icon"/g)?.length).toBe(1);
+      expect(html.match(/<link rel="apple-touch-icon"/g)?.length).toBe(1);
+      expect(html.match(/<link rel="manifest"/g)?.length).toBe(1);
+      expect(html).toContain('<div id="app"></div>');
+    }
+  });
+
   test("the share card costs under 2 ms p95 on the shell route", async () => {
     t = start({ staticDir: site(), publicOrigin: PUBLIC_ORIGIN });
     const id = await createRoom("Film night", "public");
