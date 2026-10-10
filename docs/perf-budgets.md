@@ -9,9 +9,9 @@ QA measures these on every merge (Playwright + Chromium; the Firefox rows in hea
 | Site | Frame rate, 8 avatars + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals — ADR 0009) |
 | Site | Main-thread work per frame, 8 avatars + video playing | ≤ 8 ms p95, per provider (YouTube, Twitch VOD, Twitch live, Vimeo, a loaded generic embed — ADR 0024), Playwright tracing off — ADR 0017 |
 | Site | Missed vsyncs, 8 avatars + video playing | ≤ 1.0 % of frames, per provider, Playwright tracing off — ADR 0017 |
-| Site | Frame rate with a chat burst, 8 avatars + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), per provider, the chat log on screen while 7 members chat at the room's rate limit (a burst of 5 each, then 1/s: `ws.ts` CHAT_BURST / CHAT_PER_SECOND) — OME-594 |
-| Site | Main-thread work per frame with a chat burst, 8 avatars + video playing | ≤ 8 ms p95, per provider, same chat burst — OME-594 |
-| Site | Missed vsyncs with a chat burst, 8 avatars + video playing | ≤ 1.0 % of frames, per provider, same chat burst — OME-594 |
+| Site | Frame rate with a chat burst, 8 avatars + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), per provider, the chat log on screen while 7 members chat at the room's rate limit (a burst of 5 each, then 1/s: `ws.ts` CHAT_BURST / CHAT_PER_SECOND); the median of 3 bursts, and only the observer loads a generic embed (OME-813) — OME-594 |
+| Site | Main-thread work per frame with a chat burst, 8 avatars + video playing | ≤ 8 ms p95, per provider, same chat burst (median of 3 bursts) — OME-594 |
+| Site | Missed vsyncs with a chat burst, 8 avatars + video playing | ≤ 1.0 % of frames, per provider, same chat burst (median of 3 bursts) — OME-594 |
 | Site | Frame rate in the 1920×1080 wide layout with a chat burst, 8 avatars + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), per provider, desktop Chromium at 1920×1080 in the wide layout (the chat a full-height column beside the room, OME-642) while 7 members chat at the room's rate limit (a burst of 5 each, then 1/s) — OME-602 (1920×1080 wide layout) |
 | Site | Main-thread work per frame in the 1920×1080 wide layout with a chat burst, 8 avatars + video playing | ≤ 8 ms p95, per provider, same wide-layout chat burst — OME-602 (1920×1080 wide layout) |
 | Site | Missed vsyncs in the 1920×1080 wide layout with a chat burst, 8 avatars + video playing | ≤ 1.0 % of frames, per provider, same wide-layout chat burst — OME-602 (1920×1080 wide layout) |
