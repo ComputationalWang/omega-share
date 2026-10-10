@@ -1,6 +1,6 @@
 # ADR 0036 — Targeted post-merge checks, daily full suite
 
-**Status:** accepted (2026-10-09) · board decision on [OME-678](/OME/issues/OME-678) · recorded in [OME-680](/OME/issues/OME-680) · amendment of 2026-10-09 ([OME-681](/OME/issues/OME-681)) reverted 2026-10-10, see below · amended 2026-10-10: perf off the per-merge path ([OME-818](/OME/issues/OME-818))
+**Status:** accepted (2026-10-09) · board decision on [OME-678](/OME/issues/OME-678) · recorded in [OME-680](/OME/issues/OME-680) · amendment of 2026-10-09 ([OME-681](/OME/issues/OME-681)) reverted 2026-10-10, see below · amended 2026-10-10: perf off the per-merge path ([OME-818](/OME/issues/OME-818)) · amended 2026-10-10: deterministic e2e moves to CI before the merge ([OME-822](/OME/issues/OME-822))
 
 **Context:** QA ran the full suite (every e2e spec plus flocked perf) after every merge to `main`. With several merges a day, the suite became the queue: merges waited on QA, and most runs re-tested code the merge never touched.
 
@@ -42,3 +42,12 @@ Board decision on [OME-818](/OME/issues/OME-818), from a run-log analysis of 30 
 3. **Build once per sha.** `bun run perf` writes a stamp into each build output dir: HEAD's sha, plus the server URL for the web build. A run rebuilds only when a stamp is missing or names something else. Uncommitted changes under the build inputs (`apps/`, `packages/`, `assets/`, the root package files) always rebuild. `--rebuild` forces a build and `--no-build` skips it (`perf/build-stamp.ts`). A confirm rerun therefore reuses the build.
 
 **Consequences.** A perf regression from a merge outside the list can sit on `main` for up to a day before the daily full run catches it, and the daily run bisects it as in decision 4. The list errs towards perf-relevant: all of `apps/web/src/**` is on it, because nearly all of it runs in a measured room.
+
+## Amendment 2026-10-10: deterministic e2e runs in CI before the merge ([OME-822](/OME/issues/OME-822))
+
+Board decision on [OME-822](/OME/issues/OME-822). The Lead spent about 10 h in 10 days running e2e and perf locally before merging, and QA re-ran much of it after. GitHub Actions now runs the deterministic lanes (`e2e`, `e2e-sync`, `e2e-tunnel`) on every PR, sharded 4 ways (`.github/workflows/e2e.yml`); its merged `e2e` check is required on `main` (ADR 0039 §7).
+
+1. **A PR merges only with green CI e2e.** This takes effect when the `e2e` check becomes required on `main` protection, after its first green run on `main`; until then the previous flow applies. The Lead no longer runs e2e or perf locally before merging. The review covers design, safety, the contract and perf risk; CI covers the deterministic e2e.
+2. **QA's per-merge check covers only what CI doesn't:** perf (decision 1 of the OME-818 amendment still picks when), the real-provider lane (`e2e-real`) when the merge touches a provider or embed path, and acceptance checks. The diff→spec script ([OME-820](/OME/issues/OME-820)) chooses them. QA does not re-run the deterministic e2e lanes per merge, including for wide-blast-radius merges (decision 2); for those it runs the full perf suite.
+3. **The daily and sign-off full suite stays** (decision 3), including all e2e lanes locally, so a local-only difference between the runner and the operator machine still surfaces within a day.
+4. **Flakes on the runner are filed, not retried away.** CI keeps the config's one retry (`retries: 1` under `CI`); a spec Playwright reports as flaky on the 4-vCPU runners gets an issue for its owner. Global retries are not raised.
