@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { gzipSync } from "node:zlib";
-import { cumulativeLayoutShift, gzipBytes, landingTransfer, longestTaskBefore, median, transferNote } from "./landing";
+import { cumulativeLayoutShift, gzipBytes, landingTransfer, longestTaskBefore, median, responseBytes, transferNote } from "./landing";
 
 describe("landingTransfer (OME-763)", () => {
   test("counts every static response and leaves API calls, websockets and data: URLs out", () => {
@@ -51,6 +51,25 @@ describe("gzipBytes", () => {
     const body = new TextEncoder().encode("omega ".repeat(500));
     expect(gzipBytes(body)).toBe(gzipSync(body, { level: 6 }).byteLength);
     expect(gzipBytes(body)).toBeLessThan(body.byteLength);
+  });
+});
+
+describe("responseBytes", () => {
+  const body = new TextEncoder().encode("omega ".repeat(500));
+  test("a body the harness can read counts gzipped", () => {
+    expect(responseBytes(body, String(body.byteLength))).toBe(gzipBytes(body));
+    expect(responseBytes(body, undefined)).toBe(gzipBytes(body));
+  });
+  // Playwright hands back an empty body for some responses (a route-stubbed 200 KB image did, OME-763), and none for
+  // others; counting those as 0 would let a breach through, so the declared length counts, uncompressed (an upper bound).
+  test("an empty or unreadable body counts its Content-Length uncompressed", () => {
+    expect(responseBytes(new Uint8Array(0), "204800")).toBe(204800);
+    expect(responseBytes(null, "204800")).toBe(204800);
+  });
+  test("no body and no usable Content-Length is 0", () => {
+    expect(responseBytes(null, undefined)).toBe(0);
+    expect(responseBytes(new Uint8Array(0), "0")).toBe(0);
+    expect(responseBytes(null, "abc")).toBe(0);
   });
 });
 

@@ -3,7 +3,7 @@ import { devices, expect, test, type Browser } from "@playwright/test";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { site } from "../e2e/support/selectors";
 import { BUDGETS, evaluate, type Measurement } from "./budgets";
-import { cumulativeLayoutShift, gzipBytes, landingTransfer, longestTaskBefore, median, transferNote, type LandingResource } from "./landing";
+import { cumulativeLayoutShift, landingTransfer, longestTaskBefore, median, responseBytes, transferNote, type LandingResource } from "./landing";
 import { recordMetric } from "./metrics";
 
 const RUNS = 3;
@@ -40,11 +40,13 @@ async function coldLoad(browser: Browser): Promise<ColdLoad> {
       }).observe({ type: "longtask", buffered: true });
     });
     const page = await context.newPage();
-    const bodies: Promise<LandingResource | null>[] = [];
+    const bodies: Promise<LandingResource>[] = [];
     page.on("response", (r) => {
       const type = r.request().resourceType();
-      // Redirects and aborted responses have no body; they transfer next to nothing.
-      bodies.push(r.body().then((b) => ({ url: r.url(), type, bytes: gzipBytes(b) }), () => null));
+      // No readable body (redirects, aborted or some stubbed responses): the declared length counts instead.
+      const length = r.headers()["content-length"];
+      const bytes = (b: Uint8Array | null): LandingResource => ({ url: r.url(), type, bytes: responseBytes(b, length) });
+      bodies.push(r.body().then(bytes, () => bytes(null)));
     });
     await page.goto(URLS.web, { waitUntil: "load" });
     // Whatever the page fetches on `load` (the home chunk, its rooms list) and LCP/CLS settling, still without any input.
@@ -57,7 +59,7 @@ async function coldLoad(browser: Browser): Promise<ColdLoad> {
     });
     if (vitals.mark === null) throw new Error("the site set no omega:interactive mark, so the nickname field's usable time is unknown");
     expect(vitals.lcp, "a largest-contentful-paint entry").toBeGreaterThan(0);
-    const resources = (await Promise.all(bodies)).filter((r): r is LandingResource => r !== null);
+    const resources = await Promise.all(bodies);
     return { resources, lcp: vitals.lcp, cls: cumulativeLayoutShift(vitals.shifts), longTask: longestTaskBefore(vitals.tasks, Math.max(vitals.dcl, vitals.mark)) };
   } finally {
     await context.close();
