@@ -46,4 +46,4 @@
 
 **Why:** Playwright can't click the toolbar button, so it can't grant `activeTab`. It opens `popup.html?tabId=<n>` as a tab and resolves `n` with `chrome.tabs.query`, and both need host permission for the target page. Adding those permissions to the shipped build would widen what we ask real users for. The e2e variant keeps them out of the shipped build while exercising the same code.
 
-**Revisit if:** if Chromium or Playwright gains a way to invoke the action (and so grant `activeTab`) in tests. Then drop the variant and run e2e against the shipped build.
+**Revisit if:** Chromium or Playwright gains a way to invoke the action (and so grant `activeTab`) in tests. Then drop the variant and run e2e against the shipped build.
