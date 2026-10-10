@@ -53,7 +53,11 @@ bun run ext:store
 | Small promo tile | `assets/store/promo-440x280.png` | 440×280 |
 | Screenshot 1 | `assets/store/screenshot-1-room.png` | 1280×800 |
 | Screenshot 2 | `assets/store/screenshot-2-share.png` | 1280×800 (the real popup, shot by `assets/src/shoot-popup.ts`) |
-| Marquee | none | optional, skipped |
+| Screenshot 3 | `assets/store/screenshot-3-chat.png` | 1280×800 (chat bubbles, emotes and the emote wheel in the room) |
+| Screenshot 4 | `assets/store/screenshot-4-queue.png` | 1280×800 (the shared "Up next" queue) |
+| Marquee | `assets/store/marquee-1400x560.png` | 1400×560 |
+
+Every file is under 1 MB; `assets/src/store-kit.test.ts` checks sizes and dimensions.
 
 The manifest icons (16, 32, 48, 128) are copied from the same files at build time.
 
@@ -140,7 +144,7 @@ AMO_JWT_ISSUER="$(sec omega-share-firefox-firefox_jwt_issuer)" AMO_JWT_SECRET="$
 
 **Privacy policy:** https://omega-share.duckdns.org/privacy.html#extension (its Extension section names the three data categories below)
 
-**Images:** the icon is `assets/store/icon-128.png` (AMO also takes 64×64; the 128 px file scales). Screenshots are the two 1280×800 files from the Images table above.
+**Images:** the icon is `assets/store/icon-128.png` (AMO also takes 64×64; the 128 px file scales). Screenshots are the four 1280×800 files from the Images table above (AMO has no marquee slot).
 
 ## Data collection (what Firefox shows at install)
 

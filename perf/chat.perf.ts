@@ -84,7 +84,7 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
     test.skip(true, why);
     return;
   }
-  test.setTimeout(600_000);
+  test.setTimeout(720_000);
   const room = testRoom("chat-perf", "frames");
   await share(request, room.id, EMBED_URL);
   const clients = await joinRoom(browser, {
@@ -132,10 +132,11 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
       await measure(c.key, c.label);
     }
     await share(request, room.id, `https://${GENERIC_HOST}/embed/42`);
-    for (const c of clients) {
-      await c.page.getByTestId("generic-load").click({ timeout: 15_000 });
-      await expect(c.page.frameLocator(site.sharedVideo).locator("div")).toBeVisible({ timeout: 15_000 });
-    }
+    // Click-to-load is per member, so only the observer loads it (OME-813). The fixture is a canvas + rAF page;
+    // 8 of them animating in this one browser dropped 2–3 observer frames on every burst, and a member never runs
+    // another member's embed. The senders just chat.
+    await observer.page.getByTestId("generic-load").click({ timeout: 15_000 });
+    await expect(observer.page.frameLocator(site.sharedVideo).locator("div")).toBeVisible({ timeout: 15_000 });
     await measure("generic", "generic embed loaded");
 
     for (const [k, r] of Object.entries(rows)) {

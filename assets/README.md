@@ -283,6 +283,20 @@ OME-200 polish: the snail, the 16 px arrow and the dial were redrawn for 1×, an
 - **2 · Share retry.** Room: `.ui-sysline.self` · `glyph/retry` · "**Your share** didn't go through. Try again in `<time>12 s</time>`". Recount the
   `<time>` each second and drop the line when it reaches 0. Popup (plain HTML): `<img src="retry-16.png" srcset="retry-16.png 1x, retry-32.png 2x" width="16" height="16" alt="">`
   before the status text. The icon has a plum outline, so it holds on the popup's white as well as on dark chrome.
+- **Popup states (OME-842, after the set).** The popup's three empty/error lines each get a 48×40 vignette above them, as standalone files
+  in `ui/popup/` (1× plus an exact nearest 2×, so use `srcset="<name>.png 1x, <name>@2x.png 2x"`, `width="48" height="40"`, `alt=""`, with
+  `image-rendering: pixelated`). The line beside it carries the meaning. Transparent ground and every piece in its own plum outline, so
+  they sit on the popup's white. Generator: `src/popup.ts`. Mock-up: `preview/popup-states.html`, shot to `preview/ui-popup-states@1x|2x.png` by
+  `bun assets/src/shoot-popup-states.ts`.
+
+  | File | Size | Bytes (1× + 2×) | Shows | For |
+  |---|---|---|---|---|
+  | `ui/popup/nothing-found(@2x).png` | 48×40 | 377 + 464 | A small browser page with a dashed charcoal ghost where a video would be, and the brass magnifier that looked | "No supported video found on this page." |
+  | `ui/popup/cant-read(@2x).png` | 48×40 | 311 + 372 | A greyed window (wider, dim lines) behind a brass padlock with a cream shackle: the browser keeps this tab to itself | "Can't read this tab. Open a regular web page and try again." |
+  | `ui/popup/server-away(@2x).png` | 48×40 | 349 + 441 | The wood TV (the product mark), screen dark, its cord's big plug (brass prongs) held 3 px clear of the wall socket | Server unreachable |
+  | **total** | | **2 314 B** of the 3 KB cap (the build throws over it) | | |
+
+  They ship in the extension, not the site; the build counts them with `ui/popup/*.png` in the art total (130 263 → 132 577 B of 307 200).
 - **3 · Connection.** They differ in lamp, icon, motion and action:
   - **Normal drop:** `dot/connecting` + "Reconnecting" + `.ui-dots`, and a `panel/0` notice with `icon/unplugged` ("Connection dropped.
     Reconnecting by itself…"). There's **no button**: it retries by itself.
@@ -494,10 +508,14 @@ sites or logos (the mock page's address is a reserved `.test` name).
 | `store/promo-440x280.png` | 440×280 | Small promo tile: the furnished room (set g) at 2× with the wordmark and one line on a panel. RGB, no alpha. |
 | `store/screenshot-1-room.png` | 1280×800 | A watch room: the TV and its shelf, the room with tags, bubbles and an emote, the queue panel, system lines and chat. |
 | `store/screenshot-2-share.png` | 1280×800 | Share from any page: a mock video page with the real extension popup open (shot by `src/shoot-popup.ts` from the e2e build against a throwaway server: a YouTube video found, "Movie night (3)" selected, Share and Add to queue live; shown at 1.5×), the video waiting in "Up next" under the site's own title for it, the host's moderation menu in a furnished room, and the playback setting with the site's wording. |
+| `store/screenshot-3-chat.png` | 1280×800, 78 919 B | Round 2 (OME-843), chat and emotes: the wide desktop layout (set l), with the TV and shelf, the seats with floating chat bubbles (two stacked cards name their speaker), a heart and a laugh over two heads, your emote wheel open over you with Heart selected, and the chat column with the "Press Enter to chat" composer. |
+| `store/screenshot-4-queue.png` | 1280×800, 88 407 B | Round 2 (OME-843), the shared queue: the TV near the end of a video, the room with name tags, and "Up next" with five rows (the first plays next, one live, one not synced), a link being pasted with Add under the pointer, and the system lines for who added what. |
+| `store/marquee-1400x560.png` | 1400×560, 54 997 B | Round 2 (OME-843), the optional marquee: the furnished room (set g) at 2× with the wordmark and "Find a video on any page. Watch it together in a cosy pixel room." on a panel, bottom left. |
 
 Each icon is drawn natively per size by `src/store.ts` (so each keeps the plum outline and whole pixels); `bun assets/src/build.ts` writes them and
 prints their bytes (1 498 B for all four; the 128 px icon is 96×96 of art in 16 px of margin) apart from the art budget. The promo tile and screenshots are composed in `preview/store.html` from the
-real reference CSS and preview renders, and `bun assets/src/shoot-ui.ts` shoots them at their exact sizes. Screenshot 2's popup is
+real reference CSS and preview renders, and `bun assets/src/shoot-ui.ts` shoots them at their exact sizes. `src/store-kit.test.ts` checks every kit file's
+pixel size and that it stays under 1 MB. Screenshot 2's popup is
 `preview/store-popup.png`: refresh it with `bun run --filter @omega/extension build:e2e && bun assets/src/shoot-popup.ts` before `shoot-ui.ts`
 (ports 4470/8877, override with `OMEGA_SHOT_PAGE_PORT` / `OMEGA_SHOT_SERVER_PORT`).
 
@@ -563,6 +581,11 @@ Walk: `preview/walk8-strip@4x.png` (every frame, in-betweens on the odd columns)
 - **Life (default):** 5 s. Opacity 0 → 1 over 120 ms in 3 steps, holds to 3.6 s, then `cubic-bezier(.55, 0, 1, .45)` (ease-in) to 0 at 5 s. It rises 24 px over the whole
   life in `steps(24)`: one whole stage px every ~208 ms, so the art never blurs between pixels. `opacity` + `translate` only: compositor work, no layout or paint per frame.
 - **Reduced motion:** no rise, no push slide, no fade-in. Shows at once, holds to 4 s, fades linearly to 0 at 5 s; an early exit is instant.
+- **In the room: stepped by script** (`meta.omega.bubbles.room`, ADR 0040, OME-830). Running CSS animations cost a restyle on every main frame, so the room
+  turns the keyframes off and one shared clock writes the motion: 24 ticks a life (one every ~208 ms), the same for every bubble. The rise and the ease-in fade are
+  unchanged, the fade sampled on the ticks (about 7 levels over 1.4 s). Three changes, all accepted for the look: no fade-in (the bubble shows whole, a crisp pop);
+  a push is instant (the stack snaps, it doesn't slide); an early exit drops to half opacity, then goes on the first tick at least 160 ms later.
+  The keyframes above stay for the standalone component. Any extra motion comes back as ticks on that clock, never as a CSS animation or transition.
 - **Stacking rule** (reference implementation: the script in `preview/m8.html`). Lay out on every add/remove and when a speaker moves, newest first:
   1. Each bubble takes its anchor, clamped sideways inside the stage (or the visible window on a phone) with a 4 px margin.
   2. Its **path** is the box plus the 24 px it will rise. If its path would come within 3 px of a newer bubble's path, it moves straight up until it clears
