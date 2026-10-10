@@ -104,11 +104,11 @@ describe("whole-room window", () => {
     const { from, frame, adopt, renders } = await setup();
     adopt();
     from(VIEW);
-    from({ ...VIEW, bubbles: [{ memberId: "m1", text: "hi", expiresAt: 5 }] });
+    from({ ...VIEW, bubbles: [{ id: 1, memberId: "m1", text: "hi", expiresAt: 5 }] });
     expect(renders).toEqual([]);
     frame();
     expect(renders).toHaveLength(1);
-    expect(renders[0]?.s.bubbles).toEqual([{ memberId: "m1", text: "hi", expiresAt: 5 }]);
+    expect(renders[0]?.s.bubbles).toEqual([{ id: 1, memberId: "m1", text: "hi", expiresAt: 5 }]);
     expect(renders[0]?.s.room?.members).toEqual([MEMBER]);
     frame();
     expect(renders).toHaveLength(1);
@@ -120,7 +120,7 @@ describe("whole-room window", () => {
     from(VIEW);
     frame();
     const rest = withoutRoom(VIEW);
-    from({ ...rest, bubbles: [{ memberId: "m1", text: "hi", expiresAt: 5 }] });
+    from({ ...rest, bubbles: [{ id: 1, memberId: "m1", text: "hi", expiresAt: 5 }] });
     frame();
     expect(renders).toHaveLength(2);
     expect(renders[1]?.s.room).toBe(renders[0]?.s.room ?? null);

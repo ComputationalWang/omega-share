@@ -23,7 +23,7 @@ Read, in order: the repo's `CLAUDE.md`, `docs/product-spec.md`, `docs/perf-budge
 **Priorities:** performance → safety → UX. Usable first, pretty later. Design runs alongside engineering.
 
 **Operating model**
-- 7 agents: CEO, Lead Engineer, Server Engineer, Extension Engineer, Creative Designer, QA Engineer (server, web and contract review), QA Engineer 2 (extension review, post-merge suites, perf). Each has one Paperclip run at a time and up to 4 Sonnet 5.5 subagents (20 company-wide, enforced by hooks).
+- 7 agents: CEO, Lead Engineer, Server Engineer, Extension Engineer, Creative Designer, QA Engineer (server, web and contract review), QA Engineer 2 (extension review, the daily full suite, perf). Each has one Paperclip run at a time and up to 4 Sonnet 5.5 subagents (20 company-wide, enforced by hooks).
 - Work priority when there is more work than capacity: (1) blockers and failing QA/tests, (2) security findings, (3) current milestone work (performance first, then safety, then UX), (4) design, (5) research and nice-to-haves.
-- Engineering issues close only after the Lead Engineer's code review **and** QA's approval (a review stage). Each milestone closes only after the board (the human) approves it.
+- Engineering issues close only after the Lead Engineer's code review **and** QA's approval (a review stage). CI `check` + `e2e` gate the merge; QA's PR review covers acceptance, perf for perf-relevant diffs and real providers; the full suite runs daily and at milestone sign-off (ADR 0041). Each milestone closes only after the board (the human) approves it.
 - TDD is mandatory for the webapp and extension (`/mattpocock-skills:tdd`).
