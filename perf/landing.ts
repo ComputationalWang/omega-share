@@ -23,6 +23,16 @@ export function gzipBytes(body: Uint8Array): number {
   return gzipSync(body, { level: 6 }).byteLength;
 }
 
+/**
+ * Bytes one response adds: its body gzipped, or, when the harness gets no or an empty body (Playwright does for some
+ * responses, OME-763), its declared Content-Length uncompressed, an upper bound, so an unreadable body can't hide a breach.
+ */
+export function responseBytes(body: Uint8Array | null, contentLength: string | undefined): number {
+  if (body !== null && body.byteLength > 0) return gzipBytes(body);
+  const declared = Number(contentLength);
+  return Number.isFinite(declared) && declared > 0 ? declared : 0;
+}
+
 /** Total gzipped transfer of the static responses: data: URLs live inside their parent's bytes, API calls are listed apart. */
 export function landingTransfer(resources: readonly LandingResource[]): LandingTransfer {
   const real = resources.filter((r) => !r.url.startsWith("data:") && !NOT_TRANSFER.has(r.type));
