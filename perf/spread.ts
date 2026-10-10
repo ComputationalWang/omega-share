@@ -79,3 +79,100 @@ export function summarizeFrames(deltas: readonly number[], vsyncMs: number): Fra
   const note = flags.length === 0 ? base : `${base}; ⚠ ${flags.join("; ")}`;
   return { p95: p95(frames), rawP95, frames: deltas.length, missed, missedPct, flags, note };
 }
+
+/** The middle sample; of an even count the higher middle, so it is never kinder than the plain median (OME-846). */
+export function upperMedian(samples: readonly number[]): number {
+  if (samples.length === 0) throw new Error("no samples");
+  const sorted = [...samples].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] ?? Number.NaN;
+}
+
+/** One traced rAF window: frame deltas and the observer's main-thread work per frame, ms. */
+export interface SampledWindow {
+  readonly samples: readonly number[];
+  readonly workMs: readonly number[];
+}
+
+export interface WindowsSummary {
+  readonly windows: number;
+  /** Median of the windows' quantised p95s: the budgeted frame number. */
+  readonly p95: number;
+  readonly windowP95s: readonly number[];
+  /** Median of the windows' work p95s. */
+  readonly workP95: number;
+  readonly windowWorkP95s: readonly number[];
+  /** Pooled over every window. */
+  readonly frames: number;
+  readonly missed: number;
+  readonly missedPct: number;
+  readonly flags: readonly string[];
+  /** For the frame p95, work p95 and missed-vsync rows. */
+  readonly note: string;
+  readonly workNote: string;
+  readonly missedNote: string;
+}
+
+/**
+ * Several back-to-back windows on one set-up room as one row (OME-846): missed vsyncs pooled over every frame, so one
+ * stray frame in ~900 can't flip the 1 % budget; frame and work p95 as the median of the window p95s, so one slow
+ * window can't decide them.
+ */
+export function summarizeWindows(windows: readonly SampledWindow[], vsyncMs: number): WindowsSummary {
+  if (windows.length === 0) throw new Error("no windows");
+  const each = windows.map((w) => summarizeFrames(w.samples, vsyncMs));
+  const windowP95s = each.map((f) => f.p95);
+  const windowWorkP95s = windows.map((w) => p95(w.workMs));
+  const frames = each.reduce((n, f) => n + f.frames, 0);
+  const missed = each.reduce((n, f) => n + f.missed, 0);
+  const work = windows.reduce((n, w) => n + w.workMs.length, 0);
+  const workMax = Math.max(...windows.flatMap((w) => w.workMs));
+  const flags = [...new Set(each.flatMap((f) => f.flags))];
+  const n = String(windows.length);
+  const raw = each.map((f) => f.rawP95.toFixed(2)).join(" / ");
+  const base = `median of ${n} windows (${windowP95s.map((v) => v.toFixed(2)).join(" / ")} ms), ${String(frames)} frames, raw p95 ${raw} ms`;
+  return {
+    windows: windows.length,
+    p95: upperMedian(windowP95s),
+    windowP95s,
+    workP95: upperMedian(windowWorkP95s),
+    windowWorkP95s,
+    frames,
+    missed,
+    missedPct: (missed / frames) * 100,
+    flags,
+    note: flags.length === 0 ? base : `${base}; ⚠ ${flags.join("; ")}`,
+    workNote: `median of ${n} windows (${windowWorkP95s.map((v) => v.toFixed(2)).join(" / ")} ms), ${String(work)} traced frames, max ${workMax.toFixed(2)} ms`,
+    missedNote: `${String(missed)} of ${String(frames)} frames over ${n} windows (${each.map((f) => String(f.missed)).join(" / ")})`,
+  };
+}
+
+export interface SpreadVerdict {
+  /** The worst action's upper median over its rounds, ms. */
+  readonly value: number;
+  /** The single worst sample, ms: printed, not budgeted. */
+  readonly max: number;
+  readonly samples: number;
+  readonly note: string;
+}
+
+/**
+ * sync.spread over several rounds (OME-846): per action the upper median of its rounds, the row the worst action.
+ * Spreads are bimodal, so a worst-of-2 flips on one slow round; with 4 rounds one outlier per action is tolerated
+ * and two decide it.
+ */
+export function spreadVerdict(rounds: Readonly<Record<string, readonly number[]>>): SpreadVerdict {
+  const actions = Object.entries(rounds).map(([action, xs]) => {
+    if (xs.length === 0) throw new Error(`no rounds for ${action}`);
+    return { action, median: upperMedian(xs), max: Math.max(...xs), n: xs.length };
+  });
+  if (actions.length === 0) throw new Error("no actions");
+  const counts = [...new Set(actions.map((a) => a.n))].join("–");
+  const each = actions.map((a) => `${a.action} ${a.median.toFixed(0)} (max ${a.max.toFixed(0)})`).join(" / ");
+  const samples = actions.reduce((n, a) => n + a.n, 0);
+  return {
+    value: Math.max(...actions.map((a) => a.median)),
+    max: Math.max(...actions.map((a) => a.max)),
+    samples,
+    note: `${each} ms, upper median of ${counts} rounds per action, ${String(samples)} samples`,
+  };
+}
