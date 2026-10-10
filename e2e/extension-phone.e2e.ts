@@ -4,7 +4,6 @@
 import type { BrowserContext, Page } from "@playwright/test";
 import { PENDING, URLS, available } from "./support/apps";
 import { expect, test } from "./support/extension";
-import { gotoFixture } from "./support/network";
 import { ownedRoom } from "./support/owned-rooms";
 import { site } from "./support/selectors";
 
@@ -29,7 +28,7 @@ async function setup(context: BrowserContext, openPopup: (p: Page) => Promise<Pa
   await member.locator(site.joinButton).click();
   await expect(member.locator(site.room)).toBeVisible();
   const source = await context.newPage();
-  await gotoFixture(source, "long-host");
+  await source.goto(`${URLS.fixtures}/long-host.html`);
   return openPopup(source);
 }
 
@@ -72,7 +71,7 @@ for (const [width, height] of [[360, 740], [412, 915]] as const) {
         const e = document.activeElement;
         if (e === null || e === document.body) return null;
         const s = getComputedStyle(e);
-        return { id: e.id || e.getAttribute("name") || e.tagName, visible: s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0 && e.matches(":focus-visible") };
+        return { id: e.id !== "" ? e.id : (e.getAttribute("name") ?? e.tagName), visible: s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0 && e.matches(":focus-visible") };
       });
       if (f === null) continue;
       seen.add(f.id);
