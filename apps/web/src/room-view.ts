@@ -150,6 +150,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       clearTimeout(h as ReturnType<typeof setTimeout>);
     },
     reducedMotion: () => reduced.matches,
+    smooth: () => false,
     draw(id, avatar, pose, frame) {
       const entry = pool.get(id);
       if (entry === undefined) return;
