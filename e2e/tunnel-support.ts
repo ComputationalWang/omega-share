@@ -1,7 +1,7 @@
 // The tunnel lane (OME-132): one server in tunnel mode behind the local TLS proxy, plus clients that talk to it
 // the way the internet would (docs/research/m2-tunnel-safety.md §8.2). Everything is worker-scoped: one build,
 // one server, one proxy per run.
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawnSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { request } from "node:https";
@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { chromium, type Browser, type BrowserContext } from "@playwright/test";
 import { test as base, watchCsp } from "./support/csp";
 import { PORTS, ROOT } from "./support/apps";
+import { spawnOwned } from "./support/owned";
 import { stubExternalNetwork } from "./support/network";
 import { EVIL_HOST, PUBLIC_HOST, startTunnelProxy, type TunnelProxy } from "./fixtures/proxy";
 
@@ -22,7 +23,7 @@ function portFrom(name: string, fallback: number): number {
 }
 
 export const TUNNEL_PORTS = {
-  /** 4430 by default; QA2's alternate lane (OMEGA_FIXTURE_PORT=4410) lands on 4440. */
+  /** fixtures + 30 (4430 on slot 0), inside this agent's port block (OME-821). */
   proxy: portFrom("OMEGA_PROXY_PORT", PORTS.fixtures + 30),
   /** Next to the ordinary server, so both lanes can run side by side. */
   server: portFrom("OMEGA_TUNNEL_SERVER_PORT", PORTS.server + 1),
@@ -103,7 +104,7 @@ function stopChild(child: ChildProcess): Promise<void> {
 async function startLane(ports: LanePorts): Promise<TunnelLane & { stop: () => Promise<void> }> {
   const siteDir = buildSite();
   let output = "";
-  const child = spawn("bun", ["apps/server/src/index.ts"], {
+  const child = spawnOwned(ports.server, "bun", ["apps/server/src/index.ts"], {
     cwd: ROOT,
     env: {
       ...process.env,
@@ -118,8 +119,8 @@ async function startLane(ports: LanePorts): Promise<TunnelLane & { stop: () => P
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
-  child.stdout.on("data", (d: Buffer) => (output += d.toString()));
-  child.stderr.on("data", (d: Buffer) => (output += d.toString()));
+  child.stdout?.on("data", (d: Buffer) => (output += d.toString()));
+  child.stderr?.on("data", (d: Buffer) => (output += d.toString()));
   const log = (): string => output;
   let proxy: TunnelProxy;
   try {

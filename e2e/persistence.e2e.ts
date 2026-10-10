@@ -8,12 +8,13 @@
 // header-only directives (Trusted Types), which the tunnel lane covers. The site is the Vite dev server pointed at that server (VITE_SERVER_URL), the same
 // pattern as playwright.config.ts; no production build is needed. The seeded layout is not the default, so a restart
 // that lost the DB would show.
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawnSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, parseServerMessage, type RoomLayout, type RoomState } from "@omega/shared";
-import { ROOT } from "./support/apps";
+import { PORTS, ROOT } from "./support/apps";
+import { signalOwned, spawnOwned } from "./support/owned";
 import { EMBED_URL } from "./support/network";
 import { clickSettled, joinRoom, leaveAll } from "./support/room";
 import { site } from "./support/selectors";
@@ -21,16 +22,9 @@ import { WALK_SETTLE_MS, scene, seatedBetween, selfId } from "./support/scene";
 import { SET_G, SET_G_SEAT_PIECE } from "./fixtures/layouts";
 import { expect, test } from "./support/csp";
 
-function portFrom(name: string, fallback: number): number {
-  const raw = process.env[name];
-  const port = raw === undefined ? fallback : Number(raw);
-  if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error(`${name} must be a port number, got ${String(raw)}`);
-  return port;
-}
-
-/** Alt ports next to the lobby pair (5173/8787); QA2's pair is 5183/8797 and is never used here. */
-const SERVER_PORT = portFrom("OMEGA_PERSIST_SERVER_PORT", 8807);
-const WEB_PORT = portFrom("OMEGA_PERSIST_WEB_PORT", 5193);
+/** This spec's own pair in the agent's port block (OME-821): 5193/8807 on slot 0. */
+const SERVER_PORT = PORTS.persistServer;
+const WEB_PORT = PORTS.persistWeb;
 const SERVER_URL = `http://localhost:${String(SERVER_PORT)}`;
 const WEB_URL = `http://localhost:${String(WEB_PORT)}`;
 const ROOM_URL = `${WEB_URL}/r/${DEFAULT_ROOM_ID}`;
@@ -41,9 +35,16 @@ const PAUSED = 2;
 class Proc {
   output = "";
   readonly child: ChildProcess;
-  constructor(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv) {
-    // Own process group, so stop() reaches what a wrapper (`bunx vite`) started, not just the wrapper.
-    this.child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"], detached: true });
+  constructor(
+    readonly port: number,
+    command: string,
+    args: string[],
+    cwd: string,
+    env: NodeJS.ProcessEnv,
+  ) {
+    // Through the launcher (OME-821): an owner file, and its own process group, so stop() reaches what a wrapper
+    // (`bunx vite`) started, not just the wrapper.
+    this.child = spawnOwned(port, command, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
     this.child.stdout?.on("data", (d: Buffer) => (this.output += d.toString()));
     this.child.stderr?.on("data", (d: Buffer) => (this.output += d.toString()));
   }
@@ -62,13 +63,8 @@ class Proc {
   stop(signal: NodeJS.Signals): Promise<void> {
     const c = this.child;
     if (c.exitCode !== null || c.signalCode !== null || c.pid === undefined) return Promise.resolve();
-    const pid = c.pid;
     const kill = (s: NodeJS.Signals): void => {
-      try {
-        process.kill(-pid, s);
-      } catch {
-        // already gone
-      }
+      signalOwned(c, this.port, s);
     };
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -120,7 +116,7 @@ test.describe("restart persistence (own server, own DB file)", () => {
   let web: Proc | undefined;
 
   const startServer = async (): Promise<Proc> => {
-    const proc = new Proc("bun", ["apps/server/src/index.ts"], ROOT, {
+    const proc = new Proc(SERVER_PORT, "bun", ["apps/server/src/index.ts"], ROOT, {
       PORT: String(SERVER_PORT),
       HOST: "127.0.0.1",
       SITE_ORIGIN: WEB_URL,
@@ -137,7 +133,7 @@ test.describe("restart persistence (own server, own DB file)", () => {
     const seed = spawnSync("bun", ["e2e/fixtures/seed-room.ts", dbPath], { cwd: ROOT, encoding: "utf8" });
     if (seed.status !== 0) throw new Error(`seeding the DB failed:\n${seed.stdout}\n${seed.stderr}`);
     server = await startServer();
-    const vite = new Proc("bunx", ["vite", "--port", String(WEB_PORT), "--strictPort", "--host", "localhost"], join(ROOT, "apps/web"), {
+    const vite = new Proc(WEB_PORT, "bunx", ["vite", "--port", String(WEB_PORT), "--strictPort", "--host", "localhost"], join(ROOT, "apps/web"), {
       VITE_SERVER_URL: SERVER_URL,
     });
     web = vite;

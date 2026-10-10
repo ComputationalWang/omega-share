@@ -24,7 +24,7 @@ The mapping is `e2e/affected.json`: rules of source globs (`paths`, minus `excep
 Specs are named `*.e2e.ts` / `*.perf.ts` (not `*.spec.ts`) so `bun test` doesn't pick them up.
 
 ## What starts automatically
-Playwright's `webServer` starts the fixture server (`e2e/fixtures/server.ts`, port 4400). It adds `apps/server` and `apps/web` once they have a `dev` script. Perf serves the web app with `preview` (production build) when that script exists. Ports and URLs: `OMEGA_FIXTURE_PORT`, `OMEGA_WEB_PORT` / `OMEGA_WEB_URL`, `OMEGA_SERVER_PORT` / `OMEGA_SERVER_URL`.
+Playwright's `webServer` starts the fixture server (`e2e/fixtures/server.ts`, port 4400). It adds `apps/server` and `apps/web` once they have a `dev` script. Perf serves the web app with `preview` (production build) when that script exists. Ports come from the agent's port block (`support/ports.ts`, OME-821): slot 0 (no `PAPERCLIP_AGENT_ID`, e.g. CI) is 4400/5173/8787, and every agent has a disjoint block of its own. Servers start through `support/serve.ts` with an owner file, are reused only by the same agent at HEAD, and stop with the run; `bun run e2e:reap` stops your own leftovers (see `docs/qa/harness-gotchas.md`). Overrides: `OMEGA_PORT_SLOT`, `OMEGA_FIXTURE_PORT`, `OMEGA_WEB_PORT` / `OMEGA_WEB_URL`, `OMEGA_SERVER_PORT` / `OMEGA_SERVER_URL`.
 
 Specs for pieces that haven't landed yet are `test.fixme` (e2e) or reported as PENDING (perf). See `e2e/support/apps.ts`. `bun run e2e` builds the e2e extension (`build:e2e`) before running Playwright. If you call `playwright test` directly without that build, the extension specs fail with the build command. They are never skipped.
 

@@ -1,24 +1,17 @@
 // Generic tier policy on real server processes (OME-294, ADR 0024 §2, §4–§6). Two servers of our own, so the
 // switch and the denylist never reach the lobby server: one with GENERIC_EMBEDS=on (the default) and a denylist,
 // one with GENERIC_EMBEDS=off. Every refused URL must get `unsupported_url` and leave the room's embed alone;
-// the CSP header's frame-src follows the switch. Alt ports (QA2 owns 4410/5183/8797, persistence 5193/8807, Server
-// Engineer 8817).
-import { spawn, type ChildProcess } from "node:child_process";
+// the CSP header's frame-src follows the switch. Both ports come from the agent's port block (OME-821).
+import type { ChildProcess } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import { DEFAULT_ROOM_ID, parseServerMessage, type RoomState } from "@omega/shared";
-import { ROOT } from "./support/apps";
+import { PORTS, ROOT } from "./support/apps";
+import { signalOwned, spawnOwned } from "./support/owned";
 import { EMBED_URL } from "./support/network";
 import { expect, test } from "./support/csp";
 
-function portFrom(name: string, fallback: number): number {
-  const raw = process.env[name];
-  const port = raw === undefined ? fallback : Number(raw);
-  if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error(`${name} must be a port number, got ${String(raw)}`);
-  return port;
-}
-
-const ON_PORT = portFrom("OMEGA_GENERIC_ON_PORT", 8837);
-const OFF_PORT = portFrom("OMEGA_GENERIC_OFF_PORT", 8847);
+const ON_PORT = PORTS.genericOn;
+const OFF_PORT = PORTS.genericOff;
 /** The site's own host: the generic tier refuses it and its subdomains (ADR 0024 §2). */
 const SITE_ORIGIN = "https://watch.omega-fixture.org";
 const DENIED = "denied-videos.org";
@@ -28,8 +21,11 @@ const SYNCED_FRAMES = "frame-src https://www.youtube-nocookie.com https://player
 class Proc {
   output = "";
   readonly child: ChildProcess;
-  constructor(env: NodeJS.ProcessEnv) {
-    this.child = spawn("bun", ["apps/server/src/index.ts"], { cwd: ROOT, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"], detached: true });
+  constructor(
+    readonly port: number,
+    env: NodeJS.ProcessEnv,
+  ) {
+    this.child = spawnOwned(port, "bun", ["apps/server/src/index.ts"], { cwd: ROOT, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
     this.child.stdout?.on("data", (d: Buffer) => (this.output += d.toString()));
     this.child.stderr?.on("data", (d: Buffer) => (this.output += d.toString()));
   }
@@ -45,18 +41,13 @@ class Proc {
     throw new Error(`server not ready in 30 s:\n${this.output}`);
   }
   stop(): void {
-    const pid = this.child.pid;
-    if (pid === undefined || this.child.exitCode !== null) return;
-    try {
-      process.kill(-pid, "SIGKILL");
-    } catch {
-      // already gone
-    }
+    if (this.child.pid === undefined || this.child.exitCode !== null) return;
+    signalOwned(this.child, this.port, "SIGKILL");
   }
 }
 
 function start(port: number, env: NodeJS.ProcessEnv): Proc {
-  return new Proc({ PORT: String(port), HOST: "127.0.0.1", SITE_ORIGIN, DB_PATH: ":memory:", ...env });
+  return new Proc(port, { PORT: String(port), HOST: "127.0.0.1", SITE_ORIGIN, DB_PATH: ":memory:", ...env });
 }
 
 interface Member {
