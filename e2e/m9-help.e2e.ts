@@ -20,8 +20,9 @@ test.afterEach(async () => {
   clients = [];
 });
 
-async function join(name: RoomName<"m9-help">, browser: Parameters<typeof joinRoom>[0]): Promise<Page> {
-  clients = await joinRoom(browser, { roomUrl: testRoom("m9-help", name).url, count: 1, nicknamePrefix: `h${name}` });
+async function join(name: RoomName<"m9-help">, browser: Parameters<typeof joinRoom>[0], still = false): Promise<Page> {
+  // `still`: reduced motion, so idle avatars don't breathe and the canvas draws only when something happens.
+  clients = await joinRoom(browser, { roomUrl: testRoom("m9-help", name).url, count: 1, nicknamePrefix: `h${name}`, ...(still ? { contextOptions: () => ({ reducedMotion: "reduce" as const }) } : {}) });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   await expect(page.locator(site.connectionStatus)).toHaveText("");
@@ -114,7 +115,7 @@ test("the hint goes with Esc", async ({ browser }) => {
 });
 
 test("? opens the help dialog: modal, focus inside and trapped, no canvas redraw; Esc closes it and focus comes back", async ({ browser }) => {
-  const page = await join("help", browser);
+  const page = await join("help", browser, true);
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
