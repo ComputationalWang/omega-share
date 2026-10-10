@@ -15,7 +15,7 @@ assets/
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
   ui/popup/*.png        # set f: the extension popup's key icon as standalone files, drawn at 16 px (1×) and 32 px (2×)
-  ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required" and "you were removed" vignettes, standalone 72×64 PNGs;
+  ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required", "room not found" and "you were removed" vignettes, standalone 72×64 PNGs;
                         #   set k (lazy): the "chat / room is in its own window" vignettes, 56×40
   ui/edit.png           # set h (lazy, owners only): 256×1024 indexed PNG-8, edit grid, placement markers, handles, tray thumbnails, swatches
   ui/edit.json          # set h: PixiJS v8 atlas for ui/edit.png
@@ -379,6 +379,7 @@ mustard rim = only you · rust key = the one irreversible action.
 | `icon/<closed\|emote>` | 16×16 | — | Close room / room closed (a door hanger with a hole, a slit and a crescent moon) · the emote key (a cream line face, so it can't be mistaken for the filled laugh sticker). |
 | `glyph/<moon\|open>` | 8×8 | — | "Closes in N days if nobody visits" · "anyone can come in" (beside the switch). In `.ui-mine` the moon gets 3 art px of margin before the words (its crescent sits on its right edge). |
 | `scene/<closed\|invite>` *(ui/scenes/\*.png)* | 72×64 | — | `.ui-scene.ui-scene-<closed\|invite>`, page chrome 2× (144×128 CSS px). Not in the sheet. closed = lights out: night in the fanlight, the sconce off, no light under the door, the moon hanger on the knob. invite = someone's home: warm fanlight, lit sconce, lamplight under the door, an empty keyhole, a dashed ghost ticket on the wall. |
+| `scene/not-found` *(ui/scenes/not-found.png)* | 72×64 | — | `.ui-scene.ui-scene-not-found` (OME-841, M9 W2 "Room not found"), page chrome 2×. The same lit wall and floor, but no door: the wallpaper and wainscot run straight through, a dashed cream ghost of the door frame and doormat marks where it would be (dashed cream = missing, like the ghost ticket), a mustard question mark inside, and the sconce off (nobody lives here). Not `closed` (a real door, lights out) and not `removed` (a real lit door). |
 
 - **Create room:** `.ui-panel` form: `icon/create` heading, the name `.ui-input` with a hint and an `n / max` count, the switch row, then the primary key.
   Too many new rooms: the key becomes set (f)'s `.is-waiting` with `.ui-wait` and "New room in 9 min", and the line under it says the existing rooms still work.
@@ -388,6 +389,8 @@ mustard rim = only you · rust key = the one irreversible action.
   the row turns `.is-confirm` with "Keep it" and the danger key. Empty list: `icon/create` + one line.
 - **Room closed (4004):** `.ui-panel` with `scene/closed`, a heading, one line and "Find a room" (primary) / "Make your own". Mid-session, lay
   `.ui-scrim` over the stage and centre the same card (1× inside `.ui-room`).
+- **Room not found:** the 4004 panel with `scene/not-found` instead of `scene/closed`, a heading ("This room doesn't exist"), one line and
+  "Find a room" (primary) / "Make your own". Use it for a link to a room that never existed or was swept; `scene/closed` stays for a room its host closed.
 - **Invite required:** `scene/invite`, a line, then the `.ui-slot-ticket` + primary `icon/key` "Go in". A bad link: `aria-invalid` + `icon/warn` + words.
 - **Invite copy** is set (h)'s ticket (idle/copied/expired); set (i) only adds the paste slot and the square copy key on your-rooms rows.
 - **Emote picker:** opens above the emote key (`.ui-button.self` + `icon/emote`, `aria-expanded`), 5 stickers, the groove, the wave. Pressing one sends it and
@@ -414,6 +417,7 @@ mustard rim = only you · rust key = the one irreversible action.
 | `slices/scrim-0.png` | 104 | 4004 mid-session |
 | `scenes/closed.png` | 547 | 4004 page / card |
 | `scenes/invite.png` | 784 | invite-required page |
+| `scenes/not-found.png` (OME-841, after the set) | 726 | room-not-found page |
 | **set (i) total** | **8 471 B** (slices 2 577, scenes 1 331, sheet + atlas + CSS 4 563) | |
 
 ## Set (j) house rules, queue panel, Web Store kit (OME-422, `ui/` + `store/`)
@@ -782,11 +786,13 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
 | `ui/slices/*.png` (100 files, palettes trimmed to the colours used) | 15 862 |
 | `ui/popup/*.png` (set f) | 409 |
-| `ui/scenes/*.png` (sets i + j + k, lazy) | 2 825 |
-| `ui/reference.css` (if ported as-is) | 98 398 raw / 19 853 gz |
+| `ui/scenes/*.png` (sets i + j + k + OME-841, lazy) | 3 551 |
+| `ui/reference.css` (if ported as-is) | 98 678 raw / 19 956 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **130 224 B (≈ 127.2 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 425 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes) 60 799 B |
+| **total shipped art** | **131 053 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 525 B |
+
+OME-841 adds **790 B** against `main` (130 263 → 131 053): the lazy `scenes/not-found.png` 726 and one `reference.css` rule +64 gz.
 
 Set (l) (OME-644) adds **10 433 B (≈ 10.2 KB)** against `main` (119 791 → 130 224): eager +5 455 (`ui.png` +1 107, `ui.json` +794 gz, 7 new slices +952,
 `reference.css` +2 602 gz), lazy +4 978 (the smooth walk's 64 in-between cells: `motion.png` +3 734, `motion.json` +1 244 gz).

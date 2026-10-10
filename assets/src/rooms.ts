@@ -254,10 +254,14 @@ function toggle(on: boolean, state: "idle" | "hover" | "off"): UiFrame {
 const SCENE = { w: 72, h: 64 } as const;
 /** Set (j) (OME-422) adds `removed`: the same lit doorway as `invite` (people are inside), shut, with no lock plate, and a wall clock
  *  beside it whose cream wedge is the set (f) timer dial at 10 of 60 minutes: you can come back, after a wait. */
-export function vignette(kind: "closed" | "invite" | "removed"): UiFrame {
+/** OME-841 adds `not-found`: the same lit wall and floor, but no door at all. The wallpaper and the wainscot run straight through
+ *  where it would be; only a dashed cream ghost of set (i)'s door frame and doormat marks the spot (dashed cream = "missing", like
+ *  `invite`'s ghost ticket), with a mustard question mark inside. The sconce is off: nobody lives here. */
+export function vignette(kind: "closed" | "invite" | "removed" | "not-found"): UiFrame {
   const { w: W, h: H } = SCENE;
   const g = blank(W, H);
   const dark = kind === "closed";
+  const gone = kind === "not-found";
   const rect = (x: number, y: number, w: number, h: number, ch: string): void => {
     for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) { const row = g[yy]; if (row && xx >= 0 && xx < W) row[xx] = ch; }
   };
@@ -276,69 +280,99 @@ export function vignette(kind: "closed" | "invite" | "removed"): UiFrame {
   for (let s = -40; s < W; s += 14) for (let y = 48; y < 63; y++) { const x = s + (y - 48) * 2; put(x, y, dark ? "Q" : "P"); put(x + 1, y, dark ? "Q" : "P"); }
   // Door frame, door, fanlight.
   const dx = 24, dw = 24;
-  rect(dx - 3, 6, dw + 6, 41, dark ? "W" : "w");
-  rect(dx - 1, 7, dw + 2, 1, "o");
-  rect(dx - 1, 7, 1, 40, "o");
-  rect(dx + dw, 7, 1, 40, "o");
-  rect(dx, 8, dw, 6, dark ? "n" : "y");
-  if (dark) { put(dx + 5, 10, "i"); put(dx + 16, 9, "i"); put(dx + 11, 12, "C"); }
-  else for (let x = dx + 2; x < dx + dw; x += 5) rect(x, 8, 1, 6, "Y");
-  rect(dx, 14, dw, 1, "o");
-  rect(dx, 15, dw, 32, dark ? "D" : "d");
-  // Two raised panels.
-  for (const [py, ph] of [[18, 11], [32, 11]] as const) {
-    rect(dx + 4, py, dw - 8, ph, dark ? "Q" : "D");
-    rect(dx + 5, py + 1, dw - 10, ph - 2, dark ? "D" : "d");
-  }
-  // Knob.
-  rect(dx + dw - 5, 30, 2, 2, "m");
-  if (dark) {
-    // Lights out: no light under the door (a plum sill), and the moon hanger on the knob.
-    rect(dx, 46, dw, 1, "o");
-    put(dx + dw - 5, 32, "o");
-    put(dx + dw - 6, 33, "o"); put(dx + dw - 3, 33, "o");
-    rect(dx + dw - 10, 34, 10, 11, "c");
-    // Crescent moon: a mustard disc with a bite out of its upper right.
-    for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
-      const inMoon = Math.hypot(x - 3, y - 3) < 3.3, bite = Math.hypot(x - 5, y - 1.6) < 2.6;
-      if (inMoon && !bite) put(dx + dw - 8 + x, 36 + y, "m");
-    }
-  } else if (kind === "removed") {
-    rect(dx, 46, dw, 1, "y");
-    rect(dx + 2, 47, dw - 4, 1, "y");
-    for (let x = dx + 4; x < dx + dw - 4; x += 3) put(x, 48, "y");
-    // Wall clock: a wood rim, a plum face, the cream wedge from 12 o'clock to 2 (10 minutes), a mustard centre pin.
-    const cx = 60.5, cy = 25.5;
-    for (let y = 16; y < 36; y++) for (let x = 50; x < 72; x++) {
-      const r = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
-      if (r < 7.2) put(x, y, r >= 5.6 ? "w" : "o");
-      const ang = Math.atan2(x + 0.5 - cx, -(y + 0.5 - cy));
-      if (r < 5.4 && ang >= 0 && ang < Math.PI / 3) put(x, y, "i");
-    }
-    put(60, 25, "m");
-    for (const [x, y] of [[60, 20], [65, 25], [60, 30], [55, 25]] as const) put(x, y, "C");
+  if (gone) {
+    // A dashed ghost of the frame (3 on, 1 off) and of the doormat, and a question mark where the door should be.
+    const dash = (x0: number, y0: number, x1: number, y1: number): void => {
+      for (let x = x0; x <= x1; x++) if ((x - x0) % 4 !== 3) { put(x, y0, "C"); put(x, y1, "C"); }
+      for (let y = y0; y <= y1; y++) if ((y - y0) % 4 !== 3) { put(x0, y, "C"); put(x1, y, "C"); }
+    };
+    dash(dx - 2, 7, dx + dw + 1, 46);
+    dash(dx + 1, 53, dx + dw - 2, 58);
+    const q = [
+      "..oooooo..",
+      ".oyyyyyyo.",
+      "oyyyyyyyyo",
+      "oyyyooyyyo",
+      "oyyo.oyyyo",
+      ".oo..oyyyo",
+      "....oyyyo.",
+      "...oyyyo..",
+      "...oyyo...",
+      "...oyyo...",
+      "...oooo...",
+      "...oooo...",
+      "...oyyo...",
+      "...oyyo...",
+      "...oooo...",
+    ];
+    stamp(g, q, dx + 7, 18);
   } else {
-    // Lamplight under the door, spilling a little onto the floor.
-    rect(dx, 46, dw, 1, "y");
-    rect(dx + 2, 47, dw - 4, 1, "y");
-    for (let x = dx + 4; x < dx + dw - 4; x += 3) put(x, 48, "y");
-    // Brass lock plate with an empty keyhole (no key: you need an invite).
-    rect(dx + dw - 6, 33, 4, 8, "m");
-    put(dx + dw - 5, 35, "o"); put(dx + dw - 4, 35, "o");
-    put(dx + dw - 5, 36, "o"); put(dx + dw - 4, 36, "o");
-    put(dx + dw - 5, 37, "o"); put(dx + dw - 4, 38, "o");
-    put(dx + dw - 5, 38, "o");
+    rect(dx - 3, 6, dw + 6, 41, dark ? "W" : "w");
+    rect(dx - 1, 7, dw + 2, 1, "o");
+    rect(dx - 1, 7, 1, 40, "o");
+    rect(dx + dw, 7, 1, 40, "o");
+    rect(dx, 8, dw, 6, dark ? "n" : "y");
+    if (dark) { put(dx + 5, 10, "i"); put(dx + 16, 9, "i"); put(dx + 11, 12, "C"); }
+    else for (let x = dx + 2; x < dx + dw; x += 5) rect(x, 8, 1, 6, "Y");
+    rect(dx, 14, dw, 1, "o");
+    rect(dx, 15, dw, 32, dark ? "D" : "d");
+    // Two raised panels.
+    for (const [py, ph] of [[18, 11], [32, 11]] as const) {
+      rect(dx + 4, py, dw - 8, ph, dark ? "Q" : "D");
+      rect(dx + 5, py + 1, dw - 10, ph - 2, dark ? "D" : "d");
+    }
+    // Knob.
+    rect(dx + dw - 5, 30, 2, 2, "m");
+    if (dark) {
+      // Lights out: no light under the door (a plum sill), and the moon hanger on the knob.
+      rect(dx, 46, dw, 1, "o");
+      put(dx + dw - 5, 32, "o");
+      put(dx + dw - 6, 33, "o"); put(dx + dw - 3, 33, "o");
+      rect(dx + dw - 10, 34, 10, 11, "c");
+      // Crescent moon: a mustard disc with a bite out of its upper right.
+      for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+        const inMoon = Math.hypot(x - 3, y - 3) < 3.3, bite = Math.hypot(x - 5, y - 1.6) < 2.6;
+        if (inMoon && !bite) put(dx + dw - 8 + x, 36 + y, "m");
+      }
+    } else if (kind === "removed") {
+      rect(dx, 46, dw, 1, "y");
+      rect(dx + 2, 47, dw - 4, 1, "y");
+      for (let x = dx + 4; x < dx + dw - 4; x += 3) put(x, 48, "y");
+      // Wall clock: a wood rim, a plum face, the cream wedge from 12 o'clock to 2 (10 minutes), a mustard centre pin.
+      const cx = 60.5, cy = 25.5;
+      for (let y = 16; y < 36; y++) for (let x = 50; x < 72; x++) {
+        const r = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+        if (r < 7.2) put(x, y, r >= 5.6 ? "w" : "o");
+        const ang = Math.atan2(x + 0.5 - cx, -(y + 0.5 - cy));
+        if (r < 5.4 && ang >= 0 && ang < Math.PI / 3) put(x, y, "i");
+      }
+      put(60, 25, "m");
+      for (const [x, y] of [[60, 20], [65, 25], [60, 30], [55, 25]] as const) put(x, y, "C");
+    } else {
+      // Lamplight under the door, spilling a little onto the floor.
+      rect(dx, 46, dw, 1, "y");
+      rect(dx + 2, 47, dw - 4, 1, "y");
+      for (let x = dx + 4; x < dx + dw - 4; x += 3) put(x, 48, "y");
+      // Brass lock plate with an empty keyhole (no key: you need an invite).
+      rect(dx + dw - 6, 33, 4, 8, "m");
+      put(dx + dw - 5, 35, "o"); put(dx + dw - 4, 35, "o");
+      put(dx + dw - 5, 36, "o"); put(dx + dw - 4, 36, "o");
+      put(dx + dw - 5, 37, "o"); put(dx + dw - 4, 38, "o");
+      put(dx + dw - 5, 38, "o");
+    }
   }
   // Sconce (left): a wood bracket and a globe, lit or off.
   rect(9, 22, 4, 2, dark ? "W" : "w");
   rect(10, 16, 2, 6, dark ? "W" : "w");
-  for (let y = 0; y < 7; y++) for (let x = 0; x < 8; x++) if (Math.hypot(x - 3.5, y - 3) < 3.6) put(7 + x, 9 + y, dark ? "x" : y < 4 && x < 5 ? "i" : "c");
-  if (!dark) { put(5, 10, "Y"); put(17, 10, "Y"); put(4, 13, "Y"); put(18, 13, "Y"); }
+  for (let y = 0; y < 7; y++) for (let x = 0; x < 8; x++) if (Math.hypot(x - 3.5, y - 3) < 3.6) put(7 + x, 9 + y, dark || gone ? "x" : y < 4 && x < 5 ? "i" : "c");
+  if (!dark && !gone) { put(5, 10, "Y"); put(17, 10, "Y"); put(4, 13, "Y"); put(18, 13, "Y"); }
   // Doormat.
-  rect(dx + 1, 53, dw - 2, 5, dark ? "V" : "v");
-  rect(dx + 1, 53, dw - 2, 1, "o");
-  rect(dx + 1, 58, dw - 2, 1, "o");
-  for (let x = dx + 3; x < dx + dw - 2; x += 4) put(x, 55, dark ? "Q" : "m");
+  if (!gone) {
+    rect(dx + 1, 53, dw - 2, 5, dark ? "V" : "v");
+    rect(dx + 1, 53, dw - 2, 1, "o");
+    rect(dx + 1, 58, dw - 2, 1, "o");
+    for (let x = dx + 3; x < dx + dw - 2; x += 4) put(x, 55, dark ? "Q" : "m");
+  }
   if (kind === "invite") {
     // The ghost ticket you'd need: a dashed cream-shade outline of set (h)'s ticket, its stub towards the keyhole.
     const tx = 54, ty = 25, tw = 14, th = 9;
@@ -535,10 +569,10 @@ export function buildRoomsFrames(): UiFrame[] {
   return out;
 }
 
-/** The two state vignettes ship as standalone PNGs (`ui/scenes/<name>.png`), not in the eager sheet: only the closed / invite-required
- *  pages show them, and a CSS background only fetches when a rule matches. Keeps `ui.png` at 256×256. */
+/** The state vignettes ship as standalone PNGs (`ui/scenes/<name>.png`), not in the eager sheet: only the closed / invite-required /
+ *  not-found pages show them, and a CSS background only fetches when a rule matches. Keeps `ui.png` at 256×256. */
 export function buildRoomsScenes(): UiFrame[] {
-  return [vignette("closed"), vignette("invite")];
+  return [vignette("closed"), vignette("invite"), vignette("not-found")];
 }
 
 const u = (n: number): string => (n === 0 ? "0" : `calc(${String(n)} * var(--ui-px))`);
@@ -605,10 +639,12 @@ ${["emote-pick/heart", "emote-pick/laugh", "emote-pick/question", "emote-pick/ex
 .ui-slot-ticket[aria-invalid="true"] { ${src("ticket/expired")} color: var(--ui-panel); }
 
 /* Room closed (4004) / invite required: a panel with the scene/<closed|invite> vignette, a heading and one primary way out.
- * Mid-session (the host closed the room while you watched) lay .ui-scrim over the stage first: 1-bit dither, no alpha. */
+ * Mid-session (the host closed the room while you watched) lay .ui-scrim over the stage first: 1-bit dither, no alpha.
+ * Room not found (a link to a room that never existed or is long gone, OME-841): the same panel with scene/not-found. */
 .ui-scene { display: block; width: ${u(SCENE.w)}; height: ${u(SCENE.h)}; background: none no-repeat 0 0 / 100% 100%; }
 .ui-scene-closed { background-image: url("scenes/closed.png"); }
 .ui-scene-invite { background-image: url("scenes/invite.png"); }
+.ui-scene-not-found { background-image: url("scenes/not-found.png"); }
 .ui-scrim { background: ${slice("scrim/0")} 0 0 / ${u(2)} ${u(4)}; }
 
 /* Emote picker: <div class="ui-emotes" role="menu"> above the emote key (.ui-button.self + icon/emote). Night tray, mustard rim,
