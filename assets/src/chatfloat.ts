@@ -241,7 +241,8 @@ export function buildChatFloatFrames(): UiFrame[] {
 
 // ------------------------------------------------------------------ motion + stacking spec (meta.omega.bubbles / wheel)
 
-/** Bubble float, in ms and stage px. Engineering reads these from `ui.json` `meta.omega.bubbles`; the CSS below bakes the same numbers. */
+/** Bubble float, in ms and stage px. Engineering reads these from `ui.json` `meta.omega.bubbles`; the CSS below bakes the same numbers for the
+ *  standalone component. The room runs `room` instead: the same rise and fade, stepped by script (see below). */
 export const BUBBLES = {
   lifeMs: 5000,
   /** Fade in over the first appearMs (3 opacity steps), hold, then ease-in to 0 from fadeAtMs to lifeMs. */
@@ -264,6 +265,13 @@ export const BUBBLES = {
   maxOnScreen: 8,
   maxPerSpeaker: 2,
   reduced: { rise: 0, appearMs: 0, fadeAtMs: 4000, fadeCurve: "linear", pushMs: 0, leaveMs: 0 },
+  /** In the room the motion is stepped by script, never by CSS (ADR 0039, OME-802/OME-830): one shared clock for the whole layer, `steps`
+   *  ticks a life (step i at i × lifeMs / steps). Each tick writes the rise (whole px) and the fade (sampled on the ticks, about 7 levels over
+   *  the 1.4 s ease-in) on a bare wrapper. Against the numbers above: no fade-in (the bubble shows whole, appearMs 0); a push is instant
+   *  (pushMs 0); a bubble that leaves early drops to leaveOpacity, then goes on the first tick at least leaveMs later. Anything that comes
+   *  back comes back as extra ticks on this clock, never as a CSS animation or transition. The keyframes in reference.css are for the
+   *  standalone component (previews, docs) only. */
+  room: { driver: "script", steps: 24, appearMs: 0, pushMs: 0, leaveMs: 160, leaveOpacity: 0.5, adr: "docs/adr/0039-bubble-motion-on-a-step-clock.md" },
 } as const;
 
 /** Emote wheel geometry + keys for engineering (`meta.omega.wheel`). Slot origins are art px inside the wheel. */
@@ -318,7 +326,9 @@ export function chatFloatCss(rects: Readonly<Record<string, { x: number; y: numb
 /* A bubble: <p class="ui-float [is-self]" style="left: Lpx; top: Tpx; --tail-x: Xpx"><span class="say">…</span></p> in the stage overlay, room scale (--ui-px: 1px).
  * JS sets left/top to the bubble's resting border box (stage px, see meta.omega.bubbles for the stacking rule) and --tail-x to the speaker's
  * x inside that box. Tail: .tail-s (default) points straight down; .tail-sw / .tail-se when the box was clamped at the stage edge and the
- * speaker is past the tail's reach. .is-stacked (pushed up by a newer bubble) has no tail and starts with <b class="who">Name</b>. */
+ * speaker is past the tail's reach. .is-stacked (pushed up by a newer bubble) has no tail and starts with <b class="who">Name</b>.
+ * The keyframes and the push transition below are the standalone component. The room turns them off and steps the same rise and fade by
+ * script on one shared clock (meta.omega.bubbles.room, ADR 0039): no fade-in, an instant push, an early exit at half opacity for one tick. */
 .ui-float { border-style: solid; border-color: transparent; border-width: ${u(5)} ${u(5)} ${u(6)} ${u(5)}; border-image: ${slice("bubble/float")} 5 5 6 5 fill / ${u(5)} ${u(5)} ${u(6)} ${u(5)} stretch;
   position: absolute; margin: 0; width: max-content; max-width: ${String(B.maxW)}px; padding: 0 ${u(1)};
   color: var(--ui-bubble-text); font: 500 12px/15px system-ui, sans-serif; overflow-wrap: anywhere; pointer-events: none;

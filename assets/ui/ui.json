@@ -6790,6 +6790,15 @@
      "fadeCurve": "linear",
      "pushMs": 0,
      "leaveMs": 0
+    },
+    "room": {
+     "driver": "script",
+     "steps": 24,
+     "appearMs": 0,
+     "pushMs": 0,
+     "leaveMs": 160,
+     "leaveOpacity": 0.5,
+     "adr": "docs/adr/0039-bubble-motion-on-a-step-clock.md"
     }
    },
    "wheel": {

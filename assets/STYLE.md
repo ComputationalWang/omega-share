@@ -369,6 +369,8 @@ Three directions were weighed for the bubbles before any pixels:
   the stage or the phone's window. A bubble pushed up a stack can't point any more, so it loses the tail and names the speaker in bold. Never a tail that points at the wrong person.
 - **Motion is whole pixels:** a 24 px rise in 24 one-pixel steps over 5 s, a 3-step fade-in, an ease-in fade out (readable longest, gone fast). Nothing scales,
   nothing blurs between pixels. Reduced motion: no rise and no slide, just show, hold, fade.
+  In the room the motion is stepped by script on one shared clock (ADR 0039): the bubble pops in whole, a push snaps, an early exit halves then goes.
+  A pop and a snap suit pixel art better than a 120 ms fade or slide nobody reads anyway; the rise and the fade, which carry the meaning, are unchanged.
 - **Stacks:** newest nearest the heads; an older bubble whose path (its box and the rise still ahead) would meet a newer one moves up above it, 3 px clear. So bubbles never
   overlap at any moment, and at most 8 are up (2 per speaker).
 - **The emote wheel is set (i)'s picker made round:** the same night tray in the mustard "yours" rim, the same six stickers in the same order (keys 1–6), clockwise from 12.
