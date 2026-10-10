@@ -74,6 +74,10 @@ export function createNotFound(o: NotFoundOptions): NotFound {
       root.hidden = false;
       if (shown) return;
       shown = true;
+      // scene/not-found (OME-881): added on first show, so its PNG is fetched only by a page that shows this screen.
+      const scene = el("span", { className: "ui-scene ui-scene-not-found" });
+      scene.setAttribute("aria-hidden", "true");
+      root.prepend(scene);
       void load();
     },
   };

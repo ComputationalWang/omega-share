@@ -103,3 +103,24 @@ describe("Room not found", () => {
     expect(nf.root.querySelector("a[href^='/r/..']")).toBeNull();
   });
 });
+
+// OME-881: the panel shows scene/not-found (assets/README.md § Set (i) "Room not found"), decorative and lazy: the
+// element (and so its background PNG) only exists once the panel shows. scene/closed is for a room its host closed.
+describe("Room not found: scene/not-found", () => {
+  test("has no scene before it shows, so the PNG is never fetched for a page that never needs it", async () => {
+    const { nf } = await setup();
+    expect(nf.root.querySelector(".ui-scene")).toBeNull();
+  });
+
+  test("shows scene/not-found, aria-hidden, once and only once", async () => {
+    const { nf } = await setup();
+    nf.show();
+    nf.show();
+    const scenes = nf.root.querySelectorAll(".ui-scene");
+    expect(scenes.length).toBe(1);
+    const scene = scenes[0];
+    expect(scene?.classList.contains("ui-scene-not-found")).toBe(true);
+    expect(scene?.getAttribute("aria-hidden")).toBe("true");
+    expect(nf.root.querySelector(".ui-scene-closed")).toBeNull();
+  });
+});

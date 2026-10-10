@@ -57,3 +57,20 @@ export function withMeta(page: string, meta: string): string {
   const at = page.indexOf("</head>");
   return at === -1 ? page : page.slice(0, at).replace(OWN_TAGS, "") + meta + page.slice(at);
 }
+
+/**
+ * RFC 9116 wants Expires under a year out. A test fails 30 days before this date: renew it then
+ * (docs/ops/hosting.md). Contact is the contact page, never an invented address (operator facts: OME-788).
+ */
+export const SECURITY_TXT_EXPIRES = "2027-10-01T00:00:00Z";
+
+/** `/.well-known/security.txt` for `origin` (PUBLIC_ORIGIN, else SITE_ORIGIN). */
+export function securityTxt(origin: string): string {
+  return [
+    `Contact: ${origin}/contact.html`,
+    `Expires: ${SECURITY_TXT_EXPIRES}`,
+    `Canonical: ${origin}/.well-known/security.txt`,
+    "Preferred-Languages: en",
+    "",
+  ].join("\n");
+}

@@ -90,11 +90,15 @@ test("two bubbles from one speaker never overlap: the older one moves up, 3 px c
   if (stage === null) throw new Error("no stage");
   const scale = stage.width / 960;
   await a.page.waitForTimeout(400);
+  // Both boxes in one evaluate, so in one frame (OME-853): two boundingBox() calls can straddle a rise step and read the
+  // newer bubble a step (1 px) higher than the older one.
   for (let i = 0; i < 3; i++) {
-    const o = await older.boundingBox();
-    const n = await newer.boundingBox();
-    if (o === null || n === null) throw new Error("bubble not laid out");
-    expect((n.y - (o.y + o.height)) / scale).toBeGreaterThanOrEqual(3 - 0.5);
+    const gap = await a.page.evaluate(() => {
+      const [o, n] = ["older line", "newer line"].map((t) => [...document.querySelectorAll(".ui-float")].find((p) => p.textContent.includes(t))?.getBoundingClientRect());
+      return o === undefined || n === undefined ? null : n.top - o.bottom;
+    });
+    if (gap === null) throw new Error("bubble not laid out");
+    expect(gap / scale).toBeGreaterThanOrEqual(3 - 0.5);
     await a.page.waitForTimeout(700);
   }
 });

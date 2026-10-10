@@ -86,6 +86,7 @@ After a restore, rooms, layouts and each room's last embed come back, with playb
 - Headed smoke from outside, on a virtual display: `OMEGA_REAL_TUNNEL_ORIGIN=https://omega-share.duckdns.org bun e2e/support/headed.ts bunx playwright test --project=e2e-real e2e/real/real-tunnel.real.ts --grep "tunnel-[124]"`. Tunnel-3 checks the Host rule on *this* machine's port 8787, so against the box, use the curl above instead.
 - Logs (as `admin`): `journalctl -u omega-share`, `journalctl -u caddy`. The server's error lines are one JSON object each, with a fixed `event` name and no room id, title, nickname or address (ADR 0032 §4). To list only those, run `journalctl -u omega-share -o cat | grep '^{"level":"error"'`. Caddy keeps no access log and has no admin API (`admin off`), so Caddyfile changes take `systemctl restart caddy`. Caddy's default logger deletes request IPs, ports and headers, so an upstream 502 is logged with only the method, host and URI, and no site visitor's IP reaches the journal (ADR 0020 §3, OME-386). The journal is persistent and kept for 14 days (`deploy/journald/omega-share.conf`). sshd's entries name SSH peers. To check, run `journalctl -u caddy -o cat | grep -cE 'remote_ip|client_ip|"headers"'` with root. It should print 0.
 - Off-box pull fails loudly if the newest snapshot is older than 36 h: that is the backup alarm.
+- `/.well-known/security.txt` (RFC 9116, OME-838) carries a fixed `Expires`. `apps/server/test/site.test.ts` fails 30 days before it. To renew, set `SECURITY_TXT_EXPIRES` in `apps/server/src/site-meta.ts` to a date 11 months out (under a year, as RFC 9116 asks) and deploy. Check: `curl -sS $PUBLIC_ORIGIN/.well-known/security.txt`.
 
 ## Metrics, logs and restarts (OME-504, ADR 0032)
 
@@ -109,10 +110,12 @@ After a restore, rooms, layouts and each room's last embed come back, with playb
 
 | Push | Means | Sent |
 | --- | --- | --- |
-| `omega-share is down` | `$PUBLIC_ORIGIN/healthz` failed (no 2xx within 10 s) twice in a row, so for 5 to 10 minutes. One blip never pushes. | once per outage |
+| `omega-share is down` | `$PUBLIC_ORIGIN/healthz` failed (no 2xx within 10 s) twice in a row, so for 5 to 10 minutes. One blip never pushes. `/healthz` also answers 503 when the server can't read its database (it logs `store.health`). | once per outage |
 | `omega-share recovered` | `/healthz` answers again after a `down` push. | once |
 | `TLS certificate expires in N days` | The certificate has fewer than 14 days left. Caddy renews at about 30 days, so renewal has been failing for two weeks. | once, then again every 3 more days until it is renewed |
 | `N new abuse reports` | The number of open reports went up since the last count. The monitor asks the box at most hourly, as `admin@`, with the operator CLI's `reports list`, and counts on the box: only the number leaves it. The count is net: a dismissal and a new report within the same hour cancel out, so read the queue daily anyway ([rooms.md](rooms.md#abuse-reports)). The first run after an install counts from 0, so it pushes every report already open. No notes, titles, ids or addresses ever go into a push. | when the count rose; flat or falling stays quiet |
+| `disk N% full on <path>` | `/` or `/var/lib/omega-share` is more than 85 % used. The monitor asks the box at most every 15 minutes, as `admin@`, with `df`, and only the two percentages leave it. Free space before writes fail: old releases in `/opt/omega-share/releases`, `journalctl --vacuum-size`, then look at the backups ([backup.md](backup.md)). | once, until it recovers |
+| `disk space recovered: N% used` | Both are back to 80 % or less after a `full` push. Between 80 and 85 % stays quiet, so a disk at the line doesn't flap. | once |
 | `[drill] …` | A test push. Ignore it. | by hand |
 
 A push that can't be sent is retried at the next run, and that run's unit shows as failed.
@@ -131,7 +134,7 @@ journalctl --user -u omega-share-monitor -n 20           # "health check failed 
 systemctl --user list-timers omega-share-monitor.timer
 ```
 
-The service reads `PUBLIC_ORIGIN` and `SERVER_IP` from `~/Projects/omega-share/.env` and uses `~/.config/omega-share/admin-key` for the report count (`OMEGA_MONITOR_SSH_KEY` changes it). The box's host key must already be in `known_hosts`, because batch mode never asks. The unit runs its own copy of the script so that a branch checked out in the main repo can never break the monitor: copy it again after a change to `deploy/monitor/`.
+The service reads `PUBLIC_ORIGIN` and `SERVER_IP` from `~/Projects/omega-share/.env` and uses `~/.config/omega-share/admin-key` for the report count and the disk check (`OMEGA_MONITOR_SSH_KEY` changes it). The box's host key must already be in `known_hosts`, because batch mode never asks. The unit runs its own copy of the script so that a branch checked out in the main repo can never break the monitor: copy it again after a change to `deploy/monitor/`.
 
 The timer runs only while the operator machine is on. If the box goes down while the machine is off, the push comes at the first run after it wakes.
 
