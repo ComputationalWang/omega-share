@@ -51,7 +51,7 @@ test("desktop: 'How it works' sits beside the form, its panels at one art pixel 
   const how = await box(page, "#how");
   expect(how.x).toBeGreaterThanOrEqual(form.x + form.width);
   expect(how.y).toBeLessThan(form.y + form.height);
-  const img = await box(page, "#how img");
+  const img = await box(page, "#how li:first-child img");
   expect([img.width, img.height]).toEqual([184, 112]);
   await expect(page.locator("#how")).toContainText("How it works");
   await expect(page.locator(".install")).toContainText("Firefox: coming soon");

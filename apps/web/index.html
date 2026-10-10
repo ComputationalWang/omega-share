@@ -9,33 +9,58 @@
     />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>omega-share</title>
+    <meta name="description" content="Watch videos together in a cosy pixel room. Share a video from any page with the browser extension and sit with friends, in sync." />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="stylesheet" href="/src/style.css" />
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
-    <main id="app">
-      <form id="landing" class="landing" novalidate>
-        <h1>omega-share</h1>
-        <p class="lede">Watch together. Pick a name and an avatar, then take a seat.</p>
-        <label for="nickname">Nickname</label>
-        <input id="nickname" name="nickname" type="text" maxlength="20" autocomplete="nickname" required data-testid="nickname-input" aria-describedby="nickname-error" />
-        <p id="nickname-error" class="error" data-testid="nickname-error" aria-live="polite"></p>
-        <fieldset>
-          <legend>Avatar</legend>
-          <div class="avatars" role="radiogroup" aria-label="Avatar">
-            <button type="button" class="avatar a0" role="radio" aria-checked="true" aria-label="Avatar 1" data-avatar="0" data-testid="avatar-option"></button>
-            <button type="button" class="avatar a1" role="radio" aria-checked="false" aria-label="Avatar 2" data-avatar="1" data-testid="avatar-option"></button>
-            <button type="button" class="avatar a2" role="radio" aria-checked="false" aria-label="Avatar 3" data-avatar="2" data-testid="avatar-option"></button>
-            <button type="button" class="avatar a3" role="radio" aria-checked="false" aria-label="Avatar 4" data-avatar="3" data-testid="avatar-option"></button>
-          </div>
-        </fieldset>
-        <button type="submit" class="enter" data-testid="join-button">Enter room</button>
-      </form>
+    <a class="skip-link" href="#app">Skip to content</a>
+    <main id="app" tabindex="-1">
+      <div class="welcome">
+        <form id="landing" class="landing" novalidate>
+          <h1>omega-share</h1>
+          <p class="lede">Watch together. Pick a name and an avatar, then take a seat.</p>
+          <label for="nickname">Nickname</label>
+          <input id="nickname" name="nickname" type="text" maxlength="20" autocomplete="nickname" required data-testid="nickname-input" aria-describedby="nickname-error" />
+          <p id="nickname-error" class="error" data-testid="nickname-error" aria-live="polite"></p>
+          <fieldset>
+            <legend>Avatar</legend>
+            <div class="avatars" role="radiogroup" aria-label="Avatar">
+              <button type="button" class="avatar a0" role="radio" aria-checked="true" aria-label="Avatar 1" data-avatar="0" data-testid="avatar-option"></button>
+              <button type="button" class="avatar a1" role="radio" aria-checked="false" aria-label="Avatar 2" data-avatar="1" data-testid="avatar-option"></button>
+              <button type="button" class="avatar a2" role="radio" aria-checked="false" aria-label="Avatar 3" data-avatar="2" data-testid="avatar-option"></button>
+              <button type="button" class="avatar a3" role="radio" aria-checked="false" aria-label="Avatar 4" data-avatar="3" data-testid="avatar-option"></button>
+            </div>
+          </fieldset>
+          <button type="submit" class="enter" data-testid="join-button">Enter room</button>
+        </form>
+        <section id="how" class="how" aria-labelledby="how-title">
+          <h2 id="how-title">How it works</h2>
+          <ol class="how-steps">
+            <li>
+              <img src="../../assets/site/how-1-find.png" width="368" height="224" loading="lazy" decoding="async" alt="A browser window with a video on the page. The omega-share icon in the toolbar has a tick badge, and gold corner brackets mark the video it found." />
+              <div><p class="how-cap">The extension finds the video</p><p>Open a page with a video on it and click the omega-share button in your browser.</p></div>
+            </li>
+            <li>
+              <img src="../../assets/site/how-2-share.png" width="368" height="224" loading="lazy" decoding="async" alt="The omega-share popup under its toolbar icon, showing the video and a room, with a hand pressing the gold Share key. The video flies through an open door where a friend is waiting." />
+              <div><p class="how-cap">Share it into a room</p><p>Pick a room and press Share. Friends join with the room's link, no account needed.</p></div>
+            </li>
+            <li>
+              <img src="../../assets/site/how-3-watch.png" width="368" height="224" loading="lazy" decoding="async" alt="Four friends in armchairs, seen from behind, watch the same sunset video on a wood TV in a cosy room." />
+              <div><p class="how-cap">Sit together and watch</p><p>Everyone sees the same moment. Take a seat, chat and wave.</p></div>
+            </li>
+          </ol>
+          <p class="install">Get the extension: <!--omega:install--></p>
+        </section>
+      </div>
       <section id="home-root" class="home" hidden></section>
       <section id="room-root" class="room" hidden></section>
     </main>
     <footer class="site-footer">
-      <a href="%OMEGA_SOURCE_URL%" target="_blank" rel="noopener noreferrer" data-testid="source-link">Source</a> · <a href="/privacy.html" data-testid="privacy-link">Privacy</a>
+      <a href="/privacy.html" data-testid="privacy-link">Privacy</a> · <a href="/terms.html" data-testid="terms-link">Terms</a> · <a href="/contact.html" data-testid="contact-link">Contact</a> · <a href="/licenses.html" data-testid="licenses-link">Licences</a> · <a href="%OMEGA_SOURCE_URL%" target="_blank" rel="noopener noreferrer" data-testid="source-link">Source</a> · <a href="%OMEGA_SOURCE_URL%/issues" target="_blank" rel="noopener noreferrer" data-testid="feedback-link">Feedback</a> · <span class="version" data-testid="build-version">version %OMEGA_VERSION%</span>
     </footer>
   </body>
 </html>

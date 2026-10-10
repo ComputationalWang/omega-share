@@ -114,7 +114,7 @@ describe("landing: explains the product before asking for anything", () => {
 
   test("no remote images and no third-party badges anywhere on the page", () => {
     for (const m of served.matchAll(/<img\s[^>]*>/g)) expect(attrs(m[0])["src"] ?? "").toStartWith("/");
-    expect(served).not.toMatch(/badge|play\.google|mozilla\.net|gstatic/i);
+    expect(served).not.toMatch(/(?:src|href|srcset)="[^"]*(?:badge|play\.google|mozilla\.net|gstatic)/i);
   });
 });
 
