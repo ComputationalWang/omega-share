@@ -105,6 +105,19 @@ OME-593; research and the CEO's decisions are in R-M7c ([OME-546](/OME/issues/OM
 - **On Android** the toolbar button lives in the browser menu: ⋮ → Extensions → omega share opens the popup as a full-screen sheet. Opening it from there grants `activeTab`, as the toolbar button does on desktop.
 - **Source code:** the build is bundled and minified, though not obfuscated, so answer **Yes** to "Do you need to submit source code?". Upload `omega-share-<version>-sources.zip`. It contains `SOURCE-BUILD.md`, whose steps are Bun 1.4.2, `bun install --frozen-lockfile` and `bun run ext:store`, and they rebuild a byte-identical zip (checked by `test/sources.test.ts`). Build both zips from a clean checkout of the release commit; `ext:store` warns if the tree is dirty.
 
+## AMO API (`bun run ext:amo`, ADR 0038)
+
+Since 0.1.0, versions go up through the AMO API with the board's key ([OME-757](/OME/issues/OME-757)). Set `AMO_JWT_ISSUER` and `AMO_JWT_SECRET` in the environment, from the Paperclip secrets `FIREFOX_JWT_ISSUER` / `FIREFOX_JWT_SECRET`, never on the command line:
+
+```sh
+sec() { curl -s -X POST -H "Authorization: Bearer $PAPERCLIP_API_KEY" "${PAPERCLIP_API_URL%/}/api/agents/me/secrets/$1/value" | jq -r .value; }
+AMO_JWT_ISSUER="$(sec omega-share-firefox-firefox_jwt_issuer)" AMO_JWT_SECRET="$(sec omega-share-firefox-firefox_jwt_secret)" bun run ext:amo status
+```
+
+- **`status`** (read-only, anyone, any time): the listing status, then each version's channel, review status and file status.
+- **`submit`**: only on a CEO-filed release issue, after QA signed off on the SHA, with a version bump. Run `bun run ext:store` in a clean checkout of that SHA first. `submit` rebuilds both zips and refuses if a hash differs, if the tree is dirty, or if the version isn't newer than every version on AMO. It then uploads the Firefox zip as a new **listed** version for Firefox and Firefox for Android, attaches the sources zip, and prints the version URL and both sha256s. Post that output on the release issue.
+- Listing text and metadata aren't touched by the tool. They stay a board or CEO call.
+
 ## Listing
 
 **Name:** omega share
