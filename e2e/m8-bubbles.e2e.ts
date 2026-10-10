@@ -186,6 +186,9 @@ test("five speakers, ten lines at once: never more than 8 bubbles shown, the lay
   await Promise.all(
     clients.map(async (c, i) => {
       await say(c.page, `speaker ${String(i + 1)} line one`);
+      // Apart, so the watcher renders each: two of one speaker's lines landing in one frame float only the second
+      // (the test after this one, OME-809).
+      await c.page.waitForTimeout(150);
       await say(c.page, `speaker ${String(i + 1)} line two`);
     }),
   );
@@ -198,6 +201,41 @@ test("five speakers, ten lines at once: never more than 8 bubbles shown, the lay
   expect(pool.maxLive, `peak live bubbles (the sends took ${String(sendMs)} ms):\n${pool.events.join("\n")}`).toBeGreaterThanOrEqual(6);
   expect(pool.minNodes).toBe(8);
   expect(pool.maxNodes).toBe(8);
+});
+
+// product bug (OME-809): the room state keeps one bubble per speaker (state.ts "chat" replaces it) and the stage floats
+// what it finds at render, so when two lines from one speaker arrive before the watcher next renders, the first never
+// floats. It is still in the chat log. Here the watcher renders late (a slow frame) while both lines arrive; on a fast
+// box it happens when two lines land in one 16 ms frame (the cap test above paces its lines because of this).
+test.fail("two lines from one speaker that arrive inside one render both float (2 per speaker)", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "batch").url, count: 2, nicknamePrefix: "mb" });
+  const [speaker, watcher] = pair(clients);
+  for (const c of clients) await atRest(c.page);
+  // A slow frame on the watcher: its next renders come 300 ms late, as on a busy phone. Both lines then reach it
+  // before it renders (they also leave the speaker in one task, back to back).
+  await watcher.page.evaluate(() => {
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb) => {
+      setTimeout(() => raf(cb), 300);
+      return 0;
+    };
+    setTimeout(() => {
+      window.requestAnimationFrame = raf;
+    }, 2000);
+  });
+  await speaker.page.evaluate((sel) => {
+    const input = document.querySelector<HTMLInputElement>(sel);
+    if (input === null) throw new Error("no chat input");
+    for (const text of ["batch line one", "batch line two"]) {
+      input.value = text;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.form?.requestSubmit();
+    }
+  }, site.chatInput);
+  await expect(watcher.page.locator(site.chatLogLine).filter({ hasText: /batch line (one|two)/ })).toHaveCount(2);
+  const shown = watcher.page.locator(`${site.room} .float-slot:not([hidden]) .ui-float`);
+  await expect(shown.filter({ hasText: "batch line two" })).toHaveCount(1);
+  await expect(shown.filter({ hasText: "batch line one" })).toHaveCount(1, { timeout: 2000 });
 });
 
 // OME-791: a stacked bubble gains its speaker's name after it was first measured, so it is measured and centred again
