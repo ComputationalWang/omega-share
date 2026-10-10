@@ -16,7 +16,9 @@ export interface ShareOptions {
 }
 
 /** What came back from a room POST: the JSON body (`undefined` if it wasn't JSON) and the status, or a message to show. */
-export type RoomPostReply = { readonly ok: true; readonly json: unknown; readonly status: number } | { readonly ok: false; readonly message: string };
+export type RoomPostReply =
+  | { readonly ok: true; readonly json: unknown; readonly status: number; readonly retryAfter: string | null }
+  | { readonly ok: false; readonly message: string };
 
 /**
  * `POST {baseUrl}/rooms/:id/{share|queue}` with `Authorization: Bearer` and a `ShareRequest` body
@@ -52,7 +54,7 @@ export async function postToRoom(path: "share" | "queue", { baseUrl, roomId, url
   }
   const { response, json } = reply;
   if (response.type === "opaqueredirect") return { ok: false, message: STATUS_TEXT.signIn };
-  return { ok: true, json, status: response.status };
+  return { ok: true, json, status: response.status, retryAfter: response.headers.get("retry-after") };
 }
 
 /** The popup's text for a body that isn't on the contract. A 401 that isn't ours comes from an edge gate in front of the server. */
@@ -60,8 +62,23 @@ export function offContractMessage(baseUrl: string, status: number): string {
   return status === 401 ? STATUS_TEXT.signIn : STATUS_TEXT.offline(baseUrl);
 }
 
-/** The popup's text for a contract error; codes the user can act on get our own wording, the rest show the server's message. */
-export function roomErrorMessage(code: ShareErrorCode, message: string): string {
+/** The longest wait the popup will quote; a longer `Retry-After` still reads as "60 s". */
+const MAX_RETRY_WAIT_S = 60;
+
+/**
+ * Whole seconds to wait from a delta-seconds `Retry-After` (rounded up, 1–60), or `null` when it's missing or not a
+ * number. The HTTP-date form isn't read: our server always sends seconds.
+ */
+export function retryAfterSeconds(header: string | null): number | null {
+  if (header === null || !/^\d{1,10}(?:\.\d+)?$/.test(header.trim())) return null;
+  return Math.min(MAX_RETRY_WAIT_S, Math.max(1, Math.ceil(Number(header))));
+}
+
+/**
+ * The popup's text for a contract error; codes the user can act on get our own wording, the rest show the server's message.
+ * `retryAfter` is the reply's `Retry-After` header, quoted for `rate_limited` when it's a number.
+ */
+export function roomErrorMessage(code: ShareErrorCode, message: string, retryAfter: string | null = null): string {
   switch (code) {
     case "unauthorized":
       return STATUS_TEXT.tokenRejected;
@@ -69,10 +86,13 @@ export function roomErrorMessage(code: ShareErrorCode, message: string): string 
       return STATUS_TEXT.ownerOnly;
     case "queue_full":
       return STATUS_TEXT.queueFull;
+    case "rate_limited": {
+      const wait = retryAfterSeconds(retryAfter);
+      return wait === null ? message : `Too many shares. Try again in ${String(wait)} s`;
+    }
     case "invalid_body":
     case "unsupported_url":
     case "room_not_found":
-    case "rate_limited":
     case "payload_too_large":
       return message;
   }
@@ -85,5 +105,5 @@ export async function shareEmbed(options: ShareOptions): Promise<ShareResult> {
   const parsed = v.safeParse(ShareResponseSchema, reply.json);
   if (!parsed.success) return { ok: false, message: offContractMessage(options.baseUrl, reply.status) };
   if (parsed.output.ok) return { ok: true, embed: parsed.output.embed };
-  return { ok: false, message: roomErrorMessage(parsed.output.error.code, parsed.output.error.message) };
+  return { ok: false, message: roomErrorMessage(parsed.output.error.code, parsed.output.error.message, reply.retryAfter) };
 }
