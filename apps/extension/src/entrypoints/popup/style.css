@@ -11,6 +11,9 @@ p { margin: 0; }
 [data-state="ok"] { color: #1b5e20; }
 .link { background: none; border: 0; padding: 0; color: #1a57c4; cursor: pointer; justify-self: start; }
 #server-status { color: #8a4b00; }
+/* State vignettes (OME-842 art, 48×40 at 1× and 2×): decorative, centred above the line. */
+.vignette { text-align: center; }
+.vignette img { display: block; margin: 0 auto 4px; image-rendering: pixelated; }
 .link[data-emphasis="true"] { font-weight: 600; text-decoration: underline; }
 .legal { display: flex; gap: 12px; font-size: 12px; }
 .legal a { color: #555; }
