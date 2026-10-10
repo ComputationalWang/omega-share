@@ -373,3 +373,24 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .quality-menu.is-row > .ui-qx { flex: none; margin-left: auto; }
 /* OME-776: on touch the wheel's chip names the sticker without its key ("1"): there's no keyboard to press it on. */
 @media (pointer: coarse), (hover: none) { .ui-wheel-label .ui-kbd { display: none; } }
+/* M9 W2 (OME-768): the first-visit hint in the flow under the room bar (never over the picture or the composer), the "?"
+ * help dialog on the report dialog's scrim, and "Room not found". Plain chrome until a design set skins them; no motion. */
+.first-hint { --ui-px: 1px; display: flex; align-items: center; gap: 8px; margin: 6px 0; padding: 4px 4px 4px 10px; }
+.first-hint[hidden] { display: none; }
+.first-hint-text { flex: 1; margin: 0; font-size: 13px; font-weight: 600; color: var(--ui-text); }
+.help-key { font-weight: 700; min-width: 28px; }
+.help-dialog { --ui-px: 2px; margin: auto; width: min(calc(100vw - 16px), 520px); max-width: none; max-height: calc(100dvh - 16px); overflow: auto; color: var(--ui-text); }
+.help-dialog::backdrop { background: url("../../../assets/ui/slices/scrim-0.png") 0 0 / 2px 4px; image-rendering: pixelated; }
+.help-dialog h2 { margin: 0 0 8px; font-size: 15px; }
+.help-dialog h3 { margin: 12px 0 4px; font-size: 13px; }
+.help-dialog p, .help-dialog li, .help-dialog dd { font-size: 12px; line-height: 1.4; }
+.help-dialog ul, .help-dialog p { margin: 0; }
+.help-dialog ul { padding-left: 18px; }
+.help-keys { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0 0 4px; align-items: baseline; }
+.help-keys dt { font-size: 12px; font-weight: 700; }
+.help-keys dd { margin: 0; }
+.help-keys kbd { font: inherit; font-weight: 700; padding: 0 4px; border: 1px solid currentColor; border-radius: 2px; }
+.help-dialog .acts { display: flex; justify-content: flex-end; margin-top: 12px; }
+.room-not-found .rooms-public { margin-top: 24px; }
+.room-not-found .room-list { list-style: none; padding: 0; }
+.room-not-found .not-found-state { font-size: 13px; }

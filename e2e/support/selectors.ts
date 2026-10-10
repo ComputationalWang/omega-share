@@ -136,4 +136,13 @@ export const site = {
   reportFailed: id("report-failed"),
   reportFailedText: id("report-failed-text"),
   reportRetry: id("report-retry"),
+  // M9 W2 (OME-768): the first-visit hint, the "?" help key and dialog, and "Room not found".
+  firstHint: id("first-hint"),
+  firstHintClose: id("first-hint-close"),
+  helpKey: id("help-key"),
+  helpDialog: id("help-dialog"),
+  helpClose: id("help-close"),
+  notFound: id("room-not-found"),
+  notFoundHome: id("not-found-home"),
+  notFoundRoom: id("not-found-room"),
 } as const;

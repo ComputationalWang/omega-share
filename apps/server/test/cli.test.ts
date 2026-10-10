@@ -169,8 +169,11 @@ describe("rooms delete <id>", () => {
     expect(f.rooms.get(made.room.id)).toBeUndefined();
     expect(f.store.listRooms().map((r) => r.id)).not.toContain(made.room.id);
     expect(await listedIds(f)).not.toContain(made.room.id);
-    // The id is gone for good: a new upgrade gets 404.
-    expect((await fetch(`${f.t.http}/rooms/${made.room.id}/ws`)).status).toBe(404);
+    // The id is gone for good: a new socket is closed with ROOM_CLOSED before any snapshot (OME-768: "Room not found").
+    const late = await Client.open(f.t.ws(made.room.id));
+    clients.push(late);
+    expect((await late.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
+    expect(late.raw.filter((r) => r.includes('"snapshot"'))).toEqual([]);
   });
 
   test("an unknown room exits 1 and changes nothing", async () => {

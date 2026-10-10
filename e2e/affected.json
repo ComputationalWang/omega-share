@@ -150,6 +150,7 @@
         "e2e/furniture.e2e.ts",
         "e2e/landing.e2e.ts",
         "e2e/m7-a11y.e2e.ts",
+        "e2e/m9-help.e2e.ts",
         "e2e/persistence.e2e.ts",
         "e2e/phone-layout.e2e.ts",
         "e2e/qa-rooms.e2e.ts",
@@ -392,10 +393,27 @@
         "e2e/emotes.e2e.ts",
         "e2e/m7-a11y.e2e.ts",
         "e2e/m8-wheel.e2e.ts",
+        "e2e/m9-help.e2e.ts",
         "e2e/polish.e2e.ts",
         "perf/chat.perf.ts",
         "perf/polish.perf.ts"
       ]
+    },
+    {
+      "paths": [
+        "apps/web/src/help/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/emotes.e2e.ts",
+        "e2e/m7-a11y.e2e.ts",
+        "e2e/m9-help.e2e.ts",
+        "perf/site.perf.ts"
+      ],
+      "why": "first-visit hint and help dialog (OME-768)"
     },
     {
       "paths": [
