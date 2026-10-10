@@ -1,0 +1,104 @@
+{
+  "name": "vod",
+  "afterTab": {
+    "menuOpen": false,
+    "focused": "fullscreen-toggle:"
+  },
+  "ctl": {
+    "ok": true,
+    "picked": null,
+    "targets": []
+  },
+  "ctlB": {
+    "samples": 29,
+    "pausedSamples": 0,
+    "jumps": [],
+    "roomPlayingFalse": 0
+  },
+  "ctlWire": {
+    "aSent": []
+  },
+  "base": {
+    "samples": 10,
+    "pausedSamples": 0,
+    "jumps": [],
+    "roomPlayingFalse": 0
+  },
+  "key": {
+    "picked": "144p",
+    "options": [
+      "auto",
+      "1080p",
+      "720p50",
+      "720p",
+      "480p",
+      "360p",
+      "144p"
+    ],
+    "label": "Quality: switching to 144p. Only you."
+  },
+  "keyB": {
+    "samples": 36,
+    "pausedSamples": 0,
+    "jumps": [],
+    "roomPlayingFalse": 0
+  },
+  "keyWire": {
+    "aSent": [
+      {
+        "t": 1791585816808,
+        "dir": "sent",
+        "type": "status",
+        "body": "{\"type\":\"status\",\"catching\":true}"
+      },
+      {
+        "t": 1791585817058,
+        "dir": "sent",
+        "type": "status",
+        "body": "{\"type\":\"status\",\"catching\":false}"
+      }
+    ],
+    "bRecvPlayback": []
+  },
+  "aAfterKey": {
+    "t": 1791585826755,
+    "currentTime": 37.555898,
+    "playbackRate": 1,
+    "paused": false,
+    "ad": false,
+    "overlay": ""
+  },
+  "gear": {
+    "ok": true,
+    "picked": "360p"
+  },
+  "gearB": {
+    "samples": 40,
+    "pausedSamples": 0,
+    "jumps": [],
+    "roomPlayingFalse": 0
+  },
+  "gearWire": {
+    "aSent": [],
+    "bRecvPlayback": []
+  },
+  "keyLabelAfterGear": "Quality: 360p. Only you.",
+  "viewA": {
+    "source": "dev",
+    "playing": true,
+    "catching": false,
+    "live": false,
+    "seekOnly": true,
+    "canControl": true,
+    "error": null
+  },
+  "viewB": {
+    "source": "dev",
+    "playing": true,
+    "catching": false,
+    "live": false,
+    "seekOnly": true,
+    "canControl": true,
+    "error": null
+  }
+}

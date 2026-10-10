@@ -1,0 +1,181 @@
+// OME-661 scratch: R-M7b manual Twitch check. Change quality with our key and with Twitch's own gear on a real VOD and a
+// real live channel; does the room (a second browser) ever see a pause/seek? Evidence: WS frames + B's media + SDK log.
+import { chromium, expect, test } from "@playwright/test";
+import type { Browser, Frame, Page, WebSocket } from "@playwright/test";
+import { REAL, providerFrame, sampleMedia, twitchLiveUrl, twitchVodUrl, view, waitMediaPlaying } from "../OME-602/e2e/real/providers";
+import { enter, requireVirtualDisplay, shareUrl } from "../OME-602/e2e/real/real";
+import type { Client } from "../OME-602/e2e/real/real";
+import { writeFileSync, mkdirSync } from "node:fs";
+
+test.beforeAll(requireVirtualDisplay);
+test.setTimeout(420_000);
+const OUT = "/home/wang/Projects/omega-share-worktrees/qa602-real/out";
+mkdirSync(OUT, { recursive: true });
+
+interface Wire { t: number; dir: "sent" | "recv"; type: string; body: string }
+function tapWs(page: Page, log: Wire[]): void {
+  page.on("websocket", (ws: WebSocket) => {
+    const push = (dir: Wire["dir"]) => (f: { payload: string | Buffer }) => {
+      const s = typeof f.payload === "string" ? f.payload : f.payload.toString();
+      const m = /"type":"([^"]+)"/.exec(s);
+      const type = m?.[1] ?? "?";
+      if (type === "pong" || type === "ping" || type === "presence" || type === "move" || type === "moved") return;
+      log.push({ t: Date.now(), dir, type, body: s.slice(0, 300) });
+    };
+    ws.on("framesent", push("sent"));
+    ws.on("framereceived", push("recv"));
+  });
+}
+
+async function two(prefix: string): Promise<{ browsers: Browser[]; a: Client; b: Client; wa: Wire[]; wb: Wire[] }> {
+  const browsers = [await chromium.launch({ headless: false }), await chromium.launch({ headless: false })];
+  const wa: Wire[] = [];
+  const wb: Wire[] = [];
+  const ca = await browsers[0]!.newContext({ viewport: { width: 1400, height: 900 } });
+  const cb = await browsers[1]!.newContext({ viewport: { width: 1400, height: 900 } });
+  ca.on("page", (p) => tapWs(p, wa));
+  cb.on("page", (p) => tapWs(p, wb));
+  const a = await enter(ca, `${prefix}-a`);
+  const b = await enter(cb, `${prefix}-b`);
+  return { browsers, a, b, wa, wb };
+}
+
+/** B's media every 250 ms for `ms`: paused flags and currentTime jumps (> 1.5 s off wall clock). */
+async function watchB(fb: Frame, page: Page, ms: number): Promise<{ samples: number; pausedSamples: number; jumps: number[]; roomPlayingFalse: number }> {
+  const end = Date.now() + ms;
+  let prev: { t: number; ct: number } | null = null;
+  let samples = 0, pausedSamples = 0, roomPlayingFalse = 0;
+  const jumps: number[] = [];
+  while (Date.now() < end) {
+    const [s, v] = await Promise.all([sampleMedia(fb), view(page)]);
+    if (s !== null) {
+      samples++;
+      if (s.paused) pausedSamples++;
+      if (prev !== null && !s.paused) {
+        const d = s.currentTime - prev.ct - (s.t - prev.t) / 1000;
+        if (Math.abs(d) > 1.5) jumps.push(Math.round(d * 1000));
+      }
+      prev = { t: s.t, ct: s.currentTime };
+    }
+    if (v.playing === false) roomPlayingFalse++;
+    await page.waitForTimeout(250);
+  }
+  return { samples, pausedSamples, jumps, roomPlayingFalse };
+}
+
+async function ourKey(a: Page): Promise<{ picked: string | null; options: string[]; label: string | null }> {
+  const key = a.locator('[data-testid="quality-key"]');
+  await expect(key).toBeVisible({ timeout: 30_000 });
+  await key.focus();
+  await a.keyboard.press("Enter");
+  const opts = a.locator('[data-testid="quality-option"]');
+  await expect(opts.first()).toBeFocused();
+  const options = await opts.allTextContents();
+  await a.keyboard.press("Tab");
+  const afterTab = { menuOpen: await a.locator('[data-testid="quality-menu"]').isVisible(), focused: await a.evaluate(() => (document.activeElement?.getAttribute("data-testid") ?? "") + ":" + (document.activeElement?.textContent ?? "")) };
+  (globalThis as unknown as { __afterTab: unknown }).__afterTab = afterTab;
+  if (!afterTab.menuOpen) { await key.focus(); await a.keyboard.press("Enter"); }
+  // Pick the lowest listed quality (End), a real change from Auto.
+  await a.keyboard.press("End");
+  const picked = await a.evaluate(() => document.activeElement?.textContent ?? null);
+  await a.keyboard.press("Enter");
+  await a.waitForTimeout(300);
+  await a.keyboard.press("Escape");
+  return { picked, options, label: await key.getAttribute("aria-label") };
+}
+
+async function twitchGear(a: Page, fa: Frame, pickIt = true): Promise<{ ok: boolean; picked: string | null; targets: string[] }> {
+  const box = await a.locator("iframe[src*='player.twitch.tv']").boundingBox();
+  if (box !== null) await a.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await a.waitForTimeout(500);
+  const targets = await fa.evaluate(() => [...new Set([...document.querySelectorAll("[data-a-target]")].map((e) => e.getAttribute("data-a-target") ?? ""))]);
+  try {
+    const item = fa.locator('[data-a-target="player-settings-menu-item-quality"]');
+    if (!(await item.isVisible().catch(() => false))) await fa.locator('[data-a-target="player-settings-button"]').click({ timeout: 5_000 });
+    await item.click({ timeout: 5_000 });
+    if (!pickIt) { await fa.locator('[data-a-target="player-settings-button"]').click({ timeout: 5_000 }).catch(() => undefined); await a.waitForTimeout(500); if (await item.isVisible().catch(() => false)) await fa.locator('[data-a-target="player-settings-button"]').click({ timeout: 5_000 }).catch(() => undefined); return { ok: true, picked: null, targets: [] }; }
+    const radios = fa.locator('[data-a-target="player-settings-submenu-quality-option"]');
+    await radios.first().waitFor({ timeout: 5_000 });
+    const n = await radios.count();
+    // Pick the second-to-last (a different fixed quality than our key picked).
+    const r = radios.nth(Math.max(1, n - 2));
+    const picked = await r.textContent();
+    await r.click({ timeout: 5_000 });
+    return { ok: true, picked, targets };
+  } catch (e) {
+    return { ok: false, picked: String(e).slice(0, 200), targets };
+  }
+}
+
+async function scenario(name: string, a: Client, b: Client, fa: Frame, fb: Frame, wa: Wire[], wb: Wire[]): Promise<Record<string, unknown>> {
+  await Promise.all([waitMediaPlaying(a, fa), waitMediaPlaying(b, fb)]);
+  for (const f of [fa, fb]) { const g = f.locator('[data-a-target="content-classification-gate-overlay-start-watching-button"]'); if (await g.isVisible().catch(() => false)) await g.click().catch(() => undefined); }
+  await a.page.waitForTimeout(6_000);
+  const base = await watchB(fb, b.page, 3_000);
+  // Our key.
+  let t0 = Date.now();
+  const key = await ourKey(a.page);
+  const keyB = await watchB(fb, b.page, 10_000);
+  const keyWire = { aSent: wa.filter((w) => w.t >= t0 && w.dir === "sent"), bRecvPlayback: wb.filter((w) => w.t >= t0 && w.dir === "recv" && w.type === "playback") };
+  const aAfterKey = await sampleMedia(fa);
+  await a.page.screenshot({ path: `${OUT}/${name}-key-a.png` });
+  await a.page.waitForTimeout(3_000);
+  // Control: open Twitch's gear quality menu, pick nothing.
+  t0 = Date.now();
+  const ctl = await twitchGear(a.page, fa, false);
+  const ctlB = await watchB(fb, b.page, 8_000);
+  const ctlWire = { aSent: wa.filter((w) => w.t >= t0 && w.dir === "sent" && w.type === "control").map((w) => w.body) };
+  // Twitch's own gear.
+  t0 = Date.now();
+  const gear = await twitchGear(a.page, fa);
+  const gearB = await watchB(fb, b.page, 12_000);
+  const gearWire = { aSent: wa.filter((w) => w.t >= t0 && w.dir === "sent"), bRecvPlayback: wb.filter((w) => w.t >= t0 && w.dir === "recv" && w.type === "playback") };
+  await a.page.screenshot({ path: `${OUT}/${name}-gear-a.png` });
+  const keyLabelAfterGear = await a.page.locator('[data-testid="quality-key"]').getAttribute("aria-label");
+  const r = { name, afterTab: (globalThis as unknown as { __afterTab: unknown }).__afterTab, ctl, ctlB, ctlWire, base, key, keyB, keyWire, aAfterKey, gear: { ...gear, targets: gear.ok ? undefined : gear.targets }, gearB, gearWire, keyLabelAfterGear, viewA: await view(a.page), viewB: await view(b.page) };
+  writeFileSync(`${OUT}/${name}.json`, JSON.stringify(r, null, 2));
+  return r;
+}
+
+test("VOD: our key and Twitch's gear", async ({ request }) => {
+  const { browsers, a, b, wa, wb } = await two("q602vod");
+  try {
+    await shareUrl(request, twitchVodUrl(REAL.twitchVod));
+    const id = `v${REAL.twitchVod}`;
+    const fa = await providerFrame(a.page, "twitch", id);
+    const fb = await providerFrame(b.page, "twitch", id);
+    const r = await scenario("vod", a, b, fa, fb, wa, wb);
+    console.log(JSON.stringify(r, null, 1).slice(0, 4000));
+  } finally {
+    for (const br of browsers) await br.close();
+  }
+});
+
+test("Live: our key and Twitch's gear", async ({ request }) => {
+  const { browsers, a, b, wa, wb } = await two("q602live");
+  try {
+    let channel: string | null = null;
+    for (const c of REAL.twitchLive) {
+      await shareUrl(request, twitchLiveUrl(c));
+      const f = await providerFrame(a.page, "twitch", c, 15_000).catch(() => null);
+      if (f === null) continue;
+      const t = Date.now();
+      while (Date.now() - t < 25_000) {
+        const s = await sampleMedia(f);
+        const v = await view(a.page);
+        if (v.error !== null) break;
+        if (s !== null && (s.ad || (!s.paused && s.currentTime > 0.5))) { channel = c; break; }
+        await a.page.waitForTimeout(500);
+      }
+      if (channel !== null) break;
+    }
+    test.skip(channel === null, "no live candidate");
+    if (channel === null) return;
+    const fa = await providerFrame(a.page, "twitch", channel);
+    const fb = await providerFrame(b.page, "twitch", channel);
+    const r = await scenario(`live-${channel}`, a, b, fa, fb, wa, wb);
+    console.log(JSON.stringify(r, null, 1).slice(0, 4000));
+  } finally {
+    for (const br of browsers) await br.close();
+  }
+});

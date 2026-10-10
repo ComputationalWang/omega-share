@@ -1,0 +1,90 @@
+{
+  "name": "live-zackrawrr",
+  "afterTab": {
+    "menuOpen": false,
+    "focused": "fullscreen-toggle:"
+  },
+  "ctl": {
+    "ok": true,
+    "picked": null,
+    "targets": []
+  },
+  "ctlB": {
+    "samples": 28,
+    "pausedSamples": 0,
+    "jumps": [],
+    "roomPlayingFalse": 0
+  },
+  "ctlWire": {
+    "aSent": []
+  },
+  "base": {
+    "samples": 11,
+    "pausedSamples": 0,
+    "jumps": [],
+    "roomPlayingFalse": 0
+  },
+  "key": {
+    "picked": "160p",
+    "options": [
+      "auto",
+      "1080p60 (source)",
+      "720p60",
+      "480p",
+      "360p",
+      "160p"
+    ],
+    "label": "Quality: switching to 160p. Only you."
+  },
+  "keyB": {
+    "samples": 35,
+    "pausedSamples": 0,
+    "jumps": [],
+    "roomPlayingFalse": 0
+  },
+  "keyWire": {
+    "aSent": [],
+    "bRecvPlayback": []
+  },
+  "aAfterKey": {
+    "t": 1791585966080,
+    "currentTime": 20.234668,
+    "playbackRate": 1,
+    "paused": false,
+    "ad": false,
+    "overlay": ""
+  },
+  "gear": {
+    "ok": true,
+    "picked": "360p"
+  },
+  "gearB": {
+    "samples": 44,
+    "pausedSamples": 0,
+    "jumps": [],
+    "roomPlayingFalse": 0
+  },
+  "gearWire": {
+    "aSent": [],
+    "bRecvPlayback": []
+  },
+  "keyLabelAfterGear": "Quality: 360p. Only you.",
+  "viewA": {
+    "source": "dev",
+    "playing": true,
+    "catching": false,
+    "live": true,
+    "seekOnly": false,
+    "canControl": true,
+    "error": null
+  },
+  "viewB": {
+    "source": "dev",
+    "playing": true,
+    "catching": false,
+    "live": true,
+    "seekOnly": false,
+    "canControl": true,
+    "error": null
+  }
+}
