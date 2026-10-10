@@ -447,7 +447,9 @@ test("a private room is unlisted; without the key it is refused and shows nobody
   logFrames(stranger, "stranger", frames, []);
   await stranger.goto(`${URLS.web}/r/${room.id}`);
   await enter(stranger, "qa-stranger");
-  await expect(stranger.locator(site.roomRefused)).toHaveAttribute("data-code", "invite_required");
+  // OME-768: the same "Room not found" as an unknown id, so the page never tells a private room from no room.
+  await expect(stranger.locator(site.notFound)).toBeVisible();
+  await expect(stranger.locator(site.roomRefused)).toBeHidden();
   await expect(stranger.locator(site.room)).toBeHidden();
   await expect(stranger.locator(site.nicknameTag)).toHaveCount(0);
   await expect(stranger.locator(site.sharedVideo)).toHaveCount(0);
@@ -461,7 +463,7 @@ test("a private room is unlisted; without the key it is refused and shows nobody
   await wrong.goto(`${URLS.web}/r/${room.id}#k=${"A".repeat(22)}`);
   expect(wrong.url()).toBe(`${URLS.web}/r/${room.id}`);
   await enter(wrong, "qa-wrong");
-  await expect(wrong.locator(site.roomRefused)).toHaveAttribute("data-code", "invite_required");
+  await expect(wrong.locator(site.notFound)).toBeVisible();
   await expect(wrong.locator(site.room)).toBeHidden();
 
   // With the key: in.
