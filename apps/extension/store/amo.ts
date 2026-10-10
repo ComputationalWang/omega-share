@@ -151,7 +151,7 @@ export function amoClient({ credentials, fetch: fetchImpl = fetch, now = Date.no
       throw new Error(`AMO had not validated upload ${uuid} after ${String((UPLOAD_POLLS * UPLOAD_POLL_MS) / 1000)} s`);
     }),
     createVersion: guarded(async (uploadUuid: string, sources: Uint8Array, filename: string) => {
-      const created = await call(AmoVersion, "POST", `${addonUrl}versions/`, { upload: uploadUuid });
+      const created = await call(AmoVersion, "POST", `${addonUrl}versions/`, { upload: uploadUuid, compatibility: ["firefox", "android"] });
       const form = new FormData();
       form.append("source", new File([sources], filename, { type: "application/zip" }));
       return call(AmoVersion, "PATCH", `${addonUrl}versions/${String(created.id)}/`, form);
