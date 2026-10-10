@@ -102,3 +102,98 @@ After a restore, rooms, layouts and each room's last embed come back, with playb
   Series: `omega_rooms`, `omega_sockets`, `omega_members`, `omega_relay_latency_seconds` (histogram of the server's own relay time per frame; `_sum / _count` is the mean), `omega_ws_closes_total{code}` (4029 = flooders cut off, 4004 = rooms closed, 1012 = restarts, 4400 / 4001 / 4002), `process_resident_memory_bytes` and `process_uptime_seconds`. Nothing in it names an address, nickname, room or title. A forwarded port needs `Host: localhost:9464` or `127.0.0.1:9464`; anything else gets 421.
 - **Logs** go to journald (see Checks above). Rotation is in `deploy/journald/omega-share.conf`: 14 days, at most 256 MB in total, files rotated at 32 MB or daily. Re-ship it with `provision.sh logs`. To see the usage, run `journalctl --disk-usage`.
 - **Restart** (`systemctl restart omega-share`, which is what `deploy.sh` does) is graceful. On SIGTERM the server stops accepting, closes every socket with 1012, saves who sat where (as name hashes, for 30 s), checkpoints and closes the database and exits 0 within `TimeoutStopSec=10s`. Clients reconnect on their own and come back in their seats with the same embed. Playback restarts paused at 0. To check a restart, run `journalctl -u omega-share -n 20`. It should show no `"level":"error"` line between `Stopping` and `Started`, and `omega_ws_closes_total{code="1012"}` resets to 0 with the new process.
+
+## Monitoring (OME-765)
+
+`deploy/monitor/monitor.sh` watches the site from **outside** the box. It runs on the operator machine from a user timer every 5 minutes, next to the backup pull, and needs no root. It sends a push to the operator's phone through [ntfy](https://ntfy.sh) only when something **changes**, so a quiet phone means nothing changed. Its state is in `~/.local/state/omega-share/monitor.state` (`$XDG_STATE_HOME`).
+
+| Push | Means | Sent |
+| --- | --- | --- |
+| `omega-share is down` | `$PUBLIC_ORIGIN/healthz` failed (no 2xx within 10 s) twice in a row, so for 5 to 10 minutes. One blip never pushes. | once per outage |
+| `omega-share recovered` | `/healthz` answers again after a `down` push. | once |
+| `TLS certificate expires in N days` | The certificate has fewer than 14 days left. Caddy renews at about 30 days, so renewal has been failing for two weeks. | once, then again every 3 more days until it is renewed |
+| `N new abuse reports` | The number of open reports went up since the last count. The monitor asks the box at most hourly, as `admin@`, with the operator CLI's `reports list`, and counts on the box: only the number leaves it. No notes, titles, ids or addresses ever go into a push. | when the count rose; flat or falling stays quiet |
+| `[drill] …` | A test push. Ignore it. | by hand |
+
+A push that can't be sent is retried at the next run, and that run's unit shows as failed.
+
+**The topic is a secret.** Anyone who knows it can read the pushes and send fake ones. It lives only in `~/.config/omega-share/ntfy-topic` (mode `0600`). The script reads it from there and hands it to curl on stdin, so it never appears in argv, `ps`, the journal or the repo. Never paste it into an issue. To rotate it, write a new random topic into the file and subscribe the phone to the new one.
+
+Install or update (user units only, from a checkout of `main`):
+
+```sh
+install -Dm755 deploy/monitor/monitor.sh ~/.local/libexec/omega-share/monitor.sh   # the unit runs this copy
+install -Dm644 -t ~/.config/systemd/user deploy/monitor/omega-share-monitor.service deploy/monitor/omega-share-monitor.timer
+systemctl --user daemon-reload
+systemctl --user enable --now omega-share-monitor.timer
+systemctl --user start omega-share-monitor.service      # run once now
+journalctl --user -u omega-share-monitor -n 20           # "health check failed …", "pushed: …"
+systemctl --user list-timers omega-share-monitor.timer
+```
+
+The service reads `PUBLIC_ORIGIN` and `SERVER_IP` from `~/Projects/omega-share/.env` and uses `~/.config/omega-share/admin-key` for the report count (`OMEGA_MONITOR_SSH_KEY` changes it). The box's host key must already be in `known_hosts`, because batch mode never asks. The unit runs its own copy of the script so that a branch checked out in the main repo can never break the monitor: copy it again after a change to `deploy/monitor/`.
+
+The timer runs only while the operator machine is on. If the box goes down while the machine is off, the push comes at the first run after it wakes.
+
+**Drill.** Point the health check at a bad URL with a separate state directory, so the real state is untouched, and run it twice. It pushes `[drill] omega-share is down` once:
+
+```sh
+d=$(mktemp -d); for i in 1 2; do XDG_STATE_HOME=$d OMEGA_MONITOR_URL=https://omega-share.invalid/healthz \
+  OMEGA_MONITOR_CHECKS=health OMEGA_MONITOR_PREFIX='[drill]' ~/.local/libexec/omega-share/monitor.sh; done; rm -r "$d"
+```
+
+The first install and drill (2026-10-10) are recorded on [OME-765](/OME/issues/OME-765).
+
+## Incident runbook
+
+Set these once per shell:
+
+```sh
+set -a; . ~/Projects/omega-share/.env; set +a
+A="-o IdentitiesOnly=yes -i ~/.config/omega-share/admin-key"
+CLI="cd /opt/omega-share/current && sudo -u omega-share env DB_PATH=/var/lib/omega-share/omega.db /usr/local/bin/bun apps/server/src/cli.ts"
+```
+
+### `omega-share is down`
+
+1. `curl -sS -m 10 -o /dev/null -w '%{http_code} %{time_total}s\n' $PUBLIC_ORIGIN/healthz`: is it still down from here? `000` with a DNS or connect error points at the box, its network or DNS. A `502` means Caddy is up and the server isn't.
+2. `ssh $A admin@$SERVER_IP 'systemctl status omega-share caddy --no-pager -n 0; uptime; free -m; df -h / /var/lib/omega-share'`: which unit is down, and is the box out of memory or disk?
+3. `ssh $A admin@$SERVER_IP 'journalctl -u omega-share -u caddy -n 60 --no-pager'`: the last lines before it went down. The server's errors are one JSON object each (see Checks).
+
+Then: if the server crashed or hangs, `ssh $A admin@$SERVER_IP 'sudo systemctl restart omega-share'`. If it started right after a deploy, roll back (below). If ssh itself times out, the box or its network is down: check the Hetzner console. If the box answers but the name doesn't reach it, compare `dig +short omega-share.duckdns.org` with `$SERVER_IP`.
+
+### `TLS certificate expires in N days`
+
+1. `h=${PUBLIC_ORIGIN#https://}; openssl s_client -connect $h:443 -servername $h </dev/null 2>/dev/null | openssl x509 -noout -enddate -issuer`: is the served certificate really the old one?
+2. `ssh $A admin@$SERVER_IP "journalctl -u caddy --since -3d --no-pager | grep -iE 'obtain|renew|acme|challenge|error' | tail -n 30"`: why renewal fails.
+3. `dig +short omega-share.duckdns.org` (must print `$SERVER_IP`) and `for p in 80 443; do timeout 4 bash -c "echo >/dev/tcp/$SERVER_IP/$p" && echo "$p open"; done`: the ACME challenges need the name to point at the box and both ports open.
+
+Fix the cause, then `ssh $A admin@$SERVER_IP 'sudo systemctl restart caddy'` makes Caddy try again at once. The monitor goes quiet by itself once the new certificate is served.
+
+### `N new abuse reports`
+
+1. `ssh $A admin@$SERVER_IP "$CLI reports list"`: the open reports, most reported room first.
+2. `ssh $A admin@$SERVER_IP "$CLI rooms list"`: the room's current title, visibility and members.
+3. Decide: nothing to act on, `ssh $A admin@$SERVER_IP "$CLI reports dismiss --room <id>"`; abuse, take it down (next section).
+
+The full procedure, and which links not to open, is in [rooms.md § Takedown](rooms.md#takedown-step-by-step).
+
+### Take down a room fast
+
+```sh
+ssh $A admin@$SERVER_IP "$CLI rooms takedown <id>"     # expect "taken down <id>"
+```
+
+One command does it all: every socket in the room closes with 4006 and doesn't reconnect, share grants are revoked, the row is deleted, the id stays dead for good, and the room's open reports are marked actioned. Copy the id from the `/r/<id>` link or the `id` column, never from a title. Record the id, the UTC time and the reason on an issue. If the same kind of title keeps coming back, add it to `ROOM_TITLE_BLOCKLIST` in `/etc/omega-share/env` and restart ([rooms.md](rooms.md#takedown-step-by-step)).
+
+### Roll back a deploy
+
+`deploy.sh` puts the previous release back by itself when `/healthz` fails after its restart. To roll back a deploy that passed that check but misbehaves:
+
+```sh
+ssh -i "$DEPLOY_KEY_PATH" deploy@$SERVER_IP 'ls -1t /opt/omega-share/releases/; readlink -f /opt/omega-share/current'   # newest first; 5 kept
+ssh -i "$DEPLOY_KEY_PATH" deploy@$SERVER_IP 'ln -sfn /opt/omega-share/releases/<older-sha> /opt/omega-share/current.new && mv -T /opt/omega-share/current.new /opt/omega-share/current && systemctl restart omega-share'
+curl -sS -m 10 $PUBLIC_ORIGIN/healthz                                                                                   # ok
+```
+
+The restart is graceful: clients reconnect on their own. A release older than the 5 kept ones can be deployed again from a clean checkout of its commit with `deploy/deploy.sh`. A rollback across a DB migration doesn't work (the server refuses a DB whose `user_version` is newer than the code): restore the snapshot taken before the deploy instead ([backup.md § Restore](backup.md#restore)). Record what was rolled back and why on the deploy issue.

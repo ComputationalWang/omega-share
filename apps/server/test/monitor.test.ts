@@ -278,7 +278,7 @@ describe("deploy/monitor/monitor.sh: new abuse reports", () => {
     s.run(T0, { OMEGA_MONITOR_CHECKS: "reports", OMEGA_MONITOR_REPORTS_CMD: "" });
     const argv = s.lines("ssh.log")[0] ?? "";
     expect(argv).toContain("apps/server/src/cli.ts reports list");
-    expect(argv).toContain("sudo -u omega-share");
+    expect(argv).toMatch(/sudo -n -u omega-share /); // -n: never wait for a password in batch mode
   });
 
   test("an ssh failure keeps the last count and pushes nothing", () => {
