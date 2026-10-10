@@ -4,7 +4,7 @@ import { Glob } from "bun";
 // Research §3.4 / S6: an outbound link must not hand a room URL to another site in its Referer.
 describe("external links carry rel=noreferrer", () => {
   test("every <a> in the pages that leaves the site has rel noreferrer", async () => {
-    for (const page of ["../index.html", "../privacy.html", "../chat.html", "../room.html"]) {
+    for (const page of ["../index.html", "../privacy.html", "../terms.html", "../contact.html", "../licenses.html", "../chat.html", "../room.html"]) {
       const html = await Bun.file(new URL(page, import.meta.url)).text();
       for (const m of html.matchAll(/<a\s([^>]*)>/g)) {
         const attrs = m[1] ?? "";
