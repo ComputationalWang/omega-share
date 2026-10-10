@@ -1,0 +1,31 @@
+# Throwaway (OME-863): repeat the sync buffer test on the CI runner, fixed spec vs. main's spec. Never merged.
+name: ome-863-loop
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [fixed, old]
+        run: [1, 2]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - if: matrix.variant == 'old'
+        run: git checkout ${{ github.event.pull_request.base.sha }} -- e2e/sync.e2e.ts
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run --filter @omega/extension build:e2e
+      - name: buffer test x10, 2 workers, no retries
+        run: bunx playwright test --project=e2e-sync e2e/sync.e2e.ts --grep "3 s buffer" --repeat-each=10 --workers=2 --retries=0 --reporter=list
