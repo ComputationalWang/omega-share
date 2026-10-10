@@ -42,7 +42,7 @@ async function frames(page: Page, id: string): Promise<v.InferOutput<typeof Fram
 
 test.describe("emotes", () => {
   /** Two clients in the test's own room, both drawn with the motion atlas (b walked in and is at rest). */
-  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "typist" | "burst" | "still") {
+  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "typist" | "burst" | "still" | "wheel" | "wheelcost" | "wheelwalk") {
     clients = await joinRoom(browser, { roomUrl: testRoom("emotes", prefix).url, count: 2, nicknamePrefix: prefix });
     const [a, b] = clients;
     if (a === undefined || b === undefined) throw new Error("need two clients");
@@ -106,5 +106,114 @@ test.describe("emotes", () => {
     await expect(badge).toHaveClass(/ui-emote-pick-laugh/);
     expect((await frames(b.page, aId))?.sticker ?? null).toBeNull();
     await expect(badge).toHaveCount(0, { timeout: 3000 });
+  });
+
+  // OME-732 (M8 W3): set (l)'s emote wheel. T (or the wheel key by the chat input) opens it over your own head.
+  test.describe("the wheel", () => {
+    const roomRenders = (page: Page): Promise<number> =>
+      page.evaluate(() => {
+        const debug: unknown = Reflect.get(window, "__omega");
+        const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+        const get: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "roomRenders") : null;
+        return typeof get === "function" ? v.parse(v.number(), Reflect.apply(get, room, [])) : -1;
+      });
+
+    test("T opens it over your own avatar; arrows pick, Enter sends for everyone, focus goes back", async ({ browser }) => {
+      const { a, b, aId } = await pair(browser, "wheel");
+      await a.page.locator("body").click({ position: { x: 2, y: 2 } });
+      await a.page.keyboard.press("t");
+      const wheel = a.page.getByRole("menu", { name: "Emotes" });
+      await expect(wheel).toBeVisible();
+      await expect(a.page.getByRole("menuitem", { name: "Heart" })).toBeFocused();
+      await expect(a.page.getByTestId("emote-key")).toHaveAttribute("aria-expanded", "true");
+      // Over my head: centred on my name tag (which hangs under my feet), wholly above it, with its tail.
+      const box = await wheel.boundingBox();
+      const tag = await a.page.getByTestId("nickname-tag").filter({ hasText: "wheel-1" }).boundingBox();
+      if (box === null || tag === null) throw new Error("no wheel or tag box");
+      expect(Math.abs(box.x + box.width / 2 - (tag.x + tag.width / 2))).toBeLessThanOrEqual(4);
+      expect(box.y + box.height).toBeLessThan(tag.y);
+      await expect(wheel).not.toHaveClass(/no-tail/);
+      await a.page.keyboard.press("ArrowRight");
+      await expect(a.page.getByRole("menuitem", { name: "Laugh" })).toBeFocused();
+      await a.page.keyboard.press("Enter");
+      await expect(wheel).toBeHidden();
+      await expect.poll(() => a.page.evaluate(() => document.activeElement === document.body)).toBe(true);
+      await expect.poll(async () => (await frames(b.page, aId))?.sticker ?? "", { timeout: 3000, intervals: [50] }).toMatch(/^emote\/laugh\/[0-2]$/);
+      // Esc closes it too.
+      await a.page.keyboard.press("t");
+      await expect(wheel).toBeVisible();
+      await a.page.keyboard.press("Escape");
+      await expect(wheel).toBeHidden();
+    });
+
+    test("opening it draws nothing on the room canvas and adds no long task", async ({ browser }) => {
+      const { a } = await pair(browser, "wheelcost");
+      await a.page.evaluate(() => {
+        const long: number[] = [];
+        Reflect.set(window, "__longTasks", long);
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries()) long.push(e.duration);
+        }).observe({ type: "longtask" });
+      });
+      await a.page.locator("body").click({ position: { x: 2, y: 2 } });
+      // Let the room settle (on demand, ADR 0029) before counting.
+      await expect.poll(async () => { const r = await roomRenders(a.page); await a.page.waitForTimeout(300); return (await roomRenders(a.page)) - r; }, { timeout: 10_000 }).toBe(0);
+      const before = await roomRenders(a.page);
+      await a.page.keyboard.press("t");
+      await expect(a.page.getByRole("menu", { name: "Emotes" })).toBeVisible();
+      await a.page.keyboard.press("ArrowRight");
+      await a.page.keyboard.press("ArrowRight");
+      await a.page.waitForTimeout(300);
+      expect(await roomRenders(a.page)).toBe(before);
+      const long = await a.page.evaluate(() => {
+        const l: unknown = Reflect.get(window, "__longTasks");
+        return Array.isArray(l) ? l.filter((d): d is number => typeof d === "number" && d > 50) : [];
+      });
+      expect(long).toEqual([]);
+    });
+
+    test("it closes when your own avatar starts walking", async ({ browser }) => {
+      const { a } = await pair(browser, "wheelwalk");
+      await a.page.locator("body").click({ position: { x: 2, y: 2 } });
+      await a.page.keyboard.press("t");
+      const wheel = a.page.getByRole("menu", { name: "Emotes" });
+      await expect(wheel).toBeVisible();
+      // A sit from elsewhere (another tab of mine would do the same): my avatar walks to the seat.
+      await a.page.evaluate(() => {
+        const debug: unknown = Reflect.get(window, "__omega");
+        const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+        const send: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "send") : null;
+        if (typeof send === "function") Reflect.apply(send, room, [{ type: "sit", seat: 3 }]);
+      });
+      await expect(wheel).toBeHidden({ timeout: 5000 });
+    });
+
+    test("touch: the wheel key by the chat input opens it; 42 px slots; reduced motion skips the fade", async ({ browser }) => {
+      clients = await joinRoom(browser, {
+        roomUrl: testRoom("emotes", "wheeltap").url,
+        count: 1,
+        nicknamePrefix: "wheeltap",
+        contextOptions: () => ({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: "reduce" }),
+      });
+      const page = clients[0]?.page;
+      if (page === undefined) throw new Error("no client");
+      const key = page.getByTestId("emote-key");
+      await expect(key.locator(".ui-icon-wheel")).toHaveCount(1);
+      await key.tap();
+      const wheel = page.getByRole("menu", { name: "Emotes" });
+      await expect(wheel).toBeVisible();
+      expect(await wheel.evaluate((e) => getComputedStyle(e).animationName)).toBe("none");
+      const slot = await page.getByRole("menuitem", { name: "Clap" }).boundingBox();
+      expect(slot?.width).toBe(42);
+      expect(slot?.height).toBe(42);
+      // Inside the window, wherever it went (over my head, or docked above the composer).
+      const box = await wheel.boundingBox();
+      if (box === null) throw new Error("no wheel box");
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(390);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      await page.getByRole("menuitem", { name: "Clap" }).tap();
+      await expect(wheel).toBeHidden();
+    });
   });
 });
