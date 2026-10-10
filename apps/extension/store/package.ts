@@ -23,7 +23,7 @@ export function packageVersion(): string {
 
 /**
  * `bun run ext:store`: a production MV3 build for `browser` (`.output/chrome-mv3` or `.output/firefox-mv3`), the
- * packaging guard on its manifest, for Firefox also `web-ext lint` with 0 errors and no warning but the desktop-only one (OME-593), then a
+ * packaging guard on its manifest, for Firefox also `web-ext lint` with 0 errors and 0 warnings (OME-593, OME-743), then a
  * reproducible zip `omega-share-<version>-<browser>.zip` ≤ STORE_ZIP_MAX_BYTES next to it.
  * Throws, writing no zip, if any check fails.
  */
