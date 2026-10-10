@@ -94,14 +94,15 @@ Do not tick personally identifiable information, health, financial and payment, 
 
 # Firefox (addons.mozilla.org) listing
 
-OME-593; research and the CEO's decisions are in R-M7c ([OME-546](/OME/issues/OME-546#document-findings)). The board does the Mozilla account and the submission. The add-on is **listed**, desktop only, and free.
+OME-593; research and the CEO's decisions are in R-M7c ([OME-546](/OME/issues/OME-546#document-findings)). The board does the Mozilla account and the submission. The add-on is **listed** for Firefox (desktop) and Firefox for Android ([OME-743](/OME/issues/OME-743)), and free.
 
 ## Package
 
 - **Upload:** `omega-share-<version>-firefox.zip` from `bun run ext:store`. It is the same production code as Chrome. The manifest adds the gecko keys and uses an event-page background, because Firefox MV3 has no service worker. Never upload `.output/firefox-mv3-e2e`.
-- **Checks before zipping:** the Firefox packaging guard (`checkStoreManifest(…, "firefox")`) and `web-ext lint`, which is AMO's own validator. Lint gives 0 errors and one warning: `KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION`. That warning is expected for a desktop-only add-on (ADR 0005), and any other finding stops the build.
+- **Checks before zipping:** the Firefox packaging guard (`checkStoreManifest(…, "firefox")`) and `web-ext lint`, which is AMO's own validator. Lint must give 0 errors and 0 warnings. Any finding stops the build (ADR 0005).
 - **Add-on ID:** `omega-share@omega-share.duckdns.org`. **It is permanent.** Never change it, or the listing and every install are lost.
-- **Minimum version:** Firefox 140 (desktop). There is no `gecko_android` key, so in the "compatible with" step tick **Firefox** only, not Firefox for Android.
+- **Minimum version:** Firefox 140 (desktop) and Firefox for Android 142 (`gecko_android`; 142 is the first Android release that reads `data_collection_permissions`). In the "compatible with" step tick both **Firefox** and **Firefox for Android**.
+- **On Android** the toolbar button lives in the browser menu: ⋮ → Extensions → omega share opens the popup as a full-screen sheet. Opening it from there grants `activeTab`, as the toolbar button does on desktop.
 - **Source code:** the build is bundled and minified, though not obfuscated, so answer **Yes** to "Do you need to submit source code?". Upload `omega-share-<version>-sources.zip`. It contains `SOURCE-BUILD.md`, whose steps are Bun 1.4.2, `bun install --frozen-lockfile` and `bun run ext:store`, and they rebuild a byte-identical zip (checked by `test/sources.test.ts`). Build both zips from a clean checkout of the release commit; `ext:store` warns if the tree is dirty.
 
 ## Listing
