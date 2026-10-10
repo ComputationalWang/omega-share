@@ -74,6 +74,17 @@ const POPOUT_ROOM: readonly Budget[] = Object.entries(POPOUT_ROOM_WINDOWS).flatM
   { id: `poproom.missedVsync.${w}`, area: "Site", metric: `Missed vsyncs with the room popped out, 25 members + video, ${label}`, docMetric: "Missed vsyncs with the room popped out, 25 members + video playing", unit: "%", limit: 1, comparator: "<=" },
 ]);
 
+// OME-731 (M8 W2, ADR 0037): the same three frame budgets with 25 members walking, per forced walk tier, desktop and phone (perf/walk-tiers.perf.ts).
+const WALK25_PROFILES = { desktop: "desktop Chromium", phone: "Pixel 7 emulation" } as const;
+const WALK25_TIERS = { basic: "Basic tier", smooth: "Smooth tier" } as const;
+const WALK25: readonly Budget[] = Object.entries(WALK25_PROFILES).flatMap(([p, pl]) =>
+  Object.entries(WALK25_TIERS).flatMap(([t, tl]): Budget[] => [
+    { id: `walk25.frameP95.${p}.${t}`, area: "Site", metric: `p95 frame time with 25 members walking, ${pl}, ${tl}`, docMetric: "Frame rate with 25 members walking", unit: "ms", limit: 16.7, comparator: "<=" },
+    { id: `walk25.workP95.${p}.${t}`, area: "Site", metric: `Main-thread work p95 per frame with 25 members walking, ${pl}, ${tl}`, docMetric: "Main-thread work per frame with 25 members walking", unit: "ms", limit: 8, comparator: "<=" },
+    { id: `walk25.missedVsync.${p}.${t}`, area: "Site", metric: `Missed vsyncs with 25 members walking, ${pl}, ${tl}`, docMetric: "Missed vsyncs with 25 members walking", unit: "%", limit: 1, comparator: "<=" },
+  ]),
+);
+
 export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
@@ -89,6 +100,7 @@ export const BUDGETS: readonly Budget[] = [
   ...FULLSCREEN,
   ...POPOUT,
   ...POPOUT_ROOM,
+  ...WALK25,
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
   { id: "sync.spread", area: "Sync", metric: "Spread after play/pause/seek", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   // M2 (OME-131): one merge-blocking row per provider. Twitch live has no position: its spread is first-to-last client applying a pause / play-from-live.

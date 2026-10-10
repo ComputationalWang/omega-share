@@ -1,6 +1,7 @@
-// Drives avatar motion without a ticker (OME-185 keeps the room render-on-demand). While someone walks, one timer per
-// 150 ms step (walkers share the step clock, walks.ts); at rest, one timer to the next breathe change on a 400 ms clock.
-// Each timer then asks for one rAF, so a hidden tab never renders. An emote (OME-415) plays once on the same loop, its
+// Drives avatar motion without a ticker (OME-185 keeps the room render-on-demand). While someone walks: in Basic, one
+// timer per 150 ms step (walkers share the step clock, walks.ts); in Smooth (ADR 0037), the next rAF from each frame
+// until everyone has arrived. At rest, one timer to the next breathe change on a 400 ms clock. Each timer then asks
+// for one rAF, so a hidden tab never renders. An emote (OME-415) plays once on the same loop, its
 // timers on the one-shot's own frame times: a wave swaps the avatar's frames, a sticker is drawn above the avatar.
 import type { EmoteKind, MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, oneShotFrame, type MotionFrames, type StickerKind } from "./motion";
@@ -24,6 +25,10 @@ export interface AnimatorOptions {
   readonly setTimer: (fn: () => void, ms: number) => unknown;
   readonly clearTimer: (h: unknown) => void;
   readonly reducedMotion: () => boolean;
+  /** The Smooth tier (walk/tier.ts): while anyone walks, draw every frame. Read each frame. */
+  readonly smooth: () => boolean;
+  /** After each render: when its frame started (`now()`), and whether it was a Smooth frame drawing a walk (the tier probe). */
+  readonly rendered?: (start: number, walking: boolean) => void;
   /** Put one avatar at `pose`; `frame` is its motion frame key, null until the atlas is in. */
   readonly draw: (id: MemberId, avatar: number, pose: Pose, frame: string | null) => void;
   /** Put `id`'s emote sticker (a motion frame key) with its bottom centre at (x, y), or hide it (null). Called on every draw. */
@@ -60,7 +65,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
   function frameKey(avatar: number, p: Pose, still: boolean): string | null {
     if (frames === null) return null;
     const d = DIRS.indexOf(p.dir);
-    if (p.walking) return frames.walk[avatar]?.[d]?.[p.step] ?? null;
+    if (p.walking) return frames.walk8[avatar]?.[d]?.[p.step] ?? null;
     const rest = frames.rest[avatar];
     const cycle = (p.sitting ? rest?.sit : rest?.idle)?.[d];
     if (cycle === undefined) return null;
@@ -113,6 +118,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
     const now = o.now();
     const next = drawAll(now);
     o.render();
+    o.rendered?.(now, o.smooth() && o.walks.walking(now));
     schedule(now, next);
   };
 
@@ -134,6 +140,10 @@ export function createAnimator(o: AnimatorOptions): Animator {
     }
     if (disposed || paused) return;
     let wait = nextEmote;
+    if (o.walks.walking(now) && o.smooth()) {
+      requestFrame();
+      return;
+    }
     if (o.walks.walking(now)) {
       const at = (Math.floor(now / WALK_FRAME_MS) + 1) * WALK_FRAME_MS;
       wait = Math.min(wait, at - now);

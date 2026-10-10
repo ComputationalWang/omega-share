@@ -28,6 +28,9 @@ QA measures these on every merge (Playwright + Chromium; the Firefox rows in hea
 | Site | Frame rate with the room popped out, 25 members + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), each window on its own: the room tab (the picture only, its Pixi renderer paused) and the room window (`room.html`, the one renderer: 25 avatars, 8 seated, someone always walking, and the chat) while 24 members chat at ~8/s room-wide and a seat changes every 100 ms, relayed over the BroadcastChannel — OME-600 |
 | Site | Main-thread work per frame with the room popped out, 25 members + video playing | ≤ 8 ms p95, each window, same pop-out room run — OME-600 |
 | Site | Missed vsyncs with the room popped out, 25 members + video playing | ≤ 1.0 % of frames, each window, same pop-out room run — OME-600 |
+| Site | Frame rate with 25 members walking | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), per forced walk tier (Basic, Smooth: `localStorage["omega.motion"]`, ADR 0037), desktop Chromium and `devices["Pixel 7"]`: the observer plus 24 bots sitting down on free seats and standing up again (one change every ~120 ms, at least 15 of the 24 walking inside the window), video playing — OME-731 |
+| Site | Main-thread work per frame with 25 members walking | ≤ 8 ms p95, per forced walk tier (Basic, Smooth: `localStorage["omega.motion"]`, ADR 0037), desktop Chromium and `devices["Pixel 7"]`, same run — OME-731 |
+| Site | Missed vsyncs with 25 members walking | ≤ 1.0 % of frames, per forced walk tier (Basic, Smooth: `localStorage["omega.motion"]`, ADR 0037), desktop Chromium and `devices["Pixel 7"]`, same run — OME-731 |
 | Site | JS heap after 10 min in room | ≤ 150 MB |
 | Sync | Spread between clients after play/pause/seek | ≤ 500 ms |
 | Sync | Spread between clients after a queue advance | ≤ 1.5 s, first to last of 8 clients playing the next item after a video ends — ADR 0031 §7 |

@@ -20,7 +20,7 @@ const standAt = (who: string, col: number, row: number): WalkTarget => {
   return { id: id(who), at, z: standDepth(at), seatFacing: null };
 };
 
-function setup(opts: { reduced?: boolean } = {}) {
+function setup(opts: { reduced?: boolean; smooth?: () => boolean } = {}) {
   let now = 0;
   const rafs: (() => void)[] = [];
   const timers: { fn: () => void; ms: number }[] = [];
@@ -28,7 +28,9 @@ function setup(opts: { reduced?: boolean } = {}) {
   const draws: { id: string; pose: Pose; frame: string | null }[] = [];
   const stickers: { id: string; frame: string | null; x: number; y: number }[] = [];
   let renders = 0;
-  const walks = createWalks({ reducedMotion: () => opts.reduced ?? false });
+  const smooth = opts.smooth ?? (() => false);
+  const walks = createWalks({ reducedMotion: () => opts.reduced ?? false, smooth });
+  const rendered: { start: number; walking: boolean }[] = [];
   walks.setGrid(walkGrid(DEFAULT_LAYOUT));
   const anim = createAnimator({
     walks,
@@ -44,6 +46,8 @@ function setup(opts: { reduced?: boolean } = {}) {
       cleared++;
     },
     reducedMotion: () => opts.reduced ?? false,
+    smooth,
+    rendered: (start, walking) => rendered.push({ start, walking }),
     draw: (who, _avatar, pose, frame) => draws.push({ id: who, pose: { ...pose }, frame }),
     drawEmote: (who, frame, x, y) => stickers.push({ id: who, frame, x, y }),
     render: () => {
@@ -58,6 +62,7 @@ function setup(opts: { reduced?: boolean } = {}) {
     rafs,
     timers,
     renders: () => renders,
+    rendered,
     cleared: () => cleared,
     at: (t: number) => {
       now = t;
@@ -404,5 +409,75 @@ describe("animator pause (full screen)", () => {
     s.frame(0);
     s.anim.pause(false);
     expect(s.rafs.length).toBe(0);
+  });
+});
+
+// OME-731 (ADR 0037): in Smooth the room draws every frame while anyone walks (the in-betweens too), one rAF after the
+// other; at rest it goes back to the breathe clock. Basic keeps its timer per 150 ms step.
+describe("animator, Smooth tier", () => {
+  test("a walk requests the next frame on every frame until the walker arrives, then waits on the breathe clock", () => {
+    const s = setup({ smooth: () => true });
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 5, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(0);
+    s.walks.place([standAt("a", 5, 8)], 0); // one tile, ne, starts at 0
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    expect(s.rafs.length).toBe(1);
+    s.timers.length = 0;
+    const before = s.renders();
+    const shown = new Set<string | null>();
+    let t = 0;
+    while (s.rafs.length > 0 && t < 2000) {
+      t += 1000 / 60;
+      s.frame(t);
+      shown.add(s.draws.at(-1)?.frame ?? null);
+      if (s.draws.at(-1)?.pose.walking === true) expect(s.timers.length).toBe(0);
+    }
+    // ~600 ms of walking at 60 Hz, one render per frame, then at rest.
+    expect(s.renders() - before).toBeGreaterThanOrEqual(35);
+    expect(s.renders() - before).toBeLessThanOrEqual(38);
+    expect(s.draws.at(-1)?.pose.walking).toBe(false);
+    expect(s.rafs.length).toBe(0);
+    expect(s.timers.length).toBe(1);
+    for (const k of ["walk/juno/ne/0", "walk8/juno/ne/1", "walk/juno/ne/1", "walk8/juno/ne/3", "walk/juno/ne/2", "walk8/juno/ne/5", "walk/juno/ne/3", "walk8/juno/ne/7"]) expect(shown.has(k)).toBe(true);
+  });
+
+  test("dropping to Basic mid-walk goes back to one timer per 150 ms step on the next frame", () => {
+    let on = true;
+    const s = setup({ smooth: () => on });
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 5, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(0);
+    s.walks.place([standAt("a", 5, 6)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(17);
+    expect(s.rafs.length).toBe(1);
+    on = false;
+    s.timers.length = 0;
+    s.frame(34);
+    expect(s.rafs.length).toBe(0);
+    expect(s.timers.at(-1)?.ms).toBe(150 - 34);
+    expect(s.draws.at(-1)?.frame).toBe("walk/juno/ne/0");
+  });
+
+  test("each render reports when its frame started and whether Smooth drew a walk in it (the tier probe)", () => {
+    let on = false;
+    const s = setup({ smooth: () => on });
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 5, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(5);
+    expect(s.rendered).toEqual([{ start: 5, walking: false }]);
+    s.walks.place([standAt("a", 5, 6)], 5); // starts at 150
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.timers.at(-1)?.fn();
+    s.frame(152);
+    expect(s.rendered.at(-1)).toEqual({ start: 152, walking: false }); // Basic: a step render, not a Smooth walking one
+    on = true;
+    s.timers.at(-1)?.fn();
+    s.frame(300);
+    expect(s.rendered.at(-1)).toEqual({ start: 300, walking: true });
   });
 });
