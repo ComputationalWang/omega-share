@@ -2,8 +2,11 @@
 // the Pixi room: a bubble costs no canvas render and no JS per frame. A fixed pool of 8 nodes, reused oldest-first, so a
 // message creates and destroys nothing. Each node is two elements: the outer one rides the speaker's head (`move`, on
 // every walk frame, a transform write only); the inner one runs the rise and fade @keyframes, so a walk never restarts
-// them. Overlap is resolved once per message and once per walk end (`settle`), never per frame: newest nearest the
-// heads, an older bubble in a newer one's way moves straight up, 3 px clear, loses its tail and names its speaker.
+// them. Overlap is resolved once per frame that brings sizes and once per walk end (`settle`), never per walk frame:
+// newest nearest the heads, an older bubble in a newer one's way moves straight up, 3 px clear, loses its tail and names
+// its speaker. Nothing here reads layout (OME-802): a ResizeObserver hands over each new bubble's size from the frame's
+// own layout, before paint, along with its stacked twin's (the same box with the name, never painted), so neither a
+// message nor a bubble that stacks forces a style and layout pass of its own.
 // The layer is decorative (aria-hidden, no live region): the chat log is the accessible record.
 import type { MemberId } from "@omega/shared";
 import { el } from "../controls/dom";
@@ -48,9 +51,9 @@ export interface Floats {
   /** Drop the bubbles of anyone not in `ids` (they left). */
   keep(ids: { has(id: MemberId): boolean }): void;
   /**
-   * The layer was hidden or shown (full screen, the room popped out and back): a hidden subtree has no layout and no
-   * CSS animations. Puts every live bubble's animation back at its age, and measures, places and stacks the ones said
-   * while hidden. Call it on the layer's resize, not per frame.
+   * The layer was hidden or shown (full screen, the room popped out and back): a hidden subtree has no CSS animations.
+   * Puts every live bubble's animation back at its age (the ones said while hidden are sized, placed and stacked when
+   * their size arrives). Call it on the layer's resize, not per frame.
    */
   reflow(): void;
 }
@@ -60,9 +63,32 @@ export interface FloatsOptions {
   readonly now: () => number;
   readonly setTimer: (fn: () => void, ms: number) => unknown;
   readonly clearTimer: (h: unknown) => void;
-  /** The inner box's border-box size (stage px). Reads layout, so it runs once per message only. */
-  readonly measure?: (e: HTMLElement) => { w: number; h: number };
+  /** Watches boxes' border-box sizes (stage px) from the browser's own layout: by default a ResizeObserver. */
+  readonly watch?: (onSizes: (entries: readonly SizeEntry[]) => void) => SizeWatch;
 }
+
+/** The part of a ResizeObserverEntry the floats read. */
+export interface SizeEntry {
+  readonly target: Element;
+  readonly borderBoxSize: readonly { readonly inlineSize: number; readonly blockSize: number }[];
+}
+
+export interface SizeWatch {
+  observe(e: HTMLElement): void;
+  unobserve(e: HTMLElement): void;
+}
+
+const resizeWatch = (onSizes: (entries: readonly SizeEntry[]) => void): SizeWatch => {
+  const ro = new ResizeObserver(onSizes);
+  return {
+    observe: (e) => {
+      ro.observe(e, { box: "border-box" });
+    },
+    unobserve: (e) => {
+      ro.unobserve(e);
+    },
+  };
+};
 
 const FREE = 0;
 const LIVE = 1;
@@ -73,6 +99,9 @@ interface Slot {
   readonly p: HTMLParagraphElement;
   readonly who: HTMLElement;
   readonly text: HTMLSpanElement;
+  /** The stacked twin: the bubble's box with its speaker's name, laid out but never painted (generated content). */
+  readonly twin: HTMLParagraphElement;
+  readonly twinSay: HTMLSpanElement;
   state: typeof FREE | typeof LIVE | typeof LEAVING;
   speaker: MemberId | null;
   /** Arrival order, for oldest-first reuse. */
@@ -84,9 +113,14 @@ interface Slot {
   dx: number;
   w: number;
   h: number;
+  /** The box's size once stacked (the twin's). */
+  sw: number;
+  sh: number;
+  /** Which sizes have arrived since `say`: 1 the bubble's, 2 the twin's. */
+  sized: number;
   push: number;
   stacked: boolean;
-  /** False while said with the stage hidden (it read 0×0): not placed or stacked until `reflow` measures it. */
+  /** False until both sizes arrive (a frame later, or once a hidden stage shows): not placed, stacked or animated. */
   measured: boolean;
   timer: unknown;
 }
@@ -96,7 +130,9 @@ const px = (n: number): string => `${String(n)}px`;
 export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   layer.setAttribute("aria-hidden", "true");
   layer.removeAttribute("aria-live");
-  const measure = o.measure ?? ((e: HTMLElement) => ({ w: e.offsetWidth, h: e.offsetHeight }));
+  const watch = (o.watch ?? resizeWatch)((entries) => {
+    sized(entries);
+  });
   const slots: Slot[] = Array.from({ length: FLOAT_POOL }, () => {
     const text = el("span");
     const who = el("b", { className: "who", hidden: true });
@@ -104,10 +140,13 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     say.append(who, text);
     const p = el("p", { className: "ui-float" });
     p.append(say);
+    const twinSay = el("span");
+    const twin = el("p", { className: "float-twin" });
+    twin.append(twinSay);
     const outer = el("div", { className: "float-slot", hidden: true });
-    outer.append(p);
+    outer.append(p, twin);
     layer.append(outer);
-    return { outer, p, who, text, state: FREE, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, push: 0, stacked: false, measured: false, timer: null };
+    return { outer, p, who, text, twin, twinSay, state: FREE, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, stacked: false, measured: false, timer: null };
   });
   /** Live bubbles, newest first, rebuilt per resolve (no allocation). */
   const order: Slot[] = [];
@@ -118,6 +157,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     s.timer = null;
     s.state = FREE;
     s.speaker = null;
+    watch.unobserve(s.p);
+    watch.unobserve(s.twin);
     s.outer.hidden = true;
     s.text.removeAttribute("data-testid");
     s.p.classList.remove("is-live", "is-leaving");
@@ -164,17 +205,15 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   };
 
   /**
-   * The bubble loses its tail and names its speaker. The name widens the box, so it is measured and centred again
-   * (once per bubble: a stacked bubble stays stacked) before the overlap maths uses its width (OME-791).
+   * The bubble loses its tail and names its speaker. The name widens the box, so it takes its twin's size and is
+   * centred again (once per bubble: a stacked bubble stays stacked) before the overlap maths uses its width (OME-791).
    */
   const stack = (s: Slot): void => {
     s.stacked = true;
     s.p.classList.add("is-stacked");
     s.who.hidden = false;
-    const size = measure(s.p);
-    if (size.w === 0 && size.h === 0) return;
-    s.w = size.w;
-    s.h = size.h;
+    s.w = s.sw;
+    s.h = s.sh;
     placeBox(s);
   };
 
@@ -216,6 +255,43 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     }
   };
 
+  /** Sizes from the frame's layout: a bubble with both is placed and its keyframes start; then one overlap pass. */
+  const sized = (entries: readonly SizeEntry[]): void => {
+    let any = false;
+    for (const e of entries) {
+      const box = e.borderBoxSize[0];
+      if (box === undefined) continue;
+      const w = Math.round(box.inlineSize);
+      const h = Math.round(box.blockSize);
+      // No layout (the stage is hidden): keep watching, it reports again once it shows.
+      if (w === 0 && h === 0) continue;
+      for (const s of slots) {
+        if (s.state !== LIVE || s.measured) continue;
+        if (e.target === s.p) {
+          s.w = w;
+          s.h = h;
+          s.sized |= 1;
+          watch.unobserve(s.p);
+        } else if (e.target === s.twin) {
+          s.sw = w;
+          s.sh = h;
+          s.sized |= 2;
+          watch.unobserve(s.twin);
+        } else continue;
+        if (s.sized === 3) {
+          s.measured = true;
+          placeBox(s);
+          const age = o.now() - s.startedAt;
+          s.p.style.animationDelay = age > 0 ? `-${String(age)}ms` : "";
+          s.p.classList.add("is-live");
+          any = true;
+        }
+        break;
+      }
+    }
+    if (any) resolve();
+  };
+
   return {
     say(m) {
       const now = o.now();
@@ -249,29 +325,28 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       s.speaker = m.id;
       s.seq = ++seq;
       s.startedAt = now - elapsed;
-      // Without .is-live the node has no animation or transition: the reset push is instant and, after the measure's
-      // style flush, adding .is-live starts the keyframes from the top.
+      // Without .is-live the node has no animation or transition: the reset push is instant and, as the frame's style
+      // pass sees the node without it, adding .is-live when its size arrives (before paint) starts the keyframes over.
       s.p.className = m.self ? "ui-float is-self" : "ui-float";
       s.stacked = false;
       s.who.hidden = true;
       s.who.textContent = m.name;
       s.text.textContent = m.text;
       s.text.setAttribute("data-testid", "chat-message");
+      s.twinSay.dataset["who"] = m.name;
+      s.twinSay.dataset["say"] = m.text;
       s.push = 0;
       s.p.style.setProperty("--push", "0px");
       s.outer.hidden = false;
       anchor(s, m.at.x, m.at.y);
-      const size = measure(s.p);
-      s.w = size.w;
-      s.h = size.h;
-      s.measured = size.w > 0 || size.h > 0;
-      if (s.measured) placeBox(s);
-      s.p.style.animationDelay = elapsed > 0 ? `-${String(elapsed)}ms` : "";
-      s.p.classList.add("is-live");
+      s.measured = false;
+      s.sized = 0;
+      s.p.style.animationDelay = "";
+      watch.observe(s.p);
+      watch.observe(s.twin);
       s.timer = o.setTimer(() => {
         free(s);
       }, FLOAT_LIFE_MS - elapsed);
-      resolve();
     },
     move(id, x, y) {
       for (const s of slots) if (s.state !== FREE && s.speaker === id) anchor(s, x, y);
@@ -291,17 +366,9 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       const now = o.now();
       let any = false;
       for (const s of slots) {
-        if (s.state !== LIVE) continue;
+        if (s.state !== LIVE || !s.measured) continue;
         const age = now - s.startedAt;
         s.p.style.animationDelay = age > 0 ? `-${String(age)}ms` : "";
-        if (!s.measured) {
-          const size = measure(s.p);
-          if (size.w === 0 && size.h === 0) continue;
-          s.w = size.w;
-          s.h = size.h;
-          s.measured = true;
-          placeBox(s);
-        }
         any = true;
       }
       if (any) resolve();
