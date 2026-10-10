@@ -5,7 +5,7 @@ import { cellCenter } from "../src/layout";
 import { EMOTE_LIFT, createAnimator } from "../src/walk/animator";
 import { parseMotion } from "../src/walk/motion";
 import { walkGrid } from "../src/walk/path";
-import { createWalks, type Pose, type WalkTarget } from "../src/walk/walks";
+import { createWalks, type Pose, type WalkTarget, type Walks } from "../src/walk/walks";
 
 // OME-408: the room still renders on demand (OME-185). Frames run only while someone walks; at rest, breathing redraws
 // once per breathe frame change, through one timer then one rAF (so a hidden tab renders nothing).
@@ -29,7 +29,15 @@ function setup(opts: { reduced?: boolean; smooth?: () => boolean } = {}) {
   const stickers: { id: string; frame: string | null; x: number; y: number }[] = [];
   let renders = 0;
   const smooth = opts.smooth ?? (() => false);
-  const walks = createWalks({ reducedMotion: () => opts.reduced ?? false, smooth });
+  const inner = createWalks({ reducedMotion: () => opts.reduced ?? false, smooth });
+  let walkingCalls = 0;
+  const walks: Walks = {
+    ...inner,
+    walking: (t) => {
+      walkingCalls++;
+      return inner.walking(t);
+    },
+  };
   const rendered: { start: number; walking: boolean }[] = [];
   walks.setGrid(walkGrid(DEFAULT_LAYOUT));
   const anim = createAnimator({
@@ -64,6 +72,7 @@ function setup(opts: { reduced?: boolean; smooth?: () => boolean } = {}) {
     renders: () => renders,
     rendered,
     cleared: () => cleared,
+    walkingCalls: () => walkingCalls,
     at: (t: number) => {
       now = t;
     },
@@ -479,5 +488,21 @@ describe("animator, Smooth tier", () => {
     s.timers.at(-1)?.fn();
     s.frame(300);
     expect(s.rendered.at(-1)).toEqual({ start: 300, walking: true });
+  });
+
+  test("a Smooth walking frame asks walks.walking() once (OME-750: each call makes a Map iterator)", () => {
+    const s = setup({ smooth: () => true });
+    s.anim.setFrames(frames);
+    s.walks.place([standAt("a", 5, 9)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    s.frame(0);
+    s.walks.place([standAt("a", 5, 6)], 0);
+    s.anim.set([{ id: id("a"), avatar: 0 }]);
+    for (let t = 17; t < 300; t += 17) {
+      const before = s.walkingCalls();
+      s.frame(t);
+      expect(s.draws.at(-1)?.pose.walking).toBe(true);
+      expect(s.walkingCalls() - before).toBe(1);
+    }
   });
 });

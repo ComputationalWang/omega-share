@@ -118,8 +118,9 @@ export function createAnimator(o: AnimatorOptions): Animator {
     const now = o.now();
     const next = drawAll(now);
     o.render();
-    o.rendered?.(now, o.smooth() && o.walks.walking(now));
-    schedule(now, next);
+    const walking = o.walks.walking(now);
+    o.rendered?.(now, walking && o.smooth());
+    schedule(now, next, walking);
   };
 
   function requestFrame(): void {
@@ -133,18 +134,19 @@ export function createAnimator(o: AnimatorOptions): Animator {
     requestFrame();
   };
 
-  function schedule(now: number, nextBreath: number): void {
+  /** `walking` is `walks.walking(now)`, asked once per frame by the caller (each call walks a Map iterator). */
+  function schedule(now: number, nextBreath: number, walking: boolean): void {
     if (timer !== null) {
       o.clearTimer(timer);
       timer = null;
     }
     if (disposed || paused) return;
     let wait = nextEmote;
-    if (o.walks.walking(now) && o.smooth()) {
+    if (walking && o.smooth()) {
       requestFrame();
       return;
     }
-    if (o.walks.walking(now)) {
+    if (walking) {
       const at = (Math.floor(now / WALK_FRAME_MS) + 1) * WALK_FRAME_MS;
       wait = Math.min(wait, at - now);
     } else if (nextBreath !== Infinity) {
@@ -161,7 +163,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       for (const id of plays.keys()) if (!avatars.some((a) => a.id === id)) plays.delete(id);
       if (paused) return;
       const now = o.now();
-      schedule(now, drawAll(now));
+      schedule(now, drawAll(now), o.walks.walking(now));
     },
     setFrames(f) {
       frames = f;
