@@ -10,6 +10,9 @@ import { site } from "./support/selectors";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
+// The probe reads frame timing, and the trace screencast drops vsyncs on the shared viz thread (ADR 0017): with tracing
+// on under the full parallel run it can honestly settle in Basic three room starts in a row.
+test.use({ trace: "off" });
 
 let clients: Client[] = [];
 test.afterEach(async () => {
