@@ -314,10 +314,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       const inView = head.x >= seen.x && head.x <= seen.x + seen.w && head.y >= seen.y && head.y <= seen.y + seen.h;
       return { head: inView ? head : null, room };
     },
-    // The hint's emote line is done; it leaves the flow before the wheel is placed over my head (`firstHint` is made
-    // with the room bar, below; a wheel only opens once the room is up).
+    // The hint's emote line is done. It leaves the flow, and the stage is refitted now rather than on the next resize
+    // callback, before the wheel is placed over my head (`firstHint` and `fit` are made below; a wheel only opens once the room is up).
     onOpen: () => {
+      if (!firstHint.isOpen()) return;
       firstHint.dismiss();
+      fit();
     },
   });
   closeWheel = () => {
