@@ -47,7 +47,7 @@ const PopStateFields = {
 const PopKindSchema = v.picklist(["chat", "room"]);
 export type PopKind = v.InferOutput<typeof PopKindSchema>;
 
-const STATUSES = ["idle", "connecting", "open", "reconnecting", "full", "refused", "closed", "taken-down", "kicked"] as const satisfies readonly Status[];
+const STATUSES = ["idle", "connecting", "open", "reconnecting", "full", "refused", "closed", "taken-down", "kicked", "not-found"] as const satisfies readonly Status[];
 
 /**
  * What the room's stage draws, mirrored from the room tab's view state (OME-600). The room is the wire's own schema, so
