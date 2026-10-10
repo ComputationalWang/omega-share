@@ -99,6 +99,28 @@ test("two bubbles from one speaker never overlap: the older one moves up, 3 px c
   }
 });
 
+test("a stacked bubble is exactly the size its never-painted twin measured: short, wrapped and clamped, or one unbroken word", async ({ browser }) => {
+  // OME-802: a stacking bubble takes its name-widened size from its node's twin, sized in the same frame, instead of
+  // forcing a layout to measure itself again. The twin must lay out exactly like the bubble with its speaker's name.
+  clients = await joinRoom(browser, { roomUrl: testRoom("bubbles", "twin").url, count: 1, nicknamePrefix: "bt" });
+  const [a] = clients;
+  if (a === undefined) throw new Error("no client");
+  const cases = ["short", "a long line that wraps over more than three lines in the bubble, so the clamp cuts it off before the end", "x".repeat(90)];
+  for (const [i, text] of cases.entries()) {
+    // Two lines per case: the room's chat bucket (5, then 1 a second) needs a refill before the sixth.
+    if (i > 0) await a.page.waitForTimeout(1100);
+    await say(a.page, text);
+    await say(a.page, "then");
+    const stacked = a.page.locator(".ui-float").filter({ hasText: text });
+    await expect(stacked).toHaveClass(/is-stacked/);
+    const sizes = await stacked.evaluate((p: HTMLElement) => {
+      const twin = p.closest(".float-slot")?.querySelector<HTMLElement>(".float-twin");
+      return { bubble: [p.offsetWidth, p.offsetHeight], twin: twin === null || twin === undefined ? null : [twin.offsetWidth, twin.offsetHeight] };
+    });
+    expect(sizes.twin).toEqual(sizes.bubble);
+  }
+});
+
 test("2 per speaker: a third line sends the oldest away; the bubbles fade out after about 5 s", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("bubbles", "caps").url, count: 1, nicknamePrefix: "bc" });
   const [a] = clients;
