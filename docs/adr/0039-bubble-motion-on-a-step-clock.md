@@ -12,7 +12,7 @@
 Removing only the forced layouts (ResizeObserver plus twin, below) cut the work but left the rows red. With the CSS animations also gone, the rows came back to within noise of the pre-W1 build.
 
 **Decision:**
-- **No CSS animation or transition on a bubble.** `apps/web/src/style.css` sets `animation: none; transition: none` on `.float-slot > .ui-float`. This overrides the keyframes `reference.css` declares for the standalone component.
+- **No CSS animation or transition on a bubble.** `apps/web/src/style.css` sets `animation: none; transition: none` on `.float-motion > .ui-float`. This overrides the keyframes `reference.css` declares for the standalone component.
 - **One step clock.** `floats.ts` runs a single timer for the whole layer. Step `i` falls at `i × 5000 / 24` ms on `now`'s clock, the same instants for every bubble. On each step it frees the bubbles that are due and writes the rest as inline styles, only when a value changes. The writes go on a bare `.float-motion` wrapper between the slot and the bubble: it has no rules, no tail and no custom properties, so restyling it is cheap. Restyling the bubbles themselves cost about 1 ms per step for 8 bubbles, against 0.1 ms for the wrappers in isolation. The values written are:
   - the rise: `translate: 0 -Npx`, where N is the number of whole steps between the bubble's birth and the last step, capped at 24;
   - the fade: `opacity`, in hundredths.
@@ -30,7 +30,7 @@ Removing only the forced layouts (ResizeObserver plus twin, below) cut the work 
   | Push (stacking) | 160 ms slide in 4 steps | **Changed:** instant, written as `transform: translateY()` on the wrapper |
 
 - **No layout reads.** A `ResizeObserver` (border-box) delivers each new bubble's size from the frame's own layout, before paint. Each pool node has a stacked twin (`.float-twin`): the same box with the speaker's name, `visibility: hidden`, with its words as `attr()` generated content. The twin is sized in the same delivery, so a bubble that stacks takes its width from the twin and is never measured again. A bubble is not placed or shown until both sizes arrive. A bubble said while the stage is hidden reports once it shows.
-- **The overlap maths counts only what shows now.** An older bubble's head start is the lower of two numbers: its whole-step lead, and its current rise minus the newer bubble's. Pushes still only grow, and two live bubbles on the same steps keep their gap for as long as both are up.
+- **The overlap maths counts only what shows now.** An older bubble's head start is the lower of two numbers: its whole-step lead, and its current rise minus the newer bubble's. Pushes still only grow, and two live bubbles on the same steps keep their gap for as long as both are up. One edge case: if a late timer lets a step boundary pass before the step fires, a bubble sized in that window can be a step ahead of the others for up to one step, so its gap may read 2 px instead of 3.
 
 **Consequences:**
 - **Steady state:** no per-frame style work from bubbles. A step costs one small style pass on 4.8 frames a second, and a message costs its own writes plus one ResizeObserver pass.

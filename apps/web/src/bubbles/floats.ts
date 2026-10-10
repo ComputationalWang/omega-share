@@ -2,9 +2,10 @@
 // a bubble costs no canvas render and no JS per frame. A fixed pool of 8 nodes, reused oldest-first, so a message creates
 // and destroys nothing. Each node is three elements: the outer one rides the speaker's head (`move`, on every walk frame,
 // a transform write only); a bare wrapper inside it carries the push, the rise and the fade (restyling it is cheap: no
-// rules, no tail, no custom properties); the bubble itself is only written when a message lands or it stacks. Overlap is resolved once per frame that brings sizes and once
-// per walk end (`settle`), never per walk frame: newest nearest the heads, an older bubble in a newer one's way moves
-// straight up, 3 px clear, loses its tail and names its speaker.
+// rules, no tail, no custom properties); the bubble itself is only written when a message lands or it stacks. Overlap
+// is resolved once per frame that brings sizes and once per walk end (`settle`), never per walk frame: newest nearest
+// the heads, an older bubble in a newer one's way moves straight up, 3 px clear, loses its tail and names its speaker.
+// `.is-live` marks a bubble sized and placed (no style hangs on it: a hook for tests and QA).
 // OME-802 (ADR 0039): no CSS animation, and nothing here reads layout. Blink restyles every running CSS animation on
 // every main frame, composited or not, so the 24-step rise and the fades are written on one shared step clock instead:
 // one timer for the whole layer, 24 steps a life, every bubble's writes on the same step. A ResizeObserver hands over
@@ -397,7 +398,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       s.speaker = m.id;
       s.seq = ++seq;
       s.startedAt = now - elapsed;
-      // Not .is-live (so not painted as placed) until its size arrives, in this frame's layout.
+      // Not .is-live until its size arrives in this frame's layout, before paint: then it is placed and shown at its age.
       s.p.className = m.self ? "ui-float is-self" : "ui-float";
       s.stacked = false;
       s.who.hidden = true;
