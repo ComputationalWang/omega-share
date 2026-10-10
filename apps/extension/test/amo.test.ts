@@ -192,7 +192,8 @@ describe("amoClient requests", () => {
     expect(version.edit_url).toBe("https://addons.mozilla.org/en-US/developers/addon/omega-share/versions/5002");
 
     const [post, patch] = amo.seen;
-    expect(post?.body).toEqual({ upload: "u-1" });
+    // Explicit, so the version is listed for Firefox and Firefox for Android (OME-743) whatever AMO would default to.
+    expect(post?.body).toEqual({ upload: "u-1", compatibility: ["firefox", "android"] });
     expect(patch?.method).toBe("PATCH");
     const file = (patch?.body as FormData).get("source") as File;
     expect(file.name).toBe("omega-share-0.1.1-sources.zip");
