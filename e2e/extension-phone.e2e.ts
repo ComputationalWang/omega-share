@@ -1,6 +1,8 @@
 // The popup on a phone (OME-743): Firefox for Android opens it as a full-screen sheet 360-412 px wide with a touch pointer.
-// Chromium here stands in: the popup page opened as a tab, a viewport of that width, and CDP touch emulation, which makes
-// `(pointer: coarse)` match. Desktop keeps its fixed 320 px body (Chrome sizes the popup to its content) with a fine pointer.
+// Chromium here stands in: the popup page opened as a tab, a viewport of that width, and Blink's pointer/hover switches.
+// What every phone has in common is `(hover: none)`. The pointer is not reliable: on Firefox for Android 157 (emulator, the
+// OME-743 smoke) a touchscreen that also reports a stylus gives `(pointer: fine)`, and so would an S Pen phone.
+// Desktop keeps its fixed 320 px body (Chrome sizes the popup to its content) with a mouse, which hovers.
 import type { BrowserContext, Page } from "@playwright/test";
 import { PENDING, URLS, available } from "./support/apps";
 import { expect, test } from "./support/extension";
@@ -32,19 +34,24 @@ async function setup(context: BrowserContext, openPopup: (p: Page) => Promise<Pa
   return openPopup(source);
 }
 
-test.describe("touch phone", () => {
-  // Chromium's own switch for a touch device: `(pointer: coarse)` and `(hover: none)` match, as on Android.
-  test.use({ extraArgs: ["--blink-settings=primaryPointerType=2,availablePointerTypes=2,primaryHoverType=1,availableHoverTypes=1"] });
+// Blink pointer types: 2 coarse, 4 fine; hover types: 1 none.
+const PHONES = [
+  { name: "a touch phone", pointer: 2 },
+  { name: "a phone whose touchscreen reports a stylus (fine pointer, no hover), as Firefox for Android does", pointer: 4 },
+] as const;
+for (const phone of PHONES) test.describe(phone.name, () => {
+  const p = String(phone.pointer);
+  test.use({ extraArgs: [`--blink-settings=primaryPointerType=${p},availablePointerTypes=${p},primaryHoverType=1,availableHoverTypes=1`] });
 for (const [width, height] of [[360, 740], [412, 915]] as const) {
-  test(`the popup fits and is usable at ${String(width)} px on a touch phone`, async ({ context, openPopup }) => {
+  test(`the popup fits and is usable at ${String(width)} px on ${phone.name}`, async ({ context, openPopup }) => {
     const popup = await setup(context, openPopup);
     await popup.setViewportSize({ width, height });
     await popup.reload();
     await expect(popup.locator("[data-testid=embed-item]")).toHaveCount(3);
     await expect(popup.locator("[data-testid=share-button]")).toBeVisible();
-    if (SHOTS !== undefined) await popup.screenshot({ path: `${SHOTS}/popup-${String(width)}.png` });
+    if (SHOTS !== undefined) await popup.screenshot({ path: `${SHOTS}/popup-${p}-${String(width)}.png` });
 
-    expect(await popup.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+    expect(await popup.evaluate(() => matchMedia("(hover: none)").matches)).toBe(true);
     // Readable: a viewport meta, so Android lays out at device width instead of 980 px.
     expect.soft(await popup.evaluate(() => document.querySelector("meta[name=viewport]")?.getAttribute("content"))).toBe("width=device-width, initial-scale=1");
     // Fills the sheet, no sideways scroll.
@@ -83,11 +90,11 @@ for (const [width, height] of [[360, 740], [412, 915]] as const) {
 
 });
 
-test("on a desktop (fine pointer) the popup body stays 320 px wide", async ({ context, openPopup }) => {
+test("on a desktop (a mouse, which hovers) the popup body stays 320 px wide", async ({ context, openPopup }) => {
   const popup = await setup(context, openPopup);
   await popup.setViewportSize({ width: 800, height: 600 });
   await expect(popup.locator("[data-testid=embed-item]")).toHaveCount(3);
-  expect(await popup.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(false);
+  expect(await popup.evaluate(() => matchMedia("(hover: none)").matches)).toBe(false);
   expect(await popup.evaluate(() => document.body.getBoundingClientRect().width)).toBe(320);
   const share = await popup.locator("[data-testid=share-button]").boundingBox();
   expect(share?.height).toBeLessThan(44);
