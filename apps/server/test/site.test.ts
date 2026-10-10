@@ -245,13 +245,35 @@ describe("robots.txt, icons and the manifest", () => {
       theme_color: "#1d1a2b",
       background_color: "#1d1a2b",
     });
-    const { icons } = v.parse(v.object({ icons: v.array(v.object({ src: v.string(), sizes: v.string(), type: v.literal("image/png") })) }), manifest);
-    expect(icons.map((i) => i.sizes).sort()).toEqual(["192x192", "512x512"]);
+    const { icons } = v.parse(
+      v.object({ icons: v.array(v.object({ src: v.string(), sizes: v.string(), type: v.literal("image/png"), purpose: v.picklist(["any", "maskable"]) })) }),
+      manifest,
+    );
+    expect(icons.map((i) => `${i.sizes} ${i.purpose}`).sort()).toEqual(["192x192 any", "512x512 any", "512x512 maskable"]);
     for (const icon of icons) {
       const png = await get(icon.src);
       expect(png.status).toBe(200);
       const [w, h] = pngSize(new Uint8Array(await png.arrayBuffer()));
       expect(`${String(w)}x${String(h)}`).toBe(icon.sizes);
+    }
+  });
+
+  test("the served icons and share image are the judged M9 art from assets/site, byte for byte (OME-762, OME-785)", async () => {
+    t = start({ staticDir: site(), publicOrigin: PUBLIC_ORIGIN });
+    const art = join(import.meta.dir, "../../../assets/site");
+    const served: [string, string][] = [
+      ["/favicon.ico", "favicon.ico"],
+      ["/apple-touch-icon.png", "apple-touch-icon.png"],
+      ["/icon-192.png", "icon-192.png"],
+      ["/icon-512.png", "icon-512.png"],
+      ["/icon-maskable-512.png", "icon-maskable-512.png"],
+      ["/og-image.png", "og-card.png"],
+    ];
+    for (const [path, file] of served) {
+      const res = await get(path);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("cache-control")).toBe("public, max-age=86400");
+      expect(new Uint8Array(await res.arrayBuffer())).toEqual(await Bun.file(join(art, file)).bytes());
     }
   });
 });
