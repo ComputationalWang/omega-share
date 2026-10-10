@@ -146,7 +146,11 @@ test("the probe drop latches for the session: after a Smooth room slows down it 
   clients = await joinRoom(browser, { roomUrl: testRoom("m8-walk", "latch").url, count: 2, nicknamePrefix: "latch" });
   const [a, b] = clients;
   if (a === undefined || b === undefined) throw new Error("need two clients");
+  // The first probe runs on a 6x slower observer: the shared CI runner, where the real probe settles in Basic (OME-871).
+  const slow = await a.context.newCDPSession(a.page);
+  await slow.send("Emulation.setCPUThrottlingRate", { rate: 6 });
   await reachSmooth(b, a);
+  await slow.send("Emulation.setCPUThrottlingRate", { rate: 1 });
 
   const cdp = await a.context.newCDPSession(a.page);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 30 });
