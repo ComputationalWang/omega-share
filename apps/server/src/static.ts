@@ -11,7 +11,7 @@ const IMMUTABLE = "public, max-age=31536000, immutable";
 const DAY = "public, max-age=86400";
 /** The server's own site files (`apps/server/public`, README there), served at the root by name only. */
 const PUBLIC_DIR = join(import.meta.dir, "..", "public");
-const PUBLIC_FILES = ["favicon.ico", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "og-image.png", "manifest.webmanifest", "robots.txt"];
+const PUBLIC_FILES = ["favicon.ico", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "og-image.png", "manifest.webmanifest", "robots.txt"];
 /** `/r/<id>` with an optional trailing slash, as `roomIdInPath` in the web app reads it. */
 const ROOM_ROUTE = /^\/r\/([^/]+)\/?$/;
 const NOT_FOUND_TITLE = "<title>Page not found · omega-share</title>";
