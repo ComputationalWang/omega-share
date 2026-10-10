@@ -1,6 +1,6 @@
 # ADR 0036 — Targeted post-merge checks, daily full suite
 
-**Status:** accepted (2026-10-09) · board decision on [OME-678](/OME/issues/OME-678) · recorded in [OME-680](/OME/issues/OME-680) · amendment of 2026-10-09 ([OME-681](/OME/issues/OME-681)) reverted 2026-10-10, see below · amended 2026-10-10: perf off the per-merge path ([OME-818](/OME/issues/OME-818)) · amended 2026-10-10: deterministic e2e moves to CI before the merge ([OME-822](/OME/issues/OME-822)) · amended 2026-10-10: `bun run affected` picks the specs ([OME-820](/OME/issues/OME-820))
+**Status:** accepted (2026-10-09) · board decision on [OME-678](/OME/issues/OME-678) · recorded in [OME-680](/OME/issues/OME-680) · amendment of 2026-10-09 ([OME-681](/OME/issues/OME-681)) reverted 2026-10-10, see below · amended 2026-10-10: perf off the per-merge path ([OME-818](/OME/issues/OME-818)) · amended 2026-10-10: deterministic e2e moves to CI before the merge ([OME-822](/OME/issues/OME-822)) · amended 2026-10-10: `bun run affected` picks the specs ([OME-820](/OME/issues/OME-820)) · §1–2 (per-merge post-check) superseded by ADR 0041
 
 **Context:** QA ran the full suite (every e2e spec plus flocked perf) after every merge to `main`. With several merges a day, the suite became the queue: merges waited on QA, and most runs re-tested code the merge never touched.
 

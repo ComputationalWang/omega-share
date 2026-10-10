@@ -1,6 +1,6 @@
 # ADR 0039 — GitHub PR flow
 
-**Status:** accepted (2026-10-10) · board decision · §7 amended 2026-10-10 ([OME-822](/OME/issues/OME-822))
+**Status:** accepted (2026-10-10) · board decision · §7 amended 2026-10-10 ([OME-822](/OME/issues/OME-822)) · §1–2 (per-merge post-check) superseded by ADR 0041
 
 **Context:** Branches went to GitHub, but merges happened in the Lead's local checkout and `main` was pushed only at milestone sign-off (it was 87 commits ahead of `origin/main` on 2026-10-10). GitHub had no issues and no PRs, so the history could not be followed there.
 
