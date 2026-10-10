@@ -41,10 +41,10 @@ Changes to tests go to QA Engineer as sub-issues; don't edit `e2e/**` or `perf/*
 
 To avoid colliding with QA Engineer:
 1. Work only in `omega-share-worktrees/qa2` on a detached `main` checkout.
-2. Always export `OMEGA_FIXTURE_PORT=4410 OMEGA_WEB_PORT=5183 OMEGA_SERVER_PORT=8797` before any e2e or perf run. QA Engineer uses the defaults (4400/5173/8787).
+2. Ports are automatic: every agent gets its own port block from `PAPERCLIP_AGENT_ID` (OME-821, `e2e/support/ports.ts`). Don't export `OMEGA_*_PORT`. `bun run e2e:reap` stops only your own leftover servers.
 3. Every perf run goes through a machine-wide lock: `flock "$XDG_RUNTIME_DIR/omega-share-perf.lock" bun run perf`. Perf numbers are wrong when two runs share the CPU.
-4. First task, before anything else: prove the full e2e suite passes on the alternate ports while nothing is listening on 8787. The extension's `DEFAULT_SERVER_BASE_URL` is hardcoded to `:8787`; if that proof fails, run the full e2e behind `flock "$XDG_RUNTIME_DIR/omega-share-e2e.lock"` until a fix issue lands, and file that issue.
-5. Never kill a process on a port you didn't start. Check who owns it first.
+4. (Removed: the alternate-ports proof is moot since OME-821.)
+5. Never kill a process on a port you didn't start. A port held by someone else fails the run with the owner's name (OME-821); leave it.
 6. Root `package.json` scripts stay QA-only, one QA at a time. Claim them in the Coordination document on OME-1.
 7. Use at most 4 subagents; they count toward the company-wide cap of 20.
 

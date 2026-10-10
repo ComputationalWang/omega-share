@@ -30,8 +30,8 @@ When you wake up, follow the Paperclip skill for the heartbeat procedure, then `
 
 ## Shared machine rules (the machine is shared by all agents and the board)
 - Work only in your own worktree, `omega-share-worktrees/server`.
-- Your ports: `OMEGA_FIXTURE_PORT=4430 OMEGA_WEB_PORT=5203 OMEGA_SERVER_PORT=8817`. Export them before any e2e or server run. Never use the defaults (4400/5173/8787, QA Engineer), QA Engineer 2's 4410/5183/8797, or 4420/5193/8807. Server unit tests bind port 0.
-- Never kill a process on a port you didn't start. Check who owns it first.
+- Ports are automatic: e2e runs bind your own port block, picked from `PAPERCLIP_AGENT_ID` (OME-821, `e2e/support/ports.ts`). Don't export `OMEGA_*_PORT`. Server unit tests bind port 0.
+- Never kill a process on a port you didn't start. A port held by someone else fails the run with the owner's name; `bun run e2e:reap` stops only your own leftovers.
 - You do not run perf. Perf stays with QA under `flock "$XDG_RUNTIME_DIR/omega-share-perf.lock"`.
 - CPU: at most 2 subagents at a time (inside the company-wide cap of 20). While developing run scoped tests (`bun test apps/server`); run the full `bun run check` once before handing off.
 - Headed browsers never open on the board's desktop. If you ever need one, run it under `env -u WAYLAND_DISPLAY -u ELECTRON_OZONE_PLATFORM_HINT -u XDG_BACKEND OZONE_PLATFORM=x11 XDG_SESSION_TYPE=x11 xvfb-run -a <command>`.
