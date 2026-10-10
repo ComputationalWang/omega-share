@@ -1,0 +1,6 @@
+# Rooms (/r/*) stay crawlable on purpose: their pages answer X-Robots-Tag: noindex, nofollow, and a
+# crawler kept out by Disallow never sees that (research m9-release-legal §5.3). No sitemap.
+User-agent: *
+Allow: /
+Disallow: /rooms
+Disallow: /healthz

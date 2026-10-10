@@ -157,7 +157,8 @@ describe("budgets", () => {
         expect(b.limit).toBe(0);
         continue;
       }
-      const m = /([≤<])\s*([\d.]+)\s*(KB|MB|ms|s|%)(?![A-Za-z])/.exec(cell);
+      // A score (CLS, OME-763) has no unit in the doc.
+      const m = (b.unit === "score" ? /([≤<])\s*([\d.]+)()(?![\d.A-Za-z])/ : /([≤<])\s*([\d.]+)\s*(KB|MB|ms|s|%)(?![A-Za-z])/).exec(cell);
       expect(m, `numeric budget in "${cell}"`).not.toBeNull();
       const [, op, num, unit] = m ?? [];
       const limit = Number(num) * (unit === "s" ? 1000 : 1);
@@ -191,6 +192,32 @@ describe("evaluate", () => {
   });
   test("pending keeps the reason", () => {
     expect(evaluate(b, { id: "x", pending: "site not built" }).note).toBe("site not built");
+  });
+});
+
+describe("landing budgets (OME-763)", () => {
+  test("the Landing section has transfer, LCP, CLS and long-task rows at the doc's limits", () => {
+    const want = [
+      { id: "landing.transferGzip", unit: "KB", limit: 120, docMetric: "Total transfer at `/` before interaction (gzipped)" },
+      { id: "landing.lcp", unit: "ms", limit: 1500, docMetric: "Largest Contentful Paint at `/`" },
+      { id: "landing.cls", unit: "score", limit: 0.05, docMetric: "Cumulative Layout Shift at `/`" },
+      { id: "landing.longTask", unit: "ms", limit: 50, docMetric: "Longest task before the nickname field is usable" },
+    ];
+    for (const w of want) {
+      const b = BUDGETS.find((x) => x.id === w.id);
+      expect(b, w.id).toBeDefined();
+      expect([b?.area, b?.docMetric, b?.unit, b?.limit, b?.comparator]).toEqual(["Landing", w.docMetric, w.unit, w.limit, "<="]);
+      expect(DOC_ROWS.some(([area, metric]) => area === "Landing" && metric === w.docMetric), w.docMetric).toBe(true);
+    }
+  });
+
+  test("a CLS score keeps three decimals in the report, so 0.04 and 0.06 don't both read 0.0", () => {
+    const cls = BUDGETS.find((x) => x.id === "landing.cls");
+    if (!cls) throw new Error("no landing.cls");
+    const out = renderReport([evaluate(cls, { id: cls.id, value: 0.062 })]);
+    expect(out).toContain("| 0.062 |");
+    expect(out).toContain("≤ 0.050");
+    expect(out).toContain("FAIL");
   });
 });
 

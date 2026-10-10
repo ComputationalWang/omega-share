@@ -67,6 +67,8 @@ export interface RoomHandle {
   readonly queueRenders: () => number;
   /** Is the room's render loop paused (full screen hides it, OME-597)? For e2e checks. */
   readonly roomPaused: () => boolean;
+  /** How many times the room canvas has drawn (room-view.ts `renders`), for e2e "a bubble costs no render" checks. */
+  readonly roomRenders: () => number;
 }
 
 const STATUS_TEXT: Record<ViewState["status"], string> = {
@@ -248,8 +250,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // YouTube's minimum size and no room layer can stack over it (layout.ts `roomLayout`).
   // Under prefers-reduced-motion an emote is a static badge over the avatar instead of an animation (OME-415).
   const reducedMotion = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
+  /** Set once the emote key exists: my own avatar walking closes the wheel (OME-732). */
+  let closeWheel = (): void => undefined;
   const roomStage: Stage = await createStage({
     reducedMotion,
+    onMove: (id) => {
+      if (id === state.self) closeWheel();
+    },
     requestRender: () => {
       requestRender();
     },
@@ -283,7 +290,28 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     clearTimer: (h) => {
       clearTimeout(h as ReturnType<typeof setTimeout>);
     },
+    // Over my own head when it's in the room's window; else (watch-only, panned away, room popped out) docked. It may
+    // overlap the TV and its shelf (it's brief): a scaled-down stage alone rarely has 196 px above a head.
+    locate: () => {
+      const visible = (r: DOMRect): Rect => {
+        const x = Math.max(0, r.left);
+        const y = Math.max(0, r.top);
+        return { x, y, w: Math.min(innerWidth, r.right) - x, h: Math.min(innerHeight, r.bottom) - y };
+      };
+      const room = visible(wrap.getBoundingClientRect());
+      const p = state.self === null || wrap.hidden || roomOut() ? undefined : roomStage.head(state.self);
+      if (p === undefined) return { head: null, room };
+      const s = stage.getBoundingClientRect();
+      const k = s.width / STAGE_W;
+      const head = { x: s.left + p.x * k, y: s.top + p.y * k };
+      const seen = visible(clip.getBoundingClientRect());
+      const inView = head.x >= seen.x && head.x <= seen.x + seen.w && head.y >= seen.y && head.y <= seen.y + seen.h;
+      return { head: inView ? head : null, room };
+    },
   });
+  closeWheel = () => {
+    picker.close();
+  };
   // Pop-out chat (OME-598, set k): the key ends the chat row; while the chat is in its window the row's place holds the
   // set (k) placeholder with a bring-back key. Desktop only, and only where BroadcastChannel exists.
   const popKey = el("button", { type: "button", className: "ui-button self icon", ariaLabel: "Pop out chat", title: "Pop out chat" }, "chat-popout");
@@ -1192,5 +1220,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders() };
 }

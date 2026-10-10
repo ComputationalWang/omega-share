@@ -8,7 +8,7 @@ export interface Budget {
   readonly metric: string;
   /** Exact text of the Metric column in docs/perf-budgets.md. */
   readonly docMetric: string;
-  readonly unit: "KB" | "MB" | "ms" | "%" | "count";
+  readonly unit: "KB" | "MB" | "ms" | "%" | "count" | "score";
   readonly limit: number;
   readonly comparator: Comparator;
   /** Load-test row: budget `of`, held with `members` people in the room (the doc's "People in a room" cell). */
@@ -74,6 +74,25 @@ const POPOUT_ROOM: readonly Budget[] = Object.entries(POPOUT_ROOM_WINDOWS).flatM
   { id: `poproom.missedVsync.${w}`, area: "Site", metric: `Missed vsyncs with the room popped out, 25 members + video, ${label}`, docMetric: "Missed vsyncs with the room popped out, 25 members + video playing", unit: "%", limit: 1, comparator: "<=" },
 ]);
 
+// OME-731 (M8 W2, ADR 0037): the same three frame budgets with 25 members walking, per forced walk tier, desktop and phone (perf/walk-tiers.perf.ts).
+const WALK25_PROFILES = { desktop: "desktop Chromium", phone: "Pixel 7 emulation" } as const;
+const WALK25_TIERS = { basic: "Basic tier", smooth: "Smooth tier" } as const;
+const WALK25: readonly Budget[] = Object.entries(WALK25_PROFILES).flatMap(([p, pl]) =>
+  Object.entries(WALK25_TIERS).flatMap(([t, tl]): Budget[] => [
+    { id: `walk25.frameP95.${p}.${t}`, area: "Site", metric: `p95 frame time with 25 members walking, ${pl}, ${tl}`, docMetric: "Frame rate with 25 members walking", unit: "ms", limit: 16.7, comparator: "<=" },
+    { id: `walk25.workP95.${p}.${t}`, area: "Site", metric: `Main-thread work p95 per frame with 25 members walking, ${pl}, ${tl}`, docMetric: "Main-thread work per frame with 25 members walking", unit: "ms", limit: 8, comparator: "<=" },
+    { id: `walk25.missedVsync.${p}.${t}`, area: "Site", metric: `Missed vsyncs with 25 members walking, ${pl}, ${tl}`, docMetric: "Missed vsyncs with 25 members walking", unit: "%", limit: 1, comparator: "<=" },
+  ]),
+);
+
+// OME-763 (M9 P1): the landing page at `/`, cold, before any interaction, on the preview build (perf/landing.perf.ts).
+const LANDING: readonly Budget[] = [
+  { id: "landing.transferGzip", area: "Landing", metric: "Total transfer at / before interaction (gzipped)", docMetric: "Total transfer at `/` before interaction (gzipped)", unit: "KB", limit: 120, comparator: "<=" },
+  { id: "landing.lcp", area: "Landing", metric: "Largest Contentful Paint at /", docMetric: "Largest Contentful Paint at `/`", unit: "ms", limit: 1500, comparator: "<=" },
+  { id: "landing.cls", area: "Landing", metric: "Cumulative Layout Shift at /", docMetric: "Cumulative Layout Shift at `/`", unit: "score", limit: 0.05, comparator: "<=" },
+  { id: "landing.longTask", area: "Landing", metric: "Longest task before the nickname field is usable", docMetric: "Longest task before the nickname field is usable", unit: "ms", limit: 50, comparator: "<=" },
+];
+
 export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
@@ -89,6 +108,7 @@ export const BUDGETS: readonly Budget[] = [
   ...FULLSCREEN,
   ...POPOUT,
   ...POPOUT_ROOM,
+  ...WALK25,
   { id: "site.heapAfterSoak", area: "Site", metric: "JS heap after 10 min soak (after GC)", docMetric: "JS heap after 10 min in room", unit: "MB", limit: 150, comparator: "<=" },
   { id: "sync.spread", area: "Sync", metric: "Spread after play/pause/seek", docMetric: "Spread between clients after play/pause/seek", unit: "ms", limit: 500, comparator: "<=" },
   // M2 (OME-131): one merge-blocking row per provider. Twitch live has no position: its spread is first-to-last client applying a pause / play-from-live.
@@ -109,6 +129,7 @@ export const BUDGETS: readonly Budget[] = [
   { id: "ext.firefox.persistentBackground", area: "Extension", metric: "Persistent background violations, Firefox", docMetric: "Persistent background, Firefox", unit: "count", limit: 0, comparator: "<=" },
   { id: "load.relayLatency", area: "Load test", metric: "Relay latency p95, 25 in room + traffic", docMetric: LOAD_DOC, unit: "ms", limit: 50, comparator: "<=", load: { of: "server.relayLatency", members: 25 } },
   { id: "load.frameP95", area: "Load test", metric: "p95 frame time, 25 in room + traffic", docMetric: LOAD_DOC, unit: "ms", limit: 16.7, comparator: "<=", load: { of: "site.frameP95", members: 25 } },
+  ...LANDING,
 ];
 
 export type Measurement =
@@ -133,7 +154,7 @@ export function evaluate(budget: Budget, m: Measurement | undefined): Result {
 }
 
 const fmt = (n: number, unit: Budget["unit"]): string =>
-  unit === "count" ? String(n) : `${n.toFixed(1)} ${unit}`;
+  unit === "count" ? String(n) : unit === "score" ? n.toFixed(3) : `${n.toFixed(1)} ${unit}`;
 
 const LABEL: Record<Status, string> = { pass: "✅ PASS", fail: "❌ FAIL", pending: "⏳ PENDING" };
 

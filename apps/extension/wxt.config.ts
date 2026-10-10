@@ -11,13 +11,15 @@ const icons = Object.fromEntries(ICON_SIZES.map((size) => [size, `icon/${size}.p
  * 140 is the first Firefox that reads `data_collection_permissions`. Share sends the chosen embed URL, which can be
  * the page URL itself (websiteContent, browsingActivity), and the room share token read from the open room tab as
  * `Authorization: Bearer` (authenticationInfo, OME-695). The Chrome listing declares the same three, and an
- * under-declared category risks an AMO rejection of a permanent first listing. Desktop only: no `gecko_android`.
+ * under-declared category risks an AMO rejection of a permanent first listing.
  */
 const GECKO = {
   id: "omega-share@omega-share.duckdns.org",
   strict_min_version: "140.0",
   data_collection_permissions: { required: ["websiteContent", "browsingActivity", "authenticationInfo"] },
 } as const;
+/** Firefox for Android (OME-743, board): 142 is the first Android release that reads `data_collection_permissions`. */
+const GECKO_ANDROID = { strict_min_version: "142.0" } as const;
 
 // Permissions (ADR 0005): activeTab + scripting inject the one-shot scan when the popup opens,
 // storage keeps the server URL, and the only host permission is the default server origin:
@@ -38,7 +40,7 @@ export default defineConfig({
     },
   },
   manifest: ({ mode, browser }) => ({
-    ...(browser === "firefox" ? { browser_specific_settings: { gecko: GECKO } } : {}),
+    ...(browser === "firefox" ? { browser_specific_settings: { gecko: GECKO, gecko_android: GECKO_ANDROID } } : {}),
     name: "omega share",
     description: "Share the video on this page into an omega-share room.",
     icons,

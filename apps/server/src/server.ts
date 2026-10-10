@@ -318,6 +318,7 @@ export function startServer(opts: ServerOptions): OmegaServer {
     embeds,
     headers,
     staticDir: opts.staticDir ?? null,
+    cardOrigin: opts.publicOrigin ?? opts.siteOrigin,
   });
   // After the onRemove hooks above, so the boot sweep already closes sockets and deletes rows.
   const gc = startRoomGc({ rooms, wallNow, busy: ws.hasSockets, touch: markActive, purge: reports.purge, intervalMs: opts.roomGcIntervalMs ?? ROOM_GC_INTERVAL_MS });

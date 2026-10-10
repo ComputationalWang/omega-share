@@ -13,3 +13,5 @@
 **Why:** one extra ~18 KB request that's off the critical path, instead of growing the sheet every room loads. Durations in the atlas let art change the timing without code changes. Cross-sheet keys work because Pixi caches textures globally by key.
 
 Engineering (M5): `apps/web` parses `meta.omega.anims` / `walk` / `emotes` with Valibot at load and asserts every anim key resolves across both sheets. Emote relay is a separate `packages/shared` contract issue.
+
+**Amended by [ADR 0037](0037-tiered-walking.md) (2026-10-10):** `meta.omega.walk` is now Basic's cycle (`stepPx` applies to Basic only); Smooth plays `meta.omega.walk8` (8 frames × 75 ms, its even frames the `walk` keys) and moves in whole px.

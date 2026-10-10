@@ -28,6 +28,9 @@ QA measures these on every merge (Playwright + Chromium; the Firefox rows in hea
 | Site | Frame rate with the room popped out, 25 members + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), each window on its own: the room tab (the picture only, its Pixi renderer paused) and the room window (`room.html`, the one renderer: 25 avatars, 8 seated, someone always walking, and the chat) while 24 members chat at ~8/s room-wide and a seat changes every 100 ms, relayed over the BroadcastChannel — OME-600 |
 | Site | Main-thread work per frame with the room popped out, 25 members + video playing | ≤ 8 ms p95, each window, same pop-out room run — OME-600 |
 | Site | Missed vsyncs with the room popped out, 25 members + video playing | ≤ 1.0 % of frames, each window, same pop-out room run — OME-600 |
+| Site | Frame rate with 25 members walking | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), per forced walk tier (Basic, Smooth: `localStorage["omega.motion"]`, ADR 0037), desktop Chromium and `devices["Pixel 7"]`: the observer plus 24 bots sitting down on free seats and standing up again (one change every ~120 ms, at least 15 of the 24 walking inside the window), video playing — OME-731 |
+| Site | Main-thread work per frame with 25 members walking | ≤ 8 ms p95, per forced walk tier (Basic, Smooth: `localStorage["omega.motion"]`, ADR 0037), desktop Chromium and `devices["Pixel 7"]`, same run — OME-731 |
+| Site | Missed vsyncs with 25 members walking | ≤ 1.0 % of frames, per forced walk tier (Basic, Smooth: `localStorage["omega.motion"]`, ADR 0037), desktop Chromium and `devices["Pixel 7"]`, same run — OME-731 |
 | Site | JS heap after 10 min in room | ≤ 150 MB |
 | Sync | Spread between clients after play/pause/seek | ≤ 500 ms |
 | Sync | Spread between clients after a queue advance | ≤ 1.5 s, first to last of 8 clients playing the next item after a video ends — ADR 0031 §7 |
@@ -40,3 +43,14 @@ QA measures these on every merge (Playwright + Chromium; the Firefox rows in hea
 | Extension | Content scripts on page load, Firefox | none (inject on popup open only) |
 | Extension | Persistent background, Firefox | none (non-persistent event page: Firefox MV3 has no service worker — ADR 0005) |
 | Load test | People in a room without breaking the budgets above | 25 |
+
+## Landing
+
+The home page at `/`, measured on the production preview build (`vite preview`, the same build `bun run perf` serves) from a cold cache, before any user interaction: no pointer movement, no focus, no key press. Throttling profile: the one every other perf spec uses, Playwright's `Desktop Chrome` device (1280×720, DPR 1) on localhost with **no CPU and no network throttling**. The landing spec runs three cold loads, each in a fresh browser context, after a warm-up load; transfer is the largest of the three, the timings are their median. Spec: `perf/landing.perf.ts` (OME-763). Targeted post-merge check (ADR 0036) for any change to `apps/web/index.html`, `apps/web/src/main.ts`, `apps/web/src/home.ts`, `apps/web/src/style.css`, `apps/web/public/**` or the web build config: `bun run perf perf/landing.perf.ts`.
+
+| Area | Metric | Budget |
+|---|---|---|
+| Landing | Total transfer at `/` before interaction (gzipped) | ≤ 120 KB: every document, script, stylesheet, image, font and other static response the page fetches before interaction (the home chunk loaded on `load` included), each body gzipped at zlib level 6. API calls (fetch/XHR) are listed in the note but not counted. The lazily warmed room/Pixi chunks are excluded only while they are not fetched before interaction: anything fetched before interaction counts |
+| Landing | Largest Contentful Paint at `/` | ≤ 1.5 s, same throttling profile as the other perf specs (none) |
+| Landing | Cumulative Layout Shift at `/` | ≤ 0.05: every layout shift without recent input from navigation until load + 1 s, summed (no session windowing, so it is never lower than the web-vitals value) |
+| Landing | Longest task before the nickname field is usable | ≤ 50 ms (no long task): `PerformanceObserver("longtask")` entries that start before the field is usable, meaning the later of DOMContentLoaded end and the site's `omega:interactive` mark (set once `main.ts` has wired the form) |

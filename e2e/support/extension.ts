@@ -22,14 +22,16 @@ export interface ExtensionFixtures {
   readonly openPopup: (target: Page) => Promise<Page>;
 }
 
-export const test = base.extend<ExtensionFixtures>({
-  context: async ({}, use) => {
+export const test = base.extend<ExtensionFixtures & { extraArgs: string[] }>({
+  // Extra Chromium switches for a spec (`test.use({ extraArgs })`), e.g. a touch pointer for the phone popup (OME-743).
+  extraArgs: [[], { option: true }],
+  context: async ({ extraArgs }, use) => {
     const missing = extensionBuildError();
     if (missing !== null) throw new Error(missing);
     const context = await watchCsp(await chromium.launchPersistentContext("", {
       channel: "chromium", // new headless mode, which supports extensions
       baseURL: URLS.fixtures,
-      args: [`--disable-extensions-except=${EXTENSION_DIR}`, `--load-extension=${EXTENSION_DIR}`],
+      args: [`--disable-extensions-except=${EXTENSION_DIR}`, `--load-extension=${EXTENSION_DIR}`, ...extraArgs],
     }));
     await stubExternalNetwork(context);
     await use(context);
