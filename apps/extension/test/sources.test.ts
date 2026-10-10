@@ -38,6 +38,10 @@ describe("buildSourcesPackage", () => {
       "packages/shared/package.json",
       "packages/shared/src/index.ts",
       "assets/store/icon-128.png",
+      // The popup state vignettes the build copies in (OME-857).
+      "assets/ui/popup/nothing-found.png",
+      "assets/ui/popup/cant-read@2x.png",
+      "assets/ui/popup/server-away.png",
       // The other workspaces' manifests, so `bun install --frozen-lockfile` sees the lockfile's workspace set.
       "apps/web/package.json",
       "apps/server/package.json",
