@@ -5,13 +5,14 @@ const ORIGIN = "https://abc123.ngrok-free.app";
 const OK = { kind: "ok", list: { rooms: [{ id: "lobby", label: "lobby (1)" }], selected: "lobby" } } as const;
 
 describe("serverStatus (research OME-119 §5.4)", () => {
-  const rows: readonly { name: string; input: StatusInput; message: string | null; canShare: boolean; openOptions: boolean }[] = [
+  const rows: readonly { name: string; input: StatusInput; message: string | null; canShare: boolean; openOptions: boolean; away: boolean }[] = [
     {
       name: "no host permission for the origin",
       input: { origin: ORIGIN, permitted: false, probe: OK, hasToken: true },
       message: `Allow access to ${ORIGIN} in Options.`,
       canShare: false,
       openOptions: true,
+      away: false,
     },
     {
       name: "fetch threw",
@@ -19,6 +20,7 @@ describe("serverStatus (research OME-119 §5.4)", () => {
       message: `Can't reach ${ORIGIN}. Is the tunnel running?`,
       canShare: false,
       openOptions: false,
+      away: true,
     },
     {
       name: "non-2xx or off-contract answer",
@@ -26,6 +28,7 @@ describe("serverStatus (research OME-119 §5.4)", () => {
       message: `The server at ${ORIGIN} isn't answering. The tunnel may be offline.`,
       canShare: false,
       openOptions: false,
+      away: true,
     },
     {
       name: "edge gate wants a sign-in",
@@ -33,6 +36,7 @@ describe("serverStatus (research OME-119 §5.4)", () => {
       message: "Sign in to the room in a browser tab first.",
       canShare: false,
       openOptions: false,
+      away: false,
     },
     {
       name: "server fine but no room tab / token",
@@ -40,6 +44,7 @@ describe("serverStatus (research OME-119 §5.4)", () => {
       message: "Open the room in a tab to share into it.",
       canShare: false,
       openOptions: false,
+      away: false,
     },
     {
       name: "server fine and a token",
@@ -47,11 +52,12 @@ describe("serverStatus (research OME-119 §5.4)", () => {
       message: null,
       canShare: true,
       openOptions: false,
+      away: false,
     },
   ];
   for (const r of rows) {
     test(r.name, () => {
-      expect(serverStatus(r.input)).toEqual({ message: r.message, canShare: r.canShare, openOptions: r.openOptions });
+      expect(serverStatus(r.input)).toEqual({ message: r.message, canShare: r.canShare, openOptions: r.openOptions, away: r.away });
     });
   }
 

@@ -26,6 +26,8 @@ const ui = {
   queue: byId("queue", HTMLButtonElement),
   status: byId("status", HTMLParagraphElement),
   server: byId("server-status", HTMLParagraphElement),
+  serverMessage: byId("server-message", HTMLSpanElement),
+  serverAway: byId("server-away", HTMLImageElement),
   options: byId("options", HTMLButtonElement),
 };
 
@@ -117,7 +119,8 @@ function renderServer(): void {
   ui.share.disabled = status?.canShare !== true;
   ui.queue.disabled = ui.share.disabled;
   ui.server.hidden = status?.message === null || status === null;
-  ui.server.textContent = status?.message ?? "";
+  ui.serverMessage.textContent = status?.message ?? "";
+  ui.serverAway.hidden = status?.away !== true;
   ui.options.dataset["emphasis"] = String(status?.openOptions === true);
 }
 

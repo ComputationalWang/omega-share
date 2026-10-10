@@ -15,6 +15,7 @@ const REPO = join(ROOT, "..", "..");
 const PACKAGE: unknown = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
 const VERSION = typeof PACKAGE === "object" && PACKAGE !== null && "version" in PACKAGE ? PACKAGE.version : undefined;
 const ICON_SIZES = ["16", "32", "48", "128"] as const;
+const POPUP_VIGNETTES = ["cant-read.png", "cant-read@2x.png", "nothing-found.png", "nothing-found@2x.png", "server-away.png", "server-away@2x.png"];
 
 // Firefox (OME-593, R-M7c decisions on OME-546): the permanent add-on ID, Firefox 140+ for the data-collection key,
 // Firefox for Android 142+ (OME-743, the first Android release that reads it), and every category Share can send: the embed URL, which may be the page URL itself, and the room
@@ -108,6 +109,15 @@ for (const { name: mode, browser, hostPermissions } of cases) {
       expect(manifests.get(mode)).toHaveProperty("action.default_icon", icons);
       for (const size of ICON_SIZES) {
         expect(readFileSync(join(outDir(mode), "icon", `${size}.png`)).equals(readFileSync(join(REPO, "assets", "store", `icon-${size}.png`)))).toBe(true);
+      }
+    });
+
+    test("ships every image the popup references, byte for byte from assets/ui/popup (OME-857)", () => {
+      const html = readFileSync(join(outDir(mode), "popup.html"), "utf8");
+      const refs = [...html.matchAll(/\/popup\/([\w@-]+\.png)/g)].map((m) => m[1] ?? "");
+      expect([...new Set(refs)].sort()).toEqual(POPUP_VIGNETTES);
+      for (const file of POPUP_VIGNETTES) {
+        expect(readFileSync(join(outDir(mode), "popup", file)).equals(readFileSync(join(REPO, "assets", "ui", "popup", file))), file).toBe(true);
       }
     });
   });

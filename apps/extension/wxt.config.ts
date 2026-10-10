@@ -4,6 +4,8 @@ import { defaultServerBaseUrl, hostPermissionPattern } from "./src/settings";
 
 /** Toolbar and store icons: the original art in `assets/store/` (R1, OME-509), copied in at build time so there is one source. */
 const ICON_SIZES = ["16", "32", "48", "128"] as const;
+/** Popup state vignettes (OME-842 art, used by OME-857), copied in the same way. */
+const POPUP_VIGNETTES = ["nothing-found", "cant-read", "server-away"].flatMap((name) => [`${name}.png`, `${name}@2x.png`]);
 const icons = Object.fromEntries(ICON_SIZES.map((size) => [size, `icon/${size}.png`]));
 
 /**
@@ -32,6 +34,9 @@ export default defineConfig({
     "build:publicAssets": (_wxt, files) => {
       for (const size of ICON_SIZES) {
         files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/store/icon-${size}.png`, import.meta.url)), relativeDest: `icon/${size}.png` });
+      }
+      for (const file of POPUP_VIGNETTES) {
+        files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/ui/popup/${file}`, import.meta.url)), relativeDest: `popup/${file}` });
       }
     },
     // Firefox would embed the options page in about:addons, where the permissions.request gesture is untested: use a tab.
