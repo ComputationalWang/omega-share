@@ -199,6 +199,28 @@ describe("load gate", () => {
     expect(r?.loadSamples?.length).toBeGreaterThan(0);
   });
 
+  test("an invalid run clears the build marker, so the next job of the earlier sha rebuilds", async () => {
+    const X = "a".repeat(40), Y = "b".repeat(40);
+    let hot = false;
+    const reuse: Record<string, boolean[]> = {};
+    const exec: Executor = async (job, ctx) => {
+      (reuse[job.sha] ??= []).push(ctx.reuseBuild);
+      hot = job.sha === Y;
+      await Bun.sleep(40);
+      hot = false;
+      return { exitCode: ctx.signal.aborted ? 1 : 0 };
+    };
+    const g = gate(() => (hot ? 25 : 0), { idleMs: 0, maxRequeues: 0 });
+    submit(X, [], 1);
+    await runPending(dir, exec, g);
+    submit(Y, [], 2);
+    await runPending(dir, exec, g);
+    submit(X, [], 3);
+    await runPending(dir, exec, g);
+    expect(reuse[Y]).toEqual([false]);
+    expect(reuse[X]).toEqual([false, false]);
+  });
+
   test("without a load gate jobs behave as before (no samples)", async () => {
     const id = submit("a".repeat(40), [], 1000);
     await runPending(dir, ok);
