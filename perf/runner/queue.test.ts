@@ -11,12 +11,12 @@ afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 const submit = (sha: string, specs: string[] = [], at = Date.now()) =>
   submitJob(dir, { sha, specs, requester: "qa2", issue: "OME-1" }, at);
 
-const ok: Executor = async () => ({ exitCode: 0 });
+const ok: Executor = () => Promise.resolve({ exitCode: 0 });
 
 describe("submitJob", () => {
   test("writes job.json and returns at once with a queued status", () => {
     const id = submit("a".repeat(40), ["perf/site.perf.ts"]);
-    const job = JSON.parse(readFileSync(join(dir, id, "job.json"), "utf8"));
+    const job: unknown = JSON.parse(readFileSync(join(dir, id, "job.json"), "utf8"));
     expect(job).toMatchObject({ sha: "a".repeat(40), specs: ["perf/site.perf.ts"], requester: "qa2", issue: "OME-1" });
     expect(jobStatus(dir, id)).toEqual({ state: "queued", position: 1 });
   });
@@ -32,7 +32,7 @@ describe("runPending", () => {
     const first = submit("a".repeat(40), [], 1000);
     const second = submit("b".repeat(40), [], 2000);
     const order: string[] = [];
-    await runPending(dir, async (job) => { order.push(job.id); return { exitCode: 0 }; });
+    await runPending(dir, (job) => { order.push(job.id); return Promise.resolve({ exitCode: 0 }); });
     expect(order).toEqual([first, second]);
     expect(jobStatus(dir, first).state).toBe("passed");
   });
@@ -54,22 +54,22 @@ describe("runPending", () => {
 
   test("a failing exit code is reported failed with the exit code", async () => {
     const id = submit("a".repeat(40));
-    await runPending(dir, async () => ({ exitCode: 1 }));
+    await runPending(dir, () => Promise.resolve({ exitCode: 1 }));
     expect(readResult(dir, id)).toMatchObject({ status: "failed", exitCode: 1, sha: "a".repeat(40) });
   });
 
   test("an executor that throws is failed, and the queue moves on", async () => {
     const bad = submit("a".repeat(40), [], 1000);
     const good = submit("b".repeat(40), [], 2000);
-    await runPending(dir, async (job) => { if (job.id === bad) throw new Error("checkout exploded"); return { exitCode: 0 }; });
+    await runPending(dir, (job) => job.id === bad ? Promise.reject(new Error("checkout exploded")) : Promise.resolve({ exitCode: 0 }));
     expect(readResult(dir, bad)).toMatchObject({ status: "failed", reason: "checkout exploded" });
     expect(jobStatus(dir, good).state).toBe("passed");
   });
 
   test("an executor that exceeds the timeout is failed rather than hanging", async () => {
     const id = submit("a".repeat(40));
-    await runPending(dir, () => new Promise(() => {}), { timeoutMs: 20 });
-    expect(readResult(dir, id)).toMatchObject({ status: "failed", reason: expect.stringMatching(/timed out/) });
+    await runPending(dir, () => new Promise<never>(() => undefined), { timeoutMs: 20 });
+    expect(readResult(dir, id)).toMatchObject({ status: "failed", reason: "timed out after 0 s" });
   });
 
   test("result.json carries requester, issue and times", async () => {
@@ -87,7 +87,7 @@ describe("build reuse per sha", () => {
     submit("a".repeat(40), [], 2);
     submit("b".repeat(40), [], 3);
     const reuse: boolean[] = [];
-    await runPending(dir, async (_job, ctx) => { reuse.push(ctx.reuseBuild); return { exitCode: 0 }; });
+    await runPending(dir, (_job, ctx) => { reuse.push(ctx.reuseBuild); return Promise.resolve({ exitCode: 0 }); });
     expect(reuse).toEqual([false, true, false]);
   });
 
@@ -95,7 +95,7 @@ describe("build reuse per sha", () => {
     submit("a".repeat(40), [], 1);
     submit("a".repeat(40), [], 2);
     const reuse: boolean[] = [];
-    await runPending(dir, async (_job, ctx) => { reuse.push(ctx.reuseBuild); return { exitCode: 1 }; });
+    await runPending(dir, (_job, ctx) => { reuse.push(ctx.reuseBuild); return Promise.resolve({ exitCode: 1 }); });
     expect(reuse).toEqual([false, false]);
   });
 });
@@ -106,7 +106,7 @@ describe("recoverCrashed", () => {
     writeFileSync(join(dir, id, "running.json"), JSON.stringify({ startedAt: 5 }));
     expect(jobStatus(dir, id).state).toBe("running");
     recoverCrashed(dir);
-    expect(readResult(dir, id)).toMatchObject({ status: "failed", reason: expect.stringMatching(/runner/) });
+    expect(readResult(dir, id)).toMatchObject({ status: "failed", reason: "runner stopped while the job was running" });
     expect(existsSync(join(dir, id, "running.json"))).toBe(false);
   });
 });
