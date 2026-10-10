@@ -158,13 +158,24 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     s.p.classList.toggle("tail-se", tailX > s.w - TAIL_S_REACH);
   };
 
-  const setPush = (s: Slot, push: number, stacked: boolean): void => {
+  const setPush = (s: Slot, push: number): void => {
     if (push !== s.push || s.p.style.getPropertyValue("--push") === "") s.p.style.setProperty("--push", px(-push));
     s.push = push;
-    if (stacked === s.stacked) return;
-    s.stacked = stacked;
-    s.p.classList.toggle("is-stacked", stacked);
-    s.who.hidden = !stacked;
+  };
+
+  /**
+   * The bubble loses its tail and names its speaker. The name widens the box, so it is measured and centred again
+   * (once per bubble: a stacked bubble stays stacked) before the overlap maths uses its width (OME-791).
+   */
+  const stack = (s: Slot): void => {
+    s.stacked = true;
+    s.p.classList.add("is-stacked");
+    s.who.hidden = false;
+    const size = measure(s.p);
+    if (size.w === 0 && size.h === 0) return;
+    s.w = size.w;
+    s.h = size.h;
+    placeBox(s);
   };
 
   /**
@@ -181,7 +192,6 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       const s = order[i];
       if (s === undefined) continue;
       let push = s.push;
-      let stacked = s.stacked;
       for (let moved = true; moved; ) {
         moved = false;
         for (let j = 0; j < i; j++) {
@@ -195,13 +205,14 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           const bottom = top + s.h;
           const nTop = n.ay - (n.h + TAIL_BELOW) - n.push;
           const nBottom = nTop + n.h + (n.stacked ? 0 : TAIL_BELOW);
-          if (top >= nBottom + GAP || bottom + (stacked ? 0 : TAIL_BELOW) + GAP <= nTop) continue;
+          if (top >= nBottom + GAP || bottom + (s.stacked ? 0 : TAIL_BELOW) + GAP <= nTop) continue;
           push += Math.max(0, bottom + GAP - nTop);
-          stacked = true;
+          // Re-measured and re-centred: the next pass checks the box as it now is.
+          if (!s.stacked) stack(s);
           moved = true;
         }
       }
-      setPush(s, push, stacked);
+      setPush(s, push);
     }
   };
 

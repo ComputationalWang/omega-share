@@ -240,9 +240,11 @@ test("walking moves the speaker's bubbles only; overlap is resolved when the wal
   for (let x = 600; x >= 210; x -= 2) floats.move("b", x, 300);
   expect(shown().find((s) => s.textContent.includes("newer"))?.style.transform).toBe("translate(210px, 300px)");
   expect(push("older")).toBe("0px");
+  expect(measured()).toBe(m);
   floats.settle("b", 210, 300);
   expect(push("older")).toBe("-33px");
-  expect(measured()).toBe(m);
+  // The one measure is "older" gaining its name as it stacks (OME-791), once per bubble, never per frame.
+  expect(measured()).toBe(m + 1);
 });
 
 test("keep: a speaker who left takes their bubbles along", async () => {

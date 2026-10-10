@@ -185,10 +185,9 @@ test("five speakers, ten lines at once: never more than 8 bubbles shown, the lay
   expect(pool.maxNodes).toBe(8);
 });
 
-// product bug: a stacked bubble gains its speaker's name after it was measured and centred, so it sits ~16 stage px off
-// its head (left = -55 for a 142 px box) and the overlap maths uses the narrower width: neighbours' boxes overlap by the
-// name's width on the same row, for as long as they live (floats.ts: measure runs before setPush unhides `.who`).
-test.fail("five speakers, ten lines: no two visible bubbles overlap (once the 160 ms slide clear is done)", async ({ browser }) => {
+// OME-791: a stacked bubble gains its speaker's name after it was first measured, so it is measured and centred again
+// before the overlap maths uses its width (it once sat ~16 stage px off its head and overlapped its neighbour on a row).
+test("five speakers, ten lines: no two visible bubbles overlap (once the 160 ms slide clear is done)", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "overlap").url, count: 5, nicknamePrefix: "mo" });
   const [a] = clients;
   if (a === undefined) throw new Error("no client");
