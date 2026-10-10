@@ -85,13 +85,16 @@ test("two bubbles from one speaker never overlap: the older one moves up, 3 px c
   await expect(older).toHaveClass(/is-stacked/);
   await expect(older.locator(".who")).toHaveText("bs-1");
   await expect(newer).not.toHaveClass(/is-stacked/);
-  // The push slides in 160 ms; after it, the gap holds through the whole rise.
+  // The push slides in 160 ms; after it, the gap holds through the whole rise (stage px: the stage is scaled to fit).
+  const stage = await a.page.locator(site.room).boundingBox();
+  if (stage === null) throw new Error("no stage");
+  const scale = stage.width / 960;
   await a.page.waitForTimeout(400);
   for (let i = 0; i < 3; i++) {
     const o = await older.boundingBox();
     const n = await newer.boundingBox();
     if (o === null || n === null) throw new Error("bubble not laid out");
-    expect(n.y - (o.y + o.height)).toBeGreaterThanOrEqual(3 - 0.5);
+    expect((n.y - (o.y + o.height)) / scale).toBeGreaterThanOrEqual(3 - 0.5);
     await a.page.waitForTimeout(700);
   }
 });
