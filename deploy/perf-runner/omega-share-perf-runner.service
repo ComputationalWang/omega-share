@@ -1,0 +1,19 @@
+# Perf runner (OME-819, docs/ops/perf-runner.md): works the perf job queue one job at a time in its own worktree.
+# A user unit on the operator's machine; needs no root. Lingering keeps it across reboots (loginctl enable-linger).
+# Install: cp deploy/perf-runner/omega-share-perf-runner.service ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now omega-share-perf-runner.service
+[Unit]
+Description=omega-share perf runner
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Projects/omega-share
+Environment=OMEGA_PERF_REPO=%h/Projects/omega-share
+Environment=OMEGA_FIXTURE_PORT=4470 OMEGA_WEB_PORT=5243 OMEGA_SERVER_PORT=8857
+Environment=PATH=%h/.local/share/mise/installs/bun/latest/bin:%h/.local/bin:/usr/local/bin:/usr/bin
+ExecStart=%h/.local/share/mise/installs/bun/latest/bin/bun perf/runner/serve.ts
+Restart=always
+RestartSec=10
+KillMode=control-group
+
+[Install]
+WantedBy=default.target
