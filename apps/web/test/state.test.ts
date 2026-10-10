@@ -62,10 +62,36 @@ describe("reduce", () => {
     expect(server(before, { type: "seat-changed", memberId: "zzz", seat: 0 })).toBe(before);
   });
 
-  test("chat shows one bubble per member, newest wins, expiring BUBBLE_MS later", () => {
+  test("chat keeps a member's last 2 bubbles (2 per speaker), each its own message, expiring BUBBLE_MS later", () => {
     let s = server(joined(), { type: "chat", memberId: "b", text: "first", at: 1 }, 1000);
-    s = server(s, { type: "chat", memberId: "b", text: "second", at: 2 }, 2000);
-    expect(s.bubbles).toEqual([{ memberId: "b", text: "second", expiresAt: 2000 + BUBBLE_MS }]);
+    s = server(s, { type: "chat", memberId: "a", text: "hers", at: 2 }, 1500);
+    s = server(s, { type: "chat", memberId: "b", text: "second", at: 3 }, 2000);
+    expect(s.bubbles.map((b) => [b.memberId, b.text, b.expiresAt])).toEqual([
+      ["b", "first", 1000 + BUBBLE_MS],
+      ["a", "hers", 1500 + BUBBLE_MS],
+      ["b", "second", 2000 + BUBBLE_MS],
+    ]);
+    s = server(s, { type: "chat", memberId: "b", text: "third", at: 4 }, 2500);
+    expect(s.bubbles.map((b) => b.text)).toEqual(["hers", "second", "third"]);
+  });
+
+  // OME-809: two lines landing before one render must both reach the stage, so each bubble is keyed by message, not by
+  // member or time (two in one millisecond still differ).
+  test("two chats from one member in the same millisecond are two bubbles with distinct ids", () => {
+    let s = server(joined(), { type: "chat", memberId: "b", text: "one", at: 1 }, 1000);
+    s = server(s, { type: "chat", memberId: "b", text: "two", at: 2 }, 1000);
+    expect(s.bubbles.map((b) => b.text)).toEqual(["one", "two"]);
+    const [x, y] = s.bubbles;
+    expect(x?.id).not.toBe(y?.id);
+  });
+
+  test("bubble ids keep rising across a reconnect, so a fresh line never reuses an id the stage has floated", () => {
+    let s = server(joined(), { type: "chat", memberId: "b", text: "one", at: 1 }, 1000);
+    const first = s.bubbles[0]?.id ?? -1;
+    s = reduce(s, { type: "disconnected" });
+    s = server(s, { type: "snapshot", self: "a", room: room() });
+    s = server(s, { type: "chat", memberId: "b", text: "two", at: 2 }, 2000);
+    expect(s.bubbles[0]?.id ?? -1).toBeGreaterThan(first);
   });
 
   test("chat from a non-member is ignored", () => {
