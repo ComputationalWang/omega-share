@@ -8,14 +8,14 @@ import { jobEnv, queueDir, recoverCrashed, runPending, type Executor, type LoadG
 
 const repo = resolve(process.env["OMEGA_PERF_REPO"] ?? join(import.meta.dir, "../.."));
 const dir = queueDir();
-// OME-882: start on an idle host, call a run invalid when load spikes. maxLoad is high because the run itself loads the box.
+// OME-882: start on an idle host, call a run invalid when load spikes. OME-890: a clean full job peaks near 0.4 x cores (6.3 of 16); the default is 0.5 x cores so ~+2 cores of outside work trips it.
 const num = (k: string, d: number): number => { const v = Number(process.env[k]); return process.env[k] !== undefined && Number.isFinite(v) ? v : d; };
 const load: LoadGate = {
   read: () => loadavg()[0] ?? 0,
   idleLoad: num("OMEGA_PERF_IDLE_LOAD", 2),
   idleMs: num("OMEGA_PERF_IDLE_SECONDS", 30) * 1000,
   maxWaitMs: num("OMEGA_PERF_MAX_WAIT_MINUTES", 30) * 60_000,
-  maxLoad: num("OMEGA_PERF_MAX_LOAD", Math.round(cpus().length * 0.75)),
+  maxLoad: num("OMEGA_PERF_MAX_LOAD", Math.round(cpus().length * 0.5)),
   sampleMs: 5000,
   maxRequeues: num("OMEGA_PERF_MAX_REQUEUES", 3),
 };
