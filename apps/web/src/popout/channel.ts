@@ -4,6 +4,7 @@
 // message is parsed on receipt and anything else is dropped. Room tab → window: `room-*`; window → room tab: `pop-*`.
 import * as v from "valibot";
 import { ChatTextSchema, EmoteKindSchema, MAX_ROOM_MEMBERS, MemberIdSchema, RoomIdSchema, RoomStateSchema, SEAT_COUNT, type RoomId } from "@omega/shared";
+import { FLOAT_PER_SPEAKER } from "../bubbles/floats";
 import type { ChatLogEntry } from "../chat/log";
 import type { SyslineGlyph } from "../controls/sysline";
 import { CHAT_LOG_CAP } from "../chat/log";
@@ -56,7 +57,11 @@ const StageFields = {
   status: v.picklist(STATUSES),
   self: v.nullable(MemberIdSchema),
   room: v.nullable(RoomStateSchema),
-  bubbles: v.pipe(v.array(v.strictObject({ memberId: MemberIdSchema, text: ChatTextSchema, expiresAt: v.number() })), v.maxLength(MAX_ROOM_MEMBERS), v.readonly()),
+  bubbles: v.pipe(
+    v.array(v.strictObject({ id: v.pipe(v.number(), v.integer()), memberId: MemberIdSchema, text: ChatTextSchema, expiresAt: v.number() })),
+    v.maxLength(MAX_ROOM_MEMBERS * FLOAT_PER_SPEAKER),
+    v.readonly(),
+  ),
   syslines: v.pipe(
     v.array(v.strictObject({ ...SystemLineSchema.entries, id: v.pipe(v.number(), v.integer()), expiresAt: v.number() })),
     v.maxLength(MAX_SYSLINES),
