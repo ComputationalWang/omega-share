@@ -262,4 +262,25 @@ describe("createTierProbe: post-render work and rAF intervals", () => {
     expect(r.rafs.length).toBe(0); // no extra frames in Smooth
     expect(tier.smooth()).toBe(false);
   });
+  test("a forced tier measures nothing: no post after render, no extra frame", () => {
+    for (const forced of ["smooth", "basic"] as const) {
+      const r = rig(createTier({ ...capable, forced }));
+      r.p.rendered(0, 0, true);
+      r.p.rendered(16.7, 16.7, true);
+      expect(r.posted()).toBe(0);
+      expect(r.rafs.length).toBe(0);
+    }
+  });
+
+  test("the extra frame of the 30th probe render, arriving after the upgrade, is not a Smooth walking interval", () => {
+    const seen: number[] = [];
+    let probing = true;
+    const fake = { smooth: () => !probing, probing: () => probing, measuring: () => true, work: () => undefined, interval: (ms: number) => seen.push(ms) };
+    const rafs: ((t: number) => void)[] = [];
+    const p = createTierProbe(fake, { now: () => 0, raf: (fn) => rafs.push(fn), channel: () => () => undefined });
+    p.rendered(0, 0, false);
+    probing = false; // the 30th sample's message decided before its extra frame ran
+    rafs.shift()?.(900);
+    expect(seen).toEqual([]);
+  });
 });
