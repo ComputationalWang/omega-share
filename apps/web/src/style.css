@@ -379,6 +379,19 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .first-hint[hidden] { display: none; }
 .first-hint-text { flex: 1; margin: 0; font-size: 13px; font-weight: 600; color: var(--ui-text); }
 .help-key { font-weight: 700; min-width: 28px; }
+/* M9 W3 (OME-769): "Hide for me". The People key sits beside "?"; its list is in the flow under the room bar (never over
+ * the picture). A hidden person's name tag and avatar are dimmed (the avatar by alpha, room-view.ts), set once per change. */
+.room-top > .ui-button:not([hidden]) ~ .ui-button { margin-left: 0; }
+.people { --ui-px: 1px; margin: 6px 0; padding: 6px 10px; color: var(--ui-text); }
+.people[hidden] { display: none; }
+.people-note { margin: 0 0 6px; font-size: 12px; line-height: 1.4; }
+.people-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.people-row { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; }
+.people-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.people-row.is-hidden .people-name { opacity: 0.6; }
+.people-hidden { flex: none; font-size: 11px; }
+.people-toggle { flex: none; font: inherit; font-size: 12px; font-weight: 700; }
+.tag.is-hidden { opacity: 0.5; }
 .help-dialog { --ui-px: 2px; margin: auto; width: min(calc(100vw - 16px), 520px); max-width: none; max-height: calc(100dvh - 16px); overflow: auto; color: var(--ui-text); }
 .help-dialog::backdrop { background: url("../../../assets/ui/slices/scrim-0.png") 0 0 / 2px 4px; image-rendering: pixelated; }
 .help-dialog h2 { margin: 0 0 8px; font-size: 15px; }

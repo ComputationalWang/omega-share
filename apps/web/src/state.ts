@@ -83,7 +83,9 @@ export type ViewEvent =
   /** 4005 (ADR 0030); `until` is when the rejoin cooldown ends, client ms, or null if we can't know (a bounce). */
   | { readonly type: "kicked"; readonly until: number | null }
   | { readonly type: "server"; readonly msg: ServerMessage; readonly now: number }
-  | { readonly type: "tick"; readonly now: number };
+  | { readonly type: "tick"; readonly now: number }
+  /** I hid this member for myself (OME-769): their bubbles go now; their later lines never get here (room-events.ts). */
+  | { readonly type: "hide"; readonly memberId: MemberId };
 
 export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], bubbleSeq: 0, syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null };
 
@@ -279,6 +281,10 @@ export function reduce(state: ViewState, event: ViewEvent): ViewState {
       return { ...initialState, bubbleSeq: state.bubbleSeq, status: event.takenDown === true ? "taken-down" : "closed" };
     case "kicked":
       return { ...initialState, bubbleSeq: state.bubbleSeq, status: "kicked", kickedUntil: event.until };
+    case "hide": {
+      const kept = state.bubbles.filter((b) => b.memberId !== event.memberId);
+      return kept.length === state.bubbles.length ? state : { ...state, bubbles: kept };
+    }
     case "tick": {
       const kept = state.bubbles.filter((b) => b.expiresAt > event.now);
       const lines = state.syslines.filter((l) => l.expiresAt > event.now);

@@ -86,7 +86,7 @@ test("a bounce whose cooldown end is unknown dispatches until: null", () => {
 // region see a thing, so nothing per frame ever asks who is hidden.
 test("a hidden member's chat and emotes stop at intake: no dispatch, no emote", () => {
   const { route, dispatched, emoted } = setup(["m2"]);
-  route({ type: "message", msg: { type: "chat", memberId: "m2", text: "boo" } });
+  route({ type: "message", msg: { type: "chat", memberId: "m2", text: "boo", at: 1 } });
   route({ type: "message", msg: { type: "emoted", memberId: "m2", kind: "wave" } });
   expect(dispatched).toEqual([]);
   expect(emoted).toEqual([]);
@@ -94,7 +94,7 @@ test("a hidden member's chat and emotes stop at intake: no dispatch, no emote", 
 
 test("everyone else's chat, and a hidden member's other messages (seat, leave), still go through", () => {
   const { route, dispatched, emoted } = setup(["m2"]);
-  route({ type: "message", msg: { type: "chat", memberId: "m1", text: "hi" } });
+  route({ type: "message", msg: { type: "chat", memberId: "m1", text: "hi", at: 1 } });
   route({ type: "message", msg: { type: "emoted", memberId: "m1", kind: "wave" } });
   route({ type: "message", msg: { type: "seat-changed", memberId: "m2", seat: 3 } });
   route({ type: "message", msg: { type: "member-left", memberId: "m2" } });

@@ -25,8 +25,8 @@ async function handle(page: Page, name: string, ...args: unknown[]): Promise<unk
     ([n, a]) => {
       const debug: unknown = Reflect.get(window, "__omega");
       const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
-      const f: unknown = typeof room === "object" && room !== null ? Reflect.get(room, n as string) : null;
-      return typeof f === "function" ? (Reflect.apply(f, room, a as unknown[]) as unknown) : null;
+      const f: unknown = typeof room === "object" && room !== null ? Reflect.get(room, n) : null;
+      return typeof f === "function" ? (Reflect.apply(f, room, a) as unknown) : null;
     },
     [name, args] as const,
   );
@@ -84,7 +84,7 @@ test("hide for me: nothing is sent, their chat, bubbles and emotes stop for me o
   await expect(b.page.locator(site.chatLog)).toContainText("hi from a");
   await expect(a.page.locator(site.chatLog)).toContainText("hi from a");
   await expect(a.page.locator(site.chatLog)).not.toContainText("boo from b");
-  expect(await a.page.locator("[aria-live], [role=log], [role=status]").evaluateAll((els) => els.some((e) => (e.textContent ?? "").includes("boo from b")))).toBe(false);
+  expect(await a.page.locator("[aria-live], [role=log], [role=status]").evaluateAll((els) => els.some((e) => e.textContent.includes("boo from b")))).toBe(false);
   expect((await state(a.page)).bubbles.filter((x) => x.memberId === bId)).toEqual([]);
   expect(await sticker(a.page, bId)).toBeNull();
   // B's avatar is still in A's room.
