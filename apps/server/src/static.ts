@@ -4,7 +4,7 @@ import type { Context, Hono } from "hono";
 import { serveStatic } from "hono/serve-static";
 import * as v from "valibot";
 import { RoomIdSchema } from "@omega/shared";
-import { siteMeta, withMeta } from "./site-meta";
+import { securityTxt, siteMeta, withMeta } from "./site-meta";
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
 /** Fixed names (icons, manifest, robots.txt) can't be immutable: a day, so a new icon shows up soon enough. */
@@ -85,6 +85,11 @@ export function mountSite(app: Hono, root: string, { origin, previewTitle }: Sit
   app.use("/assets/*", files(root, undefined, IMMUTABLE));
   app.all("/assets/*", (c) => c.notFound());
   for (const name of PUBLIC_FILES) app.get(`/${name}`, files(PUBLIC_DIR, name, DAY));
+  const security = securityTxt(origin);
+  app.get("/.well-known/security.txt", (c) => {
+    c.header("cache-control", DAY);
+    return c.body(security, 200, { "content-type": "text/plain; charset=utf-8" });
+  });
   app.get("/", (c) => page(c, "index.html", generic));
   app.get("/index.html", (c) => page(c, "index.html", generic));
   app.get("/r/*", (c, next) => {

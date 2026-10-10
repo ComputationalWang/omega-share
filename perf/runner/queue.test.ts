@@ -144,3 +144,86 @@ describe("jobEnv", () => {
     expect(jobEnv(job())).toEqual({ OMEGA_PERF_MOTION: "" });
   });
 });
+
+// OME-882: work outside the runner (agents' local e2e) inflates timings; a load-contaminated run must read as invalid, never as a regression.
+describe("load gate", () => {
+  const scripted = (values: number[]) => { let i = 0; return () => values[Math.min(i++, values.length - 1)] ?? 0; };
+  const gate = (read: () => number, extra: Partial<NonNullable<Parameters<typeof runPending>[2]>["load"]> = {}) => ({
+    load: { read, idleLoad: 2, idleMs: 30_000, maxWaitMs: 600_000, maxLoad: 10, sampleMs: 5, maxRequeues: 2, now: () => clock, sleep: (ms: number) => { clock += ms; return Promise.resolve(); }, ...extra },
+  });
+  let clock = 0;
+  beforeEach(() => { clock = 0; });
+
+  test("waits for the load to stay at or below the idle threshold before starting", async () => {
+    const id = submit("a".repeat(40), [], 1000);
+    let startedAt = -1;
+    // busy for 3 samples (10 s apart), then idle: the job starts only after 30 s of idle
+    await runPending(dir, () => { startedAt = clock; return Promise.resolve({ exitCode: 0 }); }, gate(scripted([9, 9, 9, 0.5, 0.5, 0.5, 0.5, 0.5]), { pollMs: 10_000 }));
+    expect(startedAt).toBeGreaterThanOrEqual(30_000 + 30_000);
+    expect(jobStatus(dir, id).state).toBe("passed");
+  });
+
+  test("a load burst during the run makes the job invalid (load X) and requeues it, not failed", async () => {
+    const id = submit("a".repeat(40), [], 1000);
+    let runs = 0;
+    const exec: Executor = async (_job, ctx) => {
+      runs++;
+      await Bun.sleep(60);
+      return { exitCode: ctx.signal.aborted ? 1 : 0 };
+    };
+    await runPending(dir, exec, gate(scripted([0, 0, 0, 25.6, 25.6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), { idleMs: 0 }));
+    const first = readResult(dir, id);
+    expect(first?.status).toBe("invalid");
+    expect(first?.reason).toContain("invalid (load 25.6");
+    expect(first?.requeuedAs).toBeDefined();
+    expect(runs).toBe(2);
+    const second = readResult(dir, first?.requeuedAs ?? "");
+    expect(second?.status).toBe("passed");
+    expect(second?.attempt).toBe(2);
+  });
+
+  test("gives up after maxRequeues: the last attempt stays invalid with no requeue", async () => {
+    submit("a".repeat(40), [], 1000);
+    let runs = 0;
+    await runPending(dir, async () => { runs++; await Bun.sleep(30); return { exitCode: 1 }; }, gate(() => 30, { idleMs: 0, idleLoad: 99, maxRequeues: 1 }));
+    expect(runs).toBe(2);
+  });
+
+  test("result.json records load samples, the load at start and the peak", async () => {
+    const id = submit("a".repeat(40), [], 1000);
+    await runPending(dir, async () => { await Bun.sleep(40); return { exitCode: 0 }; }, gate(scripted([0.4, 0.4, 3, 5, 4, 3, 3, 3, 3]), { idleMs: 0 }));
+    const r = readResult(dir, id);
+    expect(r?.status).toBe("passed");
+    expect(r?.loadAtStart).toBe(0.4);
+    expect(r?.loadPeak).toBeGreaterThanOrEqual(3);
+    expect(r?.loadSamples?.length).toBeGreaterThan(0);
+  });
+
+  test("an invalid run clears the build marker, so the next job of the earlier sha rebuilds", async () => {
+    const X = "a".repeat(40), Y = "b".repeat(40);
+    let hot = false;
+    const reuse: Record<string, boolean[]> = {};
+    const exec: Executor = async (job, ctx) => {
+      (reuse[job.sha] ??= []).push(ctx.reuseBuild);
+      hot = job.sha === Y;
+      await Bun.sleep(40);
+      hot = false;
+      return { exitCode: ctx.signal.aborted ? 1 : 0 };
+    };
+    const g = gate(() => (hot ? 25 : 0), { idleMs: 0, maxRequeues: 0 });
+    submit(X, [], 1);
+    await runPending(dir, exec, g);
+    submit(Y, [], 2);
+    await runPending(dir, exec, g);
+    submit(X, [], 3);
+    await runPending(dir, exec, g);
+    expect(reuse[Y]).toEqual([false]);
+    expect(reuse[X]).toEqual([false, false]);
+  });
+
+  test("without a load gate jobs behave as before (no samples)", async () => {
+    const id = submit("a".repeat(40), [], 1000);
+    await runPending(dir, ok);
+    expect(readResult(dir, id)?.loadSamples).toBeUndefined();
+  });
+});

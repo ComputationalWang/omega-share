@@ -4,7 +4,7 @@ import { PENDING, URLS, available } from "../e2e/support/apps";
 import { joinRoom, leaveAll } from "../e2e/support/room";
 import { joinForToken, postShare } from "../e2e/support/share";
 import { site } from "../e2e/support/selectors";
-import { recordFrameRows, tracedFrames } from "./frames";
+import { recordFrameRows, sampledFrames } from "./frames";
 import { recordMetric } from "./metrics";
 import { GENERIC_HOST, GENERIC_PAGE } from "./providers";
 import { PLAYING, fakeState, shareVideo, waitPlaying } from "./sync";
@@ -58,10 +58,10 @@ test("site: p95 frame time with 8 avatars and video playing", async ({ browser, 
     const [observer] = clients;
     if (!observer) throw new Error("no clients");
     await waitPlaying(clients);
-    const w = await tracedFrames(browser, observer.page, 5000);
+    const ws = await sampledFrames(browser, observer.page, 5000);
     expect(await fakeState(observer.page)).toBe(PLAYING);
-    expect(w.samples.length).toBeGreaterThan(0);
-    recordFrameRows("youtube", w, "video playing (fake player)");
+    for (const w of ws) expect(w.samples.length).toBeGreaterThan(0);
+    recordFrameRows("youtube", ws, "video playing (fake player)");
   } finally {
     await leaveAll(clients);
   }
@@ -89,10 +89,10 @@ test("site: p95 frame time with 8 avatars and a Vimeo video playing", async ({ b
       await expect(c.page.locator(site.sharedVideo)).toBeVisible({ timeout: 15_000 });
       await expect.poll(() => c.page.evaluate(() => window.__fakeVimeo?.paused ?? null), { timeout: 15_000 }).toBe(false);
     }
-    const w = await tracedFrames(browser, observer.page, 5000);
+    const ws = await sampledFrames(browser, observer.page, 5000);
     expect(await observer.page.evaluate(() => window.__fakeVimeo?.paused)).toBe(false);
-    expect(w.samples.length).toBeGreaterThan(0);
-    recordFrameRows("vimeo", w, "Vimeo playing (fake SDK)");
+    for (const w of ws) expect(w.samples.length).toBeGreaterThan(0);
+    recordFrameRows("vimeo", ws, "Vimeo playing (fake SDK)");
   } finally {
     await leaveAll(clients);
   }
@@ -130,11 +130,11 @@ test("site: p95 frame time with 8 avatars and a generic embed loaded", async ({ 
     const inner = observer.page.frameLocator(site.sharedVideo);
     const framesIn = () => inner.locator("canvas").evaluate(() => Number(Reflect.get(window, "__genericFrames") ?? 0));
     const before = await framesIn();
-    const w = await tracedFrames(browser, observer.page, 5000);
-    expect(w.samples.length).toBeGreaterThan(0);
+    const ws = await sampledFrames(browser, observer.page, 5000);
+    for (const w of ws) expect(w.samples.length).toBeGreaterThan(0);
     // The embed kept drawing while we measured: the cost of a live third-party frame is in the window.
     expect(await framesIn()).toBeGreaterThan(before + 100);
-    recordFrameRows("generic", w, "generic embed loaded (local page repainting every frame)");
+    recordFrameRows("generic", ws, "generic embed loaded (local page repainting every frame)");
   } finally {
     await leaveAll(clients);
   }

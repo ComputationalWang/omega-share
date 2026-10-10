@@ -11,10 +11,14 @@ export const SYSLINE_MS = 6000;
 /** How long chat stays in cooldown after a `rate_limited` that carries no `retryAfterMs` (pre-M3 server). */
 export const CHAT_COOLDOWN_DEFAULT_MS = 1000;
 
-export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused" | "closed" | "taken-down" | "kicked";
+/**
+ * `not-found` (OME-768): a room this page never got into answered that it's gone (4004), taken down (4006), or private
+ * without a working key (`invite_required`). One screen for all of them, so the page never tells a private room from no room.
+ */
+export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused" | "closed" | "taken-down" | "kicked" | "not-found";
 
-/** Why the server refused our join (ADR 0016 §4). The connection has stopped; the user has to act. */
-export type Refusal = "nickname_taken" | "too_many_members" | "invite_required";
+/** Why the server refused our join (ADR 0016 §4). The connection has stopped; the user has to act. A refused invite is `not-found`. */
+export type Refusal = "nickname_taken" | "too_many_members";
 
 export interface Bubble {
   /** The message's own key, rising for the life of the page (OME-809): the stage hands each id to the floats once. */
@@ -79,12 +83,14 @@ export type ViewEvent =
   /** 4005 (ADR 0030); `until` is when the rejoin cooldown ends, client ms, or null if we can't know (a bounce). */
   | { readonly type: "kicked"; readonly until: number | null }
   | { readonly type: "server"; readonly msg: ServerMessage; readonly now: number }
-  | { readonly type: "tick"; readonly now: number };
+  | { readonly type: "tick"; readonly now: number }
+  /** I hid this member for myself (OME-769): their bubbles go now; their later lines never get here (room-events.ts). */
+  | { readonly type: "hide"; readonly memberId: MemberId };
 
 export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], bubbleSeq: 0, syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null };
 
 /** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
-const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "taken-down" || s.status === "kicked";
+const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "taken-down" || s.status === "kicked" || s.status === "not-found";
 
 /** True while the server's `rate_limited` hint says to hold off sending chat. */
 export function coolingDown(state: ViewState, now: number): boolean {
@@ -172,6 +178,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       if (msg.code === "nickname_taken" || msg.code === "too_many_members" || msg.code === "invite_required") {
         // Only a join is refused (ADR 0016 §4). Once this connection is in, the connection ignores it; so do we.
         if (state.status === "open") return { ...state, lastError };
+        // No notice either: its words would say the room is private.
+        if (msg.code === "invite_required") return { ...initialState, bubbleSeq: state.bubbleSeq, status: "not-found" };
         return { ...initialState, bubbleSeq: state.bubbleSeq, status: "refused", refusal: msg.code, lastError };
       }
       if (msg.code !== "rate_limited") return { ...state, lastError };
@@ -268,9 +276,15 @@ export function reduce(state: ViewState, event: ViewEvent): ViewState {
     case "disconnected":
       return stopped(state) ? state : { ...state, status: "reconnecting", bubbles: [] };
     case "room-closed":
+      // Never in it on this page (no room yet): to us it doesn't exist. A room we were in says how it ended.
+      if (state.room === null) return { ...initialState, bubbleSeq: state.bubbleSeq, status: "not-found" };
       return { ...initialState, bubbleSeq: state.bubbleSeq, status: event.takenDown === true ? "taken-down" : "closed" };
     case "kicked":
       return { ...initialState, bubbleSeq: state.bubbleSeq, status: "kicked", kickedUntil: event.until };
+    case "hide": {
+      const kept = state.bubbles.filter((b) => b.memberId !== event.memberId);
+      return kept.length === state.bubbles.length ? state : { ...state, bubbles: kept };
+    }
     case "tick": {
       const kept = state.bubbles.filter((b) => b.expiresAt > event.now);
       const lines = state.syslines.filter((l) => l.expiresAt > event.now);
@@ -303,10 +317,12 @@ export interface Screen {
   readonly closed: false | "deleted" | "taken-down";
   /** The owner removed me (4005, ADR 0030). */
   readonly kicked: boolean;
+  /** A room this page never got into is gone, taken down or keyless-private (OME-768): "Room not found". */
+  readonly notFound: boolean;
 }
 
 /** Which room-screen regions are laid out. The stage wrap has a fixed height, so it leaves the flow when not in a room. */
 export function screen(state: ViewState): Screen {
   const inRoom = state.room !== null && !stopped(state);
-  return { stage: inRoom, chat: inRoom, full: state.status === "full", refused: state.status === "refused" ? state.refusal : null, closed: state.status === "closed" ? "deleted" : state.status === "taken-down" ? "taken-down" : false, kicked: state.status === "kicked" };
+  return { stage: inRoom, chat: inRoom, full: state.status === "full", refused: state.status === "refused" ? state.refusal : null, closed: state.status === "closed" ? "deleted" : state.status === "taken-down" ? "taken-down" : false, kicked: state.status === "kicked", notFound: state.status === "not-found" };
 }

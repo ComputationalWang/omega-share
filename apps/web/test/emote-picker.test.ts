@@ -20,7 +20,7 @@ interface Where {
   room: Rect;
 }
 
-async function setup(o: { sendOk?: boolean; where?: Where } = {}) {
+async function setup(o: { sendOk?: boolean; where?: Where; onOpen?: () => void } = {}) {
   const { createEmotePicker } = await import("../src/emote/picker");
   let now = 0;
   const sent: ClientMessage[] = [];
@@ -35,6 +35,7 @@ async function setup(o: { sendOk?: boolean; where?: Where } = {}) {
     setTimer: (fn, ms) => timers.push({ fn, ms }),
     clearTimer: () => undefined,
     ...(o.where === undefined ? {} : { locate: () => o.where ?? null }),
+    ...(o.onOpen === undefined ? {} : { onOpen: o.onOpen }),
   });
   const form = document.createElement("form");
   const field = document.createElement("input");
@@ -94,6 +95,26 @@ describe("emote wheel", () => {
     key.click();
     expect(m.hidden).toBe(true);
     expect(key.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  test("onOpen runs as the wheel opens (key or T), before it's placed, so the page can settle its layout first (OME-768)", async () => {
+    const order: string[] = [];
+    const { key, press } = await setup({
+      onOpen: () => order.push("open"),
+      where: {
+        get head() {
+          order.push("locate");
+          return null;
+        },
+        room: { x: 0, y: 0, w: 800, h: 600 },
+      },
+    });
+    key.click();
+    expect(order).toEqual(["open", "locate"]);
+    key.click();
+    order.length = 0;
+    press("t", {}, document.body);
+    expect(order).toEqual(["open", "locate"]);
   });
 
   test("the wheel is built once: reopening reuses the same nodes", async () => {

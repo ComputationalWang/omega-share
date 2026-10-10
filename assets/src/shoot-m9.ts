@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const PREVIEW = join(import.meta.dir, "..", "preview");
-const all = ["m9-icons", "m9-og", "m9-steps-light", "m9-steps-dark"];
+const all = ["m9-icons", "m9-og", "m9-steps-light", "m9-steps-dark", "m9-notfound"];
 const only = process.argv.slice(2);
 const ids = only.length > 0 ? only : all;
 const build = Bun.spawnSync(["bun", join(import.meta.dir, "build.ts")]);
