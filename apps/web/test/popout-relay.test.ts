@@ -401,3 +401,31 @@ describe("room relay (OME-600)", () => {
     expect(popped).toEqual([true, false]);
   });
 });
+
+// OME-769 (M9 W3): the pop-out never learns member ids. The room tab keeps who said each line and, when the hidden set
+// changes, sends the pop-out its backlog again without the hidden member's lines.
+describe("chat relay: hide for me", () => {
+  test("a hide re-sends the backlog without the hidden member's lines; show sends them back", async () => {
+    const { relay, from, take } = await setup();
+    relay.append(LINE("boo"), "b");
+    relay.append(LINE("hi"), "a");
+    relay.popOut();
+    from({ t: "pop-ready", pop: "p1" });
+    take();
+    relay.hideFrom((id) => id === "b");
+    expect(take()).toEqual([{ t: "room-log", reset: true, entries: [LINE("hi")] }]);
+    relay.hideFrom(() => false);
+    expect(take()).toEqual([{ t: "room-log", reset: true, entries: [LINE("boo"), LINE("hi")] }]);
+  });
+
+  test("a window adopted after a hide gets the backlog without their lines", async () => {
+    const { relay, from, take } = await setup();
+    relay.append(LINE("boo"), "b");
+    relay.append(LINE("hi"), "a");
+    relay.hideFrom((id) => id === "b");
+    expect(take().filter((m) => m.t === "room-log")).toEqual([]);
+    relay.popOut();
+    from({ t: "pop-ready", pop: "p1" });
+    expect(take().find((m) => m.t === "room-log")).toEqual({ t: "room-log", reset: true, entries: [LINE("hi")] });
+  });
+});

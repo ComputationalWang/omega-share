@@ -19,6 +19,8 @@ export interface EmotePickerOptions {
    * visible box. Without it (the pop-out chat) the wheel docks above the composer.
    */
   readonly locate?: () => { readonly head: Point | null; readonly room: Rect } | null;
+  /** The wheel is opening (key or T), before it's placed: the page settles anything that would move it (OME-768). */
+  readonly onOpen?: () => void;
 }
 
 export interface EmotePicker {
@@ -176,6 +178,7 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
   function show(): void {
     const focused = document.activeElement;
     before = focused instanceof HTMLElement && focused !== document.body ? focused : null;
+    o.onOpen?.();
     wheel ??= build();
     const where = o.locate?.() ?? null;
     const r = (root.parentElement ?? root).getBoundingClientRect();

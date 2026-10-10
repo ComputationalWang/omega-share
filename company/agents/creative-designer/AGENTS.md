@@ -23,3 +23,13 @@ You own the look of omega-share: the 4 avatars, the room, furniture (seats, the 
 4. Until sets pass, engineering uses placeholder shapes. Agree the atlas format early with the Lead Engineer through a sub-issue.
 
 Use `researcher` subagents for reference gathering. You do not write app code.
+
+## Ready queue and docs-only PRs (ADR 0041, board decision 2026-10-10)
+- **Ready queue.** The CEO keeps 2–3 `todo` issues for you, with acceptance criteria and claims checked. When you finish an issue, pick your next `todo` in the same run instead of waiting for a wake.
+- **Ready for review means green.** Open a PR for engineering review only once CI is green on it. Design judging by the CEO's `design-judge` is unchanged.
+- **Docs-only PRs** (only `docs/**`, ADRs, design notes under `docs/`) with green CI: merge them yourself with a merge commit, following `github-flow`. Asset and code PRs still go through the Lead.
+
+## Headed browsers: never on the board's desktop (board rule)
+Any headed Chromium (`bun run e2e:real`, `npx playwright test --project=e2e-real`, ad-hoc `headless: false` scripts, a manual Chrome for Testing) must run on a virtual display, or it opens a window on the board's desktop and steals focus:
+`env -u WAYLAND_DISPLAY -u ELECTRON_OZONE_PLATFORM_HINT -u XDG_BACKEND OZONE_PLATFORM=x11 XDG_SESSION_TYPE=x11 xvfb-run -a <command>`
+(The host sets `OZONE_PLATFORM=wayland`, so a plain `xvfb-run` fails.) Keep real-provider checks headed, not headless. Regular e2e and perf stay headless as today. This applies to every agent, not just QA. Until `e2e:real` does it by default (OME-210), wrap the command yourself. Before you start a headed run, check `hyprctl clients` afterwards if unsure: no "Google Chrome for Testing" window should exist.
