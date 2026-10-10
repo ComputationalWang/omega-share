@@ -1,6 +1,7 @@
 body { margin: 0; font: 14px/1.4 system-ui, sans-serif; width: 320px; color: #222; }
 [hidden] { display: none !important; }
-main { padding: 12px; display: grid; gap: 8px; }
+/* minmax(0, 1fr): the column is the popup's width, not its widest child's (a long host, a long room name, a wide system font). */
+main { padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 h1 { font-size: 16px; margin: 0; }
 ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 li label { display: flex; gap: 6px; align-items: center; word-break: break-all; }
@@ -11,6 +12,8 @@ p { margin: 0; }
 .link { background: none; border: 0; padding: 0; color: #1a57c4; cursor: pointer; justify-self: start; }
 #server-status { color: #8a4b00; }
 .link[data-emphasis="true"] { font-weight: 600; text-decoration: underline; }
+.legal { display: flex; gap: 12px; font-size: 12px; }
+.legal a { color: #555; }
 /* A phone (Firefox for Android opens the popup as a full-screen sheet, 360-412 px): fill the sheet, 44 px touch targets.
    `hover: none`, not `pointer: coarse`: a touchscreen that also reports a stylus (S Pen, the Android emulator) is a fine pointer.
    A hover query, not a width one: desktop Chrome sizes the popup to its body, so a width query could loop. */
@@ -19,8 +22,10 @@ p { margin: 0; }
   main { gap: 12px; }
   li label { min-height: 44px; }
   form label { display: flex; flex: 1 1 100%; gap: 8px; align-items: center; }
-  select { flex: 1; min-width: 0; min-height: 44px; font: inherit; }
+  /* width: 0 + flex: 1: the select fills the row instead of sizing to its longest option (OME-862). */
+  select { flex: 1; width: 0; min-width: 0; min-height: 44px; font: inherit; }
   form button { flex: 1 1 0; min-height: 44px; min-width: 44px; font: inherit; }
   .link { min-height: 44px; min-width: 44px; padding: 0 12px; font: inherit; }
+  .legal a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
   input[type="radio"] { width: 24px; height: 24px; flex: none; }
 }
