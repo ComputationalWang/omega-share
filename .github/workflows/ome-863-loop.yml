@@ -27,5 +27,13 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
       - run: bun run --filter @omega/extension build:e2e
-      - name: buffer test x10, 2 workers, no retries
-        run: bunx playwright test --project=e2e-sync e2e/sync.e2e.ts --grep "3 s buffer" --repeat-each=10 --workers=2 --retries=0 --reporter=list
+      - name: sync.e2e.ts x5 (2 workers, no retries), count the buffer test
+        run: |
+          pass=0; fail=0
+          for i in 1 2 3 4 5; do
+            if bunx playwright test --project=e2e-sync e2e/sync.e2e.ts --workers=2 --retries=0 --reporter=list > run-$i.log 2>&1; then :; fi
+            if grep -qE "✓ .*3 s buffer" run-$i.log; then pass=$((pass+1)); else fail=$((fail+1)); grep -E "✘|Error:|catching" run-$i.log | head -20; fi
+            grep -E "^\s+[0-9]+ (passed|failed|flaky)" run-$i.log
+          done
+          echo "BUFFER TEST: $pass passed, $fail failed"
+          test $fail -eq 0
