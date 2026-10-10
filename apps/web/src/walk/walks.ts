@@ -13,6 +13,9 @@ export type Dir = "se" | "sw" | "ne" | "nw";
 /** ADR 0010 `meta.omega.walk`: 150 ms a frame, 4 frames a tile (one cycle per tile). motion.ts checks the atlas agrees. */
 export const WALK_FRAME_MS = 150;
 export const WALK_FRAMES = 4;
+/** ADR 0037 `meta.omega.walk8`: the Smooth tier's cycle, 8 frames at 75 ms (still one tile per 600 ms cycle). */
+export const SMOOTH_FRAME_MS = 75;
+export const SMOOTH_FRAMES = 8;
 const TILE_MS = WALK_FRAME_MS * WALK_FRAMES;
 /** Screen length of one step between neighbouring cells. */
 const TILE_LEN = Math.hypot(TILE_W / 2, TILE_H / 2);
