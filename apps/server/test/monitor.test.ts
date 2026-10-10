@@ -81,10 +81,9 @@ esac`,
     return { code: p.exitCode, out };
   };
   const lines = (name: string) => (existsSync(join(fx, name)) ? readFileSync(join(fx, name), "utf8").split("\n").filter(Boolean) : []);
-  const set = (name: string, value: string) => writeFileSync(join(fx, name), value);
-  const unset = (name: string) => rmSync(join(fx, name), { force: true });
-  const reports = (perRoom: number[]) =>
-    set(
+  const set = (name: string, value: string) => { writeFileSync(join(fx, name), value); };
+  const unset = (name: string) => { rmSync(join(fx, name), { force: true }); };
+  const reports = (perRoom: number[]) => { set(
       "reports.txt",
       perRoom.length === 0
         ? "no open reports\n"
@@ -95,8 +94,8 @@ esac`,
                 Array.from({ length: n }, (_, j) => `  2026-10-10T00:00:0${String(j)}Z\tspam\tid${String(j)}\tnote: -\ttitle then: -\tplaying: -\n`).join(""),
             )
             .join(""),
-    );
-  const certIn = (now: number, days: number) => set("notafter", new Date((now + days * DAY + 3600) * 1000).toUTCString().replace(/^\w+, (\d+) (\w+) (\d+) (.*) GMT$/, "$2 $1 $4 $3 GMT"));
+    ); };
+  const certIn = (now: number, days: number) => { set("notafter", new Date((now + days * DAY + 3600) * 1000).toUTCString().replace(/^\w+, (\d+) (\w+) (\d+) (.*) GMT$/, "$2 $1 $4 $3 GMT")); };
   return { root, run, lines, set, unset, reports, certIn };
 };
 
