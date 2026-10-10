@@ -278,11 +278,26 @@ const motionSeen = (page: Page): Promise<Motion[]> =>
     return out;
   });
 
+/**
+ * Set (l)'s reduced-motion bubble (OME-730) shows at once and fades out linearly: opacity only, nothing moves. It is
+ * the one allowed long animation, and only while its keyframes stay opacity-only.
+ */
+const REDUCED_FADE = "ui-float-life-reduced";
+
 /** Asserts nothing longer than a blink ran since the page opened (the log is cumulative, so ask after each trigger). */
 async function expectStill(page: Page, step: string): Promise<void> {
   await page.waitForTimeout(150);
-  const long = (await motionSeen(page)).filter((m) => m.ms > BLINK_MS);
+  const long = (await motionSeen(page)).filter((m) => m.ms > BLINK_MS && !m.what.replace(/^running /, "").startsWith(REDUCED_FADE));
   expect(long, `${step}: CSS motion under reduced motion`).toEqual([]);
+  const fadeProps = await page.evaluate((name) => {
+    const props = new Set<string>();
+    for (const a of document.getAnimations()) {
+      if (!(a instanceof CSSAnimation) || a.animationName !== name || !(a.effect instanceof KeyframeEffect)) continue;
+      for (const k of a.effect.getKeyframes()) for (const p of Object.keys(k)) if (!["offset", "computedOffset", "easing", "composite"].includes(p)) props.add(p);
+    }
+    return [...props];
+  }, REDUCED_FADE);
+  expect(fadeProps.filter((p) => p !== "opacity"), `${step}: the reduced bubble fade animates opacity only`).toEqual([]);
 }
 
 /** Every visible key, field and radio on the page has an accessible name. */

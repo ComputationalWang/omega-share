@@ -3,14 +3,15 @@
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
 import { SEAT_COUNT, layoutSeats, type EmoteKind, type MemberId, type RoomLayout } from "@omega/shared";
+import { createFloats } from "./bubbles/floats";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
 import { seatViews } from "./intents";
-import { BUBBLE_OFFSET_Y, SYSLINE_RAIL, TAG_OFFSET_Y, type Point, type Rect } from "./layout";
+import { SYSLINE_RAIL, TAG_OFFSET_Y, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
-import { catchingUp, type StageState } from "./state";
+import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
 import { walkGrid } from "./walk/path";
 import { standingSpots } from "./walk/standing";
@@ -66,30 +67,42 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   });
   overlay.append(...seatButtons);
   const tags = el("div", { className: "tags" });
-  const bubbles = el("div", { className: "bubbles", ariaLive: "polite" });
+  // Decorative (createFloats makes it aria-hidden): the chat log is the accessible record of what was said.
+  const bubbles = el("div", { className: "bubbles" });
   // Chat system lines ("Ana paused"): caption rail in the stage's bottom-left, text only.
   const rail = el("div", { className: "syslines", ariaLive: "polite" });
   box(rail, SYSLINE_RAIL);
 
   const tagEls = new Map<MemberId, HTMLElement>();
-  const bubbleEls = new Map<MemberId, HTMLElement>();
-  const badges = createEmoteBadges(bubbles, {
-    setTimer: (fn, ms) => setTimeout(fn, ms),
-    clearTimer: (h) => {
+  const timers = {
+    setTimer: (fn: () => void, ms: number): unknown => setTimeout(fn, ms),
+    clearTimer: (h: unknown): void => {
       clearTimeout(h as ReturnType<typeof setTimeout>);
     },
-  });
+  };
+  const floats = createFloats(bubbles, { reducedMotion: o.reducedMotion, now: () => Date.now(), ...timers });
+  /** Per speaker, the `expiresAt` of the last bubble handed to `floats`: a new one is a new message. */
+  const floated = new Map<MemberId, number>();
+  const speaking = new Set<MemberId>();
+  // Hidden (full screen, the room popped out) the layer has no layout and drops its animations: catch up when it shows.
+  if (typeof ResizeObserver === "function") new ResizeObserver(() => {
+    floats.reflow();
+  }).observe(bubbles);
+  const badges = createEmoteBadges(bubbles, timers);
   /** The seats as last drawn, for the emote lift (a sitter's sticker sits lower). */
   let seated: readonly (MemberId | null)[] = [];
   const liftOf = (id: MemberId): number => (seated.includes(id) ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
-  // Tags, bubbles and emote badges ride along with a walking avatar.
+  // Tags, bubbles and emote badges ride along with a walking avatar; a bubble's tail tips just over the head.
   const view = await createRoomView({
     onMove: (id, x, y) => {
-      badges.move(id, x, y - liftOf(id));
+      const head = y - liftOf(id);
+      badges.move(id, x, head);
+      floats.move(id, x, head);
       const tag = tagEls.get(id);
       if (tag !== undefined) place(tag, { x, y: y + TAG_OFFSET_Y });
-      const bubble = bubbleEls.get(id);
-      if (bubble !== undefined) place(bubble, { x, y: y + BUBBLE_OFFSET_Y });
+    },
+    onStop: (id, x, y) => {
+      floats.settle(id, x, y - liftOf(id));
     },
   });
   view.canvas.className = "scene";
@@ -239,22 +252,19 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       if (p !== undefined) place(e, { x: p.x, y: p.y + TAG_OFFSET_Y });
     }
 
-    const live = new Set(s.bubbles.map((b) => b.memberId));
-    for (const [id, e] of bubbleEls) {
-      if (live.has(id)) continue;
-      e.remove();
-      bubbleEls.delete(id);
-    }
+    // The state says whose bubbles show (a speaker who left, or a reconnect, takes theirs along). A bubble the floats
+    // haven't had yet is a new message: by its expiry, since a pop-out window parses fresh objects every update.
+    speaking.clear();
+    for (const b of s.bubbles) speaking.add(b.memberId);
+    floats.keep(speaking);
+    for (const id of floated.keys()) if (!speaking.has(id)) floated.delete(id);
     for (const b of s.bubbles) {
+      if (floated.get(b.memberId) === b.expiresAt) continue;
       const p = view.position(b.memberId) ?? at.get(b.memberId);
-      let e = bubbleEls.get(b.memberId);
-      if (e === undefined) {
-        e = el("p", { className: "bubble" }, "chat-message");
-        bubbleEls.set(b.memberId, e);
-        bubbles.append(e);
-      }
-      if (e.textContent !== b.text) e.textContent = b.text;
-      if (p !== undefined) place(e, { x: p.x, y: p.y + BUBBLE_OFFSET_Y });
+      const m = members.get(b.memberId);
+      if (p === undefined || m === undefined) continue;
+      floated.set(b.memberId, b.expiresAt);
+      floats.say({ id: b.memberId, name: m.nickname, text: b.text, self: b.memberId === s.self, at: { x: p.x, y: p.y - liftOf(b.memberId) }, startedAt: b.expiresAt - BUBBLE_MS });
     }
 
     renderSyslines(rail, s.syslines, syslineEls);

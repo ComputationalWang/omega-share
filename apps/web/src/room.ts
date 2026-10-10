@@ -67,6 +67,8 @@ export interface RoomHandle {
   readonly queueRenders: () => number;
   /** Is the room's render loop paused (full screen hides it, OME-597)? For e2e checks. */
   readonly roomPaused: () => boolean;
+  /** How many times the room canvas has drawn (room-view.ts `renders`), for e2e "a bubble costs no render" checks. */
+  readonly roomRenders: () => number;
 }
 
 const STATUS_TEXT: Record<ViewState["status"], string> = {
@@ -1192,5 +1194,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders() };
 }

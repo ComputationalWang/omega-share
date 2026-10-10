@@ -22,6 +22,8 @@ export interface AvatarPlacement {
 export interface RoomViewOptions {
   /** An avatar moved while walking (stage px), for the DOM name tags and bubbles. */
   readonly onMove?: (id: MemberId, x: number, y: number) => void;
+  /** An avatar came to rest after a walk or a jump (stage px): the bubbles resolve overlap here, never per frame. */
+  readonly onStop?: (id: MemberId, x: number, y: number) => void;
 }
 
 export interface RoomView {
@@ -39,6 +41,8 @@ export interface RoomView {
   /** Full screen hides the room (OME-597): stop drawing until resumed, then draw once as things are now. */
   setPaused(paused: boolean): void;
   readonly paused: () => boolean;
+  /** How many times the room has been drawn, for e2e "a bubble costs no render" checks. */
+  renders(): number;
   /** `id` emoted (OME-415): a one-shot on the render loop. Nothing under prefers-reduced-motion (room.ts shows a badge). */
   emote(id: MemberId, kind: EmoteKind): void;
   /** The motion frame each is drawn with now, and their sticker's (null: none), for e2e checks. */
@@ -121,13 +125,15 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   let lastTaken: (boolean | null)[] = [];
   let furniture: Sprite[] = [];
   /** Per member: the placeholder shape until the motion atlas is in, then a sprite. `x`/`y` is where it's drawn. */
-  const pool = new Map<MemberId, { node: Graphics | Sprite; avatar: number; x: number; y: number; frame: string | null; sticker: Sprite | null; stickerFrame: string | null }>();
+  const pool = new Map<MemberId, { node: Graphics | Sprite; avatar: number; x: number; y: number; walking: boolean; frame: string | null; sticker: Sprite | null; stickerFrame: string | null }>();
 
   let paused = false;
+  let renders = 0;
   const render = (): void => {
     if (paused) return;
     pumpSystem();
     app.render();
+    renders++;
   };
 
   // Walking (OME-408): every client walks avatars to their spot itself; frames run only while someone walks.
@@ -160,11 +166,14 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       entry.frame = texture === undefined ? null : frame;
       entry.node.position.set(pose.x, pose.y);
       entry.node.zIndex = pose.z;
-      if (entry.x !== pose.x || entry.y !== pose.y) {
+      const moved = entry.x !== pose.x || entry.y !== pose.y;
+      if (moved) {
         entry.x = pose.x;
         entry.y = pose.y;
         opts.onMove?.(id, pose.x, pose.y);
       }
+      if (!pose.walking && (entry.walking || moved)) opts.onStop?.(id, pose.x, pose.y);
+      entry.walking = pose.walking;
     },
     drawEmote(id, frame, x, y) {
       const entry = pool.get(id);
@@ -229,7 +238,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         if (pool.has(a.id)) continue;
         const g = new Graphics({ label: `avatar:${a.id}` });
         drawAvatar(g, a.avatar);
-        pool.set(a.id, { node: g, avatar: a.avatar, x: NaN, y: NaN, frame: null, sticker: null, stickerFrame: null });
+        pool.set(a.id, { node: g, avatar: a.avatar, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null });
         objectLayer.addChild(g);
       }
       for (const [id, entry] of pool) {
@@ -266,6 +275,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       animator.pause(next);
     },
     paused: () => paused,
+    renders: () => renders,
     emote(id, kind) {
       animator.emote(id, kind);
     },
