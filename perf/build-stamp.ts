@@ -1,13 +1,14 @@
 // Build once per sha (OME-818, ADR 0036 amendment): every build output dir gets a stamp of the tree it was built
 // from, so `bun run perf` only rebuilds when a stamp is missing or names another sha or server URL. The stamp lives
 // inside the output dir, so any other build of that dir (e.g. `bun run e2e`'s build:e2e) wipes it and forces a rebuild.
+// Env files Vite reads (`.env.local`: VITE_SOURCE_URL, the footer link only) are not in the key; after changing one, pass --rebuild.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const STAMP_FILE = ".omega-perf-build";
 
 /** What goes into the builds: a change here, committed or not, means the outputs may be stale. */
-export const BUILD_INPUTS = ["apps", "packages", "package.json", "bun.lock", "tsconfig.base.json"] as const;
+export const BUILD_INPUTS = ["apps", "packages", "assets", "package.json", "bun.lock", "tsconfig.base.json"] as const;
 
 export interface GitTree {
   readonly sha: string;
