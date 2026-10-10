@@ -86,7 +86,8 @@ test("a bubble hangs over its speaker's name tag, moves and fades while it lives
   expect(r.x + r.w).toBeGreaterThan(t.x);
   expect(r.y + r.h).toBeLessThanOrEqual(t.y + 1);
 
-  // Moves and fades: with no reduced-motion preference the computed opacity and the rise change over its life.
+  // Moves and fades: with no reduced-motion preference the computed opacity and the rise change over its life. Both are
+  // on the bubble's bare wrapper (OME-802, ADR 0039: stepped on one clock, the bubble itself never restyled by a step).
   expect(await a.page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(false);
   const Sample = v.object({ opacity: v.string(), translate: v.string() });
   const samples = new Set<string>();
@@ -96,7 +97,7 @@ test("a bubble hangs over its speaker's name tag, moves and fades while it lives
     const s = v.parse(
       Sample,
       await bubble.evaluate((e) => {
-        const cs = getComputedStyle(e);
+        const cs = getComputedStyle(e.parentElement ?? e);
         return { opacity: cs.opacity, translate: cs.translate };
       }),
     );
@@ -231,12 +232,14 @@ test("reduced motion: a bubble shows at once and holds still (no fade-in, no ris
           const transform = new Set<string>();
           const animations = new Set<string>();
           let n = 0;
+          // The bubble and its bare motion wrapper (OME-802): nothing may move either.
+          const motion = e.parentElement ?? e;
           const tick = (): void => {
-            const cs = getComputedStyle(e);
+            const cs = getComputedStyle(motion);
             opacity.add(cs.opacity);
             translate.add(cs.translate);
             transform.add(cs.transform);
-            for (const an of e.getAnimations()) if (an instanceof CSSAnimation || an instanceof CSSTransition) animations.add(an instanceof CSSAnimation ? an.animationName : an.transitionProperty);
+            for (const an of [...e.getAnimations(), ...motion.getAnimations()]) if (an instanceof CSSAnimation || an instanceof CSSTransition) animations.add(an instanceof CSSAnimation ? an.animationName : an.transitionProperty);
             n++;
             if (performance.now() - start < 1000) requestAnimationFrame(tick);
             else resolve({ opacity: [...opacity], translate: [...translate], transform: [...transform], animations: [...animations], n });
