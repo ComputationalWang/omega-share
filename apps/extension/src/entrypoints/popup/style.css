@@ -11,9 +11,10 @@ p { margin: 0; }
 .link { background: none; border: 0; padding: 0; color: #1a57c4; cursor: pointer; justify-self: start; }
 #server-status { color: #8a4b00; }
 .link[data-emphasis="true"] { font-weight: 600; text-decoration: underline; }
-/* A touch phone (Firefox for Android opens the popup as a full-screen sheet, 360-412 px): fill the sheet, 44 px touch targets.
-   A pointer query, not a width one: desktop Chrome sizes the popup to its body, so a width query could loop. */
-@media (pointer: coarse) {
+/* A phone (Firefox for Android opens the popup as a full-screen sheet, 360-412 px): fill the sheet, 44 px touch targets.
+   `hover: none`, not `pointer: coarse`: a touchscreen that also reports a stylus (S Pen, the Android emulator) is a fine pointer.
+   A hover query, not a width one: desktop Chrome sizes the popup to its body, so a width query could loop. */
+@media (hover: none) {
   body { width: auto; font-size: 16px; }
   main { gap: 12px; }
   li label { min-height: 44px; }
