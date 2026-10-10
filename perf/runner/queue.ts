@@ -11,6 +11,9 @@ export interface JobRequest {
   readonly issue: string;
   /** Forces the walk tier for every perf context (ADR 0037); unset = the client picks. */
   readonly motion?: "smooth" | "basic";
+  /** 1 for a submitted job; a job requeued after a load-invalid run carries the next attempt number (OME-882). */
+  readonly attempt?: number;
+  readonly retryOf?: string;
 }
 
 export interface Job extends JobRequest {
@@ -19,9 +22,14 @@ export interface Job extends JobRequest {
 }
 
 export interface JobResult extends Job {
-  readonly status: "passed" | "failed";
+  /** `invalid`: host load contaminated the run (OME-882); not a verdict, the job was requeued unless `requeuedAs` is unset (gave up). */
+  readonly status: "passed" | "failed" | "invalid";
   readonly exitCode: number | null;
   readonly reason?: string;
+  readonly requeuedAs?: string;
+  readonly loadAtStart?: number;
+  readonly loadPeak?: number;
+  readonly loadSamples?: readonly LoadSample[];
   readonly startedAt: number;
   readonly finishedAt: number;
 }
@@ -30,7 +38,56 @@ export type JobStatus =
   | { readonly state: "unknown" }
   | { readonly state: "queued"; readonly position: number }
   | { readonly state: "running" }
-  | { readonly state: "passed" | "failed" };
+  | { readonly state: "passed" | "failed" | "invalid" };
+
+export interface LoadSample {
+  /** Ms since the job started. */
+  readonly t: number;
+  readonly load1: number;
+}
+
+/** Host-load gate (OME-882). Opt-in so unit tests and ad-hoc callers don't depend on the real host. */
+export interface LoadGate {
+  readonly read: () => number;
+  /** Start only after the 1-min load has stayed at or below this for `idleMs`. */
+  readonly idleLoad: number;
+  readonly idleMs: number;
+  /** Pre-start wait cap; after it the job runs anyway and `loadAtStart` shows why it may be noisy. */
+  readonly maxWaitMs: number;
+  /** A sample above this during the run marks it invalid. The run itself raises the load, so this is far above idleLoad. */
+  readonly maxLoad: number;
+  readonly sampleMs: number;
+  /** Load-invalid runs are requeued at most this many times. */
+  readonly maxRequeues: number;
+  readonly pollMs?: number;
+  readonly now?: () => number;
+  readonly sleep?: (ms: number) => Promise<void>;
+}
+
+const MAX_SAMPLES = 240;
+
+function downsample(samples: readonly LoadSample[]): readonly LoadSample[] {
+  if (samples.length <= MAX_SAMPLES) return samples;
+  const step = samples.length / MAX_SAMPLES;
+  return Array.from({ length: MAX_SAMPLES }, (_, i) => samples[Math.floor(i * step)]).filter((x): x is LoadSample => x !== undefined);
+}
+
+/** Resolves with the load at the moment it has been idle long enough (or the wait cap hit). */
+async function waitForIdle(g: LoadGate): Promise<number> {
+  const now = g.now ?? Date.now;
+  const sleep = g.sleep ?? ((ms: number) => Bun.sleep(ms));
+  const began = now();
+  let idleSince: number | null = null;
+  for (;;) {
+    const load = g.read();
+    const t = now();
+    if (load <= g.idleLoad) idleSince ??= t;
+    else idleSince = null;
+    if (idleSince !== null && t - idleSince >= g.idleMs) return load;
+    if (t - began >= g.maxWaitMs) return load;
+    await sleep(g.pollMs ?? 5000);
+  }
+}
 
 export interface RunContext {
   /** The previous job built this sha and passed: skip the build. */
@@ -112,7 +169,7 @@ export function recoverCrashed(dir: string, now = Date.now()): void {
 }
 
 /** Run every queued job, oldest first, one at a time. Returns how many ran. */
-export async function runPending(dir: string, exec: Executor, opts: { timeoutMs?: number } = {}): Promise<number> {
+export async function runPending(dir: string, exec: Executor, opts: { timeoutMs?: number; load?: LoadGate } = {}): Promise<number> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   let ran = 0;
   for (;;) {
@@ -124,6 +181,8 @@ export async function runPending(dir: string, exec: Executor, opts: { timeoutMs?
       writeJson(join(jobDir, "result.json"), { id, status: "failed", exitCode: null, reason: "unreadable job.json", startedAt: Date.now(), finishedAt: Date.now() });
       continue;
     }
+    const gate = opts.load;
+    const loadAtStart = gate ? await waitForIdle(gate) : undefined;
     const startedAt = Date.now();
     writeJson(join(jobDir, "running.json"), { startedAt });
     const lastBuilt = join(dir, ".last-built");
@@ -131,6 +190,15 @@ export async function runPending(dir: string, exec: Executor, opts: { timeoutMs?
     const abort = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let outcome: { exitCode: number | null; reason?: string };
+    const samples: LoadSample[] = [];
+    const burst: { load: number | null } = { load: null };
+    const sampler = gate
+      ? setInterval(() => {
+          const load1 = gate.read();
+          samples.push({ t: Date.now() - startedAt, load1 });
+          if (burst.load === null && load1 > gate.maxLoad) { burst.load = load1; abort.abort(); }
+        }, gate.sampleMs)
+      : undefined;
     try {
       const timeout = new Promise<never>((_, reject) => {
         timer = setTimeout(() => { abort.abort(); reject(new Error(`timed out after ${String(Math.round(timeoutMs / 1000))} s`)); }, timeoutMs);
@@ -141,11 +209,25 @@ export async function runPending(dir: string, exec: Executor, opts: { timeoutMs?
       outcome = { exitCode: null, reason: e instanceof Error ? e.message : String(e) };
     } finally {
       clearTimeout(timer);
+      clearInterval(sampler);
     }
-    const passed = outcome.exitCode === 0;
+    const invalidLoad = burst.load;
+    const passed = outcome.exitCode === 0 && invalidLoad === null;
     if (passed) writeFileSync(lastBuilt, job.sha);
-    else rmSync(lastBuilt, { force: true });
-    const result: JobResult = { ...job, status: passed ? "passed" : "failed", exitCode: outcome.exitCode, ...(outcome.reason === undefined ? {} : { reason: outcome.reason }), startedAt, finishedAt: Date.now() };
+    else rmSync(lastBuilt, { force: true }); // an aborted run may have rebuilt for another sha
+    const loadFields = gate && loadAtStart !== undefined
+      ? { loadAtStart, loadPeak: Math.max(0, ...samples.map((x) => x.load1)), loadSamples: downsample(samples) }
+      : {};
+    const attempt = job.attempt ?? 1;
+    let requeuedAs: string | undefined;
+    if (invalidLoad !== null && gate && attempt <= gate.maxRequeues) {
+      requeuedAs = submitJob(dir, { sha: job.sha, specs: job.specs, requester: job.requester, issue: job.issue, ...(job.motion === undefined ? {} : { motion: job.motion }), attempt: attempt + 1, retryOf: job.id });
+    }
+    const status = invalidLoad !== null ? "invalid" : passed ? "passed" : "failed";
+    const reason = invalidLoad !== null
+      ? `invalid (load ${String(Math.round(invalidLoad * 100) / 100)}): the host was busy during the run, so no pass/fail verdict${requeuedAs ? `; requeued as ${requeuedAs}` : `; gave up after ${String(attempt)} attempts`}`
+      : outcome.reason;
+    const result: JobResult = { ...job, status, exitCode: outcome.exitCode, ...(reason === undefined ? {} : { reason }), ...(requeuedAs === undefined ? {} : { requeuedAs }), ...loadFields, startedAt, finishedAt: Date.now() };
     writeJson(join(jobDir, "result.json"), result);
     rmSync(join(jobDir, "running.json"), { force: true });
     ran++;

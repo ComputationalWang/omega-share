@@ -21,6 +21,7 @@ bun run perf:result <job-id>                                   # next heartbeat.
 - One job at a time, oldest first. Own worktree `~/.local/state/omega-share/perf-worktree`; `bun install` and the build only when the sha differs from the last passed job (plus `perf/run.ts` stamps, OME-818).
 - Own ports 4470 / 5243 / 8857 (proxy 4500, tunnel servers 8858–8863), so it never collides with an agent lane (4400–4430 / 5173–5203 / 8787–8817, proxies +30, tunnel servers +1…+6).
 - A job that throws, exceeds 90 min, or was running when the runner died is reported `failed` with a reason; it never hangs the queue.
+- Load gate (OME-882): before a job starts the runner waits until the 1-min loadavg stays ≤ 2 for 30 s (`OMEGA_PERF_IDLE_LOAD`, `OMEGA_PERF_IDLE_SECONDS`; gives up waiting after `OMEGA_PERF_MAX_WAIT_MINUTES`=30). It samples loadavg every 5 s during the run; one sample above `OMEGA_PERF_MAX_LOAD` (default 0.75 × cores) aborts the job as `invalid (load X)` and requeues it (up to `OMEGA_PERF_MAX_REQUEUES`=3; the requeued job's id is in `result.json` `requeuedAs`). `invalid` is not a verdict. `result.json` has `loadAtStart`, `loadPeak`, `loadSamples` to tell a load burst from a real cost. Load is checked per job, not per spec: Playwright runs all specs in one process.
 - Code: `perf/runner/` (`queue.ts` is unit-tested).
 
 ## Operator: install, check, recover
