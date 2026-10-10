@@ -34,9 +34,9 @@ const text = (page: string): string =>
   (/<main[^>]*>([\s\S]*?)<\/main>/.exec(page)?.[1] ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 describe("privacy notice (OME-411)", () => {
-  test("the site footer links the notice right next to the AGPL Source link, same tab", () => {
+  test("the site footer links the notice first, in the same tab, as the legal pages' footers do (order: OME-767)", () => {
     const f = footer(index);
-    expect(f).toMatch(/data-testid="source-link"[^>]*>Source<\/a>\s*(?:·\s*)?<a href="\/privacy\.html" data-testid="privacy-link">Privacy<\/a>/);
+    expect(f).toMatch(/^\s*<a href="\/privacy\.html" data-testid="privacy-link">Privacy<\/a>/);
   });
 
   test("is built as its own static page: no script at all, the same CSP as the site, the site's stylesheet", () => {

@@ -46,8 +46,14 @@ export function siteMeta(origin: string, title: string | null): string {
   ].join("");
 }
 
+/**
+ * The tags `siteMeta` writes that a built page also carries for the dev server and plain static hosts (OME-767):
+ * the served copy keeps only ours, so a page never has two descriptions or icons.
+ */
+const OWN_TAGS = /<meta name="description"[^>]*>\s*|<link rel="(?:icon|apple-touch-icon|manifest)"[^>]*>\s*/g;
+
 /** `page` with `meta` added just before `</head>` (or unchanged if it has none). */
 export function withMeta(page: string, meta: string): string {
   const at = page.indexOf("</head>");
-  return at === -1 ? page : page.slice(0, at) + meta + page.slice(at);
+  return at === -1 ? page : page.slice(0, at).replace(OWN_TAGS, "") + meta + page.slice(at);
 }
