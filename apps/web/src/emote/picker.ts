@@ -74,8 +74,7 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
       b.dataset["kind"] = kind;
       b.append(sprite(`ui-emote-pick-${kind}`));
       b.addEventListener("click", () => {
-        emote(i);
-        close(true);
+        pick(i);
       });
       // Hover previews in the hub; the selection (and focus) stays put.
       b.addEventListener("pointerenter", () => {
@@ -125,7 +124,8 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
     if (wheel === null) return;
     selected = (i + PICKER_KINDS.length) % PICKER_KINDS.length;
     paintSelection();
-    wheel.slots[selected]?.focus();
+    // Focusing the slot mustn't scroll the page: that would close the wheel.
+    wheel.slots[selected]?.focus({ preventScroll: true });
   }
 
   function setCooling(on: boolean): void {
@@ -158,6 +158,21 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
     rearm();
   }
 
+  /** A pick from the open wheel sends and closes; while cooling it sends nothing and stays open, the dial running (OME-776). */
+  function pick(i: number): void {
+    if (cooling) return;
+    emote(i);
+    close(true);
+  }
+
+  /**
+   * The wheel is placed once, `position: fixed`: a scroll of the page (or of a scroller holding the key, the wide page
+   * column) would leave it behind, off your head, so it closes (OME-776). Other scrollers (the chat log) don't move it.
+   */
+  function onScroll(ev: Event): void {
+    if (ev.target === document || (ev.target instanceof Node && ev.target.contains(root))) close(false);
+  }
+
   function show(): void {
     const focused = document.activeElement;
     before = focused instanceof HTMLElement && focused !== document.body ? focused : null;
@@ -171,6 +186,7 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
     open = true;
     wheel.menu.hidden = false;
     key.setAttribute("aria-expanded", "true");
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
     select(0);
   }
 
@@ -178,6 +194,7 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
   function close(refocus: boolean): void {
     if (!open || wheel === null) return;
     open = false;
+    document.removeEventListener("scroll", onScroll, { capture: true });
     const had = wheel.menu.contains(document.activeElement);
     wheel.menu.hidden = true;
     key.setAttribute("aria-expanded", "false");
@@ -219,10 +236,7 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
         return true;
       case "Enter":
       case " ":
-        if (!ev.repeat) {
-          emote(selected);
-          close(true);
-        }
+        if (!ev.repeat) pick(selected);
         return true;
       case "Tab":
         close(false);
@@ -252,8 +266,8 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
       if (kind === null) return false;
       // A held key sends once; its repeats are ours (swallowed) but spend nothing.
       if (ev.repeat) return true;
-      emote(PICKER_KINDS.indexOf(kind));
-      close(true);
+      if (open) pick(PICKER_KINDS.indexOf(kind));
+      else emote(PICKER_KINDS.indexOf(kind));
       return true;
     },
     close() {

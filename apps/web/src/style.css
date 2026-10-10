@@ -343,3 +343,5 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .quality-menu.is-row .quality-rows { display: flex; }
 .quality-menu.is-row > .foot { display: none; }
 .quality-menu.is-row > .ui-qx { flex: none; margin-left: auto; }
+/* OME-776: on touch the wheel's chip names the sticker without its key ("1"): there's no keyboard to press it on. */
+@media (pointer: coarse), (hover: none) { .ui-wheel-label .ui-kbd { display: none; } }
