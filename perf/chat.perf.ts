@@ -73,7 +73,7 @@ function record(p: FrameProvider, w: FrameWindow, what: string): { p95: number; 
   const workP95 = p95(w.workMs);
   recordMetric({ id: `chat.frameP95.${p}`, value: f.p95, note: `${f.note}; ${what}` });
   recordMetric({ id: `chat.workP95.${p}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
-  recordMetric({ id: `chat.missedVsync.${p}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });
+  recordMetric({ id: `chat.missedVsync.${p}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames${f.missed === 0 ? "" : ` (at ${f.missedAtMs.join(", ")} ms)`}; ${what}` });
   return { p95: f.p95, missedPct: f.missedPct, workP95 };
 }
 
