@@ -9,7 +9,10 @@ const PERF_LOCK = `flock ${process.env["XDG_RUNTIME_DIR"] ?? "/tmp"}/omega-share
 
 function git(...args: string[]): string[] {
   const r = Bun.spawnSync(["git", ...args], { cwd: ROOT });
-  if (r.exitCode !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr.toString().trim()}`);
+  if (r.exitCode !== 0) {
+    console.error(`git ${args.join(" ")}: ${r.stderr.toString().trim()}`);
+    process.exit(2);
+  }
   return r.stdout.toString().split("\n").filter((l) => l !== "");
 }
 
@@ -32,21 +35,26 @@ const changed = git("diff", "--name-only", "--no-renames", `${args.base}...${arg
 const existing = new Set(git("ls-tree", "-r", "--name-only", args.head));
 const s = select(loadManifest(`${ROOT}e2e/affected.json`), changed, existing);
 
+if (git("status", "--porcelain", "--untracked-files=no").length > 0) console.error("note: uncommitted changes are not in the diff; commit them first");
+if (changed.length === 0) console.error(`note: ${args.base}...${args.head} changes nothing`);
+
 const list = (xs: readonly string[]) => (xs.length === 0 ? "none" : xs.join(" "));
 const perfCmd = s.full ? `${PERF_LOCK} bun run perf` : s.perf.length > 0 ? `${PERF_LOCK} bun run perf ${s.perf.join(" ")}` : null;
 const realCmd = s.real.length > 0 ? `bun run e2e:real ${s.real.join(" ")}` : null;
+const firefoxCmd = s.full || s.firefox.length > 0 ? "bun run ext:firefox" : null;
 const e2eCmd = s.full ? "bun run e2e" : s.e2e.length > 0 ? `bun run --filter @omega/extension build:e2e && bunx playwright test --project=e2e --project=e2e-sync --project=e2e-tunnel ${s.e2e.join(" ")}` : null;
 
 console.log(`affected ${args.base}...${args.head}: ${String(changed.length)} file(s) changed`);
 for (const r of s.reasons) console.log(`  full suite: ${r}`);
 console.log(`selection: ${s.full ? "FULL SUITE" : "targeted"}`);
 console.log(`  e2e (CI runs these): ${s.full ? "all lanes" : list(s.e2e)}`);
+console.log(`  ext-firefox (local): ${s.full ? "all" : list(s.firefox)}`);
 console.log(`  perf: ${s.full ? "all (flocked)" : list(s.perf)}`);
 console.log(`  e2e-real: ${list(s.real)}`);
-console.log(`  run: ${[perfCmd, realCmd].filter((c) => c !== null).join(" ; ") || "nothing beyond bun run check"}`);
+console.log(`  run: ${[perfCmd, realCmd, firefoxCmd].filter((c) => c !== null).join(" ; ") || "nothing beyond bun run check"}`);
 
 if (args.run) {
   let failed = 0;
-  for (const cmd of [perfCmd, realCmd, args.e2e ? e2eCmd : null]) if (cmd !== null && sh(cmd) !== 0) failed++;
+  for (const cmd of [perfCmd, realCmd, firefoxCmd, args.e2e ? e2eCmd : null]) if (cmd !== null && sh(cmd) !== 0) failed++;
   process.exit(failed === 0 ? 0 : 1);
 }

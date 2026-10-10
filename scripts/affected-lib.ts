@@ -18,12 +18,13 @@ const Rule = v.strictObject({
 const ManifestSchema = v.strictObject({ $comment: v.optional(v.string()), rules: v.array(Rule) });
 
 export type Manifest = v.InferOutput<typeof ManifestSchema>;
-export type SpecKind = "e2e" | "perf" | "real";
+export type SpecKind = "e2e" | "firefox" | "perf" | "real";
 
 export interface Selection {
   readonly full: boolean;
   readonly reasons: readonly string[];
   readonly unmapped: readonly string[];
+  readonly firefox: readonly string[];
   readonly e2e: readonly string[];
   readonly perf: readonly string[];
   readonly real: readonly string[];
@@ -35,14 +36,18 @@ export function loadManifest(path: string): Manifest {
 
 export function specKind(path: string): SpecKind | null {
   if (/^e2e\/real\/[^/]+\.real\.ts$/.test(path)) return "real";
-  if (/^e2e\/[^/]+\.(?:e2e|firefox)\.ts$/.test(path)) return "e2e";
+  if (/^e2e\/[^/]+\.e2e\.ts$/.test(path)) return "e2e";
+  if (/^e2e\/[^/]+\.firefox\.ts$/.test(path)) return "firefox";
   if (/^perf\/[^/]+\.perf\.ts$/.test(path)) return "perf";
   return null;
 }
 
 export const isSpec = (path: string): boolean => specKind(path) !== null;
 
-/** `existing`, when given, drops selected specs that are not in the tree (a diff that deletes a spec). */
+/**
+ * `existing`, when given, is the head's tree: selected specs not in it are dropped (a diff that deletes a spec), and an
+ * unmapped path picks every e2e-real spec in it, since an unmapped path is the clearest case of "when unsure, include it".
+ */
 export function select(manifest: Manifest, changed: readonly string[], existing?: ReadonlySet<string>): Selection {
   const rules = manifest.rules.map((r) => ({ ...r, globs: r.paths.map((p) => new Bun.Glob(p)), not: (r.except ?? []).map((p) => new Bun.Glob(p)) }));
   const reasons: string[] = [];
@@ -64,9 +69,10 @@ export function select(manifest: Manifest, changed: readonly string[], existing?
       for (const s of r.specs ?? []) picked.add(s);
     }
   }
+  if (unmapped.length > 0) for (const f of existing ?? []) if (specKind(f) === "real") picked.add(f);
   const kept = [...picked].filter((s) => existing?.has(s) ?? true).sort();
   const of = (k: SpecKind) => kept.filter((s) => specKind(s) === k);
-  return { full: reasons.length > 0, reasons, unmapped, e2e: of("e2e"), perf: of("perf"), real: of("real") };
+  return { full: reasons.length > 0, reasons, unmapped, firefox: of("firefox"), e2e: of("e2e"), perf: of("perf"), real: of("real") };
 }
 
 export interface AffectedArgs {

@@ -56,7 +56,7 @@ Board decision on [OME-822](/OME/issues/OME-822). The Lead spent about 10 h in 1
 
 Board decision on [OME-820](/OME/issues/OME-820). Mapping a diff to specs was manual work at the start of every check. It is now a command, used at review time (ADR 0041 §1–2), not after the merge:
 
-1. **`bun run affected <base> [head]`** prints the e2e specs, perf specs and `e2e-real` specs that `git diff base...head` needs, from the manifest `e2e/affected.json`. For a PR that's `bun run affected origin/main`. `--run` runs the perf (flocked) and `e2e-real` specs it picked; `--run --e2e` also runs the e2e specs, which CI already runs on the PR.
+1. **`bun run affected <base> [head]`** prints the e2e specs, perf specs and `e2e-real` specs that `git diff base...head` needs, from the manifest `e2e/affected.json`. For a PR that's `bun run affected origin/main`. `--run` runs the perf (flocked), `e2e-real` and Firefox-lane specs it picked; `--run --e2e` also runs the e2e specs, which CI already runs on the PR.
 2. **Who runs it.** The engineer runs it before requesting review and pastes its last lines (`selection:` onward) into the hand-off. QA's PR review runs the perf and `e2e-real` it names, next to acceptance.
 3. **The full suite when unsure.** A changed path that no rule maps selects the full suite, and so does every path of decision 2 (`full` rules). The script prints which path made it choose the full suite, and why.
 4. **The manifest can't go stale silently.** `scripts/affected.test.ts` (in `bun run check`) fails when a spec isn't listed by a source rule, a listed spec doesn't exist, a tracked file isn't mapped, or a glob no longer matches anything. A new directory or spec therefore lands with its mapping.

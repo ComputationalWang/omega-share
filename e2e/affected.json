@@ -6,6 +6,10 @@
         "packages/shared/**"
       ],
       "full": true,
+      "specs": [
+        "e2e/real/real-providers.real.ts",
+        "e2e/real/real-youtube.real.ts"
+      ],
       "why": "wire contract, ADR 0036 \u00a72"
     },
     {
@@ -108,7 +112,9 @@
       ],
       "except": [
         "e2e/real/*.real.ts",
-        "e2e/real/*.test.ts"
+        "e2e/real/*.test.ts",
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/real/real-abuse.real.ts",
@@ -123,6 +129,10 @@
     {
       "paths": [
         "apps/web/src/*"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/acceptance.e2e.ts",
@@ -163,6 +173,10 @@
       "paths": [
         "apps/web/index.html"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/acceptance.e2e.ts",
         "e2e/csp.e2e.ts",
@@ -196,6 +210,10 @@
       "paths": [
         "apps/web/room.html"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/m7-popout-spoof.e2e.ts",
         "e2e/popout-room.e2e.ts",
@@ -205,6 +223,10 @@
     {
       "paths": [
         "apps/web/chat.html"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/m7-popout-spoof.e2e.ts",
@@ -217,6 +239,10 @@
         "apps/web/{contact,licenses,privacy,terms}.html",
         "apps/web/{build-info,install,source}.ts"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/landing.e2e.ts",
         "e2e/source-link.e2e.ts",
@@ -227,6 +253,10 @@
     {
       "paths": [
         "apps/web/src/player/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/fake-players.e2e.ts",
@@ -258,6 +288,10 @@
       "paths": [
         "apps/web/src/controls/**"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/acceptance.e2e.ts",
         "e2e/fullscreen.e2e.ts",
@@ -281,6 +315,10 @@
       "paths": [
         "apps/web/src/chat/**"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/bubbles.e2e.ts",
         "e2e/chat-log.e2e.ts",
@@ -300,6 +338,10 @@
       "paths": [
         "apps/web/src/bubbles/**"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/bubbles.e2e.ts",
         "e2e/fullscreen.e2e.ts",
@@ -318,6 +360,10 @@
       "paths": [
         "apps/web/src/editor/**"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/furniture.e2e.ts",
         "e2e/owner-editor.e2e.ts",
@@ -327,6 +373,10 @@
     {
       "paths": [
         "apps/web/src/emote/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/emotes.e2e.ts",
@@ -341,6 +391,10 @@
       "paths": [
         "apps/web/src/owner/**"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/moderation-queue-abuse.e2e.ts",
         "e2e/moderation-ui.e2e.ts",
@@ -351,6 +405,10 @@
     {
       "paths": [
         "apps/web/src/popout/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/m7-a11y.e2e.ts",
@@ -365,6 +423,10 @@
       "paths": [
         "apps/web/src/report/**"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/m7-a11y.e2e.ts",
         "e2e/m7-report-abuse.e2e.ts",
@@ -375,6 +437,10 @@
     {
       "paths": [
         "apps/web/src/walk/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/m8-walk-tiers.e2e.ts",
@@ -389,6 +455,10 @@
     {
       "paths": [
         "assets/{avatars,furniture,room}/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/emotes.e2e.ts",
@@ -414,6 +484,10 @@
       "paths": [
         "assets/ui/**"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/tv-frame.e2e.ts",
         "e2e/wide-layout.e2e.ts",
@@ -429,6 +503,10 @@
       "paths": [
         "assets/site/**"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/landing.e2e.ts",
         "perf/landing.perf.ts"
@@ -437,6 +515,10 @@
     {
       "paths": [
         "assets/store/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/extension.e2e.ts",
@@ -447,6 +529,10 @@
     {
       "paths": [
         "apps/server/src/rate-limit.ts"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/abuse.e2e.ts",
@@ -463,6 +549,10 @@
         "apps/server/src/metrics.ts",
         "apps/server/src/log.ts"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/abuse.e2e.ts",
         "perf/load.perf.ts",
@@ -473,6 +563,10 @@
       "paths": [
         "apps/server/src/http.ts",
         "apps/server/src/config.ts"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/abuse.e2e.ts",
@@ -490,6 +584,10 @@
       "paths": [
         "apps/server/src/embed-policy.ts"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/extension.e2e.ts",
         "e2e/generic-policy.e2e.ts",
@@ -505,6 +603,10 @@
         "apps/server/src/{headers,static,site-meta}.ts",
         "apps/server/public/**"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/csp.e2e.ts",
         "e2e/landing.e2e.ts",
@@ -518,6 +620,10 @@
         "apps/server/src/{admin,cli,reports}.ts",
         "apps/server/src/store/reports.ts"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/m7-report-abuse.e2e.ts",
         "e2e/report.e2e.ts"
@@ -528,6 +634,10 @@
         "apps/server/src/{rooms-gc,secrets}.ts",
         "apps/server/src/store/{db,rooms}.ts",
         "apps/server/migrations/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/furniture.e2e.ts",
@@ -542,6 +652,10 @@
     {
       "paths": [
         "apps/extension/src/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
       ],
       "specs": [
         "e2e/acceptance.e2e.ts",
@@ -560,6 +674,10 @@
       "paths": [
         "apps/extension/src/{embeds,scan,share}.ts"
       ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
       "specs": [
         "e2e/real/real-providers.real.ts",
         "e2e/real/real-tunnel.real.ts",
@@ -577,11 +695,54 @@
     },
     {
       "paths": [
+        "docs/perf-budgets.md"
+      ],
+      "specs": [
+        "perf/chat.perf.ts",
+        "perf/editor.perf.ts",
+        "perf/extension-firefox.perf.ts",
+        "perf/extension.perf.ts",
+        "perf/fullscreen.perf.ts",
+        "perf/landing.perf.ts",
+        "perf/load.perf.ts",
+        "perf/moderation.perf.ts",
+        "perf/phone.perf.ts",
+        "perf/polish.perf.ts",
+        "perf/popout-room.perf.ts",
+        "perf/popout.perf.ts",
+        "perf/provider-sync.perf.ts",
+        "perf/queue.perf.ts",
+        "perf/site.perf.ts",
+        "perf/soak.perf.ts",
+        "perf/sync.perf.ts",
+        "perf/walk-tiers.perf.ts",
+        "perf/wide.perf.ts"
+      ],
+      "why": "the budgets (ADR 0036, OME-818 list)"
+    },
+    {
+      "paths": [
+        "scripts/tunnel.sh"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/real/real-tunnel.real.ts",
+        "e2e/tunnel.e2e.ts"
+      ]
+    },
+    {
+      "paths": [
         "docs/**",
         "**/*.md",
         "LICENSE",
         "assets/LICENSE",
         "e2e/fixtures/vimeo-real-sdk/LICENSE"
+      ],
+      "except": [
+        "docs/perf-budgets.md"
       ],
       "why": "docs"
     },
@@ -598,6 +759,9 @@
         "apps/server/scripts/**",
         "assets/src/**",
         "assets/preview/**"
+      ],
+      "except": [
+        "scripts/tunnel.sh"
       ],
       "why": "store, release, ops and art tooling"
     },
