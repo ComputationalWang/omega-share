@@ -56,7 +56,7 @@ async function setup(o: { reduced?: boolean } = {}) {
   const slots = () => [...layer.querySelectorAll<HTMLElement>(".float-slot")];
   const shown = () => slots().filter((s) => !s.hidden);
   const bubbleOf = (text: string): HTMLElement => {
-    const say = [...layer.querySelectorAll<HTMLElement>("[data-testid=chat-message]")].find((e) => e.textContent === text);
+    const say = [...layer.querySelectorAll<HTMLElement>(".say > span")].find((e) => e.textContent === text);
     const p = say?.closest<HTMLElement>(".ui-float");
     if (p === null || p === undefined) throw new Error(`no bubble "${text}"`);
     return p;
