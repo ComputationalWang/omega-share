@@ -18,3 +18,5 @@
 - The set (a) and set (d) sheets load in their own chunk (`walk/motion-atlas.ts`) once the room has people in it. Until then, and if the sheets fail to load, avatars are the placeholder shapes, and they still walk.
 
 **Consequences:** Pixi's canvas renderer chunk (~28 KB gz) loads with the room instead of the WebGL one. That's lazy, so initial JS is unchanged. Filters, meshes and custom shaders aren't available. If the room ever needs them, measure on software compositing first, and draw them on a separate WebGL layer that renders on change only. Don't move the whole room back to WebGL.
+
+**Amended by [ADR 0037](0037-tiered-walking.md) (2026-10-10):** "No per-frame loop" holds for the Basic tier. In the Smooth tier the room renders every frame while anyone walks, and only then; the tier is probed per device.
