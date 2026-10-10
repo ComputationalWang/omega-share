@@ -1,12 +1,24 @@
 // The perf runner service (OME-819): works the queue one job at a time in its own worktree. `bun perf/runner/serve.ts`, run by the
 // omega-share-perf-runner user unit (docs/ops/perf-runner.md). Env: OMEGA_PERF_REPO (the main checkout; default: this one), OMEGA_PERF_QUEUE_DIR,
 // OMEGA_FIXTURE_PORT / OMEGA_WEB_PORT / OMEGA_SERVER_PORT (the runner's own ports, so it never collides with a QA agent's e2e).
+import { loadavg, cpus } from "node:os";
 import { existsSync, copyFileSync, createWriteStream } from "node:fs";
 import { join, resolve } from "node:path";
-import { jobEnv, queueDir, recoverCrashed, runPending, type Executor } from "./queue";
+import { jobEnv, queueDir, recoverCrashed, runPending, type Executor, type LoadGate } from "./queue";
 
 const repo = resolve(process.env["OMEGA_PERF_REPO"] ?? join(import.meta.dir, "../.."));
 const dir = queueDir();
+// OME-882: start on an idle host, call a run invalid when load spikes. maxLoad is high because the run itself loads the box.
+const num = (k: string, d: number): number => { const v = Number(process.env[k]); return process.env[k] !== undefined && Number.isFinite(v) ? v : d; };
+const load: LoadGate = {
+  read: () => loadavg()[0] ?? 0,
+  idleLoad: num("OMEGA_PERF_IDLE_LOAD", 2),
+  idleMs: num("OMEGA_PERF_IDLE_SECONDS", 30) * 1000,
+  maxWaitMs: num("OMEGA_PERF_MAX_WAIT_MINUTES", 30) * 60_000,
+  maxLoad: num("OMEGA_PERF_MAX_LOAD", Math.round(cpus().length * 0.75)),
+  sampleMs: 5000,
+  maxRequeues: num("OMEGA_PERF_MAX_REQUEUES", 3),
+};
 const worktree = join(dir, "..", "perf-worktree");
 
 async function sh(cmd: string[], cwd: string, log: ReturnType<typeof createWriteStream>, signal: AbortSignal, env: Record<string, string> = {}): Promise<number> {
@@ -44,7 +56,7 @@ recoverCrashed(dir);
 console.log(`perf runner: queue ${dir}, worktree ${worktree}`);
 for (;;) {
   try {
-    const n = await runPending(dir, exec);
+    const n = await runPending(dir, exec, { load });
     if (n > 0) console.log(`ran ${String(n)} job(s)`);
   } catch (e) {
     console.error(e);
