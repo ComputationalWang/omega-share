@@ -300,9 +300,8 @@ test.describe("legal pages", () => {
   });
 
   for (const name of LEGAL) {
-    // product bug: only privacy.html has a link back to "/"; terms, contact and licenses have only the footer (no home link).
-    const status = name === "privacy" ? test : test.fail;
-    status(`${legalPath(name)} links back home`, async ({ newTunnelContext }) => {
+    // Every legal page links back home (terms, contact and licenses since OME-884).
+    test(`${legalPath(name)} links back home`, async ({ newTunnelContext }) => {
       const page = await (await newTunnelContext()).newPage();
       await page.goto(`${PUBLIC_ORIGIN}${legalPath(name)}`, { waitUntil: "load" });
       const home = page.locator('a[href="/"]');
