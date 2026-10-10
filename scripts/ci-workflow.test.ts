@@ -38,7 +38,7 @@ describe(".github/workflows/check.yml", () => {
   test("has one job, named check, on ubuntu-latest, with read-only token", () => {
     const wf = load();
     expect(Object.keys(wf.jobs)).toEqual(["check"]);
-    expect(wf.jobs.check?.["runs-on"]).toBe("ubuntu-latest");
+    expect(wf.jobs["check"]?.["runs-on"]).toBe("ubuntu-latest");
     expect(wf.permissions).toEqual({ contents: "read" });
   });
 
@@ -53,7 +53,7 @@ describe(".github/workflows/check.yml", () => {
   });
 
   test("takes Bun from .bun-version, installs frozen, then runs the gate", () => {
-    const steps = load().jobs.check?.steps ?? [];
+    const steps = load().jobs["check"]?.steps ?? [];
     const setup = steps.find((s) => s.uses?.startsWith("oven-sh/setup-bun@"));
     expect(setup?.with?.["bun-version-file"]).toBe(".bun-version");
     const runs = steps.flatMap((s) => (s.run === undefined ? [] : [s.run.trim()]));
