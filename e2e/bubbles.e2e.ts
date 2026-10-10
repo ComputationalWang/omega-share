@@ -114,7 +114,7 @@ test("a stacked bubble is exactly the size its never-painted twin measured: shor
     const stacked = a.page.locator(".ui-float").filter({ hasText: text });
     await expect(stacked).toHaveClass(/is-stacked/);
     const sizes = await stacked.evaluate((p: HTMLElement) => {
-      const twin = p.parentElement?.querySelector<HTMLElement>(".float-twin");
+      const twin = p.closest(".float-slot")?.querySelector<HTMLElement>(".float-twin");
       return { bubble: [p.offsetWidth, p.offsetHeight], twin: twin === null || twin === undefined ? null : [twin.offsetWidth, twin.offsetHeight] };
     });
     expect(sizes.twin).toEqual(sizes.bubble);
