@@ -40,6 +40,7 @@ export const SPEC_ROOMS = {
   "wide-perf": ["frames"],
   "m8-wheel": ["gchat", "gfield", "gdialog", "gime", "gmods", "pick", "close", "outside", "keys", "cool", "walk", "axe", "reduced"],
   bubbles: ["renders", "stack", "caps", "fs", "popin"],
+  "m8-walk": ["gates", "forced", "latch", "arrival", "abuse"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
