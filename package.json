@@ -17,6 +17,7 @@
     "ext:firefox": "bun run --filter @omega/extension build:firefox && bun test ./apps/extension/test/manifest.test.ts ./apps/extension/test/store.test.ts ./apps/extension/test/sources.test.ts && playwright test --project=ext-firefox && playwright test --project=perf perf/extension-firefox.perf.ts",
     "e2e:real": "bun e2e/support/headed.ts playwright test --project=e2e-real",
     "perf": "bun perf/run.ts",
+    "affected": "bun scripts/affected.ts",
     "check": "bun run typecheck && bun run lint && bun run test"
   },
   "devDependencies": {

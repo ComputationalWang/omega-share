@@ -12,6 +12,15 @@ bun run perf --soak                # also the 10 min JS heap soak (post-merge fu
 bun run e2e:real                   # opt-in real-provider checks, headed on a virtual display (Xvfb); E2E_REAL_ON_DESKTOP=1 to watch. docs/qa/headed-on-xvfb.md
 ```
 
+## Which specs a diff needs (`bun run affected`, OME-820)
+
+```sh
+bun run affected origin/main          # what this branch's diff needs: e2e (CI runs these), perf, e2e-real
+bun run affected <base> <head> --run  # also runs the perf (flocked) and e2e-real specs; add --e2e for the e2e specs
+```
+
+The mapping is `e2e/affected.json`: rules of source globs (`paths`, minus `except`) → `specs`. A rule with `full` (ADR 0036's wide-blast-radius paths) or a path no rule maps selects the full suite, and the output says which path and why. A changed spec selects itself. A new spec or a new source directory needs a rule: `scripts/affected.test.ts` fails until it has one. The engineer pastes the last lines into the review hand-off; QA's review runs the perf and `e2e-real` it names (ADR 0036, OME-820 amendment).
+
 Specs are named `*.e2e.ts` / `*.perf.ts` (not `*.spec.ts`) so `bun test` doesn't pick them up.
 
 ## What starts automatically
