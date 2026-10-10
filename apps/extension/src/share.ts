@@ -1,5 +1,6 @@
 import { RoomIdSchema, ShareRequestSchema, ShareResponseSchema, ShareTokenSchema, type AnyEmbed, type ShareErrorCode } from "@omega/shared";
 import * as v from "valibot";
+import { POST_TIMEOUT_MS, withTimeout } from "./request-timeout";
 import { STATUS_TEXT } from "./server-status";
 import { SERVER_REQUEST_HEADERS, SERVER_REQUEST_INIT } from "./settings";
 
@@ -30,25 +31,27 @@ export async function postToRoom(path: "share" | "queue", { baseUrl, roomId, url
   if (!room.success) return { ok: false, message: "Invalid room." };
   if (!body.success) return { ok: false, message: "That video URL can't be shared." };
 
-  let response: Response;
+  let reply: { readonly response: Response; readonly json: unknown };
   try {
-    response = await fetch(`${baseUrl}/rooms/${room.output}/${path}`, {
-      method: "POST",
-      headers: { ...SERVER_REQUEST_HEADERS, "content-type": "application/json", authorization: `Bearer ${bearer.output}` },
-      body: JSON.stringify(body.output),
-      ...SERVER_REQUEST_INIT,
+    reply = await withTimeout(POST_TIMEOUT_MS, async (signal) => {
+      const response = await fetch(`${baseUrl}/rooms/${room.output}/${path}`, {
+        method: "POST",
+        headers: { ...SERVER_REQUEST_HEADERS, "content-type": "application/json", authorization: `Bearer ${bearer.output}` },
+        body: JSON.stringify(body.output),
+        ...SERVER_REQUEST_INIT,
+        signal,
+      });
+      if (response.type === "opaqueredirect") return { response, json: undefined };
+      // A body that isn't JSON is left to the caller's contract parse.
+      const json: unknown = await response.json().catch(() => undefined);
+      return { response, json };
     });
   } catch {
+    // A failed fetch, or no answer within 10 s.
     return { ok: false, message: STATUS_TEXT.unreachable(baseUrl) };
   }
+  const { response, json } = reply;
   if (response.type === "opaqueredirect") return { ok: false, message: STATUS_TEXT.signIn };
-
-  let json: unknown;
-  try {
-    json = await response.json();
-  } catch {
-    json = undefined;
-  }
   return { ok: true, json, status: response.status };
 }
 
