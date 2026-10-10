@@ -9,6 +9,7 @@
     "build:e2e": "wxt build --mode e2e",
     "build:firefox": "wxt build -b firefox --mv3 && wxt build -b firefox --mv3 --mode e2e",
     "store": "bun store/cli.ts",
+    "amo": "bun store/amo-cli.ts",
     "dev": "wxt"
   },
   "devDependencies": {
@@ -19,5 +20,5 @@
     "@omega/shared": "workspace:*",
     "valibot": "^1.5.0"
   },
-  "version": "0.1.0"
+  "version": "0.1.1"
 }

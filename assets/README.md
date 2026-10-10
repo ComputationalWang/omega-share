@@ -15,18 +15,21 @@ assets/
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
   ui/popup/*.png        # set f: the extension popup's key icon as standalone files, drawn at 16 px (1×) and 32 px (2×)
-  ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required" and "you were removed" vignettes, standalone 72×64 PNGs;
+  ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required", "room not found" and "you were removed" vignettes, standalone 72×64 PNGs;
                         #   set k (lazy): the "chat / room is in its own window" vignettes, 56×40
   ui/edit.png           # set h (lazy, owners only): 256×1024 indexed PNG-8, edit grid, placement markers, handles, tray thumbnails, swatches
   ui/edit.json          # set h: PixiJS v8 atlas for ui/edit.png
   furniture/furniture.png  # set g (M4/M5, lazy-load): 1024×512 indexed PNG-8, furniture catalogue v1
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
   store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
+  site/                 # set m (M9): the website's favicon.ico + PNGs, apple-touch 180, manifest 192/512 + maskable 512, og-card.png 1200×630,
+                        #   how-1-find / how-2-share / how-3-watch.png landing panels (368×224 each)
   ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
   preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame, ui-owner*.png = set h, ui-rooms*@1x/@2x.png = set i, ui-house*/ui-queue/ui-setj-states@1x/@2x.png = set j), m7.html + ui-m7-*@1x/@2x.png (set k, M7 layouts), store.html (set j store kit source),
                         #   owner-edit@1x/@2x.png (set h edit mode in the room),
                         #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated),
-                        #   m8.html + ui-m8-*@1x/@2x.png (set l), walk8-strip@4x.png + walk-tiers@2x.apng (set l, Basic vs Smooth walk)
+                        #   m8.html + ui-m8-*@1x/@2x.png (set l), walk8-strip@4x.png + walk-tiers@2x.apng (set l, Basic vs Smooth walk),
+                        #   m9.html + ui-m9-*@1x/@2x.png (set m: icons, share card crops, the panels on light and dark pages)
                         #   ui-sheet@4x.png is ui/ui.png at 4×, so it is 1024×2048 on purpose: the sheet's height is a power of two with headroom
                         #   for later sets, and about 40% of it is still empty (the wall-colour band at the bottom). Not a packing bug.
   src/                  # generator (Bun, no deps) + mood boards
@@ -376,6 +379,7 @@ mustard rim = only you · rust key = the one irreversible action.
 | `icon/<closed\|emote>` | 16×16 | — | Close room / room closed (a door hanger with a hole, a slit and a crescent moon) · the emote key (a cream line face, so it can't be mistaken for the filled laugh sticker). |
 | `glyph/<moon\|open>` | 8×8 | — | "Closes in N days if nobody visits" · "anyone can come in" (beside the switch). In `.ui-mine` the moon gets 3 art px of margin before the words (its crescent sits on its right edge). |
 | `scene/<closed\|invite>` *(ui/scenes/\*.png)* | 72×64 | — | `.ui-scene.ui-scene-<closed\|invite>`, page chrome 2× (144×128 CSS px). Not in the sheet. closed = lights out: night in the fanlight, the sconce off, no light under the door, the moon hanger on the knob. invite = someone's home: warm fanlight, lit sconce, lamplight under the door, an empty keyhole, a dashed ghost ticket on the wall. |
+| `scene/not-found` *(ui/scenes/not-found.png)* | 72×64 | — | `.ui-scene.ui-scene-not-found` (OME-841, M9 W2 "Room not found"), page chrome 2×. The same lit wall and floor, but no door: the wallpaper and wainscot run straight through, a dashed cream ghost of the door frame and doormat marks where it would be (dashed cream = missing, like the ghost ticket), a mustard question mark inside, and the sconce off (nobody lives here). Not `closed` (a real door, lights out) and not `removed` (a real lit door). |
 
 - **Create room:** `.ui-panel` form: `icon/create` heading, the name `.ui-input` with a hint and an `n / max` count, the switch row, then the primary key.
   Too many new rooms: the key becomes set (f)'s `.is-waiting` with `.ui-wait` and "New room in 9 min", and the line under it says the existing rooms still work.
@@ -385,6 +389,8 @@ mustard rim = only you · rust key = the one irreversible action.
   the row turns `.is-confirm` with "Keep it" and the danger key. Empty list: `icon/create` + one line.
 - **Room closed (4004):** `.ui-panel` with `scene/closed`, a heading, one line and "Find a room" (primary) / "Make your own". Mid-session, lay
   `.ui-scrim` over the stage and centre the same card (1× inside `.ui-room`).
+- **Room not found:** the 4004 panel with `scene/not-found` instead of `scene/closed`, a heading ("This room doesn't exist"), one line and
+  "Find a room" (primary) / "Make your own". Use it for a link to a room that never existed or was swept; `scene/closed` stays for a room its host closed.
 - **Invite required:** `scene/invite`, a line, then the `.ui-slot-ticket` + primary `icon/key` "Go in". A bad link: `aria-invalid` + `icon/warn` + words.
 - **Invite copy** is set (h)'s ticket (idle/copied/expired); set (i) only adds the paste slot and the square copy key on your-rooms rows.
 - **Emote picker:** opens above the emote key (`.ui-button.self` + `icon/emote`, `aria-expanded`), 5 stickers, the groove, the wave. Pressing one sends it and
@@ -411,6 +417,7 @@ mustard rim = only you · rust key = the one irreversible action.
 | `slices/scrim-0.png` | 104 | 4004 mid-session |
 | `scenes/closed.png` | 547 | 4004 page / card |
 | `scenes/invite.png` | 784 | invite-required page |
+| `scenes/not-found.png` (OME-841, after the set) | 731 | room-not-found page |
 | **set (i) total** | **8 471 B** (slices 2 577, scenes 1 331, sheet + atlas + CSS 4 563) | |
 
 ## Set (j) house rules, queue panel, Web Store kit (OME-422, `ui/` + `store/`)
@@ -598,6 +605,92 @@ every 60° clockwise from 12 o'clock on a 24 px radius; the hub at `hubOrigin`. 
 
 **Bytes:** eager +5 455 B (`ui.png` +1 107, `ui.json` +794 gz, 7 new slices +952, `reference.css` +2 602 gz); lazy +4 978 B (`motion.png` +3 734, `motion.json` +1 244 gz). Set (l) total **+10 433 B**.
 
+## Set (m) site icons, share card, "how it works" panels (OME-762, M9, `site/`)
+
+The website's own files. They're served from the site root or the landing page, not from a Pixi atlas, so each is a standalone PNG (or ICO).
+Everything is drawn by `src/site.ts` and written by `bun assets/src/build.ts`. The build fails if a landing panel goes over 25 KB, the three panels go over 60 KB together,
+the share card reaches 150 KB, or the maskable icon's art leaves the safe zone. Preview: `preview/m9.html`, shot by `bun assets/src/shoot-m9.ts` into
+`preview/ui-m9-{icons,og,steps-light,steps-dark}@1x|2x.png`.
+
+### Site icons
+
+The mark is the extension's wood TV (`store/`), so the browser tab, the toolbar and the home screen show one product. Each size is drawn natively in art px and
+scaled by a whole number, never resampled.
+
+| File | Size | Bytes | Art | Use |
+|---|---|---|---|---|
+| `site/favicon.ico` | 16 + 32 | 506 | the two PNGs below, stored as PNG-in-ICO | `/favicon.ico` (browsers and crawlers ask for it unprompted) |
+| `site/favicon-16.png` | 16×16 | 192 | 16 art px at 1×: TV + dusk picture | `<link rel="icon" sizes="16x16">` |
+| `site/favicon-32.png` | 32×32 | 276 | 32 art px at 1×: + antenna, glitter, a 2×2 glow power LED | `<link rel="icon" sizes="32x32">` |
+| `site/apple-touch-icon.png` | 180×180 | 752 | 45 art px at 4×, **opaque** on the dusk wallpaper, with the two watchers | `<link rel="apple-touch-icon">` (iOS fills transparency with black and rounds the corners itself) |
+| `site/icon-192.png` | 192×192 | 719 | 48 art px at 4×, transparent, with the two watchers | manifest, `purpose: "any"` |
+| `site/icon-512.png` | 512×512 | 1 803 | 64 art px at 8×, transparent, with the two watchers | manifest, `purpose: "any"` |
+| `site/icon-maskable-512.png` | 512×512 | 1 905 | 64 art px at 8×, full-bleed wallpaper, art 14 art px in from each edge | manifest, `purpose: "maskable"` |
+
+**Maskable safe zone:** the farthest opaque pixel corner is 182 px from the centre, about 10% inside the W3C safe circle (radius 40% = 204.8 px). `assertSafeZone` checks it on every build.
+
+**The watchers** (45 px and up) are drawn by `src/site.ts`, not by the extension icon's drawer: two audience silhouettes inside the screen, each a round head on a neck over shoulders,
+cut by the screen's bottom edge. Juno is a dark cloud puff over a mustard hoodie, Kiki a pink head with two buns over a lilac collar, and the sun shows between them. The extension's
+`store/` icons are unchanged (they ship in the released extension package).
+The wallpaper is the room's wall shade with lit lozenges. It sits behind the art, so the plum outline still rings the TV.
+
+Suggested head (engineering owns the real one; W1):
+
+```html
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16">
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#2b1d2f">
+<meta property="og:image" content="https://<origin>/og-card.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="…see the alt text below…">
+<meta name="twitter:card" content="summary_large_image">
+```
+
+```json
+"icons": [
+  { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+  { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+  { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+]
+```
+
+`theme-color` / `background_color`: `#2b1d2f` (the page plum, `--ui-page`).
+
+### Share card
+
+| File | Size | Bytes |
+|---|---|---|
+| `site/og-card.png` | 1200×630 (600×315 art px at 2×), indexed PNG-8, opaque | 14 171 (cap 150 KB) |
+
+The real room (set b), its back corner centred, with a big wood TV standing on the corner console. A TV in the corner faces the camera head-on in this projection,
+so it's drawn flat. The screen shows a title card: the `logo/0` wordmark at 2× and "watch together" in a 5×7 lowercase pixel face, both on night sky, over the dusk
+sea. Juno, Pip, Mo and Kiki watch it from their armchairs.
+
+- **Crops:** the TV, the name and all four avatars sit inside the centre 630 px, so a square centre crop keeps them all. The full card is the 1.91:1 crop.
+  `preview/ui-m9-og@1x.png` shows the card at 480 px (a chat unfurl), at 382×200, square at 240 px and at 120 px.
+- **Alt text** (`og:image:alt`): *omega-share: four pixel-art friends in armchairs watch a big wood TV that reads "omega-share, watch together" in a cosy dusk room.*
+
+### "How it works" panels
+
+Three framed vignettes in one size. Each has its own plum outline and a 2 px wood frame (lit top-left, shaded bottom-right) round an opaque scene, so it reads the same on
+a white, cream, plum or near-black page. No lettering in the art: the landing's own text says the step, so it can be translated and read by screen readers.
+
+| File | Size | Bytes | Alt text |
+|---|---|---|---|
+| `site/how-1-find.png` | 368×224 (184×112 art px at 2×) | 1 491 | A browser window with a video on the page. The omega-share icon in the toolbar has a tick badge, and gold corner brackets mark the video it found. |
+| `site/how-2-share.png` | 368×224 | 2 197 | The omega-share popup under its toolbar icon, showing the video and a room, with a hand pressing the gold Share key. The video flies through an open door where a friend is waiting. |
+| `site/how-3-watch.png` | 368×224 | 3 231 | Four friends in armchairs, seen from behind, watch the same sunset video on a wood TV in a cosy room. |
+| **all three** | | **6 919 of 61 440** | |
+
+- **Display sizes:** `width="368" height="224"` (1 art px = 2 CSS px), or `184×112` CSS on narrow phones (1 art px = 1 CSS px = 2 device px on a 2× screen).
+  Any other size resamples the pixels. Always use `image-rendering: pixelated`.
+- **Format:** PNG-8 rather than WebP. Indexed pixel art at 2× is already 1.5 to 3.2 KB a panel. Lossless WebP (tested with ImageMagick) would save about 1.6 KB across all three
+  (6 919 → 5 348 B), which isn't worth a second format or an encoder dependency in the zero-dependency build.
+- **Suggested step captions** (the landing owns the words): *1 · The extension finds the video*, *2 · Share it into a room*, *3 · Sit together and watch*.
+
 ## Motion atlas (`avatars/motion.json`, set d)
 
 Same format as the avatar atlas (PixiJS v8, 32×64 cells, no trim, no rotation, anchor = floor point `(16, 61)`).
@@ -698,11 +791,15 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
 | `ui/slices/*.png` (100 files, palettes trimmed to the colours used) | 15 862 |
 | `ui/popup/*.png` (set f) | 409 |
-| `ui/scenes/*.png` (sets i + j + k, lazy) | 2 825 |
-| `ui/reference.css` (if ported as-is) | 98 398 raw / 19 853 gz |
+| `ui/scenes/*.png` (sets i + j + k + OME-841, lazy) | 3 556 |
+| `ui/reference.css` (if ported as-is) | 98 678 raw / 19 956 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **130 224 B (≈ 127.2 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 425 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes) 60 799 B |
+| **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
+
+OME-841 adds **795 B** against `main` as `bun assets/src/build.ts` measures it (130 263 → 131 058): the lazy `scenes/not-found.png` 731 and one
+`reference.css` rule +64 gz. The row above said 130 224 before this change; the build on `main` already measured 130 263 (eager 69 464, i.e.
++39 B of `reference.css` gz since that row was written), so the totals here are the measured ones.
 
 Set (l) (OME-644) adds **10 433 B (≈ 10.2 KB)** against `main` (119 791 → 130 224): eager +5 455 (`ui.png` +1 107, `ui.json` +794 gz, 7 new slices +952,
 `reference.css` +2 602 gz), lazy +4 978 (the smooth walk's 64 in-between cells: `motion.png` +3 734, `motion.json` +1 244 gz).

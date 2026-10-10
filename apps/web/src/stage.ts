@@ -3,14 +3,16 @@
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
 import { SEAT_COUNT, layoutSeats, type EmoteKind, type MemberId, type RoomLayout } from "@omega/shared";
+import { createFloats } from "./bubbles/floats";
+import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
 import { seatViews } from "./intents";
-import { BUBBLE_OFFSET_Y, SYSLINE_RAIL, TAG_OFFSET_Y, type Point, type Rect } from "./layout";
+import { SYSLINE_RAIL, TAG_OFFSET_Y, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
-import { catchingUp, type StageState } from "./state";
+import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
 import { walkGrid } from "./walk/path";
 import { standingSpots } from "./walk/standing";
@@ -23,6 +25,8 @@ export interface StageOptions {
   readonly requestRender: () => void;
   /** The seats moved (a new layout): the phone's room window looks at their middle. */
   readonly onLayout?: (seats: readonly Point[]) => void;
+  /** An avatar moved a whole pixel (it's walking): the emote wheel closes when it's mine (OME-732). */
+  readonly onMove?: (id: MemberId) => void;
 }
 
 export interface Stage {
@@ -38,10 +42,14 @@ export interface Stage {
   /** Only the catching-up hourglasses (my player's flag changes between renders). */
   applyCatching(s: StageState, selfCatching: boolean): void;
   emote(id: MemberId, kind: EmoteKind, s: StageState): void;
+  /** "Hide for me" (OME-769): this member's tag and avatar dimmed (or not). Per change, never per frame. */
+  hide(id: MemberId, hidden: boolean): void;
   /** Where seat `i` is (stage px), for the phone's window. */
   seat(i: number): Point | undefined;
   /** Where a member is drawn now, or was put by the last render. */
   anchor(id: MemberId): Point | undefined;
+  /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
+  head(id: MemberId): Point | undefined;
   /** How many times the furniture was rebuilt for a new layout. */
   layoutBuilds(): number;
 }
@@ -66,30 +74,40 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   });
   overlay.append(...seatButtons);
   const tags = el("div", { className: "tags" });
-  const bubbles = el("div", { className: "bubbles", ariaLive: "polite" });
+  // Decorative (createFloats makes it aria-hidden): the chat log is the accessible record of what was said.
+  const bubbles = el("div", { className: "bubbles" });
   // Chat system lines ("Ana paused"): caption rail in the stage's bottom-left, text only.
   const rail = el("div", { className: "syslines", ariaLive: "polite" });
   box(rail, SYSLINE_RAIL);
 
   const tagEls = new Map<MemberId, HTMLElement>();
-  const bubbleEls = new Map<MemberId, HTMLElement>();
-  const badges = createEmoteBadges(bubbles, {
-    setTimer: (fn, ms) => setTimeout(fn, ms),
-    clearTimer: (h) => {
+  /** Members I hid (OME-769): their tags are made dimmed too. */
+  const hiddenIds = new Set<MemberId>();
+  const timers = {
+    setTimer: (fn: () => void, ms: number): unknown => setTimeout(fn, ms),
+    clearTimer: (h: unknown): void => {
       clearTimeout(h as ReturnType<typeof setTimeout>);
     },
-  });
+  };
+  const floats = createFloats(bubbles, { reducedMotion: o.reducedMotion, now: () => Date.now(), ...timers });
+  const handoff = createHandoff();
+  const speaking = new Set<MemberId>();
+  const badges = createEmoteBadges(bubbles, timers);
   /** The seats as last drawn, for the emote lift (a sitter's sticker sits lower). */
   let seated: readonly (MemberId | null)[] = [];
   const liftOf = (id: MemberId): number => (seated.includes(id) ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
-  // Tags, bubbles and emote badges ride along with a walking avatar.
+  // Tags, bubbles and emote badges ride along with a walking avatar; a bubble's tail tips just over the head.
   const view = await createRoomView({
     onMove: (id, x, y) => {
-      badges.move(id, x, y - liftOf(id));
+      const head = y - liftOf(id);
+      badges.move(id, x, head);
+      floats.move(id, x, head);
       const tag = tagEls.get(id);
       if (tag !== undefined) place(tag, { x, y: y + TAG_OFFSET_Y });
-      const bubble = bubbleEls.get(id);
-      if (bubble !== undefined) place(bubble, { x, y: y + BUBBLE_OFFSET_Y });
+      o.onMove?.(id);
+    },
+    onStop: (id, x, y) => {
+      floats.settle(id, x, y - liftOf(id));
     },
   });
   view.canvas.className = "scene";
@@ -231,6 +249,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         e = el("span", { className: "tag ui-tag" }, "nickname-tag");
         e.dataset["member"] = m.id;
         e.append(el("span", { className: "tag-name", textContent: m.nickname }));
+        if (hiddenIds.has(m.id)) e.classList.add("is-hidden");
         tagEls.set(m.id, e);
         tags.append(e);
       }
@@ -239,23 +258,18 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       if (p !== undefined) place(e, { x: p.x, y: p.y + TAG_OFFSET_Y });
     }
 
-    const live = new Set(s.bubbles.map((b) => b.memberId));
-    for (const [id, e] of bubbleEls) {
-      if (live.has(id)) continue;
-      e.remove();
-      bubbleEls.delete(id);
-    }
-    for (const b of s.bubbles) {
+    // The state says whose bubbles show (a speaker who left, or a reconnect, takes theirs along). Every line the floats
+    // haven't had yet goes to them, oldest first, even when several landed since the last render (OME-809).
+    speaking.clear();
+    for (const b of s.bubbles) speaking.add(b.memberId);
+    floats.keep(speaking);
+    handoff.hand(s.bubbles, (b) => {
       const p = view.position(b.memberId) ?? at.get(b.memberId);
-      let e = bubbleEls.get(b.memberId);
-      if (e === undefined) {
-        e = el("p", { className: "bubble" }, "chat-message");
-        bubbleEls.set(b.memberId, e);
-        bubbles.append(e);
-      }
-      if (e.textContent !== b.text) e.textContent = b.text;
-      if (p !== undefined) place(e, { x: p.x, y: p.y + BUBBLE_OFFSET_Y });
-    }
+      const m = members.get(b.memberId);
+      if (p === undefined || m === undefined) return false;
+      floats.say({ id: b.memberId, name: m.nickname, text: b.text, self: b.memberId === s.self, at: { x: p.x, y: p.y - liftOf(b.memberId) }, startedAt: b.expiresAt - BUBBLE_MS });
+      return true;
+    });
 
     renderSyslines(rail, s.syslines, syslineEls);
     applyCatching(s, selfCatching);
@@ -277,8 +291,18 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const p = view.position(id) ?? placedAt.get(id);
       if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
     },
+    hide(id, hidden) {
+      if (hidden) hiddenIds.add(id);
+      else hiddenIds.delete(id);
+      tagEls.get(id)?.classList.toggle("is-hidden", hidden);
+      view.setDimmed(id, hidden);
+    },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),
+    head: (id) => {
+      const p = view.position(id) ?? placedAt.get(id);
+      return p === undefined ? undefined : { x: p.x, y: p.y - liftOf(id) };
+    },
     layoutBuilds: () => layoutBuilds,
   };
 }

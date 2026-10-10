@@ -157,8 +157,10 @@ describe("rooms takedown <id>", () => {
     expect((await late.closed).code).toBe(CLOSE_CODES.TAKEN_DOWN);
     expect(late.raw.filter((r) => r.includes('"snapshot"'))).toEqual([]);
     expect((await report(f, ROOM, { reason: "spam" }, "198.51.100.99")).status).toBe(404);
-    // A never-existing id is still a plain 404 upgrade.
-    expect((await fetch(`${f.t.http}/rooms/cccccccccccccccccccccccccc/ws`)).status).toBe(404);
+    // A never-existing id upgrades and closes with ROOM_CLOSED (OME-768): only a takedown says TAKEN_DOWN.
+    const never = await Client.open(f.t.ws("cccccccccccccccccccccccccc"));
+    clients.push(never);
+    expect((await never.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
   });
 
   test("survives a restart: the room isn't loaded or re-seeded, and a leftover row is deleted", async () => {

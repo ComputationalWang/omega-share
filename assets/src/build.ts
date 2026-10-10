@@ -40,6 +40,7 @@ import { buildModerationFrames, buildModerationScenes, moderationCss } from "./m
 import { buildQueueFrames, queueCss } from "./queue";
 import { buildFullscreenFrames, buildFullscreenScenes, fullscreenCss, STRIP_AGES } from "./fullscreen";
 import { buildStoreIcons } from "./store";
+import { buildPanels, buildShareCard, buildSiteIcons, encodeIco, type SiteSources } from "./site";
 import { BUBBLES, buildChatFloatFrames, chatFloatCss, wheelMeta } from "./chatfloat";
 
 const ROOT = join(import.meta.dir, "..");
@@ -1367,6 +1368,15 @@ function report(): void {
   const icons = readdirSync(join(ROOT, "store")).filter((n) => /^icon-\d+\.png$/.test(n)).sort((a, b) => Number.parseInt(a.slice(5), 10) - Number.parseInt(b.slice(5), 10));
   const iconBytes = icons.map((n) => readFileSync(join(ROOT, "store", n)).length);
   console.log(`extension icons (store/${icons.join(", ")}): ${iconBytes.join(" + ")} = ${String(iconBytes.reduce((a, b) => a + b, 0))} B`);
+  // Set (m): the website's files have their own caps (OME-762), enforced here: each landing panel ≤ 25 KB and all three ≤ 60 KB
+  // (the landing's transfer budget is merge-blocking), and the share card < 150 KB.
+  const size = (f: string): number => readFileSync(join(ROOT, "site", f)).length;
+  const panels = ["how-1-find.png", "how-2-share.png", "how-3-watch.png"].map(size);
+  const og = size("og-card.png");
+  const siteIcons = ["favicon.ico", "favicon-16.png", "favicon-32.png", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png"].map(size);
+  if (panels.some((b) => b > 25 * 1024) || panels.reduce((a, b) => a + b, 0) > 60 * 1024) throw new Error(`landing panels over budget: ${panels.join(" + ")} B`);
+  if (og >= 150 * 1024) throw new Error(`og-card.png is ${String(og)} B, over 150 KB`);
+  console.log(`site (set m): landing panels ${panels.join(" + ")} = ${String(panels.reduce((a, b) => a + b, 0))} B of 61440; og-card ${String(og)} B of 153600; icons ${String(siteIcons.reduce((a, b) => a + b, 0))} B`);
 }
 
 /** Set (j): the Chrome Web Store kit's extension icons (drawn per size). The promo tile and screenshots come from preview/store.html. */
@@ -1376,6 +1386,26 @@ function buildStore(): void {
     const small = compactPalette(f.pixels);
     writeFileSync(join(ROOT, "store", f.file), encodeIndexedPng(f.w, f.h, small.pixels, small.palette));
   }
+}
+
+/** Set (m) (M9): the website's icons, share card and "how it works" panels, written to site/. */
+function buildSite(src: SiteSources): void {
+  mkdirSync(join(ROOT, "site"), { recursive: true });
+  const write = (f: { file: string; w: number; h: number; pixels: Uint8Array }): Uint8Array => {
+    const small = compactPalette(f.pixels);
+    const png = encodeIndexedPng(f.w, f.h, small.pixels, small.palette);
+    writeFileSync(join(ROOT, "site", f.file), png);
+    return png;
+  };
+  const icons = new Map(buildSiteIcons().map((f) => [f.file, write(f)]));
+  const ico = [16, 32].map((size) => {
+    const data = icons.get(`favicon-${String(size)}.png`);
+    if (!data) throw new Error(`missing favicon-${String(size)}.png`);
+    return { size, data };
+  });
+  writeFileSync(join(ROOT, "site", "favicon.ico"), encodeIco(ico));
+  write(buildShareCard(src));
+  for (const p of buildPanels(src)) write(p);
 }
 
 mkdirSync(join(ROOT, "preview"), { recursive: true });
@@ -1388,5 +1418,6 @@ const uiFrames = buildUi(avatarImages, furnitureSet.frames);
 buildOwnerPreviews(furnitureSet, uiFrames);
 buildMotion(avatarImages);
 buildStore();
+buildSite({ room: buildRoomFrames(), avatars: avatarImages, ui: uiFrames });
 console.log(`palette: ${String(PALETTE.length - 1)} colours`);
 report();

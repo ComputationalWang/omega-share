@@ -106,16 +106,28 @@ const withinBudget = (k: string, r: ReturnType<typeof row>): void => {
   expect(r.workP95, `${k} main-thread work p95; ${how}`).toBeLessThanOrEqual(8);
 };
 
+type Tier = "basic" | "smooth";
+/** ADR 0037: pins the room's walk tier (read when the room starts) on a context, before its page opens. */
+const forceTier = (tier: Tier) => async (context: BrowserContext): Promise<void> => {
+  await context.addInitScript((t) => {
+    localStorage.setItem("omega.motion", t);
+  }, tier);
+};
+
 const PROVIDERS: readonly FrameProvider[] = ["youtube", ...PROVIDER_CASES.map((c) => c.key), "generic"];
 
 for (const provider of PROVIDERS) {
-  test(`polish: 8 avatars walking at once + ${provider}`, async ({ browser, request }) => {
+  // The walk rows run once per forced walk tier (OME-731): Basic keeps `walk.<provider>`, Smooth is `walk-smooth.<provider>`.
+  for (const tier of ["basic", "smooth"] as const) {
+  test(`polish: 8 avatars walking at once${tier === "smooth" ? ", smooth tier," : ""} + ${provider}`, async ({ browser, request }) => {
     test.skip(!available.web || !available.server, available.web ? PENDING.server : PENDING.web);
     test.setTimeout(180_000);
-    const clients = await joinWithVideo(browser, request, provider, `walk-${provider}`);
+    const clients = await joinWithVideo(browser, request, provider, `walk-${provider}`, forceTier(tier));
     try {
       const [observer] = clients;
       if (!observer) throw new Error("no clients");
+      // The row ran on the tier it claims.
+      for (const c of clients) await expect(c.page.locator("canvas.scene")).toHaveAttribute("data-motion", tier);
       // The walks in from the door are over, and every seat is scrolled into view and settled before the clicks (OME-89).
       await observer.page.waitForTimeout(6000);
       const seats = clients.map((c, i) => c.page.locator(`${site.seat}[data-seat="${String(i)}"]`));
@@ -125,8 +137,8 @@ for (const provider of PROVIDERS) {
       const w = await tracedFrames(browser, observer.page, 3000);
       const end = await tagTransforms(observer.page);
       const walking = clients.filter((c) => start[c.nickname] !== undefined && start[c.nickname] !== end[c.nickname]).length;
-      const k = `walk.${provider}`;
-      record(k, row(w, { walkingInWindow: walking }));
+      const k = `${tier === "smooth" ? "walk-smooth" : "walk"}.${provider}`;
+      record(k, row(w, { walkingInWindow: walking, tier }));
       expect(walking, "the window measures walking, not idle").toBeGreaterThanOrEqual(6);
       // Every walk ended in a sit: each client holds its own seat.
       for (const [i, c] of clients.entries()) await expect(c.page.locator(`${site.seat}[data-seat="${String(i)}"]`)).toHaveClass(/\bmine\b/, { timeout: 15_000 });
@@ -135,13 +147,16 @@ for (const provider of PROVIDERS) {
       await leaveAll(clients);
     }
   });
+  }
 
   test(`polish: 8 avatars emoting at the allowed rate + ${provider}`, async ({ browser, request }) => {
     test.skip(!available.web || !available.server, available.web ? PENDING.server : PENDING.web);
     test.setTimeout(180_000);
     // The observer (client 0) counts the `emoted` frames its socket gets; every client counts its `rate_limited` notices.
     const counter = { emotedAt: [] as number[], rateLimited: 0 };
+    // The emote rows stay on the Basic tier (forced), so they don't drift with the device-gate probe.
     const clients = await joinWithVideo(browser, request, provider, `emote-${provider}`, async (context, index) => {
+      await forceTier("basic")(context);
       context.on("page", (page) => {
         page.on("websocket", (ws) => {
           ws.on("framereceived", ({ payload }) => {

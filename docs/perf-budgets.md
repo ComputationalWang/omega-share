@@ -1,6 +1,6 @@
 # Performance budgets (merge-blocking)
 
-QA measures these on every merge (Playwright + Chromium; the Firefox rows in headless Firefox through Puppeteer/BiDi). A regression past a budget blocks the merge, and the fix gets top priority.
+QA measures these on every merge that touches a perf-relevant path, daily and at sign-off (Playwright + Chromium; the Firefox rows in headless Firefox through Puppeteer/BiDi). A regression past a budget blocks the merge, and the fix gets top priority. When and how often perf runs, and how a verdict is reached: "Sampling and verdicts" below.
 
 | Area | Metric | Budget |
 |---|---|---|
@@ -28,6 +28,9 @@ QA measures these on every merge (Playwright + Chromium; the Firefox rows in hea
 | Site | Frame rate with the room popped out, 25 members + video playing | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), each window on its own: the room tab (the picture only, its Pixi renderer paused) and the room window (`room.html`, the one renderer: 25 avatars, 8 seated, someone always walking, and the chat) while 24 members chat at ~8/s room-wide and a seat changes every 100 ms, relayed over the BroadcastChannel — OME-600 |
 | Site | Main-thread work per frame with the room popped out, 25 members + video playing | ≤ 8 ms p95, each window, same pop-out room run — OME-600 |
 | Site | Missed vsyncs with the room popped out, 25 members + video playing | ≤ 1.0 % of frames, each window, same pop-out room run — OME-600 |
+| Site | Frame rate with 25 members walking | 60 fps (p95 frame ≤ 16.7 ms, in whole vsync intervals), per forced walk tier (Basic, Smooth: `localStorage["omega.motion"]`, ADR 0037), desktop Chromium and `devices["Pixel 7"]`: the observer plus 24 bots sitting down on free seats and standing up again (one change every ~120 ms, at least 15 of the 24 walking inside the window), video playing — OME-731 |
+| Site | Main-thread work per frame with 25 members walking | ≤ 8 ms p95, per forced walk tier (Basic, Smooth: `localStorage["omega.motion"]`, ADR 0037), desktop Chromium and `devices["Pixel 7"]`, same run — OME-731 |
+| Site | Missed vsyncs with 25 members walking | ≤ 1.0 % of frames, per forced walk tier (Basic, Smooth: `localStorage["omega.motion"]`, ADR 0037), desktop Chromium and `devices["Pixel 7"]`, same run — OME-731 |
 | Site | JS heap after 10 min in room | ≤ 150 MB |
 | Sync | Spread between clients after play/pause/seek | ≤ 500 ms |
 | Sync | Spread between clients after a queue advance | ≤ 1.5 s, first to last of 8 clients playing the next item after a video ends — ADR 0031 §7 |
@@ -40,3 +43,24 @@ QA measures these on every merge (Playwright + Chromium; the Firefox rows in hea
 | Extension | Content scripts on page load, Firefox | none (inject on popup open only) |
 | Extension | Persistent background, Firefox | none (non-persistent event page: Firefox MV3 has no service worker — ADR 0005) |
 | Load test | People in a room without breaking the budgets above | 25 |
+
+## Sampling and verdicts
+
+ADR 0036, amendment of 2026-10-10 ([OME-818](/OME/issues/OME-818)).
+
+- **When perf runs.** Perf runs per merge only when the merge touches a perf-relevant path (ADR 0036 lists them), and then only the specs that cover the touched paths. It also runs in full for wide-blast-radius merges, in the daily full run and at every milestone sign-off. Every run is flocked: `flock "$XDG_RUNTIME_DIR/omega-share-perf.lock" bun run perf [perf/<spec>.perf.ts …]`.
+- **One pass is the verdict.** A row's number comes from the samples one pass takes. The row's note prints the sample count. Frame-time, work-per-frame and missed-vsync rows take p95 (or the missed share) over one rAF window of at least 5 s, about 300 frames at 60 Hz (8 s for the popped-out room and the 25-client load test). Sync spreads take the worst of 2 rounds across 8 clients, and queue advances the worst of 3. Landing takes the median of 3 cold loads after a warm-up. The Firefox popup row takes p95 of 30 opens, relay latency p95 of 50 control actions, and the load-test relay row one probe per 100 ms over 8 s. No ×3 reruns of the whole set.
+- **A failing row gets one confirm rerun, of its spec only.** Run `bun run perf --no-build perf/<that spec>.perf.ts` (flocked). The build already matches HEAD, and `bun run perf` skips a matching build on its own anyway. If the confirm passes, the row passes, and the report gives both numbers and marks the first as noise. If it fails, the row is red and blocks as before. One confirm only: a third run never overturns two fails.
+- **Unstable rows take more samples, not more reruns.** If a row's verdict flips between single passes on an unchanged `main`, its spec takes more samples per run (more windows or rounds, with a median or p95 over them) until 3 single passes agree. The daily full run is where flips show.
+- **Build once per sha.** `bun run perf` stamps each build output dir with HEAD's sha (plus the server URL the web build bakes in). It rebuilds only when a stamp is missing or doesn't match, or when the build inputs (`apps/`, `packages/`, `assets/`, `package.json`, `bun.lock`, `tsconfig.base.json`) have uncommitted changes. `--rebuild` forces a build, and is needed after changing a git-ignored env file Vite reads (`.env.local`). `--no-build` skips it (`perf/build-stamp.ts`).
+
+## Landing
+
+The home page at `/`, measured on the production preview build (`vite preview`, the same build `bun run perf` serves) from a cold cache, before any user interaction: no pointer movement, no focus, no key press. Throttling profile: the one every other perf spec uses, Playwright's `Desktop Chrome` device (1280×720, DPR 1) on localhost with **no CPU and no network throttling**. The landing spec runs three cold loads, each in a fresh browser context, after a warm-up load; transfer is the largest of the three, the timings are their median. Spec: `perf/landing.perf.ts` (OME-763). Targeted post-merge check (ADR 0036) for any change to `apps/web/index.html`, `apps/web/src/main.ts`, `apps/web/src/home.ts`, `apps/web/src/style.css`, `apps/web/public/**` or the web build config: `bun run perf perf/landing.perf.ts`.
+
+| Area | Metric | Budget |
+|---|---|---|
+| Landing | Total transfer at `/` before interaction (gzipped) | ≤ 120 KB: every document, script, stylesheet, image, font and other static response the page fetches before interaction (the home chunk loaded on `load` included), each body gzipped at zlib level 6. API calls (fetch/XHR) are listed in the note but not counted. The lazily warmed room/Pixi chunks are excluded only while they are not fetched before interaction: anything fetched before interaction counts |
+| Landing | Largest Contentful Paint at `/` | ≤ 1.5 s, same throttling profile as the other perf specs (none) |
+| Landing | Cumulative Layout Shift at `/` | ≤ 0.05: every layout shift without recent input from navigation until load + 1 s, summed (no session windowing, so it is never lower than the web-vitals value) |
+| Landing | Longest task before the nickname field is usable | ≤ 50 ms (no long task): `PerformanceObserver("longtask")` entries that start before the field is usable, meaning the later of DOMContentLoaded end and the site's `omega:interactive` mark (set once `main.ts` has wired the form) |

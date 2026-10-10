@@ -1,0 +1,272 @@
+{
+  "walk.youtube": [
+    {
+      "at": "2026-10-10T11:39:57.386Z",
+      "load1": 2.19,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 180,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.700000000000728,
+      "workP95": 2,
+      "workMax": 2.255,
+      "traced": 181,
+      "walkingInWindow": 8,
+      "tier": "basic"
+    }
+  ],
+  "walk-smooth.youtube": [
+    {
+      "at": "2026-10-10T11:40:10.374Z",
+      "load1": 1.92,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 180,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.700000000000728,
+      "workP95": 3.734,
+      "workMax": 4.151,
+      "traced": 180,
+      "walkingInWindow": 8,
+      "tier": "smooth"
+    }
+  ],
+  "emote.youtube": [
+    {
+      "at": "2026-10-10T11:40:27.845Z",
+      "load1": 1.43,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 300,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.799999999999272,
+      "workP95": 3.242,
+      "workMax": 4.302,
+      "traced": 301,
+      "sentTotal": 56,
+      "relayedInWindow": 34,
+      "expectedInWindow": 33,
+      "everyMs": 1200,
+      "rateLimited": 0
+    }
+  ],
+  "walk.twitchVod": [
+    {
+      "at": "2026-10-10T11:40:39.371Z",
+      "load1": 1.37,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 181,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.700000000000728,
+      "workP95": 2.012,
+      "workMax": 2.359,
+      "traced": 181,
+      "walkingInWindow": 8,
+      "tier": "basic"
+    }
+  ],
+  "walk-smooth.twitchVod": [
+    {
+      "at": "2026-10-10T11:40:52.449Z",
+      "load1": 3.01,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 180,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.700000000000728,
+      "workP95": 3.773,
+      "workMax": 4.659,
+      "traced": 181,
+      "walkingInWindow": 8,
+      "tier": "smooth"
+    }
+  ],
+  "emote.twitchVod": [
+    {
+      "at": "2026-10-10T11:41:09.768Z",
+      "load1": 2.36,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 300,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.700000000000728,
+      "workP95": 3.293,
+      "workMax": 3.903,
+      "traced": 301,
+      "sentTotal": 56,
+      "relayedInWindow": 34,
+      "expectedInWindow": 33,
+      "everyMs": 1200,
+      "rateLimited": 0
+    }
+  ],
+  "walk.twitchLive": [
+    {
+      "at": "2026-10-10T11:41:21.466Z",
+      "load1": 2.07,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 180,
+      "maxMs": 16.800000000000182,
+      "rawP95": 16.700000000000728,
+      "workP95": 2.162,
+      "workMax": 2.881,
+      "traced": 180,
+      "walkingInWindow": 8,
+      "tier": "basic"
+    }
+  ],
+  "walk-smooth.twitchLive": [
+    {
+      "at": "2026-10-10T11:41:34.467Z",
+      "load1": 2.1,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 180,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.700000000000728,
+      "workP95": 4.715,
+      "workMax": 5.633,
+      "traced": 181,
+      "walkingInWindow": 8,
+      "tier": "smooth"
+    }
+  ],
+  "emote.twitchLive": [
+    {
+      "at": "2026-10-10T11:41:51.822Z",
+      "load1": 2.41,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 300,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.700000000000728,
+      "workP95": 3.364,
+      "workMax": 3.925,
+      "traced": 301,
+      "sentTotal": 55,
+      "relayedInWindow": 34,
+      "expectedInWindow": 33,
+      "everyMs": 1200,
+      "rateLimited": 0
+    }
+  ],
+  "walk.vimeo": [
+    {
+      "at": "2026-10-10T11:42:03.376Z",
+      "load1": 2.09,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 181,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.700000000000728,
+      "workP95": 1.999,
+      "workMax": 2.427,
+      "traced": 181,
+      "walkingInWindow": 8,
+      "tier": "basic"
+    }
+  ],
+  "walk-smooth.vimeo": [
+    {
+      "at": "2026-10-10T11:42:16.378Z",
+      "load1": 2.33,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 180,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.700000000000728,
+      "workP95": 4.662,
+      "workMax": 5.579,
+      "traced": 180,
+      "walkingInWindow": 8,
+      "tier": "smooth"
+    }
+  ],
+  "emote.vimeo": [
+    {
+      "at": "2026-10-10T11:42:33.773Z",
+      "load1": 2.92,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 300,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.799999999999272,
+      "workP95": 3.054,
+      "workMax": 3.889,
+      "traced": 301,
+      "sentTotal": 56,
+      "relayedInWindow": 34,
+      "expectedInWindow": 33,
+      "everyMs": 1200,
+      "rateLimited": 0
+    }
+  ],
+  "walk.generic": [
+    {
+      "at": "2026-10-10T11:42:47.135Z",
+      "load1": 2.55,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 180,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.799999999999272,
+      "workP95": 2.569,
+      "workMax": 3.23,
+      "traced": 181,
+      "walkingInWindow": 8,
+      "tier": "basic"
+    }
+  ],
+  "walk-smooth.generic": [
+    {
+      "at": "2026-10-10T11:43:02.117Z",
+      "load1": 3.72,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 180,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.700000000000728,
+      "workP95": 5.087,
+      "workMax": 5.508,
+      "traced": 181,
+      "walkingInWindow": 8,
+      "tier": "smooth"
+    }
+  ],
+  "emote.generic": [
+    {
+      "at": "2026-10-10T11:43:22.632Z",
+      "load1": 3.17,
+      "p95": 16.666666666666668,
+      "missedPct": 0,
+      "missed": 0,
+      "frames": 300,
+      "maxMs": 16.80000000000109,
+      "rawP95": 16.700000000000728,
+      "workP95": 4.001,
+      "workMax": 4.995,
+      "traced": 301,
+      "sentTotal": 71,
+      "relayedInWindow": 34,
+      "expectedInWindow": 33,
+      "everyMs": 1200,
+      "rateLimited": 0
+    }
+  ]
+}

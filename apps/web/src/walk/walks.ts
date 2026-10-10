@@ -1,7 +1,8 @@
 // Who walks where (OME-408). The server says who sits where; each client walks the avatars there itself, from the door
 // (someone who joined) or from where they were. Time-based: a hidden tab that comes back finds everyone arrived.
-// Avatars move in whole steps, one per walk frame (ADR 0010 `stepPx`), and every walk starts on a shared step clock, so
-// all walkers step together and the room redraws at most once a step. A path is found once per target change;
+// Basic: avatars move in whole steps, one per walk frame (ADR 0010 `stepPx`). Smooth (ADR 0037): they move every frame,
+// rounded to whole px, on the 8-frame 75 ms cycle. Either way every walk starts on a shared step clock, so all walkers
+// step together, Basic redraws at most once a step, and arrivals are the same on both tiers. A path is found once per target change;
 // `sample` allocates nothing.
 import type { MemberId } from "@omega/shared";
 import { standDepth } from "../furniture";
@@ -13,6 +14,9 @@ export type Dir = "se" | "sw" | "ne" | "nw";
 /** ADR 0010 `meta.omega.walk`: 150 ms a frame, 4 frames a tile (one cycle per tile). motion.ts checks the atlas agrees. */
 export const WALK_FRAME_MS = 150;
 export const WALK_FRAMES = 4;
+/** ADR 0037 `meta.omega.walk8`: the Smooth tier's cycle, 8 frames at 75 ms (still one tile per 600 ms cycle). */
+export const SMOOTH_FRAME_MS = 75;
+export const SMOOTH_FRAMES = 8;
 const TILE_MS = WALK_FRAME_MS * WALK_FRAMES;
 /** Screen length of one step between neighbouring cells. */
 const TILE_LEN = Math.hypot(TILE_W / 2, TILE_H / 2);
@@ -37,7 +41,7 @@ export interface Pose {
   dir: Dir;
   walking: boolean;
   sitting: boolean;
-  /** Walk frame, 0..3, while walking. */
+  /** Walk frame in the 8-frame cycle (ADR 0037), 0..7, while walking; Basic shows only the even ones. */
   step: number;
   /** Time at rest (for the breathe cycle); 0 while walking. */
   restMs: number;
@@ -47,6 +51,8 @@ export const emptyPose = (): Pose => ({ x: 0, y: 0, z: 0, dir: "se", walking: fa
 
 export interface WalksOptions {
   readonly reducedMotion: () => boolean;
+  /** The Smooth tier (walk/tier.ts), read on every sample so a drop to Basic takes effect at once. */
+  readonly smooth: () => boolean;
   /** Path finder (path.ts); a seam for counting calls. */
   readonly route?: (grid: Uint8Array, from: number, to: number) => number[] | null;
 }
@@ -142,8 +148,12 @@ export function createWalks(opts: WalksOptions): Walks {
     e.restAt = e.start + ms;
   }
 
+  /** Walk time shown now: Smooth runs on the clock, Basic holds each 150 ms step. */
+  const shownTime = (t: number): number => (opts.smooth() ? Math.max(0, t) : stepTime(t));
+
   function sampleEntry(e: Entry, now: number, out: Pose): void {
-    const t = stepTime(now - e.start);
+    const smooth = opts.smooth();
+    const t = smooth ? Math.max(0, now - e.start) : stepTime(now - e.start);
     const total = e.ts.at(-1) ?? 0;
     if (now - e.start < total) {
       let i = 1;
@@ -157,11 +167,16 @@ export function createWalks(opts: WalksOptions): Walks {
       const f = (t - t0) / (t1 - t0);
       out.x = x0 + (x1 - x0) * f;
       out.y = y0 + (y1 - y0) * f;
+      // Whole stage px: nearest-neighbour art stays crisp, and the DOM followers move only when a pixel changes.
+      if (smooth) {
+        out.x = Math.round(out.x);
+        out.y = Math.round(out.y);
+      }
       out.z = standDepth(out);
       out.dir = dirOf(x1 - x0, y1 - y0);
       out.walking = true;
       out.sitting = false;
-      out.step = Math.floor(t / WALK_FRAME_MS) % WALK_FRAMES;
+      out.step = smooth ? Math.floor(t / SMOOTH_FRAME_MS) % SMOOTH_FRAMES : (Math.floor(t / WALK_FRAME_MS) % WALK_FRAMES) * 2;
       out.restMs = 0;
       return;
     }
@@ -212,7 +227,7 @@ export function createWalks(opts: WalksOptions): Walks {
           continue;
         }
         // Mid-step between two cells: route from the one ahead, or turn back to the one behind.
-        const tt = stepTime(now - e.start);
+        const tt = shownTime(now - e.start);
         let i = 1;
         while (i < e.ts.length - 1 && (e.ts[i] ?? 0) <= tt) i++;
         const ahead = e.cells[i] ?? -1;

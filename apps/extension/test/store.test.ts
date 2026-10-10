@@ -103,7 +103,14 @@ describe("checkStoreManifest for Firefox (OME-593)", () => {
     host_permissions: ["https://omega-share.duckdns.org/*"],
     optional_host_permissions: ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"],
   };
-  const good = { ...chromeKeys, background: { scripts: ["background.js"] }, options_ui: { page: "options.html", open_in_tab: true }, browser_specific_settings: { gecko } };
+  // Firefox for Android (OME-743): 142 is the first Android release that reads data_collection_permissions.
+  const geckoAndroid = { strict_min_version: "142.0" };
+  const good = {
+    ...chromeKeys,
+    background: { scripts: ["background.js"] },
+    options_ui: { page: "options.html", open_in_tab: true },
+    browser_specific_settings: { gecko, gecko_android: geckoAndroid },
+  };
 
   test("accepts the Firefox store manifest", () => {
     expect(checkStoreManifest(good, "1.2.3", "firefox")).toEqual([]);
@@ -117,16 +124,18 @@ describe("checkStoreManifest for Firefox (OME-593)", () => {
   const bad: readonly [string, unknown, RegExp][] = [
     ["a service worker (Firefox has none)", { ...good, background: { service_worker: "background.js" } }, /background/],
     ["a persistent background page", { ...good, background: { scripts: ["background.js"], persistent: true } }, /background/],
-    ["no gecko ID", { ...good, browser_specific_settings: { gecko: { ...gecko, id: undefined } } }, /gecko\.id/],
-    ["another gecko ID (it is permanent)", { ...good, browser_specific_settings: { gecko: { ...gecko, id: "omega@example.com" } } }, /gecko\.id/],
-    ["no strict_min_version", { ...good, browser_specific_settings: { gecko: { ...gecko, strict_min_version: undefined } } }, /strict_min_version/],
-    ["an older strict_min_version", { ...good, browser_specific_settings: { gecko: { ...gecko, strict_min_version: "128.0" } } }, /strict_min_version/],
-    ["no data_collection_permissions", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: undefined } } }, /data_collection_permissions/],
-    ["data collection declared as none", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: { required: ["none"] } } } }, /data_collection_permissions/],
-    ["no authenticationInfo (Share sends the room share token, OME-695)", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: { required: ["websiteContent", "browsingActivity"] } } } }, /data_collection_permissions/],
-    ["only websiteContent", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: { required: ["websiteContent"] } } } }, /data_collection_permissions/],
-    ["optional data collection", { ...good, browser_specific_settings: { gecko: { ...gecko, data_collection_permissions: { required: gecko.data_collection_permissions.required, optional: ["technicalAndInteraction"] } } } }, /data_collection_permissions/],
-    ["an Android listing", { ...good, browser_specific_settings: { gecko, gecko_android: { strict_min_version: "142.0" } } }, /gecko_android/],
+    ["no gecko ID", { ...good, browser_specific_settings: { gecko_android: geckoAndroid, gecko: { ...gecko, id: undefined } } }, /gecko\.id/],
+    ["another gecko ID (it is permanent)", { ...good, browser_specific_settings: { gecko_android: geckoAndroid, gecko: { ...gecko, id: "omega@example.com" } } }, /gecko\.id/],
+    ["no strict_min_version", { ...good, browser_specific_settings: { gecko_android: geckoAndroid, gecko: { ...gecko, strict_min_version: undefined } } }, /strict_min_version/],
+    ["an older strict_min_version", { ...good, browser_specific_settings: { gecko_android: geckoAndroid, gecko: { ...gecko, strict_min_version: "128.0" } } }, /strict_min_version/],
+    ["no data_collection_permissions", { ...good, browser_specific_settings: { gecko_android: geckoAndroid, gecko: { ...gecko, data_collection_permissions: undefined } } }, /data_collection_permissions/],
+    ["data collection declared as none", { ...good, browser_specific_settings: { gecko_android: geckoAndroid, gecko: { ...gecko, data_collection_permissions: { required: ["none"] } } } }, /data_collection_permissions/],
+    ["no authenticationInfo (Share sends the room share token, OME-695)", { ...good, browser_specific_settings: { gecko_android: geckoAndroid, gecko: { ...gecko, data_collection_permissions: { required: ["websiteContent", "browsingActivity"] } } } }, /data_collection_permissions/],
+    ["only websiteContent", { ...good, browser_specific_settings: { gecko_android: geckoAndroid, gecko: { ...gecko, data_collection_permissions: { required: ["websiteContent"] } } } }, /data_collection_permissions/],
+    ["optional data collection", { ...good, browser_specific_settings: { gecko_android: geckoAndroid, gecko: { ...gecko, data_collection_permissions: { required: gecko.data_collection_permissions.required, optional: ["technicalAndInteraction"] } } } }, /data_collection_permissions/],
+    ["no Android listing", { ...good, browser_specific_settings: { gecko } }, /gecko_android/],
+    ["an Android strict_min_version before 142 (it would not read data_collection_permissions)", { ...good, browser_specific_settings: { gecko, gecko_android: { strict_min_version: "140.0" } } }, /gecko_android/],
+    ["an Android strict_max_version", { ...good, browser_specific_settings: { gecko, gecko_android: { ...geckoAndroid, strict_max_version: "150.*" } } }, /gecko_android/],
     ["options inside about:addons", { ...good, options_ui: { page: "options.html", open_in_tab: false } }, /open_in_tab/],
     ["the e2e build's extra host permissions", { ...good, host_permissions: [...good.host_permissions, "http://localhost/*"] }, /host_permissions/],
     ["an extra permission", { ...good, permissions: [...good.permissions, "tabs"] }, /permissions/],
@@ -172,7 +181,7 @@ describe("buildStorePackage for Firefox (OME-593)", () => {
   const VERSION = (JSON.parse(readFileSync(join(import.meta.dir, "..", "package.json"), "utf8")) as { version: string }).version;
 
   test(
-    "builds omega-share-<version>-firefox.zip ≤ 500 KB that passes the Firefox guard and web-ext lint (0 errors; the one warning is the desktop-only Android note), byte-identical on a rebuild",
+    "builds omega-share-<version>-firefox.zip ≤ 500 KB that passes the Firefox guard and web-ext lint with 0 errors and 0 warnings, byte-identical on a rebuild",
     async () => {
       const first = await buildStorePackage({ outDir: join(scratch, "fa"), browser: "firefox" });
       const second = await buildStorePackage({ outDir: join(scratch, "fb"), browser: "firefox" });
@@ -188,11 +197,8 @@ describe("buildStorePackage for Firefox (OME-593)", () => {
       const dir = join(scratch, "firefox-unzipped");
       unzip(zip, "-q", "-d", dir);
       const lint = await webExtLint(dir);
-      expect(lint.errors).toEqual([]);
-      // Desktop only (CEO decision, OME-546): no gecko_android key, so the linter notes that Firefox for Android 140
-      // would not read data_collection_permissions. Adding gecko_android would list the add-on on Android.
-      expect(lint.warnings.map((w) => w.split(" ")[0])).toEqual(["KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION"]);
-      expect(lintProblems(lint)).toEqual([]);
+      // Desktop and Android (OME-743): gecko_android 142 reads data_collection_permissions, so nothing is left to accept.
+      expect(lint).toEqual({ errors: [], warnings: [] });
     },
     180_000,
   );
@@ -200,12 +206,13 @@ describe("buildStorePackage for Firefox (OME-593)", () => {
 
 describe("lintProblems (what fails ext:store)", () => {
   const android = "KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION manifest.json: Manifest key not supported by the specified minimum Firefox for Android version";
-  test("lets only the desktop-only Android warning through", () => {
-    expect(lintProblems({ errors: [], warnings: [android] })).toEqual([]);
+  test("passes a clean lint", () => {
+    expect(lintProblems({ errors: [], warnings: [] })).toEqual([]);
   });
-  test("fails on any error, and on any other warning", () => {
+  test("fails on every error and every warning, the old desktop-only Android note included (OME-743)", () => {
+    expect(lintProblems({ errors: [], warnings: [android] })).toEqual([android]);
     expect(lintProblems({ errors: ["ADDON_ID_REQUIRED manifest.json: x"], warnings: [] })).toEqual(["ADDON_ID_REQUIRED manifest.json: x"]);
-    expect(lintProblems({ errors: [], warnings: [android, "UNSAFE_VAR_ASSIGNMENT popup.js: x"] })).toEqual(["UNSAFE_VAR_ASSIGNMENT popup.js: x"]);
+    expect(lintProblems({ errors: [], warnings: [android, "UNSAFE_VAR_ASSIGNMENT popup.js: x"] })).toEqual([android, "UNSAFE_VAR_ASSIGNMENT popup.js: x"]);
     expect(lintProblems({ errors: [android], warnings: [] })).toEqual([android]);
   });
 });

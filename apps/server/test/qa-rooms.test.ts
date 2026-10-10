@@ -139,14 +139,17 @@ async function joinOutcome(roomId: string, nickname: string, init: JoinInit = {}
   throw new Error("no reply to join");
 }
 /** Whether a WebSocket upgrade to the room fails (the room does not exist). */
+/** No way in: the upgrade fails, or (OME-768) the socket is closed with ROOM_CLOSED before any snapshot. */
 async function upgradeRefused(roomId: string): Promise<boolean> {
+  let c: Client;
   try {
-    const c = await Client.open(server().ws(roomId), undefined, { "x-forwarded-for": freshAddress() });
-    clients.push(c);
-    return false;
+    c = await Client.open(server().ws(roomId), undefined, { "x-forwarded-for": freshAddress() });
   } catch {
     return true;
   }
+  clients.push(c);
+  const { code } = await c.closed;
+  return code === CLOSE_CODES.ROOM_CLOSED && !c.raw.some((r) => r.includes('"snapshot"'));
 }
 /** Round trip, so everything the server did for earlier frames has happened. */
 async function sync(c: Client, id = 1): Promise<void> {

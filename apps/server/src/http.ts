@@ -149,6 +149,8 @@ export interface HttpDeps {
   /** `securityHeaders(embeds.genericEmbeds)`, set on every response. */
   headers: SecurityHeaders;
   staticDir: string | null;
+  /** Absolute origin for the share card's image URL (PUBLIC_ORIGIN, else SITE_ORIGIN). */
+  cardOrigin: string;
   /** Writes a created room to the store (ADR 0028); throws if it can't. */
   persistRoom: (room: NewRoom) => void;
   /** Deletes an owner-deleted room's row (ADR 0028 §2); throws if it can't. */
@@ -159,6 +161,8 @@ export interface HttpDeps {
   wallNow: () => number;
   /** Abuse reports (ADR 0033): limits, duplicates, the store, and which ids were taken down. */
   reports: Reports;
+  /** Whether the database answers a cheap read (OME-840); `GET /healthz` is 503 when it doesn't. */
+  dbOk: () => boolean;
 }
 
 /**
@@ -186,12 +190,14 @@ export function createHttpApp({
   embeds,
   headers,
   staticDir,
+  cardOrigin,
   persistRoom,
   unpersistRoom,
   titleBlocked,
   wallNow,
   queue,
   reports,
+  dbOk,
 }: HttpDeps): Hono {
   const creates = new KeyedLimiter(ROOM_CREATE_KEY_BURST, 1000 / ROOM_CREATE_KEY_REFILL_MS, 1024, now);
   const globalCreates = new TokenBucket(ROOM_CREATE_GLOBAL_BURST, 1000 / ROOM_CREATE_GLOBAL_REFILL_MS, now);
@@ -239,8 +245,11 @@ export function createHttpApp({
   app.use("/rooms", apiCors);
   app.use("/rooms/*", apiCors);
 
-  /** Readiness probe (supervisors). Without a static site, `GET /` answers too (Playwright webServer). */
-  app.get("/healthz", (c) => c.text("ok"));
+  /** Readiness probe (supervisors, deploy.sh, the off-box monitor): 503 when the database can't be read. Without a static site, `GET /` answers too (Playwright webServer). */
+  app.get("/healthz", (c) => {
+    c.header("cache-control", "no-store");
+    return dbOk() ? c.text("ok") : c.text("database unavailable", 503);
+  });
   if (staticDir === null) app.get("/", (c) => c.text("omega-share server"));
 
   app.get("/rooms", (c) => {
@@ -525,6 +534,11 @@ export function createHttpApp({
     return c.json(body, 503);
   });
 
-  if (staticDir !== null) mountSite(app, staticDir);
+  // A link preview shows a room's title only where the lobby would list it, and never a taken-down room's (§5.2).
+  const previewTitle = (id: string): string | null => {
+    const room = rooms.get(id);
+    return room !== undefined && !reports.isTakenDown(id) && listable(room) ? room.title : null;
+  };
+  if (staticDir !== null) mountSite(app, staticDir, { origin: cardOrigin, previewTitle });
   return app;
 }

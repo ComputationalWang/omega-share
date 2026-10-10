@@ -2,7 +2,7 @@
 // Pure, no Pixi; motion-atlas.ts turns the keys into textures once.
 import * as v from "valibot";
 import { AVATAR_COUNT, type EmoteKind } from "@omega/shared";
-import { WALK_FRAMES, WALK_FRAME_MS, type Dir } from "./walks";
+import { SMOOTH_FRAMES, SMOOTH_FRAME_MS, WALK_FRAMES, WALK_FRAME_MS, type Dir } from "./walks";
 
 /** Index order of every per-direction table. */
 export const DIRS: readonly Dir[] = ["se", "sw", "ne", "nw"];
@@ -16,6 +16,7 @@ export const MotionSheetSchema = v.object({
   meta: v.object({
     omega: v.object({
       walk: v.object({ frameMs: v.literal(WALK_FRAME_MS), tilesPerCycle: v.literal(1) }),
+      walk8: v.object({ frameMs: v.literal(SMOOTH_FRAME_MS), frames: v.literal(SMOOTH_FRAMES), tilesPerCycle: v.literal(1) }),
       anims: v.record(v.string(), AnimSchema),
     }),
   }),
@@ -45,8 +46,10 @@ export interface PoseCycles {
 export interface MotionFrames {
   /** Each sheet's frame rects and anchors, as parsed: motion.png's, then avatars.png's. */
   readonly sheets: { readonly motion: FrameRects; readonly avatars: FrameRects };
-  /** walk[avatar][dir][step]: frame keys. */
+  /** walk[avatar][dir][n]: the 4-frame cycle's keys (Basic). */
   readonly walk: readonly (readonly (readonly string[])[])[];
+  /** walk8[avatar][dir][step]: the 8-frame cycle (ADR 0037), frame 2n = walk[…][n], so Basic draws its even frames. */
+  readonly walk8: readonly (readonly (readonly string[])[])[];
   /** rest[avatar].idle|sit[dir]: the breathe cycle. */
   readonly rest: readonly PoseCycles[];
   /** wave[avatar].idle|sit[dir]: the one-shot wave (OME-415). */
@@ -73,12 +76,22 @@ export function parseMotion(motionJson: unknown, avatarsJson: unknown): MotionFr
     return { frames: a.frames, ms: a.ms };
   };
   const ids = sheet.meta.omega.avatars.map((a) => a.id);
+  const walk = ids.map((id) =>
+    DIRS.map((d) => {
+      const a = anim(`walk/${id}/${d}`, WALK_FRAMES);
+      if (a.ms.some((m) => m !== WALK_FRAME_MS)) throw new Error(`motion atlas: walk/${id}/${d} timing`);
+      return a.frames;
+    }),
+  );
   return {
     sheets: { motion: motion.frames, avatars: sheet.frames },
-    walk: ids.map((id) =>
-      DIRS.map((d) => {
-        const a = anim(`walk/${id}/${d}`, WALK_FRAMES);
-        if (a.ms.some((m) => m !== WALK_FRAME_MS)) throw new Error(`motion atlas: walk/${id}/${d} timing`);
+    walk,
+    walk8: ids.map((id, i) =>
+      DIRS.map((d, j) => {
+        const a = anim(`walk8/${id}/${d}`, SMOOTH_FRAMES);
+        if (a.ms.some((m) => m !== SMOOTH_FRAME_MS)) throw new Error(`motion atlas: walk8/${id}/${d} timing`);
+        // Tiers swap mid-stride without a pop only if Basic's frames are Smooth's even ones.
+        if (a.frames.some((k, n) => n % 2 === 0 && k !== walk[i]?.[j]?.[n / 2])) throw new Error(`motion atlas: walk8/${id}/${d} even frames`);
         return a.frames;
       }),
     ),

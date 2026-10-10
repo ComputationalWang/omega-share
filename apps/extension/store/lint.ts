@@ -25,15 +25,7 @@ export async function webExtLint(dir: string): Promise<LintResult> {
   return { errors: parsed.errors.map(describe), warnings: parsed.warnings.map(describe) };
 }
 
-/**
- * The one finding we ship with. Desktop only (CEO decision on OME-546): with no `gecko_android` key the add-on is not
- * listed for Android, yet the linter still checks Android against `strict_min_version` 140 and notes that Firefox for
- * Android reads `data_collection_permissions` only from 142. Adding `gecko_android` would make it an Android add-on.
- */
-export const ACCEPTED_LINT_WARNINGS = ["KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION"] as const;
-
-/** The findings that fail `ext:store`: every error, and every warning but the accepted ones. */
+/** The findings that fail `ext:store`: every error and every warning (OME-743: none is accepted). */
 export function lintProblems(result: LintResult): string[] {
-  const accepted = (finding: string): boolean => ACCEPTED_LINT_WARNINGS.some((code) => finding.startsWith(`${code} `));
-  return [...result.errors, ...result.warnings.filter((w) => !accepted(w))];
+  return [...result.errors, ...result.warnings];
 }

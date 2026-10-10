@@ -35,6 +35,8 @@ export async function launchFirefoxWithExtension(): Promise<FirefoxExtension> {
   const browser = await puppeteer.launch({
     browser: "firefox",
     executablePath: await firefoxExecutable(),
+    // Headless Firefox has no pointer device, so it matches `(hover: none)` and renders the popup's phone layout (OME-743).
+    // This lane checks scan, rooms and timing, not desktop looks; desktop Firefox with a mouse keeps the 320 px popup.
     headless: true,
     // Without it Firefox hides extension tabs from BiDi, so the popup tab can't be found.
     args: ["-remote-allow-system-access"],

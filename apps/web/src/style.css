@@ -30,6 +30,29 @@ button, input { font: inherit; color: inherit; }
 .lede { margin: 0 0 8px; color: var(--muted); }
 .landing input { padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--bg); }
 .landing input[aria-invalid="true"] { border-color: var(--error); }
+/* Skip link (OME-767): the first stop in tab order, out of sight until it has focus. */
+.skip-link { position: absolute; left: 8px; top: -200px; z-index: 100; padding: 8px 12px; border-radius: 6px; background: var(--accent); color: var(--bg); font-weight: 600; }
+.skip-link:focus { top: max(8px, env(safe-area-inset-top)); }
+main:focus { outline: none; }
+/* The landing (OME-767): the form, then how it works (set m panels). Side by side on desktop, stacked on phones with
+ * the form first. The panels are 368×224 files shown at 184×112 (1 art px = 1 CSS px), sized up front: no shift. */
+.welcome { display: grid; grid-template-columns: minmax(0, 360px); gap: 24px; justify-content: center; align-items: start; margin: 10vh 0 24px; }
+.welcome:has(> .landing[hidden]) { display: none; }
+.welcome > .landing { margin: 0; max-width: none; }
+@media (min-width: 840px) { .welcome { grid-template-columns: 360px minmax(0, 420px); } }
+.how { display: grid; gap: 12px; }
+.how h2 { margin: 0; font-size: 1.1em; }
+.how-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: step; }
+.how-steps li { display: flex; gap: 12px; align-items: center; counter-increment: step; }
+.how-steps img { flex: none; width: 184px; height: 112px; image-rendering: pixelated; }
+.how-steps p { margin: 0; color: var(--muted); }
+.how-steps .how-cap { color: var(--fg); font-weight: 600; }
+.how-cap::before { content: counter(step) " · "; }
+@media (max-width: 480px) { .how-steps li { flex-direction: column; align-items: flex-start; gap: 4px; } }
+/* main keeps only 2 px of gutter at 360 px (the TV needs it); the plain text gets the panel's own inset back. */
+@media (max-width: 400px) { .how { padding: 0 14px; } }
+.install { margin: 0; color: var(--muted); }
+.install-link.enter { display: inline-block; margin-top: 0; text-decoration: none; }
 /* Rooms panel on the home page and the room's invite link (OME-409). Plain until design set (i). */
 .home { max-width: 360px; margin: 0 auto 10vh; display: grid; gap: 16px; }
 .home > * { display: grid; gap: 8px; background: var(--panel); padding: 24px; border-radius: 12px; }
@@ -87,7 +110,22 @@ legend { padding: 0; margin-bottom: 6px; }
 /* Name tags wear .ui-tag; the name ellipsizes inside, so the catching-up hourglass can hang off the tag's left end. */
 .tag { position: absolute; left: 0; top: 0; translate: -50% 0; max-width: 160px; height: 20px; display: flex; align-items: center; font-size: 12px; }
 .tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.bubble { position: absolute; left: 0; top: 0; translate: -50% -100%; max-width: 220px; max-height: 180px; overflow: hidden; margin: 0; padding: 6px 10px; border-radius: 10px; background: #fff; color: #1d1a2b; font-size: 13px; overflow-wrap: anywhere; }
+/* Floating chat bubbles (OME-730, set l .ui-float; bubbles/floats.ts): a pool of 8 slots, each riding its speaker's head
+ * by transform. No CSS animation or transition (OME-802, ADR 0040): Blink restyles a running CSS animation on every main
+ * frame, even a composited one, so floats.ts writes the 24-step rise (translate), the fades (opacity) and the push
+ * (transform) on the bare .float-motion wrapper, on one shared step clock; the push is instant. */
+.bubbles { contain: layout paint; }
+.float-slot { position: absolute; left: 0; top: 0; }
+.float-motion > .ui-float, .float-motion > .ui-float.is-leaving { animation: none; transition: none; }
+/* The stacked twin (floats.ts, OME-802): a bubble's box with its speaker's name, laid out but never painted, so a bubble
+ * that stacks takes its size from the frame's own layout instead of forcing one. Box metrics mirror .ui-float and its
+ * .say / .who (reference.css); the words are generated content, out of selectors' text and the accessibility tree. */
+.float-twin { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; box-sizing: border-box; margin: 0; width: max-content; max-width: 168px;
+  border: solid transparent; border-width: calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(6 * var(--ui-px)) calc(5 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px));
+  font: 500 12px/15px system-ui, sans-serif; overflow-wrap: anywhere; }
+.float-twin > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.float-twin > span::before { content: attr(data-who); font-weight: 700; margin-right: 0.35em; }
+.float-twin > span::after { content: attr(data-say); }
 .chat { display: flex; gap: 8px; margin-top: 8px; }
 /* The chat log (OME-594, set k): the strip's lines at 1× art. It scrolls; the first line's auto margin keeps a short log at the foot. */
 .chat-log { --ui-px: 1px; contain: content; justify-content: flex-start; overflow-y: auto; overscroll-behavior: contain; max-height: 168px; margin-top: 8px; padding: 4px; }
@@ -165,7 +203,10 @@ legend { padding: 0; margin-bottom: 6px; }
 
 /* ---- Emotes (OME-415, set (i)): the key leads the chat row at 1×; the picker opens above it at page 2×. ---- */
 .emote-picker { --ui-px: 1px; position: relative; display: flex; align-items: center; }
-.emote-picker .ui-emotes { --ui-px: 2px; position: absolute; left: 0; bottom: calc(100% + 14px); z-index: 5; --ui-tail-x: 1px; }
+/* Set (l)'s emote wheel (OME-732): page chrome at 2× (42 px slots), placed in viewport px by emote/wheel-place.ts over your
+ * head or docked above the composer. reference.css fades it in (4 steps, never scaled: pixel art doesn't resample) and
+ * skips that under reduced motion. */
+.emote-picker .ui-wheel { --ui-px: 2px; position: fixed; z-index: 30; }
 .ui-button.self.is-cooling { border-image-source: url("../../../assets/ui/slices/button-self-cool.png"); cursor: default; }
 /* prefers-reduced-motion: the picker icon, still, bottom-centred over the avatar. */
 .emote-badge { position: absolute; left: 0; top: 0; translate: -50% -100%; }
@@ -330,3 +371,40 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .quality-menu.is-row .quality-rows { display: flex; }
 .quality-menu.is-row > .foot { display: none; }
 .quality-menu.is-row > .ui-qx { flex: none; margin-left: auto; }
+/* OME-776: on touch the wheel's chip names the sticker without its key ("1"): there's no keyboard to press it on. */
+@media (pointer: coarse), (hover: none) { .ui-wheel-label .ui-kbd { display: none; } }
+/* M9 W2 (OME-768): the first-visit hint in the flow under the room bar (never over the picture or the composer), the "?"
+ * help dialog on the report dialog's scrim, and "Room not found". Plain chrome until a design set skins them; no motion. */
+.first-hint { --ui-px: 1px; display: flex; align-items: center; gap: 8px; margin: 6px 0; padding: 4px 4px 4px 10px; }
+.first-hint[hidden] { display: none; }
+.first-hint-text { flex: 1; margin: 0; font-size: 13px; font-weight: 600; color: var(--ui-text); }
+.help-key { font-weight: 700; min-width: 28px; }
+/* M9 W3 (OME-769): "Hide for me". The People key sits beside "?"; its list is in the flow under the room bar (never over
+ * the picture). A hidden person's name tag and avatar are dimmed (the avatar by alpha, room-view.ts), set once per change. */
+.room-top > .ui-button:not([hidden]) ~ .ui-button { margin-left: 0; }
+.people { --ui-px: 1px; margin: 6px 0; padding: 6px 10px; color: var(--ui-text); }
+.people[hidden] { display: none; }
+.people-note { margin: 0 0 6px; font-size: 12px; line-height: 1.4; }
+.people-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.people-row { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; }
+.people-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.people-row.is-hidden .people-name { opacity: 0.6; }
+.people-hidden { flex: none; font-size: 11px; }
+.people-toggle { flex: none; font: inherit; font-size: 12px; font-weight: 700; }
+.tag.is-hidden { opacity: 0.5; }
+.help-dialog { --ui-px: 2px; margin: auto; width: min(calc(100vw - 16px), 520px); max-width: none; max-height: calc(100dvh - 16px); overflow: auto; color: var(--ui-text); }
+.help-dialog::backdrop { background: url("../../../assets/ui/slices/scrim-0.png") 0 0 / 2px 4px; image-rendering: pixelated; }
+.help-dialog h2 { margin: 0 0 8px; font-size: 15px; }
+.help-dialog h3 { margin: 12px 0 4px; font-size: 13px; }
+.help-dialog p, .help-dialog li, .help-dialog dd { font-size: 12px; line-height: 1.4; }
+.help-dialog ul, .help-dialog p { margin: 0; }
+.help-dialog ul { padding-left: 18px; }
+.help-keys { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0 0 4px; align-items: baseline; }
+.help-keys dt { font-size: 12px; font-weight: 700; }
+.help-keys dd { margin: 0; }
+.help-keys kbd { font: inherit; font-weight: 700; padding: 0 4px; border: 1px solid currentColor; border-radius: 2px; }
+.help-dialog .acts { display: flex; justify-content: flex-end; margin-top: 12px; }
+.room-not-found .ui-scene { --ui-px: 2px; margin: 0 auto 8px; }
+.room-not-found .rooms-public { margin-top: 24px; }
+.room-not-found .room-list { list-style: none; padding: 0; }
+.room-not-found .not-found-state { font-size: 13px; }

@@ -17,13 +17,14 @@ const VERSION = typeof PACKAGE === "object" && PACKAGE !== null && "version" in 
 const ICON_SIZES = ["16", "32", "48", "128"] as const;
 
 // Firefox (OME-593, R-M7c decisions on OME-546): the permanent add-on ID, Firefox 140+ for the data-collection key,
-// desktop only, and every category Share can send: the embed URL, which may be the page URL itself, and the room
+// Firefox for Android 142+ (OME-743, the first Android release that reads it), and every category Share can send: the embed URL, which may be the page URL itself, and the room
 // share token (OME-695).
 const GECKO = {
   id: "omega-share@omega-share.duckdns.org",
   strict_min_version: "140.0",
   data_collection_permissions: { required: ["websiteContent", "browsingActivity", "authenticationInfo"] },
 };
+const GECKO_ANDROID = { strict_min_version: "142.0" };
 const PRODUCTION_HOSTS = ["https://omega-share.duckdns.org/*"];
 // Port-less: Firefox never matches a pattern with a port, and http://localhost/* covers the default server on :8787.
 const E2E_HOSTS = ["http://localhost/*", "https://www.youtube.com/*"];
@@ -83,8 +84,8 @@ for (const { name: mode, browser, hostPermissions } of cases) {
     });
 
     if (browser === "firefox") {
-      test("carries the permanent gecko ID, Firefox 140+, all three data-collection categories and nothing for Android", () => {
-        expect(manifests.get(mode)).toHaveProperty("browser_specific_settings", { gecko: GECKO });
+      test("carries the permanent gecko ID, Firefox 140+, all three data-collection categories and Firefox for Android 142+", () => {
+        expect(manifests.get(mode)).toHaveProperty("browser_specific_settings", { gecko: GECKO, gecko_android: GECKO_ANDROID });
       });
 
       test("opens the options page in a tab, not inside about:addons", () => {

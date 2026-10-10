@@ -19,6 +19,16 @@ if (available.web) {
   servers.push({ command: `bun run --filter @omega/web ${mode} -- --port ${String(PORTS.web)} --strictPort`, url: URLS.web, reuseExistingServer: !process.env["CI"], env: { VITE_SERVER_URL: URLS.server } });
 }
 
+// `OMEGA_PERF_MOTION=smooth|basic` forces the walk tier (ADR 0037) in every perf context, so the whole suite can run once per tier.
+// Anything else is refused (OME-750): a typo would run the suite unforced while the run reads as forced.
+const perfMotion = process.env["OMEGA_PERF_MOTION"] ?? "";
+if (perfMotion !== "" && perfMotion !== "smooth" && perfMotion !== "basic") {
+  throw new Error(`OMEGA_PERF_MOTION must be smooth, basic or unset, not ${JSON.stringify(perfMotion)}`);
+}
+const perfStorage = perfMotion !== ""
+  ? { storageState: { cookies: [], origins: [{ origin: URLS.web, localStorage: [{ name: "omega.motion", value: perfMotion }] }] } }
+  : {};
+
 // Chrome's own default: sound needs a user activation (item 3 of the real-YouTube checklist relies on it).
 const AUTOPLAY_DEFAULT = "--autoplay-policy=document-user-activation-required";
 
@@ -46,6 +56,6 @@ export default defineConfig({
     // through Puppeteer over BiDi (e2e/support/firefox.ts) and use only the web servers above. `bun run ext:firefox`.
     { name: "ext-firefox", testDir: "e2e", testMatch: "**/*.firefox.ts", workers: 1 },
     // Tracing off: the trace screencast of every context is software-composited on the shared viz thread and drops vsyncs (ADR 0017).
-    { name: "perf", testDir: "perf", testMatch: "**/*.perf.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium", trace: "off" } },
+    { name: "perf", testDir: "perf", testMatch: "**/*.perf.ts", workers: 1, use: { ...devices["Desktop Chrome"], channel: "chromium", trace: "off", ...perfStorage } },
   ],
 });

@@ -12,6 +12,8 @@ export type StoreBrowser = "chrome" | "firefox";
 /** OME-593, decisions on OME-546: the AMO add-on ID is permanent, and these values are fixed with it. */
 export const GECKO_ID = "omega-share@omega-share.duckdns.org";
 export const GECKO_STRICT_MIN_VERSION = "140.0";
+/** OME-743: Firefox for Android from 142, the first Android release that reads `data_collection_permissions`. */
+export const GECKO_ANDROID_STRICT_MIN_VERSION = "142.0";
 /** OME-695: Share also sends the room share token (authenticationInfo), as the Chrome listing already says. */
 export const GECKO_DATA_COLLECTION = ["websiteContent", "browsingActivity", "authenticationInfo"] as const;
 /** Exactly one https origin: the hosted server. No wildcard host, no path. */
@@ -35,6 +37,7 @@ const ManifestSchema = v.looseObject({
           data_collection_permissions: v.optional(v.looseObject({ required: v.optional(StringList), optional: v.optional(StringList) })),
         }),
       ),
+      gecko_android: v.optional(v.record(v.string(), v.unknown())),
     }),
   ),
 });
@@ -94,7 +97,10 @@ function firefoxProblems(m: Manifest): string[] {
   if (collection === undefined || !sameList(collection.required ?? [], GECKO_DATA_COLLECTION) || collection.optional !== undefined) {
     problems.push(`browser_specific_settings.gecko.data_collection_permissions: ${JSON.stringify(collection)}, expected required ${JSON.stringify(GECKO_DATA_COLLECTION)} only`);
   }
-  if (settings !== undefined && "gecko_android" in settings) problems.push("browser_specific_settings.gecko_android: desktop only");
+  const android = settings?.gecko_android;
+  if (android === undefined || JSON.stringify(android) !== JSON.stringify({ strict_min_version: GECKO_ANDROID_STRICT_MIN_VERSION })) {
+    problems.push(`browser_specific_settings.gecko_android: ${JSON.stringify(android)}, expected exactly { strict_min_version: ${GECKO_ANDROID_STRICT_MIN_VERSION} }`);
+  }
   if (m.options_ui?.open_in_tab !== true) problems.push("options_ui.open_in_tab: must be true (not embedded in about:addons)");
   return problems;
 }

@@ -29,8 +29,8 @@ describe("parseMotion", () => {
       ...Object.keys((motion as { frames: object }).frames),
       ...Object.keys((avatars as { frames: object }).frames),
     ]);
-    const named = [...m.walk.flat(2), ...m.rest.flatMap((r) => [...r.idle, ...r.sit].flatMap((c) => c.frames))];
-    expect(named.length).toBe(AVATAR_COUNT * 4 * 4 + AVATAR_COUNT * 8 * 2);
+    const named = [...m.walk.flat(2), ...m.walk8.flat(2), ...m.rest.flatMap((r) => [...r.idle, ...r.sit].flatMap((c) => c.frames))];
+    expect(named.length).toBe(AVATAR_COUNT * 4 * 4 + AVATAR_COUNT * 4 * 8 + AVATAR_COUNT * 8 * 2);
     for (const k of named) expect(frames.has(k)).toBe(true);
   });
 
@@ -45,6 +45,38 @@ describe("parseMotion", () => {
   test("refuses a walk timing other than the one walks.ts moves at", () => {
     const bad = clone(motion);
     (bad["meta"] as { omega: { walk: { frameMs: number } } }).omega.walk.frameMs = 100;
+    expect(() => parseMotion(bad, avatars)).toThrow();
+  });
+
+  // OME-731 (ADR 0037): the Smooth tier's walk is set (l)'s 8-frame cycle at 75 ms; its even frames are the 4-frame keys.
+  test("walk8 is the 8-frame cycle per avatar and direction, the in-betweens on the odd frames", () => {
+    expect(m.walk8.length).toBe(AVATAR_COUNT);
+    expect(m.walk8[0]?.[DIRS.indexOf("se")]).toEqual([
+      "walk/juno/se/0", "walk8/juno/se/1", "walk/juno/se/1", "walk8/juno/se/3", "walk/juno/se/2", "walk8/juno/se/5", "walk/juno/se/3", "walk8/juno/se/7",
+    ]);
+    for (const [a, dirs] of m.walk8.entries()) for (const [d, cycle] of dirs.entries()) expect(cycle.filter((_, i) => i % 2 === 0)).toEqual([...(m.walk[a]?.[d] ?? [])]);
+  });
+
+  test("refuses a walk8 timing other than 75 ms a frame", () => {
+    const bad = clone(motion);
+    (bad["meta"] as { omega: { walk8: { frameMs: number } } }).omega.walk8.frameMs = 100;
+    expect(() => parseMotion(bad, avatars)).toThrow();
+    const ms = clone(motion);
+    const anim = (ms["meta"] as { omega: { anims: Record<string, { ms: number[] }> } }).omega.anims["walk8/pip/ne"];
+    if (anim) anim.ms[3] = 150;
+    expect(() => parseMotion(ms, avatars)).toThrow();
+  });
+
+  test("refuses a walk8 whose even frames aren't the 4-frame walk's (switching tiers mid-stride would pop)", () => {
+    const bad = clone(motion);
+    const anim = (bad["meta"] as { omega: { anims: Record<string, { frames: string[] }> } }).omega.anims["walk8/mo/sw"];
+    if (anim) anim.frames[2] = "walk8/mo/sw/3";
+    expect(() => parseMotion(bad, avatars)).toThrow();
+  });
+
+  test("refuses a sheet without a walk8 for some avatar and direction", () => {
+    const bad = clone(motion);
+    delete (bad["meta"] as { omega: { anims: Record<string, unknown> } }).omega.anims["walk8/kiki/nw"];
     expect(() => parseMotion(bad, avatars)).toThrow();
   });
 
