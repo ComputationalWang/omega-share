@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
-import { AMO_GUID, amoClient, amoCredentialsFromEnv, amoJwt, compareVersions, statusReport, submitProblems, type AmoCredentials } from "../store/amo";
+import { AMO_GUID, amoClient, amoCredentialsFromEnv, amoJwt, compareVersions, statusReport, submitNotes, submitProblems, type AmoCredentials } from "../store/amo";
 
 // `bun run ext:amo` (OME-757): the AMO v5 API with the board's JWT key. Credentials here are made up.
 const CREDS: AmoCredentials = { issuer: "user:12345:67", secret: "s3cr3t-0123456789abcdef0123456789abcdef0123456789abcdef" };
@@ -201,6 +201,19 @@ describe("amoClient requests", () => {
     expect(file.name).toBe("omega-share-0.1.1-sources.zip");
     expect(new Uint8Array(await file.arrayBuffer())).toEqual(sources);
   });
+
+  test("createVersion() sends release notes as en-US in the create body (OME-794)", async () => {
+    const created = { ...V010, id: 5002, version: "0.1.1" };
+    const amo = fakeAmo({ [`POST ${ADDON_URL}versions/`]: [json(created, 201)], [`PATCH ${ADDON_URL}versions/5002/`]: [json(created)] });
+    await client(amo.fetch).createVersion("u-1", new Uint8Array([1]), "s.zip", { notes: "Fixes the Twitch picker." });
+    expect(amo.seen[0]?.body).toEqual({ upload: "u-1", compatibility: ["firefox", "android"], release_notes: { "en-US": "Fixes the Twitch picker." } });
+  });
+
+  test("createVersion() refuses blank release notes before any request", async () => {
+    const amo = fakeAmo({});
+    expect(await failure(client(amo.fetch).createVersion("u-1", new Uint8Array([1]), "s.zip", { notes: " \n " }))).toContain("release notes");
+    expect(amo.seen).toEqual([]);
+  });
 });
 
 describe("amoClient responses (Valibot at the boundary)", () => {
@@ -293,5 +306,37 @@ describe("submitProblems", () => {
 
   test("reports every problem at once", () => {
     expect(submitProblems({ ...ok, local: "0.0.1", dirty: ["?? x"], hashes: { firefox: { built: "a", fresh: "b" }, sources: { built: "c", fresh: "d" } } })).toHaveLength(4);
+  });
+});
+
+describe("submitNotes (ext:amo submit arguments, OME-794)", () => {
+  const files: Record<string, string> = { "notes.txt": "Line one.\nLine two.\n", "blank.txt": "  \n" };
+  const read = (path: string): string => {
+    const text = files[path];
+    if (text === undefined) throw new Error(`no such file: ${path}`);
+    return text;
+  };
+
+  test("no arguments: no release notes", () => {
+    expect(submitNotes([], read)).toBeUndefined();
+  });
+
+  test("--notes takes the text, --notes-file reads it (trailing newline dropped)", () => {
+    expect(submitNotes(["--notes", "Fixes the Twitch picker."], read)).toBe("Fixes the Twitch picker.");
+    expect(submitNotes(["--notes-file", "notes.txt"], read)).toBe("Line one.\nLine two.");
+  });
+
+  test("refuses empty notes, inline or from a file", () => {
+    expect(() => submitNotes(["--notes", ""], read)).toThrow("empty");
+    expect(() => submitNotes(["--notes", "   "], read)).toThrow("empty");
+    expect(() => submitNotes(["--notes-file", "blank.txt"], read)).toThrow("empty");
+  });
+
+  test("refuses a missing value, both options at once, a repeat and unknown arguments", () => {
+    expect(() => submitNotes(["--notes"], read)).toThrow("--notes");
+    expect(() => submitNotes(["--notes-file"], read)).toThrow("--notes-file");
+    expect(() => submitNotes(["--notes", "a", "--notes-file", "notes.txt"], read)).toThrow("once");
+    expect(() => submitNotes(["--notes", "a", "--notes", "b"], read)).toThrow("once");
+    expect(() => submitNotes(["--force"], read)).toThrow("--force");
   });
 });
