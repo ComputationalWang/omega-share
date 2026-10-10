@@ -115,6 +115,7 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
         // The burst reached the observer: its last line is this window's, and the log never grows past its cap.
         await expect(lines.last()).toContainText(`${p}#${String(i)} `);
         expect(await lines.count()).toBeLessThanOrEqual(LOG_CAP);
+        expect(w.samples.length, `${p} window ${String(i)}`).toBeGreaterThan(0);
         ws.push(w);
         sent += n;
       }
