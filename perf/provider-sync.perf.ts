@@ -19,6 +19,8 @@ import { SETTLE_MS } from "./sync";
 const CLIENTS = 8;
 /** 4 rounds, each action's upper median: one slow round of a bimodal spread can't flip the row (OME-846). */
 const ROUNDS = 4;
+/** Twitch live acts with no settle; 1 s refills the 2 control tokens a round spends. */
+const CONTROL_REFILL_MS = 1000;
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
 
 const pending = (): string | null => (!available.web ? PENDING.web : !available.server ? PENDING.server : null);
@@ -85,6 +87,8 @@ test("sync: spread after pause/play-from-live, 8 clients, twitchLive", async ({ 
     const rounds: Record<"pause" | "play", number[]> = { pause: [], play: [] };
     let latencyMs = 0;
     for (let round = 0; round < ROUNDS; round++) {
+      // A member's control bucket is 4 deep at 4/s (apps/server ws.ts CONTROL_BURST): let it refill, or round 3's actions are refused.
+      if (round > 0) await a.page.waitForTimeout(CONTROL_REFILL_MS);
       const pause = await measureLiveArrival(clients, "pause", () => a.page.locator(site.playToggle).click());
       await waitProviderPlaying(clients, c.provider, false);
       const play = await measureLiveArrival(clients, "play", () => a.page.locator('[data-testid="to-live"]').click());
