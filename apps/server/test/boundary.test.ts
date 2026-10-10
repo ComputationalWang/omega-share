@@ -5,6 +5,8 @@ import { join } from "node:path";
 import * as v from "valibot";
 import { ShareResponseSchema, type RoomId } from "@omega/shared";
 import { startServer } from "../src/server";
+import { openDatabase } from "../src/store/db";
+import { ReportStore } from "../src/store/reports";
 import { Client, EXTENSION_ORIGIN, SITE_ORIGIN, postShare, start, tokenOf, type TestServer } from "./helpers";
 
 const PUBLIC_ORIGIN = "https://quiet-otter.ngrok-free.app";
@@ -282,6 +284,28 @@ describe("responses", () => {
     expect(health.status).toBe(200);
     expect(await health.text()).toBe("ok");
     expect((await get("/")).status).toBe(200);
+  });
+
+  test("GET /healthz answers 503 once the database can't be read (OME-840)", async () => {
+    const db = openDatabase(":memory:");
+    t = start({ reportStore: new ReportStore(db) });
+    expect((await get("/healthz")).status).toBe(200);
+    db.close();
+    const res = await get("/healthz");
+    expect(res.status).toBe(503);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  test("GET /healthz with its database check still answers in under 5 ms (p95)", async () => {
+    t = start();
+    const ms: number[] = [];
+    for (let i = 0; i < 200; i++) {
+      const t0 = performance.now();
+      await (await get("/healthz")).text();
+      ms.push(performance.now() - t0);
+    }
+    ms.sort((a, b) => a - b);
+    expect(ms[Math.floor(ms.length * 0.95)] ?? Infinity).toBeLessThan(5);
   });
 });
 

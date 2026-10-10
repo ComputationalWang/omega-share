@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 // The off-box monitor (OME-765, docs/ops/hosting.md § Monitoring). It runs on the operator's machine from a user
 // timer every 5 min. These drive the real script with fake curl, openssl and ssh on PATH and pin its state machine:
-// down/up debounce, one push per state change, the TLS expiry alarm, and the hourly report count.
+// down/up debounce, one push per state change, the TLS expiry alarm, the hourly report count and the disk alarm.
 const DEPLOY = join(import.meta.dir, "../../../deploy/monitor");
 const MONITOR = join(DEPLOY, "monitor.sh");
 const TOPIC = "omega-test-topic-Zq81x";
@@ -33,6 +33,7 @@ const sandbox = () => {
   writeFileSync(join(root, "home/.config/omega-share/ntfy-topic"), `${TOPIC}\n`);
   writeFileSync(join(fx, "health"), "ok");
   writeFileSync(join(fx, "reports.txt"), "no open reports\n");
+  writeFileSync(join(fx, "disk.txt"), "40 40\n"); // percent used: / then /var/lib/omega-share
   // curl: a push reads its URL from a `-K -` config on stdin and logs Title + body; anything else is the health fetch.
   script(
     join(bin, "curl"),
@@ -74,6 +75,7 @@ esac`,
         SERVER_IP: "192.0.2.10",
         OMEGA_MONITOR_NOW: String(now),
         OMEGA_MONITOR_REPORTS_CMD: `cat ${join(fx, "reports.txt")}`,
+        OMEGA_MONITOR_DISK_CMD: `cat ${join(fx, "disk.txt")}`,
         ...env,
       },
     });
@@ -298,6 +300,103 @@ describe("deploy/monitor/monitor.sh: new abuse reports", () => {
     s.run(T0, reportsOnly);
     const pushed = s.lines("pushes.log").join("\n") + s.lines("push-config.log").join("\n");
     for (const leak of ["room-0", "Title", "spam", "id0", "192.0.2.10"]) expect(pushed).not.toContain(leak);
+  });
+});
+
+describe("deploy/monitor/monitor.sh: disk space", () => {
+  const diskOnly = { OMEGA_MONITOR_CHECKS: "disk" };
+  const MIN = 60;
+
+  test("pushes once when / or /var/lib/omega-share is over 85 % full; staying full is quiet", () => {
+    const s = sandbox();
+    s.set("disk.txt", "85 85\n");
+    s.run(T0, diskOnly);
+    expect(s.lines("pushes.log")).toEqual([]); // 85 % is not over 85 %
+    s.set("disk.txt", "60 91\n");
+    s.run(T0 + 15 * MIN, diskOnly);
+    s.set("disk.txt", "60 93\n");
+    s.run(T0 + 30 * MIN, diskOnly);
+    expect(s.lines("pushes.log")).toEqual(["disk 91% full on /var/lib/omega-share"]);
+  });
+
+  test("names the fuller of the two, here /", () => {
+    const s = sandbox();
+    s.set("disk.txt", "88 86\n");
+    s.run(T0, diskOnly);
+    expect(s.lines("pushes.log")).toEqual(["disk 88% full on /"]);
+  });
+
+  test("recovery pushes once, only after dropping to 80 % or less, and re-arms the alarm", () => {
+    const s = sandbox();
+    s.set("disk.txt", "90 40\n");
+    s.run(T0, diskOnly);
+    s.set("disk.txt", "84 40\n");
+    s.run(T0 + 15 * MIN, diskOnly); // under the alarm, not yet clear of it: no flapping at 85 %
+    expect(s.lines("pushes.log")).toEqual(["disk 90% full on /"]);
+    s.set("disk.txt", "75 40\n");
+    s.run(T0 + 30 * MIN, diskOnly);
+    s.run(T0 + 45 * MIN, diskOnly);
+    expect(s.lines("pushes.log")).toEqual(["disk 90% full on /", "disk space recovered: 75% used"]);
+    s.set("disk.txt", "87 40\n");
+    s.run(T0 + 60 * MIN, diskOnly);
+    expect(s.lines("pushes.log").at(-1)).toBe("disk 87% full on /");
+  });
+
+  test("asks the box at most every 15 minutes", () => {
+    const s = sandbox();
+    s.run(T0, diskOnly);
+    s.set("disk.txt", "95 40\n");
+    s.run(T0 + 5 * MIN, diskOnly);
+    s.run(T0 + 15 * MIN - 1, diskOnly);
+    expect(s.lines("ssh.log").length).toBe(1);
+    s.run(T0 + 15 * MIN, diskOnly);
+    expect(s.lines("ssh.log").length).toBe(2);
+    expect(s.lines("pushes.log")).toEqual(["disk 95% full on /"]);
+  });
+
+  test("a failed push is retried on the next run, and the run exits non-zero", () => {
+    const s = sandbox();
+    s.set("disk.txt", "95 40\n");
+    s.set("push-fails", "");
+    expect(s.run(T0, diskOnly).code).not.toBe(0);
+    s.unset("push-fails");
+    s.run(T0 + 5 * MIN, diskOnly);
+    s.run(T0 + 10 * MIN, diskOnly);
+    expect(s.lines("pushes.log")).toEqual(["disk 95% full on /"]);
+  });
+
+  test("an ssh failure or a garbled answer keeps the state and pushes nothing", () => {
+    const s = sandbox();
+    s.set("disk.txt", "95 40\n");
+    s.run(T0, diskOnly);
+    s.set("ssh-fails", "");
+    s.run(T0 + 15 * MIN, diskOnly);
+    s.unset("ssh-fails");
+    s.set("disk.txt", "/dev/sda1 50%\n");
+    s.run(T0 + 30 * MIN, diskOnly);
+    expect(s.lines("pushes.log")).toEqual(["disk 95% full on /"]);
+  });
+
+  test("the default remote command is df on both paths, counted on the box, as admin", () => {
+    const s = sandbox();
+    s.set("ssh-fails", "");
+    s.run(T0, { OMEGA_MONITOR_CHECKS: "disk", OMEGA_MONITOR_DISK_CMD: "" });
+    const argv = s.lines("ssh.log")[0] ?? "";
+    expect(argv).toContain("df -P / /var/lib/omega-share");
+    expect(argv).not.toMatch(/\bsu(do)?\b/);
+    expect(argv).toContain("admin@192.0.2.10");
+    expect(argv).toContain("BatchMode=yes");
+  });
+
+  test("the default command sends only the two percentages", () => {
+    const s = sandbox();
+    s.set("df.txt", "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 100 91 9 91% /\n/dev/sdb1 100 7 93 7% /var/lib/omega-share\n");
+    // A fake df on the "box": the fake ssh runs the remote command locally, with this PATH.
+    script(join(s.root, "bin/df"), `cat ${join(s.root, "fx/df.txt")}`);
+    s.run(T0, { OMEGA_MONITOR_CHECKS: "disk", OMEGA_MONITOR_DISK_CMD: "" });
+    expect(s.lines("pushes.log")).toEqual(["disk 91% full on /"]);
+    const pushed = s.lines("pushes.log").join("\n") + s.lines("push-config.log").join("\n");
+    for (const leak of ["/dev/sda1", "/dev/sdb1", "192.0.2.10"]) expect(pushed).not.toContain(leak);
   });
 });
 
