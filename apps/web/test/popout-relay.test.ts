@@ -301,7 +301,7 @@ describe("room relay (OME-600)", () => {
     from({ t: "pop-ready", pop: "p1" });
     expect(relay.kind()).toBe("chat");
     take();
-    relay.view({ ...VIEW, bubbles: [{ memberId: "m1", text: "hi", expiresAt: 1 }] });
+    relay.view({ ...VIEW, bubbles: [{ id: 1, memberId: "m1", text: "hi", expiresAt: 1 }] });
     relay.tv({ ...TV, position: 62 });
     relay.emote("m1", "wave");
     expect(take()).toEqual([]);
@@ -324,7 +324,7 @@ describe("room relay (OME-600)", () => {
     relay.view(VIEW);
     relay.view({ ...VIEW });
     expect(take()).toEqual([]);
-    const bubbles = [{ memberId: "m1", text: "hi", expiresAt: 6000 }];
+    const bubbles = [{ id: 1, memberId: "m1", text: "hi", expiresAt: 6000 }];
     relay.view({ ...VIEW, bubbles });
     expect(take().map((m) => m.t)).toEqual(["room-view"]);
   });
@@ -334,7 +334,7 @@ describe("room relay (OME-600)", () => {
     relay.view(VIEW);
     from({ t: "pop-ready", pop: "r1", kind: "room" });
     expect(take().find((m) => m.t === "room-view")).toEqual({ t: "room-view", ...VIEW });
-    const bubbles = [{ memberId: "m1", text: "hi", expiresAt: 6000 }];
+    const bubbles = [{ id: 1, memberId: "m1", text: "hi", expiresAt: 6000 }];
     relay.view({ ...VIEW, bubbles });
     const rest = withoutRoom(VIEW);
     expect(take()).toEqual([{ t: "room-view", ...rest, bubbles }]);
