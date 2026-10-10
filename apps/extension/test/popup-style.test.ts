@@ -56,7 +56,7 @@ describe("popup state vignettes (OME-857)", () => {
       img.hidden = false; // the server-away one is only shown while the server is away
       expect(window.getComputedStyle(img).imageRendering).toBe("pixelated");
       expect(window.getComputedStyle(img).display).toBe("block");
-      expect(el.textContent?.trim()).toBe(line);
+      expect(el.textContent.trim()).toBe(line);
     });
   }
 
