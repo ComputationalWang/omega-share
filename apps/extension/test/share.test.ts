@@ -113,3 +113,28 @@ describe("shareEmbed", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 });
+
+describe("a 429 with Retry-After", () => {
+  const limited = (retryAfter: string | null) => () => {
+    const response = json({ ok: false, error: { code: "rate_limited", message: "too many shares, slow down" } }, 429);
+    if (retryAfter !== null) response.headers.set("retry-after", retryAfter);
+    return Promise.resolve(response);
+  };
+  const cases = [
+    { retryAfter: "3", message: "Too many shares. Try again in 3 s" },
+    { retryAfter: "1.2", message: "Too many shares. Try again in 2 s" },
+    { retryAfter: "0", message: "Too many shares. Try again in 1 s" },
+    { retryAfter: "60", message: "Too many shares. Try again in 60 s" },
+    { retryAfter: "3600", message: "Too many shares. Try again in 60 s" },
+    { retryAfter: null, message: "too many shares, slow down" },
+    { retryAfter: "", message: "too many shares, slow down" },
+    { retryAfter: "soon", message: "too many shares, slow down" },
+    { retryAfter: "-5", message: "too many shares, slow down" },
+    { retryAfter: "Wed, 21 Oct 2026 07:28:00 GMT", message: "too many shares, slow down" },
+  ];
+  for (const c of cases) {
+    test(`Retry-After ${JSON.stringify(c.retryAfter)} → "${c.message}"`, async () => {
+      expect(await share(mock(limited(c.retryAfter)))).toEqual({ ok: false, message: c.message });
+    });
+  }
+});
