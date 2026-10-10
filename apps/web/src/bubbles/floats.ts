@@ -6,7 +6,7 @@
 // is resolved once per frame that brings sizes and once per walk end (`settle`), never per walk frame: newest nearest
 // the heads, an older bubble in a newer one's way moves straight up, 3 px clear, loses its tail and names its speaker.
 // `.is-live` marks a bubble sized and placed (no style hangs on it: a hook for tests and QA).
-// OME-802 (ADR 0039): no CSS animation, and nothing here reads layout. Blink restyles every running CSS animation on
+// OME-802 (ADR 0040): no CSS animation, and nothing here reads layout. Blink restyles every running CSS animation on
 // every main frame, composited or not, so the 24-step rise and the fades are written on one shared step clock instead:
 // one timer for the whole layer, 24 steps a life, every bubble's writes on the same step. A ResizeObserver hands over
 // each new bubble's size from the frame's own layout, before paint, along with its stacked twin's (the same box with

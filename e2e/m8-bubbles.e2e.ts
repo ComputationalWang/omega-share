@@ -87,7 +87,7 @@ test("a bubble hangs over its speaker's name tag, moves and fades while it lives
   expect(r.y + r.h).toBeLessThanOrEqual(t.y + 1);
 
   // Moves and fades: with no reduced-motion preference the computed opacity and the rise change over its life. Both are
-  // on the bubble's bare wrapper (OME-802, ADR 0039: stepped on one clock, the bubble itself never restyled by a step).
+  // on the bubble's bare wrapper (OME-802, ADR 0040: stepped on one clock, the bubble itself never restyled by a step).
   expect(await a.page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(false);
   const Sample = v.object({ opacity: v.string(), translate: v.string() });
   const samples = new Set<string>();

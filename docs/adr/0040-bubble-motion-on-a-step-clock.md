@@ -1,4 +1,4 @@
-# ADR 0039: Chat bubble motion on a shared step clock, not CSS animations
+# ADR 0040: Chat bubble motion on a shared step clock, not CSS animations
 
 **Status:** accepted (2026-10-10) · Lead · [OME-802](/OME/issues/OME-802) · found by M8 Q1 QA [OME-733](/OME/issues/OME-733) · amends the motion of [OME-730](/OME/issues/OME-730) (set (l) `.ui-float`, `meta.omega.bubbles`)
 
