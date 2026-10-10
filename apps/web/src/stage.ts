@@ -24,6 +24,8 @@ export interface StageOptions {
   readonly requestRender: () => void;
   /** The seats moved (a new layout): the phone's room window looks at their middle. */
   readonly onLayout?: (seats: readonly Point[]) => void;
+  /** An avatar moved a whole pixel (it's walking): the emote wheel closes when it's mine (OME-732). */
+  readonly onMove?: (id: MemberId) => void;
 }
 
 export interface Stage {
@@ -43,6 +45,8 @@ export interface Stage {
   seat(i: number): Point | undefined;
   /** Where a member is drawn now, or was put by the last render. */
   anchor(id: MemberId): Point | undefined;
+  /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
+  head(id: MemberId): Point | undefined;
   /** How many times the furniture was rebuilt for a new layout. */
   layoutBuilds(): number;
 }
@@ -100,6 +104,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       floats.move(id, x, head);
       const tag = tagEls.get(id);
       if (tag !== undefined) place(tag, { x, y: y + TAG_OFFSET_Y });
+      o.onMove?.(id);
     },
     onStop: (id, x, y) => {
       floats.settle(id, x, y - liftOf(id));
@@ -289,6 +294,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),
+    head: (id) => {
+      const p = view.position(id) ?? placedAt.get(id);
+      return p === undefined ? undefined : { x: p.x, y: p.y - liftOf(id) };
+    },
     layoutBuilds: () => layoutBuilds,
   };
 }
