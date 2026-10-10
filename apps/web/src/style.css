@@ -89,11 +89,11 @@ legend { padding: 0; margin-bottom: 6px; }
 .tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Floating chat bubbles (OME-730, set l .ui-float; bubbles/floats.ts): a pool of 8 slots, each riding its speaker's head
  * by transform. No CSS animation or transition (OME-802, ADR 0039): Blink restyles a running CSS animation on every main
- * frame, even a composited one, so floats.ts writes the 24-step rise (translate) and the fades (opacity) on one shared
- * step clock, and a push is instant. */
+ * frame, even a composited one, so floats.ts writes the 24-step rise (translate), the fades (opacity) and the push
+ * (transform) on the bare .float-motion wrapper, on one shared step clock; the push is instant. */
 .bubbles { contain: layout paint; }
 .float-slot { position: absolute; left: 0; top: 0; }
-.float-slot > .ui-float, .float-slot > .ui-float.is-leaving { animation: none; transition: none; }
+.float-motion > .ui-float, .float-motion > .ui-float.is-leaving { animation: none; transition: none; }
 /* The stacked twin (floats.ts, OME-802): a bubble's box with its speaker's name, laid out but never painted, so a bubble
  * that stacks takes its size from the frame's own layout instead of forcing one. Box metrics mirror .ui-float and its
  * .say / .who (reference.css); the words are generated content, out of selectors' text and the accessibility tree. */
