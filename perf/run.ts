@@ -1,5 +1,6 @@
 // `bun run perf`: build, run static + Playwright perf checks, print a report, exit 1 on any budget regression.
 // Flags: --no-build (use existing builds), --strict (pending budgets also fail), --soak (also run the 10 min heap soak).
+// Env: OMEGA_PERF_MOTION=smooth|basic forces the walk tier (ADR 0037) in every perf context (playwright.config.ts).
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { EXTENSION_SHIPPED_DIR, FIREFOX_SHIPPED_DIR, ROOT, URLS, WEB_DIST_DIR, scripts } from "../e2e/support/apps";
