@@ -18,8 +18,8 @@ export interface TierHints {
 }
 
 export interface Tier {
-  /** Walk in Smooth now. Read every frame. */
-  smooth(): boolean;
+  /** Walk in Smooth now. Read every frame; safe to pass around unbound. */
+  readonly smooth: () => boolean;
   /** Still deciding whether to upgrade: the caller also measures a rAF interval next to each render. */
   probing(): boolean;
   /** One render's post-render work (ms). `walking`: a Smooth frame that drew a walk. */
@@ -165,8 +165,11 @@ export function readTierHints(env: { reducedMotion: boolean; navigator: unknown;
 export interface TierProbeDeps {
   readonly now: () => number;
   readonly raf: (fn: (t: number) => void) => void;
-  /** Made once. A message posted after render runs after the frame's paint and commit, so it times the raster too. */
-  readonly channel: () => { port1: { onmessage: (() => void) | null }; port2: { postMessage(m: null): void } };
+  /**
+   * Made once: returns the post for a channel that calls `onMessage`. A message posted after render runs after the
+   * frame's paint and commit, so it times the raster too (a MessageChannel in the browser).
+   */
+  readonly channel: (onMessage: () => void) => () => void;
 }
 
 export interface TierProbe {
@@ -175,7 +178,7 @@ export interface TierProbe {
 }
 
 export function createTierProbe(tier: Tier, d: TierProbeDeps): TierProbe {
-  let ch: ReturnType<TierProbeDeps["channel"]> | null = null;
+  let post: (() => void) | null = null;
   let pendingStart = NaN;
   let pendingWalking = false;
   /** The last Smooth walking frame's rAF timestamp (NaN: the chain broke). */
@@ -201,13 +204,10 @@ export function createTierProbe(tier: Tier, d: TierProbeDeps): TierProbe {
         d.raf(nextFrame);
       } else if (!walking) return; // Smooth at rest: breathe renders don't count
 
-      if (ch === null) {
-        ch = d.channel();
-        ch.port1.onmessage = onMessage;
-      }
+      post ??= d.channel(onMessage);
       pendingStart = start;
       pendingWalking = walking;
-      ch.port2.postMessage(null);
+      post();
     },
   };
 }

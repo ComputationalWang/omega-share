@@ -1,5 +1,6 @@
 // The PixiJS layer: floor, furniture, seats and avatars, on the 2D canvas renderer (ADR 0029). Rendered on demand (no ticker): frames
-// run only while someone walks, and breathing redraws only when its frame changes (walk/animator.ts).
+// run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
+// when its frame changes (walk/animator.ts).
 import { Application, Container, Graphics, Sprite, Ticker } from "pixi.js";
 import { AVATAR_COUNT, type EmoteKind, type MemberId } from "@omega/shared";
 import type { FurnitureAtlas } from "./furniture-atlas";
@@ -7,6 +8,7 @@ import type { Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { createAnimator } from "./walk/animator";
 import type { MotionAtlas } from "./walk/motion-atlas";
+import { createTier, createTierProbe, readTierHints } from "./walk/tier";
 import { createWalks, type Dir } from "./walk/walks";
 
 export interface AvatarPlacement {
@@ -50,6 +52,15 @@ export interface RoomView {
   /** Labels in draw order (floor, furniture frame keys, `seat:<i>`, `avatar:<id>`), for e2e depth checks. */
   drawOrder(): string[];
   destroy(): void;
+}
+
+/** localStorage, or null where reading it throws (storage blocked). */
+function storage(): Storage | null {
+  try {
+    return globalThis.localStorage;
+  } catch {
+    return null;
+  }
 }
 
 function diamond(g: Graphics, p: Point, w: number, h: number): Graphics {
@@ -138,19 +149,55 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
 
   // Walking (OME-408): every client walks avatars to their spot itself; frames run only while someone walks.
   const reduced = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
-  const walks = createWalks({ reducedMotion: () => reduced.matches, smooth: () => false });
+  // The walk tier (ADR 0037), chosen at room start: forced by localStorage["omega.motion"], gated by the device, else probed.
+  const tier = createTier(readTierHints({ reducedMotion: reduced.matches, navigator: globalThis.navigator, storage: storage() }));
+  const probe = createTierProbe(tier, {
+    now: () => performance.now(),
+    raf: (fn) => requestAnimationFrame(fn),
+    channel: (onMessage) => {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = onMessage;
+      return () => {
+        ch.port2.postMessage(null);
+      };
+    },
+  });
+  /** The tier as last shown on the canvas (`data-motion`, for e2e and perf); written only when it changes. */
+  let shownTier = "";
+  const showTier = (): void => {
+    const t = tier.smooth() ? "smooth" : "basic";
+    if (t === shownTier) return;
+    shownTier = t;
+    app.canvas.dataset["motion"] = t;
+  };
+  showTier();
+  /** The rAF timestamp of the frame being drawn; one callback made once, so a frame allocates nothing. */
+  let frameTs = 0;
+  let frameFn: (() => void) | null = null;
+  const onFrame = (t: number): void => {
+    frameTs = t;
+    frameFn?.();
+  };
+  const walks = createWalks({ reducedMotion: () => reduced.matches, smooth: tier.smooth });
   let motion: MotionAtlas | null = null;
   let motionLoad = false;
   const animator = createAnimator({
     walks,
     now: () => performance.now(),
-    raf: (fn) => requestAnimationFrame(fn),
+    raf: (fn) => {
+      frameFn = fn;
+      requestAnimationFrame(onFrame);
+    },
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (h) => {
       clearTimeout(h as ReturnType<typeof setTimeout>);
     },
     reducedMotion: () => reduced.matches,
-    smooth: () => false,
+    smooth: tier.smooth,
+    rendered(start, walking) {
+      probe.rendered(start, frameTs, walking);
+      showTier();
+    },
     draw(id, avatar, pose, frame) {
       const entry = pool.get(id);
       if (entry === undefined) return;
@@ -167,13 +214,17 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       entry.frame = texture === undefined ? null : frame;
       entry.node.position.set(pose.x, pose.y);
       entry.node.zIndex = pose.z;
-      const moved = entry.x !== pose.x || entry.y !== pose.y;
+      // The DOM followers (tags, bubbles, badges) move in whole px, and only when the pixel changes: each move is a
+      // fresh transform string, so a Smooth frame that stays on the same pixel writes nothing (R-M8a §2).
+      const x = Math.round(pose.x);
+      const y = Math.round(pose.y);
+      const moved = entry.x !== x || entry.y !== y;
       if (moved) {
-        entry.x = pose.x;
-        entry.y = pose.y;
-        opts.onMove?.(id, pose.x, pose.y);
+        entry.x = x;
+        entry.y = y;
+        opts.onMove?.(id, x, y);
       }
-      if (!pose.walking && (entry.walking || moved)) opts.onStop?.(id, pose.x, pose.y);
+      if (!pose.walking && (entry.walking || moved)) opts.onStop?.(id, x, y);
       entry.walking = pose.walking;
     },
     drawEmote(id, frame, x, y) {

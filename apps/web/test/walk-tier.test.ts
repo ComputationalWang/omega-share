@@ -182,19 +182,11 @@ describe("createTierProbe: post-render work and rAF intervals", () => {
       raf: (fn) => {
         rafs.push(fn);
       },
-      channel: () => {
+      channel: (fn) => {
         channels++;
-        return {
-          port1: {
-            set onmessage(fn: (() => void) | null) {
-              onmessage = fn;
-            },
-          },
-          port2: {
-            postMessage: () => {
-              posted++;
-            },
-          },
+        onmessage = fn;
+        return () => {
+          posted++;
         };
       },
     });
