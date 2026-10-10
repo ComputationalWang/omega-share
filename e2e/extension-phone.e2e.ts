@@ -99,3 +99,17 @@ test("on a desktop (a mouse, which hovers) the popup body stays 320 px wide", as
   const share = await popup.locator("[data-testid=share-button]").boundingBox();
   expect(share?.height).toBeLessThan(44);
 });
+
+// Firefox for Android opens the options page in a tab behind the popup's full-screen sheet, which stays on top, so
+// "Server settings" looked dead in the OME-743 smoke. On desktop the popup closes when the tab takes focus; close it ourselves.
+test("Server settings opens the options page and closes the popup", async ({ context, openPopup }) => {
+  const popup = await setup(context, openPopup);
+  await expect(popup.locator("[data-testid=embed-item]")).toHaveCount(3);
+  const options = context.waitForEvent("page");
+  const closed = popup.waitForEvent("close");
+  await popup.locator("[data-testid=open-options]").click();
+  // Chrome shows it inside chrome://extensions/?options=<id>; Firefox opens options.html in a tab.
+  expect((await options).url()).toMatch(/options/);
+  await closed;
+  expect(popup.isClosed()).toBe(true);
+});
