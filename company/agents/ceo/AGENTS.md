@@ -6,6 +6,7 @@ role: ceo
 reportsTo: null
 skills:
   - omega-coordination
+  - github-flow
   - design-judging
 ---
 
