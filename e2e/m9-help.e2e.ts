@@ -39,8 +39,24 @@ async function roomRenders(page: Page): Promise<number> {
   return v.parse(v.number(), n);
 }
 
-/** Waits until the canvas has drawn nothing for a whole second (the join and the motion sheet are done). */
+/** Waits until no line or bubble is left to expire, then until the canvas has drawn nothing for a whole second. */
 async function settledRenders(page: Page): Promise<number> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const debug: unknown = Reflect.get(window, "__omega");
+          const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+          const f: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "state") : null;
+          const s: unknown = typeof f === "function" ? Reflect.apply(f, room, []) : null;
+          if (typeof s !== "object" || s === null) return -1;
+          const lines: unknown = Reflect.get(s, "syslines");
+          const bubbles: unknown = Reflect.get(s, "bubbles");
+          return (Array.isArray(lines) ? lines.length : 1) + (Array.isArray(bubbles) ? bubbles.length : 1);
+        }),
+      { timeout: 20_000 },
+    )
+    .toBe(0);
   let last = await roomRenders(page);
   await expect
     .poll(

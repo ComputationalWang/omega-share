@@ -102,6 +102,13 @@ describe("the first-visit hint", () => {
     expect(hint.root.hidden).toBe(true);
   });
 
+  test("a dismiss() before it ever showed (the room calls it while there's no stage yet) doesn't use up the show", async () => {
+    const { hint } = await setup();
+    hint.dismiss();
+    hint.show();
+    expect(hint.isOpen()).toBe(true);
+  });
+
   test("dismiss() (Esc, sitting, chatting, emotes, full screen) hides it for good; a later show() does nothing", async () => {
     const { hint } = await setup();
     hint.show();
