@@ -9,6 +9,8 @@ export interface JobRequest {
   readonly specs: readonly string[];
   readonly requester: string;
   readonly issue: string;
+  /** Forces the walk tier for every perf context (ADR 0037); unset = the client picks. */
+  readonly motion?: "smooth" | "basic";
 }
 
 export interface Job extends JobRequest {
@@ -41,6 +43,8 @@ export interface RunContext {
 export type Executor = (job: Job, ctx: RunContext) => Promise<{ readonly exitCode: number }>;
 
 export const DEFAULT_TIMEOUT_MS = 90 * 60_000;
+// A Set of strings, not the union: job.json can be written by hand or by an older client.
+const MOTIONS: ReadonlySet<string> = new Set(["smooth", "basic"]);
 const SPEC = /^(?:\.\/)?perf\/[\w.-]+\.perf\.ts$/;
 
 function writeJson(path: string, value: unknown): void {
@@ -59,11 +63,17 @@ function readJson(path: string): unknown {
 export function submitJob(dir: string, req: JobRequest, now = Date.now()): string {
   if (!/^[0-9a-f]{40}$/.test(req.sha)) throw new Error(`sha must be a full 40-char commit sha, got ${req.sha}`);
   for (const s of req.specs) if (!SPEC.test(s)) throw new Error(`not a perf spec: ${s} (expected perf/<name>.perf.ts)`);
+  if (req.motion !== undefined && !MOTIONS.has(req.motion)) throw new Error(`motion must be smooth or basic, got ${req.motion}`);
   const id = `${String(now).padStart(13, "0")}-${Math.random().toString(36).slice(2, 8)}`;
   mkdirSync(join(dir, id), { recursive: true });
   const job: Job = { ...req, id, submittedAt: now };
   writeJson(join(dir, id, "job.json"), job);
   return id;
+}
+
+/** Env for the job's perf run. Always sets OMEGA_PERF_MOTION, so an unforced job can't inherit a tier from the runner's env. */
+export function jobEnv(job: Job): Record<string, string> {
+  return { OMEGA_PERF_MOTION: job.motion ?? "" };
 }
 
 function jobIds(dir: string): string[] {
