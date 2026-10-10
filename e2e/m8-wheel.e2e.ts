@@ -318,11 +318,25 @@ test.describe("closing the wheel", () => {
 
 // --- 4. cooling -----------------------------------------------------------------------------------------------------
 
+/** Stops `performance.now` in the page (`on`), or lets it run again at the real time (`off`). */
+const holdClock = (page: Page, on: boolean): Promise<void> =>
+  page.evaluate((hold) => {
+    const real: unknown = Reflect.get(window, "__realNow");
+    const now = typeof real === "function" ? (real as () => number) : performance.now.bind(performance);
+    Reflect.set(window, "__realNow", now);
+    const at = now();
+    performance.now = hold ? () => at : now;
+  }, on);
+
 test("cooling: after a burst the slots are disabled and show the dial, a pick sends nothing and the wheel stays; it warms again", async ({ browser }) => {
   const { a, b } = await enter(browser, "cool", 2, [false, true]);
   await countBadges(b.page);
   const wheel = wheelOf(a.page);
   await body(a.page);
+  // The key warms one second after the burst (a token a second): on a busy box the checks below took longer than that
+  // and saw it warm (OME-879). So a's performance.now, which the picker's bucket counts on, stands still from the burst
+  // until the warm-up check; rAF and timers keep running (page.clock would stall rAF), the server's limit keeps real time.
+  await holdClock(a.page, true);
   // A burst through the wheel: T, Enter, until the key cools (the burst is three, a token comes back each second).
   for (let i = 0; i < 6 && !(await keyOf(a.page).evaluate((e) => e.classList.contains("is-cooling"))); i++) {
     await a.page.keyboard.press("t");
@@ -348,7 +362,10 @@ test("cooling: after a burst the slots are disabled and show the dial, a pick se
   await a.page.waitForTimeout(150);
   await expect(wheel).toBeVisible();
   expect((await badges(b.page)).length).toBe(sent);
-  // It warms: the slots enable, the key stops cooling, and the next pick goes out.
+  // It warms: the slots enable, the key stops cooling, and the next pick goes out. A real second first, so the server's
+  // bucket has a token for it too.
+  await a.page.waitForTimeout(1000);
+  await holdClock(a.page, false);
   await expect(keyOf(a.page)).not.toHaveClass(/is-cooling/, { timeout: 3000 });
   for (const s of await slots.all()) await expect(s).toHaveAttribute("aria-disabled", "false");
   await a.page.getByRole("menuitem", { name: "Wave" }).click();

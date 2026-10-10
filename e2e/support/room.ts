@@ -5,6 +5,7 @@ import { site } from "./selectors";
 import { testRoomId, type RoomName, type RoomSpec } from "./test-rooms";
 import { watchCsp } from "./csp";
 import { stubExternalNetwork } from "./network";
+import { throttleContext } from "./load";
 
 export interface Client {
   readonly context: BrowserContext;
@@ -41,6 +42,7 @@ export async function joinRoom(browser: Browser, { roomUrl, count, nicknamePrefi
     Array.from({ length: count }, async (_, i) => {
       const context = await watchCsp(await browser.newContext(contextOptions?.(i)));
       await stubExternalNetwork(context);
+      throttleContext(context);
       await setup?.(context, i);
       const page = await context.newPage();
       await page.goto(roomUrl);
