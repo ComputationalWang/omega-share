@@ -77,3 +77,9 @@ describe("addToQueue (ADR 0031: POST /rooms/:id/queue)", () => {
     });
   }
 });
+
+test("a 429 on Add to queue shows the same Retry-After wait as Share", async () => {
+  const response = json({ ok: false, error: { code: "rate_limited", message: "too many videos queued, slow down" } }, 429);
+  response.headers.set("retry-after", "4");
+  expect(await queue(mock(() => Promise.resolve(response)))).toEqual({ ok: false, message: "Too many shares. Try again in 4 s" });
+});
