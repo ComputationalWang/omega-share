@@ -548,7 +548,7 @@ test.describe("malformed reports (ADR 0033 §2)", () => {
     expect((await server.queue()).rooms).toHaveLength(2);
   });
 
-  test("other methods and paths are refused (no 2xx, no report, no crash) and a wrong content type is read as what it is", async ({ server }) => {
+  test("other methods and paths are refused (no 2xx, no report, no crash) and a non-JSON content type is 415 (OME-698)", async ({ server }) => {
     const path = `/rooms/${ROOM.id}/report`;
     const key = (): Record<string, string> => ({ "x-forwarded-for": server.freshAddr() });
     for (const method of ["GET", "PUT", "DELETE", "PATCH"]) {
@@ -564,14 +564,16 @@ test.describe("malformed reports (ADR 0033 §2)", () => {
     }
     expect((await server.queue()).rooms).toEqual([]);
 
-    // The endpoint reads the body as JSON whatever the content type says; a body that isn't JSON is a 400 either way.
-    const text = await server.report(ROOM.id, JSON.stringify(spam), { headers: { "content-type": "text/plain" } });
-    expect(text.status).toBe(202);
-    const form = await server.report(ROOM.id, "reason=spam", { headers: { "content-type": "application/x-www-form-urlencoded" } });
-    expect(form.status).toBe(400);
-    expect(errorCode(form)).toBe("invalid_body");
+    // Anything but application/json is a CORS simple request a hostile page could send cross-site: 415 invalid_body,
+    // even when the body is valid JSON, and nothing is stored (OME-698).
+    for (const type of ["text/plain", "application/x-www-form-urlencoded", "multipart/form-data; boundary=x"]) {
+      const reply = await server.report(ROOM.id, JSON.stringify(spam), { headers: { "content-type": type } });
+      expect(reply.status, type).toBe(415);
+      expect(errorCode(reply), type).toBe("invalid_body");
+    }
+    expect((await server.queue()).rooms).toEqual([]);
+    expect((await server.report(ROOM.id, spam, { headers: { "content-type": "Application/JSON; charset=utf-8" } })).status).toBe(202);
     expect(counts(await server.queue())).toEqual({ [ROOM.id]: 1 });
-    expect((await server.report(ROOM.id, spam)).status).toBe(202);
   });
 });
 
