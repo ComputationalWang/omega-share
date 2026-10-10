@@ -75,6 +75,16 @@
     },
     {
       "paths": [
+        "perf/runner/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "why": "perf job queue and runner service (OME-819): ops tooling that runs a job's sha; it changes no measurement, and its unit tests run in bun run check"
+    },
+    {
+      "paths": [
         "package.json",
         "bun.lock",
         "apps/*/package.json",
