@@ -282,12 +282,13 @@ export function vignette(kind: "closed" | "invite" | "removed" | "not-found"): U
   const dx = 24, dw = 24;
   if (gone) {
     // A dashed ghost of the frame (3 on, 1 off) and of the doormat, and a question mark where the door should be.
-    const dash = (x0: number, y0: number, x1: number, y1: number): void => {
-      for (let x = x0; x <= x1; x++) if ((x - x0) % 4 !== 3) { put(x, y0, "C"); put(x, y1, "C"); }
-      for (let y = y0; y <= y1; y++) if ((y - y0) % 4 !== 3) { put(x0, y, "C"); put(x1, y, "C"); }
+    // On the honey floor the cream shade nearly vanishes at 1×, so the mat's ghost is drawn in the dark plank tone instead.
+    const dash = (x0: number, y0: number, x1: number, y1: number, ch: string): void => {
+      for (let x = x0; x <= x1; x++) if ((x - x0) % 4 !== 3) { put(x, y0, ch); put(x, y1, ch); }
+      for (let y = y0; y <= y1; y++) if ((y - y0) % 4 !== 3) { put(x0, y, ch); put(x1, y, ch); }
     };
-    dash(dx - 2, 7, dx + dw + 1, 46);
-    dash(dx + 1, 53, dx + dw - 2, 58);
+    dash(dx - 2, 7, dx + dw + 1, 46, "C");
+    dash(dx + 1, 53, dx + dw - 2, 58, "Q");
     const q = [
       "..oooooo..",
       ".oyyyyyyo.",

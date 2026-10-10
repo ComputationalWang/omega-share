@@ -417,7 +417,7 @@ mustard rim = only you · rust key = the one irreversible action.
 | `slices/scrim-0.png` | 104 | 4004 mid-session |
 | `scenes/closed.png` | 547 | 4004 page / card |
 | `scenes/invite.png` | 784 | invite-required page |
-| `scenes/not-found.png` (OME-841, after the set) | 726 | room-not-found page |
+| `scenes/not-found.png` (OME-841, after the set) | 731 | room-not-found page |
 | **set (i) total** | **8 471 B** (slices 2 577, scenes 1 331, sheet + atlas + CSS 4 563) | |
 
 ## Set (j) house rules, queue panel, Web Store kit (OME-422, `ui/` + `store/`)
@@ -786,13 +786,15 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
 | `ui/slices/*.png` (100 files, palettes trimmed to the colours used) | 15 862 |
 | `ui/popup/*.png` (set f) | 409 |
-| `ui/scenes/*.png` (sets i + j + k + OME-841, lazy) | 3 551 |
+| `ui/scenes/*.png` (sets i + j + k + OME-841, lazy) | 3 556 |
 | `ui/reference.css` (if ported as-is) | 98 678 raw / 19 956 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **131 053 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 525 B |
+| **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-OME-841 adds **790 B** against `main` (130 263 → 131 053): the lazy `scenes/not-found.png` 726 and one `reference.css` rule +64 gz.
+OME-841 adds **795 B** against `main` as `bun assets/src/build.ts` measures it (130 263 → 131 058): the lazy `scenes/not-found.png` 731 and one
+`reference.css` rule +64 gz. The row above said 130 224 before this change; the build on `main` already measured 130 263 (eager 69 464, i.e.
++39 B of `reference.css` gz since that row was written), so the totals here are the measured ones.
 
 Set (l) (OME-644) adds **10 433 B (≈ 10.2 KB)** against `main` (119 791 → 130 224): eager +5 455 (`ui.png` +1 107, `ui.json` +794 gz, 7 new slices +952,
 `reference.css` +2 602 gz), lazy +4 978 (the smooth walk's 64 in-between cells: `motion.png` +3 734, `motion.json` +1 244 gz).
