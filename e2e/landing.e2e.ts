@@ -34,13 +34,16 @@ test("keyboard only: the skip link comes first, then the nickname field, and the
   await expect(skip).toHaveText("Skip to content");
   await page.keyboard.press("Tab");
   await expect(page.locator("#nickname")).toBeFocused();
-  // Back to the skip link and follow it: focus lands on <main>, not lost on <body>.
+  // Back to the skip link and follow it: the next Tab starts in <main>, at the nickname field.
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Enter");
-  await expect(page.locator("main#app")).toBeFocused();
-  // Unfocused, the skip link is out of sight.
   await page.keyboard.press("Tab");
+  await expect(page.locator("#nickname")).toBeFocused();
+  // Unfocused, the skip link is out of sight.
   await expect(skip).not.toBeInViewport();
+  // A click in the page leaves focus on <body>, not on <main> (the room's focus-return rules depend on it).
+  await page.locator("body").click({ position: { x: 2, y: 2 } });
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
 });
 
 test("desktop: 'How it works' sits beside the form, its panels at one art pixel per CSS pixel; the footer lists every page", async ({ page }) => {

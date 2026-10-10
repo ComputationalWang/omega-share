@@ -70,8 +70,9 @@ describe("landing: explains the product before asking for anything", () => {
     expect(skip["class"]).toContain("skip-link");
     expect(skip["href"]).toBe("#app");
     expect(attrs(focusables[1] ?? "")["id"]).toBe("nickname");
-    // The skip target can take focus.
-    expect(served).toMatch(/<main id="app" tabindex="-1">/);
+    // The skip target is a plain <main>: no tabindex, so a click in the page leaves focus on <body> (the room's
+    // focus-return rules, e.g. the emote wheel's, depend on it). Following the link moves the Tab start point there.
+    expect(served).toMatch(/<main id="app">/);
   });
 
   test("'How it works' sits after the form: a heading and three numbered steps with their captions", () => {
