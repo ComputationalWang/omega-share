@@ -129,6 +129,8 @@ test.describe("emotes", () => {
       await expect(wheel).toBeVisible();
       await expect(a.page.getByRole("menuitem", { name: "Heart" })).toBeFocused();
       await expect(a.page.getByTestId("emote-key")).toHaveAttribute("aria-expanded", "true");
+      // A mouse and keyboard: the chip names the key (OME-776 drops it on touch).
+      await expect(wheel.locator(".ui-wheel-label .ui-kbd")).toBeVisible();
       // Over my head: centred on my name tag (which hangs under my feet), wholly above it, with its tail.
       const box = await wheel.boundingBox();
       const tag = await a.page.getByTestId("nickname-tag").filter({ hasText: "wheel-1" }).boundingBox();
@@ -231,7 +233,18 @@ test.describe("emotes", () => {
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(390);
       expect(box.y).toBeGreaterThanOrEqual(0);
+      // No key on a phone: the chip names the sticker without the "1" (OME-776).
+      await expect(wheel.locator(".ui-wheel-label")).toBeVisible();
+      await expect(wheel.locator(".ui-wheel-label .ui-kbd")).toBeHidden();
       await page.getByRole("menuitem", { name: "Clap" }).tap();
+      await expect(wheel).toBeHidden();
+      // Scrolling the page closes it: it's placed once, and would be left behind off your head (OME-776).
+      await key.tap();
+      await expect(wheel).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollHeight > innerHeight)).toBe(true);
+      await page.evaluate(() => {
+        scrollBy(0, 40);
+      });
       await expect(wheel).toBeHidden();
     });
   });

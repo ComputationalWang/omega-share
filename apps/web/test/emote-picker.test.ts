@@ -262,7 +262,7 @@ describe("emote wheel", () => {
   });
 
   test("after a burst: slots disabled (cool), the hub runs the wait dial, the chip says when; nothing more is sent", async () => {
-    const { key, items, sent, timers, press, at, hub, chip } = await setup();
+    const { key, items, menu, sent, timers, press, at, hub, chip } = await setup();
     for (let i = 0; i < EMOTE_BURST; i++) press("1");
     expect(sent.length).toBe(EMOTE_BURST);
     expect(key.classList.contains("is-cooling")).toBe(true);
@@ -272,19 +272,44 @@ describe("emote wheel", () => {
     const timer = timers.at(-1);
     const wait = Math.ceil((timer?.ms ?? 0) / 1000);
     expect(chip()).toBe(`Emotes in ${String(wait)} s`);
+    // OME-776: Enter, a tap or a digit on a cooling wheel sends nothing and keeps it open, the dial running.
     press("Enter");
     items()[0]?.click();
     press("2");
     expect(sent.length).toBe(EMOTE_BURST);
+    expect(menu().hidden).toBe(false);
+    expect(document.activeElement).toBe(items()[0] ?? null);
+    expect(hub()?.querySelector(".ui-wait")).not.toBeNull();
     expect(timer?.ms).toBeGreaterThan(0);
     at(timer?.ms ?? 0);
     timer?.fn();
+    // Warm again while it's open: the slots wake, the hub and chip show the selection again.
     expect(key.classList.contains("is-cooling")).toBe(false);
-    press("t");
     expect(items().every((b) => b.getAttribute("aria-disabled") !== "true")).toBe(true);
     expect(hub()?.querySelector(".ui-wait")).toBeNull();
-    press("2");
-    expect(sent.at(-1)).toEqual({ type: "emote", kind: "laugh" });
+    expect(chip()).toBe("Heart1");
+    press("Enter");
+    expect(sent.at(-1)).toEqual({ type: "emote", kind: "heart" });
+    expect(menu().hidden).toBe(true);
+  });
+
+  test("a page scroll closes it (it's placed once, so it would be left behind); a scroll elsewhere doesn't (OME-776)", async () => {
+    const { key, menu, picker, outside } = await setup();
+    // A scroller beside the chat row (the chat log, autoscrolling on a new line) doesn't move the wheel's anchor.
+    const log = document.createElement("div");
+    document.body.append(log);
+    outside.focus();
+    key.click();
+    log.dispatchEvent(new Event("scroll"));
+    expect(menu().hidden).toBe(false);
+    document.dispatchEvent(new Event("scroll"));
+    expect(menu().hidden).toBe(true);
+    expect(key.getAttribute("aria-expanded")).toBe("false");
+    // A scroller holding the key (the wide layout's page column) moves the page under it too.
+    key.click();
+    const form = picker.root.parentElement;
+    form?.dispatchEvent(new Event("scroll"));
+    expect(menu().hidden).toBe(true);
   });
 
   test("focus leaving the wheel (a click elsewhere) closes it; moving between its slots doesn't", async () => {
