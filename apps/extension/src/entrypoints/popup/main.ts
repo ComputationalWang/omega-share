@@ -169,6 +169,10 @@ ui.form.addEventListener("submit", (event) => {
     .finally(renderServer);
 });
 
+// Close the popup once the options page is open: Firefox for Android opens it in a tab behind the popup's full-screen
+// sheet, which would stay on top (OME-743). On desktop the popup is already closing as the tab takes focus.
 ui.options.addEventListener("click", () => {
-  void browser.runtime.openOptionsPage();
+  void browser.runtime.openOptionsPage().then(() => {
+    window.close();
+  });
 });
