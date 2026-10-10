@@ -159,6 +159,23 @@ describe("reduce", () => {
   });
 });
 
+// OME-769 (M9 W3): hiding someone takes their bubbles down at once; their later lines never reach the state (room-events.ts).
+describe("hide for me", () => {
+  test("a hide drops that member's bubbles and keeps everyone else's (and the members, so the scene isn't redrawn)", () => {
+    let s = server(joined(), { type: "chat", memberId: "b", text: "boo", at: 1 }, 1000);
+    s = server(s, { type: "chat", memberId: "a", text: "hi", at: 2 }, 1000);
+    const next = reduce(s, { type: "hide", memberId: "b" });
+    expect(next.bubbles.map((b) => b.text)).toEqual(["hi"]);
+    expect(next.room).toBe(s.room);
+    expect(next.bubbleSeq).toBe(s.bubbleSeq);
+  });
+
+  test("a hide with none of their bubbles up changes nothing", () => {
+    const s = joined();
+    expect(reduce(s, { type: "hide", memberId: "b" })).toBe(s);
+  });
+});
+
 describe("screen", () => {
   // The stage wrap has a fixed height, so it must leave the layout flow (not just hide the
   // stage inside it) or it pushes the room-full message below the fold (OME-6 QA).

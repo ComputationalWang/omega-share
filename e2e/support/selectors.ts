@@ -140,6 +140,12 @@ export const site = {
   firstHint: id("first-hint"),
   firstHintClose: id("first-hint-close"),
   helpKey: id("help-key"),
+  // "Hide for me" (OME-769, M9 W3): the room bar's People key, its list, each row's toggle and the status line.
+  peopleKey: id("people-key"),
+  peoplePanel: id("people-panel"),
+  peopleRow: id("people-row"),
+  peopleToggle: id("people-toggle"),
+  peopleStatus: id("people-status"),
   helpDialog: id("help-dialog"),
   helpClose: id("help-close"),
   notFound: id("room-not-found"),

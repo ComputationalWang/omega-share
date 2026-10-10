@@ -5,7 +5,7 @@ import { routeConnectionEvent } from "../src/room-events";
 import type { ViewEvent } from "../src/state";
 
 /** A real clock on fake timers: which timers are still pending after the event. */
-function setup(): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[]; emoted: [string, string][] } {
+function setup(hidden: readonly string[] = []): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[]; emoted: [string, string][] } {
   const pending = new Set<number>();
   let next = 0;
   const clock = createClockSync<number>({
@@ -30,6 +30,7 @@ function setup(): { pending: Set<number>; route: (e: ConnectionEvent) => void; d
     joined: () => undefined,
     kicked: (wasIn: boolean) => (wasIn ? 600_000 : null),
     dispatch: (e: ViewEvent) => dispatched.push(e),
+    hidden: (id: string) => hidden.includes(id),
   };
   return { pending, route: (e) => { routeConnectionEvent(e, sinks, 0); }, dispatched, emoted };
 }
@@ -79,4 +80,24 @@ test("a bounce whose cooldown end is unknown dispatches until: null", () => {
   const { route, dispatched } = setup();
   route({ type: "kicked", wasIn: false });
   expect(dispatched).toEqual([{ type: "kicked", until: null }]);
+});
+
+// OME-769 (M9 W3): "Hide for me" filters at intake, before the state, the log, the bubbles, the pop-outs or the live
+// region see a thing, so nothing per frame ever asks who is hidden.
+test("a hidden member's chat and emotes stop at intake: no dispatch, no emote", () => {
+  const { route, dispatched, emoted } = setup(["m2"]);
+  route({ type: "message", msg: { type: "chat", memberId: "m2", text: "boo" } });
+  route({ type: "message", msg: { type: "emoted", memberId: "m2", kind: "wave" } });
+  expect(dispatched).toEqual([]);
+  expect(emoted).toEqual([]);
+});
+
+test("everyone else's chat, and a hidden member's other messages (seat, leave), still go through", () => {
+  const { route, dispatched, emoted } = setup(["m2"]);
+  route({ type: "message", msg: { type: "chat", memberId: "m1", text: "hi" } });
+  route({ type: "message", msg: { type: "emoted", memberId: "m1", kind: "wave" } });
+  route({ type: "message", msg: { type: "seat-changed", memberId: "m2", seat: 3 } });
+  route({ type: "message", msg: { type: "member-left", memberId: "m2" } });
+  expect(dispatched.map((e) => (e.type === "server" ? e.msg.type : e.type))).toEqual(["chat", "seat-changed", "member-left"]);
+  expect(emoted).toEqual([["m1", "wave"]]);
 });
