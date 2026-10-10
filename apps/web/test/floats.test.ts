@@ -16,7 +16,7 @@ afterAll(async () => {
 const W = 100;
 const H = 30;
 
-async function setup(o: { reduced?: boolean } = {}) {
+async function setup(o: { reduced?: boolean; nameW?: number } = {}) {
   const { createFloats, FLOAT_LIFE_MS, FLOAT_LEAVE_MS } = await import("../src/bubbles/floats");
   const layer = document.createElement("div");
   layer.setAttribute("aria-live", "polite");
@@ -37,9 +37,11 @@ async function setup(o: { reduced?: boolean } = {}) {
     clearTimer: (h) => {
       if (typeof h === "number") timers.delete(h);
     },
-    measure: () => {
+    measure: (e) => {
       measured++;
-      return laidOut ? { w: W, h: H } : { w: 0, h: 0 };
+      // A stacked bubble shows its speaker's name: the box is that much wider.
+      const named = e.querySelector<HTMLElement>(".who")?.hidden === false;
+      return laidOut ? { w: W + (named ? (o.nameW ?? 0) : 0), h: H } : { w: 0, h: 0 };
     },
   });
   /** Move the clock on, firing due timers in order. */
@@ -214,6 +216,20 @@ test("bubbles side by side don't move; a stack of three climbs in order, newest 
   expect(push("second")).toBe("-33px");
   expect(push("first")).toBe("-66px");
   expect(push("far-left")).toBe("0px");
+});
+
+test("a stacked bubble is measured with its speaker's name shown: centred on the wider box, and neighbours on one row clear it", async () => {
+  // OME-791: the name widens the box by 40 px. Measured before the name showed, a and b stayed 100 wide and centred on
+  // that, so on the same row they overlapped by 20 px.
+  const { floats, bubbleOf, push } = await setup({ nameW: 40 });
+  floats.say(say("a", "a-old", 380));
+  floats.say(say("b", "b-old", 500));
+  floats.say(say("c", "newest", 440));
+  expect(push("newest")).toBe("0px");
+  expect(push("b-old")).toBe("-33px");
+  expect(bubbleOf("b-old").style.left).toBe("-70px");
+  expect(bubbleOf("a-old").style.left).toBe("-70px");
+  expect(push("a-old")).toBe("-66px");
 });
 
 test("walking moves the speaker's bubbles only; overlap is resolved when the walk ends, never per frame", async () => {
