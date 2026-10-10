@@ -235,3 +235,25 @@ describe("chat log: ageing by tone", () => {
     expect(lines()[0]?.classList.contains("is-settled")).toBe(true);
   });
 });
+
+// OME-769 (M9 W3): "Hide for me" also takes down what a hidden member already said, and "Show" brings it back. One pass
+// over at most `cap` lines when the hidden set changes, nothing per message.
+describe("chat log: hide for me", () => {
+  test("lines from a hidden member are hidden; system lines and everyone else's stay; show brings them back", async () => {
+    const { log, lines } = await setup();
+    log.append({ kind: "chat", nickname: "Bo", text: "boo", self: false }, "b");
+    log.append({ kind: "chat", nickname: "Ada", text: "hi", self: false }, "a");
+    log.append({ kind: "system", line: { glyph: "seek", actor: "Bo", verb: "skipped to", time: "1:00" } });
+    log.hideFrom((id) => id === "b");
+    expect(lines().map((l) => l.hidden)).toEqual([true, false, false]);
+    log.hideFrom(() => false);
+    expect(lines().map((l) => l.hidden)).toEqual([false, false, false]);
+  });
+
+  test("a line added later from a member hidden before is added hidden (a reconnect's backlog)", async () => {
+    const { log, lines } = await setup();
+    log.hideFrom((id) => id === "b");
+    log.append({ kind: "chat", nickname: "Bo", text: "late", self: false }, "b");
+    expect(lines().map((l) => l.hidden)).toEqual([true]);
+  });
+});
