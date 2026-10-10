@@ -157,7 +157,8 @@ describe("budgets", () => {
         expect(b.limit).toBe(0);
         continue;
       }
-      const m = /([≤<])\s*([\d.]+)\s*(KB|MB|ms|s|%)(?![A-Za-z])/.exec(cell);
+      // A score (CLS, OME-763) has no unit in the doc.
+      const m = (b.unit === "score" ? /([≤<])\s*([\d.]+)()(?![\d.A-Za-z])/ : /([≤<])\s*([\d.]+)\s*(KB|MB|ms|s|%)(?![A-Za-z])/).exec(cell);
       expect(m, `numeric budget in "${cell}"`).not.toBeNull();
       const [, op, num, unit] = m ?? [];
       const limit = Number(num) * (unit === "s" ? 1000 : 1);

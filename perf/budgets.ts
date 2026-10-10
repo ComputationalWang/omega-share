@@ -8,7 +8,7 @@ export interface Budget {
   readonly metric: string;
   /** Exact text of the Metric column in docs/perf-budgets.md. */
   readonly docMetric: string;
-  readonly unit: "KB" | "MB" | "ms" | "%" | "count";
+  readonly unit: "KB" | "MB" | "ms" | "%" | "count" | "score";
   readonly limit: number;
   readonly comparator: Comparator;
   /** Load-test row: budget `of`, held with `members` people in the room (the doc's "People in a room" cell). */
@@ -85,6 +85,14 @@ const WALK25: readonly Budget[] = Object.entries(WALK25_PROFILES).flatMap(([p, p
   ]),
 );
 
+// OME-763 (M9 P1): the landing page at `/`, cold, before any interaction, on the preview build (perf/landing.perf.ts).
+const LANDING: readonly Budget[] = [
+  { id: "landing.transferGzip", area: "Landing", metric: "Total transfer at / before interaction (gzipped)", docMetric: "Total transfer at `/` before interaction (gzipped)", unit: "KB", limit: 120, comparator: "<=" },
+  { id: "landing.lcp", area: "Landing", metric: "Largest Contentful Paint at /", docMetric: "Largest Contentful Paint at `/`", unit: "ms", limit: 1500, comparator: "<=" },
+  { id: "landing.cls", area: "Landing", metric: "Cumulative Layout Shift at /", docMetric: "Cumulative Layout Shift at `/`", unit: "score", limit: 0.05, comparator: "<=" },
+  { id: "landing.longTask", area: "Landing", metric: "Longest task before the nickname field is usable", docMetric: "Longest task before the nickname field is usable", unit: "ms", limit: 50, comparator: "<=" },
+];
+
 export const BUDGETS: readonly Budget[] = [
   { id: "site.initialJsGzip", area: "Site", metric: "Initial JS (gzipped)", docMetric: "Initial JS (gzipped)", unit: "KB", limit: 200, comparator: "<=" },
   { id: "site.tti", area: "Site", metric: "Time to interactive, localhost", docMetric: "Time to interactive, localhost", unit: "ms", limit: 1500, comparator: "<" },
@@ -121,6 +129,7 @@ export const BUDGETS: readonly Budget[] = [
   { id: "ext.firefox.persistentBackground", area: "Extension", metric: "Persistent background violations, Firefox", docMetric: "Persistent background, Firefox", unit: "count", limit: 0, comparator: "<=" },
   { id: "load.relayLatency", area: "Load test", metric: "Relay latency p95, 25 in room + traffic", docMetric: LOAD_DOC, unit: "ms", limit: 50, comparator: "<=", load: { of: "server.relayLatency", members: 25 } },
   { id: "load.frameP95", area: "Load test", metric: "p95 frame time, 25 in room + traffic", docMetric: LOAD_DOC, unit: "ms", limit: 16.7, comparator: "<=", load: { of: "site.frameP95", members: 25 } },
+  ...LANDING,
 ];
 
 export type Measurement =
@@ -145,7 +154,7 @@ export function evaluate(budget: Budget, m: Measurement | undefined): Result {
 }
 
 const fmt = (n: number, unit: Budget["unit"]): string =>
-  unit === "count" ? String(n) : `${n.toFixed(1)} ${unit}`;
+  unit === "count" ? String(n) : unit === "score" ? n.toFixed(3) : `${n.toFixed(1)} ${unit}`;
 
 const LABEL: Record<Status, string> = { pass: "✅ PASS", fail: "❌ FAIL", pending: "⏳ PENDING" };
 
