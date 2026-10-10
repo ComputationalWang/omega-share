@@ -430,6 +430,7 @@ test("keyboard only, no mouse: join, sit, chat, full screen in and out, chat out
 });
 
 // Each is a real finding; the walk's own assertion above excludes it so one bug can't hide another.
+// Tracked in OME-701: when a fix lands, its test.fail turns red; drop the entry (and its KNOWN pattern) there.
 const knownBugs: readonly [string, RegExp, string][] = [
   ["after joining by keyboard the focus is not left on <body>: the form that held it is removed", KNOWN.joinFocus, "Enter on 'Enter room' removes the landing form (the focused element) and nothing takes focus"],
   ["every seat shows a focus indicator (outline or box-shadow), not only a tint", KNOWN.seatRing, "`.seat:focus-visible { outline: none }` leaves only a 35% background tint on desktop (style.css:81; only .ui-touch gets an outline)"],
@@ -440,7 +441,7 @@ const knownBugs: readonly [string, RegExp, string][] = [
 for (const [title, re, why] of knownBugs) {
   test(`known bug: ${title}`, () => {
     test.skip(walked === null, "the walk did not run");
-    test.fail(true, why);
+    test.fail(true, `OME-701: ${why}`);
     expect((walked ?? []).filter((p) => re.test(p))).toEqual([]);
   });
 }
@@ -558,7 +559,7 @@ test.describe("axe: zero violations on each new M7 surface", () => {
 
   // The same log component sits in the page, the full-screen strip and chat.html, so one test.fail records it for all three.
   test("known bug: chat lines are <li>s directly inside a role=log <div>, which axe rule `listitem` rejects", async ({ browser }) => {
-    test.fail(true, "[data-testid=chat-log] is a div with role=log holding <li> lines: wrap them in a <ul>/<ol> or make them role=listitem inside role=list");
+    test.fail(true, "OME-701: [data-testid=chat-log] is a div with role=log holding <li> lines: wrap them in a <ul>/<ol> or make them role=listitem inside role=list");
     const page = await first(browser, testRoom("m7-a11y", "logone"), DESKTOP(1280, 720));
     await say(page, "a line");
     await expect(page.locator(site.chatLogLine).last()).toContainText("a line");

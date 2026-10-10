@@ -123,6 +123,16 @@ async function spoofer(context: BrowserContext, origin: string): Promise<Page> {
   return page;
 }
 
+/**
+ * Control: a well-formed ready from `page` on the real channel is heard (the adopted window is told to go). Ends a
+ * "nothing happened" test, so it can't pass because the probe page never delivered (review OME-712).
+ */
+async function provesDelivery(page: Page, name: string, pop: Page): Promise<void> {
+  const closed = pop.waitForEvent("close");
+  await post(page, [name], [{ t: "pop-ready", pop: "p-control" }]);
+  await closed;
+}
+
 /** Posts every message on each named channel from `page` (one channel object each, closed after). `huge` adds big ones. */
 async function post(page: Page, names: readonly string[], messages: readonly unknown[], huge = false): Promise<void> {
   await page.evaluate(
@@ -269,6 +279,7 @@ test("malformed messages on the real channel: no frame, no chat, no close or ado
   await expect(b.page.locator(site.chatLogLine).filter({ hasText: "still me" })).toHaveCount(1);
   expect(actions(mark).map((f) => frameType(f))).toEqual(["chat"]);
   expect(tap.errors.slice(errors)).toEqual([]);
+  await provesDelivery(spoof, name, pop);
 });
 
 test("well-formed forgeries on another tab's or another room's channel never reach the room tab or its window", async ({ browser }) => {
@@ -309,6 +320,7 @@ test("well-formed forgeries on another tab's or another room's channel never rea
   await say(pop, "still me");
   await expect(b.page.locator(site.chatLogLine).last()).toHaveText("spfb-1 still me");
   expect(tap.errors.slice(errors)).toEqual([]);
+  await provesDelivery(spoof, channelOf(pop).name, pop);
 });
 
 test("malformed messages toward the window: its log, count, title, form and plug stay; it is not closed", async ({ browser }) => {
@@ -373,6 +385,7 @@ test("malformed messages toward the window: its log, count, title, form and plug
   await say(pop, "four");
   await expect(b.page.locator(site.chatLogLine).last()).toHaveText("spfc-1 four");
   expect(tap.errors.slice(errors)).toEqual([]);
+  await provesDelivery(spoof, name, pop);
 });
 
 test("a page on another origin opening the channel is not heard: no frame, no adopt, no close", async ({ browser }) => {

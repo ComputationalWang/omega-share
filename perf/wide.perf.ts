@@ -107,6 +107,10 @@ test("wide: frames per provider at 1920x1080 with a chat burst at the rate limit
     const measure = async (p: FrameProvider, label: string): Promise<void> => {
       await expect(log).toBeInViewport();
       await expect(observer.page.locator(site.room)).toBeInViewport();
+      // Really the wide layout: the chat column right of the room, not stacked under it (review OME-712).
+      const [room, chat] = await Promise.all([observer.page.locator(site.roomWindow).boundingBox(), log.boundingBox()]);
+      if (room === null || chat === null) throw new Error("not laid out");
+      expect(chat.x).toBeGreaterThanOrEqual(room.x + room.width);
       // A full refill of every sender's chat bucket (5 at 1/s) since the last round, so the burst is never refused.
       await observer.page.waitForTimeout(REFILL_MS);
       const [w, sent] = await Promise.all([tracedFrames(browser, observer.page, WINDOW_MS), burst(senders, p)]);
