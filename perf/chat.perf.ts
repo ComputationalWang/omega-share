@@ -3,6 +3,8 @@
 // the 7 others each send a burst of CHAT_BURST then one a second (apps/server/src/ws.ts CHAT_BURST / CHAT_PER_SECOND)
 // for the whole traced window, so the log fills to its cap and drops a line per message while the bubbles move too.
 // Rows: chat.frameP95.<p> (quantised p95 ≤ one vsync), chat.workP95.<p> (≤ 8 ms), chat.missedVsync.<p> (≤ 1 %).
+// Each row is the median of ROUNDS bursts, the way landing takes the median of its cold loads (OME-813): one 5 s
+// window is ~300 frames, so 3 misses in one heavy window (another process on the box) failed ≤ 1 %.
 import { expect, test } from "@playwright/test";
 import type { APIRequestContext } from "@playwright/test";
 import { PENDING, available } from "../e2e/support/apps";
@@ -12,6 +14,7 @@ import { site } from "../e2e/support/selectors";
 import { joinForToken, postShare } from "../e2e/support/share";
 import { FRAME_PROVIDERS, type FrameProvider } from "./budgets";
 import { VSYNC_MS, tracedFrames, type FrameWindow } from "./frames";
+import { median } from "./landing";
 import { p95, recordMetric } from "./metrics";
 import { GENERIC_HOST, GENERIC_PAGE, PROVIDER_CASES, waitProviderPlaying } from "./providers";
 import { summarizeFrames } from "./spread";
@@ -19,6 +22,8 @@ import { waitPlaying } from "./sync";
 
 const CLIENTS = 8;
 const WINDOW_MS = 5000;
+/** Bursts per provider; a row is their median, so one outlier window can't fail it but a regression in 2 of 3 does. */
+const ROUNDS = 3;
 /** ws.ts: a socket's chat bucket holds 5 and refills at 1 a second. */
 const CHAT_BURST = 5;
 const CHAT_EVERY_MS = 1000;
@@ -68,13 +73,18 @@ async function burst(senders: readonly Client[], tag: string): Promise<number> {
   return counts.reduce((a, b) => a + b, 0);
 }
 
-function record(p: FrameProvider, w: FrameWindow, what: string): { p95: number; missedPct: number; workP95: number } {
-  const f = summarizeFrames(w.samples, VSYNC_MS);
-  const workP95 = p95(w.workMs);
-  recordMetric({ id: `chat.frameP95.${p}`, value: f.p95, note: `${f.note}; ${what}` });
-  recordMetric({ id: `chat.workP95.${p}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
-  recordMetric({ id: `chat.missedVsync.${p}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });
-  return { p95: f.p95, missedPct: f.missedPct, workP95 };
+/** Each row is the median of the rounds' values; the note keeps every round's. */
+function record(p: FrameProvider, ws: readonly FrameWindow[], what: string): { p95: number; missedPct: number; workP95: number } {
+  const fs = ws.map((w) => summarizeFrames(w.samples, VSYNC_MS));
+  const works = ws.map((w) => p95(w.workMs));
+  const rounds = (xs: readonly string[]): string => `median of ${String(xs.length)} bursts: ${xs.join(" · ")}`;
+  const row = { p95: median(fs.map((f) => f.p95)), missedPct: median(fs.map((f) => f.missedPct)), workP95: median(works) };
+  recordMetric({ id: `chat.frameP95.${p}`, value: row.p95, note: `${rounds(fs.map((f) => f.note))}; ${what}` });
+  const workNotes = ws.map((w, i) => `${(works[i] ?? Number.NaN).toFixed(1)} ms (${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms)`);
+  recordMetric({ id: `chat.workP95.${p}`, value: row.workP95, note: `${rounds(workNotes)}; ${what}` });
+  const missedNotes = fs.map((f) => `${String(f.missed)} of ${String(f.frames)} frames${f.missed === 0 ? "" : ` (at ${f.missedAtMs.join(", ")} ms)`}`);
+  recordMetric({ id: `chat.missedVsync.${p}`, value: row.missedPct, note: `${rounds(missedNotes)}; ${what}` });
+  return row;
 }
 
 test("chat: frames per provider with a chat burst at the rate limit (8 avatars + video, chat log on screen)", async ({ browser, request }) => {
@@ -84,7 +94,7 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
     test.skip(true, why);
     return;
   }
-  test.setTimeout(420_000);
+  test.setTimeout(720_000);
   const room = testRoom("chat-perf", "frames");
   await share(request, room.id, EMBED_URL);
   const clients = await joinRoom(browser, {
@@ -106,13 +116,20 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
     const measure = async (p: FrameProvider, label: string): Promise<void> => {
       await expect(log).toBeInViewport();
       await expect(observer.page.locator(site.room)).toBeInViewport();
-      // A full refill of every sender's chat bucket (5 at 1/s) since the last round, so the burst is never refused.
-      await observer.page.waitForTimeout(REFILL_MS);
-      const [w, sent] = await Promise.all([tracedFrames(browser, observer.page, WINDOW_MS), burst(senders, p)]);
-      // The burst reached the observer: its last line is this round's, and the log never grows past its cap.
-      await expect(lines.last()).toContainText(`${p} `);
-      expect(await lines.count()).toBeLessThanOrEqual(LOG_CAP);
-      rows[p] = { ...record(p, w, `${label} playing, ${String(CLIENTS)} avatars, ${String(sent)} chats from ${String(senders.length)} senders in ${String(WINDOW_MS)} ms (burst ${String(CHAT_BURST)}, then 1/s each)`), sent };
+      const windows: FrameWindow[] = [];
+      let sent = 0;
+      for (let round = 0; round < ROUNDS; round++) {
+        // A full refill of every sender's chat bucket (5 at 1/s) since the last round, so the burst is never refused.
+        await observer.page.waitForTimeout(REFILL_MS);
+        const tag = `${p}#${String(round)}`;
+        const [w, n] = await Promise.all([tracedFrames(browser, observer.page, WINDOW_MS), burst(senders, tag)]);
+        // The burst reached the observer: its last line is this round's, and the log never grows past its cap.
+        await expect(lines.last()).toContainText(`${tag} `);
+        expect(await lines.count()).toBeLessThanOrEqual(LOG_CAP);
+        windows.push(w);
+        sent += n;
+      }
+      rows[p] = { ...record(p, windows, `${label} playing, ${String(CLIENTS)} avatars, ${String(sent)} chats from ${String(senders.length)} senders in ${String(ROUNDS)} × ${String(WINDOW_MS)} ms (burst ${String(CHAT_BURST)}, then 1/s each)`), sent };
     };
 
     await waitPlaying(clients);
@@ -124,10 +141,11 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
       await measure(c.key, c.label);
     }
     await share(request, room.id, `https://${GENERIC_HOST}/embed/42`);
-    for (const c of clients) {
-      await c.page.getByTestId("generic-load").click({ timeout: 15_000 });
-      await expect(c.page.frameLocator(site.sharedVideo).locator("div")).toBeVisible({ timeout: 15_000 });
-    }
+    // Click-to-load is per member, so only the observer loads it (OME-813). The fixture is a canvas + rAF page;
+    // 8 of them animating in this one browser dropped 2–3 observer frames on every burst, and a member never runs
+    // another member's embed. The senders just chat.
+    await observer.page.getByTestId("generic-load").click({ timeout: 15_000 });
+    await expect(observer.page.frameLocator(site.sharedVideo).locator("div")).toBeVisible({ timeout: 15_000 });
     await measure("generic", "generic embed loaded");
 
     for (const [k, r] of Object.entries(rows)) {

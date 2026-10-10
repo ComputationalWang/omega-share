@@ -68,6 +68,15 @@ describe("summarizeFrames: vsync p95 plus the raw numbers ADR 0009 asks for", ()
     expect(s.flags).toEqual(["raw p95 16.90 ms > 16.7 ms"]);
   });
 
+  test("missedAtMs: when each missed frame ended, ms since the window opened (OME-813)", () => {
+    const s = summarizeFrames([V, V, 2 * V, V, 3 * V, V], V);
+    expect(s.missed).toBe(2);
+    expect(s.missedAtMs).toEqual([67, 133]);
+    expect(s.note).toContain("missed at 67, 133 ms");
+    expect(summarizeFrames([V, V], V).missedAtMs).toEqual([]);
+    expect(summarizeFrames([V, V], V).note).not.toContain("missed at");
+  });
+
   test("more than 5% missed vsyncs is flagged", () => {
     const deltas = [...Array.from({ length: 94 }, () => V), ...Array.from({ length: 6 }, () => 2 * V)];
     const s = summarizeFrames(deltas, V);

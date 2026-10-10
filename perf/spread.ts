@@ -59,6 +59,8 @@ export interface FrameSummary {
   /** Frames that took two or more vsync intervals. */
   readonly missed: number;
   readonly missedPct: number;
+  /** When each missed frame ended, ms since the window opened, rounded (OME-813): a chat burst's misses sit at its arrivals. */
+  readonly missedAtMs: readonly number[];
   /** ADR 0009 has no headroom: raw p95 over 16.7 ms or more than 5% missed vsyncs is worth a look even on a pass. */
   readonly flags: readonly string[];
   readonly note: string;
@@ -69,13 +71,20 @@ const MISSED_FLAG_PCT = 5;
 
 export function summarizeFrames(deltas: readonly number[], vsyncMs: number): FrameSummary {
   const frames = vsyncFrames(deltas, vsyncMs);
-  const missed = frames.filter((f) => f > vsyncMs * 1.5).length;
+  const missedAtMs: number[] = [];
+  let at = 0;
+  for (const [i, d] of deltas.entries()) {
+    at += d;
+    if ((frames[i] ?? 0) > vsyncMs * 1.5) missedAtMs.push(Math.round(at));
+  }
+  const missed = missedAtMs.length;
   const missedPct = (missed / frames.length) * 100;
   const rawP95 = p95(deltas);
   const flags: string[] = [];
   if (rawP95 > RAW_P95_FLAG_MS) flags.push(`raw p95 ${rawP95.toFixed(2)} ms > ${String(RAW_P95_FLAG_MS)} ms`);
   if (missedPct > MISSED_FLAG_PCT) flags.push(`missed vsyncs ${missedPct.toFixed(1)}% > ${String(MISSED_FLAG_PCT)}%`);
-  const base = `${String(deltas.length)} frames, ${String(missed)} missed vsync (${missedPct.toFixed(1)}%), raw p95 ${rawP95.toFixed(2)} ms`;
+  const where = missed === 0 ? "" : `, missed at ${missedAtMs.join(", ")} ms`;
+  const base = `${String(deltas.length)} frames, ${String(missed)} missed vsync (${missedPct.toFixed(1)}%)${where}, raw p95 ${rawP95.toFixed(2)} ms`;
   const note = flags.length === 0 ? base : `${base}; ⚠ ${flags.join("; ")}`;
-  return { p95: p95(frames), rawP95, frames: deltas.length, missed, missedPct, flags, note };
+  return { p95: p95(frames), rawP95, frames: deltas.length, missed, missedPct, missedAtMs, flags, note };
 }
