@@ -25,7 +25,9 @@ try {
   // Set (j) (OME-422): the Chrome Web Store promo tile (440×280) and two screenshots (1280×800), exact pixel sizes.
   const store = await browser.newPage({ viewport: { width: 1400, height: 1000 }, deviceScaleFactor: 1 });
   await store.goto(pathToFileURL(join(PREVIEW, "store.html")).href, { waitUntil: "networkidle" });
-  for (const [id, file] of [["promo", "promo-440x280"], ["shot-room", "screenshot-1-room"], ["shot-share", "screenshot-2-share"]] as const) {
+  // OME-843: screenshot 3 (chat bubbles + the emote wheel), screenshot 4 (the queue) and the 1400×560 marquee.
+  await store.waitForSelector("body[data-ready]", { state: "attached" });
+  for (const [id, file] of [["promo", "promo-440x280"], ["shot-room", "screenshot-1-room"], ["shot-share", "screenshot-2-share"], ["shot-chat", "screenshot-3-chat"], ["shot-queue", "screenshot-4-queue"], ["marquee", "marquee-1400x560"]] as const) {
     await store.locator(`#${id}`).screenshot({ path: join(PREVIEW, "..", "store", `${file}.png`) });
   }
   await store.close();
