@@ -13,12 +13,14 @@ const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200
 const hanging = () => mock<(url: string, init: RequestInit) => Promise<Response>>(() => new Promise<Response>(() => undefined));
 
 /** Lets every settled promise run its callbacks. */
-const flush = () => new Promise<void>((resolve) => queueMicrotask(resolve));
+const flush = () =>
+  new Promise<void>((resolve) => {
+    queueMicrotask(resolve);
+  });
 
 /** Resolves to "pending" if `promise` hasn't settled yet. */
-async function peek<T>(promise: Promise<T>): Promise<T | "pending"> {
-  const result = await Promise.race([promise, flush().then(() => "pending" as const)]);
-  return result;
+function peek(promise: Promise<unknown>): Promise<unknown> {
+  return Promise.race([promise, flush().then(() => "pending")]);
 }
 
 beforeEach(() => {
