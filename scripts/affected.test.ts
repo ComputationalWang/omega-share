@@ -51,13 +51,25 @@ describe("e2e/affected.json", () => {
   });
 
   test("a docs or unit-test change picks nothing; a chat change picks chat's specs, not the full suite", () => {
-    expect(select(manifest, ["docs/qa/x.md", "apps/web/test/state.test.ts"])).toEqual({ full: false, reasons: [], unmapped: [], e2e: [], perf: [], real: [] });
+    expect(select(manifest, ["docs/qa/x.md", "apps/web/test/state.test.ts"])).toEqual({ full: false, reasons: [], unmapped: [], firefox: [], e2e: [], perf: [], real: [] });
     const chat = select(manifest, ["apps/web/src/chat/log.ts"]);
     expect([chat.full, chat.perf.includes("perf/chat.perf.ts"), chat.e2e.includes("e2e/chat-log.e2e.ts")]).toEqual([false, true, true]);
   });
 
   test("unit tests in the harness dirs don't pick the full suite", () => {
     expect(select(manifest, ["perf/run-args.test.ts", "e2e/support/xvfb.test.ts"]).full).toBe(false);
+  });
+
+  test("the budgets doc picks the perf specs (ADR 0036, OME-818 list)", () => {
+    expect(select(manifest, ["docs/perf-budgets.md"]).perf).toContain("perf/site.perf.ts");
+  });
+
+  test("tests and notes inside a source dir pick nothing", () => {
+    expect(select(manifest, ["apps/web/src/chat/log.test.ts", "apps/web/src/notes.md"]).perf).toEqual([]);
+  });
+
+  test("the tunnel script picks the tunnel specs", () => {
+    expect(select(manifest, ["scripts/tunnel.sh"]).e2e).toContain("e2e/tunnel.e2e.ts");
   });
 
   test("a provider adapter picks the e2e-real lane", () => {
@@ -109,6 +121,7 @@ describe("select", () => {
       full: false,
       reasons: [],
       unmapped: [],
+      firefox: [],
       e2e: ["e2e/chat-log.e2e.ts", "e2e/provider-sync.e2e.ts"],
       perf: ["perf/chat.perf.ts"],
       real: ["e2e/real/real-providers.real.ts"],
@@ -118,6 +131,11 @@ describe("select", () => {
   test("a changed spec picks itself", () => {
     const s = select(fixture, ["e2e/walk.e2e.ts", "perf/load.perf.ts", "e2e/real/real-ads.real.ts"]);
     expect([s.full, s.e2e, s.perf, s.real]).toEqual([false, ["e2e/walk.e2e.ts"], ["perf/load.perf.ts"], ["e2e/real/real-ads.real.ts"]]);
+  });
+
+  test("an unmapped path also picks every e2e-real spec in the tree (unsure: include it)", () => {
+    const s = select(fixture, ["brand-new/thing.ts"], new Set(["e2e/real/real-ads.real.ts", "e2e/walk.e2e.ts"]));
+    expect([s.real, s.e2e]).toEqual([["e2e/real/real-ads.real.ts"], []]);
   });
 
   test("a deleted spec isn't selected", () => {
@@ -131,7 +149,7 @@ describe("select", () => {
   });
 
   test("docs-only picks nothing", () => {
-    expect(select(fixture, ["docs/x.md"])).toEqual({ full: false, reasons: [], unmapped: [], e2e: [], perf: [], real: [] });
+    expect(select(fixture, ["docs/x.md"])).toEqual({ full: false, reasons: [], unmapped: [], firefox: [], e2e: [], perf: [], real: [] });
   });
 });
 
@@ -139,7 +157,7 @@ describe("specKind", () => {
   test("classifies by lane", () => {
     expect(["e2e/a.e2e.ts", "e2e/a.firefox.ts", "perf/a.perf.ts", "e2e/real/a.real.ts", "e2e/support/a.ts"].map(specKind)).toEqual([
       "e2e",
-      "e2e",
+      "firefox",
       "perf",
       "real",
       null,
