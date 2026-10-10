@@ -440,7 +440,7 @@ describe("animator, Smooth tier", () => {
     expect(s.draws.at(-1)?.pose.walking).toBe(false);
     expect(s.rafs.length).toBe(0);
     expect(s.timers.length).toBe(1);
-    expect([...shown]).toEqual(expect.arrayContaining(["walk/juno/ne/0", "walk8/juno/ne/1", "walk/juno/ne/1", "walk8/juno/ne/3", "walk/juno/ne/2", "walk8/juno/ne/5", "walk/juno/ne/3", "walk8/juno/ne/7"]));
+    for (const k of ["walk/juno/ne/0", "walk8/juno/ne/1", "walk/juno/ne/1", "walk8/juno/ne/3", "walk/juno/ne/2", "walk8/juno/ne/5", "walk/juno/ne/3", "walk8/juno/ne/7"]) expect(shown.has(k)).toBe(true);
   });
 
   test("dropping to Basic mid-walk goes back to one timer per 150 ms step on the next frame", () => {
