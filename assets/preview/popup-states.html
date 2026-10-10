@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OME-842 popup state vignettes</title>
+<style>
+  /* The popup's own rules (apps/extension/src/entrypoints/popup/style.css), so the mock sits as the real one would. */
+  body { margin: 0; background: #e9e4ec; font: 14px/1.4 system-ui, sans-serif; color: #222; }
+  #popup-states { display: flex; gap: 16px; padding: 16px; align-items: start; flex-wrap: wrap; width: 1100px; }
+  .popup { width: 320px; background: #fff; box-shadow: 0 1px 4px #0004; }
+  main { padding: 12px; display: grid; gap: 8px; }
+  h1 { font-size: 16px; margin: 0; }
+  p { margin: 0; }
+  .link { background: none; border: 0; padding: 0; color: #1a57c4; justify-self: start; font: inherit; }
+  #server-status { color: #8a4b00; }
+  /* Suggested wiring: the vignette sits above its line, centred, 48×40 CSS px, crisp. */
+  .state { display: grid; justify-items: center; gap: 6px; text-align: center; padding: 8px 0; }
+  .state img { width: 48px; height: 40px; image-rendering: pixelated; }
+  .note { font-size: 12px; color: #555; width: 100%; }
+</style>
+</head>
+<body>
+<section id="popup-states">
+  <div class="popup"><main>
+    <h1>Share a video</h1>
+    <div class="state"><img src="../ui/popup/nothing-found.png" srcset="../ui/popup/nothing-found.png 1x, ../ui/popup/nothing-found@2x.png 2x" alt=""><p>No supported video found on this page.</p></div>
+    <button class="link">Server settings</button>
+  </main></div>
+  <div class="popup"><main>
+    <h1>Share a video</h1>
+    <div class="state"><img src="../ui/popup/cant-read.png" srcset="../ui/popup/cant-read.png 1x, ../ui/popup/cant-read@2x.png 2x" alt=""><p>Can't read this tab. Open a regular web page and try again.</p></div>
+    <button class="link">Server settings</button>
+  </main></div>
+  <div class="popup"><main>
+    <h1>Share a video</h1>
+    <div class="state"><img src="../ui/popup/server-away.png" srcset="../ui/popup/server-away.png 1x, ../ui/popup/server-away@2x.png 2x" alt=""><p id="server-status">Can't reach the omega-share server.</p></div>
+    <button class="link" style="font-weight:600;text-decoration:underline">Server settings</button>
+  </main></div>
+  <p class="note">OME-842: ui/popup/&lt;nothing-found|cant-read|server-away&gt;.png (48×40) + @2x (96×80), decorative (alt=""), the line carries the meaning. Popup lines as in the extension today; the server line is a stand-in.</p>
+</section>
+<script>
+  Promise.all([...document.images].map((i) => (i.complete ? Promise.resolve() : new Promise((r) => { i.onload = i.onerror = r; })))).then(() => { document.body.dataset.ready = "1"; });
+</script>
+</body>
+</html>

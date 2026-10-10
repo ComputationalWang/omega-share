@@ -40,7 +40,9 @@ export interface ChatRelay {
   popOut(kind?: PopKind): void;
   bringBack(): void;
   /** A new chat log line (the page's log gets it too). */
-  append(entry: ChatLogEntry): void;
+  append(entry: ChatLogEntry, from?: string): void;
+  /** "Hide for me" changed (OME-769): the window gets its backlog again without the hidden members' lines. */
+  hideFrom(hidden: (from: string) => boolean): void;
   /** The room's chat state; posted when popped out and changed. */
   update(s: PopState): void;
   /** What the stage draws; posted to a room window when it changed. */
@@ -68,7 +70,11 @@ const sameTv = (a: PopTv | null, b: PopTv): boolean =>
   a !== null && a.video === b.video && a.playing === b.playing && a.position === b.position && a.live === b.live && a.catching === b.catching;
 
 export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
-  const backlog: ChatLogEntry[] = [];
+  /** The last CHAT_LOG_CAP lines and who said each (never sent: the window doesn't learn member ids). */
+  const backlog: { readonly entry: ChatLogEntry; readonly from: string | undefined }[] = [];
+  /** "Hide for me" (OME-769): whose lines the window doesn't get. */
+  let isHidden: (from: string) => boolean = () => false;
+  const shown = (): ChatLogEntry[] => backlog.filter((l) => l.from === undefined || !isHidden(l.from)).map((l) => l.entry);
   let state: PopState | null = null;
   /** The last state the window was sent. */
   let posted: PopState | null = null;
@@ -130,7 +136,7 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
     postedTv = null;
     renew();
     o.channel.post({ t: "room-adopt", pop });
-    o.channel.post({ t: "room-log", reset: true, entries: backlog.slice() });
+    o.channel.post({ t: "room-log", reset: true, entries: shown() });
     postState();
     postStage();
     postTv();
@@ -207,10 +213,14 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
       o.channel.post({ t: "room-back" });
       release();
     },
-    append(entry) {
-      backlog.push(entry);
+    append(entry, from) {
+      backlog.push({ entry, from });
       if (backlog.length > CHAT_LOG_CAP) backlog.shift();
       if (active !== null) o.channel.post({ t: "room-log", reset: false, entries: [entry] });
+    },
+    hideFrom(hidden) {
+      isHidden = hidden;
+      if (active !== null) o.channel.post({ t: "room-log", reset: true, entries: shown() });
     },
     update(s) {
       state = s;
