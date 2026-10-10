@@ -208,6 +208,31 @@ describe("robots.txt, icons and the manifest", () => {
     expectSecurityHeaders(res);
   });
 
+  test("security.txt (RFC 9116) points at the contact page, is canonical on the public origin and a day-cached", async () => {
+    t = start({ staticDir: site(), publicOrigin: PUBLIC_ORIGIN });
+    const res = await get("/.well-known/security.txt");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=86400");
+    expectSecurityHeaders(res);
+    const text = await res.text();
+    expect(text).toContain(`Contact: ${PUBLIC_ORIGIN}/contact.html\n`);
+    expect(text).toContain(`Canonical: ${PUBLIC_ORIGIN}/.well-known/security.txt\n`);
+    expect(text).toContain("Preferred-Languages: en\n");
+    expect(text).not.toContain("mailto:");
+  });
+
+  test("security.txt Expires is under a year out and not within 30 days: renew it before this fails (docs/ops/hosting.md)", async () => {
+    t = start({ staticDir: site(), publicOrigin: PUBLIC_ORIGIN });
+    const text = await (await get("/.well-known/security.txt")).text();
+    const expires = /^Expires: (\S+)$/m.exec(text)?.[1] ?? "";
+    expect(expires).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    const left = Date.parse(expires) - Date.now();
+    const DAY_MS = 86_400_000;
+    expect(left).toBeGreaterThan(30 * DAY_MS);
+    expect(left).toBeLessThan(365 * DAY_MS);
+  });
+
   const pngSize = (bytes: Uint8Array): [number, number] => {
     const view = new DataView(bytes.buffer, bytes.byteOffset);
     return [view.getUint32(16), view.getUint32(20)];
