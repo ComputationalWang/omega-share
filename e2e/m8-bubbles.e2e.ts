@@ -119,7 +119,7 @@ test("a bubble hangs over its speaker's name tag, moves and fades while it lives
 
 // --- 2. pool cap across speakers -----------------------------------------------------------------------------------
 
-const PoolSchema = v.object({ maxLive: v.number(), maxNodes: v.number(), minNodes: v.number(), overlaps: v.array(v.string()), frames: v.number() });
+const PoolSchema = v.object({ maxLive: v.number(), maxNodes: v.number(), minNodes: v.number(), overlaps: v.array(v.string()), frames: v.number(), events: v.array(v.string()) });
 
 /** In the page: for `ms`, every frame, count the shown nodes and check the live (not leaving) boxes pairwise. */
 function watchPool(ms: number): Promise<unknown> {
@@ -132,12 +132,21 @@ function watchPool(ms: number): Promise<unknown> {
     const overlaps: string[] = [];
     // An older bubble pushed up by a newer one slides clear in 160 ms (4 steps); only an overlap that outlasts that counts.
     const since = new Map<string, number>();
+    // Each slot's state changes (shown/hidden, classes, text), for the failure message.
+    const events: string[] = [];
+    const lastState = new Map<HTMLElement, string>();
     const tick = (): void => {
       frames++;
       const layer = document.querySelector("[data-testid=room] .bubbles");
       const nodes = layer === null ? [] : [...layer.querySelectorAll<HTMLElement>(".float-slot")];
       minNodes = Math.min(minNodes, nodes.length);
       maxNodes = Math.max(maxNodes, nodes.length);
+      for (const n of nodes) {
+        const f = n.querySelector<HTMLElement>(".ui-float");
+        const st = `${n.hidden ? "hidden" : "shown"} ${f?.className ?? ""} "${f?.textContent ?? ""}"`;
+        if (lastState.get(n) !== st) events.push(`${String(Math.round(performance.now() - start))} ms ${st}`);
+        lastState.set(n, st);
+      }
       const live = nodes.filter((n) => !n.hidden).map((n) => n.querySelector<HTMLElement>(".ui-float")).filter((p): p is HTMLElement => p !== null && !p.classList.contains("is-leaving"));
       maxLive = Math.max(maxLive, live.length);
       const rs = live.map((p) => ({ t: p.textContent, r: p.getBoundingClientRect() }));
@@ -160,7 +169,7 @@ function watchPool(ms: number): Promise<unknown> {
       }
       for (const key of since.keys()) if (!open.has(key)) since.delete(key);
       if (performance.now() - start < ms) requestAnimationFrame(tick);
-      else resolve({ maxLive, maxNodes, minNodes, overlaps: [...new Set(overlaps)], frames });
+      else resolve({ maxLive, maxNodes, minNodes, overlaps: [...new Set(overlaps)], frames, events });
     };
     requestAnimationFrame(tick);
   });
@@ -171,19 +180,63 @@ test("five speakers, ten lines at once: never more than 8 bubbles shown, the lay
   const [a] = clients;
   if (a === undefined) throw new Error("no client");
   for (const c of clients) await atRest(c.page);
-  const watching = a.page.evaluate(watchPool, 3500);
+  // Long enough to outlast slow sends (a cold dev server, five pages typing in turn); bubbles leaving after 5 s only
+  // lower the count, so a longer watch can't hide a pool over 8.
+  const watching = a.page.evaluate(watchPool, 10_000);
+  const sendStart = Date.now();
   await Promise.all(
     clients.map(async (c, i) => {
       await say(c.page, `speaker ${String(i + 1)} line one`);
+      // Apart, so the watcher renders each: two of one speaker's lines landing in one frame float only the second
+      // (the test after this one, OME-809).
+      await c.page.waitForTimeout(150);
       await say(c.page, `speaker ${String(i + 1)} line two`);
     }),
   );
+  const sendMs = Date.now() - sendStart;
+  await expect(a.page.locator(site.chatLogLine).filter({ hasText: /speaker [1-5] line (one|two)/ })).toHaveCount(10); // all said, none dropped
   const pool = v.parse(PoolSchema, await watching);
   expect(pool.frames).toBeGreaterThan(10);
   expect(pool.maxLive).toBeLessThanOrEqual(8);
-  expect(pool.maxLive).toBeGreaterThanOrEqual(6); // the pool really filled: 10 lines were said, only 8 fit
+  // The pool really filled: 10 lines were said, only 8 fit.
+  expect(pool.maxLive, `peak live bubbles (the sends took ${String(sendMs)} ms):\n${pool.events.join("\n")}`).toBeGreaterThanOrEqual(6);
   expect(pool.minNodes).toBe(8);
   expect(pool.maxNodes).toBe(8);
+});
+
+// product bug (OME-809): the room state keeps one bubble per speaker (state.ts "chat" replaces it) and the stage floats
+// what it finds at render, so when two lines from one speaker arrive before the watcher next renders, the first never
+// floats. It is still in the chat log. Here the watcher renders late (a slow frame) while both lines arrive; on a fast
+// box it happens when two lines land in one 16 ms frame (the cap test above paces its lines because of this).
+test.fail("two lines from one speaker that arrive inside one render both float (2 per speaker)", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "batch").url, count: 2, nicknamePrefix: "mb" });
+  const [speaker, watcher] = pair(clients);
+  for (const c of clients) await atRest(c.page);
+  // A slow frame on the watcher: its next renders come 300 ms late, as on a busy phone. Both lines then reach it
+  // before it renders (they also leave the speaker in one task, back to back).
+  await watcher.page.evaluate(() => {
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb) => {
+      setTimeout(() => raf(cb), 300);
+      return 0;
+    };
+    setTimeout(() => {
+      window.requestAnimationFrame = raf;
+    }, 2000);
+  });
+  await speaker.page.evaluate((sel) => {
+    const input = document.querySelector<HTMLInputElement>(sel);
+    if (input === null) throw new Error("no chat input");
+    for (const text of ["batch line one", "batch line two"]) {
+      input.value = text;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.form?.requestSubmit();
+    }
+  }, site.chatInput);
+  await expect(watcher.page.locator(site.chatLogLine).filter({ hasText: /batch line (one|two)/ })).toHaveCount(2);
+  const shown = watcher.page.locator(`${site.room} .float-slot:not([hidden]) .ui-float`);
+  await expect(shown.filter({ hasText: "batch line two" })).toHaveCount(1);
+  await expect(shown.filter({ hasText: "batch line one" })).toHaveCount(1, { timeout: 2000 });
 });
 
 // OME-791: a stacked bubble gains its speaker's name after it was first measured, so it is measured and centred again
