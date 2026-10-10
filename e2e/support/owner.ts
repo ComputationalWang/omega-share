@@ -2,7 +2,7 @@
 // started it in <OWNER_DIR>/<port>.json. A run reuses a server only if that file names this agent at HEAD;
 // anything else on the port is an error that names its owner. `bun run e2e:reap` reads the same files.
 import { spawnSync } from "node:child_process";
-import { existsSync, linkSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { linkSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as v from "valibot";
 import { agentName } from "./ports";
@@ -33,6 +33,9 @@ const OwnerSchema = v.strictObject({
   startedAt: v.string(),
   /** The Playwright runner/worker whose exit stops this server; 0 = started standalone, kept until `e2e:reap`. */
   watch: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  /** Kernel start times of pid and pgid (procStart), so a recycled pid is never taken for ours; "" = unknown. */
+  pidStart: v.string(),
+  pgidStart: v.string(),
 });
 export type Owner = v.InferOutput<typeof OwnerSchema>;
 
@@ -94,14 +97,17 @@ export function removeOwner(port: number, dir: string = OWNER_DIR, pid?: number)
   rmSync(file(port, dir), { force: true });
 }
 
-const HAS_PROC = existsSync("/proc/self/cmdline");
-
-/** A process's argv joined by spaces, or null if it's gone. */
-function cmdline(pid: number): string | null {
+/**
+ * The kernel's start time of `pid` (field 22 of /proc/<pid>/stat), or "" if it's gone or there is no /proc. Together
+ * with the pid it names one process: it survives exec (sh -c → bun) and a recycled pid never has the same one.
+ */
+export function procStart(pid: number): string {
   try {
-    return readFileSync(`/proc/${String(pid)}/cmdline`, "utf8").replaceAll("\0", " ").trim();
+    const stat = readFileSync(`/proc/${String(pid)}/stat`, "utf8");
+    // Fields after the command name, which is in parentheses and may hold spaces: state is field 3, starttime 22.
+    return stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19] ?? "";
   } catch {
-    return null;
+    return "";
   }
 }
 
@@ -114,26 +120,23 @@ function exists(target: number): boolean {
   }
 }
 
-/**
- * The owner file's launcher is still running: that pid is alive and is still serve.ts for that port, not a recycled pid.
- * (Without /proc, liveness alone.)
- */
-export function launcherAlive(o: Pick<Owner, "pid" | "port">): boolean {
-  if (!HAS_PROC) return exists(o.pid);
-  const cl = cmdline(o.pid);
-  return cl !== null && cl.includes("serve.ts") && cl.includes(`--port ${String(o.port)} `);
+/** The owner file's launcher is still that very process (pid and start time), not a recycled pid. */
+export function launcherAlive(o: Pick<Owner, "pid" | "pidStart">): boolean {
+  return exists(o.pid) && (o.pidStart === "" || procStart(o.pid) === o.pidStart);
 }
 
-/** The server's process group still exists, and its leader (if still there) runs the recorded command. */
-export function groupAlive(o: Pick<Owner, "pgid" | "cmd">): boolean {
+/**
+ * The server's process group still exists and is ours. With its leader gone the group id can't have been handed out
+ * again (Linux never reuses a live group's id); with a leader, it must be the one we started.
+ */
+export function groupAlive(o: Pick<Owner, "pgid" | "pgidStart">): boolean {
   if (!exists(-o.pgid)) return false;
-  if (!HAS_PROC) return true;
-  const leader = cmdline(o.pgid);
-  return leader === null || leader.includes(o.cmd);
+  const leader = procStart(o.pgid);
+  return leader === "" || o.pgidStart === "" || leader === o.pgidStart;
 }
 
 /** True while the launcher or the server's group is still ours and running; a recycled pid never counts. */
-export function ownerAlive(o: Pick<Owner, "pid" | "pgid" | "port" | "cmd">): boolean {
+export function ownerAlive(o: Pick<Owner, "pid" | "pidStart" | "pgid" | "pgidStart">): boolean {
   return launcherAlive(o) || groupAlive(o);
 }
 

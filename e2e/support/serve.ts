@@ -7,7 +7,7 @@
 // until `bun run e2e:reap`. One argument after `--` runs through `sh -c`; several are an argv.
 import { spawn } from "node:child_process";
 import { agentIdentity } from "./ports";
-import { claimOwner, decideReuse, describeOwner, headSha, ownerAlive, readOwner, removeOwner, writeOwner, type Owner } from "./owner";
+import { claimOwner, decideReuse, describeOwner, headSha, ownerAlive, procStart, readOwner, removeOwner, writeOwner, type Owner } from "./owner";
 import { portInUse } from "./probe";
 
 function usage(why: string): never {
@@ -47,7 +47,8 @@ if (file === undefined) usage("empty command");
 
 // Claim the port before anything runs: a launcher that can't record its server never starts one. The group isn't
 // known yet, so the claim names the launcher's own pid until the server is up.
-const owner: Owner = { port, pid: process.pid, pgid: process.pid, agent, sha, cmd: command.join(" "), startedAt: new Date().toISOString(), watch };
+const self = procStart(process.pid);
+const owner: Owner = { port, pid: process.pid, pidStart: self, pgid: process.pid, pgidStart: self, agent, sha, cmd: command.join(" "), startedAt: new Date().toISOString(), watch };
 let claimed = false;
 try {
   claimed = claimOwner(owner);
@@ -91,7 +92,7 @@ const stop = (): void => {
   }, 5_000).unref();
 };
 try {
-  writeOwner({ ...owner, pgid });
+  writeOwner({ ...owner, pgid, pgidStart: procStart(pgid) });
 } catch (e) {
   console.error(`omega e2e: can't record the server for port ${String(port)}, stopping it: ${String(e)}`);
   signalGroup("SIGKILL");
