@@ -1,12 +1,12 @@
 # ADR 0036 — Targeted post-merge checks, daily full suite
 
-**Status:** accepted (2026-10-09) · board decision on [OME-678](/OME/issues/OME-678) · recorded in [OME-680](/OME/issues/OME-680) · amendment of 2026-10-09 ([OME-681](/OME/issues/OME-681)) reverted 2026-10-10, see below · amended 2026-10-10: perf off the per-merge path ([OME-818](/OME/issues/OME-818)) · amended 2026-10-10: deterministic e2e moves to CI before the merge ([OME-822](/OME/issues/OME-822))
+**Status:** accepted (2026-10-09) · board decision on [OME-678](/OME/issues/OME-678) · recorded in [OME-680](/OME/issues/OME-680) · amendment of 2026-10-09 ([OME-681](/OME/issues/OME-681)) reverted 2026-10-10, see below · amended 2026-10-10: perf off the per-merge path ([OME-818](/OME/issues/OME-818)) · amended 2026-10-10: deterministic e2e moves to CI before the merge ([OME-822](/OME/issues/OME-822)) · amended 2026-10-10: `bun run affected` picks the specs ([OME-820](/OME/issues/OME-820))
 
 **Context:** QA ran the full suite (every e2e spec plus flocked perf) after every merge to `main`. With several merges a day, the suite became the queue: merges waited on QA, and most runs re-tested code the merge never touched.
 
 ## Decision
 
-1. **Per merge, a targeted check.** `bun run check`, plus the e2e specs and perf budgets that cover the paths the merge changed. QA maps the diff to specs. When unsure, it includes the spec. The Lead's merge hand-off names the paths the merge touched.
+1. **Per merge, a targeted check.** `bun run check`, plus the e2e specs and perf budgets that cover the paths the merge changed. `bun run affected` maps the diff to specs (amendment of [OME-820](/OME/issues/OME-820) below); before it, QA did this by hand. When unsure, it includes the spec. The Lead's merge hand-off names the paths the merge touched.
 2. **The full suite instead when the blast radius is wide.** Full e2e + flocked perf when the merge touches any of these:
    - `packages/shared/**`
    - the server's WebSocket/protocol or room-state code
@@ -30,7 +30,7 @@ A 2026-10-09 amendment ([OME-681](/OME/issues/OME-681)) cut the per-merge check 
 
 Board decision on [OME-818](/OME/issues/OME-818), from a run-log analysis of 30 Sep–10 Oct. QA and QA2 used 57% of all agent run time. Perf runs took about 27 h of it and the sleep/poll loops waiting on them about 23 h, while the full e2e suite took about 4 h. Perf is where QA's time goes, so perf leaves the per-merge path unless the merge needs it. E2e stays as decided above.
 
-1. **Perf per merge only for a perf-relevant diff.** A merge gets a targeted perf run only when it touches a path below, and then only the specs that cover what it touched. Every other merge gets `bun run check` and its e2e specs; the daily full run covers its perf. A wide-blast-radius merge (decision 2) still gets the full suite, flocked perf included. Until the diff→spec manifest exists ([OME-820](/OME/issues/OME-820), QA Engineer), QA decides by this list. When unsure, the merge is perf-relevant.
+1. **Perf per merge only for a perf-relevant diff.** A merge gets a targeted perf run only when it touches a path below, and then only the specs that cover what it touched. Every other merge gets `bun run check` and its e2e specs; the daily full run covers its perf. A wide-blast-radius merge (decision 2) still gets the full suite, flocked perf included. `bun run affected` encodes this list ([OME-820](/OME/issues/OME-820), amendment below). When unsure, the merge is perf-relevant.
    - **Render, room and UI code the perf specs measure:** `apps/web/src/**`, `apps/web/index.html`, `apps/web/room.html`, `apps/web/chat.html`, `apps/web/public/**`, and the shipped art under `assets/**` that the web build bundles.
    - **Room state, sync and relay on the server:** `apps/server/src/{ws,room,rooms,playback,queue,rate-limit,relay-latency,server}.ts`.
    - **Extension runtime and manifest:** `apps/extension/src/**` (popup → embeds listed, content scripts, background).
@@ -51,3 +51,12 @@ Board decision on [OME-822](/OME/issues/OME-822). The Lead spent about 10 h in 1
 2. **QA's per-merge check covers only what CI doesn't:** perf (decision 1 of the OME-818 amendment still picks when), the real-provider lane (`e2e-real`) when the merge touches a provider or embed path, and acceptance checks. The diff→spec script ([OME-820](/OME/issues/OME-820)) chooses them. QA does not re-run the deterministic e2e lanes per merge, including for wide-blast-radius merges (decision 2); for those it runs the full perf suite.
 3. **The daily and sign-off full suite stays** (decision 3), including all e2e lanes locally, so a local-only difference between the runner and the operator machine still surfaces within a day.
 4. **Flakes on the runner are filed, not retried away.** CI keeps the config's one retry (`retries: 1` under `CI`); a spec Playwright reports as flaky on the 4-vCPU runners gets an issue for its owner. Global retries are not raised.
+
+## Amendment 2026-10-10: `bun run affected` picks the specs ([OME-820](/OME/issues/OME-820))
+
+Board decision on [OME-820](/OME/issues/OME-820). Mapping a diff to specs was manual work at the start of every check. It is now a command, used at review time (ADR 0041 §1–2), not after the merge:
+
+1. **`bun run affected <base> [head]`** prints the e2e specs, perf specs and `e2e-real` specs that `git diff base...head` needs, from the manifest `e2e/affected.json`. For a PR that's `bun run affected origin/main`. `--run` runs the perf (flocked), `e2e-real` and Firefox-lane specs it picked; `--run --e2e` also runs the e2e specs, which CI already runs on the PR.
+2. **Who runs it.** The engineer runs it before requesting review and pastes its last lines (`selection:` onward) into the hand-off. QA's PR review runs the perf and `e2e-real` it names, next to acceptance.
+3. **The full suite when unsure.** A changed path that no rule maps selects the full suite, and so does every path of decision 2 (`full` rules). The script prints which path made it choose the full suite, and why.
+4. **The manifest can't go stale silently.** `scripts/affected.test.ts` (in `bun run check`) fails when a spec isn't listed by a source rule, a listed spec doesn't exist, a tracked file isn't mapped, or a glob no longer matches anything. A new directory or spec therefore lands with its mapping.
