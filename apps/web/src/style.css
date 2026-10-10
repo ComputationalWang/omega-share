@@ -88,16 +88,12 @@ legend { padding: 0; margin-bottom: 6px; }
 .tag { position: absolute; left: 0; top: 0; translate: -50% 0; max-width: 160px; height: 20px; display: flex; align-items: center; font-size: 12px; }
 .tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Floating chat bubbles (OME-730, set l .ui-float; bubbles/floats.ts): a pool of 8 slots, each riding its speaker's head
- * by transform; the inner .ui-float runs the rise and fade. Only with .is-live: without it, a reused node's reset push
- * is instant and re-adding it restarts the keyframes. A leaving bubble keeps rising while it fades. */
+ * by transform. No CSS animation or transition (OME-802, ADR 0039): Blink restyles a running CSS animation on every main
+ * frame, even a composited one, so floats.ts writes the 24-step rise (translate) and the fades (opacity) on one shared
+ * step clock, and a push is instant. */
 .bubbles { contain: layout paint; }
 .float-slot { position: absolute; left: 0; top: 0; }
-.float-slot > .ui-float { animation: none; transition: none; }
-.float-slot > .ui-float.is-live { animation: ui-float-rise 5000ms steps(24, end) both, ui-float-life 5000ms linear both; transition: transform 160ms steps(4, end); }
-.float-slot > .ui-float.is-live.is-leaving { animation: ui-float-rise 5000ms steps(24, end) both, ui-float-leave 160ms steps(4, end) forwards; }
-@media (prefers-reduced-motion: reduce) {
-  .float-slot > .ui-float.is-live { animation: ui-float-life-reduced 5000ms linear both; transition: none; }
-}
+.float-slot > .ui-float, .float-slot > .ui-float.is-leaving { animation: none; transition: none; }
 /* The stacked twin (floats.ts, OME-802): a bubble's box with its speaker's name, laid out but never painted, so a bubble
  * that stacks takes its size from the frame's own layout instead of forcing one. Box metrics mirror .ui-float and its
  * .say / .who (reference.css); the words are generated content, out of selectors' text and the accessibility tree. */

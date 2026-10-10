@@ -47,9 +47,6 @@ async function setup(o: { reduced?: boolean; nameW?: number } = {}) {
       timers.set(h, { fn, at: now + ms });
       return h;
     },
-    clearTimer: (h) => {
-      if (typeof h === "number") timers.delete(h);
-    },
     watch: (cb) => {
       onSizes = cb;
       return {
@@ -203,7 +200,7 @@ test("by default the sizes come from a ResizeObserver: a burst, a walk end and a
     }
   };
   try {
-    const floats = createFloats(document.createElement("div"), { reducedMotion: { matches: false }, now: () => 0, setTimer: () => 0, clearTimer: () => undefined });
+    const floats = createFloats(document.createElement("div"), { reducedMotion: { matches: false }, now: () => 0, setTimer: () => 0 });
     for (let i = 0; i < 12; i++) floats.say(say(`m${String(i % 7)}`, `t${String(i)}`, 480));
     floats.settle("m1", 300, 300);
     expect(reads).toEqual([]);
