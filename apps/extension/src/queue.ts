@@ -14,5 +14,5 @@ export async function addToQueue(options: ShareOptions): Promise<QueueResult> {
   const parsed = v.safeParse(QueueAddResponseSchema, reply.json);
   if (!parsed.success) return { ok: false, message: offContractMessage(options.baseUrl, reply.status) };
   if (parsed.output.ok) return { ok: true, item: parsed.output.item };
-  return { ok: false, message: roomErrorMessage(parsed.output.error.code, parsed.output.error.message) };
+  return { ok: false, message: roomErrorMessage(parsed.output.error.code, parsed.output.error.message, reply.retryAfter) };
 }
