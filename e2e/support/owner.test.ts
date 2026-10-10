@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { claimOwner, decideReuse, describeOwner, ownerAlive, ownerDir, listOwners, readOwner, reapTargets, removeOwner, writeOwner, type Owner } from "./owner";
+import { claimOwner, decideReuse, describeOwner, ownerAlive, ownerDir, procStart, listOwners, readOwner, reapTargets, removeOwner, writeOwner, type Owner } from "./owner";
 
 // OME-821: a server the harness starts carries an owner file; it is reused only by the same agent at the same HEAD,
 // and anything else is refused with the owner's name instead of being silently reused.
@@ -11,7 +11,7 @@ const QA2 = "d72569af-a258-4057-8723-7b94b7d96755";
 const SHA = "a".repeat(40);
 const OTHER_SHA = "b".repeat(40);
 
-const owner = (over: Partial<Owner> = {}): Owner => ({ port: 10_300, pid: 4242, pgid: 4243, agent: QA, sha: SHA, cmd: "bun e2e/fixtures/server.ts", startedAt: "2026-10-10T20:00:00.000Z", watch: 0, ...over });
+const owner = (over: Partial<Owner> = {}): Owner => ({ port: 10_300, pid: 4242, pgid: 4243, agent: QA, sha: SHA, cmd: "bun e2e/fixtures/server.ts", startedAt: "2026-10-10T20:00:00.000Z", watch: 0, pidStart: "", pgidStart: "", ...over });
 const alive = (): boolean => true;
 const dead = (): boolean => false;
 
@@ -123,9 +123,21 @@ describe("ownerDir", () => {
 });
 
 describe("ownerAlive", () => {
-  test("a recycled pid is not our launcher: no match on /proc cmdline, so never signalled", () => {
-    // This test process is alive but isn't serve.ts, nor the recorded command.
-    expect(ownerAlive(owner({ pid: process.pid, pgid: process.pid, cmd: "bun apps/server/src/index.ts --nope" }))).toBe(false);
+  // Identity is the kernel's start time of the pid, recorded at launch: it survives exec (sh -c → bun) and a recycled
+  // pid never has the same one. Matching command lines got both wrong (OME-821 smoke test).
+  const me = procStart(process.pid);
+
+  test("the recorded process, by pid and start time, is alive", () => {
+    expect(me).not.toBe("");
+    expect(ownerAlive(owner({ pid: process.pid, pidStart: me, pgid: 999_999_999 }))).toBe(true);
+  });
+
+  test("a recycled pid (same number, other start time) is not ours, so it is never signalled", () => {
+    expect(ownerAlive(owner({ pid: process.pid, pidStart: "1", pgid: process.pid, pgidStart: "1" }))).toBe(false);
+  });
+
+  test("a gone pid is not alive", () => {
+    expect(ownerAlive(owner({ pid: 999_999_999, pidStart: "1", pgid: 999_999_999, pgidStart: "1" }))).toBe(false);
   });
 });
 
