@@ -175,7 +175,10 @@ legend { padding: 0; margin-bottom: 6px; }
 
 /* ---- Emotes (OME-415, set (i)): the key leads the chat row at 1×; the picker opens above it at page 2×. ---- */
 .emote-picker { --ui-px: 1px; position: relative; display: flex; align-items: center; }
-.emote-picker .ui-emotes { --ui-px: 2px; position: absolute; left: 0; bottom: calc(100% + 14px); z-index: 5; --ui-tail-x: 1px; }
+/* Set (l)'s emote wheel (OME-732): page chrome at 2× (42 px slots), placed in viewport px by emote/wheel-place.ts over your
+ * head or docked above the composer. reference.css fades it in (4 steps, never scaled: pixel art doesn't resample) and
+ * skips that under reduced motion. */
+.emote-picker .ui-wheel { --ui-px: 2px; position: fixed; z-index: 30; }
 .ui-button.self.is-cooling { border-image-source: url("../../../assets/ui/slices/button-self-cool.png"); cursor: default; }
 /* prefers-reduced-motion: the picker icon, still, bottom-centred over the avatar. */
 .emote-badge { position: absolute; left: 0; top: 0; translate: -50% -100%; }

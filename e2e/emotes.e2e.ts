@@ -42,7 +42,7 @@ async function frames(page: Page, id: string): Promise<v.InferOutput<typeof Fram
 
 test.describe("emotes", () => {
   /** Two clients in the test's own room, both drawn with the motion atlas (b walked in and is at rest). */
-  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "typist" | "burst" | "still" | "wheel" | "wheelcost" | "wheelwalk") {
+  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "typist" | "burst" | "still" | "wheel" | "wheelwalk") {
     clients = await joinRoom(browser, { roomUrl: testRoom("emotes", prefix).url, count: 2, nicknamePrefix: prefix });
     const [a, b] = clients;
     if (a === undefined || b === undefined) throw new Error("need two clients");
@@ -110,13 +110,16 @@ test.describe("emotes", () => {
 
   // OME-732 (M8 W3): set (l)'s emote wheel. T (or the wheel key by the chat input) opens it over your own head.
   test.describe("the wheel", () => {
-    const roomRenders = (page: Page): Promise<number> =>
-      page.evaluate(() => {
-        const debug: unknown = Reflect.get(window, "__omega");
-        const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
-        const get: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "roomRenders") : null;
-        return typeof get === "function" ? v.parse(v.number(), Reflect.apply(get, room, [])) : -1;
-      });
+    const roomRenders = async (page: Page): Promise<number> =>
+      v.parse(
+        v.number(),
+        await page.evaluate(() => {
+          const debug: unknown = Reflect.get(window, "__omega");
+          const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+          const get: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "roomRenders") : null;
+          return typeof get === "function" ? (Reflect.apply(get, room, []) as unknown) : null;
+        }),
+      );
 
     test("T opens it over your own avatar; arrows pick, Enter sends for everyone, focus goes back", async ({ browser }) => {
       const { a, b, aId } = await pair(browser, "wheel");
@@ -147,25 +150,41 @@ test.describe("emotes", () => {
     });
 
     test("opening it draws nothing on the room canvas and adds no long task", async ({ browser }) => {
-      const { a } = await pair(browser, "wheelcost");
-      await a.page.evaluate(() => {
+      // Reduced motion: an avatar at rest doesn't breathe, so any render after the room settles would be the wheel's.
+      clients = await joinRoom(browser, { roomUrl: testRoom("emotes", "wheelcost").url, count: 1, nicknamePrefix: "wheelcost", contextOptions: () => ({ reducedMotion: "reduce" }) });
+      const page = clients[0]?.page;
+      if (page === undefined) throw new Error("no client");
+      await page.evaluate(() => {
         const long: number[] = [];
         Reflect.set(window, "__longTasks", long);
         new PerformanceObserver((list) => {
           for (const e of list.getEntries()) long.push(e.duration);
         }).observe({ type: "longtask" });
       });
-      await a.page.locator("body").click({ position: { x: 2, y: 2 } });
-      // Let the room settle (on demand, ADR 0029) before counting.
-      await expect.poll(async () => { const r = await roomRenders(a.page); await a.page.waitForTimeout(300); return (await roomRenders(a.page)) - r; }, { timeout: 10_000 }).toBe(0);
-      const before = await roomRenders(a.page);
-      await a.page.keyboard.press("t");
-      await expect(a.page.getByRole("menu", { name: "Emotes" })).toBeVisible();
-      await a.page.keyboard.press("ArrowRight");
-      await a.page.keyboard.press("ArrowRight");
-      await a.page.waitForTimeout(300);
-      expect(await roomRenders(a.page)).toBe(before);
-      const long = await a.page.evaluate(() => {
+      await page.locator("body").click({ position: { x: 2, y: 2 } });
+      // The room renders on demand (ADR 0029): wait until it has drawn nothing for a whole second.
+      let last = await roomRenders(page);
+      await expect
+        .poll(
+          async () => {
+            await page.waitForTimeout(1000);
+            const now = await roomRenders(page);
+            const still = now === last;
+            last = now;
+            return still;
+          },
+          { timeout: 20_000, intervals: [0] },
+        )
+        .toBe(true);
+      await page.keyboard.press("t");
+      await expect(page.getByRole("menu", { name: "Emotes" })).toBeVisible();
+      await page.keyboard.press("ArrowRight");
+      await page.keyboard.press("ArrowRight");
+      await page.keyboard.press("Escape");
+      await page.keyboard.press("t");
+      await page.waitForTimeout(500);
+      expect(await roomRenders(page)).toBe(last);
+      const long = await page.evaluate(() => {
         const l: unknown = Reflect.get(window, "__longTasks");
         return Array.isArray(l) ? l.filter((d): d is number => typeof d === "number" && d > 50) : [];
       });
