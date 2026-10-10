@@ -39,6 +39,14 @@ export const ABUSE_PORTS: LanePorts = { proxy: TUNNEL_PORTS.proxy + 2, server: T
 /** The HTTP flood suite's lane (OME-281): its spent per-key buckets never reach the tunnel or abuse specs: 4434/8792 by default. */
 export const FLOOD_PORTS: LanePorts = { proxy: TUNNEL_PORTS.proxy + 4, server: TUNNEL_PORTS.server + 4 };
 
+/** The site/meta spec's lane (OME-770), clear of QA2 (8797+), persistence (8807), generic (8837/8847) and the others: 4438/8869 by default. */
+export const SITE_PORTS: LanePorts = { proxy: TUNNEL_PORTS.proxy + 8, server: TUNNEL_PORTS.server + 81 };
+
+/** Per-lane extras. `seedDb` runs on a fresh DB file before the server opens it; the lane then uses that file instead of `:memory:`. */
+export interface LaneOptions {
+  readonly seedDb?: (dbPath: string) => void;
+}
+
 export const PUBLIC_ORIGIN = `https://${PUBLIC_HOST}`;
 export const EVIL_ORIGIN = `https://${EVIL_HOST}`;
 /**
@@ -59,6 +67,8 @@ export interface TunnelLane {
   readonly serverLog: () => string;
   /** The site build the server serves (built without VITE_SERVER_URL, so it uses its own origin). */
   readonly siteDir: string;
+  /** The operator's Unix socket (admin API); null on a lane without a seeded DB file. */
+  readonly adminSocket: string | null;
 }
 
 function buildSite(): string {
@@ -100,8 +110,11 @@ function stopChild(child: ChildProcess): Promise<void> {
   });
 }
 
-async function startLane(ports: LanePorts): Promise<TunnelLane & { stop: () => Promise<void> }> {
+async function startLane(ports: LanePorts, options: LaneOptions = {}): Promise<TunnelLane & { stop: () => Promise<void> }> {
   const siteDir = buildSite();
+  const dbDir = options.seedDb === undefined ? null : mkdtempSync(join(tmpdir(), "omega-tunnel-db-"));
+  const dbPath = dbDir === null ? ":memory:" : join(dbDir, "omega.db");
+  options.seedDb?.(dbPath);
   let output = "";
   const child = spawn("bun", ["apps/server/src/index.ts"], {
     cwd: ROOT,
@@ -113,7 +126,7 @@ async function startLane(ports: LanePorts): Promise<TunnelLane & { stop: () => P
       TRUST_PROXY: "loopback",
       STATIC_DIR: siteDir,
       // Fresh rooms every lane: no lobby embed persisted from an earlier run (OME-280).
-      DB_PATH: ":memory:",
+      DB_PATH: dbPath,
       NGROK_AUTHTOKEN: SENTINEL_AUTHTOKEN,
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -133,10 +146,12 @@ async function startLane(ports: LanePorts): Promise<TunnelLane & { stop: () => P
     proxy,
     serverLog: log,
     siteDir,
+    adminSocket: dbDir === null ? null : join(dbDir, "admin.sock"),
     stop: async () => {
       await proxy.close();
       await stopChild(child);
       rmSync(siteDir, { recursive: true, force: true });
+      if (dbDir !== null) rmSync(dbDir, { recursive: true, force: true });
     },
   };
 }
@@ -185,6 +200,32 @@ export function tunnelRequest({ port = TUNNEL_PORTS.proxy, method = "GET", path,
     );
     req.on("error", reject);
     req.end(body);
+  });
+}
+
+export interface RawBytesResponse {
+  readonly status: number;
+  /** Header names lower-cased, repeated headers joined by `, `. */
+  readonly headers: Readonly<Record<string, string>>;
+  /** Name/value pairs in the order the server sent them, case kept. */
+  readonly rawHeaders: readonly string[];
+  readonly body: Buffer;
+}
+
+/** Like `tunnelRequest`, but keeps the body's exact bytes and the raw header list (for byte-for-byte comparisons). */
+export function tunnelRequestBytes({ port = TUNNEL_PORTS.proxy, method = "GET", path, host = PUBLIC_HOST, headers = {} }: Omit<RawRequest, "body">): Promise<RawBytesResponse> {
+  return new Promise((resolve, reject) => {
+    const req = request({ host: "127.0.0.1", port, servername: PUBLIC_HOST, rejectUnauthorized: false, agent: false, method, path, headers: { host, ...headers } }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (c: Buffer) => chunks.push(c));
+      res.on("end", () => {
+        const flat: Record<string, string> = {};
+        for (const [name, value] of Object.entries(res.headers)) if (value !== undefined) flat[name] = Array.isArray(value) ? value.join(", ") : value;
+        resolve({ status: res.statusCode ?? 0, headers: flat, rawHeaders: res.rawHeaders, body: Buffer.concat(chunks) });
+      });
+    });
+    req.on("error", reject);
+    req.end();
   });
 }
 
@@ -256,10 +297,10 @@ export async function passTunnelHosts(context: BrowserContext): Promise<void> {
 }
 
 /** The lane fixtures on `ports`: one site build, server and proxy per worker, and a browser that resolves to that proxy. */
-const laneTest = (ports: LanePorts) => base.extend<TunnelTestFixtures, TunnelWorkerFixtures>({
+export const laneTest = (ports: LanePorts, options: LaneOptions = {}) => base.extend<TunnelTestFixtures, TunnelWorkerFixtures>({
   lane: [
     async ({}, use) => {
-      const lane = await startLane(ports);
+      const lane = await startLane(ports, options);
       await use(lane);
       await lane.stop();
     },

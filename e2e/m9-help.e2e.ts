@@ -2,7 +2,7 @@
 // What the hint and the dialog say, their focus rules and the not-found words are unit tests (apps/web/test/help-*.test.ts,
 // not-found.test.ts); this spec checks what only a browser can: placement (the hint never covers the picture or the
 // composer), once per browser, the real keys, no canvas redraw from opening help, and the server's answer for a bad id.
-import type { Locator, Page } from "@playwright/test";
+import { devices, type BrowserContextOptions, type Locator, type Page } from "@playwright/test";
 import * as v from "valibot";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
@@ -20,9 +20,10 @@ test.afterEach(async () => {
   clients = [];
 });
 
-async function join(name: RoomName<"m9-help">, browser: Parameters<typeof joinRoom>[0], still = false): Promise<Page> {
+async function join(name: RoomName<"m9-help">, browser: Parameters<typeof joinRoom>[0], still = false, options?: BrowserContextOptions): Promise<Page> {
   // `still`: reduced motion, so idle avatars don't breathe and the canvas draws only when something happens.
-  clients = await joinRoom(browser, { roomUrl: testRoom("m9-help", name).url, count: 1, nicknamePrefix: `h${name}`, ...(still ? { contextOptions: () => ({ reducedMotion: "reduce" as const }) } : {}) });
+  const contextOptions: BrowserContextOptions = { ...options, ...(still ? { reducedMotion: "reduce" as const } : {}) };
+  clients = await joinRoom(browser, { roomUrl: testRoom("m9-help", name).url, count: 1, nicknamePrefix: `h${name}`, contextOptions: () => contextOptions });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
   await expect(page.locator(site.connectionStatus)).toHaveText("");
@@ -157,6 +158,184 @@ test("the help key in the room bar opens it too, and focus goes back to the key"
   await page.locator(site.chatInput).press("Shift+?");
   await expect(page.locator(site.helpDialog)).toBeHidden();
   await expect(page.locator(site.chatInput)).toHaveValue("?");
+});
+
+const inDialog = (page: Page): Promise<boolean> => page.evaluate(() => document.activeElement?.closest("[data-testid=help-dialog]") != null);
+
+test("phone (touch): the hint sits in the viewport clear of the picture and the composer, the help key opens the dialog by tap, it fits and scrolls, Close is a finger-sized target and returns focus to the key", async ({ browser }) => {
+  const page = await join("touch", browser, false, devices["Pixel 7"]);
+  const viewport = page.viewportSize();
+  if (viewport === null) throw new Error("no viewport");
+  const hint = page.locator(site.firstHint);
+  await expect(hint).toBeVisible();
+  await expect(hint).toContainText("Tap a seat to sit");
+  const box = await hint.boundingBox();
+  if (box === null) throw new Error("hint not laid out");
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+  expect(await overlaps(hint, page.locator(site.tv))).toBe(false);
+  expect(await overlaps(hint, page.locator(site.chatInput))).toBe(false);
+  expect(await overlaps(hint, page.locator(site.chatSend))).toBe(false);
+  const wide = (): Promise<boolean> => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth || document.body.scrollWidth > document.body.clientWidth);
+  expect(await wide()).toBe(false);
+
+  const key = page.locator(site.helpKey);
+  await key.scrollIntoViewIfNeeded();
+  await key.tap();
+  const dialog = page.locator(site.helpDialog);
+  await expect(dialog).toBeVisible();
+  expect(await wide()).toBe(false);
+  const d = await dialog.boundingBox();
+  if (d === null) throw new Error("dialog not laid out");
+  expect(d.x).toBeGreaterThanOrEqual(0);
+  expect(d.y).toBeGreaterThanOrEqual(0);
+  expect(d.x + d.width).toBeLessThanOrEqual(viewport.width);
+  expect(d.y + d.height).toBeLessThanOrEqual(viewport.height);
+  // Taller than the screen is fine only if it scrolls.
+  const scroll = await dialog.evaluate((e) => ({ over: e.scrollHeight > e.clientHeight, overflowY: getComputedStyle(e).overflowY, across: e.scrollWidth > e.clientWidth }));
+  expect(scroll.across).toBe(false);
+  if (scroll.over) expect(["auto", "scroll"]).toContain(scroll.overflowY);
+  const close = page.locator(site.helpClose);
+  await close.scrollIntoViewIfNeeded();
+  // `.ui-touch .ui-button::before` grows the tap area to 44 px: the box or the pseudo-element must reach it.
+  const target = await close.evaluate((e) => {
+    const r = e.getBoundingClientRect();
+    const before = getComputedStyle(e, "::before");
+    return { width: Math.max(r.width, parseFloat(before.width) || 0), height: Math.max(r.height, parseFloat(before.height) || 0) };
+  });
+  expect(target.width).toBeGreaterThanOrEqual(44);
+  expect(target.height).toBeGreaterThanOrEqual(44);
+  await close.tap();
+  await expect(dialog).toBeHidden();
+  expect(await focusedTestId(page)).toBe("help-key");
+  expect(await wide()).toBe(false);
+});
+
+/** Opacity, transform and the animation and transition setup of `target`, sampled now and after two frames. */
+async function motionOf(target: Locator): Promise<{ names: string[]; durations: string[]; first: string; second: string }> {
+  return target.evaluate(
+    (e) =>
+      new Promise((resolve) => {
+        const look = (): string => {
+          const s = getComputedStyle(e);
+          return `${s.opacity}|${s.transform}|${s.display}`;
+        };
+        const s = getComputedStyle(e);
+        const first = look();
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            resolve({ names: s.animationName.split(", "), durations: [...s.animationDuration.split(", "), ...s.transitionDuration.split(", ")], first, second: look() });
+          });
+        });
+      }),
+  );
+}
+
+test("reduced motion: the hint and the help dialog appear and go with no animation, and both still work", async ({ browser }) => {
+  const page = await join("reduced", browser, true);
+  const hint = page.locator(site.firstHint);
+  await expect(hint).toBeVisible();
+  const h = await motionOf(hint);
+  expect(h.names.every((n) => n === "none")).toBe(true);
+  expect(h.durations.every((t) => parseFloat(t) === 0)).toBe(true);
+  expect(h.second).toBe(h.first);
+  expect(h.first.startsWith("1|")).toBe(true);
+  // Gone at once on dismiss: hidden in the same task as the click.
+  expect(
+    await hint.evaluate((e) => {
+      e.querySelector<HTMLElement>("[data-testid=first-hint-close]")?.click();
+      return e instanceof HTMLElement && e.hidden && getComputedStyle(e).display === "none";
+    }),
+  ).toBe(true);
+
+  const key = page.locator(site.helpKey);
+  await key.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.locator(site.helpDialog);
+  await expect(dialog).toBeVisible();
+  const d = await motionOf(dialog);
+  expect(d.names.every((n) => n === "none")).toBe(true);
+  expect(d.durations.every((t) => parseFloat(t) === 0)).toBe(true);
+  expect(d.second).toBe(d.first);
+  expect(d.first.startsWith("1|")).toBe(true);
+  // And the backdrop doesn't fade either.
+  const backdrop = await dialog.evaluate((e) => {
+    const s = getComputedStyle(e, "::backdrop");
+    return { name: s.animationName, duration: s.animationDuration, transition: s.transitionDuration };
+  });
+  expect(backdrop.name).toBe("none");
+  expect(parseFloat(backdrop.duration)).toBe(0);
+  expect(parseFloat(backdrop.transition)).toBe(0);
+  // Closing: shut in the same task as the click, no leaving animation.
+  expect(
+    await dialog.evaluate((e) => {
+      e.querySelector<HTMLElement>("[data-testid=help-close]")?.click();
+      return e instanceof HTMLDialogElement && !e.open && getComputedStyle(e).display === "none";
+    }),
+  ).toBe(true);
+  expect(await focusedTestId(page)).toBe("help-key");
+  // Still works with the keyboard: ? opens, Esc closes.
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  });
+  await page.keyboard.press("Shift+?");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  expect(await focusedTestId(page)).toBe("help-key");
+});
+
+test("keyboard: Tab and Shift+Tab stay in the dialog; Esc after the help key opened it gives focus back to the key", async ({ browser }) => {
+  const page = await join("kbkey", browser);
+  const key = page.locator(site.helpKey);
+  await key.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.locator(site.helpDialog);
+  await expect(dialog).toBeVisible();
+  await expect(page.locator(site.helpClose)).toBeFocused();
+  // Forward from the last stop (Close) wraps to the first link; back from the first lands on Close.
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => document.activeElement?.getAttribute("href"))).toBe("/privacy.html");
+  await page.keyboard.press("Shift+Tab");
+  await expect(page.locator(site.helpClose)).toBeFocused();
+  for (let i = 0; i < 20; i++) {
+    await page.keyboard.press("Shift+Tab");
+    expect(await inDialog(page)).toBe(true);
+  }
+  for (let i = 0; i < 20; i++) {
+    await page.keyboard.press("Tab");
+    expect(await inDialog(page)).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  expect(await focusedTestId(page)).toBe("help-key");
+});
+
+test("keyboard: ? from a focused control, Esc, and focus goes back to that control; ? from nothing goes back to the help key", async ({ browser }) => {
+  const page = await join("kbq", browser);
+  const dialog = page.locator(site.helpDialog);
+  // From a focused button (the chat's send key is one, and not a text field).
+  const send = page.locator(site.chatSend);
+  await send.focus();
+  await page.keyboard.press("Shift+?");
+  await expect(dialog).toBeVisible();
+  await expect(page.locator(site.helpClose)).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  expect(await inDialog(page)).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(send).toBeFocused();
+  // From nothing focused: the help key.
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  });
+  await page.keyboard.press("Shift+?");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  expect(await focusedTestId(page)).toBe("help-key");
 });
 
 async function enterRoom(page: Page, url: string, nickname: string): Promise<void> {
