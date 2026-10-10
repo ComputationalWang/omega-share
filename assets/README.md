@@ -283,6 +283,20 @@ OME-200 polish: the snail, the 16 px arrow and the dial were redrawn for 1×, an
 - **2 · Share retry.** Room: `.ui-sysline.self` · `glyph/retry` · "**Your share** didn't go through. Try again in `<time>12 s</time>`". Recount the
   `<time>` each second and drop the line when it reaches 0. Popup (plain HTML): `<img src="retry-16.png" srcset="retry-16.png 1x, retry-32.png 2x" width="16" height="16" alt="">`
   before the status text. The icon has a plum outline, so it holds on the popup's white as well as on dark chrome.
+- **Popup states (OME-842, after the set).** The popup's three empty/error lines each get a 48×40 vignette above them, as standalone files
+  in `ui/popup/` (1× plus an exact nearest 2×, so use `srcset="<name>.png 1x, <name>@2x.png 2x"`, `width="48" height="40"`, `alt=""`, with
+  `image-rendering: pixelated`). The line beside it carries the meaning. Transparent ground and every piece in its own plum outline, so
+  they sit on the popup's white. Generator: `src/popup.ts`. Mock-up: `preview/popup-states.html`, shot to `preview/ui-popup-states@1x|2x.png` by
+  `bun assets/src/shoot-popup-states.ts`.
+
+  | File | Size | Bytes (1× + 2×) | Shows | For |
+  |---|---|---|---|---|
+  | `ui/popup/nothing-found(@2x).png` | 48×40 | 377 + 464 | A small browser page with a dashed charcoal ghost where a video would be, and the brass magnifier that looked | "No supported video found on this page." |
+  | `ui/popup/cant-read(@2x).png` | 48×40 | 335 + 419 | The page's lines behind a brass padlock: the browser keeps this tab to itself | "Can't read this tab. Open a regular web page and try again." |
+  | `ui/popup/server-away(@2x).png` | 48×40 | 342 + 430 | The wood TV (the product mark), screen dark, its cord's plug pulled out of the wall socket | Server unreachable |
+  | **total** | | **2 367 B** of the 3 KB cap (the build throws over it) | | |
+
+  They ship in the extension, not the site; the build counts them with `ui/popup/*.png` in the art total (130 263 → 132 630 B of 307 200).
 - **3 · Connection.** They differ in lamp, icon, motion and action:
   - **Normal drop:** `dot/connecting` + "Reconnecting" + `.ui-dots`, and a `panel/0` notice with `icon/unplugged` ("Connection dropped.
     Reconnecting by itself…"). There's **no button**: it retries by itself.
