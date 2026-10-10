@@ -4,7 +4,7 @@ For Mozilla add-on reviewers (AMO source-code submission) and anyone who wants t
 extension matches this source. The build bundles and minifies with [WXT](https://wxt.dev) (Vite); it does not
 obfuscate. The extension is AGPL-3.0-only (`LICENSE`); the full repository is public.
 
-This archive, `omega-share-0.1.0-sources.zip`, holds only what the extension build reads: the root
+This archive, `omega-share-0.1.1-sources.zip`, holds only what the extension build reads: the root
 `package.json`, `bun.lock` and `tsconfig.base.json`, `apps/extension/` (the extension), `packages/shared/` (the
 wire contract it imports), `assets/store/icon-*.png` (its icons) and the `package.json` of the other two
 workspaces, which the lockfile lists.
@@ -20,7 +20,7 @@ workspaces, which the lockfile lists.
 ## Steps
 
 ```sh
-unzip omega-share-0.1.0-sources.zip -d omega-share && cd omega-share
+unzip omega-share-0.1.1-sources.zip -d omega-share && cd omega-share
 bun install --frozen-lockfile
 bun run ext:store
 ```
@@ -29,14 +29,14 @@ bun run ext:store
 
 | File | What it is |
 |---|---|
-| `omega-share-0.1.0-firefox.zip` | The AMO upload (the unpacked build is `apps/extension/.output/firefox-mv3/`) |
-| `omega-share-0.1.0-chrome.zip` | The Chrome Web Store upload |
+| `omega-share-0.1.1-firefox.zip` | The AMO upload (the unpacked build is `apps/extension/.output/firefox-mv3/`) |
+| `omega-share-0.1.1-chrome.zip` | The Chrome Web Store upload |
 
 It prints the sha256 of each. The zips are reproducible (sorted entries, fixed timestamps, no host metadata),
 so they are byte-identical to the uploaded ones:
 
 ```sh
-sha256sum apps/extension/.output/omega-share-0.1.0-firefox.zip
+sha256sum apps/extension/.output/omega-share-0.1.1-firefox.zip
 ```
 
 Before zipping, the build checks the manifest (exact permissions, the add-on ID, the data-collection
