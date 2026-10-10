@@ -6798,7 +6798,7 @@
      "pushMs": 0,
      "leaveMs": 160,
      "leaveOpacity": 0.5,
-     "adr": "docs/adr/0039-bubble-motion-on-a-step-clock.md"
+     "adr": "docs/adr/0040-bubble-motion-on-a-step-clock.md"
     }
    },
    "wheel": {
