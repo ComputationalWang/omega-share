@@ -3,6 +3,7 @@
 // the 7 others each send a burst of CHAT_BURST then one a second (apps/server/src/ws.ts CHAT_BURST / CHAT_PER_SECOND)
 // for the whole traced window, so the log fills to its cap and drops a line per message while the bubbles move too.
 // Rows: chat.frameP95.<p> (quantised p95 ≤ one vsync), chat.workP95.<p> (≤ 8 ms), chat.missedVsync.<p> (≤ 1 %).
+// Each row pools ROUNDS bursts (OME-813): one 5 s window is ~300 frames, so 3 misses on a heavy burst failed ≤ 1 %.
 import { expect, test } from "@playwright/test";
 import type { APIRequestContext } from "@playwright/test";
 import { PENDING, available } from "../e2e/support/apps";
@@ -19,6 +20,8 @@ import { waitPlaying } from "./sync";
 
 const CLIENTS = 8;
 const WINDOW_MS = 5000;
+/** Bursts pooled per provider: ~900 frames, so ≤ 1 % missed allows 9, and a regression repeats on every burst. */
+const ROUNDS = 3;
 /** ws.ts: a socket's chat bucket holds 5 and refills at 1 a second. */
 const CHAT_BURST = 5;
 const CHAT_EVERY_MS = 1000;
@@ -73,7 +76,7 @@ function record(p: FrameProvider, w: FrameWindow, what: string): { p95: number; 
   const workP95 = p95(w.workMs);
   recordMetric({ id: `chat.frameP95.${p}`, value: f.p95, note: `${f.note}; ${what}` });
   recordMetric({ id: `chat.workP95.${p}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
-  recordMetric({ id: `chat.missedVsync.${p}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames${f.missed === 0 ? "" : ` (at ${f.missedAtMs.join(", ")} ms)`}; ${what}` });
+  recordMetric({ id: `chat.missedVsync.${p}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames${f.missed === 0 ? "" : ` (at ${f.missedAtMs.join(", ")} ms of the pooled windows)`}; ${what}` });
   return { p95: f.p95, missedPct: f.missedPct, workP95 };
 }
 
@@ -84,7 +87,7 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
     test.skip(true, why);
     return;
   }
-  test.setTimeout(420_000);
+  test.setTimeout(720_000);
   const room = testRoom("chat-perf", "frames");
   await share(request, room.id, EMBED_URL);
   const clients = await joinRoom(browser, {
@@ -106,13 +109,21 @@ test("chat: frames per provider with a chat burst at the rate limit (8 avatars +
     const measure = async (p: FrameProvider, label: string): Promise<void> => {
       await expect(log).toBeInViewport();
       await expect(observer.page.locator(site.room)).toBeInViewport();
-      // A full refill of every sender's chat bucket (5 at 1/s) since the last round, so the burst is never refused.
-      await observer.page.waitForTimeout(REFILL_MS);
-      const [w, sent] = await Promise.all([tracedFrames(browser, observer.page, WINDOW_MS), burst(senders, p)]);
-      // The burst reached the observer: its last line is this round's, and the log never grows past its cap.
-      await expect(lines.last()).toContainText(`${p} `);
-      expect(await lines.count()).toBeLessThanOrEqual(LOG_CAP);
-      rows[p] = { ...record(p, w, `${label} playing, ${String(CLIENTS)} avatars, ${String(sent)} chats from ${String(senders.length)} senders in ${String(WINDOW_MS)} ms (burst ${String(CHAT_BURST)}, then 1/s each)`), sent };
+      const pooled: FrameWindow = { samples: [], workMs: [] };
+      let sent = 0;
+      for (let round = 0; round < ROUNDS; round++) {
+        // A full refill of every sender's chat bucket (5 at 1/s) since the last round, so the burst is never refused.
+        await observer.page.waitForTimeout(REFILL_MS);
+        const tag = `${p}#${String(round)}`;
+        const [w, n] = await Promise.all([tracedFrames(browser, observer.page, WINDOW_MS), burst(senders, tag)]);
+        // The burst reached the observer: its last line is this round's, and the log never grows past its cap.
+        await expect(lines.last()).toContainText(`${tag} `);
+        expect(await lines.count()).toBeLessThanOrEqual(LOG_CAP);
+        pooled.samples.push(...w.samples);
+        pooled.workMs.push(...w.workMs);
+        sent += n;
+      }
+      rows[p] = { ...record(p, pooled, `${label} playing, ${String(CLIENTS)} avatars, ${String(ROUNDS)} bursts pooled: ${String(sent)} chats from ${String(senders.length)} senders in ${String(ROUNDS)} × ${String(WINDOW_MS)} ms (burst ${String(CHAT_BURST)}, then 1/s each)`), sent };
     };
 
     await waitPlaying(clients);
