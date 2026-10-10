@@ -1,11 +1,13 @@
 // `bun run perf`: build, run static + Playwright perf checks, print a report, exit 1 on any budget regression.
-// Flags: --no-build (use existing builds), --strict (pending budgets also fail), --soak (also run the 10 min heap soak).
+// Flags: --no-build (use existing builds), --rebuild (build even when the builds match HEAD), --strict (pending budgets also fail), --soak (also run the 10 min heap soak).
+// Builds only when the builds don't match HEAD (+ the server URL): each output dir carries a stamp, see build-stamp.ts (OME-818).
 // Specs: `bun run perf perf/landing.perf.ts` runs only those specs (a targeted post-merge check, ADR 0036); the rest report pending.
 // Env: OMEGA_PERF_MOTION=smooth|basic forces the walk tier (ADR 0037) in every perf context (playwright.config.ts).
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { EXTENSION_SHIPPED_DIR, FIREFOX_SHIPPED_DIR, ROOT, URLS, WEB_DIST_DIR, scripts } from "../e2e/support/apps";
 import { BUDGETS, evaluate, renderReport, type Measurement } from "./budgets";
+import { buildKey, gitTree, isBuilt, shouldBuild, stampBuild } from "./build-stamp";
 import { RESULTS_DIR, readMetrics, recordMetric } from "./metrics";
 import { perfRunArgs } from "./run-args";
 import { checkManifest, initialJsGzipKb } from "./static-checks";
@@ -20,15 +22,24 @@ function run(cmd: string[], env: Record<string, string> = {}): number {
 rmSync(RESULTS_DIR, { recursive: true, force: true });
 mkdirSync(RESULTS_DIR, { recursive: true });
 
-if (!args.has("--no-build")) {
-  for (const app of ["web", "extension"] as const) {
-    // The web build bakes in the server URL; perf serves it via `preview`, so it must match OMEGA_SERVER_PORT.
-    const env = app === "web" ? { VITE_SERVER_URL: URLS.server } : {};
-    if ("build" in scripts(app) && run(["bun", "run", "--filter", `@omega/${app}`, "build"], env) !== 0) {
-      console.error(`build failed for apps/${app}`);
-      process.exit(1);
-    }
+const tree = gitTree(ROOT);
+const extensionOut = (name: string): string => join(ROOT, "apps/extension/.output", name);
+const builds = [
+  // The web build bakes in the server URL; perf serves it via `preview`, so it must match OMEGA_SERVER_PORT.
+  { app: "web", dirs: [WEB_DIST_DIR], env: { VITE_SERVER_URL: URLS.server }, key: buildKey(tree, URLS.server) },
+  { app: "extension", dirs: [EXTENSION_SHIPPED_DIR, extensionOut("chrome-mv3-e2e"), FIREFOX_SHIPPED_DIR, extensionOut("firefox-mv3-e2e")], env: {}, key: buildKey(tree, "") },
+] as const;
+for (const { app, dirs, env, key } of builds) {
+  if (!("build" in scripts(app))) continue;
+  if (!shouldBuild(args, isBuilt(dirs, key))) {
+    console.log(`apps/${app}: build skipped (${args.has("--no-build") ? "--no-build" : `already built from ${tree.sha.slice(0, 7)}`})`);
+    continue;
   }
+  if (run(["bun", "run", "--filter", `@omega/${app}`, "build"], env) !== 0) {
+    console.error(`build failed for apps/${app}`);
+    process.exit(1);
+  }
+  stampBuild(dirs, key);
 }
 
 // Static checks.

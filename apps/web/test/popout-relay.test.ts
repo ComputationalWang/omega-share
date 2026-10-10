@@ -301,7 +301,7 @@ describe("room relay (OME-600)", () => {
     from({ t: "pop-ready", pop: "p1" });
     expect(relay.kind()).toBe("chat");
     take();
-    relay.view({ ...VIEW, bubbles: [{ memberId: "m1", text: "hi", expiresAt: 1 }] });
+    relay.view({ ...VIEW, bubbles: [{ id: 1, memberId: "m1", text: "hi", expiresAt: 1 }] });
     relay.tv({ ...TV, position: 62 });
     relay.emote("m1", "wave");
     expect(take()).toEqual([]);
@@ -324,7 +324,7 @@ describe("room relay (OME-600)", () => {
     relay.view(VIEW);
     relay.view({ ...VIEW });
     expect(take()).toEqual([]);
-    const bubbles = [{ memberId: "m1", text: "hi", expiresAt: 6000 }];
+    const bubbles = [{ id: 1, memberId: "m1", text: "hi", expiresAt: 6000 }];
     relay.view({ ...VIEW, bubbles });
     expect(take().map((m) => m.t)).toEqual(["room-view"]);
   });
@@ -334,7 +334,7 @@ describe("room relay (OME-600)", () => {
     relay.view(VIEW);
     from({ t: "pop-ready", pop: "r1", kind: "room" });
     expect(take().find((m) => m.t === "room-view")).toEqual({ t: "room-view", ...VIEW });
-    const bubbles = [{ memberId: "m1", text: "hi", expiresAt: 6000 }];
+    const bubbles = [{ id: 1, memberId: "m1", text: "hi", expiresAt: 6000 }];
     relay.view({ ...VIEW, bubbles });
     const rest = withoutRoom(VIEW);
     expect(take()).toEqual([{ t: "room-view", ...rest, bubbles }]);
@@ -399,5 +399,33 @@ describe("room relay (OME-600)", () => {
     expect(take()).toEqual([{ t: "room-back" }]);
     expect(relay.kind()).toBeNull();
     expect(popped).toEqual([true, false]);
+  });
+});
+
+// OME-769 (M9 W3): the pop-out never learns member ids. The room tab keeps who said each line and, when the hidden set
+// changes, sends the pop-out its backlog again without the hidden member's lines.
+describe("chat relay: hide for me", () => {
+  test("a hide re-sends the backlog without the hidden member's lines; show sends them back", async () => {
+    const { relay, from, take } = await setup();
+    relay.append(LINE("boo"), "b");
+    relay.append(LINE("hi"), "a");
+    relay.popOut();
+    from({ t: "pop-ready", pop: "p1" });
+    take();
+    relay.hideFrom((id) => id === "b");
+    expect(take()).toEqual([{ t: "room-log", reset: true, entries: [LINE("hi")] }]);
+    relay.hideFrom(() => false);
+    expect(take()).toEqual([{ t: "room-log", reset: true, entries: [LINE("boo"), LINE("hi")] }]);
+  });
+
+  test("a window adopted after a hide gets the backlog without their lines", async () => {
+    const { relay, from, take } = await setup();
+    relay.append(LINE("boo"), "b");
+    relay.append(LINE("hi"), "a");
+    relay.hideFrom((id) => id === "b");
+    expect(take().filter((m) => m.t === "room-log")).toEqual([]);
+    relay.popOut();
+    from({ t: "pop-ready", pop: "p1" });
+    expect(take().find((m) => m.t === "room-log")).toEqual({ t: "room-log", reset: true, entries: [LINE("hi")] });
   });
 });

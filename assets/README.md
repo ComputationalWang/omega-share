@@ -15,7 +15,7 @@ assets/
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
   ui/popup/*.png        # set f: the extension popup's key icon as standalone files, drawn at 16 px (1×) and 32 px (2×)
-  ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required" and "you were removed" vignettes, standalone 72×64 PNGs;
+  ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required", "room not found" and "you were removed" vignettes, standalone 72×64 PNGs;
                         #   set k (lazy): the "chat / room is in its own window" vignettes, 56×40
   ui/edit.png           # set h (lazy, owners only): 256×1024 indexed PNG-8, edit grid, placement markers, handles, tray thumbnails, swatches
   ui/edit.json          # set h: PixiJS v8 atlas for ui/edit.png
@@ -393,6 +393,7 @@ mustard rim = only you · rust key = the one irreversible action.
 | `icon/<closed\|emote>` | 16×16 | — | Close room / room closed (a door hanger with a hole, a slit and a crescent moon) · the emote key (a cream line face, so it can't be mistaken for the filled laugh sticker). |
 | `glyph/<moon\|open>` | 8×8 | — | "Closes in N days if nobody visits" · "anyone can come in" (beside the switch). In `.ui-mine` the moon gets 3 art px of margin before the words (its crescent sits on its right edge). |
 | `scene/<closed\|invite>` *(ui/scenes/\*.png)* | 72×64 | — | `.ui-scene.ui-scene-<closed\|invite>`, page chrome 2× (144×128 CSS px). Not in the sheet. closed = lights out: night in the fanlight, the sconce off, no light under the door, the moon hanger on the knob. invite = someone's home: warm fanlight, lit sconce, lamplight under the door, an empty keyhole, a dashed ghost ticket on the wall. |
+| `scene/not-found` *(ui/scenes/not-found.png)* | 72×64 | — | `.ui-scene.ui-scene-not-found` (OME-841, M9 W2 "Room not found"), page chrome 2×. The same lit wall and floor, but no door: the wallpaper and wainscot run straight through, a dashed cream ghost of the door frame and doormat marks where it would be (dashed cream = missing, like the ghost ticket), a mustard question mark inside, and the sconce off (nobody lives here). Not `closed` (a real door, lights out) and not `removed` (a real lit door). |
 
 - **Create room:** `.ui-panel` form: `icon/create` heading, the name `.ui-input` with a hint and an `n / max` count, the switch row, then the primary key.
   Too many new rooms: the key becomes set (f)'s `.is-waiting` with `.ui-wait` and "New room in 9 min", and the line under it says the existing rooms still work.
@@ -402,6 +403,8 @@ mustard rim = only you · rust key = the one irreversible action.
   the row turns `.is-confirm` with "Keep it" and the danger key. Empty list: `icon/create` + one line.
 - **Room closed (4004):** `.ui-panel` with `scene/closed`, a heading, one line and "Find a room" (primary) / "Make your own". Mid-session, lay
   `.ui-scrim` over the stage and centre the same card (1× inside `.ui-room`).
+- **Room not found:** the 4004 panel with `scene/not-found` instead of `scene/closed`, a heading ("This room doesn't exist"), one line and
+  "Find a room" (primary) / "Make your own". Use it for a link to a room that never existed or was swept; `scene/closed` stays for a room its host closed.
 - **Invite required:** `scene/invite`, a line, then the `.ui-slot-ticket` + primary `icon/key` "Go in". A bad link: `aria-invalid` + `icon/warn` + words.
 - **Invite copy** is set (h)'s ticket (idle/copied/expired); set (i) only adds the paste slot and the square copy key on your-rooms rows.
 - **Emote picker:** opens above the emote key (`.ui-button.self` + `icon/emote`, `aria-expanded`), 5 stickers, the groove, the wave. Pressing one sends it and
@@ -428,6 +431,7 @@ mustard rim = only you · rust key = the one irreversible action.
 | `slices/scrim-0.png` | 104 | 4004 mid-session |
 | `scenes/closed.png` | 547 | 4004 page / card |
 | `scenes/invite.png` | 784 | invite-required page |
+| `scenes/not-found.png` (OME-841, after the set) | 731 | room-not-found page |
 | **set (i) total** | **8 471 B** (slices 2 577, scenes 1 331, sheet + atlas + CSS 4 563) | |
 
 ## Set (j) house rules, queue panel, Web Store kit (OME-422, `ui/` + `store/`)
@@ -573,6 +577,11 @@ Walk: `preview/walk8-strip@4x.png` (every frame, in-betweens on the odd columns)
 - **Life (default):** 5 s. Opacity 0 → 1 over 120 ms in 3 steps, holds to 3.6 s, then `cubic-bezier(.55, 0, 1, .45)` (ease-in) to 0 at 5 s. It rises 24 px over the whole
   life in `steps(24)`: one whole stage px every ~208 ms, so the art never blurs between pixels. `opacity` + `translate` only: compositor work, no layout or paint per frame.
 - **Reduced motion:** no rise, no push slide, no fade-in. Shows at once, holds to 4 s, fades linearly to 0 at 5 s; an early exit is instant.
+- **In the room: stepped by script** (`meta.omega.bubbles.room`, ADR 0040, OME-830). Running CSS animations cost a restyle on every main frame, so the room
+  turns the keyframes off and one shared clock writes the motion: 24 ticks a life (one every ~208 ms), the same for every bubble. The rise and the ease-in fade are
+  unchanged, the fade sampled on the ticks (about 7 levels over 1.4 s). Three changes, all accepted for the look: no fade-in (the bubble shows whole, a crisp pop);
+  a push is instant (the stack snaps, it doesn't slide); an early exit drops to half opacity, then goes on the first tick at least 160 ms later.
+  The keyframes above stay for the standalone component. Any extra motion comes back as ticks on that clock, never as a CSS animation or transition.
 - **Stacking rule** (reference implementation: the script in `preview/m8.html`). Lay out on every add/remove and when a speaker moves, newest first:
   1. Each bubble takes its anchor, clamped sideways inside the stage (or the visible window on a phone) with a 4 px margin.
   2. Its **path** is the box plus the 24 px it will rise. If its path would come within 3 px of a newer bubble's path, it moves straight up until it clears
@@ -796,11 +805,15 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
 | `ui/slices/*.png` (100 files, palettes trimmed to the colours used) | 15 862 |
 | `ui/popup/*.png` (set f) | 409 |
-| `ui/scenes/*.png` (sets i + j + k, lazy) | 2 825 |
-| `ui/reference.css` (if ported as-is) | 98 398 raw / 19 853 gz |
+| `ui/scenes/*.png` (sets i + j + k + OME-841, lazy) | 3 556 |
+| `ui/reference.css` (if ported as-is) | 98 678 raw / 19 956 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| **total shipped art** | **130 224 B (≈ 127.2 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 425 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes) 60 799 B |
+| **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
+
+OME-841 adds **795 B** against `main` as `bun assets/src/build.ts` measures it (130 263 → 131 058): the lazy `scenes/not-found.png` 731 and one
+`reference.css` rule +64 gz. The row above said 130 224 before this change; the build on `main` already measured 130 263 (eager 69 464, i.e.
++39 B of `reference.css` gz since that row was written), so the totals here are the measured ones.
 
 Set (l) (OME-644) adds **10 433 B (≈ 10.2 KB)** against `main` (119 791 → 130 224): eager +5 455 (`ui.png` +1 107, `ui.json` +794 gz, 7 new slices +952,
 `reference.css` +2 602 gz), lazy +4 978 (the smooth walk's 64 in-between cells: `motion.png` +3 734, `motion.json` +1 244 gz).

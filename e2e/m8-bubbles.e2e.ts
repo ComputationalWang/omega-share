@@ -187,9 +187,6 @@ test("five speakers, ten lines at once: never more than 8 bubbles shown, the lay
   await Promise.all(
     clients.map(async (c, i) => {
       await say(c.page, `speaker ${String(i + 1)} line one`);
-      // Apart, so the watcher renders each: two of one speaker's lines landing in one frame float only the second
-      // (the test after this one, OME-809).
-      await c.page.waitForTimeout(150);
       await say(c.page, `speaker ${String(i + 1)} line two`);
     }),
   );
@@ -204,11 +201,9 @@ test("five speakers, ten lines at once: never more than 8 bubbles shown, the lay
   expect(pool.maxNodes).toBe(8);
 });
 
-// product bug (OME-809): the room state keeps one bubble per speaker (state.ts "chat" replaces it) and the stage floats
-// what it finds at render, so when two lines from one speaker arrive before the watcher next renders, the first never
-// floats. It is still in the chat log. Here the watcher renders late (a slow frame) while both lines arrive; on a fast
-// box it happens when two lines land in one 16 ms frame (the cap test above paces its lines because of this).
-test.fail("two lines from one speaker that arrive inside one render both float (2 per speaker)", async ({ browser }) => {
+// OME-809: two lines from one speaker that arrive before the watcher next renders both float. Here the watcher renders
+// late (a slow frame) while both lines arrive; on a fast box the same happens when two lines land in one 16 ms frame.
+test("two lines from one speaker that arrive inside one render both float (2 per speaker)", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "batch").url, count: 2, nicknamePrefix: "mb" });
   const [speaker, watcher] = pair(clients);
   for (const c of clients) await atRest(c.page);

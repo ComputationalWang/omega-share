@@ -171,7 +171,7 @@ test("an owner gets no Report key in their own room", async ({ browser }) => {
   await expect(page.locator(site.reportKey)).toHaveCount(0);
 });
 
-test("a takedown (4006) shows the team's notice, never reconnects, forgets the room, and opening it again says the same", async ({ browser }) => {
+test("a takedown (4006) shows the team's notice, never reconnects, forgets the room, and opening it again says 'Room not found'", async ({ browser }) => {
   const roomId = testRoomId("report", "gone");
   const routes: WebSocketRoute[] = [];
   let takenDown = false;
@@ -214,12 +214,13 @@ test("a takedown (4006) shows the team's notice, never reconnects, forgets the r
   const remembered = await page.evaluate((k) => localStorage.getItem(k), ROOM_SECRETS_STORAGE_KEY);
   expect(remembered ?? "").not.toContain(roomId);
 
-  // Opening /r/<id> later: the join is closed with 4006 before any snapshot.
+  // Opening /r/<id> later: the join is closed with 4006 before any snapshot, and the page says "Room not found" (OME-768).
   await page.reload();
   await page.locator(site.nicknameInput).fill("rpgone-2");
   await page.locator(site.joinButton).click();
-  await expect(notice).toBeVisible();
-  await expect(notice).toContainText("This room was closed by the omega-share team after a report.");
+  await expect(page.locator(site.notFound)).toBeVisible();
+  await expect(page.locator(site.notFound)).toContainText("This room doesn't exist or was taken down");
+  await expect(notice).toBeHidden();
   await page.waitForTimeout(1500);
   expect(routes).toHaveLength(2);
 });

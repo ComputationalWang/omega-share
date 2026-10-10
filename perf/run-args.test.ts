@@ -18,3 +18,9 @@ test("a spec outside perf/ or not a .perf.ts file is refused", () => {
   expect(() => perfRunArgs(["e2e/home.e2e.ts"])).toThrow("e2e/home.e2e.ts");
   expect(() => perfRunArgs(["landing"])).toThrow("landing");
 });
+
+// OME-818: the build is skipped when its stamp matches HEAD; --rebuild forces one, and can't be combined with --no-build.
+test("--rebuild is a flag, and --rebuild with --no-build is refused", () => {
+  expect([...perfRunArgs(["--rebuild", "perf/landing.perf.ts"]).flags]).toEqual(["--rebuild"]);
+  expect(() => perfRunArgs(["--rebuild", "--no-build"])).toThrow("--rebuild");
+});

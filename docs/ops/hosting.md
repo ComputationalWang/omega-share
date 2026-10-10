@@ -86,6 +86,7 @@ After a restore, rooms, layouts and each room's last embed come back, with playb
 - Headed smoke from outside, on a virtual display: `OMEGA_REAL_TUNNEL_ORIGIN=https://omega-share.duckdns.org bun e2e/support/headed.ts bunx playwright test --project=e2e-real e2e/real/real-tunnel.real.ts --grep "tunnel-[124]"`. Tunnel-3 checks the Host rule on *this* machine's port 8787, so against the box, use the curl above instead.
 - Logs (as `admin`): `journalctl -u omega-share`, `journalctl -u caddy`. The server's error lines are one JSON object each, with a fixed `event` name and no room id, title, nickname or address (ADR 0032 §4). To list only those, run `journalctl -u omega-share -o cat | grep '^{"level":"error"'`. Caddy keeps no access log and has no admin API (`admin off`), so Caddyfile changes take `systemctl restart caddy`. Caddy's default logger deletes request IPs, ports and headers, so an upstream 502 is logged with only the method, host and URI, and no site visitor's IP reaches the journal (ADR 0020 §3, OME-386). The journal is persistent and kept for 14 days (`deploy/journald/omega-share.conf`). sshd's entries name SSH peers. To check, run `journalctl -u caddy -o cat | grep -cE 'remote_ip|client_ip|"headers"'` with root. It should print 0.
 - Off-box pull fails loudly if the newest snapshot is older than 36 h: that is the backup alarm.
+- `/.well-known/security.txt` (RFC 9116, OME-838) carries a fixed `Expires`. `apps/server/test/site.test.ts` fails 30 days before it. To renew, set `SECURITY_TXT_EXPIRES` in `apps/server/src/site-meta.ts` to a date 11 months out (under a year, as RFC 9116 asks) and deploy. Check: `curl -sS $PUBLIC_ORIGIN/.well-known/security.txt`.
 
 ## Metrics, logs and restarts (OME-504, ADR 0032)
 
@@ -109,10 +110,12 @@ After a restore, rooms, layouts and each room's last embed come back, with playb
 
 | Push | Means | Sent |
 | --- | --- | --- |
-| `omega-share is down` | `$PUBLIC_ORIGIN/healthz` failed (no 2xx within 10 s) twice in a row, so for 5 to 10 minutes. One blip never pushes. | once per outage |
+| `omega-share is down` | `$PUBLIC_ORIGIN/healthz` failed (no 2xx within 10 s) twice in a row, so for 5 to 10 minutes. One blip never pushes. `/healthz` also answers 503 when the server can't read its database (it logs `store.health`). | once per outage |
 | `omega-share recovered` | `/healthz` answers again after a `down` push. | once |
 | `TLS certificate expires in N days` | The certificate has fewer than 14 days left. Caddy renews at about 30 days, so renewal has been failing for two weeks. | once, then again every 3 more days until it is renewed |
 | `N new abuse reports` | The number of open reports went up since the last count. The monitor asks the box at most hourly, as `admin@`, with the operator CLI's `reports list`, and counts on the box: only the number leaves it. The count is net: a dismissal and a new report within the same hour cancel out, so read the queue daily anyway ([rooms.md](rooms.md#abuse-reports)). The first run after an install counts from 0, so it pushes every report already open. No notes, titles, ids or addresses ever go into a push. | when the count rose; flat or falling stays quiet |
+| `disk N% full on <path>` | `/` or `/var/lib/omega-share` is more than 85 % used. The monitor asks the box at most every 15 minutes, as `admin@`, with `df`, and only the two percentages leave it. Free space before writes fail: old releases in `/opt/omega-share/releases`, `journalctl --vacuum-size`, then look at the backups ([backup.md](backup.md)). | once, until it recovers |
+| `disk space recovered: N% used` | Both are back to 80 % or less after a `full` push. Between 80 and 85 % stays quiet, so a disk at the line doesn't flap. | once |
 | `[drill] …` | A test push. Ignore it. | by hand |
 
 A push that can't be sent is retried at the next run, and that run's unit shows as failed.
@@ -131,7 +134,7 @@ journalctl --user -u omega-share-monitor -n 20           # "health check failed 
 systemctl --user list-timers omega-share-monitor.timer
 ```
 
-The service reads `PUBLIC_ORIGIN` and `SERVER_IP` from `~/Projects/omega-share/.env` and uses `~/.config/omega-share/admin-key` for the report count (`OMEGA_MONITOR_SSH_KEY` changes it). The box's host key must already be in `known_hosts`, because batch mode never asks. The unit runs its own copy of the script so that a branch checked out in the main repo can never break the monitor: copy it again after a change to `deploy/monitor/`.
+The service reads `PUBLIC_ORIGIN` and `SERVER_IP` from `~/Projects/omega-share/.env` and uses `~/.config/omega-share/admin-key` for the report count and the disk check (`OMEGA_MONITOR_SSH_KEY` changes it). The box's host key must already be in `known_hosts`, because batch mode never asks. The unit runs its own copy of the script so that a branch checked out in the main repo can never break the monitor: copy it again after a change to `deploy/monitor/`.
 
 The timer runs only while the operator machine is on. If the box goes down while the machine is off, the push comes at the first run after it wakes.
 
@@ -199,3 +202,27 @@ curl -sS -m 10 $PUBLIC_ORIGIN/healthz                                           
 ```
 
 The restart is graceful: clients reconnect on their own. A release older than the 5 kept ones can be deployed again from a clean checkout of its commit with `deploy/deploy.sh`. A rollback across a DB migration doesn't work (the server refuses a DB whose `user_version` is newer than the code): restore the snapshot taken before the deploy instead ([backup.md § Restore](backup.md#restore)). Record what was rolled back and why on the deploy issue.
+
+## Operator notes (moved from agent memory)
+
+Never write secret values here, only key names.
+
+### Deploying and verifying
+
+- **QA2 deploys at milestone sign-off** (OME-419). From the clean detached qa2 checkout with `.env` sourced: `DEPLOY_HOST=deploy@$SERVER_IP DEPLOY_KEY=$DEPLOY_KEY_PATH deploy/deploy.sh`. QA2 has no `admin@` key loaded. `deploy` can only manage `omega-share.service` (polkit), not `omega-share-backup.service`, so a deploy with a DB migration waits for the nightly snapshot (03:30 UTC, give or take 20 min): check `systemctl list-timers omega-share-backup.timer` and `systemctl show omega-share-backup.service -p Result` as `deploy@`, then deploy.
+- **A board-run root step can fail partway while its card is accepted** (OME-363). Only the service start had run and the box still had the old kit. After acceptance, check as `deploy@`: `systemctl show caddy -p ActiveEnterTimestamp` (`provision.sh base` restarts Caddy), unit-file mtimes and the expected files. Ask the next card's steps to echo markers (`RSYNC-OK`, `BASE-EXIT=$?`).
+- **Agents cannot re-run `provision.sh base`** (OME-386): they cannot read the public keys it installs, because the guard blocks any command text containing a dot-ssh path. Use a narrow phase (`provision.sh logs` for the Caddyfile and journald). Root over ssh needs the literal `admin@<SERVER_IP>` in its own Bash call, not a host held in a variable after an rsync. Board-only steps: installing unit files (for example `METRICS_PORT`) and reading the journal (`deploy@` can't).
+- **Hosted smoke** (public and private room, invite, layout edit, walk, emote, queue add/remove/advance, control policy, mute, kick, delete) creates 2 rooms and ran 18/18 hosted at M6 (OME-512). Real specs against hosted take no `CI=1` (CI disables `reuseExistingServer` and the run fails with "already used"). Moving a page from bare `/r/<id>` to the invite needs `goto("about:blank")` first (a `#k=` hash change doesn't reload). Locally a second run hits the room-create 429: restart your own server. The hosted `lobby` has no embed since the M5 schema, so `relay-latency --action control` times out there. Run the `e2e:real` project detached (it takes more than 20 min). Operator-CLI takedown needs `admin@`: file a Lead sub-issue with the exact commands (OME-721).
+- **Real specs run against hosted prod directly** (OME-378): `OMEGA_WEB_URL=OMEGA_SERVER_URL=<origin> bun e2e/support/headed.ts bunx playwright test --project=e2e-real ... -g "M2-vimeo|M2-twitch-live"`. Narrow real-ads with `OMEGA_REAL_AD_YT` / `OMEGA_REAL_AD_TWITCH` (its quota assert of 5 YT and 3 live Twitch then fails by design). `real-youtube` stays dev-only. For the extension on a real page, add the page origin to the copied manifest's `host_permissions`. When the default Twitch live list is offline, take a live channel from real-ads' `m3-ad-tw-*` lines and pass it as `OMEGA_REAL_TWITCH_LIVE`.
+
+### Hosted load and relay probes
+
+- **Per-address limits apply on the hosted box** (OME-360, OME-364). `apps/server/src/relay-latency.ts` defaults (25 clients) time out with "timed out waiting for join": 5 members per address per room (`too_many_members`), joins burst 6 then 0.2/s, sit burst 4 per socket, control needs clients >= (samples+1)/4. Working: `--url wss://omega-share.duckdns.org/rooms/lobby/ws --origin https://omega-share.duckdns.org --clients 5 --samples 16` (seat) or `--samples 19 --action control`. `--origin` only sets the header, so without `--url` it dials localhost:8787. Wait 40 s between batches and before headed runs that join (30 s failed).
+- **Going past the caps** (OME-511): `scripts/hosted-load.ts` tunnels `ssh -L 127.0.0.1:18787:127.0.0.1:8787 deploy@box`, sends `Host: omega-share.duckdns.org`, the public Origin and a distinct `X-Forwarded-For` (198.18.0.0/15) per client. `TRUST_PROXY=loopback` keys limits per simulated person, so 20x25 works. Bun's `new WebSocket(url, {headers})` can override `Host`. Room creates are a 10 global burst, then 1 per minute. Commit the result under `docs/qa/` ([m6-hosted-load.md](../qa/m6-hosted-load.md)).
+
+### Firefox add-on (AMO) releases (ADR 0038, OME-757, OME-777)
+
+- The AMO API key is bound to the Extension Engineer (`access.FIREFOX_JWT_*`; secret keys `omega-share-firefox-firefox_jwt_issuer` and `..._secret`). Tooling: `bun run ext:amo status|submit`. A new Firefox version is a CEO-filed release issue for the Extension Engineer after QA sign-off on that SHA, with a version bump. No board card or ntfy for AMO uploads; listing text changes stay a CEO call. A Chrome store resubmit also needs a version bump past 0.1.0.
+- The secret value endpoint takes the binding key above, not the `FIREFOX_JWT_*` names (those return "Secret access is not granted"); see `company/skills/omega-coordination/paperclip-quirks.md`.
+- The AMO v5 versions endpoint exposes `file.hash`, `file.size` and `compatibility` (whether Android is claimed). AMO repacks uploads, so `file.hash` never equals our `ext:store` sha256.
+- Submitting a new listed version makes AMO disable an older listed version still awaiting review (0.1.0 went "disabled" when 0.1.1 went up), with no developer flag. `ext:amo submit` has no release-notes option until OME-794: PATCH the version's `release_notes` afterwards.

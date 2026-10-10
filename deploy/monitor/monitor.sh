@@ -6,22 +6,28 @@
 #   tls      the origin's certificate: < 14 days left pushes once, again every 3 more days until it is renewed.
 #   reports  at most hourly, ssh admin@$SERVER_IP → admin CLI `reports list`, counted on the box. A rise pushes
 #            "N new abuse reports". Only the number leaves the box: no content, titles, ids or addresses.
+#   disk     at most every 15 min, ssh admin@$SERVER_IP → `df` on / and /var/lib/omega-share. Over 85 % used pushes
+#            "disk N% full on <path>" once; down to 80 % or less pushes "disk space recovered". Only the percentages leave the box.
 #
 #   PUBLIC_ORIGIN=https://… SERVER_IP=… deploy/monitor/monitor.sh
 #
 # The ntfy topic is read from ~/.config/omega-share/ntfy-topic and handed to curl on stdin, never in argv or output.
 # State: $XDG_STATE_HOME/omega-share/monitor.state. Overrides: OMEGA_MONITOR_URL (health URL),
-# OMEGA_MONITOR_CHECKS ("health tls reports"), OMEGA_MONITOR_PREFIX (e.g. "[drill]"), OMEGA_MONITOR_SSH_KEY,
-# OMEGA_NTFY_SERVER (https://ntfy.sh), OMEGA_MONITOR_REPORTS_CMD and OMEGA_MONITOR_NOW (tests).
+# OMEGA_MONITOR_CHECKS ("health tls reports disk"), OMEGA_MONITOR_PREFIX (e.g. "[drill]"), OMEGA_MONITOR_SSH_KEY,
+# OMEGA_NTFY_SERVER (https://ntfy.sh), OMEGA_MONITOR_REPORTS_CMD, OMEGA_MONITOR_DISK_CMD and OMEGA_MONITOR_NOW (tests).
 set -euo pipefail
 
 origin=${PUBLIC_ORIGIN:-}
 health_url=${OMEGA_MONITOR_URL:-${origin:+$origin/healthz}}
-checks=" ${OMEGA_MONITOR_CHECKS:-health tls reports} "
+checks=" ${OMEGA_MONITOR_CHECKS:-health tls reports disk} "
 prefix=${OMEGA_MONITOR_PREFIX:+$OMEGA_MONITOR_PREFIX }
 ntfy=${OMEGA_NTFY_SERVER:-https://ntfy.sh}
 ssh_key=${OMEGA_MONITOR_SSH_KEY:-$HOME/.config/omega-share/admin-key}
 reports_cmd=${OMEGA_MONITOR_REPORTS_CMD:-cd /opt/omega-share/current && sudo -n -u omega-share env DB_PATH=/var/lib/omega-share/omega.db /usr/local/bin/bun apps/server/src/cli.ts reports list}
+disk_paths=(/ /var/lib/omega-share)
+# Percent used of each path, in order, on one line ("91 7"): nothing else about the box's disks leaves it.
+disk_default='df -P / /var/lib/omega-share | awk '\''NR > 1 { printf "%s%d", (NR > 2 ? " " : ""), $5 } END { print "" }'\'
+disk_cmd=${OMEGA_MONITOR_DISK_CMD:-$disk_default}
 now=${OMEGA_MONITOR_NOW:-$(date +%s)}
 topic_file=$HOME/.config/omega-share/ntfy-topic
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/omega-share
@@ -40,19 +46,20 @@ exec 9> "$state_dir/monitor.lock"
 flock -n 9 || exit 0 # the previous run is still going
 
 # State: known keys only, each value checked; anything else in the file is ignored.
-health=up fails=0 tls_alert="" reports_at=0 reports=""
+health=up fails=0 tls_alert="" reports_at=0 reports="" disk=ok disk_at=0
 if [[ -r $state_file ]]; then
   while IFS='=' read -r key value; do
     case $key in
       health) [[ $value == up || $value == down ]] && health=$value ;;
-      fails | reports_at) [[ $value =~ ^[0-9]+$ ]] && printf -v "$key" '%s' "$value" ;;
+      disk) [[ $value == ok || $value == full ]] && disk=$value ;;
+      fails | reports_at | disk_at) [[ $value =~ ^[0-9]+$ ]] && printf -v "$key" '%s' "$value" ;;
       tls_alert | reports) [[ $value =~ ^-?[0-9]*$ ]] && printf -v "$key" '%s' "$value" ;;
     esac
   done < "$state_file"
 fi
 save() {
-  printf 'health=%s\nfails=%s\ntls_alert=%s\nreports_at=%s\nreports=%s\n' \
-    "$health" "$fails" "$tls_alert" "$reports_at" "$reports" > "$state_file.tmp"
+  printf 'health=%s\nfails=%s\ntls_alert=%s\nreports_at=%s\nreports=%s\ndisk=%s\ndisk_at=%s\n' \
+    "$health" "$fails" "$tls_alert" "$reports_at" "$reports" "$disk" "$disk_at" > "$state_file.tmp"
   mv -f -- "$state_file.tmp" "$state_file"
 }
 
@@ -116,6 +123,31 @@ if [[ $checks == *" reports "* ]] && ((now - reports_at >= 3600)); then
       fi
     else
       echo "could not read the report count from the box" >&2
+    fi
+    save
+  fi
+fi
+
+if [[ $checks == *" disk "* ]] && ((now - disk_at >= 900)); then
+  if [[ -z ${SERVER_IP:-} ]]; then
+    echo "SERVER_IP unset: skipping the disk check" >&2
+  else
+    disk_at=$now
+    if used=$(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10 -i "$ssh_key" \
+      "admin@$SERVER_IP" "$disk_cmd" 2> /dev/null) && [[ $used =~ ^[0-9]{1,3}( [0-9]{1,3})*$ ]]; then
+      read -ra pcts <<< "$used"
+      top=0 top_path=""
+      for i in "${!pcts[@]}"; do
+        if ((10#${pcts[i]} > top)); then top=$((10#${pcts[i]})) top_path=${disk_paths[i]:-?}; fi
+      done
+      # Alarm over 85 %, clear at 80 % or less: a disk hovering at the line pushes once, not every 15 min.
+      if [[ $disk == ok ]] && ((top > 85)); then
+        if push "disk $top% full on $top_path"; then disk=full; else disk_at=0; fi
+      elif [[ $disk == full ]] && ((top <= 80)); then
+        if push "disk space recovered: $top% used"; then disk=ok; else disk_at=0; fi
+      fi
+    else
+      echo "could not read disk usage from the box" >&2
     fi
     save
   fi
