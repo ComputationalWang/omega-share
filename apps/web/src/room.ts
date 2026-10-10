@@ -314,6 +314,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       const inView = head.x >= seen.x && head.x <= seen.x + seen.w && head.y >= seen.y && head.y <= seen.y + seen.h;
       return { head: inView ? head : null, room };
     },
+    // The hint's emote line is done; it leaves the flow before the wheel is placed over my head (`firstHint` is made
+    // with the room bar, below; a wheel only opens once the room is up).
+    onOpen: () => {
+      firstHint.dismiss();
+    },
   });
   closeWheel = () => {
     picker.close();
@@ -325,10 +330,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const popOut = el("span", { className: "pop-out", hidden: true });
   popOut.append(popKey);
   chatForm.append(picker.root, chatInput, chatSend, popOut);
-  // The emote key pressed: the hint's emote line is done (`firstHint` is made with the room bar, below).
-  picker.root.addEventListener("click", () => {
-    firstHint.dismiss();
-  });
   const chatAway = el("div", { className: "ui-panel ui-away chat-away", role: "status", hidden: true }, "chat-away");
   const chatAwayText = el("p");
   chatAwayText.append(el("b", { textContent: "Chat is in its own window." }), el("br"), "Bubbles still show over the avatars here.");
@@ -1220,11 +1221,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (ev.key === "Escape") firstHint.dismiss();
     if (moderation?.key(ev) === true) ev.preventDefault();
     else if (!help.key.hidden && help.shortcut(ev)) ev.preventDefault();
-    else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) {
-      ev.preventDefault();
-      // T opened the wheel: the hint's emote line is done.
-      if (ev.key === "t" || ev.key === "T") firstHint.dismiss();
-    }
+    else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
     else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && fs.key(ev.key, typingIn(ev.target), ev.repeat)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden) {
       // Enter with nothing that takes it focused jumps to the message field, here or in full screen; Esc hands back (OME-642).
