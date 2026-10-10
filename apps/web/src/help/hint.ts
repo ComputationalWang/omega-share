@@ -55,8 +55,8 @@ export function createFirstHint(o: HintOptions): FirstHint {
   let open = false;
   let done = false;
 
+  /** Only a shown hint can go: the room calls this before it's up (no stage yet), and that mustn't use up the one show. */
   const dismiss = (): void => {
-    done = true;
     if (!open) return;
     open = false;
     const had = root.contains(document.activeElement);
