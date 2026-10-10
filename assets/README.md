@@ -610,15 +610,19 @@ scaled by a whole number, never resampled.
 
 | File | Size | Bytes | Art | Use |
 |---|---|---|---|---|
-| `site/favicon.ico` | 16 + 32 | 498 | the two PNGs below, stored as PNG-in-ICO | `/favicon.ico` (browsers and crawlers ask for it unprompted) |
+| `site/favicon.ico` | 16 + 32 | 506 | the two PNGs below, stored as PNG-in-ICO | `/favicon.ico` (browsers and crawlers ask for it unprompted) |
 | `site/favicon-16.png` | 16×16 | 192 | 16 art px at 1×: TV + dusk picture | `<link rel="icon" sizes="16x16">` |
-| `site/favicon-32.png` | 32×32 | 268 | 32 art px at 1×: + antenna, glitter, power light | `<link rel="icon" sizes="32x32">` |
-| `site/apple-touch-icon.png` | 180×180 | 732 | 45 art px at 4×, **opaque** on the dusk wallpaper, with the two watchers | `<link rel="apple-touch-icon">` (iOS fills transparency with black and rounds the corners itself) |
-| `site/icon-192.png` | 192×192 | 684 | 48 art px at 4×, transparent | manifest, `purpose: "any"` |
-| `site/icon-512.png` | 512×512 | 1 762 | 64 art px at 8×, transparent | manifest, `purpose: "any"` |
-| `site/icon-maskable-512.png` | 512×512 | 1 874 | 64 art px at 8×, full-bleed wallpaper, art 12 art px in from each edge | manifest, `purpose: "maskable"` |
+| `site/favicon-32.png` | 32×32 | 276 | 32 art px at 1×: + antenna, glitter, a 2×2 glow power LED | `<link rel="icon" sizes="32x32">` |
+| `site/apple-touch-icon.png` | 180×180 | 752 | 45 art px at 4×, **opaque** on the dusk wallpaper, with the two watchers | `<link rel="apple-touch-icon">` (iOS fills transparency with black and rounds the corners itself) |
+| `site/icon-192.png` | 192×192 | 719 | 48 art px at 4×, transparent, with the two watchers | manifest, `purpose: "any"` |
+| `site/icon-512.png` | 512×512 | 1 803 | 64 art px at 8×, transparent, with the two watchers | manifest, `purpose: "any"` |
+| `site/icon-maskable-512.png` | 512×512 | 1 905 | 64 art px at 8×, full-bleed wallpaper, art 14 art px in from each edge | manifest, `purpose: "maskable"` |
 
-**Maskable safe zone:** the farthest opaque pixel corner is 200 px from the centre, inside the W3C safe circle (radius 40% = 204.8 px). `assertSafeZone` checks it on every build.
+**Maskable safe zone:** the farthest opaque pixel corner is 182 px from the centre, about 10% inside the W3C safe circle (radius 40% = 204.8 px). `assertSafeZone` checks it on every build.
+
+**The watchers** (45 px and up) are drawn by `src/site.ts`, not by the extension icon's drawer: two audience silhouettes inside the screen, each a round head on a neck over shoulders,
+cut by the screen's bottom edge. Juno is a dark cloud puff over a mustard hoodie, Kiki a pink head with two buns over a lilac collar, and the sun shows between them. The extension's
+`store/` icons are unchanged (they ship in the released extension package).
 The wallpaper is the room's wall shade with lit lozenges. It sits behind the art, so the plum outline still rings the TV.
 
 Suggested head (engineering owns the real one; W1):

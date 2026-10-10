@@ -30,16 +30,23 @@ const ROLES: RoleMap = {
 
 /** One icon at `S` art px. `pad` = transparent margin (the 128 px icon keeps Chrome's 16 px, i.e. 8 art px at 2×).
  *  `heads` defaults to S ≥ 48; the site's apple-touch icon (set m) asks for them at 45 art px. */
-export function icon(S: number, pad: number, heads = S >= 48): Grid {
-  const g = blank(S, S);
-  const set = (x: number, y: number, ch: string): void => { const r = g[y]; if (r && x >= 0 && x < S) r[x] = ch; };
+/** The icon's geometry: cabinet box (x0..x1, y0..y1), bezel width, and the screen box including its plum inset line (sx0..sx1, sy0..sy1). */
+export function iconGeom(S: number, pad: number): { A: number; antenna: number; legs: number; x0: number; x1: number; y0: number; y1: number; bezel: number; sx0: number; sx1: number; sy0: number; sy1: number } {
   const A = S - 2 * pad;
   const antenna = S >= 32 ? Math.round(A * 0.14) : 0;
   const legs = S >= 32 ? Math.max(1, Math.round(A * 0.05)) : 1;
   const x0 = pad + 1, x1 = S - pad - 2;
   const y0 = pad + 1 + antenna, y1 = S - pad - 2 - legs;
-  const cham = S >= 32 ? 2 : 1;
   const bezel = Math.max(1, Math.round(A * 0.08));
+  const sx0 = x0 + bezel, sx1 = x1 - bezel, sy0 = y0 + bezel, sy1 = y1 - bezel - (S >= 32 ? Math.max(1, Math.round(A * 0.04)) : 0);
+  return { A, antenna, legs, x0, x1, y0, y1, bezel, sx0, sx1, sy0, sy1 };
+}
+
+export function icon(S: number, pad: number, heads = S >= 48): Grid {
+  const g = blank(S, S);
+  const set = (x: number, y: number, ch: string): void => { const r = g[y]; if (r && x >= 0 && x < S) r[x] = ch; };
+  const { A, antenna, legs, x0, x1, y0, y1, bezel, sx0, sx1, sy0, sy1 } = iconGeom(S, pad);
+  const cham = S >= 32 ? 2 : 1;
   // Cabinet with chamfered corners (2:1 stair like the UI's).
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     const dx = Math.min(x - x0, x1 - x), dy = Math.min(y - y0, y1 - y);
@@ -54,7 +61,6 @@ export function icon(S: number, pad: number, heads = S >= 48): Grid {
     set(cx, y0 - 1, "m"); set(cx + 1, y0 - 1, "m");
   }
   // Screen: an inset plum line, then the dusk bands.
-  const sx0 = x0 + bezel, sx1 = x1 - bezel, sy0 = y0 + bezel, sy1 = y1 - bezel - (S >= 32 ? Math.max(1, Math.round(A * 0.04)) : 0);
   const sh = sy1 - sy0 + 1, sw = sx1 - sx0 + 1;
   const horizon = sy0 + Math.round(sh * 0.56);
   const sunX = sx0 + Math.round(sw * 0.62), sunR = Math.max(1.2, sh * 0.2);

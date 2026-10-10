@@ -11,7 +11,7 @@ import { addOutline } from "./iso";
 import { colorIndex, type RampName, type Tone } from "./palette";
 import { bezelPaint, defaultLayout, type RoomFrame } from "./room";
 import { blank, render, stamp, type Grid, type RoleMap } from "./sprite";
-import { renderIcon } from "./store";
+import { iconGeom, renderIcon } from "./store";
 
 export interface SiteImage { file: string; w: number; h: number; pixels: Uint8Array }
 
@@ -239,22 +239,68 @@ function shareCard(src: SiteSources): SiteImage {
 
 // ------------------------------------------------------------------ icons
 
-/** The opaque icons' backdrop: the wallpaper, then the icon, so its outline still rings the art. */
-function onWallpaper(S: number, pad: number, heads: boolean, step: number): Canvas {
+/** The site's mark: the extension's TV (store.ts, drawn without its watchers), a deliberate 2×2 power LED from 32 px up, and from 45 px up
+ *  two watchers drawn as audience silhouettes inside the screen: a round head on a neck over shoulders, cut by the screen's bottom edge,
+ *  against the sea. Juno: a dark cloud puff over a mustard hoodie. Kiki: a pink head with two buns over a lilac collar. */
+function mark(S: number, pad: number, watchers: boolean): Uint8Array {
+  const img = renderIcon(S, pad, false);
+  const G = iconGeom(S, pad);
+  if (S >= 32) {
+    // The store icon's single glow pixel, grown to a 2×2 lamp on the bezel's bottom-right.
+    const lx = G.x1 - G.bezel - 1, ly = G.y1 - Math.max(1, Math.floor(G.bezel / 2)) - 1;
+    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) img[(ly + dy) * S + lx + dx] = ci("glow", dx + dy === 0 ? 0 : 1);
+  }
+  if (!watchers) return img;
+  const sw = G.sx1 - G.sx0 - 1;
+  const R = Math.max(3, Math.round(sw * 0.1));
+  const g = blank(S, S);
+  const put = (x: number, y: number, ch: string): void => { const row = g[y]; if (row && x >= 0 && x < S) row[x] = ch; };
+  const bottom = G.sy1 - 1;
+  const figure = (cx: number, hair: string, top: string, skin: string, buns: boolean): void => {
+    const cy = bottom - Math.round(R * 2.3);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const px = x + 0.5, py = y + 0.5;
+      // Shoulders: a rounded block from just under the neck to the screen's bottom edge.
+      const sy = cy + R + 1.5, half = R * 1.75;
+      if (py >= sy && y <= bottom && Math.abs(px - cx) < half - Math.max(0, (sy + R * 0.6 - py) * 1.2)) put(x, y, top);
+      // Neck.
+      if (py >= cy + R - 0.5 && py < sy + 0.5 && Math.abs(px - cx) < R * 0.45) put(x, y, skin);
+      // Head (hair, seen from behind).
+      if (Math.hypot(px - cx, py - cy) < R) put(x, y, hair);
+      if (!buns) for (const t of [-150, -110, -70, -30]) {
+        const r = (t * Math.PI) / 180;
+        if (Math.hypot(px - cx - Math.cos(r) * R * 0.8, py - cy - Math.sin(r) * R * 0.8) < R * 0.45) put(x, y, hair);
+      }
+      if (buns) for (const sx of [-1, 1]) if (Math.hypot(px - cx - sx * R * 0.9, py - cy + R * 0.85) < R * 0.5) put(x, y, hair);
+    }
+  };
+  figure(G.sx0 + 1 + sw * 0.25, "H", "h", "j", false);
+  figure(G.sx0 + 1 + sw * 0.8, "K", "v", "k", true);
+  const fig = render(g, { H: { ramp: "hairDark", hi: true }, h: { ramp: "mustard", hi: true }, j: { ramp: "skinDeep", tone: 2 }, K: { ramp: "pink", hi: true }, v: { ramp: "lilac", hi: true }, k: { ramp: "skinTan", tone: 2 } });
+  // Only inside the screen (its plum inset line stays the frame), so the figures are cut by the screen's bottom edge, not floating.
+  for (let y = G.sy0 + 1; y <= bottom; y++) for (let x = G.sx0 + 1; x < G.sx1; x++) {
+    const v = fig[y * S + x] ?? 0;
+    if (v !== 0) img[y * S + x] = v;
+  }
+  return img;
+}
+
+/** The opaque icons' backdrop: the wallpaper, then the mark, so its outline still rings the art. */
+function onWallpaper(S: number, pad: number, step: number): Canvas {
   const c = new Canvas(S, S);
   wallpaper(c, 0, 0, S, S, step);
-  c.blit(renderIcon(S, pad, heads), S, S, 0, 0);
+  c.blit(mark(S, pad, true), S, S, 0, 0);
   return c;
 }
 
-function plain(S: number, pad: number, heads = S >= 48): Canvas {
+function plain(S: number, pad: number): Canvas {
   const c = new Canvas(S, S);
-  c.blit(renderIcon(S, pad, heads), S, S, 0, 0);
+  c.blit(mark(S, pad, S >= 45), S, S, 0, 0);
   return c;
 }
 
-/** The biggest art that fits the maskable safe zone: 12 art px of margin puts the farthest pixel corner 200 px from the centre. */
-const MASKABLE_PAD = 12;
+/** Maskable margin: 14 art px puts the farthest pixel corner 182 px from the centre, about 10% inside the safe circle's 204.8 px. */
+const MASKABLE_PAD = 14;
 
 /** Every opaque pixel corner must lie within 40% of the icon's size from its centre (the W3C maskable safe zone). */
 function assertSafeZone(img: Uint8Array, S: number): void {
@@ -271,13 +317,13 @@ export function buildSiteIcons(): SiteImage[] {
   const add = (file: string, c: Canvas, k: number): void => { out.push({ file, w: c.w * k, h: c.h * k, pixels: k === 1 ? c.px : c.upscale(k) }); };
   add("favicon-16.png", plain(16, 0), 1);
   add("favicon-32.png", plain(32, 0), 1);
-  // iOS fills transparency with black and rounds the corners itself, so the touch icon is opaque with 6 art px of margin.
-  add("apple-touch-icon.png", onWallpaper(45, 5, true, 8), 4);
+  // iOS fills transparency with black and rounds the corners itself, so the touch icon is opaque with 5 art px of margin.
+  add("apple-touch-icon.png", onWallpaper(45, 5, 8), 4);
   add("icon-192.png", plain(48, 1), 4);
   add("icon-512.png", plain(64, 2), 8);
   // Maskable: full-bleed wallpaper; the art stays inside the centre circle (radius 40% = 204.8 px), checked here.
-  assertSafeZone(renderIcon(64, MASKABLE_PAD, true), 64);
-  add("icon-maskable-512.png", onWallpaper(64, MASKABLE_PAD, true, 8), 8);
+  assertSafeZone(mark(64, MASKABLE_PAD, true), 64);
+  add("icon-maskable-512.png", onWallpaper(64, MASKABLE_PAD, 8), 8);
   return out;
 }
 

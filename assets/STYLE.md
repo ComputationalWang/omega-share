@@ -395,6 +395,9 @@ I weighed three directions for the share card before drawing any pixels:
 
 - **One mark everywhere.** The site icons reuse the extension's wood TV (set j), drawn natively per size. A new glyph mark (say an Ω) was considered and dropped.
   At 16 px a lone letter reads as a generic symbol, and two marks for one product would split recognition between the tab and the toolbar.
+- **The watchers are people, not lumps** (judge polish): from 45 px up, two audience silhouettes sit inside the screen, cut by its bottom edge, against the sea:
+  a round head, a skin-shade neck, then shoulders in the avatar's top colour. Separate head, neck and shoulders are what make a silhouette read as a person at 45 to 64 art px.
+  The power light is a deliberate 2×2 glow LED from 32 px up, not a stray pixel.
 - **Opaque icons sit on the wall.** The apple-touch and maskable icons stand on the room's dusk wallpaper (wall shade with lit lozenges), not on black or white,
   so on a home screen they look like a corner of the room. The plum outline rings the TV on top of the wallpaper, as it does in the room.
 - **A corner TV faces the camera.** In the 2:1 projection, a screen standing in the back corner at 45° faces the viewer head-on. That's why the share card's

@@ -33,8 +33,8 @@
   .mask.circle { border-radius: 50%; }
   .mask.squircle { border-radius: 30%; }
   .mask.drop { border-radius: 50% 50% 50% 12%; }
-  .mask.minimum { width: 102px; height: 102px; border-radius: 50%; display: grid; place-items: center; }
-  .mask.minimum img { flex: none; }
+  .mask.minimum { width: 102px; height: 102px; border-radius: 50%; } /* the 80% circle: 102 of 128 px, the image centred by -13 px margins */
+  .mask.minimum img { margin: -13px; }
   .ios { width: 120px; height: 120px; border-radius: 27px; overflow: hidden; }
   .ios img { width: 120px; height: 120px; }
   .safe { position: relative; }
