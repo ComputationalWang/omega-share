@@ -63,8 +63,8 @@ export interface AmoClient {
   versions(): Promise<AmoVersion[]>;
   /** Uploads `zip` for the listed channel and waits for AMO's validator. Resolves to the upload uuid. */
   upload(zip: Uint8Array, filename: string): Promise<string>;
-  /** Creates a version from an upload, then attaches the sources zip to it. */
-  createVersion(uploadUuid: string, sources: Uint8Array, filename: string): Promise<AmoVersion>;
+  /** Creates a version from an upload, with en-US release notes when given, then attaches the sources zip to it. */
+  createVersion(uploadUuid: string, sources: Uint8Array, filename: string, options?: { readonly notes?: string }): Promise<AmoVersion>;
 }
 
 export interface AmoClientOptions {
@@ -150,8 +150,10 @@ export function amoClient({ credentials, fetch: fetchImpl = fetch, now = Date.no
       }
       throw new Error(`AMO had not validated upload ${uuid} after ${String((UPLOAD_POLLS * UPLOAD_POLL_MS) / 1000)} s`);
     }),
-    createVersion: guarded(async (uploadUuid: string, sources: Uint8Array, filename: string) => {
-      const created = await call(AmoVersion, "POST", `${addonUrl}versions/`, { upload: uploadUuid, compatibility: ["firefox", "android"] });
+    createVersion: guarded(async (uploadUuid: string, sources: Uint8Array, filename: string, { notes }: { readonly notes?: string } = {}) => {
+      if (notes?.trim() === "") throw new Error("refusing empty release notes");
+      const body = { upload: uploadUuid, compatibility: ["firefox", "android"], ...(notes === undefined ? {} : { release_notes: { "en-US": notes } }) };
+      const created = await call(AmoVersion, "POST", `${addonUrl}versions/`, body);
       const form = new FormData();
       form.append("source", new File([new Uint8Array(sources)], filename, { type: "application/zip" }));
       return call(AmoVersion, "PATCH", `${addonUrl}versions/${String(created.id)}/`, form);
@@ -223,4 +225,21 @@ export function submitProblems({ local, amoVersions, dirty, hashes }: SubmitChec
     if (built !== fresh) problems.push(`the ${zip} zip (sha256 ${built}) differs from a fresh build (sha256 ${fresh}): rerun bun run ext:store`);
   }
   return problems;
+}
+
+/**
+ * `ext:amo submit [--notes <text> | --notes-file <path>]` (OME-794): the version's en-US release notes, or undefined
+ * without either option. Refuses empty notes, a missing value, both options, a repeat and anything else.
+ */
+export function submitNotes(args: readonly string[], readText: (path: string) => string): string | undefined {
+  let notes: string | undefined;
+  for (let i = 0; i < args.length; i += 2) {
+    const [flag, value] = [args[i], args[i + 1]];
+    if (flag !== "--notes" && flag !== "--notes-file") throw new Error(`unknown argument ${String(flag)}: use --notes <text> or --notes-file <path>`);
+    if (value === undefined) throw new Error(`${flag} needs a value`);
+    if (notes !== undefined) throw new Error("give release notes once, with --notes or --notes-file");
+    notes = (flag === "--notes" ? value : readText(value)).trim();
+    if (notes === "") throw new Error(`refusing empty release notes from ${flag}`);
+  }
+  return notes;
 }
