@@ -278,13 +278,13 @@ const motionSeen = (page: Page): Promise<Motion[]> =>
     return out;
   });
 
-/** Asserts nothing longer than a blink ran since the page opened (the log is cumulative, so ask after each trigger). */
 /**
  * Set (l)'s reduced-motion bubble (OME-730) shows at once and fades out linearly: opacity only, nothing moves. It is
  * the one allowed long animation, and only while its keyframes stay opacity-only.
  */
 const REDUCED_FADE = "ui-float-life-reduced";
 
+/** Asserts nothing longer than a blink ran since the page opened (the log is cumulative, so ask after each trigger). */
 async function expectStill(page: Page, step: string): Promise<void> {
   await page.waitForTimeout(150);
   const long = (await motionSeen(page)).filter((m) => m.ms > BLINK_MS && !m.what.replace(/^running /, "").startsWith(REDUCED_FADE));

@@ -84,6 +84,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   /** Per speaker, the `expiresAt` of the last bubble handed to `floats`: a new one is a new message. */
   const floated = new Map<MemberId, number>();
   const speaking = new Set<MemberId>();
+  // Hidden (full screen, the room popped out) the layer has no layout and drops its animations: catch up when it shows.
+  if (typeof ResizeObserver === "function") new ResizeObserver(() => {
+    floats.reflow();
+  }).observe(bubbles);
   const badges = createEmoteBadges(bubbles, timers);
   /** The seats as last drawn, for the emote lift (a sitter's sticker sits lower). */
   let seated: readonly (MemberId | null)[] = [];

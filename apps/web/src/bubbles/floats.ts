@@ -47,6 +47,12 @@ export interface Floats {
   settle(id: MemberId, x: number, y: number): void;
   /** Drop the bubbles of anyone not in `ids` (they left). */
   keep(ids: { has(id: MemberId): boolean }): void;
+  /**
+   * The layer was hidden or shown (full screen, the room popped out and back): a hidden subtree has no layout and no
+   * CSS animations. Puts every live bubble's animation back at its age, and measures, places and stacks the ones said
+   * while hidden. Call it on the layer's resize, not per frame.
+   */
+  reflow(): void;
 }
 
 export interface FloatsOptions {
@@ -80,6 +86,8 @@ interface Slot {
   h: number;
   push: number;
   stacked: boolean;
+  /** False while said with the stage hidden (it read 0×0): not placed or stacked until `reflow` measures it. */
+  measured: boolean;
   timer: unknown;
 }
 
@@ -99,7 +107,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     const outer = el("div", { className: "float-slot", hidden: true });
     outer.append(p);
     layer.append(outer);
-    return { outer, p, who, text, state: FREE, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, push: 0, stacked: false, timer: null };
+    return { outer, p, who, text, state: FREE, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, push: 0, stacked: false, measured: false, timer: null };
   });
   /** Live bubbles, newest first, rebuilt per resolve (no allocation). */
   const order: Slot[] = [];
@@ -123,6 +131,9 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       free(s);
       return;
     }
+    // The leave fade starts now; only the rise keeps an adopted bubble's head start.
+    const delay = s.p.style.animationDelay;
+    if (delay !== "") s.p.style.animationDelay = `${delay}, 0s`;
     s.p.classList.add("is-leaving");
     s.timer = o.setTimer(() => {
       free(s);
@@ -163,7 +174,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
    */
   const resolve = (): void => {
     order.length = 0;
-    for (const s of slots) if (s.state === LIVE) order.push(s);
+    for (const s of slots) if (s.state === LIVE && s.measured) order.push(s);
     order.sort((a, b) => b.seq - a.seq);
     const reduced = o.reducedMotion.matches;
     for (let i = 0; i < order.length; i++) {
@@ -242,7 +253,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       const size = measure(s.p);
       s.w = size.w;
       s.h = size.h;
-      placeBox(s);
+      s.measured = size.w > 0 || size.h > 0;
+      if (s.measured) placeBox(s);
       s.p.style.animationDelay = elapsed > 0 ? `-${String(elapsed)}ms` : "";
       s.p.classList.add("is-live");
       s.timer = o.setTimer(() => {
@@ -258,7 +270,27 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       for (const s of slots) {
         if (s.state === FREE || s.speaker !== id) continue;
         anchor(s, x, y);
+        if (!s.measured) continue;
         placeBox(s);
+        any = true;
+      }
+      if (any) resolve();
+    },
+    reflow() {
+      const now = o.now();
+      let any = false;
+      for (const s of slots) {
+        if (s.state !== LIVE) continue;
+        const age = now - s.startedAt;
+        s.p.style.animationDelay = age > 0 ? `-${String(age)}ms` : "";
+        if (!s.measured) {
+          const size = measure(s.p);
+          if (size.w === 0 && size.h === 0) continue;
+          s.w = size.w;
+          s.h = size.h;
+          s.measured = true;
+          placeBox(s);
+        }
         any = true;
       }
       if (any) resolve();

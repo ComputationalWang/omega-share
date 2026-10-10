@@ -115,7 +115,7 @@ test("2 per speaker: a third line sends the oldest away; the bubbles fade out af
 async function expectCentred(page: Page, text: string): Promise<void> {
   const p = page.locator(".ui-float").filter({ hasText: text });
   await expect(p).toBeVisible();
-  const box = await p.evaluate((e) => ({ left: parseFloat((e as HTMLElement).style.left), w: (e as HTMLElement).offsetWidth, cls: e.className }));
+  const box = await p.evaluate((e) => ({ left: parseFloat((e as HTMLElement).style.left), w: (e as HTMLElement).offsetWidth, cls: e.getAttribute("class") ?? "" }));
   expect(box.w).toBeGreaterThan(0);
   expect(Math.abs(box.left + box.w / 2)).toBeLessThanOrEqual(1);
   expect(box.cls).not.toMatch(/tail-sw|tail-se/);
