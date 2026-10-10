@@ -60,7 +60,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
   function frameKey(avatar: number, p: Pose, still: boolean): string | null {
     if (frames === null) return null;
     const d = DIRS.indexOf(p.dir);
-    if (p.walking) return frames.walk[avatar]?.[d]?.[p.step] ?? null;
+    if (p.walking) return frames.walk8[avatar]?.[d]?.[p.step] ?? null;
     const rest = frames.rest[avatar];
     const cycle = (p.sitting ? rest?.sit : rest?.idle)?.[d];
     if (cycle === undefined) return null;

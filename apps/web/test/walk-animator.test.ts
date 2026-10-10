@@ -28,7 +28,7 @@ function setup(opts: { reduced?: boolean } = {}) {
   const draws: { id: string; pose: Pose; frame: string | null }[] = [];
   const stickers: { id: string; frame: string | null; x: number; y: number }[] = [];
   let renders = 0;
-  const walks = createWalks({ reducedMotion: () => opts.reduced ?? false });
+  const walks = createWalks({ reducedMotion: () => opts.reduced ?? false, smooth: () => false });
   walks.setGrid(walkGrid(DEFAULT_LAYOUT));
   const anim = createAnimator({
     walks,

@@ -164,7 +164,7 @@ describe("walks", () => {
 });
 
 test("a new target on the cell just ahead mid-step finishes the step instead of jumping", () => {
-  const walks = createWalks({ reducedMotion: () => false });
+  const walks = createWalks({ reducedMotion: () => false, smooth: () => false });
   walks.setGrid(grid);
   const pose = emptyPose();
   walks.place([standAt("a", 9, 5)], 0);
@@ -177,7 +177,7 @@ test("a new target on the cell just ahead mid-step finishes the step instead of 
 });
 
 test("the same layout again (its furniture atlas arriving) doesn't stop the next walk", () => {
-  const walks = createWalks({ reducedMotion: () => false });
+  const walks = createWalks({ reducedMotion: () => false, smooth: () => false });
   walks.setGrid(grid);
   const pose = emptyPose();
   walks.place([standAt("a", 9, 5)], 0);

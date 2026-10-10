@@ -138,7 +138,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
 
   // Walking (OME-408): every client walks avatars to their spot itself; frames run only while someone walks.
   const reduced = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
-  const walks = createWalks({ reducedMotion: () => reduced.matches });
+  const walks = createWalks({ reducedMotion: () => reduced.matches, smooth: () => false });
   let motion: MotionAtlas | null = null;
   let motionLoad = false;
   const animator = createAnimator({
