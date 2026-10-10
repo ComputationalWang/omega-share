@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { amoClient, amoCredentialsFromEnv, statusReport, submitProblems } from "./amo";
+import { amoClient, amoCredentialsFromEnv, statusReport, submitNotes, submitProblems } from "./amo";
 import { buildStorePackage, packageVersion } from "./package";
 import { buildSourcesPackage } from "./sources";
 
@@ -14,12 +14,12 @@ const REPO = join(import.meta.dir, "..", "..", "..");
 const OUT = join(import.meta.dir, "..", ".output");
 const sha256 = (path: string): string => createHash("sha256").update(readFileSync(path)).digest("hex");
 
-const [command] = process.argv.slice(2);
+const [command, ...args] = process.argv.slice(2);
 try {
   if (command === "status") await status();
-  else if (command === "submit") await submit();
+  else if (command === "submit") await submit(submitNotes(args, (path) => readFileSync(path, "utf8")));
   else {
-    console.error("usage: bun run ext:amo status|submit (AMO_JWT_ISSUER and AMO_JWT_SECRET in the environment)");
+    console.error("usage: bun run ext:amo status | submit [--notes <text> | --notes-file <path>] (AMO_JWT_ISSUER and AMO_JWT_SECRET in the environment)");
     process.exit(2);
   }
 } catch (e) {
@@ -33,7 +33,7 @@ async function status(): Promise<void> {
   console.log(statusReport(addon, versions));
 }
 
-async function submit(): Promise<void> {
+async function submit(notes: string | undefined): Promise<void> {
   const amo = amoClient({ credentials: amoCredentialsFromEnv(process.env) });
   const version = packageVersion();
   const built = { firefox: join(OUT, `omega-share-${version}-firefox.zip`), sources: join(OUT, `omega-share-${version}-sources.zip`) };
@@ -55,11 +55,11 @@ async function submit(): Promise<void> {
 
   console.log(`uploading ${basename(built.firefox)} (listed) from ${head}…`);
   const uuid = await amo.upload(readFileSync(built.firefox), basename(built.firefox));
-  const created = await amo.createVersion(uuid, readFileSync(built.sources), basename(built.sources));
+  const created = await amo.createVersion(uuid, readFileSync(built.sources), basename(built.sources), notes === undefined ? {} : { notes });
   const addon = await amo.addon();
   console.log(
     [
-      `submitted ${created.version} (listed) for review`,
+      `submitted ${created.version} (listed) for review${notes === undefined ? ", no release notes" : " with release notes"}`,
       `  version: ${created.edit_url ?? `https://addons.mozilla.org/en-US/developers/addon/${addon.slug}/versions/${String(created.id)}`}`,
       `  commit:  ${head}`,
       `  ${basename(built.firefox)} sha256 ${hashes.firefox.built}`,
