@@ -1,5 +1,5 @@
 # The merge gate on GitHub (ADR 0039 §7, OME-816): `bun run check`, the same
-# command agents run locally. e2e and perf stay local for now (OME-822).
+# command agents run locally. e2e runs in e2e.yml (OME-822); perf stays local.
 name: check
 
 on:
