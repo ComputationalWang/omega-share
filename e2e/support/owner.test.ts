@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { decideReuse, describeOwner, listOwners, readOwner, reapTargets, removeOwner, writeOwner, type Owner } from "./owner";
+import { decideReuse, describeOwner, ownerDir, listOwners, readOwner, reapTargets, removeOwner, writeOwner, type Owner } from "./owner";
 
 // OME-821: a server the harness starts carries an owner file; it is reused only by the same agent at the same HEAD,
 // and anything else is refused with the owner's name instead of being silently reused.
@@ -98,6 +98,14 @@ describe("owner files", () => {
     expect(readOwner(10_300, dir)).not.toBeNull();
     removeOwner(10_300, dir, 4242);
     expect(readOwner(10_300, dir)).toBeNull();
+  });
+});
+
+describe("ownerDir", () => {
+  test("is machine-wide, never the per-run TMPDIR (Paperclip gives each run its own)", () => {
+    expect(ownerDir({ TMPDIR: "/tmp/paperclip-run-x", XDG_RUNTIME_DIR: "/run/user/1000" })).toBe("/run/user/1000/omega-e2e-owners");
+    expect(ownerDir({ TMPDIR: "/tmp/paperclip-run-x" }, 1000)).toBe("/tmp/omega-e2e-owners-1000");
+    expect(ownerDir({ OMEGA_OWNER_DIR: "/x", XDG_RUNTIME_DIR: "/run/user/1000" })).toBe("/x");
   });
 });
 
