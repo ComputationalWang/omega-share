@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { decideReuse, describeOwner, ownerDir, listOwners, readOwner, reapTargets, removeOwner, writeOwner, type Owner } from "./owner";
+import { claimOwner, decideReuse, describeOwner, ownerAlive, ownerDir, listOwners, readOwner, reapTargets, removeOwner, writeOwner, type Owner } from "./owner";
 
 // OME-821: a server the harness starts carries an owner file; it is reused only by the same agent at the same HEAD,
 // and anything else is refused with the owner's name instead of being silently reused.
@@ -11,7 +11,7 @@ const QA2 = "d72569af-a258-4057-8723-7b94b7d96755";
 const SHA = "a".repeat(40);
 const OTHER_SHA = "b".repeat(40);
 
-const owner = (over: Partial<Owner> = {}): Owner => ({ port: 10_300, pid: 4242, pgid: 4243, agent: QA, sha: SHA, cmd: "bun e2e/fixtures/server.ts", startedAt: "2026-10-10T20:00:00.000Z", ...over });
+const owner = (over: Partial<Owner> = {}): Owner => ({ port: 10_300, pid: 4242, pgid: 4243, agent: QA, sha: SHA, cmd: "bun e2e/fixtures/server.ts", startedAt: "2026-10-10T20:00:00.000Z", watch: 0, ...over });
 const alive = (): boolean => true;
 const dead = (): boolean => false;
 
@@ -20,8 +20,14 @@ describe("decideReuse", () => {
     expect(decideReuse({ inUse: false, owner: null, alive, agent: QA, sha: SHA })).toEqual({ kind: "start", stale: false });
   });
 
-  test("our own live server at HEAD: reuse it", () => {
+  test("our own standalone server at HEAD: reuse it", () => {
     expect(decideReuse({ inUse: true, owner: owner(), alive, agent: QA, sha: SHA })).toEqual({ kind: "reuse" });
+  });
+
+  test("our own server that another live run started: refused, or that run's teardown would kill it mid-test", () => {
+    const d = decideReuse({ inUse: true, owner: owner({ watch: 777 }), alive, agent: QA, sha: SHA });
+    expect(d.kind).toBe("refuse");
+    if (d.kind === "refuse") expect(d.reason).toMatch(/another run of yours.*777/);
   });
 
   test("another agent's server: refused, naming that agent", () => {
@@ -49,9 +55,10 @@ describe("decideReuse", () => {
     expect(decideReuse({ inUse: false, owner: owner({ agent: QA2 }), alive: dead, agent: QA, sha: SHA })).toEqual({ kind: "start", stale: true });
   });
 
-  test("a dead owner but the port still answers: refused as unowned", () => {
+  test("our launcher is gone but the port still answers: an orphan of ours, refused, pointing at e2e:reap", () => {
     const d = decideReuse({ inUse: true, owner: owner(), alive: dead, agent: QA, sha: SHA });
     expect(d.kind).toBe("refuse");
+    if (d.kind === "refuse") expect(d.reason).toContain("bun run e2e:reap");
   });
 
   test("a live owner whose port is not up yet: refused, not raced", () => {
@@ -92,6 +99,12 @@ describe("owner files", () => {
     expect(listOwners(dir)).toEqual([]);
   });
 
+  test("claim is exclusive: a second launcher for the same port loses", () => {
+    expect(claimOwner(owner(), dir)).toBe(true);
+    expect(claimOwner(owner({ pid: 5151, agent: QA2 }), dir)).toBe(false);
+    expect(readOwner(10_300, dir)?.pid).toBe(4242);
+  });
+
   test("remove only drops the file when it is still the given launcher's", () => {
     writeOwner(owner(), dir);
     removeOwner(10_300, dir, 9999);
@@ -106,6 +119,13 @@ describe("ownerDir", () => {
     expect(ownerDir({ TMPDIR: "/tmp/paperclip-run-x", XDG_RUNTIME_DIR: "/run/user/1000" })).toBe("/run/user/1000/omega-e2e-owners");
     expect(ownerDir({ TMPDIR: "/tmp/paperclip-run-x" }, 1000)).toBe("/tmp/omega-e2e-owners-1000");
     expect(ownerDir({ OMEGA_OWNER_DIR: "/x", XDG_RUNTIME_DIR: "/run/user/1000" })).toBe("/x");
+  });
+});
+
+describe("ownerAlive", () => {
+  test("a recycled pid is not our launcher: no match on /proc cmdline, so never signalled", () => {
+    // This test process is alive but isn't serve.ts, nor the recorded command.
+    expect(ownerAlive(owner({ pid: process.pid, pgid: process.pid, cmd: "bun apps/server/src/index.ts --nope" }))).toBe(false);
   });
 });
 

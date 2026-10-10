@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { AGENTS, LEGACY_BLOCK, MAX_SLOT, agentIdentity, blockPorts, portBlock, resolvePorts, slotFor } from "./ports";
+import { AGENTS, LEGACY_BLOCK, MAX_SLOT, agentIdentity, blockPorts, cdpPorts, portBlock, resolvePorts, slotFor } from "./ports";
 
 // OME-821: every agent gets its own port block from its identity, so parallel `bun run e2e` runs never collide
 // and nobody hand-picks alternate ports any more.
@@ -67,6 +67,18 @@ describe("portBlock", () => {
       const ports = blockPorts(portBlock(slot));
       for (const runner of [4470, 5243, 8857]) expect(ports).not.toContain(runner);
     }
+  });
+});
+
+describe("cdpPorts", () => {
+  test("the real lane's raw-CDP Chromiums debug on ports of the block, not fixed ones", () => {
+    for (const slot of [0, 5, 6]) {
+      const b = portBlock(slot);
+      const cdp = cdpPorts(b);
+      expect(cdp).toHaveLength(3);
+      for (const p of cdp) expect(blockPorts(b)).toContain(p);
+    }
+    expect(cdpPorts(portBlock(5))).not.toContain(9339);
   });
 });
 
