@@ -276,6 +276,17 @@ test("2 per speaker: a third message sends their oldest away (a short fade), the
   expect(texts().sort()).toEqual(["other", "three", "two"]);
 });
 
+test("a bubble sent away before its size arrived goes at once: never painted unplaced, nothing to fade", async () => {
+  // A join-time replay or a burst can bring a speaker's third line in the same task as their first.
+  const { floats, frame, shown, texts } = await setup();
+  floats.say(say("a", "one", 200));
+  floats.say(say("a", "two", 200));
+  floats.say(say("a", "three", 200));
+  expect(shown()).toHaveLength(2);
+  frame();
+  expect(texts().sort()).toEqual(["three", "two"]);
+});
+
 test("reduced motion: an early exit is instant", async () => {
   const { floats, texts } = await setup({ reduced: true });
   floats.say(say("a", "one", 200));
