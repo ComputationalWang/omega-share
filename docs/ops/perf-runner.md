@@ -18,7 +18,7 @@ bun run perf:result <job-id>                                   # next heartbeat.
 
 - Queue: `~/.local/state/omega-share/perf-queue/<job>/` (`OMEGA_PERF_QUEUE_DIR` overrides). `job.json` (sha, specs, requester, issue) → `running.json` while it runs → `result.json`, `run.log`, `report.md`, `report.json`.
 - One job at a time, oldest first. Own worktree `~/.local/state/omega-share/perf-worktree`; `bun install` and the build only when the sha differs from the last passed job (plus `perf/run.ts` stamps, OME-818).
-- Own ports 4420 / 5184 / 8798, so it never collides with QA e2e (4400/4410, 5173/5183, 8787/8797).
+- Own ports 4470 / 5243 / 8857 (proxy 4500, tunnel servers 8858–8863), so it never collides with an agent lane (4400–4430 / 5173–5203 / 8787–8817, proxies +30, tunnel servers +1…+6).
 - A job that throws, exceeds 90 min, or was running when the runner died is reported `failed` with a reason; it never hangs the queue.
 - Code: `perf/runner/` (`queue.ts` is unit-tested).
 
