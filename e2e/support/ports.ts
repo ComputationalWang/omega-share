@@ -5,7 +5,7 @@
 type Env = Readonly<Record<string, string | undefined>>;
 
 export interface PortBlock {
-  /** Fixture pages; the tunnel lanes' proxies sit at +30…+35. */
+  /** Fixture pages; the tunnel lanes' proxies sit at +30…+35, the real lane's raw-CDP Chromiums at +36…+38. */
   readonly fixtures: number;
   readonly web: number;
   /** The lobby server; spec-owned servers sit at +1…+8 and the tunnel-proxy upstream at +101. */
@@ -76,10 +76,15 @@ export function portBlock(slot: number): PortBlock {
   return { fixtures: b, web: b + 50, persistWeb: b + 60, server: b + 100, persistServer: b + 120, genericOn: b + 150, genericOff: b + 160 };
 }
 
+/** Remote-debugging ports for the real lane's raw-CDP Chromiums (real-youtube, real-ads). */
+export function cdpPorts(p: PortBlock): [number, number, number] {
+  return [p.fixtures + 36, p.fixtures + 37, p.fixtures + 38];
+}
+
 /** Every port a run on this block binds, the derived lanes included. */
 export function blockPorts(p: PortBlock): number[] {
   const range = (from: number, to: number): number[] => Array.from({ length: to - from + 1 }, (_, i) => from + i);
-  return [p.fixtures, ...range(p.fixtures + 30, p.fixtures + 35), p.web, p.persistWeb, ...range(p.server, p.server + 8), p.server + 101, p.persistServer, p.genericOn, p.genericOff];
+  return [p.fixtures, ...range(p.fixtures + 30, p.fixtures + 38), p.web, p.persistWeb, ...range(p.server, p.server + 8), p.server + 101, p.persistServer, p.genericOn, p.genericOff];
 }
 
 function override(env: Env, name: string, fallback: number): number {

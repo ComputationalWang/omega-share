@@ -1,10 +1,13 @@
 // `bun run e2e:reap` (OME-821): stops this agent's leftover e2e servers, found by owner file, never by process pattern.
 // Other agents' entries are listed and left alone.
 import { agentIdentity, agentName } from "./ports";
-import { OWNER_DIR, describeOwner, listOwners, ownerAlive, reapTargets, removeOwner, type Owner } from "./owner";
+import { OWNER_DIR, describeOwner, groupAlive, launcherAlive, listOwners, ownerAlive, reapTargets, removeOwner, type Owner } from "./owner";
 
+/** Only what still checks out as ours: a recycled pid or group id is never signalled. */
 const signal = (o: Owner, s: NodeJS.Signals): void => {
-  for (const target of [-o.pgid, o.pid]) {
+  const targets = [groupAlive(o) ? -o.pgid : null, launcherAlive(o) ? o.pid : null];
+  for (const target of targets) {
+    if (target === null) continue;
     try {
       process.kill(target, s);
     } catch {
