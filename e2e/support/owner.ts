@@ -3,12 +3,23 @@
 // anything else on the port is an error that names its owner. `bun run e2e:reap` reads the same files.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as v from "valibot";
 import { agentName } from "./ports";
 
-export const OWNER_DIR = process.env["OMEGA_OWNER_DIR"] ?? join(tmpdir(), "omega-e2e-owners");
+/**
+ * Shared by every agent on the machine, so it can't be os.tmpdir(): Paperclip gives each run a TMPDIR of its own.
+ * $XDG_RUNTIME_DIR is per user and cleared at boot, like the servers it describes.
+ */
+export function ownerDir(env: Readonly<Record<string, string | undefined>> = process.env, uid: number = process.getuid?.() ?? 0): string {
+  const forced = env["OMEGA_OWNER_DIR"];
+  if (forced !== undefined && forced !== "") return forced;
+  const runtime = env["XDG_RUNTIME_DIR"];
+  if (runtime !== undefined && runtime !== "") return join(runtime, "omega-e2e-owners");
+  return `/tmp/omega-e2e-owners-${String(uid)}`;
+}
+
+export const OWNER_DIR = ownerDir();
 
 const OwnerSchema = v.strictObject({
   port: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(65535)),
