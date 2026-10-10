@@ -1,0 +1,317 @@
+// OME-603 M7 hosted smoke (QA2 scratch, not part of e2e/**): full screen, join focus, pop-out room, report-a-room and (optionally) the takedown.
+// Creates EXACTLY ONE public room from the landing page (never retried) and never deletes it. A owner, B guest, headless chromium.
+//
+//   SMOKE_ORIGIN=https://omega-share.duckdns.org bun m7-smoke.ts                       # run 1: checks 1-5, leaves the room up
+//   SMOKE_ORIGIN=... WAIT_TAKEDOWN=1 [WAIT_TAKEDOWN_MS=1800000] bun m7-smoke.ts        # keeps A and B connected after the report, waits for the operator's takedown, then checks 6
+//   SMOKE_ORIGIN=... TAKEDOWN_ONLY=<roomId> bun m7-smoke.ts                            # after a takedown: only the after-takedown checks
+//   SMOKE_ORIGIN=http://localhost:5333 SMOKE_SERVER=http://localhost:9107 bun m7-smoke.ts   # local: web and server on different ports
+// OUT (default ./out) receives smoke.json (metrics.reportedRoomId) and screenshots. Exit code 1 on any failed check.
+import { chromium } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
+import { mkdirSync, writeFileSync } from "node:fs";
+
+const ORIGIN = (process.env["SMOKE_ORIGIN"] ?? "https://omega-share.duckdns.org").replace(/\/$/, "");
+const SERVER = (process.env["SMOKE_SERVER"] ?? ORIGIN).replace(/\/$/, "");
+const OUT = process.env["OUT"] ?? "out";
+const WAIT_TAKEDOWN = process.env["WAIT_TAKEDOWN"] === "1";
+const WAIT_TAKEDOWN_MS = Number(process.env["WAIT_TAKEDOWN_MS"] ?? 30 * 60_000);
+const TAKEDOWN_ONLY = process.env["TAKEDOWN_ONLY"] ?? "";
+const STEP_MS = 15_000;
+const TAKEN_DOWN = 4006;
+const NOTICE = "This room was closed by the omega-share team after a report.";
+const ROOM_URL = /\/r\/[a-z2-7]{26}$/;
+const NOTE = "M7 sign-off smoke test, please take down";
+const VIMEO = "https://vimeo.com/1084537";
+mkdirSync(OUT, { recursive: true });
+
+interface Row { check: string; ok: boolean; ms: number; detail: string }
+const rows: Row[] = [];
+const metrics: Record<string, unknown> = { origin: ORIGIN, server: SERVER, startedAt: new Date().toISOString(), mode: TAKEDOWN_ONLY !== "" ? "takedown-only" : WAIT_TAKEDOWN ? "wait-takedown" : "main" };
+let roomId = TAKEDOWN_ONLY;
+const save = (): void => writeFileSync(`${OUT}/smoke.json`, JSON.stringify({ ...metrics, roomId, rows }, null, 2));
+async function check(name: string, fn: () => Promise<string | undefined>): Promise<boolean> {
+  const t0 = Date.now();
+  try {
+    const detail = (await fn()) ?? "";
+    rows.push({ check: name, ok: true, ms: Date.now() - t0, detail });
+    console.log(`PASS ${name} (${String(Date.now() - t0)} ms) ${detail}`);
+    save();
+    return true;
+  } catch (e) {
+    const detail = e instanceof Error ? e.message.split("\n")[0] ?? "" : String(e);
+    rows.push({ check: name, ok: false, ms: Date.now() - t0, detail });
+    console.log(`FAIL ${name} (${String(Date.now() - t0)} ms) ${detail}`);
+    save();
+    return false;
+  }
+}
+function assert(cond: boolean, msg: string): asserts cond {
+  if (!cond) throw new Error(msg);
+}
+
+const id = (n: string): string => `[data-testid="${n}"]`;
+const site = {
+  nicknameInput: id("nickname-input"), avatarOption: id("avatar-option"), joinButton: id("join-button"), room: id("room"),
+  createRoomTitle: id("create-room-title"), createRoomPrivate: id("create-room-private"), createRoomSubmit: id("create-room-submit"),
+  roomClosed: id("room-closed"), roomRefused: id("room-refused"), sharedVideo: id("shared-video"), connectionStatus: id("connection-status"),
+  queuePanel: id("queue-panel"), queueUrl: id("queue-url"), queueAdd: id("queue-add"), chatInput: id("chat-input"),
+  fsRoot: id("fs-root"), fullscreenToggle: id("fullscreen-toggle"), fsStrip: id("fs-strip"), fsStripToggle: id("fs-strip-toggle"),
+  roomPopout: id("room-popout"), roomAway: id("room-away"), roomBringBack: id("room-bring-back"), poproomRoom: id("poproom-room"),
+  reportKey: id("report-key"), reportDialog: id("report-dialog"), reportNote: id("report-note"), reportSend: id("report-send"),
+  reportSent: id("report-sent"), reportClose: id("report-close"),
+} as const;
+
+interface Client { name: string; nick: string; ctx: BrowserContext; page: Page; csp: string[]; pageErrors: string[] }
+const browser = await chromium.launch({ channel: "chromium" });
+const all: Client[] = [];
+const watched = new WeakSet<Page>();
+function watch(c: Client, page: Page): void {
+  if (watched.has(page)) return;
+  watched.add(page);
+  page.on("console", (m) => {
+    const t = m.text();
+    if (t.startsWith("OMEGA-CSP") || /Content Security Policy|Trusted Type/i.test(t)) c.csp.push(t);
+  });
+  page.on("pageerror", (e) => c.pageErrors.push(String(e)));
+}
+async function newClient(name: string, nick: string): Promise<Client> {
+  const ctx = await browser.newContext();
+  await ctx.addInitScript(() => {
+    document.addEventListener("securitypolicyviolation", (e) => {
+      console.log(`OMEGA-CSP ${e.disposition} ${e.violatedDirective} ${e.blockedURI} ${location.pathname}`);
+    });
+    // Records the close code of every room socket (Playwright doesn't expose it).
+    const Native = window.WebSocket;
+    Reflect.set(window, "__closes", []);
+    window.WebSocket = class extends Native {
+      constructor(url: string | URL, protocols?: string | string[]) {
+        super(url, protocols);
+        this.addEventListener("close", (e) => {
+          const list: unknown = Reflect.get(window, "__closes");
+          if (Array.isArray(list)) list.push(e.code);
+        });
+      }
+    };
+  });
+  const c: Client = { name, nick, ctx, page: await ctx.newPage(), csp: [], pageErrors: [] };
+  watch(c, c.page);
+  ctx.on("page", (p) => watch(c, p));
+  all.push(c);
+  return c;
+}
+const closes = (p: Page): Promise<number[]> => p.evaluate(() => {
+  const l: unknown = Reflect.get(window, "__closes");
+  return Array.isArray(l) ? l.filter((x): x is number => typeof x === "number") : [];
+});
+const activeId = (p: Page): Promise<string> => p.evaluate(() => document.activeElement === document.body ? "<body>" : document.activeElement?.getAttribute("data-testid") ?? document.activeElement?.tagName ?? "none");
+
+async function enter(c: Client): Promise<void> {
+  await c.page.locator(site.nicknameInput).fill(c.nick, { timeout: STEP_MS });
+  await c.page.locator(site.avatarOption).nth(c.name === "A" ? 0 : 1).click({ timeout: STEP_MS });
+  await c.page.locator(site.joinButton).click({ timeout: STEP_MS });
+  await c.page.locator(site.room).waitFor({ timeout: STEP_MS });
+}
+const inFs = (p: Page): Promise<boolean> => p.evaluate((s) => document.fullscreenElement?.matches(s) === true, site.fsRoot);
+
+function cspCheck(name: string): Promise<boolean> {
+  return check(name, async () => {
+    const per = all.map((x) => `${x.name}:${String(x.csp.length)}/${String(x.pageErrors.length)}`);
+    metrics["cspAndPageErrors"] = per;
+    metrics["cspMessages"] = all.flatMap((x) => x.csp.map((m) => `${x.name}: ${m}`));
+    metrics["pageErrors"] = all.flatMap((x) => x.pageErrors.map((m) => `${x.name}: ${m}`));
+    assert(all.every((x) => x.csp.length === 0 && x.pageErrors.length === 0), `CSP violations / page errors (csp/errors): ${per.join(" ")}`);
+    return per.join(" ");
+  });
+}
+
+/** After the takedown (A and B may be given: their pages are checked on the way out). */
+async function afterTakedown(): Promise<void> {
+  const late = await newClient("L", "m7-late");
+  await check("6c a rejoin of /r/<id> is refused: takedown screen and the socket closes 4006", async () => {
+    await late.page.goto(`${ORIGIN}/r/${roomId}`, { timeout: STEP_MS });
+    await late.page.locator(site.nicknameInput).fill(late.nick, { timeout: STEP_MS });
+    await late.page.locator(site.avatarOption).first().click({ timeout: STEP_MS });
+    await late.page.locator(site.joinButton).click({ timeout: STEP_MS });
+    await late.page.locator(site.roomClosed).waitFor({ timeout: STEP_MS });
+    assert((await late.page.locator(site.roomClosed).getAttribute("data-reason")) === "taken-down", "room-closed data-reason is not taken-down");
+    assert((await late.page.locator(site.roomClosed).innerText()).includes(NOTICE), "takedown text missing");
+    const codes = await closes(late.page);
+    assert(codes.includes(TAKEN_DOWN), `close codes ${codes.join(",")}`);
+    await late.page.screenshot({ path: `${OUT}/rejoin-refused.png` });
+    return `closes ${codes.join(",")}`;
+  });
+  await check("6d GET /rooms does not list the room", async () => {
+    const res = await fetch(`${SERVER}/rooms`, { headers: { origin: ORIGIN } });
+    const text = await res.text();
+    assert(res.status === 200, `status ${String(res.status)}`);
+    assert(!text.includes(roomId), "room id still listed");
+    return `${String(res.status)}, ${String(text.length)} bytes`;
+  });
+  await check("6e POST /rooms/<id>/report answers room_not_found", async () => {
+    const res = await fetch(`${SERVER}/rooms/${roomId}/report`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json" }, body: JSON.stringify({ reason: "other", note: "after takedown" }) });
+    const text = await res.text();
+    assert(res.status === 404 && text.includes("room_not_found"), `${String(res.status)} ${text.slice(0, 120)}`);
+    return `${String(res.status)} room_not_found`;
+  });
+}
+
+let a: Client | undefined;
+let b: Client | undefined;
+try {
+  if (TAKEDOWN_ONLY !== "") {
+    assert(ROOM_URL.test(`/r/${TAKEDOWN_ONLY}`), "TAKEDOWN_ONLY is not a room id");
+    metrics["reportedRoomId"] = TAKEDOWN_ONLY;
+    await afterTakedown();
+    await cspCheck("7 no CSP violations or page errors");
+  } else {
+    a = await newClient("A", "m7-a");
+    b = await newClient("B", "m7-b");
+    const ca = a;
+    const cb = b;
+    const title = `m7 smoke ${new Date().toISOString().slice(11, 19)}`;
+
+    // 1. Create the room (the one creation), A joins, B joins, A shares a video.
+    const created = await check("1a owner A creates ONE public room from the landing page and joins; focus lands on the room's first key (not <body>)", async () => {
+      await ca.page.goto(`${ORIGIN}/`, { timeout: STEP_MS });
+      await ca.page.locator(site.createRoomTitle).fill(title, { timeout: STEP_MS });
+      await ca.page.locator(site.createRoomPrivate).uncheck({ timeout: STEP_MS });
+      await ca.page.locator(site.createRoomSubmit).click({ timeout: STEP_MS });
+      await ca.page.waitForURL(ROOM_URL, { timeout: STEP_MS });
+      roomId = new URL(ca.page.url()).pathname.split("/")[2] ?? "";
+      metrics["reportedRoomId"] = roomId;
+      save();
+      await enter(ca);
+      // OME-701: the landing form held focus and is gone; the room's first shown, enabled key takes it.
+      await ca.page.waitForTimeout(500);
+      const r = await ca.page.evaluate(() => {
+        const keys = "button:not([disabled]), input:not([disabled]):not([type=hidden]), select, textarea, a[href], [tabindex]:not([tabindex='-1'])";
+        const root = document.querySelector("main") ?? document.body;
+        const first = [...root.querySelectorAll<HTMLElement>(keys)].find((e) => e.checkVisibility() && e.closest("[inert]") === null);
+        const act = document.activeElement;
+        const name = (e: Element | null | undefined): string => e === null || e === undefined ? "none" : e === document.body ? "<body>" : `${e.tagName.toLowerCase()}[${e.getAttribute("data-testid") ?? ""}]`;
+        return { active: name(act), first: name(first), same: act === first, visible: act instanceof HTMLElement && act !== document.body && act.checkVisibility() };
+      });
+      assert(r.active !== "<body>" && r.visible, `focus after join is ${r.active}`);
+      assert(r.same, `focus after join is ${r.active}, the first key is ${r.first}`);
+      return `room ${roomId}, focus on ${r.active}`;
+    });
+    assert(created && roomId !== "", "no room: stopping (never retry a creation)");
+
+    await check("1b guest B joins /r/<id>; A shares a Vimeo video; both get the shared video", async () => {
+      await cb.page.goto(`${ORIGIN}/r/${roomId}`, { timeout: STEP_MS });
+      await enter(cb);
+      await ca.page.locator(site.queuePanel).waitFor({ timeout: STEP_MS });
+      await ca.page.locator(site.queueUrl).fill(VIMEO, { timeout: STEP_MS });
+      await ca.page.locator(site.queueAdd).click({ timeout: STEP_MS });
+      for (const x of [ca, cb]) await x.page.locator(site.sharedVideo).first().waitFor({ state: "attached", timeout: STEP_MS });
+      await ca.page.screenshot({ path: `${OUT}/a-shared.png` });
+    });
+
+    // 2. Full screen
+    await check("2 A enters full screen with the key (fs-root is the full-screen element, strip and video inside), leaves with exitFullscreen(); focus returns to the full-screen key", async () => {
+      await ca.page.locator(site.fullscreenToggle).click({ timeout: STEP_MS });
+      for (let i = 0; i < 60 && !(await inFs(ca.page)); i++) await ca.page.waitForTimeout(100);
+      assert(await inFs(ca.page), "document.fullscreenElement is not fs-root");
+      await ca.page.locator(site.fsStrip).waitFor({ state: "visible", timeout: STEP_MS });
+      assert(await ca.page.evaluate((s) => document.fullscreenElement?.querySelector(s) != null, site.sharedVideo), "shared video is not inside the full-screen element");
+      await ca.page.screenshot({ path: `${OUT}/a-fullscreen.png` });
+      await ca.page.locator(site.fsStripToggle).focus();
+      await ca.page.waitForTimeout(500);
+      await ca.page.evaluate(() => document.exitFullscreen());
+      for (let i = 0; i < 60 && (await inFs(ca.page)); i++) await ca.page.waitForTimeout(100);
+      assert(!(await inFs(ca.page)), "still in full screen");
+      await ca.page.locator(site.fsStrip).waitFor({ state: "hidden", timeout: STEP_MS });
+      await ca.page.waitForTimeout(300);
+      const act = await activeId(ca.page);
+      assert(act === "fullscreen-toggle", `focus after leaving full screen is ${act}`);
+      await ca.page.waitForTimeout(500); // a new request right as Chromium finishes leaving can be refused
+      return `focus on ${act}`;
+    });
+
+    // 3. Pop-out room
+    await check("3 A pops the room out (room.html shows the room), then brings it back; the main room is fine", async () => {
+      const [pop] = await Promise.all([ca.ctx.waitForEvent("page", { timeout: STEP_MS }), ca.page.locator(site.roomPopout).click({ timeout: STEP_MS })]);
+      await pop.waitForLoadState();
+      assert(new URL(pop.url()).pathname === "/room.html", `pop-out url ${pop.url()}`);
+      await pop.locator(`${site.poproomRoom} canvas`).waitFor({ state: "visible", timeout: STEP_MS });
+      await pop.locator(site.chatInput).waitFor({ state: "visible", timeout: STEP_MS });
+      await ca.page.locator(site.roomAway).waitFor({ state: "visible", timeout: STEP_MS });
+      assert(await ca.page.locator(site.sharedVideo).first().isVisible(), "the picture is not on the main tab while the room is popped out");
+      await pop.screenshot({ path: `${OUT}/popout.png` });
+      const closed = pop.waitForEvent("close", { timeout: STEP_MS });
+      await ca.page.locator(site.roomBringBack).click({ timeout: STEP_MS });
+      await closed;
+      await ca.page.locator(site.room).waitFor({ state: "visible", timeout: STEP_MS });
+      await ca.page.locator(site.roomAway).waitFor({ state: "hidden", timeout: STEP_MS });
+      await ca.page.locator(site.chatInput).waitFor({ state: "visible", timeout: STEP_MS });
+      assert((await ca.page.locator(site.connectionStatus).innerText()).trim() === "", "connection status not empty after bring-back");
+      assert(await ca.page.locator(site.sharedVideo).first().isVisible(), "video not visible after bring-back");
+      assert((await closes(ca.page)).length === 0, "A's room socket closed");
+    });
+
+    // 5. Report
+    await check("4 B reports the room (reason other + note) and sees the sent state; room id recorded", async () => {
+      await cb.page.locator(site.reportKey).scrollIntoViewIfNeeded({ timeout: STEP_MS });
+      await cb.page.locator(site.reportKey).click({ timeout: STEP_MS });
+      await cb.page.locator(site.reportDialog).waitFor({ state: "visible", timeout: STEP_MS });
+      await cb.page.getByRole("radio", { name: "Something else" }).check({ timeout: STEP_MS });
+      await cb.page.locator(site.reportNote).fill(NOTE, { timeout: STEP_MS });
+      const resp = cb.page.waitForResponse((r) => /\/rooms\/[^/]+\/report$/.test(new URL(r.url()).pathname) && r.request().method() === "POST", { timeout: STEP_MS });
+      await cb.page.locator(site.reportSend).click({ timeout: STEP_MS });
+      const status = (await resp).status();
+      await cb.page.locator(site.reportSent).waitFor({ state: "visible", timeout: STEP_MS });
+      await cb.page.screenshot({ path: `${OUT}/b-report-sent.png` });
+      assert((await cb.page.locator(site.reportSent).innerText()).includes("Thanks, we got it"), "sent text missing");
+      assert(status === 202, `report POST status ${String(status)}`);
+      await cb.page.locator(site.reportClose).click({ timeout: STEP_MS });
+      await cb.page.locator(site.reportDialog).waitFor({ state: "hidden", timeout: STEP_MS });
+      return `room ${roomId}, POST ${String(status)}`;
+    });
+    await cspCheck("5b no CSP violations or page errors in A and B (to here)");
+
+    // 6. Takedown
+    if (WAIT_TAKEDOWN) {
+      console.log(`WAITING for the takedown of ${roomId} (up to ${String(WAIT_TAKEDOWN_MS / 1000)} s): bun apps/server/src/cli.ts rooms takedown ${roomId}`);
+      const ok = await check("6a A and B are closed with the takedown screen after the operator's takedown", async () => {
+        const t0 = Date.now();
+        await Promise.all([ca, cb].map((x) => x.page.locator(site.roomClosed).waitFor({ state: "visible", timeout: WAIT_TAKEDOWN_MS })));
+        metrics["takedownSeenAfterMs"] = Date.now() - t0;
+        for (const x of [ca, cb]) {
+          assert((await x.page.locator(site.roomClosed).getAttribute("data-reason")) === "taken-down", `${x.name}: data-reason is not taken-down`);
+          assert((await x.page.locator(site.roomClosed).innerText()).includes(NOTICE), `${x.name}: takedown text missing`);
+        }
+        return `after ${String(Date.now() - t0)} ms`;
+      });
+      await check("6b both sockets closed with 4006 (TAKEN_DOWN) and did not reconnect", async () => {
+        assert(ok, "no takedown seen");
+        await ca.page.waitForTimeout(2000);
+        const out: string[] = [];
+        for (const x of [ca, cb]) {
+          const codes = await closes(x.page);
+          assert(codes.includes(TAKEN_DOWN) && codes.length === 1, `${x.name}: close codes ${codes.join(",")}`);
+          out.push(`${x.name}:${codes.join(",")}`);
+        }
+        await ca.page.screenshot({ path: `${OUT}/a-takedown.png` });
+        return out.join(" ");
+      });
+      await afterTakedown();
+      await cspCheck("7 no CSP violations or page errors (whole run)");
+    } else {
+      console.log(`room ${roomId} left up. After the operator's takedown: TAKEDOWN_ONLY=${roomId} bun m7-smoke.ts`);
+    }
+  }
+} catch (e) {
+  rows.push({ check: "harness", ok: false, ms: 0, detail: String(e) });
+  console.log(`FAIL harness threw: ${String(e)}`);
+  for (const [i, x] of all.entries()) await x.page.screenshot({ path: `${OUT}/error-${String(i)}.png` }).catch(() => undefined);
+} finally {
+  for (const x of all) await x.ctx.close().catch(() => undefined);
+  await browser.close();
+  const failed = rows.filter((r) => !r.ok);
+  console.log("\n| check | result | ms | detail |\n|---|---|---|---|");
+  for (const r of rows) console.log(`| ${r.check} | ${r.ok ? "PASS" : "FAIL"} | ${String(r.ms)} | ${r.detail.replace(/\|/g, "/")} |`);
+  console.log(`\nroom: ${roomId || "-"}`);
+  save();
+  console.log(`RESULT ${failed.length === 0 ? "GREEN" : `RED (${String(failed.length)})`}`);
+  process.exit(failed.length === 0 ? 0 : 1);
+}

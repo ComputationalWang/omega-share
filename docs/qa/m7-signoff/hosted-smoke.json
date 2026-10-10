@@ -1,0 +1,90 @@
+{
+  "origin": "https://omega-share.duckdns.org",
+  "server": "https://omega-share.duckdns.org",
+  "startedAt": "2026-10-10T02:25:35.042Z",
+  "mode": "wait-takedown",
+  "reportedRoomId": "4sxi63cd46peqlhzx24ewevqqy",
+  "cspAndPageErrors": [
+    "A:0/0",
+    "B:0/0",
+    "L:0/0"
+  ],
+  "cspMessages": [],
+  "pageErrors": [],
+  "takedownSeenAfterMs": 226927,
+  "roomId": "4sxi63cd46peqlhzx24ewevqqy",
+  "rows": [
+    {
+      "check": "1a owner A creates ONE public room from the landing page and joins; focus lands on the room's first key (not <body>)",
+      "ok": true,
+      "ms": 1127,
+      "detail": "room 4sxi63cd46peqlhzx24ewevqqy, focus on button[room-popout]"
+    },
+    {
+      "check": "1b guest B joins /r/<id>; A shares a Vimeo video; both get the shared video",
+      "ok": true,
+      "ms": 564,
+      "detail": ""
+    },
+    {
+      "check": "2 A enters full screen with the key (fs-root is the full-screen element, strip and video inside), leaves with exitFullscreen(); focus returns to the full-screen key",
+      "ok": true,
+      "ms": 1419,
+      "detail": "focus on fullscreen-toggle"
+    },
+    {
+      "check": "3 A pops the room out (room.html shows the room), then brings it back; the main room is fine",
+      "ok": true,
+      "ms": 316,
+      "detail": ""
+    },
+    {
+      "check": "4 B reports the room (reason other + note) and sees the sent state; room id recorded",
+      "ok": true,
+      "ms": 329,
+      "detail": "room 4sxi63cd46peqlhzx24ewevqqy, POST 202"
+    },
+    {
+      "check": "5b no CSP violations or page errors in A and B (to here)",
+      "ok": true,
+      "ms": 1,
+      "detail": "A:0/0 B:0/0"
+    },
+    {
+      "check": "6a A and B are closed with the takedown screen after the operator's takedown",
+      "ok": true,
+      "ms": 226935,
+      "detail": "after 226935 ms"
+    },
+    {
+      "check": "6b both sockets closed with 4006 (TAKEN_DOWN) and did not reconnect",
+      "ok": true,
+      "ms": 2047,
+      "detail": "A:4006 B:4006"
+    },
+    {
+      "check": "6c a rejoin of /r/<id> is refused: takedown screen and the socket closes 4006",
+      "ok": true,
+      "ms": 450,
+      "detail": "closes 4006"
+    },
+    {
+      "check": "6d GET /rooms does not list the room",
+      "ok": true,
+      "ms": 61,
+      "detail": "200, 142 bytes"
+    },
+    {
+      "check": "6e POST /rooms/<id>/report answers room_not_found",
+      "ok": true,
+      "ms": 19,
+      "detail": "404 room_not_found"
+    },
+    {
+      "check": "7 no CSP violations or page errors (whole run)",
+      "ok": true,
+      "ms": 0,
+      "detail": "A:0/0 B:0/0 L:0/0"
+    }
+  ]
+}
