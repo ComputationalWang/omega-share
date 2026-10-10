@@ -22,11 +22,14 @@ assets/
   furniture/furniture.png  # set g (M4/M5, lazy-load): 1024×512 indexed PNG-8, furniture catalogue v1
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
   store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
+  site/                 # set m (M9): the website's favicon.ico + PNGs, apple-touch 180, manifest 192/512 + maskable 512, og-card.png 1200×630,
+                        #   how-1-find / how-2-share / how-3-watch.png landing panels (368×224 each)
   ui/reference.css      # design spec for the DOM chrome (generated); apps/web ports what it needs
   preview/              # not shipped: sheets, avatar scene, room@1x/@2x, ui.html + ui-*.png screenshots (ui-playback*.png = set e, ui-tv.png = M1b TV frame, ui-owner*.png = set h, ui-rooms*@1x/@2x.png = set i, ui-house*/ui-queue/ui-setj-states@1x/@2x.png = set j), m7.html + ui-m7-*@1x/@2x.png (set k, M7 layouts), store.html (set j store kit source),
                         #   owner-edit@1x/@2x.png (set h edit mode in the room),
                         #   walk-/breathe-/emote-strip@4x.png, motion-scene@1x.png (frame strip) + .apng (animated),
-                        #   m8.html + ui-m8-*@1x/@2x.png (set l), walk8-strip@4x.png + walk-tiers@2x.apng (set l, Basic vs Smooth walk)
+                        #   m8.html + ui-m8-*@1x/@2x.png (set l), walk8-strip@4x.png + walk-tiers@2x.apng (set l, Basic vs Smooth walk),
+                        #   m9.html + ui-m9-*@1x/@2x.png (set m: icons, share card crops, the panels on light and dark pages)
                         #   ui-sheet@4x.png is ui/ui.png at 4×, so it is 1024×2048 on purpose: the sheet's height is a power of two with headroom
                         #   for later sets, and about 40% of it is still empty (the wall-colour band at the bottom). Not a packing bug.
   src/                  # generator (Bun, no deps) + mood boards
@@ -592,6 +595,88 @@ every 60° clockwise from 12 o'clock on a 24 px radius; the hub at `hubOrigin`. 
 - Focus order is on the mock-up (`ui-m8-desktop`, white badges): pause · seek · the room · pop out · log · emotes · message · send.
 
 **Bytes:** eager +5 455 B (`ui.png` +1 107, `ui.json` +794 gz, 7 new slices +952, `reference.css` +2 602 gz); lazy +4 978 B (`motion.png` +3 734, `motion.json` +1 244 gz). Set (l) total **+10 433 B**.
+
+## Set (m) site icons, share card, "how it works" panels (OME-762, M9, `site/`)
+
+The website's own files. They're served from the site root or the landing page, not from a Pixi atlas, so each is a standalone PNG (or ICO).
+Everything is drawn by `src/site.ts` and written by `bun assets/src/build.ts`. The build fails if a landing panel goes over 25 KB, the three panels go over 60 KB together,
+the share card reaches 150 KB, or the maskable icon's art leaves the safe zone. Preview: `preview/m9.html`, shot by `bun assets/src/shoot-m9.ts` into
+`preview/ui-m9-{icons,og,steps-light,steps-dark}@1x|2x.png`.
+
+### Site icons
+
+The mark is the extension's wood TV (`store/`), so the browser tab, the toolbar and the home screen show one product. Each size is drawn natively in art px and
+scaled by a whole number, never resampled.
+
+| File | Size | Bytes | Art | Use |
+|---|---|---|---|---|
+| `site/favicon.ico` | 16 + 32 | 498 | the two PNGs below, stored as PNG-in-ICO | `/favicon.ico` (browsers and crawlers ask for it unprompted) |
+| `site/favicon-16.png` | 16×16 | 192 | 16 art px at 1×: TV + dusk picture | `<link rel="icon" sizes="16x16">` |
+| `site/favicon-32.png` | 32×32 | 268 | 32 art px at 1×: + antenna, glitter, power light | `<link rel="icon" sizes="32x32">` |
+| `site/apple-touch-icon.png` | 180×180 | 732 | 45 art px at 4×, **opaque** on the dusk wallpaper, with the two watchers | `<link rel="apple-touch-icon">` (iOS fills transparency with black and rounds the corners itself) |
+| `site/icon-192.png` | 192×192 | 684 | 48 art px at 4×, transparent | manifest, `purpose: "any"` |
+| `site/icon-512.png` | 512×512 | 1 762 | 64 art px at 8×, transparent | manifest, `purpose: "any"` |
+| `site/icon-maskable-512.png` | 512×512 | 1 874 | 64 art px at 8×, full-bleed wallpaper, art 12 art px in from each edge | manifest, `purpose: "maskable"` |
+
+**Maskable safe zone:** the farthest opaque pixel corner is 200 px from the centre, inside the W3C safe circle (radius 40% = 204.8 px). `assertSafeZone` checks it on every build.
+The wallpaper is the room's wall shade with lit lozenges. It sits behind the art, so the plum outline still rings the TV.
+
+Suggested head (engineering owns the real one; W1):
+
+```html
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16">
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#2b1d2f">
+<meta property="og:image" content="https://<origin>/og-card.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="…see the alt text below…">
+<meta name="twitter:card" content="summary_large_image">
+```
+
+```json
+"icons": [
+  { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+  { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+  { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+]
+```
+
+`theme-color` / `background_color`: `#2b1d2f` (the page plum, `--ui-page`).
+
+### Share card
+
+| File | Size | Bytes |
+|---|---|---|
+| `site/og-card.png` | 1200×630 (600×315 art px at 2×), indexed PNG-8, opaque | 14 171 (cap 150 KB) |
+
+The real room (set b), its back corner centred, with a big wood TV standing on the corner console. A TV in the corner faces the camera head-on in this projection,
+so it's drawn flat. The screen shows a title card: the `logo/0` wordmark at 2× and "watch together" in a 5×7 lowercase pixel face, both on night sky, over the dusk
+sea. Juno, Pip, Mo and Kiki watch it from their armchairs.
+
+- **Crops:** the TV, the name and all four avatars sit inside the centre 630 px, so a square centre crop keeps them all. The full card is the 1.91:1 crop.
+  `preview/ui-m9-og@1x.png` shows the card at 480 px (a chat unfurl), at 382×200, square at 240 px and at 120 px.
+- **Alt text** (`og:image:alt`): *omega-share: four pixel-art friends in armchairs watch a big wood TV that reads "omega-share, watch together" in a cosy dusk room.*
+
+### "How it works" panels
+
+Three framed vignettes in one size. Each has its own plum outline and a 2 px wood frame (lit top-left, shaded bottom-right) round an opaque scene, so it reads the same on
+a white, cream, plum or near-black page. No lettering in the art: the landing's own text says the step, so it can be translated and read by screen readers.
+
+| File | Size | Bytes | Alt text |
+|---|---|---|---|
+| `site/how-1-find.png` | 368×224 (184×112 art px at 2×) | 1 491 | A browser window with a video on the page. The omega-share icon in the toolbar has a tick badge, and gold corner brackets mark the video it found. |
+| `site/how-2-share.png` | 368×224 | 2 197 | The omega-share popup under its toolbar icon, showing the video and a room, with a hand pressing the gold Share key. The video flies through an open door where a friend is waiting. |
+| `site/how-3-watch.png` | 368×224 | 3 231 | Four friends in armchairs, seen from behind, watch the same sunset video on a wood TV in a cosy room. |
+| **all three** | | **6 919 of 61 440** | |
+
+- **Display sizes:** `width="368" height="224"` (1 art px = 2 CSS px), or `184×112` CSS on narrow phones (1 art px = 1 CSS px = 2 device px on a 2× screen).
+  Any other size resamples the pixels. Always use `image-rendering: pixelated`.
+- **Format:** PNG-8 rather than WebP. Indexed pixel art at 2× is already 1.5 to 3.2 KB a panel. Lossless WebP (tested with ImageMagick) would save about 1.6 KB across all three
+  (6 919 → 5 348 B), which isn't worth a second format or an encoder dependency in the zero-dependency build.
+- **Suggested step captions** (the landing owns the words): *1 · The extension finds the video*, *2 · Share it into a room*, *3 · Sit together and watch*.
 
 ## Motion atlas (`avatars/motion.json`, set d)
 

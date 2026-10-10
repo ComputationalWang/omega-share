@@ -1,0 +1,148 @@
+<!doctype html>
+<!-- Set (m) (OME-762, M9): the website's icons, share card and "how it works" panels, shown at their real sizes, in their crops and
+     on light and dark pages. Shot by bun assets/src/shoot-m9.ts into preview/ui-m9-*@1x|2x.png. Not shipped. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>omega-share set (m): site icons, share card, how it works</title>
+<link rel="icon" href="../site/favicon.ico" sizes="32x32">
+<link rel="icon" href="../site/favicon-16.png" type="image/png" sizes="16x16">
+<style>
+  :root { --plum: #2b1d2f; --cream: #f4ead2; --muted: #cbbd9f; }
+  body { margin: 0; padding: 24px; background: #17111a; color: var(--cream); font: 500 14px/1.4 system-ui, sans-serif; display: grid; gap: 28px; justify-content: start; }
+  section { display: grid; gap: 12px; padding: 16px; background: var(--plum); width: 1240px; box-sizing: border-box; }
+  h2 { margin: 0; font-size: 16px; }
+  h3 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; }
+  p { margin: 0; }
+  .px { image-rendering: pixelated; display: block; }
+  .row { display: flex; gap: 20px; align-items: end; flex-wrap: wrap; }
+  figure { margin: 0; display: grid; gap: 6px; justify-items: start; }
+  figcaption { font-size: 12px; color: var(--muted); max-width: 380px; }
+  .light { background: #fbf8f3; color: #2b1d2f; }
+  .light figcaption, .light h3 { color: #5c5060; }
+  .chk { background: repeating-conic-gradient(#d8d4dc 0 25%, #f2f0f4 0 50%) 0 0 / 16px 16px; }
+
+  /* icons */
+  .tabbar { display: flex; gap: 2px; background: #dcd8d2; padding: 6px 8px 0; border-radius: 8px 8px 0 0; width: 520px; }
+  .tab { display: flex; gap: 8px; align-items: center; background: #f3f1ee; color: #222; padding: 8px 12px; border-radius: 8px 8px 0 0; font-size: 12px; width: 200px; }
+  .tab.dark { background: #35363a; color: #e8eaed; }
+  .tab img { width: 16px; height: 16px; }
+  .masks { display: flex; gap: 16px; }
+  .mask { width: 128px; height: 128px; overflow: hidden; }
+  .mask img { width: 128px; height: 128px; }
+  .mask.circle { border-radius: 50%; }
+  .mask.squircle { border-radius: 30%; }
+  .mask.drop { border-radius: 50% 50% 50% 12%; }
+  .mask.minimum { width: 102px; height: 102px; border-radius: 50%; display: grid; place-items: center; }
+  .mask.minimum img { flex: none; }
+  .ios { width: 120px; height: 120px; border-radius: 27px; overflow: hidden; }
+  .ios img { width: 120px; height: 120px; }
+  .safe { position: relative; }
+  .safe::after { content: ""; position: absolute; inset: 10%; border-radius: 50%; outline: 2px dashed #f7d36b; }
+
+  /* share card */
+  .og { width: 600px; height: 315px; }
+  .unfurl { width: 500px; border-left: 4px solid #6d5584; padding: 6px 12px; display: grid; gap: 4px; background: #1d1720; }
+  .unfurl b { font-size: 14px; } .unfurl span { font-size: 13px; color: var(--muted); }
+  .unfurl img { width: 480px; height: 252px; border-radius: 6px; }
+  .sq { width: 240px; height: 240px; overflow: hidden; border-radius: 8px; position: relative; }
+  .sq img { position: absolute; height: 240px; width: auto; left: 50%; transform: translateX(-50%); }
+  .sq.small { width: 120px; height: 120px; } .sq.small img { height: 120px; }
+  .card191 { width: 382px; height: 200px; overflow: hidden; border-radius: 8px; }
+  .card191 img { width: 382px; height: 200px; object-fit: cover; }
+
+  /* how it works */
+  .steps { display: grid; grid-template-columns: repeat(3, 368px); gap: 24px; padding: 20px; }
+  .step { display: grid; gap: 8px; align-content: start; }
+  .step img { width: 368px; height: 224px; }
+  .step b { font-size: 15px; }
+  .step .alt { font-size: 12px; opacity: .75; }
+  .steps.half { grid-template-columns: repeat(3, 184px); }
+  .steps.half img { width: 184px; height: 112px; }
+  .ink-dark { background: #17111a; color: var(--cream); }
+  .ink-plum { background: var(--plum); color: var(--cream); }
+  .ink-white { background: #ffffff; color: #2b1d2f; }
+  .ink-cream { background: #f4ead2; color: #2b1d2f; }
+</style>
+</head>
+<body>
+
+<section id="m9-icons">
+  <h2>Site icons: the wood-TV mark, drawn per size (never shrunk from a big one)</h2>
+  <div class="row">
+    <figure><img class="px" src="../site/favicon-16.png" width="16" height="16" alt=""><figcaption>favicon-16 at 1×</figcaption></figure>
+    <figure><img class="px" src="../site/favicon-32.png" width="32" height="32" alt=""><figcaption>favicon-32 at 1×</figcaption></figure>
+    <figure><img class="px" src="../site/favicon-16.png" width="128" height="128" alt=""><figcaption>16 at 8×</figcaption></figure>
+    <figure><img class="px" src="../site/favicon-32.png" width="128" height="128" alt=""><figcaption>32 at 4×</figcaption></figure>
+    <figure><img class="px" src="../site/apple-touch-icon.png" width="180" height="180" alt=""><figcaption>apple-touch-icon 180 (opaque)</figcaption></figure>
+    <figure><img class="px chk" src="../site/icon-192.png" width="192" height="192" alt=""><figcaption>icon-192 (any, transparent)</figcaption></figure>
+    <figure><img class="px chk" src="../site/icon-512.png" width="256" height="256" alt=""><figcaption>icon-512 (any) at ½</figcaption></figure>
+  </div>
+  <h3>Tabs: light and dark browser chrome (the tab icon is the 16 px file at 1×; the 2× shot uses the 32 px file)</h3>
+  <div class="tabbar">
+    <div class="tab"><img src="../site/favicon.ico" alt="">omega-share · Movie night</div>
+    <div class="tab dark"><img src="../site/favicon.ico" alt="">omega-share · Movie night</div>
+  </div>
+  <h3>Maskable 512 under the launcher masks (shown at 128 px); dashed ring = the 40% safe zone</h3>
+  <div class="masks">
+    <div class="safe"><img class="px" src="../site/icon-maskable-512.png" width="128" height="128" alt=""></div>
+    <div class="mask circle"><img class="px" src="../site/icon-maskable-512.png" alt=""></div>
+    <div class="mask squircle"><img class="px" src="../site/icon-maskable-512.png" alt=""></div>
+    <div class="mask drop"><img class="px" src="../site/icon-maskable-512.png" alt=""></div>
+    <div class="mask minimum"><img class="px" src="../site/icon-maskable-512.png" width="128" height="128" alt=""></div>
+    <div class="ios"><img class="px" src="../site/apple-touch-icon.png" alt=""></div>
+  </div>
+  <p style="font-size:12px;color:var(--muted)">Left to right: safe zone, circle, squircle, teardrop, the tightest (80%) circle crop, and the apple-touch icon under the iOS corner radius.</p>
+</section>
+
+<section id="m9-og">
+  <h2>Share card (og-card.png, 1200×630)</h2>
+  <div class="row">
+    <figure><img class="px og" src="../site/og-card.png" alt=""><figcaption>At ½ (600×315). The art is 600×315 px at 2×.</figcaption></figure>
+    <figure>
+      <div class="unfurl"><b>omega-share</b><span>Watch videos together in a cosy pixel room.</span><img src="../site/og-card.png" alt=""></div>
+      <figcaption>A chat unfurl at 480 px wide (smooth scaling, as the apps do).</figcaption>
+    </figure>
+  </div>
+  <div class="row">
+    <figure><div class="card191"><img src="../site/og-card.png" alt=""></div><figcaption>1.91:1 card at 382×200</figcaption></figure>
+    <figure><div class="sq"><img src="../site/og-card.png" alt=""></div><figcaption>Square centre crop, 240 px</figcaption></figure>
+    <figure><div class="sq small"><img src="../site/og-card.png" alt=""></div><figcaption>Square thumbnail, 120 px</figcaption></figure>
+  </div>
+</section>
+
+<section id="m9-steps-light" class="light">
+  <h2>How it works, on light pages (368×224 CSS, the files' natural size)</h2>
+  <div class="steps ink-white">
+    <div class="step"><img class="px" src="../site/how-1-find.png" alt="A browser window with a video on the page. The omega-share icon in the toolbar has a tick badge, and gold corner brackets mark the video it found."><b>1 · The extension finds the video</b><span class="alt">alt: A browser window with a video on the page. The omega-share icon in the toolbar has a tick badge, and gold corner brackets mark the video it found.</span></div>
+    <div class="step"><img class="px" src="../site/how-2-share.png" alt="The omega-share popup under its toolbar icon, showing the video and a room, with a hand pressing the gold Share key. The video flies through an open door where a friend is waiting."><b>2 · Share it into a room</b><span class="alt">alt: The omega-share popup under its toolbar icon, showing the video and a room, with a hand pressing the gold Share key. The video flies through an open door where a friend is waiting.</span></div>
+    <div class="step"><img class="px" src="../site/how-3-watch.png" alt="Four friends in armchairs, seen from behind, watch the same sunset video on a wood TV in a cosy room."><b>3 · Sit together and watch</b><span class="alt">alt: Four friends in armchairs, seen from behind, watch the same sunset video on a wood TV in a cosy room.</span></div>
+  </div>
+  <div class="steps ink-cream half">
+    <div class="step"><img class="px" src="../site/how-1-find.png" alt=""><b>1 · Find</b></div>
+    <div class="step"><img class="px" src="../site/how-2-share.png" alt=""><b>2 · Share</b></div>
+    <div class="step"><img class="px" src="../site/how-3-watch.png" alt=""><b>3 · Watch</b></div>
+  </div>
+  <p style="font-size:12px">Lower row: the phone size, 184×112 CSS (1 art px = 1 CSS px, so 2 device px on a 2× screen), on the cream page tone.</p>
+</section>
+
+<section id="m9-steps-dark">
+  <h2>How it works, on dark pages</h2>
+  <div class="steps ink-plum">
+    <div class="step"><img class="px" src="../site/how-1-find.png" alt=""><b>1 · The extension finds the video</b></div>
+    <div class="step"><img class="px" src="../site/how-2-share.png" alt=""><b>2 · Share it into a room</b></div>
+    <div class="step"><img class="px" src="../site/how-3-watch.png" alt=""><b>3 · Sit together and watch</b></div>
+  </div>
+  <div class="steps ink-dark half">
+    <div class="step"><img class="px" src="../site/how-1-find.png" alt=""><b>1 · Find</b></div>
+    <div class="step"><img class="px" src="../site/how-2-share.png" alt=""><b>2 · Share</b></div>
+    <div class="step"><img class="px" src="../site/how-3-watch.png" alt=""><b>3 · Watch</b></div>
+  </div>
+  <p style="font-size:12px;color:var(--muted)">Upper row on the site's plum page (#2b1d2f), lower row on near-black (#17111a).</p>
+</section>
+
+<script>
+  Promise.all([...document.images].map((i) => (i.complete ? Promise.resolve() : new Promise((r) => { i.onload = i.onerror = r; })))).then(() => { document.body.dataset.ready = "1"; });
+</script>
+</body>
+</html>

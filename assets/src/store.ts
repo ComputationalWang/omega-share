@@ -28,12 +28,12 @@ const ROLES: RoleMap = {
   v: { ramp: "lilac", hi: true },
 };
 
-/** One icon at `S` art px. `pad` = transparent margin (the 128 px icon keeps Chrome's 16 px, i.e. 8 art px at 2×). */
-function icon(S: number, pad: number): Grid {
+/** One icon at `S` art px. `pad` = transparent margin (the 128 px icon keeps Chrome's 16 px, i.e. 8 art px at 2×).
+ *  `heads` defaults to S ≥ 48; the site's apple-touch icon (set m) asks for them at 45 art px. */
+export function icon(S: number, pad: number, heads = S >= 48): Grid {
   const g = blank(S, S);
   const set = (x: number, y: number, ch: string): void => { const r = g[y]; if (r && x >= 0 && x < S) r[x] = ch; };
   const A = S - 2 * pad;
-  const heads = S >= 48;
   const antenna = S >= 32 ? Math.round(A * 0.14) : 0;
   const legs = S >= 32 ? Math.max(1, Math.round(A * 0.05)) : 1;
   const x0 = pad + 1, x1 = S - pad - 2;
@@ -103,4 +103,9 @@ export function buildStoreIcons(): StoreImage[] {
     out.push({ file: `icon-${String(S * k)}.png`, w: S * k, h: S * k, pixels: k === 1 ? img : upscale(img, S, S, k), palette: PALETTE });
   }
   return out;
+}
+
+/** The icon rendered to palette indices (index 0 = transparent), for the site's icon set (set m, src/site.ts). */
+export function renderIcon(S: number, pad: number, heads = S >= 48): Uint8Array {
+  return render(icon(S, pad, heads), ROLES);
 }

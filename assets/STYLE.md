@@ -384,6 +384,32 @@ Three directions were weighed for the bubbles before any pixels:
   rather than shrinking (the same call as set (k)'s phone watch-only: at 0.56× the silhouettes smudge).
 - No new colours: still the 67.
 
+## Set (m) site icons, share card, "how it works" (OME-762, M9)
+I weighed three directions for the share card before drawing any pixels:
+
+| | Direction | Verdict |
+|---|---|---|
+| A | A cropped room shot on the left, the wordmark on a plum banner on the right | Rejected: a square crop keeps one half and loses the other, either the name or the room. |
+| B | The four avatars standing in a row facing the camera, the wordmark above | Rejected: it reads as "pick a character", not "watch together", and there's no screen. |
+| **C** | **The room watching its own title card:** the back corner centred, a big TV on the corner console showing "omega-share / watch together", and all four avatars in armchairs | **Chosen.** One picture says the whole product, and the name, the screen and the faces all sit in the centre 630 px, so a square crop keeps them. |
+
+- **One mark everywhere.** The site icons reuse the extension's wood TV (set j), drawn natively per size. A new glyph mark (say an Ω) was considered and dropped.
+  At 16 px a lone letter reads as a generic symbol, and two marks for one product would split recognition between the tab and the toolbar.
+- **Opaque icons sit on the wall.** The apple-touch and maskable icons stand on the room's dusk wallpaper (wall shade with lit lozenges), not on black or white,
+  so on a home screen they look like a corner of the room. The plum outline rings the TV on top of the wallpaper, as it does in the room.
+- **A corner TV faces the camera.** In the 2:1 projection, a screen standing in the back corner at 45° faces the viewer head-on. That's why the share card's
+  and panel 3's TV is drawn flat while everything around it stays isometric. It uses the TV frame's own bezel recipe (`bezelPaint`): charcoal lip, lit top/left, power light, brass knob.
+- **The title card:** the wordmark at 2× and a 5×7 lowercase face (1 px strokes, cream, plum outline) sit on night sky. The dusk bands, the sun and the sea are pushed
+  down to the bottom 47%, so no letter crosses a band edge.
+- **The panels are vignettes, not a strip.** Each is a closed, framed scene: a plum outline and a 2 px wood frame round an opaque inside, so the art never relies on the page behind it
+  (white, cream, plum and near-black are all shot in `preview/ui-m9-steps-*`). The browser steps are drawn flat, because browsers are flat; the watching step is the
+  real isometric room. That turn into depth *is* the story: from a page into a room.
+- **Panel motifs reuse meanings people already learned:** mustard corner brackets = the seat cursor's "free" state (here, "found"); the teal lamp = online / OK;
+  the mustard key = the primary action (Share, pressed, with set c's `icon/share`); a lit doorway = a room you can walk into, with Kiki waiting in it.
+- **No lettering inside the panels** (the landing's text names the steps), and no real sites, channels or logos: the page in panel 1 is grey text bars and the
+  stand-in sunset video.
+- No new colours: still the 67.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -401,6 +427,7 @@ Three directions were weighed for the bubbles before any pixels:
 | (j) extension icons | `store/icon-16\|32\|48\|128.png` (in the extension package, not the site) | 1 501 B ≈ **1.5 KB** |
 | (k) full screen + pop-out, quality, report (M7) | added to the (c) files: `ui.png` + `ui.json` (gz) + 4 slices + `reference.css` (gz) · `ui/scenes/chat-away.png` + `room-away.png` (lazy) | **≈ 4.7 KB** eager · **0.7 KB** lazy |
 | (l) bubbles, wheel, smooth walk (M8) | added to the (c) files: `ui.png` + `ui.json` (gz) + 7 slices + `reference.css` (gz) · `avatars/motion.png` + `motion.json` (gz, lazy) | **≈ 5.3 KB** eager · **4.9 KB** lazy |
+| (m) site icons, share card, panels (M9) | `site/*`: their own caps, not this budget (landing panels ≤ 60 KB together, share card < 150 KB) | panels **6.8 KB**, share card **13.8 KB**, icons **5.9 KB** |
 | total art budget | | ≤ 300 KB (≈ 127.2 KB used, as printed by `bun assets/src/build.ts`) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.
