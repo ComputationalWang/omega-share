@@ -18,6 +18,8 @@
     "e2e:real": "bun e2e/support/headed.ts playwright test --project=e2e-real",
     "perf": "bun perf/run.ts",
     "affected": "bun scripts/affected.ts",
+    "perf:submit": "bun perf/runner/submit.ts",
+    "perf:result": "bun perf/runner/result.ts",
     "check": "bun run typecheck && bun run lint && bun run test"
   },
   "devDependencies": {
