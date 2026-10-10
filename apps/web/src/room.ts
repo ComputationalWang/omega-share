@@ -38,6 +38,8 @@ import { createReport } from "./report/dialog";
 import { createHelp } from "./help/dialog";
 import { createFirstHint } from "./help/hint";
 import { createNotFound } from "./not-found";
+import { createHiddenMembers } from "./hide/hidden";
+import { createPeople } from "./hide/people";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -72,6 +74,8 @@ export interface RoomHandle {
   readonly roomPaused: () => boolean;
   /** How many times the room canvas has drawn (room-view.ts `renders`), for e2e "a bubble costs no render" checks. */
   readonly roomRenders: () => number;
+  /** A member's avatar alpha (dimmed when I hid them, OME-769), for e2e checks. */
+  readonly avatarAlpha: (id: MemberId) => number | undefined;
 }
 
 const STATUS_TEXT: Record<ViewState["status"], string> = {
@@ -347,7 +351,37 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // The "?" help (OME-768): the room bar's last key; its dialog is built on the first open and never draws on the canvas.
   const help = createHelp({ owner: () => state.owner && opts.secret?.ownerToken !== undefined });
   help.key.hidden = true;
-  roomTop.append(title, popRoomKey, help.key);
+  // "Hide for me" (OME-769): who I hid in this room, in this tab only. Never sent: it filters at intake (room-events.ts),
+  // and the stage, the logs and the pop-out follow each change once.
+  const hidden = createHiddenMembers({
+    // The `sessionStorage` getter itself throws when storage is blocked.
+    getItem: (k) => sessionStorage.getItem(k),
+    setItem: (k, v) => {
+      sessionStorage.setItem(k, v);
+    },
+  }, opts.roomId);
+  const isHidden = (id: string): boolean => hidden.has(id);
+  const people = createPeople({
+    hidden,
+    onChange: (id, on) => {
+      roomStage.hide(id, on);
+      chatLog.hideFrom(isHidden);
+      relay?.hideFrom(isHidden);
+      if (on) dispatch({ type: "hide", memberId: id });
+    },
+  });
+  people.key.hidden = true;
+  for (const id of hidden.ids()) roomStage.hide(id, true);
+  // A right-click, or a long-press on touch (Chromium fires contextmenu for it), on someone else's name tag opens People
+  // on their "Hide for me" button. My own tag keeps the browser's menu.
+  tags.addEventListener("contextmenu", (ev) => {
+    const tag = ev.target instanceof Element ? ev.target.closest<HTMLElement>("[data-member]") : null;
+    const id = tag?.dataset["member"];
+    if (id === undefined || id === state.self || people.key.hidden) return;
+    ev.preventDefault();
+    people.open(id);
+  });
+  roomTop.append(title, popRoomKey, people.key, help.key);
   // The first-visit hint (OME-768): in the flow under the room bar, so it never covers the picture or the composer.
   const firstHint = createFirstHint({
     // The `localStorage` getter itself throws when storage is blocked.
@@ -584,7 +618,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     if (!on) focusBefore = null;
   };
-  opts.root.replaceChildren(roomTop, firstHint.root, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, notFound.root, kicked, side, foot, help.dialog);
+  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, notFound.root, kicked, side, foot, help.dialog);
   /**
    * Moving a scrolled box resets its scroll (QA OME-658): call before a move and the returned function after the layout
    * settles. A log at its foot goes back to its foot (so it keeps following new lines); otherwise it keeps its place.
@@ -930,6 +964,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const shown = screen(s);
     wrap.hidden = !shown.stage;
     help.key.hidden = !shown.stage;
+    people.key.hidden = !shown.stage;
+    if (shown.stage) people.update(s.room?.members ?? [], s.self);
+    else people.close();
     if (!shown.stage) {
       firstHint.dismiss();
       if (help.isOpen()) help.close();
@@ -1102,10 +1139,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const dispatch = (e: ViewEvent): void => {
     const next = reduce(state, e);
     if (next === state) return;
+    // Who said it, so "Hide for me" can take a line down later (OME-769).
+    const from = e.type === "server" && e.msg.type === "chat" ? e.msg.memberId : undefined;
     for (const entry of logEntries(state, next, e)) {
-      chatLog.append(entry);
+      chatLog.append(entry, from);
       // Popped out: the window gets the line now, not on the next frame (a hidden tab draws none).
-      relay?.append(entry);
+      relay?.append(entry, from);
       // Collapsed in full screen: count what others said while the lines are out of sight.
       if (stripMode === "band" && fs.mode() !== "off" && entry.kind === "chat" && !entry.self) {
         unread++;
@@ -1138,7 +1177,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (!roomOut()) roomStage.emote(id, kind, state);
   };
   const kickedStore = sessionStorage;
-  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted };
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted, hidden: isHidden };
   // Kicked from this room in this tab and the cooldown isn't over (ADR 0030 §2): show the notice, don't even try to join.
   const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
   const c: Connection = kickedTill !== null ? stoppedConnection() : createConnection({
@@ -1267,5 +1306,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id) };
 }

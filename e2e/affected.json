@@ -151,6 +151,7 @@
         "e2e/landing.e2e.ts",
         "e2e/m7-a11y.e2e.ts",
         "e2e/m9-help.e2e.ts",
+        "e2e/m9-hide.e2e.ts",
         "e2e/persistence.e2e.ts",
         "e2e/phone-layout.e2e.ts",
         "e2e/qa-rooms.e2e.ts",
@@ -335,6 +336,7 @@
         "e2e/chat-log.e2e.ts",
         "e2e/m7-a11y.e2e.ts",
         "e2e/m8-bubbles.e2e.ts",
+        "e2e/m9-hide.e2e.ts",
         "e2e/popout.e2e.ts",
         "perf/chat.perf.ts",
         "perf/fullscreen.perf.ts",
@@ -417,6 +419,22 @@
     },
     {
       "paths": [
+        "apps/web/src/hide/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/m7-a11y.e2e.ts",
+        "e2e/m9-hide.e2e.ts",
+        "perf/chat.perf.ts",
+        "perf/site.perf.ts"
+      ],
+      "why": "Hide for me: people list, hidden-member store (OME-769)"
+    },
+    {
+      "paths": [
         "apps/web/src/owner/**"
       ],
       "except": [
@@ -441,6 +459,7 @@
       "specs": [
         "e2e/m7-a11y.e2e.ts",
         "e2e/m7-popout-spoof.e2e.ts",
+        "e2e/m9-hide.e2e.ts",
         "e2e/popout-room.e2e.ts",
         "e2e/popout.e2e.ts",
         "perf/popout-room.perf.ts",

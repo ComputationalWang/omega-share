@@ -43,6 +43,7 @@ export const SPEC_ROOMS = {
   "m8-bubbles": ["float", "cap", "reduced", "aria", "abuse", "overlap", "batch"],
   "m8-walk": ["gates", "forced", "latch", "arrival", "abuse"],
   "m9-help": ["hint", "hintesc", "help", "helpkey"],
+  "m9-hide": ["main", "tag"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
