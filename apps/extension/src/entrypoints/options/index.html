@@ -11,10 +11,13 @@
       input { font: inherit; padding: 4px; }
       [data-state="error"] { color: #b00020; }
       [data-state="ok"] { color: #1b5e20; }
+      .legal { display: flex; gap: 12px; margin-top: 16px; font-size: 12px; }
+      .legal a { color: #555; }
       /* A phone (Firefox for Android opens options in a tab, OME-743): 16 px text so focusing the field doesn't zoom, 44 px targets. */
       @media (hover: none) {
         body { font-size: 16px; }
         input, button { min-height: 44px; font: inherit; }
+        .legal a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
       }
     </style>
   </head>
@@ -26,6 +29,11 @@
       <button type="submit" id="save" data-testid="server-url-save">Save</button>
       <p id="status" data-testid="server-url-status" role="status"></p>
     </form>
+    <footer class="legal" data-testid="legal-links">
+      <a href="https://omega-share.duckdns.org/privacy.html#extension" target="_blank" rel="noreferrer noopener">Privacy</a>
+      <a href="https://omega-share.duckdns.org/terms.html" target="_blank" rel="noreferrer noopener">Terms</a>
+      <a href="https://omega-share.duckdns.org/licenses.html" target="_blank" rel="noreferrer noopener">Licences</a>
+    </footer>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>
