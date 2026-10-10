@@ -556,6 +556,11 @@ Walk: `preview/walk8-strip@4x.png` (every frame, in-betweens on the odd columns)
 - **Life (default):** 5 s. Opacity 0 → 1 over 120 ms in 3 steps, holds to 3.6 s, then `cubic-bezier(.55, 0, 1, .45)` (ease-in) to 0 at 5 s. It rises 24 px over the whole
   life in `steps(24)`: one whole stage px every ~208 ms, so the art never blurs between pixels. `opacity` + `translate` only: compositor work, no layout or paint per frame.
 - **Reduced motion:** no rise, no push slide, no fade-in. Shows at once, holds to 4 s, fades linearly to 0 at 5 s; an early exit is instant.
+- **In the room: stepped by script** (`meta.omega.bubbles.room`, ADR 0039, OME-830). Running CSS animations cost a restyle on every main frame, so the room
+  turns the keyframes off and one shared clock writes the motion: 24 ticks a life (one every ~208 ms), the same for every bubble. The rise and the ease-in fade are
+  unchanged, the fade sampled on the ticks (about 7 levels over 1.4 s). Three changes, all accepted for the look: no fade-in (the bubble shows whole, a crisp pop);
+  a push is instant (the stack snaps, it doesn't slide); an early exit drops to half opacity, then goes on the first tick at least 160 ms later.
+  The keyframes above stay for the standalone component. Any extra motion comes back as ticks on that clock, never as a CSS animation or transition.
 - **Stacking rule** (reference implementation: the script in `preview/m8.html`). Lay out on every add/remove and when a speaker moves, newest first:
   1. Each bubble takes its anchor, clamped sideways inside the stage (or the visible window on a phone) with a 4 px margin.
   2. Its **path** is the box plus the 24 px it will rise. If its path would come within 3 px of a newer bubble's path, it moves straight up until it clears

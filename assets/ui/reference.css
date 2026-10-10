@@ -686,7 +686,9 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 /* A bubble: <p class="ui-float [is-self]" style="left: Lpx; top: Tpx; --tail-x: Xpx"><span class="say">…</span></p> in the stage overlay, room scale (--ui-px: 1px).
  * JS sets left/top to the bubble's resting border box (stage px, see meta.omega.bubbles for the stacking rule) and --tail-x to the speaker's
  * x inside that box. Tail: .tail-s (default) points straight down; .tail-sw / .tail-se when the box was clamped at the stage edge and the
- * speaker is past the tail's reach. .is-stacked (pushed up by a newer bubble) has no tail and starts with <b class="who">Name</b>. */
+ * speaker is past the tail's reach. .is-stacked (pushed up by a newer bubble) has no tail and starts with <b class="who">Name</b>.
+ * The keyframes and the push transition below are the standalone component. The room turns them off and steps the same rise and fade by
+ * script on one shared clock (meta.omega.bubbles.room, ADR 0039): no fade-in, an instant push, an early exit at half opacity for one tick. */
 .ui-float { border-style: solid; border-color: transparent; border-width: calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(6 * var(--ui-px)) calc(5 * var(--ui-px)); border-image: url("slices/bubble-float.png") 5 5 6 5 fill / calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(6 * var(--ui-px)) calc(5 * var(--ui-px)) stretch;
   position: absolute; margin: 0; width: max-content; max-width: 168px; padding: 0 calc(1 * var(--ui-px));
   color: var(--ui-bubble-text); font: 500 12px/15px system-ui, sans-serif; overflow-wrap: anywhere; pointer-events: none;
