@@ -3,7 +3,6 @@
 # Install: install -Dm755 deploy/monitor/monitor.sh ~/.local/libexec/omega-share/monitor.sh
 [Unit]
 Description=omega-share off-box monitor
-After=network-online.target
 
 [Service]
 Type=oneshot

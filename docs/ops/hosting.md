@@ -112,7 +112,7 @@ After a restore, rooms, layouts and each room's last embed come back, with playb
 | `omega-share is down` | `$PUBLIC_ORIGIN/healthz` failed (no 2xx within 10 s) twice in a row, so for 5 to 10 minutes. One blip never pushes. | once per outage |
 | `omega-share recovered` | `/healthz` answers again after a `down` push. | once |
 | `TLS certificate expires in N days` | The certificate has fewer than 14 days left. Caddy renews at about 30 days, so renewal has been failing for two weeks. | once, then again every 3 more days until it is renewed |
-| `N new abuse reports` | The number of open reports went up since the last count. The monitor asks the box at most hourly, as `admin@`, with the operator CLI's `reports list`, and counts on the box: only the number leaves it. No notes, titles, ids or addresses ever go into a push. | when the count rose; flat or falling stays quiet |
+| `N new abuse reports` | The number of open reports went up since the last count. The monitor asks the box at most hourly, as `admin@`, with the operator CLI's `reports list`, and counts on the box: only the number leaves it. The count is net: a dismissal and a new report within the same hour cancel out, so read the queue daily anyway ([rooms.md](rooms.md#abuse-reports)). The first run after an install counts from 0, so it pushes every report already open. No notes, titles, ids or addresses ever go into a push. | when the count rose; flat or falling stays quiet |
 | `[drill] …` | A test push. Ignore it. | by hand |
 
 A push that can't be sent is retried at the next run, and that run's unit shows as failed.
@@ -160,13 +160,13 @@ CLI="cd /opt/omega-share/current && sudo -u omega-share env DB_PATH=/var/lib/ome
 2. `ssh $A admin@$SERVER_IP 'systemctl status omega-share caddy --no-pager -n 0; uptime; free -m; df -h / /var/lib/omega-share'`: which unit is down, and is the box out of memory or disk?
 3. `ssh $A admin@$SERVER_IP 'journalctl -u omega-share -u caddy -n 60 --no-pager'`: the last lines before it went down. The server's errors are one JSON object each (see Checks).
 
-Then: if the server crashed or hangs, `ssh $A admin@$SERVER_IP 'sudo systemctl restart omega-share'`. If it started right after a deploy, roll back (below). If ssh itself times out, the box or its network is down: check the Hetzner console. If the box answers but the name doesn't reach it, compare `dig +short omega-share.duckdns.org` with `$SERVER_IP`.
+Then: if the server crashed or hangs, `ssh $A admin@$SERVER_IP 'sudo systemctl restart omega-share'`. If it started right after a deploy, roll back (below). If ssh itself times out, the box or its network is down: check the Hetzner console. If the box answers but the name doesn't reach it, compare `getent ahostsv4 omega-share.duckdns.org | head -n 1` with `$SERVER_IP`.
 
 ### `TLS certificate expires in N days`
 
 1. `h=${PUBLIC_ORIGIN#https://}; openssl s_client -connect $h:443 -servername $h </dev/null 2>/dev/null | openssl x509 -noout -enddate -issuer`: is the served certificate really the old one?
 2. `ssh $A admin@$SERVER_IP "journalctl -u caddy --since -3d --no-pager | grep -iE 'obtain|renew|acme|challenge|error' | tail -n 30"`: why renewal fails.
-3. `dig +short omega-share.duckdns.org` (must print `$SERVER_IP`) and `for p in 80 443; do timeout 4 bash -c "echo >/dev/tcp/$SERVER_IP/$p" && echo "$p open"; done`: the ACME challenges need the name to point at the box and both ports open.
+3. `getent ahostsv4 omega-share.duckdns.org | head -n 1` (must start with `$SERVER_IP`) and `for p in 80 443; do timeout 4 bash -c "echo >/dev/tcp/$SERVER_IP/$p" && echo "$p open"; done`: the ACME challenges need the name to point at the box and both ports open.
 
 Fix the cause, then `ssh $A admin@$SERVER_IP 'sudo systemctl restart caddy'` makes Caddy try again at once. The monitor goes quiet by itself once the new certificate is served.
 
