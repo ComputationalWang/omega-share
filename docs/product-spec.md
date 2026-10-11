@@ -19,7 +19,7 @@ A Habbo-inspired isometric room on a website. People join a room, pick one of 4 
 - Twitch live streams: only pause/play-from-live is shared (a live stream can't be seeked).
 
 ## Persistence
-Everything lives in the server's memory until M4 (then SQLite).
+Everything lives in the server's memory until M4 (then SQLite). Rooms with nobody in them for 20 min are deleted (seeded rooms such as the lobby never are; ADR 0028 §2).
 
 ## Milestones (you, the board, sign off at each one)
 | | Scope |
