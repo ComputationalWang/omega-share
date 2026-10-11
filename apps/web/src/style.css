@@ -142,7 +142,7 @@ legend { padding: 0; margin-bottom: 6px; }
 @media (prefers-reduced-motion: reduce) { .chat-log .ui-fs-line.is-settled::after, .chat-log .ui-fs-line.is-faded::after { content: none; } }
 .chat input:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
 .chat input { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--panel); }
-.chat > button { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #1d1a2b; font-weight: 600; }
+.chat > button:not(.ui-button) { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #1d1a2b; font-weight: 600; }
 .room-full { text-align: center; margin: 15vh auto; }
 .seat:disabled { cursor: default; }
 .notice { margin: 8px 0 0; color: var(--error); }
@@ -164,6 +164,9 @@ legend { padding: 0; margin-bottom: 6px; }
 @media (prefers-reduced-motion: reduce) { .syslines .ui-sysline { animation: none; } }
 .sync-notice, .tv-hint { color: var(--muted); }
 .tv-hint { margin: 0 0 8px; }
+/* Touch (OME-905): send is a 44 px key with the send icon, its whole box to the finger, so the field keeps its room. */
+.chat > .ui-button.icon.chat-send-icon { flex: none; width: 44px; height: 44px; margin-inline: 0; }
+.chat:has(> .chat-send-icon) input { min-height: 44px; }
 .chat[data-cooldown="true"] input, .chat[data-cooldown="true"] button { opacity: 0.6; }
 .room-full .enter { display: inline-block; margin-top: 12px; text-decoration: none; }
 
@@ -257,7 +260,7 @@ legend { padding: 0; margin-bottom: 6px; }
 .ui-touch .seat { left: -26px; top: -22px; width: 52px; height: 44px; border-radius: 50%; transform: none; }
 .ui-touch .seat:focus-visible { outline: 2px solid var(--ui-text); outline-offset: -2px; box-shadow: inset 0 0 0 4px var(--ui-page); }
 .ui-touch .chat, .ui-touch .invite { align-items: stretch; }
-.ui-touch .chat input, .ui-touch .chat > button, .ui-touch .invite input, .ui-touch .invite button, .ui-touch .queue-form .ui-input { min-height: 44px; }
+.ui-touch .chat input, .ui-touch .chat > button:not(.ui-button), .ui-touch .invite input, .ui-touch .invite button, .ui-touch .queue-form .ui-input { min-height: 44px; }
 .ui-touch .invite button { min-width: 44px; }
 /* The seek and volume art stay as drawn; their transparent inputs grow to 44 px tall, centred on the track (whose padding box is ~0 tall). */
 .ui-touch .ui-seek input, .ui-touch .ui-vol-track input { top: 50%; bottom: auto; height: 44px; translate: 0 -50%; }
@@ -272,9 +275,9 @@ body:has(.is-pseudo-fs) { overflow: hidden; }
 .controls > .fs-key { flex: none; margin-left: 4px; }
 .fs-strip { position: absolute; --ui-px: 1px; }
 .fs-strip-head { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
-.fs-strip-title { flex: 1; }
+.fs-strip-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fs-strip .chat-log { max-height: none; min-height: 0; margin: 0; }
-.fs-strip .chat { margin: 0; min-width: 0; }
+.fs-strip .chat { margin: 0; min-width: 0; gap: 4px; }
 .fs-strip .chat input { min-width: 0; }
 .fs-unread { flex: none; }
 /* Collapsed: the field and the show-chat key on one bar under the picture; the lines are out of sight (only the count). */
@@ -346,7 +349,7 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .room-side > .queue-panel { max-height: 40%; overflow-y: auto; }
 .room-side > .chat-away, .room-side > .room-away { max-width: none; }
 .room-side .chat input, .room-side .invite input { min-width: 0; }
-.room-side .chat > button { padding-inline: 12px; }
+.room-side .chat > button:not(.ui-button) { padding-inline: 12px; }
 /* The volume pod in the TV's shelf (OME-642): beside the transport, not squeezed. The shelf is a size container: as it
  * narrows the words go (out of sight, not out of the accessibility tree) before anything overlaps (the plate's name, the hints), then the chips keep only their glyphs and
  * the pod's chip goes (its mustard rim and its group's label say "only you"), so on a phone the seek bar and the volume

@@ -118,11 +118,16 @@ export function wideLayout(width: number, height: number, provider: Provider | n
 
 /** Full screen (OME-597, set k `ui-m7-desktop`): the chat strip's width beside the picture, and on a small landscape screen. */
 export const FS_STRIP_W = 300;
-const FS_STRIP_NARROW_W = 160;
+/** A phone held sideways (OME-905): the frame, a 140 px field, the gap and the 44 px send key; 568 px still keeps a 356 px picture. */
+const FS_STRIP_NARROW_W = 208;
 /** Below this width a 300 px strip would take too much of the picture (a phone held sideways). */
 const FS_STRIP_WIDE_FROM = 1000;
 /** The band's transport (set k `ui-m7-band`: `flex: 0 1 560px`). */
 const FS_BAND_TRANSPORT_W = 560;
+/** The band's field and keys (OME-905): the frame, the emote key, a field with ≥ 60 % of its row, send, show-chat. */
+const FS_BAND_FIELD_MIN = 304;
+/** Narrower than this the transport can't give the field its room: the field moves to its own bar under the shelf. */
+const FS_BAND_TRANSPORT_MIN = 280;
 
 export type StripMode = "open" | "band";
 
@@ -168,20 +173,25 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   }
 
   if (strip === "band") {
-    const pic = fitTv(w, h - below);
-    const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - below) / 2)), ...pic };
+    const bx = SHELF_SPEAKER;
+    const bw = w - 2 * SHELF_SPEAKER;
+    const half = Math.min(FS_BAND_TRANSPORT_W, Math.floor(bw / 2));
+    // Half and half where the field has its room; on a phone held sideways the transport gives way to it.
+    const cw = Math.min(half, bw - SHELF_SPEAKER - FS_BAND_FIELD_MIN);
+    // Portrait, or too narrow for both on one bar: the shelf, then the field on its own bar under it.
+    const stacked = (w < FS_STRIP_WIDE_FROM && h > w) || cw < FS_BAND_TRANSPORT_MIN;
+    const under = stacked ? below + GAP + CONTROL_BAR_H : below;
+    const pic = fitTv(w, h - under);
+    const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - under) / 2)), ...pic };
     const y = tv.y + tv.h + GAP;
-    if (w < FS_STRIP_WIDE_FROM && h > w) {
-      // Portrait: the shelf, then the field on its own bar.
+    if (stacked) {
       const controls = { x: 0, y, w, h: CONTROL_BAR_H };
       return { at: "band", tv, controls, strip: { x: 0, y: y + CONTROL_BAR_H + GAP, w, h: CONTROL_BAR_H }, compact: { tv: true, controls: true } };
     }
-    const bx = SHELF_SPEAKER;
-    const bw = w - 2 * SHELF_SPEAKER;
-    const controls = { x: bx, y, w: Math.min(FS_BAND_TRANSPORT_W, Math.floor(bw / 2)), h: CONTROL_BAR_H };
+    const controls = { x: bx, y, w: cw, h: CONTROL_BAR_H };
     // The shelf's right speaker is painted outside the transport box: the field starts after it.
     const sx = controls.x + controls.w + SHELF_SPEAKER;
-    return { at: "band", tv, controls, strip: { x: sx, y, w: bx + bw - sx, h: CONTROL_BAR_H }, compact: { tv: true, controls: false } };
+    return { at: "band", tv, controls, strip: { x: sx, y, w: bx + bw - sx, h: CONTROL_BAR_H }, compact: { tv: true, controls: cw < half } };
   }
 
   const stripW = w >= FS_STRIP_WIDE_FROM ? FS_STRIP_W : FS_STRIP_NARROW_W;

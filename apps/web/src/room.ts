@@ -17,7 +17,7 @@ import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, sitIntent } from "./intents";
 import { layoutOf } from "./furniture";
-import { PHONE_QUERY, STAGE_H, STAGE_W, TAG_OFFSET_Y, WIDE_QUERY, fullscreenLayout, roomLayout, wideLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_QUERY, STAGE_H, STAGE_W, TAG_OFFSET_Y, WIDE_QUERY, fullscreenLayout, roomLayout, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createFullscreen, type FullscreenMode } from "./fullscreen";
 import { createRoomWindow } from "./room-window";
 import type { PlayerError } from "./player/adapter";
@@ -292,6 +292,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const chatForm = el("form", { className: "chat" });
   const chatInput = el("input", { type: "text", maxLength: 280, placeholder: "Say something…", autocomplete: "off", ariaLabel: "Chat message" }, "chat-input");
   const chatSend = el("button", { type: "submit", textContent: "Say" }, "chat-send");
+  // A phone's keyboard shows a Send key; Enter sends either way (it submits the form).
+  chatInput.enterKeyHint = "send";
+  // A tap or click on the key keeps the field focused, so a phone's keyboard stays up between lines (OME-905).
+  chatSend.addEventListener("mousedown", (ev) => {
+    if (document.activeElement === chatInput) ev.preventDefault();
+  });
   // The emote key and its picker (OME-415) lead the chat row: both are how you speak up.
   const picker = createEmotePicker({
     send: (m) => send(m),
@@ -427,7 +433,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   stripToggle.append(stripIcon);
   // Mustard: only your own count of what you missed while collapsed; the key's label says it too.
   const unreadChip = el("span", { className: "ui-chip self fs-unread", ariaHidden: "true", hidden: true });
-  stripHead.append(sprite("ui-icon-chat"), el("span", { className: "fs-strip-title", textContent: "Chat" }));
+  const stripTitle = el("span", { className: "fs-strip-title", textContent: "Chat" });
+  stripHead.append(sprite("ui-icon-chat"), stripTitle);
   strip.append(stripHead);
   wrap.append(strip);
   let stripMode: StripMode = storedStrip();
@@ -449,6 +456,21 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       home.append(stripToggle, unreadChip);
       if (focused) stripToggle.focus({ preventScroll: true });
     }
+  };
+  /**
+   * In a narrow strip (a phone held sideways) the emote and pop-out keys head the strip, so the field keeps its room
+   * (OME-905); everywhere else they lead and end the chat row. Focus on either survives the move.
+   */
+  const placeRowKeys = (inHead: boolean): void => {
+    if (picker.root.parentElement === (inHead ? stripHead : chatForm)) return;
+    const focused = document.activeElement;
+    picker.close();
+    if (inHead) stripTitle.after(picker.root, popOut);
+    else {
+      chatForm.prepend(picker.root);
+      chatForm.append(popOut);
+    }
+    if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
   };
   stripToggle.addEventListener("click", () => {
     stripMode = stripMode === "open" ? "band" : "open";
@@ -549,6 +571,27 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Desktop wide layout (OME-642): the room on the left, the chat and Up next in a full-height column on the right.
   const wide = globalThis.matchMedia(WIDE_QUERY);
   const side = el("div", { className: "room-side", hidden: true }, "room-side");
+  // Touch (the design system's coarse pointer, or the phone layout): the send key is a 44 px icon named "Send", so the
+  // field keeps its room in full screen's narrow strip (OME-905). A mouse and keyboard keep the word "Say".
+  const coarse = globalThis.matchMedia("(pointer: coarse)");
+  /** A phone, or a touch screen held sideways past the phone layout's width: no pop-out windows there (set k: desktop only). */
+  const touchOnly = (): boolean => phone.matches || coarse.matches;
+  const renderSend = (): void => {
+    const icon = touchOnly();
+    if (chatSend.classList.contains("chat-send-icon") === icon) return;
+    if (icon) {
+      chatSend.className = "ui-button icon chat-send-icon";
+      chatSend.ariaLabel = "Send";
+      chatSend.title = "Send";
+      chatSend.replaceChildren(sprite("ui-icon-send"));
+    } else {
+      chatSend.className = "";
+      chatSend.removeAttribute("aria-label");
+      chatSend.removeAttribute("title");
+      chatSend.replaceChildren("Say");
+    }
+  };
+  renderSend();
   const fs = createFullscreen({
     target: wrap,
     isTarget: (e) => e === wrap,
@@ -668,11 +711,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       box(controls, l.controls);
       box(strip, l.strip);
       strip.dataset["at"] = l.at;
+      placeRowKeys(l.at === "side" && l.strip.w < FS_STRIP_W);
       tv.classList.toggle("compact", l.compact.tv);
       controls.classList.toggle("compact", l.compact.controls);
       wrap.style.height = "";
       return;
     }
+    placeRowKeys(false);
     if (wide.matches) {
       // The left column's box sizes it all (the wrap flexes to what the column has left), so the page never scrolls.
       const w = wrap.clientWidth;
@@ -895,7 +940,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     view.setPaused(on || out);
     strip.hidden = !on || out;
     roomAway.hidden = !out;
-    popRoomKey.hidden = out || !screen(state).stage || !popoutSupported({ hasChannel: relay !== null, phone: phone.matches });
+    popRoomKey.hidden = out || !screen(state).stage || !popoutSupported({ hasChannel: relay !== null, phone: touchOnly() });
   };
   /** The chat row's place: the log and the field, or (popped out) the placeholder; the pop-out key only where it works. */
   const renderChatRow = (s: ViewState): void => {
@@ -907,7 +952,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     chatLog.root.hidden = (!shown.chat && !shown.kicked) || popped;
     // The room's window holds the chat too: the room's placeholder says so.
     chatAway.hidden = !popped || roomOut();
-    popOut.hidden = !popoutSupported({ hasChannel: relay !== null, phone: phone.matches });
+    popOut.hidden = !popoutSupported({ hasChannel: relay !== null, phone: touchOnly() });
     renderRoomPlace();
   };
   /** What the pop-out window shows of the room: the head count, and whether (and why not) it may send. */
@@ -1025,7 +1070,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     chatInput.classList.toggle("is-muted", chat.muted);
     chatForm.dataset["muted"] = String(chat.muted);
     // Set k (OME-642): with a keyboard, the open field says how to reach it.
-    const hint = chat.cooling || phone.matches ? chat.placeholder : "Press Enter to chat";
+    const hint = chat.cooling || touchOnly() ? chat.placeholder : "Press Enter to chat";
     if (chatInput.placeholder !== hint) chatInput.placeholder = hint;
 
     if (s.lastError !== shownError) {
@@ -1252,6 +1297,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (msg !== null && c.send(msg)) {
       chatInput.value = "";
       firstHint.dismiss();
+      // Sent from the key without the field focused: the next line goes straight in.
+      if (document.activeElement === chatSend) chatInput.focus({ preventScroll: true });
     }
   });
   // Keys 1–6 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
@@ -1290,9 +1337,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Moving a focused node blurs it: whatever you were typing in keeps focus when the chat changes column.
     const focused = document.activeElement;
     const restoreScroll = holdScroll();
-    // No pop-out on a phone (set k): a window narrowed that far takes its chat back.
-    if (phone.matches) relay?.bringBack();
+    // No pop-out on a phone or touch screen (set k): a window narrowed that far takes its chat back.
+    if (touchOnly()) relay?.bringBack();
     renderChatRow(state);
+    renderSend();
     placeChat();
     if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     fit();
@@ -1302,6 +1350,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   phone.addEventListener("change", onMedia);
   wide.addEventListener("change", onMedia);
+  coarse.addEventListener("change", onMedia);
   syncTv(state);
   render();
   pbView = playback.view();

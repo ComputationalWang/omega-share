@@ -457,7 +457,8 @@ describe("fullscreenLayout on phones: the composer has room (OME-905)", () => {
     const l = fullscreenLayout(w, h, "youtube", "band");
     expect(l.strip.w).toBeGreaterThanOrEqual(BAND_MIN);
     expect(l.controls.w).toBeGreaterThanOrEqual(280);
-    for (const r of [l.tv, l.controls, l.strip]) expect(inside(r, w, h)).toBe(true);
+    // The picture may overhang a 320 px screen (its 356 px minimum, ADR 0012); the shelf and the field never do.
+    for (const r of [l.controls, l.strip]) expect(inside(r, w, h)).toBe(true);
     expect(intersects(l.tv, l.strip)).toBe(false);
     expect(intersects(l.tv, l.controls)).toBe(false);
     expect(intersects(l.controls, l.strip)).toBe(false);
