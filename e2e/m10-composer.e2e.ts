@@ -241,7 +241,7 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
 
 for (const key of ["twitchVod", "twitchLive"] as const) {
   for (const remembered of ["band", "open"] as const) {
-    test(`${key}: native fullscreen at 568×320 and 700×350 keeps composer and transport reachable`, async ({ browser, request }) => {
+    test(`${key}: remembered ${remembered} native fullscreen at 568×320 and 700×350 keeps composer and transport reachable`, async ({ browser, request }) => {
       const room = testRoom("m10-composer", key === "twitchVod" ? "l568" : "p390");
       await shareProvider(request, providerCase(key).shareUrl, room.id);
       clients = await joinRoom(browser, {
