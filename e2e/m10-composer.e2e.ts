@@ -143,3 +143,41 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
     expect(player.height).toBeGreaterThanOrEqual(300);
   });
 }
+
+for (const key of ["twitchVod", "twitchLive"] as const) {
+  test(`${key}: remembered open at 700×375 and adjacent boundaries keeps composer accessible`, async ({ browser, request }) => {
+    const room = testRoom("m10-composer", key === "twitchVod" ? "l568" : "p360");
+    await shareProvider(request, providerCase(key).shareUrl, room.id);
+    clients = await joinRoom(browser, {
+      roomUrl: room.url, count: 1, nicknamePrefix: `${key}-open`,
+      contextOptions: () => ({ viewport: { width: 700, height: 375 }, isMobile: true, hasTouch: true }),
+      setup: async (context) => {
+        await context.addInitScript(() => { localStorage.setItem("omega.fsStrip", "open"); });
+      },
+    });
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    await waitProviderPlaying(clients, "twitch");
+    const fullscreenKey = page.locator(site.fullscreenToggle);
+    await fullscreenKey.scrollIntoViewIfNeeded();
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => { resolve(); }));
+    }));
+    await fullscreenKey.tap();
+    await expect.poll(() => page.evaluate((selector) =>
+      document.fullscreenElement === document.querySelector(selector), site.fsRoot)).toBe(true);
+    await expect(page.locator(site.fsStrip)).toBeVisible();
+    for (const width of [700, 694, 734, 735]) {
+      await page.setViewportSize({ width, height: 375 });
+      await expect(page.locator(site.fsStrip)).toHaveAttribute("data-at", width < 735 ? "band" : "side");
+      await expectRoomy(page, `${key} ${String(width)} open`);
+      await expectSends(page, `${key} ${String(width)} open`);
+      const transport = await box(page.locator(".controls"));
+      expect(transport.y + transport.height).toBeLessThanOrEqual(375);
+      const player = await box(page.locator(site.sharedVideo));
+      expect(player.width).toBeGreaterThanOrEqual(534);
+      expect(player.height).toBeGreaterThanOrEqual(300);
+      expect(await page.evaluate(() => localStorage.getItem("omega.fsStrip"))).toBe("open");
+    }
+  });
+}

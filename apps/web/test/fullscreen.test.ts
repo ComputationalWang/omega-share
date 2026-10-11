@@ -498,3 +498,14 @@ test("740×360 Twitch open keeps a usable side composer and the minimum player",
   for (const r of [l.tv, l.controls, l.strip]) expect(inside(r, 740, 360)).toBe(true);
   expect(intersects(l.tv, l.strip)).toBe(false);
 });
+
+test.each([694, 700, 734, 735])("%p×375 Twitch remembered open keeps composer and transport on screen", (w) => {
+  const l = fullscreenLayout(w, 375, "twitch", "open");
+  expect(l.tv.w).toBeGreaterThanOrEqual(534);
+  expect(l.tv.h).toBeGreaterThanOrEqual(300);
+  expect(l.strip.w).toBeGreaterThanOrEqual(l.at === "side" ? OPEN_MIN : BAND_MIN);
+  expect(l.strip.h).toBeGreaterThanOrEqual(48);
+  for (const r of [l.tv, l.controls, l.strip]) expect(inside(r, w, 375)).toBe(true);
+  expect(intersects(l.tv, l.strip)).toBe(false);
+  expect(intersects(l.controls, l.strip)).toBe(false);
+});
