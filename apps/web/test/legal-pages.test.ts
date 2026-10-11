@@ -117,6 +117,10 @@ describe("every legal page is built, served and CSP-clean", () => {
 });
 
 describe("Terms of use (DSA Art. 14)", () => {
+  test("requires visitors to be 16 or older", () => {
+    expect(text(page("terms.html"))).toContain("You must be 16 or older to use omega-share.");
+  });
+
   test("say what the service is, the house rules, how we moderate, takedowns, no warranty and the licences", () => {
     const s = text(page("terms.html"));
     expect(s).toMatch(/we don't host (the )?videos/i);
