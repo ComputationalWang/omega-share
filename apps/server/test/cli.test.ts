@@ -212,7 +212,7 @@ describe("rooms pin|unpin <id>", () => {
     const f = boot((store) => {
       store.createRoom({ id: ID_A, title: "Keep me", createdAt: T0, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
     });
-    const gc = (at: number) => sweepRooms({ rooms: f.rooms, wallNow: () => at, busy: () => false, touch: () => undefined });
+    const gc = (at: number) => sweepRooms({ rooms: f.rooms, wallNow: () => at, touch: () => undefined });
 
     const pinned = await cli(f.socket, "rooms", "pin", ID_A);
     expect(pinned.code).toBe(0);

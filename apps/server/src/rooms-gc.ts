@@ -12,8 +12,6 @@ export interface RoomGcDeps {
   rooms: RoomRegistry;
   /** Unix ms, the clock `created_at` and `last_active_at` are written with. */
   wallNow: () => number;
-  /** A member, or a socket still joining: the room is in use and is never collected. */
-  busy: (room: Room) => boolean;
   /**
    * Called for every room with members, so its stored `last_active_at` is at most one interval old
    * if the process dies while they are in it (it otherwise last moved when they arrived).
@@ -33,12 +31,12 @@ function expired(room: Room, now: number): boolean {
  * One sweep, O(rooms) over the in-memory registry: no store read. Expired rooms end through `removeRoom`, the path owner deletes take: their
  * sockets close with ROOM_CLOSED, their grants are revoked and their row is deleted. Returns the ids removed.
  */
-export function sweepRooms({ rooms, wallNow, busy, touch }: RoomGcDeps): RoomId[] {
+export function sweepRooms({ rooms, wallNow, touch }: RoomGcDeps): RoomId[] {
   const now = wallNow();
   const due: Room[] = [];
   for (const room of rooms.values()) {
     if (room.memberCount > 0) touch(room, now);
-    else if (!busy(room) && expired(room, now)) due.push(room);
+    else if (expired(room, now)) due.push(room);
   }
   const removed: RoomId[] = [];
   for (const room of due) {

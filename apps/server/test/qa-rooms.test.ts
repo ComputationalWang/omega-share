@@ -618,17 +618,17 @@ describe("5. GC with an injected clock (ADR 0028 §2, threat model §1.3)", () =
     expect(store.listRooms().find((r) => r.id === room.room.id)?.lastActiveAt).toBe(clock.ms);
   });
 
-  test("a room with an open, still-unjoined socket is in use too", async () => {
+  test("a room with an unjoined socket expires at 20 minutes and closes the socket", async () => {
     const clock = fakeClock(T0);
     const store = gcServer(clock);
     const room = await createRoom("public");
     const lurker = await open(room.room.id);
     await sync(lurker);
-    clock.ms = T0 + 3 * ROOM_IDLE_TTL_MS;
-    await settle();
-    expect(inStore(store, room.room.id)).toBe(true);
-    lurker.close();
-    await until(() => !inStore(store, room.room.id), "collected once the lurker leaves");
+    clock.ms = T0 + ROOM_IDLE_TTL_MS;
+    await until(async () => !(await listedIds()).includes(room.room.id), "collected despite the pending socket");
+    expect(inStore(store, room.room.id)).toBe(false);
+    expect((await lurker.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
+    expect(await upgradeRefused(room.room.id)).toBe(true);
   });
 
   test("activity resets the idle timer: an empty room goes 20 min after its last member left, not after its creation", async () => {

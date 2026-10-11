@@ -332,7 +332,7 @@ export function startServer(opts: ServerOptions): OmegaServer {
     cardOrigin: opts.publicOrigin ?? opts.siteOrigin,
   });
   // After the onRemove hooks above, so the boot sweep already closes sockets and deletes rows.
-  const gc = startRoomGc({ rooms, wallNow, busy: ws.hasSockets, touch: markActive, purge: reports.purge, intervalMs: opts.roomGcIntervalMs ?? ROOM_GC_INTERVAL_MS });
+  const gc = startRoomGc({ rooms, wallNow, touch: markActive, purge: reports.purge, intervalMs: opts.roomGcIntervalMs ?? ROOM_GC_INTERVAL_MS });
   const http = createHttpGate((req) => app.fetch(req), {
     now: opts.now ?? monotonic,
     maxInFlight: opts.maxHttpInFlight ?? MAX_HTTP_IN_FLIGHT,

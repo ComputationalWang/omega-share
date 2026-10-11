@@ -55,8 +55,6 @@ function registryOf(...rooms: Room[]): RoomRegistry {
   return registry;
 }
 
-const idle = (): boolean => false;
-
 describe("sweepRooms: what GC collects (threat model §1.3)", () => {
   test("one idle rule: a room with nobody in it for 20 min goes; the sweep runs every minute, so it goes within 20-21 min", () => {
     expect(ROOM_IDLE_TTL_MS).toBe(20 * MIN);
@@ -66,10 +64,10 @@ describe("sweepRooms: what GC collects (threat model §1.3)", () => {
   test("a room nobody ever joined is kept for 20 min after created_at, then removed", () => {
     const room = createdRoom(ID_A, T0, null);
     const rooms = registryOf(room);
-    expect(sweepRooms({ rooms, wallNow: () => T0 + 19 * MIN, busy: idle, touch: () => undefined })).toEqual([]);
-    expect(sweepRooms({ rooms, wallNow: () => T0 + 20 * MIN - 1, busy: idle, touch: () => undefined })).toEqual([]);
+    expect(sweepRooms({ rooms, wallNow: () => T0 + 19 * MIN, touch: () => undefined })).toEqual([]);
+    expect(sweepRooms({ rooms, wallNow: () => T0 + 20 * MIN - 1, touch: () => undefined })).toEqual([]);
     expect(rooms.get(ID_A)).toBe(room);
-    expect(sweepRooms({ rooms, wallNow: () => T0 + 20 * MIN, busy: idle, touch: () => undefined })).toEqual([ID_A]);
+    expect(sweepRooms({ rooms, wallNow: () => T0 + 20 * MIN, touch: () => undefined })).toEqual([ID_A]);
     expect(rooms.get(ID_A)).toBeUndefined();
   });
 
@@ -77,9 +75,9 @@ describe("sweepRooms: what GC collects (threat model §1.3)", () => {
     const emptiedAt = T0 + 30 * DAY;
     const room = createdRoom(ID_A, T0, emptiedAt);
     const rooms = registryOf(room);
-    expect(sweepRooms({ rooms, wallNow: () => emptiedAt + 19 * MIN, busy: idle, touch: () => undefined })).toEqual([]);
+    expect(sweepRooms({ rooms, wallNow: () => emptiedAt + 19 * MIN, touch: () => undefined })).toEqual([]);
     expect(rooms.get(ID_A)).toBe(room);
-    expect(sweepRooms({ rooms, wallNow: () => emptiedAt + 20 * MIN, busy: idle, touch: () => undefined })).toEqual([ID_A]);
+    expect(sweepRooms({ rooms, wallNow: () => emptiedAt + 20 * MIN, touch: () => undefined })).toEqual([ID_A]);
     expect(rooms.get(ID_A)).toBeUndefined();
   });
 
@@ -87,7 +85,7 @@ describe("sweepRooms: what GC collects (threat model §1.3)", () => {
     const lobby = new Room("lobby", { createdAt: 0 });
     const operatorMade = new Room(ID_B, { pinned: true, createdAt: 0, lastActiveAt: 0 });
     const rooms = registryOf(lobby, operatorMade);
-    expect(sweepRooms({ rooms, wallNow: () => T0 + 10_000 * DAY, busy: idle, touch: () => undefined })).toEqual([]);
+    expect(sweepRooms({ rooms, wallNow: () => T0 + 10_000 * DAY, touch: () => undefined })).toEqual([]);
     expect(rooms.size).toBe(2);
   });
 
@@ -103,7 +101,6 @@ describe("sweepRooms: what GC collects (threat model §1.3)", () => {
     const removed = sweepRooms({
       rooms,
       wallNow: () => now,
-      busy: (room) => room === occupied || room === joining,
       touch: (room, at) => {
         expect(at).toBe(now);
         touched.push(room.id);
@@ -123,7 +120,7 @@ describe("sweepRooms: what GC collects (threat model §1.3)", () => {
     perRoom.get(room);
     const ended: Room[] = [];
     rooms.onRemove((r) => ended.push(r));
-    sweepRooms({ rooms, wallNow: () => T0 + 2 * HOUR, busy: idle, touch: () => undefined });
+    sweepRooms({ rooms, wallNow: () => T0 + 2 * HOUR, touch: () => undefined });
     expect(ended).toEqual([room]);
     expect(perRoom.size).toBe(0);
   });
@@ -138,7 +135,7 @@ describe("sweepRooms: what GC collects (threat model §1.3)", () => {
     try {
       let removed: RoomId[] = [];
       expect(() => {
-        removed = sweepRooms({ rooms, wallNow: () => T0 + 2 * HOUR, busy: idle, touch: () => undefined });
+        removed = sweepRooms({ rooms, wallNow: () => T0 + 2 * HOUR, touch: () => undefined });
       }).not.toThrow();
       expect(removed).toEqual([ID_B]);
       expect(rooms.get(ID_B)).toBeUndefined();
@@ -153,7 +150,7 @@ describe("startRoomGc: at boot and on every interval", () => {
   test("sweeps once at start, then every intervalMs until stopped", async () => {
     const clock = wallClock();
     const rooms = registryOf(createdRoom(ID_A, T0 - 2 * HOUR, null), createdRoom(ID_B, T0, null));
-    const gc = startRoomGc({ rooms, wallNow: clock.now, busy: idle, touch: () => undefined, intervalMs: 20 });
+    const gc = startRoomGc({ rooms, wallNow: clock.now, touch: () => undefined, intervalMs: 20 });
     stops.push(() => {
       gc.stop();
     });
