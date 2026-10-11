@@ -1,0 +1,842 @@
+{
+  "basis": "PNG/ICO as stored; JSON/CSS gzip level9 mtime0. All current runtime asset directories, conservatively includes site/share icons. Excludes preview/src/store promotional art.",
+  "totalCompressedArtBytes": 181682,
+  "budgetBytes": 307200,
+  "newArtBytes": 20963,
+  "assets": [
+    {
+      "path": "assets/avatars/avatars.json",
+      "storedBytes": 24075,
+      "transferBytes": 1492,
+      "dimensions": null
+    },
+    {
+      "path": "assets/avatars/avatars.png",
+      "storedBytes": 4426,
+      "transferBytes": 4426,
+      "dimensions": "512x256"
+    },
+    {
+      "path": "assets/avatars/motion.json",
+      "storedBytes": 117095,
+      "transferBytes": 5054,
+      "dimensions": null
+    },
+    {
+      "path": "assets/avatars/motion.png",
+      "storedBytes": 18335,
+      "transferBytes": 18335,
+      "dimensions": "1024x512"
+    },
+    {
+      "path": "assets/room/room.json",
+      "storedBytes": 13823,
+      "transferBytes": 1190,
+      "dimensions": null
+    },
+    {
+      "path": "assets/room/room.png",
+      "storedBytes": 8335,
+      "transferBytes": 8335,
+      "dimensions": "512x512"
+    },
+    {
+      "path": "assets/ui/edit.json",
+      "storedBytes": 18430,
+      "transferBytes": 1329,
+      "dimensions": null
+    },
+    {
+      "path": "assets/ui/edit.png",
+      "storedBytes": 8925,
+      "transferBytes": 8925,
+      "dimensions": "256x1024"
+    },
+    {
+      "path": "assets/ui/popup/cant-read.png",
+      "storedBytes": 311,
+      "transferBytes": 311,
+      "dimensions": "48x40"
+    },
+    {
+      "path": "assets/ui/popup/cant-read@2x.png",
+      "storedBytes": 372,
+      "transferBytes": 372,
+      "dimensions": "96x80"
+    },
+    {
+      "path": "assets/ui/popup/nothing-found.png",
+      "storedBytes": 377,
+      "transferBytes": 377,
+      "dimensions": "48x40"
+    },
+    {
+      "path": "assets/ui/popup/nothing-found@2x.png",
+      "storedBytes": 464,
+      "transferBytes": 464,
+      "dimensions": "96x80"
+    },
+    {
+      "path": "assets/ui/popup/retry-16.png",
+      "storedBytes": 173,
+      "transferBytes": 173,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/popup/retry-32.png",
+      "storedBytes": 236,
+      "transferBytes": 236,
+      "dimensions": "32x32"
+    },
+    {
+      "path": "assets/ui/popup/server-away.png",
+      "storedBytes": 349,
+      "transferBytes": 349,
+      "dimensions": "48x40"
+    },
+    {
+      "path": "assets/ui/popup/server-away@2x.png",
+      "storedBytes": 441,
+      "transferBytes": 441,
+      "dimensions": "96x80"
+    },
+    {
+      "path": "assets/ui/reference.css",
+      "storedBytes": 98955,
+      "transferBytes": 19994,
+      "dimensions": null
+    },
+    {
+      "path": "assets/ui/scenes/chat-away.png",
+      "storedBytes": 310,
+      "transferBytes": 310,
+      "dimensions": "56x40"
+    },
+    {
+      "path": "assets/ui/scenes/closed.png",
+      "storedBytes": 547,
+      "transferBytes": 547,
+      "dimensions": "72x64"
+    },
+    {
+      "path": "assets/ui/scenes/invite.png",
+      "storedBytes": 784,
+      "transferBytes": 784,
+      "dimensions": "72x64"
+    },
+    {
+      "path": "assets/ui/scenes/not-found.png",
+      "storedBytes": 731,
+      "transferBytes": 731,
+      "dimensions": "72x64"
+    },
+    {
+      "path": "assets/ui/scenes/removed.png",
+      "storedBytes": 793,
+      "transferBytes": 793,
+      "dimensions": "72x64"
+    },
+    {
+      "path": "assets/ui/scenes/room-away.png",
+      "storedBytes": 391,
+      "transferBytes": 391,
+      "dimensions": "56x40"
+    },
+    {
+      "path": "assets/ui/slices/bubble-0.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/bubble-float-self.png",
+      "storedBytes": 150,
+      "transferBytes": 150,
+      "dimensions": "14x14"
+    },
+    {
+      "path": "assets/ui/slices/bubble-float.png",
+      "storedBytes": 150,
+      "transferBytes": 150,
+      "dimensions": "14x14"
+    },
+    {
+      "path": "assets/ui/slices/bubble-tail-s.png",
+      "storedBytes": 130,
+      "transferBytes": 130,
+      "dimensions": "12x7"
+    },
+    {
+      "path": "assets/ui/slices/bubble-tail-se.png",
+      "storedBytes": 127,
+      "transferBytes": 127,
+      "dimensions": "12x7"
+    },
+    {
+      "path": "assets/ui/slices/bubble-tail-sw.png",
+      "storedBytes": 131,
+      "transferBytes": 131,
+      "dimensions": "12x7"
+    },
+    {
+      "path": "assets/ui/slices/bubble-tail.png",
+      "storedBytes": 120,
+      "transferBytes": 120,
+      "dimensions": "14x5"
+    },
+    {
+      "path": "assets/ui/slices/button-danger-hover.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-danger-idle.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-danger-press.png",
+      "storedBytes": 149,
+      "transferBytes": 149,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-primary-disabled.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-primary-hover.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-primary-idle.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-primary-press.png",
+      "storedBytes": 149,
+      "transferBytes": 149,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-secondary-hover.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-secondary-idle.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-secondary-press.png",
+      "storedBytes": 149,
+      "transferBytes": 149,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-self-cool.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-self-hover.png",
+      "storedBytes": 162,
+      "transferBytes": 162,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-self-idle.png",
+      "storedBytes": 162,
+      "transferBytes": 162,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-self-on.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-self-press.png",
+      "storedBytes": 162,
+      "transferBytes": 162,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-shared-cool.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-shared-held.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-shared-hover.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-shared-idle.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/button-shared-press.png",
+      "storedBytes": 149,
+      "transferBytes": 149,
+      "dimensions": "16x20"
+    },
+    {
+      "path": "assets/ui/slices/card-mine-confirm.png",
+      "storedBytes": 191,
+      "transferBytes": 191,
+      "dimensions": "18x18"
+    },
+    {
+      "path": "assets/ui/slices/card-mine-hover.png",
+      "storedBytes": 191,
+      "transferBytes": 191,
+      "dimensions": "18x18"
+    },
+    {
+      "path": "assets/ui/slices/card-mine-idle.png",
+      "storedBytes": 191,
+      "transferBytes": 191,
+      "dimensions": "18x18"
+    },
+    {
+      "path": "assets/ui/slices/card-room-full.png",
+      "storedBytes": 157,
+      "transferBytes": 157,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/card-room-hover.png",
+      "storedBytes": 172,
+      "transferBytes": 172,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/card-room-idle.png",
+      "storedBytes": 172,
+      "transferBytes": 172,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/chat-system-self.png",
+      "storedBytes": 151,
+      "transferBytes": 151,
+      "dimensions": "14x12"
+    },
+    {
+      "path": "assets/ui/slices/chat-system.png",
+      "storedBytes": 151,
+      "transferBytes": 151,
+      "dimensions": "14x12"
+    },
+    {
+      "path": "assets/ui/slices/chip-hint.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/chip-self.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/chip-shared.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/chip-solo.png",
+      "storedBytes": 140,
+      "transferBytes": 140,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/cursor-free.png",
+      "storedBytes": 229,
+      "transferBytes": 229,
+      "dimensions": "64x33"
+    },
+    {
+      "path": "assets/ui/slices/cursor-mine.png",
+      "storedBytes": 223,
+      "transferBytes": 223,
+      "dimensions": "64x33"
+    },
+    {
+      "path": "assets/ui/slices/cursor-taken.png",
+      "storedBytes": 232,
+      "transferBytes": 232,
+      "dimensions": "64x33"
+    },
+    {
+      "path": "assets/ui/slices/emotes-slot-cool.png",
+      "storedBytes": 144,
+      "transferBytes": 144,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/emotes-slot-hover.png",
+      "storedBytes": 147,
+      "transferBytes": 147,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/emotes-slot-idle.png",
+      "storedBytes": 116,
+      "transferBytes": 116,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/emotes-slot-press.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/emotes-tail.png",
+      "storedBytes": 135,
+      "transferBytes": 135,
+      "dimensions": "16x6"
+    },
+    {
+      "path": "assets/ui/slices/emotes-tray.png",
+      "storedBytes": 168,
+      "transferBytes": 168,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/fs-line-fresh.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/fs-line-settled.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/fs-pop.png",
+      "storedBytes": 159,
+      "transferBytes": 159,
+      "dimensions": "14x14"
+    },
+    {
+      "path": "assets/ui/slices/fs-strip.png",
+      "storedBytes": 141,
+      "transferBytes": 141,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/input-focus.png",
+      "storedBytes": 163,
+      "transferBytes": 163,
+      "dimensions": "18x18"
+    },
+    {
+      "path": "assets/ui/slices/input-idle.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "18x18"
+    },
+    {
+      "path": "assets/ui/slices/input-invalid.png",
+      "storedBytes": 163,
+      "transferBytes": 163,
+      "dimensions": "18x18"
+    },
+    {
+      "path": "assets/ui/slices/input-muted.png",
+      "storedBytes": 155,
+      "transferBytes": 155,
+      "dimensions": "18x18"
+    },
+    {
+      "path": "assets/ui/slices/kbd-0.png",
+      "storedBytes": 130,
+      "transferBytes": 130,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/menu-row-ask.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/menu-row-hover.png",
+      "storedBytes": 147,
+      "transferBytes": 147,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/menu-row-idle.png",
+      "storedBytes": 116,
+      "transferBytes": 116,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/menu-row-press.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/menu-sep.png",
+      "storedBytes": 107,
+      "transferBytes": 107,
+      "dimensions": "4x2"
+    },
+    {
+      "path": "assets/ui/slices/panel-0.png",
+      "storedBytes": 213,
+      "transferBytes": 213,
+      "dimensions": "24x24"
+    },
+    {
+      "path": "assets/ui/slices/panel-self.png",
+      "storedBytes": 168,
+      "transferBytes": 168,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/picker-hover.png",
+      "storedBytes": 159,
+      "transferBytes": 159,
+      "dimensions": "20x20"
+    },
+    {
+      "path": "assets/ui/slices/picker-idle.png",
+      "storedBytes": 159,
+      "transferBytes": 159,
+      "dimensions": "20x20"
+    },
+    {
+      "path": "assets/ui/slices/picker-selected.png",
+      "storedBytes": 173,
+      "transferBytes": 173,
+      "dimensions": "20x20"
+    },
+    {
+      "path": "assets/ui/slices/pill-behind.png",
+      "storedBytes": 140,
+      "transferBytes": 140,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/pill-full.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/pill-live.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/pill-private.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/plate-source.png",
+      "storedBytes": 156,
+      "transferBytes": 156,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/queue-row-hover.png",
+      "storedBytes": 151,
+      "transferBytes": 151,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/queue-row-idle.png",
+      "storedBytes": 151,
+      "transferBytes": 151,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/queue-row-next.png",
+      "storedBytes": 160,
+      "transferBytes": 160,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/readout-0.png",
+      "storedBytes": 140,
+      "transferBytes": 140,
+      "dimensions": "10x10"
+    },
+    {
+      "path": "assets/ui/slices/scrim-0.png",
+      "storedBytes": 104,
+      "transferBytes": 104,
+      "dimensions": "2x4"
+    },
+    {
+      "path": "assets/ui/slices/seek-fill.png",
+      "storedBytes": 114,
+      "transferBytes": 114,
+      "dimensions": "4x6"
+    },
+    {
+      "path": "assets/ui/slices/seek-track-disabled.png",
+      "storedBytes": 143,
+      "transferBytes": 143,
+      "dimensions": "12x10"
+    },
+    {
+      "path": "assets/ui/slices/seek-track.png",
+      "storedBytes": 143,
+      "transferBytes": 143,
+      "dimensions": "12x10"
+    },
+    {
+      "path": "assets/ui/slices/slot-held.png",
+      "storedBytes": 178,
+      "transferBytes": 178,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/slot-hover.png",
+      "storedBytes": 178,
+      "transferBytes": 178,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/slot-idle.png",
+      "storedBytes": 178,
+      "transferBytes": 178,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/slot-off.png",
+      "storedBytes": 165,
+      "transferBytes": 165,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/ui/slices/tab-hover.png",
+      "storedBytes": 143,
+      "transferBytes": 143,
+      "dimensions": "16x14"
+    },
+    {
+      "path": "assets/ui/slices/tab-idle.png",
+      "storedBytes": 143,
+      "transferBytes": 143,
+      "dimensions": "16x14"
+    },
+    {
+      "path": "assets/ui/slices/tab-on.png",
+      "storedBytes": 147,
+      "transferBytes": 147,
+      "dimensions": "16x14"
+    },
+    {
+      "path": "assets/ui/slices/tag-0.png",
+      "storedBytes": 141,
+      "transferBytes": 141,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/tag-self.png",
+      "storedBytes": 148,
+      "transferBytes": 148,
+      "dimensions": "12x12"
+    },
+    {
+      "path": "assets/ui/slices/ticket-copied.png",
+      "storedBytes": 225,
+      "transferBytes": 225,
+      "dimensions": "34x20"
+    },
+    {
+      "path": "assets/ui/slices/ticket-expired.png",
+      "storedBytes": 159,
+      "transferBytes": 159,
+      "dimensions": "34x20"
+    },
+    {
+      "path": "assets/ui/slices/ticket-idle.png",
+      "storedBytes": 209,
+      "transferBytes": 209,
+      "dimensions": "34x20"
+    },
+    {
+      "path": "assets/ui/slices/ticket-slot-focus.png",
+      "storedBytes": 214,
+      "transferBytes": 214,
+      "dimensions": "34x20"
+    },
+    {
+      "path": "assets/ui/slices/ticket-slot-idle.png",
+      "storedBytes": 214,
+      "transferBytes": 214,
+      "dimensions": "34x20"
+    },
+    {
+      "path": "assets/ui/slices/tray-0.png",
+      "storedBytes": 215,
+      "transferBytes": 215,
+      "dimensions": "24x24"
+    },
+    {
+      "path": "assets/ui/slices/tvframe-bezel.png",
+      "storedBytes": 177,
+      "transferBytes": 177,
+      "dimensions": "14x16"
+    },
+    {
+      "path": "assets/ui/slices/tvframe-shelf.png",
+      "storedBytes": 341,
+      "transferBytes": 341,
+      "dimensions": "78x51"
+    },
+    {
+      "path": "assets/ui/slices/volume-fill.png",
+      "storedBytes": 114,
+      "transferBytes": 114,
+      "dimensions": "4x4"
+    },
+    {
+      "path": "assets/ui/slices/volume-track.png",
+      "storedBytes": 138,
+      "transferBytes": 138,
+      "dimensions": "10x8"
+    },
+    {
+      "path": "assets/ui/slices/wheel-tail.png",
+      "storedBytes": 134,
+      "transferBytes": 134,
+      "dimensions": "9x7"
+    },
+    {
+      "path": "assets/ui/ui.json",
+      "storedBytes": 91590,
+      "transferBytes": 4966,
+      "dimensions": null
+    },
+    {
+      "path": "assets/ui/ui.png",
+      "storedBytes": 12951,
+      "transferBytes": 12951,
+      "dimensions": "256x512"
+    },
+    {
+      "path": "assets/furniture/furniture.json",
+      "storedBytes": 37570,
+      "transferBytes": 2408,
+      "dimensions": null
+    },
+    {
+      "path": "assets/furniture/furniture.png",
+      "storedBytes": 21930,
+      "transferBytes": 21930,
+      "dimensions": "1024x512"
+    },
+    {
+      "path": "assets/site/apple-touch-icon.png",
+      "storedBytes": 752,
+      "transferBytes": 752,
+      "dimensions": "180x180"
+    },
+    {
+      "path": "assets/site/favicon-16.png",
+      "storedBytes": 192,
+      "transferBytes": 192,
+      "dimensions": "16x16"
+    },
+    {
+      "path": "assets/site/favicon-32.png",
+      "storedBytes": 276,
+      "transferBytes": 276,
+      "dimensions": "32x32"
+    },
+    {
+      "path": "assets/site/favicon.ico",
+      "storedBytes": 506,
+      "transferBytes": 506,
+      "dimensions": "16x1632x32"
+    },
+    {
+      "path": "assets/site/how-1-find.png",
+      "storedBytes": 1491,
+      "transferBytes": 1491,
+      "dimensions": "368x224"
+    },
+    {
+      "path": "assets/site/how-2-share.png",
+      "storedBytes": 2197,
+      "transferBytes": 2197,
+      "dimensions": "368x224"
+    },
+    {
+      "path": "assets/site/how-3-watch.png",
+      "storedBytes": 3231,
+      "transferBytes": 3231,
+      "dimensions": "368x224"
+    },
+    {
+      "path": "assets/site/icon-192.png",
+      "storedBytes": 719,
+      "transferBytes": 719,
+      "dimensions": "192x192"
+    },
+    {
+      "path": "assets/site/icon-512.png",
+      "storedBytes": 1803,
+      "transferBytes": 1803,
+      "dimensions": "512x512"
+    },
+    {
+      "path": "assets/site/icon-maskable-512.png",
+      "storedBytes": 1905,
+      "transferBytes": 1905,
+      "dimensions": "512x512"
+    },
+    {
+      "path": "assets/site/og-card.png",
+      "storedBytes": 14171,
+      "transferBytes": 14171,
+      "dimensions": "1200x630"
+    },
+    {
+      "path": "assets/site/website-room.png",
+      "storedBytes": 20963,
+      "transferBytes": 20963,
+      "dimensions": "656x536"
+    }
+  ]
+}
