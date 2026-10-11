@@ -36,7 +36,7 @@ export const MAX_LISTED_ROOMS = 100;
 export const MAX_CREATE_BODY_BYTES = 1024;
 
 /*
- * Room creation, cap, GC and owner edits (ADR 0028). Enforced by the server; shared so tests and
+ * Room creation, cap and owner edits (ADR 0028). Enforced by the server; shared so tests and
  * the site's copy agree with it. Clients learn about them only through `rate_limited`,
  * `too_many_rooms` and `ROOM_CLOSED`.
  */
@@ -50,12 +50,6 @@ export const ROOM_CREATE_GLOBAL_BURST = 10;
 export const ROOM_CREATE_GLOBAL_REFILL_MS = 60_000;
 /** Stored rooms, pinned ones included. At the cap the server refuses (`too_many_rooms`) and never evicts. */
 export const MAX_ROOMS = 500;
-/** A created room nobody ever joined is deleted this long after creation. */
-export const ROOM_GC_NEVER_JOINED_MS = 60 * 60_000;
-/** A created room is deleted after it has been empty this long. Pinned (seeded) rooms never are. */
-export const ROOM_GC_EMPTY_MS = 14 * 24 * 60 * 60_000;
-/** How often the GC sweep runs (and once at boot). */
-export const ROOM_GC_SWEEP_MS = 60 * 60_000;
 /** Per owner socket, `layout-set` and `title-set` together: this many at once, then one every ROOM_EDIT_REFILL_MS. */
 export const ROOM_EDIT_BURST = 2;
 export const ROOM_EDIT_REFILL_MS = 2000;
