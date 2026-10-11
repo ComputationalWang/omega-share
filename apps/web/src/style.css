@@ -468,7 +468,10 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .room-portrait .chat input { min-width: 140px; }
 .room-portrait .ui-wheel-slot { width: 44px; height: 44px; }
 /* One frame around a sheet leaves room for its fixed paste row when the keyboard is up. */
-.portrait-sheet { --ui-px: 1px; }
+.portrait-sheet { --ui-px: 1px; background: var(--ui-panel); }
 .portrait-sheet-content > .queue-panel { border: 0; }
 .room-portrait.portrait-typing .portrait-sheet .queue-head,
 .room-portrait.portrait-typing .portrait-sheet .ui-qempty { display: none; }
+
+/* Raster faces remain on top; solid underpaint gives contrast tools the same palette as the artwork. */
+.portrait-sheet .queue-form .ui-button:not(:disabled) { background-color: var(--ui-accent); background-clip: padding-box; }
