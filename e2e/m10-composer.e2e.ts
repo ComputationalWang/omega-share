@@ -29,21 +29,30 @@ const fieldFocused = (page: Page): Promise<boolean> => page.evaluate((sel) => do
 
 /** The composer row in the strip (or the band): the field gets ≥ 60 % of it and ≥ 140 px; the send key is ≥ 44×44. */
 async function expectRoomy(page: Page, where: string): Promise<void> {
-  const strip = page.locator(site.fsStrip);
-  const row = await box(strip.locator("form.chat"));
-  const field = await box(strip.locator(site.chatInput));
-  const send = await box(strip.getByRole("button", { name: "Send", exact: true }));
-  expect(field.width, `${where}: field ${String(field.width)} of row ${String(row.width)}`).toBeGreaterThanOrEqual(140);
-  expect(field.width / row.width, `${where}: field share of the row`).toBeGreaterThanOrEqual(0.6);
-  expect(send.width, `${where}: send key width`).toBeGreaterThanOrEqual(44);
-  expect(send.height, `${where}: send key height`).toBeGreaterThanOrEqual(44);
-  // Nothing in the row spills out of the strip or the screen.
-  const s = await box(strip);
-  const vp = page.viewportSize();
-  expect(row.x).toBeGreaterThanOrEqual(s.x - 0.5);
-  expect(row.x + row.width).toBeLessThanOrEqual(s.x + s.width + 0.5);
-  expect(row.x + row.width).toBeLessThanOrEqual((vp?.width ?? 0) + 0.5);
-  expect(field.y + field.height).toBeLessThanOrEqual((vp?.height ?? 0) + 0.5);
+  // ResizeObserver may lay out a newly sized fullscreen wrapper between async locator reads.
+  // Sample every box in one browser task and wait for the public geometry to settle.
+  await expect(async () => {
+    const { row, field, send, strip, viewport } = await page.locator(site.fsStrip).evaluate((root, selectors) => {
+      const row = root.querySelector("form.chat");
+      const input = root.querySelector(selectors.input);
+      const send = root.querySelector(selectors.send);
+      if (row === null || input === null || send === null) throw new Error("missing composer");
+      const rect = (element: Element) => {
+        const r = element.getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height };
+      };
+      return { row: rect(row), field: rect(input), send: rect(send), strip: rect(root),
+        viewport: { width: window.innerWidth, height: window.innerHeight } };
+    }, { input: site.chatInput, send: site.chatSend });
+    expect(field.width, `${where}: field ${String(field.width)} of row ${String(row.width)}`).toBeGreaterThanOrEqual(140);
+    expect(field.width / row.width, `${where}: field share of the row`).toBeGreaterThanOrEqual(0.6);
+    expect(send.width, `${where}: send key width`).toBeGreaterThanOrEqual(44);
+    expect(send.height, `${where}: send key height`).toBeGreaterThanOrEqual(44);
+    expect(row.x).toBeGreaterThanOrEqual(strip.x - 0.5);
+    expect(row.x + row.width).toBeLessThanOrEqual(strip.x + strip.width + 0.5);
+    expect(row.x + row.width).toBeLessThanOrEqual(viewport.width + 0.5);
+    expect(field.y + field.height).toBeLessThanOrEqual(viewport.height + 0.5);
+  }).toPass({ timeout: 5000 });
 }
 
 /** Enter sends, and so does a tap on the send key; the line shows in the log and focus never leaves the field. */
