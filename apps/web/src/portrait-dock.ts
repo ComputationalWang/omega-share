@@ -5,6 +5,7 @@ export interface PortraitDockOptions {
   readonly log: HTMLElement;
   readonly composer: HTMLFormElement;
   readonly queue: HTMLElement;
+  readonly queueLayout?: (portrait: boolean) => void;
   readonly shelf?: HTMLElement;
   readonly pictureRegion?: HTMLElement;
   readonly settings: readonly HTMLElement[];
@@ -116,6 +117,7 @@ export function createPortraitDock(o: PortraitDockOptions) {
       if (on === active) { if (on) viewport(); return; }
       close();
       active = on;
+      o.queueLayout?.(on);
       keys.hidden = !on;
       o.root.classList.toggle("room-portrait", on);
       o.queue.classList.toggle("portrait-stowed", on);

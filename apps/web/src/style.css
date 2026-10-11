@@ -470,8 +470,6 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 /* One frame around a sheet leaves room for its fixed paste row when the keyboard is up. */
 .portrait-sheet { --ui-px: 1px; background: var(--ui-panel); }
 .portrait-sheet-content > .queue-panel { border: 0; }
-.room-portrait.portrait-typing .portrait-sheet .queue-head,
-.room-portrait.portrait-typing .portrait-sheet .ui-qempty { display: none; }
 
 /* Raster faces remain on top; solid underpaint gives contrast tools the same palette as the artwork. */
 .portrait-sheet .queue-form .ui-button:not(:disabled) { background-color: var(--ui-accent); background-clip: padding-box; }
@@ -490,3 +488,11 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .room-portrait.portrait-typing:has(> .people:not([hidden])) > .room-top,
 .room-portrait.portrait-typing > .room-top:focus-within { display: flex; }
 .room-portrait.portrait-typing:has(> .people:not([hidden])) > .chat-log { min-height: 64px; }
+
+/* Only the queue content scrolls in sheets. The paste row needs no keyboard-size inference. */
+.queue-content { display: contents; }
+.portrait-sheet-content > .queue-panel.portrait-stowed { margin: 0; }
+.portrait-sheet .queue-content { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 4px; overflow-y: auto; overscroll-behavior: contain; }
+.portrait-sheet .queue-content > * { flex: none; }
+.portrait-sheet .queue-content .ui-qlist { max-height: none; overflow: visible; }
+.portrait-sheet .queue-form .ui-button { min-width: 44px; min-height: 44px; }

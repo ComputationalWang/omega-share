@@ -16,6 +16,8 @@ export interface QueuePanelOptions {
 
 export interface QueuePanel {
   readonly root: HTMLElement;
+  /** Portrait sheets scroll the content above a fixed paste row; other layouts keep their reading order. */
+  setPortrait(on: boolean): void;
   /** After every state change. Rebuilds the rows only when the queue, the members or the permissions changed. */
   update(s: ViewState): void;
   /** How many times the rows were rebuilt (the "once per change" test and e2e). */
@@ -91,7 +93,10 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
   const full = el("p", { className: "queue-note", hidden: true }, "queue-full");
   full.append(el("span", { className: "ui-pill-full", textContent: "Full" }), " ", FULL_TEXT);
   const heldLine = el("p", { className: "queue-note", textContent: "Only the host can change the queue.", hidden: true }, "queue-held");
-  root.append(head, empty, list, form, problem, full, heldLine);
+  const content = el("div", { className: "queue-content" });
+  content.append(head, empty, list);
+  root.append(content, form, problem, full, heldLine);
+  let portrait = false;
 
   let state: ViewState | null = null;
   let drawnQueue: readonly QueueItem[] | undefined;
@@ -110,6 +115,7 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
     problem.hidden = text === null;
     problem.lastChild?.replaceWith(el("span", { textContent: text ?? "" }));
     input.setAttribute("aria-invalid", String(text !== null));
+    if (portrait && text !== null) problem.scrollIntoView({ block: "nearest", inline: "nearest" });
   };
 
   input.addEventListener("input", () => {
@@ -166,6 +172,21 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
   return {
     root,
     renders: () => renders,
+    setPortrait(on) {
+      if (on === portrait) return;
+      portrait = on;
+      if (on) {
+        content.append(problem, full, heldLine);
+        content.tabIndex = 0;
+        content.setAttribute("role", "region");
+        content.setAttribute("aria-label", "Up next and queue messages");
+      } else {
+        root.append(problem, full, heldLine);
+        content.removeAttribute("tabindex");
+        content.removeAttribute("role");
+        content.removeAttribute("aria-label");
+      }
+    },
     update(s) {
       state = s;
       const queue = s.room?.queue ?? NO_ITEMS;
