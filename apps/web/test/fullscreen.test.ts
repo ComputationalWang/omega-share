@@ -509,3 +509,16 @@ test.each([694, 700, 734, 735])("%p×375 Twitch remembered open keeps composer a
   expect(intersects(l.tv, l.strip)).toBe(false);
   expect(intersects(l.controls, l.strip)).toBe(false);
 });
+
+test.each([[568, 375], [591, 375], [592, 375], [700, 403], [700, 404], [700, 405]])(
+  "%p×%p Twitch open fallback reserves the touch composer frame at adjacent seams", (w, h) => {
+    const l = fullscreenLayout(w, h, "twitch", "open");
+    expect(l.tv.w).toBeGreaterThanOrEqual(534);
+    expect(l.tv.h).toBeGreaterThanOrEqual(300);
+    expect(l.strip.w).toBeGreaterThanOrEqual(BAND_MIN);
+    expect(l.strip.h).toBeGreaterThanOrEqual(48);
+    for (const r of [l.tv, l.controls, l.strip]) expect(inside(r, w, h)).toBe(true);
+    expect(intersects(l.controls, l.strip)).toBe(false);
+    expect(intersects(l.tv, l.strip)).toBe(false);
+  },
+);
