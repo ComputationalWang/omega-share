@@ -481,3 +481,5 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .portrait-sheet .ui-fs-line.is-settled,
 .portrait-sheet .chat-log:hover .ui-fs-line.is-faded,
 .portrait-sheet .chat-log:focus-within .ui-fs-line.is-faded { background-color: #343766; }
+/* Scrolling uses the physical button box, so a focused shelf key brings its whole touch target into view. */
+.room-portrait .controls .ui-button.icon { flex: none; width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
