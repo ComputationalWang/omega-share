@@ -307,6 +307,7 @@ export function createWs({
       case "leave":
       case "ping":
       case "status":
+      case "presence":
       case "kick":
       case "mute":
       case "control-policy":
@@ -329,6 +330,11 @@ export function createWs({
     if (msg.type === "join") {
       if (memberId !== null) {
         sendError(ws, "already_joined", "already joined");
+        return;
+      }
+      // Contract rollout guard: never turn an unsupported resume into a fresh identity.
+      if (msg.resumeToken !== undefined) {
+        sendError(ws, "resume_expired", "session expired");
         return;
       }
       // Secrets are compared by hash in constant time and never echoed or logged (ADR 0028 §3).
@@ -389,6 +395,9 @@ export function createWs({
       return;
     }
     switch (msg.type) {
+      // Presence runtime is enabled in the dependent durable-session wave.
+      case "presence":
+        return;
       case "leave":
         depart(ws, memberId, false);
         armJoinTimer(ws);
