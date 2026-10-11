@@ -118,11 +118,18 @@ export function wideLayout(width: number, height: number, provider: Provider | n
 
 /** Full screen (OME-597, set k `ui-m7-desktop`): the chat strip's width beside the picture, and on a small landscape screen. */
 export const FS_STRIP_W = 300;
-const FS_STRIP_NARROW_W = 160;
+/** A phone held sideways (OME-905): the frame, a 140 px field, the gap and the 44 px send key; 568 px still keeps a 356 px picture. */
+const FS_STRIP_NARROW_W = 208;
 /** Below this width a 300 px strip would take too much of the picture (a phone held sideways). */
 const FS_STRIP_WIDE_FROM = 1000;
 /** The band's transport (set k `ui-m7-band`: `flex: 0 1 560px`). */
 const FS_BAND_TRANSPORT_W = 560;
+/** The band's field and keys (OME-905): the frame, the emote key, a field with ≥ 60 % of its row, send, show-chat. */
+const FS_BAND_FIELD_MIN = 304;
+/** Narrower than this the transport can't give the field its room: the field moves to its own bar under the shelf. */
+const FS_BAND_TRANSPORT_MIN = 280;
+/** Short phones use a horizontally scrolling shelf when even the usual compact transport cannot fit. */
+const FS_BAND_SCROLL_MIN = 240;
 
 export type StripMode = "open" | "band";
 
@@ -133,6 +140,8 @@ export type StripMode = "open" | "band";
  * minimum (Twitch's is larger), and the largest size that leaves the strip or band clear; nothing overlaps.
  */
 export interface FullscreenLayout {
+  /** Initial viewport scroll when the provider minimum and touch band need more vertical space. */
+  readonly scrollY?: number;
   /** "alone": the room is popped out (OME-600), so the chat is in its window and the picture has the screen. */
   readonly at: "side" | "below" | "band" | "alone";
   readonly tv: Rect;
@@ -168,37 +177,75 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   }
 
   if (strip === "band") {
-    const pic = fitTv(w, h - below);
-    const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - below) / 2)), ...pic };
-    const y = tv.y + tv.h + GAP;
-    if (w < FS_STRIP_WIDE_FROM && h > w) {
-      // Portrait: the shelf, then the field on its own bar.
-      const controls = { x: 0, y, w, h: CONTROL_BAR_H };
-      return { at: "band", tv, controls, strip: { x: 0, y: y + CONTROL_BAR_H + GAP, w, h: CONTROL_BAR_H }, compact: { tv: true, controls: true } };
-    }
+    const bandH = w < FS_STRIP_WIDE_FROM ? CONTROL_BAR_H + 4 : CONTROL_BAR_H;
     const bx = SHELF_SPEAKER;
     const bw = w - 2 * SHELF_SPEAKER;
-    const controls = { x: bx, y, w: Math.min(FS_BAND_TRANSPORT_W, Math.floor(bw / 2)), h: CONTROL_BAR_H };
+    const half = Math.min(FS_BAND_TRANSPORT_W, Math.floor(bw / 2));
+    // Half and half where the field has its room; on a phone held sideways the transport gives way to it.
+    const cw = Math.min(half, bw - SHELF_SPEAKER - FS_BAND_FIELD_MIN);
+    // Portrait, or too narrow for both on one bar: the shelf, then the field on its own bar under it.
+    const stacked = (w < FS_STRIP_WIDE_FROM && h > w) || cw < FS_BAND_TRANSPORT_MIN;
+    // A second row cannot fit under Twitch's 300 px minimum on short phones. Drop the shelf's
+    // speaker outsets and share one row instead; keep the composer's 44 px content plus its frame.
+    const compactBandH = CONTROL_BAR_H + 4;
+    const minTvH = Math.round((min * 9) / 16);
+    if (minTvH + below + GAP + bandH > h
+      && h >= compactBandH
+      && w >= FS_BAND_SCROLL_MIN + GAP + FS_BAND_FIELD_MIN) {
+      const pic = fitTv(w, h - GAP - compactBandH);
+      const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: 0, ...pic };
+      const y = tv.h + GAP;
+      const controls = { x: 0, y, w: Math.min(FS_BAND_TRANSPORT_MIN, w - GAP - FS_BAND_FIELD_MIN), h: CONTROL_BAR_H };
+      const sx = controls.w + GAP;
+      return { at: "band", tv, controls, strip: { x: sx, y, w: w - sx, h: compactBandH },
+        scrollY: Math.max(0, y + compactBandH - h), compact: { tv: true, controls: true } };
+    }
+    const under = stacked ? below + GAP + bandH : GAP + bandH;
+    const pic = fitTv(w, h - under);
+    const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - under) / 2)), ...pic };
+    const y = tv.y + tv.h + GAP;
+    if (stacked) {
+      const controls = { x: 0, y, w, h: CONTROL_BAR_H };
+      const sy = y + CONTROL_BAR_H + GAP;
+      return { at: "band", tv, controls, strip: { x: 0, y: sy, w, h: bandH },
+        scrollY: Math.max(0, sy + bandH - h), compact: { tv: true, controls: true } };
+    }
+    const controls = { x: bx, y, w: cw, h: CONTROL_BAR_H };
     // The shelf's right speaker is painted outside the transport box: the field starts after it.
     const sx = controls.x + controls.w + SHELF_SPEAKER;
-    return { at: "band", tv, controls, strip: { x: sx, y, w: bx + bw - sx, h: CONTROL_BAR_H }, compact: { tv: true, controls: false } };
+    return { at: "band", tv, controls, strip: { x: sx, y, w: bx + bw - sx, h: bandH }, compact: { tv: true, controls: cw < half } };
   }
 
-  const stripW = w >= FS_STRIP_WIDE_FROM ? FS_STRIP_W : FS_STRIP_NARROW_W;
+  // The preferred 208 px strip can give up its spare pixels when that keeps Twitch beside it.
+  // 201 px still leaves the frame, a 140 px field, a 4 px gap and the 44 px send key.
+  const stripW = w >= FS_STRIP_WIDE_FROM ? FS_STRIP_W : Math.min(FS_STRIP_NARROW_W, Math.max(201, w - min));
   const aw = w - stripW;
-  const side = w > h && aw >= min && h - below >= Math.round((min * 9) / 16);
+  // Keep the picture stable when collapsing into a phone band with its 4 px composer frame.
+  const sideBelow = below + (w < FS_STRIP_WIDE_FROM ? 4 : 0);
+  const side = w > h && aw >= min && h - sideBelow >= Math.round((min * 9) / 16);
   if (side) {
-    const pic = fitTv(aw, h - below);
-    const tv = { x: Math.max(0, Math.floor((aw - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - below) / 2)), ...pic };
+    const pic = fitTv(aw, h - sideBelow);
+    const tv = { x: Math.max(0, Math.floor((aw - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - sideBelow) / 2)), ...pic };
     const controls = shelf(tv);
     return { at: "side", tv, controls, strip: { x: aw, y: 0, w: stripW, h }, compact: compactOf(controls, tv) };
   }
-  // Portrait (or too narrow for both): the picture full width on top, the shelf, then the strip down to the bottom.
-  const tw = Math.max(min, w);
-  const tv = { x: 0, y: 0, w: tw, h: Math.round((tw * 9) / 16) };
+  // Reserve the open strip's header, composer and frame before sizing a below-player picture.
+  const openStripH = 112;
+  const minTvH = Math.round((min * 9) / 16);
+  // Short landscape cannot hold the provider minimum plus an open strip. Show a compact band
+  // until more space is available; the caller keeps the user's remembered open preference.
+  // Below 356 px Twitch also needs vertical scrolling: its intact player stays above the band.
+  if (w > h && h < minTvH + below + GAP + openStripH
+    && h >= CONTROL_BAR_H + 4
+    && w >= FS_BAND_FIELD_MIN) {
+    return fullscreenLayout(w, h, provider, "band");
+  }
+  const pic = fitTv(w, h - below - GAP - openStripH);
+  const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: 0, ...pic };
   const controls = { x: 0, y: tv.h + GAP, w, h: CONTROL_BAR_H };
   const sy = controls.y + controls.h + GAP;
-  return { at: "below", tv, controls, strip: { x: 0, y: sy, w, h: Math.max(0, h - sy) }, compact: { tv: true, controls: true } };
+  return { at: "below", tv, controls, strip: { x: 0, y: sy, w, h: Math.max(openStripH, h - sy) },
+    scrollY: Math.max(0, sy + openStripH - h), compact: { tv: true, controls: true } };
 }
 
 /** The whole-room window's chat column (set k `ui-m7-popout`, OME-600). */

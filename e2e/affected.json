@@ -155,6 +155,7 @@
         "e2e/csp.e2e.ts",
         "e2e/furniture.e2e.ts",
         "e2e/landing.e2e.ts",
+        "e2e/m10-composer.e2e.ts",
         "e2e/m7-a11y.e2e.ts",
         "e2e/m9-help.e2e.ts",
         "e2e/m9-hide.e2e.ts",

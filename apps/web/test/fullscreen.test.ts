@@ -414,3 +414,149 @@ describe("createFullscreen: a reload in the CSS mode", () => {
     expect(s.state()).toEqual({ other: 1 });
   });
 });
+
+// OME-905 (M10 W1, board item 1): on a phone the message field needs ≥ 140 px and ≥ 60 % of its row. The strip's frame
+// takes 13 px across (reference.css .ui-fs-strip at 1×); a 44 px send key after a 4 px gap ends the row. With the strip
+// open and narrow the emote key moves to the strip's head; on the band it stays in the row, and the band's show-chat key follows.
+const FRAME = 13;
+const KEY = 44;
+const GAP = 4;
+/** The narrowest open strip that leaves the field 140 px: frame + field + gap + send. */
+const OPEN_MIN = FRAME + 140 + GAP + KEY;
+/** The narrowest band: frame + emote key + field (≥ 60 % of its row) + send, then the show-chat key. */
+const BAND_ROW = Math.ceil((KEY + GAP + GAP + KEY) / 0.4);
+const BAND_MIN = FRAME + BAND_ROW + 4 + KEY;
+const PHONES: readonly (readonly [number, number])[] = [
+  [568, 320],
+  [640, 360],
+  [667, 375],
+  [740, 360],
+  [780, 360],
+  [844, 390],
+  [915, 412],
+  [932, 430],
+];
+const PORTRAIT: readonly (readonly [number, number])[] = [
+  [320, 568],
+  [360, 740],
+  [390, 844],
+  [430, 932],
+];
+
+describe("fullscreenLayout on phones: the composer has room (OME-905)", () => {
+  test.each(PHONES)("%p×%p landscape, strip open: beside the picture and wide enough for the field", (w, h) => {
+    const l = fullscreenLayout(w, h, "youtube", "open");
+    expect(l.at).toBe("side");
+    expect(l.strip.w).toBeGreaterThanOrEqual(OPEN_MIN);
+    expect(l.tv.w).toBeGreaterThanOrEqual(356);
+    expect(intersects(l.tv, l.strip)).toBe(false);
+    expect(inside(l.strip, w, h)).toBe(true);
+  });
+
+  test.each([...PHONES, ...PORTRAIT])("%p×%p band: the field's box fits the row, the transport stays usable, nothing overlaps", (w, h) => {
+    const l = fullscreenLayout(w, h, "youtube", "band");
+    expect(l.strip.w).toBeGreaterThanOrEqual(BAND_MIN);
+    expect(l.controls.w).toBeGreaterThanOrEqual(280);
+    // The picture may overhang a 320 px screen (its 356 px minimum, ADR 0012); the shelf and the field never do.
+    for (const r of [l.controls, l.strip]) expect(inside(r, w, h)).toBe(true);
+    expect(intersects(l.tv, l.strip)).toBe(false);
+    expect(intersects(l.tv, l.controls)).toBe(false);
+    expect(intersects(l.controls, l.strip)).toBe(false);
+  });
+
+  test.each([[568, 320], [667, 375], [844, 390], [932, 430]])("%p×%p: collapsing to the band never shrinks the picture", (w, h) => {
+    expect(fullscreenLayout(w, h, "youtube", "band").tv.w).toBeGreaterThanOrEqual(fullscreenLayout(w, h, "youtube", "open").tv.w);
+  });
+
+  test("a desktop band keeps set k's half-and-half split", () => {
+    const l = fullscreenLayout(1280, 720, "youtube", "band");
+    expect(l.controls.w).toBe(560);
+    expect(l.compact.controls).toBe(false);
+  });
+});
+
+// Twitch's 534×300 minimum must not push a remembered phone band off-screen.
+describe("Twitch phone composer reachability", () => {
+  test("667×375 remembered band keeps transport and composer entirely visible", () => {
+    const l = fullscreenLayout(667, 375, "twitch", "band");
+    expect(l.tv.w).toBeGreaterThanOrEqual(534);
+    expect(l.tv.h).toBeGreaterThanOrEqual(300);
+    expect(l.strip.w).toBeGreaterThanOrEqual(BAND_MIN);
+    expect(l.strip.h).toBeGreaterThanOrEqual(48);
+    for (const r of [l.tv, l.controls, l.strip]) expect(inside(r, 667, 375)).toBe(true);
+    expect(intersects(l.controls, l.strip)).toBe(false);
+    expect(intersects(l.tv, l.strip)).toBe(false);
+  });
+});
+
+test("740×360 Twitch open keeps a usable side composer and the minimum player", () => {
+  const l = fullscreenLayout(740, 360, "twitch", "open");
+  expect(l.at).toBe("side");
+  expect(l.strip.w).toBeGreaterThanOrEqual(OPEN_MIN);
+  expect(l.tv.w).toBeGreaterThanOrEqual(534);
+  expect(l.tv.h).toBeGreaterThanOrEqual(300);
+  for (const r of [l.tv, l.controls, l.strip]) expect(inside(r, 740, 360)).toBe(true);
+  expect(intersects(l.tv, l.strip)).toBe(false);
+});
+
+test.each([694, 700, 734, 735])("%p×375 Twitch remembered open keeps composer and transport on screen", (w) => {
+  const l = fullscreenLayout(w, 375, "twitch", "open");
+  expect(l.tv.w).toBeGreaterThanOrEqual(534);
+  expect(l.tv.h).toBeGreaterThanOrEqual(300);
+  expect(l.strip.w).toBeGreaterThanOrEqual(l.at === "side" ? OPEN_MIN : BAND_MIN);
+  expect(l.strip.h).toBeGreaterThanOrEqual(48);
+  for (const r of [l.tv, l.controls, l.strip]) expect(inside(r, w, 375)).toBe(true);
+  expect(intersects(l.tv, l.strip)).toBe(false);
+  expect(intersects(l.controls, l.strip)).toBe(false);
+});
+
+test.each([[568, 375], [591, 375], [592, 375], [700, 403], [700, 404], [700, 405]])(
+  "%p×%p Twitch open fallback reserves the touch composer frame at adjacent seams", (w, h) => {
+    const l = fullscreenLayout(w, h, "twitch", "open");
+    expect(l.tv.w).toBeGreaterThanOrEqual(534);
+    expect(l.tv.h).toBeGreaterThanOrEqual(300);
+    expect(l.strip.w).toBeGreaterThanOrEqual(BAND_MIN);
+    expect(l.strip.h).toBeGreaterThanOrEqual(48);
+    for (const r of [l.tv, l.controls, l.strip]) expect(inside(r, w, h)).toBe(true);
+    expect(intersects(l.controls, l.strip)).toBe(false);
+    expect(intersects(l.tv, l.strip)).toBe(false);
+  },
+);
+
+// A minimum-size Twitch player and a 48 px touch band need 356 px. Native fullscreen remains
+// scrollable on shorter screens, initially exposing controls without covering or shrinking the player.
+test.each([[568, 320, 36], [700, 350, 6], [568, 355, 1], [568, 356, 0]])(
+  "%p×%p Twitch keeps composer and transport reachable by scrolling the intact player", (w, h, expectedScroll) => {
+    for (const mode of ["band", "open"] as const) {
+      const l = fullscreenLayout(w, h, "twitch", mode);
+      const scroll = "scrollY" in l && typeof l.scrollY === "number" ? l.scrollY : 0;
+      expect(scroll).toBe(expectedScroll);
+      expect(l.at).toBe("band");
+      expect(l.tv.w).toBeGreaterThanOrEqual(534);
+      expect(l.tv.h).toBeGreaterThanOrEqual(300);
+      expect(l.tv.y).toBeGreaterThanOrEqual(0);
+      expect(l.strip.w).toBeGreaterThanOrEqual(BAND_MIN);
+      expect(l.strip.h).toBeGreaterThanOrEqual(48);
+      for (const r of [l.controls, l.strip]) expect(inside({ ...r, y: r.y - scroll }, w, h)).toBe(true);
+      expect(intersects(l.tv, l.controls)).toBe(false);
+      expect(intersects(l.tv, l.strip)).toBe(false);
+      expect(intersects(l.controls, l.strip)).toBe(false);
+    }
+  },
+);
+
+// Below the compact shared-row threshold, the shelf and composer stack and still need scrolling.
+test.each([320, 533, 534, 540, 551, 552])("%p px Twitch phone exposes stacked controls below the shared-row threshold", (w) => {
+  for (const h of [320, 350, 375]) for (const mode of ["band", "open"] as const) {
+    const l = fullscreenLayout(w, h, "twitch", mode);
+    const scroll = l.scrollY ?? 0;
+    expect(l.tv.w).toBeGreaterThanOrEqual(534);
+    expect(l.tv.h).toBeGreaterThanOrEqual(300);
+    expect(l.strip.w).toBeGreaterThanOrEqual(l.at === "band" ? BAND_MIN : OPEN_MIN);
+    expect(l.strip.h).toBeGreaterThanOrEqual(48);
+    for (const r of [l.controls, l.strip]) expect(inside({ ...r, y: r.y - scroll }, w, h)).toBe(true);
+    expect(intersects(l.tv, l.controls)).toBe(false);
+    expect(intersects(l.tv, l.strip)).toBe(false);
+    expect(intersects(l.controls, l.strip)).toBe(false);
+  }
+});
