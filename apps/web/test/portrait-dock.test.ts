@@ -29,3 +29,15 @@ test("sharing opens the existing queue in a sheet and closing returns focus to i
   expect(document.activeElement).toBe(dock.link);
   expect(log.getAttribute("aria-live")).toBe("polite");
 });
+
+test("portrait room gives up its crop height before pushing the composer below the viewport", async () => {
+  const { portraitLayout } = await import("../src/layout");
+  const full = portraitLayout(360, 430, null, false);
+  expect(full.height).toBe(430);
+  expect(full.stage.h).toBeGreaterThan(0);
+  const keyboard = portraitLayout(360, 260, null, true);
+  expect(keyboard.stage.h).toBe(0);
+  expect(keyboard.controls.h).toBe(0);
+  expect(keyboard.tv.h).toBe(203);
+  expect(keyboard.height).toBe(260);
+});
