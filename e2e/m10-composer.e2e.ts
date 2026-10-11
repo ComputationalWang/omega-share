@@ -47,17 +47,21 @@ async function expectRoomy(page: Page, where: string): Promise<void> {
 }
 
 /** Enter sends, and so does a tap on the send key; the line shows in the log and focus never leaves the field. */
-async function expectSends(page: Page, text: string): Promise<void> {
+async function expectSends(page: Page, text: string, paced = false): Promise<void> {
   const strip = page.locator(site.fsStrip);
   const input = strip.locator(site.chatInput);
   await expect(input).toHaveAttribute("enterkeyhint", "send");
   await input.tap();
   await input.fill(`${text} enter`);
+  // Boundary sweeps send many messages on one socket: honor the server's 1/s chat rate,
+  // rather than exhausting its five-message burst (confirmed in CI at de08883).
+  if (paced) await page.waitForTimeout(1000);
   await input.press("Enter");
   await expect(input).toHaveValue("");
   await expect(page.locator(site.chatLog)).toContainText(`${text} enter`);
   expect(await fieldFocused(page)).toBe(true);
   await input.fill(`${text} tap`);
+  if (paced) await page.waitForTimeout(1000);
   await strip.getByRole("button", { name: "Send", exact: true }).tap();
   await expect(input).toHaveValue("");
   await expect(page.locator(site.chatLog)).toContainText(`${text} tap`);
@@ -173,7 +177,7 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
       if (width < 735) await expect(page.locator(site.fsStripToggle)).toBeDisabled();
       else await expect(page.locator(site.fsStripToggle)).toBeEnabled();
       await expectRoomy(page, `${key} ${String(width)} open`);
-      await expectSends(page, `${key} ${String(width)} open`);
+      await expectSends(page, `${key} ${String(width)}×${String(height)} open`, true);
       const transport = await box(page.locator(".controls"));
       expect(transport.y + transport.height).toBeLessThanOrEqual(height);
       if (width < 600 || height === 404) {
