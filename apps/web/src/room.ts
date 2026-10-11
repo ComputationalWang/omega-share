@@ -433,6 +433,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   stripToggle.append(stripIcon);
   // Mustard: only your own count of what you missed while collapsed; the key's label says it too.
   const unreadChip = el("span", { className: "ui-chip self fs-unread", ariaHidden: "true", hidden: true });
+  stripToggle.append(unreadChip);
   const stripTitle = el("span", { className: "fs-strip-title", textContent: "Chat" });
   stripHead.append(sprite("ui-icon-chat"), stripTitle);
   strip.append(stripHead);
@@ -448,17 +449,18 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const constrained = mode === "band" && stripMode === "open";
     stripToggle.disabled = constrained;
     stripToggle.title = constrained ? "Rotate your phone or exit full screen to show chat" : "";
-    stripToggle.ariaLabel = constrained ? "Chat needs more space; rotate your phone or exit full screen to show messages" : open ? "Collapse chat to the input bar" : unread > 0 ? `Show chat, ${String(unread)} new message${unread === 1 ? "" : "s"}` : "Show chat";
+    const unreadLabel = unread > 0 ? `, ${String(unread)} new message${unread === 1 ? "" : "s"}` : "";
+    stripToggle.ariaLabel = constrained ? `Chat needs more space; rotate your phone or exit full screen to show messages${unreadLabel}` : open ? "Collapse chat to the input bar" : `Show chat${unreadLabel}`;
     stripIcon.className = `ui-sprite ${open ? "ui-icon-strip-hide" : "ui-icon-strip-show"}`;
-    unreadChip.textContent = `${String(unread)} new`;
+    unreadChip.textContent = unread > 99 ? "99+ new" : `${String(unread)} new`;
     unreadChip.hidden = open || unread === 0;
     // Collapsed in full screen the log is out of sight: no invisible tab stop.
     chatLog.root.tabIndex = !open && !strip.hidden ? -1 : 0;
     // Open, the key heads the strip; collapsed, it follows the field on the band. Focus stays on it either way.
     const home = open ? stripHead : strip;
-    if (stripToggle.parentElement !== home || home.lastElementChild !== unreadChip) {
+    if (stripToggle.parentElement !== home || home.lastElementChild !== stripToggle) {
       const focused = document.activeElement === stripToggle;
-      home.append(stripToggle, unreadChip);
+      home.append(stripToggle);
       if (focused) stripToggle.focus({ preventScroll: true });
     }
   };

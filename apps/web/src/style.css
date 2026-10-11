@@ -279,7 +279,9 @@ body:has(.is-pseudo-fs) { overflow: hidden; }
 .fs-strip .chat-log { max-height: none; min-height: 0; margin: 0; }
 .fs-strip .chat { margin: 0; min-width: 0; gap: 4px; }
 .fs-strip .chat input { min-width: 0; }
-.fs-unread { flex: none; }
+.fs-strip [data-testid="fs-strip-toggle"] { position: relative; }
+/* The count uses the existing key footprint, so incoming chat cannot take pixels from the field. */
+.fs-unread { position: absolute; bottom: 0; left: 0; right: 0; max-width: 100%; padding: 0; font-size: 9px; line-height: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 /* Collapsed: the field and the show-chat key on one bar under the picture; the lines are out of sight (only the count). */
 .fs-strip[data-strip="band"] { display: flex; align-items: center; gap: 4px; padding-block: 0; }
 .fs-strip[data-strip="band"] .fs-strip-head { display: none; }
