@@ -38,8 +38,8 @@ been removed. The server's `ROOM_IDLE_TTL_MS` is 20 minutes and
 `ROOM_GC_INTERVAL_MS` is 60 seconds (`apps/server/src/rooms-gc.ts`).
 
 An unpinned room is deleted after 20 minutes with nobody in it, counted from the
-last member leaving, or from creation if nobody ever joined. Occupied rooms and
-rooms with a socket still joining are kept; pinned rooms are exempt. Sweeps run
+last member leaving, or from creation if nobody ever joined. Occupied and pinned
+rooms are kept. Pending joining sockets do not prevent idle expiry. Sweeps run
 at boot and every minute, so collection occurs after 20–21 minutes idle. The
 stored activity timestamp preserves the idle clock across restarts.
 
