@@ -43,6 +43,9 @@ import { buildStoreIcons } from "./store";
 import { buildPanels, buildShareCard, buildSiteIcons, encodeIco, type SiteSources } from "./site";
 import { buildPopupVignettes } from "./popup";
 import { BUBBLES, buildChatFloatFrames, chatFloatCss, wheelMeta } from "./chatfloat";
+import { PRESETS, THUMB, THUMB_SCALE, presetThumb } from "./presets";
+import * as v from "valibot";
+import { FURNITURE, RoomLayoutInputSchema, footprintCells, type RoomLayout } from "@omega/shared";
 
 const ROOT = join(import.meta.dir, "..");
 const POSES: readonly Pose[] = ["idle", "sit"];
@@ -1042,7 +1045,7 @@ function placePiece(meta: PieceMeta, colour: string, dir: FurnDir, ax: number, a
   const out: FurnItem[] = [{ key: `${base}/back`, x: ax, y: ay, sx, sy, layer: 2 }];
   (meta.seatsByDir?.[dir] ?? []).forEach((seat, i) => {
     const who = sitters[i];
-    if (who === undefined) return;
+    if (who === undefined || who === "") return; // "" = a free seat before a taken one
     out.push({ key: `${who}/sit/${seat.dir}/0`, x: ax + (seat.col - seat.row) * 32, y: ay + (seat.col + seat.row) * 16, sx, sy, layer: 3 });
   });
   if (meta.layersByDir[dir]?.includes("front") === true) out.push({ key: `${base}/front`, x: ax, y: ay, sx, sy, layer: 4 });
@@ -1254,7 +1257,21 @@ interface RoomHooks {
   top?: (draw: Draw) => void;
 }
 
-function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name: string, plan: { placements: Placement[]; standing: [string, number, number][] }, hooks: RoomHooks = {}): void {
+interface RoomPlan {
+  placements: Placement[];
+  /** Sprites sorted at a cell (standing avatars; set (n): room-atlas armchairs with their sitter, lamp, plant), in this order on a tie. */
+  standing: [string, number, number][];
+  /** Set (n): false draws bare planks where the default room has its big rug. */
+  rug?: boolean;
+}
+
+function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name: string, plan: RoomPlan, hooks: RoomHooks = {}): void {
+  const { img, W, H } = composeFurnitureRoom(pieces, all, plan, hooks);
+  writeFileSync(join(ROOT, "preview", `${name}@1x.png`), encodeIndexedPng(W, H, img, PALETTE));
+  writeFileSync(join(ROOT, "preview", `${name}@2x.png`), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+}
+
+function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, plan: RoomPlan, hooks: RoomHooks = {}): { img: Uint8Array; W: number; H: number } {
   const W = 960, H = 600;
   const img = new Uint8Array(W * H).fill(colorIndex("night", 2));
   const layout = defaultLayout();
@@ -1281,7 +1298,8 @@ function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name
       (p.ghost === true ? ghost : draw)(`furniture/${p.id}/${p.colour}/${p.dir}/back`, a.x, a.y);
     }
   };
-  layout.floor.forEach((row, r) => { row.forEach((key, c) => { draw(key, cellAt(c, r).x, cellAt(c, r).y); }); });
+  const floorKey = (key: string, c: number, r: number): string => (plan.rug === false && key.startsWith("rug/") ? `floor/${String((c * 3 + r) % 2)}` : key);
+  layout.floor.forEach((row, r) => { row.forEach((key, c) => { draw(floorKey(key, c, r), cellAt(c, r).x, cellAt(c, r).y); }); });
   // Edit mode lays the grid and markers on the floor (over rugs) before the walls and console stand on it.
   if (hooks.floor) { drawLayer("floor"); hooks.floor(draw); }
   for (let i = 0; i < 10; i++) {
@@ -1308,8 +1326,7 @@ function buildFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, name
   items.sort((a, b) => a.sy - b.sy || a.sx - b.sx || a.layer - b.layer);
   for (const it of items) (it.ghost === true ? ghost : draw)(it.key, it.x, it.y);
   hooks.top?.(draw);
-  writeFileSync(join(ROOT, "preview", `${name}@1x.png`), encodeIndexedPng(W, H, img, PALETTE));
-  writeFileSync(join(ROOT, "preview", `${name}@2x.png`), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+  return { img, W, H };
 }
 
 // ---------------------------------------------------------------- set (h): owner edit mode in the room (1×, Pixi)
@@ -1353,6 +1370,85 @@ function buildOwnerPreviews(set: { pieces: PieceMeta[]; all: FurnSprites }, ui: 
 
 function slicesFiles(): string[] {
   return readdirSync(join(ROOT, "ui", "slices")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/slices/${n}`);
+}
+
+// ---------------------------------------------------------------- set (n): room presets (M10, OME-906)
+
+/** Thumbnails ship on the landing / create flow: all six together stay under this (OME-906). */
+const PRESET_THUMBS_MAX = 40 * 1024;
+/** Who sits where in the full-size previews, by seat index (ADR 0021 order); gaps are free seats. */
+const PRESET_SITTERS: readonly (string | undefined)[] = ["juno", "pip", undefined, "mo", "kiki", undefined, undefined, undefined];
+
+/** A schema layout as the preview composer's plan: set (g) pieces as placements, room-atlas pieces as cell sprites. */
+function presetPlan(layout: RoomLayout): RoomPlan {
+  const plan: RoomPlan = { placements: [], standing: [], rug: layout.furniture.some((f) => f.kind === "rug") };
+  let seat = 0;
+  for (const f of layout.furniture) {
+    const spec = FURNITURE[f.kind];
+    const sitters = spec.seats ? footprintCells(f).map(() => PRESET_SITTERS[seat++]) : [];
+    if (f.kind === "tv" || f.kind === "rug") continue; // the console and the big rug are part of the room shell
+    if (f.kind === "lamp" || f.kind === "plant") { plan.standing.push([`${f.kind}/0`, f.col, f.row]); continue; }
+    if (f.kind === "armchair") {
+      plan.standing.push([`armchair/${f.facing}/back`, f.col, f.row]);
+      const who = sitters[0];
+      if (who !== undefined) plan.standing.push([`${who}/sit/${f.facing}/0`, f.col, f.row]);
+      plan.standing.push([`armchair/${f.facing}/front`, f.col, f.row]);
+      continue;
+    }
+    const id = f.kind === "runner" ? "rug" : f.kind;
+    const meta = PIECES_BY_ID.get(id);
+    if (!meta) throw new Error(`preset: no catalogue piece ${id}`);
+    const placement: Placement = { id, colour: meta.colours[f.variant ?? 0] ?? "", dir: f.facing, col: f.col, row: f.row };
+    if (sitters.some((w) => w !== undefined)) placement.sitters = sitters.map((w) => w ?? "");
+    plan.placements.push(placement);
+  }
+  return plan;
+}
+let PIECES_BY_ID = new Map<string, PieceMeta>();
+
+/** presets/: one layout JSON per preset, presets.json (names, blurbs, files), thumbs/*.png; previews: a 3× thumbnail sheet and
+ *  every preset at full size with a few people seated (preview/presets@1x.png). */
+function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
+  PIECES_BY_ID = new Map(set.pieces.map((m) => [m.id, m]));
+  const dir = join(ROOT, "presets");
+  mkdirSync(join(dir, "thumbs"), { recursive: true });
+  const ids = new Set<string>();
+  let bytes = 0;
+  const index = PRESETS.map((pr) => {
+    if (!/^[a-z]{1,12}$/.test(pr.id) || ids.has(pr.id)) throw new Error(`preset id ${pr.id}: [a-z]{1,12}, unique`);
+    ids.add(pr.id);
+    if (pr.blurb.length > 60) throw new Error(`preset ${pr.id}: blurb over 60 characters`);
+    const parsed = v.safeParse(RoomLayoutInputSchema, pr.layout);
+    if (!parsed.success) throw new Error(`preset ${pr.id}: ${parsed.issues.map((i) => i.message).join("; ")}`);
+    writeFileSync(join(dir, `${pr.id}.json`), JSON.stringify(pr.layout) + "\n");
+    const small = compactPalette(presetThumb(pr.layout));
+    const png = encodeIndexedPng(THUMB.w, THUMB.h, small.pixels, small.palette);
+    writeFileSync(join(dir, "thumbs", `${pr.id}.png`), png);
+    bytes += png.length;
+    return { id: pr.id, name: pr.name, blurb: pr.blurb, layout: `${pr.id}.json`, thumb: `thumbs/${pr.id}.png` };
+  });
+  if (bytes > PRESET_THUMBS_MAX) throw new Error(`preset thumbnails are ${String(bytes)} B, over ${String(PRESET_THUMBS_MAX)}`);
+  const manifest = { version: 1, license: "CC-BY-SA-4.0", default: "classic", thumb: { ...THUMB, scale: THUMB_SCALE }, presets: index };
+  writeFileSync(join(dir, "presets.json"), JSON.stringify(manifest, null, 1) + "\n");
+  console.log(`presets (set n): ${String(PRESETS.length)} thumbnails ${String(bytes)} B of ${String(PRESET_THUMBS_MAX)}`);
+  // Previews: thumbnails 3 across at 3× on the night page, then the same rooms at full size.
+  const G = 4, cols = 3, rows = Math.ceil(PRESETS.length / cols);
+  const tw = cols * THUMB.w + (cols + 1) * G, th = rows * THUMB.h + (rows + 1) * G;
+  const sheet = new Uint8Array(tw * th).fill(colorIndex("night", 2));
+  PRESETS.forEach((pr, i) => {
+    const img = presetThumb(pr.layout);
+    blitAt(sheet, tw, th, img, THUMB.w, THUMB.h, G + (i % cols) * (THUMB.w + G), G + Math.floor(i / cols) * (THUMB.h + G));
+  });
+  writeFileSync(join(ROOT, "preview", "presets-thumbs@3x.png"), encodeIndexedPng(tw * 3, th * 3, upscale(sheet, tw, th, 3), PALETTE));
+  const CX = 140, CW = 680, CH = 552;
+  const fw = cols * CW + (cols + 1) * G, fh = rows * CH + (rows + 1) * G;
+  const full = new Uint8Array(fw * fh).fill(OUTLINE);
+  PRESETS.forEach((pr, i) => {
+    const { img, W } = composeFurnitureRoom(set.pieces, set.all, presetPlan(pr.layout));
+    const ox = G + (i % cols) * (CW + G), oy = G + Math.floor(i / cols) * (CH + G);
+    for (let y = 0; y < CH; y++) full.set(img.subarray(y * W + CX, y * W + CX + CW), (oy + y) * fw + ox);
+  });
+  writeFileSync(join(ROOT, "preview", "presets@1x.png"), encodeIndexedPng(fw, fh, full, PALETTE));
 }
 
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
@@ -1427,6 +1523,7 @@ buildRoom(avatarImages);
 const furnitureSet = buildFurnitureSet(buildRoomFrames(), avatarImages);
 const uiFrames = buildUi(avatarImages, furnitureSet.frames);
 buildOwnerPreviews(furnitureSet, uiFrames);
+buildPresets(furnitureSet);
 buildMotion(avatarImages);
 buildStore();
 buildSite({ room: buildRoomFrames(), avatars: avatarImages, ui: uiFrames });
