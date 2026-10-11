@@ -1,0 +1,108 @@
+{
+  "origin": "https://omega-share.duckdns.org",
+  "at": "2026-10-11T02:25:42.198Z",
+  "rows": [
+    {
+      "check": "1a landing: 200, install row, footer links, build version",
+      "ok": true,
+      "ms": 0,
+      "detail": "install: Get the extension: Firefox: coming soon · Chrome: coming soon | 979e608"
+    },
+    {
+      "check": "1b legal page /privacy.html loads with the footer",
+      "ok": true,
+      "ms": 17,
+      "detail": "200, 6815 bytes"
+    },
+    {
+      "check": "1b legal page /terms.html loads with the footer",
+      "ok": true,
+      "ms": 16,
+      "detail": "200, 6245 bytes"
+    },
+    {
+      "check": "1b legal page /contact.html loads with the footer",
+      "ok": true,
+      "ms": 20,
+      "detail": "200, 5947 bytes"
+    },
+    {
+      "check": "1b legal page /licenses.html loads with the footer",
+      "ok": true,
+      "ms": 16,
+      "detail": "200, 7668 bytes"
+    },
+    {
+      "check": "1c /nope is a real 404 (and /nope.html)",
+      "ok": true,
+      "ms": 37,
+      "detail": "404 404, 1541 bytes"
+    },
+    {
+      "check": "1d robots.txt, manifest and og-image served",
+      "ok": true,
+      "ms": 98,
+      "detail": "/robots.txt 200, /manifest.webmanifest 200, /og-image.png 200, /favicon.ico 200"
+    },
+    {
+      "check": "2a landing in a real browser: renders, footer visible, no errors",
+      "ok": true,
+      "ms": 254,
+      "detail": "Get the extension: Firefox: coming soon · Chrome: coming soon"
+    },
+    {
+      "check": "2b A creates ONE public room and joins; B joins /r/<id>",
+      "ok": true,
+      "ms": 924,
+      "detail": "vkp6h2u4c6be6woysqobqzb7cq"
+    },
+    {
+      "check": "3a public room link unfurls with its title (crawler UA: OG + Twitter tags)",
+      "ok": true,
+      "ms": 16,
+      "detail": "og:title \"m9 signoff public 02:25:40 · omega-share\", x-robots-tag: noindex, nofollow"
+    },
+    {
+      "check": "2c a second browser creates ONE private room",
+      "ok": true,
+      "ms": 396,
+      "detail": "i35kwvxhqkgpx4zvmmsl7uk63q"
+    },
+    {
+      "check": "3b private room link unfurls generically: title absent, same bytes as the landing's card tags",
+      "ok": true,
+      "ms": 17,
+      "detail": "og:title \"omega-share\", x-robots-tag: noindex, nofollow"
+    },
+    {
+      "check": "3c unknown room id: crawler gets generic card, no title",
+      "ok": true,
+      "ms": 16,
+      "detail": "200, og:title \"omega-share\""
+    },
+    {
+      "check": "4a help dialog in A: key opens it, Esc closes it, focus returns to the key",
+      "ok": true,
+      "ms": 131,
+      "detail": "ok"
+    },
+    {
+      "check": "4a help dialog in B: key opens it, Esc closes it, focus returns to the key",
+      "ok": true,
+      "ms": 110,
+      "detail": "ok"
+    },
+    {
+      "check": "4b hide for me: A hides B (hidden row + status), Show undoes it; B unaffected",
+      "ok": true,
+      "ms": 145,
+      "detail": "m9-b is hidden for you. Only you see this."
+    },
+    {
+      "check": "5 no CSP violations or page errors in either browser",
+      "ok": true,
+      "ms": 0,
+      "detail": "0/0"
+    }
+  ]
+}
