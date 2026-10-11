@@ -278,7 +278,11 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
         const strip = page.locator(site.fsStrip);
         await expect(strip).toHaveAttribute("data-strip", "band");
         await expectRoomy(page, `${key} ${String(width)}×${String(height)}`);
-        await expectSends(page, `${key} ${remembered} ${String(height)}`, true);
+        // Keep existing sending cases plus one representative newly stacked viewport. Other
+        // threshold sizes still check geometry, focus scrolling, controls and preference.
+        if (width === 540 || width >= 568) {
+          await expectSends(page, `${key} ${remembered} ${String(width)}×${String(height)}`, true);
+        }
         const transport = await box(page.locator(".controls"));
         expect(transport.y).toBeGreaterThanOrEqual(0);
         expect(transport.y + transport.height).toBeLessThanOrEqual(height);

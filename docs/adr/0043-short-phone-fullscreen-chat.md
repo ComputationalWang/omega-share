@@ -10,7 +10,7 @@ Twitch requires a 534×300 player. A phone composer needs a 140 px field occupyi
 
 When the provider minimum, transport and open chat cannot fit in short landscape, display a compact composer band. Preserve the stored open-chat preference and restore the open strip when resizing provides enough room. Disable the unavailable expansion key with a label explaining that rotating or leaving full screen shows messages. Continue counting unread messages while the band is displayed.
 
-Reserve the composer frame as well as its 44 px content in phone bands. Reserve space for an open below-player strip before sizing the picture. Keep the player at its provider minimum.
+Reserve the composer frame as well as its 44 px content in phone bands. When a shared row cannot fit horizontally, stack the transport above the band and apply the same vertical scrolling rule. A below-player open strip also retains its minimum height and scrolls when the intact provider picture leaves too little space. Reserve space for an open below-player strip before sizing the picture. Keep the player at its provider minimum.
 
 In compact bands, the playback shelf scrolls horizontally. Its contents remain inside the shelf; playback, seek, volume, quality and full-screen controls remain reachable through scrolling and keyboard focus. This avoids squeezing controls into the composer. The transport retains sufficient content width and a 44 px seek target.
 

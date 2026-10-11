@@ -206,7 +206,9 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
     const y = tv.y + tv.h + GAP;
     if (stacked) {
       const controls = { x: 0, y, w, h: CONTROL_BAR_H };
-      return { at: "band", tv, controls, strip: { x: 0, y: y + CONTROL_BAR_H + GAP, w, h: bandH }, compact: { tv: true, controls: true } };
+      const sy = y + CONTROL_BAR_H + GAP;
+      return { at: "band", tv, controls, strip: { x: 0, y: sy, w, h: bandH },
+        scrollY: Math.max(0, sy + bandH - h), compact: { tv: true, controls: true } };
     }
     const controls = { x: bx, y, w: cw, h: CONTROL_BAR_H };
     // The shelf's right speaker is painted outside the transport box: the field starts after it.
@@ -235,14 +237,15 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   // Below 356 px Twitch also needs vertical scrolling: its intact player stays above the band.
   if (w > h && h < minTvH + below + GAP + openStripH
     && h >= CONTROL_BAR_H + 4
-    && w >= FS_BAND_SCROLL_MIN + GAP + FS_BAND_FIELD_MIN) {
+    && w >= FS_BAND_FIELD_MIN) {
     return fullscreenLayout(w, h, provider, "band");
   }
   const pic = fitTv(w, h - below - GAP - openStripH);
   const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: 0, ...pic };
   const controls = { x: 0, y: tv.h + GAP, w, h: CONTROL_BAR_H };
   const sy = controls.y + controls.h + GAP;
-  return { at: "below", tv, controls, strip: { x: 0, y: sy, w, h: Math.max(0, h - sy) }, compact: { tv: true, controls: true } };
+  return { at: "below", tv, controls, strip: { x: 0, y: sy, w, h: Math.max(openStripH, h - sy) },
+    scrollY: Math.max(0, sy + openStripH - h), compact: { tv: true, controls: true } };
 }
 
 /** The whole-room window's chat column (set k `ui-m7-popout`, OME-600). */
