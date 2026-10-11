@@ -363,3 +363,11 @@ describe("emote wheel", () => {
     expect(menu().classList.contains("no-tail")).toBe(true);
   });
 });
+
+test("dismissing the keyboard in onOpen does not resume typing when the wheel closes", async () => {
+  const { key, field, picker } = await setup({ onOpen: () => { if (document.activeElement instanceof HTMLInputElement) document.activeElement.blur(); } });
+  field.focus();
+  key.click();
+  picker.close();
+  expect(document.activeElement === field).toBe(false);
+});
