@@ -5,6 +5,7 @@ export interface PortraitDockOptions {
   readonly log: HTMLElement;
   readonly composer: HTMLFormElement;
   readonly queue: HTMLElement;
+  readonly shelf?: HTMLElement;
   readonly settings: readonly HTMLElement[];
   readonly onViewport?: () => void;
 }
@@ -28,6 +29,9 @@ export function createPortraitDock(o: PortraitDockOptions) {
   sheet.append(head, content);
   o.root.append(keys, sheet);
   let active = false;
+  o.shelf?.addEventListener("focusin", (ev) => {
+    if (active && ev.target instanceof HTMLElement) ev.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+  });
   let opener: HTMLElement | null = null;
   let held: { node: HTMLElement; marker: Comment }[] = [];
   const restore = (): void => {

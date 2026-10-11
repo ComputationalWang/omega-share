@@ -674,7 +674,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, notFound.root, kicked, side, foot, help.dialog);
   const portraitDock = createPortraitDock({ root: opts.root, log: chatLog.root, composer: chatForm,
-    queue: queuePanel.root, settings: [editBar, personal.root, invite, foot, firstHint.root], onViewport: () => { fit(); placeQuality(); } });
+    queue: queuePanel.root, shelf: controls, settings: [editBar, personal.root, invite, foot, firstHint.root], onViewport: () => { fit(); placeQuality(); } });
   let portraitOn = false;
   const syncPortrait = (): boolean => {
     const on = portrait.matches && fs.mode() === "off" && screen(state).stage;
@@ -762,7 +762,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     wrap.scrollTop = 0;
     fsScrollWidth = fsScrollHeight = fsScrollTarget = -1;
     placeRowKeys(false);
-    controls.classList.remove("scroll-transport");
+    controls.classList.toggle("scroll-transport", portraitOn);
     controls.tabIndex = -1;
     controls.ariaLabel = "Playback controls";
     if (wide.matches) {
