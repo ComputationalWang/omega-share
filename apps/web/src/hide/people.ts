@@ -94,9 +94,9 @@ export function createPeople(o: PeopleOptions): People {
   const close = (): void => {
     if (panel.hidden) return;
     const inside = panel.contains(document.activeElement);
+    if (inside) key.focus();
     panel.hidden = true;
     key.setAttribute("aria-expanded", "false");
-    if (inside) key.focus();
   };
   const open = (focus?: MemberId): void => {
     panel.hidden = false;
