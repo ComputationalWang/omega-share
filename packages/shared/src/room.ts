@@ -91,12 +91,19 @@ export type ControlPolicy = v.InferOutput<typeof ControlPolicySchema>;
 /** Today's behaviour: anyone in the room controls playback (open board default, ADR 0030). */
 export const DEFAULT_CONTROL_POLICY: ControlPolicy = "everyone";
 
+/** Stable destination index, retained while seated or away (ADR 0043). */
+export const StandingSlotSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(MAX_ROOM_MEMBERS - 1));
+export type StandingSlot = v.InferOutput<typeof StandingSlotSchema>;
+
 export const MemberSchema = v.object({
   id: MemberIdSchema,
   nickname: NicknameSchema,
   avatar: AvatarSchema,
   /** Advisory: this member's player is catching up (ADR 0019). Absent means false. */
   catching: v.optional(v.boolean()),
+  /** Presence hint independent of catching; absent means false. */
+  away: v.optional(v.boolean()),
+  standingSlot: v.optional(StandingSlotSchema),
   /** The owner muted this member's chat (ADR 0030). Absent means false. */
   muted: v.optional(v.boolean()),
 });
@@ -126,6 +133,16 @@ export const RoomStateSchema = v.pipe(
   v.check((r) => r.itemId === undefined || !(r.queue ?? []).some((i) => i.id === r.itemId), "current item also queued"),
   v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
   v.check((r) => new Set(r.members.map((m) => m.id)).size === r.members.length, "duplicate member id"),
+  v.check((r) => {
+    let slots = 0;
+    for (const member of r.members) {
+      if (member.standingSlot === undefined) continue;
+      const bit = 1 << member.standingSlot;
+      if ((slots & bit) !== 0) return false;
+      slots |= bit;
+    }
+    return true;
+  }, "duplicate standing slot"),
   v.check((r) => {
     const ids = new Set(r.members.map((m) => m.id));
     const seated = r.seats.filter((s) => s !== null);
