@@ -339,6 +339,7 @@ class LoadClient {
         else this.errors[msg.code] = (this.errors[msg.code] ?? 0) + 1;
         return;
       case "member-joined":
+      case "member-presence":
       case "member-status":
       case "member-muted":
       case "emoted":
