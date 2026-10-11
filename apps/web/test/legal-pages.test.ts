@@ -201,6 +201,14 @@ describe("Privacy rights and release facts", () => {
     expect(s).not.toContain("can't look up");
   });
 
+  test("privacy and contact outbound routes do not disclose the visitor's page", () => {
+    for (const file of ["privacy.html", "contact.html"]) {
+      const routes = [...main(page(file)).matchAll(/<a ([^>]*href="(?:mailto:|https:)[^>]+)>/g)];
+      expect(routes.length).toBeGreaterThan(0);
+      for (const route of routes) expect(route[1]).toMatch(/rel="[^"]*noreferrer/);
+    }
+  });
+
   test("no shipped HTML page leaves a board-fact placeholder", () => {
     for (const file of readdirSync(web).filter((name) => name.endsWith(".html"))) {
       expect(readFileSync(join(web, file), "utf8")).not.toContain("data-placeholder");
