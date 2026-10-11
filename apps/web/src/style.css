@@ -475,3 +475,9 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 
 /* Raster faces remain on top; solid underpaint gives contrast tools the same palette as the artwork. */
 .portrait-sheet .queue-form .ui-button:not(:disabled) { background-color: var(--ui-accent); background-clip: padding-box; }
+/* Match the fresh cream and settled night card interiors without painting faded words-only lines. */
+.portrait-sheet .ui-fs-line { background-clip: padding-box; }
+.portrait-sheet .ui-fs-line:not(.is-settled):not(.is-faded) { background-color: #f4ead2; }
+.portrait-sheet .ui-fs-line.is-settled,
+.portrait-sheet .chat-log:hover .ui-fs-line.is-faded,
+.portrait-sheet .chat-log:focus-within .ui-fs-line.is-faded { background-color: #343766; }
