@@ -70,6 +70,11 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     await expect(page.locator(site.chatLog)).toHaveAttribute("aria-live", "polite");
     const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("iframe").analyze();
     expect(axe.violations).toEqual([]);
+    await finalToggle.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(page.locator(site.peopleKey)).toBeFocused();
+    await visibleInViewport(page.locator(site.peopleKey), height - 300 + 24);
+    await dockVisible(height - 300 + 24);
   });
 }
 
