@@ -851,3 +851,11 @@ Set (f) (OME-193) adds ≈ 4.1 KB against `main`: `ui.png` +1 030, `ui.json` +33
 
 "gz" is zlib **level 9** with no file name (what `build.ts` prints; `gzip -9nc <file> | wc -c` agrees within 4 B).
 Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B more per file, e.g. for `ui.json` and `reference.css`.
+
+## Set (n): room presets and portrait phone references
+
+`presets/presets.json` indexes six named starting rooms. Its `layout` and `thumb` paths resolve relative to `assets/presets/`. Layout files are strict layout-v1 JSON, with eight seat cells, one TV and existing furniture kinds. Thumbnails are 212×176 indexed PNGs on a 20×10 tile grid, sharing the room palette; six together are 20,478 bytes (cap 40,960). They are standalone create-flow previews. PixiJS still renders the selected layout through the existing room/furniture PNG sheets and JSON atlases; no atlas change is needed.
+
+Source: `src/presets.ts`; regeneration: `bun assets/src/build.ts`; validation: `bun test assets/src/presets.test.ts`. `preview/presets@1x.png` shows all six at native scale with sitters; `preview/presets-thumbs@3x.png` shows the thumbnails enlarged without interpolation.
+
+Portrait UI reference: `preview/m10.html`, captured by `bun assets/src/shoot-m10.ts`. The 360×740 and 390×844 state boards cover watching, typing, chat, queue, link entry, emotes and host actions. These review PNGs do not ship. See `docs/design/m10-presets-phone.md` for interaction/focus rules, budget and self-check.
