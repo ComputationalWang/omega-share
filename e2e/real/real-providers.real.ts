@@ -3,9 +3,10 @@
 // The fake-SDK suites (e2e/provider-sync.e2e.ts, e2e/vimeo.e2e.ts) prove the logic; this proves the real players obey it.
 import { writeFileSync } from "node:fs";
 import { discoverPairedGate, collectGateEvidence } from "./twitch-gate";
+import { discoverPairedLive } from "./twitch-live";
 import { chromium } from "@playwright/test";
 import { expect, test, watchCsp } from "../support/csp";
-import type { APIRequestContext, Browser, Frame } from "@playwright/test";
+import type { Browser, Frame } from "@playwright/test";
 import { site } from "../support/selectors";
 import { REAL, TWITCH_START_WATCHING, arrival, gateShown, liveInCategories, mediaSpread, providerFrame, sampleMedia, seekTo, siteNotices, twitchLiveUrl, twitchVodUrl, view, vimeoUrl, waitMediaPlaying } from "./providers";
 import type { MediaSample, RealProvider } from "./providers";
@@ -69,45 +70,6 @@ async function twoBrowsers(prefix: string, opts: { twitchLog?: true } = {}): Pro
 
 async function frames(a: Client, b: Client, provider: RealProvider, id: string): Promise<[Frame, Frame]> {
   return [await providerFrame(a.page, provider, id), await providerFrame(b.page, provider, id)];
-}
-
-interface LiveTry { readonly channel: string; readonly outcome: "live" | "offline" | "error" | "no-start" }
-
-/**
- * Shares the first candidate that is live now (OME-218: a fixed channel is often offline). Offline is the room's
- * `offline` error with the new player's own offline overlay (so a stale error from the last candidate can't count);
- * an ad or moving video means live. Another error, or nothing within `perChannel`, tries the next, until `budget`
- * runs out, which leaves the test (300 s) time to run.
- */
-async function shareLiveChannel(request: APIRequestContext, a: Client, candidates: readonly string[], perChannel = 25_000, budget = 120_000): Promise<{ channel: string | null; tried: LiveTry[] }> {
-  const tried: LiveTry[] = [];
-  const start = Date.now();
-  for (const channel of candidates) {
-    if (Date.now() - start > budget) break;
-    await shareUrl(request, twitchLiveUrl(channel));
-    const frame = await providerFrame(a.page, "twitch", channel, 15_000).catch(() => null);
-    let outcome: LiveTry["outcome"] = "no-start";
-    const t0 = Date.now();
-    while (frame !== null && Date.now() - t0 < perChannel) {
-      const [s, v] = await Promise.all([sampleMedia(frame), view(a.page)]);
-      if (v.error !== null && v.error.reason !== "offline") {
-        outcome = "error";
-        break;
-      }
-      if (v.error?.reason === "offline" && s !== null && /offline/i.test(s.overlay)) {
-        outcome = "offline";
-        break;
-      }
-      if (s !== null && (s.ad || (!s.paused && s.currentTime > 0.5))) {
-        outcome = "live";
-        break;
-      }
-      await a.page.waitForTimeout(500);
-    }
-    tried.push({ channel, outcome });
-    if (outcome === "live") return { channel, tried };
-  }
-  return { channel: null, tried };
 }
 
 const seekable: { key: string; provider: RealProvider; url: string; frameId: string }[] = [
@@ -180,15 +142,31 @@ for (const c of seekable) {
   });
 }
 
-test("M2-twitch-live · pause and play-from-live reach both browsers; no scrubber; ads as found", async ({ request }) => {
+test("M2-twitch-live · pause and play-from-live reach both browsers; no scrubber; ads as found", async ({ request }, testInfo) => {
   // OME-500: each page's raw SDK events, to confirm or refute a mid-roll slate (pause/play by itself) after a resume.
   const { browsers, a, b } = await twoBrowsers("real-live", { twitchLog: true });
+  let currentChannel: string | null = null;
+  let discovery: Awaited<ReturnType<typeof discoverPairedLive>> | null = null;
+  let capturedFailure = false;
   try {
-    const live = await shareLiveChannel(request, a, REAL.twitchLive);
+    // Manually launched contexts need explicit ownership of both viewers' traces.
+    await Promise.all([a, b].map(async (c) => {
+      await c.context.tracing.stop();
+      await c.context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+    }));
+    const live = await discoverPairedLive(REAL.twitchLive, {
+      share: async (channel) => { currentChannel = channel; await shareUrl(request, twitchLiveUrl(channel)); },
+      observe: async (channel) => Promise.all([liveViewer(a, channel), liveViewer(b, channel)]),
+      now: Date.now,
+      pause: () => a.page.waitForTimeout(500),
+    });
+    discovery = live;
+    record("m2-twitch-live-discovery", live);
+    await testInfo.attach("paired-live-discovery", { body: JSON.stringify(live, null, 2), contentType: "application/json" });
     const { channel } = live;
     if (channel === null) {
-      record("m2-twitch-live", { notRun: "no candidate was live; set OMEGA_REAL_TWITCH_LIVE", tried: live.tried });
-      test.skip(true, `no Twitch candidate is live now (${live.tried.map((x) => `${x.channel}: ${x.outcome}`).join(", ")}); set OMEGA_REAL_TWITCH_LIVE`);
+      record("m2-twitch-live", { notRun: "no candidate was eligible for both ungated viewers; set OMEGA_REAL_TWITCH_LIVE", tried: live.tried });
+      test.skip(true, `no Twitch candidate is eligible for both ungated viewers (${live.tried.map((x) => `${x.channel}: ${x.outcome} (${x.viewers.map((v) => v.reason).join(" / ")})`).join(", ")}); set OMEGA_REAL_TWITCH_LIVE`);
       return;
     }
     const [fa, fb] = await frames(a, b, "twitch", channel);
@@ -226,13 +204,58 @@ test("M2-twitch-live · pause and play-from-live reach both browsers; no scrubbe
     };
     record("m2-twitch-live", result);
     expect(chrome.live).toBe(true);
+    expect(chrome.livePill, "live pill is visible").toBe(true);
+    expect(result.finalPlaying, "both ungated players keep playing").toEqual([true, true]);
     expect(chrome.seekVisible, "no scrubber on live").toBe(false);
     expect(pauseArrival.every((x) => x !== null), "both real players paused").toBe(true);
     expect(playArrival.every((x) => x !== null), "both real players resumed").toBe(true);
     // The live spread budget is board question B1 (ADR 0014): recorded, only a sanity bound here.
     expect(result.pause.spreadMs ?? Infinity).toBeLessThan(2_000);
+  } catch (error) {
+    if (testInfo.expectedStatus === "skipped") throw error;
+    capturedFailure = true;
+    const tasks: Record<string, () => Promise<unknown>> = {};
+    for (const [index, client] of [a, b].entries()) {
+      const name = `viewer-${String(index + 1)}`;
+      tasks[`${name}-snapshot`] = () => liveViewer(client, currentChannel);
+      tasks[`${name}-dom`] = async () => {
+        const snapshot = await liveViewer(client, currentChannel);
+        const frame = client.page.frames().find((f) => f.url() === snapshot.frameUrl && !f.isDetached());
+        const dom = { page: await client.page.content(), player: frame === undefined ? null : await frame.content() };
+        const path = testInfo.outputPath(`${name}-dom.json`);
+        writeFileSync(path, `${JSON.stringify(dom, null, 2)}\n`);
+        await testInfo.attach(`${name}-dom`, { path, contentType: "application/json" });
+        return path;
+      };
+      tasks[`${name}-screenshot`] = async () => {
+        const path = testInfo.outputPath(`${name}.png`);
+        await client.page.screenshot({ path });
+        await testInfo.attach(`${name}-screenshot`, { path, contentType: "image/png" });
+        return path;
+      };
+      tasks[`${name}-trace`] = async () => {
+        const path = testInfo.outputPath(`${name}-trace.zip`);
+        await client.context.tracing.stop({ path });
+        await testInfo.attach(`${name}-trace`, { path, contentType: "application/zip" });
+        return path;
+      };
+    }
+    const evidence = { error: error instanceof Error ? error.message : String(error), channel: currentChannel, discovery, captures: await collectGateEvidence(tasks) };
+    const path = testInfo.outputPath("paired-live-failure.json");
+    const saved = await collectGateEvidence({ failureJson: async () => {
+      writeFileSync(path, `${JSON.stringify(evidence, null, 2)}\n`);
+      await testInfo.attach("paired-live-failure", { path, contentType: "application/json" });
+      return path;
+    } });
+    if (saved["failureJson"]?.error) console.warn("paired live failure evidence could not be saved", saved);
+    throw error;
   } finally {
-    await closeAll(...browsers);
+    if (!capturedFailure) {
+      await Promise.allSettled([a, b].map((c) => c.context.tracing.stop()));
+      await closeAll(...browsers);
+    } else {
+      await Promise.allSettled(browsers.map((browser) => browser.close()));
+    }
   }
 });
 
@@ -250,6 +273,12 @@ async function gateViewer(client: Client, channel: string | null) {
   ]);
   const reason = frame === undefined ? "no-frame" : gate ? "mature-gate" : media?.overlay ? `overlay: ${media.overlay}` : media?.ad ? "advertisement" : media !== null && !media.paused && media.currentTime > 0.5 ? "ungated-playing" : "no-gate; waiting for upstream player";
   return { viewer: client.nickname, gate, reason, frameUrl: frame?.url() ?? null, media, room };
+}
+
+/** Same candidate-bound snapshot as M3, including the room error used by M2 discovery. */
+async function liveViewer(client: Client, channel: string | null) {
+  const snapshot = await gateViewer(client, channel);
+  return { ...snapshot, error: snapshot.room?.error ?? null };
 }
 
 test("M3-twitch-gate · a mature-gated live channel: both members see the Start Watching hint, press it, and stay in sync", async ({ request }, testInfo) => {
