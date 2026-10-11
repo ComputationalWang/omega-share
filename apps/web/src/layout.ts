@@ -208,7 +208,9 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
     return { at: "band", tv, controls, strip: { x: sx, y, w: bx + bw - sx, h: CONTROL_BAR_H }, compact: { tv: true, controls: cw < half } };
   }
 
-  const stripW = w >= FS_STRIP_WIDE_FROM ? FS_STRIP_W : FS_STRIP_NARROW_W;
+  // The preferred 208 px strip can give up its spare pixels when that keeps Twitch beside it.
+  // 201 px still leaves the frame, a 140 px field, a 4 px gap and the 44 px send key.
+  const stripW = w >= FS_STRIP_WIDE_FROM ? FS_STRIP_W : Math.min(FS_STRIP_NARROW_W, Math.max(201, w - min));
   const aw = w - stripW;
   const side = w > h && aw >= min && h - below >= Math.round((min * 9) / 16);
   if (side) {

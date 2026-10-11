@@ -107,7 +107,7 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
       roomUrl: room.url, count: 1, nicknamePrefix: key,
       contextOptions: () => ({ viewport: { width: 667, height: 375 }, isMobile: true, hasTouch: true }),
       setup: async (context) => {
-        await context.addInitScript(() => localStorage.setItem("omega.fsStrip", "band"));
+        await context.addInitScript(() => { localStorage.setItem("omega.fsStrip", "band"); });
       },
     });
     const page = clients[0]?.page;
