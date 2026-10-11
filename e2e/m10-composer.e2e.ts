@@ -199,3 +199,42 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
     }
   });
 }
+
+for (const key of ["twitchVod", "twitchLive"] as const) {
+  for (const remembered of ["band", "open"] as const) {
+    test(`${key}: 568×375 remembered ${remembered} keeps field room as incoming unread grows`, async ({ browser, request }) => {
+      const room = testRoom("m10-composer", key === "twitchVod" ? "l568" : "p390");
+      await shareProvider(request, providerCase(key).shareUrl, room.id);
+      clients = await joinRoom(browser, {
+        roomUrl: room.url, count: 2, nicknamePrefix: `${key}-unread`,
+        contextOptions: () => ({ viewport: { width: 568, height: 375 }, isMobile: true, hasTouch: true }),
+        setup: async (context) => {
+          await context.addInitScript((mode) => { localStorage.setItem("omega.fsStrip", mode); }, remembered);
+        },
+      });
+      const page = clients[0]?.page;
+      const sender = clients[1]?.page;
+      if (page === undefined || sender === undefined) throw new Error("missing client");
+      await waitProviderPlaying(clients, "twitch");
+      const fullscreenKey = page.locator(site.fullscreenToggle);
+      await fullscreenKey.scrollIntoViewIfNeeded();
+      await page.evaluate(() => new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => { resolve(); }));
+      }));
+      await fullscreenKey.tap();
+      await expect.poll(() => page.evaluate((selector) =>
+        document.fullscreenElement === document.querySelector(selector), site.fsRoot)).toBe(true);
+      await expect(page.locator(site.fsStrip)).toHaveAttribute("data-strip", "band");
+      await expectRoomy(page, "before incoming chat");
+      for (let count = 1; count <= 10; count++) {
+        await sender.locator(site.chatInput).fill(`incoming ${String(count)}`);
+        if (count > 1) await sender.waitForTimeout(1000);
+        await sender.locator(site.chatInput).press("Enter");
+        await expect(page.locator(".fs-unread")).toHaveText(`${String(count)} new`);
+        await expectRoomy(page, `unread ${String(count)}`);
+      }
+      await expectSends(page, `${key} ${remembered} after incoming`);
+      expect(await page.evaluate(() => localStorage.getItem("omega.fsStrip"))).toBe(remembered);
+    });
+  }
+}
