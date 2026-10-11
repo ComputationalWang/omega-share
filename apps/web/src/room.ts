@@ -17,7 +17,7 @@ import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, sitIntent } from "./intents";
 import { layoutOf } from "./furniture";
-import { FS_STRIP_W, PHONE_QUERY, STAGE_H, STAGE_W, TAG_OFFSET_Y, WIDE_QUERY, fullscreenLayout, roomLayout, wideLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_QUERY, STAGE_H, STAGE_W, TAG_OFFSET_Y, WIDE_QUERY, fullscreenLayout, portraitLayout, roomLayout, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createFullscreen, type FullscreenMode } from "./fullscreen";
 import { createRoomWindow } from "./room-window";
 import type { PlayerError } from "./player/adapter";
@@ -39,6 +39,7 @@ import { createHelp } from "./help/dialog";
 import { createFirstHint } from "./help/hint";
 import { createNotFound } from "./not-found";
 import { createHiddenMembers } from "./hide/hidden";
+import { createPortraitDock } from "./portrait-dock";
 import { createPeople } from "./hide/people";
 
 export interface RoomOptions {
@@ -327,6 +328,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // The hint's emote line is done. It leaves the flow, and the stage is refitted now rather than on the next resize
     // callback, before the wheel is placed over my head (`firstHint` and `fit` are made below; a wheel only opens once the room is up).
     onOpen: () => {
+      if (portraitOn && document.activeElement === chatInput) chatInput.blur();
       if (!firstHint.isOpen()) return;
       firstHint.dismiss();
       fit();
@@ -575,6 +577,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const editorPanel = el("div", { className: "editor-panel" });
   // Set (k) phone watch layout (OME-596): TV full width, the room at 1× in a window you drag, chat right under it, no editor.
   const phone = globalThis.matchMedia(PHONE_QUERY);
+  const portrait = globalThis.matchMedia(`${PHONE_QUERY} and (orientation: portrait)`);
   // Desktop wide layout (OME-642): the room on the left, the chat and Up next in a full-height column on the right.
   const wide = globalThis.matchMedia(WIDE_QUERY);
   const side = el("div", { className: "room-side", hidden: true }, "room-side");
@@ -669,6 +672,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (!on) focusBefore = null;
   };
   opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, notFound.root, kicked, side, foot, help.dialog);
+  const portraitDock = createPortraitDock({ root: opts.root, log: chatLog.root, composer: chatForm,
+    queue: queuePanel.root, settings: [editBar, personal.root, invite, foot, firstHint.root], onViewport: () => { fit(); placeQuality(); } });
+  let portraitOn = false;
+  const syncPortrait = (): boolean => {
+    const on = portrait.matches && fs.mode() === "off" && screen(state).stage;
+    if (on === portraitOn) return false;
+    portraitOn = on;
+    portraitDock.setActive(on);
+    return true;
+  };
   /**
    * Moving a scrolled box resets its scroll (QA OME-658): call before a move and the returned function after the layout
    * settles. A log at its foot goes back to its foot (so it keeps following new lines); otherwise it keeps its place.
@@ -681,6 +694,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
   const placeChat = (): void => {
+    portraitDock.close();
+    syncPortrait();
     const two = wide.matches;
     opts.root.classList.toggle("room-wide", two);
     side.hidden = !two;
@@ -695,6 +710,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     else if (two) side.append(chatLog.root, chatForm, chatAway);
     else if (phone.matches) wrap.after(chatLog.root, chatForm, chatAway);
     else notice.after(chatLog.root, chatForm, chatAway);
+    if (portraitOn) chatForm.before(portraitDock.keys);
     // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch).
     opts.root.classList.toggle("ui-touch", phone.matches);
   };
@@ -767,11 +783,19 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       return;
     }
     const onPhone = phone.matches;
-    const l = roomLayout(wrap.clientWidth, tvProvider, onPhone);
+    const l = portraitOn
+      ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvProvider, opts.root.classList.contains("portrait-typing"))
+      : roomLayout(wrap.clientWidth, tvProvider, onPhone);
     box(tv, l.tv);
     box(controls, l.controls);
     tv.classList.toggle("compact", l.compact.tv);
     controls.classList.toggle("compact", l.compact.controls);
+    if (portraitOn) {
+      opts.root.style.setProperty("--portrait-sheet-top", `${String(tv.offsetTop + tv.offsetHeight + wrap.offsetTop)}px`);
+      controls.classList.add("scroll-transport");
+      controls.tabIndex = 0;
+      controls.ariaLabel = "Playback controls; scroll horizontally for more";
+    }
     box(clip, l.stage);
     if (onPhone) roomWindow.set(true, l.stage.w, l.stage.h);
     else {
@@ -779,7 +803,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       stage.style.transform = `scale(${String(l.scale)})`;
     }
     // The room popped out: the wrap ends where the stage would start, and the placeholder follows it.
-    wrap.style.height = `${String(roomOut() ? l.stage.y : l.height)}px`;
+    wrap.style.height = portraitOn ? "" : `${String(roomOut() ? l.stage.y : l.height)}px`;
   };
   /** Layout first, then the open quality tray follows its key. */
   const relayout = (): void => {
@@ -1057,6 +1081,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     full.hidden = !shown.full;
     refused.hidden = shown.refused === null;
     invite.hidden = !shown.stage;
+    if (syncPortrait()) fit();
     queuePanel.root.hidden = !shown.stage;
     queuePanel.update(s);
     if (kicked.hidden === shown.kicked) {
@@ -1334,7 +1359,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Keys 1–6 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
   window.addEventListener("keydown", (ev) => {
     // The report and help dialogs are modal: the room's keys wait until they close.
-    if (report?.isOpen() === true || help.isOpen()) return;
+    if (report?.isOpen() === true || help.isOpen() || portraitDock.sheet.open) return;
     // Esc dismisses the first-visit hint and still does whatever else it does here.
     if (ev.key === "Escape") firstHint.dismiss();
     if (moderation?.key(ev) === true) ev.preventDefault();
@@ -1380,6 +1405,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   phone.addEventListener("change", onMedia);
   wide.addEventListener("change", onMedia);
+  portrait.addEventListener("change", onMedia);
   coarse.addEventListener("change", onMedia);
   syncTv(state);
   render();

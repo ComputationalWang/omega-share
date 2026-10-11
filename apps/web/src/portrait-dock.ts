@@ -42,7 +42,7 @@ export function createPortraitDock(o: PortraitDockOptions) {
     // Native close is asynchronous; restore immediately too, before layout changes move the nodes.
     restore();
   };
-  sheet.addEventListener("close", restore);
+  sheet.addEventListener("close", () => { if (!sheet.open) restore(); });
   sheet.addEventListener("cancel", (ev) => { ev.preventDefault(); close(); });
   closeKey.addEventListener("click", close);
   const open = (kind: "chat" | "queue" | "settings", from: HTMLElement, focusInput = false): void => {
@@ -64,16 +64,16 @@ export function createPortraitDock(o: PortraitDockOptions) {
     target?.focus({ preventScroll: true });
     if (kind === "chat") o.log.scrollTop = o.log.scrollHeight;
   };
-  link.addEventListener("click", () => open("queue", link, true));
-  upNext.addEventListener("click", () => open("queue", upNext));
-  chat.addEventListener("click", () => open("chat", chat));
-  settings.addEventListener("click", () => open("settings", settings));
+  link.addEventListener("click", () => { open("queue", link, true); });
+  upNext.addEventListener("click", () => { open("queue", upNext); });
+  chat.addEventListener("click", () => { open("chat", chat); });
+  settings.addEventListener("click", () => { open("settings", settings); });
   const viewport = (): void => {
     if (!active) return;
     const v = window.visualViewport;
     o.root.style.setProperty("--portrait-height", `${String(v?.height ?? window.innerHeight)}px`);
     o.root.style.setProperty("--portrait-top", `${String(v?.offsetTop ?? 0)}px`);
-    o.root.classList.toggle("portrait-typing", v !== null && window.innerHeight - (v?.height ?? window.innerHeight) > 100);
+    o.root.classList.toggle("portrait-typing", v !== null && v.scale === 1 && window.innerHeight - v.height > 100);
   };
   const resized = (): void => { viewport(); o.onViewport?.(); };
   window.visualViewport?.addEventListener("resize", resized);

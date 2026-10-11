@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
-beforeAll(() => GlobalRegistrator.register());
+beforeAll(() => { GlobalRegistrator.register(); });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 test("sharing opens the existing queue in a sheet and closing returns focus to its link key", async () => {
