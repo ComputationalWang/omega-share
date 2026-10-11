@@ -6,10 +6,10 @@ test("room creation accepts only the six judged preset ids and preserves legacy 
   const request = { title: "Movie night", visibility: "public" };
   expect(ROOM_PRESET_IDS).toEqual(["classic", "cinema", "living", "lounge", "cafe", "empty"]);
   expect(DEFAULT_ROOM_PRESET).toBe("classic");
-  expect(v.parse(CreateRoomRequestSchema, request)).toEqual(request);
+  expect<unknown>(v.parse(CreateRoomRequestSchema, request)).toEqual(request);
   for (const preset of ["classic", "cinema", "living", "lounge", "cafe", "empty"]) {
     const value = { ...request, preset };
-    expect(v.parse(CreateRoomRequestSchema, JSON.parse(JSON.stringify(value)))).toEqual(value);
+    expect<unknown>(v.parse(CreateRoomRequestSchema, JSON.parse(JSON.stringify(value)))).toEqual(value);
   }
   for (const preset of ["unknown", "Classic", "", "../classic", null, {}, 0]) {
     expect(v.safeParse(CreateRoomRequestSchema, { ...request, preset }).success).toBe(false);
