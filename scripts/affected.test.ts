@@ -41,6 +41,20 @@ describe("e2e/affected.json", () => {
     expect(dirs).toEqual([]);
   });
 
+  test("preset layouts, catalog and thumbnails are mapped and retain full-suite coverage for runtime integration", () => {
+    const presets = tracked.filter((f) => f.startsWith("assets/presets/"));
+    expect(presets).toContain("assets/presets/presets.json");
+    expect(presets).toContain("assets/presets/classic.json");
+    expect(presets).toContain("assets/presets/thumbs/classic.png");
+    // Check each path independently so catalog changes cannot mask an unmapped thumbnail or future layout.
+    for (const path of [...presets, "assets/presets/future.json", "assets/presets/thumbs/future.png"]) {
+      const selection = select(manifest, [path], new Set(["e2e/real/real-providers.real.ts"]));
+      expect({ path, unmapped: selection.unmapped, full: selection.full, real: selection.real }).toEqual({
+        path, unmapped: [], full: true, real: ["e2e/real/real-providers.real.ts"],
+      });
+    }
+  });
+
   test("every glob still matches a tracked file", () => {
     const stale = manifest.rules.flatMap((r) => r.paths).filter((g) => !tracked.some((f) => new Bun.Glob(g).match(f)));
     expect(stale).toEqual([]);
