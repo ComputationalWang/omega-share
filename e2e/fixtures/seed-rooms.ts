@@ -6,7 +6,7 @@ import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID } from "@omega/shared";
 import { openDatabase } from "../../apps/server/src/store/db";
 import { RoomStore } from "../../apps/server/src/store/rooms";
 import { hashSecret } from "../../apps/server/src/secrets";
-import { OWNED_ROOMS } from "../support/owned-rooms";
+import { GC_IDLE_ROOM_ID, OWNED_ROOMS } from "../support/owned-rooms";
 import { TEST_ROOM_IDS } from "../support/test-rooms";
 
 const path = process.argv[2];
@@ -18,8 +18,10 @@ const store = new RoomStore(db);
 for (const [i, id] of [DEFAULT_ROOM_ID, ...TEST_ROOM_IDS].entries()) {
   store.createRoom({ id, title: id === DEFAULT_ROOM_ID ? "Lobby" : "", createdAt: i + 1, layout: DEFAULT_LAYOUT });
 }
-// The QA rooms specs' rooms (OME-417): private, unpinned (so the owner can delete them), with known secrets. createdAt is
-// now, so the GC (an unjoined room goes an hour after createdAt) leaves them alone for the run.
+const MIN = 60_000;
+// The QA rooms specs' rooms (OME-417): private, unpinned (so the owner can delete them), with known secrets. The GC
+// deletes a room 20 min after it last emptied (OME-904), and a run is longer than that, so each one's last_active_at
+// starts a day ahead: no sweep in the run sees it idle until a test has been in it and left.
 for (const r of OWNED_ROOMS) {
   store.createRoom({
     id: r.id,
@@ -31,5 +33,8 @@ for (const r of OWNED_ROOMS) {
     ownerHash: hashSecret(r.ownerToken),
     inviteHash: hashSecret(r.inviteKey),
   });
+  store.setLastActive(r.id, Date.now() + 24 * 60 * MIN);
 }
+// Nobody has been in it for 21 min: the server's boot sweep deletes it (e2e/room-gc.e2e.ts).
+store.createRoom({ id: GC_IDLE_ROOM_ID, title: "Idle room", createdAt: Date.now() - 21 * MIN, layout: DEFAULT_LAYOUT, visibility: "public", pinned: false, ownerHash: hashSecret("gc-idle-owner") });
 db.close();

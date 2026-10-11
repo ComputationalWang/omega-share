@@ -100,7 +100,7 @@ async function listedIds(f: Fixture): Promise<string[]> {
 describe("rooms list", () => {
   test("one row per room: id, title, visibility, created, last active, pinned and members, oldest first", async () => {
     const f = boot((store) => {
-      store.createRoom({ id: ID_A, title: "Film club", createdAt: T0 - HOUR / 2, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
+      store.createRoom({ id: ID_A, title: "Film club", createdAt: T0 - HOUR / 6, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
     });
     clients.push((await Client.join(f.t.ws(ID_A), "Ada")).client);
 
@@ -113,7 +113,7 @@ describe("rooms list", () => {
         id: ID_A,
         title: "Film club",
         visibility: "public",
-        created: "2026-09-30T23:30:00.000Z",
+        created: "2026-09-30T23:50:00.000Z",
         "last active": "2026-10-01T00:00:00.000Z",
         pinned: "no",
         members: "1",
@@ -212,7 +212,7 @@ describe("rooms pin|unpin <id>", () => {
     const f = boot((store) => {
       store.createRoom({ id: ID_A, title: "Keep me", createdAt: T0, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
     });
-    const gc = (at: number) => sweepRooms({ rooms: f.rooms, wallNow: () => at, busy: () => false, touch: () => undefined });
+    const gc = (at: number) => sweepRooms({ rooms: f.rooms, wallNow: () => at, touch: () => undefined });
 
     const pinned = await cli(f.socket, "rooms", "pin", ID_A);
     expect(pinned.code).toBe(0);

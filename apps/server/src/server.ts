@@ -65,7 +65,7 @@ export interface ServerOptions {
   roomTitleBlocklist?: readonly string[];
   /** Unix ms clock for `created_at`, `last_active_at` and room GC (tests inject one). Default `Date.now`. */
   wallNow?: () => number;
-  /** Room GC sweep interval; it also sweeps at boot. Default ROOM_GC_INTERVAL_MS (1 h). */
+  /** Room GC sweep interval; it also sweeps at boot. Default ROOM_GC_INTERVAL_MS (1 min). */
   roomGcIntervalMs?: number;
   /** Seats the last process held at its graceful restart (ADR 0032): kept SEAT_HOLD_MS for their names. */
   seatHolds?: readonly SeatHold[];
@@ -332,7 +332,7 @@ export function startServer(opts: ServerOptions): OmegaServer {
     cardOrigin: opts.publicOrigin ?? opts.siteOrigin,
   });
   // After the onRemove hooks above, so the boot sweep already closes sockets and deletes rows.
-  const gc = startRoomGc({ rooms, wallNow, busy: ws.hasSockets, touch: markActive, purge: reports.purge, intervalMs: opts.roomGcIntervalMs ?? ROOM_GC_INTERVAL_MS });
+  const gc = startRoomGc({ rooms, wallNow, touch: markActive, purge: reports.purge, intervalMs: opts.roomGcIntervalMs ?? ROOM_GC_INTERVAL_MS });
   const http = createHttpGate((req) => app.fetch(req), {
     now: opts.now ?? monotonic,
     maxInFlight: opts.maxHttpInFlight ?? MAX_HTTP_IN_FLIGHT,
