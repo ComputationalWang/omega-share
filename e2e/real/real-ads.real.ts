@@ -16,6 +16,8 @@ import { REAL, twitchLiveUrl } from "./providers";
 import { cdpTargets, embedUrl, EVIDENCE_DIR, rawTab, record, requireVirtualDisplay, ROOM_URL, shareUrl } from "./real";
 import type { RawTab } from "./real";
 import { joinReady, roomViewJs, type RoomView } from "./room-view";
+import { PORTS } from "../support/apps";
+import { cdpPorts } from "../support/ports";
 
 test.beforeAll(requireVirtualDisplay);
 test.describe.configure({ mode: "serial" });
@@ -219,8 +221,9 @@ async function watchPageControl(r: Raw, id: string, label = `control-${id}`): Pr
 }
 
 test("A · real pre-roll attempt: 2 raw-CDP logged-out profiles, monetised YouTube videos + live Twitch channels", async ({ request }) => {
-  const a = await launch("ads-a", 9351);
-  const b = await launch("ads-b", 9352);
+  const [, portA, portB] = cdpPorts(PORTS);
+  const a = await launch("ads-a", portA);
+  const b = await launch("ads-b", portB);
   const attempts: Attempt[] = [];
   const controls: Awaited<ReturnType<typeof watchPageControl>>[] = [];
   const warmed: Awaited<ReturnType<typeof watchPageControl>>[] = [];

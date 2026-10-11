@@ -2,14 +2,12 @@
 // Once a piece has landed, a missing build is a failure, never a skip (OME-30).
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { resolvePorts } from "./ports";
 
 export const ROOT = join(import.meta.dirname, "../..");
 
-export const PORTS = {
-  fixtures: Number(process.env["OMEGA_FIXTURE_PORT"] ?? 4400),
-  web: Number(process.env["OMEGA_WEB_PORT"] ?? 5173),
-  server: Number(process.env["OMEGA_SERVER_PORT"] ?? 8787),
-} as const;
+/** This agent's port block (OME-821, e2e/support/ports.ts); OMEGA_*_PORT still overrides a single port. */
+export const PORTS = resolvePorts();
 
 export const URLS = {
   fixtures: `http://localhost:${String(PORTS.fixtures)}`,

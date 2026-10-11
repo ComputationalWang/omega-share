@@ -1,22 +1,53 @@
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { PORTS, URLS, available, scripts } from "./e2e/support/apps";
+import { ownedCommand } from "./e2e/support/owned";
+import { decideReuse, headSha, ownerAlive, readOwner, removeOwner } from "./e2e/support/owner";
+import { agentIdentity, slotFor } from "./e2e/support/ports";
 
 type WebServer = NonNullable<Parameters<typeof defineConfig>[0]["webServer"]>;
-const servers: Extract<WebServer, readonly unknown[]>[number][] = [
-  { command: "bun e2e/fixtures/server.ts", url: URLS.fixtures, reuseExistingServer: !process.env["CI"] },
-];
+type Server = Extract<WebServer, readonly unknown[]>[number];
+
+// Server ownership (OME-821). Every server starts through e2e/support/serve.ts, which writes an owner file and dies
+// with this runner. A server already on the port is reused only when its owner file names this agent at HEAD; anything
+// else stops the run with the owner's name. Only the runner decides: workers load this file too, but start nothing.
+const runner = process.env["TEST_WORKER_INDEX"] === undefined;
+const agent = agentIdentity();
+const sha = runner ? headSha() : "";
+function probe(ports: readonly number[]): boolean[] {
+  const r = spawnSync("bun", ["e2e/support/probe.ts", ...ports.map(String)], { cwd: import.meta.dirname, encoding: "utf8" });
+  const parsed: unknown = r.status === 0 ? JSON.parse(r.stdout) : null;
+  if (!Array.isArray(parsed) || parsed.length !== ports.length || !parsed.every((b) => typeof b === "boolean")) throw new Error(`port probe failed:\n${r.stderr}`);
+  return parsed;
+}
+function owned(port: number, url: string, command: string, env?: Record<string, string>): Server {
+  let reuse = false;
+  if (runner) {
+    const [inUse = false] = probe([port]);
+    const owner = readOwner(port);
+    const d = decideReuse({ inUse, owner, alive: ownerAlive, agent, sha });
+    if (d.kind === "refuse") throw new Error(`e2e: port ${String(port)} (${url}) ${d.reason}\nThis run is ${agent}, port slot ${String(slotFor())}.`);
+    if (d.kind === "start" && d.stale) removeOwner(port);
+    reuse = d.kind === "reuse";
+  }
+  const launch = ownedCommand(port, [command]).map((a) => `'${a.replaceAll("'", `'\\''`)}'`).join(" ");
+  // SIGTERM, not Playwright's default SIGKILL: the launcher needs it to take its server's process group down.
+  return { command: launch, url, reuseExistingServer: reuse, gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 }, ...(env === undefined ? {} : { env }) };
+}
+
+const servers: Server[] = [owned(PORTS.fixtures, URLS.fixtures, "bun e2e/fixtures/server.ts")];
 // App servers are added once their `dev` script exists (OME-5 / OME-6). Perf runs the web app via `preview` (production build).
 // Each side is told the other's URL so OMEGA_*_PORT overrides keep the server's origin check and the site's WS target in step.
 // The server boots from a fresh DB holding the lobby and the test rooms (e2e/support/test-rooms.ts, OME-341), one file per port.
 if (available.server) {
   const db = join(tmpdir(), `omega-e2e-${String(PORTS.server)}.db`);
-  servers.push({ command: `bun e2e/fixtures/seed-rooms.ts ${db} && bun run --filter @omega/server dev`, url: URLS.server, reuseExistingServer: !process.env["CI"], env: { PORT: String(PORTS.server), SITE_ORIGIN: URLS.web, DB_PATH: db } });
+  servers.push(owned(PORTS.server, URLS.server, `bun e2e/fixtures/seed-rooms.ts ${db} && bun run --filter @omega/server dev`, { PORT: String(PORTS.server), SITE_ORIGIN: URLS.web, DB_PATH: db }));
 }
 if (available.web) {
   const mode = process.env["OMEGA_WEB_MODE"] === "preview" && "preview" in scripts("web") ? "preview" : "dev";
-  servers.push({ command: `bun run --filter @omega/web ${mode} -- --port ${String(PORTS.web)} --strictPort`, url: URLS.web, reuseExistingServer: !process.env["CI"], env: { VITE_SERVER_URL: URLS.server } });
+  servers.push(owned(PORTS.web, URLS.web, `bun run --filter @omega/web ${mode} -- --port ${String(PORTS.web)} --strictPort`, { VITE_SERVER_URL: URLS.server }));
 }
 
 // `OMEGA_PERF_MOTION=smooth|basic` forces the walk tier (ADR 0037) in every perf context, so the whole suite can run once per tier.

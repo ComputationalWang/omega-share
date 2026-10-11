@@ -11,7 +11,7 @@
 // gets an address of its own except where a case is about one address (the kick cooldown), so the per-address caps
 // never confound the queue's member and room buckets. The server boots from the same seeded DB as the e2e server
 // (fixtures/seed-rooms.ts: owned rooms with known owner tokens and invite keys), one room per test.
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawnSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { request } from "node:http";
@@ -37,6 +37,7 @@ import {
   type ServerMessage,
 } from "@omega/shared";
 import { PORTS, ROOT } from "./support/apps";
+import { spawnOwned } from "./support/owned";
 import { ownedRoom } from "./support/owned-rooms";
 
 const SERVER_PORT = PORTS.server + 6;
@@ -274,7 +275,7 @@ function startServer(): { server: ServerFixture; stop: () => Promise<void> } {
     GENERIC_EMBED_DENYLIST: DENIED_DOMAIN,
   };
   let output = "";
-  const child: ChildProcess = spawn("bun", ["apps/server/src/index.ts"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
+  const child: ChildProcess = spawnOwned(SERVER_PORT, "bun", ["apps/server/src/index.ts"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout?.on("data", (d: Buffer) => (output += d.toString()));
   child.stderr?.on("data", (d: Buffer) => (output += d.toString()));
   return {

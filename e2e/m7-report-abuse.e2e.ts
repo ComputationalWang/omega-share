@@ -16,7 +16,7 @@
 //
 // The last case drives a real browser page: the site on the web port talks to the e2e server, so its WebSocket and HTTP
 // requests are bridged to the server of this spec through Playwright routes.
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawnSync, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { Agent, request, type IncomingHttpHeaders } from "node:http";
@@ -39,6 +39,7 @@ import {
 } from "@omega/shared";
 import { expect, test as base } from "./support/csp";
 import { PENDING, PORTS, ROOT, URLS, available } from "./support/apps";
+import { spawnOwned } from "./support/owned";
 import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
@@ -308,7 +309,7 @@ function startServer(): { fixture: Fixture; stop: () => Promise<void> } {
     ADMIN_SOCKET: socketPath,
   };
   let output = "";
-  const child: ChildProcess = spawn("bun", ["apps/server/src/index.ts"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
+  const child: ChildProcess = spawnOwned(SERVER_PORT, "bun", ["apps/server/src/index.ts"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout?.on("data", (d: Buffer) => (output += d.toString()));
   child.stderr?.on("data", (d: Buffer) => (output += d.toString()));
   let next = 1;

@@ -11,7 +11,8 @@ import { expect, test, watchCsp } from "../support/csp";
 import type { Browser, Page } from "@playwright/test";
 import type { PlaybackView } from "../../apps/web/src/controls/playback";
 import { BURST_FAST, BURST_SLOW, initialRateMode, MAX_NUDGE, nextRateMode, SEEK_THRESHOLD_MS, STABLE_MS, SYNC_INTERVAL_MS } from "../../apps/web/src/sync";
-import { URLS } from "../support/apps";
+import { PORTS, URLS } from "../support/apps";
+import { cdpPorts } from "../support/ports";
 import { site } from "../support/selectors";
 import {
   AD_IDS, BASELINE_ID, cdpTargets, closeAll, cspViolations, embedUrl, enter, EVIDENCE_DIR, rawTab, record, requireVirtualDisplay, ROOM_URL, sampleVideo, share, shot, slope, spreadOver,
@@ -218,7 +219,7 @@ test("3 · sound after Enter room (Playwright, real click)", async ({ browser, r
 
 test("3 · muted fallback + Unmute (raw-CDP Chromium with no user activation)", async ({ request }) => {
   await share(request, BASELINE_ID);
-  const port = 9339;
+  const [port] = cdpPorts(PORTS);
   const profile = mkdtempSync(join(tmpdir(), "omega-real-"));
   const proc = spawn(chromium.executablePath(), [
     `--user-data-dir=${profile}`, `--remote-debugging-port=${String(port)}`, "--no-first-run", "--no-default-browser-check",

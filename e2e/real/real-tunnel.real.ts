@@ -10,7 +10,7 @@ import { chromium } from "@playwright/test";
 import { expect, test, watchCsp } from "../support/csp";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { DEFAULT_ROOM_ID, SHARE_TOKEN_STORAGE_KEY } from "@omega/shared";
-import { EXTENSION_DIR, URLS } from "../support/apps";
+import { EXTENSION_DIR, PORTS, URLS } from "../support/apps";
 import { VIDEO_ID } from "../support/network";
 import { popup, site } from "../support/selectors";
 import { REAL, mediaSpread, providerFrame, twitchVodUrl, vimeoUrl, waitMediaPlaying } from "./providers";
@@ -21,7 +21,7 @@ test.beforeAll(requireVirtualDisplay);
 
 const ORIGIN = process.env["OMEGA_REAL_TUNNEL_ORIGIN"]?.replace(/\/$/, "");
 /** The tunnel server's loopback port (not the dev server's): the Host check is tested there, as a rebinding page would. */
-const LOCAL_PORT = Number(process.env["OMEGA_REAL_TUNNEL_PORT"] ?? "8787");
+const LOCAL_PORT = Number(process.env["OMEGA_REAL_TUNNEL_PORT"] ?? String(PORTS.server));
 const ROOM_PATH = `/r/${DEFAULT_ROOM_ID}`;
 const SHARE_PATH = `/rooms/${DEFAULT_ROOM_ID}/share`;
 const FOREIGN = "https://example.com";
