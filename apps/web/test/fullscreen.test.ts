@@ -488,3 +488,13 @@ describe("Twitch phone composer reachability", () => {
     expect(intersects(l.tv, l.strip)).toBe(false);
   });
 });
+
+test("740×360 Twitch open keeps a usable side composer and the minimum player", () => {
+  const l = fullscreenLayout(740, 360, "twitch", "open");
+  expect(l.at).toBe("side");
+  expect(l.strip.w).toBeGreaterThanOrEqual(OPEN_MIN);
+  expect(l.tv.w).toBeGreaterThanOrEqual(534);
+  expect(l.tv.h).toBeGreaterThanOrEqual(300);
+  for (const r of [l.tv, l.controls, l.strip]) expect(inside(r, 740, 360)).toBe(true);
+  expect(intersects(l.tv, l.strip)).toBe(false);
+});

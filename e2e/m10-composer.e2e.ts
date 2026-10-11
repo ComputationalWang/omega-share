@@ -100,7 +100,7 @@ for (const [name, width, height] of SIZES) {
 }
 
 for (const key of ["twitchVod", "twitchLive"] as const) {
-  test(`${key}: 667×375 remembered band keeps composer and transport reachable`, async ({ browser, request }) => {
+  test(`${key}: 667×375 remembered band and 740×360 open keep the composer reachable`, async ({ browser, request }) => {
     const room = testRoom("m10-composer", key === "twitchVod" ? "l667" : "l932");
     await shareProvider(request, providerCase(key).shareUrl, room.id);
     clients = await joinRoom(browser, {
@@ -118,6 +118,15 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
     await expectRoomy(page, key);
     const transport = await box(page.locator(".controls"));
     expect(transport.y + transport.height).toBeLessThanOrEqual(375);
-    await expectSends(page, key);
+    await expectSends(page, `${key} band`);
+    await page.setViewportSize({ width: 740, height: 360 });
+    await page.locator(site.fsStripToggle).click();
+    await expect(page.locator(site.fsStrip)).toHaveAttribute("data-strip", "open");
+    await expect(page.locator(site.fsStrip)).toHaveAttribute("data-at", "side");
+    await expectRoomy(page, `${key} open`);
+    await expectSends(page, `${key} open`);
+    const player = await box(page.locator(site.sharedVideo));
+    expect(player.width).toBeGreaterThanOrEqual(534);
+    expect(player.height).toBeGreaterThanOrEqual(300);
   });
 }
