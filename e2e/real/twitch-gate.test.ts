@@ -21,7 +21,9 @@ function discoveryHarness(snapshots: Record<string, Pair[]>) {
         if (!sequence?.length) throw new Error(`Unexpected channel: ${channel}`);
         const index = reads.get(channel) ?? 0;
         reads.set(channel, index + 1);
-        return Promise.resolve(sequence[Math.min(index, sequence.length - 1)]!);
+        const snapshot = sequence[Math.min(index, sequence.length - 1)];
+        if (snapshot === undefined) throw new Error(`Missing snapshot: ${channel}`);
+        return Promise.resolve(snapshot);
       },
       now: () => elapsed,
       pause: () => {
@@ -94,7 +96,7 @@ describe("paired Twitch mature-gate discovery (OME-950)", () => {
   });
 
   test("caps discovery at eight candidates even when a ninth would be available", async () => {
-    const candidates = Array.from({ length: 9 }, (_, index) => `candidate-${index}`);
+    const candidates = Array.from({ length: 9 }, (_, index) => `candidate-${String(index)}`);
     const snapshots: Record<string, Pair[]> = Object.fromEntries(candidates.map((channel, index) => [
       channel, [index === 8 ? [gate(), gate()] : [absent("offline"), absent("offline")]],
     ]));
@@ -133,10 +135,10 @@ describe("paired gate failure evidence (OME-950)", () => {
     });
 
     expect(attempted.sort()).toEqual(["broken", "network", "paired", "screenshot"]);
-    expect(result.paired).toEqual({ value: paired });
-    expect(result.screenshot).toEqual({ value: "viewer-2.png" });
-    expect(result.broken?.error).toContain("frame detached during capture");
-    expect(result.network?.error).toContain("network capture unavailable");
-    expect(typeof result.broken?.error).toBe("string");
+    expect(result["paired"]).toEqual({ value: paired });
+    expect(result["screenshot"]).toEqual({ value: "viewer-2.png" });
+    expect(result["broken"]?.error).toContain("frame detached during capture");
+    expect(result["network"]?.error).toContain("network capture unavailable");
+    expect(typeof result["broken"]?.error).toBe("string");
   });
 });

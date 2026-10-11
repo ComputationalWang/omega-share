@@ -1,6 +1,8 @@
 // Opt-in real Twitch / Vimeo checks for the M2 sign-off (OME-133): `bun run e2e:real`. Real network, headed, never in CI.
 // Checklist and how to read the results: docs/qa/m2-real-sign-off.md. Evidence: e2e/real/results/m2-<item>.json (+ .png).
 // The fake-SDK suites (e2e/provider-sync.e2e.ts, e2e/vimeo.e2e.ts) prove the logic; this proves the real players obey it.
+import { writeFileSync } from "node:fs";
+import { discoverPairedGate, collectGateEvidence } from "./twitch-gate";
 import { chromium } from "@playwright/test";
 import { expect, test, watchCsp } from "../support/csp";
 import type { APIRequestContext, Browser, Frame } from "@playwright/test";
@@ -234,32 +236,54 @@ test("M2-twitch-live · pause and play-from-live reach both browsers; no scrubbe
   }
 });
 
-test("M3-twitch-gate · a mature-gated live channel: both members see the Start Watching hint, press it, and stay in sync", async ({ request }) => {
+/** A snapshot from the current candidate only; a previous channel's detaching iframe cannot count. */
+async function gateViewer(client: Client, channel: string | null) {
+  const frame = client.page.frames().find((f) => {
+    if (channel === null || f.isDetached() || !URL.canParse(f.url())) return false;
+    const url = new URL(f.url());
+    return url.host === "player.twitch.tv" && url.searchParams.get("channel") === channel;
+  });
+  const [gate, media, room] = await Promise.all([
+    frame === undefined ? false : gateShown(frame),
+    frame === undefined ? null : sampleMedia(frame),
+    view(client.page).catch(() => null),
+  ]);
+  const reason = frame === undefined ? "no-frame" : gate ? "mature-gate" : media?.overlay ? `overlay: ${media.overlay}` : media?.ad ? "advertisement" : media !== null && !media.paused && media.currentTime > 0.5 ? "ungated-playing" : "no-gate; waiting for upstream player";
+  return { viewer: client.nickname, gate, reason, frameUrl: frame?.url() ?? null, media, room };
+}
+
+test("M3-twitch-gate · a mature-gated live channel: both members see the Start Watching hint, press it, and stay in sync", async ({ request }, testInfo) => {
   const { browsers, a, b } = await twoBrowsers("real-gate");
+  let currentChannel: string | null = null;
+  let discovery: Awaited<ReturnType<typeof discoverPairedGate>> | null = null;
+  let capturedFailure = false;
   try {
+    // Playwright may have auto-started tracing even for these manual contexts. Own explicit traces
+    // so failures attach both viewers instead of relying on the runner's context selection.
+    await Promise.all([a, b].map(async (c) => {
+      await c.context.tracing.stop();
+      await c.context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+    }));
     // Discovery runs in its own tab so the room pages stay in the room.
     const scout = await a.context.newPage();
     const candidates = REAL.twitchGated.length > 0 ? REAL.twitchGated : await liveInCategories(scout, REAL.twitchGatedCategories);
     await scout.close();
-    const tried: { channel: string; outcome: "gated" | "ungated" | "no-frame" }[] = [];
-    let channel: string | null = null;
-    for (const c of candidates.slice(0, 8)) {
-      await shareUrl(request, twitchLiveUrl(c));
-      const frame = await providerFrame(a.page, "twitch", c, 15_000).catch(() => null);
-      const gated = frame !== null && (await expect.poll(() => gateShown(frame), { timeout: 15_000 }).toBe(true).then(() => true, () => false));
-      tried.push({ channel: c, outcome: frame === null ? "no-frame" : gated ? "gated" : "ungated" });
-      if (gated) {
-        channel = c;
-        break;
-      }
-    }
+    discovery = await discoverPairedGate(candidates, {
+      share: async (channel) => { currentChannel = channel; await shareUrl(request, twitchLiveUrl(channel)); },
+      observe: async (channel) => Promise.all([gateViewer(a, channel), gateViewer(b, channel)]),
+      now: Date.now,
+      pause: () => a.page.waitForTimeout(500),
+    });
+    const { channel, tried } = discovery;
+    record("m3-twitch-gate-discovery", discovery);
+    await testInfo.attach("paired-gate-discovery", { body: JSON.stringify(discovery, null, 2), contentType: "application/json" });
     if (channel === null) {
-      record("m3-twitch-gate", { notRun: "no live candidate showed the mature gate to a logged-out viewer; set OMEGA_REAL_TWITCH_GATED", tried });
-      test.skip(true, `no gated Twitch channel live now (${tried.map((x) => `${x.channel}: ${x.outcome}`).join(", ")}); set OMEGA_REAL_TWITCH_GATED`);
+      const notRun = "no candidate showed the mature gate to both logged-out viewers; set OMEGA_REAL_TWITCH_GATED";
+      record("m3-twitch-gate", { notRun, tried });
+      test.skip(true, `${notRun} (${tried.map((x) => `${x.channel}: ${x.viewers.map((v) => v.reason).join(" / ")}`).join(", ")})`);
       return;
     }
     const [fa, fb] = await frames(a, b, "twitch", channel);
-    await expect.poll(() => gateShown(fb), { timeout: 15_000, message: "browser 2 sees the gate too" }).toBe(true);
     const hints = await Promise.all([a, b].map(async (c) => ({ visible: await c.page.locator(site.tvHint).isVisible(), text: (await c.page.locator(site.tvHint).textContent())?.trim() ?? null })));
     const gatedViews = await Promise.all([view(a.page), view(b.page)]);
     await Promise.all([shot(a.page, "m3-twitch-gate-gated-1"), shot(b.page, "m3-twitch-gate-gated-2")]);
@@ -313,8 +337,44 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
     expect(result.pause.spreadMs ?? Infinity).toBeLessThan(2_000);
     expect(result.finalPlaying).toEqual([true, true]);
     for (const v of result.finalViews) expect(v).toEqual({ playing: true, error: null });
+  } catch (error) {
+    if (testInfo.expectedStatus === "skipped") throw error;
+    // These contexts are launched manually, so the runner's default failure trace does not cover them.
+    // Capture before closing either browser; one failed capture must not discard the other viewer's evidence.
+    capturedFailure = true;
+    const tasks: Record<string, () => Promise<unknown>> = {};
+    for (const [index, client] of [a, b].entries()) {
+      const name = `viewer-${String(index + 1)}`;
+      tasks[`${name}-snapshot`] = () => gateViewer(client, currentChannel);
+      tasks[`${name}-screenshot`] = async () => {
+        const path = testInfo.outputPath(`${name}.png`);
+        await client.page.screenshot({ path });
+        await testInfo.attach(`${name}-screenshot`, { path, contentType: "image/png" });
+        return path;
+      };
+      tasks[`${name}-trace`] = async () => {
+        const path = testInfo.outputPath(`${name}-trace.zip`);
+        await client.context.tracing.stop({ path });
+        await testInfo.attach(`${name}-trace`, { path, contentType: "application/zip" });
+        return path;
+      };
+    }
+    const evidence = { error: error instanceof Error ? error.message : String(error), channel: currentChannel, discovery, captures: await collectGateEvidence(tasks) };
+    const path = testInfo.outputPath("paired-gate-failure.json");
+    const saved = await collectGateEvidence({ failureJson: async () => {
+      writeFileSync(path, `${JSON.stringify(evidence, null, 2)}\n`);
+      await testInfo.attach("paired-gate-failure", { path, contentType: "application/json" });
+      return path;
+    } });
+    if (saved["failureJson"]?.error) console.warn("paired gate failure evidence could not be saved", saved);
+    throw error;
   } finally {
-    await closeAll(...browsers);
+    if (!capturedFailure) {
+      await Promise.allSettled([a, b].map((c) => c.context.tracing.stop()));
+      await closeAll(...browsers);
+    } else {
+      await Promise.allSettled(browsers.map((browser) => browser.close()));
+    }
   }
 });
 
