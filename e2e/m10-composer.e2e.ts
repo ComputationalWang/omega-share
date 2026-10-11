@@ -115,7 +115,14 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
     // Joining exposes the room before the SDK finishes building its player and relaying readiness.
     // Wait for that public provider state before clicking a transport key whose position it changes.
     await waitProviderPlaying(clients, "twitch");
-    await page.locator(site.fullscreenToggle).tap();
+    const fullscreenKey = page.locator(site.fullscreenToggle);
+    // Chromium's mobile hit testing can still target the iframe just after scrolling (OME-931).
+    // Match clickSettled's compositor settling, retaining a real touch gesture.
+    await fullscreenKey.scrollIntoViewIfNeeded();
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => { resolve(); }));
+    }));
+    await fullscreenKey.tap();
     await expect.poll(() => page.evaluate((selector) =>
       document.fullscreenElement === document.querySelector(selector), site.fsRoot)).toBe(true);
     await expect(page.locator(site.fsStrip)).toBeVisible();
