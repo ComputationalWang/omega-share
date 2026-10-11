@@ -720,7 +720,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       placeRowKeys(l.at === "side" && l.strip.w < FS_STRIP_W);
       tv.classList.toggle("compact", l.compact.tv);
       controls.classList.toggle("compact", l.compact.controls);
-      const scrollTransport = l.at === "band" && l.controls.w <= 280;
+      const scrollTransport = l.at === "band" && l.compact.controls;
       controls.classList.toggle("scroll-transport", scrollTransport);
       controls.tabIndex = scrollTransport ? 0 : -1;
       controls.ariaLabel = scrollTransport ? "Playback controls; scroll horizontally for more" : "Playback controls";

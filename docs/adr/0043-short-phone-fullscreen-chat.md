@@ -12,7 +12,7 @@ When the provider minimum, transport and open chat cannot fit in short landscape
 
 Reserve the composer frame as well as its 44 px content in phone bands. Reserve space for an open below-player strip before sizing the picture. Keep the player at its provider minimum.
 
-In compact bands with a transport width of 280 px or less, the playback shelf scrolls horizontally. Its contents remain inside the shelf; playback, seek, volume, quality and full-screen controls remain reachable through scrolling and keyboard focus. This avoids squeezing controls into the composer. The transport retains sufficient content width and a 44 px seek target.
+In compact bands, the playback shelf scrolls horizontally. Its contents remain inside the shelf; playback, seek, volume, quality and full-screen controls remain reachable through scrolling and keyboard focus. This avoids squeezing controls into the composer. The transport retains sufficient content width and a 44 px seek target.
 
 ## Consequences
 
