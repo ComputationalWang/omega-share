@@ -20,19 +20,19 @@ test("a room resume record round-trips, rejecting malformed credentials and extr
 
 test("durable joins and presence survive wire parsing while legacy joins and snapshots remain valid", () => {
   const join = { type: "join", nickname: "Alice", avatar: 0 };
-  const room = { id: "lobby", seats: Array(8).fill(null), members: [{ id: "alice", nickname: "Alice", avatar: 0 }], embed: null };
+  const room = { id: "lobby", seats: Array.from({ length: 8 }, () => null), members: [{ id: "alice", nickname: "Alice", avatar: 0 }], embed: null };
   const snapshot = { type: "snapshot", self: "alice", room };
   for (const frame of [join, { ...join, durableSession: true }, { ...join, resumeToken: token }, { ...join, durableSession: true, resumeToken: token }, { type: "presence", away: true }, { type: "presence", away: false }]) {
-    expect(parseClientMessage(JSON.stringify(frame))).toEqual(frame);
+    expect<unknown>(parseClientMessage(JSON.stringify(frame))).toEqual(frame);
   }
   for (const frame of [{ ...join, durableSession: false }, { ...join, durableSession: 1 }, { ...join, resumeToken: "short" }, { ...join, resumeToken: null }, { type: "presence", away: "true" }, { type: "presence" }, { type: "presence", away: false, token }, { ...join, away: true }]) {
-    expect(parseClientMessage(JSON.stringify(frame))).toBeNull();
+    expect<unknown>(parseClientMessage(JSON.stringify(frame))).toBeNull();
   }
   for (const frame of [snapshot, { ...snapshot, resumeToken: token, resumed: true }, { type: "member-presence", memberId: "alice", away: false }, { type: "member-presence", memberId: "alice", away: true }, { type: "error", code: "resume_expired", message: "Session expired" }]) {
-    expect(parseServerMessage(JSON.stringify(frame))).toEqual(frame);
+    expect<unknown>(parseServerMessage(JSON.stringify(frame))).toEqual(frame);
   }
   for (const frame of [{ ...snapshot, resumeToken: "short" }, { ...snapshot, resumed: 1 }, { type: "member-presence", memberId: "../alice", away: true }, { type: "member-presence", memberId: "alice", away: 1 }]) {
-    expect(parseServerMessage(JSON.stringify(frame))).toBeNull();
+    expect<unknown>(parseServerMessage(JSON.stringify(frame))).toBeNull();
   }
   expect(CLOSE_CODES.SESSION_REPLACED).toBe(4007);
 });
@@ -43,12 +43,12 @@ test("room snapshots retain bounded unique slots for seated and away members", (
   const snapshot = { type: "snapshot", self: "m0", room, resumeToken: token, resumed: true };
   const raw = JSON.stringify(snapshot);
   expect(new TextEncoder().encode(raw).length).toBeLessThanOrEqual(MAX_SERVER_MESSAGE_BYTES);
-  expect(parseServerMessage(raw)).toEqual(snapshot);
+  expect<unknown>(parseServerMessage(raw)).toEqual(snapshot);
   for (const standingSlot of [-1, 25, 0.5, null, "0"]) {
-    expect(v.safeParse(RoomStateSchema, { ...room, members: [{ ...members[0], standingSlot }], seats: Array(8).fill(null) }).success).toBe(false);
+    expect(v.safeParse(RoomStateSchema, { ...room, members: [{ ...members[0], standingSlot }], seats: Array.from({ length: 8 }, () => null) }).success).toBe(false);
   }
   expect(v.safeParse(RoomStateSchema, { ...room, members: members.map((m) => ({ ...m, standingSlot: 0 })) }).success).toBe(false);
-  expect(v.safeParse(RoomStateSchema, { ...room, members: [{ id: "legacy", nickname: "Legacy", avatar: 0 }, ...members], seats: Array(8).fill(null) }).success).toBe(false); // Capacity includes held members.
-  expect(v.safeParse(RoomStateSchema, { ...room, members: [{ id: "legacy", nickname: "Legacy", avatar: 0 }, members[0]], seats: Array(8).fill(null) }).success).toBe(true);
-  expect(v.safeParse(RoomStateSchema, { ...room, members: [{ ...members[0], away: "true" }], seats: Array(8).fill(null) }).success).toBe(false);
+  expect(v.safeParse(RoomStateSchema, { ...room, members: [{ id: "legacy", nickname: "Legacy", avatar: 0 }, ...members], seats: Array.from({ length: 8 }, () => null) }).success).toBe(false); // Capacity includes held members.
+  expect(v.safeParse(RoomStateSchema, { ...room, members: [{ id: "legacy", nickname: "Legacy", avatar: 0 }, members[0]], seats: Array.from({ length: 8 }, () => null) }).success).toBe(true);
+  expect(v.safeParse(RoomStateSchema, { ...room, members: [{ ...members[0], away: "true" }], seats: Array.from({ length: 8 }, () => null) }).success).toBe(false);
 });

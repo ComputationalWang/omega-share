@@ -134,6 +134,7 @@ export const RoomStateSchema = v.pipe(
   v.check((x) => playbackMatchesEmbed(x), "playback without a synced embed"),
   v.check((r) => new Set(r.members.map((m) => m.id)).size === r.members.length, "duplicate member id"),
   v.check((r) => {
+    // MAX_ROOM_MEMBERS is 25: each validated slot fits a distinct 32-bit mask bit.
     let slots = 0;
     for (const member of r.members) {
       if (member.standingSlot === undefined) continue;
