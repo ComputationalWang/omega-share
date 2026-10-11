@@ -131,3 +131,37 @@ test("focusing a portrait shelf key asks the browser to expose its whole box, wi
   mute.focus();
   expect(requested).toBeUndefined();
 });
+
+test("the keyboard portrait picture can receive scroll focus and restores its original semantics on exit", async () => {
+  const { createPortraitDock } = await import("../src/portrait-dock");
+  const native = Object.getOwnPropertyDescriptor(window, "visualViewport");
+  const viewport = Object.assign(new EventTarget(), { height: window.innerHeight, offsetTop: 0, scale: 1 });
+  Object.defineProperty(window, "visualViewport", { configurable: true, value: viewport });
+  try {
+    const root = document.createElement("section");
+    const log = document.createElement("div");
+    const composer = document.createElement("form");
+    const queue = document.createElement("section");
+    const pictureRegion = document.createElement("div");
+    pictureRegion.setAttribute("role", "group");
+    pictureRegion.setAttribute("aria-label", "Room media");
+    pictureRegion.tabIndex = -1;
+    root.append(pictureRegion, log, composer, queue);
+    document.body.replaceChildren(root);
+    const dock = createPortraitDock({ root, log, composer, queue, pictureRegion, settings: [] });
+    dock.setActive(true);
+    viewport.height = window.innerHeight - 300;
+    viewport.dispatchEvent(new Event("resize"));
+    expect(pictureRegion.tabIndex).toBe(0);
+    expect(pictureRegion.getAttribute("role")).toBe("region");
+    expect(pictureRegion.getAttribute("aria-label")).toBe("Video; scroll to see the whole picture");
+    pictureRegion.focus();
+    expect(document.activeElement === pictureRegion).toBe(true);
+    dock.setActive(false);
+    expect(pictureRegion.tabIndex).toBe(-1);
+    expect(pictureRegion.getAttribute("role")).toBe("group");
+    expect(pictureRegion.getAttribute("aria-label")).toBe("Room media");
+  } finally {
+    Object.defineProperty(window, "visualViewport", native ?? { configurable: true, value: undefined });
+  }
+});
