@@ -182,6 +182,32 @@ describe("Contact & notices (DSA Arts 11, 12, 16)", () => {
   });
 });
 
+describe("Privacy rights and release facts", () => {
+  test("names the controller, processing bases, rights, authority and private deletion route", () => {
+    const html = page("privacy.html");
+    const s = text(html);
+    expect(s).toContain("controller");
+    expect(s).toContain("Wang Zhou");
+    expect(s).toContain("Jonkvrouw Sanderijndreef 987, 3562 LP Utrecht, the Netherlands");
+    expect(html).toContain('href="mailto:omegashare.support@gmail.com"');
+    expect(s).toMatch(/rate-limit counting.*report notes.*Art\. 6\(1\)\(f\)/);
+    expect(s).toMatch(/room data.*Art\. 6\(1\)\(b\)/);
+    for (const right of ["access", "rectification", "erasure", "restriction", "portability", "object"]) expect(s).toContain(right);
+    expect(s).toContain("Autoriteit Persoonsgegevens");
+    expect(s).toContain("your own supervisory authority");
+    expect(s).toContain("Hetzner Online GmbH");
+    expect(s).toContain("Germany");
+    expect(s).not.toContain("open an issue");
+    expect(s).not.toContain("can't look up");
+  });
+
+  test("no shipped HTML page leaves a board-fact placeholder", () => {
+    for (const file of readdirSync(web).filter((name) => name.endsWith(".html"))) {
+      expect(readFileSync(join(web, file), "utf8")).not.toContain("data-placeholder");
+    }
+  });
+});
+
 describe("Licences & credits", () => {
   test("offers the source (AGPL-3.0 §13) and credits the art under CC BY-SA 4.0", () => {
     const html = page("licenses.html");
