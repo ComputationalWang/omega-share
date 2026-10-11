@@ -54,3 +54,25 @@ test("joining portrait immediately docks the panel keys above the composer", asy
   dock.setActive(true);
   expect(composer.previousElementSibling).toBe(dock.keys);
 });
+
+test("the sheet wraps Tab from its last field to Close and ignores an old close event after reopening", async () => {
+  const { createPortraitDock } = await import("../src/portrait-dock");
+  const root = document.createElement("section");
+  const log = document.createElement("div");
+  const composer = document.createElement("form");
+  const queue = document.createElement("section");
+  const url = document.createElement("input");
+  queue.append(url);
+  root.append(log, composer, queue);
+  document.body.replaceChildren(root);
+  const dock = createPortraitDock({ root, log, composer, queue, settings: [] });
+  dock.setActive(true);
+  dock.link.click();
+  dock.close();
+  dock.link.click();
+  dock.sheet.dispatchEvent(new Event("close"));
+  expect(dock.sheet.contains(queue)).toBe(true);
+  url.focus();
+  url.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+  expect(document.activeElement).toBe(dock.sheet.querySelector('[data-testid="portrait-sheet-close"]'));
+});
