@@ -7,7 +7,7 @@ import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
-import { providerCase, shareProvider } from "../perf/providers";
+import { providerCase, shareProvider, waitProviderPlaying } from "../perf/providers";
 import type { RoomName } from "./support/test-rooms";
 
 test.fixme(!available.web, PENDING.web);
@@ -112,8 +112,12 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
     });
     const page = clients[0]?.page;
     if (page === undefined) throw new Error("no client");
-    await expect(page.locator('iframe[src^="https://player.twitch.tv"]')).toBeAttached();
+    // Joining exposes the room before the SDK finishes building its player and relaying readiness.
+    // Wait for that public provider state before clicking a transport key whose position it changes.
+    await waitProviderPlaying(clients, "twitch");
     await page.locator(site.fullscreenToggle).click();
+    await expect(page.locator(site.fsStrip)).toBeVisible();
+    await expect(page.locator(site.fullscreenToggle)).toHaveAttribute("aria-label", "Exit full screen");
     await expect(page.locator(site.fsStrip)).toHaveAttribute("data-strip", "band");
     await expectRoomy(page, key);
     const transport = await box(page.locator(".controls"));
