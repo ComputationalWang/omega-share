@@ -3,7 +3,7 @@ import type { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_LAYOUT, type Embed, type RoomId } from "@omega/shared";
+import { CLOSE_CODES, DEFAULT_LAYOUT, type Embed, type RoomId } from "@omega/shared";
 import { Room } from "../src/room";
 import { RoomRegistry } from "../src/rooms";
 import { ROOM_GC_INTERVAL_MS, ROOM_IDLE_TTL_MS, startRoomGc, sweepRooms } from "../src/rooms-gc";
@@ -91,7 +91,7 @@ describe("sweepRooms: what GC collects (threat model §1.3)", () => {
     expect(rooms.size).toBe(2);
   });
 
-  test("a busy room (a member, or a socket still joining) is never collected; an occupied one is touched so a crash can't age it", () => {
+  test("only members protect an expired room; pending sockets are not activity", () => {
     const occupied = createdRoom(ID_A, T0, T0);
     const member = occupied.join("alice", 0);
     expect(member.ok).toBe(true);
@@ -109,9 +109,9 @@ describe("sweepRooms: what GC collects (threat model §1.3)", () => {
         touched.push(room.id);
       },
     });
-    expect(removed).toEqual([ID_C]);
+    expect(removed).toEqual([ID_B, ID_C]);
     expect(rooms.get(ID_A)).toBe(occupied);
-    expect(rooms.get(ID_B)).toBe(joining);
+    expect(rooms.get(ID_B)).toBeUndefined();
     // Only the room with members: a socket that never joins is not activity.
     expect(touched).toEqual([ID_A]);
   });
@@ -329,30 +329,39 @@ describe("the server's GC (startServer)", () => {
     expect((await fetch(`${t.http}/rooms/${room.id}/ws`, { headers: { upgrade: "websocket" } })).status).toBe(404);
   });
 
-  test("a socket still joining keeps a due room alive; once everyone has left, the 20-min clock starts from the last leave", async () => {
-    const clock = wallClock(T0 + 30 * MIN);
+  test("overlapping pending sockets cannot retain a zero-member room past 20 min and close with ROOM_CLOSED", async () => {
+    const clock = wallClock(T0 + 19 * MIN);
     const registry = new RoomRegistry();
-    const { store, writes } = recordingStore([row(ID_A, T0 + 11 * MIN, null)]);
+    const { store, writes } = recordingStore([row(ID_A, T0, null)]);
     t = start({ store, registry, wallNow: clock.now, roomGcIntervalMs: 20, joinTimeoutMs: 5_000 });
-    // Not yet due at boot (created 19 min ago); a socket opens, then the minute passes.
-    const lurker = await Client.open(t.ws(ID_A));
-    clients.push(lurker);
-    clock.ms = T0 + 40 * MIN;
-    await Bun.sleep(80);
+    let pending = await Client.open(t.ws(ID_A));
+    clients.push(pending);
+    // Each replacement opens before the previous socket closes, keeping pending
+    // sockets across multiple sweeps without anyone ever becoming a member.
+    for (const seconds of [15, 30, 45]) {
+      const replacement = await Client.open(t.ws(ID_A));
+      clients.push(replacement);
+      pending.close();
+      await pending.closed;
+      pending = replacement;
+      clock.ms = T0 + 19 * MIN + seconds * 1_000;
+      await Bun.sleep(60);
+      expect(registry.get(ID_A)?.memberCount).toBe(0);
+      expect(registry.get(ID_A)?.lastActiveAt).toBeNull();
+    }
+    const overlapping = await Client.open(t.ws(ID_A));
+    clients.push(overlapping);
+    clock.ms = T0 + 20 * MIN - 1;
+    await Bun.sleep(60);
     expect(registry.get(ID_A)).toBeDefined();
-    lurker.send({ type: "join", nickname: "alice", avatar: 0 });
-    await lurker.next("snapshot");
-    lurker.close();
-    await lurker.closed;
-    await Bun.sleep(20);
-    expect(writes.filter((w) => w.startsWith("active")).at(-1)).toBe(`active ${ID_A} ${String(T0 + 40 * MIN)}`);
-    clock.ms = T0 + 60 * MIN - 1;
+    clock.ms = T0 + 20 * MIN;
     await Bun.sleep(80);
-    expect(registry.get(ID_A)).toBeDefined();
-    clock.ms = T0 + 60 * MIN;
-    await Bun.sleep(80);
-    expect(registry.get(ID_A) ?? null).toBeNull();
-    expect(writes).toContain(`delete ${ID_A}`);
+    expect(registry.get(ID_A)).toBeUndefined();
+    expect((await pending.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
+    expect((await overlapping.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
+    expect(writes.filter((w) => w.startsWith("active"))).toEqual([]);
+    expect(writes.filter((w) => w.startsWith("delete"))).toEqual([`delete ${ID_A}`]);
+    expect((await fetch(`${t.http}/rooms/${ID_A}/ws`, { headers: { upgrade: "websocket" } })).status).toBe(404);
   });
 
   test("someone joins at 19 min: the timer resets, and the room goes 20 min after they leave", async () => {
