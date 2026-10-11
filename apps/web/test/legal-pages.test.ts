@@ -117,6 +117,10 @@ describe("every legal page is built, served and CSP-clean", () => {
 });
 
 describe("Terms of use (DSA Art. 14)", () => {
+  test("requires visitors to be 16 or older", () => {
+    expect(text(page("terms.html"))).toContain("You must be 16 or older to use omega-share.");
+  });
+
   test("say what the service is, the house rules, how we moderate, takedowns, no warranty and the licences", () => {
     const s = text(page("terms.html"));
     expect(s).toMatch(/we don't host (the )?videos/i);
@@ -162,12 +166,53 @@ describe("Contact & notices (DSA Arts 11, 12, 16)", () => {
     expect(main(html)).toContain(`href="${REPO_URL}/issues"`);
   });
 
-  test("never invents the operator's identity: it is a clearly marked placeholder until the board supplies it", () => {
+  test("publishes the board-approved operator and Dutch contact routes", () => {
     const html = page("contact.html");
-    expect(html).toMatch(/data-placeholder="operator"/);
-    const block = /<[a-z]+ [^>]*data-placeholder="operator"[^>]*>([\s\S]*?)<\/(section|div|p)>/.exec(html)?.[1] ?? "";
-    expect(block).toMatch(/not (yet )?published/i);
-    expect(html).not.toMatch(/@[a-z0-9-]+\.[a-z]{2,}/i);
+    const s = text(html);
+    expect(s).toContain("Wang Zhou");
+    expect(s).toContain("Jonkvrouw Sanderijndreef 987, 3562 LP Utrecht, the Netherlands");
+    expect(html).toContain('href="mailto:omegashare.support@gmail.com"');
+    expect(s).toContain("English and Dutch");
+    expect(s).toContain("without undue delay");
+    expect(s).toContain("Art. 12");
+    expect(s).toContain("Art. 16");
+    expect(s).toContain("BW art. 3:15d");
+    expect(s).toContain("ACM");
+    expect(s).not.toMatch(/MStV|DDG|within \d+ days/);
+  });
+});
+
+describe("Privacy rights and release facts", () => {
+  test("names the controller, processing bases, rights, authority and private deletion route", () => {
+    const html = page("privacy.html");
+    const s = text(html);
+    expect(s).toContain("controller");
+    expect(s).toContain("Wang Zhou");
+    expect(s).toContain("Jonkvrouw Sanderijndreef 987, 3562 LP Utrecht, the Netherlands");
+    expect(html).toContain('href="mailto:omegashare.support@gmail.com"');
+    expect(s).toMatch(/rate-limit counting.*report notes.*Art\. 6\(1\)\(f\)/);
+    expect(s).toMatch(/room data.*Art\. 6\(1\)\(b\)/);
+    for (const right of ["access", "rectification", "erasure", "restriction", "portability", "object"]) expect(s).toContain(right);
+    expect(s).toContain("Autoriteit Persoonsgegevens");
+    expect(s).toContain("your own supervisory authority");
+    expect(s).toContain("Hetzner Online GmbH");
+    expect(s).toContain("Germany");
+    expect(s).not.toContain("open an issue");
+    expect(s).not.toContain("can't look up");
+  });
+
+  test("privacy and contact outbound routes do not disclose the visitor's page", () => {
+    for (const file of ["privacy.html", "contact.html"]) {
+      const routes = [...main(page(file)).matchAll(/<a ([^>]*href="(?:mailto:|https:)[^>]+)>/g)];
+      expect(routes.length).toBeGreaterThan(0);
+      for (const route of routes) expect(route[1]).toMatch(/rel="[^"]*noreferrer/);
+    }
+  });
+
+  test("no shipped HTML page leaves a board-fact placeholder", () => {
+    for (const file of readdirSync(web).filter((name) => name.endsWith(".html"))) {
+      expect(readFileSync(join(web, file), "utf8")).not.toContain("data-placeholder");
+    }
   });
 });
 
