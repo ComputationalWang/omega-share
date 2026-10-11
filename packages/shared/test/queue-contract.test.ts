@@ -299,7 +299,7 @@ describe("frame size", () => {
     const state = {
       id: "a".repeat(32),
       seats: members.slice(0, 8).map((m) => m.id),
-      members,
+      members: members.map((m, standingSlot) => ({ ...m, away: false, standingSlot })),
       embed: longGeneric(),
       playback: null,
       itemId: "c".repeat(32),
@@ -307,7 +307,7 @@ describe("frame size", () => {
       controlPolicy: "owner",
       layout: { furniture: fullLayout() },
     };
-    const raw = JSON.stringify({ type: "snapshot", self: members[0]?.id, room: state, shareToken: "a".repeat(22), owner: true });
+    const raw = JSON.stringify({ type: "snapshot", self: members[0]?.id, room: state, shareToken: "a".repeat(22), resumeToken: "a".repeat(43), resumed: false, owner: true });
     expect(new TextEncoder().encode(raw).length).toBeLessThan(MAX_SERVER_MESSAGE_BYTES);
     expect(parseServerMessage(raw)?.type).toBe("snapshot");
   });

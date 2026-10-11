@@ -245,6 +245,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       return withRoom(state, (room) => ({ ...room, layout: msg.layout }));
     case "title-changed":
       return state.room === null ? state : { ...state, title: msg.title };
+    // Contract rollout compatibility; away rendering belongs to the session wave.
+    case "member-presence":
     case "pong":
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
