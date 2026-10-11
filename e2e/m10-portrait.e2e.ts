@@ -4,11 +4,18 @@ import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { joinForToken, type ShareMember } from "./support/share";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
 let clients: Client[] = [];
-test.afterEach(async () => { await leaveAll(clients); clients = []; });
+let members: ShareMember[] = [];
+test.afterEach(async () => {
+  for (const member of members) member.close();
+  members = [];
+  await leaveAll(clients);
+  clients = [];
+});
 
 async function visibleInViewport(target: Locator, height: number): Promise<void> {
   await expect(target).toBeVisible();
@@ -16,6 +23,54 @@ async function visibleInViewport(target: Locator, height: number): Promise<void>
   expect(box).not.toBeNull();
   expect(box?.y).toBeGreaterThanOrEqual(0);
   expect((box?.y ?? height) + (box?.height ?? height)).toBeLessThanOrEqual(height);
+}
+
+for (const [width, height] of [[360, 740], [390, 844]] as const) {
+  test(`${String(width)} portrait: People in a 25-member room keeps the dock visible, including with the keyboard open`, async ({ browser }) => {
+    const room = testRoom("m10-portrait", width === 360 ? "people360" : "people390");
+    clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: `people${String(width)}`,
+      contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("No portrait client");
+    for (let i = 1; i <= 24; i++) members.push(await joinForToken(room.id, `person${String(i)}`));
+    const panel = page.locator(site.peoplePanel);
+    await expect(panel.locator(site.peopleRow)).toHaveCount(25);
+    const input = page.locator(site.chatInput);
+    const link = page.locator('[data-testid="portrait-link"]');
+    await input.fill("last line with People open");
+    await input.press("Enter");
+    const last = page.locator(site.chatLogLine).last();
+    await expect(last).toContainText("last line with People open");
+    await page.locator(site.peopleKey).click();
+    await expect(panel).toBeVisible();
+    const dockVisible = async (visibleHeight: number): Promise<void> => {
+      for (const target of [input, link, last]) await visibleInViewport(target, visibleHeight);
+      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(height);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+    };
+    await dockVisible(height);
+    await input.focus();
+    await page.evaluate((visibleHeight) => {
+      const viewport = new EventTarget();
+      Object.assign(viewport, { height: visibleHeight, width: innerWidth, offsetTop: 24, offsetLeft: 0, scale: 1 });
+      Object.defineProperty(window, "visualViewport", { configurable: true, value: viewport });
+      window.dispatchEvent(new Event("resize"));
+    }, height - 300);
+    await expect(page.locator("#room-root")).toHaveClass(/portrait-typing/);
+    await expect(panel).toBeVisible();
+    await expect(input).toBeFocused();
+    await dockVisible(height - 300 + 24);
+    const finalToggle = panel.locator(site.peopleToggle).last();
+    await finalToggle.scrollIntoViewIfNeeded();
+    await visibleInViewport(finalToggle, height - 300 + 24);
+    await finalToggle.click();
+    await expect(finalToggle).toHaveText("Show");
+    await dockVisible(height - 300 + 24);
+    await expect(page.locator(site.chatLog)).toHaveAttribute("role", "log");
+    await expect(page.locator(site.chatLog)).toHaveAttribute("aria-live", "polite");
+    const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("iframe").analyze();
+    expect(axe.violations).toEqual([]);
+  });
 }
 
 for (const [width, height] of [[360, 740], [390, 844]] as const) {
