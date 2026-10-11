@@ -117,3 +117,16 @@ describe("people list", () => {
     expect(document.activeElement).toBe(people.key);
   });
 });
+
+test("Escape returns focus while the open panel still exposes its People key", async () => {
+  const { people } = await setup();
+  let panelOpenWhenKeyFocused: boolean | undefined;
+  people.key.addEventListener("focus", () => { panelOpenWhenKeyFocused = !people.panel.hidden; });
+  people.open("b");
+  people.panel.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  // In the keyboard portrait layout, the panel's open state exposes the top bar;
+  // focus must reach that bar before closing can rely on :focus-within to retain it.
+  expect(panelOpenWhenKeyFocused).toBe(true);
+  expect(document.activeElement === people.key).toBe(true);
+  expect(people.panel.hidden).toBe(true);
+});
