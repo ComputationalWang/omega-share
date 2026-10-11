@@ -49,6 +49,39 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     };
     await dockVisible(height);
+    // Android adjustResize shrinks layout and visual viewports together; keyboard inference
+    // from their difference cannot guarantee that a sheet's controls fit its clipping bounds.
+    await page.setViewportSize({ width, height: 440 });
+    await link.click();
+    const sheet = page.locator('[data-testid="portrait-sheet"]');
+    await expect(sheet).toBeVisible();
+    await expect(page.locator(site.queueUrl)).toBeFocused();
+    for (const target of [page.locator(site.queueUrl), page.locator(site.queueAdd),
+      page.locator('[data-testid="portrait-sheet-close"]')]) {
+      await visibleInViewport(target, 440);
+      const bounds = await sheet.boundingBox();
+      const control = await target.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(control).not.toBeNull();
+      expect(control?.width).toBeGreaterThanOrEqual(44);
+      expect(control?.height).toBeGreaterThanOrEqual(44);
+      expect(control?.y).toBeGreaterThanOrEqual(bounds?.y ?? 440);
+      expect((control?.y ?? 440) + (control?.height ?? 440))
+        .toBeLessThanOrEqual((bounds?.y ?? 0) + (bounds?.height ?? 0));
+      expect(await target.evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        return [[rect.left + 2, rect.top + 2], [rect.right - 2, rect.bottom - 2]].every(([x, y]) => {
+          if (x === undefined || y === undefined) return false;
+          const hit = document.elementFromPoint(x, y);
+          return hit !== null && (hit === el || el.contains(hit));
+        });
+      })).toBe(true);
+    }
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+    await expect(link).toBeFocused();
+    await page.setViewportSize({ width, height });
+    await dockVisible(height);
     await input.focus();
     await page.evaluate((visibleHeight) => {
       const viewport = new EventTarget();
