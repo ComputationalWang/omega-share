@@ -6,6 +6,7 @@ export interface PortraitDockOptions {
   readonly composer: HTMLFormElement;
   readonly queue: HTMLElement;
   readonly shelf?: HTMLElement;
+  readonly pictureRegion?: HTMLElement;
   readonly settings: readonly HTMLElement[];
   readonly onViewport?: () => void;
 }
@@ -28,6 +29,21 @@ export function createPortraitDock(o: PortraitDockOptions) {
   const content = el("div", { className: "portrait-sheet-content" });
   sheet.append(head, content);
   o.root.append(keys, sheet);
+  const picture = o.pictureRegion;
+  const originalPicture = picture === undefined ? [] : ["tabindex", "role", "aria-label"].map((name) => ({ name, value: picture.getAttribute(name) }));
+  const pictureScrollFocus = (typing: boolean): void => {
+    if (picture === undefined) return;
+    if (typing) {
+      picture.tabIndex = 0;
+      picture.setAttribute("role", "region");
+      picture.setAttribute("aria-label", "Video; scroll to see the whole picture");
+    } else {
+      for (const { name, value } of originalPicture) {
+        if (value === null) picture.removeAttribute(name);
+        else picture.setAttribute(name, value);
+      }
+    }
+  };
   let active = false;
   o.shelf?.addEventListener("focusin", (ev) => {
     if (active && ev.target instanceof HTMLElement) ev.target.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -86,7 +102,9 @@ export function createPortraitDock(o: PortraitDockOptions) {
     const v = window.visualViewport ?? null;
     o.root.style.setProperty("--portrait-height", `${String(v?.height ?? window.innerHeight)}px`);
     o.root.style.setProperty("--portrait-top", `${String(v?.offsetTop ?? 0)}px`);
-    o.root.classList.toggle("portrait-typing", v !== null && v.scale === 1 && window.innerHeight - v.height > 100);
+    const typing = v !== null && v.scale === 1 && window.innerHeight - v.height > 100;
+    o.root.classList.toggle("portrait-typing", typing);
+    pictureScrollFocus(typing);
   };
   const resized = (): void => { viewport(); o.onViewport?.(); };
   window.visualViewport?.addEventListener("resize", resized);
@@ -105,6 +123,7 @@ export function createPortraitDock(o: PortraitDockOptions) {
       if (on) { o.composer.before(keys); o.composer.insertBefore(link, o.composer.querySelector("input")); viewport(); }
       else {
         link.remove();
+        pictureScrollFocus(false);
         o.root.classList.remove("portrait-typing");
         o.root.style.removeProperty("--portrait-height");
         o.root.style.removeProperty("--portrait-top");
