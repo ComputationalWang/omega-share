@@ -115,7 +115,7 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
     // Joining exposes the room before the SDK finishes building its player and relaying readiness.
     // Wait for that public provider state before clicking a transport key whose position it changes.
     await waitProviderPlaying(clients, "twitch");
-    await page.locator(site.fullscreenToggle).click();
+    await page.locator(site.fullscreenToggle).tap();
     await expect(page.locator(site.fsStrip)).toBeVisible();
     await expect(page.locator(site.fullscreenToggle)).toHaveAttribute("aria-label", "Exit full screen");
     await expect(page.locator(site.fsStrip)).toHaveAttribute("data-strip", "band");
