@@ -162,12 +162,19 @@ describe("Contact & notices (DSA Arts 11, 12, 16)", () => {
     expect(main(html)).toContain(`href="${REPO_URL}/issues"`);
   });
 
-  test("never invents the operator's identity: it is a clearly marked placeholder until the board supplies it", () => {
+  test("publishes the board-approved operator and Dutch contact routes", () => {
     const html = page("contact.html");
-    expect(html).toMatch(/data-placeholder="operator"/);
-    const block = /<[a-z]+ [^>]*data-placeholder="operator"[^>]*>([\s\S]*?)<\/(section|div|p)>/.exec(html)?.[1] ?? "";
-    expect(block).toMatch(/not (yet )?published/i);
-    expect(html).not.toMatch(/@[a-z0-9-]+\.[a-z]{2,}/i);
+    const s = text(html);
+    expect(s).toContain("Wang Zhou");
+    expect(s).toContain("Jonkvrouw Sanderijndreef 987, 3562 LP Utrecht, the Netherlands");
+    expect(html).toContain('href="mailto:omegashare.support@gmail.com"');
+    expect(s).toContain("English and Dutch");
+    expect(s).toContain("without undue delay");
+    expect(s).toContain("Art. 12");
+    expect(s).toContain("Art. 16");
+    expect(s).toContain("BW art. 3:15d");
+    expect(s).toContain("ACM");
+    expect(s).not.toMatch(/MStV|DDG|within \d+ days/);
   });
 });
 
