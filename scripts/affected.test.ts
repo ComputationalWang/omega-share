@@ -96,8 +96,8 @@ describe("e2e/affected.json", () => {
     expect(select(manifest, ["apps/web/src/player/twitch.ts"]).real).toContain("e2e/real/real-providers.real.ts");
   });
 
-  test("the paired Twitch gate helper selects its sole real-provider consumer without perf", () => {
-    expect(select(manifest, ["e2e/real/twitch-gate.ts"])).toEqual({
+  test("the paired Twitch helpers select their sole real-provider consumer without perf", () => {
+    for (const path of ["e2e/real/twitch-gate.ts", "e2e/real/twitch-live.ts"]) expect(select(manifest, [path])).toEqual({
       full: false, reasons: [], unmapped: [], firefox: [], e2e: [], perf: [],
       real: ["e2e/real/real-providers.real.ts"],
     });
