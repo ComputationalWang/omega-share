@@ -180,6 +180,20 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
     const cw = Math.min(half, bw - SHELF_SPEAKER - FS_BAND_FIELD_MIN);
     // Portrait, or too narrow for both on one bar: the shelf, then the field on its own bar under it.
     const stacked = (w < FS_STRIP_WIDE_FROM && h > w) || cw < FS_BAND_TRANSPORT_MIN;
+    // A second row cannot fit under Twitch's 300 px minimum on short phones. Drop the shelf's
+    // speaker outsets and share one row instead; keep the composer's 44 px content plus its frame.
+    const compactBandH = CONTROL_BAR_H + 4;
+    const minTvH = Math.round((min * 9) / 16);
+    if (stacked && minTvH + below + GAP + CONTROL_BAR_H > h
+      && minTvH + GAP + compactBandH <= h
+      && w >= FS_BAND_TRANSPORT_MIN + GAP + FS_BAND_FIELD_MIN) {
+      const pic = fitTv(w, h - GAP - compactBandH);
+      const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: 0, ...pic };
+      const y = tv.h + GAP;
+      const controls = { x: 0, y, w: FS_BAND_TRANSPORT_MIN, h: CONTROL_BAR_H };
+      const sx = controls.w + GAP;
+      return { at: "band", tv, controls, strip: { x: sx, y, w: w - sx, h: compactBandH }, compact: { tv: true, controls: true } };
+    }
     const under = stacked ? below + GAP + CONTROL_BAR_H : below;
     const pic = fitTv(w, h - under);
     const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - under) / 2)), ...pic };
