@@ -11,3 +11,17 @@
 - Playback state (ADR 0002) is **not** in v0. It will arrive in a later contract issue.
 
 **Why:** the extension is the least-trusted component and the iframe is the biggest attack surface, so canonicalization happens server-side and the canonical form is checked again at every parse. Lenient server→client parsing keeps rolling deploys safe.
+
+## M10 amendment: room GC policy exports (2026-10-11)
+
+[OME-916](/OME/issues/OME-916), following [OME-904](/OME/issues/OME-904): remove
+`ROOM_GC_NEVER_JOINED_MS`, `ROOM_GC_EMPTY_MS` and `ROOM_GC_SWEEP_MS` from
+`@omega/shared`. This supersedes ADR 0028 §8's decision to export GC ages.
+The server owns the single 20-minute idle threshold and the 60-second sweep;
+clients react to `ROOM_CLOSED` / `room_not_found`, without enforcing timers.
+See `packages/shared/README.md` and ADR 0028 §2 for the lifetime rule.
+
+No web or extension code consumes these exports. The old server QA test imports
+are replaced in PR #83 before this cleanup merges. Removing the unused shared
+policy avoids competing sources of truth without adding a replacement client
+API, a dependency or runtime work.

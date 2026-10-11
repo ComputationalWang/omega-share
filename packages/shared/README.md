@@ -30,6 +30,23 @@ Client→server schemas are **strict** (unknown keys are rejected). Server→cli
 | `MAX_POSITION_S` | 43200 (12 h, largest playback position) |
 | `PING_ID_MAX` | 2³¹ − 1 |
 
+## Room lifetime (M10, ADR 0028)
+
+Room GC policy is server-owned, not part of the wire contract. The obsolete
+`ROOM_GC_NEVER_JOINED_MS`, `ROOM_GC_EMPTY_MS` and `ROOM_GC_SWEEP_MS` exports have
+been removed. The server's `ROOM_IDLE_TTL_MS` is 20 minutes and
+`ROOM_GC_INTERVAL_MS` is 60 seconds (`apps/server/src/rooms-gc.ts`).
+
+An unpinned room is deleted after 20 minutes with nobody in it, counted from the
+last member leaving, or from creation if nobody ever joined. Occupied and pinned
+rooms are kept. Pending joining sockets do not prevent idle expiry. Sweeps run
+at boot and every minute, so collection occurs after 20–21 minutes idle. The
+stored activity timestamp preserves the idle clock across restarts.
+
+Clients do not enforce a lifetime timer. They handle `CLOSE_CODES.ROOM_CLOSED`
+(4004) by stopping reconnects and showing that the room is closed. HTTP access to
+a deleted room returns `room_not_found`.
+
 ## Embeds (two tiers, ADR 0014 + ADR 0024)
 
 **Synced tier.** `canonicalizeEmbed(url: string): Embed | null` dispatches through `SYNCED_PROVIDERS` (YouTube, Twitch, Vimeo; each `{ id, ownsHost, canonicalize }`). Scheme `http`/`https` (output always `https`), no credentials, no explicit port. Every `Embed.url` is rebuilt from its ids, and `EmbedSchema` checks it. See `test/embed*.test.ts` for the accepted URL shapes.
