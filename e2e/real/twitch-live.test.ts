@@ -1,15 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { discoverPairedLive, type LiveProbe } from "./twitch-live";
 
-type Pair = [LiveProbe, LiveProbe];
-const playing = (reason = "ungated playing"): LiveProbe => ({
-  gate: false, reason, error: null,
+type Probe = LiveProbe & { readonly frameUrl: string | null };
+type Pair = [Probe, Probe];
+const playing = (reason = "ungated playing"): Probe => ({
+  gate: false, reason, error: null, frameUrl: "https://player.twitch.tv/?channel=current",
   media: { ad: false, paused: false, currentTime: 5, overlay: "" },
 });
-const ad = (): LiveProbe => ({ ...playing("ungated advertisement"), media: { ad: true, paused: true, currentTime: 0, overlay: "Advertisement" } });
-const loading = (reason = "player loading"): LiveProbe => ({ gate: false, reason, error: null, media: null });
-const gated = (withAd = false): LiveProbe => ({
-  gate: true, reason: "Mature-rated game / Significant Profanity or Vulgarity", error: null,
+const ad = (): Probe => ({ ...playing("ungated advertisement"), media: { ad: true, paused: true, currentTime: 0, overlay: "Advertisement" } });
+const loading = (reason = "player loading"): Probe => ({ gate: false, reason, error: null, media: null, frameUrl: "https://player.twitch.tv/?channel=current" });
+const gated = (withAd = false): Probe => ({
+  gate: true, reason: "Mature-rated game / Significant Profanity or Vulgarity", error: null, frameUrl: "https://player.twitch.tv/?channel=current",
   media: { ad: withAd, paused: true, currentTime: 0, overlay: "Mature-rated game" },
 });
 
@@ -75,6 +76,22 @@ describe("paired ungated Twitch live discovery (OME-972)", () => {
       { channel: "delayed", outcome: "live", viewers: ready },
     ] });
     expect(fixture.reads.get("delayed")).toBe(2);
+  });
+
+  test("ignores the previous candidate's room error while the current viewer frame is absent", async () => {
+    const ready: Pair = [playing("viewer A current candidate"), playing("viewer B current candidate")];
+    const stale: Probe = {
+      ...loading("viewer B: current candidate frame absent; previous room error"),
+      frameUrl: null,
+      error: { reason: "unavailable" },
+    };
+    const fixture = harness({ current: [[playing(), stale], ready] });
+
+    expect(await discoverPairedLive(["current"], fixture.deps, 3000)).toEqual({ channel: "current", tried: [
+      { channel: "current", outcome: "live", viewers: ready },
+    ] });
+    expect(fixture.reads.get("current")).toBe(2);
+    expect(fixture.elapsed()).toBe(1000);
   });
 
   test("does not combine alternating readiness across snapshots", async () => {
