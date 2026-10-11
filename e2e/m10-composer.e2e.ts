@@ -231,6 +231,8 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
         if (count > 1) await sender.waitForTimeout(1000);
         await sender.locator(site.chatInput).press("Enter");
         await expect(page.locator(".fs-unread")).toHaveText(`${String(count)} new`);
+        await expect(page.locator(site.fsStripToggle)).toHaveAttribute("aria-label",
+          new RegExp(`${String(count)} new message${count === 1 ? "" : "s"}$`));
         await expectRoomy(page, `unread ${String(count)}`);
       }
       await expectSends(page, `${key} ${remembered} after incoming`);
