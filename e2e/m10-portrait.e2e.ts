@@ -45,12 +45,19 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
     const sheet = page.locator('[data-testid="portrait-sheet"]');
     await expect(sheet).toBeVisible();
     await expect(page.locator(site.queueUrl)).toBeFocused();
-    await page.locator(site.queueUrl).fill("https://youtu.be/dQw4w9WgXcQ");
+    // Each retry uses fresh video IDs so existing queue state cannot satisfy this share assertion.
+    const [firstVideo, nextVideo] = test.info().retry === 0
+      ? ["dQw4w9WgXcQ", "9bZkp7q19f0"] as const
+      : ["M7lc1UVf-VE", "aqz-KE-bpKQ"] as const;
+    const queued = page.locator(site.queueRow).filter({ hasText: nextVideo });
+    await expect(queued).toHaveCount(0);
+    await page.locator(site.queueUrl).fill(`https://youtu.be/${firstVideo}`);
     await page.locator(site.queueAdd).click();
     await expect(page.locator(site.sharedVideo)).toBeVisible();
-    await page.locator(site.queueUrl).fill("https://youtu.be/9bZkp7q19f0");
+    await page.locator(site.queueUrl).fill(`https://youtu.be/${nextVideo}`);
     await page.locator(site.queueAdd).click();
-    await expect(page.locator(site.queueRow)).toContainText("9bZkp7q19f0");
+    await expect(queued).toHaveCount(1);
+    await expect(queued).toContainText(nextVideo);
     await axe();
     await page.keyboard.press("Escape");
     await expect(sheet).toBeHidden();

@@ -209,7 +209,7 @@ test.describe("emotes", () => {
       await expect(wheel).toBeHidden({ timeout: 5000 });
     });
 
-    test("touch: the wheel key by the chat input opens it; 42 px slots; reduced motion skips the fade", async ({ browser }) => {
+    test("touch: the portrait wheel has 44 px slots; landscape scrolling closes it; reduced motion skips the fade", async ({ browser }) => {
       clients = await joinRoom(browser, {
         roomUrl: testRoom("emotes", "wheeltap").url,
         count: 1,
@@ -225,8 +225,8 @@ test.describe("emotes", () => {
       await expect(wheel).toBeVisible();
       expect(await wheel.evaluate((e) => getComputedStyle(e).animationName)).toBe("none");
       const slot = await page.getByRole("menuitem", { name: "Clap" }).boundingBox();
-      expect(slot?.width).toBe(42);
-      expect(slot?.height).toBe(42);
+      expect(slot?.width).toBe(44);
+      expect(slot?.height).toBe(44);
       // Inside the window, wherever it went (over my head, or docked above the composer).
       const box = await wheel.boundingBox();
       if (box === null) throw new Error("no wheel box");
@@ -238,6 +238,9 @@ test.describe("emotes", () => {
       await expect(wheel.locator(".ui-wheel-label .ui-kbd")).toBeHidden();
       await page.getByRole("menuitem", { name: "Clap" }).tap();
       await expect(wheel).toBeHidden();
+      // Portrait keeps the document fixed. Rotate to verify the existing landscape page-scroll behavior.
+      await page.setViewportSize({ width: 390, height: 320 });
+      await expect(page.locator("#room-root")).not.toHaveClass(/room-portrait/);
       // Scrolling the page closes it: it's placed once, and would be left behind off your head (OME-776).
       await key.tap();
       await expect(wheel).toBeVisible();
