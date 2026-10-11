@@ -6,13 +6,13 @@ import { join } from "node:path";
 import { DEFAULT_LAYOUT, type Embed, type RoomId } from "@omega/shared";
 import { Room } from "../src/room";
 import { RoomRegistry } from "../src/rooms";
-import { EMPTY_ROOM_TTL_MS, NEVER_JOINED_TTL_MS, ROOM_GC_INTERVAL_MS, startRoomGc, sweepRooms } from "../src/rooms-gc";
+import { ROOM_GC_INTERVAL_MS, ROOM_IDLE_TTL_MS, startRoomGc, sweepRooms } from "../src/rooms-gc";
 import type { RoomPersistence } from "../src/server";
 import { openDatabase } from "../src/store/db";
 import { RoomStore, type StoredRoom } from "../src/store/rooms";
 import { Client, start, type TestServer } from "./helpers";
 
-/** Room GC and `last_active_at` (threat model §1.3, §7 #4; OME-405). Every clock here is injected. */
+/** Room GC and `last_active_at` (threat model §1.3, §7 #4; OME-405; 20-minute idle rule OME-904). Every clock here is injected. */
 
 let t: TestServer | null = null;
 let db: Database | null = null;
@@ -30,7 +30,8 @@ afterEach(async () => {
   dir = null;
 });
 
-const HOUR = 3_600_000;
+const MIN = 60_000;
+const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 const T0 = Date.UTC(2026, 9, 1);
 function wallClock(ms = T0) {
@@ -57,28 +58,28 @@ function registryOf(...rooms: Room[]): RoomRegistry {
 const idle = (): boolean => false;
 
 describe("sweepRooms: what GC collects (threat model §1.3)", () => {
-  test("the constants match the threat model: hourly sweep, 1 h for a never-joined room, 14 days for an empty one", () => {
-    expect(ROOM_GC_INTERVAL_MS).toBe(HOUR);
-    expect(NEVER_JOINED_TTL_MS).toBe(HOUR);
-    expect(EMPTY_ROOM_TTL_MS).toBe(14 * DAY);
+  test("one idle rule: a room with nobody in it for 20 min goes; the sweep runs every minute, so it goes within 20-21 min", () => {
+    expect(ROOM_IDLE_TTL_MS).toBe(20 * MIN);
+    expect(ROOM_GC_INTERVAL_MS).toBe(MIN);
   });
 
-  test("a created room nobody ever joined is kept for 1 h after created_at, then removed", () => {
+  test("a room nobody ever joined is kept for 20 min after created_at, then removed", () => {
     const room = createdRoom(ID_A, T0, null);
     const rooms = registryOf(room);
-    expect(sweepRooms({ rooms, wallNow: () => T0 + HOUR - 1, busy: idle, touch: () => undefined })).toEqual([]);
+    expect(sweepRooms({ rooms, wallNow: () => T0 + 19 * MIN, busy: idle, touch: () => undefined })).toEqual([]);
+    expect(sweepRooms({ rooms, wallNow: () => T0 + 20 * MIN - 1, busy: idle, touch: () => undefined })).toEqual([]);
     expect(rooms.get(ID_A)).toBe(room);
-    expect(sweepRooms({ rooms, wallNow: () => T0 + HOUR, busy: idle, touch: () => undefined })).toEqual([ID_A]);
+    expect(sweepRooms({ rooms, wallNow: () => T0 + 20 * MIN, busy: idle, touch: () => undefined })).toEqual([ID_A]);
     expect(rooms.get(ID_A)).toBeUndefined();
   });
 
-  test("an empty created room is kept for 14 days after it last became empty, however old it is, then removed", () => {
+  test("an empty room is kept for 20 min after the last member left, however old it is: 19 min kept, 20 min gone", () => {
     const emptiedAt = T0 + 30 * DAY;
     const room = createdRoom(ID_A, T0, emptiedAt);
     const rooms = registryOf(room);
-    expect(sweepRooms({ rooms, wallNow: () => emptiedAt + 14 * DAY - 1, busy: idle, touch: () => undefined })).toEqual([]);
+    expect(sweepRooms({ rooms, wallNow: () => emptiedAt + 19 * MIN, busy: idle, touch: () => undefined })).toEqual([]);
     expect(rooms.get(ID_A)).toBe(room);
-    expect(sweepRooms({ rooms, wallNow: () => emptiedAt + 14 * DAY, busy: idle, touch: () => undefined })).toEqual([ID_A]);
+    expect(sweepRooms({ rooms, wallNow: () => emptiedAt + 20 * MIN, busy: idle, touch: () => undefined })).toEqual([ID_A]);
     expect(rooms.get(ID_A)).toBeUndefined();
   });
 
@@ -292,11 +293,11 @@ describe("last_active_at moves only on the 0→1 and 1→0 transitions (threat m
 
 describe("the server's GC (startServer)", () => {
   test("the boot sweep deletes expired created rooms from memory and the store, keeps fresh ones and the pinned lobby", async () => {
-    const clock = wallClock(T0 + 20 * DAY);
+    const clock = wallClock(T0 + DAY);
     const { store, writes } = recordingStore([
-      row(ID_A, T0, null), // never joined, 20 days old
-      row(ID_B, T0, T0 + DAY), // empty for 19 days
-      row(ID_C, T0, T0 + 10 * DAY), // empty for 10 days
+      row(ID_A, T0 + DAY - 20 * MIN, null), // never joined, 20 min old
+      row(ID_B, T0, T0 + DAY - 25 * MIN), // empty for 25 min
+      row(ID_C, T0, T0 + DAY - 19 * MIN), // empty for 19 min
     ]);
     t = start({ store, wallNow: clock.now });
     expect(writes.filter((w) => w.startsWith("delete")).sort()).toEqual([`delete ${ID_A}`, `delete ${ID_B}`]);
@@ -322,21 +323,21 @@ describe("the server's GC (startServer)", () => {
 
     await Bun.sleep(60);
     expect(store.listRooms().map((r) => r.id)).toContain(room.id);
-    clock.ms = T0 + NEVER_JOINED_TTL_MS;
+    clock.ms = T0 + 20 * MIN;
     await Bun.sleep(80);
     expect(store.listRooms().map((r) => r.id)).toEqual(["lobby"]);
     expect((await fetch(`${t.http}/rooms/${room.id}/ws`, { headers: { upgrade: "websocket" } })).status).toBe(404);
   });
 
-  test("a socket still joining keeps a due room alive; once everyone has left, the 14-day clock starts from the last leave", async () => {
-    const clock = wallClock(T0 + 2 * HOUR);
+  test("a socket still joining keeps a due room alive; once everyone has left, the 20-min clock starts from the last leave", async () => {
+    const clock = wallClock(T0 + 30 * MIN);
     const registry = new RoomRegistry();
-    const { store, writes } = recordingStore([row(ID_A, T0 + HOUR + 1, null)]);
+    const { store, writes } = recordingStore([row(ID_A, T0 + 11 * MIN, null)]);
     t = start({ store, registry, wallNow: clock.now, roomGcIntervalMs: 20, joinTimeoutMs: 5_000 });
-    // Not yet due at boot (created 59 min ago); a socket opens, then the hour passes.
+    // Not yet due at boot (created 19 min ago); a socket opens, then the minute passes.
     const lurker = await Client.open(t.ws(ID_A));
     clients.push(lurker);
-    clock.ms = T0 + 3 * HOUR;
+    clock.ms = T0 + 40 * MIN;
     await Bun.sleep(80);
     expect(registry.get(ID_A)).toBeDefined();
     lurker.send({ type: "join", nickname: "alice", avatar: 0 });
@@ -344,14 +345,57 @@ describe("the server's GC (startServer)", () => {
     lurker.close();
     await lurker.closed;
     await Bun.sleep(20);
-    expect(writes.filter((w) => w.startsWith("active")).at(-1)).toBe(`active ${ID_A} ${String(T0 + 3 * HOUR)}`);
-    clock.ms = T0 + 3 * HOUR + 14 * DAY - 1;
+    expect(writes.filter((w) => w.startsWith("active")).at(-1)).toBe(`active ${ID_A} ${String(T0 + 40 * MIN)}`);
+    clock.ms = T0 + 60 * MIN - 1;
     await Bun.sleep(80);
     expect(registry.get(ID_A)).toBeDefined();
-    clock.ms = T0 + 3 * HOUR + 14 * DAY;
+    clock.ms = T0 + 60 * MIN;
     await Bun.sleep(80);
     expect(registry.get(ID_A) ?? null).toBeNull();
     expect(writes).toContain(`delete ${ID_A}`);
+  });
+
+  test("someone joins at 19 min: the timer resets, and the room goes 20 min after they leave", async () => {
+    const clock = wallClock(T0);
+    const registry = new RoomRegistry();
+    const { store } = recordingStore([row(ID_A, T0 - DAY, T0)]); // empty since T0
+    t = start({ store, registry, wallNow: clock.now, roomGcIntervalMs: 20 });
+    clock.ms = T0 + 19 * MIN;
+    await Bun.sleep(60);
+    const alice = await Client.join(t.ws(ID_A), "alice");
+    clients.push(alice.client);
+    clock.ms = T0 + 25 * MIN; // past the old deadline, with alice in the room
+    await Bun.sleep(60);
+    expect(registry.get(ID_A)).toBeDefined();
+    clock.ms = T0 + 30 * MIN;
+    alice.client.send({ type: "leave" });
+    await Bun.sleep(60);
+    clock.ms = T0 + 49 * MIN; // 19 min after she left
+    await Bun.sleep(60);
+    expect(registry.get(ID_A)).toBeDefined();
+    clock.ms = T0 + 50 * MIN;
+    await Bun.sleep(60);
+    expect(registry.get(ID_A) ?? null).toBeNull();
+  });
+
+  test("a restart mid-idle keeps the clock: the room goes 20 min after it emptied, not 20 min after the restart", async () => {
+    dir = mkdtempSync(join(tmpdir(), "omega-gc-"));
+    db = openDatabase(join(dir, "omega.db"));
+    const store = new RoomStore(db);
+    store.createRoom({ id: ID_A, title: "Film club", createdAt: T0 - DAY, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
+    store.setLastActive(ID_A, T0); // the last member left at T0
+    const clock = wallClock(T0 + 10 * MIN);
+    const first = start({ store, wallNow: clock.now, roomGcIntervalMs: 20 });
+    await Bun.sleep(60);
+    expect(store.listRooms().map((r) => r.id)).toContain(ID_A);
+    await first.server.stop(true);
+    clock.ms = T0 + 19 * MIN;
+    t = start({ store, wallNow: clock.now, roomGcIntervalMs: 20 });
+    expect(store.listRooms().map((r) => r.id)).toContain(ID_A);
+    clock.ms = T0 + 20 * MIN;
+    await Bun.sleep(80);
+    expect(store.listRooms().map((r) => r.id)).toEqual(["lobby"]);
+    expect((await fetch(`${t.http}/rooms/${ID_A}/ws`, { headers: { upgrade: "websocket" } })).status).toBe(404);
   });
 
   test("server.stop() also stops the GC: a stopped server's store is never swept again (QA2 note on OME-450)", async () => {
