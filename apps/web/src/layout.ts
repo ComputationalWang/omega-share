@@ -140,6 +140,8 @@ export type StripMode = "open" | "band";
  * minimum (Twitch's is larger), and the largest size that leaves the strip or band clear; nothing overlaps.
  */
 export interface FullscreenLayout {
+  /** Initial viewport scroll when the provider minimum and touch band need more vertical space. */
+  readonly scrollY?: number;
   /** "alone": the room is popped out (OME-600), so the chat is in its window and the picture has the screen. */
   readonly at: "side" | "below" | "band" | "alone";
   readonly tv: Rect;
@@ -188,14 +190,15 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
     const compactBandH = CONTROL_BAR_H + 4;
     const minTvH = Math.round((min * 9) / 16);
     if (minTvH + below + GAP + bandH > h
-      && minTvH + GAP + compactBandH <= h
+      && h >= compactBandH
       && w >= FS_BAND_SCROLL_MIN + GAP + FS_BAND_FIELD_MIN) {
       const pic = fitTv(w, h - GAP - compactBandH);
       const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: 0, ...pic };
       const y = tv.h + GAP;
       const controls = { x: 0, y, w: Math.min(FS_BAND_TRANSPORT_MIN, w - GAP - FS_BAND_FIELD_MIN), h: CONTROL_BAR_H };
       const sx = controls.w + GAP;
-      return { at: "band", tv, controls, strip: { x: sx, y, w: w - sx, h: compactBandH }, compact: { tv: true, controls: true } };
+      return { at: "band", tv, controls, strip: { x: sx, y, w: w - sx, h: compactBandH },
+        scrollY: Math.max(0, y + compactBandH - h), compact: { tv: true, controls: true } };
     }
     const under = stacked ? below + GAP + bandH : GAP + bandH;
     const pic = fitTv(w, h - under);
@@ -229,8 +232,9 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   const minTvH = Math.round((min * 9) / 16);
   // Short landscape cannot hold the provider minimum plus an open strip. Show a compact band
   // until more space is available; the caller keeps the user's remembered open preference.
+  // Below 356 px Twitch also needs vertical scrolling: its intact player stays above the band.
   if (w > h && h < minTvH + below + GAP + openStripH
-    && h >= minTvH + GAP + CONTROL_BAR_H + 4
+    && h >= CONTROL_BAR_H + 4
     && w >= FS_BAND_SCROLL_MIN + GAP + FS_BAND_FIELD_MIN) {
     return fullscreenLayout(w, h, provider, "band");
   }

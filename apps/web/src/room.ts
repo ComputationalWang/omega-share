@@ -710,6 +710,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** The phone's window looks at the middle of the seats until you drag it, sit, or focus something off-screen. */
   const roomWindow = createRoomWindow(clip, stage, () => seatsMiddle);
   let seatsMiddle: Point = { x: STAGE_W / 2, y: STAGE_H / 2 };
+  let fsScrollWidth = -1;
+  let fsScrollHeight = -1;
+  let fsScrollTarget = -1;
   const fit = (): void => {
     if (fs.mode() !== "off") {
       // The room popped out: its chat is in the window, so the picture is alone.
@@ -727,8 +730,20 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       controls.tabIndex = scrollTransport ? 0 : -1;
       controls.ariaLabel = scrollTransport ? "Playback controls; scroll horizontally for more" : "Playback controls";
       wrap.style.height = "";
+      const scrollY = l.scrollY ?? 0;
+      wrap.dataset["fsScroll"] = String(scrollY > 0);
+      // Layout changes expose the composer. An unchanged fit must preserve a user's scroll to the player.
+      if (fsScrollTarget !== scrollY || fsScrollWidth !== wrap.clientWidth || fsScrollHeight !== wrap.clientHeight) {
+        wrap.scrollTop = scrollY;
+        fsScrollTarget = scrollY;
+        fsScrollWidth = wrap.clientWidth;
+        fsScrollHeight = wrap.clientHeight;
+      }
       return;
     }
+    delete wrap.dataset["fsScroll"];
+    wrap.scrollTop = 0;
+    fsScrollWidth = fsScrollHeight = fsScrollTarget = -1;
     placeRowKeys(false);
     controls.classList.remove("scroll-transport");
     controls.tabIndex = -1;
