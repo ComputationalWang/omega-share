@@ -36,8 +36,19 @@ export function inviteKeyFromHash(hash: string): InviteKey | null {
 export const RoomVisibilitySchema = v.picklist(["public", "private"]);
 export type RoomVisibility = v.InferOutput<typeof RoomVisibilitySchema>;
 
-/** Body of `POST /rooms`, at most `MAX_CREATE_BODY_BYTES`. The server picks the id and starts from `DEFAULT_LAYOUT`. */
-export const CreateRoomRequestSchema = v.strictObject({ title: RoomTitleSchema, visibility: RoomVisibilitySchema });
+/** Judged D1 ids; layouts are trusted validated data, never create-request JSON. */
+export const ROOM_PRESET_IDS = ["classic", "cinema", "living", "lounge", "cafe", "empty"] as const;
+export const RoomPresetIdSchema = v.picklist(ROOM_PRESET_IDS);
+export type RoomPresetId = v.InferOutput<typeof RoomPresetIdSchema>;
+/** Omitted preset means today's DEFAULT_LAYOUT (classic). */
+export const DEFAULT_ROOM_PRESET: RoomPresetId = "classic";
+
+/** Body of `POST /rooms`, at most `MAX_CREATE_BODY_BYTES`. The server resolves the preset. */
+export const CreateRoomRequestSchema = v.strictObject({
+  title: RoomTitleSchema,
+  visibility: RoomVisibilitySchema,
+  preset: v.optional(RoomPresetIdSchema),
+});
 export type CreateRoomRequest = v.InferOutput<typeof CreateRoomRequestSchema>;
 
 export const CREATE_ROOM_ERROR_CODES = [

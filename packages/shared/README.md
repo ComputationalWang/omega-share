@@ -133,3 +133,45 @@ Used by the extension's room dropdown. Response `RoomListResponse`:
 | `error` | `code`, `message` (≤ 200) | `code` ∈ `bad_message \| not_joined \| already_joined \| seat_taken \| rate_limited \| no_embed` |
 
 Sizes: `control` is under 120 B (cap 4 KB). `playback` adds about 150 B to a snapshot; a worst-case 25-member snapshot with playback stays under the 16 KB cap (tested).
+
+## M10 additive contract (ADR 0043)
+
+`CreateRoomRequestSchema` accepts optional `preset`: `classic`, `cinema`, `living`,
+`lounge`, `cafe`, or `empty` (`RoomPresetIdSchema`, `ROOM_PRESET_IDS`). Omission
+remains valid and means `DEFAULT_ROOM_PRESET = "classic"`, today's `DEFAULT_LAYOUT`.
+The server resolves the id to trusted data validated with `RoomLayoutInputSchema`;
+creation never accepts client-supplied layout JSON. This contract supplies ids;
+the preset consumer wave owns layout resolution and delivery.
+
+`join.durableSession: true` opts a tokenless initial join into durable membership.
+Legacy joins retain immediate departure on close. `join.resumeToken` resumes an
+existing identity without repeating opt-in; the server ignores nickname/avatar
+changes, checks room binding and returns `resume_expired` for unknown, expired,
+wrong-room or revoked credentials without silently allocating a new member.
+
+`ResumeTokenSchema` validates 43 base64url characters, not entropy or authority.
+The server mints 32 random bytes. `ResumeRecordSchema` is a strict
+`{ roomId, token, nickname, avatar }` record for per-room sessionStorage at
+`RESUME_STORAGE_KEY_PREFIX + roomId` (`omega.resume.`). Resume credentials are
+separate from owner, invite and share tokens, and never belong in URLs, logs or
+broadcasts. `snapshot.resumeToken` is sender-only; optional `snapshot.resumed`
+means false when absent. Do not manufacture tokens from old snapshots.
+
+Unexpected disconnect retains identity, seat, standing slot, grants and rate
+buckets for `RESUME_GRACE_MS = 120_000`. Expiry, explicit leave, kick and room
+removal revoke immediately; visibility and HTTP sharing never renew a hold.
+Share records keep their existing `omega.share` shape and 22-character token;
+the extension never reads resume credentials. Restart loses in-memory sessions.
+
+Strict client `presence { away: boolean }` and server
+`member-presence { memberId, away: boolean }` describe transitions independently
+of catching. Optional `Member.away` means false when absent. Optional
+`Member.standingSlot` is an integer 0–24, unique across all supplied member slots,
+including seated and away members. Legacy snapshots without slots remain valid.
+No coordinates or per-frame motion are sent. `CLOSE_CODES.SESSION_REPLACED = 4007`
+is terminal for automatic reconnect; explicit user return is defined in ADR 0043.
+
+These additive schemas do not enable runtime behavior. Merge the contract, deploy
+server support, then enable durable joins and presence in web. Older server/client
+fixtures remain valid; the provider allowlist, frame limits and dependencies are
+unchanged.
