@@ -483,3 +483,10 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .portrait-sheet .chat-log:focus-within .ui-fs-line.is-faded { background-color: #343766; }
 /* Scrolling uses the physical button box, so a focused shelf key brings its whole touch target into view. */
 .room-portrait .controls .ui-button.icon { flex: none; width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
+/* People shares the portrait height budget; its member rows scroll instead of displacing the dock. */
+.room-portrait > .people { flex: 0 1 35%; max-height: 35%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.room-portrait .people-row, .room-portrait .people-toggle { min-height: 44px; }
+/* Keep the list's close toggle and a complete wrapped chat line reachable while the keyboard is open. */
+.room-portrait.portrait-typing:has(> .people:not([hidden])) > .room-top,
+.room-portrait.portrait-typing > .room-top:focus-within { display: flex; }
+.room-portrait.portrait-typing:has(> .people:not([hidden])) > .chat-log { min-height: 64px; }
