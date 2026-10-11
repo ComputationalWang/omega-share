@@ -1,0 +1,187 @@
+// OME-771 M9 hosted smoke (QA2 scratch, not part of e2e/**). Creates exactly one public and one private room (never retried).
+//   SMOKE_ORIGIN=https://omega-share.duckdns.org OUT=out bun m9-smoke.ts     (run from a workspace dir so @playwright/test resolves)
+import { chromium } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { mkdirSync, writeFileSync } from "node:fs";
+
+const ORIGIN = (process.env["SMOKE_ORIGIN"] ?? "https://omega-share.duckdns.org").replace(/\/$/, "");
+const OUT = process.env["OUT"] ?? "out";
+const STEP_MS = 15_000;
+const CRAWLER = { "user-agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)" };
+mkdirSync(OUT, { recursive: true });
+interface Row { check: string; ok: boolean; ms: number; detail: string }
+const rows: Row[] = [];
+const save = (): void => writeFileSync(`${OUT}/smoke.json`, JSON.stringify({ origin: ORIGIN, at: new Date().toISOString(), rows }, null, 2));
+async function check(name: string, fn: () => Promise<string | undefined>): Promise<boolean> {
+  const t0 = Date.now();
+  try {
+    const detail = (await fn()) ?? "";
+    rows.push({ check: name, ok: true, ms: Date.now() - t0, detail });
+    console.log(`PASS ${name} ${detail}`);
+    save();
+    return true;
+  } catch (e) {
+    const detail = e instanceof Error ? e.message.split("\n")[0] ?? "" : String(e);
+    rows.push({ check: name, ok: false, ms: Date.now() - t0, detail });
+    console.log(`FAIL ${name} ${detail}`);
+    save();
+    return false;
+  }
+}
+function assert(cond: boolean, msg: string): asserts cond { if (!cond) throw new Error(msg); }
+const id = (n: string): string => `[data-testid="${n}"]`;
+const og = (html: string, prop: string): string => new RegExp(`<meta property="${prop}" content="([^"]*)"`).exec(html)?.[1] ?? "";
+
+// 1. HTTP, as a crawler would.
+const landing = await fetch(`${ORIGIN}/`, { headers: CRAWLER });
+const landingHtml = await landing.text();
+await check("1a landing: 200, install row, footer links, build version", async () => {
+  assert(landing.status === 200, `status ${String(landing.status)}`);
+  const install = /<p class="install">([\s\S]*?)<\/p>/.exec(landingHtml)?.[1] ?? "";
+  assert(install !== "", "no install row");
+  for (const t of ["privacy-link", "terms-link", "contact-link", "licenses-link", "source-link", "feedback-link", "build-version"]) assert(landingHtml.includes(`data-testid="${t}"`), `footer ${t} missing`);
+  return `install: ${install.replace(/<[^>]+>/g, "").trim()} | ${/version ([0-9a-f]+)/.exec(landingHtml)?.[1] ?? "?"}`;
+});
+for (const p of ["privacy", "terms", "contact", "licenses"]) {
+  await check(`1b legal page /${p}.html loads with the footer`, async () => {
+    const r = await fetch(`${ORIGIN}/${p}.html`, { headers: CRAWLER });
+    const t = await r.text();
+    assert(r.status === 200, `status ${String(r.status)}`);
+    assert(/<h1[^>]*>/.test(t), "no h1");
+    assert(t.includes("privacy-link") || t.includes("/privacy.html"), "no legal footer");
+    return `${String(r.status)}, ${String(t.length)} bytes`;
+  });
+}
+await check("1c /nope is a real 404 (and /nope.html)", async () => {
+  const a = await fetch(`${ORIGIN}/nope`, { headers: CRAWLER });
+  const b = await fetch(`${ORIGIN}/nope.html`, { headers: CRAWLER });
+  assert(a.status === 404 && b.status === 404, `${String(a.status)} ${String(b.status)}`);
+  return `${String(a.status)} ${String(b.status)}, ${String((await a.text()).length)} bytes`;
+});
+await check("1d robots.txt, manifest and og-image served", async () => {
+  const out: string[] = [];
+  for (const [p, type] of [["/robots.txt", "text"], ["/manifest.webmanifest", "json"], ["/og-image.png", "image/png"], ["/favicon.ico", "image"]] as const) {
+    const r = await fetch(`${ORIGIN}${p}`, { headers: CRAWLER });
+    assert(r.status === 200 && (r.headers.get("content-type") ?? "").includes(type === "text" ? "text" : type === "json" ? "json" : type), `${p} ${String(r.status)} ${r.headers.get("content-type") ?? ""}`);
+    out.push(`${p} ${String(r.status)}`);
+  }
+  return out.join(", ");
+});
+
+// 2. Real browsers.
+const browser = await chromium.launch({ channel: "chromium" });
+const mk = async (): Promise<{ page: Page; errs: string[] }> => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  const errs: string[] = [];
+  page.on("pageerror", (e) => errs.push(String(e)));
+  page.on("console", (m) => { if (/Content Security Policy|Trusted Type|OMEGA-CSP/i.test(m.text())) errs.push(m.text()); });
+  return { page, errs };
+};
+const A = await mk();
+const B = await mk();
+const stamp = new Date().toISOString().slice(11, 19);
+const pubTitle = `m9 signoff public ${stamp}`;
+const privTitle = `m9 SECRETTITLE private ${stamp}`;
+const ROOM = /\/r\/([a-z2-7]{26})$/;
+let pubId = "";
+let privId = "";
+async function create(p: Page, title: string, isPrivate: boolean): Promise<string> {
+  await p.goto(`${ORIGIN}/`, { timeout: STEP_MS });
+  await p.locator(id("create-room-title")).fill(title, { timeout: STEP_MS });
+  if (isPrivate) await p.locator(id("create-room-private")).check({ timeout: STEP_MS });
+  else await p.locator(id("create-room-private")).uncheck({ timeout: STEP_MS });
+  await p.locator(id("create-room-submit")).click({ timeout: STEP_MS });
+  await p.waitForURL(ROOM, { timeout: STEP_MS });
+  return ROOM.exec(new URL(p.url()).pathname)?.[1] ?? "";
+}
+async function enter(p: Page, nick: string, avatar: number): Promise<void> {
+  await p.locator(id("nickname-input")).fill(nick, { timeout: STEP_MS });
+  await p.locator(id("avatar-option")).nth(avatar).click({ timeout: STEP_MS });
+  await p.locator(id("join-button")).click({ timeout: STEP_MS });
+  await p.locator(id("room")).waitFor({ timeout: STEP_MS });
+}
+await check("2a landing in a real browser: renders, footer visible, no errors", async () => {
+  await A.page.goto(`${ORIGIN}/`, { timeout: STEP_MS });
+  await A.page.locator(id("nickname-input")).or(A.page.locator(id("create-room-title"))).first().waitFor({ timeout: STEP_MS });
+  assert(await A.page.locator(".install").isVisible(), "install row hidden");
+  assert(await A.page.locator("footer.site-footer").isVisible(), "footer hidden");
+  await A.page.screenshot({ path: `${OUT}/landing.png`, fullPage: true });
+  return (await A.page.locator(".install").innerText()).replace(/\s+/g, " ");
+});
+const okPub = await check("2b A creates ONE public room and joins; B joins /r/<id>", async () => {
+  pubId = await create(A.page, pubTitle, false);
+  await enter(A.page, "m9-a", 0);
+  await B.page.goto(`${ORIGIN}/r/${pubId}`, { timeout: STEP_MS });
+  await enter(B.page, "m9-b", 1);
+  await A.page.locator(id("nickname-tag")).nth(1).waitFor({ timeout: STEP_MS });
+  return pubId;
+});
+assert(okPub, "no public room");
+await check("3a public room link unfurls with its title (crawler UA: OG + Twitter tags)", async () => {
+  const r = await fetch(`${ORIGIN}/r/${pubId}`, { headers: CRAWLER });
+  const t = await r.text();
+  assert(r.status === 200, `status ${String(r.status)}`);
+  assert(og(t, "og:title") === `${pubTitle} · omega-share`, `og:title "${og(t, "og:title")}"`);
+  assert(og(t, "og:image") === `${ORIGIN}/og-image.png`, `og:image ${og(t, "og:image")}`);
+  assert(t.includes('name="twitter:card" content="summary_large_image"'), "twitter:card");
+  return `og:title "${og(t, "og:title")}", x-robots-tag: ${r.headers.get("x-robots-tag") ?? "(none)"}`;
+});
+const okPriv = await check("2c a second browser creates ONE private room", async () => {
+  privId = await create((await mk()).page, privTitle, true);
+  return privId;
+});
+assert(okPriv, "no private room");
+await check("3b private room link unfurls generically: title absent, same bytes as the landing's card tags", async () => {
+  const r = await fetch(`${ORIGIN}/r/${privId}`, { headers: CRAWLER });
+  const t = await r.text();
+  assert(r.status === 200, `status ${String(r.status)}`);
+  assert(!t.includes("SECRETTITLE") && !t.includes(privTitle), "private title leaked into the HTML");
+  assert(og(t, "og:title") === "omega-share", `og:title "${og(t, "og:title")}"`);
+  const card = (h: string): string => (h.match(/<meta (?:property="og:|name="(?:twitter|description))[^>]*>/g) ?? []).join("");
+  assert(card(t) === card(landingHtml), "card tags differ from the landing's generic card");
+  return `og:title "${og(t, "og:title")}", x-robots-tag: ${r.headers.get("x-robots-tag") ?? "(none)"}`;
+});
+await check("3c unknown room id: crawler gets generic card, no title", async () => {
+  const r = await fetch(`${ORIGIN}/r/aaaaaaaaaaaaaaaaaaaaaaaaaa`, { headers: CRAWLER });
+  const t = await r.text();
+  return `${String(r.status)}, og:title "${og(t, "og:title")}"`;
+});
+
+// 4. Help and hide in two contexts.
+for (const [name, c] of [["A", A], ["B", B]] as const) {
+  await check(`4a help dialog in ${name}: key opens it, Esc closes it, focus returns to the key`, async () => {
+    const p = c.page;
+    await p.locator(id("help-key")).click({ timeout: STEP_MS });
+    await p.locator(id("help-dialog")).waitFor({ state: "visible", timeout: STEP_MS });
+    assert(await p.locator(id("help-dialog")).locator("a[href='/privacy.html']").count() === 1, "no privacy link in help");
+    await p.screenshot({ path: `${OUT}/help-${name}.png` });
+    await p.keyboard.press("Escape");
+    await p.locator(id("help-dialog")).waitFor({ state: "hidden", timeout: STEP_MS });
+    const f = await p.evaluate(() => document.activeElement?.getAttribute("data-testid") ?? "none");
+    assert(f === "help-key", `focus on ${f}`);
+    return "ok";
+  });
+}
+await check("4b hide for me: A hides B (hidden row + status), Show undoes it; B unaffected", async () => {
+  const p = A.page;
+  await p.locator(id("people-key")).click({ timeout: STEP_MS });
+  const row = p.locator(id("people-row")).filter({ hasText: "m9-b" });
+  await row.getByRole("button", { name: "Hide m9-b for me" }).click({ timeout: STEP_MS });
+  await row.filter({ hasText: "hidden" }).waitFor({ timeout: STEP_MS });
+  const status = await p.locator(id("people-status")).innerText();
+  assert(status === "m9-b is hidden for you. Only you see this.", `status "${status}"`);
+  await p.screenshot({ path: `${OUT}/hide-A.png` });
+  assert(await B.page.locator(id("nickname-tag")).filter({ hasText: "m9-a" }).count() === 1, "B lost A's tag");
+  await row.getByRole("button", { name: /^Show m9-b/ }).click({ timeout: STEP_MS });
+  await row.filter({ hasNotText: "hidden" }).waitFor({ timeout: STEP_MS });
+  return status;
+});
+await check("5 no CSP violations or page errors in either browser", async () => {
+  const all = [...A.errs, ...B.errs];
+  assert(all.length === 0, all.slice(0, 3).join(" | "));
+  return "0/0";
+});
+await browser.close();
+writeFileSync(`${OUT}/rooms.json`, JSON.stringify({ pubId, privId }));
+process.exit(rows.every((r) => r.ok) ? 0 : 1);
