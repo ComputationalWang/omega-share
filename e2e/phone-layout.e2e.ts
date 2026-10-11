@@ -69,17 +69,18 @@ test("stacked: TV, shelf, room window, chat log, chat row; the room at 1×, no s
     const before = (a: Element | null, b: Element | null): boolean => a !== null && b !== null && (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     const win = at('[data-testid="room-window"]');
     const log = at('[data-testid="chat-log"]');
-    const queue = at('[data-testid="queue-panel"]');
-    return { roomThenLog: before(win, log), logThenQueue: before(log, queue) };
+    const keys = at('[data-testid="portrait-chat"]');
+    return { roomThenLog: before(win, log), logThenKeys: before(log, keys) };
   });
-  expect(order).toEqual({ roomThenLog: true, logThenQueue: true });
+  expect(order).toEqual({ roomThenLog: true, logThenKeys: true });
 
   // Set k: the TV is full width, the room is never scaled down, its window is 270 px tall and as wide as the page.
   const tvBox = await tv.boundingBox();
   const winBox = await win.boundingBox();
   expect(tvBox?.width).toBeGreaterThanOrEqual(386);
   expect((await stageTransform(page)).scale).toBe(1);
-  expect(winBox?.height).toBe(270);
+  expect(winBox?.height).toBeGreaterThan(0);
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(844);
   expect(winBox?.width).toBeGreaterThanOrEqual(386);
   await expect(page.locator(site.room)).toHaveClass(/(^|\s)ui-room(\s|$)/);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

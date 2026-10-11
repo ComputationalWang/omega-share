@@ -791,7 +791,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     tv.classList.toggle("compact", l.compact.tv);
     controls.classList.toggle("compact", l.compact.controls);
     if (portraitOn) {
-      opts.root.style.setProperty("--portrait-sheet-top", `${String(tv.offsetTop + tv.offsetHeight + wrap.offsetTop)}px`);
+      opts.root.style.setProperty("--portrait-sheet-top", `${String(tv.getBoundingClientRect().bottom)}px`);
       controls.classList.add("scroll-transport");
       controls.tabIndex = 0;
       controls.ariaLabel = "Playback controls; scroll horizontally for more";

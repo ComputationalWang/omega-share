@@ -89,7 +89,7 @@ export function createPortraitDock(o: PortraitDockOptions) {
       o.root.classList.toggle("room-portrait", on);
       o.queue.classList.toggle("portrait-stowed", on);
       for (const node of o.settings) node.classList.toggle("portrait-stowed", on);
-      if (on) { o.composer.insertBefore(link, o.composer.querySelector("input")); viewport(); }
+      if (on) { o.composer.before(keys); o.composer.insertBefore(link, o.composer.querySelector("input")); viewport(); }
       else {
         link.remove();
         o.root.classList.remove("portrait-typing");
