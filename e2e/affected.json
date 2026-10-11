@@ -696,6 +696,7 @@
         "e2e/persistence.e2e.ts",
         "e2e/provider-queue.e2e.ts",
         "e2e/qa-rooms.e2e.ts",
+        "e2e/room-gc.e2e.ts",
         "e2e/rooms-web.e2e.ts"
       ]
     },

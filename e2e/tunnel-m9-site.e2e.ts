@@ -111,6 +111,8 @@ const db = openDatabase(process.env.OMEGA_SEED_DB);
 const store = new RoomStore(db);
 for (const r of input.rooms) {
   store.createRoom({ id: r.id, title: r.title, createdAt: Date.now(), layout: DEFAULT_LAYOUT, visibility: r.visibility, pinned: false, ownerHash: hashSecret("owner-" + r.id), inviteHash: r.visibility === "private" ? hashSecret("invite-" + r.id) : null });
+  // GC deletes a room 20 min after it last emptied (OME-904): a day ahead keeps these for the whole lane.
+  store.setLastActive(r.id, Date.now() + 86_400_000);
 }
 db.close();
 `;

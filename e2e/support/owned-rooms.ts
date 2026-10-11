@@ -33,3 +33,9 @@ const make = (name: OwnedRoomName): OwnedRoom => ({
 export const OWNED_ROOMS: readonly OwnedRoom[] = OWNED_ROOM_NAMES.map(make);
 
 export const ownedRoom = (name: OwnedRoomName): OwnedRoom => make(name);
+
+/**
+ * A created room nobody has been in for 21 min when the e2e server boots (fixtures/seed-rooms.ts): the boot sweep
+ * deletes it (ADR 0028 §2, OME-904), so its link shows Room not found. Not an owned room: nothing may keep it alive.
+ */
+export const GC_IDLE_ROOM_ID = "qagcidle".padEnd(26, "a");

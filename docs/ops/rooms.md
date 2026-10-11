@@ -42,7 +42,7 @@ ssh $A admin@$SERVER_IP "$ROOMS list"
 | `reports dismiss <reportId>` | Closes one report: no action needed | `dismissed 1` |
 | `reports dismiss --room <id>` | Closes all of a room's open reports | `dismissed <n>` |
 | `rooms pin <id>` | GC never collects the room | `pinned <id>` |
-| `rooms unpin <id>` | GC may collect it again (1 h after creation if nobody ever joined, 14 days after it last emptied). Refused for a seeded room | `unpinned <id>` |
+| `rooms unpin <id>` | GC may collect it again (once nobody has been in it for 20 min, ADR 0028 §2). Refused for a seeded room | `unpinned <id>` |
 
 Exit codes: `0` done; `1` no such room or open report, no server on the socket (or no answer within 10 s), a refused unpin, or a server error; `2` bad usage or a malformed id (room ids are `[a-z0-9-]`, at most 32 characters; report ids are 22 characters of `[A-Za-z0-9_-]`). Bad usage never reaches the server.
 
@@ -54,7 +54,7 @@ A report is `{ reason, note? }` sent from the site. The six reasons are `sexual`
 
 **What is kept** (table `reports`, ADR 0033 §3): a random report id, the room id, the reason, the note **after redaction** (emails become `<email>`, IP addresses `<ip>`, phone-like numbers `<phone>`), the room's title and the URL of what was playing *at report time*, the time, and the state (`open`, `dismissed`, `actioned`). **Nothing about the reporter** is kept: no address, hashed address, user agent, nickname or token. Reports are never logged. `/metrics` (localhost only) counts them by outcome and reason, plus the open-report gauge `omega_reports_open` and `omega_takedowns_total`, with no room ids or notes.
 
-**How long:** every report row is deleted 30 days after it was made, whatever its state, by the hourly GC sweep. Backups keep copies until they rotate out: the last 14 nightly backups, locally and off-box ([backup.md](backup.md)). Backups prune by count, not age, so after an outage of the nightly job a report can stay in the oldest kept backups for more than 44 days. To be sure a report is gone, wait until 14 newer nightly backups exist.
+**How long:** every report row is deleted 30 days after it was made, whatever its state, by the GC sweep (every minute). Backups keep copies until they rotate out: the last 14 nightly backups, locally and off-box ([backup.md](backup.md)). Backups prune by count, not age, so after an outage of the nightly job a report can stay in the oldest kept backups for more than 44 days. To be sure a report is gone, wait until 14 newer nightly backups exist.
 
 **Limits** (memory only, reset by a restart): per reporter address, 3 reports at once, then one every 10 minutes; per room, 20 at once, then one a minute; at most 1000 open reports in total, past which new reports get `unavailable`. The same address reporting the same room twice within 30 days gets "already reported", and nothing new is stored. Dismissed and actioned rows are capped at 5000 rows in total: past that, the oldest closed rows are deleted first.
 
