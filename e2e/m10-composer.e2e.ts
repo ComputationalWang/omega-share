@@ -116,6 +116,8 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
     // Wait for that public provider state before clicking a transport key whose position it changes.
     await waitProviderPlaying(clients, "twitch");
     await page.locator(site.fullscreenToggle).tap();
+    await expect.poll(() => page.evaluate((selector) =>
+      document.fullscreenElement === document.querySelector(selector), site.fsRoot)).toBe(true);
     await expect(page.locator(site.fsStrip)).toBeVisible();
     await expect(page.locator(site.fullscreenToggle)).toHaveAttribute("aria-label", "Exit full screen");
     await expect(page.locator(site.fsStrip)).toHaveAttribute("data-strip", "band");
