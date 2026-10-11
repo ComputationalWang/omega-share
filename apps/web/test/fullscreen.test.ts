@@ -414,3 +414,62 @@ describe("createFullscreen: a reload in the CSS mode", () => {
     expect(s.state()).toEqual({ other: 1 });
   });
 });
+
+// OME-905 (M10 W1, board item 1): on a phone the message field needs ≥ 140 px and ≥ 60 % of its row. The strip's frame
+// takes 13 px across (reference.css .ui-fs-strip at 1×); a 44 px send key after a 4 px gap ends the row. With the strip
+// open and narrow the emote key moves to the strip's head; on the band it stays in the row, and the band's show-chat key follows.
+const FRAME = 13;
+const KEY = 44;
+const GAP = 4;
+/** The narrowest open strip that leaves the field 140 px: frame + field + gap + send. */
+const OPEN_MIN = FRAME + 140 + GAP + KEY;
+/** The narrowest band: frame + emote key + field (≥ 60 % of its row) + send, then the show-chat key. */
+const BAND_ROW = Math.ceil((KEY + GAP + GAP + KEY) / 0.4);
+const BAND_MIN = FRAME + BAND_ROW + 4 + KEY;
+const PHONES: readonly (readonly [number, number])[] = [
+  [568, 320],
+  [640, 360],
+  [667, 375],
+  [740, 360],
+  [780, 360],
+  [844, 390],
+  [915, 412],
+  [932, 430],
+];
+const PORTRAIT: readonly (readonly [number, number])[] = [
+  [320, 568],
+  [360, 740],
+  [390, 844],
+  [430, 932],
+];
+
+describe("fullscreenLayout on phones: the composer has room (OME-905)", () => {
+  test.each(PHONES)("%p×%p landscape, strip open: beside the picture and wide enough for the field", (w, h) => {
+    const l = fullscreenLayout(w, h, "youtube", "open");
+    expect(l.at).toBe("side");
+    expect(l.strip.w).toBeGreaterThanOrEqual(OPEN_MIN);
+    expect(l.tv.w).toBeGreaterThanOrEqual(356);
+    expect(intersects(l.tv, l.strip)).toBe(false);
+    expect(inside(l.strip, w, h)).toBe(true);
+  });
+
+  test.each([...PHONES, ...PORTRAIT])("%p×%p band: the field's box fits the row, the transport stays usable, nothing overlaps", (w, h) => {
+    const l = fullscreenLayout(w, h, "youtube", "band");
+    expect(l.strip.w).toBeGreaterThanOrEqual(BAND_MIN);
+    expect(l.controls.w).toBeGreaterThanOrEqual(280);
+    for (const r of [l.tv, l.controls, l.strip]) expect(inside(r, w, h)).toBe(true);
+    expect(intersects(l.tv, l.strip)).toBe(false);
+    expect(intersects(l.tv, l.controls)).toBe(false);
+    expect(intersects(l.controls, l.strip)).toBe(false);
+  });
+
+  test.each([[568, 320], [667, 375], [844, 390], [932, 430]])("%p×%p: collapsing to the band never shrinks the picture", (w, h) => {
+    expect(fullscreenLayout(w, h, "youtube", "band").tv.w).toBeGreaterThanOrEqual(fullscreenLayout(w, h, "youtube", "open").tv.w);
+  });
+
+  test("a desktop band keeps set k's half-and-half split", () => {
+    const l = fullscreenLayout(1280, 720, "youtube", "band");
+    expect(l.controls.w).toBe(560);
+    expect(l.compact.controls).toBe(false);
+  });
+});
