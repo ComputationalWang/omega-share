@@ -123,6 +123,7 @@
       "except": [
         "e2e/real/*.real.ts",
         "e2e/real/twitch-gate.ts",
+        "e2e/real/twitch-live.ts",
         "e2e/real/*.test.ts",
         "**/*.test.ts",
         "**/*.md"
@@ -138,9 +139,9 @@
       "why": "real-lane helpers"
     },
     {
-      "paths": ["e2e/real/twitch-gate.ts"],
+      "paths": ["e2e/real/twitch-gate.ts", "e2e/real/twitch-live.ts"],
       "specs": ["e2e/real/real-providers.real.ts"],
-      "why": "paired Twitch gate discovery and evidence: sole consumer"
+      "why": "paired Twitch gate/live discovery and evidence: sole consumer"
     },
     {
       "paths": [
