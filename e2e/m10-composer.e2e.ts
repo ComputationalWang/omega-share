@@ -167,16 +167,16 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
     await expect.poll(() => page.evaluate((selector) =>
       document.fullscreenElement === document.querySelector(selector), site.fsRoot)).toBe(true);
     await expect(page.locator(site.fsStrip)).toBeVisible();
-    for (const width of [700, 694, 734, 735, 568, 591]) {
-      await page.setViewportSize({ width, height: 375 });
+    for (const [width, height] of [[700, 375], [694, 375], [734, 375], [735, 375], [568, 375], [591, 375], [700, 404]] as const) {
+      await page.setViewportSize({ width, height });
       await expect(page.locator(site.fsStrip)).toHaveAttribute("data-at", width < 735 ? "band" : "side");
       if (width < 735) await expect(page.locator(site.fsStripToggle)).toBeDisabled();
       else await expect(page.locator(site.fsStripToggle)).toBeEnabled();
       await expectRoomy(page, `${key} ${String(width)} open`);
       await expectSends(page, `${key} ${String(width)} open`);
       const transport = await box(page.locator(".controls"));
-      expect(transport.y + transport.height).toBeLessThanOrEqual(375);
-      if (width < 600) {
+      expect(transport.y + transport.height).toBeLessThanOrEqual(height);
+      if (width < 600 || height === 404) {
         // Every transport control stays reachable without covering the composer, even when the shelf needs scrolling.
         const shelf = page.locator(".controls");
         await expect(shelf).toHaveCSS("overflow-x", "auto");
@@ -185,7 +185,7 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
           const control = await box(target);
           expect(control.x).toBeGreaterThanOrEqual(transport.x);
           expect(control.x + control.width).toBeLessThanOrEqual(transport.x + transport.width);
-          expect(control.y + control.height).toBeLessThanOrEqual(375);
+          expect(control.y + control.height).toBeLessThanOrEqual(height);
         }
       }
       const player = await box(page.locator(site.sharedVideo));
