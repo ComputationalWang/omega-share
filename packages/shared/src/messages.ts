@@ -25,6 +25,7 @@ import { RoomLayoutInputSchema, RoomLayoutSchema } from "./layout";
 import { QueueItemIdSchema, QueueSchema } from "./queue";
 import { InviteKeySchema, OwnerTokenSchema } from "./room-ownership";
 import { RetryAfterMsSchema, ShareTokenSchema } from "./share";
+import { ResumeTokenSchema } from "./session";
 
 /** Anything but controls, format characters (zero-width, bidi, BOM) and line/paragraph separators. */
 const CHAT_CHAR = String.raw`[^\p{Cc}\p{Cf}\p{Zl}\p{Zp}]`;
@@ -71,8 +72,14 @@ export const ClientMessageSchema = v.variant("type", [
     avatar: AvatarSchema,
     ownerToken: v.optional(OwnerTokenSchema),
     inviteKey: v.optional(InviteKeySchema),
+    /** Tokenless initial opt-in; legacy joins depart immediately on close (ADR 0043). */
+    durableSession: v.optional(v.literal(true)),
+    /** Resume authority; server identity overrides nickname/avatar and invite fields. */
+    resumeToken: v.optional(ResumeTokenSchema),
   }),
   v.strictObject({ type: v.literal("leave") }),
+  /** Advisory visibility transition, never extends a disconnected hold. */
+  v.strictObject({ type: v.literal("presence"), away: v.boolean() }),
   /** `seat: null` stands up. */
   v.strictObject({ type: v.literal("sit"), seat: v.nullable(SeatIndexSchema) }),
   v.strictObject({ type: v.literal("chat"), text: ChatTextSchema }),
@@ -161,6 +168,8 @@ export const ERROR_CODES = [
   "queue_full",
   /** `queue-add` with a URL the share parser refuses (not a synced provider, and not a valid generic embed or generic is off). */
   "unsupported_url",
+  /** Unknown, expired, revoked or wrong-room resume credential; no fresh join fallback. */
+  "resume_expired",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -179,6 +188,10 @@ export const ServerMessageSchema = v.variant("type", [
     self: MemberIdSchema,
     room: RoomStateSchema,
     shareToken: v.optional(ShareTokenSchema),
+    /** Sender-only room-bound credential, never published to peers. */
+    resumeToken: v.optional(ResumeTokenSchema),
+    /** Absent means false for legacy servers. */
+    resumed: v.optional(v.boolean()),
     /** True when this member joined with the room's owner token; only in their own snapshot (ADR 0028). */
     owner: v.optional(v.boolean()),
   }),
@@ -217,6 +230,7 @@ export const ServerMessageSchema = v.variant("type", [
   v.object({ type: v.literal("queue-changed"), queue: QueueSchema, by: v.nullable(MemberIdSchema) }),
   /** A member's `catching` changed. Coalesced by the server; the latest value always arrives. */
   v.object({ type: v.literal("member-status"), memberId: MemberIdSchema, catching: v.boolean() }),
+  v.object({ type: v.literal("member-presence"), memberId: MemberIdSchema, away: v.boolean() }),
   /** Reply to `ping`. `at` = server ms when it answered. */
   v.object({ type: v.literal("pong"), id: PingIdSchema, at: ServerTimeSchema }),
   /** The room's playback changed; published to every member. */
