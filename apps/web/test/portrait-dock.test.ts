@@ -41,3 +41,16 @@ test("portrait room gives up its crop height before pushing the composer below t
   expect(keyboard.tv.h).toBe(203);
   expect(keyboard.height).toBe(260);
 });
+
+test("joining portrait immediately docks the panel keys above the composer", async () => {
+  const { createPortraitDock } = await import("../src/portrait-dock");
+  const root = document.createElement("section");
+  const log = document.createElement("div");
+  const composer = document.createElement("form");
+  const queue = document.createElement("section");
+  root.append(log, composer, queue);
+  document.body.replaceChildren(root);
+  const dock = createPortraitDock({ root, log, composer, queue, settings: [] });
+  dock.setActive(true);
+  expect(composer.previousElementSibling).toBe(dock.keys);
+});
