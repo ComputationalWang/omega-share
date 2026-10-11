@@ -14,6 +14,8 @@ Reuse the existing composer, live chat log and queue panel. Expose queue/link sh
 
 Size the portrait surface from visualViewport resize/scroll events when available, with the layout viewport as fallback. During keyboard entry, the room gives space to the scrollable log or queue and the field remains docked to the visible viewport. Restore the camera and node placement when entry or portrait mode ends. Layout updates remain event driven; introduce no animation-loop work or dependencies.
 
+Reserve the queue sheet's paste/Add row independently of keyboard detection. Queue headings, items, empty artwork and validation or permission messages share an internally scrolling body above the fixed row, so Android resizing both layout and visual viewports cannot push the field beyond the dialog. Keep these messages reachable instead of hiding them based on inferred typing state. Outside portrait, retain the existing queue presentation.
+
 When keyboard entry hides the portrait picture's playback controls, expose its internally scrolling surface as a named keyboard stop. Restore its previous attributes when entry or portrait mode ends.
 
 Keep People in the existing document flow, but bound its portrait surface to 35% of the dock height and let it shrink and scroll internally. Give its rows and hide/show buttons physical 44px targets. When People remains open during keyboard entry, retain its room-bar toggle and reserve at least 64px for a wrapped latest chat preview; the picture region gives up visible height and retains its existing internal scrolling. This supports the 25-member room budget without clipping the composer or changing People semantics. Desktop and landscape keep their existing People layout.
