@@ -296,3 +296,19 @@ describe("remove and play next follow the control policy", () => {
     expect((q("queue-url") as HTMLInputElement).disabled).toBe(false);
   });
 });
+
+test("portrait keeps queue messages in a keyboard-reachable region above the paste row, then restores desktop reading order", async () => {
+  const { panel, q, paste } = await setup();
+  panel.setPortrait(true);
+  paste("not a video link");
+  const region = panel.root.querySelector<HTMLElement>('[role="region"]');
+  expect(region?.getAttribute("aria-label")).toBe("Up next and queue messages");
+  expect(region?.tabIndex).toBe(0);
+  expect(region?.contains(q("queue-problem"))).toBe(true);
+  expect(region?.contains(q("queue-form"))).toBe(false);
+  expect(q("queue-problem").hidden).toBe(false);
+  panel.setPortrait(false);
+  expect(region?.hasAttribute("tabindex")).toBe(false);
+  expect(region?.hasAttribute("role")).toBe(false);
+  expect((q("queue-form").compareDocumentPosition(q("queue-problem")) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true);
+});
