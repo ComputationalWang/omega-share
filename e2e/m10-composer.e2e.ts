@@ -196,8 +196,10 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
         for (const target of [shelf.locator(".ui-transport button").first(), page.locator(site.fullscreenToggle)]) {
           await target.scrollIntoViewIfNeeded();
           const control = await box(target);
-          expect(control.x).toBeGreaterThanOrEqual(transport.x);
-          expect(control.x + control.width).toBeLessThanOrEqual(transport.x + transport.width);
+          // Chromium rounds scroll offsets to device pixels; allow the same half-pixel
+          // tolerance as the composer bounds while still rejecting actual overflow.
+          expect(control.x).toBeGreaterThanOrEqual(transport.x - 0.5);
+          expect(control.x + control.width).toBeLessThanOrEqual(transport.x + transport.width + 0.5);
           expect(control.y + control.height).toBeLessThanOrEqual(height);
         }
       }
@@ -289,8 +291,10 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
         for (const target of [page.locator(".controls .ui-transport button").first(), fullscreenKey]) {
           await target.scrollIntoViewIfNeeded();
           const control = await box(target);
-          expect(control.x).toBeGreaterThanOrEqual(transport.x);
-          expect(control.x + control.width).toBeLessThanOrEqual(transport.x + transport.width);
+          // Chromium rounds scroll offsets to device pixels; allow the same half-pixel
+          // tolerance as the composer bounds while still rejecting actual overflow.
+          expect(control.x).toBeGreaterThanOrEqual(transport.x - 0.5);
+          expect(control.x + control.width).toBeLessThanOrEqual(transport.x + transport.width + 0.5);
           expect(control.y + control.height).toBeLessThanOrEqual(height);
         }
         const player = await box(page.locator(site.sharedVideo));
