@@ -279,7 +279,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const clip = el("div", { className: "stage-clip" }, "room-window");
   clip.append(stage);
   const tv = el("div", { className: "tv ui-tv-frame" }, "tv");
-  const controls = el("div", { className: "controls ui-tv-shelf" });
+  const controls = el("div", { className: "controls ui-tv-shelf", role: "group", ariaLabel: "Playback controls" });
   // The full-screen element (OME-597): an existing ancestor of the TV, so going full screen moves no node and the
   // provider's iframe never reloads.
   const wrap = el("div", { className: "stage-wrap", hidden: true }, "fs-root");
@@ -439,11 +439,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   wrap.append(strip);
   let stripMode: StripMode = storedStrip();
   let unread = 0;
-  const renderStrip = (): void => {
-    const open = stripMode === "open";
-    strip.dataset["strip"] = stripMode;
+  let displayedStripMode = stripMode;
+  const renderStrip = (mode: StripMode = displayedStripMode): void => {
+    displayedStripMode = mode;
+    const open = mode === "open";
+    strip.dataset["strip"] = mode;
     stripToggle.ariaExpanded = String(open);
-    stripToggle.ariaLabel = open ? "Collapse chat to the input bar" : unread > 0 ? `Show chat, ${String(unread)} new message${unread === 1 ? "" : "s"}` : "Show chat";
+    const constrained = mode === "band" && stripMode === "open";
+    stripToggle.disabled = constrained;
+    stripToggle.title = constrained ? "Rotate your phone or exit full screen to show chat" : "";
+    stripToggle.ariaLabel = constrained ? "Chat needs more space; rotate your phone or exit full screen to show messages" : open ? "Collapse chat to the input bar" : unread > 0 ? `Show chat, ${String(unread)} new message${unread === 1 ? "" : "s"}` : "Show chat";
     stripIcon.className = `ui-sprite ${open ? "ui-icon-strip-hide" : "ui-icon-strip-show"}`;
     unreadChip.textContent = `${String(unread)} new`;
     unreadChip.hidden = open || unread === 0;
@@ -473,10 +478,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
   };
   stripToggle.addEventListener("click", () => {
-    stripMode = stripMode === "open" ? "band" : "open";
+    stripMode = displayedStripMode === "open" ? "band" : "open";
     unread = 0;
     storeStrip(stripMode);
-    renderStrip();
+    renderStrip(stripMode);
     fit();
   });
   renderStrip();
@@ -711,13 +716,21 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       box(controls, l.controls);
       box(strip, l.strip);
       strip.dataset["at"] = l.at;
+      renderStrip(l.at === "band" ? "band" : stripMode);
       placeRowKeys(l.at === "side" && l.strip.w < FS_STRIP_W);
       tv.classList.toggle("compact", l.compact.tv);
       controls.classList.toggle("compact", l.compact.controls);
+      const scrollTransport = l.at === "band" && l.controls.w <= 280;
+      controls.classList.toggle("scroll-transport", scrollTransport);
+      controls.tabIndex = scrollTransport ? 0 : -1;
+      controls.ariaLabel = scrollTransport ? "Playback controls; scroll horizontally for more" : "Playback controls";
       wrap.style.height = "";
       return;
     }
     placeRowKeys(false);
+    controls.classList.remove("scroll-transport");
+    controls.tabIndex = -1;
+    controls.ariaLabel = "Playback controls";
     if (wide.matches) {
       // The left column's box sizes it all (the wrap flexes to what the column has left), so the page never scrolls.
       const w = wrap.clientWidth;
@@ -1191,7 +1204,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       // Popped out: the window gets the line now, not on the next frame (a hidden tab draws none).
       relay?.append(entry, from);
       // Collapsed in full screen: count what others said while the lines are out of sight.
-      if (stripMode === "band" && fs.mode() !== "off" && entry.kind === "chat" && !entry.self) {
+      if (displayedStripMode === "band" && fs.mode() !== "off" && entry.kind === "chat" && !entry.self) {
         unread++;
         renderStrip();
       }

@@ -355,6 +355,11 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
  * the pod's chip goes (its mustard rim and its group's label say "only you"), so on a phone the seek bar and the volume
  * track keep a 44 px finger. */
 .controls { container-type: inline-size; }
+/* A short Twitch phone cannot stack the shelf and composer. Keep all playback controls reachable by
+ * scrolling the narrow shelf, with its content clipped inside its box rather than over the composer. */
+.controls.scroll-transport { overflow-x: auto; scrollbar-width: none; }
+.controls.scroll-transport > .ui-transport { flex: 0 0 360px; }
+.controls.scroll-transport .ui-seek { min-width: 44px; }
 .controls > .ui-volume { flex: none; margin-left: 4px; }
 /* Out of sight only: a screen reader still hears the plate's name and the hints (QA OME-658). */
 .controls.ui-tv-shelf.compact :is(.ui-live-note, .ui-plate-name, .ui-hint-text) { display: inline; }

@@ -128,6 +128,8 @@ const FS_BAND_TRANSPORT_W = 560;
 const FS_BAND_FIELD_MIN = 304;
 /** Narrower than this the transport can't give the field its room: the field moves to its own bar under the shelf. */
 const FS_BAND_TRANSPORT_MIN = 280;
+/** Short phones use a horizontally scrolling shelf when even the usual compact transport cannot fit. */
+const FS_BAND_SCROLL_MIN = 240;
 
 export type StripMode = "open" | "band";
 
@@ -173,6 +175,7 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   }
 
   if (strip === "band") {
+    const bandH = w < FS_STRIP_WIDE_FROM ? CONTROL_BAR_H + 4 : CONTROL_BAR_H;
     const bx = SHELF_SPEAKER;
     const bw = w - 2 * SHELF_SPEAKER;
     const half = Math.min(FS_BAND_TRANSPORT_W, Math.floor(bw / 2));
@@ -184,44 +187,55 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
     // speaker outsets and share one row instead; keep the composer's 44 px content plus its frame.
     const compactBandH = CONTROL_BAR_H + 4;
     const minTvH = Math.round((min * 9) / 16);
-    if (stacked && minTvH + below + GAP + CONTROL_BAR_H > h
+    if (minTvH + below + GAP + bandH > h
       && minTvH + GAP + compactBandH <= h
-      && w >= FS_BAND_TRANSPORT_MIN + GAP + FS_BAND_FIELD_MIN) {
+      && w >= FS_BAND_SCROLL_MIN + GAP + FS_BAND_FIELD_MIN) {
       const pic = fitTv(w, h - GAP - compactBandH);
       const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: 0, ...pic };
       const y = tv.h + GAP;
-      const controls = { x: 0, y, w: FS_BAND_TRANSPORT_MIN, h: CONTROL_BAR_H };
+      const controls = { x: 0, y, w: Math.min(FS_BAND_TRANSPORT_MIN, w - GAP - FS_BAND_FIELD_MIN), h: CONTROL_BAR_H };
       const sx = controls.w + GAP;
       return { at: "band", tv, controls, strip: { x: sx, y, w: w - sx, h: compactBandH }, compact: { tv: true, controls: true } };
     }
-    const under = stacked ? below + GAP + CONTROL_BAR_H : below;
+    const under = stacked ? below + GAP + bandH : GAP + bandH;
     const pic = fitTv(w, h - under);
     const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - under) / 2)), ...pic };
     const y = tv.y + tv.h + GAP;
     if (stacked) {
       const controls = { x: 0, y, w, h: CONTROL_BAR_H };
-      return { at: "band", tv, controls, strip: { x: 0, y: y + CONTROL_BAR_H + GAP, w, h: CONTROL_BAR_H }, compact: { tv: true, controls: true } };
+      return { at: "band", tv, controls, strip: { x: 0, y: y + CONTROL_BAR_H + GAP, w, h: bandH }, compact: { tv: true, controls: true } };
     }
     const controls = { x: bx, y, w: cw, h: CONTROL_BAR_H };
     // The shelf's right speaker is painted outside the transport box: the field starts after it.
     const sx = controls.x + controls.w + SHELF_SPEAKER;
-    return { at: "band", tv, controls, strip: { x: sx, y, w: bx + bw - sx, h: CONTROL_BAR_H }, compact: { tv: true, controls: cw < half } };
+    return { at: "band", tv, controls, strip: { x: sx, y, w: bx + bw - sx, h: bandH }, compact: { tv: true, controls: cw < half } };
   }
 
   // The preferred 208 px strip can give up its spare pixels when that keeps Twitch beside it.
   // 201 px still leaves the frame, a 140 px field, a 4 px gap and the 44 px send key.
   const stripW = w >= FS_STRIP_WIDE_FROM ? FS_STRIP_W : Math.min(FS_STRIP_NARROW_W, Math.max(201, w - min));
   const aw = w - stripW;
-  const side = w > h && aw >= min && h - below >= Math.round((min * 9) / 16);
+  // Keep the picture stable when collapsing into a phone band with its 4 px composer frame.
+  const sideBelow = below + (w < FS_STRIP_WIDE_FROM ? 4 : 0);
+  const side = w > h && aw >= min && h - sideBelow >= Math.round((min * 9) / 16);
   if (side) {
-    const pic = fitTv(aw, h - below);
-    const tv = { x: Math.max(0, Math.floor((aw - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - below) / 2)), ...pic };
+    const pic = fitTv(aw, h - sideBelow);
+    const tv = { x: Math.max(0, Math.floor((aw - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - sideBelow) / 2)), ...pic };
     const controls = shelf(tv);
     return { at: "side", tv, controls, strip: { x: aw, y: 0, w: stripW, h }, compact: compactOf(controls, tv) };
   }
-  // Portrait (or too narrow for both): the picture full width on top, the shelf, then the strip down to the bottom.
-  const tw = Math.max(min, w);
-  const tv = { x: 0, y: 0, w: tw, h: Math.round((tw * 9) / 16) };
+  // Reserve the open strip's header, composer and frame before sizing a below-player picture.
+  const openStripH = 112;
+  const minTvH = Math.round((min * 9) / 16);
+  // Short landscape cannot hold the provider minimum plus an open strip. Show a compact band
+  // until more space is available; the caller keeps the user's remembered open preference.
+  if (w > h && h < minTvH + below + GAP + openStripH
+    && h >= minTvH + GAP + CONTROL_BAR_H + 4
+    && w >= FS_BAND_SCROLL_MIN + GAP + FS_BAND_FIELD_MIN) {
+    return fullscreenLayout(w, h, provider, "band");
+  }
+  const pic = fitTv(w, h - below - GAP - openStripH);
+  const tv = { x: Math.max(0, Math.floor((w - pic.w) / 2)), y: 0, ...pic };
   const controls = { x: 0, y: tv.h + GAP, w, h: CONTROL_BAR_H };
   const sy = controls.y + controls.h + GAP;
   return { at: "below", tv, controls, strip: { x: 0, y: sy, w, h: Math.max(0, h - sy) }, compact: { tv: true, controls: true } };
