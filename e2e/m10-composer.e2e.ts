@@ -170,6 +170,8 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
     for (const width of [700, 694, 734, 735]) {
       await page.setViewportSize({ width, height: 375 });
       await expect(page.locator(site.fsStrip)).toHaveAttribute("data-at", width < 735 ? "band" : "side");
+      if (width < 735) await expect(page.locator(site.fsStripToggle)).toBeDisabled();
+      else await expect(page.locator(site.fsStripToggle)).toBeEnabled();
       await expectRoomy(page, `${key} ${String(width)} open`);
       await expectSends(page, `${key} ${String(width)} open`);
       const transport = await box(page.locator(".controls"));
