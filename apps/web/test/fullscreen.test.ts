@@ -544,3 +544,19 @@ test.each([[568, 320, 36], [700, 350, 6], [568, 355, 1], [568, 356, 0]])(
     }
   },
 );
+
+// Below the compact shared-row threshold, the shelf and composer stack and still need scrolling.
+test.each([320, 533, 534, 540, 551, 552])("%p px Twitch phone exposes stacked controls below the shared-row threshold", (w) => {
+  for (const h of [320, 350, 375]) for (const mode of ["band", "open"] as const) {
+    const l = fullscreenLayout(w, h, "twitch", mode);
+    const scroll = l.scrollY ?? 0;
+    expect(l.tv.w).toBeGreaterThanOrEqual(534);
+    expect(l.tv.h).toBeGreaterThanOrEqual(300);
+    expect(l.strip.w).toBeGreaterThanOrEqual(l.at === "band" ? BAND_MIN : OPEN_MIN);
+    expect(l.strip.h).toBeGreaterThanOrEqual(48);
+    for (const r of [l.controls, l.strip]) expect(inside({ ...r, y: r.y - scroll }, w, h)).toBe(true);
+    expect(intersects(l.tv, l.controls)).toBe(false);
+    expect(intersects(l.tv, l.strip)).toBe(false);
+    expect(intersects(l.controls, l.strip)).toBe(false);
+  }
+});

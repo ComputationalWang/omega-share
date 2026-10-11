@@ -252,7 +252,7 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
 
 for (const key of ["twitchVod", "twitchLive"] as const) {
   for (const remembered of ["band", "open"] as const) {
-    test(`${key}: remembered ${remembered} native fullscreen at 568×320 and 700×350 keeps composer and transport reachable`, async ({ browser, request }) => {
+    test(`${key}: remembered ${remembered} native fullscreen below/at 552 px and at 568×320/700×350 keeps composer and transport reachable`, async ({ browser, request }) => {
       const room = testRoom("m10-composer", key === "twitchVod" ? "l568" : "p390");
       await shareProvider(request, providerCase(key).shareUrl, room.id);
       clients = await joinRoom(browser, {
@@ -273,7 +273,7 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
       await fullscreenKey.tap();
       await expect.poll(() => page.evaluate((selector) =>
         document.fullscreenElement === document.querySelector(selector), site.fsRoot)).toBe(true);
-      for (const [width, height] of [[568, 320], [700, 350], [568, 355], [568, 356], [700, 375]] as const) {
+      for (const [width, height] of [[540, 320], [551, 350], [534, 375], [552, 320], [568, 320], [700, 350], [568, 355], [568, 356], [700, 375]] as const) {
         await page.setViewportSize({ width, height });
         const strip = page.locator(site.fsStrip);
         await expect(strip).toHaveAttribute("data-strip", "band");
