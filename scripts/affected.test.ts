@@ -56,6 +56,12 @@ describe("e2e/affected.json", () => {
     expect([chat.full, chat.perf.includes("perf/chat.perf.ts"), chat.e2e.includes("e2e/chat-log.e2e.ts")]).toEqual([false, true, true]);
   });
 
+  test("phone composer source changes select its acceptance spec", () => {
+    for (const source of ["apps/web/src/room.ts", "apps/web/src/layout.ts", "apps/web/src/style.css"]) {
+      expect(select(manifest, [source]).e2e).toContain("e2e/m10-composer.e2e.ts");
+    }
+  });
+
   test("unit tests in the harness dirs don't pick the full suite", () => {
     expect(select(manifest, ["perf/run-args.test.ts", "e2e/support/xvfb.test.ts"]).full).toBe(false);
   });
