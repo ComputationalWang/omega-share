@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
+import * as shared from "../src/index";
 import {
   CLOSE_CODES,
   CreateRoomRequestSchema,
@@ -25,9 +26,6 @@ import {
   ShareResponseSchema,
   ROOM_EDIT_BURST,
   ROOM_EDIT_REFILL_MS,
-  ROOM_GC_EMPTY_MS,
-  ROOM_GC_NEVER_JOINED_MS,
-  ROOM_GC_SWEEP_MS,
   ROOM_SECRETS_STORAGE_KEY,
   ROOM_TITLE_MAX_LENGTH,
   RoomLayoutInputSchema,
@@ -53,16 +51,19 @@ const ok = (schema: v.GenericSchema, value: unknown): boolean => v.safeParse(sch
 const utf8 = (s: string): number => new TextEncoder().encode(s).length;
 
 describe("room limits (ADR 0028)", () => {
-  test("creation, cap, GC and edit limits have the plan's values", () => {
+  test("creation, cap and edit limits have the plan's values", () => {
     expect([ROOM_CREATE_KEY_BURST, ROOM_CREATE_KEY_REFILL_MS]).toEqual([2, 600_000]);
     expect([ROOM_CREATE_GLOBAL_BURST, ROOM_CREATE_GLOBAL_REFILL_MS]).toEqual([10, 60_000]);
     expect(MAX_ROOMS).toBe(500);
-    expect(ROOM_GC_NEVER_JOINED_MS).toBe(60 * 60 * 1000);
-    expect(ROOM_GC_EMPTY_MS).toBe(14 * 24 * 60 * 60 * 1000);
-    expect(ROOM_GC_SWEEP_MS).toBe(60 * 60 * 1000);
     expect([ROOM_EDIT_BURST, ROOM_EDIT_REFILL_MS]).toEqual([2, 2000]);
     expect(ROOM_TITLE_MAX_LENGTH).toBe(32);
     expect(MAX_CREATE_BODY_BYTES).toBe(1024);
+  });
+
+  test("GC policy is server-owned: obsolete pre-M10 ages and sweep are not exported", () => {
+    expect("ROOM_GC_NEVER_JOINED_MS" in shared).toBe(false);
+    expect("ROOM_GC_EMPTY_MS" in shared).toBe(false);
+    expect("ROOM_GC_SWEEP_MS" in shared).toBe(false);
   });
 
   test("ROOM_CLOSED is 4004 and no other close code uses it", () => {
