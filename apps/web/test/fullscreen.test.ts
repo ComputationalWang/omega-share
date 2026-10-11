@@ -522,3 +522,25 @@ test.each([[568, 375], [591, 375], [592, 375], [700, 403], [700, 404], [700, 405
     expect(intersects(l.tv, l.strip)).toBe(false);
   },
 );
+
+// A minimum-size Twitch player and a 48 px touch band need 356 px. Native fullscreen remains
+// scrollable on shorter screens, initially exposing controls without covering or shrinking the player.
+test.each([[568, 320, 36], [700, 350, 6], [568, 355, 1], [568, 356, 0]])(
+  "%p×%p Twitch keeps composer and transport reachable by scrolling the intact player", (w, h, expectedScroll) => {
+    for (const mode of ["band", "open"] as const) {
+      const l = fullscreenLayout(w, h, "twitch", mode);
+      const scroll = "scrollY" in l && typeof l.scrollY === "number" ? l.scrollY : 0;
+      expect(scroll).toBe(expectedScroll);
+      expect(l.at).toBe("band");
+      expect(l.tv.w).toBeGreaterThanOrEqual(534);
+      expect(l.tv.h).toBeGreaterThanOrEqual(300);
+      expect(l.tv.y).toBeGreaterThanOrEqual(0);
+      expect(l.strip.w).toBeGreaterThanOrEqual(BAND_MIN);
+      expect(l.strip.h).toBeGreaterThanOrEqual(48);
+      for (const r of [l.controls, l.strip]) expect(inside({ ...r, y: r.y - scroll }, w, h)).toBe(true);
+      expect(intersects(l.tv, l.controls)).toBe(false);
+      expect(intersects(l.tv, l.strip)).toBe(false);
+      expect(intersects(l.controls, l.strip)).toBe(false);
+    }
+  },
+);

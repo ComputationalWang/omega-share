@@ -238,3 +238,59 @@ for (const key of ["twitchVod", "twitchLive"] as const) {
     });
   }
 }
+
+for (const key of ["twitchVod", "twitchLive"] as const) {
+  for (const remembered of ["band", "open"] as const) {
+    test(`${key}: native fullscreen at 568×320 and 700×350 keeps composer and transport reachable`, async ({ browser, request }) => {
+      const room = testRoom("m10-composer", key === "twitchVod" ? "l568" : "p390");
+      await shareProvider(request, providerCase(key).shareUrl, room.id);
+      clients = await joinRoom(browser, {
+        roomUrl: room.url, count: 1, nicknamePrefix: `${key}-short`,
+        contextOptions: () => ({ viewport: { width: 568, height: 320 }, isMobile: true, hasTouch: true }),
+        setup: async (context) => {
+          await context.addInitScript((mode) => { localStorage.setItem("omega.fsStrip", mode); }, remembered);
+        },
+      });
+      const page = clients[0]?.page;
+      if (page === undefined) throw new Error("missing client");
+      await waitProviderPlaying(clients, "twitch");
+      const fullscreenKey = page.locator(site.fullscreenToggle);
+      await fullscreenKey.scrollIntoViewIfNeeded();
+      await page.evaluate(() => new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => { resolve(); }));
+      }));
+      await fullscreenKey.tap();
+      await expect.poll(() => page.evaluate((selector) =>
+        document.fullscreenElement === document.querySelector(selector), site.fsRoot)).toBe(true);
+      for (const [width, height] of [[568, 320], [700, 350], [568, 355], [568, 356], [700, 375]] as const) {
+        await page.setViewportSize({ width, height });
+        const strip = page.locator(site.fsStrip);
+        await expect(strip).toHaveAttribute("data-strip", "band");
+        await expectRoomy(page, `${key} ${String(width)}×${String(height)}`);
+        await expectSends(page, `${key} ${remembered} ${String(height)}`, true);
+        const transport = await box(page.locator(".controls"));
+        expect(transport.y).toBeGreaterThanOrEqual(0);
+        expect(transport.y + transport.height).toBeLessThanOrEqual(height);
+        for (const target of [page.locator(".controls .ui-transport button").first(), fullscreenKey]) {
+          await target.scrollIntoViewIfNeeded();
+          const control = await box(target);
+          expect(control.x).toBeGreaterThanOrEqual(transport.x);
+          expect(control.x + control.width).toBeLessThanOrEqual(transport.x + transport.width);
+          expect(control.y + control.height).toBeLessThanOrEqual(height);
+        }
+        const player = await box(page.locator(site.sharedVideo));
+        expect(player.width).toBeGreaterThanOrEqual(534);
+        expect(player.height).toBeGreaterThanOrEqual(300);
+        expect(player.y + player.height).toBeLessThanOrEqual(transport.y - 8);
+        // Users can scroll back to the intact player; this must remain native fullscreen.
+        await page.locator(site.fsRoot).evaluate((root) => { root.scrollTop = 0; });
+        expect((await box(page.locator(site.sharedVideo))).y).toBeGreaterThanOrEqual(0);
+        await strip.locator(site.chatInput).tap();
+        await expectRoomy(page, "focus scrolls composer back into view");
+        expect(await page.evaluate(() => localStorage.getItem("omega.fsStrip"))).toBe(remembered);
+      }
+      await fullscreenKey.tap();
+      await expect.poll(() => page.evaluate(() => document.fullscreenElement)).toBe(null);
+    });
+  }
+}
