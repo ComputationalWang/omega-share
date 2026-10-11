@@ -105,3 +105,29 @@ test("viewport resize and scroll keep the portrait dock above the keyboard, then
     Object.defineProperty(window, "visualViewport", native ?? { configurable: true, value: undefined });
   }
 });
+
+test("focusing a portrait shelf key asks the browser to expose its whole box, without moving desktop focus", async () => {
+  const { createPortraitDock } = await import("../src/portrait-dock");
+  const root = document.createElement("section");
+  const log = document.createElement("div");
+  const composer = document.createElement("form");
+  const queue = document.createElement("section");
+  const shelf = document.createElement("div");
+  const mute = document.createElement("button");
+  shelf.append(mute);
+  root.append(shelf, log, composer, queue);
+  document.body.replaceChildren(root);
+  // Happy DOM has no layout engine. Observe the request at the browser scrolling boundary;
+  // the committed CI hit probes verify actual scroll geometry and touch delivery.
+  let requested: ScrollIntoViewOptions | boolean | undefined;
+  mute.scrollIntoView = (options) => { requested = options; };
+  const dock = createPortraitDock({ root, log, composer, queue, shelf, settings: [] });
+  dock.setActive(true);
+  mute.focus();
+  expect(requested).toEqual({ block: "nearest", inline: "nearest" });
+  dock.setActive(false);
+  requested = undefined;
+  mute.blur();
+  mute.focus();
+  expect(requested).toBeUndefined();
+});
