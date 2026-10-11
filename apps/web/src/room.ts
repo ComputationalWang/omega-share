@@ -310,6 +310,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Over my own head when it's in the room's window; else (watch-only, panned away, room popped out) docked. It may
     // overlap the TV and its shelf (it's brief): a scaled-down stage alone rarely has 196 px above a head.
     locate: () => {
+      if (portraitOn && (portraitDock.sheet.open || opts.root.classList.contains("portrait-typing"))) return null;
       const visible = (r: DOMRect): Rect => {
         const x = Math.max(0, r.left);
         const y = Math.max(0, r.top);
@@ -791,7 +792,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     tv.classList.toggle("compact", l.compact.tv);
     controls.classList.toggle("compact", l.compact.controls);
     if (portraitOn) {
-      opts.root.style.setProperty("--portrait-sheet-top", `${String(tv.getBoundingClientRect().bottom)}px`);
+      opts.root.style.setProperty("--portrait-picture-height", `${String(l.tv.y + l.tv.h)}px`);
+      opts.root.style.setProperty("--portrait-sheet-top", `${String(Math.min(tv.getBoundingClientRect().bottom, wrap.getBoundingClientRect().bottom))}px`);
       controls.classList.add("scroll-transport");
       controls.tabIndex = 0;
       controls.ariaLabel = "Playback controls; scroll horizontally for more";
@@ -1359,7 +1361,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Keys 1–6 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
   window.addEventListener("keydown", (ev) => {
     // The report and help dialogs are modal: the room's keys wait until they close.
-    if (report?.isOpen() === true || help.isOpen() || portraitDock.sheet.open) return;
+    if (report?.isOpen() === true || help.isOpen()) return;
+    if (portraitDock.sheet.open) {
+      if (ev.target instanceof Node && picker.root.contains(ev.target) && picker.key(ev)) ev.preventDefault();
+      return;
+    }
     // Esc dismisses the first-visit hint and still does whatever else it does here.
     if (ev.key === "Escape") firstHint.dismiss();
     if (moderation?.key(ev) === true) ev.preventDefault();

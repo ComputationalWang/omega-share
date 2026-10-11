@@ -45,6 +45,15 @@ export function createPortraitDock(o: PortraitDockOptions) {
   sheet.addEventListener("close", () => { if (!sheet.open) restore(); });
   sheet.addEventListener("cancel", (ev) => { ev.preventDefault(); close(); });
   closeKey.addEventListener("click", close);
+  sheet.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Tab") return;
+    const stops = [...sheet.querySelectorAll<HTMLElement>("button, input, select, textarea, a[href], [tabindex]")]
+      .filter((node) => node.tabIndex >= 0 && !node.hasAttribute("disabled") && node.closest("[hidden]") === null && node.checkVisibility());
+    const first = stops[0];
+    const last = stops.at(-1);
+    if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last?.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first?.focus(); }
+  });
   const open = (kind: "chat" | "queue" | "settings", from: HTMLElement, focusInput = false): void => {
     if (!active) return;
     close();
@@ -70,7 +79,7 @@ export function createPortraitDock(o: PortraitDockOptions) {
   settings.addEventListener("click", () => { open("settings", settings); });
   const viewport = (): void => {
     if (!active) return;
-    const v = window.visualViewport;
+    const v = window.visualViewport ?? null;
     o.root.style.setProperty("--portrait-height", `${String(v?.height ?? window.innerHeight)}px`);
     o.root.style.setProperty("--portrait-top", `${String(v?.offsetTop ?? 0)}px`);
     o.root.classList.toggle("portrait-typing", v !== null && v.scale === 1 && window.innerHeight - v.height > 100);

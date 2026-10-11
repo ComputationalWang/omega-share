@@ -458,7 +458,17 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .room-portrait.portrait-typing { padding-top: 0; }
 .room-portrait.portrait-typing > .room-top, .room-portrait.portrait-typing > .portrait-keys { display: none; }
 .room-portrait.portrait-typing .stage-clip, .room-portrait.portrait-typing .controls { visibility: hidden; }
-.room-portrait.portrait-typing > .stage-wrap { flex: 0 1 calc(100vw * 9 / 16 + 6px); max-height: calc(var(--portrait-height) - 124px); }
+.room-portrait.portrait-typing > .stage-wrap { flex: 0 1 var(--portrait-picture-height); max-height: calc(var(--portrait-height) - 180px); }
 .room-portrait.portrait-typing > .chat-log { flex: 1; height: auto; max-height: none; min-height: 0; }
-.room-portrait.portrait-typing .portrait-sheet { bottom: auto; height: calc(var(--portrait-height) - var(--portrait-sheet-top) - 20px); }
+.room-portrait.portrait-typing .portrait-sheet { bottom: auto; height: calc(var(--portrait-top) + var(--portrait-height) - var(--portrait-sheet-top) - 20px); }
 @media (prefers-reduced-motion: reduce) { .portrait-sheet { transition: none; } }
+
+.room-portrait .chat .ui-button.icon { width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
+.room-portrait .chat .emote-picker { flex: none; }
+.room-portrait .chat input { min-width: 140px; }
+.room-portrait .ui-wheel-slot { width: 44px; height: 44px; }
+/* One frame around a sheet leaves room for its fixed paste row when the keyboard is up. */
+.portrait-sheet { --ui-px: 1px; }
+.portrait-sheet-content > .queue-panel { border: 0; }
+.room-portrait.portrait-typing .portrait-sheet .queue-head,
+.room-portrait.portrait-typing .portrait-sheet .ui-qempty { display: none; }

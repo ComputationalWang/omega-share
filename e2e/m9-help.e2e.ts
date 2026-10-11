@@ -166,7 +166,9 @@ test("phone (touch): the hint sits in the viewport clear of the picture and the 
   const page = await join("touch", browser, false, devices["Pixel 7"]);
   const viewport = page.viewportSize();
   if (viewport === null) throw new Error("no viewport");
+  await page.locator('[data-testid="portrait-settings"]').tap();
   const hint = page.locator(site.firstHint);
+  await hint.scrollIntoViewIfNeeded();
   await expect(hint).toBeVisible();
   await expect(hint).toContainText("Tap a seat to sit");
   const box = await hint.boundingBox();
@@ -176,10 +178,12 @@ test("phone (touch): the hint sits in the viewport clear of the picture and the 
   expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
   expect(await overlaps(hint, page.locator(site.tv))).toBe(false);
-  expect(await overlaps(hint, page.locator(site.chatInput))).toBe(false);
-  expect(await overlaps(hint, page.locator(site.chatSend))).toBe(false);
+  await expect(page.locator('[data-testid="portrait-sheet"]')).toBeVisible();
+  expect(await hint.evaluate((el) => el.closest('[data-testid="portrait-sheet"]') !== null)).toBe(true);
   const wide = (): Promise<boolean> => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth || document.body.scrollWidth > document.body.clientWidth);
   expect(await wide()).toBe(false);
+
+  await page.locator('[data-testid="portrait-sheet-close"]').tap();
 
   const key = page.locator(site.helpKey);
   await key.scrollIntoViewIfNeeded();

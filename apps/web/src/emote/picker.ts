@@ -176,9 +176,9 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
   }
 
   function show(): void {
+    o.onOpen?.();
     const focused = document.activeElement;
     before = focused instanceof HTMLElement && focused !== document.body ? focused : null;
-    o.onOpen?.();
     wheel ??= build();
     const where = o.locate?.() ?? null;
     const r = (root.parentElement ?? root).getBoundingClientRect();

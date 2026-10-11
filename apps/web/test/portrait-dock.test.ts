@@ -76,3 +76,32 @@ test("the sheet wraps Tab from its last field to Close and ignores an old close 
   url.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
   expect(document.activeElement).toBe(dock.sheet.querySelector('[data-testid="portrait-sheet-close"]'));
 });
+
+test("viewport resize and scroll keep the portrait dock above the keyboard, then restore on rotation", async () => {
+  const { createPortraitDock } = await import("../src/portrait-dock");
+  const native = Object.getOwnPropertyDescriptor(window, "visualViewport");
+  const viewport = Object.assign(new EventTarget(), { height: window.innerHeight, offsetTop: 0, scale: 1 });
+  Object.defineProperty(window, "visualViewport", { configurable: true, value: viewport });
+  try {
+    const root = document.createElement("section");
+    const log = document.createElement("div");
+    const composer = document.createElement("form");
+    const queue = document.createElement("section");
+    root.append(log, composer, queue);
+    document.body.replaceChildren(root);
+    const dock = createPortraitDock({ root, log, composer, queue, settings: [] });
+    dock.setActive(true);
+    viewport.height = window.innerHeight - 300;
+    viewport.dispatchEvent(new Event("resize"));
+    expect(root.classList.contains("portrait-typing")).toBe(true);
+    expect(root.style.getPropertyValue("--portrait-height")).toBe(`${String(window.innerHeight - 300)}px`);
+    viewport.offsetTop = 24;
+    viewport.dispatchEvent(new Event("scroll"));
+    expect(root.style.getPropertyValue("--portrait-top")).toBe("24px");
+    dock.setActive(false);
+    expect(root.classList.contains("portrait-typing")).toBe(false);
+    expect(root.style.getPropertyValue("--portrait-height")).toBe("");
+  } finally {
+    Object.defineProperty(window, "visualViewport", native ?? { configurable: true, value: undefined });
+  }
+});
