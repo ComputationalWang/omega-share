@@ -17,13 +17,12 @@ import {
   ROOM_CREATE_RETRY_AFTER_MAX_MS,
   ROOM_EDIT_BURST,
   ROOM_EDIT_REFILL_MS,
-  ROOM_GC_EMPTY_MS,
-  ROOM_GC_NEVER_JOINED_MS,
   RoomListResponseSchema,
   type CreateRoomResponse,
   type RoomLayout,
   type RoomVisibility,
 } from "@omega/shared";
+import { ROOM_GC_INTERVAL_MS, ROOM_IDLE_TTL_MS } from "../src/rooms-gc";
 import { hashSecret, mintSecret, newRoomId } from "../src/secrets";
 import { openDatabase } from "../src/store/db";
 import { RoomStore } from "../src/store/rooms";
@@ -586,19 +585,19 @@ describe("5. GC with an injected clock (ADR 0028 §2, threat model §1.3)", () =
   const settle = (): Promise<void> => Bun.sleep(80);
   const inStore = (store: RoomStore, id: string): boolean => store.listRooms().some((r) => r.id === id);
 
-  test("the constants are the ADR's: 1 h never joined, 14 days empty", () => {
-    expect(ROOM_GC_NEVER_JOINED_MS).toBe(3_600_000);
-    expect(ROOM_GC_EMPTY_MS).toBe(14 * 86_400_000);
+  test("the constants are the ADR's: 20 min with nobody in it, never joined or emptied, swept every minute (OME-904)", () => {
+    expect(ROOM_IDLE_TTL_MS).toBe(20 * 60_000);
+    expect(ROOM_GC_INTERVAL_MS).toBe(60_000);
   });
 
-  test("a created room nobody joined is kept for 1 h, then removed from the list, the store and the join path", async () => {
+  test("a created room nobody joined is kept for 20 min, then removed from the list, the store and the join path", async () => {
     const clock = fakeClock(T0);
     const store = gcServer(clock);
     const room = await createRoom("public");
-    clock.ms = T0 + ROOM_GC_NEVER_JOINED_MS - 1;
+    clock.ms = T0 + ROOM_IDLE_TTL_MS - 1;
     await settle();
     expect(await listedIds()).toContain(room.room.id);
-    clock.ms = T0 + ROOM_GC_NEVER_JOINED_MS;
+    clock.ms = T0 + ROOM_IDLE_TTL_MS;
     await until(async () => !(await listedIds()).includes(room.room.id), "never-joined room is collected");
     expect(inStore(store, room.room.id)).toBe(false);
     expect(await upgradeRefused(room.room.id)).toBe(true);
@@ -625,37 +624,37 @@ describe("5. GC with an injected clock (ADR 0028 §2, threat model §1.3)", () =
     const room = await createRoom("public");
     const lurker = await open(room.room.id);
     await sync(lurker);
-    clock.ms = T0 + 3 * ROOM_GC_NEVER_JOINED_MS;
+    clock.ms = T0 + 3 * ROOM_IDLE_TTL_MS;
     await settle();
     expect(inStore(store, room.room.id)).toBe(true);
     lurker.close();
     await until(() => !inStore(store, room.room.id), "collected once the lurker leaves");
   });
 
-  test("activity resets the idle timer: an empty room goes 14 days after its last member left, not after its creation", async () => {
+  test("activity resets the idle timer: an empty room goes 20 min after its last member left, not after its creation", async () => {
     const clock = fakeClock(T0);
     const store = gcServer(clock);
     const room = await createRoom("public");
     const m = await joined(room.room.id, "alice");
-    clock.ms = T0 + 10 * 86_400_000;
+    clock.ms = T0 + 10 * 60_000;
     m.client.close();
     await until(() => store.listRooms().find((r) => r.id === room.room.id)?.lastActiveAt === clock.ms, "leave is recorded");
     const left = clock.ms;
-    // 23 days after creation, 13 after the leave: kept. (Not a never-joined room any more.)
-    clock.ms = left + ROOM_GC_EMPTY_MS - 1;
+    // 29 min after creation, 19 after the leave: kept. (Creation no longer counts.)
+    clock.ms = left + ROOM_IDLE_TTL_MS - 1;
     await settle();
     expect(inStore(store, room.room.id)).toBe(true);
     // Someone comes back and leaves later: the timer restarts again.
     const again = await joined(room.room.id, "bob");
-    clock.ms += 5 * 86_400_000;
+    clock.ms += 5 * 60_000;
     again.client.close();
     const left2 = clock.ms;
     await until(() => store.listRooms().find((r) => r.id === room.room.id)?.lastActiveAt === left2, "second leave is recorded");
-    clock.ms = left2 + ROOM_GC_EMPTY_MS - 1;
+    clock.ms = left2 + ROOM_IDLE_TTL_MS - 1;
     await settle();
     expect(inStore(store, room.room.id)).toBe(true);
-    clock.ms = left2 + ROOM_GC_EMPTY_MS;
-    await until(() => !inStore(store, room.room.id), "empty room is collected after 14 days");
+    clock.ms = left2 + ROOM_IDLE_TTL_MS;
+    await until(() => !inStore(store, room.room.id), "empty room is collected after 20 min");
     expect(await listedIds()).toEqual(["lobby"]);
   });
 
@@ -676,7 +675,7 @@ describe("5. GC with an injected clock (ADR 0028 §2, threat model §1.3)", () =
     const { store, rooms } = seedStore(join(dir, "omega.db"), 2);
     const stale = rooms[0] ?? fail("no room");
     const fresh = rooms[1] ?? fail("no room");
-    store.setLastActive(stale.id, T0 - ROOM_GC_EMPTY_MS - 1000);
+    store.setLastActive(stale.id, T0 - ROOM_IDLE_TTL_MS - 1000);
     store.setLastActive(fresh.id, T0 - 1000);
     t = start({ trustProxy: true, store, wallNow: () => T0 });
     expect(await listedIds()).toContain("lobby");

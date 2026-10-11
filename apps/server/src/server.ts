@@ -65,7 +65,7 @@ export interface ServerOptions {
   roomTitleBlocklist?: readonly string[];
   /** Unix ms clock for `created_at`, `last_active_at` and room GC (tests inject one). Default `Date.now`. */
   wallNow?: () => number;
-  /** Room GC sweep interval; it also sweeps at boot. Default ROOM_GC_INTERVAL_MS (1 h). */
+  /** Room GC sweep interval; it also sweeps at boot. Default ROOM_GC_INTERVAL_MS (1 min). */
   roomGcIntervalMs?: number;
   /** Seats the last process held at its graceful restart (ADR 0032): kept SEAT_HOLD_MS for their names. */
   seatHolds?: readonly SeatHold[];

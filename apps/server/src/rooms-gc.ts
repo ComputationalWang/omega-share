@@ -3,12 +3,10 @@ import type { Room } from "./room";
 import type { RoomRegistry } from "./rooms";
 import { logError } from "./log";
 
-/** How often GC sweeps; it also sweeps once at boot (threat model §1.3). */
-export const ROOM_GC_INTERVAL_MS = 60 * 60 * 1000;
-/** A created room nobody ever joined goes this long after `created_at`. */
-export const NEVER_JOINED_TTL_MS = 60 * 60 * 1000;
-/** An empty created room goes this long after it last became empty (`last_active_at`). */
-export const EMPTY_ROOM_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+/** How often GC sweeps; it also sweeps once at boot. A room goes 20-21 min after it emptied (ADR 0028 §2, OME-904). */
+export const ROOM_GC_INTERVAL_MS = 60 * 1000;
+/** A room with nobody in it goes this long after the last member left (`last_active_at`), or after `created_at` if nobody ever joined. */
+export const ROOM_IDLE_TTL_MS = 20 * 60 * 1000;
 
 export interface RoomGcDeps {
   rooms: RoomRegistry;
@@ -28,12 +26,11 @@ export interface RoomGcDeps {
 /** Whether GC should end an idle room at `now`. Pinned rooms never; occupied ones are checked by the caller. */
 function expired(room: Room, now: number): boolean {
   if (room.pinned) return false;
-  if (room.lastActiveAt === null) return now - room.createdAt >= NEVER_JOINED_TTL_MS;
-  return now - room.lastActiveAt >= EMPTY_ROOM_TTL_MS;
+  return now - (room.lastActiveAt ?? room.createdAt) >= ROOM_IDLE_TTL_MS;
 }
 
 /**
- * One sweep, O(rooms). Expired rooms end through `removeRoom`, the path owner deletes take: their
+ * One sweep, O(rooms) over the in-memory registry: no store read. Expired rooms end through `removeRoom`, the path owner deletes take: their
  * sockets close with ROOM_CLOSED, their grants are revoked and their row is deleted. Returns the ids removed.
  */
 export function sweepRooms({ rooms, wallNow, busy, touch }: RoomGcDeps): RoomId[] {
@@ -45,7 +42,7 @@ export function sweepRooms({ rooms, wallNow, busy, touch }: RoomGcDeps): RoomId[
   }
   const removed: RoomId[] = [];
   for (const room of due) {
-    // One room's failure (a store error in an onRemove hook) must not leave the others for another hour.
+    // One room's failure (a store error in an onRemove hook) must not leave the others for another sweep.
     try {
       rooms.removeRoom(room);
       removed.push(room.id);

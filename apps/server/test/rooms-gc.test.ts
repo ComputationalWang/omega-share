@@ -368,7 +368,8 @@ describe("the server's GC (startServer)", () => {
     await Bun.sleep(60);
     expect(registry.get(ID_A)).toBeDefined();
     clock.ms = T0 + 30 * MIN;
-    alice.client.send({ type: "leave" });
+    alice.client.close();
+    await alice.client.closed;
     await Bun.sleep(60);
     clock.ms = T0 + 49 * MIN; // 19 min after she left
     await Bun.sleep(60);
