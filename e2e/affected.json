@@ -502,6 +502,21 @@
     },
     {
       "paths": [
+        "assets/presets/**"
+      ],
+      "full": true,
+      "specs": [
+        "e2e/real/real-abuse.real.ts",
+        "e2e/real/real-ads.real.ts",
+        "e2e/real/real-invite-referrer.real.ts",
+        "e2e/real/real-providers.real.ts",
+        "e2e/real/real-tunnel.real.ts",
+        "e2e/real/real-youtube.real.ts"
+      ],
+      "why": "preset layouts, catalog and shipped thumbnails: retain full e2e/perf and real-lane coverage until runtime integration establishes narrower coverage (ADR 0036: when unsure, include it)"
+    },
+    {
+      "paths": [
         "assets/{avatars,furniture,room}/**"
       ],
       "except": [

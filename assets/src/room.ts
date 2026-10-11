@@ -72,7 +72,7 @@ function floorTile(key: string, paint: (u: number, v: number) => Paint): RoomFra
 }
 
 /** Honey planks running along the col axis, 4 per tile, with staggered butt joints. */
-function planks(variant: number): (u: number, v: number) => Paint {
+export function planks(variant: number): (u: number, v: number) => Paint {
   return (u, v) => {
     const lane = Math.floor((v + 8) / 4);
     if ((v + 8) % 4 < 0.5) return ["floor", 2];
@@ -89,7 +89,7 @@ function planks(variant: number): (u: number, v: number) => Paint {
  *  (−v, +u, +v, −u) and corners n/e/s/w; `c` is the field. */
 export const RUG_PARTS = ["c", "ne", "se", "sw", "nw", "n", "e", "s", "w"] as const;
 type RugPart = (typeof RUG_PARTS)[number];
-function rug(part: RugPart, variant: number): (u: number, v: number) => Paint {
+export function rug(part: RugPart, variant: number): (u: number, v: number) => Paint {
   const rimU0 = part === "nw" || part === "n" || part === "w";
   const rimU1 = part === "se" || part === "e" || part === "s";
   const rimV0 = part === "ne" || part === "n" || part === "e";
@@ -114,7 +114,7 @@ function rug(part: RugPart, variant: number): (u: number, v: number) => Paint {
 
 // ---------------------------------------------------------------- walls
 
-type WallVariant = "plain" | "window0" | "window1" | "poster0" | "poster1" | "sconce";
+export type WallVariant = "plain" | "window0" | "window1" | "poster0" | "poster1" | "sconce";
 const LEFT_VARIANTS: readonly WallVariant[] = ["plain", "window0", "window1", "sconce"];
 const RIGHT_VARIANTS: readonly WallVariant[] = ["plain", "poster0", "poster1", "sconce"];
 
@@ -229,14 +229,14 @@ function sconcePaint(s: number, z: number, lit: boolean): Paint | null {
 }
 
 /** Left wall segment: stands on the top-left (u = −8) edge of cell (0,row). */
-function leftWall(variant: WallVariant): Solid {
+export function leftWall(variant: WallVariant): Solid {
   return box(-8 - WALL_T, -8, -8, 8, 0, WALL_H, "wall", {
     skip: ["sw", "other"],
     paint: (p: Vec3, f: Facing) => (f === "top" ? ["wall", 0] : f === "se" ? wallPaint(variant, p.v, p.z, false) : null),
   });
 }
 /** Right wall segment: stands on the top-right (v = −8) edge of cell (col,0). */
-function rightWall(variant: WallVariant): Solid {
+export function rightWall(variant: WallVariant): Solid {
   return box(-8, 8, -8 - WALL_T, -8, 0, WALL_H, "wall", {
     skip: ["se", "other"],
     paint: (p: Vec3, f: Facing) => (f === "top" ? ["wall", 0] : f === "sw" ? wallPaint(variant, p.u, p.z, true) : null),
@@ -263,7 +263,7 @@ export const SEAT_DIRS: readonly SeatDir[] = ["ne", "nw", "se", "sw"];
 
 /** Velvet lounge armchair. Built facing NE (toward −v, backrest on the +v side toward the camera) or
  *  SE (toward +u, backrest on the far −u side); NW and SW swap the u/v axes, which keeps the lighting correct. */
-function armchairSolids(dir: SeatDir): { back: Solid[]; front: Solid[] } {
+export function armchairSolids(dir: SeatDir): { back: Solid[]; front: Solid[] } {
   const swap = dir === "nw" || dir === "sw";
   const B = (u0: number, u1: number, v0: number, v1: number, z0: number, z1: number, ramp: RampName, extra: Omit<Solid, "planes" | "ramp"> = {}): Solid =>
     swap ? box(v0, v1, u0, u1, z0, z1, ramp, swapPaint(extra)) : box(u0, u1, v0, v1, z0, z1, ramp, extra);
@@ -415,7 +415,8 @@ export function shelfPaint(x: number, y: number, half: number, h: number, slot: 
  *  (It's the bounding box of the lens glass.) Decorative since ADR 0012: the live player is page chrome above the stage, framed by `tvframe/*` in the UI atlas. */
 export const TV_SCREEN = { x: -12, y: -13, w: 16, h: 9 } as const;
 
-function tvFrame(): RoomFrame {
+/** The corner console, its knick-knacks and the projector, in cell (0,0) world units (also re-cast small for preset thumbnails). */
+export function tvSolids(): Solid[] {
   // Cell (0,0) frame: the room's back corner is at u = v = −8. The picture is up on the big screen above the room
   // (page chrome); down here is the corner console with the little projector that "throws" it.
   const plane = (nu: number, nv: number, nz: number, d: number): { n: Vec3; d: number } => ({ n: { u: nu, v: nv, z: nz }, d });
@@ -476,7 +477,11 @@ function tvFrame(): RoomFrame {
       return null;
     },
   };
-  const r = renderSolids([console_, pot, leaf1, ...tapes, projector], CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay + 0, "all");
+  return [console_, pot, leaf1, ...tapes, projector];
+}
+
+function tvFrame(): RoomFrame {
+  const r = renderSolids(tvSolids(), CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay + 0, "all");
   const img = r.img;
   // Two film reels standing on the projector (drawn flat, facing the camera), then outline them.
   const reel = (cx: number, cy: number): void => {

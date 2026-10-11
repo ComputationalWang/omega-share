@@ -493,7 +493,7 @@ export interface PieceMeta {
   layersByDir: Partial<Record<FurnDir, ("back" | "front")[]>>;
 }
 
-interface PieceDef {
+export interface PieceDef {
   id: string;
   label: string;
   kind: PieceMeta["kind"];
@@ -529,7 +529,7 @@ export const PIECES: readonly PieceDef[] = [
   { id: "frame", label: "Framed print", kind: "wall", mount: "wall", layer: "wall", colours: ["dusk", "tide"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k, c) => { wallFrame(k, c === "tide" ? "tide" : "dusk"); } },
 ];
 
-interface Canvas { w: number; h: number; ax: number; ay: number }
+export interface Canvas { w: number; h: number; ax: number; ay: number }
 const CANVAS: Canvas = { w: 480, h: 400, ax: 220, ay: 300 };
 
 function crop(key: string, img: Uint8Array, box0?: { x0: number; y0: number; w: number; h: number }): RoomFrame & { rect: { x0: number; y0: number; w: number; h: number } } {
@@ -627,6 +627,14 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
 
 // ---------------------------------------------------------------- set (h): tray thumbnails
 
+/** One piece re-cast at scale `s` (back and front layers together) on canvas `cv`, world origin = the anchor cell centre at (cv.ax, cv.ay). */
+export function pieceImage(def: PieceDef, colour: string, dir: FurnDir, s: number, cv: Canvas): Uint8Array {
+  if (def.image) return def.image(dir, colour, s, cv);
+  const k = new Kit(dir);
+  def.build?.(k, colour);
+  return renderSolids(k.parts.map((p) => p.solid), cv.w, cv.h, cv.ax, cv.ay, "all", s).img;
+}
+
 /** Largest thumbnail, art px: what fits inside a `slot/*` (set h) with a 2 px margin. */
 export const THUMB_BOX = { w: 44, h: 40 } as const;
 
@@ -639,12 +647,7 @@ export function buildThumbs(): RoomFrame[] {
   for (const def of PIECES) {
     const dir: FurnDir = def.dirs.includes("se") ? "se" : "ne";
     for (const colour of def.colours) {
-      const at = (s: number): Uint8Array => {
-        if (def.image) return def.image(dir, colour, s, cv);
-        const k = new Kit(dir);
-        def.build?.(k, colour);
-        return renderSolids(k.parts.map((p) => p.solid), cv.w, cv.h, cv.ax, cv.ay, "all", s).img;
-      };
+      const at = (s: number): Uint8Array => pieceImage(def, colour, dir, s, cv);
       let s = 0.5;
       for (;;) {
         const img = at(s);

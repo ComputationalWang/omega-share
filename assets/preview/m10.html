@@ -1,0 +1,269 @@
+<!doctype html>
+<!-- Set (n) (OME-906), M10 mock-ups: the phone portrait room with nothing below the fold (room on top, composer docked at the
+     bottom like a messaging app, chat as an overlay + pull-up sheet, the queue as a "share a video" sheet), at 390×844 and
+     360×740, and the create-room preset picker. Uses ../ui/reference.css and the preset thumbnails only (no app code).
+     Screenshots: bun assets/src/shoot-m10.ts (writes preview/ui-m10-*@1x|2x.png). Not shipped. Art CC BY-SA 4.0. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>omega-share M10 phone portrait room + presets (set n)</title>
+<link rel="stylesheet" href="../ui/reference.css">
+<style>
+  body { margin: 0; background: #1c1420; color: var(--ui-text); font: 600 15px/1.35 system-ui, sans-serif; }
+  section { padding: 24px; width: fit-content; }
+  h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ui-muted); margin: 0 0 12px; }
+  h3.cap { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ui-accent); margin: 0 0 6px; font-weight: 700; }
+  .cap-p { font-size: 11px; color: var(--ui-muted); font-weight: 500; margin: 6px 0 0; line-height: 1.45; }
+  .row { display: flex; gap: 28px; align-items: flex-start; }
+  .rows { display: grid; gap: 28px; }
+  .shot { display: grid; gap: 8px; justify-items: start; }
+  .shot .lbl { font: 700 12px system-ui; color: var(--ui-accent); letter-spacing: .04em; }
+  .shot .lbl span { color: var(--ui-muted); font-weight: 500; letter-spacing: 0; }
+  .spacer { flex: 1; }
+
+  /* ---------------------------------------------------------------- the phone (device frame and OS bits are annotation) */
+  .ph { position: relative; width: var(--w); height: var(--h); overflow: hidden; background: var(--ui-page); border-radius: 26px;
+        outline: 6px solid #0e0a10; display: flex; flex-direction: column; }
+  .osbar { flex: none; height: 22px; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font: 600 11px system-ui; color: var(--ui-muted); }
+  .homebar { flex: none; height: 14px; display: grid; place-items: center; }
+  .homebar::after { content: ""; width: 120px; height: 4px; border-radius: 2px; background: #6a5a72; }
+  .kbd { flex: none; background: repeating-linear-gradient(135deg, #3a3040 0 6px, #2f2734 6px 12px); color: #b9a9c6; font: 600 11px system-ui;
+         display: grid; place-items: center; letter-spacing: .06em; text-transform: uppercase; }
+
+  /* Top bar: room name, people, (host key), leave. 40 px. */
+  .top { flex: none; height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 4px 0 10px; font-size: 14px; font-weight: 700; }
+  .top .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .top .ppl { display: flex; align-items: center; gap: 2px; font-size: 12px; color: var(--ui-muted); }
+  .video { flex: none; width: 100%; aspect-ratio: 16 / 9; background: url("tv-video@1x.png") 0 0 / 100% 100%; image-rendering: pixelated; }
+  .ui-tv-shelf.compact { flex: none; }
+
+  /* Room window: whatever height is left, at 1×, dragged sideways; chat overlay and the up-next chip float on it. */
+  .roomwin { position: relative; flex: 1 1 0; min-height: 0; overflow: hidden; background: url("room@1x.png") no-repeat; image-rendering: pixelated; }
+  .roomwin > * { position: absolute; }
+  .roomwin .ui-tag { translate: -50% -100%; }
+  .upnext { top: 6px; right: 6px; display: inline-flex; align-items: center; gap: 4px; font: 700 12px system-ui; }
+  .upnext .ui-chip { gap: 4px; }
+  /* Chat overlay: the last three lines over a scrim at the foot of the room; tap it (or swipe up) to pull up the sheet. */
+  .overlay { left: 0; right: 0; bottom: 0; padding: 22px 8px 4px; background: linear-gradient(to bottom, #2b1d2f00, #2b1d2fd9 34%, #2b1d2f); display: grid; gap: 4px; }
+  .grab { justify-self: center; display: flex; align-items: center; gap: 6px; font: 700 11px system-ui; color: var(--ui-muted); }
+  .grab::before { content: ""; width: 36px; height: 4px; border-radius: 2px; background: var(--ui-muted); }
+  .grab .unread { color: var(--ui-on-primary); background: var(--ui-accent); padding: 0 6px; border-radius: 8px; }
+  .chatlog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; overflow: hidden; }
+  .chatlog .ui-fs-line { font-size: 13px; }
+  .chatlog.full { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px); mask-image: linear-gradient(to bottom, transparent, #000 28px); }
+  .chatlog .ui-sysline { font-size: 11px; }
+
+  /* Composer, docked at the foot: emote key · message · share-a-link key · send. One row, 44 px targets. */
+  .composer { flex: none; display: flex; align-items: center; gap: 4px; padding: 6px 6px 2px; background: var(--ui-panel); box-shadow: 0 -2px 0 #1c1420; }
+  .composer .ui-input { flex: 1; min-width: 0; font: inherit; font-size: 13px; font-weight: 500; }
+
+  /* Sheets rise from the composer edge and cover the room, never the video. Panel = set (c) wood frame. */
+  .sheet { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; margin: 0 4px; padding-top: 4px; }
+  .sheet .handle { align-self: center; width: 36px; height: 4px; border-radius: 2px; background: var(--ui-muted); flex: none; }
+  .sheet .head { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; flex: none; }
+  .sheet .head h3 { margin: 0; font-size: 14px; flex: 1; }
+  .sheet .head .n { font-size: 12px; color: var(--ui-muted); font-weight: 600; }
+  .sheet .body { overflow-y: auto; flex: 1 1 0; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: 6px; }
+  .sheet .hint { font-size: 11px; font-weight: 500; color: var(--ui-muted); margin: 0; }
+  .ui-qlist { margin: 0; }
+  .ui-qrow .body { display: grid; gap: 2px; min-width: 0; overflow: visible; }
+  .paste { flex: none; display: flex; gap: 4px; align-items: center; }
+  .paste .ui-input { flex: 1; min-width: 0; font: inherit; font-size: 13px; font-weight: 500; }
+  .seg { display: flex; gap: 8px; }
+  .seg .ui-picker { width: auto; height: auto; padding: 2px 10px 2px 4px; display: inline-flex; gap: 6px; align-items: center; font: inherit; font-size: 13px; color: var(--ui-text); min-height: 44px; }
+  .setting { display: grid; gap: 6px; }
+  .setting h4 { margin: 0; font-size: 12px; color: var(--ui-muted); letter-spacing: .04em; text-transform: uppercase; }
+  .setting p { margin: 0; font-size: 12px; font-weight: 500; color: var(--ui-muted); }
+  .invite { display: flex; gap: 4px; align-items: center; }
+  .invite .ui-input { flex: 1; min-width: 0; font: inherit; font-size: 12px; font-weight: 500; }
+  .dim::after { content: ""; position: absolute; inset: 0; background: #1c142099; }
+  .ui-emotes.tray { position: absolute; left: 6px; z-index: 3; }
+  .ui-touch .ui-emote { width: 44px; height: 44px; }
+  .ui-touch .ui-qrow { min-height: 44px; flex-shrink: 0; }
+  .upnext, .grab { min-height: 44px; }
+  .chatlog.full { overflow-y: auto; }
+  /* As an action sheet the rows are full-width 44 px rows (the hit area is the row; nothing overlaps). */
+  .ui-modmenu.action { position: absolute; left: 6px; right: 6px; z-index: 3; display: grid; }
+  .ui-modmenu.action .ui-modrow { min-height: 44px; font-size: 13px; padding: 0 6px; }
+  .ui-modmenu.action .head { font-size: 13px; min-height: 36px; }
+  .dim::after { z-index: 1; }
+  .roomwin .ui-tag.mod { z-index: 2; }
+
+  /* Annotation: call-outs and 44×44 hit areas. */
+  .note { position: absolute; z-index: 9; font: 600 10px/1.3 system-ui; color: #2b1d2f; background: #fff7ea; padding: 2px 5px; box-shadow: 0 0 0 1px #2b1d2f; max-width: 200px; }
+  .show-hits .ui-button::before, .show-hits .ui-modrow::before, .show-hits .ui-qx::before { outline: 1px dashed #e8fbff; outline-offset: -1px; z-index: 6; pointer-events: none; }
+  .tbl { border-collapse: collapse; font-size: 12px; font-weight: 500; max-width: 1180px; }
+  .tbl th, .tbl td { border: 1px solid #4a3a52; padding: 5px 8px; text-align: left; vertical-align: top; }
+  .tbl th { color: var(--ui-accent); font-weight: 700; }
+  .tbl td:first-child { white-space: nowrap; font-weight: 700; }
+  .budget { display: flex; gap: 24px; }
+  .bar { width: 120px; display: flex; flex-direction: column; font: 600 10px system-ui; color: #2b1d2f; }
+  .bar > div { display: grid; place-items: center; border-bottom: 1px solid #2b1d2f; }
+
+  /* Preset picker (create a room). Thumbnails at 1× only: pixel art never shrinks; phones scroll the row sideways. */
+  .presets { display: flex; gap: 8px; overflow-x: auto; padding: 2px; }
+  .preset { flex: none; width: 220px; display: grid; gap: 2px; padding: 4px 4px 8px; text-align: left; font: inherit; color: var(--ui-text); background: var(--ui-field); border: 0; box-shadow: 0 0 0 2px #1c1420; }
+  .preset img { width: 212px; height: 176px; image-rendering: pixelated; display: block; }
+  .preset b { font-size: 14px; padding: 0 2px; }
+  .preset span { font-size: 11px; font-weight: 500; color: var(--ui-muted); padding: 0 2px; line-height: 1.3; }
+  .preset[aria-checked="true"] { box-shadow: 0 0 0 2px #1c1420, 0 0 0 4px var(--ui-accent); }
+  .preset[aria-checked="true"] b::after { content: " ✓"; color: var(--ui-accent); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 220px); gap: 12px; }
+  .form { display: grid; gap: 10px; align-content: start; }
+  .form label { font-size: 12px; color: var(--ui-muted); }
+  .form .ui-input { font: inherit; font-size: 13px; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<section id="m10-390">
+  <h2>1 · Phone portrait room, 390 × 844: everything within reach, nothing below the fold (dashed = 44 × 44 px hit areas)</h2>
+  <div class="rows" data-size="390x844"></div>
+</section>
+
+<section id="m10-360">
+  <h2>2 · Same states at 360 × 740 (the smallest phone we design for)</h2>
+  <div class="rows" data-size="360x740"></div>
+</section>
+
+<section id="m10-rules">
+  <h2>3 · Rules for engineering (W1 composer, OME-905)</h2>
+  <div class="row">
+    <table class="tbl">
+      <tr><th>Part</th><th>Phone portrait (≤ 600 px wide, portrait)</th></tr>
+      <tr><td>Page</td><td>One screen: <code>height: 100dvh</code>, no page scroll. A flex column: top bar 40 · video 16:9 · shelf 44 · <b>room = the rest</b> · composer 52 + safe-area inset. The footer, invite and report move into sheets.</td></tr>
+      <tr><td>Top bar</td><td>Room name (ellipsis), people count (opens People), <b>Host key</b> (owners only, mustard rim = only you) and Leave.</td></tr>
+      <tr><td>Video + shelf</td><td>Unchanged from set (k): full width, compact bezel and shelf. The video is never covered by a sheet or the keyboard.</td></tr>
+      <tr><td>Room</td><td>Still 1×, never scaled, dragged sideways. It now gets 270–460 px of height instead of a fixed 270, so the camera centres on the seats vertically too. The up-next chip sits top right.</td></tr>
+      <tr><td>Chat overlay</td><td>The last 3 lines float over a scrim at the foot of the room (settled cards, newest last), with a grab handle and an unread count. Tap or swipe up → the chat sheet. Lines older than 8 s fade to 2 (set k's strip timing); system lines stay in the log only.</td></tr>
+      <tr><td>Composer</td><td>Docked at the foot like a messaging app: <b>emote key · message · share-a-link key · send</b>. The share key is <code>ui-icon-queue-add</code> (aria "Share a video link"). Send is disabled until there is text.</td></tr>
+      <tr><td>Keyboard open</td><td>Typing a message: the top bar, shelf and room fold away; the video stays, the chat log fills the space down to the composer, which rides on the keyboard (<code>visualViewport</code> / <code>interactive-widget=resizes-content</code>). Blur → the room comes back.</td></tr>
+      <tr><td>Chat sheet</td><td>Covers the room, not the video. Full log, scrolls, newest at the foot; the composer stays. Close key or swipe down.</td></tr>
+      <tr><td>Share sheet</td><td>The existing Up next panel as a sheet: head "Up next n / N", "Play next now" for the host, the list, then the paste field and Add <b>at the foot of the sheet</b>, right above the keyboard. Opened by the share key (field focused) or the up-next chip (field not focused). Empty: "Nothing up next. Paste a video link to load a reel."</td></tr>
+      <tr><td>Emotes</td><td>The emote key opens set (i)'s picker as a tray above the composer, tail on the key. One tap sends and closes it.</td></tr>
+      <tr><td>Host</td><td>Host key → host sheet: Who controls playback (Everyone / Only me), the invite link with Copy, "Arrange the room on a computer". Tapping a name tag → host options as an action sheet at the foot (Mute chat, Remove from room, then the confirm).</td></tr>
+      <tr><td>Focus order</td><td>leave · host · people · pause · seek · full screen · room · up next · chat log · emote · message · share · send. A sheet traps focus, Esc closes it, focus returns to its key.</td></tr>
+    </table>
+    <div>
+      <h3 class="cap">Vertical budget (CSS px)</h3>
+      <div class="budget">
+        <div class="bar" style="height:422px"><div style="height:20px;background:#c6a8ec">top 40</div><div style="height:110px;background:#6fd0c4">video 219</div><div style="height:22px;background:#e8b33c">shelf 44</div><div style="flex:1;background:#fff7ea">room 453</div><div style="height:26px;background:#c6a8ec">composer 52</div><div style="height:7px;background:#6a5a72"></div><div style="font-weight:700;color:var(--ui-muted)">390 × 844</div></div>
+        <div class="bar" style="height:370px"><div style="height:20px;background:#c6a8ec">top 40</div><div style="height:101px;background:#6fd0c4">video 202</div><div style="height:22px;background:#e8b33c">shelf 44</div><div style="flex:1;background:#fff7ea">room 366</div><div style="height:26px;background:#c6a8ec">composer 52</div><div style="height:7px;background:#6a5a72"></div><div style="font-weight:700;color:var(--ui-muted)">360 × 740</div></div>
+      </div>
+      <p class="cap-p" style="max-width:280px">Drawn at half height. The mocks include a 22 px status bar and a 14 px home bar; in a browser tab the toolbar takes that and more, so the room absorbs the loss and can shrink below 270 px on shorter browser viewports; the composer stays docked and chat opens as a sheet.</p>
+    </div>
+  </div>
+</section>
+
+<section id="m10-presets">
+  <h2>4 · Create a room: pick a preset (radiogroup "Starting room"; thumbnails at 1×, 212 × 176)</h2>
+  <div class="row">
+    <div class="shot">
+      <span class="lbl">Phone <span>· the cards scroll sideways, the chosen one is ringed in mustard</span></span>
+      <div class="ph" style="--w:360px;--h:740px">
+        <div class="osbar"><span>9:41</span><span>omega-share</span></div>
+        <div class="form" style="padding:10px 12px">
+          <h3 style="margin:0;font-size:17px">Make a room</h3>
+          <label for="rn">Room name</label>
+          <input id="rn" class="ui-input" value="Movie night">
+          <label>Starting room</label>
+          <div class="presets" role="radiogroup" aria-label="Starting room" data-presets="phone" style="margin-right:-12px"></div>
+          <p class="cap-p" style="margin:0">You can rearrange it later on a computer.</p>
+          <button class="ui-button" style="justify-self:start"><span class="ui-sprite ui-icon-create"></span>Make the room</button>
+        </div>
+      </div>
+    </div>
+    <div class="shot">
+      <span class="lbl">Desktop <span>· all six at once, 3 × 2</span></span>
+      <div class="ui-panel" style="padding:16px">
+        <div class="form">
+          <label>Starting room</label>
+          <div class="grid3" role="radiogroup" aria-label="Starting room" data-presets="grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const PRESETS = [
+    ["classic", "Classic", "Two rows of armchairs on the big rug. The room you know."],
+    ["cinema", "Cinema", "Red velvet sofas in rows, posters and a popcorn cart."],
+    ["living", "Living room", "Couches, a reading chair and a bookcase. Feet up."],
+    ["lounge", "Lounge", "Beanbags on kilim runners, low light, plants."],
+    ["cafe", "Café", "Little tables for two, a bookcase and a snack cart."],
+    ["empty", "Empty", "Just beanbags and bare boards. Furnish it your way."],
+  ];
+  for (const el of document.querySelectorAll("[data-presets]")) {
+    el.innerHTML = PRESETS.map(([id, name, blurb]) => `<button class="preset" role="radio" aria-checked="${id === "cinema"}"><img src="../presets/thumbs/${id}.png" alt=""><b>${name}</b><span>${blurb}</span></button>`).join("");
+  }
+
+  // ------------------------------------------------------------------ phone states
+  const LINES = {
+    s1: ["Juniper", "brb popcorn"], s2: ["Oli", "the boat!! look at the boat"], s3: ["Moss", "wait for the green flash at the very end"],
+    f1: ["Ada", "here it comes"], f2: ["Kit", "ooooh"], s0: ["Sol", "that skyline is unreal"], sm: ["Kit", "who picked this one? 10/10"],
+  };
+  const line = (k, age = "settled") => { const [w, t] = LINES[k]; return `<li class="ui-fs-line${age === "fresh" ? "" : " is-" + age}"><b>${w}</b> ${t}</li>`; };
+  const sys = (who, what, glyph) => `<li><p class="ui-sysline"><span class="ui-sprite ui-glyph-${glyph}"></span><span><b>${who}</b> ${what}</span></p></li>`;
+  const icon = (n) => `<span class="ui-sprite ui-icon-${n}"></span>`;
+  const topBar = (owner) => `<div class="top">${icon("tv")}<span class="name">Movie night</span><span class="spacer"></span><button class="ui-button secondary icon" aria-label="People: 7 of 8">${icon("people")}<span class="ppl">7/8</span></button>${owner ? `<button class="ui-button self icon" aria-label="Host">${icon("remote-host")}</button>` : ""}<button class="ui-button secondary icon" aria-label="Leave the room">${icon("leave")}</button></div>`;
+  const video = `<div class="video ui-tv-frame compact"></div>`;
+  const shelf = `<div class="ui-tv-shelf compact"><div class="ui-transport" role="group" aria-label="Shared playback: affects everyone"><button class="ui-button shared icon" aria-label="Pause for everyone">${icon("pause")}</button><span class="ui-readout">25:31</span><div class="ui-seek" style="--pos:0.62"><span class="ui-seek-fill"></span><span class="ui-sprite ui-seek-head ui-seek-head-idle"></span></div><span class="ui-readout">41:07</span><button class="ui-button self icon" aria-label="Full screen">${icon("fullscreen")}</button></div></div>`;
+  const upnext = `<button class="upnext ui-chip" aria-label="Up next: 3 videos">${icon("queue")}Up next · 3</button>`;
+  const overlay = (unread) => `<div class="overlay"><button class="grab" aria-label="Open chat" style="border:0;background:transparent">Chat${unread ? ` <span class="unread">${unread}</span>` : ""}</button><ol class="chatlog" role="log" aria-label="Chat messages">${line("s3")}${line("f1", "fresh")}${line("f2", "fresh")}</ol></div>`;
+  const room = (inner = "", cls = "") => `<div class="roomwin ${cls}" data-room>${inner}</div>`;
+  const composer = ({ emote = false, text = "", focus = false } = {}) => `<form class="composer" onsubmit="return false"><button class="ui-button self icon${emote ? " is-press" : ""}" aria-label="Emote" aria-expanded="${emote}">${icon("emote")}</button><input class="ui-input${focus ? " is-focus" : ""}" placeholder="Say something…" aria-label="Chat message" value="${text}"><button class="ui-button secondary icon" aria-label="Share a video link">${icon("queue-add")}</button><button class="ui-button icon${text ? "" : " is-disabled"}" aria-label="Send">${icon("send")}</button></form>`;
+  const kbd = (h) => `<div class="kbd" style="height:${h}px">keyboard</div>`;
+  const qrow = (src, title, head, who, next) => `<li class="ui-qrow${next ? " is-next" : ""}"><span class="ui-sprite ui-qsrc-${src}"></span><span class="body"><span class="title">${title}</span><span class="meta"><span class="ui-sprite ui-head-${head}"></span>${who}</span></span><button class="ui-sprite ui-qx" aria-label="Remove ${title} from the queue"></button></li>`;
+  const queue = `<ol class="ui-qlist">${qrow("video", "Rain on a tin roof", "kiki", "Kit", true)}${qrow("live", "Night train cab view", "mo", "Moss")}${qrow("generic", "Pottery wheel", "juno", "Ada")}</ol>`;
+  const paste = (focus) => `<div class="paste">${icon("link")}<input class="ui-input${focus ? " is-focus" : ""}" placeholder="Paste a video link" aria-label="Video link to add to the queue" value="${focus ? "https://vimeo.com/76979871" : ""}"><button class="ui-button">${icon("queue-add")}Add</button></div>`;
+  const sheet = (inner, extra = "") => `<div class="sheet ui-panel" ${extra}><span class="handle"></span>${inner}</div>`;
+  const home = `<div class="homebar"></div>`;
+  const os = `<div class="osbar"><span>9:41</span><span>omega-share</span></div>`;
+  const note = (txt, pos) => `<span class="note" style="${pos}">${txt}</span>`;
+
+  const STATES = [
+    ["watch", "Watching", "room on top, last lines over it, composer at the foot", (k) =>
+      os + topBar(false) + video + shelf + room(upnext + overlay(2)) + composer() + home],
+    ["typing", "Typing a message", "keyboard open: the room folds away, the video stays", (k) =>
+      os + video + `<ol class="chatlog full" role="log" aria-label="Chat messages" style="flex:1 1 0;min-height:0;padding:6px 8px">${line("s0")}${line("sm")}${sys("Wren", "paused", "pause")}${sys("Wren", "played", "play")}${line("s1")}${line("s2")}${line("s3")}${line("f1", "fresh")}${line("f2", "fresh")}</ol>` + composer({ text: "no way, again!", focus: true }) + kbd(k)],
+    ["chat", "Chat sheet", "pulled up from the overlay; covers the room, not the video", (k) =>
+      os + topBar(false) + video + shelf + sheet(`<div class="head">${icon("chat")}<h3>Chat</h3><button class="ui-button secondary icon" aria-label="Close chat">${icon("close")}</button></div><ol class="chatlog body full" role="log" aria-label="Chat messages" style="display:flex">${line("s0")}${line("sm")}${sys("Wren", "paused", "pause")}${sys("Wren", "played", "play")}${line("s1")}${line("s2")}${line("s3")}${line("f1", "fresh")}${line("f2", "fresh")}</ol>`) + composer() + home],
+    ["queue", "Share sheet", "the share key or the up-next chip: Up next + the paste field", (k) =>
+      os + topBar(false) + video + shelf + sheet(`<div class="head">${icon("queue")}<h3>Up next</h3><span class="n">3 / 20</span><button class="ui-button secondary icon" aria-label="Close">${icon("close")}</button></div><div class="body">${queue}<p class="hint">Paste a link from a video site. YouTube, Vimeo and more stay in sync; other sites play for you only.</p></div>${paste(false)}`) + composer() + home],
+    ["paste", "Pasting a link", "keyboard open: the field rides on the keyboard, the list shrinks", (k) =>
+      os + video + sheet(`<div class="head">${icon("queue")}<h3>Up next</h3><span class="n">3 / 20</span><button class="ui-button secondary icon" aria-label="Close">${icon("close")}</button></div><div class="body">${queue}</div>${paste(true)}`, `style="margin-bottom:4px"`) + kbd(k)],
+    ["emote", "Emote key", "set (i)'s picker as a tray above the composer", (k) =>
+      os + topBar(false) + video + shelf + room(upnext + overlay(0)) + `<div style="position:relative;flex:none;height:0"><div class="ui-emotes tray" role="menu" aria-label="Emotes" style="bottom:6px;--ui-tail-x:16px"><button class="ui-emote" role="menuitem" aria-label="Heart"><span class="ui-sprite ui-emote-pick-heart"></span></button><button class="ui-emote" role="menuitem" aria-label="Laugh"><span class="ui-sprite ui-emote-pick-laugh"></span></button><button class="ui-emote" role="menuitem" aria-label="Question"><span class="ui-sprite ui-emote-pick-question"></span></button><button class="ui-emote" role="menuitem" aria-label="Surprise"><span class="ui-sprite ui-emote-pick-exclaim"></span></button><button class="ui-emote" role="menuitem" aria-label="Clap"><span class="ui-sprite ui-emote-pick-clap"></span></button><span class="ui-sprite ui-emotes-sep"></span><button class="ui-emote" role="menuitem" aria-label="Wave"><span class="ui-sprite ui-emote-pick-wave"></span></button></div></div>` + composer({ emote: true }) + home],
+    ["host", "Host sheet", "owners only: the remote, the invite link, where to arrange", (k) =>
+      os + topBar(true) + video + shelf + sheet(`<div class="head">${icon("remote-host")}<h3>Host</h3><button class="ui-button secondary icon" aria-label="Close">${icon("close")}</button></div><div class="body" style="gap:12px"><div class="setting"><h4>Who controls playback</h4><div class="seg" role="radiogroup" aria-label="Who controls playback"><button class="ui-picker" role="radio" aria-checked="true">${icon("remote")}Everyone</button><button class="ui-picker" role="radio" aria-checked="false">${icon("remote-host")}Only me</button></div></div><div class="setting"><h4>Up next · 3 videos</h4><button class="ui-button shared">${icon("play")}Play next now</button></div><div class="setting"><h4>Invite link</h4><div class="invite"><input class="ui-input" readonly value="omega.share/r/movie-night" aria-label="Invite link"><button class="ui-button secondary">${icon("copy")}Copy</button></div></div><div class="setting"><h4>Arrange the room</h4><p>${icon("arrange")} Moving furniture needs a bigger screen: open this room on a computer.</p></div></div>`) + composer() + home],
+    ["mod", "Host options", "tap a name tag: an action sheet at the foot", (k) =>
+      os + topBar(true) + video + shelf + room(upnext + `<span class="ui-tag mod" data-at="550,291">Sol</span>`, "dim") + `<div style="position:relative;flex:none;height:0"><div class="ui-emotes ui-modmenu action" role="menu" aria-label="Sol: host options" style="bottom:6px"><div class="head"><span class="ui-sprite ui-portrait-mo"></span><span class="name">Sol</span><button class="ui-sprite ui-qx" aria-label="Close menu"></button></div><span class="ui-modsep"></span><button class="ui-modrow" role="menuitem">${icon("chat-mute")}Mute chat</button><button class="ui-modrow" role="menuitem">${icon("remove")}Remove from room</button></div></div>` + composer() + home],
+  ];
+  const TAGS = [["Ada", 358, 289], ["Wren", 422, 286, "self"], ["Sol", 550, 291], ["Kit", 614, 289], ["Juniper", 358, 355], ["Oli", 422, 353]];
+
+  for (const host of document.querySelectorAll("[data-size]")) {
+    const [w, h] = host.dataset.size.split("x").map(Number);
+    const k = Math.round(h * (w >= 390 ? 0.4 : 0.39)); // keyboard height incl. suggestions
+    for (let r = 0; r < 2; r++) {
+      const row = document.createElement("div");
+      row.className = "row";
+      for (const [id, label, sub, make] of STATES.slice(r * 4, r * 4 + 4)) {
+        row.insertAdjacentHTML("beforeend", `<div class="shot"><span class="lbl">${label} <span>· ${sub}</span></span><div class="ph ui-room ui-touch show-hits" data-state="${id}" style="--w:${w}px;--h:${h}px">${make(k)}</div></div>`);
+      }
+      host.appendChild(row);
+    }
+  }
+  // Camera: centre the stage on the seats (stage x 480, y 350), clamp to the 960×600 stage; tags follow the stage.
+  for (const rw of document.querySelectorAll("[data-room]")) {
+    const { width, height } = rw.getBoundingClientRect();
+    const bx = Math.round(width / 2 - 480), by = Math.round(Math.min(0, Math.max(height - 600, height / 2 - 350)));
+    rw.style.backgroundPosition = `${bx}px ${by}px`;
+    const own = rw.querySelector("[data-at]");
+    const list = own ? [] : TAGS;
+    for (const [name, x, y, cls] of list) rw.insertAdjacentHTML("afterbegin", `<span class="ui-tag${cls ? " " + cls : ""}" style="left:${x + bx}px;top:${y + by}px">${name}</span>`);
+    if (own) { const [x, y] = own.dataset.at.split(",").map(Number); own.style.left = `${x + bx}px`; own.style.top = `${y + by}px`; }
+  }
+</script>
+</body>
+</html>
