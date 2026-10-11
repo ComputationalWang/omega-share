@@ -26,6 +26,7 @@ Raw evidence: [`m8-signoff/`](m8-signoff/) (perf reports for both tiers).
 ## Caveats
 
 - **Soak not run on this SHA.** The 10-minute heap soak shows PENDING in both reports (it is opt-in, `--soak`). The last soak (M7 sign-off) read 5.3 MB (≤ 150); no M8 change touches long-lived room state outside the bubble pool, which the chat-burst rows exercise. Run `bun run perf --soak` if you want it recorded.
+- **Soak recorded later (OME-902), on `15ef69b`:** `bun run perf --soak` (flocked, headless) read **5.6 MB** JS heap after the 10 min soak (start 4.3 → end 5.6 MB; 119 chats + 119 seat clicks from the site, bots saw 6114 chats, 4277 seat changes, 46 joins) — PASS ≤ 150 MB. That run was unforced-tier; 120 passed, 1 failed: `chat.perf.ts:80` hit `browser.startTracing: Peer disconnected` (harness trace drop, first test of the run, not a budget miss; the same row passed on both forced tiers in the M8 reports).
 - **Twitch gate is channel-dependent:** on `angellxgod` one member's Start Watching also lifted the other's gate (Twitch-side behaviour). Not a product defect.
 - The hosted `POST /rooms` rate limit (429) forced reuse of QA2's own empty smoke room for the final run.
 
