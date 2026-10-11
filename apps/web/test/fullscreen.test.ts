@@ -474,3 +474,17 @@ describe("fullscreenLayout on phones: the composer has room (OME-905)", () => {
     expect(l.compact.controls).toBe(false);
   });
 });
+
+// Twitch's 534×300 minimum must not push a remembered phone band off-screen.
+describe("Twitch phone composer reachability", () => {
+  test("667×375 remembered band keeps transport and composer entirely visible", () => {
+    const l = fullscreenLayout(667, 375, "twitch", "band");
+    expect(l.tv.w).toBeGreaterThanOrEqual(534);
+    expect(l.tv.h).toBeGreaterThanOrEqual(300);
+    expect(l.strip.w).toBeGreaterThanOrEqual(BAND_MIN);
+    expect(l.strip.h).toBeGreaterThanOrEqual(48);
+    for (const r of [l.tv, l.controls, l.strip]) expect(inside(r, 667, 375)).toBe(true);
+    expect(intersects(l.controls, l.strip)).toBe(false);
+    expect(intersects(l.tv, l.strip)).toBe(false);
+  });
+});

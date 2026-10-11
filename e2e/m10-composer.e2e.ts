@@ -7,6 +7,7 @@ import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { providerCase, shareProvider } from "../perf/providers";
 import type { RoomName } from "./support/test-rooms";
 
 test.fixme(!available.web, PENDING.web);
@@ -95,5 +96,28 @@ for (const [name, width, height] of SIZES) {
     await expect(strip.locator(site.emoteKey)).toBeVisible();
     await expectRoomy(page, "band");
     await expectSends(page, `${name} band`);
+  });
+}
+
+for (const key of ["twitchVod", "twitchLive"] as const) {
+  test(`${key}: 667×375 remembered band keeps composer and transport reachable`, async ({ browser, request }) => {
+    const room = testRoom("m10-composer", key === "twitchVod" ? "l667" : "l932");
+    await shareProvider(request, providerCase(key).shareUrl, room.id);
+    clients = await joinRoom(browser, {
+      roomUrl: room.url, count: 1, nicknamePrefix: key,
+      contextOptions: () => ({ viewport: { width: 667, height: 375 }, isMobile: true, hasTouch: true }),
+      setup: async (context) => {
+        await context.addInitScript(() => localStorage.setItem("omega.fsStrip", "band"));
+      },
+    });
+    const page = clients[0]?.page;
+    if (page === undefined) throw new Error("no client");
+    await expect(page.locator('iframe[src^="https://player.twitch.tv"]')).toBeAttached();
+    await page.locator(site.fullscreenToggle).click();
+    await expect(page.locator(site.fsStrip)).toHaveAttribute("data-strip", "band");
+    await expectRoomy(page, key);
+    const transport = await box(page.locator(".controls"));
+    expect(transport.y + transport.height).toBeLessThanOrEqual(375);
+    await expectSends(page, key);
   });
 }
