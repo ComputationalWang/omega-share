@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { ROOM_SECRETS_STORAGE_KEY, type RoomSummary } from "@omega/shared";
+import { cinema, classic } from "./support/preset-layouts";
 import type { HomeOptions } from "../src/home";
+import { PRESETS } from "../src/presets";
+import { pendingLayoutKey } from "../src/pending-layout";
+import { SAVED_LAYOUTS_KEY, loadSavedLayouts, saveLayout } from "../src/saved-layouts";
 import { loadRoomSecrets, rememberRoom } from "../src/room-secrets";
 
 // A real DOM for this file only; the other web tests stay DOM-free.
@@ -12,6 +16,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
+const THUMBS = { classic: "/t/classic.png", cinema: "/t/cinema.png", living: "/t/living.png", lounge: "/t/lounge.png", cafe: "/t/cafe.png", empty: "/t/empty.png" };
 const SERVER = "http://api.test";
 const ROOM = "abcdefghijklmnopqrstuvwxyz";
 const OWNER = "o".repeat(21) + "A";
@@ -27,6 +32,9 @@ class MemoryStore {
     if (this.failWrites) throw new Error("QuotaExceededError");
     this.data.set(k, value);
   }
+  removeItem(k: string): void {
+    this.data.delete(k);
+  }
 }
 
 interface Call {
@@ -35,6 +43,7 @@ interface Call {
 }
 
 let store: MemoryStore;
+let session: MemoryStore;
 let calls: Call[];
 let navigated: string[];
 let listed: RoomSummary[] | string;
@@ -50,6 +59,8 @@ async function mount(): Promise<HTMLElement> {
     root,
     serverUrl: SERVER,
     store,
+    session,
+    thumbs: THUMBS,
     fetch: (url, init) => {
       calls.push({ url, init });
       if (init?.method === "POST") return Promise.resolve(json(created.status, created.body));
@@ -78,6 +89,7 @@ async function submit(root: HTMLElement, title: string, priv: boolean): Promise<
 
 beforeEach(() => {
   store = new MemoryStore();
+  session = new MemoryStore();
   calls = [];
   navigated = [];
   listed = [];
@@ -91,7 +103,7 @@ describe("create room (POST /rooms)", () => {
     const post = calls.find((c) => c.init?.method === "POST");
     expect(post?.url).toBe(`${SERVER}/rooms`);
     expect(new Headers(post?.init?.headers).get("content-type")).toBe("application/json");
-    expect(JSON.parse(typeof post?.init?.body === "string" ? post.init.body : "null")).toEqual({ title: "Movie night", visibility: "private" });
+    expect(JSON.parse(typeof post?.init?.body === "string" ? post.init.body : "null")).toEqual({ title: "Movie night", visibility: "private", preset: "classic" });
     expect(loadRoomSecrets(store).rooms[ROOM]).toEqual({ ownerToken: OWNER, inviteKey: KEY });
     expect(navigated).toEqual([`/r/${ROOM}`]);
   });
@@ -101,7 +113,7 @@ describe("create room (POST /rooms)", () => {
     const root = await mount();
     await submit(root, "Open house", false);
     const post = calls.find((c) => c.init?.method === "POST");
-    expect(JSON.parse(typeof post?.init?.body === "string" ? post.init.body : "null")).toEqual({ title: "Open house", visibility: "public" });
+    expect(JSON.parse(typeof post?.init?.body === "string" ? post.init.body : "null")).toEqual({ title: "Open house", visibility: "public", preset: "classic" });
     expect(loadRoomSecrets(store).rooms[ROOM]).toEqual({ ownerToken: OWNER });
   });
 
@@ -209,7 +221,7 @@ describe("your rooms (localStorage omega.rooms)", () => {
     const pending = new Promise<Response>((r) => {
       release = r;
     });
-    const { ready } = mountHome({ root, serverUrl: SERVER, store, fetch: () => pending, navigate: (path) => navigated.push(path) });
+    const { ready } = mountHome({ root, serverUrl: SERVER, store, session, thumbs: THUMBS, fetch: () => pending, navigate: (path) => navigated.push(path) });
     byTestId(root, "your-room-forget", HTMLButtonElement).click();
     release(json(200, { rooms: [] }));
     await ready;
@@ -224,5 +236,110 @@ describe("your rooms (localStorage omega.rooms)", () => {
     expect(root.textContent).not.toContain(OWNER);
     expect(root.innerHTML).not.toContain(OWNER);
     expect(root.innerHTML).not.toContain(KEY);
+  });
+});
+
+const postedBody = (): unknown => {
+  const post = calls.find((c) => c.init?.method === "POST");
+  return JSON.parse(typeof post?.init?.body === "string" ? post.init.body : "null");
+};
+const radios = (root: ParentNode): HTMLInputElement[] => [...root.querySelectorAll("input[type=radio][name=preset]")].filter((e): e is HTMLInputElement => e instanceof HTMLInputElement);
+const radio = (root: ParentNode, id: string): HTMLInputElement => byTestId(root, `preset-${id}`, HTMLInputElement);
+
+describe("room presets in the create form (OME-910)", () => {
+  test("a fieldset with a legend holds one native radio per preset, classic checked by default", async () => {
+    const root = await mount();
+    const fieldset = byTestId(root, "preset-picker", HTMLFieldSetElement);
+    expect(fieldset.querySelector("legend")?.textContent).not.toBe("");
+    const presets = [...fieldset.querySelectorAll("input[type=radio]")].filter((e): e is HTMLInputElement => e instanceof HTMLInputElement);
+    expect(presets.map((r) => r.value)).toEqual(PRESETS.map((p) => p.id));
+    expect(new Set(presets.map((r) => r.name))).toEqual(new Set(["preset"]));
+    expect(presets.filter((r) => r.checked).map((r) => r.value)).toEqual(["classic"]);
+  });
+
+  test("each radio's label holds a lazy fixed-size thumbnail with empty alt, the name and the blurb", async () => {
+    const root = await mount();
+    for (const p of PRESETS) {
+      const label = radio(root, p.id).closest("label");
+      const img = label?.querySelector("img");
+      expect(img?.getAttribute("loading")).toBe("lazy");
+      expect(img?.getAttribute("decoding")).toBe("async");
+      expect(img?.getAttribute("alt")).toBe("");
+      expect(img?.getAttribute("width")).toBe("212");
+      expect(img?.getAttribute("height")).toBe("176");
+      expect(img?.getAttribute("src")).toBe(`/t/${p.id}.png`);
+      expect(label?.textContent).toContain(p.name);
+      expect(label?.textContent).toContain(p.blurb);
+    }
+  });
+
+  test("the default sends preset classic; a picked preset is sent as is", async () => {
+    let root = await mount();
+    await submit(root, "Movie night", false);
+    expect(postedBody()).toEqual({ title: "Movie night", visibility: "public", preset: "classic" });
+    calls = [];
+    root = await mount();
+    radio(root, "cinema").click();
+    await submit(root, "Movie night", false);
+    expect(postedBody()).toEqual({ title: "Movie night", visibility: "public", preset: "cinema" });
+    expect(session.data.size).toBe(0);
+  });
+});
+
+describe("your saved layouts in the create form (OME-910)", () => {
+  test("no saved layouts: no second group", async () => {
+    const root = await mount();
+    expect(root.querySelector("[data-testid=saved-layouts]")).toBeNull();
+  });
+
+  test("each saved layout is a text-only radio in the same choice; picking one posts empty and stashes the layout for the room page", async () => {
+    saveLayout(store, "Mine", cinema);
+    saveLayout(store, "<b>Other</b>", classic);
+    const root = await mount();
+    const group = byTestId(root, "saved-layouts", HTMLFieldSetElement);
+    expect(group.querySelector("img")).toBeNull();
+    const saved = all(group, "saved-layout").map((e) => e.textContent);
+    expect(saved.join("|")).toContain("Mine");
+    expect(saved.join("|")).toContain("<b>Other</b>");
+    expect(group.querySelector("b")).toBeNull();
+    const mine = byTestId(group, "saved-layout-radio", HTMLInputElement);
+    mine.click();
+    expect(radio(root, "classic").checked).toBe(false);
+    await submit(root, "Movie night", false);
+    expect(postedBody()).toEqual({ title: "Movie night", visibility: "public", preset: "empty" });
+    expect(JSON.parse(session.data.get(pendingLayoutKey(ROOM)) ?? "null")).toEqual(cinema);
+    expect(navigated).toEqual([`/r/${ROOM}`]);
+  });
+
+  test("the stash is written after the 201 and not at all when the create fails", async () => {
+    saveLayout(store, "Mine", cinema);
+    created = { status: 503, body: { ok: false, error: { code: "unavailable", message: "x" } } };
+    const root = await mount();
+    byTestId(root, "saved-layout-radio", HTMLInputElement).click();
+    await submit(root, "Movie night", false);
+    expect(session.data.size).toBe(0);
+    expect(navigated).toEqual([]);
+  });
+
+  test("delete removes it from storage and the list and falls back to the default preset", async () => {
+    saveLayout(store, "Mine", cinema);
+    const root = await mount();
+    byTestId(root, "saved-layout-radio", HTMLInputElement).click();
+    byTestId(root, "saved-layout-delete", HTMLButtonElement).click();
+    expect(loadSavedLayouts(store)).toEqual([]);
+    expect(root.querySelector("[data-testid=saved-layout]")).toBeNull();
+    expect(radios(root).filter((r) => r.checked).map((r) => r.value)).toEqual(["classic"]);
+  });
+
+  test("garbage in the saved-layouts key: the form still renders and creates a room", async () => {
+    for (const raw of ["not json{", JSON.stringify([{ name: "x", layout: { furniture: [] } }])]) {
+      store.data.set(SAVED_LAYOUTS_KEY, raw);
+      calls = [];
+      const root = await mount();
+      expect(radios(root)).toHaveLength(PRESETS.length);
+      expect(root.querySelector("[data-testid=saved-layouts]")).toBeNull();
+      await submit(root, "Movie night", false);
+      expect(postedBody()).toEqual({ title: "Movie night", visibility: "public", preset: "classic" });
+    }
   });
 });

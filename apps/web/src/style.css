@@ -197,7 +197,7 @@ legend { padding: 0; margin-bottom: 6px; }
 .editor { display: grid; gap: 8px; margin: 8px 0; }
 .editor .ui-slot { cursor: pointer; }
 .editor-slot-name { font-size: 11px; line-height: 1.1; text-align: center; color: var(--fg); }
-.editor-piece, .editor-save-row, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.editor-piece, .editor-save-row, .editor-mine, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .editor-picked, .editor-count, .editor-message { margin: 0; }
 .editor-count { color: var(--muted); }
 .editor-problems { margin: 0; padding-left: 1.2em; color: var(--error); }
@@ -496,3 +496,17 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .portrait-sheet .queue-content > * { flex: none; }
 .portrait-sheet .queue-content .ui-qlist { max-height: none; overflow: visible; }
 .portrait-sheet .queue-form .ui-button { min-width: 44px; min-height: 44px; }
+/* Room layout picker (OME-910): native radios in labels. A sideways row on a phone-width panel (one swipe, snap), thumbs
+ * keep their 212:176 ratio from the width/height attributes so nothing shifts as they load. */
+.home .preset-picker, .home .saved-layouts { display: grid; gap: 6px; min-width: 0; }
+.preset-list { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; }
+.preset { flex: none; width: 140px; display: grid; gap: 2px; align-content: start; scroll-snap-align: start; padding: 6px; border: 2px solid transparent; border-radius: 8px; background: var(--bg); cursor: pointer; position: relative; }
+.preset:has(input:checked) { border-color: var(--accent); }
+.preset:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.preset img { width: 100%; height: auto; border-radius: 4px; image-rendering: pixelated; }
+.preset input { position: absolute; top: 10px; left: 10px; margin: 0; }
+.preset-name { font-weight: 600; }
+.preset-blurb { color: var(--muted); font-size: 0.8em; }
+.saved-item { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.saved-name { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.saved-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

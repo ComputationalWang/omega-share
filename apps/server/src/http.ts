@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import * as v from "valibot";
 import {
   CreateRoomRequestSchema,
-  DEFAULT_LAYOUT,
+  DEFAULT_ROOM_PRESET,
   MAX_CREATE_BODY_BYTES,
   MAX_LISTED_ROOMS,
   MAX_REPORT_BODY_BYTES,
@@ -38,6 +38,7 @@ import {
 } from "@omega/shared";
 import type { EmbedPolicy } from "./embed-policy";
 import type { SecurityHeaders } from "./headers";
+import { presetLayout } from "./presets";
 import { KeyedLimiter, TokenBucket, isLoopbackKey, readBodyCapped, type Clock } from "./rate-limit";
 import type { Queue } from "./queue";
 import type { Reports } from "./reports";
@@ -289,8 +290,8 @@ export function createHttpApp({
       return fail(400, "invalid_body", "body is not JSON");
     }
     const parsed = v.safeParse(CreateRoomRequestSchema, json);
-    if (!parsed.success) return fail(400, "invalid_body", "expected { title, visibility }");
-    const { title, visibility } = parsed.output;
+    if (!parsed.success) return fail(400, "invalid_body", "expected { title, visibility, preset? }");
+    const { title, visibility, preset = DEFAULT_ROOM_PRESET } = parsed.output;
     if (titleBlocked(title)) return fail(400, "invalid_body", "that title isn't allowed");
     // Refuse, never evict: evicting would let anyone delete other people's rooms by creating new ones.
     if (rooms.size >= MAX_ROOMS) return fail(503, "too_many_rooms", "too many rooms right now, try again later");
@@ -305,7 +306,7 @@ export function createHttpApp({
       id,
       title,
       createdAt: wallNow(),
-      layout: DEFAULT_LAYOUT,
+      layout: presetLayout(preset),
       visibility,
       pinned: false,
       ownerHash: hashSecret(ownerToken),

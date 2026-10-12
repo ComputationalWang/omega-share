@@ -76,8 +76,8 @@ archive() { # dest paths...
 archive "$src"
 in_dir "$src" bun install --frozen-lockfile --ignore-scripts
 in_dir "$src" env -i PATH="$PATH" HOME="$HOME" OMEGA_BUILD_SHA="$sha" bun run --filter @omega/web build
-# 2. The release: server + shared sources, the built site, production node_modules.
-archive "$rel" package.json bun.lock .bun-version apps/server packages/shared
+# 2. The release: server + shared sources, the preset layouts the server builds rooms from, the built site, production node_modules.
+archive "$rel" package.json bun.lock .bun-version apps/server packages/shared assets/presets
 run mkdir -p "$rel/apps/web"
 run cp -a "$src/apps/web/dist" "$rel/apps/web/"
 in_dir "$rel" bun install --frozen-lockfile --production --ignore-scripts --filter @omega/server

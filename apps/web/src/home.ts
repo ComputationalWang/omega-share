@@ -6,10 +6,15 @@ import {
   RoomListResponseSchema,
   type CreateRoomErrorCode,
   type RoomId,
+  type RoomLayout,
+  type RoomPresetId,
   type RoomSummary,
 } from "@omega/shared";
 import { el } from "./controls/dom";
+import { stashPendingLayout, type PendingStore } from "./pending-layout";
+import { DEFAULT_PRESET, PRESETS, PRESET_THUMB } from "./presets";
 import { forgetRoom, loadRoomSecrets, rememberRoom, type SecretsStore } from "./room-secrets";
+import { deleteSavedLayout, loadSavedLayouts, type LayoutStore } from "./saved-layouts";
 
 // The home page's rooms panel (OME-409, ADR 0028): create a room, the rooms this browser holds secrets for, and the
 // public list. A lazy chunk, so the landing's first paint doesn't wait for it. Plain UI; design set (i) skins it later.
@@ -18,7 +23,11 @@ import { forgetRoom, loadRoomSecrets, rememberRoom, type SecretsStore } from "./
 export interface HomeOptions {
   readonly root: HTMLElement;
   readonly serverUrl: string;
-  readonly store: SecretsStore;
+  readonly store: SecretsStore & LayoutStore;
+  /** Where a chosen saved layout waits for the room page (sessionStorage). */
+  readonly session: Pick<PendingStore, "setItem">;
+  /** The preset thumbnails as URLs (preset-thumbs.ts, so this file stays free of bundler-only imports). */
+  readonly thumbs: Readonly<Record<RoomPresetId, string>>;
   readonly fetch: (url: string, init?: RequestInit) => Promise<Response>;
   /** Opens a room page, e.g. `location.assign`. */
   readonly navigate: (path: string) => void;
@@ -36,6 +45,8 @@ const ERRORS: Record<CreateRoomErrorCode, string> = {
   too_many_rooms: "The server is full right now. Try again later.",
   unavailable: "The server couldn't save the room. Try again later.",
 };
+const SAVED_GONE = "That saved layout isn't there any more. Pick another.";
+const SAVED_PREFIX = "saved:";
 const NETWORK_ERROR = "Could not reach the server. Try again.";
 const STORAGE_ERROR = "This browser won't keep the room's keys (site storage is blocked or full), so you couldn't manage or rejoin it. Allow storage for this site and try again.";
 
@@ -66,7 +77,56 @@ export function mountHome(opts: HomeOptions): Home {
   const error = el("p", { className: "error", ariaLive: "polite" }, "create-room-error");
   const check = el("div", { className: "check" });
   check.append(priv, privLabel);
-  form.append(el("h2", { textContent: "Make a room" }), titleLabel, title, check, error, submit);
+
+  // Layout: the presets (native radios: one tab stop, arrows move) and, below, the owner's own saved layouts. One
+  // `name="preset"` group, so there is one choice across both. The server resolves the id; only a saved layout also
+  // waits in sessionStorage for the room page to send it (pending-layout.ts).
+  const picker = el("fieldset", { className: "preset-picker" }, "preset-picker");
+  picker.append(el("legend", { textContent: "Room layout" }));
+  const presetList = el("div", { className: "preset-list" });
+  for (const p of PRESETS) {
+    const label = el("label", { className: "preset" });
+    const radio = el("input", { type: "radio", name: "preset", value: p.id, checked: p.id === DEFAULT_PRESET }, `preset-${p.id}`);
+    const img = el("img", { src: opts.thumbs[p.id], alt: "", width: PRESET_THUMB.w, height: PRESET_THUMB.h, loading: "lazy", decoding: "async" });
+    label.append(radio, img, el("span", { className: "preset-name", textContent: p.name }), el("span", { className: "preset-blurb", textContent: p.blurb }));
+    presetList.append(label);
+  }
+  picker.append(presetList);
+  const savedSlot = el("div", { className: "saved-slot" });
+  const defaultRadio = (): HTMLInputElement | null => {
+    const r = picker.querySelector(`input[value="${DEFAULT_PRESET}"]`);
+    return r instanceof HTMLInputElement ? r : null;
+  };
+  const renderSaved = (): void => {
+    const list = loadSavedLayouts(opts.store);
+    if (list.length === 0) {
+      savedSlot.replaceChildren();
+      return;
+    }
+    const group = el("fieldset", { className: "saved-layouts" }, "saved-layouts");
+    group.append(el("legend", { textContent: "Your layouts" }));
+    for (const item of list) {
+      const row = el("div", { className: "saved-item" }, "saved-layout");
+      const label = el("label", { className: "saved-name" });
+      const radio = el("input", { type: "radio", name: "preset", value: `${SAVED_PREFIX}${item.name}` }, "saved-layout-radio");
+      label.append(radio, el("span", { textContent: item.name }));
+      const del = el("button", { type: "button", className: "link", textContent: "Delete", ariaLabel: `Delete layout ${item.name}` }, "saved-layout-delete");
+      del.addEventListener("click", () => {
+        const wasChosen = radio.checked;
+        deleteSavedLayout(opts.store, item.name);
+        renderSaved();
+        if (wasChosen) {
+          const d = defaultRadio();
+          if (d !== null) d.checked = true;
+        }
+      });
+      row.append(label, del);
+      group.append(row);
+    }
+    savedSlot.replaceChildren(group);
+  };
+  renderSaved();
+  form.append(el("h2", { textContent: "Make a room" }), titleLabel, title, picker, savedSlot, check, error, submit);
 
   const fail = (message: string): void => {
     error.textContent = message;
@@ -75,7 +135,18 @@ export function mountHome(opts: HomeOptions): Home {
 
   form.addEventListener("submit", (ev) => {
     ev.preventDefault();
-    const req = v.safeParse(CreateRoomRequestSchema, { title: title.value, visibility: priv.checked ? "private" : "public" });
+    const chosen = [...form.querySelectorAll("input[name=preset]")].find((r): r is HTMLInputElement => r instanceof HTMLInputElement && r.checked)?.value ?? DEFAULT_PRESET;
+    let pending: RoomLayout | null = null;
+    if (chosen.startsWith(SAVED_PREFIX)) {
+      const name = chosen.slice(SAVED_PREFIX.length);
+      pending = loadSavedLayouts(opts.store).find((s) => s.name === name)?.layout ?? null;
+      if (pending === null) {
+        renderSaved();
+        fail(SAVED_GONE);
+        return;
+      }
+    }
+    const req = v.safeParse(CreateRoomRequestSchema, { title: title.value, visibility: priv.checked ? "private" : "public", preset: pending === null ? chosen : "empty" });
     if (!req.success) {
       fail(title.value.trim() === "" ? "Give the room a name." : ERRORS.invalid_body);
       title.focus();
@@ -104,6 +175,8 @@ export function mountHome(opts: HomeOptions): Home {
           fail(STORAGE_ERROR);
           return;
         }
+        // A saved layout waits for the room page. If the tab's storage is blocked the room is simply the empty preset.
+        if (pending !== null) stashPendingLayout(opts.session, res.room.id, pending);
         opts.navigate(`/r/${res.room.id}`);
       })
       .catch(() => {
