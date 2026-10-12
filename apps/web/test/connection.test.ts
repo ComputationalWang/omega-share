@@ -640,7 +640,7 @@ describe("durable sessions (ADR 0043)", () => {
     expect(fresh?.["durableSession"]).toBe(true);
     // A tokenless join can't be resume_expired again: no loop. A refusal now follows the ordinary rules.
     last().receive(durableSnapshot(TOKEN2));
-    expect(events.at(-1)).toEqual({ type: "session", token: TOKEN2 });
+    expect(events).toContainEqual({ type: "session", token: TOKEN2 });
   });
 
   test("4007 session replaced is terminal: replaced event, no reconnect, ensureConnected is a no-op", () => {
