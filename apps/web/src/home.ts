@@ -16,9 +16,9 @@ import { DEFAULT_PRESET, PRESETS, PRESET_THUMB } from "./presets";
 import { forgetRoom, loadRoomSecrets, rememberRoom, type SecretsStore } from "./room-secrets";
 import { deleteSavedLayout, loadSavedLayouts, type LayoutStore } from "./saved-layouts";
 
-// The home page's rooms panel (OME-409, ADR 0028): create a room, the rooms this browser holds secrets for, and the
-// public list. A lazy chunk, so the landing's first paint doesn't wait for it. Plain UI; design set (i) skins it later.
-// Every server string goes through textContent.
+// The home page's room directory (OME-409, ADR 0028; Dusk doorstep redesign OME-935): create a room, the rooms this
+// browser holds secrets for, and the public list. A lazy chunk, so the landing's first paint doesn't wait for it.
+// Every server string goes through textContent. The public list tells loading, empty and unreachable apart.
 
 export interface HomeOptions {
   readonly root: HTMLElement;
@@ -48,6 +48,8 @@ const ERRORS: Record<CreateRoomErrorCode, string> = {
 const SAVED_GONE = "That saved layout isn't there any more. Pick another.";
 const SAVED_PREFIX = "saved:";
 const NETWORK_ERROR = "Could not reach the server. Try again.";
+const SUBMIT_LABEL = "Create room";
+const SUBMITTING_LABEL = "Creating room…";
 const STORAGE_ERROR = "This browser won't keep the room's keys (site storage is blocked or full), so you couldn't manage or rejoin it. Allow storage for this site and try again.";
 
 function minutes(ms: number): string {
@@ -66,14 +68,15 @@ async function readJson(res: Response): Promise<unknown> {
 export function mountHome(opts: HomeOptions): Home {
   const base = opts.serverUrl.replace(/\/+$/, "");
   let titles = new Map<RoomId, string>();
+  let counts = new Map<RoomId, number>();
 
   // Create.
   const form = el("form", { className: "create-room", noValidate: true }, "create-room-form");
   const title = el("input", { type: "text", id: "create-room-title", maxLength: ROOM_TITLE_MAX_LENGTH, required: true, autocomplete: "off" }, "create-room-title");
   const titleLabel = el("label", { htmlFor: title.id, textContent: "Room name" });
   const priv = el("input", { type: "checkbox", id: "create-room-private" }, "create-room-private");
-  const privLabel = el("label", { htmlFor: priv.id, textContent: "Private (only people with the invite link can join)" });
-  const submit = el("button", { type: "submit", className: "enter", textContent: "Create room" }, "create-room-submit");
+  const privLabel = el("label", { htmlFor: priv.id, textContent: "Private · only people with the invite link can join" });
+  const submit = el("button", { type: "submit", className: "enter", textContent: SUBMIT_LABEL }, "create-room-submit");
   const error = el("p", { className: "error", ariaLive: "polite" }, "create-room-error");
   const check = el("div", { className: "check" });
   check.append(priv, privLabel);
@@ -126,11 +129,14 @@ export function mountHome(opts: HomeOptions): Home {
     savedSlot.replaceChildren(group);
   };
   renderSaved();
-  form.append(el("h2", { textContent: "Make a room" }), titleLabel, title, picker, savedSlot, check, error, submit);
+  title.placeholder = "Friday film night";
+  form.append(el("h2", { textContent: "Make a room" }), titleLabel, title, picker, savedSlot, check, error, submit, el("p", { className: "note", textContent: "Share the link once you're inside." }));
 
   const fail = (message: string): void => {
     error.textContent = message;
     submit.disabled = false;
+    submit.textContent = SUBMIT_LABEL;
+    title.focus();
   };
 
   form.addEventListener("submit", (ev) => {
@@ -154,6 +160,7 @@ export function mountHome(opts: HomeOptions): Home {
     }
     error.textContent = "";
     submit.disabled = true;
+    submit.textContent = SUBMITTING_LABEL;
     opts
       .fetch(`${base}/rooms`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(req.output) })
       .then(readJson)
@@ -186,12 +193,14 @@ export function mountHome(opts: HomeOptions): Home {
 
   // Your rooms: ids and roles only, never a secret.
   const yours = el("ul", { className: "room-list" }, "your-rooms");
+  const yoursEmpty = el("p", { className: "list-note", textContent: "No saved rooms in this browser yet." }, "your-rooms-empty");
   const yoursSection = el("section", { className: "rooms-yours" });
   yoursSection.append(el("h2", { textContent: "Your rooms" }), yours);
   const armed = new Set<string>();
   const renderYours = (): void => {
     const rooms = Object.entries(loadRoomSecrets(opts.store).rooms).reverse();
-    yoursSection.hidden = rooms.length === 0;
+    if (rooms.length === 0) yours.after(yoursEmpty);
+    else yoursEmpty.remove();
     yours.replaceChildren(
       ...rooms.map(([id, secret]) => {
         const li = el("li", {}, "your-room");
@@ -215,7 +224,12 @@ export function mountHome(opts: HomeOptions): Home {
           forgetRoom(opts.store, id);
           renderYours();
         });
-        li.append(a, " ", el("span", { className: "role", textContent: secret.ownerToken !== undefined ? "owner" : "invited" }), " ", forget);
+        const info = el("div", { className: "room-info" });
+        const meta = el("p", { className: "room-meta" });
+        meta.append(secret.inviteKey === undefined ? "Public" : "Private", " · ", el("span", { className: "role", textContent: owner ? "owner" : "invited" }), " · saved in this browser");
+        info.append(a, meta);
+        const here = counts.get(id);
+        li.append(info, el("span", { className: "count", textContent: here === undefined ? "" : `${String(here)} here` }), forget);
         return li;
       }),
     );
@@ -223,33 +237,65 @@ export function mountHome(opts: HomeOptions): Home {
 
   // Public rooms.
   const listed = el("ul", { className: "room-list" }, "public-rooms");
+  const listedHeading = el("h2", { id: "open-rooms", tabIndex: -1, textContent: "Open rooms" });
+  // Polite, so loading → loaded/empty/unreachable is announced; the Retry key sits beside it, a real button.
+  const listedStatus = el("p", { className: "list-note", role: "status" }, "public-rooms-status");
+  const retry = el("button", { type: "button", className: "link retry", textContent: "Retry" }, "public-rooms-retry");
   const listedSection = el("section", { className: "rooms-public" });
-  listedSection.append(el("h2", { textContent: "Open rooms" }), listed);
+  listedSection.append(listedHeading, listed, listedStatus, el("p", { className: "note", textContent: "Have an invite? Open its link to join a private room." }));
   const renderListed = (rooms: readonly RoomSummary[]): void => {
     listed.replaceChildren(
       ...rooms.map((r) => {
         const li = el("li");
-        li.append(el("a", { href: `/r/${r.id}`, textContent: r.title ?? r.id }, "public-room-link"), el("span", { className: "count", textContent: ` ${String(r.memberCount)} here` }));
+        const info = el("div", { className: "room-info" });
+        info.append(el("a", { href: `/r/${r.id}`, textContent: r.title ?? r.id }, "public-room-link"), el("p", { className: "room-meta", textContent: "Public room" }));
+        li.append(info, el("span", { className: "count", textContent: `${String(r.memberCount)} here` }));
         return li;
       }),
     );
+  };
+  const listState = (state: "loading" | "loaded" | "failed", rooms: readonly RoomSummary[] = []): void => {
+    listed.setAttribute("aria-busy", String(state === "loading"));
+    listed.classList.toggle("is-loading", state === "loading");
+    retry.remove();
+    if (state === "loading") listedStatus.textContent = "Finding rooms…";
+    else if (state === "failed") {
+      listedStatus.textContent = NETWORK_ERROR;
+      listedStatus.after(retry);
+    } else listedStatus.textContent = rooms.length === 0 ? "No public rooms right now." : "";
   };
 
   opts.root.replaceChildren(form, yoursSection, listedSection);
   renderYours();
 
-  const ready = opts
-    .fetch(`${base}/rooms`)
-    .then(readJson)
-    .then((body) => {
-      const r = v.safeParse(RoomListResponseSchema, body);
-      const rooms = r.success ? r.output.rooms : [];
-      titles = new Map(rooms.flatMap((x) => (x.title === undefined ? [] : [[x.id, x.title] as const])));
-      renderListed(rooms);
-      renderYours();
-    })
-    .catch(() => {
-      renderListed([]);
+  const load = (): Promise<void> => {
+    listState("loading");
+    renderListed([]);
+    return opts
+      .fetch(`${base}/rooms`)
+      .then(readJson)
+      .then((body) => {
+        const r = v.safeParse(RoomListResponseSchema, body);
+        if (!r.success) {
+          listState("failed");
+          return;
+        }
+        const rooms = r.output.rooms;
+        titles = new Map(rooms.flatMap((x) => (x.title === undefined ? [] : [[x.id, x.title] as const])));
+        counts = new Map(rooms.map((x) => [x.id, x.memberCount] as const));
+        renderListed(rooms);
+        listState("loaded", rooms);
+        renderYours();
+      })
+      .catch(() => {
+        listState("failed");
+      });
+  };
+  retry.addEventListener("click", () => {
+    void load().then(() => {
+      // Keep focus somewhere useful: back on Retry if it failed again, else on the list's heading.
+      (retry.isConnected ? retry : listedHeading).focus();
     });
-  return { ready };
+  });
+  return { ready: load() };
 }
