@@ -134,8 +134,9 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
     for (const preset of [...ROOM_PRESET_IDS, undefined]) {
       const body = preset === undefined ? { title: "Den", visibility: "public" } : { title: "Den", visibility: "public", preset };
       const { room } = await created(await create(body));
-      const joined = await Client.join(server().ws(room.id), "alice");
-      clients.push(joined.client);
+      // A fresh address per join: one address's joins are rate limited.
+      const joined = await Client.join(server().ws(room.id), "alice", 0, { "x-forwarded-for": freshAddress() });
+      joined.client.close();
       expect(joined.snapshot.room.layout, String(preset)).toEqual(presetLayout(preset ?? DEFAULT_ROOM_PRESET));
     }
   });
