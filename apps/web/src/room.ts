@@ -17,6 +17,7 @@ import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, sitIntent } from "./intents";
 import { layoutOf } from "./furniture";
+import { createPendingApplier } from "./pending-layout";
 import { FS_STRIP_W, PHONE_QUERY, STAGE_H, STAGE_W, TAG_OFFSET_Y, WIDE_QUERY, fullscreenLayout, portraitLayout, roomLayout, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createFullscreen, type FullscreenMode } from "./fullscreen";
 import { createRoomWindow } from "./room-window";
@@ -1239,6 +1240,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }, Math.max(0, at - Date.now()));
   };
 
+  // A saved layout picked at creation (OME-910): sent once, as soon as the owner's first snapshot is in.
+  const applyPending = createPendingApplier(sessionStorage, opts.roomId, send);
   const dispatch = (e: ViewEvent): void => {
     const next = reduce(state, e);
     if (next === state) return;
@@ -1258,6 +1261,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const prevRoom = state.room;
     const prevOwner = state.owner;
     state = next;
+    applyPending({ owner: next.owner && opts.secret?.ownerToken !== undefined, hasRoom: next.room !== null });
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
     if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {
