@@ -8,7 +8,8 @@ import { site } from "./selectors";
 export async function openDirectory(page: Page, nickname = "Visitor"): Promise<void> {
   const form = page.locator(site.createRoomForm);
   const find = page.locator(site.findRoom);
-  await expect(form.or(find)).toBeVisible();
+  // Both exist in the page; whichever view main.ts picked shows one of them (the create form mounts lazily).
+  await expect.poll(async () => (await form.isVisible()) || (await find.isVisible())).toBe(true);
   if (await find.isVisible()) {
     await page.locator(site.nicknameInput).fill(nickname);
     await find.click();

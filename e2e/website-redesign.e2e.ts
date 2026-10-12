@@ -12,7 +12,7 @@ test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
 
 /** The room chunk (dev: /src/room.ts) or Pixi: what Enter warms, and what browsing must never fetch. */
-const ROOM_CODE = /\/src\/room\.ts(?:\?|$)|\/assets\/room-[^/]*\.js$|pixi/i;
+const ROOM_CODE = /^[a-z]+:\/\/[^/]+\/src\/room\.ts(?:\?|$)|\/assets\/room-[^/]*\.js$|pixi/i;
 
 function watch(page: Page): { roomCode: string[]; sockets: string[] } {
   const seen = { roomCode: [] as string[], sockets: [] as string[] };
