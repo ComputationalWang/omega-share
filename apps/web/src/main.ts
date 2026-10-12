@@ -4,6 +4,7 @@ import { loadProfile, saveProfile, validateNickname } from "./profile";
 import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
 import { loadRoomSecrets, secretFor, takeInviteKey, type SecretsStore } from "./room-secrets";
 import { loadResume } from "./session-record";
+import { testHandleOn } from "./test-handle";
 import type * as RoomModule from "./room";
 import type { RoomHandle } from "./room";
 
@@ -42,7 +43,7 @@ const invited = takeInviteKey(location, history, storage, pathRoom);
 const roomId = pathRoom ?? DEFAULT_ROOM_ID;
 const serverUrl = serverBaseUrl(import.meta.env.VITE_SERVER_URL, location, import.meta.env.DEV);
 const debug = { roomId, room: null as RoomHandle | null };
-if (import.meta.env.DEV) window.__omega = debug;
+if (testHandleOn(import.meta.env)) window.__omega = debug;
 
 const profile = loadProfile(localStorage);
 let avatar: Avatar = profile.avatar;

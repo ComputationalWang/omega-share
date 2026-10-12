@@ -131,7 +131,8 @@ export async function watchCsp<C extends BrowserContext>(context: C): Promise<C>
   watched.add(context);
   // A test that closes its browser is done with the room for good: say so first, as Leave does (ADR 0043). Without it
   // the server holds each closed tab's member, name and seat for the grace window, and the next test in the same room
-  // finds its nickname taken or its seat full. Dev builds only (`window.__omega`); best effort.
+  // finds its nickname taken or its seat full. Through the test handle `window.__omega` (dev builds and the perf build,
+  // apps/web/src/test-handle.ts); best effort.
   const close = context.close.bind(context);
   context.close = async (options) => {
     // Bounded: a page stuck in a dialog must not hold the close up. Specs that test a dirty drop close the page instead.
