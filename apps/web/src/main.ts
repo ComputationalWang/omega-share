@@ -6,7 +6,6 @@ import { loadProfile, saveProfile, validateNickname } from "./profile";
 import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
 import { loadRoomSecrets, secretFor, takeInviteKey, type SecretsStore } from "./room-secrets";
 import { loadResume } from "./session-record";
-import { testHandleOn } from "./test-handle";
 import type * as RoomModule from "./room";
 import type { RoomHandle } from "./room";
 
@@ -51,7 +50,9 @@ const invited = takeInviteKey(location, history, storage, pathRoom);
 const roomId = pathRoom ?? DEFAULT_ROOM_ID;
 const serverUrl = serverBaseUrl(import.meta.env.VITE_SERVER_URL, location, import.meta.env.DEV);
 const debug = { roomId, room: null as RoomHandle | null };
-if (testHandleOn(import.meta.env)) window.__omega = debug;
+// The test handle: dev builds, and the perf runner's build (VITE_TEST_HANDLE=1) so its harness can send leave (ADR 0043).
+// Inline on purpose: Vite turns both into literals and a production build drops the line (OME-1007).
+if (import.meta.env.DEV || import.meta.env.VITE_TEST_HANDLE === "1") window.__omega = debug;
 
 type View = "entry" | "directory" | "room";
 const show = (view: View): void => {

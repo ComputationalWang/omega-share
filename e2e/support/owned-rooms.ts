@@ -39,3 +39,6 @@ export const ownedRoom = (name: OwnedRoomName): OwnedRoom => make(name);
  * deletes it (ADR 0028 §2, OME-904), so its link shows Room not found. Not an owned room: nothing may keep it alive.
  */
 export const GC_IDLE_ROOM_ID = "qagcidle".padEnd(26, "a");
+
+/** The same 21 min idle, but pinned (a seeded room): the boot sweep and every later one keep it (ADR 0028 §2). */
+export const GC_PINNED_IDLE_ROOM_ID = "qagcpinned".padEnd(26, "a");

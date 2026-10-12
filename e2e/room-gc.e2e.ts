@@ -5,7 +5,7 @@ import type { BrowserContext } from "@playwright/test";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
-import { GC_IDLE_ROOM_ID } from "./support/owned-rooms";
+import { GC_IDLE_ROOM_ID, GC_PINNED_IDLE_ROOM_ID } from "./support/owned-rooms";
 import { site } from "./support/selectors";
 
 test.fixme(!available.web, PENDING.web);
@@ -29,4 +29,18 @@ test("a room deleted for being idle 20 min: the join path answers 404 and its li
   await page.locator(site.joinButton).click();
   await expect(page.locator(site.notFound)).toBeVisible();
   await expect(page.locator(site.room)).toBeHidden();
+});
+
+test("a pinned room nobody has been in for 21 min is kept: the boot sweep skips it and a visitor joins it", async ({ browser, request }) => {
+  // Same idle age as the deleted room above, but pinned (ADR 0028 §2): the join path answers, never 404.
+  expect((await request.get(`${URLS.server}/rooms/${GC_PINNED_IDLE_ROOM_ID}/ws`, { headers: { upgrade: "websocket" } })).status()).not.toBe(404);
+
+  context = await watchCsp(await browser.newContext());
+  await stubExternalNetwork(context);
+  const page = await context.newPage();
+  await page.goto(`${URLS.web}/r/${GC_PINNED_IDLE_ROOM_ID}`);
+  await page.locator(site.nicknameInput).fill("visitor");
+  await page.locator(site.joinButton).click();
+  await expect(page.locator(site.room)).toBeVisible();
+  await expect(page.locator(site.notFound)).toBeHidden();
 });
