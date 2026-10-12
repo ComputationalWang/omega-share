@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { collectGateEvidence, discoverPairedGate, type GateProbe } from "./twitch-gate";
+import { collectGateEvidence, discoverPairedGate, runGateWorkflow, type GateProbe } from "./twitch-gate";
 
 const gate = (reason = "mature overlay visible"): GateProbe => ({ gate: true, reason });
 const absent = (reason: string): GateProbe => ({ gate: false, reason });
@@ -112,6 +112,25 @@ describe("paired Twitch mature-gate discovery (OME-950)", () => {
 });
 
 describe("paired gate failure evidence (OME-950)", () => {
+  test("expired workflow cannot start another room action when its pending observation finishes", async () => {
+    let finishObservation: () => void = () => undefined;
+    const observation = new Promise<void>((resolve) => { finishObservation = resolve; });
+    const actions: string[] = [];
+    let finished: Promise<void> = Promise.resolve();
+    const result = runGateWorkflow((checkActive) => {
+      finished = (async () => {
+        await observation;
+        checkActive();
+        actions.push("shared-pause");
+      })();
+      return finished;
+    }, 10);
+    await expect(result).rejects.toThrow("reserving paired failure capture time");
+    finishObservation();
+    await expect(finished).rejects.toThrow("reserving paired failure capture time");
+    expect(actions).toEqual([]);
+  });
+
   test("returns the other viewer's evidence and an explicit error when one capture never settles", async () => {
     const result = await collectGateEvidence({
       "viewer-1-snapshot": () => new Promise(() => {
