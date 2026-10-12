@@ -293,7 +293,7 @@ async function goAway(page: Page): Promise<void> {
 
 test("the Away badge in the People list: zero axe violations on a peer's view", async ({ browser }) => {
   const room = testRoom("m10-a11y", "away");
-  clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: "axaway", contextOptions: (i) => (i === 0 ? touch(390, 844) : { viewport: { width: 1280, height: 720 } }) });
+  clients = await joinRoom(browser, { roomUrl: room.url, count: 2, nicknamePrefix: `axaway${String(test.info().repeatEachIndex)}${String(test.info().retry)}`, contextOptions: (i) => (i === 0 ? touch(390, 844) : { viewport: { width: 1280, height: 720 } }) });
   const [gone, peer] = clients;
   if (gone === undefined || peer === undefined) throw new Error("no clients");
   await goAway(gone.page);
