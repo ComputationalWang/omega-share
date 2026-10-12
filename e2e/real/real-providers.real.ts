@@ -319,9 +319,11 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
         now: Date.now,
         pause: () => a.page.waitForTimeout(500),
       });
+      checkActive();
       const { channel, tried } = discovery;
       record("m3-twitch-gate-discovery", discovery);
       await testInfo.attach("paired-gate-discovery", { body: JSON.stringify(discovery, null, 2), contentType: "application/json" });
+      checkActive();
       if (channel === null) {
         const notRun = "no candidate showed the mature gate to both logged-out viewers; set OMEGA_REAL_TWITCH_GATED";
         record("m3-twitch-gate", { notRun, tried });
@@ -371,6 +373,7 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
         finalViews: finalViews.map((v) => ({ playing: v.playing, error: v.error })),
         notices: await Promise.all([siteNotices(a.page), siteNotices(b.page)]),
       };
+      checkActive();
       record("m3-twitch-gate", result);
       for (const h of hints) {
         expect(h.visible, "the Start Watching hint shows for every member").toBe(true);
