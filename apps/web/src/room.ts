@@ -1241,7 +1241,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
 
   // A saved layout picked at creation (OME-910): sent once, as soon as the owner's first snapshot is in.
-  const applyPending = createPendingApplier(sessionStorage, opts.roomId, send);
+  // The `sessionStorage` getter itself throws when storage is blocked; the applier catches it.
+  const applyPending = createPendingApplier(
+    { getItem: (k) => sessionStorage.getItem(k), removeItem: (k) => { sessionStorage.removeItem(k); } },
+    opts.roomId,
+    send,
+  );
   const dispatch = (e: ViewEvent): void => {
     const next = reduce(state, e);
     if (next === state) return;

@@ -120,7 +120,8 @@ if (pathRoom === null) {
         root: homeRoot,
         serverUrl,
         store: storage,
-        session: sessionStorage,
+        // The `sessionStorage` getter itself throws when storage is blocked; stashPendingLayout catches it.
+        session: { setItem: (k, value) => { sessionStorage.setItem(k, value); } },
         thumbs: PRESET_THUMBS,
         fetch: (url, init) => fetch(url, init),
         navigate: (path) => {

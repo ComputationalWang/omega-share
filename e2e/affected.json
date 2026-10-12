@@ -390,6 +390,7 @@
       "specs": [
         "e2e/furniture.e2e.ts",
         "e2e/owner-editor.e2e.ts",
+        "e2e/room-presets.e2e.ts",
         "perf/editor.perf.ts"
       ]
     },
@@ -516,6 +517,7 @@
       ],
       "full": true,
       "specs": [
+        "e2e/room-presets.e2e.ts",
         "e2e/real/real-abuse.real.ts",
         "e2e/real/real-ads.real.ts",
         "e2e/real/real-invite-referrer.real.ts",
@@ -649,6 +651,7 @@
         "e2e/persistence.e2e.ts",
         "e2e/qa-rooms.e2e.ts",
         "e2e/report.e2e.ts",
+        "e2e/room-presets.e2e.ts",
         "e2e/rooms-web.e2e.ts",
         "e2e/tunnel-m9-site.e2e.ts",
         "e2e/tunnel.e2e.ts"
