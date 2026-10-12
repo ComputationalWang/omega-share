@@ -83,6 +83,7 @@ describe("CLOSE_CODES", () => {
       ROOM_CLOSED: 4004,
       KICKED: 4005,
       TAKEN_DOWN: 4006,
+      SESSION_REPLACED: 4007,
     });
   });
 

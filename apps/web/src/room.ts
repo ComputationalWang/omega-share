@@ -132,6 +132,7 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   bad_target: "That person isn't in this room any more.",
   queue_full: "The queue is full. Remove one to add another.",
   unsupported_url: "That link can't be played in this room.",
+  resume_expired: "Your session expired. Enter the room again.",
 };
 
 /** Adapts the DOM WebSocket to the connection's SocketLike. */

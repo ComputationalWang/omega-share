@@ -127,6 +127,8 @@ export const CLOSE_CODES = {
   KICKED: 4005,
   /** The operators took the room down after a report (ADR 0033). Don't reconnect; show the takedown notice. */
   TAKEN_DOWN: 4006,
+  /** Another socket resumed this identity (ADR 0043). Stop automatic reconnects. */
+  SESSION_REPLACED: 4007,
 } as const;
 export type CloseCode = (typeof CLOSE_CODES)[keyof typeof CLOSE_CODES];
 

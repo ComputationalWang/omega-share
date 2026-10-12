@@ -9,7 +9,8 @@ export const SHARE_TOKEN_LENGTH = 22;
 
 /**
  * Member-bound secret for `POST /rooms/:id/share`. The server mints it at `join`, sends it
- * only in that member's own `snapshot`, and revokes it on leave or close.
+ * only in that member's own `snapshot`. Legacy sessions revoke on close; durable sessions
+ * retain it through the 120-second hold, revoking on explicit leave, kick or hold expiry (ADR 0043).
  */
 export const ShareTokenSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{22}$/));
 export type ShareToken = v.InferOutput<typeof ShareTokenSchema>;
