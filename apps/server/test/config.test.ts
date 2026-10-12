@@ -57,6 +57,7 @@ describe("parseConfig (ADR 0015 §3)", () => {
       roomTitleBlocklist: [],
       metricsPort: null,
       maxConnections: 1024,
+      resumeGraceMs: 120_000,
     });
   });
 

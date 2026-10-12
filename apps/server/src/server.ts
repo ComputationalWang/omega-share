@@ -57,6 +57,8 @@ export interface ServerOptions {
   statusIntervalMs?: number;
   /** Timers for grace-hold expiry (ADR 0043); tests drive them with their fake clock. Default `setTimeout`. */
   schedule?: Schedule;
+  /** How long a dropped durable member is held (`RESUME_GRACE_MS`, ADR 0043). Default the shared 2 minutes. */
+  resumeGraceMs?: number;
   /** GENERIC_EMBEDS: accept the generic embed tier (ADR 0024). Default true. */
   genericEmbeds?: boolean;
   /** Domains refused for generic embeds, with their subdomains (GENERIC_EMBED_DENYLIST). Default none. */
@@ -283,6 +285,7 @@ export function startServer(opts: ServerOptions): OmegaServer {
     },
     ...(opts.statusIntervalMs === undefined ? {} : { statusIntervalMs: opts.statusIntervalMs }),
     ...(opts.schedule === undefined ? {} : { schedule: opts.schedule }),
+    ...(opts.resumeGraceMs === undefined ? {} : { resumeGraceMs: opts.resumeGraceMs }),
     release(ip) {
       connections--;
       const left = (connectionsPerIp.get(ip) ?? 1) - 1;

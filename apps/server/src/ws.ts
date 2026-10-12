@@ -68,7 +68,7 @@ interface MemberBuckets {
 
 /**
  * A joined member's identity (ADR 0043). It outlives its socket while held: an unexpected close of a
- * durable member keeps it for RESUME_GRACE_MS, away, until a resume reattaches it or the hold expires.
+ * durable member keeps it for the grace window (`RESUME_GRACE_MS`), away, until a resume reattaches it or the hold expires.
  */
 interface Session {
   readonly room: Room;
@@ -184,6 +184,8 @@ export interface WsDeps {
   takenDown?: (id: string) => boolean;
   /** Timers for grace-hold expiry (ADR 0043). Default `setTimeout`, unref'd. */
   schedule?: Schedule;
+  /** How long a dropped durable member is held (ADR 0043). Default RESUME_GRACE_MS. */
+  resumeGraceMs?: number;
 }
 
 export interface Ws {
@@ -217,6 +219,7 @@ export function createWs({
   queue,
   takenDown = () => false,
   schedule = realSchedule,
+  resumeGraceMs = RESUME_GRACE_MS,
 }: WsDeps): Ws {
   const upgrades = new KeyedLimiter(UPGRADE_BURST, UPGRADE_PER_SECOND, 1024, now);
   const joins = new KeyedLimiter(JOIN_BURST, JOIN_PER_SECOND, 1024, now);
@@ -330,7 +333,7 @@ export function createWs({
 
   /**
    * A durable member's socket closed without `leave` (ADR 0043): keep everything but the socket for
-   * RESUME_GRACE_MS. Catching is cleared, away is published once, and one timer ends the hold.
+   * resumeGraceMs. Catching is cleared, away is published once, and one timer ends the hold.
    */
   const hold = (session: Session): void => {
     const { room, memberId } = session;
@@ -344,7 +347,7 @@ export function createWs({
       if (session.cancelExpiry !== cancel || session.ws !== null) return;
       end(session, true);
       publish(room.topic, encode({ type: "member-left", memberId, reason: "left" }));
-    }, RESUME_GRACE_MS);
+    }, resumeGraceMs);
     session.cancelExpiry = cancel;
   };
 
