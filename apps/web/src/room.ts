@@ -5,6 +5,7 @@ import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
 import { clearResume, saveResume, type ResumeStore } from "./session-record";
+import { presenceHint } from "./session-lifecycle";
 import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
 import { forgetRoom, inviteLink, joinMessage, type RoomSecret, type SecretsStore } from "./room-secrets";
 import { createInviteControl } from "./controls/invite";
@@ -1315,6 +1316,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   /** The last presence hint sent on this socket; the server clears away on a (re)join. */
   let sentAway = false;
+  /** Send the away hint this tab owes, if any (on a visibility change, and after each rejoin). */
+  const sendPresence = (open: boolean): void => {
+    const away = presenceHint({ hidden: document.visibilityState === "hidden", sent: sentAway, open });
+    if (away !== null && conn?.send({ type: "presence", away }) === true) sentAway = away;
+  };
   const emoted = (id: MemberId, kind: EmoteKind): void => {
     relay?.emote(id, kind);
     if (!roomOut()) roomStage.emote(id, kind, state);
@@ -1323,6 +1329,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted, hidden: isHidden, session: (token) => {
     sentAway = false;
     saveResume(resumeStore, { roomId: opts.roomId, token, nickname: opts.nickname, avatar: opts.avatar });
+    // The server cleared away on this (re)join; a tab that came back while still hidden says so again.
+    sendPresence(true);
   } };
   // Kicked from this room in this tab and the cooldown isn't over (ADR 0030 §2): show the notice, don't even try to join.
   const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
@@ -1337,7 +1345,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
     onEvent: (e) => {
       // The session is over for this tab: a reload shows the ordinary Enter (a replaced one keeps its token in memory only).
-      if (e.type === "expired" || e.type === "replaced" || e.type === "kicked" || e.type === "room-closed" || e.type === "session-lost") clearResume(resumeStore, opts.roomId);
+      if (e.type === "expired" || e.type === "replaced" || e.type === "kicked" || e.type === "room-closed") clearResume(resumeStore, opts.roomId);
       routeConnectionEvent(e, sinks, Date.now());
     },
     setTimer: (fn, ms) => setTimeout(fn, ms),
@@ -1455,9 +1463,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Hidden: a best-effort away hint on the open socket. Visible again (or resumed from a freeze): make sure the socket
   // is live, probing one that may have died while suspended. One path, so these events never race two connections.
   const onVisibility = (): void => {
-    const away = document.visibilityState === "hidden";
-    if (!away) c.ensureConnected({ probe: true });
-    if (away !== sentAway && state.status === "open" && c.send({ type: "presence", away })) sentAway = away;
+    if (document.visibilityState !== "hidden") c.ensureConnected({ probe: true });
+    sendPresence(state.status === "open");
   };
   document.addEventListener("visibilitychange", onVisibility);
   document.addEventListener("resume", () => {

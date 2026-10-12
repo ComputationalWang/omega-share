@@ -8,7 +8,7 @@
 // blocking its own script) is that provider's policy, and is attached as `csp-third-party.json` without failing.
 // Console lines can't be placed in a frame, so they aren't scoped: third-party events count toward the event total too.
 // The default `context` is watched automatically. Contexts made by hand must be wrapped: `watchCsp(await browser.newContext())`.
-import { test as base, type BrowserContext } from "@playwright/test";
+import { test as base, type BrowserContext, type Page } from "@playwright/test";
 import { isOurDocument } from "./csp-scope";
 
 export interface CspViolation {
@@ -117,7 +117,6 @@ function recordConsole(type: string, text: string): void {
   (text.startsWith("[Report Only]") ? consoleReportOnly : consoleEnforced).push(text);
 }
 
-/** Starts recording CSP violations in `context` (idempotent) and returns it. Call before opening pages. */
 /** In the page: an explicit `leave` through the dev handle, if the page is in a room. */
 function leaveRoom(): void {
   const debug: unknown = Reflect.get(window, "__omega");
@@ -126,6 +125,7 @@ function leaveRoom(): void {
   if (typeof send === "function") Reflect.apply(send, room, [{ type: "leave" }]);
 }
 
+/** Starts recording CSP violations in `context` (idempotent) and returns it. Call before opening pages. */
 export async function watchCsp<C extends BrowserContext>(context: C): Promise<C> {
   if (watched.has(context)) return context;
   watched.add(context);
@@ -134,7 +134,9 @@ export async function watchCsp<C extends BrowserContext>(context: C): Promise<C>
   // finds its nickname taken or its seat full. Dev builds only (`window.__omega`); best effort.
   const close = context.close.bind(context);
   context.close = async (options) => {
-    await Promise.all(context.pages().map((p) => p.evaluate(leaveRoom).catch(() => undefined)));
+    // Bounded: a page stuck in a dialog must not hold the close up. Specs that test a dirty drop close the page instead.
+    const leave = (p: Page): Promise<void> => Promise.race([p.evaluate(leaveRoom).catch(() => undefined), new Promise<void>((r) => setTimeout(r, 2000))]);
+    await Promise.all(context.pages().map(leave));
     return close(options);
   };
   await context.exposeBinding(BINDING, (source, v: unknown) => {

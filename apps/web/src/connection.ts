@@ -24,7 +24,7 @@ export type ConnectionEvent =
   | { readonly type: "expired" }
   /**
    * `resume_expired` on a reconnect of a page that was in the room: the server restarted or crashed and lost every
-   * token (ADR 0043 amendment). The token is dropped and one fresh durable join goes out at once; forget the record.
+   * token (ADR 0043 amendment). The token is dropped and one fresh durable join goes out at once; its snapshot rewrites the record.
    */
   | { readonly type: "session-lost" }
   /** 4007: another socket resumed this identity. Terminal until the user asks for `reclaim()`. */
@@ -142,6 +142,8 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       s.send(JSON.stringify(joinMessage()));
     };
     s.onmessage = (ev) => {
+      // A socket we already let go of (close(), a reconnect) says nothing more.
+      if (socket !== s) return;
       if (typeof ev.data !== "string") return;
       const msg = parseServerMessage(ev.data);
       if (msg === null) return;

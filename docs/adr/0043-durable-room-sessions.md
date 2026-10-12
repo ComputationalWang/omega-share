@@ -81,3 +81,7 @@ Decision: the client tells the two cases apart by whether this page load has bee
 - **In-page reconnect** (this page has had a snapshot): drop the token and the record, and send **one** fresh join with `durableSession: true` under the same nickname and avatar. The fresh join carries no token, so it cannot be `resume_expired` again: no loop. Name/capacity refusals then follow the existing rules.
 
 This does not undo a kick in production: the server's kick cooldown (ADR 0030) bounces the fresh join with 4005 and the page shows the removal notice. Loopback-only servers record no cooldown, the same as for a new tab today. A page that returns after its grace window has passed also comes back this way, as a new standing member; peers already saw its single leave line at expiry.
+
+The stored record is not cleared on that fresh rejoin; its snapshot overwrites it. Clearing first would leave a window in which a killed tab reloads to the Enter form while its old member still holds the name.
+
+**Duplicated tabs (accepted).** "Duplicate tab" and an opener-linked `window.open` copy `sessionStorage`, so the copy resumes the same token and the original gets 4007 and the "open in another tab" card with Return here. This keeps one member per token, as required, and is recoverable from either tab, so no per-load nonce is added.

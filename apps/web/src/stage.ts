@@ -16,6 +16,7 @@ import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
 import { walkGrid } from "./walk/path";
 import { standingPlacement } from "./walk/standing";
+import { awayChanges } from "./session-lifecycle";
 import type { Dir } from "./walk/walks";
 
 export interface StageOptions {
@@ -123,7 +124,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   /** Who stands on which standing spot; kept across renders so a departure doesn't move the others. */
   let standSpots = new Map<MemberId, number>();
   /** Who is drawn away now, so a member who left while away is un-dimmed in the view's set. */
-  const awayIds = new Set<MemberId>();
+  let awayIds: ReadonlySet<MemberId> = new Set<MemberId>();
   let grid: Uint8Array = new Uint8Array(0);
   let standing: Point[] = [];
   let scene = sceneOf(layoutOf(null), null);
@@ -229,13 +230,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         at.set(m.id, p);
       }
       // Away dims the avatar in place; set before the update so a new avatar is made at its alpha. Seats stay.
-      for (const id of awayIds) view.setAway(id, false);
-      awayIds.clear();
-      for (const m of everyone) {
-        if (m.away !== true) continue;
-        awayIds.add(m.id);
-        view.setAway(m.id, true);
-      }
+      // Only members whose flag changed: one alpha write and draw each (ADR 0043).
+      const away = awayChanges(awayIds, everyone);
+      for (const id of away.off) view.setAway(id, false);
+      for (const id of away.on) view.setAway(id, true);
+      awayIds = away.now;
       view.update(views.map((v) => v.member !== null), placements);
     }
 
