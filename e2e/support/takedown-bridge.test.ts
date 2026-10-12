@@ -13,6 +13,7 @@ class Browser implements BridgeBrowser {
 }
 
 class Upstream implements BridgeSocket {
+  closed: BridgeClose | null = null;
   onText: ((text: string) => void) | null = null;
   onClose: ((closed: BridgeClose) => void) | null = null;
   readonly sent: string[] = [];
@@ -61,4 +62,50 @@ test("browser close before upgrade settles destroys the upstream without sending
   await ready;
   expect(connection.upstream.destroyed).toBe(true);
   expect(connection.upstream.sent).toEqual([]);
+});
+
+test("failed upgrade closes the browser once and does not reconnect", async () => {
+  const browser = new Browser();
+  const sockets: Upstream[] = [];
+  let attempts = 0;
+  await takedownBridge(browser, () => {
+    attempts++;
+    return Promise.reject(new Error("upgrade refused"));
+  }, sockets);
+  expect(browser.closes).toEqual([{ code: 1011, reason: "test bridge upstream connection failed" }]);
+  expect(attempts).toBe(1);
+  expect(sockets).toEqual([]);
+});
+
+test("takedown stays terminal: late traffic is not forwarded and browser close destroys upstream", async () => {
+  const browser = new Browser();
+  const upstream = new Upstream();
+  await takedownBridge(browser, () => Promise.resolve(upstream), []);
+  upstream.onClose?.({ code: 4006, reason: "taken down" });
+  browser.message?.("late message");
+  upstream.onText?.("late snapshot");
+  upstream.onClose?.({ code: 1006, reason: "" });
+  browser.closed?.();
+  expect(browser.closes).toEqual([{ code: 4006, reason: "taken down" }]);
+  expect(upstream.sent).toEqual([]);
+  expect(browser.received).toEqual([]);
+  expect(upstream.destroyed).toBe(true);
+});
+
+test("upstream close already received with upgrade is forwarded without a join", async () => {
+  const browser = new Browser();
+  const connection = delayed();
+  const ready = takedownBridge(browser, () => connection.promise, []);
+  browser.message?.("join");
+  connection.upstream.closed = { code: 4006, reason: "taken down" };
+  connection.resolve(connection.upstream);
+  await ready;
+  expect(browser.closes).toEqual([connection.upstream.closed]);
+  expect(connection.upstream.sent).toEqual([]);
+});
+
+test("browser disposed during failed upgrade does not create an unhandled close rejection", async () => {
+  const browser = new Browser();
+  browser.close = () => Promise.reject(new Error("route disposed"));
+  await takedownBridge(browser, () => Promise.reject(new Error("upgrade refused")), []);
 });
