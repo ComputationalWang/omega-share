@@ -41,6 +41,7 @@ import { stubExternalNetwork } from "./support/network";
 import { ownedRoom } from "./support/owned-rooms";
 import { signalOwned, spawnOwned } from "./support/owned";
 import { site } from "./support/selectors";
+import { openDirectory } from "./support/directory";
 
 const SERVER_PORT = PORTS.server + 10;
 const SERVER_URL = `http://127.0.0.1:${String(SERVER_PORT)}`;
@@ -1043,7 +1044,7 @@ test.describe("saved layouts: garbage in localStorage (own server and site)", ()
     test(`${c.label}: the home page renders, the picker lists only valid entries (max 5), a room can be created, nothing invalid reaches the server`, async ({ browser }) => {
       const s = await newPage(browser, c.raw);
       await s.page.goto(`${WEB_URL}/`);
-      await expect(s.page.locator(site.createRoomForm)).toBeVisible();
+      await openDirectory(s.page);
       await expect(s.page.locator(id("preset-classic"))).toBeChecked();
       const listed = s.page.locator(`${id("saved-layout")} .saved-name span`);
       await expect(listed).toHaveText([...c.names]);
@@ -1095,6 +1096,7 @@ test.describe("saved layouts: garbage in localStorage (own server and site)", ()
   test("a saved entry deleted behind the picker's back is refused, not sent", async ({ browser }) => {
     const s = await newPage(browser, JSON.stringify([GOOD]));
     await s.page.goto(`${WEB_URL}/`);
+    await openDirectory(s.page);
     await s.page.locator(id("saved-layout-radio")).check();
     await s.page.evaluate((key) => {
       localStorage.setItem(key, "{\"__proto__\":{\"polluted\":1}}");
