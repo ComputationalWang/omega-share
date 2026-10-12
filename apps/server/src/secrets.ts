@@ -4,6 +4,9 @@ import type { RoomId } from "@omega/shared";
 /** 16 random bytes, base64url without padding: 22 chars (share tokens, owner tokens, invite keys; ADR 0015, 0028). */
 export const mintSecret = (): string => Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64url");
 
+/** 32 random bytes, base64url without padding: 43 chars (resume tokens, ADR 0043). Memory only, never stored or logged. */
+export const mintResumeToken = (): string => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
+
 /** SHA-256 of a secret: what the store keeps instead of it (ADR 0028 §3). */
 export const hashSecret = (secret: string): Uint8Array => new Uint8Array(createHash("sha256").update(secret).digest());
 

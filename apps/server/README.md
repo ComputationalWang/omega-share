@@ -34,6 +34,13 @@ bun run --filter @omega/server start   # or `dev` to restart on file changes
 - `control{videoId, playing, position}` needs `join`. A `videoId` that isn't the current embed gets `error no_embed`. Otherwise the server stores `{playing, position, at: Date.now(), rev + 1, action, by}` (last write wins) and publishes `playback` to the room. `action` is `seek` when `position` is more than 1 s from the extrapolated position, else `play`/`pause`. Positions are clamped to `[0, MAX_POSITION_S]`.
 - The snapshot carries `room.playback`. The pure rules live in `src/playback.ts`.
 
+## Durable sessions (ADR 0043)
+
+- A `join` with `durableSession: true` gets a 43-char `resumeToken` in its own snapshot only, never in a broadcast, URL or log line. A legacy join (no opt-in) departs and loses its share grant on close, as before.
+- An opted-in member whose socket closes without `leave` is held for the grace window, env `RESUME_GRACE_MS` (default 120 000 ms = 2 min, the shared constant; an integer from 5 000 to 600 000, anything else fails startup; e2e shortens it): same id, seat, standing slot, nickname, mute, owner status, share grant and buckets; `away: true` and one `member-presence`. It still counts against room capacity and its client key's quota, and keeps the room occupied for GC. At the deadline it ends with one `member-left { reason: "left" }`. `leave`, a kick (held members too), room delete and takedown end it at once.
+- `join{resumeToken}` reattaches the member before any nickname, capacity, invite or cooldown check: `snapshot{resumed: true}` with the same tokens, and `member-presence { away: false }` to the room, no leave/join pair. A resume from another client key moves its quota slot, or gets `too_many_members` and the hold stays. Any token that names no member of this room gets `error resume_expired` and the socket stays unjoined. A resume while the old socket is open closes that one with `SESSION_REPLACED` (4007). Tokens live in memory only: a restart forgets them.
+- `presence{away}` from a joined member publishes `member-presence` on transitions only; it never starts or extends a hold. Every member has a unique `standingSlot` (0 to `MAX_ROOM_MEMBERS - 1`) from join to departure.
+
 ## Queue (ADR 0031)
 
 - `src/queue.ts` holds the checks and writes for the WebSocket and HTTP alike. `queue-add`: joined → control policy → member bucket (3, then 1 / 10 s) → room bucket (10, then 1 / 3 s) → share parser → `QUEUE_MAX` (20, never evicts). `queue-remove` / `queue-advance` follow the control policy, and an item that isn't there is ignored.

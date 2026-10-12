@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { Client, start } from "./helpers";
 
-test("before durable runtime rollout, a resume attempt fails closed without allocating a fresh member", async () => {
+test("an unknown resume token fails closed without allocating a fresh member", async () => {
   const t = start();
   const client = await Client.open(t.ws());
   try {
