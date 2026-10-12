@@ -5,7 +5,7 @@ import classic from "../../../assets/presets/classic.json";
 import living from "../../../assets/presets/living.json";
 import lounge from "../../../assets/presets/lounge.json";
 import empty from "../../../assets/presets/empty.json";
-import { MAX_SAVED_LAYOUTS, SAVED_LAYOUTS_KEY, deleteSavedLayout, loadSavedLayouts, saveLayout } from "../src/saved-layouts";
+import { MAX_SAVED_LAYOUTS, SAVED_LAYOUTS_KEY, deleteSavedLayout, loadSavedLayouts, saveLayout, saveMessage } from "../src/saved-layouts";
 
 class MemoryStore {
   readonly data = new Map<string, string>();
@@ -99,5 +99,15 @@ describe("saved layouts store", () => {
     const many = [classic, cinema, living, lounge, cafe, empty, classic].map((layout, i) => ({ name: `n${String(i)}`, layout }));
     s.data.set(SAVED_LAYOUTS_KEY, JSON.stringify(many));
     expect(loadSavedLayouts(s).map((x) => x.name)).toEqual(["n0", "n1", "n2", "n3", "n4"]);
+  });
+});
+
+describe("saveMessage (the editor's status line)", () => {
+  test("says what happened, including which layout was dropped", () => {
+    expect(saveMessage("Mine", { ok: true, dropped: null })).toBe('Saved "Mine" to your layouts.');
+    expect(saveMessage("Mine", { ok: true, dropped: "Old" })).toBe('Saved "Mine" to your layouts. Dropped your oldest, "Old".');
+    expect(saveMessage("", { ok: false, reason: "name" })).toBe("Give the layout a name of 1 to 40 characters.");
+    expect(saveMessage("Mine", { ok: false, reason: "storage" })).toContain("storage");
+    expect(saveMessage("Mine", { ok: false, reason: "layout" })).toContain("isn't a valid");
   });
 });
