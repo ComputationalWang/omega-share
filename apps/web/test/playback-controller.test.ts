@@ -510,7 +510,7 @@ test("late Twitch readiness after an independent gate restores transport and sha
     const timeouts: { fn: () => void; cleared: boolean }[] = [];
     const adapter = attachTwitch(namespace, new FakeContainer().asElement(), {
       embed: LIVE, frame, now: () => h.t.now,
-      messages: () => () => {},
+      messages: () => () => undefined,
       setTimeout: (fn) => {
         const timer = { fn, cleared: false };
         timeouts.push(timer);
