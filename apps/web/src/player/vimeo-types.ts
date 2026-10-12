@@ -10,6 +10,8 @@ export interface VimeoPlayer {
   /** 0–1. */
   setVolume(volume: number): Promise<unknown>;
   setMuted(muted: boolean): Promise<unknown>;
+  /** True when the player muted itself, e.g. to autoplay without a user gesture. */
+  getMuted(): Promise<unknown>;
   getVideoId(): Promise<unknown>;
   getDuration(): Promise<unknown>;
   /** `[{ label, id, active }]`; settable only on Plus/PRO/Business owners' videos (research R-M7b). */

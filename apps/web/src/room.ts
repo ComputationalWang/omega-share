@@ -1440,6 +1440,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** An explicit leave (ADR 0043): tell the server now, best effort, and forget the session; a lost frame ends at the hold's expiry. */
   function leaveForGood(): void {
     c.send({ type: "leave" });
+    // Closed now, so a stalled navigation can't time out into a reconnect that re-saves the records (QA OME-1001).
+    c.close();
     clearResume(resumeStore, opts.roomId);
     shareToken.clear();
     location.assign("/");

@@ -53,6 +53,7 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
   let contentDuration = 0;
   let phase: "unstarted" | "playing" | "paused" | "ended" = "unstarted";
   let buffering = false;
+  /** The browser's autoplay block was handled and reported (a rejected play, or a player that muted itself). */
   let autoplayRetried = false;
   /** What our last play/pause should have produced; null until we've issued one (autoplay at load is not an intent). */
   let expected: "playing" | "paused" | null = null;
@@ -174,6 +175,7 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
     },
     playing: (d) => {
       settle("playing", d);
+      checkSelfMuted();
     },
     pause: (d) => {
       settle("paused", d);
@@ -254,6 +256,19 @@ export function attachVimeo<Timer>(vm: VimeoNamespace, iframe: HTMLIFrameElement
     const code = errorName(err);
     fail(errorReason(code), code);
   });
+
+  /**
+   * With `autoplay=1` and no user gesture (a resume skips Enter, ADR 0043), the player mutes itself and plays: nothing
+   * rejects. Ask once it plays; a muted player is the same block, so the Unmute key shows (QA OME-1001).
+   */
+  const checkSelfMuted = (): void => {
+    if (autoplayRetried) return;
+    player.getMuted().then((m) => {
+      if (m !== true || destroyed || autoplayRetried) return;
+      autoplayRetried = true;
+      emit({ type: "autoplay-blocked" });
+    }, ignore);
+  };
 
   const onPlayRejected = (err: unknown): void => {
     if (destroyed) return;

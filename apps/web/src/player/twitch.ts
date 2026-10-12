@@ -230,6 +230,8 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     emit({ type: "intent", playing: settled === "playing", position });
   };
 
+  /** The autoplay block was reported once (playbackBlocked, or a player found muted when it started playing). */
+  let blockedSaid = false;
   const handlers: Readonly<Record<TwitchEventName, (params?: unknown) => void>> = {
     ready: () => {
       if (destroyed || isReady) return;
@@ -246,6 +248,11 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     playing: () => {
       settle("playing");
       if (isReady) readQualities();
+      // No gesture (a resume skips Enter, ADR 0043): Twitch mutes itself and plays without playbackBlocked (QA OME-1001).
+      if (!blockedSaid && player.getMuted?.() === true) {
+        blockedSaid = true;
+        emit({ type: "autoplay-blocked" });
+      }
     },
     pause: () => {
       settle("paused");
@@ -260,6 +267,8 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
       player.setMuted(true);
       player.play();
       command("playing");
+      if (blockedSaid) return;
+      blockedSaid = true;
       emit({ type: "autoplay-blocked" });
     },
     offline: () => {
