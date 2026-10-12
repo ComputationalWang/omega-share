@@ -277,6 +277,19 @@ describe("view", () => {
     expect(h.c.view().needsUnmute).toBe(false);
   });
 
+  test("sound only the player itself can give back (Twitch ignored our unmute): prompt plus in-player hint until it reports sound", () => {
+    const h = harness();
+    h.c.setRoom(h.room(VIDEO, pb()));
+    h.c.attach(h.player, embedOf(VIDEO).url);
+    h.player.emit({ type: "autoplay-blocked" });
+    expect(h.c.view()).toMatchObject({ needsUnmute: true, unmuteInPlayer: false });
+    h.c.unmute();
+    h.player.emit({ type: "autoplay-blocked", inPlayer: true });
+    expect(h.c.view()).toMatchObject({ needsUnmute: true, unmuteInPlayer: true });
+    h.player.emit({ type: "unmuted" });
+    expect(h.c.view()).toMatchObject({ needsUnmute: false, unmuteInPlayer: false });
+  });
+
   test("my player buffering while the room plays → catching up; back in step → not", () => {
     const h = harness({ state: "playing", position: 10 });
     h.c.setRoom(h.room(VIDEO, pb({ position: 10, at: SERVER_OFFSET })));
