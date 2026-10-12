@@ -21,6 +21,7 @@ const base: PlaybackView = {
   volume: 100,
   muted: false,
   needsUnmute: false,
+  unmuteInPlayer: false,
   catching: false,
   error: null,
   provider: "youtube",

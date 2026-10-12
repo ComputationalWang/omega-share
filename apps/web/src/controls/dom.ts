@@ -3,6 +3,7 @@ import type { Provider } from "@omega/shared";
 import type { Sysline } from "../state";
 import type { PlaybackController, PlaybackView } from "./playback";
 import { formatClock, type SystemLine } from "./sysline";
+import { unmuteInPlayerText } from "./unmute-hint";
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, testId?: string): HTMLElementTagNameMap[K] {
   const e = Object.assign(document.createElement(tag), props);
@@ -180,7 +181,8 @@ export function createPersonal(c: PlaybackController): Widget & { readonly pod: 
   unmute.append(sprite("ui-icon-sound"), "Unmute");
   const notice = el("p", { className: "ui-panel catching-notice", role: "status", hidden: true }, "catching-notice");
   notice.append(sprite("ui-catchup"), "You're catching up: the room kept playing…");
-  root.append(unmute, notice);
+  const unmuteHint = el("p", { className: "ui-panel unmute-hint", role: "status", hidden: true }, "unmute-hint");
+  root.append(unmute, unmuteHint, notice);
 
   mute.addEventListener("click", () => {
     c.toggleMute();
@@ -199,7 +201,7 @@ export function createPersonal(c: PlaybackController): Widget & { readonly pod: 
     update(v) {
       const prev = last;
       last = v;
-      if (prev !== null && prev.muted === v.muted && prev.needsUnmute === v.needsUnmute && prev.volume === v.volume && prev.catching === v.catching) return;
+      if (prev !== null && prev.muted === v.muted && prev.needsUnmute === v.needsUnmute && prev.unmuteInPlayer === v.unmuteInPlayer && prev.provider === v.provider && prev.volume === v.volume && prev.catching === v.catching) return;
       const silent = v.muted || v.needsUnmute;
       mute.ariaPressed = String(silent);
       mute.ariaLabel = silent ? "Unmute, only for you" : "Mute, only for you";
@@ -209,6 +211,8 @@ export function createPersonal(c: PlaybackController): Widget & { readonly pod: 
       if (document.activeElement !== input) input.value = String(shown);
       track.style.setProperty("--vol", String(shown / 100));
       unmute.hidden = !v.needsUnmute;
+      unmuteHint.hidden = !(v.needsUnmute && v.unmuteInPlayer);
+      if (!unmuteHint.hidden) unmuteHint.textContent = unmuteInPlayerText(v.provider);
       notice.hidden = !v.catching;
     },
   };
