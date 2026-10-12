@@ -170,6 +170,7 @@
         "e2e/source-link.e2e.ts",
         "e2e/tv-frame.e2e.ts",
         "e2e/walk.e2e.ts",
+        "e2e/website-redesign.e2e.ts",
         "e2e/wide-layout.e2e.ts",
         "perf/chat.perf.ts",
         "perf/editor.perf.ts",
@@ -208,6 +209,7 @@
         "e2e/room-view.e2e.ts",
         "e2e/source-link.e2e.ts",
         "e2e/tv-frame.e2e.ts",
+        "e2e/website-redesign.e2e.ts",
         "e2e/wide-layout.e2e.ts",
         "perf/chat.perf.ts",
         "perf/editor.perf.ts",
@@ -585,6 +587,7 @@
       ],
       "specs": [
         "e2e/landing.e2e.ts",
+        "e2e/website-redesign.e2e.ts",
         "perf/landing.perf.ts"
       ]
     },
