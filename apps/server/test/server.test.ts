@@ -175,7 +175,7 @@ describe("WebSocket /rooms/:id/ws", () => {
     expect(a.snapshot.room).toEqual({
       id: "lobby",
       seats: [null, null, null, null, null, null, null, null],
-      members: [{ id: a.snapshot.self, nickname: "alice", avatar: 1 }],
+      members: [{ id: a.snapshot.self, nickname: "alice", avatar: 1, standingSlot: 0 }],
       embed: null,
       playback: null,
       layout: DEFAULT_LAYOUT,
@@ -187,7 +187,7 @@ describe("WebSocket /rooms/:id/ws", () => {
     expect(b.snapshot.room.members.map((m) => m.nickname)).toEqual(["alice", "bob"]);
     expect(await a.client.next("member-joined")).toEqual({
       type: "member-joined",
-      member: { id: b.snapshot.self, nickname: "bob", avatar: 2 },
+      member: { id: b.snapshot.self, nickname: "bob", avatar: 2, standingSlot: 1 },
     });
     await b.client.none("member-joined");
   });

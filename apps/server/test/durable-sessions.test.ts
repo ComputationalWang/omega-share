@@ -135,8 +135,7 @@ async function dropAndHold(client: Client, peer: Client, memberId: string) {
 }
 
 /** A public room with a durable guest and a watcher who sees everything. */
-async function roomWithGuest(time: FakeTime) {
-  void time;
+async function roomWithGuest() {
   const room = await createRoom();
   const id = room.room.id;
   const watcher = await joined(id, "watcher", { durable: false });
@@ -148,8 +147,8 @@ async function roomWithGuest(time: FakeTime) {
 
 describe("opt-in and the resume token", () => {
   test("a durable join gets a 43-char base64url resume token in its own snapshot only", async () => {
-    const time = boot();
-    const { watcher, guest, token } = await roomWithGuest(time);
+    boot();
+    const { watcher, guest, token } = await roomWithGuest();
     expect(token).toMatch(TOKEN);
     expect(guest.snapshot.resumed).toBeUndefined();
     for (const frame of watcher.client.raw) expect(frame).not.toContain(token);
@@ -178,8 +177,8 @@ describe("opt-in and the resume token", () => {
 
 describe("grace hold", () => {
   test("an unexpected close (even 1000) keeps the member: away, in snapshots, nickname reserved", async () => {
-    const time = boot();
-    const { id, watcher, guest, self } = await roomWithGuest(time);
+    boot();
+    const { id, watcher, guest, self } = await roomWithGuest();
     await dropAndHold(guest.client, watcher.client, self);
     await watcher.client.none("member-left", 100);
     const late = await joined(id, "carol");
@@ -208,8 +207,8 @@ describe("grace hold", () => {
   });
 
   test("closing clears the held member's catching flag", async () => {
-    const time = boot(fakeTime(), { statusIntervalMs: 0 });
-    const { id, watcher, guest, self } = await roomWithGuest(time);
+    boot(fakeTime(), { statusIntervalMs: 0 });
+    const { id, watcher, guest, self } = await roomWithGuest();
     const shared = await postShare(server(), SHARE_BODY, { roomId: id, token: tokenOf(guest.snapshot) });
     expect(shared.status).toBe(200);
     guest.client.send({ type: "status", catching: true });
@@ -224,7 +223,7 @@ describe("grace hold", () => {
 describe("expiry", () => {
   test("just before the deadline the member resumes: same id, tokens and seat, no leave or join", async () => {
     const time = boot();
-    const { id, watcher, guest, self, token, guestAddress } = await roomWithGuest(time);
+    const { id, watcher, guest, self, token, guestAddress } = await roomWithGuest();
     guest.client.send({ type: "sit", seat: 2 });
     await watcher.client.next("seat-changed");
     await dropAndHold(guest.client, watcher.client, self);
@@ -247,7 +246,7 @@ describe("expiry", () => {
 
   test("at the deadline: exactly one member-left, the token fails and the name and seat are free", async () => {
     const time = boot();
-    const { id, watcher, guest, self, token } = await roomWithGuest(time);
+    const { id, watcher, guest, self, token } = await roomWithGuest();
     guest.client.send({ type: "sit", seat: 1 });
     await watcher.client.next("seat-changed");
     await dropAndHold(guest.client, watcher.client, self);
@@ -266,7 +265,7 @@ describe("expiry", () => {
 
   test("an explicit leave revokes at once: member-left now, token dead", async () => {
     const time = boot();
-    const { id, watcher, guest, self, token } = await roomWithGuest(time);
+    const { id, watcher, guest, self, token } = await roomWithGuest();
     guest.client.send({ type: "leave" });
     expect((await watcher.client.next("member-left")).memberId).toBe(self);
     guest.client.close();
@@ -279,8 +278,8 @@ describe("expiry", () => {
 
 describe("resume", () => {
   test("unknown, wrong-room and revoked tokens all get the same resume_expired, never a fresh member", async () => {
-    const time = boot();
-    const { id, watcher, token } = await roomWithGuest(time);
+    boot();
+    const { id, watcher, token } = await roomWithGuest();
     const other = await createRoom();
     const answers: unknown[] = [];
     for (const [roomId, candidate] of [
@@ -296,8 +295,7 @@ describe("resume", () => {
   });
 
   test("a private room's member resumes without its invite key", async () => {
-    const time = boot();
-    void time;
+    boot();
     const room = await createRoom("private");
     const inviteKey = room.inviteKey ?? fail();
     const id = room.room.id;
@@ -310,8 +308,7 @@ describe("resume", () => {
   });
 
   test("the owner's status comes back from the held identity, not the join frame", async () => {
-    const time = boot();
-    void time;
+    boot();
     const room = await createRoom();
     const id = room.room.id;
     const watcher = await joined(id, "watcher", { durable: false });
@@ -327,7 +324,7 @@ describe("resume", () => {
 
   test("a resume while the old socket is open replaces it with 4007, and the stale close changes nothing", async () => {
     const time = boot();
-    const { id, watcher, guest, self, token } = await roomWithGuest(time);
+    const { id, watcher, guest, self, token } = await roomWithGuest();
     const back = await resume(id, token);
     expect((await back.next("snapshot")).resumed).toBe(true);
     expect((await guest.client.closed).code).toBe(CLOSE_CODES.SESSION_REPLACED);
@@ -342,8 +339,8 @@ describe("resume", () => {
   });
 
   test("simultaneous resumes: one ends up live, the other is replaced, nobody leaves", async () => {
-    const time = boot();
-    const { id, watcher, guest, self, token } = await roomWithGuest(time);
+    boot();
+    const { id, watcher, guest, self, token } = await roomWithGuest();
     await dropAndHold(guest.client, watcher.client, self);
     const a = await open(id);
     const b = await open(id);
@@ -366,7 +363,7 @@ describe("resume", () => {
 
   test("a resume from a different address moves the quota slot, refusing and keeping the hold if the new one is full", async () => {
     const time = boot();
-    const { id, watcher, guest, self, token, guestAddress } = await roomWithGuest(time);
+    const { id, watcher, guest, self, token, guestAddress } = await roomWithGuest();
     await dropAndHold(guest.client, watcher.client, self);
     const fullAddress = freshAddress();
     for (let i = 0; i < MAX_MEMBERS_PER_CLIENT; i++) await joined(id, `f${String(i)}`, { durable: false, address: fullAddress });
@@ -381,14 +378,16 @@ describe("resume", () => {
     // Moving to a free address releases the original one's slot.
     const moved = await resume(id, token, freshAddress());
     expect((await moved.next("snapshot")).self).toBe(self);
+    // Past the join limiter's burst for that address, not the grace window.
+    time.advance(10_000);
     const sixth = await open(id, guestAddress);
     sixth.send({ type: "join", nickname: "gy", avatar: 0 });
     expect((await sixth.next("snapshot")).room.members.some((m) => m.nickname === "gy")).toBe(true);
   });
 
   test("rate buckets carry over: a resume doesn't refill emotes", async () => {
-    const time = boot();
-    const { id, watcher, guest, self, token } = await roomWithGuest(time);
+    boot();
+    const { id, watcher, guest, self, token } = await roomWithGuest();
     for (let i = 0; i < EMOTE_BURST; i++) guest.client.send({ type: "emote", kind: "wave" });
     for (let i = 0; i < EMOTE_BURST; i++) await watcher.client.next("emoted");
     await dropAndHold(guest.client, watcher.client, self);
@@ -419,7 +418,7 @@ describe("revocation", () => {
 
   test("deleting the room revokes its holds", async () => {
     const time = boot();
-    const { room, id, watcher, guest, self } = await roomWithGuest(time);
+    const { room, id, watcher, guest, self } = await roomWithGuest();
     await dropAndHold(guest.client, watcher.client, self);
     const res = await fetch(`${server().http}/rooms/${id}`, { method: "DELETE", headers: { authorization: `Bearer ${room.ownerToken}` } });
     expect(res.status).toBe(200);
@@ -428,7 +427,7 @@ describe("revocation", () => {
 
   test("a held member's share grant works until the deadline, isn't renewed by a share, then 401", async () => {
     const time = boot();
-    const { id, watcher, guest, self } = await roomWithGuest(time);
+    const { id, watcher, guest, self } = await roomWithGuest();
     await dropAndHold(guest.client, watcher.client, self);
     time.advance(RESUME_GRACE_MS / 2);
     const during = await postShare(server(), SHARE_BODY, { roomId: id, token: tokenOf(guest.snapshot) });
@@ -442,7 +441,7 @@ describe("revocation", () => {
 
 describe("standing slots", () => {
   test("every member gets a unique slot, kept through sitting, away and resume, freed at departure", async () => {
-    const time = boot();
+    boot();
     const room = await createRoom();
     const id = room.room.id;
     const a = await joined(id, "alice", { durable: false });
@@ -461,14 +460,13 @@ describe("standing slots", () => {
     await a.client.next("member-left");
     const c = await joined(id, "carol");
     expect(c.snapshot.room.members.find((m) => m.id === c.snapshot.self)?.standingSlot).toBe(1);
-    void time;
   });
 });
 
 describe("presence hint", () => {
   test("published on transitions only, and a hidden connected member is never expired", async () => {
     const time = boot();
-    const { watcher, guest, self } = await roomWithGuest(time);
+    const { watcher, guest, self } = await roomWithGuest();
     guest.client.send({ type: "presence", away: true });
     expect(await watcher.client.next("member-presence")).toEqual({ type: "member-presence", memberId: self, away: true });
     guest.client.send({ type: "presence", away: true });
@@ -489,14 +487,17 @@ describe("presence hint", () => {
   });
 });
 
+/** A created room's id shape: 26 lowercase base32 characters. */
+const GC_ROOM = "abcdefghijklmnopqrstuvwxyz";
+
 describe("room GC", () => {
   test("a held member keeps the room occupied; the empty clock starts when the hold ends", async () => {
     const time = fakeTime();
     const registry = new RoomRegistry();
-    const room = new Room("gcroom", { pinned: false });
+    const room = new Room(GC_ROOM, { pinned: false, createdAt: time.wall });
     registry.addRoom(room);
     boot(time, { registry, rooms: [] });
-    const watcherless = await joined("gcroom", "alice");
+    const watcherless = await joined(GC_ROOM, "alice");
     const before = room.lastActiveAt;
     watcherless.client.close();
     await Bun.sleep(50);
@@ -517,8 +518,8 @@ describe("secrecy", () => {
       }),
     );
     try {
-      const time = boot();
-      const { id, watcher, guest, self, token } = await roomWithGuest(time);
+      boot();
+      const { id, watcher, guest, self, token } = await roomWithGuest();
       await dropAndHold(guest.client, watcher.client, self);
       const back = await resume(id, token);
       await back.next("snapshot");

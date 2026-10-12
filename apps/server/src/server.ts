@@ -16,7 +16,7 @@ import { ROOM_GC_INTERVAL_MS, startRoomGc } from "./rooms-gc";
 import { openDatabase } from "./store/db";
 import { ReportStore } from "./store/reports";
 import type { RoomStore, SeatHold } from "./store/rooms";
-import { createWs, type ConnData } from "./ws";
+import { createWs, type ConnData, type Schedule } from "./ws";
 import { logError } from "./log";
 import { Metrics } from "./metrics";
 
@@ -55,6 +55,8 @@ export interface ServerOptions {
   now?: Clock;
   /** `member-status` coalescing interval (ADR 0019 §3). Default 1 s; tests shorten it. */
   statusIntervalMs?: number;
+  /** Timers for grace-hold expiry (ADR 0043); tests drive them with their fake clock. Default `setTimeout`. */
+  schedule?: Schedule;
   /** GENERIC_EMBEDS: accept the generic embed tier (ADR 0024). Default true. */
   genericEmbeds?: boolean;
   /** Domains refused for generic embeds, with their subdomains (GENERIC_EMBED_DENYLIST). Default none. */
@@ -280,6 +282,7 @@ export function startServer(opts: ServerOptions): OmegaServer {
       markActive(room, wallNow());
     },
     ...(opts.statusIntervalMs === undefined ? {} : { statusIntervalMs: opts.statusIntervalMs }),
+    ...(opts.schedule === undefined ? {} : { schedule: opts.schedule }),
     release(ip) {
       connections--;
       const left = (connectionsPerIp.get(ip) ?? 1) - 1;
