@@ -156,6 +156,8 @@
         "e2e/csp.e2e.ts",
         "e2e/furniture.e2e.ts",
         "e2e/landing.e2e.ts",
+        "e2e/m10-a11y.e2e.ts",
+        "e2e/m10-abuse.e2e.ts",
         "e2e/m10-composer.e2e.ts",
         "e2e/m10-portrait.e2e.ts",
         "e2e/m10-sessions.e2e.ts",
@@ -390,6 +392,7 @@
       ],
       "specs": [
         "e2e/furniture.e2e.ts",
+        "e2e/m10-abuse.e2e.ts",
         "e2e/owner-editor.e2e.ts",
         "e2e/room-presets.e2e.ts",
         "perf/editor.perf.ts"
@@ -648,6 +651,7 @@
         "e2e/abuse.e2e.ts",
         "e2e/generic-policy.e2e.ts",
         "e2e/http-flood.e2e.ts",
+        "e2e/m10-abuse.e2e.ts",
         "e2e/m7-report-abuse.e2e.ts",
         "e2e/persistence.e2e.ts",
         "e2e/qa-rooms.e2e.ts",
