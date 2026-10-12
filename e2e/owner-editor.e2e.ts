@@ -8,6 +8,7 @@ import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { site } from "./support/selectors";
+import { openDirectory } from "./support/directory";
 import { cellCenter } from "../apps/web/src/layout";
 
 test.fixme(!available.web, PENDING.web);
@@ -76,6 +77,7 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
     if (typeof f.payload === "string" && f.payload.includes('"title-set"')) titleSets.push(f.payload);
   }));
   await owner.goto(`${URLS.web}/`);
+  await openDirectory(owner, "Owner");
   await owner.locator(site.createRoomTitle).fill("Edit me");
   await owner.locator(site.createRoomSubmit).click();
   await owner.waitForURL(/\/r\/[a-z2-7]{26}$/);

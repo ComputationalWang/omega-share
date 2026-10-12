@@ -16,24 +16,12 @@ import { startServer, type OmegaServer } from "../../server/src/server";
 const web = fileURLToPath(new URL("..", import.meta.url));
 const siteArt = fileURLToPath(new URL("../../../assets/site/", import.meta.url));
 
-/** The D1 panels and their alt text, word for word from assets/README.md set (m). */
-const PANELS = [
-  {
-    file: "how-1-find.png",
-    caption: "The extension finds the video",
-    alt: "A browser window with a video on the page. The omega-share icon in the toolbar has a tick badge, and gold corner brackets mark the video it found.",
-  },
-  {
-    file: "how-2-share.png",
-    caption: "Share it into a room",
-    alt: "The omega-share popup under its toolbar icon, showing the video and a room, with a hand pressing the gold Share key. The video flies through an open door where a friend is waiting.",
-  },
-  {
-    file: "how-3-watch.png",
-    caption: "Sit together and watch",
-    alt: "Four friends in armchairs, seen from behind, watch the same sunset video on a wood TV in a cosy room.",
-  },
-] as const;
+/** The three steps of the Dusk doorstep landing (OME-933 design 53e938b): numbered captions, text only. */
+const STEPS = ["Find a video", "Share your room", "Watch in sync"] as const;
+/** The hero: the desktop room crop (≥1104 px) or the phone/tablet vignette, one file fetched, never both. */
+const HERO = { wide: "website-room.png", narrow: "how-3-watch.png" } as const;
+/** The four avatars, by id, with their original names (assets/avatars/avatars.json). */
+const AVATARS = ["Juno", "Pip", "Mo", "Kiki"] as const;
 
 let out = "";
 let server: OmegaServer | null = null;
@@ -75,42 +63,83 @@ describe("landing: explains the product before asking for anything", () => {
     expect(served).toMatch(/<main id="app">/);
   });
 
-  test("'How it works' sits after the form: a heading and three numbered steps with their captions", () => {
+  test("'How it works' sits after the form: a heading and three numbered steps, text only", () => {
     const section = how(served);
     expect(section).not.toBe("");
     expect(served.indexOf('id="how"')).toBeGreaterThan(served.indexOf('id="landing"'));
     expect(section).toMatch(/<h2[^>]*id="how-title"[^>]*>How it works<\/h2>/);
     expect(served).toMatch(/<section[^>]*id="how"[^>]*aria-labelledby="how-title"/);
-    expect(count(section, /<li[\s>]/g)).toBe(3);
     expect(section).toMatch(/<ol[\s>]/);
+    expect(count(section, /<li[\s>]/g)).toBe(3);
+    expect(count(section, /<img[\s>]/g)).toBe(0);
     const s = text(section);
-    for (const p of PANELS) expect(s).toContain(p.caption);
+    for (const step of STEPS) expect(s).toContain(step);
   });
 
-  test("each step shows its D1 panel: self-hosted, lazy, sized up front (no layout shift), with the README's alt text", () => {
-    const imgs = [...how(served).matchAll(/<img\s[^>]*>/g)].map((m) => attrs(m[0]));
-    expect(imgs).toHaveLength(3);
-    PANELS.forEach((p, i) => {
-      const img = imgs[i] ?? {};
-      expect(decode(img["alt"] ?? "")).toBe(p.alt);
-      expect(img["width"]).toBe("368");
-      expect(img["height"]).toBe("224");
-      expect(img["loading"]).toBe("lazy");
-      expect(img["decoding"]).toBe("async");
-      // A hashed file under /assets (never inlined as data:, never remote), so it caches and loads lazily.
-      expect(img["src"]).toMatch(new RegExp(`^/assets/${p.file.replace(".png", "")}-[A-Za-z0-9_-]+\\.png$`));
-    });
+  test("the hero is one <picture>: the room crop from 1104 px, else the vignette; sized up front, decorative, not lazy", () => {
+    const pic = /<picture[^>]*>([\s\S]*?)<\/picture>/.exec(served)?.[1] ?? "";
+    expect(pic).not.toBe("");
+    // Before the form in the page (it is first on phones), but never focusable.
+    expect(served.indexOf("<picture")).toBeLessThan(served.indexOf('id="landing"'));
+    const sources = [...pic.matchAll(/<source\s[^>]*>/g)].map((m) => attrs(m[0]));
+    expect(sources).toHaveLength(1);
+    const wide = sources[0] ?? {};
+    expect(wide["media"]).toBe("(min-width: 1104px)");
+    expect(wide["srcset"]).toMatch(/^\/assets\/website-room-[A-Za-z0-9_-]+\.png$/);
+    expect([wide["width"], wide["height"]]).toEqual(["656", "536"]);
+    const img = attrs(/<img\s[^>]*>/.exec(pic)?.[0] ?? "");
+    expect(img["src"]).toMatch(/^\/assets\/how-3-watch-[A-Za-z0-9_-]+\.png$/);
+    expect([img["width"], img["height"]]).toEqual(["368", "224"]);
+    expect(img["alt"]).toBe("");
+    expect(img["loading"]).toBeUndefined();
   });
 
-  test("the panels are served byte for byte from assets/site", async () => {
-    const srcs = [...how(served).matchAll(/<img\s[^>]*>/g)].map((m) => attrs(m[0])["src"] ?? "");
-    for (const [i, src] of srcs.entries()) {
+  test("the hero's caption calls it an illustration and promises no identical room (judge's caution)", () => {
+    const fig = /<figcaption[^>]*>([\s\S]*?)<\/figcaption>/.exec(served)?.[1] ?? "";
+    expect(text(fig)).toMatch(/illustration/i);
+    expect(text(fig)).not.toMatch(/same|step into|exactly/i);
+  });
+
+  test("the hero files are served byte for byte from assets/site", async () => {
+    const pic = /<picture[^>]*>([\s\S]*?)<\/picture>/.exec(served)?.[1] ?? "";
+    const srcs: [string, string][] = [
+      [attrs(/<source\s[^>]*>/.exec(pic)?.[0] ?? "")["srcset"] ?? "", HERO.wide],
+      [attrs(/<img\s[^>]*>/.exec(pic)?.[0] ?? "")["src"] ?? "", HERO.narrow],
+    ];
+    for (const [src, file] of srcs) {
       const res = await fetch(`${base()}${src}`);
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toContain("image/png");
-      const want = readFileSync(join(siteArt, PANELS[i]?.file ?? ""));
-      expect(Buffer.from(await res.arrayBuffer()).equals(want)).toBe(true);
+      expect(Buffer.from(await res.arrayBuffer()).equals(readFileSync(join(siteArt, file)))).toBe(true);
     }
+  });
+
+  test("Enter lobby is the form's one submit; Find or create a room is a separate button outside the form", () => {
+    const form = /<form[^>]*id="landing"[^>]*>([\s\S]*?)<\/form>/.exec(served)?.[1] ?? "";
+    expect(text(/<button[^>]*data-testid="join-button"[^>]*>[\s\S]*?<\/button>/.exec(form)?.[0] ?? "")).toBe("Enter lobby");
+    // Outside the form: focusing or hovering it never warms the room chunk, and Enter in the nickname still joins.
+    expect(form).not.toContain('data-testid="find-room"');
+    const find = /<button[^>]*data-testid="find-room"[^>]*>[\s\S]*?<\/button>/.exec(served)?.[0] ?? "";
+    expect(attrs(find)["type"]).toBe("button");
+    expect(text(find)).toContain("Find or create a room");
+    expect(served.indexOf('data-testid="find-room"')).toBeGreaterThan(served.indexOf('data-testid="join-button"'));
+  });
+
+  test("the avatar radios keep their ids and order and name each avatar in text", () => {
+    const radios = [...served.matchAll(/<button[^>]*data-testid="avatar-option"[^>]*>[\s\S]*?<\/button>/g)].map((m) => m[0]);
+    expect(radios.map((r) => attrs(r)["data-avatar"])).toEqual(["0", "1", "2", "3"]);
+    expect(radios.map((r) => attrs(r)["role"])).toEqual(["radio", "radio", "radio", "radio"]);
+    expect(radios.map((r) => text(r))).toEqual([...AVATARS]);
+    expect(radios.map((r) => attrs(r)["aria-label"])).toEqual([...AVATARS]);
+  });
+
+  test("the directory screen's head is in the page: Find a room, Edit profile, and quick links to the lists", () => {
+    const home = /<section[^>]*id="home-root"[^>]*>([\s\S]*?)<\/section>/.exec(served)?.[1] ?? "";
+    expect(home).toMatch(/<h1[^>]*id="directory-title"[^>]*tabindex="-1"[^>]*>Find a room<\/h1>/);
+    expect(home).toMatch(/<button[^>]*type="button"[^>]*data-testid="edit-profile"[^>]*>Edit profile<\/button>/);
+    expect(home).toMatch(/<a href="#open-rooms"[^>]*>Open rooms/);
+    expect(home).toMatch(/<a href="#create-room-title"[^>]*>Make a room/);
+    expect(home).toContain('id="directory"');
   });
 
   test("no remote images and no third-party badges anywhere on the page", () => {
@@ -165,6 +194,7 @@ describe("site footer", () => {
       [REPO_URL, "Source"],
       [`${REPO_URL}/issues`, "Feedback"],
     ]);
+    expect(text(f)).toContain("Original art · CC BY-SA 4.0");
     expect(text(f)).toMatch(/version (?:[0-9a-f]{7}|dev)$/);
     expect(f).not.toContain("%OMEGA_");
   });

@@ -9,6 +9,7 @@ import { EMBED_URL, stubExternalNetwork } from "./support/network";
 import { ownedRoom } from "./support/owned-rooms";
 import { postShare } from "./support/share";
 import { site } from "./support/selectors";
+import { openDirectory } from "./support/directory";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -53,6 +54,7 @@ test("create a private room, invite a guest by link, then close it with 4004", a
   // The owner creates the room from the home page.
   const owner = await newPage(browser);
   await owner.goto(`${URLS.web}/`);
+  await openDirectory(owner, "Owner");
   await owner.locator(site.createRoomTitle).fill("Movie night");
   await owner.locator(site.createRoomPrivate).check();
   await owner.locator(site.createRoomSubmit).click();
@@ -94,6 +96,7 @@ test("create a private room, invite a guest by link, then close it with 4004", a
   // "Your rooms" on the home page lists it for the owner, without any secret in the markup.
   const home = await owner.context().newPage();
   await home.goto(`${URLS.web}/`);
+  await openDirectory(home, "Owner");
   await expect(home.locator(site.yourRoomLink)).toHaveAttribute("href", `/r/${roomId}`);
   expect(await home.content()).not.toContain(ownerToken);
   await home.close();
@@ -126,6 +129,7 @@ test("a guest with the bare room URL of a private room gets 'Room not found', ne
 test("the home page lists public rooms by title, as plain text links", async ({ browser }) => {
   const page = await newPage(browser);
   await page.goto(`${URLS.web}/`);
+  await openDirectory(page);
   const lobby = page.locator(site.publicRoomLink).filter({ hasText: /./ }).first();
   await expect(lobby).toBeVisible();
   expect(await lobby.evaluate((a) => a.children.length)).toBe(0);

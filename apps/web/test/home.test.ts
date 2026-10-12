@@ -195,7 +195,7 @@ describe("public rooms (GET /rooms)", () => {
 });
 
 describe("open rooms: loading, empty and error are told apart (OME-935)", () => {
-  const status = (root: ParentNode): string => byTestId(root, "public-rooms-status", HTMLElement).textContent ?? "";
+  const status = (root: ParentNode): string => byTestId(root, "public-rooms-status", HTMLElement).textContent;
   const list = (root: ParentNode): HTMLElement => byTestId(root, "public-rooms", HTMLElement);
 
   test("while the list loads it is busy and says so, and saved rooms are already there", async () => {
@@ -257,7 +257,7 @@ describe("your rooms: an honest empty state and plain labels (OME-935)", () => {
   test("a saved room says private or public and owner or invited, never a secret", async () => {
     rememberRoom(store, ROOM, { ownerToken: OWNER, inviteKey: KEY });
     const root = await mount();
-    const row = byTestId(root, "your-room", HTMLElement).textContent ?? "";
+    const row = byTestId(root, "your-room", HTMLElement).textContent;
     expect(row).toContain("Private");
     expect(row).toContain("owner");
     expect(row).not.toContain(OWNER);
