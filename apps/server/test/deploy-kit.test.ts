@@ -220,6 +220,10 @@ describe("nightly backup wiring (OME-358 engine, OME-363)", () => {
     expect(docs("ops/hosting.md")).not.toContain("bash deploy/backup/restore.sh");
   });
 
+  test("a release carries assets/presets: the server builds created rooms from the D1 preset layouts (OME-910)", () => {
+    expect(read("deploy.sh")).toMatch(/archive "\$rel" [^\n]*assets\/presets/);
+  });
+
   test("a release carries apps/server, so the snapshot script ships with every deploy", () => {
     expect(read("deploy.sh")).toMatch(/archive "\$rel" [^\n]*apps\/server /);
   });

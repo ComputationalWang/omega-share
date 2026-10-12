@@ -9,6 +9,8 @@ import * as confusables from "@omega/shared/confusables";
 import {
   CLOSE_CODES,
   CreateRoomResponseSchema,
+  DEFAULT_LAYOUT,
+  DEFAULT_ROOM_PRESET,
   DeleteRoomResponseSchema,
   MAX_ROOMS,
   ROOM_CREATE_GLOBAL_BURST,
@@ -16,8 +18,11 @@ import {
   ROOM_CREATE_KEY_BURST,
   ROOM_CREATE_KEY_REFILL_MS,
   ROOM_CREATE_RETRY_AFTER_MAX_MS,
+  ROOM_PRESET_IDS,
+  RoomLayoutSchema,
   RoomListResponseSchema,
   type CreateRoomResponse,
+  type RoomLayout,
   type RoomListResponse,
 } from "@omega/shared";
 import { Room } from "../src/room";
@@ -120,6 +125,31 @@ describe("POST /rooms creates a room (ADR 0028 §1)", () => {
     expect(joined.snapshot.room.embed).toBeNull();
     // An owner token never shows up in a snapshot.
     expect(joined.snapshot.owner).toBeUndefined();
+  });
+
+  test("each preset id builds the room from its judged D1 layout (OME-910); omitting it is classic, today's DEFAULT_LAYOUT", async () => {
+    t = start({ trustProxy: true });
+    const presetLayout = (id: string): RoomLayout => v.parse(RoomLayoutSchema, JSON.parse(readFileSync(join(import.meta.dir, `../../../assets/presets/${id}.json`), "utf8")));
+    expect(presetLayout(DEFAULT_ROOM_PRESET)).toEqual(DEFAULT_LAYOUT);
+    for (const preset of [...ROOM_PRESET_IDS, undefined]) {
+      const body = preset === undefined ? { title: "Den", visibility: "public" } : { title: "Den", visibility: "public", preset };
+      const { room } = await created(await create(body));
+      const joined = await Client.join(server().ws(room.id), "alice");
+      clients.push(joined.client);
+      expect(joined.snapshot.room.layout, String(preset)).toEqual(presetLayout(preset ?? DEFAULT_ROOM_PRESET));
+    }
+  });
+
+  test("an unknown, mis-cased or non-string preset id is 400 invalid_body and creates nothing", async () => {
+    t = start({ trustProxy: true });
+    const listed = async (): Promise<number> => v.parse(RoomListResponseSchema, await (await fetch(`${server().http}/rooms`)).json()).rooms.length;
+    const before = await listed();
+    for (const preset of ["disco", "Cinema", "", "classic ", "__proto__", 1, null, { id: "cinema" }, ["cinema"]]) {
+      const res = await create({ title: "Den", visibility: "public", preset });
+      expect(res.status, JSON.stringify(preset)).toBe(400);
+      expect(await errorOf(res)).toBe("invalid_body");
+    }
+    expect(await listed()).toBe(before);
   });
 
   test("the title is normalised by RoomTitleSchema (NFKC, trimmed)", async () => {
