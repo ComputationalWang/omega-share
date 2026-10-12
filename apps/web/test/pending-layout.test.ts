@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { classic } from "./support/preset-layouts";
-import { pendingLayoutKey, stashPendingLayout, takePendingLayout } from "../src/pending-layout";
+import type { ClientMessage } from "@omega/shared";
+import { createPendingApplier, pendingLayoutKey, stashPendingLayout, takePendingLayout } from "../src/pending-layout";
 
 const ROOM = "abcdefghijklmnopqrstuvwxyz";
 
@@ -38,6 +39,50 @@ describe("pending layout (saved layout chosen at room creation)", () => {
       expect(takePendingLayout(s, ROOM)).toBeNull();
       expect(s.data.size).toBe(0);
     }
+  });
+
+  describe("applyPendingLayout (on the room page)", () => {
+    const setup = (): { s: MemoryStore; sent: ClientMessage[]; apply: ReturnType<typeof createPendingApplier> } => {
+      const s = new MemoryStore();
+      const sent: ClientMessage[] = [];
+      const apply = createPendingApplier(s, ROOM, (m) => {
+        sent.push(m);
+        return true;
+      });
+      return { s, sent, apply };
+    };
+
+    test("sends one layout-set once the joiner is the owner and the first snapshot is in, then clears the key", () => {
+      const { s, sent, apply } = setup();
+      stashPendingLayout(s, ROOM, classic);
+      apply({ owner: false, hasRoom: false });
+      apply({ owner: true, hasRoom: false });
+      expect(sent).toEqual([]);
+      apply({ owner: true, hasRoom: true });
+      apply({ owner: true, hasRoom: true });
+      expect(sent).toEqual([{ type: "layout-set", layout: classic }]);
+      expect(s.data.size).toBe(0);
+    });
+
+    test("a guest (not the owner) leaves the key alone and sends nothing", () => {
+      const { s, sent, apply } = setup();
+      stashPendingLayout(s, ROOM, classic);
+      apply({ owner: false, hasRoom: true });
+      expect(sent).toEqual([]);
+      expect(s.data.size).toBe(1);
+    });
+
+    test("nothing stashed or an invalid layout sends nothing", () => {
+      const { s, sent, apply } = setup();
+      apply({ owner: true, hasRoom: true });
+      expect(sent).toEqual([]);
+      const second = setup();
+      second.s.data.set(pendingLayoutKey(ROOM), '{"furniture":[{"kind":"tv"}]}');
+      second.apply({ owner: true, hasRoom: true });
+      expect(second.sent).toEqual([]);
+      expect(second.s.data.size).toBe(0);
+      expect(s.data.size).toBe(0);
+    });
   });
 
   test("a storage that throws never throws out of either call", () => {
