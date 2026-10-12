@@ -8,6 +8,8 @@ import { PENDING, available } from "./support/apps";
 import { VIDEO_ID } from "./support/network";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+/** Playback lines only: a helper's throwaway join leaves and logs "… left the room" (ADR 0043) in between. */
+const LEFT = "left the room";
 import { PLAYING, PAUSED, SPREAD_BUDGET_MS, SETTLE_MS, fakeState, measureSpread, roomPlayback, shareVideo, waitPlaying } from "../perf/sync";
 
 // Each test has its own room, so they spread over the lane's workers (OME-341).
@@ -67,14 +69,14 @@ test.describe("M1b sync, 8 clients", () => {
     for (const c of clients) expect(await fakeState(c.page)).toBe(PAUSED);
     // Everyone else sees who did it (folded in from the old sync-smoke spec, OME-89/OME-341).
     for (const c of clients.slice(1)) {
-      await expect(c.page.locator(site.systemLine).last()).toHaveText(`${a.nickname} paused`);
+      await expect(c.page.locator(site.systemLine).filter({ hasNotText: LEFT }).last()).toHaveText(`${a.nickname} paused`);
       await expect(c.page.locator(site.playToggle)).toHaveAttribute("aria-label", "Play for everyone");
     }
     await step("play", () => a.page.locator(site.playToggle).click(), (playing) => {
       expect(playing).toBe(true);
     });
     for (const c of clients) expect(await fakeState(c.page)).toBe(PLAYING);
-    for (const c of clients.slice(1)) await expect(c.page.locator(site.systemLine).last()).toHaveText(`${a.nickname} pressed play`);
+    for (const c of clients.slice(1)) await expect(c.page.locator(site.systemLine).filter({ hasNotText: LEFT }).last()).toHaveText(`${a.nickname} pressed play`);
     await step("seek", () => a.page.locator(site.seek).fill("120"), (playing, position) => {
       expect(playing).toBe(true);
       expect(position).toBeCloseTo(120, 0);
@@ -138,7 +140,7 @@ test.describe("M1b sync, 8 clients", () => {
     const [, b] = pair(clients);
     await waitPlaying(clients);
     const before = await roomPlayback(browser, room.id);
-    const lines = await Promise.all(clients.map((c) => c.page.locator(site.systemLine).count()));
+    const lines = await Promise.all(clients.map((c) => c.page.locator(site.systemLine).filter({ hasNotText: LEFT }).count()));
 
     await b.page.evaluate(() => window.__fakeYt?.ad(4000));
     await b.page.waitForTimeout(2000);
@@ -147,7 +149,7 @@ test.describe("M1b sync, 8 clients", () => {
     expect(during.rev).toBe(before.rev);
     expect(during.playing).toBe(true);
     // No pause/play line anywhere: the ad never reached the room.
-    for (const [i, c] of clients.entries()) await expect(c.page.locator(site.systemLine)).toHaveCount(lines[i] ?? 0);
+    for (const [i, c] of clients.entries()) await expect(c.page.locator(site.systemLine).filter({ hasNotText: LEFT })).toHaveCount(lines[i] ?? 0);
 
     await expect.poll(async () => (await measureSpread(browser, clients, room.id)).spreadMs, { timeout: 10_000, intervals: [500] }).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
     expect((await roomPlayback(browser, room.id)).rev).toBe(before.rev);
@@ -166,7 +168,7 @@ test.describe("M1b sync, 8 clients", () => {
     await a.page.evaluate(() => window.__fakeYt?.clickToggle());
     for (const c of [...clients.slice(1), a]) {
       await expect.poll(() => fakeState(c.page), { timeout: 5_000, message: c.nickname }).toBe(PAUSED);
-      await expect(c.page.locator(site.systemLine).last()).toHaveText(c === a ? "You paused" : `${a.nickname} paused`);
+      await expect(c.page.locator(site.systemLine).filter({ hasNotText: LEFT }).last()).toHaveText(c === a ? "You paused" : `${a.nickname} paused`);
       await expect(c.page.locator(site.playToggle)).toHaveAttribute("aria-label", "Play for everyone");
     }
     const p = await roomPlayback(browser, room.id);
