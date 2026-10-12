@@ -621,6 +621,28 @@ describe("durable sessions (ADR 0043)", () => {
     expect(sockets).toHaveLength(1);
   });
 
+  test("resume_expired on a reconnect of a page that was in the room (server restart or crash): one fresh durable join, no card", () => {
+    durable();
+    last().open();
+    last().receive(durableSnapshot(TOKEN));
+    last().drop(1012);
+    runTimer();
+    last().open();
+    expect(joins().at(-1)?.[0]?.["resumeToken"]).toBe(TOKEN);
+    last().receive({ type: "error", code: "resume_expired", message: "gone" });
+    expect(events.some((e) => e.type === "expired")).toBe(false);
+    expect(events).toContainEqual({ type: "session-lost" });
+    // Straight away, as a new durable member under the same name: the restarted server has no tokens to resume.
+    expect(sockets).toHaveLength(3);
+    last().open();
+    const fresh = joins().at(-1)?.[0];
+    expect(fresh?.["resumeToken"]).toBeUndefined();
+    expect(fresh?.["durableSession"]).toBe(true);
+    // A tokenless join can't be resume_expired again: no loop. A refusal now follows the ordinary rules.
+    last().receive(durableSnapshot(TOKEN2));
+    expect(events.at(-1)).toEqual({ type: "session", token: TOKEN2 });
+  });
+
   test("4007 session replaced is terminal: replaced event, no reconnect, ensureConnected is a no-op", () => {
     const c = durable();
     last().open();
