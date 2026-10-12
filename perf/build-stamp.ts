@@ -25,12 +25,12 @@ export function gitTree(root: string): GitTree {
   return { sha: git("rev-parse", "HEAD"), dirty: git("status", "--porcelain", "--", ...BUILD_INPUTS) !== "" };
 }
 
-/** The stamp a build of this tree gets. `extra` is anything else baked in (the web build's server URL). Null: never reuse. */
 /** The web build perf serves: the server URL baked in, and the test handle so the harness can send leave (OME-911). */
 export function webBuildEnv(serverUrl: string): { readonly VITE_SERVER_URL: string; readonly VITE_TEST_HANDLE: "1" } {
   return { VITE_SERVER_URL: serverUrl, VITE_TEST_HANDLE: "1" };
 }
 
+/** The stamp a build of this tree gets. `extra` is anything else baked in (the web build's server URL). Null: never reuse. */
 export function buildKey(tree: GitTree, extra: string): string | null {
   return tree.dirty ? null : `${tree.sha} ${extra}`;
 }
