@@ -125,9 +125,9 @@ describe("paired gate failure evidence (OME-950)", () => {
       })();
       return finished;
     }, 10);
-    await expect(result).rejects.toThrow("reserving paired failure capture time");
+    expect(await result.catch((error: unknown) => error)).toEqual(new Error("M3 workflow exceeded its deadline; reserving paired failure capture time"));
     finishObservation();
-    await expect(finished).rejects.toThrow("reserving paired failure capture time");
+    expect(await finished.catch((error: unknown) => error)).toEqual(new Error("M3 workflow exceeded its deadline; reserving paired failure capture time"));
     expect(actions).toEqual([]);
   });
 

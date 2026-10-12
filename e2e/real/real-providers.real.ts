@@ -2,7 +2,7 @@
 // Checklist and how to read the results: docs/qa/m2-real-sign-off.md. Evidence: e2e/real/results/m2-<item>.json (+ .png).
 // The fake-SDK suites (e2e/provider-sync.e2e.ts, e2e/vimeo.e2e.ts) prove the logic; this proves the real players obey it.
 import { writeFileSync } from "node:fs";
-import { discoverPairedGate, collectGateEvidence } from "./twitch-gate";
+import { discoverPairedGate, collectGateEvidence, runGateWorkflow } from "./twitch-gate";
 import { discoverPairedLive } from "./twitch-live";
 import { chromium } from "@playwright/test";
 import { expect, test, watchCsp } from "../support/csp";
@@ -291,104 +291,102 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
   let discovery: Awaited<ReturnType<typeof discoverPairedGate>> | null = null;
   let capturedFailure = false;
   const actions: { action: string; atMs: number; outcome: "started" | "completed" }[] = [];
+  let checkActive: () => void = () => undefined;
   const action = async (name: string, perform: () => Promise<unknown>) => {
+    checkActive();
     actions.push({ action: name, atMs: Date.now() - started, outcome: "started" });
     await perform();
+    checkActive();
     actions.push({ action: name, atMs: Date.now() - started, outcome: "completed" });
   };
-  let workflowTimer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const workflowDeadline = new Promise<never>((_, reject) => {
-      const remainingMs = Math.max(1, testInfo.timeout - (Date.now() - started) - 30_000);
-      workflowTimer = setTimeout(() => { reject(new Error("M3 workflow exceeded its deadline; reserving paired failure capture time")); }, remainingMs);
-    });
-    await Promise.race([(async () => {
-    // Playwright may have auto-started tracing even for these manual contexts. Own explicit traces
-    // so failures attach both viewers instead of relying on the runner's context selection.
-    await Promise.all([a, b].map(async (c) => {
-      await c.context.tracing.stop();
-      await c.context.tracing.start({ screenshots: true, snapshots: true, sources: true });
-    }));
-    // Discovery runs in its own tab so the room pages stay in the room.
-    const scout = await a.context.newPage();
-    const candidates = REAL.twitchGated.length > 0 ? REAL.twitchGated : await liveInCategories(scout, REAL.twitchGatedCategories);
-    await scout.close();
-    discovery = await discoverPairedGate(candidates, {
-      share: async (channel) => { currentChannel = channel; await shareUrl(request, twitchLiveUrl(channel)); },
-      observe: async (channel) => Promise.all([gateViewer(a, channel), gateViewer(b, channel)]),
-      now: Date.now,
-      pause: () => a.page.waitForTimeout(500),
-    });
-    const { channel, tried } = discovery;
-    record("m3-twitch-gate-discovery", discovery);
-    await testInfo.attach("paired-gate-discovery", { body: JSON.stringify(discovery, null, 2), contentType: "application/json" });
-    if (channel === null) {
-      const notRun = "no candidate showed the mature gate to both logged-out viewers; set OMEGA_REAL_TWITCH_GATED";
-      record("m3-twitch-gate", { notRun, tried });
-      test.skip(true, `${notRun} (${tried.map((x) => `${x.channel}: ${x.viewers.map((v) => v.reason).join(" / ")}`).join(", ")})`);
-      return;
-    }
-    const [fa, fb] = await frames(a, b, "twitch", channel);
-    const hints = await Promise.all([a, b].map(async (c) => ({ visible: await c.page.locator(site.tvHint).isVisible(), text: (await c.page.locator(site.tvHint).textContent())?.trim() ?? null })));
-    const gatedViews = await Promise.all([view(a.page), view(b.page)]);
-    await Promise.all([shot(a.page, "m3-twitch-gate-gated-1"), shot(b.page, "m3-twitch-gate-gated-2")]);
+    const remainingMs = Math.max(1, testInfo.timeout - (Date.now() - started) - 30_000);
+    await runGateWorkflow(async (assertActive) => {
+      checkActive = assertActive;
+      // Playwright may have auto-started tracing even for these manual contexts. Own explicit traces
+      // so failures attach both viewers instead of relying on the runner's context selection.
+      await Promise.all([a, b].map(async (c) => {
+        await c.context.tracing.stop();
+        await c.context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+      }));
+      // Discovery runs in its own tab so the room pages stay in the room.
+      const scout = await a.context.newPage();
+      const candidates = REAL.twitchGated.length > 0 ? REAL.twitchGated : await liveInCategories(scout, REAL.twitchGatedCategories);
+      await scout.close();
+      discovery = await discoverPairedGate(candidates, {
+        share: async (channel) => { checkActive(); currentChannel = channel; await shareUrl(request, twitchLiveUrl(channel)); },
+        observe: async (channel) => { checkActive(); return Promise.all([gateViewer(a, channel), gateViewer(b, channel)]); },
+        now: Date.now,
+        pause: () => a.page.waitForTimeout(500),
+      });
+      const { channel, tried } = discovery;
+      record("m3-twitch-gate-discovery", discovery);
+      await testInfo.attach("paired-gate-discovery", { body: JSON.stringify(discovery, null, 2), contentType: "application/json" });
+      if (channel === null) {
+        const notRun = "no candidate showed the mature gate to both logged-out viewers; set OMEGA_REAL_TWITCH_GATED";
+        record("m3-twitch-gate", { notRun, tried });
+        test.skip(true, `${notRun} (${tried.map((x) => `${x.channel}: ${x.viewers.map((v) => v.reason).join(" / ")}`).join(", ")})`);
+        return;
+      }
+      const [fa, fb] = await frames(a, b, "twitch", channel);
+      const hints = await Promise.all([a, b].map(async (c) => ({ visible: await c.page.locator(site.tvHint).isVisible(), text: (await c.page.locator(site.tvHint).textContent())?.trim() ?? null })));
+      const gatedViews = await Promise.all([view(a.page), view(b.page)]);
+      await Promise.all([shot(a.page, "m3-twitch-gate-gated-1"), shot(b.page, "m3-twitch-gate-gated-2")]);
 
-    // Each member has their own gate. Browser 1 presses first: browser 2 stays gated and nobody's room state changes.
-    await action("viewer-1-start-watching", () => fa.locator(TWITCH_START_WATCHING).click({ timeout: actionTimeoutMs }));
-    await expect.poll(() => gateShown(fa), { timeout: 10_000, message: "browser 1's gate goes away" }).toBe(false);
-    await a.page.waitForTimeout(3_000);
-    const halfway = { bStillGated: await gateShown(fb), views: (await Promise.all([view(a.page), view(b.page)])).map((v) => ({ playing: v.playing, error: v.error })) };
-    await action("viewer-2-start-watching", () => fb.locator(TWITCH_START_WATCHING).click({ timeout: actionTimeoutMs }));
-    await expect.poll(() => gateShown(fb), { timeout: 10_000, message: "browser 2's gate goes away" }).toBe(false);
-    const contentTimeoutMs = Math.min(120_000, Math.max(1, 240_000 - (Date.now() - started)));
-    const ads = await Promise.all([waitMediaPlaying(a, fa, contentTimeoutMs), waitMediaPlaying(b, fb, contentTimeoutMs)]);
-    await a.page.waitForTimeout(3_000);
+      // Each member has their own gate. Browser 1 presses first: browser 2 stays gated and nobody's room state changes.
+      await action("viewer-1-start-watching", () => fa.locator(TWITCH_START_WATCHING).click({ timeout: actionTimeoutMs }));
+      await expect.poll(() => gateShown(fa), { timeout: 10_000, message: "browser 1's gate goes away" }).toBe(false);
+      await a.page.waitForTimeout(3_000);
+      const halfway = { bStillGated: await gateShown(fb), views: (await Promise.all([view(a.page), view(b.page)])).map((v) => ({ playing: v.playing, error: v.error })) };
+      await action("viewer-2-start-watching", () => fb.locator(TWITCH_START_WATCHING).click({ timeout: actionTimeoutMs }));
+      await expect.poll(() => gateShown(fb), { timeout: 10_000, message: "browser 2's gate goes away" }).toBe(false);
+      const contentTimeoutMs = Math.min(120_000, Math.max(1, 240_000 - (Date.now() - started)));
+      const ads = await Promise.all([waitMediaPlaying(a, fa, contentTimeoutMs), waitMediaPlaying(b, fb, contentTimeoutMs)]);
+      await a.page.waitForTimeout(3_000);
 
-    const pauseAt = Date.now();
-    await action("shared-pause", () => a.page.locator(site.playToggle).click({ timeout: actionTimeoutMs }));
-    const pauseArrival = await arrival([fa, fb], true, pauseAt);
-    await a.page.waitForTimeout(2_000);
-    const playAt = Date.now();
-    await action("shared-play", () => a.page.locator(site.playToggle).click({ timeout: actionTimeoutMs }));
-    const playArrival = await arrival([fa, fb], false, playAt, 10_000);
-    await a.page.waitForTimeout(3_000);
-    const final = await Promise.all([sampleMedia(fa), sampleMedia(fb)]);
-    const finalViews = await Promise.all([view(a.page), view(b.page)]);
-    await Promise.all([shot(a.page, "m3-twitch-gate-after-1"), shot(b.page, "m3-twitch-gate-after-2")]);
-    const spread = (xs: (number | null)[]): number | null => (xs.every((x) => x !== null) ? Math.max(...(xs)) - Math.min(...(xs)) : null);
-    const result = {
-      channel,
-      tried,
-      actions,
-      sdkEvents: await sdkEvents([a, b], started),
-      hints,
-      gatedViews: gatedViews.map((v) => ({ live: v.live, playing: v.playing, error: v.error })),
-      halfway,
-      adsAfterGate: ads.map((x) => x.length),
-      pause: { arrivalMs: pauseArrival, spreadMs: spread(pauseArrival) },
-      play: { arrivalMs: playArrival, spreadMs: spread(playArrival) },
-      finalPlaying: final.map((s) => (s === null ? null : !s.paused)),
-      finalViews: finalViews.map((v) => ({ playing: v.playing, error: v.error })),
-      notices: await Promise.all([siteNotices(a.page), siteNotices(b.page)]),
-    };
-    record("m3-twitch-gate", result);
-    for (const h of hints) {
-      expect(h.visible, "the Start Watching hint shows for every member").toBe(true);
-      expect(h.text).toBe("If the Twitch player asks, press Start Watching in it.");
-    }
-    for (const v of result.gatedViews) expect(v.error, "the gate isn't a room error").toBeNull();
-    expect(halfway.bStillGated, "one member's Start Watching doesn't lift another's gate").toBe(true);
-    for (const v of halfway.views) expect(v, "one member pressing Start Watching leaves the room playing").toEqual({ playing: true, error: null });
-    expect(pauseArrival.every((x) => x !== null), "both real players paused after the gate").toBe(true);
-    expect(playArrival.every((x) => x !== null), "both real players resumed after the gate").toBe(true);
-    expect(result.pause.spreadMs ?? Infinity).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
-    expect(result.play.spreadMs ?? Infinity).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
-    expect(result.finalPlaying).toEqual([true, true]);
-    for (const v of result.finalViews) expect(v).toEqual({ playing: true, error: null });
-    })(), workflowDeadline]);
-    clearTimeout(workflowTimer);
+      const pauseAt = Date.now();
+      await action("shared-pause", () => a.page.locator(site.playToggle).click({ timeout: actionTimeoutMs }));
+      const pauseArrival = await arrival([fa, fb], true, pauseAt);
+      await a.page.waitForTimeout(2_000);
+      const playAt = Date.now();
+      await action("shared-play", () => a.page.locator(site.playToggle).click({ timeout: actionTimeoutMs }));
+      const playArrival = await arrival([fa, fb], false, playAt, 10_000);
+      await a.page.waitForTimeout(3_000);
+      const final = await Promise.all([sampleMedia(fa), sampleMedia(fb)]);
+      const finalViews = await Promise.all([view(a.page), view(b.page)]);
+      await Promise.all([shot(a.page, "m3-twitch-gate-after-1"), shot(b.page, "m3-twitch-gate-after-2")]);
+      const spread = (xs: (number | null)[]): number | null => (xs.every((x) => x !== null) ? Math.max(...(xs)) - Math.min(...(xs)) : null);
+      const result = {
+        channel,
+        tried,
+        actions,
+        sdkEvents: await sdkEvents([a, b], started),
+        hints,
+        gatedViews: gatedViews.map((v) => ({ live: v.live, playing: v.playing, error: v.error })),
+        halfway,
+        adsAfterGate: ads.map((x) => x.length),
+        pause: { arrivalMs: pauseArrival, spreadMs: spread(pauseArrival) },
+        play: { arrivalMs: playArrival, spreadMs: spread(playArrival) },
+        finalPlaying: final.map((s) => (s === null ? null : !s.paused)),
+        finalViews: finalViews.map((v) => ({ playing: v.playing, error: v.error })),
+        notices: await Promise.all([siteNotices(a.page), siteNotices(b.page)]),
+      };
+      record("m3-twitch-gate", result);
+      for (const h of hints) {
+        expect(h.visible, "the Start Watching hint shows for every member").toBe(true);
+        expect(h.text).toBe("If the Twitch player asks, press Start Watching in it.");
+      }
+      for (const v of result.gatedViews) expect(v.error, "the gate isn't a room error").toBeNull();
+      expect(halfway.bStillGated, "one member's Start Watching doesn't lift another's gate").toBe(true);
+      for (const v of halfway.views) expect(v, "one member pressing Start Watching leaves the room playing").toEqual({ playing: true, error: null });
+      expect(pauseArrival.every((x) => x !== null), "both real players paused after the gate").toBe(true);
+      expect(playArrival.every((x) => x !== null), "both real players resumed after the gate").toBe(true);
+      expect(result.pause.spreadMs ?? Infinity).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
+      expect(result.play.spreadMs ?? Infinity).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
+      expect(result.finalPlaying).toEqual([true, true]);
+      for (const v of result.finalViews) expect(v).toEqual({ playing: true, error: null });
+    }, remainingMs);
   } catch (error) {
-    clearTimeout(workflowTimer);
     if (testInfo.expectedStatus === "skipped") throw error;
     // These contexts are launched manually, so the runner's default failure trace does not cover them.
     // Capture before closing either browser; one failed capture must not discard the other viewer's evidence.
@@ -421,7 +419,6 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
     if (saved["failureJson"]?.error) console.warn("paired gate failure evidence could not be saved", saved);
     throw error;
   } finally {
-    clearTimeout(workflowTimer);
     if (!capturedFailure) {
       await Promise.allSettled([a, b].map((c) => c.context.tracing.stop()));
       await closeAll(...browsers);

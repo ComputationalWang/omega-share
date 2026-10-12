@@ -1,6 +1,24 @@
 /** Availability is upstream and per viewer: only a pair gated in the same observation is usable. */
 export interface GateProbe { readonly gate: boolean; readonly reason: string }
 
+/** The caller checks at action boundaries so a late observation cannot resume a timed-out workflow. */
+export async function runGateWorkflow<T>(workflow: (checkActive: () => void) => Promise<T>, timeoutMs: number): Promise<T> {
+  let expired: Error | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const checkActive = () => { if (expired !== null) throw expired; };
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      expired = new Error("M3 workflow exceeded its deadline; reserving paired failure capture time");
+      reject(expired);
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([workflow(checkActive), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 interface Discovery<T extends GateProbe> {
   share(channel: string): Promise<void>;
   observe(channel: string): Promise<[T, T]>;
