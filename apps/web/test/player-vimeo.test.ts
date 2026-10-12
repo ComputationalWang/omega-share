@@ -261,6 +261,26 @@ describe("attachVimeo", () => {
     expect(events).toEqual([{ type: "error", reason: "not-found", code: "NotFoundError" }]);
   });
 
+  test("a player that muted itself to autoplay (nothing rejected, as on a resume with no tap) → autoplay-blocked once", async () => {
+    const { p, events, ready } = setup();
+    await ready();
+    p.muted = true;
+    p.fire("playing", { seconds: 0, percent: 0, duration: 300 });
+    await flush();
+    expect(events.filter((e) => e.type === "autoplay-blocked")).toHaveLength(1);
+    p.fire("playing", { seconds: 1, percent: 0, duration: 300 });
+    await flush();
+    expect(events.filter((e) => e.type === "autoplay-blocked")).toHaveLength(1);
+  });
+
+  test("playing with sound says nothing about autoplay", async () => {
+    const { p, events, ready } = setup();
+    await ready();
+    p.fire("playing", { seconds: 0, percent: 0, duration: 300 });
+    await flush();
+    expect(events.some((e) => e.type === "autoplay-blocked")).toBe(false);
+  });
+
   test("play() rejected by the browser → mute, play again, autoplay-blocked once", async () => {
     const { adapter, p, events, ready } = setup();
     await ready();

@@ -476,6 +476,29 @@ describe("attachTwitch", () => {
     expect(intents(events)).toEqual([]);
   });
 
+  test("a player that muted itself to autoplay (no playbackBlocked, as on a resume with no tap) → autoplay-blocked once", () => {
+    const { p, events, ready } = setup();
+    ready();
+    clear(p);
+    p.muted = true;
+    p.fire("playing");
+    p.fire("playing");
+    expect(events.filter((e) => e.type === "autoplay-blocked")).toHaveLength(1);
+    // Already playing muted: nothing to restart.
+    expect(p.calls.filter((c) => c[0] === "play" || c[0] === "setMuted")).toEqual([]);
+  });
+
+  test("playing with sound, or after playbackBlocked already said so, adds no second prompt", () => {
+    const { p, events, ready } = setup();
+    ready();
+    p.fire("playing");
+    expect(events.some((e) => e.type === "autoplay-blocked")).toBe(false);
+    p.fire("playbackBlocked");
+    p.muted = true;
+    p.fire("playing");
+    expect(events.filter((e) => e.type === "autoplay-blocked")).toHaveLength(1);
+  });
+
   test("playbackBlocked → muted play and the Unmute prompt", () => {
     const { adapter, p, events, ready } = setup();
     ready();
