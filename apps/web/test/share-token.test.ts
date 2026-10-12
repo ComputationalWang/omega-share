@@ -82,6 +82,22 @@ describe("trackShareToken (ADR 0015 §7)", () => {
     }
   });
 
+  test("durable (ADR 0043): a drop keeps it, the hold keeps the grant; an expired or replaced session, or clear(), drops it", () => {
+    const s = new MemoryStorage();
+    const t = trackShareToken(s, "lobby", { durable: true });
+    t.onEvent(message(snapshot(TOKEN)));
+    t.onEvent({ type: "disconnected" });
+    expect(record(s)).toEqual({ roomId: "lobby", token: TOKEN });
+    for (const end of [{ type: "expired" }, { type: "replaced" }, "clear"] as const) {
+      const u = new MemoryStorage();
+      const tt = trackShareToken(u, "lobby", { durable: true });
+      tt.onEvent(message(snapshot(TOKEN)));
+      if (end === "clear") tt.clear();
+      else tt.onEvent(end);
+      expect(record(u)).toBeNull();
+    }
+  });
+
   test("other traffic leaves it alone", () => {
     const s = new MemoryStorage();
     const t = trackShareToken(s, "lobby");

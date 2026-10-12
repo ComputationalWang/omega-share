@@ -5,7 +5,7 @@ import { routeConnectionEvent } from "../src/room-events";
 import type { ViewEvent } from "../src/state";
 
 /** A real clock on fake timers: which timers are still pending after the event. */
-function setup(hidden: readonly string[] = []): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[]; emoted: [string, string][] } {
+function setup(hidden: readonly string[] = []): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[]; emoted: [string, string][]; sessions: string[] } {
   const pending = new Set<number>();
   let next = 0;
   const clock = createClockSync<number>({
@@ -23,6 +23,7 @@ function setup(hidden: readonly string[] = []): { pending: Set<number>; route: (
   clock.start();
   const dispatched: ViewEvent[] = [];
   const emoted: [string, string][] = [];
+  const sessions: string[] = [];
   const sinks = {
     emoted: (memberId: string, kind: string) => emoted.push([memberId, kind]),
     clock,
@@ -31,8 +32,9 @@ function setup(hidden: readonly string[] = []): { pending: Set<number>; route: (
     kicked: (wasIn: boolean) => (wasIn ? 600_000 : null),
     dispatch: (e: ViewEvent) => dispatched.push(e),
     hidden: (id: string) => hidden.includes(id),
+    session: (token: string) => sessions.push(token),
   };
-  return { pending, route: (e) => { routeConnectionEvent(e, sinks, 0); }, dispatched, emoted };
+  return { pending, route: (e) => { routeConnectionEvent(e, sinks, 0); }, dispatched, emoted, sessions };
 }
 
 test("room-closed (4004) stops the clock: no ping timer keeps firing on the terminal screen", () => {
@@ -100,4 +102,23 @@ test("everyone else's chat, and a hidden member's other messages (seat, leave), 
   route({ type: "message", msg: { type: "member-left", memberId: "m2" } });
   expect(dispatched.map((e) => (e.type === "server" ? e.msg.type : e.type))).toEqual(["chat", "seat-changed", "member-left"]);
   expect(emoted).toEqual([["m1", "wave"]]);
+});
+
+// OME-911 (ADR 0043): durable sessions.
+const TOKEN = "A".repeat(43);
+
+test("a session token goes to the session sink only, never to the state", () => {
+  const { route, dispatched, sessions } = setup();
+  route({ type: "session", token: TOKEN });
+  expect(sessions).toEqual([TOKEN]);
+  expect(dispatched).toEqual([]);
+});
+
+test("an expired or replaced session stops the clock and reaches the state", () => {
+  for (const type of ["expired", "replaced"] as const) {
+    const { pending, route, dispatched } = setup();
+    route({ type });
+    expect(pending.size).toBe(0);
+    expect(dispatched).toEqual([{ type }]);
+  }
 });
