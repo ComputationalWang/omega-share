@@ -6,7 +6,7 @@ import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID } from "@omega/shared";
 import { openDatabase } from "../../apps/server/src/store/db";
 import { RoomStore } from "../../apps/server/src/store/rooms";
 import { hashSecret } from "../../apps/server/src/secrets";
-import { GC_IDLE_ROOM_ID, OWNED_ROOMS } from "../support/owned-rooms";
+import { GC_IDLE_ROOM_ID, GC_PINNED_IDLE_ROOM_ID, OWNED_ROOMS } from "../support/owned-rooms";
 import { TEST_ROOM_IDS } from "../support/test-rooms";
 
 const path = process.argv[2];
@@ -37,4 +37,7 @@ for (const r of OWNED_ROOMS) {
 }
 // Nobody has been in it for 21 min: the server's boot sweep deletes it (e2e/room-gc.e2e.ts).
 store.createRoom({ id: GC_IDLE_ROOM_ID, title: "Idle room", createdAt: Date.now() - 21 * MIN, layout: DEFAULT_LAYOUT, visibility: "public", pinned: false, ownerHash: hashSecret("gc-idle-owner") });
+// Pinned and idle for 21 min on both clocks: pinned rooms are never collected (e2e/room-gc.e2e.ts).
+store.createRoom({ id: GC_PINNED_IDLE_ROOM_ID, title: "Pinned idle room", createdAt: Date.now() - 21 * MIN, layout: DEFAULT_LAYOUT, visibility: "public", pinned: true });
+store.setLastActive(GC_PINNED_IDLE_ROOM_ID, Date.now() - 21 * MIN);
 db.close();
