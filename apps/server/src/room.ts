@@ -19,6 +19,7 @@ import {
   type RoomSummary,
   type RoomVisibility,
   type SeatIndex,
+  type StandingSlot,
   isSyncedEmbed,
 } from "@omega/shared";
 import { nicknameKey } from "@omega/shared/confusables";
@@ -52,7 +53,7 @@ const hex = (bytes: Uint8Array): string => Buffer.from(bytes).toString("hex");
 interface Held {
   /** `nicknameKey` of the member's nickname: unique per room. */
   nameKey: string;
-  /** Client key the member counts against, or null when uncapped. */
+  /** Client key the member counts against, or null when uncapped. Moves on a resume from elsewhere (ADR 0043). */
   client: string | null;
 }
 
@@ -72,6 +73,8 @@ export class Room {
   private readonly held = new Map<MemberId, Held>();
   private readonly nameKeys = new Set<string>();
   private readonly perClient = new Map<string, number>();
+  /** Members marked away: disconnected and held, or hidden (ADR 0043). Advisory, like catching. */
+  private readonly away = new Set<MemberId>();
   /** Members the owner muted (ADR 0030 §3). In memory only. */
   private readonly muted = new Set<MemberId>();
   /**
@@ -258,12 +261,35 @@ export class Room {
     }
     const nameKey = nicknameKey(nickname);
     if (this.nameKeys.has(nameKey)) return { ok: false, reason: "nickname_taken" };
-    const member: Member = { id: crypto.randomUUID(), nickname, avatar };
+    const member: Member = { id: crypto.randomUUID(), nickname, avatar, standingSlot: this.freeSlot() };
     this.members.set(member.id, member);
     this.held.set(member.id, { nameKey, client });
     this.nameKeys.add(nameKey);
     if (client !== null) this.perClient.set(client, (this.perClient.get(client) ?? 0) + 1);
     return { ok: true, member };
+  }
+
+  /**
+   * Moves a member's quota slot to `client` (a resume from another address, ADR 0043): false, and
+   * nothing moves, if `client` already holds MAX_MEMBERS_PER_CLIENT members here.
+   */
+  moveClient(memberId: MemberId, client: string | null): boolean {
+    const held = this.held.get(memberId);
+    if (held === undefined) return false;
+    if (held.client === client) return true;
+    if (client !== null && (this.perClient.get(client) ?? 0) >= MAX_MEMBERS_PER_CLIENT) return false;
+    if (held.client !== null) this.uncount(held.client);
+    if (client !== null) this.perClient.set(client, (this.perClient.get(client) ?? 0) + 1);
+    held.client = client;
+    return true;
+  }
+
+  /** Marks a member away or back; false if that changed nothing. */
+  setAway(memberId: MemberId, away: boolean): boolean {
+    if (!this.members.has(memberId) || away === this.away.has(memberId)) return false;
+    if (away) this.away.add(memberId);
+    else this.away.delete(memberId);
+    return true;
   }
 
   /**
@@ -276,15 +302,30 @@ export class Room {
     const wasMuted = this.muted.delete(memberId);
     this.catching.delete(memberId);
     this.announced.delete(memberId);
+    this.away.delete(memberId);
     const held = this.held.get(memberId);
     if (held === undefined) return;
     this.held.delete(memberId);
     this.nameKeys.delete(held.nameKey);
     if (held.client === null) return;
     if (wasMuted) Room.remember(this.mutedClients, held.client, now + MUTE_MEMORY_MS, now);
-    const left = (this.perClient.get(held.client) ?? 1) - 1;
-    if (left === 0) this.perClient.delete(held.client);
-    else this.perClient.set(held.client, left);
+    this.uncount(held.client);
+  }
+
+  private uncount(client: string): void {
+    const left = (this.perClient.get(client) ?? 1) - 1;
+    if (left === 0) this.perClient.delete(client);
+    else this.perClient.set(client, left);
+  }
+
+  /** The lowest standing slot no member holds. The caller has checked MAX_ROOM_MEMBERS, so there is one. */
+  private freeSlot(): StandingSlot {
+    // MAX_ROOM_MEMBERS fits a bitmask, as in the contract's distinct-slot check.
+    let used = 0;
+    for (const m of this.members.values()) if (m.standingSlot !== undefined) used |= 1 << m.standingSlot;
+    let slot = 0;
+    while ((used & (1 << slot)) !== 0) slot++;
+    return slot;
   }
 
   /** Sits `memberId` on `seat` (moving from any other seat), or stands up on `null`. */
@@ -448,7 +489,7 @@ export class Room {
     const state: RoomState = {
       id: this.id,
       seats: [...this.seats],
-      // Absent means false, so only catching and muted members carry the fields.
+      // Absent means false, so only catching, muted and away members carry the fields.
       members: [...this.members.values()].map((m) => this.view(m)),
       embed: this.embed,
       playback: this.playback,
@@ -462,12 +503,13 @@ export class Room {
     return state;
   }
 
-  /** A member as the room sees it: `catching` and `muted` only when true. */
+  /** A member as the room sees it: `catching`, `muted` and `away` only when true. */
   view(member: Member): Member {
     const catching = this.catching.has(member.id);
     const muted = this.muted.has(member.id);
-    if (!catching && !muted) return member;
-    return { ...member, ...(catching ? { catching } : {}), ...(muted ? { muted } : {}) };
+    const away = this.away.has(member.id);
+    if (!catching && !muted && !away) return member;
+    return { ...member, ...(catching ? { catching } : {}), ...(muted ? { muted } : {}), ...(away ? { away } : {}) };
   }
 
   /** Whether `token` is this room's owner token (constant-time; a pinned room has no owner). */

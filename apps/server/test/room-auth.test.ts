@@ -210,7 +210,7 @@ describe("join with an owner token (ADR 0028 §3)", () => {
     const late = await joined(room.room.id, "dave", { ownerToken: room.ownerToken });
     expect(late.snapshot.owner).toBe(true);
     const announced = await other.client.next("member-joined");
-    expect(Object.keys(announced.member).sort()).toEqual(["avatar", "id", "nickname"]);
+    expect(Object.keys(announced.member).sort()).toEqual(["avatar", "id", "nickname", "standingSlot"]);
     expect(other.client.raw.some((f) => f.includes('"owner"'))).toBe(false);
   });
 

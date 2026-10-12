@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from "node:fs";
-import { normalizeHostname } from "@omega/shared";
+import { normalizeHostname, RESUME_GRACE_MS } from "@omega/shared";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 /** Dev default for `DB_PATH`: `apps/server/data/omega.db` (git-ignored), never under a static dir. */
@@ -34,6 +34,8 @@ export interface ServerConfig {
   metricsPort: number | null;
   /** `MAX_CONNECTIONS`: open WebSockets allowed in total (OME-573). Default 1024. */
   maxConnections: number;
+  /** `RESUME_GRACE_MS`: how long a dropped durable member is held (ADR 0043). Default the shared 2 minutes. */
+  resumeGraceMs: number;
 }
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -42,6 +44,10 @@ type Env = Readonly<Record<string, string | undefined>>;
 export const DEFAULT_MAX_CONNECTIONS = 1024;
 /** Under the unit's `LimitNOFILE=4096`, so 1024 descriptors stay free for HTTP, SQLite and metrics. */
 const MAX_CONNECTIONS_CEILING = 3072;
+
+/** Long enough for a phone tab switch, short enough that a seat isn't kept for a gone member (ADR 0043). */
+const RESUME_GRACE_MIN_MS = 5_000;
+const RESUME_GRACE_MAX_MS = 600_000;
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const EXTENSION_ID = /^[a-p]{32}$/;
@@ -153,6 +159,11 @@ export function parseConfig(env: Env): ServerConfig {
   if (!(maxConnections >= 1 && maxConnections <= MAX_CONNECTIONS_CEILING))
     fail("MAX_CONNECTIONS", `must be an integer from 1 to ${String(MAX_CONNECTIONS_CEILING)}`);
 
+  const rawGrace = env["RESUME_GRACE_MS"];
+  const resumeGraceMs = rawGrace === undefined ? RESUME_GRACE_MS : /^\d{1,6}$/.test(rawGrace) ? Number(rawGrace) : NaN;
+  if (!(resumeGraceMs >= RESUME_GRACE_MIN_MS && resumeGraceMs <= RESUME_GRACE_MAX_MS))
+    fail("RESUME_GRACE_MS", `must be an integer from ${String(RESUME_GRACE_MIN_MS)} to ${String(RESUME_GRACE_MAX_MS)} (ms)`);
+
   const rawGeneric = env["GENERIC_EMBEDS"] ?? "on";
   if (rawGeneric !== "on" && rawGeneric !== "off") fail("GENERIC_EMBEDS", "must be on or off");
 
@@ -180,5 +191,6 @@ export function parseConfig(env: Env): ServerConfig {
       .filter((term) => term !== ""),
     metricsPort,
     maxConnections,
+    resumeGraceMs,
   };
 }
