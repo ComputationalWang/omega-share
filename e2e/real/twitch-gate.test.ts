@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { collectGateEvidence, discoverPairedGate, type GateProbe } from "./twitch-gate";
+import { collectGateEvidence, discoverPairedGate, runGateWorkflow, type GateProbe } from "./twitch-gate";
 
 const gate = (reason = "mature overlay visible"): GateProbe => ({ gate: true, reason });
 const absent = (reason: string): GateProbe => ({ gate: false, reason });
@@ -112,6 +112,39 @@ describe("paired Twitch mature-gate discovery (OME-950)", () => {
 });
 
 describe("paired gate failure evidence (OME-950)", () => {
+  test("expired workflow cannot start another room action when its pending observation finishes", async () => {
+    let finishObservation: () => void = () => undefined;
+    const observation = new Promise<void>((resolve) => { finishObservation = resolve; });
+    const actions: string[] = [];
+    let finished: Promise<void> = Promise.resolve();
+    const result = runGateWorkflow((checkActive) => {
+      finished = (async () => {
+        await observation;
+        checkActive();
+        actions.push("shared-pause");
+      })();
+      return finished;
+    }, 10);
+    expect(await result.catch((error: unknown) => error)).toEqual(new Error("M3 workflow exceeded its deadline; reserving paired failure capture time"));
+    finishObservation();
+    expect(await finished.catch((error: unknown) => error)).toEqual(new Error("M3 workflow exceeded its deadline; reserving paired failure capture time"));
+    expect(actions).toEqual([]);
+  });
+
+  test("returns the other viewer's evidence and an explicit error when one capture never settles", async () => {
+    const result = await collectGateEvidence({
+      "viewer-1-snapshot": () => new Promise(() => {
+        // This viewer's capture never settles.
+      }),
+      "viewer-2-screenshot": () => Promise.resolve("viewer-2.png"),
+      "viewer-2-trace": () => Promise.resolve("viewer-2-trace.zip"),
+    }, 20);
+
+    expect(result["viewer-1-snapshot"]?.error).toContain("capture timed out after 20 ms");
+    expect(result["viewer-2-screenshot"]).toEqual({ value: "viewer-2.png" });
+    expect(result["viewer-2-trace"]).toEqual({ value: "viewer-2-trace.zip" });
+  }, 100);
+
   test("attempts every task and retains screenshots and paired snapshots when another capture fails", async () => {
     const attempted: string[] = [];
     const paired = { viewers: [{ gate: true, media: { paused: false } }, { gate: false, reason: "frame absent" }] };

@@ -1,6 +1,24 @@
 /** Availability is upstream and per viewer: only a pair gated in the same observation is usable. */
 export interface GateProbe { readonly gate: boolean; readonly reason: string }
 
+/** The caller checks at action boundaries so a late observation cannot resume a timed-out workflow. */
+export async function runGateWorkflow<T>(workflow: (checkActive: () => void) => Promise<T>, timeoutMs: number): Promise<T> {
+  let expired: Error | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const checkActive = () => { if (expired !== null) throw expired; };
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      expired = new Error("M3 workflow exceeded its deadline; reserving paired failure capture time");
+      reject(expired);
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([workflow(checkActive), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 interface Discovery<T extends GateProbe> {
   share(channel: string): Promise<void>;
   observe(channel: string): Promise<[T, T]>;
@@ -29,13 +47,19 @@ export async function discoverPairedGate<T extends GateProbe>(candidates: readon
 }
 
 /** Failure evidence is best effort: a detached viewer must not hide another viewer or the original failure. */
-export async function collectGateEvidence(tasks: Record<string, () => Promise<unknown>>): Promise<Record<string, { value?: unknown; error?: string }>> {
+export async function collectGateEvidence(tasks: Record<string, () => Promise<unknown>>, timeoutMs = 5_000): Promise<Record<string, { value?: unknown; error?: string }>> {
   const results: Record<string, { value?: unknown; error?: string }> = {};
   await Promise.all(Object.entries(tasks).map(async ([name, task]) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      results[name] = { value: await task() };
+      const deadline = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => { reject(new Error(`${name}: capture timed out after ${String(timeoutMs)} ms`)); }, timeoutMs);
+      });
+      results[name] = { value: await Promise.race([task(), deadline]) };
     } catch (error) {
       results[name] = { error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      clearTimeout(timer);
     }
   }));
   return results;

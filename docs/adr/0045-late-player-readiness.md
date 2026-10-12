@@ -1,0 +1,9 @@
+# ADR 0045 — Recover a startup timeout on verified late readiness
+
+**Status:** proposed (2026-10-12), [OME-979](/OME/issues/OME-979); extends [ADR 0014](0014-twitch-and-vimeo-players.md).
+
+**Context:** The Twitch adapter's ten-second startup watchdog reports `ready-timeout` while retaining the player. A mature gate or delayed provider startup can outlast that deadline. The adapter accepts a subsequent SDK `ready` event, but the playback controller retained the timeout error and stopped sync. An adapter/controller regression reproduces video readiness with disabled transport. The original real-provider failure still requires SDK evidence to distinguish this sequence from upstream failure.
+
+**Decision:** A `ready` event from the currently attached adapter clears a timeout only when that adapter's public `ready()` returns true. Restart the existing sync loop against the latest room playback, then restore local volume and quality. Readiness does not send a room control or lift another member's gate. Refused, restricted, offline and other provider errors keep their existing handling. An adapter that never becomes ready continues to show the startup error; no timeout increase or automatic remount is introduced.
+
+**Consequences:** Recovery creates one replacement sync loop after the error destroyed the old loop. The ordinary tick path, wire contract, sockets and dependencies stay unchanged. A late-ready player follows current room state, including controls received during its timeout. Real-provider acceptance requires independent gate clearance and both pause/play spreads at most 500 ms; upstream availability or advertisements do not turn a failed playback assertion into a pass. Bounded harness waits retain paired screenshots, traces, SDK events and explicit capture errors before browser teardown.
