@@ -44,6 +44,7 @@ import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import { TEST_ROOM_IDS } from "./support/test-rooms";
+import { takedownBridge } from "./support/takedown-bridge";
 
 // +6 is moderation-queue-abuse's server; the two run in parallel in a full suite.
 const SERVER_PORT = PORTS.server + 8;
@@ -713,21 +714,7 @@ test.describe("takedown in a browser (ADR 0033 §6)", () => {
     );
     await context.routeWebSocket(/\/rooms\/[^/]+\/ws$/, (ws) => {
       const path = new URL(ws.url()).pathname;
-      void Sock.connect(path, addr).then((sock) => {
-        sockets.push(sock);
-        sock.onText = (text) => {
-          ws.send(text);
-        };
-        sock.onClose = (closed) => {
-          void ws.close({ code: closed.code, reason: closed.reason });
-        };
-        ws.onMessage((m) => {
-          if (typeof m === "string") sock.sendText(m);
-        });
-        ws.onClose(() => {
-          sock.destroy();
-        });
-      });
+      void takedownBridge(ws, () => Sock.connect(path, addr), sockets);
     });
   }
 
