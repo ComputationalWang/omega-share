@@ -263,6 +263,21 @@ describe("expiry", () => {
     expect(time.pending()).toBe(0);
   });
 
+  test("a configured grace window replaces the default: live at grace − 1, one member-left at grace", async () => {
+    const grace = 40_000;
+    const time = boot(fakeTime(), { resumeGraceMs: grace });
+    const { id, watcher, guest, self, token, guestAddress } = await roomWithGuest();
+    await dropAndHold(guest.client, watcher.client, self);
+    time.advance(grace - 1);
+    await watcher.client.none("member-left", 50);
+    expect(time.pending()).toBe(1);
+    time.advance(1);
+    expect(await watcher.client.next("member-left")).toEqual({ type: "member-left", memberId: self, reason: "left" });
+    await watcher.client.none("member-left", 50);
+    const back = await resume(id, token, guestAddress);
+    expect((await back.next("error")).code).toBe("resume_expired");
+  });
+
   test("an explicit leave revokes at once: member-left now, token dead", async () => {
     const time = boot();
     const { id, watcher, guest, self, token } = await roomWithGuest();

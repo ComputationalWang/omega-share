@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { RESUME_GRACE_MS } from "@omega/shared";
 import { DEFAULT_DB_PATH, parseConfig } from "../src/config";
 
 const dist = (): string => {
@@ -27,6 +28,7 @@ describe("parseConfig (ADR 0015 §3)", () => {
       roomTitleBlocklist: [],
       metricsPort: null,
       maxConnections: 1024,
+      resumeGraceMs: 120_000,
     });
   });
 
@@ -204,6 +206,23 @@ describe("MAX_CONNECTIONS (OME-573)", () => {
   test("anything else fails startup: the cap must leave descriptors for HTTP and SQLite under LimitNOFILE=4096", () => {
     for (const bad of ["", "0", "-1", "1.5", "abc", "1e3", "3073", "99999999"])
       expect(() => parseConfig({ MAX_CONNECTIONS: bad })).toThrow("MAX_CONNECTIONS");
+  });
+});
+
+describe("RESUME_GRACE_MS (ADR 0043, OME-998)", () => {
+  test("unset holds a dropped durable member for the shared 2 minutes", () => {
+    expect(parseConfig({}).resumeGraceMs).toBe(RESUME_GRACE_MS);
+  });
+
+  test("an integer from 5 000 to 600 000 ms sets the grace window", () => {
+    expect(parseConfig({ RESUME_GRACE_MS: "40000" }).resumeGraceMs).toBe(40_000);
+    expect(parseConfig({ RESUME_GRACE_MS: "5000" }).resumeGraceMs).toBe(5_000);
+    expect(parseConfig({ RESUME_GRACE_MS: "600000" }).resumeGraceMs).toBe(600_000);
+  });
+
+  test("anything else fails startup, naming the variable", () => {
+    for (const bad of ["", "4999", "600001", "1.5", "abc", "-40000", "4e4", "99999999"])
+      expect(() => parseConfig({ RESUME_GRACE_MS: bad })).toThrow("RESUME_GRACE_MS");
   });
 });
 
