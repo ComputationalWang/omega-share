@@ -63,8 +63,8 @@ describe("standingPlacement", () => {
     expect(spots(standingPlacement([m("a", 5), m("b", 2)], new Set([5, 2]), 12, new Map()))).toEqual({ a: 5, b: 2 });
   });
 
-  test("a slot beyond the available points gets no spot, and no fallback", () => {
-    expect(spots(standingPlacement([m("a", 9), m("b", 1)], new Set([9, 1]), 4, new Map()))).toEqual({ b: 1 });
+  test("a slot beyond the available points (a smaller layout) falls back to a free point instead of vanishing", () => {
+    expect(spots(standingPlacement([m("a", 9), m("b", 1)], new Set([9, 1]), 4, new Map()))).toEqual({ b: 1, a: 0 });
   });
 
   test("legacy members avoid points claimed by slotted members, including seated ones", () => {

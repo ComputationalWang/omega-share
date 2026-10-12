@@ -643,6 +643,23 @@ describe("durable sessions (ADR 0043)", () => {
     expect(events).toContainEqual({ type: "session", token: TOKEN2 });
   });
 
+  test("a late frame from a socket close() already let go of is ignored: no second socket", () => {
+    const c = durable();
+    last().open();
+    last().receive(durableSnapshot(TOKEN));
+    last().drop(1006);
+    runTimer();
+    // A rejoin in flight (no snapshot yet) is let go of, and a new one starts.
+    const stale = last();
+    stale.open();
+    c.close();
+    c.ensureConnected();
+    expect(sockets).toHaveLength(3);
+    stale.receive({ type: "error", code: "resume_expired", message: "gone" });
+    expect(sockets).toHaveLength(3);
+    expect(events.some((e) => e.type === "session-lost" || e.type === "expired")).toBe(false);
+  });
+
   test("4007 session replaced is terminal: replaced event, no reconnect, ensureConnected is a no-op", () => {
     const c = durable();
     last().open();
