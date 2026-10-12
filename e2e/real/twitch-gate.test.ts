@@ -114,7 +114,9 @@ describe("paired Twitch mature-gate discovery (OME-950)", () => {
 describe("paired gate failure evidence (OME-950)", () => {
   test("returns the other viewer's evidence and an explicit error when one capture never settles", async () => {
     const result = await collectGateEvidence({
-      "viewer-1-snapshot": () => new Promise(() => {}),
+      "viewer-1-snapshot": () => new Promise(() => {
+        // This viewer's capture never settles.
+      }),
       "viewer-2-screenshot": () => Promise.resolve("viewer-2.png"),
       "viewer-2-trace": () => Promise.resolve("viewer-2-trace.zip"),
     }, 20);

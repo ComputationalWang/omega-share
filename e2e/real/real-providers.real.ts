@@ -282,11 +282,27 @@ async function liveViewer(client: Client, channel: string | null) {
 }
 
 test("M3-twitch-gate · a mature-gated live channel: both members see the Start Watching hint, press it, and stay in sync", async ({ request }, testInfo) => {
-  const { browsers, a, b } = await twoBrowsers("real-gate");
+  const started = Date.now();
+  const { browsers, a, b } = await twoBrowsers("real-gate", { twitchLog: true });
+  // Leave time for both manual contexts' screenshots/traces before the runner closes them.
+  const actionTimeoutMs = 10_000;
+  for (const client of [a, b]) client.page.setDefaultTimeout(actionTimeoutMs);
   let currentChannel: string | null = null;
   let discovery: Awaited<ReturnType<typeof discoverPairedGate>> | null = null;
   let capturedFailure = false;
+  const actions: { action: string; atMs: number; outcome: "started" | "completed" }[] = [];
+  const action = async (name: string, perform: () => Promise<unknown>) => {
+    actions.push({ action: name, atMs: Date.now() - started, outcome: "started" });
+    await perform();
+    actions.push({ action: name, atMs: Date.now() - started, outcome: "completed" });
+  };
+  let workflowTimer: ReturnType<typeof setTimeout> | undefined;
   try {
+    const workflowDeadline = new Promise<never>((_, reject) => {
+      const remainingMs = Math.max(1, testInfo.timeout - (Date.now() - started) - 30_000);
+      workflowTimer = setTimeout(() => { reject(new Error("M3 workflow exceeded its deadline; reserving paired failure capture time")); }, remainingMs);
+    });
+    await Promise.race([(async () => {
     // Playwright may have auto-started tracing even for these manual contexts. Own explicit traces
     // so failures attach both viewers instead of relying on the runner's context selection.
     await Promise.all([a, b].map(async (c) => {
@@ -318,21 +334,22 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
     await Promise.all([shot(a.page, "m3-twitch-gate-gated-1"), shot(b.page, "m3-twitch-gate-gated-2")]);
 
     // Each member has their own gate. Browser 1 presses first: browser 2 stays gated and nobody's room state changes.
-    await fa.locator(TWITCH_START_WATCHING).click();
+    await action("viewer-1-start-watching", () => fa.locator(TWITCH_START_WATCHING).click({ timeout: actionTimeoutMs }));
     await expect.poll(() => gateShown(fa), { timeout: 10_000, message: "browser 1's gate goes away" }).toBe(false);
     await a.page.waitForTimeout(3_000);
     const halfway = { bStillGated: await gateShown(fb), views: (await Promise.all([view(a.page), view(b.page)])).map((v) => ({ playing: v.playing, error: v.error })) };
-    await fb.locator(TWITCH_START_WATCHING).click();
+    await action("viewer-2-start-watching", () => fb.locator(TWITCH_START_WATCHING).click({ timeout: actionTimeoutMs }));
     await expect.poll(() => gateShown(fb), { timeout: 10_000, message: "browser 2's gate goes away" }).toBe(false);
-    const ads = await Promise.all([waitMediaPlaying(a, fa), waitMediaPlaying(b, fb)]);
+    const contentTimeoutMs = Math.min(120_000, Math.max(1, 240_000 - (Date.now() - started)));
+    const ads = await Promise.all([waitMediaPlaying(a, fa, contentTimeoutMs), waitMediaPlaying(b, fb, contentTimeoutMs)]);
     await a.page.waitForTimeout(3_000);
 
     const pauseAt = Date.now();
-    await a.page.locator(site.playToggle).click();
+    await action("shared-pause", () => a.page.locator(site.playToggle).click({ timeout: actionTimeoutMs }));
     const pauseArrival = await arrival([fa, fb], true, pauseAt);
     await a.page.waitForTimeout(2_000);
     const playAt = Date.now();
-    await a.page.locator(site.playToggle).click();
+    await action("shared-play", () => a.page.locator(site.playToggle).click({ timeout: actionTimeoutMs }));
     const playArrival = await arrival([fa, fb], false, playAt, 10_000);
     await a.page.waitForTimeout(3_000);
     const final = await Promise.all([sampleMedia(fa), sampleMedia(fb)]);
@@ -342,6 +359,8 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
     const result = {
       channel,
       tried,
+      actions,
+      sdkEvents: await sdkEvents([a, b], started),
       hints,
       gatedViews: gatedViews.map((v) => ({ live: v.live, playing: v.playing, error: v.error })),
       halfway,
@@ -362,11 +381,14 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
     for (const v of halfway.views) expect(v, "one member pressing Start Watching leaves the room playing").toEqual({ playing: true, error: null });
     expect(pauseArrival.every((x) => x !== null), "both real players paused after the gate").toBe(true);
     expect(playArrival.every((x) => x !== null), "both real players resumed after the gate").toBe(true);
-    // Live spread is board question B1 (ADR 0014): a sanity bound, as in M2-twitch-live.
-    expect(result.pause.spreadMs ?? Infinity).toBeLessThan(2_000);
+    expect(result.pause.spreadMs ?? Infinity).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
+    expect(result.play.spreadMs ?? Infinity).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
     expect(result.finalPlaying).toEqual([true, true]);
     for (const v of result.finalViews) expect(v).toEqual({ playing: true, error: null });
+    })(), workflowDeadline]);
+    clearTimeout(workflowTimer);
   } catch (error) {
+    clearTimeout(workflowTimer);
     if (testInfo.expectedStatus === "skipped") throw error;
     // These contexts are launched manually, so the runner's default failure trace does not cover them.
     // Capture before closing either browser; one failed capture must not discard the other viewer's evidence.
@@ -375,9 +397,10 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
     for (const [index, client] of [a, b].entries()) {
       const name = `viewer-${String(index + 1)}`;
       tasks[`${name}-snapshot`] = () => gateViewer(client, currentChannel);
+      tasks[`${name}-sdk-events`] = () => sdkEvents([client], started);
       tasks[`${name}-screenshot`] = async () => {
         const path = testInfo.outputPath(`${name}.png`);
-        await client.page.screenshot({ path });
+        await client.page.screenshot({ path, timeout: 5_000 });
         await testInfo.attach(`${name}-screenshot`, { path, contentType: "image/png" });
         return path;
       };
@@ -388,7 +411,7 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
         return path;
       };
     }
-    const evidence = { error: error instanceof Error ? error.message : String(error), channel: currentChannel, discovery, captures: await collectGateEvidence(tasks) };
+    const evidence = { error: error instanceof Error ? error.message : String(error), channel: currentChannel, discovery, actions, captures: await collectGateEvidence(tasks) };
     const path = testInfo.outputPath("paired-gate-failure.json");
     const saved = await collectGateEvidence({ failureJson: async () => {
       writeFileSync(path, `${JSON.stringify(evidence, null, 2)}\n`);
@@ -398,6 +421,7 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
     if (saved["failureJson"]?.error) console.warn("paired gate failure evidence could not be saved", saved);
     throw error;
   } finally {
+    clearTimeout(workflowTimer);
     if (!capturedFailure) {
       await Promise.allSettled([a, b].map((c) => c.context.tracing.stop()));
       await closeAll(...browsers);
