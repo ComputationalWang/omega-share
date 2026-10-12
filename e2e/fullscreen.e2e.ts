@@ -280,10 +280,8 @@ test("CSS mode: Tab stays inside the wrapper, and after a reload it still enters
   // Reload in the middle of the CSS mode, then go in and out again.
   await page.locator(site.fullscreenToggle).click();
   await expect(root).toHaveClass(/is-pseudo-fs/);
+  // A reload goes straight back in with this tab's session (ADR 0043): no Enter form.
   await page.reload();
-  await page.locator(site.nicknameInput).fill("fspseudotab-r");
-  await page.locator(site.avatarOption).first().click();
-  await page.locator(site.joinButton).click();
   await page.locator(site.room).waitFor();
   await page.locator(site.fullscreenToggle).click();
   await expect(root).toHaveClass(/is-pseudo-fs/);

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Member, PlaybackState, RoomState, ServerMessage } from "@omega/shared";
 import { initialState, reduce, type ViewEvent, type ViewState } from "../src/state";
 import { logEntries } from "../src/chat/feed";
+import type { ChatLogEntry } from "../src/chat/log";
 
 // OME-594: what the chat log says for one view event, from the state before and after it. Chat from members, the
 // playback and policy lines the caption rail shows, and the ADR 0030 notices: my mute, someone removed, me removed.
@@ -53,12 +54,21 @@ describe("logEntries", () => {
     expect(step(joined(), msg({ type: "member-muted", memberId: "k", muted: true })).entries).toEqual([]);
   });
 
-  test("someone removed by the host is logged by name; someone leaving isn't", () => {
+  test("someone removed by the host, or leaving for good, is logged by name (ADR 0043: once, when a hold ends)", () => {
     expect(step(joined(), msg({ type: "member-left", memberId: "k", reason: "kicked" })).entries).toEqual([
       { kind: "system", line: { glyph: "host", actor: "Kit", verb: "was removed by the host", time: null } },
     ]);
-    expect(step(joined(), msg({ type: "member-left", memberId: "k", reason: "left" })).entries).toEqual([]);
-    expect(step(joined(), msg({ type: "member-left", memberId: "k" })).entries).toEqual([]);
+    const left: ChatLogEntry[] = [{ kind: "system", line: { glyph: "everyone", actor: "Kit", verb: "left the room", time: null } }];
+    expect(step(joined(), msg({ type: "member-left", memberId: "k", reason: "left" })).entries).toEqual(left);
+    expect(step(joined(), msg({ type: "member-left", memberId: "k" })).entries).toEqual(left);
+    expect(step(joined(), msg({ type: "member-left", memberId: "zz", reason: "left" })).entries).toEqual([]);
+  });
+
+  test("going away and coming back (presence, a resumed snapshot) logs nothing", () => {
+    const away = step(joined(), msg({ type: "member-presence", memberId: "k", away: true }));
+    expect(away.entries).toEqual([]);
+    expect(step(away.next, msg({ type: "member-presence", memberId: "k", away: false })).entries).toEqual([]);
+    expect(step(joined(), msg({ type: "snapshot", self: "a", room: room(), resumed: true })).entries).toEqual([]);
   });
 
   test("being removed myself is an only-you line, said once", () => {

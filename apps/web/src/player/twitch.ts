@@ -22,6 +22,8 @@ export const SEEK_ECHO_MS = 5000;
 export const AD_FROZEN_MS = 2000;
 /** A wrong `parent` shows an in-player error and sends nothing (research M2 §2.1), so a player that never gets ready times out. */
 export const READY_TIMEOUT_MS = 10_000;
+/** After our unmute, how soon (and then how often, while it holds out) we ask Twitch whether it has sound. */
+export const UNMUTE_CHECK_MS = 1000;
 /** Extrapolation past the last pushed time is capped, as YouTube's widget does (research M2 §6.2). */
 const MAX_EXTRAPOLATE_S = 1;
 /**
@@ -230,6 +232,29 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     emit({ type: "intent", playing: settled === "playing", position });
   };
 
+  /** The autoplay block was reported once (playbackBlocked, or a player found muted when it started playing). */
+  let blockedSaid = false;
+  /**
+   * Self-muted for autoplay, Twitch ignores a cross-origin setMuted(false) (QA OME-1001): after our unmute we look again,
+   * and while it holds out we say only its own speaker works, then say when it has sound. One timer, only while waiting.
+   */
+  let soundTimer: Timer | null = null;
+  let inPlayerSaid = false;
+  const checkSound = (): void => {
+    soundTimer = null;
+    if (!usable()) return;
+    if (player.getMuted?.() === true) {
+      if (!inPlayerSaid) {
+        inPlayerSaid = true;
+        emit({ type: "autoplay-blocked", inPlayer: true });
+      }
+      soundTimer = o.setTimeout(checkSound, UNMUTE_CHECK_MS);
+      return;
+    }
+    if (!inPlayerSaid) return;
+    inPlayerSaid = false;
+    emit({ type: "unmuted" });
+  };
   const handlers: Readonly<Record<TwitchEventName, (params?: unknown) => void>> = {
     ready: () => {
       if (destroyed || isReady) return;
@@ -246,6 +271,11 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     playing: () => {
       settle("playing");
       if (isReady) readQualities();
+      // No gesture (a resume skips Enter, ADR 0043): Twitch mutes itself and plays without playbackBlocked (QA OME-1001).
+      if (!blockedSaid && player.getMuted?.() === true) {
+        blockedSaid = true;
+        emit({ type: "autoplay-blocked" });
+      }
     },
     pause: () => {
       settle("paused");
@@ -260,6 +290,8 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
       player.setMuted(true);
       player.play();
       command("playing");
+      if (blockedSaid) return;
+      blockedSaid = true;
       emit({ type: "autoplay-blocked" });
     },
     offline: () => {
@@ -308,6 +340,10 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
     unmute() {
       if (!usable()) return;
       player.setMuted(false);
+      // Look again shortly; a tap while it still holds out brings the in-player hint back.
+      inPlayerSaid = false;
+      if (soundTimer !== null) o.clearTimeout(soundTimer);
+      soundTimer = o.setTimeout(checkSound, UNMUTE_CHECK_MS);
     },
     setVolume(volume) {
       if (!usable()) return;
@@ -344,6 +380,8 @@ export function attachTwitch<Timer>(tw: TwitchNamespace, container: HTMLElement,
       destroyed = true;
       isReady = false;
       o.clearTimeout(readyTimer);
+      if (soundTimer !== null) o.clearTimeout(soundTimer);
+      soundTimer = null;
       offMessages();
       listeners.clear();
       for (const name of EVENTS) player.removeEventListener(name, handlers[name]);

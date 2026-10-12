@@ -10,6 +10,8 @@ import { FAKE_VIMEO_SDK, serveRealVimeoSdk } from "./support/network";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { joinForToken, postShare } from "./support/share";
 import { site } from "./support/selectors";
+/** Playback lines only: a helper's throwaway join leaves and logs "… left the room" (ADR 0043) in between. */
+const LEFT = "left the room";
 import { roomPlayback } from "../perf/sync";
 
 const VIMEO_ID = "76979871";
@@ -87,7 +89,7 @@ test.describe("Vimeo in the room, fake SDK", () => {
       window.__fakeVimeo?.userPause();
     });
     await expect.poll(() => b.page.evaluate(() => window.__fakeVimeo?.paused ?? null), { timeout: 5_000 }).toBe(true);
-    await expect(b.page.locator(site.systemLine).last()).toHaveText(`${a.nickname} paused`);
+    await expect(b.page.locator(site.systemLine).filter({ hasNotText: LEFT }).last()).toHaveText(`${a.nickname} paused`);
     expect((await roomPlayback(browser, room.id)).playing).toBe(false);
   });
 
@@ -162,13 +164,13 @@ test.describe("Vimeo in the room, real player.js: forged postMessage", () => {
     }, forged);
     await a.page.waitForTimeout(1500);
     expect((await roomPlayback(browser, room.id)).playing).toBe(true);
-    await expect(b.page.locator(site.systemLine).filter({ hasText: "paused" })).toHaveCount(0);
+    await expect(b.page.locator(site.systemLine).filter({ hasNotText: LEFT }).filter({ hasText: "paused" })).toHaveCount(0);
 
     // Positive control: the same event from our own iframe is a user pause.
     await frameFor(VIMEO_ID)?.evaluate(() => {
       (window as unknown as StubWindow).__emit("pause");
     });
     await expect.poll(async () => (await roomPlayback(browser, room.id)).playing, { timeout: 5_000 }).toBe(false);
-    await expect(b.page.locator(site.systemLine).last()).toHaveText(`${a.nickname} paused`);
+    await expect(b.page.locator(site.systemLine).filter({ hasNotText: LEFT }).last()).toHaveText(`${a.nickname} paused`);
   });
 });

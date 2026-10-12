@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildKey, gitTree, isBuilt, shouldBuild, stampBuild } from "./build-stamp";
+import { buildKey, gitTree, isBuilt, shouldBuild, stampBuild, webBuildEnv } from "./build-stamp";
 
 // OME-818 (ADR 0036 amendment): `bun run perf` builds once per sha. Each build output dir carries a stamp of the
 // tree it was built from; a run rebuilds only when a stamp is missing or names another tree.
@@ -115,5 +115,12 @@ describe("gitTree", () => {
     const d = repo();
     writeFileSync(join(d, "notes.md"), "y\n");
     expect(gitTree(d).dirty).toBe(false);
+  });
+});
+
+// OME-911 (QA OME-1001 round 3): the perf web build exposes the test handle, so leaveAll() can send a real leave.
+describe("webBuildEnv", () => {
+  test("bakes in the server URL and the test handle", () => {
+    expect(webBuildEnv("http://localhost:8788")).toEqual({ VITE_SERVER_URL: "http://localhost:8788", VITE_TEST_HANDLE: "1" });
   });
 });

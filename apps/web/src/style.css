@@ -403,8 +403,11 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .people-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .people-row.is-hidden .people-name { opacity: 0.6; }
 .people-hidden { flex: none; font-size: 11px; }
+.people-away { flex: none; font-size: 11px; }
+.people-row.is-away .people-name { opacity: 0.6; }
 .people-toggle { flex: none; font: inherit; font-size: 12px; font-weight: 700; }
 .tag.is-hidden { opacity: 0.5; }
+.tag.is-away { opacity: 0.6; }
 .help-dialog { --ui-px: 2px; margin: auto; width: min(calc(100vw - 16px), 520px); max-width: none; max-height: calc(100dvh - 16px); overflow: auto; color: var(--ui-text); }
 .help-dialog::backdrop { background: url("../../../assets/ui/slices/scrim-0.png") 0 0 / 2px 4px; image-rendering: pixelated; }
 .help-dialog h2 { margin: 0 0 8px; font-size: 15px; }

@@ -46,6 +46,7 @@ export const SPEC_ROOMS = {
   "m9-hide": ["main", "tag", "popchat", "poproom", "reconn"],
   "m10-portrait": ["360", "390", "people360", "people390"],
   "m10-composer": ["l568", "l667", "l932", "p360", "p390"],
+  "m10-sessions": ["hide", "reload", "expire", "expreload", "tabs"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

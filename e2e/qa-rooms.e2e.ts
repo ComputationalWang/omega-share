@@ -474,9 +474,13 @@ test("a private room is unlisted; without the key it is refused and shows nobody
   await expect(guest.locator(site.room)).toBeVisible();
   await expect(guest.locator(site.roomRefused)).toBeHidden();
   await expect(guest.locator(site.nicknameTag).filter({ hasText: "qa-invited" })).toBeVisible();
-  // A second visit from the same browser needs no fragment: the key was kept.
+  // A second visit from the same browser needs no fragment: the key was kept. Without this tab's session record
+  // (ADR 0043), so it is a real join that needs the kept key; a new name, since the first member is held for a while.
+  await guest.evaluate(() => {
+    sessionStorage.clear();
+  });
   await guest.goto(`${URLS.web}/r/${room.id}`);
-  await enter(guest, "qa-invited");
+  await enter(guest, "qa-invited-2");
   await expect(guest.locator(site.room)).toBeVisible();
   await info.attach("private-room.json", { body: JSON.stringify({ roomId: room.id, strangerFrames: frames }, null, 2), contentType: "application/json" });
 });

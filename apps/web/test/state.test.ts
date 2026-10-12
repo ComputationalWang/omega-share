@@ -596,7 +596,30 @@ describe("queue", () => {
   });
 });
 
-test("before presence UI rollout, an additive member-presence frame preserves the legacy view", () => {
-  const state = joined();
-  expect(server(state, { type: "member-presence", memberId: "a", away: true })).toBe(state);
+// OME-911 (ADR 0043): durable sessions end in their own screens.
+describe("durable sessions", () => {
+  const snap = (): ViewState => reduce(initialState, { type: "server", msg: { type: "snapshot", self: "a", room: { id: "lobby", seats: [null, null, null, null, null, null, null, null], members: [{ id: "a", nickname: "Ada", avatar: 0 }], embed: null, playback: null } }, now: 0 });
+
+  test("an expired session is a refusal that sends the user back to Enter", () => {
+    const s = reduce(snap(), { type: "expired" });
+    expect(s.status).toBe("refused");
+    expect(s.refusal).toBe("resume_expired");
+    expect(screen(s).refused).toBe("resume_expired");
+    expect(screen(s).stage).toBe(false);
+  });
+
+  test("a replaced session leaves the room view and ignores the connection until the user reclaims", () => {
+    const s = reduce(snap(), { type: "replaced" });
+    expect(s.status).toBe("replaced");
+    expect(s.room).toBeNull();
+    expect(screen(s).stage).toBe(false);
+    expect(reduce(s, { type: "connecting" })).toBe(s);
+    expect(reduce(s, { type: "disconnected" })).toBe(s);
+    expect(reduce(s, { type: "reclaim" }).status).toBe("connecting");
+  });
+
+  test("reclaim does nothing unless the session was replaced", () => {
+    const s = snap();
+    expect(reduce(s, { type: "reclaim" })).toBe(s);
+  });
 });

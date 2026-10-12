@@ -43,7 +43,7 @@ const servers: Server[] = [owned(PORTS.fixtures, URLS.fixtures, "bun e2e/fixture
 // The server boots from a fresh DB holding the lobby and the test rooms (e2e/support/test-rooms.ts, OME-341), one file per port.
 if (available.server) {
   const db = join(tmpdir(), `omega-e2e-${String(PORTS.server)}.db`);
-  servers.push(owned(PORTS.server, URLS.server, `bun e2e/fixtures/seed-rooms.ts ${db} && bun run --filter @omega/server dev`, { PORT: String(PORTS.server), SITE_ORIGIN: URLS.web, DB_PATH: db }));
+  servers.push(owned(PORTS.server, URLS.server, `bun e2e/fixtures/seed-rooms.ts ${db} && bun run --filter @omega/server dev`, { PORT: String(PORTS.server), SITE_ORIGIN: URLS.web, DB_PATH: db, RESUME_GRACE_MS: "40000" }));
 }
 if (available.web) {
   const mode = process.env["OMEGA_WEB_MODE"] === "preview" && "preview" in scripts("web") ? "preview" : "dev";

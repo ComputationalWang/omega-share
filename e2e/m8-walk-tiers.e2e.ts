@@ -52,10 +52,8 @@ async function walkAround(walker: Client, ms: number, until?: () => Promise<bool
   }
 }
 
-async function joinAgain(page: Page, nickname: string): Promise<void> {
-  await page.locator(site.nicknameInput).fill(nickname);
-  await page.locator(site.avatarOption).first().click();
-  await page.locator(site.joinButton).click();
+/** After a reload: back in with this tab's session (ADR 0043), no Enter form. */
+async function backIn(page: Page): Promise<void> {
   await page.locator(site.room).waitFor();
 }
 
@@ -68,7 +66,7 @@ async function reachSmooth(walker: Client, observer: Client): Promise<void> {
   for (let start = 0; start < 3; start++) {
     if (start > 0) {
       await observer.page.reload();
-      await joinAgain(observer.page, `reprobe-${String(start)}`);
+      await backIn(observer.page);
     }
     await walkAround(walker, 15_000, async () => (await tierOf(observer.page)) === "smooth");
     if ((await tierOf(observer.page)) === "smooth") return;
@@ -263,7 +261,7 @@ test("the probe drop latches for the session: after a Smooth room slows down it 
   expect(await tierOf(a.page), "no flip back up within the session").toBe("basic");
 
   await a.page.reload();
-  await joinAgain(a.page, "latch-3");
+  await backIn(a.page);
   await reachSmooth(b, a);
 });
 

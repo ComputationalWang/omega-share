@@ -9,6 +9,8 @@ import { PENDING, URLS, available } from "./support/apps";
 import { FAKE_VIMEO_SDK } from "./support/network";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+/** Playback lines only: a helper's throwaway join leaves and logs "… left the room" (ADR 0043) in between. */
+const LEFT = "left the room";
 import type { RoomName } from "./support/test-rooms";
 import {
   TWITCH_CHANNEL,
@@ -140,7 +142,7 @@ test.describe("M2 provider sync, 4 clients", () => {
     await waitProviderPlaying(clients, c.provider, false);
     const paused = await roomPlayback(browser, room.id);
     expect([paused.playing, paused.position, paused.action]).toEqual([false, 0, "pause"]);
-    for (const cl of clients) await expect(cl.page.locator(site.systemLine).last()).toHaveText(cl === a ? "You paused" : `${a.nickname} paused`);
+    for (const cl of clients) await expect(cl.page.locator(site.systemLine).filter({ hasNotText: LEFT }).last()).toHaveText(cl === a ? "You paused" : `${a.nickname} paused`);
 
     // Resuming a live stream is the jump to the live edge, from the dedicated button while the room is paused.
     await expect(a.page.locator(toLive)).toBeEnabled();

@@ -14,11 +14,12 @@ export const CHAT_COOLDOWN_DEFAULT_MS = 1000;
 /**
  * `not-found` (OME-768): a room this page never got into answered that it's gone (4004), taken down (4006), or private
  * without a working key (`invite_required`). One screen for all of them, so the page never tells a private room from no room.
+ * `replaced` (ADR 0043): another tab resumed this session (4007); nothing reconnects until the user reclaims it here.
  */
-export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused" | "closed" | "taken-down" | "kicked" | "not-found";
+export type Status = "idle" | "connecting" | "open" | "reconnecting" | "full" | "refused" | "closed" | "taken-down" | "kicked" | "not-found" | "replaced";
 
 /** Why the server refused our join (ADR 0016 §4). The connection has stopped; the user has to act. A refused invite is `not-found`. */
-export type Refusal = "nickname_taken" | "too_many_members";
+export type Refusal = "nickname_taken" | "too_many_members" | "resume_expired";
 
 export interface Bubble {
   /** The message's own key, rising for the life of the page (OME-809): the stage hands each id to the floats once. */
@@ -85,12 +86,18 @@ export type ViewEvent =
   | { readonly type: "server"; readonly msg: ServerMessage; readonly now: number }
   | { readonly type: "tick"; readonly now: number }
   /** I hid this member for myself (OME-769): their bubbles go now; their later lines never get here (room-events.ts). */
-  | { readonly type: "hide"; readonly memberId: MemberId };
+  | { readonly type: "hide"; readonly memberId: MemberId }
+  /** The stored session ended while we were away (`resume_expired`, ADR 0043): back to the ordinary Enter. */
+  | { readonly type: "expired" }
+  /** 4007: another tab resumed this session (ADR 0043). */
+  | { readonly type: "replaced" }
+  /** The user pressed "Return here" after `replaced`. */
+  | { readonly type: "reclaim" };
 
 export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], bubbleSeq: 0, syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null };
 
 /** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
-const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "taken-down" || s.status === "kicked" || s.status === "not-found";
+const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "taken-down" || s.status === "kicked" || s.status === "not-found" || s.status === "replaced";
 
 /** True while the server's `rate_limited` hint says to hold off sending chat. */
 export function coolingDown(state: ViewState, now: number): boolean {
@@ -245,8 +252,16 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       return withRoom(state, (room) => ({ ...room, layout: msg.layout }));
     case "title-changed":
       return state.room === null ? state : { ...state, title: msg.title };
-    // Contract rollout compatibility; away rendering belongs to the session wave.
+    // Away is a flag on the member (ADR 0043): seat, anchor and chat log are untouched, and no chat line is made.
     case "member-presence":
+      return withRoom(state, (room) => {
+        const i = room.members.findIndex((m) => m.id === msg.memberId);
+        const cur = room.members[i];
+        if (cur === undefined || (cur.away === true) === msg.away) return null;
+        const members = room.members.slice();
+        members[i] = { ...cur, away: msg.away };
+        return { ...room, members };
+      });
     case "pong":
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
@@ -283,6 +298,12 @@ export function reduce(state: ViewState, event: ViewEvent): ViewState {
       return { ...initialState, bubbleSeq: state.bubbleSeq, status: event.takenDown === true ? "taken-down" : "closed" };
     case "kicked":
       return { ...initialState, bubbleSeq: state.bubbleSeq, status: "kicked", kickedUntil: event.until };
+    case "expired":
+      return { ...initialState, bubbleSeq: state.bubbleSeq, status: "refused", refusal: "resume_expired" };
+    case "replaced":
+      return { ...initialState, bubbleSeq: state.bubbleSeq, status: "replaced" };
+    case "reclaim":
+      return state.status === "replaced" ? { ...state, status: "connecting" } : state;
     case "hide": {
       const kept = state.bubbles.filter((b) => b.memberId !== event.memberId);
       return kept.length === state.bubbles.length ? state : { ...state, bubbles: kept };

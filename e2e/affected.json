@@ -158,6 +158,7 @@
         "e2e/landing.e2e.ts",
         "e2e/m10-composer.e2e.ts",
         "e2e/m10-portrait.e2e.ts",
+        "e2e/m10-sessions.e2e.ts",
         "e2e/m7-a11y.e2e.ts",
         "e2e/m9-help.e2e.ts",
         "e2e/m9-hide.e2e.ts",

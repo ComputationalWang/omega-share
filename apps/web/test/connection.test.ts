@@ -535,3 +535,234 @@ describe("created rooms (ADR 0028)", () => {
     expect(JSON.parse(last().sent.at(-1) ?? "null")).toEqual(join);
   });
 });
+
+describe("durable sessions (ADR 0043)", () => {
+  const TOKEN = "A".repeat(43);
+  const TOKEN2 = "B".repeat(43);
+  const durableSnapshot = (resumeToken: string): ServerMessage => ({ ...snapshot, resumeToken });
+
+  function durable(extra: { durable?: boolean; resumeToken?: string } = {}) {
+    return createConnection({
+      url: "ws://x/rooms/lobby/ws",
+      join: { type: "join", nickname: "zoe", avatar: 1 },
+      createSocket: (url) => {
+        const s = new FakeSocket(url);
+        sockets.push(s);
+        return s;
+      },
+      onEvent: (e) => events.push(e),
+      setTimer: (fn, ms) => {
+        const id = ++nextId;
+        timers.push({ id, fn, ms });
+        return id;
+      },
+      clearTimer: (id) => {
+        timers = timers.filter((t) => t.id !== id);
+      },
+      random: () => 1,
+      durable: true,
+      ...extra,
+    });
+  }
+  const joins = () => sockets.map((s) => s.sent.map((x) => JSON.parse(x) as Record<string, unknown>).filter((m) => m["type"] === "join"));
+  const retryTimers = () => timers.filter((t) => t.ms !== HANDSHAKE_TIMEOUT_MS && t.ms !== 3000);
+
+  test("a durable first join opts in with durableSession and no token", () => {
+    durable();
+    last().open();
+    expect(joins()[0]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, durableSession: true }]);
+  });
+
+  test("a non-durable connection sends the plain join", () => {
+    durable({ durable: false });
+    last().open();
+    expect(joins()[0]).toEqual([{ type: "join", nickname: "zoe", avatar: 1 }]);
+  });
+
+  test("an initial token is sent as resumeToken, without durableSession", () => {
+    durable({ resumeToken: TOKEN });
+    last().open();
+    expect(joins()[0]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, resumeToken: TOKEN }]);
+  });
+
+  test("the snapshot's token is reported, adopted and resent on reconnect instead of durableSession", () => {
+    durable();
+    last().open();
+    last().receive(durableSnapshot(TOKEN));
+    expect(events).toContainEqual({ type: "session", token: TOKEN });
+    last().drop();
+    runRetry();
+    last().open();
+    expect(joins()[1]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, resumeToken: TOKEN }]);
+  });
+
+  test("a rotated token replaces the old one", () => {
+    durable();
+    last().open();
+    last().receive(durableSnapshot(TOKEN));
+    last().receive(durableSnapshot(TOKEN2));
+    last().drop();
+    runRetry();
+    last().open();
+    expect(joins()[1]?.[0]?.["resumeToken"]).toBe(TOKEN2);
+  });
+
+  test("resume_expired before a snapshot is terminal: expired event, socket closed, no further sockets", () => {
+    const c = durable({ resumeToken: TOKEN });
+    last().open();
+    last().receive({ type: "error", code: "resume_expired", message: "gone" });
+    expect(events.at(-1)).toEqual({ type: "expired" });
+    expect(events.some((e) => e.type === "disconnected")).toBe(false);
+    expect(last().closed).toBe(true);
+    expect(retryTimers()).toHaveLength(0);
+    c.ensureConnected();
+    c.reclaim();
+    c.resume();
+    expect(sockets).toHaveLength(1);
+  });
+
+  test("resume_expired on a reconnect of a page that was in the room (server restart or crash): one fresh durable join, no card", () => {
+    durable();
+    last().open();
+    last().receive(durableSnapshot(TOKEN));
+    last().drop(1012);
+    runTimer();
+    last().open();
+    expect(joins().at(-1)?.[0]?.["resumeToken"]).toBe(TOKEN);
+    last().receive({ type: "error", code: "resume_expired", message: "gone" });
+    expect(events.some((e) => e.type === "expired")).toBe(false);
+    expect(events).toContainEqual({ type: "session-lost" });
+    // Straight away, as a new durable member under the same name: the restarted server has no tokens to resume.
+    expect(sockets).toHaveLength(3);
+    last().open();
+    const fresh = joins().at(-1)?.[0];
+    expect(fresh?.["resumeToken"]).toBeUndefined();
+    expect(fresh?.["durableSession"]).toBe(true);
+    // A tokenless join can't be resume_expired again: no loop. A refusal now follows the ordinary rules.
+    last().receive(durableSnapshot(TOKEN2));
+    expect(events).toContainEqual({ type: "session", token: TOKEN2 });
+  });
+
+  test("a late frame from a socket close() already let go of is ignored: no second socket", () => {
+    const c = durable();
+    last().open();
+    last().receive(durableSnapshot(TOKEN));
+    last().drop(1006);
+    runTimer();
+    // A rejoin in flight (no snapshot yet) is let go of, and a new one starts.
+    const stale = last();
+    stale.open();
+    c.close();
+    c.ensureConnected();
+    expect(sockets).toHaveLength(3);
+    stale.receive({ type: "error", code: "resume_expired", message: "gone" });
+    expect(sockets).toHaveLength(3);
+    expect(events.some((e) => e.type === "session-lost" || e.type === "expired")).toBe(false);
+  });
+
+  test("4007 session replaced is terminal: replaced event, no reconnect, ensureConnected is a no-op", () => {
+    const c = durable();
+    last().open();
+    last().receive(durableSnapshot(TOKEN));
+    last().drop(CLOSE_CODES.SESSION_REPLACED);
+    expect(events.at(-1)).toEqual({ type: "replaced" });
+    expect(timers).toHaveLength(0);
+    c.ensureConnected();
+    c.resume();
+    expect(sockets).toHaveLength(1);
+  });
+
+  test("reclaim() after replaced reconnects with the remembered token", () => {
+    const c = durable();
+    last().open();
+    last().receive(durableSnapshot(TOKEN));
+    last().drop(CLOSE_CODES.SESSION_REPLACED);
+    c.reclaim();
+    expect(sockets).toHaveLength(2);
+    last().open();
+    expect(joins()[1]).toEqual([{ type: "join", nickname: "zoe", avatar: 1, resumeToken: TOKEN }]);
+    c.reclaim();
+    expect(sockets).toHaveLength(2);
+  });
+
+  test("ensureConnected is idempotent: a connecting socket, an open socket and a pending retry are all left alone", () => {
+    const c = durable();
+    c.ensureConnected();
+    expect(sockets).toHaveLength(1);
+    last().open();
+    last().receive(snapshot);
+    c.ensureConnected();
+    expect(sockets).toHaveLength(1);
+    last().drop();
+    expect(timers).toHaveLength(1);
+    c.ensureConnected();
+    c.ensureConnected();
+    expect(sockets).toHaveLength(1);
+    expect(timers).toHaveLength(1);
+    runRetry();
+    expect(sockets).toHaveLength(2);
+  });
+
+  test("ensureConnected after close() reconnects once", () => {
+    const c = durable();
+    last().open();
+    last().receive(snapshot);
+    c.close();
+    c.ensureConnected();
+    c.ensureConnected();
+    expect(sockets).toHaveLength(2);
+  });
+
+  test("a stale socket's close after replacement is ignored", () => {
+    const c = durable();
+    last().open();
+    const old = last();
+    old.deferClose = true;
+    c.close();
+    c.ensureConnected();
+    old.finishClose();
+    expect(sockets).toHaveLength(2);
+    expect(retryTimers()).toHaveLength(0);
+    expect(events.some((e) => e.type === "disconnected")).toBe(false);
+  });
+
+  test("a stale 4007 from a replaced socket does not stop the new one", () => {
+    const c = durable();
+    last().open();
+    const old = last();
+    old.deferClose = true;
+    c.close();
+    c.ensureConnected();
+    old.closeCode = CLOSE_CODES.SESSION_REPLACED;
+    old.finishClose();
+    expect(events.some((e) => e.type === "replaced")).toBe(false);
+    last().open();
+    last().receive(snapshot);
+    last().drop();
+    expect(retryTimers()).toHaveLength(1);
+  });
+
+  test("probe: silence on an open socket is closed and reconnected; any message cancels the probe", () => {
+    const c = durable();
+    last().open();
+    last().receive(snapshot);
+    c.ensureConnected({ probe: true });
+    expect(sockets).toHaveLength(1);
+    const probe = timers.find((t) => t.ms === 3000);
+    expect(probe).toBeDefined();
+    timers = timers.filter((t) => t !== probe);
+    probe?.fn();
+    expect(last().closed).toBe(true);
+    expect(events.at(-1)).toEqual({ type: "disconnected" });
+    runRetry();
+    expect(sockets).toHaveLength(2);
+
+    last().open();
+    last().receive(snapshot);
+    c.ensureConnected({ probe: true });
+    c.ensureConnected({ probe: true });
+    expect(timers.filter((t) => t.ms === 3000)).toHaveLength(1);
+    last().receive({ type: "error", code: "rate_limited", message: "x" });
+    expect(timers.some((t) => t.ms === 3000)).toBe(false);
+  });
+});

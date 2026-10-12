@@ -128,7 +128,8 @@ test.describe("HTTP flood limits (ADR 0022)", () => {
     await loadAndJoin(page, "solo-visitor");
     // A reload re-fetches the page too (ADR 0022: the burst covers a load and a few reloads).
     await page.reload({ waitUntil: "load" });
-    await expect(page.locator(site.nicknameInput).or(page.locator(site.room))).toBeVisible();
+    // Back in with this tab's session (ADR 0043): the room, not the Enter form.
+    await expect(page.locator(site.room)).toBeVisible();
     expect(responses.filter((r) => r.url().startsWith(PUBLIC_ORIGIN)).length).toBeGreaterThan(2);
     expect(limited(responses)).toEqual([]);
   });

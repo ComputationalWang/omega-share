@@ -8,7 +8,7 @@
 // blocking its own script) is that provider's policy, and is attached as `csp-third-party.json` without failing.
 // Console lines can't be placed in a frame, so they aren't scoped: third-party events count toward the event total too.
 // The default `context` is watched automatically. Contexts made by hand must be wrapped: `watchCsp(await browser.newContext())`.
-import { test as base, type BrowserContext } from "@playwright/test";
+import { test as base, type BrowserContext, type Page } from "@playwright/test";
 import { isOurDocument } from "./csp-scope";
 
 export interface CspViolation {
@@ -117,10 +117,29 @@ function recordConsole(type: string, text: string): void {
   (text.startsWith("[Report Only]") ? consoleReportOnly : consoleEnforced).push(text);
 }
 
+/** In the page: an explicit `leave` through the dev handle, if the page is in a room. */
+function leaveRoom(): void {
+  const debug: unknown = Reflect.get(window, "__omega");
+  const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+  const send: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "send") : null;
+  if (typeof send === "function") Reflect.apply(send, room, [{ type: "leave" }]);
+}
+
 /** Starts recording CSP violations in `context` (idempotent) and returns it. Call before opening pages. */
 export async function watchCsp<C extends BrowserContext>(context: C): Promise<C> {
   if (watched.has(context)) return context;
   watched.add(context);
+  // A test that closes its browser is done with the room for good: say so first, as Leave does (ADR 0043). Without it
+  // the server holds each closed tab's member, name and seat for the grace window, and the next test in the same room
+  // finds its nickname taken or its seat full. Through the test handle `window.__omega` (dev builds and the perf build,
+  // apps/web/src/test-handle.ts); best effort.
+  const close = context.close.bind(context);
+  context.close = async (options) => {
+    // Bounded: a page stuck in a dialog must not hold the close up. Specs that test a dirty drop close the page instead.
+    const leave = (p: Page): Promise<void> => Promise.race([p.evaluate(leaveRoom).catch(() => undefined), new Promise<void>((r) => setTimeout(r, 2000))]);
+    await Promise.all(context.pages().map(leave));
+    return close(options);
+  };
   await context.exposeBinding(BINDING, (source, v: unknown) => {
     record(v, source.page.url());
   });

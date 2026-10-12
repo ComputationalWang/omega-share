@@ -11,6 +11,8 @@ export interface TwitchPlayer {
   pause(): void;
   seek(seconds: number): void;
   setMuted(muted: boolean): void;
+  /** True when the player muted itself, e.g. to autoplay without a user gesture. */
+  getMuted?: () => unknown;
   /** 0–1. */
   setVolume(volume: number): void;
   /** The SDK's cached value from the iframe's last state push; no extrapolation. */
@@ -52,7 +54,7 @@ export function asTwitchNamespace(x: unknown): TwitchNamespace | null {
 export function asTwitchPlayer(x: unknown): TwitchPlayer | null {
   if (typeof x !== "object" || x === null) return null;
   for (const m of METHODS) if (!(m in x) || typeof (x as Record<string, unknown>)[m] !== "function") return null;
-  for (const m of ["getPlayerState", "destroy", "getQualities", "getQuality", "setQuality"] as const) if (m in x && typeof (x as Record<string, unknown>)[m] !== "function") return null;
+  for (const m of ["getPlayerState", "destroy", "getQualities", "getQuality", "setQuality", "getMuted"] as const) if (m in x && typeof (x as Record<string, unknown>)[m] !== "function") return null;
   // Checked above: every method we call exists.
   return x as TwitchPlayer;
 }

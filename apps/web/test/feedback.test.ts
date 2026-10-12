@@ -28,6 +28,16 @@ describe("refusalCard (placeholder until the set (f) chrome, OME-193)", () => {
   });
 });
 
+describe("refusalCard resume_expired (ADR 0043)", () => {
+  test("a session that ended while away sends the user back to the ordinary Enter", () => {
+    expect(refusalCard("resume_expired")).toEqual({
+      title: "You were away too long",
+      body: "Your place in this room was given up after you left. Enter the room again to rejoin.",
+      action: "Enter the room",
+    });
+  });
+});
+
 describe("chatView", () => {
   test("normally: chat is open with the usual placeholder", () => {
     expect(chatView(open, 0)).toEqual({ cooling: false, muted: false, placeholder: "Say something…" });

@@ -9,6 +9,7 @@ import {
   QUALITY_ECHO_MS,
   READY_TIMEOUT_MS,
   SEEK_ECHO_MS,
+  UNMUTE_CHECK_MS,
   attachTwitch,
   createTwitchMount,
   type TwitchEmbed,
@@ -474,6 +475,67 @@ describe("attachTwitch", () => {
     t.now += 5000;
     p.fire("seek");
     expect(intents(events)).toEqual([]);
+  });
+
+  test("a player that muted itself to autoplay (no playbackBlocked, as on a resume with no tap) → autoplay-blocked once", () => {
+    const { p, events, ready } = setup();
+    ready();
+    clear(p);
+    p.muted = true;
+    p.fire("playing");
+    p.fire("playing");
+    expect(events.filter((e) => e.type === "autoplay-blocked")).toHaveLength(1);
+    // Already playing muted: nothing to restart.
+    expect(p.calls.filter((c) => c[0] === "play" || c[0] === "setMuted")).toEqual([]);
+  });
+
+  test("playing with sound, or after playbackBlocked already said so, adds no second prompt", () => {
+    const { p, events, ready } = setup();
+    ready();
+    p.fire("playing");
+    expect(events.some((e) => e.type === "autoplay-blocked")).toBe(false);
+    p.fire("playbackBlocked");
+    p.muted = true;
+    p.fire("playing");
+    expect(events.filter((e) => e.type === "autoplay-blocked")).toHaveLength(1);
+  });
+
+  test("Unmute that Twitch ignores (self-muted for autoplay): the prompt comes back as in-player, and clears once Twitch has sound", () => {
+    const { adapter, p, events, ready, timers } = setup();
+    ready();
+    p.muted = true;
+    p.fire("playing");
+    adapter.unmute();
+    expect(p.calls.at(-1)).toEqual(["setMuted", false]);
+    // Twitch keeps its own mute: our setMuted(false) changed nothing.
+    const runCheck = () => {
+      const t = timers.find((x) => x.ms === UNMUTE_CHECK_MS && !x.cleared);
+      if (t === undefined) throw new Error("no unmute check pending");
+      t.cleared = true;
+      t.fn();
+    };
+    runCheck();
+    expect(events.at(-1)).toEqual({ type: "autoplay-blocked", inPlayer: true });
+    runCheck();
+    expect(events.filter((e) => e.type === "autoplay-blocked")).toHaveLength(2);
+    // The viewer pressed Twitch's own speaker.
+    p.muted = false;
+    runCheck();
+    expect(events.at(-1)).toEqual({ type: "unmuted" });
+    expect(timers.some((x) => x.ms === UNMUTE_CHECK_MS && !x.cleared)).toBe(false);
+  });
+
+  test("Unmute that Twitch honours says nothing more", () => {
+    const { adapter, p, events, ready, timers } = setup();
+    ready();
+    p.muted = true;
+    p.fire("playing");
+    adapter.unmute();
+    p.muted = false;
+    const t = timers.find((x) => x.ms === UNMUTE_CHECK_MS && !x.cleared);
+    t?.fn();
+    expect(events.filter((e) => e.type === "autoplay-blocked")).toHaveLength(1);
+    expect(events.some((e) => e.type === "unmuted")).toBe(false);
   });
 
   test("playbackBlocked → muted play and the Unmute prompt", () => {

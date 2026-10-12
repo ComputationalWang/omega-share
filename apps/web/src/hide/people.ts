@@ -32,6 +32,9 @@ interface Row {
   readonly li: HTMLLIElement;
   readonly name: HTMLSpanElement;
   readonly badge: HTMLSpanElement;
+  /** "Away" (OME-911): shown while the member is disconnected or has the tab hidden; the row and seat stay. */
+  readonly awayBadge: HTMLSpanElement;
+  away: boolean;
   readonly button: HTMLButtonElement | null;
   nickname: string;
   shown: boolean | null;
@@ -68,6 +71,14 @@ export function createPeople(o: PeopleOptions): People {
     row.button.setAttribute("aria-label", hidden ? `Show ${row.nickname}` : `Hide ${row.nickname} for me`);
   };
 
+  const paintAway = (row: Row, away: boolean): void => {
+    if (row.away === away) return;
+    row.away = away;
+    row.li.classList.toggle("is-away", away);
+    if (away) row.name.after(row.awayBadge);
+    else row.awayBadge.remove();
+  };
+
   const makeRow = (m: Member, self: boolean): Row => {
     const li = el("li", { className: "people-row" }, "people-row");
     li.dataset["member"] = m.id;
@@ -88,7 +99,8 @@ export function createPeople(o: PeopleOptions): People {
       li.append(b);
       button = b;
     }
-    return { li, name, badge, button, nickname: m.nickname, shown: null };
+    const awayBadge = el("span", { className: "ui-tag people-away", textContent: "Away" });
+    return { li, name, badge, awayBadge, away: false, button, nickname: m.nickname, shown: null };
   };
 
   const close = (): void => {
@@ -136,6 +148,7 @@ export function createPeople(o: PeopleOptions): People {
           row = makeRow(m, m.id === self);
           rows.set(m.id, row);
         }
+        paintAway(row, m.away === true);
         paint(m.id, row);
         // Room order, moving only what's out of place.
         const want: ChildNode | null = prev === null ? list.firstChild : prev.nextSibling;

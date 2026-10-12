@@ -42,6 +42,8 @@ export class FakeVimeoPlayer implements VimeoPlayer {
   qualities: unknown = [];
   /** `setQuality()` rejects, as on a free-plan owner's video (README: TypeError, src: RangeError). */
   qualityRejects = false;
+  /** `getMuted()`: true once the player muted itself to get autoplay (no rejection, ADR 0043 resume). */
+  muted: unknown = false;
 
   constructor(
     readonly el: unknown,
@@ -87,6 +89,9 @@ export class FakeVimeoPlayer implements VimeoPlayer {
   setMuted(m: boolean): Promise<unknown> {
     this.calls.push(["setMuted", m]);
     return Promise.resolve(m);
+  }
+  getMuted(): Promise<unknown> {
+    return Promise.resolve(this.muted);
   }
   getVideoId(): Promise<unknown> {
     return Promise.resolve(this.videoId);

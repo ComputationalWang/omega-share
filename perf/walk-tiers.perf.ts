@@ -17,6 +17,7 @@ import { VSYNC_MS, tracedFrames } from "./frames";
 import { p95, recordMetric } from "./metrics";
 import { summarizeFrames } from "./spread";
 import { shareVideo, waitPlaying } from "./sync";
+import { walkedInWindow } from "./walkers";
 
 const WINDOW_MS = 5000;
 const BOTS = MAX_ROOM_MEMBERS - 1;
@@ -34,10 +35,12 @@ interface WalkerStats {
   readonly members: number;
   readonly changes: number;
   readonly errors: readonly string[];
+  /** Bot nicknames with a seat change since the last `mark()` (sat or stood up: they walked). */
+  readonly seatChanged: readonly string[];
 }
 
 /** 24 raw-socket bots on a page of the site origin, sitting on free seats and standing up again, one change per tick. */
-async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: () => Promise<WalkerStats>; stop: () => Promise<WalkerStats> }> {
+async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: () => Promise<WalkerStats>; mark: () => Promise<WalkerStats>; stop: () => Promise<WalkerStats> }> {
   const context = await watchCsp(await browser.newContext());
   const page = await context.newPage();
   await page.goto(URLS.web);
@@ -49,6 +52,9 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
       let seats: (string | null)[] = [];
       let changes = 0;
       let members = 0;
+      /** Bot nickname by member id, and the bots whose seat changed since the last mark(). */
+      const names = new Map<string, string>();
+      let changedSinceMark = new Set<string>();
       const errors: string[] = [];
       const join = (n: number): Promise<Bot> =>
         new Promise((resolve, reject) => {
@@ -63,6 +69,7 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
             const memberId = "memberId" in msg && typeof msg.memberId === "string" ? msg.memberId : null;
             if (msg.type === "snapshot" && "self" in msg && typeof msg.self === "string" && "room" in msg) {
               bot.self = msg.self;
+              names.set(msg.self, `${prefix}-${String(n + 1)}`);
               const room = msg.room;
               if (n === 0 && typeof room === "object" && room !== null) {
                 if ("members" in room && Array.isArray(room.members)) members = room.members.length;
@@ -77,6 +84,8 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
               seats = seats.map((s) => (s === memberId ? null : s));
             } else if (n === 0 && msg.type === "seat-changed" && "seat" in msg) {
               changes++;
+              const who = memberId === null ? undefined : names.get(memberId);
+              if (who !== undefined) changedSinceMark.add(who);
               seats = seats.map((s) => (s === memberId ? null : s));
               if (typeof msg.seat === "number") seats[msg.seat] = memberId;
             }
@@ -102,10 +111,15 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
           bot?.ws.send(JSON.stringify({ type: "sit", seat: null }));
         }
       }, everyMs);
-      const stats = () => ({ members, changes, errors: [...errors] });
+      const stats = () => ({ members, changes, errors: [...errors], seatChanged: [...changedSinceMark] });
       Object.assign(window, {
         omegaWalkers: {
           stats,
+          mark: () => {
+            const s = stats();
+            changedSinceMark = new Set();
+            return s;
+          },
           stop: () => {
             clearInterval(timer);
             for (const b of all) b.ws.close();
@@ -116,7 +130,7 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
     },
     { url: socketUrl(roomId), bots: BOTS, prefix: BOT_PREFIX, everyMs: CHANGE_EVERY_MS },
   );
-  const call = async (fn: "stats" | "stop"): Promise<WalkerStats> => {
+  const call = async (fn: "stats" | "mark" | "stop"): Promise<WalkerStats> => {
     const raw: unknown = await page.evaluate((f): unknown => {
       const t: unknown = Reflect.get(window, "omegaWalkers");
       const g: unknown = typeof t === "object" && t !== null ? Reflect.get(t, f) : null;
@@ -127,11 +141,13 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
     const members: unknown = Reflect.get(raw, "members");
     const changes: unknown = Reflect.get(raw, "changes");
     const errors: unknown = Reflect.get(raw, "errors");
-    if (typeof members !== "number" || typeof changes !== "number" || !Array.isArray(errors)) throw new Error("walkers: bad stats");
-    return { members, changes, errors: errors.map(String) };
+    const seatChanged: unknown = Reflect.get(raw, "seatChanged");
+    if (typeof members !== "number" || typeof changes !== "number" || !Array.isArray(errors) || !Array.isArray(seatChanged)) throw new Error("walkers: bad stats");
+    return { members, changes, errors: errors.map(String), seatChanged: seatChanged.map(String) };
   };
   return {
     stats: () => call("stats"),
+    mark: () => call("mark"),
     stop: async () => {
       const s = await call("stop");
       await context.close();
@@ -209,13 +225,15 @@ for (const profile of PROFILES) {
         // The walks in from the door are over and the seats are churning.
         await page.waitForTimeout(3000);
         const start = await botTags(page);
+        await walkers.mark();
         const w = await tracedFrames(browser, page, WINDOW_MS);
         const end = await botTags(page);
-        const walking = Object.keys(start).filter((n) => start[n] !== end[n]).length;
         const s = await walkers.stats();
+        // Walked in the window: moved, or changed seat (a round trip to a stable slot ends where it began, ADR 0043).
+        const walking = walkedInWindow(start, end, s.seatChanged);
         const f = summarizeFrames(w.samples, VSYNC_MS);
         const workP95 = p95(w.workMs);
-        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags moved in the window, ${String(s.members)} members, ${String(s.changes)} seat changes so far, video playing (fake player)`;
+        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes so far, video playing (fake player)`;
         recordMetric({ id: `walk25.frameP95.${profile}.${tier}`, value: f.p95, note: `${f.note}; ${what}` });
         recordMetric({ id: `walk25.workP95.${profile}.${tier}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
         recordMetric({ id: `walk25.missedVsync.${profile}.${tier}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });

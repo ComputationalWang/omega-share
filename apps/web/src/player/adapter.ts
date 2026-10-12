@@ -10,7 +10,13 @@ export type PlayerEvent =
   /** The provider refused or lost the video. `code` is the provider's own, for the notice and logs. */
   | { readonly type: "error"; readonly reason: PlayerErrorReason; readonly code: string }
   /** The browser blocked sound; we're now playing muted. The UI shows Unmute (outside the player). */
-  | { readonly type: "autoplay-blocked" }
+  | {
+      readonly type: "autoplay-blocked";
+      /** Our unmute didn't take: only the player's own speaker control can give the sound back (Twitch, QA OME-1001). */
+      readonly inPlayer?: true;
+    }
+  /** The player has sound again after an in-player block: drop the prompt. */
+  | { readonly type: "unmuted" }
   /** A play/pause the user made inside the player (not an echo of our own command) → room `control`. */
   | { readonly type: "intent"; readonly playing: boolean; readonly position: number }
   /** The quality list or the quality playing changed (OME-599): re-read `quality`. */

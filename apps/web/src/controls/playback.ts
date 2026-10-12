@@ -23,6 +23,8 @@ export interface PlaybackView {
   readonly muted: boolean;
   /** The browser blocked sound; show Unmute outside the player. */
   readonly needsUnmute: boolean;
+  /** With needsUnmute: our unmute didn't take, only the player's own speaker control can (Twitch, QA OME-1001). */
+  readonly unmuteInPlayer: boolean;
   /** This client's player is buffering or in an ad while the room plays. */
   readonly catching: boolean;
   /** The provider refused the video on this client, or (offline) the channel is off air. The transport is frozen; the site shows why. */
@@ -114,6 +116,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   let volume = 100;
   let muted = false;
   let needsUnmute = false;
+  let unmuteInPlayer = false;
   let catchup: Catchup = NOT_CATCHING;
   /** The `catching` the server last got from us (ADR 0019); a fresh join starts at false. */
   let sentCatching = false;
@@ -139,6 +142,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     volume,
     muted,
     needsUnmute,
+    unmuteInPlayer,
     catching: false,
     error,
     provider,
@@ -159,6 +163,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     player = null;
     catchup = NOT_CATCHING;
     needsUnmute = false;
+    unmuteInPlayer = false;
     error = null;
   };
 
@@ -196,6 +201,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
       c.volume === volume &&
       c.muted === muted &&
       c.needsUnmute === needsUnmute &&
+      c.unmuteInPlayer === unmuteInPlayer &&
       c.catching === catchup.catching &&
       c.error === error &&
       c.provider === provider &&
@@ -208,7 +214,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     ) {
       return c;
     }
-    current = { hasVideo, canControl, playing, position, duration, volume, muted, needsUnmute, catching: catchup.catching, error, provider, live, seekOnly, policy, held, qualities, quality };
+    current = { hasVideo, canControl, playing, position, duration, volume, muted, needsUnmute, unmuteInPlayer, catching: catchup.catching, error, provider, live, seekOnly, policy, held, qualities, quality };
     o.onView?.(current);
     return current;
   };
@@ -249,6 +255,11 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
         break;
       case "autoplay-blocked":
         needsUnmute = true;
+        unmuteInPlayer = e.inPlayer === true;
+        break;
+      case "unmuted":
+        needsUnmute = false;
+        unmuteInPlayer = false;
         break;
       case "intent": {
         // Held: the sync loop puts the player back where the room is.
@@ -372,6 +383,7 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
     },
     unmute() {
       needsUnmute = false;
+      unmuteInPlayer = false;
       muted = false;
       player?.unmute();
       applyVolume();

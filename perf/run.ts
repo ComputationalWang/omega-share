@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join } from "node:path";
 import { EXTENSION_SHIPPED_DIR, FIREFOX_SHIPPED_DIR, ROOT, URLS, WEB_DIST_DIR, scripts } from "../e2e/support/apps";
 import { BUDGETS, evaluate, renderReport, type Measurement } from "./budgets";
-import { buildKey, gitTree, isBuilt, shouldBuild, stampBuild } from "./build-stamp";
+import { buildKey, gitTree, isBuilt, shouldBuild, stampBuild, webBuildEnv } from "./build-stamp";
 import { RESULTS_DIR, readMetrics, recordMetric } from "./metrics";
 import { perfRunArgs } from "./run-args";
 import { checkManifest, initialJsGzipKb } from "./static-checks";
@@ -26,7 +26,8 @@ const tree = gitTree(ROOT);
 const extensionOut = (name: string): string => join(ROOT, "apps/extension/.output", name);
 const builds = [
   // The web build bakes in the server URL; perf serves it via `preview`, so it must match OMEGA_SERVER_PORT.
-  { app: "web", dirs: [WEB_DIST_DIR], env: { VITE_SERVER_URL: URLS.server }, key: buildKey(tree, URLS.server) },
+  // The test handle too (OME-911): leaveAll() sends a real leave, or durable sessions hold every closed member.
+  { app: "web", dirs: [WEB_DIST_DIR], env: webBuildEnv(URLS.server), key: buildKey(tree, `${URLS.server} handle`) },
   { app: "extension", dirs: [EXTENSION_SHIPPED_DIR, extensionOut("chrome-mv3-e2e"), FIREFOX_SHIPPED_DIR, extensionOut("firefox-mv3-e2e")], env: {}, key: buildKey(tree, "") },
 ] as const;
 for (const { app, dirs, env, key } of builds) {

@@ -54,6 +54,8 @@ export class FakeTwitchPlayer {
   qualities: unknown = [];
   /** `getQuality()`: the group of the quality playing. */
   quality: unknown = "auto";
+  /** `getMuted()`: true once the player muted itself to get autoplay (no playbackBlocked, ADR 0043 resume). */
+  muted: unknown = false;
 
   constructor(
     readonly target: unknown,
@@ -80,6 +82,9 @@ export class FakeTwitchPlayer {
   }
   setMuted(m: boolean): void {
     this.calls.push(["setMuted", m]);
+  }
+  getMuted(): unknown {
+    return this.muted;
   }
   setVolume(v: number): void {
     this.calls.push(["setVolume", v]);
