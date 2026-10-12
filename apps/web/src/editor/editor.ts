@@ -26,6 +26,7 @@ import { cellCenter } from "../layout";
 import { TRAY_TABS, defaultFacing, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
 import { loadEditAtlas, type EditAtlas } from "./edit-atlas";
 import { markerKeys, slotAt, type MarkerState, type Slot } from "./pick";
+import { SAVED_LAYOUT_NAME_MAX, saveLayout, saveMessage, type LayoutStore } from "../saved-layouts";
 
 export interface EditorContext {
   /** Where the tray and the room's settings go (under the stage). */
@@ -281,6 +282,22 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   resetBtn.addEventListener("click", () => {
     setDraft(saved, null);
   });
+  // "Save as my layout" (OME-910): keeps the room's *saved* layout (the last one the server confirmed, never an unsaved or
+  // invalid draft) in this browser, to start a later room from. The name starts as the room's title.
+  const mineName = el("input", { type: "text", id: "editor-mine-name", className: "ui-input", maxLength: SAVED_LAYOUT_NAME_MAX, autocomplete: "off", value: ctx.title() ?? "" }, "editor-mine-name");
+  const mineLabel = el("label", { htmlFor: mineName.id, textContent: "Layout name" });
+  const mineBtn = el("button", { type: "button", className: "ui-button secondary", textContent: "Save as my layout" }, "editor-mine-save");
+  mineBtn.addEventListener("click", () => {
+    let store: LayoutStore | null = null;
+    try {
+      store = localStorage;
+    } catch {
+      store = null;
+    }
+    say(store === null ? saveMessage(mineName.value, { ok: false, reason: "storage" }) : saveMessage(mineName.value, saveLayout(store, mineName.value, saved)));
+  });
+  const minePanel = el("div", { className: "editor-mine" });
+  minePanel.append(mineLabel, mineName, mineBtn);
   const piecePanel = el("div", { className: "editor-piece" });
   piecePanel.append(pickedName, swatches, rotateBtn, removeBtn);
   const savePanel = el("div", { className: "editor-save-row" });
@@ -343,7 +360,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     }
   };
 
-  root.append(tabs, tray, piecePanel, problemList, savePanel, settings);
+  root.append(tabs, tray, piecePanel, problemList, savePanel, minePanel, settings);
   ctx.panel.replaceChildren(root);
 
   function say(text: string): void {

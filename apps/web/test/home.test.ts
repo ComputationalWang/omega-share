@@ -1,9 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { ROOM_SECRETS_STORAGE_KEY, type RoomSummary } from "@omega/shared";
+import { cinema, classic } from "./support/preset-layouts";
 import type { HomeOptions } from "../src/home";
-import classic from "../../../assets/presets/classic.json";
-import cinema from "../../../assets/presets/cinema.json";
 import { PRESETS } from "../src/presets";
 import { pendingLayoutKey } from "../src/pending-layout";
 import { SAVED_LAYOUTS_KEY, loadSavedLayouts, saveLayout } from "../src/saved-layouts";

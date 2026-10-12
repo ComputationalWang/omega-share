@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import classic from "../../../assets/presets/classic.json";
+import { classic } from "./support/preset-layouts";
 import { pendingLayoutKey, stashPendingLayout, takePendingLayout } from "../src/pending-layout";
 
 const ROOM = "abcdefghijklmnopqrstuvwxyz";

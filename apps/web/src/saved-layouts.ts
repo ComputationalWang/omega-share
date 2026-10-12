@@ -70,6 +70,14 @@ export function saveLayout(store: LayoutStore, name: string, layout: RoomLayout)
   return write(store, list) ? { ok: true, dropped } : { ok: false, reason: "storage" };
 }
 
+/** The editor's status line for a save. */
+export function saveMessage(name: string, r: SaveResult): string {
+  if (r.ok) return `Saved "${name.trim()}" to your layouts.${r.dropped === null ? "" : ` Dropped your oldest, "${r.dropped}".`}`;
+  if (r.reason === "name") return `Give the layout a name of 1 to ${String(SAVED_LAYOUT_NAME_MAX)} characters.`;
+  if (r.reason === "layout") return "That isn't a valid layout, so it wasn't saved.";
+  return "This browser won't keep it (site storage is blocked or full).";
+}
+
 export function deleteSavedLayout(store: LayoutStore, name: string): void {
   const list = loadSavedLayouts(store);
   const next = list.filter((s) => s.name !== name);

@@ -15,8 +15,8 @@ const LAYOUTS: Readonly<Record<string, unknown>> = { classic, cinema, living, lo
 
 describe("room presets (assets/presets/presets.json)", () => {
   test("the picker offers exactly the contract's preset ids, in the manifest's order", () => {
-    expect(PRESETS.map((p) => p.id)).toEqual(manifest.presets.map((p) => p.id));
-    expect([...PRESETS.map((p) => p.id)].sort()).toEqual([...ROOM_PRESET_IDS].sort());
+    expect(PRESETS.map((p): string => p.id)).toEqual(manifest.presets.map((p): string => p.id));
+    expect(PRESETS.map((p): string => p.id).sort()).toEqual([...ROOM_PRESET_IDS].sort());
   });
 
   test("the default is classic, and the contract's default", () => {

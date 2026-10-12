@@ -1,10 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import cafe from "../../../assets/presets/cafe.json";
-import cinema from "../../../assets/presets/cinema.json";
-import classic from "../../../assets/presets/classic.json";
-import living from "../../../assets/presets/living.json";
-import lounge from "../../../assets/presets/lounge.json";
-import empty from "../../../assets/presets/empty.json";
+import { cafe, cinema, classic, empty, living, lounge } from "./support/preset-layouts";
 import { MAX_SAVED_LAYOUTS, SAVED_LAYOUTS_KEY, deleteSavedLayout, loadSavedLayouts, saveLayout, saveMessage } from "../src/saved-layouts";
 
 class MemoryStore {

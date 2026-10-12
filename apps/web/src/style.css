@@ -197,7 +197,7 @@ legend { padding: 0; margin-bottom: 6px; }
 .editor { display: grid; gap: 8px; margin: 8px 0; }
 .editor .ui-slot { cursor: pointer; }
 .editor-slot-name { font-size: 11px; line-height: 1.1; text-align: center; color: var(--fg); }
-.editor-piece, .editor-save-row, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.editor-piece, .editor-save-row, .editor-mine, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .editor-picked, .editor-count, .editor-message { margin: 0; }
 .editor-count { color: var(--muted); }
 .editor-problems { margin: 0; padding-left: 1.2em; color: var(--error); }
