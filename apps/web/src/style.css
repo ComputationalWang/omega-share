@@ -583,7 +583,8 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .home .room-list .link { max-width: 14em; }
 .home .room-list.is-loading { min-height: 144px; background: linear-gradient(var(--dusk-surface), var(--dusk-surface)) 0 24px / 55% 14px no-repeat, linear-gradient(var(--dusk-surface), var(--dusk-surface)) 0 96px / 40% 14px no-repeat; }
 .home .list-note { margin: 12px 0 0; color: var(--dusk-muted); }
-.home .list-note:empty { display: none; }
+/* Empty, the status line stays in the accessibility tree (a live region must exist before its text arrives). */
+.home .list-note:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .home .retry { margin-top: 8px; }
 
 /* Footer: the credit only on the site views; the room keeps its one quiet line. */
