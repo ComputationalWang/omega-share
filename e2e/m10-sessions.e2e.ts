@@ -32,8 +32,8 @@ interface Member {
   readonly sockets: () => readonly string[];
 }
 
-async function open(browser: Browser, url: string, nickname: string, setup?: (c: BrowserContext) => Promise<void>): Promise<Member> {
-  const context = await watchCsp(await browser.newContext(PHONE));
+async function open(browser: Browser, url: string, nickname: string, setup?: (c: BrowserContext) => Promise<void>, phone = true): Promise<Member> {
+  const context = await watchCsp(await browser.newContext(phone ? PHONE : {}));
   contexts.push(context);
   await stubExternalNetwork(context);
   await setup?.(context);
@@ -45,6 +45,8 @@ async function enterOn(context: BrowserContext, page: Page, url: string, nicknam
   let joins = 0;
   const sockets: string[] = [];
   page.on("websocket", (ws) => {
+    // The room's sockets only (the dev server's HMR socket carries its own query token).
+    if (!ws.url().startsWith(URLS.server.replace(/^http/, "ws"))) return;
     sockets.push(ws.url());
     ws.on("framesent", (f) => {
       if (typeof f.payload === "string" && f.payload.includes('"type":"join"')) joins++;
@@ -149,25 +151,41 @@ test("a full reload of /r/<id> goes straight back in: same seat, same member, no
   expect(await ana.page.evaluate((k) => sessionStorage.getItem(k) !== null, `${RESUME_STORAGE_KEY_PREFIX}${room.id}`)).toBe(true);
 });
 
-test("after the grace window the seat is free, peers saw one leave line, and the returning tab is sent back to Enter", async ({ browser }) => {
+test("after the grace window the seat is free and peers saw one leave line; the page still open comes back as a new member", async ({ browser }) => {
   const room = testRoom("m10-sessions", "expire");
   const ana = await open(browser, room.url, "ana");
   const obs = await open(browser, room.url, "obs");
   await sit(ana.page, 3, "ana");
   await expect.poll(() => seatOf(obs.page, "ana")).toBe(3);
+  const before = (await seen(ana.page)).self;
 
   await goAway(ana.page);
   await expect(chatLines(obs.page, "ana left the room")).toHaveCount(1, { timeout: GRACE_MS + 15_000 });
   await expect(tag(obs.page, "ana")).toHaveCount(0);
   await sit(obs.page, 3, "obs");
 
+  // The page never closed: its token is dead, so it rejoins once as a new member, standing (ADR 0043 amendment).
   await comeBack(ana.page);
+  await expect(tag(obs.page, "ana")).toHaveCount(1);
+  await expect.poll(async () => (await seen(ana.page)).self).not.toBe(before);
+  expect(await seatOf(obs.page, "ana")).toBeNull();
+  expect(await seatOf(obs.page, "obs")).toBe(3);
+  await expect(chatLines(obs.page, "ana left the room")).toHaveCount(1);
+});
+
+test("a reload after the grace window shows the card back to Enter, not a silent new member", async ({ browser }) => {
+  const room = testRoom("m10-sessions", "expreload");
+  const ana = await open(browser, room.url, "ana");
+  const obs = await open(browser, room.url, "obs");
+  await goAway(ana.page);
+  await expect(chatLines(obs.page, "ana left the room")).toHaveCount(1, { timeout: GRACE_MS + 15_000 });
+
+  await ana.page.reload();
   const card = ana.page.locator(site.roomRefused);
-  await expect(card).toBeVisible();
   await expect(card).toHaveAttribute("data-code", "resume_expired");
   await ana.page.locator(site.roomRefusedAction).click();
   await expect(ana.page.locator(site.nicknameInput)).toBeVisible();
-  await expect(chatLines(obs.page, "ana left the room")).toHaveCount(1);
+  await expect(tag(obs.page, "ana")).toHaveCount(0);
 });
 
 test("a member kicked while away cannot resume with the stored token", async ({ browser }) => {
@@ -180,7 +198,7 @@ test("a member kicked while away cannot resume with the stored token", async ({ 
       },
       [URLS.web, ROOM_SECRETS_STORAGE_KEY, secrets],
     );
-  });
+  }, false); // The host moderates from a desktop (moderation.e2e.ts); the kicked guest is the phone.
   const kit = await open(browser, `${URLS.web}/r/${r.id}#k=${r.inviteKey}`, "kit");
   await expect(tag(owner.page, "kit")).toHaveCount(1);
 

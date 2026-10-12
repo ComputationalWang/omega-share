@@ -105,8 +105,8 @@ test("hide for me: nothing is sent, their chat, bubbles and emotes stop for me o
   await a.page.keyboard.press("Escape");
 
   // A reload in the same tab (a reconnect) keeps it.
+  // Back in with this tab's session (ADR 0043): no Enter form.
   await a.page.reload();
-  await a.page.locator(site.joinButton).click();
   await expect(a.page.locator(site.nicknameTag)).toHaveCount(2);
   await a.page.locator(site.peopleKey).click();
   await expect(a.page.locator(site.peopleRow).filter({ hasText: b.nickname })).toContainText("hidden");

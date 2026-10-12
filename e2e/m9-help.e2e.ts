@@ -96,9 +96,8 @@ test("first visit: the hint shows, politely, clear of the picture and the compos
   await page.locator(`${site.seat}[data-seat="0"]`).click();
   await expect(hint).toBeHidden();
 
+  // A reload goes straight back in with this tab's session (ADR 0043): no Enter form.
   await page.reload();
-  await page.locator(site.nicknameInput).fill("hhint-2");
-  await page.locator(site.joinButton).click();
   await expect(page.locator(site.connectionStatus)).toHaveText("");
   await page.waitForTimeout(500);
   await expect(hint).toBeHidden();

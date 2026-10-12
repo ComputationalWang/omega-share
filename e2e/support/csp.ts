@@ -118,9 +118,25 @@ function recordConsole(type: string, text: string): void {
 }
 
 /** Starts recording CSP violations in `context` (idempotent) and returns it. Call before opening pages. */
+/** In the page: an explicit `leave` through the dev handle, if the page is in a room. */
+function leaveRoom(): void {
+  const debug: unknown = Reflect.get(window, "__omega");
+  const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+  const send: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "send") : null;
+  if (typeof send === "function") Reflect.apply(send, room, [{ type: "leave" }]);
+}
+
 export async function watchCsp<C extends BrowserContext>(context: C): Promise<C> {
   if (watched.has(context)) return context;
   watched.add(context);
+  // A test that closes its browser is done with the room for good: say so first, as Leave does (ADR 0043). Without it
+  // the server holds each closed tab's member, name and seat for the grace window, and the next test in the same room
+  // finds its nickname taken or its seat full. Dev builds only (`window.__omega`); best effort.
+  const close = context.close.bind(context);
+  context.close = async (options) => {
+    await Promise.all(context.pages().map((p) => p.evaluate(leaveRoom).catch(() => undefined)));
+    return close(options);
+  };
   await context.exposeBinding(BINDING, (source, v: unknown) => {
     record(v, source.page.url());
   });
