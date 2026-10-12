@@ -17,7 +17,7 @@ export interface ShareTokenTracker {
  * Keeps `sessionStorage["omega.share"]` in step with this member's share token, so the extension
  * can read it from the room tab (ADR 0015 §7). Never in a URL: the Twitch SDK forwards the page URL.
  */
-export function trackShareToken(storage: ShareTokenStorage, roomId: RoomId): ShareTokenTracker {
+export function trackShareToken(storage: ShareTokenStorage, roomId: RoomId, opts: { readonly durable?: boolean } = {}): ShareTokenTracker {
   // Storage can be disabled or full; the room works without a record, the extension just can't share.
   const clear = (): void => {
     try {
@@ -28,8 +28,10 @@ export function trackShareToken(storage: ShareTokenStorage, roomId: RoomId): Sha
   };
   return {
     onEvent(e) {
-      // The server dropped the member (and revoked its token) on a drop, a closed room and a kick.
-      if (e.type === "disconnected" || e.type === "room-closed" || e.type === "kicked") clear();
+      // The server dropped the member (and revoked its token) on a closed room and a kick, and on a drop unless it holds
+      // the member for a durable session (ADR 0043); that hold ends in `expired`, or in another tab with `replaced`.
+      if (e.type === "room-closed" || e.type === "kicked" || e.type === "expired" || e.type === "replaced") clear();
+      if (e.type === "disconnected" && opts.durable !== true) clear();
       if (e.type !== "message") return;
       if (e.msg.type === "room-full") clear();
       if (e.msg.type !== "snapshot") return;

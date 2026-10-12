@@ -1,4 +1,4 @@
-import type { EmoteKind, MemberId } from "@omega/shared";
+import type { EmoteKind, MemberId, ResumeToken } from "@omega/shared";
 import type { ClockSync } from "./clock";
 import type { ConnectionEvent } from "./connection";
 import type { ShareTokenTracker } from "./share-token";
@@ -16,6 +16,8 @@ export interface RoomEventSinks {
   readonly emoted: (memberId: MemberId, kind: EmoteKind) => void;
   /** I hid this member for myself (OME-769): their chat and emotes stop here, before the state, the log or a pop-out. */
   readonly hidden: (memberId: MemberId) => boolean;
+  /** A snapshot carried this member's resume token (ADR 0043): store it for this room. Never logged or put in state. */
+  readonly session: (token: ResumeToken) => void;
 }
 
 /** Where one connection event goes. A hidden member's chat and emotes go nowhere (OME-769): filtered once, at intake. A drop, a closed room (4004) or a kick (4005) stops the clock's pings until the next open. */
@@ -31,6 +33,10 @@ export function routeConnectionEvent(e: ConnectionEvent, sinks: RoomEventSinks, 
     }
     return;
   }
-  if (e.type === "disconnected" || e.type === "room-closed" || e.type === "kicked") sinks.clock.stop();
+  if (e.type === "session") {
+    sinks.session(e.token);
+    return;
+  }
+  if (e.type === "disconnected" || e.type === "room-closed" || e.type === "kicked" || e.type === "expired" || e.type === "replaced") sinks.clock.stop();
   sinks.dispatch(e.type === "kicked" ? { type: "kicked", until: sinks.kicked(e.wasIn) } : e);
 }

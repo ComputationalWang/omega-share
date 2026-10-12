@@ -1,4 +1,4 @@
-import { CLOSE_CODES, RATE_LIMITED_RECONNECT_MS, parseServerMessage, type ClientMessage, type ServerMessage } from "@omega/shared";
+import { CLOSE_CODES, RATE_LIMITED_RECONNECT_MS, parseServerMessage, type ClientMessage, type ResumeToken, type ServerMessage } from "@omega/shared";
 
 /** The part of `WebSocket` we use, so tests can fake it. */
 export interface SocketLike {
@@ -19,7 +19,7 @@ export type ConnectionEvent =
   | { readonly type: "kicked"; readonly wasIn: boolean }
   | { readonly type: "message"; readonly msg: ServerMessage }
   /** A snapshot carried a resume token (ADR 0043): the caller persists it. Never log it. */
-  | { readonly type: "session"; readonly token: string }
+  | { readonly type: "session"; readonly token: ResumeToken }
   /** `resume_expired` before a snapshot. Terminal: clear the stored record and show the ordinary Enter; never rejoin tokenless automatically. */
   | { readonly type: "expired" }
   /** 4007: another socket resumed this identity. Terminal until the user asks for `reclaim()`. */
@@ -37,7 +37,7 @@ export interface ConnectionOptions<Timer = unknown> {
   /** Ask the server for a durable session on the first join (ADR 0043). */
   readonly durable?: boolean;
   /** A token from storage: the first join resumes with it instead of opting in. */
-  readonly resumeToken?: string;
+  readonly resumeToken?: ResumeToken;
   /** [0, 1); defaults to Math.random. Spreads reconnects so clients don't stampede a restarted server. */
   readonly random?: () => number;
 }
@@ -97,7 +97,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
   let retryTimer: Timer | null = null;
   let probeTimer: Timer | null = null;
   /** Token to resume with; set from storage or the latest snapshot. */
-  let token: string | null = opts.resumeToken ?? null;
+  let token: ResumeToken | null = opts.resumeToken ?? null;
   /** 4007 stopped us; only reclaim() restarts. */
   let replaced = false;
   let handshakeTimer: Timer | null = null;
@@ -241,7 +241,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
   connect();
 
   const ensureConnected = (o?: { readonly probe?: boolean }): void => {
-      if (stopped || replaced) return;
+    if (stopped || replaced) return;
     if (socket !== null) {
       if (o?.probe === true && open && probeTimer === null) {
         const s = socket;

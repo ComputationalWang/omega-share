@@ -1,9 +1,10 @@
 // Room screen. Loaded lazily after Enter so PixiJS stays out of the initial bundle.
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, isSyncedEmbed, type AnyEmbed, type Avatar, type ClientMessage, type EmoteKind, type Embed, type ErrorCode, type MemberId, type Nickname, type RoomId, type RoomLayout } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, isSyncedEmbed, type AnyEmbed, type Avatar, type ClientMessage, type EmoteKind, type Embed, type ErrorCode, type MemberId, type Nickname, type ResumeToken, type RoomId, type RoomLayout } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
+import { clearResume, saveResume, type ResumeStore } from "./session-record";
 import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
 import { forgetRoom, inviteLink, joinMessage, type RoomSecret, type SecretsStore } from "./room-secrets";
 import { createInviteControl } from "./controls/invite";
@@ -57,6 +58,8 @@ export interface RoomOptions {
   readonly origin: string;
   /** The server's HTTP origin, for the owner's `DELETE /rooms/:id`. */
   readonly serverUrl: string;
+  /** From this tab's stored session for the room (ADR 0043): the join resumes that member instead of making a new one. */
+  readonly resumeToken?: ResumeToken;
 }
 
 export interface RoomHandle {
@@ -91,6 +94,7 @@ const STATUS_TEXT: Record<ViewState["status"], string> = {
   "taken-down": "",
   kicked: "",
   "not-found": "",
+  replaced: "",
 };
 
 const NOTICE_MS = 3000;
@@ -160,7 +164,7 @@ function browserSocket(url: string): SocketLike {
 
 /** A connection that never connects: a tab still inside its rejoin cooldown (kick-memory.ts). */
 function stoppedConnection(): Connection {
-  return { send: () => false, close: () => undefined, resume: () => undefined };
+  return { send: () => false, close: () => undefined, resume: () => undefined, ensureConnected: () => undefined, reclaim: () => undefined };
 }
 
 /** What the sync loop plays: the synced embed, or null (a generic embed is never synced, ADR 0024). */
@@ -217,7 +221,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Unknown, deleted, taken down, or private without a working key, and never got in (OME-768): one screen for all of them.
   const notFound = createNotFound({ serverUrl: opts.serverUrl, fetch: (url, init) => fetch(url, init) });
   // "Report this room" (OME-601, ADR 0033): a guest's quiet key, the last stop of the room. Not made at all in a room you own.
-  const report = opts.secret?.ownerToken === undefined ? createReport({ roomId: opts.roomId, serverUrl: opts.serverUrl, fetch: (url, init) => fetch(url, init), leave: () => { location.assign("/"); } }) : null;
+  const report = opts.secret?.ownerToken === undefined ? createReport({ roomId: opts.roomId, serverUrl: opts.serverUrl, fetch: (url, init) => fetch(url, init), leave: () => { leaveForGood(); } }) : null;
   const foot = el("div", { className: "room-foot", hidden: true }, "room-foot");
   if (report !== null) foot.append(report.key, report.dialog);
   // 4005: the owner removed us (ADR 0030). The connection has stopped; Rejoin waits out the cooldown, then reloads.
@@ -237,6 +241,15 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     kickedBody,
     rejoin,
     el("a", { className: "enter secondary", href: "/", textContent: "Find a room" }),
+  );
+  // 4007 (ADR 0043): this session went on in another tab. Nothing reconnects by itself; "Return here" takes it back.
+  const replacedCard = el("div", { className: "room-full", hidden: true }, "room-replaced");
+  const reclaim = el("button", { type: "button", className: "ui-button" }, "room-replaced-return");
+  reclaim.textContent = "Return here";
+  replacedCard.append(
+    el("h2", { textContent: "This session is open in another tab" }),
+    el("p", { textContent: "You can keep watching there, or bring the room back to this tab." }),
+    reclaim,
   );
   let kickedTimer: ReturnType<typeof setTimeout> | null = null;
   /** Fill the card for now and re-arm for the next minute; once the cooldown is over Rejoin is a plain key. */
@@ -674,7 +687,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     if (!on) focusBefore = null;
   };
-  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, notFound.root, kicked, side, foot, help.dialog);
+  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, notFound.root, kicked, replacedCard, side, foot, help.dialog);
   const portraitDock = createPortraitDock({ root: opts.root, log: chatLog.root, composer: chatForm,
     queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: [editBar, personal.root, invite, foot, firstHint.root], onViewport: () => { fit(); placeQuality(); } });
   let portraitOn = false;
@@ -1088,6 +1101,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (syncPortrait()) fit();
     queuePanel.root.hidden = !shown.stage;
     queuePanel.update(s);
+    const isReplaced = s.status === "replaced";
+    if (replacedCard.hidden === isReplaced) {
+      replacedCard.hidden = !isReplaced;
+      if (isReplaced) reclaim.focus({ preventScroll: true });
+    }
     if (kicked.hidden === shown.kicked) {
       kicked.hidden = !shown.kicked;
       if (shown.kicked) renderKicked(s.kickedUntil);
@@ -1283,23 +1301,43 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (frame === 0) frame = requestAnimationFrame(render);
   };
 
-  const shareToken = trackShareToken(sessionStorage, opts.roomId);
+  const shareToken = trackShareToken(sessionStorage, opts.roomId, { durable: true });
+  // This tab's session for the room (ADR 0043). The `sessionStorage` getter itself throws when storage is blocked;
+  // session-record.ts catches it, and the room then just won't survive a reload.
+  const resumeStore: ResumeStore = {
+    getItem: (k) => sessionStorage.getItem(k),
+    setItem: (k, value) => {
+      sessionStorage.setItem(k, value);
+    },
+    removeItem: (k) => {
+      sessionStorage.removeItem(k);
+    },
+  };
+  /** The last presence hint sent on this socket; the server clears away on a (re)join. */
+  let sentAway = false;
   const emoted = (id: MemberId, kind: EmoteKind): void => {
     relay?.emote(id, kind);
     if (!roomOut()) roomStage.emote(id, kind, state);
   };
   const kickedStore = sessionStorage;
-  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted, hidden: isHidden };
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted, hidden: isHidden, session: (token) => {
+    sentAway = false;
+    saveResume(resumeStore, { roomId: opts.roomId, token, nickname: opts.nickname, avatar: opts.avatar });
+  } };
   // Kicked from this room in this tab and the cooldown isn't over (ADR 0030 §2): show the notice, don't even try to join.
   const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
   const c: Connection = kickedTill !== null ? stoppedConnection() : createConnection({
     url: opts.socketUrl,
     join: joinMessage(opts.nickname, opts.avatar, opts.secret),
+    durable: true,
+    ...(opts.resumeToken === undefined ? {} : { resumeToken: opts.resumeToken }),
     createSocket: browserSocket,
     onOpen: () => {
       clock.start();
     },
     onEvent: (e) => {
+      // The session is over for this tab: a reload shows the ordinary Enter (a replaced one keeps its token in memory only).
+      if (e.type === "expired" || e.type === "replaced" || e.type === "kicked" || e.type === "room-closed") clearResume(resumeStore, opts.roomId);
       routeConnectionEvent(e, sinks, Date.now());
     },
     setTimer: (fn, ms) => setTimeout(fn, ms),
@@ -1391,17 +1429,39 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       else chatInput.blur();
     }
   });
-  // Close on unload so the server frees the seat now; a bfcache restore reconnects.
+  /** An explicit leave (ADR 0043): tell the server now, best effort, and forget the session; a lost frame ends at the hold's expiry. */
+  function leaveForGood(): void {
+    c.send({ type: "leave" });
+    clearResume(resumeStore, opts.roomId);
+    shareToken.clear();
+    location.assign("/");
+  }
+  reclaim.addEventListener("click", () => {
+    dispatch({ type: "reclaim" });
+    c.reclaim();
+  });
+  // Leaving the page is not leaving the room (ADR 0043): close the socket, keep the session and share records. The
+  // server holds the seat for the grace window; a reload, a bfcache restore or coming back resumes it.
   window.addEventListener("pagehide", () => {
     relay?.close();
     c.close();
-    shareToken.clear();
     clock.stop();
   });
   window.addEventListener("pageshow", (ev) => {
     if (!ev.persisted) return;
-    c.resume();
+    c.ensureConnected();
     relay?.resume();
+  });
+  // Hidden: a best-effort away hint on the open socket. Visible again (or resumed from a freeze): make sure the socket
+  // is live, probing one that may have died while suspended. One path, so these events never race two connections.
+  const onVisibility = (): void => {
+    const away = document.visibilityState === "hidden";
+    if (!away) c.ensureConnected({ probe: true });
+    if (away !== sentAway && state.status === "open" && c.send({ type: "presence", away })) sentAway = away;
+  };
+  document.addEventListener("visibilitychange", onVisibility);
+  document.addEventListener("resume", () => {
+    c.ensureConnected({ probe: true });
   });
 
   const onMedia = (): void => {

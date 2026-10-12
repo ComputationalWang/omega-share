@@ -1,8 +1,9 @@
 // Landing: nickname + avatar + one Enter click (which also satisfies autoplay). Keep this entry tiny; the room loads on demand.
-import { DEFAULT_ROOM_ID, type Avatar } from "@omega/shared";
+import { DEFAULT_ROOM_ID, type Avatar, type Nickname, type ResumeToken } from "@omega/shared";
 import { loadProfile, saveProfile, validateNickname } from "./profile";
 import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
 import { loadRoomSecrets, secretFor, takeInviteKey, type SecretsStore } from "./room-secrets";
+import { loadResume } from "./session-record";
 import type * as RoomModule from "./room";
 import type { RoomHandle } from "./room";
 
@@ -68,18 +69,8 @@ const loadRoom = (): Promise<typeof RoomModule> => (roomModule ??= import("./roo
 form.addEventListener("focusin", () => void loadRoom(), { once: true });
 form.addEventListener("pointerover", () => void loadRoom(), { once: true });
 
-form.addEventListener("submit", (ev) => {
-  ev.preventDefault();
-  const r = validateNickname(input.value);
-  if (!r.ok) {
-    error.textContent = r.message;
-    input.ariaInvalid = "true";
-    input.focus();
-    return;
-  }
-  error.textContent = "";
-  input.ariaInvalid = "false";
-  saveProfile(localStorage, { nickname: r.nickname, avatar });
+/** Into the room: from Enter, or straight from this tab's stored session for the room (ADR 0043). */
+const enterRoom = (nickname: Nickname, as: Avatar, resumeToken?: ResumeToken): void => {
   enter.disabled = true;
   void loadRoom()
     .then(({ startRoom }) => {
@@ -90,8 +81,9 @@ form.addEventListener("submit", (ev) => {
         root: roomRoot,
         roomId,
         socketUrl: wsUrl(serverUrl, roomId),
-        nickname: r.nickname,
-        avatar,
+        nickname,
+        avatar: as,
+        ...(resumeToken === undefined ? {} : { resumeToken }),
         secret: secretFor(loadRoomSecrets(storage), roomId, invited),
         secrets: storage,
         origin: location.origin,
@@ -109,7 +101,35 @@ form.addEventListener("submit", (ev) => {
       enter.disabled = false;
       error.textContent = "Could not open the room. Try again.";
     });
+};
+
+form.addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const r = validateNickname(input.value);
+  if (!r.ok) {
+    error.textContent = r.message;
+    input.ariaInvalid = "true";
+    input.focus();
+    return;
+  }
+  error.textContent = "";
+  input.ariaInvalid = "false";
+  saveProfile(localStorage, { nickname: r.nickname, avatar });
+  enterRoom(r.nickname, avatar);
 });
+
+// Back in a room this tab was in (reload, restore, return): no Enter form, the stored session rejoins the same member.
+// sessionStorage, not localStorage, so a second tab never shares it (ADR 0043). Blocked storage reads as no record.
+const resumed =
+  pathRoom === null
+    ? null
+    : loadResume({ getItem: (k) => sessionStorage.getItem(k), setItem: (k, value) => { sessionStorage.setItem(k, value); }, removeItem: (k) => { sessionStorage.removeItem(k); } }, pathRoom);
+if (resumed !== null) {
+  form.hidden = true;
+  input.value = resumed.nickname;
+  selectAvatar(resumed.avatar);
+  enterRoom(resumed.nickname, resumed.avatar, resumed.token);
+}
 
 // The home page (not a room link) also gets the rooms panel: create, your rooms, open rooms. A lazy chunk after first paint.
 if (pathRoom === null) {

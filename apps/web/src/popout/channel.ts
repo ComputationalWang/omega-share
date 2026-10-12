@@ -10,7 +10,7 @@ import type { SyslineGlyph } from "../controls/sysline";
 import { CHAT_LOG_CAP } from "../chat/log";
 import { MAX_SYSLINES, type StageState, type Status } from "../state";
 
-const GLYPHS = ["play", "pause", "seek", "remote", "chat-mute", "host"] as const satisfies readonly SyslineGlyph[];
+const GLYPHS = ["play", "pause", "seek", "remote", "chat-mute", "host", "everyone"] as const satisfies readonly SyslineGlyph[];
 /** Longer than any line we make (a chat is ≤ 280, a nickname ≤ 20); a cap on what a stray poster can make us draw. */
 const Text = v.pipe(v.string(), v.maxLength(1000));
 /** A pop-out's id (random per window load) and a tab's id: short, plain. */
@@ -47,7 +47,7 @@ const PopStateFields = {
 const PopKindSchema = v.picklist(["chat", "room"]);
 export type PopKind = v.InferOutput<typeof PopKindSchema>;
 
-const STATUSES = ["idle", "connecting", "open", "reconnecting", "full", "refused", "closed", "taken-down", "kicked", "not-found"] as const satisfies readonly Status[];
+const STATUSES = ["idle", "connecting", "open", "reconnecting", "full", "refused", "closed", "taken-down", "kicked", "not-found", "replaced"] as const satisfies readonly Status[];
 
 /**
  * What the room's stage draws, mirrored from the room tab's view state (OME-600). The room is the wire's own schema, so

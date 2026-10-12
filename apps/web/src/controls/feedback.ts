@@ -25,6 +25,12 @@ export function refusalCard(r: Refusal): RefusalCard {
         body: "This room already has as many people from your network as it allows. Try again later, or join from another connection.",
         action: "Try again",
       };
+    case "resume_expired":
+      return {
+        title: "You were away too long",
+        body: "Your place in this room was given up after you left. Enter the room again to rejoin.",
+        action: "Enter the room",
+      };
   }
 }
 

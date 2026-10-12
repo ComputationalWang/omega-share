@@ -1,6 +1,6 @@
 import type { ControlPolicy, Member, MemberId, PlaybackState } from "@omega/shared";
 
-export type SyslineGlyph = "play" | "pause" | "seek" | "remote" | "chat-mute" | "host";
+export type SyslineGlyph = "play" | "pause" | "seek" | "remote" | "chat-mute" | "host" | "everyone";
 
 /**
  * One chat system line, as data: the view renders `actor` in <b> and `time` in <time>,
@@ -63,6 +63,11 @@ export function mutedLine(muted: boolean): SystemLine {
 /** Someone the host removed (ADR 0030 §2, `member-left { reason: "kicked" }`): everyone left in the room sees it. */
 export function removedLine(nickname: string): SystemLine {
   return { glyph: "host", actor: nickname, verb: "was removed by the host", time: null };
+}
+
+/** Someone left for good (ADR 0043): an explicit leave, or the end of a disconnected hold. Never for a resume. */
+export function leftLine(nickname: string): SystemLine {
+  return { glyph: "everyone", actor: nickname, verb: "left the room", time: null };
 }
 
 /** The host removed me (4005). Only I see it. */

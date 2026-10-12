@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Member, PlaybackState, RoomState, ServerMessage } from "@omega/shared";
 import { initialState, reduce, type ViewEvent, type ViewState } from "../src/state";
 import { logEntries } from "../src/chat/feed";
+import type { ChatLogEntry } from "../src/chat/log";
 
 // OME-594: what the chat log says for one view event, from the state before and after it. Chat from members, the
 // playback and policy lines the caption rail shows, and the ADR 0030 notices: my mute, someone removed, me removed.
@@ -57,7 +58,7 @@ describe("logEntries", () => {
     expect(step(joined(), msg({ type: "member-left", memberId: "k", reason: "kicked" })).entries).toEqual([
       { kind: "system", line: { glyph: "host", actor: "Kit", verb: "was removed by the host", time: null } },
     ]);
-    const left = [{ kind: "system", line: { glyph: "everyone", actor: "Kit", verb: "left the room", time: null } }];
+    const left: ChatLogEntry[] = [{ kind: "system", line: { glyph: "everyone", actor: "Kit", verb: "left the room", time: null } }];
     expect(step(joined(), msg({ type: "member-left", memberId: "k", reason: "left" })).entries).toEqual(left);
     expect(step(joined(), msg({ type: "member-left", memberId: "k" })).entries).toEqual(left);
     expect(step(joined(), msg({ type: "member-left", memberId: "zz", reason: "left" })).entries).toEqual([]);
