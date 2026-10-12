@@ -17,7 +17,13 @@ export type ConnectionEvent =
   | { readonly type: "room-closed"; readonly takenDown?: true }
   /** 4005: the owner kicked us, or we came back inside the rejoin cooldown (ADR 0030). Terminal, like room-closed. */
   | { readonly type: "kicked"; readonly wasIn: boolean }
-  | { readonly type: "message"; readonly msg: ServerMessage };
+  | { readonly type: "message"; readonly msg: ServerMessage }
+  /** A snapshot carried a resume token (ADR 0043): the caller persists it. Never log it. */
+  | { readonly type: "session"; readonly token: string }
+  /** `resume_expired` before a snapshot. Terminal: clear the stored record and show the ordinary Enter; never rejoin tokenless automatically. */
+  | { readonly type: "expired" }
+  /** 4007: another socket resumed this identity. Terminal until the user asks for `reclaim()`. */
+  | { readonly type: "replaced" };
 
 export interface ConnectionOptions<Timer = unknown> {
   readonly url: string;
@@ -28,6 +34,10 @@ export interface ConnectionOptions<Timer = unknown> {
   readonly onOpen?: () => void;
   readonly setTimer: (fn: () => void, ms: number) => Timer;
   readonly clearTimer: (handle: Timer) => void;
+  /** Ask the server for a durable session on the first join (ADR 0043). */
+  readonly durable?: boolean;
+  /** A token from storage: the first join resumes with it instead of opting in. */
+  readonly resumeToken?: string;
   /** [0, 1); defaults to Math.random. Spreads reconnects so clients don't stampede a restarted server. */
   readonly random?: () => number;
 }
@@ -37,12 +47,22 @@ export interface Connection {
   send(msg: ClientMessage): boolean;
   /** Closes for good (until resume); no reconnect, no `disconnected` event. */
   close(): void;
-  /** Reconnect after close(), e.g. when a page comes back from bfcache. No-op if live, or the room was full or refused the join. */
+  /**
+   * Idempotent: connects now (backoff reset) unless a socket is connecting/open or a retry is pending, or the
+   * connection is stopped for good (full, refused, kicked, expired, replaced). With `probe`, an open socket that
+   * stays silent for PROBE_TIMEOUT_MS is closed so the normal reconnect runs.
+   */
+  ensureConnected(opts?: { readonly probe?: boolean }): void;
+  /** Alias of `ensureConnected()`, e.g. when a page comes back from bfcache. */
   resume(): void;
+  /** The user's "Return here" after `replaced`: reconnects with the remembered token. */
+  reclaim(): void;
 }
 
 const BACKOFF_BASE_MS = 500;
 export const BACKOFF_MAX_MS = 5000;
+/** How long an open socket may stay silent after `ensureConnected({ probe: true })` before it is dropped. */
+export const PROBE_TIMEOUT_MS = 3000;
 /** A socket with no snapshot by then is dropped and retried. */
 export const HANDSHAKE_TIMEOUT_MS = 10_000;
 /**
@@ -75,11 +95,29 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
   /** Backoff spent on refused rejoins since the last snapshot. */
   let refusedWaited = 0;
   let retryTimer: Timer | null = null;
+  let probeTimer: Timer | null = null;
+  /** Token to resume with; set from storage or the latest snapshot. */
+  let token: string | null = opts.resumeToken ?? null;
+  /** 4007 stopped us; only reclaim() restarts. */
+  let replaced = false;
   let handshakeTimer: Timer | null = null;
 
   const clearHandshake = (): void => {
     if (handshakeTimer !== null) opts.clearTimer(handshakeTimer);
     handshakeTimer = null;
+  };
+
+  const clearProbe = (): void => {
+    if (probeTimer !== null) opts.clearTimer(probeTimer);
+    probeTimer = null;
+  };
+
+  const joinMessage = (): ClientMessage => {
+    const base = { ...opts.join };
+    delete base.durableSession;
+    delete base.resumeToken;
+    if (token !== null) return { ...base, resumeToken: token };
+    return opts.durable === true ? { ...base, durableSession: true } : base;
   };
 
   const connect = (): void => {
@@ -96,18 +134,33 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
     s.onopen = () => {
       open = true;
       opts.onOpen?.();
-      s.send(JSON.stringify(opts.join));
+      s.send(JSON.stringify(joinMessage()));
     };
     s.onmessage = (ev) => {
       if (typeof ev.data !== "string") return;
       const msg = parseServerMessage(ev.data);
       if (msg === null) return;
+      clearProbe();
+      if (!joined && msg.type === "error" && msg.code === "resume_expired") {
+        // Terminal: forget this socket first so its close is silent, and never fall back to a tokenless join.
+        stopped = true;
+        clearHandshake();
+        socket = null;
+        open = false;
+        s.close(1000);
+        opts.onEvent({ type: "expired" });
+        return;
+      }
       if (msg.type === "snapshot") {
         joined = true;
         everJoined = true;
         refusedWaited = 0;
         attempts = 0;
         clearHandshake();
+        if (msg.resumeToken !== undefined) {
+          token = msg.resumeToken;
+          opts.onEvent({ type: "session", token: msg.resumeToken });
+        }
       }
       if (msg.type === "room-full") {
         stopped = true;
@@ -139,7 +192,13 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       open = false;
       socket = null;
       clearHandshake();
+      clearProbe();
       if (closed) return;
+      if (ev.code === CLOSE_CODES.SESSION_REPLACED) {
+        replaced = true;
+        opts.onEvent({ type: "replaced" });
+        return;
+      }
       if (ev.code === CLOSE_CODES.ROOM_CLOSED || ev.code === CLOSE_CODES.TAKEN_DOWN) {
         stopped = true;
         opts.onEvent(ev.code === CLOSE_CODES.TAKEN_DOWN ? { type: "room-closed", takenDown: true } : { type: "room-closed" });
@@ -181,7 +240,30 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
 
   connect();
 
+  const ensureConnected = (o?: { readonly probe?: boolean }): void => {
+      if (stopped || replaced) return;
+    if (socket !== null) {
+      if (o?.probe === true && open && probeTimer === null) {
+        const s = socket;
+        probeTimer = opts.setTimer(() => {
+          probeTimer = null;
+          if (socket !== s) return;
+          s.close(CLOSE_CODES.HANDSHAKE_TIMEOUT);
+          // A half-open socket never finishes its close handshake; treat this as the drop.
+          s.onclose?.({ code: 1006 });
+        }, PROBE_TIMEOUT_MS);
+      }
+      return;
+    }
+    if (retryTimer !== null) return;
+    closed = false;
+    attempts = 0;
+    retryAfter = null;
+    connect();
+  };
+
   return {
+    ensureConnected,
     send(msg) {
       if (!open || socket === null) return false;
       socket.send(JSON.stringify(msg));
@@ -192,6 +274,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       if (retryTimer !== null) opts.clearTimer(retryTimer);
       retryTimer = null;
       clearHandshake();
+      clearProbe();
       retryAfter = null;
       refusedRetry = false;
       // Forget the socket now: its close event may land after a resume(), and must not count for the new one.
@@ -201,11 +284,12 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       s?.close(1000);
     },
     resume() {
-      if (stopped || socket !== null || retryTimer !== null) return;
-      closed = false;
-      attempts = 0;
-      retryAfter = null;
-      connect();
+      ensureConnected();
+    },
+    reclaim() {
+      if (stopped) return;
+      replaced = false;
+      ensureConnected();
     },
   };
 }
