@@ -87,6 +87,14 @@ export function roomLayout(containerWidth: number, provider: Provider | null = n
   return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
 }
 
+/** Portrait keeps the room inside the available box; the crop may shrink all the way to zero. */
+export function portraitLayout(width: number, height: number, provider: Provider | null, typing: boolean): RoomLayout {
+  const base = roomLayout(width, provider, true);
+  const y = typing ? base.tv.y + base.tv.h : base.stage.y;
+  return { ...base, controls: typing ? { ...base.controls, h: 0 } : base.controls,
+    stage: { ...base.stage, y, h: typing ? 0 : Math.max(0, height - y) }, height };
+}
+
 /**
  * Desktop wide layout (OME-642): at least this wide and landscape, the room page is two columns, the TV, its shelf and
  * the room on the left and the chat (with Up next) in a full-height column on the right, WIDE_CHAT_W wide (style.css).
