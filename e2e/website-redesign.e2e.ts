@@ -19,7 +19,10 @@ function watch(page: Page): { roomCode: string[]; sockets: string[] } {
   page.on("request", (r: Request) => {
     if (ROOM_CODE.test(r.url())) seen.roomCode.push(r.url());
   });
-  page.on("websocket", (ws) => seen.sockets.push(ws.url()));
+  // A room socket is the server's /rooms/<id>/ws (wsUrl, route.ts); the dev server's own HMR socket doesn't count.
+  page.on("websocket", (ws) => {
+    if (/\/rooms\/[^/]+\/ws(?:\?|$)/.test(ws.url())) seen.sockets.push(ws.url());
+  });
   return seen;
 }
 
