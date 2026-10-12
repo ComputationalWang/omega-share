@@ -112,6 +112,18 @@ describe("paired Twitch mature-gate discovery (OME-950)", () => {
 });
 
 describe("paired gate failure evidence (OME-950)", () => {
+  test("returns the other viewer's evidence and an explicit error when one capture never settles", async () => {
+    const result = await collectGateEvidence({
+      "viewer-1-snapshot": () => new Promise(() => {}),
+      "viewer-2-screenshot": () => Promise.resolve("viewer-2.png"),
+      "viewer-2-trace": () => Promise.resolve("viewer-2-trace.zip"),
+    }, 20);
+
+    expect(result["viewer-1-snapshot"]?.error).toContain("capture timed out after 20 ms");
+    expect(result["viewer-2-screenshot"]).toEqual({ value: "viewer-2.png" });
+    expect(result["viewer-2-trace"]).toEqual({ value: "viewer-2-trace.zip" });
+  }, 100);
+
   test("attempts every task and retains screenshots and paired snapshots when another capture fails", async () => {
     const attempted: string[] = [];
     const paired = { viewers: [{ gate: true, media: { paused: false } }, { gate: false, reason: "frame absent" }] };
