@@ -235,6 +235,12 @@ export function createPlaybackController<Timer>(o: PlaybackControllerOptions<Tim
   const onPlayer = (e: PlayerEvent): void => {
     switch (e.type) {
       case "ready":
+        // A mature gate can delay SDK readiness beyond the startup watchdog. Its later ready
+        // event proves this attached player recovered; refusals and provider errors stay frozen.
+        if (error?.reason === "timeout" && player?.ready() === true) {
+          error = null;
+          startLoop(player);
+        }
         applyVolume();
         restoreQuality();
         break;

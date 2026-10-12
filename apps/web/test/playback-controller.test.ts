@@ -5,6 +5,10 @@ import { createPlaybackController, type PlaybackView } from "../src/controls/pla
 import type { QualityMemory } from "../src/controls/quality";
 import type { PlaybackTarget } from "../src/intents";
 import { SYNC_INTERVAL_MS } from "../src/sync";
+import { attachTwitch, READY_TIMEOUT_MS } from "../src/player/twitch";
+import { asTwitchNamespace } from "../src/player/twitch-types";
+import { tvFrame } from "../src/tv";
+import { FakeContainer, fakeTwitch } from "./support/fake-twitch";
 import { FakePlayer, type FakePlayerOptions } from "./support/fake-player";
 
 const VIDEO = "dQw4w9WgXcQ";
@@ -494,6 +498,62 @@ describe("an offline channel clears itself (research M2 §2.1)", () => {
     h.player.emit({ type: "state", state: "playing" });
     expect(h.c.view().error).toEqual({ reason: "refused", code: "150" });
   });
+});
+
+test("late Twitch readiness after an independent gate restores transport and shared sync after startup timeout (OME-979)", () => {
+  const viewer = () => {
+    const h = harness();
+    const frame = tvFrame(LIVE, "https://room.example");
+    const sdk = fakeTwitch();
+    const namespace = asTwitchNamespace(sdk.twitch);
+    if (frame?.kind !== "twitch" || namespace === null) throw new Error("invalid Twitch fixture");
+    const timeouts: { fn: () => void; cleared: boolean }[] = [];
+    const adapter = attachTwitch(namespace, new FakeContainer().asElement(), {
+      embed: LIVE, frame, now: () => h.t.now,
+      messages: () => () => undefined,
+      setTimeout: (fn) => {
+        const timer = { fn, cleared: false };
+        timeouts.push(timer);
+        return timer;
+      },
+      clearTimeout: (timer) => { timer.cleared = true; },
+    });
+    const player = sdk.players[0];
+    if (adapter === null || player === undefined) throw new Error("Twitch adapter missing");
+    h.c.setRoom({ embed: LIVE, playback: pb() });
+    h.c.attach(adapter, LIVE.url);
+    return { ...h, player, timeouts };
+  };
+  const a = viewer();
+  const b = viewer();
+  // One SDK misses the startup deadline; the other viewer remains independently gated.
+  a.t.now = READY_TIMEOUT_MS;
+  for (const timer of a.timeouts) if (!timer.cleared) timer.fn();
+  expect(a.c.view()).toMatchObject({ error: { reason: "timeout", code: "ready-timeout" }, canControl: false });
+  a.player.playback = "Playing";
+  a.player.paused = false;
+  a.player.fire("ready");
+  expect(a.c.view()).toMatchObject({ error: null, canControl: true, hasVideo: true, playing: true });
+  expect(b.c.view()).toMatchObject({ error: null, hasVideo: false, playing: true });
+  expect(b.player.calls).toEqual([]);
+  expect(a.sent).toEqual([]);
+  expect(b.sent).toEqual([]);
+  b.player.playback = "Playing";
+  b.player.paused = false;
+  b.player.fire("ready");
+  expect(a.c.togglePlay()).toBe(true);
+  expect(a.sent).toContainEqual({ type: "control", url: LIVE.url, playing: false, position: 0 });
+  for (const h of [a, b]) {
+    h.c.setRoom({ embed: LIVE, playback: pb({ playing: false, rev: 2, action: "pause" }) });
+    h.run(SYNC_INTERVAL_MS);
+    expect(h.player.calls).toContainEqual(["pause"]);
+    h.player.playback = "Idle";
+    h.player.paused = true;
+    h.c.setRoom({ embed: LIVE, playback: pb({ playing: true, rev: 3 }) });
+    h.run(SYNC_INTERVAL_MS);
+    expect(h.player.calls).toContainEqual(["play"]);
+    h.c.destroy();
+  }
 });
 
 describe("my catching-up status goes to the room (OME-214, ADR 0019)", () => {
