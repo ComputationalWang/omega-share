@@ -595,8 +595,3 @@ describe("queue", () => {
     expect(s.room?.itemId).toBeUndefined();
   });
 });
-
-test("before presence UI rollout, an additive member-presence frame preserves the legacy view", () => {
-  const state = joined();
-  expect(server(state, { type: "member-presence", memberId: "a", away: true })).toBe(state);
-});

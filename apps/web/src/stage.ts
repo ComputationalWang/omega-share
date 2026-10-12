@@ -15,7 +15,7 @@ import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
 import { walkGrid } from "./walk/path";
-import { standingSpots } from "./walk/standing";
+import { standingPlacement } from "./walk/standing";
 import type { Dir } from "./walk/walks";
 
 export interface StageOptions {
@@ -122,6 +122,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let seatFacings: Dir[] = [];
   /** Who stands on which standing spot; kept across renders so a departure doesn't move the others. */
   let standSpots = new Map<MemberId, number>();
+  /** Who is drawn away now, so a member who left while away is un-dimmed in the view's set. */
+  const awayIds = new Set<MemberId>();
   let grid: Uint8Array = new Uint8Array(0);
   let standing: Point[] = [];
   let scene = sceneOf(layoutOf(null), null);
@@ -196,32 +198,44 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const render = (s: StageState, nextLayout: RoomLayout, selfCatching: boolean): void => {
     if (nextLayout !== layout) applyLayout(nextLayout);
     seated = s.room?.seats ?? [];
-    const placements: AvatarPlacement[] = [];
-    const at = new Map<MemberId, Point>();
-    placedAt = at;
     const views = seatViews(s);
-    for (const v of views) {
-      const p = seats[v.index];
-      if (v.member !== null && p !== undefined) {
-        placements.push({ id: v.member.id, avatar: v.member.avatar, at: p, z: scene.seats[v.index]?.z ?? standDepth(p), seatFacing: seatFacings[v.index] ?? null });
-        at.set(v.member.id, p);
-      }
-    }
-    const standers = (s.room?.members ?? []).filter((m) => !at.has(m.id));
-    standSpots = standingSpots(standers.map((m) => m.id), standing.length, standSpots);
-    for (const m of standers) {
-      const i = standSpots.get(m.id);
-      const p = i === undefined ? undefined : standing[i];
-      if (p === undefined) continue;
-      placements.push({ id: m.id, avatar: m.avatar, at: p, z: standDepth(p), seatFacing: null });
-      at.set(m.id, p);
-    }
-    // Chat, bubbles and playback leave seats/members untouched, so the scene is only redrawn when they change.
+    // Chat, bubbles and playback leave seats/members untouched, so placement and the scene are only redone when they
+    // change (a layout change resets drawnSeats). Slots and away follow members, so they are covered too (OME-911).
     const seatsNow = s.room?.seats;
     const membersNow = s.room?.members;
     if (seatsNow !== drawnSeats || membersNow !== drawnMembers) {
       drawnSeats = seatsNow;
       drawnMembers = membersNow;
+      const placements: AvatarPlacement[] = [];
+      const at = new Map<MemberId, Point>();
+      placedAt = at;
+      for (const v of views) {
+        const p = seats[v.index];
+        if (v.member !== null && p !== undefined) {
+          placements.push({ id: v.member.id, avatar: v.member.avatar, at: p, z: scene.seats[v.index]?.z ?? standDepth(p), seatFacing: seatFacings[v.index] ?? null });
+          at.set(v.member.id, p);
+        }
+      }
+      const everyone = s.room?.members ?? [];
+      const claimed = new Set<number>();
+      for (const m of everyone) if (m.standingSlot !== undefined) claimed.add(m.standingSlot);
+      const standers = everyone.filter((m) => !at.has(m.id));
+      standSpots = standingPlacement(standers, claimed, standing.length, standSpots);
+      for (const m of standers) {
+        const i = standSpots.get(m.id);
+        const p = i === undefined ? undefined : standing[i];
+        if (p === undefined) continue;
+        placements.push({ id: m.id, avatar: m.avatar, at: p, z: standDepth(p), seatFacing: null });
+        at.set(m.id, p);
+      }
+      // Away dims the avatar in place; set before the update so a new avatar is made at its alpha. Seats stay.
+      for (const id of awayIds) view.setAway(id, false);
+      awayIds.clear();
+      for (const m of everyone) {
+        if (m.away !== true) continue;
+        awayIds.add(m.id);
+        view.setAway(m.id, true);
+      }
       view.update(views.map((v) => v.member !== null), placements);
     }
 
@@ -254,7 +268,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         tags.append(e);
       }
       e.classList.toggle("self", m.id === s.self);
-      const p = view.position(m.id) ?? at.get(m.id);
+      // Away (OME-911): the tag is dimmed and says "Away" to screen readers; toggled only on a change.
+      const isAway = m.away === true;
+      if (e.classList.contains("is-away") !== isAway) {
+        e.classList.toggle("is-away", isAway);
+        if (isAway) e.append(el("span", { className: "sr-only tag-away", textContent: " (Away)" }));
+        else e.querySelector(".tag-away")?.remove();
+      }
+      const p = view.position(m.id) ?? placedAt.get(m.id);
       if (p !== undefined) place(e, { x: p.x, y: p.y + TAG_OFFSET_Y });
     }
 
@@ -264,7 +285,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     for (const b of s.bubbles) speaking.add(b.memberId);
     floats.keep(speaking);
     handoff.hand(s.bubbles, (b) => {
-      const p = view.position(b.memberId) ?? at.get(b.memberId);
+      const p = view.position(b.memberId) ?? placedAt.get(b.memberId);
       const m = members.get(b.memberId);
       if (p === undefined || m === undefined) return false;
       floats.say({ id: b.memberId, name: m.nickname, text: b.text, self: b.memberId === s.self, at: { x: p.x, y: p.y - liftOf(b.memberId) }, startedAt: b.expiresAt - BUBBLE_MS });

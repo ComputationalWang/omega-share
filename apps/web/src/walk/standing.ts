@@ -3,9 +3,9 @@
 import type { MemberId } from "@omega/shared";
 
 /** Spot index per standing member, given last time's; members beyond `spotCount` get none. */
-export function standingSpots(standers: readonly MemberId[], spotCount: number, prev: ReadonlyMap<MemberId, number>): Map<MemberId, number> {
+export function standingSpots(standers: readonly MemberId[], spotCount: number, prev: ReadonlyMap<MemberId, number>, claimed: ReadonlySet<number> = new Set()): Map<MemberId, number> {
   const out = new Map<MemberId, number>();
-  const taken = new Set<number>();
+  const taken = new Set<number>(claimed);
   for (const id of standers) {
     const p = prev.get(id);
     if (p === undefined || p >= spotCount || taken.has(p)) continue;
@@ -20,5 +20,22 @@ export function standingSpots(standers: readonly MemberId[], spotCount: number, 
     out.set(id, next);
     taken.add(next);
   }
+  return out;
+}
+
+/**
+ * Where each non-seated member stands (OME-911, ADR 0043). A member with a server `standingSlot` stands on that point
+ * (none when the layout has fewer points). The rest keep the local allocation, avoiding every slot in `claimed`
+ * (all members' slots, seated ones included). Pure: the stage calls it on membership/layout changes only.
+ */
+export function standingPlacement(standers: readonly { readonly id: MemberId; readonly standingSlot?: number | undefined }[], claimed: ReadonlySet<number>, spotCount: number, prev: ReadonlyMap<MemberId, number>): Map<MemberId, number> {
+  const legacy: MemberId[] = [];
+  const slotted: [MemberId, number][] = [];
+  for (const m of standers) {
+    if (m.standingSlot === undefined) legacy.push(m.id);
+    else if (m.standingSlot < spotCount) slotted.push([m.id, m.standingSlot]);
+  }
+  const out = standingSpots(legacy, spotCount, prev, claimed);
+  for (const [id, slot] of slotted) out.set(id, slot);
   return out;
 }

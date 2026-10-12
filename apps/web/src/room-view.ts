@@ -51,6 +51,8 @@ export interface RoomView {
   frames(id: MemberId): { avatar: string | null; sticker: string | null } | undefined;
   /** "Hide for me" (OME-769): draw this member's avatar dimmed (or not). One alpha write and one draw per change. */
   setDimmed(id: MemberId, dimmed: boolean): void;
+  /** A member is away (OME-911): draw the avatar dimmed (or not). One alpha write and one draw per change; the seat stays. */
+  setAway(id: MemberId, away: boolean): void;
   /** The avatar's alpha now, for e2e checks. */
   alpha(id: MemberId): number | undefined;
   /** Labels in draw order (floor, furniture frame keys, `seat:<i>`, `avatar:<id>`), for e2e depth checks. */
@@ -60,6 +62,13 @@ export interface RoomView {
 
 /** A hidden member's avatar (OME-769): still there, plainly set apart. */
 export const DIMMED_ALPHA = 0.4;
+/** An away member's avatar (OME-911): dimmed, but less than a hidden one. */
+export const AWAY_ALPHA = 0.55;
+
+/** The avatar alpha for hidden-by-me and away; independent flags, hidden wins. */
+export function avatarAlphaFor(hidden: boolean, away: boolean): number {
+  return hidden ? DIMMED_ALPHA : away ? AWAY_ALPHA : 1;
+}
 
 /** localStorage, or null where reading it throws (storage blocked). */
 function storage(): Storage | null {
@@ -147,7 +156,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
 
   /** Members drawn dimmed (OME-769); a member's node takes it on when made or swapped for a sprite. */
   const dimmed = new Set<MemberId>();
-  const alphaOf = (id: MemberId): number => (dimmed.has(id) ? DIMMED_ALPHA : 1);
+  const away = new Set<MemberId>();
+  const alphaOf = (id: MemberId): number => avatarAlphaFor(dimmed.has(id), away.has(id));
 
   let paused = false;
   let renders = 0;
@@ -346,6 +356,15 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       if (dimmed.has(id) === on) return;
       if (on) dimmed.add(id);
       else dimmed.delete(id);
+      const e = pool.get(id);
+      if (e === undefined) return;
+      e.node.alpha = alphaOf(id);
+      render();
+    },
+    setAway(id, on) {
+      if (away.has(id) === on) return;
+      if (on) away.add(id);
+      else away.delete(id);
       const e = pool.get(id);
       if (e === undefined) return;
       e.node.alpha = alphaOf(id);

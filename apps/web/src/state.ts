@@ -245,8 +245,16 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       return withRoom(state, (room) => ({ ...room, layout: msg.layout }));
     case "title-changed":
       return state.room === null ? state : { ...state, title: msg.title };
-    // Contract rollout compatibility; away rendering belongs to the session wave.
+    // Away is a flag on the member (ADR 0043): seat, anchor and chat log are untouched, and no chat line is made.
     case "member-presence":
+      return withRoom(state, (room) => {
+        const i = room.members.findIndex((m) => m.id === msg.memberId);
+        const cur = room.members[i];
+        if (cur === undefined || (cur.away === true) === msg.away) return null;
+        const members = room.members.slice();
+        members[i] = { ...cur, away: msg.away };
+        return { ...room, members };
+      });
     case "pong":
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
