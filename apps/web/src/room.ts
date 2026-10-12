@@ -1337,7 +1337,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
     onEvent: (e) => {
       // The session is over for this tab: a reload shows the ordinary Enter (a replaced one keeps its token in memory only).
-      if (e.type === "expired" || e.type === "replaced" || e.type === "kicked" || e.type === "room-closed") clearResume(resumeStore, opts.roomId);
+      if (e.type === "expired" || e.type === "replaced" || e.type === "kicked" || e.type === "room-closed" || e.type === "session-lost") clearResume(resumeStore, opts.roomId);
       routeConnectionEvent(e, sinks, Date.now());
     },
     setTimer: (fn, ms) => setTimeout(fn, ms),

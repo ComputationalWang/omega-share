@@ -37,6 +37,8 @@ export function routeConnectionEvent(e: ConnectionEvent, sinks: RoomEventSinks, 
     sinks.session(e.token);
     return;
   }
+  // The rejoin that follows brings its own snapshot and token; nothing to show meanwhile.
+  if (e.type === "session-lost") return;
   if (e.type === "disconnected" || e.type === "room-closed" || e.type === "kicked" || e.type === "expired" || e.type === "replaced") sinks.clock.stop();
   sinks.dispatch(e.type === "kicked" ? { type: "kicked", until: sinks.kicked(e.wasIn) } : e);
 }

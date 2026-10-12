@@ -22,6 +22,11 @@ export type ConnectionEvent =
   | { readonly type: "session"; readonly token: ResumeToken }
   /** `resume_expired` before a snapshot. Terminal: clear the stored record and show the ordinary Enter; never rejoin tokenless automatically. */
   | { readonly type: "expired" }
+  /**
+   * `resume_expired` on a reconnect of a page that was in the room: the server restarted or crashed and lost every
+   * token (ADR 0043 amendment). The token is dropped and one fresh durable join goes out at once; forget the record.
+   */
+  | { readonly type: "session-lost" }
   /** 4007: another socket resumed this identity. Terminal until the user asks for `reclaim()`. */
   | { readonly type: "replaced" };
 
@@ -141,6 +146,20 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       const msg = parseServerMessage(ev.data);
       if (msg === null) return;
       clearProbe();
+      if (!joined && msg.type === "error" && msg.code === "resume_expired" && everJoined && token !== null) {
+        // We were in the room on this page, so this is a server that lost its tokens (restart, crash), not a cold boot
+        // on an old record: rejoin once, tokenless and durable. That join can't be resume_expired again, and a kick is
+        // still enforced by the server's cooldown (4005).
+        token = null;
+        clearHandshake();
+        socket = null;
+        open = false;
+        s.close(1000);
+        opts.onEvent({ type: "session-lost" });
+        attempts = 0;
+        connect();
+        return;
+      }
       if (!joined && msg.type === "error" && msg.code === "resume_expired") {
         // Terminal: forget this socket first so its close is silent, and never fall back to a tokenless join.
         stopped = true;

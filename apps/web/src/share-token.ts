@@ -30,7 +30,7 @@ export function trackShareToken(storage: ShareTokenStorage, roomId: RoomId, opts
     onEvent(e) {
       // The server dropped the member (and revoked its token) on a closed room and a kick, and on a drop unless it holds
       // the member for a durable session (ADR 0043); that hold ends in `expired`, or in another tab with `replaced`.
-      if (e.type === "room-closed" || e.type === "kicked" || e.type === "expired" || e.type === "replaced") clear();
+      if (e.type === "room-closed" || e.type === "kicked" || e.type === "expired" || e.type === "replaced" || e.type === "session-lost") clear();
       if (e.type === "disconnected" && opts.durable !== true) clear();
       if (e.type !== "message") return;
       if (e.msg.type === "room-full") clear();
