@@ -511,7 +511,8 @@
     },
     {
       "paths": [
-        "assets/presets/**"
+        "assets/presets/**",
+        "apps/server/src/presets.ts"
       ],
       "full": true,
       "specs": [
