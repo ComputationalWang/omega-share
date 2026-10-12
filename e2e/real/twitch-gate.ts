@@ -29,13 +29,19 @@ export async function discoverPairedGate<T extends GateProbe>(candidates: readon
 }
 
 /** Failure evidence is best effort: a detached viewer must not hide another viewer or the original failure. */
-export async function collectGateEvidence(tasks: Record<string, () => Promise<unknown>>): Promise<Record<string, { value?: unknown; error?: string }>> {
+export async function collectGateEvidence(tasks: Record<string, () => Promise<unknown>>, timeoutMs = 10_000): Promise<Record<string, { value?: unknown; error?: string }>> {
   const results: Record<string, { value?: unknown; error?: string }> = {};
   await Promise.all(Object.entries(tasks).map(async ([name, task]) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      results[name] = { value: await task() };
+      const deadline = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => { reject(new Error(`${name}: capture timed out after ${String(timeoutMs)} ms`)); }, timeoutMs);
+      });
+      results[name] = { value: await Promise.race([task(), deadline]) };
     } catch (error) {
       results[name] = { error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      clearTimeout(timer);
     }
   }));
   return results;
