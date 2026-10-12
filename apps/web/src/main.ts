@@ -115,11 +115,13 @@ form.addEventListener("submit", (ev) => {
 if (pathRoom === null) {
   homeRoot.hidden = false;
   const mountHome = (): void => {
-    void import("./home").then(({ mountHome }) =>
+    void Promise.all([import("./home"), import("./preset-thumbs")]).then(([{ mountHome }, { PRESET_THUMBS }]) =>
       mountHome({
         root: homeRoot,
         serverUrl,
         store: storage,
+        session: sessionStorage,
+        thumbs: PRESET_THUMBS,
         fetch: (url, init) => fetch(url, init),
         navigate: (path) => {
           location.assign(path);

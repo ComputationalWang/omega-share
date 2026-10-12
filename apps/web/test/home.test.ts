@@ -17,6 +17,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
+const THUMBS = { classic: "/t/classic.png", cinema: "/t/cinema.png", living: "/t/living.png", lounge: "/t/lounge.png", cafe: "/t/cafe.png", empty: "/t/empty.png" };
 const SERVER = "http://api.test";
 const ROOM = "abcdefghijklmnopqrstuvwxyz";
 const OWNER = "o".repeat(21) + "A";
@@ -60,7 +61,7 @@ async function mount(): Promise<HTMLElement> {
     serverUrl: SERVER,
     store,
     session,
-    thumbs: { classic: "/t/classic.png", cinema: "/t/cinema.png", living: "/t/living.png", lounge: "/t/lounge.png", cafe: "/t/cafe.png", empty: "/t/empty.png" },
+    thumbs: THUMBS,
     fetch: (url, init) => {
       calls.push({ url, init });
       if (init?.method === "POST") return Promise.resolve(json(created.status, created.body));
@@ -221,7 +222,7 @@ describe("your rooms (localStorage omega.rooms)", () => {
     const pending = new Promise<Response>((r) => {
       release = r;
     });
-    const { ready } = mountHome({ root, serverUrl: SERVER, store, fetch: () => pending, navigate: (path) => navigated.push(path) });
+    const { ready } = mountHome({ root, serverUrl: SERVER, store, session, thumbs: THUMBS, fetch: () => pending, navigate: (path) => navigated.push(path) });
     byTestId(root, "your-room-forget", HTMLButtonElement).click();
     release(json(200, { rooms: [] }));
     await ready;

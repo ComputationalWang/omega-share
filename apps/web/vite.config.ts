@@ -51,8 +51,8 @@ function landing(): Plugin {
   };
 }
 
-/** The D1 "how it works" panels stay files (lazy, cached), never data: URLs in the page. */
-const SITE_ART = /[\\/]assets[\\/]site[\\/]/;
+/** The D1 "how it works" panels and the room preset thumbnails (OME-910) stay files (lazy, cached), never data: URLs in the page. */
+const SITE_ART = /[\\/]assets[\\/](?:site|presets)[\\/]/;
 
 export default defineConfig(({ mode }) => ({
   plugins: [cspDevOrigins(mode), sourceLink(mode), landing()],
