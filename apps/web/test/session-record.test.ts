@@ -58,7 +58,11 @@ describe("session-record", () => {
     };
     const s: ResumeStore = { getItem: boom, setItem: boom, removeItem: boom };
     expect(loadResume(s, "lobby")).toBeNull();
-    expect(() => saveResume(s, record)).not.toThrow();
-    expect(() => clearResume(s, "lobby")).not.toThrow();
+    expect(() => {
+      saveResume(s, record);
+    }).not.toThrow();
+    expect(() => {
+      clearResume(s, "lobby");
+    }).not.toThrow();
   });
 });

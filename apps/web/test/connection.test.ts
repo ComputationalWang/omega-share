@@ -539,7 +539,7 @@ describe("created rooms (ADR 0028)", () => {
 describe("durable sessions (ADR 0043)", () => {
   const TOKEN = "A".repeat(43);
   const TOKEN2 = "B".repeat(43);
-  const durableSnapshot = (resumeToken: string): ServerMessage => ({ ...snapshot, resumeToken }) as ServerMessage;
+  const durableSnapshot = (resumeToken: string): ServerMessage => ({ ...snapshot, resumeToken });
 
   function durable(extra: { durable?: boolean; resumeToken?: string } = {}) {
     return createConnection({
