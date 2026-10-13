@@ -58,6 +58,8 @@ export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge): Gene
     actions.append(" ", unlock);
     unlock.addEventListener("click", () => {
       unlock.disabled = true;
+      // A consent tab closed without an answer sends nothing back: coming back to the room lets the viewer ask again.
+      window.addEventListener("focus", () => (unlock.disabled = false), { once: true });
       status.hidden = true;
       void bridge.unlock(frame.host).then((outcome) => {
         unlock.disabled = false;
