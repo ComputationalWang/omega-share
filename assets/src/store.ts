@@ -26,6 +26,12 @@ const ROLES: RoleMap = {
   K: { ramp: "pink", hi: true },
   h: { ramp: "mustard", hi: true },
   v: { ramp: "lilac", hi: true },
+  // OME-1041: the "video found" tally lamp, a lit mustard bulb (the Share key's colour) with a cream glint.
+  F: { ramp: "mustard", hi: true, group: "F" },
+  g: { ramp: "cream", tone: 0, group: "F" },
+  // Explorations only (preview/): a flat glow dot, and a dark screen.
+  D: { ramp: "glow", tone: 0 },
+  k: { ramp: "night", tone: 2, group: "s" },
 };
 
 /** One icon at `S` art px. `pad` = transparent margin (the 128 px icon keeps Chrome's 16 px, i.e. 8 art px at 2×).
@@ -98,6 +104,37 @@ export function icon(S: number, pad: number, heads = S >= 48): Grid {
   return g;
 }
 
+/** The tally lamp's disc (radius, centre) at `S` art px: tucked into the cabinet's top-right corner, clear of the bottom-right
+ *  corner where browsers draw a badge. Its own 1 px plum ring cuts it out of the wood, so it reads on light and dark toolbars. */
+export function lampGeom(S: number, pad: number): { r: number; cx: number; cy: number } {
+  const r = S <= 16 ? 3.3 : S * 0.15;
+  return { r, cx: S - pad - 1 - r, cy: pad + 1 + r };
+}
+
+/** The `found` toolbar state: today's icon with the tally lamp lit over its top-right corner. */
+export function renderFoundIcon(S: number, pad: number, heads = S >= 48, look: "lamp" | "dot" = "lamp"): Uint8Array {
+  const tv = render(icon(S, pad, heads), ROLES);
+  const lamp = blank(S, S);
+  const { r, cx, cy } = lampGeom(S, pad);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const row = lamp[y];
+    if (row && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) row[x] = look === "lamp" ? "F" : "D";
+  }
+  if (look === "dot") { const lit = render(lamp, ROLES); return tv.map((v, i) => (lit[i] !== 0 ? (lit[i] ?? v) : v)); }
+  // The glint: one cream pixel (2×2 from 32 up) just inside the lit top-left edge.
+  const gx = Math.floor(cx - r * 0.45), gy = Math.floor(cy - r * 0.45), gs = S >= 32 ? 2 : 1;
+  for (let y = gy; y < gy + gs; y++) for (let x = gx; x < gx + gs; x++) { const row = lamp[y]; if (row) row[x] = "g"; }
+  const lit = render(lamp, ROLES);
+  return tv.map((v, i) => (lit[i] !== 0 ? (lit[i] ?? v) : v));
+}
+
+/** Direction C (rejected, preview only): the set switched off, its screen dark until a video is found. */
+export function renderScreenOff(S: number, pad: number): Uint8Array {
+  const { sx0, sx1, sy0, sy1 } = iconGeom(S, pad);
+  const g = icon(S, pad).map((row, y) => row.map((ch, x) => (x > sx0 && x < sx1 && y > sy0 && y < sy1 ? "k" : ch)));
+  return render(g, ROLES);
+}
+
 export interface StoreImage { file: string; w: number; h: number; pixels: Uint8Array; palette: readonly RGBA[] }
 
 /** icon-16/32/48 at 1×; icon-128 = the 64 art px icon at 2× (Chrome asks for 96 px of art inside 16 px of margin). */
@@ -109,6 +146,17 @@ export function buildStoreIcons(): StoreImage[] {
     out.push({ file: `icon-${String(S * k)}.png`, w: S * k, h: S * k, pixels: k === 1 ? img : upscale(img, S, S, k), palette: PALETTE });
   }
   return out;
+}
+
+/** OME-1041: the toolbar's two states, drawn natively at 16, 32, 48 and 64 px (32 and 64 are the 2× of 16 and 32).
+ *  `idle` at 16/32/48 is the store icon itself (icon-16/32/48.png), so only its 64 px and the four `found` files are new. */
+export const TOOLBAR_SIZES = [16, 32, 48, 64] as const;
+export function buildToolbarIcons(): StoreImage[] {
+  const pad = (S: number): number => (S === 48 ? 1 : 0);
+  return [
+    { file: "icon-64.png", w: 64, h: 64, pixels: render(icon(64, 0), ROLES), palette: PALETTE },
+    ...TOOLBAR_SIZES.map((S) => ({ file: `found-${String(S)}.png`, w: S, h: S, pixels: renderFoundIcon(S, pad(S)), palette: PALETTE })),
+  ];
 }
 
 /** The icon rendered to palette indices (index 0 = transparent), for the site's icon set (set m, src/site.ts). */
