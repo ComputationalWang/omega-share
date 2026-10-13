@@ -63,6 +63,8 @@ test.describe("furniture from the room layout", () => {
         await withLayout(page, rewrite);
         await enter(page, `fallback-${String(i)}`);
         await expect(page.locator(site.seat)).toHaveCount(8);
+        // The room atlas (OME-1062) arrives after the first layout: wait for its shell before reading the scene.
+        await expect.poll(async () => (await scene(page)).includes("wall/corner")).toBe(true);
         draws.push(furnitureOnly(await scene(page)));
         seatBoxes.push(await page.locator(site.seat).evaluateAll((els) => els.map((e) => (e instanceof HTMLElement ? e.style.translate : ""))));
         await test.info().attach(`room-${i === 0 ? "no-layout" : "default-layout"}.png`, { body: await page.locator(site.room).screenshot(), contentType: "image/png" });
@@ -73,8 +75,13 @@ test.describe("furniture from the room layout", () => {
     }
     expect(draws[0]).toEqual(draws[1]);
     expect(seatBoxes[0]).toEqual(seatBoxes[1]);
-    // Today's room: the placeholder floor and eight seat markers, no furniture sprites.
-    expect(draws[0]).toEqual(["floor", ...Array.from({ length: 8 }, (_, i) => `seat:${String(i)}`)]);
+    // The room atlas's room (OME-1062): planks, both back walls, the console, eight armchairs, no placeholder markers.
+    const drawn = draws[0] ?? [];
+    expect(drawn.filter((k) => k.startsWith("floor/") || k.startsWith("rug/"))).toHaveLength(100);
+    expect(drawn.filter((k) => k.startsWith("wall/l/") || k.startsWith("wall/r/"))).toHaveLength(22);
+    expect(drawn.filter((k) => /^armchair\/\w+\/back$/.test(k))).toHaveLength(8);
+    expect(drawn).toContain("tv/0");
+    expect(drawn.some((k) => k.startsWith("seat:"))).toBe(false);
   });
 
   test("a set (g) layout loads the atlas and draws a seated avatar between its seat's back and front", async ({ browser }) => {

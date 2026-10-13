@@ -9,6 +9,7 @@ import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
+import type { RoomAtlas } from "./room-atlas";
 import { seatViews } from "./intents";
 import { SYSLINE_RAIL, TAG_OFFSET_Y, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
@@ -130,6 +131,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let scene = sceneOf(layoutOf(null), null);
   /** The set (g) atlas once loaded: later layouts build their scene with it straight away. */
   let atlas: FurnitureAtlas | null = null;
+  /** The room atlas (planks, walls, room-atlas kinds) once loaded; every room uses it. */
+  let roomAtlas: RoomAtlas | null = null;
   /** The drawn layout's content; a re-join snapshot parses a new but equal layout, which keeps the scene. */
   let layoutKey = "";
   let layoutBuilds = 0;
@@ -137,6 +140,28 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let placedAt = new Map<MemberId, Point>();
   /** The hourglass on each catching tag; a tag removed with its member takes its hourglass along. */
   const hourglasses = new Map<HTMLElement, HTMLElement>();
+
+  const buildScene = (l: RoomLayout): void => {
+    scene = sceneOf(l, atlas?.manifest ?? null, roomAtlas?.manifest ?? null);
+    view.setScene(scene, [atlas, roomAtlas], grid);
+    drawnSeats = undefined;
+  };
+
+  /** Load an atlas in its own chunk, then rebuild the scene if the room still shows `key`'s layout. */
+  const lazyAtlas = <T>(what: string, key: string, l: RoomLayout, load: () => Promise<T>, keep: (loaded: T) => void): void => {
+    void load()
+      .then((loaded) => {
+        keep(loaded);
+        if (layoutKey !== key) return;
+        buildScene(l);
+        o.requestRender();
+      })
+      // Without the sheet the room still works: placeholder floor, seats and avatars. The next snapshot retries.
+      .catch((e: unknown) => {
+        if (layoutKey === key) layoutKey = "";
+        console.warn(`${what} atlas failed to load`, e);
+      });
+  };
 
   /** Rebuild furniture, seats and standing spots for a new layout; the set (g) atlas loads only if the layout needs it. */
   const applyLayout = (next: RoomLayout): void => {
@@ -150,32 +175,18 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     seatFacings = layoutSeats(next).map((s) => s.facing);
     grid = walkGrid(next);
     standing = standingPoints(next);
-    const needsAtlas = usesSetG(next);
-    const ready = needsAtlas ? atlas : null;
-    scene = sceneOf(next, ready?.manifest ?? null);
-    view.setScene(scene, ready, grid);
+    buildScene(next);
     // The translate property, not transform: style.css turns the seat into the floor diamond with its transform.
     seatButtons.forEach((b, i) => {
       const p = seats[i];
       if (p !== undefined) b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
     });
-    drawnSeats = undefined;
-    if (!needsAtlas || ready !== null) return;
-    void import("./furniture-atlas")
-      .then((m) => m.loadFurnitureAtlas())
-      .then((loaded) => {
-        atlas = loaded;
-        if (layout !== next) return;
-        scene = sceneOf(next, loaded.manifest);
-        view.setScene(scene, loaded, grid);
-        drawnSeats = undefined;
-        o.requestRender();
-      })
-      // Without the sheet the room still works: placeholder floor, seats and avatars. The next snapshot retries.
-      .catch((e: unknown) => {
-        if (layout === next) layoutKey = "";
-        console.warn("furniture atlas failed to load", e);
-      });
+    if (roomAtlas === null) {
+      lazyAtlas("room", key, next, () => import("./room-atlas").then((m) => m.loadRoomAtlas()), (a) => (roomAtlas = a));
+    }
+    if (usesSetG(next) && atlas === null) {
+      lazyAtlas("furniture", key, next, () => import("./furniture-atlas").then((m) => m.loadFurnitureAtlas()), (a) => (atlas = a));
+    }
   };
 
   /** A tag carries the hourglass while that member catches up: mine from my player, others' from the server (ADR 0019). */
