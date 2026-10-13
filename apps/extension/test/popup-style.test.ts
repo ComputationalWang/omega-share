@@ -67,7 +67,7 @@ describe("popup kit markup (OME-1043)", () => {
     const scanning = byId(window, "scanning");
     expect(scanning.classList.contains("pk-state")).toBe(true);
     expect(scanning.getAttribute("role")).toBe("status");
-    expect(scanning.firstElementChild?.className).toBe("pk-sprite pk-glyph-dots-0 ui-dots");
+    expect(scanning.firstElementChild.className).toBe("pk-sprite pk-glyph-dots-0 ui-dots");
     expect(scanning.textContent.trim()).toBe("Looking for videos…");
   });
 

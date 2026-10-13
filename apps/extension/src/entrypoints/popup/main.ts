@@ -16,6 +16,7 @@ function byId<T extends HTMLElement>(id: string, type: new () => T): T {
 }
 
 const ui = {
+  host: byId("host", HTMLSpanElement),
   scanning: byId("scanning", HTMLParagraphElement),
   embeds: byId("embeds", HTMLUListElement),
   empty: byId("empty", HTMLParagraphElement),
@@ -31,16 +32,25 @@ const ui = {
   options: byId("options", HTMLButtonElement),
 };
 
-/** `?tabId=` (used when the popup is opened as a tab, e.g. by e2e), else the active tab. */
-async function targetTabId(): Promise<number | undefined> {
+/** `?tabId=` (used when the popup is opened as a tab, e.g. by e2e), else the active tab with its URL (activeTab grants it). */
+async function targetTab(): Promise<{ readonly id?: number | undefined; readonly url?: string | undefined } | undefined> {
   const param = new URLSearchParams(location.search).get("tabId");
-  if (param !== null && /^\d{1,10}$/.test(param)) return Number(param);
+  if (param !== null && /^\d{1,10}$/.test(param)) return { id: Number(param) };
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  return tab?.id;
+  return tab;
 }
 
+/** The page's host for the head, or "" when the tab has no readable http(s) URL. */
+function hostOf(url: string | undefined): string {
+  if (url === undefined || !URL.canParse(url)) return "";
+  const { protocol, host } = new URL(url);
+  return protocol === "https:" || protocol === "http:" ? host : "";
+}
+
+const tab = targetTab();
+
 async function scan(): Promise<ScanOutcome> {
-  const tabId = await targetTabId();
+  const tabId = (await tab)?.id;
   if (tabId === undefined) return { kind: "unreadable" };
   // Our own site is never a generic embed. The storage read started at popup load, so this is ~free.
   const ownHosts = ownHostsOf(await serverBaseUrl);
@@ -49,6 +59,11 @@ async function scan(): Promise<ScanOutcome> {
 
 function render(outcome: ScanOutcome): void {
   ui.scanning.hidden = true;
+  if (outcome.kind === "embeds") {
+    void tab.then((t) => {
+      ui.host.textContent = hostOf(t?.url);
+    });
+  }
   ui.unreadable.hidden = outcome.kind !== "unreadable";
   renderEmbeds(outcome.kind === "embeds" ? outcome.embeds : null);
 }
@@ -61,10 +76,34 @@ function embedId(embed: Embed): string {
   return embed.provider === "twitch" && embed.kind === "live" ? embed.channel : embed.videoId;
 }
 
-/** The list label: provider and id, or the host, frame size and "not synced" for a generic embed (ADR 0024, OME-1037). */
-function embedLabel(embed: ListedEmbed): string {
-  if (embed.provider !== "generic") return `${PROVIDER_NAMES[embed.provider]} · ${embedId(embed)}`;
-  return embed.size === undefined ? `${embed.host} · not synced` : `${embed.host} · ${String(embed.size.width)}×${String(embed.size.height)} · not synced`;
+function span(className: string, text = ""): HTMLSpanElement {
+  const el = document.createElement("span");
+  el.className = className;
+  el.textContent = text;
+  return el;
+}
+
+function sprite(key: string): HTMLSpanElement {
+  const el = span(`pk-sprite pk-${key}`);
+  el.setAttribute("aria-hidden", "true");
+  return el;
+}
+
+/**
+ * One kit row (OME-1041): radio glyph, source tile, the name over its id, and the ADR 0024 chip. Synced: provider and id.
+ * Generic: the host over "Page embed" and its frame size, "Not synced" (OME-1037). Spaces between the parts keep the text readable.
+ */
+function embedRow(embed: ListedEmbed): (HTMLSpanElement | string)[] {
+  const generic = embed.provider === "generic";
+  const title = generic ? embed.host : PROVIDER_NAMES[embed.provider];
+  const size = generic && embed.size !== undefined ? ` · ${String(embed.size.width)}×${String(embed.size.height)}` : "";
+  const meta = generic ? `Page embed${size}` : embedId(embed);
+  const source = generic ? "qsrc-generic" : embed.provider === "twitch" && embed.kind === "live" ? "qsrc-live" : "qsrc-video";
+  const body = span("body");
+  body.append(span("title", title), " ", span("meta", meta));
+  const chip = span(generic ? "ui-chip solo" : "ui-chip");
+  chip.append(sprite(generic ? "glyph-outsync" : "glyph-insync"), generic ? "Not synced" : "Synced");
+  return [sprite("glyph-radio-off"), sprite(source), body, " ", chip];
 }
 
 function renderEmbeds(embeds: readonly ListedEmbed[] | null): void {
@@ -83,7 +122,8 @@ function renderEmbeds(embeds: readonly ListedEmbed[] | null): void {
       input.value = embed.url;
       input.checked = i === 0;
       const label = document.createElement("label");
-      label.append(input, embedLabel(embed));
+      label.className = "ui-qrow pk-embed";
+      label.append(input, ...embedRow(embed));
       const li = document.createElement("li");
       li.dataset["testid"] = "embed-item";
       li.dataset["provider"] = embed.provider;
@@ -99,10 +139,12 @@ function renderRooms({ rooms, selected }: RoomList): void {
   ui.room.replaceChildren(...rooms.map((r) => new Option(r.label, r.id, r.id === selected, r.id === selected)));
 }
 
+/** Success is the room's system line with a check, an error is rust text with the warn icon (never colour alone). */
 function showStatus(state: "ok" | "error", message: string): void {
   ui.status.hidden = false;
   ui.status.dataset["state"] = state;
-  ui.status.textContent = message;
+  ui.status.className = state === "ok" ? "ui-sysline" : "pk-error";
+  ui.status.replaceChildren(sprite(state === "ok" ? "glyph-check" : "icon-warn"), span("", message));
 }
 
 interface ServerState {
