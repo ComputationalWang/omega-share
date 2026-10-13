@@ -31,8 +31,10 @@ export interface FirefoxExtension {
   readonly extensionId: string;
 }
 
-export async function launchFirefoxWithExtension(): Promise<FirefoxExtension> {
+/** `prefs`: extra Firefox prefs, e.g. `network.dns.localDomains` for a fixture host (e2e/unlock.firefox.ts). */
+export async function launchFirefoxWithExtension(prefs: Record<string, string> = {}): Promise<FirefoxExtension> {
   const browser = await puppeteer.launch({
+    extraPrefsFirefox: prefs,
     browser: "firefox",
     executablePath: await firefoxExecutable(),
     // Headless Firefox has no pointer device, so it matches `(hover: none)` and renders the popup's phone layout (OME-743).
