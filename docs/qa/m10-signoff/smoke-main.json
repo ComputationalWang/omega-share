@@ -1,0 +1,48 @@
+{
+  "origin": "https://omega-share.duckdns.org",
+  "at": "2026-10-13T00:29:54.108Z",
+  "rows": [
+    {
+      "check": "1 create from a preset on a phone: picker lists 6 presets, classic default, creates and lands in the room",
+      "ok": true,
+      "ms": 1165,
+      "detail": "presets classic,cinema,living,lounge,cafe,empty; created from \"cinema\" → /r/4sm3oio46zzyxckmizif23qmuq"
+    },
+    {
+      "check": "2 portrait docked composer: input + Link key in the first screen, chat line sends",
+      "ok": true,
+      "ms": 217,
+      "detail": "no scroll at 390x844"
+    },
+    {
+      "check": "2b share sheet: Link opens the sheet with the URL field focused and 44 px keys; Esc closes",
+      "ok": true,
+      "ms": 168,
+      "detail": "ok"
+    },
+    {
+      "check": "3 landscape full-screen composer (667x375): field ≥ 60 % of its row and ≥ 140 px, 44 px Send, Enter and tap send, focus stays",
+      "ok": true,
+      "ms": 1482,
+      "detail": "field 147 px of 195 px (75 %), send 44x44, real fullscreen element: true"
+    },
+    {
+      "check": "4 tab out 60 s and return seated: same seat, no Enter form, no leave/join lines; a peer saw Away",
+      "ok": false,
+      "ms": 30310,
+      "detail": "waitFor: Timeout 30000ms exceeded."
+    },
+    {
+      "check": "5 no CSP violations or page errors",
+      "ok": true,
+      "ms": 0,
+      "detail": "0"
+    },
+    {
+      "check": "6a create public room B, join, leave (the 20 min clock starts)",
+      "ok": true,
+      "ms": 802,
+      "detail": "/r/hm3wkviqrmwazthf2b44tan2ey left at 2026-10-13T00:29:54.108Z"
+    }
+  ]
+}
