@@ -4,7 +4,7 @@
 // the column's box (width and height) and keeps ADR 0012's player minimum. OME-1050 (board): the room fills what the
 // shelf leaves, scaled up past 1× where the column has room, and is the larger part of the column at 16:9.
 import { describe, expect, test } from "bun:test";
-import { CONTROL_BAR_H, STAGE_H, STAGE_W, WIDE_CHAT_W, WIDE_QUERY, wideLayout, type Rect } from "../src/layout";
+import { CONTROL_BAR_H, ROOM_VIEW, WIDE_CHAT_W, WIDE_QUERY, wideLayout, type Rect } from "../src/layout";
 
 const intersects = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const inside = (r: Rect, w: number, h: number): boolean => r.x >= 0 && r.y >= 0 && r.x + r.w <= w && r.y + r.h <= h;
@@ -59,25 +59,25 @@ describe("wideLayout", () => {
     expect(controls.w).toBe(tv.w);
   });
 
-  test.each(BOXES)("at %p×%p the stage keeps 960:600, fills the column's width or what the shelf leaves of its height, and is centred", (w, h) => {
+  test.each(BOXES)("at %p×%p the room's view keeps its shape, fills the column's width or what the shelf leaves of its height, and is centred", (w, h) => {
     const { stage, scale } = wideLayout(w, h, "youtube");
     expect(Math.max(stage.w / w, stage.h / (h - stage.y))).toBeGreaterThan(0.99);
-    expect(stage.w).toBeCloseTo(STAGE_W * scale, 5);
-    expect(stage.h).toBeCloseTo(STAGE_H * scale, 5);
+    expect(stage.w).toBeCloseTo(ROOM_VIEW.w * scale, 5);
+    expect(stage.h).toBeCloseTo(ROOM_VIEW.h * scale, 5);
     expect(Math.abs(stage.x + stage.w / 2 - w / 2)).toBeLessThanOrEqual(1);
   });
 
   // OME-1050: the board's expected layout has the room zoomed in, its floor wider than the TV (the floor is 640 stage px).
   test("a 1280×720 window (left column ≈ 920×640) shows the room's floor at least as wide as the TV", () => {
     const { scale, tv } = wideLayout(920, 640, "youtube");
-    expect(scale).toBeGreaterThanOrEqual(0.6);
+    expect(scale).toBeGreaterThanOrEqual(0.65);
     expect(640 * scale).toBeGreaterThanOrEqual(tv.w);
   });
 
-  test("a 1920×1080 window (left column ≈ 1560×960) shows the room at about 1×, wider than a TV still bigger than the stacked page's 560 px", () => {
+  test("a 1920×1080 window (left column ≈ 1560×960) shows the room past 1×, wider than a TV still bigger than the stacked page's 560 px", () => {
     const { scale, tv } = wideLayout(1560, 960, "youtube");
     expect(tv.w).toBeGreaterThan(560);
-    expect(scale).toBeGreaterThanOrEqual(0.95);
+    expect(scale).toBeGreaterThan(1);
     expect(640 * scale).toBeGreaterThan(tv.w);
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CONTROL_BAR_H, STAGE_H, STAGE_W, fullscreenLayout, popRoomLayout, type Rect } from "../src/layout";
+import { CONTROL_BAR_H, ROOM_VIEW, STAGE_W, fullscreenLayout, popRoomLayout, type Rect } from "../src/layout";
 
 // OME-600 (M7 W3b, set k `ui-m7-popout`): the whole room on a second monitor. The room window holds the stage (scaled
 // to fill the room side, up as well as down since OME-1050) beside a chat column; the room tab keeps the picture, and in
@@ -14,17 +14,17 @@ describe("popRoomLayout: the room window", () => {
     expect(l.scale).toBeCloseTo(980 / STAGE_W, 5);
     expect(l.chat).toEqual({ x: 980, y: 0, w: 300, h: 668 });
     expect(Math.abs(l.stage.w - 980)).toBeLessThanOrEqual(1);
-    expect(l.stage.h).toBe(Math.floor(STAGE_H * l.scale));
+    expect(l.stage.h).toBe(Math.floor(ROOM_VIEW.h * l.scale));
     expect(inside(l.stage, 980, 668)).toBe(true);
     expect(intersects(l.stage, l.chat)).toBe(false);
   });
 
   test("a full-screen window scales the room up to fill it; a small one scales it down to fit, keeping its shape", () => {
-    expect(popRoomLayout(1920, 1080).scale).toBeCloseTo(Math.min((1920 - 300) / STAGE_W, 1080 / STAGE_H), 5);
-    expect(popRoomLayout(2560, 1400).scale).toBeCloseTo(Math.min((2560 - 300) / STAGE_W, 1400 / STAGE_H), 5);
+    expect(popRoomLayout(1920, 1080).scale).toBeCloseTo(Math.min((1920 - 300) / ROOM_VIEW.w, 1080 / ROOM_VIEW.h), 5);
+    expect(popRoomLayout(2560, 1400).scale).toBeCloseTo(Math.min((2560 - 300) / ROOM_VIEW.w, 1400 / ROOM_VIEW.h), 5);
     const small = popRoomLayout(900, 500);
-    expect(small.scale).toBeCloseTo(Math.min((900 - 300) / STAGE_W, 500 / STAGE_H), 5);
-    expect(small.stage.w / small.stage.h).toBeCloseTo(STAGE_W / STAGE_H, 2);
+    expect(small.scale).toBeCloseTo(Math.min((900 - 300) / ROOM_VIEW.w, 500 / ROOM_VIEW.h), 5);
+    expect(small.stage.w / small.stage.h).toBeCloseTo(ROOM_VIEW.w / ROOM_VIEW.h, 2);
     expect(inside(small.stage, 600, 500)).toBe(true);
     expect(intersects(small.stage, small.chat)).toBe(false);
   });

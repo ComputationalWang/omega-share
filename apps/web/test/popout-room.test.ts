@@ -3,6 +3,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { EmoteKind, MemberId } from "@omega/shared";
 import type { PopMessage } from "../src/popout/channel";
 import type { StageState } from "../src/state";
+import { stageTransform } from "../src/layout";
 
 beforeAll(() => {
   GlobalRegistrator.register();
@@ -209,10 +210,10 @@ describe("whole-room window", () => {
     const big = await setup();
     big.popout.fit();
     // 1280 − 300 (chat) − 12 (rim) = 968 px across for 960.
-    expect(big.stageRoot.style.transform).toBe(`scale(${String(968 / 960)})`);
+    expect(big.stageRoot.style.transform).toBe(stageTransform(968 / 960));
     const small = await setup({ w: 900, h: 500 });
     small.popout.fit();
     // 900 − 300 (chat) − 12 (rim) = 588 px across for 960: 0.6125.
-    expect(small.stageRoot.style.transform).toBe("scale(0.6125)");
+    expect(small.stageRoot.style.transform).toBe(stageTransform(0.6125));
   });
 });

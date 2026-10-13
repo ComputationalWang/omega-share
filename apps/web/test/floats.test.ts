@@ -373,22 +373,23 @@ test("reduced motion: an early exit is instant", async () => {
   expect(texts().sort()).toEqual(lines(11).slice(1).sort());
 });
 
-// OME-1050: ten stacked bubbles are 330 px; over a back-row head they would climb off the stage's top and be clipped.
-test("a stack never climbs off the stage: an older bubble whose rise would cross the top goes instead", async () => {
+// OME-1050: ten stacked bubbles are 330 px; over a back-row head they would climb out of the room's view (ROOM_VIEW,
+// the part of the stage the page shows, from y 60) and be clipped.
+test("a stack never climbs out of the room's view: an older bubble whose rise would cross its top goes instead", async () => {
   const { floats, frame, texts, bubbleOf } = await setup();
-  // Head at 300: the newest box's top is 266 and each older one 33 px higher; with the 24 px rise, l0 and l1 cross 0.
+  // Head at 300: the newest box's top is 266 and each older one 33 px higher; with the 24 px rise, l0 to l3 cross 60.
   for (const t of lines(10)) floats.say(say("a", t, 480, 300));
   frame();
   expect(bubbleOf("l0").classList.contains("is-leaving")).toBe(true);
-  expect(bubbleOf("l1").classList.contains("is-leaving")).toBe(true);
-  expect(texts().sort()).toEqual(lines(10).slice(2).sort());
+  expect(bubbleOf("l3").classList.contains("is-leaving")).toBe(true);
+  expect(texts().sort()).toEqual(lines(10).slice(4).sort());
 });
 
 test("reduced motion has no rise: only a box that would itself cross the top goes", async () => {
   const { floats, frame, texts } = await setup({ reduced: true });
   for (const t of lines(10)) floats.say(say("a", t, 480, 300));
   frame();
-  expect(texts().sort()).toEqual(lines(10).slice(1).sort());
+  expect(texts().sort()).toEqual(lines(10).slice(3).sort());
 });
 
 test("an older bubble in a newer one's way moves straight up, 3 px clear, loses its tail and names its speaker", async () => {
