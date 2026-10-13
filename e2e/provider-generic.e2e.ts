@@ -130,8 +130,14 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     });
     expect(Object.keys(attrs).sort()).toEqual(["allow", "data-testid", "referrerpolicy", "sandbox", "src", "title"]);
     expect(roomHits).toEqual([EMBED_URL]);
-    await expect(room.getByTestId("generic-hint")).toHaveText(`Blank or an error? ${HOST} blocks playing here.`);
-    // The strip stays one line (OME-1035): count the distinct line boxes of each item's text.
+    await expect(room.getByTestId("generic-hint")).toHaveText("Blank or error? Host blocks it.");
+    // The strip stays one line inside its control-bar slot, and the hint shows whole (OME-1035).
+    const fit = await room.getByTestId("generic-hint").evaluate((h) => {
+      const strip = h.parentElement?.getBoundingClientRect();
+      const slot = h.parentElement?.parentElement?.getBoundingClientRect();
+      return { inSlot: !!strip && !!slot && strip.right <= slot.right + 0.5, whole: h.scrollWidth <= h.clientWidth };
+    });
+    expect(fit).toEqual({ inSlot: true, whole: true });
     for (const id of ["generic-hint", "not-synced"]) {
       const lines = await room.getByTestId(id).evaluate((e) => {
         const r = document.createRange();
