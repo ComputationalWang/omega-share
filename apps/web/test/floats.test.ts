@@ -526,16 +526,15 @@ test("said while the stage is hidden: placed, stacked and shown at its age once 
 
 test("a bubble sent away drops to half its opacity and is gone at the clock's first step FLOAT_LEAVE_MS on", async () => {
   const { floats, frame, advance, shown, bubbleOf, motionOf, FLOAT_LEAVE_MS } = await setup();
-  floats.say(say("a", "one", 200));
-  floats.say(say("a", "two", 200));
+  for (const t of lines(10)) floats.say(say("a", t, 200, 580));
   frame();
   advance(150);
-  floats.say(say("a", "three", 200));
-  expect(bubbleOf("one").classList.contains("is-leaving")).toBe(true);
-  expect(motionOf("one").style.opacity).toBe("0.5");
-  expect(shown()).toHaveLength(3);
+  floats.say(say("a", "l10", 200, 580));
+  expect(bubbleOf("l0").classList.contains("is-leaving")).toBe(true);
+  expect(motionOf("l0").style.opacity).toBe("0.5");
+  expect(shown()).toHaveLength(11);
   advance(FLOAT_LEAVE_MS); // 310 ms: the step at 209 ms was too soon
-  expect(shown()).toHaveLength(3);
+  expect(shown()).toHaveLength(11);
   advance(STEP);
-  expect(shown()).toHaveLength(2);
+  expect(shown()).toHaveLength(10);
 });

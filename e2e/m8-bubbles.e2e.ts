@@ -175,35 +175,35 @@ function watchPool(ms: number): Promise<unknown> {
   });
 }
 
-test("five speakers, ten lines at once: never more than 8 bubbles shown, the layer holds 8 nodes throughout", async ({ browser }) => {
+test("five speakers, twenty lines at once: never more than 16 bubbles shown, the layer holds 16 nodes throughout", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "cap").url, count: 5, nicknamePrefix: "mc" });
   const [a] = clients;
   if (a === undefined) throw new Error("no client");
   for (const c of clients) await atRest(c.page);
   // Long enough to outlast slow sends (a cold dev server, five pages typing in turn); bubbles leaving after 5 s only
-  // lower the count, so a longer watch can't hide a pool over 8.
+  // lower the count, so a longer watch can't hide a pool over 16.
   const watching = a.page.evaluate(watchPool, 10_000);
   const sendStart = Date.now();
   await Promise.all(
     clients.map(async (c, i) => {
-      await say(c.page, `speaker ${String(i + 1)} line one`);
-      await say(c.page, `speaker ${String(i + 1)} line two`);
+      // Four each: inside the server's chat burst of 5, and 20 lines overfill the pool of 16.
+      for (const l of ["one", "two", "three", "four"]) await say(c.page, `speaker ${String(i + 1)} line ${l}`);
     }),
   );
   const sendMs = Date.now() - sendStart;
-  await expect(a.page.locator(site.chatLogLine).filter({ hasText: /speaker [1-5] line (one|two)/ })).toHaveCount(10); // all said, none dropped
+  await expect(a.page.locator(site.chatLogLine).filter({ hasText: /speaker [1-5] line (one|two|three|four)/ })).toHaveCount(20); // all said, none dropped
   const pool = v.parse(PoolSchema, await watching);
   expect(pool.frames).toBeGreaterThan(10);
-  expect(pool.maxLive).toBeLessThanOrEqual(8);
-  // The pool really filled: 10 lines were said, only 8 fit.
-  expect(pool.maxLive, `peak live bubbles (the sends took ${String(sendMs)} ms):\n${pool.events.join("\n")}`).toBeGreaterThanOrEqual(6);
-  expect(pool.minNodes).toBe(8);
-  expect(pool.maxNodes).toBe(8);
+  expect(pool.maxLive).toBeLessThanOrEqual(16);
+  // The pool really filled: 20 lines were said, only 16 fit.
+  expect(pool.maxLive, `peak live bubbles (the sends took ${String(sendMs)} ms):\n${pool.events.join("\n")}`).toBeGreaterThanOrEqual(12);
+  expect(pool.minNodes).toBe(16);
+  expect(pool.maxNodes).toBe(16);
 });
 
 // OME-809: two lines from one speaker that arrive before the watcher next renders both float. Here the watcher renders
 // late (a slow frame) while both lines arrive; on a fast box the same happens when two lines land in one 16 ms frame.
-test("two lines from one speaker that arrive inside one render both float (2 per speaker)", async ({ browser }) => {
+test("two lines from one speaker that arrive inside one render both float", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("m8-bubbles", "batch").url, count: 2, nicknamePrefix: "mb" });
   const [speaker, watcher] = pair(clients);
   for (const c of clients) await atRest(c.page);

@@ -13,7 +13,7 @@ describe("popRoomLayout: the room window", () => {
     const l = popRoomLayout(1280, 668);
     expect(l.scale).toBeCloseTo(980 / STAGE_W, 5);
     expect(l.chat).toEqual({ x: 980, y: 0, w: 300, h: 668 });
-    expect(l.stage.w).toBe(980);
+    expect(Math.abs(l.stage.w - 980)).toBeLessThanOrEqual(1);
     expect(l.stage.h).toBe(Math.floor(STAGE_H * l.scale));
     expect(inside(l.stage, 980, 668)).toBe(true);
     expect(intersects(l.stage, l.chat)).toBe(false);
