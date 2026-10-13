@@ -1,6 +1,6 @@
 # ADR 0024 — Generic (unsynced) embeds: any safe https embed, sandboxed, click to load
 
-**Status:** accepted (2026-10-01) · board direction [OME-285](/OME/issues/OME-285) · contract [OME-290](/OME/issues/OME-290) · server [OME-291](/OME/issues/OME-291), web [OME-292](/OME/issues/OME-292), extension [OME-293](/OME/issues/OME-293) · amends ADR 0003, ADR 0011 §CSP, ADR 0014 §5
+**Status:** accepted (2026-10-01) · board direction [OME-285](/OME/issues/OME-285) · contract [OME-290](/OME/issues/OME-290) · server [OME-291](/OME/issues/OME-291), web [OME-292](/OME/issues/OME-292), extension [OME-293](/OME/issues/OME-293) · amends ADR 0003, ADR 0011 §CSP, ADR 0014 §5 · **amended by ADR 0047** (opt-in extension unlock for hosts that refuse framing or gate on Referer: §2b, §3, accepted losses)
 
 **Context:** Until now a room could show only YouTube, Twitch and Vimeo. Their players can be synced, and the extension and the server both rejected every other URL (product spec, "Providers"; CLAUDE.md "never render arbitrary iframes"). The board wants rooms to accept **any other embed** too. This ADR reverses the allowlist-only rule and sets out how to do it safely. Two things stay the same: the three synced providers keep their adapters, sync and tests, and no iframe is ever built from a string that has not been parsed by `packages/shared`.
 
