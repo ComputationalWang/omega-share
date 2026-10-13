@@ -73,7 +73,7 @@ test("routes are fixed, relative and never carry a credential", () => {
 });
 
 test("bootstrap takes only an opaque bounded instance id; the response is a single-use nonce", () => {
-  expect(v.parse(ActivityBootstrapRequestSchema, { instanceId })).toEqual({ instanceId });
+  expect(v.parse(ActivityBootstrapRequestSchema, { instanceId }) as unknown).toEqual({ instanceId });
   for (const bad of [
     {},
     { instanceId: "" },
@@ -86,7 +86,7 @@ test("bootstrap takes only an opaque bounded instance id; the response is a sing
     expect(v.safeParse(ActivityBootstrapRequestSchema, bad).success).toBe(false);
   }
   const ok = { ok: true, nonce, expiresInMs: 60_000 };
-  expect(v.parse(ActivityBootstrapResponseSchema, ok)).toEqual(ok);
+  expect(v.parse(ActivityBootstrapResponseSchema, ok) as unknown).toEqual(ok);
   for (const bad of [{ ...ok, expiresInMs: 60_001 }, { ...ok, expiresInMs: 0 }, { ...ok, nonce: "short" }]) {
     expect(v.safeParse(ActivityBootstrapResponseSchema, bad).success).toBe(false);
   }
@@ -98,7 +98,7 @@ test("bootstrap takes only an opaque bounded instance id; the response is a sing
 
 test("the session exchange carries no client-supplied identity, room or token", () => {
   const body = { nonce, code: oauthCode, instanceId };
-  expect(v.parse(ActivitySessionRequestSchema, body)).toEqual(body);
+  expect(v.parse(ActivitySessionRequestSchema, body) as unknown).toEqual(body);
   for (const extra of [
     { userId: "123456789012345678" },
     { roomId: "lobby" },
@@ -124,7 +124,7 @@ test("a session grant is bounded, room-bound and server-derived", () => {
     ticketExpiresInMs: ACTIVITY_TICKET_TTL_MS,
     capabilities: { handoff: false },
   };
-  expect(v.parse(ActivitySessionResponseSchema, ok)).toEqual(ok);
+  expect(v.parse(ActivitySessionResponseSchema, ok) as unknown).toEqual(ok);
   for (const bad of [
     { ...ok, sessionExpiresInMs: ACTIVITY_SESSION_MAX_MS + 1 },
     { ...ok, ticketExpiresInMs: ACTIVITY_TICKET_TTL_MS + 1 },
@@ -153,7 +153,7 @@ test("a session grant is bounded, room-bound and server-derived", () => {
 
 test("reconnect tickets need a session and re-check membership", () => {
   const ok = { ok: true, ticket, ticketExpiresInMs: 60_000 };
-  expect(v.parse(ActivityTicketResponseSchema, ok)).toEqual(ok);
+  expect(v.parse(ActivityTicketResponseSchema, ok) as unknown).toEqual(ok);
   for (const c of ["unauthorized", "not_in_instance", "instance_unavailable", "discord_unavailable", "rate_limited", "activity_disabled"]) {
     expect(v.safeParse(ActivityTicketResponseSchema, { ok: false, error: { code: c, message: "no" } }).success).toBe(true);
   }
@@ -165,14 +165,14 @@ test("tickets and sessions are distinct branded credentials", () => {
   const s: ActivitySessionToken = v.parse(ActivitySessionTokenSchema, session);
   // @ts-expect-error a session token is not an admission ticket
   const wrong: AdmissionTicket = s;
-  expect([t, wrong]).toEqual([ticket, session]);
+  expect([t, wrong] as unknown).toEqual([ticket, session]);
   for (const bad of [ticket + "=", ticket.slice(1), ticket.slice(1) + "/", ticket.slice(1) + "+", null, 43]) {
     expect(v.safeParse(AdmissionTicketSchema, bad).success).toBe(false);
   }
 });
 
 test("the admission frame is exactly one bounded ticket, separate from the room protocol", () => {
-  expect(parseAdmissionFrame(JSON.stringify({ type: "admit", ticket }))).toEqual({ type: "admit", ticket });
+  expect(parseAdmissionFrame(JSON.stringify({ type: "admit", ticket })) as unknown).toEqual({ type: "admit", ticket });
   for (const raw of [
     JSON.stringify({ type: "admit", ticket, roomId: "lobby" }),
     JSON.stringify({ type: "admit", ticket, userId: "123456789012345678" }),
@@ -207,33 +207,33 @@ test("an admitted join carries no standalone authority", () => {
 
 test("handoff start returns a short-lived code read only from an exact fragment", () => {
   const ok = { ok: true, code, expiresInMs: HANDOFF_CODE_TTL_MS };
-  expect(v.parse(HandoffStartResponseSchema, ok)).toEqual(ok);
+  expect(v.parse(HandoffStartResponseSchema, ok) as unknown).toEqual(ok);
   expect(v.safeParse(HandoffStartResponseSchema, { ...ok, expiresInMs: HANDOFF_CODE_TTL_MS + 1 }).success).toBe(false);
   for (const c of ["unauthorized", "rate_limited", "handoff_unsupported", "activity_disabled"]) {
     expect(v.safeParse(HandoffStartResponseSchema, { ok: false, error: { code: c, message: "no" } }).success).toBe(true);
   }
-  expect(handoffCodeFromHash(`#h=${code}`)).toBe(code);
+  expect(handoffCodeFromHash(`#h=${code}`) as unknown).toBe(code);
   for (const hash of ["", `#h=${code}x`, `#h=${code.slice(1)}`, `#k=${code}`, `h=${code}`, `#h=${code}&k=1`, `#h=${code.slice(1)}=`]) {
     expect(handoffCodeFromHash(hash)).toBeNull();
   }
 });
 
 test("handoff claim binds one receiver and shows a confirm code the Activity user must enter", () => {
-  expect(v.parse(HandoffClaimRequestSchema, { code })).toEqual({ code });
+  expect(v.parse(HandoffClaimRequestSchema, { code }) as unknown).toEqual({ code });
   expect(v.safeParse(HandoffClaimRequestSchema, { code, roomId: "lobby" }).success).toBe(false);
   const ok = { ok: true, receiver, confirmCode: "7K3QZP", expiresInMs: HANDOFF_CODE_TTL_MS };
-  expect(v.parse(HandoffClaimResponseSchema, ok)).toEqual(ok);
+  expect(v.parse(HandoffClaimResponseSchema, ok) as unknown).toEqual(ok);
   for (const bad of [{ ...ok, confirmCode: "7K3QZ" }, { ...ok, confirmCode: "7K3QZI" }, { ...ok, confirmCode: "7k3qzp" }, { ...ok, receiver: "short" }]) {
     expect(v.safeParse(HandoffClaimResponseSchema, bad).success).toBe(false);
   }
   expect(v.safeParse(HandoffClaimResponseSchema, { ok: false, error: { code: "handoff_invalid", message: "no" } }).success).toBe(true);
 
   // Typed by a person: trimmed and upper-cased before the alphabet check.
-  expect(v.parse(HandoffConfirmRequestSchema, { confirmCode: " 7k3qzp " })).toEqual({ confirmCode: "7K3QZP" });
+  expect(v.parse(HandoffConfirmRequestSchema, { confirmCode: " 7k3qzp " }) as unknown).toEqual({ confirmCode: "7K3QZP" });
   for (const bad of [{ confirmCode: "7K3QZO" }, { confirmCode: "" }, { confirmCode: "7K3QZP", code }]) {
     expect(v.safeParse(HandoffConfirmRequestSchema, bad).success).toBe(false);
   }
-  expect(v.parse(HandoffConfirmResponseSchema, { ok: true })).toEqual({ ok: true });
+  expect(v.parse(HandoffConfirmResponseSchema, { ok: true }) as unknown).toEqual({ ok: true });
   for (const c of ["unauthorized", "handoff_invalid", "rate_limited"]) {
     expect(v.safeParse(HandoffConfirmResponseSchema, { ok: false, error: { code: c, message: "no" } }).success).toBe(true);
   }
@@ -241,12 +241,12 @@ test("handoff claim binds one receiver and shows a confirm code the Activity use
 
 test("handoff redeem needs the code and the receiver, and yields a bounded least-privilege grant", () => {
   const body = { code, receiver };
-  expect(v.parse(HandoffRedeemRequestSchema, body)).toEqual(body);
+  expect(v.parse(HandoffRedeemRequestSchema, body) as unknown).toEqual(body);
   for (const bad of [{ code }, { receiver }, { ...body, owner: true }, { ...body, roomId: "lobby" }]) {
     expect(v.safeParse(HandoffRedeemRequestSchema, bad).success).toBe(false);
   }
   const ok = { ok: true, room: { id: "a7k2m9q4x1" }, grant: secret("g"), grantExpiresInMs: HANDOFF_GRANT_MAX_MS, ticket, ticketExpiresInMs: ACTIVITY_TICKET_TTL_MS };
-  expect(v.parse(HandoffRedeemResponseSchema, ok)).toEqual(ok);
+  expect(v.parse(HandoffRedeemResponseSchema, ok) as unknown).toEqual(ok);
   for (const bad of [{ ...ok, grantExpiresInMs: HANDOFF_GRANT_MAX_MS + 1 }, { ...ok, grant: "short" }]) {
     expect(v.safeParse(HandoffRedeemResponseSchema, bad).success).toBe(false);
   }

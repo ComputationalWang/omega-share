@@ -129,6 +129,12 @@ export const CLOSE_CODES = {
   TAKEN_DOWN: 4006,
   /** Another socket resumed this identity (ADR 0043). Stop automatic reconnects. */
   SESSION_REPLACED: 4007,
+  /** Presence moved to the standalone browser (ADR 0046). Don't reconnect. */
+  HANDED_OFF: 4008,
+  /** Activity room: no valid `admit` in time, or a bad/used/expired/foreign ticket (ADR 0046). Get one fresh ticket, then stop. */
+  ADMISSION_FAILED: 4401,
+  /** Activity membership, session or grant revoked or expired (ADR 0046). Re-authorize; don't auto-reconnect. */
+  SESSION_REVOKED: 4403,
 } as const;
 export type CloseCode = (typeof CLOSE_CODES)[keyof typeof CLOSE_CODES];
 

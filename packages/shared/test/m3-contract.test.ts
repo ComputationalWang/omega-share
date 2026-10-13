@@ -84,6 +84,9 @@ describe("CLOSE_CODES", () => {
       KICKED: 4005,
       TAKEN_DOWN: 4006,
       SESSION_REPLACED: 4007,
+      HANDED_OFF: 4008,
+      ADMISSION_FAILED: 4401,
+      SESSION_REVOKED: 4403,
     });
   });
 
