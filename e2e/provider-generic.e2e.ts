@@ -130,7 +130,7 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     });
     expect(Object.keys(attrs).sort()).toEqual(["allow", "data-testid", "referrerpolicy", "sandbox", "src", "title"]);
     expect(roomHits).toEqual([EMBED_URL]);
-    await expect(room.getByTestId("generic-hint")).toHaveText("Blank? This site doesn't allow embedding.");
+    await expect(room.getByTestId("generic-hint")).toHaveText("Blank or an error page? This site only allows playback on its own pages.");
 
     // The hostile embed tries every way out, each with a real user activation inside the frame: script, then links.
     const inner = room.frameLocator(site.sharedVideo);
