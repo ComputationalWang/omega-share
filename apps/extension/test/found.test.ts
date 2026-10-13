@@ -56,7 +56,7 @@ describe("actionState", () => {
 
   test("nothing: back to the idle icon and title", () => {
     expect(actionState(0)).toEqual({
-      path: { 16: "icon/16.png", 32: "icon/32.png", 48: "icon/48.png", 64: "icon/64.png" },
+      path: { 16: "icon/16.png", 32: "icon/32.png", 48: "icon/48.png", 64: "icon/idle-64.png" },
       title: "omega share",
     });
   });

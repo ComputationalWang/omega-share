@@ -65,6 +65,34 @@ export function unlockPermissions(host: string, browser: UnlockBrowser): { permi
   return { permissions: browser === "chrome" ? ["declarativeNetRequestWithHostAccess"] : [], origins: [`https://${host}/*`] };
 }
 
+/** `storage.local` key: hosts the viewer allowed on the consent page (OME-1042). */
+export const UNLOCK_HOSTS_KEY = "unlockHosts";
+
+const hostsOf = (stored: unknown): string[] => (Array.isArray(stored) ? stored.filter((h): h is string => typeof h === "string") : []);
+
+/** Whether the viewer allowed this host on the consent page (OME-1042). */
+export function isApproved(stored: unknown, host: string): boolean {
+  return hostsOf(stored).includes(host);
+}
+
+/**
+ * Whether to unlock `host` without the consent page: its grant, and while the found toggle holds https://*\/* (which
+ * contains every host) also the consent page's record of it. With the toggle off this is the grant alone, as before.
+ */
+export function hasConsent(state: { hostGranted: boolean; everyHostGranted: boolean; stored: unknown }, host: string): boolean {
+  return state.hostGranted && (!state.everyHostGranted || isApproved(state.stored, host));
+}
+
+/** The approved list with `host` added (once). */
+export function withApproved(stored: unknown, host: string): string[] {
+  return [...new Set([...hostsOf(stored), host])];
+}
+
+/** The approved list without hosts whose own `https://<host>/*` grant was just revoked. */
+export function withoutRevoked(stored: unknown, origins: readonly string[]): string[] {
+  return hostsOf(stored).filter((h) => !origins.includes(`https://${h}/*`));
+}
+
 /**
  * The tab's current rule ids, and a free block for a new set. Tab ids don't fit DNR's int32 rule ids (Chromium's can
  * pass a billion), so a set is found by its `tabIds` condition and new ids follow the highest one in use.

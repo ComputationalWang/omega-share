@@ -78,15 +78,20 @@ test.describe("extension", () => {
 declare const chrome: {
   tabs: { query(q: Record<string, never>): Promise<{ readonly id?: number; readonly url?: string }[]> };
   action: { getTitle(d: { tabId: number }): Promise<string> };
-  scripting: { registerContentScripts(s: { id: string; js: string[]; matches: string[]; runAt: "document_idle"; persistAcrossSessions: boolean }[]): Promise<void> };
+  scripting: {
+    registerContentScripts(s: { id: string; js: string[]; matches: string[]; runAt: "document_idle"; persistAcrossSessions: boolean }[]): Promise<void>;
+    getRegisteredContentScripts(): Promise<unknown[]>;
+  };
 };
 
 test.describe("found indicator", () => {
   test.fixme(!available.extension, PENDING.extension);
 
   test("the toolbar title says a video is found, and resets when the tab navigates to a page without one", async ({ context, serviceWorker }) => {
+    // After the background's own startup sync (the bridge is its sign), under an id that sync doesn't own.
+    await expect.poll(() => serviceWorker.evaluate(async () => (await chrome.scripting.getRegisteredContentScripts()).length)).toBeGreaterThan(0);
     await serviceWorker.evaluate(() =>
-      chrome.scripting.registerContentScripts([{ id: "omega-found", js: ["content-scripts/found.js"], matches: ["http://localhost/*"], runAt: "document_idle", persistAcrossSessions: false }]),
+      chrome.scripting.registerContentScripts([{ id: "omega-found-e2e", js: ["content-scripts/found.js"], matches: ["http://localhost/*"], runAt: "document_idle", persistAcrossSessions: false }]),
     );
     const page = await context.newPage();
     const title = (): Promise<string> =>

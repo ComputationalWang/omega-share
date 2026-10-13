@@ -5,7 +5,10 @@ import { popup } from "../e2e/support/selectors";
 import { p95, recordMetric } from "./metrics";
 
 declare const chrome: {
-  scripting: { registerContentScripts(s: { id: string; js: string[]; matches: string[]; runAt: "document_idle"; persistAcrossSessions: boolean }[]): Promise<void> };
+  scripting: {
+    registerContentScripts(s: { id: string; js: string[]; matches: string[]; runAt: "document_idle"; persistAcrossSessions: boolean }[]): Promise<void>;
+    getRegisteredContentScripts(): Promise<unknown[]>;
+  };
 };
 
 test.describe("extension perf", () => {
@@ -29,8 +32,10 @@ test.describe("extension perf", () => {
 
   test("found indicator: main-thread time per page check (OME-1042)", async ({ context, serviceWorker }) => {
     // Registered as the background does once https://*/* is granted, here on the e2e build's own localhost host.
+    // After the background's own startup sync (the bridge is its sign), under an id that sync doesn't own.
+    await expect.poll(() => serviceWorker.evaluate(async () => (await chrome.scripting.getRegisteredContentScripts()).length)).toBeGreaterThan(0);
     await serviceWorker.evaluate(() =>
-      chrome.scripting.registerContentScripts([{ id: "omega-found", js: ["content-scripts/found.js"], matches: ["http://localhost/*"], runAt: "document_idle", persistAcrossSessions: false }]),
+      chrome.scripting.registerContentScripts([{ id: "omega-found-e2e", js: ["content-scripts/found.js"], matches: ["http://localhost/*"], runAt: "document_idle", persistAcrossSessions: false }]),
     );
     const page = await context.newPage();
     await gotoFixture(page, "providers-embed");
@@ -42,7 +47,9 @@ test.describe("extension perf", () => {
         return list.length > n ? Number(list[n]) : false;
       }, i, { timeout: 5000 });
       checks.push(Number(await ms.jsonValue()));
-      await page.evaluate(() => document.body.append(document.createElement("div")));
+      await page.evaluate(() => {
+        document.body.append(document.createElement("div"));
+      });
     }
     recordMetric({ id: "ext.foundCheck", value: p95(checks), note: `p95 of ${String(checks.length)} checks on providers-embed (6 embeds)` });
   });

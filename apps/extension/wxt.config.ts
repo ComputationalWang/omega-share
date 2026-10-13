@@ -6,6 +6,7 @@ import { defaultServerBaseUrl, hostPermissionPattern } from "./src/settings";
 const ICON_SIZES = ["16", "32", "48", "128"] as const;
 /** Popup state vignettes (OME-842 art, used by OME-857), copied in the same way. */
 const POPUP_VIGNETTES = ["nothing-found", "cant-read", "server-away"].flatMap((name) => [`${name}.png`, `${name}@2x.png`]);
+const FOUND_ICON_SIZES = ["16", "32", "48", "64"] as const;
 const icons = Object.fromEntries(ICON_SIZES.map((size) => [size, `icon/${size}.png`]));
 
 /**
@@ -35,6 +36,10 @@ export default defineConfig({
     "build:publicAssets": (_wxt, files) => {
       for (const size of ICON_SIZES) {
         files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/store/icon-${size}.png`, import.meta.url)), relativeDest: `icon/${size}.png` });
+      }
+      // The found indicator's per-tab icons (OME-1041 art, wired by OME-1042), and the idle 64 px it switches back to (not icon/64.png, which WXT would add to the manifest).
+      for (const name of [...FOUND_ICON_SIZES.map((size) => `found-${size}`), "icon-64"]) {
+        files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/store/${name}.png`, import.meta.url)), relativeDest: `icon/${name.replace("icon-", "idle-")}.png` });
       }
       for (const file of POPUP_VIGNETTES) {
         files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/ui/popup/${file}`, import.meta.url)), relativeDest: `popup/${file}` });
