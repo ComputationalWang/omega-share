@@ -26,7 +26,7 @@ export function createGenericTv(frame: TvGeneric): GenericTv {
   // Short enough to show whole in the strip; the tooltip names the host so "this site" can't read as ours.
   const hint = el("span", {
     className: "generic-hint",
-    textContent: "Blank or error? Host blocks it.",
+    textContent: "Blank/error: host blocks it",
     title: `Blank or an error page? ${frame.host} doesn't allow playing its videos here.`,
     hidden: true,
   }, "generic-hint");
