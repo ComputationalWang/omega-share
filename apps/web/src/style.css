@@ -519,7 +519,9 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .welcome .link, .home .link { min-height: 44px; color: var(--dusk-honey); text-underline-offset: 4px; }
 
 /* Entry: phone order is art, form, steps, extension; from 1104 px the art moves beside the form. */
-.welcome { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+/* At least a viewport tall, like the directory: on a tall screen a returning profile's first paint can still be this
+ * view, and the footer must already be below the fold when main.ts swaps in the directory. */
+.welcome { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; min-height: 100vh; align-content: start; }
 .welcome > * { min-width: 0; }
 .entry-art { position: relative; display: flex; justify-content: center; align-items: center; height: 154px; margin: 0; overflow: hidden; border-radius: 4px; }
 .entry-art picture { display: contents; }
@@ -559,7 +561,9 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .jump { margin: 0; color: var(--dusk-muted); }
 .jump a { display: inline-block; min-height: 24px; color: var(--dusk-honey); }
 .edit-profile, .home .room-list .link { flex: none; min-height: 44px; padding: 8px 16px; border: 1px solid var(--dusk-border); border-radius: 4px; background: none; color: var(--dusk-text); text-decoration: none; cursor: pointer; }
-.directory { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 32px; }
+/* A full viewport for the lists, reserved before the home chunk fills them: the footer starts below the fold and stays
+ * there, so a returning profile (which opens here) never sees it jump (landing.clsReturning, QA OME-1014). */
+.directory { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 32px; min-height: 100vh; }
 .directory > * { min-width: 0; }
 .home h2 { margin: 0 0 8px; font-size: 22px; font-weight: 700; }
 .home .create-room { display: grid; gap: 8px; padding: 0 24px 24px; overflow: hidden; border: 1px solid var(--dusk-divider); border-radius: 4px; background: var(--dusk-surface); }
