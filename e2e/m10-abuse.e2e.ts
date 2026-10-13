@@ -748,9 +748,10 @@ test.describe("POST /rooms with a bad preset or an oversized body", () => {
       ["1 MB body", padded(1024 * 1024)],
     ] as const) {
       const r = await post(body);
-      // A 1 MB body may see the connection reset once the 413 is out (status 0): refused all the same.
-      expect(label === "1 MB body" ? [413, 0] : [413], label).toContain(r.status);
-      if (r.status === 413) expect(JSON.parse(r.text), label).toMatchObject({ ok: false, error: { code: "payload_too_large" } });
+      // A 1 MB body may see the connection reset once the 413 is out: status 0, or a 413 whose body was cut off (OME-1017). Refused all the same.
+      const cut = label === "1 MB body";
+      expect(cut ? [413, 0] : [413], label).toContain(r.status);
+      if (r.status === 413 && !(cut && r.text === "")) expect(JSON.parse(r.text), label).toMatchObject({ ok: false, error: { code: "payload_too_large" } });
       expect(r.text, label).not.toMatch(/ownerToken|inviteKey|"room"/);
     }
     // No Content-Length: the streaming reader enforces the cap too.
