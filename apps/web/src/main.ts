@@ -184,8 +184,10 @@ if (pathRoom === null) {
       }),
     );
   };
+  // Welcome back only to a profile this browser already held when the page loaded.
+  const returning = profile.nickname !== null;
   const openDirectory = (nickname: Nickname): void => {
-    greeting.textContent = `Welcome back, ${nickname}`;
+    greeting.textContent = `${returning ? "Welcome back" : "Welcome"}, ${nickname}`;
     show("directory");
     mountHome();
   };
