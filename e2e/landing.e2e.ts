@@ -6,6 +6,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
+import { site } from "./support/selectors";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -102,4 +103,28 @@ test.describe("reduced motion", () => {
     await expect(page.locator("#how li")).toHaveCount(3);
     for (const name of ["Find a video", "Share your room", "Watch in sync"]) await expect(page.locator("#how")).toContainText(name);
   });
+});
+
+// OME-1022: the create form's preset picker (its chunk and the six thumbnails) is only needed once you head for the
+// directory, so a first visit to `/` fetches none of it. Intent in the entry form warms it, and by the time the
+// directory opens every thumbnail has its pixels (no pop-in). Dev serves `src/home.ts`, preview `home-<hash>.js`.
+const PICKER_URL = /\/(home|presets|preset-thumbs)(-[\w-]+)?\.(js|ts)(\?|$)|\/(classic|cinema|living|lounge|cafe|empty)(-[\w-]+)?\.png(\?|$)/;
+
+test("a first visit to / fetches no preset thumbnails or picker code; intent warms them and the directory shows all six", async ({ page }) => {
+  const fetched: string[] = [];
+  page.on("request", (r) => {
+    if (PICKER_URL.test(new URL(r.url()).pathname)) fetched.push(r.url());
+  });
+  await page.goto(URLS.web, { waitUntil: "load" });
+  await heroLoaded(page);
+  // Whatever the page would fetch after `load`, still without input (perf/landing.perf.ts waits as long).
+  await page.waitForTimeout(1000);
+  expect(fetched, "picker files fetched before any interaction").toEqual([]);
+  await page.locator(site.nicknameInput).focus();
+  await expect.poll(() => fetched.length).toBeGreaterThan(0);
+  await page.locator(site.nicknameInput).fill("Visitor");
+  await page.locator(site.findRoom).click();
+  const thumbs = page.locator(".preset-picker img");
+  await expect(thumbs).toHaveCount(6);
+  await expect.poll(() => thumbs.evaluateAll((imgs) => imgs.every((e) => e instanceof HTMLImageElement && e.complete && e.naturalWidth > 0))).toBe(true);
 });
