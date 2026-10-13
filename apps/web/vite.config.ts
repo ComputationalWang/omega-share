@@ -1,5 +1,5 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
-import { devConnectSrc, withConnectSrc } from "./csp";
+import { DEV_STYLE_NONCE, devConnectSrc, withConnectSrc, withStyleNonce } from "./csp";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { buildSha, withBuildInfo } from "./build-info";
@@ -15,7 +15,8 @@ function cspDevOrigins(mode: string): Plugin {
       order: "pre",
       handler(html, ctx) {
         const webPort = ctx.server?.config.server.port;
-        return withConnectSrc(html, devConnectSrc({ serverUrl, webPort }));
+        const out = withConnectSrc(html, devConnectSrc({ serverUrl, webPort }));
+        return ctx.server === undefined ? out : withStyleNonce(out, DEV_STYLE_NONCE);
       },
     },
   };
@@ -54,8 +55,10 @@ function landing(): Plugin {
 /** The D1 "how it works" panels and the room preset thumbnails (OME-910) stay files (lazy, cached), never data: URLs in the page. */
 const SITE_ART = /[\\/]assets[\\/](?:site|presets)[\\/]/;
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ command, mode }) => ({
   plugins: [cspDevOrigins(mode), sourceLink(mode), landing()],
+  // Dev only: the inline <style> the dev server injects for room.css carries this nonce (see csp.ts).
+  ...(command === "serve" ? { html: { cspNonce: DEV_STYLE_NONCE } } : {}),
   build: {
     assetsInlineLimit: (file: string) => (SITE_ART.test(file) ? false : undefined),
     target: "es2023",
