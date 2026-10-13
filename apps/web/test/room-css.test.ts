@@ -19,7 +19,7 @@ const ROOM_ONLY = [".seat", ".tv", ".chat-log", ".float-motion", ".controls", ".
 /** The site's stylesheet, gzipped at zlib level 6 as `perf/landing.perf.ts` counts it: the Dusk doorstep and the base. */
 const SITE_CSS_GZIP_MAX = 8 * 1024;
 
-const Manifest = v.record(v.string(), v.object({ file: v.string(), css: v.optional(v.array(v.string())) }));
+const Manifest = v.record(v.string(), v.object({ file: v.string(), css: v.optional(v.array(v.string())), imports: v.optional(v.array(v.string())) }));
 
 let out = "";
 let manifest: v.InferOutput<typeof Manifest> = {};
@@ -38,6 +38,13 @@ afterAll(() => {
 const linkedCss = (page: string): string[] =>
   [...readFileSync(join(out, page), "utf8").matchAll(/<link rel="stylesheet"[^>]*href="\/([^"]+\.css)"/g)].map((m) => m[1] ?? "");
 const css = (files: readonly string[]): string => files.map((f) => readFileSync(join(out, f), "utf8")).join("\n");
+/** Every stylesheet a chunk brings, its static imports' included: Vite's preload fetches them all before the chunk resolves. */
+const chunkCss = (key: string, seen = new Set<string>()): string[] => {
+  if (seen.has(key)) return [];
+  seen.add(key);
+  const chunk = manifest[key];
+  return [...(chunk?.css ?? []), ...(chunk?.imports ?? []).flatMap((k) => chunkCss(k, seen))];
+};
 /** A class selector as written in CSS, not as a prefix of a longer one (`.tv` is not `.tv-shelf`). */
 const hasSelector = (sheet: string, sel: string): boolean => new RegExp(`\\${sel}(?![\\w-])`).test(sheet);
 
@@ -56,15 +63,15 @@ describe("room-only CSS stays off the site pages", () => {
   });
 
   test("the directory chunk brings no room CSS either", () => {
-    const home = manifest["src/home.ts"];
-    expect(home).toBeDefined();
-    expect(ROOM_ONLY.filter((sel) => hasSelector(css(home?.css ?? []), sel))).toEqual([]);
+    expect(manifest["src/home.ts"]).toBeDefined();
+    expect(ROOM_ONLY.filter((sel) => hasSelector(css(chunkCss("src/home.ts")), sel))).toEqual([]);
   });
 });
 
 describe("the room's chrome loads with the room", () => {
   test("the room chunk carries the room stylesheet, so Vite loads it before room.ts resolves", () => {
-    const sheet = css(manifest["src/room.ts"]?.css ?? []);
+    expect(manifest["src/room.ts"]).toBeDefined();
+    const sheet = css(chunkCss("src/room.ts"));
     expect(ROOM_ONLY.filter((sel) => !hasSelector(sheet, sel))).toEqual([]);
   });
 
@@ -72,6 +79,9 @@ describe("the room's chrome loads with the room", () => {
     test(`the ${page} pop-out links the room stylesheet in its head`, () => {
       const sheet = css(linkedCss(page));
       expect([".ui-bubble", ".ui-fs", ".chat-log", ".ui-panel"].filter((sel) => !hasSelector(sheet, sel))).toEqual([]);
+      // The site base first, the room chrome over it: a room rule wins a tie with a base rule, as it does in the room tab.
+      expect(sheet.indexOf("color-scheme:dark")).toBeGreaterThanOrEqual(0);
+      expect(sheet.indexOf("color-scheme:dark")).toBeLessThan(sheet.indexOf(".ui-bubble"));
     });
   }
 });
