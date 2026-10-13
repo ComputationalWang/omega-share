@@ -14,10 +14,12 @@ const entrypoints = new URL("../src/entrypoints/", import.meta.url);
 const popupHtml = readFileSync(new URL("popup/index.html", entrypoints), "utf8");
 const popupCss = readFileSync(new URL("popup/style.css", entrypoints), "utf8");
 const optionsHtml = readFileSync(new URL("options/index.html", entrypoints), "utf8");
+// The OME-1041 popup kit, linked before the popup's own stylesheet.
+const kitCss = readFileSync(new URL("../../../../assets/ui/popup/kit.css", entrypoints), "utf8");
 
 function render(html: string): Window {
   const window = new Window({ settings: { disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
-  window.document.write(html.replace(/<link[^>]*>/, `<style>${popupCss}</style>`));
+  window.document.write(html.replace(/<link[^>]*href="\/popup\/kit\.css"[^>]*>/, `<style>${kitCss}</style>`).replace(/<link[^>]*>/, `<style>${popupCss}</style>`));
   return window;
 }
 
@@ -60,7 +62,7 @@ describe.each(pages)("$name legal footer", ({ html, css }) => {
   });
 });
 
-test("the popup keeps its 320 px width", () => {
+test("the popup is the kit's 340 px wide panel (OME-1043)", () => {
   const window = render(popupHtml);
-  expect(window.getComputedStyle(window.document.body).width).toBe("320px");
+  expect(window.getComputedStyle(window.document.body).width).toBe("340px");
 });

@@ -140,6 +140,16 @@ for (const { name: mode, browser, hostPermissions, permissions } of cases) {
         expect(readFileSync(join(outDir(mode), "popup", file)).equals(readFileSync(join(REPO, "assets", "ui", "popup", file))), file).toBe(true);
       }
     });
+
+    test("ships the popup kit and every slice it references, byte for byte from assets/ui (OME-1043)", () => {
+      const same = (out: string, src: string): boolean => readFileSync(join(outDir(mode), out)).equals(readFileSync(join(REPO, "assets", "ui", src)));
+      expect(readFileSync(join(outDir(mode), "popup.html"), "utf8")).toContain('href="/popup/kit.css"');
+      expect(same("popup/kit.css", "popup/kit.css")).toBe(true);
+      expect(same("popup/kit.png", "popup/kit.png")).toBe(true);
+      const slices = [...readFileSync(join(REPO, "assets", "ui", "popup", "kit.css"), "utf8").matchAll(/\.\.\/slices\/([\w-]+\.png)/g)].map((m) => m[1] ?? "");
+      expect(new Set(slices).size).toBe(17);
+      for (const file of slices) expect(same(`slices/${file}`, `slices/${file}`), file).toBe(true);
+    });
   });
 }
 

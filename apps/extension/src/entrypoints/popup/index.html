@@ -4,27 +4,33 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>omega share</title>
+    <!-- The OME-1041 pixel kit (assets/ui/popup/kit.css, copied in by wxt.config.ts), then the popup's own rules. -->
+    <link rel="stylesheet" href="/popup/kit.css" />
     <link rel="stylesheet" href="./style.css" />
   </head>
-  <body>
-    <main>
-      <h1>Share a video</h1>
-      <p id="scanning" data-testid="embeds-loading">Looking for videos…</p>
-      <ul id="embeds" data-testid="embed-list"></ul>
-      <p id="empty" class="vignette" data-testid="embeds-empty" hidden><img src="/popup/nothing-found.png" srcset="/popup/nothing-found.png 1x, /popup/nothing-found@2x.png 2x" width="48" height="40" alt="" />No supported video found on this page.</p>
-      <p id="unreadable" class="vignette" data-testid="embeds-unreadable" hidden><img src="/popup/cant-read.png" srcset="/popup/cant-read.png 1x, /popup/cant-read@2x.png 2x" width="48" height="40" alt="" />Can't read this tab. Open a regular web page and try again.</p>
+  <body class="pk">
+    <main class="ui-panel pk-main">
+      <h1 class="pk-head"><span class="pk-sprite pk-icon-tv" aria-hidden="true"></span>Share a video<span id="host" class="host"></span></h1>
+      <p id="scanning" class="pk-state" role="status" data-testid="embeds-loading"><span class="pk-sprite pk-glyph-dots-0 ui-dots" aria-hidden="true"></span>Looking for videos…</p>
+      <p id="empty" class="pk-state" data-testid="embeds-empty" hidden><img src="/popup/nothing-found.png" srcset="/popup/nothing-found.png 1x, /popup/nothing-found@2x.png 2x" width="48" height="40" alt="" />No supported video found on this page.</p>
+      <p id="unreadable" class="pk-state" data-testid="embeds-unreadable" hidden><img src="/popup/cant-read.png" srcset="/popup/cant-read.png 1x, /popup/cant-read@2x.png 2x" width="48" height="40" alt="" />Can't read this tab. Open a regular web page and try again.</p>
       <form id="share-form" hidden>
-        <label>Room <select id="room" data-testid="room-select"></select></label>
-        <button type="submit" id="share" data-testid="share-button">Share</button>
-        <button type="submit" id="queue" data-testid="queue-button">Add to queue</button>
+        <fieldset class="pk-list"><legend>Videos on this page</legend><ul id="embeds" data-testid="embed-list"></ul></fieldset>
+        <label class="pk-room">Room<span class="pk-field"><select id="room" class="ui-input" data-testid="room-select"></select><span class="pk-sprite pk-chevron" aria-hidden="true"></span></span></label>
+        <div class="pk-keys">
+          <button type="submit" id="share" class="ui-button" data-testid="share-button"><span class="pk-sprite pk-icon-share" aria-hidden="true"></span>Share</button>
+          <button type="submit" id="queue" class="ui-button secondary" data-testid="queue-button"><span class="pk-sprite pk-icon-queue-add" aria-hidden="true"></span>Add to queue</button>
+        </div>
       </form>
       <p id="status" data-testid="share-status" role="status" hidden></p>
-      <p id="server-status" class="vignette" data-testid="server-status" role="status" hidden><img id="server-away" hidden src="/popup/server-away.png" srcset="/popup/server-away.png 1x, /popup/server-away@2x.png 2x" width="48" height="40" alt="" /><span id="server-message"></span></p>
-      <button type="button" id="options" class="link" data-testid="open-options">Server settings</button>
-      <footer class="legal" data-testid="legal-links">
-        <a href="https://omega-share.duckdns.org/privacy.html#extension" target="_blank" rel="noreferrer noopener">Privacy</a>
-        <a href="https://omega-share.duckdns.org/terms.html" target="_blank" rel="noreferrer noopener">Terms</a>
-        <a href="https://omega-share.duckdns.org/licenses.html" target="_blank" rel="noreferrer noopener">Licences</a>
+      <p id="server-status" class="pk-state" data-testid="server-status" role="status" hidden><img id="server-away" hidden src="/popup/server-away.png" srcset="/popup/server-away.png 1x, /popup/server-away@2x.png 2x" width="48" height="40" alt="" /><span id="server-message"></span></p>
+      <footer class="pk-foot">
+        <button type="button" id="options" class="pk-link" data-testid="open-options">Server settings</button>
+        <span class="legal" data-testid="legal-links">
+          <a href="https://omega-share.duckdns.org/privacy.html#extension" target="_blank" rel="noreferrer noopener">Privacy</a>
+          <a href="https://omega-share.duckdns.org/terms.html" target="_blank" rel="noreferrer noopener">Terms</a>
+          <a href="https://omega-share.duckdns.org/licenses.html" target="_blank" rel="noreferrer noopener">Licences</a>
+        </span>
       </footer>
     </main>
     <script type="module" src="./main.ts"></script>

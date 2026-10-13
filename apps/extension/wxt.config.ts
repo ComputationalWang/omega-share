@@ -1,10 +1,11 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "wxt";
 import { defaultServerBaseUrl, hostPermissionPattern } from "./src/settings";
 
 /** Toolbar and store icons: the original art in `assets/store/` (R1, OME-509), copied in at build time so there is one source. */
 const ICON_SIZES = ["16", "32", "48", "128"] as const;
-/** Popup state vignettes (OME-842 art, used by OME-857), copied in the same way. */
+/** Popup state vignettes (OME-842 art, used by OME-857) and the popup kit (OME-1043), copied in the same way. */
 const POPUP_VIGNETTES = ["nothing-found", "cant-read", "server-away"].flatMap((name) => [`${name}.png`, `${name}@2x.png`]);
 const FOUND_ICON_SIZES = ["16", "32", "48", "64"] as const;
 const icons = Object.fromEntries(ICON_SIZES.map((size) => [size, `icon/${size}.png`]));
@@ -41,8 +42,12 @@ export default defineConfig({
       for (const name of [...FOUND_ICON_SIZES.map((size) => `found-${size}`), "icon-64"]) {
         files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/store/${name}.png`, import.meta.url)), relativeDest: `icon/${name.replace("icon-", "idle-")}.png` });
       }
-      for (const file of POPUP_VIGNETTES) {
+      for (const file of [...POPUP_VIGNETTES, "kit.css", "kit.png"]) {
         files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/ui/popup/${file}`, import.meta.url)), relativeDest: `popup/${file}` });
+      }
+      // The popup kit's 9-slices (OME-1041): exactly the ones kit.css names, so the list has one source.
+      for (const file of new Set(Array.from(readFileSync(new URL("../../assets/ui/popup/kit.css", import.meta.url), "utf8").matchAll(/\.\.\/slices\/([\w-]+\.png)/g), (m) => String(m[1])))) {
+        files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/ui/slices/${file}`, import.meta.url)), relativeDest: `slices/${file}` });
       }
     },
     // Firefox would embed the options page in about:addons, where the permissions.request gesture is untested: use a tab.
