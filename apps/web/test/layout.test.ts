@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT } from "@omega/shared";
 import { seatPoints, standingPoints } from "../src/furniture";
-import { STAGE_H, STAGE_W, SYSLINE_RAIL, bubbleRect, roomLayout, stageToPage, tagRect, type Rect } from "../src/layout";
+import { ROOM_VIEW, STAGE_H, STAGE_W, SYSLINE_RAIL, bubbleRect, cellCenter, roomLayout, stageTransform, stageToPage, tagRect, type Rect } from "../src/layout";
 
 const SEATS = seatPoints(DEFAULT_LAYOUT);
 const STANDING = standingPoints(DEFAULT_LAYOUT);
@@ -117,6 +117,47 @@ describe("roomLayout: TV frame", () => {
     expect(shelfInk(l).y + shelfInk(l).h).toBeLessThanOrEqual(l.stage.y);
   });
 });
+
+// OME-1050 (board): the room filled only part of the 960×600 stage (nothing above the wall art, nothing under the caption
+// rail), so fitting the whole stage left the room small under an empty band. Layouts fit ROOM_VIEW, the part it uses.
+describe("ROOM_VIEW: the part of the stage the page shows", () => {
+  test("is the stage's full width, cropped top and bottom", () => {
+    expect(ROOM_VIEW.x).toBe(0);
+    expect(ROOM_VIEW.w).toBe(STAGE_W);
+    expect(ROOM_VIEW.y).toBeGreaterThan(0);
+    expect(ROOM_VIEW.y + ROOM_VIEW.h).toBeLessThan(STAGE_H);
+  });
+
+  test("holds the floor, the tallest wall art (y 113, assets/furniture) with bubble headroom, and the caption rail", () => {
+    for (const [c, r] of [[0, 0], [9, 9]] as const) {
+      const p = cellCenter(c, r);
+      expect(inside({ x: p.x, y: p.y - 16, w: 0, h: 32 }, ROOM_VIEW)).toBe(true);
+    }
+    expect(ROOM_VIEW.y).toBeLessThanOrEqual(113 - 48);
+    expect(inside(SYSLINE_RAIL, ROOM_VIEW)).toBe(true);
+  });
+
+  test("holds every seat's and standing spot's bubble box and name tag", () => {
+    for (const p of spotsOf()) {
+      expect(inside(bubbleRect(p), ROOM_VIEW)).toBe(true);
+      expect(inside(tagRect(p), ROOM_VIEW)).toBe(true);
+    }
+  });
+
+  test("the stage's transform puts ROOM_VIEW's corner at the clip's corner", () => {
+    expect(stageTransform(1.5)).toBe(`translate(0px, ${String(-ROOM_VIEW.y * 1.5)}px) scale(1.5)`);
+    const l = roomLayout(1920);
+    expect(stageToPage(l, { x: 0, y: ROOM_VIEW.y, w: 10, h: 10 })).toEqual({ x: l.stage.x, y: l.stage.y, w: 10 * l.scale, h: 10 * l.scale });
+  });
+
+  test("the desktop stack's stage box is ROOM_VIEW scaled", () => {
+    const l = roomLayout(800);
+    expect(l.stage.w).toBeCloseTo(ROOM_VIEW.w * l.scale, 5);
+    expect(l.stage.h).toBeCloseTo(ROOM_VIEW.h * l.scale, 5);
+  });
+});
+
+const spotsOf = () => [...SEATS, ...STANDING];
 
 describe("SYSLINE_RAIL: the chat system-line caption rail", () => {
   test("sits inside the stage", () => {

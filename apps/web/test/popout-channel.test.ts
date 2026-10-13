@@ -94,7 +94,7 @@ describe("whole-room window messages (OME-600)", () => {
       { ...VIEW, room: { ...ROOM, members: [{ ...MEMBER, nickname: "x".repeat(100) }] } },
       { ...VIEW, status: "lost" },
       { ...VIEW, self: "<script>" },
-      { ...VIEW, bubbles: Array.from({ length: 51 }, (_, i) => ({ id: i, memberId: `m${String(i % 25)}`, text: "b", expiresAt: 1 })) },
+      { ...VIEW, bubbles: Array.from({ length: 251 }, (_, i) => ({ id: i, memberId: `m${String(i % 25)}`, text: "b", expiresAt: 1 })) },
       { ...VIEW, bubbles: [{ id: 1, memberId: "m1", text: "x".repeat(400), expiresAt: 1 }] },
       { ...VIEW, bubbles: [{ memberId: "m1", text: "no id", expiresAt: 1 }] },
       { ...VIEW, syslines: Array.from({ length: 10 }, (_, i) => ({ glyph: "play", actor: null, verb: "v", time: null, id: i, expiresAt: 1 })) },

@@ -1,6 +1,6 @@
-// Floating chat bubbles (OME-730, M8 W1, set l): a message floats over its speaker from a fixed pool of 8 DOM nodes in
+// Floating chat bubbles (OME-730, M8 W1, set l): a message floats over its speaker from a fixed pool of 16 DOM nodes in
 // an aria-hidden layer (the chat log is the accessible record), costs the room no canvas render, never overlaps
-// another bubble, and keeps at most 2 per speaker. Pool reuse, stacking maths and the per-event rule are unit tests
+// another bubble, and keeps at most 10 per speaker (OME-1050). Pool reuse, stacking maths and the per-event rule are unit tests
 // (apps/web/test/floats.test.ts); the frame budgets with a chat burst are perf/chat.perf.ts and its siblings.
 import type { Page } from "@playwright/test";
 import * as v from "valibot";
@@ -52,7 +52,7 @@ async function settledRenders(page: Page): Promise<number> {
   return last;
 }
 
-test("the layer is aria-hidden with no live region, holds 8 nodes, and a bubble costs the room no render", async ({ browser }) => {
+test("the layer is aria-hidden with no live region, holds 16 nodes, and a bubble costs the room no render", async ({ browser }) => {
   // Reduced motion: an avatar at rest doesn't breathe, so any render after the room settles would be the bubble's.
   clients = await joinRoom(browser, { roomUrl: testRoom("bubbles", "renders").url, count: 2, nicknamePrefix: "br", contextOptions: () => ({ reducedMotion: "reduce" }) });
   const [a, b] = clients;
@@ -60,7 +60,7 @@ test("the layer is aria-hidden with no live region, holds 8 nodes, and a bubble 
   const layer = a.page.locator(`${site.room} .bubbles`);
   await expect(layer).toHaveAttribute("aria-hidden", "true");
   await expect(layer).not.toHaveAttribute("aria-live", /.*/);
-  await expect(layer.locator(".float-slot")).toHaveCount(8);
+  await expect(layer.locator(".float-slot")).toHaveCount(16);
   await expect(a.page.locator(site.chatLog)).toHaveAttribute("aria-live", "polite");
   await expect(a.page.locator(`${site.room} [role=log], ${site.room} [aria-live]`)).toHaveCount(1); // only the sysline rail
 
@@ -71,7 +71,7 @@ test("the layer is aria-hidden with no live region, holds 8 nodes, and a bubble 
   await expect(a.page.locator(".ui-float.is-self")).toHaveCount(1);
   await a.page.waitForTimeout(1000);
   expect(await roomRenders(a.page)).toBe(before);
-  await expect(layer.locator(".float-slot")).toHaveCount(8);
+  await expect(layer.locator(".float-slot")).toHaveCount(16);
 });
 
 test("two bubbles from one speaker never overlap: the older one moves up, 3 px clear, and names its speaker", async ({ browser }) => {
@@ -125,16 +125,17 @@ test("a stacked bubble is exactly the size its never-painted twin measured: shor
   }
 });
 
-test("2 per speaker: a third line sends the oldest away; the bubbles fade out after about 5 s", async ({ browser }) => {
+// The 11th-line eviction is a unit test: the server's chat limit (5 at once, then 1/s) can't fit 11 lines in a 5 s life.
+test("up to 10 per speaker (OME-1050): three quick lines all float; the bubbles fade out after about 5 s", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("bubbles", "caps").url, count: 1, nicknamePrefix: "bc" });
   const [a] = clients;
   if (a === undefined) throw new Error("no client");
   await say(a.page, "one");
   await say(a.page, "two");
   await say(a.page, "three");
-  await expect(a.page.locator(site.chatMessage)).toHaveText(["two", "three"], { useInnerText: true });
+  await expect(a.page.locator(site.chatMessage)).toHaveText(["one", "two", "three"], { useInnerText: true });
   await expect(a.page.locator(site.chatMessage)).toHaveCount(0, { timeout: 7000 });
-  await expect(a.page.locator(`${site.room} .float-slot`)).toHaveCount(8);
+  await expect(a.page.locator(`${site.room} .float-slot`)).toHaveCount(16);
 });
 
 /** The bubble's box against where it should hang: centred on the head (left = -width/2), the tail straight down. */

@@ -20,7 +20,7 @@ import { mountErrorText, playerErrorText, providerHint } from "./controls/player
 import { chatIntent, sitIntent } from "./intents";
 import { layoutOf } from "./furniture";
 import { createPendingApplier } from "./pending-layout";
-import { FS_STRIP_W, PHONE_QUERY, STAGE_H, STAGE_W, TAG_OFFSET_Y, WIDE_QUERY, fullscreenLayout, portraitLayout, roomLayout, wideLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_QUERY, STAGE_H, STAGE_W, TAG_OFFSET_Y, WIDE_QUERY, fullscreenLayout, portraitLayout, roomLayout, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createFullscreen, type FullscreenMode } from "./fullscreen";
 import { createRoomWindow } from "./room-window";
 import type { PlayerError } from "./player/adapter";
@@ -797,7 +797,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if ("stage" in l) {
         box(clip, l.stage);
         roomWindow.set(false, 0, 0);
-        stage.style.transform = `scale(${String(l.scale)})`;
+        stage.style.transform = stageTransform(l.scale);
       }
       wrap.style.height = "";
       return;
@@ -821,7 +821,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (onPhone) roomWindow.set(true, l.stage.w, l.stage.h);
     else {
       roomWindow.set(false, 0, 0);
-      stage.style.transform = `scale(${String(l.scale)})`;
+      stage.style.transform = stageTransform(l.scale);
     }
     // The room popped out: the wrap ends where the stage would start, and the placeholder follows it.
     wrap.style.height = portraitOn ? "" : `${String(roomOut() ? l.stage.y : l.height)}px`;
