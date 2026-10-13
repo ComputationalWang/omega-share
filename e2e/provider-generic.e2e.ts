@@ -135,9 +135,10 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     const fit = await room.getByTestId("generic-hint").evaluate((h) => {
       const strip = h.parentElement?.getBoundingClientRect();
       const slot = h.parentElement?.parentElement?.getBoundingClientRect();
-      return { inSlot: !!strip && !!slot && strip.right <= slot.right + 0.5, whole: h.scrollWidth <= h.clientWidth };
+      const at = `hint ${h.scrollWidth}/${h.clientWidth}, strip ${strip?.width}, slot ${slot?.width}, font ${getComputedStyle(h).fontFamily}`;
+      return { inSlot: !!strip && !!slot && strip.right <= slot.right + 0.5, whole: h.scrollWidth <= h.clientWidth, at };
     });
-    expect(fit).toEqual({ inSlot: true, whole: true });
+    expect({ inSlot: fit.inSlot, whole: fit.whole }, fit.at).toEqual({ inSlot: true, whole: true });
     for (const id of ["generic-hint", "not-synced"]) {
       const lines = await room.getByTestId(id).evaluate((e) => {
         const r = document.createRange();
