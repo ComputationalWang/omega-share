@@ -45,6 +45,11 @@ describe("buildSourcesPackage", () => {
       "assets/ui/popup/nothing-found.png",
       "assets/ui/popup/cant-read@2x.png",
       "assets/ui/popup/server-away.png",
+      // The popup kit and its slices (OME-1043).
+      "assets/ui/popup/kit.css",
+      "assets/ui/popup/kit.png",
+      "assets/ui/slices/panel-0.png",
+      "assets/ui/slices/chat-system.png",
       // The other workspaces' manifests, so `bun install --frozen-lockfile` sees the lockfile's workspace set.
       "apps/web/package.json",
       "apps/server/package.json",

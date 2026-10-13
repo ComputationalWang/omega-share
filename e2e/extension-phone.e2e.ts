@@ -81,7 +81,10 @@ for (const [width, height] of [[360, 740], [412, 915]] as const) {
       const f = await popup.evaluate(() => {
         const e = document.activeElement;
         if (e === null || e === document.body) return null;
-        const s = getComputedStyle(e);
+        // An embed's radio is visually hidden inside its row (OME-1043): the row carries the ring.
+        const ring = e.matches("[data-testid=embed-item] input") ? e.closest("label") : e;
+        if (ring === null) return null;
+        const s = getComputedStyle(ring);
         return { id: e.id !== "" ? e.id : (e.getAttribute("name") ?? e.tagName), visible: s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0 && e.matches(":focus-visible") };
       });
       if (f === null) continue;
