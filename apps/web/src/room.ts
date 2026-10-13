@@ -29,6 +29,7 @@ import { createStage, type Stage } from "./stage";
 import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
 import { genericFrame, tvFrame, type TvFrame } from "./tv";
 import { createGenericTv } from "./controls/generic-tv";
+import type { ExtensionBridge } from "./extension-bridge";
 import type { Editor } from "./editor/editor";
 import type { Moderation } from "./owner/moderation";
 import { createEmotePicker } from "./emote/picker";
@@ -55,6 +56,8 @@ export interface RoomOptions {
   readonly secret: RoomSecret | undefined;
   /** Where `omega.rooms` lives: a closed room is forgotten. */
   readonly secrets: SecretsStore;
+  /** The page's bridge to the Omega Share extension, for "Unlock with extension" (ADR 0047). */
+  readonly extension: ExtensionBridge;
   /** The site origin the invite link starts with. */
   readonly origin: string;
   /** The server's HTTP origin, for the owner's `DELETE /rooms/:id`. */
@@ -1187,6 +1190,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const nextKey = tf?.key ?? null;
     if (nextKey !== tvKey) {
       tvKey = nextKey;
+      opts.extension.relock();
       showSyncChrome(true);
       const provider = tf === null ? null : (embed?.provider ?? null);
       if (provider !== tvProvider) {
@@ -1229,6 +1233,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const nextKey = gf === null ? null : `generic:${itemId ?? ""}:${gf.key}`;
     if (nextKey === tvKey) return;
     tvKey = nextKey;
+    opts.extension.relock();
     tvScreen = null;
     syncNotice.hidden = true;
     tvHint.hidden = true;
@@ -1243,7 +1248,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       tv.replaceChildren(tvEmpty);
       return;
     }
-    const g = createGenericTv(gf);
+    const g = createGenericTv(gf, opts.extension);
     tv.replaceChildren(g.screen);
     controls.replaceChildren(g.strip, fsKey);
   };

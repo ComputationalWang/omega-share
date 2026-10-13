@@ -2,6 +2,7 @@
 // Three views on one page (Dusk doorstep, OME-935): entry (the form), directory (find or make a room, `/` only) and room.
 // `<html data-view>` scopes the site styles to entry/directory, so the room's own layouts never see them.
 import { DEFAULT_ROOM_ID, type Avatar, type Nickname, type ResumeToken } from "@omega/shared";
+import { createExtensionBridge } from "./extension-bridge";
 import { loadProfile, saveProfile, validateNickname } from "./profile";
 import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
 import { loadRoomSecrets, secretFor, takeInviteKey, type SecretsStore } from "./room-secrets";
@@ -49,6 +50,8 @@ const storage: SecretsStore = {
 const invited = takeInviteKey(location, history, storage, pathRoom);
 const roomId = pathRoom ?? DEFAULT_ROOM_ID;
 const serverUrl = serverBaseUrl(import.meta.env.VITE_SERVER_URL, location, import.meta.env.DEV);
+// Before the room chunk loads: the extension says `present` once, at page load (ADR 0047 §5).
+const extension = createExtensionBridge(window);
 const debug = { roomId, room: null as RoomHandle | null };
 // The test handle: dev builds, and the perf runner's build (VITE_TEST_HANDLE=1) so its harness can send leave (ADR 0043).
 // Inline on purpose: Vite turns both into literals and a production build drops the line (OME-1007).
@@ -125,6 +128,7 @@ const enterRoom = (nickname: Nickname, as: Avatar, resumeToken?: ResumeToken): v
         secrets: storage,
         origin: location.origin,
         serverUrl,
+        extension,
       });
     })
     .then((room) => {
