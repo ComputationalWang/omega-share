@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { build } from "wxt";
@@ -8,6 +8,10 @@ import { build } from "wxt";
 // the shipped and e2e builds carry exactly this CSP and no permissions beyond ADR 0005.
 const CSP = "script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 const PERMISSIONS = ["activeTab", "scripting", "storage"];
+// ADR 0047 §4 (OME-1040): "Unlock with extension". Optional in Chromium, requested with the one host; Firefox can't make it
+// optional, so it is install-time there (no prompt, acts only on granted hosts). The e2e builds hold it, because
+// Playwright can't click the browser's permission prompt.
+const DNR = "declarativeNetRequestWithHostAccess";
 // Remote servers are https only (parseServerBaseUrl); cleartext only on loopback, any port.
 const OPTIONAL_HOST_PERMISSIONS = ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"];
 const ROOT = join(import.meta.dir, "..");
@@ -28,15 +32,16 @@ const GECKO = {
 const GECKO_ANDROID = { strict_min_version: "142.0" };
 const PRODUCTION_HOSTS = ["https://omega-share.duckdns.org/*"];
 // Port-less: Firefox never matches a pattern with a port, and http://localhost/* covers the default server on :8787.
-const E2E_HOSTS = ["http://localhost/*", "https://www.youtube.com/*"];
+// The unlock fixture host (e2e/unlock.e2e.ts), pre-granted like a host the viewer already allowed.
+const E2E_HOSTS = ["http://localhost/*", "https://www.youtube.com/*", "http://xfo.omega-fixture.net/*", "https://xfo.omega-fixture.net/*"];
 
 const cases = [
-  { name: "production", browser: "chrome", mode: "production", hostPermissions: PRODUCTION_HOSTS },
-  { name: "e2e", browser: "chrome", mode: "e2e", hostPermissions: E2E_HOSTS },
-  { name: "firefox production", browser: "firefox", mode: "production", hostPermissions: PRODUCTION_HOSTS },
-  { name: "firefox e2e", browser: "firefox", mode: "e2e", hostPermissions: E2E_HOSTS },
+  { name: "production", browser: "chrome", mode: "production", hostPermissions: PRODUCTION_HOSTS, permissions: PERMISSIONS },
+  { name: "e2e", browser: "chrome", mode: "e2e", hostPermissions: E2E_HOSTS, permissions: [...PERMISSIONS, DNR] },
+  { name: "firefox production", browser: "firefox", mode: "production", hostPermissions: PRODUCTION_HOSTS, permissions: [...PERMISSIONS, DNR] },
+  { name: "firefox e2e", browser: "firefox", mode: "e2e", hostPermissions: E2E_HOSTS, permissions: [...PERMISSIONS, DNR] },
   // A run on another OMEGA_SERVER_PORT needs nothing extra: http://localhost/* covers every port (QA OME-611, OME-687).
-  { name: "firefox e2e on :8987", browser: "firefox", mode: "e2e", serverPort: "8987", hostPermissions: E2E_HOSTS },
+  { name: "firefox e2e on :8987", browser: "firefox", mode: "e2e", serverPort: "8987", hostPermissions: E2E_HOSTS, permissions: [...PERMISSIONS, DNR] },
 ] as const;
 
 const outRoot = mkdtempSync(join(tmpdir(), "omega-ext-manifest-"));
@@ -60,7 +65,7 @@ afterAll(() => {
   rmSync(outRoot, { recursive: true, force: true });
 });
 
-for (const { name: mode, browser, hostPermissions } of cases) {
+for (const { name: mode, browser, hostPermissions, permissions } of cases) {
   describe(`built manifest (${mode})`, () => {
     test("has exactly the extension_pages CSP", () => {
       expect(manifests.get(mode)).toHaveProperty("content_security_policy", { extension_pages: CSP });
@@ -68,11 +73,12 @@ for (const { name: mode, browser, hostPermissions } of cases) {
 
     test("asks for no new permissions, and no <all_urls> or cleartext wildcard", () => {
       expect(manifests.get(mode)).toMatchObject({
-        permissions: PERMISSIONS,
+        permissions,
         host_permissions: hostPermissions,
         optional_host_permissions: OPTIONAL_HOST_PERMISSIONS,
       });
-      expect(manifests.get(mode)).not.toHaveProperty("optional_permissions");
+      if (browser === "firefox") expect(manifests.get(mode)).not.toHaveProperty("optional_permissions");
+      else expect(manifests.get(mode)).toHaveProperty("optional_permissions", [DNR]);
       expect(JSON.stringify(manifests.get(mode))).not.toMatch(/<all_urls>|\*:\/\/\*|http:\/\/\*\//);
       // No port in any host pattern: Firefox would never match it (QA OME-687).
       expect(JSON.stringify(manifests.get(mode))).not.toMatch(/:\d+\/\*/);
@@ -80,6 +86,9 @@ for (const { name: mode, browser, hostPermissions } of cases) {
 
     test("no content scripts and a non-persistent background (a service worker in Chrome, an event page in Firefox)", () => {
       expect(manifests.get(mode)).not.toHaveProperty("content_scripts");
+      // The ADR 0047 bridge is registered at runtime, on our origin only, and ships as a file.
+      expect(existsSync(join(outDir(mode), "content-scripts", "bridge.js"))).toBe(true);
+      expect(manifests.get(mode)).not.toHaveProperty("web_accessible_resources");
       const background = browser === "firefox" ? { scripts: ["background.js"] } : { service_worker: "background.js" };
       expect(manifests.get(mode)).toHaveProperty("background", background);
     });
@@ -98,6 +107,10 @@ for (const { name: mode, browser, hostPermissions } of cases) {
         expect(manifests.get(mode)).toHaveProperty("options_ui.open_in_tab", false);
       });
     }
+
+    test("ships the unlock consent page (ADR 0047 §5)", () => {
+      expect(readFileSync(join(outDir(mode), "consent.html"), "utf8")).toContain("play in your omega-share room?");
+    });
 
     test("takes its version from package.json", () => {
       expect(manifests.get(mode)).toHaveProperty("version", VERSION);
@@ -144,8 +157,16 @@ test("only the e2e builds carry the background's e2e popup opener", () => {
   for (const name of ["production", "firefox production"]) expect(code(name)).not.toContain("omega-e2e-popup");
 });
 
-test("the store builds' background stays empty: no e2e code or its imports bundled in (OME-593)", () => {
+// It was empty until the ADR 0047 unlock (OME-1040), which parses bridge messages (valibot, the generic host rules) and
+// owns the session rules. It wakes on events only and never reaches the popup's path.
+test("the store builds' background stays small: the unlock only, no e2e code or its imports (OME-593, OME-1040)", () => {
   for (const name of ["production", "firefox production"]) {
-    expect(readFileSync(join(outDir(name), "background.js")).byteLength, name).toBeLessThan(2048);
+    expect(readFileSync(join(outDir(name), "background.js")).byteLength, name).toBeLessThan(32 * 1024);
+  }
+});
+
+test("the bridge content script stays a few KB: it runs on every page load of our own site (ADR 0047 §6)", () => {
+  for (const name of ["production", "firefox production"]) {
+    expect(readFileSync(join(outDir(name), "content-scripts", "bridge.js")).byteLength, name).toBeLessThan(16 * 1024);
   }
 });

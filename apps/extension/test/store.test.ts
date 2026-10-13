@@ -58,6 +58,8 @@ describe("checkStoreManifest (the packaging guard)", () => {
     permissions: ["activeTab", "scripting", "storage"],
     host_permissions: ["https://omega-share.duckdns.org/*"],
     optional_host_permissions: ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"],
+    // ADR 0047 §4 (OME-1040): requested with the one host on "Unlock with extension".
+    optional_permissions: ["declarativeNetRequestWithHostAccess"],
     background: { service_worker: "background.js" },
   };
 
@@ -71,7 +73,10 @@ describe("checkStoreManifest (the packaging guard)", () => {
     ["<all_urls>", { ...good, host_permissions: ["<all_urls>"] }, /host_permissions/],
     ["an extra permission", { ...good, permissions: [...good.permissions, "tabs"] }, /permissions/],
     ["a cleartext optional wildcard", { ...good, optional_host_permissions: ["http://*/*", "https://*/*"] }, /optional_host_permissions/],
-    ["optional API permissions", { ...good, optional_permissions: ["downloads"] }, /optional_permissions/],
+    ["another optional API permission", { ...good, optional_permissions: ["declarativeNetRequestWithHostAccess", "downloads"] }, /optional_permissions/],
+    ["plain declarativeNetRequest (warns about blocking every page)", { ...good, optional_permissions: ["declarativeNetRequest"] }, /optional_permissions/],
+    ["no optional DNR permission (Unlock with extension can't ask for it)", { ...good, optional_permissions: undefined }, /optional_permissions/],
+    ["the DNR permission at install time", { ...good, permissions: [...good.permissions, "declarativeNetRequestWithHostAccess"] }, /permissions/],
     ["content scripts", { ...good, content_scripts: [{ matches: ["https://*/*"], js: ["c.js"] }] }, /content_scripts/],
     ["a persistent background page", { ...good, background: { scripts: ["bg.js"], persistent: true } }, /background/],
     ["a version that isn't package.json's", { ...good, version: "0.0.1" }, /version/],
@@ -107,6 +112,8 @@ describe("checkStoreManifest for Firefox (OME-593)", () => {
   const geckoAndroid = { strict_min_version: "142.0" };
   const good = {
     ...chromeKeys,
+    // ADR 0047 §4 (OME-1040): Firefox can't make it optional; it has no prompt and acts only on granted hosts.
+    permissions: [...chromeKeys.permissions, "declarativeNetRequestWithHostAccess"],
     background: { scripts: ["background.js"] },
     options_ui: { page: "options.html", open_in_tab: true },
     browser_specific_settings: { gecko, gecko_android: geckoAndroid },
@@ -139,6 +146,8 @@ describe("checkStoreManifest for Firefox (OME-593)", () => {
     ["options inside about:addons", { ...good, options_ui: { page: "options.html", open_in_tab: false } }, /open_in_tab/],
     ["the e2e build's extra host permissions", { ...good, host_permissions: [...good.host_permissions, "http://localhost/*"] }, /host_permissions/],
     ["an extra permission", { ...good, permissions: [...good.permissions, "tabs"] }, /permissions/],
+    ["no DNR permission", { ...good, permissions: chromeKeys.permissions }, /permissions/],
+    ["optional API permissions", { ...good, optional_permissions: ["declarativeNetRequestWithHostAccess"] }, /optional_permissions/],
     ["content scripts", { ...good, content_scripts: [{ matches: ["https://*/*"], js: ["c.js"] }] }, /content_scripts/],
   ];
   for (const [name, manifest, problem] of bad) {

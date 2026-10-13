@@ -753,6 +753,8 @@
         "e2e/provider-generic.e2e.ts",
         "e2e/provider-share.e2e.ts",
         "e2e/qa-rooms-extension.e2e.ts",
+        "e2e/unlock.e2e.ts",
+        "e2e/unlock.firefox.ts",
         "perf/extension-firefox.perf.ts",
         "perf/extension.perf.ts"
       ]

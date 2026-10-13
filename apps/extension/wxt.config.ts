@@ -20,6 +20,7 @@ const GECKO = {
   strict_min_version: "140.0",
   data_collection_permissions: { required: ["websiteContent", "browsingActivity", "authenticationInfo"] },
 } as const;
+const UNLOCK_PERMISSION = "declarativeNetRequestWithHostAccess";
 /** Firefox for Android (OME-743, board): 142 is the first Android release that reads `data_collection_permissions`. */
 const GECKO_ANDROID = { strict_min_version: "142.0" } as const;
 
@@ -50,13 +51,18 @@ export default defineConfig({
     description: "Share the video on this page into an omega-share room.",
     icons,
     action: { default_icon: icons },
-    permissions: ["activeTab", "scripting", "storage"],
+    // "Unlock with extension" (ADR 0047 §4): Chromium asks for DNR with the one host it unlocks. Firefox can't make it
+    // optional, and there it has no prompt and acts only on hosts the viewer granted. The e2e builds hold it because
+    // Playwright can't click the permission prompt.
+    permissions: ["activeTab", "scripting", "storage", ...(browser === "firefox" || mode === "e2e" ? [UNLOCK_PERMISSION] : [])],
+    ...(browser === "firefox" ? {} : { optional_permissions: [UNLOCK_PERMISSION] }),
     host_permissions: [
       ...new Set([
         hostPermissionPattern(defaultServerBaseUrl(mode)),
         // e2e/perf only: Playwright opens the popup as a tab and can't grant activeTab. Port-less patterns cover every
         // port (the default server's http://localhost/* included), so e2e runs on any OMEGA_SERVER_PORT (QA OME-611, OME-687).
-        ...(mode === "e2e" ? ["http://localhost/*", "https://www.youtube.com/*"] : []),
+        // xfo.omega-fixture.net is the unlock spec's X-Frame-Options host, granted as a viewer would (e2e/unlock.e2e.ts).
+        ...(mode === "e2e" ? ["http://localhost/*", "https://www.youtube.com/*", "http://xfo.omega-fixture.net/*", "https://xfo.omega-fixture.net/*"] : []),
       ]),
     ],
     // What parseServerBaseUrl accepts: https anywhere, cleartext only on this computer (any port).
