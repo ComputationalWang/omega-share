@@ -124,6 +124,8 @@ export const BUDGETS: readonly Budget[] = [
   { id: "ext.popupToList", area: "Extension", metric: "Popup opened → embeds listed", docMetric: "Popup opened → embeds listed", unit: "ms", limit: 300, comparator: "<=" },
   { id: "ext.contentScripts", area: "Extension", metric: "Declared content scripts", docMetric: "Content scripts on page load", unit: "count", limit: 0, comparator: "<=" },
   { id: "ext.persistentBackground", area: "Extension", metric: "Persistent background violations", docMetric: "Persistent background", unit: "count", limit: 0, comparator: "<=" },
+  // OME-1042: the opt-in "video found" content script, one scan + count, on every https page once opted in.
+  { id: "ext.foundCheck", area: "Extension", metric: "Found indicator, main thread per page check", docMetric: "Found indicator (opt-in), main thread per page check", unit: "ms", limit: 2, comparator: "<=" },
   // Firefox build (OME-593): the same budgets, measured in headless Firefox through Puppeteer/BiDi.
   { id: "ext.firefox.popupToList", area: "Extension", metric: "Popup opened → embeds listed, Firefox", docMetric: "Popup opened → embeds listed, Firefox", unit: "ms", limit: 300, comparator: "<=" },
   { id: "ext.firefox.contentScripts", area: "Extension", metric: "Declared content scripts, Firefox", docMetric: "Content scripts on page load, Firefox", unit: "count", limit: 0, comparator: "<=" },

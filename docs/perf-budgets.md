@@ -37,10 +37,11 @@ QA measures these on every merge that touches a perf-relevant path, daily and at
 | Server | Relay latency for a control action, localhost | ≤ 50 ms |
 | Server | Relay latency for a control action under flood, localhost | ≤ 50 ms p95, 24 members at the allowed chat/emote/control rates + 1 socket flooding at 10× L1, which is throttled or closed with 4029 (ADR 0016/0018) |
 | Extension | Popup opened → embeds listed | ≤ 300 ms |
-| Extension | Content scripts on page load | none on other sites (scan injected on popup open only); our own site gets the ADR 0047 unlock bridge (< 16 KB, idle after one `present`) |
+| Extension | Content scripts on page load | none on other sites (scan injected on popup open only) unless the viewer turns on the found indicator; our own site gets the ADR 0047 unlock bridge (< 16 KB, idle after one `present`) |
+| Extension | Found indicator (opt-in), main thread per page check | ≤ 2 ms p95 of 20 checks on providers-embed (the note prints the first, cold check), rechecked at most once per second on DOM changes (OME-1042) |
 | Extension | Persistent background | none (event-driven service worker only) |
 | Extension | Popup opened → embeds listed, Firefox | ≤ 300 ms p95, headless Firefox through Puppeteer/BiDi (`bun run ext:firefox`, OME-593) |
-| Extension | Content scripts on page load, Firefox | none on other sites (scan injected on popup open only); our own site gets the ADR 0047 unlock bridge |
+| Extension | Content scripts on page load, Firefox | none on other sites (scan injected on popup open only) unless the viewer turns on the found indicator; our own site gets the ADR 0047 unlock bridge |
 | Extension | Persistent background, Firefox | none (non-persistent event page: Firefox MV3 has no service worker — ADR 0005) |
 | Load test | People in a room without breaking the budgets above | 25 |
 

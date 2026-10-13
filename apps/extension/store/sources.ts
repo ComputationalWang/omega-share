@@ -9,13 +9,14 @@ const REPO = join(import.meta.dir, "..", "..", "..");
 /**
  * What a rebuild of the extension reads, from the repo root: the root manifest, lockfile and TS base config, every
  * workspace's package.json (so `bun install --frozen-lockfile` sees the lockfile's workspace set), the extension,
- * the wire contract it imports, the store icons, the popup vignettes (OME-857), the build notes and the licence.
+ * the wire contract it imports, the store icons, the found icons (OME-1042), the popup vignettes (OME-857), the build notes and the licence.
  */
 const FILES = new Set(["SOURCE-BUILD.md", "LICENSE", "package.json", "bun.lock", "tsconfig.base.json", "apps/web/package.json", "apps/server/package.json"]);
 const PREFIXES = [
   "apps/extension/",
   "packages/shared/",
   "assets/store/icon-",
+  "assets/store/found-",
   ...["nothing-found", "cant-read", "server-away"].map((name) => `assets/ui/popup/${name}`),
 ];
 

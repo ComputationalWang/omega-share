@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionToPage, UnlockRule } from "@omega/shared/extension-bridge";
-import { type UnlockDeps, createUnlocker, unlockPermissions } from "../src/unlock";
+import { type UnlockDeps, createUnlocker, hasConsent, isApproved, unlockPermissions, withApproved, withoutRevoked } from "../src/unlock";
 
 // ADR 0047 §2 and §5 (OME-1040): session rules for one host in one room tab, the consent hop, and removal.
 const OUR = "https://omega.example";
@@ -73,6 +73,38 @@ describe("unlockPermissions", () => {
   test("Chromium asks for the DNR API permission with the one host; Firefox for the host alone (§4)", () => {
     expect(unlockPermissions("video.cdn-host.net", "chrome")).toEqual({ permissions: ["declarativeNetRequestWithHostAccess"], origins: ["https://video.cdn-host.net/*"] });
     expect(unlockPermissions("video.cdn-host.net", "firefox")).toEqual({ permissions: [], origins: ["https://video.cdn-host.net/*"] });
+  });
+});
+
+describe("approved hosts (OME-1042)", () => {
+  // The found indicator's https://*/* contains every host, so the grant alone isn't consent: the consent page records it.
+  test("Allow on the consent page records the host once; nothing else is approved", () => {
+    const stored = withApproved(withApproved(undefined, "video.cdn-host.net"), "video.cdn-host.net");
+    expect(stored).toEqual(["video.cdn-host.net"]);
+    expect(isApproved(stored, "video.cdn-host.net")).toBe(true);
+    expect(isApproved(stored, "other.net")).toBe(false);
+  });
+
+  test("malformed storage approves nothing", () => {
+    for (const stored of [undefined, null, "video.cdn-host.net", { "video.cdn-host.net": true }, [1, 2]]) {
+      expect(isApproved(stored, "video.cdn-host.net")).toBe(false);
+    }
+    expect(withApproved([1, "a.net"], "b.net")).toEqual(["a.net", "b.net"]);
+  });
+
+  test("consent: the host's grant, plus the consent page's record only while the found toggle holds https://*/*", () => {
+    const host = "video.cdn-host.net";
+    expect(hasConsent({ hostGranted: true, everyHostGranted: false, stored: undefined }, host)).toBe(true);
+    expect(hasConsent({ hostGranted: false, everyHostGranted: false, stored: [host] }, host)).toBe(false);
+    expect(hasConsent({ hostGranted: true, everyHostGranted: true, stored: undefined }, host)).toBe(false);
+    expect(hasConsent({ hostGranted: true, everyHostGranted: true, stored: ["other.net"] }, host)).toBe(false);
+    expect(hasConsent({ hostGranted: true, everyHostGranted: true, stored: [host] }, host)).toBe(true);
+  });
+
+  test("revoking a host in the browser drops it; revoking https://*/* (the found toggle) drops none", () => {
+    const stored = ["a.net", "b.net"];
+    expect(withoutRevoked(stored, ["https://a.net/*"])).toEqual(["b.net"]);
+    expect(withoutRevoked(stored, ["https://*/*"])).toEqual(["a.net", "b.net"]);
   });
 });
 

@@ -38,6 +38,9 @@ describe("buildSourcesPackage", () => {
       "packages/shared/package.json",
       "packages/shared/src/index.ts",
       "assets/store/icon-128.png",
+      // The found indicator's toolbar icons (OME-1042).
+      "assets/store/found-16.png",
+      "assets/store/found-64.png",
       // The popup state vignettes the build copies in (OME-857).
       "assets/ui/popup/nothing-found.png",
       "assets/ui/popup/cant-read@2x.png",

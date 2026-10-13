@@ -108,6 +108,13 @@ for (const { name: mode, browser, hostPermissions, permissions } of cases) {
       });
     }
 
+    test("ships the opt-in found indicator's runtime-registered script and its icons, byte for byte from assets/store (OME-1042)", () => {
+      expect(existsSync(join(outDir(mode), "content-scripts", "found.js"))).toBe(true);
+      for (const [file, source] of [["found-16", "found-16"], ["found-32", "found-32"], ["found-48", "found-48"], ["found-64", "found-64"], ["idle-64", "icon-64"]] as const) {
+        expect(readFileSync(join(outDir(mode), "icon", `${file}.png`)).equals(readFileSync(join(REPO, "assets", "store", `${source}.png`))), file).toBe(true);
+      }
+    });
+
     test("ships the unlock consent page (ADR 0047 §5)", () => {
       expect(readFileSync(join(outDir(mode), "consent.html"), "utf8")).toContain("play in your omega-share room?");
     });
@@ -168,5 +175,11 @@ test("the store builds' background stays small: the unlock only, no e2e code or 
 test("the bridge content script stays a few KB: it runs on every page load of our own site (ADR 0047 §6)", () => {
   for (const name of ["production", "firefox production"]) {
     expect(readFileSync(join(outDir(name), "content-scripts", "bridge.js")).byteLength, name).toBeLessThan(16 * 1024);
+  }
+});
+
+test("the found indicator's content script stays small: once opted in it runs on every https page (OME-1042)", () => {
+  for (const name of ["production", "firefox production"]) {
+    expect(readFileSync(join(outDir(name), "content-scripts", "found.js")).byteLength, name).toBeLessThan(24 * 1024);
   }
 });

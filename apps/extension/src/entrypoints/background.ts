@@ -2,7 +2,8 @@ import { browser } from "wxt/browser";
 import { defineBackground } from "wxt/utils/define-background";
 import { bridgeMatches } from "../bridge";
 import { DEFAULT_SERVER_BASE_URL, SERVER_BASE_URL_KEY, readServerBaseUrl } from "../settings";
-import { createUnlocker, unlockPermissions } from "../unlock";
+import { FOUND_ORIGINS, actionState, parseFoundMessage, syncFound } from "../found";
+import { UNLOCK_HOSTS_KEY, createUnlocker, hasConsent, unlockPermissions, withoutRevoked } from "../unlock";
 
 const BRIDGE_ID = "omega-bridge";
 const BROWSER = import.meta.env.BROWSER === "firefox" ? "firefox" : "chrome";
@@ -28,6 +29,32 @@ function registerBridge(): void {
   bridgeQueue = bridgeQueue.then(syncBridge).catch(() => undefined);
 }
 
+/** The found indicator (OME-1042): its content script while https://*\/* is granted; otherwise none and idle icons. */
+async function syncFoundScript(): Promise<void> {
+  const ours = bridgeMatches(DEFAULT_SERVER_BASE_URL, (await browser.storage.local.get(SERVER_BASE_URL_KEY))[SERVER_BASE_URL_KEY]);
+  await syncFound(
+    {
+      granted: () => browser.permissions.contains({ origins: [...FOUND_ORIGINS] }),
+      register: (script) => browser.scripting.registerContentScripts([script]),
+      unregister: (id) => browser.scripting.unregisterContentScripts({ ids: [id] }),
+      resetIcons: async () => {
+        for (const tab of await browser.tabs.query({})) if (tab.id !== undefined) await setAction(tab.id, 0);
+      },
+    },
+    ours,
+  );
+}
+
+async function setAction(tabId: number, count: number): Promise<void> {
+  const { path, title } = actionState(count);
+  await Promise.all([browser.action.setIcon({ tabId, path }), browser.action.setTitle({ tabId, title })]).catch(() => undefined);
+}
+
+let foundQueue: Promise<void> = Promise.resolve();
+function registerFound(): void {
+  foundQueue = foundQueue.then(syncFoundScript).catch(() => undefined);
+}
+
 // Event-driven: Chrome runs it as a service worker, Firefox as a non-persistent event page. The popup does the
 // sharing; this owns the "Unlock with extension" session rules (ADR 0047) and the bridge that asks for them.
 export default defineBackground(() => {
@@ -38,7 +65,15 @@ export default defineBackground(() => {
     ourOrigin: async () => readServerBaseUrl((await browser.storage.local.get(SERVER_BASE_URL_KEY))[SERVER_BASE_URL_KEY]),
     // Chromium has no `declarativeNetRequest` until the optional permission is granted.
     dnr: () => browser.declarativeNetRequest,
-    hasAccess: (host) => browser.permissions.contains(unlockPermissions(host, BROWSER)),
+    hasAccess: async (host) =>
+      hasConsent(
+        {
+          hostGranted: await browser.permissions.contains(unlockPermissions(host, BROWSER)),
+          everyHostGranted: await browser.permissions.contains({ origins: [...FOUND_ORIGINS] }),
+          stored: (await browser.storage.local.get(UNLOCK_HOSTS_KEY))[UNLOCK_HOSTS_KEY],
+        },
+        host,
+      ),
     openConsent: async (tabId, host) => {
       const query = new URLSearchParams({ tabId: String(tabId), host });
       await browser.tabs.create({ url: `${browser.runtime.getURL("/consent.html")}?${query.toString()}` });
@@ -50,19 +85,39 @@ export default defineBackground(() => {
   });
 
   browser.runtime.onMessage.addListener((message, sender) => {
+    // The found content script runs in top frames only and sends just a count.
+    const count = parseFoundMessage(message);
+    if (count !== null) {
+      if (sender.tab?.id !== undefined && sender.frameId === 0) void setAction(sender.tab.id, count);
+      return;
+    }
     void unlocker.onMessage(message, sender);
   });
   browser.tabs.onRemoved.addListener((tabId) => void unlocker.tabRemoved(tabId));
   // A tab URL we can't see (no host access) isn't ours, so its rules go too.
   browser.tabs.onUpdated.addListener((tabId, change, tab) => {
     if (change.status === "loading" || change.url !== undefined) void unlocker.tabUpdated(tabId, tab.url);
+    // A new page starts idle; its found script (if any) reports again at document_idle.
+    if (change.status === "loading") void setAction(tabId, 0);
   });
 
   browser.runtime.onInstalled.addListener(registerBridge);
   browser.runtime.onStartup.addListener(registerBridge);
   browser.permissions.onAdded.addListener(registerBridge);
+  browser.runtime.onInstalled.addListener(registerFound);
+  browser.runtime.onStartup.addListener(registerFound);
+  browser.permissions.onAdded.addListener(registerFound);
+  browser.permissions.onRemoved.addListener((removed) => {
+    registerFound();
+    void browser.storage.local.get(UNLOCK_HOSTS_KEY).then((items) =>
+      browser.storage.local.set({ [UNLOCK_HOSTS_KEY]: withoutRevoked(items[UNLOCK_HOSTS_KEY], removed.origins ?? []) }),
+    );
+  });
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && SERVER_BASE_URL_KEY in changes) registerBridge();
+    if (area === "local" && SERVER_BASE_URL_KEY in changes) {
+      registerBridge();
+      registerFound();
+    }
   });
 
   // e2e builds only (compiled out of store builds; the manifest test checks): Firefox's BiDi can't open a
