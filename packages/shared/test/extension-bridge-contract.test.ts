@@ -6,6 +6,7 @@ import {
   GenericHostSchema,
   PageToExtensionSchema,
   UNLOCK_RULE_COUNT,
+  type UnlockRule,
   unlockRules,
 } from "@omega/shared/extension-bridge";
 
@@ -86,25 +87,25 @@ describe("host follows ADR 0024 §1", () => {
 
 describe("unlockRules (ADR 0047 §2/§3)", () => {
   const base = { tabId: 42, ownHost: "omega-share.example.org", host: "kwik.cx", ruleIdBase: 4200 };
-  const condition = {
+  const condition: UnlockRule["condition"] = {
     resourceTypes: ["sub_frame"],
     initiatorDomains: ["omega-share.example.org"],
     requestDomains: ["kwik.cx"],
     tabIds: [42],
   };
-  const xfo = {
+  const xfo: UnlockRule = {
     id: 4200,
     priority: 1,
     condition,
     action: { type: "modifyHeaders", responseHeaders: [{ header: "x-frame-options", operation: "remove" }] },
   };
-  const csp = {
+  const csp: UnlockRule = {
     id: 4201,
     priority: 1,
     condition: { ...condition, responseHeaders: [{ header: "content-security-policy", values: ["*frame-ancestors*"] }] },
     action: { type: "modifyHeaders", responseHeaders: [{ header: "content-security-policy", operation: "remove" }] },
   };
-  const referer = {
+  const referer: UnlockRule = {
     id: 4202,
     priority: 1,
     condition,

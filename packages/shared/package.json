@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./confusables": "./src/confusables.ts",
     "./activity": "./src/activity.ts",
-    "./discord-upstream": "./src/discord-upstream.ts"
+    "./discord-upstream": "./src/discord-upstream.ts",
+    "./extension-bridge": "./src/extension-bridge.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
