@@ -7,6 +7,7 @@ import { joinRoom, leaveAll, type Client } from "../e2e/support/room";
 import { stubExternalNetwork } from "../e2e/support/network";
 import { watchCsp } from "../e2e/support/csp";
 import { site } from "../e2e/support/selectors";
+import { openDirectory } from "../e2e/support/directory";
 import { cellCenter } from "../apps/web/src/layout";
 import { VSYNC_MS, frameTimes, tracedFrames } from "./frames";
 import { RESULTS_DIR, p95 } from "./metrics";
@@ -37,6 +38,7 @@ test("editor: owner frames with the editor open, guest frames across a save", as
   const chunks: string[] = [];
   owner.on("response", async (r) => { if (/\/assets\/editor-[\w-]+\.js$/.test(r.url())) chunks.push(`${r.url()} ${String((await r.body()).length)} B raw`); });
   await owner.goto(`${URLS.web}/`);
+  await openDirectory(owner, "Owner");
   await owner.locator(site.createRoomTitle).fill("Perf editor");
   await owner.locator(site.createRoomSubmit).click();
   await owner.waitForURL(/\/r\/[a-z2-7]{26}$/);

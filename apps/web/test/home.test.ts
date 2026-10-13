@@ -48,10 +48,20 @@ let calls: Call[];
 let navigated: string[];
 let listed: RoomSummary[] | string;
 let created: { status: number; body: unknown };
+/** When set, GET /rooms answers through this instead of `listed` (a pending, failing or later answer). */
+let listing: (() => Promise<Response>) | null;
+/** When set, POST /rooms answers through this (e.g. held open to see the submitting state). */
+let holdPost: (() => Promise<Response>) | null;
 
 const json = (status: number, body: unknown): Response => new Response(typeof body === "string" ? body : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 async function mount(): Promise<HTMLElement> {
+  const { root, ready } = await mountOnly();
+  await ready;
+  return root;
+}
+
+async function mountOnly(): Promise<{ root: HTMLElement; ready: Promise<void> }> {
   const { mountHome } = await import("../src/home");
   const root = document.createElement("section");
   document.body.replaceChildren(root);
@@ -63,13 +73,13 @@ async function mount(): Promise<HTMLElement> {
     thumbs: THUMBS,
     fetch: (url, init) => {
       calls.push({ url, init });
-      if (init?.method === "POST") return Promise.resolve(json(created.status, created.body));
+      if (init?.method === "POST") return holdPost === null ? Promise.resolve(json(created.status, created.body)) : holdPost();
+      if (listing !== null) return listing();
       return Promise.resolve(json(200, typeof listed === "string" ? listed : { rooms: listed }));
     },
     navigate: (path) => navigated.push(path),
   };
-  await mountHome(opts).ready;
-  return root;
+  return { root, ready: mountHome(opts).ready };
 }
 
 const byTestId = <T extends Element>(root: ParentNode, id: string, type: new () => T): T => {
@@ -93,6 +103,8 @@ beforeEach(() => {
   calls = [];
   navigated = [];
   listed = [];
+  listing = null;
+  holdPost = null;
   created = { status: 201, body: { ok: true, room: { id: ROOM, title: "Movie night", visibility: "private" }, ownerToken: OWNER, inviteKey: KEY } };
 });
 
@@ -174,10 +186,106 @@ describe("public rooms (GET /rooms)", () => {
     expect(calls[0]?.url).toBe(`${SERVER}/rooms`);
   });
 
-  test("a malformed list shows no rooms instead of throwing", async () => {
+  test("a malformed list shows no rooms and says the server couldn't be reached, instead of throwing", async () => {
     listed = "{";
     const root = await mount();
     expect(all(root, "public-room-link")).toHaveLength(0);
+    expect(byTestId(root, "public-rooms-status", HTMLElement).textContent).toBe("Could not reach the server. Try again.");
+  });
+});
+
+describe("open rooms: loading, empty and error are told apart (OME-935)", () => {
+  const status = (root: ParentNode): string => byTestId(root, "public-rooms-status", HTMLElement).textContent;
+  const list = (root: ParentNode): HTMLElement => byTestId(root, "public-rooms", HTMLElement);
+
+  test("while the list loads it is busy and says so, and saved rooms are already there", async () => {
+    rememberRoom(store, ROOM, { inviteKey: KEY });
+    let answer: (r: Response) => void = () => undefined;
+    listing = () => new Promise((r) => (answer = r));
+    const { root, ready } = await mountOnly();
+    expect(list(root).getAttribute("aria-busy")).toBe("true");
+    expect(status(root)).toBe("Finding rooms…");
+    expect(all(root, "your-room-link")).toHaveLength(1);
+    answer(json(200, { rooms: [{ id: "lobby", memberCount: 2, seatedCount: 0, title: "Lobby" }] }));
+    await ready;
+    expect(list(root).getAttribute("aria-busy")).toBe("false");
+    expect(status(root)).toBe("");
+    expect(all(root, "public-room-link")).toHaveLength(1);
+  });
+
+  test("only a successful empty answer says there are no public rooms", async () => {
+    listed = [];
+    const root = await mount();
+    expect(status(root)).toBe("No public rooms right now.");
+    expect(root.querySelector("[data-testid=public-rooms-retry]")).toBeNull();
+  });
+
+  test("a network failure says so with a real Retry button; saved rooms stay; Retry loads the list", async () => {
+    rememberRoom(store, ROOM, { ownerToken: OWNER });
+    listing = () => Promise.reject(new Error("offline"));
+    const root = await mount();
+    expect(status(root)).toBe("Could not reach the server. Try again.");
+    expect(status(root)).not.toContain("No public rooms");
+    expect(all(root, "your-room-link")).toHaveLength(1);
+    const retry = byTestId(root, "public-rooms-retry", HTMLButtonElement);
+    expect(retry.type).toBe("button");
+    listing = null;
+    listed = [{ id: ROOM, memberCount: 4, seatedCount: 0, title: "Movie night" }];
+    retry.click();
+    for (let i = 0; i < 5; i++) await settle();
+    expect(all(root, "public-room-link").map((a) => a.textContent)).toEqual(["Movie night"]);
+    expect(root.querySelector("[data-testid=public-rooms-retry]")).toBeNull();
+    // The saved room picks up its title and head count from the list.
+    expect(all(root, "your-room-link").map((a) => a.textContent)).toEqual(["Movie night"]);
+    expect(byTestId(root, "your-room", HTMLElement).textContent).toContain("4 here");
+  });
+
+  test("the Open rooms heading is a focus target for the page's quick link", async () => {
+    const root = await mount();
+    const h = root.querySelector("#open-rooms");
+    expect(h?.tagName).toBe("H2");
+    expect(h?.getAttribute("tabindex")).toBe("-1");
+  });
+});
+
+describe("your rooms: an honest empty state and plain labels (OME-935)", () => {
+  test("no saved rooms says so instead of hiding the section", async () => {
+    const root = await mount();
+    expect(byTestId(root, "your-rooms-empty", HTMLElement).textContent).toBe("No saved rooms in this browser yet.");
+  });
+
+  test("a saved room says private or public and owner or invited, never a secret", async () => {
+    rememberRoom(store, ROOM, { ownerToken: OWNER, inviteKey: KEY });
+    const root = await mount();
+    const row = byTestId(root, "your-room", HTMLElement).textContent;
+    expect(row).toContain("Private");
+    expect(row).toContain("owner");
+    expect(row).not.toContain(OWNER);
+    expect(row).not.toContain(KEY);
+    expect(root.querySelector("[data-testid=your-rooms-empty]")).toBeNull();
+  });
+});
+
+describe("create room: the submitting state (OME-935)", () => {
+  test("while posting, the button is disabled and says Creating room…; a failure restores it, keeps the title and focuses it", async () => {
+    let answer: (r: Response) => void = () => undefined;
+    const root = await mount();
+    const button = byTestId(root, "create-room-submit", HTMLButtonElement);
+    const title = byTestId(root, "create-room-title", HTMLInputElement);
+    const pending = new Promise<Response>((r) => (answer = r));
+    holdPost = () => pending;
+    title.value = "Movie night";
+    byTestId(root, "create-room-form", HTMLFormElement).requestSubmit();
+    await settle();
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toBe("Creating room…");
+    answer(json(503, { ok: false, error: { code: "unavailable", message: "x" } }));
+    for (let i = 0; i < 5; i++) await settle();
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toBe("Create room");
+    expect(title.value).toBe("Movie night");
+    expect(document.activeElement).toBe(title);
+    expect(byTestId(root, "create-room-error", HTMLElement).textContent).not.toBe("");
   });
 });
 

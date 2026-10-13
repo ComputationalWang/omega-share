@@ -90,6 +90,7 @@ const LANDING: readonly Budget[] = [
   { id: "landing.transferGzip", area: "Landing", metric: "Total transfer at / before interaction (gzipped)", docMetric: "Total transfer at `/` before interaction (gzipped)", unit: "KB", limit: 120, comparator: "<=" },
   { id: "landing.lcp", area: "Landing", metric: "Largest Contentful Paint at /", docMetric: "Largest Contentful Paint at `/`", unit: "ms", limit: 1500, comparator: "<=" },
   { id: "landing.cls", area: "Landing", metric: "Cumulative Layout Shift at /", docMetric: "Cumulative Layout Shift at `/`", unit: "score", limit: 0.05, comparator: "<=" },
+  { id: "landing.clsReturning", area: "Landing", metric: "Cumulative Layout Shift at /, returning profile", docMetric: "Cumulative Layout Shift at `/`, returning profile", unit: "score", limit: 0.05, comparator: "<=" },
   { id: "landing.longTask", area: "Landing", metric: "Longest task before the nickname field is usable", docMetric: "Longest task before the nickname field is usable", unit: "ms", limit: 50, comparator: "<=" },
 ];
 

@@ -87,7 +87,9 @@ test("the motion sheets load after join, not on the landing page", async ({ brow
   await page.goto(testRoom("walk", "main").url);
   await page.locator(site.nicknameInput).waitFor();
   await page.waitForLoadState("networkidle");
-  expect(seen, "nothing of the motion atlas before joining").toEqual([]);
+  // The landing's avatar picker draws its four idle frames straight from avatars.png (OME-934/935 handoff, CSS
+  // background, no JSON); the motion sheet and both atlases' JSON still wait for the room.
+  expect(seen.filter((u) => !/\/avatars\/avatars\.png(?:\?|$)/.test(u)), "nothing of the motion atlas before joining").toEqual([]);
   await page.locator(site.nicknameInput).fill("sheets-1");
   await page.locator(site.avatarOption).first().click();
   await page.locator(site.joinButton).click();

@@ -59,6 +59,12 @@ export const site = {
   createRoomSubmit: id("create-room-submit"),
   createRoomError: id("create-room-error"),
   publicRoomLink: id("public-room-link"),
+  // Dusk doorstep (OME-935): the landing's directory action, the directory screen's Edit profile key, the public
+  // list's status line and Retry key.
+  findRoom: id("find-room"),
+  editProfile: id("edit-profile"),
+  publicRoomsStatus: id("public-rooms-status"),
+  publicRoomsRetry: id("public-rooms-retry"),
   yourRoom: id("your-room"),
   yourRoomLink: id("your-room-link"),
   inviteLink: id("invite-link"),

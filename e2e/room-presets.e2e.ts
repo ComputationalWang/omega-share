@@ -19,6 +19,7 @@ import { expect, test, watchCsp } from "./support/csp";
 import { stubExternalNetwork } from "./support/network";
 import { signalOwned, spawnOwned } from "./support/owned";
 import { site } from "./support/selectors";
+import { openDirectory } from "./support/directory";
 
 // In this agent's port block, between the fixture page (+0) and the tunnel lanes (+30…).
 const SERVER_PORT = PORTS.fixtures + 20;
@@ -141,6 +142,7 @@ test.describe("room presets and saved layouts (own server and site)", () => {
 
   async function createRoom(page: Page, title: string, choose: string | null): Promise<void> {
     await page.goto(`${WEB_URL}/`);
+    await openDirectory(page);
     await expect(page.locator(radio("classic"))).toBeChecked();
     if (choose !== null) await page.locator(choose).check();
     await page.locator(site.createRoomTitle).fill(title);
@@ -152,6 +154,7 @@ test.describe("room presets and saved layouts (own server and site)", () => {
   test("the picker offers every preset with classic checked, and a created room starts from each preset's layout", async ({ browser }) => {
     const { page, errors } = await newPage(browser);
     await page.goto(`${WEB_URL}/`);
+    await openDirectory(page);
     const radios = page.locator(`${id("preset-picker")} input[type=radio]`);
     await expect(radios).toHaveCount(ROOM_PRESET_IDS.length);
     const values = await radios.evaluateAll((rs) => rs.map((r) => (r instanceof HTMLInputElement ? r.value : "")));
@@ -193,6 +196,7 @@ test.describe("room presets and saved layouts (own server and site)", () => {
 
     // Back home: the layout is listed (text only), and picking it creates an empty room that the owner then fills.
     await page.goto(`${WEB_URL}/`);
+    await openDirectory(page);
     const mine = page.locator(id("saved-layouts"));
     await expect(mine).toContainText("Lamp moved");
     await expect(mine.locator("img")).toHaveCount(0);
@@ -213,7 +217,7 @@ test.describe("room presets and saved layouts (own server and site)", () => {
         localStorage.setItem(key ?? "", value ?? "");
       }, [SAVED_KEY, garbage]);
       await page.reload();
-      await expect(page.locator(site.createRoomForm)).toBeVisible();
+      await openDirectory(page);
       await expect(page.locator(radio("classic"))).toBeChecked();
       await expect(page.locator(id("saved-layouts"))).toHaveCount(0);
     }

@@ -18,6 +18,7 @@ import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { ownedRoom } from "./support/owned-rooms";
 import { site } from "./support/selectors";
+import { openDirectory } from "./support/directory";
 import { postShare } from "./support/share";
 import { cellCenter } from "../apps/web/src/layout";
 
@@ -432,6 +433,7 @@ test("a private room is unlisted; without the key it is refused and shows nobody
   const homeCtx = await newContext(browser);
   const home = await homeCtx.newPage();
   await home.goto(`${URLS.web}/`);
+  await openDirectory(home);
   await expect(home.locator(site.publicRoomLink).first()).toBeVisible();
   const hrefs = await home.locator(site.publicRoomLink).evaluateAll((as) => as.map((a) => a.getAttribute("href") ?? ""));
   expect(hrefs.length).toBeGreaterThan(0);

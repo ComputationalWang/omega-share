@@ -1,7 +1,8 @@
-// OME-767 (M9 W1): the landing explains the product before asking for anything. A skip link, then the nickname form
-// (still the first control), then "How it works" (three D1 panels) and the install row; the site footer under it all.
-// Desktop: the steps sit beside the form. Phone: below it, nothing wider than the screen. Checked keyboard-only, with
-// reduced motion, and for layout shift while the lazy panels arrive. The perf budget is perf/landing.perf.ts.
+// OME-767 (M9 W1), redesigned as the Dusk doorstep (OME-935): the landing explains the product before asking for
+// anything. A skip link, then the nickname form (still the first control) beside the room illustration, then "How it
+// works" (three numbered steps) and the install row; the site footer under it all. Desktop: the art sits beside the
+// form. Phone: the vignette above it, nothing wider than the screen. Checked keyboard-only, with reduced motion, and
+// for layout shift. The perf budget is perf/landing.perf.ts.
 import type { Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
@@ -15,14 +16,10 @@ const box = async (page: Page, sel: string) => {
   return b;
 };
 
-/** Every panel has decoded: lazy images below the fold are scrolled into view first. */
-async function panelsLoaded(page: Page): Promise<void> {
-  const imgs = page.locator("#how img");
-  await expect(imgs).toHaveCount(3);
-  for (const img of await imgs.all()) {
-    await img.scrollIntoViewIfNeeded();
-    await expect.poll(() => img.evaluate((e) => e instanceof HTMLImageElement && e.complete && e.naturalWidth === 368)).toBe(true);
-  }
+/** The hero has decoded (the one file the viewport picked). */
+async function heroLoaded(page: Page): Promise<void> {
+  const img = page.locator(".entry-art img");
+  await expect.poll(() => img.evaluate((e) => e instanceof HTMLImageElement && e.complete && e.naturalWidth > 0)).toBe(true);
 }
 
 test("keyboard only: the skip link comes first, then the nickname field, and the skip link moves focus to the page", async ({ page }) => {
@@ -46,16 +43,16 @@ test("keyboard only: the skip link comes first, then the nickname field, and the
   expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
 });
 
-test("desktop: 'How it works' sits beside the form, its panels at one art pixel per CSS pixel; the footer lists every page", async ({ page }) => {
+test("desktop: the room art sits beside the form at one art pixel per CSS pixel; the steps below; the footer lists every page", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(URLS.web);
-  await panelsLoaded(page);
+  await heroLoaded(page);
   const form = await box(page, "#landing");
+  const art = await box(page, ".entry-art img");
+  expect(art.x).toBeGreaterThanOrEqual(form.x + form.width);
+  expect([art.width, art.height]).toEqual([656, 536]);
   const how = await box(page, "#how");
-  expect(how.x).toBeGreaterThanOrEqual(form.x + form.width);
-  expect(how.y).toBeLessThan(form.y + form.height);
-  const img = await box(page, "#how li:first-child img");
-  expect([img.width, img.height]).toEqual([184, 112]);
+  expect(how.y).toBeGreaterThanOrEqual(form.y + form.height);
   await expect(page.locator("#how")).toContainText("How it works");
   await expect(page.locator(".install")).toContainText("Firefox: coming soon");
   await expect(page.locator(".install")).toContainText("Chrome: coming soon");
@@ -67,7 +64,7 @@ test("desktop: 'How it works' sits beside the form, its panels at one art pixel 
 test.describe("phone", () => {
   test.use({ viewport: { width: 360, height: 740 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 
-  test("the steps come below the form, nothing is wider than the screen, and the lazy panels shift nothing", async ({ page }) => {
+  test("the vignette sits above the form, the steps below it, nothing is wider than the screen, and nothing shifts", async ({ page }) => {
     await page.addInitScript(() => {
       const w = window as Window & { __cls?: number };
       w.__cls = 0;
@@ -79,15 +76,17 @@ test.describe("phone", () => {
       }).observe({ type: "layout-shift", buffered: true });
     });
     await page.goto(URLS.web);
-    await panelsLoaded(page);
+    await heroLoaded(page);
     const form = await box(page, "#landing");
+    const art = await box(page, ".entry-art");
+    expect(art.y + art.height).toBeLessThanOrEqual(form.y);
+    expect(art.height).toBe(154);
+    const img = await box(page, ".entry-art img");
+    expect([img.width, img.height]).toEqual([368, 224]);
     const how = await box(page, "#how");
     expect(how.y).toBeGreaterThanOrEqual(form.y + form.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
-    for (const img of await page.locator("#how img").all()) {
-      const b = await img.boundingBox();
-      expect([b?.width, b?.height]).toEqual([184, 112]);
-    }
+    await page.waitForLoadState("load");
     expect(await page.evaluate(() => (window as Window & { __cls?: number }).__cls ?? 1)).toBeLessThanOrEqual(0.05);
   });
 });
@@ -97,10 +96,10 @@ test.describe("reduced motion", () => {
 
   test("nothing on the landing animates, and every step still reads", async ({ page }) => {
     await page.goto(URLS.web);
-    await panelsLoaded(page);
+    await heroLoaded(page);
     await page.keyboard.press("Tab");
     expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
     await expect(page.locator("#how li")).toHaveCount(3);
-    for (const name of ["The extension finds the video", "Share it into a room", "Sit together and watch"]) await expect(page.locator("#how")).toContainText(name);
+    for (const name of ["Find a video", "Share your room", "Watch in sync"]) await expect(page.locator("#how")).toContainText(name);
   });
 });

@@ -18,6 +18,7 @@ import { PENDING, ROOT, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
+import { openDirectory } from "./support/directory";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -221,7 +222,7 @@ async function openHome(browser: Browser, saved: boolean): Promise<{ page: Page;
     await page.evaluate(([key, value]) => { localStorage.setItem(key ?? "", value ?? ""); }, [SAVED_KEY, JSON.stringify([{ name: "Mine", layout }])]);
     await page.reload();
   }
-  await expect(page.locator(site.createRoomForm)).toBeVisible();
+  await openDirectory(page);
   return { page, created: () => bodies };
 }
 
