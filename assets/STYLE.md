@@ -427,6 +427,11 @@ Three ways to say "this page has a video" on a 16 px toolbar icon were tried in 
 - **The lamp:** a disc of r ≈ 3.3 art px at 16 and 0.15 × the size above that, its own plum ring cut out of the wood (so the state is a
   shape and a light, not just a colour), the top-left highlight and bottom-right shade of the mustard ramp, and a cream glint (2×2 from 32 px).
   At 16 px it's the brightest warm block in the icon on white, #e9eef6, #f9f9fb, #35363a, #2b2a33 and black.
+  OME-1061 (judge polish): at 16 px the disc is r = 3 (1 px smaller) and its edge is a light mustard rim instead of the ramp's
+  shade, so plum ring + bulb don't close up into one dark blob on #f9f9fb. 32 px and up are unchanged.
+- **Popup contrast (OME-1061):** the page's host and the no-list state line use `--ui-hint` (cream[1], 11.3:1 on the panel; the site's
+  lilac `--ui-muted` was 6.6:1 at 11 px). The kit's cut of the scanning dots lifts them from cream[2] to cream[0], with the travelling dot in
+  light mustard. Popup only; the site's loader is unchanged.
 - **The popup is a small "Up next" panel:** the same wood panel on the plum page, embed rows in the queue's night rows with the queue's
   source tiles and ADR 0024 chips (wood "Synced", cream-shade "Not synced"), the room in a night field, Share in mustard and Add to queue in navy.
   The chosen embed wears the queue's `next` row (the TV's glow bar) and a filled radio glyph: the choice is shape + glyph, never colour alone.

@@ -61,7 +61,7 @@ describe("popup kit contrast (OME-1061)", () => {
     expect(css).toMatch(/\.pk-head \.host \{[^}]*color: var\(--ui-hint\)/);
     expect(css).toMatch(/\.pk-state \{[^}]*color: var\(--ui-hint\)/);
     const hint = /--ui-hint: (#[0-9a-f]{6});/.exec(css)?.[1] ?? "";
-    expect(Object.values(RAMPS).flat()).toContain(hint);
+    expect(new Set<string>(Object.values(RAMPS).flat()).has(hint)).toBe(true);
     expect(ratio(hint, RAMPS.charcoal[2])).toBeGreaterThanOrEqual(10);
   });
   test("brightDots lifts the resting dots off cream[2]", () => {

@@ -42,7 +42,7 @@ import { buildFullscreenFrames, buildFullscreenScenes, fullscreenCss, STRIP_AGES
 import { buildStoreIcons, buildToolbarIcons, renderFoundIcon, renderScreenOff } from "./store";
 import { buildPanels, buildShareCard, buildSiteIcons, encodeIco, type SiteSources } from "./site";
 import { buildPopupVignettes } from "./popup";
-import { POPUP_KIT_SLICES, POPUP_KIT_SPRITES, chevronFrame, popupKitCss } from "./popupkit";
+import { POPUP_KIT_SLICES, POPUP_KIT_SPRITES, brightDots, chevronFrame, popupKitCss } from "./popupkit";
 import { BUBBLES, buildChatFloatFrames, chatFloatCss, wheelMeta } from "./chatfloat";
 import { PRESETS, THUMB, THUMB_SCALE, presetThumb } from "./presets";
 import * as v from "valibot";
@@ -609,13 +609,13 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
   if (popupStates > 3072) throw new Error(`popup state vignettes ${String(popupStates)} B > 3072`);
   console.log(`popup state vignettes (OME-842): ${String(popupStates)} B of 3072`);
   // OME-1041: the popup's own sprite cut (kit.png) and stylesheet (kit.css); its 9-slices are the existing ui/slices files.
-  const kitFrames = [...POPUP_KIT_SPRITES.map((k) => { const f = byKey.get(k); if (!f) throw new Error(`missing ${k}`); return f; }), chevronFrame()];
+  const kitFrames = [...POPUP_KIT_SPRITES.map((k) => { const f = byKey.get(k); if (!f) throw new Error(`missing ${k}`); return k.startsWith("glyph/dots/") ? { ...f, img: brightDots(f.img) } : f; }), chevronFrame()];
   const kit = pack(kitFrames, 64);
   const kitSheet = new Uint8Array(kit.w * kit.h);
   for (const p of kit.placed) blit(kitSheet, kit.w, p.img, p.w, p.h, p.x, p.y);
   const kitSmall = compactPalette(kitSheet);
   writeFileSync(join(dir, "popup", "kit.png"), encodeIndexedPng(kit.w, kit.h, kitSmall.pixels, kitSmall.palette));
-  writeFileSync(join(dir, "popup", "kit.css"), popupKitCss(Object.fromEntries(kit.placed.map((p) => [p.key, { x: p.x, y: p.y, w: p.w, h: p.h }])), { w: kit.w, h: kit.h }, uiTokens()));
+  writeFileSync(join(dir, "popup", "kit.css"), popupKitCss(Object.fromEntries(kit.placed.map((p) => [p.key, { x: p.x, y: p.y, w: p.w, h: p.h }])), { w: kit.w, h: kit.h }, { ...uiTokens(), hint: RAMPS.cream[1] }));
   for (const s of POPUP_KIT_SLICES) if (!existsSync(join(dir, "slices", `${s}.png`))) throw new Error(`popup kit: no slice ${s}`);
   // Set (i): the closed / invite-required vignettes are standalone PNGs, fetched only by the pages that show them.
   mkdirSync(join(dir, "scenes"), { recursive: true });

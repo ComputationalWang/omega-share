@@ -822,12 +822,12 @@ The popup can't load the site's `ui.png` (12.9 KB) or `reference.css`, so it get
 
 | File | Bytes | What |
 |---|---|---|
-| `ui/popup/kit.png` | 751 | 16 sprites copied pixel for pixel from `ui.png` (`icon/tv`, `icon/share`, `icon/queue-add`, `icon/warn`, `icon/retry`, `glyph/check`, `glyph/dots/0-2`, `glyph/insync`, `glyph/outsync`, `glyph/radio-on`, `glyph/radio-off`, `qsrc/video`, `qsrc/live`, `qsrc/generic`) + one new 9×6 cream `chevron` for the room field |
-| `ui/popup/kit.css` | 3 384 gz | Tokens (`--ui-*`, same values as the site), the reused site rules under their site names (`.ui-panel`, `.ui-button(.secondary)`, `.ui-input`, `.ui-qrow`, `.ui-chip(.solo)`, `.ui-sysline`, `.ui-dots`) and the popup layout (`.pk-*`). Generated; don't edit by hand. |
+| `ui/popup/kit.png` | 749 | 16 sprites copied pixel for pixel from `ui.png` (the dots brightened, OME-1061) (`icon/tv`, `icon/share`, `icon/queue-add`, `icon/warn`, `icon/retry`, `glyph/check`, `glyph/dots/0-2`, `glyph/insync`, `glyph/outsync`, `glyph/radio-on`, `glyph/radio-off`, `qsrc/video`, `qsrc/live`, `qsrc/generic`) + one new 9×6 cream `chevron` for the room field |
+| `ui/popup/kit.css` | 3 398 gz | Tokens (`--ui-*`, same values as the site, plus the popup's `--ui-hint` = cream[1] for the host and state line), the reused site rules under their site names (`.ui-panel`, `.ui-button(.secondary)`, `.ui-input`, `.ui-qrow`, `.ui-chip(.solo)`, `.ui-sysline`, `.ui-dots`) and the popup layout (`.pk-*`). Generated; don't edit by hand. |
 | 17 × `ui/slices/*.png` | 2 668 | Existing files, listed in `POPUP_KIT_SLICES` (`src/popupkit.ts`): `panel-0`, `button-primary-idle\|hover\|press\|disabled`, `button-secondary-idle\|hover\|press`, `input-idle\|focus\|invalid`, `queue-row-idle\|hover\|next`, `chip-shared`, `chip-solo`, `chat-system` |
 | OME-842 vignettes | (already shipped) | `nothing-found`, `cant-read`, `server-away` (+ `@2x`) |
 
-**Total added to the popup: 6 803 B** (kit.png + kit.css gz + slices), all local files in the package, no network, no web font.
+**Total added to the popup: 6 815 B** (kit.png + kit.css gz + slices), all local files in the package, no network, no web font.
 The popup opens on the same scan path, so the 300 ms "popup opened → embeds listed" budget isn't touched by the art.
 
 **Copy layout (OME-1043):** `kit.css` + `kit.png` → `popup/`, the 17 slices → `slices/` (kit.css points at `../slices/<name>.png`),
