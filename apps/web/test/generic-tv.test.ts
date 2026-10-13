@@ -83,6 +83,8 @@ describe("generic embed TV (ADR 0024 §3)", () => {
     loadButton(tv).click();
     expect(label?.hidden).toBe(false);
     expect(hint?.hidden).toBe(false);
-    expect(hint?.textContent).toBe("Blank or an error page? This site only allows playback on its own pages.");
+    // Names the host, so "this site" can't read as ours; the full text stays in title when the strip ellipsizes it.
+    expect(hint?.textContent).toBe("Blank or an error? media.example.org blocks playing here.");
+    expect(hint?.title).toBe(hint?.textContent ?? "");
   });
 });

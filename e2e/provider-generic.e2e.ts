@@ -130,7 +130,16 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     });
     expect(Object.keys(attrs).sort()).toEqual(["allow", "data-testid", "referrerpolicy", "sandbox", "src", "title"]);
     expect(roomHits).toEqual([EMBED_URL]);
-    await expect(room.getByTestId("generic-hint")).toHaveText("Blank or an error page? This site only allows playback on its own pages.");
+    await expect(room.getByTestId("generic-hint")).toHaveText(`Blank or an error? ${HOST} blocks playing here.`);
+    // The strip stays one line (OME-1035): count the distinct line boxes of each item's text.
+    for (const id of ["generic-hint", "not-synced"]) {
+      const lines = await room.getByTestId(id).evaluate((e) => {
+        const r = document.createRange();
+        r.selectNodeContents(e);
+        return new Set([...r.getClientRects()].map((b) => Math.round(b.top))).size;
+      });
+      expect(lines, id).toBe(1);
+    }
 
     // The hostile embed tries every way out, each with a real user activation inside the frame: script, then links.
     const inner = room.frameLocator(site.sharedVideo);
