@@ -44,7 +44,15 @@ test.describe("extension", () => {
     const p = await openPopup(page);
     await expect(p.locator(`${popup.embedItem}:not([data-provider="generic"])`)).toHaveCount(4);
     // Lookalikes on real public hosts are only ever generic: after the synced ones, labelled with their own host (ADR 0024, OME-293).
-    await expect(p.locator(popup.embedItem)).toHaveText([/YouTube/, /Twitch/, /Twitch/, /Vimeo/, "player-twitch.tv · not synced", "vimeo.co · not synced"]);
+    await expect(p.locator(popup.embedItem)).toHaveText([/YouTube/, /Twitch/, /Twitch/, /Vimeo/, "player-twitch.tv · 300×150 · not synced", "vimeo.co · 300×150 · not synced"]);
+  });
+
+  test("pre-selects the large player, not the comments widget before it; tiny and hidden frames are not listed (OME-1037)", async ({ context, openPopup }) => {
+    const page = await context.newPage();
+    await gotoFixture(page, "likely-video");
+    const p = await openPopup(page);
+    await expect(p.locator(popup.embedItem)).toHaveText(["player.omega-fixture.org · 960×540 · not synced", "comments.omega-fixture.org · 640×200 · not synced"]);
+    await expect(p.locator(`${popup.embedItem} input:checked`)).toHaveValue("https://player.omega-fixture.org/embed/7");
   });
 
   test("lists the video on a watch URL", async ({ context, openPopup }) => {

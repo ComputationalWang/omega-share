@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AnyEmbed, Embed, GenericEmbed } from "@omega/shared";
-import { listEmbeds, scanTab } from "../src/embeds";
+import { type ListedEmbed, listEmbeds, scanTab } from "../src/embeds";
 
 const A = "aqz-KE-bpKQ";
 const B = "dQw4w9WgXcQ";
@@ -135,4 +135,53 @@ describe("scanTab", () => {
   test("no injection results means the tab is unreadable", async () => {
     expect(await scanTab(() => Promise.resolve([]))).toEqual({ kind: "unreadable" });
   });
+});
+
+describe("listEmbeds: the generic tier is ordered by how likely it is the video (OME-1037)", () => {
+  const frame = (url: string, width: number, height: number) => ({ url, width, height });
+  const sized = (url: string, width: number, height: number): ListedEmbed => ({ ...generic(url), size: { width, height } });
+  const WIDGET = "https://comments.example.org/widget";
+  const PLAYER = "https://player.example.org/e/1";
+  const cases: readonly { name: string; scan: unknown; expected: readonly ListedEmbed[] }[] = [
+    {
+      name: "a small widget frame before a large player: the player comes first",
+      scan: { urls: [], media: [], frames: [frame(WIDGET, 640, 200), frame(PLAYER, 960, 540)] },
+      expected: [sized(PLAYER, 960, 540), sized(WIDGET, 640, 200)],
+    },
+    {
+      name: "<video> sources come before any frame",
+      scan: { urls: [], media: ["https://cdn.example.org/clip.mp4"], frames: [frame(PLAYER, 960, 540)] },
+      expected: [generic("https://cdn.example.org/clip.mp4"), sized(PLAYER, 960, 540)],
+    },
+    {
+      name: "hidden (0×0) and tiny frames (under 200×120) are dropped; exactly 200×120 stays",
+      scan: {
+        urls: [],
+        media: [],
+        frames: [frame("https://a.example.org/hidden", 0, 0), frame("https://b.example.org/narrow", 199, 400), frame("https://c.example.org/short", 800, 119), frame("https://d.example.org/edge", 200, 120)],
+      },
+      expected: [sized("https://d.example.org/edge", 200, 120)],
+    },
+    {
+      name: "equal areas keep page order",
+      scan: { urls: [], media: [], frames: [frame("https://a.example.org/1", 300, 150), frame("https://b.example.org/2", 300, 150)] },
+      expected: [sized("https://a.example.org/1", 300, 150), sized("https://b.example.org/2", 300, 150)],
+    },
+    {
+      name: "the synced tier keeps its page order and stays first, whatever the frame sizes",
+      scan: { urls: [`https://www.youtube.com/embed/${B}`, `https://www.youtube.com/embed/${A}`], media: [], frames: [frame(PLAYER, 1920, 1080)] },
+      expected: [embed(B), embed(A), sized(PLAYER, 1920, 1080)],
+    },
+    {
+      name: "malformed frame entries are skipped",
+      scan: { urls: [], media: [], frames: [null, "https://x.example.org/", { url: PLAYER }, { url: 7, width: 960, height: 540 }, frame(PLAYER, Number.NaN, 540), frame(PLAYER, 960, 540)] },
+      expected: [sized(PLAYER, 960, 540)],
+    },
+    { name: "frames not an array is no frames", scan: { urls: [], media: [], frames: "nope" }, expected: [] },
+  ];
+  for (const c of cases) {
+    test(c.name, () => {
+      expect(listEmbeds(c.scan)).toEqual([...c.expected]);
+    });
+  }
 });
