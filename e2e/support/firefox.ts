@@ -39,7 +39,8 @@ export async function launchFirefoxWithExtension(prefs: Record<string, string> =
     executablePath: await firefoxExecutable(),
     // Headless Firefox has no pointer device, so it matches `(hover: none)` and renders the popup's phone layout (OME-743).
     // This lane checks scan, rooms and timing, not desktop looks; desktop Firefox with a mouse keeps the 320 px popup.
-    headless: true,
+    // OMEGA_FIREFOX_HEADED=1 for the headed checks; run it through e2e/support/headed.ts so it lands on a virtual display (board rule).
+    headless: process.env["OMEGA_FIREFOX_HEADED"] !== "1",
     // Without it Firefox hides extension tabs from BiDi, so the popup tab can't be found.
     args: ["-remote-allow-system-access"],
   });
