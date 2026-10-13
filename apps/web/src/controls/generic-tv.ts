@@ -23,7 +23,7 @@ export function createGenericTv(frame: TvGeneric): GenericTv {
 
   const strip = el("div", { className: "generic-strip" });
   const label = el("span", { className: "generic-label", textContent: "Not synced" }, "not-synced");
-  const hint = el("span", { className: "generic-hint", textContent: "Blank? This site doesn't allow embedding.", hidden: true }, "generic-hint");
+  const hint = el("span", { className: "generic-hint", textContent: "Blank or an error page? This site only allows playback on its own pages.", hidden: true }, "generic-hint");
   strip.append(label, hint);
 
   let loaded = false;
