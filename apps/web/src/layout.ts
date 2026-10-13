@@ -102,12 +102,15 @@ export function portraitLayout(width: number, height: number, provider: Provider
 export const WIDE_MIN_W = 1024;
 export const WIDE_QUERY = `(min-width: ${String(WIDE_MIN_W)}px) and (orientation: landscape)`;
 export const WIDE_CHAT_W = 320;
-/** The TV's share of the left column's height once the shelf is taken off; the room gets the rest. */
-const WIDE_TV_SHARE = 0.45;
+/**
+ * The TV's share of the left column's height once the shelf is taken off; the room gets the rest. OME-1050 (board): the
+ * room is the larger part at 16:9; 0.36 still keeps a 1920×1080 window's TV above the stacked page's 560 px.
+ */
+const WIDE_TV_SHARE = 0.36;
 
 /**
  * The wide layout's left column, `width`×`height` CSS px: the TV (16:9, never under its ADR 0012 minimum, Twitch's is
- * larger), the shelf right under it, and the stage below, scaled to fit what's left (never up) and centred.
+ * larger), the shelf right under it, and the stage below, scaled to fill what's left (up past 1× too, OME-1050) and centred.
  */
 export function wideLayout(width: number, height: number, provider: Provider | null): RoomLayout {
   const w = Math.floor(width);
@@ -118,7 +121,7 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const tv = { x: Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
   const controls = { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
   const sy = controls.y + controls.h + GAP;
-  const scale = Math.max(0.05, Math.min(1, w / STAGE_W, (h - sy) / STAGE_H));
+  const scale = Math.max(0.05, Math.min(w / STAGE_W, (h - sy) / STAGE_H));
   const stage = { x: (w - STAGE_W * scale) / 2, y: sy, w: STAGE_W * scale, h: STAGE_H * scale };
   const compact = { tv: !sidesFit(tv, TV_BEZEL, w), controls: !sidesFit(controls, SHELF_SPEAKER, w) };
   return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
@@ -262,7 +265,7 @@ export const POP_ROOM_CHAT_W = 300;
 export interface PopRoomLayout {
   /** The stage's box once scaled (window px), centred in the room side. */
   readonly stage: Rect;
-  /** 1× where it fits, smaller where it doesn't; never larger (the room's art is 1× pixel art). */
+  /** Fills the room side: up past 1× in a big window (OME-1050), down in a small one. */
   readonly scale: number;
   readonly chat: Rect;
 }
@@ -273,7 +276,7 @@ export function popRoomLayout(width: number, height: number): PopRoomLayout {
   const h = Math.max(0, Math.floor(height));
   const cw = Math.min(POP_ROOM_CHAT_W, w);
   const aw = w - cw;
-  const scale = Math.max(0.05, Math.min(1, aw / STAGE_W, h / STAGE_H));
+  const scale = Math.max(0.05, Math.min(aw / STAGE_W, h / STAGE_H));
   const sw = Math.floor(STAGE_W * scale);
   const sh = Math.floor(STAGE_H * scale);
   return {
