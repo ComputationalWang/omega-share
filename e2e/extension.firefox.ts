@@ -27,8 +27,8 @@ test.describe("Firefox extension", () => {
       expect.stringMatching(/^Twitch/),
       expect.stringMatching(/^Twitch/),
       "Vimeo · 76979871",
-      "player-twitch.tv · not synced",
-      "vimeo.co · not synced",
+      "player-twitch.tv · 300×150 · not synced",
+      "vimeo.co · 300×150 · not synced",
     ]);
   });
 

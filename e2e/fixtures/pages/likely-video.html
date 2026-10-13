@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture: the player is not the first frame</title></head>
+<body>
+<h1>An episode page: a tracker, a comments widget and a hidden ad frame come before the player (OME-1037)</h1>
+<!-- Tiny: dropped. -->
+<iframe id="tracker" src="https://track.omega-fixture.org/px" width="1" height="1" title="tracker"></iframe>
+<!-- Comments widget: listed, but after the player. -->
+<iframe id="comments" src="https://comments.omega-fixture.org/widget?anime=1" width="640" height="200" title="Comments"></iframe>
+<!-- Hidden: dropped. -->
+<iframe id="hidden" src="https://ads.omega-fixture.org/frame" width="728" height="300" style="display:none" title="ad"></iframe>
+<!-- The player: listed first and pre-selected. -->
+<iframe id="player" src="https://player.omega-fixture.org/embed/7" width="960" height="540" title="Episode 1" allowfullscreen></iframe>
+</body></html>
