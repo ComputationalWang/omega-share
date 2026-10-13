@@ -29,6 +29,8 @@ const ROLES: RoleMap = {
   // OME-1041: the "video found" tally lamp, a lit mustard bulb (the Share key's colour) with a cream glint.
   F: { ramp: "mustard", hi: true, group: "F" },
   g: { ramp: "cream", tone: 0, group: "F" },
+  // OME-1061: at 16 px the lamp's edge is lit (light mustard), so the plum ring + bulb don't merge into one dark blob on #f9f9fb.
+  R: { ramp: "mustard", tone: 0, group: "F" },
   // Explorations only (preview/): a flat glow dot, and a dark screen.
   D: { ramp: "glow", tone: 0 },
   k: { ramp: "night", tone: 2, group: "s" },
@@ -107,7 +109,7 @@ export function icon(S: number, pad: number, heads = S >= 48): Grid {
 /** The tally lamp's disc (radius, centre) at `S` art px: tucked into the cabinet's top-right corner, clear of the bottom-right
  *  corner where browsers draw a badge. Its own 1 px plum ring cuts it out of the wood, so it reads on light and dark toolbars. */
 export function lampGeom(S: number, pad: number): { r: number; cx: number; cy: number } {
-  const r = S <= 16 ? 3.3 : S * 0.15;
+  const r = S <= 16 ? 3 : S * 0.15;
   return { r, cx: S - pad - 1 - r, cy: pad + 1 + r };
 }
 
@@ -121,6 +123,11 @@ export function renderFoundIcon(S: number, pad: number, heads = S >= 48, look: "
     if (row && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) row[x] = look === "lamp" ? "F" : "D";
   }
   if (look === "dot") { const lit = render(lamp, ROLES); return tv.map((v, i) => (lit[i] !== 0 ? (lit[i] ?? v) : v)); }
+  if (S <= 16) {
+    const on = (x: number, y: number): boolean => lamp[y]?.[x] === "F" || lamp[y]?.[x] === "R";
+    const edge = lamp.map((row, y) => row.map((ch, x) => ch === "F" && !(on(x - 1, y) && on(x + 1, y) && on(x, y - 1) && on(x, y + 1))));
+    edge.forEach((row, y) => { row.forEach((e, x) => { const l = lamp[y]; if (e && l) l[x] = "R"; }); });
+  }
   // The glint: one cream pixel (2×2 from 32 up) just inside the lit top-left edge.
   const gx = Math.floor(cx - r * 0.45), gy = Math.floor(cy - r * 0.45), gs = S >= 32 ? 2 : 1;
   for (let y = gy; y < gy + gs; y++) for (let x = gx; x < gx + gs; x++) { const row = lamp[y]; if (row) row[x] = "g"; }

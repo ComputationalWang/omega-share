@@ -3,6 +3,7 @@
 // the room field) and ui/popup/kit.css (tokens, the reused 9-slice rules under their site names, and the popup layout as .pk-*).
 // The 9-slices are the existing files in ui/slices/: kit.css points at them as ../slices/<name>.png, so the extension copies
 // kit.css + kit.png to popup/ and the listed slices to slices/ (POPUP_KIT_SLICES). Nothing here adds a colour or a font.
+import { colorIndex } from "./palette";
 import type { RoomFrame } from "./room";
 import { blank, render, stamp, type RoleMap } from "./sprite";
 
@@ -26,6 +27,13 @@ export function chevronFrame(): RoomFrame {
   stamp(g, [".ccccccc.", "..ccccc..", "...ccc...", "....c...."], 0, 1);
   const roles: RoleMap = { c: { ramp: "cream", hi: true } };
   return { key: "chevron", w: 9, h: 6, img: render(g, roles), ax: 0, ay: 0 };
+}
+
+/** OME-1061: the scanning dots in the popup only. The site's loader sits on a lit room; on the popup's dusk panel its cream[2]
+ *  resting dots fade, so the kit's cut lifts them to cream[0] and the travelling dot to light mustard (position still carries it). */
+export function brightDots(img: Uint8Array): Uint8Array {
+  const dim = colorIndex("cream", 2), lit = colorIndex("cream", 0), up = colorIndex("mustard", 0);
+  return img.map((v) => (v === dim ? lit : v === lit ? up : v));
 }
 
 interface Rect { x: number; y: number; w: number; h: number }
@@ -55,11 +63,11 @@ ${vars}
 .pk-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: ${px(4)}; padding: ${px(2)}; min-height: ${px(60)}; }
 /* Head: icon/tv + "Share a video" + the page's host, muted, right-aligned. */
 .pk-head { display: flex; align-items: center; gap: ${px(3)}; margin: 0; font-size: 15px; font-weight: 700; }
-.pk-head .host { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 500; color: var(--ui-muted); }
+.pk-head .host { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 500; color: var(--ui-hint); }
 
 /* A state with no list (scanning, nothing found, can't read, server away): the vignette (OME-842, ui/popup/<state>.png) or
  * .ui-dots, centred over one line. The vignettes keep their own plum outline, so they read on the panel's dusk fill too. */
-.pk-state { display: grid; justify-items: center; gap: ${px(2)}; padding: ${px(4)} 0; text-align: center; color: var(--ui-muted); font-weight: 500; }
+.pk-state { display: grid; justify-items: center; gap: ${px(2)}; padding: ${px(4)} 0; text-align: center; color: var(--ui-hint); font-weight: 500; }
 .pk-state img { width: 96px; height: 80px; image-rendering: pixelated; }
 .pk-state b { color: var(--ui-text); }
 .ui-dots { --d0: ${dots[0] ?? ""}; --d1: ${dots[1] ?? ""}; --d2: ${dots[2] ?? ""}; background-position: var(--d0); animation: ui-dots 900ms steps(1) infinite; }

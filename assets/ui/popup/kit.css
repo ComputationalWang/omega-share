@@ -14,6 +14,7 @@
   --ui-bubble-text: #2b1d2f;
   --ui-disabled-text: #cbbd9f;
   --ui-glow: #e8fbff;
+  --ui-hint: #f4ead2;
   --ui-px: 2px;
 }
 .pk, .pk * { box-sizing: border-box; }
@@ -26,11 +27,11 @@
 .pk-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: calc(4 * var(--ui-px)); padding: calc(2 * var(--ui-px)); min-height: calc(60 * var(--ui-px)); }
 /* Head: icon/tv + "Share a video" + the page's host, muted, right-aligned. */
 .pk-head { display: flex; align-items: center; gap: calc(3 * var(--ui-px)); margin: 0; font-size: 15px; font-weight: 700; }
-.pk-head .host { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 500; color: var(--ui-muted); }
+.pk-head .host { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 500; color: var(--ui-hint); }
 
 /* A state with no list (scanning, nothing found, can't read, server away): the vignette (OME-842, ui/popup/<state>.png) or
  * .ui-dots, centred over one line. The vignettes keep their own plum outline, so they read on the panel's dusk fill too. */
-.pk-state { display: grid; justify-items: center; gap: calc(2 * var(--ui-px)); padding: calc(4 * var(--ui-px)) 0; text-align: center; color: var(--ui-muted); font-weight: 500; }
+.pk-state { display: grid; justify-items: center; gap: calc(2 * var(--ui-px)); padding: calc(4 * var(--ui-px)) 0; text-align: center; color: var(--ui-hint); font-weight: 500; }
 .pk-state img { width: 96px; height: 80px; image-rendering: pixelated; }
 .pk-state b { color: var(--ui-text); }
 .ui-dots { --d0: calc(-49 * var(--ui-px)) calc(-30 * var(--ui-px)); --d1: 0 calc(-34 * var(--ui-px)); --d2: calc(-13 * var(--ui-px)) calc(-34 * var(--ui-px)); background-position: var(--d0); animation: ui-dots 900ms steps(1) infinite; }
