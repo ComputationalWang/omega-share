@@ -1,5 +1,5 @@
 // OME-733 (M8 Q1): the floating chat bubbles (OME-730) from the outside, beyond e2e/bubbles.e2e.ts. A bubble hangs over
-// its speaker and moves and fades, then is gone after about 5 s; the pool of 8 holds across speakers and no two visible
+// its speaker and moves and fades, then is gone after about 5 s; the pool of 16 holds across speakers and no two visible
 // bubbles overlap; reduced motion shows it at once without a rise or fade-in; the screen reader reads a line once (the
 // chat log, never the aria-hidden layer); markup, RTL text and a max-length line are only ever text, bounded and
 // non-overlapping. Each test has its own seeded room (support/test-rooms.ts, "m8-bubbles").
@@ -114,7 +114,7 @@ test("a bubble hangs over its speaker's name tag, moves and fades while it lives
   expect(lived).toBeGreaterThan(3500);
   expect(lived).toBeLessThan(8000);
   await expect(a.page.locator(`${site.room} .float-slot:not([hidden])`)).toHaveCount(0);
-  await expect(a.page.locator(`${site.room} .float-slot`)).toHaveCount(8);
+  await expect(a.page.locator(`${site.room} .float-slot`)).toHaveCount(16);
 });
 
 // --- 2. pool cap across speakers -----------------------------------------------------------------------------------
