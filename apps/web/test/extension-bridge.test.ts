@@ -13,18 +13,29 @@ afterAll(async () => {
 const PRESENT = { source: "omega-share", kind: "present", version: "1.4.0" };
 const result = (host: string, outcome: string) => ({ source: "omega-share", kind: "unlock-result", host, outcome });
 
+/** Each test gets its own page window, so bridges from earlier tests can't answer (one bridge per page in the app). */
+function newPage(posted: { msg: unknown; target: string }[]) {
+  return Object.assign(new EventTarget(), {
+    location: { origin: "https://omega.example" },
+    postMessage: (msg: unknown, target: string) => {
+      posted.push({ msg, target });
+    },
+  });
+}
+let page = newPage([]);
+
 /** A message as the extension's content script would post it, unless overridden. */
-function deliver(data: unknown, init: { origin?: string; source?: MessageEventSource | null } = {}): void {
-  window.dispatchEvent(new MessageEvent("message", { data, origin: init.origin ?? location.origin, source: init.source === undefined ? window : init.source }));
+function deliver(data: unknown, init: { origin?: string; source?: unknown } = {}): void {
+  const e = new MessageEvent("message", { data, origin: init.origin ?? page.location.origin });
+  Object.defineProperty(e, "source", { value: "source" in init ? init.source : page });
+  page.dispatchEvent(e);
 }
 
 async function make(): Promise<{ bridge: ExtensionBridge; posted: { msg: unknown; target: string }[] }> {
   const posted: { msg: unknown; target: string }[] = [];
-  window.postMessage = (msg: unknown, target?: string | WindowPostMessageOptions) => {
-    posted.push({ msg, target: typeof target === "string" ? target : "" });
-  };
+  page = newPage(posted);
   const { createExtensionBridge } = await import("../src/extension-bridge");
-  return { bridge: createExtensionBridge(window), posted };
+  return { bridge: createExtensionBridge(page), posted };
 }
 
 function presentCalls(bridge: ExtensionBridge): () => number {
@@ -51,6 +62,7 @@ describe("extension bridge (ADR 0047 §5)", () => {
     const calls = presentCalls(bridge);
     deliver(PRESENT, { origin: "https://evil.example" });
     deliver(PRESENT, { source: null });
+    deliver(PRESENT, { source: window });
     deliver({ ...PRESENT, source: "someone-else" });
     deliver({ ...PRESENT, extra: 1 });
     deliver("present");

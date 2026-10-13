@@ -1,4 +1,5 @@
 // The generic tier's TV (ADR 0024 §3): a click-to-load card, then one sandboxed iframe. Text only, no third-party request before Load.
+import type { ExtensionBridge } from "../extension-bridge";
 import type { TvGeneric } from "../tv";
 import { el } from "./dom";
 
@@ -12,13 +13,18 @@ export interface GenericTv {
 }
 
 /** One per shown generic embed: a new embed gets a new card, so the viewer's choice resets with it. */
-export function createGenericTv(frame: TvGeneric): GenericTv {
+export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge): GenericTv {
   const screen = el("div", { className: "tv-generic" });
   const card = el("div", { className: "generic-card" }, "generic-card");
   const from = el("p", { className: "generic-from", textContent: "Video from " });
   from.append(el("strong", { textContent: frame.host }));
   const load = el("button", { type: "button", className: "enter", textContent: "Load" }, "generic-load");
-  card.append(from, el("p", { className: "generic-note", textContent: "Not synced: everyone plays it on their own." }), load);
+  const actions = el("p", { className: "generic-actions" });
+  actions.append(load);
+  // ADR 0047 §1: we can't see a refusal across origins, so this names no host.
+  const extHint = el("p", { className: "generic-note", textContent: "Some hosts only play here with the Omega Share extension." }, "generic-ext-hint");
+  const status = el("p", { className: "generic-note", hidden: true }, "generic-unlock-status");
+  card.append(from, el("p", { className: "generic-note", textContent: "Not synced: everyone plays it on their own." }), actions, extHint, status);
   screen.append(card);
 
   const strip = el("div", { className: "generic-strip" });
@@ -33,14 +39,36 @@ export function createGenericTv(frame: TvGeneric): GenericTv {
   strip.append(label, hint);
 
   let loaded = false;
-  load.addEventListener("click", () => {
-    if (loaded) return;
+  /** Creates the iframe, or recreates it so its first navigation happens under the extension's rules. */
+  const play = (): void => {
     loaded = true;
     // Every attribute is a constant from tv.ts `genericFrame`; src is its parsed url.
     const iframe = el("iframe", { src: frame.src, allow: frame.allow, referrerPolicy: frame.referrerPolicy, title: frame.title }, "shared-video");
     iframe.setAttribute("sandbox", frame.sandbox);
     screen.replaceChildren(iframe);
     hint.hidden = false;
+  };
+  load.addEventListener("click", () => {
+    if (!loaded) play();
+  });
+
+  bridge.whenPresent(() => {
+    extHint.hidden = true;
+    const unlock = el("button", { type: "button", className: "enter", textContent: "Unlock with extension" }, "generic-unlock");
+    actions.append(" ", unlock);
+    unlock.addEventListener("click", () => {
+      unlock.disabled = true;
+      status.hidden = true;
+      void bridge.unlock(frame.host).then((outcome) => {
+        unlock.disabled = false;
+        if (outcome === "unlocked") {
+          play();
+          return;
+        }
+        status.textContent = outcome === "denied" ? `${frame.host} wasn't unlocked.` : `The extension can't unlock ${frame.host} in this browser.`;
+        status.hidden = false;
+      });
+    });
   });
 
   return { screen, strip, loaded: () => loaded };
