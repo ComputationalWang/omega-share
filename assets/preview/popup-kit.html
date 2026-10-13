@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OME-1041 toolbar states + pixel popup kit</title>
+<link rel="stylesheet" href="../ui/popup/kit.css">
+<style>
+  body { margin: 0; background: #2b1d2f; font: 13px/1.4 system-ui, sans-serif; color: #fff7ea; }
+  section { padding: 16px; width: 1150px; box-sizing: border-box; }
+  h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #c6a8ec; }
+  .note { color: #c6a8ec; font-size: 12px; margin: 10px 0 0; max-width: 1100px; }
+  img.px { image-rendering: pixelated; }
+  .pops { display: grid; grid-template-columns: repeat(3, 340px); gap: 22px 28px; align-items: start; }
+  .pops figure { margin: 0; display: grid; gap: 6px; }
+  .pops figcaption { color: #c6a8ec; font-size: 12px; min-height: 2.8em; }
+  /* Toolbar mock: one strip per theme, icons at their real CSS size (16), plus a ×6 zoom of the 1× file. */
+  .bars { display: grid; grid-template-columns: 150px repeat(4, 1fr); gap: 6px 12px; align-items: center; }
+  .bars .h { color: #c6a8ec; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .bar { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 6px; }
+  .bar .fake { width: 16px; height: 16px; border-radius: 3px; opacity: .35; background: currentColor; }
+  .bar img { width: 16px; height: 16px; }
+  .bar .slot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 4px; }
+  .bar .slot.hover { background: color-mix(in srgb, currentColor 14%, transparent); }
+  .zoom { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; }
+  .zoom figure { margin: 0; display: grid; justify-items: center; gap: 4px; font-size: 11px; color: #c6a8ec; }
+  .zoom img { width: 96px; height: 96px; }
+  .zoom img.s32 { width: 96px; height: 96px; }
+  .zoom .tile { padding: 6px; border-radius: 4px; }
+  .dirs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+  .dir { border: 2px solid #4a4052; padding: 10px; display: grid; gap: 8px; }
+  .dir.pick { border-color: #e8b33c; }
+  .dir b { font-size: 13px; }
+  .dir p { margin: 0; color: #c6a8ec; font-size: 12px; }
+  .pair { display: flex; gap: 8px; align-items: center; }
+  .pair span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 4px; }
+  .pair img { width: 16px; height: 16px; }
+  .pair img.z { width: 64px; height: 64px; }
+</style>
+</head>
+<body>
+<section id="toolbar">
+  <h2>OME-1041 · Toolbar icon: idle → found (the tally lamp)</h2>
+  <div class="bars">
+    <span class="h">Toolbar</span><span class="h">idle</span><span class="h">found</span><span class="h">found, hovered</span><span class="h">found + engineering's interim badge</span>
+    <!-- Rows filled by the script below: one per toolbar theme. -->
+  </div>
+  <div class="zoom" style="margin-top:14px">
+    <figure><span class="tile" style="background:#fff"><img class="px" src="../store/icon-16.png" alt=""></span>idle-16 ×6</figure>
+    <figure><span class="tile" style="background:#fff"><img class="px" src="../store/found-16.png" alt=""></span>found-16 ×6</figure>
+    <figure><span class="tile" style="background:#35363a"><img class="px" src="../store/found-16.png" alt=""></span>on dark</figure>
+    <figure><span class="tile" style="background:#fff"><img class="px s32" src="../store/icon-32.png" alt=""></span>idle-32 ×3</figure>
+    <figure><span class="tile" style="background:#fff"><img class="px s32" src="../store/found-32.png" alt=""></span>found-32 ×3</figure>
+    <figure><span class="tile" style="background:#35363a"><img class="px s32" src="../store/found-32.png" alt=""></span>on dark</figure>
+    <figure><span class="tile" style="background:#fff"><img class="px" style="width:96px;height:96px" src="../store/found-48.png" alt=""></span>found-48 ×2</figure>
+    <figure><span class="tile" style="background:#35363a"><img class="px" style="width:128px;height:128px" src="../store/found-64.png" alt=""></span>found-64 ×2</figure>
+    <figure><span class="tile" style="background:#35363a"><img class="px" style="width:128px;height:128px" src="../store/icon-64.png" alt=""></span>idle-64 ×2</figure>
+  </div>
+  <div class="dirs">
+    <div class="dir"><b>A · Plain dot</b><p>A flat glow dot. Reads as "unread / notification", and the glow nearly vanishes on a white toolbar.</p><div class="pair" data-pair="../preview/toolbar/dot"></div></div>
+    <div class="dir pick"><b>B · Tally lamp (chosen)</b><p>A lit mustard bulb with a cream glint and its own plum ring, set into the cabinet's top-right corner like a studio tally light. Same mustard as the Share key: "something here you can share". Top-right, so the interim badge (bottom-right) never covers it.</p><div class="pair" data-pair="../store/found"></div></div>
+    <div class="dir"><b>C · Screen comes on</b><p>Idle = the set switched off, found = the dusk picture. The biggest change, but idle stops being today's icon, and a dark set disappears on a dark toolbar.</p><div class="pair" data-pair="../preview/toolbar/off" data-idle-is-variant="1"></div></div>
+  </div>
+  <p class="note">Files: <code>store/icon-16|32|48.png</code> (idle, unchanged) + <code>store/icon-64.png</code> (idle 2× of 32, new) and <code>store/found-16|32|48|64.png</code> (new). Each drawn natively, never scaled. Every edge that meets the toolbar is the plum outline, and the lamp is the brightest warm pixel block in the icon, so it holds on white and on #202124.</p>
+</section>
+
+<section id="states">
+  <h2>OME-1041 · Popup kit: every state at the real popup size (340 px), page chrome 2×</h2>
+  <div class="pops">
+    <figure><figcaption>1 · Scanning</figcaption><div class="pk"><main class="ui-panel pk-main">
+      <h1 class="pk-head"><span class="pk-sprite pk-icon-tv" aria-hidden="true"></span>Share a video<span class="host">cooking.test</span></h1>
+      <div class="pk-state" role="status"><span class="pk-sprite pk-glyph-dots-0 ui-dots" aria-hidden="true"></span>Looking for videos…</div>
+      <footer class="pk-foot"><button class="pk-link">Server settings</button><span class="legal"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Licences</a></span></footer>
+    </main></div></figure>
+
+    <figure><figcaption>2 · Embeds found: synced + not-synced rows, room, keys</figcaption><div class="pk"><main class="ui-panel pk-main">
+      <h1 class="pk-head"><span class="pk-sprite pk-icon-tv" aria-hidden="true"></span>Share a video<span class="host">cooking.test</span></h1>
+      <fieldset class="pk-list"><legend>Videos on this page</legend>
+        <label class="ui-qrow pk-embed"><input type="radio" name="e2" checked><span class="pk-sprite pk-glyph-radio-off" aria-hidden="true"></span><span class="pk-sprite pk-qsrc-video" aria-hidden="true"></span><span class="body"><span class="title">YouTube</span><span class="meta">sunsetBay40</span></span><span class="ui-chip"><span class="pk-sprite pk-glyph-insync" aria-hidden="true"></span>Synced</span></label>
+        <label class="ui-qrow pk-embed is-hover"><input type="radio" name="e2"><span class="pk-sprite pk-glyph-radio-off" aria-hidden="true"></span><span class="pk-sprite pk-qsrc-live" aria-hidden="true"></span><span class="body"><span class="title">Twitch</span><span class="meta">pottery_live</span></span><span class="ui-chip"><span class="pk-sprite pk-glyph-insync" aria-hidden="true"></span>Synced</span></label>
+        <label class="ui-qrow pk-embed"><input type="radio" name="e2"><span class="pk-sprite pk-glyph-radio-off" aria-hidden="true"></span><span class="pk-sprite pk-qsrc-generic" aria-hidden="true"></span><span class="body"><span class="title">player.cooking.test</span><span class="meta">Page embed</span></span><span class="ui-chip solo"><span class="pk-sprite pk-glyph-outsync" aria-hidden="true"></span>Not synced</span></label>
+      </fieldset>
+      <label class="pk-room">Room<span class="pk-field"><select class="ui-input"><option>Movie night (3)</option></select><span class="pk-sprite pk-chevron" aria-hidden="true"></span></span></label>
+      <div class="pk-keys"><button class="ui-button"><span class="pk-sprite pk-icon-share" aria-hidden="true"></span>Share</button><button class="ui-button secondary"><span class="pk-sprite pk-icon-queue-add" aria-hidden="true"></span>Add to queue</button></div>
+      <footer class="pk-foot"><button class="pk-link">Server settings</button><span class="legal"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Licences</a></span></footer>
+    </main></div></figure>
+
+    <figure><figcaption>3 · No video on this page</figcaption><div class="pk"><main class="ui-panel pk-main">
+      <h1 class="pk-head"><span class="pk-sprite pk-icon-tv" aria-hidden="true"></span>Share a video<span class="host">news.test</span></h1>
+      <div class="pk-state"><img src="../ui/popup/nothing-found.png" srcset="../ui/popup/nothing-found.png 1x, ../ui/popup/nothing-found@2x.png 2x" alt="">No supported video found on this page.</div>
+      <footer class="pk-foot"><button class="pk-link">Server settings</button><span class="legal"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Licences</a></span></footer>
+    </main></div></figure>
+
+    <figure><figcaption>4 · Unreadable tab</figcaption><div class="pk"><main class="ui-panel pk-main">
+      <h1 class="pk-head"><span class="pk-sprite pk-icon-tv" aria-hidden="true"></span>Share a video</h1>
+      <div class="pk-state"><img src="../ui/popup/cant-read.png" srcset="../ui/popup/cant-read.png 1x, ../ui/popup/cant-read@2x.png 2x" alt="">Can't read this tab. Open a regular web page and try again.</div>
+      <footer class="pk-foot"><button class="pk-link">Server settings</button><span class="legal"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Licences</a></span></footer>
+    </main></div></figure>
+
+    <figure><figcaption>5 · Room picker: keyboard focus on the field (mustard ring), Share hovered</figcaption><div class="pk"><main class="ui-panel pk-main">
+      <h1 class="pk-head"><span class="pk-sprite pk-icon-tv" aria-hidden="true"></span>Share a video<span class="host">cooking.test</span></h1>
+      <fieldset class="pk-list"><legend>Videos on this page</legend>
+        <label class="ui-qrow pk-embed"><input type="radio" name="e5" checked><span class="pk-sprite pk-glyph-radio-off" aria-hidden="true"></span><span class="pk-sprite pk-qsrc-video" aria-hidden="true"></span><span class="body"><span class="title">Vimeo</span><span class="meta">76979871</span></span><span class="ui-chip"><span class="pk-sprite pk-glyph-insync" aria-hidden="true"></span>Synced</span></label>
+      </fieldset>
+      <label class="pk-room">Room<span class="pk-field"><select class="ui-input is-focus"><option>Movie night (3)</option><option>Kit's room (1)</option><option>Lobby (12)</option></select><span class="pk-sprite pk-chevron" aria-hidden="true"></span></span></label>
+      <div class="pk-keys"><button class="ui-button is-hover"><span class="pk-sprite pk-icon-share" aria-hidden="true"></span>Share</button><button class="ui-button secondary"><span class="pk-sprite pk-icon-queue-add" aria-hidden="true"></span>Add to queue</button></div>
+      <footer class="pk-foot"><button class="pk-link">Server settings</button><span class="legal"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Licences</a></span></footer>
+    </main></div></figure>
+
+    <figure><figcaption>6 · Sending: Share pressed, both keys disabled until it answers</figcaption><div class="pk"><main class="ui-panel pk-main">
+      <h1 class="pk-head"><span class="pk-sprite pk-icon-tv" aria-hidden="true"></span>Share a video<span class="host">cooking.test</span></h1>
+      <fieldset class="pk-list"><legend>Videos on this page</legend>
+        <label class="ui-qrow pk-embed"><input type="radio" name="e6" checked><span class="pk-sprite pk-glyph-radio-off" aria-hidden="true"></span><span class="pk-sprite pk-qsrc-video" aria-hidden="true"></span><span class="body"><span class="title">YouTube</span><span class="meta">sunsetBay40</span></span><span class="ui-chip"><span class="pk-sprite pk-glyph-insync" aria-hidden="true"></span>Synced</span></label>
+      </fieldset>
+      <label class="pk-room">Room<span class="pk-field"><select class="ui-input"><option>Movie night (3)</option></select><span class="pk-sprite pk-chevron" aria-hidden="true"></span></span></label>
+      <div class="pk-keys"><button class="ui-button" disabled><span class="pk-sprite pk-icon-share" aria-hidden="true"></span>Share</button><button class="ui-button secondary" disabled><span class="pk-sprite pk-icon-queue-add" aria-hidden="true"></span>Add to queue</button></div>
+      <footer class="pk-foot"><button class="pk-link">Server settings</button><span class="legal"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Licences</a></span></footer>
+    </main></div></figure>
+
+    <figure><figcaption>7 · Success (role="status")</figcaption><div class="pk"><main class="ui-panel pk-main">
+      <h1 class="pk-head"><span class="pk-sprite pk-icon-tv" aria-hidden="true"></span>Share a video<span class="host">cooking.test</span></h1>
+      <fieldset class="pk-list"><legend>Videos on this page</legend>
+        <label class="ui-qrow pk-embed"><input type="radio" name="e7" checked><span class="pk-sprite pk-glyph-radio-off" aria-hidden="true"></span><span class="pk-sprite pk-qsrc-video" aria-hidden="true"></span><span class="body"><span class="title">YouTube</span><span class="meta">sunsetBay40</span></span><span class="ui-chip"><span class="pk-sprite pk-glyph-insync" aria-hidden="true"></span>Synced</span></label>
+      </fieldset>
+      <label class="pk-room">Room<span class="pk-field"><select class="ui-input"><option>Movie night (3)</option></select><span class="pk-sprite pk-chevron" aria-hidden="true"></span></span></label>
+      <div class="pk-keys"><button class="ui-button"><span class="pk-sprite pk-icon-share" aria-hidden="true"></span>Share</button><button class="ui-button secondary"><span class="pk-sprite pk-icon-queue-add" aria-hidden="true"></span>Add to queue</button></div>
+      <p class="ui-sysline" role="status"><span class="pk-sprite pk-glyph-check" aria-hidden="true"></span><span>Shared to <b>Movie night</b>.</span></p>
+      <footer class="pk-foot"><button class="pk-link">Server settings</button><span class="legal"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Licences</a></span></footer>
+    </main></div></figure>
+
+    <figure><figcaption>8 · Error (role="status"): rust + icon/warn, never colour alone</figcaption><div class="pk"><main class="ui-panel pk-main">
+      <h1 class="pk-head"><span class="pk-sprite pk-icon-tv" aria-hidden="true"></span>Share a video<span class="host">cooking.test</span></h1>
+      <fieldset class="pk-list"><legend>Videos on this page</legend>
+        <label class="ui-qrow pk-embed"><input type="radio" name="e8" checked><span class="pk-sprite pk-glyph-radio-off" aria-hidden="true"></span><span class="pk-sprite pk-qsrc-generic" aria-hidden="true"></span><span class="body"><span class="title">player.cooking.test</span><span class="meta">Page embed</span></span><span class="ui-chip solo"><span class="pk-sprite pk-glyph-outsync" aria-hidden="true"></span>Not synced</span></label>
+      </fieldset>
+      <label class="pk-room">Room<span class="pk-field"><select class="ui-input"><option>Movie night (3)</option></select><span class="pk-sprite pk-chevron" aria-hidden="true"></span></span></label>
+      <div class="pk-keys"><button class="ui-button"><span class="pk-sprite pk-icon-share" aria-hidden="true"></span>Share</button><button class="ui-button secondary"><span class="pk-sprite pk-icon-queue-add" aria-hidden="true"></span>Add to queue</button></div>
+      <p class="pk-error" role="status"><span class="pk-sprite pk-icon-warn" aria-hidden="true"></span>That video URL can't be shared.</p>
+      <footer class="pk-foot"><button class="pk-link">Server settings</button><span class="legal"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Licences</a></span></footer>
+    </main></div></figure>
+
+    <figure><figcaption>9 · Server away (existing OME-842 vignette), Server settings emphasised</figcaption><div class="pk"><main class="ui-panel pk-main">
+      <h1 class="pk-head"><span class="pk-sprite pk-icon-tv" aria-hidden="true"></span>Share a video<span class="host">cooking.test</span></h1>
+      <div class="pk-state" role="status"><img src="../ui/popup/server-away.png" srcset="../ui/popup/server-away.png 1x, ../ui/popup/server-away@2x.png 2x" alt="">Can't reach the omega-share server.</div>
+      <footer class="pk-foot"><button class="pk-link" data-emphasis="true">Server settings</button><span class="legal"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Licences</a></span></footer>
+    </main></div></figure>
+  </div>
+  <p class="note">Files: <code>ui/popup/kit.css</code> + <code>ui/popup/kit.png</code> (new) and 17 existing <code>ui/slices/*.png</code>; vignettes are the OME-842 files. Row = radio glyph · source tile · name over id/host · ADR 0024 chip; the chosen row wears queue-row-next (the TV's glow bar). No web font, no new colours.</p>
+</section>
+
+
+<script>
+  const THEMES = [["Chrome light", "#ffffff", "#1f1f1f"], ["Chrome light-blue", "#e9eef6", "#1f1f1f"], ["Firefox light", "#f9f9fb", "#15141a"], ["Chrome dark", "#35363a", "#e8eaed"], ["Firefox dark", "#2b2a33", "#fbfbfe"], ["Black", "#000000", "#ffffff"]];
+  const bars = document.querySelector(".bars");
+  const icon = (name, extra = "") => `<span class="slot ${extra}"><img src="../store/${name}-16.png" srcset="../store/${name}-16.png 1x, ../store/${name}-32.png 2x" alt=""></span>`;
+  const badge = '<span style="position:relative;display:grid">' + icon("icon") + '<b style="position:absolute;right:1px;bottom:2px;min-width:6px;height:10px;padding:0 2px;border-radius:2px;background:#e8b33c;color:#2b1d2f;font:700 9px/10px system-ui">1</b></span>';
+  for (const [name, bg, fg] of THEMES) {
+    const strip = (inner) => `<div class="bar" style="background:${bg};color:${fg}"><span class="fake"></span><span class="fake"></span>${inner}<span class="fake"></span></div>`;
+    bars.insertAdjacentHTML("beforeend", `<span>${name} <small style="color:#c6a8ec">${bg}</small></span>${strip(icon("icon"))}${strip(icon("found"))}${strip(icon("found", "hover"))}${strip(badge)}`);
+  }
+  for (const pair of document.querySelectorAll("[data-pair]")) {
+    const base = pair.dataset.pair;
+    for (const bg of ["#ffffff", "#35363a"]) {
+      pair.insertAdjacentHTML("beforeend", `<span style="background:${bg}"><img src="${base}-16.png" srcset="${base}-16.png 1x, ${base}-32.png 2x" alt=""></span>`);
+    }
+    pair.insertAdjacentHTML("beforeend", `<span style="background:#fff;width:72px;height:72px"><img class="px z" src="${base}-16.png" alt=""></span><span style="background:#35363a;width:72px;height:72px"><img class="px z" src="${base}-16.png" alt=""></span>`);
+  }
+  Promise.all([...document.images].map((i) => (i.complete ? Promise.resolve() : new Promise((r) => { i.onload = i.onerror = r; })))).then(() => { document.body.dataset.ready = "1"; });
+</script>
+</body>
+</html>
