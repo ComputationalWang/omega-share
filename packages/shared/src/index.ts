@@ -12,4 +12,3 @@ export * from "./messages";
 export * from "./report";
 export * from "./rooms-list";
 export * from "./session";
-export * from "./activity";

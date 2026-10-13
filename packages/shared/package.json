@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./confusables": "./src/confusables.ts",
+    "./activity": "./src/activity.ts",
     "./discord-upstream": "./src/discord-upstream.ts"
   },
   "scripts": {

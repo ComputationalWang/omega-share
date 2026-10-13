@@ -22,6 +22,8 @@ export const HANDOFF_CODE_TTL_MS = 60_000;
 /** Hard limit for a standalone handoff grant. Never renewed or extended by OAuth. */
 export const HANDOFF_GRANT_MAX_MS = 15 * 60_000;
 export const MAX_ADMISSION_FRAME_BYTES = 256;
+/** Unconsumed bootstrap nonces held server-wide; past it bootstrap answers `too_many_pending`. */
+export const ACTIVITY_MAX_PENDING_BOOTSTRAPS = 1000;
 /** Cap on every raw Activity/handoff request body. */
 export const MAX_ACTIVITY_BODY_BYTES = 2048;
 export const DISCORD_INSTANCE_ID_MAX_LENGTH = 128;
@@ -41,8 +43,9 @@ export const ACTIVITY_ROUTES = {
   handoffTicket: "/api/handoff/ticket",
 } as const;
 
-/** 32 server-random bytes, unpadded base64url. The server keeps only hashes. */
-const SECRET = /^[A-Za-z0-9_-]{43}$/;
+/** 32 server-random bytes, canonical unpadded base64url (the last char carries 4 bits). The server keeps only hashes. */
+const SECRET_BODY = "[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]";
+const SECRET = new RegExp(`^${SECRET_BODY}$`);
 const secret = <const B extends string>(brand: B) => v.pipe(v.string(), v.regex(SECRET), v.brand(brand));
 
 /** OAuth `state` for SDK `authorize`: single use, bound to the instance it was issued for. */
@@ -138,19 +141,36 @@ export const ActivitySessionResponseSchema = v.variant("ok", [
 ]);
 export type ActivitySessionResponse = v.InferOutput<typeof ActivitySessionResponseSchema>;
 
-/** `POST /api/discord/ticket` (bearer session) and `/api/handoff/ticket` (bearer grant). */
-export const ACTIVITY_TICKET_ERROR_CODES = ["unauthorized", "not_in_instance", "instance_unavailable", "discord_unavailable", "rate_limited", "activity_disabled"] as const;
-export const ActivityTicketResponseSchema = v.variant("ok", [
-  success({ ticket: AdmissionTicketSchema, ticketExpiresInMs: ms(ACTIVITY_TICKET_TTL_MS) }),
-  failure(ACTIVITY_TICKET_ERROR_CODES),
-]);
+const TicketGrantSchema = success({ ticket: AdmissionTicketSchema, ticketExpiresInMs: ms(ACTIVITY_TICKET_TTL_MS) });
+
+/**
+ * `POST /api/discord/ticket`, bearer session, empty body. Needs a membership check no older than
+ * ACTIVITY_MEMBERSHIP_FRESHNESS_MS. `handed_off`: this session confirmed a handoff and is spent.
+ */
+export const ACTIVITY_TICKET_ERROR_CODES = [
+  "invalid_body",
+  "unauthorized",
+  "handed_off",
+  "not_in_instance",
+  "instance_unavailable",
+  "discord_unavailable",
+  "rate_limited",
+  "activity_disabled",
+] as const;
+export const ActivityTicketResponseSchema = v.variant("ok", [TicketGrantSchema, failure(ACTIVITY_TICKET_ERROR_CODES)]);
 export type ActivityTicketResponse = v.InferOutput<typeof ActivityTicketResponseSchema>;
 
-export const HANDOFF_START_ERROR_CODES = ["unauthorized", "rate_limited", "handoff_unsupported", "activity_disabled"] as const;
+/** `POST /api/handoff/ticket`, bearer grant, empty body. Delegated authority: no Discord membership check. */
+export const HANDOFF_TICKET_ERROR_CODES = ["invalid_body", "unauthorized", "rate_limited", "activity_disabled"] as const;
+export const HandoffTicketResponseSchema = v.variant("ok", [TicketGrantSchema, failure(HANDOFF_TICKET_ERROR_CODES)]);
+export type HandoffTicketResponse = v.InferOutput<typeof HandoffTicketResponseSchema>;
+
+/** Empty body. One pending handoff per session: a new start supersedes the previous code. */
+export const HANDOFF_START_ERROR_CODES = ["invalid_body", "unauthorized", "handed_off", "rate_limited", "handoff_unsupported", "activity_disabled"] as const;
 export const HandoffStartResponseSchema = v.variant("ok", [success({ code: HandoffCodeSchema, expiresInMs: ms(HANDOFF_CODE_TTL_MS) }), failure(HANDOFF_START_ERROR_CODES)]);
 export type HandoffStartResponse = v.InferOutput<typeof HandoffStartResponseSchema>;
 
-const HANDOFF_HASH = /^#h=([A-Za-z0-9_-]{43})$/;
+const HANDOFF_HASH = new RegExp(`^#h=(${SECRET_BODY})$`);
 /** The code in a `location.hash` of exactly `#h=<code>`, else null. Never throws. */
 export function handoffCodeFromHash(hash: string): HandoffCode | null {
   if (hash.length !== 3 + 43) return null;
@@ -162,26 +182,32 @@ export function handoffCodeFromHash(hash: string): HandoffCode | null {
 
 export const HandoffClaimRequestSchema = v.strictObject({ code: HandoffCodeSchema });
 export type HandoffClaimRequest = v.InferOutput<typeof HandoffClaimRequestSchema>;
-/** `handoff_invalid`: unknown, expired, already claimed or cancelled. */
-export const HANDOFF_CLAIM_ERROR_CODES = ["invalid_body", "payload_too_large", "rate_limited", "handoff_invalid"] as const;
+/** `handoff_invalid`: unknown, expired, superseded or cancelled. `handoff_claimed`: another browser claimed it first. */
+export const HANDOFF_CLAIM_ERROR_CODES = ["invalid_body", "payload_too_large", "rate_limited", "handoff_invalid", "handoff_claimed"] as const;
 export const HandoffClaimResponseSchema = v.variant("ok", [
   success({ receiver: HandoffReceiverTokenSchema, confirmCode: HandoffConfirmCodeSchema, expiresInMs: ms(HANDOFF_CODE_TTL_MS) }),
   failure(HANDOFF_CLAIM_ERROR_CODES),
 ]);
 export type HandoffClaimResponse = v.InferOutput<typeof HandoffClaimResponseSchema>;
 
-/** Typed by a person: trimmed and upper-cased first. A wrong code cancels the transfer. */
+/**
+ * Typed by a person: trimmed and upper-cased first. A well-formed wrong code cancels the transfer;
+ * a malformed body (`invalid_body`) does not.
+ */
 export const HandoffConfirmRequestSchema = v.strictObject({
   confirmCode: v.pipe(v.string(), v.maxLength(16), v.trim(), v.toUpperCase(), v.regex(CONFIRM_CODE)),
 });
 export type HandoffConfirmRequest = v.InferOutput<typeof HandoffConfirmRequestSchema>;
-export const HANDOFF_CONFIRM_ERROR_CODES = ["unauthorized", "handoff_invalid", "rate_limited"] as const;
+export const HANDOFF_CONFIRM_ERROR_CODES = ["invalid_body", "payload_too_large", "unauthorized", "handoff_invalid", "rate_limited"] as const;
 export const HandoffConfirmResponseSchema = v.variant("ok", [success({}), failure(HANDOFF_CONFIRM_ERROR_CODES)]);
 export type HandoffConfirmResponse = v.InferOutput<typeof HandoffConfirmResponseSchema>;
 
 export const HandoffRedeemRequestSchema = v.strictObject({ code: HandoffCodeSchema, receiver: HandoffReceiverTokenSchema });
 export type HandoffRedeemRequest = v.InferOutput<typeof HandoffRedeemRequestSchema>;
-/** `handoff_pending`: not confirmed yet, retry after `retryAfterMs`. */
+/**
+ * `handoff_pending`: not confirmed yet, retry after `retryAfterMs`. Retry-safe: repeating it with the
+ * same code and receiver within HANDOFF_CODE_TTL_MS of confirm rotates the grant (the previous one is revoked).
+ */
 export const HANDOFF_REDEEM_ERROR_CODES = ["invalid_body", "payload_too_large", "rate_limited", "handoff_pending", "handoff_invalid"] as const;
 export const HandoffRedeemResponseSchema = v.variant("ok", [
   success({
@@ -213,13 +239,11 @@ export function parseAdmissionFrame(raw: string): AdmissionFrame | null {
   return result.success ? result.output : null;
 }
 
-/** An admitted socket's `join`: no owner, invite, resume or durable-session authority. */
+const ACTIVITY_JOIN_KEYS: ReadonlySet<string> = new Set(["type", "nickname", "avatar"]);
+
+/** An admitted socket's `join`: nickname and avatar only. An allowlist, so a future authority field stays out. */
 export function isActivityJoin(message: ClientMessage): boolean {
-  return (
-    message.type === "join" &&
-    message.ownerToken === undefined &&
-    message.inviteKey === undefined &&
-    message.resumeToken === undefined &&
-    message.durableSession === undefined
-  );
+  if (message.type !== "join") return false;
+  for (const key in message) if (!ACTIVITY_JOIN_KEYS.has(key)) return false;
+  return true;
 }
