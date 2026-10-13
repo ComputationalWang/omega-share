@@ -62,17 +62,15 @@ describe("reduce", () => {
     expect(server(before, { type: "seat-changed", memberId: "zzz", seat: 0 })).toBe(before);
   });
 
-  test("chat keeps a member's last 2 bubbles (2 per speaker), each its own message, expiring BUBBLE_MS later", () => {
-    let s = server(joined(), { type: "chat", memberId: "b", text: "first", at: 1 }, 1000);
-    s = server(s, { type: "chat", memberId: "a", text: "hers", at: 2 }, 1500);
-    s = server(s, { type: "chat", memberId: "b", text: "second", at: 3 }, 2000);
-    expect(s.bubbles.map((b) => [b.memberId, b.text, b.expiresAt])).toEqual([
-      ["b", "first", 1000 + BUBBLE_MS],
-      ["a", "hers", 1500 + BUBBLE_MS],
-      ["b", "second", 2000 + BUBBLE_MS],
-    ]);
-    s = server(s, { type: "chat", memberId: "b", text: "third", at: 4 }, 2500);
-    expect(s.bubbles.map((b) => b.text)).toEqual(["hers", "second", "third"]);
+  test("chat keeps a member's last 10 bubbles (10 per speaker, OME-1050), each its own message, expiring BUBBLE_MS later", () => {
+    let s = server(joined(), { type: "chat", memberId: "b", text: "b0", at: 0 }, 1000);
+    s = server(s, { type: "chat", memberId: "a", text: "hers", at: 1 }, 1500);
+    for (let i = 1; i < 10; i++) s = server(s, { type: "chat", memberId: "b", text: `b${String(i)}`, at: 1 + i }, 2000 + i);
+    expect(s.bubbles.map((b) => b.text)).toEqual(["b0", "hers", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9"]);
+    expect(s.bubbles[0]?.expiresAt).toBe(1000 + BUBBLE_MS);
+    expect(s.bubbles[1]?.expiresAt).toBe(1500 + BUBBLE_MS);
+    s = server(s, { type: "chat", memberId: "b", text: "b10", at: 20 }, 2500);
+    expect(s.bubbles.map((b) => b.text)).toEqual(["hers", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "b10"]);
   });
 
   // OME-809: two lines landing before one render must both reach the stage, so each bubble is keyed by message, not by
