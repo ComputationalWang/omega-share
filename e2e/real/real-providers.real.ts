@@ -17,6 +17,8 @@ test.beforeAll(requireVirtualDisplay);
 
 /** docs/perf-budgets.md, Sync row. Checked on offsets held for two samples in a row: ./spread.ts (OME-377). */
 const SPREAD_BUDGET_MS = 500;
+/** Real Twitch live play-from-live: a sanity bound, not the Sync budget (ADR 0048, OME-1057). */
+const LIVE_PLAY_SANITY_MS = 2_000;
 
 test.setTimeout(300_000);
 
@@ -385,7 +387,8 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
       expect(pauseArrival.every((x) => x !== null), "both real players paused after the gate").toBe(true);
       expect(playArrival.every((x) => x !== null), "both real players resumed after the gate").toBe(true);
       expect(result.pause.spreadMs ?? Infinity).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
-      expect(result.play.spreadMs ?? Infinity).toBeLessThanOrEqual(SPREAD_BUDGET_MS);
+      // Real play-from-live is Twitch's live-edge reload, not our relay: recorded, only a sanity bound (ADR 0048).
+      expect(result.play.spreadMs ?? Infinity).toBeLessThan(LIVE_PLAY_SANITY_MS);
       expect(result.finalPlaying).toEqual([true, true]);
       for (const v of result.finalViews) expect(v).toEqual({ playing: true, error: null });
     }, remainingMs);
