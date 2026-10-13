@@ -149,6 +149,40 @@ describe("unlock from the room page", () => {
   });
 });
 
+describe("robustness", () => {
+  test("two rooms unlocking at once both get a set, with distinct ids", async () => {
+    const h = harness({ granted: true });
+    await Promise.all([
+      h.unlocker.onMessage(unlock("video.cdn-host.net"), roomSender),
+      h.unlocker.onMessage(unlock("video.cdn-host.net"), { ...roomSender, tab: { id: 8, url: `${OUR}/r/two` } }),
+    ]);
+    expect(h.rules()).toHaveLength(4);
+    expect(new Set(h.rules().map((r) => r.id)).size).toBe(4);
+    expect(h.notes.map(([, m]) => m.kind === "unlock-result" && m.outcome)).toEqual(["unlocked", "unlocked"]);
+  });
+
+  test("a Chromium that refuses the CSP rule's responseHeaders condition (before 128) still gets the XFO rule", async () => {
+    const dnr = fakeDnr();
+    const h = harness({
+      granted: true,
+      dnr: () => ({
+        getSessionRules: dnr.getSessionRules,
+        updateSessionRules: (u) => ((u.addRules ?? []).some((r) => r.condition.responseHeaders !== undefined) ? Promise.reject(new Error("unknown key")) : dnr.updateSessionRules(u)),
+      }),
+    });
+    await h.unlocker.onMessage(unlock("video.cdn-host.net"), roomSender);
+    expect(dnr.rules()).toEqual([xfoRule(1)]);
+    expect(h.notes.map(([, m]) => m.kind === "unlock-result" && m.outcome)).toEqual(["unlocked"]);
+  });
+
+  test("our own host is never unlocked, and asks for no consent", async () => {
+    const own = harness({ ourOrigin: () => Promise.resolve("https://omega-share.net") });
+    await own.unlocker.onMessage(unlock("omega-share.net"), { ...roomSender, tab: { id: ROOM_TAB, url: "https://omega-share.net/r/lobby" } });
+    expect(own.consents).toEqual([]);
+    expect(own.notes).toEqual([[ROOM_TAB, { source: "omega-share", kind: "unlock-result", host: "omega-share.net", outcome: "unsupported" }]]);
+  });
+});
+
 describe("answer from the consent page", () => {
   const consent = (tabId: number, host: string) => ({ source: "omega-share", kind: "consent", tabId, host });
   const consentSender = { url: `${CONSENT}?tabId=7&host=video.cdn-host.net`, tab: { id: 99, url: `${CONSENT}?tabId=7&host=video.cdn-host.net` } };
