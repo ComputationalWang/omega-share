@@ -335,13 +335,16 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
       const gatedViews = await Promise.all([view(a.page), view(b.page)]);
       await Promise.all([shot(a.page, "m3-twitch-gate-gated-1"), shot(b.page, "m3-twitch-gate-gated-2")]);
 
+      // Twitch's fresh gate sometimes ignores a press or isn't clickable yet (OME-1052): press again until it's gone.
+      const pressStartWatching = (frame: Frame, who: string) => expect(async () => {
+        if (await gateShown(frame)) await frame.locator(TWITCH_START_WATCHING).click({ timeout: 3_000 });
+        expect(await gateShown(frame), `${who}'s gate goes away`).toBe(false);
+      }).toPass({ intervals: [1_000, 2_000], timeout: 20_000 });
       // Each member has their own gate. Browser 1 presses first: browser 2 stays gated and nobody's room state changes.
-      await action("viewer-1-start-watching", () => fa.locator(TWITCH_START_WATCHING).click({ timeout: actionTimeoutMs }));
-      await expect.poll(() => gateShown(fa), { timeout: 10_000, message: "browser 1's gate goes away" }).toBe(false);
+      await action("viewer-1-start-watching", () => pressStartWatching(fa, "browser 1"));
       await a.page.waitForTimeout(3_000);
       const halfway = { bStillGated: await gateShown(fb), views: (await Promise.all([view(a.page), view(b.page)])).map((v) => ({ playing: v.playing, error: v.error })) };
-      await action("viewer-2-start-watching", () => fb.locator(TWITCH_START_WATCHING).click({ timeout: actionTimeoutMs }));
-      await expect.poll(() => gateShown(fb), { timeout: 10_000, message: "browser 2's gate goes away" }).toBe(false);
+      await action("viewer-2-start-watching", () => pressStartWatching(fb, "browser 2"));
       const contentTimeoutMs = Math.min(120_000, Math.max(1, 240_000 - (Date.now() - started)));
       const ads = await Promise.all([waitMediaPlaying(a, fa, contentTimeoutMs), waitMediaPlaying(b, fb, contentTimeoutMs)]);
       await a.page.waitForTimeout(3_000);
