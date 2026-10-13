@@ -167,5 +167,21 @@ describe("generic embed TV (ADR 0024 §3)", () => {
         expect(loadButton(tv).disabled).toBe(false);
       }
     });
+
+    test("a consent tab closed without an answer: back on the room, Unlock works again", async () => {
+      const tv = await make();
+      deliver(PRESENT);
+      const unlock = (): HTMLButtonElement | null => tv.screen.querySelector<HTMLButtonElement>("[data-testid=generic-unlock]");
+      unlock()?.click();
+      expect(unlock()?.disabled).toBe(true);
+      // The extension never answers; the viewer comes back to the room tab.
+      window.dispatchEvent(new Event("focus"));
+      expect(unlock()?.disabled).toBe(false);
+      unlock()?.click();
+      expect(posted).toHaveLength(2);
+      deliver(unlockResult("unlocked"));
+      await Promise.resolve();
+      expect(tv.screen.querySelectorAll("iframe")).toHaveLength(1);
+    });
   });
 });
