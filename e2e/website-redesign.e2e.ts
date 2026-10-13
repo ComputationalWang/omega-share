@@ -40,7 +40,8 @@ test("Find or create a room opens the directory: no room socket, no room code, f
   await page.locator(site.findRoom).focus();
   await openDirectory(page, "Juno");
   await expect(page.locator("#directory-title")).toBeFocused();
-  await expect(page.locator("#home-root")).toContainText("Juno");
+  // A first visit is greeted, not welcomed back.
+  await expect(page.locator("#directory-greeting")).toHaveText("Welcome, Juno");
   await expect(page.locator("#landing")).toBeHidden();
   await expect(page.locator(site.publicRoomLink).first()).toBeVisible();
   expect(seen.sockets).toEqual([]);
@@ -64,6 +65,7 @@ test("a returning profile lands on the directory; Edit profile goes back to the 
   await page.reload();
   await expect(page.locator(site.createRoomForm)).toBeVisible();
   await expect(page.locator("#landing")).toBeHidden();
+  await expect(page.locator("#directory-greeting")).toHaveText("Welcome back, Pip");
   await page.locator(site.editProfile).click();
   await expect(page.locator("#nickname")).toBeFocused();
   await expect(page.locator("#nickname")).toHaveValue("Pip");
