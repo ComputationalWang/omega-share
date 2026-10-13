@@ -201,6 +201,7 @@ describe("landing budgets (OME-763)", () => {
       { id: "landing.transferGzip", unit: "KB", limit: 120, docMetric: "Total transfer at `/` before interaction (gzipped)" },
       { id: "landing.lcp", unit: "ms", limit: 1500, docMetric: "Largest Contentful Paint at `/`" },
       { id: "landing.cls", unit: "score", limit: 0.05, docMetric: "Cumulative Layout Shift at `/`" },
+      { id: "landing.clsReturning", unit: "score", limit: 0.05, docMetric: "Cumulative Layout Shift at `/`, returning profile" },
       { id: "landing.longTask", unit: "ms", limit: 50, docMetric: "Longest task before the nickname field is usable" },
     ];
     for (const w of want) {

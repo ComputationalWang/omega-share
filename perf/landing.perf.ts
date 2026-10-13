@@ -7,7 +7,7 @@ import { cumulativeLayoutShift, landingTransfer, longestTaskBefore, median, resp
 import { recordMetric } from "./metrics";
 
 const RUNS = 3;
-const IDS = ["landing.transferGzip", "landing.lcp", "landing.cls", "landing.longTask"] as const;
+const IDS = ["landing.transferGzip", "landing.lcp", "landing.cls", "landing.clsReturning", "landing.longTask"] as const;
 
 interface VitalsStore {
   __omegaVitals: { lcp: number; shifts: { value: number; hadRecentInput: boolean }[]; tasks: { startTime: number; duration: number }[] };
@@ -23,9 +23,19 @@ interface ColdLoad {
 // The perf project's device, as `browser.newContext()` doesn't inherit the project's `use`.
 const desktop = devices["Desktop Chrome"];
 
-async function coldLoad(browser: Browser): Promise<ColdLoad> {
+/**
+ * One cold load of `/`. `returning`: a nickname is already saved in this browser, so the page opens on the room directory
+ * (OME-935) and the home chunk fills it after first paint: the path a fresh visitor never takes.
+ */
+async function coldLoad(browser: Browser, returning = false): Promise<ColdLoad> {
   const context = await browser.newContext({ viewport: desktop.viewport, deviceScaleFactor: desktop.deviceScaleFactor, userAgent: desktop.userAgent, hasTouch: desktop.hasTouch, isMobile: desktop.isMobile });
   try {
+    if (returning) {
+      await context.addInitScript(() => {
+        localStorage.setItem("omega.nickname", "Juno");
+        localStorage.setItem("omega.avatar", "0");
+      });
+    }
     await context.addInitScript(() => {
       const v: VitalsStore["__omegaVitals"] = { lcp: 0, shifts: [], tasks: [] };
       (globalThis as unknown as VitalsStore).__omegaVitals = v;
@@ -51,7 +61,7 @@ async function coldLoad(browser: Browser): Promise<ColdLoad> {
     await page.goto(URLS.web, { waitUntil: "load" });
     // Whatever the page fetches on `load` (the home chunk, its rooms list) and LCP/CLS settling, still without any input.
     await page.waitForTimeout(1000);
-    await expect(page.locator(site.nicknameInput)).toBeEditable();
+    await expect(page.locator(returning ? site.createRoomTitle : site.nicknameInput)).toBeEditable();
     const vitals = await page.evaluate(() => {
       const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
       const mark = performance.getEntriesByName("omega:interactive")[0]?.startTime;
@@ -71,22 +81,26 @@ test("landing: transfer, LCP, CLS and long tasks at / before interaction", async
     for (const id of IDS) recordMetric({ id, pending: PENDING.web });
     return;
   }
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   // Warm-up load so preview-server start-up isn't counted (as site.tti does), then cold loads in fresh contexts.
   await coldLoad(browser);
   const runs: ColdLoad[] = [];
   for (let i = 0; i < RUNS; i++) runs.push(await coldLoad(browser));
+  const returning: ColdLoad[] = [];
+  for (let i = 0; i < RUNS; i++) returning.push(await coldLoad(browser, true));
   const transfers = runs.map((r) => landingTransfer(r.resources));
   const worst = transfers.reduce((a, b) => (b.kb > a.kb ? b : a));
   const timing = (pick: (r: ColdLoad) => number) => runs.map(pick);
   const note = (xs: number[], digits: number) => `median of ${String(RUNS)} cold loads: ${xs.map((x) => x.toFixed(digits)).join(", ")}`;
   const lcps = timing((r) => r.lcp);
   const clss = timing((r) => r.cls);
+  const clssReturning = returning.map((r) => r.cls);
   const tasks = timing((r) => r.longTask);
   const rows: Measurement[] = [
     { id: "landing.transferGzip", value: worst.kb, note: transferNote(worst) },
     { id: "landing.lcp", value: median(lcps), note: note(lcps, 0) },
     { id: "landing.cls", value: median(clss), note: note(clss, 3) },
+    { id: "landing.clsReturning", value: median(clssReturning), note: note(clssReturning, 3) },
     { id: "landing.longTask", value: median(tasks), note: note(tasks, 0) },
   ];
   for (const m of rows) {
