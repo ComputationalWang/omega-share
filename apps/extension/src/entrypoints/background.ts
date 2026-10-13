@@ -8,7 +8,7 @@ const BRIDGE_ID = "omega-bridge";
 const BROWSER = import.meta.env.BROWSER === "firefox" ? "firefox" : "chrome";
 
 /** Registers the ADR 0047 bridge on our origin(s): the default, plus the stored self-hosted one when it is granted. */
-async function registerBridge(): Promise<void> {
+async function syncBridge(): Promise<void> {
   const stored = (await browser.storage.local.get(SERVER_BASE_URL_KEY))[SERVER_BASE_URL_KEY];
   const matches: string[] = [];
   for (const pattern of bridgeMatches(DEFAULT_SERVER_BASE_URL, stored)) {
@@ -19,6 +19,13 @@ async function registerBridge(): Promise<void> {
   await browser.scripting.registerContentScripts([
     { id: BRIDGE_ID, js: ["content-scripts/bridge.js"], matches, runAt: "document_idle", persistAcrossSessions: false },
   ]);
+}
+
+// One at a time: saving a server fires permissions.onAdded and storage.onChanged together, and two overlapping
+// unregister/register pairs would fail on the duplicate id and leave the old matches.
+let bridgeQueue: Promise<void> = Promise.resolve();
+function registerBridge(): void {
+  bridgeQueue = bridgeQueue.then(syncBridge).catch(() => undefined);
 }
 
 // Event-driven: Chrome runs it as a service worker, Firefox as a non-persistent event page. The popup does the
@@ -51,11 +58,11 @@ export default defineBackground(() => {
     if (change.status === "loading" || change.url !== undefined) void unlocker.tabUpdated(tabId, tab.url);
   });
 
-  browser.runtime.onInstalled.addListener(() => void registerBridge());
-  browser.runtime.onStartup.addListener(() => void registerBridge());
-  browser.permissions.onAdded.addListener(() => void registerBridge());
+  browser.runtime.onInstalled.addListener(registerBridge);
+  browser.runtime.onStartup.addListener(registerBridge);
+  browser.permissions.onAdded.addListener(registerBridge);
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && SERVER_BASE_URL_KEY in changes) void registerBridge();
+    if (area === "local" && SERVER_BASE_URL_KEY in changes) registerBridge();
   });
 
   // e2e builds only (compiled out of store builds; the manifest test checks): Firefox's BiDi can't open a

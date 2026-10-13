@@ -88,28 +88,53 @@ function originOf(url: string | undefined): string | undefined {
 export function createUnlocker(deps: UnlockDeps) {
   const result = (host: string, outcome: UnlockOutcome): ExtensionToPage => ({ source: BRIDGE_SOURCE, kind: "unlock-result", host, outcome });
 
-  async function remove(tabId: number): Promise<void> {
-    const dnr = deps.dnr();
-    if (dnr === undefined) return;
-    const { ids } = await ruleSlots(dnr, tabId);
-    if (ids.length > 0) await dnr.updateSessionRules({ removeRuleIds: ids });
+  // Rule changes run one at a time: each reads the rule store, then writes ids it picked from it.
+  let queue: Promise<unknown> = Promise.resolve();
+  function serial<T>(task: () => Promise<T>): Promise<T> {
+    const next = queue.then(task, task);
+    queue = next.catch(() => undefined);
+    return next;
   }
 
-  async function install(tabId: number, host: string): Promise<UnlockOutcome> {
-    const dnr = deps.dnr();
-    if (dnr === undefined) return "unsupported";
+  /** Drops the tab's set, unless `keep` says otherwise once we know it has one (no storage read for tabs without). */
+  function remove(tabId: number, keep: () => Promise<boolean> = () => Promise.resolve(false)): Promise<void> {
+    return serial(async () => {
+      const dnr = deps.dnr();
+      if (dnr === undefined) return;
+      const { ids } = await ruleSlots(dnr, tabId);
+      if (ids.length === 0 || (await keep())) return;
+      await dnr.updateSessionRules({ removeRuleIds: ids });
+    });
+  }
+
+  async function rulesFor(tabId: number, host: string, ruleIdBase: number, csp: boolean): Promise<UnlockRule[] | null> {
     const ownHost = new URL(await deps.ourOrigin()).hostname;
-    try {
-      const { ids, base } = await ruleSlots(dnr, tabId);
-      // Referer (§3) waits for board sign-off (OME-1055).
-      const rules = unlockRules({ tabId, ownHost, host, ruleIdBase: base, csp: deps.browser === "chrome", referer: false });
-      if (rules === null) return "unsupported";
-      // One atomic update: the tab's old set goes as its new one comes in.
-      await dnr.updateSessionRules({ removeRuleIds: ids, addRules: rules });
-      return "unlocked";
-    } catch {
-      return "unsupported";
-    }
+    // Referer (§3) waits for board sign-off (OME-1055).
+    return unlockRules({ tabId, ownHost, host, ruleIdBase, csp, referer: false });
+  }
+
+  function install(tabId: number, host: string): Promise<UnlockOutcome> {
+    return serial(async () => {
+      const dnr = deps.dnr();
+      if (dnr === undefined) return "unsupported";
+      try {
+        const { ids, base } = await ruleSlots(dnr, tabId);
+        const csp = deps.browser === "chrome";
+        const rules = await rulesFor(tabId, host, base, csp);
+        if (rules === null) return "unsupported";
+        // One atomic update: the tab's old set goes as its new one comes in.
+        try {
+          await dnr.updateSessionRules({ removeRuleIds: ids, addRules: rules });
+        } catch (error) {
+          // Chromium before 128 has no responseHeaders condition and refuses the whole update: keep the XFO rule.
+          if (!csp) throw error;
+          await dnr.updateSessionRules({ removeRuleIds: ids, addRules: (await rulesFor(tabId, host, base, false)) ?? [] });
+        }
+        return "unlocked";
+      } catch {
+        return "unsupported";
+      }
+    });
   }
 
   async function onTabOfOurs(tabId: number): Promise<boolean> {
@@ -137,6 +162,11 @@ export function createUnlocker(deps: UnlockDeps) {
         return;
       }
       const { host } = message.output;
+      // Our own host (or one under it) is never unlocked, so don't ask the viewer about it.
+      if ((await rulesFor(tabId, host, 1, false)) === null) {
+        await deps.notify(tabId, result(host, "unsupported"));
+        return;
+      }
       if (!(await deps.hasAccess(host))) {
         await deps.openConsent(tabId, host);
         return;
@@ -144,10 +174,9 @@ export function createUnlocker(deps: UnlockDeps) {
       await deps.notify(tabId, result(host, await install(tabId, host)));
     },
     /** `tabs.onUpdated` with a new URL; undefined means we can't see it, so it isn't ours. */
-    async tabUpdated(tabId: number, url: string | undefined): Promise<void> {
-      if (originOf(url) === (await deps.ourOrigin())) return;
-      await remove(tabId);
+    tabUpdated(tabId: number, url: string | undefined): Promise<void> {
+      return remove(tabId, async () => originOf(url) === (await deps.ourOrigin()));
     },
-    tabRemoved: remove,
+    tabRemoved: (tabId: number): Promise<void> => remove(tabId),
   };
 }
