@@ -12,9 +12,9 @@ import {
   ActivitySessionRequestSchema,
   ActivitySessionResponseSchema,
   ActivityTicketResponseSchema,
+  ACTIVITY_MAX_PENDING_BOOTSTRAPS,
   AdmissionTicketSchema,
   ActivitySessionTokenSchema,
-  CLOSE_CODES,
   HANDOFF_CODE_TTL_MS,
   HANDOFF_GRANT_MAX_MS,
   HandoffClaimRequestSchema,
@@ -24,18 +24,19 @@ import {
   HandoffRedeemRequestSchema,
   HandoffRedeemResponseSchema,
   HandoffStartResponseSchema,
+  HandoffTicketResponseSchema,
   MAX_ACTIVITY_BODY_BYTES,
   MAX_ADMISSION_FRAME_BYTES,
   handoffCodeFromHash,
   isActivityJoin,
   parseAdmissionFrame,
-  parseClientMessage,
   type AdmissionTicket,
   type ActivitySessionToken,
-  type ClientMessage,
-} from "../src";
+} from "../src/activity";
+import { CLOSE_CODES, parseClientMessage, type ClientMessage } from "../src";
 
-const secret = (c: string) => "Ab_-" + c.repeat(39);
+/** Canonical unpadded base64url of 32 bytes: the last char carries 4 bits, so it is one of 16. */
+const secret = (c: string) => "Ab_-" + c.repeat(38) + "A";
 const nonce = secret("n");
 const ticket = secret("t");
 const session = secret("s");
@@ -54,6 +55,7 @@ test("deadlines match the reviewed R1 proposal", () => {
   expect(HANDOFF_GRANT_MAX_MS).toBe(15 * 60_000);
   expect(MAX_ADMISSION_FRAME_BYTES).toBe(256);
   expect(MAX_ACTIVITY_BODY_BYTES).toBe(2048);
+  expect(ACTIVITY_MAX_PENDING_BOOTSTRAPS).toBe(1000);
 });
 
 test("close codes for admission, revocation and handoff are new and distinct", () => {
@@ -151,13 +153,49 @@ test("a session grant is bounded, room-bound and server-derived", () => {
   }
 });
 
-test("reconnect tickets need a session and re-check membership", () => {
+test("session reconnect tickets re-check membership and fail closed after a handoff", () => {
   const ok = { ok: true, ticket, ticketExpiresInMs: 60_000 };
   expect(v.parse(ActivityTicketResponseSchema, ok) as unknown).toEqual(ok);
-  for (const c of ["unauthorized", "not_in_instance", "instance_unavailable", "discord_unavailable", "rate_limited", "activity_disabled"]) {
+  for (const c of ["invalid_body", "unauthorized", "handed_off", "not_in_instance", "instance_unavailable", "discord_unavailable", "rate_limited", "activity_disabled"]) {
     expect(v.safeParse(ActivityTicketResponseSchema, { ok: false, error: { code: c, message: "no" } }).success).toBe(true);
   }
   expect(v.safeParse(ActivityTicketResponseSchema, { ...ok, ticketExpiresInMs: 60_001 }).success).toBe(false);
+});
+
+test("grant reconnect tickets are delegated authority: no Discord membership outcomes", () => {
+  const ok = { ok: true, ticket, ticketExpiresInMs: 60_000 };
+  expect(v.parse(HandoffTicketResponseSchema, ok) as unknown).toEqual(ok);
+  for (const c of ["invalid_body", "unauthorized", "rate_limited", "activity_disabled"]) {
+    expect(v.safeParse(HandoffTicketResponseSchema, { ok: false, error: { code: c, message: "no" } }).success).toBe(true);
+  }
+  for (const c of ["handed_off", "not_in_instance", "instance_unavailable", "discord_unavailable"]) {
+    expect(v.safeParse(HandoffTicketResponseSchema, { ok: false, error: { code: c, message: "no" } }).success).toBe(false);
+  }
+});
+
+test("credentials must be canonical base64url of 32 bytes", () => {
+  for (const last of "AEIMQUYcgkosw048") {
+    expect(v.safeParse(AdmissionTicketSchema, ticket.slice(0, 42) + last).success).toBe(true);
+  }
+  for (const last of "BFJNRVZdhlptx159-_") {
+    expect(v.safeParse(AdmissionTicketSchema, ticket.slice(0, 42) + last).success).toBe(false);
+  }
+  expect(handoffCodeFromHash(`#h=${code.slice(0, 42)}B`)).toBeNull();
+});
+
+test("the room barrel carries no Activity or Discord code into the web bundle", async () => {
+  const bundle = async (entry: string): Promise<string> => {
+    const out = await Bun.build({ entrypoints: [entry], target: "browser", minify: true });
+    expect(out.success).toBe(true);
+    const [file] = out.outputs;
+    if (file === undefined) throw new Error("no output");
+    return file.text();
+  };
+  const main = await bundle(`${import.meta.dir}/../src/index.ts`);
+  expect(main).not.toContain("/api/discord/");
+  expect(main).not.toContain("identify scope missing");
+  expect(await bundle(`${import.meta.dir}/../src/activity.ts`)).toContain("/api/discord/");
+  expect(await bundle(`${import.meta.dir}/../src/activity.ts`)).not.toContain("identify scope missing");
 });
 
 test("tickets and sessions are distinct branded credentials", () => {
@@ -200,6 +238,9 @@ test("an admitted join carries no standalone authority", () => {
   for (const extra of [{ ownerToken: secret("o").slice(0, 22) }, { inviteKey: secret("i").slice(0, 22) }, { resumeToken: secret("x") }, { durableSession: true }]) {
     expect(isActivityJoin(join(extra))).toBe(false);
   }
+  // Allowlist, not denylist: a future join field is refused until the contract admits it.
+  const future = { type: "join", nickname: "Alice", avatar: 0, roomKey: "x" } as unknown as ClientMessage;
+  expect(isActivityJoin(future)).toBe(false);
   const leave = parseClientMessage(JSON.stringify({ type: "leave" }));
   if (leave === null) throw new Error("fixture must parse");
   expect(isActivityJoin(leave)).toBe(false);
@@ -209,7 +250,7 @@ test("handoff start returns a short-lived code read only from an exact fragment"
   const ok = { ok: true, code, expiresInMs: HANDOFF_CODE_TTL_MS };
   expect(v.parse(HandoffStartResponseSchema, ok) as unknown).toEqual(ok);
   expect(v.safeParse(HandoffStartResponseSchema, { ...ok, expiresInMs: HANDOFF_CODE_TTL_MS + 1 }).success).toBe(false);
-  for (const c of ["unauthorized", "rate_limited", "handoff_unsupported", "activity_disabled"]) {
+  for (const c of ["invalid_body", "unauthorized", "handed_off", "rate_limited", "handoff_unsupported", "activity_disabled"]) {
     expect(v.safeParse(HandoffStartResponseSchema, { ok: false, error: { code: c, message: "no" } }).success).toBe(true);
   }
   expect(handoffCodeFromHash(`#h=${code}`) as unknown).toBe(code);
@@ -226,7 +267,9 @@ test("handoff claim binds one receiver and shows a confirm code the Activity use
   for (const bad of [{ ...ok, confirmCode: "7K3QZ" }, { ...ok, confirmCode: "7K3QZI" }, { ...ok, confirmCode: "7k3qzp" }, { ...ok, receiver: "short" }]) {
     expect(v.safeParse(HandoffClaimResponseSchema, bad).success).toBe(false);
   }
-  expect(v.safeParse(HandoffClaimResponseSchema, { ok: false, error: { code: "handoff_invalid", message: "no" } }).success).toBe(true);
+  for (const c of ["invalid_body", "payload_too_large", "rate_limited", "handoff_invalid", "handoff_claimed"]) {
+    expect(v.safeParse(HandoffClaimResponseSchema, { ok: false, error: { code: c, message: "no" } }).success).toBe(true);
+  }
 
   // Typed by a person: trimmed and upper-cased before the alphabet check.
   expect(v.parse(HandoffConfirmRequestSchema, { confirmCode: " 7k3qzp " }) as unknown).toEqual({ confirmCode: "7K3QZP" });
@@ -234,7 +277,7 @@ test("handoff claim binds one receiver and shows a confirm code the Activity use
     expect(v.safeParse(HandoffConfirmRequestSchema, bad).success).toBe(false);
   }
   expect(v.parse(HandoffConfirmResponseSchema, { ok: true }) as unknown).toEqual({ ok: true });
-  for (const c of ["unauthorized", "handoff_invalid", "rate_limited"]) {
+  for (const c of ["invalid_body", "payload_too_large", "unauthorized", "handoff_invalid", "rate_limited"]) {
     expect(v.safeParse(HandoffConfirmResponseSchema, { ok: false, error: { code: c, message: "no" } }).success).toBe(true);
   }
 });
