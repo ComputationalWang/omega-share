@@ -1,0 +1,12 @@
+{
+  "origin": "https://omega-share.duckdns.org",
+  "at": "2026-10-13T00:52:24.748Z",
+  "rows": [
+    {
+      "check": "6b empty room B: still listed before 19 min, gone from /rooms by 26 min, visit shows Room not found",
+      "ok": false,
+      "ms": 1262434,
+      "detail": "waitFor: Timeout 15000ms exceeded."
+    }
+  ]
+}

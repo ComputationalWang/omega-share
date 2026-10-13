@@ -1,0 +1,249 @@
+// OME-913 M10 hosted phone smoke (QA2 scratch, not part of e2e/**). Headed Chromium on xvfb, phone-sized contexts.
+// Creates exactly two rooms (the create limit is 2 per 10 min per key): A = private, from a preset; B = public, for the empty-room GC wait.
+//   SMOKE_ORIGIN=https://omega-share.duckdns.org OUT=out PHASE=main|gc bun m10-smoke.ts     (run from a workspace dir so @playwright/test resolves)
+// PHASE=main creates A (checks 1-5) and then B (writes b.json). PHASE=gc reads b.json and polls until B is gone (check 6).
+import { chromium } from "@playwright/test";
+import type { Browser, BrowserContext, Page } from "@playwright/test";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+
+const ORIGIN = (process.env["SMOKE_ORIGIN"] ?? "https://omega-share.duckdns.org").replace(/\/$/, "");
+const OUT = process.env["OUT"] ?? "out";
+const PHASE = process.env["PHASE"] ?? "main";
+const REUSE = process.env["REUSE"] === "1";
+const PRESET = process.env["PRESET"] ?? "cinema";
+mkdirSync(OUT, { recursive: true });
+interface Row { check: string; ok: boolean; ms: number; detail: string }
+const SMOKE = `${OUT}/smoke-${PHASE}.json`;
+const rows: Row[] = [];
+const save = (): void => writeFileSync(SMOKE, JSON.stringify({ origin: ORIGIN, at: new Date().toISOString(), rows }, null, 2));
+async function check(name: string, fn: () => Promise<string | undefined>): Promise<boolean> {
+  const t0 = Date.now();
+  try {
+    const detail = (await fn()) ?? "";
+    rows.push({ check: name, ok: true, ms: Date.now() - t0, detail });
+    console.log(`PASS ${name} ${detail}`);
+    save();
+    return true;
+  } catch (e) {
+    const detail = e instanceof Error ? e.message.split("\n")[0] ?? "" : String(e);
+    rows.push({ check: name, ok: false, ms: Date.now() - t0, detail });
+    console.log(`FAIL ${name} ${detail}`);
+    save();
+    return false;
+  }
+}
+function assert(cond: boolean, msg: string): asserts cond { if (!cond) throw new Error(msg); }
+const id = (n: string): string => `[data-testid="${n}"]`;
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+const PHONE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } as const;
+const errs: string[] = [];
+async function mk(browser: Browser, phone: boolean): Promise<{ ctx: BrowserContext; page: Page }> {
+  const ctx = await browser.newContext(phone ? PHONE : {});
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => errs.push(String(e)));
+  page.on("console", (m) => { if (/Content Security Policy|Trusted Type|OMEGA-CSP/i.test(m.text())) errs.push(m.text()); });
+  return { ctx, page };
+}
+async function create(page: Page, title: string, priv: boolean, preset: string | null): Promise<string> {
+  await page.goto(`${ORIGIN}/`);
+  await page.locator(id("preset-picker")).waitFor();
+  if (preset !== null) await page.locator(id(`preset-${preset}`)).check();
+  await page.locator(id("create-room-title")).fill(title);
+  await page.locator(id("create-room-private")).setChecked(priv);
+  await page.locator(id("create-room-submit")).click();
+  await page.waitForURL(/\/r\/[a-z2-7]{26}$/);
+  return /\/r\/([a-z2-7]{26})$/.exec(page.url())?.[1] ?? "";
+}
+async function enter(page: Page, nick: string): Promise<void> {
+  await page.locator(id("nickname-input")).fill(nick);
+  await page.locator(id("join-button")).click();
+  await page.locator(id("room")).waitFor({ state: "visible" });
+}
+const inView = async (page: Page, sel: string): Promise<boolean> => page.locator(sel).evaluate((el) => {
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.top >= 0 && r.bottom <= window.innerHeight && r.left >= 0 && r.right <= window.innerWidth;
+});
+
+const browser = await chromium.launch({ headless: false, channel: "chromium" });
+
+if (PHASE === "main" || PHASE === "tab") {
+  const a = await mk(browser, true);
+  let roomA = "";
+  if (PHASE === "tab") {
+    // The first run's room A was private and its invite key was lost with the closed context (a script bug: guests need #k=): make a second private room.
+    if (process.env["REUSE"] === "1") {
+      const saved = JSON.parse(readFileSync(`${OUT}/rooms-tab.json`, "utf8")) as { A: string; invite: string };
+      roomA = saved.A;
+      await a.page.goto(saved.invite);
+    } else {
+      roomA = await create(a.page, "m10 signoff A2", true, PRESET);
+    }
+    await enter(a.page, REUSE ? "m10-a3" : "m10-a");
+    if (!REUSE) writeFileSync(`${OUT}/rooms-tab.json`, JSON.stringify({ A: roomA, invite: await a.page.locator(id("invite-link")).inputValue() }));
+  }
+  if (PHASE === "main") await check("1 create from a preset on a phone: picker lists 6 presets, classic default, creates and lands in the room", async () => {
+    await a.page.goto(`${ORIGIN}/`);
+    await a.page.locator(id("preset-picker")).waitFor();
+    const values = await a.page.locator(`${id("preset-picker")} input[type=radio]`).evaluateAll((rs) => rs.map((r) => (r instanceof HTMLInputElement ? r.value : "")));
+    assert(values.length === 6, `presets: ${values.join(",")}`);
+    assert(await a.page.locator(id("preset-classic")).isChecked(), "classic not the default");
+    await a.page.screenshot({ path: `${OUT}/1-create-form.png`, fullPage: true });
+    roomA = await create(a.page, "m10 signoff A", true, PRESET);
+    assert(roomA !== "", "no room id");
+    await enter(a.page, "m10-a");
+    await a.page.screenshot({ path: `${OUT}/1-room-from-preset.png` });
+    return `presets ${values.join(",")}; created from "${PRESET}" → /r/${roomA}`;
+  });
+  if (PHASE === "main") writeFileSync(`${OUT}/rooms.json`, JSON.stringify({ A: roomA }));
+
+  if (PHASE === "main") await check("2 portrait docked composer: input + Link key in the first screen, chat line sends", async () => {
+    const input = id("chat-input");
+    assert(await inView(a.page, input), "chat input not inside the viewport");
+    assert(await inView(a.page, id("portrait-link")), "Link key not inside the viewport");
+    const sw = await a.page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.scrollHeight, innerWidth, innerHeight]);
+    assert(sw[0] === sw[2] && sw[1] === sw[3], `page scrolls: ${sw.join("x")}`);
+    await a.page.locator(input).tap();
+    await a.page.locator(input).fill("hello from a phone");
+    await a.page.locator(input).press("Enter");
+    await a.page.locator(id("chat-log-line")).filter({ hasText: "hello from a phone" }).first().waitFor();
+    await a.page.screenshot({ path: `${OUT}/2-portrait-dock.png` });
+    return `no scroll at ${String(sw[2])}x${String(sw[3])}`;
+  });
+  if (PHASE === "main") await check("2b share sheet: Link opens the sheet with the URL field focused and 44 px keys; Esc closes", async () => {
+    await a.page.locator(id("portrait-link")).tap();
+    await a.page.locator(id("portrait-sheet")).waitFor({ state: "visible" });
+    assert(await a.page.locator(id("queue-url")).evaluate((el) => document.activeElement === el), "URL field not focused");
+    for (const t of ["queue-url", "queue-add", "portrait-sheet-close"]) {
+      const b = await a.page.locator(id(t)).boundingBox();
+      assert(b !== null && b.width >= 44 && b.height >= 44, `${t} under 44 px: ${JSON.stringify(b)}`);
+    }
+    await a.page.screenshot({ path: `${OUT}/2b-share-sheet.png` });
+    await a.page.keyboard.press("Escape");
+    await a.page.locator(id("portrait-sheet")).waitFor({ state: "hidden" });
+    return "ok";
+  });
+
+  if (PHASE === "main") await check("3 landscape full-screen composer (667x375): field ≥ 60 % of its row and ≥ 140 px, 44 px Send, Enter and tap send, focus stays", async () => {
+    await a.page.setViewportSize({ width: 667, height: 375 });
+    await a.page.locator(id("fullscreen-toggle")).scrollIntoViewIfNeeded();
+    await a.page.locator(id("fullscreen-toggle")).tap();
+    const strip = a.page.locator(id("fs-strip"));
+    await strip.waitFor({ state: "visible" });
+    const g = await strip.evaluate((root) => {
+      const row = root.querySelector("form.chat")?.getBoundingClientRect();
+      const f = root.querySelector('[data-testid="chat-input"]')?.getBoundingClientRect();
+      const s = root.querySelector('[data-testid="chat-send"]')?.getBoundingClientRect();
+      if (!row || !f || !s) throw new Error("missing composer");
+      return { row: row.width, field: f.width, sendW: s.width, sendH: s.height, fs: document.fullscreenElement !== null };
+    });
+    assert(g.field >= 140 && g.field / g.row >= 0.6, `field ${String(g.field)} of row ${String(g.row)}`);
+    assert(g.sendW >= 44 && g.sendH >= 44, `send ${String(g.sendW)}x${String(g.sendH)}`);
+    const input = strip.locator(id("chat-input"));
+    assert((await input.getAttribute("enterkeyhint")) === "send", "no enterkeyhint=send");
+    await input.tap();
+    await input.fill("fs enter");
+    await input.press("Enter");
+    await a.page.locator(id("chat-log")).getByText("fs enter").first().waitFor();
+    await sleep(1100);
+    await input.fill("fs tap");
+    await strip.getByRole("button", { name: "Send", exact: true }).tap();
+    await a.page.locator(id("chat-log")).getByText("fs tap").first().waitFor();
+    assert(await a.page.evaluate(() => document.activeElement?.matches('[data-testid="chat-input"]') === true), "focus left the field");
+    await a.page.screenshot({ path: `${OUT}/3-fullscreen-composer.png` });
+    await a.page.locator(id("fullscreen-toggle")).tap();
+    await a.page.setViewportSize({ width: 390, height: 844 });
+    return `field ${g.field.toFixed(0)} px of ${g.row.toFixed(0)} px (${(100 * g.field / g.row).toFixed(0)} %), send ${g.sendW}x${g.sendH}, real fullscreen element: ${String(g.fs)}`;
+  });
+
+  let step = "start";
+  await check("4 tab out 60 s and return seated: same seat, no Enter form, no leave/join lines; a peer saw Away", async () => {
+    const b = await mk(browser, false);
+    const invite = await a.page.locator(id("invite-link")).inputValue();
+    assert(invite === `${ORIGIN}/r/${roomA}` || invite.startsWith(`${ORIGIN}/r/${roomA}#k=`), `invite link: ${invite}`);
+    await b.page.goto(invite);
+    try { await enter(b.page, "m10-b"); } catch (e) { await b.page.screenshot({ path: `${OUT}/fail-b-enter.png` }); throw e; }
+    const seat = a.page.locator('[data-testid="seat"][data-seat="2"]');
+    await seat.scrollIntoViewIfNeeded();
+    await a.page.evaluate(() => new Promise<void>((r) => { requestAnimationFrame(() => requestAnimationFrame(() => { r(); })); }));
+    await seat.tap();
+    await a.page.locator('[data-testid="seat"][data-seat="2"][aria-label*="yours"]').waitFor();
+    step = "seated";
+    const lines0 = await b.page.locator(id("chat-log-line")).allInnerTexts();
+    // Chromium on xvfb keeps a background tab "visible" (no window manager), so the page is backgrounded the way a phone OS does it:
+    // the lifecycle events (hidden + pagehide, as in e2e/m10-sessions) and then the CDP freeze (timers and sockets stop) for 60 s.
+    const cdp = await a.ctx.newCDPSession(a.page);
+    await a.page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+    });
+    await sleep(1500);
+    step = "hidden, peer looks for Away";
+    await b.page.locator(id("people-key")).click();
+    await b.page.locator(`${id("people-row")}.is-away`).filter({ hasText: "m10-a" }).waitFor({ timeout: 15_000 });
+    step = "waiting 60 s";
+    await cdp.send("Page.enable");
+    await cdp.send("Page.setWebLifecycleState", { state: "frozen" });
+    await sleep(60_000);
+    await cdp.send("Page.setWebLifecycleState", { state: "active" });
+    await a.page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+      window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    step = "back, looking for the seat";
+    await a.page.locator('[data-testid="seat"][data-seat="2"][aria-label*="yours"]').waitFor({ timeout: 15_000 });
+    assert(!(await a.page.locator(id("join-button")).isVisible()), "Enter form is back");
+    await b.page.locator(`${id("people-row")}.is-away`).waitFor({ state: "detached", timeout: 15_000 });
+    const lines1 = await b.page.locator(id("chat-log-line")).allInnerTexts();
+    const leaves = lines1.slice(lines0.length).filter((t) => /left|joined/i.test(t));
+    assert(leaves.length === 0, `peer saw: ${leaves.join(" | ")}`);
+    await a.page.screenshot({ path: `${OUT}/4-back-seated.png` });
+    await b.ctx.close();
+    return "backgrounded and frozen 60 s, returned to seat 3 as the same member; peer saw Away then back, no join/leave line";
+  });
+  if (rows.some((r) => !r.ok)) { console.log(`failed at step: ${step}`); await a.page.screenshot({ path: `${OUT}/fail-${PHASE}.png` }); }
+  await a.ctx.close();
+
+  await check("5 no CSP violations or page errors", async () => { assert(errs.length === 0, errs.join(" | ")); return "0"; });
+
+  if (PHASE === "main") {
+  // 6 (setup): room B, joined once, then everyone leaves.
+  await check("6a create public room B, join, leave (the 20 min clock starts)", async () => {
+    const bb = await mk(browser, true);
+    const roomB = await create(bb.page, "m10 signoff GC", false, "empty");
+    await enter(bb.page, "m10-gc");
+    const listed = await (await fetch(`${ORIGIN}/rooms`)).text();
+    assert(listed.includes(roomB), "room B not in /rooms while occupied");
+    await bb.ctx.close();
+    writeFileSync(`${OUT}/b.json`, JSON.stringify({ roomB, leftAt: Date.now(), leftAtIso: new Date().toISOString() }));
+    return `/r/${roomB} left at ${new Date().toISOString()}`;
+  });
+  }
+}
+
+if (PHASE === "gc") {
+  assert(existsSync(`${OUT}/b.json`), "no b.json");
+  const { roomB, leftAt } = JSON.parse(readFileSync(`${OUT}/b.json`, "utf8")) as { roomB: string; leftAt: number };
+  const listedNow = async (): Promise<boolean> => (await (await fetch(`${ORIGIN}/rooms`)).text()).includes(roomB);
+  await check("6b empty room B: still listed before 19 min, gone from /rooms by 26 min, visit shows the not-found screen", async () => {
+    const at19 = leftAt + 19 * 60_000;
+    if (Date.now() < at19) await sleep(at19 - Date.now());
+    const early = await listedNow();
+    assert(early, "room B already gone at 19 min");
+    const deadline = leftAt + 26 * 60_000;
+    let goneAt = 0;
+    while (Date.now() < deadline) { if (!(await listedNow())) { goneAt = Date.now(); break; } await sleep(15_000); }
+    assert(goneAt !== 0, "room B still listed after 26 min");
+    const p = await mk(browser, true);
+    await p.page.goto(`${ORIGIN}/r/${roomB}`);
+    await p.page.getByText(/This room doesn't exist or was taken down/i).first().waitFor({ timeout: 15_000 });
+    await p.page.screenshot({ path: `${OUT}/6-room-gone.png` });
+    await p.ctx.close();
+    return `listed at 19 min; gone at ${((goneAt - leftAt) / 60_000).toFixed(1)} min after the last member left; /r/${roomB} shows the not-found screen`;
+  });
+}
+await browser.close();
+process.exit(rows.every((r) => r.ok) ? 0 : 1);

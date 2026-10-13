@@ -1,0 +1,18 @@
+{
+  "origin": "https://omega-share.duckdns.org",
+  "at": "2026-10-13T00:51:54.825Z",
+  "rows": [
+    {
+      "check": "4 tab out 60 s and return seated: same seat, no Enter form, no leave/join lines; a peer saw Away",
+      "ok": true,
+      "ms": 62656,
+      "detail": "backgrounded and frozen 60 s, returned to seat 3 as the same member; peer saw Away then back, no join/leave line"
+    },
+    {
+      "check": "5 no CSP violations or page errors",
+      "ok": true,
+      "ms": 0,
+      "detail": "0"
+    }
+  ]
+}
