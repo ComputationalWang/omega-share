@@ -130,7 +130,7 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     });
     expect(Object.keys(attrs).sort()).toEqual(["allow", "data-testid", "referrerpolicy", "sandbox", "src", "title"]);
     expect(roomHits).toEqual([EMBED_URL]);
-    await expect(room.getByTestId("generic-hint")).toHaveText("Blank or error? Host blocks it.");
+    await expect(room.getByTestId("generic-hint")).toHaveText("Blank/error: host blocks it");
     // The strip stays one line inside its control-bar slot, and the hint shows whole (OME-1035).
     const fit = await room.getByTestId("generic-hint").evaluate((h) => {
       const strip = h.parentElement?.getBoundingClientRect();

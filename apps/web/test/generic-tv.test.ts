@@ -84,7 +84,7 @@ describe("generic embed TV (ADR 0024 §3)", () => {
     expect(label?.hidden).toBe(false);
     expect(hint?.hidden).toBe(false);
     // Short enough to show whole in the strip; the tooltip names the host, so "this site" can't read as ours.
-    expect(hint?.textContent).toBe("Blank or error? Host blocks it.");
+    expect(hint?.textContent).toBe("Blank/error: host blocks it");
     expect(hint?.title).toBe("Blank or an error page? media.example.org doesn't allow playing its videos here.");
   });
 });
