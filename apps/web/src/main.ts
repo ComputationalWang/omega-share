@@ -162,8 +162,9 @@ if (resumed !== null) {
   enterRoom(resumed.nickname, resumed.avatar, resumed.token);
 }
 
-// The home page (not a room link) also gets the directory: create, your rooms, open rooms. A lazy chunk: after first
-// paint on the entry view, at once when a returning profile lands on the directory or asks for it.
+// The home page (not a room link) also gets the directory: create, your rooms, open rooms. A lazy chunk, with the preset
+// thumbnails: never on a first visit's load (OME-1022), warmed by intent in the entry form, at once when a returning
+// profile lands on the directory or asks for it.
 if (pathRoom === null) {
   let mounted = false;
   const mountHome = (): void => {
@@ -213,8 +214,12 @@ if (pathRoom === null) {
     });
   }
   if (profile.nickname !== null && resumed === null) openDirectory(profile.nickname);
-  else if (document.readyState === "complete") mountHome();
-  else window.addEventListener("load", mountHome, { once: true });
+  else {
+    for (const target of [form, findRoom]) {
+      target.addEventListener("focusin", mountHome, { once: true });
+      target.addEventListener("pointerover", mountHome, { once: true });
+    }
+  }
 } else if (resumed === null) show("entry");
 
 performance.mark("omega:interactive");
