@@ -277,7 +277,7 @@ test("handoff claim binds one receiver and shows a confirm code the Activity use
     expect(v.safeParse(HandoffConfirmRequestSchema, bad).success).toBe(false);
   }
   expect(v.parse(HandoffConfirmResponseSchema, { ok: true }) as unknown).toEqual({ ok: true });
-  for (const c of ["invalid_body", "payload_too_large", "unauthorized", "handoff_invalid", "rate_limited"]) {
+  for (const c of ["invalid_body", "payload_too_large", "unauthorized", "handed_off", "handoff_invalid", "rate_limited"]) {
     expect(v.safeParse(HandoffConfirmResponseSchema, { ok: false, error: { code: c, message: "no" } }).success).toBe(true);
   }
 });
