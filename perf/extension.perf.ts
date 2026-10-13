@@ -31,6 +31,7 @@ test.describe("extension perf", () => {
   });
 
   test("found indicator: main-thread time per page check (OME-1042)", async ({ context, serviceWorker }) => {
+    test.setTimeout(60_000);
     // Registered as the background does once https://*/* is granted, here on the e2e build's own localhost host.
     // After the background's own startup sync (the bridge is its sign), under an id that sync doesn't own.
     await expect.poll(() => serviceWorker.evaluate(async () => (await chrome.scripting.getRegisteredContentScripts()).length)).toBeGreaterThan(0);
@@ -39,9 +40,10 @@ test.describe("extension perf", () => {
     );
     const page = await context.newPage();
     await gotoFixture(page, "providers-embed");
-    // The e2e build's content script writes each check's duration to the page; 10 DOM changes, rechecked once per second at most.
+    // The e2e build's content script writes each check's duration to the page; 20 checks (the load, then DOM changes,
+    // rechecked once per second at most). p95 of 20 is the second worst; the first, cold check is in the note.
     const checks: number[] = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 20; i++) {
       const ms = await page.waitForFunction((n) => {
         const list = (document.documentElement.dataset["omegaFoundMs"] ?? "").split(" ").filter(Boolean);
         return list.length > n ? Number(list[n]) : false;
@@ -51,7 +53,7 @@ test.describe("extension perf", () => {
         document.body.append(document.createElement("div"));
       });
     }
-    recordMetric({ id: "ext.foundCheck", value: p95(checks), note: `p95 of ${String(checks.length)} checks on providers-embed (6 embeds)` });
+    recordMetric({ id: "ext.foundCheck", value: p95(checks), note: `p95 of ${String(checks.length)} checks on providers-embed (6 embeds); first (cold) ${String(checks[0])} ms, max ${String(Math.max(...checks))} ms` });
   });
 });
 
