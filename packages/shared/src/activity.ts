@@ -198,7 +198,8 @@ export const HandoffConfirmRequestSchema = v.strictObject({
   confirmCode: v.pipe(v.string(), v.maxLength(16), v.trim(), v.toUpperCase(), v.regex(CONFIRM_CODE)),
 });
 export type HandoffConfirmRequest = v.InferOutput<typeof HandoffConfirmRequestSchema>;
-export const HANDOFF_CONFIRM_ERROR_CODES = ["invalid_body", "payload_too_large", "unauthorized", "handoff_invalid", "rate_limited"] as const;
+/** `handed_off`: this session already confirmed a handoff. */
+export const HANDOFF_CONFIRM_ERROR_CODES = ["invalid_body", "payload_too_large", "unauthorized", "handed_off", "handoff_invalid", "rate_limited"] as const;
 export const HandoffConfirmResponseSchema = v.variant("ok", [success({}), failure(HANDOFF_CONFIRM_ERROR_CODES)]);
 export type HandoffConfirmResponse = v.InferOutput<typeof HandoffConfirmResponseSchema>;
 
