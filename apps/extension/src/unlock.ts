@@ -3,7 +3,6 @@ import {
   BRIDGE_SOURCE,
   GenericHostSchema,
   PageToExtensionSchema,
-  UNLOCK_RULE_COUNT,
   type ExtensionToPage,
   type UnlockOutcome,
   type UnlockRule,
@@ -28,7 +27,7 @@ export interface UnlockDeps {
   /** The server origin the user set (or the default). */
   readonly ourOrigin: () => Promise<string>;
   /** `browser.declarativeNetRequest`, or undefined where the API is absent (Chromium before the grant). */
-  readonly dnr: () => { updateSessionRules(options: { removeRuleIds?: number[]; addRules?: UnlockRule[] }): Promise<void> } | undefined;
+  readonly dnr: () => SessionRules | undefined;
   /** `permissions.contains(unlockPermissions(host))` */
   readonly hasAccess: (host: string) => Promise<boolean>;
   /** Opens the consent page for the room tab that asked. */
@@ -37,6 +36,12 @@ export interface UnlockDeps {
   readonly tabUrl: (tabId: number) => Promise<string | undefined>;
   /** Sends an extension → page message to the bridge in the tab's top frame. */
   readonly notify: (tabId: number, message: ExtensionToPage) => Promise<void>;
+}
+
+/** The subset of `browser.declarativeNetRequest` this uses. Every session rule is ours. */
+export interface SessionRules {
+  getSessionRules(): Promise<{ id: number; condition: { tabIds?: number[] | undefined } }[]>;
+  updateSessionRules(options: { removeRuleIds?: number[]; addRules?: UnlockRule[] }): Promise<void>;
 }
 
 /** The subset of `runtime.MessageSender` this reads. */
@@ -60,10 +65,15 @@ export function unlockPermissions(host: string, browser: UnlockBrowser): { permi
   return { permissions: browser === "chrome" ? ["declarativeNetRequestWithHostAccess"] : [], origins: [`https://${host}/*`] };
 }
 
-/** A tab's rule ids: one fixed block per tab, so a tab has at most one set and re-unlocking replaces it. */
-function ruleIds(tabId: number): number[] {
-  const base = tabId * UNLOCK_RULE_COUNT + 1;
-  return Array.from({ length: UNLOCK_RULE_COUNT }, (_, i) => base + i);
+/**
+ * The tab's current rule ids, and a free block for a new set. Tab ids don't fit DNR's int32 rule ids (Chromium's can
+ * pass a billion), so a set is found by its `tabIds` condition and new ids follow the highest one in use.
+ */
+async function ruleSlots(dnr: SessionRules, tabId: number): Promise<{ ids: number[]; base: number }> {
+  const rules = await dnr.getSessionRules();
+  const ids = rules.filter((r) => r.condition.tabIds?.includes(tabId) === true).map((r) => r.id);
+  const others = rules.filter((r) => !ids.includes(r.id)).map((r) => r.id);
+  return { ids, base: Math.max(0, ...others) + 1 };
 }
 
 function originOf(url: string | undefined): string | undefined {
@@ -79,17 +89,23 @@ export function createUnlocker(deps: UnlockDeps) {
   const result = (host: string, outcome: UnlockOutcome): ExtensionToPage => ({ source: BRIDGE_SOURCE, kind: "unlock-result", host, outcome });
 
   async function remove(tabId: number): Promise<void> {
-    await deps.dnr()?.updateSessionRules({ removeRuleIds: ruleIds(tabId) });
+    const dnr = deps.dnr();
+    if (dnr === undefined) return;
+    const { ids } = await ruleSlots(dnr, tabId);
+    if (ids.length > 0) await dnr.updateSessionRules({ removeRuleIds: ids });
   }
 
   async function install(tabId: number, host: string): Promise<UnlockOutcome> {
     const dnr = deps.dnr();
+    if (dnr === undefined) return "unsupported";
     const ownHost = new URL(await deps.ourOrigin()).hostname;
-    // Referer (§3) waits for board sign-off (OME-1055).
-    const rules = unlockRules({ tabId, ownHost, host, ruleIdBase: ruleIds(tabId)[0] ?? 1, csp: deps.browser === "chrome", referer: false });
-    if (dnr === undefined || rules === null) return "unsupported";
     try {
-      await dnr.updateSessionRules({ removeRuleIds: ruleIds(tabId), addRules: rules });
+      const { ids, base } = await ruleSlots(dnr, tabId);
+      // Referer (§3) waits for board sign-off (OME-1055).
+      const rules = unlockRules({ tabId, ownHost, host, ruleIdBase: base, csp: deps.browser === "chrome", referer: false });
+      if (rules === null) return "unsupported";
+      // One atomic update: the tab's old set goes as its new one comes in.
+      await dnr.updateSessionRules({ removeRuleIds: ids, addRules: rules });
       return "unlocked";
     } catch {
       return "unsupported";

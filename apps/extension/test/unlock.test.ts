@@ -50,13 +50,13 @@ function harness(opts: Partial<Omit<UnlockDeps, "tabUrl">> & { granted?: boolean
 const roomSender = { tab: { id: ROOM_TAB, url: `${OUR}/r/lobby` }, frameId: 0, url: `${OUR}/r/lobby` };
 const unlock = (host: string) => ({ source: "omega-share", kind: "unlock", host });
 
-const xfoRule = (id: number, tab = ROOM_TAB) => ({
+const xfoRule = (id: number, tab = ROOM_TAB): UnlockRule => ({
   id,
   priority: 1,
   condition: { resourceTypes: ["sub_frame"], initiatorDomains: ["omega.example"], requestDomains: ["video.cdn-host.net"], tabIds: [tab] },
   action: { type: "modifyHeaders", responseHeaders: [{ header: "x-frame-options", operation: "remove" }] },
 });
-const cspRule = (id: number, tab = ROOM_TAB) => ({
+const cspRule = (id: number, tab = ROOM_TAB): UnlockRule => ({
   id,
   priority: 1,
   condition: {
