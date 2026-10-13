@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionToPage, UnlockRule } from "@omega/shared/extension-bridge";
-import { type UnlockDeps, createUnlocker, isApproved, unlockPermissions, withApproved, withoutRevoked } from "../src/unlock";
+import { type UnlockDeps, createUnlocker, hasConsent, isApproved, unlockPermissions, withApproved, withoutRevoked } from "../src/unlock";
 
 // ADR 0047 §2 and §5 (OME-1040): session rules for one host in one room tab, the consent hop, and removal.
 const OUR = "https://omega.example";
@@ -90,6 +90,15 @@ describe("approved hosts (OME-1042)", () => {
       expect(isApproved(stored, "video.cdn-host.net")).toBe(false);
     }
     expect(withApproved([1, "a.net"], "b.net")).toEqual(["a.net", "b.net"]);
+  });
+
+  test("consent: the host's grant, plus the consent page's record only while the found toggle holds https://*/*", () => {
+    const host = "video.cdn-host.net";
+    expect(hasConsent({ hostGranted: true, everyHostGranted: false, stored: undefined }, host)).toBe(true);
+    expect(hasConsent({ hostGranted: false, everyHostGranted: false, stored: [host] }, host)).toBe(false);
+    expect(hasConsent({ hostGranted: true, everyHostGranted: true, stored: undefined }, host)).toBe(false);
+    expect(hasConsent({ hostGranted: true, everyHostGranted: true, stored: ["other.net"] }, host)).toBe(false);
+    expect(hasConsent({ hostGranted: true, everyHostGranted: true, stored: [host] }, host)).toBe(true);
   });
 
   test("revoking a host in the browser drops it; revoking https://*/* (the found toggle) drops none", () => {
