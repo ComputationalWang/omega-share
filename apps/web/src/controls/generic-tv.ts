@@ -23,7 +23,13 @@ export function createGenericTv(frame: TvGeneric): GenericTv {
 
   const strip = el("div", { className: "generic-strip" });
   const label = el("span", { className: "generic-label", textContent: "Not synced" }, "not-synced");
-  const hint = el("span", { className: "generic-hint", textContent: "Blank? This site doesn't allow embedding.", hidden: true }, "generic-hint");
+  // Short enough to show whole in the strip; the tooltip names the host so "this site" can't read as ours.
+  const hint = el("span", {
+    className: "generic-hint",
+    textContent: "Blank/error: host blocks it",
+    title: `Blank or an error page? ${frame.host} doesn't allow playing its videos here.`,
+    hidden: true,
+  }, "generic-hint");
   strip.append(label, hint);
 
   let loaded = false;
