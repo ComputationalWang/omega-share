@@ -90,7 +90,8 @@ export function mountHome(opts: HomeOptions): Home {
   for (const p of PRESETS) {
     const label = el("label", { className: "preset" });
     const radio = el("input", { type: "radio", name: "preset", value: p.id, checked: p.id === DEFAULT_PRESET }, `preset-${p.id}`);
-    const img = el("img", { src: opts.thumbs[p.id], alt: "", width: PRESET_THUMB.w, height: PRESET_THUMB.h, loading: "lazy", decoding: "async" });
+    // Eager on purpose: this mounts on intent (main.ts), so the thumbnails are in before the directory shows.
+    const img = el("img", { src: opts.thumbs[p.id], alt: "", width: PRESET_THUMB.w, height: PRESET_THUMB.h, decoding: "async" });
     label.append(radio, img, el("span", { className: "preset-name", textContent: p.name }), el("span", { className: "preset-blurb", textContent: p.blurb }));
     presetList.append(label);
   }

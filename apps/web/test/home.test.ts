@@ -365,12 +365,14 @@ describe("room presets in the create form (OME-910)", () => {
     expect(presets.filter((r) => r.checked).map((r) => r.value)).toEqual(["classic"]);
   });
 
-  test("each radio's label holds a lazy fixed-size thumbnail with empty alt, the name and the blurb", async () => {
+  // OME-1022: eager, not lazy. The home chunk mounts on intent while the directory is still hidden, so a lazy thumbnail
+  // would only start loading once the directory shows (pop-in).
+  test("each radio's label holds an eager fixed-size thumbnail with empty alt, the name and the blurb", async () => {
     const root = await mount();
     for (const p of PRESETS) {
       const label = radio(root, p.id).closest("label");
       const img = label?.querySelector("img");
-      expect(img?.getAttribute("loading")).toBe("lazy");
+      expect(img?.getAttribute("loading")).toBeNull();
       expect(img?.getAttribute("decoding")).toBe("async");
       expect(img?.getAttribute("alt")).toBe("");
       expect(img?.getAttribute("width")).toBe("212");
