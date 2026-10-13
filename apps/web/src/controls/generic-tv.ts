@@ -23,7 +23,9 @@ export function createGenericTv(frame: TvGeneric): GenericTv {
 
   const strip = el("div", { className: "generic-strip" });
   const label = el("span", { className: "generic-label", textContent: "Not synced" }, "not-synced");
-  const hint = el("span", { className: "generic-hint", textContent: "Blank or an error page? This site only allows playback on its own pages.", hidden: true }, "generic-hint");
+  // Names the host so "this site" can't read as ours; title keeps the full text when the strip ellipsizes it.
+  const hintText = `Blank or an error? ${frame.host} blocks playing here.`;
+  const hint = el("span", { className: "generic-hint", textContent: hintText, title: hintText, hidden: true }, "generic-hint");
   strip.append(label, hint);
 
   let loaded = false;
