@@ -5,6 +5,8 @@ export const STORE_ZIP_MAX_BYTES = 500 * 1024;
 
 /** ADR 0005 and R1: the only API permissions, and the optional hosts `parseServerBaseUrl` can ever ask for. */
 export const STORE_PERMISSIONS = ["activeTab", "scripting", "storage"] as const;
+/** ADR 0047 §4: "Unlock with extension". Optional in Chromium; Firefox can't make it optional, so it is install-time there. */
+export const STORE_UNLOCK_PERMISSION = "declarativeNetRequestWithHostAccess";
 export const STORE_OPTIONAL_HOST_PERMISSIONS = ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"] as const;
 const ICON_SIZES = ["16", "32", "48", "128"] as const;
 
@@ -25,6 +27,7 @@ const ManifestSchema = v.looseObject({
   permissions: v.optional(StringList, []),
   host_permissions: v.optional(StringList, []),
   optional_host_permissions: v.optional(StringList, []),
+  optional_permissions: v.optional(StringList),
   icons: v.optional(v.record(v.string(), v.string()), {}),
   background: v.optional(v.looseObject({ service_worker: v.optional(v.string()), persistent: v.optional(v.boolean()), scripts: v.optional(StringList) })),
   options_ui: v.optional(v.looseObject({ open_in_tab: v.optional(v.boolean()) })),
@@ -57,14 +60,18 @@ export function checkStoreManifest(manifest: unknown, version: string, browser: 
   const raw = typeof manifest === "object" && manifest !== null ? manifest : {};
   const problems: string[] = [];
   if (m.version !== version) problems.push(`version: ${m.version} is not package.json's ${version}`);
-  if (!sameList(m.permissions, STORE_PERMISSIONS)) problems.push(`permissions: ${JSON.stringify(m.permissions)}, expected ${JSON.stringify(STORE_PERMISSIONS)}`);
+  const permissions = browser === "firefox" ? [...STORE_PERMISSIONS, STORE_UNLOCK_PERMISSION] : STORE_PERMISSIONS;
+  if (!sameList(m.permissions, permissions)) problems.push(`permissions: ${JSON.stringify(m.permissions)}, expected ${JSON.stringify(permissions)}`);
   if (m.host_permissions.length !== 1 || !m.host_permissions.every((p) => HOSTED_ORIGIN_PATTERN.test(p))) {
     problems.push(`host_permissions: ${JSON.stringify(m.host_permissions)}, expected exactly the hosted https origin (is this the e2e build?)`);
   }
   if (!sameList(m.optional_host_permissions, STORE_OPTIONAL_HOST_PERMISSIONS)) {
     problems.push(`optional_host_permissions: ${JSON.stringify(m.optional_host_permissions)}, expected ${JSON.stringify(STORE_OPTIONAL_HOST_PERMISSIONS)}`);
   }
-  if ("optional_permissions" in raw) problems.push("optional_permissions: none allowed");
+  const optional = browser === "firefox" ? undefined : [STORE_UNLOCK_PERMISSION];
+  if (JSON.stringify(m.optional_permissions) !== JSON.stringify(optional)) {
+    problems.push(`optional_permissions: ${JSON.stringify(m.optional_permissions)}, expected ${optional === undefined ? "none" : JSON.stringify(optional)}`);
+  }
   if ("content_scripts" in raw) problems.push("content_scripts: none allowed (the scan is injected only when the popup opens)");
   problems.push(...(browser === "firefox" ? firefoxProblems(m) : chromeProblems(m)));
   const missing = ICON_SIZES.filter((size) => m.icons[size] === undefined);

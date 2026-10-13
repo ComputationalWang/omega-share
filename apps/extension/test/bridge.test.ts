@@ -26,7 +26,7 @@ describe("fromPage", () => {
 
 describe("fromBackground", () => {
   test("passes only extension → page messages", () => {
-    const result = { source: "omega-share", kind: "unlock-result", host: "video.cdn-host.net", outcome: "denied" };
+    const result = { source: "omega-share", kind: "unlock-result", host: "video.cdn-host.net", outcome: "denied" } as const;
     expect(fromBackground(result)).toEqual(result);
     expect(fromBackground({ source: "omega-share", kind: "unlock", host: "video.cdn-host.net" })).toBeNull();
     expect(fromBackground({ ...result, outcome: "maybe" })).toBeNull();

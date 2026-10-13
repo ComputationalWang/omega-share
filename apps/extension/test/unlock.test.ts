@@ -12,7 +12,9 @@ interface Update {
   addRules?: unknown[];
 }
 
-function harness(over: Partial<UnlockDeps> & { granted?: boolean; tabUrl?: string | undefined; noDnr?: boolean } = {}) {
+function harness(opts: Partial<Omit<UnlockDeps, "tabUrl">> & { granted?: boolean; tabUrl?: string | undefined; noDnr?: boolean } = {}) {
+  const { granted = false, noDnr = false, tabUrl, ...over } = opts;
+  const url = "tabUrl" in opts ? tabUrl : `${OUR}/r/lobby`;
   const updates: Update[] = [];
   const consents: [number, string][] = [];
   const notes: [number, ExtensionToPage][] = [];
@@ -21,10 +23,10 @@ function harness(over: Partial<UnlockDeps> & { granted?: boolean; tabUrl?: strin
     consentUrl: CONSENT,
     version: "0.1.1",
     ourOrigin: () => Promise.resolve(OUR),
-    dnr: () => (over.noDnr === true ? undefined : { updateSessionRules: (u: Update) => (updates.push(u), Promise.resolve()) }),
-    hasAccess: () => Promise.resolve(over.granted ?? false),
+    dnr: () => (noDnr ? undefined : { updateSessionRules: (u: Update) => (updates.push(u), Promise.resolve()) }),
+    hasAccess: () => Promise.resolve(granted),
     openConsent: (tabId, host) => (consents.push([tabId, host]), Promise.resolve()),
-    tabUrl: () => Promise.resolve("tabUrl" in over ? over.tabUrl : `${OUR}/r/lobby`),
+    tabUrl: () => Promise.resolve(url),
     notify: (tabId, msg) => (notes.push([tabId, msg]), Promise.resolve()),
     ...over,
   };
