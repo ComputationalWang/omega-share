@@ -20,9 +20,14 @@ function load(name: string, url: string, dir: string = PAGES): Document {
     },
   });
   // happy-dom has no layout: a frame measures its width/height attributes, or the browser default 300×150.
-  window.HTMLIFrameElement.prototype.getBoundingClientRect = function (this: HTMLIFrameElement) {
-    return new window.DOMRect(0, 0, Number(this.getAttribute("width") ?? 300), Number(this.getAttribute("height") ?? 150));
-  };
+  for (const [prop, attr, fallback] of [["clientWidth", "width", 300], ["clientHeight", "height", 150]] as const) {
+    Object.defineProperty(window.HTMLIFrameElement.prototype, prop, {
+      configurable: true,
+      get(this: HTMLIFrameElement) {
+        return Number(this.getAttribute(attr) ?? fallback);
+      },
+    });
+  }
   window.document.write(readFileSync(join(dir, `${name}.html`), "utf8"));
   return window.document as unknown as Document;
 }

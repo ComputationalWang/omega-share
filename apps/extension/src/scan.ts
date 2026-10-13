@@ -1,9 +1,18 @@
-/** What the page scan found. `urls` feed the synced tier, `media` the generic tier (ADR 0024). */
+/** An iframe source and its rendered size in CSS px; 0×0 when it is not visible. */
+export interface FrameCandidate {
+  url: string;
+  width: number;
+  height: number;
+}
+
+/** What the page scan found. `urls` feed the synced tier, `media` and `frames` the generic tier (ADR 0024). */
 export interface PageScan {
   /** The page URL, then every iframe/embed/object source. */
   urls: string[];
-  /** Iframe and `<video>` (or `<video><source>`) sources: candidates for an unsynced embed. */
+  /** `<video>` (or `<video><source>`) sources: candidates for an unsynced embed. */
   media: string[];
+  /** Iframes: candidates for an unsynced embed, ranked by size in the popup (OME-1037). */
+  frames: FrameCandidate[];
 }
 
 /**
@@ -14,6 +23,7 @@ export interface PageScan {
 export function collectCandidateUrls(doc: Document = document): PageScan {
   const urls = [doc.location.href];
   const media: string[] = [];
+  const frames: FrameCandidate[] = [];
   for (const el of doc.querySelectorAll("iframe[src], embed[src], object[data], video[src], video source[src]")) {
     const tag = el.localName;
     const raw = el.getAttribute(tag === "object" ? "data" : "src");
@@ -25,8 +35,14 @@ export function collectCandidateUrls(doc: Document = document): PageScan {
       continue; // Not a URL; skip it.
     }
     if (tag === "iframe" || tag === "embed" || tag === "object") urls.push(href);
-    if (tag === "iframe" || tag === "video" || tag === "source") media.push(href);
-    if (urls.length + media.length >= 1000) break;
+    if (tag === "video" || tag === "source") media.push(href);
+    if (tag === "iframe") {
+      // display:none, visibility:hidden or opacity:0 (on the frame or an ancestor) is hidden, so 0×0.
+      const visible = typeof el.checkVisibility !== "function" || el.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      // client size: the frame's own box without its border, so it matches the page's width/height.
+      frames.push(visible ? { url: href, width: el.clientWidth, height: el.clientHeight } : { url: href, width: 0, height: 0 });
+    }
+    if (urls.length + media.length + frames.length >= 1000) break;
   }
-  return { urls, media };
+  return { urls, media, frames };
 }

@@ -1,6 +1,6 @@
-import type { AnyEmbed, Embed, Provider } from "@omega/shared";
+import type { Embed, Provider } from "@omega/shared";
 import { browser } from "wxt/browser";
-import { type ScanOutcome, scanTab } from "../../embeds";
+import { type ListedEmbed, type ScanOutcome, scanTab } from "../../embeds";
 import { FALLBACK_ROOMS, type RoomList, type RoomsProbe, loadRooms, withRoomTabs } from "../../rooms";
 import { collectCandidateUrls } from "../../scan";
 import { serverStatus } from "../../server-status";
@@ -61,12 +61,13 @@ function embedId(embed: Embed): string {
   return embed.provider === "twitch" && embed.kind === "live" ? embed.channel : embed.videoId;
 }
 
-/** The list label: provider and id, or the host and "not synced" for a generic embed (ADR 0024). */
-function embedLabel(embed: AnyEmbed): string {
-  return embed.provider === "generic" ? `${embed.host} · not synced` : `${PROVIDER_NAMES[embed.provider]} · ${embedId(embed)}`;
+/** The list label: provider and id, or the host, frame size and "not synced" for a generic embed (ADR 0024, OME-1037). */
+function embedLabel(embed: ListedEmbed): string {
+  if (embed.provider !== "generic") return `${PROVIDER_NAMES[embed.provider]} · ${embedId(embed)}`;
+  return embed.size === undefined ? `${embed.host} · not synced` : `${embed.host} · ${String(embed.size.width)}×${String(embed.size.height)} · not synced`;
 }
 
-function renderEmbeds(embeds: readonly AnyEmbed[] | null): void {
+function renderEmbeds(embeds: readonly ListedEmbed[] | null): void {
   if (embeds === null) {
     ui.empty.hidden = true;
     ui.form.hidden = true;

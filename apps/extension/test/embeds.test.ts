@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AnyEmbed, Embed, GenericEmbed } from "@omega/shared";
-import { listEmbeds, scanTab } from "../src/embeds";
+import { type ListedEmbed, listEmbeds, scanTab } from "../src/embeds";
 
 const A = "aqz-KE-bpKQ";
 const B = "dQw4w9WgXcQ";
@@ -139,10 +139,10 @@ describe("scanTab", () => {
 
 describe("listEmbeds: the generic tier is ordered by how likely it is the video (OME-1037)", () => {
   const frame = (url: string, width: number, height: number) => ({ url, width, height });
-  const sized = (url: string, width: number, height: number) => ({ ...generic(url), size: { width, height } });
+  const sized = (url: string, width: number, height: number): ListedEmbed => ({ ...generic(url), size: { width, height } });
   const WIDGET = "https://comments.example.org/widget";
   const PLAYER = "https://player.example.org/e/1";
-  const cases: readonly { name: string; scan: unknown; expected: readonly unknown[] }[] = [
+  const cases: readonly { name: string; scan: unknown; expected: readonly ListedEmbed[] }[] = [
     {
       name: "a small widget frame before a large player: the player comes first",
       scan: { urls: [], media: [], frames: [frame(WIDGET, 640, 200), frame(PLAYER, 960, 540)] },
