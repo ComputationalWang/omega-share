@@ -170,13 +170,14 @@ describe("Contact & notices (DSA Arts 11, 12, 16)", () => {
     const html = page("contact.html");
     const s = text(html);
     expect(s).toContain("Wang Zhou");
-    expect(s).toContain("Jonkvrouw Sanderijndreef 987, 3562 LP Utrecht, the Netherlands");
+    expect(s).toContain("Utrecht, the Netherlands");
+    for (const part of ["Sanderijndreef", "987", "3562 LP"]) expect(html).not.toContain(part);
     expect(html).toContain('href="mailto:omegashare.support@gmail.com"');
     expect(s).toContain("English and Dutch");
     expect(s).toContain("without undue delay");
     expect(s).toContain("Art. 12");
     expect(s).toContain("Art. 16");
-    expect(s).toContain("BW art. 3:15d");
+    expect(s).not.toContain("BW art. 3:15d");
     expect(s).toContain("ACM");
     expect(s).not.toMatch(/MStV|DDG|within \d+ days/);
   });
@@ -187,8 +188,10 @@ describe("Privacy rights and release facts", () => {
     const html = page("privacy.html");
     const s = text(html);
     expect(s).toContain("controller");
+    expect(s).toContain("established in Utrecht, the Netherlands");
     expect(s).toContain("Wang Zhou");
-    expect(s).toContain("Jonkvrouw Sanderijndreef 987, 3562 LP Utrecht, the Netherlands");
+    expect(s).toContain("Utrecht, the Netherlands");
+    for (const part of ["Sanderijndreef", "987", "3562 LP"]) expect(html).not.toContain(part);
     expect(html).toContain('href="mailto:omegashare.support@gmail.com"');
     expect(s).toMatch(/rate-limit counting.*report notes.*Art\. 6\(1\)\(f\)/);
     expect(s).toMatch(/room data.*Art\. 6\(1\)\(b\)/);
