@@ -14,7 +14,7 @@
 // The layer is decorative (aria-hidden, no live region): the chat log is the accessible record.
 import type { MemberId } from "@omega/shared";
 import { el } from "../controls/dom";
-import { STAGE_W, type Point } from "../layout";
+import { ROOM_VIEW, STAGE_W, type Point } from "../layout";
 
 /** Set (l) `meta.omega.bubbles`: a 5 s life, a 24 px rise in whole-pixel steps; 10 per speaker, 16 on screen (OME-1050). */
 export const FLOAT_LIFE_MS = 5000;
@@ -293,7 +293,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
    * Newest first, push each older bubble up until it clears every newer one by GAP. Live bubbles all rise at the same
    * rate on the same steps, so their gaps hold for as long as both are up; the older one's head start counts (whole
    * steps, rounded down, and no more than it shows now: the closest the two get). Pushes only grow: a bubble never
-   * slides down. One pushed so high that its rise would cross the stage's top (and be clipped) goes instead.
+   * slides down. One pushed so high that its rise would leave ROOM_VIEW (the page clips it there) goes instead.
    */
   const resolve = (): void => {
     order.length = 0;
@@ -324,7 +324,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           moved = true;
         }
       }
-      if (i > 0 && s.ay - (s.h + TAIL_BELOW) - push - (reduced ? 0 : FLOAT_RISE) < 0) {
+      if (i > 0 && s.ay - (s.h + TAIL_BELOW) - push - (reduced ? 0 : FLOAT_RISE) < ROOM_VIEW.y) {
         leave(s);
         continue;
       }

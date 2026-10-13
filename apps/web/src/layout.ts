@@ -29,6 +29,17 @@ export interface Rect {
 }
 
 /**
+ * The part of the stage the page shows (OME-1050): full width, from 60 px (headroom for bubbles over the tallest wall
+ * art, whose top is y 113) down past the caption rail (y 588). The rest is empty, so layouts fit this, not 960×600.
+ */
+export const ROOM_VIEW: Rect = { x: 0, y: 60, w: STAGE_W, h: 532 };
+
+/** The scaled stage's CSS transform (`transform-origin: 0 0`): ROOM_VIEW's top-left lands on its clip's. */
+export function stageTransform(scale: number): string {
+  return `translate(${String(-ROOM_VIEW.x * scale)}px, ${String(-ROOM_VIEW.y * scale)}px) scale(${String(scale)})`;
+}
+
+/**
  * YouTube's Required Minimum Functionality: the player is at least 200×200 CSS px and nothing
  * of ours covers it. So the TV lives outside the scaled stage, at 16:9 and never below 356×200.
  */
@@ -82,7 +93,7 @@ export function roomLayout(containerWidth: number, provider: Provider | null = n
   const tv = { x: Math.max(0, Math.floor((width - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
   const controls = { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
   const scale = Math.min(1, width / STAGE_W);
-  const stage = { x: 0, y: controls.y + controls.h + GAP, w: STAGE_W * scale, h: STAGE_H * scale };
+  const stage = { x: 0, y: controls.y + controls.h + GAP, w: ROOM_VIEW.w * scale, h: ROOM_VIEW.h * scale };
   const compact = { tv: !sidesFit(tv, TV_BEZEL, width), controls: !sidesFit(controls, SHELF_SPEAKER, width) };
   return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
 }
@@ -104,9 +115,9 @@ export const WIDE_QUERY = `(min-width: ${String(WIDE_MIN_W)}px) and (orientation
 export const WIDE_CHAT_W = 320;
 /**
  * The TV's share of the left column's height once the shelf is taken off; the room gets the rest. OME-1050 (board): the
- * room is the larger part at 16:9; 0.36 still keeps a 1920×1080 window's TV above the stacked page's 560 px.
+ * room is the larger part at 16:9; 0.37 still keeps a 1920×1080 window's TV above the stacked page's 560 px.
  */
-const WIDE_TV_SHARE = 0.36;
+const WIDE_TV_SHARE = 0.37;
 
 /**
  * The wide layout's left column, `width`×`height` CSS px: the TV (16:9, never under its ADR 0012 minimum, Twitch's is
@@ -121,8 +132,8 @@ export function wideLayout(width: number, height: number, provider: Provider | n
   const tv = { x: Math.max(0, Math.floor((w - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
   const controls = { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
   const sy = controls.y + controls.h + GAP;
-  const scale = Math.max(0.05, Math.min(w / STAGE_W, (h - sy) / STAGE_H));
-  const stage = { x: (w - STAGE_W * scale) / 2, y: sy, w: STAGE_W * scale, h: STAGE_H * scale };
+  const scale = Math.max(0.05, Math.min(w / ROOM_VIEW.w, (h - sy) / ROOM_VIEW.h));
+  const stage = { x: (w - ROOM_VIEW.w * scale) / 2, y: sy, w: ROOM_VIEW.w * scale, h: ROOM_VIEW.h * scale };
   const compact = { tv: !sidesFit(tv, TV_BEZEL, w), controls: !sidesFit(controls, SHELF_SPEAKER, w) };
   return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
 }
@@ -276,9 +287,9 @@ export function popRoomLayout(width: number, height: number): PopRoomLayout {
   const h = Math.max(0, Math.floor(height));
   const cw = Math.min(POP_ROOM_CHAT_W, w);
   const aw = w - cw;
-  const scale = Math.max(0.05, Math.min(aw / STAGE_W, h / STAGE_H));
-  const sw = Math.floor(STAGE_W * scale);
-  const sh = Math.floor(STAGE_H * scale);
+  const scale = Math.max(0.05, Math.min(aw / ROOM_VIEW.w, h / ROOM_VIEW.h));
+  const sw = Math.floor(ROOM_VIEW.w * scale);
+  const sh = Math.floor(ROOM_VIEW.h * scale);
   return {
     stage: { x: Math.max(0, Math.floor((aw - sw) / 2)), y: Math.max(0, Math.floor((h - sh) / 2)), w: sw, h: sh },
     scale,
@@ -294,7 +305,7 @@ export function panTo(view: { readonly w: number; readonly h: number }, centre: 
 
 /** A stage-space rect on the page. */
 export function stageToPage(l: RoomLayout, r: Rect): Rect {
-  return { x: l.stage.x + r.x * l.scale, y: l.stage.y + r.y * l.scale, w: r.w * l.scale, h: r.h * l.scale };
+  return { x: l.stage.x + (r.x - ROOM_VIEW.x) * l.scale, y: l.stage.y + (r.y - ROOM_VIEW.y) * l.scale, w: r.w * l.scale, h: r.h * l.scale };
 }
 
 /** Name tags hang below the avatar's feet; `style.css` caps them at this box. */
