@@ -3,7 +3,7 @@
 // when its frame changes (walk/animator.ts).
 import { Application, Container, Graphics, Sprite, Ticker } from "pixi.js";
 import { AVATAR_COUNT, type EmoteKind, type MemberId } from "@omega/shared";
-import type { FurnitureAtlas } from "./furniture-atlas";
+import type { Sheet } from "./atlas-sheet";
 import type { Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { createAnimator } from "./walk/animator";
@@ -30,8 +30,8 @@ export interface RoomViewOptions {
 
 export interface RoomView {
   readonly canvas: HTMLCanvasElement;
-  /** The room's furniture and seat markers; rebuilt once per layout change (or when the atlas arrives). Draws on the next `update`. */
-  setScene(scene: Scene, atlas: FurnitureAtlas | null, walkGrid: Uint8Array): void;
+  /** The room's shell, furniture and seat markers; rebuilt once per layout change (or when an atlas arrives). Draws on the next `update`. */
+  setScene(scene: Scene, sheets: readonly (Sheet | null)[], walkGrid: Uint8Array): void;
   /** Seat occupancy and who sits or stands where; redraws once, then walks anyone whose spot changed (walk/). */
   update(seatTaken: readonly boolean[], avatars: readonly AvatarPlacement[]): void;
   /** Where an avatar is drawn now (mid-walk, between cells), stage px. */
@@ -271,20 +271,26 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
 
   return {
     canvas: app.canvas,
-    setScene(scene, atlas, walkGrid) {
+    setScene(scene, sheets, walkGrid) {
       walks.setGrid(walkGrid);
       for (const s of furniture) s.destroy();
       for (const m of markers) m?.destroy();
       furniture = [];
-      // Rugs, then wall pieces, then objects; the background keeps that order, objects sort by depth.
-      const ordered = atlas === null ? [] : ["floor", "wall", "object"].flatMap((layer) => scene.sprites.filter((f) => f.layer === layer));
+      // Floor tiles and rugs, then walls and wall pieces, then objects; the background keeps that order, objects sort by depth.
+      const ordered = ["floor", "wall", "object"].flatMap((layer) => scene.sprites.filter((f) => f.layer === layer));
+      // Room and set (g) keys never collide (set (g)'s all start with `furniture/`).
+      let planks = false;
       for (const f of ordered) {
-        const texture = atlas?.texture(f.key);
+        let texture;
+        for (const sheet of sheets) texture ??= sheet?.texture(f.key);
         if (texture === undefined) continue;
+        planks ||= f.key.startsWith("floor/");
         const s = new Sprite({ texture, label: f.key, x: f.x, y: f.y, zIndex: f.z });
         furniture.push(s);
         (f.layer === "object" ? objectLayer : background).addChild(s);
       }
+      // The room atlas's planks cover every cell: skip drawing the placeholder floor under them.
+      floor.visible = !planks;
       markers = scene.seats.map((seat, i) => {
         if (!seat.marker) return null;
         const g = new Graphics({ label: `seat:${String(i)}` });

@@ -1,12 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, RoomLayoutSchema, footprintCells, parseServerMessage, type RoomLayout, type RoomState } from "@omega/shared";
-import { FurnitureManifestSchema, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, type Scene } from "../src/furniture";
+import { FurnitureManifestSchema, RoomManifestSchema, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, type Scene } from "../src/furniture";
 import { cellCenter } from "../src/layout";
 
 // Furniture and seats from snapshot.room.layout (OME-278, ADR 0021); set (g) art: assets/furniture (OME-261).
 
 const manifest = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture.json", import.meta.url)).json());
+const room = v.parse(RoomManifestSchema, await Bun.file(new URL("../../../assets/room/room.json", import.meta.url)).json());
+/** The classic preset: the pre-M4 room (tv, 7×7 rug, eight armchairs, lamp, plant), all room-atlas kinds. */
+const CLASSIC: RoomLayout = v.parse(RoomLayoutSchema, await Bun.file(new URL("../../../assets/presets/classic.json", import.meta.url)).json());
 
 /** A layout with set (g) pieces: two sofas, a couch, a wingback and a beanbag (8 seats), a runner, a print, a bookcase and props. */
 const SET_G: RoomLayout = v.parse(RoomLayoutSchema, {
@@ -196,5 +199,76 @@ describe("scene: a set (g) layout", () => {
     expect(spots).toHaveLength(MAX_ROOM_MEMBERS);
     for (const p of spots) expect(blocked.has(`${String(p.x)},${String(p.y)}`)).toBe(false);
     expect(new Set(spots.map((p) => `${String(p.x)},${String(p.y)}`)).size).toBe(spots.length);
+  });
+});
+
+// OME-1062: the room atlas (assets/room, OME-31) draws the room-atlas kinds, the plank floor and the two back walls.
+describe("room atlas", () => {
+  const classic = sceneOf(CLASSIC, null, room);
+  const at = (s: Scene, key: string, col: number, row: number): Scene["sprites"][number] | undefined =>
+    s.sprites.find((x) => x.key === key && x.x === cellCenter(col, row).x && x.y === cellCenter(col, row).y);
+
+  test("the classic room's armchairs are drawn, not markers, and a sitter sits between back and front", () => {
+    expect(classic.seats.every((s) => !s.marker)).toBe(true);
+    // Seat 0 is the armchair at (1,5) facing ne.
+    const back = at(classic, "armchair/ne/back", 1, 5);
+    const front = at(classic, "armchair/ne/front", 1, 5);
+    expect(back?.layer).toBe("object");
+    const z = classic.seats[0]?.z ?? NaN;
+    expect(z).toBeGreaterThan(back?.z ?? NaN);
+    expect(z).toBeLessThan(front?.z ?? NaN);
+  });
+
+  test("the console, lamp and plant are drawn on their cells", () => {
+    expect(at(classic, "tv/0", 0, 0)).toBeDefined();
+    expect(at(classic, "lamp/0", 9, 0)?.layer).toBe("object");
+    expect(at(classic, "plant/0", 0, 9)?.layer).toBe("object");
+    expect(standDepth(cellCenter(9, 1))).toBeGreaterThan(at(classic, "lamp/0", 9, 0)?.z ?? NaN);
+  });
+
+  test("every floor cell gets one floor tile, and the 7×7 rug is its 9-slice", () => {
+    const floor = classic.sprites.filter((x) => x.layer === "floor");
+    expect(floor).toHaveLength(100);
+    expect(at(classic, "rug/n", 1, 1)?.layer).toBe("floor");
+    expect(at(classic, "rug/ne", 4, 1)).toBeDefined();
+    expect(at(classic, "rug/e", 7, 1)).toBeDefined();
+    expect(at(classic, "rug/nw", 1, 4)).toBeDefined();
+    expect(at(classic, "rug/c", 4, 4)).toBeDefined();
+    expect(at(classic, "rug/se", 7, 4)).toBeDefined();
+    expect(at(classic, "rug/w", 1, 7)).toBeDefined();
+    expect(at(classic, "rug/sw", 4, 7)).toBeDefined();
+    expect(at(classic, "rug/s", 7, 7)).toBeDefined();
+    expect(floor.filter((x) => x.key.startsWith("floor/"))).toHaveLength(100 - 49);
+  });
+
+  test("both back walls stand on the back edges, with the corner cap and open ends", () => {
+    for (let i = 0; i < 10; i++) {
+      expect(classic.sprites.some((x) => x.key.startsWith("wall/l/") && x.layer === "wall" && x.x === cellCenter(0, i).x && x.y === cellCenter(0, i).y)).toBe(true);
+      expect(classic.sprites.some((x) => x.key.startsWith("wall/r/") && x.layer === "wall" && x.x === cellCenter(i, 0).x && x.y === cellCenter(i, 0).y)).toBe(true);
+    }
+    expect(at(classic, "wall/corner", 0, 0)).toBeDefined();
+    expect(at(classic, "wall/l/end", 0, 9)).toBeDefined();
+    expect(at(classic, "wall/r/end", 9, 0)).toBeDefined();
+    // The atlas's suggested walls: a window on the left, a poster on the right.
+    expect(keysOf(classic)).toContain("wall/l/window0");
+    expect(keysOf(classic)).toContain("wall/r/poster0");
+  });
+
+  test("a set (g) room gets the floor and walls too; a wall with a print hangs it on plain segments, drawn after them", () => {
+    const g = sceneOf(SET_G, manifest, room);
+    const keys = keysOf(g);
+    // The print hangs on the right wall: no poster there, the left wall keeps its window.
+    expect(keys.filter((k) => k.startsWith("wall/r/") && k !== "wall/r/end").every((k) => k === "wall/r/plain")).toBe(true);
+    expect(keys).toContain("wall/l/window0");
+    expect(keys.indexOf("furniture/frame/dusk/sw/back")).toBeGreaterThan(keys.lastIndexOf("wall/r/plain"));
+    // The runner lies on the planks, not under them.
+    expect(keys.indexOf("furniture/rug/teal/ne/back")).toBeGreaterThan(keys.lastIndexOf("floor/0"));
+    expect(keys).toContain("tv/0");
+  });
+
+  test("without the room atlas, the classic room keeps its placeholder markers and draws nothing", () => {
+    const bare = sceneOf(CLASSIC, null, null);
+    expect(bare.sprites).toEqual([]);
+    expect(bare.seats.every((s) => s.marker)).toBe(true);
   });
 });
