@@ -609,6 +609,7 @@ name = "omega-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "futures-util",
  "getrandom 0.4.3",
  "icu_properties",
  "rusqlite",
@@ -618,6 +619,7 @@ dependencies = [
  "subtle",
  "tempfile",
  "tokio",
+ "tokio-tungstenite",
  "unicode-normalization",
  "url",
  "validator",
