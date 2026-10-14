@@ -908,3 +908,25 @@ mod tests {
         assert!(target.join("omega-2026-10-08.db").exists());
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
+mod restore_dir_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    // apps/server/scripts/backup.ts:restore: `mkdirSync(dir, { recursive: true, mode: 0o700 })`, never a chmod of an existing dir
+    #[test]
+    fn restore_leaves_the_mode_of_an_existing_db_directory_alone() {
+        let t = tempfile::tempdir().unwrap();
+        let src = t.path().join("src/omega.db");
+        std::fs::create_dir_all(src.parent().unwrap()).unwrap();
+        drop(crate::store::open_database(src.to_str().unwrap()).unwrap());
+        let snap = snapshot(&src, &t.path().join("backups"), 1_791_430_200_000).unwrap();
+        let live_dir = t.path().join("live");
+        std::fs::create_dir(&live_dir).unwrap();
+        std::fs::set_permissions(&live_dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+        restore(&snap, &live_dir.join("omega.db"), 1_791_430_200_000).unwrap();
+        assert_eq!(std::fs::metadata(&live_dir).unwrap().permissions().mode() & 0o777, 0o755);
+    }
+}
