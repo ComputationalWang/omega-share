@@ -1,9 +1,21 @@
 //! Generic embeds (ADR 0024), mirroring `packages/shared/src/generic-embed.ts`.
 
+use super::js_compat::{is_js_whitespace, js_trim};
+use url::Url;
+
 /// `normalizeHostname`: a bare hostname, trimmed, one trailing dot dropped, WHATWG-parsed to its
 /// lowercase punycode form; `None` for anything with a path, port, credentials or whitespace.
 pub fn normalize_hostname(host: &str) -> Option<String> {
-    None
+    let trimmed = js_trim(host);
+    let h = trimmed.strip_suffix('.').unwrap_or(trimmed);
+    if h.is_empty()
+        || h.chars()
+            .any(|c| matches!(c, '/' | ':' | '?' | '#' | '@' | '\\') || is_js_whitespace(c))
+    {
+        return None;
+    }
+    let url = Url::parse(&format!("https://{h}/")).ok()?;
+    url.host_str().map(str::to_owned)
 }
 
 #[cfg(test)]

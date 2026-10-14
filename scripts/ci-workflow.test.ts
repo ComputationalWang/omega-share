@@ -57,6 +57,16 @@ describe(".github/workflows/check.yml", () => {
     const setup = steps.find((s) => s.uses?.startsWith("oven-sh/setup-bun@"));
     expect(setup?.with?.["bun-version-file"]).toBe(".bun-version");
     const runs = steps.flatMap((s) => (s.run === undefined ? [] : [s.run.trim()]));
-    expect(runs).toEqual(["bun install --frozen-lockfile", "bun run check"]);
+    expect(runs[0]).toBe("bun install --frozen-lockfile");
+    expect(runs.at(-1)).toBe("bun run check");
+  });
+
+  // The Rust half of the gate (ADR 0050) needs cargo-deny; the download is pinned by its checksum.
+  test("installs cargo-deny from a pinned release, verified by sha256", () => {
+    const runs = (load().jobs["check"]?.steps ?? []).flatMap((s) => (s.run === undefined ? [] : [s.run.trim()]));
+    expect(runs.slice(1, -1)).toHaveLength(1);
+    const install = runs[1] ?? "";
+    expect(install).toMatch(/cargo-deny\/releases\/download\/\d+\.\d+\.\d+\//);
+    expect(install).toMatch(/echo "[0-9a-f]{64} {2}cargo-deny-[^"]+\.tar\.gz" \| sha256sum -c -/);
   });
 });

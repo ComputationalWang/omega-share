@@ -5,17 +5,21 @@
 /// ECMAScript WhiteSpace and LineTerminator: what `String.prototype.trim` strips and `\s` matches.
 /// Unlike `char::is_whitespace` it includes U+FEFF and excludes U+0085.
 pub fn is_js_whitespace(c: char) -> bool {
-    false
+    matches!(
+        c,
+        '\t' | '\n' | '\u{B}' | '\u{C}' | '\r' | ' ' | '\u{A0}' | '\u{1680}' | '\u{2000}'
+            ..='\u{200A}' | '\u{2028}' | '\u{2029}' | '\u{202F}' | '\u{205F}' | '\u{3000}' | '\u{FEFF}'
+    )
 }
 
 /// `String.prototype.trim`.
 pub fn js_trim(s: &str) -> &str {
-    s
+    s.trim_matches(is_js_whitespace)
 }
 
 /// `String.prototype.length`: UTF-16 code units, what Valibot's `minLength`/`maxLength` count.
 pub fn utf16_len(s: &str) -> usize {
-    0
+    s.chars().map(char::len_utf16).sum()
 }
 
 #[cfg(test)]

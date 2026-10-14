@@ -1,9 +1,13 @@
 //! Validated startup config (ADR 0015 §3), mirroring `apps/server/src/config.ts`. A bad value is an
 //! error naming the variable; the process exits before listening.
 
+use crate::contract::generic_embed::normalize_hostname;
+use crate::contract::js_compat::js_trim;
+use crate::contract::session::RESUME_GRACE_MS;
 use std::collections::HashMap;
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+use url::Url;
 
 /// Where the rooms database lives.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -71,15 +75,246 @@ pub fn default_db_path() -> PathBuf {
 
 pub type Env = HashMap<String, String>;
 
+/// Under the unit's `LimitNOFILE=4096`, so 1024 descriptors stay free for HTTP, SQLite and metrics.
+const MAX_CONNECTIONS_CEILING: u32 = 3072;
+/// Long enough for a phone tab switch, short enough that a seat isn't kept for a gone member (ADR 0043).
+const RESUME_GRACE_MIN_MS: u32 = 5_000;
+const RESUME_GRACE_MAX_MS: u32 = 600_000;
+const LOOPBACK_HOSTS: [&str; 3] = ["localhost", "127.0.0.1", "[::1]"];
+
+fn fail(key: &'static str, why: impl Into<String>) -> ConfigError {
+    ConfigError { key, why: why.into() }
+}
+
+/// `/^\d{1,max_len}$/` as a number: ASCII digits only, so no sign, exponent or fraction.
+fn digits(raw: &str, max_len: usize) -> Option<u32> {
+    if raw.is_empty() || raw.len() > max_len || !raw.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    raw.parse().ok()
+}
+
+/// A bare origin: `https:` (or `http:` on loopback when allowed), no credentials, path, query or hash.
+fn parse_origin(key: &'static str, raw: &str, http_on_loopback: bool) -> Result<String, ConfigError> {
+    let url = Url::parse(raw).map_err(|_| fail(key, "not a URL"))?;
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err(fail(key, "must not contain credentials"));
+    }
+    // The parser drops an empty "?" or "#", so check the raw string too.
+    if url.path() != "/" || raw.contains(['?', '#']) {
+        return Err(fail(key, "must be an origin, with no path or query"));
+    }
+    let http_ok = http_on_loopback && url.scheme() == "http" && url.host_str().is_some_and(|h| LOOPBACK_HOSTS.contains(&h));
+    if url.scheme() != "https" && !http_ok {
+        return Err(fail(
+            key,
+            if http_on_loopback {
+                "must be https (http only on loopback)"
+            } else {
+                "must be https"
+            },
+        ));
+    }
+    Ok(url.origin().ascii_serialization())
+}
+
+/// Node's `path.resolve`: absolute and lexically normalised, symlinks untouched.
+fn resolve(cwd: &Path, raw: &str) -> PathBuf {
+    let mut out = PathBuf::new();
+    for part in cwd.join(raw).components() {
+        match part {
+            Component::ParentDir => {
+                out.pop();
+            }
+            Component::CurDir => {}
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+/// `path` with symlinks resolved as far as it exists (the DB file itself may not yet).
+fn realish(path: &Path) -> PathBuf {
+    if let Ok(real) = std::fs::canonicalize(path) {
+        return real;
+    }
+    match (path.parent(), path.file_name()) {
+        (Some(parent), Some(name)) => realish(parent).join(name),
+        _ => path.to_path_buf(),
+    }
+}
+
+/// IP literals are never a generic embed's host, so they need no own-host entry.
+fn is_ip_literal(host: &str) -> bool {
+    let parts: Vec<&str> = host.split('.').collect();
+    host.starts_with('[') || (parts.len() == 4 && parts.iter().all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit())))
+}
+
+/// Our own hostnames for the generic tier's own-host rule, normalised.
+pub fn own_hosts_for(site_origin: &str, public_origin: Option<&str>) -> Result<Vec<String>, ConfigError> {
+    let mut hosts = vec![String::from("localhost")];
+    for origin in std::iter::once(site_origin).chain(public_origin) {
+        let url = Url::parse(origin).map_err(|_| fail("own host", format!("{origin:?} is not a URL")))?;
+        let host = url.host_str().unwrap_or_default();
+        if is_ip_literal(host) {
+            continue;
+        }
+        let normal = normalize_hostname(host).ok_or_else(|| fail("own host", format!("{host:?} is not a hostname")))?;
+        if !hosts.contains(&normal) {
+            hosts.push(normal);
+        }
+    }
+    Ok(hosts)
+}
+
 /// Parses the process environment; relative paths resolve against `cwd`.
 pub fn parse_config(env: &Env, cwd: &Path) -> Result<ServerConfig, ConfigError> {
-    Err(ConfigError { key: "PORT", why: String::from("not yet parsed") })
+    let get = |key: &str| env.get(key).map(String::as_str);
+
+    let port = digits(get("PORT").unwrap_or("8787"), 5)
+        .and_then(|p| u16::try_from(p).ok())
+        .ok_or_else(|| fail("PORT", "must be 0–65535"))?;
+
+    let hostname = get("HOST").unwrap_or("127.0.0.1");
+    if hostname.is_empty() {
+        return Err(fail("HOST", "must not be empty"));
+    }
+
+    let site_origin = parse_origin("SITE_ORIGIN", get("SITE_ORIGIN").unwrap_or("http://localhost:5173"), true)?;
+    let public_origin = get("PUBLIC_ORIGIN")
+        .map(|raw| parse_origin("PUBLIC_ORIGIN", raw, false))
+        .transpose()?;
+
+    let trust_proxy = match get("TRUST_PROXY").unwrap_or("off") {
+        "loopback" => true,
+        "off" => false,
+        _ => return Err(fail("TRUST_PROXY", "must be loopback or off")),
+    };
+
+    let static_dir = match get("STATIC_DIR") {
+        None => None,
+        Some(raw) => {
+            let dir = resolve(cwd, raw);
+            if !dir.join("index.html").exists() {
+                return Err(fail("STATIC_DIR", "has no index.html (run the site build first)"));
+            }
+            Some(dir)
+        }
+    };
+
+    let extension_ids = match get("EXTENSION_IDS") {
+        None => None,
+        Some(raw) => {
+            let ids: Vec<String> = raw.split(',').map(|s| js_trim(s).to_owned()).collect();
+            if !ids
+                .iter()
+                .all(|id| id.len() == 32 && id.bytes().all(|b| (b'a'..=b'p').contains(&b)))
+            {
+                return Err(fail("EXTENSION_IDS", "expected comma-separated extension ids"));
+            }
+            Some(ids)
+        }
+    };
+
+    let db_path = match get("DB_PATH") {
+        None => DbPath::File(default_db_path()),
+        Some("") => return Err(fail("DB_PATH", "must not be empty")),
+        Some(":memory:") => DbPath::Memory,
+        Some(raw) => DbPath::File(resolve(cwd, raw)),
+    };
+    // The static site must never be able to hand out the database.
+    if let (Some(site), DbPath::File(db)) = (&static_dir, &db_path)
+        && (db.starts_with(site) || realish(db).starts_with(realish(site)))
+    {
+        return Err(fail("DB_PATH", "must not be inside STATIC_DIR"));
+    }
+
+    let metrics_port = match get("METRICS_PORT").unwrap_or("off") {
+        "off" => None,
+        raw => Some(
+            digits(raw, 5)
+                .and_then(|p| u16::try_from(p).ok())
+                .ok_or_else(|| fail("METRICS_PORT", "must be off or 0–65535"))?,
+        ),
+    };
+    if metrics_port.is_some_and(|m| m != 0 && m == port) {
+        return Err(fail("METRICS_PORT", "must differ from PORT"));
+    }
+
+    let max_connections = match get("MAX_CONNECTIONS") {
+        None => DEFAULT_MAX_CONNECTIONS,
+        Some(raw) => digits(raw, 4)
+            .filter(|n| (1..=MAX_CONNECTIONS_CEILING).contains(n))
+            .ok_or_else(|| fail("MAX_CONNECTIONS", format!("must be an integer from 1 to {MAX_CONNECTIONS_CEILING}")))?,
+    };
+
+    let resume_grace_ms = match get("RESUME_GRACE_MS") {
+        None => RESUME_GRACE_MS,
+        Some(raw) => digits(raw, 6)
+            .filter(|n| (RESUME_GRACE_MIN_MS..=RESUME_GRACE_MAX_MS).contains(n))
+            .ok_or_else(|| {
+                fail(
+                    "RESUME_GRACE_MS",
+                    format!("must be an integer from {RESUME_GRACE_MIN_MS} to {RESUME_GRACE_MAX_MS} (ms)"),
+                )
+            })?,
+    };
+
+    let generic_embeds = match get("GENERIC_EMBEDS").unwrap_or("on") {
+        "on" => true,
+        "off" => false,
+        _ => return Err(fail("GENERIC_EMBEDS", "must be on or off")),
+    };
+
+    let generic_embed_denylist = match get("GENERIC_EMBED_DENYLIST").unwrap_or("") {
+        "" => vec![],
+        raw => raw
+            .split(',')
+            .map(|d| normalize_hostname(d).ok_or_else(|| fail("GENERIC_EMBED_DENYLIST", "expected comma-separated domains")))
+            .collect::<Result<_, _>>()?,
+    };
+
+    let own_hosts = own_hosts_for(&site_origin, public_origin.as_deref())?;
+    let room_title_blocklist = get("ROOM_TITLE_BLOCKLIST")
+        .unwrap_or("")
+        .split(',')
+        .map(js_trim)
+        .filter(|t| !t.is_empty())
+        .map(str::to_owned)
+        .collect();
+
+    Ok(ServerConfig {
+        port,
+        hostname: hostname.to_owned(),
+        site_origin,
+        public_origin,
+        trust_proxy,
+        static_dir,
+        extension_ids,
+        db_path,
+        generic_embeds,
+        generic_embed_denylist,
+        own_hosts,
+        room_title_blocklist,
+        metrics_port,
+        max_connections,
+        resume_grace_ms,
+    })
 }
 
 /// The operator CLI's Unix socket: `ADMIN_SOCKET`, else `admin.sock` beside `DB_PATH`, so it shares
 /// the DB's owner-only directory. None when `ADMIN_SOCKET=off` or the DB is `:memory:`.
 pub fn admin_socket_for(env: &Env, cwd: &Path) -> Result<Option<PathBuf>, ConfigError> {
-    Ok(None)
+    match env.get("ADMIN_SOCKET").map(String::as_str) {
+        Some("off") => Ok(None),
+        Some("") => Err(fail("ADMIN_SOCKET", "must not be empty")),
+        Some(raw) => Ok(Some(resolve(cwd, raw))),
+        None => match env.get("DB_PATH").map(String::as_str) {
+            Some(":memory:") => Ok(None),
+            Some(raw) => Ok(Some(resolve(cwd, raw).with_file_name("admin.sock"))),
+            None => Ok(Some(default_db_path().with_file_name("admin.sock"))),
+        },
+    }
 }
 
 #[cfg(test)]
@@ -152,7 +387,10 @@ mod tests {
                 ("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"),
                 ("TRUST_PROXY", "loopback"),
                 ("STATIC_DIR", static_dir),
-                ("EXTENSION_IDS", "abcdefghijklmnopabcdefghijklmnop, ponmlkjihgfedcbaponmlkjihgfedcba"),
+                (
+                    "EXTENSION_IDS",
+                    "abcdefghijklmnopabcdefghijklmnop, ponmlkjihgfedcbaponmlkjihgfedcba"
+                ),
             ]),
             ServerConfig {
                 port: 9000,
@@ -161,7 +399,10 @@ mod tests {
                 public_origin: Some("https://quiet-otter.ngrok-free.app".into()),
                 trust_proxy: true,
                 static_dir: Some(site.path().to_path_buf()),
-                extension_ids: Some(vec!["abcdefghijklmnopabcdefghijklmnop".into(), "ponmlkjihgfedcbaponmlkjihgfedcba".into()]),
+                extension_ids: Some(vec![
+                    "abcdefghijklmnopabcdefghijklmnop".into(),
+                    "ponmlkjihgfedcbaponmlkjihgfedcba".into()
+                ]),
                 db_path: DbPath::File(default_db_path()),
                 generic_embeds: true,
                 generic_embed_denylist: vec![],
@@ -177,7 +418,9 @@ mod tests {
     #[test]
     fn normalizes_a_public_origins_case_and_trailing_slash() {
         assert_eq!(
-            ok(&[("PUBLIC_ORIGIN", "https://Quiet-Otter.ngrok-free.app/")]).public_origin.as_deref(),
+            ok(&[("PUBLIC_ORIGIN", "https://Quiet-Otter.ngrok-free.app/")])
+                .public_origin
+                .as_deref(),
             Some("https://quiet-otter.ngrok-free.app")
         );
     }
@@ -252,7 +495,11 @@ mod tests {
     #[test]
     fn own_hosts_are_localhost_site_and_public_hosts_without_ip_literals() {
         assert_eq!(
-            ok(&[("SITE_ORIGIN", "https://Watch.Example.org"), ("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app")]).own_hosts,
+            ok(&[
+                ("SITE_ORIGIN", "https://Watch.Example.org"),
+                ("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app")
+            ])
+            .own_hosts,
             vec!["localhost", "watch.example.org", "quiet-otter.ngrok-free.app"]
         );
         assert_eq!(ok(&[("SITE_ORIGIN", "http://127.0.0.1:5173")]).own_hosts, vec!["localhost"]);
@@ -268,21 +515,34 @@ mod tests {
     fn room_title_blocklist_is_trimmed_terms_without_empties() {
         assert_eq!(ok(&[]).room_title_blocklist, Vec::<String>::new());
         assert_eq!(ok(&[("ROOM_TITLE_BLOCKLIST", "")]).room_title_blocklist, Vec::<String>::new());
-        assert_eq!(ok(&[("ROOM_TITLE_BLOCKLIST", " spam , Scam,,")]).room_title_blocklist, vec!["spam", "Scam"]);
+        assert_eq!(
+            ok(&[("ROOM_TITLE_BLOCKLIST", " spam , Scam,,")]).room_title_blocklist,
+            vec!["spam", "Scam"]
+        );
     }
 
     #[test]
     fn db_path_takes_memory_as_is_and_resolves_a_relative_path() {
         assert_eq!(ok(&[("DB_PATH", ":memory:")]).db_path, DbPath::Memory);
-        assert_eq!(ok(&[("DB_PATH", "omega.db")]).db_path, DbPath::File(PathBuf::from("/srv/omega/omega.db")));
-        assert_eq!(ok(&[("DB_PATH", "data/../x/./omega.db")]).db_path, DbPath::File(PathBuf::from("/srv/omega/x/omega.db")));
+        assert_eq!(
+            ok(&[("DB_PATH", "omega.db")]).db_path,
+            DbPath::File(PathBuf::from("/srv/omega/omega.db"))
+        );
+        assert_eq!(
+            ok(&[("DB_PATH", "data/../x/./omega.db")]).db_path,
+            DbPath::File(PathBuf::from("/srv/omega/x/omega.db"))
+        );
     }
 
     #[test]
     fn refuses_a_db_path_inside_static_dir_however_spelled() {
         let site = dist();
         let s = site.path().to_str().unwrap();
-        for p in [format!("{s}/omega.db"), format!("{s}/assets/omega.db"), format!("{s}/./x/../omega.db")] {
+        for p in [
+            format!("{s}/omega.db"),
+            format!("{s}/assets/omega.db"),
+            format!("{s}/./x/../omega.db"),
+        ] {
             refuses(&[("STATIC_DIR", s), ("DB_PATH", &p)], "DB_PATH");
         }
     }
@@ -294,7 +554,10 @@ mod tests {
         let link = links.path().join("site");
         std::os::unix::fs::symlink(site.path(), &link).unwrap();
         let db = link.join("omega.db");
-        refuses(&[("STATIC_DIR", site.path().to_str().unwrap()), ("DB_PATH", db.to_str().unwrap())], "DB_PATH");
+        refuses(
+            &[("STATIC_DIR", site.path().to_str().unwrap()), ("DB_PATH", db.to_str().unwrap())],
+            "DB_PATH",
+        );
     }
 
     #[test]
@@ -349,8 +612,14 @@ mod tests {
             admin_socket_for(&env(&[("DB_PATH", "/var/lib/omega-share/omega.db")]), &cwd),
             Ok(Some(PathBuf::from("/var/lib/omega-share/admin.sock")))
         );
-        assert_eq!(admin_socket_for(&env(&[("ADMIN_SOCKET", "run/a.sock")]), &cwd), Ok(Some(PathBuf::from("/srv/omega/run/a.sock"))));
+        assert_eq!(
+            admin_socket_for(&env(&[("ADMIN_SOCKET", "run/a.sock")]), &cwd),
+            Ok(Some(PathBuf::from("/srv/omega/run/a.sock")))
+        );
         assert!(admin_socket_for(&env(&[("ADMIN_SOCKET", "")]), &cwd).is_err());
-        assert_eq!(admin_socket_for(&env(&[]), &cwd), Ok(Some(default_db_path().with_file_name("admin.sock"))));
+        assert_eq!(
+            admin_socket_for(&env(&[]), &cwd),
+            Ok(Some(default_db_path().with_file_name("admin.sock")))
+        );
     }
 }
