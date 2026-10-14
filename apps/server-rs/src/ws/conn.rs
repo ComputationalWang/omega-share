@@ -269,7 +269,7 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
                         .filter(|s| s.status.pending)
                         .map(|s| s.member_id.clone());
                     if let Some(member) = pending {
-                        flush_status(&app, &mut inner, &member);
+                        flush_status(&mut inner, &member);
                     }
                 }
             }

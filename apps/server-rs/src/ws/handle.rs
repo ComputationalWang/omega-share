@@ -417,7 +417,7 @@ fn status(app: &App, inner: &mut RoomInner, conn: &mut Conn, member: &MemberId, 
     }
     let wait = session.status.at + interval - now;
     if wait <= 0.0 {
-        flush_status(app, inner, member);
+        flush_status(inner, member);
     } else {
         session.status.pending = true;
         conn.status_in = Some(wait);
@@ -426,7 +426,7 @@ fn status(app: &App, inner: &mut RoomInner, conn: &mut Conn, member: &MemberId, 
 
 /// Publishes the member's current `catching` if it differs from the last one published. The room keeps what was
 /// last published, so a server-side clear (embed switch) is seen here too.
-pub fn flush_status(app: &App, inner: &mut RoomInner, member: &MemberId) {
+pub fn flush_status(inner: &mut RoomInner, member: &MemberId) {
     let now = real_mono_ms();
     if let Some(session) = inner.sessions.get_mut(member) {
         session.status.pending = false;
