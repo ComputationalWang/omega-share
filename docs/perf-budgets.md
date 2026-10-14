@@ -37,6 +37,7 @@ QA measures these on every merge that touches a perf-relevant path, daily and at
 | Server | Relay latency for a control action, localhost | ≤ 50 ms |
 | Server | Relay latency for a control action under flood, localhost | ≤ 50 ms p95, 24 members at the allowed chat/emote/control rates + 1 socket flooding at 10× L1, which is throttled or closed with 4029 (ADR 0016/0018) |
 | Extension | Popup opened → embeds listed | ≤ 300 ms |
+| Extension | Popup JS (gzipped, every chunk `popup.html` loads) | ≤ 20 KB, production Chromium build (16.1 KB at OME-1102, `docs/qa/extension-size.md`) |
 | Extension | Content scripts on page load | none on other sites (scan injected on popup open only) unless the viewer turns on the found indicator; our own site gets the ADR 0047 unlock bridge (< 16 KB, idle after one `present`) |
 | Extension | Found indicator (opt-in), main thread per page check | ≤ 2 ms p95 of 20 checks on providers-embed (the note prints the first, cold check), rechecked at most once per second on DOM changes (OME-1042) |
 | Extension | Persistent background | none (event-driven service worker only) |
