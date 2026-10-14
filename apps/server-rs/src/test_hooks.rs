@@ -193,6 +193,12 @@ async fn get_time(State(clock): State<Arc<VirtualClock>>) -> String {
     format!(r#"{{"pending":{}}}"#, clock.pending())
 }
 
+/// The starting time from `OMEGA_TEST_MONO` / `OMEGA_TEST_WALL`, so the harness can fix it before the
+/// first request without an async handshake. Absent or malformed: mono 0 and the real wall time.
+pub fn parse_initial(_mono: Option<&str>, _wall: Option<&str>) -> (f64, Option<i64>) {
+    (-1.0, Some(-1))
+}
+
 /// The virtual clock and the router that drives it (`POST`/`GET /__test/time`).
 pub fn install() -> (SharedClock, Router) {
     let clock = VirtualClock::shared();
@@ -208,6 +214,18 @@ mod tests {
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, Ordering};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[test]
+    fn the_starting_time_comes_from_the_environment_or_defaults() {
+        assert_eq!(
+            parse_initial(Some("1000000"), Some("1700000000000")),
+            (1_000_000.0, Some(1_700_000_000_000))
+        );
+        assert_eq!(parse_initial(Some("12.5"), None), (12.5, None));
+        assert_eq!(parse_initial(None, None), (0.0, None));
+        assert_eq!(parse_initial(Some("nope"), Some("1.5")), (0.0, None));
+        assert_eq!(parse_initial(Some("NaN"), Some("")), (0.0, None));
+    }
 
     #[tokio::test]
     async fn time_only_moves_when_set() {
