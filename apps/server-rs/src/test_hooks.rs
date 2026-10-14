@@ -61,13 +61,19 @@ pub struct VirtualClock {
 
 impl VirtualClock {
     pub fn shared() -> Arc<Self> {
-        // Wall time starts at the real one so a test that never sets it still sees a sane date.
-        let wall = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
+        Self::starting_at(0.0, None)
+    }
+
+    /// `wall: None` starts at the real wall time, so a test that never sets it still sees a sane date.
+    pub fn starting_at(mono: f64, wall: Option<i64>) -> Arc<Self> {
+        let wall = wall.unwrap_or_else(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX))
+        });
         Arc::new(Self {
             inner: Arc::new(Mutex::new(Inner {
-                mono: 0.0,
+                mono,
                 wall,
                 next_id: 0,
                 timers: Vec::new(),
@@ -195,13 +201,18 @@ async fn get_time(State(clock): State<Arc<VirtualClock>>) -> String {
 
 /// The starting time from `OMEGA_TEST_MONO` / `OMEGA_TEST_WALL`, so the harness can fix it before the
 /// first request without an async handshake. Absent or malformed: mono 0 and the real wall time.
-pub fn parse_initial(_mono: Option<&str>, _wall: Option<&str>) -> (f64, Option<i64>) {
-    (-1.0, Some(-1))
+pub fn parse_initial(mono: Option<&str>, wall: Option<&str>) -> (f64, Option<i64>) {
+    let mono = mono.and_then(|m| m.parse::<f64>().ok()).filter(|m| m.is_finite());
+    (mono.unwrap_or(0.0), wall.and_then(|w| w.parse().ok()))
 }
 
 /// The virtual clock and the router that drives it (`POST`/`GET /__test/time`).
 pub fn install() -> (SharedClock, Router) {
-    let clock = VirtualClock::shared();
+    let (mono, wall) = parse_initial(
+        std::env::var("OMEGA_TEST_MONO").ok().as_deref(),
+        std::env::var("OMEGA_TEST_WALL").ok().as_deref(),
+    );
+    let clock = VirtualClock::starting_at(mono, wall);
     let router = Router::new()
         .route("/__test/time", get(get_time).post(post_time))
         .with_state(clock.clone());
