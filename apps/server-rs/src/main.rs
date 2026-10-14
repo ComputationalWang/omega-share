@@ -54,7 +54,7 @@ fn run_serve() -> ExitCode {
     #[cfg(not(feature = "test-hooks"))]
     let mut builder = tokio::runtime::Builder::new_multi_thread();
     #[cfg(feature = "test-hooks")]
-    stop_when_stdin_closes();
+    omega_server::test_hooks::stop_when_stdin_closes();
     let runtime = match builder.enable_all().build() {
         Ok(runtime) => runtime,
         Err(err) => {
@@ -72,21 +72,4 @@ fn run_serve() -> ExitCode {
             ExitCode::FAILURE
         }
     }
-}
-
-/// Test-hooks only, opt-in (`OMEGA_TEST_STDIN_GUARD=1`): the harness spawns the server with a piped
-/// stdin, so a harness that dies closes the pipe and the server goes with it instead of lingering.
-#[cfg(feature = "test-hooks")]
-fn stop_when_stdin_closes() {
-    use std::io::Read;
-    if std::env::var_os("OMEGA_TEST_STDIN_GUARD").is_none() {
-        return;
-    }
-    // A plain thread: a blocking read must not run on the single-threaded runtime.
-    std::thread::spawn(|| {
-        let mut sink = [0_u8; 256];
-        let mut stdin = std::io::stdin().lock();
-        while matches!(stdin.read(&mut sink), Ok(n) if n > 0) {}
-        std::process::exit(0);
-    });
 }

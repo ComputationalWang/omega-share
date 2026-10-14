@@ -21,7 +21,7 @@ serde = { version = "1", features = ["derive"] }
 # float_roundtrip: long-digit decimals round like JS, or a limit check can flip.
 # raw_value: positions and rates are written as JS number text.
 serde_json = { version = "1", features = ["float_roundtrip", "raw_value"] }
-tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "net", "signal", "time", "sync"] }
+tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "net", "signal", "time", "sync", "io-util"] }
 unicode-normalization = "0.1"
 rusqlite = { version = "0.40", features = ["bundled"] }
 getrandom = "0.4"
@@ -32,7 +32,6 @@ validator = { version = "0.21", features = ["derive"] }
 
 [dev-dependencies]
 tempfile = "3"
-tokio = { version = "1.53.3", features = ["io-util"] }
 
 [lints]
 workspace = true
