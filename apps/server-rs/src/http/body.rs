@@ -29,8 +29,11 @@ pub fn declared_too_large(headers: &HeaderMap, max: usize) -> bool {
 }
 
 /// The body's bytes, or `TooLarge` as soon as they exceed `max`.
-pub async fn read_capped(body: Body, max: usize) -> Result<Vec<u8>, BodyError> {
-    read_capped_within(body, max, BODY_IDLE_TIMEOUT).await
+pub async fn read_capped(body: Body, max: usize, total: Duration) -> Result<Vec<u8>, BodyError> {
+    // One deadline for the whole body: a client trickling a byte per stall timeout would hold its in-flight slot forever.
+    tokio::time::timeout(total, read_capped_within(body, max, BODY_IDLE_TIMEOUT))
+        .await
+        .unwrap_or(Err(BodyError::Failed))
 }
 
 pub async fn read_capped_within(mut body: Body, max: usize, idle: Duration) -> Result<Vec<u8>, BodyError> {

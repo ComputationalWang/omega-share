@@ -133,6 +133,8 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | HTTP: a static file that is a symlink out of `STATIC_DIR` | served (`Bun.file` follows it) | 404: the real path must stay under the root |
 | HTTP: `content-disposition: filename=...` on a served file whose type Bun does not know (`.webmanifest`, no extension) | sent by Bun | not sent (nothing reads it) |
 | HTTP: `HEAD` | Bun answers `content-length: 0` | the length of the GET body, as hyper does |
+| HTTP: a request body that takes over 30 s in all (a client trickling a byte per stall timeout) | read until Bun's idle timeout, which a trickle never trips | refused (400 as a body that is not JSON) and the in-flight slot freed: stricter than Bun, closes a flood hole |
+| HTTP: a static path with a dot segment (`.env`, `.git/...`, `assets/.x`) | served if the file exists | 404; only the explicit `/.well-known/security.txt` route serves a dot path: safety over parity |
 | `PUBLIC_ORIGIN=http://...` | `startServer` accepts it in a test (`parseConfig` refuses it) | the config refuses it, as `parseConfig` does: `boundary.test.ts` "no HSTS ... plain-http one" cannot run against the binary |
 | HTTP request body with invalid UTF-8 | decoded lossily, then `JSON.parse` | the same (`String::from_utf8_lossy`): the route decodes first, so the `parse_*_request` row above does not apply to HTTP |
 

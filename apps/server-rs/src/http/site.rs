@@ -12,12 +12,19 @@ use super::rooms::preview_title;
 use super::site_meta::{security_txt, site_meta, with_meta};
 use crate::app::App;
 use crate::contract::ids::RoomId;
+use axum::body::{Body, Bytes, HttpBody};
 use axum::http::header::CACHE_CONTROL;
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::Response;
+use hyper::body::{Frame, SizeHint};
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use tokio::io::{AsyncRead, ReadBuf};
 
 const IMMUTABLE: &str = "public, max-age=31536000, immutable";
+/// Bytes per frame of a streamed file.
+const CHUNK: usize = 64 * 1024;
 /// Fixed names (icons, manifest, robots.txt) can't be immutable: a day, so a new icon shows up soon enough.
 const DAY: &str = "public, max-age=86400";
 
@@ -86,7 +93,7 @@ fn html(status: StatusCode, body: String) -> Response {
 /// The file at `rel` (a decoded request path) if `serveStatic` would serve it, resolved under `root`.
 async fn find(root: &Path, rel: &str) -> Option<PathBuf> {
     // serveStatic: no `%` left after decoding, no dot segments, no doubled or backslash separators.
-    if rel.contains('%') || rel.contains('\\') || rel.contains("//") || rel.split('/').any(|s| s == "." || s == "..") {
+    if rel.contains('%') || rel.contains('\\') || rel.contains("//") || rel.split('/').any(|s| s.starts_with('.')) {
         return None;
     }
     let mut target = root.join(rel.trim_start_matches('/'));
@@ -153,13 +160,54 @@ async fn page(root: &Path, name: &str, meta: &str) -> Response {
 
 async fn file_response(root: &Path, rel: &str, cache: Option<&'static str>) -> Option<Response> {
     let file = find(root, rel).await?;
-    let bytes = tokio::fs::read(&file).await.ok()?;
+    let opened = tokio::fs::File::open(&file).await.ok()?;
+    let len = opened.metadata().await.ok()?.len();
     let mime = mime_type(&file.to_string_lossy()).unwrap_or("application/octet-stream");
-    let res = with_type(StatusCode::OK, mime, bytes);
+    // Streamed in chunks: 256 requests in flight must not mean 256 whole assets in memory.
+    let res = with_type(StatusCode::OK, mime, Body::new(FileBody { file: opened, left: len }));
     Some(match cache {
         Some(cache) => with_cache(res, cache),
         None => res,
     })
+}
+
+/// A file read in chunks, with its exact length as the size hint (so `Content-Length` is sent, and `HEAD` keeps it).
+struct FileBody {
+    file: tokio::fs::File,
+    left: u64,
+}
+
+impl HttpBody for FileBody {
+    type Data = Bytes;
+    type Error = std::io::Error;
+
+    fn poll_frame(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Result<Frame<Bytes>, Self::Error>>> {
+        let this = self.get_mut();
+        if this.left == 0 {
+            return Poll::Ready(None);
+        }
+        let want = usize::try_from(this.left).map_or(CHUNK, |n| n.min(CHUNK));
+        let mut buf = vec![0u8; want];
+        let mut read = ReadBuf::new(&mut buf);
+        match Pin::new(&mut this.file).poll_read(cx, &mut read) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Err(e)) => Poll::Ready(Some(Err(e))),
+            Poll::Ready(Ok(())) => {
+                let got = read.filled().len();
+                if got == 0 {
+                    // The file shrank under us: ending early would be a short body, so fail the response.
+                    return Poll::Ready(Some(Err(std::io::ErrorKind::UnexpectedEof.into())));
+                }
+                buf.truncate(got);
+                this.left = this.left.saturating_sub(got as u64);
+                Poll::Ready(Some(Ok(Frame::data(Bytes::from(buf)))))
+            }
+        }
+    }
+
+    fn size_hint(&self) -> SizeHint {
+        SizeHint::with_exact(self.left)
+    }
 }
 
 /// `/r/<id>` with an optional trailing slash (`ROOM_ROUTE`), the id valid.

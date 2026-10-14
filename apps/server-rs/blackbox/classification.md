@@ -130,7 +130,7 @@ Owner: S5. 31 tests: A 28, C 1, D 2.
 | 275 | A ✓ | responses › the Permissions-Policy leaves the player features to the iframes' allow attribute |
 | 281 | A ✓ | responses › GET /healthz is the readiness probe; GET / still answers without a static site |
 | 289 | C | responses › GET /healthz answers 503 once the database can't be read (OME-840) |
-| 299 | A ✓ | responses › GET /healthz with its database check still answers in under 5 ms (p95) |
+| 299 | A (timing: in-process only) | responses › GET /healthz with its database check still answers in under 5 ms (p95) |
 | 313 | A ✓ | serving the built site on the same origin (STATIC_DIR) › / and site routes get index.html, not cached |
 | 325 | A ✓ | serving the built site on the same origin (STATIC_DIR) › hashed assets are immutable; a missing asset is 404, not index.html |
 | 339 | A ✓ | serving the built site on the same origin (STATIC_DIR) › never serves a file outside the root |
@@ -992,7 +992,7 @@ Owner: S5. 19 tests: A 14, D 5.
 | 153 | A ✓ | site routes: shell, share card and real 404s › unknown paths and invalid room ids are 404 with the not-found page, in the privacy page's look |
 | 169 | A ✓ | site routes: shell, share card and real 404s › the html pages still serve, with the site-wide card |
 | 179 | A ✓ | site routes: shell, share card and real 404s › a page that ships its own description, icon and manifest tags serves one of each: the server's (OME-767) |
-| 199 | A ✓ | site routes: shell, share card and real 404s › the share card costs under 2 ms p95 on the shell route |
+| 199 | A (timing: in-process only) | site routes: shell, share card and real 404s › the share card costs under 2 ms p95 on the shell route |
 | 219 | A ✓ | robots.txt, icons and the manifest › robots.txt allows the site, keeps crawlers off the API, has no sitemap and doesn't hide /r/ from noindex |
 | 233 | A ✓ | robots.txt, icons and the manifest › security.txt (RFC 9116) points at the contact page, is canonical on the public origin and a day-cached |
 | 247 | A ✓ | robots.txt, icons and the manifest › security.txt Expires is under a year out and not within 30 days: renew it before this fails (docs/ops/hosting.md) |

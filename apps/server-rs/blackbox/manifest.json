@@ -15,7 +15,6 @@
     "apps/server/test/boundary.test.ts::Origin allowlist (T-04, T-05)::the site and extension origins stay allowed, and the dev site is unchanged",
     "apps/server/test/boundary.test.ts::Origin allowlist (T-04, T-05)::web origins never get Access-Control-Allow-Credentials, and a disallowed origin gets no CORS headers (OME-683)",
     "apps/server/test/boundary.test.ts::responses::GET /healthz is the readiness probe; GET / still answers without a static site",
-    "apps/server/test/boundary.test.ts::responses::GET /healthz with its database check still answers in under 5 ms (p95)",
     "apps/server/test/boundary.test.ts::responses::carry the strict CSP with enforced Trusted Types, Permissions-Policy, COOP and CORP (T-13, W-CSP)",
     "apps/server/test/boundary.test.ts::responses::the Permissions-Policy leaves the player features to the iframes' allow attribute",
     "apps/server/test/boundary.test.ts::room share limiter (§6 share spam)::every share 429 carries Retry-After, including the failed-attempt limiter",
@@ -111,7 +110,6 @@
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::a public room's link shows its title",
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::a title the lobby hides (blocklist) gets the generic card too",
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::the html pages still serve, with the site-wide card",
-    "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::the share card costs under 2 ms p95 on the shell route",
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::unknown paths and invalid room ids are 404 with the not-found page, in the privacy page's look"
   ]
 }

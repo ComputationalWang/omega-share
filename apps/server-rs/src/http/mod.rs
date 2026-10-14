@@ -100,6 +100,11 @@ impl Default for HttpState {
 }
 
 impl HttpState {
+    /// How long a request body may take in all.
+    pub fn body_total(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.body_total_ms.load(std::sync::atomic::Ordering::Relaxed))
+    }
+
     /// Overrides the total body read deadline (tests).
     pub fn set_body_total(&self, total: std::time::Duration) {
         self.body_total_ms.store(

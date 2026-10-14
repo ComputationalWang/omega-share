@@ -87,7 +87,7 @@ fn is_json_text(text: &str) -> bool {
 /// A request body as the TS handler reads it: refused while reading past `max`.
 async fn read_body(cx: &mut Cx, max: usize) -> Result<String, BodyError> {
     let body = std::mem::take(&mut cx.body);
-    let bytes = read_capped(body, max).await?;
+    let bytes = read_capped(body, max, cx.app.http.body_total()).await?;
     Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
