@@ -23,48 +23,48 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 | S3 (ported: store/reports.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
 | S3 (ported: store/rooms.rs) | 0 | 0 | 0 | 0 | 28 | 0 | 0 | 28 |
 | S4c (room core) | 0 | 0 | 0 | 0 | 18 | 0 | 0 | 18 |
-| S5 | 201 | 2 | 11 | 5 | 50 | 0 | 0 | 269 |
-| S6 | 88 | 2 | 82 | 16 | 14 | 0 | 0 | 202 |
+| S5 | 216 | 1 | 1 | 1 | 50 | 0 | 0 | 269 |
+| S6 | 184 | 0 | 1 | 0 | 17 | 0 | 0 | 202 |
 | S7 | 1 | 0 | 0 | 5 | 91 | 0 | 1 | 98 |
 | none (shell) | 0 | 0 | 0 | 0 | 0 | 82 | 0 | 82 |
-| **all** | **290** | **4** | **93** | **26** | **270** | **82** | **1** | **766** |
+| **all** | **401** | **1** | **2** | **6** | **273** | **82** | **1** | **766** |
 
 ## Tests
 
 ### abuse.test.ts
 
-Owner: S6. 28 tests: A* 2, A 11, B 14, D 1.
+Owner: S6. 28 tests: A 25, D 3.
 
 | line | cat | test |
 |---|---|---|
-| 33 | B | abuse limits › [Ad hoc close codes] a socket that never joins is closed after the join timeout |
-| 45 | B | abuse limits › leaving re-arms the join timeout |
-| 56 | A | abuse limits › a flooder gets one rate_limited notice per streak, not one per dropped frame |
-| 65 | A | abuse limits › a message flood is cut off with rate_limited and not relayed past the burst |
-| 86 | A* | abuse limits › too many sockets from one address are refused with 429 |
-| 96 | A | abuse limits › share is rate limited per address with 429 rate_limited |
-| 116 | A | abuse limits › a chunked share body over 4 KB of UTF-8 is refused, even under 4096 characters |
-| 148 | A* | abuse limits › the latency probe fails fast and cleans up when the server refuses its sockets |
-| 164 | A ✓ | abuse limits › the latency probe refuses a run with no samples |
-| 195 | B | M3 per-socket limiters (threat model §6) › [Chat fan-out flood] chat: a burst of 5 relays, the 6th gets rate_limited with retryAfterMs, a refill restores it |
-| 212 | B | M3 per-socket limiters (threat model §6) › [Sit spam] sit: a burst of 4 relays, the 5th gets rate_limited with retryAfterMs, a refill restores it |
-| 229 | B | M3 per-socket limiters (threat model §6) › [Seek war] control per socket (L2): a burst of 4, the 5th gets rate_limited with retryAfterMs 250, a refill restores it |
-| 247 | B | M3 per-socket limiters (threat model §6) › [Chat fan-out flood] L1: 20 frames pass, the next gets rate_limited with retryAfterMs 100, a refill restores it |
-| 263 | B | M3 room limiters (threat model §6) › [Seek war] room control: 8 controls across members pass, the 9th gets rate_limited with retryAfterMs 250, a refill restores it |
-| 286 | B | M3 room limiters are not the sender's flood › [Seek war] a control refused by the room limiter gets its own notice and never counts toward the sender's 4029 streak |
-| 313 | B | M3 per-key limiters (threat model §6, ADR 0015 client key) › [Reconnect churn] upgrade: 10 per key pass, the 11th gets HTTP 429 with Retry-After, other keys and a refill pass |
-| 330 | B | M3 per-key limiters (threat model §6, ADR 0015 client key) › [Join/leave churn] join: 6 joins per key pass, the 7th gets rate_limited with retryAfterMs 5000 and stays unjoined, a refill restores it |
-| 353 | B | M3 per-key limiters (threat model §6, ADR 0015 client key) › [Room squatting] at most 5 members per key per room: the 6th gets too_many_members and stays open, unjoined |
-| 373 | A | M3 per-key limiters (threat model §6, ADR 0015 client key) › [Room squatting] loopback peers are exempt from the per-key limits (local dev, the load probe) |
-| 380 | B | M3 nickname uniqueness (threat model §3, ADR 0016 §2) › [Name impersonation] a join whose nicknameKey matches a member's gets nickname_taken and stays unjoined until the join timeout |
-| 392 | A | M3 nickname uniqueness (threat model §3, ADR 0016 §2) › [Name impersonation] a UTS #39 confusable of a member's name gets nickname_taken, a different name joins (ADR 0023) |
-| 405 | A | M3 nickname uniqueness (threat model §3, ADR 0016 §2) › [Name impersonation] the name is free again once its member leaves |
-| 419 | B | M3 escalation closes (threat model §6) › [Sustained flood never escalated] 49 dropped frames in a row keep the socket, the 50th closes it with 4029 |
-| 436 | B | M3 escalation closes (threat model §6) › [Sustained flood never escalated] 19 bad_messages keep the socket, the 20th closes it with 4400 |
-| 448 | A | M3 escalation closes (threat model §6) › [Ad hoc close codes] the member past MAX_ROOM_MEMBERS gets room-full and close 4002 |
-| 486 | A | M3 transport limits (threat model §6) › [Slow reader] a member that stops reading is closed at the backpressure limit, not Bun's 16 MB; the others keep relaying |
-| 518 | D | M3 transport limits (threat model §6) › [Slow reader] [Idle policy implicit] the WebSocket handler pins backpressure and idle settings |
-| 540 | A | M3 transport limits (threat model §6) › [Oversized frames] a frame over the limit closes with 1006 and the server stays up |
+| 44 | A ✓ | abuse limits › [Ad hoc close codes] a socket that never joins is closed after the join timeout |
+| 56 | A ✓ | abuse limits › leaving re-arms the join timeout |
+| 67 | A ✓ | abuse limits › a flooder gets one rate_limited notice per streak, not one per dropped frame |
+| 77 | A ✓ | abuse limits › a message flood is cut off with rate_limited and not relayed past the burst |
+| 99 | A ✓ | abuse limits › too many sockets from one address are refused with 429 |
+| 111 | A ✓ | abuse limits › share is rate limited per address with 429 rate_limited |
+| 139 | A ✓ | abuse limits › a chunked share body over 4 KB of UTF-8 is refused, even under 4096 characters |
+| 177 | D | abuse limits › the latency probe fails fast and cleans up when the server refuses its sockets |
+| 198 | A ✓ | abuse limits › the latency probe refuses a run with no samples |
+| 233 | A ✓ | M3 per-socket limiters (threat model §6) › [Chat fan-out flood] chat: a burst of 5 relays, the 6th gets rate_limited with retryAfterMs, a refill restores it |
+| 251 | A ✓ | M3 per-socket limiters (threat model §6) › [Sit spam] sit: a burst of 4 relays, the 5th gets rate_limited with retryAfterMs, a refill restores it |
+| 269 | A ✓ | M3 per-socket limiters (threat model §6) › [Seek war] control per socket (L2): a burst of 4, the 5th gets rate_limited with retryAfterMs 250, a refill restores it |
+| 299 | A ✓ | M3 per-socket limiters (threat model §6) › [Chat fan-out flood] L1: 20 frames pass, the next gets rate_limited with retryAfterMs 100, a refill restores it |
+| 315 | A ✓ | M3 room limiters (threat model §6) › [Seek war] room control: 8 controls across members pass, the 9th gets rate_limited with retryAfterMs 250, a refill restores it |
+| 356 | A ✓ | M3 room limiters are not the sender's flood › [Seek war] a control refused by the room limiter gets its own notice and never counts toward the sender's 4029 streak |
+| 402 | A ✓ | M3 per-key limiters (threat model §6, ADR 0015 client key) › [Reconnect churn] upgrade: 10 per key pass, the 11th gets HTTP 429 with Retry-After, other keys and a refill pass |
+| 419 | A ✓ | M3 per-key limiters (threat model §6, ADR 0015 client key) › [Join/leave churn] join: 6 joins per key pass, the 7th gets rate_limited with retryAfterMs 5000 and stays unjoined, a refill restores it |
+| 442 | A ✓ | M3 per-key limiters (threat model §6, ADR 0015 client key) › [Room squatting] at most 5 members per key per room: the 6th gets too_many_members and stays open, unjoined |
+| 467 | A ✓ | M3 per-key limiters (threat model §6, ADR 0015 client key) › [Room squatting] loopback peers are exempt from the per-key limits (local dev, the load probe) |
+| 475 | A ✓ | M3 nickname uniqueness (threat model §3, ADR 0016 §2) › [Name impersonation] a join whose nicknameKey matches a member's gets nickname_taken and stays unjoined until the join timeout |
+| 487 | A ✓ | M3 nickname uniqueness (threat model §3, ADR 0016 §2) › [Name impersonation] a UTS #39 confusable of a member's name gets nickname_taken, a different name joins (ADR 0023) |
+| 500 | A ✓ | M3 nickname uniqueness (threat model §3, ADR 0016 §2) › [Name impersonation] the name is free again once its member leaves |
+| 514 | A ✓ | M3 escalation closes (threat model §6) › [Sustained flood never escalated] 49 dropped frames in a row keep the socket, the 50th closes it with 4029 |
+| 531 | A ✓ | M3 escalation closes (threat model §6) › [Sustained flood never escalated] 19 bad_messages keep the socket, the 20th closes it with 4400 |
+| 545 | A ✓ | M3 escalation closes (threat model §6) › [Ad hoc close codes] the member past MAX_ROOM_MEMBERS gets room-full and close 4002 |
+| 592 | D | M3 transport limits (threat model §6) › [Slow reader] a member that stops reading is closed at the backpressure limit, not Bun's 16 MB; the others keep relaying |
+| 634 | D | M3 transport limits (threat model §6) › [Slow reader] [Idle policy implicit] the WebSocket handler pins backpressure and idle settings |
+| 666 | A ✓ | M3 transport limits (threat model §6) › [Oversized frames] a frame over the limit closes with 1006 and the server stays up |
 
 ### backup.test.ts
 
@@ -117,11 +117,11 @@ Owner: S5. 31 tests: A 28, C 1, D 2.
 | 113 | A ✓ | HSTS (threat model §10, research M4 D1) › an https public origin gets HSTS on every response to the public host, refusals included |
 | 122 | A ✓ | HSTS (threat model §10, research M4 D1) › the same server never sends HSTS to its loopback names (plain http, localhost dev) |
 | 131 | A | HSTS (threat model §10, research M4 D1) › no HSTS without a public origin, or with a plain-http one |
-| 143 | A | Origin allowlist (T-04, T-05) › the public origin may call the API and connect |
+| 143 | A ✓ | Origin allowlist (T-04, T-05) › the public origin may call the API and connect |
 | 154 | A ✓ | Origin allowlist (T-04, T-05) › any other Origin is refused with 403, on plain GETs and upgrades alike |
 | 165 | A ✓ | Origin allowlist (T-04, T-05) › the site and extension origins stay allowed, and the dev site is unchanged |
 | 175 | A ✓ | Origin allowlist (T-04, T-05) › EXTENSION_IDS narrows extension origins to the listed ids |
-| 181 | A | Origin allowlist (T-04, T-05) › Firefox extension origins (per-install UUID) may preflight and POST a share, even with EXTENSION_IDS pinned (OME-617) |
+| 181 | A ✓ | Origin allowlist (T-04, T-05) › Firefox extension origins (per-install UUID) may preflight and POST a share, even with EXTENSION_IDS pinned (OME-617) |
 | 202 | A ✓ | Origin allowlist (T-04, T-05) › malformed moz-extension origins are refused with 403 |
 | 217 | A ✓ | Origin allowlist (T-04, T-05) › extension origins get Access-Control-Allow-Credentials on the preflight and the response (OME-683) |
 | 234 | A ✓ | Origin allowlist (T-04, T-05) › web origins never get Access-Control-Allow-Credentials, and a disallowed origin gets no CORS headers (OME-683) |
@@ -135,10 +135,10 @@ Owner: S5. 31 tests: A 28, C 1, D 2.
 | 325 | A ✓ | serving the built site on the same origin (STATIC_DIR) › hashed assets are immutable; a missing asset is 404, not index.html |
 | 339 | A ✓ | serving the built site on the same origin (STATIC_DIR) › never serves a file outside the root |
 | 347 | A ✓ | serving the built site on the same origin (STATIC_DIR) › a NUL byte in the path is a plain 404, not a 500 with a stack trace |
-| 356 | A | serving the built site on the same origin (STATIC_DIR) › the API and the WebSocket keep their routes, and the served page's origin may use them |
-| 384 | A | room share limiter (§6 share spam) › a room takes a burst of 2 switches, then answers 429 with Retry-After and retryAfterMs |
+| 356 | A ✓ | serving the built site on the same origin (STATIC_DIR) › the API and the WebSocket keep their routes, and the served page's origin may use them |
+| 384 | A ✓ | room share limiter (§6 share spam) › a room takes a burst of 2 switches, then answers 429 with Retry-After and retryAfterMs |
 | 406 | D | room share limiter (§6 share spam) › another room is unaffected |
-| 414 | A | room share limiter (§6 share spam) › a refused URL doesn't use up the room's switches |
+| 414 | A ✓ | room share limiter (§6 share spam) › a refused URL doesn't use up the room's switches |
 | 424 | A ✓ | room share limiter (§6 share spam) › every share 429 carries Retry-After, including the failed-attempt limiter |
 
 ### cli.test.ts
@@ -272,50 +272,50 @@ Owner: none (shell). 42 tests: E 42.
 
 ### durable-sessions.test.ts
 
-Owner: S6. 25 tests: B 25.
+Owner: S6. 25 tests: A 24, D 1.
 
 | line | cat | test |
 |---|---|---|
-| 149 | B | opt-in and the resume token › a durable join gets a 43-char base64url resume token in its own snapshot only |
-| 157 | B | opt-in and the resume token › a legacy join has no resume token and departs at once on close |
-| 169 | B | opt-in and the resume token › two durable members get different tokens |
-| 179 | B | grace hold › an unexpected close (even 1000) keeps the member: away, in snapshots, nickname reserved |
-| 193 | B | grace hold › a held member counts against room capacity |
-| 209 | B | grace hold › closing clears the held member's catching flag |
-| 224 | B | expiry › just before the deadline the member resumes: same id, tokens and seat, no leave or join |
-| 247 | B | expiry › at the deadline: exactly one member-left, the token fails and the name and seat are free |
-| 266 | B | expiry › a configured grace window replaces the default: live at grace − 1, one member-left at grace |
-| 281 | B | expiry › an explicit leave revokes at once: member-left now, token dead |
-| 295 | B | resume › unknown, wrong-room and revoked tokens all get the same resume_expired, never a fresh member |
-| 312 | B | resume › a private room's member resumes without its invite key |
-| 325 | B | resume › the owner's status comes back from the held identity, not the join frame |
-| 340 | B | resume › a resume while the old socket is open replaces it with 4007, and the stale close changes nothing |
-| 356 | B | resume › simultaneous resumes: one ends up live, the other is replaced, nobody leaves |
-| 379 | B | resume › a resume from a different address moves the quota slot, refusing and keeping the hold if the new one is full |
-| 403 | B | resume › rate buckets carry over: a resume doesn't refill emotes |
-| 417 | B | revocation › the owner kicks a held member: member-left kicked, then resume_expired and share 401 |
-| 434 | B | revocation › deleting the room revokes its holds |
-| 443 | B | revocation › a held member's share grant works until the deadline, isn't renewed by a share, then 401 |
-| 458 | B | standing slots › every member gets a unique slot, kept through sitting, away and resume, freed at departure |
-| 482 | B | presence hint › published on transitions only, and a hidden connected member is never expired |
-| 496 | B | presence hint › before join: not_joined |
-| 509 | B | room GC › a held member keeps the room occupied; the empty clock starts when the hold ends |
-| 528 | B | secrecy › the resume token is in no broadcast frame and no log line |
+| 171 | A ✓ | opt-in and the resume token › a durable join gets a 43-char base64url resume token in its own snapshot only |
+| 179 | A ✓ | opt-in and the resume token › a legacy join has no resume token and departs at once on close |
+| 193 | A ✓ | opt-in and the resume token › two durable members get different tokens |
+| 203 | A ✓ | grace hold › an unexpected close (even 1000) keeps the member: away, in snapshots, nickname reserved |
+| 217 | A ✓ | grace hold › a held member counts against room capacity |
+| 237 | A ✓ | grace hold › closing clears the held member's catching flag |
+| 265 | A ✓ | expiry › just before the deadline the member resumes: same id, tokens and seat, no leave or join |
+| 293 | A ✓ | expiry › at the deadline: exactly one member-left, the token fails and the name and seat are free |
+| 316 | A ✓ | expiry › a configured grace window replaces the default: live at grace − 1, one member-left at grace |
+| 336 | A ✓ | expiry › an explicit leave revokes at once: member-left now, token dead |
+| 350 | A ✓ | resume › unknown, wrong-room and revoked tokens all get the same resume_expired, never a fresh member |
+| 367 | A ✓ | resume › a private room's member resumes without its invite key |
+| 383 | A ✓ | resume › the owner's status comes back from the held identity, not the join frame |
+| 398 | A ✓ | resume › a resume while the old socket is open replaces it with 4007, and the stale close changes nothing |
+| 414 | A ✓ | resume › simultaneous resumes: one ends up live, the other is replaced, nobody leaves |
+| 442 | A ✓ | resume › a resume from a different address moves the quota slot, refusing and keeping the hold if the new one is full |
+| 479 | A ✓ | resume › rate buckets carry over: a resume doesn't refill emotes |
+| 494 | A ✓ | revocation › the owner kicks a held member: member-left kicked, then resume_expired and share 401 |
+| 521 | A ✓ | revocation › deleting the room revokes its holds |
+| 533 | A ✓ | revocation › a held member's share grant works until the deadline, isn't renewed by a share, then 401 |
+| 554 | A ✓ | standing slots › every member gets a unique slot, kept through sitting, away and resume, freed at departure |
+| 587 | A ✓ | presence hint › published on transitions only, and a hidden connected member is never expired |
+| 609 | A ✓ | presence hint › before join: not_joined |
+| 622 | D | room GC › a held member keeps the room occupied; the empty clock starts when the hold ends |
+| 641 | A ✓ | secrecy › the resume token is in no broadcast frame and no log line |
 
 ### emote.test.ts
 
-Owner: S6. 9 tests: A 4, B 4, D 1.
+Owner: S6. 9 tests: A 8, D 1.
 
 | line | cat | test |
 |---|---|---|
-| 32 | A | emote relay › an emote is relayed as emoted to the whole room, sender included |
-| 45 | A | emote relay › cheer and yawn (OME-1116) relay like wave |
-| 55 | A | emote relay › an emote before join gets not_joined and reaches nobody |
-| 65 | A | emote relay › an emote isn't in a late joiner's snapshot |
-| 77 | B | emote limits › a burst of 3 relays, the next gets rate_limited with retryAfterMs 1000 and isn't relayed, a refill restores one |
-| 96 | B | emote limits › cheer and yawn share the one emote bucket |
-| 108 | B | emote limits › each member has their own bucket |
-| 122 | B | emote limits › dropped emotes count toward the flood close: 50 in a row close with 4029 |
+| 32 | A ✓ | emote relay › an emote is relayed as emoted to the whole room, sender included |
+| 45 | A ✓ | emote relay › cheer and yawn (OME-1116) relay like wave |
+| 55 | A ✓ | emote relay › an emote before join gets not_joined and reaches nobody |
+| 65 | A ✓ | emote relay › an emote isn't in a late joiner's snapshot |
+| 77 | A ✓ | emote limits › a burst of 3 relays, the next gets rate_limited with retryAfterMs 1000 and isn't relayed, a refill restores one |
+| 96 | A ✓ | emote limits › cheer and yawn share the one emote bucket |
+| 108 | A ✓ | emote limits › each member has their own bucket |
+| 122 | A ✓ | emote limits › dropped emotes count toward the flood close: 50 in a row close with 4029 |
 | 131 | D | emote limits › emotes never touch the store |
 
 ### fuzz.test.ts
@@ -328,35 +328,35 @@ Owner: S6. 1 tests: B 1.
 
 ### generic-embeds.test.ts
 
-Owner: S5. 30 tests: A 22, B 4, D 4.
+Owner: S5. 30 tests: A 26, D 4.
 
 | line | cat | test |
 |---|---|---|
-| 67 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a valid generic URL is shared canonically and broadcast with playback null |
-| 83 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › synced providers still become synced embeds with playback |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "http://videos.example-host.net/embed/abc" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "javascript:alert(1)" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "data:text/html,<p>hi</p>" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://user:pw@videos.example-host.net/" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://videos.example-host.net:8443/" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://127.0.0.1/" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://2130706433/" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://[ › 1]/" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://localhost/" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://router.lan/" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://lvh.me/" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://clips.twitch.tv/SomeClip" |
-| 105 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "not a url" |
-| 112 | A | POST /rooms/:id/share accepts the generic tier (ADR 0024) › our own hosts and their subdomains are refused |
-| 127 | A | GENERIC_EMBEDS=off (ADR 0024 §5) › a generic URL is refused with unsupported_url; synced providers still work |
-| 138 | A | host denylist hook (ADR 0024 §6) › a denied host and its subdomains get unsupported_url; other hosts pass |
-| 150 | A | host denylist hook (ADR 0024 §6) › the denylist applies to the generic tier only |
-| 158 | A | a generic embed's sync state stays inert (ADR 0024 §7) › control gets error no_embed, even with the embed's exact url, and nothing is broadcast |
-| 168 | B | a generic embed's sync state stays inert (ADR 0024 §7) › status { catching } is ignored while the embed is generic |
-| 195 | B | switching to a generic embed clears catching (ADR 0024 §7) › a late joiner's snapshot no longer shows the member catching |
-| 211 | B | switching to a generic embed clears catching (ADR 0024 §7) › the room hears member-status catching false right after embed-changed |
+| 67 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a valid generic URL is shared canonically and broadcast with playback null |
+| 83 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › synced providers still become synced embeds with playback |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "http://videos.example-host.net/embed/abc" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "javascript:alert(1)" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "data:text/html,<p>hi</p>" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://user:pw@videos.example-host.net/" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://videos.example-host.net:8443/" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://127.0.0.1/" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://2130706433/" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://[ › 1]/" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://localhost/" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://router.lan/" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://lvh.me/" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "https://clips.twitch.tv/SomeClip" |
+| 105 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › a bad URL is refused with unsupported_url: "not a url" |
+| 112 | A ✓ | POST /rooms/:id/share accepts the generic tier (ADR 0024) › our own hosts and their subdomains are refused |
+| 127 | A ✓ | GENERIC_EMBEDS=off (ADR 0024 §5) › a generic URL is refused with unsupported_url; synced providers still work |
+| 138 | A ✓ | host denylist hook (ADR 0024 §6) › a denied host and its subdomains get unsupported_url; other hosts pass |
+| 150 | A ✓ | host denylist hook (ADR 0024 §6) › the denylist applies to the generic tier only |
+| 158 | A ✓ | a generic embed's sync state stays inert (ADR 0024 §7) › control gets error no_embed, even with the embed's exact url, and nothing is broadcast |
+| 168 | A ✓ | a generic embed's sync state stays inert (ADR 0024 §7) › status { catching } is ignored while the embed is generic |
+| 195 | A ✓ | switching to a generic embed clears catching (ADR 0024 §7) › a late joiner's snapshot no longer shows the member catching |
+| 211 | A ✓ | switching to a generic embed clears catching (ADR 0024 §7) › the room hears member-status catching false right after embed-changed |
 | 221 | D | switching to a generic embed clears catching (ADR 0024 §7) › back on a synced embed, catching true is published again |
-| 241 | B | switching to a generic embed clears catching (ADR 0024 §7) › members who were not catching get no member-status |
+| 241 | A ✓ | switching to a generic embed clears catching (ADR 0024 §7) › members who were not catching get no member-status |
 | 255 | D | a generic embed persists like any other (OME-280) › it comes back after a restart, still with playback null |
 | 266 | D | a generic embed persists like any other (OME-280) › with GENERIC_EMBEDS=off it is restored as embed null, and comes back when switched on again |
 | 281 | D | a generic embed persists like any other (OME-280) › a host denied after it was shared is restored as embed null |
@@ -385,10 +385,10 @@ Owner: S5. 9 tests: A 9.
 | 62 | A ✓ | per-key HTTP request limit › a different key is unaffected, and a refill lets the limited key back in |
 | 70 | A ✓ | per-key HTTP request limit › prepending to X-Forwarded-For does not make a new key (T-07) |
 | 76 | A ✓ | per-key HTTP request limit › a full cold page load, then a reload, never hits the limit |
-| 89 | A | per-key HTTP request limit › WebSocket upgrades keep their own limiter and don't use up the HTTP bucket (ADR 0018) |
+| 89 | A ✓ | per-key HTTP request limit › WebSocket upgrades keep their own limiter and don't use up the HTTP bucket (ADR 0018) |
 | 102 | A ✓ | per-key HTTP request limit › loopback peers without the proxy skip the per-key limit (ADR 0018 §3: local dev, e2e, the load test) |
 | 114 | A ✓ | per-key HTTP request limit › spoofed X-Forwarded-For from a non-loopback peer is ignored (T-08) |
-| 131 | A | global in-flight HTTP cap › when full, the next request gets 503 with Retry-After; it clears once a request finishes |
+| 131 | A ✓ | global in-flight HTTP cap › when full, the next request gets 503 with Retry-After; it clears once a request finishes |
 | 160 | A ✓ | global in-flight HTTP cap › the cap holds however many keys the requests come from, loopback included |
 
 ### log.test.ts
@@ -411,21 +411,21 @@ Owner: S1 (ported: log.rs). 11 tests: D 11.
 
 ### member-status.test.ts
 
-Owner: S6. 11 tests: A 4, B 7.
+Owner: S6. 11 tests: A 11.
 
 | line | cat | test |
 |---|---|---|
-| 33 | A | member-status relay › status is published to the whole room, the sender included |
-| 42 | B | member-status relay › a repeated value is not published again |
-| 53 | A | member-status relay › status before join is refused with not_joined |
-| 61 | B | member-status relay › a late joiner's snapshot carries the current catching state |
-| 79 | B | member-status relay › the snapshot's catching is current even while the published value is still coalescing |
-| 90 | B | member-status relay › a flipping member is coalesced to one publish per interval, and the final value always arrives |
-| 107 | B | member-status relay › a flip back to the published value inside the interval publishes nothing |
-| 119 | B | member-status relay › leaving takes the flag along: member-left, no member-status, and a rejoin starts at false |
-| 139 | A | member-status relay › a member who disconnects while catching is gone from the next snapshot |
-| 152 | A | member-status relay › a status flood hits the per-socket limit with rate_limited and retryAfterMs |
-| 161 | B | member-status relay › relay stays within 50 ms at p95 with 25 members toggling |
+| 33 | A ✓ | member-status relay › status is published to the whole room, the sender included |
+| 42 | A ✓ | member-status relay › a repeated value is not published again |
+| 53 | A ✓ | member-status relay › status before join is refused with not_joined |
+| 61 | A ✓ | member-status relay › a late joiner's snapshot carries the current catching state |
+| 79 | A ✓ | member-status relay › the snapshot's catching is current even while the published value is still coalescing |
+| 90 | A ✓ | member-status relay › a flipping member is coalesced to one publish per interval, and the final value always arrives |
+| 107 | A ✓ | member-status relay › a flip back to the published value inside the interval publishes nothing |
+| 119 | A ✓ | member-status relay › leaving takes the flag along: member-left, no member-status, and a rejoin starts at false |
+| 139 | A ✓ | member-status relay › a member who disconnects while catching is gone from the next snapshot |
+| 152 | A ✓ | member-status relay › a status flood hits the per-socket limit with rate_limited and retryAfterMs |
+| 161 | A (timing: in-process only) | member-status relay › relay stays within 50 ms at p95 with 25 members toggling |
 
 ### metrics.test.ts
 
@@ -440,36 +440,36 @@ Owner: S7. 4 tests: D 4.
 
 ### moderation.test.ts
 
-Owner: S6. 26 tests: A 16, B 8, C 1, D 1.
+Owner: S6. 26 tests: A 25, D 1.
 
 | line | cat | test |
 |---|---|---|
-| 94 | A | non-owners: not_owner, and nothing changes (ADR 0030 §1) › kick from a guest: not_owner, the target stays, nobody hears member-left |
-| 103 | A | non-owners: not_owner, and nothing changes (ADR 0030 §1) › mute from a guest: not_owner, no member-muted, and the target can still chat |
-| 113 | A | non-owners: not_owner, and nothing changes (ADR 0030 §1) › control-policy from a guest: not_owner, no control-policy-changed, and guests still control playback |
-| 123 | B | non-owners: not_owner, and nothing changes (ADR 0030 §1) › not_owner on a moderation frame counts toward the 4400 close |
-| 135 | A | non-owners: not_owner, and nothing changes (ADR 0030 §1) › before join: not_joined |
-| 145 | A | kick (ADR 0030 §2) › closes the target with KICKED and no frame first; everyone else gets member-left { reason: kicked } |
-| 157 | A | kick (ADR 0030 §2) › the kicked member's share token is revoked |
-| 166 | B | kick (ADR 0030 §2) › a rejoin from the kicked address within KICK_COOLDOWN_MS is closed with KICKED before any snapshot; after it, it joins |
-| 188 | A | kick (ADR 0030 §2) › the cooldown is per room and per address: other addresses and other rooms let the kicked address in |
-| 198 | A | kick (ADR 0030 §2) › a join with the owner token from the kicked address isn't refused |
-| 211 | B | kick (ADR 0030 §2) › bad_target for the sender, an unknown id and an owner-joined socket; nobody leaves, and it doesn't count toward 4400 |
-| 233 | B | the moderation bucket (ADR 0030 §1) › MODERATION_BURST frames at once, then rate_limited with retryAfterMs; a second later one more passes |
-| 253 | A | mute (ADR 0030 §3) › everyone gets member-muted; the muted member's chat is answered `muted` and nobody else sees it; unmute lets it through |
-| 274 | A | mute (ADR 0030 §3) › a late joiner's snapshot shows the member muted; others carry no muted field |
-| 286 | A | mute (ADR 0030 §3) › muting a muted member, or unmuting an unmuted one, broadcasts nothing |
-| 297 | A | mute (ADR 0030 §3) › bad_target for the sender and an owner-joined socket |
-| 307 | B | mute (ADR 0030 §3) › a muted member who leaves and rejoins from the same address within MUTE_MEMORY_MS comes back muted; after it, or once unmuted, not |
-| 335 | B | mute (ADR 0030 §3) › the mute memory expires after MUTE_MEMORY_MS |
-| 351 | A | control policy (ADR 0030 §4) › a new room's snapshot says everyone |
-| 357 | A | control policy (ADR 0030 §4) › owner: everyone hears control-policy-changed; a guest's control gets control_owner_only and changes nothing; the owner's still goes through |
-| 376 | A | control policy (ADR 0030 §4) › owner: a guest's share gets 403 control_owner_only; the owner's share works; back to everyone and the guest shares again |
-| 395 | A | control policy (ADR 0030 §4) › a late joiner's snapshot carries the policy; setting the current policy broadcasts nothing |
-| 408 | B | control policy: refusals spend nothing (ADR 0030 §4, QA OME-521) › owner: guests' refused controls never drain the room's control bucket; the owner's next controls all relay |
-| 431 | B | control policy: refusals spend nothing (ADR 0030 §4, QA OME-521) › owner: a guest's refused shares (403) use up none of their share budget |
-| 452 | C | persistence: the policy is stored with the room, moderation never touches the store (ADR 0030 §2, §4) › the policy survives a restart |
-| 468 | D | persistence: the policy is stored with the room, moderation never touches the store (ADR 0030 §2, §4) › kick, mute, the cooldown and the mute memory write nothing: no store call, and no address or nickname in the DB file |
+| 114 | A ✓ | non-owners: not_owner, and nothing changes (ADR 0030 §1) › kick from a guest: not_owner, the target stays, nobody hears member-left |
+| 123 | A ✓ | non-owners: not_owner, and nothing changes (ADR 0030 §1) › mute from a guest: not_owner, no member-muted, and the target can still chat |
+| 137 | A ✓ | non-owners: not_owner, and nothing changes (ADR 0030 §1) › control-policy from a guest: not_owner, no control-policy-changed, and guests still control playback |
+| 150 | A ✓ | non-owners: not_owner, and nothing changes (ADR 0030 §1) › not_owner on a moderation frame counts toward the 4400 close |
+| 169 | A ✓ | non-owners: not_owner, and nothing changes (ADR 0030 §1) › before join: not_joined |
+| 179 | A ✓ | kick (ADR 0030 §2) › closes the target with KICKED and no frame first; everyone else gets member-left { reason: kicked } |
+| 199 | A ✓ | kick (ADR 0030 §2) › the kicked member's share token is revoked |
+| 215 | A ✓ | kick (ADR 0030 §2) › a rejoin from the kicked address within KICK_COOLDOWN_MS is closed with KICKED before any snapshot; after it, it joins |
+| 237 | A ✓ | kick (ADR 0030 §2) › the cooldown is per room and per address: other addresses and other rooms let the kicked address in |
+| 247 | A ✓ | kick (ADR 0030 §2) › a join with the owner token from the kicked address isn't refused |
+| 266 | A ✓ | kick (ADR 0030 §2) › bad_target for the sender, an unknown id and an owner-joined socket; nobody leaves, and it doesn't count toward 4400 |
+| 294 | A ✓ | the moderation bucket (ADR 0030 §1) › MODERATION_BURST frames at once, then rate_limited with retryAfterMs; a second later one more passes |
+| 320 | A ✓ | mute (ADR 0030 §3) › everyone gets member-muted; the muted member's chat is answered `muted` and nobody else sees it; unmute lets it through |
+| 353 | A ✓ | mute (ADR 0030 §3) › a late joiner's snapshot shows the member muted; others carry no muted field |
+| 377 | A ✓ | mute (ADR 0030 §3) › muting a muted member, or unmuting an unmuted one, broadcasts nothing |
+| 400 | A ✓ | mute (ADR 0030 §3) › bad_target for the sender and an owner-joined socket |
+| 420 | A ✓ | mute (ADR 0030 §3) › a muted member who leaves and rejoins from the same address within MUTE_MEMORY_MS comes back muted; after it, or once unmuted, not |
+| 458 | A ✓ | mute (ADR 0030 §3) › the mute memory expires after MUTE_MEMORY_MS |
+| 480 | A ✓ | control policy (ADR 0030 §4) › a new room's snapshot says everyone |
+| 486 | A ✓ | control policy (ADR 0030 §4) › owner: everyone hears control-policy-changed; a guest's control gets control_owner_only and changes nothing; the owner's still goes through |
+| 526 | A ✓ | control policy (ADR 0030 §4) › owner: a guest's share gets 403 control_owner_only; the owner's share works; back to everyone and the guest shares again |
+| 568 | A ✓ | control policy (ADR 0030 §4) › a late joiner's snapshot carries the policy; setting the current policy broadcasts nothing |
+| 581 | A ✓ | control policy: refusals spend nothing (ADR 0030 §4, QA OME-521) › owner: guests' refused controls never drain the room's control bucket; the owner's next controls all relay |
+| 621 | A ✓ | control policy: refusals spend nothing (ADR 0030 §4, QA OME-521) › owner: a guest's refused shares (403) use up none of their share budget |
+| 656 | A ✓ | persistence: the policy is stored with the room, moderation never touches the store (ADR 0030 §2, §4) › the policy survives a restart |
+| 672 | D | persistence: the policy is stored with the room, moderation never touches the store (ADR 0030 §2, §4) › kick, mute, the cooldown and the mute memory write nothing: no store call, and no address or nickname in the DB file |
 
 ### monitor.test.ts
 
@@ -518,7 +518,7 @@ Owner: S7. 8 tests: A 1, C 3, D 4.
 | 103 | D | rooms, layout and last embed survive a restart (OME-280) › the last shared embed comes back after a restart, paused at 0 |
 | 119 | D | rooms, layout and last embed survive a restart (OME-280) › a restored embed can be played: control applies to it |
 | 134 | C | rooms, layout and last embed survive a restart (OME-280) › a corrupt row refuses to boot instead of serving a forged layout (D4) |
-| 143 | A | rooms, layout and last embed survive a restart (OME-280) › without a store, the snapshot still carries DEFAULT_LAYOUT |
+| 143 | A ✓ | rooms, layout and last embed survive a restart (OME-280) › without a store, the snapshot still carries DEFAULT_LAYOUT |
 | 151 | D | the store is never on the relay path (OME-280) › control, chat, sit, status and ping never touch the store; a share writes the embed once |
 
 ### playback-sync.test.ts
@@ -527,16 +527,16 @@ Owner: S6. 10 tests: A 10.
 
 | line | cat | test |
 |---|---|---|
-| 39 | A | ping › is answered with pong before join, to the sender only |
-| 51 | A | ping › is answered after join too, and never published |
-| 59 | A | ping › shares the socket's token bucket |
-| 67 | A | playback › is null with no embed, and a share starts it at 0 with action load |
-| 75 | A | playback › control fans out as playback to every member, the sender included |
-| 88 | A | playback › a late joiner's snapshot carries the current playback |
-| 97 | A | playback › a new share resets playback to load with a higher rev |
-| 108 | A | playback › control needs join |
-| 115 | A | playback › control for a stale video or with no embed is refused with no_embed and not published |
-| 126 | A | playback › more than 4 controls a second from one socket trips its control limiter |
+| 39 | A ✓ | ping › is answered with pong before join, to the sender only |
+| 51 | A ✓ | ping › is answered after join too, and never published |
+| 59 | A ✓ | ping › shares the socket's token bucket |
+| 67 | A ✓ | playback › is null with no embed, and a share starts it at 0 with action load |
+| 75 | A ✓ | playback › control fans out as playback to every member, the sender included |
+| 88 | A ✓ | playback › a late joiner's snapshot carries the current playback |
+| 97 | A ✓ | playback › a new share resets playback to load with a higher rev |
+| 108 | A ✓ | playback › control needs join |
+| 115 | A ✓ | playback › control for a stale video or with no embed is refused with no_embed and not published |
+| 126 | A ✓ | playback › more than 4 controls a second from one socket trips its control limiter |
 
 ### playback.test.ts
 
@@ -569,127 +569,127 @@ Owner: S5. 12 tests: A 12.
 
 | line | cat | test |
 |---|---|---|
-| 36 | A | share: Twitch and Vimeo › https://www.twitch.tv/SomeChannel is stored and broadcast in canonical form |
-| 36 | A | share: Twitch and Vimeo › https://www.twitch.tv/videos/123456789 is stored and broadcast in canonical form |
-| 36 | A | share: Twitch and Vimeo › https://vimeo.com/76979871 is stored and broadcast in canonical form |
-| 36 | A | share: Twitch and Vimeo › https://vimeo.com/76979871/abcdef1234 is stored and broadcast in canonical form |
-| 52 | A | share: Twitch and Vimeo › https://twitch.tv.evil.example/somechannel is rejected with unsupported_url and not broadcast |
-| 52 | A | share: Twitch and Vimeo › https://www.twitch.tv/somechannel/clip/Abc is rejected with unsupported_url and not broadcast |
-| 52 | A | share: Twitch and Vimeo › https://www.twitch.tv/directory is rejected with unsupported_url and not broadcast |
-| 52 | A | share: Twitch and Vimeo › https://vimeo.com.evil.example/76979871 is rejected with unsupported_url and not broadcast |
-| 52 | A | share: Twitch and Vimeo › https://player.vimeo.com/video/76979871?h=zz is rejected with unsupported_url and not broadcast |
-| 52 | A | share: Twitch and Vimeo › https://vimeo.com/showcase/123 is rejected with unsupported_url and not broadcast |
-| 62 | A | control per capability › live: a seek is not a seek — playback stays at 0 and reports play |
-| 69 | A | control per capability › VOD: a seek is accepted |
+| 36 | A ✓ | share: Twitch and Vimeo › https://www.twitch.tv/SomeChannel is stored and broadcast in canonical form |
+| 36 | A ✓ | share: Twitch and Vimeo › https://www.twitch.tv/videos/123456789 is stored and broadcast in canonical form |
+| 36 | A ✓ | share: Twitch and Vimeo › https://vimeo.com/76979871 is stored and broadcast in canonical form |
+| 36 | A ✓ | share: Twitch and Vimeo › https://vimeo.com/76979871/abcdef1234 is stored and broadcast in canonical form |
+| 52 | A ✓ | share: Twitch and Vimeo › https://twitch.tv.evil.example/somechannel is rejected with unsupported_url and not broadcast |
+| 52 | A ✓ | share: Twitch and Vimeo › https://www.twitch.tv/somechannel/clip/Abc is rejected with unsupported_url and not broadcast |
+| 52 | A ✓ | share: Twitch and Vimeo › https://www.twitch.tv/directory is rejected with unsupported_url and not broadcast |
+| 52 | A ✓ | share: Twitch and Vimeo › https://vimeo.com.evil.example/76979871 is rejected with unsupported_url and not broadcast |
+| 52 | A ✓ | share: Twitch and Vimeo › https://player.vimeo.com/video/76979871?h=zz is rejected with unsupported_url and not broadcast |
+| 52 | A ✓ | share: Twitch and Vimeo › https://vimeo.com/showcase/123 is rejected with unsupported_url and not broadcast |
+| 62 | A ✓ | control per capability › live: a seek is not a seek — playback stays at 0 and reports play |
+| 69 | A ✓ | control per capability › VOD: a seek is accepted |
 
 ### proxy.test.ts
 
-Owner: S5. 6 tests: A* 1, A 5.
+Owner: S5. 6 tests: A 6.
 
 | line | cat | test |
 |---|---|---|
-| 22 | A | socket limits behind the tunnel (T-09) › each forwarded client gets at most 10 sockets; others are unaffected |
-| 29 | A | socket limits behind the tunnel (T-09) › prepending to X-Forwarded-For does not make a new client (T-07) |
-| 35 | A* | socket limits behind the tunnel (T-09) › without TRUST_PROXY, varying X-Forwarded-For does not dodge the per-address cap (T-08) |
-| 41 | A | socket limits behind the tunnel (T-09) › locally the per-address cap stays 50 (the load test opens 25 members from one address) |
-| 46 | A | socket limits behind the tunnel (T-09) › by default the global ceiling holds the M6 hosted target: 20 rooms × 25 people = 500 sockets (OME-573) |
-| 52 | A | socket limits behind the tunnel (T-09) › a global ceiling holds however many addresses the sockets come from |
+| 22 | A ✓ | socket limits behind the tunnel (T-09) › each forwarded client gets at most 10 sockets; others are unaffected |
+| 29 | A ✓ | socket limits behind the tunnel (T-09) › prepending to X-Forwarded-For does not make a new client (T-07) |
+| 35 | A ✓ | socket limits behind the tunnel (T-09) › without TRUST_PROXY, varying X-Forwarded-For does not dodge the per-address cap (T-08) |
+| 41 | A ✓ | socket limits behind the tunnel (T-09) › locally the per-address cap stays 50 (the load test opens 25 members from one address) |
+| 46 | A ✓ | socket limits behind the tunnel (T-09) › by default the global ceiling holds the M6 hosted target: 20 rooms × 25 people = 500 sockets (OME-573) |
+| 52 | A ✓ | socket limits behind the tunnel (T-09) › a global ceiling holds however many addresses the sockets come from |
 
 ### qa-rooms.test.ts
 
-Owner: S5. 38 tests: A 21, B 6, C 4, D 7.
+Owner: S5. 38 tests: A 31, D 7.
 
 | line | cat | test |
 |---|---|---|
 | 201 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › per key: the burst succeeds, then 429 rate_limited with Retry-After and retryAfterMs; another key is unaffected; the refill restores it |
 | 225 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › a refused creation makes no room; a malformed body and an oversize body still take from the key's bucket |
 | 235 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › globally: many keys together hit 429 rate_limited after ROOM_CREATE_GLOBAL_BURST, and the refill restores one |
-| 249 | C | 1. creation limits (ADR 0028 §1, threat model §1.2) › at MAX_ROOMS: 503 too_many_rooms, and NO room is evicted: every room, the least recently active included, is still joinable and still deletable by its owner (also after a restart) |
-| 293 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › with TRUST_PROXY off a spoofed X-Forwarded-For does not reset the per-key bucket |
-| 302 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › with a trusted proxy the key is the rightmost forwarded entry: a client-chosen prefix does not reset it, a different client gets its own |
-| 321 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a private room is never in GET /rooms: not new, not with members, not titled, not after a title-set |
-| 348 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a join without the invite key, with a wrong one, or with another private room's key is refused: invite_required, no snapshot, no broadcasts, socket stays open |
-| 371 | A | 2. private rooms (ADR 0028 §4, threat model §3) › with the right invite key the join works as a guest; the owner token admits too, as the owner |
-| 382 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a failed attempt does not lock the right key out: after refusals the invite key still joins |
-| 390 | A ✓ | 2. private rooms (ADR 0028 §4, threat model §3) › visibility cannot be changed by a client: the create body is strict and the id format is the same for public and private |
-| 408 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › no frame any client receives, and no HTTP response but the create one, ever carries the owner token or the invite key |
-| 464 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › snapshot `owner` is a boolean true, only in the owner's own snapshot: never in a guest's frames, a wrong-token joiner's, or any member record |
-| 492 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › the owner token is a secret of its own room: it makes nobody the owner of another room |
-| 507 | C | 4. delete (ADR 0028 §2) › owner DELETE closes every socket in the room with 4004, joined or not; their share tokens stop working; a re-join is refused; the id is not reissued |
-| 549 | A | 4. delete (ADR 0028 §2) › a member's share token cannot delete; neither can a wrong or missing bearer; the room survives them all |
-| 561 | A ✓ | 4. delete (ADR 0028 §2) › seeded rooms have no owner: nobody can delete the lobby |
-| 567 | A ✓ | 4. delete (ADR 0028 §2) › a deleted private room: its invite key and owner token stop admitting anyone |
-| 589 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the constants are the ADR's: 20 min with nobody in it, never joined or emptied, swept every minute (OME-904) |
-| 594 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a created room nobody joined is kept for 20 min, then removed from the list, the store and the join path |
-| 608 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with a member is never collected, however old; its member stays connected |
-| 622 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with an unjoined socket expires at 20 minutes and closes the socket |
-| 635 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › activity resets the idle timer: an empty room goes 20 min after its last member left, not after its creation |
-| 662 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the seeded lobby is pinned: never collected, however long it sits empty |
-| 674 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › at boot, a stored room past its limit is swept immediately, with a pinned one beside it kept |
-| 700 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner (guest, wrong owner token, an invite-key holder) gets not_owner, and nothing is broadcast or stored |
-| 723 | C | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › the owner's invalid layouts are refused with bad_message and the stored layout is unchanged |
-| 769 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a frame over the size cap closes the socket (no layout parse, no write); the stored layout is unchanged |
-| 779 | C | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a valid layout from the owner is broadcast as layout-changed to every member (by: the owner), persisted, and seen by later joiners |
-| 804 | B | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › owner edits are limited per socket (layout-set and title-set share ROOM_EDIT_BURST); the refill is honoured; refused edits change nothing |
-| 826 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner's layout-set does not draw from the owner's bucket, and a flood of them ends in the 4400 close |
-| 844 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › WS upgrades to unknown ids cost a token like real upgrades: after the burst from one key, 429 with Retry-After; another key is unaffected |
-| 860 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › once a key is limited, an unknown id and an existing private room's id get the very same answer (no existence oracle through the limiter) |
-| 873 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong invite keys from one key are limited across rooms and sockets (rate_limited, retryAfterMs), 4400 follows, and the right key still gets through |
-| 895 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong owner tokens from one key are limited too: the guests join while the bucket lasts, then rate_limited and no snapshot |
-| 914 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE: an unknown id is 404 (specified: 404, then auth); a wrong bearer on a real room is 401 until the per-key failed-auth bucket empties, then 429 with Retry-After |
-| 938 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE probes at unknown ids from one key are bounded by the HTTP gate (429 + Retry-After) |
-| 949 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › a share probe at an unknown room is 404 and at a private room without a grant is 401, with the same typed shape (existence is not a secret: ids are 128 bits) |
+| 249 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › at MAX_ROOMS: 503 too_many_rooms, and NO room is evicted: every room, the least recently active included, is still joinable and still deletable by its owner (also after a restart) |
+| 296 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › with TRUST_PROXY off a spoofed X-Forwarded-For does not reset the per-key bucket |
+| 305 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › with a trusted proxy the key is the rightmost forwarded entry: a client-chosen prefix does not reset it, a different client gets its own |
+| 324 | A ✓ | 2. private rooms (ADR 0028 §4, threat model §3) › a private room is never in GET /rooms: not new, not with members, not titled, not after a title-set |
+| 351 | A ✓ | 2. private rooms (ADR 0028 §4, threat model §3) › a join without the invite key, with a wrong one, or with another private room's key is refused: invite_required, no snapshot, no broadcasts, socket stays open |
+| 374 | A ✓ | 2. private rooms (ADR 0028 §4, threat model §3) › with the right invite key the join works as a guest; the owner token admits too, as the owner |
+| 385 | A ✓ | 2. private rooms (ADR 0028 §4, threat model §3) › a failed attempt does not lock the right key out: after refusals the invite key still joins |
+| 393 | A ✓ | 2. private rooms (ADR 0028 §4, threat model §3) › visibility cannot be changed by a client: the create body is strict and the id format is the same for public and private |
+| 411 | A ✓ | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › no frame any client receives, and no HTTP response but the create one, ever carries the owner token or the invite key |
+| 467 | A ✓ | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › snapshot `owner` is a boolean true, only in the owner's own snapshot: never in a guest's frames, a wrong-token joiner's, or any member record |
+| 495 | A ✓ | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › the owner token is a secret of its own room: it makes nobody the owner of another room |
+| 510 | A ✓ | 4. delete (ADR 0028 §2) › owner DELETE closes every socket in the room with 4004, joined or not; their share tokens stop working; a re-join is refused; the id is not reissued |
+| 552 | A ✓ | 4. delete (ADR 0028 §2) › a member's share token cannot delete; neither can a wrong or missing bearer; the room survives them all |
+| 564 | A ✓ | 4. delete (ADR 0028 §2) › seeded rooms have no owner: nobody can delete the lobby |
+| 570 | A ✓ | 4. delete (ADR 0028 §2) › a deleted private room: its invite key and owner token stop admitting anyone |
+| 592 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the constants are the ADR's: 20 min with nobody in it, never joined or emptied, swept every minute (OME-904) |
+| 597 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a created room nobody joined is kept for 20 min, then removed from the list, the store and the join path |
+| 611 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with a member is never collected, however old; its member stays connected |
+| 625 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with an unjoined socket expires at 20 minutes and closes the socket |
+| 638 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › activity resets the idle timer: an empty room goes 20 min after its last member left, not after its creation |
+| 665 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the seeded lobby is pinned: never collected, however long it sits empty |
+| 677 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › at boot, a stored room past its limit is swept immediately, with a pinned one beside it kept |
+| 703 | A ✓ | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner (guest, wrong owner token, an invite-key holder) gets not_owner, and nothing is broadcast or stored |
+| 726 | A ✓ | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › the owner's invalid layouts are refused with bad_message and the stored layout is unchanged |
+| 772 | A ✓ | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a frame over the size cap closes the socket (no layout parse, no write); the stored layout is unchanged |
+| 782 | A ✓ | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a valid layout from the owner is broadcast as layout-changed to every member (by: the owner), persisted, and seen by later joiners |
+| 807 | A ✓ | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › owner edits are limited per socket (layout-set and title-set share ROOM_EDIT_BURST); the refill is honoured; refused edits change nothing |
+| 829 | A (timing: in-process only) | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner's layout-set does not draw from the owner's bucket, and a flood of them ends in the 4400 close |
+| 847 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › WS upgrades to unknown ids cost a token like real upgrades: after the burst from one key, 429 with Retry-After; another key is unaffected |
+| 863 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › once a key is limited, an unknown id and an existing private room's id get the very same answer (no existence oracle through the limiter) |
+| 876 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong invite keys from one key are limited across rooms and sockets (rate_limited, retryAfterMs), 4400 follows, and the right key still gets through |
+| 898 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong owner tokens from one key are limited too: the guests join while the bucket lasts, then rate_limited and no snapshot |
+| 917 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE: an unknown id is 404 (specified: 404, then auth); a wrong bearer on a real room is 401 until the per-key failed-auth bucket empties, then 429 with Retry-After |
+| 941 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE probes at unknown ids from one key are bounded by the HTTP gate (429 + Retry-After) |
+| 952 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › a share probe at an unknown room is 404 and at a private room without a grant is 401, with the same typed shape (existence is not a secret: ids are 128 bits) |
 
 ### queue.test.ts
 
-Owner: S6. 44 tests: A 15, B 17, C 10, D 2.
+Owner: S6. 44 tests: A 42, D 2.
 
 | line | cat | test |
 |---|---|---|
-| 112 | A | queue-add (ADR 0031 §2, §3) › stores only the parsed embed, tells the whole room the whole list, and a joiner's snapshot carries it |
-| 139 | B | queue-add (ADR 0031 §2, §3) › a URL the share parser refuses: unsupported_url, nothing queued, and it doesn't count toward the 4400 close |
-| 153 | A | queue-add (ADR 0031 §2, §3) › the generic tier follows the share policy: refused with GENERIC_EMBEDS off, queued (parsed) with it on |
-| 167 | B | queue-add (ADR 0031 §2, §3) › per member: 3 at once, then rate_limited with retryAfterMs until the bucket refills |
-| 182 | B | queue-add (ADR 0031 §2, §3) › a refusal by the room's bucket gives the member's add back: other members' traffic can't drain it |
-| 206 | B | queue-add (ADR 0031 §2, §3) › the buckets come before the parse: refused URLs spend the member's adds |
-| 218 | B | queue-add (ADR 0031 §2, §3) › per room: 10 at once from everyone together, then rate_limited |
-| 241 | B | queue-add (ADR 0031 §2, §3) › at 20 upcoming items: queue_full, and nothing is evicted |
-| 260 | A | queue-add (ADR 0031 §2, §3) › before join: not_joined, nothing queued |
-| 272 | A | queue-remove (ADR 0031 §2, §3) › drops an upcoming item for everyone; by is the remover |
-| 288 | A | queue-remove (ADR 0031 §2, §3) › an item that isn't there: ignored, no error and no queue-changed |
-| 304 | A | queue-advance (ADR 0031 §2, §5) › from the current item: embed-changed (by null, a load, the item's id) first, then queue-changed by the advancer |
-| 336 | A | queue-advance (ADR 0031 §2, §5) › two clicks on next from the same item skip one item, not two; a stale fromItemId is ignored |
-| 352 | A | queue-advance (ADR 0031 §2, §5) › with an empty queue: nothing changes |
-| 361 | A | queue-advance (ADR 0031 §2, §5) › onto a generic item: playback null, so it stays click-to-load (ADR 0024) |
-| 374 | A | shares and item ids (ADR 0031 §1) › every share mints a fresh itemId, in embed-changed and the snapshot, and doesn't touch the queue |
-| 390 | B | control policy owner: guests can't change the queue (ADR 0031 §3) › queue-add, queue-remove and queue-advance from a guest: control_owner_only, nothing changes, and the guest's adds aren't spent |
-| 441 | B | ended (ADR 0031 §4) › the first valid report advances for everyone, by null; later reports for the spent item change nothing |
-| 458 | B | ended (ADR 0031 §4) › within 3000 ms of becoming current: ignored |
-| 472 | B | ended (ADR 0031 §4) › a stale itemId, a position far from the room clock, or a sender who hasn't joined: ignored silently |
-| 486 | B | ended (ADR 0031 §4) › a live current item never advances on ended (only queue-advance) |
-| 496 | B | ended (ADR 0031 §4) › a generic current item never advances on ended |
-| 510 | B | ended (ADR 0031 §4) › with an empty queue: a valid ended changes nothing |
-| 521 | B | ended (ADR 0031 §4) › ended is not subject to the control policy: a guest's valid report advances an owner-only room |
-| 540 | A | POST /rooms/:id/queue (ADR 0031 §2) › a member's token queues the parsed embed: 200 { ok, item }, and the room gets queue-changed |
-| 552 | A | POST /rooms/:id/queue (ADR 0031 §2) › errors: 401 without a member's token, 400 unsupported_url, 404 unknown room; nothing queued |
-| 563 | B | POST /rooms/:id/queue (ADR 0031 §2) › shares the member's add bucket with the WebSocket: 429 with Retry-After once it is spent |
-| 574 | A | POST /rooms/:id/queue (ADR 0031 §2) › the control policy is checked again once a slow body has arrived |
-| 604 | B | POST /rooms/:id/queue (ADR 0031 §2) › 409 queue_full at 20 |
-| 621 | C | persistence (ADR 0031 §6) › a restart keeps the queue and the current item: same ids and embeds, by null |
-| 639 | C | persistence (ADR 0031 §6) › after a restart the restored item is current anew: ended waits out the debounce again |
-| 662 | C | persistence (ADR 0031 §6) › rows hidden by the policy can't push a restored queue past 20: the oldest are kept and the room stays joinable |
-| 695 | C | persistence (ADR 0031 §6) › a row cut past the cap at restore is gone for good: a later add is kept over it after the next restart |
-| 730 | C | persistence (ADR 0031 §6) › an item the policy no longer accepts (GENERIC_EMBEDS off) is left out after the restart |
-| 747 | D | persistence (ADR 0031 §6) › one store write per queue action; control, chat and ignored frames write nothing |
-| 791 | C | persistence (ADR 0031 §6) › deleting the room deletes its queue rows |
-| 816 | C | starting from an empty room (ADR 0031 §5, OME-543) › a WebSocket add starts the item: embed-changed (by the adder, a load at 0, its id) first, then queue-changed with the rest; stored as current |
-| 846 | B | starting from an empty room (ADR 0031 §5, OME-543) › the started item's ended debounce runs from the add, and later adds only queue |
-| 863 | A | starting from an empty room (ADR 0031 §5, OME-543) › a generic first item becomes current with playback null: click-to-load (ADR 0024) |
-| 874 | C | starting from an empty room (ADR 0031 §5, OME-543) › POST /rooms/:id/queue into an empty room: 200 { ok, item }, and the item starts (embed-changed by the token's member, then queue-changed) |
-| 896 | C | starting from an empty room (ADR 0031 §5, OME-543) › a queue left over after a dropped embed row: the add starts its head, oldest first, and appends the new item; queue-advance with no current item stays ignored |
-| 929 | C | starting from an empty room (ADR 0031 §5, OME-543) › a failed store write changes nothing: no row, no current item, no frames |
-| 946 | A | starting from an empty room (ADR 0031 §5, OME-543) › a room that already has a current item: the add only queues (queue-changed, no embed-changed, one addQueueItem) |
-| 957 | D | starting from an empty room (ADR 0031 §5, OME-543) › one store write for the add that starts an item |
+| 151 | A ✓ | queue-add (ADR 0031 §2, §3) › stores only the parsed embed, tells the whole room the whole list, and a joiner's snapshot carries it |
+| 184 | A ✓ | queue-add (ADR 0031 §2, §3) › a URL the share parser refuses: unsupported_url, nothing queued, and it doesn't count toward the 4400 close |
+| 200 | A ✓ | queue-add (ADR 0031 §2, §3) › the generic tier follows the share policy: refused with GENERIC_EMBEDS off, queued (parsed) with it on |
+| 218 | A ✓ | queue-add (ADR 0031 §2, §3) › per member: 3 at once, then rate_limited with retryAfterMs until the bucket refills |
+| 236 | A ✓ | queue-add (ADR 0031 §2, §3) › a refusal by the room's bucket gives the member's add back: other members' traffic can't drain it |
+| 271 | A ✓ | queue-add (ADR 0031 §2, §3) › the buckets come before the parse: refused URLs spend the member's adds |
+| 283 | A ✓ | queue-add (ADR 0031 §2, §3) › per room: 10 at once from everyone together, then rate_limited |
+| 317 | A ✓ | queue-add (ADR 0031 §2, §3) › at 20 upcoming items: queue_full, and nothing is evicted |
+| 336 | A ✓ | queue-add (ADR 0031 §2, §3) › before join: not_joined, nothing queued |
+| 348 | A ✓ | queue-remove (ADR 0031 §2, §3) › drops an upcoming item for everyone; by is the remover |
+| 364 | A ✓ | queue-remove (ADR 0031 §2, §3) › an item that isn't there: ignored, no error and no queue-changed |
+| 380 | A ✓ | queue-advance (ADR 0031 §2, §5) › from the current item: embed-changed (by null, a load, the item's id) first, then queue-changed by the advancer |
+| 422 | A ✓ | queue-advance (ADR 0031 §2, §5) › two clicks on next from the same item skip one item, not two; a stale fromItemId is ignored |
+| 440 | A ✓ | queue-advance (ADR 0031 §2, §5) › with an empty queue: nothing changes |
+| 449 | A ✓ | queue-advance (ADR 0031 §2, §5) › onto a generic item: playback null, so it stays click-to-load (ADR 0024) |
+| 462 | A ✓ | shares and item ids (ADR 0031 §1) › every share mints a fresh itemId, in embed-changed and the snapshot, and doesn't touch the queue |
+| 478 | A ✓ | control policy owner: guests can't change the queue (ADR 0031 §3) › queue-add, queue-remove and queue-advance from a guest: control_owner_only, nothing changes, and the guest's adds aren't spent |
+| 541 | A ✓ | ended (ADR 0031 §4) › the first valid report advances for everyone, by null; later reports for the spent item change nothing |
+| 558 | A ✓ | ended (ADR 0031 §4) › within 3000 ms of becoming current: ignored |
+| 574 | A ✓ | ended (ADR 0031 §4) › a stale itemId, a position far from the room clock, or a sender who hasn't joined: ignored silently |
+| 588 | A ✓ | ended (ADR 0031 §4) › a live current item never advances on ended (only queue-advance) |
+| 600 | A ✓ | ended (ADR 0031 §4) › a generic current item never advances on ended |
+| 614 | A ✓ | ended (ADR 0031 §4) › with an empty queue: a valid ended changes nothing |
+| 625 | A ✓ | ended (ADR 0031 §4) › ended is not subject to the control policy: a guest's valid report advances an owner-only room |
+| 649 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › a member's token queues the parsed embed: 200 { ok, item }, and the room gets queue-changed |
+| 668 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › errors: 401 without a member's token, 400 unsupported_url, 404 unknown room; nothing queued |
+| 694 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › shares the member's add bucket with the WebSocket: 429 with Retry-After once it is spent |
+| 711 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › the control policy is checked again once a slow body has arrived |
+| 749 | A ✓ | POST /rooms/:id/queue (ADR 0031 §2) › 409 queue_full at 20 |
+| 771 | A ✓ | persistence (ADR 0031 §6) › a restart keeps the queue and the current item: same ids and embeds, by null |
+| 791 | A ✓ | persistence (ADR 0031 §6) › after a restart the restored item is current anew: ended waits out the debounce again |
+| 816 | A ✓ | persistence (ADR 0031 §6) › rows hidden by the policy can't push a restored queue past 20: the oldest are kept and the room stays joinable |
+| 851 | A ✓ | persistence (ADR 0031 §6) › a row cut past the cap at restore is gone for good: a later add is kept over it after the next restart |
+| 888 | A ✓ | persistence (ADR 0031 §6) › an item the policy no longer accepts (GENERIC_EMBEDS off) is left out after the restart |
+| 907 | D | persistence (ADR 0031 §6) › one store write per queue action; control, chat and ignored frames write nothing |
+| 956 | A ✓ | persistence (ADR 0031 §6) › deleting the room deletes its queue rows |
+| 1004 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a WebSocket add starts the item: embed-changed (by the adder, a load at 0, its id) first, then queue-changed with the rest; stored as current |
+| 1046 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › the started item's ended debounce runs from the add, and later adds only queue |
+| 1065 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a generic first item becomes current with playback null: click-to-load (ADR 0024) |
+| 1076 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › POST /rooms/:id/queue into an empty room: 200 { ok, item }, and the item starts (embed-changed by the token's member, then queue-changed) |
+| 1111 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a queue left over after a dropped embed row: the add starts its head, oldest first, and appends the new item; queue-advance with no current item stays ignored |
+| 1152 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a failed store write changes nothing: no row, no current item, no frames |
+| 1171 | A ✓ | starting from an empty room (ADR 0031 §5, OME-543) › a room that already has a current item: the add only queues (queue-changed, no embed-changed, one addQueueItem) |
+| 1182 | D | starting from an empty room (ADR 0031 §5, OME-543) › one store write for the add that starts an item |
 
 ### rate-limit.test.ts
 
@@ -718,13 +718,13 @@ Owner: S6. 7 tests: A 7.
 
 | line | cat | test |
 |---|---|---|
-| 17 | A |  › relay latency with a full room of 25 stays within 50 ms at p95 |
-| 31 | A |  › control → playback relay with a full room stays within 50 ms at p95 |
-| 49 | A |  › [Relay under flood unmeasured] relay with 24 members and 1 flooder stays within 50 ms at p95 |
-| 57 | A |  › [Relay under flood] control relay with 24 members chatting and emoting at the allowed rates and 1 flooder at 10× L1 stays within 50 ms at p95 (OME-192, OME-414) |
-| 81 | A |  › a control run right after another one doesn't trip the room control limit (OME-192) |
-| 95 | A |  › without flood there is no attacker and no member traffic in the result |
-| 101 | A |  › control mode needs an embed in the room |
+| 17 | A (timing: in-process only) |  › relay latency with a full room of 25 stays within 50 ms at p95 |
+| 31 | A (timing: in-process only) |  › control → playback relay with a full room stays within 50 ms at p95 |
+| 49 | A (timing: in-process only) |  › [Relay under flood unmeasured] relay with 24 members and 1 flooder stays within 50 ms at p95 |
+| 57 | A (timing: in-process only) |  › [Relay under flood] control relay with 24 members chatting and emoting at the allowed rates and 1 flooder at 10× L1 stays within 50 ms at p95 (OME-192, OME-414) |
+| 81 | A (timing: in-process only) |  › a control run right after another one doesn't trip the room control limit (OME-192) |
+| 95 | A ✓ |  › without flood there is no attacker and no member traffic in the result |
+| 101 | A ✓ |  › control mode needs an embed in the room |
 
 ### report-store.test.ts
 
@@ -792,39 +792,39 @@ Owner: S5. 39 tests: A* 1, A 31, D 7.
 
 ### room-auth.test.ts
 
-Owner: S6. 29 tests: A 17, B 5, C 5, D 2.
+Owner: S6. 29 tests: A 27, D 2.
 
 | line | cat | test |
 |---|---|---|
-| 118 | A | join a private room (ADR 0028 §4) › without an invite key: invite_required, the socket stays open and unjoined, and members hear nothing |
-| 132 | A | join a private room (ADR 0028 §4) › with a wrong invite key: invite_required |
-| 140 | A | join a private room (ADR 0028 §4) › with the invite key: joins as a guest, and can then retry after a refusal on the same socket |
-| 152 | A | join a private room (ADR 0028 §4) › with the owner token and no invite key: joins as the owner |
-| 159 | A | join a private room (ADR 0028 §4) › a public room needs no invite key |
-| 166 | B | join a private room (ADR 0028 §4) › failed invite keys come out of their own per-key bucket: once it is empty the join is rate_limited, and other keys still get in |
-| 188 | B | join a private room (ADR 0028 §4) › failed invite keys count toward the 4400 bad-message close |
-| 201 | A | join with an owner token (ADR 0028 §3) › the matching token makes this socket the owner; nobody else's snapshot says owner |
-| 217 | A | join with an owner token (ADR 0028 §3) › a wrong but well-formed token joins as a guest |
-| 224 | A | join with an owner token (ADR 0028 §3) › another room's owner token doesn't make you this room's owner |
-| 232 | A | join with an owner token (ADR 0028 §3) › a pinned room (the lobby) has no owner, whatever the token |
-| 238 | A | join with an owner token (ADR 0028 §3) › a malformed owner token or invite key fails the strict parse: bad_message |
-| 248 | B | join with an owner token (ADR 0028 §3) › failed owner tokens come out of their own per-key bucket: once it is empty the join is rate_limited |
-| 274 | B | failed secrets: 4400 and retryAfterMs (QA notes on OME-447) › wrong owner tokens count toward the 4400 bad-message close, even while they still join as a guest |
-| 290 | A | failed secrets: 4400 and retryAfterMs (QA notes on OME-447) › a join refused by a dry failed-invite bucket carries retryAfterMs, at most 30 s |
-| 310 | C | layout-set and title-set (ADR 0028 §6) › the owner's layout-set is broadcast as layout-changed to everyone, seats are kept, and it survives a restart |
-| 334 | C | layout-set and title-set (ADR 0028 §6) › the owner's title-set is broadcast as title-changed, written to the store and shown in GET /rooms |
-| 349 | C | layout-set and title-set (ADR 0028 §6) › a guest gets not_owner and nothing changes; repeats count toward 4400 |
-| 371 | A | layout-set and title-set (ADR 0028 §6) › layout-set refuses unknown keys on the layout and on a piece (strictObject input schema) |
-| 383 | B | layout-set and title-set (ADR 0028 §6) › owner edits are limited to ROOM_EDIT_BURST at once, then one every ROOM_EDIT_REFILL_MS |
-| 401 | C | layout-set and title-set (ADR 0028 §6) › a title-set to a blocklisted title is refused like at creation: nothing is stored or broadcast |
-| 418 | C | layout-set and title-set (ADR 0028 §6) › a stored room whose title a later blocklist hides is listed again once the owner renames it to a clean title |
-| 433 | A | layout-set and title-set (ADR 0028 §6) › an unchanged title or layout is a no-op: no broadcast, no write |
-| 444 | D | layout-set and title-set (ADR 0028 §6) › a store write failure changes nothing and broadcasts nothing |
-| 468 | D | secrets never leave (ADR 0028 §3) › owner tokens and invite keys appear in no frame any socket receives and in no log line |
-| 521 | A | the snapshot carries the room title (ADR 0028 §6, OME-473) › a titled room's snapshot has its title |
-| 530 | A | the snapshot carries the room title (ADR 0028 §6, OME-473) › an untitled seeded room (the lobby) sends no title key at all |
-| 537 | A | the snapshot carries the room title (ADR 0028 §6, OME-473) › after a title-set, a later joiner's snapshot carries the new title |
-| 547 | A | the snapshot carries the room title (ADR 0028 §6, OME-473) › a private room's guest, joined with the invite key, gets the title |
+| 138 | A ✓ | join a private room (ADR 0028 §4) › without an invite key: invite_required, the socket stays open and unjoined, and members hear nothing |
+| 154 | A ✓ | join a private room (ADR 0028 §4) › with a wrong invite key: invite_required |
+| 162 | A ✓ | join a private room (ADR 0028 §4) › with the invite key: joins as a guest, and can then retry after a refusal on the same socket |
+| 179 | A ✓ | join a private room (ADR 0028 §4) › with the owner token and no invite key: joins as the owner |
+| 188 | A ✓ | join a private room (ADR 0028 §4) › a public room needs no invite key |
+| 195 | A ✓ | join a private room (ADR 0028 §4) › failed invite keys come out of their own per-key bucket: once it is empty the join is rate_limited, and other keys still get in |
+| 227 | A ✓ | join a private room (ADR 0028 §4) › failed invite keys count toward the 4400 bad-message close |
+| 250 | A ✓ | join with an owner token (ADR 0028 §3) › the matching token makes this socket the owner; nobody else's snapshot says owner |
+| 275 | A ✓ | join with an owner token (ADR 0028 §3) › a wrong but well-formed token joins as a guest |
+| 284 | A ✓ | join with an owner token (ADR 0028 §3) › another room's owner token doesn't make you this room's owner |
+| 294 | A ✓ | join with an owner token (ADR 0028 §3) › a pinned room (the lobby) has no owner, whatever the token |
+| 300 | A ✓ | join with an owner token (ADR 0028 §3) › a malformed owner token or invite key fails the strict parse: bad_message |
+| 320 | A ✓ | join with an owner token (ADR 0028 §3) › failed owner tokens come out of their own per-key bucket: once it is empty the join is rate_limited |
+| 351 | A ✓ | failed secrets: 4400 and retryAfterMs (QA notes on OME-447) › wrong owner tokens count toward the 4400 bad-message close, even while they still join as a guest |
+| 373 | A ✓ | failed secrets: 4400 and retryAfterMs (QA notes on OME-447) › a join refused by a dry failed-invite bucket carries retryAfterMs, at most 30 s |
+| 403 | A ✓ | layout-set and title-set (ADR 0028 §6) › the owner's layout-set is broadcast as layout-changed to everyone, seats are kept, and it survives a restart |
+| 431 | A ✓ | layout-set and title-set (ADR 0028 §6) › the owner's title-set is broadcast as title-changed, written to the store and shown in GET /rooms |
+| 454 | A ✓ | layout-set and title-set (ADR 0028 §6) › a guest gets not_owner and nothing changes; repeats count toward 4400 |
+| 485 | A ✓ | layout-set and title-set (ADR 0028 §6) › layout-set refuses unknown keys on the layout and on a piece (strictObject input schema) |
+| 507 | A ✓ | layout-set and title-set (ADR 0028 §6) › owner edits are limited to ROOM_EDIT_BURST at once, then one every ROOM_EDIT_REFILL_MS |
+| 527 | A ✓ | layout-set and title-set (ADR 0028 §6) › a title-set to a blocklisted title is refused like at creation: nothing is stored or broadcast |
+| 554 | A ✓ | layout-set and title-set (ADR 0028 §6) › a stored room whose title a later blocklist hides is listed again once the owner renames it to a clean title |
+| 580 | A ✓ | layout-set and title-set (ADR 0028 §6) › an unchanged title or layout is a no-op: no broadcast, no write |
+| 593 | D | layout-set and title-set (ADR 0028 §6) › a store write failure changes nothing and broadcasts nothing |
+| 623 | D | secrets never leave (ADR 0028 §3) › owner tokens and invite keys appear in no frame any socket receives and in no log line |
+| 704 | A ✓ | the snapshot carries the room title (ADR 0028 §6, OME-473) › a titled room's snapshot has its title |
+| 715 | A ✓ | the snapshot carries the room title (ADR 0028 §6, OME-473) › an untitled seeded room (the lobby) sends no title key at all |
+| 722 | A ✓ | the snapshot carries the room title (ADR 0028 §6, OME-473) › after a title-set, a later joiner's snapshot carries the new title |
+| 734 | A ✓ | the snapshot carries the room title (ADR 0028 §6, OME-473) › a private room's guest, joined with the invite key, gets the title |
 
 ### room-create.test.ts
 
@@ -834,8 +834,8 @@ Owner: S5. 32 tests: A 23, B 1, D 8.
 |---|---|---|
 | 93 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › 201 with a server-chosen 26-char base32 id, the title and visibility, an owner token and no invite key for a public room |
 | 107 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › a private room also gets an invite key; ids, tokens and keys are all distinct |
-| 116 | A | POST /rooms creates a room (ADR 0028 §1) › the room starts from DEFAULT_LAYOUT with no embed, and anyone can join it |
-| 127 | A | POST /rooms creates a room (ADR 0028 §1) › each preset id builds the room from its judged D1 layout (OME-910); omitting it is classic, today's DEFAULT_LAYOUT |
+| 116 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › the room starts from DEFAULT_LAYOUT with no embed, and anyone can join it |
+| 127 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › each preset id builds the room from its judged D1 layout (OME-910); omitting it is classic, today's DEFAULT_LAYOUT |
 | 141 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › an unknown, mis-cased or non-string preset id is 400 invalid_body and creates nothing |
 | 153 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › the title is normalised by RoomTitleSchema (NFKC, trimmed) |
 | 159 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › a bad body is 400 invalid_body: not JSON, a bad title, an unknown visibility, extra keys |
@@ -851,7 +851,7 @@ Owner: S5. 32 tests: A 23, B 1, D 8.
 | 316 | A ✓ | creation limits (ADR 0028 §1) › malformed bodies take from the same per-key bucket |
 | 323 | A ✓ | creation limits (ADR 0028 §1) › server-wide: 10 at once from many keys, then 429 until one refills |
 | 334 | D | creation limits (ADR 0028 §1) › at MAX_ROOMS (500, pinned included) creation is 503 too_many_rooms and no room is evicted |
-| 351 | A | DELETE /rooms/:id (ADR 0028 §1, §2) › the owner deletes: 200 ok, sockets close with ROOM_CLOSED (4004), the room leaves the list and its share tokens stop working |
+| 351 | A ✓ | DELETE /rooms/:id (ADR 0028 §1, §2) › the owner deletes: 200 ok, sockets close with ROOM_CLOSED (4004), the room leaves the list and its share tokens stop working |
 | 371 | D | DELETE /rooms/:id (ADR 0028 §1, §2) › a store that can't delete the row answers 503 unavailable and keeps the room: its sockets stay open, the owner can try again |
 | 407 | A ✓ | DELETE /rooms/:id (ADR 0028 §1, §2) › unknown room is 404 room_not_found; a missing, malformed or wrong bearer is 401 unauthorized; another room's token doesn't work |
 | 427 | A ✓ | DELETE /rooms/:id (ADR 0028 §1, §2) › a seeded (pinned) room has no owner: nobody can delete the lobby |
@@ -867,17 +867,17 @@ Owner: S5. 32 tests: A 23, B 1, D 8.
 
 ### room-lifecycle.test.ts
 
-Owner: S6. 7 tests: B 1, D 6.
+Owner: S6. 7 tests: A 1, D 6.
 
 | line | cat | test |
 |---|---|---|
-| 30 | D | RoomRegistry.removeRoom › closes the room's sockets, joined or not, and leaves other rooms alone |
-| 57 | D | RoomRegistry.removeRoom › removing a room sends its members no member-left fan-out: they just get ROOM_CLOSED (OME-423 note #2) |
-| 75 | D | RoomRegistry.removeRoom › an upgrade to a removed room is closed with ROOM_CLOSED before any snapshot, and a re-created room of the same id refuses the old members' share tokens |
-| 93 | D | RoomRegistry.removeRoom › a share still reading its body when the room goes is refused and never reaches the store |
-| 139 | D | RoomRegistry.removeRoom › 1000 rooms created, used and removed: every per-room map is back at its baseline |
-| 186 | D | RoomRegistry.removeRoom › state asked for a room that is not (or no longer) registered is never stored |
-| 200 | B | upgrade limiter before the room lookup (threat model S5) › an unknown-room upgrade flood from one key is throttled: 10 get 404, the 11th 429 with Retry-After, other keys still get 404 |
+| 36 | D | RoomRegistry.removeRoom › closes the room's sockets, joined or not, and leaves other rooms alone |
+| 65 | D | RoomRegistry.removeRoom › removing a room sends its members no member-left fan-out: they just get ROOM_CLOSED (OME-423 note #2) |
+| 89 | D | RoomRegistry.removeRoom › an upgrade to a removed room is closed with ROOM_CLOSED before any snapshot, and a re-created room of the same id refuses the old members' share tokens |
+| 107 | D | RoomRegistry.removeRoom › a share still reading its body when the room goes is refused and never reaches the store |
+| 156 | D | RoomRegistry.removeRoom › 1000 rooms created, used and removed: every per-room map is back at its baseline |
+| 211 | D | RoomRegistry.removeRoom › state asked for a room that is not (or no longer) registered is never stored |
+| 225 | A ✓ | upgrade limiter before the room lookup (threat model S5) › an unknown-room upgrade flood from one key is throttled: 10 get 404, the 11th 429 with Retry-After, other keys still get 404 |
 
 ### room-owner.test.ts
 
@@ -885,9 +885,9 @@ Owner: S6. 3 tests: A 3.
 
 | line | cat | test |
 |---|---|---|
-| 23 | A | owner-only messages in an ownerless (pinned) room › a joined member's layout-set and title-set get not_owner and change nothing |
-| 35 | A | owner-only messages in an ownerless (pinned) room › the snapshot never says a member is the owner |
-| 41 | A | owner-only messages in an ownerless (pinned) room › before join they are refused with not_joined |
+| 23 | A ✓ | owner-only messages in an ownerless (pinned) room › a joined member's layout-set and title-set get not_owner and change nothing |
+| 35 | A ✓ | owner-only messages in an ownerless (pinned) room › the snapshot never says a member is the owner |
+| 41 | A ✓ | owner-only messages in an ownerless (pinned) room › before join they are refused with not_joined |
 
 ### rooms-gc.test.ts
 
@@ -919,33 +919,33 @@ Owner: S5. 27 tests: A 27.
 
 | line | cat | test |
 |---|---|---|
-| 42 | A | POST /rooms/:id/share › canonicalizes the URL, sets the embed and broadcasts embed-changed by the sharing member |
-| 55 | A | POST /rooms/:id/share › rejects a URL off the provider allowlist with 400 and no broadcast |
-| 66 | A | POST /rooms/:id/share › rejects malformed bodies with 400 invalid_body |
-| 75 | A | POST /rooms/:id/share › rejects an oversized body with 413 |
-| 82 | A | POST /rooms/:id/share › unknown room is 404 room_not_found |
-| 89 | A | POST /rooms/:id/share › a request from a foreign origin is refused with 403 |
+| 42 | A ✓ | POST /rooms/:id/share › canonicalizes the URL, sets the embed and broadcasts embed-changed by the sharing member |
+| 55 | A ✓ | POST /rooms/:id/share › rejects a URL off the provider allowlist with 400 and no broadcast |
+| 66 | A ✓ | POST /rooms/:id/share › rejects malformed bodies with 400 invalid_body |
+| 75 | A ✓ | POST /rooms/:id/share › rejects an oversized body with 413 |
+| 82 | A ✓ | POST /rooms/:id/share › unknown room is 404 room_not_found |
+| 89 | A ✓ | POST /rooms/:id/share › a request from a foreign origin is refused with 403 |
 | 104 | A ✓ | CORS › allows the extension and the site origin |
 | 112 | A ✓ | CORS › does not allow any other origin |
 | 121 | A ✓ | readiness › GET / answers 200 so process supervisors (Playwright webServer) can see the server is up |
-| 128 | A | requests without an Origin (curl, server-to-server) › may share (with a member's token) and connect: they are not a cross-site risk |
-| 138 | A | GET /rooms › lists the default room with member and seated counts |
+| 128 | A ✓ | requests without an Origin (curl, server-to-server) › may share (with a member's token) and connect: they are not a cross-site risk |
+| 138 | A ✓ | GET /rooms › lists the default room with member and seated counts |
 | 155 | A ✓ | WebSocket /rooms/:id/ws › upgrade to an unknown room is 404 |
 | 160 | A ✓ | WebSocket /rooms/:id/ws › upgrade from a foreign origin is refused |
-| 167 | A | WebSocket /rooms/:id/ws › the site origin may connect |
-| 173 | A | WebSocket /rooms/:id/ws › join sends a snapshot to the joiner and member-joined to the others |
-| 195 | A | WebSocket /rooms/:id/ws › sit on a free seat is broadcast to everyone, including the sitter |
-| 204 | A | WebSocket /rooms/:id/ws › sit on a taken seat is refused with seat_taken and changes nothing |
-| 217 | A | WebSocket /rooms/:id/ws › moving seats frees the old seat; sit null stands up |
-| 233 | A | WebSocket /rooms/:id/ws › leave frees the seat and tells the others |
-| 249 | A | WebSocket /rooms/:id/ws › disconnect frees the seat and tells the others |
-| 261 | A | WebSocket /rooms/:id/ws › chat is relayed to everyone with the sender and server time |
-| 274 | A | WebSocket /rooms/:id/ws › messages before join are refused with not_joined |
-| 285 | A | WebSocket /rooms/:id/ws › a second join on the same socket is refused with already_joined |
-| 293 | A | WebSocket /rooms/:id/ws › invalid payloads are answered with bad_message and the socket keeps working |
-| 318 | A | WebSocket /rooms/:id/ws › a frame over the size limit closes the socket without affecting the room |
+| 167 | A ✓ | WebSocket /rooms/:id/ws › the site origin may connect |
+| 173 | A ✓ | WebSocket /rooms/:id/ws › join sends a snapshot to the joiner and member-joined to the others |
+| 195 | A ✓ | WebSocket /rooms/:id/ws › sit on a free seat is broadcast to everyone, including the sitter |
+| 204 | A ✓ | WebSocket /rooms/:id/ws › sit on a taken seat is refused with seat_taken and changes nothing |
+| 217 | A ✓ | WebSocket /rooms/:id/ws › moving seats frees the old seat; sit null stands up |
+| 233 | A ✓ | WebSocket /rooms/:id/ws › leave frees the seat and tells the others |
+| 249 | A ✓ | WebSocket /rooms/:id/ws › disconnect frees the seat and tells the others |
+| 261 | A ✓ | WebSocket /rooms/:id/ws › chat is relayed to everyone with the sender and server time |
+| 274 | A ✓ | WebSocket /rooms/:id/ws › messages before join are refused with not_joined |
+| 285 | A ✓ | WebSocket /rooms/:id/ws › a second join on the same socket is refused with already_joined |
+| 293 | A ✓ | WebSocket /rooms/:id/ws › invalid payloads are answered with bad_message and the socket keeps working |
+| 318 | A ✓ | WebSocket /rooms/:id/ws › a frame over the size limit closes the socket without affecting the room |
 | 330 | A | room capacity (ADR 0006) › the 26th member gets room-full and is closed; a freed slot can be reused |
-| 348 | A | room capacity (ADR 0006) › members beyond the 8 seats stand and spectate; they cannot sit while every seat is taken |
+| 348 | A ✓ | room capacity (ADR 0006) › members beyond the 8 seats stand and spectate; they cannot sit while every seat is taken |
 
 ### session-contract-compat.test.ts
 
@@ -953,7 +953,7 @@ Owner: S6. 1 tests: A 1.
 
 | line | cat | test |
 |---|---|---|
-| 4 | A |  › an unknown resume token fails closed without allocating a fresh member |
+| 4 | A ✓ |  › an unknown resume token fails closed without allocating a fresh member |
 
 ### share-token.test.ts
 
@@ -961,16 +961,16 @@ Owner: S5. 12 tests: A 9, D 3.
 
 | line | cat | test |
 |---|---|---|
-| 32 | A | share token lifecycle (ADR 0015 §7) › each member's snapshot carries its own token, and no one else ever sees it |
-| 45 | A | share token lifecycle (ADR 0015 §7) › no token, or a malformed Authorization header, is 401 unauthorized with no broadcast (T-01, T-15) |
-| 65 | A | share token lifecycle (ADR 0015 §7) › the scheme is case-insensitive |
-| 71 | A | share token lifecycle (ADR 0015 §7) › a valid token shares as that member |
-| 83 | A | share token lifecycle (ADR 0015 §7) › a token dies when its member leaves; re-joining mints a new one (T-02) |
-| 96 | A | share token lifecycle (ADR 0015 §7) › a token dies when its socket closes (T-02) |
+| 32 | A ✓ | share token lifecycle (ADR 0015 §7) › each member's snapshot carries its own token, and no one else ever sees it |
+| 45 | A ✓ | share token lifecycle (ADR 0015 §7) › no token, or a malformed Authorization header, is 401 unauthorized with no broadcast (T-01, T-15) |
+| 65 | A ✓ | share token lifecycle (ADR 0015 §7) › the scheme is case-insensitive |
+| 71 | A ✓ | share token lifecycle (ADR 0015 §7) › a valid token shares as that member |
+| 83 | A ✓ | share token lifecycle (ADR 0015 §7) › a token dies when its member leaves; re-joining mints a new one (T-02) |
+| 96 | A ✓ | share token lifecycle (ADR 0015 §7) › a token dies when its socket closes (T-02) |
 | 105 | D | share token lifecycle (ADR 0015 §7) › a token for one room can't share into another (T-03) |
-| 118 | A | failed share attempts › a garbage-token flood from a client can't lock out a member sharing from the same address |
+| 118 | A ✓ | failed share attempts › a garbage-token flood from a client can't lock out a member sharing from the same address |
 | 125 | A ✓ | failed share attempts › but it is itself rate limited, so token guessing stays bounded |
-| 146 | A | share limits behind the tunnel (T-10) › per member: many addresses don't lift the limit |
+| 146 | A ✓ | share limits behind the tunnel (T-10) › per member: many addresses don't lift the limit |
 | 155 | D | share limits behind the tunnel (T-10) › per forwarded client: burst 5 across its members; another client is unaffected |
 | 164 | D | share limits behind the tunnel (T-10) › globally: burst 20 however many members, rooms and addresses |
 
