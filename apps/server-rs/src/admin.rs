@@ -13,8 +13,25 @@
 //!   POST   /rooms/:id/reports/dismiss   dismisses the room's open reports
 
 use crate::app::App;
+use crate::contract::ids::RoomId;
+use crate::contract::room::RoomVisibility;
+use crate::registry::RemoveReason;
+use crate::reports;
+use crate::store::{ReportId, StoreError};
+use axum::Router;
+use axum::body::Bytes;
+use axum::extract::{DefaultBodyLimit, State};
+use axum::http::{HeaderValue, Method, StatusCode, Uri, header};
+use axum::response::{IntoResponse, Response};
+use serde::Serialize;
+use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use tokio::net::UnixListener;
+use tokio::task::JoinHandle;
+
+/// `maxRequestBodySize: 1024`: the CLI sends no body at all.
+const MAX_BODY_BYTES: usize = 1024;
 
 /// One answer: a status and a JSON body.
 #[derive(Debug, PartialEq, Eq)]
@@ -26,8 +43,10 @@ pub struct Reply {
 /// Why the admin socket could not start.
 #[derive(Debug)]
 pub enum AdminError {
-    /// The path is taken by something that is not a socket we may replace.
+    /// The path is taken by something that is not a socket.
     NotSocket(PathBuf),
+    /// It is a socket, but another user's: not ours to remove.
+    NotOurs(PathBuf),
     Io(String),
 }
 
@@ -35,6 +54,7 @@ impl std::fmt::Display for AdminError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NotSocket(p) => write!(f, "admin socket {}: exists and is not a socket", p.display()),
+            Self::NotOurs(p) => write!(f, "admin socket {}: exists and belongs to another user", p.display()),
             Self::Io(e) => f.write_str(e),
         }
     }
@@ -42,33 +62,300 @@ impl std::fmt::Display for AdminError {
 
 impl std::error::Error for AdminError {}
 
-/// `handle`: one request against the app. Never panics; a failing store answers 500 with its message.
-pub fn handle(app: &App, method: &str, path: &str) -> Reply {
-    let _ = (app, method, path);
-    Reply {
-        status: 500,
-        body: String::new(),
+impl From<std::io::Error> for AdminError {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e.to_string())
     }
 }
 
-/// Removes a socket file a crashed server left behind; refuses anything else at that path.
-pub fn clear_stale_socket(path: &Path) -> Result<(), AdminError> {
-    let _ = path;
+// ---- the routes
+
+#[derive(Serialize)]
+struct ErrorBody<'a> {
+    error: &'a str,
+}
+
+/// One `GET /rooms` entry (`AdminRoomSchema`): never a secret or a hash, so the fields are listed here by hand.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AdminRoom {
+    id: String,
+    title: String,
+    visibility: RoomVisibility,
+    created_at: i64,
+    last_active_at: Option<i64>,
+    pinned: bool,
+    members: usize,
+}
+
+#[derive(Serialize)]
+struct RoomList {
+    rooms: Vec<AdminRoom>,
+}
+
+#[derive(Serialize)]
+struct ReportList {
+    rooms: Vec<reports::AdminReportRoom>,
+}
+
+#[derive(Serialize)]
+struct Deleted<'a> {
+    deleted: &'a str,
+}
+
+#[derive(Serialize)]
+struct Pinned<'a> {
+    pinned: bool,
+    id: &'a str,
+}
+
+#[derive(Serialize)]
+struct Dismissed {
+    dismissed: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TakenDown<'a> {
+    taken_down: &'a str,
+    live: bool,
+}
+
+fn json<T: Serialize>(status: u16, body: &T) -> Reply {
+    Reply {
+        status,
+        body: serde_json::to_string(body).unwrap_or_else(|_| r#"{"error":"encode"}"#.to_owned()),
+    }
+}
+
+fn error(status: u16, message: &str) -> Reply {
+    json(status, &ErrorBody { error: message })
+}
+
+fn store_failed(err: &StoreError) -> Reply {
+    error(500, &err.to_string())
+}
+
+fn not_allowed() -> Reply {
+    error(405, "method not allowed")
+}
+
+fn no_room(id: &RoomId) -> Reply {
+    error(404, &format!("no room {}", id.as_str()))
+}
+
+/// Every room, oldest first, ties by id.
+fn list_rooms(app: &App) -> Reply {
+    let mut rooms: Vec<AdminRoom> = app
+        .registry
+        .values()
+        .iter()
+        .filter_map(|cell| {
+            let inner = cell.lock_open()?;
+            Some(AdminRoom {
+                id: cell.id.as_str().to_owned(),
+                title: inner.room.title().map_or_else(String::new, |t| t.as_str().to_owned()),
+                visibility: inner.room.visibility,
+                created_at: inner.room.created_at,
+                last_active_at: inner.room.last_active_at,
+                pinned: inner.room.pinned,
+                members: inner.room.member_count(),
+            })
+        })
+        .collect();
+    rooms.sort_by(|a, b| a.created_at.cmp(&b.created_at).then_with(|| a.id.cmp(&b.id)));
+    json(200, &RoomList { rooms })
+}
+
+fn pin(app: &App, id: &RoomId, pinned: bool) -> Reply {
+    let Some(cell) = app.registry.get(id) else { return no_room(id) };
+    let Some(mut inner) = cell.lock_open() else { return no_room(id) };
+    // A seeded room has no owner to delete it; unpinned, GC would end it and only a restart re-seeds it.
+    if !pinned && !inner.room.has_owner() {
+        return error(
+            409,
+            &format!("{} is a seeded room with no owner: it stays pinned (delete it instead)", id.as_str()),
+        );
+    }
+    // Store first: if the write fails, memory still matches the row.
+    if let Err(err) = app.store().rooms().set_pinned(id, pinned) {
+        return store_failed(&err);
+    }
+    inner.room.pinned = pinned;
+    json(200, &Pinned { pinned, id: id.as_str() })
+}
+
+fn delete(app: &App, id: &RoomId) -> Reply {
+    let live = app.remove_room(id, RemoveReason::Closed);
+    // The removal already deleted the row; this catches one a failed earlier delete left behind.
+    let stored = match app.store().rooms().delete_room(id) {
+        Ok(stored) => stored,
+        Err(err) => return store_failed(&err),
+    };
+    if live || stored {
+        json(200, &Deleted { deleted: id.as_str() })
+    } else {
+        no_room(id)
+    }
+}
+
+fn report_route(app: &App, method: &str, raw: &str) -> Reply {
+    let Some(id) = ReportId::parse(raw) else { return error(404, "not found") };
+    if method != "POST" {
+        return not_allowed();
+    }
+    match reports::dismiss(app, &id) {
+        Ok(0) => error(404, &format!("no open report {}", id.as_str())),
+        Ok(n) => json(200, &Dismissed { dismissed: n }),
+        Err(err) => store_failed(&err),
+    }
+}
+
+fn room_route(app: &App, method: &str, raw: &str, verb: Option<&str>) -> Reply {
+    let Some(id) = RoomId::parse(raw) else { return error(404, "not found") };
+    let Some(verb) = verb else {
+        return if method == "DELETE" { delete(app, &id) } else { not_allowed() };
+    };
+    if method != "POST" {
+        return not_allowed();
+    }
+    match verb {
+        // A room that is no longer live may still be reported, and taken down.
+        "reports/dismiss" => match reports::dismiss_room(app, &id) {
+            Ok(n) => json(200, &Dismissed { dismissed: n }),
+            Err(err) => store_failed(&err),
+        },
+        "takedown" => match reports::takedown(app, &id) {
+            Ok(done) => json(
+                200,
+                &TakenDown {
+                    taken_down: id.as_str(),
+                    live: done.live,
+                },
+            ),
+            Err(err) => store_failed(&err),
+        },
+        "pin" => pin(app, &id, true),
+        "unpin" => pin(app, &id, false),
+        _ => error(404, "not found"),
+    }
+}
+
+/// `handle`: one request against the app. Never panics; a failing store answers 500 with its message.
+pub fn handle(app: &App, method: &str, path: &str) -> Reply {
+    if path == "/rooms" {
+        return if method == "GET" { list_rooms(app) } else { not_allowed() };
+    }
+    if path == "/reports" {
+        if method != "GET" {
+            return not_allowed();
+        }
+        return match reports::list(app) {
+            Ok(rooms) => json(200, &ReportList { rooms }),
+            Err(err) => store_failed(&err),
+        };
+    }
+    if let Some(raw) = path.strip_prefix("/reports/").and_then(|rest| rest.strip_suffix("/dismiss")) {
+        return report_route(app, method, raw);
+    }
+    let Some(rest) = path.strip_prefix("/rooms/") else { return error(404, "not found") };
+    let (raw, verb) = match rest.split_once('/') {
+        None => (rest, None),
+        Some((raw, verb)) => (raw, Some(verb)),
+    };
+    if verb.is_some_and(|v| !["pin", "unpin", "takedown", "reports/dismiss"].contains(&v)) {
+        return error(404, "not found");
+    }
+    room_route(app, method, raw, verb)
+}
+
+async fn serve_request(State(app): State<Arc<App>>, method: Method, uri: Uri, _body: Bytes) -> Response {
+    let reply = handle(&app, method.as_str(), uri.path());
+    let status = StatusCode::from_u16(reply.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let mut response = (status, reply.body).into_response();
+    response
+        .headers_mut()
+        .insert(header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    response
+}
+
+// ---- the socket
+
+/// Removes a socket file a crashed server left behind; refuses anything else at that path: a regular file, a
+/// symlink (even to a socket), a directory, or a socket another user owns. `uid` is ours.
+pub fn clear_stale_socket(path: &Path, uid: u32) -> Result<(), AdminError> {
+    let meta = match std::fs::symlink_metadata(path) {
+        Ok(meta) => meta,
+        Err(_) => return Ok(()),
+    };
+    if !meta.file_type().is_socket() {
+        return Err(AdminError::NotSocket(path.to_path_buf()));
+    }
+    if meta.uid() != uid {
+        return Err(AdminError::NotOurs(path.to_path_buf()));
+    }
+    std::fs::remove_file(path)?;
     Ok(())
 }
 
 /// The running admin listener.
-pub struct AdminServer {}
+pub struct AdminServer {
+    task: JoinHandle<()>,
+    path: PathBuf,
+}
 
-/// Listens on `socket` owner-only (0600) from the moment it exists.
+/// A private (0700) directory beside `socket` to bind in, so the socket never exists with a mode someone else can
+/// use (the TS server binds under umask 0177 for the same reason; a process-wide umask change is not thread-safe).
+fn private_dir(socket: &Path) -> Result<PathBuf, AdminError> {
+    let parent = socket
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+    let mut random = [0u8; 8];
+    getrandom::fill(&mut random).map_err(|_| AdminError::Io("no entropy".to_owned()))?;
+    let name: String = random.iter().map(|b| format!("{b:02x}")).collect();
+    let dir = parent.join(format!(".omega-admin-{name}"));
+    std::fs::DirBuilder::new().mode(0o700).create(&dir)?;
+    Ok(dir)
+}
+
+fn bind_secured(app: Arc<App>, socket: &Path, dir: &Path) -> Result<AdminServer, AdminError> {
+    clear_stale_socket(socket, std::fs::metadata(dir)?.uid())?;
+    let staged = dir.join("s");
+    let listener = UnixListener::bind(&staged)?;
+    std::fs::set_permissions(&staged, std::fs::Permissions::from_mode(0o600))?;
+    std::fs::rename(&staged, socket)?;
+    let router = Router::new()
+        .fallback(serve_request)
+        .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
+        .with_state(app);
+    let task = tokio::spawn(async move {
+        // The listener ends only when the task is aborted at shutdown; an accept error is retried by axum.
+        let _ = axum::serve(listener, router).await;
+    });
+    Ok(AdminServer {
+        task,
+        path: socket.to_path_buf(),
+    })
+}
+
+/// Listens on `socket`, mode 0600 from the moment it exists. Fails if the path is taken by something that is not
+/// a socket of ours, or if the socket can't be secured; then nothing is left listening.
 pub fn start_admin(app: Arc<App>, socket: &Path) -> Result<AdminServer, AdminError> {
-    let _ = (app, socket);
-    Err(AdminError::Io("not implemented".to_owned()))
+    let dir = private_dir(socket)?;
+    let started = bind_secured(app, socket, &dir);
+    // Whatever happened, the staging directory and anything left in it go.
+    let _ = std::fs::remove_dir_all(&dir);
+    started
 }
 
 impl AdminServer {
     /// Stops listening and removes the socket file.
-    pub async fn stop(self) {}
+    pub async fn stop(self) {
+        self.task.abort();
+        let _ = self.task.await;
+        let _ = std::fs::remove_file(&self.path);
+    }
 }
 
 #[cfg(test)]
