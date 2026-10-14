@@ -2,14 +2,29 @@
 //! be the Rust decision too. Regenerate with `bun apps/server-rs/corpus/gen.ts`.
 #![allow(clippy::panic, reason = "a test harness: a bad corpus file should fail loudly")]
 
+use omega_server::contract::capabilities::playback_caps;
 use omega_server::contract::constants;
-use omega_server::contract::generic_embed::normalize_hostname;
+use omega_server::contract::embed::{Embed, canonicalize_embed};
+use omega_server::contract::generic_embed::{
+    AnyEmbed, AnyEmbedOptions, canonicalize_any_embed, canonicalize_generic_embed, normalize_hostname,
+};
+use omega_server::embed_policy::EmbedPolicy;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
 /// Every corpus file has a runner below; a new `corpus/out/*.json` without one fails `every_corpus_has_a_runner`.
-const RUNNERS: &[&str] = &["constants", "normalize-hostname"];
+const RUNNERS: &[&str] = &[
+    "any-embed-schema",
+    "canonicalize-any-embed",
+    "canonicalize-embed",
+    "canonicalize-generic-embed",
+    "constants",
+    "embed-policy-accept",
+    "embed-policy-restore",
+    "normalize-hostname",
+    "playback-caps",
+];
 
 /// One TS decision: refused (`ok: false`) or accepted with `output`.
 #[derive(Deserialize)]
@@ -155,4 +170,111 @@ fn constants_agree() {
         })
         .collect();
     agree(cases, |name| constant(name));
+}
+
+// ---- OME-1156: embeds. Outputs are recorded as `JSON.stringify` text, so key order is compared too.
+
+fn to_json(e: &impl serde::Serialize) -> Option<String> {
+    serde_json::to_string(e).ok()
+}
+
+#[test]
+fn canonicalize_embed_agrees() {
+    agree(
+        load::<String, String>(include_str!("../corpus/out/canonicalize-embed.json")),
+        |input| canonicalize_embed(input).and_then(|e| to_json(&e)),
+    );
+}
+
+#[test]
+fn canonicalize_generic_embed_agrees() {
+    agree(
+        load::<String, String>(include_str!("../corpus/out/canonicalize-generic-embed.json")),
+        |input| canonicalize_generic_embed(input, &[]).and_then(|e| to_json(&e)),
+    );
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AnyInput {
+    url: String,
+    generic: bool,
+    #[serde(rename = "ownHosts")]
+    own_hosts: Vec<String>,
+}
+
+#[test]
+fn canonicalize_any_embed_agrees() {
+    agree(
+        load::<AnyInput, String>(include_str!("../corpus/out/canonicalize-any-embed.json")),
+        |i| {
+            canonicalize_any_embed(
+                &i.url,
+                AnyEmbedOptions {
+                    generic: i.generic,
+                    own_hosts: &i.own_hosts,
+                },
+            )
+            .and_then(|e| to_json(&e))
+        },
+    );
+}
+
+#[test]
+fn any_embed_schema_agrees() {
+    agree(
+        load::<Value, String>(include_str!("../corpus/out/any-embed-schema.json")),
+        |input| serde_json::from_value::<AnyEmbed>(input.clone()).ok().and_then(|e| to_json(&e)),
+    );
+}
+
+#[test]
+fn playback_caps_agree() {
+    agree(load::<Embed, String>(include_str!("../corpus/out/playback-caps.json")), |e| {
+        to_json(playback_caps(e))
+    });
+}
+
+/// The three policies `corpus/embed-corpora.ts` records (`embedPolicies`).
+fn policy(mode: &str) -> EmbedPolicy {
+    let own: Vec<String> = ["omega.example.org", " Own.Site.NET. "].map(String::from).to_vec();
+    let deny: Vec<String> = ["bad.video.net", "bücher-bad.de", "youtube.com", "example-host.net"]
+        .map(String::from)
+        .to_vec();
+    let made = match mode {
+        "on" => EmbedPolicy::new(true, &own, &deny),
+        "off" => EmbedPolicy::new(false, &own, &deny),
+        _ => EmbedPolicy::new(true, &[], &[]),
+    };
+    made.unwrap_or_else(|e| panic!("{e}"))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PolicyUrl {
+    mode: String,
+    url: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PolicyEmbed {
+    mode: String,
+    embed: AnyEmbed,
+}
+
+#[test]
+fn embed_policy_accept_agrees() {
+    agree(
+        load::<PolicyUrl, String>(include_str!("../corpus/out/embed-policy-accept.json")),
+        |i| policy(&i.mode).accept(&i.url).and_then(|e| to_json(&e)),
+    );
+}
+
+#[test]
+fn embed_policy_restore_agrees() {
+    agree(
+        load::<PolicyEmbed, String>(include_str!("../corpus/out/embed-policy-restore.json")),
+        |i| policy(&i.mode).restore(&i.embed).and_then(|e| to_json(&e)),
+    );
 }

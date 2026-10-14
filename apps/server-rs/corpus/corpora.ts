@@ -4,6 +4,7 @@
 // longer matches the TS side, so a `packages/shared` change can't land without the Rust copy noticing:
 // regenerate with `bun apps/server-rs/corpus/gen.ts`, then make the Rust tests pass.
 import { normalizeHostname } from "@omega/shared";
+import { embedCorpora } from "./embed-corpora";
 import * as constants from "../../../packages/shared/src/constants";
 
 /** One decision: `ok` false means the TS side refused `input`; `output` is what it produced otherwise. */
@@ -82,6 +83,7 @@ const constantCases = (): Case[] =>
 export const corpora: Corpus[] = [
   { name: "normalize-hostname", cases: () => decided(HOSTNAMES, normalizeHostname) },
   { name: "constants", cases: constantCases },
+  ...embedCorpora,
 ];
 
 /** One case per line, so a changed decision shows as a one-line diff. */
