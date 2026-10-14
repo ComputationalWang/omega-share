@@ -2,9 +2,10 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, type Avatar, type ClientMessage, type EmoteKind, type ErrorCode, type MemberId, type Nickname, type ResumeToken, type RoomId } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, type Avatar, type ClientMessage, type EmoteKind, type MemberId, type Nickname, type ResumeToken, type RoomId } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
-import { createConnection, type Connection, type SocketLike } from "./connection";
+import { createConnection, type Connection } from "./connection";
+import { browserSocket, stoppedConnection } from "./room-socket";
 import { trackShareToken } from "./share-token";
 import { clearResume, saveResume, type ResumeStore } from "./session-record";
 import { presenceHint } from "./session-lifecycle";
@@ -15,7 +16,7 @@ import { el, sprite } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
-import { chatView } from "./controls/feedback";
+import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { chatIntent, sitIntent } from "./intents";
 import { layoutOf } from "./furniture";
@@ -80,71 +81,11 @@ export interface RoomHandle {
   readonly avatarAlpha: (id: MemberId) => number | undefined;
 }
 
-const STATUS_TEXT: Record<ViewState["status"], string> = {
-  idle: "",
-  connecting: "Connecting…",
-  open: "",
-  reconnecting: "Connection lost, reconnecting…",
-  full: "",
-  refused: "",
-  closed: "",
-  "taken-down": "",
-  kicked: "",
-  "not-found": "",
-  replaced: "",
-};
-
 const NOTICE_MS = 3000;
 /** Typing somewhere: letters belong to the field, not to the page's keys. */
 function typingIn(t: EventTarget | null): boolean {
   return t instanceof HTMLElement && (t.isContentEditable || t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement);
 }
-const ERROR_TEXT: Record<ErrorCode, string> = {
-  seat_taken: "Someone just took that seat.",
-  rate_limited: "Slow down a little.",
-  bad_message: "That didn't go through.",
-  not_joined: "Still joining, try again in a moment.",
-  already_joined: "You're already in this room.",
-  no_embed: "That video isn't playing here any more.",
-  nickname_taken: "Someone in this room already has that name.",
-  too_many_members: "Too many people from your network are in this room.",
-  invite_required: "This room is private. You need an invite link to join.",
-  not_owner: "Only the room's owner can do that.",
-  muted: "The room's owner muted your chat.",
-  control_owner_only: "Only the room's owner can control the video here.",
-  bad_target: "That person isn't in this room any more.",
-  queue_full: "The queue is full. Remove one to add another.",
-  unsupported_url: "That link can't be played in this room.",
-  resume_expired: "Your session expired. Enter the room again.",
-};
-
-/** Adapts the DOM WebSocket to the connection's SocketLike. */
-function browserSocket(url: string): SocketLike {
-  const ws = new WebSocket(url);
-  const s: SocketLike = {
-    send: (d) => {
-      ws.send(d);
-    },
-    close: (code) => {
-      ws.close(code);
-    },
-    onopen: null,
-    onmessage: null,
-    onclose: null,
-    onerror: null,
-  };
-  ws.onopen = () => s.onopen?.();
-  ws.onmessage = (ev: MessageEvent<unknown>) => s.onmessage?.({ data: ev.data });
-  ws.onclose = (ev) => s.onclose?.({ code: ev.code });
-  ws.onerror = () => s.onerror?.();
-  return s;
-}
-
-/** A connection that never connects: a tab still inside its rejoin cooldown (kick-memory.ts). */
-function stoppedConnection(): Connection {
-  return { send: () => false, close: () => undefined, resume: () => undefined, ensureConnected: () => undefined, reclaim: () => undefined };
-}
-
 const KEYS = "button:not([disabled]), input:not([disabled]):not([type=hidden]), select, textarea, a[href], [tabindex]:not([tabindex='-1'])";
 /** The first key in `root` someone could press now: shown, enabled and not inert. */
 function firstKey(root: HTMLElement): HTMLElement | null {
