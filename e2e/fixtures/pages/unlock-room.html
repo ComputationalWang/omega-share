@@ -11,7 +11,9 @@
   <button id="relock">Relock</button>
   <div id="tv"></div>
   <script>
-    const host = new URLSearchParams(location.search).get("host") ?? "xfo.omega-fixture.net";
+    const params = new URLSearchParams(location.search);
+    const host = params.get("host") ?? "xfo.omega-fixture.net";
+    const framePage = params.get("page") === "referer" ? "referer-frame.html" : "xfo-frame.html";
     const show = (id, text) => { document.getElementById(id).textContent = text; };
     addEventListener("message", (e) => {
       if (e.source !== window || e.origin !== location.origin || e.data?.source !== "omega-share") return;
@@ -24,7 +26,7 @@
       frame.sandbox = "allow-scripts allow-same-origin";
       frame.referrerPolicy = "no-referrer";
       frame.onload = () => show("loads", String(++loads));
-      frame.src = `http://${host}:${location.port}/xfo-frame.html`;
+      frame.src = `http://${host}:${location.port}/${framePage}`;
       document.getElementById("tv").replaceChildren(frame);
     };
     document.getElementById("unlock").onclick = () => postMessage({ source: "omega-share", kind: "unlock", host }, location.origin);

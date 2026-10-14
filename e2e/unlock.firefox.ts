@@ -47,4 +47,18 @@ test.describe("Firefox unlock", () => {
     await load(page);
     await expect.poll(() => played(page)).toBe(true);
   });
+
+  // ADR 0047 §3 (OME-1055): the host 403s unless Referer is its own origin, as kwik.cx does.
+  test("a Referer-gated host is refused without the unlock and plays with it", async () => {
+    const page = await ff.browser.newPage();
+    await page.goto(`${URLS.fixtures}/unlock-room.html?page=referer`);
+    await page.waitForFunction(() => /^present \d/.test(document.querySelector("#present")?.textContent ?? ""));
+    await load(page);
+    expect(await played(page)).toBe(false);
+
+    await page.click("#unlock");
+    await page.waitForFunction((t) => document.querySelector("#result")?.textContent === t, {}, `${XFO_HOST} unlocked`);
+    await load(page);
+    await expect.poll(() => played(page)).toBe(true);
+  });
 });
