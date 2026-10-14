@@ -1,10 +1,17 @@
 //! The `serve` command: config → listener → router, until SIGTERM/SIGINT.
 
 use crate::config::ServerConfig;
-use crate::log::{stderr_line, stdout_line};
+use crate::log::stdout_line;
 use axum::Router;
 use axum::http::StatusCode;
+use std::future::IntoFuture;
+use std::time::Duration;
 use tokio::net::TcpListener;
+use tokio::sync::watch;
+
+/// How long a shutdown waits for open connections before cutting them off (`DRAIN_GRACE_MS` in
+/// apps/server/src/server.ts), so a stalled client can't hold a restart until systemd's SIGKILL.
+const DRAIN_GRACE: Duration = Duration::from_millis(3000);
 
 /// Binds and serves until a shutdown signal. Errors before listening are returned, not panicked.
 pub async fn serve(config: ServerConfig) -> std::io::Result<()> {
@@ -15,35 +22,45 @@ pub async fn serve(config: ServerConfig) -> std::io::Result<()> {
         .as_deref()
         .map(|o| format!(", public origin {o}"))
         .unwrap_or_default();
-    stdout_line(&format!(
-        "omega-share server on http://{addr}/ (site origin {}{via})",
-        config.site_origin
-    ));
+    stdout_line(&format!("omega-share server on http://{addr}/ (site origin {}{via})", config.site_origin));
     let app = Router::new().fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
-    axum::serve(listener, app).with_graceful_shutdown(shutdown_signal()).await
+
+    let (stop, mut stopped) = watch::channel(false);
+    let serving = axum::serve(listener, app).with_graceful_shutdown(async move {
+        // Resolves on the stop signal, or if the sender is gone (nothing left to wait for).
+        let _ = stopped.wait_for(|stop| *stop).await;
+    });
+    let mut serving = std::pin::pin!(serving.into_future());
+    tokio::select! {
+        served = &mut serving => return served,
+        () = shutdown_signal() => {}
+    }
+    // Stop accepting, let in-flight requests finish, but only for so long.
+    let _ = stop.send(true);
+    match tokio::time::timeout(DRAIN_GRACE, serving).await {
+        Ok(served) => served,
+        Err(_) => Ok(()),
+    }
 }
 
-/// SIGTERM (systemd `restart`/`stop`) or SIGINT. If a handler can't be installed, that signal just
-/// keeps its default action.
+/// SIGTERM (systemd `restart`/`stop`) or SIGINT. A handler that can't be installed never fires,
+/// so that signal keeps its default action instead of triggering a shutdown.
 async fn shutdown_signal() {
-    let interrupt = tokio::signal::ctrl_c();
-    let mut term = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-        Ok(term) => Some(term),
-        Err(err) => {
-            stderr_line(&format!("SIGTERM handler: {err}"));
-            None
+    let interrupt = async {
+        if tokio::signal::ctrl_c().await.is_err() {
+            std::future::pending::<()>().await;
         }
     };
     let terminate = async {
-        match term.as_mut() {
-            Some(term) => {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut term) => {
                 term.recv().await;
             }
-            None => std::future::pending::<()>().await,
+            Err(_) => std::future::pending::<()>().await,
         }
     };
     tokio::select! {
-        _ = interrupt => {}
+        () = interrupt => {}
         () = terminate => {}
     }
 }

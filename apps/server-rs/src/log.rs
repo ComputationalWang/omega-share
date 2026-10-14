@@ -375,6 +375,15 @@ mod tests {
         }
     }
 
+    // Rust-only (serde quotes input with backticks): the cut also starts at the first backtick
+    #[test]
+    fn a_backtick_quoted_value_is_cut_like_a_quote() {
+        let line = format_log_line(LogEvent::StoreReport, Some(("Error", "unknown field `secret-room`, expected `a`")));
+        assert!(!line.contains("secret-room"));
+        assert_eq!(field(&line), "Error: unknown field `…`");
+        assert_eq!(scrub("a `b' c\" d"), "a `…`");
+    }
+
     // apps/server/test/log.test.ts:54
     #[test]
     fn a_quoted_value_cut_off_by_the_length_cap_is_still_redacted() {
