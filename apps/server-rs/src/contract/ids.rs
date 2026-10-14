@@ -7,8 +7,35 @@
 /// OUTPUT, `None` for a refusal.
 macro_rules! string_newtype {
     ($(#[$meta:meta])* $name:ident, $validate:expr) => {
+        $crate::contract::ids::newtype_impl!($(#[$meta])* #[derive(Debug, Clone, PartialEq, Eq, Hash)] $name, $validate);
+    };
+}
+
+/// A bearer secret: like `string_newtype!`, but `Debug` never prints the value, there is no
+/// `PartialEq`/`Eq`/`Hash` (a variable-time `==` is a timing leak), and `ct_eq` compares in constant
+/// time. `as_str` stays for the places that must send or hash it.
+macro_rules! secret_newtype {
+    ($(#[$meta:meta])* $name:ident, $validate:expr) => {
+        $crate::contract::ids::newtype_impl!($(#[$meta])* #[derive(Clone)] $name, $validate);
+
+        impl std::fmt::Debug for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(concat!(stringify!($name), "(…)"))
+            }
+        }
+
+        impl $name {
+            /// Constant-time equality (`subtle`); the lengths are public.
+            pub fn ct_eq(&self, other: &Self) -> bool {
+                subtle::ConstantTimeEq::ct_eq(self.0.as_bytes(), other.0.as_bytes()).into()
+            }
+        }
+    };
+}
+
+macro_rules! newtype_impl {
+    ($(#[$meta:meta])* $name:ident, $validate:expr) => {
         $(#[$meta])*
-        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         pub struct $name(String);
 
         impl $name {
@@ -37,7 +64,7 @@ macro_rules! string_newtype {
         }
     };
 }
-pub(crate) use string_newtype;
+pub(crate) use {newtype_impl, string_newtype};
 
 use super::constants::ROOM_ID_MAX_LENGTH;
 
@@ -67,35 +94,26 @@ string_newtype!(
         && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-'))
     .then(|| s.to_owned())
 );
-string_newtype!(
+secret_newtype!(
     /// Member-bound share secret: 22 base64url characters (128 bits).
     ShareToken,
     |s| exact_token(s, SHARE_TOKEN_LENGTH)
 );
-string_newtype!(
+secret_newtype!(
     /// A room owner's bearer secret, same shape as the share token.
     OwnerToken,
     |s| exact_token(s, SHARE_TOKEN_LENGTH)
 );
-string_newtype!(
+secret_newtype!(
     /// Key that admits a joiner to a private room, same shape as the share token.
     InviteKey,
     |s| exact_token(s, SHARE_TOKEN_LENGTH)
 );
-string_newtype!(
+secret_newtype!(
     /// Durable session resume secret: 43 base64url characters (256 bits).
     ResumeToken,
     |s| exact_token(s, RESUME_TOKEN_LENGTH)
 );
-
-macro_rules! stub_ct_eq {
-    ($($name:ident),*) => {$(impl $name {
-        pub fn ct_eq(&self, _other: &Self) -> bool {
-            false
-        }
-    })*};
-}
-stub_ct_eq!(ShareToken, OwnerToken, InviteKey, ResumeToken);
 
 /// Length of a share token (ADR 0015).
 pub const SHARE_TOKEN_LENGTH: usize = 22;
