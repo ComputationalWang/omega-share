@@ -1,6 +1,6 @@
 // Builds a database through the TS stores and dumps one through them (ADR 0050 rollback proof, OME-1144).
 // The Rust side does the same in `tests/store_interop.rs`; the two dumps must be equal.
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -46,7 +46,8 @@ export interface SpecFile {
 export const asSpecFile = (s: Spec): SpecFile => s as SpecFile;
 
 const fromHex = (h: string): Uint8Array => Uint8Array.from(h.match(/../g) ?? [], (b) => parseInt(b, 16));
-const toHex = (b: Uint8Array | null): string | null => (b === null ? null : Array.from(b, (x) => x.toString(16).padStart(2, "0")).join(""));
+const hexOf = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+const toHex = (b: Uint8Array | null): string | null => (b === null ? null : hexOf(b));
 const embed = (e: unknown): AnyEmbed => v.parse(AnyEmbedSchema, e);
 const layout = (l: unknown): RoomLayout => v.parse(RoomLayoutSchema, l);
 const item = (i: SpecItem): { id: ReturnType<typeof qid>; embed: AnyEmbed } => ({ id: qid(i.id), embed: embed(i.embed) });
@@ -78,7 +79,7 @@ export function build(spec: SpecFile, path: string): void {
     if (r.then === "advance" && first !== undefined) rooms.advanceQueue(r.id, item(first));
     if (r.unpin === true) rooms.setPinned(r.id, false);
   }
-  const holds: SeatHold[] = spec.seatHolds.map((h) => ({ roomId: h.roomId, nameHash: fromHex(h.nameHash), seat: h.seat }) as SeatHold);
+  const holds: SeatHold[] = spec.seatHolds.map((h) => ({ roomId: h.roomId, nameHash: fromHex(h.nameHash), seat: h.seat }));
   rooms.saveSeatHolds(holds);
   for (const r of spec.rooms) if (r.deleted === true) rooms.deleteRoom(r.id);
   for (const r of spec.reports) reports.add(r);
@@ -91,12 +92,12 @@ export function build(spec: SpecFile, path: string): void {
   for (const suffix of ["-wal", "-shm"]) rmSync(path + suffix, { force: true });
 }
 
-type Json = null | number | string | Json[] | { [k: string]: Json };
+type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 
 /** Every row of `sql`, columns by name, blobs as lowercase hex. */
 function raw(db: Database, sql: string): Json[] {
   return db.query<Record<string, unknown>, []>(sql).all().map((row) =>
-    Object.fromEntries(Object.entries(row).map(([k, val]) => [k, val instanceof Uint8Array ? (toHex(val) as string) : (val as Json)])),
+    Object.fromEntries(Object.entries(row).map(([k, val]) => [k, val instanceof Uint8Array ? hexOf(val) : (val as Json)])),
   );
 }
 
