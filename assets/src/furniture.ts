@@ -8,7 +8,7 @@ import { SEAT_HEIGHT } from "./avatars";
 import { addOutline, box, renderSolids, type Facing, type Solid, type Vec3 } from "./iso";
 import { OUTLINE, colorIndex, type RampName, type Tone } from "./palette";
 import type { RoomFrame } from "./room";
-import { mirror, render as renderRoles, type Grid, type RoleMap } from "./sprite";
+import { blank, mirror, render as renderRoles, stamp, type Grid, type RoleMap } from "./sprite";
 
 export type FurnDir = "ne" | "nw" | "se" | "sw";
 type Paint = readonly [RampName, Tone];
@@ -351,6 +351,208 @@ function popcornCart(k: Kit): void {
   k.ell({ x: 0, y: 0, z: 34 }, { x: 1.4, y: 1.4, z: 1.6 }, [-8, 8, -8, 8, 32.5, 40], "mustard");
 }
 
+// ---------------------------------------------------------------- catalogue v2 (OME-1103)
+
+/** Floor cushions: two stacked square cushions (the top one button-tufted, cream-piped) and a striped bolster to lean on. */
+function floorCushion(k: Kit, c: RampName): void {
+  const ne = k.dir === "ne" || k.dir === "nw";
+  const piping: LPaint = (p, f) => (f === "top" ? [c, 0] : Math.abs(p.z - 2.4) < 0.5 ? ["cream", f === "front" || f === "right" ? 1 : 2] : null);
+  k.box(-7, 7, -7, 6, 0, 4.5, c, { paint: piping });
+  const tuft: LPaint = (p, f) => {
+    if (f !== "top") return p.z < 5.2 ? [c, 2] : null;
+    const x = p.x, y = p.y + 0.5, d = Math.hypot(x, y);
+    if (d < 0.9) return [c, 2];
+    // Creases from the button toward each corner.
+    if (d < 5 && Math.abs(Math.abs(x) - Math.abs(y)) < 0.5) return [c, 1];
+    return null;
+  };
+  k.box(-6, 6, -6, 5, 4.5, SEAT_HEIGHT, c, { paint: tuft });
+  for (const x of [-6.2, 5.2]) k.box(x, x + 1, -6.8, -5.8, 2.5, 5.5, "cream");
+  const stripes: LPaint = (p) => (Math.floor((p.x + 20) / 2.5) % 2 === 0 ? [c, 1] : ["cream", 1]);
+  k.ell({ x: 0, y: 4.8, z: SEAT_HEIGHT + 3 }, { x: Infinity, y: 2.6, z: 3.2 }, [-6.5, 6.5, 1, 8, SEAT_HEIGHT - 1, 20], "cream", { paint: stripes, front: ne });
+}
+
+/** Storage bench: a wood frame with woven cane panels, a long seat pad, and a folded throw over the front. */
+function bench(k: Kit, c: RampName): void {
+  const throwC: RampName = c === "teal" ? "mustard" : "lilac";
+  for (const [x, y] of [[-7, -6], [22, -6], [-7, 5], [22, 5]] as const) k.box(x, x + 1, y, y + 1, 0, 1.5, "wood");
+  const cane: LPaint = (p, f) => {
+    if (f === "top") return ["wood", 0];
+    const along = f === "front" || f === "back" ? p.x : p.y;
+    const inPanel = f === "front" || f === "back"
+      ? (along > -5.5 && along < 6.5) || (along > 9.5 && along < 21.5)
+      : Math.abs(along) < 4.5;
+    if (!inPanel || p.z < 2.6 || p.z > 5.2) return null;
+    const t: Tone = f === "front" ? 1 : 2;
+    return (Math.floor(along * 2) + Math.floor(p.z * 2)) % 2 === 0 ? ["mustard", t] : ["mustard", t === 1 ? 0 : 1];
+  };
+  k.box(-7.5, 23.5, -6.5, 6.5, 1.5, 6, "wood", { paint: cane });
+  const pad: LPaint = (p, f) => {
+    if (f === "top") return Math.abs(p.x - 8) < 0.5 ? [c, 2] : [c, 0];
+    return p.z < 6.6 ? [c, 2] : null;
+  };
+  k.box(-7, 23, -6, 6, 6, SEAT_HEIGHT, c, { paint: pad });
+  const ne = k.dir === "ne" || k.dir === "nw";
+  // The throw: folded over the far end of the pad and down its side, fringed at the bottom.
+  const fringe: LPaint = (p, f) => {
+    if (f === "top") return Math.abs(p.y) < 0.5 ? ["cream", 0] : [throwC, 0];
+    if (p.z < 3.4) return Math.floor((p.y + 20) * 2) % 2 === 0 ? ["cream", 1] : null;
+    return Math.abs(p.y) < 0.5 ? ["cream", 0] : null;
+  };
+  k.box(19.5, 24, -5, 5, 2.4, SEAT_HEIGHT + 0.6, throwC, { paint: fringe, front: true });
+  // A square pillow between the two seats, leaning on the wall side, with a button.
+  const pillow: LPaint = (p, f) => (f !== "top" && Math.hypot(p.x - 8, p.z - 12) < 0.8 ? [throwC, 2] : f === "top" ? [throwC, 0] : null);
+  k.box(4.5, 11.5, 3.5, 6.5, SEAT_HEIGHT, 15.5, throwC, { paint: pillow, front: ne });
+}
+
+/** Floating wall shelf on iron brackets: a trailing pothos, three books and a candle. */
+function wallShelf(k: Kit): void {
+  const Z = 76;
+  k.box(-7, 7, 3, 8, Z - 2, Z, "wood", { paint: (p, f) => (f === "top" ? ["wood", 0] : p.z < Z - 1.4 ? ["wood", 2] : null) });
+  for (const x of [-4.5, 4]) for (const [y0, z0] of [[7, Z - 6], [6, Z - 4], [5, Z - 3]] as const) k.box(x, x + 0.8, y0, 8, z0, Z - 2, "charcoal");
+  // Pothos: a cream pot with a teal band, a leafy mound and two vines over the edge.
+  k.ell({ x: -4.5, y: 5.5, z: 0 }, { x: 1.9, y: 1.9, z: Infinity }, [-99, 99, -99, 99, Z, Z + 4], "cream", {
+    paint: (p, f) => (f !== "top" && p.z > Z + 1.4 && p.z < Z + 2.4 ? ["teal", 1] : null),
+  });
+  const leafy: LPaint = (p) => (hash(Math.floor(p.x * 1.5) + 9, Math.floor(p.z * 1.2 + p.y)) % 3 === 0 ? ["olive", 0] : null);
+  k.ell({ x: -4.5, y: 5.5, z: Z + 4.4 }, { x: 2.8, y: 2.4, z: 2.6 }, [-99, 99, -99, 99, Z + 3.6, Z + 9], "olive", { paint: leafy });
+  for (const [x, len] of [[-6.4, 13], [-3, 8]] as const) {
+    for (let z = Z - 1; z > Z - len; z -= 1.2) {
+      const side = Math.floor(z) % 2 === 0 ? -0.8 : 0.8;
+      k.box(x - 0.4, x + 0.4, 2.4, 3.2, z - 1.2, z, "olive", { tones: { top: 2, sw: 2, se: 2 } });
+      k.box(x + side - 0.6, x + side + 0.6, 2.2, 3.2, z - 1.1, z - 0.2, "olive");
+    }
+  }
+  // Books: rust, navy and mustard, standing; then a candle with a glow flame.
+  ([[-1.6, "rust", 9], [-0.2, "navy", 10.5], [1.2, "mustard", 8.5]] as const).forEach(([x, ramp, h]) => {
+    k.box(x, x + 1.3, 4.2, 7.6, Z, Z + h, ramp, { paint: (p, f) => (f !== "top" && Math.abs(p.z - Z - h * 0.75) < 0.5 ? ["cream", 0] : null) });
+  });
+  k.ell({ x: 4.8, y: 5.5, z: 0 }, { x: 1, y: 1, z: Infinity }, [-99, 99, -99, 99, Z, Z + 4.5], "cream");
+  k.ell({ x: 4.8, y: 5.5, z: Z + 6.2 }, { x: 0.7, y: 0.7, z: 1.5 }, [-99, 99, -99, 99, Z + 4.5, Z + 8], "glow", { tones: { top: 0, sw: 0, se: 0 } });
+}
+
+/** One wall segment of string lights. The wire meets the next segment at the same height, so garlands in a row join up. */
+const GARLAND_BULBS: Record<string, readonly RampName[]> = { warm: ["glow", "mustard"], party: ["pink", "teal", "mustard", "lilac"] };
+function garland(k: Kit, colour: string): void {
+  const bulbs = GARLAND_BULBS[colour] ?? ["glow"];
+  const wire = (x: number): number => 112 - 7 * (1 - (x / 8) ** 2);
+  for (let x = -8; x < 8; x += 0.5) k.box(x, x + 0.5, 7.3, 8, wire(x + 0.25) - 0.6, wire(x + 0.25) + 0.3, "charcoal");
+  // Bulbs every 4 units (so the spacing holds across segments), hanging a little below the wire.
+  [-6, -2, 2, 6].forEach((x, i) => {
+    const z = wire(x);
+    k.box(x - 0.4, x + 0.4, 6.5, 7.3, z - 1.4, z - 0.4, "charcoal");
+    const ramp = bulbs[i % bulbs.length] ?? "glow";
+    k.ell({ x, y: 6.6, z: z - 3.2 }, { x: 1.5, y: 1.5, z: 1.8 }, [-99, 99, -99, 99, z - 6, z - 1.4], ramp, { tones: { top: 0, sw: 0, se: 1 } });
+  });
+}
+
+/** Record console: a mid-century cabinet (grille + drawers) with a turntable on top and a stack of sleeves beside it. */
+function recordConsole(k: Kit): void {
+  for (const [x, y] of [[-6, -4], [5, -4], [-6, 3], [5, 3]] as const) k.box(x, x + 1, y, y + 1, 0, 4, "wood", { tones: { top: 0, sw: 2, se: 2 } });
+  const front: LPaint = (p, f) => {
+    if (f === "top") return ["wood", 0];
+    if (f !== "front") return null;
+    if (p.z < 5 || p.z > 14 || Math.abs(p.x) < 0.5 || Math.abs(p.x) > 6.5) return ["wood", 1];
+    if (p.x < 0) return (Math.floor(p.x * 2) + Math.floor(p.z * 2)) % 2 === 0 ? ["cream", 2] : ["cream", 1];
+    if (Math.abs(p.z - 9.5) < 0.4) return ["wood", 2];
+    if (Math.abs(p.x - 3.5) < 0.6 && (Math.abs(p.z - 12) < 0.6 || Math.abs(p.z - 7) < 0.6)) return ["mustard", 0];
+    return null;
+  };
+  k.box(-7, 7, -5, 5, 4, 15, "wood", { paint: front });
+  k.box(-6.5, 2, -4.5, 4.5, 15, 16.5, "charcoal");
+  const vinyl: LPaint = (p, f) => {
+    if (f !== "top") return ["charcoal", 2];
+    const r = Math.hypot(p.x + 2.2, p.y);
+    if (r < 0.4) return ["cream", 0];
+    if (r < 1.3) return ["rust", 0];
+    return Math.abs(r - 2.4) < 0.3 ? ["charcoal", 0] : ["hairDark", 1];
+  };
+  k.ell({ x: -2.2, y: 0, z: 0 }, { x: 3.4, y: 3.4, z: Infinity }, [-99, 99, -99, 99, 16.5, 17.4], "hairDark", { paint: vinyl });
+  k.ell({ x: 1, y: 3, z: 0 }, { x: 0.8, y: 0.8, z: Infinity }, [-99, 99, -99, 99, 16.5, 18.6], "mustard");
+  k.box(0.6, 1.3, -0.6, 3, 18, 18.6, "mustard");
+  k.box(0.2, 1.4, -1.6, -0.6, 17.6, 18.6, "mustard");
+  const sleeves: RampName[] = ["pink", "teal", "mustard", "navy", "cream", "rust"];
+  sleeves.forEach((ramp, i) => {
+    const y = -4 + i * 1.3, h = 6 + (hash(i, 21) % 3);
+    k.box(3, 6.5, y, y + 1.1, 15, 15 + h, ramp, { paint: (p, f) => (f !== "top" && Math.abs(p.z - 15 - h * 0.55) < 0.8 && Math.abs(p.x - 4.75) < 0.8 ? ["cream", 0] : null) });
+  });
+}
+
+/** Floor speaker on splayed legs: woofer, tweeter and port on a fabric baffle, framed in the cabinet colour. */
+function floorSpeaker(k: Kit, c: RampName): void {
+  for (const [x, y] of [[-4, -3], [3, -3], [-4, 2], [3, 2]] as const) k.box(x, x + 1, y, y + 1, 0, 3, "charcoal");
+  const baffle: LPaint = (p, f) => {
+    if (f === "top") return [c, 0];
+    if (f !== "front") return null;
+    if (Math.abs(p.x) > 3.5 || p.z < 4.5 || p.z > 34.5) return null;
+    const w = Math.hypot(p.x * 2, p.z - 13);
+    if (w < 1.6) return ["charcoal", 0];
+    if (w < 5.6) return ["charcoal", 2];
+    if (w < 6.6) return ["mustard", 1];
+    const t = Math.hypot(p.x * 2, p.z - 26);
+    if (t < 1) return ["cream", 0];
+    if (t < 2.6) return ["mustard", 1];
+    if (Math.abs(p.z - 31.5) < 0.6 && Math.abs(p.x) < 1.6) return ["outline", 1];
+    return ["charcoal", 1];
+  };
+  k.box(-4.5, 4.5, -3.5, 3.5, 3, 36, c, { paint: baffle });
+}
+
+// ---------------------------------------------------------------- sleepy cat (hand-pixelled role grid on a ray-cast cushion)
+
+/** Loaf cat facing sw (head front-left), eyes shut, tail wrapped round its front. `o` is a hand-placed inner contour. */
+const CAT_SW: readonly string[] = [
+  "...h.....h..............",
+  "..hph...hph.............",
+  "..hpph.hpph..bbbbbb.....",
+  "..hhhhhhhhhhobbsbbbbb...",
+  ".hhhhhhhhhhhhobbbsbbbb..",
+  ".hheehhhheehhobbbbsbbbb.",
+  ".hhhhhwnwhhhhobbbbbsbbb.",
+  ".hhhhwwwwwhhhobbbbbbsbbb",
+  "..hhhhwwwhhhobbbbbbbsbbb",
+  "...hhhhhhhhobbbbbbbbsbbb",
+  "....owwwwwobbbbbbbbbbbbb",
+  "...bbwwwwwbbbbbbbbbbbbb.",
+  ".tttttttttttttbbbbbbbb..",
+  ".ttttttttttttttttbbbb...",
+  "..wwwtttttttttttt.......",
+];
+const catRoles = (c: RampName): RoleMap => ({
+  h: { ramp: c, hi: true },
+  b: { ramp: c, hi: true },
+  t: { ramp: c, hi: true },
+  s: { ramp: c, tone: 2 },
+  p: { ramp: "pink", tone: 1 },
+  n: { ramp: "pink", tone: 1 },
+  e: { ramp: "outline", tone: 1 },
+  o: { ramp: c, tone: 2 },
+  w: { ramp: "cream", tone: 1 },
+});
+
+function sleepyCat(dir: FurnDir, c: RampName, s = 1, cv: Canvas = CANVAS): Uint8Array {
+  const k = new Kit(dir);
+  const bed: LPaint = (p, f) => (f === "top" && Math.hypot(p.x, p.y) < 5.2 ? ["lilac", 2] : null);
+  k.ell({ x: 0, y: 0, z: 0 }, { x: 7, y: 7, z: Infinity }, [-8, 8, -8, 8, 0, 3], "lilac", { paint: bed });
+  const r = renderSolids(k.parts.map((q) => q.solid), cv.w, cv.h, cv.ax, cv.ay, "none", s);
+  const g0 = blank(CAT_SW[0]?.length ?? 0, CAT_SW.length);
+  stamp(g0, CAT_SW, 0, 0);
+  const g = dir === "sw" ? g0 : mirror(g0);
+  const cat = renderRoles(g, catRoles(c));
+  const gw = g[0]?.length ?? 0, gh = g.length;
+  // Paws rest just inside the cushion's top; nearest-neighbour sampling for the tray thumbnail (s < 1).
+  const W = Math.round(gw * s), H = Math.round(gh * s);
+  const ox = cv.ax - Math.round((gw / 2) * s), oy = cv.ay - Math.round(2 * s) - H;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const v = cat[Math.floor(y / s) * gw + Math.floor(x / s)] ?? 0;
+      if (v !== 0) r.img[(oy + y) * cv.w + ox + x] = v;
+    }
+  }
+  addOutline(r.img, cv.w, cv.h);
+  return r.img;
+}
+
 // ---------------------------------------------------------------- monstera (role grid leaves on a ray-cast pot)
 
 const LEAF_ROLES: RoleMap = {
@@ -527,7 +729,18 @@ export const PIECES: readonly PieceDef[] = [
     image: (d, c, s, cv) => rugImage(d === "nw" ? "nw" : "ne", c === "teal" ? "teal" : "lilac", c === "teal" ? "mustard" : "pink", s, cv),
   },
   { id: "frame", label: "Framed print", kind: "wall", mount: "wall", layer: "wall", colours: ["dusk", "tide"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k, c) => { wallFrame(k, c === "tide" ? "tide" : "dusk"); } },
+  // Catalogue v2 (OME-1103).
+  { id: "floorcushion", label: "Floor cushions", kind: "seat", colours: ["mustard", "teal"], dirs: ALL, cols: 1, rows: 1, seats: [0], build: (k, c) => { floorCushion(k, asRamp(c)); } },
+  { id: "bench", label: "Storage bench", kind: "seat", colours: ["teal", "pink"], dirs: ALL, cols: 2, rows: 1, seats: [0, 1], build: (k, c) => { bench(k, asRamp(c)); } },
+  { id: "turntable", label: "Record console", kind: "fun", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { recordConsole(k); } },
+  { id: "speaker", label: "Floor speaker", kind: "fun", colours: ["wood", "teal"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k, c) => { floorSpeaker(k, asRamp(c)); } },
+  { id: "cat", label: "Sleepy cat", kind: "fun", colours: ["ginger", "charcoal"], dirs: ["se", "sw"], cols: 1, rows: 1, image: (d, c, s, cv) => sleepyCat(d, asRamp(c), s, cv) },
+  { id: "wallshelf", label: "Wall shelf", kind: "wall", mount: "wall", layer: "wall", colours: ["wood"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { wallShelf(k); } },
+  { id: "garland", label: "String lights", kind: "light", mount: "wall", layer: "wall", colours: ["warm", "party"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k, c) => { garland(k, c); } },
 ];
+
+/** Catalogue v2 (OME-1103): shipped as its own lazy atlas, `furniture/furniture-v2.json`. */
+export const CATALOGUE_V2: ReadonlySet<string> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland"]);
 
 export interface Canvas { w: number; h: number; ax: number; ay: number }
 const CANVAS: Canvas = { w: 480, h: 400, ax: 220, ay: 300 };
