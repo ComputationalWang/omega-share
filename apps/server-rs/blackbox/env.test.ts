@@ -76,8 +76,6 @@ describe("envFor: start() options become environment variables", () => {
     ["rooms", ["lobby"]],
     ["seatHolds", []],
     ["roomGcIntervalMs", 50],
-    ["maxHttpInFlight", 2],
-    ["maxConnectionsPerIp", 2],
     ["ownHosts", ["x"]],
     ["now", () => 1],
     ["wallNow", () => 1],
