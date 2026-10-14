@@ -72,6 +72,19 @@ pub fn spawn_room_gc(app: Arc<App>) -> JoinHandle<()> {
     })
 }
 
+/// Runs one sweep so that a panic is caught and logged (`gc.sweep`) instead of ending GC. False if it panicked.
+fn sweep_guarded(app: &App, sweep: &(dyn Fn(&App) + Send + Sync)) -> bool {
+    let _ = (app, sweep);
+    true
+}
+
+/// `spawn_room_gc` with the sweep injected (tests make it panic).
+fn spawn_gc_with(app: Arc<App>, sweep: impl Fn(&App) + Send + Sync + 'static) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let _ = (app, sweep);
+    })
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::indexing_slicing, reason = "tests")]
 mod tests {
@@ -82,6 +95,14 @@ mod tests {
     use crate::contract::text::RoomTitle;
     use crate::outbox::{ConnId, Outbound, channel};
     use crate::room::RoomInit;
+
+    /// Lets the GC task and its blocking sweep run (the sweep is on the blocking pool: real time passes).
+    async fn settle() {
+        for _ in 0..20 {
+            tokio::task::yield_now().await;
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+    }
 
     const MIN: i64 = 60_000;
     const HOUR: i64 = 60 * MIN;
@@ -217,26 +238,49 @@ mod tests {
         add_room(&app, ID_A, created(T0 - 2 * HOUR, None));
         add_room(&app, ID_B, created(T0, None));
         let gc = spawn_room_gc(app.clone());
-        for _ in 0..5 {
-            tokio::task::yield_now().await;
-        }
+        settle().await;
         assert!(app.registry.get(&rid(ID_A)).is_none(), "the boot sweep");
         assert!(app.registry.get(&rid(ID_B)).is_some());
         clock.set_wall(T0 + HOUR);
         tokio::time::advance(std::time::Duration::from_millis(ROOM_GC_INTERVAL_MS)).await;
-        for _ in 0..5 {
-            tokio::task::yield_now().await;
-        }
+        settle().await;
         assert!(app.registry.get(&rid(ID_B)).is_none(), "the interval sweep");
         gc.abort();
         let _ = gc.await;
         add_room(&app, ID_C, created(T0, None));
         clock.set_wall(T0 + 3 * HOUR);
         tokio::time::advance(std::time::Duration::from_millis(ROOM_GC_INTERVAL_MS * 3)).await;
-        for _ in 0..5 {
-            tokio::task::yield_now().await;
-        }
+        settle().await;
         assert!(app.registry.get(&rid(ID_C)).is_some(), "stopped");
+    }
+
+    #[test]
+    fn a_panicking_sweep_is_caught_and_reported_false() {
+        let (app, _) = app();
+        assert!(!sweep_guarded(&app, &|_| panic!("boom")));
+        assert!(sweep_guarded(&app, &|_| ()));
+    }
+
+    // A bug in one sweep must not end room GC for good.
+    #[tokio::test(start_paused = true)]
+    async fn a_panicking_sweep_does_not_stop_the_next_one() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let (app, _) = app();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let seen = calls.clone();
+        let gc = spawn_gc_with(app, move |_| {
+            // The boot sweep and the first interval sweep panic; the third runs.
+            if seen.fetch_add(1, Ordering::SeqCst) < 2 {
+                panic!("sweep bug");
+            }
+        });
+        for _ in 0..2 {
+            settle().await;
+            tokio::time::advance(std::time::Duration::from_millis(ROOM_GC_INTERVAL_MS)).await;
+        }
+        settle().await;
+        assert!(calls.load(Ordering::SeqCst) >= 3, "{}", calls.load(Ordering::SeqCst));
+        gc.abort();
     }
 
     // apps/server/test/reports.test.ts:418 "the room GC sweep purges them"
@@ -250,9 +294,7 @@ mod tests {
         assert_eq!(crate::reports::open_count(&app).unwrap(), 1);
         clock.set_wall(T0 + REPORT_RETENTION_MS as i64 + 1);
         let gc = spawn_room_gc(app.clone());
-        for _ in 0..5 {
-            tokio::task::yield_now().await;
-        }
+        settle().await;
         assert_eq!(crate::reports::open_count(&app).unwrap(), 0);
         gc.abort();
     }
