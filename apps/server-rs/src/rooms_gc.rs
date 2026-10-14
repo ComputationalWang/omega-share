@@ -62,26 +62,46 @@ fn sweep_once(app: &App) {
 /// Sweeps now, then every `ROOM_GC_INTERVAL_MS` on the app's clock (so the virtual clock of the test build drives
 /// it), purging old reports after each sweep. The task ends when its handle is aborted or the runtime stops.
 pub fn spawn_room_gc(app: Arc<App>) -> JoinHandle<()> {
-    // The boot sweep runs before this returns, so it is done before the caller starts listening.
-    sweep_once(&app);
-    tokio::spawn(async move {
-        loop {
-            app.clock.sleep(ROOM_GC_INTERVAL_MS as f64).await;
-            sweep_once(&app);
-        }
-    })
+    spawn_gc_with(app, sweep_once)
 }
 
 /// Runs one sweep so that a panic is caught and logged (`gc.sweep`) instead of ending GC. False if it panicked.
 fn sweep_guarded(app: &App, sweep: &(dyn Fn(&App) + Send + Sync)) -> bool {
-    let _ = (app, sweep);
-    true
+    let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| sweep(app)));
+    if ran.is_err() {
+        log_error(LogEvent::GcSweep, Some(&SweepPanicked));
+    }
+    ran.is_ok()
 }
+
+/// The error a panicking sweep is logged as (the panic payload may hold anything, so it is not printed).
+#[derive(Debug)]
+struct SweepPanicked;
+
+impl std::fmt::Display for SweepPanicked {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("sweep panicked")
+    }
+}
+
+impl std::error::Error for SweepPanicked {}
 
 /// `spawn_room_gc` with the sweep injected (tests make it panic).
 fn spawn_gc_with(app: Arc<App>, sweep: impl Fn(&App) + Send + Sync + 'static) -> JoinHandle<()> {
+    let sweep = Arc::new(sweep);
+    // The boot sweep runs before this returns, so it is done before the caller starts listening.
+    sweep_guarded(&app, sweep.as_ref());
     tokio::spawn(async move {
-        let _ = (app, sweep);
+        loop {
+            app.clock.sleep(ROOM_GC_INTERVAL_MS as f64).await;
+            // On the blocking pool: a sweep does synchronous store writes under room locks. A panic is a
+            // JoinError there; it is logged and the loop goes on.
+            let (app, sweep) = (app.clone(), sweep.clone());
+            let swept = tokio::task::spawn_blocking(move || sweep_guarded(&app, sweep.as_ref())).await;
+            if let Err(err) = swept {
+                log_error(LogEvent::GcSweep, Some(&err));
+            }
+        }
     })
 }
 
