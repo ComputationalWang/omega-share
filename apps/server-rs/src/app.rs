@@ -340,21 +340,28 @@ impl App {
     /// `None` if the room does not exist or was removed (a join closes ROOM_CLOSED, a share answers 404).
     /// `f` is synchronous: no `.await`, and it must not call the registry (it holds a room lock).
     pub fn with_open_room<R>(&self, id: &RoomId, f: impl FnOnce(&mut RoomInner) -> R) -> Option<R> {
-        let _ = (id, f);
-        None
+        let cell = self.registry.get(id)?;
+        let mut inner = cell.lock_open()?;
+        Some(f(&mut inner))
     }
 
     /// Registers a new room (`POST /rooms`: create the row first, then this). `Err` if the id is taken.
     pub fn insert_room(&self, room: Room) -> Result<Arc<RoomCell>, DuplicateRoom> {
-        let _ = room;
-        Err(DuplicateRoom)
+        self.registry.add_room(room, self.mono())
     }
 
     /// `closeAll` (ws.ts): a close frame to every socket of every room, counted in the close metrics.
     /// The graceful restart uses it with SERVICE_RESTART. Returns how many were queued.
     pub fn close_all_sockets(&self, code: u16, reason: &'static str) -> usize {
-        let _ = (code, reason);
-        0
+        let mut sent = 0;
+        for cell in self.registry.values() {
+            let queued = close_all(&mut cell.lock(), code, reason);
+            for _ in 0..queued {
+                self.metrics.count_close(code);
+            }
+            sent += queued;
+        }
+        sent
     }
 
     /// The hooks of a room already unlinked from the registry (`remove_room`, and GC after `remove_if`).

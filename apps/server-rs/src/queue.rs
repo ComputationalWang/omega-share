@@ -4,6 +4,9 @@
 //! Every function runs synchronously under the room's lock (`inner` is the locked [`RoomInner`]); it may take
 //! the store lock (room, then store) and publishes through the room's outboxes. Nothing here awaits.
 //!
+//! Callers hold an open guard (`App::with_open_room`); every function here also refuses a closed room, so a
+//! handler that fetched the cell before the room was removed changes nothing.
+//!
 //! Call order for an add: [`admit`] (checks and spends the buckets, before the URL is looked at), then [`add`].
 
 use crate::app::App;
@@ -54,6 +57,9 @@ pub enum QueueAddRefusal {
 /// A `queue-add`'s checks before the URL is looked at (ADR 0031 section 3): control policy, then the member's
 /// bucket, then the room's. `Ok` when they pass (the buckets are spent).
 pub fn admit(app: &App, inner: &mut RoomInner, actor: &QueueActor) -> Result<(), QueueRefusal> {
+    if inner.closed {
+        return Err(QueueRefusal::RoomClosed);
+    }
     if inner.room.control_policy() == ControlPolicy::Owner && !actor.owner {
         return Err(QueueRefusal::ControlOwnerOnly);
     }
@@ -140,6 +146,9 @@ fn advance_now(app: &App, inner: &mut RoomInner, by: Option<MemberId>) {
 /// After `admit`: parses `url` with the share parser, checks `QUEUE_MAX`, stores, then tells the room. In a room
 /// with no current item the same write starts the queue's head (ADR 0031 section 5).
 pub fn add(app: &App, inner: &mut RoomInner, actor: &QueueActor, url: &str) -> Result<QueueItem, QueueAddRefusal> {
+    if inner.closed {
+        return Err(QueueAddRefusal::RoomClosed);
+    }
     // Only the parsed embed is ever stored or relayed (ADR 0031 section 2, ADR 0024).
     let Some(embed) = app.embeds.accept(url) else {
         return Err(QueueAddRefusal::UnsupportedUrl);
@@ -198,6 +207,9 @@ pub fn add(app: &App, inner: &mut RoomInner, actor: &QueueActor, url: &str) -> R
 
 /// `queue-remove`: refused under the owner policy; an item that isn't there is ignored (`Ok`).
 pub fn remove(app: &App, inner: &mut RoomInner, actor: &QueueActor, item: &QueueItemId) -> Result<(), QueueRefusal> {
+    if inner.closed {
+        return Err(QueueRefusal::RoomClosed);
+    }
     owner_only(inner, actor)?;
     // Removed already, or advanced: a race, not a mistake.
     if !inner.room.queue().iter().any(|i| i.id == *item) {
@@ -213,6 +225,9 @@ pub fn remove(app: &App, inner: &mut RoomInner, actor: &QueueActor, item: &Queue
 
 /// `queue-advance`: refused under the owner policy; ignored (`Ok`) unless `from` is the current item.
 pub fn advance(app: &App, inner: &mut RoomInner, actor: &QueueActor, from: &QueueItemId) -> Result<(), QueueRefusal> {
+    if inner.closed {
+        return Err(QueueRefusal::RoomClosed);
+    }
     owner_only(inner, actor)?;
     // Two clicks from the same item skip one item: the second names what is no longer current.
     if inner.room.item_id() == Some(from) {
@@ -224,6 +239,9 @@ pub fn advance(app: &App, inner: &mut RoomInner, actor: &QueueActor, from: &Queu
 /// `ended` from a joined member: advances on the first valid report (ADR 0031 section 4), else nothing.
 /// Not subject to the control policy.
 pub fn ended(app: &App, inner: &mut RoomInner, item: &QueueItemId, position: f64) {
+    if inner.closed {
+        return;
+    }
     if inner.room.item_id() != Some(item) {
         return;
     }

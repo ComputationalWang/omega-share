@@ -6,6 +6,11 @@
 //! the [`OutboxRx`] and drains it to the socket. A subscriber whose queue holds more than `BACKPRESSURE_LIMIT`
 //! bytes (or whose channel is full) is marked dead and dropped from the room: its writer sees `None` from
 //! [`OutboxRx::recv`] and drops the connection WITHOUT a close frame, so the client sees 1006, as with Bun.
+//!
+//! **S6 notes.** When publish drops a dead outbox, the connection's reader task must notice: when the writer
+//! ends (`recv` returns `None`) abort the reader too, or the session lingers until the idle timeout. On a
+//! normal close, call `detach` (and `unsubscribe` on a leave) under the room lock. Sockets are attached with
+//! `RoomInner::attach_socket`, which refuses a closed room.
 
 use crate::contract::server_message::{ServerMessage, encode};
 use crate::log::{LogEvent, log_error};
@@ -249,10 +254,16 @@ pub fn publish_except(inner: &mut RoomInner, conn: ConnId, frame: &Utf8Bytes) {
 /// Encodes `msg` once and publishes it to every subscriber (`server.publish(topic, JSON.stringify(msg))`).
 /// False, and nothing is encoded, when the room has no subscriber.
 pub fn publish_msg(inner: &mut RoomInner, msg: &ServerMessage) -> bool {
-    if let Some(frame) = encode_frame(msg) {
-        publish_all(inner, &frame);
+    if inner.subscribers.subscribed() == 0 {
+        return false;
     }
-    true
+    match encode_frame(msg) {
+        Some(frame) => {
+            publish_all(inner, &frame);
+            true
+        }
+        None => false,
+    }
 }
 
 /// `ws.send(frame)`: to one connection, subscribed or not. False if it is gone or went dead.

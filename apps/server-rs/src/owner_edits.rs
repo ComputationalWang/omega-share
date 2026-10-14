@@ -1,6 +1,8 @@
 //! Port of `apps/server/src/ws-owner-edits.ts`: an owner's room edits (ADR 0028 section 6, ADR 0030 section 4),
 //! store first. The caller (S6) has checked that the sender is the owner and has taken from their bucket.
 //!
+//! Callers hold an open guard (`App::with_open_room`); a closed room is a no-op here too.
+//!
 //! Each function runs under the room's lock (`inner`); a store failure is logged (`store.layout`,
 //! `store.title`, `store.control_policy`) and then nothing changes, so memory never runs ahead of the database.
 
@@ -17,6 +19,9 @@ use crate::store::StoreError;
 
 /// Last write wins; seats keep their indices, so nobody is unseated (ADR 0028 section 6).
 pub fn set_layout(app: &App, inner: &mut RoomInner, by: &MemberId, layout: RoomLayout) {
+    if inner.closed {
+        return;
+    }
     if layout == *inner.room.layout() {
         return;
     }
@@ -42,6 +47,9 @@ fn persisted(event: LogEvent, result: Result<(), StoreError>) -> bool {
 /// A title the blocklist refuses is answered with an `error` (`bad_message`, "that title isn't allowed") to
 /// `sender` only: a valid frame, so it doesn't count toward the 4400 close.
 pub fn set_title(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberId, title: RoomTitle) {
+    if inner.closed {
+        return;
+    }
     if inner.room.title() == Some(&title) {
         return;
     }
@@ -66,6 +74,9 @@ pub fn set_title(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberId
 }
 
 pub fn set_control_policy(app: &App, inner: &mut RoomInner, by: &MemberId, policy: ControlPolicy) {
+    if inner.closed {
+        return;
+    }
     if policy == inner.room.control_policy() {
         return;
     }

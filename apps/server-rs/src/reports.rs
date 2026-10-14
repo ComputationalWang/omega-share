@@ -262,6 +262,11 @@ enum Unwritten {
 pub fn file(app: &App, inner: &mut RoomInner, key: &str, request: &ReportRequest) -> FileResult {
     let now = app.mono();
     let metrics = &app.metrics;
+    // The caller found the room before it was removed; nothing is stored for it.
+    if inner.closed {
+        metrics.count_report("room_not_found", None);
+        return FileResult::RoomGone;
+    }
     if !inner.report_bucket.take(now) {
         metrics.count_report("rate_limited", None);
         let wait = inner.report_bucket.retry_after_ms_capped(now, REPORT_ROOM_REFILL_MS as f64);

@@ -5,8 +5,14 @@
 //! can be forgotten or resurrected by a late caller.
 //!
 //! Locking (PORTING.md): registry, then room, then store. The registry's lock is held only to look a cell up,
-//! add one or unlink one; a handler already holding a room's lock never touches the registry. Removal hooks
-//! (reports, sockets, store row) run in `App::remove_room`, after the registry lock is released.
+//! add one or unlink one. **Never call the registry while holding a room lock** (not `get`, not `len`, not
+//! `values`): `remove_if` holds the registry write lock and wants a room, std's RwLock lets that writer starve
+//! later readers, so the two deadlock. `remove_if` only `try_lock`s a room; a busy room is "retry later".
+//! Removal hooks (reports, sockets, store row) run in `App::remove_room`, after the registry lock is released.
+//!
+//! "Is this room still live?" has one answer: `RoomInner::closed`, set under the room's lock when the room is
+//! unlinked. Handlers enter a room through `App::with_open_room`, which checks it; code that already holds a
+//! guard checks `inner.closed` (the domain functions in `queue`, `reports` and `owner_edits` do).
 
 use crate::contract::ids::{MemberId, RoomId, ShareToken};
 use crate::outbox::{ConnId, Outbox, Subscribers};
@@ -14,7 +20,7 @@ use crate::rate_limit::TokenBucket;
 use crate::room::Room;
 use crate::secrets::hash_secret;
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 
 /// Why a room ends: owner delete, GC, operator delete; or an operator takedown (ADR 0033 section 5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -161,6 +167,9 @@ impl RoomInner {
 
     /// Every member ends with the room (ws.ts `sessions.endAll`, minus the sessions S6 adds): share grants are
     /// revoked and member state dropped. Sockets are closed by `outbox::close_all`.
+    ///
+    /// **S6 adds here**: end every session (`Session` teardown, resume tokens) and cancel the join and
+    /// `member-status` timers, as ws.ts's `onRemove` hook does before closing the sockets.
     pub fn end_all(&mut self) {
         self.grants.clear();
         self.member_adds.clear();
@@ -174,8 +183,11 @@ impl RoomInner {
     /// A socket opened on the room. `Err(Closed)` if the room was removed: an upgrade that raced the removal
     /// would otherwise keep a socket that never gets its close frame.
     pub fn attach_socket(&mut self, conn: ConnId, outbox: Outbox) -> Result<(), Closed> {
-        let _ = (conn, outbox);
-        Err(Closed)
+        if self.closed {
+            return Err(Closed);
+        }
+        self.subscribers.attach(conn, outbox);
+        Ok(())
     }
 
     pub fn id(&self) -> &RoomId {
@@ -205,7 +217,8 @@ impl RoomCell {
     /// Like [`Self::lock`], but `None` once the room was removed. Handlers enter a room through
     /// `App::with_open_room`, which uses this.
     pub fn lock_open(&self) -> Option<MutexGuard<'_, RoomInner>> {
-        Some(self.lock())
+        let guard = self.lock();
+        (!guard.closed).then_some(guard)
     }
 }
 
@@ -216,6 +229,13 @@ pub struct Closed;
 /// `addRoom` of an id already registered.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DuplicateRoom;
+
+enum Attempt {
+    Removed(Arc<RoomCell>),
+    Missing,
+    NotDue,
+    Busy,
+}
 
 #[derive(Debug, Default)]
 struct Slots {
@@ -280,28 +300,53 @@ impl Registry {
     }
 
     /// Unlinks a room: new lookups miss it and `closed` is set. `None` if it was not registered. Only the
-    /// unlinking; `App::remove_room` runs the hooks.
+    /// unlinking; `App::remove_room` runs the hooks. A busy room is waited for, outside the registry lock.
     pub fn remove(&self, id: &RoomId) -> Option<Arc<RoomCell>> {
-        self.remove_if(id, |_| true)
+        loop {
+            match self.try_remove(id, |_| true) {
+                Attempt::Removed(cell) => return Some(cell),
+                Attempt::Missing | Attempt::NotDue => return None,
+                Attempt::Busy => {
+                    // Wait for the holder with no registry lock held, then try again.
+                    let cell = self.get(id)?;
+                    drop(cell.lock());
+                }
+            }
+        }
     }
 
-    /// Like `remove`, but only if `keep_going` holds for the room, checked under the registry's write lock and
+    /// Like `remove`, but only if `due` holds for the room, checked under the registry's write lock and
     /// the room's own, so nothing can change between the check and the unlink (GC uses it to skip a room
     /// someone just joined).
     pub fn remove_if(&self, id: &RoomId, due: impl FnOnce(&RoomInner) -> bool) -> Option<Arc<RoomCell>> {
+        match self.try_remove(id, due) {
+            Attempt::Removed(cell) => Some(cell),
+            Attempt::Missing | Attempt::NotDue | Attempt::Busy => None,
+        }
+    }
+
+    fn try_remove(&self, id: &RoomId, due: impl FnOnce(&RoomInner) -> bool) -> Attempt {
         let mut slots = self.write();
-        let seq = *slots.by_id.get(id)?;
-        let cell = slots.cells.get(&seq)?.clone();
-        // Registry, then room: the allowed order. Handlers under a room lock never wait on the registry.
-        let mut inner = cell.lock();
+        let Some(&seq) = slots.by_id.get(id) else {
+            return Attempt::Missing;
+        };
+        let Some(cell) = slots.cells.get(&seq).cloned() else {
+            return Attempt::Missing;
+        };
+        // Never block on a room under the registry write lock: a busy room is not due now.
+        let mut inner = match cell.inner.try_lock() {
+            Ok(guard) => guard,
+            Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(TryLockError::WouldBlock) => return Attempt::Busy,
+        };
         if !due(&inner) {
-            return None;
+            return Attempt::NotDue;
         }
         inner.closed = true;
         drop(inner);
         slots.by_id.remove(id);
         slots.cells.remove(&seq);
-        Some(cell)
+        Attempt::Removed(cell)
     }
 
     /// Total [`RoomInner::entries`] over the live rooms.
