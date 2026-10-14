@@ -47,7 +47,13 @@ describe("parseJunit", () => {
 const r = (id: string, status: TestResult["status"], file = "f.test.ts"): TestResult => ({ id, file, status });
 
 describe("evaluate", () => {
-  const results = [r("a", "pass"), r("b", "fail"), r("c", "not-black-box"), r("d", "pass"), r("u", "pass", "unit.test.ts")];
+  const results = [
+    r("a", "pass"),
+    r("b", "fail"),
+    r("c", "not-black-box"),
+    r("d", "pass"),
+    r("u", "pass", "unit.test.ts"),
+  ];
   const usesServer = (file: string): boolean => file !== "unit.test.ts";
 
   test("a listed test that no longer passes is a regression; a listed test that vanished too", () => {
