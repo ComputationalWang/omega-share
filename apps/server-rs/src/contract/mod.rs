@@ -2,15 +2,21 @@
 //! boundary; nothing past it handles unparsed input.
 
 pub mod capabilities;
+pub mod confusables;
 pub mod constants;
 pub mod embed;
 pub mod generic_embed;
+pub mod ids;
 pub mod js_compat;
+pub mod layout;
+pub mod room;
 pub mod session;
+pub mod text;
+pub mod unicode_props;
 
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{DeserializeOwned, MapAccess, Visitor};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::marker::PhantomData;
 use validator::{Validate, ValidationErrors};
@@ -57,6 +63,13 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for Obj<T> {
         }
         // `deserialize_map` refuses an array before the derived visitor could read it as a sequence.
         deserializer.deserialize_map(MapOnly(PhantomData)).map(Obj)
+    }
+}
+
+/// Transparent; validator wants a `Vec<Obj<_>>` item serializable to build its error values.
+impl<T: Serialize> Serialize for Obj<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
     }
 }
 

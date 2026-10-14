@@ -1,6 +1,7 @@
 //! The `serve` command: config → listener → router, until SIGTERM/SIGINT.
 
 use crate::config::ServerConfig;
+use crate::log::stdout_line;
 use axum::Router;
 use axum::http::StatusCode;
 use std::future::IntoFuture;
@@ -21,7 +22,10 @@ pub async fn serve(config: ServerConfig) -> std::io::Result<()> {
         .as_deref()
         .map(|o| format!(", public origin {o}"))
         .unwrap_or_default();
-    println!("omega-share server on http://{addr}/ (site origin {}{via})", config.site_origin);
+    stdout_line(&format!(
+        "omega-share server on http://{addr}/ (site origin {}{via})",
+        config.site_origin
+    ));
     let app = Router::new().fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
 
     let (stop, mut stopped) = watch::channel(false);

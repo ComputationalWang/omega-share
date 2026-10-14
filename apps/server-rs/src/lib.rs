@@ -4,4 +4,8 @@ pub mod clock;
 pub mod config;
 pub mod contract;
 pub mod embed_policy;
+pub mod headers;
+pub mod log;
+pub mod presets;
+pub mod rate_limit;
 pub mod serve;
