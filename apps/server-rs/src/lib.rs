@@ -12,6 +12,7 @@ pub mod headers;
 pub mod http;
 pub mod log;
 pub mod metrics;
+pub mod metrics_server;
 pub mod ops;
 pub mod outbox;
 pub mod owner_edits;
@@ -25,6 +26,7 @@ pub mod room;
 pub mod rooms_gc;
 pub mod secrets;
 pub mod serve;
+pub mod shutdown;
 pub mod store;
 #[cfg(feature = "test-hooks")]
 pub mod test_hooks;
