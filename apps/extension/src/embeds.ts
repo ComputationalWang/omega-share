@@ -7,6 +7,11 @@ export const MAX_CANDIDATES = 500;
 export const MIN_FRAME_WIDTH = 200;
 export const MIN_FRAME_HEIGHT = 120;
 
+/** Ad and SDK hosts (and their subdomains) whose frames are never the video (OME-1071: IMA bridges on theverge.com). */
+export const AD_FRAME_HOSTS: readonly string[] = ["imasdk.googleapis.com", "doubleclick.net", "googlesyndication.com", "googleadservices.com", "googletagservices.com"];
+
+const isAdHost = (host: string): boolean => AD_FRAME_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
+
 /** A frame's rendered size in CSS px. */
 export interface FrameSize {
   readonly width: number;
@@ -40,6 +45,7 @@ function frameCandidates(x: unknown): { url: string; size: FrameSize }[] {
  * synced embeds first in page order (the contract's allowlist), then other `https:` sources
  * that pass the shared generic validator (ADR 0024, not synced), most likely video first:
  * `<video>` sources, then iframes largest first, tiny and hidden ones dropped (OME-1037).
+ * Known ad and SDK hosts (`AD_FRAME_HOSTS`) are never generic either.
  * `ownHosts` (our server's host) and their subdomains are never generic: the server refuses those.
  * `scan` comes from the page, so anything not shaped like a `PageScan` is ignored.
  */
@@ -47,7 +53,8 @@ export function listEmbeds(scan: unknown, ownHosts: readonly string[] = []): Lis
   if (typeof scan !== "object" || scan === null || Array.isArray(scan)) return [];
   const seen = new Map<string, ListedEmbed>();
   const add = (embed: ListedEmbed | null): void => {
-    if (embed !== null && !seen.has(embed.url)) seen.set(embed.url, embed);
+    if (embed === null || seen.has(embed.url) || (embed.provider === "generic" && isAdHost(embed.host))) return;
+    seen.set(embed.url, embed);
   };
   for (const c of candidates("urls" in scan ? scan.urls : undefined)) add(canonicalizeEmbed(c));
   // canonicalizeGenericEmbed rejects synced-provider hosts, so nothing is listed twice.
