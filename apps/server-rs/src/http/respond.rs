@@ -4,7 +4,7 @@
 use crate::contract::responses::{ErrorBody, Response as Typed, to_body};
 use crate::contract::server_message::{ErrorMessage, RetryAfter};
 use axum::body::Body;
-use axum::http::header::{CONTENT_TYPE, RETRY_AFTER};
+use axum::http::header::{CONNECTION, CONTENT_TYPE, RETRY_AFTER};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::Response;
 use serde::Serialize;
@@ -72,6 +72,10 @@ pub fn failure<T: Serialize, C: Serialize, const MAX: u64>(status: StatusCode, c
         retry_after_ms,
     });
     let mut res = json(status, &body);
+    // The oversized body is left unread, so the connection ends after this answer: say so, or a keep-alive client reuses it.
+    if status == StatusCode::PAYLOAD_TOO_LARGE {
+        res.headers_mut().insert(CONNECTION, HeaderValue::from_static("close"));
+    }
     if let Some(ms) = retry_ms {
         retry_after(&mut res, ms);
     }
