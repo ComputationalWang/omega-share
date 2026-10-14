@@ -4,10 +4,30 @@
 //  - url-pathname: the pathname of the request URL (`new URL(...)`: dot segments resolved, %2e counts as a dot).
 //  - route-path: Hono's `getPath` on that URL (decodeURI, `%25` kept), what routes and static files are matched on.
 //  - mime-type: Hono's `getMimeType` (static files' content types).
-import { getPath } from "../../server/node_modules/hono/dist/utils/url";
-import { getMimeType } from "../../server/node_modules/hono/dist/utils/mime";
 import { securityTxt, siteMeta, withMeta } from "../../server/src/site-meta";
 import { decided, type Corpus } from "./corpora";
+
+/**
+ * A function of Hono's own utils, which only `apps/server` depends on (so the type-checker can't resolve it from
+ * here): loaded by path and checked at runtime.
+ */
+type OneArg = (arg: unknown) => unknown;
+async function honoUtil(file: "url" | "mime", name: string): Promise<OneArg> {
+  const mod: unknown = await import(`../../server/node_modules/hono/dist/utils/${file}.js`);
+  const fn: unknown = typeof mod === "object" && mod !== null ? Reflect.get(mod, name) : undefined;
+  if (typeof fn !== "function") throw new Error(`hono/utils/${file} has no ${name}`);
+  return (arg) => {
+    const out: unknown = Reflect.apply(fn, undefined, [arg]);
+    return out;
+  };
+}
+const getPathFn = await honoUtil("url", "getPath");
+const getMimeTypeFn = await honoUtil("mime", "getMimeType");
+const getPath = (request: Request): string => String(getPathFn(request));
+const getMimeType = (file: string): string | undefined => {
+  const mime = getMimeTypeFn(file);
+  return typeof mime === "string" ? mime : undefined;
+};
 
 const ORIGINS = ["http://localhost:5173", "https://quiet-otter.ngrok-free.app", "https://a.example:8443", "http://127.0.0.1:8787", `https://x.example/"<&>'`, ""];
 

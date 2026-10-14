@@ -175,7 +175,7 @@ impl Drop for InFlight<'_> {
 
 /// The per-key bucket (429) and the cap on requests being handled (503) of `createHttpGate`: `Ok` with the
 /// in-flight guard, or the refusal. Loopback keys skip the per-key bucket (ADR 0018 section 3).
-pub fn admit_http<'a>(app: &'a App, key: &str) -> Result<InFlight<'a>, Response> {
+pub fn admit_http<'a>(app: &'a App, key: &str) -> Result<InFlight<'a>, Box<Response>> {
     if !is_loopback_key(key) {
         let now = app.mono();
         let mut requests = crate::app::lock(&app.http.requests);
@@ -183,12 +183,12 @@ pub fn admit_http<'a>(app: &'a App, key: &str) -> Result<InFlight<'a>, Response>
             let wait = requests.retry_after_ms(key, now) as u64;
             let mut res = with_type(StatusCode::TOO_MANY_REQUESTS, PLAIN, "too many requests");
             retry_after(&mut res, wait);
-            return Err(res);
+            return Err(Box::new(res));
         }
     }
     InFlight::enter(&app.http.in_flight, app.config.max_http_in_flight).ok_or_else(|| {
         let mut res = with_type(StatusCode::SERVICE_UNAVAILABLE, PLAIN, "server busy");
         retry_after(&mut res, 1000);
-        res
+        Box::new(res)
     })
 }

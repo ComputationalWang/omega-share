@@ -179,13 +179,12 @@ impl Fx {
         for (k, v) in headers {
             out.extend_from_slice(format!("{k}: {v}\r\n").as_bytes());
         }
-        if let Some(body) = body {
-            if !headers
+        if let Some(body) = body
+            && !headers
                 .iter()
                 .any(|(k, _)| k.eq_ignore_ascii_case("content-length") || k.eq_ignore_ascii_case("transfer-encoding"))
-            {
-                out.extend_from_slice(format!("Content-Length: {}\r\n", body.len()).as_bytes());
-            }
+        {
+            out.extend_from_slice(format!("Content-Length: {}\r\n", body.len()).as_bytes());
         }
         out.extend_from_slice(b"Connection: close\r\n\r\n");
         if let Some(body) = body {
@@ -1539,7 +1538,7 @@ fn page(res: &Resp) -> String {
 
 fn og_title(html: &str) -> Option<String> {
     let at = html.find(r#"<meta property="og:title" content=""#)? + r#"<meta property="og:title" content=""#.len();
-    Some(html[at..].split('"').next()?.to_owned())
+    Some(html.get(at..)?.split('"').next()?.to_owned())
 }
 
 // apps/server/test/site.test.ts:101,109

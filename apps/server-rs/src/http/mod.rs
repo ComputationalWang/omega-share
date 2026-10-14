@@ -201,7 +201,7 @@ async fn gated(app: &Arc<App>, mut req: Request, next: Next, route: String) -> R
     }
     let _in_flight = match gate::admit_http(app, &key) {
         Ok(guard) => guard,
-        Err(refused) => return refused,
+        Err(refused) => return *refused,
     };
     next.run(req).await
 }

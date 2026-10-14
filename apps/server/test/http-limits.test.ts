@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { networkInterfaces, tmpdir } from "node:os";
 import { join } from "node:path";
-import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
+import { Client, postShare, start, TestClock, tokenOf, type TestServer } from "./helpers";
 
 /** Threat model §10 "HTTP floods" (OME-274): a per-key request bucket on every HTTP route, and a global in-flight cap. */
 let t: TestServer | null = null;
@@ -13,9 +13,9 @@ afterEach(async () => {
   t = null;
 });
 
-/** A stopped clock: no bucket refills during a test unless it moves `time` by hand. */
-let time = 0;
-const now = () => time;
+/** A stopped clock: no bucket refills during a test unless it moves `clock` by hand. */
+const clock = new TestClock(0);
+const now = clock.now;
 
 /** A request as the tunnel forwards it: from loopback, the client's address the rightmost XFF entry. */
 const getAs = (xff: string, path = "/healthz") => fetch(`${t?.http ?? ""}${path}`, { headers: { "x-forwarded-for": xff } });
@@ -63,7 +63,7 @@ describe("per-key HTTP request limit", () => {
     t = start({ trustProxy: true, now });
     await exhaust("198.51.100.1");
     expect(await statuses("198.51.100.2", 5)).toEqual([200, 200, 200, 200, 200]);
-    time += 60_000;
+    await clock.set({ mono: clock.mono + 60_000 });
     expect((await getAs("198.51.100.1")).status).toBe(200);
   });
 
