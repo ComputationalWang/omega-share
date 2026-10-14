@@ -124,6 +124,12 @@ async fn scrape(State((app, port)): State<(Arc<App>, u16)>, method: Method, head
 
 /// Binds 127.0.0.1:`port` (0 for any) and serves scrapes. Loopback only: the address is not configurable.
 pub async fn start_metrics(app: Arc<App>, port: u16) -> std::io::Result<MetricsServer> {
+    start_metrics_with(app, port, crate::http::server::HEADER_READ_TIMEOUT).await
+}
+
+/// `start_metrics` with another header-read timeout (tests).
+pub async fn start_metrics_with(app: Arc<App>, port: u16, header_read_timeout: std::time::Duration) -> std::io::Result<MetricsServer> {
+    let _ = header_read_timeout;
     let listener = TcpListener::bind(("127.0.0.1", port)).await?;
     let port = listener.local_addr()?.port();
     let router = Router::new().fallback(scrape).with_state((app, port));
@@ -341,6 +347,33 @@ mod tests {
                 .await
                 .starts_with("HTTP/1.1 405")
         );
+        server.stop();
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
+mod timeout_tests {
+    use super::*;
+    use crate::app::testing::app;
+    use std::io::{Read, Write};
+
+    // An idle local connection must not live forever (the HTTP listener's slowloris guard).
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_client_that_never_finishes_its_head_is_cut() {
+        let (app, _) = app();
+        let server = start_metrics_with(app, 0, std::time::Duration::from_millis(200)).await.unwrap();
+        let port = server.port();
+        let got = tokio::task::spawn_blocking(move || {
+            let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+            stream.set_read_timeout(Some(std::time::Duration::from_secs(3))).unwrap();
+            stream.write_all(b"GET /metrics HTTP/1.1\r\nX-A: ").unwrap();
+            let mut out = Vec::new();
+            stream.read_to_end(&mut out).map(|_| out)
+        })
+        .await
+        .unwrap();
+        assert!(got.is_ok(), "still open after 3 s: {got:?}");
         server.stop();
     }
 }

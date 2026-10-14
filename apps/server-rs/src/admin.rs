@@ -27,6 +27,7 @@ use serde::Serialize;
 use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::UnixListener;
 use tokio::task::JoinHandle;
 
@@ -313,6 +314,15 @@ pub struct AdminServer {
     path: PathBuf,
 }
 
+/// The same 10 s the HTTP listener gives a client to send its request head (`http::server::HEADER_READ_TIMEOUT`).
+const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Serves `router` on a Unix listener; a client that takes longer than `header_read_timeout` to send its head is cut.
+async fn serve_unix(listener: UnixListener, router: Router, header_read_timeout: Duration) {
+    let _ = header_read_timeout;
+    let _ = axum::serve(listener, router).await;
+}
+
 /// The bytes a `sockaddr_un` path holds (108 with the NUL).
 const SUN_PATH_MAX: usize = 107;
 /// `<parent>/.a<8 hex>/s` is this much longer than `<parent>`.
@@ -336,7 +346,7 @@ fn serve_on(app: Arc<App>, listener: UnixListener, socket: &Path) -> AdminServer
         .with_state(app);
     let task = tokio::spawn(async move {
         // The listener ends only when the task is aborted at shutdown; an accept error is retried by axum.
-        let _ = axum::serve(listener, router).await;
+        serve_unix(listener, router, HEADER_READ_TIMEOUT).await;
     });
     AdminServer {
         task,
@@ -782,5 +792,32 @@ mod long_path_tests {
         let names: Vec<_> = std::fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().file_name()).collect();
         assert_eq!(names, ["admin.sock"]);
         server.stop().await;
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
+mod timeout_tests {
+    use super::*;
+    use std::io::{Read, Write};
+
+    // An idle local connection must not live forever (the HTTP listener's slowloris guard).
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_client_that_never_finishes_its_head_is_cut() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("t.sock");
+        let listener = UnixListener::bind(&path).unwrap();
+        let task = tokio::spawn(serve_unix(listener, Router::new(), Duration::from_millis(200)));
+        let got = tokio::task::spawn_blocking(move || {
+            let mut stream = std::os::unix::net::UnixStream::connect(&path).unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            stream.write_all(b"GET /rooms HTTP/1.1\r\nX-A: ").unwrap();
+            let mut out = Vec::new();
+            stream.read_to_end(&mut out).map(|_| out)
+        })
+        .await
+        .unwrap();
+        assert!(got.is_ok(), "still open after 3 s: {got:?}");
+        task.abort();
     }
 }
