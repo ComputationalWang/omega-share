@@ -4,20 +4,20 @@ import * as v from "valibot";
 export const STORE_ZIP_MAX_BYTES = 500 * 1024;
 
 /** ADR 0005 and R1: the only API permissions, and the optional hosts `parseServerBaseUrl` can ever ask for. */
-export const STORE_PERMISSIONS = ["activeTab", "scripting", "storage"] as const;
+const STORE_PERMISSIONS = ["activeTab", "scripting", "storage"] as const;
 /** ADR 0047 §4: "Unlock with extension". Optional in Chromium; Firefox can't make it optional, so it is install-time there. */
 export const STORE_UNLOCK_PERMISSION = "declarativeNetRequestWithHostAccess";
-export const STORE_OPTIONAL_HOST_PERMISSIONS = ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"] as const;
+const STORE_OPTIONAL_HOST_PERMISSIONS = ["https://*/*", "http://localhost/*", "http://127.0.0.1/*", "http://[::1]/*"] as const;
 const ICON_SIZES = ["16", "32", "48", "128"] as const;
 
 export type StoreBrowser = "chrome" | "firefox";
 /** OME-593, decisions on OME-546: the AMO add-on ID is permanent, and these values are fixed with it. */
-export const GECKO_ID = "omega-share@omega-share.duckdns.org";
-export const GECKO_STRICT_MIN_VERSION = "140.0";
+const GECKO_ID = "omega-share@omega-share.duckdns.org";
+const GECKO_STRICT_MIN_VERSION = "140.0";
 /** OME-743: Firefox for Android from 142, the first Android release that reads `data_collection_permissions`. */
-export const GECKO_ANDROID_STRICT_MIN_VERSION = "142.0";
+const GECKO_ANDROID_STRICT_MIN_VERSION = "142.0";
 /** OME-695: Share also sends the room share token (authenticationInfo), as the Chrome listing already says. */
-export const GECKO_DATA_COLLECTION = ["websiteContent", "browsingActivity", "authenticationInfo"] as const;
+const GECKO_DATA_COLLECTION = ["websiteContent", "browsingActivity", "authenticationInfo"] as const;
 /** Exactly one https origin: the hosted server. No wildcard host, no path. */
 const HOSTED_ORIGIN_PATTERN = /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)+\/\*$/;
 

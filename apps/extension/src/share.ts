@@ -69,7 +69,7 @@ const MAX_RETRY_WAIT_S = 60;
  * Whole seconds to wait from a delta-seconds `Retry-After` (rounded up, 1–60), or `null` when it's missing or not a
  * number. The HTTP-date form isn't read: our server always sends seconds.
  */
-export function retryAfterSeconds(header: string | null): number | null {
+function retryAfterSeconds(header: string | null): number | null {
   if (header === null || !/^\d{1,10}(?:\.\d+)?$/.test(header.trim())) return null;
   return Math.min(MAX_RETRY_WAIT_S, Math.max(1, Math.ceil(Number(header))));
 }
