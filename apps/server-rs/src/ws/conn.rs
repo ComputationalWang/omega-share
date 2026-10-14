@@ -122,8 +122,15 @@ async fn timer(t: &mut Option<Sleep>) {
 const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 const CLOSE_WAIT: Duration = Duration::from_secs(1);
 
+/// Frames fed before a flush, so a busy room cannot hold one socket's first frame back.
+const MAX_BATCH: usize = 64;
+
+async fn within<E>(op: impl std::future::Future<Output = Result<(), E>>) -> bool {
+    matches!(tokio::time::timeout(WRITE_TIMEOUT, op).await, Ok(Ok(())))
+}
+
 async fn send<S: Sink<Message> + Unpin>(sink: &mut S, msg: Message) -> bool {
-    matches!(tokio::time::timeout(WRITE_TIMEOUT, sink.send(msg)).await, Ok(Ok(())))
+    within(sink.send(msg)).await
 }
 
 fn close_message(code: u16, reason: &'static str) -> Message {
@@ -140,13 +147,32 @@ async fn write<S: Sink<Message> + Unpin>(mut sink: S, mut rx: OutboxRx, ping: Ar
             out = rx.recv() => match out {
                 // The outbox died or the room dropped it: the connection ends without a close frame.
                 None => return false,
-                Some(Outbound::Text(text)) => {
-                    if !send(&mut sink, Message::Text(text)).await {
+                Some(first) => {
+                    // Everything already queued is fed, then flushed once: one write per burst, not per frame.
+                    let mut next = Some(first);
+                    let mut closed = false;
+                    let mut fed = 0;
+                    while let Some(out) = next.take() {
+                        let (msg, last) = match out {
+                            Outbound::Text(text) => (Message::Text(text), false),
+                            Outbound::Close(code, reason) => (close_message(code, reason), true),
+                        };
+                        if !within(sink.feed(msg)).await {
+                            return false;
+                        }
+                        fed += 1;
+                        if last || fed >= MAX_BATCH {
+                            closed = last;
+                            break;
+                        }
+                        next = rx.try_recv();
+                    }
+                    if !within(sink.flush()).await {
                         return false;
                     }
-                }
-                Some(Outbound::Close(code, reason)) => {
-                    return send(&mut sink, close_message(code, reason)).await;
+                    if closed {
+                        return true;
+                    }
                 }
             },
             () = ping.notified() => {
