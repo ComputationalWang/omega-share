@@ -2,7 +2,7 @@
 //! be the Rust decision too. Regenerate with `bun apps/server-rs/corpus/gen.ts`.
 #![allow(clippy::panic, reason = "a test harness: a bad corpus file should fail loudly")]
 
-use omega_server::contract::constants::{self, close};
+use omega_server::contract::constants;
 use omega_server::contract::generic_embed::normalize_hostname;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
