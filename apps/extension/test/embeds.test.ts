@@ -185,3 +185,31 @@ describe("listEmbeds: the generic tier is ordered by how likely it is the video 
     });
   }
 });
+
+describe("listEmbeds: known ad and SDK frames are never generic candidates (OME-1071)", () => {
+  const frame = (url: string) => ({ url, width: 300, height: 150 });
+  const PLAYER = "https://player.example.org/e/1";
+
+  test("the theverge.com case: IMA ad-bridge frames are dropped, the player stays", () => {
+    const scan = { urls: [], media: [], frames: [frame("https://imasdk.googleapis.com/js/core/bridge3.650.0_en.html#goog_1"), frame(PLAYER)] };
+    expect(listEmbeds(scan)).toEqual([{ ...generic(PLAYER), size: { width: 300, height: 150 } }]);
+  });
+
+  test("Google ad-serving hosts and their subdomains are dropped, as frames or media", () => {
+    const ads = [
+      "https://imasdk.googleapis.com/js/sdkloader/ima3.html",
+      "https://googleads.g.doubleclick.net/pagead/ads?x=1",
+      "https://securepubads.g.doubleclick.net/gampad/ads",
+      "https://tpc.googlesyndication.com/safeframe/1-0-40/html/container.html",
+      "https://pagead2.googlesyndication.com/pagead/s/cookie_push.html",
+      "https://www.googleadservices.com/pagead/conversion/1/",
+      "https://www.googletagservices.com/tag/js/gpt.js",
+    ];
+    expect(listEmbeds({ urls: [], media: ads, frames: ads.map(frame) })).toEqual([]);
+  });
+
+  test("lookalikes and other googleapis hosts are not ad frames", () => {
+    const ok = ["https://notdoubleclick.net.example.org/e/1", "https://storage.googleapis.com/videos/clip.mp4"];
+    expect(listEmbeds(scan([], ok))).toEqual(ok.map(generic));
+  });
+});
