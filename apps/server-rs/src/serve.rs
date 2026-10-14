@@ -52,7 +52,7 @@ pub async fn serve(config: ServerConfig) -> Result<(), ServeError> {
     served
 }
 
-async fn listen(config: ServerConfig, _app: Arc<App>) -> Result<(), ServeError> {
+async fn listen(config: ServerConfig, app: Arc<App>) -> Result<(), ServeError> {
     let listener = TcpListener::bind((config.hostname.as_str(), config.port)).await?;
     let addr = listener.local_addr()?;
     let via = config
@@ -64,10 +64,14 @@ async fn listen(config: ServerConfig, _app: Arc<App>) -> Result<(), ServeError> 
         "omega-share server on http://{addr}/ (site origin {}{via})",
         config.site_origin
     ));
-    let app = Router::new().fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
+    // Each slice builds its routes in its own file; the fallback goes last.
+    let router = Router::new()
+        .merge(crate::http::router(app.clone()))
+        .merge(crate::ws::router(app.clone()))
+        .fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
 
     let (stop, mut stopped) = watch::channel(false);
-    let serving = axum::serve(listener, app).with_graceful_shutdown(async move {
+    let serving = axum::serve(listener, router).with_graceful_shutdown(async move {
         // Resolves on the stop signal, or if the sender is gone (nothing left to wait for).
         let _ = stopped.wait_for(|stop| *stop).await;
     });

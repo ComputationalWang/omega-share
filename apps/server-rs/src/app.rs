@@ -22,14 +22,17 @@ use crate::contract::layout::default_layout;
 use crate::contract::unicode_props::{is_punctuation, is_symbol};
 use crate::embed_policy::EmbedPolicy;
 use crate::headers::{Header, security_headers};
+use crate::http::HttpState;
 use crate::log::{LogEvent, log_error};
 use crate::metrics::Metrics;
+use crate::ops::OpsState;
 use crate::outbox::close_all;
 use crate::registry::{DuplicateRoom, Registry, RemoveReason, RoomCell, RoomInner};
 use crate::reports::ReportsState;
 use crate::room::{HeldSeat, Room, RoomInit, SEAT_HOLD_MS};
 use crate::secrets::EntropyError;
 use crate::store::{NewRoom, SeatHold, Store, StoreError};
+use crate::ws::WsState;
 use icu_properties::CodePointMapData;
 use icu_properties::props::{GeneralCategory, GeneralCategoryGroup};
 use std::fmt;
@@ -138,6 +141,12 @@ pub struct App {
     pub registry: Registry,
     pub reports: ReportsState,
     pub title_blocker: TitleBlocker,
+    /// S5's state (in-flight cap, HTTP limiters), S6's (connection counters, per-client counts, join and upgrade
+    /// limiters) and S7's (admin socket, metrics listener): one struct each, empty here, so the slices don't all
+    /// edit `App` and `App::new`.
+    pub http: HttpState,
+    pub ws: WsState,
+    pub ops: OpsState,
     store: Mutex<Store>,
 }
 
@@ -153,6 +162,9 @@ impl App {
             registry: Registry::new(),
             reports: ReportsState::new(taken_down),
             title_blocker: TitleBlocker::new(&config.room_title_blocklist),
+            http: HttpState::default(),
+            ws: WsState::default(),
+            ops: OpsState::default(),
             store: Mutex::new(store),
             embeds,
             clock,
