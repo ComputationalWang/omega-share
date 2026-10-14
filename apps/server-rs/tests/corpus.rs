@@ -2,14 +2,37 @@
 //! be the Rust decision too. Regenerate with `bun apps/server-rs/corpus/gen.ts`.
 #![allow(clippy::panic, reason = "a test harness: a bad corpus file should fail loudly")]
 
+use omega_server::contract::confusables::nickname_key;
 use omega_server::contract::constants;
 use omega_server::contract::generic_embed::normalize_hostname;
-use serde::Deserialize;
+use omega_server::contract::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken, RoomId, ShareToken, parse_bearer};
+use omega_server::contract::room::{Avatar, ControlPolicy, RoomVisibility, SeatIndex, StandingSlot};
+use omega_server::contract::text::{ChatText, Nickname, ReportNote, RoomTitle};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 /// Every corpus file has a runner below; a new `corpus/out/*.json` without one fails `every_corpus_has_a_runner`.
-const RUNNERS: &[&str] = &["constants", "normalize-hostname"];
+const RUNNERS: &[&str] = &[
+    "avatar",
+    "chat-text",
+    "constants",
+    "control-policy",
+    "member-id",
+    "nickname",
+    "nickname-key",
+    "normalize-hostname",
+    "parse-bearer",
+    "queue-item-id",
+    "report-note",
+    "resume-token",
+    "room-id",
+    "room-title",
+    "room-visibility",
+    "seat-index",
+    "share-token",
+    "standing-slot",
+];
 
 /// One TS decision: refused (`ok: false`) or accepted with `output`.
 #[derive(Deserialize)]
@@ -155,4 +178,66 @@ fn constants_agree() {
         })
         .collect();
     agree(cases, |name| constant(name));
+}
+
+/// A schema case: the wire value goes through `T`'s `Deserialize`, and what comes back out through
+/// its `Serialize` is the recorded output. Wrong types are part of the corpus.
+fn schema<T: DeserializeOwned + Serialize>(v: &Value) -> Option<Value> {
+    let parsed: T = serde_json::from_value(v.clone()).ok()?;
+    serde_json::to_value(parsed).ok().map(numeric)
+}
+
+fn schema_corpus<T: DeserializeOwned + Serialize>(json: &str) {
+    let cases: Vec<Case<Value, Value>> = load::<Value, Value>(json)
+        .into_iter()
+        .map(|c| Case {
+            output: c.output.map(numeric),
+            ..c
+        })
+        .collect();
+    agree(cases, |v| schema::<T>(v));
+}
+
+#[test]
+fn ids_agree() {
+    schema_corpus::<MemberId>(include_str!("../corpus/out/member-id.json"));
+    schema_corpus::<QueueItemId>(include_str!("../corpus/out/queue-item-id.json"));
+    schema_corpus::<RoomId>(include_str!("../corpus/out/room-id.json"));
+    schema_corpus::<ResumeToken>(include_str!("../corpus/out/resume-token.json"));
+}
+
+#[test]
+fn share_owner_and_invite_tokens_agree() {
+    schema_corpus::<ShareToken>(include_str!("../corpus/out/share-token.json"));
+    schema_corpus::<OwnerToken>(include_str!("../corpus/out/share-token.json"));
+    schema_corpus::<InviteKey>(include_str!("../corpus/out/share-token.json"));
+}
+
+#[test]
+fn parse_bearer_agrees() {
+    agree(load::<Value, String>(include_str!("../corpus/out/parse-bearer.json")), |v| {
+        v.as_str().and_then(parse_bearer).map(|t| t.as_str().to_owned())
+    });
+}
+
+#[test]
+fn text_schemas_agree() {
+    schema_corpus::<Nickname>(include_str!("../corpus/out/nickname.json"));
+    schema_corpus::<RoomTitle>(include_str!("../corpus/out/room-title.json"));
+    schema_corpus::<ChatText>(include_str!("../corpus/out/chat-text.json"));
+    schema_corpus::<ReportNote>(include_str!("../corpus/out/report-note.json"));
+}
+
+#[test]
+fn nickname_key_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/nickname-key.json")), |s| Some(nickname_key(s)));
+}
+
+#[test]
+fn room_primitives_agree() {
+    schema_corpus::<Avatar>(include_str!("../corpus/out/avatar.json"));
+    schema_corpus::<SeatIndex>(include_str!("../corpus/out/seat-index.json"));
+    schema_corpus::<StandingSlot>(include_str!("../corpus/out/standing-slot.json"));
+    schema_corpus::<ControlPolicy>(include_str!("../corpus/out/control-policy.json"));
+    schema_corpus::<RoomVisibility>(include_str!("../corpus/out/room-visibility.json"));
 }

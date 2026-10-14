@@ -1,0 +1,21 @@
+[
+{"input":"everyone","ok":true,"output":"everyone"},
+{"input":"owner","ok":true,"output":"owner"},
+{"input":"Owner","ok":false},
+{"input":"EVERYONE","ok":false},
+{"input":"","ok":false},
+{"input":" owner","ok":false},
+{"input":"owner ","ok":false},
+{"input":"public","ok":false},
+{"input":"private","ok":false},
+{"input":"Public","ok":false},
+{"input":"secret","ok":false},
+{"input":"own","ok":false},
+{"input":"everyone\n","ok":false},
+{"input":null,"ok":false},
+{"input":0,"ok":false},
+{"input":1,"ok":false},
+{"input":true,"ok":false},
+{"input":[],"ok":false},
+{"input":{},"ok":false}
+]

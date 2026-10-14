@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
-import { corpora, outPath, render } from "./corpora";
+import { confusablesPath, confusablesTxt, corpora, outPath, render } from "./corpora";
 
 // The recorded decisions are what the Rust contract is tested against (tests/corpus.rs). If the TS
 // contract changed, regenerate (`bun apps/server-rs/corpus/gen.ts`) and bring the Rust side along.
@@ -12,6 +12,10 @@ describe("Valibot ↔ Rust corpus (ADR 0050 §3)", () => {
       expect(readFileSync(path, "utf8")).toBe(render(corpus.cases()));
     });
   }
+
+  test("confusables.txt is the TS table (Rust include_str!)", () => {
+    expect(readFileSync(confusablesPath, "utf8")).toBe(confusablesTxt);
+  });
 
   test("corpus names are unique", () => {
     const names = corpora.map((c) => c.name);
