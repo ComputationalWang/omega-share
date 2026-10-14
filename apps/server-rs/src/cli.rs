@@ -354,7 +354,10 @@ pub const REQUEST_TIMEOUT: Duration = Duration::from_millis(10_000);
 const MAX_RESPONSE_BYTES: u64 = 16 * 1024 * 1024;
 
 /// Runs `connect` and waits at most `timeout` for it: a full accept queue blocks a Unix `connect`.
-fn connect_bounded(connect: impl FnOnce() -> std::io::Result<UnixStream> + Send + 'static, timeout: Duration) -> Result<UnixStream, String> {
+fn connect_bounded(
+    connect: impl FnOnce() -> std::io::Result<UnixStream> + Send + 'static,
+    timeout: Duration,
+) -> Result<UnixStream, String> {
     let (tx, rx) = std::sync::mpsc::channel();
     // A connect that never returns leaves this helper thread behind; the process exits right after the failure.
     std::thread::spawn(move || {

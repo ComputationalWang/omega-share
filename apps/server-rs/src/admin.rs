@@ -23,14 +23,14 @@ use axum::body::Bytes;
 use axum::extract::{DefaultBodyLimit, State};
 use axum::http::{HeaderValue, Method, StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
-use serde::Serialize;
-use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, PermissionsExt};
-use std::path::{Path, PathBuf};
 use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioIo, TokioTimer};
+use serde::Serialize;
 use std::convert::Infallible;
+use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, PermissionsExt};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::UnixListener;
@@ -328,7 +328,14 @@ async fn serve_unix(listener: UnixListener, router: Router, header_read_timeout:
     loop {
         let stream = match listener.accept().await {
             Ok((stream, _)) => stream,
-            Err(err) if matches!(err.kind(), std::io::ErrorKind::ConnectionAborted | std::io::ErrorKind::ConnectionReset) => continue,
+            Err(err)
+                if matches!(
+                    err.kind(),
+                    std::io::ErrorKind::ConnectionAborted | std::io::ErrorKind::ConnectionReset
+                ) =>
+            {
+                continue;
+            }
             // Out of descriptors for a moment: don't spin on it.
             Err(_) => {
                 tokio::time::sleep(Duration::from_secs(1)).await;
