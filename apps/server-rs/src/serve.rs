@@ -120,3 +120,66 @@ async fn shutdown_signal() {
         () = terminate => {}
     }
 }
+
+/// The black-box wiring: the clock `serve` boots the app with is the one `/__test/time` moves.
+#[cfg(all(test, feature = "test-hooks"))]
+#[allow(clippy::unwrap_used, reason = "tests")]
+mod wiring_tests {
+    use super::*;
+    use crate::app::testing::{add_room, config, rid};
+    use crate::room::RoomInit;
+    use crate::store::Store;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    async fn http(addr: std::net::SocketAddr, request: String) -> String {
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream.write_all(request.as_bytes()).await.unwrap();
+        let mut out = String::new();
+        stream.read_to_string(&mut out).await.unwrap();
+        out
+    }
+
+    const ID: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const MIN: i64 = 60_000;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_time_set_fires_the_room_gc_timer_the_app_armed() {
+        let (clock, hooks) = clock_and_hooks();
+        let app = Arc::new(App::new(config(&[]), clock.clone(), Store::open(":memory:").unwrap()).unwrap());
+        let created = clock.wall_ms();
+        add_room(
+            &app,
+            ID,
+            RoomInit {
+                pinned: Some(false),
+                created_at: Some(created),
+                ..RoomInit::default()
+            },
+        );
+        let gc = spawn_room_gc(app.clone());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, hooks).await });
+        tokio::task::yield_now().await;
+        let get = "GET /__test/time HTTP/1.1\r\nhost: x\r\nconnection: close\r\n\r\n".to_owned();
+        assert!(http(addr, get).await.ends_with(r#"{"pending":1}"#), "the GC loop armed one timer");
+        assert!(app.registry.get(&rid(ID)).is_some());
+
+        let body = format!(
+            r#"{{"mono":{},"wall":{}}}"#,
+            clock.mono_ms() + (21 * MIN) as f64,
+            created + 21 * MIN
+        );
+        let post = format!(
+            "POST /__test/time HTTP/1.1\r\nhost: x\r\nconnection: close\r\ncontent-length: {}\r\n\r\n{body}",
+            body.len()
+        );
+        assert!(http(addr, post).await.ends_with(r#"{"fired":1}"#));
+        // No settling here: the reply means the sweep has run.
+        assert!(
+            app.registry.get(&rid(ID)).is_none(),
+            "the sweep removed the idle room before the reply"
+        );
+        gc.abort();
+    }
+}
