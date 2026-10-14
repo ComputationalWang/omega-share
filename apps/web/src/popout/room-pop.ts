@@ -6,7 +6,7 @@
 import type { EmoteKind, MemberId, RoomId } from "@omega/shared";
 import { el } from "../controls/dom";
 import { formatClock } from "../controls/sysline";
-import { popRoomLayout } from "../layout";
+import { popRoomLayout, stageTransform } from "../layout";
 import type { StageState } from "../state";
 import { stageOf, type PopChannel, type PopTv, type RoomSideMessage } from "./channel";
 import { createPopoutView } from "./view";
@@ -140,7 +140,7 @@ export function createRoomPopout<H>(o: RoomPopoutOptions<H>): RoomPopout {
     // The room side's mustard rim (.ui-pop, 6 px at 1×) is inside the window: the stage fits within it.
     const l = popRoomLayout(w - 2 * POP_RIM, h - 2 * POP_RIM);
     Object.assign(clip.style, { left: `${String(l.stage.x)}px`, top: `${String(l.stage.y)}px`, width: `${String(l.stage.w)}px`, height: `${String(l.stage.h)}px` });
-    o.stage.root.style.transform = `scale(${String(l.scale)})`;
+    o.stage.root.style.transform = stageTransform(l.scale);
   };
   fit();
 

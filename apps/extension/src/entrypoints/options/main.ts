@@ -1,4 +1,5 @@
 import { browser } from "wxt/browser";
+import { FOUND_ORIGINS } from "../../found";
 import { browserSaveDeps, saveServerBaseUrl } from "../../save-setting";
 import { SERVER_BASE_URL_KEY, readServerBaseUrl } from "../../settings";
 
@@ -38,5 +39,20 @@ form.addEventListener("submit", (event) => {
     } else {
       show("error", result.message);
     }
+  });
+});
+
+// OME-1042: the opt-in found indicator is the optional https://*/* grant itself; the background reacts to the change.
+const found = byId("found", HTMLInputElement);
+const foundOrigins = { origins: [...FOUND_ORIGINS] };
+void browser.permissions.contains(foundOrigins).then((granted) => {
+  found.checked = granted;
+  found.disabled = false;
+});
+found.addEventListener("change", () => {
+  // permissions.request needs this click's user gesture, so nothing is awaited before it.
+  const change = found.checked ? browser.permissions.request(foundOrigins) : browser.permissions.remove(foundOrigins);
+  void change.catch(() => false).then(() => browser.permissions.contains(foundOrigins)).then((granted) => {
+    found.checked = granted;
   });
 });

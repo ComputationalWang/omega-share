@@ -19,6 +19,15 @@ function load(name: string, url: string, dir: string = PAGES): Document {
       disableCSSFileLoading: true,
     },
   });
+  // happy-dom has no layout: a frame measures its width/height attributes, or the browser default 300×150.
+  for (const [prop, attr, fallback] of [["clientWidth", "width", 300], ["clientHeight", "height", 150]] as const) {
+    Object.defineProperty(window.HTMLIFrameElement.prototype, prop, {
+      configurable: true,
+      get(this: HTMLIFrameElement) {
+        return Number(this.getAttribute(attr) ?? fallback);
+      },
+    });
+  }
   window.document.write(readFileSync(join(dir, `${name}.html`), "utf8"));
   return window.document as unknown as Document;
 }
@@ -46,7 +55,7 @@ describe("collectCandidateUrls on fixture pages", () => {
 
   test("no-video: only the page URL", () => {
     const doc = load("no-video", "http://localhost:4400/no-video.html");
-    expect(collectCandidateUrls(doc)).toEqual({ urls: ["http://localhost:4400/no-video.html"], media: [] });
+    expect(collectCandidateUrls(doc)).toEqual({ urls: ["http://localhost:4400/no-video.html"], media: [], frames: [] });
   });
 
   test("also reads <embed src> and <object data>, resolved against the page", () => {
@@ -74,8 +83,8 @@ describe("collectCandidateUrls on Twitch + Vimeo fixture pages", () => {
   test("providers-embed: lookalikes on real public hosts are only ever generic, labelled with their own host, after the synced ones", () => {
     const doc = load("providers-embed", "http://localhost:4400/providers-embed.html", OWN_PAGES);
     expect(listEmbeds(collectCandidateUrls(doc)).slice(4)).toEqual([
-      { provider: "generic", host: "player-twitch.tv", url: "https://player-twitch.tv/?channel=somechannel" },
-      { provider: "generic", host: "vimeo.co", url: "https://vimeo.co/76979871" },
+      { provider: "generic", host: "player-twitch.tv", url: "https://player-twitch.tv/?channel=somechannel", size: { width: 300, height: 150 } },
+      { provider: "generic", host: "vimeo.co", url: "https://vimeo.co/76979871", size: { width: 300, height: 150 } },
     ]);
   });
 
@@ -94,7 +103,7 @@ describe("collectCandidateUrls on Twitch + Vimeo fixture pages", () => {
     const found = collectCandidateUrls(doc);
     for (const url of rejected) {
       expect(found.urls).toContain(url);
-      expect(found.media).toContain(url);
+      expect(found.frames.map((f) => f.url)).toContain(url);
       expect(listEmbeds({ urls: [url], media: [url] })).toEqual([]);
     }
   });
@@ -146,22 +155,24 @@ describe("collectCandidateUrls on Twitch + Vimeo fixture pages", () => {
 describe("collectCandidateUrls on the generic-embeds fixture page", () => {
   const doc = (): Document => load("generic-embeds", "http://localhost:4400/generic-embeds.html", OWN_PAGES);
 
-  test("lists the synced embed first, then the allowed iframe and <video> sources once each; IP-literal, javascript:, http:, blob: and local are dropped", () => {
+  test("lists the synced embed first, then the allowed <video> sources, then the iframe, once each; IP-literal, javascript:, http:, blob: and local are dropped", () => {
     expect(listEmbeds(collectCandidateUrls(doc()))).toEqual([
       EMBED,
-      generic("https://videos.example.org/embed/42"),
       generic("https://cdn.example.org/clip.mp4"),
       generic("https://cdn.example.org/other.webm"),
+      { ...generic("https://videos.example.org/embed/42"), size: { width: 320, height: 180 } },
     ]);
   });
 
-  test("media holds iframe, <video src> and <video><source src>, resolved against the page; the page URL is not media", () => {
-    const { media } = collectCandidateUrls(doc());
-    expect(media).toContain("https://203.0.113.7/embed/42");
-    expect(media).toContain("javascript:alert(1)");
+  test("media holds <video src> and <video><source src>, frames the iframes, resolved against the page; the page URL is neither", () => {
+    const { media, frames } = collectCandidateUrls(doc());
+    const frameUrls = frames.map((f) => f.url);
+    expect(frameUrls).toContain("https://203.0.113.7/embed/42");
+    expect(frameUrls).toContain("javascript:alert(1)");
     expect(media).toContain("https://cdn.example.org/other.webm");
     expect(media).toContain("http://localhost:4400/local.mp4");
-    expect(media).not.toContain("http://localhost:4400/generic-embeds.html");
+    expect(media).not.toContain("https://videos.example.org/embed/42");
+    expect([...media, ...frameUrls]).not.toContain("http://localhost:4400/generic-embeds.html");
   });
 
   test("<embed> and <object> are synced candidates only, never generic media", () => {
@@ -169,11 +180,32 @@ describe("collectCandidateUrls on the generic-embeds fixture page", () => {
     window.document.write('<embed src="https://videos.example.org/a.swf"><object data="https://videos.example.org/b.pdf"></object>');
     const scanned = collectCandidateUrls(window.document as unknown as Document);
     expect(scanned.media).toEqual([]);
+    expect(scanned.frames).toEqual([]);
     expect(listEmbeds(scanned)).toEqual([]);
   });
 
   test("the non-allowlisted e2e page still lists nothing", () => {
     const page = load("non-allowlisted", "http://localhost:4400/non-allowlisted.html");
     expect(listEmbeds(collectCandidateUrls(page))).toEqual([]);
+  });
+});
+
+describe("collectCandidateUrls on the likely-video fixture page (OME-1037)", () => {
+  const doc = (): Document => load("likely-video", "http://localhost:4400/likely-video.html");
+
+  test("frames carry their rendered size; a hidden frame measures 0×0", () => {
+    expect(collectCandidateUrls(doc()).frames).toEqual([
+      { url: "https://track.omega-fixture.org/px", width: 1, height: 1 },
+      { url: "https://comments.omega-fixture.org/widget?anime=1", width: 640, height: 200 },
+      { url: "https://ads.omega-fixture.org/frame", width: 0, height: 0 },
+      { url: "https://player.omega-fixture.org/embed/7", width: 960, height: 540 },
+    ]);
+  });
+
+  test("the player is listed first, then the widget; the tracker and the hidden frame are dropped", () => {
+    expect(listEmbeds(collectCandidateUrls(doc()))).toEqual([
+      { ...generic("https://player.omega-fixture.org/embed/7"), size: { width: 960, height: 540 } },
+      { ...generic("https://comments.omega-fixture.org/widget?anime=1"), size: { width: 640, height: 200 } },
+    ]);
   });
 });

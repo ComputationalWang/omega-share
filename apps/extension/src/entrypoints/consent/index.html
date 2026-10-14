@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>omega share: unlock a video host</title>
+    <style>
+      body { font: 14px/1.4 system-ui, sans-serif; margin: 24px; color: #222; max-width: 480px; }
+      h1 { font-size: 18px; }
+      .actions { display: flex; gap: 8px; margin-top: 16px; }
+      button { font: inherit; padding: 6px 14px; min-height: 36px; }
+      @media (hover: none) { body { font-size: 16px; } button { min-height: 44px; } }
+    </style>
+  </head>
+  <body>
+    <h1 id="title">Let this host play in your omega-share room?</h1>
+    <p>
+      The extension will remove <strong id="host-inline">the host</strong>'s anti-framing headers and tell the host that it
+      framed itself, for its videos in that room tab only, so it can play there. Nothing else changes, and nothing new is sent to omega-share.
+      You can revoke it any time in the browser's extension settings.
+    </p>
+    <div class="actions">
+      <button id="allow" type="button">Allow</button>
+      <button id="deny" type="button">Not now</button>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

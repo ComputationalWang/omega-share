@@ -15,6 +15,7 @@ assets/
   ui/ui.json            # shipped: PixiJS v8 spritesheet atlas (9-slices carry `borders`)
   ui/slices/*.png       # shipped: each 9-slice / cursor / bubble tail as its own PNG, for CSS border-image
   ui/popup/*.png        # set f: the extension popup's key icon as standalone files, drawn at 16 px (1×) and 32 px (2×)
+  ui/popup/kit.css|png  # set o (OME-1041): the popup's own stylesheet + sprite cut; its 9-slices are ui/slices files
   ui/scenes/*.png       # sets i + j (lazy): the "room closed", "invite required", "room not found" and "you were removed" vignettes, standalone 72×64 PNGs;
                         #   set k (lazy): the "chat / room is in its own window" vignettes, 56×40
   ui/edit.png           # set h (lazy, owners only): 256×1024 indexed PNG-8, edit grid, placement markers, handles, tray thumbnails, swatches
@@ -788,6 +789,68 @@ Place the sprite there, with no per-item offsets. A piece covers `footprintByDir
 - **Wall frames** hang 76–108 px above the floor point, so they clear the 56 px wainscot and the bookcase (62 px plus its cactus) on neighbouring segments.
 - **Footprint check for M4:** the console still covers `col + row <= 2`. Don't place pieces there.
 - Contract: proposed here, for the M4 layout contract (Lead Engineer). Nothing in `apps/` reads it yet.
+
+## Set (o) extension popup kit + toolbar "found" state (OME-1041, `ui/popup/` + `store/`)
+
+The extension popup in the site's chrome, and a second toolbar icon for "this page has a video". Previews (1× and 2× device px):
+`preview/ui-popup-kit-toolbar@1x|2x.png` (both states on six real toolbar colours, zooms, the three directions) and
+`preview/ui-popup-kit-states@1x|2x.png` (all nine popup states at 340 px). Source: `preview/popup-kit.html`, shot by
+`bun assets/src/shoot-popup-kit.ts`. Generators: `src/store.ts` (icons), `src/popupkit.ts` (kit), wired in `src/build.ts`.
+
+### Toolbar icon states (`store/`)
+
+| State | 16 px | 32 px (2× of 16) | 48 px | 64 px (2× of 32) |
+|---|---|---|---|---|
+| `idle` | `icon-16.png` (unchanged) | `icon-32.png` (unchanged) | `icon-48.png` (unchanged) | `icon-64.png` **new**, 542 B |
+| `found` | `found-16.png` 219 B | `found-32.png` 308 B | `found-48.png` 476 B | `found-64.png` 606 B |
+
+`found` = the same TV with the **tally lamp** lit: a mustard bulb (the Share key's colour) with a cream glint and its own plum ring,
+set into the cabinet's top-right corner. Each size is drawn natively, never scaled. Top-right on purpose: browsers draw the badge
+bottom-right, so OME-1042's interim badge and the lamp never overlap. Wiring (OME-1042), per tab:
+
+```ts
+browser.action.setIcon({ tabId, path: { 16: "icon/found-16.png", 32: "icon/found-32.png", 48: "icon/found-48.png", 64: "icon/found-64.png" } });
+// back to idle: the same with icon/16|32|48|64.png. Copy store/found-*.png and store/icon-64.png in wxt.config.ts like the others.
+```
+
+Keep the action's `title` in step ("omega share: video found") so the state isn't carried by the picture alone.
+Added bytes: 1 609 B for the four found icons + 542 B for idle-64 = **2 151 B** in the extension package.
+
+### Popup kit (`ui/popup/kit.css` + `ui/popup/kit.png`)
+
+The popup can't load the site's `ui.png` (12.9 KB) or `reference.css`, so it gets its own cut:
+
+| File | Bytes | What |
+|---|---|---|
+| `ui/popup/kit.png` | 749 | 16 sprites copied pixel for pixel from `ui.png` (the dots brightened, OME-1061) (`icon/tv`, `icon/share`, `icon/queue-add`, `icon/warn`, `icon/retry`, `glyph/check`, `glyph/dots/0-2`, `glyph/insync`, `glyph/outsync`, `glyph/radio-on`, `glyph/radio-off`, `qsrc/video`, `qsrc/live`, `qsrc/generic`) + one new 9×6 cream `chevron` for the room field |
+| `ui/popup/kit.css` | 3 398 gz | Tokens (`--ui-*`, same values as the site, plus the popup's `--ui-hint` = cream[1] for the host and state line), the reused site rules under their site names (`.ui-panel`, `.ui-button(.secondary)`, `.ui-input`, `.ui-qrow`, `.ui-chip(.solo)`, `.ui-sysline`, `.ui-dots`) and the popup layout (`.pk-*`). Generated; don't edit by hand. |
+| 17 × `ui/slices/*.png` | 2 668 | Existing files, listed in `POPUP_KIT_SLICES` (`src/popupkit.ts`): `panel-0`, `button-primary-idle\|hover\|press\|disabled`, `button-secondary-idle\|hover\|press`, `input-idle\|focus\|invalid`, `queue-row-idle\|hover\|next`, `chip-shared`, `chip-solo`, `chat-system` |
+| OME-842 vignettes | (already shipped) | `nothing-found`, `cant-read`, `server-away` (+ `@2x`) |
+
+**Total added to the popup: 6 815 B** (kit.png + kit.css gz + slices), all local files in the package, no network, no web font.
+The popup opens on the same scan path, so the 300 ms "popup opened → embeds listed" budget isn't touched by the art.
+
+**Copy layout (OME-1043):** `kit.css` + `kit.png` → `popup/`, the 17 slices → `slices/` (kit.css points at `../slices/<name>.png`),
+then `<link rel="stylesheet" href="/popup/kit.css">` in the popup's `index.html` and `class="pk"` on `<body>`.
+
+**Markup** (class names engineering should use; the mock-up `preview/popup-kit.html` is the reference for each state):
+
+| Piece | Markup |
+|---|---|
+| Popup | `<body class="pk"><main class="ui-panel pk-main">` (one wood panel on the plum page, 340 px; `@media (hover: none)` fills the phone sheet with 44 px targets) |
+| Head | `<h1 class="pk-head"><span class="pk-sprite pk-icon-tv" aria-hidden="true"></span>Share a video<span class="host">cooking.test</span></h1>` |
+| Scanning | `<div class="pk-state" role="status"><span class="pk-sprite pk-glyph-dots-0 ui-dots" aria-hidden="true"></span>Looking for videos…</div>` |
+| No video / can't read / server away | `<div class="pk-state"><img src="/popup/<vignette>.png" srcset="… 1x, …@2x.png 2x" alt="">line</div>` |
+| Embeds list | `<fieldset class="pk-list"><legend>Videos on this page</legend>` + one row per embed |
+| Embed row | `<label class="ui-qrow pk-embed"><input type="radio" name="embed"><span class="pk-sprite pk-glyph-radio-off"></span><span class="pk-sprite pk-qsrc-video\|live\|generic"></span><span class="body"><span class="title">YouTube</span><span class="meta">sunsetBay40</span></span><span class="ui-chip"><span class="pk-sprite pk-glyph-insync"></span>Synced</span></label>`. Generic: title = host, meta "Page embed", `ui-chip solo` + `pk-glyph-outsync` + "Not synced". `qsrc-live` for a Twitch channel. The checked row takes `queue-row-next` and the radio glyph turns on via CSS (`:has(input:checked)`, Chrome 105+ / Firefox 121+). |
+| Room picker | `<label class="pk-room">Room<span class="pk-field"><select class="ui-input">…</select><span class="pk-sprite pk-chevron" aria-hidden="true"></span></span></label>` (native list; options get night + cream) |
+| Keys | `<div class="pk-keys"><button class="ui-button">` + `pk-icon-share` "Share" `</button><button class="ui-button secondary">` + `pk-icon-queue-add` "Add to queue" `</button></div>`. Disabled while sending. |
+| Success | `<p class="ui-sysline" role="status"><span class="pk-sprite pk-glyph-check"></span><span>Shared to <b>Movie night</b>.</span></p>` |
+| Error | `<p class="pk-error" role="status"><span class="pk-sprite pk-icon-warn"></span>message</p>` (rust text + the warn icon) |
+| Foot | `<footer class="pk-foot"><button class="pk-link" data-emphasis="true\|false">Server settings</button><span class="legal"><a>Privacy</a><a>Terms</a><a>Licences</a></span></footer>` |
+
+Tokens in `kit.css`: `--ui-page` (popup background), `--ui-text`, `--ui-muted` (labels, host, meta), `--ui-accent` (Server settings),
+`--ui-error`, `--ui-glow` (room name in the success line), `--ui-field` (option list), `--ui-on-primary`, `--ui-disabled-text`, and `--ui-px: 2px`.
 
 ## Budget
 

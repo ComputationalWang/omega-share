@@ -144,9 +144,9 @@ test("the layer is decorative: aria-hidden, no live region (the chat log reads t
   expect(layer.hasAttribute("aria-live")).toBe(false);
 });
 
-test("a message fills one of 8 pool nodes; idle nodes are hidden and carry no chat-message", async () => {
+test("a message fills one of 16 pool nodes; idle nodes are hidden and carry no chat-message", async () => {
   const { floats, slots, shown, texts } = await setup();
-  expect(slots()).toHaveLength(8);
+  expect(slots()).toHaveLength(16);
   expect(shown()).toHaveLength(0);
   expect(texts()).toEqual([]);
   floats.say(say("a", "hello <b>you</b>", 480));
@@ -328,50 +328,68 @@ test("reduced motion: no rise; opaque until 80 % of its life, then a linear fade
   expect(o).toBeLessThan(1);
 });
 
-test("8 on screen at most: a ninth message reuses the oldest node, and no node is created or removed", async () => {
+test("16 on screen at most: a 17th message reuses the oldest node, and no node is created or removed", async () => {
   const { floats, frame, slots, shown, texts } = await setup();
   const before = slots();
-  for (let i = 0; i < 8; i++) floats.say(say(`m${String(i)}`, `t${String(i)}`, 60 + i * 110));
+  for (let i = 0; i < 16; i++) floats.say(say(`m${String(i)}`, `t${String(i)}`, 60 + (i % 8) * 110, 400 + 100 * Math.floor(i / 8)));
   frame();
-  expect(shown()).toHaveLength(8);
+  expect(shown()).toHaveLength(16);
   const oldest = before.find((s) => s.textContent.includes("t0"));
-  floats.say(say("m9", "t9", 480));
+  floats.say(say("m16", "t16", 480));
   frame();
-  expect(shown()).toHaveLength(8);
+  expect(shown()).toHaveLength(16);
   expect(slots()).toEqual(before);
   expect(texts()).not.toContain("t0");
-  expect(oldest?.textContent).toContain("t9");
+  expect(oldest?.textContent).toContain("t16");
 });
 
-test("2 per speaker: a third message sends their oldest away (a short fade), the others stay", async () => {
+/** `n` lines from one speaker, "l0" oldest. */
+const lines = (n: number): string[] => Array.from({ length: n }, (_, i) => `l${String(i)}`);
+
+test("10 per speaker (OME-1050): an 11th message sends their oldest away (a short fade), the others stay", async () => {
   const { floats, frame, advance, texts, bubbleOf, FLOAT_LEAVE_MS } = await setup();
-  floats.say(say("a", "one", 200));
-  floats.say(say("a", "two", 200));
+  for (const t of lines(10)) floats.say(say("a", t, 200, 580));
   floats.say(say("b", "other", 700));
   frame();
-  floats.say(say("a", "three", 200));
-  expect(bubbleOf("one").classList.contains("is-leaving")).toBe(true);
+  expect(texts()).toHaveLength(11);
+  floats.say(say("a", "l10", 200, 580));
+  expect(bubbleOf("l0").classList.contains("is-leaving")).toBe(true);
   advance(FLOAT_LEAVE_MS);
-  expect(texts().sort()).toEqual(["other", "three", "two"]);
+  expect(texts().sort()).toEqual([...lines(11).slice(1), "other"].sort());
 });
 
 test("a bubble sent away before its size arrived goes at once: never painted unplaced, nothing to fade", async () => {
-  // A join-time replay or a burst can bring a speaker's third line in the same task as their first.
+  // A join-time replay or a burst can bring a speaker's 11th line in the same task as their first.
   const { floats, frame, shown, texts } = await setup();
-  floats.say(say("a", "one", 200));
-  floats.say(say("a", "two", 200));
-  floats.say(say("a", "three", 200));
-  expect(shown()).toHaveLength(2);
+  for (const t of lines(11)) floats.say(say("a", t, 200, 580));
+  expect(shown()).toHaveLength(10);
   frame();
-  expect(texts().sort()).toEqual(["three", "two"]);
+  expect(texts().sort()).toEqual(lines(11).slice(1).sort());
 });
 
 test("reduced motion: an early exit is instant", async () => {
   const { floats, texts } = await setup({ reduced: true });
-  floats.say(say("a", "one", 200));
-  floats.say(say("a", "two", 200));
-  floats.say(say("a", "three", 200));
-  expect(texts().sort()).toEqual(["three", "two"]);
+  for (const t of lines(11)) floats.say(say("a", t, 200, 580));
+  expect(texts().sort()).toEqual(lines(11).slice(1).sort());
+});
+
+// OME-1050: ten stacked bubbles are 330 px; over a back-row head they would climb out of the room's view (ROOM_VIEW,
+// the part of the stage the page shows, from y 60) and be clipped.
+test("a stack never climbs out of the room's view: an older bubble whose rise would cross its top goes instead", async () => {
+  const { floats, frame, texts, bubbleOf } = await setup();
+  // Head at 300: the newest box's top is 266 and each older one 33 px higher; with the 24 px rise, l0 to l3 cross 60.
+  for (const t of lines(10)) floats.say(say("a", t, 480, 300));
+  frame();
+  expect(bubbleOf("l0").classList.contains("is-leaving")).toBe(true);
+  expect(bubbleOf("l3").classList.contains("is-leaving")).toBe(true);
+  expect(texts().sort()).toEqual(lines(10).slice(4).sort());
+});
+
+test("reduced motion has no rise: only a box that would itself cross the top goes", async () => {
+  const { floats, frame, texts } = await setup({ reduced: true });
+  for (const t of lines(10)) floats.say(say("a", t, 480, 300));
+  frame();
+  expect(texts().sort()).toEqual(lines(10).slice(3).sort());
 });
 
 test("an older bubble in a newer one's way moves straight up, 3 px clear, loses its tail and names its speaker", async () => {
@@ -509,16 +527,15 @@ test("said while the stage is hidden: placed, stacked and shown at its age once 
 
 test("a bubble sent away drops to half its opacity and is gone at the clock's first step FLOAT_LEAVE_MS on", async () => {
   const { floats, frame, advance, shown, bubbleOf, motionOf, FLOAT_LEAVE_MS } = await setup();
-  floats.say(say("a", "one", 200));
-  floats.say(say("a", "two", 200));
+  for (const t of lines(10)) floats.say(say("a", t, 200, 580));
   frame();
   advance(150);
-  floats.say(say("a", "three", 200));
-  expect(bubbleOf("one").classList.contains("is-leaving")).toBe(true);
-  expect(motionOf("one").style.opacity).toBe("0.5");
-  expect(shown()).toHaveLength(3);
+  floats.say(say("a", "l10", 200, 580));
+  expect(bubbleOf("l0").classList.contains("is-leaving")).toBe(true);
+  expect(motionOf("l0").style.opacity).toBe("0.5");
+  expect(shown()).toHaveLength(11);
   advance(FLOAT_LEAVE_MS); // 310 ms: the step at 209 ms was too soon
-  expect(shown()).toHaveLength(3);
+  expect(shown()).toHaveLength(11);
   advance(STEP);
-  expect(shown()).toHaveLength(2);
+  expect(shown()).toHaveLength(10);
 });

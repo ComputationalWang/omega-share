@@ -13,13 +13,15 @@ Load unpacked: `chrome://extensions` → Developer mode → *Load unpacked* → 
 Run e2e/perf against `.output/chrome-mv3-e2e` (`OMEGA_EXTENSION_DIR`). It has extra host permissions so Playwright can script a popup opened as a tab ([ADR 0005](../../docs/adr/0005-extension-permissions-and-e2e-build.md)).
 
 ## How it works
-1. Opening the popup injects `collectCandidateUrls` (`src/scan.ts`) into the target tab: the page URL plus `iframe[src]`, `embed[src]` and `object[data]`. This is one-shot; there are no content scripts.
+1. Opening the popup injects `collectCandidateUrls` (`src/scan.ts`) into the target tab: the page URL plus `iframe[src]`, `embed[src]` and `object[data]`. This is one-shot; no content script runs on other sites (the only one is the unlock bridge below, on our own site).
 2. `listEmbeds` (`src/embeds.ts`) runs each URL through the contract's `canonicalizeEmbed` and dedupes by video. Anything off the allowlist is dropped.
 3. **Share** → `shareEmbed` (`src/share.ts`) → `POST {server}/rooms/:id/share` with `{ url: <canonical embed url> }` and `Authorization: Bearer <shareToken>`. The request and response are parsed with `ShareRequestSchema` / `ShareResponseSchema`.
    - The token comes from `readShareTokens` (`src/share-token.ts`), a one-shot, read-only injection that reads `sessionStorage["omega.share"]` in open room tabs (ADR 0015).
    - Every server request also sends `ngrok-skip-browser-warning: 1`, `credentials: "include"` and `redirect: "manual"`.
 4. **Add to queue** → `addToQueue` (`src/queue.ts`) → `POST {server}/rooms/:id/queue`, same body, token and errors as Share plus `queue_full`, response parsed with `QueueAddResponseSchema` (ADR 0031). Both buttons show `control_owner_only` (the room's owner-only control policy, ADR 0030) and `queue_full` in our own words.
 5. The target tab is `?tabId=<n>` if present, else the active tab.
+
+**Unlock with extension** ([ADR 0047](../../docs/adr/0047-extension-unlock-for-generic-embeds.md)): the background registers `entrypoints/bridge.content.ts` at runtime on the server origin(s) only. It posts `present`, and forwards parsed `unlock`/`relock` messages (`src/bridge.ts`, schemas from `@omega/shared/extension-bridge`). `createUnlocker` (`src/unlock.ts`) re-checks the sender tab against our origin. If the host isn't granted yet it opens `consent.html` (Allow → `permissions.request`). Then it installs DNR session rules for that host in that tab only: `X-Frame-Options` removed, plus, in Chromium, CSP removed where it sets `frame-ancestors`. Rules go on relock, navigation off our origin and tab close.
 
 The room dropdown comes from `GET /rooms` (`loadRooms`, `src/rooms.ts`), which returns a probe outcome. `serverStatus` (`src/server-status.ts`) maps the probe, the host permission and the token onto the status line and the Share button: permission missing, tunnel unreachable, offline or HTML error page, edge sign-in, no room tab, or ready.
 

@@ -1,6 +1,6 @@
 // Builds the shipped sprite sheets + atlases and the (non-shipped) previews.
 // Run: bun assets/src/build.ts
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { AVATARS, BACK_DIRS, CELL, FLOOR, FRONT_DIRS, SEAT_HEIGHT, composeFrame, composeMotion, viewOf, type Dir, type Motion, type Pose } from "./avatars";
@@ -39,9 +39,10 @@ import { buildRoomsFrames, buildRoomsScenes, roomsCss } from "./rooms";
 import { buildModerationFrames, buildModerationScenes, moderationCss } from "./moderation";
 import { buildQueueFrames, queueCss } from "./queue";
 import { buildFullscreenFrames, buildFullscreenScenes, fullscreenCss, STRIP_AGES } from "./fullscreen";
-import { buildStoreIcons } from "./store";
+import { buildStoreIcons, buildToolbarIcons, renderFoundIcon, renderScreenOff } from "./store";
 import { buildPanels, buildShareCard, buildSiteIcons, encodeIco, type SiteSources } from "./site";
 import { buildPopupVignettes } from "./popup";
+import { POPUP_KIT_SLICES, POPUP_KIT_SPRITES, brightDots, chevronFrame, popupKitCss } from "./popupkit";
 import { BUBBLES, buildChatFloatFrames, chatFloatCss, wheelMeta } from "./chatfloat";
 import { PRESETS, THUMB, THUMB_SCALE, presetThumb } from "./presets";
 import * as v from "valibot";
@@ -607,6 +608,15 @@ function buildUi(avatarImages: Map<string, Uint8Array>, furniture: readonly Room
   }
   if (popupStates > 3072) throw new Error(`popup state vignettes ${String(popupStates)} B > 3072`);
   console.log(`popup state vignettes (OME-842): ${String(popupStates)} B of 3072`);
+  // OME-1041: the popup's own sprite cut (kit.png) and stylesheet (kit.css); its 9-slices are the existing ui/slices files.
+  const kitFrames = [...POPUP_KIT_SPRITES.map((k) => { const f = byKey.get(k); if (!f) throw new Error(`missing ${k}`); return k.startsWith("glyph/dots/") ? { ...f, img: brightDots(f.img) } : f; }), chevronFrame()];
+  const kit = pack(kitFrames, 64);
+  const kitSheet = new Uint8Array(kit.w * kit.h);
+  for (const p of kit.placed) blit(kitSheet, kit.w, p.img, p.w, p.h, p.x, p.y);
+  const kitSmall = compactPalette(kitSheet);
+  writeFileSync(join(dir, "popup", "kit.png"), encodeIndexedPng(kit.w, kit.h, kitSmall.pixels, kitSmall.palette));
+  writeFileSync(join(dir, "popup", "kit.css"), popupKitCss(Object.fromEntries(kit.placed.map((p) => [p.key, { x: p.x, y: p.y, w: p.w, h: p.h }])), { w: kit.w, h: kit.h }, { ...uiTokens(), hint: RAMPS.cream[1] }));
+  for (const s of POPUP_KIT_SLICES) if (!existsSync(join(dir, "slices", `${s}.png`))) throw new Error(`popup kit: no slice ${s}`);
   // Set (i): the closed / invite-required vignettes are standalone PNGs, fetched only by the pages that show them.
   mkdirSync(join(dir, "scenes"), { recursive: true });
   const scenes = [...buildRoomsScenes(), ...buildModerationScenes(), ...buildFullscreenScenes()];
@@ -1459,7 +1469,7 @@ const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "furniture/fu
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "furniture/furniture.png", "furniture/furniture.json"];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json"];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
@@ -1473,9 +1483,13 @@ function report(): void {
   console.log(`lazy (sets d, g, h edit kit, i/j scenes): ${String(lazy)} B; eager: ${String(total - lazy)} B`);
   console.log(`art total (png + gz json/css, eager + lazy): ${String(total)} B of 307200`);
   // Set (j): the extension icons ship in the extension package, not the site, so they're reported apart from the art budget.
-  const icons = readdirSync(join(ROOT, "store")).filter((n) => /^icon-\d+\.png$/.test(n)).sort((a, b) => Number.parseInt(a.slice(5), 10) - Number.parseInt(b.slice(5), 10));
+  const icons = readdirSync(join(ROOT, "store")).filter((n) => /^(icon|found)-\d+\.png$/.test(n)).sort();
   const iconBytes = icons.map((n) => readFileSync(join(ROOT, "store", n)).length);
   console.log(`extension icons (store/${icons.join(", ")}): ${iconBytes.join(" + ")} = ${String(iconBytes.reduce((a, b) => a + b, 0))} B`);
+  // OME-1041: what the restyled popup loads from the extension package (all local files, no network).
+  const kitPng = readFileSync(join(ROOT, "ui", "popup", "kit.png")).length, kitCss = gzipSync(readFileSync(join(ROOT, "ui", "popup", "kit.css")), { level: 9 }).length;
+  const kitSlices = POPUP_KIT_SLICES.reduce((a, n) => a + readFileSync(join(ROOT, "ui", "slices", `${n}.png`)).length, 0);
+  console.log(`popup kit (OME-1041): kit.png ${String(kitPng)} B + kit.css ${String(kitCss)} B gz + ${String(POPUP_KIT_SLICES.length)} slices ${String(kitSlices)} B = ${String(kitPng + kitCss + kitSlices)} B`);
   // Set (m): the website's files have their own caps (OME-762), enforced here: each landing panel ≤ 25 KB and all three ≤ 60 KB
   // (the landing's transfer budget is merge-blocking), and the share card < 150 KB.
   const size = (f: string): number => readFileSync(join(ROOT, "site", f)).length;
@@ -1490,9 +1504,17 @@ function report(): void {
 /** Set (j): the Chrome Web Store kit's extension icons (drawn per size). The promo tile and screenshots come from preview/store.html. */
 function buildStore(): void {
   mkdirSync(join(ROOT, "store"), { recursive: true });
-  for (const f of buildStoreIcons()) {
+  for (const f of [...buildStoreIcons(), ...buildToolbarIcons()]) {
     const small = compactPalette(f.pixels);
     writeFileSync(join(ROOT, "store", f.file), encodeIndexedPng(f.w, f.h, small.pixels, small.palette));
+  }
+  // OME-1041: the rejected "found" directions, for preview/popup-kit.html only (A: a flat glow dot; C: the screen off until found).
+  mkdirSync(join(ROOT, "preview", "toolbar"), { recursive: true });
+  for (const S of [16, 32]) {
+    for (const [name, img] of [[`dot-${String(S)}`, renderFoundIcon(S, 0, false, "dot")], [`off-${String(S)}`, renderScreenOff(S, 0)]] as const) {
+      const small = compactPalette(img);
+      writeFileSync(join(ROOT, "preview", "toolbar", `${name}.png`), encodeIndexedPng(S, S, small.pixels, small.palette));
+    }
   }
 }
 

@@ -21,8 +21,9 @@
 .generic-card { max-width: 80%; text-align: center; color: #eee; }
 .generic-card p { margin: 0 0 6px; overflow-wrap: anywhere; }
 .generic-note { color: var(--muted); font-size: 0.85em; }
-.generic-strip { height: 100%; display: flex; align-items: center; gap: 10px; font-size: 0.8em; color: var(--muted); }
-.generic-label { padding: 2px 8px; border: 1px solid currentColor; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+.generic-strip { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; font-size: 0.8em; color: var(--muted); }
+.generic-label { padding: 2px 8px; border: 1px solid currentColor; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; white-space: nowrap; }
+.generic-hint { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .overlay, .tags, .bubbles { position: absolute; inset: 0; pointer-events: none; }
 /* A seat is the 52×26 floor diamond: a 26√2 square turned 45° and squashed to half height (stage.ts places it with the
  * translate property, which applies after this transform). The box itself is the diamond, so its outline and shadow

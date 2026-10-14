@@ -1,5 +1,5 @@
 // Floating chat bubbles (OME-730, M8 W1, set (l) `.ui-float`; research m8-smooth-walk.md §4). DOM, never the Pixi room:
-// a bubble costs no canvas render and no JS per frame. A fixed pool of 8 nodes, reused oldest-first, so a message creates
+// a bubble costs no canvas render and no JS per frame. A fixed pool of 16 nodes, reused oldest-first, so a message creates
 // and destroys nothing. Each node is three elements: the outer one rides the speaker's head (`move`, on every walk frame,
 // a transform write only); a bare wrapper inside it carries the push, the rise and the fade (restyling it is cheap: no
 // rules, no tail, no custom properties); the bubble itself is only written when a message lands or it stacks. Overlap
@@ -14,14 +14,14 @@
 // The layer is decorative (aria-hidden, no live region): the chat log is the accessible record.
 import type { MemberId } from "@omega/shared";
 import { el } from "../controls/dom";
-import { STAGE_W, type Point } from "../layout";
+import { ROOM_VIEW, STAGE_W, type Point } from "../layout";
 
-/** Set (l) `meta.omega.bubbles`: a 5 s life, a 24 px rise in whole-pixel steps, 2 per speaker, 8 on screen. */
+/** Set (l) `meta.omega.bubbles`: a 5 s life, a 24 px rise in whole-pixel steps; 10 per speaker, 16 on screen (OME-1050). */
 export const FLOAT_LIFE_MS = 5000;
 export const FLOAT_RISE = 24;
 export const FLOAT_LEAVE_MS = 160;
-export const FLOAT_POOL = 8;
-export const FLOAT_PER_SPEAKER = 2;
+export const FLOAT_POOL = 16;
+export const FLOAT_PER_SPEAKER = 10;
 /** Clear space between a pushed bubble and the newer one under it. */
 const GAP = 3;
 /** The box keeps this far from the stage's side edges. */
@@ -293,7 +293,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
    * Newest first, push each older bubble up until it clears every newer one by GAP. Live bubbles all rise at the same
    * rate on the same steps, so their gaps hold for as long as both are up; the older one's head start counts (whole
    * steps, rounded down, and no more than it shows now: the closest the two get). Pushes only grow: a bubble never
-   * slides down.
+   * slides down. One pushed so high that its rise would leave ROOM_VIEW (the page clips it there) goes instead.
    */
   const resolve = (): void => {
     order.length = 0;
@@ -323,6 +323,10 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           if (!s.stacked) stack(s);
           moved = true;
         }
+      }
+      if (i > 0 && s.ay - (s.h + TAIL_BELOW) - push - (reduced ? 0 : FLOAT_RISE) < ROOM_VIEW.y) {
+        leave(s);
+        continue;
       }
       setPush(s, push);
     }
@@ -370,7 +374,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       const now = o.now();
       const elapsed = Number.isNaN(m.startedAt) ? 0 : Math.max(0, now - m.startedAt);
       if (elapsed >= FLOAT_LIFE_MS) return;
-      // 2 per speaker: their oldest goes.
+      // FLOAT_PER_SPEAKER per speaker: their oldest goes.
       for (;;) {
         let count = 0;
         let oldest: Slot | null = null;

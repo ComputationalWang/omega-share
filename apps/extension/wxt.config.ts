@@ -1,11 +1,13 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "wxt";
 import { defaultServerBaseUrl, hostPermissionPattern } from "./src/settings";
 
 /** Toolbar and store icons: the original art in `assets/store/` (R1, OME-509), copied in at build time so there is one source. */
 const ICON_SIZES = ["16", "32", "48", "128"] as const;
-/** Popup state vignettes (OME-842 art, used by OME-857), copied in the same way. */
+/** Popup state vignettes (OME-842 art, used by OME-857) and the popup kit (OME-1043), copied in the same way. */
 const POPUP_VIGNETTES = ["nothing-found", "cant-read", "server-away"].flatMap((name) => [`${name}.png`, `${name}@2x.png`]);
+const FOUND_ICON_SIZES = ["16", "32", "48", "64"] as const;
 const icons = Object.fromEntries(ICON_SIZES.map((size) => [size, `icon/${size}.png`]));
 
 /**
@@ -20,6 +22,7 @@ const GECKO = {
   strict_min_version: "140.0",
   data_collection_permissions: { required: ["websiteContent", "browsingActivity", "authenticationInfo"] },
 } as const;
+const UNLOCK_PERMISSION = "declarativeNetRequestWithHostAccess";
 /** Firefox for Android (OME-743, board): 142 is the first Android release that reads `data_collection_permissions`. */
 const GECKO_ANDROID = { strict_min_version: "142.0" } as const;
 
@@ -35,8 +38,16 @@ export default defineConfig({
       for (const size of ICON_SIZES) {
         files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/store/icon-${size}.png`, import.meta.url)), relativeDest: `icon/${size}.png` });
       }
-      for (const file of POPUP_VIGNETTES) {
+      // The found indicator's per-tab icons (OME-1041 art, wired by OME-1042), and the idle 64 px it switches back to (not icon/64.png, which WXT would add to the manifest).
+      for (const name of [...FOUND_ICON_SIZES.map((size) => `found-${size}`), "icon-64"]) {
+        files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/store/${name}.png`, import.meta.url)), relativeDest: `icon/${name.replace("icon-", "idle-")}.png` });
+      }
+      for (const file of [...POPUP_VIGNETTES, "kit.css", "kit.png"]) {
         files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/ui/popup/${file}`, import.meta.url)), relativeDest: `popup/${file}` });
+      }
+      // The popup kit's 9-slices (OME-1041): exactly the ones kit.css names, so the list has one source.
+      for (const file of new Set(Array.from(readFileSync(new URL("../../assets/ui/popup/kit.css", import.meta.url), "utf8").matchAll(/\.\.\/slices\/([\w-]+\.png)/g), (m) => String(m[1])))) {
+        files.push({ absoluteSrc: fileURLToPath(new URL(`../../assets/ui/slices/${file}`, import.meta.url)), relativeDest: `slices/${file}` });
       }
     },
     // Firefox would embed the options page in about:addons, where the permissions.request gesture is untested: use a tab.
@@ -50,13 +61,18 @@ export default defineConfig({
     description: "Share the video on this page into an omega-share room.",
     icons,
     action: { default_icon: icons },
-    permissions: ["activeTab", "scripting", "storage"],
+    // "Unlock with extension" (ADR 0047 §4): Chromium asks for DNR with the one host it unlocks. Firefox can't make it
+    // optional, and there it has no prompt and acts only on hosts the viewer granted. The e2e builds hold it because
+    // Playwright can't click the permission prompt.
+    permissions: ["activeTab", "scripting", "storage", ...(browser === "firefox" || mode === "e2e" ? [UNLOCK_PERMISSION] : [])],
+    ...(browser === "firefox" ? {} : { optional_permissions: [UNLOCK_PERMISSION] }),
     host_permissions: [
       ...new Set([
         hostPermissionPattern(defaultServerBaseUrl(mode)),
         // e2e/perf only: Playwright opens the popup as a tab and can't grant activeTab. Port-less patterns cover every
         // port (the default server's http://localhost/* included), so e2e runs on any OMEGA_SERVER_PORT (QA OME-611, OME-687).
-        ...(mode === "e2e" ? ["http://localhost/*", "https://www.youtube.com/*"] : []),
+        // xfo.omega-fixture.net is the unlock spec's X-Frame-Options host, granted as a viewer would (e2e/unlock.e2e.ts).
+        ...(mode === "e2e" ? ["http://localhost/*", "https://www.youtube.com/*", "http://xfo.omega-fixture.net/*", "https://xfo.omega-fixture.net/*"] : []),
       ]),
     ],
     // What parseServerBaseUrl accepts: https anywhere, cleartext only on this computer (any port).

@@ -415,6 +415,31 @@ I weighed three directions for the share card before drawing any pixels:
   stand-in sunset video.
 - No new colours: still the 67.
 
+## Set (o) extension popup + toolbar "found" (OME-1041)
+Three ways to say "this page has a video" on a 16 px toolbar icon were tried in pixels (`preview/ui-popup-kit-toolbar@2x.png`):
+
+| | Direction | Verdict |
+|---|---|---|
+| A | A plain dot (flat glow) in the corner | Rejected: reads as "unread notification", and the glow almost vanishes on a white toolbar. |
+| **B** | **Tally lamp:** a lit mustard bulb with a cream glint and its own plum ring, in the cabinet's top-right corner | **Chosen.** A studio's "on" light: the set has something to show. Mustard is the Share key's colour, so the lamp points at the action. It sits clear of the badge corner (bottom-right). |
+| C | The screen comes on: idle is the set switched off | Rejected: idle stops being today's icon, and a dark set disappears on a dark toolbar. |
+
+- **The lamp:** a disc of r ≈ 3.3 art px at 16 and 0.15 × the size above that, its own plum ring cut out of the wood (so the state is a
+  shape and a light, not just a colour), the top-left highlight and bottom-right shade of the mustard ramp, and a cream glint (2×2 from 32 px).
+  At 16 px it's the brightest warm block in the icon on white, #e9eef6, #f9f9fb, #35363a, #2b2a33 and black.
+  OME-1061 (judge polish): at 16 px the disc is r = 3 (1 px smaller) and its edge is a light mustard rim instead of the ramp's
+  shade, so plum ring + bulb don't close up into one dark blob on #f9f9fb. 32 px and up are unchanged.
+- **Popup contrast (OME-1061):** the page's host and the no-list state line use `--ui-hint` (cream[1], 11.3:1 on the panel; the site's
+  lilac `--ui-muted` was 6.6:1 at 11 px). The kit's cut of the scanning dots lifts them from cream[2] to cream[0], with the travelling dot in
+  light mustard. Popup only; the site's loader is unchanged.
+- **The popup is a small "Up next" panel:** the same wood panel on the plum page, embed rows in the queue's night rows with the queue's
+  source tiles and ADR 0024 chips (wood "Synced", cream-shade "Not synced"), the room in a night field, Share in mustard and Add to queue in navy.
+  The chosen embed wears the queue's `next` row (the TV's glow bar) and a filled radio glyph: the choice is shape + glyph, never colour alone.
+- **Results** follow the room: success is a system line (glow bar, `glyph/check`, the room's name in glow); errors are rust text plus `icon/warn`.
+- **The OME-842 vignettes** move from white to the panel's dusk fill unchanged: they keep their own plum outline, and their cream pages read on it.
+- **Scale** is the site's page chrome, 2× (`--ui-px: 2px`). System font, no web font. The only new pixels are the lamp and a 9×6 cream
+  chevron for the room field. No new colours: still the 67.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -433,6 +458,7 @@ I weighed three directions for the share card before drawing any pixels:
 | (k) full screen + pop-out, quality, report (M7) | added to the (c) files: `ui.png` + `ui.json` (gz) + 4 slices + `reference.css` (gz) · `ui/scenes/chat-away.png` + `room-away.png` (lazy) | **≈ 4.7 KB** eager · **0.7 KB** lazy |
 | (l) bubbles, wheel, smooth walk (M8) | added to the (c) files: `ui.png` + `ui.json` (gz) + 7 slices + `reference.css` (gz) · `avatars/motion.png` + `motion.json` (gz, lazy) | **≈ 5.3 KB** eager · **4.9 KB** lazy |
 | (m) site icons, share card, panels (M9) | `site/*`: their own caps, not this budget (landing panels ≤ 60 KB together, share card < 150 KB) | panels **6.8 KB**, share card **13.8 KB**, icons **5.9 KB** |
+| (o) popup kit + toolbar found (OME-1041) | `ui/popup/kit.png` + `kit.css` (gz) + 17 existing slices (in the extension package) · `store/found-16\|32\|48\|64.png` + `icon-64.png` | popup **6.8 KB** (kit 4.1 KB new) · icons **2.2 KB** |
 | total art budget | | ≤ 300 KB (≈ 127.2 KB used, as printed by `bun assets/src/build.ts`) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.

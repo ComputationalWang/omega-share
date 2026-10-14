@@ -1,6 +1,6 @@
 # ADR 0024 — Generic (unsynced) embeds: any safe https embed, sandboxed, click to load
 
-**Status:** accepted (2026-10-01) · board direction [OME-285](/OME/issues/OME-285) · contract [OME-290](/OME/issues/OME-290) · server [OME-291](/OME/issues/OME-291), web [OME-292](/OME/issues/OME-292), extension [OME-293](/OME/issues/OME-293) · amends ADR 0003, ADR 0011 §CSP, ADR 0014 §5
+**Status:** accepted (2026-10-01) · board direction [OME-285](/OME/issues/OME-285) · contract [OME-290](/OME/issues/OME-290) · server [OME-291](/OME/issues/OME-291), web [OME-292](/OME/issues/OME-292), extension [OME-293](/OME/issues/OME-293) · amends ADR 0003, ADR 0011 §CSP, ADR 0014 §5 · **amended by ADR 0047** (opt-in extension unlock for hosts that refuse framing or gate on Referer: §2b, §3, accepted losses)
 
 **Context:** Until now a room could show only YouTube, Twitch and Vimeo. Their players can be synced, and the extension and the server both rejected every other URL (product spec, "Providers"; CLAUDE.md "never render arbitrary iframes"). The board wants rooms to accept **any other embed** too. This ADR reverses the allowlist-only rule and sets out how to do it safely. Two things stay the same: the three synced providers keep their adapters, sync and tests, and no iframe is ever built from a string that has not been parsed by `packages/shared`.
 
@@ -55,7 +55,7 @@ The page's `Permissions-Policy` header (camera, microphone, geolocation, payment
 
 ### 3. Click to load
 
-A generic embed first renders a **card**: "Video from **host** · not synced · Load". `host` is set with `textContent`. The card makes **no third-party request**: no favicon, thumbnail, oEmbed or preconnect. The iframe is created only when *that* viewer clicks Load. The choice is kept per viewer for the current embed URL and resets when the embed changes. This keeps the room's load and frame budgets independent of third-party pages (`docs/perf-budgets.md`), and nobody is tracked just for being in a room. The sync controls, rate nudges and catch-up status are hidden for the generic tier. A small "not synced" label stays visible after Load. Many sites refuse framing (`X-Frame-Options`, `frame-ancestors`), and we cannot detect that across origins. The web shows a static hint under the frame ("Blank? This site doesn't allow embedding.").
+A generic embed first renders a **card**: "Video from **host** · not synced · Load". `host` is set with `textContent`. The card makes **no third-party request**: no favicon, thumbnail, oEmbed or preconnect. The iframe is created only when *that* viewer clicks Load. The choice is kept per viewer for the current embed URL and resets when the embed changes. This keeps the room's load and frame budgets independent of third-party pages (`docs/perf-budgets.md`), and nobody is tracked just for being in a room. The sync controls, rate nudges and catch-up status are hidden for the generic tier. A small "not synced" label stays visible after Load. Many sites refuse framing (`X-Frame-Options`, `frame-ancestors`), and we cannot detect that across origins. The web shows a static hint under the frame ("Blank/error: host blocks it", with a tooltip naming the host; OME-1035: Firefox shows its own error page rather than a blank frame).
 
 ### 4. CSP
 

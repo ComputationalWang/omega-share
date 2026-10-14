@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>unlock room</title></head>
+<body>
+  <!-- A stand-in room page on "our origin" for the ADR 0047 bridge (OME-1040, e2e/unlock.e2e.ts). -->
+  <p id="present">absent</p>
+  <p id="result"></p>
+  <p id="loads">0</p>
+  <button id="load">Load</button>
+  <button id="unlock">Unlock with extension</button>
+  <button id="relock">Relock</button>
+  <div id="tv"></div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const host = params.get("host") ?? "xfo.omega-fixture.net";
+    const framePage = params.get("page") === "referer" ? "referer-frame.html" : "xfo-frame.html";
+    const show = (id, text) => { document.getElementById(id).textContent = text; };
+    addEventListener("message", (e) => {
+      if (e.source !== window || e.origin !== location.origin || e.data?.source !== "omega-share") return;
+      if (e.data.kind === "present") show("present", `present ${e.data.version}`);
+      if (e.data.kind === "unlock-result") show("result", `${e.data.host} ${e.data.outcome}`);
+    });
+    let loads = 0;
+    document.getElementById("load").onclick = () => {
+      const frame = document.createElement("iframe");
+      frame.sandbox = "allow-scripts allow-same-origin";
+      frame.referrerPolicy = "no-referrer";
+      frame.onload = () => show("loads", String(++loads));
+      frame.src = `http://${host}:${location.port}/${framePage}`;
+      document.getElementById("tv").replaceChildren(frame);
+    };
+    document.getElementById("unlock").onclick = () => postMessage({ source: "omega-share", kind: "unlock", host }, location.origin);
+    document.getElementById("relock").onclick = () => postMessage({ source: "omega-share", kind: "relock" }, location.origin);
+  </script>
+</body>
+</html>

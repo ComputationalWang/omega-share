@@ -81,8 +81,13 @@ for (const [width, height] of [[360, 740], [412, 915]] as const) {
       const f = await popup.evaluate(() => {
         const e = document.activeElement;
         if (e === null || e === document.body) return null;
-        const s = getComputedStyle(e);
-        return { id: e.id !== "" ? e.id : (e.getAttribute("name") ?? e.tagName), visible: s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0 && e.matches(":focus-visible") };
+        // An embed's radio is visually hidden inside its row (OME-1043): the row carries the ring.
+        const ring = e.matches("[data-testid=embed-item] input") ? e.closest("label") : e;
+        if (ring === null) return null;
+        const s = getComputedStyle(ring);
+        // The kit's room field shows focus with its mustard input-focus 9-slice instead of an outline (OME-1041).
+        const ringed = (s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0) || s.borderImageSource.includes("input-focus");
+        return { id: e.id !== "" ? e.id : (e.getAttribute("name") ?? e.tagName), visible: ringed && e.matches(":focus-visible") };
       });
       if (f === null) continue;
       seen.add(f.id);
@@ -122,14 +127,15 @@ for (const [width, height] of [[360, 740], [412, 915]] as const) {
 
 });
 
-test("on a desktop (a mouse, which hovers) the popup body stays 320 px wide", async ({ context, openPopup }) => {
+test("on a desktop (a mouse, which hovers) the popup body is the kit's 340 px", async ({ context, openPopup }) => {
   const popup = await setup(context, openPopup);
   await popup.setViewportSize({ width: 800, height: 600 });
   await expect(popup.locator("[data-testid=embed-item]")).toHaveCount(3);
   expect(await popup.evaluate(() => matchMedia("(hover: none)").matches)).toBe(false);
-  expect(await popup.evaluate(() => document.body.getBoundingClientRect().width)).toBe(320);
+  expect(await popup.evaluate(() => document.body.getBoundingClientRect().width)).toBe(340);
   const share = await popup.locator("[data-testid=share-button]").boundingBox();
-  expect(share?.height).toBeLessThan(44);
+  // The kit's key (about 56 px with its 9-slice rim, as in the OME-1041 mock-up), not stretched to fill the sheet.
+  expect(share?.height).toBeLessThanOrEqual(60);
 });
 
 // Firefox for Android opens the options page in a tab behind the popup's full-screen sheet, which stays on top, so

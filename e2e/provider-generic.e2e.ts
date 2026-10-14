@@ -130,7 +130,23 @@ test.describe("generic embed shared from the extension → click-to-load in the 
     });
     expect(Object.keys(attrs).sort()).toEqual(["allow", "data-testid", "referrerpolicy", "sandbox", "src", "title"]);
     expect(roomHits).toEqual([EMBED_URL]);
-    await expect(room.getByTestId("generic-hint")).toHaveText("Blank? This site doesn't allow embedding.");
+    await expect(room.getByTestId("generic-hint")).toHaveText("Blank/error: host blocks it");
+    // The strip stays one line inside its control-bar slot, and the hint shows whole (OME-1035).
+    const fit = await room.getByTestId("generic-hint").evaluate((h) => {
+      const strip = h.parentElement?.getBoundingClientRect();
+      const slot = h.parentElement?.parentElement?.getBoundingClientRect();
+      const at = JSON.stringify({ hint: [h.scrollWidth, h.clientWidth], strip: strip?.width, slot: slot?.width, font: getComputedStyle(h).fontFamily });
+      return { inSlot: !!strip && !!slot && strip.right <= slot.right + 0.5, whole: h.scrollWidth <= h.clientWidth, at };
+    });
+    expect({ inSlot: fit.inSlot, whole: fit.whole }, fit.at).toEqual({ inSlot: true, whole: true });
+    for (const id of ["generic-hint", "not-synced"]) {
+      const lines = await room.getByTestId(id).evaluate((e) => {
+        const r = document.createRange();
+        r.selectNodeContents(e);
+        return new Set([...r.getClientRects()].map((b) => Math.round(b.top))).size;
+      });
+      expect(lines, id).toBe(1);
+    }
 
     // The hostile embed tries every way out, each with a real user activation inside the frame: script, then links.
     const inner = room.frameLocator(site.sharedVideo);

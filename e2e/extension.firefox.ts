@@ -23,12 +23,12 @@ test.describe("Firefox extension", () => {
     const popup = await openPopup(ff.browser, page);
     // The same list as Chromium's extension.e2e.ts: four synced embeds, then the two lookalikes as generic.
     expect(await embedLabels(popup, 6)).toEqual([
-      "YouTube · aqz-KE-bpKQ",
+      "YouTube aqz-KE-bpKQ Synced",
       expect.stringMatching(/^Twitch/),
       expect.stringMatching(/^Twitch/),
-      "Vimeo · 76979871",
-      "player-twitch.tv · not synced",
-      "vimeo.co · not synced",
+      "Vimeo 76979871 Synced",
+      "player-twitch.tv Page embed · 300×150 Not synced",
+      "vimeo.co Page embed · 300×150 Not synced",
     ]);
   });
 

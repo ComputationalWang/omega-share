@@ -92,6 +92,8 @@ Test-harness oddities that cost real review time. Check here before debugging a 
 
 **Real-site probes** (OME-661, OME-673, OME-246). Twitch gear: hover the iframe centre, click `player-settings-button`, then `player-settings-menu-item-quality`, then `player-settings-submenu-quality-option` (`data-a-target`; a second click on the button closes it). Prove the room is untouched with WS `control` frames sent by the actor and `playback` frames received by another member; sampling `<video>` can't tell an ad from the broadcast. Vimeo `1084537` is a free account (lists qualities, refuses `setQuality`, no key shown); `76979871` is paid and shows the key. Twitch's mature gate hits most top live channels logged out: detect it by the `content-classification-gate-overlay-start-watching-button` target (the `<video>` keeps advancing), and use `liveInCategories`/`gateShown` in `e2e/real/providers.ts`. Headed real runs during perf cause frame fails.
 
+**Twitch's mature gate can ignore a press** (OME-1052). Right after its player comes online, the gate's Start Watching button takes a clean click and stays up, or isn't clickable yet. Press until `gateShown` is false (see `pressStartWatching` in M3-twitch-gate), never just once. To repeat a real spec, run separate invocations, not `--repeat-each`: the repeats reuse nicknames, the old members are still in the room, and the next repeat hangs on "That name is taken" until the test timeout.
+
 ## Firefox and Android rigs
 
 **Playwright can't load Firefox extensions** (OME-546, OME-593). The lane is `bun run ext:firefox` with `e2e/support/firefox.ts` (Puppeteer WebDriver BiDi). Facts:
