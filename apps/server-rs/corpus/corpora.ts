@@ -4,6 +4,7 @@
 // longer matches the TS side, so a `packages/shared` change can't land without the Rust copy noticing:
 // regenerate with `bun apps/server-rs/corpus/gen.ts`, then make the Rust tests pass.
 import { normalizeHostname } from "@omega/shared";
+import { embedCorpora } from "./embed-corpora";
 import { CONFUSABLES } from "../../../packages/shared/src/confusables-table";
 import * as text from "./text-corpora";
 import { unicodeDigestCases } from "./unicode-digest";
@@ -115,6 +116,7 @@ const constantCases = (): Case[] =>
 export const corpora: Corpus[] = [
   { name: "normalize-hostname", cases: () => decided(HOSTNAMES, normalizeHostname) },
   { name: "constants", cases: constantCases },
+  ...embedCorpora,
   { name: "unicode-digest", cases: unicodeDigestCases },
   { name: "raw-avatar", cases: text.rawAvatarCases },
   { name: "raw-seat-index", cases: text.rawSeatIndexCases },
