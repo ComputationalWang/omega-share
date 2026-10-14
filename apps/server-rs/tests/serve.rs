@@ -1,4 +1,10 @@
 //! The binary end to end: startup refusal, a listening server, and shutdown.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test helpers: a broken fixture should fail loudly"
+)]
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;

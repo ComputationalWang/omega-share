@@ -7,14 +7,16 @@ The TS server in `apps/server` is the reference. It is **frozen**: no feature wo
 ## Commands
 
 ```sh
-export CARGO_TARGET_DIR=$HOME/.cache/omega-share/cargo-target  # one build dir for every worktree
-export CARGO_BUILD_JOBS=8                                      # leave the machine usable
+export CARGO_TARGET_DIR=$HOME/.cache/omega-share/cargo-target-<OME-key>  # one build dir per worktree
+export CARGO_BUILD_JOBS=4                                               # leave the machine usable
 bun run check:rs   # fmt --check, clippy -D warnings, tests, cargo-deny: the Rust half of `bun run check`
 cargo test -p omega-server <filter>
 cargo run -p omega-server -- serve   # env as in apps/server (PORT, DB_PATH, SITE_ORIGIN, ...)
 ```
 
-At most 2 Cargo builds at once on the dev machine. The shared target dir serialises them anyway (Cargo's lock), so a waiting build says `Blocking waiting for file lock`: that is expected, not a hang.
+Never share a target dir between worktrees: integration tests run `target/debug/omega-server`, so a shared dir can test another worktree's build. Keep parallel Cargo builds on the dev machine to what its cores can carry (16 cores: four builds at 4 jobs each).
+
+Integration tests (`tests/*.rs`) are separate crates: helper functions there need `#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, reason = "…")]` at the top, since clippy's in-test allowances only cover `#[test]` functions.
 
 ## Module map
 

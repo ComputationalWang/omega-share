@@ -97,10 +97,21 @@ pub const CONFIG_KEYS: [&str; 15] = [
 
 /// The process environment as UTF-8. Variables we don't read are skipped whatever their bytes.
 pub fn env_from_os(vars: impl IntoIterator<Item = (OsString, OsString)>) -> Result<Env, ConfigError> {
-    Ok(vars
-        .into_iter()
-        .filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)))
-        .collect())
+    let mut env = Env::new();
+    for (key, value) in vars {
+        let Ok(key) = key.into_string() else { continue };
+        match value.into_string() {
+            Ok(value) => {
+                env.insert(key, value);
+            }
+            Err(_) => {
+                if let Some(read) = CONFIG_KEYS.iter().find(|k| **k == key) {
+                    return Err(fail(read, "must be UTF-8"));
+                }
+            }
+        }
+    }
+    Ok(env)
 }
 
 /// Under the unit's `LimitNOFILE=4096`, so 1024 descriptors stay free for HTTP, SQLite and metrics.
@@ -251,7 +262,8 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
     };
 
     let db_path = match get("DB_PATH") {
-        None => DbPath::File(default_db_path()),
+        None if dev_build => DbPath::File(default_db_path()),
+        None => return Err(fail("DB_PATH", "must be set (a release build has no default)")),
         Some("") => return Err(fail("DB_PATH", "must not be empty")),
         Some(":memory:") => DbPath::Memory,
         Some(raw) => DbPath::File(resolve(cwd, raw)),
