@@ -5,16 +5,12 @@
 
 use crate::app::App;
 use crate::log::{LogEvent, log_error};
-use crate::metrics::SERVICE_RESTART;
 use crate::store::{SeatHold, StoreError};
 
 /// `server.drain()` after the listener stopped: every socket of every room gets a SERVICE_RESTART close (counted in
 /// the metrics) and the seats held are returned for the store to keep.
 pub fn drain_sockets(app: &App) -> Vec<SeatHold> {
-    // S6 wires drain: until `ws::drain` is in main this is the app core's `seat_holds` and `close_all_sockets`.
-    let holds = app.seat_holds();
-    app.close_all_sockets(SERVICE_RESTART, "server restarting");
-    holds
+    crate::ws::drain(app)
 }
 
 /// What follows the drain: the seats are saved (a failure is logged as `store.seat_holds`, the restart goes on), then

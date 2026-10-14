@@ -18,7 +18,7 @@ use crate::registry::RoomInner;
 use axum::extract::ws::Utf8Bytes;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use tokio::sync::mpsc;
+use tokio::sync::{Notify, mpsc};
 
 /// `BACKPRESSURE_LIMIT` (ws-limits.ts): queued bytes past this drop the connection.
 pub const BACKPRESSURE_LIMIT: usize = 256 * 1024;
@@ -52,6 +52,8 @@ pub struct Outbox {
     tx: mpsc::Sender<Outbound>,
     queued: Arc<AtomicUsize>,
     dead: Arc<AtomicBool>,
+    /// Woken when the outbox dies, so the connection notices without its writer making progress.
+    died: Arc<Notify>,
 }
 
 /// The receiving half: the connection's writer task.
@@ -60,6 +62,27 @@ pub struct OutboxRx {
     rx: mpsc::Receiver<Outbound>,
     queued: Arc<AtomicUsize>,
     dead: Arc<AtomicBool>,
+    died: Arc<Notify>,
+}
+
+/// Resolves when the outbox is marked dead, independently of the writer: a client that stopped reading blocks its
+/// writer in a socket write, and the connection must still end (Bun's `closeOnBackpressureLimit`). S6 addition.
+#[derive(Debug, Clone)]
+pub struct DeadSignal {
+    dead: Arc<AtomicBool>,
+    died: Arc<Notify>,
+}
+
+impl DeadSignal {
+    pub async fn wait(&self) {
+        loop {
+            // `notify_one` leaves a permit when nobody waits yet, so a death between the check and the wait is seen.
+            if self.dead.load(Ordering::Acquire) {
+                return;
+            }
+            self.died.notified().await;
+        }
+    }
 }
 
 /// A new outbox pair for a connection.
@@ -67,13 +90,15 @@ pub fn channel() -> (Outbox, OutboxRx) {
     let (tx, rx) = mpsc::channel(OUTBOX_FRAMES);
     let queued = Arc::new(AtomicUsize::new(0));
     let dead = Arc::new(AtomicBool::new(false));
+    let died = Arc::new(Notify::new());
     (
         Outbox {
             tx,
             queued: queued.clone(),
             dead: dead.clone(),
+            died: died.clone(),
         },
-        OutboxRx { rx, queued, dead },
+        OutboxRx { rx, queued, dead, died },
     )
 }
 
@@ -86,10 +111,15 @@ impl Outbox {
         let len = frame.len();
         let queued = self.queued.fetch_add(len, Ordering::AcqRel).saturating_add(len);
         if queued > BACKPRESSURE_LIMIT || self.tx.try_send(Outbound::Text(frame.clone())).is_err() {
-            self.dead.store(true, Ordering::Release);
+            self.kill();
             return false;
         }
         true
+    }
+
+    fn kill(&self) {
+        self.dead.store(true, Ordering::Release);
+        self.died.notify_one();
     }
 
     /// Queues a close frame (not counted toward the byte limit). False if the channel is full or gone.
@@ -98,7 +128,7 @@ impl Outbox {
             return false;
         }
         if self.tx.try_send(Outbound::Close(code, reason)).is_err() {
-            self.dead.store(true, Ordering::Release);
+            self.kill();
             return false;
         }
         true
@@ -115,6 +145,14 @@ impl Outbox {
 }
 
 impl OutboxRx {
+    /// For the connection task, which watches for death while the writer owns this receiver.
+    pub fn dead_signal(&self) -> DeadSignal {
+        DeadSignal {
+            dead: self.dead.clone(),
+            died: self.died.clone(),
+        }
+    }
+
     /// The next frame, or `None` when the connection must end without another frame: the outbox was
     /// marked dead (the queue is discarded), or the room dropped it and the queue is empty.
     pub async fn recv(&mut self) -> Option<Outbound> {
@@ -229,6 +267,19 @@ impl Subscribers {
         sent
     }
 
+    /// A close frame to one connection (`ws.close`). The entry stays until the connection detaches; false if the
+    /// connection is unknown or its outbox went dead (then it is dropped, like a failed `send_to`).
+    fn close_one(&mut self, conn: ConnId, code: u16, reason: &'static str) -> bool {
+        let Some(i) = self.entries.iter().position(|e| e.conn == conn) else {
+            return false;
+        };
+        let sent = self.entries.get(i).is_some_and(|e| e.outbox.send_close(code, reason));
+        if !sent {
+            self.entries.remove(i);
+        }
+        sent
+    }
+
     /// How many close frames were queued.
     fn close_all(&mut self, code: u16, reason: &'static str) -> usize {
         let mut sent = 0;
@@ -269,6 +320,11 @@ pub fn publish_msg(inner: &mut RoomInner, msg: &ServerMessage) -> bool {
 /// `ws.send(frame)`: to one connection, subscribed or not. False if it is gone or went dead.
 pub fn send_to(inner: &mut RoomInner, conn: ConnId, frame: &Utf8Bytes) -> bool {
     inner.subscribers.send_to(conn, frame)
+}
+
+/// `ws.close(code, reason)` for one connection, after the frames already queued for it. S6 addition to the app core.
+pub fn close_conn(inner: &mut RoomInner, conn: ConnId, code: u16, reason: &'static str) -> bool {
+    inner.subscribers.close_one(conn, code, reason)
 }
 
 /// A close frame to every attached connection, joined or not; returns how many were queued (for the close metrics).

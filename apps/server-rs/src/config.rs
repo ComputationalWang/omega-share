@@ -49,6 +49,12 @@ pub struct ServerConfig {
     pub max_connections: u32,
     /// `RESUME_GRACE_MS`: how long a dropped durable member is held (ADR 0043).
     pub resume_grace_ms: u32,
+    /// `MAX_CONNECTIONS_PER_IP`: open WebSockets per client key; unset is 50, or 10 behind a trusted proxy.
+    pub max_connections_per_ip: Option<u32>,
+    /// `JOIN_TIMEOUT_MS`: a socket that has not joined within this is closed (default 10 s).
+    pub join_timeout_ms: u32,
+    /// `STATUS_INTERVAL_MS`: `member-status` coalescing interval (default 1 s).
+    pub status_interval_ms: u32,
     /// `MAX_HTTP_IN_FLIGHT`: HTTP requests handled at once, whatever their clients; more get 503
     /// (`maxHttpInFlight` in server.ts, threat model section 10). Zero refuses every request.
     pub max_http_in_flight: usize,
@@ -71,6 +77,8 @@ impl std::error::Error for ConfigError {}
 
 /// The M6 hosted target (20 rooms × 25 people = 500 sockets) with 2× headroom (OME-573).
 pub const DEFAULT_MAX_CONNECTIONS: u32 = 1024;
+pub const DEFAULT_JOIN_TIMEOUT_MS: u32 = 10_000;
+pub const DEFAULT_STATUS_INTERVAL_MS: u32 = 1000;
 
 /// HTTP requests handled at once by default (`MAX_HTTP_IN_FLIGHT` in http.ts).
 pub const DEFAULT_MAX_HTTP_IN_FLIGHT: usize = 256;
@@ -83,7 +91,7 @@ pub fn default_db_path() -> PathBuf {
 pub type Env = HashMap<String, String>;
 
 /// Every variable the server reads; a non-UTF-8 value in one of them is refused, never mangled.
-pub const CONFIG_KEYS: [&str; 16] = [
+pub const CONFIG_KEYS: [&str; 19] = [
     "PORT",
     "HOST",
     "SITE_ORIGIN",
@@ -95,6 +103,9 @@ pub const CONFIG_KEYS: [&str; 16] = [
     "METRICS_PORT",
     "MAX_CONNECTIONS",
     "RESUME_GRACE_MS",
+    "MAX_CONNECTIONS_PER_IP",
+    "JOIN_TIMEOUT_MS",
+    "STATUS_INTERVAL_MS",
     "MAX_HTTP_IN_FLIGHT",
     "GENERIC_EMBEDS",
     "GENERIC_EMBED_DENYLIST",
@@ -313,6 +324,24 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
             })?,
     };
 
+    let whole = |key: &'static str, min: u32, default: Option<u32>| -> Result<Option<u32>, ConfigError> {
+        match get(key) {
+            None => Ok(default),
+            Some(raw) => digits(raw, 6).filter(|n| *n >= min).map(Some).ok_or_else(|| {
+                fail(
+                    key,
+                    if min == 0 {
+                        "must be a whole number"
+                    } else {
+                        "must be a positive integer"
+                    },
+                )
+            }),
+        }
+    };
+    let max_connections_per_ip = whole("MAX_CONNECTIONS_PER_IP", 1, None)?;
+    let join_timeout_ms = whole("JOIN_TIMEOUT_MS", 1, Some(DEFAULT_JOIN_TIMEOUT_MS))?.unwrap_or(DEFAULT_JOIN_TIMEOUT_MS);
+    let status_interval_ms = whole("STATUS_INTERVAL_MS", 0, Some(DEFAULT_STATUS_INTERVAL_MS))?.unwrap_or(DEFAULT_STATUS_INTERVAL_MS);
     let max_http_in_flight = match get("MAX_HTTP_IN_FLIGHT") {
         None => DEFAULT_MAX_HTTP_IN_FLIGHT,
         Some(raw) => digits(raw, 5)
@@ -359,6 +388,9 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         metrics_port,
         max_connections,
         resume_grace_ms,
+        max_connections_per_ip,
+        join_timeout_ms,
+        status_interval_ms,
         max_http_in_flight,
     })
 }
@@ -414,6 +446,29 @@ mod tests {
     }
 
     #[test]
+    fn the_websocket_knobs_parse_and_refuse_junk() {
+        let cfg = ok(&[
+            ("MAX_CONNECTIONS_PER_IP", "3"),
+            ("JOIN_TIMEOUT_MS", "200"),
+            ("STATUS_INTERVAL_MS", "20"),
+        ]);
+        assert_eq!(
+            (cfg.max_connections_per_ip, cfg.join_timeout_ms, cfg.status_interval_ms),
+            (Some(3), 200, 20)
+        );
+        for (key, bad) in [
+            ("MAX_CONNECTIONS_PER_IP", "0"),
+            ("MAX_CONNECTIONS_PER_IP", "x"),
+            ("JOIN_TIMEOUT_MS", "0"),
+            ("JOIN_TIMEOUT_MS", "-5"),
+            ("STATUS_INTERVAL_MS", "1.5"),
+            ("STATUS_INTERVAL_MS", ""),
+        ] {
+            refuses(&[(key, bad)], key);
+        }
+    }
+
+    #[test]
     fn defaults_to_local_dev() {
         assert_eq!(
             ok(&[]),
@@ -433,6 +488,9 @@ mod tests {
                 metrics_port: None,
                 max_connections: 1024,
                 resume_grace_ms: 120_000,
+                max_connections_per_ip: None,
+                join_timeout_ms: 10_000,
+                status_interval_ms: 1000,
                 max_http_in_flight: 256,
             }
         );
@@ -473,6 +531,9 @@ mod tests {
                 metrics_port: None,
                 max_connections: 1024,
                 resume_grace_ms: 120_000,
+                max_connections_per_ip: None,
+                join_timeout_ms: 10_000,
+                status_interval_ms: 1000,
                 max_http_in_flight: 256,
             }
         );

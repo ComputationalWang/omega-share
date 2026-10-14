@@ -609,6 +609,7 @@ name = "omega-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "futures-util",
  "getrandom 0.4.3",
  "http-body-util",
  "hyper",
@@ -621,6 +622,7 @@ dependencies = [
  "subtle",
  "tempfile",
  "tokio",
+ "tokio-tungstenite",
  "tower-service",
  "unicode-normalization",
  "url",
