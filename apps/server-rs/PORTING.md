@@ -47,13 +47,30 @@ Not ported: `activity`, `discord-upstream` and `extension-bridge` from shared (t
    - `TryFrom<Wire>` builds the domain type (newtypes such as `RoomId`, `MemberId`, `Nickname`) whose constructor is the only way to get one.
    - Oversized input is refused **before** parsing (frame and body caps from `contract/constants.rs`).
 4. **Pure core, IO at the edges.** S4's room logic is plain structs and functions with no tokio and no clock reads: time comes in as an argument (`now_mono: f64`, `now_wall: i64`). Only S5–S7 hold the `SharedClock`. That keeps the core unit-testable and lets the `test-hooks` build swap time.
-5. **Never block the runtime.** SQLite calls go through `tokio::task::spawn_blocking` or a dedicated store thread; never hold a `std::sync::Mutex` across `.await`.
+5. **Never block the runtime for long, never hold a lock across `.await`.** SQLite calls are short synchronous calls under the store mutex (see [Runtime architecture](#runtime-architecture-s4s7)); nothing slow happens under a room lock.
 6. **Serialize once per broadcast.** A room message is encoded to one `Utf8Bytes` and cloned (refcount) to every member's send queue. Send queues are bounded; a member who can't keep up is closed (the TS server's backpressure close), never buffered without limit.
 7. **Output field order = the TS object literal's order**, optional keys omitted with `skip_serializing_if` (the TS server never sends `undefined`; `null` only where the TS code writes `null`). Clients parse JSON, so float formatting may differ (`1.0` vs `1`), key presence may not.
 8. **Logging = `log.rs`**: one JSON line per error on stderr, a fixed event name, the message cut at its first quote and scrubbed of IPs and emails (port of `log.ts`). Never log a room id, title, nickname, token or address.
 9. **Secrets**: tokens from the OS CSPRNG (`getrandom`), hashed exactly as `secrets.ts` does so stored hashes still verify, compared in constant time (`subtle`).
 10. **Every new dependency** needs a line in the PR: why, licence (cargo-deny enforces the allow list in `deny.toml`), and that the std or an existing crate can't do it.
 11. **TDD**: the commit with the failing tests comes before the implementation commit (CLAUDE.md, `/mattpocock-skills:tdd`). Port each TS test case for the module as a Rust test, with a `// apps/server/test/<file>.test.ts:<line>` comment, and keep its intent and its expected values.
+
+## Runtime architecture (S4–S7)
+
+The TS server is single-threaded: every handler runs to completion, so a room's state changes and the frames it sends are totally ordered. The port keeps that order per room and runs rooms in parallel.
+
+- **One `Arc<App>`**, built at boot: config, `SharedClock`, `EmbedPolicy`, security headers, `Metrics` (atomics), the store, the room registry, reports, connection counters, limiters. Handlers take `&App`.
+- **Registry**: `RwLock<HashMap<RoomId, Arc<RoomCell>>>` (std). Readers hold it only to clone the `Arc`.
+- **`RoomCell`**: a `std::sync::Mutex<RoomInner>` with `RoomInner { room: Room /* S4's pure core */, subscribers: … }`. A room's WebSocket messages and HTTP mutations are handled **synchronously under its lock**: parse outside, lock, mutate, write the store if the TS code does, publish, unlock. No `.await` inside. A poisoned lock is recovered (`into_inner`), never `unwrap`ped.
+- **Lock order**: registry → room → store. Never take the registry's write lock while holding a room lock: collect what to do, release, then act.
+- **Publishing**: Bun has two: `server.publish(topic, …)` reaches every subscriber, `ws.publish(topic, …)` every subscriber *except the sender*. Keep both (`publish_all`, `publish_except`) and use whichever the TS line uses. A frame is serialized once (`Utf8Bytes`) and cloned into each subscriber's bounded queue with `try_send`; no subscriber can slow the others.
+- **Backpressure** (`BACKPRESSURE_LIMIT` 256 KiB, `closeOnBackpressureLimit` in ws.ts): count queued bytes per connection; past the limit the connection is dropped without a close frame (the client sees 1006, as with Bun).
+- **Connection task**: axum `WebSocketUpgrade` with `max_message_size(MAX_CLIENT_MESSAGE_BYTES)` (an oversize frame drops the connection: 1006, as Bun). A writer task drains the queue to the socket; the reader parses each text frame once and calls the synchronous handler. Idle timeout 60 s with server pings (`IDLE_TIMEOUT_S`, `sendPings`). Binary frames count as bad messages, as in ws.ts.
+- **Timers** (join timeout, `member-status` coalescing, grace holds, seat holds, room GC) are tasks awaiting `clock.sleep(ms)` that then re-take the room lock and **re-check** that what they were armed for still exists. The `test-hooks` build swaps in a virtual clock.
+- **Store**: `std::sync::Mutex<rusqlite::Connection>`, WAL and the same pragmas as `store/db.ts`. Calls are short and synchronous, made exactly where the TS code writes synchronously (under the room lock when it does), so failure handling (refunds, `unavailable`) stays identical. The relay path (chat, control, presence, status, ping) never touches it.
+- **HTTP**: axum `Router`. The Host/Origin gate and the in-flight cap are a layer before routing; body caps apply while reading, never after buffering; hyper's header-read timeout is set (slowloris), since the drain deadline only bounds shutdown.
+- **Shutdown** (`index.ts`, ADR 0032): stop accepting, close every socket with `SERVICE_RESTART`, wait at most `DRAIN_GRACE`, save seat holds, `wal_checkpoint(TRUNCATE)`, exit 0.
+- **Performance**: no allocation per subscriber per frame beyond the refcount clone; no JSON re-parse of our own output; `HashMap`s keyed by the newtypes; no `format!` on the relay path except the one serialization.
 
 ## Contract hazards (S2)
 
