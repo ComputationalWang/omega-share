@@ -1,6 +1,6 @@
 # ADR 0047 — Opt-in "Unlock with extension" for generic hosts that refuse to play in a room
 
-**Status:** accepted (2026-10-13), except §3 (Referer), which waits for board sign-off on [OME-1039](/OME/issues/OME-1039) · board direction on [OME-1034](/OME/issues/OME-1034) · spike [OME-1039](/OME/issues/OME-1039) · amends ADR 0024 §2b, §3 and the "Accepted losses" line, and ADR 0005 (extension permissions)
+**Status:** accepted (2026-10-13); §3 (Referer) signed off by the board on [OME-1039](/OME/issues/OME-1039) (2026-10-14) · board direction on [OME-1034](/OME/issues/OME-1034) · spike [OME-1039](/OME/issues/OME-1039) · amends ADR 0024 §2b, §3 and the "Accepted losses" line, and ADR 0005 (extension permissions)
 
 ## Context
 
@@ -52,7 +52,7 @@ action: modifyHeaders, responseHeaders:
 - **Lifetime:** rules are removed when the room's embed changes away from that host, when the room tab navigates off our origin, when the tab closes (`tabs.onRemoved`), and on browser restart, because session rules don't persist. Rule ids come from the tab id, so a tab has at most one set and re-unlocking replaces it.
 - A redirect to another host does not match `requestDomains` and is not unlocked. A frame nested inside the embed has the embed as its initiator, not us, so it doesn't match either. Both are accepted.
 
-### 3. Referer gates (pending board sign-off)
+### 3. Referer gates (board sign-off 2026-10-14)
 
 ADR 0024 §2b sends no `Referer`. For a host the viewer has unlocked, a third rule in the same set **sets the frame navigation's `Referer` to the embed's own origin**, `https://<host>/`:
 
@@ -63,7 +63,7 @@ action: modifyHeaders, requestHeaders: { header: "referer", operation: "set", va
 
 - **It leaks nothing new.** The host learns only its own origin, which it already knows. It does not learn our room, our origin or the page the video was shared from. The iframe keeps `referrerpolicy="no-referrer"`, so viewers without an unlock still send nothing.
 - **We do not carry the shared-from page.** Setting `Referer` to the partner page would mean storing and broadcasting that page's URL with the embed, which has a privacy cost (everyone in the room learns where the link came from). The spike shows kwik doesn't need it. Hosts that accept only their partner site stay blocked. That is an accepted loss, and a new ADR is needed to change it.
-- **This is Referer spoofing:** we tell the host that it framed itself. The issue requires board sign-off for that, and it is asked for on [OME-1039](/OME/issues/OME-1039). Until it is given, the extension ships §2 without this rule, and kwik.cx keeps failing.
+- **This is Referer spoofing:** we tell the host that it framed itself. The board signed this off on [OME-1039](/OME/issues/OME-1039). It ships as [OME-1055](/OME/issues/OME-1055), after [OME-1040](/OME/issues/OME-1040).
 
 ### 4. Permissions and stores
 
@@ -92,7 +92,7 @@ The smallest bridge is **a content script that matches only our origin**. It wor
 
 ## Consequences
 
-- ADR 0024's accepted loss narrows. Hosts that refuse framing by `X-Frame-Options` play for viewers who unlock them. So do hosts that refuse by `frame-ancestors`, in Chromium. kwik-style self-allowlisting Referer gates play too, once §3 is signed off. Hosts that accept only their partner site's `Referer`, and DRM-only hosts, still fail.
+- ADR 0024's accepted loss narrows. Hosts that refuse framing by `X-Frame-Options` play for viewers who unlock them. So do hosts that refuse by `frame-ancestors`, in Chromium. kwik-style self-allowlisting Referer gates play too (§3). Hosts that accept only their partner site's `Referer`, and DRM-only hosts, still fail.
 - The extension gains one optional API permission, a content script on our origin, a consent page and a background module that owns the session rules. The web gains one button, one hint line and the bridge listener. `packages/shared` gains the bridge schemas.
 - Viewers who unlock a host run that host's page in our tab without its own CSP (Chromium, `frame-ancestors` hosts only). This is the cost recorded in §2.
-- Work: shared contract (bridge schemas) first. Then web (card button and hint) and extension (permission, rules, bridge, consent page, store copy), in parallel. The extension's Referer rule follows the board's sign-off.
+- Work: shared contract (bridge schemas) first. Then web (card button and hint) and extension (permission, rules, bridge, consent page, store copy), in parallel. The extension's Referer rule (OME-1055) follows OME-1040.
