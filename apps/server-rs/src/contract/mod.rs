@@ -9,6 +9,7 @@ pub mod js_compat;
 pub mod room;
 pub mod session;
 pub mod text;
+pub mod unicode_props;
 
 use serde::de::DeserializeOwned;
 use std::fmt;

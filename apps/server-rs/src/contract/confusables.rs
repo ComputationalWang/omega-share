@@ -2,17 +2,54 @@
 //! is persisted (seat holds hash it, ADR 0043), so it must equal the TS key character for character.
 //! The table is `confusables.txt`, generated from `confusables-table.ts` by `corpus/gen.ts`.
 
+use super::unicode_props::{is_capital, is_mark};
+use std::collections::HashMap;
+use std::sync::LazyLock;
+use unicode_normalization::UnicodeNormalization;
+
+/// Unicode confusables.txt 18.0.0, as `confusables-table.ts` holds it: one entry per line, the
+/// source code point then its prototype. © Unicode, Inc., Unicode licence.
+const TABLE: &str = include_str!("confusables.txt");
+
+static PROTOTYPES: LazyLock<HashMap<char, &'static str>> = LazyLock::new(|| {
+    TABLE
+        .split('\n')
+        .filter_map(|entry| {
+            let mut chars = entry.chars();
+            let from = chars.next()?;
+            Some((from, chars.as_str()))
+        })
+        .collect()
+});
+
 /// UTS #39 skeleton: NFD, each code point replaced by its prototype, NFD.
 pub fn skeleton(input: &str) -> String {
-    let _ = input;
-    String::new()
+    let mut out = String::with_capacity(input.len());
+    for c in input.nfd() {
+        match PROTOTYPES.get(&c) {
+            Some(prototype) => out.push_str(prototype),
+            None => out.push(c),
+        }
+    }
+    out.nfd().collect()
 }
 
 /// Per-room uniqueness key: the skeleton, made case-insensitive, accent-free. Takes any string, as
 /// the TS function does (callers pass a `Nickname`).
 pub fn nickname_key(nickname: &str) -> String {
-    let _ = nickname;
-    String::new()
+    let mut folded = String::with_capacity(nickname.len());
+    for c in nickname.nfd() {
+        match PROTOTYPES.get(&c) {
+            None => folded.push(c),
+            // A capital whose prototype has no capital ("I" -> "l") is lowercased first.
+            Some(prototype) if is_capital(c) && !prototype.chars().any(is_capital) => {
+                folded.push_str(&skeleton(&c.to_lowercase().collect::<String>()));
+            }
+            Some(prototype) => folded.push_str(prototype),
+        }
+    }
+    let lowered = folded.nfd().collect::<String>().to_lowercase();
+    skeleton(&lowered).chars().filter(|&c| !is_mark(c)).collect()
 }
 
 #[cfg(test)]
@@ -88,5 +125,10 @@ mod tests {
         assert_eq!(key("Alice"), "alice");
         assert_eq!(key("Bob"), "bob");
         assert_eq!(key("Ꭺ"), "a");
+    }
+
+    #[test]
+    fn the_table_has_every_entry() {
+        assert_eq!(PROTOTYPES.len(), 5212);
     }
 }

@@ -230,7 +230,9 @@ fn text_schemas_agree() {
 
 #[test]
 fn nickname_key_agrees() {
-    agree(load::<String, String>(include_str!("../corpus/out/nickname-key.json")), |s| Some(nickname_key(s)));
+    agree(load::<String, String>(include_str!("../corpus/out/nickname-key.json")), |s| {
+        Some(nickname_key(s))
+    });
 }
 
 #[test]

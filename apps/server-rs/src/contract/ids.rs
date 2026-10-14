@@ -43,13 +43,11 @@ use super::constants::ROOM_ID_MAX_LENGTH;
 
 /// `^[A-Za-z0-9_-]{min,max}$`, ASCII only (JS `$` has no trailing-newline allowance).
 fn base64url(s: &str, max: usize) -> bool {
-    let _ = (s, max);
-    false
+    (1..=max).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
 }
 
 fn exact_token(s: &str, len: usize) -> Option<String> {
-    let _ = (s, len);
-    None
+    (s.len() == len && base64url(s, len)).then(|| s.to_owned())
 }
 
 string_newtype!(
@@ -65,10 +63,9 @@ string_newtype!(
 string_newtype!(
     /// Room id, `^[a-z0-9-]{1,32}$`.
     RoomId,
-    |s| {
-        let _ = (s, ROOM_ID_MAX_LENGTH);
-        None
-    }
+    |s| ((1..=ROOM_ID_MAX_LENGTH).contains(&s.len())
+        && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-'))
+    .then(|| s.to_owned())
 );
 string_newtype!(
     /// Member-bound share secret: 22 base64url characters (128 bits).
@@ -100,11 +97,13 @@ pub const RESUME_TOKEN_LENGTH: usize = 43;
 /// case-insensitive (ASCII: the TS regex has no `u` flag), the header is exactly 29 characters.
 /// Shape only: the caller checks the token against the room. Also `parseShareAuthorization`.
 pub fn parse_bearer(header: &str) -> Option<ShareToken> {
-    let _ = header;
-    None
+    let (scheme, token) = (header.get(..6)?, header.get(7..)?);
+    (header.len() == 7 + SHARE_TOKEN_LENGTH && scheme.eq_ignore_ascii_case("bearer") && header.as_bytes().get(6) == Some(&b' '))
+        .then(|| ShareToken::parse(token))?
 }
 
 #[cfg(test)]
+#[allow(clippy::string_slice, reason = "the test token is ASCII")]
 mod tests {
     use super::*;
 
@@ -155,7 +154,14 @@ mod tests {
         // packages/shared/test/session-contract.test.ts:11
         let token = format!("Ab_-{}", "x".repeat(39));
         assert!(ResumeToken::parse(&token).is_some());
-        for bad in ["x".repeat(42), "x".repeat(44), format!("{}=", "x".repeat(42)), format!("{}/", "x".repeat(42)), format!("{}+", "x".repeat(42)), format!("{token}\n")] {
+        for bad in [
+            "x".repeat(42),
+            "x".repeat(44),
+            format!("{}=", "x".repeat(42)),
+            format!("{}/", "x".repeat(42)),
+            format!("{}+", "x".repeat(42)),
+            format!("{token}\n"),
+        ] {
             assert!(ResumeToken::parse(&bad).is_none(), "{bad:?}");
         }
     }

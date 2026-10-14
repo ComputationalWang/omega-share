@@ -13,8 +13,7 @@ macro_rules! bounded_index {
 
         impl $name {
             pub fn new(n: u64) -> Option<Self> {
-                let _ = (n, $count);
-                None
+                u8::try_from(n).ok().filter(|v| usize::from(*v) < $count).map(Self)
             }
 
             pub fn get(self) -> u8 {
