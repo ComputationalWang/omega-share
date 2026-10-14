@@ -24,21 +24,19 @@ const page = { provider: "generic", host: "media.example.org", url: "https://med
 async function setup() {
   const { createRoomTv } = await import("../src/room-tv");
   const playback = createPlaybackController({ send: () => true, clock: { ready: false, serverNow: () => 0, tick: () => undefined }, now: () => 0, setInterval: () => 0, clearInterval: () => undefined });
-  const fsKey = document.createElement("button");
   const wrap = document.createElement("div");
   let relocks = 0;
   let providers = 0;
   const tv = createRoomTv({
     playback,
     extension: { whenPresent: () => undefined, unlock: () => Promise.resolve("unsupported" as const), relock: () => { relocks++; } },
-    fsKey,
     wrap,
     fullscreen: () => false,
     onProvider: () => { providers++; },
   });
   wrap.append(tv.tv, tv.controls);
   document.body.replaceChildren(wrap, tv.personal);
-  return { tv, fsKey, relocks: () => relocks, providers: () => providers };
+  return { tv, fsKey: tv.fsKey, relocks: () => relocks, providers: () => providers };
 }
 
 describe("room TV", () => {

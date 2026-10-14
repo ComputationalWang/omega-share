@@ -1,0 +1,98 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { createChatLog } from "../src/chat/log";
+import { createPlaybackController } from "../src/controls/playback";
+import { createQueuePanel } from "../src/controls/queue-panel";
+
+// OME-1100: where the room page's pieces sit (page, wide column, phone, full screen and its chat strip), split out of
+// room.ts. The chat goes under the notices in the page and into the side column on a wide screen; the strip remembers
+// whether it was collapsed.
+
+beforeAll(() => {
+  GlobalRegistrator.register({ url: "https://omega.example/r/main" });
+});
+afterAll(async () => {
+  await GlobalRegistrator.unregister();
+});
+beforeEach(() => {
+  localStorage.clear();
+});
+
+const div = (): HTMLElement => document.createElement("div");
+
+async function setup(o: { wide?: boolean } = {}) {
+  const { createRoomLayout } = await import("../src/room-layout");
+  const { createRoomTv } = await import("../src/room-tv");
+  const playback = createPlaybackController({ send: () => true, clock: { ready: false, serverNow: () => 0, tick: () => undefined }, now: () => 0, setInterval: () => 0, clearInterval: () => undefined });
+  const root = div();
+  const wrap = div();
+  const clip = div();
+  const stage = div();
+  clip.append(stage);
+  let fsMode = "off";
+  const tv = createRoomTv({ playback, extension: { whenPresent: () => undefined, unlock: () => Promise.resolve("unsupported" as const), relock: () => undefined }, wrap, fullscreen: () => fsMode !== "off", onProvider: () => undefined });
+  wrap.append(tv.tv, tv.controls, clip);
+  const log = createChatLog({ ageing: "settle", now: () => 0, setTimer: () => 0, clearTimer: () => undefined });
+  const form = document.createElement("form");
+  const pickerRoot = div();
+  const popOut = div();
+  form.append(pickerRoot, popOut);
+  const away = div();
+  const queue = createQueuePanel({ send: () => true, ownHosts: ["omega.example"] });
+  const notice = div();
+  const roomAway = div();
+  const invite = div();
+  const side = div();
+  root.append(wrap, roomAway, tv.personal, queue.root, notice, log.root, form, invite, side);
+  document.body.replaceChildren(root);
+  const layout = createRoomLayout({
+    root, wrap, clip, stage, tv, log, queue, notice, roomAway, invite, side,
+    composer: { form, away, popOut, picker: { root: pickerRoot, close: () => undefined } },
+    settings: [],
+    phone: { matches: false },
+    portrait: { matches: false },
+    wide: { matches: o.wide === true },
+    stageShown: () => true,
+    roomOut: () => false,
+    hint: { dismiss: () => undefined },
+    placeRoom: () => undefined,
+  });
+  fsMode = layout.fs.mode();
+  return { layout, root, wrap, log, form, notice, side, queue, invite };
+}
+
+describe("room layout", () => {
+  test("in the page the chat sits right under the notices", async () => {
+    const { log, form, notice, side } = await setup();
+    expect(notice.nextElementSibling).toBe(log.root);
+    expect(log.root.nextElementSibling).toBe(form);
+    expect(side.hidden).toBe(true);
+  });
+
+  test("on a wide screen the invite, Up next and the chat make the side column", async () => {
+    const { root, log, form, side, queue, invite } = await setup({ wide: true });
+    expect(root.classList.contains("room-wide")).toBe(true);
+    expect(side.hidden).toBe(false);
+    expect(invite.parentElement).toBe(side);
+    expect(queue.root.parentElement).toBe(side);
+    expect(log.root.parentElement).toBe(side);
+    expect(form.parentElement).toBe(side);
+  });
+
+  test("the strip's collapse key is remembered on this device", async () => {
+    const { wrap } = await setup();
+    const strip = wrap.querySelector<HTMLElement>('[data-testid="fs-strip"]');
+    expect(strip?.dataset["strip"]).toBe("open");
+    wrap.querySelector<HTMLButtonElement>('[data-testid="fs-strip-toggle"]')?.click();
+    expect(strip?.dataset["strip"]).toBe("band");
+    expect(localStorage.getItem("omega.fsStrip")).toBe("band");
+    const again = await setup();
+    expect(again.wrap.querySelector<HTMLElement>('[data-testid="fs-strip"]')?.dataset["strip"]).toBe("band");
+  });
+
+  test("the full-screen key on the shelf starts in the page", async () => {
+    const { layout, wrap } = await setup();
+    expect(layout.fs.mode()).toBe("off");
+    expect(wrap.querySelector('[data-testid="fullscreen-toggle"]')?.getAttribute("aria-label")).toBe("Full screen");
+  });
+});
