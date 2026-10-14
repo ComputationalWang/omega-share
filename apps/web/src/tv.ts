@@ -47,8 +47,8 @@ export interface TvGeneric {
 /** The iframe host we render (ADR 0011). The wire `Embed.url` stays canonical `www.youtube.com`. */
 export const NOCOOKIE_ORIGIN = "https://www.youtube-nocookie.com";
 /** Flip to false to fall back to the canonical host if the IFrame API stops attaching to nocookie. */
-export const USE_NOCOOKIE = true;
-export const TWITCH_PLAYER_ORIGIN = "https://player.twitch.tv";
+const USE_NOCOOKIE = true;
+const TWITCH_PLAYER_ORIGIN = "https://player.twitch.tv";
 
 /**
  * Scripts + same-origin are the minimum the players run with. Popups let the

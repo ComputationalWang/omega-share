@@ -110,7 +110,7 @@ export function portraitLayout(width: number, height: number, provider: Provider
  * Desktop wide layout (OME-642): at least this wide and landscape, the room page is two columns, the TV, its shelf and
  * the room on the left and the chat (with Up next) in a full-height column on the right, WIDE_CHAT_W wide (style.css).
  */
-export const WIDE_MIN_W = 1024;
+const WIDE_MIN_W = 1024;
 export const WIDE_QUERY = `(min-width: ${String(WIDE_MIN_W)}px) and (orientation: landscape)`;
 export const WIDE_CHAT_W = 320;
 /**
@@ -271,7 +271,7 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
 }
 
 /** The whole-room window's chat column (set k `ui-m7-popout`, OME-600). */
-export const POP_ROOM_CHAT_W = 300;
+const POP_ROOM_CHAT_W = 300;
 
 export interface PopRoomLayout {
   /** The stage's box once scaled (window px), centred in the room side. */
@@ -310,12 +310,12 @@ export function stageToPage(l: RoomLayout, r: Rect): Rect {
 
 /** Name tags hang below the avatar's feet; `style.css` caps them at this box. */
 export const TAG_OFFSET_Y = 10;
-export const TAG_MAX_W = 160;
-export const TAG_H = 20;
+const TAG_MAX_W = 160;
+const TAG_H = 20;
 /** Bubbles float above the head, bottom-anchored; `style.css` caps them at this box. */
-export const BUBBLE_OFFSET_Y = -48;
-export const BUBBLE_MAX_W = 220;
-export const BUBBLE_MAX_H = 180;
+const BUBBLE_OFFSET_Y = -48;
+const BUBBLE_MAX_W = 220;
+const BUBBLE_MAX_H = 180;
 
 export function tagRect(p: Point): Rect {
   return { x: p.x - TAG_MAX_W / 2, y: p.y + TAG_OFFSET_Y, w: TAG_MAX_W, h: TAG_H };
@@ -331,6 +331,5 @@ export function bubbleRect(p: Point): Rect {
  */
 export const SYSLINE_RAIL: Rect = { x: 12, y: 510, w: 288, h: 78 };
 
-/** Placeholder avatar colours until the sprites land. */
+/** Placeholder avatar colours: drawn until the motion atlas loads, or for good if it fails to load. */
 export const AVATAR_COLORS: readonly number[] = [0xe4572e, 0x29335c, 0xf3a712, 0x669bbc];
-export const cssColor = (c: number): string => `#${c.toString(16).padStart(6, "0")}`;
