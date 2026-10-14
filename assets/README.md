@@ -7,6 +7,8 @@ assets/
   avatars/avatars.png   # shipped: 512×256 indexed PNG-8 sprite sheet (set a)
   avatars/avatars.json  # shipped: PixiJS v8 spritesheet atlas
   avatars/motion.png    # set d (M5, lazy-load): 1024×512 indexed PNG-8, walk / breathe / wave / emote icons; set l: walk8 in-betweens
+  avatars/expressions.png  # set p (OME-1104, lazy-load): 1024×256 indexed PNG-8, cheer + yawn/doze, 2 frames × pose × dir × avatar
+  avatars/expressions.json # set p: PixiJS v8 atlas, motion.json's schema (frames, animations, meta.omega.anims, gestures)
   avatars/motion.json   # set d: PixiJS v8 atlas + meta.omega.anims (frames, per-frame ms, loop)
   room/room.png         # shipped: 512×512 indexed PNG-8 (set b: floor, rug, walls, seats, corner console + projector, props)
   room/room.json        # shipped: PixiJS v8 spritesheet atlas + meta.omega room contract
@@ -743,6 +745,29 @@ Frame keys start with `walk`, `breathe`, `wave` or `emote`, so they never collid
   floor, rug, velvet and the dark walls.
 - Contract: accepted in `docs/adr/0010-motion-atlas.md` ([OME-57](/OME/issues/OME-57)).
 
+## Expressions atlas (`avatars/expressions.json`, set p, OME-1104)
+
+Two reactions for every avatar, pose and facing, built like the wave (`src/motion.ts`, the set (a) templates through `composeMotion`):
+same 32×64 cells, anchor = floor point `(16, 61)` (`0.5, 61/64`), shading, plum outline and mirroring. `motion.png` is full (1024×512),
+so this is a **second lazy sheet with `motion.json`'s schema**: `frames`, Pixi `animations`, `meta.omega.{tile, cell, floorPoint, gestures, anims}`.
+Load it with `motion.json` (or the first time someone reacts). One row per avatar (Juno, Pip, Mo, Kiki); cheer then yawn, each poses × dirs × frames.
+
+| Key | Frames | Notes |
+|---|---|---|
+| `cheer/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | Fists up in a V. `0` elbows bent, fists by the ears, eyes closed in a smile, a small grin; `1` arms high and a wide-open grin, and standing avatars hop onto tiptoe (body up 1 px, heels up, toes on y 60). Kiki keeps her popcorn and pumps her free arm. |
+| `yawn/<id>/<pose>/<dir>/<0-1>` | 2 per pose × dir | `0` the yawn: a big stretch, elbows out and hands behind the head, eyes shut, mouth a tall O. `1` the doze: arms down, head nods 2 px onto the collar, eyes shut, and a small cream "z z" floats up beside the head (never mirrored, so it never reads backwards). |
+
+- **Faces only show facing the camera (se/sw).** From behind (ne/nw) the arms and the head carry the reaction: the V, the elbows-out stretch,
+  the nod and the "z". The far arm passes behind the head and hair, so a raised arm never covers a bun or a hat.
+- **`meta.omega.anims`**: `cheer/<id>/<pose>/<dir>` is one-shot, `6 × 180 ms` (three pumps); `yawn/<id>/<pose>/<dir>` is one-shot, `[900, 1800]` ms
+  (yawn, then doze). Afterwards return to the pose's base frame. Seated reactions still draw between the chair's `back` and `front` layers.
+- `meta.omega.gestures = [{id: "cheer", label: "Cheer"}, {id: "yawn", label: "Yawn"}]`, alongside motion.json's `wave`.
+- Keys start with `cheer` or `yawn`, so they never collide with avatar ids, motion keys or room keys in Pixi's cache.
+- Previews: `preview/expressions-strip@4x.png` (per avatar a cheer row and a yawn row: base pose, frame 0, frame 1, for idle and sit in se sw ne nw, on floor marks)
+  and `preview/expressions-scene@1x.png` / `@2x` (the room floor at 1×: every avatar standing and seated in an armchair, each facing a different way;
+  frame 0 left, frame 1 right, cheers on top, yawns/dozes below).
+- Engineering hookup (emote picker, server message) is a follow-up issue after the design judge passes.
+
 ## Furniture atlas (`furniture/furniture.json`, set g, M4/M5)
 
 Furniture catalogue v1 for customizable rooms. It's a separate, lazy sheet: the default room doesn't need it, so load it only when a room
@@ -864,6 +889,8 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `avatars/avatars.json` | 24 075 raw / 1 492 gz |
 | `avatars/motion.png` (sets d + l, lazy) | 18 335 |
 | `avatars/motion.json` (sets d + l, lazy) | 117 095 raw / 5 032 gz |
+| `avatars/expressions.png` (set p, lazy) | 10 863 |
+| `avatars/expressions.json` (set p, lazy) | 67 102 raw / 2 789 gz |
 | `room/room.png` | 8 335 |
 | `room/room.json` | 13 823 raw / 1 192 gz |
 | `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k + l) | 12 951 |
@@ -877,6 +904,9 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
+
+Set (p) (OME-1104) adds **13 652 B (≈ 13.3 KB)** against `main` as `bun assets/src/build.ts` measures it (159 946 → 173 598 of 307 200), all lazy:
+`expressions.png` 10 863 + `expressions.json` 2 789 gz. No existing file changes (the avatar and motion sheets are byte-identical).
 
 OME-841 adds **795 B** against `main` as `bun assets/src/build.ts` measures it (130 263 → 131 058): the lazy `scenes/not-found.png` 731 and one
 `reference.css` rule +64 gz. The row above said 130 224 before this change; the build on `main` already measured 130 263 (eager 69 464, i.e.
