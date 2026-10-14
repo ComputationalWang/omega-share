@@ -348,13 +348,21 @@ const storedEmbeds = (): AnyEmbed[] => {
   return out;
 };
 
+interface Loose {
+  provider: unknown;
+  url: unknown;
+  videoId?: unknown;
+  kind?: unknown;
+  host?: unknown;
+  [key: string]: unknown;
+}
 const tamper = (e: AnyEmbed): unknown[] => {
-  const o = e as unknown as Record<string, unknown>;
-  const out: unknown[] = [e, { ...o, extra: 1 }, { ...o, url: `${String(o.url).toUpperCase()}` }, { ...o, url: `${String(o.url)}/` }, { ...o, url: `${String(o.url)}?x=1` },
+  const o = e as unknown as Loose;
+  const out: unknown[] = [e, { ...o, extra: 1 }, { ...o, url: String(o.url).toUpperCase() }, { ...o, url: `${String(o.url)}/` }, { ...o, url: `${String(o.url)}?x=1` },
     { ...o, url: `${String(o.url)}#f` }, { ...o, url: String(o.url).replace("https://", "http://") }, { ...o, url: ` ${String(o.url)}` }, { ...o, url: 5 }, { ...o, url: null }, { ...o, provider: "other" },
     { ...o, provider: "generic" }, { ...o, provider: null }, { ...o, provider: 1 }, { ...o, provider: "YOUTUBE" }];
   for (const key of Object.keys(o)) {
-    const { [key]: _gone, ...rest } = o;
+    const rest = Object.fromEntries(Object.entries(o).filter(([k]) => k !== key));
     out.push(rest, { ...o, [key]: null }, { ...o, [key]: 7 }, { ...o, [key]: "" }, { ...o, [key]: `${String(o[key])}x` }, { ...o, [key]: String(o[key]).toUpperCase() }, { ...o, [key]: [o[key]] });
   }
   if (o.provider === "vimeo") out.push({ ...o, hash: null }, { ...o, hash: "abc123" }, { ...o, hash: "ABC123" }, { ...o, hash: "abc12" }, { provider: "vimeo", videoId: o.videoId, url: o.url });
@@ -412,7 +420,7 @@ export const embedCorpora: Corpus[] = [
   {
     name: "any-embed-schema",
     cases: (): Case[] => {
-      const inputs = [...storedEmbeds().filter((_, i) => i % 5 === 0).flatMap(tamper), ...HAND_INVALID].filter((x) => !LONE_SURROGATE.test(JSON.stringify(x) ?? ""));
+      const inputs = [...storedEmbeds().filter((_, i) => i % 5 === 0).flatMap(tamper), ...HAND_INVALID].filter((x) => !LONE_SURROGATE.test(JSON.stringify(x)));
       return inputs.map((input): Case => {
         const r = v.safeParse(AnyEmbedSchema, input);
         return r.success ? { input: input === undefined ? null : input, ok: true, output: JSON.stringify(r.output) } : { input: input === undefined ? null : input, ok: false };
