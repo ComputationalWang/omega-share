@@ -355,8 +355,15 @@ const MAX_RESPONSE_BYTES: u64 = 16 * 1024 * 1024;
 
 /// Runs `connect` and waits at most `timeout` for it: a full accept queue blocks a Unix `connect`.
 fn connect_bounded(connect: impl FnOnce() -> std::io::Result<UnixStream> + Send + 'static, timeout: Duration) -> Result<UnixStream, String> {
-    let _ = timeout;
-    connect().map_err(|e| e.to_string())
+    let (tx, rx) = std::sync::mpsc::channel();
+    // A connect that never returns leaves this helper thread behind; the process exits right after the failure.
+    std::thread::spawn(move || {
+        let _ = tx.send(connect());
+    });
+    match rx.recv_timeout(timeout) {
+        Ok(connected) => connected.map_err(|e| e.to_string()),
+        Err(_) => Err(format!("timed out after {} ms", timeout.as_millis())),
+    }
 }
 
 /// One request on the admin socket (HTTP/1.1, `Connection: close`): the status and the body. Only the Unix socket,
@@ -364,7 +371,8 @@ fn connect_bounded(connect: impl FnOnce() -> std::io::Result<UnixStream> + Send 
 pub fn request(socket: &Path, method: &str, path: &str, timeout: Duration) -> Result<(u16, Vec<u8>), String> {
     let deadline = Instant::now() + timeout;
     let timed_out = || format!("timed out after {} ms", timeout.as_millis());
-    let mut stream = UnixStream::connect(socket).map_err(|e| e.to_string())?;
+    let target = socket.to_path_buf();
+    let mut stream = connect_bounded(move || UnixStream::connect(target), timeout)?;
     let left = || deadline.checked_duration_since(Instant::now()).filter(|d| !d.is_zero());
     stream.set_write_timeout(left()).map_err(|e| e.to_string())?;
     // The host is ignored on a Unix socket; the server listens nowhere else.
