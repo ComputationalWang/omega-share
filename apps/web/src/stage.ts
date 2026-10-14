@@ -315,8 +315,6 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     applyCatching,
     emote(id, kind, s) {
       seated = s.room?.seats ?? seated;
-      // shortcut: no badge art for cheer/yawn yet; drop them until the expressions hookup issue lands.
-      if (kind === "cheer" || kind === "yawn") return;
       if (!o.reducedMotion.matches) {
         view.emote(id, kind);
         return;

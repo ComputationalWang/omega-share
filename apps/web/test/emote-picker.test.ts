@@ -11,7 +11,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-// OME-415: the emote key; pressing a sticker (or keys 1–6) sends `emote`; the key cools when the local bucket
+// OME-415: the emote key; pressing a sticker (or keys 1–8) sends `emote`; the key cools when the local bucket
 // (emotes.ts) is empty, so we never send what the server would drop. OME-732 (M8 W3): the key opens set (l)'s emote
 // wheel (T opens it too), the six stickers clockwise from 12 in key order, over your own head.
 
@@ -70,7 +70,7 @@ describe("emote wheel", () => {
     expect(picker.root.querySelector("[data-testid=emote-menu]")).toBeNull();
   });
 
-  test("the key opens the wheel: a menu labelled Emotes, the six stickers in key order, clockwise from 12", async () => {
+  test("the key opens the wheel: a menu labelled Emotes, all eight emotes in key order, clockwise from 12", async () => {
     const { key, menu, items, hub, chip } = await setup();
     key.click();
     const m = menu();
@@ -80,14 +80,15 @@ describe("emote wheel", () => {
     expect(m.getAttribute("aria-label")).toBe("Emotes");
     expect(key.getAttribute("aria-expanded")).toBe("true");
     const slots = items();
-    // reference.css places .ui-wheel-slot:nth-child(1..6) clockwise from 12: the slots are the wheel's first six children.
-    expect([...m.children].slice(0, 6)).toEqual(slots);
+    // reference.css places .ui-wheel-slot:nth-child(1..8) clockwise from 12: the slots are the wheel's first eight children.
+    expect([...m.children].slice(0, 8)).toEqual(slots);
     expect(slots.every((b) => b.classList.contains("ui-wheel-slot"))).toBe(true);
-    expect(slots.map((b) => b.getAttribute("aria-label"))).toEqual(["Heart", "Laugh", "Question", "Surprise", "Clap", "Wave"]);
-    expect(slots.map((b) => b.getAttribute("aria-keyshortcuts"))).toEqual(["1", "2", "3", "4", "5", "6"]);
+    expect(slots.map((b) => b.getAttribute("aria-label"))).toEqual(["Heart", "Laugh", "Question", "Surprise", "Clap", "Wave", "Cheer", "Yawn"]);
+    expect(slots.map((b) => b.getAttribute("aria-keyshortcuts"))).toEqual(["1", "2", "3", "4", "5", "6", "7", "8"]);
     expect(slots[5]?.querySelector(".ui-emote-pick-wave")).not.toBeNull();
+    expect(slots[7]?.querySelector(".ui-emote-pick-yawn")).not.toBeNull();
     // Heart is selected and focused (roving tabindex); the hub previews it and the chip names it with its key.
-    expect(slots.map((b) => b.tabIndex)).toEqual([0, -1, -1, -1, -1, -1]);
+    expect(slots.map((b) => b.tabIndex)).toEqual([0, -1, -1, -1, -1, -1, -1, -1]);
     expect(document.activeElement).toBe(slots[0] ?? null);
     expect(hub()?.querySelector(".ui-emote-pick-heart")).not.toBeNull();
     expect(chip()).toBe("Heart1");
@@ -173,7 +174,7 @@ describe("emote wheel", () => {
     const at = (): number => slots.findIndex((b) => b === document.activeElement);
     expect(press("ArrowRight")).toBe(true);
     expect(at()).toBe(1);
-    expect(slots.map((b) => b.tabIndex)).toEqual([-1, 0, -1, -1, -1, -1]);
+    expect(slots.map((b) => b.tabIndex)).toEqual([-1, 0, -1, -1, -1, -1, -1, -1]);
     expect(hub()?.querySelector(".ui-emote-pick-laugh")).not.toBeNull();
     expect(chip()).toBe("Laugh2");
     press("ArrowDown");
@@ -182,11 +183,11 @@ describe("emote wheel", () => {
     press("ArrowUp");
     expect(at()).toBe(0);
     press("ArrowLeft");
-    expect(at()).toBe(5);
+    expect(at()).toBe(7);
     press("ArrowRight");
     expect(at()).toBe(0);
     press("End");
-    expect(at()).toBe(5);
+    expect(at()).toBe(7);
     press("Home");
     expect(at()).toBe(0);
   });
@@ -226,7 +227,7 @@ describe("emote wheel", () => {
     key.click();
     items()[4]?.dispatchEvent(new Event("pointerenter"));
     expect(hub()?.querySelector(".ui-emote-pick-clap")).not.toBeNull();
-    expect(items().map((b) => b.tabIndex)).toEqual([0, -1, -1, -1, -1, -1]);
+    expect(items().map((b) => b.tabIndex)).toEqual([0, -1, -1, -1, -1, -1, -1, -1]);
     items()[4]?.dispatchEvent(new Event("pointerleave"));
     expect(hub()?.querySelector(".ui-emote-pick-heart")).not.toBeNull();
   });
@@ -248,17 +249,19 @@ describe("emote wheel", () => {
     expect(document.activeElement).toBe(outside);
   });
 
-  test("keys 1–6 send without opening the wheel; not while typing, and not with a modifier", async () => {
+  test("keys 1–8 send without opening the wheel; not while typing, and not with a modifier", async () => {
     const { press, sent, picker, field } = await setup();
     expect(press("6")).toBe(true);
-    expect(sent).toEqual([{ type: "emote", kind: "wave" }]);
+    expect(press("7")).toBe(true);
+    expect(press("8")).toBe(true);
+    expect(sent).toEqual([{ type: "emote", kind: "wave" }, { type: "emote", kind: "cheer" }, { type: "emote", kind: "yawn" }]);
     expect(picker.root.querySelector("[data-testid=emote-menu]")).toBeNull();
     expect(press("1", {}, field)).toBe(false);
     expect(press("1", { ctrlKey: true })).toBe(false);
     expect(press("1", { altKey: true })).toBe(false);
     expect(press("1", { metaKey: true })).toBe(false);
     expect(press("x")).toBe(false);
-    expect(sent.length).toBe(1);
+    expect(sent.length).toBe(3);
   });
 
   test("a key pick with the wheel open sends it and closes the wheel, like a click (OME-485)", async () => {

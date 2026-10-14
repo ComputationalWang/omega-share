@@ -2,9 +2,10 @@
 // timer per 150 ms step (walkers share the step clock, walks.ts); in Smooth (ADR 0037), the next rAF from each frame
 // until everyone has arrived. At rest, one timer to the next breathe change on a 400 ms clock. Each timer then asks
 // for one rAF, so a hidden tab never renders. An emote (OME-415) plays once on the same loop, its
-// timers on the one-shot's own frame times: a wave swaps the avatar's frames, a sticker is drawn above the avatar.
+// timers on the one-shot's own frame times: a gesture (wave, cheer, yawn) swaps the avatar's frames, a sticker is drawn
+// above the avatar.
 import type { EmoteKind, MemberId } from "@omega/shared";
-import { DIRS, cycleFrame, oneShotFrame, type MotionFrames, type StickerKind } from "./motion";
+import { DIRS, cycleFrame, oneShotFrame, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
 import { WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
 
 /** Breathing redraws wait for this shared clock, so a room at rest renders at most 2.5 times a second however full. */
@@ -57,8 +58,8 @@ export function createAnimator(o: AnimatorOptions): Animator {
   let disposed = false;
   let paused = false;
   const pose = emptyPose();
-  /** Per member: when their wave started (NaN: none), and the sticker playing (null: none) since when. */
-  const plays = new Map<MemberId, { wave: number; sticker: StickerKind | null; stickerAt: number }>();
+  /** Per member: the gesture playing (null: none) since when, and the sticker playing (null: none) since when. */
+  const plays = new Map<MemberId, { gesture: GestureKind | null; gestureAt: number; sticker: StickerKind | null; stickerAt: number }>();
   /** Set by drawAll: ms until the next emote frame change (Infinity if none). */
   let nextEmote = Infinity;
 
@@ -83,11 +84,11 @@ export function createAnimator(o: AnimatorOptions): Animator {
       let sticker: string | null = null;
       const play = plays.get(a.id);
       if (play !== undefined && frames !== null && !still) {
-        if (!Number.isNaN(play.wave) && !pose.walking) {
-          const waves = frames.wave[a.avatar];
-          const cycle = (pose.sitting ? waves?.sit : waves?.idle)?.[DIRS.indexOf(pose.dir)];
-          const f = cycle === undefined ? null : oneShotFrame(cycle.ms, now - play.wave);
-          if (f === null || (f.index < 0 && f.nextIn === Infinity)) play.wave = NaN;
+        if (play.gesture !== null && !pose.walking) {
+          const cycles = frames[play.gesture][a.avatar];
+          const cycle = (pose.sitting ? cycles?.sit : cycles?.idle)?.[DIRS.indexOf(pose.dir)];
+          const f = cycle === undefined ? null : oneShotFrame(cycle.ms, now - play.gestureAt);
+          if (f === null || (f.index < 0 && f.nextIn === Infinity)) play.gesture = null;
           else {
             if (f.index >= 0) frame = cycle?.frames[f.index] ?? frame;
             nextEmote = Math.min(nextEmote, f.nextIn);
@@ -170,17 +171,17 @@ export function createAnimator(o: AnimatorOptions): Animator {
       requestFrame();
     },
     emote(id, kind) {
-      // shortcut: cheer/yawn are dropped until the expressions atlas is wired in (OME-1104 hookup issue).
-      if (kind === "cheer" || kind === "yawn") return;
       if (disposed || paused || o.reducedMotion() || !list.some((a) => a.id === id)) return;
       let play = plays.get(id);
       if (play === undefined) {
-        play = { wave: NaN, sticker: null, stickerAt: 0 };
+        play = { gesture: null, gestureAt: 0, sticker: null, stickerAt: 0 };
         plays.set(id, play);
       }
       const now = o.now();
-      if (kind === "wave") play.wave = now;
-      else {
+      if (kind === "wave" || kind === "cheer" || kind === "yawn") {
+        play.gesture = kind;
+        play.gestureAt = now;
+      } else {
         play.sticker = kind;
         play.stickerAt = now;
       }

@@ -1423,7 +1423,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (document.activeElement === chatSend) chatInput.focus({ preventScroll: true });
     }
   });
-  // Keys 1–6 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
+  // Keys 1–8 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
   window.addEventListener("keydown", (ev) => {
     // The report and help dialogs are modal: the room's keys wait until they close.
     if (report?.isOpen() === true || help.isOpen()) return;
