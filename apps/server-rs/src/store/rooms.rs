@@ -1047,4 +1047,59 @@ mod tests {
         assert_eq!(got, [hold("a", 3, 1), hold("a", 5, 4), hold("a", 2, 6), hold("b", 1, 2)]);
         assert_eq!(count(&c, "seat_holds"), 0);
     }
+
+    // A read error on a column is corruption, never "absent": the next write would overwrite the bytes.
+    #[test]
+    fn a_nullable_column_that_cannot_be_read_fails_the_room_naming_it() {
+        let c = mem();
+        c.execute(
+            "INSERT INTO rooms (id, title, created_at, layout, embed) VALUES ('e', '', 1, ?, CAST(x'ff' AS TEXT))",
+            [layout_json()],
+        )
+        .unwrap();
+        expect_corrupt(&c, "e");
+        let c = mem();
+        c.execute(
+            "INSERT INTO rooms (id, title, created_at, layout, item_id) VALUES ('i', '', 1, ?, CAST(x'ff' AS TEXT))",
+            [layout_json()],
+        )
+        .unwrap();
+        expect_corrupt(&c, "i");
+    }
+
+    #[test]
+    fn an_unreadable_queue_row_drops_only_that_row() {
+        let c = queue_room();
+        let s = RoomStore::new(&c);
+        s.add_queue_item(&rid("den"), &item("a", YOUTUBE)).unwrap();
+        c.execute(
+            "INSERT INTO queue_items (room_id, id, position, embed) VALUES ('den', 'x', 2, CAST(x'ff' AS TEXT))",
+            [],
+        )
+        .unwrap();
+        c.execute(
+            "INSERT INTO queue_items (room_id, id, position, embed) VALUES ('den', CAST(x'fe' AS TEXT), 3, ?)",
+            [VIMEO],
+        )
+        .unwrap();
+        s.add_queue_item(&rid("den"), &item("b", VIMEO)).unwrap();
+        assert_eq!(queue_of(&c), [item("a", YOUTUBE), item("b", VIMEO)]);
+    }
+
+    #[test]
+    fn an_unreadable_seat_hold_row_drops_only_that_row() {
+        let c = mem();
+        seed(&c, "lobby");
+        let s = RoomStore::new(&c);
+        s.save_seat_holds(&[hold("lobby", 1, 0)]).unwrap();
+        c.execute_batch("PRAGMA foreign_keys = OFF").unwrap();
+        c.execute(
+            "INSERT INTO seat_holds (room_id, name_hash, seat) VALUES (CAST(x'ff' AS TEXT), ?, 1)",
+            [[7u8; 32]],
+        )
+        .unwrap();
+        c.execute_batch("PRAGMA foreign_keys = ON").unwrap();
+        assert_eq!(s.take_seat_holds().unwrap(), [hold("lobby", 1, 0)]);
+        assert_eq!(count(&c, "seat_holds"), 0);
+    }
 }

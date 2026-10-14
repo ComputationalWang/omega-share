@@ -348,4 +348,18 @@ mod tests {
         checkpoint(&c).unwrap();
         assert_eq!(std::fs::metadata(format!("{path}-wal")).unwrap().len(), 0);
     }
+
+    // Bun's `new Database(path)` has no URI handling: a `file:` path is a file name, never a URI.
+    #[test]
+    fn a_file_prefixed_path_is_a_literal_file_name() {
+        let name = format!("file:omega-uri-test-{}?mode=memory", std::process::id());
+        let c = open_database(&name).unwrap();
+        c.execute("INSERT INTO takedowns (room_id, at) VALUES ('a', 1)", []).unwrap();
+        drop(c);
+        let exists = std::fs::metadata(&name).is_ok_and(|m| m.len() > 0);
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{name}{suffix}"));
+        }
+        assert!(exists, "the literal file was not created: the path was read as a URI");
+    }
 }

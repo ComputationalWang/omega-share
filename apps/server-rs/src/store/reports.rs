@@ -507,4 +507,19 @@ mod tests {
         let c = mem();
         assert_eq!(ReportStore::new(&c).ping(), Ok(()));
     }
+
+    #[test]
+    fn an_unreadable_report_row_is_dropped_not_read_as_null() {
+        for col in ["note", "room_title", "embed_url"] {
+            let c = mem();
+            let s = ReportStore::new(&c);
+            s.add(&report()).unwrap();
+            c.execute(
+                &format!("INSERT INTO reports (id, room_id, reason, {col}, created_at) VALUES (?, ?, 'spam', CAST(x'ff' AS TEXT), 1)"),
+                ["w".repeat(22), ROOM.to_owned()],
+            )
+            .unwrap();
+            assert_eq!(s.list_open().unwrap().len(), 1, "{col}");
+        }
+    }
 }
