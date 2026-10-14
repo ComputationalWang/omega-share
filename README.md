@@ -2,18 +2,19 @@
 
 A Habbo-inspired social watch room. The **omega-share web extension** finds a video embed on the page you're on and shares it into a room on the **website**. There, avatars sit together and watch it in sync: when anyone plays, pauses or skips, it happens for everyone, and each person sets their own volume.
 
-> Status: pre-MVP. Built by an AI company run on [Paperclip](https://github.com/paperclipai/paperclip), defined in [`company/`](company/).
+> Status (2026-10-14): milestones M1a–M10 are signed off by the board and the site is live at **https://omega-share.duckdns.org**. M11 (omega-share as a Discord Activity) is in progress. The extension runs on Chromium and Firefox; store listings are not public yet. Built by an AI company run on [Paperclip](https://github.com/paperclipai/paperclip), defined in [`company/`](company/).
 
 ## Layout
 | Path | What |
 |---|---|
-| `apps/extension` | WXT + TypeScript MV3 extension (Chromium first) |
+| `apps/extension` | WXT + TypeScript MV3 extension (Chromium and Firefox) |
 | `apps/web` | Vite + PixiJS isometric room |
-| `apps/server` | Bun + Hono + WebSockets, rooms held in memory |
+| `apps/server` | Bun + Hono + WebSockets; rooms, queues and sessions persist in SQLite |
 | `packages/shared` | Valibot schemas: the wire contract |
 | `assets/` | Original art (CC BY-SA 4.0) |
 | `company/` | Paperclip company package (agents, skills, seed tasks) |
-| `docs/` | Product spec, performance budgets, ADRs |
+| `deploy/` | Hosting kit for the production box ([runbook](docs/ops/hosting.md)) |
+| `docs/` | Product spec, performance budgets, ADRs, QA sign-off reports (`docs/qa/`) |
 
 ## Develop
 ```sh
@@ -30,8 +31,12 @@ NGROK_AUTHTOKEN=… scripts/tunnel.sh https://<your-dev-domain>.ngrok-free.app  
 ```
 ngrok is not a dependency of this repo, and its token never goes in it. Stop the script when the session ends. Details, the `cloudflared` fallback and the server's config variables: [`docs/ops/tunnel.md`](docs/ops/tunnel.md).
 
+## Hosting
+Production runs one `apps/server` behind Caddy on a single box; deploys, backups and room operations are in [`docs/ops/`](docs/ops/) ([hosting](docs/ops/hosting.md), [backup](docs/ops/backup.md), [rooms](docs/ops/rooms.md)).
+
 ## Roadmap
-M1a extension → localhost room · M1b YouTube sync · M2 ngrok + Twitch/Vimeo · M3 safety · M4 hosting · M5 polish. See [`docs/product-spec.md`](docs/product-spec.md).
+Done: M1a extension → localhost room · M1b YouTube sync · M2 ngrok + Twitch/Vimeo · M3 safety · M4 hosting + SQLite · M5 polish · M6 public beta (moderation, queue, load test) · M7–M9 release readiness (a11y, Firefox, motion tiers, legal pages) · M10 phones, room presets, durable sessions.
+Now: M11, run inside Discord as an Activity ([ADR 0046](docs/adr/0046-discord-activity-admission.md)). Sign-off evidence per milestone: [`docs/qa/`](docs/qa/). Spec: [`docs/product-spec.md`](docs/product-spec.md).
 
 ## License
 Code: [AGPL-3.0-only](LICENSE). Art in `assets/`: [CC BY-SA 4.0](assets/LICENSE). Not affiliated with Sulake or Habbo.
