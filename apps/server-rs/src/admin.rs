@@ -26,10 +26,16 @@ use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
+use hyper::body::Incoming;
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+use hyper_util::rt::{TokioIo, TokioTimer};
+use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::UnixListener;
 use tokio::task::JoinHandle;
+use tower_service::Service;
 
 /// `maxRequestBodySize: 1024`: the CLI sends no body at all.
 const MAX_BODY_BYTES: usize = 1024;
@@ -319,8 +325,29 @@ const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Serves `router` on a Unix listener; a client that takes longer than `header_read_timeout` to send its head is cut.
 async fn serve_unix(listener: UnixListener, router: Router, header_read_timeout: Duration) {
-    let _ = header_read_timeout;
-    let _ = axum::serve(listener, router).await;
+    loop {
+        let stream = match listener.accept().await {
+            Ok((stream, _)) => stream,
+            Err(err) if matches!(err.kind(), std::io::ErrorKind::ConnectionAborted | std::io::ErrorKind::ConnectionReset) => continue,
+            // Out of descriptors for a moment: don't spin on it.
+            Err(_) => {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                continue;
+            }
+        };
+        let router = router.clone();
+        let service = service_fn(move |req: hyper::Request<Incoming>| {
+            let mut router = router.clone();
+            async move { Ok::<_, Infallible>(router.call(req).await.unwrap_or_else(|never| match never {})) }
+        });
+        let connection = http1::Builder::new()
+            .timer(TokioTimer::new())
+            .header_read_timeout(header_read_timeout)
+            .serve_connection(TokioIo::new(stream), service);
+        tokio::spawn(async move {
+            let _ = connection.await;
+        });
+    }
 }
 
 /// The bytes a `sockaddr_un` path holds (108 with the NUL).

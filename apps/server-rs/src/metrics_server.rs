@@ -129,12 +129,11 @@ pub async fn start_metrics(app: Arc<App>, port: u16) -> std::io::Result<MetricsS
 
 /// `start_metrics` with another header-read timeout (tests).
 pub async fn start_metrics_with(app: Arc<App>, port: u16, header_read_timeout: std::time::Duration) -> std::io::Result<MetricsServer> {
-    let _ = header_read_timeout;
     let listener = TcpListener::bind(("127.0.0.1", port)).await?;
     let port = listener.local_addr()?.port();
     let router = Router::new().fallback(scrape).with_state((app, port));
     let task = tokio::spawn(async move {
-        let _ = axum::serve(listener, router).await;
+        let _ = crate::http::server::serve_with(listener, router, std::future::pending(), header_read_timeout).await;
     });
     Ok(MetricsServer { task, port })
 }
