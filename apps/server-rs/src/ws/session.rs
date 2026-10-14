@@ -7,7 +7,7 @@
 
 use super::conn::{Conn, TimerCmd};
 use super::frames::{close_with, publish_except_msg, send_error, send_error_after, send_msg};
-use super::limits::Buckets;
+use super::limits::MemberBuckets;
 use crate::app::{App, lock};
 use crate::contract::client_message::ClientMessage;
 use crate::contract::constants::{KICK_COOLDOWN_MS, close};
@@ -46,7 +46,7 @@ pub struct Session {
     pub client: Option<String>,
     /// The one live socket; `None` while held.
     pub conn: Option<ConnId>,
-    pub buckets: Buckets,
+    pub buckets: MemberBuckets,
     pub status: StatusRelay,
     /// The pending expiry of a hold: its generation (a stale wake-up checks it) and the task.
     hold: Option<(u64, AbortHandle)>,
@@ -62,14 +62,14 @@ impl Session {
 }
 
 /// The session `conn` is, if it still owns one: not before join, not after leave, not once another socket resumed it.
-pub fn session_of<'a>(inner: &'a RoomInner, conn: &Conn) -> Option<&'a Session> {
-    let session = inner.sessions.get(conn.member.as_ref()?)?;
-    (session.conn == Some(conn.id)).then_some(session)
+pub fn session_of<'a>(inner: &'a RoomInner, member: Option<&MemberId>, conn: ConnId) -> Option<&'a Session> {
+    let session = inner.sessions.get(member?)?;
+    (session.conn == Some(conn)).then_some(session)
 }
 
-pub fn session_of_mut<'a>(inner: &'a mut RoomInner, conn: &Conn) -> Option<&'a mut Session> {
-    let session = inner.sessions.get_mut(conn.member.as_ref()?)?;
-    (session.conn == Some(conn.id)).then_some(session)
+pub fn session_of_mut<'a>(inner: &'a mut RoomInner, member: Option<&MemberId>, conn: ConnId) -> Option<&'a mut Session> {
+    let session = inner.sessions.get_mut(member?)?;
+    (session.conn == Some(conn)).then_some(session)
 }
 
 /// Counts a `bad_message`-like failure; closes with BAD_MESSAGES and returns false at the limit.
@@ -119,8 +119,8 @@ static HOLD_GENERATION: AtomicU64 = AtomicU64::new(1);
 
 /// Ends a member: revokes its resume and share tokens and frees its seat, slot, name and quota. The caller
 /// announces it.
-fn end(app: &App, inner: &mut RoomInner, member: &MemberId) {
-    let Some(mut session) = inner.sessions.remove(member) else { return };
+fn end(app: &App, inner: &mut RoomInner, member: &MemberId) -> Option<Session> {
+    let mut session = inner.sessions.remove(member)?;
     session.cancel_hold();
     if let Some(token) = &session.resume_token {
         inner.resumable.remove(&hash_secret(token.as_str()));
@@ -136,6 +136,7 @@ fn end(app: &App, inner: &mut RoomInner, member: &MemberId) {
     if inner.room.member_count() == 0 && !inner.closed {
         app.mark_active(inner, wall);
     }
+    Some(session)
 }
 
 /// A durable member's socket closed without `leave` (ADR 0043): keep everything but the socket for the grace
@@ -203,8 +204,11 @@ pub fn closed(app: &Arc<App>, cell: &Arc<RoomCell>, inner: &mut RoomInner, conn:
     if inner.closed {
         return;
     }
-    // Not the owner of it any more for a socket another one replaced: its close never touches the member (ADR 0043).
-    let Some(session) = session_of(inner, conn) else { return };
+    // Found by socket, not through `conn.member`: this runs on every way out, a panicking handler included. None for
+    // a socket another one replaced: its close never touches the member (ADR 0043).
+    let Some(session) = inner.sessions.values().find(|s| s.conn == Some(conn.id)) else {
+        return;
+    };
     let member = session.member_id.clone();
     if session.resume_token.is_some() {
         hold(app, cell, inner, &member);
@@ -220,9 +224,14 @@ pub fn closed(app: &Arc<App>, cell: &Arc<RoomCell>, inner: &mut RoomInner, conn:
     );
 }
 
-/// Explicit `leave`: no grace, both tokens die now.
-pub fn leave(app: &App, inner: &mut RoomInner, member: &MemberId) {
-    end(app, inner, member);
+/// Explicit `leave`: no grace, both tokens die now. The socket keeps its buckets, the queue's included (ws.ts).
+pub fn leave(app: &App, inner: &mut RoomInner, conn: &mut Conn, member: &MemberId) {
+    conn.parked_add = inner.take_member_bucket(member);
+    if let Some(session) = end(app, inner, member) {
+        conn.buckets = session.buckets;
+    }
+    conn.member = None;
+    conn.left = true;
     publish_msg(
         inner,
         &ServerMessage::MemberLeft {
@@ -302,7 +311,6 @@ fn resume(app: &App, inner: &mut RoomInner, conn: &mut Conn, token: &ResumeToken
             at: f64::NEG_INFINITY,
             pending: false,
         };
-        conn.buckets = s.buckets.clone();
         old
     });
     if let Some(old) = old {
@@ -426,7 +434,7 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
             resume_token: resume_token.clone(),
             client,
             conn: Some(conn.id),
-            buckets: conn.buckets.clone(),
+            buckets: std::mem::replace(&mut conn.buckets, MemberBuckets::new(app.mono())),
             status: StatusRelay {
                 at: f64::NEG_INFINITY,
                 pending: false,
@@ -434,6 +442,9 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
             hold: None,
         },
     );
+    if let Some(bucket) = conn.parked_add.take() {
+        inner.put_member_bucket(&member.id, bucket);
+    }
     if let Some(token) = &resume_token {
         inner.resumable.insert(hash_secret(token.as_str()), member.id.clone());
     }

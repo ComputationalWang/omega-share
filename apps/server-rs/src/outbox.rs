@@ -18,7 +18,7 @@ use crate::registry::RoomInner;
 use axum::extract::ws::Utf8Bytes;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use tokio::sync::mpsc;
+use tokio::sync::{Notify, mpsc};
 
 /// `BACKPRESSURE_LIMIT` (ws-limits.ts): queued bytes past this drop the connection.
 pub const BACKPRESSURE_LIMIT: usize = 256 * 1024;
@@ -52,6 +52,8 @@ pub struct Outbox {
     tx: mpsc::Sender<Outbound>,
     queued: Arc<AtomicUsize>,
     dead: Arc<AtomicBool>,
+    /// Woken when the outbox dies, so the connection notices without its writer making progress.
+    died: Arc<Notify>,
 }
 
 /// The receiving half: the connection's writer task.
@@ -60,6 +62,27 @@ pub struct OutboxRx {
     rx: mpsc::Receiver<Outbound>,
     queued: Arc<AtomicUsize>,
     dead: Arc<AtomicBool>,
+    died: Arc<Notify>,
+}
+
+/// Resolves when the outbox is marked dead, independently of the writer: a client that stopped reading blocks its
+/// writer in a socket write, and the connection must still end (Bun's `closeOnBackpressureLimit`). S6 addition.
+#[derive(Debug, Clone)]
+pub struct DeadSignal {
+    dead: Arc<AtomicBool>,
+    died: Arc<Notify>,
+}
+
+impl DeadSignal {
+    pub async fn wait(&self) {
+        loop {
+            // `notify_one` leaves a permit when nobody waits yet, so a death between the check and the wait is seen.
+            if self.dead.load(Ordering::Acquire) {
+                return;
+            }
+            self.died.notified().await;
+        }
+    }
 }
 
 /// A new outbox pair for a connection.
@@ -67,13 +90,15 @@ pub fn channel() -> (Outbox, OutboxRx) {
     let (tx, rx) = mpsc::channel(OUTBOX_FRAMES);
     let queued = Arc::new(AtomicUsize::new(0));
     let dead = Arc::new(AtomicBool::new(false));
+    let died = Arc::new(Notify::new());
     (
         Outbox {
             tx,
             queued: queued.clone(),
             dead: dead.clone(),
+            died: died.clone(),
         },
-        OutboxRx { rx, queued, dead },
+        OutboxRx { rx, queued, dead, died },
     )
 }
 
@@ -86,10 +111,15 @@ impl Outbox {
         let len = frame.len();
         let queued = self.queued.fetch_add(len, Ordering::AcqRel).saturating_add(len);
         if queued > BACKPRESSURE_LIMIT || self.tx.try_send(Outbound::Text(frame.clone())).is_err() {
-            self.dead.store(true, Ordering::Release);
+            self.kill();
             return false;
         }
         true
+    }
+
+    fn kill(&self) {
+        self.dead.store(true, Ordering::Release);
+        self.died.notify_one();
     }
 
     /// Queues a close frame (not counted toward the byte limit). False if the channel is full or gone.
@@ -98,7 +128,7 @@ impl Outbox {
             return false;
         }
         if self.tx.try_send(Outbound::Close(code, reason)).is_err() {
-            self.dead.store(true, Ordering::Release);
+            self.kill();
             return false;
         }
         true
@@ -115,6 +145,14 @@ impl Outbox {
 }
 
 impl OutboxRx {
+    /// For the connection task, which watches for death while the writer owns this receiver.
+    pub fn dead_signal(&self) -> DeadSignal {
+        DeadSignal {
+            dead: self.dead.clone(),
+            died: self.died.clone(),
+        }
+    }
+
     /// The next frame, or `None` when the connection must end without another frame: the outbox was
     /// marked dead (the queue is discarded), or the room dropped it and the queue is empty.
     pub async fn recv(&mut self) -> Option<Outbound> {

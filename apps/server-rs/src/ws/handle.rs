@@ -4,7 +4,7 @@
 
 use super::conn::{Conn, TimerCmd};
 use super::frames::{send_error, send_error_after, send_msg};
-use super::limits::MAX_DROPPED_IN_A_ROW;
+use super::limits::{MAX_DROPPED_IN_A_ROW, MemberBuckets};
 use super::session::{close_self, count_bad, join, kick, leave, session_of, session_of_mut, target_of};
 use crate::app::{App, lock};
 use crate::contract::client_message::{ClientMessage, EmoteKind as InEmote, parse_client_message};
@@ -17,6 +17,7 @@ use crate::outbox::publish_msg;
 use crate::owner_edits;
 use crate::playback::Control;
 use crate::queue::{self, QueueActor, QueueAddRefusal, QueueRefusal};
+use crate::rate_limit::TokenBucket;
 use crate::registry::RoomInner;
 use crate::room::SitResult;
 use std::sync::Arc;
@@ -29,7 +30,8 @@ pub enum Frame<'a> {
 }
 
 /// Handles one inbound frame. The L1 bucket is the socket's own, so it is checked before the room lock is
-/// taken; the frame is parsed before it too.
+/// taken; the frame is parsed before it too. The member is taken out of the socket for the length of the frame,
+/// so the handlers borrow it while they mutate the socket, and the session is looked up once.
 pub fn on_frame(app: &Arc<App>, cell: &Arc<crate::registry::RoomCell>, conn: &mut Conn, frame: Frame<'_>) {
     let t0 = app.mono();
     let l1 = conn.bucket.take(t0);
@@ -43,6 +45,34 @@ pub fn on_frame(app: &Arc<App>, cell: &Arc<crate::registry::RoomCell>, conn: &mu
         return;
     };
     let inner = &mut *inner;
+    conn.left = false;
+    let member = conn.member.take();
+    // `Some(owner)` while this socket still owns its session (not before join, not after a replace).
+    let owner = session_of(inner, member.as_ref(), conn.id).map(|s| s.owner);
+    handle_frame(app, inner, conn, member.as_ref(), owner, l1, retry, parsed);
+    // A join or resume set a member; a leave cleared it; otherwise the socket keeps the one it had.
+    if conn.member.is_none() && !conn.left {
+        conn.member = member;
+    }
+    if l1 {
+        app.metrics.observe_relay(app.mono() - t0);
+    }
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one frame's state, split out of on_frame so the member can be borrowed"
+)]
+fn handle_frame(
+    app: &Arc<App>,
+    inner: &mut RoomInner,
+    conn: &mut Conn,
+    member: Option<&MemberId>,
+    owner: Option<bool>,
+    l1: bool,
+    retry: f64,
+    parsed: Option<ClientMessage>,
+) {
     if !l1 {
         refuse(app, inner, conn, retry, "too many messages, slow down");
         return;
@@ -52,12 +82,11 @@ pub fn on_frame(app: &Arc<App>, cell: &Arc<crate::registry::RoomCell>, conn: &mu
         count_bad(app, inner, conn);
         return;
     };
-    if !admit_type(app, inner, conn, &msg) {
+    if !admit_type(app, inner, conn, member, owner, &msg) {
         return;
     }
     conn.dropped = 0;
-    handle(app, inner, conn, msg);
-    app.metrics.observe_relay(app.mono() - t0);
+    handle(app, inner, conn, member.zip(owner), msg);
 }
 
 /// Drops a frame: one notice per streak, and a close once the streak is MAX_DROPPED_IN_A_ROW long.
@@ -73,21 +102,24 @@ fn refuse(app: &App, inner: &mut RoomInner, conn: &mut Conn, retry_after_ms: f64
 }
 
 /// Passes the frame's own limiters (L1 already passed), or refuses it and returns false.
-fn admit_type(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessage) -> bool {
+fn admit_type(
+    app: &App,
+    inner: &mut RoomInner,
+    conn: &mut Conn,
+    member: Option<&MemberId>,
+    owner: Option<bool>,
+    msg: &ClientMessage,
+) -> bool {
     let now = app.mono();
-    let owner = session_of(inner, conn).map(|s| s.owner);
     // Takes from `pick`'s bucket or refuses the frame with `message`.
     macro_rules! admit {
         ($pick:ident, $message:expr) => {{
-            let buckets = conn.buckets.clone();
-            let mut g = buckets.lock();
-            if g.$pick.take(now) {
-                true
-            } else {
-                let retry = g.$pick.retry_after_ms(now);
-                drop(g);
-                refuse(app, inner, conn, retry, $message);
-                false
+            match spend(inner, conn, member, now, |b| &mut b.$pick) {
+                None => true,
+                Some(retry) => {
+                    refuse(app, inner, conn, retry, $message);
+                    false
+                }
             }
         }};
     }
@@ -150,6 +182,22 @@ fn admit_type(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMes
     }
 }
 
+/// Takes a token from the member's bucket (the session's while joined, the socket's before) or says how long to wait.
+fn spend(
+    inner: &mut RoomInner,
+    conn: &mut Conn,
+    member: Option<&MemberId>,
+    now: f64,
+    pick: fn(&mut MemberBuckets) -> &mut TokenBucket,
+) -> Option<f64> {
+    let buckets = match session_of_mut(inner, member, conn.id) {
+        Some(session) => &mut session.buckets,
+        None => &mut conn.buckets,
+    };
+    let bucket = pick(buckets);
+    if bucket.take(now) { None } else { Some(bucket.retry_after_ms(now)) }
+}
+
 fn emote_kind(kind: InEmote) -> EmoteKind {
     match kind {
         InEmote::Clap => EmoteKind::Clap,
@@ -163,9 +211,10 @@ fn emote_kind(kind: InEmote) -> EmoteKind {
     }
 }
 
-fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, msg: ClientMessage) {
+fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, session: Option<(&MemberId, bool)>, msg: ClientMessage) {
     if let ClientMessage::Ping { id } = &msg {
-        // Clock sample: sender only, allowed before join. The token bucket already counted it.
+        // Clock sample: sender only, allowed before join. The token bucket already counted it. (Both ids are
+        // validated 0..=PING_ID_MAX, so `new` never refuses a parsed one.)
         if let Some(id) = PingId::new(id.get()) {
             let at = ServerTime(u64::try_from(app.wall()).unwrap_or(0));
             send_msg(inner, conn.id, &ServerMessage::Pong { id, at });
@@ -173,14 +222,13 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, msg: ClientMes
         return;
     }
     if matches!(msg, ClientMessage::Join { .. }) {
-        if session_of(inner, conn).is_some() {
+        if session.is_some() {
             send_error(inner, conn.id, ErrorCode::AlreadyJoined, "already joined");
         } else {
             join(app, inner, conn, &msg);
         }
         return;
     }
-    let session = session_of(inner, conn).map(|s| (s.member_id.clone(), s.owner));
     if let ClientMessage::Ended { item_id, position } = &msg {
         // Reports what a player saw: never an error, not even before join (ADR 0031 section 4).
         if session.is_some() {
@@ -195,24 +243,35 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, msg: ClientMes
     match msg {
         ClientMessage::Presence { away } => {
             // A hint, published on transitions only: it never starts, extends or ends a hold (ADR 0043).
-            if inner.room.set_away(&member, away) {
-                publish_msg(inner, &ServerMessage::MemberPresence { member_id: member, away });
+            if inner.room.set_away(member, away) {
+                publish_msg(
+                    inner,
+                    &ServerMessage::MemberPresence {
+                        member_id: member.clone(),
+                        away,
+                    },
+                );
             }
         }
         ClientMessage::Leave {} => {
-            leave(app, inner, &member);
-            conn.member = None;
+            leave(app, inner, conn, member);
             conn.join_timer = TimerCmd::Arm;
         }
         ClientMessage::Sit { seat } => {
-            if inner.room.sit(&member, seat) == SitResult::SeatTaken {
+            if inner.room.sit(member, seat) == SitResult::SeatTaken {
                 send_error(inner, conn.id, ErrorCode::SeatTaken, "seat is taken");
                 return;
             }
-            publish_msg(inner, &ServerMessage::SeatChanged { member_id: member, seat });
+            publish_msg(
+                inner,
+                &ServerMessage::SeatChanged {
+                    member_id: member.clone(),
+                    seat,
+                },
+            );
         }
         ClientMessage::Chat { text } => {
-            if inner.room.is_muted(&member) {
+            if inner.room.is_muted(member) {
                 send_error(inner, conn.id, ErrorCode::Muted, "the room's owner muted you");
                 return;
             }
@@ -220,7 +279,7 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, msg: ClientMes
             publish_msg(
                 inner,
                 &ServerMessage::Chat {
-                    member_id: member,
+                    member_id: member.clone(),
                     text,
                     at,
                 },
@@ -241,42 +300,45 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, msg: ClientMes
                 playing,
                 position: position.get(),
             };
-            let Some(playback) = inner.room.control(&member, &control, app.wall()) else {
+            let Some(playback) = inner.room.control(member, &control, app.wall()) else {
                 send_error(inner, conn.id, ErrorCode::NoEmbed, "that video is not playing here");
                 return;
             };
             publish_msg(inner, &ServerMessage::Playback { playback });
         }
-        ClientMessage::Status { catching } => status(app, inner, conn, &member, catching),
+        ClientMessage::Status { catching } => status(app, inner, conn, member, catching),
         ClientMessage::LayoutSet { layout } => {
             if !owner {
                 not_owner(app, inner, conn);
                 return;
             }
-            owner_edits::set_layout(app, inner, &member, layout);
+            owner_edits::set_layout(app, inner, member, layout);
         }
         ClientMessage::TitleSet { title } => {
             if !owner {
                 not_owner(app, inner, conn);
                 return;
             }
-            owner_edits::set_title(app, inner, conn.id, &member, title);
+            owner_edits::set_title(app, inner, conn.id, member, title);
         }
         ClientMessage::Emote { kind } => {
             // Fire-and-forget: never stored, never in a snapshot.
             publish_msg(
                 inner,
                 &ServerMessage::Emoted {
-                    member_id: member,
+                    member_id: member.clone(),
                     kind: emote_kind(kind),
                 },
             );
         }
         ClientMessage::Kick { .. } | ClientMessage::Mute { .. } | ClientMessage::ControlPolicy { .. } => {
-            moderate(app, inner, conn, &member, owner, msg);
+            moderate(app, inner, conn, member, owner, msg);
         }
         ClientMessage::QueueAdd { url } => {
-            let actor = QueueActor { member_id: member, owner };
+            let actor = QueueActor {
+                member_id: member.clone(),
+                owner,
+            };
             let refused = queue::admit(app, inner, &actor)
                 .err()
                 .map(Refusal::from)
@@ -286,13 +348,19 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, msg: ClientMes
             }
         }
         ClientMessage::QueueRemove { item_id } => {
-            let actor = QueueActor { member_id: member, owner };
+            let actor = QueueActor {
+                member_id: member.clone(),
+                owner,
+            };
             if let Err(refused) = queue::remove(app, inner, &actor, &item_id) {
                 queue_refused(inner, conn, refused.into());
             }
         }
         ClientMessage::QueueAdvance { from_item_id } => {
-            let actor = QueueActor { member_id: member, owner };
+            let actor = QueueActor {
+                member_id: member.clone(),
+                owner,
+            };
             if let Err(refused) = queue::advance(app, inner, &actor, &from_item_id) {
                 queue_refused(inner, conn, refused.into());
             }
@@ -314,15 +382,9 @@ fn moderate(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, member: &Mem
         return;
     }
     let now = app.mono();
-    {
-        let buckets = conn.buckets.clone();
-        let mut g = buckets.lock();
-        if !g.moderation.take(now) {
-            let retry = g.moderation.retry_after_ms(now);
-            drop(g);
-            refuse(app, inner, conn, retry, "too many moderation actions, slow down");
-            return;
-        }
+    if let Some(retry) = spend(inner, conn, Some(member), now, |b| &mut b.moderation) {
+        refuse(app, inner, conn, retry, "too many moderation actions, slow down");
+        return;
     }
     match msg {
         ClientMessage::ControlPolicy { policy } => owner_edits::set_control_policy(app, inner, member, policy),
@@ -347,7 +409,9 @@ fn status(app: &App, inner: &mut RoomInner, conn: &mut Conn, member: &MemberId, 
     inner.room.set_catching(member, catching);
     let now = app.mono();
     let interval = app.ws.status_interval_ms;
-    let Some(session) = session_of_mut(inner, conn) else { return };
+    let Some(session) = session_of_mut(inner, Some(member), conn.id) else {
+        return;
+    };
     if session.status.pending {
         return;
     }

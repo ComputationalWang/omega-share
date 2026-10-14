@@ -168,6 +168,17 @@ impl RoomInner {
         })
     }
 
+    /// Takes the member's `queue-add` bucket out, so a socket that leaves can carry it to its next join (ws.ts keeps it
+    /// in the socket's own buckets). S6 addition.
+    pub fn take_member_bucket(&mut self, id: &MemberId) -> Option<TokenBucket> {
+        self.member_adds.remove(id)
+    }
+
+    /// Puts a bucket taken with `take_member_bucket` back under the member's new id.
+    pub fn put_member_bucket(&mut self, id: &MemberId, bucket: TokenBucket) {
+        self.member_adds.insert(id.clone(), bucket);
+    }
+
     /// The member ended: drops the state kept for them.
     pub fn forget_member(&mut self, id: &MemberId) {
         self.member_adds.remove(id);

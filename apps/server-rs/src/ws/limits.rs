@@ -1,12 +1,10 @@
 //! ws-limits.ts: the per-socket and per-member rates. Server-private (ADR 0016 section 1); the numbers are the
 //! threat model's section 6.
 
-use crate::app::lock;
 use crate::contract::constants::{
     EMOTE_BURST, EMOTE_REFILL_MS, MODERATION_BURST, MODERATION_REFILL_MS, ROOM_EDIT_BURST, ROOM_EDIT_REFILL_MS,
 };
 use crate::rate_limit::TokenBucket;
-use std::sync::{Arc, Mutex, MutexGuard};
 
 /// L1, per socket: bursts of 20 messages, 10/s sustained.
 pub const WS_BURST: f64 = 20.0;
@@ -29,10 +27,9 @@ pub const FAILED_PER_SECOND: f64 = 1.0 / 30.0;
 /// Escalation: close with RATE_LIMITED / BAD_MESSAGES.
 pub const MAX_DROPPED_IN_A_ROW: u32 = 50;
 pub const MAX_BAD_MESSAGES: u32 = 20;
-/// A socket with nothing received for this long is dropped; the server pings at half of it (`idleTimeout`, `sendPings`).
-pub const IDLE_TIMEOUT_MS: f64 = 60_000.0;
 
-/// Per-member limiters: kept with the member through leave and rejoin on one socket, and through a grace hold.
+/// Per-member limiters, owned by the socket until it joins, then by its session; a leave hands them back to the
+/// socket, so they survive leave and rejoin on one socket and a grace hold (ADR 0043).
 /// (The queue's add bucket is `RoomInner::member_add_bucket`: it is shared with `POST /rooms/:id/queue`.)
 #[derive(Debug)]
 pub struct MemberBuckets {
@@ -61,21 +58,6 @@ impl MemberBuckets {
     }
 }
 
-/// Shared by a socket and its session, so a resume adopts the member's buckets instead of refilling them (ADR 0043).
-/// Only ever locked under the room's lock, so it never contends.
-#[derive(Debug, Clone)]
-pub struct Buckets(Arc<Mutex<MemberBuckets>>);
-
-impl Buckets {
-    pub fn new(now: f64) -> Self {
-        Self(Arc::new(Mutex::new(MemberBuckets::new(now))))
-    }
-
-    pub fn lock(&self) -> MutexGuard<'_, MemberBuckets> {
-        lock(&self.0)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,8 +73,7 @@ mod tests {
     // apps/server/test/ws-limits.test.ts:10
     #[test]
     fn a_fresh_member_gets_the_threat_models_bursts_refilled_at_their_rates() {
-        let b = Buckets::new(0.0);
-        let mut g = b.lock();
+        let mut g = MemberBuckets::new(0.0);
         assert_eq!(drain(&mut g.chat, 0.0), 5);
         assert_eq!(drain(&mut g.sit, 0.0), 4);
         assert_eq!(drain(&mut g.control, 0.0), 4);

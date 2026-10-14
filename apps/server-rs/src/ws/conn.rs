@@ -1,23 +1,37 @@
-//! One connection: a single task that owns the socket, drains the connection's outbox to it, reads frames, and
-//! keeps the socket's timers (join timeout, `member-status` trailing publish, idle pings). One task, not a reader
-//! and a writer: when the outbox ends (backpressure drop) the loop ends with it, so no session lingers until the
-//! idle timeout, and a stalled client only stalls itself (publishers `try_send`, never wait).
+//! One connection: a connection task that reads frames and keeps the socket's timers (join timeout,
+//! `member-status` trailing publish, idle), and a writer task that drains the connection's outbox into the sink.
+//!
+//! Why two tasks: a client that stops reading blocks its writer in a socket write. The connection task never
+//! waits on the writer, so it still notices that the outbox died (`BACKPRESSURE_LIMIT`, Bun's
+//! `closeOnBackpressureLimit`), aborts the writer and drops the connection with no close frame (1006), and then
+//! runs the normal `closed` path: the member leaves or is held, the per-address slot is released. Publishers
+//! only `try_send`, so a stalled client never slows anyone else.
+//!
+//! Deliberate difference: every socket write is bounded by `WRITE_TIMEOUT` (Bun has no such bound; it relies on
+//! the backpressure limit), and so is the wait for a client's answer to our close.
 
 use super::Slot;
 use super::frames::close_with;
 use super::handle::{Frame, flush_status, on_frame};
-use super::limits::{Buckets, IDLE_TIMEOUT_MS, WS_BURST, WS_PER_SECOND};
+use super::limits::{MemberBuckets, WS_BURST, WS_PER_SECOND};
 use super::session::{closed, session_of};
 use crate::app::App;
 use crate::clock::Sleep;
 use crate::contract::constants::close;
 use crate::contract::ids::{MemberId, RoomId};
-use crate::outbox::{ConnId, Outbound, channel};
+use crate::metrics::SERVICE_RESTART;
+use crate::outbox::{ConnId, Outbound, OutboxRx, channel};
 use crate::rate_limit::TokenBucket;
 use crate::registry::RoomCell;
 use axum::extract::ws::{CloseFrame, Message, WebSocket};
+use futures_util::stream::SplitSink;
+use futures_util::{SinkExt, StreamExt};
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
+use tokio::sync::Notify;
+use tokio::task::AbortHandle;
+use tokio::time::{Instant, MissedTickBehavior, interval_at, sleep};
 
 /// What a handler wants done with the socket's join timer once it returns.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,14 +52,18 @@ pub struct Conn {
     pub member: Option<MemberId>,
     /// L1: every frame.
     pub bucket: TokenBucket,
-    /// The socket's own until it joins; then its session's, so a resume doesn't refill them (ADR 0043).
-    pub buckets: Buckets,
+    /// The socket's own until it joins; then its session's (swapped in), and handed back on `leave`.
+    pub buckets: MemberBuckets,
+    /// The `queue-add` bucket of a member that left, for this socket's next join (ws.ts `buckets.queue`).
+    pub parked_add: Option<TokenBucket>,
     /// Frames dropped in a row by any limiter. The first of a streak gets the one `rate_limited` notice.
     pub dropped: u32,
     /// `bad_message`s over the socket's life.
     pub bad: u32,
     /// The server started closing this socket: its remaining frames are ignored.
     pub closing: bool,
+    /// The frame just handled was a `leave`: the socket has no member any more.
+    pub left: bool,
     pub join_timer: TimerCmd,
     /// Arm the `member-status` trailing publish in this many ms.
     pub status_in: Option<f64>,
@@ -59,13 +77,31 @@ impl Conn {
             keyed,
             member: None,
             bucket: TokenBucket::new(WS_BURST, WS_PER_SECOND, now),
-            buckets: Buckets::new(now),
+            buckets: MemberBuckets::new(now),
+            parked_add: None,
             dropped: 0,
             bad: 0,
             closing: false,
+            left: false,
             join_timer: TimerCmd::Keep,
             status_in: None,
         }
+    }
+}
+
+/// Runs the session cleanup on every way out of the connection task, a panic in a handler included.
+struct Closer {
+    app: Arc<App>,
+    cell: Arc<RoomCell>,
+    conn: Conn,
+    writer: AbortHandle,
+}
+
+impl Drop for Closer {
+    fn drop(&mut self) {
+        self.writer.abort();
+        let mut inner = self.cell.lock();
+        closed(&self.app, &self.cell, &mut inner, &self.conn);
     }
 }
 
@@ -77,17 +113,66 @@ async fn timer(t: &mut Option<Sleep>) {
     }
 }
 
-/// How long a close handshake may take before the connection is cut.
+/// How long one socket write, or a close handshake, may take before the connection is cut.
+const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 const CLOSE_WAIT: Duration = Duration::from_secs(1);
+
+type Sink = SplitSink<WebSocket, Message>;
+
+async fn send(sink: &mut Sink, msg: Message) -> bool {
+    matches!(tokio::time::timeout(WRITE_TIMEOUT, sink.send(msg)).await, Ok(Ok(())))
+}
+
+fn close_message(code: u16, reason: &'static str) -> Message {
+    Message::Close(Some(CloseFrame {
+        code,
+        reason: reason.into(),
+    }))
+}
+
+/// The writer task: the outbox into the sink, and the idle pings. True if it ended by sending a close frame.
+async fn write(mut sink: Sink, mut rx: OutboxRx, ping: Arc<Notify>) -> bool {
+    loop {
+        tokio::select! {
+            out = rx.recv() => match out {
+                // The outbox died or the room dropped it: the connection ends without a close frame.
+                None => return false,
+                Some(Outbound::Text(text)) => {
+                    if !send(&mut sink, Message::Text(text)).await {
+                        return false;
+                    }
+                }
+                Some(Outbound::Close(code, reason)) => {
+                    return send(&mut sink, close_message(code, reason)).await;
+                }
+            },
+            () = ping.notified() => {
+                if !send(&mut sink, Message::Ping(axum::body::Bytes::new())).await {
+                    return false;
+                }
+            }
+        }
+    }
+}
 
 /// `open`: the connection after its upgrade. `cell` is `None` for a room that isn't registered (an id that was
 /// taken down, or any well-formed id): closed 4006 or 4004 before any snapshot (OME-768).
 pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<Arc<RoomCell>>, ip: String, keyed: bool, _slot: Slot) {
-    let mut conn = Conn::new(ip, keyed, app.mono());
-    let (outbox, mut rx) = channel();
-    let attached = cell
-        .as_ref()
-        .is_some_and(|c| c.lock_open().is_some_and(|mut inner| inner.attach_socket(conn.id, outbox).is_ok()));
+    let conn = Conn::new(ip, keyed, app.mono());
+    let (outbox, rx) = channel();
+    let attached = cell.as_ref().is_some_and(|c| {
+        c.lock_open().is_some_and(|mut inner| {
+            if inner.attach_socket(conn.id, outbox).is_err() {
+                return false;
+            }
+            // A drain that started after the upgrade was admitted: this socket is closed like the others (the flag is
+            // set before `drain` walks the rooms, so one or the other sees it).
+            if app.ws.draining.load(Ordering::Relaxed) {
+                close_with(&app, &mut inner, conn.id, SERVICE_RESTART, "server restarting");
+            }
+            true
+        })
+    });
     let Some(cell) = cell.filter(|_| attached) else {
         let (code, reason) = if crate::reports::is_taken_down(&app, &id) {
             (close::TAKEN_DOWN, "room taken down")
@@ -95,58 +180,77 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
             (close::ROOM_CLOSED, "room closed")
         };
         app.metrics.count_close(code);
-        send_close(&mut socket, code, reason).await;
+        let _ = tokio::time::timeout(WRITE_TIMEOUT, socket.send(close_message(code, reason))).await;
         return;
     };
 
+    let dead = rx.dead_signal();
+    let ping = Arc::new(Notify::new());
+    let (sink, mut stream) = socket.split();
+    let mut writer = tokio::spawn(write(sink, rx, ping.clone()));
+    let mut guard = Closer {
+        app: app.clone(),
+        cell: cell.clone(),
+        conn,
+        writer: writer.abort_handle(),
+    };
+    let conn = &mut guard.conn;
+
+    // Idle and pings are the transport's, in real time; the join timer, status flush and hold expiry run on the app clock.
+    let idle_for = Duration::from_secs_f64((app.ws.idle_timeout_ms / 1000.0).max(0.001));
+    let idle = sleep(idle_for);
+    tokio::pin!(idle);
+    let mut pings = interval_at(Instant::now() + idle_for / 2, idle_for / 2);
+    pings.set_missed_tick_behavior(MissedTickBehavior::Delay);
     let mut join: Option<Sleep> = Some(app.clock.sleep(app.ws.join_timeout_ms));
     let mut status: Option<Sleep> = None;
-    let idle_every = IDLE_TIMEOUT_MS / 2.0;
-    let mut idle: Option<Sleep> = Some(app.clock.sleep(idle_every));
-    let mut last_rx = app.mono();
     let mut sent_close = false;
 
     loop {
         tokio::select! {
-            out = rx.recv() => match out {
-                // The outbox died (backpressure) or the room dropped it: the connection ends without a close frame.
-                None => break,
-                Some(Outbound::Text(text)) => {
-                    if socket.send(Message::Text(text)).await.is_err() {
-                        break;
-                    }
-                }
-                Some(Outbound::Close(code, reason)) => {
-                    send_close(&mut socket, code, reason).await;
-                    sent_close = true;
-                    break;
-                }
-            },
-            msg = socket.recv() => {
+            msg = stream.next() => {
                 let Some(Ok(msg)) = msg else { break };
-                last_rx = app.mono();
+                idle.as_mut().reset(Instant::now() + idle_for);
                 if conn.closing {
                     continue;
                 }
                 match &msg {
-                    Message::Text(text) => on_frame(&app, &cell, &mut conn, Frame::Text(text.as_str())),
-                    Message::Binary(_) => on_frame(&app, &cell, &mut conn, Frame::Binary),
+                    Message::Text(text) => on_frame(&app, &cell, conn, Frame::Text(text.as_str())),
+                    Message::Binary(_) => on_frame(&app, &cell, conn, Frame::Binary),
                     Message::Close(_) => break,
                     Message::Ping(_) | Message::Pong(_) => {}
                 }
                 match std::mem::replace(&mut conn.join_timer, TimerCmd::Keep) {
                     TimerCmd::Keep => {}
                     TimerCmd::Arm => join = Some(app.clock.sleep(app.ws.join_timeout_ms)),
-                    TimerCmd::Clear => join = None,
+                    TimerCmd::Clear => {
+                        join = None;
+                        status = None;
+                    }
                 }
                 if let Some(wait) = conn.status_in.take() {
                     status = Some(app.clock.sleep(wait));
                 }
+                // A new session (join) or none (leave): a trailing publish armed for the old one is stale.
+                if conn.left {
+                    status = None;
+                }
             }
+            done = &mut writer => {
+                sent_close = done.unwrap_or(false);
+                break;
+            }
+            () = dead.wait() => {
+                // Backpressure: cut the connection with no close frame (1006), whatever the writer is stuck in.
+                writer.abort();
+                break;
+            }
+            () = &mut idle => break,
+            _ = pings.tick() => ping.notify_one(),
             () = timer(&mut join) => {
                 join = None;
                 if let Some(mut inner) = cell.lock_open()
-                    && session_of(&inner, &conn).is_none()
+                    && session_of(&inner, conn.member.as_ref(), conn.id).is_none()
                 {
                     conn.closing = true;
                     close_with(&app, &mut inner, conn.id, close::JOIN_TIMEOUT, "join timeout");
@@ -155,39 +259,20 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
             () = timer(&mut status) => {
                 status = None;
                 if let Some(mut inner) = cell.lock_open() {
-                    let pending = session_of(&inner, &conn).filter(|s| s.status.pending).map(|s| s.member_id.clone());
+                    let pending = session_of(&inner, conn.member.as_ref(), conn.id)
+                        .filter(|s| s.status.pending)
+                        .map(|s| s.member_id.clone());
                     if let Some(member) = pending {
                         flush_status(&app, &mut inner, &member);
                     }
                 }
-            }
-            () = timer(&mut idle) => {
-                // Anything received, a pong included, counts; silence for the whole timeout drops the socket.
-                if app.mono() - last_rx >= IDLE_TIMEOUT_MS {
-                    break;
-                }
-                if socket.send(Message::Ping(axum::body::Bytes::new())).await.is_err() {
-                    break;
-                }
-                idle = Some(app.clock.sleep(idle_every));
             }
         }
     }
 
     if sent_close {
         // Let the client answer the close, so it reads our frame before the connection goes away.
-        let _ = tokio::time::timeout(CLOSE_WAIT, async { while let Some(Ok(_)) = socket.recv().await {} }).await;
+        let _ = tokio::time::timeout(CLOSE_WAIT, async { while let Some(Ok(_)) = stream.next().await {} }).await;
     }
-    drop(socket);
-    let mut inner = cell.lock();
-    closed(&app, &cell, &mut inner, &conn);
-}
-
-async fn send_close(socket: &mut WebSocket, code: u16, reason: &'static str) {
-    let _ = socket
-        .send(Message::Close(Some(CloseFrame {
-            code,
-            reason: reason.into(),
-        })))
-        .await;
+    // `guard` drops here: the writer is aborted, both halves go, and `closed` runs.
 }
