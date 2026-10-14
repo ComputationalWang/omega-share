@@ -8,7 +8,8 @@ import { stubExternalNetwork } from "./support/network";
 import { clickSettled } from "./support/room";
 import { site } from "./support/selectors";
 import { WALK_SETTLE_MS, scene, seatedBetween, selfId } from "./support/scene";
-import { SET_G, SET_G_SEAT_PIECE } from "./fixtures/layouts";
+import { testRoomId } from "./support/test-rooms";
+import { SET_G, SET_G_SEAT_PIECE, V2_BENCHES, V2_BENCHES_PIECE, V2_SEATS, V2_SEATS_PIECE } from "./fixtures/layouts";
 
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
 
@@ -32,8 +33,8 @@ async function withLayout(page: Page, rewrite: Rewrite): Promise<void> {
   });
 }
 
-async function enter(page: Page, nickname: string): Promise<void> {
-  await page.goto(ROOM_URL);
+async function enter(page: Page, nickname: string, url = ROOM_URL): Promise<void> {
+  await page.goto(url);
   await page.locator(site.nicknameInput).fill(nickname);
   await page.locator(site.avatarOption).first().click();
   await page.locator(site.joinButton).click();
@@ -43,6 +44,17 @@ async function enter(page: Page, nickname: string): Promise<void> {
 
 const furnitureOnly = (s: readonly string[]): string[] => s.filter((x) => !x.startsWith("avatar:"));
 const isAtlas = (r: Request): boolean => /furniture[^/]*\.(png|json|js)(\?|$)/.test(r.url()) && !r.url().includes("/src/furniture.ts");
+/** Catalogue v2's sheet, manifest or chunk (OME-1113). */
+const isV2 = (u: string): boolean => /furniture-v2[^/]*\.(png|json|js|ts)(\?|$)/.test(u);
+
+/** True once `avatar:<self>` draws over `piece`'s back and, if it has one, under its front (a cushion facing the camera has none). */
+async function seatedOn(page: Page, self: string, piece: string): Promise<boolean> {
+  const order = await scene(page);
+  const back = order.indexOf(`furniture/${piece}/back`);
+  const me = order.indexOf(`avatar:${self}`);
+  const front = order.indexOf(`furniture/${piece}/front`);
+  return back >= 0 && back < me && (front < 0 || me < front);
+}
 
 test.describe("furniture from the room layout", () => {
   test.fixme(!available.web, PENDING.web);
@@ -97,6 +109,8 @@ test.describe("furniture from the room layout", () => {
       await enter(page, "sofa-sitter");
       await expect.poll(async () => (await scene(page)).some((k) => k.startsWith("furniture/"))).toBe(true);
       expect(atlas.some((u) => u.includes(".png"))).toBe(true);
+      // A v1-only room never fetches catalogue v2 (OME-1113).
+      expect(atlas.filter(isV2)).toEqual([]);
 
       // A free seat on a two-seater; the far and near seats of one sofa both count.
       const seats = page.locator(site.seat);
@@ -116,4 +130,39 @@ test.describe("furniture from the room layout", () => {
       await context.close();
     }
   });
+
+  // OME-1113: catalogue v2 is its own lazy sheet; a v2 room fetches it (and not set (g)), and every v2 seat seats in every facing.
+  // Seeded rooms of their own: this test sits on given seats, so another spec's sitter in the lobby can't take one.
+  for (const [name, room, layout, pieces, sits] of [
+    ["cushions in all four facings, benches ne and nw", "v2seats", V2_SEATS, V2_SEATS_PIECE, [0, 1, 2, 3, 4, 7]],
+    ["benches se and sw", "v2benches", V2_BENCHES, V2_BENCHES_PIECE, [0, 3]],
+  ] as const) {
+    test(`a catalogue v2 room loads only the v2 sheet and seats sitters on ${name}`, async ({ browser }) => {
+      const context = await watchCsp(await browser.newContext());
+      try {
+        await stubExternalNetwork(context);
+        const page = await context.newPage();
+        const atlas: string[] = [];
+        page.on("request", (r) => {
+          if (isAtlas(r)) atlas.push(r.url());
+        });
+        await withLayout(page, { layout });
+        await enter(page, "v2-sitter", `${URLS.web}/r/${testRoomId("furniture", room)}`);
+        await expect.poll(async () => (await scene(page)).some((k) => k.startsWith("furniture/"))).toBe(true);
+        expect(atlas.some((u) => isV2(u) && u.includes(".png"))).toBe(true);
+        expect(atlas.filter((u) => !isV2(u))).toEqual([]);
+
+        const self = await selfId(page);
+        const seats = page.locator(site.seat);
+        for (const i of sits) {
+          await clickSettled(page, seats.nth(i));
+          await expect(seats.nth(i)).toHaveClass(/mine/);
+          await expect.poll(() => seatedOn(page, self, pieces[i] ?? ""), { timeout: WALK_SETTLE_MS }).toBe(true);
+        }
+        await test.info().attach(`room-v2-${String(sits.length)}.png`, { body: await page.locator(site.room).screenshot(), contentType: "image/png" });
+      } finally {
+        await context.close();
+      }
+    });
+  }
 });
