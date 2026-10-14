@@ -67,7 +67,7 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
   function build(): Wheel {
     const menu = el("div", { className: "ui-wheel", role: "menu", hidden: true }, "emote-menu");
     menu.setAttribute("aria-label", "Emotes");
-    // room.css places .ui-wheel-slot:nth-child(1..8) clockwise from 12, so the slots lead and their places are set once.
+    // reference.css places .ui-wheel-slot:nth-child(1..8) clockwise from 12, so the slots lead and their places are set once.
     const slots = PICKER_KINDS.map((kind, i) => {
       const shortcut = String(i + 1);
       const b = el("button", { type: "button", className: "ui-wheel-slot", role: "menuitem", tabIndex: -1, title: `${EMOTE_LABELS[kind]} (${shortcut})` }, "emote-item");

@@ -132,20 +132,6 @@
  * head or docked above the composer. reference.css fades it in (4 steps, never scaled: pixel art doesn't resample) and
  * skips that under reduced motion. */
 .emote-picker .ui-wheel { --ui-px: 2px; position: fixed; z-index: 30; }
-/* OME-1121: eight slots (keys 1–8) clockwise from 12 on a 27 px ring, overriding reference.css's six.
- * shortcut: the wheel disc still draws six dividers and cheer/yawn borrow a half-size crop of their own expression
- * frames as icons; swap both for set (i) art once the designer ships an 8-slot wheel and 16 px cheer/yawn icons. */
-.ui-wheel-slot:nth-child(1) { left: calc(28 * var(--ui-px)); top: calc(1 * var(--ui-px)); }
-.ui-wheel-slot:nth-child(2) { left: calc(47 * var(--ui-px)); top: calc(9 * var(--ui-px)); }
-.ui-wheel-slot:nth-child(3) { left: calc(55 * var(--ui-px)); top: calc(28 * var(--ui-px)); }
-.ui-wheel-slot:nth-child(4) { left: calc(47 * var(--ui-px)); top: calc(47 * var(--ui-px)); }
-.ui-wheel-slot:nth-child(5) { left: calc(28 * var(--ui-px)); top: calc(55 * var(--ui-px)); }
-.ui-wheel-slot:nth-child(6) { left: calc(9 * var(--ui-px)); top: calc(47 * var(--ui-px)); }
-.ui-wheel-slot:nth-child(7) { left: calc(1 * var(--ui-px)); top: calc(28 * var(--ui-px)); }
-.ui-wheel-slot:nth-child(8) { left: calc(9 * var(--ui-px)); top: calc(9 * var(--ui-px)); }
-.ui-emote-pick-cheer, .ui-emote-pick-yawn { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-image: url("../../../assets/avatars/expressions.png"); background-size: calc(512 * var(--ui-px)) calc(128 * var(--ui-px)); }
-.ui-emote-pick-cheer { background-position: calc(-16 * var(--ui-px)) calc(-6 * var(--ui-px)); }
-.ui-emote-pick-yawn { background-position: calc(-272 * var(--ui-px)) calc(-7 * var(--ui-px)); }
 .ui-button.self.is-cooling { border-image-source: url("../../../assets/ui/slices/button-self-cool.png"); cursor: default; }
 /* prefers-reduced-motion: the picker icon, still, bottom-centred over the avatar. */
 .emote-badge { position: absolute; left: 0; top: 0; translate: -50% -100%; }

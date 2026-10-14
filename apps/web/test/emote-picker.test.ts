@@ -80,7 +80,7 @@ describe("emote wheel", () => {
     expect(m.getAttribute("aria-label")).toBe("Emotes");
     expect(key.getAttribute("aria-expanded")).toBe("true");
     const slots = items();
-    // room.css places .ui-wheel-slot:nth-child(1..8) clockwise from 12: the slots are the wheel's first eight children.
+    // reference.css places .ui-wheel-slot:nth-child(1..8) clockwise from 12: the slots are the wheel's first eight children.
     expect([...m.children].slice(0, 8)).toEqual(slots);
     expect(slots.every((b) => b.classList.contains("ui-wheel-slot"))).toBe(true);
     expect(slots.map((b) => b.getAttribute("aria-label"))).toEqual(["Heart", "Laugh", "Question", "Surprise", "Clap", "Wave", "Cheer", "Yawn"]);
