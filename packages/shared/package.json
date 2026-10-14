@@ -2,6 +2,7 @@
   "name": "@omega/shared",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "license": "AGPL-3.0-only",
   "exports": {
     ".": "./src/index.ts",
