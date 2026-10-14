@@ -291,6 +291,15 @@ describe("initialJsGzipKb", () => {
     expect(r.kb).toBeGreaterThan(0);
     expect(r.kb).toBeLessThan(1);
   });
+
+  test("reads another page's HTML, e.g. the extension popup (OME-1102)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "omega-perf-"));
+    mkdirSync(join(dir, "chunks"));
+    writeFileSync(join(dir, "chunks/popup.js"), "a".repeat(10_000));
+    writeFileSync(join(dir, "chunks/shared.js"), "b".repeat(10_000));
+    writeFileSync(join(dir, "popup.html"), `<script type="module" src="/chunks/popup.js"></script><link rel="modulepreload" href="/chunks/shared.js">`);
+    expect(initialJsGzipKb(dir, "popup.html").files).toEqual(["chunks/popup.js", "chunks/shared.js"]);
+  });
 });
 
 describe("soakPlan", () => {
