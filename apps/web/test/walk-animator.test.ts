@@ -330,6 +330,15 @@ describe("emotes", () => {
     expect(s.stickers.some((x) => x.frame !== null)).toBe(false);
   });
 
+  test("cheer and yawn (OME-1116) draw nothing until the expressions atlas is hooked up", () => {
+    const s = ready();
+    s.anim.emote(id("a"), "cheer");
+    s.anim.emote(id("b"), "yawn");
+    expect(s.rafs.length).toBe(0);
+    expect(s.timers.length).toBe(0);
+    expect(s.stickers.some((x) => x.frame !== null)).toBe(false);
+  });
+
   test("an emote from someone not in the room draws nothing", () => {
     const s = ready();
     s.anim.emote(id("zz"), "heart");
