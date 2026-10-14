@@ -9,14 +9,14 @@ import { trackShareToken } from "./share-token";
 import { clearResume, saveResume, type ResumeStore } from "./session-record";
 import { presenceHint } from "./session-lifecycle";
 import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
-import { forgetRoom, inviteLink, joinMessage, type RoomSecret, type SecretsStore } from "./room-secrets";
+import { inviteLink, joinMessage, type RoomSecret, type SecretsStore } from "./room-secrets";
 import { createInviteControl } from "./controls/invite";
 import { createPersonal, createTransport, el, sprite } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
 import { createQualityPicker } from "./controls/quality-picker";
 import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
-import { chatView, kickedCard, refusalCard } from "./controls/feedback";
+import { chatView } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, sitIntent } from "./intents";
@@ -28,7 +28,7 @@ import { createRoomWindow } from "./room-window";
 import type { PlayerError } from "./player/adapter";
 import { PLAYERS, createPlayerMounter } from "./player/registry";
 import { createStage, type Stage } from "./stage";
-import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type Refusal, type ViewEvent, type ViewState } from "./state";
+import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
 import { genericFrame, tvFrame, type TvFrame } from "./tv";
 import { createGenericTv } from "./controls/generic-tv";
 import type { ExtensionBridge } from "./extension-bridge";
@@ -40,10 +40,9 @@ import { logEntries } from "./chat/feed";
 import { chatKey } from "./chat/enter";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
 import { createChatRelay, type ChatRelay } from "./popout/relay";
-import { createReport } from "./report/dialog";
 import { createHelp } from "./help/dialog";
 import { createFirstHint } from "./help/hint";
-import { createNotFound } from "./not-found";
+import { createRoomCards } from "./room-cards";
 import { createHiddenMembers } from "./hide/hidden";
 import { createPortraitDock } from "./portrait-dock";
 import { createPeople } from "./hide/people";
@@ -207,73 +206,20 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // The title from the last rename (the snapshot carries none yet, OME-473). Text only.
   const title = el("h2", { className: "room-title", hidden: true }, "room-title");
   const notice = el("p", { className: "notice", role: "alert", hidden: true }, "room-notice");
-  const full = el("div", { className: "room-full", hidden: true }, "room-full");
-  full.append(el("h2", { textContent: "This room is full" }), el("p", { textContent: "Try again in a little while." }));
-  // Refused join (nickname_taken, too_many_members, invite_required): the connection has stopped. Back to the landing to retry.
-  const refused = el("div", { className: "room-full", hidden: true }, "room-refused");
-  const refusedTitle = el("h2");
-  const refusedBody = el("p");
-  const refusedAction = el("a", { className: "enter", href: location.pathname }, "room-refused-action");
-  refused.append(refusedTitle, refusedBody, refusedAction);
-  let shownRefusal: Refusal | null = null;
   /** Whether the first answer from the server has been shown (and focus placed for a keyboard joiner, OME-701). */
   let landed = false;
-  // 4004: the room was deleted or collected; 4006: the operators took it down after a report (ADR 0033 §6). The connection
-  // has stopped; nothing here can bring it back.
-  const closed = el("div", { className: "room-full", hidden: true }, "room-closed");
-  const closedBody = el("p");
-  const closedHome = el("a", { className: "enter", href: "/", textContent: "Go to the home page" });
-  closed.append(el("h2", { textContent: "This room was closed" }), closedBody, closedHome);
-  // Unknown, deleted, taken down, or private without a working key, and never got in (OME-768): one screen for all of them.
-  const notFound = createNotFound({ serverUrl: opts.serverUrl, fetch: (url, init) => fetch(url, init) });
-  // "Report this room" (OME-601, ADR 0033): a guest's quiet key, the last stop of the room. Not made at all in a room you own.
-  const report = opts.secret?.ownerToken === undefined ? createReport({ roomId: opts.roomId, serverUrl: opts.serverUrl, fetch: (url, init) => fetch(url, init), leave: () => { leaveForGood(); } }) : null;
-  const foot = el("div", { className: "room-foot", hidden: true }, "room-foot");
-  if (report !== null) foot.append(report.key, report.dialog);
-  // 4005: the owner removed us (ADR 0030). The connection has stopped; Rejoin waits out the cooldown, then reloads.
-  const kicked = el("div", { className: "room-full", hidden: true }, "room-kicked");
-  const kickedTitle = el("h2");
-  const kickedBody = el("p");
-  const rejoinIcon = el("span", { className: "ui-sprite ui-wait", ariaHidden: "true" });
-  const rejoinText = el("span");
-  const rejoin = el("button", { type: "button", className: "ui-button" }, "room-kicked-rejoin");
-  rejoin.append(rejoinIcon, rejoinText);
-  rejoin.addEventListener("click", () => {
-    if (rejoin.getAttribute("aria-disabled") !== "true") location.reload();
+  const cards = createRoomCards({
+    roomId: opts.roomId,
+    serverUrl: opts.serverUrl,
+    secrets: opts.secrets,
+    owns: opts.secret?.ownerToken !== undefined,
+    fetch: (url, init) => fetch(url, init),
+    leave: () => { leaveForGood(); },
+    reclaim: () => {
+      dispatch({ type: "reclaim" });
+      c.reclaim();
+    },
   });
-  kicked.append(
-    el("span", { className: "ui-scene ui-scene-removed", ariaHidden: "true" }),
-    kickedTitle,
-    kickedBody,
-    rejoin,
-    el("a", { className: "enter secondary", href: "/", textContent: "Find a room" }),
-  );
-  // 4007 (ADR 0043): this session went on in another tab. Nothing reconnects by itself; "Return here" takes it back.
-  const replacedCard = el("div", { className: "room-full", hidden: true }, "room-replaced");
-  const reclaim = el("button", { type: "button", className: "ui-button" }, "room-replaced-return");
-  reclaim.textContent = "Return here";
-  replacedCard.append(
-    el("h2", { textContent: "This session is open in another tab" }),
-    el("p", { textContent: "You can keep watching there, or bring the room back to this tab." }),
-    reclaim,
-  );
-  let kickedTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Fill the card for now and re-arm for the next minute; once the cooldown is over Rejoin is a plain key. */
-  const renderKicked = (until: number | null): void => {
-    if (kickedTimer !== null) clearTimeout(kickedTimer);
-    kickedTimer = null;
-    const card = kickedCard(until, Date.now());
-    kickedTitle.textContent = card.title;
-    kickedBody.textContent = card.body;
-    rejoinText.textContent = card.rejoin;
-    rejoin.classList.toggle("is-waiting", !card.ready);
-    rejoinIcon.hidden = card.ready;
-    if (card.ready) rejoin.removeAttribute("aria-disabled");
-    else rejoin.setAttribute("aria-disabled", "true");
-    // The dial runs once over what's left of the cooldown (set f's .ui-wait).
-    if (until !== null) rejoinIcon.style.setProperty("--cool", `${String(Math.max(0, until - Date.now()))}ms`);
-    if (card.nextChangeMs !== null) kickedTimer = setTimeout(() => { renderKicked(until); }, card.nextChangeMs);
-  };
   const writeText = (t: string): Promise<void> => ("clipboard" in navigator ? navigator.clipboard.writeText(t) : Promise.reject(new Error("no clipboard")));
   const invite = createInviteControl(inviteLink(opts.origin, opts.roomId, opts.secret?.inviteKey), opts.secret?.inviteKey !== undefined, writeText);
   invite.hidden = true;
@@ -693,9 +639,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     if (!on) focusBefore = null;
   };
-  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, full, refused, closed, notFound.root, kicked, replacedCard, side, foot, help.dialog);
+  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
   const portraitDock = createPortraitDock({ root: opts.root, log: chatLog.root, composer: chatForm,
-    queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: [editBar, personal.root, invite, foot, firstHint.root], onViewport: () => { fit(); placeQuality(); } });
+    queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: [editBar, personal.root, invite, cards.foot, firstHint.root], onViewport: () => { fit(); placeQuality(); } });
   let portraitOn = false;
   const syncPortrait = (): boolean => {
     const on = portrait.matches && fs.mode() === "off" && screen(state).stage;
@@ -1093,58 +1039,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       firstHint.dismiss();
       if (help.isOpen()) help.close();
     } else if (s.status === "open") firstHint.show();
-    if (shown.notFound && notFound.root.hidden) {
-      notFound.show();
-      // A room this browser held keys for that no longer lets us in: nothing left to keep.
-      forgetRoom(opts.secrets, opts.roomId);
-    }
     // Removed, closed or full: no picture to watch any more.
     if (!shown.stage && fs.mode() !== "off") fs.exit();
     renderChatRow(s);
-    full.hidden = !shown.full;
-    refused.hidden = shown.refused === null;
     invite.hidden = !shown.stage;
     if (syncPortrait()) fit();
     queuePanel.root.hidden = !shown.stage;
     const queueClaimed = queuePanel.update(s);
-    const isReplaced = s.status === "replaced";
-    if (replacedCard.hidden === isReplaced) {
-      replacedCard.hidden = !isReplaced;
-      if (isReplaced) reclaim.focus({ preventScroll: true });
-    }
-    if (kicked.hidden === shown.kicked) {
-      kicked.hidden = !shown.kicked;
-      if (shown.kicked) renderKicked(s.kickedUntil);
-    }
-    const isClosed = shown.closed !== false;
-    if (closed.hidden === isClosed) {
-      closed.hidden = !isClosed;
-      if (shown.closed !== false) {
-        closed.dataset["reason"] = shown.closed;
-        closedBody.textContent = shown.closed === "taken-down" ? "This room was closed by the omega-share team after a report." : "Its owner deleted it, or nobody used it for a long time.";
-        forgetRoom(opts.secrets, opts.roomId);
-      }
-    }
-    // Nothing left to report once the room is gone, and an owner never reports their own room.
-    const footShown = report !== null && !isClosed && !s.owner;
-    if (foot.hidden === footShown) {
-      foot.hidden = !footShown;
-      if (!footShown && report?.isOpen() === true) {
-        report.close();
-        // The key went with the foot: focus moves to the card in its place, not to <body> (QA OME-640).
-        if (isClosed) closedHome.focus({ preventScroll: true });
-      }
-    }
-    if (shown.refused !== shownRefusal) {
-      shownRefusal = shown.refused;
-      if (shown.refused !== null) {
-        const card = refusalCard(shown.refused);
-        refusedTitle.textContent = card.title;
-        refusedBody.textContent = card.body;
-        refusedAction.textContent = card.action;
-        refused.dataset["code"] = shown.refused;
-      }
-    }
+    cards.render(s);
     const chat = chatView(s, Date.now());
     chatForm.dataset["cooldown"] = String(chat.cooling);
     chatSend.disabled = chat.cooling;
@@ -1426,7 +1328,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Keys 1–6 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
   window.addEventListener("keydown", (ev) => {
     // The report and help dialogs are modal: the room's keys wait until they close.
-    if (report?.isOpen() === true || help.isOpen()) return;
+    if (cards.reportOpen() || help.isOpen()) return;
     if (portraitDock.sheet.open) {
       if (ev.target instanceof Node && picker.root.contains(ev.target) && picker.key(ev)) ev.preventDefault();
       return;
@@ -1455,10 +1357,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     shareToken.clear();
     location.assign("/");
   }
-  reclaim.addEventListener("click", () => {
-    dispatch({ type: "reclaim" });
-    c.reclaim();
-  });
   // Leaving the page is not leaving the room (ADR 0043): close the socket, keep the session and share records. The
   // server holds the seat for the grace window; a reload, a bfcache restore or coming back resumes it.
   window.addEventListener("pagehide", () => {
