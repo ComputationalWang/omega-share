@@ -357,6 +357,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   };
   renderSend();
   opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
+  // Declared before the layout: its first fit() reads roomOut.
+  /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
+  let relay: ChatRelay | null = null;
+  let popped = false;
+  /** The whole room is in the window (OME-600): the page shows the picture only. */
+  const roomOut = (): boolean => popped && relay?.kind() === "room";
   const layout = createRoomLayout({
     root: opts.root,
     wrap,
@@ -375,18 +381,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     portrait,
     wide,
     stageShown: () => screen(state).stage,
-    roomOut: () => roomOut(),
+    roomOut,
     hint: firstHint,
     placeRoom: () => {
       renderRoomPlace();
     },
   });
 
-  /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
-  let relay: ChatRelay | null = null;
-  let popped = false;
-  /** The whole room is in the window (OME-600): the page shows the picture only. */
-  const roomOut = (): boolean => popped && relay?.kind() === "room";
   let frame = 0;
   let expiryTimer: ReturnType<typeof setTimeout> | null = null;
   let shownError: ViewState["lastError"] = null;
@@ -539,6 +540,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       }
     }
 
+    owner.moderate(s);
     // The landing form held focus and is gone: once the room (or the card in its place) shows, its first key takes it.
     if (!landed && s.status !== "idle" && s.status !== "connecting" && s.status !== "reconnecting") {
       landed = true;

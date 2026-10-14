@@ -35,8 +35,10 @@ export interface OwnerToolsOptions {
 }
 
 export interface OwnerTools {
-  /** Each render: the key, the open editor and the moderation tools follow the state. */
+  /** Each render: the key and the open editor follow the state. */
   readonly render: (s: ViewState) => void;
+  /** Last in each render: the moderation tools follow the state. */
+  readonly moderate: (s: ViewState) => void;
   /** The owner's unsaved draft, shown to them instead of the room's layout while they edit. */
   readonly preview: () => RoomLayout | null;
   readonly closeEditor: () => void;
@@ -173,8 +175,8 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     render: (s) => {
       renderEditToggle(s);
       editor?.update();
-      renderModeration(s);
     },
+    moderate: renderModeration,
     preview: () => preview,
     closeEditor,
     key: (ev) => moderation?.key(ev) === true,

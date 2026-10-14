@@ -44,6 +44,7 @@ async function setup(o: { owns?: boolean; phone?: boolean } = {}) {
   const render = (s: ViewState): void => {
     state = s;
     tools.render(s);
+    tools.moderate(s);
   };
   return { tools, bar, lines, render };
 }
