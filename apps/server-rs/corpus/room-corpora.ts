@@ -236,7 +236,7 @@ function apply(room: Room, op: Op): unknown {
 
 /** Replays `ops` on a fresh Room, pinning the clock and the id source; the trace is what Rust must reproduce. */
 function trace(script: Script): unknown[] {
-  const realUuid = crypto.randomUUID;
+  const realUuid = crypto.randomUUID.bind(crypto);
   const realNow = Date.now;
   try {
     let now = T0;
@@ -528,7 +528,7 @@ function fuzz(seed: number): Case {
   const CLIENTS = ["k1", "k2", "k3", null, null];
   const init: Json = rnd() < 0.3 ? { embed: pick(EMBEDS), itemId: "cur0", queue: [{ id: "cur0", embed: YT }, { id: "r1", embed: pick(EMBEDS) }] } : {};
   const ops: Op[] = [];
-  const realUuid = crypto.randomUUID;
+  const realUuid = crypto.randomUUID.bind(crypto);
   const realNow = Date.now;
   let now = T0;
   let nextId = 1;

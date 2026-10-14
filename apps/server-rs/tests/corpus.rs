@@ -806,7 +806,11 @@ struct ControlIn {
 #[test]
 fn playback_control_agrees() {
     agree(load::<ControlIn, Value>(include_str!("../corpus/out/playback-control.json")), |i| {
-        let c = Control { url: &i.control.url, playing: i.control.playing, position: i.control.position };
+        let c = Control {
+            url: &i.control.url,
+            playing: i.control.playing,
+            position: i.control.position,
+        };
         let next = apply_control(i.state.as_ref(), i.embed.as_ref(), &c, &i.by, i.now)?;
         serde_json::to_value(next).ok()
     });

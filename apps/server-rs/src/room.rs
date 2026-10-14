@@ -266,7 +266,9 @@ impl Room {
     /// Mutes or unmutes a member; false if that changed nothing. Unmuting also forgets their address (ADR 0030 section 3).
     pub fn set_muted(&mut self, member: &MemberId, muted: bool) -> bool {
         let Some(&slot) = self.index.get(member) else { return false };
-        let Some(Some(rec)) = self.slots.get_mut(usize::from(slot)) else { return false };
+        let Some(Some(rec)) = self.slots.get_mut(usize::from(slot)) else {
+            return false;
+        };
         if rec.muted == muted {
             return false;
         }
@@ -280,7 +282,9 @@ impl Room {
     /// Mutes a just-joined member if a muted member left from its address less than `MUTE_MEMORY_MS` ago.
     pub fn restore_mute(&mut self, member: &MemberId, now: i64) -> bool {
         let Some(&slot) = self.index.get(member) else { return false };
-        let Some(Some(rec)) = self.slots.get_mut(usize::from(slot)) else { return false };
+        let Some(Some(rec)) = self.slots.get_mut(usize::from(slot)) else {
+            return false;
+        };
         let Some(client) = rec.client.as_deref() else { return false };
         if !live(&mut self.muted_clients, client, now) {
             return false;
@@ -335,12 +339,7 @@ impl Room {
     /// Adds a member, unless the room is full, `client` already holds `MAX_MEMBERS_PER_CLIENT` members here,
     /// or another member's nickname has the same `nicknameKey`. `client` `None` means uncapped. The member id
     /// is minted only once the join is accepted.
-    pub fn join(
-        &mut self,
-        nickname: &Nickname,
-        avatar: Avatar,
-        client: Option<&str>,
-    ) -> Result<Result<Member, JoinFailure>, EntropyError> {
+    pub fn join(&mut self, nickname: &Nickname, avatar: Avatar, client: Option<&str>) -> Result<Result<Member, JoinFailure>, EntropyError> {
         let name_key = nickname_key(nickname.as_str());
         if let Some(refusal) = self.join_refusal(&name_key, client) {
             return Ok(Err(refusal));
@@ -350,13 +349,7 @@ impl Room {
     }
 
     /// `join` with a caller-chosen id (tests, replays): `id` must not belong to a member already.
-    pub fn join_with_id(
-        &mut self,
-        id: MemberId,
-        nickname: &Nickname,
-        avatar: Avatar,
-        client: Option<&str>,
-    ) -> Result<Member, JoinFailure> {
+    pub fn join_with_id(&mut self, id: MemberId, nickname: &Nickname, avatar: Avatar, client: Option<&str>) -> Result<Member, JoinFailure> {
         let name_key = nickname_key(nickname.as_str());
         if let Some(refusal) = self.join_refusal(&name_key, client) {
             return Err(refusal);
@@ -375,7 +368,11 @@ impl Room {
     ) -> Result<Member, JoinFailure> {
         let free = self.slots.iter().position(Option::is_none);
         let (Some(free), false) = (free, self.index.contains_key(&id)) else {
-            return Err(if free.is_none() { JoinFailure::RoomFull } else { JoinFailure::NicknameTaken });
+            return Err(if free.is_none() {
+                JoinFailure::RoomFull
+            } else {
+                JoinFailure::NicknameTaken
+            });
         };
         let slot = Slot::try_from(free).map_err(|_| JoinFailure::RoomFull)?;
         let member = Member {
@@ -448,7 +445,9 @@ impl Room {
         let Some(slot) = self.index.remove(member) else { return };
         self.free(slot);
         self.order.retain(|&s| s != slot);
-        let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::take) else { return };
+        let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::take) else {
+            return;
+        };
         self.name_keys.remove(&rec.name_key);
         let Some(client) = rec.client else { return };
         if rec.muted {
@@ -501,7 +500,10 @@ impl Room {
             let rec = occupant.and_then(|s| self.slots.get(usize::from(s))?.as_ref());
             let seat = u64::try_from(i).ok().and_then(SeatIndex::new);
             if let (Some(rec), Some(seat)) = (rec, seat) {
-                held.push(HeldSeat { name_hash: hash_secret(&rec.name_key), seat });
+                held.push(HeldSeat {
+                    name_hash: hash_secret(&rec.name_key),
+                    seat,
+                });
             }
         }
         held
@@ -645,7 +647,10 @@ impl Room {
         self.playback = synced.then(|| load_playback(self.rev, now_wall, by));
         if let Some(playback) = &self.playback {
             self.rev = i64::try_from(playback.rev.0).unwrap_or(i64::MAX);
-            return EmbedSwitch { playback: Some(playback.clone()), uncaught: Vec::new() };
+            return EmbedSwitch {
+                playback: Some(playback.clone()),
+                uncaught: Vec::new(),
+            };
         }
         let mut announced: Vec<(u64, &MemberId)> = Vec::new();
         for rec in self.order_recs() {
@@ -801,13 +806,21 @@ mod tests {
         members.iter().map(|m| m.id.as_str()).collect()
     }
     fn queued(id: &str, embed: AnyEmbed, by: Option<&str>) -> QueueItem {
-        QueueItem { id: iid(id), embed, by: by.map(mid) }
+        QueueItem {
+            id: iid(id),
+            embed,
+            by: by.map(mid),
+        }
     }
     fn mute_ms() -> i64 {
         i64::try_from(MUTE_MEMORY_MS).unwrap()
     }
     fn ctl(playing: bool, position: f64) -> Control<'static> {
-        Control { url: YT_URL, playing, position }
+        Control {
+            url: YT_URL,
+            playing,
+            position,
+        }
     }
 
     // ---- construction
@@ -816,9 +829,15 @@ mod tests {
     fn a_room_without_init_is_a_seed_pinned_public_ownerless() {
         let r = room();
         assert_eq!(r.topic, "room:film-club");
-        assert_eq!((r.visibility, r.pinned, r.created_at, r.last_active_at), (RoomVisibility::Public, true, T0, None));
+        assert_eq!(
+            (r.visibility, r.pinned, r.created_at, r.last_active_at),
+            (RoomVisibility::Public, true, T0, None)
+        );
         assert!(!r.has_owner() && r.invite_hash.is_none());
-        assert_eq!((r.control_policy(), r.title().map(RoomTitle::as_str)), (ControlPolicy::Everyone, None));
+        assert_eq!(
+            (r.control_policy(), r.title().map(RoomTitle::as_str)),
+            (ControlPolicy::Everyone, None)
+        );
         assert_eq!(r.layout(), &default_layout());
         assert!(r.current_embed().is_none() && r.current_playback().is_none() && r.item_id().is_none());
         assert_eq!(r.item_since(), f64::NEG_INFINITY);
@@ -838,28 +857,47 @@ mod tests {
             control_policy: Some(ControlPolicy::Owner),
             ..RoomInit::default()
         });
-        assert_eq!((r.visibility, r.pinned, r.created_at, r.last_active_at), (RoomVisibility::Private, false, 5, Some(9)));
+        assert_eq!(
+            (r.visibility, r.pinned, r.created_at, r.last_active_at),
+            (RoomVisibility::Private, false, 5, Some(9))
+        );
         assert!(r.has_owner());
-        assert_eq!((r.control_policy(), r.title().map(RoomTitle::as_str)), (ControlPolicy::Owner, Some("Friday films")));
+        assert_eq!(
+            (r.control_policy(), r.title().map(RoomTitle::as_str)),
+            (ControlPolicy::Owner, Some("Friday films"))
+        );
     }
 
     // apps/server/test/persistence.test.ts: an embed comes back paused at 0 after a restart (OME-280)
     #[test]
     fn a_restored_synced_embed_is_paused_at_0_and_rev_continues_from_it() {
-        let mut r = room_with(RoomInit { embed: Some(yt()), item_id: Some(iid("cur1")), item_since: Some(7.5), ..RoomInit::default() });
+        let mut r = room_with(RoomInit {
+            embed: Some(yt()),
+            item_id: Some(iid("cur1")),
+            item_since: Some(7.5),
+            ..RoomInit::default()
+        });
         let p = r.current_playback().unwrap();
         assert_eq!(
             json(p),
             r#"{"playing":false,"position":0,"rate":1,"at":1700000000000,"rev":0,"action":"pause","by":null}"#
         );
         assert_eq!((r.item_id(), r.item_since()), (Some(&iid("cur1")), 7.5));
-        let next = r.set_embed(Some(vimeo()), None, Some(iid("n1")), 1.0, T0 + 1).unwrap().playback.unwrap();
+        let next = r
+            .set_embed(Some(vimeo()), None, Some(iid("n1")), 1.0, T0 + 1)
+            .unwrap()
+            .playback
+            .unwrap();
         assert_eq!(next.rev, Rev(1));
     }
 
     #[test]
     fn a_restored_generic_embed_has_no_playback_and_rev_starts_at_minus_one() {
-        let mut r = room_with(RoomInit { embed: Some(generic()), item_id: Some(iid("cur1")), ..RoomInit::default() });
+        let mut r = room_with(RoomInit {
+            embed: Some(generic()),
+            item_id: Some(iid("cur1")),
+            ..RoomInit::default()
+        });
         assert!(r.current_playback().is_none() && r.has_generic_embed());
         let next = r.set_embed(Some(yt()), None, Some(iid("n1")), 0.0, T0).unwrap().playback.unwrap();
         assert_eq!(next.rev, Rev(0));
@@ -867,10 +905,16 @@ mod tests {
 
     #[test]
     fn an_embed_stored_without_an_item_id_gets_one_minted() {
-        let r = room_with(RoomInit { embed: Some(yt()), ..RoomInit::default() });
+        let r = room_with(RoomInit {
+            embed: Some(yt()),
+            ..RoomInit::default()
+        });
         assert_eq!(r.item_id().map(|i| i.as_str().len()), Some(16));
         // No embed: no item, even if the stored row has an id.
-        let r = room_with(RoomInit { item_id: Some(iid("stale")), ..RoomInit::default() });
+        let r = room_with(RoomInit {
+            item_id: Some(iid("stale")),
+            ..RoomInit::default()
+        });
         assert!(r.item_id().is_none());
     }
 
@@ -885,7 +929,10 @@ mod tests {
         let q: Vec<_> = r.queue().iter().map(|i| (i.id.as_str(), i.by.is_none())).collect();
         assert_eq!(q, [("q1", true), ("q2", true)]);
         // With no embed there is no current item to drop.
-        let r = room_with(RoomInit { queue: vec![(iid("q1"), vimeo())], ..RoomInit::default() });
+        let r = room_with(RoomInit {
+            queue: vec![(iid("q1"), vimeo())],
+            ..RoomInit::default()
+        });
         assert_eq!(r.queue().len(), 1);
     }
 
@@ -938,14 +985,20 @@ mod tests {
         for i in 0..MAX_MEMBERS_PER_CLIENT {
             join(&mut r, &format!("m{i}"), &format!("guest {i}"), Some("k1"));
         }
-        assert_eq!(r.join_with_id(mid("x"), &nick("sixth"), avatar(0), Some("k1")), Err(JoinFailure::TooManyMembers));
+        assert_eq!(
+            r.join_with_id(mid("x"), &nick("sixth"), avatar(0), Some("k1")),
+            Err(JoinFailure::TooManyMembers)
+        );
         join(&mut r, "y", "other key", Some("k2"));
         join(&mut r, "z", "uncapped", None);
         join(&mut r, "z2", "uncapped two", None);
         // A leave frees a quota slot; the refused join took none.
         r.leave(&mid("m0"), T0);
         join(&mut r, "w", "sixth again", Some("k1"));
-        assert_eq!(r.join_with_id(mid("v"), &nick("seventh"), avatar(0), Some("k1")), Err(JoinFailure::TooManyMembers));
+        assert_eq!(
+            r.join_with_id(mid("v"), &nick("seventh"), avatar(0), Some("k1")),
+            Err(JoinFailure::TooManyMembers)
+        );
     }
 
     // apps/server/test/abuse.test.ts:380
@@ -956,7 +1009,11 @@ mod tests {
         // Case folds, and NFKC folds the fullwidth letters (the Nickname parse).
         for clash in ["ILYA", "ilya", "Ilya", "\u{ff49}lya"] {
             assert_eq!(nickname_key(nick(clash).as_str()), nickname_key("Ilya"), "{clash}");
-            assert_eq!(r.join_with_id(mid("x"), &nick(clash), avatar(0), None), Err(JoinFailure::NicknameTaken), "{clash}");
+            assert_eq!(
+                r.join_with_id(mid("x"), &nick(clash), avatar(0), None),
+                Err(JoinFailure::NicknameTaken),
+                "{clash}"
+            );
         }
         // A different key is free.
         assert_ne!(nickname_key("llya"), nickname_key("Ilya"));
@@ -973,13 +1030,22 @@ mod tests {
             join(&mut r, &format!("m{i}"), &format!("guest {i}"), Some("k"));
         }
         // Capped and name clash at once: the cap wins.
-        assert_eq!(r.join_with_id(mid("x"), &nick("guest 0"), avatar(0), Some("k")), Err(JoinFailure::TooManyMembers));
-        assert_eq!(r.join_with_id(mid("x"), &nick("guest 0"), avatar(0), Some("other")), Err(JoinFailure::NicknameTaken));
+        assert_eq!(
+            r.join_with_id(mid("x"), &nick("guest 0"), avatar(0), Some("k")),
+            Err(JoinFailure::TooManyMembers)
+        );
+        assert_eq!(
+            r.join_with_id(mid("x"), &nick("guest 0"), avatar(0), Some("other")),
+            Err(JoinFailure::NicknameTaken)
+        );
         for i in MAX_MEMBERS_PER_CLIENT..MAX_ROOM_MEMBERS {
             join(&mut r, &format!("m{i}"), &format!("guest {i}"), None);
         }
         // Full, capped and clashing at once: full wins.
-        assert_eq!(r.join_with_id(mid("x"), &nick("guest 0"), avatar(0), Some("k")), Err(JoinFailure::RoomFull));
+        assert_eq!(
+            r.join_with_id(mid("x"), &nick("guest 0"), avatar(0), Some("k")),
+            Err(JoinFailure::RoomFull)
+        );
     }
 
     #[test]
@@ -1013,7 +1079,10 @@ mod tests {
         // Same id and name come back clean.
         let back = join(&mut r, "m1", "alice", Some("k"));
         assert!(!r.is_catching(&back));
-        assert_eq!(json(&r.view(r.member(&back).unwrap())), r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#);
+        assert_eq!(
+            json(&r.view(r.member(&back).unwrap())),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#
+        );
         assert_eq!(r.take_catching_change(&back), None);
         assert!(!r.set_away(&back, false));
     }
@@ -1073,8 +1142,14 @@ mod tests {
         assert_eq!(
             held,
             [
-                HeldSeat { name_hash: hash_secret(&nickname_key("Ilya")), seat: seat(2) },
-                HeldSeat { name_hash: hash_secret(&nickname_key("bob")), seat: seat(6) },
+                HeldSeat {
+                    name_hash: hash_secret(&nickname_key("Ilya")),
+                    seat: seat(2)
+                },
+                HeldSeat {
+                    name_hash: hash_secret(&nickname_key("bob")),
+                    seat: seat(6)
+                },
             ]
         );
     }
@@ -1101,7 +1176,10 @@ mod tests {
 
     #[test]
     fn an_expired_hold_is_dropped_and_a_taken_seat_spends_the_hold() {
-        let held = [HeldSeat { name_hash: hash_secret(&nickname_key("alice")), seat: seat(1) }];
+        let held = [HeldSeat {
+            name_hash: hash_secret(&nickname_key("alice")),
+            seat: seat(1),
+        }];
         let mut r = room();
         r.hold_seats(&held, T0 + 100);
         let a = join(&mut r, "m1", "alice", None);
@@ -1123,7 +1201,13 @@ mod tests {
     fn claiming_without_holds_or_for_a_non_member_is_none() {
         let mut r = room();
         assert_eq!(r.claim_held_seat(&mid("ghost"), T0), None);
-        r.hold_seats(&[HeldSeat { name_hash: hash_secret("x"), seat: seat(0) }], T0 + 1);
+        r.hold_seats(
+            &[HeldSeat {
+                name_hash: hash_secret("x"),
+                seat: seat(0),
+            }],
+            T0 + 1,
+        );
         assert_eq!(r.claim_held_seat(&mid("ghost"), T0), None);
     }
 
@@ -1249,7 +1333,10 @@ mod tests {
         let a = join(&mut r, "m1", "alice", None);
         assert!(!r.set_away(&a, false));
         assert!(r.set_away(&a, true) && !r.set_away(&a, true));
-        assert_eq!(json(&r.snapshot().members), r#"[{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"away":true}]"#);
+        assert_eq!(
+            json(&r.snapshot().members),
+            r#"[{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"away":true}]"#
+        );
         assert!(r.set_away(&a, false));
         assert!(!r.set_away(&mid("ghost"), true));
     }
@@ -1296,7 +1383,10 @@ mod tests {
             r#"{"playing":true,"position":0,"rate":1,"at":1700000000005,"rev":0,"action":"load","by":"m1"}"#
         );
         assert_eq!(r.current_playback(), sw.playback.as_ref());
-        assert_eq!((r.item_id(), r.item_since(), r.current_embed()), (Some(&iid("item1")), 12.5, Some(&yt())));
+        assert_eq!(
+            (r.item_id(), r.item_since(), r.current_embed()),
+            (Some(&iid("item1")), 12.5, Some(&yt()))
+        );
         assert!(!r.has_generic_embed());
     }
 
@@ -1384,14 +1474,29 @@ mod tests {
         let a = join(&mut r, "m1", "alice", None);
         assert_eq!(r.control(&a, &ctl(true, 0.0), T0), None);
         r.set_embed(Some(yt()), None, Some(iid("i")), 0.0, T0).unwrap();
-        let other = Control { url: "https://www.youtube.com/embed/aaaaaaaaaaa", playing: true, position: 0.0 };
+        let other = Control {
+            url: "https://www.youtube.com/embed/aaaaaaaaaaa",
+            playing: true,
+            position: 0.0,
+        };
         assert_eq!(r.control(&a, &other, T0), None);
         let next = r.control(&a, &ctl(false, 40.0), T0 + 10_000).unwrap();
         assert_eq!((next.action, next.by.as_ref(), next.rev), (PlaybackAction::Seek, Some(&a), Rev(1)));
         assert_eq!(r.current_playback(), Some(&next));
         r.set_embed(Some(generic()), None, Some(iid("g")), 0.0, T0).unwrap();
         let url = r.current_embed().unwrap().url().to_owned();
-        assert_eq!(r.control(&a, &Control { url: &url, playing: true, position: 0.0 }, T0), None);
+        assert_eq!(
+            r.control(
+                &a,
+                &Control {
+                    url: &url,
+                    playing: true,
+                    position: 0.0
+                },
+                T0
+            ),
+            None
+        );
     }
 
     #[test]
@@ -1400,9 +1505,16 @@ mod tests {
         let a = join(&mut r, "m1", "alice", None);
         let e = live();
         r.set_embed(Some(e.clone()), None, Some(iid("i")), 0.0, T0).unwrap();
-        let c = Control { url: e.url(), playing: false, position: 77.0 };
+        let c = Control {
+            url: e.url(),
+            playing: false,
+            position: 77.0,
+        };
         let next = r.control(&a, &c, T0 + 1000).unwrap();
-        assert_eq!((next.position.get(), next.action, next.playing), (0.0, PlaybackAction::Pause, false));
+        assert_eq!(
+            (next.position.get(), next.action, next.playing),
+            (0.0, PlaybackAction::Pause, false)
+        );
     }
 
     // ---- queue
@@ -1432,8 +1544,14 @@ mod tests {
         let adv = r.advance(500.0, Some(a.clone()), T0 + 9).unwrap();
         assert_eq!(adv.item, queued("q1", vimeo(), Some("m1")));
         let p = adv.embed_switch.playback.unwrap();
-        assert_eq!((p.action, p.rev, p.by.as_ref(), p.at.0), (PlaybackAction::Load, Rev(1), Some(&a), 1_700_000_000_009));
-        assert_eq!((r.item_id(), r.item_since(), r.current_embed()), (Some(&iid("q1")), 500.0, Some(&vimeo())));
+        assert_eq!(
+            (p.action, p.rev, p.by.as_ref(), p.at.0),
+            (PlaybackAction::Load, Rev(1), Some(&a), 1_700_000_000_009)
+        );
+        assert_eq!(
+            (r.item_id(), r.item_since(), r.current_embed()),
+            (Some(&iid("q1")), 500.0, Some(&vimeo()))
+        );
         assert_eq!(r.queue().len(), 1);
         // Into a generic embed: no playback, nobody to tell.
         let adv = r.advance(600.0, None, T0).unwrap();
@@ -1467,7 +1585,10 @@ mod tests {
 
     #[test]
     fn a_full_snapshot_has_the_ts_key_order_and_join_order() {
-        let mut r = room_with(RoomInit { title: RoomTitle::parse("Friday films"), ..RoomInit::default() });
+        let mut r = room_with(RoomInit {
+            title: RoomTitle::parse("Friday films"),
+            ..RoomInit::default()
+        });
         let a = join(&mut r, "m1", "alice", None);
         let b = join(&mut r, "m2", "bob", None);
         let c = join(&mut r, "m3", "carol", None);
@@ -1509,7 +1630,10 @@ mod tests {
         r.set_catching(&a, true);
         r.set_away(&a, true);
         let v = r.view(&bare);
-        assert_eq!(json(&v), r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"catching":true,"muted":true,"away":true}"#);
+        assert_eq!(
+            json(&v),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"catching":true,"muted":true,"away":true}"#
+        );
         r.set_muted(&a, false);
         assert_eq!(r.view(&bare).muted, None);
         // The stored member never carries flags.
@@ -1524,7 +1648,10 @@ mod tests {
         join(&mut r, "m2", "bob", None);
         r.sit(&a, Some(seat(1)));
         r.set_title(RoomTitle::parse("Friday films"));
-        assert_eq!(json(&r.summary()), r#"{"id":"film-club","memberCount":2,"seatedCount":1,"title":"Friday films"}"#);
+        assert_eq!(
+            json(&r.summary()),
+            r#"{"id":"film-club","memberCount":2,"seatedCount":1,"title":"Friday films"}"#
+        );
         r.set_title(None);
         assert!(r.title().is_none());
     }
@@ -1532,7 +1659,10 @@ mod tests {
     #[test]
     fn layout_and_policy_are_replaced() {
         let mut r = room();
-        let cafe = crate::presets::Presets::load().unwrap().preset_layout(crate::contract::layout::RoomPresetId::Cafe).clone();
+        let cafe = crate::presets::Presets::load()
+            .unwrap()
+            .preset_layout(crate::contract::layout::RoomPresetId::Cafe)
+            .clone();
         assert_ne!(r.layout(), &cafe);
         r.set_layout(cafe.clone());
         assert_eq!(r.layout(), &cafe);

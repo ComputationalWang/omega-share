@@ -164,14 +164,21 @@ mod tests {
     // apps/server/test/playback.test.ts:34
     #[test]
     fn expected_position_stays_put_while_paused() {
-        let paused = PlaybackState { playing: false, position: pos(30.0), ..loaded(0) };
+        let paused = PlaybackState {
+            playing: false,
+            position: pos(30.0),
+            ..loaded(0)
+        };
         assert_eq!(expected_position(&paused, T0 + 60_000), 30.0);
     }
 
     // apps/server/test/playback.test.ts:39
     #[test]
     fn expected_position_never_runs_past_max() {
-        let near_end = PlaybackState { position: pos(MAX_POSITION_S - 1.0), ..loaded(0) };
+        let near_end = PlaybackState {
+            position: pos(MAX_POSITION_S - 1.0),
+            ..loaded(0)
+        };
         assert_eq!(expected_position(&near_end, T0 + 10_000), MAX_POSITION_S);
     }
 
@@ -197,7 +204,10 @@ mod tests {
 
     #[test]
     fn expected_position_scales_with_the_rate() {
-        let fast = PlaybackState { rate: Rate::new(2.0).unwrap(), ..loaded(0) };
+        let fast = PlaybackState {
+            rate: Rate::new(2.0).unwrap(),
+            ..loaded(0)
+        };
         assert_eq!(expected_position(&fast, T0 + 1500), 3.0);
     }
 
@@ -216,7 +226,11 @@ mod tests {
     #[test]
     fn play_from_paused_within_1s_of_where_it_stopped_is_a_play() {
         let yt = embed_of(URL);
-        let paused = PlaybackState { playing: false, position: pos(42.0), ..loaded(3) };
+        let paused = PlaybackState {
+            playing: false,
+            position: pos(42.0),
+            ..loaded(3)
+        };
         let next = apply_control(Some(&paused), Some(&yt), &ctl(URL, true, 42.9), &bob(), T0 + 60_000).unwrap();
         assert_eq!(next.action, PlaybackAction::Play);
         assert_eq!(next.rev, Rev(4));
@@ -262,7 +276,10 @@ mod tests {
     fn a_control_for_another_video_or_another_url_form_is_rejected() {
         let yt = embed_of(URL);
         for url in ["https://www.youtube.com/embed/aaaaaaaaaaa", "https://youtu.be/dQw4w9WgXcQ", ""] {
-            assert!(apply_control(Some(&loaded(0)), Some(&yt), &ctl(url, false, 0.0), &alice(), T0).is_none(), "{url}");
+            assert!(
+                apply_control(Some(&loaded(0)), Some(&yt), &ctl(url, false, 0.0), &alice(), T0).is_none(),
+                "{url}"
+            );
         }
     }
 
@@ -292,9 +309,15 @@ mod tests {
     fn live_pause_and_resume_are_shared_always_at_position_0() {
         let live = embed_of("https://www.twitch.tv/somechannel");
         let paused = apply_control(Some(&loaded(0)), Some(&live), &ctl(live.url(), false, 42.0), &alice(), T0 + 10_000).unwrap();
-        assert_eq!((paused.playing, paused.position.get(), paused.action), (false, 0.0, PlaybackAction::Pause));
+        assert_eq!(
+            (paused.playing, paused.position.get(), paused.action),
+            (false, 0.0, PlaybackAction::Pause)
+        );
         let resumed = apply_control(Some(&paused), Some(&live), &ctl(live.url(), true, 0.0), &bob(), T0 + 70_000).unwrap();
-        assert_eq!((resumed.playing, resumed.position.get(), resumed.action), (true, 0.0, PlaybackAction::Play));
+        assert_eq!(
+            (resumed.playing, resumed.position.get(), resumed.action),
+            (true, 0.0, PlaybackAction::Play)
+        );
         assert_eq!(resumed.by, Some(bob()));
     }
 
@@ -304,7 +327,11 @@ mod tests {
         for url in ["https://www.twitch.tv/videos/123456789", "https://vimeo.com/76979871"] {
             let e = embed_of(url);
             let next = apply_control(Some(&loaded(0)), Some(&e), &ctl(e.url(), true, 95.0), &alice(), T0 + 10_000).unwrap();
-            assert_eq!((next.playing, next.position.get(), next.action), (true, 95.0, PlaybackAction::Seek), "{url}");
+            assert_eq!(
+                (next.playing, next.position.get(), next.action),
+                (true, 95.0, PlaybackAction::Seek),
+                "{url}"
+            );
         }
     }
 }

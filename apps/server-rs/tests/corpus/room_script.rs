@@ -48,32 +48,99 @@ struct WireControl {
 #[derive(Debug, Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase", rename_all_fields = "camelCase")]
 enum Op {
-    Join { id: MemberId, nick: String, avatar: u64, client: Option<String> },
-    Leave { m: MemberId },
-    Sit { m: MemberId, seat: Option<u64> },
-    SetMuted { m: MemberId, muted: bool },
-    RestoreMute { m: MemberId },
-    IsMuted { m: MemberId },
-    CoolDown { client: String, until: i64 },
-    IsCoolingDown { client: String },
-    MoveClient { m: MemberId, client: Option<String> },
-    SetAway { m: MemberId, away: bool },
-    SetCatching { m: MemberId, catching: bool },
-    IsCatching { m: MemberId },
-    TakeCatchingChange { m: MemberId },
+    Join {
+        id: MemberId,
+        nick: String,
+        avatar: u64,
+        client: Option<String>,
+    },
+    Leave {
+        m: MemberId,
+    },
+    Sit {
+        m: MemberId,
+        seat: Option<u64>,
+    },
+    SetMuted {
+        m: MemberId,
+        muted: bool,
+    },
+    RestoreMute {
+        m: MemberId,
+    },
+    IsMuted {
+        m: MemberId,
+    },
+    CoolDown {
+        client: String,
+        until: i64,
+    },
+    IsCoolingDown {
+        client: String,
+    },
+    MoveClient {
+        m: MemberId,
+        client: Option<String>,
+    },
+    SetAway {
+        m: MemberId,
+        away: bool,
+    },
+    SetCatching {
+        m: MemberId,
+        catching: bool,
+    },
+    IsCatching {
+        m: MemberId,
+    },
+    TakeCatchingChange {
+        m: MemberId,
+    },
     HeldSeats,
-    HoldNames { holds: Vec<(String, u64)>, until: i64 },
-    ClaimHeldSeat { m: MemberId },
-    SetEmbed { embed: Option<AnyEmbed>, by: Option<MemberId>, item_id: Option<QueueItemId>, since: f64 },
-    Enqueue { id: QueueItemId, embed: AnyEmbed, by: Option<MemberId> },
-    Dequeue { id: QueueItemId },
-    Advance { since: f64, by: Option<MemberId> },
-    Control { m: MemberId, control: WireControl },
-    SetTitle { title: Option<String> },
-    SetControlPolicy { policy: ControlPolicy },
-    IsOwner { token: String },
-    IsInvited { key: String },
-    View { m: MemberId },
+    HoldNames {
+        holds: Vec<(String, u64)>,
+        until: i64,
+    },
+    ClaimHeldSeat {
+        m: MemberId,
+    },
+    SetEmbed {
+        embed: Option<AnyEmbed>,
+        by: Option<MemberId>,
+        item_id: Option<QueueItemId>,
+        since: f64,
+    },
+    Enqueue {
+        id: QueueItemId,
+        embed: AnyEmbed,
+        by: Option<MemberId>,
+    },
+    Dequeue {
+        id: QueueItemId,
+    },
+    Advance {
+        since: f64,
+        by: Option<MemberId>,
+    },
+    Control {
+        m: MemberId,
+        control: WireControl,
+    },
+    SetTitle {
+        title: Option<String>,
+    },
+    SetControlPolicy {
+        policy: ControlPolicy,
+    },
+    IsOwner {
+        token: String,
+    },
+    IsInvited {
+        key: String,
+    },
+    View {
+        m: MemberId,
+    },
     HasOwner,
     ItemInfo,
 }
@@ -98,7 +165,11 @@ fn val<T: serde::Serialize>(v: &T) -> Option<Value> {
 /// A JS number as JSON: integral values without a fraction, as `JSON.stringify` writes them.
 #[allow(clippy::cast_possible_truncation, reason = "a test harness: the values are small")]
 fn num(n: f64) -> Value {
-    if n.fract() == 0.0 && n.abs() < 9e15 { json!(n as i64) } else { json!(n) }
+    if n.fract() == 0.0 && n.abs() < 9e15 {
+        json!(n as i64)
+    } else {
+        json!(n)
+    }
 }
 
 fn switch(s: &EmbedSwitch) -> Option<Value> {
@@ -151,13 +222,19 @@ fn apply(room: &mut Room, op: &Op, op_now: Option<i64>, now: i64) -> Option<Valu
         Op::IsCatching { m } => json!(room.is_catching(m)),
         Op::TakeCatchingChange { m } => json!(room.take_catching_change(m)),
         Op::HeldSeats => Value::Array(
-            room.held_seats().iter().map(|h| json!({ "nameHash": hex(&h.name_hash), "seat": h.seat.get() })).collect(),
+            room.held_seats()
+                .iter()
+                .map(|h| json!({ "nameHash": hex(&h.name_hash), "seat": h.seat.get() }))
+                .collect(),
         ),
         Op::HoldNames { holds, until } => {
             let mut held = Vec::new();
             for (name, seat) in holds {
                 let key = nickname_key(Nickname::parse(name)?.as_str());
-                held.push(HeldSeat { name_hash: hash_secret(&key), seat: SeatIndex::new(*seat)? });
+                held.push(HeldSeat {
+                    name_hash: hash_secret(&key),
+                    seat: SeatIndex::new(*seat)?,
+                });
             }
             room.hold_seats(&held, *until);
             Value::Null
@@ -171,7 +248,11 @@ fn apply(room: &mut Room, op: &Op, op_now: Option<i64>, now: i64) -> Option<Valu
             switch(&room.set_embed(embed.clone(), by.clone(), item_id.clone(), *since, now).ok()?)?
         }
         Op::Enqueue { id, embed, by } => {
-            room.enqueue(QueueItem { id: id.clone(), embed: embed.clone(), by: by.clone() });
+            room.enqueue(QueueItem {
+                id: id.clone(),
+                embed: embed.clone(),
+                by: by.clone(),
+            });
             Value::Null
         }
         Op::Dequeue { id } => json!(room.dequeue(id)),
@@ -180,7 +261,11 @@ fn apply(room: &mut Room, op: &Op, op_now: Option<i64>, now: i64) -> Option<Valu
             Some(a) => json!({ "item": val(&a.item)?, "embedSwitch": switch(&a.embed_switch)? }),
         },
         Op::Control { m, control } => {
-            let c = Control { url: &control.url, playing: control.playing, position: control.position };
+            let c = Control {
+                url: &control.url,
+                playing: control.playing,
+                position: control.position,
+            };
             val(&room.control(m, &c, now))?
         }
         Op::SetTitle { title } => {
