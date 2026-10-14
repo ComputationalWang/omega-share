@@ -26,7 +26,7 @@ string_newtype!(
 );
 
 /// One report as written: the room's snapshot at report time, nothing about the reporter (ADR 0033 §3).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct NewReport {
     pub id: ReportId,
     pub room_id: RoomId,
@@ -41,6 +41,18 @@ pub struct NewReport {
     pub embed_url: Option<String>,
     /// Unix ms.
     pub created_at: i64,
+}
+
+// L5: the reporter's note, the room's title and the video URL are user text: only which are set shows.
+impl std::fmt::Debug for NewReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NewReport")
+            .field("reason", &self.reason)
+            .field("note", &self.note.is_some())
+            .field("room_title", &self.room_title.is_some())
+            .field("embed_url", &self.embed_url.is_some())
+            .finish_non_exhaustive()
+    }
 }
 
 fn check_text(t: Option<&String>, max: usize, what: &'static str) -> Result<(), StoreError> {

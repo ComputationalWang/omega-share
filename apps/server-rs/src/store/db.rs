@@ -1,6 +1,7 @@
 //! Port of `apps/server/src/store/db.ts`: open, pragmas, forward-only migrations.
 
 use super::StoreError;
+use rusqlite::config::DbConfig;
 use rusqlite::{Connection, OpenFlags};
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
@@ -114,9 +115,21 @@ fn ensure_private_file(path: &Path) -> std::io::Result<()> {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
 }
 
-/// Every connection to a database file goes through here (the server's own and the backup tool's).
+/// Every connection to a database file goes through here (the server's own and the backup tool's, which opens
+/// operator-supplied snapshots): defensive mode (no `writable_schema`, no writes to shadow tables) and an untrusted
+/// schema (a view or trigger in a hostile file cannot call risky functions). A relative path gets a `./`: the
+/// bundled SQLite is built with SQLITE_USE_URI (the flag cannot turn that off) and Bun's `new Database(path)` takes
+/// a `file:` path as a file name, so it must never start with `file:`.
 pub fn open_raw(path: &Path, flags: OpenFlags) -> rusqlite::Result<Connection> {
-    Connection::open_with_flags(path, flags | OpenFlags::SQLITE_OPEN_NO_MUTEX)
+    let flags = flags | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let conn = if path.is_absolute() {
+        Connection::open_with_flags(path, flags)?
+    } else {
+        Connection::open_with_flags(Path::new(".").join(path), flags)?
+    };
+    conn.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
+    conn.set_db_config(DbConfig::SQLITE_DBCONFIG_TRUSTED_SCHEMA, false)?;
+    Ok(conn)
 }
 
 /// `openDatabase` with the embedded migrations.
@@ -131,21 +144,16 @@ pub fn open_database_with(path: &str, migrations: &[Migration<'_>]) -> Result<Co
         Connection::open_in_memory()?
     } else {
         ensure_private_file(Path::new(path)).map_err(|e| StoreError::Io(e.kind()))?;
-        // Bun's `new Database(path)` takes a `file:` path as a file name, and so must we. The bundled SQLite is built with
-        // SQLITE_USE_URI (the flag cannot turn that off), so a relative path gets a `./`: that can never start with `file:`.
-        let path = if path.starts_with('/') {
-            path.to_owned()
-        } else {
-            format!("./{path}")
-        };
-        Connection::open_with_flags(
-            &path,
-            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-        )?
+        open_raw(Path::new(path), OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE)?
     };
     // `journal_mode` answers with a row, so it is a query.
     conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
-    conn.execute_batch("PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;")?;
+    // secure_delete FAST: a taken-down room's title or a deleted report's note is overwritten in the page, not left
+    // in a free page. journal_size_limit: the WAL is truncated to 4 MiB after a checkpoint instead of keeping its
+    // peak size. Both are per connection, so the file format (and the TS server on the same file) is unchanged.
+    conn.execute_batch(
+        "PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON; PRAGMA secure_delete = FAST; PRAGMA journal_size_limit = 4194304;",
+    )?;
     conn.busy_timeout(Duration::from_millis(2000))?;
     migrate(&conn, migrations)?;
     Ok(conn)
@@ -395,7 +403,9 @@ mod tests {
         let (_d, path) = tmp();
         let c = open_database(&path).unwrap();
         assert_eq!(pragma(&c, "secure_delete"), rusqlite::types::Value::Integer(2), "FAST");
-        let rusqlite::types::Value::Integer(limit) = pragma(&c, "journal_size_limit") else { panic!() };
+        let rusqlite::types::Value::Integer(limit) = pragma(&c, "journal_size_limit") else {
+            panic!()
+        };
         assert!(limit > 0, "{limit}");
     }
 

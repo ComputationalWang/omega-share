@@ -313,6 +313,10 @@ pub fn clear_stale_socket(path: &Path, uid: u32) -> Result<(), AdminError> {
     if meta.uid() != uid {
         return Err(AdminError::NotOurs(path.to_path_buf()));
     }
+    // A socket someone still answers on is a live server (a second start, or a restore's neighbour): never unlink it.
+    if std::os::unix::net::UnixStream::connect(path).is_ok() {
+        return Err(AdminError::InUse(path.to_path_buf()));
+    }
     std::fs::remove_file(path)?;
     Ok(())
 }
@@ -769,7 +773,10 @@ mod tests {
         let err = start_admin(app, &path).err().unwrap();
         assert!(err.to_string().contains("in use"), "{err}");
         assert!(std::fs::symlink_metadata(&path).unwrap().file_type().is_socket());
-        assert!(std::os::unix::net::UnixStream::connect(&path).is_ok(), "the live listener still answers");
+        assert!(
+            std::os::unix::net::UnixStream::connect(&path).is_ok(),
+            "the live listener still answers"
+        );
         drop(live);
     }
 

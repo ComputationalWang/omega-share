@@ -1,8 +1,15 @@
 //! M1: a panic must never print its payload (a std str-slicing panic embeds the string, i.e. a nickname,
 //! title or URL) to stderr and so into the journal. One fixed JSON event with the location only.
 
-/// Installs the hook. Called first in `main`.
-pub fn install() {}
+use crate::log::{LogEvent, write_error_line};
+
+/// Installs the hook. Called first in `main`. Unwinding stays on (the GC's `catch_unwind` and the drop guards need it).
+pub fn install() {
+    std::panic::set_hook(Box::new(|info| {
+        let at = info.location().map_or_else(String::new, |l| format!("{}:{}", l.file(), l.line()));
+        write_error_line(&mut std::io::stderr().lock(), LogEvent::Panic, Some(("Panic", &at)));
+    }));
+}
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::panic, reason = "tests")]

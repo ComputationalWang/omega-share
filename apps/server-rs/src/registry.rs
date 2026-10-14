@@ -233,10 +233,23 @@ pub struct RoomCell {
 }
 
 impl RoomCell {
-    /// Locks the room. A poisoned lock (a handler panicked) is recovered, never unwrapped: the other rooms and
-    /// this one's later messages must keep working.
+    /// Locks the room. A poisoned lock means a handler panicked under it and may have left the room half
+    /// updated: the room is taken offline (marked closed, sockets closed 1012 so clients reconnect) and never
+    /// served again. Other rooms keep working.
     pub fn lock(&self) -> MutexGuard<'_, RoomInner> {
-        self.inner.lock().unwrap_or_else(PoisonError::into_inner)
+        match self.inner.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                let mut guard = poisoned.into_inner();
+                self.inner.clear_poison();
+                if !guard.closed {
+                    guard.closed = true;
+                    crate::outbox::close_all(&mut guard, crate::metrics::SERVICE_RESTART, "room reset");
+                    crate::log::log_error(crate::log::LogEvent::RoomPoisoned, None);
+                }
+                guard
+            }
+        }
     }
 
     /// Like [`Self::lock`], but `None` once the room was removed. Handlers enter a room through

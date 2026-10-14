@@ -7,6 +7,7 @@ use std::process::ExitCode;
 const USAGE: &str = "usage: omega-server [serve | admin <verb> ... | backup <verb> ...]";
 
 fn main() -> ExitCode {
+    omega_server::panic_hook::install();
     let mut args = std::env::args_os().skip(1);
     let command = args.next();
     // Arguments that are not UTF-8 cannot be ids, files we were told to read, or verbs: usage.
@@ -49,7 +50,7 @@ fn run_admin(args: &[String]) -> ExitCode {
 
 /// `omega-server backup <verb> ...`: snapshots and restores of `DB_PATH` (`BACKUP_DIR` for the snapshots).
 fn run_backup(args: &[String]) -> ExitCode {
-    let env: Env = ["DB_PATH", "BACKUP_DIR"]
+    let env: Env = ["DB_PATH", "BACKUP_DIR", "ADMIN_SOCKET"]
         .into_iter()
         .filter_map(|key| Some((key.to_owned(), std::env::var(key).ok()?)))
         .collect();
