@@ -1,45 +1,205 @@
 //! Test-only control plane for the black-box suite (ADR 0050, PORTING.md "The black-box suite").
 //! Compiled only with the `test-hooks` feature: a virtual clock and the `/__test/time` routes.
+//!
+//! # Acknowledgement
+//! `POST /__test/time` must not answer until the work the new time triggers has finished, or a test
+//! would observe the server mid-way. Each armed timer is a pair of one-shot channels: `set` sends the
+//! wake on one and waits for the other to close. The sleeper's half of that second channel lives inside
+//! its [`Sleep`] future, which the awaiting task drops the moment it resumes, so the close means "woken
+//! and running". The task's post-wake work is synchronous by design (PORTING.md "Timers": re-take the
+//! lock, re-check, mutate, no `.await` under it), so after the close `set` yields to the scheduler a few
+//! times, which lets that work (and any re-arm it does) run to its next `.await` before the next timer
+//! or the reply. Timers fire one at a time in deadline order, so the order of effects is deterministic.
 
 use crate::clock::{Clock, SharedClock, Sleep};
 use axum::Router;
-use std::sync::Arc;
+use axum::body::Bytes;
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::routing::get;
+use serde::Deserialize;
+use std::cmp::Ordering;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::task::{Context, Poll};
+use std::time::Duration;
+use tokio::sync::oneshot;
+
+/// A sleeper that never answers must not hang the test run.
+const ACK_TIMEOUT: Duration = Duration::from_secs(5);
+/// A task that re-arms a zero delay forever would make one `set` loop forever.
+const MAX_FIRES_PER_SET: usize = 10_000;
+/// Scheduler turns given to a woken task for its synchronous post-wake work.
+const SETTLE_YIELDS: usize = 4;
+
+struct Timer {
+    id: u64,
+    deadline: f64,
+    fire: oneshot::Sender<()>,
+    /// Resolves (as an error) when the sleeper's future is dropped: the acknowledgement.
+    acked: oneshot::Receiver<()>,
+}
+
+struct Inner {
+    mono: f64,
+    wall: i64,
+    next_id: u64,
+    timers: Vec<Timer>,
+}
+
+fn lock(inner: &Mutex<Inner>) -> MutexGuard<'_, Inner> {
+    inner.lock().unwrap_or_else(PoisonError::into_inner)
+}
 
 /// A clock the test moves by hand. `sleep(ms)` resolves when virtual time reaches its deadline.
-pub struct VirtualClock {}
+pub struct VirtualClock {
+    inner: Arc<Mutex<Inner>>,
+    /// One `set` at a time, so two requests can't interleave their firing.
+    setting: tokio::sync::Mutex<()>,
+}
 
 impl VirtualClock {
     pub fn shared() -> Arc<Self> {
-        Arc::new(Self {})
+        // Wall time starts at the real one so a test that never sets it still sees a sane date.
+        let wall = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
+        Arc::new(Self {
+            inner: Arc::new(Mutex::new(Inner {
+                mono: 0.0,
+                wall,
+                next_id: 0,
+                timers: Vec::new(),
+            })),
+            setting: tokio::sync::Mutex::new(()),
+        })
     }
 
     /// Sets both clocks and fires every timer due at or before the new monotonic time, one at a
     /// time in deadline order, waiting for each to be acknowledged. Returns how many fired.
-    pub async fn set(&self, _mono: f64, _wall: i64) -> usize {
-        0
+    pub async fn set(&self, mono: f64, wall: i64) -> usize {
+        let _one_at_a_time = self.setting.lock().await;
+        {
+            let mut inner = lock(&self.inner);
+            inner.mono = mono;
+            inner.wall = wall;
+        }
+        let mut fired = 0;
+        while fired < MAX_FIRES_PER_SET {
+            let Some(timer) = self.take_due(mono) else { break };
+            fired += 1;
+            if timer.fire.send(()).is_ok() {
+                // An error here is the acknowledgement; a timeout means the sleeper is stuck.
+                if tokio::time::timeout(ACK_TIMEOUT, timer.acked).await.is_err() {
+                    break;
+                }
+                for _ in 0..SETTLE_YIELDS {
+                    tokio::task::yield_now().await;
+                }
+            }
+        }
+        fired
+    }
+
+    /// The earliest due timer (ties: armed first), removed from the list.
+    fn take_due(&self, mono: f64) -> Option<Timer> {
+        let mut inner = lock(&self.inner);
+        let at = inner
+            .timers
+            .iter()
+            .enumerate()
+            .filter(|(_, t)| t.deadline <= mono)
+            .min_by(|(_, a), (_, b)| a.deadline.partial_cmp(&b.deadline).unwrap_or(Ordering::Equal).then(a.id.cmp(&b.id)))
+            .map(|(i, _)| i)?;
+        Some(inner.timers.swap_remove(at))
     }
 
     /// Timers armed and not yet fired.
     pub fn pending(&self) -> usize {
-        usize::MAX
+        lock(&self.inner).timers.len()
+    }
+}
+
+/// The sleeper's half: resolves on the wake, and its drop is the acknowledgement.
+struct VirtualSleep {
+    id: u64,
+    inner: Arc<Mutex<Inner>>,
+    woken: oneshot::Receiver<()>,
+    _ack: oneshot::Sender<()>,
+}
+
+impl Future for VirtualSleep {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
+        // A closed channel (the clock is gone) also ends the sleep rather than hanging it forever.
+        Pin::new(&mut self.woken).poll(cx).map(|_| ())
+    }
+}
+
+impl Drop for VirtualSleep {
+    fn drop(&mut self) {
+        let id = self.id;
+        lock(&self.inner).timers.retain(|t| t.id != id);
     }
 }
 
 impl Clock for VirtualClock {
     fn mono_ms(&self) -> f64 {
-        -1.0
+        lock(&self.inner).mono
     }
+
     fn wall_ms(&self) -> i64 {
-        -1
+        lock(&self.inner).wall
     }
-    fn sleep(&self, _ms: f64) -> Sleep {
-        Box::pin(std::future::pending())
+
+    fn sleep(&self, ms: f64) -> Sleep {
+        let (fire, woken) = oneshot::channel();
+        let (ack, acked) = oneshot::channel();
+        let mut inner = lock(&self.inner);
+        let id = inner.next_id;
+        inner.next_id += 1;
+        // Negative and NaN delays are due at once.
+        let delay = if ms > 0.0 { ms } else { 0.0 };
+        let deadline = inner.mono + delay;
+        inner.timers.push(Timer { id, deadline, fire, acked });
+        drop(inner);
+        Box::pin(VirtualSleep {
+            id,
+            inner: self.inner.clone(),
+            woken,
+            _ack: ack,
+        })
     }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SetTime {
+    mono: f64,
+    wall: i64,
+}
+
+/// `POST /__test/time {mono, wall}` → `{"fired":n}`; `GET /__test/time` → `{"pending":n}`.
+async fn post_time(State(clock): State<Arc<VirtualClock>>, body: Bytes) -> (StatusCode, String) {
+    match serde_json::from_slice::<SetTime>(&body) {
+        Ok(t) if t.mono.is_finite() => (StatusCode::OK, format!(r#"{{"fired":{}}}"#, clock.set(t.mono, t.wall).await)),
+        _ => (StatusCode::BAD_REQUEST, r#"{"error":"expected {mono, wall}"}"#.to_owned()),
+    }
+}
+
+async fn get_time(State(clock): State<Arc<VirtualClock>>) -> String {
+    format!(r#"{{"pending":{}}}"#, clock.pending())
 }
 
 /// The virtual clock and the router that drives it (`POST`/`GET /__test/time`).
 pub fn install() -> (SharedClock, Router) {
-    (VirtualClock::shared(), Router::new())
+    let clock = VirtualClock::shared();
+    let router = Router::new()
+        .route("/__test/time", get(get_time).post(post_time))
+        .with_state(clock.clone());
+    (clock, router)
 }
 
 #[cfg(test)]
@@ -109,7 +269,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_timer_rearmed_by_a_firing_one_fires_in_the_same_set_when_due() {
+    async fn a_timer_rearmed_by_a_firing_one_is_due_relative_to_the_new_time() {
         let clock = VirtualClock::shared();
         let ticks = Arc::new(Mutex::new(0_u32));
         let (c, t) = (clock.clone(), ticks.clone());
@@ -123,7 +283,9 @@ mod tests {
         // The wake at 10 re-arms for 20 (virtual now is the set time, so deadline = 10 + 10).
         assert_eq!(clock.set(10.0, 0).await, 1);
         assert_eq!(*ticks.lock().unwrap(), 1);
-        assert_eq!(clock.set(30.0, 0).await, 2);
+        assert_eq!(clock.set(20.0, 0).await, 1);
+        assert_eq!(*ticks.lock().unwrap(), 2);
+        assert_eq!(clock.set(30.0, 0).await, 1);
         assert_eq!(*ticks.lock().unwrap(), 3);
     }
 

@@ -27,6 +27,11 @@ pub async fn serve(config: ServerConfig) -> std::io::Result<()> {
         config.site_origin
     ));
     let app = Router::new().fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
+    // Black-box suite only (ADR 0050): a virtual clock the test drives over `/__test/time`.
+    #[cfg(feature = "test-hooks")]
+    let (_clock, hooks) = crate::test_hooks::install();
+    #[cfg(feature = "test-hooks")]
+    let app = hooks.merge(app);
 
     let (stop, mut stopped) = watch::channel(false);
     let serving = axum::serve(listener, app).with_graceful_shutdown(async move {
