@@ -783,7 +783,10 @@ async fn a_413_with_the_body_unread_says_connection_close() {
     let mut head = Vec::new();
     let mut chunk = [0u8; 4096];
     while !head.windows(4).any(|w| w == b"\r\n\r\n") {
-        let n = tokio::time::timeout(Duration::from_secs(10), stream.read(&mut chunk)).await.unwrap().unwrap();
+        let n = tokio::time::timeout(Duration::from_secs(10), stream.read(&mut chunk))
+            .await
+            .unwrap()
+            .unwrap();
         assert!(n > 0, "closed before a full head");
         head.extend_from_slice(&chunk[..n]);
     }

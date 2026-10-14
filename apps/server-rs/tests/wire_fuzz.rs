@@ -98,7 +98,10 @@ impl Clock for JumpClock {
         self.mono.fetch_add(1000, Ordering::Relaxed) as f64
     }
     fn wall_ms(&self) -> i64 {
-        let real = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
+        let real = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
         i64::try_from(real).unwrap() + i64::try_from(self.start.elapsed().as_millis()).unwrap()
     }
     fn sleep(&self, ms: f64) -> Sleep {
@@ -181,7 +184,25 @@ fn corpus(json: &str) -> Vec<String> {
     cases.into_iter().filter(|c| c.ok).map(|c| c.input).collect()
 }
 
-const SNIPPETS: &[&str] = &["{", "}", "[", "]", "\"", "\\", "\\ud800", "\\u0000", ",", ":", "null", "1e400", "-0", "{\"type\":", "\u{feff}", "\u{85}", "\u{1f468}\u{200d}\u{1f469}"];
+const SNIPPETS: &[&str] = &[
+    "{",
+    "}",
+    "[",
+    "]",
+    "\"",
+    "\\",
+    "\\ud800",
+    "\\u0000",
+    ",",
+    ":",
+    "null",
+    "1e400",
+    "-0",
+    "{\"type\":",
+    "\u{feff}",
+    "\u{85}",
+    "\u{1f468}\u{200d}\u{1f469}",
+];
 
 /// A few random byte-level edits of `seed`; always valid UTF-8 (lossy), since text frames must be.
 fn mutate(rng: &mut Rng, seeds: &[String]) -> String {
@@ -232,11 +253,13 @@ fn drain(f: &mut Fuzzer, members: &mut HashSet<String>, who: usize) {
             None => return,
             Some(Some(Ok(Message::Text(t)))) => {
                 f.seen += 1;
-                assert!(parse_server_message(t.as_str()).is_some(), "client {who} got a malformed server frame: {t}");
-                if let Ok(Value::Object(o)) = serde_json::from_str::<Value>(t.as_str()) {
-                    if let Some(list) = o.get("room").and_then(|r| r.get("members")).and_then(Value::as_array) {
-                        members.extend(list.iter().filter_map(|m| m.get("id")?.as_str().map(str::to_owned)));
-                    }
+                assert!(
+                    parse_server_message(t.as_str()).is_some(),
+                    "client {who} got a malformed server frame: {t}"
+                );
+                let parsed = serde_json::from_str::<Value>(t.as_str()).ok();
+                if let Some(list) = parsed.as_ref().and_then(|v| v.get("room")?.get("members")?.as_array()) {
+                    members.extend(list.iter().filter_map(|m| m.get("id")?.as_str().map(str::to_owned)));
                 }
             }
             Some(Some(Ok(Message::Ping(_) | Message::Pong(_)))) => {}
@@ -249,9 +272,13 @@ fn drain(f: &mut Fuzzer, members: &mut HashSet<String>, who: usize) {
 /// A snapshot taken by a fresh probe agrees with the room: members, unique nickname keys, seats held by members.
 async fn probe(s: &Server, room: &str) -> bool {
     let Some(mut sock) = open(s, room).await else { return false };
-    sock.send(Message::text(r#"{"type":"join","nickname":"probe","avatar":0}"#)).await.unwrap();
+    sock.send(Message::text(r#"{"type":"join","nickname":"probe","avatar":0}"#))
+        .await
+        .unwrap();
     let snap = loop {
-        let next = tokio::time::timeout(Duration::from_secs(5), sock.next()).await.expect("the probe is answered");
+        let next = tokio::time::timeout(Duration::from_secs(5), sock.next())
+            .await
+            .expect("the probe is answered");
         let Some(Ok(Message::Text(t))) = next else { return false };
         let v: Value = serde_json::from_str(t.as_str()).unwrap();
         match v["type"].as_str() {
@@ -274,7 +301,9 @@ async fn probe(s: &Server, room: &str) -> bool {
         }
     }
     // The room's own view, right after: what the snapshot said was true (others are idle while the probe runs).
-    let live: Option<Vec<String>> = s.app.with_open_room(&rid(room), |i| i.room.members().map(|m| m.id.as_str().to_owned()).collect());
+    let live: Option<Vec<String>> = s
+        .app
+        .with_open_room(&rid(room), |i| i.room.members().map(|m| m.id.as_str().to_owned()).collect());
     let live = live.unwrap();
     let mut a: Vec<&str> = live.iter().map(String::as_str).collect();
     let mut b = ids.clone();
@@ -334,16 +363,24 @@ async fn random_and_mutated_client_frames_keep_the_server_consistent() {
                 0..=44 => {
                     let mut text = mutate(&mut rng, &seeds);
                     // Aim kicks, mutes and the rest at real members now and then.
-                    if rng.chance(40) {
-                        if let Some(id) = known.iter().nth(rng.below(known.len().max(1))) {
-                            text = text.replace("m2", id);
-                        }
+                    if rng.chance(40)
+                        && let Some(id) = known.iter().nth(rng.below(known.len().max(1)))
+                    {
+                        text = text.replace("m2", id);
                     }
                     Some(Message::text(text))
                 }
                 45..=56 => {
-                    let token = if owner { format!(r#","ownerToken":"{OWNER}""#) } else { String::new() };
-                    Some(Message::text(format!(r#"{{"type":"join","nickname":"f{}","avatar":{}{token}}}"#, rng.below(40), rng.below(4))))
+                    let token = if owner {
+                        format!(r#","ownerToken":"{OWNER}""#)
+                    } else {
+                        String::new()
+                    };
+                    Some(Message::text(format!(
+                        r#"{{"type":"join","nickname":"f{}","avatar":{}{token}}}"#,
+                        rng.below(40),
+                        rng.below(4)
+                    )))
                 }
                 57..=64 => Some(Message::text(seeds[rng.below(seeds.len())].clone())),
                 65..=69 => {
@@ -381,7 +418,11 @@ async fn random_and_mutated_client_frames_keep_the_server_consistent() {
         for (i, f) in fuzzers.iter_mut().enumerate() {
             drain(f, &mut known, i);
         }
-        assert_eq!(PANICS.load(Ordering::SeqCst), 0, "a server task panicked at step {step} (seed {seed:#x})");
+        assert_eq!(
+            PANICS.load(Ordering::SeqCst),
+            0,
+            "a server task panicked at step {step} (seed {seed:#x})"
+        );
         if step % 250 == 249 {
             settle().await;
             for f in &mut fuzzers {
@@ -393,18 +434,28 @@ async fn random_and_mutated_client_frames_keep_the_server_consistent() {
         }
     }
     let frames: usize = fuzzers.iter().map(|f| f.seen).sum();
-    println!("sent {sent} frames, saw {frames} replies, {} member ids, {probes} snapshot checks", known.len());
+    println!(
+        "sent {sent} frames, saw {frames} replies, {} member ids, {probes} snapshot checks",
+        known.len()
+    );
     assert!(sent > iters as usize / 2 && known.len() > 3 && probes > 0 || iters < 250);
 
     // Every socket gone: the counters are back at zero, no room keeps a member, no task is left behind.
     drop(fuzzers);
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
-        let members: usize = ROOMS.iter().map(|r| s.app.with_open_room(&rid(r), |i| i.room.member_count()).unwrap()).sum();
+        let members: usize = ROOMS
+            .iter()
+            .map(|r| s.app.with_open_room(&rid(r), |i| i.room.member_count()).unwrap())
+            .sum();
         if s.app.ws.connections() == 0 && members == 0 {
             break;
         }
-        assert!(Instant::now() < deadline, "sockets {} and members {members} remain after every client closed", s.app.ws.connections());
+        assert!(
+            Instant::now() < deadline,
+            "sockets {} and members {members} remain after every client closed",
+            s.app.ws.connections()
+        );
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
     // The per-IP map is empty again: a whole allowance of sockets from the same address connects.
@@ -415,7 +466,11 @@ async fn random_and_mutated_client_frames_keep_the_server_consistent() {
     drop(socks);
     let deadline = Instant::now() + Duration::from_secs(5);
     while tokio::runtime::Handle::current().metrics().num_alive_tasks() > alive_before {
-        assert!(Instant::now() < deadline, "tasks leaked: {} alive, {alive_before} at the start", tokio::runtime::Handle::current().metrics().num_alive_tasks());
+        assert!(
+            Instant::now() < deadline,
+            "tasks leaked: {} alive, {alive_before} at the start",
+            tokio::runtime::Handle::current().metrics().num_alive_tasks()
+        );
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
     assert_eq!(PANICS.load(Ordering::SeqCst), 0);
@@ -423,7 +478,10 @@ async fn random_and_mutated_client_frames_keep_the_server_consistent() {
 
 /// One raw HTTP exchange: the status code, or `None` if the server closed without answering.
 async fn http(addr: SocketAddr, method: &str, path: &str, headers: &[(&str, String)], body: &[u8], chunked: bool) -> Option<u16> {
-    let mut req = format!("{method} {path} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\n", addr.port());
+    let mut req = format!(
+        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\n",
+        addr.port()
+    );
     for (k, v) in headers {
         req.push_str(&format!("{k}: {v}\r\n"));
     }
@@ -447,7 +505,9 @@ async fn http(addr: SocketAddr, method: &str, path: &str, headers: &[(&str, Stri
     // The server may answer 413 and hang up before it has read everything: ignore a write that fails.
     let _ = stream.write_all(&bytes).await;
     bytes.clear();
-    let read = tokio::time::timeout(Duration::from_secs(10), stream.read_to_end(&mut bytes)).await.expect("the server answers or hangs up");
+    let read = tokio::time::timeout(Duration::from_secs(10), stream.read_to_end(&mut bytes))
+        .await
+        .expect("the server answers or hangs up");
     let _ = read;
     let line = String::from_utf8_lossy(bytes.get(..bytes.len().min(32)).unwrap_or_default()).into_owned();
     line.split(' ').nth(1)?.parse().ok()
@@ -478,9 +538,13 @@ async fn random_http_bodies_are_answered_with_a_status_below_500() {
     let mut socks = Vec::new();
     for (name, extra) in [("guest", String::new()), ("boss", format!(r#","ownerToken":"{OWNER}""#))] {
         let mut sock = open(&s, "fuzz-a").await.unwrap();
-        sock.send(Message::text(format!(r#"{{"type":"join","nickname":"{name}","avatar":0{extra}}}"#))).await.unwrap();
+        sock.send(Message::text(format!(r#"{{"type":"join","nickname":"{name}","avatar":0{extra}}}"#)))
+            .await
+            .unwrap();
         loop {
-            let Some(Ok(Message::Text(t))) = tokio::time::timeout(Duration::from_secs(5), sock.next()).await.unwrap() else { panic!("no snapshot") };
+            let Some(Ok(Message::Text(t))) = tokio::time::timeout(Duration::from_secs(5), sock.next()).await.unwrap() else {
+                panic!("no snapshot")
+            };
             let v: Value = serde_json::from_str(t.as_str()).unwrap();
             if v["type"] == "snapshot" {
                 tokens.push(v["shareToken"].as_str().unwrap().to_owned());
@@ -512,9 +576,17 @@ async fn random_http_bodies_are_answered_with_a_status_below_500() {
         let chunked = rng.chance(20);
         let status = http(s.addr, "POST", &path, &headers, &body, chunked).await;
         let status = status.unwrap_or_else(|| panic!("no answer to POST {path} at step {step} (seed {seed:#x})"));
-        assert!(status < 500, "POST {path} gave {status} at step {step} (seed {seed:#x}), body {:?}", String::from_utf8_lossy(&body[..body.len().min(200)]));
+        assert!(
+            status < 500,
+            "POST {path} gave {status} at step {step} (seed {seed:#x}), body {:?}",
+            String::from_utf8_lossy(&body[..body.len().min(200)])
+        );
         statuses.insert(status);
-        assert_eq!(PANICS.load(Ordering::SeqCst), 0, "a server task panicked at step {step} (seed {seed:#x})");
+        assert_eq!(
+            PANICS.load(Ordering::SeqCst),
+            0,
+            "a server task panicked at step {step} (seed {seed:#x})"
+        );
     }
     // Still serving after all of it.
     assert_eq!(http(s.addr, "GET", "/rooms", &[], b"", false).await, Some(200));
