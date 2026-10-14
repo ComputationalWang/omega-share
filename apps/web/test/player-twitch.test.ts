@@ -4,7 +4,6 @@ import type { PlayerErrorReason, PlayerEvent } from "../src/player/adapter";
 import {
   AD_FROZEN_MS,
   ECHO_WINDOW_MS,
-  LIVE_RESUME_MS,
   PUSH_LAG_MS,
   QUALITY_ECHO_MS,
   READY_TIMEOUT_MS,
@@ -363,7 +362,7 @@ describe("attachTwitch", () => {
     push({ playback: "Idle" });
     p.fire("pause");
     expect(events).toContainEqual({ type: "state", state: "paused" });
-    t.now = LIVE_RESUME_MS - 100;
+    t.now = 5000 - 100;
     push({ playback: "Playing" });
     p.fire("play");
     p.fire("playing");
@@ -371,16 +370,19 @@ describe("attachTwitch", () => {
     expect(intents(events)).toEqual([]);
   });
 
-  test("live: a pause later than the resume window is the member's", () => {
+  test("live: a player pause is never the room's, however late (a re-shown mature gate or mid-roll looks the same, OME-1131)", () => {
     const { t, adapter, p, events, ready, push } = setup(LIVE);
     ready();
     adapter.play();
     push({ playback: "Playing" });
     p.fire("play");
-    t.now += LIVE_RESUME_MS + 100;
+    t.now += 30_000;
     push({ playback: "Idle" });
     p.fire("pause");
-    expect(intents(events)).toEqual([{ type: "intent", playing: false, position: 0 }]);
+    expect(events).toContainEqual({ type: "state", state: "paused" });
+    push({ playback: "Playing" });
+    p.fire("play");
+    expect(intents(events)).toEqual([]);
   });
 
   test("live: the resume window follows our play only; a play after our pause is the member's", () => {
@@ -389,7 +391,7 @@ describe("attachTwitch", () => {
     adapter.play();
     push({ playback: "Playing" });
     p.fire("play");
-    t.now += LIVE_RESUME_MS + 100;
+    t.now += 5000 + 100;
     adapter.pause();
     push({ playback: "Idle" });
     p.fire("pause");
@@ -406,7 +408,7 @@ describe("attachTwitch", () => {
     push({ playback: "Playing", time: 20 });
     p.fire("play");
     t.now += ECHO_WINDOW_MS + 500;
-    expect(t.now).toBeLessThan(LIVE_RESUME_MS);
+    expect(t.now).toBeLessThan(5000);
     push({ playback: "Idle", time: 21.5 });
     p.fire("pause");
     expect(intents(events)).toEqual([{ type: "intent", playing: false, position: 21.5 }]);
@@ -801,7 +803,7 @@ describe("attachTwitch quality (per viewer, OME-599)", () => {
     adapter.play();
     push({ playback: "Playing" });
     p.fire("playing");
-    t.now += LIVE_RESUME_MS + 1000;
+    t.now += 5000 + 1000;
     adapter.quality?.set("720p60");
     push({ playback: "Idle" });
     p.fire("pause");
@@ -922,7 +924,7 @@ describe("attachTwitch quality: a pick in Twitch's own gear menu (OME-666)", () 
     adapter.play();
     push({ playback: "Playing" });
     p.fire("playing");
-    t.now += LIVE_RESUME_MS + 1000;
+    t.now += 5000 + 1000;
     p.quality = "720p60";
     p.fire("pause");
     t.now += 220;
