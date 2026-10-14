@@ -4,6 +4,7 @@
 pub mod constants;
 pub mod generic_embed;
 pub mod js_compat;
+pub mod layout;
 pub mod session;
 
 use serde::de::DeserializeOwned;

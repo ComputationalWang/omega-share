@@ -3,4 +3,5 @@
 pub mod clock;
 pub mod config;
 pub mod contract;
+pub mod presets;
 pub mod serve;
