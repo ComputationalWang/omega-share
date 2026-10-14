@@ -22,7 +22,10 @@ pub async fn serve(config: ServerConfig) -> std::io::Result<()> {
         .as_deref()
         .map(|o| format!(", public origin {o}"))
         .unwrap_or_default();
-    stdout_line(&format!("omega-share server on http://{addr}/ (site origin {}{via})", config.site_origin));
+    stdout_line(&format!(
+        "omega-share server on http://{addr}/ (site origin {}{via})",
+        config.site_origin
+    ));
     let app = Router::new().fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
 
     let (stop, mut stopped) = watch::channel(false);

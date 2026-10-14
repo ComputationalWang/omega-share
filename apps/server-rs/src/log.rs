@@ -215,7 +215,7 @@ pub fn redact_addresses(text: &str) -> String {
 pub fn scrub(message: &str) -> String {
     let head = head(message);
     // From the first quote to the end: a quoted value can itself hold a quote, so no closing quote can be trusted (OME-536).
-    let cut = match head.char_indices().find(|(_, c)| matches!(c, '"' | '\'')) {
+    let cut = match head.char_indices().find(|(_, c)| matches!(c, '"' | '\'' | '`')) {
         Some((i, q)) => format!("{}{q}…{q}", head.get(..i).unwrap_or("")),
         None => head,
     };
