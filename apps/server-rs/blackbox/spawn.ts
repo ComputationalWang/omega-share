@@ -86,7 +86,8 @@ export function spawnServer(bin: string, env: Record<string, string>): Spawned {
   live.add(entry);
   const deadline = Date.now() + BOOT_TIMEOUT_MS;
   for (;;) {
-    const banner = readFileSync(out, "utf8").split("\n")[0] ?? "";
+    // Not always the first line: with an admin socket the server says `operator CLI socket at …` before it (index.ts).
+    const banner = readFileSync(out, "utf8").split("\n").find((line) => LISTENING.test(line)) ?? "";
     const host = LISTENING.exec(banner)?.[1];
     if (host !== undefined) {
       const port = Number(host.slice(host.lastIndexOf(":") + 1));

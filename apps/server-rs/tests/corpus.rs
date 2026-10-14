@@ -3,6 +3,8 @@
 #![allow(clippy::panic, reason = "a test harness: a bad corpus file should fail loudly")]
 
 use omega_server::app::{TitleBlocker, block_key};
+use omega_server::backup::snapshot_name;
+use omega_server::cli;
 use omega_server::contract::capabilities::playback_caps;
 use omega_server::contract::confusables::nickname_key;
 use omega_server::contract::constants;
@@ -41,6 +43,11 @@ mod room_script;
 
 /// Every corpus file has a runner below; a new `corpus/out/*.json` without one fails `every_corpus_has_a_runner`.
 const RUNNERS: &[&str] = &[
+    "backup-snapshot-name",
+    "cli-parse-args",
+    "cli-printable",
+    "cli-success",
+    "cli-time",
     "site-meta",
     "with-meta",
     "security-txt",
@@ -936,6 +943,48 @@ fn room_gc_expired_agrees() {
         };
         let room = Room::new(RoomId::parse("aaaaaaaaaaaaaaaaaaaaaaaaaa")?, init, 0).ok()?;
         Some(expired(&room, i.now))
+    });
+}
+
+// ---- operator tools (OME-1168)
+
+#[test]
+fn cli_parse_args_agrees() {
+    agree(
+        load::<Vec<String>, Value>(include_str!("../corpus/out/cli-parse-args.json")),
+        |argv| cli::parse_args(argv).and_then(|c| serde_json::to_value(c).ok()),
+    );
+}
+
+#[test]
+fn cli_printable_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/cli-printable.json")), |input| {
+        Some(cli::printable(input))
+    });
+}
+
+#[test]
+fn cli_time_agrees() {
+    agree(load::<Option<i64>, String>(include_str!("../corpus/out/cli-time.json")), |ms| {
+        cli::time(*ms)
+    });
+}
+
+#[test]
+fn cli_success_agrees() {
+    agree(
+        load::<(Vec<String>, String), Vec<String>>(include_str!("../corpus/out/cli-success.json")),
+        |(argv, text)| {
+            let cmd = cli::parse_args(argv)?;
+            cli::success(&cmd, &serde_json::from_str(text).unwrap_or(Value::Null))
+        },
+    );
+}
+
+#[test]
+fn backup_snapshot_name_agrees() {
+    agree(load::<i64, String>(include_str!("../corpus/out/backup-snapshot-name.json")), |ms| {
+        Some(snapshot_name(*ms))
     });
 }
 

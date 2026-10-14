@@ -135,6 +135,12 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | Socket timers (join timeout, `member-status` interval) | `setTimeout` (real time) | real time too; only the hold expiry follows the app clock (`schedule` in TS). The status interval is measured on the process's own monotonic clock |
 | `pong` and `chat` `at` | `Date.now()` (not the injected `wallNow`) | the system clock, not the virtual one |
 | Config knobs `MAX_CONNECTIONS_PER_IP`, `JOIN_TIMEOUT_MS`, `STATUS_INTERVAL_MS` | `startServer` options only | also environment variables (the black-box harness maps the options onto them) |
+| Usage lines of the operator tools | `usage: cli.ts rooms list …`, `usage: backup.ts snapshot …` | `usage: omega-server admin …`, `usage: omega-server backup …` (the command is the binary) |
+| CLI: a date outside the JS `Date` range (more than 8.64e15 ms from the epoch) in an answer | `toISOString` throws, the CLI dies with a stack | `unexpected answer from the server`, exit 1 |
+| Error text of an unreachable admin socket (`no server on <socket>: …`) and of failed file operations in `backup` | Bun's / Node's error message | the OS error text (`Connection refused (os error 111)`) |
+| Backup | `VACUUM INTO` | SQLite's online backup API in one step (same one-read-transaction consistency); a symlink found inside the backup directory is replaced or unlinked, never followed |
+| `restore`: the old DB kept aside when a hard link is not possible | `copyFileSync` (overwrites an existing `<db>.pre-restore-<stamp>`) | exclusive create (`create_new`): an existing file is an error, never overwritten or followed |
+| Admin socket creation | `umask(0o177)` around `Bun.serve({unix})` | bound in a private 0700 directory beside the socket, chmod 0600, renamed into place (a process-wide umask is not thread safe); a stale socket is cleared only if it is a socket owned by the running user |
 | HTTP: a static file that is a symlink out of `STATIC_DIR` | served (`Bun.file` follows it) | 404: the real path must stay under the root |
 | HTTP: `content-disposition: filename=...` on a served file whose type Bun does not know (`.webmanifest`, no extension) | sent by Bun | not sent (nothing reads it) |
 | HTTP: `HEAD` | Bun answers `content-length: 0` | the length of the GET body, as hyper does |

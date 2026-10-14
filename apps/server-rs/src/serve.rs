@@ -1,14 +1,20 @@
-//! The `serve` command: config → listener → router, until SIGTERM/SIGINT.
+//! The `serve` command: config → listener → router, until SIGTERM/SIGINT, then the graceful restart.
 
+use crate::admin::start_admin;
 use crate::app::{App, BootError};
 use crate::clock::SharedClock;
 use crate::config::ServerConfig;
-use crate::log::stdout_line;
+use crate::log::{LogEvent, log_error, stderr_line, stdout_line};
+use crate::metrics_server::start_metrics;
 use crate::rooms_gc::spawn_room_gc;
+use crate::shutdown;
+use crate::store::SeatHold;
 use axum::Router;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
+use tokio::signal::unix::{Signal, SignalKind, signal};
 use tokio::sync::watch;
 
 /// How long a shutdown waits for open connections before cutting them off (`DRAIN_GRACE_MS` in
@@ -21,6 +27,8 @@ pub enum ServeError {
     /// Printed as it is (`DB_PATH <path>: <message>`, or the corrupt row's room): nothing was served.
     Boot(BootError),
     Io(std::io::Error),
+    /// The shutdown failed and logged why (`shutdown`): exit 1, nothing more to print.
+    Logged,
 }
 
 impl std::fmt::Display for ServeError {
@@ -28,6 +36,7 @@ impl std::fmt::Display for ServeError {
         match self {
             Self::Boot(e) => write!(f, "{e}"),
             Self::Io(e) => write!(f, "serve: {e}"),
+            Self::Logged => Ok(()),
         }
     }
 }
@@ -40,15 +49,23 @@ impl From<std::io::Error> for ServeError {
     }
 }
 
-/// Boots the app (database, rooms, seat holds, the boot GC sweep), binds and serves until a shutdown signal.
+/// Boots the app (database, rooms, seat holds, the boot GC sweep), binds and serves until a shutdown signal, then
+/// runs the graceful restart (index.ts `shutdown`). `admin_socket` is where the operator CLI listens, if anywhere.
 /// Errors before listening are returned, not panicked.
-pub async fn serve(config: ServerConfig) -> Result<(), ServeError> {
+pub async fn serve(config: ServerConfig, admin_socket: Option<PathBuf>) -> Result<(), ServeError> {
+    // Installed first and kept to the end: a second SIGTERM or SIGINT during the shutdown must not kill it.
+    let mut signals = Signals::install();
     let (clock, hooks) = clock_and_hooks();
     let app = App::boot(config.clone(), clock).map_err(ServeError::Boot)?;
     let gc = spawn_room_gc(app.clone());
-    let served = listen(config, app, hooks).await;
+    let served = listen(config, app.clone(), hooks, admin_socket, &mut signals).await;
     gc.abort();
-    served
+    let holds = served?;
+    // The seats are saved, the WAL folded into the main file; a failure is logged and the exit code is 1.
+    shutdown::finish(&app, &holds).map_err(|err| {
+        log_error(LogEvent::Shutdown, Some(&err));
+        ServeError::Logged
+    })
 }
 
 /// Each slice builds its routes in its own file (`hooks` are the test-hooks routes, empty in a normal build); S5's
@@ -70,9 +87,31 @@ fn clock_and_hooks() -> (SharedClock, Router) {
     (crate::clock::SystemClock::shared(), Router::new())
 }
 
-async fn listen(config: ServerConfig, app: Arc<App>, hooks: Router) -> Result<(), ServeError> {
+/// Listens and serves until a signal; returns the seats to save (none if the listener itself failed).
+async fn listen(
+    config: ServerConfig,
+    app: Arc<App>,
+    hooks: Router,
+    admin_socket: Option<PathBuf>,
+    signals: &mut Signals,
+) -> Result<Vec<SeatHold>, ServeError> {
     let listener = TcpListener::bind((config.hostname.as_str(), config.port)).await?;
     let addr = listener.local_addr()?;
+    let metrics = match config.metrics_port {
+        Some(port) => Some(start_metrics(app.clone(), port).await?),
+        None => None,
+    };
+    let admin = admin_socket.and_then(|path| match start_admin(app.clone(), &path) {
+        Ok(admin) => {
+            stdout_line(&format!("operator CLI socket at {}", path.display()));
+            Some(admin)
+        }
+        Err(err) => {
+            // Serving the site matters more than the CLI: say so loudly, keep running.
+            stderr_line(&format!("ADMIN_SOCKET {}: {err}; the operator CLI is unavailable", path.display()));
+            None
+        }
+    });
     // Before the line below: a client that waits for it must find the allowlists in place.
     app.http.bind(&config, addr.port());
     let via = config
@@ -84,7 +123,10 @@ async fn listen(config: ServerConfig, app: Arc<App>, hooks: Router) -> Result<()
         "omega-share server on http://{addr}/ (site origin {}{via})",
         config.site_origin
     ));
-    let router = build_router(app, hooks);
+    if let Some(metrics) = &metrics {
+        stdout_line(&format!("metrics on http://127.0.0.1:{}/metrics (loopback only)", metrics.port()));
+    }
+    let router = build_router(app.clone(), hooks);
 
     let (stop, mut stopped) = watch::channel(false);
     let serving = crate::http::server::serve(listener, router, async move {
@@ -92,37 +134,65 @@ async fn listen(config: ServerConfig, app: Arc<App>, hooks: Router) -> Result<()
         let _ = stopped.wait_for(|stop| *stop).await;
     });
     let mut serving = std::pin::pin!(serving);
-    tokio::select! {
-        served = &mut serving => return served.map_err(ServeError::Io),
-        () = shutdown_signal() => {}
+    let ended = tokio::select! {
+        served = &mut serving => Some(served),
+        () = signals.wait() => None,
+    };
+    let result = match ended {
+        // The listener failed by itself: nothing to drain.
+        Some(served) => served.map(|()| Vec::new()).map_err(ServeError::Io),
+        None => {
+            // Stop accepting, close every socket with SERVICE_RESTART, let in-flight requests finish, but only for so long.
+            let _ = stop.send(true);
+            let holds = shutdown::drain_sockets(&app);
+            // Connections past the grace are cut, not awaited; a listener error now changes nothing.
+            let _ = tokio::time::timeout(DRAIN_GRACE, serving).await;
+            Ok(holds)
+        }
+    };
+    if let Some(metrics) = metrics {
+        metrics.stop();
     }
-    // Stop accepting, let in-flight requests finish, but only for so long.
-    let _ = stop.send(true);
-    match tokio::time::timeout(DRAIN_GRACE, serving).await {
-        Ok(served) => served.map_err(ServeError::Io),
-        Err(_) => Ok(()),
+    if let Some(admin) = admin {
+        admin.stop().await;
     }
+    result
 }
 
-/// SIGTERM (systemd `restart`/`stop`) or SIGINT. A handler that can't be installed never fires,
-/// so that signal keeps its default action instead of triggering a shutdown.
-async fn shutdown_signal() {
-    let interrupt = async {
-        if tokio::signal::ctrl_c().await.is_err() {
-            std::future::pending::<()>().await;
+/// SIGTERM (systemd `restart`/`stop`) and SIGINT, each handled once for the whole run. A handler that can't be
+/// installed never fires, so that signal keeps its default action instead of triggering a shutdown. The streams are
+/// kept until `serve` returns, so a repeat signal while shutting down is swallowed, as `draining` does in index.ts.
+struct Signals {
+    terminate: Option<Signal>,
+    interrupt: Option<Signal>,
+}
+
+impl Signals {
+    fn install() -> Self {
+        Self {
+            terminate: signal(SignalKind::terminate()).ok(),
+            interrupt: signal(SignalKind::interrupt()).ok(),
         }
-    };
-    let terminate = async {
-        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(mut term) => {
-                term.recv().await;
+    }
+
+    /// The first signal of either kind.
+    async fn wait(&mut self) {
+        let terminate = async {
+            match self.terminate.as_mut() {
+                Some(s) => s.recv().await,
+                None => std::future::pending().await,
             }
-            Err(_) => std::future::pending::<()>().await,
+        };
+        let interrupt = async {
+            match self.interrupt.as_mut() {
+                Some(s) => s.recv().await,
+                None => std::future::pending().await,
+            }
+        };
+        tokio::select! {
+            _ = terminate => {}
+            _ = interrupt => {}
         }
-    };
-    tokio::select! {
-        () = interrupt => {}
-        () = terminate => {}
     }
 }
 
