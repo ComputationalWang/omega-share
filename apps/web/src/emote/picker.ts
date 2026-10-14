@@ -1,6 +1,6 @@
 // The emote key and set (l)'s emote wheel (OME-415, OME-732). The key (or T) opens the wheel over your own head: the six
 // stickers clockwise from 12 in key order, roving focus on the arrows, Enter/Space or a click sends, Esc or T closes and
-// focus goes back where it was. Keys 1–6 send straight away. When the local bucket is empty the key cools (`is-cooling`)
+// focus goes back where it was. Keys 1–8 send straight away. When the local bucket is empty the key cools (`is-cooling`)
 // and the slots are `aria-disabled` until a token is back, so we never send what the server would drop.
 // The wheel is DOM in page chrome, never the canvas: opening it draws nothing in the room (R-M8a §4).
 import type { ClientMessage, EmoteKind } from "@omega/shared";
@@ -25,7 +25,7 @@ export interface EmotePickerOptions {
 
 export interface EmotePicker {
   readonly root: HTMLElement;
-  /** A keydown on the page: T toggles the wheel, keys 1–6 emote, the wheel's own keys while it's open. True if it was ours (the caller prevents the default). */
+  /** A keydown on the page: T toggles the wheel, keys 1–8 emote, the wheel's own keys while it's open. True if it was ours (the caller prevents the default). */
   key(ev: KeyboardEvent): boolean;
   /** Close the wheel if it's open (your avatar started walking), focus back where it was. */
   close(): void;
@@ -47,7 +47,7 @@ interface Wheel {
 
 export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
   const root = el("div", { className: "emote-picker" });
-  const key = el("button", { type: "button", className: "ui-button self icon", ariaLabel: "Emote", title: "Emote (T, 1–6)" }, "emote-key");
+  const key = el("button", { type: "button", className: "ui-button self icon", ariaLabel: "Emote", title: "Emote (T, 1–8)" }, "emote-key");
   key.setAttribute("aria-haspopup", "menu");
   key.setAttribute("aria-expanded", "false");
   key.setAttribute("aria-keyshortcuts", "T");
@@ -67,7 +67,7 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
   function build(): Wheel {
     const menu = el("div", { className: "ui-wheel", role: "menu", hidden: true }, "emote-menu");
     menu.setAttribute("aria-label", "Emotes");
-    // reference.css places .ui-wheel-slot:nth-child(1..6) clockwise from 12, so the slots lead and their places are set once.
+    // room.css places .ui-wheel-slot:nth-child(1..8) clockwise from 12, so the slots lead and their places are set once.
     const slots = PICKER_KINDS.map((kind, i) => {
       const shortcut = String(i + 1);
       const b = el("button", { type: "button", className: "ui-wheel-slot", role: "menuitem", tabIndex: -1, title: `${EMOTE_LABELS[kind]} (${shortcut})` }, "emote-item");

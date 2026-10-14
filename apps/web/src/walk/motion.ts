@@ -22,6 +22,9 @@ export const MotionSheetSchema = v.object({
   }),
 });
 
+/** The expressions sheet (PR #192): cheer and yawn frames and their one-shots, same frame format as motion.png. */
+export const ExpressionSheetSchema = v.object({ frames: FramesSchema, meta: v.object({ omega: v.object({ anims: v.record(v.string(), AnimSchema) }) }) });
+
 export const AvatarSheetSchema = v.object({
   frames: FramesSchema,
   meta: v.object({ omega: v.object({ avatars: v.pipe(v.array(v.object({ id: v.string() })), v.length(AVATAR_COUNT)) }) }),
@@ -34,8 +37,11 @@ export interface Cycle {
 
 export type FrameRects = v.InferOutput<typeof FramesSchema>;
 
-/** The emotes drawn as a sticker over the avatar (`emote/<kind>`); `wave`, `cheer` and `yawn` are the avatar's own animations. */
-export type StickerKind = Exclude<EmoteKind, "wave" | "cheer" | "yawn">;
+/** The emotes that swap the avatar's own frames (`<kind>/<avatar>/<pose>/<dir>`). */
+export type GestureKind = "wave" | "cheer" | "yawn";
+
+/** The emotes drawn as a sticker over the avatar (`emote/<kind>`). */
+export type StickerKind = Exclude<EmoteKind, GestureKind>;
 
 /** Per pose, per direction (DIRS order). */
 export interface PoseCycles {
@@ -44,8 +50,8 @@ export interface PoseCycles {
 }
 
 export interface MotionFrames {
-  /** Each sheet's frame rects and anchors, as parsed: motion.png's, then avatars.png's. */
-  readonly sheets: { readonly motion: FrameRects; readonly avatars: FrameRects };
+  /** Each sheet's frame rects and anchors, as parsed: motion.png's, avatars.png's, expressions.png's. */
+  readonly sheets: { readonly motion: FrameRects; readonly avatars: FrameRects; readonly expressions: FrameRects };
   /** walk[avatar][dir][n]: the 4-frame cycle's keys (Basic). */
   readonly walk: readonly (readonly (readonly string[])[])[];
   /** walk8[avatar][dir][step]: the 8-frame cycle (ADR 0037), frame 2n = walk[…][n], so Basic draws its even frames. */
@@ -54,15 +60,19 @@ export interface MotionFrames {
   readonly rest: readonly PoseCycles[];
   /** wave[avatar].idle|sit[dir]: the one-shot wave (OME-415). */
   readonly wave: readonly PoseCycles[];
+  /** cheer|yawn[avatar].idle|sit[dir]: the one-shots from the expressions sheet (OME-1121). */
+  readonly cheer: readonly PoseCycles[];
+  readonly yawn: readonly PoseCycles[];
   /** emote[kind]: the one-shot sticker. */
   readonly emote: Readonly<Record<StickerKind, Cycle>>;
 }
 
-/** Throws unless both sheets parse and every walk and breathe frame resolves in one of them. */
-export function parseMotion(motionJson: unknown, avatarsJson: unknown): MotionFrames {
+/** Throws unless all three sheets parse and every frame an animation names resolves in one of them. */
+export function parseMotion(motionJson: unknown, avatarsJson: unknown, expressionsJson: unknown): MotionFrames {
   const motion = v.parse(MotionSheetSchema, motionJson);
   const sheet = v.parse(AvatarSheetSchema, avatarsJson);
-  const has = (k: string): boolean => k in motion.frames || k in sheet.frames;
+  const expressions = v.parse(ExpressionSheetSchema, expressionsJson);
+  const has = (k: string): boolean => k in motion.frames || k in sheet.frames || k in expressions.frames;
   const anim = (name: string, frames: number): v.InferOutput<typeof AnimSchema> => {
     const a = motion.meta.omega.anims[name];
     if (a?.loop !== true || a.frames.length !== frames || a.ms.length !== frames) throw new Error(`motion atlas: bad anim ${name}`);
@@ -70,12 +80,14 @@ export function parseMotion(motionJson: unknown, avatarsJson: unknown): MotionFr
     return a;
   };
   const oneShot = (name: string): Cycle => {
-    const a = motion.meta.omega.anims[name];
+    const a = motion.meta.omega.anims[name] ?? expressions.meta.omega.anims[name];
     if (a?.loop !== false || a.ms.length !== a.frames.length) throw new Error(`motion atlas: bad one-shot ${name}`);
     for (const k of a.frames) if (!has(k)) throw new Error(`motion atlas: ${name} names missing frame ${k}`);
     return { frames: a.frames, ms: a.ms };
   };
   const ids = sheet.meta.omega.avatars.map((a) => a.id);
+  const gesture = (kind: GestureKind): PoseCycles[] =>
+    ids.map((id) => ({ idle: DIRS.map((d) => oneShot(`${kind}/${id}/idle/${d}`)), sit: DIRS.map((d) => oneShot(`${kind}/${id}/sit/${d}`)) }));
   const walk = ids.map((id) =>
     DIRS.map((d) => {
       const a = anim(`walk/${id}/${d}`, WALK_FRAMES);
@@ -84,7 +96,7 @@ export function parseMotion(motionJson: unknown, avatarsJson: unknown): MotionFr
     }),
   );
   return {
-    sheets: { motion: motion.frames, avatars: sheet.frames },
+    sheets: { motion: motion.frames, avatars: sheet.frames, expressions: expressions.frames },
     walk,
     walk8: ids.map((id, i) =>
       DIRS.map((d, j) => {
@@ -103,10 +115,9 @@ export function parseMotion(motionJson: unknown, avatarsJson: unknown): MotionFr
         });
       return { idle: cycles("idle"), sit: cycles("sit") };
     }),
-    wave: ids.map((id) => ({
-      idle: DIRS.map((d) => oneShot(`wave/${id}/idle/${d}`)),
-      sit: DIRS.map((d) => oneShot(`wave/${id}/sit/${d}`)),
-    })),
+    wave: gesture("wave"),
+    cheer: gesture("cheer"),
+    yawn: gesture("yawn"),
     emote: { heart: oneShot("emote/heart"), laugh: oneShot("emote/laugh"), question: oneShot("emote/question"), exclaim: oneShot("emote/exclaim"), clap: oneShot("emote/clap") },
   };
 }
