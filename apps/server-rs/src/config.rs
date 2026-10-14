@@ -317,18 +317,24 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
             })?,
     };
 
-    let positive = |key: &'static str, default: Option<u32>| -> Result<Option<u32>, ConfigError> {
+    let whole = |key: &'static str, min: u32, default: Option<u32>| -> Result<Option<u32>, ConfigError> {
         match get(key) {
             None => Ok(default),
-            Some(raw) => digits(raw, 6)
-                .filter(|n| *n >= 1)
-                .map(Some)
-                .ok_or_else(|| fail(key, "must be a positive integer")),
+            Some(raw) => digits(raw, 6).filter(|n| *n >= min).map(Some).ok_or_else(|| {
+                fail(
+                    key,
+                    if min == 0 {
+                        "must be a whole number"
+                    } else {
+                        "must be a positive integer"
+                    },
+                )
+            }),
         }
     };
-    let max_connections_per_ip = positive("MAX_CONNECTIONS_PER_IP", None)?;
-    let join_timeout_ms = positive("JOIN_TIMEOUT_MS", Some(DEFAULT_JOIN_TIMEOUT_MS))?.unwrap_or(DEFAULT_JOIN_TIMEOUT_MS);
-    let status_interval_ms = positive("STATUS_INTERVAL_MS", Some(DEFAULT_STATUS_INTERVAL_MS))?.unwrap_or(DEFAULT_STATUS_INTERVAL_MS);
+    let max_connections_per_ip = whole("MAX_CONNECTIONS_PER_IP", 1, None)?;
+    let join_timeout_ms = whole("JOIN_TIMEOUT_MS", 1, Some(DEFAULT_JOIN_TIMEOUT_MS))?.unwrap_or(DEFAULT_JOIN_TIMEOUT_MS);
+    let status_interval_ms = whole("STATUS_INTERVAL_MS", 0, Some(DEFAULT_STATUS_INTERVAL_MS))?.unwrap_or(DEFAULT_STATUS_INTERVAL_MS);
 
     let generic_embeds = match get("GENERIC_EMBEDS").unwrap_or("on") {
         "on" => true,

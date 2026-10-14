@@ -407,7 +407,7 @@ fn status(app: &App, inner: &mut RoomInner, conn: &mut Conn, member: &MemberId, 
         return;
     }
     inner.room.set_catching(member, catching);
-    let now = app.mono();
+    let now = real_mono_ms();
     let interval = app.ws.status_interval_ms;
     let Some(session) = session_of_mut(inner, Some(member), conn.id) else {
         return;
@@ -427,7 +427,7 @@ fn status(app: &App, inner: &mut RoomInner, conn: &mut Conn, member: &MemberId, 
 /// Publishes the member's current `catching` if it differs from the last one published. The room keeps what was
 /// last published, so a server-side clear (embed switch) is seen here too.
 pub fn flush_status(app: &App, inner: &mut RoomInner, member: &MemberId) {
-    let now = app.mono();
+    let now = real_mono_ms();
     if let Some(session) = inner.sessions.get_mut(member) {
         session.status.pending = false;
     }
@@ -504,4 +504,12 @@ fn real_wall_ms() -> ServerTime {
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX));
     ServerTime(ms)
+}
+
+/// Milliseconds on the process's own monotonic clock. The `member-status` interval is measured on this, like the
+/// real timer that waits it out: with the injected (possibly frozen) clock a coalesced publish would always wait
+/// the full interval.
+fn real_mono_ms() -> f64 {
+    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    START.get_or_init(std::time::Instant::now).elapsed().as_secs_f64() * 1000.0
 }

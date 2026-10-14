@@ -124,6 +124,11 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | Lone surrogates in text (`"\ud800"`) | accepted | rejected |
 | Request body that is not valid UTF-8 (`parse_*_request` take bytes) | decoded lossily (`Buffer.toString("utf8")`, `rate-limit.ts:152`), may be accepted | rejected |
 | Log scrubbing (`log.rs`) | cuts at the first `"` or `'` | also cuts at the first backtick, because serde errors quote input with backticks |
+| A client that stops reading (WebSocket) | Bun closes it at `BACKPRESSURE_LIMIT` | same (the connection task watches the outbox's death signal, the writer is aborted, no close frame); and every socket write, and the wait for a client's answer to our close, is also bounded (10 s, 1 s) |
+| Idle sockets (WebSocket) | Bun's `idleTimeout` 60 s with `sendPings` | pings every 30 s on real time; any received frame (pong included) resets the 60 s |
+| Socket timers (join timeout, `member-status` interval) | `setTimeout` (real time) | real time too; only the hold expiry follows the app clock (`schedule` in TS). The status interval is measured on the process's own monotonic clock |
+| `pong` and `chat` `at` | `Date.now()` (not the injected `wallNow`) | the system clock, not the virtual one |
+| Config knobs `MAX_CONNECTIONS_PER_IP`, `JOIN_TIMEOUT_MS`, `STATUS_INTERVAL_MS` | `startServer` options only | also environment variables (the black-box harness maps the options onto them) |
 
 Anything else that differs is a bug, unless ADR 0050 is amended.
 
