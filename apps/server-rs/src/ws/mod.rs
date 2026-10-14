@@ -7,7 +7,6 @@
 
 mod conn;
 mod frames;
-mod gate;
 mod handle;
 pub mod limits;
 pub mod session;
@@ -15,19 +14,19 @@ pub mod session;
 use crate::app::{App, lock};
 use crate::contract::constants::MAX_CLIENT_MESSAGE_BYTES;
 use crate::contract::ids::RoomId;
+use crate::http::gate::ClientKey;
 use crate::metrics::SERVICE_RESTART;
 use crate::rate_limit::{DEFAULT_MAX_KEYS, KeyedLimiter, is_loopback_key};
 use crate::store::SeatHold;
-use axum::Router;
 use axum::extract::ws::rejection::WebSocketUpgradeRejection;
-use axum::extract::{ConnectInfo, State, WebSocketUpgrade};
-use axum::http::{HeaderMap, HeaderName, HeaderValue, StatusCode, Uri};
+use axum::extract::{State, WebSocketUpgrade};
+use axum::http::{HeaderValue, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
+use axum::{Extension, Router};
 use limits::{FAILED_BURST, FAILED_PER_SECOND, JOIN_BURST, JOIN_PER_SECOND, UPGRADE_BURST, UPGRADE_PER_SECOND};
 use std::collections::HashMap;
-use std::net::SocketAddr;
-use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 /// Open sockets one client key may hold: 50, or 10 behind a trusted proxy (every client then has its own key).
@@ -48,7 +47,8 @@ pub struct WsState {
     pub max_per_ip: Option<usize>,
     /// A socket silent for this long is dropped; the server pings at half of it (`idleTimeout`, 60 s).
     pub idle_timeout_ms: f64,
-    port: AtomicU16,
+    /// Tests only: `run` waits for this before attaching, so a test can start a drain between the upgrade and the attach.
+    pub hold_attach: Option<Arc<tokio::sync::Notify>>,
     draining: AtomicBool,
     connections: AtomicUsize,
     per_ip: Mutex<HashMap<String, usize>>,
@@ -66,7 +66,7 @@ impl Default for WsState {
             status_interval_ms: 1000.0,
             max_per_ip: None,
             idle_timeout_ms: 60_000.0,
-            port: AtomicU16::new(0),
+            hold_attach: None,
             draining: AtomicBool::new(false),
             connections: AtomicUsize::new(0),
             per_ip: Mutex::new(HashMap::new()),
@@ -87,11 +87,6 @@ impl WsState {
             max_per_ip: config.max_connections_per_ip.map(|n| n as usize),
             ..Self::default()
         }
-    }
-
-    /// The port the server listens on, for the Host and Origin allowlists. Call once after binding.
-    pub fn set_port(&self, port: u16) {
-        self.port.store(port, Ordering::Relaxed);
     }
 
     /// Open sockets, joined or not (`omega_sockets`).
@@ -120,13 +115,9 @@ impl Drop for Slot {
     }
 }
 
-fn plain(app: &App, status: StatusCode, text: &'static str) -> Response {
-    let mut res = (status, text).into_response();
-    for (name, value) in app.headers {
-        res.headers_mut()
-            .insert(HeaderName::from_static(name), HeaderValue::from_static(value));
-    }
-    res
+/// A plain-text refusal; the HTTP layer adds the security headers to every non-101 response.
+fn plain(status: StatusCode, text: &'static str) -> Response {
+    (status, text).into_response()
 }
 
 /// `^/rooms/([^/]+)/ws$` on the raw path: the id is not percent-decoded, as in the TS.
@@ -135,8 +126,8 @@ fn room_id_of(uri: &Uri) -> Option<&str> {
     (!id.is_empty() && !id.contains('/')).then_some(id)
 }
 
-/// The `/rooms/:id/ws` upgrade route, merged into the server's router by `serve`. The server must be made with
-/// `into_make_service_with_connect_info::<SocketAddr>()`: the client key comes from the peer address.
+/// The `/rooms/:id/ws` upgrade route, merged into the server's router by `serve::build_router`, under the HTTP
+/// layer: it has already refused a bad Host (421) or Origin (403) and left the client key in the extensions.
 pub fn router(app: Arc<App>) -> Router {
     Router::new().route("/rooms/{id}/ws", get(upgrade)).with_state(app)
 }
@@ -144,17 +135,10 @@ pub fn router(app: Arc<App>) -> Router {
 /// server.ts `route` for a WebSocket upgrade: gate, upgrade limiter, room, connection caps, handshake.
 async fn upgrade(
     State(app): State<Arc<App>>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Extension(ClientKey(ip)): Extension<ClientKey>,
     uri: Uri,
-    headers: HeaderMap,
     ws: Result<WebSocketUpgrade, WebSocketUpgradeRejection>,
 ) -> Response {
-    let port = app.ws.port.load(Ordering::Relaxed);
-    // S5 replaces: the Host and Origin gate runs before routing, for HTTP and upgrades alike (ADR 0015 section 4).
-    if let Err(gate::Refusal(status, text)) = gate::check(&app, port, &headers) {
-        return plain(&app, status, text);
-    }
-    let ip = gate::ip_of(&app, peer, &headers);
     let keyed = !is_loopback_key(&ip);
     // Before the lookup, so probing for room ids costs a token like a real upgrade (threat model S5).
     if keyed {
@@ -163,7 +147,7 @@ async fn upgrade(
         if !upgrades.take(&ip, now) {
             let wait = upgrades.retry_after_ms(&ip, now);
             drop(upgrades);
-            let mut res = plain(&app, StatusCode::TOO_MANY_REQUESTS, "reconnecting too fast");
+            let mut res = plain(StatusCode::TOO_MANY_REQUESTS, "reconnecting too fast");
             if let Ok(value) = HeaderValue::from_str(&((wait / 1000.0).ceil() as u64).to_string()) {
                 res.headers_mut().insert("retry-after", value);
             }
@@ -171,7 +155,7 @@ async fn upgrade(
         }
     }
     let Some(raw) = room_id_of(&uri) else {
-        return plain(&app, StatusCode::NOT_FOUND, "not found");
+        return plain(StatusCode::NOT_FOUND, "not found");
     };
     let id = RoomId::parse(raw);
     // A taken-down id still upgrades, to an unregistered stand-in, so the client hears 4006 rather than a bare 404
@@ -179,14 +163,14 @@ async fn upgrade(
     let cell = id.as_ref().and_then(|id| app.registry.get(id));
     let known = cell.is_some() || id.as_ref().is_some_and(|id| crate::reports::is_taken_down(&app, id));
     let Some(id) = id else {
-        return plain(&app, StatusCode::NOT_FOUND, "unknown room");
+        return plain(StatusCode::NOT_FOUND, "unknown room");
     };
     if app.ws.draining.load(Ordering::Relaxed) {
-        return plain(&app, StatusCode::SERVICE_UNAVAILABLE, "server restarting");
+        return plain(StatusCode::SERVICE_UNAVAILABLE, "server restarting");
     }
     let slot = match reserve(&app, &ip) {
         Ok(slot) => slot,
-        Err(refusal) => return plain(&app, refusal.0, refusal.1),
+        Err(refusal) => return plain(refusal.0, refusal.1),
     };
     match ws {
         Ok(ws) => ws
@@ -194,8 +178,8 @@ async fn upgrade(
             .max_frame_size(MAX_CLIENT_MESSAGE_BYTES)
             .on_upgrade(move |socket| conn::run(app, socket, id, cell, ip, keyed, slot)),
         // A plain request without a handshake.
-        Err(_) if known => plain(&app, StatusCode::UPGRADE_REQUIRED, "expected a WebSocket upgrade"),
-        Err(_) => plain(&app, StatusCode::NOT_FOUND, "unknown room"),
+        Err(_) if known => plain(StatusCode::UPGRADE_REQUIRED, "expected a WebSocket upgrade"),
+        Err(_) => plain(StatusCode::NOT_FOUND, "unknown room"),
     }
 }
 

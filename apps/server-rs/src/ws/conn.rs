@@ -164,6 +164,9 @@ async fn write(mut sink: Sink, mut rx: OutboxRx, ping: Arc<Notify>) -> bool {
 /// `open`: the connection after its upgrade. `cell` is `None` for a room that isn't registered (an id that was
 /// taken down, or any well-formed id): closed 4006 or 4004 before any snapshot (OME-768).
 pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<Arc<RoomCell>>, ip: String, keyed: bool, _slot: Slot) {
+    if let Some(hold) = &app.ws.hold_attach {
+        hold.notified().await;
+    }
     let conn = Conn::new(ip, keyed, app.mono());
     let (outbox, rx) = channel();
     let attached = cell.as_ref().is_some_and(|c| {

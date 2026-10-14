@@ -6,8 +6,6 @@ use crate::config::ServerConfig;
 use crate::log::stdout_line;
 use crate::rooms_gc::spawn_room_gc;
 use axum::Router;
-use axum::http::StatusCode;
-use std::future::IntoFuture;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
@@ -53,6 +51,16 @@ pub async fn serve(config: ServerConfig) -> Result<(), ServeError> {
     served
 }
 
+/// Each slice builds its routes in its own file (`hooks` are the test-hooks routes, empty in a normal build); S5's
+/// gate and headers wrap the lot and answer what no route does.
+pub fn build_router(app: Arc<App>, hooks: Router) -> Router {
+    let routes = Router::new()
+        .merge(hooks)
+        .merge(crate::http::router(app.clone()))
+        .merge(crate::ws::router(app.clone()));
+    crate::http::wrap(app, routes)
+}
+
 /// The clock the app runs on, and the routes that drive it: the system clock and none in a normal build; the
 /// virtual clock and `/__test/time` with the `test-hooks` feature (ADR 0050), so the black-box suite moves time.
 fn clock_and_hooks() -> (SharedClock, Router) {
@@ -65,7 +73,8 @@ fn clock_and_hooks() -> (SharedClock, Router) {
 async fn listen(config: ServerConfig, app: Arc<App>, hooks: Router) -> Result<(), ServeError> {
     let listener = TcpListener::bind((config.hostname.as_str(), config.port)).await?;
     let addr = listener.local_addr()?;
-    app.ws.set_port(addr.port());
+    // Before the line below: a client that waits for it must find the allowlists in place.
+    app.http.bind(&config, addr.port());
     let via = config
         .public_origin
         .as_deref()
@@ -75,20 +84,14 @@ async fn listen(config: ServerConfig, app: Arc<App>, hooks: Router) -> Result<()
         "omega-share server on http://{addr}/ (site origin {}{via})",
         config.site_origin
     ));
-    // Each slice builds its routes in its own file; the fallback goes last.
-    let router = Router::new()
-        .merge(hooks)
-        .merge(crate::http::router(app.clone()))
-        .merge(crate::ws::router(app.clone()))
-        .fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
+    let router = build_router(app, hooks);
 
     let (stop, mut stopped) = watch::channel(false);
-    let serving =
-        axum::serve(listener, router.into_make_service_with_connect_info::<std::net::SocketAddr>()).with_graceful_shutdown(async move {
-            // Resolves on the stop signal, or if the sender is gone (nothing left to wait for).
-            let _ = stopped.wait_for(|stop| *stop).await;
-        });
-    let mut serving = std::pin::pin!(serving.into_future());
+    let serving = crate::http::server::serve(listener, router, async move {
+        // Resolves on the stop signal, or if the sender is gone (nothing left to wait for).
+        let _ = stopped.wait_for(|stop| *stop).await;
+    });
+    let mut serving = std::pin::pin!(serving);
     tokio::select! {
         served = &mut serving => return served.map_err(ServeError::Io),
         () = shutdown_signal() => {}

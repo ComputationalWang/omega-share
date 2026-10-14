@@ -3,6 +3,9 @@ import { envFor } from "../../server-rs/blackbox/env";
 import { blackBoxServer } from "../../server-rs/blackbox/handle";
 import { spawnServer } from "../../server-rs/blackbox/spawn";
 import { startServer, type OmegaServer, type ServerOptions } from "../src/server";
+import { openDatabase } from "../src/store/db";
+import { ReportStore } from "../src/store/reports";
+import { RoomStore } from "../src/store/rooms";
 
 export { NotBlackBox } from "../../server-rs/blackbox/env";
 export { TestClock } from "../../server-rs/blackbox/clock";
@@ -25,7 +28,7 @@ const BLACK_BOX_BIN = process.env["OMEGA_SERVER_BIN"];
  * test can honour exist on `server`; touching any other throws NotBlackBox so the runner can classify
  * the test.
  */
-function startBlackBox(bin: string, opts: Partial<ServerOptions>): TestServer {
+function startBlackBox(bin: string, opts: StartOptions): TestServer {
   const { env, clock } = envFor({ ...opts });
   const { port, stop } = spawnServer(bin, env);
   const http = `http://127.0.0.1:${String(port)}`;
@@ -38,9 +41,38 @@ function startBlackBox(bin: string, opts: Partial<ServerOptions>): TestServer {
   };
 }
 
-export function start(opts: Partial<ServerOptions> = {}): TestServer {
+/**
+ * `dbPath` is the database file the server keeps its rooms and reports in (the binary's `DB_PATH`). In process it is
+ * opened the way index.ts does and closed with the server; a test seeds or inspects the same file with
+ * `openDatabase` (WAL: readable while the server runs).
+ */
+export type StartOptions = Partial<ServerOptions> & { dbPath?: string };
+
+export function start(opts: StartOptions = {}): TestServer {
   if (BLACK_BOX_BIN !== undefined) return startBlackBox(BLACK_BOX_BIN, opts);
-  const server = startServer({ port: 0, hostname: "127.0.0.1", siteOrigin: SITE_ORIGIN, ...opts });
+  const { dbPath, ...rest } = opts;
+  if (dbPath !== undefined) {
+    const db = openDatabase(dbPath);
+    const server = startServer({
+      port: 0,
+      hostname: "127.0.0.1",
+      siteOrigin: SITE_ORIGIN,
+      store: new RoomStore(db),
+      reportStore: new ReportStore(db),
+      ...rest,
+    });
+    const stop = server.stop.bind(server);
+    server.stop = (closeActiveConnections?: boolean) => {
+      const stopped = stop(closeActiveConnections);
+      void stopped.then(() => {
+        db.close();
+      });
+      return stopped;
+    };
+    const http = `http://127.0.0.1:${String(server.port)}`;
+    return { server, http, ws: (roomId = "lobby") => `ws://127.0.0.1:${String(server.port)}/rooms/${roomId}/ws` };
+  }
+  const server = startServer({ port: 0, hostname: "127.0.0.1", siteOrigin: SITE_ORIGIN, ...rest });
   const http = `http://127.0.0.1:${String(server.port)}`;
   return { server, http, ws: (roomId = "lobby") => `ws://127.0.0.1:${String(server.port)}/rooms/${roomId}/ws` };
 }

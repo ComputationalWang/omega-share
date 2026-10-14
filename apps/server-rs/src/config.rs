@@ -55,6 +55,9 @@ pub struct ServerConfig {
     pub join_timeout_ms: u32,
     /// `STATUS_INTERVAL_MS`: `member-status` coalescing interval (default 1 s).
     pub status_interval_ms: u32,
+    /// `MAX_HTTP_IN_FLIGHT`: HTTP requests handled at once, whatever their clients; more get 503
+    /// (`maxHttpInFlight` in server.ts, threat model section 10). Zero refuses every request.
+    pub max_http_in_flight: usize,
 }
 
 /// A refused variable: `invalid KEY: why`.
@@ -77,6 +80,9 @@ pub const DEFAULT_MAX_CONNECTIONS: u32 = 1024;
 pub const DEFAULT_JOIN_TIMEOUT_MS: u32 = 10_000;
 pub const DEFAULT_STATUS_INTERVAL_MS: u32 = 1000;
 
+/// HTTP requests handled at once by default (`MAX_HTTP_IN_FLIGHT` in http.ts).
+pub const DEFAULT_MAX_HTTP_IN_FLIGHT: usize = 256;
+
 /// Dev default for `DB_PATH`: `apps/server-rs/data/omega.db` (git-ignored), never under a static dir.
 pub fn default_db_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("data/omega.db")
@@ -85,7 +91,7 @@ pub fn default_db_path() -> PathBuf {
 pub type Env = HashMap<String, String>;
 
 /// Every variable the server reads; a non-UTF-8 value in one of them is refused, never mangled.
-pub const CONFIG_KEYS: [&str; 18] = [
+pub const CONFIG_KEYS: [&str; 19] = [
     "PORT",
     "HOST",
     "SITE_ORIGIN",
@@ -100,6 +106,7 @@ pub const CONFIG_KEYS: [&str; 18] = [
     "MAX_CONNECTIONS_PER_IP",
     "JOIN_TIMEOUT_MS",
     "STATUS_INTERVAL_MS",
+    "MAX_HTTP_IN_FLIGHT",
     "GENERIC_EMBEDS",
     "GENERIC_EMBED_DENYLIST",
     "ROOM_TITLE_BLOCKLIST",
@@ -335,6 +342,12 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
     let max_connections_per_ip = whole("MAX_CONNECTIONS_PER_IP", 1, None)?;
     let join_timeout_ms = whole("JOIN_TIMEOUT_MS", 1, Some(DEFAULT_JOIN_TIMEOUT_MS))?.unwrap_or(DEFAULT_JOIN_TIMEOUT_MS);
     let status_interval_ms = whole("STATUS_INTERVAL_MS", 0, Some(DEFAULT_STATUS_INTERVAL_MS))?.unwrap_or(DEFAULT_STATUS_INTERVAL_MS);
+    let max_http_in_flight = match get("MAX_HTTP_IN_FLIGHT") {
+        None => DEFAULT_MAX_HTTP_IN_FLIGHT,
+        Some(raw) => digits(raw, 5)
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| fail("MAX_HTTP_IN_FLIGHT", "must be an integer from 0 to 99999"))?,
+    };
 
     let generic_embeds = match get("GENERIC_EMBEDS").unwrap_or("on") {
         "on" => true,
@@ -378,6 +391,7 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         max_connections_per_ip,
         join_timeout_ms,
         status_interval_ms,
+        max_http_in_flight,
     })
 }
 
@@ -477,6 +491,7 @@ mod tests {
                 max_connections_per_ip: None,
                 join_timeout_ms: 10_000,
                 status_interval_ms: 1000,
+                max_http_in_flight: 256,
             }
         );
     }
@@ -519,6 +534,7 @@ mod tests {
                 max_connections_per_ip: None,
                 join_timeout_ms: 10_000,
                 status_interval_ms: 1000,
+                max_http_in_flight: 256,
             }
         );
     }
@@ -708,6 +724,18 @@ mod tests {
         }
         for bad in ["", "4999", "600001", "1.5", "abc", "-40000", "4e4", "99999999"] {
             refuses(&[("RESUME_GRACE_MS", bad)], "RESUME_GRACE_MS");
+        }
+    }
+
+    // apps/server/test/http-limits.test.ts:132,161 (`maxHttpInFlight`); zero is legal and refuses everything
+    #[test]
+    fn max_http_in_flight_defaults_to_256_and_may_be_zero() {
+        assert_eq!(ok(&[]).max_http_in_flight, 256);
+        for (raw, want) in [("1", 1), ("0", 0), ("256", 256), ("99999", 99_999)] {
+            assert_eq!(ok(&[("MAX_HTTP_IN_FLIGHT", raw)]).max_http_in_flight, want);
+        }
+        for bad in ["", "-1", "1.5", "abc", "1e3", "1000000"] {
+            refuses(&[("MAX_HTTP_IN_FLIGHT", bad)], "MAX_HTTP_IN_FLIGHT");
         }
     }
 

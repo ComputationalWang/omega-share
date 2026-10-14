@@ -113,6 +113,12 @@ For anything the server reads as JSON text (WebSocket frames, HTTP bodies, store
 
 `corpus/corpus.test.ts` (in `bun run test`) fails when a recorded file no longer matches what the TS contract decides, so a `packages/shared` change can't land without regenerating, and regenerating can't land without the Rust side agreeing.
 
+## HTTP (S5)
+
+`http::router` is one fallback handler that matches (method, decoded path) the way Hono did (`/rooms/:id/...` routes, then the built site, then a plain `404 Not Found`); a wrong method is a 404, never a 405. `http::wrap` is the layer around the merged router (S6's `/rooms/:id/ws` included) and does, in the TS order: resolve the path (`http/path.rs`: Bun's URL parser removes `.`/`..` segments, `%2e` included, and turns `\` into `/`; Hono then `decodeURI`s the rest, keeping `%25` and reserved escapes), refuse a Host that is not ours (421) or an Origin that is not allowed (403), derive the client key (`ipOf`), skip the HTTP limits for a `/rooms/<id>/ws` path, else apply the per-key bucket (429, loopback keys skip it) and the in-flight cap (`MAX_HTTP_IN_FLIGHT`, 503), then set the security headers on every response and HSTS for the https public host. `http/server.rs` is the accept loop: hyper HTTP/1 with a 10 s header-read timeout (slowloris; Bun's `idleTimeout` in TS) and graceful shutdown; request bodies are read under their cap while they arrive, with a 10 s stall timeout between frames (`http/body.rs`). `GET /healthz`, `/rooms` and the site serve from `rooms.rs`/`site.rs`; the `apps/server/public` icons are compiled in.
+
+Corpora: `site-meta`, `with-meta`, `security-txt` (site-meta.ts), `url-pathname` and `route-path` (the URL parser and Hono's `getPath`, 5 866 paths each), `mime-type` (Hono's `getMimeType`).
+
 ## Deliberate differences
 
 Rust differs from the TS server in a few places that no real client reaches (all but log scrubbing are stricter than Valibot). The comparison test lists them as expected disagreements:
@@ -129,6 +135,13 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | Socket timers (join timeout, `member-status` interval) | `setTimeout` (real time) | real time too; only the hold expiry follows the app clock (`schedule` in TS). The status interval is measured on the process's own monotonic clock |
 | `pong` and `chat` `at` | `Date.now()` (not the injected `wallNow`) | the system clock, not the virtual one |
 | Config knobs `MAX_CONNECTIONS_PER_IP`, `JOIN_TIMEOUT_MS`, `STATUS_INTERVAL_MS` | `startServer` options only | also environment variables (the black-box harness maps the options onto them) |
+| HTTP: a static file that is a symlink out of `STATIC_DIR` | served (`Bun.file` follows it) | 404: the real path must stay under the root |
+| HTTP: `content-disposition: filename=...` on a served file whose type Bun does not know (`.webmanifest`, no extension) | sent by Bun | not sent (nothing reads it) |
+| HTTP: `HEAD` | Bun answers `content-length: 0` | the length of the GET body, as hyper does |
+| HTTP: a request body that takes over 30 s in all (a client trickling a byte per stall timeout) | read until Bun's idle timeout, which a trickle never trips | refused (400 as a body that is not JSON) and the in-flight slot freed: stricter than Bun, closes a flood hole |
+| HTTP: a static path with a dot segment (`.env`, `.git/...`, `assets/.x`) | served if the file exists | 404; only the explicit `/.well-known/security.txt` route serves a dot path: safety over parity |
+| `PUBLIC_ORIGIN=http://...` | `startServer` accepts it in a test (`parseConfig` refuses it) | the config refuses it, as `parseConfig` does: `boundary.test.ts` "no HSTS ... plain-http one" cannot run against the binary |
+| HTTP request body with invalid UTF-8 | decoded lossily, then `JSON.parse` | the same (`String::from_utf8_lossy`): the route decodes first, so the `parse_*_request` row above does not apply to HTTP |
 
 Anything else that differs is a bug, unless ADR 0050 is amended.
 

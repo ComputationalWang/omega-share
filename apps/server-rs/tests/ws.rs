@@ -80,6 +80,7 @@ struct Opts {
     max_per_ip: Option<usize>,
     resume_grace_ms: Option<u32>,
     idle_timeout_ms: Option<f64>,
+    hold_attach: Option<Arc<tokio::sync::Notify>>,
 }
 
 async fn start(opts: Opts) -> Server {
@@ -106,16 +107,17 @@ async fn start(opts: Opts) -> Server {
             inner.ws.status_interval_ms = v;
         }
         inner.ws.max_per_ip = opts.max_per_ip;
+        inner.ws.hold_attach = opts.hold_attach.clone();
         if let Some(v) = opts.idle_timeout_ms {
             inner.ws.idle_timeout_ms = v;
         }
     }
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    app.ws.set_port(addr.port());
-    let router = omega_server::ws::router(app.clone());
+    app.http.bind(&app.config, addr.port());
+    let router = omega_server::serve::build_router(app.clone(), axum::Router::new());
     tokio::spawn(async move {
-        let _ = axum::serve(listener, router.into_make_service_with_connect_info::<SocketAddr>()).await;
+        let _ = omega_server::http::server::serve(listener, router, std::future::pending()).await;
     });
     Server { addr, app, clock }
 }
@@ -1302,4 +1304,21 @@ async fn a_kicked_address_cannot_rejoin_but_an_owner_from_it_can() {
     let (mut again, snap) = joined_as(&s, "mine", json!({"ownerToken": OWNER}), "olive2", &[(XFF, "192.0.2.9")]).await;
     assert_eq!(snap["owner"], true);
     again.none("error", 100).await;
+}
+
+// OME-1167 review N5: a drain that starts between the upgrade and the attach still closes the socket.
+#[tokio::test]
+async fn a_socket_attaching_after_the_drain_started_is_closed_1012() {
+    let gate = Arc::new(tokio::sync::Notify::new());
+    let s = start(Opts {
+        hold_attach: Some(gate.clone()),
+        ..Opts::default()
+    })
+    .await;
+    let mut c = connect(&s).await;
+    let holds = omega_server::ws::drain(&s.app);
+    assert!(holds.is_empty());
+    gate.notify_one();
+    assert_eq!(c.closed().await, Some(1012));
+    assert!(c.inbox.is_empty());
 }

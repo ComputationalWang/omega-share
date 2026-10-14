@@ -27,6 +27,7 @@ const MAPPED: Record<string, readonly [string, (v: unknown) => string]> = {
   maxConnectionsPerIp: ["MAX_CONNECTIONS_PER_IP", text],
   joinTimeoutMs: ["JOIN_TIMEOUT_MS", text],
   statusIntervalMs: ["STATUS_INTERVAL_MS", text],
+  maxHttpInFlight: ["MAX_HTTP_IN_FLIGHT", text],
   genericEmbedDenylist: ["GENERIC_EMBED_DENYLIST", list],
   roomTitleBlocklist: ["ROOM_TITLE_BLOCKLIST", list],
   dbPath: ["DB_PATH", text],
