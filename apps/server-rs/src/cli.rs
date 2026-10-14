@@ -13,7 +13,10 @@ use icu_properties::props::GeneralCategory;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
+use crate::config::Env;
 use std::fmt::Write as _;
+use std::path::Path;
+use std::time::Duration;
 use validator::{Validate, ValidationError};
 
 const MAX_SAFE: i64 = 9_007_199_254_740_991;
@@ -332,6 +335,36 @@ pub fn success(cmd: &Command, body: &Value) -> Option<Vec<String>> {
     }
 }
 
+/// `FETCH_TIMEOUT_MS`: the server answers from memory at once; a hung one shouldn't hang the operator's ssh session.
+pub const REQUEST_TIMEOUT: Duration = Duration::from_millis(10_000);
+
+/// One request on the admin socket (HTTP/1.1, `Connection: close`): the status and the body.
+pub fn request(socket: &Path, method: &str, path: &str, timeout: Duration) -> Result<(u16, Vec<u8>), String> {
+    let _ = (socket, method, path, timeout);
+    Err("not implemented".to_owned())
+}
+
+/// Splits a raw HTTP/1.1 answer into its status and body (content-length or chunked).
+pub fn parse_response(raw: &[u8]) -> Option<(u16, Vec<u8>)> {
+    let _ = raw;
+    None
+}
+
+/// Where a run reads its environment and writes its lines.
+pub struct Io<'a> {
+    /// `ADMIN_SOCKET` or `DB_PATH` locate the socket.
+    pub env: &'a Env,
+    pub cwd: &'a Path,
+    pub out: &'a mut dyn FnMut(&str),
+    pub err: &'a mut dyn FnMut(&str),
+}
+
+/// `runCli`: the arguments after `admin`; returns the exit code.
+pub fn run_cli(argv: &[String], io: &mut Io<'_>) -> i32 {
+    let _ = (argv, io);
+    99
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::indexing_slicing, reason = "tests")]
 mod tests {
@@ -427,5 +460,209 @@ mod tests {
         );
         assert_eq!(say(Command::DismissRoom { id: rid(id) }, serde_json::json!({"dismissed": 3})), ["dismissed 3"]);
         assert_eq!(success(&Command::Reports, &serde_json::json!({"rooms": []})).unwrap(), ["no open reports"]);
+    }
+
+    use crate::admin::start_admin;
+    use crate::app::testing::{T0, add_room, app};
+    use crate::room::RoomInit;
+    use std::io::{Read, Write};
+    use std::os::unix::net::{UnixListener, UnixStream};
+    use std::path::PathBuf;
+
+    const A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    /// Runs the CLI on a blocking thread (it is synchronous, the server is on the runtime), collecting its lines.
+    async fn cli(socket: &Path, parts: &[&str]) -> (i32, Vec<String>, Vec<String>) {
+        let argv = argv(parts);
+        let mut env = Env::new();
+        env.insert("ADMIN_SOCKET".to_owned(), socket.display().to_string());
+        tokio::task::spawn_blocking(move || {
+            let (mut out, mut err) = (Vec::new(), Vec::new());
+            let code = run_cli(
+                &argv,
+                &mut Io {
+                    env: &env,
+                    cwd: Path::new("/"),
+                    out: &mut |l| out.push(l.to_owned()),
+                    err: &mut |l| err.push(l.to_owned()),
+                },
+            );
+            (code, out, err)
+        })
+        .await
+        .unwrap()
+    }
+
+    fn sock() -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("admin.sock");
+        (dir, path)
+    }
+
+    /// A one-shot fake server answering whatever it is asked with `reply` (raw bytes).
+    fn fake_server(path: &Path, reply: &'static [u8]) {
+        let listener = UnixListener::bind(path).unwrap();
+        std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buf = [0u8; 1024];
+                let _ = stream.read(&mut buf);
+                let _ = stream.write_all(reply);
+            }
+        });
+    }
+
+    // apps/server/test/cli.test.ts:60
+    #[tokio::test(flavor = "multi_thread")]
+    async fn rooms_list_prints_the_table_over_the_socket() {
+        let (app, _) = app();
+        add_room(&app, "lobby", RoomInit::default());
+        let (_dir, path) = sock();
+        let server = start_admin(app, &path).unwrap();
+        let (code, out, err) = cli(&path, &["rooms", "list"]).await;
+        assert_eq!((code, err), (0, Vec::<String>::new()));
+        assert_eq!(out[0], "id\ttitle\tvisibility\tcreated\tlast active\tpinned\tmembers");
+        assert_eq!(out[1], format!("lobby\t-\tpublic\t{}\tnever\tyes\t0", time(Some(T0)).unwrap()));
+        server.stop().await;
+    }
+
+    // apps/server/test/cli.test.ts:116, :140
+    #[tokio::test(flavor = "multi_thread")]
+    async fn delete_prints_what_it_did_and_an_unknown_room_exits_1() {
+        let (app, _) = app();
+        add_room(&app, A, RoomInit::default());
+        let (_dir, path) = sock();
+        let server = start_admin(app.clone(), &path).unwrap();
+        let (code, out, _) = cli(&path, &["rooms", "delete", A]).await;
+        assert_eq!((code, out), (0, vec![format!("deleted {A}")]));
+        assert!(app.registry.get(&crate::app::testing::rid(A)).is_none());
+        let (code, out, err) = cli(&path, &["rooms", "delete", A]).await;
+        assert_eq!((code, out, err), (1, vec![], vec![format!("no room {A}")]));
+        server.stop().await;
+    }
+
+    // apps/server/test/cli.test.ts:200, apps/server/test/takedown.test.ts:106
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pin_takedown_and_report_commands_print_one_line() {
+        let (app, _) = app();
+        add_room(&app, "lobby", RoomInit::default());
+        let (_dir, path) = sock();
+        let server = start_admin(app, &path).unwrap();
+        let (code, _, err) = cli(&path, &["rooms", "unpin", "lobby"]).await;
+        assert_eq!(
+            (code, err),
+            (1, vec!["lobby is a seeded room with no owner: it stays pinned (delete it instead)".to_owned()])
+        );
+        let (code, out, _) = cli(&path, &["rooms", "pin", "lobby"]).await;
+        assert_eq!((code, out), (0, vec!["pinned lobby".to_owned()]));
+        let (code, out, _) = cli(&path, &["rooms", "takedown", A]).await;
+        assert_eq!((code, out), (0, vec![format!("taken down {A} (it was not live)")]));
+        let (code, out, _) = cli(&path, &["reports", "list"]).await;
+        assert_eq!((code, out), (0, vec!["no open reports".to_owned()]));
+        let (code, out, _) = cli(&path, &["reports", "dismiss", "--room", A]).await;
+        assert_eq!((code, out), (0, vec!["dismissed 0".to_owned()]));
+        let (code, _, err) = cli(&path, &["reports", "dismiss", "AAAAAAAAAAAAAAAAAAAAAA"]).await;
+        assert_eq!((code, err), (1, vec!["no open report AAAAAAAAAAAAAAAAAAAAAA".to_owned()]));
+        server.stop().await;
+    }
+
+    // apps/server/test/cli.test.ts:224, :337
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_bad_command_exits_2_with_usage_without_calling_the_server() {
+        let (_dir, path) = sock();
+        // No server: reaching it would be exit 1.
+        for parts in [vec![], vec!["rooms", "delete", "../lobby"], vec!["reports", "dismiss", "x"], vec!["rooms", "list", "extra"]] {
+            let (code, out, err) = cli(&path, &parts).await;
+            assert_eq!((code, out, err), (2, vec![], vec![usage().to_owned()]), "{parts:?}");
+        }
+        assert!(usage().starts_with("usage: omega-server admin rooms list | rooms delete <id>"));
+    }
+
+    // apps/server/test/cli.test.ts:233
+    #[tokio::test(flavor = "multi_thread")]
+    async fn no_server_on_the_socket_exits_1_and_names_it() {
+        let (_dir, path) = sock();
+        let (code, out, err) = cli(&path, &["rooms", "list"]).await;
+        assert_eq!((code, out), (1, vec![]));
+        assert!(err[0].starts_with(&format!("no server on {}: ", path.display())), "{err:?}");
+    }
+
+    // apps/server/src/cli.ts:168
+    #[test]
+    fn the_socket_setting_decides_where_to_go_or_that_there_is_none() {
+        let run = |pairs: &[(&str, &str)]| {
+            let env: Env = pairs.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect();
+            let (mut out, mut err) = (Vec::new(), Vec::new());
+            let code = run_cli(
+                &argv(&["rooms", "list"]),
+                &mut Io {
+                    env: &env,
+                    cwd: Path::new("/"),
+                    out: &mut |l| out.push(l.to_owned()),
+                    err: &mut |l| err.push(l.to_owned()),
+                },
+            );
+            (code, out, err)
+        };
+        assert_eq!(
+            run(&[("ADMIN_SOCKET", "off")]),
+            (1, vec![], vec!["the admin socket is off (ADMIN_SOCKET=off or DB_PATH=:memory:)".to_owned()])
+        );
+        assert_eq!(run(&[("DB_PATH", ":memory:")]).0, 1);
+        assert_eq!(run(&[("ADMIN_SOCKET", "")]), (2, vec![], vec!["invalid ADMIN_SOCKET: must not be empty".to_owned()]));
+    }
+
+    // apps/server/src/cli.ts:185
+    #[test]
+    fn a_failing_or_odd_answer_is_reported_without_trusting_it() {
+        let (_dir, path) = sock();
+        let run = |reply: &'static [u8]| {
+            let path = path.with_file_name(format!("{}.sock", reply.len()));
+            fake_server(&path, reply);
+            let env: Env = [("ADMIN_SOCKET".to_owned(), path.display().to_string())].into();
+            let (mut out, mut err) = (Vec::new(), Vec::new());
+            let code = run_cli(
+                &argv(&["rooms", "list"]),
+                &mut Io {
+                    env: &env,
+                    cwd: Path::new("/"),
+                    out: &mut |l| out.push(l.to_owned()),
+                    err: &mut |l| err.push(l.to_owned()),
+                },
+            );
+            (code, out, err)
+        };
+        // An error text is user-influenced: escaped like a title.
+        let hostile = b"HTTP/1.1 500 x\r\ncontent-length: 23\r\n\r\n{\"error\":\"a\\u001b[2Jb\"}";
+        assert_eq!(run(hostile), (1, vec![], vec!["a\\u001b[2Jb".to_owned()]));
+        assert_eq!(run(b"HTTP/1.1 502 x\r\ncontent-length: 4\r\n\r\nnope"), (1, vec![], vec!["server answered 502".to_owned()]));
+        assert_eq!(
+            run(b"HTTP/1.1 200 x\r\ncontent-length: 2\r\n\r\n{}"),
+            (1, vec![], vec!["unexpected answer from the server".to_owned()])
+        );
+    }
+
+    #[test]
+    fn parse_response_reads_content_length_and_chunked_bodies() {
+        assert_eq!(parse_response(b"HTTP/1.1 200 OK\r\ncontent-length: 5\r\n\r\nhello"), Some((200, b"hello".to_vec())));
+        assert_eq!(
+            parse_response(b"HTTP/1.1 404 Not Found\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabc\r\n2\r\nde\r\n0\r\n\r\n"),
+            Some((404, b"abcde".to_vec()))
+        );
+        // No framing at all: the body is what the close delivered.
+        assert_eq!(parse_response(b"HTTP/1.1 200 OK\r\n\r\nxyz"), Some((200, b"xyz".to_vec())));
+        for bad in [&b""[..], b"HTTP/1.1", b"garbage\r\n\r\n", b"HTTP/1.1 abc x\r\n\r\n", b"HTTP/1.1 200 OK\r\ncontent-length: 9\r\n\r\nshort", b"HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\nzz\r\n"] {
+            assert_eq!(parse_response(bad), None, "{bad:?}");
+        }
+    }
+
+    // apps/server/src/cli.ts: FETCH_TIMEOUT_MS
+    #[test]
+    fn a_silent_server_times_out() {
+        let (_dir, path) = sock();
+        let listener = UnixListener::bind(&path).unwrap();
+        let held = std::thread::spawn(move || listener.accept().map(|(s, _)| s));
+        let err = request(&path, "GET", "/rooms", Duration::from_millis(150)).unwrap_err();
+        assert!(err.contains("timed out"), "{err}");
+        drop(held.join().unwrap().map(drop::<UnixStream>));
     }
 }
