@@ -353,6 +353,12 @@ pub const REQUEST_TIMEOUT: Duration = Duration::from_millis(10_000);
 /// More than any real answer (a room list is a few hundred bytes per room): a runaway reply is cut off.
 const MAX_RESPONSE_BYTES: u64 = 16 * 1024 * 1024;
 
+/// Runs `connect` and waits at most `timeout` for it: a full accept queue blocks a Unix `connect`.
+fn connect_bounded(connect: impl FnOnce() -> std::io::Result<UnixStream> + Send + 'static, timeout: Duration) -> Result<UnixStream, String> {
+    let _ = timeout;
+    connect().map_err(|e| e.to_string())
+}
+
 /// One request on the admin socket (HTTP/1.1, `Connection: close`): the status and the body. Only the Unix socket,
 /// never TCP; `timeout` bounds the whole exchange.
 pub fn request(socket: &Path, method: &str, path: &str, timeout: Duration) -> Result<(u16, Vec<u8>), String> {
@@ -845,5 +851,30 @@ mod tests {
         let err = request(&path, "GET", "/rooms", Duration::from_millis(150)).unwrap_err();
         assert!(err.contains("timed out"), "{err}");
         drop(held.join().unwrap().map(drop::<UnixStream>));
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
+mod connect_tests {
+    use super::*;
+
+    // apps/server/src/cli.ts FETCH_TIMEOUT_MS covers the whole fetch: a connect that blocks (a full accept queue) is bounded too.
+    #[test]
+    fn a_connect_that_blocks_is_cut_off_at_the_deadline() {
+        let started = Instant::now();
+        let slow = || {
+            std::thread::sleep(Duration::from_secs(3));
+            Err(std::io::Error::other("late"))
+        };
+        let err = connect_bounded(slow, Duration::from_millis(200)).unwrap_err();
+        assert!(err.contains("timed out"), "{err}");
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[test]
+    fn a_connect_that_fails_fast_says_why() {
+        let err = connect_bounded(|| Err(std::io::Error::from(ErrorKind::ConnectionRefused)), Duration::from_secs(1)).unwrap_err();
+        assert!(err.to_lowercase().contains("refused"), "{err}");
     }
 }
