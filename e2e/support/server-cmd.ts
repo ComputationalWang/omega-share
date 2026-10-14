@@ -23,12 +23,12 @@ function targetDir(env: NodeJS.ProcessEnv): string {
 /** The server process to spawn, from the repo root, with the same env either way. */
 export function serverProcess(env: NodeJS.ProcessEnv): { command: string; args: string[] } {
   if (serverBackend(env) === "bun") return { command: "bun", args: ["apps/server/src/index.ts"] };
-  return { command: join(targetDir(env), "debug/omega-server"), args: [] };
+  return { command: join(targetDir(env), "e2e/omega-server"), args: [] };
 }
 
-/** Builds the debug binary once per run (the runner calls this; workers only compute the path). */
+/** Builds the e2e-profile binary (Cargo.toml [profile.e2e]: release without LTO) once per run (the runner calls this; workers only compute the path). */
 export function buildRustServer(env: NodeJS.ProcessEnv): void {
-  const r = spawnSync("cargo", ["build", "--locked", "--bin", "omega-server"], { cwd: ROOT, stdio: "inherit", env });
+  const r = spawnSync("cargo", ["build", "--locked", "--profile", "e2e", "--bin", "omega-server"], { cwd: ROOT, stdio: "inherit", env });
   if (r.status !== 0) throw new Error("cargo build of omega-server failed");
 }
 
