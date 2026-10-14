@@ -112,7 +112,15 @@ pub struct Spec {
 
 impl Spec {
     const fn new(layer: Layer, facings: &'static [Facing], cols: u8, rows: u8) -> Self {
-        Self { layer, facings, cols, rows, seats: false, variants: 1, wall_backed: false }
+        Self {
+            layer,
+            facings,
+            cols,
+            rows,
+            seats: false,
+            variants: 1,
+            wall_backed: false,
+        }
     }
     const fn seated(mut self) -> Self {
         self.seats = true;
@@ -165,7 +173,13 @@ pub struct Furniture {
 
 impl Furniture {
     pub const fn new(kind: Kind, col: u8, row: u8, facing: Facing) -> Self {
-        Self { kind, col, row, facing, variant: None }
+        Self {
+            kind,
+            col,
+            row,
+            facing,
+            variant: None,
+        }
     }
 }
 
@@ -182,19 +196,34 @@ const fn turned(f: &Furniture) -> bool {
 
 /// Floor cells `(col, row)` a piece covers, from its anchor cell toward +col and +row, cols before rows.
 pub fn footprint_cells(f: &Furniture) -> Vec<(u32, u32)> {
-    let _ = f;
-    Vec::new()
+    let s = spec(f.kind);
+    let (cols, rows) = if turned(f) { (s.rows, s.cols) } else { (s.cols, s.rows) };
+    let (col, row) = (u32::from(f.col), u32::from(f.row));
+    (0..u32::from(cols))
+        .flat_map(|c| (0..u32::from(rows)).map(move |r| (col + c, row + r)))
+        .collect()
 }
 
 /// Seat `i` is the `i`-th seat cell across seat-giving pieces, in `furniture` order (ADR 0021).
 pub fn layout_seats(furniture: &[Furniture]) -> Vec<Seat> {
-    let _ = furniture;
-    Vec::new()
+    let mut seats = Vec::new();
+    for f in furniture.iter().filter(|f| spec(f.kind).seats) {
+        seats.extend(footprint_cells(f).into_iter().map(|(col, row)| Seat {
+            col,
+            row,
+            facing: f.facing,
+        }));
+    }
+    seats
 }
 
 /// Wall pieces hang on the right wall at (col, 0) facing sw, on the left wall at (0, row) facing se.
 fn wall_segment(f: &Furniture) -> (bool, u32) {
-    if f.facing == Facing::Sw { (true, u32::from(f.col)) } else { (false, u32::from(f.row)) }
+    if f.facing == Facing::Sw {
+        (true, u32::from(f.col))
+    } else {
+        (false, u32::from(f.row))
+    }
 }
 
 fn on_its_wall(f: &Furniture, s: &Spec) -> bool {
@@ -210,8 +239,12 @@ fn on_its_wall(f: &Furniture, s: &Spec) -> bool {
 
 /// One piece's rules on top of its fields (the `v.check`s of `furniture` in layout.ts).
 fn piece_ok(f: &Furniture) -> bool {
-    let _ = f;
-    true
+    let s = spec(f.kind);
+    let floor = FLOOR_CELLS as u32;
+    s.facings.contains(&f.facing)
+        && f.variant.unwrap_or(0) < s.variants
+        && footprint_cells(f).iter().all(|&(c, r)| c < floor && r < floor)
+        && on_its_wall(f, &s)
 }
 
 /// True if no two pieces of `layer` share a cell (wall pieces: a wall segment).
@@ -233,8 +266,12 @@ fn disjoint(furniture: &[Furniture], layer: Layer) -> bool {
 
 /// The layout's rules on top of its pieces' (ADR 0021 §3).
 fn layout_ok(furniture: &[Furniture]) -> bool {
-    let _ = furniture;
-    true
+    furniture.len() <= MAX_FURNITURE
+        && furniture.iter().filter(|f| f.kind == Kind::Tv).count() == 1
+        && layout_seats(furniture).len() == SEAT_COUNT
+        && disjoint(furniture, Layer::Object)
+        && disjoint(furniture, Layer::Floor)
+        && disjoint(furniture, Layer::Wall)
 }
 
 fn refuse(code: &'static str) -> Result<(), ValidationError> {
@@ -369,14 +406,20 @@ const DEFAULT_SEAT_CELLS: [(u8, u8); 8] = [(1, 5), (2, 4), (4, 2), (5, 1), (3, 7
 
 /// Today's room as data: what the server seeds and what a client without a `layout` draws.
 pub fn default_layout() -> RoomLayout {
-    let chairs = DEFAULT_SEAT_CELLS.iter().map(|&(col, row)| {
-        Furniture::new(Kind::Armchair, col, row, if col < row { Facing::Ne } else { Facing::Nw })
-    });
-    let furniture = [Furniture::new(Kind::Tv, 0, 0, Facing::Se), Furniture::new(Kind::Rug, 1, 1, Facing::Se)]
-        .into_iter()
-        .chain(chairs)
-        .chain([Furniture::new(Kind::Lamp, 9, 0, Facing::Se), Furniture::new(Kind::Plant, 0, 9, Facing::Se)])
-        .collect();
+    let chairs = DEFAULT_SEAT_CELLS
+        .iter()
+        .map(|&(col, row)| Furniture::new(Kind::Armchair, col, row, if col < row { Facing::Ne } else { Facing::Nw }));
+    let furniture = [
+        Furniture::new(Kind::Tv, 0, 0, Facing::Se),
+        Furniture::new(Kind::Rug, 1, 1, Facing::Se),
+    ]
+    .into_iter()
+    .chain(chairs)
+    .chain([
+        Furniture::new(Kind::Lamp, 9, 0, Facing::Se),
+        Furniture::new(Kind::Plant, 0, 9, Facing::Se),
+    ])
+    .collect();
     RoomLayout { furniture }
 }
 
@@ -459,6 +502,10 @@ mod tests {
     fn pv(kind: &str, col: u8, row: u8, facing: &str, variant: u8) -> Value {
         json!({"kind":kind,"col":col,"row":row,"facing":facing,"variant":variant})
     }
+    /// The base layout in canonical key order (a `Value` sorts its keys, so text edits need this).
+    fn canon_base() -> String {
+        parse(&base(vec![])).to_json()
+    }
     fn parse(v: &Value) -> RoomLayout {
         RoomLayout::parse(v.to_string().as_bytes()).unwrap()
     }
@@ -509,13 +556,28 @@ mod tests {
         use Facing::{Ne, Nw};
         assert_eq!(facings, [Ne, Ne, Nw, Nw, Ne, Ne, Nw, Nw]);
         // :83 corner TV, 7x7 rug, lamp, plant
-        let others: Vec<(Kind, u8, u8)> = d.furniture().iter().filter(|f| f.kind != Kind::Armchair).map(|f| (f.kind, f.col, f.row)).collect();
-        assert_eq!(others, [(Kind::Tv, 0, 0), (Kind::Rug, 1, 1), (Kind::Lamp, 9, 0), (Kind::Plant, 0, 9)]);
+        let others: Vec<(Kind, u8, u8)> = d
+            .furniture()
+            .iter()
+            .filter(|f| f.kind != Kind::Armchair)
+            .map(|f| (f.kind, f.col, f.row))
+            .collect();
+        assert_eq!(
+            others,
+            [(Kind::Tv, 0, 0), (Kind::Rug, 1, 1), (Kind::Lamp, 9, 0), (Kind::Plant, 0, 9)]
+        );
     }
 
     #[test]
     fn canonical_json_has_the_ts_key_order_and_omits_an_absent_variant() {
-        let l = parse(&layout(vec![tv(), pv("sofa", 1, 5, "ne", 1), p("sofa", 4, 5, "ne"), p("couch", 6, 1, "nw"), p("wingback", 8, 8, "sw"), pv("beanbag", 7, 7, "se", 1)]));
+        let l = parse(&layout(vec![
+            tv(),
+            pv("sofa", 1, 5, "ne", 1),
+            p("sofa", 4, 5, "ne"),
+            p("couch", 6, 1, "nw"),
+            p("wingback", 8, 8, "sw"),
+            pv("beanbag", 7, 7, "se", 1),
+        ]));
         assert_eq!(
             l.to_json(),
             r#"{"furniture":[{"kind":"tv","col":0,"row":0,"facing":"se"},{"kind":"sofa","col":1,"row":5,"facing":"ne","variant":1},{"kind":"sofa","col":4,"row":5,"facing":"ne"},{"kind":"couch","col":6,"row":1,"facing":"nw"},{"kind":"wingback","col":8,"row":8,"facing":"sw"},{"kind":"beanbag","col":7,"row":7,"facing":"se","variant":1}]}"#
@@ -525,9 +587,10 @@ mod tests {
     #[test]
     fn a_variant_written_as_zero_is_kept_and_two_layouts_compare_by_value() {
         let a = parse(&base(vec![]));
-        let b = RoomLayout::parse(r#"{"furniture":[{"facing":"se","row":0,"col":0,"kind":"tv"}]}"#.as_bytes());
-        assert!(b.is_err());
-        let reordered = base(vec![]).to_string().replace(r#""kind":"tv","col":0,"row":0,"facing":"se""#, r#""facing":"se","kind":"tv","row":0,"col":0"#);
+        let reordered = canon_base().replace(
+            r#""kind":"tv","col":0,"row":0,"facing":"se""#,
+            r#""facing":"se","kind":"tv","row":0,"col":0"#,
+        );
         assert_eq!(RoomLayout::parse(reordered.as_bytes()), Ok(a.clone()));
         let with_zero = parse(&layout(std::iter::once(pv("tv", 0, 0, "se", 0)).chain(chairs()).collect()));
         assert_ne!(with_zero, a);
@@ -547,7 +610,16 @@ mod tests {
         use Facing::{Ne, Nw, Se, Sw};
         assert_eq!(
             seats_of(&parse(&catalogue_room())),
-            [(1, 5, Ne), (2, 5, Ne), (4, 5, Ne), (5, 5, Ne), (6, 1, Nw), (6, 2, Nw), (8, 8, Sw), (7, 7, Se)]
+            [
+                (1, 5, Ne),
+                (2, 5, Ne),
+                (4, 5, Ne),
+                (5, 5, Ne),
+                (6, 1, Nw),
+                (6, 2, Nw),
+                (8, 8, Sw),
+                (7, 7, Se)
+            ]
         );
     }
 
@@ -559,7 +631,10 @@ mod tests {
 
     fn free_cells() -> Vec<(u8, u8)> {
         let used: HashSet<(u8, u8)> = std::iter::once((0, 0)).chain(TODAY.iter().map(|[c, r]| (*c, *r))).collect();
-        (0..10).flat_map(|c| (0..10).map(move |r| (c, r))).filter(|k| !used.contains(k)).collect()
+        (0..10)
+            .flat_map(|c| (0..10).map(move |r| (c, r)))
+            .filter(|k| !used.contains(k))
+            .collect()
     }
 
     // packages/shared/test/layout-contract.test.ts:134
@@ -584,8 +659,18 @@ mod tests {
         let tv2 = base(vec![p("tv", 9, 9, "se")]);
         let seven = layout(std::iter::once(tv()).chain(chairs().into_iter().skip(1)).collect());
         let nine = base(vec![chair(9, 9)]);
-        let nine_sofa = layout(std::iter::once(tv()).chain(chairs().into_iter().skip(1)).chain([p("sofa", 8, 8, "ne")]).collect());
-        let dup_chair = layout(std::iter::once(tv()).chain(chairs().into_iter().skip(1)).chain([chair(2, 4)]).collect());
+        let nine_sofa = layout(
+            std::iter::once(tv())
+                .chain(chairs().into_iter().skip(1))
+                .chain([p("sofa", 8, 8, "ne")])
+                .collect(),
+        );
+        let dup_chair = layout(
+            std::iter::once(tv())
+                .chain(chairs().into_iter().skip(1))
+                .chain([chair(2, 4)])
+                .collect(),
+        );
         let cases = [
             ("no tv", no_tv),
             ("two tvs", tv2),
@@ -596,7 +681,10 @@ mod tests {
             ("a solid piece on the tv", base(vec![p("plant", 0, 0, "se")])),
             ("a sofa's second cell on a chair", base(vec![p("sofa", 0, 5, "ne")])),
             ("two rugs overlapping", base(vec![p("rug", 1, 1, "se"), p("runner", 2, 2, "ne")])),
-            ("two frames on one wall segment", base(vec![p("frame", 2, 0, "sw"), pv("frame", 2, 0, "sw", 1)])),
+            (
+                "two frames on one wall segment",
+                base(vec![p("frame", 2, 0, "sw"), pv("frame", 2, 0, "sw", 1)]),
+            ),
             ("furniture not an array", json!({"furniture":{}})),
             ("missing furniture", json!({})),
         ];
@@ -629,7 +717,12 @@ mod tests {
         // :215 an unknown extra key (server objects are non-strict)
         let extra = json!({"kind":"tv","col":0,"row":0,"facing":"se","glow":true});
         assert!(piece_accepts(&extra));
-        assert!(accepts(&base(vec![]).to_string().replace(r#""kind":"tv","col":0,"row":0,"facing":"se""#, r#""kind":"tv","col":0,"row":0,"facing":"se","glow":true"#).parse::<Value>().unwrap()));
+        let with_extra = canon_base().replace(
+            r#""kind":"tv","col":0,"row":0,"facing":"se""#,
+            r#""kind":"tv","col":0,"row":0,"facing":"se","glow":true"#,
+        );
+        assert!(with_extra.contains("glow"));
+        assert_eq!(RoomLayout::parse(with_extra.as_bytes()), Ok(parse(&base(vec![]))));
     }
 
     // packages/shared/test/layout-contract.test.ts:219
@@ -647,9 +740,18 @@ mod tests {
             ("a facing the piece does not have", p("sidetable", 0, 0, "ne")),
             ("a facing a one-sprite piece does not have", p("lamp", 0, 0, "sw")),
             ("a variant the piece does not have", pv("wingback", 0, 0, "ne", 1)),
-            ("a negative variant", json!({"kind":"sofa","col":0,"row":0,"facing":"ne","variant":-1})),
-            ("a non-integer variant", json!({"kind":"sofa","col":0,"row":0,"facing":"ne","variant":0.5})),
-            ("a null variant", json!({"kind":"sofa","col":0,"row":0,"facing":"ne","variant":null})),
+            (
+                "a negative variant",
+                json!({"kind":"sofa","col":0,"row":0,"facing":"ne","variant":-1}),
+            ),
+            (
+                "a non-integer variant",
+                json!({"kind":"sofa","col":0,"row":0,"facing":"ne","variant":0.5}),
+            ),
+            (
+                "a null variant",
+                json!({"kind":"sofa","col":0,"row":0,"facing":"ne","variant":null}),
+            ),
             ("a rug hanging off the floor", p("rug", 4, 3, "se")),
             ("a runner hanging off the floor", p("runner", 8, 0, "ne")),
             ("a turned runner hanging off the floor", p("runner", 0, 8, "nw")),
@@ -682,8 +784,11 @@ mod tests {
 
     #[test]
     fn the_strict_parser_refuses_unknown_keys_at_both_levels_the_loose_one_strips_them() {
-        let piece_extra = base(vec![]).to_string().replace(r#""kind":"tv","col":0,"row":0,"facing":"se""#, r#""kind":"tv","col":0,"row":0,"facing":"se","glow":true"#);
-        let layout_extra = base(vec![]).to_string().replace(r#"{"furniture""#, r#"{"extra":1,"furniture""#);
+        let piece_extra = canon_base().replace(
+            r#""kind":"tv","col":0,"row":0,"facing":"se""#,
+            r#""kind":"tv","col":0,"row":0,"facing":"se","glow":true"#,
+        );
+        let layout_extra = canon_base().replace(r#"{"furniture""#, r#"{"extra":1,"furniture""#);
         for raw in [piece_extra, layout_extra] {
             assert!(RoomLayout::parse_input(raw.as_bytes()).is_err(), "{raw}");
             assert_eq!(RoomLayout::parse(raw.as_bytes()), Ok(parse(&base(vec![]))), "{raw}");

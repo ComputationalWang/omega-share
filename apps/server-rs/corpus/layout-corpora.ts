@@ -48,9 +48,9 @@ const cellGrid = (): unknown[] =>
   ]);
 
 const counts = (): unknown[] => {
-  const used = new Set(["0,0", ...SEATS.map(([c, r]) => `${c},${r}`)]);
+  const used = new Set(["0,0", ...SEATS.map(([c, r]) => String([c, r]))]);
   const free: Piece[] = [];
-  for (let c = 0; c < 10; c++) for (let r = 0; r < 10; r++) if (!used.has(`${c},${r}`)) free.push({ kind: "sidetable", col: c, row: r, facing: "sw" });
+  for (let c = 0; c < 10; c++) for (let r = 0; r < 10; r++) if (!used.has(String([c, r]))) free.push({ kind: "sidetable", col: c, row: r, facing: "sw" });
   const spare = [chair(9, 9), chair(9, 8), chair(8, 9), chair(8, 8), chair(9, 7)];
   const tvs = (n: number): Piece[] => [[9, 9], [9, 8], [8, 9]].slice(0, n).map(([col, row]) => ({ kind: "tv", col, row, facing: "se" }));
   return [

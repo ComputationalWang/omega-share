@@ -10,7 +10,14 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
 /// Every corpus file has a runner below; a new `corpus/out/*.json` without one fails `every_corpus_has_a_runner`.
-const RUNNERS: &[&str] = &["constants", "footprint-cells", "layout-seats", "normalize-hostname", "room-layout", "room-layout-input"];
+const RUNNERS: &[&str] = &[
+    "constants",
+    "footprint-cells",
+    "layout-seats",
+    "normalize-hostname",
+    "room-layout",
+    "room-layout-input",
+];
 
 /// One TS decision: refused (`ok: false`) or accepted with `output`.
 #[derive(Deserialize)]
@@ -165,12 +172,17 @@ fn layout_decision(input: &Value, parse: fn(&[u8]) -> Result<RoomLayout, omega_s
 
 #[test]
 fn room_layout_agrees() {
-    agree(load::<Value, Value>(include_str!("../corpus/out/room-layout.json")), |input| layout_decision(input, RoomLayout::parse));
+    agree(load::<Value, Value>(include_str!("../corpus/out/room-layout.json")), |input| {
+        layout_decision(input, RoomLayout::parse)
+    });
 }
 
 #[test]
 fn room_layout_input_agrees() {
-    agree(load::<Value, Value>(include_str!("../corpus/out/room-layout-input.json")), |input| layout_decision(input, RoomLayout::parse_input));
+    agree(
+        load::<Value, Value>(include_str!("../corpus/out/room-layout-input.json")),
+        |input| layout_decision(input, RoomLayout::parse_input),
+    );
 }
 
 /// A piece as the corpus writes it, for the functions that take one unchecked.
@@ -195,7 +207,10 @@ struct LayoutIn {
 
 #[test]
 fn footprint_cells_agree() {
-    agree(load::<PieceIn, Vec<(u32, u32)>>(include_str!("../corpus/out/footprint-cells.json")), |p| Some(footprint_cells(&p.furniture())));
+    agree(
+        load::<PieceIn, Vec<(u32, u32)>>(include_str!("../corpus/out/footprint-cells.json")),
+        |p| Some(footprint_cells(&p.furniture())),
+    );
 }
 
 #[test]

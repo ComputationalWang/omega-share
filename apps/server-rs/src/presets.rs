@@ -91,7 +91,14 @@ mod tests {
 
     #[test]
     fn a_bad_asset_fails_the_load_naming_the_file() {
-        let err = Presets::from_assets(|id| if id == RoomPresetId::Lounge { r#"{"furniture":[]}"# } else { include_str!("../../../assets/presets/classic.json") }).unwrap_err();
+        let err = Presets::from_assets(|id| {
+            if id == RoomPresetId::Lounge {
+                r#"{"furniture":[]}"#
+            } else {
+                include_str!("../../../assets/presets/classic.json")
+            }
+        })
+        .unwrap_err();
         assert_eq!(err.to_string(), "assets/presets/lounge.json is not a valid room layout");
     }
 }
