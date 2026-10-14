@@ -19,7 +19,9 @@ use omega_server::contract::server_message::{encode, parse_server_message};
 use omega_server::contract::text::{ChatText, Nickname, ReportNote, RoomTitle};
 use omega_server::embed_policy::EmbedPolicy;
 use omega_server::log::redact_addresses;
+use omega_server::metrics::{Gauges, Metrics};
 use omega_server::rate_limit::{address_key, client_key, is_loopback_key};
+use omega_server::secrets::hash_secret;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -40,9 +42,11 @@ const RUNNERS: &[&str] = &[
     "embed-policy-accept",
     "embed-policy-restore",
     "footprint-cells",
+    "hash-secret",
     "is-loopback-key",
     "layout-seats",
     "member-id",
+    "metrics-render",
     "nickname",
     "nickname-key",
     "normalize-hostname",
@@ -684,5 +688,55 @@ fn response_raw_agrees() {
 fn response_roundtrip_agrees() {
     agree(load::<Body, String>(include_str!("../corpus/out/response-roundtrip.json")), |b| {
         response(b, |r| r.text())
+// ---- OME-1162: secrets and metrics.
+
+#[test]
+fn hash_secret_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/hash-secret.json")), |input| {
+        Some(hash_secret(input).iter().map(|b| format!("{b:02x}")).collect())
+    });
+}
+
+/// Drives `Metrics` with the recorded sequence; the TS side cuts its output before the two process gauges.
+#[test]
+fn metrics_render_agrees() {
+    #[derive(Debug, Deserialize)]
+    struct Input {
+        gauges: [u64; 4],
+        ops: Vec<Vec<Value>>,
+    }
+    agree(load::<Input, String>(include_str!("../corpus/out/metrics-render.json")), |input| {
+        let m = Metrics::new();
+        for op in &input.ops {
+            let name = op.first().and_then(Value::as_str)?;
+            let text = |i: usize| op.get(i).and_then(Value::as_str);
+            let applied = match name {
+                "relay" => {
+                    m.observe_relay(op.get(1).and_then(Value::as_f64)?);
+                    true
+                }
+                "close" => m.count_close(u16::try_from(op.get(1).and_then(Value::as_u64)?).ok()?),
+                "report" => m.count_report(text(1)?, text(2)),
+                "takedown" => {
+                    m.count_takedown();
+                    true
+                }
+                _ => false,
+            };
+            if !applied {
+                return None;
+            }
+        }
+        let [rooms, sockets, members, open_reports] = input.gauges;
+        let out = m.render(&Gauges {
+            rooms,
+            sockets,
+            members,
+            open_reports,
+            rss_bytes: 0.0,
+            uptime_seconds: 0.0,
+        });
+        let cut = out.find("# HELP process_resident_memory_bytes")?;
+        out.get(..cut).map(str::to_owned)
     });
 }

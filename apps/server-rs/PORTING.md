@@ -32,7 +32,7 @@ Integration tests (`tests/*.rs`) are separate crates: helper functions there nee
 | `ws.ts`, `ws-sessions.ts`, `ws-limits.ts`, `ws-owner-edits.ts` | `ws/*` | S6 |
 | `rooms-gc.ts`, `reports.ts`, `admin.ts`, `cli.ts`, `metrics.ts`, `scripts/backup.ts`, graceful restart | same names; `omega-server admin …`, `omega-server backup …` | S7 |
 | `test/helpers.ts` (black-box mode), test hooks | `test_hooks.rs` (feature `test-hooks`) | S8 |
-| `relay-latency.ts` | `src/bin/omega-load.rs` | S9 |
+| `relay-latency.ts` + the load comparison | `perf/server-compare.ts` (TS, external, runs any server command; replaces the planned `src/bin/omega-load.rs`) | S9 |
 
 Not ported: `activity`, `discord-upstream` and `extension-bridge` from shared (the server doesn't use them). `parseServerMessage` only matters to the load generator.
 
