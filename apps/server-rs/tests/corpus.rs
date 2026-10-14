@@ -334,17 +334,32 @@ fn unicode_tables_agree_with_buns_icu() {
     use sha2::{Digest, Sha256};
     let cases = load::<String, String>(include_str!("../corpus/out/unicode-digest.json"));
     assert_eq!(cases.len(), 0x110000 / 0x1000);
-    let mut wrong = Vec::new();
-    for case in cases {
-        let start = u32::from_str_radix(&case.input, 16).unwrap();
-        let mut text = String::new();
-        for cp in start..start + 0x1000 {
-            unicode_digest_line(cp, &mut text);
-        }
-        let digest: String = Sha256::digest(text.as_bytes()).iter().map(|b| format!("{b:02x}")).collect();
-        if Some(&digest) != case.output.as_ref() {
-            wrong.push(format!("block U+{start:04X}"));
-        }
-    }
+    // Blocks are independent: spread them over the cores to keep a debug run in a few seconds.
+    let threads = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
+    let per = cases.len().div_ceil(threads);
+    let mut wrong: Vec<String> = std::thread::scope(|scope| {
+        let workers: Vec<_> = cases
+            .chunks(per)
+            .map(|batch| {
+                scope.spawn(move || {
+                    let mut wrong = Vec::new();
+                    for case in batch {
+                        let start = u32::from_str_radix(&case.input, 16).unwrap();
+                        let mut text = String::new();
+                        for cp in start..start + 0x1000 {
+                            unicode_digest_line(cp, &mut text);
+                        }
+                        let digest: String = Sha256::digest(text.as_bytes()).iter().map(|b| format!("{b:02x}")).collect();
+                        if Some(&digest) != case.output.as_ref() {
+                            wrong.push(format!("block U+{start:04X}"));
+                        }
+                    }
+                    wrong
+                })
+            })
+            .collect();
+        workers.into_iter().flat_map(|w| w.join().unwrap()).collect()
+    });
+    wrong.sort();
     assert!(wrong.is_empty(), "Unicode drift in {} block(s): {}", wrong.len(), wrong.join(", "));
 }

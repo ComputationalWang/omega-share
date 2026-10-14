@@ -54,14 +54,12 @@ pub fn is_control_format_or_separator(c: char) -> bool {
 
 /// `\p{Cc}`
 pub fn is_control(c: char) -> bool {
-    let _ = c;
-    false
+    category(c) == GeneralCategory::Control
 }
 
 /// `\p{Cf}`
 pub fn is_format(c: char) -> bool {
-    let _ = c;
-    false
+    category(c) == GeneralCategory::Format
 }
 
 /// `\p{Script=Latin}` (Script, not Script_Extensions).

@@ -7,6 +7,10 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 use unicode_normalization::UnicodeNormalization;
 
+/// Unicode version of `confusables.txt`: newer than the property and normalisation tables (17),
+/// as in `confusables-table.ts`. A test pins both so a deliberate mismatch stays visible.
+pub const CONFUSABLES_VERSION: &str = "18.0.0";
+
 /// Unicode confusables.txt 18.0.0, as `confusables-table.ts` holds it: one entry per line, the
 /// source code point then its prototype. © Unicode, Inc., Unicode licence.
 const TABLE: &str = include_str!("confusables.txt");
@@ -125,6 +129,15 @@ mod tests {
         assert_eq!(key("Alice"), "alice");
         assert_eq!(key("Bob"), "bob");
         assert_eq!(key("Ꭺ"), "a");
+    }
+
+    #[test]
+    fn unicode_versions_are_pinned() {
+        // Table 18.0.0, normalisation and properties 17 (Bun 1.4.2 / ICU 78.3 is 17.0 too). Moving
+        // either is a deliberate act: update `confusables-table.ts`/crates, regenerate the corpora.
+        assert_eq!(CONFUSABLES_VERSION, "18.0.0");
+        assert_eq!(unicode_normalization::UNICODE_VERSION, (17, 0, 0));
+        assert!(is_mark('\u{1ADB}'), "properties are Unicode 17");
     }
 
     #[test]

@@ -239,7 +239,12 @@ mod tests {
         let owner = OwnerToken::parse(TOKEN).unwrap();
         let invite = InviteKey::parse(TOKEN).unwrap();
         let resume = ResumeToken::parse(&format!("Ab_-{}", "x".repeat(39))).unwrap();
-        for shown in [format!("{share:?}"), format!("{owner:?}"), format!("{invite:#?}"), format!("{resume:?}")] {
+        for shown in [
+            format!("{share:?}"),
+            format!("{owner:?}"),
+            format!("{invite:#?}"),
+            format!("{resume:?}"),
+        ] {
             assert!(!shown.contains("AbCd") && !shown.contains("Ab_-"), "{shown}");
         }
         assert_eq!(format!("{share:?}"), "ShareToken(…)");
