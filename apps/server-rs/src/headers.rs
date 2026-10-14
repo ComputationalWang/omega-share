@@ -3,15 +3,66 @@
 
 pub type Header = (&'static str, &'static str);
 
-pub const CSP: &str = "";
-pub const CSP_WITH_GENERIC: &str = "";
-pub const PERMISSIONS_POLICY: &str = "";
-pub const HSTS: &str = "";
+/// The production policy (always same-origin, ADR 0015 §1); the literal is what follows the three synced
+/// frame origins. Header and `<meta>` CSPs intersect, so the meta in `apps/web/index.html` must be a superset.
+macro_rules! csp {
+    ($frame_extra:literal) => {
+        concat!(
+            "default-src 'self'; ",
+            // The three provider SDK loaders, path-scoped; no inline script or eval.
+            "script-src 'self' https://www.youtube.com/iframe_api https://www.youtube.com/s/player/ https://player.twitch.tv/js/embed/v1.js https://player.vimeo.com/api/player.js; ",
+            "style-src 'self'; ",
+            "img-src 'self' data:; ",
+            "connect-src 'self'; ",
+            "worker-src 'self'; ",
+            "frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://player.vimeo.com",
+            $frame_extra,
+            "; ",
+            "object-src 'none'; ",
+            "base-uri 'none'; ",
+            "form-action 'none'; ",
+            "frame-ancestors 'none'; ",
+            // Enforced Trusted Types (ADR 0025): our loader policy plus the real YouTube `iframe_api` policy, nothing else.
+            "require-trusted-types-for 'script'; ",
+            "trusted-types omega-sdk youtube-widget-api"
+        )
+    };
+}
+
+/// The policy with GENERIC_EMBEDS=off.
+pub const CSP: &str = csp!("");
+/// The generic tier frames any https page (ADR 0024 §4); the synced origins stay listed.
+pub const CSP_WITH_GENERIC: &str = csp!(" https:");
+
+/// Powerful features we never use. Autoplay, fullscreen, picture-in-picture and encrypted-media stay off
+/// this list: the player iframes get them through `allow`.
+pub const PERMISSIONS_POLICY: &str =
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), hid=(), bluetooth=(), display-capture=()";
+
+/// No COEP: `require-corp` would block the provider iframes and scripts, which send no CORP.
+macro_rules! headers_with {
+    ($csp:expr) => {
+        [
+            ("x-content-type-options", "nosniff"),
+            ("referrer-policy", "strict-origin-when-cross-origin"),
+            ("content-security-policy", $csp),
+            ("permissions-policy", PERMISSIONS_POLICY),
+            ("cross-origin-opener-policy", "same-origin"),
+            ("cross-origin-resource-policy", "same-origin"),
+        ]
+    };
+}
+
+static WITH_GENERIC: [Header; 6] = headers_with!(CSP_WITH_GENERIC);
+static SYNCED_ONLY: [Header; 6] = headers_with!(CSP);
 
 /// The headers for every response; `frame-src` follows the GENERIC_EMBEDS switch (ADR 0024 §4).
-pub fn security_headers(_generic_embeds: bool) -> &'static [Header] {
-    &[]
+pub fn security_headers(generic_embeds: bool) -> &'static [Header] {
+    if generic_embeds { &WITH_GENERIC } else { &SYNCED_ONLY }
 }
+
+/// One year, no `includeSubDomains` or `preload` yet (research M4 D1). Sent only to an https `PUBLIC_ORIGIN` host.
+pub const HSTS: &str = "max-age=31536000";
 
 #[cfg(test)]
 mod tests {

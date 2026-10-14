@@ -6,6 +6,7 @@
 //! Also the plain stdout/stderr helpers: a closed pipe must never panic the server, so nothing in the
 //! crate uses the `print!` family (clippy denies it).
 
+use crate::contract::js_compat::{is_js_whitespace, utf16_len};
 use serde::Serialize;
 use std::error::Error;
 use std::io::Write;
@@ -45,36 +46,237 @@ pub enum LogEvent {
     Shutdown,
 }
 
-/// `At most MAX_SCRUBBED units` of the message, never ending in part of a token.
+const MAX_MESSAGE: usize = 240;
+/// The redactions see at most this much of the message (UTF-16 units, as in TS): EMAIL backtracks
+/// quadratically in the TS regex on a long run without whitespace. The cut backs up to whitespace: a token cut
+/// in half (`alice.secret@`) misses its pattern, and earlier redactions can shrink the line enough for it to
+/// show (OME-579).
+const MAX_SCRUBBED: usize = 2048;
+
+fn is_ws_unit(u: u16) -> bool {
+    char::from_u32(u32::from(u)).is_some_and(is_js_whitespace)
+}
+
+/// At most `MAX_SCRUBBED` UTF-16 units of the message, never ending in part of a token.
 pub fn head(message: &str) -> String {
-    message.to_owned()
+    let units: Vec<u16> = message.encode_utf16().take(MAX_SCRUBBED + 1).collect();
+    if units.len() <= MAX_SCRUBBED {
+        return message.to_owned();
+    }
+    let mut end = MAX_SCRUBBED;
+    while end > 0 && !units.get(end).copied().is_some_and(is_ws_unit) {
+        end -= 1;
+    }
+    String::from_utf16_lossy(units.get(..end).unwrap_or(&[]))
 }
 
-/// Emails become `<email>`, IPv4 and IPv6 addresses `<ip>`.
+fn is_word(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_'
+}
+
+/// `[^\s@"'<>()[\]]`
+fn is_email_char(c: char) -> bool {
+    !is_js_whitespace(c) && !matches!(c, '@' | '"' | '\'' | '<' | '>' | '(' | ')' | '[' | ']')
+}
+
+fn at(cs: &[char], i: usize) -> Option<char> {
+    cs.get(i).copied()
+}
+
+fn run_len(cs: &[char], from: usize, pred: impl Fn(char) -> bool) -> usize {
+    cs.iter().skip(from).take_while(|c| pred(**c)).count()
+}
+
+/// The end of the domain part of an email whose `@` is just before `d0`: `[^…]+\.[a-z]{2,}` takes the last
+/// dot (after at least one char) that is followed by two ASCII letters, then every letter after it.
+fn email_domain_end(cs: &[char], d0: usize) -> Option<usize> {
+    let e = d0 + run_len(cs, d0, is_email_char);
+    let letter = |i: usize| at(cs, i).is_some_and(|c| c.is_ascii_alphabetic());
+    let dot = (d0 + 1..e)
+        .rev()
+        .find(|&d| at(cs, d) == Some('.') && letter(d + 1) && letter(d + 2))?;
+    Some(dot + 1 + run_len(cs, dot + 1, |c| c.is_ascii_alphabetic()))
+}
+
+/// Replaces every match found by `find(chars, i)` (the end of a match starting at `i`) with `replace(match)`.
+fn replace_all(text: &str, find: impl Fn(&[char], usize) -> Option<usize>, replace: impl Fn(&[char]) -> Option<&'static str>) -> String {
+    let cs: Vec<char> = text.chars().collect();
+    let mut out = String::with_capacity(text.len());
+    let (mut copied, mut i) = (0, 0);
+    while i < cs.len() {
+        let Some(end) = find(&cs, i) else {
+            i += 1;
+            continue;
+        };
+        if let Some(with) = replace(cs.get(i..end).unwrap_or(&[])) {
+            out.extend(cs.get(copied..i).unwrap_or(&[]));
+            out.push_str(with);
+            copied = end;
+        }
+        i = end; // a match that is kept still consumes its text
+    }
+    out.extend(cs.get(copied..).unwrap_or(&[]));
+    out
+}
+
+fn redact_emails(text: &str) -> String {
+    let cs: Vec<char> = text.chars().collect();
+    let mut out = String::with_capacity(text.len());
+    let (mut copied, mut i) = (0, 0);
+    while i < cs.len() {
+        if !at(&cs, i).is_some_and(is_email_char) {
+            i += 1;
+            continue;
+        }
+        // A maximal run of email chars; the local part is the whole run (a shorter one is never followed by `@`).
+        let b = i + run_len(&cs, i, is_email_char);
+        if at(&cs, b) == Some('@')
+            && let Some(end) = email_domain_end(&cs, b + 1)
+        {
+            out.extend(cs.get(copied..i).unwrap_or(&[]));
+            out.push_str("<email>");
+            copied = end;
+            i = end;
+        } else {
+            i = b;
+        }
+    }
+    out.extend(cs.get(copied..).unwrap_or(&[]));
+    out
+}
+
+/// `\b\d{1,3}(?:\.\d{1,3}){3}\b`: four dot-separated digit runs of 1-3, not part of a longer word.
+fn ipv4_end(cs: &[char], i: usize) -> Option<usize> {
+    if i > 0 && at(cs, i - 1).is_some_and(is_word) {
+        return None;
+    }
+    let mut p = i;
+    for group in 0..4 {
+        let run = run_len(cs, p, |c| c.is_ascii_digit());
+        if run == 0 || run > 3 {
+            return None;
+        }
+        p += run;
+        if group < 3 {
+            if at(cs, p) != Some('.') {
+                return None;
+            }
+            p += 1;
+        }
+    }
+    (!at(cs, p).is_some_and(is_word)).then_some(p)
+}
+
+/// `(?<![\w:])(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?![\w:])`: backtracking never helps, so this is the
+/// maximal chain of at most 7 `hex{0,4}:` groups, a tail of at most 4 hex digits and no word char or colon after.
+fn ipv6_end(cs: &[char], i: usize) -> Option<usize> {
+    if i > 0 && at(cs, i - 1).is_some_and(|c| is_word(c) || c == ':') {
+        return None;
+    }
+    let hex = |c: char| c.is_ascii_hexdigit();
+    let (mut p, mut groups) = (i, 0);
+    while groups < 7 {
+        let run = run_len(cs, p, hex);
+        if run > 4 || at(cs, p + run) != Some(':') {
+            break;
+        }
+        p += run + 1;
+        groups += 1;
+    }
+    let tail = run_len(cs, p, hex);
+    if groups < 2 || tail > 4 {
+        return None;
+    }
+    let end = p + tail;
+    (!at(cs, end).is_some_and(|c| is_word(c) || c == ':')).then_some(end)
+}
+
+/// Emails become `<email>`, IPv4 and IPv6 addresses `<ip>`. Also what an abuse report's note goes through
+/// before it is stored (ADR 0033 §3).
 pub fn redact_addresses(text: &str) -> String {
-    text.to_owned()
+    let no_email = redact_emails(text);
+    let no_v4 = replace_all(
+        &no_email,
+        |cs, i| at(cs, i).filter(char::is_ascii_digit).and_then(|_| ipv4_end(cs, i)),
+        |_| Some("<ip>"),
+    );
+    replace_all(
+        &no_v4,
+        ipv6_end,
+        // `a: b` prose and `12:30` stay: the match needs a `::` or at least 3 colons.
+        |m| {
+            let colons = m.iter().filter(|c| **c == ':').count();
+            (m.windows(2).any(|w| w == [':', ':']) || colons >= 3).then_some("<ip>")
+        },
+    )
 }
 
+/// Every redaction runs before the cap, so the cap never cuts an address to a fragment the patterns miss (OME-548).
 pub fn scrub(message: &str) -> String {
-    message.to_owned()
+    let head = head(message);
+    // From the first quote to the end: a quoted value can itself hold a quote, so no closing quote can be trusted (OME-536).
+    let cut = match head.char_indices().find(|(_, c)| matches!(c, '"' | '\'')) {
+        Some((i, q)) => format!("{}{q}…{q}", head.get(..i).unwrap_or("")),
+        None => head,
+    };
+    let redacted = redact_addresses(&cut);
+    if utf16_len(&redacted) <= MAX_MESSAGE {
+        return redacted;
+    }
+    // `slice(0, 240)` counts UTF-16 units; a pair cut in half can't be a Rust string, so the half is dropped (PORTING parity note).
+    let mut out = String::new();
+    let mut units = 0;
+    for c in redacted.chars() {
+        units += c.len_utf16();
+        if units > MAX_MESSAGE {
+            break;
+        }
+        out.push(c);
+    }
+    out.push('…');
+    out
 }
 
-/// The JSON line for an event; `err` is the error's class name and message.
-pub fn format_log_line(_event: LogEvent, _err: Option<(&str, &str)>) -> String {
-    String::new()
+#[derive(Serialize)]
+struct Line {
+    level: &'static str,
+    event: LogEvent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// The JSON line for an event; `err` is the error's class name and message (`${name}: ${scrubbed message}`).
+pub fn format_log_line(event: LogEvent, err: Option<(&str, &str)>) -> String {
+    let line = Line {
+        level: "error",
+        event,
+        error: err.map(|(name, message)| format!("{name}: {}", scrub(message))),
+    };
+    serde_json::to_string(&line).unwrap_or_default()
 }
 
 /// Writes the line for `event` to `w`, ignoring a write error.
-pub fn write_error_line(_w: &mut impl Write, _event: LogEvent, _err: Option<(&str, &str)>) {}
+pub fn write_error_line(w: &mut impl Write, event: LogEvent, err: Option<(&str, &str)>) {
+    let mut line = format_log_line(event, err);
+    line.push('\n');
+    let _ = w.write_all(line.as_bytes());
+}
 
-/// One error line on stderr. The class name is the fixed `Error` (Rust errors have no runtime class).
-pub fn log_error(_event: LogEvent, _err: Option<&dyn Error>) {}
+/// One error line on stderr. Rust errors have no runtime class, so the class name is the fixed `Error`.
+pub fn log_error(event: LogEvent, err: Option<&dyn Error>) {
+    let message = err.map(ToString::to_string);
+    write_error_line(&mut std::io::stderr().lock(), event, message.as_deref().map(|m| ("Error", m)));
+}
 
 /// A plain line on stdout; a closed or full pipe is ignored.
-pub fn stdout_line(_line: &str) {}
+pub fn stdout_line(line: &str) {
+    let _ = writeln!(std::io::stdout().lock(), "{line}");
+}
 
 /// A plain line on stderr; a closed or full pipe is ignored.
-pub fn stderr_line(_line: &str) {}
+pub fn stderr_line(line: &str) {
+    let _ = writeln!(std::io::stderr().lock(), "{line}");
+}
 
 #[cfg(test)]
 mod tests {

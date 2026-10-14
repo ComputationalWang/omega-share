@@ -1,6 +1,7 @@
 //! The `serve` command: config → listener → router, until SIGTERM/SIGINT.
 
 use crate::config::ServerConfig;
+use crate::log::{stderr_line, stdout_line};
 use axum::Router;
 use axum::http::StatusCode;
 use tokio::net::TcpListener;
@@ -14,7 +15,10 @@ pub async fn serve(config: ServerConfig) -> std::io::Result<()> {
         .as_deref()
         .map(|o| format!(", public origin {o}"))
         .unwrap_or_default();
-    println!("omega-share server on http://{addr}/ (site origin {}{via})", config.site_origin);
+    stdout_line(&format!(
+        "omega-share server on http://{addr}/ (site origin {}{via})",
+        config.site_origin
+    ));
     let app = Router::new().fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
     axum::serve(listener, app).with_graceful_shutdown(shutdown_signal()).await
 }
@@ -26,7 +30,7 @@ async fn shutdown_signal() {
     let mut term = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
         Ok(term) => Some(term),
         Err(err) => {
-            eprintln!("SIGTERM handler: {err}");
+            stderr_line(&format!("SIGTERM handler: {err}"));
             None
         }
     };
