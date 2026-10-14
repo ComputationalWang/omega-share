@@ -162,11 +162,9 @@ describe("defaultFacing", () => {
 });
 
 describe("TRAY_TABS", () => {
-  /** Catalogue v2 (OME-1112) has no sprites in the web yet; the web hookup issue puts it in the tray. */
-  const V2 = ["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland"];
-  test("every drawn kind is in exactly one tab", () => {
+  test("every kind, catalogue v2 too (OME-1113), is in exactly one tab", () => {
     const all: string[] = TRAY_TABS.flatMap((t) => [...t.kinds]);
-    expect([...all].sort()).toEqual(FURNITURE_KINDS.filter((k) => !V2.includes(k)).sort());
+    expect([...all].sort()).toEqual([...FURNITURE_KINDS].sort());
   });
   test("tab contents follow the catalogue", () => {
     expect(TRAY_TABS.map((t) => t.label)).toEqual(["Seats", "Decor", "Floor & wall"]);
@@ -175,6 +173,9 @@ describe("TRAY_TABS", () => {
     expect(TRAY_TABS[0]?.kinds.every((k) => FURNITURE[k].seats)).toBe(true);
     expect(tab("decor")).toContain("tv");
     for (const k of ["rug", "runner", "frame"]) expect(tab("floor")).toContain(k);
+    for (const k of ["floorcushion", "bench"]) expect(tab("seats")).toContain(k);
+    for (const k of ["turntable", "speaker", "cat"]) expect(tab("decor")).toContain(k);
+    for (const k of ["wallshelf", "garland"]) expect(tab("floor")).toContain(k);
   });
 });
 

@@ -1,6 +1,6 @@
 // The room's furniture as a scene: seats, standing spots and set (g) sprites with their depth, from snapshot.room.layout
-// (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet only when a layout needs it,
-// room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
+// (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet and furniture-v2-atlas.ts
+// catalogue v2 (OME-1113), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Furniture, type FurnitureKind, type RoomLayout, type RoomState } from "@omega/shared";
 import { cellCenter, type Point } from "./layout";
@@ -13,6 +13,8 @@ export const layoutKey = (l: RoomLayout): string => l.furniture.map((f) => `${f.
 
 /** The pieces the room atlas draws (placeholder floor and seat markers until it loads); everything else is set (g). */
 const ROOM_KINDS: ReadonlySet<FurnitureKind> = new Set(["armchair", "tv", "lamp", "plant", "rug"]);
+/** Catalogue v2's pieces (assets/furniture/furniture-v2.json, its own lazy sheet). */
+const V2_KINDS: ReadonlySet<FurnitureKind> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland"]);
 /** Set (g)'s kilim runner is atlas id `rug` (layout.ts in @omega/shared). */
 const atlasId = (kind: FurnitureKind): string => (kind === "runner" ? "rug" : kind);
 
@@ -71,7 +73,12 @@ export function layoutOf(room: RoomState | null): RoomLayout {
 
 /** True if the layout holds a set (g) piece, i.e. the furniture atlas must load. */
 export function usesSetG(layout: RoomLayout): boolean {
-  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind));
+  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind) && !V2_KINDS.has(f.kind));
+}
+
+/** True if the layout holds a catalogue v2 piece, i.e. the v2 sheet must load. */
+export function usesV2(layout: RoomLayout): boolean {
+  return layout.furniture.some((f) => V2_KINDS.has(f.kind));
 }
 
 /** Seat i's floor point (ADR 0021: the i-th seat cell across seat pieces, in furniture order). */
@@ -126,13 +133,14 @@ export interface Scene {
 type Piece = FurnitureManifest["meta"]["omega"]["pieces"][number];
 
 /**
- * What to draw for `layout`. Without the manifest (not loaded yet, or not needed), set (g) pieces are left out and their
+ * What to draw for `layout`, from the catalogue manifests loaded so far (set (g), v2: same schema, ids don't collide).
+ * A piece whose manifest isn't loaded (not yet, or not needed) is left out and its
  * sitters sort by their own cell; without the room manifest, so are the floor, walls and room-atlas kinds. Built once per
  * layout change, never per frame.
  */
-export function sceneOf(layout: RoomLayout, manifest: FurnitureManifest | null, room: RoomManifest | null = null): Scene {
-  const pieces = new Map<string, Piece>((manifest?.meta.omega.pieces ?? []).map((p) => [p.id, p]));
-  const layers = manifest?.meta.omega.layers;
+export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifest[], room: RoomManifest | null = null): Scene {
+  const pieces = new Map<string, Piece>(manifests.flatMap((m) => m.meta.omega.pieces.map((p) => [p.id, p] as const)));
+  const layers = manifests[0]?.meta.omega.layers;
   const sprites: FurnitureSprite[] = [];
   const seats: SceneSeat[] = [];
   if (room !== null) pushShell(sprites, layout, room);
@@ -185,7 +193,8 @@ function rugPart(dc: number, dr: number, last: number): string {
 
 /**
  * The static shell under everything: a plank (or rug) tile per floor cell, then both back walls with the corner cap and
- * open ends (assets/README.md "Room atlas"). A wall that carries a set (g) print is all plain segments: prints hang on plain.
+ * open ends (assets/README.md "Room atlas"). A wall that carries a catalogue wall piece (print, shelf, garland) is all
+ * plain segments: they hang on plain, and garlands on neighbouring segments join into one string.
  */
 function pushShell(out: FurnitureSprite[], layout: RoomLayout, room: RoomManifest): void {
   const suggested = room.meta.omega.layout;
@@ -199,8 +208,8 @@ function pushShell(out: FurnitureSprite[], layout: RoomLayout, room: RoomManifes
       out.push(shellSprite(key, col, row, "floor"));
     }
   }
-  const printL = layout.furniture.some((f) => f.kind === "frame" && f.facing === "se");
-  const printR = layout.furniture.some((f) => f.kind === "frame" && f.facing === "sw");
+  const printL = layout.furniture.some((f) => FURNITURE[f.kind].layer === "wall" && f.facing === "se");
+  const printR = layout.furniture.some((f) => FURNITURE[f.kind].layer === "wall" && f.facing === "sw");
   for (let i = 0; i < FLOOR_CELLS; i++) {
     out.push(shellSprite(printL ? "wall/l/plain" : (suggested.walls.l[i] ?? "wall/l/plain"), 0, i, "wall"));
     out.push(shellSprite(printR ? "wall/r/plain" : (suggested.walls.r[i] ?? "wall/r/plain"), i, 0, "wall"));
