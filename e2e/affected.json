@@ -14,7 +14,7 @@
     },
     {
       "paths": [
-        "apps/server/src/{ws,room,rooms,playback,queue,server,index}.ts"
+        "apps/server/src/{ws,ws-limits,ws-sessions,ws-owner-edits,room,rooms,playback,queue,server,index}.ts"
       ],
       "full": true,
       "specs": [
