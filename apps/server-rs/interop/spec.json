@@ -1,0 +1,790 @@
+{
+  "rooms": [
+    {
+      "id": "lobby",
+      "title": "Lobby",
+      "createdAt": 1700000000000,
+      "layout": {
+        "furniture": [
+          {
+            "kind": "tv",
+            "col": 0,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "rug",
+            "col": 1,
+            "row": 1,
+            "facing": "se"
+          },
+          {
+            "kind": "armchair",
+            "col": 1,
+            "row": 5,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 2,
+            "row": 4,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 2,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 5,
+            "row": 1,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 3,
+            "row": 7,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 6,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 6,
+            "row": 4,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 7,
+            "row": 3,
+            "facing": "nw"
+          },
+          {
+            "kind": "lamp",
+            "col": 9,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "plant",
+            "col": 0,
+            "row": 9,
+            "facing": "se"
+          }
+        ]
+      },
+      "embed": {
+        "provider": "youtube",
+        "videoId": "dQw4w9WgXcQ",
+        "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+      },
+      "lastActiveAt": 1700000100000
+    },
+    {
+      "id": "abcdefghijklmnopqrstuvwxyz",
+      "title": "Ｆｉｌｍ club",
+      "createdAt": 1700000000001,
+      "layout": {
+        "furniture": [
+          {
+            "kind": "tv",
+            "col": 0,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "rug",
+            "col": 1,
+            "row": 1,
+            "facing": "se"
+          },
+          {
+            "kind": "armchair",
+            "col": 1,
+            "row": 5,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 2,
+            "row": 4,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 2,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 5,
+            "row": 1,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 3,
+            "row": 7,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 6,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 6,
+            "row": 4,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 7,
+            "row": 3,
+            "facing": "nw"
+          },
+          {
+            "kind": "lamp",
+            "col": 9,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "plant",
+            "col": 9,
+            "row": 9,
+            "facing": "se"
+          },
+          {
+            "kind": "monstera",
+            "col": 8,
+            "row": 8,
+            "facing": "se",
+            "variant": 1
+          }
+        ]
+      },
+      "visibility": "private",
+      "pinned": false,
+      "ownerHash": "0101010101010101010101010101010101010101010101010101010101010101",
+      "inviteHash": "0202020202020202020202020202020202020202020202020202020202020202",
+      "controlPolicy": "owner",
+      "embed": {
+        "provider": "twitch",
+        "kind": "live",
+        "channel": "shroud",
+        "url": "https://player.twitch.tv/?channel=shroud"
+      },
+      "itemId": "cur1",
+      "queue": [
+        {
+          "id": "q1",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": "abcdef1234",
+            "url": "https://player.vimeo.com/video/76979871?h=abcdef1234"
+          }
+        },
+        {
+          "id": "q2",
+          "embed": {
+            "provider": "generic",
+            "host": "example.com",
+            "url": "https://example.com/video/%C3%BC?a=1"
+          }
+        },
+        {
+          "id": "q3",
+          "embed": {
+            "provider": "twitch",
+            "kind": "vod",
+            "videoId": "1234567890",
+            "url": "https://player.twitch.tv/?video=v1234567890"
+          }
+        },
+        {
+          "id": "q4",
+          "embed": {
+            "provider": "youtube",
+            "videoId": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+          }
+        }
+      ]
+    },
+    {
+      "id": "advance-room",
+      "title": "Advance",
+      "createdAt": 1700000000002,
+      "layout": {
+        "furniture": [
+          {
+            "kind": "tv",
+            "col": 0,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "rug",
+            "col": 1,
+            "row": 1,
+            "facing": "se"
+          },
+          {
+            "kind": "armchair",
+            "col": 1,
+            "row": 5,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 2,
+            "row": 4,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 2,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 5,
+            "row": 1,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 3,
+            "row": 7,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 6,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 6,
+            "row": 4,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 7,
+            "row": 3,
+            "facing": "nw"
+          },
+          {
+            "kind": "lamp",
+            "col": 9,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "plant",
+            "col": 0,
+            "row": 9,
+            "facing": "se"
+          }
+        ]
+      },
+      "queue": [
+        {
+          "id": "n1",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": null,
+            "url": "https://player.vimeo.com/video/76979871"
+          }
+        },
+        {
+          "id": "n2",
+          "embed": {
+            "provider": "youtube",
+            "videoId": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+          }
+        }
+      ],
+      "then": "advance"
+    },
+    {
+      "id": "start-room",
+      "title": "",
+      "createdAt": 1700000000003,
+      "layout": {
+        "furniture": [
+          {
+            "kind": "tv",
+            "col": 0,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "rug",
+            "col": 1,
+            "row": 1,
+            "facing": "se"
+          },
+          {
+            "kind": "armchair",
+            "col": 1,
+            "row": 5,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 2,
+            "row": 4,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 2,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 5,
+            "row": 1,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 3,
+            "row": 7,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 6,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 6,
+            "row": 4,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 7,
+            "row": 3,
+            "facing": "nw"
+          },
+          {
+            "kind": "lamp",
+            "col": 9,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "plant",
+            "col": 0,
+            "row": 9,
+            "facing": "se"
+          }
+        ]
+      },
+      "then": "addAndStart",
+      "startItem": {
+        "id": "s1",
+        "embed": {
+          "provider": "youtube",
+          "videoId": "dQw4w9WgXcQ",
+          "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+        }
+      },
+      "queue": [
+        {
+          "id": "s2",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": null,
+            "url": "https://player.vimeo.com/video/76979871"
+          }
+        }
+      ]
+    },
+    {
+      "id": "untitled",
+      "title": "",
+      "createdAt": 1700000000000,
+      "layout": {
+        "furniture": [
+          {
+            "kind": "tv",
+            "col": 0,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "rug",
+            "col": 1,
+            "row": 1,
+            "facing": "se"
+          },
+          {
+            "kind": "armchair",
+            "col": 1,
+            "row": 5,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 2,
+            "row": 4,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 2,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 5,
+            "row": 1,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 3,
+            "row": 7,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 6,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 6,
+            "row": 4,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 7,
+            "row": 3,
+            "facing": "nw"
+          },
+          {
+            "kind": "lamp",
+            "col": 9,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "plant",
+            "col": 0,
+            "row": 9,
+            "facing": "se"
+          }
+        ]
+      }
+    },
+    {
+      "id": "movie-night",
+      "title": "Movie night",
+      "createdAt": 1700000000004,
+      "layout": {
+        "furniture": [
+          {
+            "kind": "tv",
+            "col": 0,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "rug",
+            "col": 1,
+            "row": 1,
+            "facing": "se"
+          },
+          {
+            "kind": "armchair",
+            "col": 1,
+            "row": 5,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 2,
+            "row": 4,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 2,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 5,
+            "row": 1,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 3,
+            "row": 7,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 6,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 6,
+            "row": 4,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 7,
+            "row": 3,
+            "facing": "nw"
+          },
+          {
+            "kind": "lamp",
+            "col": 9,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "plant",
+            "col": 9,
+            "row": 9,
+            "facing": "se"
+          },
+          {
+            "kind": "monstera",
+            "col": 8,
+            "row": 8,
+            "facing": "se",
+            "variant": 1
+          }
+        ]
+      },
+      "unpin": true,
+      "lastActiveAt": 0
+    },
+    {
+      "id": "doomed",
+      "title": "Doomed",
+      "createdAt": 1700000000005,
+      "layout": {
+        "furniture": [
+          {
+            "kind": "tv",
+            "col": 0,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "rug",
+            "col": 1,
+            "row": 1,
+            "facing": "se"
+          },
+          {
+            "kind": "armchair",
+            "col": 1,
+            "row": 5,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 2,
+            "row": 4,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 2,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 5,
+            "row": 1,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 3,
+            "row": 7,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 6,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 6,
+            "row": 4,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 7,
+            "row": 3,
+            "facing": "nw"
+          },
+          {
+            "kind": "lamp",
+            "col": 9,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "plant",
+            "col": 0,
+            "row": 9,
+            "facing": "se"
+          }
+        ]
+      },
+      "queue": [
+        {
+          "id": "d1",
+          "embed": {
+            "provider": "youtube",
+            "videoId": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+          }
+        }
+      ],
+      "deleted": true
+    }
+  ],
+  "seatHolds": [
+    {
+      "roomId": "lobby",
+      "nameHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "seat": 0
+    },
+    {
+      "roomId": "lobby",
+      "nameHash": "abababababababababababababababababababababababababababababababab",
+      "seat": 2
+    },
+    {
+      "roomId": "abcdefghijklmnopqrstuvwxyz",
+      "nameHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "seat": 7
+    },
+    {
+      "roomId": "doomed",
+      "nameHash": "1010101010101010101010101010101010101010101010101010101010101010",
+      "seat": 3
+    }
+  ],
+  "reports": [
+    {
+      "id": "aaaaaaaaaaaaaaaaaaaaaa",
+      "roomId": "lobby",
+      "reason": "spam",
+      "note": null,
+      "roomTitle": "Lobby",
+      "embedUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      "createdAt": 1700000200000
+    },
+    {
+      "id": "bbbbbbbbbbbbbbbbbbbbbb",
+      "roomId": "abcdefghijklmnopqrstuvwxyz",
+      "reason": "hate",
+      "note": "slurs in the title: ünï 🎬",
+      "roomTitle": "Film club",
+      "embedUrl": null,
+      "createdAt": 1700000200001
+    },
+    {
+      "id": "cccccccccccccccccccccc",
+      "roomId": "abcdefghijklmnopqrstuvwxyz",
+      "reason": "sexual",
+      "note": null,
+      "roomTitle": null,
+      "embedUrl": "https://example.com/video/%C3%BC?a=1",
+      "createdAt": 1700000200002
+    },
+    {
+      "id": "dddddddddddddddddddddd",
+      "roomId": "movie-night",
+      "reason": "violence",
+      "note": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "roomTitle": "Movie night",
+      "embedUrl": null,
+      "createdAt": 1700000200003
+    },
+    {
+      "id": "eeeeeeeeeeeeeeeeeeeeee",
+      "roomId": "movie-night",
+      "reason": "danger",
+      "note": null,
+      "roomTitle": null,
+      "embedUrl": null,
+      "createdAt": 1700000200003
+    },
+    {
+      "id": "ffffffffffffffffffffff",
+      "roomId": "lobby",
+      "reason": "other",
+      "note": null,
+      "roomTitle": "Lobby",
+      "embedUrl": null,
+      "createdAt": 1700000200004
+    }
+  ],
+  "dismiss": [
+    "aaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "actionRooms": [
+    "abcdefghijklmnopqrstuvwxyz"
+  ],
+  "takedowns": [
+    {
+      "roomId": "gone-room",
+      "at": 1700000300000
+    },
+    {
+      "roomId": "gone-room",
+      "at": 1700000300999
+    },
+    {
+      "roomId": "abcdefghijklmnopqrstuvwxyz",
+      "at": 1700000300001
+    }
+  ]
+}
