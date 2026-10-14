@@ -12,3 +12,5 @@ pub mod rate_limit;
 pub mod secrets;
 pub mod serve;
 pub mod store;
+#[cfg(feature = "test-hooks")]
+pub mod test_hooks;
