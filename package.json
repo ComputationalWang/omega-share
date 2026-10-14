@@ -22,7 +22,7 @@
     "perf:submit": "bun perf/runner/submit.ts",
     "perf:result": "bun perf/runner/result.ts",
     "blackbox": "bun apps/server-rs/blackbox/run.ts",
-    "check:rs": "cargo fmt --all --check && cargo clippy --workspace --all-targets --all-features --locked -- -D warnings && cargo test --workspace --all-features --locked && cargo deny --log-level error check",
+    "check:rs": "cargo fmt --all --check && cargo clippy --workspace --all-targets --all-features --locked -- -D warnings && cargo test --workspace --all-features --locked && cargo deny --log-level error check && bun run blackbox",
     "check": "bun run typecheck && bun run lint && bun run test && bun run check:rs"
   },
   "devDependencies": {
