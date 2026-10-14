@@ -21,21 +21,20 @@ const xml = `<?xml version="1.0" encoding="UTF-8"?>
 </testsuites>`;
 
 describe("parseJunit", () => {
-  test("ids, files and statuses, with entities unescaped", () => {
+  test("ids, files, lines, statuses and failure messages, with entities unescaped", () => {
+    const f = "apps/server/test/a.test.ts";
     expect(parseJunit(xml)).toEqual([
-      { id: "apps/server/test/a.test.ts::outer::passes", file: "apps/server/test/a.test.ts", status: "pass" },
+      { id: `${f}::outer::passes`, file: f, line: 4, status: "pass", reason: "" },
+      { id: `${f}::outer::it's <odd> & "quoted"`, file: f, line: 5, status: "fail", reason: "expected 1" },
       {
-        id: `apps/server/test/a.test.ts::outer::it's <odd> & "quoted"`,
-        file: "apps/server/test/a.test.ts",
-        status: "fail",
-      },
-      {
-        id: "apps/server/test/a.test.ts::outer::needs the in-process server",
-        file: "apps/server/test/a.test.ts",
+        id: `${f}::outer::needs the in-process server`,
+        file: f,
+        line: 6,
         status: "not-black-box",
+        reason: "NotBlackBox: registry: not expressible as an environment variable",
       },
-      { id: "apps/server/test/a.test.ts::outer::skipped", file: "apps/server/test/a.test.ts", status: "skip" },
-      { id: "apps/server/test/a.test.ts::a.test.ts::top level", file: "apps/server/test/a.test.ts", status: "pass" },
+      { id: `${f}::outer::skipped`, file: f, line: 7, status: "skip", reason: "" },
+      { id: `${f}::a.test.ts::top level`, file: f, line: 9, status: "pass", reason: "" },
     ]);
   });
 
@@ -44,7 +43,7 @@ describe("parseJunit", () => {
   });
 });
 
-const r = (id: string, status: TestResult["status"], file = "f.test.ts"): TestResult => ({ id, file, status });
+const r = (id: string, status: TestResult["status"], file = "f.test.ts"): TestResult => ({ id, file, line: 0, status, reason: "" });
 
 describe("evaluate", () => {
   const results = [

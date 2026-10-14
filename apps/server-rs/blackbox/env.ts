@@ -2,7 +2,9 @@
 import { clockOf, type TestClock } from "./clock";
 
 /** The test needs the in-process server (a spy, a registry object, a function): the runner skips it. */
-export class NotBlackBox extends Error {}
+export class NotBlackBox extends Error {
+  override readonly name = "NotBlackBox";
+}
 
 export interface Mapped {
   env: Record<string, string>;
