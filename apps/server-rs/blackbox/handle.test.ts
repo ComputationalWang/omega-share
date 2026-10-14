@@ -25,8 +25,10 @@ describe("the black-box server handle", () => {
     expect(await Promise.resolve(h)).toBe(h);
     expect(JSON.stringify(h)).toBe('{"port":7}');
     expect(inspect(h)).toContain("7");
-    expect(`${String(h.port)}`).toBe("7");
-    expect(() => expect(h).toBe(h)).not.toThrow();
+    expect(String(h.port)).toBe("7");
+    expect(() => {
+      expect(h).toBe(h);
+    }).not.toThrow();
     expect(Reflect.get(h, Symbol.toPrimitive)).toBeUndefined();
     expect(Reflect.get(h, "then")).toBeUndefined();
     expect(Reflect.get(h, "toJSON")).toBeUndefined();

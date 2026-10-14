@@ -92,7 +92,9 @@ export function spawnServer(bin: string, env: Record<string, string>): Spawned {
       const port = Number(host.slice(host.lastIndexOf(":") + 1));
       const stop = async (): Promise<void> => {
         child.kill("SIGTERM");
-        const timer = setTimeout(() => child.kill("SIGKILL"), STOP_DEADLINE_MS);
+        const timer = setTimeout(() => {
+          child.kill("SIGKILL");
+        }, STOP_DEADLINE_MS);
         await child.exited;
         clearTimeout(timer);
         reap(entry);
