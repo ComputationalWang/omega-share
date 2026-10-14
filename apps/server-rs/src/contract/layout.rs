@@ -369,6 +369,24 @@ fn check_layout<L: WireLayout>(l: &L) -> Result<(), ValidationError> {
     if layout_ok(&l.pieces()) { Ok(()) } else { refuse("layout") }
 }
 
+/// `RoomLayoutInputSchema` as a wire type, for a layout nested in another message (`layout-set`):
+/// strict, validated like [`RoomLayout::parse_input`], duplicate keys refused.
+#[derive(Deserialize)]
+#[serde(transparent)]
+pub struct RoomLayoutInput(StrictLayout);
+
+impl Validate for RoomLayoutInput {
+    fn validate(&self) -> Result<(), validator::ValidationErrors> {
+        self.0.validate()
+    }
+}
+
+impl From<RoomLayoutInput> for RoomLayout {
+    fn from(w: RoomLayoutInput) -> Self {
+        Self::from(w.0)
+    }
+}
+
 /// A valid room layout. The only ways to get one are the two parsers and [`default_layout`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RoomLayout {
