@@ -5,6 +5,7 @@ use crate::contract::generic_embed::normalize_hostname;
 use crate::contract::js_compat::js_trim;
 use crate::contract::session::RESUME_GRACE_MS;
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fmt;
 use std::path::{Component, Path, PathBuf};
 use url::Url;
@@ -74,6 +75,44 @@ pub fn default_db_path() -> PathBuf {
 }
 
 pub type Env = HashMap<String, String>;
+
+/// Every variable the server reads; a non-UTF-8 value in one of them is refused, never mangled.
+pub const CONFIG_KEYS: [&str; 15] = [
+    "PORT",
+    "HOST",
+    "SITE_ORIGIN",
+    "PUBLIC_ORIGIN",
+    "TRUST_PROXY",
+    "STATIC_DIR",
+    "EXTENSION_IDS",
+    "DB_PATH",
+    "METRICS_PORT",
+    "MAX_CONNECTIONS",
+    "RESUME_GRACE_MS",
+    "GENERIC_EMBEDS",
+    "GENERIC_EMBED_DENYLIST",
+    "ROOM_TITLE_BLOCKLIST",
+    "ADMIN_SOCKET",
+];
+
+/// The process environment as UTF-8. Variables we don't read are skipped whatever their bytes.
+pub fn env_from_os(vars: impl IntoIterator<Item = (OsString, OsString)>) -> Result<Env, ConfigError> {
+    let mut env = Env::new();
+    for (key, value) in vars {
+        let Ok(key) = key.into_string() else { continue };
+        match value.into_string() {
+            Ok(value) => {
+                env.insert(key, value);
+            }
+            Err(_) => {
+                if let Some(read) = CONFIG_KEYS.iter().find(|k| **k == key) {
+                    return Err(fail(read, "must be UTF-8"));
+                }
+            }
+        }
+    }
+    Ok(env)
+}
 
 /// Under the unit's `LimitNOFILE=4096`, so 1024 descriptors stay free for HTTP, SQLite and metrics.
 const MAX_CONNECTIONS_CEILING: u32 = 3072;
@@ -169,6 +208,12 @@ pub fn own_hosts_for(site_origin: &str, public_origin: Option<&str>) -> Result<V
 
 /// Parses the process environment; relative paths resolve against `cwd`.
 pub fn parse_config(env: &Env, cwd: &Path) -> Result<ServerConfig, ConfigError> {
+    parse_config_as(env, cwd, cfg!(debug_assertions))
+}
+
+/// `dev_build`: a debug build may default `DB_PATH` to the checkout; a release binary runs where
+/// that path means nothing, so it must be told.
+fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfig, ConfigError> {
     let get = |key: &str| env.get(key).map(String::as_str);
 
     let port = digits(get("PORT").unwrap_or("8787"), 5)
@@ -217,7 +262,8 @@ pub fn parse_config(env: &Env, cwd: &Path) -> Result<ServerConfig, ConfigError> 
     };
 
     let db_path = match get("DB_PATH") {
-        None => DbPath::File(default_db_path()),
+        None if dev_build => DbPath::File(default_db_path()),
+        None => return Err(fail("DB_PATH", "must be set (a release build has no default)")),
         Some("") => return Err(fail("DB_PATH", "must not be empty")),
         Some(":memory:") => DbPath::Memory,
         Some(raw) => DbPath::File(resolve(cwd, raw)),
@@ -621,5 +667,38 @@ mod tests {
             admin_socket_for(&env(&[]), &cwd),
             Ok(Some(default_db_path().with_file_name("admin.sock")))
         );
+    }
+
+    #[test]
+    fn a_release_build_requires_db_path() {
+        match parse_config_as(&env(&[]), &cwd(), false) {
+            Ok(cfg) => panic!("accepted without DB_PATH: {cfg:?}"),
+            Err(e) => assert!(e.to_string().contains("DB_PATH"), "{e}"),
+        }
+        let cfg = parse_config_as(&env(&[("DB_PATH", "/var/lib/omega-share/omega.db")]), &cwd(), false).unwrap();
+        assert_eq!(cfg.db_path, DbPath::File(PathBuf::from("/var/lib/omega-share/omega.db")));
+        assert_eq!(
+            parse_config_as(&env(&[("DB_PATH", ":memory:")]), &cwd(), false).unwrap().db_path,
+            DbPath::Memory
+        );
+    }
+
+    #[test]
+    fn env_refuses_non_utf8_in_a_variable_we_read() {
+        use std::os::unix::ffi::OsStringExt;
+        let bad = || OsString::from_vec(b"/tmp/\xff.db".to_vec());
+        let os = |k: &str, v: OsString| (OsString::from(k), v);
+        match env_from_os([os("PORT", "9000".into()), os("DB_PATH", bad())]) {
+            Ok(env) => panic!("accepted: {env:?}"),
+            Err(e) => assert_eq!(e.key, "DB_PATH"),
+        }
+        // Variables we don't read, and non-UTF-8 names, are skipped.
+        let env = env_from_os([
+            os("PORT", "9000".into()),
+            os("LS_COLORS", bad()),
+            (OsString::from_vec(b"\xff".to_vec()), "x".into()),
+        ])
+        .unwrap();
+        assert_eq!(env, Env::from([("PORT".to_owned(), "9000".to_owned())]));
     }
 }
