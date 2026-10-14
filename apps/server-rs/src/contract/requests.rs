@@ -30,7 +30,7 @@ fn present<'de, D: Deserializer<'de>, T: Deserialize<'de>>(d: D) -> Result<Optio
 }
 
 /// Body of `POST /rooms`.
-#[derive(Debug, Serialize, Deserialize, Validate)]
+#[derive(Serialize, Deserialize, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct CreateRoomRequest {
     pub title: RoomTitle,
@@ -48,7 +48,7 @@ fn url_len(s: &str) -> Result<(), ValidationError> {
 }
 
 /// Body of `POST /rooms/:id/share`: the raw page or embed URL, for the share parser.
-#[derive(Debug, Serialize, Deserialize, Validate)]
+#[derive(Serialize, Deserialize, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct ShareRequest {
     #[validate(custom(function = "url_len"))]
@@ -62,12 +62,36 @@ impl ShareRequest {
 }
 
 /// Body of `POST /rooms/:id/report`.
-#[derive(Debug, Serialize, Deserialize, Validate)]
+#[derive(Serialize, Deserialize, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct ReportRequest {
     pub reason: ReportReason,
     #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
     pub note: Option<ReportNote>,
+}
+
+// Debug prints no user text (title, URL, note): these reach logs and panic messages.
+impl std::fmt::Debug for CreateRoomRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "CreateRoomRequest {{ title: <redacted>, visibility: {:?}, preset: {:?} }}",
+            self.visibility, self.preset
+        )
+    }
+}
+
+impl std::fmt::Debug for ShareRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ShareRequest { url: <redacted> }")
+    }
+}
+
+impl std::fmt::Debug for ReportRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let note = if self.note.is_some() { "<redacted>" } else { "None" };
+        write!(f, "ReportRequest {{ reason: {:?}, note: {note} }}", self.reason)
+    }
 }
 
 /// Oversized input is refused before it is read (the caller also caps while reading the socket).
