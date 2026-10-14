@@ -17,18 +17,27 @@ use omega_server::contract::responses::{
 };
 use omega_server::contract::room::{Avatar, ControlPolicy, RoomVisibility, SeatIndex, StandingSlot};
 use omega_server::contract::server_message::{encode, parse_server_message};
+use omega_server::contract::state::PlaybackState;
 use omega_server::contract::text::{ChatText, Nickname, ReportNote, RoomTitle};
 use omega_server::embed_policy::EmbedPolicy;
 use omega_server::log::redact_addresses;
 use omega_server::metrics::{Gauges, Metrics};
+use omega_server::playback::{Control, apply_control, expected_position, load_playback, restored_playback};
 use omega_server::rate_limit::{address_key, client_key, is_loopback_key};
 use omega_server::secrets::hash_secret;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+#[path = "corpus/room_script.rs"]
+mod room_script;
+
 /// Every corpus file has a runner below; a new `corpus/out/*.json` without one fails `every_corpus_has_a_runner`.
 const RUNNERS: &[&str] = &[
+    "playback-control",
+    "playback-expected",
+    "playback-load",
+    "room-script",
     "address-key",
     "any-embed-raw",
     "any-embed-schema",
@@ -793,4 +802,75 @@ fn metrics_render_agrees() {
         let cut = out.find("# HELP process_resident_memory_bytes")?;
         out.get(..cut).map(str::to_owned)
     });
+}
+
+// ---- OME-1163: playback math and the Room core.
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LoadIn {
+    prev_rev: Option<i64>,
+    now: i64,
+    by: Option<MemberId>,
+}
+
+#[test]
+fn playback_load_agrees() {
+    agree(load::<LoadIn, Value>(include_str!("../corpus/out/playback-load.json")), |i| {
+        let state = match i.prev_rev {
+            Some(rev) => load_playback(rev, i.now, i.by.clone()),
+            None => restored_playback(i.now),
+        };
+        serde_json::to_value(state).ok()
+    });
+}
+
+#[derive(Debug, Deserialize)]
+struct ExpectedIn {
+    state: PlaybackState,
+    now: i64,
+}
+
+#[test]
+fn playback_expected_agrees() {
+    agree(load::<ExpectedIn, f64>(include_str!("../corpus/out/playback-expected.json")), |i| {
+        Some(expected_position(&i.state, i.now))
+    });
+}
+
+#[derive(Debug, Deserialize)]
+struct WireControl {
+    url: String,
+    playing: bool,
+    position: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct ControlIn {
+    state: Option<PlaybackState>,
+    embed: Option<Embed>,
+    control: WireControl,
+    by: MemberId,
+    now: i64,
+}
+
+#[test]
+fn playback_control_agrees() {
+    agree(load::<ControlIn, Value>(include_str!("../corpus/out/playback-control.json")), |i| {
+        let c = Control {
+            url: &i.control.url,
+            playing: i.control.playing,
+            position: i.control.position,
+        };
+        let next = apply_control(i.state.as_ref(), i.embed.as_ref(), &c, &i.by, i.now)?;
+        serde_json::to_value(next).ok()
+    });
+}
+
+#[test]
+fn room_script_agrees() {
+    agree(
+        load::<room_script::Script, Vec<Value>>(include_str!("../corpus/out/room-script.json")),
+        room_script::run,
+    );
 }
