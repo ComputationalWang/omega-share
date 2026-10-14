@@ -11,6 +11,7 @@ import { unicodeDigestCases } from "./unicode-digest";
 import * as constants from "../../../packages/shared/src/constants";
 import { layoutCorpora } from "./layout-corpora";
 import { inboundCorpora } from "./inbound-corpora";
+import { secretsMetricsCorpora } from "./secrets-metrics-corpora";
 import { redactAddresses } from "../../server/src/log";
 import { addressKey, clientKey, isLoopbackKey } from "../../server/src/rate-limit";
 import { ADDRESSES, clientInputs, dedup, loopbackInputs, redactInputs } from "./address-inputs";
@@ -143,6 +144,7 @@ export const corpora: Corpus[] = [
   { name: "room-visibility", cases: text.roomVisibilityCases },
   ...layoutCorpora,
   ...inboundCorpora,
+  ...secretsMetricsCorpora,
   { name: "redact-addresses", cases: () => decided(dedup([...redactInputs(), "a@b.\u212Aom", "a@b.c\u212A", "\u017Fa@b.com", "a@b.\u017F\u017F"]), redactAddresses) },
   { name: "address-key", cases: () => decided(dedup(ADDRESSES), addressKey) },
   { name: "client-key", cases: () => decided(dedup(clientInputs()), ([peer, xff, trust]) => clientKey(peer, xff, trust)) },
