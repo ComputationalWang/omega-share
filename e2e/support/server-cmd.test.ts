@@ -15,7 +15,7 @@ describe("serverProcess", () => {
   test("bun runs the TS entry point", () => {
     expect(serverProcess({})).toEqual({ command: "bun", args: ["apps/server/src/index.ts"] });
   });
-  test("rust runs the debug binary from the cargo target dir", () => {
-    expect(serverProcess({ E2E_SERVER: "rust", CARGO_TARGET_DIR: "/x/target" })).toEqual({ command: "/x/target/debug/omega-server", args: [] });
+  test("rust runs the e2e-profile binary (an optimised build, so the server does not starve the browser) from the cargo target dir", () => {
+    expect(serverProcess({ E2E_SERVER: "rust", CARGO_TARGET_DIR: "/x/target" })).toEqual({ command: "/x/target/e2e/omega-server", args: [] });
   });
 });
