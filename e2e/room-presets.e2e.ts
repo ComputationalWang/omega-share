@@ -128,16 +128,19 @@ test.describe("room presets and saved layouts (own server and site)", () => {
 
   /** The room's layout as the snapshot said (the dev handle, apps/web/src/main.ts `window.__omega.room`). */
   async function layoutOf(page: Page): Promise<RoomLayout> {
-    const raw = await page.evaluate(() => {
+    return v.parse(RoomLayoutSchema, await roomField(page, "layout"));
+  }
+
+  async function roomField(page: Page, field: string): Promise<unknown> {
+    return page.evaluate((field) => {
       const debug: unknown = Reflect.get(window, "__omega");
       const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
       if (typeof room !== "object" || room === null) return null;
       const state: unknown = Reflect.get(room, "state");
       const s: unknown = typeof state === "function" ? Reflect.apply(state, room, []) : null;
       const r: unknown = typeof s === "object" && s !== null ? Reflect.get(s, "room") : null;
-      return typeof r === "object" && r !== null ? (Reflect.get(r, "layout") as unknown) : null;
-    });
-    return v.parse(RoomLayoutSchema, raw);
+      return typeof r === "object" && r !== null ? (Reflect.get(r, field) as unknown) : null;
+    }, field);
   }
 
   async function createRoom(page: Page, title: string, choose: string | null): Promise<void> {
@@ -160,13 +163,29 @@ test.describe("room presets and saved layouts (own server and site)", () => {
     const values = await radios.evaluateAll((rs) => rs.map((r) => (r instanceof HTMLInputElement ? r.value : "")));
     expect([...values].sort()).toEqual([...ROOM_PRESET_IDS].sort());
     await expect(page.locator(radio("classic"))).toBeChecked();
-    // The default, untouched, is classic.
-    await createRoom(page, "Default", null);
-    expect(await layoutOf(page)).toEqual(presetLayout("classic"));
+    // The untouched default (classic) is created by the #share= test below: this file's creates fill the global bucket.
     for (const preset of ROOM_PRESET_IDS) {
       await createRoom(page, `Room ${preset}`, radio(preset));
       expect(await layoutOf(page), preset).toEqual(presetLayout(preset));
     }
+    expect(errors).toEqual([]);
+  });
+
+  test("a link the extension hands over (/#share=) shows in the create form and plays in the new, default (classic) room", async ({ browser }) => {
+    const { page, errors } = await newPage(browser);
+    const yt = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+    await page.goto(`${WEB_URL}/#share=${encodeURIComponent(yt)}`);
+    // Dropped from the URL at once (it's a fragment, so it never reached the server either).
+    await expect.poll(() => new URL(page.url()).hash).toBe("");
+    await openDirectory(page);
+    await expect(page.locator(id("share-pending"))).toContainText("This video will play in your new room");
+    await page.locator(site.createRoomTitle).fill("Shared");
+    await page.locator(site.createRoomSubmit).click();
+    await page.waitForURL(/\/r\/[a-z2-7]{26}$/);
+    await enter(page);
+    await expect.poll(() => roomField(page, "embed")).toMatchObject({ provider: "youtube", videoId: "dQw4w9WgXcQ" });
+    expect(await layoutOf(page)).toEqual(presetLayout("classic"));
+    expect(await page.evaluate(() => Object.keys(sessionStorage).filter((k) => k.startsWith("omega.pendingShare.")))).toEqual([]);
     expect(errors).toEqual([]);
   });
 

@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { classic } from "./support/preset-layouts";
 import type { ClientMessage } from "@omega/shared";
-import { createPendingApplier, pendingLayoutKey, stashPendingLayout, takePendingLayout } from "../src/pending-layout";
+import { createPendingApplier, pendingLayoutKey, pendingShareKey, shareableLink, stashPendingLayout, stashPendingShare, takePendingLayout, takePendingShare } from "../src/pending-layout";
 
 const ROOM = "abcdefghijklmnopqrstuvwxyz";
+const OWN = ["omega.example"];
+const YT = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 
 class MemoryStore {
   readonly data = new Map<string, string>();
@@ -45,10 +47,15 @@ describe("pending layout (saved layout chosen at room creation)", () => {
     const setup = (): { s: MemoryStore; sent: ClientMessage[]; apply: ReturnType<typeof createPendingApplier> } => {
       const s = new MemoryStore();
       const sent: ClientMessage[] = [];
-      const apply = createPendingApplier(s, ROOM, (m) => {
-        sent.push(m);
-        return true;
-      });
+      const apply = createPendingApplier(
+        s,
+        ROOM,
+        (m) => {
+          sent.push(m);
+          return true;
+        },
+        OWN,
+      );
       return { s, sent, apply };
     };
 
@@ -70,6 +77,30 @@ describe("pending layout (saved layout chosen at room creation)", () => {
       apply({ owner: false, hasRoom: true });
       expect(sent).toEqual([]);
       expect(s.data.size).toBe(1);
+    });
+
+    test("a shared link (OME-1085) goes in as one queue-add, after the layout, then the key is gone", () => {
+      const { s, sent, apply } = setup();
+      stashPendingLayout(s, ROOM, classic);
+      stashPendingShare(s, ROOM, YT);
+      apply({ owner: false, hasRoom: true });
+      expect(sent).toEqual([]);
+      apply({ owner: true, hasRoom: true });
+      apply({ owner: true, hasRoom: true });
+      expect(sent).toEqual([{ type: "layout-set", layout: classic }, { type: "queue-add", url: YT }]);
+      expect(s.data.size).toBe(0);
+    });
+
+    test("a shared link alone is sent; one edited in storage into something unplayable is not", () => {
+      const { s, sent, apply } = setup();
+      stashPendingShare(s, ROOM, YT);
+      apply({ owner: true, hasRoom: true });
+      expect(sent).toEqual([{ type: "queue-add", url: YT }]);
+      const second = setup();
+      second.s.data.set(pendingShareKey(ROOM), "javascript:alert(1)");
+      second.apply({ owner: true, hasRoom: true });
+      expect(second.sent).toEqual([]);
+      expect(second.s.data.size).toBe(0);
     });
 
     test("nothing stashed or an invalid layout sends nothing", () => {
@@ -99,5 +130,43 @@ describe("pending layout (saved layout chosen at room creation)", () => {
     };
     expect(stashPendingLayout(boom, ROOM, classic)).toBe(false);
     expect(takePendingLayout(boom, ROOM)).toBeNull();
+  });
+});
+
+describe("pending share (a #share= link from the extension, OME-1085)", () => {
+  test("keyed per room in sessionStorage", () => {
+    expect(pendingShareKey(ROOM)).toBe(`omega.pendingShare.${ROOM}`);
+  });
+
+  test("shareableLink takes what the queue takes: synced providers and the generic tier, trimmed", () => {
+    expect(shareableLink(` ${YT} `, OWN)).toBe(YT);
+    expect(shareableLink("https://vimeo.com/76979871", OWN)).toBe("https://vimeo.com/76979871");
+    expect(shareableLink("https://videos.example.org/watch/1", OWN)).toBe("https://videos.example.org/watch/1");
+  });
+
+  test("shareableLink drops anything the queue would refuse", () => {
+    for (const raw of ["", "not a link", "javascript:alert(1)", "http://videos.example.org/1", "https://127.0.0.1/x", "https://omega.example/r/abc", `https://example.com/${"a".repeat(3000)}`]) {
+      expect(shareableLink(raw, OWN)).toBeNull();
+    }
+  });
+
+  test("stashed once, taken once; a throwing storage never throws", () => {
+    const s = new MemoryStore();
+    expect(stashPendingShare(s, ROOM, YT)).toBe(true);
+    expect(takePendingShare(s, ROOM, OWN)).toBe(YT);
+    expect(takePendingShare(s, ROOM, OWN)).toBeNull();
+    const boom = {
+      getItem: (): string | null => {
+        throw new Error("x");
+      },
+      setItem: (): void => {
+        throw new Error("x");
+      },
+      removeItem: (): void => {
+        throw new Error("x");
+      },
+    };
+    expect(stashPendingShare(boom, ROOM, YT)).toBe(false);
+    expect(takePendingShare(boom, ROOM, OWN)).toBeNull();
   });
 });

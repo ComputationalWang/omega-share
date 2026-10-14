@@ -4,7 +4,7 @@ import { ROOM_SECRETS_STORAGE_KEY, type RoomSummary } from "@omega/shared";
 import { cinema, classic } from "./support/preset-layouts";
 import type { HomeOptions } from "../src/home";
 import { PRESETS } from "../src/presets";
-import { pendingLayoutKey } from "../src/pending-layout";
+import { pendingLayoutKey, pendingShareKey } from "../src/pending-layout";
 import { SAVED_LAYOUTS_KEY, loadSavedLayouts, saveLayout } from "../src/saved-layouts";
 import { loadRoomSecrets, rememberRoom } from "../src/room-secrets";
 
@@ -48,6 +48,8 @@ let calls: Call[];
 let navigated: string[];
 let listed: RoomSummary[] | string;
 let created: { status: number; body: unknown };
+/** The raw `#share=` value main.ts took at boot (OME-1085). */
+let share: string | null;
 /** When set, GET /rooms answers through this instead of `listed` (a pending, failing or later answer). */
 let listing: (() => Promise<Response>) | null;
 /** When set, POST /rooms answers through this (e.g. held open to see the submitting state). */
@@ -78,6 +80,7 @@ async function mountOnly(): Promise<{ root: HTMLElement; ready: Promise<void> }>
       return Promise.resolve(json(200, typeof listed === "string" ? listed : { rooms: listed }));
     },
     navigate: (path) => navigated.push(path),
+    share,
   };
   return { root, ready: mountHome(opts).ready };
 }
@@ -105,6 +108,7 @@ beforeEach(() => {
   listed = [];
   listing = null;
   holdPost = null;
+  share = null;
   created = { status: 201, body: { ok: true, room: { id: ROOM, title: "Movie night", visibility: "private" }, ownerToken: OWNER, inviteKey: KEY } };
 });
 
@@ -157,6 +161,41 @@ describe("create room (POST /rooms)", () => {
       expect(byTestId(root, "create-room-error", HTMLElement).textContent).not.toBe("");
       expect(navigated).toEqual([]);
     }
+  });
+});
+
+describe("a link shared from the extension (#share=, OME-1085)", () => {
+  const YT = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+
+  test("the create form says the video will play in the new room, as text, and creating stashes it for the room page", async () => {
+    share = YT;
+    const root = await mount();
+    const note = byTestId(root, "share-pending", HTMLElement);
+    expect(note.textContent).toContain("This video will play in your new room");
+    expect(note.textContent).toContain(YT);
+    expect(root.querySelector("iframe")).toBeNull();
+    await submit(root, "Movie night", false);
+    expect(session.data.get(pendingShareKey(ROOM))).toBe(YT);
+    expect(navigated).toEqual([`/r/${ROOM}`]);
+  });
+
+  test("Discard removes it: no note, nothing stashed", async () => {
+    share = YT;
+    const root = await mount();
+    byTestId(root, "share-discard", HTMLButtonElement).click();
+    expect(all(root, "share-pending")).toEqual([]);
+    await submit(root, "Movie night", false);
+    expect(session.data.has(pendingShareKey(ROOM))).toBe(false);
+  });
+
+  test("an unplayable link is dropped silently: no note, nothing stashed", async () => {
+    for (const bad of ["javascript:alert(1)", "<img src=x onerror=alert(1)>", "http://insecure.example/v"]) {
+      share = bad;
+      const root = await mount();
+      expect(all(root, "share-pending")).toEqual([]);
+      expect(root.querySelector("iframe, img[src=x]")).toBeNull();
+    }
+    expect(session.data.size).toBe(0);
   });
 });
 
@@ -329,7 +368,7 @@ describe("your rooms (localStorage omega.rooms)", () => {
     const pending = new Promise<Response>((r) => {
       release = r;
     });
-    const { ready } = mountHome({ root, serverUrl: SERVER, store, session, thumbs: THUMBS, fetch: () => pending, navigate: (path) => navigated.push(path) });
+    const { ready } = mountHome({ root, serverUrl: SERVER, store, session, thumbs: THUMBS, fetch: () => pending, navigate: (path) => navigated.push(path), share: null });
     byTestId(root, "your-room-forget", HTMLButtonElement).click();
     release(json(200, { rooms: [] }));
     await ready;

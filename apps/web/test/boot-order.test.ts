@@ -25,6 +25,13 @@ describe("boot order (OME-409)", () => {
     expect(main).toMatch(new RegExp(`secretFor\\(.*, ${name ?? "?"}\\)`));
   });
 
+  test("main.ts drops #share= with takeShareLink at top level, before any dynamic import (OME-1085)", () => {
+    const at = main.indexOf("takeShareLink(");
+    expect(at).toBeGreaterThan(-1);
+    expect(at).toBeLessThan(main.search(/\bimport\(/));
+    expect(main.split("\n").find((l) => l.includes("takeShareLink("))).toMatch(/^const \w+ = takeShareLink\(/);
+  });
+
   test("main.ts has no static import of a player or the room (those load provider SDKs)", () => {
     const statics = [...main.matchAll(/^import (?!type)[^;]*from "([^"]+)"/gm)].map((m) => m[1]);
     for (const s of statics) expect(s).not.toMatch(/player|\.\/room$|sdk/);
