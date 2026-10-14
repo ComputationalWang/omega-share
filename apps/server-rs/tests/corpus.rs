@@ -12,19 +12,32 @@ use omega_server::contract::generic_embed::{
 use omega_server::contract::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken, RoomId, ShareToken, parse_bearer};
 use omega_server::contract::layout::{Facing, Furniture, Kind, RoomLayout, footprint_cells, layout_seats};
 use omega_server::contract::requests::{parse_create_room_request, parse_report_request, parse_share_request};
+use omega_server::contract::responses::{
+    CreateRoomResponse, DeleteRoomResponse, QueueAddResponse, ReportResponse, RoomListResponse, ShareResponse,
+};
 use omega_server::contract::room::{Avatar, ControlPolicy, RoomVisibility, SeatIndex, StandingSlot};
+use omega_server::contract::server_message::{encode, parse_server_message};
+use omega_server::contract::state::PlaybackState;
 use omega_server::contract::text::{ChatText, Nickname, ReportNote, RoomTitle};
 use omega_server::embed_policy::EmbedPolicy;
 use omega_server::log::redact_addresses;
 use omega_server::metrics::{Gauges, Metrics};
+use omega_server::playback::{Control, apply_control, expected_position, load_playback, restored_playback};
 use omega_server::rate_limit::{address_key, client_key, is_loopback_key};
 use omega_server::secrets::hash_secret;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+#[path = "corpus/room_script.rs"]
+mod room_script;
+
 /// Every corpus file has a runner below; a new `corpus/out/*.json` without one fails `every_corpus_has_a_runner`.
 const RUNNERS: &[&str] = &[
+    "playback-control",
+    "playback-expected",
+    "playback-load",
+    "room-script",
     "address-key",
     "any-embed-raw",
     "any-embed-schema",
@@ -61,6 +74,8 @@ const RUNNERS: &[&str] = &[
     "redact-addresses",
     "report-note",
     "report-request-raw",
+    "response-raw",
+    "response-roundtrip",
     "resume-token",
     "room-id",
     "room-layout",
@@ -70,6 +85,8 @@ const RUNNERS: &[&str] = &[
     "room-title",
     "room-visibility",
     "seat-index",
+    "server-message-raw",
+    "server-message-roundtrip",
     "share-request-raw",
     "share-token",
     "standing-slot",
@@ -664,6 +681,76 @@ fn report_request_raw_agrees() {
     });
 }
 
+// ---- outbound: what the server produces (OME-1160)
+
+/// The text parses as a server message and what Rust makes of it, as a JSON value (key order is not
+/// compared here: the roundtrip corpus pins it byte for byte).
+#[test]
+fn server_message_raw_agrees() {
+    agree(
+        load::<String, Value>(include_str!("../corpus/out/server-message-raw.json")),
+        |text| parse_server_message(text).and_then(|m| serde_json::to_value(&m).ok()),
+    );
+}
+
+/// The TS server's own bytes: parse, encode again, identical text.
+#[test]
+fn server_message_roundtrip_agrees() {
+    agree(
+        load::<String, String>(include_str!("../corpus/out/server-message-roundtrip.json")),
+        |text| parse_server_message(text).and_then(|m| encode(&m).ok()),
+    );
+}
+
+#[derive(Deserialize, Debug)]
+struct Body {
+    kind: String,
+    text: String,
+}
+
+/// Any response body, as the two outputs the corpora compare.
+trait Out {
+    fn value(&self) -> Option<Value>;
+    fn text(&self) -> Option<String>;
+}
+
+impl<T: Serialize> Out for T {
+    fn value(&self) -> Option<Value> {
+        serde_json::to_value(self).ok()
+    }
+    fn text(&self) -> Option<String> {
+        serde_json::to_string(self).ok()
+    }
+}
+
+/// Parses the body as the response its `kind` names and applies `out` to the result.
+fn response<R>(body: &Body, out: impl Fn(&dyn Out) -> Option<R>) -> Option<R> {
+    let t = body.text.as_str();
+    match body.kind.as_str() {
+        "share" => out(&serde_json::from_str::<ShareResponse>(t).ok()?),
+        "queue-add" => out(&serde_json::from_str::<QueueAddResponse>(t).ok()?),
+        "create-room" => out(&serde_json::from_str::<CreateRoomResponse>(t).ok()?),
+        "delete-room" => out(&serde_json::from_str::<DeleteRoomResponse>(t).ok()?),
+        "report" => out(&serde_json::from_str::<ReportResponse>(t).ok()?),
+        "room-list" => out(&serde_json::from_str::<RoomListResponse>(t).ok()?),
+        other => panic!("unknown response kind {other}"),
+    }
+}
+
+#[test]
+fn response_raw_agrees() {
+    agree(load::<Body, Value>(include_str!("../corpus/out/response-raw.json")), |b| {
+        response(b, |r| r.value())
+    });
+}
+
+#[test]
+fn response_roundtrip_agrees() {
+    agree(load::<Body, String>(include_str!("../corpus/out/response-roundtrip.json")), |b| {
+        response(b, |r| r.text())
+    });
+}
+
 // ---- OME-1162: secrets and metrics.
 
 #[test]
@@ -715,4 +802,75 @@ fn metrics_render_agrees() {
         let cut = out.find("# HELP process_resident_memory_bytes")?;
         out.get(..cut).map(str::to_owned)
     });
+}
+
+// ---- OME-1163: playback math and the Room core.
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LoadIn {
+    prev_rev: Option<i64>,
+    now: i64,
+    by: Option<MemberId>,
+}
+
+#[test]
+fn playback_load_agrees() {
+    agree(load::<LoadIn, Value>(include_str!("../corpus/out/playback-load.json")), |i| {
+        let state = match i.prev_rev {
+            Some(rev) => load_playback(rev, i.now, i.by.clone()),
+            None => restored_playback(i.now),
+        };
+        serde_json::to_value(state).ok()
+    });
+}
+
+#[derive(Debug, Deserialize)]
+struct ExpectedIn {
+    state: PlaybackState,
+    now: i64,
+}
+
+#[test]
+fn playback_expected_agrees() {
+    agree(load::<ExpectedIn, f64>(include_str!("../corpus/out/playback-expected.json")), |i| {
+        Some(expected_position(&i.state, i.now))
+    });
+}
+
+#[derive(Debug, Deserialize)]
+struct WireControl {
+    url: String,
+    playing: bool,
+    position: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct ControlIn {
+    state: Option<PlaybackState>,
+    embed: Option<Embed>,
+    control: WireControl,
+    by: MemberId,
+    now: i64,
+}
+
+#[test]
+fn playback_control_agrees() {
+    agree(load::<ControlIn, Value>(include_str!("../corpus/out/playback-control.json")), |i| {
+        let c = Control {
+            url: &i.control.url,
+            playing: i.control.playing,
+            position: i.control.position,
+        };
+        let next = apply_control(i.state.as_ref(), i.embed.as_ref(), &c, &i.by, i.now)?;
+        serde_json::to_value(next).ok()
+    });
+}
+
+#[test]
+fn room_script_agrees() {
+    agree(
+        load::<room_script::Script, Vec<Value>>(include_str!("../corpus/out/room-script.json")),
+        room_script::run,
+    );
 }

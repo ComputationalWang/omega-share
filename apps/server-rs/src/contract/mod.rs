@@ -11,8 +11,11 @@ pub mod ids;
 pub mod js_compat;
 pub mod layout;
 pub mod requests;
+pub mod responses;
 pub mod room;
+pub mod server_message;
 pub mod session;
+pub mod state;
 pub mod text;
 pub mod unicode_props;
 
