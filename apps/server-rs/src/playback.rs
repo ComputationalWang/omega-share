@@ -8,13 +8,23 @@ use crate::contract::ids::MemberId;
 use crate::contract::state::{PlaybackAction, PlaybackState, Position, Rate, Rev, ServerTime};
 
 /// A `control` message's payload.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Control<'a> {
     /// Canonical `Embed.url` of the video being controlled.
     pub url: &'a str,
     pub playing: bool,
     /// The wire schema bounds it to `0..=MAX_POSITION_S`; it is clamped anyway.
     pub position: f64,
+}
+
+/// Without the url: which video a member controls is not for logs (ADR 0032).
+impl std::fmt::Debug for Control<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Control")
+            .field("playing", &self.playing)
+            .field("position", &self.position)
+            .finish_non_exhaustive()
+    }
 }
 
 /// A position further than this from the extrapolated one counts as a seek (ADR 0011).
