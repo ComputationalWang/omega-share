@@ -67,7 +67,7 @@ export interface Connection {
 const BACKOFF_BASE_MS = 500;
 export const BACKOFF_MAX_MS = 5000;
 /** How long an open socket may stay silent after `ensureConnected({ probe: true })` before it is dropped. */
-export const PROBE_TIMEOUT_MS = 3000;
+const PROBE_TIMEOUT_MS = 3000;
 /** A socket with no snapshot by then is dropped and retried. */
 export const HANDSHAKE_TIMEOUT_MS = 10_000;
 /**
