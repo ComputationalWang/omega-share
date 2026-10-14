@@ -7,7 +7,8 @@
 //! bytes (or whose channel is full) is marked dead and dropped from the room: its writer sees `None` from
 //! [`OutboxRx::recv`] and drops the connection WITHOUT a close frame, so the client sees 1006, as with Bun.
 
-use crate::contract::server_message::ServerMessage;
+use crate::contract::server_message::{ServerMessage, encode};
+use crate::log::{LogEvent, log_error};
 use crate::registry::RoomInner;
 use axum::extract::ws::Utf8Bytes;
 use std::sync::Arc;
@@ -73,22 +74,38 @@ pub fn channel() -> (Outbox, OutboxRx) {
 
 impl Outbox {
     /// Queues a text frame. False (and the outbox is dead) if it would push the queue past the limit or the channel is full.
-    pub fn send_text(&self, _frame: &Utf8Bytes) -> bool {
-        false
+    pub fn send_text(&self, frame: &Utf8Bytes) -> bool {
+        if self.is_dead() {
+            return false;
+        }
+        let len = frame.len();
+        let queued = self.queued.fetch_add(len, Ordering::AcqRel).saturating_add(len);
+        if queued > BACKPRESSURE_LIMIT || self.tx.try_send(Outbound::Text(frame.clone())).is_err() {
+            self.dead.store(true, Ordering::Release);
+            return false;
+        }
+        true
     }
 
     /// Queues a close frame (not counted toward the byte limit). False if the channel is full or gone.
-    pub fn send_close(&self, _code: u16, _reason: &'static str) -> bool {
-        false
+    pub fn send_close(&self, code: u16, reason: &'static str) -> bool {
+        if self.is_dead() {
+            return false;
+        }
+        if self.tx.try_send(Outbound::Close(code, reason)).is_err() {
+            self.dead.store(true, Ordering::Release);
+            return false;
+        }
+        true
     }
 
     pub fn is_dead(&self) -> bool {
-        false
+        self.dead.load(Ordering::Acquire)
     }
 
     /// Bytes of text frames queued and not yet taken by the writer.
     pub fn queued_bytes(&self) -> usize {
-        0
+        self.queued.load(Ordering::Acquire)
     }
 }
 
@@ -96,11 +113,18 @@ impl OutboxRx {
     /// The next frame, or `None` when the connection must end without another frame: the outbox was
     /// marked dead (the queue is discarded), or the room dropped it and the queue is empty.
     pub async fn recv(&mut self) -> Option<Outbound> {
-        None
+        let next = self.rx.recv().await?;
+        if self.is_dead() {
+            return None;
+        }
+        if let Outbound::Text(t) = &next {
+            self.queued.fetch_sub(t.len(), Ordering::AcqRel);
+        }
+        Some(next)
     }
 
     pub fn is_dead(&self) -> bool {
-        false
+        self.dead.load(Ordering::Acquire)
     }
 }
 
@@ -120,30 +144,46 @@ struct Entry {
 
 impl Subscribers {
     /// A socket opened on the room (not yet subscribed).
-    pub fn attach(&mut self, _conn: ConnId, _outbox: Outbox) {}
+    pub fn attach(&mut self, conn: ConnId, outbox: Outbox) {
+        self.entries.push(Entry {
+            conn,
+            outbox,
+            subscribed: false,
+        });
+    }
 
     /// `ws.subscribe(topic)`: false for an unknown connection.
-    pub fn subscribe(&mut self, _conn: ConnId) -> bool {
-        false
+    pub fn subscribe(&mut self, conn: ConnId) -> bool {
+        self.set_subscribed(conn, true)
     }
 
     /// `ws.unsubscribe(topic)`: false for an unknown connection.
-    pub fn unsubscribe(&mut self, _conn: ConnId) -> bool {
-        false
+    pub fn unsubscribe(&mut self, conn: ConnId) -> bool {
+        self.set_subscribed(conn, false)
+    }
+
+    fn set_subscribed(&mut self, conn: ConnId, subscribed: bool) -> bool {
+        self.entries
+            .iter_mut()
+            .find(|e| e.conn == conn)
+            .map(|e| e.subscribed = subscribed)
+            .is_some()
     }
 
     /// The socket closed. False if it was not attached (a dead outbox is detached by publish).
-    pub fn detach(&mut self, _conn: ConnId) -> bool {
-        false
+    pub fn detach(&mut self, conn: ConnId) -> bool {
+        let before = self.entries.len();
+        self.entries.retain(|e| e.conn != conn);
+        self.entries.len() != before
     }
 
-    pub fn is_attached(&self, _conn: ConnId) -> bool {
-        false
+    pub fn is_attached(&self, conn: ConnId) -> bool {
+        self.entries.iter().any(|e| e.conn == conn)
     }
 
     /// Connections attached, subscribed or not.
     pub fn len(&self) -> usize {
-        0
+        self.entries.len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -152,16 +192,29 @@ impl Subscribers {
 
     /// Connections subscribed to the topic.
     pub fn subscribed(&self) -> usize {
-        0
+        self.entries.iter().filter(|e| e.subscribed).count()
     }
 
-    fn publish(&mut self, _except: Option<ConnId>, _frame: &Utf8Bytes) {}
-
-    fn send_to(&mut self, _conn: ConnId, _frame: &Utf8Bytes) -> bool {
-        false
+    /// One pass; a subscriber that went dead is dropped from the room (its writer ends the connection).
+    fn publish(&mut self, except: Option<ConnId>, frame: &Utf8Bytes) {
+        self.entries
+            .retain(|e| !e.subscribed || Some(e.conn) == except || e.outbox.send_text(frame));
     }
 
-    fn close_all(&mut self, _code: u16, _reason: &'static str) {}
+    fn send_to(&mut self, conn: ConnId, frame: &Utf8Bytes) -> bool {
+        let Some(i) = self.entries.iter().position(|e| e.conn == conn) else {
+            return false;
+        };
+        let sent = self.entries.get(i).is_some_and(|e| e.outbox.send_text(frame));
+        if !sent {
+            self.entries.remove(i);
+        }
+        sent
+    }
+
+    fn close_all(&mut self, code: u16, reason: &'static str) {
+        self.entries.retain(|e| e.outbox.send_close(code, reason));
+    }
 }
 
 /// `server.publish(topic, frame)`: every subscriber.
@@ -185,8 +238,14 @@ pub fn close_all(inner: &mut RoomInner, code: u16, reason: &'static str) {
 }
 
 /// A message as the frame every subscriber gets, serialized once; `None` (logged) if it can't be encoded.
-pub fn encode_frame(_msg: &ServerMessage) -> Option<Utf8Bytes> {
-    None
+pub fn encode_frame(msg: &ServerMessage) -> Option<Utf8Bytes> {
+    match encode(msg) {
+        Ok(json) => Some(Utf8Bytes::from(json)),
+        Err(err) => {
+            log_error(LogEvent::Encode, Some(&err));
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -267,7 +326,9 @@ mod tests {
         let f = frame("shared");
         publish_all(&mut inner, &f);
         let a = text(rxs[0].1.recv().await.unwrap());
-        let Outbound::Text(b) = rxs[1].1.recv().await.unwrap() else { panic!() };
+        let Outbound::Text(b) = rxs[1].1.recv().await.unwrap() else {
+            panic!()
+        };
         assert_eq!(a, "shared");
         assert_eq!(b.as_str().as_ptr(), f.as_str().as_ptr(), "a refcount clone, not a copy");
     }
@@ -332,7 +393,9 @@ mod tests {
         inner.subscribers.attach(ConnId(9), tx);
         close_all(&mut inner, 4004, "room closed");
         for rx in [&mut rxs[0].1, &mut lurker] {
-            let Outbound::Close(code, reason) = rx.recv().await.unwrap() else { panic!() };
+            let Outbound::Close(code, reason) = rx.recv().await.unwrap() else {
+                panic!()
+            };
             assert_eq!((code, reason), (4004, "room closed"));
         }
     }

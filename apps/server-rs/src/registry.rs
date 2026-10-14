@@ -14,7 +14,7 @@ use crate::rate_limit::TokenBucket;
 use crate::room::Room;
 use crate::secrets::hash_secret;
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Why a room ends: owner delete, GC, operator delete; or an operator takedown (ADR 0033 section 5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -125,19 +125,21 @@ impl RoomInner {
     }
 
     /// The grant `token` holds in this room.
-    pub fn grant(&self, _token: &ShareToken) -> Option<&ShareGrant> {
-        None
+    pub fn grant(&self, token: &ShareToken) -> Option<&ShareGrant> {
+        self.grants.get(&Self::key(token))
     }
 
-    pub fn grant_mut(&mut self, _token: &ShareToken) -> Option<&mut ShareGrant> {
-        None
+    pub fn grant_mut(&mut self, token: &ShareToken) -> Option<&mut ShareGrant> {
+        self.grants.get_mut(&Self::key(token))
     }
 
-    pub fn insert_grant(&mut self, _token: &ShareToken, _grant: ShareGrant) {}
+    pub fn insert_grant(&mut self, token: &ShareToken, grant: ShareGrant) {
+        self.grants.insert(Self::key(token), grant);
+    }
 
     /// Revokes a grant (a member left). False if there was none.
-    pub fn revoke_grant(&mut self, _token: &ShareToken) -> bool {
-        false
+    pub fn revoke_grant(&mut self, token: &ShareToken) -> bool {
+        self.grants.remove(&Self::key(token)).is_some()
     }
 
     /// The member's `queue-add` bucket, shared by their socket and `POST /rooms/:id/queue` (ADR 0031 section 2);
@@ -153,11 +155,13 @@ impl RoomInner {
     }
 
     /// The member ended: drops the state kept for them.
-    pub fn forget_member(&mut self, _id: &MemberId) {}
+    pub fn forget_member(&mut self, id: &MemberId) {
+        self.member_adds.remove(id);
+    }
 
     /// Entries in the per-room maps (sockets, grants, member buckets): what the TS suite's `perRoomSizes` counts.
     pub fn entries(&self) -> usize {
-        0
+        self.subscribers.len() + self.grants.len() + self.member_adds.len()
     }
 
     pub fn id(&self) -> &RoomId {
@@ -208,49 +212,82 @@ impl Registry {
         Self::default()
     }
 
-    pub fn get(&self, _id: &RoomId) -> Option<Arc<RoomCell>> {
-        None
+    fn read(&self) -> RwLockReadGuard<'_, Slots> {
+        self.slots.read().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn write(&self) -> RwLockWriteGuard<'_, Slots> {
+        self.slots.write().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    pub fn get(&self, id: &RoomId) -> Option<Arc<RoomCell>> {
+        let slots = self.read();
+        slots.cells.get(slots.by_id.get(id)?).cloned()
     }
 
     /// `has(room)`: this very cell is the registered one (a re-created room of the same id is another cell).
-    pub fn is_registered(&self, _cell: &Arc<RoomCell>) -> bool {
-        false
+    pub fn is_registered(&self, cell: &Arc<RoomCell>) -> bool {
+        self.get(&cell.id).is_some_and(|c| Arc::ptr_eq(&c, cell))
     }
 
     pub fn len(&self) -> usize {
-        0
+        self.read().cells.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        true
+        self.read().cells.is_empty()
     }
 
     /// The rooms in insertion order, as of now.
     pub fn values(&self) -> Vec<Arc<RoomCell>> {
-        Vec::new()
+        self.read().cells.values().cloned().collect()
     }
 
     /// Registers a room; `Err` if its id is taken.
-    pub fn add_room(&self, _room: Room, _now_mono: f64) -> Result<Arc<RoomCell>, DuplicateRoom> {
-        Err(DuplicateRoom)
+    pub fn add_room(&self, room: Room, now_mono: f64) -> Result<Arc<RoomCell>, DuplicateRoom> {
+        let mut slots = self.write();
+        if slots.by_id.contains_key(&room.id) {
+            return Err(DuplicateRoom);
+        }
+        let cell = Arc::new(RoomCell {
+            id: room.id.clone(),
+            inner: Mutex::new(RoomInner::new(room, now_mono)),
+        });
+        let seq = slots.next;
+        slots.next = seq.saturating_add(1);
+        slots.by_id.insert(cell.id.clone(), seq);
+        slots.cells.insert(seq, cell.clone());
+        Ok(cell)
     }
 
     /// Unlinks a room: new lookups miss it and `closed` is set. `None` if it was not registered. Only the
     /// unlinking; `App::remove_room` runs the hooks.
-    pub fn remove(&self, _id: &RoomId) -> Option<Arc<RoomCell>> {
-        None
+    pub fn remove(&self, id: &RoomId) -> Option<Arc<RoomCell>> {
+        self.remove_if(id, |_| true)
     }
 
     /// Like `remove`, but only if `keep_going` holds for the room, checked under the registry's write lock and
     /// the room's own, so nothing can change between the check and the unlink (GC uses it to skip a room
     /// someone just joined).
-    pub fn remove_if(&self, _id: &RoomId, _keep_going: impl FnOnce(&RoomInner) -> bool) -> Option<Arc<RoomCell>> {
-        None
+    pub fn remove_if(&self, id: &RoomId, due: impl FnOnce(&RoomInner) -> bool) -> Option<Arc<RoomCell>> {
+        let mut slots = self.write();
+        let seq = *slots.by_id.get(id)?;
+        let cell = slots.cells.get(&seq)?.clone();
+        // Registry, then room: the allowed order. Handlers under a room lock never wait on the registry.
+        let mut inner = cell.lock();
+        if !due(&inner) {
+            return None;
+        }
+        inner.closed = true;
+        drop(inner);
+        slots.by_id.remove(id);
+        slots.cells.remove(&seq);
+        Some(cell)
     }
 
     /// Total [`RoomInner::entries`] over the live rooms.
     pub fn per_room_entries(&self) -> usize {
-        0
+        self.values().iter().map(|c| c.lock().entries()).sum()
     }
 }
 
@@ -399,7 +436,10 @@ mod tests {
         for _ in 0..3 {
             assert!(inner.member_add_bucket(&m, 0.0).take(0.0));
         }
-        assert!(!inner.member_add_bucket(&m, 0.0).take(0.0), "QUEUE_ADD_MEMBER_BURST is 3: same bucket");
+        assert!(
+            !inner.member_add_bucket(&m, 0.0).take(0.0),
+            "QUEUE_ADD_MEMBER_BURST is 3: same bucket"
+        );
         inner.forget_member(&m);
         assert!(inner.member_add_bucket(&m, 0.0).take(0.0), "a fresh one");
     }
