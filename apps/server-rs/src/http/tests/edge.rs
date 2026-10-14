@@ -37,7 +37,9 @@ fn big_router() -> axum::Router {
 
 async fn get_ok(addr: SocketAddr) -> String {
     let mut s = TcpStream::connect(addr).await.unwrap();
-    s.write_all(b"GET /ok HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n").await.unwrap();
+    s.write_all(b"GET /ok HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
+        .await
+        .unwrap();
     let mut buf = Vec::new();
     let _ = tokio::time::timeout(Duration::from_secs(3), s.read_to_end(&mut buf)).await;
     String::from_utf8_lossy(&buf).into_owned()
@@ -46,14 +48,25 @@ async fn get_ok(addr: SocketAddr) -> String {
 // HTTP-1: t24/t25. A client that never reads is cut after the write-stall timeout, and its slot is released.
 #[tokio::test]
 async fn a_reader_that_stalls_is_cut_after_the_write_stall_timeout_and_frees_its_slot() {
-    let addr = listen(big_router(), Limits { max_connections: 1, ..quick() }).await;
+    let addr = listen(
+        big_router(),
+        Limits {
+            max_connections: 1,
+            ..quick()
+        },
+    )
+    .await;
     let mut stalled = TcpStream::connect(addr).await.unwrap();
     stalled.write_all(b"GET /big HTTP/1.1\r\nHost: x\r\n\r\n").await.unwrap();
     tokio::time::sleep(Duration::from_millis(1200)).await;
     // Now read: the server has hung up, so what is left is only what its socket buffers held.
     let mut got = Vec::new();
     let _ = tokio::time::timeout(Duration::from_secs(10), stalled.read_to_end(&mut got)).await;
-    assert!(got.len() < BIG, "the server kept writing to a client that did not read ({} bytes)", got.len());
+    assert!(
+        got.len() < BIG,
+        "the server kept writing to a client that did not read ({} bytes)",
+        got.len()
+    );
     // The one connection slot is free again.
     assert!(get_ok(addr).await.starts_with("HTTP/1.1 200"));
 }
@@ -61,7 +74,14 @@ async fn a_reader_that_stalls_is_cut_after_the_write_stall_timeout_and_frees_its
 // L10: past the open-connection cap a connection is closed at once.
 #[tokio::test]
 async fn a_connection_over_the_global_cap_is_closed_immediately() {
-    let addr = listen(big_router(), Limits { max_connections: 2, ..quick() }).await;
+    let addr = listen(
+        big_router(),
+        Limits {
+            max_connections: 2,
+            ..quick()
+        },
+    )
+    .await;
     let a = TcpStream::connect(addr).await.unwrap();
     let _b = TcpStream::connect(addr).await.unwrap();
     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -116,7 +136,11 @@ async fn one_key_cannot_hold_every_in_flight_slot() {
     assert_eq!(fx.get("/healthz", &[("x-forwarded-for", "198.51.100.8")]).await.status, 200);
     drop(held);
     tokio::time::sleep(Duration::from_millis(200)).await;
-    assert_eq!(fx.get("/healthz", &[("x-forwarded-for", "198.51.100.7")]).await.status, 200, "the slots came back");
+    assert_eq!(
+        fx.get("/healthz", &[("x-forwarded-for", "198.51.100.7")]).await.status,
+        200,
+        "the slots came back"
+    );
 }
 
 // HTTP-2: the report checks room and key before it reads a body that may never come.
@@ -175,7 +199,11 @@ async fn behind_a_public_origin_a_loopback_client_is_keyed_not_exempt() {
     assert_eq!(gate::client_key(&fx.app, Some(peer), &xff), "198.51.100.1");
     // Without a public origin, local dev keeps the exemption.
     let dev = Fx::start(&[]).await;
-    assert!(crate::rate_limit::is_loopback_key(&gate::client_key(&dev.app, Some(peer), &HeaderMap::new())));
+    assert!(crate::rate_limit::is_loopback_key(&gate::client_key(
+        &dev.app,
+        Some(peer),
+        &HeaderMap::new()
+    )));
 }
 
 // WS-1: t20. Only a GET upgrade skips the HTTP bucket.

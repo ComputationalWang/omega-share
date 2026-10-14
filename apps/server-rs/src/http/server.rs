@@ -160,11 +160,7 @@ impl AsyncWrite for StallGuard {
         self.guard(cx, polled)
     }
 
-    fn poll_write_vectored(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        bufs: &[std::io::IoSlice<'_>],
-    ) -> Poll<std::io::Result<usize>> {
+    fn poll_write_vectored(mut self: Pin<&mut Self>, cx: &mut Context<'_>, bufs: &[std::io::IoSlice<'_>]) -> Poll<std::io::Result<usize>> {
         let polled = Pin::new(&mut self.inner).poll_write_vectored(cx, bufs);
         self.guard(cx, polled)
     }

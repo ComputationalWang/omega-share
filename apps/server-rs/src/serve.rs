@@ -134,10 +134,14 @@ async fn listen(
     // Sockets in all: the WebSocket cap plus headroom for HTTP, so `MAX_CONNECTIONS` (at most 3072) and the files
     // behind responses stay under the unit's `LimitNOFILE=4096`.
     let limits = crate::http::server::Limits {
-        max_connections: usize::try_from(config.max_connections).unwrap_or(usize::MAX).saturating_add(HTTP_HEADROOM),
-        max_per_ip: crate::http::server::Limits::default()
-            .max_per_ip
-            .max(usize::try_from(config.max_connections_per_ip.unwrap_or(0)).unwrap_or(0).saturating_add(64)),
+        max_connections: usize::try_from(config.max_connections)
+            .unwrap_or(usize::MAX)
+            .saturating_add(HTTP_HEADROOM),
+        max_per_ip: crate::http::server::Limits::default().max_per_ip.max(
+            usize::try_from(config.max_connections_per_ip.unwrap_or(0))
+                .unwrap_or(0)
+                .saturating_add(64),
+        ),
         ..crate::http::server::Limits::default()
     };
     let serving = crate::http::server::serve_limited(

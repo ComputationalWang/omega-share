@@ -550,9 +550,12 @@ mod tests {
     #[test]
     fn normalizes_a_public_origins_case_and_trailing_slash() {
         assert_eq!(
-            ok(&[("PUBLIC_ORIGIN", "https://Quiet-Otter.ngrok-free.app/"), ("TRUST_PROXY", "loopback")])
-                .public_origin
-                .as_deref(),
+            ok(&[
+                ("PUBLIC_ORIGIN", "https://Quiet-Otter.ngrok-free.app/"),
+                ("TRUST_PROXY", "loopback")
+            ])
+            .public_origin
+            .as_deref(),
             Some("https://quiet-otter.ngrok-free.app")
         );
     }
@@ -639,7 +642,12 @@ mod tests {
         assert_eq!(ok(&[("SITE_ORIGIN", "http://[::1]:5173")]).own_hosts, vec!["localhost"]);
         // The same host twice is listed once.
         assert_eq!(
-            ok(&[("SITE_ORIGIN", "https://omega.example"), ("PUBLIC_ORIGIN", "https://omega.example"), ("TRUST_PROXY", "loopback")]).own_hosts,
+            ok(&[
+                ("SITE_ORIGIN", "https://omega.example"),
+                ("PUBLIC_ORIGIN", "https://omega.example"),
+                ("TRUST_PROXY", "loopback")
+            ])
+            .own_hosts,
             vec!["localhost", "omega.example"]
         );
     }

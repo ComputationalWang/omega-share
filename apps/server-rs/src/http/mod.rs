@@ -46,9 +46,9 @@ use std::net::SocketAddr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex, OnceLock};
 
-/// Requests one client key may have in flight at once: a page load runs a handful in parallel, so 16 is generous
-/// for a person and leaves 16 keys' worth of the global 256 for the others (HTTP-2).
-pub const KEY_IN_FLIGHT: usize = 16;
+/// Requests one client key may have in flight at once: a cold page load runs about 40 in parallel (http-limits.test.ts), so 64 is generous
+/// for a person; the bucket (20/s) and the 5 s body deadline bound what one key can hold under it, and it takes four keys to fill the global 256 (HTTP-2).
+pub const KEY_IN_FLIGHT: usize = 64;
 
 /// The limiters of the API routes (http.ts `createHttpApp`).
 #[derive(Debug)]
