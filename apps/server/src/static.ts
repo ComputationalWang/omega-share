@@ -19,7 +19,7 @@ const NOT_FOUND_MAIN = '<main class="privacy"><h1>Page not found</h1><p>There is
 /** Without a built `privacy.html` to borrow its look from. */
 const BARE_NOT_FOUND = `<!doctype html><html lang="en"><head><meta charset="utf-8" />${NOT_FOUND_TITLE}</head><body>${NOT_FOUND_MAIN}</body></html>`;
 
-export interface SiteOptions {
+interface SiteOptions {
   /** Absolute origin for the share card's image URL (PUBLIC_ORIGIN, else SITE_ORIGIN). */
   origin: string;
   /** A room's title if its link may show it (public, listable, not taken down), else null. */

@@ -20,7 +20,7 @@ import { ReportIdSchema } from "./store/reports";
  * Exit codes: 0 done, 1 failed (no such room or report, no server, server error), 2 usage.
  */
 
-export interface CliIo {
+interface CliIo {
   /** `ADMIN_SOCKET` or `DB_PATH` locate the socket (`adminSocketFor`). */
   env: Readonly<Record<string, string | undefined>>;
   out: (line: string) => void;

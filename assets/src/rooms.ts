@@ -517,6 +517,65 @@ const WAVE: EmoteDef = {
   accent: [],
 };
 
+/** Cheer as a picker icon (the expressions atlas has the gesture, not a sticker): a raised blush fist on a mustard cuff, the
+ *  thumb a plum crease across the fingers, cream pump ticks either side (the wave's motion marks). A closed block, so it never reads as the wave's open palm or the clap's V (OME-1122). */
+const CHEER: EmoteDef = {
+  id: "cheer",
+  label: "Cheer",
+  roles: {
+    h: { ramp: "blush" },
+    E: { ramp: "outline", tone: 1, group: "h" },
+    c: { ramp: "mustard", tone: 1 },
+    i: { ramp: "cream", tone: 0, group: "i" },
+  },
+  pop: [],
+  art: [
+    "....hh.hh.hh...",
+    "...hhhhhhhhhh..",
+    "i..hhhhhhhhhh.i",
+    "i..hhhhhhhhhh.i",
+    "...hhhhhhhhhh..",
+    "i..hhEEEEEhhh.i",
+    "i..hhhhhhhhhh.i",
+    "....hhhhhhhh...",
+    ".....hhhhhh....",
+    ".....hhhhhh....",
+    ".....hhhhhh....",
+    "....cccccccc...",
+  ],
+  accent: [],
+};
+
+/** Yawn as a picker icon: laugh's mustard face with the eyes shut flat and the mouth a tall O, a cream z drifting off it. */
+const YAWN: EmoteDef = {
+  id: "yawn",
+  label: "Yawn",
+  roles: {
+    Y: { ramp: "mustard", group: "Y" },
+    E: { ramp: "outline", tone: 1, group: "Y" },
+    d: { ramp: "mustard", tone: 2, group: "Y" },
+    i: { ramp: "cream", tone: 0, group: "i" },
+  },
+  pop: [],
+  art: [
+    "...........iiiii",
+    "..............i.",
+    ".............i..",
+    "...YYYYY....i...",
+    ".YYYYYYYYY.iiiii",
+    ".YYYYYYYYY......",
+    "YYYYYYYYYYY.....",
+    "YEEEYYYEEEY.....",
+    "YYYYYYYYYYY.....",
+    "YYYYEEEYYYY.....",
+    "YYYEdddEYYY.....",
+    ".YYEdddEYY......",
+    ".YYYEEEYYY......",
+    "...YYYYY........",
+  ],
+  accent: [],
+};
+
 /** Picker-only art for the two thin stickers, so they hold their own at 1× next to the 11 px heart and laugh (OME-427).
  *  exclaim = the accent frame's "one size up" bar with a 4 px dot; clap = the settled V palms, three rows taller. */
 const PICK_ART: Readonly<Record<string, readonly string[]>> = {
@@ -552,8 +611,8 @@ function sep(): UiFrame {
   return { key: "emotes/sep", w: 2, h: H, img, ax: 1, ay: H / 2 };
 }
 
-/** Emote ids in picker order: the five stickers, then the wave. Keys 1-6 pick them. */
-export const PICKER = [...EMOTES.map((e) => e.id), WAVE.id] as const;
+/** Emote ids in picker order: the five stickers, then the gestures (wave, cheer, yawn). Keys 1-8 pick them. */
+export const PICKER = [...EMOTES.map((e) => e.id), WAVE.id, CHEER.id, YAWN.id] as const;
 
 export function buildRoomsFrames(): UiFrame[] {
   const out: UiFrame[] = [];
@@ -566,7 +625,7 @@ export function buildRoomsFrames(): UiFrame[] {
   for (const [n, rows] of Object.entries(ICONS)) out.push(art(`icon/${n}`, rows, 8, 8));
   for (const [n, rows] of Object.entries(GLYPHS)) out.push(art(`glyph/${n}`, rows, 4, 4));
   for (const [n, rows] of Object.entries(DOORS)) out.push(art(`door/${n}`, rows, 8, 24));
-  for (const e of [...EMOTES, WAVE]) out.push(pick(e));
+  for (const e of [...EMOTES, WAVE, CHEER, YAWN]) out.push(pick(e));
   return out;
 }
 
@@ -602,7 +661,7 @@ export function roomsCss(rects: Readonly<Record<string, { x: number; y: number; 
  * Door/key switch = who can come in. Mustard rim = only you (your rooms, your emote picker). The rust key is the one
  * irreversible action (close a room for good), only on the confirm step, always with the moon icon and the words. */
 .ui-switch, .ui-mine, .ui-slot-ticket, .ui-emotes, .ui-emote, .ui-scrim, .ui-scene { image-rendering: pixelated; box-sizing: border-box; }
-${["emote-pick/heart", "emote-pick/laugh", "emote-pick/question", "emote-pick/exclaim", "emote-pick/clap", "emote-pick/wave", "emotes/sep"].map(sprite).join("\n")}
+${["emote-pick/heart", "emote-pick/laugh", "emote-pick/question", "emote-pick/exclaim", "emote-pick/clap", "emote-pick/wave", "emote-pick/cheer", "emote-pick/yawn", "emotes/sep"].map(sprite).join("\n")}
 
 /* Invite-only switch: <button class="ui-sprite ui-switch" role="switch" aria-checked="false|true"> labelled "Invite only".
  * Off = the knob on the left showing the open door (anyone can find it on the room list); on = the knob slid right showing the key.
@@ -650,7 +709,7 @@ ${["emote-pick/heart", "emote-pick/laugh", "emote-pick/question", "emote-pick/ex
 
 /* Emote picker: <div class="ui-emotes" role="menu"> above the emote key (.ui-button.self + icon/emote). Night tray, mustard rim,
  * a tail down to the key (set --ui-tail-x to the key's centre, from the tray's padding edge). Each <button class="ui-emote"
- * role="menuitem" aria-keyshortcuts="1".."6"> holds .ui-emote-pick-<id>; say the shortcut in its title, not on the cell.
+ * role="menuitem" aria-keyshortcuts="1".."8"> holds .ui-emote-pick-<id>; say the shortcut in its title, not on the cell.
  * The wave sits after .ui-sprite.ui-emotes-sep: it's your avatar's gesture (works seated too), not a sticker. */
 .ui-emotes { ${nineRule("emotes/tray", 6)} position: relative; display: inline-flex; align-items: center; gap: ${u(1)}; padding: 0; }
 .ui-emotes::after { content: ""; position: absolute; left: var(--ui-tail-x, 50%); top: calc(100% + ${u(3)}); width: ${u(16)}; height: ${u(6)}; translate: -50% 0; background: ${slice("emotes/tail")} 0 0 / 100% 100%; }

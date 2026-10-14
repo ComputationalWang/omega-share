@@ -29,7 +29,7 @@ export const REPORT_OUTCOMES = [...REPORT_STATUSES, ...REPORT_ERROR_CODES] as co
 export type ReportOutcome = (typeof REPORT_OUTCOMES)[number];
 
 /** What the live server knows right now, read at scrape time. */
-export interface Gauges {
+interface Gauges {
   rooms: number;
   sockets: number;
   members: number;

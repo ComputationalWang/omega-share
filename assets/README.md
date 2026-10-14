@@ -392,7 +392,7 @@ mustard rim = only you · rust key = the one irreversible action.
 | `emotes/tray` + `emotes/tail` | 16×16, 16×6 | 6 | `.ui-emotes[role=menu]`: the picker, night in the mustard rim, with a 2:1 tail down to the emote key. Set `--ui-tail-x` to the key's centre (from the tray's padding edge). The tail's top 3 rows open the tray's bottom rim. |
 | `emotes/slot/<idle\|hover\|press\|cool>` | 12×12 | 4 | `.ui-emote[role=menuitem]`, 24 art px. idle = flat, hover/focus = sunken well with a cream lit edge, press = mustard rim, cool (`aria-disabled`) = charcoal well. |
 | `emotes/sep` | 2×14 | — | Groove between the 5 stickers and the wave. |
-| `emote-pick/<heart\|laugh\|question\|exclaim\|clap\|wave>` | 16×16 | — | Picker icons: the motion atlas's settled emote frame (same roles, so the same pixels), centred, except two thin ones drawn a size up so they hold their own at 1× next to the 11 px heart and laugh: `exclaim` (6×12, a heavier bar and a 4 px dot) and `clap` (12×10, the same V palms, taller). Each sits in a 24 art px `emotes/slot` cell, at page 2× and room 1× alike. `wave` is new: an open blush palm with two cream motion ticks, in the sticker style. In the room (1×) they double as a static fallback for the floating sticker. Keys 1–6 (`aria-keyshortcuts`, said in the title; no digits on the cells). |
+| `emote-pick/<heart\|laugh\|question\|exclaim\|clap\|wave\|cheer\|yawn>` | 16×16 | — | Picker icons: the motion atlas's settled emote frame (same roles, so the same pixels), centred, except two thin ones drawn a size up so they hold their own at 1× next to the 11 px heart and laugh: `exclaim` (6×12, a heavier bar and a 4 px dot) and `clap` (12×10, the same V palms, taller). Each sits in a 24 art px `emotes/slot` cell, at page 2× and room 1× alike. `wave` is new: an open blush palm with two cream motion ticks, in the sticker style. `cheer` and `yawn` (OME-1122) stand in for set (p)'s gestures the same way: `cheer` a raised blush fist on a mustard cuff, a plum thumb crease, cream pump ticks either side (a closed block, never the wave's open palm); `yawn` laugh's mustard face with the eyes shut flat, the mouth a tall O, a cream z off its brow. In the room (1×) they double as a static fallback for the floating sticker. Keys 1–8 (`aria-keyshortcuts`, said in the title; no digits on the cells). |
 | `scrim/0` | 2×4 | — (tile) | `.ui-scrim`: 1-bit plum dither, 50 %, to dim the stage behind the 4004 card mid-session. No alpha. |
 | `door/<closed\|locked>` | 16×24 | — | Room-list thumbnails beside `door/open\|full\|private`: closed = dark wood, plum sill, moon hanger. locked = shut, empty keyhole, lamplight under the door. |
 | `icon/<closed\|emote>` | 16×16 | — | Close room / room closed (a door hanger with a hole, a slit and a crescent moon) · the emote key (a cream line face, so it can't be mistaken for the filled laugh sticker). |
@@ -570,12 +570,12 @@ Walk: `preview/walk8-strip@4x.png` (every frame, in-betweens on the odd columns)
 |---|---|---|---|
 | `bubble/float`, `bubble/float-self` | 14×14 | 5 5 6 5 | `p.ui-float` (room scale, in the stage overlay): set (k)'s fresh cream card one size up, with a 2 px plum foot so it lifts off busy floors. `-self` (`.is-self`) = your own message, in tag/self's mustard rim. |
 | `bubble/tail-<s\|sw\|se>` | 12×7 | — (slice file) | The tail, on `::after`. Top 3 rows open the card's lip, outline and foot; 4 rows show. Anchor = the tip. `s` (default) points straight down; `sw` / `se` (`.tail-sw`, `.tail-se`) lean 2:1 toward a speaker the box had to leave at the stage (or visible window) edge. |
-| `wheel/disc` | 77×77 | — | `.ui-wheel[role=menu]` (page chrome, `--ui-px`): night tray, mustard rim, six spoke grooves, a sunk ring round the hub. |
+| `wheel/disc` | 77×77 | — | `.ui-wheel[role=menu]` (page chrome, `--ui-px`): night tray, mustard rim, eight spoke grooves, a sunk ring round the hub. |
 | `wheel/slot/<idle\|hover\|selected\|press\|cool>` | 21×21 | — | `.ui-wheel-slot[role=menuitem]`, each holding set (i)'s `.ui-emote-pick-<id>`. idle = sunken well · hover = cream lit edge · selected (`aria-current`, `:focus-visible`, `.is-selected`) = mustard rim · press = mustard rim, deeper well, sticker 1 px down · cool (`aria-disabled`) = charcoal, sticker dimmed. 42 CSS px at 2×. |
 | `wheel/focus` | 27×27 | — | Keyboard focus ring round a slot (`:focus-visible::after`, 3 art px out): 1 px cream between plum, set (c)'s focus language made round. Never on hover. |
 | `wheel/hub` | 21×21 | — | `.ui-wheel-hub`: wood bezel, deep well. Shows the selected sticker (`icon/emote` before a pick, set (f)'s `wait/<n>` while cooling). |
 | `wheel/tail` | 9×7 | — (slice file) | From the rim down to your head. `.no-tail` when the wheel docks (no avatar in view) or is clamped vertically. |
-| `icon/wheel` | 16×16 | — | The touch key by the chat input (`.ui-button.self.icon`, `aria-haspopup="menu"`, `aria-expanded`): six beads round a face, the top one lit. |
+| `icon/wheel` | 16×16 | — | The touch key by the chat input (`.ui-button.self.icon`, `aria-haspopup="menu"`, `aria-expanded`): eight beads round a face, the top one lit. |
 | `kbd/0` | 12×12 | 3 4 4 4, fixed height | `kbd.ui-kbd`: a keycap for hints ("Press [Enter] to chat", "[T] emotes", the wheel's label chip). Page chrome (2×) only. |
 
 **Bubbles: geometry, motion, stacking.** All numbers are in `ui.json` `meta.omega.bubbles` (ms and stage px) and baked into the CSS.
@@ -604,12 +604,12 @@ Walk: `preview/walk8-strip@4x.png` (every frame, in-betweens on the odd columns)
 - **Known limit:** a stacked card can cover the heads of people seated behind its speaker (Remy's older card in the mock-up). Accepted: name tags hang under the
   feet (`TAG_OFFSET_Y`), so identity stays readable, and the card is gone within 5 s. Don't push stacks sideways to dodge heads: a sideways stack loses the speaker.
 
-**Emote wheel.** Geometry in `meta.omega.wheel` (art px): slot `k` (0–5, `order`: heart, laugh, question, exclaim, clap, wave = keys 1–6) has its top-left at `slots[k]`,
-every 60° clockwise from 12 o'clock on a 24 px radius; the hub at `hubOrigin`. The CSS places them already (`.ui-wheel-slot:nth-child(k)`).
+**Emote wheel.** Geometry in `meta.omega.wheel` (art px): slot `k` (0–7, `order`: heart, laugh, question, exclaim, clap, wave, cheer, yawn = keys 1–8) has its top-left at `slots[k]`,
+every 45° clockwise from 12 o'clock on a 27 px radius (OME-1122; the least that keeps eight round slots apart, so the outer ones sit on the rim like set beads); the hub at `hubOrigin`. The CSS places them already (`.ui-wheel-slot:nth-child(k)`).
 - **Where:** page chrome at `--ui-px: 2px` (never inside the scaled stage, so it's always 154 CSS px and the slots are touch-sized), its tail tip on your bubble anchor
   (`stageToPage`). The label chip (`.ui-chip.self.ui-wheel-label`, the emote name + its key in a `kbd.ui-kbd.is-small`) sits above the wheel, not on your avatar.
   Clamp it inside the stage box; clamped vertically, or with no avatar of yours in view (phone watch-only, panned away), it docks centred above the composer with `.no-tail`.
-- **Keyboard:** T (focus not in a text field) opens it with Heart selected and focused (roving tabindex). → / ↓ next clockwise, ← / ↑ back, Home / End, 1–6 send at once,
+- **Keyboard:** T (focus not in a text field) opens it with Heart selected and focused (roving tabindex). → / ↓ next clockwise, ← / ↑ back, Home / End, 1–8 send at once,
   Enter / Space send the selected one, Esc or T close; Tab closes and moves on. Focus returns to where it was. `role=menu` `aria-label="Emotes"`, items `role=menuitem` with
   `aria-label` and `aria-keyshortcuts`.
 - **Pointer:** hovering a slot shows `hover` and previews it in the hub; click sends and closes; a click outside closes.

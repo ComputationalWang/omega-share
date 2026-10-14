@@ -70,122 +70,122 @@
 .ui-door-locked { width: calc(16 * var(--ui-px)); height: calc(24 * var(--ui-px)); background-position: calc(-209 * var(--ui-px)) calc(-99 * var(--ui-px)); }
 .ui-door-open { width: calc(16 * var(--ui-px)); height: calc(24 * var(--ui-px)); background-position: calc(-226 * var(--ui-px)) calc(-99 * var(--ui-px)); }
 .ui-door-private { width: calc(16 * var(--ui-px)); height: calc(24 * var(--ui-px)); background-position: calc(-133 * var(--ui-px)) calc(-101 * var(--ui-px)); }
-.ui-dot-connecting { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-349 * var(--ui-px)); }
-.ui-dot-offline { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-111 * var(--ui-px)) calc(-349 * var(--ui-px)); }
-.ui-dot-online { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-120 * var(--ui-px)) calc(-349 * var(--ui-px)); }
-.ui-dot-paused { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-129 * var(--ui-px)) calc(-349 * var(--ui-px)); }
-.ui-glyph-catchup { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-138 * var(--ui-px)) calc(-349 * var(--ui-px)); }
-.ui-glyph-chat-mute { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-52 * var(--ui-px)) calc(-351 * var(--ui-px)); }
-.ui-glyph-check { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-61 * var(--ui-px)) calc(-351 * var(--ui-px)); }
-.ui-glyph-dots-0 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-201 * var(--ui-px)) calc(-347 * var(--ui-px)); }
-.ui-glyph-dots-1 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-214 * var(--ui-px)) calc(-347 * var(--ui-px)); }
-.ui-glyph-dots-2 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-227 * var(--ui-px)) calc(-347 * var(--ui-px)); }
-.ui-glyph-everyone { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-240 * var(--ui-px)) calc(-347 * var(--ui-px)); }
-.ui-glyph-fp-1x1 { width: calc(10 * var(--ui-px)); height: calc(6 * var(--ui-px)); background-position: calc(-171 * var(--ui-px)) calc(-365 * var(--ui-px)); }
-.ui-glyph-fp-1x2 { width: calc(14 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-171 * var(--ui-px)) calc(-347 * var(--ui-px)); }
-.ui-glyph-fp-2x1 { width: calc(14 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-186 * var(--ui-px)) calc(-347 * var(--ui-px)); }
-.ui-glyph-fp-2x3 { width: calc(22 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-39 * var(--ui-px)) calc(-314 * var(--ui-px)); }
-.ui-glyph-fp-3x2 { width: calc(22 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-161 * var(--ui-px)) calc(-321 * var(--ui-px)); }
-.ui-glyph-fp-wall { width: calc(10 * var(--ui-px)); height: calc(7 * var(--ui-px)); background-position: calc(-160 * var(--ui-px)) calc(-358 * var(--ui-px)); }
-.ui-glyph-hop { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: 0 calc(-352 * var(--ui-px)); }
-.ui-glyph-host { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-9 * var(--ui-px)) calc(-352 * var(--ui-px)); }
-.ui-glyph-insync { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-18 * var(--ui-px)) calc(-352 * var(--ui-px)); }
-.ui-glyph-key { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-27 * var(--ui-px)) calc(-352 * var(--ui-px)); }
-.ui-glyph-moon { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-36 * var(--ui-px)) calc(-353 * var(--ui-px)); }
-.ui-glyph-onair-off { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-171 * var(--ui-px)) calc(-356 * var(--ui-px)); }
-.ui-glyph-onair-0 { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-180 * var(--ui-px)) calc(-356 * var(--ui-px)); }
-.ui-glyph-onair-1 { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-189 * var(--ui-px)) calc(-356 * var(--ui-px)); }
-.ui-glyph-open { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-198 * var(--ui-px)) calc(-356 * var(--ui-px)); }
-.ui-glyph-outsync { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-207 * var(--ui-px)) calc(-356 * var(--ui-px)); }
-.ui-glyph-pause { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-216 * var(--ui-px)) calc(-356 * var(--ui-px)); }
-.ui-glyph-pieces { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-225 * var(--ui-px)) calc(-356 * var(--ui-px)); }
-.ui-glyph-play { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-234 * var(--ui-px)) calc(-356 * var(--ui-px)); }
-.ui-glyph-radio-off { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-243 * var(--ui-px)) calc(-356 * var(--ui-px)); }
-.ui-glyph-radio-on { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-70 * var(--ui-px)) calc(-358 * var(--ui-px)); }
-.ui-glyph-remote { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-79 * var(--ui-px)) calc(-358 * var(--ui-px)); }
-.ui-glyph-retry { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-88 * var(--ui-px)) calc(-358 * var(--ui-px)); }
-.ui-glyph-seek { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-97 * var(--ui-px)) calc(-358 * var(--ui-px)); }
-.ui-glyph-snail { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-78 * var(--ui-px)) calc(-349 * var(--ui-px)); }
-.ui-glyph-src-live { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-106 * var(--ui-px)) calc(-358 * var(--ui-px)); }
-.ui-glyph-src-video { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-115 * var(--ui-px)) calc(-358 * var(--ui-px)); }
-.ui-glyph-tab-decor { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-124 * var(--ui-px)) calc(-358 * var(--ui-px)); }
-.ui-glyph-tab-floor { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-133 * var(--ui-px)) calc(-358 * var(--ui-px)); }
-.ui-glyph-tab-seats { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-142 * var(--ui-px)) calc(-358 * var(--ui-px)); }
-.ui-glyph-you { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-151 * var(--ui-px)) calc(-358 * var(--ui-px)); }
-.ui-icon-arrange { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-217 * var(--ui-px)) calc(-221 * var(--ui-px)); }
-.ui-icon-chat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-234 * var(--ui-px)) calc(-221 * var(--ui-px)); }
-.ui-icon-chat-mute { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-228 * var(--ui-px)); }
-.ui-icon-close { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-229 * var(--ui-px)); }
-.ui-icon-closed { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-229 * var(--ui-px)); }
-.ui-icon-copied { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-229 * var(--ui-px)); }
-.ui-icon-copy { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-229 * var(--ui-px)); }
-.ui-icon-create { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-238 * var(--ui-px)); }
-.ui-icon-emote { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-238 * var(--ui-px)); }
-.ui-icon-expired { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-238 * var(--ui-px)); }
-.ui-icon-fullscreen { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-238 * var(--ui-px)); }
-.ui-icon-fullscreen-exit { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-238 * var(--ui-px)); }
-.ui-icon-key { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-238 * var(--ui-px)); }
-.ui-icon-leave { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-238 * var(--ui-px)); }
-.ui-icon-link { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-238 * var(--ui-px)); }
-.ui-icon-muted { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-238 * var(--ui-px)); }
-.ui-icon-muted-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-238 * var(--ui-px)); }
-.ui-icon-pause { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-245 * var(--ui-px)); }
-.ui-icon-pause-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-246 * var(--ui-px)); }
-.ui-icon-people { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-246 * var(--ui-px)); }
-.ui-icon-play { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-246 * var(--ui-px)); }
-.ui-icon-play-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-246 * var(--ui-px)); }
-.ui-icon-popout { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-255 * var(--ui-px)); }
-.ui-icon-popout-back { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-255 * var(--ui-px)); }
-.ui-icon-popout-room { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-255 * var(--ui-px)); }
-.ui-icon-popout-room-back { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-255 * var(--ui-px)); }
-.ui-icon-quality { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-255 * var(--ui-px)); }
-.ui-icon-queue { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-255 * var(--ui-px)); }
-.ui-icon-queue-add { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-255 * var(--ui-px)); }
-.ui-icon-remote { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-255 * var(--ui-px)); }
-.ui-icon-remote-host { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-255 * var(--ui-px)); }
-.ui-icon-remove { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-255 * var(--ui-px)); }
-.ui-icon-report { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-262 * var(--ui-px)); }
-.ui-icon-resting { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-263 * var(--ui-px)); }
-.ui-icon-retry { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-263 * var(--ui-px)); }
+.ui-dot-connecting { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-13 * var(--ui-px)) calc(-353 * var(--ui-px)); }
+.ui-dot-offline { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-22 * var(--ui-px)) calc(-354 * var(--ui-px)); }
+.ui-dot-online { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-31 * var(--ui-px)) calc(-354 * var(--ui-px)); }
+.ui-dot-paused { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-40 * var(--ui-px)) calc(-354 * var(--ui-px)); }
+.ui-glyph-catchup { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-49 * var(--ui-px)) calc(-354 * var(--ui-px)); }
+.ui-glyph-chat-mute { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-58 * var(--ui-px)) calc(-354 * var(--ui-px)); }
+.ui-glyph-check { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-67 * var(--ui-px)) calc(-354 * var(--ui-px)); }
+.ui-glyph-dots-0 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-108 * var(--ui-px)) calc(-349 * var(--ui-px)); }
+.ui-glyph-dots-1 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-121 * var(--ui-px)) calc(-349 * var(--ui-px)); }
+.ui-glyph-dots-2 { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-134 * var(--ui-px)) calc(-349 * var(--ui-px)); }
+.ui-glyph-everyone { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-147 * var(--ui-px)) calc(-349 * var(--ui-px)); }
+.ui-glyph-fp-1x1 { width: calc(10 * var(--ui-px)); height: calc(6 * var(--ui-px)); background-position: calc(-122 * var(--ui-px)) calc(-367 * var(--ui-px)); }
+.ui-glyph-fp-1x2 { width: calc(14 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-78 * var(--ui-px)) calc(-349 * var(--ui-px)); }
+.ui-glyph-fp-2x1 { width: calc(14 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-93 * var(--ui-px)) calc(-349 * var(--ui-px)); }
+.ui-glyph-fp-2x3 { width: calc(22 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-321 * var(--ui-px)); }
+.ui-glyph-fp-3x2 { width: calc(22 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-83 * var(--ui-px)) calc(-323 * var(--ui-px)); }
+.ui-glyph-fp-wall { width: calc(10 * var(--ui-px)); height: calc(7 * var(--ui-px)); background-position: calc(-84 * var(--ui-px)) calc(-367 * var(--ui-px)); }
+.ui-glyph-hop { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: 0 calc(-355 * var(--ui-px)); }
+.ui-glyph-host { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-76 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-insync { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-key { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-94 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-moon { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-103 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-onair-off { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-112 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-onair-0 { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-121 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-onair-1 { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-130 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-open { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-139 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-outsync { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-148 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-pause { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-157 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-pieces { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-166 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-play { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-175 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-radio-off { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-219 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-radio-on { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-228 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-remote { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-237 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-retry { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-246 * var(--ui-px)) calc(-358 * var(--ui-px)); }
+.ui-glyph-seek { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-184 * var(--ui-px)) calc(-359 * var(--ui-px)); }
+.ui-glyph-snail { width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-160 * var(--ui-px)) calc(-349 * var(--ui-px)); }
+.ui-glyph-src-live { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-193 * var(--ui-px)) calc(-359 * var(--ui-px)); }
+.ui-glyph-src-video { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-202 * var(--ui-px)) calc(-359 * var(--ui-px)); }
+.ui-glyph-tab-decor { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-9 * var(--ui-px)) calc(-362 * var(--ui-px)); }
+.ui-glyph-tab-floor { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-18 * var(--ui-px)) calc(-363 * var(--ui-px)); }
+.ui-glyph-tab-seats { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-27 * var(--ui-px)) calc(-363 * var(--ui-px)); }
+.ui-glyph-you { width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: calc(-36 * var(--ui-px)) calc(-363 * var(--ui-px)); }
+.ui-icon-arrange { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-228 * var(--ui-px)); }
+.ui-icon-chat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-229 * var(--ui-px)); }
+.ui-icon-chat-mute { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-229 * var(--ui-px)); }
+.ui-icon-close { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-229 * var(--ui-px)); }
+.ui-icon-closed { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-229 * var(--ui-px)); }
+.ui-icon-copied { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-238 * var(--ui-px)); }
+.ui-icon-copy { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-238 * var(--ui-px)); }
+.ui-icon-create { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-238 * var(--ui-px)); }
+.ui-icon-emote { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-238 * var(--ui-px)); }
+.ui-icon-expired { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-238 * var(--ui-px)); }
+.ui-icon-fullscreen { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-238 * var(--ui-px)); }
+.ui-icon-fullscreen-exit { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-238 * var(--ui-px)); }
+.ui-icon-key { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-238 * var(--ui-px)); }
+.ui-icon-leave { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-238 * var(--ui-px)); }
+.ui-icon-link { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-238 * var(--ui-px)); }
+.ui-icon-muted { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-245 * var(--ui-px)); }
+.ui-icon-muted-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-246 * var(--ui-px)); }
+.ui-icon-pause { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-246 * var(--ui-px)); }
+.ui-icon-pause-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-246 * var(--ui-px)); }
+.ui-icon-people { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-246 * var(--ui-px)); }
+.ui-icon-play { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-255 * var(--ui-px)); }
+.ui-icon-play-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-255 * var(--ui-px)); }
+.ui-icon-popout { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-255 * var(--ui-px)); }
+.ui-icon-popout-back { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-255 * var(--ui-px)); }
+.ui-icon-popout-room { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-255 * var(--ui-px)); }
+.ui-icon-popout-room-back { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-255 * var(--ui-px)); }
+.ui-icon-quality { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-255 * var(--ui-px)); }
+.ui-icon-queue { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-255 * var(--ui-px)); }
+.ui-icon-queue-add { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-255 * var(--ui-px)); }
+.ui-icon-remote { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-255 * var(--ui-px)); }
+.ui-icon-remote-host { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-262 * var(--ui-px)); }
+.ui-icon-remove { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-263 * var(--ui-px)); }
+.ui-icon-report { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-263 * var(--ui-px)); }
+.ui-icon-resting { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-263 * var(--ui-px)); }
+.ui-icon-retry { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-263 * var(--ui-px)); }
 .ui-icon-retry-2x { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-222 * var(--ui-px)) 0; }
-.ui-icon-seat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-263 * var(--ui-px)); }
-.ui-icon-send { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-263 * var(--ui-px)); }
-.ui-icon-share { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-272 * var(--ui-px)); }
-.ui-icon-sound { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-272 * var(--ui-px)); }
-.ui-icon-sound-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-272 * var(--ui-px)); }
-.ui-icon-strip-hide { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-272 * var(--ui-px)); }
-.ui-icon-strip-show { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-272 * var(--ui-px)); }
-.ui-icon-tolive { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-272 * var(--ui-px)); }
-.ui-icon-tolive-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-272 * var(--ui-px)); }
-.ui-icon-tv { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-272 * var(--ui-px)); }
-.ui-icon-unplugged { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-272 * var(--ui-px)); }
-.ui-icon-warn { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-272 * var(--ui-px)); }
-.ui-icon-wheel { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-279 * var(--ui-px)); }
-.ui-icon-you { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-280 * var(--ui-px)); }
+.ui-icon-seat { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-icon-send { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-icon-share { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-icon-sound { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-icon-sound-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-icon-strip-hide { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-icon-strip-show { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-187 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-icon-tolive { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-204 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-icon-tolive-off { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-icon-tv { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-icon-unplugged { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-279 * var(--ui-px)); }
+.ui-icon-warn { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-280 * var(--ui-px)); }
+.ui-icon-wheel { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-280 * var(--ui-px)); }
+.ui-icon-you { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-280 * var(--ui-px)); }
 .ui-logo-0 { width: calc(80 * var(--ui-px)); height: calc(17 * var(--ui-px)); background-position: 0 calc(-194 * var(--ui-px)); }
 .ui-portrait-juno { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-222 * var(--ui-px)) calc(-33 * var(--ui-px)); }
 .ui-portrait-kiki { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-222 * var(--ui-px)) calc(-66 * var(--ui-px)); }
 .ui-portrait-mo { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: 0 calc(-78 * var(--ui-px)); }
 .ui-portrait-pip { width: calc(32 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-33 * var(--ui-px)) calc(-78 * var(--ui-px)); }
-.ui-resync-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-289 * var(--ui-px)); }
-.ui-resync-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-289 * var(--ui-px)); }
-.ui-resync-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-289 * var(--ui-px)); }
-.ui-seek-head-disabled { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-117 * var(--ui-px)) calc(-306 * var(--ui-px)); }
-.ui-seek-head-hover { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-128 * var(--ui-px)) calc(-306 * var(--ui-px)); }
-.ui-seek-head-idle { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-139 * var(--ui-px)) calc(-306 * var(--ui-px)); }
-.ui-seek-head-press { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-150 * var(--ui-px)) calc(-306 * var(--ui-px)); }
-.ui-volume-knob-disabled { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-11 * var(--ui-px)) calc(-341 * var(--ui-px)); }
-.ui-volume-knob-hover { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-22 * var(--ui-px)) calc(-341 * var(--ui-px)); }
-.ui-volume-knob-idle { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-149 * var(--ui-px)) calc(-347 * var(--ui-px)); }
-.ui-volume-knob-press { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-160 * var(--ui-px)) calc(-347 * var(--ui-px)); }
-.ui-wait-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-221 * var(--ui-px)) calc(-289 * var(--ui-px)); }
-.ui-wait-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-238 * var(--ui-px)) calc(-289 * var(--ui-px)); }
-.ui-wait-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-296 * var(--ui-px)); }
-.ui-wait-3 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-297 * var(--ui-px)); }
-.ui-wait-4 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-297 * var(--ui-px)); }
-.ui-wait-5 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-297 * var(--ui-px)); }
-.ui-wait-6 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-297 * var(--ui-px)); }
-.ui-wait-7 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-306 * var(--ui-px)); }
+.ui-resync-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-289 * var(--ui-px)); }
+.ui-resync-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-153 * var(--ui-px)) calc(-289 * var(--ui-px)); }
+.ui-resync-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-170 * var(--ui-px)) calc(-289 * var(--ui-px)); }
+.ui-seek-head-disabled { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-151 * var(--ui-px)) calc(-306 * var(--ui-px)); }
+.ui-seek-head-hover { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-162 * var(--ui-px)) calc(-306 * var(--ui-px)); }
+.ui-seek-head-idle { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-173 * var(--ui-px)) calc(-306 * var(--ui-px)); }
+.ui-seek-head-press { width: calc(10 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-184 * var(--ui-px)) calc(-306 * var(--ui-px)); }
+.ui-volume-knob-disabled { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-244 * var(--ui-px)) calc(-347 * var(--ui-px)); }
+.ui-volume-knob-hover { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-186 * var(--ui-px)) calc(-348 * var(--ui-px)); }
+.ui-volume-knob-idle { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-197 * var(--ui-px)) calc(-348 * var(--ui-px)); }
+.ui-volume-knob-press { width: calc(10 * var(--ui-px)); height: calc(10 * var(--ui-px)); background-position: calc(-208 * var(--ui-px)) calc(-348 * var(--ui-px)); }
+.ui-wait-0 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-296 * var(--ui-px)); }
+.ui-wait-1 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: 0 calc(-297 * var(--ui-px)); }
+.ui-wait-2 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-17 * var(--ui-px)) calc(-297 * var(--ui-px)); }
+.ui-wait-3 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-34 * var(--ui-px)) calc(-297 * var(--ui-px)); }
+.ui-wait-4 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-297 * var(--ui-px)); }
+.ui-wait-5 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-85 * var(--ui-px)) calc(-306 * var(--ui-px)); }
+.ui-wait-6 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-102 * var(--ui-px)) calc(-306 * var(--ui-px)); }
+.ui-wait-7 { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-119 * var(--ui-px)) calc(-306 * var(--ui-px)); }
 
 /* ---- Set (e): synced playback (M1b). Wood = shared (everyone), mustard rim on night = only you, TV glow = the video. ---- */
 .ui-transport, .ui-volume, .ui-seek, .ui-vol-track, .ui-readout, .ui-chip, .ui-sysline, .ui-seek-fill, .ui-vol-fill { image-rendering: pixelated; box-sizing: border-box; }
@@ -204,10 +204,10 @@
 .ui-button.icon { width: calc(26 * var(--ui-px)); height: calc(28 * var(--ui-px)); min-height: 0; padding: 0 0 calc(2 * var(--ui-px)); gap: 0; }
 .ui-button.icon:active, .ui-button.icon.is-press { padding: calc(2 * var(--ui-px)) 0 0; }
 .ui-button.icon:disabled, .ui-button.icon.is-disabled { padding: 0 0 calc(2 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-play, .ui-button.is-disabled .ui-icon-play { background-position: calc(-51 * var(--ui-px)) calc(-246 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-pause, .ui-button.is-disabled .ui-icon-pause { background-position: 0 calc(-246 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-sound, .ui-button.is-disabled .ui-icon-sound { background-position: calc(-119 * var(--ui-px)) calc(-272 * var(--ui-px)); }
-.ui-button:disabled .ui-icon-muted, .ui-button.is-disabled .ui-icon-muted { background-position: calc(-238 * var(--ui-px)) calc(-238 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-play, .ui-button.is-disabled .ui-icon-play { background-position: calc(-102 * var(--ui-px)) calc(-255 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-pause, .ui-button.is-disabled .ui-icon-pause { background-position: calc(-34 * var(--ui-px)) calc(-246 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-sound, .ui-button.is-disabled .ui-icon-sound { background-position: calc(-153 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-muted, .ui-button.is-disabled .ui-icon-muted { background-position: 0 calc(-246 * var(--ui-px)); }
 
 /* Seek bar. Put the fill and head inside, and set --pos (0..1) on the bar. For a11y, lay a transparent
  * <input type="range"> over it (opacity 0, inset 0) and keep the art as decoration. */
@@ -273,16 +273,16 @@
 .ui-live { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/pill-live.png") 4 fill / calc(4 * var(--ui-px)) stretch; color: var(--ui-text); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 /* Frame 1 (lit) is a layer over frame 0 (dim) that blinks by opacity only, so the compositor runs it and the page's main thread
  * stays idle while a live stream plays (OME-201). Both frames share one silhouette, so lit fully covers dim. */
-.ui-onair { --f0: calc(-180 * var(--ui-px)) calc(-356 * var(--ui-px)); --f1: calc(-189 * var(--ui-px)) calc(-356 * var(--ui-px)); position: relative; width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--f0); }
+.ui-onair { --f0: calc(-121 * var(--ui-px)) calc(-358 * var(--ui-px)); --f1: calc(-130 * var(--ui-px)) calc(-358 * var(--ui-px)); position: relative; width: calc(8 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--f0); }
 .ui-onair::after { content: ""; position: absolute; inset: 0; background: inherit; background-position: var(--f1); opacity: 0; animation: ui-onair 1400ms steps(1) infinite; }
 @keyframes ui-onair { 0% { opacity: 0; } 50% { opacity: 1; } }
 .ui-live.is-behind { border-image-source: url("slices/pill-behind.png"); color: var(--ui-muted); }
-.ui-live.is-behind .ui-onair { background-position: calc(-171 * var(--ui-px)) calc(-356 * var(--ui-px)); }
+.ui-live.is-behind .ui-onair { background-position: calc(-112 * var(--ui-px)) calc(-358 * var(--ui-px)); }
 .ui-live.is-behind .ui-onair::after { display: none; }
 /* How far behind live the room is: a normal .ui-readout with .behind ("−0:42"). Hide it at the live edge. */
 .ui-readout.behind { color: var(--ui-muted); }
 /* Back to live: a wood .ui-button.shared.icon (it moves everyone). Disabled at the live edge. */
-.ui-button:disabled .ui-icon-tolive, .ui-button.is-disabled .ui-icon-tolive { background-position: calc(-187 * var(--ui-px)) calc(-272 * var(--ui-px)); }
+.ui-button:disabled .ui-icon-tolive, .ui-button.is-disabled .ui-icon-tolive { background-position: calc(-221 * var(--ui-px)) calc(-272 * var(--ui-px)); }
 /* Where the scrubber was: one muted line saying why there is none. Drop it first when space runs out. */
 .ui-live-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-muted); font-size: 12px; font-weight: 500; }
 .ui-room .ui-live, .ui-room .ui-hint { font-size: 9px; }
@@ -305,7 +305,7 @@
  * Hangs off the tag's left end: the sticker moves 1 art px further left (translate -1), and its art leaves 1 empty column on the
  * right, so the visible gap is 2 art px (4 screen px at 2×). The landed chevrons nearly reach the sticker's right edge, so unlike the
  * centred hourglass it must not overlap the tag (OME-137: it ran into the name). */
-.ui-resync { --f0: calc(-102 * var(--ui-px)) calc(-289 * var(--ui-px)); --f1: calc(-119 * var(--ui-px)) calc(-289 * var(--ui-px)); --f2: calc(-136 * var(--ui-px)) calc(-289 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--f2); animation: ui-resync 1000ms steps(1) 1 both; }
+.ui-resync { --f0: calc(-136 * var(--ui-px)) calc(-289 * var(--ui-px)); --f1: calc(-153 * var(--ui-px)) calc(-289 * var(--ui-px)); --f2: calc(-170 * var(--ui-px)) calc(-289 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--f2); animation: ui-resync 1000ms steps(1) 1 both; }
 @keyframes ui-resync { 0% { background-position: var(--f0); } 16% { background-position: var(--f1); } 36% { background-position: var(--f2); } 100% { background-position: var(--f2); } }
 .ui-tag.resynced .ui-resync { position: absolute; right: 100%; top: 50%; translate: calc(-1 * var(--ui-px)) -50%; }
 @media (prefers-reduced-motion: reduce) { .ui-onair::after, .ui-resync { animation: none; } }
@@ -318,7 +318,7 @@
  * over --cool (the server's retry-after). Use aria-disabled="true" (not disabled) so it keeps focus and its label, e.g.
  * "Pause for everyone: available again in 3 seconds". Remove .is-cooling when the dial is empty. */
 .ui-button.shared.is-cooling { border-image-source: url("slices/button-shared-cool.png"); cursor: default; padding: 0 0 calc(2 * var(--ui-px)); }
-.ui-wait { --w0: calc(-221 * var(--ui-px)) calc(-289 * var(--ui-px)); --w1: calc(-238 * var(--ui-px)) calc(-289 * var(--ui-px)); --w2: calc(-68 * var(--ui-px)) calc(-296 * var(--ui-px)); --w3: 0 calc(-297 * var(--ui-px)); --w4: calc(-17 * var(--ui-px)) calc(-297 * var(--ui-px)); --w5: calc(-34 * var(--ui-px)) calc(-297 * var(--ui-px)); --w6: calc(-51 * var(--ui-px)) calc(-297 * var(--ui-px)); --w7: calc(-85 * var(--ui-px)) calc(-306 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--w0); animation: ui-wait var(--cool, 3s) steps(1) 1 both; }
+.ui-wait { --w0: calc(-68 * var(--ui-px)) calc(-296 * var(--ui-px)); --w1: 0 calc(-297 * var(--ui-px)); --w2: calc(-17 * var(--ui-px)) calc(-297 * var(--ui-px)); --w3: calc(-34 * var(--ui-px)) calc(-297 * var(--ui-px)); --w4: calc(-51 * var(--ui-px)) calc(-297 * var(--ui-px)); --w5: calc(-85 * var(--ui-px)) calc(-306 * var(--ui-px)); --w6: calc(-102 * var(--ui-px)) calc(-306 * var(--ui-px)); --w7: calc(-119 * var(--ui-px)) calc(-306 * var(--ui-px)); width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: var(--w0); animation: ui-wait var(--cool, 3s) steps(1) 1 both; }
 @keyframes ui-wait { 0% { background-position: var(--w0); } 12.5% { background-position: var(--w1); } 25% { background-position: var(--w2); } 37.5% { background-position: var(--w3); } 50% { background-position: var(--w4); } 62.5% { background-position: var(--w5); } 75% { background-position: var(--w6); } 87.5% { background-position: var(--w7); } 100% { background-position: var(--w7); } }
 /* The slow-down chip is a .ui-chip.self (it only slows you): glyph/snail + "Slow down". Put it where .ui-live-note / the seek's
  * left end would be, and drop it with the dial. */
@@ -333,7 +333,7 @@
  * While it waits the key is .is-waiting with aria-disabled="true": the charcoal disabled face but full cream text (9:1, not the
  * disabled text's floor), because the countdown is something to read, not a dead control. */
 .ui-button.is-waiting { border-image-source: url("slices/button-primary-disabled.png"); color: var(--ui-text); cursor: default; padding-top: 0; padding-bottom: calc(2 * var(--ui-px)); }
-.ui-dots { --d0: calc(-201 * var(--ui-px)) calc(-347 * var(--ui-px)); --d1: calc(-214 * var(--ui-px)) calc(-347 * var(--ui-px)); --d2: calc(-227 * var(--ui-px)) calc(-347 * var(--ui-px)); width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--d0); animation: ui-dots 720ms steps(1) infinite; }
+.ui-dots { --d0: calc(-108 * var(--ui-px)) calc(-349 * var(--ui-px)); --d1: calc(-121 * var(--ui-px)) calc(-349 * var(--ui-px)); --d2: calc(-134 * var(--ui-px)) calc(-349 * var(--ui-px)); width: calc(12 * var(--ui-px)); height: calc(8 * var(--ui-px)); background-position: var(--d0); animation: ui-dots 720ms steps(1) infinite; }
 @keyframes ui-dots { 0% { background-position: var(--d0); } 33.333% { background-position: var(--d1); } 66.667% { background-position: var(--d2); } }
 
 /* Room-list card: dusk glass in a wood rim, door thumbnail on the left. .is-full dims it and shuts the door. */
@@ -451,13 +451,15 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
  * Door/key switch = who can come in. Mustard rim = only you (your rooms, your emote picker). The rust key is the one
  * irreversible action (close a room for good), only on the confirm step, always with the moon icon and the words. */
 .ui-switch, .ui-mine, .ui-slot-ticket, .ui-emotes, .ui-emote, .ui-scrim, .ui-scene { image-rendering: pixelated; box-sizing: border-box; }
-.ui-emote-pick-heart { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-115 * var(--ui-px)) calc(-221 * var(--ui-px)); }
-.ui-emote-pick-laugh { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-132 * var(--ui-px)) calc(-221 * var(--ui-px)); }
-.ui-emote-pick-question { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-149 * var(--ui-px)) calc(-221 * var(--ui-px)); }
-.ui-emote-pick-exclaim { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-98 * var(--ui-px)) calc(-221 * var(--ui-px)); }
-.ui-emote-pick-clap { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-212 * var(--ui-px)); }
-.ui-emote-pick-wave { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-166 * var(--ui-px)) calc(-221 * var(--ui-px)); }
-.ui-emotes-sep { width: calc(2 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-68 * var(--ui-px)) calc(-313 * var(--ui-px)); }
+.ui-emote-pick-heart { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-132 * var(--ui-px)) calc(-221 * var(--ui-px)); }
+.ui-emote-pick-laugh { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-149 * var(--ui-px)) calc(-221 * var(--ui-px)); }
+.ui-emote-pick-question { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-166 * var(--ui-px)) calc(-221 * var(--ui-px)); }
+.ui-emote-pick-exclaim { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-115 * var(--ui-px)) calc(-221 * var(--ui-px)); }
+.ui-emote-pick-clap { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-98 * var(--ui-px)) calc(-221 * var(--ui-px)); }
+.ui-emote-pick-wave { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-183 * var(--ui-px)) calc(-221 * var(--ui-px)); }
+.ui-emote-pick-cheer { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-51 * var(--ui-px)) calc(-212 * var(--ui-px)); }
+.ui-emote-pick-yawn { width: calc(16 * var(--ui-px)); height: calc(16 * var(--ui-px)); background-position: calc(-200 * var(--ui-px)) calc(-221 * var(--ui-px)); }
+.ui-emotes-sep { width: calc(2 * var(--ui-px)); height: calc(14 * var(--ui-px)); background-position: calc(-246 * var(--ui-px)) calc(-306 * var(--ui-px)); }
 
 /* Invite-only switch: <button class="ui-sprite ui-switch" role="switch" aria-checked="false|true"> labelled "Invite only".
  * Off = the knob on the left showing the open door (anyone can find it on the room list); on = the knob slid right showing the key.
@@ -505,7 +507,7 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 
 /* Emote picker: <div class="ui-emotes" role="menu"> above the emote key (.ui-button.self + icon/emote). Night tray, mustard rim,
  * a tail down to the key (set --ui-tail-x to the key's centre, from the tray's padding edge). Each <button class="ui-emote"
- * role="menuitem" aria-keyshortcuts="1".."6"> holds .ui-emote-pick-<id>; say the shortcut in its title, not on the cell.
+ * role="menuitem" aria-keyshortcuts="1".."8"> holds .ui-emote-pick-<id>; say the shortcut in its title, not on the cell.
  * The wave sits after .ui-sprite.ui-emotes-sep: it's your avatar's gesture (works seated too), not a sticker. */
 .ui-emotes { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/emotes-tray.png") 6 fill / calc(6 * var(--ui-px)) stretch; position: relative; display: inline-flex; align-items: center; gap: calc(1 * var(--ui-px)); padding: 0; }
 .ui-emotes::after { content: ""; position: absolute; left: var(--ui-tail-x, 50%); top: calc(100% + calc(3 * var(--ui-px))); width: calc(16 * var(--ui-px)); height: calc(6 * var(--ui-px)); translate: -50% 0; background: url("slices/emotes-tail.png") 0 0 / 100% 100%; }
@@ -553,13 +555,13 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
  * play mark = a video, rust on-air dot = a live stream, chain link on a dark screen = a pasted page that isn't synced. Synced vs not
  * (ADR 0024) is a chip with two play marks in step (wood rim, "Synced") or out of step (cream-shade rim, "Not synced"), always in words. */
 .ui-queue, .ui-qrow, .ui-qx { image-rendering: pixelated; box-sizing: border-box; }
-.ui-head-juno { width: calc(12 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-71 * var(--ui-px)) calc(-313 * var(--ui-px)); }
-.ui-head-kiki { width: calc(12 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: 0 calc(-314 * var(--ui-px)); }
-.ui-head-mo { width: calc(12 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-13 * var(--ui-px)) calc(-314 * var(--ui-px)); }
-.ui-head-pip { width: calc(12 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-26 * var(--ui-px)) calc(-314 * var(--ui-px)); }
-.ui-qsrc-generic { width: calc(14 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-214 * var(--ui-px)) calc(-321 * var(--ui-px)); }
-.ui-qsrc-live { width: calc(14 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-229 * var(--ui-px)) calc(-321 * var(--ui-px)); }
-.ui-qsrc-video { width: calc(14 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-84 * var(--ui-px)) calc(-323 * var(--ui-px)); }
+.ui-head-juno { width: calc(12 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-30 * var(--ui-px)) calc(-314 * var(--ui-px)); }
+.ui-head-kiki { width: calc(12 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-43 * var(--ui-px)) calc(-314 * var(--ui-px)); }
+.ui-head-mo { width: calc(12 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-195 * var(--ui-px)) calc(-321 * var(--ui-px)); }
+.ui-head-pip { width: calc(12 * var(--ui-px)); height: calc(13 * var(--ui-px)); background-position: calc(-208 * var(--ui-px)) calc(-321 * var(--ui-px)); }
+.ui-qsrc-generic { width: calc(14 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-136 * var(--ui-px)) calc(-323 * var(--ui-px)); }
+.ui-qsrc-live { width: calc(14 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-151 * var(--ui-px)) calc(-323 * var(--ui-px)); }
+.ui-qsrc-video { width: calc(14 * var(--ui-px)); height: calc(12 * var(--ui-px)); background-position: calc(-166 * var(--ui-px)) calc(-323 * var(--ui-px)); }
 .ui-queue-empty { width: calc(48 * var(--ui-px)); height: calc(32 * var(--ui-px)); background-position: calc(-143 * var(--ui-px)) calc(-68 * var(--ui-px)); }
 
 /* The panel: <section class="ui-panel ui-queue" aria-label="Up next">. Head: icon/queue + "Up next" + the count "3 / 20".
@@ -576,9 +578,9 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-qrow .meta { display: flex; align-items: center; gap: calc(2 * var(--ui-px)); font-size: 11px; font-weight: 500; line-height: 1.2; color: var(--ui-muted); white-space: nowrap; }
 .ui-qrow .ui-chip { font-size: 10px; }
 /* Remove ×: <button class="ui-sprite ui-qx" aria-label="Remove <title> from the queue">. 12 art px, wood. */
-.ui-qx { width: calc(12 * var(--ui-px)); height: calc(12 * var(--ui-px)); padding: 0; border: 0; cursor: pointer; background-position: calc(-110 * var(--ui-px)) calc(-336 * var(--ui-px)); }
-.ui-qx:hover, .ui-qx.is-hover { background-position: calc(-97 * var(--ui-px)) calc(-336 * var(--ui-px)); }
-.ui-qx:active, .ui-qx.is-press { background-position: calc(-123 * var(--ui-px)) calc(-336 * var(--ui-px)); }
+.ui-qx { width: calc(12 * var(--ui-px)); height: calc(12 * var(--ui-px)); padding: 0; border: 0; cursor: pointer; background-position: calc(-39 * var(--ui-px)) calc(-341 * var(--ui-px)); }
+.ui-qx:hover, .ui-qx.is-hover { background-position: calc(-26 * var(--ui-px)) calc(-341 * var(--ui-px)); }
+.ui-qx:active, .ui-qx.is-press { background-position: calc(-52 * var(--ui-px)) calc(-341 * var(--ui-px)); }
 .ui-qx:focus-visible, .ui-qx.is-focus { outline: var(--ui-px) solid var(--ui-text); outline-offset: var(--ui-px); }
 
 /* Synced vs not (ADR 0024): .ui-chip (wood rim) + glyph/insync + "Synced" · .ui-chip.solo + glyph/outsync + "Not synced". */
@@ -739,19 +741,21 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 @keyframes ui-float-life-reduced { 0%, 80.0% { opacity: 1; } 100% { opacity: 0; } }
 
 /* Emote wheel: <div class="ui-wheel" role="menu" aria-label="Emotes"> in page chrome (--ui-px: 2px, never inside the scaled stage), its
- * tail tip on your bubble anchor (stageToPage). Six <button class="ui-wheel-slot" role="menuitem" aria-keyshortcuts="1".."6"
+ * tail tip on your bubble anchor (stageToPage). Eight <button class="ui-wheel-slot" role="menuitem" aria-keyshortcuts="1".."8"
  * aria-label="Heart"> (roving tabindex), then <span class="ui-wheel-hub"> with the selected sticker, then the label chip.
  * Slots hold .ui-emote-pick-<id> (set i). At 2× each slot is 42 CSS px: touch-sized without extra hit areas. */
 .ui-wheel { position: absolute; background: url("ui.png") no-repeat; background-size: calc(256 * var(--ui-px)) calc(512 * var(--ui-px)); width: calc(77 * var(--ui-px)); height: calc(77 * var(--ui-px)); background-position: 0 0; }
 .ui-wheel::after { content: ""; position: absolute; left: 50%; top: calc(100% - calc(3 * var(--ui-px))); width: calc(9 * var(--ui-px)); height: calc(7 * var(--ui-px)); translate: -50% 0; background: url("slices/wheel-tail.png") 0 0 / 100% 100%; }
 .ui-wheel.no-tail::after { content: none; }
 .ui-wheel-slot { position: absolute; display: grid; place-items: center; padding: 0; border: 0; cursor: pointer; background: url("ui.png") no-repeat; background-size: calc(256 * var(--ui-px)) calc(512 * var(--ui-px)); width: calc(21 * var(--ui-px)); height: calc(21 * var(--ui-px)); background-position: calc(-44 * var(--ui-px)) calc(-111 * var(--ui-px)); outline: none; }
-.ui-wheel-slot:nth-child(1) { left: calc(28 * var(--ui-px)); top: calc(4 * var(--ui-px)); } /* heart, key 1 */
-.ui-wheel-slot:nth-child(2) { left: calc(49 * var(--ui-px)); top: calc(16 * var(--ui-px)); } /* laugh, key 2 */
-.ui-wheel-slot:nth-child(3) { left: calc(49 * var(--ui-px)); top: calc(40 * var(--ui-px)); } /* question, key 3 */
-.ui-wheel-slot:nth-child(4) { left: calc(28 * var(--ui-px)); top: calc(52 * var(--ui-px)); } /* exclaim, key 4 */
-.ui-wheel-slot:nth-child(5) { left: calc(7 * var(--ui-px)); top: calc(40 * var(--ui-px)); } /* clap, key 5 */
-.ui-wheel-slot:nth-child(6) { left: calc(7 * var(--ui-px)); top: calc(16 * var(--ui-px)); } /* wave, key 6 */
+.ui-wheel-slot:nth-child(1) { left: calc(28 * var(--ui-px)); top: calc(1 * var(--ui-px)); } /* heart, key 1 */
+.ui-wheel-slot:nth-child(2) { left: calc(47 * var(--ui-px)); top: calc(9 * var(--ui-px)); } /* laugh, key 2 */
+.ui-wheel-slot:nth-child(3) { left: calc(55 * var(--ui-px)); top: calc(28 * var(--ui-px)); } /* question, key 3 */
+.ui-wheel-slot:nth-child(4) { left: calc(47 * var(--ui-px)); top: calc(47 * var(--ui-px)); } /* exclaim, key 4 */
+.ui-wheel-slot:nth-child(5) { left: calc(28 * var(--ui-px)); top: calc(55 * var(--ui-px)); } /* clap, key 5 */
+.ui-wheel-slot:nth-child(6) { left: calc(9 * var(--ui-px)); top: calc(47 * var(--ui-px)); } /* wave, key 6 */
+.ui-wheel-slot:nth-child(7) { left: calc(1 * var(--ui-px)); top: calc(28 * var(--ui-px)); } /* cheer, key 7 */
+.ui-wheel-slot:nth-child(8) { left: calc(9 * var(--ui-px)); top: calc(9 * var(--ui-px)); } /* yawn, key 8 */
 .ui-wheel-slot:hover, .ui-wheel-slot.is-hover { background-position: calc(-22 * var(--ui-px)) calc(-111 * var(--ui-px)); }
 .ui-wheel-slot[aria-current="true"], .ui-wheel-slot:focus-visible, .ui-wheel-slot.is-selected { background-position: calc(-88 * var(--ui-px)) calc(-111 * var(--ui-px)); }
 .ui-wheel-slot:active, .ui-wheel-slot.is-press { background-position: calc(-66 * var(--ui-px)) calc(-111 * var(--ui-px)); }
