@@ -371,16 +371,19 @@ describe("attachTwitch", () => {
     expect(intents(events)).toEqual([]);
   });
 
-  test("live: a pause later than the resume window is the member's", () => {
+  test("live: a player pause is never the room's, however late (a re-shown mature gate or mid-roll looks the same, OME-1131)", () => {
     const { t, adapter, p, events, ready, push } = setup(LIVE);
     ready();
     adapter.play();
     push({ playback: "Playing" });
     p.fire("play");
-    t.now += LIVE_RESUME_MS + 100;
+    t.now += 30_000;
     push({ playback: "Idle" });
     p.fire("pause");
-    expect(intents(events)).toEqual([{ type: "intent", playing: false, position: 0 }]);
+    expect(events).toContainEqual({ type: "state", state: "paused" });
+    push({ playback: "Playing" });
+    p.fire("play");
+    expect(intents(events)).toEqual([]);
   });
 
   test("live: the resume window follows our play only; a play after our pause is the member's", () => {
