@@ -6,8 +6,6 @@ use crate::config::ServerConfig;
 use crate::log::stdout_line;
 use crate::rooms_gc::spawn_room_gc;
 use axum::Router;
-use axum::http::StatusCode;
-use std::future::IntoFuture;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
@@ -56,14 +54,15 @@ pub async fn serve(config: ServerConfig) -> Result<(), ServeError> {
 pub fn build_router(app: Arc<App>) -> Router {
     let routes = Router::new()
         .merge(crate::http::router(app.clone()))
-        .merge(crate::ws::router(app.clone()))
-        .fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
+        .merge(crate::ws::router(app.clone()));
     crate::http::wrap(app, routes)
 }
 
 async fn listen(config: ServerConfig, app: Arc<App>) -> Result<(), ServeError> {
     let listener = TcpListener::bind((config.hostname.as_str(), config.port)).await?;
     let addr = listener.local_addr()?;
+    // Before the line below: a client that waits for it must find the allowlists in place.
+    app.http.bind(&config, addr.port());
     let via = config
         .public_origin
         .as_deref()
@@ -73,15 +72,14 @@ async fn listen(config: ServerConfig, app: Arc<App>) -> Result<(), ServeError> {
         "omega-share server on http://{addr}/ (site origin {}{via})",
         config.site_origin
     ));
-    app.http.bind(&config, addr.port());
     let router = build_router(app);
 
     let (stop, mut stopped) = watch::channel(false);
-    let serving = axum::serve(listener, router).with_graceful_shutdown(async move {
+    let serving = crate::http::server::serve(listener, router, async move {
         // Resolves on the stop signal, or if the sender is gone (nothing left to wait for).
         let _ = stopped.wait_for(|stop| *stop).await;
     });
-    let mut serving = std::pin::pin!(serving.into_future());
+    let mut serving = std::pin::pin!(serving);
     tokio::select! {
         served = &mut serving => return served.map_err(ServeError::Io),
         () = shutdown_signal() => {}

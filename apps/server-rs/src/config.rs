@@ -313,6 +313,13 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
             })?,
     };
 
+    let max_http_in_flight = match get("MAX_HTTP_IN_FLIGHT") {
+        None => DEFAULT_MAX_HTTP_IN_FLIGHT,
+        Some(raw) => digits(raw, 5)
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| fail("MAX_HTTP_IN_FLIGHT", "must be an integer from 0 to 99999"))?,
+    };
+
     let generic_embeds = match get("GENERIC_EMBEDS").unwrap_or("on") {
         "on" => true,
         "off" => false,
@@ -352,7 +359,7 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         metrics_port,
         max_connections,
         resume_grace_ms,
-        max_http_in_flight: DEFAULT_MAX_HTTP_IN_FLIGHT,
+        max_http_in_flight,
     })
 }
 

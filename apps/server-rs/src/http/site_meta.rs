@@ -8,7 +8,8 @@ use crate::contract::js_compat::{is_js_whitespace, js_trim};
 use unicode_normalization::UnicodeNormalization;
 
 const SITE_NAME: &str = "omega-share";
-const DESCRIPTION: &str = "Watch videos together in a cosy pixel room. Share a video from any page with the browser extension and sit with friends, in sync.";
+const DESCRIPTION: &str =
+    "Watch videos together in a cosy pixel room. Share a video from any page with the browser extension and sit with friends, in sync.";
 /// Our own CC BY-SA card, the same for every room: never a provider thumbnail.
 const OG_IMAGE_PATH: &str = "/og-image.png";
 const OG_TITLE_MAX: usize = 80;

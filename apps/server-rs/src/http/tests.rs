@@ -33,6 +33,8 @@ struct Fx {
     addr: SocketAddr,
     /// Keeps a built site alive.
     dir: Option<tempfile::TempDir>,
+    /// Makes `create` come from a new forwarded client every time.
+    clients: std::sync::atomic::AtomicU32,
 }
 
 #[derive(Debug)]
@@ -106,6 +108,15 @@ impl Fx {
         Self::start(&all).await
     }
 
+    /// Over a database file (so a test can break it behind the server's back), with forwarded clients.
+    async fn on_file(db: &std::path::Path) -> Self {
+        let clock = testing::clock();
+        let store = crate::store::Store::open(db.to_str().unwrap()).unwrap();
+        let config = testing::config(&[("TRUST_PROXY", "loopback"), ("DB_PATH", db.to_str().unwrap())]);
+        let app = Arc::new(App::new(config, clock.clone(), store).unwrap());
+        Self::serve(app, clock, None).await
+    }
+
     /// With a built site in `STATIC_DIR`.
     async fn with_site(pairs: &[(&str, &str)]) -> Self {
         let dir = tempfile::Builder::new().prefix("omega-site-").tempdir().unwrap();
@@ -147,7 +158,13 @@ impl Fx {
         app.http.bind(&app.config, addr.port());
         let router = crate::serve::build_router(app.clone());
         tokio::spawn(crate::http::server::serve(listener, router, std::future::pending()));
-        Self { app, clock, addr, dir }
+        Self {
+            app,
+            clock,
+            addr,
+            dir,
+            clients: std::sync::atomic::AtomicU32::new(0),
+        }
     }
 
     fn root(&self) -> std::path::PathBuf {
@@ -214,7 +231,8 @@ impl Fx {
     }
 
     async fn create(&self, title: &str, visibility: &str) -> Value {
-        let res = self.create_as("198.51.100.250", title, visibility).await;
+        let n = self.clients.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        let res = self.create_as(&format!("203.0.113.{n}"), title, visibility).await;
         assert_eq!(res.status, 201, "{}", res.text());
         res.json()
     }
@@ -493,7 +511,7 @@ async fn preflights_and_cors_headers() {
 // apps/server/test/server.test.ts:137, room-create.test.ts:454,465
 #[tokio::test]
 async fn the_list_has_pinned_rooms_first_then_busiest_then_newest_and_hides_private_rooms() {
-    let fx = Fx::start(&[]).await;
+    let fx = Fx::proxied(&[]).await;
     let a = fx.create("Alpha", "public").await["room"]["id"].as_str().unwrap().to_owned();
     fx.clock.set_wall(T0 + 1000);
     let b = fx.create("Bravo", "public").await["room"]["id"].as_str().unwrap().to_owned();
@@ -814,8 +832,7 @@ async fn creation_is_limited_server_wide_and_at_max_rooms() {
 async fn a_store_that_cannot_write_is_a_typed_503_and_the_creation_is_given_back() {
     let dir = tempfile::tempdir().unwrap();
     let db = dir.path().join("omega.db");
-    let (app, clock) = testing::app_with(testing::config(&[("TRUST_PROXY", "loopback"), ("DB_PATH", db.to_str().unwrap())]));
-    let fx = Fx::serve(app, clock, None).await;
+    let fx = Fx::on_file(&db).await;
     assert_eq!(fx.create_as("198.51.100.1", "x", "public").await.status, 201);
     let spoil = rusqlite::Connection::open(&db).unwrap();
     spoil.execute_batch("DROP TABLE rooms").unwrap();
@@ -901,8 +918,7 @@ async fn failed_deletes_take_from_a_per_key_bucket() {
 async fn a_store_that_cannot_delete_keeps_the_room() {
     let dir = tempfile::tempdir().unwrap();
     let db = dir.path().join("omega.db");
-    let (app, clock) = testing::app_with(testing::config(&[("TRUST_PROXY", "loopback"), ("DB_PATH", db.to_str().unwrap())]));
-    let fx = Fx::serve(app, clock, None).await;
+    let fx = Fx::on_file(&db).await;
     let made = fx.create("Mine", "public").await;
     let id = made["room"]["id"].as_str().unwrap().to_owned();
     let (_, _, mut rx) = fx.grant(&id, false);
@@ -948,7 +964,9 @@ async fn a_valid_share_sets_the_embed_and_broadcasts_embed_changed_by_the_member
     assert_eq!(sent[0]["type"], "embed-changed");
     assert_eq!(sent[0]["embed"], embed);
     assert_eq!(sent[0]["by"], member.as_str());
-    assert_eq!(sent[0]["playback"]["state"], "paused");
+    // A fresh embed starts playing at 0 (playback.ts `loadPlayback`).
+    assert_eq!(sent[0]["playback"]["playing"], true);
+    assert_eq!(sent[0]["playback"]["position"], 0);
     assert!(sent[0]["itemId"].as_str().is_some());
     // Stored, and the room's item id is the one broadcast.
     let id = testing::rid("lobby");
@@ -1169,29 +1187,28 @@ async fn shares_are_limited_per_member_per_client_and_globally() {
         )
         .await;
     assert_eq!(res.status, 200);
-    // Globally: 20 at once, however many clients: this run already used 6.
+    // Globally: 20 at once, however many clients, members and rooms (this run has used 6 so far).
     let mut ok = 6;
-    let mut i = 0;
-    loop {
-        i += 1;
-        let (t, _, _r) = fx.grant(&rooms[i % rooms.len()], false);
-        // Fresh room buckets: raise the clock past the room refill each time.
-        fx.clock.set_mono(fx.app.mono() + 20_000.0);
+    for i in 0.. {
+        let room = format!("global{i:03}aaaaaaaaaaaaaaaaaaa");
+        testing::add_room(&fx.app, &room, RoomInit::default());
+        let (t, _, _r) = fx.grant(&room, false);
         let res = fx
             .post_json(
-                &share_path(&rooms[i % rooms.len()]),
+                &share_path(&room),
                 &[("authorization", &bearer(&t)), ("x-forwarded-for", &format!("203.0.113.{i}"))],
                 YT,
             )
             .await;
         if res.status == 429 {
+            assert_eq!(res.json()["error"]["retryAfterMs"], 500, "{}", res.text());
             break;
         }
         assert_eq!(res.status, 200);
         ok += 1;
         assert!(ok <= 40, "never limited");
     }
-    assert!((20..=24).contains(&ok), "{ok}");
+    assert_eq!(ok, 20);
 }
 
 // apps/server/test/room-owner.test.ts (owner-only policy)
@@ -1249,7 +1266,9 @@ async fn queue_add_answers_the_item_and_the_typed_refusals() {
         404
     );
     let big = format!(r#"{{"url":"https://youtu.be/{}"}}"#, "a".repeat(5000));
+    fx.clock.set_mono(fx.app.mono() + 600_000.0);
     assert_eq!(fx.post_json(path, &[("authorization", &bearer(&guest))], &big).await.status, 413);
+    fx.clock.set_mono(fx.app.mono() + 600_000.0);
 
     // The owner policy closes the queue to guests.
     fx.app.with_open_room(&testing::rid("lobby"), |i| {

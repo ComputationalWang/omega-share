@@ -25,7 +25,7 @@ serde_json = { version = "1", features = ["float_roundtrip", "raw_value"] }
 # hyper's header-read timeout (axum::serve has no knob for it) and a read timeout between body frames.
 http-body-util = "0.1"
 hyper = { version = "1", default-features = false, features = ["http1", "server"] }
-hyper-util = { version = "0.1", default-features = false, features = ["tokio", "server-graceful"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio"] }
 tower-service = "0.3"
 tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "net", "signal", "time", "sync", "fs"] }
 unicode-normalization = "0.1"
