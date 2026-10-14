@@ -55,6 +55,14 @@ impl StoreError {
             _ => None,
         }
     }
+
+    /// The SQLite result code of a `Db` error, `-1` for any other.
+    fn code(&self) -> i32 {
+        match self {
+            Self::Db(code) => *code,
+            _ => -1,
+        }
+    }
 }
 
 impl fmt::Display for StoreError {

@@ -1,13 +1,23 @@
 //! Port of `apps/server/src/store/reports.ts`: abuse reports and takedowns (migration 0006).
 
 use super::StoreError;
-use crate::contract::constants::REPORT_MAX_OPEN;
+use super::rooms::unix_ms;
+use crate::contract::constants::{MAX_URL_LENGTH, REPORT_MAX_OPEN};
 use crate::contract::ids::{RoomId, string_newtype};
-use rusqlite::Connection;
+use crate::contract::js_compat::utf16_len;
+use crate::log::{LogEvent, log_error};
+use rusqlite::types::Value;
+use rusqlite::{Connection, params};
 
 /// Most rows `reports` holds, whatever their state (ADR 0033 §3, QA on OME-604): past this the oldest
 /// closed rows make room.
 pub const REPORT_MAX_ROWS: usize = 5 * REPORT_MAX_OPEN;
+
+/// `REPORT_REASONS` (packages/shared/src/report.ts).
+const REPORT_REASONS: [&str; 6] = ["sexual", "violence", "hate", "spam", "danger", "other"];
+
+/// Bounded, so a hand-edited row can't flood the operator's terminal.
+const TEXT_MAX: usize = 1024;
 
 string_newtype!(
     /// 16 random bytes, base64url: the operator's handle, never sent to the reporter. `^[A-Za-z0-9_-]{22}$`.
@@ -33,6 +43,54 @@ pub struct NewReport {
     pub created_at: i64,
 }
 
+fn check_text(t: Option<&String>, max: usize, what: &'static str) -> Result<(), StoreError> {
+    if t.is_some_and(|s| utf16_len(s) > max) {
+        Err(StoreError::Invalid(what))
+    } else {
+        Ok(())
+    }
+}
+
+impl NewReport {
+    /// `NewReportSchema`: what the ids and `unix_ms` types don't already guarantee.
+    fn check(&self) -> Result<(), StoreError> {
+        if !REPORT_REASONS.contains(&self.reason.as_str()) {
+            return Err(StoreError::Invalid("reason"));
+        }
+        check_text(self.note.as_ref(), TEXT_MAX, "note")?;
+        check_text(self.room_title.as_ref(), TEXT_MAX, "room_title")?;
+        check_text(self.embed_url.as_ref(), MAX_URL_LENGTH, "embed_url")?;
+        unix_ms(self.created_at, "created_at").map(drop)
+    }
+
+    /// One `reports` row in `LIST_OPEN` order, or `None` when it fails the contract.
+    fn from_row(row: &[Value; 7]) -> Option<Self> {
+        fn opt_text(v: &Value) -> Option<Option<String>> {
+            match v {
+                Value::Null => Some(None),
+                Value::Text(s) if utf16_len(s) <= TEXT_MAX => Some(Some(s.clone())),
+                _ => None,
+            }
+        }
+        let [id, room_id, reason, note, room_title, embed_url, created_at] = row;
+        let (Value::Text(id), Value::Text(room_id), Value::Text(reason), Value::Integer(created_at)) = (id, room_id, reason, created_at)
+        else {
+            return None;
+        };
+        let report = Self {
+            id: ReportId::parse(id)?,
+            room_id: RoomId::parse(room_id)?,
+            reason: reason.clone(),
+            note: opt_text(note)?,
+            room_title: opt_text(room_title)?,
+            embed_url: opt_text(embed_url)?,
+            created_at: *created_at,
+        };
+        report.check().ok()?;
+        Some(report)
+    }
+}
+
 /// The report tables over the process's connection.
 pub struct ReportStore<'a> {
     conn: &'a Connection,
@@ -43,60 +101,121 @@ impl<'a> ReportStore<'a> {
         Self { conn }
     }
 
-    /// `GET /healthz`'s database check: reads the schema version, which fails if the database is unreadable.
+    /// `GET /healthz`'s database check (OME-840): reads the schema version, which fails if the database is
+    /// unreadable.
     pub fn ping(&self) -> Result<(), StoreError> {
-        let _ = self.conn;
-        Err(StoreError::Invalid("stub"))
+        Ok(self.conn.query_row("PRAGMA user_version", [], |_| Ok(()))?)
+    }
+
+    fn count(&self, sql: &str) -> Result<usize, StoreError> {
+        let n: i64 = self.conn.prepare_cached(sql)?.query_row([], |r| r.get(0))?;
+        Ok(usize::try_from(n).unwrap_or(0))
     }
 
     /// Stores one report; past `REPORT_MAX_ROWS` the oldest closed rows go first, in the same transaction.
     pub fn add(&self, report: &NewReport) -> Result<(), StoreError> {
-        let _ = report;
-        Err(StoreError::Invalid("stub"))
+        report.check()?;
+        let tx = self.conn.unchecked_transaction()?;
+        let over = (self.count("SELECT count(*) FROM reports")? + 1).saturating_sub(REPORT_MAX_ROWS);
+        if over > 0 {
+            self.conn
+                .prepare_cached(
+                    "DELETE FROM reports WHERE id IN (SELECT id FROM reports WHERE state != 'open' ORDER BY created_at, id LIMIT ?)",
+                )?
+                .execute([i64::try_from(over).unwrap_or(i64::MAX)])?;
+        }
+        self.conn
+            .prepare_cached(
+                "INSERT INTO reports (id, room_id, reason, note, room_title, embed_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            )?
+            .execute(params![
+                report.id.as_str(),
+                report.room_id.as_str(),
+                report.reason,
+                report.note,
+                report.room_title,
+                report.embed_url,
+                report.created_at
+            ])?;
+        Ok(tx.commit()?)
     }
 
     pub fn open_count(&self) -> Result<usize, StoreError> {
-        Err(StoreError::Invalid("stub"))
+        self.count("SELECT count(*) FROM reports WHERE state = 'open'")
     }
 
-    /// Open reports, newest first. A row that fails the contract is left out and logged.
+    /// Open reports, newest first. A row that fails the contract is left out and logged (no ids).
     pub fn list_open(&self) -> Result<Vec<NewReport>, StoreError> {
-        Err(StoreError::Invalid("stub"))
+        let mut stmt = self.conn.prepare_cached(
+            "SELECT id, room_id, reason, note, room_title, embed_url, created_at FROM reports WHERE state = 'open' ORDER BY created_at DESC, id",
+        )?;
+        let mut rows = stmt.query([])?;
+        let mut out = Vec::new();
+        while let Some(row) = rows.next()? {
+            let values: [Value; 7] = std::array::from_fn(|i| row.get::<_, Value>(i).unwrap_or(Value::Null));
+            match NewReport::from_row(&values) {
+                Some(r) => out.push(r),
+                None => log_error(LogEvent::StoreReport, Some(&StoreError::Invalid("report row"))),
+            }
+        }
+        Ok(out)
     }
 
     /// False if there is no open report with that id.
     pub fn dismiss(&self, id: &ReportId) -> Result<bool, StoreError> {
-        let _ = id;
-        Err(StoreError::Invalid("stub"))
+        Ok(self
+            .conn
+            .prepare_cached("UPDATE reports SET state = 'dismissed' WHERE id = ? AND state = 'open'")?
+            .execute([id.as_str()])?
+            > 0)
+    }
+
+    fn close_room(&self, state: &str, room_id: &RoomId) -> Result<usize, StoreError> {
+        Ok(self
+            .conn
+            .prepare_cached("UPDATE reports SET state = ? WHERE room_id = ? AND state = 'open'")?
+            .execute([state, room_id.as_str()])?)
     }
 
     /// Dismisses the room's open reports; returns how many.
     pub fn dismiss_room(&self, room_id: &RoomId) -> Result<usize, StoreError> {
-        let _ = room_id;
-        Err(StoreError::Invalid("stub"))
+        self.close_room("dismissed", room_id)
     }
 
     /// A takedown: the room's open reports become `actioned`; returns how many.
     pub fn action_room(&self, room_id: &RoomId) -> Result<usize, StoreError> {
-        let _ = room_id;
-        Err(StoreError::Invalid("stub"))
+        self.close_room("actioned", room_id)
     }
 
     /// Retention (ADR 0033 §3): deletes every row created before `before`, whatever its state.
     pub fn purge(&self, before: i64) -> Result<usize, StoreError> {
-        let _ = before;
-        Err(StoreError::Invalid("stub"))
+        Ok(self
+            .conn
+            .prepare_cached("DELETE FROM reports WHERE created_at < ?")?
+            .execute([before])?)
     }
 
     /// True when this wrote the tombstone; false when the id was already taken down.
     pub fn add_takedown(&self, room_id: &RoomId, at: i64) -> Result<bool, StoreError> {
-        let _ = (room_id, at);
-        Err(StoreError::Invalid("stub"))
+        let at = unix_ms(at, "at")?;
+        Ok(self
+            .conn
+            .prepare_cached("INSERT OR IGNORE INTO takedowns (room_id, at) VALUES (?, ?)")?
+            .execute(params![room_id.as_str(), at])?
+            > 0)
     }
 
     /// Every taken-down room id. A row that isn't a room id can't match one, and is skipped.
     pub fn takedowns(&self) -> Result<Vec<RoomId>, StoreError> {
-        Err(StoreError::Invalid("stub"))
+        let mut stmt = self.conn.prepare_cached("SELECT room_id FROM takedowns")?;
+        let mut rows = stmt.query([])?;
+        let mut out = Vec::new();
+        while let Some(row) = rows.next()? {
+            if let Value::Text(s) = row.get::<_, Value>(0)? {
+                out.extend(RoomId::parse(&s));
+            }
+        }
+        Ok(out)
     }
 }
 

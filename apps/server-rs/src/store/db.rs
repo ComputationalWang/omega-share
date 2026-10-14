@@ -2,6 +2,9 @@
 
 use super::StoreError;
 use rusqlite::Connection;
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
+use std::path::Path;
+use std::time::Duration;
 
 /// One forward-only migration: `NNNN-name.sql` and its text.
 #[derive(Debug, Clone, Copy)]
@@ -10,8 +13,9 @@ pub struct Migration<'a> {
     pub sql: &'a str,
 }
 
-/// `apps/server/migrations`, embedded: the TS server and this one run the very same files. A new file
-/// there must be added here (a test compares the directory with this list).
+/// `apps/server/migrations`, embedded: the TS server and this one run the very same files, so this binary
+/// never runs a migration the TS server does not know. A new file there must be added here (a test
+/// compares the directory with this list).
 pub const MIGRATIONS: [Migration<'static>; 6] = [
     Migration {
         file: "0001-rooms.sql",
@@ -39,26 +43,102 @@ pub const MIGRATIONS: [Migration<'static>; 6] = [
     },
 ];
 
+/// `^\d{4}-[a-z0-9-]+\.sql$`
+fn is_migration_name(file: &str) -> bool {
+    let (Some(num), Some(tail)) = (file.get(..4), file.get(4..)) else {
+        return false;
+    };
+    let Some(name) = tail.strip_prefix('-').and_then(|t| t.strip_suffix(".sql")) else {
+        return false;
+    };
+    num.bytes().all(|b| b.is_ascii_digit())
+        && !name.is_empty()
+        && name.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
+/// Numbered 0001, 0002, … with no gap or duplicate, so `user_version` names exactly one file.
+fn check_order(migrations: &[Migration<'_>]) -> Result<(), StoreError> {
+    for (i, m) in migrations.iter().enumerate() {
+        let expected = format!("{:04}", i + 1);
+        if !is_migration_name(m.file) || m.file.get(..4) != Some(expected.as_str()) {
+            return Err(StoreError::MigrationOrder { file: m.file.to_owned() });
+        }
+    }
+    Ok(())
+}
+
+/// The schema version this binary migrates to: the newest migration's number.
+pub fn latest_migration() -> usize {
+    MIGRATIONS.len()
+}
+
+fn user_version(conn: &Connection) -> Result<i64, StoreError> {
+    Ok(conn.query_row("PRAGMA user_version", [], |r| r.get(0))?)
+}
+
+/// Applies every migration newer than `user_version`, each in its own transaction.
+fn migrate(conn: &Connection, migrations: &[Migration<'_>]) -> Result<(), StoreError> {
+    check_order(migrations)?;
+    let current = user_version(conn)?;
+    let done = match usize::try_from(current) {
+        Ok(done) if done <= migrations.len() => done,
+        _ => {
+            return Err(StoreError::SchemaNewer {
+                found: current,
+                known: migrations.len(),
+            });
+        }
+    };
+    for (i, m) in migrations.iter().enumerate().skip(done) {
+        let apply = || -> rusqlite::Result<()> {
+            let tx = conn.unchecked_transaction()?;
+            tx.execute_batch(m.sql)?;
+            tx.execute_batch(&format!("PRAGMA user_version = {}", i + 1))?;
+            tx.commit()
+        };
+        // Only the file name and SQLite's result code: its message can quote data.
+        apply().map_err(|e| StoreError::Migration {
+            file: m.file.to_owned(),
+            code: StoreError::from(e).code(),
+        })?;
+    }
+    Ok(())
+}
+
+/// Creates the file (and its directory) owner-only, and tightens an existing file to 0600 (D5).
+fn ensure_private_file(path: &Path) -> std::io::Result<()> {
+    if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
+        std::fs::DirBuilder::new().recursive(true).mode(0o700).create(dir)?;
+    }
+    std::fs::OpenOptions::new().append(true).create(true).mode(0o600).open(path)?;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+}
+
 /// `openDatabase` with the embedded migrations.
 pub fn open_database(path: &str) -> Result<Connection, StoreError> {
     open_database_with(path, &MIGRATIONS)
 }
 
-/// `openDatabase` with a given list (tests).
+/// Opens the process's one database: WAL, synchronous=NORMAL, foreign keys on, 2 s busy timeout, then runs
+/// the migrations. Fails if the file is newer than the code.
 pub fn open_database_with(path: &str, migrations: &[Migration<'_>]) -> Result<Connection, StoreError> {
-    let _ = (path, migrations);
-    Err(StoreError::Invalid("stub"))
-}
-
-/// The schema version this binary migrates to.
-pub fn latest_migration() -> usize {
-    0
+    let conn = if path == ":memory:" {
+        Connection::open_in_memory()?
+    } else {
+        ensure_private_file(Path::new(path)).map_err(|e| StoreError::Io(e.kind()))?;
+        Connection::open(path)?
+    };
+    // `journal_mode` answers with a row, so it is a query.
+    conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
+    conn.execute_batch("PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;")?;
+    conn.busy_timeout(Duration::from_millis(2000))?;
+    migrate(&conn, migrations)?;
+    Ok(conn)
 }
 
 /// `PRAGMA wal_checkpoint(TRUNCATE)`.
 pub fn checkpoint(conn: &Connection) -> Result<(), StoreError> {
-    let _ = conn;
-    Err(StoreError::Invalid("stub"))
+    Ok(conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))?)
 }
 
 #[cfg(test)]

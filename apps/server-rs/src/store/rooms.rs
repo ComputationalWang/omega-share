@@ -1,12 +1,23 @@
 //! Port of `apps/server/src/store/rooms.ts`: write-through persistence for rooms, queues and seat holds.
+//!
+//! Only rare mutations land here, never the relay path. Every value is typed on write (the contract
+//! newtypes cannot hold an invalid one) and every row is parsed on read: a corrupt `rooms` row fails the
+//! whole load, naming the room; a corrupt queue row or seat hold is dropped.
 
 use super::StoreError;
+use crate::contract::Obj;
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{QueueItemId, RoomId};
 use crate::contract::layout::RoomLayout;
 use crate::contract::room::{ControlPolicy, RoomVisibility, SeatIndex};
 use crate::contract::text::RoomTitle;
-use rusqlite::Connection;
+use crate::log::{LogEvent, log_error};
+use rusqlite::types::Value;
+use rusqlite::{Connection, params};
+use std::collections::HashMap;
+
+/// Largest integer a JS number holds exactly: `v.safeInteger()`.
+const MAX_SAFE_INTEGER: i64 = (1 << 53) - 1;
 
 /// A room as stored. `title` is `None` for a seeded room that has none (stored as `''`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -78,10 +89,127 @@ impl NewRoom {
     }
 }
 
+/// `UnixMsSchema`: a safe integer, at least 0.
+pub(super) fn unix_ms(n: i64, what: &'static str) -> Result<i64, StoreError> {
+    if (0..=MAX_SAFE_INTEGER).contains(&n) {
+        Ok(n)
+    } else {
+        Err(StoreError::Invalid(what))
+    }
+}
+
+fn title_text(title: Option<&RoomTitle>) -> &str {
+    title.map_or("", RoomTitle::as_str)
+}
+
+fn policy_text(p: ControlPolicy) -> &'static str {
+    match p {
+        ControlPolicy::Everyone => "everyone",
+        ControlPolicy::Owner => "owner",
+    }
+}
+
+fn embed_json(embed: &AnyEmbed) -> Result<String, StoreError> {
+    serde_json::to_string(embed).map_err(|_| StoreError::Invalid("embed"))
+}
+
+// ---- row parsing: SQLite values, as dynamic as the TS `unknown` rows, through the contract
+
+fn text(v: &Value) -> Option<&str> {
+    if let Value::Text(s) = v { Some(s) } else { None }
+}
+
+fn hash(v: &Value) -> Option<[u8; 32]> {
+    if let Value::Blob(b) = v {
+        <[u8; 32]>::try_from(b.as_slice()).ok()
+    } else {
+        None
+    }
+}
+
+fn nullable<T>(v: &Value, parse: impl FnOnce(&Value) -> Option<T>) -> Option<Option<T>> {
+    if matches!(v, Value::Null) { Some(None) } else { parse(v).map(Some) }
+}
+
+fn unix_ms_value(v: &Value) -> Option<i64> {
+    if let Value::Integer(n) = v { unix_ms(*n, "").ok() } else { None }
+}
+
+fn embed_value(v: &Value) -> Option<AnyEmbed> {
+    serde_json::from_str::<Obj<AnyEmbed>>(text(v)?).ok().map(|o| o.0)
+}
+
+/// One `rooms` row in `ROOMS_SELECT` order, or `None` when it fails the contract. `queue` is looked up
+/// by the parsed id.
+fn parse_room(row: &[Value; 12], queues: &mut HashMap<String, Vec<StoredQueueItem>>) -> Option<StoredRoom> {
+    let [
+        id,
+        title,
+        created_at,
+        layout,
+        embed,
+        visibility,
+        pinned,
+        owner,
+        invite,
+        last_active,
+        policy,
+        item,
+    ] = row;
+    let id = RoomId::parse(text(id)?)?;
+    let title = match text(title)? {
+        "" => None,
+        t => Some(RoomTitle::parse(t)?),
+    };
+    let embed = nullable(embed, embed_value)?;
+    let item_id = nullable(item, |v| QueueItemId::parse(text(v)?))?;
+    Some(StoredRoom {
+        title,
+        created_at: unix_ms_value(created_at)?,
+        layout: RoomLayout::parse(text(layout)?.as_bytes()).ok()?,
+        visibility: match text(visibility)? {
+            "public" => RoomVisibility::Public,
+            "private" => RoomVisibility::Private,
+            _ => return None,
+        },
+        pinned: match pinned {
+            Value::Integer(0) => false,
+            Value::Integer(1) => true,
+            _ => return None,
+        },
+        owner_hash: nullable(owner, hash)?,
+        invite_hash: nullable(invite, hash)?,
+        last_active_at: nullable(last_active, unix_ms_value)?,
+        control_policy: match text(policy)? {
+            "everyone" => ControlPolicy::Everyone,
+            "owner" => ControlPolicy::Owner,
+            _ => return None,
+        },
+        // An item id without an embed means nothing (a hand edit): dropped.
+        item_id: if embed.is_none() { None } else { item_id },
+        embed,
+        queue: queues.remove(id.as_str()).unwrap_or_default(),
+        id,
+    })
+}
+
+/// How a corrupt row is named: its id JSON-quoted (`?` when the id is not text), as TS does.
+fn row_label(id: &Value) -> String {
+    text(id)
+        .and_then(|s| serde_json::to_string(s).ok())
+        .unwrap_or_else(|| "?".to_owned())
+}
+
 /// The room tables over the process's connection.
 pub struct RoomStore<'a> {
     conn: &'a Connection,
 }
+
+const ROOMS_SELECT: &str = "SELECT id, title, created_at, layout, embed, visibility, pinned, owner_hash, invite_hash, last_active_at, control_policy, item_id FROM rooms ORDER BY created_at, id";
+// Appended after the room's last item; the room must exist (foreign key).
+const INSERT_QUEUE_ITEM: &str = "INSERT INTO queue_items (room_id, id, position, embed) SELECT ?1, ?2, coalesce(max(position), 0) + 1, ?3 FROM queue_items WHERE room_id = ?4";
+const DELETE_QUEUE_ITEM: &str = "DELETE FROM queue_items WHERE room_id = ? AND id = ?";
+const SET_EMBED: &str = "UPDATE rooms SET embed = ?, item_id = ? WHERE id = ?";
 
 impl<'a> RoomStore<'a> {
     pub fn new(conn: &'a Connection) -> Self {
@@ -90,88 +218,222 @@ impl<'a> RoomStore<'a> {
 
     /// Every room, oldest first. One corrupt row fails the whole load with [`StoreError::CorruptRoom`].
     pub fn list_rooms(&self) -> Result<Vec<StoredRoom>, StoreError> {
-        let _ = self.conn;
-        Err(StoreError::Invalid("stub"))
+        let mut queues = self.queues()?;
+        let mut stmt = self.conn.prepare_cached(ROOMS_SELECT)?;
+        let mut rows = stmt.query([])?;
+        let mut rooms = Vec::new();
+        while let Some(row) = rows.next()? {
+            let values: [Value; 12] = std::array::from_fn(|i| row.get::<_, Value>(i).unwrap_or(Value::Null));
+            match parse_room(&values, &mut queues) {
+                Some(room) => rooms.push(room),
+                None => return Err(StoreError::CorruptRoom { id: row_label(&values[0]) }),
+            }
+        }
+        Ok(rooms)
+    }
+
+    /// Every room's upcoming items, in play order. A row that fails to parse is dropped and logged without its ids (ADR 0031 §6).
+    fn queues(&self) -> Result<HashMap<String, Vec<StoredQueueItem>>, StoreError> {
+        let mut stmt = self
+            .conn
+            .prepare_cached("SELECT room_id, id, embed FROM queue_items ORDER BY room_id, position")?;
+        let mut rows = stmt.query([])?;
+        let mut queues: HashMap<String, Vec<StoredQueueItem>> = HashMap::new();
+        while let Some(row) = rows.next()? {
+            let (room, id, embed) = (row.get::<_, Value>(0)?, row.get::<_, Value>(1)?, row.get::<_, Value>(2)?);
+            let parsed = text(&room)
+                .and_then(RoomId::parse)
+                .zip(text(&id).and_then(QueueItemId::parse))
+                .zip(embed_value(&embed));
+            match parsed {
+                Some(((room, id), embed)) => queues
+                    .entry(room.as_str().to_owned())
+                    .or_default()
+                    .push(StoredQueueItem { id, embed }),
+                None => log_error(LogEvent::StoreQueueItem, Some(&StoreError::Invalid("queue row"))),
+            }
+        }
+        Ok(queues)
     }
 
     pub fn create_room(&self, room: &NewRoom) -> Result<(), StoreError> {
-        let _ = room;
-        Err(StoreError::Invalid("stub"))
+        let created_at = unix_ms(room.created_at, "created_at")?;
+        self.conn.prepare_cached(
+            "INSERT INTO rooms (id, title, created_at, layout, visibility, pinned, owner_hash, invite_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        )?
+        .execute(params![
+            room.id.as_str(),
+            title_text(room.title.as_ref()),
+            created_at,
+            room.layout.to_json(),
+            match room.visibility {
+                RoomVisibility::Public => "public",
+                RoomVisibility::Private => "private",
+            },
+            i64::from(room.pinned),
+            room.owner_hash.as_ref().map(<[u8; 32]>::as_slice),
+            room.invite_hash.as_ref().map(<[u8; 32]>::as_slice),
+        ])?;
+        Ok(())
     }
 
     /// Deletes the room's row (owner delete, GC, operator). False if there was none.
     pub fn delete_room(&self, id: &RoomId) -> Result<bool, StoreError> {
-        let _ = id;
-        Err(StoreError::Invalid("stub"))
+        Ok(self.conn.prepare_cached("DELETE FROM rooms WHERE id = ?")?.execute([id.as_str()])? > 0)
+    }
+
+    /// One row changed, or `NoRoom`.
+    fn expect_room(changes: usize) -> Result<(), StoreError> {
+        if changes == 0 { Err(StoreError::NoRoom) } else { Ok(()) }
     }
 
     pub fn set_layout(&self, id: &RoomId, layout: &RoomLayout) -> Result<(), StoreError> {
-        let _ = (id, layout);
-        Err(StoreError::Invalid("stub"))
+        let n = self
+            .conn
+            .prepare_cached("UPDATE rooms SET layout = ? WHERE id = ?")?
+            .execute(params![layout.to_json(), id.as_str()])?;
+        Self::expect_room(n)
     }
 
     pub fn set_title(&self, id: &RoomId, title: Option<&RoomTitle>) -> Result<(), StoreError> {
-        let _ = (id, title);
-        Err(StoreError::Invalid("stub"))
+        let n = self
+            .conn
+            .prepare_cached("UPDATE rooms SET title = ? WHERE id = ?")?
+            .execute(params![title_text(title), id.as_str()])?;
+        Self::expect_room(n)
     }
 
-    /// A share: the new embed and its item id in one write. A `None` embed has no item id.
+    /// A share: the new embed and its item id in one write (ADR 0031 §1). A `None` embed has no item id.
     pub fn set_embed(&self, id: &RoomId, embed: Option<&AnyEmbed>, item_id: Option<&QueueItemId>) -> Result<(), StoreError> {
-        let _ = (id, embed, item_id);
-        Err(StoreError::Invalid("stub"))
+        let json = embed.map(embed_json).transpose()?;
+        let item = embed.and(item_id).map(QueueItemId::as_str);
+        Self::expect_room(self.conn.prepare_cached(SET_EMBED)?.execute(params![json, item, id.as_str()])?)
     }
 
-    /// `queue-add`: appends one item. Fails for an unknown room or a taken id.
+    /// `queue-add` (ADR 0031 §6): appends one item. Fails for an unknown room or a taken id.
     pub fn add_queue_item(&self, room_id: &RoomId, item: &StoredQueueItem) -> Result<(), StoreError> {
-        let _ = (room_id, item);
-        Err(StoreError::Invalid("stub"))
+        self.insert_queue_item(room_id, item)
     }
 
-    /// An add into a room with no current item, in one transaction: appends `item`, then `head` leaves the
-    /// queue and becomes current. Changes nothing if either step fails.
+    fn insert_queue_item(&self, room_id: &RoomId, item: &StoredQueueItem) -> Result<(), StoreError> {
+        let (room, embed) = (room_id.as_str(), embed_json(&item.embed)?);
+        self.conn
+            .prepare_cached(INSERT_QUEUE_ITEM)?
+            .execute(params![room, item.id.as_str(), embed, room])?;
+        Ok(())
+    }
+
+    fn take_queue_item(&self, room_id: &RoomId, id: &QueueItemId) -> Result<(), StoreError> {
+        match self
+            .conn
+            .prepare_cached(DELETE_QUEUE_ITEM)?
+            .execute([room_id.as_str(), id.as_str()])?
+        {
+            0 => Err(StoreError::NoQueueItem),
+            _ => Ok(()),
+        }
+    }
+
+    /// An add into a room with no current item (ADR 0031 §5), in one transaction: appends `item`, then
+    /// `head` (usually `item`) leaves the queue and becomes current. Changes nothing if either step fails.
     pub fn add_queue_item_and_start(&self, room_id: &RoomId, item: &StoredQueueItem, head: &StoredQueueItem) -> Result<(), StoreError> {
-        let _ = (room_id, item, head);
-        Err(StoreError::Invalid("stub"))
+        let tx = self.conn.unchecked_transaction()?;
+        self.insert_queue_item(room_id, item)?;
+        self.take_queue_item(room_id, &head.id)?;
+        Self::expect_room(self.conn.prepare_cached(SET_EMBED)?.execute(params![
+            embed_json(&head.embed)?,
+            head.id.as_str(),
+            room_id.as_str()
+        ])?)?;
+        Ok(tx.commit()?)
     }
 
     /// `queue-remove`: false if the room had no such item.
     pub fn remove_queue_item(&self, room_id: &RoomId, item_id: &QueueItemId) -> Result<bool, StoreError> {
-        let _ = (room_id, item_id);
-        Err(StoreError::Invalid("stub"))
+        Ok(self
+            .conn
+            .prepare_cached(DELETE_QUEUE_ITEM)?
+            .execute([room_id.as_str(), item_id.as_str()])?
+            > 0)
     }
 
-    /// An advance, in one transaction: `item` leaves the queue and becomes the room's current embed.
+    /// An advance (ADR 0031 §5), in one transaction: the upcoming `item` leaves the queue and becomes the
+    /// room's current embed. Changes nothing if the room doesn't hold that item.
     pub fn advance_queue(&self, room_id: &RoomId, item: &StoredQueueItem) -> Result<(), StoreError> {
-        let _ = (room_id, item);
-        Err(StoreError::Invalid("stub"))
+        let tx = self.conn.unchecked_transaction()?;
+        self.take_queue_item(room_id, &item.id)?;
+        // As in TS, a missing room is not an error here: the queue row's foreign key already proved it exists.
+        self.conn
+            .prepare_cached(SET_EMBED)?
+            .execute(params![embed_json(&item.embed)?, item.id.as_str(), room_id.as_str()])?;
+        Ok(tx.commit()?)
     }
 
-    /// Room GC's clock: written when the room fills or empties, never per message.
+    /// Room GC's clock (threat model §1.3): written when the room fills or empties, never per message.
     pub fn set_last_active(&self, id: &RoomId, at: i64) -> Result<(), StoreError> {
-        let _ = (id, at);
-        Err(StoreError::Invalid("stub"))
+        let at = unix_ms(at, "at")?;
+        Self::expect_room(
+            self.conn
+                .prepare_cached("UPDATE rooms SET last_active_at = ? WHERE id = ?")?
+                .execute(params![at, id.as_str()])?,
+        )
     }
 
+    /// The owner's `control-policy` (ADR 0030 §4): a rare owner edit, never on the relay path.
     pub fn set_control_policy(&self, id: &RoomId, policy: ControlPolicy) -> Result<(), StoreError> {
-        let _ = (id, policy);
-        Err(StoreError::Invalid("stub"))
+        Self::expect_room(
+            self.conn
+                .prepare_cached("UPDATE rooms SET control_policy = ? WHERE id = ?")?
+                .execute(params![policy_text(policy), id.as_str()])?,
+        )
     }
 
     /// Pins (GC never collects it) or unpins a room (operator CLI).
     pub fn set_pinned(&self, id: &RoomId, pinned: bool) -> Result<(), StoreError> {
-        let _ = (id, pinned);
-        Err(StoreError::Invalid("stub"))
+        Self::expect_room(
+            self.conn
+                .prepare_cached("UPDATE rooms SET pinned = ? WHERE id = ?")?
+                .execute(params![i64::from(pinned), id.as_str()])?,
+        )
     }
 
-    /// Replaces the stored holds with these. A hold for an unknown room fails the whole write.
+    /// Replaces the stored holds with these (graceful restart, ADR 0032). Holds for unknown rooms fail the write.
     pub fn save_seat_holds(&self, holds: &[SeatHold]) -> Result<(), StoreError> {
-        let _ = holds;
-        Err(StoreError::Invalid("stub"))
+        let tx = self.conn.unchecked_transaction()?;
+        self.conn.execute("DELETE FROM seat_holds", [])?;
+        let mut insert = self
+            .conn
+            .prepare_cached("INSERT OR REPLACE INTO seat_holds (room_id, name_hash, seat) VALUES (?, ?, ?)")?;
+        for h in holds {
+            insert.execute(params![h.room_id.as_str(), h.name_hash.as_slice(), i64::from(h.seat.get())])?;
+        }
+        Ok(tx.commit()?)
     }
 
     /// The stored holds, deleted as they are read: a hold is used by one boot at most. Bad rows are dropped.
     pub fn take_seat_holds(&self) -> Result<Vec<SeatHold>, StoreError> {
-        Err(StoreError::Invalid("stub"))
+        let tx = self.conn.unchecked_transaction()?;
+        let mut holds = Vec::new();
+        {
+            let mut stmt = self
+                .conn
+                .prepare_cached("SELECT room_id, name_hash, seat FROM seat_holds ORDER BY room_id, seat")?;
+            let mut rows = stmt.query([])?;
+            while let Some(row) = rows.next()? {
+                let (room, name, seat) = (row.get::<_, Value>(0)?, row.get::<_, Value>(1)?, row.get::<_, Value>(2)?);
+                let seat = if let Value::Integer(n) = seat {
+                    u64::try_from(n).ok().and_then(SeatIndex::new)
+                } else {
+                    None
+                };
+                if let (Some(room_id), Some(name_hash), Some(seat)) = (text(&room).and_then(RoomId::parse), hash(&name), seat) {
+                    holds.push(SeatHold { room_id, name_hash, seat });
+                }
+            }
+        }
+        self.conn.execute("DELETE FROM seat_holds", [])?;
+        tx.commit()?;
+        Ok(holds)
     }
 }
 
