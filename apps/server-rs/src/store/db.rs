@@ -114,6 +114,11 @@ fn ensure_private_file(path: &Path) -> std::io::Result<()> {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
 }
 
+/// Every connection to a database file goes through here (the server's own and the backup tool's).
+pub fn open_raw(path: &Path, flags: OpenFlags) -> rusqlite::Result<Connection> {
+    Connection::open_with_flags(path, flags | OpenFlags::SQLITE_OPEN_NO_MUTEX)
+}
+
 /// `openDatabase` with the embedded migrations.
 pub fn open_database(path: &str) -> Result<Connection, StoreError> {
     open_database_with(path, &MIGRATIONS)
@@ -357,6 +362,53 @@ mod tests {
         c.execute("INSERT INTO takedowns (room_id, at) VALUES ('a', 1)", []).unwrap();
         checkpoint(&c).unwrap();
         assert_eq!(std::fs::metadata(format!("{path}-wal")).unwrap().len(), 0);
+    }
+
+    // L3: no extension can be loaded, even if a statement reaches `load_extension`.
+    #[test]
+    fn load_extension_does_not_exist() {
+        let (_d, path) = tmp();
+        let c = open_database(&path).unwrap();
+        let err = c.query_row("SELECT load_extension('x')", [], |_| Ok(())).unwrap_err();
+        assert!(err.to_string().contains("no such function"), "{err}");
+    }
+
+    // L3: defensive mode (no writable_schema, no raw shadow-table writes) and untrusted schema on every connection.
+    #[test]
+    fn every_connection_is_defensive_with_an_untrusted_schema() {
+        let (_d, path) = tmp();
+        let main = open_database(&path).unwrap();
+        let raw = open_raw(Path::new(&path), OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
+        for c in [&main, &raw] {
+            assert_eq!(pragma(c, "trusted_schema"), rusqlite::types::Value::Integer(0));
+            c.execute_batch("PRAGMA writable_schema = ON").unwrap();
+            let err = c
+                .execute("UPDATE sqlite_master SET sql = sql WHERE name = 'rooms'", [])
+                .unwrap_err();
+            assert!(err.to_string().contains("table sqlite_master may not be modified"), "{err}");
+        }
+    }
+
+    // L9: deleted titles and reports do not linger in free pages or the WAL, and the WAL cannot stay large.
+    #[test]
+    fn deleted_content_is_overwritten_and_the_journal_is_capped() {
+        let (_d, path) = tmp();
+        let c = open_database(&path).unwrap();
+        assert_eq!(pragma(&c, "secure_delete"), rusqlite::types::Value::Integer(2), "FAST");
+        let rusqlite::types::Value::Integer(limit) = pragma(&c, "journal_size_limit") else { panic!() };
+        assert!(limit > 0, "{limit}");
+    }
+
+    // L7: one open path for every connection: a relative `file:` path is a file name, never a URI.
+    #[test]
+    fn open_raw_takes_a_file_prefixed_relative_path_as_a_file_name() {
+        let name = format!("file:omega-raw-test-{}?mode=memory", std::process::id());
+        let c = open_raw(Path::new(&name), OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE).unwrap();
+        c.execute_batch("CREATE TABLE t (a)").unwrap();
+        drop(c);
+        let exists = std::fs::metadata(&name).is_ok_and(|m| m.len() > 0);
+        let _ = std::fs::remove_file(&name);
+        assert!(exists, "the literal file was not created: the path was read as a URI");
     }
 
     // Bun's `new Database(path)` has no URI handling: a `file:` path is a file name, never a URI.

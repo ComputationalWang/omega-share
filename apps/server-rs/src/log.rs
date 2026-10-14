@@ -47,6 +47,15 @@ pub enum LogEvent {
     /// A server message that failed to serialize (never in TS: `JSON.stringify` cannot fail on these).
     #[serde(rename = "ws.encode")]
     Encode,
+    /// A thread panicked (`panic_hook`): the location only, never the payload.
+    #[serde(rename = "panic")]
+    Panic,
+    /// A room's lock was poisoned by a panicking handler: the room is taken offline.
+    #[serde(rename = "room.poisoned")]
+    RoomPoisoned,
+    /// A store or reports mutex was poisoned; the data is recovered and serving continues.
+    #[serde(rename = "state.poisoned")]
+    StatePoisoned,
 }
 
 const MAX_MESSAGE: usize = 240;

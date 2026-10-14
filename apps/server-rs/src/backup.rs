@@ -804,6 +804,33 @@ mod tests {
         assert_eq!(rooms(&live), ["lobby", "den"]);
     }
 
+    // L6: a running server answers on its admin socket; restore must not swap the file under it.
+    #[test]
+    fn restore_through_the_cli_refuses_while_the_admin_socket_answers() {
+        let t = tempfile::tempdir().unwrap();
+        let live = t.path().join("live/omega.db");
+        seed(&live, 0);
+        let snap = snapshot(&live, &t.path().join("backups"), NIGHT).unwrap();
+        let sock = t.path().join("live/admin.sock");
+        let listener = std::os::unix::net::UnixListener::bind(&sock).unwrap();
+        let before = std::fs::read(&live).unwrap();
+        let env: Env = [("DB_PATH".to_owned(), live.display().to_string())].into();
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let code = run_backup(&args(&["restore", snap.to_str().unwrap()]), &env, NIGHT, &mut |l| out.push(l.to_owned()), &mut |l| {
+            err.push(l.to_owned())
+        });
+        assert_eq!((code, out.len()), (1, 0), "{err:?}");
+        assert!(err[0].contains("running") && err[0].contains("stop the server"), "{err:?}");
+        assert_eq!(std::fs::read(&live).unwrap(), before, "nothing changed");
+        drop(listener);
+        // A stale socket file (nothing listens) does not block a restore of a stopped server.
+        let env_off: Env = [("DB_PATH".to_owned(), live.display().to_string())].into();
+        let code = run_backup(&args(&["restore", snap.to_str().unwrap()]), &env_off, NIGHT, &mut |_| {}, &mut |l| {
+            err.push(l.to_owned())
+        });
+        assert_eq!(code, 0, "{err:?}");
+    }
+
     // apps/server/test/backup.test.ts:311
     #[test]
     fn the_cli_needs_db_path_and_a_known_command() {

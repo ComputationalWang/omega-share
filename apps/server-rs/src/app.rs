@@ -765,6 +765,32 @@ mod tests {
         let e = BootError::Store(StoreError::CorruptRoom { id: "\"lobby\"".into() });
         assert!(e.to_string().contains("lobby"));
     }
+
+    // M2: store and reports state is single statements, so a poisoned lock is logged once and serving continues.
+    #[test]
+    fn a_poisoned_state_lock_is_recovered_and_the_poison_cleared() {
+        let m = Arc::new(Mutex::new(1));
+        let m2 = Arc::clone(&m);
+        let _ = std::thread::spawn(move || {
+            let _g = m2.lock();
+            panic!("bug");
+        })
+        .join();
+        assert!(m.is_poisoned());
+        assert_eq!(*lock(&m), 1);
+        assert!(!m.is_poisoned(), "logged once, not on every later lock");
+    }
+
+    // L4: the corrupt room is still named, but a stored id cannot drive the operator's terminal.
+    #[test]
+    fn the_corrupt_room_in_a_boot_error_is_escaped() {
+        let e = BootError::Store(StoreError::CorruptRoom {
+            id: "\"lo\u{7f}b\u{85}by\u{1b}[2J\"".into(),
+        });
+        let text = e.to_string();
+        assert!(text.contains("lo\\u007fb\\u0085by\\u001b[2J"), "{text}");
+        assert!(!text.chars().any(char::is_control), "{text:?}");
+    }
 }
 
 #[cfg(test)]

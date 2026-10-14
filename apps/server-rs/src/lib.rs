@@ -15,6 +15,7 @@ pub mod metrics;
 pub mod metrics_server;
 pub mod ops;
 pub mod outbox;
+pub mod panic_hook;
 pub mod owner_edits;
 pub mod playback;
 pub mod presets;

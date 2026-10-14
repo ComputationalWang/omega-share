@@ -603,4 +603,26 @@ mod tests {
         assert!(inner.share_bucket.take(0.0) && inner.share_bucket.take(0.0) && !inner.share_bucket.take(0.0));
         assert_eq!(inner.id().as_str(), "lobby");
     }
+
+    // M2: a handler that panicked under the lock may have left the room half updated: it goes offline.
+    #[test]
+    fn a_poisoned_room_is_taken_offline_and_its_sockets_close_1012() {
+        let r = Registry::new();
+        let cell = r.add_room(room("lobby"), 0.0).unwrap();
+        let (tx, mut rx) = channel();
+        cell.lock().attach_socket(ConnId(1), tx).unwrap();
+        let c = Arc::clone(&cell);
+        let _ = std::thread::spawn(move || {
+            let _guard = c.lock();
+            panic!("handler bug");
+        })
+        .join();
+        assert!(cell.lock_open().is_none(), "never served again");
+        assert!(cell.lock().closed);
+        assert!(matches!(rx.try_recv(), Some(crate::outbox::Outbound::Close(1012, _))));
+        let (tx, _rx) = channel();
+        assert!(cell.lock().attach_socket(ConnId(2), tx).is_err(), "no new sockets");
+        let other = r.add_room(room("other"), 0.0).unwrap();
+        assert!(other.lock_open().is_some(), "other rooms are untouched");
+    }
 }

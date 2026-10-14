@@ -243,6 +243,18 @@ mod tests {
         });
         ReportId::parse(&format!("r{n:021}")).unwrap()
     }
+    // L5: a report row carries the reporter's note and the video URL: `{:?}` shows only what is set.
+    #[test]
+    fn debug_output_never_shows_the_note_title_or_url() {
+        let mut r = report();
+        r.note = Some("zq-note-text".into());
+        r.room_title = Some("zq-title-text".into());
+        r.embed_url = Some("https://example.test/zq-url-text".into());
+        let text = format!("{r:?}");
+        for secret in ["zq-note", "zq-title", "zq-url", ROOM] {
+            assert!(!text.contains(secret), "{secret} in {text}");
+        }
+    }
     fn report() -> NewReport {
         NewReport {
             id: report_id(),

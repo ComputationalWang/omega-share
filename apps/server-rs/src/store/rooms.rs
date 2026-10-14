@@ -474,6 +474,40 @@ mod tests {
             embed: embed(json),
         }
     }
+    // L5: `{:?}` of a stored row must never put a title, a hash, a seat name or a video URL in a log or a panic.
+    #[test]
+    fn debug_output_shows_what_is_set_never_the_values() {
+        let mut new = NewRoom::seed(rid("secret-room-id"), title("Zq Secret Title"), 1, default_layout());
+        new.owner_hash = Some([0xab; 32]);
+        new.invite_hash = Some([0xcd; 32]);
+        let hold = SeatHold {
+            room_id: rid("secret-room-id"),
+            name_hash: [0xef; 32],
+            seat: SeatIndex::new(3).unwrap(),
+        };
+        let stored = StoredRoom {
+            id: rid("secret-room-id"),
+            title: title("Zq Secret Title"),
+            created_at: 1,
+            layout: default_layout(),
+            embed: Some(embed(YOUTUBE)),
+            visibility: RoomVisibility::Public,
+            pinned: false,
+            owner_hash: Some([0xab; 32]),
+            invite_hash: Some([0xcd; 32]),
+            last_active_at: None,
+            control_policy: crate::contract::room::DEFAULT_CONTROL_POLICY,
+            item_id: None,
+            queue: vec![item("q1", VIMEO)],
+        };
+        let queued = item("q1", TWITCH);
+        for text in [format!("{new:?}"), format!("{hold:?}"), format!("{stored:?}"), format!("{queued:?}")] {
+            for secret in ["Zq Secret", "secret-room-id", "171", "205", "239", "dQw4w9WgXcQ", "76979871", "1234567890"] {
+                assert!(!text.contains(secret), "{secret} in {text}");
+            }
+        }
+    }
+
     fn title(s: &str) -> Option<RoomTitle> {
         Some(RoomTitle::parse(s).unwrap())
     }
