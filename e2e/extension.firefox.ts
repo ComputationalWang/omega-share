@@ -38,7 +38,9 @@ test.describe("Firefox extension", () => {
     // Without the server the popup falls back to the bare lobby; listed rooms carry a member count, "Title (n)".
     await popup.waitForFunction(() => (document.querySelector<HTMLSelectElement>('[data-testid="room-select"]')?.options.length ?? 0) > 1, { timeout: 10_000 });
     const rooms = await popup.$$eval('[data-testid="room-select"] option', (options) => options.map((o) => o.textContent.trim()));
-    expect(rooms.every((label) => /\(\d+\)$/.test(label))).toBe(true);
+    // Every listed room carries its member count; "New room…" ends the list (OME-1086).
+    expect(rooms.at(-1)).toBe("New room…");
+    expect(rooms.slice(0, -1).every((label) => /\(\d+\)$/.test(label))).toBe(true);
   });
 
   // OME-611: the POST is what an AMO reviewer clicks. Firefox sends `Origin: moz-extension://<uuid>`, which the server
