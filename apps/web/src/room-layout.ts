@@ -1,6 +1,7 @@
 // Where the room page's pieces sit (split out of room.ts, OME-1100): the page, the wide column (OME-642), the phone
 // (OME-596) and its portrait dock (OME-905), and full screen with its chat strip (OME-597). It moves nodes and sizes
 // boxes; it never builds what it places.
+import type { Embed } from "@omega/shared";
 import type { ChatLog } from "./chat/log";
 import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
@@ -8,7 +9,6 @@ import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullsc
 import { FS_STRIP_W, STAGE_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomWindow } from "./room-window";
-import type { RoomTv } from "./room-tv";
 
 /** The full-screen strip's last open/collapsed state on this device (set k: "the strip remembers"). */
 const STRIP_STORAGE_KEY = "omega.fsStrip";
@@ -53,7 +53,16 @@ export interface RoomLayoutOptions {
   readonly wrap: HTMLElement;
   readonly clip: HTMLElement;
   readonly stage: HTMLElement;
-  readonly tv: RoomTv;
+  /** The TV and its shelf (room-tv.ts). */
+  readonly tv: {
+    readonly tv: HTMLElement;
+    readonly controls: HTMLElement;
+    readonly fsKey: HTMLElement;
+    readonly personal: HTMLElement;
+    provider(): Embed["provider"] | null;
+    setFullscreen(on: boolean): void;
+    place(): void;
+  };
   readonly log: ChatLog;
   /** The chat row, its pop-out placeholder, and the keys that lead and end the row. */
   readonly composer: {
@@ -292,19 +301,23 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   let fsScrollWidth = -1;
   let fsScrollHeight = -1;
   let fsScrollTarget = -1;
+  /** The TV and its shelf take their boxes, compact where they're small. */
+  const boxTv = (l: { readonly tv: Rect; readonly controls: Rect; readonly compact: { readonly tv: boolean; readonly controls: boolean } }): void => {
+    box(tv, l.tv);
+    box(controls, l.controls);
+    tv.classList.toggle("compact", l.compact.tv);
+    controls.classList.toggle("compact", l.compact.controls);
+  };
   const fit = (): void => {
     const roomOut = o.roomOut();
     if (fs.mode() !== "off") {
       // The room popped out: its chat is in the window, so the picture is alone.
       const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), roomOut ? "none" : stripMode);
-      box(tv, l.tv);
-      box(controls, l.controls);
+      boxTv(l);
       box(strip, l.strip);
       strip.dataset["at"] = l.at;
       renderStrip(l.at === "band" ? "band" : stripMode);
       placeRowKeys(l.at === "side" && l.strip.w < FS_STRIP_W);
-      tv.classList.toggle("compact", l.compact.tv);
-      controls.classList.toggle("compact", l.compact.controls);
       const scrollTransport = l.at === "band" && l.compact.controls;
       controls.classList.toggle("scroll-transport", scrollTransport);
       controls.tabIndex = scrollTransport ? 0 : -1;
@@ -334,10 +347,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const h = wrap.clientHeight;
       // The room popped out: the picture has the column (its placeholder is in the chat column).
       const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider());
-      box(tv, l.tv);
-      box(controls, l.controls);
-      tv.classList.toggle("compact", l.compact.tv);
-      controls.classList.toggle("compact", l.compact.controls);
+      boxTv(l);
       if ("stage" in l) {
         box(clip, l.stage);
         roomWindow.set(false, 0, 0);
@@ -350,10 +360,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     const l = portraitOn
       ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), root.classList.contains("portrait-typing"))
       : roomLayout(wrap.clientWidth, tvBox.provider(), onPhone);
-    box(tv, l.tv);
-    box(controls, l.controls);
-    tv.classList.toggle("compact", l.compact.tv);
-    controls.classList.toggle("compact", l.compact.controls);
+    boxTv(l);
     if (portraitOn) {
       root.style.setProperty("--portrait-picture-height", `${String(l.tv.y + l.tv.h)}px`);
       root.style.setProperty("--portrait-sheet-top", `${String(Math.min(tv.getBoundingClientRect().bottom, wrap.getBoundingClientRect().bottom))}px`);

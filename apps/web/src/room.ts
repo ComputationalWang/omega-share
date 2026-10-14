@@ -14,6 +14,7 @@ import { inviteLink, joinMessage, type RoomSecret, type SecretsStore } from "./r
 import { createInviteControl } from "./controls/invite";
 import { el, sprite } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
+import { createRoomTv, syncedOnly } from "./room-tv";
 import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
@@ -25,7 +26,6 @@ import { PHONE_QUERY, STAGE_W, WIDE_QUERY, type Rect } from "./layout";
 import { createRoomLayout } from "./room-layout";
 import { createStage, type Stage } from "./stage";
 import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
-import { createRoomTv, syncedOnly } from "./room-tv";
 import type { ExtensionBridge } from "./extension-bridge";
 import { createOwnerTools } from "./owner-tools";
 import { createEmotePicker } from "./emote/picker";
@@ -34,9 +34,9 @@ import { logEntries } from "./chat/feed";
 import { chatKey } from "./chat/enter";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
 import { createChatRelay, type ChatRelay } from "./popout/relay";
+import { createRoomCards } from "./room-cards";
 import { createHelp } from "./help/dialog";
 import { createFirstHint } from "./help/hint";
-import { createRoomCards } from "./room-cards";
 import { createHiddenMembers } from "./hide/hidden";
 import { createPeople } from "./hide/people";
 
