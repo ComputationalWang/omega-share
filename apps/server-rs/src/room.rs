@@ -4,18 +4,20 @@
 //!
 //! Layout for speed: members live in a fixed array indexed by their standing slot (a member's slot is
 //! unique and stable while they are in the room), found by id through one hash map; `order` keeps join order
-//! (a JS `Map`'s insertion order, which snapshots expose). Seats hold slot indices, flags live in the member's
-//! record: no per-member sets, no string clones on the relay path.
+//! (a JS `Map`'s insertion order, which snapshots expose). Seats hold slot indices and the flags live in the
+//! member's record: no per-member sets, no string clones on the relay path.
 
+use crate::contract::confusables::nickname_key;
+use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
 use crate::contract::layout::{RoomLayout, default_layout};
-use crate::contract::room::{Avatar, ControlPolicy, RoomVisibility, SeatIndex};
+use crate::contract::room::{Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, RoomVisibility, SeatIndex, StandingSlot};
 use crate::contract::state::{Member, PlaybackState, QueueItem, RoomState, RoomSummary};
 use crate::contract::text::{Nickname, RoomTitle};
-use crate::playback::Control;
-use crate::secrets::EntropyError;
-use std::collections::VecDeque;
+use crate::playback::{Control, apply_control, load_playback, restored_playback};
+use crate::secrets::{EntropyError, hash_secret, mint_item_id, mint_member_id, secret_matches};
+use std::collections::{HashMap, VecDeque};
 
 /// Joined members one client key may hold in a room (threat model 6, room squatting). Pending the
 /// board's answer to B2 on OME-183: real groups behind one NAT share a key.
@@ -84,9 +86,28 @@ pub struct RoomInit {
     pub item_id: Option<QueueItemId>,
     /// The stored upcoming items; after a restart nobody is known to have added them.
     pub queue: Vec<(QueueItemId, AnyEmbed)>,
-    /// When the restored item became current again, on the server's monotonic clock (the `ended` debounce).
+    /// When the restored item becomes current again, on the server's monotonic clock (the `ended` debounce).
     pub item_since: Option<f64>,
 }
+
+/// A joined member and what the room tracks about them.
+struct Rec {
+    member: Member,
+    /// `nicknameKey` of the member's nickname: unique per room.
+    name_key: String,
+    /// Client key the member counts against, or `None` when uncapped. Moves on a resume from elsewhere (ADR 0043).
+    client: Option<String>,
+    /// Advisory: the player is catching up (ADR 0019).
+    catching: bool,
+    /// The owner muted them (ADR 0030 section 3). In memory only.
+    muted: bool,
+    /// Disconnected and held, or hidden (ADR 0043). Advisory, like catching.
+    away: bool,
+    /// `Some(n)`: the room was last told (`member-status`) they are catching, as its n-th announcement.
+    announced: Option<u64>,
+}
+
+type Slot = u8;
 
 pub struct Room {
     pub id: RoomId,
@@ -101,185 +122,491 @@ pub struct Room {
     pub invite_hash: Option<[u8; 32]>,
     /// Unix ms the room last became occupied or empty; `None` if nobody ever joined.
     pub last_active_at: Option<i64>,
+    /// SHA-256 of the owner token, or `None` (pinned). Never the token itself.
+    owner_hash: Option<[u8; 32]>,
+    slots: [Option<Rec>; MAX_ROOM_MEMBERS],
+    index: HashMap<MemberId, Slot>,
+    /// Occupied slots in join order.
+    order: Vec<Slot>,
+    /// `nicknameKey`s in use.
+    name_keys: std::collections::HashSet<String>,
+    per_client: HashMap<String, usize>,
+    /// Client keys to Unix ms: a muted member left from there, so a join from it starts muted until then; and
+    /// a member was kicked from there, so joins from it are refused until then (ADR 0030 section 2, 3).
+    /// In memory only, never stored or logged; expired entries go on the next write.
+    muted_clients: HashMap<String, i64>,
+    kicked_clients: HashMap<String, i64>,
+    /// How many `member-status` announcements the room has had: orders `Rec::announced`.
+    announcements: u64,
+    seats: [Option<Slot>; SEAT_COUNT],
+    embed: Option<AnyEmbed>,
+    /// `None` iff there is no embed or it is generic (ADR 0024 section 7): a generic embed is never synced.
+    playback: Option<PlaybackState>,
+    /// The current embed's queue item id (ADR 0031 section 1); `None` iff there is no embed.
+    current_item_id: Option<QueueItemId>,
+    /// When the current item became current, on the caller's monotonic clock (the `ended` debounce).
+    current_since: f64,
+    /// Upcoming items in play order, at most `QUEUE_MAX` (ADR 0031 section 1).
+    upcoming: VecDeque<QueueItem>,
+    /// Last rev handed out; survives embed changes so clients never see rev go back.
+    rev: i64,
+    /// Seats held across a restart, by name hash, until `holds_until` (Unix ms). Each is used at most once.
+    holds: HashMap<[u8; 32], SeatIndex>,
+    holds_until: i64,
     layout: RoomLayout,
-    queue: VecDeque<QueueItem>,
+    /// `None` for a seeded room without one; then the list shows no title.
+    title: Option<RoomTitle>,
+    /// Who controls playback (ADR 0030 section 4); the owner changes it with `control-policy`.
+    control_policy: ControlPolicy,
+}
+
+/// `Map.get(key)` of an expiry map, then the "live" rule: the entry runs while `now < until`; an expired one is dropped.
+fn live(map: &mut HashMap<String, i64>, key: &str, now: i64) -> bool {
+    let Some(&until) = map.get(key) else { return false };
+    if now < until {
+        return true;
+    }
+    map.remove(key);
+    false
+}
+
+/// Sets `key` to `until` after sweeping every entry that has expired by `now`.
+fn remember(map: &mut HashMap<String, i64>, key: &str, until: i64, now: i64) {
+    map.retain(|_, &mut at| at > now);
+    map.insert(key.to_owned(), until);
 }
 
 impl Room {
+    /// `embed` is the last one shared before a restart: it comes back paused at 0 (synced) or unsynced (generic).
     pub fn new(id: RoomId, init: RoomInit, now_wall: i64) -> Result<Self, EntropyError> {
+        let current_item_id = match (&init.embed, init.item_id) {
+            (None, _) => None,
+            (Some(_), Some(item)) => Some(item),
+            (Some(_), None) => Some(mint_item_id()?),
+        };
+        let upcoming = init
+            .queue
+            .into_iter()
+            .filter(|(item, _)| current_item_id.as_ref() != Some(item))
+            .map(|(id, embed)| QueueItem { id, embed, by: None })
+            .collect();
+        let playback = init.embed.as_ref().filter(|e| e.is_synced()).map(|_| restored_playback(now_wall));
+        let rev = playback.as_ref().map_or(-1, |p| i64::try_from(p.rev.0).unwrap_or(0));
         Ok(Self {
-            topic: String::new(),
+            topic: format!("room:{}", id.as_str()),
             id,
-            visibility: init.visibility.unwrap_or(RoomVisibility::Private),
-            pinned: false,
-            created_at: now_wall,
-            invite_hash: None,
-            last_active_at: None,
-            layout: default_layout(),
-            queue: VecDeque::new(),
+            visibility: init.visibility.unwrap_or(RoomVisibility::Public),
+            pinned: init.pinned.unwrap_or(true),
+            created_at: init.created_at.unwrap_or(now_wall),
+            invite_hash: init.invite_hash,
+            last_active_at: init.last_active_at,
+            owner_hash: init.owner_hash,
+            slots: std::array::from_fn(|_| None),
+            index: HashMap::new(),
+            order: Vec::new(),
+            name_keys: std::collections::HashSet::new(),
+            per_client: HashMap::new(),
+            muted_clients: HashMap::new(),
+            kicked_clients: HashMap::new(),
+            announcements: 0,
+            seats: [None; SEAT_COUNT],
+            embed: init.embed,
+            playback,
+            current_item_id,
+            current_since: init.item_since.unwrap_or(f64::NEG_INFINITY),
+            upcoming,
+            rev,
+            holds: HashMap::new(),
+            holds_until: 0,
+            layout: init.layout.unwrap_or_else(default_layout),
+            title: init.title,
+            control_policy: init.control_policy.unwrap_or(DEFAULT_CONTROL_POLICY),
         })
+    }
+
+    fn rec(&self, id: &MemberId) -> Option<&Rec> {
+        let slot = *self.index.get(id)?;
+        self.slots.get(usize::from(slot))?.as_ref()
+    }
+
+    fn rec_mut(&mut self, id: &MemberId) -> Option<&mut Rec> {
+        let slot = *self.index.get(id)?;
+        self.slots.get_mut(usize::from(slot))?.as_mut()
     }
 
     pub fn layout(&self) -> &RoomLayout {
         &self.layout
     }
 
-    pub fn set_layout(&mut self, _layout: RoomLayout) {}
+    /// Replaces the layout. Seats keep their indices: every valid layout has `SEAT_COUNT` seat cells (ADR 0028 section 6).
+    pub fn set_layout(&mut self, layout: RoomLayout) {
+        self.layout = layout;
+    }
 
     pub fn title(&self) -> Option<&RoomTitle> {
-        None
+        self.title.as_ref()
     }
 
-    pub fn set_title(&mut self, _title: Option<RoomTitle>) {}
+    pub fn set_title(&mut self, title: Option<RoomTitle>) {
+        self.title = title;
+    }
 
     pub fn control_policy(&self) -> ControlPolicy {
-        ControlPolicy::Owner
+        self.control_policy
     }
 
-    pub fn set_control_policy(&mut self, _policy: ControlPolicy) {}
+    pub fn set_control_policy(&mut self, policy: ControlPolicy) {
+        self.control_policy = policy;
+    }
 
-    pub fn is_muted(&self, _member: &MemberId) -> bool {
-        true
+    pub fn is_muted(&self, member: &MemberId) -> bool {
+        self.rec(member).is_some_and(|r| r.muted)
     }
 
     /// Mutes or unmutes a member; false if that changed nothing. Unmuting also forgets their address (ADR 0030 section 3).
-    pub fn set_muted(&mut self, _member: &MemberId, _muted: bool) -> bool {
+    pub fn set_muted(&mut self, member: &MemberId, muted: bool) -> bool {
+        let Some(&slot) = self.index.get(member) else { return false };
+        let Some(Some(rec)) = self.slots.get_mut(usize::from(slot)) else { return false };
+        if rec.muted == muted {
+            return false;
+        }
+        rec.muted = muted;
+        if let (false, Some(client)) = (muted, rec.client.as_deref()) {
+            self.muted_clients.remove(client);
+        }
         true
     }
 
     /// Mutes a just-joined member if a muted member left from its address less than `MUTE_MEMORY_MS` ago.
-    pub fn restore_mute(&mut self, _member: &MemberId, _now: i64) -> bool {
+    pub fn restore_mute(&mut self, member: &MemberId, now: i64) -> bool {
+        let Some(&slot) = self.index.get(member) else { return false };
+        let Some(Some(rec)) = self.slots.get_mut(usize::from(slot)) else { return false };
+        let Some(client) = rec.client.as_deref() else { return false };
+        if !live(&mut self.muted_clients, client, now) {
+            return false;
+        }
+        rec.muted = true;
         true
     }
 
     /// Refuses joins from `client` until `until` (Unix ms): the kick cooldown (ADR 0030 section 2).
-    pub fn cool_down(&mut self, _client: &str, _until: i64, _now: i64) {}
+    pub fn cool_down(&mut self, client: &str, until: i64, now: i64) {
+        remember(&mut self.kicked_clients, client, until, now);
+    }
 
-    pub fn is_cooling_down(&mut self, _client: &str, _now: i64) -> bool {
-        false
+    pub fn is_cooling_down(&mut self, client: &str, now: i64) -> bool {
+        live(&mut self.kicked_clients, client, now)
     }
 
     /// Whether the room has an owner token. Seeded rooms don't.
     pub fn has_owner(&self) -> bool {
-        true
+        self.owner_hash.is_some()
     }
 
     pub fn member_count(&self) -> usize {
-        99
+        self.order.len()
     }
 
-    pub fn member(&self, _id: &MemberId) -> Option<&Member> {
-        None
+    pub fn member(&self, id: &MemberId) -> Option<&Member> {
+        self.rec(id).map(|r| &r.member)
     }
 
-    /// The members in join order.
+    /// The members in join order, without their flags (see [`Room::view`]).
     pub fn members(&self) -> impl Iterator<Item = &Member> {
-        std::iter::empty()
+        self.order_recs().map(|r| &r.member)
+    }
+
+    fn order_recs(&self) -> impl Iterator<Item = &Rec> {
+        self.order.iter().filter_map(|&s| self.slots.get(usize::from(s))?.as_ref())
+    }
+
+    /// The reason a join from `client` as `name_key` is refused, if any: full room, then the client's quota,
+    /// then a taken name.
+    fn join_refusal(&self, name_key: &str, client: Option<&str>) -> Option<JoinFailure> {
+        if self.order.len() >= MAX_ROOM_MEMBERS {
+            return Some(JoinFailure::RoomFull);
+        }
+        if client.is_some_and(|c| self.per_client.get(c).copied().unwrap_or(0) >= MAX_MEMBERS_PER_CLIENT) {
+            return Some(JoinFailure::TooManyMembers);
+        }
+        self.name_keys.contains(name_key).then_some(JoinFailure::NicknameTaken)
     }
 
     /// Adds a member, unless the room is full, `client` already holds `MAX_MEMBERS_PER_CLIENT` members here,
-    /// or another member's nickname has the same `nicknameKey`. `client` `None` means uncapped.
-    pub fn join(&mut self, _nickname: &Nickname, _avatar: Avatar, _client: Option<&str>) -> Result<Result<Member, JoinFailure>, EntropyError> {
-        Err(EntropyError)
+    /// or another member's nickname has the same `nicknameKey`. `client` `None` means uncapped. The member id
+    /// is minted only once the join is accepted.
+    pub fn join(
+        &mut self,
+        nickname: &Nickname,
+        avatar: Avatar,
+        client: Option<&str>,
+    ) -> Result<Result<Member, JoinFailure>, EntropyError> {
+        let name_key = nickname_key(nickname.as_str());
+        if let Some(refusal) = self.join_refusal(&name_key, client) {
+            return Ok(Err(refusal));
+        }
+        let id = mint_member_id()?;
+        Ok(self.admit(id, nickname, avatar, name_key, client))
     }
 
     /// `join` with a caller-chosen id (tests, replays): `id` must not belong to a member already.
     pub fn join_with_id(
         &mut self,
-        _id: MemberId,
-        _nickname: &Nickname,
-        _avatar: Avatar,
-        _client: Option<&str>,
+        id: MemberId,
+        nickname: &Nickname,
+        avatar: Avatar,
+        client: Option<&str>,
     ) -> Result<Member, JoinFailure> {
-        Err(JoinFailure::RoomFull)
+        let name_key = nickname_key(nickname.as_str());
+        if let Some(refusal) = self.join_refusal(&name_key, client) {
+            return Err(refusal);
+        }
+        self.admit(id, nickname, avatar, name_key, client)
+    }
+
+    /// Seats a checked join in the lowest free standing slot. A reused `id` is refused as a taken name (a bug elsewhere).
+    fn admit(
+        &mut self,
+        id: MemberId,
+        nickname: &Nickname,
+        avatar: Avatar,
+        name_key: String,
+        client: Option<&str>,
+    ) -> Result<Member, JoinFailure> {
+        let free = self.slots.iter().position(Option::is_none);
+        let (Some(free), false) = (free, self.index.contains_key(&id)) else {
+            return Err(if free.is_none() { JoinFailure::RoomFull } else { JoinFailure::NicknameTaken });
+        };
+        let slot = Slot::try_from(free).map_err(|_| JoinFailure::RoomFull)?;
+        let member = Member {
+            id,
+            nickname: nickname.clone(),
+            avatar,
+            standing_slot: StandingSlot::new(u64::from(slot)),
+            catching: None,
+            muted: None,
+            away: None,
+        };
+        self.index.insert(member.id.clone(), slot);
+        self.name_keys.insert(name_key.clone());
+        if let Some(c) = client {
+            *self.per_client.entry(c.to_owned()).or_insert(0) += 1;
+        }
+        let out = member.clone();
+        if let Some(cell) = self.slots.get_mut(free) {
+            *cell = Some(Rec {
+                member,
+                name_key,
+                client: client.map(str::to_owned),
+                catching: false,
+                muted: false,
+                away: false,
+                announced: None,
+            });
+        }
+        self.order.push(slot);
+        Ok(out)
     }
 
     /// Moves a member's quota slot to `client` (a resume from another address, ADR 0043): false, and
     /// nothing moves, if `client` already holds `MAX_MEMBERS_PER_CLIENT` members here.
-    pub fn move_client(&mut self, _member: &MemberId, _client: Option<&str>) -> bool {
+    pub fn move_client(&mut self, member: &MemberId, client: Option<&str>) -> bool {
+        let Some(rec) = self.rec(member) else { return false };
+        if rec.client.as_deref() == client {
+            return true;
+        }
+        if client.is_some_and(|c| self.per_client.get(c).copied().unwrap_or(0) >= MAX_MEMBERS_PER_CLIENT) {
+            return false;
+        }
+        let old = rec.client.clone();
+        if let Some(old) = old {
+            self.uncount(&old);
+        }
+        if let Some(c) = client {
+            *self.per_client.entry(c.to_owned()).or_insert(0) += 1;
+        }
+        if let Some(rec) = self.rec_mut(member) {
+            rec.client = client.map(str::to_owned);
+        }
         true
     }
 
     /// Marks a member away or back; false if that changed nothing.
-    pub fn set_away(&mut self, _member: &MemberId, _away: bool) -> bool {
-        true
+    pub fn set_away(&mut self, member: &MemberId, away: bool) -> bool {
+        match self.rec_mut(member) {
+            Some(rec) if rec.away != away => {
+                rec.away = away;
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Removes a member and frees their seat, nickname and client slot. A muted member's address stays
     /// muted here for `MUTE_MEMORY_MS` after `now` (Unix ms), so a reconnect doesn't lift it (ADR 0030 section 3).
-    pub fn leave(&mut self, _member: &MemberId, _now: i64) {}
+    pub fn leave(&mut self, member: &MemberId, now: i64) {
+        let Some(slot) = self.index.remove(member) else { return };
+        self.free(slot);
+        self.order.retain(|&s| s != slot);
+        let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::take) else { return };
+        self.name_keys.remove(&rec.name_key);
+        let Some(client) = rec.client else { return };
+        if rec.muted {
+            let until = now.saturating_add(i64::try_from(MUTE_MEMORY_MS).unwrap_or(i64::MAX));
+            remember(&mut self.muted_clients, &client, until, now);
+        }
+        self.uncount(&client);
+    }
+
+    fn uncount(&mut self, client: &str) {
+        match self.per_client.get_mut(client) {
+            Some(n) if *n > 1 => *n -= 1,
+            _ => {
+                self.per_client.remove(client);
+            }
+        }
+    }
+
+    /// Empties whichever seat `slot` holds.
+    fn free(&mut self, slot: Slot) {
+        for seat in &mut self.seats {
+            if *seat == Some(slot) {
+                *seat = None;
+            }
+        }
+    }
 
     /// Sits `member` on `seat` (moving from any other seat), or stands up on `None`.
-    pub fn sit(&mut self, _member: &MemberId, _seat: Option<SeatIndex>) -> SitResult {
-        SitResult::NotMember
+    pub fn sit(&mut self, member: &MemberId, seat: Option<SeatIndex>) -> SitResult {
+        let slot = self.index.get(member).copied();
+        let Some(slot) = slot else {
+            // Standing up is always fine; only a member can take a seat.
+            return if seat.is_none() { SitResult::Ok } else { SitResult::NotMember };
+        };
+        let occupant = seat.and_then(|s| self.seats.get(usize::from(s.get())).copied().flatten());
+        if occupant.is_some_and(|o| o != slot) {
+            return SitResult::SeatTaken;
+        }
+        self.free(slot);
+        if let Some(cell) = seat.and_then(|s| self.seats.get_mut(usize::from(s.get()))) {
+            *cell = Some(slot);
+        }
+        SitResult::Ok
     }
 
     /// Seated members, for a graceful restart: name hashes only, never the nickname (ADR 0032).
     pub fn held_seats(&self) -> Vec<HeldSeat> {
-        Vec::new()
+        let mut held = Vec::new();
+        for (i, occupant) in self.seats.iter().enumerate() {
+            let rec = occupant.and_then(|s| self.slots.get(usize::from(s))?.as_ref());
+            let seat = u64::try_from(i).ok().and_then(SeatIndex::new);
+            if let (Some(rec), Some(seat)) = (rec, seat) {
+                held.push(HeldSeat { name_hash: hash_secret(&rec.name_key), seat });
+            }
+        }
+        held
     }
 
     /// Holds these seats for members rejoining under the same name until `until` (Unix ms).
-    pub fn hold_seats(&mut self, _holds: &[HeldSeat], _until: i64) {}
+    pub fn hold_seats(&mut self, holds: &[HeldSeat], until: i64) {
+        self.holds = holds.iter().map(|h| (h.name_hash, h.seat)).collect();
+        self.holds_until = until;
+    }
 
     /// Sits a just-joined member on the seat held for its name, if the hold hasn't expired and the seat is
     /// free; returns the seat, or `None`. The hold is spent either way.
-    pub fn claim_held_seat(&mut self, _member: &MemberId, _now: i64) -> Option<SeatIndex> {
-        None
+    pub fn claim_held_seat(&mut self, member: &MemberId, now: i64) -> Option<SeatIndex> {
+        if self.holds.is_empty() {
+            return None;
+        }
+        if now > self.holds_until {
+            self.holds.clear();
+            return None;
+        }
+        let slot = *self.index.get(member)?;
+        let key = hash_secret(&self.rec(member)?.name_key);
+        let seat = self.holds.remove(&key)?;
+        let cell = self.seats.get_mut(usize::from(seat.get()))?;
+        if cell.is_some() {
+            return None;
+        }
+        *cell = Some(slot);
+        Some(seat)
     }
 
     /// Records a member's advisory catching-up flag (ADR 0019); never touches playback.
-    pub fn set_catching(&mut self, _member: &MemberId, _catching: bool) {}
+    pub fn set_catching(&mut self, member: &MemberId, catching: bool) {
+        if let Some(rec) = self.rec_mut(member) {
+            rec.catching = catching;
+        }
+    }
 
-    pub fn is_catching(&self, _member: &MemberId) -> bool {
-        true
+    pub fn is_catching(&self, member: &MemberId) -> bool {
+        self.rec(member).is_some_and(|r| r.catching)
     }
 
     /// The member's catching if the room was last told otherwise, now recorded as told; else `None`.
-    pub fn take_catching_change(&mut self, _member: &MemberId) -> Option<bool> {
-        Some(true)
+    pub fn take_catching_change(&mut self, member: &MemberId) -> Option<bool> {
+        let n = self.announcements;
+        let rec = self.rec_mut(member)?;
+        if rec.catching == rec.announced.is_some() {
+            return None;
+        }
+        rec.announced = rec.catching.then_some(n);
+        let catching = rec.catching;
+        if catching {
+            self.announcements = n.saturating_add(1);
+        }
+        Some(catching)
     }
 
     /// True while the room shows a generic (unsynced) embed.
     pub fn has_generic_embed(&self) -> bool {
-        true
+        self.embed.as_ref().is_some_and(|e| !e.is_synced())
     }
 
     pub fn current_embed(&self) -> Option<&AnyEmbed> {
-        None
+        self.embed.as_ref()
     }
 
     /// The current playback; `None` with no embed or a generic one.
     pub fn current_playback(&self) -> Option<&PlaybackState> {
-        None
+        self.playback.as_ref()
     }
 
     /// The current item's id (ADR 0031 section 1); `None` iff there is no embed.
     pub fn item_id(&self) -> Option<&QueueItemId> {
-        None
+        self.current_item_id.as_ref()
     }
 
     /// When the current item became current, on the clock its setter used.
     pub fn item_since(&self) -> f64 {
-        0.0
+        self.current_since
     }
 
     /// The upcoming items, in play order.
     pub fn queue(&self) -> &VecDeque<QueueItem> {
-        &self.queue
+        &self.upcoming
     }
 
     /// Appends an upcoming item. The caller checks `QUEUE_MAX`.
-    pub fn enqueue(&mut self, _item: QueueItem) {}
-
-    /// Drops an upcoming item; false if there was none with that id.
-    pub fn dequeue(&mut self, _id: &QueueItemId) -> bool {
-        true
+    pub fn enqueue(&mut self, item: QueueItem) {
+        self.upcoming.push_back(item);
     }
 
-    /// Makes the first upcoming item current at `since` (ADR 0031 section 5): its embed loads at 0, by `by`.
-    pub fn advance(&mut self, _since: f64, _by: Option<MemberId>, _now_wall: i64) -> Option<Advance> {
-        None
+    /// Drops an upcoming item; false if there was none with that id.
+    pub fn dequeue(&mut self, id: &QueueItemId) -> bool {
+        let before = self.upcoming.len();
+        self.upcoming.retain(|i| i.id != *id);
+        self.upcoming.len() != before
+    }
+
+    /// Makes the first upcoming item current at `since` (ADR 0031 section 5): its embed loads at 0, by `by`
+    /// (nobody for an advance, the adder when an add starts an empty room). `None` with an empty queue.
+    pub fn advance(&mut self, since: f64, by: Option<MemberId>, now_wall: i64) -> Option<Advance> {
+        let item = self.upcoming.pop_front()?;
+        let embed_switch = self.install(Some(item.embed.clone()), by, Some(item.id.clone()), since, now_wall);
+        Some(Advance { item, embed_switch })
     }
 
     /// Sets the embed and restarts playback at 0. `by` is the sharer. The embed becomes the current item
@@ -287,52 +614,127 @@ impl Room {
     /// playback and every catching flag (ADR 0024 section 7): `uncaught` lists the members to tell.
     pub fn set_embed(
         &mut self,
-        _embed: Option<AnyEmbed>,
-        _by: Option<MemberId>,
-        _item_id: Option<QueueItemId>,
-        _since: f64,
-        _now_wall: i64,
+        embed: Option<AnyEmbed>,
+        by: Option<MemberId>,
+        item_id: Option<QueueItemId>,
+        since: f64,
+        now_wall: i64,
     ) -> Result<EmbedSwitch, EntropyError> {
-        Err(EntropyError)
+        // Minted first: an entropy failure leaves the room as it was.
+        let item_id = match (&embed, item_id) {
+            (None, _) => None,
+            (Some(_), Some(item)) => Some(item),
+            (Some(_), None) => Some(mint_item_id()?),
+        };
+        Ok(self.install(embed, by, item_id, since, now_wall))
+    }
+
+    /// `set_embed` with the item id already settled (`None` iff `embed` is).
+    fn install(
+        &mut self,
+        embed: Option<AnyEmbed>,
+        by: Option<MemberId>,
+        item_id: Option<QueueItemId>,
+        since: f64,
+        now_wall: i64,
+    ) -> EmbedSwitch {
+        let synced = embed.as_ref().is_some_and(AnyEmbed::is_synced);
+        self.embed = embed;
+        self.current_item_id = item_id;
+        self.current_since = since;
+        self.playback = synced.then(|| load_playback(self.rev, now_wall, by));
+        if let Some(playback) = &self.playback {
+            self.rev = i64::try_from(playback.rev.0).unwrap_or(i64::MAX);
+            return EmbedSwitch { playback: Some(playback.clone()), uncaught: Vec::new() };
+        }
+        let mut announced: Vec<(u64, &MemberId)> = Vec::new();
+        for rec in self.order_recs() {
+            if let Some(n) = rec.announced {
+                announced.push((n, &rec.member.id));
+            }
+        }
+        announced.sort_unstable_by_key(|&(n, _)| n);
+        let uncaught = announced.into_iter().map(|(_, id)| id.clone()).collect();
+        for rec in self.slots.iter_mut().flatten() {
+            rec.catching = false;
+            rec.announced = None;
+        }
+        EmbedSwitch { playback: None, uncaught }
     }
 
     /// Applies a member's `control`; the new playback, or `None` if it's for no/another/a generic embed.
-    pub fn control(&mut self, _member: &MemberId, _control: &Control<'_>, _now_wall: i64) -> Option<PlaybackState> {
-        None
+    pub fn control(&mut self, member: &MemberId, control: &Control<'_>, now_wall: i64) -> Option<PlaybackState> {
+        let Some(AnyEmbed::Synced(embed)) = &self.embed else { return None };
+        let next = apply_control(self.playback.as_ref(), Some(embed), control, member, now_wall)?;
+        self.rev = i64::try_from(next.rev.0).unwrap_or(i64::MAX);
+        self.playback = Some(next.clone());
+        Some(next)
     }
 
     pub fn snapshot(&self) -> RoomState {
         RoomState {
             id: self.id.clone(),
-            seats: Vec::new(),
-            members: Vec::new(),
-            embed: None,
-            playback: None,
-            layout: None,
-            control_policy: None,
-            title: None,
-            item_id: None,
-            queue: None,
+            seats: self
+                .seats
+                .iter()
+                .map(|s| s.and_then(|slot| Some(self.slots.get(usize::from(slot))?.as_ref()?.member.id.clone())))
+                .collect(),
+            // Absent means false, so only catching, muted and away members carry the fields.
+            members: self.order_recs().map(Rec::view).collect(),
+            embed: self.embed.clone(),
+            playback: Some(self.playback.clone()),
+            layout: Some(self.layout.clone()),
+            control_policy: Some(self.control_policy),
+            // Like the summary: an untitled (seeded) room sends no title key; nor an empty queue or no item a queue key.
+            title: self.title.clone(),
+            item_id: self.current_item_id.clone(),
+            queue: (!self.upcoming.is_empty()).then(|| self.upcoming.iter().cloned().collect()),
         }
     }
 
     /// A member as the room sees it: `catching`, `muted` and `away` only when true.
     pub fn view(&self, member: &Member) -> Member {
-        member.clone()
+        self.rec(&member.id).map_or_else(|| member.clone(), |rec| rec.view_of(member))
     }
 
     /// Whether `token` is this room's owner token (constant-time; a pinned room has no owner).
-    pub fn is_owner(&self, _token: &str) -> bool {
-        true
+    pub fn is_owner(&self, token: &str) -> bool {
+        secret_matches(self.owner_hash.as_ref().map(<[u8; 32]>::as_slice), token)
     }
 
     /// Whether `key` is this private room's invite key (constant-time; a public room has none).
-    pub fn is_invited(&self, _key: &str) -> bool {
-        true
+    pub fn is_invited(&self, key: &str) -> bool {
+        secret_matches(self.invite_hash.as_ref().map(<[u8; 32]>::as_slice), key)
     }
 
     pub fn summary(&self) -> RoomSummary {
-        RoomSummary { id: self.id.clone(), member_count: 99, seated_count: 99, title: None }
+        let seated = self.seats.iter().flatten().count();
+        RoomSummary {
+            id: self.id.clone(),
+            member_count: u8::try_from(self.order.len()).unwrap_or(u8::MAX),
+            seated_count: u8::try_from(seated).unwrap_or(u8::MAX),
+            title: self.title.clone(),
+        }
+    }
+}
+
+impl Rec {
+    fn view(&self) -> Member {
+        self.view_of(&self.member)
+    }
+
+    fn view_of(&self, member: &Member) -> Member {
+        let mut out = member.clone();
+        if self.catching {
+            out.catching = Some(true);
+        }
+        if self.muted {
+            out.muted = Some(true);
+        }
+        if self.away {
+            out.away = Some(true);
+        }
+        out
     }
 }
 
@@ -548,18 +950,20 @@ mod tests {
 
     // apps/server/test/abuse.test.ts:380
     #[test]
-    fn a_nickname_with_the_same_key_is_taken_even_in_another_case_or_script() {
+    fn a_nickname_with_the_same_key_is_taken_even_in_another_case_or_width() {
         let mut r = room();
         join(&mut r, "m1", "Ilya", None);
-        // `I` and `l` look alike; case folds.
-        for clash in ["llya", "ILYA", "ilya", "Ilya"] {
-            assert_eq!(nickname_key(clash), nickname_key("Ilya"), "{clash}");
+        // Case folds, and NFKC folds the fullwidth letters (the Nickname parse).
+        for clash in ["ILYA", "ilya", "Ilya", "\u{ff49}lya"] {
+            assert_eq!(nickname_key(nick(clash).as_str()), nickname_key("Ilya"), "{clash}");
             assert_eq!(r.join_with_id(mid("x"), &nick(clash), avatar(0), None), Err(JoinFailure::NicknameTaken), "{clash}");
         }
+        // A different key is free.
+        assert_ne!(nickname_key("llya"), nickname_key("Ilya"));
         join(&mut r, "m2", "Ilja", None);
         // Leaving frees the name.
         r.leave(&mid("m1"), T0);
-        join(&mut r, "m3", "llya", None);
+        join(&mut r, "m3", "ILYA", None);
     }
 
     #[test]
