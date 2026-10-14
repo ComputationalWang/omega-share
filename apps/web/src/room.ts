@@ -1106,7 +1106,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     invite.hidden = !shown.stage;
     if (syncPortrait()) fit();
     queuePanel.root.hidden = !shown.stage;
-    queuePanel.update(s);
+    const queueClaimed = queuePanel.update(s);
     const isReplaced = s.status === "replaced";
     if (replacedCard.hidden === isReplaced) {
       replacedCard.hidden = !isReplaced;
@@ -1158,7 +1158,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
 
     if (s.lastError !== shownError) {
       shownError = s.lastError;
-      if (s.lastError !== null) {
+      // An add refusal the queue panel already says under its field isn't said twice (QA OME-569 F3).
+      if (s.lastError !== null && !queueClaimed) {
         notice.textContent = ERROR_TEXT[s.lastError.code];
         notice.hidden = false;
         if (noticeTimer !== null) clearTimeout(noticeTimer);

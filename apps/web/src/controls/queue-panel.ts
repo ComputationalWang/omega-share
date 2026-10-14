@@ -18,8 +18,11 @@ export interface QueuePanel {
   readonly root: HTMLElement;
   /** Portrait sheets scroll the content above a fixed paste row; other layouts keep their reading order. */
   setPortrait(on: boolean): void;
-  /** After every state change. Rebuilds the rows only when the queue, the members or the permissions changed. */
-  update(s: ViewState): void;
+  /**
+   * After every state change. Rebuilds the rows only when the queue, the members or the permissions changed.
+   * True when `s.lastError` is an add refusal shown under the field (the room skips its own notice for it).
+   */
+  update(s: ViewState): boolean;
   /** How many times the rows were rebuilt (the "once per change" test and e2e). */
   renders(): number;
 }
@@ -106,10 +109,14 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
   let shownError: ViewState["lastError"] = null;
   const now = o.now ?? Date.now;
   /**
-   * An add the server hasn't answered yet: an error now is about it, and puts the link back in the field. It's answered
-   * once an item of mine that wasn't there at the send shows up (or the current item changes: an add into an empty room starts).
+   * Adds the server hasn't answered yet, oldest first (it answers in order): an error now is about the oldest, and puts
+   * its link back in the field. One is answered per item of mine not in `mine` that shows up, or when the room had no
+   * current item and now has one (an add into an empty room starts). `mine` and `current` are snapshot at the first send.
    */
-  let pending: { url: string; at: number; mine: ReadonlySet<string>; current: string | undefined } | null = null;
+  const pending: { url: string; at: number }[] = [];
+  let mine = new Set<string>();
+  let current: string | undefined;
+  let claimed: ViewState["lastError"] = null;
 
   const say = (text: string | null): void => {
     problem.hidden = text === null;
@@ -132,8 +139,11 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
     }
     if (!o.send({ type: "queue-add", url })) return;
     const s = state;
-    const mine = new Set((s?.room?.queue ?? NO_ITEMS).filter((i) => i.by !== null && i.by === s?.self).map((i) => i.id));
-    pending = { url, at: now(), mine, current: s?.room?.itemId };
+    if (pending.length === 0) {
+      mine = new Set((s?.room?.queue ?? NO_ITEMS).filter((i) => i.by !== null && i.by === s?.self).map((i) => i.id));
+      current = s?.room?.itemId;
+    }
+    pending.push({ url, at: now() });
     input.value = "";
     say(null);
   });
@@ -208,21 +218,32 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
         add.disabled = held || isFull;
       }
       next.hidden = held || queue.length === 0 || s.room?.itemId === undefined;
-      const p = pending;
-      // A new current item answers the add only if the room had none at the send (my add started it, ADR 0031 §5);
-      // otherwise it's someone else's share or advance.
-      const started = p !== null && p.current === undefined && s.room?.itemId !== undefined;
-      if (p !== null && (started || queue.some((i) => i.by !== null && i.by === s.self && !p.mine.has(i.id)))) pending = null;
+      if (pending.length > 0) {
+        // A new current item answers an add only if the room had none at the send (my add started it, ADR 0031 §5);
+        // otherwise it's someone else's share or advance.
+        let answered = current === undefined && s.room?.itemId !== undefined ? 1 : 0;
+        current = s.room?.itemId;
+        for (const i of queue) {
+          if (i.by !== null && i.by === s.self && !mine.has(i.id)) {
+            mine.add(i.id);
+            answered++;
+          }
+        }
+        pending.splice(0, answered);
+        while (pending[0] !== undefined && now() - pending[0].at > ADD_ANSWER_MS) pending.shift();
+      }
       if (s.lastError !== shownError) {
         shownError = s.lastError;
-        const answer = pending !== null && s.lastError !== null && now() - pending.at <= ADD_ANSWER_MS ? pending : null;
-        const text = answer === null || s.lastError === null ? undefined : ADD_ERRORS[s.lastError.code];
-        if (answer !== null && text !== undefined) {
+        const answer = pending[0];
+        const text = answer === undefined || s.lastError === null ? undefined : ADD_ERRORS[s.lastError.code];
+        if (answer !== undefined && text !== undefined) {
           if (input.value === "") input.value = answer.url;
-          pending = null;
+          pending.shift();
+          claimed = s.lastError;
           say(text);
         }
       }
+      return s.lastError !== null && s.lastError === claimed;
     },
   };
 }
