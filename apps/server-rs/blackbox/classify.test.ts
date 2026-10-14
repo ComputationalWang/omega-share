@@ -67,6 +67,10 @@ describe("categorize", () => {
     expect(categorize(e({ source: "const path = join(dir, 'omega.db'); openDatabase(path)" }))).toBe("C");
   });
 
+  test("a test that already passes against the binary is A, whatever its source mentions", () => {
+    expect(categorize(e({ status: "pass", source: "new TestClock(); openDatabase(path)" }))).toBe("A");
+  });
+
   test("skipped stays skipped", () => {
     expect(categorize(e({ status: "skip" }))).toBe("skipped");
   });
