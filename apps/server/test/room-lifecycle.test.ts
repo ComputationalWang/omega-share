@@ -66,11 +66,9 @@ describe("RoomRegistry.removeRoom", () => {
     const registry = new RoomRegistry();
     t = start({ registry });
     registry.addRoom(new Room("film-club"));
-    const members = await Promise.all(
-      ["alice", "bob", "carol"].map((name) =>
-        Client.join(t?.ws("film-club") ?? fail(), name),
-      ),
-    );
+    // One after the other: the asserts below assume alice joined first. Concurrent opens reach the server in no promised order.
+    const members: Awaited<ReturnType<typeof Client.join>>[] = [];
+    for (const name of ["alice", "bob", "carol"]) members.push(await Client.join(t?.ws("film-club") ?? fail(), name));
     for (const m of members) clients.push(m.client);
     // Everyone has seen everyone join before the room goes.
     await members[0]?.client.next("member-joined");

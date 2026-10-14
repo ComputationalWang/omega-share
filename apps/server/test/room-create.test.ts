@@ -461,11 +461,12 @@ describe("GET /rooms lists public rooms only (ADR 0028 §4, research §3.5)", ()
 
   test("pinned rooms first, then by members, then newest first", async () => {
     const clock = fakeClock();
-    t = start({ trustProxy: true, now: clock.now });
+    t = start({ trustProxy: true, now: clock.now, wallNow: clock.wallNow });
     const old = await created(await create({ title: "Old", visibility: "public" }));
-    await Bun.sleep(5);
+    // The wall clock is the test's, so "newest first" needs it moved, not a sleep (the black-box binary's is virtual).
+    await clock.set({ wall: clock.wall + 5 });
     const busy = await created(await create({ title: "Busy", visibility: "public" }));
-    await Bun.sleep(5);
+    await clock.set({ wall: clock.wall + 5 });
     const fresh = await created(await create({ title: "Fresh", visibility: "public" }));
     const a = await Client.join(server().ws(busy.room.id), "alice");
     clients.push(a.client);
