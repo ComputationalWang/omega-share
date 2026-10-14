@@ -170,6 +170,8 @@ export function createAnimator(o: AnimatorOptions): Animator {
       requestFrame();
     },
     emote(id, kind) {
+      // shortcut: cheer/yawn are dropped until the expressions atlas is wired in (OME-1104 hookup issue).
+      if (kind === "cheer" || kind === "yawn") return;
       if (disposed || paused || o.reducedMotion() || !list.some((a) => a.id === id)) return;
       let play = plays.get(id);
       if (play === undefined) {

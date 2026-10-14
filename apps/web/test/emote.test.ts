@@ -9,7 +9,8 @@ import { EMOTE_MARGIN_MS, PICKER_KINDS, createEmoteBucket, kindForKey } from "..
 describe("picker", () => {
   test("is the five stickers in the atlas order, then the wave", () => {
     expect(PICKER_KINDS).toEqual(["heart", "laugh", "question", "exclaim", "clap", "wave"]);
-    expect([...PICKER_KINDS].sort()).toEqual([...EMOTE_KINDS].sort());
+    // cheer/yawn (OME-1116) join the picker with the expressions hookup.
+    expect([...PICKER_KINDS].sort()).toEqual(EMOTE_KINDS.filter((k) => k !== "cheer" && k !== "yawn").sort());
   });
 
   test("keys 1–6 pick in that order; anything else picks nothing", () => {
