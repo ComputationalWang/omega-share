@@ -10,8 +10,6 @@ use crate::rooms_gc::spawn_room_gc;
 use crate::shutdown;
 use crate::store::SeatHold;
 use axum::Router;
-use axum::http::StatusCode;
-use std::future::IntoFuture;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -70,6 +68,16 @@ pub async fn serve(config: ServerConfig, admin_socket: Option<PathBuf>) -> Resul
     })
 }
 
+/// Each slice builds its routes in its own file (`hooks` are the test-hooks routes, empty in a normal build); S5's
+/// gate and headers wrap the lot and answer what no route does.
+pub fn build_router(app: Arc<App>, hooks: Router) -> Router {
+    let routes = Router::new()
+        .merge(hooks)
+        .merge(crate::http::router(app.clone()))
+        .merge(crate::ws::router(app.clone()));
+    crate::http::wrap(app, routes)
+}
+
 /// The clock the app runs on, and the routes that drive it: the system clock and none in a normal build; the
 /// virtual clock and `/__test/time` with the `test-hooks` feature (ADR 0050), so the black-box suite moves time.
 fn clock_and_hooks() -> (SharedClock, Router) {
@@ -104,6 +112,8 @@ async fn listen(
             None
         }
     });
+    // Before the line below: a client that waits for it must find the allowlists in place.
+    app.http.bind(&config, addr.port());
     let via = config
         .public_origin
         .as_deref()
@@ -116,19 +126,14 @@ async fn listen(
     if let Some(metrics) = &metrics {
         stdout_line(&format!("metrics on http://127.0.0.1:{}/metrics (loopback only)", metrics.port()));
     }
-    // Each slice builds its routes in its own file; the fallback goes last.
-    let router = Router::new()
-        .merge(hooks)
-        .merge(crate::http::router(app.clone()))
-        .merge(crate::ws::router(app.clone()))
-        .fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
+    let router = build_router(app.clone(), hooks);
 
     let (stop, mut stopped) = watch::channel(false);
-    let serving = axum::serve(listener, router).with_graceful_shutdown(async move {
+    let serving = crate::http::server::serve(listener, router, async move {
         // Resolves on the stop signal, or if the sender is gone (nothing left to wait for).
         let _ = stopped.wait_for(|stop| *stop).await;
     });
-    let mut serving = std::pin::pin!(serving.into_future());
+    let mut serving = std::pin::pin!(serving);
     let ended = tokio::select! {
         served = &mut serving => Some(served),
         () = signals.wait() => None,

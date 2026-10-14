@@ -26,7 +26,7 @@ import { ROOM_GC_INTERVAL_MS, ROOM_IDLE_TTL_MS } from "../src/rooms-gc";
 import { hashSecret, mintSecret, newRoomId } from "../src/secrets";
 import { openDatabase } from "../src/store/db";
 import { RoomStore } from "../src/store/rooms";
-import { Client, start, postShare, tokenOf, type TestServer } from "./helpers";
+import { Client, start, postShare, TestClock, tokenOf, type TestServer } from "./helpers";
 
 /**
  * QA's independent, black-box check of M5 rooms (OME-417): creation limits, private rooms, owner-token
@@ -199,7 +199,7 @@ function seedStore(path: string, n: number): { store: RoomStore; rooms: { id: st
 
 describe("1. creation limits (ADR 0028 §1, threat model §1.2)", () => {
   test("per key: the burst succeeds, then 429 rate_limited with Retry-After and retryAfterMs; another key is unaffected; the refill restores it", async () => {
-    const clock = fakeClock();
+    const clock = new TestClock();
     t = start({ trustProxy: true, now: clock.now });
     const address = "203.0.113.5";
     for (let i = 0; i < ROOM_CREATE_KEY_BURST; i++) expect((await create({ title: `Den ${String(i)}`, visibility: "public" }, address)).status).toBe(201);
@@ -216,9 +216,9 @@ describe("1. creation limits (ADR 0028 §1, threat model §1.2)", () => {
     // A different key has its own bucket.
     expect((await create({ title: "Den Y", visibility: "public" }, "203.0.113.6")).status).toBe(201);
     // Not before the refill, then one more.
-    clock.ms += ROOM_CREATE_KEY_REFILL_MS - 1000;
+    await clock.set({ mono: clock.mono + ROOM_CREATE_KEY_REFILL_MS - 1000 });
     expect((await create({ title: "Den Z", visibility: "public" }, address)).status).toBe(429);
-    clock.ms += 1000;
+    await clock.set({ mono: clock.mono + 1000 });
     expect((await create({ title: "Den Z", visibility: "public" }, address)).status).toBe(201);
   });
 
@@ -233,7 +233,7 @@ describe("1. creation limits (ADR 0028 §1, threat model §1.2)", () => {
   });
 
   test("globally: many keys together hit 429 rate_limited after ROOM_CREATE_GLOBAL_BURST, and the refill restores one", async () => {
-    const clock = fakeClock();
+    const clock = new TestClock();
     t = start({ trustProxy: true, now: clock.now });
     for (let i = 0; i < ROOM_CREATE_GLOBAL_BURST; i++) expect((await create({ title: `Den ${String(i)}`, visibility: "public" })).status).toBe(201);
     const res = await create({ title: "Late", visibility: "public" });
@@ -241,7 +241,7 @@ describe("1. creation limits (ADR 0028 §1, threat model §1.2)", () => {
     expect((await errorOf(res)).code).toBe("rate_limited");
     expect(Number(res.headers.get("retry-after"))).toBeGreaterThanOrEqual(1);
     expect((await listedIds()).length).toBe(1 + ROOM_CREATE_GLOBAL_BURST);
-    clock.ms += ROOM_CREATE_GLOBAL_REFILL_MS;
+    await clock.set({ mono: clock.mono + ROOM_CREATE_GLOBAL_REFILL_MS });
     expect((await create({ title: "Later", visibility: "public" })).status).toBe(201);
     expect((await create({ title: "Latest", visibility: "public" })).status).toBe(429);
   });
@@ -257,7 +257,8 @@ describe("1. creation limits (ADR 0028 §1, threat model §1.2)", () => {
     const newest = rooms.at(-1) ?? fail("no seeded rooms");
     store.setLastActive(oldest.id, 1);
     store.setLastActive(newest.id, NOW - 1000);
-    t = start({ trustProxy: true, store, wallNow: () => NOW });
+    const clock = new TestClock(1_000_000, NOW);
+    t = start({ trustProxy: true, dbPath: path, now: clock.now, wallNow: clock.wallNow });
 
     const refused = await create({ title: "One too many", visibility: "public" });
     expect(refused.status).toBe(503);
@@ -279,7 +280,9 @@ describe("1. creation limits (ADR 0028 §1, threat model §1.2)", () => {
     db = openDatabase(path);
     const store2 = new RoomStore(db);
     expect(store2.listRooms().length).toBe(MAX_ROOMS);
-    t = start({ trustProxy: true, store: store2, wallNow: () => NOW });
+    db.close();
+    db = null;
+    t = start({ trustProxy: true, dbPath: path, now: clock.now, wallNow: clock.wallNow });
     expect((await create({ title: "Still too many", visibility: "public" })).status).toBe(503);
     expect(await joinable(oldest.id)).toBe(true);
 
@@ -506,9 +509,10 @@ describe("3. the owner token and invite key never leave (ADR 0028 §3, threat mo
 describe("4. delete (ADR 0028 §2)", () => {
   test("owner DELETE closes every socket in the room with 4004, joined or not; their share tokens stop working; a re-join is refused; the id is not reissued", async () => {
     dir = mkdtempSync(join(tmpdir(), "qa-rooms-"));
-    db = openDatabase(join(dir, "omega.db"));
+    const dbPath = join(dir, "omega.db");
+    t = start({ trustProxy: true, dbPath });
+    db = openDatabase(dbPath);
     const store = new RoomStore(db);
-    t = start({ trustProxy: true, store });
     const room = await createRoom("public");
     expect(store.listRooms().some((r) => r.id === room.room.id)).toBe(true);
     const a = await joined(room.room.id, "alice");
@@ -721,9 +725,10 @@ describe("6. layout-set (ADR 0028 §6, threat model §6.2 S7)", () => {
 
   test("the owner's invalid layouts are refused with bad_message and the stored layout is unchanged", async () => {
     dir = mkdtempSync(join(tmpdir(), "qa-rooms-"));
-    db = openDatabase(join(dir, "omega.db"));
+    const dbPath = join(dir, "omega.db");
+    t = start({ trustProxy: true, dbPath });
+    db = openDatabase(dbPath);
     const store = new RoomStore(db);
-    t = start({ trustProxy: true, store });
     const { created, owner, guest } = await room();
     const furniture = DEFAULT_LAYOUT.furniture;
     const tvAt = (col: number): unknown => ({ kind: "tv", col, row: 0, facing: "se" });
@@ -777,9 +782,9 @@ describe("6. layout-set (ADR 0028 §6, threat model §6.2 S7)", () => {
   test("a valid layout from the owner is broadcast as layout-changed to every member (by: the owner), persisted, and seen by later joiners", async () => {
     dir = mkdtempSync(join(tmpdir(), "qa-rooms-"));
     const path = join(dir, "omega.db");
+    t = start({ trustProxy: true, dbPath: path });
     db = openDatabase(path);
     const store = new RoomStore(db);
-    t = start({ trustProxy: true, store });
     const { created, owner, guest } = await room();
     const moved = movedLayout();
     owner.client.send({ type: "layout-set", layout: moved });
@@ -794,13 +799,13 @@ describe("6. layout-set (ADR 0028 §6, threat model §6.2 S7)", () => {
     // Across a restart too.
     await server().server.stop(true);
     db.close();
-    db = openDatabase(path);
-    t = start({ trustProxy: true, store: new RoomStore(db) });
+    db = null;
+    t = start({ trustProxy: true, dbPath: path });
     expect(layoutsEqual(await layoutOf(created.room.id), moved)).toBe(true);
   });
 
   test("owner edits are limited per socket (layout-set and title-set share ROOM_EDIT_BURST); the refill is honoured; refused edits change nothing", async () => {
-    const clock = fakeClock();
+    const clock = new TestClock();
     t = start({ trustProxy: true, now: clock.now });
     const { created, owner, guest } = await room();
     const layouts = [movedLayout(), movedLayout(), DEFAULT_LAYOUT];
@@ -816,7 +821,7 @@ describe("6. layout-set (ADR 0028 §6, threat model §6.2 S7)", () => {
     expect(err.retryAfterMs).toBeGreaterThan(0);
     await guest.client.none("layout-changed", 100);
     expect(JSON.stringify(await layoutOf(created.room.id))).toBe(before);
-    clock.ms += ROOM_EDIT_REFILL_MS;
+    await clock.set({ mono: clock.mono + ROOM_EDIT_REFILL_MS });
     owner.client.send({ type: "layout-set", layout: layouts[2] });
     expect(layoutsEqual((await guest.client.next("layout-changed")).layout, DEFAULT_LAYOUT)).toBe(true);
   });
@@ -840,7 +845,7 @@ describe("7. enumeration probes are bounded and answered uniformly (threat model
   const probe = (id: string, address: string): Promise<Response> => fetch(`${server().http}/rooms/${id}/ws`, { headers: { "x-forwarded-for": address } });
 
   test("WS upgrades to unknown ids cost a token like real upgrades: after the burst from one key, 429 with Retry-After; another key is unaffected", async () => {
-    const clock = fakeClock();
+    const clock = new TestClock();
     t = start({ trustProxy: true, now: clock.now });
     const address = "203.0.113.40";
     const codes: number[] = [];
@@ -856,7 +861,7 @@ describe("7. enumeration probes are bounded and answered uniformly (threat model
   });
 
   test("once a key is limited, an unknown id and an existing private room's id get the very same answer (no existence oracle through the limiter)", async () => {
-    const clock = fakeClock();
+    const clock = new TestClock();
     t = start({ trustProxy: true, now: clock.now });
     const priv = await createRoom("private");
     const address = "203.0.113.42";
@@ -869,14 +874,14 @@ describe("7. enumeration probes are bounded and answered uniformly (threat model
   });
 
   test("wrong invite keys from one key are limited across rooms and sockets (rate_limited, retryAfterMs), 4400 follows, and the right key still gets through", async () => {
-    const clock = fakeClock();
+    const clock = new TestClock();
     t = start({ trustProxy: true, now: clock.now });
     const a = await createRoom("private");
     const b = await createRoom("private");
     const address = "203.0.113.43";
     const outcomes: string[] = [];
     for (let i = 0; i < 14; i++) {
-      clock.ms += 5000;
+      await clock.set({ mono: clock.mono + 5000 });
       const target = i % 2 === 0 ? a : b;
       const { client, outcome } = await joinOutcome(target.room.id, `m${String(i)}`, { address, inviteKey: WRONG });
       outcomes.push(outcome);
@@ -891,13 +896,13 @@ describe("7. enumeration probes are bounded and answered uniformly (threat model
   });
 
   test("wrong owner tokens from one key are limited too: the guests join while the bucket lasts, then rate_limited and no snapshot", async () => {
-    const clock = fakeClock();
+    const clock = new TestClock();
     t = start({ trustProxy: true, now: clock.now });
     const room = await createRoom("public");
     const address = "203.0.113.44";
     const outcomes: string[] = [];
     for (let i = 0; i < 12; i++) {
-      clock.ms += 5000;
+      await clock.set({ mono: clock.mono + 5000 });
       const { client, outcome } = await joinOutcome(room.room.id, `m${String(i)}`, { address, ownerToken: WRONG });
       outcomes.push(outcome);
       client.close();
@@ -910,7 +915,7 @@ describe("7. enumeration probes are bounded and answered uniformly (threat model
   });
 
   test("DELETE: an unknown id is 404 (specified: 404, then auth); a wrong bearer on a real room is 401 until the per-key failed-auth bucket empties, then 429 with Retry-After", async () => {
-    const clock = fakeClock();
+    const clock = new TestClock();
     t = start({ trustProxy: true, now: clock.now });
     const priv = await createRoom("private");
     const address = "203.0.113.45";
@@ -934,7 +939,7 @@ describe("7. enumeration probes are bounded and answered uniformly (threat model
   });
 
   test("DELETE probes at unknown ids from one key are bounded by the HTTP gate (429 + Retry-After)", async () => {
-    const clock = fakeClock();
+    const clock = new TestClock();
     t = start({ trustProxy: true, now: clock.now });
     const address = "203.0.113.47";
     const codes: number[] = [];
