@@ -154,6 +154,9 @@ export async function seekTo(page: Page, seconds: number): Promise<void> {
   }, seconds);
 }
 
+/** This sample's <video> is in the `paused` state the room asked for. */
+export const reached = (x: MediaSample | null, paused: boolean): boolean => x !== null && x.paused === paused && !x.ad;
+
 /**
  * Ms from `start` until every frame's <video> reaches `paused`, polled every 50 ms for up to `timeout`.
  * Null for a frame that never got there. Live streams have no comparable position, so arrival is the spread.
@@ -163,7 +166,7 @@ export async function arrival(frames: readonly Frame[], paused: boolean, start: 
   while (Date.now() - start < timeout && at.some((x) => x === null)) {
     const s = await Promise.all(frames.map((f) => sampleMedia(f)));
     s.forEach((x, i) => {
-      if (at[i] === null && x !== null && x.paused === paused && !x.ad) at[i] = Date.now() - start;
+      if (at[i] === null && reached(x, paused)) at[i] = Date.now() - start;
     });
     await new Promise((r) => setTimeout(r, 50));
   }
