@@ -126,6 +126,18 @@ impl OutboxRx {
     pub fn is_dead(&self) -> bool {
         self.dead.load(Ordering::Acquire)
     }
+
+    /// A queued frame if there is one right now (tests, and a writer draining before it closes).
+    pub fn try_recv(&mut self) -> Option<Outbound> {
+        let next = self.rx.try_recv().ok()?;
+        if self.is_dead() {
+            return None;
+        }
+        if let Outbound::Text(t) = &next {
+            self.queued.fetch_sub(t.len(), Ordering::AcqRel);
+        }
+        Some(next)
+    }
 }
 
 /// The connections of one room, in attach order: every open socket (so a removal can close them all), and
@@ -212,8 +224,15 @@ impl Subscribers {
         sent
     }
 
-    fn close_all(&mut self, code: u16, reason: &'static str) {
-        self.entries.retain(|e| e.outbox.send_close(code, reason));
+    /// How many close frames were queued.
+    fn close_all(&mut self, code: u16, reason: &'static str) -> usize {
+        let mut sent = 0;
+        self.entries.retain(|e| {
+            let queued = e.outbox.send_close(code, reason);
+            sent += usize::from(queued);
+            queued
+        });
+        sent
     }
 }
 
@@ -232,9 +251,9 @@ pub fn send_to(inner: &mut RoomInner, conn: ConnId, frame: &Utf8Bytes) -> bool {
     inner.subscribers.send_to(conn, frame)
 }
 
-/// A close frame to every attached connection, joined or not.
-pub fn close_all(inner: &mut RoomInner, code: u16, reason: &'static str) {
-    inner.subscribers.close_all(code, reason);
+/// A close frame to every attached connection, joined or not; returns how many were queued (for the close metrics).
+pub fn close_all(inner: &mut RoomInner, code: u16, reason: &'static str) -> usize {
+    inner.subscribers.close_all(code, reason)
 }
 
 /// A message as the frame every subscriber gets, serialized once; `None` (logged) if it can't be encoded.
@@ -391,7 +410,7 @@ mod tests {
         let (mut inner, mut rxs) = room_with(1);
         let (tx, mut lurker) = channel();
         inner.subscribers.attach(ConnId(9), tx);
-        close_all(&mut inner, 4004, "room closed");
+        assert_eq!(close_all(&mut inner, 4004, "room closed"), 2);
         for rx in [&mut rxs[0].1, &mut lurker] {
             let Outbound::Close(code, reason) = rx.recv().await.unwrap() else {
                 panic!()
