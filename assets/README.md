@@ -22,6 +22,8 @@ assets/
   ui/edit.json          # set h: PixiJS v8 atlas for ui/edit.png
   furniture/furniture.png  # set g (M4/M5, lazy-load): 1024×512 indexed PNG-8, furniture catalogue v1
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
+  furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×512 indexed PNG-8, 7 more pieces
+  furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
   store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
   site/                 # set m (M9): the website's favicon.ico + PNGs, apple-touch 180, manifest 192/512 + maskable 512, og-card.png 1200×630,
                         #   how-1-find / how-2-share / how-3-watch.png landing panels (368×224 each)
@@ -341,7 +343,7 @@ closed teal ring + dots = fits · dashed rust ring + hatching = can't go there �
 | `tray/0` | 24×24 | 10 | Furniture tray: a planked wooden drawer with a sunken night well (`.ui-tray`, under the stage). |
 | `tab/<idle\|hover\|on>` | 16×14 | 5 5 4 5 | Tray tabs (`.ui-tabs > .ui-tab[role=tab]`). `on` (`aria-selected="true"`) is the lit wood face whose bottom runs into the tray rim (1 art px overlap, already in the CSS). Tabs: Seats `glyph/tab-seats`, Decor `glyph/tab-decor`, Floor & wall `glyph/tab-floor`. |
 | `slot/<idle\|hover\|held\|off>` | 16×16 | 6 | Cubby, one per piece (`.ui-slot`): dusk glass in a wood rim. hover/focus = cream edge, `held` (`aria-pressed="true"`) = mustard double rim (it's in your hand), `off` (`aria-disabled="true"`) = charcoal glass (the room has `MAX_FURNITURE` pieces). |
-| `thumb/<id>/<colour>` *(edit.png)* | ≤ 44×40 | — | Tray thumbnail for every catalogue piece and colour (17). The catalogue model re-cast at ≤ ½ scale (same light, tones, outline), not a shrunk sprite. Seats face `se`, the runner `ne`. Centre it in the cubby. |
+| `thumb/<id>/<colour>` *(edit.png)* | ≤ 44×40 | — | Tray thumbnail for every catalogue piece and colour (29: 17 for v1, 12 for v2). The catalogue model re-cast at ≤ ½ scale (same light, tones, outline), not a shrunk sprite. Seats face `se`, the runner `ne`. Centre it in the cubby. |
 | `glyph/fp-<1x1\|2x1\|1x2\|3x2\|2x3\|wall>` | 10×6 · 14×8 · 22×12 · wall 10×7 | — | Footprint glyph, bottom-left in each cubby (`.ui-fp`): the piece's floor cells as a tiny iso plan (8×4 px per cell, plum seams and outline), or "wall". Pick `footprintByDir[dir]` for the facing the thumbnail shows, so the plan slants like the piece: the two-seaters and the bookcase show `se`, which is `1x2`. |
 | `swatch/<colour>` + `swatch/ring` *(edit.png)* | 10×10, 14×14 | — | Variant chips under the tray (`.ui-swatches > .ui-swatch[role=radio]`), one per colour in the piece's `colours`. The picked one shows its mustard ring. Prints get a tiny picture of their art. |
 | `ticket/<idle\|copied\|expired>` | 34×20 | 4 6 4 15, fixed height | Invite link field (`.ui-ticket`): a cinema ticket, plum mono text on cream. `copied` stamps a teal check on the stub. `expired` tears the stub off, greys the card and strikes the text. |
@@ -749,6 +751,12 @@ Furniture catalogue v1 for customizable rooms. It's a separate, lazy sheet: the 
 uses a catalogue piece (or the M5 customization UI opens). Same PixiJS v8 format as the room atlas, and the same anchor rule.
 Previews: `preview/furniture-sheet@2x.png` (every frame, seats empty and occupied), `preview/furniture-room@1x.png` / `@2x` (every piece
 in the current room, both facings), `preview/furniture-layout@1x.png` / `@2x` (a sample layout), `preview/furniture-atlas@2x.png` (the sheet).
+**Catalogue v2 (OME-1103) is a second lazy sheet, `furniture/furniture-v2.png` + `.json`, with exactly the same schema** (frame keys, anchors,
+`meta.omega.pieces`). Load it only when a room uses a v2 piece, so rooms with v1 pieces only download nothing new. Keys stay
+`furniture/<id>/…` and ids don't collide with v1, so both atlases can sit in Pixi's cache together. Until the hookup issue adds the v2 ids
+to `FURNITURE` in `packages/shared`, nothing reads this sheet. Previews: `preview/furniture-v2-atlas@2x.png` (the sheet), `preview/furniture-v2-room@1x.png` / `@2x` (every v2 piece in the room, with a few v1 pieces for scale) and
+`preview/furniture-v2-seats@2x.png`, the **seat contact sheet**: one row per v2 seat piece × colour × avatar (an empty row leads each piece),
+one column per facing `ne nw se sw`. A 2-seat piece holds the same avatar on both seats, so every avatar is shown on every v2 seat in every facing.
 
 **Frame key:** `furniture/<id>/<colour>/<dir>/<back|front>`. Every key starts with `furniture/`, so nothing collides with the
 room's `armchair`, `plant` or `lamp` in Pixi's texture cache.
@@ -769,6 +777,14 @@ Place the sprite there, with no per-item offsets. A piece covers `footprintByDir
 | `bookshelf` | Bookcase | `wood` | se sw | 2×1 | — | **Wall-backed:** `sw` stands against the right wall (row 0), `se` against the left wall (col 0). Back half of the cells only. |
 | `rug` | Kilim runner | `lilac`, `teal` | ne nw | 3×2 | — | **Floor layer**, walkable. `ne` runs along cols (3×2), `nw` along rows (2×3). |
 | `frame` | Framed print | `dusk`, `tide` (artwork) | se sw | wall | — | **Wall layer.** `sw` hangs on the right wall at `(col, 0)`, `se` on the left wall at `(0, row)`. Use a `plain` wall segment (not a window, poster or sconce). |
+| **v2** | *(OME-1103)* | | | | | |
+| `floorcushion` | Floor cushions | `mustard`, `teal` | ne nw se sw | 1×1 | 1 | Two stacked square cushions (button-tufted top, cream piping, corner tassels) and a striped bolster: `front` layer when facing ne/nw. |
+| `bench` | Storage bench | `teal`, `pink` (pad; the throw is mustard / lilac) | ne nw se sw | 2×1 | 2 | Backless: wood frame with woven cane panels, a long seat pad, a pillow between the seats, a fringed throw over the far end (`front` in every facing). |
+| `turntable` | Record console | `wood` | se sw | 1×1 | — | Mid-century cabinet on peg legs (grille + drawers), a turntable with a record and brass tonearm, a stack of sleeves. |
+| `speaker` | Floor speaker | `wood`, `teal` (cabinet) | se sw | 1×1 | — | Tall cabinet on splayed legs: brass-ringed woofer and tweeter, a port. Pairs either side of the record console. |
+| `cat` | Sleepy cat | `ginger`, `charcoal` (coat) | se sw | 1×1 | — | A loafing cat, eyes shut, tail round its paws, on a round lilac cushion. Hand-pixelled role grid (like the monstera's leaves) on a ray-cast cushion. Decor, not walkable. |
+| `wallshelf` | Wall shelf | `wood` | se sw | wall | — | **Wall layer.** A floating plank on iron brackets (74–76 px up): trailing pothos, three books, a candle. |
+| `garland` | String lights | `warm`, `party` (bulbs) | se sw | wall | — | **Wall layer.** One wall segment of festoon lights, wire 105–112 px up. The wire meets the next segment at the same height and the bulbs keep a 4-unit pitch, so garlands on neighbouring segments join into one string. |
 
 - **Dirs** name the way the piece faces (where a sitter looks). `ne`/`nw` face the TV corner (backrest toward the camera, sitter seen from behind),
   `se`/`sw` face the camera. Same facing rule as the room armchair (`col < row` → `ne`, otherwise `nw`). Pieces that only need two facings
@@ -868,15 +884,25 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `room/room.json` | 13 823 raw / 1 192 gz |
 | `ui/ui.png` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k + l) | 12 951 |
 | `ui/ui.json` (sets c + e + M1b TV frame + M2 live + f + h + i + j + k + l) | 91 380 raw / 4 905 gz |
-| `ui/edit.png` (set h, lazy, owners only) | 8 925 |
-| `ui/edit.json` (set h, lazy) | 18 430 raw / 1 334 gz |
+| `ui/edit.png` (set h, lazy, owners only) | 10 792 |
+| `ui/edit.json` (set h, lazy) | 24 030 raw / 1 653 gz |
 | `ui/slices/*.png` (100 files, palettes trimmed to the colours used) | 15 862 |
 | `ui/popup/*.png` (set f) | 409 |
 | `ui/scenes/*.png` (sets i + j + k + OME-841, lazy) | 3 556 |
-| `ui/reference.css` (if ported as-is) | 98 678 raw / 19 956 gz |
+| `ui/reference.css` (if ported as-is) | 102 130 raw / 20 369 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
+| `furniture/furniture-v2.png` (catalogue v2, lazy) | 10 261 |
+| `furniture/furniture-v2.json` (catalogue v2, lazy) | 22 867 raw / 1 657 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
+
+**Measured total now: 174 358 B (≈ 170.3 KB) of 300 KB**, eager 98 724, lazy 75 634 (`bun assets/src/build.ts`). Rows not named below are
+older hand-copied figures; the build's printout is the source of truth.
+
+Catalogue v2 (OME-1103) adds **14 412 B (≈ 14.1 KB)** against `main` as the build measures it (159 946 → 174 358): lazy +14 104
+(`furniture-v2.png` 10 261 + `furniture-v2.json` 1 657 gz, `edit.png` +1 867 for 12 thumbnails and 5 swatches, `edit.json` +319 gz), eager +308
+(`reference.css` gz: the new `.ui-thumb-*` / `.ui-swatch-*` rules). The v1 sheet is byte-identical. A separate sheet costs about 1.3 KB more than
+packing v2 into `furniture.png` (measured: 13 152 B that way), but it keeps v1-only rooms 10 KB lighter. `edit.png` stays 256×1024 (frames still end at y 708).
 
 OME-841 adds **795 B** against `main` as `bun assets/src/build.ts` measures it (130 263 → 131 058): the lazy `scenes/not-found.png` 731 and one
 `reference.css` rule +64 gz. The row above said 130 224 before this change; the build on `main` already measured 130 263 (eager 69 464, i.e.

@@ -1,0 +1,1557 @@
+{
+ "frames": {
+  "furniture/bench/pink/ne/back": {
+   "frame": {
+    "x": 140,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.32222222222222224,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/pink/ne/front": {
+   "frame": {
+    "x": 231,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.32222222222222224,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/pink/nw/back": {
+   "frame": {
+    "x": 322,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.6777777777777778,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/pink/nw/front": {
+   "frame": {
+    "x": 413,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.6777777777777778,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/pink/se/back": {
+   "frame": {
+    "x": 140,
+    "y": 53,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.6777777777777778,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/pink/se/front": {
+   "frame": {
+    "x": 231,
+    "y": 53,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.6777777777777778,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/pink/sw/back": {
+   "frame": {
+    "x": 322,
+    "y": 53,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.32222222222222224,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/pink/sw/front": {
+   "frame": {
+    "x": 413,
+    "y": 53,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.32222222222222224,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/teal/ne/back": {
+   "frame": {
+    "x": 0,
+    "y": 54,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.32222222222222224,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/teal/ne/front": {
+   "frame": {
+    "x": 91,
+    "y": 106,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.32222222222222224,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/teal/nw/back": {
+   "frame": {
+    "x": 182,
+    "y": 106,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.6777777777777778,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/teal/nw/front": {
+   "frame": {
+    "x": 273,
+    "y": 106,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.6777777777777778,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/teal/se/back": {
+   "frame": {
+    "x": 364,
+    "y": 106,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.6777777777777778,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/teal/se/front": {
+   "frame": {
+    "x": 0,
+    "y": 107,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.6777777777777778,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/teal/sw/back": {
+   "frame": {
+    "x": 91,
+    "y": 159,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.32222222222222224,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/bench/teal/sw/front": {
+   "frame": {
+    "x": 182,
+    "y": 159,
+    "w": 90,
+    "h": 52
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 52
+   },
+   "sourceSize": {
+    "w": 90,
+    "h": 52
+   },
+   "anchor": {
+    "x": 0.32222222222222224,
+    "y": 0.4230769230769231
+   }
+  },
+  "furniture/cat/charcoal/se/back": {
+   "frame": {
+    "x": 287,
+    "y": 238,
+    "w": 42,
+    "h": 29
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 29
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 29
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6206896551724138
+   }
+  },
+  "furniture/cat/charcoal/sw/back": {
+   "frame": {
+    "x": 330,
+    "y": 238,
+    "w": 42,
+    "h": 29
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 29
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 29
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6206896551724138
+   }
+  },
+  "furniture/cat/ginger/se/back": {
+   "frame": {
+    "x": 373,
+    "y": 238,
+    "w": 42,
+    "h": 29
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 29
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 29
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6206896551724138
+   }
+  },
+  "furniture/cat/ginger/sw/back": {
+   "frame": {
+    "x": 416,
+    "y": 238,
+    "w": 42,
+    "h": 29
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 29
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 29
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6206896551724138
+   }
+  },
+  "furniture/floorcushion/mustard/ne/back": {
+   "frame": {
+    "x": 273,
+    "y": 202,
+    "w": 58,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 35
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6
+   }
+  },
+  "furniture/floorcushion/mustard/ne/front": {
+   "frame": {
+    "x": 332,
+    "y": 202,
+    "w": 58,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 35
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6
+   }
+  },
+  "furniture/floorcushion/mustard/nw/back": {
+   "frame": {
+    "x": 391,
+    "y": 202,
+    "w": 58,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 35
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6
+   }
+  },
+  "furniture/floorcushion/mustard/nw/front": {
+   "frame": {
+    "x": 450,
+    "y": 202,
+    "w": 58,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 35
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6
+   }
+  },
+  "furniture/floorcushion/mustard/se/back": {
+   "frame": {
+    "x": 273,
+    "y": 159,
+    "w": 58,
+    "h": 42
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 42
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 42
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6428571428571429
+   }
+  },
+  "furniture/floorcushion/mustard/sw/back": {
+   "frame": {
+    "x": 332,
+    "y": 159,
+    "w": 58,
+    "h": 42
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 42
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 42
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6428571428571429
+   }
+  },
+  "furniture/floorcushion/teal/ne/back": {
+   "frame": {
+    "x": 51,
+    "y": 212,
+    "w": 58,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 35
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6
+   }
+  },
+  "furniture/floorcushion/teal/ne/front": {
+   "frame": {
+    "x": 110,
+    "y": 212,
+    "w": 58,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 35
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6
+   }
+  },
+  "furniture/floorcushion/teal/nw/back": {
+   "frame": {
+    "x": 169,
+    "y": 212,
+    "w": 58,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 35
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6
+   }
+  },
+  "furniture/floorcushion/teal/nw/front": {
+   "frame": {
+    "x": 228,
+    "y": 238,
+    "w": 58,
+    "h": 35
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 35
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 35
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6
+   }
+  },
+  "furniture/floorcushion/teal/se/back": {
+   "frame": {
+    "x": 391,
+    "y": 159,
+    "w": 58,
+    "h": 42
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 42
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 42
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6428571428571429
+   }
+  },
+  "furniture/floorcushion/teal/sw/back": {
+   "frame": {
+    "x": 450,
+    "y": 159,
+    "w": 58,
+    "h": 42
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 58,
+    "h": 42
+   },
+   "sourceSize": {
+    "w": 58,
+    "h": 42
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6428571428571429
+   }
+  },
+  "furniture/garland/party/se/back": {
+   "frame": {
+    "x": 44,
+    "y": 248,
+    "w": 37,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 26
+   },
+   "anchor": {
+    "x": 0.8918918918918919,
+    "y": 4.961538461538462
+   }
+  },
+  "furniture/garland/party/sw/back": {
+   "frame": {
+    "x": 82,
+    "y": 248,
+    "w": 37,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 26
+   },
+   "anchor": {
+    "x": 0.10810810810810811,
+    "y": 4.961538461538462
+   }
+  },
+  "furniture/garland/warm/se/back": {
+   "frame": {
+    "x": 120,
+    "y": 248,
+    "w": 37,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 26
+   },
+   "anchor": {
+    "x": 0.8918918918918919,
+    "y": 4.961538461538462
+   }
+  },
+  "furniture/garland/warm/sw/back": {
+   "frame": {
+    "x": 158,
+    "y": 248,
+    "w": 37,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 37,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 37,
+    "h": 26
+   },
+   "anchor": {
+    "x": 0.10810810810810811,
+    "y": 4.961538461538462
+   }
+  },
+  "furniture/speaker/teal/se/back": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 53
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 53
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 53
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8490566037735849
+   }
+  },
+  "furniture/speaker/teal/sw/back": {
+   "frame": {
+    "x": 35,
+    "y": 0,
+    "w": 34,
+    "h": 53
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 53
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 53
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8490566037735849
+   }
+  },
+  "furniture/speaker/wood/se/back": {
+   "frame": {
+    "x": 70,
+    "y": 0,
+    "w": 34,
+    "h": 53
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 53
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 53
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8490566037735849
+   }
+  },
+  "furniture/speaker/wood/sw/back": {
+   "frame": {
+    "x": 105,
+    "y": 0,
+    "w": 34,
+    "h": 53
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 53
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 53
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8490566037735849
+   }
+  },
+  "furniture/turntable/wood/se/back": {
+   "frame": {
+    "x": 0,
+    "y": 160,
+    "w": 50,
+    "h": 39
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 50,
+    "h": 39
+   },
+   "sourceSize": {
+    "w": 50,
+    "h": 39
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.717948717948718
+   }
+  },
+  "furniture/turntable/wood/sw/back": {
+   "frame": {
+    "x": 0,
+    "y": 200,
+    "w": 50,
+    "h": 39
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 50,
+    "h": 39
+   },
+   "sourceSize": {
+    "w": 50,
+    "h": 39
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.717948717948718
+   }
+  },
+  "furniture/wallshelf/wood/se/back": {
+   "frame": {
+    "x": 459,
+    "y": 238,
+    "w": 43,
+    "h": 27
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 43,
+    "h": 27
+   },
+   "sourceSize": {
+    "w": 43,
+    "h": 27
+   },
+   "anchor": {
+    "x": 0.7209302325581395,
+    "y": 3.5555555555555554
+   }
+  },
+  "furniture/wallshelf/wood/sw/back": {
+   "frame": {
+    "x": 0,
+    "y": 240,
+    "w": 43,
+    "h": 27
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 43,
+    "h": 27
+   },
+   "sourceSize": {
+    "w": 43,
+    "h": 27
+   },
+   "anchor": {
+    "x": 0.27906976744186046,
+    "y": 3.5555555555555554
+   }
+  }
+ },
+ "meta": {
+  "app": "omega-share assets/src/build.ts",
+  "version": "1",
+  "image": "furniture-v2.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 512
+  },
+  "scale": "1",
+  "omega": {
+   "license": "CC-BY-SA-4.0",
+   "tile": {
+    "w": 64,
+    "h": 32
+   },
+   "seatHeight": 8,
+   "key": "furniture/<id>/<colour>/<dir>/<back|front>",
+   "layers": {
+    "floor": 0,
+    "wall": 1,
+    "back": 2,
+    "avatar": 3,
+    "front": 4
+   },
+   "pieces": [
+    {
+     "id": "floorcushion",
+     "label": "Floor cushions",
+     "kind": "seat",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "mustard",
+      "teal"
+     ],
+     "dirs": [
+      "ne",
+      "nw",
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "ne": {
+       "cols": 1,
+       "rows": 1
+      },
+      "nw": {
+       "cols": 1,
+       "rows": 1
+      },
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "ne": {
+       "x": 0,
+       "y": 0
+      },
+      "nw": {
+       "x": 0,
+       "y": 0
+      },
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "ne": [
+       "back",
+       "front"
+      ],
+      "nw": [
+       "back",
+       "front"
+      ],
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "seatsByDir": {
+      "ne": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "ne"
+       }
+      ],
+      "nw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "nw"
+       }
+      ],
+      "se": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "se"
+       }
+      ],
+      "sw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "sw"
+       }
+      ]
+     }
+    },
+    {
+     "id": "bench",
+     "label": "Storage bench",
+     "kind": "seat",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "teal",
+      "pink"
+     ],
+     "dirs": [
+      "ne",
+      "nw",
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 2,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "ne": {
+       "cols": 2,
+       "rows": 1
+      },
+      "nw": {
+       "cols": 1,
+       "rows": 2
+      },
+      "se": {
+       "cols": 1,
+       "rows": 2
+      },
+      "sw": {
+       "cols": 2,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "ne": {
+       "x": 16,
+       "y": 8
+      },
+      "nw": {
+       "x": -16,
+       "y": 8
+      },
+      "se": {
+       "x": -16,
+       "y": 8
+      },
+      "sw": {
+       "x": 16,
+       "y": 8
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "ne": [
+       "back",
+       "front"
+      ],
+      "nw": [
+       "back",
+       "front"
+      ],
+      "se": [
+       "back",
+       "front"
+      ],
+      "sw": [
+       "back",
+       "front"
+      ]
+     },
+     "seatsByDir": {
+      "ne": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "ne"
+       },
+       {
+        "col": 1,
+        "row": 0,
+        "dir": "ne"
+       }
+      ],
+      "nw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "nw"
+       },
+       {
+        "col": 0,
+        "row": 1,
+        "dir": "nw"
+       }
+      ],
+      "se": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "se"
+       },
+       {
+        "col": 0,
+        "row": 1,
+        "dir": "se"
+       }
+      ],
+      "sw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "sw"
+       },
+       {
+        "col": 1,
+        "row": 0,
+        "dir": "sw"
+       }
+      ]
+     }
+    },
+    {
+     "id": "turntable",
+     "label": "Record console",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "wood"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "speaker",
+     "label": "Floor speaker",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "wood",
+      "teal"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "cat",
+     "label": "Sleepy cat",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "ginger",
+      "charcoal"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "wallshelf",
+     "label": "Wall shelf",
+     "kind": "wall",
+     "mount": "wall",
+     "layer": "wall",
+     "colours": [
+      "wood"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 0,
+      "rows": 0
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 0,
+       "rows": 0
+      },
+      "sw": {
+       "cols": 0,
+       "rows": 0
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "garland",
+     "label": "String lights",
+     "kind": "light",
+     "mount": "wall",
+     "layer": "wall",
+     "colours": [
+      "warm",
+      "party"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 0,
+      "rows": 0
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 0,
+       "rows": 0
+      },
+      "sw": {
+       "cols": 0,
+       "rows": 0
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

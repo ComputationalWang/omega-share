@@ -26,7 +26,7 @@ import {
 } from "./motion";
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
-import { THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
+import { CATALOGUE_V2, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
 import { buildUiFrames, referenceCss, type Borders, type UiFrame } from "./ui";
@@ -1070,7 +1070,25 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
     if (seen.has(f.key)) throw new Error(`duplicate furniture key ${f.key}`);
     seen.add(f.key);
   }
-  const { placed, w: sheetW, h: sheetH } = pack(frames, 1024);
+  // Catalogue v2 is its own lazy sheet with the same schema, so rooms that only use v1 pieces don't download it.
+  for (const [name, inV2, maxW] of [["furniture", false, 1024], ["furniture-v2", true, 512]] as const) {
+    const ids = new Set(pieces.filter((p) => CATALOGUE_V2.has(p.id) === inV2).map((p) => p.id));
+    writeFurnitureAtlas(name, frames.filter((f) => ids.has(f.key.split("/")[1] ?? "")), pieces.filter((p) => ids.has(p.id)), maxW);
+  }
+  const all = new Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>();
+  for (const f of [...roomFrames, ...frames]) all.set(f.key, f);
+  for (const [k, a] of avatars) all.set(k, { img: a, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
+  buildFurnitureSheet(pieces, all);
+  buildFurnitureRoom(pieces, all, "furniture-room", showroom());
+  buildFurnitureRoom(pieces, all, "furniture-layout", sampleLayout());
+  buildFurnitureRoom(pieces, all, "furniture-v2-room", showroomV2());
+  buildSeatContact(pieces, all, V2_SEATS);
+  return { frames, pieces, all };
+}
+
+/** `furniture/<name>.png` + `.json` (PixiJS v8 atlas, `meta.omega.pieces`) and its `preview/<name>-atlas@2x.png`. */
+function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces: readonly PieceMeta[], maxW: number): void {
+  const { placed, w: sheetW, h: sheetH } = pack(frames, maxW);
   const sheet = new Uint8Array(sheetW * sheetH);
   const atlasFrames: Record<string, Frame> = {};
   for (const p of placed.sort((a, b) => a.key.localeCompare(b.key))) {
@@ -1086,13 +1104,13 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   }
   const dir = join(ROOT, "furniture");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "furniture.png"), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
+  writeFileSync(join(dir, `${name}.png`), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
   const atlas = {
     frames: atlasFrames,
     meta: {
       app: "omega-share assets/src/build.ts",
       version: "1",
-      image: "furniture.png",
+      image: `${name}.png`,
       format: "RGBA8888",
       size: { w: sheetW, h: sheetH },
       scale: "1",
@@ -1106,17 +1124,10 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
       },
     },
   };
-  writeFileSync(join(dir, "furniture.json"), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(dir, `${name}.json`), JSON.stringify(atlas, null, 1) + "\n");
   const bg = colorIndex("wall", 1);
   const big = upscale(sheet, sheetW, sheetH, 2).map((v) => (v === 0 ? bg : v));
-  writeFileSync(join(ROOT, "preview", "furniture-atlas@2x.png"), encodeIndexedPng(sheetW * 2, sheetH * 2, big, PALETTE));
-  const all = new Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>();
-  for (const f of [...roomFrames, ...frames]) all.set(f.key, f);
-  for (const [k, a] of avatars) all.set(k, { img: a, w: CELL.w, h: CELL.h, ax: FLOOR.x, ay: FLOOR.y });
-  buildFurnitureSheet(pieces, all);
-  buildFurnitureRoom(pieces, all, "furniture-room", showroom());
-  buildFurnitureRoom(pieces, all, "furniture-layout", sampleLayout());
-  return { frames, pieces, all };
+  writeFileSync(join(ROOT, "preview", `${name}-atlas@2x.png`), encodeIndexedPng(sheetW * 2, sheetH * 2, big, PALETTE));
 }
 
 type FurnSprites = Map<string, { img: Uint8Array; w: number; h: number; ax: number; ay: number }>;
@@ -1229,6 +1240,69 @@ function showroom(): { placements: Placement[]; standing: [string, number, numbe
       { id: "couch", colour: "olive", dir: "se", col: 9, row: 6 },
     ],
     standing: [["juno/idle/se/0", 6, 9]],
+  };
+}
+
+/** Catalogue v2 (OME-1103): its seats get a contact sheet, its pieces a room of their own. */
+const V2_SEATS: readonly string[] = ["floorcushion", "bench"];
+
+/** `furniture-v2-seats@2x.png`: one row per v2 seat piece × colour × avatar, one column per facing (ne nw se sw); a 2-seat piece holds
+ *  the same avatar on both seats, so every avatar is checked on every seat in every facing. Empty seats lead each piece's block. */
+function buildSeatContact(pieces: readonly PieceMeta[], all: FurnSprites, ids: readonly string[]): void {
+  const who = ["", "juno", "pip", "mo", "kiki"];
+  const rows: { meta: PieceMeta; colour: string; sitter: string }[] = [];
+  for (const id of ids) {
+    const meta = pieces.find((p) => p.id === id);
+    if (!meta) throw new Error(`no piece ${id}`);
+    for (const colour of meta.colours) for (const sitter of who) if (sitter !== "" || colour === meta.colours[0]) rows.push({ meta, colour, sitter });
+  }
+  const CW = 150, RH = 92, W = CW * 4 + 40, H = rows.length * RH + 20;
+  const img = new Uint8Array(W * H).fill(colorIndex("night", 2));
+  rows.forEach((r, ri) => {
+    const ay = 10 + ri * RH + 66;
+    (["ne", "nw", "se", "sw"] as const).forEach((d, di) => {
+      const ax = 50 + di * CW;
+      const fp = r.meta.footprintByDir[d] ?? { cols: 1, rows: 1 };
+      for (let c = 0; c < fp.cols; c++) for (let rr = 0; rr < fp.rows; rr++) drawSprite(img, W, H, all, `floor/${String((c + rr) % 2)}`, ax + (c - rr) * 32, ay + (c + rr) * 16);
+      const seats = r.meta.seatsByDir?.[d] ?? [];
+      const items = placePiece(r.meta, r.colour, d, ax, ay, r.sitter === "" ? [] : seats.map(() => r.sitter));
+      items.sort((a, b) => a.sy - b.sy || a.sx - b.sx || a.layer - b.layer);
+      for (const it of items) drawSprite(img, W, H, all, it.key, it.x, it.y);
+    });
+  });
+  writeFileSync(join(ROOT, "preview", "furniture-v2-seats@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+}
+
+/** The v2 pieces in the current room, with a few v1 pieces for scale: a listening corner, a reading nook and a lit wall. */
+function showroomV2(): { placements: Placement[]; standing: [string, number, number][] } {
+  return {
+    placements: [
+      { id: "garland", colour: "warm", dir: "sw", col: 1, row: 0 },
+      { id: "garland", colour: "warm", dir: "sw", col: 2, row: 0 },
+      { id: "garland", colour: "warm", dir: "sw", col: 3, row: 0 },
+      { id: "garland", colour: "party", dir: "se", col: 0, row: 1 },
+      { id: "garland", colour: "party", dir: "se", col: 0, row: 2 },
+      { id: "garland", colour: "party", dir: "se", col: 0, row: 3 },
+      { id: "wallshelf", colour: "wood", dir: "sw", col: 7, row: 0 },
+      { id: "wallshelf", colour: "wood", dir: "se", col: 0, row: 7 },
+      { id: "frame", colour: "dusk", dir: "sw", col: 4, row: 0 },
+      { id: "turntable", colour: "wood", dir: "sw", col: 7, row: 0 },
+      { id: "speaker", colour: "wood", dir: "sw", col: 6, row: 0 },
+      { id: "speaker", colour: "teal", dir: "sw", col: 8, row: 0 },
+      { id: "turntable", colour: "wood", dir: "se", col: 0, row: 7 },
+      { id: "cat", colour: "ginger", dir: "se", col: 0, row: 8 },
+      { id: "rug", colour: "teal", dir: "nw", col: 8, row: 3 },
+      { id: "bench", colour: "teal", dir: "ne", col: 2, row: 5, sitters: ["juno", "kiki"] },
+      { id: "bench", colour: "pink", dir: "nw", col: 5, row: 2, sitters: ["", "mo"] },
+      { id: "floorcushion", colour: "mustard", dir: "ne", col: 4, row: 6, sitters: ["pip"] },
+      { id: "floorcushion", colour: "teal", dir: "nw", col: 6, row: 4 },
+      { id: "floorcushion", colour: "mustard", dir: "sw", col: 8, row: 6, sitters: ["kiki"] },
+      { id: "floorcushion", colour: "teal", dir: "se", col: 5, row: 8, sitters: ["juno"] },
+      { id: "cat", colour: "charcoal", dir: "sw", col: 9, row: 5 },
+      { id: "sidetable", colour: "wood", dir: "sw", col: 4, row: 4 },
+      { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 0 },
+    ],
+    standing: [["mo/idle/se/0", 6, 8]],
   };
 }
 
@@ -1464,12 +1538,12 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "furniture/furniture.png", "furniture/furniture.json", "ui/edit.png", "ui/edit.json"]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "ui/edit.png", "ui/edit.json"]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json"];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json"];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
