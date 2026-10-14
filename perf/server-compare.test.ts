@@ -30,7 +30,7 @@ describe("/proc parsing", () => {
 
 describe("loopbackAddrs", () => {
   test("keeps every address under the per-IP cap", () => {
-    expect(loopbackAddrs(500, 50).length).toBeGreaterThanOrEqual(11);
+    expect(loopbackAddrs(500).length).toBeGreaterThanOrEqual(13);
     expect(loopbackAddrs(10, 50)).toEqual(["127.0.0.1"]);
     expect(loopbackAddrs(500, 50).every((a) => /^127\.0\.0\.\d+$/.test(a))).toBe(true);
   });
