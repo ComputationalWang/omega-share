@@ -15,6 +15,7 @@ use serde_json::{Value, json};
 
 /// Every corpus file has a runner below; a new `corpus/out/*.json` without one fails `every_corpus_has_a_runner`.
 const RUNNERS: &[&str] = &[
+    "any-embed-raw",
     "any-embed-schema",
     "canonicalize-any-embed",
     "canonicalize-embed",
@@ -238,6 +239,13 @@ fn any_embed_schema_agrees() {
         load::<Value, String>(include_str!("../corpus/out/any-embed-schema.json")),
         |input| serde_json::from_value::<AnyEmbed>(input.clone()).ok().and_then(|e| to_json(&e)),
     );
+}
+
+#[test]
+fn any_embed_raw_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/any-embed-raw.json")), |text| {
+        serde_json::from_str::<AnyEmbed>(text).ok().and_then(|e| to_json(&e))
+    });
 }
 
 #[test]

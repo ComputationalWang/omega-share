@@ -14,6 +14,7 @@ import {
   type Embed,
 } from "@omega/shared";
 import { EmbedPolicy } from "../../server/src/embed-policy";
+import { rawEmbedCorpus } from "./embed-raw-corpus";
 import type { Case, Corpus } from "./corpora";
 
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
@@ -405,6 +406,7 @@ const HAND_INVALID: unknown[] = [
 ];
 
 export const embedCorpora: Corpus[] = [
+  rawEmbedCorpus,
   {
     name: "canonicalize-embed",
     cases: () => decide(clean([...SYNCED_URLS, ...HOST_SWEEP, ...mutants(0x0ae226, 120)]), (s) => canonicalizeEmbed(s)),
