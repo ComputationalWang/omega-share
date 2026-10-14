@@ -326,7 +326,9 @@ pub fn run(script: &Script) -> Option<Vec<Value>> {
         let result = apply(&mut room, &line.op, line.now, now)?;
         let mut snapshot = val(&room.snapshot())?;
         snapshot.as_object_mut()?.remove("layout");
-        trace.push(json!({ "result": result, "snapshot": snapshot, "summary": val(&room.summary())? }));
+        // The bytes the server sends: key order, number text and the layout included.
+        let snapshot_json = serde_json::to_string(&room.snapshot()).ok()?;
+        trace.push(json!({ "result": result, "snapshot": snapshot, "snapshotJson": snapshot_json, "summary": val(&room.summary())? }));
     }
     Some(trace)
 }

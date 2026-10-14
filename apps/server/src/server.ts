@@ -112,10 +112,10 @@ export type RoomPersistence = Pick<
 
 /** Whitespace, punctuation and symbols: `bad word` and `b.a.d-w_o r d` match a blocklisted `badword` (OME-439). */
 const SEPARATORS = /[\p{Z}\p{P}\p{S}\s]/gu;
-const blockKey = (text: string): string => nicknameKey(text).replace(SEPARATORS, "");
+export const blockKey = (text: string): string => nicknameKey(text).replace(SEPARATORS, "");
 
 /** Folds case and lookalikes (UTS #39 skeleton, ADR 0022) so "BADW0RD" matches "badword", and drops separators. */
-function titleBlocker(terms: readonly string[]): (title: string) => boolean {
+export function titleBlocker(terms: readonly string[]): (title: string) => boolean {
   const keys = terms.map(blockKey).filter((key) => key !== "");
   if (keys.length === 0) return () => false;
   return (title) => {
