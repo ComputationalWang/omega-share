@@ -24,8 +24,7 @@ use crate::outbox::{ConnId, Outbound, OutboxRx, channel};
 use crate::rate_limit::TokenBucket;
 use crate::registry::RoomCell;
 use axum::extract::ws::{CloseFrame, Message, WebSocket};
-use futures_util::stream::SplitSink;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{Sink, SinkExt, StreamExt};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -123,9 +122,7 @@ async fn timer(t: &mut Option<Sleep>) {
 const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 const CLOSE_WAIT: Duration = Duration::from_secs(1);
 
-type Sink = SplitSink<WebSocket, Message>;
-
-async fn send(sink: &mut Sink, msg: Message) -> bool {
+async fn send<S: Sink<Message> + Unpin>(sink: &mut S, msg: Message) -> bool {
     matches!(tokio::time::timeout(WRITE_TIMEOUT, sink.send(msg)).await, Ok(Ok(())))
 }
 
@@ -137,7 +134,7 @@ fn close_message(code: u16, reason: &'static str) -> Message {
 }
 
 /// The writer task: the outbox into the sink, and the idle pings. True if it ended by sending a close frame.
-async fn write(mut sink: Sink, mut rx: OutboxRx, ping: Arc<Notify>) -> bool {
+async fn write<S: Sink<Message> + Unpin>(mut sink: S, mut rx: OutboxRx, ping: Arc<Notify>) -> bool {
     loop {
         tokio::select! {
             out = rx.recv() => match out {
@@ -284,4 +281,81 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
         let _ = tokio::time::timeout(CLOSE_WAIT, async { while let Some(Ok(_)) = stream.next().await {} }).await;
     }
     // `guard` drops here: the writer is aborted, both halves go, and `closed` runs.
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::extract::ws::Utf8Bytes;
+    use std::pin::Pin;
+    use std::sync::Mutex;
+    use std::task::{Context, Poll};
+
+    /// A sink that records what the writer does to it: "feed <text>" and "flush".
+    #[derive(Clone, Default)]
+    struct Recorder(Arc<Mutex<Vec<String>>>);
+
+    impl Recorder {
+        fn ops(&self) -> Vec<String> {
+            self.0.lock().map(|g| g.clone()).unwrap_or_default()
+        }
+        fn push(&self, op: String) -> Result<(), ()> {
+            self.0.lock().map_err(|_| ())?.push(op);
+            Ok(())
+        }
+    }
+
+    impl Sink<Message> for Recorder {
+        type Error = ();
+        fn poll_ready(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            Poll::Ready(Ok(()))
+        }
+        fn start_send(self: Pin<&mut Self>, msg: Message) -> Result<(), ()> {
+            let text = match msg {
+                Message::Text(t) => t.as_str().to_owned(),
+                Message::Close(Some(c)) => format!("close {}", c.code),
+                _ => "other".to_owned(),
+            };
+            self.push(format!("feed {text}"))
+        }
+        fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            Poll::Ready(self.push("flush".to_owned()))
+        }
+        fn poll_close(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    fn text(s: &str) -> Utf8Bytes {
+        Utf8Bytes::from(s.to_owned())
+    }
+
+    // Frames already queued go out in order with one flush (one write syscall), the close frame last.
+    #[tokio::test]
+    async fn queued_frames_are_fed_in_order_and_flushed_once() {
+        let (outbox, rx) = channel();
+        for f in ["a", "b", "c"] {
+            assert!(outbox.send_text(&text(f)));
+        }
+        assert!(outbox.send_close(1000, "bye"));
+        let rec = Recorder::default();
+        assert!(write(rec.clone(), rx, Arc::new(Notify::new())).await);
+        assert_eq!(rec.ops(), ["feed a", "feed b", "feed c", "feed close 1000", "flush"]);
+        // The byte accounting follows what the writer took.
+        assert_eq!(outbox.queued_bytes(), 0);
+    }
+
+    // A frame that arrives while the writer is idle is flushed on its own, not held for a batch.
+    #[tokio::test]
+    async fn a_lone_frame_is_flushed_at_once() {
+        let (outbox, rx) = channel();
+        let rec = Recorder::default();
+        let task = tokio::spawn(write(rec.clone(), rx, Arc::new(Notify::new())));
+        assert!(outbox.send_text(&text("x")));
+        for _ in 0..100 {
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(rec.ops(), ["feed x", "flush"]);
+        task.abort();
+    }
 }
