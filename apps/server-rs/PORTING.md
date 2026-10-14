@@ -26,7 +26,7 @@ Integration tests (`tests/*.rs`) are separate crates: helper functions there nee
 | `index.ts` | `main.rs`, `serve.rs` | S1 ✓ (grows in S5–S7) |
 | `rate-limit.ts` `Clock`, `monotonic`, `wallNow`, `schedule` | `clock.rs` | S1 ✓ |
 | `packages/shared/src/*` (server-used parts) | `contract/*` | S2 |
-| `store/db.ts`, `store/rooms.ts`, `store/reports.ts`, `migrations/*.sql` | `store/*` (migrations embedded with `include_str!` from `apps/server/migrations`) | S3 |
+| `store/db.ts`, `store/rooms.ts`, `store/reports.ts`, `migrations/*.sql` | `store/*` (migrations embedded with `include_str!` from `apps/server/migrations`) | S3 ✓ |
 | `room.ts`, `rooms.ts`, `playback.ts`, `queue.ts`, `rate-limit.ts`, `secrets.ts`, `embed-policy.ts`, `presets.ts`, `log.ts`, `headers.ts` | same names, `snake_case.rs` | S4 |
 | `http.ts`, `static.ts`, `site-meta.ts`, `server.ts` (routing, Host/Origin gate) | `http/*` | S5 |
 | `ws.ts`, `ws-sessions.ts`, `ws-limits.ts`, `ws-owner-edits.ts` | `ws/*` | S6 |
@@ -86,6 +86,10 @@ Full spec from the contract inventory, ranked by risk:
 8. **Confusables** (`nicknameKey`): port the table from `confusables-table.ts` as data (`include_str!` of a generated file), same Unicode 18.0.0 source.
 
 Schemas, field orders and constants: read the TS source (`packages/shared/src`), it is short. The server sends what it builds with object literals; mirror those literals.
+
+## Rollback interop (S3)
+
+For 7 days after the switch the TS server may be put back on the Rust server's database file. `interop/spec.json` (from `interop/spec.ts`) is replayed through both servers' stores; `interop/dump.json` is what the TS stores read back (raw rows, schema SQL and typed listings). `tests/store_interop.rs` must read the same from the TS-written file and write a file that dumps the same; `interop/interop.test.ts` (in `bun run test`) has the TS stores read the committed `rust-written.db`. Regenerate the TS half with `bun apps/server-rs/interop/gen.ts`, the Rust files (`rust-written.db`, `rust-mixed.db`, written atomically by one test) with `UPDATE_INTEROP=1 cargo test -p omega-server --test store_interop`. The Rust binary embeds the TS migration files, so it never runs a migration the TS server does not know (a test compares the directory with the embedded list).
 
 ## The comparison test
 

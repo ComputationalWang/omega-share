@@ -11,3 +11,4 @@ pub mod presets;
 pub mod rate_limit;
 pub mod secrets;
 pub mod serve;
+pub mod store;
