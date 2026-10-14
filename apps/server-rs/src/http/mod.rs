@@ -68,6 +68,8 @@ pub struct HttpState {
     api: Mutex<ApiLimits>,
     allowed: OnceLock<Allowed>,
     site: OnceLock<Option<site::Site>>,
+    /// How long a request body may take in all, ms.
+    body_total_ms: std::sync::atomic::AtomicU64,
 }
 
 impl Default for HttpState {
@@ -92,11 +94,20 @@ impl Default for HttpState {
             }),
             allowed: OnceLock::new(),
             site: OnceLock::new(),
+            body_total_ms: std::sync::atomic::AtomicU64::new(30_000),
         }
     }
 }
 
 impl HttpState {
+    /// Overrides the total body read deadline (tests).
+    pub fn set_body_total(&self, total: std::time::Duration) {
+        self.body_total_ms.store(
+            u64::try_from(total.as_millis()).unwrap_or(u64::MAX),
+            std::sync::atomic::Ordering::Relaxed,
+        );
+    }
+
     /// Called once the listener has a port: the Host and Origin allowlists need it (server.ts `allowedHosts`), and
     /// the built site's real path is resolved. The first call wins.
     pub fn bind(&self, config: &ServerConfig, port: u16) {

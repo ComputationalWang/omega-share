@@ -1797,3 +1797,160 @@ async fn the_gate_function_refuses_what_the_layer_refuses() {
     assert_eq!(gate::client_key(&proxied.app, Some(peer), &xff), "198.51.100.1");
     assert_eq!(gate::client_key(&proxied.app, None, &xff), "unknown");
 }
+
+// ---- review fixes (PR #245)
+
+// A body that trickles in (1 byte under the stall timeout, forever) must not hold an in-flight slot for hours.
+#[tokio::test]
+async fn a_trickling_body_is_refused_after_the_total_deadline_and_frees_its_slot() {
+    let fx = Fx::proxied(&[("MAX_HTTP_IN_FLIGHT", "1")]).await;
+    fx.app.http.set_body_total(Duration::from_millis(400));
+    let (token, _, _rx) = fx.grant("lobby", false);
+    let mut slow = TcpStream::connect(fx.addr).await.unwrap();
+    let head = format!(
+        "POST /rooms/lobby/share HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nContent-Type: application/json\r\nAuthorization: {}\r\nX-Forwarded-For: 198.51.100.1\r\nContent-Length: 38\r\n\r\n",
+        fx.addr.port(),
+        bearer(&token)
+    );
+    slow.write_all(head.as_bytes()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(
+        fx.get("/healthz", &[("x-forwarded-for", "198.51.100.2")]).await.status,
+        503,
+        "the slot is held"
+    );
+    // One byte every 100 ms: always inside the stall timeout.
+    let trickle = tokio::spawn(async move {
+        for _ in 0..30 {
+            if slow.write_all(b"{").await.is_err() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        let mut buf = vec![0u8; 4096];
+        let n = tokio::time::timeout(Duration::from_secs(2), slow.read(&mut buf))
+            .await
+            .unwrap_or(Ok(0))
+            .unwrap_or(0);
+        String::from_utf8_lossy(&buf[..n]).into_owned()
+    });
+    tokio::time::sleep(Duration::from_millis(800)).await;
+    assert_eq!(
+        fx.get("/healthz", &[("x-forwarded-for", "198.51.100.2")]).await.status,
+        200,
+        "the slot was freed"
+    );
+    let answer = trickle.await.unwrap();
+    assert!(answer.starts_with("HTTP/1.1 400"), "{answer}");
+}
+
+#[tokio::test]
+async fn dotfiles_are_never_served_but_security_txt_is() {
+    let fx = Fx::with_site(&[]).await;
+    std::fs::write(fx.root().join(".env"), "SECRET=1").unwrap();
+    std::fs::create_dir_all(fx.root().join(".git")).unwrap();
+    std::fs::write(fx.root().join(".git/config"), "secret").unwrap();
+    std::fs::write(fx.root().join("assets/.hidden.js"), "secret").unwrap();
+    for path in ["/.env", "/.git/config", "/assets/.hidden.js", "/%2eenv"] {
+        let res = fx.get(path, &[]).await;
+        assert_eq!(res.status, 404, "{path}");
+        assert!(!res.text().contains("secret") && !res.text().contains("SECRET"), "{path}");
+    }
+    assert_eq!(fx.get("/.well-known/security.txt", &[]).await.status, 200);
+    assert_eq!(fx.get("/other.txt", &[]).await.status, 200);
+}
+
+#[tokio::test]
+async fn a_large_file_is_served_whole_with_its_length_and_head_has_no_body() {
+    let fx = Fx::with_site(&[]).await;
+    let data: Vec<u8> = (0..3_000_000u32).map(|i| (i % 251) as u8).collect();
+    std::fs::write(fx.root().join("assets/big.bin"), &data).unwrap();
+    let res = fx.get("/assets/big.bin", &[]).await;
+    assert_eq!(res.header("content-length"), Some("3000000"));
+    assert!(res.body == data);
+    let head = fx.raw(&fx.request("HEAD", "/assets/big.bin", &[], None)).await;
+    assert_eq!(
+        (head.status, head.header("content-length"), head.body.len()),
+        (200, Some("3000000"), 0)
+    );
+}
+
+async fn serve_test_router(
+    router: axum::Router,
+    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+) -> (SocketAddr, tokio::task::JoinHandle<std::io::Result<()>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    (addr, tokio::spawn(crate::http::server::serve(listener, router, shutdown)))
+}
+
+#[tokio::test]
+async fn a_websocket_upgrades_and_echoes_through_the_accept_loop() {
+    use axum::extract::ws::WebSocketUpgrade;
+    let router = axum::Router::new().route(
+        "/echo",
+        axum::routing::get(|ws: WebSocketUpgrade| async move {
+            ws.on_upgrade(|mut socket| async move {
+                while let Some(Ok(msg)) = socket.recv().await {
+                    if socket.send(msg).await.is_err() {
+                        break;
+                    }
+                }
+            })
+        }),
+    );
+    let (addr, _server) = serve_test_router(router, std::future::pending()).await;
+    let mut s = TcpStream::connect(addr).await.unwrap();
+    let req = format!(
+        "GET /echo HTTP/1.1\r\nHost: {addr}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"
+    );
+    s.write_all(req.as_bytes()).await.unwrap();
+    let mut buf = vec![0u8; 1024];
+    let n = s.read(&mut buf).await.unwrap();
+    let head = String::from_utf8_lossy(&buf[..n]).into_owned();
+    assert!(head.starts_with("HTTP/1.1 101"), "{head}");
+    // A masked text frame "hi".
+    let mask = [1u8, 2, 3, 4];
+    s.write_all(&[0x81, 0x82, mask[0], mask[1], mask[2], mask[3], b'h' ^ mask[0], b'i' ^ mask[1]])
+        .await
+        .unwrap();
+    let mut frame = [0u8; 4];
+    tokio::time::timeout(Duration::from_secs(3), s.read_exact(&mut frame))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(frame, [0x81, 0x02, b'h', b'i']);
+}
+
+#[tokio::test]
+async fn a_request_in_flight_finishes_after_the_shutdown_signal_and_serve_then_returns() {
+    let router = axum::Router::new().route(
+        "/slow",
+        axum::routing::get(|| async {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            "done"
+        }),
+    );
+    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+    let (addr, server) = serve_test_router(router, async move {
+        let _ = stopped.await;
+    })
+    .await;
+    let mut s = TcpStream::connect(addr).await.unwrap();
+    s.write_all(format!("GET /slow HTTP/1.1\r\nHost: {addr}\r\n\r\n").as_bytes())
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    stop.send(()).unwrap();
+    let mut out = Vec::new();
+    tokio::time::timeout(Duration::from_secs(3), s.read_to_end(&mut out))
+        .await
+        .expect("the answer arrives")
+        .ok();
+    assert!(String::from_utf8_lossy(&out).ends_with("done"), "{}", String::from_utf8_lossy(&out));
+    tokio::time::timeout(Duration::from_secs(3), server)
+        .await
+        .expect("serve returns within the drain grace")
+        .unwrap()
+        .unwrap();
+}
