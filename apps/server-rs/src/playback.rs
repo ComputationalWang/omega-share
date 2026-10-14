@@ -175,6 +175,20 @@ mod tests {
         assert_eq!(expected_position(&near_end, T0 + 10_000), MAX_POSITION_S);
     }
 
+    // serde_json without `float_roundtrip` reads some decimals 1 ulp off (the playback-expected corpus found
+    // it: `want` and the computed value disagreed). Positions and rates come off the wire this way.
+    #[test]
+    fn decimals_off_the_wire_parse_to_the_same_double_as_js() {
+        for (text, want) in [
+            ("11.292300000000003", 11.292300000000003),
+            ("1234.5683000000001", 1234.5683000000001),
+            ("3960.2923000000005", 3960.2923000000005),
+            ("0.30000000000000004", 0.1 + 0.2),
+        ] {
+            assert_eq!(serde_json::from_str::<f64>(text).unwrap().to_bits(), f64::to_bits(want), "{text}");
+        }
+    }
+
     // apps/server/test/playback.test.ts:44
     #[test]
     fn expected_position_never_goes_below_0_if_the_clock_steps_back() {
