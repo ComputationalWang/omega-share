@@ -41,7 +41,8 @@ function dbFile(): string {
 function boot(opts: { rooms?: string[] } = {}): TestServer {
   if (process.env["OMEGA_SERVER_BIN"] !== undefined) {
     // Black-box (S8): the binary opens the file itself, as index.ts does; the test only seeds and inspects it.
-    t = start({ dbPath: dbFile(), ...opts });
+    const file = { dbPath: dbFile() };
+    t = start({ ...file, ...opts });
     return t;
   }
   db = openDatabase(dbFile());

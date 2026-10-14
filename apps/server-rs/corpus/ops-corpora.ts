@@ -135,7 +135,7 @@ function successBodies(): { argv: string[]; body: unknown }[] {
 
 const successCases = (): Case[] =>
   decided(
-    successBodies().map(({ argv, body }) => [argv, JSON.stringify(body) ?? "null"] as [string[], string]),
+    successBodies().map(({ argv, body }) => [argv, JSON.stringify(body)] as [string[], string]),
     ([argv, text]) => {
       const cmd = parseArgs(argv);
       if (cmd === null) return null;
