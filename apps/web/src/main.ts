@@ -7,6 +7,7 @@ import { loadProfile, saveProfile, validateNickname } from "./profile";
 import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
 import { loadRoomSecrets, secretFor, takeInviteKey, type SecretsStore } from "./room-secrets";
 import { loadResume } from "./session-record";
+import { takeShareLink } from "./share-link";
 import type * as RoomModule from "./room";
 import type { RoomHandle } from "./room";
 
@@ -48,6 +49,8 @@ const storage: SecretsStore = {
 // First, before anything that can load a provider SDK (they all load from the room chunk, imported below): the Twitch
 // SDK reads location.href, so a private room's `#k=` key is saved and dropped from the URL here (ADR 0028).
 const invited = takeInviteKey(location, history, storage, pathRoom);
+// Likewise the extension's `#share=` link (OME-1085, ADR 0049): out of the URL at once; the home chunk validates it.
+const shareLink = takeShareLink(location, history);
 const roomId = pathRoom ?? DEFAULT_ROOM_ID;
 const serverUrl = serverBaseUrl(import.meta.env.VITE_SERVER_URL, location, import.meta.env.DEV);
 // Before the room chunk loads: the extension says `present` once, at page load (ADR 0047 §5).
@@ -186,6 +189,7 @@ if (pathRoom === null) {
         navigate: (path) => {
           location.assign(path);
         },
+        share: shareLink,
       }),
     );
   };

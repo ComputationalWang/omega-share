@@ -159,6 +159,7 @@ legend { padding: 0; margin-bottom: 6px; }
 .home input[type="checkbox"], .home input[type="radio"] { accent-color: var(--dusk-honey); }
 .home .check label { font-weight: 400; }
 .home .note { margin: 0; color: var(--dusk-muted); font-size: 14px; }
+.home .share-url { overflow-wrap: anywhere; }
 .home .preset { background: var(--dusk-canvas); }
 .home .preset:has(input:checked) { border-color: var(--dusk-honey); }
 .home .rooms-public .note { margin-top: 24px; }
