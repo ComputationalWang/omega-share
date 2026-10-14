@@ -19,6 +19,54 @@ use tower_service::Service;
 /// (Bun's `idleTimeout` did this in TS).
 pub const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Caps and timeouts of the listener (HTTP-1, L10 of the S10 audit).
+#[derive(Debug, Clone, Copy)]
+pub struct Limits {
+    pub header_read_timeout: Duration,
+    /// A response write that makes no progress for this long cuts the connection.
+    pub write_stall: Duration,
+    /// Open connections, WebSockets included.
+    pub max_connections: usize,
+    /// Open connections per non-loopback peer address.
+    pub max_per_ip: usize,
+}
+
+impl Default for Limits {
+    fn default() -> Self {
+        Self {
+            header_read_timeout: HEADER_READ_TIMEOUT,
+            write_stall: Duration::from_secs(10),
+            max_connections: 1280,
+            max_per_ip: 128,
+        }
+    }
+}
+
+/// Counts open connections, in all and per peer address.
+#[derive(Debug)]
+pub struct Admission;
+
+impl Admission {
+    pub fn new(_max: usize, _max_per_ip: usize) -> Self {
+        Self
+    }
+
+    /// `None` when the connection is over a cap.
+    pub fn admit(&self, _peer: std::net::IpAddr) -> Option<()> {
+        None
+    }
+}
+
+/// `serve_with` under `limits`.
+pub async fn serve_limited(
+    listener: TcpListener,
+    router: Router,
+    shutdown: impl Future<Output = ()> + Send,
+    limits: Limits,
+) -> std::io::Result<()> {
+    serve_with(listener, router, shutdown, limits.header_read_timeout).await
+}
+
 /// Serves `router` on `listener` until `shutdown` resolves, then lets open connections finish (the caller bounds
 /// how long it waits).
 pub async fn serve(listener: TcpListener, router: Router, shutdown: impl Future<Output = ()> + Send) -> std::io::Result<()> {

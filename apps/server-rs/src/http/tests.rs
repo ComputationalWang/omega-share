@@ -1954,3 +1954,5 @@ async fn a_request_in_flight_finishes_after_the_shutdown_signal_and_serve_then_r
         .unwrap()
         .unwrap();
 }
+
+mod edge;

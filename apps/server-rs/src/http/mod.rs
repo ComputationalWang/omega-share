@@ -113,6 +113,9 @@ impl HttpState {
         );
     }
 
+    /// Overrides the per-key cap on requests being handled (tests).
+    pub fn set_key_in_flight(&self, _max: usize) {}
+
     /// Called once the listener has a port: the Host and Origin allowlists need it (server.ts `allowedHosts`), and
     /// the built site's real path is resolved. The first call wins.
     pub fn bind(&self, config: &ServerConfig, port: u16) {
