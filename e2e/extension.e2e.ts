@@ -62,6 +62,26 @@ test.describe("extension", () => {
     await expect(p.locator(popup.embedItem)).toHaveCount(1);
   });
 
+  test("no room to share into: New room is preselected and opens the site with the video in #share= (OME-1086, ADR 0049)", async ({ context, openPopup }) => {
+    const page = await context.newPage();
+    await gotoFixture(page, "youtube-embed");
+    const p = await openPopup(page);
+    const posts: string[] = [];
+    context.on("request", (r) => {
+      if (r.method() === "POST") posts.push(r.url());
+    });
+    await expect(p.locator(popup.roomSelect)).toHaveValue("");
+    await expect(p.locator(popup.shareButton)).toHaveText("Create room & share");
+    await expect(p.locator(popup.queueButton)).toBeHidden();
+    const video = await p.locator(`${popup.embedItem} input:checked`).inputValue();
+    const opened = context.waitForEvent("page");
+    await p.locator(popup.shareButton).click();
+    const site = await opened;
+    expect(site.url()).toBe(`${new URL(URLS.server).origin}/#share=${encodeURIComponent(video)}`);
+    expect(context.pages().filter((t) => t.url().includes("#share="))).toHaveLength(1);
+    expect(posts).toEqual([]);
+  });
+
   for (const fixture of ["non-allowlisted", "no-video"] as const) {
     test(`lists nothing on ${fixture}`, async ({ context, openPopup }) => {
       const page = await context.newPage();

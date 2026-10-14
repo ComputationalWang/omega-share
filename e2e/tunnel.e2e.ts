@@ -333,13 +333,17 @@ test.describe("tunnel safety through the local reverse proxy", () => {
       lane.proxy.setMode("offline");
       const offline = await openPopup(source);
       await expect(offline.locator('[data-testid="server-status"]')).toContainText("tunnel may be offline");
-      await expect(offline.locator(popup.shareButton)).toBeDisabled();
+      // No room can be shared into, so the popup offers to create one on the site instead (OME-1086).
+      await expect(offline.locator(popup.roomSelect)).toHaveValue("");
+      await expect(offline.locator(popup.shareButton)).toHaveText("Create room & share");
       await offline.close();
 
       lane.proxy.setMode("down");
       const down = await openPopup(source);
       await expect(down.locator('[data-testid="server-status"]')).toContainText(`Can't reach ${PUBLIC_ORIGIN}`);
-      await expect(down.locator(popup.shareButton)).toBeDisabled();
+      // No room can be shared into, so the popup offers to create one on the site instead (OME-1086).
+      await expect(down.locator(popup.roomSelect)).toHaveValue("");
+      await expect(down.locator(popup.shareButton)).toHaveText("Create room & share");
     } finally {
       lane.proxy.setMode("forward");
       await context.close();
