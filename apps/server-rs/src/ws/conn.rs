@@ -125,7 +125,13 @@ const CLOSE_WAIT: Duration = Duration::from_secs(1);
 /// Frames fed before a flush, so a busy room cannot hold one socket's first frame back.
 const MAX_BATCH: usize = 64;
 
+/// Runs one socket write, cut off after `WRITE_TIMEOUT`. A write that completes at once (nearly all of them) never
+/// touches the timer wheel; only one that would block is polled again under a timeout.
 async fn within<E>(op: impl std::future::Future<Output = Result<(), E>>) -> bool {
+    let mut op = std::pin::pin!(op);
+    if let std::task::Poll::Ready(done) = std::future::poll_fn(|cx| std::task::Poll::Ready(op.as_mut().poll(cx))).await {
+        return done.is_ok();
+    }
     matches!(tokio::time::timeout(WRITE_TIMEOUT, op).await, Ok(Ok(())))
 }
 

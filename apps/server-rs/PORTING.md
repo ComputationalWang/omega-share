@@ -151,6 +151,18 @@ Rust differs from the TS server in a few places that no real client reaches (all
 
 Anything else that differs is a bug, unless ADR 0050 is amended.
 
+## Performance (S9b, OME-1169)
+
+Measured with `perf/server-compare.ts` defaults (500 sockets, 60 s), release build, against Bun. What mattered, in order:
+
+- **Socket buffers** (`ws/mod.rs`): tungstenite's default 128 KiB read and write buffer per socket was the whole RSS gap (83 MB under load, 19 MB with 8 KiB read / 16 KiB write). Client frames are at most 4096 bytes and the outbox bounds queued bytes, so nothing needs more.
+- **One flush per burst** (`ws/conn.rs` `write`): the writer feeds every frame already queued (at most 64) and flushes once, instead of a flush per frame. Order, the byte accounting and the close-frame-last rule are unchanged (unit tests there).
+- **No timer for a write that completes at once** (`within`): the 10 s write timeout only goes on the timer wheel when the write would block.
+- **Worker threads** (`main.rs`): a thread per core burns CPU on cross-thread wakeups and idle spinning for a load a single core serves. The default is 2; `OMEGA_WORKER_THREADS=1` selects the current-thread scheduler (CPU equal to Bun, tail latency equal to Bun's, not better), a larger number selects that many workers. The `test-hooks` build always runs on one thread.
+- **Release profile**: `lto = "fat"`, `codegen-units = 1`, `overflow-checks = true`, `debug = false`, `strip = "symbols"`.
+- Not worth it, measured or reasoned: per-connection idle deadline (client frames are ~1 k/s in total, the server's 25 k/s of outgoing frames never touch it); allocator tuning (not tried: RSS is already flat at ~18 MB against Bun's 64 MB).
+- The floor: the kernel send path (loopback delivers inline in the sender's `write`) is about two thirds of the server's CPU and is the same for Bun, so "CPU avg better than Bun by more than the noise threshold" is not reachable by user-space work alone.
+
 ## The black-box suite (S8)
 
 The TS tests in `apps/server/test` are the referee. `bun run blackbox` (also the last step of `check:rs`, about 20 s on a warm cache) builds the binary with `--features test-hooks`, runs the suite against it with `OMEGA_SERVER_BIN`, and fails if a test listed in `apps/server-rs/blackbox/manifest.json` stops passing. It prints the passing tests that are not listed yet (`--write-manifest` adds them: a slice grows the manifest as its routes and messages land) and a summary: pass, fail, not-black-box (the test needs the in-process server). With `--dump` or `--write-manifest` it also runs a second pass with a binary that cannot start: whatever still passes never starts a server, says nothing about the binary, and is left out of the candidates (the plain `check:rs` run skips that pass, so its `pass` count includes those tests). It runs one test at a time, so the load is one binary.
