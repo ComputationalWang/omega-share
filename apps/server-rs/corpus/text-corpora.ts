@@ -420,7 +420,7 @@ export const nicknameKeyCases = (): Case[] => keyInputs().map((input) => ({ inpu
 // What `JSON.stringify` never writes, as the server's parse step would see it (decidedRaw).
 
 /** A lone-surrogate output can't be written as corpus JSON that serde reads, so the record gets U+FFFD. */
-const safeOutput = (o: unknown): unknown => (typeof o === "string" ? o.toWellFormed() : o);
+const safeOutput = (o: unknown): unknown => (typeof o === "string" ? o.replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, "�") : o);
 const rawParsed = (schema: v.GenericSchema, inputs: readonly RawInput[]): Case[] =>
   decidedRaw(inputs, (j) => {
     const r = v.safeParse(schema, j);
