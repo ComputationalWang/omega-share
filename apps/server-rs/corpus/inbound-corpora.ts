@@ -263,8 +263,10 @@ const createBodies = (): Raw[] => [
 ];
 const shareBodies = (): Raw[] => [
   js({ url: "https://youtu.be/dQw4w9WgXcQ" }), js({ url: "anything — server canonicalizes" }), js({ url: "" }),
-  js({ url: URL128(2048) }), js({ url: URL128(2049) }), js({ url: "😀".repeat(1024) }), js({ url: "😀".repeat(1025) }),
-  js({ url: "é".repeat(2048) }), js({ url: "é".repeat(2049) }),
+  js({ url: URL128(2048) }), js({ url: URL128(2049) }),
+  // Multi-byte units at the 2048 limit, kept under the 4096-byte body cap (which the parser also enforces).
+  js({ url: "😀".repeat(512) + "a".repeat(1024) }), js({ url: "😀".repeat(512) + "a".repeat(1025) }),
+  js({ url: "é".repeat(1024) + "a".repeat(1024) }), js({ url: "é".repeat(1024) + "a".repeat(1025) }),
   js({}), js({ url: null }), js({ url: 1 }), js({ url: ["x"] }), js({ url: {} }), js({ url: "x", extra: 1 }), js({ url: "x", u: "y" }),
   js("x"), js(null), js([]), js(["x"]), js(1), ok(""), ok("{"), ok('["https://x.example"]'), ok('{"url":"x"} x'), ok('{"url":"x",}'),
   rr('{"url":"a","url":"b"}'), rr('{"url":"\\ud800"}'),

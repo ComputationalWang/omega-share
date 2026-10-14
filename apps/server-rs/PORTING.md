@@ -101,13 +101,14 @@ For anything the server reads as JSON text (WebSocket frames, HTTP bodies, store
 
 ## Deliberate differences
 
-Rust differs from the TS server in four places that no real client reaches (the first three are stricter than Valibot). The comparison test lists them as expected disagreements:
+Rust differs from the TS server in a few places that no real client reaches (all but log scrubbing are stricter than Valibot). The comparison test lists them as expected disagreements:
 
 | Input | TS | Rust |
 |---|---|---|
 | Duplicate JSON keys | last one wins | rejected |
 | Integers written `1.0`, `1e2` or `-0` | accepted | rejected (`JSON.stringify` never writes them) |
 | Lone surrogates in text (`"\ud800"`) | accepted | rejected |
+| Request body that is not valid UTF-8 (`parse_*_request` take bytes) | decoded lossily (`Buffer.toString("utf8")`, `rate-limit.ts:152`), may be accepted | rejected |
 | Log scrubbing (`log.rs`) | cuts at the first `"` or `'` | also cuts at the first backtick, because serde errors quote input with backticks |
 
 Anything else that differs is a bug, unless ADR 0050 is amended.

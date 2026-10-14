@@ -3,7 +3,6 @@
 #![allow(clippy::panic, reason = "a test harness: a bad corpus file should fail loudly")]
 
 use omega_server::contract::capabilities::playback_caps;
-use omega_server::contract::client_message::parse_client_message;
 use omega_server::contract::confusables::nickname_key;
 use omega_server::contract::constants;
 use omega_server::contract::embed::{Embed, canonicalize_embed};
@@ -642,10 +641,7 @@ fn inbound<T: Serialize>(json: &str, parse: impl Fn(&str) -> Option<T>) {
     });
 }
 
-#[test]
-fn client_message_raw_agrees() {
-    inbound(include_str!("../corpus/out/client-message-raw.json"), parse_client_message);
-}
+// client-message-raw runs as a unit test in contract/client_message.rs (ClientMessage serializes only there).
 
 #[test]
 fn create_room_request_raw_agrees() {

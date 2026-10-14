@@ -8,12 +8,11 @@
 use super::constants::{MAX_CLIENT_MESSAGE_BYTES, MAX_EMBED_URL_LENGTH, MAX_POSITION_S, MAX_URL_LENGTH, PING_ID_MAX};
 use super::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken};
 use super::js_compat::utf16_len;
-use super::layout::RoomLayout;
+use super::layout::{RoomLayout, RoomLayoutInput};
 use super::room::{Avatar, ControlPolicy, SeatIndex};
 use super::text::{ChatText, Nickname, RoomTitle};
 use super::{Obj, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::Value;
 use validator::{Validate, ValidationError, ValidationErrors};
 
 /// `EMOTE_KINDS`.
@@ -32,7 +31,8 @@ pub enum EmoteKind {
 }
 
 /// Seconds into the video: finite, `0..=MAX_POSITION_S` (`PositionSchema`).
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(test, derive(Serialize))]
 pub struct Position(f64);
 
 impl Position {
@@ -42,7 +42,8 @@ impl Position {
 }
 
 /// Id a client picks for a `ping` (`PingIdSchema`): an integer in `0..=PING_ID_MAX`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(Serialize))]
 pub struct PingId(u32);
 
 impl PingId {
@@ -53,11 +54,13 @@ impl PingId {
 
 /// `control.url`: at most `MAX_EMBED_URL_LENGTH` UTF-16 units. Unparsed text: compared with the
 /// current embed's url, never opened.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(Serialize))]
 pub struct ControlUrl(String);
 
 /// `queue-add.url`: at most `MAX_URL_LENGTH` UTF-16 units. Raw page URL for the share parser.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(Serialize))]
 pub struct QueueUrl(String);
 
 macro_rules! as_str {
@@ -65,21 +68,23 @@ macro_rules! as_str {
 }
 as_str!(ControlUrl, QueueUrl);
 
-/// A frame the server accepts. Secrets keep their no-leak `Debug`.
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", rename_all = "kebab-case", rename_all_fields = "camelCase")]
+/// A frame the server accepts. `Debug` prints only the variant name, and `Serialize` exists only in
+/// unit tests: both would otherwise expose tokens and chat text.
+#[derive(Clone)]
+#[cfg_attr(test, derive(Serialize))]
+#[cfg_attr(test, serde(tag = "type", rename_all = "kebab-case", rename_all_fields = "camelCase"))]
 pub enum ClientMessage {
     Join {
         nickname: Nickname,
         avatar: Avatar,
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
         owner_token: Option<OwnerToken>,
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
         invite_key: Option<InviteKey>,
         /// Present only as `true`.
-        #[serde(skip_serializing_if = "std::ops::Not::not")]
+        #[cfg_attr(test, serde(skip_serializing_if = "std::ops::Not::not"))]
         durable_session: bool,
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
         resume_token: Option<ResumeToken>,
     },
     Leave {},
@@ -135,6 +140,38 @@ pub enum ClientMessage {
         item_id: QueueItemId,
         position: Position,
     },
+}
+
+impl ClientMessage {
+    /// The wire tag.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Join { .. } => "join",
+            Self::Leave {} => "leave",
+            Self::Presence { .. } => "presence",
+            Self::Sit { .. } => "sit",
+            Self::Chat { .. } => "chat",
+            Self::Ping { .. } => "ping",
+            Self::Control { .. } => "control",
+            Self::Status { .. } => "status",
+            Self::LayoutSet { .. } => "layout-set",
+            Self::TitleSet { .. } => "title-set",
+            Self::Emote { .. } => "emote",
+            Self::Kick { .. } => "kick",
+            Self::Mute { .. } => "mute",
+            Self::ControlPolicy { .. } => "control-policy",
+            Self::QueueAdd { .. } => "queue-add",
+            Self::QueueRemove { .. } => "queue-remove",
+            Self::QueueAdvance { .. } => "queue-advance",
+            Self::Ended { .. } => "ended",
+        }
+    }
+}
+
+impl std::fmt::Debug for ClientMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ClientMessage::{}(…)", self.kind())
+    }
 }
 
 // ---- wire ----------------------------------------------------------------------------------
@@ -239,8 +276,8 @@ struct StatusW {
 #[derive(Deserialize, Validate)]
 #[serde(deny_unknown_fields)]
 struct LayoutSetW {
-    /// Checked by `RoomLayout::parse_input` in `convert` (its wire types are private).
-    layout: Obj<Value>,
+    #[validate(nested)]
+    layout: Obj<RoomLayoutInput>,
 }
 
 #[derive(Deserialize, Validate)]
@@ -368,9 +405,9 @@ impl Validate for Wire {
     }
 }
 
-/// Fields are already validated, so this only wraps them (and checks the layout).
-fn convert(wire: Wire) -> Option<ClientMessage> {
-    Some(match wire {
+/// Fields are already validated, so this only wraps them.
+fn convert(wire: Wire) -> ClientMessage {
+    match wire {
         Wire::Join(m) => ClientMessage::Join {
             nickname: m.nickname,
             avatar: m.avatar,
@@ -390,9 +427,7 @@ fn convert(wire: Wire) -> Option<ClientMessage> {
             position: Position(m.position),
         },
         Wire::Status(m) => ClientMessage::Status { catching: m.catching },
-        Wire::LayoutSet(m) => ClientMessage::LayoutSet {
-            layout: RoomLayout::parse_input(m.layout.0.to_string().as_bytes()).ok()?,
-        },
+        Wire::LayoutSet(m) => ClientMessage::LayoutSet { layout: m.layout.0.into() },
         Wire::TitleSet(m) => ClientMessage::TitleSet { title: m.title },
         Wire::Emote(m) => ClientMessage::Emote { kind: m.kind },
         Wire::Kick(m) => ClientMessage::Kick { member_id: m.member_id },
@@ -410,7 +445,7 @@ fn convert(wire: Wire) -> Option<ClientMessage> {
             item_id: m.item_id,
             position: Position(m.position),
         },
-    })
+    }
 }
 
 /// `parseClientMessage`: `None` for anything the contract refuses. Never panics. The size check
@@ -419,13 +454,13 @@ pub fn parse_client_message(frame: &str) -> Option<ClientMessage> {
     if frame.len() > MAX_CLIENT_MESSAGE_BYTES {
         return None;
     }
-    convert(parse_json::<Wire>(frame.as_bytes()).ok()?)
+    parse_json::<Wire>(frame.as_bytes()).ok().map(convert)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use serde_json::{Value, json};
 
     fn parse(v: &Value) -> Option<ClientMessage> {
         parse_client_message(&v.to_string())
@@ -434,6 +469,32 @@ mod tests {
     fn echo(v: Value) {
         let got = parse(&v).and_then(|m| serde_json::to_value(m).ok());
         assert_eq!(got, Some(v));
+    }
+
+    /// The recorded TS decisions (`corpus/out/client-message-raw.json`), frame by frame. Here and not in
+    /// `tests/corpus.rs` because `ClientMessage` serializes only under `cfg(test)`.
+    #[test]
+    fn corpus_agrees_with_ts() {
+        fn numeric(v: Value) -> Value {
+            match v {
+                Value::Number(n) => n.as_f64().map_or(Value::Number(n), |f| json!(f)),
+                Value::Array(a) => Value::Array(a.into_iter().map(numeric).collect()),
+                Value::Object(o) => Value::Object(o.into_iter().map(|(k, v)| (k, numeric(v))).collect()),
+                other => other,
+            }
+        }
+        let cases: Vec<Value> = serde_json::from_str(include_str!("../../corpus/out/client-message-raw.json")).unwrap();
+        assert!(cases.len() > 700);
+        let mut wrong = Vec::new();
+        for case in cases {
+            let input = case["input"].as_str().unwrap();
+            let want = (case["ok"] == true && case.get("rust").is_none()).then(|| numeric(case["output"].clone()));
+            let got = parse_client_message(input).and_then(|m| serde_json::to_value(m).ok()).map(numeric);
+            if got != want {
+                wrong.push(format!("{input:?}: want {want:?}, Rust {got:?}"));
+            }
+        }
+        assert!(wrong.is_empty(), "{} disagreement(s):\n{}", wrong.len(), wrong.join("\n"));
     }
 
     #[test]
@@ -512,7 +573,7 @@ mod tests {
 
     #[test]
     fn debug_never_prints_tokens_or_user_text() {
-        let token = "SecretTokenAAAAAAAAAA";
+        let token = "SecretTokenAAAAAAAAAAA";
         let join = json!({"type":"join","nickname":"Alice","avatar":1,"ownerToken":token,"inviteKey":token,"resumeToken":"B".repeat(43)});
         let chat = json!({"type":"chat","text":"private words"});
         let queue = json!({"type":"queue-add","url":"https://private.example/x"});
@@ -526,16 +587,17 @@ mod tests {
 
     #[test]
     fn layout_set_refuses_duplicate_keys_inside_the_layout() {
-        let piece = r#"{"kind":"tv","col":0,"row":0,"facing":"se"}"#;
         let layout = serde_json::to_string(&json!({"furniture":[
             {"kind":"tv","col":0,"row":0,"facing":"se"},
             {"kind":"armchair","col":1,"row":5,"facing":"ne"},{"kind":"armchair","col":2,"row":4,"facing":"ne"},
             {"kind":"armchair","col":4,"row":2,"facing":"ne"},{"kind":"armchair","col":5,"row":1,"facing":"ne"},
             {"kind":"armchair","col":3,"row":7,"facing":"nw"},{"kind":"armchair","col":4,"row":6,"facing":"nw"},
             {"kind":"armchair","col":6,"row":4,"facing":"nw"},{"kind":"armchair","col":7,"row":3,"facing":"nw"},
-        ]})).unwrap();
+        ]}))
+        .unwrap();
         assert!(parse_client_message(&format!(r#"{{"type":"layout-set","layout":{layout}}}"#)).is_some());
-        let dup_piece = layout.replace(piece, r#"{"kind":"tv","kind":"tv","col":0,"row":0,"facing":"se"}"#);
+        let dup_piece = layout.replacen(r#""kind":"tv""#, r#""kind":"tv","kind":"tv""#, 1);
+        assert_ne!(dup_piece, layout);
         assert!(parse_client_message(&format!(r#"{{"type":"layout-set","layout":{dup_piece}}}"#)).is_none());
         let dup_key = layout.replacen('{', r#"{"furniture":[],"#, 1);
         assert!(parse_client_message(&format!(r#"{{"type":"layout-set","layout":{dup_key}}}"#)).is_none());

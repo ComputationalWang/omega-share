@@ -2,7 +2,7 @@
 //! `ReportRequestSchema`. The caller caps the body (`MAX_CREATE_BODY_BYTES`, `MAX_REPORT_BODY_BYTES`
 //! and the share cap) while reading it; these parse the bytes.
 
-use super::constants::MAX_URL_LENGTH;
+use super::constants::{MAX_CREATE_BODY_BYTES, MAX_REPORT_BODY_BYTES, MAX_SHARE_BODY_BYTES, MAX_URL_LENGTH};
 use super::js_compat::utf16_len;
 use super::layout::RoomPresetId;
 use super::room::RoomVisibility;
@@ -70,15 +70,23 @@ pub struct ReportRequest {
     pub note: Option<ReportNote>,
 }
 
+/// Oversized input is refused before it is read (the caller also caps while reading the socket).
+fn capped(body: &[u8], max: usize) -> Result<(), Invalid> {
+    if body.len() > max { Err(Invalid::new("too large")) } else { Ok(()) }
+}
+
 pub fn parse_create_room_request(body: &[u8]) -> Result<CreateRoomRequest, Invalid> {
+    capped(body, MAX_CREATE_BODY_BYTES)?;
     parse_json(body)
 }
 
 pub fn parse_share_request(body: &[u8]) -> Result<ShareRequest, Invalid> {
+    capped(body, MAX_SHARE_BODY_BYTES)?;
     parse_json(body)
 }
 
 pub fn parse_report_request(body: &[u8]) -> Result<ReportRequest, Invalid> {
+    capped(body, MAX_REPORT_BODY_BYTES)?;
     parse_json(body)
 }
 
@@ -141,8 +149,9 @@ mod tests {
         );
         assert!(parse_share_request(br#"{"url":"x","extra":1}"#).is_err());
         assert!(parse_share_request(br"{}").is_err());
-        assert!(parse_share_request(format!(r#"{{"url":"{}"}}"#, "😀".repeat(1024)).as_bytes()).is_ok());
-        assert!(parse_share_request(format!(r#"{{"url":"{}"}}"#, "😀".repeat(1025)).as_bytes()).is_err());
+        let url = |tail: usize| format!(r#"{{"url":"{}{}"}}"#, "😀".repeat(512), "a".repeat(tail));
+        assert!(parse_share_request(url(1024).as_bytes()).is_ok());
+        assert!(parse_share_request(url(1025).as_bytes()).is_err());
     }
 
     #[test]
