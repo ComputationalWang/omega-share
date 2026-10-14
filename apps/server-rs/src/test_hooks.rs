@@ -285,6 +285,7 @@ pub fn routes(clock: Arc<VirtualClock>) -> Router {
 
 /// Test-hooks only, opt-in (`OMEGA_TEST_STDIN_GUARD=1`): the harness spawns the server with a piped
 /// stdin, so a harness that dies closes the pipe and the server goes with it instead of lingering.
+#[allow(clippy::exit, reason = "the harness is gone: nothing is left to shut down gracefully")]
 pub fn stop_when_stdin_closes() {
     use std::io::Read;
     if std::env::var_os("OMEGA_TEST_STDIN_GUARD").is_none() {
