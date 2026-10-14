@@ -30,8 +30,8 @@ use tokio::sync::oneshot;
 const ACK_TIMEOUT: Duration = Duration::from_secs(5);
 /// A task that re-arms a zero delay forever would make one `set` loop forever.
 const MAX_FIRES_PER_SET: usize = 10_000;
-/// Scheduler turns given to a woken task for its synchronous post-wake work.
-const SETTLE_YIELDS: usize = 4;
+/// Upper bound on the scheduler turns `settle` spends per fired timer.
+const MAX_SETTLE_YIELDS: usize = 64;
 
 struct Timer {
     id: u64,
@@ -45,6 +45,8 @@ struct Inner {
     mono: f64,
     wall: i64,
     next_id: u64,
+    /// Timers ever armed: with the pending count it shows a woken task still re-arming.
+    armed: u64,
     timers: Vec<Timer>,
 }
 
@@ -64,6 +66,8 @@ pub struct VirtualClock {
     inner: Arc<Mutex<Inner>>,
     /// One `set` at a time, so two requests can't interleave their firing.
     setting: tokio::sync::Mutex<()>,
+    ack_timeout: Duration,
+    max_fires: usize,
 }
 
 impl VirtualClock {
@@ -73,6 +77,11 @@ impl VirtualClock {
 
     /// `wall: None` starts at the real wall time, so a test that never sets it still sees a sane date.
     pub fn starting_at(mono: f64, wall: Option<i64>) -> Arc<Self> {
+        Self::with_limits(mono, wall, ACK_TIMEOUT, MAX_FIRES_PER_SET)
+    }
+
+    /// Limits for the ack wait and the fires per `set` (tests shrink them).
+    pub fn with_limits(mono: f64, wall: Option<i64>, ack_timeout: Duration, max_fires: usize) -> Arc<Self> {
         let wall = wall.unwrap_or_else(|| {
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -83,15 +92,13 @@ impl VirtualClock {
                 mono,
                 wall,
                 next_id: 0,
+                armed: 0,
                 timers: Vec::new(),
             })),
             setting: tokio::sync::Mutex::new(()),
+            ack_timeout,
+            max_fires,
         })
-    }
-
-    /// Limits for the ack wait and the fires per `set` (tests shrink them).
-    pub fn with_limits(mono: f64, wall: Option<i64>, _ack_timeout: Duration, _max_fires: usize) -> Arc<Self> {
-        Self::starting_at(mono, wall)
     }
 
     /// Sets both clocks and fires every timer due at or before the new monotonic time, one at a
@@ -104,20 +111,46 @@ impl VirtualClock {
             inner.wall = wall;
         }
         let mut fired = 0;
-        while fired < MAX_FIRES_PER_SET {
-            let Some(timer) = self.take_due(mono) else { break };
+        while let Some(timer) = self.take_due(mono) {
+            if fired == self.max_fires {
+                return Err(SetError::TooManyFires(fired));
+            }
             fired += 1;
             if timer.fire.send(()).is_ok() {
                 // An error here is the acknowledgement; a timeout means the sleeper is stuck.
-                if tokio::time::timeout(ACK_TIMEOUT, timer.acked).await.is_err() {
-                    break;
+                if tokio::time::timeout(self.ack_timeout, timer.acked).await.is_err() {
+                    return Err(SetError::AckTimeout);
                 }
-                for _ in 0..SETTLE_YIELDS {
-                    tokio::task::yield_now().await;
-                }
+                self.settle().await;
             }
         }
         Ok(fired)
+    }
+
+    /// Lets the woken task's post-wake work run. The binary runs on one thread, so that work (and
+    /// anything it spawns) runs while this task yields; yield until the timers armed and pending
+    /// stop changing across two consecutive yields. Limit: a task that awaits something other than
+    /// the scheduler before finishing is not waited for.
+    async fn settle(&self) {
+        let stamp = || {
+            let inner = lock(&self.inner);
+            (inner.timers.len(), inner.armed)
+        };
+        let mut last = stamp();
+        let mut steady = 0;
+        for _ in 0..MAX_SETTLE_YIELDS {
+            tokio::task::yield_now().await;
+            let now = stamp();
+            if now == last {
+                steady += 1;
+                if steady == 2 {
+                    return;
+                }
+            } else {
+                steady = 0;
+                last = now;
+            }
+        }
     }
 
     /// The earliest due timer (ties: armed first), removed from the list.
@@ -178,6 +211,7 @@ impl Clock for VirtualClock {
         let mut inner = lock(&self.inner);
         let id = inner.next_id;
         inner.next_id += 1;
+        inner.armed += 1;
         // Negative and NaN delays are due at once.
         let delay = if ms > 0.0 { ms } else { 0.0 };
         let deadline = inner.mono + delay;
@@ -199,14 +233,27 @@ struct SetTime {
     wall: i64,
 }
 
-/// `POST /__test/time {mono, wall}` → `{"fired":n}`; `GET /__test/time` → `{"pending":n}`.
+/// `POST /__test/time {mono, wall}` → `{"fired":n}`, or 500 with a reason when `set` gave up;
+/// `GET /__test/time` → `{"pending":n}`. The work runs in its own task, so a client that hangs up
+/// can't abandon it half-way (time moved, due timers unfired).
 async fn post_time(State(clock): State<Arc<VirtualClock>>, body: Bytes) -> (StatusCode, String) {
-    match serde_json::from_slice::<SetTime>(&body) {
-        Ok(t) if t.mono.is_finite() => (
-            StatusCode::OK,
-            format!(r#"{{"fired":{}}}"#, clock.set(t.mono, t.wall).await.unwrap_or(0)),
+    let Ok(t) = serde_json::from_slice::<SetTime>(&body) else {
+        return (StatusCode::BAD_REQUEST, r#"{"error":"expected {mono, wall}"}"#.to_owned());
+    };
+    if !t.mono.is_finite() {
+        return (StatusCode::BAD_REQUEST, r#"{"error":"expected {mono, wall}"}"#.to_owned());
+    }
+    match tokio::spawn(async move { clock.set(t.mono, t.wall).await }).await {
+        Ok(Ok(fired)) => (StatusCode::OK, format!(r#"{{"fired":{fired}}}"#)),
+        Ok(Err(SetError::TooManyFires(n))) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!(r#"{{"error":"fire limit: more than {n} timers due"}}"#),
         ),
-        _ => (StatusCode::BAD_REQUEST, r#"{"error":"expected {mono, wall}"}"#.to_owned()),
+        Ok(Err(SetError::AckTimeout)) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            r#"{"error":"ack timeout: a woken sleeper never released its sleep"}"#.to_owned(),
+        ),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, r#"{"error":"set task failed"}"#.to_owned()),
     }
 }
 
@@ -475,13 +522,14 @@ mod tests {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move { axum::serve(listener, router).await });
-        let done = Arc::new(AtomicBool::new(false));
-        let (c, d) = (clock.clone(), done.clone());
+        // Two timers are due; the first blocks the (single) thread, so the hang-up lands mid-set.
+        let c = clock.clone();
         tokio::spawn(async move {
             c.sleep(5.0).await;
-            tokio::time::sleep(Duration::from_millis(30)).await;
-            d.store(true, Ordering::SeqCst);
+            std::thread::sleep(Duration::from_millis(100));
         });
+        let c = clock.clone();
+        tokio::spawn(async move { c.sleep(6.0).await });
         tokio::task::yield_now().await;
         let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
         let body = r#"{"mono":10,"wall":0}"#;
@@ -490,8 +538,9 @@ mod tests {
             body.len()
         );
         stream.write_all(post.as_bytes()).await.unwrap();
+        tokio::time::sleep(Duration::from_millis(20)).await;
         drop(stream);
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
         assert_eq!(clock.pending(), 0);
         assert_eq!(clock.mono_ms(), 10.0);
     }
