@@ -94,7 +94,7 @@ if (!wantsCandidates) verdict.unlisted = [];
 
 console.log(
   `\nblack-box: ${String(verdict.counts.pass)} pass, ${String(verdict.counts.fail)} fail, ` +
-    `${String(verdict.counts["not-black-box"])} not-black-box, ${String(verdict.counts.skip)} skipped, ${wantsCandidates ? `${String(verdict.counts["no-server"])} never start a server ` : ""}` +
+    `${String(verdict.counts["not-black-box"])} not-black-box, ${String(verdict.counts.skip)} skipped${wantsCandidates ? `, ${String(verdict.counts["no-server"])} never start a server` : ""} ` +
     `(${String(listed.length)} in the manifest)`,
 );
 if (verdict.unlisted.length > 0) {
