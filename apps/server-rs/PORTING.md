@@ -148,6 +148,11 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | HTTP: a static path with a dot segment (`.env`, `.git/...`, `assets/.x`) | served if the file exists | 404; only the explicit `/.well-known/security.txt` route serves a dot path: safety over parity |
 | `PUBLIC_ORIGIN=http://...` | `startServer` accepts it in a test (`parseConfig` refuses it) | the config refuses it, as `parseConfig` does: `boundary.test.ts` "no HSTS ... plain-http one" cannot run against the binary |
 | HTTP request body with invalid UTF-8 | decoded lossily, then `JSON.parse` | the same (`String::from_utf8_lossy`): the route decodes first, so the `parse_*_request` row above does not apply to HTTP |
+| A panic | Bun prints the error and stack | one JSON `panic` event with the source location only (the payload can hold a nickname, title or URL), `panic_hook.rs` |
+| A poisoned room lock (a handler panicked under it) | n/a (JS has no poisoning) | the room goes offline: marked closed, sockets closed 1012, `room.poisoned` logged; store and reports locks log `state.poisoned` once and continue |
+| SQLite build and connections | Bun's SQLite | `.cargo/config.toml` sets `LIBSQLITE3_FLAGS` (no loadable extensions, `SQLITE_DQS=0`); every connection is defensive with an untrusted schema; `secure_delete=FAST`, `journal_size_limit=4 MiB` (per connection, same file format) |
+| `restore` while the server runs | not checked | refused when the admin socket answers a connect; a start also refuses to unlink a socket that answers |
+| A corrupt room's id in the boot failure | the raw id | the same id, control and format characters escaped (`cli::printable`) |
 
 Anything else that differs is a bug, unless ADR 0050 is amended.
 
