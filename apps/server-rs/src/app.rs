@@ -695,6 +695,22 @@ mod tests {
         assert!(app.registry.get(&rid("lobby")).is_some(), "rooms stay");
     }
 
+    // Each slice fills its own state struct, so S5, S6 and S7 never edit `App` itself.
+    #[test]
+    fn the_app_carries_one_empty_state_struct_per_slice() {
+        let (app, _) = app();
+        let _: &crate::http::HttpState = &app.http;
+        let _: &crate::ws::WsState = &app.ws;
+        let _: &crate::ops::OpsState = &app.ops;
+    }
+
+    #[test]
+    fn the_per_slice_routers_exist_and_start_empty() {
+        let (app, _) = app();
+        let _: axum::Router = crate::http::router(app.clone());
+        let _: axum::Router = crate::ws::router(app);
+    }
+
     #[test]
     fn the_app_exposes_both_clocks_and_one_store() {
         let (app, clock) = app();
