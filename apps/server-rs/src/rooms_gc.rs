@@ -88,7 +88,7 @@ impl std::error::Error for SweepPanicked {}
 
 /// `spawn_room_gc` with the sweep injected (tests make it panic).
 fn spawn_gc_with(app: Arc<App>, sweep: impl Fn(&App) + Send + Sync + 'static) -> JoinHandle<()> {
-    let sweep = Arc::new(sweep);
+    let sweep: SweepFn = Arc::new(sweep);
     // The boot sweep runs before this returns, so it is done before the caller starts listening.
     sweep_guarded(&app, sweep.as_ref());
     tokio::spawn(async move {
@@ -96,13 +96,27 @@ fn spawn_gc_with(app: Arc<App>, sweep: impl Fn(&App) + Send + Sync + 'static) ->
             app.clock.sleep(ROOM_GC_INTERVAL_MS as f64).await;
             // On the blocking pool: a sweep does synchronous store writes under room locks. A panic is a
             // JoinError there; it is logged and the loop goes on.
-            let (app, sweep) = (app.clone(), sweep.clone());
-            let swept = tokio::task::spawn_blocking(move || sweep_guarded(&app, sweep.as_ref())).await;
-            if let Err(err) = swept {
+            if let Err(err) = run_sweep(&app, &sweep).await {
                 log_error(LogEvent::GcSweep, Some(&err));
             }
         }
     })
+}
+
+type SweepFn = Arc<dyn Fn(&App) + Send + Sync>;
+
+#[cfg(not(feature = "test-hooks"))]
+async fn run_sweep(app: &Arc<App>, sweep: &SweepFn) -> Result<bool, tokio::task::JoinError> {
+    let (app, sweep) = (app.clone(), sweep.clone());
+    tokio::task::spawn_blocking(move || sweep_guarded(&app, sweep.as_ref())).await
+}
+
+/// With `test-hooks` the sweep runs inline: the virtual clock's ack ("the woken task's work is done")
+/// only holds for work on the one runtime thread, not on the blocking pool (see test_hooks.rs).
+#[cfg(feature = "test-hooks")]
+#[allow(clippy::unused_async, reason = "same signature as the production version")]
+async fn run_sweep(app: &Arc<App>, sweep: &SweepFn) -> Result<bool, tokio::task::JoinError> {
+    Ok(sweep_guarded(app, sweep.as_ref()))
 }
 
 #[cfg(test)]
