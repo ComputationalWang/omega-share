@@ -688,6 +688,9 @@ fn response_raw_agrees() {
 fn response_roundtrip_agrees() {
     agree(load::<Body, String>(include_str!("../corpus/out/response-roundtrip.json")), |b| {
         response(b, |r| r.text())
+    });
+}
+
 // ---- OME-1162: secrets and metrics.
 
 #[test]

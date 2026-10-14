@@ -2,6 +2,7 @@
 //! the wall clock (`Date.now()`) as `now_wall` Unix ms; the server stamps `at` with it, not the monotonic clock.
 
 use crate::contract::capabilities::playback_caps;
+use crate::contract::constants::MAX_POSITION_S;
 use crate::contract::embed::Embed;
 use crate::contract::ids::MemberId;
 use crate::contract::state::{PlaybackAction, PlaybackState, Position, Rate, Rev, ServerTime};
@@ -16,50 +17,92 @@ pub struct Control<'a> {
     pub position: f64,
 }
 
+/// A position further than this from the extrapolated one counts as a seek (ADR 0011).
+const SEEK_THRESHOLD_S: f64 = 1.0;
+
+/// `Math.min(MAX_POSITION_S, Math.max(0, s))`.
+fn clamp(s: f64) -> f64 {
+    s.clamp(0.0, MAX_POSITION_S)
+}
+
+/// Unix ms as the schema's `ServerTime`; the wall clock is past 1970, so the fallback is unreachable.
+fn server_time(now_wall: i64) -> ServerTime {
+    ServerTime(u64::try_from(now_wall).unwrap_or(0))
+}
+
 /// The `load` state of a freshly shared embed. `prev_rev` is the room's last rev (-1 if none).
-pub fn load_playback(_prev_rev: i64, _now_wall: i64, _by: Option<MemberId>) -> PlaybackState {
-    stub()
+pub fn load_playback(prev_rev: i64, now_wall: i64, by: Option<MemberId>) -> PlaybackState {
+    PlaybackState {
+        playing: true,
+        position: Position::ZERO,
+        rate: Rate::ONE,
+        at: server_time(now_wall),
+        rev: Rev(u64::try_from(prev_rev.saturating_add(1)).unwrap_or(0)),
+        action: PlaybackAction::Load,
+        by,
+    }
 }
 
 /// The state of an embed restored from the DB after a restart: paused at 0, by no one (OME-280).
-pub fn restored_playback(_now_wall: i64) -> PlaybackState {
-    stub()
+pub fn restored_playback(now_wall: i64) -> PlaybackState {
+    PlaybackState {
+        playing: false,
+        position: Position::ZERO,
+        rate: Rate::ONE,
+        at: server_time(now_wall),
+        rev: Rev(0),
+        action: PlaybackAction::Pause,
+        by: None,
+    }
 }
 
-/// Where the video should be at server time `now_wall`.
-pub fn expected_position(_state: &PlaybackState, _now_wall: i64) -> f64 {
-    -1.0
+/// Where the video should be at server time `now_wall`. The expression order is the TS one (f64 rounding).
+pub fn expected_position(state: &PlaybackState, now_wall: i64) -> f64 {
+    if state.playing {
+        clamp(state.position.get() + ((now_wall as f64 - state.at.0 as f64) / 1000.0) * state.rate.get())
+    } else {
+        state.position.get()
+    }
 }
 
 /// Applies `control` from `by` (last write wins). `None` when there is no embed or `control.url` is not
 /// the current embed's url. On a live embed the position is always 0 and a control is only a play or a pause.
 pub fn apply_control(
-    _state: Option<&PlaybackState>,
-    _embed: Option<&Embed>,
-    _control: &Control<'_>,
-    _by: &MemberId,
-    _now_wall: i64,
+    state: Option<&PlaybackState>,
+    embed: Option<&Embed>,
+    control: &Control<'_>,
+    by: &MemberId,
+    now_wall: i64,
 ) -> Option<PlaybackState> {
-    None
-}
-
-fn stub() -> PlaybackState {
-    PlaybackState {
-        playing: false,
-        position: Position::ZERO,
-        rate: Rate::ONE,
-        at: ServerTime(0),
-        rev: Rev(99),
-        action: PlaybackAction::Seek,
-        by: None,
+    let (state, embed) = (state?, embed?);
+    if embed.url() != control.url {
+        return None;
     }
+    let live = playback_caps(embed).live;
+    let position = if live { 0.0 } else { clamp(control.position) };
+    let action = if !live && (position - expected_position(state, now_wall)).abs() > SEEK_THRESHOLD_S {
+        PlaybackAction::Seek
+    } else if control.playing {
+        PlaybackAction::Play
+    } else {
+        PlaybackAction::Pause
+    };
+    Some(PlaybackState {
+        playing: control.playing,
+        // `None` only for a NaN position, which the wire schema never lets through.
+        position: Position::new(position)?,
+        rate: state.rate,
+        at: server_time(now_wall),
+        rev: Rev(state.rev.0.saturating_add(1)),
+        action,
+        by: Some(by.clone()),
+    })
 }
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::indexing_slicing, reason = "tests")]
 mod tests {
     use super::*;
-    use crate::contract::constants::MAX_POSITION_S;
     use crate::contract::embed::canonicalize_embed;
 
     const URL: &str = "https://www.youtube.com/embed/dQw4w9WgXcQ";
