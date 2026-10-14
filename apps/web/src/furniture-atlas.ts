@@ -1,4 +1,4 @@
-// Set (g) furniture atlas (assets/furniture, CC BY-SA 4.0). Its own chunk: room.ts imports it only when a layout uses a
+// Set (g) furniture atlas (assets/furniture, CC BY-SA 4.0). Its own chunk: stage.ts imports it only when a layout uses a
 // set (g) piece, so the default room never fetches the sheet (assets/README.md "Furniture atlas").
 import * as v from "valibot";
 import json from "../../../assets/furniture/furniture.json";

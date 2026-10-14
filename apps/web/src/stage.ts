@@ -8,7 +8,7 @@ import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG } from "./furniture";
+import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import { seatViews } from "./intents";
 import { SYSLINE_RAIL, TAG_OFFSET_Y, type Point, type Rect } from "./layout";
@@ -128,9 +128,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let awayIds: ReadonlySet<MemberId> = new Set<MemberId>();
   let grid: Uint8Array = new Uint8Array(0);
   let standing: Point[] = [];
-  let scene = sceneOf(layoutOf(null), null);
+  let scene = sceneOf(layoutOf(null), []);
   /** The set (g) atlas once loaded: later layouts build their scene with it straight away. */
   let atlas: FurnitureAtlas | null = null;
+  /** Catalogue v2's atlas once loaded (OME-1113); same shape as set (g)'s. */
+  let v2Atlas: FurnitureAtlas | null = null;
   /** The room atlas (planks, walls, room-atlas kinds) once loaded; every room uses it. */
   let roomAtlas: RoomAtlas | null = null;
   /** The drawn layout's content; a re-join snapshot parses a new but equal layout, which keeps the scene. */
@@ -142,8 +144,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const hourglasses = new Map<HTMLElement, HTMLElement>();
 
   const buildScene = (l: RoomLayout): void => {
-    scene = sceneOf(l, atlas?.manifest ?? null, roomAtlas?.manifest ?? null);
-    view.setScene(scene, [atlas, roomAtlas], grid);
+    const catalogues = [atlas, v2Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
+    scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null);
+    view.setScene(scene, [atlas, v2Atlas, roomAtlas], grid);
     drawnSeats = undefined;
   };
 
@@ -186,6 +189,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     }
     if (usesSetG(next) && atlas === null) {
       lazyAtlas("furniture", key, next, () => import("./furniture-atlas").then((m) => m.loadFurnitureAtlas()), (a) => (atlas = a));
+    }
+    if (usesV2(next) && v2Atlas === null) {
+      lazyAtlas("furniture v2", key, next, () => import("./furniture-v2-atlas").then((m) => m.loadFurnitureV2Atlas()), (a) => (v2Atlas = a));
     }
   };
 
