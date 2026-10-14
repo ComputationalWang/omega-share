@@ -5,5 +5,6 @@ pub mod config;
 pub mod contract;
 pub mod headers;
 pub mod log;
+pub mod presets;
 pub mod rate_limit;
 pub mod serve;

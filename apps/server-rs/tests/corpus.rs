@@ -4,6 +4,7 @@
 
 use omega_server::contract::constants;
 use omega_server::contract::generic_embed::normalize_hostname;
+use omega_server::contract::layout::{Facing, Furniture, Kind, RoomLayout, footprint_cells, layout_seats};
 use omega_server::log::redact_addresses;
 use omega_server::rate_limit::{address_key, client_key, is_loopback_key};
 use serde::Deserialize;
@@ -15,9 +16,15 @@ const RUNNERS: &[&str] = &[
     "address-key",
     "client-key",
     "constants",
+    "footprint-cells",
     "is-loopback-key",
+    "layout-seats",
     "normalize-hostname",
     "redact-addresses",
+    "room-layout",
+    "room-layout-input",
+    "room-layout-input-raw",
+    "room-layout-raw",
 ];
 
 /// One TS decision: refused (`ok: false`) or accepted with `output`. `rust: "refuses"` marks a
@@ -206,4 +213,79 @@ fn constants_agree() {
         })
         .collect();
     agree(cases, |name| constant(name));
+}
+
+fn layout_decision(input: &Value, parse: fn(&[u8]) -> Result<RoomLayout, omega_server::contract::Invalid>) -> Option<Value> {
+    let layout = parse(input.to_string().as_bytes()).ok()?;
+    serde_json::to_value(&layout).ok()
+}
+
+#[test]
+fn room_layout_agrees() {
+    agree(load::<Value, Value>(include_str!("../corpus/out/room-layout.json")), |input| {
+        layout_decision(input, RoomLayout::parse)
+    });
+}
+
+#[test]
+fn room_layout_raw_agrees() {
+    agree(load::<String, Value>(include_str!("../corpus/out/room-layout-raw.json")), |text| {
+        RoomLayout::parse(text.as_bytes()).ok().and_then(|l| serde_json::to_value(&l).ok())
+    });
+}
+
+#[test]
+fn room_layout_input_raw_agrees() {
+    agree(
+        load::<String, Value>(include_str!("../corpus/out/room-layout-input-raw.json")),
+        |text| {
+            RoomLayout::parse_input(text.as_bytes())
+                .ok()
+                .and_then(|l| serde_json::to_value(&l).ok())
+        },
+    );
+}
+
+#[test]
+fn room_layout_input_agrees() {
+    agree(
+        load::<Value, Value>(include_str!("../corpus/out/room-layout-input.json")),
+        |input| layout_decision(input, RoomLayout::parse_input),
+    );
+}
+
+/// A piece as the corpus writes it, for the functions that take one unchecked.
+#[derive(Debug, Deserialize)]
+struct PieceIn {
+    kind: Kind,
+    col: u8,
+    row: u8,
+    facing: Facing,
+}
+
+impl PieceIn {
+    fn furniture(&self) -> Furniture {
+        Furniture::new(self.kind, self.col, self.row, self.facing)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct LayoutIn {
+    furniture: Vec<PieceIn>,
+}
+
+#[test]
+fn footprint_cells_agree() {
+    agree(
+        load::<PieceIn, Vec<(u32, u32)>>(include_str!("../corpus/out/footprint-cells.json")),
+        |p| Some(footprint_cells(&p.furniture())),
+    );
+}
+
+#[test]
+fn layout_seats_agree() {
+    agree(load::<LayoutIn, Value>(include_str!("../corpus/out/layout-seats.json")), |l| {
+        let pieces: Vec<Furniture> = l.furniture.iter().map(PieceIn::furniture).collect();
+        serde_json::to_value(layout_seats(&pieces)).ok()
+    });
 }
