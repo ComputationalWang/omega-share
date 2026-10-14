@@ -8,7 +8,7 @@ import { initialState, reduce, type ViewState } from "../src/state";
 // player, or a generic page's load card (ADR 0024 §3) with no sync chrome.
 
 beforeAll(() => {
-  GlobalRegistrator.register();
+  GlobalRegistrator.register({ url: "https://omega.example/r/main" });
 });
 afterAll(async () => {
   await GlobalRegistrator.unregister();

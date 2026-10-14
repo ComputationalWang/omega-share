@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, isSyncedEmbed, type AnyEmbed, type Avatar, type ClientMessage, type EmoteKind, type Embed, type ErrorCode, type MemberId, type Nickname, type ResumeToken, type RoomId } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, type Avatar, type ClientMessage, type EmoteKind, type ErrorCode, type MemberId, type Nickname, type ResumeToken, type RoomId } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
@@ -11,26 +11,21 @@ import { presenceHint } from "./session-lifecycle";
 import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
 import { inviteLink, joinMessage, type RoomSecret, type SecretsStore } from "./room-secrets";
 import { createInviteControl } from "./controls/invite";
-import { createPersonal, createTransport, el, sprite } from "./controls/dom";
+import { el, sprite } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
-import { createQualityPicker } from "./controls/quality-picker";
 import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { chatView } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
-import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
 import { chatIntent, sitIntent } from "./intents";
 import { layoutOf } from "./furniture";
 import { createPendingApplier } from "./pending-layout";
 import { FS_STRIP_W, PHONE_QUERY, STAGE_H, STAGE_W, WIDE_QUERY, fullscreenLayout, portraitLayout, roomLayout, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createFullscreen, type FullscreenMode } from "./fullscreen";
 import { createRoomWindow } from "./room-window";
-import type { PlayerError } from "./player/adapter";
-import { PLAYERS, createPlayerMounter } from "./player/registry";
 import { createStage, type Stage } from "./stage";
 import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
-import { genericFrame, tvFrame, type TvFrame } from "./tv";
-import { createGenericTv } from "./controls/generic-tv";
+import { createRoomTv, syncedOnly } from "./room-tv";
 import type { ExtensionBridge } from "./extension-bridge";
 import { createOwnerTools } from "./owner-tools";
 import { createEmotePicker } from "./emote/picker";
@@ -171,11 +166,6 @@ function stoppedConnection(): Connection {
   return { send: () => false, close: () => undefined, resume: () => undefined, ensureConnected: () => undefined, reclaim: () => undefined };
 }
 
-/** What the sync loop plays: the synced embed, or null (a generic embed is never synced, ADR 0024). */
-function syncedOnly(e: AnyEmbed | null | undefined): Embed | null {
-  return e != null && isSyncedEmbed(e) ? e : null;
-}
-
 /** The middle of the seats' bounding box (stage px): where the phone's room window looks first. */
 function middleOf(points: readonly Point[]): Point {
   if (points.length === 0) return { x: STAGE_W / 2, y: STAGE_H / 2 };
@@ -245,16 +235,63 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const { root: stage, overlay, tags, view } = roomStage;
   const clip = el("div", { className: "stage-clip" }, "room-window");
   clip.append(stage);
-  const tv = el("div", { className: "tv ui-tv-frame" }, "tv");
-  const controls = el("div", { className: "controls ui-tv-shelf", role: "group", ariaLabel: "Playback controls" });
+  let state = initialState;
+  let conn: Connection | null = null;
+  const send = (m: ClientMessage): boolean => conn?.send(m) ?? false;
+  // connection → clock → sync loop → player (ADR 0011). One 4 Hz timer drives the clock tick, the loop and the chrome.
+  const clock = createClockSync({
+    now: browserNow,
+    sendPing: (id) => send({ type: "ping", id }),
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => {
+      clearTimeout(h);
+    },
+    window,
+    document,
+  });
+  let pbView: PlaybackView | null = null;
+  let ctlFrame = 0;
+  const playback = createPlaybackController({
+    send,
+    clock,
+    now: () => performance.now(),
+    setInterval: (fn, ms) => setInterval(fn, ms),
+    clearInterval: (h) => {
+      clearInterval(h);
+    },
+    onView: (v) => {
+      pbView = v;
+      // The room window's plate and my hourglass there: from the player's timer, not a frame (a hidden tab draws none).
+      relay?.tv({ video: v.hasVideo, playing: v.playing, position: Math.max(0, Math.floor(v.position)), live: v.live, catching: v.catching });
+      if (ctlFrame === 0) ctlFrame = requestAnimationFrame(renderControls);
+    },
+    // This device's quality per provider (OME-599). The `localStorage` getter itself throws when storage is blocked.
+    qualityMemory: qualityMemory({
+      getItem: (k) => localStorage.getItem(k),
+      setItem: (k, v) => {
+        localStorage.setItem(k, v);
+      },
+    }),
+  });
+  const fsKey = el("button", { type: "button", className: "ui-button self icon fs-key", ariaLabel: "Full screen" }, "fullscreen-toggle");
+  fsKey.setAttribute("aria-keyshortcuts", "F");
+  const fsIcon = sprite("ui-icon-fullscreen");
+  fsKey.append(fsIcon);
   // The full-screen element (OME-597): an existing ancestor of the TV, so going full screen moves no node and the
   // provider's iframe never reloads.
   const wrap = el("div", { className: "stage-wrap", hidden: true }, "fs-root");
+  const tvBox = createRoomTv({
+    playback,
+    extension: opts.extension,
+    fsKey,
+    wrap,
+    fullscreen: () => fs.mode() !== "off",
+    onProvider: () => {
+      fit();
+    },
+  });
+  const { tv, controls } = tvBox;
   wrap.append(tv, controls, clip);
-  const tvEmpty = el("p", { className: "tv-empty", textContent: "Share a video with the extension, or paste a link under Up next, to watch it here." });
-  tv.append(tvEmpty);
-  const syncNotice = el("p", { className: "notice sync-notice", role: "status", hidden: true }, "sync-notice");
-  const tvHint = el("p", { className: "notice tv-hint", hidden: true }, "tv-hint");
 
   const chatForm = el("form", { className: "chat" });
   const chatInput = el("input", { type: "text", maxLength: 280, placeholder: "Say something…", autocomplete: "off", ariaLabel: "Chat message" }, "chat-input");
@@ -391,10 +428,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Full screen (OME-597, set k `ui-m7-desktop` / `ui-m7-band`). The key ends the shelf (a personal key: it changes only
   // your screen). The strip is the TV cabinet's side panel: while full screen lasts the chat log (fading) and the field
   // move into it, beside the picture or under it, or it collapses to the field on one band under the picture.
-  const fsKey = el("button", { type: "button", className: "ui-button self icon fs-key", ariaLabel: "Full screen" }, "fullscreen-toggle");
-  fsKey.setAttribute("aria-keyshortcuts", "F");
-  const fsIcon = sprite("ui-icon-fullscreen");
-  fsKey.append(fsIcon);
   const strip = el("aside", { className: "fs-strip ui-fs-strip", ariaLabel: "Chat", hidden: true }, "fs-strip");
   const stripHead = el("div", { className: "fs-strip-head" });
   const stripToggle = el("button", { type: "button", className: "ui-button self icon" }, "fs-strip-toggle");
@@ -457,84 +490,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   });
   renderStrip();
 
-  let state = initialState;
-  let conn: Connection | null = null;
-  const send = (m: ClientMessage): boolean => conn?.send(m) ?? false;
-  // connection → clock → sync loop → player (ADR 0011). One 4 Hz timer drives the clock tick, the loop and the chrome.
-  const clock = createClockSync({
-    now: browserNow,
-    sendPing: (id) => send({ type: "ping", id }),
-    setTimer: (fn, ms) => setTimeout(fn, ms),
-    clearTimer: (h) => {
-      clearTimeout(h);
-    },
-    window,
-    document,
-  });
-  let pbView: PlaybackView | null = null;
-  let shownPlayerError: PlayerError | null = null;
-  let ctlFrame = 0;
-  const playback = createPlaybackController({
-    send,
-    clock,
-    now: () => performance.now(),
-    setInterval: (fn, ms) => setInterval(fn, ms),
-    clearInterval: (h) => {
-      clearInterval(h);
-    },
-    onView: (v) => {
-      pbView = v;
-      // The room window's plate and my hourglass there: from the player's timer, not a frame (a hidden tab draws none).
-      relay?.tv({ video: v.hasVideo, playing: v.playing, position: Math.max(0, Math.floor(v.position)), live: v.live, catching: v.catching });
-      if (ctlFrame === 0) ctlFrame = requestAnimationFrame(renderControls);
-    },
-    // This device's quality per provider (OME-599). The `localStorage` getter itself throws when storage is blocked.
-    qualityMemory: qualityMemory({
-      getItem: (k) => localStorage.getItem(k),
-      setItem: (k, v) => {
-        localStorage.setItem(k, v);
-      },
-    }),
-  });
-  const transport = createTransport(playback);
-  const personal = createPersonal(playback);
-  // Quality, only you (OME-599, set k `ui-m7-quality`): a key before full screen, only where the player can be set.
-  const quality = createQualityPicker(playback, {
-    setTimeout: (fn, ms) => setTimeout(fn, ms),
-    clearTimeout: (h) => {
-      clearTimeout(h);
-    },
-  });
-  /** The synced tier's shelf. The volume pod rides in it, right under the picture (OME-642): you reach for it while you watch. */
-  const syncShelf = (): void => {
-    controls.replaceChildren(transport.root, personal.pod, quality.key, fsKey);
-  };
-  syncShelf();
-  /** In the page the list hangs under the shelf, over the room (ours), its tail on the key; never over the picture. */
-  const placeQuality = (): void => {
-    if (!quality.isOpen() || quality.menu.parentElement !== wrap) return;
-    const m = quality.menu;
-    const k = quality.key;
-    const right = controls.offsetLeft + k.offsetLeft + k.offsetWidth / 2;
-    const left = Math.max(0, right - m.offsetWidth + 24);
-    m.style.left = `${String(left)}px`;
-    m.style.top = `${String(controls.offsetTop + controls.offsetHeight + 8)}px`;
-    m.style.setProperty("--ui-tail-x", `${String(right - left)}px`);
-  };
-  quality.onToggle((open) => {
-    // Full screen: the list takes the shelf's place, so nothing grows over the picture.
-    const row = fs.mode() !== "off";
-    controls.classList.toggle("is-quality-row", open && row);
-    if (!open) {
-      quality.menu.remove();
-      return;
-    }
-    if (row) controls.append(quality.menu);
-    else {
-      wrap.append(quality.menu);
-      placeQuality();
-    }
-  });
   // "Up next" (ADR 0031): the room's queue under the TV. Its rows are text; it redraws only when the queue changes.
   const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname] });
 
@@ -613,7 +568,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     wrap.classList.toggle("is-fs", on);
     wrap.classList.toggle("is-pseudo-fs", mode === "pseudo");
     // The quality list is a row in full screen, a tray under the shelf in the page: it closes as the layout changes.
-    quality.setRow(on);
+    tvBox.setRow(on);
     renderRoomPlace();
     fsKey.ariaLabel = on ? "Exit full screen" : "Full screen";
     fsIcon.className = `ui-sprite ${on ? "ui-icon-fullscreen-exit" : "ui-icon-fullscreen"}`;
@@ -638,9 +593,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
     if (!on) focusBefore = null;
   };
-  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvHint, wrap, roomAway, editBar, editorPanel, personal.root, queuePanel.root, syncNotice, notice, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
+  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
   const portraitDock = createPortraitDock({ root: opts.root, log: chatLog.root, composer: chatForm,
-    queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: [editBar, personal.root, invite, cards.foot, firstHint.root], onViewport: () => { fit(); placeQuality(); } });
+    queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: [editBar, tvBox.personal, invite, cards.foot, firstHint.root], onViewport: () => { fit(); tvBox.place(); } });
   let portraitOn = false;
   const syncPortrait = (): boolean => {
     const on = portrait.matches && fs.mode() === "off" && screen(state).stage;
@@ -671,7 +626,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     else {
       wrap.after(roomAway);
       notice.after(invite);
-      personal.root.after(queuePanel.root);
+      tvBox.personal.after(queuePanel.root);
     }
     if (fs.mode() !== "off") stripHead.after(chatLog.root, chatForm, chatAway);
     else if (two) side.append(chatLog.root, chatForm, chatAway);
@@ -688,8 +643,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let popped = false;
   /** The whole room is in the window (OME-600): the page shows the picture only. */
   const roomOut = (): boolean => popped && relay?.kind() === "room";
-  /** The shown embed's provider: Twitch needs a larger TV (layout.ts). */
-  let tvProvider: Embed["provider"] | null = null;
   /** The phone's window looks at the middle of the seats until you drag it, sit, or focus something off-screen. */
   const roomWindow = createRoomWindow(clip, stage, () => seatsMiddle);
   let seatsMiddle: Point = { x: STAGE_W / 2, y: STAGE_H / 2 };
@@ -699,7 +652,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const fit = (): void => {
     if (fs.mode() !== "off") {
       // The room popped out: its chat is in the window, so the picture is alone.
-      const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvProvider, roomOut() ? "none" : stripMode);
+      const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), roomOut() ? "none" : stripMode);
       box(tv, l.tv);
       box(controls, l.controls);
       box(strip, l.strip);
@@ -736,7 +689,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;
       // The room popped out: the picture has the column (its placeholder is in the chat column).
-      const l = roomOut() ? fullscreenLayout(w, h, tvProvider, "none") : wideLayout(w, h, tvProvider);
+      const l = roomOut() ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider());
       box(tv, l.tv);
       box(controls, l.controls);
       tv.classList.toggle("compact", l.compact.tv);
@@ -751,8 +704,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
     const onPhone = phone.matches;
     const l = portraitOn
-      ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvProvider, opts.root.classList.contains("portrait-typing"))
-      : roomLayout(wrap.clientWidth, tvProvider, onPhone);
+      ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), opts.root.classList.contains("portrait-typing"))
+      : roomLayout(wrap.clientWidth, tvBox.provider(), onPhone);
     box(tv, l.tv);
     box(controls, l.controls);
     tv.classList.toggle("compact", l.compact.tv);
@@ -776,14 +729,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   /** Layout first, then the open quality tray follows its key. */
   const relayout = (): void => {
     fit();
-    placeQuality();
+    tvBox.place();
   };
   new ResizeObserver(relayout).observe(wrap);
   fit();
 
   let frame = 0;
   let expiryTimer: ReturnType<typeof setTimeout> | null = null;
-  let tvKey: string | null = null;
   let shownError: ViewState["lastError"] = null;
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -791,38 +743,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     ctlFrame = 0;
     const v = pbView;
     if (v === null) return;
-    transport.update(v);
-    personal.update(v);
-    quality.update(v);
+    tvBox.show(v);
     roomStage.applyCatching(state, v.catching);
-    if (v.error !== shownPlayerError) {
-      shownPlayerError = v.error;
-      // The only other sync notice (API didn't load) never has a player, so there's no error to clash with.
-      syncNotice.textContent = v.error === null ? "" : playerErrorText(v.error);
-      syncNotice.hidden = v.error === null;
-    }
   }
-
-  const mount = createPlayerMounter(PLAYERS);
-  /** What the TV shows now: the iframe we built, or the container a provider SDK renders into. */
-  let tvScreen: HTMLElement | null = null;
-  const mountPlayer = (embed: Embed, frame: TvFrame, screenEl: HTMLElement, iframe: HTMLIFrameElement | null): void => {
-    syncNotice.hidden = true;
-    // Only the shown embed's provider module and SDK load, and only now (ADR 0014, research §5).
-    // mount() never rejects (registry.ts).
-    void mount({ embed, frame, target: { iframe, container: screenEl }, now: () => performance.now() }).then((r) => {
-      if (tvScreen !== screenEl) {
-        if (r.ok) r.player.destroy();
-        return;
-      }
-      if (!r.ok) {
-        syncNotice.textContent = mountErrorText(embed.provider, r.reason);
-        syncNotice.hidden = false;
-        return;
-      }
-      playback.attach(r.player, embed.url);
-    });
-  };
 
   const requestRender = (): void => {
     if (frame === 0) frame = requestAnimationFrame(render);
@@ -971,84 +894,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
   };
 
-  /**
-   * Swap the TV iframe with the embed. Runs from dispatch, not the next frame: rAF doesn't fire in a
-   * background tab, and the old video must not keep playing (unsynced) after the controller dropped it.
-   */
-  const syncTv = (s: ViewState): void => {
-    const any = s.room?.embed ?? null;
-    if (any !== null && !isSyncedEmbed(any)) {
-      showGeneric(any, s.room?.itemId);
-      return;
-    }
-    const embed = syncedOnly(any);
-    const tf = tvFrame(embed);
-    const nextKey = tf?.key ?? null;
-    if (nextKey !== tvKey) {
-      tvKey = nextKey;
-      opts.extension.relock();
-      showSyncChrome(true);
-      const provider = tf === null ? null : (embed?.provider ?? null);
-      if (provider !== tvProvider) {
-        tvProvider = provider;
-        const hint = provider === null ? null : providerHint(provider);
-        tvHint.textContent = hint ?? "";
-        tvHint.hidden = hint === null;
-        fit();
-      }
-      if (tf === null || embed === null) {
-        tvScreen = null;
-        tv.replaceChildren(tvEmpty);
-      } else if (tf.kind === "iframe") {
-        const iframe = el("iframe", { src: tf.src, allow: tf.allow, referrerPolicy: tf.referrerPolicy, title: "Shared video" }, "shared-video");
-        iframe.setAttribute("sandbox", tf.sandbox);
-        tvScreen = iframe;
-        tv.replaceChildren(iframe);
-        mountPlayer(embed, tf, iframe, iframe);
-      } else {
-        // The Twitch SDK builds its own iframe inside a fresh container; its adapter checks the result (ADR 0014 §5).
-        const box = el("div", { className: "tv-sdk" }, "shared-video");
-        tvScreen = box;
-        tv.replaceChildren(box);
-        mountPlayer(embed, tf, box, null);
-      }
-    }
-  };
-
-  /** The sync controls and your volume belong to the synced tier; the generic tier's strip takes their slot. */
-  const showSyncChrome = (synced: boolean): void => {
-    // The whole synced shelf, the volume pod too (after a generic item the strip had its slot).
-    if (synced && controls.firstChild !== transport.root) syncShelf();
-    personal.root.hidden = !synced;
-  };
-
-  /** A generic embed (ADR 0024 §3): the load card, and after Load one sandboxed iframe. No player, no sync loop. */
-  const showGeneric = (embed: unknown, itemId: string | undefined): void => {
-    const gf = genericFrame(embed);
-    // Keyed by queue item too: the same page queued twice is a new card, so it waits for its own Load click.
-    const nextKey = gf === null ? null : `generic:${itemId ?? ""}:${gf.key}`;
-    if (nextKey === tvKey) return;
-    tvKey = nextKey;
-    opts.extension.relock();
-    tvScreen = null;
-    syncNotice.hidden = true;
-    tvHint.hidden = true;
-    if (tvProvider !== null) {
-      tvProvider = null;
-      fit();
-    }
-    showSyncChrome(false);
-    if (gf === null) {
-      // Our own host or a malformed embed: render nothing from it.
-      controls.replaceChildren(fsKey);
-      tv.replaceChildren(tvEmpty);
-      return;
-    }
-    const g = createGenericTv(gf, opts.extension);
-    tv.replaceChildren(g.screen);
-    controls.replaceChildren(g.strip, fsKey);
-  };
-
   const scheduleExpiry = (): void => {
     if (expiryTimer !== null) clearTimeout(expiryTimer);
     expiryTimer = null;
@@ -1092,7 +937,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const room = next.room;
     if (room?.embed !== prevRoom?.embed || room?.playback !== prevRoom?.playback) {
       playback.setRoom(room === null ? { embed: null, playback: null } : { embed: syncedOnly(room.embed), playback: room.playback ?? null, itemId: room.itemId });
-      syncTv(next);
+      tvBox.sync(next);
     }
     if (next.owner !== prevOwner || next.room?.controlPolicy !== prevRoom?.controlPolicy) playback.setControl({ policy: controlPolicy(next), held: controlHeld(next) });
     if (expiriesChanged) scheduleExpiry();
@@ -1290,7 +1135,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   wide.addEventListener("change", onMedia);
   portrait.addEventListener("change", onMedia);
   coarse.addEventListener("change", onMedia);
-  syncTv(state);
+  tvBox.sync(state);
   render();
   pbView = playback.view();
   renderControls();
