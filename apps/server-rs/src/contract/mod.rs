@@ -9,7 +9,8 @@ use serde::de::DeserializeOwned;
 use std::fmt;
 use validator::Validate;
 
-/// Input the contract refuses. `reason` is for logs and tests; the wire never echoes it.
+/// Input the contract refuses. `reason` is for tests only: it can quote the input (a field name, a
+/// value), so it is never logged and never sent on the wire.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Invalid {
     pub reason: String,
@@ -32,7 +33,9 @@ impl std::error::Error for Invalid {}
 /// The shape (serde), then the field rules (validator), in one step. Duplicate keys are refused
 /// (serde), unlike `JSON.parse`'s last-wins: a deliberate difference (PORTING.md).
 pub fn parse_json<T: DeserializeOwned + Validate>(raw: &[u8]) -> Result<T, Invalid> {
-    Err(Invalid::new("not yet parsed"))
+    let wire: T = serde_json::from_slice(raw).map_err(|e| Invalid::new(e.to_string()))?;
+    wire.validate().map_err(|e| Invalid::new(e.to_string()))?;
+    Ok(wire)
 }
 
 #[cfg(test)]
