@@ -23,6 +23,9 @@ unreachable = "deny"
 dbg_macro = "deny"
 exit = "deny"
 string_slice = "deny"
+# A closed stdout/stderr must not panic the server: use `log::stdout_line` / `log::stderr_line`.
+print_stdout = "deny"
+print_stderr = "deny"
 
 [profile.release]
 lto = "fat"
