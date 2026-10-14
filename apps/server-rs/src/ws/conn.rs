@@ -145,11 +145,11 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
             }
             () = timer(&mut join) => {
                 join = None;
-                if let Some(mut inner) = cell.lock_open() {
-                    if session_of(&inner, &conn).is_none() {
-                        conn.closing = true;
-                        close_with(&app, &mut inner, conn.id, close::JOIN_TIMEOUT, "join timeout");
-                    }
+                if let Some(mut inner) = cell.lock_open()
+                    && session_of(&inner, &conn).is_none()
+                {
+                    conn.closing = true;
+                    close_with(&app, &mut inner, conn.id, close::JOIN_TIMEOUT, "join timeout");
                 }
             }
             () = timer(&mut status) => {

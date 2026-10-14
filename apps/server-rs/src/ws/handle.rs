@@ -331,10 +331,8 @@ fn moderate(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, member: &Mem
             send_error(inner, conn.id, ErrorCode::BadTarget, "no such member to moderate");
         }
         ClientMessage::Kick { member_id } => kick(app, inner, &member_id),
-        ClientMessage::Mute { member_id, muted } => {
-            if inner.room.set_muted(&member_id, muted) {
-                publish_msg(inner, &ServerMessage::MemberMuted { member_id, muted });
-            }
+        ClientMessage::Mute { member_id, muted } if inner.room.set_muted(&member_id, muted) => {
+            publish_msg(inner, &ServerMessage::MemberMuted { member_id, muted });
         }
         _ => {}
     }
