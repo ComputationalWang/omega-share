@@ -54,7 +54,7 @@ async function scan(): Promise<ScanOutcome> {
   const tabId = (await tab)?.id;
   if (tabId === undefined) return { kind: "unreadable" };
   // Our own site is never a generic embed. The storage read started at popup load, so this is ~free.
-  const ownHosts = ownHostsOf(await serverBaseUrl);
+  const ownHosts = await serverBaseUrl.then(ownHostsOf, () => []);
   return scanTab(() => browser.scripting.executeScript({ target: { tabId }, func: collectCandidateUrls, injectImmediately: true }), ownHosts);
 }
 
@@ -198,6 +198,9 @@ void serverBaseUrl.then(loadServer).then((state) => {
   server = state;
   renderRooms(withNewRoom(withRoomTabs(state.probe.kind === "ok" ? state.probe.list : FALLBACK_ROOMS, state.tabs), state.probe, state.tabs.tokens));
   renderServer();
+}, () => {
+  // Storage or the server load threw: Share stays off on the fallback rooms, but say why (OME-1101).
+  showStatus("error", "Couldn't load the server settings. Close and reopen the popup.");
 });
 
 ui.room.addEventListener("change", renderServer);

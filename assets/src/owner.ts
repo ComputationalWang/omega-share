@@ -39,6 +39,7 @@ const ROLES: RoleMap = {
   v: { ramp: "velvet", hi: true },
   g: { ramp: "glow", tone: 0 },
   l: { ramp: "lilac", tone: 0 },
+  p: { ramp: "pink", tone: 0 },
   o: { ramp: "outline", tone: 1 },
 };
 
@@ -547,12 +548,16 @@ const DOOR_PRIVATE: readonly string[] = [
 const SWATCH_RAMP: Record<string, RampName> = {
   velvet: "velvet", navy: "navy", cream: "cream", olive: "olive", ginger: "ginger", blush: "blush",
   wood: "wood", brass: "mustard", rust: "rust", teal: "teal", lilac: "lilac",
+  mustard: "mustard", pink: "pink", charcoal: "charcoal",
 };
 const SWATCH_ART: Record<string, readonly string[]> = {
   // Dusk mountains: night sky, a mustard sun, lilac peaks.
   dusk: ["..........", ".NNNNNNNN.", ".NNNNNyyN.", ".NNNNNyyN.", ".NNlNNNNN.", ".NlllNlNN.", ".llllllll.", ".llllllll.", ".llllllll.", ".........."],
   // Moonlit tide: navy water, a cream sail.
   tide: ["..........", ".NNNNNNNN.", ".NNNiNNNN.", ".NNNiiNNN.", ".NNNiiiNN.", ".NNwwwwNN.", ".gggggggg.", ".NNNNNNNN.", ".NNNNNNNN.", ".........."],
+  // String lights on night: a sagging wire, then the bulbs (warm glow and brass, or party colours).
+  warm: ["..........", ".NNNNNNNN.", ".xxNNNNxx.", ".NNxxxxNN.", ".gNNyyNNg.", ".gNNyyNNg.", ".NNNNNNNN.", ".NNNNNNNN.", ".NNNNNNNN.", ".........."],
+  party: ["..........", ".NNNNNNNN.", ".xxNNNNxx.", ".NNxxxxNN.", ".pNNeeNNl.", ".pNNeeNNl.", ".NNNNNNNN.", ".NNNNNNNN.", ".NNNNNNNN.", ".........."],
 };
 function swatch(name: string): UiFrame {
   const ramp = SWATCH_RAMP[name];
@@ -587,7 +592,7 @@ function swatchRing(): UiFrame {
 }
 
 /** Every catalogue colour, in tray order. */
-export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "brass", "rust", "teal", "lilac", "dusk", "tide"] as const;
+export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "brass", "rust", "teal", "lilac", "dusk", "tide", "mustard", "pink", "charcoal", "warm", "party"] as const;
 
 /** Footprints the catalogue uses (`footprintByDir`), each marker state. */
 const FOOTPRINT_SIZES: readonly (readonly [number, number])[] = [[1, 1], [2, 1], [1, 2], [3, 2], [2, 3]];

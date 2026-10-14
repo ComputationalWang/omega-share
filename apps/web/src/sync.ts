@@ -3,15 +3,15 @@ import type { PlayerAdapter, PlayerState } from "./player/adapter";
 
 // Thresholds: ADR 0011, research §1.2–§1.3.
 export const SYNC_INTERVAL_MS = 250;
-export const DEAD_BAND_MS = 100;
+const DEAD_BAND_MS = 100;
 export const SEEK_THRESHOLD_MS = 1000;
 /**
  * Seek threshold when the player can't change rate at all: half the 500 ms pairwise
  * budget, so two clients each within it stay within the budget of each other (OME-392).
  */
-export const SEEK_ONLY_THRESHOLD_MS = 250;
+const SEEK_ONLY_THRESHOLD_MS = 250;
 /** A paused player further than this from the room seeks (every mode): half the pairwise budget too (ADR 0027). */
-export const PAUSED_THRESHOLD_MS = 250;
+const PAUSED_THRESHOLD_MS = 250;
 /**
  * Seek-only parks instead of seeking while playing (a Twitch seek stalls 0.4–2.7 s, unpredictably):
  * seek this far ahead of the room while paused, then play when the room gets there (ADR 0027).
@@ -24,16 +24,16 @@ export const MAX_NUDGE = 0.1;
  * YouTube floors setPlaybackRate to 0.05 steps (1.02 plays at 1×, 0.98 at 0.95; OME-109),
  * so a fine nudge is a whole number of steps: 1 ± min(MAX_NUDGE, ⌈|drift| / NUDGE_SPAN_MS / step⌉ · step).
  */
-export const RATE_STEP = 0.05;
-export const NUDGE_SPAN_MS = 5000;
+const RATE_STEP = 0.05;
+const NUDGE_SPAN_MS = 5000;
 const STEP_SPAN_MS = NUDGE_SPAN_MS * RATE_STEP;
 const MAX_STEPS = Math.round(MAX_NUDGE / RATE_STEP);
 /** How long a nudge runs before we check the media really plays at that rate. */
 export const RATE_CHECK_MS = 2000;
 /** A nudge is "applied" if the slope moved at least half the requested amount, and at least this much. */
-export const RATE_EFFECT_MIN = 0.01;
+const RATE_EFFECT_MIN = 0.01;
 /** After the user clicks play/pause in the player, leave it alone this long while the room answers. */
-export const INTENT_HOLD_MS = 1000;
+const INTENT_HOLD_MS = 1000;
 /** Don't re-send the same play/pause more often than this while the player is slow to react. */
 export const RESEND_MS = 1000;
 export const BURST_SLOW = 0.75;
