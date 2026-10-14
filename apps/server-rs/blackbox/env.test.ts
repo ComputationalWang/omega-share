@@ -92,6 +92,10 @@ describe("envFor: start() options become environment variables", () => {
     expect(mapped.env["OMEGA_TEST_WALL"]).toBe("1700000000000");
   });
 
+  test("the error names itself, so the runner can tell it from a failure in junit output", () => {
+    expect(() => envFor({ registry: {} })).toThrow(expect.objectContaining({ name: "NotBlackBox" }));
+  });
+
   test("two different clocks can't both drive one server", () => {
     const a = new TestClock();
     const b = new TestClock();
