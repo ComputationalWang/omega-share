@@ -38,7 +38,7 @@ const SITE: &str = "http://localhost:5173";
 const YT: &str = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 const YT2: &str = "https://youtu.be/9bZkp7q19f0";
 const OWNER: &str = "ownerownerownerownerow";
-const INVITE: &str = "inviteinviteinviteinvit";
+const INVITE: &str = "inviteinviteinviteinvi";
 
 /// Real time, with a wall clock the tests can move forward (kick cooldown, mute memory).
 struct TestClock {
@@ -51,7 +51,10 @@ impl Clock for TestClock {
         self.start.elapsed().as_secs_f64() * 1000.0
     }
     fn wall_ms(&self) -> i64 {
-        let real = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
+        let real = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
         i64::try_from(real).unwrap() + self.skew.load(Ordering::Relaxed)
     }
     fn sleep(&self, ms: f64) -> Sleep {
@@ -160,7 +163,10 @@ async fn try_connect(s: &Server, room: &str, origin: Option<&str>, headers: &[(&
         req.headers_mut().insert("origin", o.parse().unwrap());
     }
     for (k, v) in headers {
-        req.headers_mut().insert(tokio_tungstenite::tungstenite::http::HeaderName::from_bytes(k.as_bytes()).unwrap(), v.parse().unwrap());
+        req.headers_mut().insert(
+            tokio_tungstenite::tungstenite::http::HeaderName::from_bytes(k.as_bytes()).unwrap(),
+            v.parse().unwrap(),
+        );
     }
     let (sock, _) = connect_async(req).await?;
     Ok(Client {
@@ -223,7 +229,12 @@ impl Client {
                 return msg;
             }
             let left = deadline.saturating_duration_since(Instant::now());
-            assert!(!left.is_zero() && self.pump(left).await, "timed out waiting for {kind}; inbox {:?}, closed {:?}", self.inbox, self.closed);
+            assert!(
+                !left.is_zero() && self.pump(left).await,
+                "timed out waiting for {kind}; inbox {:?}, closed {:?}",
+                self.inbox,
+                self.closed
+            );
         }
     }
 
@@ -297,7 +308,10 @@ async fn a_plain_get_to_an_unknown_room_is_404_and_an_invalid_id_too() {
     let s = start(Opts::default()).await;
     assert_eq!(status_of(try_connect(&s, "bad!id", None, &[]).await.err().unwrap()), 404);
     let mut raw = TcpStream::connect(s.addr).await.unwrap();
-    let req = format!("GET /rooms/nope/ws HTTP/1.1\r\nHost: {}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n", s.addr);
+    let req = format!(
+        "GET /rooms/nope/ws HTTP/1.1\r\nHost: {}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n",
+        s.addr
+    );
     tokio::io::AsyncWriteExt::write_all(&mut raw, req.as_bytes()).await.unwrap();
     let mut buf = vec![0u8; 64];
     let n = tokio::io::AsyncReadExt::read(&mut raw, &mut buf).await.unwrap();
@@ -308,8 +322,15 @@ async fn a_plain_get_to_an_unknown_room_is_404_and_an_invalid_id_too() {
 #[tokio::test]
 async fn a_foreign_origin_is_403_and_the_site_and_extensions_are_let_in() {
     let s = start(Opts::default()).await;
-    assert_eq!(status_of(try_connect(&s, "lobby", Some("https://evil.example"), &[]).await.err().unwrap()), 403);
-    for origin in [SITE, "chrome-extension://abcdefghijklmnopabcdefghijklmnop", "moz-extension://123e4567-e89b-12d3-a456-426614174000"] {
+    assert_eq!(
+        status_of(try_connect(&s, "lobby", Some("https://evil.example"), &[]).await.err().unwrap()),
+        403
+    );
+    for origin in [
+        SITE,
+        "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+        "moz-extension://123e4567-e89b-12d3-a456-426614174000",
+    ] {
         let mut c = try_connect(&s, "lobby", Some(origin), &[]).await.unwrap();
         c.join("alice").await;
     }
@@ -318,7 +339,10 @@ async fn a_foreign_origin_is_403_and_the_site_and_extensions_are_let_in() {
 #[tokio::test]
 async fn a_host_that_is_not_ours_is_421() {
     let s = start(Opts::default()).await;
-    assert_eq!(status_of(try_connect(&s, "lobby", None, &[("host", "evil.example")]).await.err().unwrap()), 421);
+    assert_eq!(
+        status_of(try_connect(&s, "lobby", None, &[("host", "evil.example")]).await.err().unwrap()),
+        421
+    );
 }
 
 // apps/server/test/room-lifecycle.test.ts (OME-768)
@@ -406,7 +430,10 @@ async fn join_sends_a_snapshot_to_the_joiner_and_member_joined_to_the_others() {
     let room = &snap["room"];
     assert_eq!(room["id"], "lobby");
     assert_eq!(room["seats"], json!([null, null, null, null, null, null, null, null]));
-    assert_eq!(room["members"], json!([{"id": snap["self"], "nickname": "alice", "avatar": 0, "standingSlot": 0}]));
+    assert_eq!(
+        room["members"],
+        json!([{"id": snap["self"], "nickname": "alice", "avatar": 0, "standingSlot": 0}])
+    );
     assert_eq!(room["embed"], Value::Null);
     assert_eq!(room["controlPolicy"], "everyone");
     assert_eq!(snap["shareToken"].as_str().unwrap().len(), 22);
@@ -415,7 +442,10 @@ async fn join_sends_a_snapshot_to_the_joiner_and_member_joined_to_the_others() {
     let (mut b, bs) = joined(&s, "bob").await;
     assert_eq!(bs["room"]["members"].as_array().unwrap().len(), 2);
     let joined_msg = a.next("member-joined").await;
-    assert_eq!(joined_msg["member"], json!({"id": bs["self"], "nickname": "bob", "avatar": 0, "standingSlot": 1}));
+    assert_eq!(
+        joined_msg["member"],
+        json!({"id": bs["self"], "nickname": "bob", "avatar": 0, "standingSlot": 1})
+    );
     b.none("member-joined", 100).await;
 }
 
@@ -588,7 +618,10 @@ async fn presence_is_published_on_transitions_only() {
     a.send(json!({"type": "presence", "away": false})).await;
     b.none("member-presence", 100).await;
     a.send(json!({"type": "presence", "away": true})).await;
-    assert_eq!(b.next("member-presence").await, json!({"type": "member-presence", "memberId": asnap["self"], "away": true}));
+    assert_eq!(
+        b.next("member-presence").await,
+        json!({"type": "member-presence", "memberId": asnap["self"], "away": true})
+    );
     a.send(json!({"type": "presence", "away": true})).await;
     b.none("member-presence", 100).await;
 }
@@ -600,13 +633,19 @@ async fn an_emote_is_relayed_to_everyone_and_limited_to_a_burst_of_three() {
     let (mut a, asnap) = joined(&s, "alice").await;
     let (mut b, _) = joined(&s, "bob").await;
     a.send(json!({"type": "emote", "kind": "wave"})).await;
-    assert_eq!(b.next("emoted").await, json!({"type": "emoted", "memberId": asnap["self"], "kind": "wave"}));
+    assert_eq!(
+        b.next("emoted").await,
+        json!({"type": "emoted", "memberId": asnap["self"], "kind": "wave"})
+    );
     a.next("emoted").await;
     for _ in 0..4 {
         a.send(json!({"type": "emote", "kind": "clap"})).await;
     }
     let e = a.next("error").await;
-    assert_eq!((e["code"].as_str(), e["message"].as_str()), (Some("rate_limited"), Some("too many emotes, slow down")));
+    assert_eq!(
+        (e["code"].as_str(), e["message"].as_str()),
+        (Some("rate_limited"), Some("too many emotes, slow down"))
+    );
     assert!(e["retryAfterMs"].is_u64());
 }
 
@@ -637,7 +676,8 @@ async fn a_member_can_send_four_controls_in_a_burst_then_is_told_to_slow_down() 
     let (mut a, _) = joined(&s, "alice").await;
     embed_in_lobby(&s, YT);
     for i in 0..5 {
-        a.send(json!({"type": "control", "url": "https://www.youtube.com/embed/dQw4w9WgXcQ", "playing": true, "position": f64::from(i)})).await;
+        a.send(json!({"type": "control", "url": "https://www.youtube.com/embed/dQw4w9WgXcQ", "playing": true, "position": f64::from(i)}))
+            .await;
     }
     for _ in 0..4 {
         a.next("playback").await;
@@ -694,15 +734,21 @@ async fn the_owner_token_makes_an_owner_a_wrong_one_a_guest_and_guests_get_not_o
     assert_eq!(osnap["owner"], true);
     let (mut g, gsnap) = joined_as(&s, "mine", json!({"ownerToken": "wrongwrongwrongwrongwr"}), "guest", &[]).await;
     assert!(gsnap.get("owner").is_none());
-    g.send(json!({"type": "layout-set", "layout": serde_json::to_value(default_layout()).unwrap()})).await;
+    g.send(json!({"type": "layout-set", "layout": serde_json::to_value(default_layout()).unwrap()}))
+        .await;
     assert_eq!(g.next("error").await["code"], "not_owner");
     g.send(json!({"type": "title-set", "title": "Hi"})).await;
     assert_eq!(g.next("error").await["code"], "not_owner");
 
     o.send(json!({"type": "title-set", "title": "Movie night"})).await;
     let changed = g.next("title-changed").await;
-    assert_eq!(changed, json!({"type": "title-changed", "title": "Movie night", "by": osnap["self"]}));
-    o.send(json!({"type": "layout-set", "layout": serde_json::to_value(default_layout()).unwrap()})).await;
+    assert_eq!(
+        changed,
+        json!({"type": "title-changed", "title": "Movie night", "by": osnap["self"]})
+    );
+    let mut layout = serde_json::to_value(default_layout()).unwrap();
+    layout["furniture"].as_array_mut().unwrap().retain(|f| f["kind"] != "lamp");
+    o.send(json!({"type": "layout-set", "layout": layout})).await;
     let _ = g.next("layout-changed").await;
 }
 
@@ -713,11 +759,13 @@ async fn five_wrong_owner_tokens_then_the_limiter_refuses_the_join() {
     add_room(&s, "mine", false);
     let mut c = try_connect(&s, "mine", None, &[]).await.unwrap();
     for i in 0..5 {
-        c.send(json!({"type": "join", "nickname": format!("g{i}"), "avatar": 0, "ownerToken": "wrongwrongwrongwrongwr"})).await;
+        c.send(json!({"type": "join", "nickname": format!("g{i}"), "avatar": 0, "ownerToken": "wrongwrongwrongwrongwr"}))
+            .await;
         c.next("snapshot").await;
         c.send(json!({"type": "leave"})).await;
     }
-    c.send(json!({"type": "join", "nickname": "g5", "avatar": 0, "ownerToken": "wrongwrongwrongwrongwr"})).await;
+    c.send(json!({"type": "join", "nickname": "g5", "avatar": 0, "ownerToken": "wrongwrongwrongwrongwr"}))
+        .await;
     assert_eq!(c.next("error").await["code"], "rate_limited");
 }
 
@@ -729,7 +777,8 @@ async fn a_private_room_needs_its_invite_key_or_the_owner_token() {
     let mut c = try_connect(&s, "secret", None, &[]).await.unwrap();
     c.send(json!({"type": "join", "nickname": "nosy", "avatar": 0})).await;
     assert_eq!(c.next("error").await["code"], "invite_required");
-    c.send(json!({"type": "join", "nickname": "nosy", "avatar": 0, "inviteKey": INVITE})).await;
+    c.send(json!({"type": "join", "nickname": "nosy", "avatar": 0, "inviteKey": INVITE}))
+        .await;
     c.next("snapshot").await;
     let (_o, snap) = joined_as(&s, "secret", json!({"ownerToken": OWNER}), "olive", &[]).await;
     assert_eq!(snap["owner"], true);
@@ -748,9 +797,15 @@ async fn kick_removes_the_target_closes_it_4005_and_cools_the_address_down() {
     let (mut g, gsnap) = joined_as(&s, "mine", json!({}), "guest", &[(XFF, "192.0.2.2")]).await;
     o.next("member-joined").await;
     o.send(json!({"type": "kick", "memberId": gsnap["self"]})).await;
-    assert_eq!(o.next("member-left").await, json!({"type": "member-left", "memberId": gsnap["self"], "reason": "kicked"}));
+    assert_eq!(
+        o.next("member-left").await,
+        json!({"type": "member-left", "memberId": gsnap["self"], "reason": "kicked"})
+    );
     assert_eq!(g.closed().await, Some(4005));
-    assert!(g.inbox.iter().all(|m| m["type"] != "member-left"), "the target hears no frame before the close");
+    assert!(
+        g.inbox.iter().all(|m| m["type"] != "member-left"),
+        "the target hears no frame before the close"
+    );
     // Back from the same address: closed before any snapshot.
     let mut again = try_connect(&s, "mine", None, &[(XFF, "192.0.2.2")]).await.unwrap();
     again.send(json!({"type": "join", "nickname": "guest", "avatar": 0})).await;
@@ -773,13 +828,22 @@ async fn mute_is_published_blocks_chat_and_is_remembered_for_the_address() {
     let (mut o, _) = joined_as(&s, "mine", json!({"ownerToken": OWNER}), "olive", &[(XFF, "192.0.2.1")]).await;
     let (mut g, gsnap) = joined_as(&s, "mine", json!({}), "guest", &[(XFF, "192.0.2.2")]).await;
     o.send(json!({"type": "mute", "memberId": gsnap["self"], "muted": true})).await;
-    assert_eq!(g.next("member-muted").await, json!({"type": "member-muted", "memberId": gsnap["self"], "muted": true}));
+    assert_eq!(
+        g.next("member-muted").await,
+        json!({"type": "member-muted", "memberId": gsnap["self"], "muted": true})
+    );
     g.send(json!({"type": "chat", "text": "hi"})).await;
     assert_eq!(g.next("error").await["code"], "muted");
     g.send(json!({"type": "leave"})).await;
     g.send(json!({"type": "join", "nickname": "guest", "avatar": 0})).await;
     let snap = g.next("snapshot").await;
-    let me = snap["room"]["members"].as_array().unwrap().iter().find(|m| m["nickname"] == "guest").unwrap().clone();
+    let me = snap["room"]["members"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["nickname"] == "guest")
+        .unwrap()
+        .clone();
     assert_eq!(me["muted"], true);
 }
 
@@ -792,7 +856,8 @@ async fn moderation_by_a_guest_is_not_owner_and_counts_toward_4400_a_missing_tar
     let (mut g, _) = joined_as(&s, "mine", json!({}), "guest", &[]).await;
     g.send(json!({"type": "kick", "memberId": osnap["self"]})).await;
     assert_eq!(g.next("error").await["code"], "not_owner");
-    o.send(json!({"type": "kick", "memberId": "00000000-0000-4000-8000-000000000001"})).await;
+    o.send(json!({"type": "kick", "memberId": "00000000-0000-4000-8000-000000000001"}))
+        .await;
     assert_eq!(o.next("error").await["code"], "bad_target");
     // The owner is never a target.
     o.send(json!({"type": "mute", "memberId": osnap["self"], "muted": true})).await;
@@ -813,7 +878,8 @@ async fn an_owner_only_room_refuses_guest_control_and_queue_changes() {
     let (mut g, _) = joined_as(&s, "mine", json!({}), "guest", &[]).await;
     o.send(json!({"type": "control-policy", "policy": "owner"})).await;
     assert_eq!(g.next("control-policy-changed").await["policy"], "owner");
-    g.send(json!({"type": "control", "url": "https://www.youtube.com/embed/dQw4w9WgXcQ", "playing": true, "position": 1})).await;
+    g.send(json!({"type": "control", "url": "https://www.youtube.com/embed/dQw4w9WgXcQ", "playing": true, "position": 1}))
+        .await;
     assert_eq!(g.next("error").await["code"], "control_owner_only");
     g.send(json!({"type": "queue-add", "url": YT})).await;
     assert_eq!(g.next("error").await["code"], "control_owner_only");
@@ -829,6 +895,7 @@ async fn queue_add_starts_the_first_item_refuses_junk_and_advance_and_ended_move
     a.send(json!({"type": "queue-add", "url": YT})).await;
     let started = a.next("embed-changed").await;
     let first = started["itemId"].as_str().unwrap().to_owned();
+    a.next("queue-changed").await;
     a.send(json!({"type": "queue-add", "url": YT2})).await;
     let queued = a.next("queue-changed").await;
     assert_eq!(queued["queue"].as_array().unwrap().len(), 1);
@@ -867,11 +934,15 @@ async fn a_durable_member_is_held_away_on_a_cut_and_resumes_with_its_token() {
     let token = snap["resumeToken"].as_str().unwrap().to_owned();
     watcher.next("member-joined").await;
     drop(a);
-    assert_eq!(watcher.next("member-presence").await, json!({"type": "member-presence", "memberId": snap["self"], "away": true}));
+    assert_eq!(
+        watcher.next("member-presence").await,
+        json!({"type": "member-presence", "memberId": snap["self"], "away": true})
+    );
     watcher.none("member-left", 100).await;
 
     let mut back = connect(&s).await;
-    back.send(json!({"type": "join", "nickname": "alice", "avatar": 0, "resumeToken": token})).await;
+    back.send(json!({"type": "join", "nickname": "alice", "avatar": 0, "resumeToken": token}))
+        .await;
     let resumed = back.next("snapshot").await;
     assert_eq!(resumed["resumed"], true);
     assert_eq!(resumed["self"], snap["self"]);
@@ -885,7 +956,8 @@ async fn a_durable_member_is_held_away_on_a_cut_and_resumes_with_its_token() {
 async fn an_unknown_resume_token_is_resume_expired_and_never_a_fresh_member() {
     let s = start(Opts::default()).await;
     let mut c = connect(&s).await;
-    c.send(json!({"type": "join", "nickname": "alice", "avatar": 0, "resumeToken": "x".repeat(43)})).await;
+    c.send(json!({"type": "join", "nickname": "alice", "avatar": 0, "resumeToken": "x".repeat(43)}))
+        .await;
     assert_eq!(c.next("error").await["code"], "resume_expired");
     c.send(json!({"type": "chat", "text": "hi"})).await;
     assert_eq!(c.next("error").await["code"], "not_joined");
@@ -904,9 +976,13 @@ async fn a_hold_ends_with_member_left_after_the_grace_and_the_token_dies() {
     watcher.next("member-joined").await;
     drop(a);
     watcher.next("member-presence").await;
-    assert_eq!(watcher.next("member-left").await, json!({"type": "member-left", "memberId": snap["self"], "reason": "left"}));
+    assert_eq!(
+        watcher.next("member-left").await,
+        json!({"type": "member-left", "memberId": snap["self"], "reason": "left"})
+    );
     let mut late = connect(&s).await;
-    late.send(json!({"type": "join", "nickname": "alice", "avatar": 0, "resumeToken": snap["resumeToken"]})).await;
+    late.send(json!({"type": "join", "nickname": "alice", "avatar": 0, "resumeToken": snap["resumeToken"]}))
+        .await;
     assert_eq!(late.next("error").await["code"], "resume_expired");
 }
 
@@ -916,7 +992,9 @@ async fn a_second_socket_resuming_replaces_the_first_which_closes_4007() {
     let s = start(Opts::default()).await;
     let (mut first, snap) = joined_as(&s, "lobby", json!({"durableSession": true}), "alice", &[]).await;
     let mut second = connect(&s).await;
-    second.send(json!({"type": "join", "nickname": "alice", "avatar": 0, "resumeToken": snap["resumeToken"]})).await;
+    second
+        .send(json!({"type": "join", "nickname": "alice", "avatar": 0, "resumeToken": snap["resumeToken"]}))
+        .await;
     second.next("snapshot").await;
     assert_eq!(first.closed().await, Some(4007));
     // Closing the replaced socket did not touch the member.
@@ -932,7 +1010,10 @@ async fn a_legacy_member_leaves_when_its_socket_closes() {
     let (a, snap) = joined(&s, "alice").await;
     w.next("member-joined").await;
     drop(a);
-    assert_eq!(w.next("member-left").await, json!({"type": "member-left", "memberId": snap["self"]}));
+    assert_eq!(
+        w.next("member-left").await,
+        json!({"type": "member-left", "memberId": snap["self"]})
+    );
 }
 
 // ---------- room end, restart, abuse ----------
@@ -988,7 +1069,8 @@ async fn bad_frames_get_bad_message_twenty_of_them_close_4400_and_a_binary_frame
 async fn a_frame_over_4096_bytes_cuts_the_connection_without_a_close_frame() {
     let s = start(Opts::default()).await;
     let (mut c, _) = joined(&s, "alice").await;
-    c.send_raw(&format!("{{\"type\":\"chat\",\"text\":\"{}\"}}", "a".repeat(5000))).await;
+    c.send_raw(&format!("{{\"type\":\"chat\",\"text\":\"{}\"}}", "a".repeat(5000)))
+        .await;
     assert_eq!(c.closed().await, None);
 }
 

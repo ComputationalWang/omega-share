@@ -55,6 +55,7 @@ pub async fn serve(config: ServerConfig) -> Result<(), ServeError> {
 async fn listen(config: ServerConfig, app: Arc<App>) -> Result<(), ServeError> {
     let listener = TcpListener::bind((config.hostname.as_str(), config.port)).await?;
     let addr = listener.local_addr()?;
+    app.ws.set_port(addr.port());
     let via = config
         .public_origin
         .as_deref()
@@ -71,10 +72,11 @@ async fn listen(config: ServerConfig, app: Arc<App>) -> Result<(), ServeError> {
         .fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
 
     let (stop, mut stopped) = watch::channel(false);
-    let serving = axum::serve(listener, router).with_graceful_shutdown(async move {
-        // Resolves on the stop signal, or if the sender is gone (nothing left to wait for).
-        let _ = stopped.wait_for(|stop| *stop).await;
-    });
+    let serving =
+        axum::serve(listener, router.into_make_service_with_connect_info::<std::net::SocketAddr>()).with_graceful_shutdown(async move {
+            // Resolves on the stop signal, or if the sender is gone (nothing left to wait for).
+            let _ = stopped.wait_for(|stop| *stop).await;
+        });
     let mut serving = std::pin::pin!(serving.into_future());
     tokio::select! {
         served = &mut serving => return served.map_err(ServeError::Io),

@@ -229,6 +229,19 @@ impl Subscribers {
         sent
     }
 
+    /// A close frame to one connection (`ws.close`). The entry stays until the connection detaches; false if the
+    /// connection is unknown or its outbox went dead (then it is dropped, like a failed `send_to`).
+    fn close_one(&mut self, conn: ConnId, code: u16, reason: &'static str) -> bool {
+        let Some(i) = self.entries.iter().position(|e| e.conn == conn) else {
+            return false;
+        };
+        let sent = self.entries.get(i).is_some_and(|e| e.outbox.send_close(code, reason));
+        if !sent {
+            self.entries.remove(i);
+        }
+        sent
+    }
+
     /// How many close frames were queued.
     fn close_all(&mut self, code: u16, reason: &'static str) -> usize {
         let mut sent = 0;
@@ -269,6 +282,11 @@ pub fn publish_msg(inner: &mut RoomInner, msg: &ServerMessage) -> bool {
 /// `ws.send(frame)`: to one connection, subscribed or not. False if it is gone or went dead.
 pub fn send_to(inner: &mut RoomInner, conn: ConnId, frame: &Utf8Bytes) -> bool {
     inner.subscribers.send_to(conn, frame)
+}
+
+/// `ws.close(code, reason)` for one connection, after the frames already queued for it. S6 addition to the app core.
+pub fn close_conn(inner: &mut RoomInner, conn: ConnId, code: u16, reason: &'static str) -> bool {
+    inner.subscribers.close_one(conn, code, reason)
 }
 
 /// A close frame to every attached connection, joined or not; returns how many were queued (for the close metrics).

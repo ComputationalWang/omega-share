@@ -19,6 +19,7 @@ use crate::outbox::{ConnId, Outbox, Subscribers};
 use crate::rate_limit::TokenBucket;
 use crate::room::Room;
 use crate::secrets::hash_secret;
+use crate::ws::session::Session;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 
@@ -91,6 +92,11 @@ pub struct RoomInner {
     /// Set (under this lock) when the room is unlinked from the registry: a handler that looked the cell up
     /// before then must refuse (a join closes with ROOM_CLOSED, a share answers 404).
     pub closed: bool,
+    /// The room's members, live or held (ws-sessions.ts `sessions`): S6's.
+    pub sessions: HashMap<MemberId, Session>,
+    /// Durable members by the SHA-256 of their resume token (ws-sessions.ts `resumable`): a token resumes only in
+    /// its own room. S6's.
+    pub resumable: HashMap<[u8; 32], MemberId>,
     member_adds: HashMap<MemberId, TokenBucket>,
 }
 
@@ -126,6 +132,8 @@ impl RoomInner {
             ),
             title_verdict: TitleVerdict::default(),
             closed: false,
+            sessions: HashMap::new(),
+            resumable: HashMap::new(),
             member_adds: HashMap::new(),
         }
     }
@@ -171,6 +179,12 @@ impl RoomInner {
     /// **S6 adds here**: end every session (`Session` teardown, resume tokens) and cancel the join and
     /// `member-status` timers, as ws.ts's `onRemove` hook does before closing the sockets.
     pub fn end_all(&mut self) {
+        for (member, mut session) in self.sessions.drain() {
+            session.cancel_hold();
+            // The room is going: only its member count stays honest for whoever still holds the cell.
+            self.room.leave(&member, 0);
+        }
+        self.resumable.clear();
         self.grants.clear();
         self.member_adds.clear();
     }
