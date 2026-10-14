@@ -8,7 +8,7 @@
 //! left out when absent.
 
 use super::constants::{FLOOR_CELLS, MAX_FURNITURE, SEAT_COUNT};
-use super::{Invalid, parse_json};
+use super::{Invalid, Obj, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashSet;
 use validator::{Validate, ValidationError};
@@ -331,12 +331,12 @@ macro_rules! wire {
             // MAX_FURNITURE, pinned by a test.
             #[validate(length(max = 32))]
             #[validate(nested)]
-            furniture: Vec<$piece>,
+            furniture: Vec<Obj<$piece>>,
         }
 
         impl From<$layout> for RoomLayout {
             fn from(w: $layout) -> Self {
-                Self { furniture: w.furniture.iter().map(Wire::furniture).collect() }
+                Self { furniture: w.furniture.iter().map(|p| p.0.furniture()).collect() }
             }
         }
     };
@@ -350,12 +350,12 @@ trait WireLayout {
 }
 impl WireLayout for LooseLayout {
     fn pieces(&self) -> Vec<Furniture> {
-        self.furniture.iter().map(Wire::furniture).collect()
+        self.furniture.iter().map(|p| p.0.furniture()).collect()
     }
 }
 impl WireLayout for StrictLayout {
     fn pieces(&self) -> Vec<Furniture> {
-        self.furniture.iter().map(Wire::furniture).collect()
+        self.furniture.iter().map(|p| p.0.furniture()).collect()
     }
 }
 

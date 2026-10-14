@@ -9,7 +9,7 @@ pub mod session;
 
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{DeserializeOwned, MapAccess, Visitor};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::marker::PhantomData;
 use validator::{Validate, ValidationErrors};
@@ -56,6 +56,13 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for Obj<T> {
         }
         // `deserialize_map` refuses an array before the derived visitor could read it as a sequence.
         deserializer.deserialize_map(MapOnly(PhantomData)).map(Obj)
+    }
+}
+
+/// Transparent; validator wants a `Vec<Obj<_>>` item serializable to build its error values.
+impl<T: Serialize> Serialize for Obj<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
     }
 }
 

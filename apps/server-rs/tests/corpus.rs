@@ -200,9 +200,14 @@ fn room_layout_raw_agrees() {
 
 #[test]
 fn room_layout_input_raw_agrees() {
-    agree(load::<String, Value>(include_str!("../corpus/out/room-layout-input-raw.json")), |text| {
-        RoomLayout::parse_input(text.as_bytes()).ok().and_then(|l| serde_json::to_value(&l).ok())
-    });
+    agree(
+        load::<String, Value>(include_str!("../corpus/out/room-layout-input-raw.json")),
+        |text| {
+            RoomLayout::parse_input(text.as_bytes())
+                .ok()
+                .and_then(|l| serde_json::to_value(&l).ok())
+        },
+    );
 }
 
 #[test]
