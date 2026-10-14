@@ -33,7 +33,7 @@ const FETCH_TIMEOUT_MS = 10_000;
 const USAGE =
   "usage: cli.ts rooms list | rooms delete <id> | rooms pin <id> | rooms unpin <id> | rooms takedown <id> | reports list | reports dismiss <reportId> | reports dismiss --room <id>";
 
-type Command =
+export type Command =
   | { verb: "list" }
   | { verb: "delete" | "pin" | "unpin" | "takedown"; id: RoomId }
   | { verb: "reports" }
@@ -51,7 +51,7 @@ function parseReports(verb: string | undefined, args: readonly string[]): Comman
   return args.length === 1 && reportId.success ? { verb: "dismiss", reportId: reportId.output } : null;
 }
 
-function parseArgs(argv: readonly string[]): Command | null {
+export function parseArgs(argv: readonly string[]): Command | null {
   const [noun, verb, ...args] = argv;
   if (noun === "reports") return parseReports(verb, args);
   const [id, ...rest] = args;
@@ -66,16 +66,16 @@ function parseArgs(argv: readonly string[]): Command | null {
  * Titles are user text: escape C0/C1 controls (ESC, tab, newline) and format characters (bidi
  * overrides), so a title can neither drive the operator's terminal nor break the table.
  */
-function printable(text: string): string {
+export function printable(text: string): string {
   return text.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, (ch) => {
     const cp = ch.codePointAt(0) ?? 0;
     return cp > 0xffff ? `\\u{${cp.toString(16)}}` : `\\u${cp.toString(16).padStart(4, "0")}`;
   });
 }
 
-const time = (ms: number | null): string => (ms === null ? "never" : new Date(ms).toISOString());
+export const time = (ms: number | null): string => (ms === null ? "never" : new Date(ms).toISOString());
 
-function table(rooms: readonly AdminRoom[]): string[] {
+export function table(rooms: readonly AdminRoom[]): string[] {
   const head = ["id", "title", "visibility", "created", "last active", "pinned", "members"];
   const rows = rooms.map((r) => [
     r.id,
@@ -90,7 +90,7 @@ function table(rooms: readonly AdminRoom[]): string[] {
 }
 
 /** Open reports, one header line per room (most reported first), then its reports, newest first. All user text escaped. */
-function reportLines(rooms: readonly AdminReportRoom[]): string[] {
+export function reportLines(rooms: readonly AdminReportRoom[]): string[] {
   if (rooms.length === 0) return ["no open reports"];
   const text = (t: string | null): string => (t === null || t === "" ? "-" : printable(t));
   const lines: string[] = [];
@@ -133,7 +133,7 @@ const DismissedSchema = v.object({ dismissed: v.pipe(v.number(), v.safeInteger()
 const TakenDownSchema = v.object({ takenDown: RoomIdSchema, live: v.boolean() });
 
 /** What a successful answer prints, or null if the answer doesn't parse. */
-function success(cmd: Command, body: unknown): string[] | null {
+export function success(cmd: Command, body: unknown): string[] | null {
   switch (cmd.verb) {
     case "list": {
       const parsed = v.safeParse(AdminRoomListSchema, body);

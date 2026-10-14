@@ -1,6 +1,8 @@
 //! omega-share server (ADR 0050): the Rust port of `apps/server`. Layout and rules: `PORTING.md`.
 
 pub mod app;
+pub mod backup;
+pub mod cli;
 pub mod clock;
 pub mod config;
 pub mod contract;
