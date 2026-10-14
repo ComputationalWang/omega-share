@@ -47,10 +47,15 @@ const server = (): TestServer => t ?? fail();
  */
 function fakeTime() {
   const clock = new TestClock();
+  const allTimers = clock.pending.bind(clock);
   return Object.assign(clock, {
     /** Moves both clocks together and runs (or has the server run) every timer now due. */
     advance: (ms: number): Promise<void> =>
       clock.set({ mono: clock.mono + ms, wall: clock.wall + ms }),
+    /** Holds waiting to expire. The binary's room GC sleeps on the same virtual clock (the TS GC has its own timer): not counted. */
+    pending: async (): Promise<number> =>
+      (await allTimers()) -
+      (process.env["OMEGA_SERVER_BIN"] === undefined ? 0 : 1),
   });
 }
 type FakeTime = ReturnType<typeof fakeTime>;

@@ -165,5 +165,16 @@
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::a title the lobby hides (blocklist) gets the generic card too",
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::the html pages still serve, with the site-wide card",
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::unknown paths and invalid room ids are 404 with the not-found page, in the privacy page's look"
+  ],
+  "timing": [
+    "apps/server/test/boundary.test.ts::responses::GET /healthz with its database check still answers in under 5 ms (p95)",
+    "apps/server/test/member-status.test.ts::member-status relay::relay stays within 50 ms at p95 with 25 members toggling",
+    "apps/server/test/qa-rooms.test.ts::6. layout-set (ADR 0028 \u00a76, threat model \u00a76.2 S7)::a non-owner's layout-set does not draw from the owner's bucket, and a flood of them ends in the 4400 close",
+    "apps/server/test/relay-latency.test.ts::::[Relay under flood unmeasured] relay with 24 members and 1 flooder stays within 50 ms at p95",
+    "apps/server/test/relay-latency.test.ts::::[Relay under flood] control relay with 24 members chatting and emoting at the allowed rates and 1 flooder at 10\u00d7 L1 stays within 50 ms at p95 (OME-192, OME-414)",
+    "apps/server/test/relay-latency.test.ts::::a control run right after another one doesn't trip the room control limit (OME-192)",
+    "apps/server/test/relay-latency.test.ts::::control \u2192 playback relay with a full room stays within 50 ms at p95",
+    "apps/server/test/relay-latency.test.ts::::relay latency with a full room of 25 stays within 50 ms at p95",
+    "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::the share card costs under 2 ms p95 on the shell route"
   ]
 }

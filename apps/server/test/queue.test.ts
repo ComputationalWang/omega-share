@@ -770,7 +770,7 @@ describe("POST /rooms/:id/queue (ADR 0031 §2)", () => {
 describe("persistence (ADR 0031 §6)", () => {
   test("a restart keeps the queue and the current item: same ids and embeds, by null", async () => {
     db = openDatabase(dbFile());
-    t = start({ store: new RoomStore(db) });
+    t = start({ dbPath: dbFile() });
     const alice = await joined();
     const current = await share(alice);
     await added(alice.client, watch(1));
@@ -780,7 +780,7 @@ describe("persistence (ADR 0031 §6)", () => {
     db.close();
 
     db = openDatabase(dbFile());
-    t = start({ store: new RoomStore(db) });
+    t = start({ dbPath: dbFile() });
     const back = await joined();
     expect(back.snapshot.room.itemId).toBe(current);
     expect(back.snapshot.room.queue).toEqual(
@@ -791,7 +791,7 @@ describe("persistence (ADR 0031 §6)", () => {
   test("after a restart the restored item is current anew: ended waits out the debounce again", async () => {
     const c = clock();
     db = openDatabase(dbFile());
-    t = start({ store: new RoomStore(db), now: c.now });
+    t = start({ dbPath: dbFile(), now: c.now });
     const alice = await joined();
     const current = await share(alice);
     await added(alice.client, watch(1));
@@ -801,7 +801,7 @@ describe("persistence (ADR 0031 §6)", () => {
     db.close();
 
     db = openDatabase(dbFile());
-    t = start({ store: new RoomStore(db), now: c.now });
+    t = start({ dbPath: dbFile(), now: c.now });
     const back = await joined();
     // Restored paused at 0, so position 0 matches the room clock: only the debounce stands in the way.
     back.client.send({ type: "ended", itemId: current, position: 0 });
@@ -820,7 +820,7 @@ describe("persistence (ADR 0031 §6)", () => {
       await t?.server.stop(true);
       db?.close();
       db = openDatabase(dbFile());
-      t = start({ store: new RoomStore(db), now: c.now, genericEmbeds });
+      t = start({ dbPath: dbFile(), now: c.now, genericEmbeds });
     };
     await boot(true);
     const alice = await joined();
@@ -855,7 +855,7 @@ describe("persistence (ADR 0031 §6)", () => {
       await t?.server.stop(true);
       db?.close();
       db = openDatabase(dbFile());
-      t = start({ store: new RoomStore(db), now: c.now, genericEmbeds });
+      t = start({ dbPath: dbFile(), now: c.now, genericEmbeds });
     };
     await boot(true);
     const alice = await joined();
@@ -887,7 +887,7 @@ describe("persistence (ADR 0031 §6)", () => {
 
   test("an item the policy no longer accepts (GENERIC_EMBEDS off) is left out after the restart", async () => {
     db = openDatabase(dbFile());
-    t = start({ store: new RoomStore(db) });
+    t = start({ dbPath: dbFile() });
     const alice = await joined();
     await share(alice);
     await added(alice.client, GENERIC_URL);
@@ -897,7 +897,7 @@ describe("persistence (ADR 0031 §6)", () => {
     db.close();
 
     db = openDatabase(dbFile());
-    t = start({ store: new RoomStore(db), genericEmbeds: false });
+    t = start({ dbPath: dbFile(), genericEmbeds: false });
     const back = await joined();
     expect(back.snapshot.room.queue?.map((i) => i.id)).toEqual([
       queue[1]?.id ?? "missing",
@@ -954,9 +954,10 @@ describe("persistence (ADR 0031 §6)", () => {
   });
 
   test("deleting the room deletes its queue rows", async () => {
+    db = openDatabase(dbFile());
     t = start({
       trustProxy: true,
-      store: new RoomStore((db = openDatabase(dbFile()))),
+      dbPath: dbFile(),
     });
     const room = await createRoom();
     const owner = await joined(room.room.id, "olive", {
@@ -1003,7 +1004,7 @@ describe("starting from an empty room (ADR 0031 §5, OME-543)", () => {
   test("a WebSocket add starts the item: embed-changed (by the adder, a load at 0, its id) first, then queue-changed with the rest; stored as current", async () => {
     const c = clock();
     db = openDatabase(dbFile());
-    t = start({ store: new RoomStore(db), now: c.now });
+    t = start({ dbPath: dbFile(), now: c.now });
     const alice = await joined();
     const bob = await joined();
     await alice.client.next("member-joined");
@@ -1074,7 +1075,7 @@ describe("starting from an empty room (ADR 0031 §5, OME-543)", () => {
 
   test("POST /rooms/:id/queue into an empty room: 200 { ok, item }, and the item starts (embed-changed by the token's member, then queue-changed)", async () => {
     db = openDatabase(dbFile());
-    t = start({ store: new RoomStore(db) });
+    t = start({ dbPath: dbFile() });
     const alice = await joined();
     const before = alice.client.raw.length;
     const res = await postQueue(JSON.stringify({ url: watch(1) }), {
@@ -1109,7 +1110,7 @@ describe("starting from an empty room (ADR 0031 §5, OME-543)", () => {
 
   test("a queue left over after a dropped embed row: the add starts its head, oldest first, and appends the new item; queue-advance with no current item stays ignored", async () => {
     db = openDatabase(dbFile());
-    t = start({ store: new RoomStore(db) });
+    t = start({ dbPath: dbFile() });
     const alice = await joined();
     await share(alice);
     await added(alice.client, watch(1));
@@ -1120,7 +1121,7 @@ describe("starting from an empty room (ADR 0031 §5, OME-543)", () => {
     db.close();
 
     db = openDatabase(dbFile());
-    t = start({ store: new RoomStore(db) });
+    t = start({ dbPath: dbFile() });
     const back = await joined();
     expect(back.snapshot.room.itemId ?? null).toBeNull();
     expect(back.snapshot.room.queue?.map((i) => i.id)).toEqual(
@@ -1150,7 +1151,7 @@ describe("starting from an empty room (ADR 0031 §5, OME-543)", () => {
 
   test("a failed store write changes nothing: no row, no current item, no frames", async () => {
     db = openDatabase(dbFile());
-    t = start({ store: new RoomStore(db) });
+    t = start({ dbPath: dbFile() });
     // The add's insert succeeds and starting the item fails: the whole write must roll back.
     db.run(
       "CREATE TRIGGER no_start BEFORE UPDATE OF item_id ON rooms WHEN NEW.item_id IS NOT NULL BEGIN SELECT RAISE(ABORT, 'disk on fire'); END",

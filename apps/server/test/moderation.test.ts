@@ -655,7 +655,7 @@ describe("persistence: the policy is stored with the room, moderation never touc
 
   test("the policy survives a restart", async () => {
     db = openDatabase(dbFile());
-    t = start({ trustProxy: true, store: new RoomStore(db) });
+    t = start({ trustProxy: true, dbPath: dbFile() });
     const { owner, other, id } = await roomWithGuests();
     owner.client.send({ type: "control-policy", policy: "owner" });
     await other.client.next("control-policy-changed");
@@ -664,7 +664,7 @@ describe("persistence: the policy is stored with the room, moderation never touc
     db.close();
 
     db = openDatabase(dbFile());
-    t = start({ trustProxy: true, store: new RoomStore(db) });
+    t = start({ trustProxy: true, dbPath: dbFile() });
     const back = await joined(id, "carol");
     expect(back.snapshot.room.controlPolicy).toBe("owner");
   });

@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as joinPath } from "node:path";
 import type { Database } from "bun:sqlite";
 import * as v from "valibot";
 import {
@@ -19,6 +22,11 @@ import { Client, start, TestClock, type TestServer } from "./helpers";
 
 let t: TestServer | null = null;
 let db: Database | null = null;
+let dir: string | null = null;
+const dbFile = (): string => {
+  dir ??= mkdtempSync(joinPath(tmpdir(), "omega-room-auth-"));
+  return joinPath(dir, "omega.db");
+};
 const clients: Client[] = [];
 afterEach(async () => {
   for (const c of clients.splice(0)) c.close();
@@ -26,6 +34,8 @@ afterEach(async () => {
   t = null;
   db?.close();
   db = null;
+  if (dir !== null) rmSync(dir, { recursive: true, force: true });
+  dir = null;
 });
 
 function fail(): never {
@@ -391,8 +401,8 @@ describe("failed secrets: 4400 and retryAfterMs (QA notes on OME-447)", () => {
 
 describe("layout-set and title-set (ADR 0028 §6)", () => {
   test("the owner's layout-set is broadcast as layout-changed to everyone, seats are kept, and it survives a restart", async () => {
-    db = openDatabase(":memory:");
-    t = start({ trustProxy: true, store: new RoomStore(db) });
+    db = openDatabase(dbFile());
+    t = start({ trustProxy: true, dbPath: dbFile() });
     const room = await createRoom("public");
     const owner = await joined(room.room.id, "olive", {
       ownerToken: room.ownerToken,
@@ -419,8 +429,8 @@ describe("layout-set and title-set (ADR 0028 §6)", () => {
   });
 
   test("the owner's title-set is broadcast as title-changed, written to the store and shown in GET /rooms", async () => {
-    db = openDatabase(":memory:");
-    t = start({ trustProxy: true, store: new RoomStore(db) });
+    db = openDatabase(dbFile());
+    t = start({ trustProxy: true, dbPath: dbFile() });
     const room = await createRoom("public", "Old title");
     const owner = await joined(room.room.id, "olive", {
       ownerToken: room.ownerToken,
@@ -443,8 +453,8 @@ describe("layout-set and title-set (ADR 0028 §6)", () => {
 
   test("a guest gets not_owner and nothing changes; repeats count toward 4400", async () => {
     const clock = fakeClock();
-    db = openDatabase(":memory:");
-    t = start({ trustProxy: true, store: new RoomStore(db), now: clock.now });
+    db = openDatabase(dbFile());
+    t = start({ trustProxy: true, dbPath: dbFile(), now: clock.now });
     const room = await createRoom("public");
     const owner = await joined(room.room.id, "olive", {
       ownerToken: room.ownerToken,
@@ -515,10 +525,10 @@ describe("layout-set and title-set (ADR 0028 §6)", () => {
   });
 
   test("a title-set to a blocklisted title is refused like at creation: nothing is stored or broadcast", async () => {
-    db = openDatabase(":memory:");
+    db = openDatabase(dbFile());
     t = start({
       trustProxy: true,
-      store: new RoomStore(db),
+      dbPath: dbFile(),
       roomTitleBlocklist: ["forbidden"],
     });
     const room = await createRoom("public");
@@ -542,14 +552,14 @@ describe("layout-set and title-set (ADR 0028 §6)", () => {
   });
 
   test("a stored room whose title a later blocklist hides is listed again once the owner renames it to a clean title", async () => {
-    db = openDatabase(":memory:");
-    t = start({ trustProxy: true, store: new RoomStore(db) });
+    db = openDatabase(dbFile());
+    t = start({ trustProxy: true, dbPath: dbFile() });
     const room = await createRoom("public", "Friday films");
     await server().server.stop(true);
     // Restarted with "friday" now on ROOM_TITLE_BLOCKLIST: the stored room is kept but unlisted.
     t = start({
       trustProxy: true,
-      store: new RoomStore(db),
+      dbPath: dbFile(),
       roomTitleBlocklist: ["friday"],
     });
     const ids = async () =>

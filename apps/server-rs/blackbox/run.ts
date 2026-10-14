@@ -89,7 +89,14 @@ const listed =
     ? parsed.tests.filter((t): t is string => typeof t === "string")
     : [];
 if (dump !== undefined) writeFileSync(dump, JSON.stringify({ results, serverFree: [...serverFree] }));
+const timing: string[] =
+  typeof parsed === "object" && parsed !== null && "timing" in parsed && Array.isArray(parsed.timing)
+    ? parsed.timing.filter((t): t is string => typeof t === "string")
+    : [];
 const verdict = evaluate(results, listed, serverFree);
+// Latency budgets and real-time limiter refills only mean something in process: never candidates, never required.
+verdict.unlisted = verdict.unlisted.filter((id) => !timing.includes(id));
+verdict.regressions = verdict.regressions.filter((id) => !timing.includes(id));
 if (!wantsCandidates) verdict.unlisted = [];
 
 console.log(
@@ -103,7 +110,7 @@ if (verdict.unlisted.length > 0) {
 }
 if (write) {
   const all = [...new Set([...listed.filter((id) => !verdict.regressions.includes(id)), ...verdict.unlisted])].sort();
-  writeFileSync(manifestPath, `${JSON.stringify({ tests: all }, null, 2)}\n`);
+  writeFileSync(manifestPath, `${JSON.stringify({ tests: all, timing }, null, 2)}\n`);
   console.log(`manifest: ${String(all.length)} tests`);
 }
 if (verdict.regressions.length > 0) {

@@ -112,8 +112,10 @@ function report(dumpPath: string): string {
   );
   results.push(...parseJunit(readFileSync(junit, "utf8")));
   rmSync(scratch, { recursive: true, force: true });
-  const manifest = JSON.parse(readFileSync(resolve(import.meta.dir, "manifest.json"), "utf8")) as { tests: string[] };
+  const manifest = JSON.parse(readFileSync(resolve(import.meta.dir, "manifest.json"), "utf8")) as { tests: string[]; timing?: string[] };
   const listed = new Set(manifest.tests);
+  // Latency budgets and limiter refills measured against the real clock: they only mean something in process.
+  const timing = new Set(manifest.timing ?? []);
 
   const sources = new Map<string, string[]>();
   const linesOf = (file: string): string[] => {
@@ -150,7 +152,8 @@ function report(dumpPath: string): string {
       const own = (tally[owner] ??= {});
       own[category] = (own[category] ?? 0) + 1;
       const title = t.id.split("::").slice(1).join(" › ").replaceAll("|", "\\|");
-      rows.push(`| ${String(t.line)} | ${category}${listed.has(t.id) ? " ✓" : ""} | ${title} |`);
+      const label = timing.has(t.id) ? `${category} (timing: in-process only)` : category;
+      rows.push(`| ${String(t.line)} | ${label}${listed.has(t.id) ? " ✓" : ""} | ${title} |`);
     });
     const summary = Object.entries(counts)
       .sort()
