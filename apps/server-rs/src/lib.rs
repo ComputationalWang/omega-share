@@ -10,5 +10,6 @@ pub mod metrics;
 pub mod playback;
 pub mod presets;
 pub mod rate_limit;
+pub mod room;
 pub mod secrets;
 pub mod serve;
