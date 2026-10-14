@@ -48,7 +48,7 @@ async function openPopup(stub: BrowserStub): Promise<Document> {
   current = stub;
   process.on("unhandledRejection", onUnhandled);
   opened += 1;
-  await import(`../src/entrypoints/popup/main.ts?open=${opened}`);
+  await import(`../src/entrypoints/popup/main.ts?open=${String(opened)}`);
   await new Promise((resolve) => setTimeout(resolve, 50));
   return window.document as unknown as Document;
 }
