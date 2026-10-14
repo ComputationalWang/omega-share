@@ -4,7 +4,14 @@
 //! like the app's own (ADR 0015 section 4).
 
 use crate::app::App;
+use crate::metrics::Gauges;
+use crate::reports;
+use axum::Router;
+use axum::extract::State;
+use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri, header};
+use axum::response::{IntoResponse, Response};
 use std::sync::Arc;
+use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
 /// One answer of the listener.
@@ -15,19 +22,66 @@ pub struct Answer {
     pub body: String,
 }
 
-/// The text of one scrape: the counters plus what the live server knows right now.
+/// `process.memoryUsage.rss()`: the resident set from `/proc/self/status` (`VmRSS`, in kB); 0 where it is not readable.
+fn rss_bytes() -> f64 {
+    let Ok(status) = std::fs::read_to_string("/proc/self/status") else { return 0.0 };
+    let kb = status
+        .lines()
+        .find_map(|l| l.strip_prefix("VmRSS:"))
+        .and_then(|v| v.trim().strip_suffix("kB"))
+        .and_then(|v| v.trim().parse::<f64>().ok());
+    kb.map_or(0.0, |kb| kb * 1024.0)
+}
+
+/// The text of one scrape: the counters plus what the live server knows right now. Rooms are locked one at a time,
+/// never with the registry held.
 pub fn render(app: &App) -> String {
-    let _ = app;
-    String::new()
+    let cells = app.registry.values();
+    let (mut members, mut sockets) = (0u64, 0u64);
+    for cell in &cells {
+        let inner = cell.lock();
+        members += u64::try_from(inner.room.member_count()).unwrap_or(u64::MAX);
+        // Attached connections, joined or not: S6's open-connection counter has no other source of truth yet.
+        sockets += u64::try_from(inner.subscribers.len()).unwrap_or(u64::MAX);
+    }
+    app.metrics.render(&Gauges {
+        rooms: u64::try_from(cells.len()).unwrap_or(u64::MAX),
+        sockets,
+        members,
+        open_reports: reports::open_count(app).map_or(0, |n| u64::try_from(n).unwrap_or(u64::MAX)),
+        rss_bytes: rss_bytes(),
+        uptime_seconds: app.ops.uptime_seconds(),
+    })
+}
+
+const TEXT: (&str, &str) = ("content-type", "text/plain;charset=utf-8");
+
+fn plain(status: u16, body: &str, extra: Option<(&'static str, &'static str)>) -> Answer {
+    let mut headers = vec![TEXT];
+    headers.extend(extra);
+    Answer {
+        status,
+        headers,
+        body: body.to_owned(),
+    }
 }
 
 /// The listener's routing: `host` is the Host header (if any), `port` the port it listens on.
 pub fn respond(app: &App, port: u16, method: &str, host: Option<&str>, path: &str) -> Answer {
-    let _ = (app, port, method, host, path);
+    let host = host.map(str::to_ascii_lowercase).unwrap_or_default();
+    if host != format!("127.0.0.1:{port}") && host != format!("localhost:{port}") {
+        return plain(421, "misdirected request\n", None);
+    }
+    if path != "/metrics" {
+        return plain(404, "not found\n", None);
+    }
+    if method != "GET" && method != "HEAD" {
+        return plain(405, "method not allowed\n", Some(("allow", "GET, HEAD")));
+    }
     Answer {
-        status: 500,
-        headers: Vec::new(),
-        body: String::new(),
+        status: 200,
+        headers: vec![("content-type", "text/plain; version=0.0.4; charset=utf-8"), ("cache-control", "no-store")],
+        body: render(app),
     }
 }
 
@@ -47,10 +101,25 @@ impl MetricsServer {
     }
 }
 
-/// Binds 127.0.0.1:`port` (0 for any) and serves scrapes.
+async fn scrape(State((app, port)): State<(Arc<App>, u16)>, method: Method, headers: HeaderMap, uri: Uri) -> Response {
+    let host = headers.get(header::HOST).and_then(|h| h.to_str().ok());
+    let answer = respond(&app, port, method.as_str(), host, uri.path());
+    let mut response = (StatusCode::from_u16(answer.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR), answer.body).into_response();
+    for (name, value) in answer.headers {
+        response.headers_mut().insert(HeaderName::from_static(name), HeaderValue::from_static(value));
+    }
+    response
+}
+
+/// Binds 127.0.0.1:`port` (0 for any) and serves scrapes. Loopback only: the address is not configurable.
 pub async fn start_metrics(app: Arc<App>, port: u16) -> std::io::Result<MetricsServer> {
-    let _ = (app, port);
-    Err(std::io::Error::other("not implemented"))
+    let listener = TcpListener::bind(("127.0.0.1", port)).await?;
+    let port = listener.local_addr()?.port();
+    let router = Router::new().fallback(scrape).with_state((app, port));
+    let task = tokio::spawn(async move {
+        let _ = axum::serve(listener, router).await;
+    });
+    Ok(MetricsServer { task, port })
 }
 
 #[cfg(test)]

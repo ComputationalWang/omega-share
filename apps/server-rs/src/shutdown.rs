@@ -4,21 +4,27 @@
 //! TimeoutStopSec). `serve.rs` runs the sequence; this file holds the two steps that touch the app.
 
 use crate::app::App;
+use crate::log::{LogEvent, log_error};
+use crate::metrics::SERVICE_RESTART;
 use crate::store::{SeatHold, StoreError};
 
 /// `server.drain()` after the listener stopped: every socket of every room gets a SERVICE_RESTART close (counted in
 /// the metrics) and the seats held are returned for the store to keep.
 pub fn drain_sockets(app: &App) -> Vec<SeatHold> {
     // S6 wires drain: until `ws::drain` is in main this is the app core's `seat_holds` and `close_all_sockets`.
-    let _ = app;
-    Vec::new()
+    let holds = app.seat_holds();
+    app.close_all_sockets(SERVICE_RESTART, "server restarting");
+    holds
 }
 
 /// What follows the drain: the seats are saved (a failure is logged as `store.seat_holds`, the restart goes on), then
 /// `PRAGMA wal_checkpoint(TRUNCATE)`. `Err` if the checkpoint failed: the caller logs `shutdown` and exits 1.
 pub fn finish(app: &App, holds: &[SeatHold]) -> Result<(), StoreError> {
-    let _ = (app, holds);
-    Err(StoreError::NoRoom)
+    let saved = app.store().rooms().save_seat_holds(holds);
+    if let Err(err) = saved {
+        log_error(LogEvent::StoreSeatHolds, Some(&err));
+    }
+    app.store().checkpoint()
 }
 
 #[cfg(test)]
