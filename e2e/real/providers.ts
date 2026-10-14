@@ -154,8 +154,11 @@ export async function seekTo(page: Page, seconds: number): Promise<void> {
   }, seconds);
 }
 
-/** This sample's <video> is in the `paused` state the room asked for. */
-export const reached = (x: MediaSample | null, paused: boolean): boolean => x !== null && x.paused === paused && !x.ad;
+/**
+ * This sample's <video> is in the `paused` state the room asked for. An ad doesn't matter here: Twitch's mid-roll
+ * label sits over the same <video>, which still pauses and plays on the room's command (OME-1134).
+ */
+export const reached = (x: MediaSample | null, paused: boolean): boolean => x !== null && x.paused === paused;
 
 /**
  * Ms from `start` until every frame's <video> reaches `paused`, polled every 50 ms for up to `timeout`.
