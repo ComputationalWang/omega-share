@@ -3,16 +3,16 @@
 #![allow(clippy::panic, reason = "a test harness: a bad corpus file should fail loudly")]
 
 use omega_server::contract::capabilities::playback_caps;
-use omega_server::contract::confusables::nickname_key;
 use omega_server::contract::client_message::parse_client_message;
+use omega_server::contract::confusables::nickname_key;
 use omega_server::contract::constants;
-use omega_server::contract::requests::{parse_create_room_request, parse_report_request, parse_share_request};
 use omega_server::contract::embed::{Embed, canonicalize_embed};
 use omega_server::contract::generic_embed::{
     AnyEmbed, AnyEmbedOptions, canonicalize_any_embed, canonicalize_generic_embed, normalize_hostname,
 };
 use omega_server::contract::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken, RoomId, ShareToken, parse_bearer};
 use omega_server::contract::layout::{Facing, Furniture, Kind, RoomLayout, footprint_cells, layout_seats};
+use omega_server::contract::requests::{parse_create_room_request, parse_report_request, parse_share_request};
 use omega_server::contract::room::{Avatar, ControlPolicy, RoomVisibility, SeatIndex, StandingSlot};
 use omega_server::contract::text::{ChatText, Nickname, ReportNote, RoomTitle};
 use omega_server::embed_policy::EmbedPolicy;
@@ -628,9 +628,14 @@ fn deep_numeric(v: Value) -> Value {
 fn inbound<T: Serialize>(json: &str, parse: impl Fn(&str) -> Option<T>) {
     let cases = load::<String, Value>(json)
         .into_iter()
-        .map(|c| Case { output: c.output.map(deep_numeric), ..c })
+        .map(|c| Case {
+            output: c.output.map(deep_numeric),
+            ..c
+        })
         .collect();
-    agree(cases, |text| parse(text).and_then(|t| serde_json::to_value(t).ok()).map(deep_numeric));
+    agree(cases, |text| {
+        parse(text).and_then(|t| serde_json::to_value(t).ok()).map(deep_numeric)
+    });
 }
 
 #[test]
@@ -640,15 +645,21 @@ fn client_message_raw_agrees() {
 
 #[test]
 fn create_room_request_raw_agrees() {
-    inbound(include_str!("../corpus/out/create-room-request-raw.json"), |t| parse_create_room_request(t.as_bytes()).ok());
+    inbound(include_str!("../corpus/out/create-room-request-raw.json"), |t| {
+        parse_create_room_request(t.as_bytes()).ok()
+    });
 }
 
 #[test]
 fn share_request_raw_agrees() {
-    inbound(include_str!("../corpus/out/share-request-raw.json"), |t| parse_share_request(t.as_bytes()).ok());
+    inbound(include_str!("../corpus/out/share-request-raw.json"), |t| {
+        parse_share_request(t.as_bytes()).ok()
+    });
 }
 
 #[test]
 fn report_request_raw_agrees() {
-    inbound(include_str!("../corpus/out/report-request-raw.json"), |t| parse_report_request(t.as_bytes()).ok());
+    inbound(include_str!("../corpus/out/report-request-raw.json"), |t| {
+        parse_report_request(t.as_bytes()).ok()
+    });
 }

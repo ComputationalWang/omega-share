@@ -1,6 +1,12 @@
 //! The inbound boundary never panics: random bytes and random mutations of valid frames, from a
 //! fixed-seed PRNG (no dependency). Also times the worst-case frame (run with `--nocapture`).
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing, reason = "a test harness")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    reason = "a test harness"
+)]
 
 use omega_server::contract::client_message::parse_client_message;
 use omega_server::contract::requests::{parse_create_room_request, parse_report_request, parse_share_request};
@@ -44,7 +50,22 @@ fn feed(bytes: &[u8]) {
     let _ = parse_report_request(bytes);
 }
 
-const SNIPPETS: &[&str] = &["{", "}", "[", "]", "\"", "\\", "\\ud800", "\\u0000", ",", ":", "null", "1e400", "-0", "{\"type\":"];
+const SNIPPETS: &[&str] = &[
+    "{",
+    "}",
+    "[",
+    "]",
+    "\"",
+    "\\",
+    "\\ud800",
+    "\\u0000",
+    ",",
+    ":",
+    "null",
+    "1e400",
+    "-0",
+    "{\"type\":",
+];
 
 #[test]
 fn random_bytes_never_panic() {

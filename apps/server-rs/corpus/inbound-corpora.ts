@@ -19,7 +19,7 @@ const URL128 = (n: number): string => "https://a.example/" + "x".repeat(n - 18);
 const LAYOUT = {
   furniture: [
     { kind: "tv", col: 0, row: 0, facing: "se" },
-    ...[[1, 5], [2, 4], [4, 2], [5, 1], [3, 7], [4, 6], [6, 4], [7, 3]].map(([col, row]) => ({ kind: "armchair", col, row, facing: col < row ? "ne" : "nw" })),
+    ...([[1, 5], [2, 4], [4, 2], [5, 1], [3, 7], [4, 6], [6, 4], [7, 3]] as const).map(([col, row]) => ({ kind: "armchair", col, row, facing: col < row ? "ne" : "nw" })),
   ],
 };
 const JOIN = { type: "join", nickname: "Alice", avatar: 1 };
@@ -30,8 +30,8 @@ const WRONG = [null, true, false, 0, 1, -1, 1.5, "", "x", [], {}, [1], { a: 1 }]
 /** Every key of `base` replaced by every wrong value, and removed. */
 const mutations = (base: Record<string, unknown>): Raw[] =>
   Object.keys(base).flatMap((k) => {
-    const { [k]: _gone, ...without } = base;
-    return [js(without), ...WRONG.map((w) => js({ ...base, [k]: w }))];
+    const without = Object.fromEntries(Object.entries(base).filter(([key]) => key !== k));
+    return [js(without),...WRONG.map((w) => js({ ...base, [k]: w }))];
   });
 
 const valid: Raw[] = [

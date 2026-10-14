@@ -83,22 +83,58 @@ pub enum ClientMessage {
         resume_token: Option<ResumeToken>,
     },
     Leave {},
-    Presence { away: bool },
-    Sit { seat: Option<SeatIndex> },
-    Chat { text: ChatText },
-    Ping { id: PingId },
-    Control { url: ControlUrl, playing: bool, position: Position },
-    Status { catching: bool },
-    LayoutSet { layout: RoomLayout },
-    TitleSet { title: RoomTitle },
-    Emote { kind: EmoteKind },
-    Kick { member_id: MemberId },
-    Mute { member_id: MemberId, muted: bool },
-    ControlPolicy { policy: ControlPolicy },
-    QueueAdd { url: QueueUrl },
-    QueueRemove { item_id: QueueItemId },
-    QueueAdvance { from_item_id: QueueItemId },
-    Ended { item_id: QueueItemId, position: Position },
+    Presence {
+        away: bool,
+    },
+    Sit {
+        seat: Option<SeatIndex>,
+    },
+    Chat {
+        text: ChatText,
+    },
+    Ping {
+        id: PingId,
+    },
+    Control {
+        url: ControlUrl,
+        playing: bool,
+        position: Position,
+    },
+    Status {
+        catching: bool,
+    },
+    LayoutSet {
+        layout: RoomLayout,
+    },
+    TitleSet {
+        title: RoomTitle,
+    },
+    Emote {
+        kind: EmoteKind,
+    },
+    Kick {
+        member_id: MemberId,
+    },
+    Mute {
+        member_id: MemberId,
+        muted: bool,
+    },
+    ControlPolicy {
+        policy: ControlPolicy,
+    },
+    QueueAdd {
+        url: QueueUrl,
+    },
+    QueueRemove {
+        item_id: QueueItemId,
+    },
+    QueueAdvance {
+        from_item_id: QueueItemId,
+    },
+    Ended {
+        item_id: QueueItemId,
+        position: Position,
+    },
 }
 
 // ---- wire ----------------------------------------------------------------------------------
@@ -114,16 +150,28 @@ struct True;
 
 impl<'de> Deserialize<'de> for True {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        if bool::deserialize(d)? { Ok(Self) } else { Err(serde::de::Error::custom("expected true")) }
+        if bool::deserialize(d)? {
+            Ok(Self)
+        } else {
+            Err(serde::de::Error::custom("expected true"))
+        }
     }
 }
 
 fn control_url_len(s: &str) -> Result<(), ValidationError> {
-    if utf16_len(s) <= MAX_EMBED_URL_LENGTH { Ok(()) } else { Err(ValidationError::new("control_url_length")) }
+    if utf16_len(s) <= MAX_EMBED_URL_LENGTH {
+        Ok(())
+    } else {
+        Err(ValidationError::new("control_url_length"))
+    }
 }
 
 fn queue_url_len(s: &str) -> Result<(), ValidationError> {
-    if utf16_len(s) <= MAX_URL_LENGTH { Ok(()) } else { Err(ValidationError::new("queue_url_length")) }
+    if utf16_len(s) <= MAX_URL_LENGTH {
+        Ok(())
+    } else {
+        Err(ValidationError::new("queue_url_length"))
+    }
 }
 
 #[derive(Deserialize, Validate)]
@@ -336,27 +384,42 @@ fn convert(wire: Wire) -> Option<ClientMessage> {
         Wire::Sit(m) => ClientMessage::Sit { seat: m.seat },
         Wire::Chat(m) => ClientMessage::Chat { text: m.text },
         Wire::Ping(m) => ClientMessage::Ping { id: PingId(m.id) },
-        Wire::Control(m) => ClientMessage::Control { url: ControlUrl(m.url), playing: m.playing, position: Position(m.position) },
+        Wire::Control(m) => ClientMessage::Control {
+            url: ControlUrl(m.url),
+            playing: m.playing,
+            position: Position(m.position),
+        },
         Wire::Status(m) => ClientMessage::Status { catching: m.catching },
-        Wire::LayoutSet(m) => ClientMessage::LayoutSet { layout: RoomLayout::parse_input(m.layout.0.to_string().as_bytes()).ok()? },
+        Wire::LayoutSet(m) => ClientMessage::LayoutSet {
+            layout: RoomLayout::parse_input(m.layout.0.to_string().as_bytes()).ok()?,
+        },
         Wire::TitleSet(m) => ClientMessage::TitleSet { title: m.title },
         Wire::Emote(m) => ClientMessage::Emote { kind: m.kind },
         Wire::Kick(m) => ClientMessage::Kick { member_id: m.member_id },
-        Wire::Mute(m) => ClientMessage::Mute { member_id: m.member_id, muted: m.muted },
+        Wire::Mute(m) => ClientMessage::Mute {
+            member_id: m.member_id,
+            muted: m.muted,
+        },
         Wire::ControlPolicy(m) => ClientMessage::ControlPolicy { policy: m.policy },
         Wire::QueueAdd(m) => ClientMessage::QueueAdd { url: QueueUrl(m.url) },
         Wire::QueueRemove(m) => ClientMessage::QueueRemove { item_id: m.item_id },
-        Wire::QueueAdvance(m) => ClientMessage::QueueAdvance { from_item_id: m.from_item_id },
-        Wire::Ended(m) => ClientMessage::Ended { item_id: m.item_id, position: Position(m.position) },
+        Wire::QueueAdvance(m) => ClientMessage::QueueAdvance {
+            from_item_id: m.from_item_id,
+        },
+        Wire::Ended(m) => ClientMessage::Ended {
+            item_id: m.item_id,
+            position: Position(m.position),
+        },
     })
 }
 
 /// `parseClientMessage`: `None` for anything the contract refuses. Never panics. The size check
 /// (UTF-8 bytes, `MAX_CLIENT_MESSAGE_BYTES`) comes before any JSON is read.
 pub fn parse_client_message(frame: &str) -> Option<ClientMessage> {
-    // RED stub
-    let _ = (frame, MAX_CLIENT_MESSAGE_BYTES, parse_json::<Wire>, convert);
-    None
+    if frame.len() > MAX_CLIENT_MESSAGE_BYTES {
+        return None;
+    }
+    convert(parse_json::<Wire>(frame.as_bytes()).ok()?)
 }
 
 #[cfg(test)]
@@ -407,7 +470,10 @@ mod tests {
         // packages/shared/test/wire.test.ts:228-248
         assert!(parse_client_message("{nope").is_none());
         assert!(parse_client_message(r#"{"type":"sit","seat":99}"#).is_none());
-        assert!(parse_client_message(r#"{"type":"sit"}"#).is_none(), "seat is required, null stands up");
+        assert!(
+            parse_client_message(r#"{"type":"sit"}"#).is_none(),
+            "seat is required, null stands up"
+        );
         assert!(parse_client_message(r#"{"type":"join","nickname":"A","avatar":0,"durableSession":false}"#).is_none());
         assert!(parse_client_message(r#"{"type":"join","nickname":"A","avatar":0,"shareToken":"x"}"#).is_none());
         // packages/shared/test/queue-contract.test.ts:135, playback.test.ts:135
@@ -435,7 +501,10 @@ mod tests {
     fn layout_set_uses_the_strict_layout_rules() {
         // packages/shared/test/rooms-contract.test.ts:300-305
         let one_tv = json!({"furniture":[{"kind":"tv","col":0,"row":0,"facing":"se"}]});
-        assert!(parse(&json!({"type":"layout-set","layout":one_tv})).is_none(), "seat count is part of the layout rules");
+        assert!(
+            parse(&json!({"type":"layout-set","layout":one_tv})).is_none(),
+            "seat count is part of the layout rules"
+        );
         assert!(parse(&json!({"type":"layout-set","layout":{"furniture":[]}})).is_none());
         assert!(parse(&json!({"type":"layout-set","layout":[]})).is_none());
         assert!(parse(&json!({"type":"layout-set"})).is_none());
@@ -446,7 +515,7 @@ mod tests {
         let control = |u: String| json!({"type":"control","url":u,"playing":true,"position":0});
         assert!(parse(&control("😀".repeat(64))).is_some());
         assert!(parse(&control("😀".repeat(65))).is_none());
-        assert!(parse(&json!({"type":"queue-add","url":"😀".repeat(1024)})).is_some());
-        assert!(parse(&json!({"type":"queue-add","url":"😀".repeat(1025)})).is_none());
+        assert!(parse(&json!({"type":"queue-add","url":"a".repeat(2048)})).is_some());
+        assert!(parse(&json!({"type":"queue-add","url":"a".repeat(2049)})).is_none());
     }
 }

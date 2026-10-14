@@ -40,7 +40,11 @@ pub struct CreateRoomRequest {
 }
 
 fn url_len(s: &str) -> Result<(), ValidationError> {
-    if utf16_len(s) <= MAX_URL_LENGTH { Ok(()) } else { Err(ValidationError::new("url_length")) }
+    if utf16_len(s) <= MAX_URL_LENGTH {
+        Ok(())
+    } else {
+        Err(ValidationError::new("url_length"))
+    }
 }
 
 /// Body of `POST /rooms/:id/share`: the raw page or embed URL, for the share parser.
@@ -67,21 +71,15 @@ pub struct ReportRequest {
 }
 
 pub fn parse_create_room_request(body: &[u8]) -> Result<CreateRoomRequest, Invalid> {
-    // RED stub
-    let _ = (body, parse_json::<CreateRoomRequest>);
-    Err(Invalid::new("red"))
+    parse_json(body)
 }
 
 pub fn parse_share_request(body: &[u8]) -> Result<ShareRequest, Invalid> {
-    // RED stub
-    let _ = (body, parse_json::<ShareRequest>);
-    Err(Invalid::new("red"))
+    parse_json(body)
 }
 
 pub fn parse_report_request(body: &[u8]) -> Result<ReportRequest, Invalid> {
-    // RED stub
-    let _ = (body, parse_json::<ReportRequest>);
-    Err(Invalid::new("red"))
+    parse_json(body)
 }
 
 #[cfg(test)]
@@ -109,7 +107,13 @@ mod tests {
     #[test]
     fn share_bodies() {
         // packages/shared/test/wire.test.ts:117
-        assert_eq!(parse_share_request(br#"{"url":"anything"}"#).ok().map(|r| r.url().to_owned()).as_deref(), Some("anything"));
+        assert_eq!(
+            parse_share_request(br#"{"url":"anything"}"#)
+                .ok()
+                .map(|r| r.url().to_owned())
+                .as_deref(),
+            Some("anything")
+        );
         assert!(parse_share_request(br#"{"url":"x","extra":1}"#).is_err());
         assert!(parse_share_request(br"{}").is_err());
         assert!(parse_share_request(format!(r#"{{"url":"{}"}}"#, "😀".repeat(1024)).as_bytes()).is_ok());
