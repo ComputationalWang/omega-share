@@ -20,9 +20,8 @@ import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { chatIntent, sitIntent } from "./intents";
 import { layoutOf } from "./furniture";
 import { createPendingApplier } from "./pending-layout";
-import { FS_STRIP_W, PHONE_QUERY, STAGE_H, STAGE_W, WIDE_QUERY, fullscreenLayout, portraitLayout, roomLayout, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
-import { createFullscreen, type FullscreenMode } from "./fullscreen";
-import { createRoomWindow } from "./room-window";
+import { PHONE_QUERY, STAGE_W, WIDE_QUERY, type Rect } from "./layout";
+import { createRoomLayout } from "./room-layout";
 import { createStage, type Stage } from "./stage";
 import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
 import { createRoomTv, syncedOnly } from "./room-tv";
@@ -38,7 +37,6 @@ import { createHelp } from "./help/dialog";
 import { createFirstHint } from "./help/hint";
 import { createRoomCards } from "./room-cards";
 import { createHiddenMembers } from "./hide/hidden";
-import { createPortraitDock } from "./portrait-dock";
 import { createPeople } from "./hide/people";
 
 export interface RoomOptions {
@@ -97,25 +95,6 @@ const STATUS_TEXT: Record<ViewState["status"], string> = {
 };
 
 const NOTICE_MS = 3000;
-/** The full-screen strip's last open/collapsed state on this device (set k: "the strip remembers"). */
-const STRIP_STORAGE_KEY = "omega.fsStrip";
-
-function storedStrip(): StripMode {
-  try {
-    return localStorage.getItem(STRIP_STORAGE_KEY) === "band" ? "band" : "open";
-  } catch {
-    return "open";
-  }
-}
-
-function storeStrip(mode: StripMode): void {
-  try {
-    localStorage.setItem(STRIP_STORAGE_KEY, mode);
-  } catch {
-    // Storage off (private mode): it's remembered for this page only.
-  }
-}
-
 /** Typing somewhere: letters belong to the field, not to the page's keys. */
 function typingIn(t: EventTarget | null): boolean {
   return t instanceof HTMLElement && (t.isContentEditable || t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement);
@@ -166,23 +145,6 @@ function stoppedConnection(): Connection {
   return { send: () => false, close: () => undefined, resume: () => undefined, ensureConnected: () => undefined, reclaim: () => undefined };
 }
 
-/** The middle of the seats' bounding box (stage px): where the phone's room window looks first. */
-function middleOf(points: readonly Point[]): Point {
-  if (points.length === 0) return { x: STAGE_W / 2, y: STAGE_H / 2 };
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const p of points) {
-    x0 = Math.min(x0, p.x);
-    x1 = Math.max(x1, p.x);
-    y0 = Math.min(y0, p.y);
-    y1 = Math.max(y1, p.y);
-  }
-  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
-}
-
-function box(e: HTMLElement, r: Rect): void {
-  Object.assign(e.style, { left: `${String(r.x)}px`, top: `${String(r.y)}px`, width: `${String(r.w)}px`, height: `${String(r.h)}px` });
-}
-
 const KEYS = "button:not([disabled]), input:not([disabled]):not([type=hidden]), select, textarea, a[href], [tabindex]:not([tabindex='-1'])";
 /** The first key in `root` someone could press now: shown, enabled and not inert. */
 function firstKey(root: HTMLElement): HTMLElement | null {
@@ -228,8 +190,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       requestRender();
     },
     onLayout: (points) => {
-      seatsMiddle = middleOf(points);
-      if (phone.matches) fit();
+      layout.seats(points);
     },
   });
   const { root: stage, overlay, tags, view } = roomStage;
@@ -273,21 +234,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       },
     }),
   });
-  const fsKey = el("button", { type: "button", className: "ui-button self icon fs-key", ariaLabel: "Full screen" }, "fullscreen-toggle");
-  fsKey.setAttribute("aria-keyshortcuts", "F");
-  const fsIcon = sprite("ui-icon-fullscreen");
-  fsKey.append(fsIcon);
   // The full-screen element (OME-597): an existing ancestor of the TV, so going full screen moves no node and the
   // provider's iframe never reloads.
   const wrap = el("div", { className: "stage-wrap", hidden: true }, "fs-root");
   const tvBox = createRoomTv({
     playback,
     extension: opts.extension,
-    fsKey,
     wrap,
-    fullscreen: () => fs.mode() !== "off",
+    fullscreen: () => layout.fs.mode() !== "off",
     onProvider: () => {
-      fit();
+      layout.fit();
     },
   });
   const { tv, controls } = tvBox;
@@ -313,7 +269,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // Over my own head when it's in the room's window; else (watch-only, panned away, room popped out) docked. It may
     // overlap the TV and its shelf (it's brief): a scaled-down stage alone rarely has 196 px above a head.
     locate: () => {
-      if (portraitOn && (portraitDock.sheet.open || opts.root.classList.contains("portrait-typing"))) return null;
+      if (layout.portraitOn() && (layout.dock.sheet.open || opts.root.classList.contains("portrait-typing"))) return null;
       const visible = (r: DOMRect): Rect => {
         const x = Math.max(0, r.left);
         const y = Math.max(0, r.top);
@@ -332,10 +288,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // The hint's emote line is done. It leaves the flow, and the stage is refitted now rather than on the next resize
     // callback, before the wheel is placed over my head (`firstHint` and `fit` are made below; a wheel only opens once the room is up).
     onOpen: () => {
-      if (portraitOn && document.activeElement === chatInput) chatInput.blur();
+      if (layout.portraitOn() && document.activeElement === chatInput) chatInput.blur();
       if (!firstHint.isOpen()) return;
       firstHint.dismiss();
-      fit();
+      layout.fit();
     },
   });
   closeWheel = () => {
@@ -425,71 +381,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
 
-  // Full screen (OME-597, set k `ui-m7-desktop` / `ui-m7-band`). The key ends the shelf (a personal key: it changes only
-  // your screen). The strip is the TV cabinet's side panel: while full screen lasts the chat log (fading) and the field
-  // move into it, beside the picture or under it, or it collapses to the field on one band under the picture.
-  const strip = el("aside", { className: "fs-strip ui-fs-strip", ariaLabel: "Chat", hidden: true }, "fs-strip");
-  const stripHead = el("div", { className: "fs-strip-head" });
-  const stripToggle = el("button", { type: "button", className: "ui-button self icon" }, "fs-strip-toggle");
-  const stripIcon = sprite("ui-icon-strip-hide");
-  stripToggle.append(stripIcon);
-  // Mustard: only your own count of what you missed while collapsed; the key's label says it too.
-  const unreadChip = el("span", { className: "ui-chip self fs-unread", ariaHidden: "true", hidden: true });
-  stripToggle.append(unreadChip);
-  const stripTitle = el("span", { className: "fs-strip-title", textContent: "Chat" });
-  stripHead.append(sprite("ui-icon-chat"), stripTitle);
-  strip.append(stripHead);
-  wrap.append(strip);
-  let stripMode: StripMode = storedStrip();
-  let unread = 0;
-  let displayedStripMode = stripMode;
-  const renderStrip = (mode: StripMode = displayedStripMode): void => {
-    displayedStripMode = mode;
-    const open = mode === "open";
-    strip.dataset["strip"] = mode;
-    stripToggle.ariaExpanded = String(open);
-    const constrained = mode === "band" && stripMode === "open";
-    stripToggle.disabled = constrained;
-    stripToggle.title = constrained ? "Rotate your phone or exit full screen to show chat" : "";
-    const unreadLabel = unread > 0 ? `, ${String(unread)} new message${unread === 1 ? "" : "s"}` : "";
-    stripToggle.ariaLabel = constrained ? `Chat needs more space; rotate your phone or exit full screen to show messages${unreadLabel}` : open ? "Collapse chat to the input bar" : `Show chat${unreadLabel}`;
-    stripIcon.className = `ui-sprite ${open ? "ui-icon-strip-hide" : "ui-icon-strip-show"}`;
-    unreadChip.textContent = unread > 99 ? "99+ new" : `${String(unread)} new`;
-    unreadChip.hidden = open || unread === 0;
-    // Collapsed in full screen the log is out of sight: no invisible tab stop.
-    chatLog.root.tabIndex = !open && !strip.hidden ? -1 : 0;
-    // Open, the key heads the strip; collapsed, it follows the field on the band. Focus stays on it either way.
-    const home = open ? stripHead : strip;
-    if (stripToggle.parentElement !== home || home.lastElementChild !== stripToggle) {
-      const focused = document.activeElement === stripToggle;
-      home.append(stripToggle);
-      if (focused) stripToggle.focus({ preventScroll: true });
-    }
-  };
-  /**
-   * In a narrow strip (a phone held sideways) the emote and pop-out keys head the strip, so the field keeps its room
-   * (OME-905); everywhere else they lead and end the chat row. Focus on either survives the move.
-   */
-  const placeRowKeys = (inHead: boolean): void => {
-    if (picker.root.parentElement === (inHead ? stripHead : chatForm)) return;
-    const focused = document.activeElement;
-    picker.close();
-    if (inHead) stripTitle.after(picker.root, popOut);
-    else {
-      chatForm.prepend(picker.root);
-      chatForm.append(popOut);
-    }
-    if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
-  };
-  stripToggle.addEventListener("click", () => {
-    stripMode = displayedStripMode === "open" ? "band" : "open";
-    unread = 0;
-    storeStrip(stripMode);
-    renderStrip(stripMode);
-    fit();
-  });
-  renderStrip();
-
   // "Up next" (ADR 0031): the room's queue under the TV. Its rows are text; it redraws only when the queue changes.
   const queuePanel = createQueuePanel({ send, ownHosts: [location.hostname] });
 
@@ -524,216 +415,37 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
   };
   renderSend();
-  const fs = createFullscreen({
-    target: wrap,
-    isTarget: (e) => e === wrap,
-    document,
-    history,
-    window,
-    orientation: globalThis.screen.orientation,
-    onChange: (mode) => {
-      onFullscreen(mode);
+  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
+  const layout = createRoomLayout({
+    root: opts.root,
+    wrap,
+    clip,
+    stage,
+    tv: tvBox,
+    log: chatLog,
+    composer: { form: chatForm, away: chatAway, popOut, picker },
+    queue: queuePanel,
+    notice,
+    roomAway,
+    invite,
+    side,
+    settings: [editBar, tvBox.personal, invite, cards.foot, firstHint.root],
+    phone,
+    portrait,
+    wide,
+    stageShown: () => screen(state).stage,
+    roomOut: () => roomOut(),
+    hint: firstHint,
+    placeRoom: () => {
+      renderRoomPlace();
     },
   });
-  fsKey.addEventListener("click", () => {
-    void fs.toggle();
-  });
-  /** In full screen the room is hidden and stops drawing; the log and field move into the strip and back. */
-  /**
-   * The CSS mode covers the page but doesn't take it away: make everything beside the wrapper and its ancestors inert
-   * (no tab stops, out of the accessibility tree), as element full screen does, and give it back on the way out.
-   */
-  let inertBehind: HTMLElement[] = [];
-  const setBehindInert = (on: boolean): void => {
-    for (const e of inertBehind) e.inert = false;
-    inertBehind = [];
-    if (!on) return;
-    for (let node: HTMLElement = wrap; node.parentElement !== null && node !== document.body; node = node.parentElement) {
-      for (const sib of node.parentElement.children) {
-        if (sib === node || !(sib instanceof HTMLElement) || sib.inert) continue;
-        sib.inert = true;
-        inertBehind.push(sib);
-      }
-    }
-  };
-  /** Where focus was before full screen, if full screen hid it (a seat in the room): it goes back there on the way out. */
-  let focusBefore: HTMLElement | null = null;
-  const onFullscreen = (mode: FullscreenMode): void => {
-    const on = mode !== "off";
-    if (on) firstHint.dismiss();
-    // Moving a focused field blurs it: give focus back to where it was (the draft is the same node, so it stays).
-    const focused = document.activeElement;
-    const wasInRoom = on && focused instanceof HTMLElement && clip.contains(focused);
-    const restoreScroll = holdScroll();
-    wrap.classList.toggle("is-fs", on);
-    wrap.classList.toggle("is-pseudo-fs", mode === "pseudo");
-    // The quality list is a row in full screen, a tray under the shelf in the page: it closes as the layout changes.
-    tvBox.setRow(on);
-    renderRoomPlace();
-    fsKey.ariaLabel = on ? "Exit full screen" : "Full screen";
-    fsIcon.className = `ui-sprite ${on ? "ui-icon-fullscreen-exit" : "ui-icon-fullscreen"}`;
-    unread = 0;
-    chatLog.setAgeing(on ? "fade" : "settle");
-    placeChat();
-    setBehindInert(mode === "pseudo");
-    renderStrip();
-    fit();
-    restoreScroll();
-    // The chat moves back out of the strip, but the strip's own key stays in it and the strip hides (OME-701).
-    const stranded = !on && focused instanceof HTMLElement && strip.contains(focused);
-    if (wasInRoom) {
-      // The room is hidden now: the key you pressed to enter (or the exit key, for F) holds focus meanwhile.
-      focusBefore = focused;
-      fsKey.focus({ preventScroll: true });
-    } else if (!on && focusBefore !== null && (stranded || document.activeElement === fsKey || document.activeElement === document.body)) {
-      const back = focusBefore;
-      focusBefore = null;
-      (back.isConnected ? back : fsKey).focus({ preventScroll: true });
-    } else if (stranded) fsKey.focus({ preventScroll: true });
-    else if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
-    if (!on) focusBefore = null;
-  };
-  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
-  const portraitDock = createPortraitDock({ root: opts.root, log: chatLog.root, composer: chatForm,
-    queue: queuePanel.root, queueLayout: (on) => { queuePanel.setPortrait(on); }, shelf: controls, pictureRegion: wrap, settings: [editBar, tvBox.personal, invite, cards.foot, firstHint.root], onViewport: () => { fit(); tvBox.place(); } });
-  let portraitOn = false;
-  const syncPortrait = (): boolean => {
-    const on = portrait.matches && fs.mode() === "off" && screen(state).stage;
-    if (on === portraitOn) return false;
-    portraitOn = on;
-    portraitDock.setActive(on);
-    return true;
-  };
-  /**
-   * Moving a scrolled box resets its scroll (QA OME-658): call before a move and the returned function after the layout
-   * settles. A log at its foot goes back to its foot (so it keeps following new lines); otherwise it keeps its place.
-   */
-  const holdScroll = (): (() => void) => {
-    const held = [chatLog.root, queuePanel.root].map((e) => ({ e, top: e.scrollTop, foot: e.scrollHeight - e.scrollTop - e.clientHeight <= 2 }));
-    return () => {
-      for (const h of held) h.e.scrollTop = h.foot ? h.e.scrollHeight : h.top;
-    };
-  };
-  /** On a phone the chat follows the room straight away, on screen and in focus order; elsewhere it's under the notices. */
-  const placeChat = (): void => {
-    portraitDock.close();
-    syncPortrait();
-    const two = wide.matches;
-    opts.root.classList.toggle("room-wide", two);
-    side.hidden = !two;
-    // Wide: the room's placeholder, the invite and Up next head the chat column; otherwise they're back in the page's flow.
-    if (two) side.prepend(roomAway, invite, queuePanel.root);
-    else {
-      wrap.after(roomAway);
-      notice.after(invite);
-      tvBox.personal.after(queuePanel.root);
-    }
-    if (fs.mode() !== "off") stripHead.after(chatLog.root, chatForm, chatAway);
-    else if (two) side.append(chatLog.root, chatForm, chatAway);
-    else if (phone.matches) wrap.after(chatLog.root, chatForm, chatAway);
-    else notice.after(chatLog.root, chatForm, chatAway);
-    if (portraitOn) chatForm.before(portraitDock.keys);
-    // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch).
-    opts.root.classList.toggle("ui-touch", phone.matches);
-  };
-  placeChat();
 
   /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
   let relay: ChatRelay | null = null;
   let popped = false;
   /** The whole room is in the window (OME-600): the page shows the picture only. */
   const roomOut = (): boolean => popped && relay?.kind() === "room";
-  /** The phone's window looks at the middle of the seats until you drag it, sit, or focus something off-screen. */
-  const roomWindow = createRoomWindow(clip, stage, () => seatsMiddle);
-  let seatsMiddle: Point = { x: STAGE_W / 2, y: STAGE_H / 2 };
-  let fsScrollWidth = -1;
-  let fsScrollHeight = -1;
-  let fsScrollTarget = -1;
-  const fit = (): void => {
-    if (fs.mode() !== "off") {
-      // The room popped out: its chat is in the window, so the picture is alone.
-      const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), roomOut() ? "none" : stripMode);
-      box(tv, l.tv);
-      box(controls, l.controls);
-      box(strip, l.strip);
-      strip.dataset["at"] = l.at;
-      renderStrip(l.at === "band" ? "band" : stripMode);
-      placeRowKeys(l.at === "side" && l.strip.w < FS_STRIP_W);
-      tv.classList.toggle("compact", l.compact.tv);
-      controls.classList.toggle("compact", l.compact.controls);
-      const scrollTransport = l.at === "band" && l.compact.controls;
-      controls.classList.toggle("scroll-transport", scrollTransport);
-      controls.tabIndex = scrollTransport ? 0 : -1;
-      controls.ariaLabel = scrollTransport ? "Playback controls; scroll horizontally for more" : "Playback controls";
-      wrap.style.height = "";
-      const scrollY = l.scrollY ?? 0;
-      wrap.dataset["fsScroll"] = String(scrollY > 0);
-      // Layout changes expose the composer. An unchanged fit must preserve a user's scroll to the player.
-      if (fsScrollTarget !== scrollY || fsScrollWidth !== wrap.clientWidth || fsScrollHeight !== wrap.clientHeight) {
-        wrap.scrollTop = scrollY;
-        fsScrollTarget = scrollY;
-        fsScrollWidth = wrap.clientWidth;
-        fsScrollHeight = wrap.clientHeight;
-      }
-      return;
-    }
-    delete wrap.dataset["fsScroll"];
-    wrap.scrollTop = 0;
-    fsScrollWidth = fsScrollHeight = fsScrollTarget = -1;
-    placeRowKeys(false);
-    controls.classList.toggle("scroll-transport", portraitOn);
-    controls.tabIndex = -1;
-    controls.ariaLabel = "Playback controls";
-    if (wide.matches) {
-      // The left column's box sizes it all (the wrap flexes to what the column has left), so the page never scrolls.
-      const w = wrap.clientWidth;
-      const h = wrap.clientHeight;
-      // The room popped out: the picture has the column (its placeholder is in the chat column).
-      const l = roomOut() ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider());
-      box(tv, l.tv);
-      box(controls, l.controls);
-      tv.classList.toggle("compact", l.compact.tv);
-      controls.classList.toggle("compact", l.compact.controls);
-      if ("stage" in l) {
-        box(clip, l.stage);
-        roomWindow.set(false, 0, 0);
-        stage.style.transform = stageTransform(l.scale);
-      }
-      wrap.style.height = "";
-      return;
-    }
-    const onPhone = phone.matches;
-    const l = portraitOn
-      ? portraitLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), opts.root.classList.contains("portrait-typing"))
-      : roomLayout(wrap.clientWidth, tvBox.provider(), onPhone);
-    box(tv, l.tv);
-    box(controls, l.controls);
-    tv.classList.toggle("compact", l.compact.tv);
-    controls.classList.toggle("compact", l.compact.controls);
-    if (portraitOn) {
-      opts.root.style.setProperty("--portrait-picture-height", `${String(l.tv.y + l.tv.h)}px`);
-      opts.root.style.setProperty("--portrait-sheet-top", `${String(Math.min(tv.getBoundingClientRect().bottom, wrap.getBoundingClientRect().bottom))}px`);
-      controls.classList.add("scroll-transport");
-      controls.tabIndex = 0;
-      controls.ariaLabel = "Playback controls; scroll horizontally for more";
-    }
-    box(clip, l.stage);
-    if (onPhone) roomWindow.set(true, l.stage.w, l.stage.h);
-    else {
-      roomWindow.set(false, 0, 0);
-      stage.style.transform = stageTransform(l.scale);
-    }
-    // The room popped out: the wrap ends where the stage would start, and the placeholder follows it.
-    wrap.style.height = portraitOn ? "" : `${String(roomOut() ? l.stage.y : l.height)}px`;
-  };
-  /** Layout first, then the open quality tray follows its key. */
-  const relayout = (): void => {
-    fit();
-    tvBox.place();
-  };
-  new ResizeObserver(relayout).observe(wrap);
-  fit();
-
   let frame = 0;
   let expiryTimer: ReturnType<typeof setTimeout> | null = null;
   let shownError: ViewState["lastError"] = null;
@@ -773,11 +485,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let centredSeat = -1;
   /** The stage's place: the room (paused in full screen or while it's in its window) or the placeholder. */
   const renderRoomPlace = (): void => {
-    const on = fs.mode() !== "off";
+    const on = layout.fs.mode() !== "off";
     const out = roomOut();
     clip.hidden = on || out;
     view.setPaused(on || out);
-    strip.hidden = !on || out;
+    layout.strip.hidden = !on || out;
     roomAway.hidden = !out;
     popRoomKey.hidden = out || !screen(state).stage || !popoutSupported({ hasChannel: relay !== null, phone: touchOnly() });
   };
@@ -811,7 +523,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (out) owner.closeEditor();
     renderChatRow(state);
     owner.render(state);
-    fit();
+    layout.fit();
     if (on) {
       relay?.update(popState(state));
       relay?.view(state);
@@ -838,7 +550,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       // Sat down: the hint's first thing done.
       if (mySeat !== -1) firstHint.dismiss();
       const p = roomStage.seat(mySeat);
-      if (p !== undefined) roomWindow.centre(p);
+      if (p !== undefined) layout.centre(p);
     }
     if (title.textContent !== (s.title ?? "")) title.textContent = s.title ?? "";
     title.hidden = s.title === null;
@@ -855,10 +567,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (help.isOpen()) help.close();
     } else if (s.status === "open") firstHint.show();
     // Removed, closed or full: no picture to watch any more.
-    if (!shown.stage && fs.mode() !== "off") fs.exit();
+    if (!shown.stage && layout.fs.mode() !== "off") layout.fs.exit();
     renderChatRow(s);
     invite.hidden = !shown.stage;
-    if (syncPortrait()) fit();
+    if (layout.syncPortrait()) layout.fit();
     queuePanel.root.hidden = !shown.stage;
     const queueClaimed = queuePanel.update(s);
     cards.render(s);
@@ -923,10 +635,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       // Popped out: the window gets the line now, not on the next frame (a hidden tab draws none).
       relay?.append(entry, from);
       // Collapsed in full screen: count what others said while the lines are out of sight.
-      if (displayedStripMode === "band" && fs.mode() !== "off" && entry.kind === "chat" && !entry.self) {
-        unread++;
-        renderStrip();
-      }
+      if (entry.kind === "chat" && !entry.self) layout.missed();
     }
     const expiriesChanged = next.bubbles !== state.bubbles || next.syslines !== state.syslines || next.cooldownUntil !== state.cooldownUntil;
     const prevRoom = state.room;
@@ -1065,7 +774,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   window.addEventListener("keydown", (ev) => {
     // The report and help dialogs are modal: the room's keys wait until they close.
     if (cards.reportOpen() || help.isOpen()) return;
-    if (portraitDock.sheet.open) {
+    if (layout.dock.sheet.open) {
       if (ev.target instanceof Node && picker.root.contains(ev.target) && picker.key(ev)) ev.preventDefault();
       return;
     }
@@ -1074,7 +783,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (owner.key(ev)) ev.preventDefault();
     else if (!help.key.hidden && help.shortcut(ev)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
-    else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && fs.key(ev.key, typingIn(ev.target), ev.repeat)) ev.preventDefault();
+    else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && layout.fs.key(ev.key, typingIn(ev.target), ev.repeat)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden) {
       // Enter with nothing that takes it focused jumps to the message field, here or in full screen; Esc hands back (OME-642).
       const k = chatKey(ev, chatInput);
@@ -1119,14 +828,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const onMedia = (): void => {
     // Moving a focused node blurs it: whatever you were typing in keeps focus when the chat changes column.
     const focused = document.activeElement;
-    const restoreScroll = holdScroll();
+    const restoreScroll = layout.holdScroll();
     // No pop-out on a phone or touch screen (set k): a window narrowed that far takes its chat back.
     if (touchOnly()) relay?.bringBack();
     renderChatRow(state);
     renderSend();
-    placeChat();
+    layout.placeChat();
     if (focused instanceof HTMLElement && focused !== document.activeElement && focused.isConnected) focused.focus({ preventScroll: true });
-    fit();
+    layout.fit();
     restoreScroll();
     render();
     requestRender();

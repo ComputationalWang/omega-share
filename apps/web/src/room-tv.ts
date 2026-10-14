@@ -1,7 +1,7 @@
 // The room's TV and its shelf (split out of room.ts, OME-1100): what the picture shows for the room's embed (nothing, a
 // synced player, or a generic page's load card, ADR 0024 §3) and the controls under it.
 import { isSyncedEmbed, type AnyEmbed, type Embed } from "@omega/shared";
-import { createPersonal, createTransport, el } from "./controls/dom";
+import { createPersonal, createTransport, el, sprite } from "./controls/dom";
 import { createGenericTv } from "./controls/generic-tv";
 import type { PlaybackController, PlaybackView } from "./controls/playback";
 import { mountErrorText, playerErrorText, providerHint } from "./controls/player-error";
@@ -15,8 +15,6 @@ import { genericFrame, tvFrame, type TvFrame } from "./tv";
 export interface RoomTvOptions {
   readonly playback: PlaybackController;
   readonly extension: ExtensionBridge;
-  /** The full-screen key: it ends the shelf in either tier. */
-  readonly fsKey: HTMLElement;
   /** The full-screen element: the quality list hangs in it, under the shelf. */
   readonly wrap: HTMLElement;
   readonly fullscreen: () => boolean;
@@ -27,6 +25,8 @@ export interface RoomTvOptions {
 export interface RoomTv {
   readonly tv: HTMLElement;
   readonly controls: HTMLElement;
+  /** The full-screen key (OME-597): it ends the shelf in either tier. */
+  readonly fsKey: HTMLElement;
   /** Your volume and speed: hidden for a generic embed. */
   readonly personal: HTMLElement;
   /** Why the player didn't load or failed. */
@@ -39,8 +39,8 @@ export interface RoomTv {
   readonly sync: (s: ViewState) => void;
   /** The shelf follows the player. */
   readonly show: (v: PlaybackView) => void;
-  /** The quality list is a row in full screen, a tray under the shelf in the page. */
-  readonly setRow: (row: boolean) => void;
+  /** Full screen began or ended: the key says so, and the quality list is a row there (a tray under the shelf in the page). */
+  readonly setFullscreen: (on: boolean) => void;
   /** The open tray follows its key after a layout change. */
   readonly place: () => void;
 }
@@ -51,7 +51,12 @@ export function syncedOnly(e: AnyEmbed | null | undefined): Embed | null {
 }
 
 export function createRoomTv(o: RoomTvOptions): RoomTv {
-  const { playback, fsKey, wrap } = o;
+  const { playback, wrap } = o;
+  // A personal key: it changes only your screen.
+  const fsKey = el("button", { type: "button", className: "ui-button self icon fs-key", ariaLabel: "Full screen" }, "fullscreen-toggle");
+  fsKey.setAttribute("aria-keyshortcuts", "F");
+  const fsIcon = sprite("ui-icon-fullscreen");
+  fsKey.append(fsIcon);
   const tv = el("div", { className: "tv ui-tv-frame" }, "tv");
   const controls = el("div", { className: "controls ui-tv-shelf", role: "group", ariaLabel: "Playback controls" });
   const tvEmpty = el("p", { className: "tv-empty", textContent: "Share a video with the extension, or paste a link under Up next, to watch it here." });
@@ -217,14 +222,18 @@ export function createRoomTv(o: RoomTvOptions): RoomTv {
   return {
     tv,
     controls,
+    fsKey,
     personal: personal.root,
     notice: syncNotice,
     hint: tvHint,
     provider: () => tvProvider,
     sync: syncTv,
     show,
-    setRow: (row) => {
-      quality.setRow(row);
+    setFullscreen: (on) => {
+      // It closes as the layout changes.
+      quality.setRow(on);
+      fsKey.ariaLabel = on ? "Exit full screen" : "Full screen";
+      fsIcon.className = `ui-sprite ${on ? "ui-icon-fullscreen-exit" : "ui-icon-fullscreen"}`;
     },
     place: placeQuality,
   };

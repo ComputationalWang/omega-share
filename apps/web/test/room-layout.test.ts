@@ -93,6 +93,6 @@ describe("room layout", () => {
   test("the full-screen key on the shelf starts in the page", async () => {
     const { layout, wrap } = await setup();
     expect(layout.fs.mode()).toBe("off");
-    expect(wrap.querySelector('[data-testid="fullscreen-toggle"]')?.getAttribute("aria-label")).toBe("Full screen");
+    expect(wrap.querySelector<HTMLElement>('[data-testid="fullscreen-toggle"]')?.ariaLabel).toBe("Full screen");
   });
 });
