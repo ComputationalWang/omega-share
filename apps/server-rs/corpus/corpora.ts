@@ -4,6 +4,7 @@
 // longer matches the TS side, so a `packages/shared` change can't land without the Rust copy noticing:
 // regenerate with `bun apps/server-rs/corpus/gen.ts`, then make the Rust tests pass.
 import { normalizeHostname } from "@omega/shared";
+import * as constants from "../../../packages/shared/src/constants";
 
 /** One decision: `ok` false means the TS side refused `input`; `output` is what it produced otherwise. */
 export interface Case {
@@ -69,8 +70,19 @@ const HOSTNAMES = [
   "localhost",
 ];
 
+/** Every exported constant by name (`CLOSE_CODES.X` as `close.X`): the Rust module must have each, equal. */
+const constantCases = (): Case[] =>
+  Object.entries(constants).flatMap(([name, value]): Case[] =>
+    typeof value === "object"
+      ? Object.entries(value).map(([code, n]) => ({ input: `close.${code}`, ok: true, output: n }))
+      : [{ input: name, ok: true, output: value }],
+  );
+
 /** Every corpus; add a line when a slice ports a schema or function. */
-export const corpora: Corpus[] = [{ name: "normalize-hostname", cases: () => decided(HOSTNAMES, normalizeHostname) }];
+export const corpora: Corpus[] = [
+  { name: "normalize-hostname", cases: () => decided(HOSTNAMES, normalizeHostname) },
+  { name: "constants", cases: constantCases },
+];
 
 /** One case per line, so a changed decision shows as a one-line diff. */
 export const render = (cases: readonly Case[]): string => `[\n${cases.map((c) => JSON.stringify(c)).join(",\n")}\n]\n`;
