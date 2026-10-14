@@ -1,7 +1,7 @@
 //! Port of `apps/server/src/store/db.ts`: open, pragmas, forward-only migrations.
 
 use super::StoreError;
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 use std::time::Duration;
@@ -126,7 +126,17 @@ pub fn open_database_with(path: &str, migrations: &[Migration<'_>]) -> Result<Co
         Connection::open_in_memory()?
     } else {
         ensure_private_file(Path::new(path)).map_err(|e| StoreError::Io(e.kind()))?;
-        Connection::open(path)?
+        // Bun's `new Database(path)` takes a `file:` path as a file name, and so must we. The bundled SQLite is built with
+        // SQLITE_USE_URI (the flag cannot turn that off), so a relative path gets a `./`: that can never start with `file:`.
+        let path = if path.starts_with('/') {
+            path.to_owned()
+        } else {
+            format!("./{path}")
+        };
+        Connection::open_with_flags(
+            &path,
+            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?
     };
     // `journal_mode` answers with a row, so it is a query.
     conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
@@ -355,6 +365,7 @@ mod tests {
         let name = format!("file:omega-uri-test-{}?mode=memory", std::process::id());
         let c = open_database(&name).unwrap();
         c.execute("INSERT INTO takedowns (room_id, at) VALUES ('a', 1)", []).unwrap();
+        checkpoint(&c).unwrap();
         drop(c);
         let exists = std::fs::metadata(&name).is_ok_and(|m| m.len() > 0);
         for suffix in ["", "-wal", "-shm"] {

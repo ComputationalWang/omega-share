@@ -115,6 +115,12 @@ fn embed_json(embed: &AnyEmbed) -> Result<String, StoreError> {
 
 // ---- row parsing: SQLite values, as dynamic as the TS `unknown` rows, through the contract
 
+/// All `N` columns of a row as dynamic values, or `None` if any cannot be read (invalid UTF-8 text).
+pub(super) fn read_row<const N: usize>(row: &rusqlite::Row<'_>) -> Option<[Value; N]> {
+    let values: Vec<Value> = (0..N).map(|i| row.get::<_, Value>(i)).collect::<Result<_, _>>().ok()?;
+    values.try_into().ok()
+}
+
 fn text(v: &Value) -> Option<&str> {
     if let Value::Text(s) = v { Some(s) } else { None }
 }
@@ -223,10 +229,14 @@ impl<'a> RoomStore<'a> {
         let mut rows = stmt.query([])?;
         let mut rooms = Vec::new();
         while let Some(row) = rows.next()? {
-            let values: [Value; 12] = std::array::from_fn(|i| row.get::<_, Value>(i).unwrap_or(Value::Null));
-            match parse_room(&values, &mut queues) {
+            // A column that cannot be read is corruption like one that fails the contract: never "absent".
+            match read_row::<12>(row).and_then(|values| parse_room(&values, &mut queues)) {
                 Some(room) => rooms.push(room),
-                None => return Err(StoreError::CorruptRoom { id: row_label(&values[0]) }),
+                None => {
+                    return Err(StoreError::CorruptRoom {
+                        id: row_label(&row.get::<_, Value>(0).unwrap_or(Value::Null)),
+                    });
+                }
             }
         }
         Ok(rooms)
@@ -240,11 +250,12 @@ impl<'a> RoomStore<'a> {
         let mut rows = stmt.query([])?;
         let mut queues: HashMap<String, Vec<StoredQueueItem>> = HashMap::new();
         while let Some(row) = rows.next()? {
-            let (room, id, embed) = (row.get::<_, Value>(0)?, row.get::<_, Value>(1)?, row.get::<_, Value>(2)?);
-            let parsed = text(&room)
-                .and_then(RoomId::parse)
-                .zip(text(&id).and_then(QueueItemId::parse))
-                .zip(embed_value(&embed));
+            let parsed = read_row::<3>(row).and_then(|[room, id, embed]| {
+                text(&room)
+                    .and_then(RoomId::parse)
+                    .zip(text(&id).and_then(QueueItemId::parse))
+                    .zip(embed_value(&embed))
+            });
             match parsed {
                 Some(((room, id), embed)) => queues
                     .entry(room.as_str().to_owned())
@@ -420,7 +431,7 @@ impl<'a> RoomStore<'a> {
                 .prepare_cached("SELECT room_id, name_hash, seat FROM seat_holds ORDER BY room_id, seat")?;
             let mut rows = stmt.query([])?;
             while let Some(row) = rows.next()? {
-                let (room, name, seat) = (row.get::<_, Value>(0)?, row.get::<_, Value>(1)?, row.get::<_, Value>(2)?);
+                let Some([room, name, seat]) = read_row::<3>(row) else { continue };
                 let seat = if let Value::Integer(n) = seat {
                     u64::try_from(n).ok().and_then(SeatIndex::new)
                 } else {

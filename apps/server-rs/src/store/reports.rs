@@ -1,7 +1,7 @@
 //! Port of `apps/server/src/store/reports.ts`: abuse reports and takedowns (migration 0006).
 
 use super::StoreError;
-use super::rooms::unix_ms;
+use super::rooms::{read_row, unix_ms};
 use crate::contract::constants::{MAX_URL_LENGTH, REPORT_MAX_OPEN};
 use crate::contract::ids::{RoomId, string_newtype};
 use crate::contract::js_compat::utf16_len;
@@ -152,8 +152,7 @@ impl<'a> ReportStore<'a> {
         let mut rows = stmt.query([])?;
         let mut out = Vec::new();
         while let Some(row) = rows.next()? {
-            let values: [Value; 7] = std::array::from_fn(|i| row.get::<_, Value>(i).unwrap_or(Value::Null));
-            match NewReport::from_row(&values) {
+            match read_row::<7>(row).and_then(|values| NewReport::from_row(&values)) {
                 Some(r) => out.push(r),
                 None => log_error(LogEvent::StoreReport, Some(&StoreError::Invalid("report row"))),
             }
