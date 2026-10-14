@@ -226,6 +226,37 @@ describe("paste a link", () => {
     expect(q("queue-problem").hidden).toBe(true);
   });
 
+  test("two adds in flight: a refusal of the first names the first link, the second's names the second (QA OME-569 F2)", async () => {
+    const { paste, server, q } = await setup();
+    paste("https://example.org/videos/1");
+    paste("https://example.org/videos/2");
+    server({ type: "error", code: "unsupported_url", message: "no" });
+    expect((q("queue-url") as HTMLInputElement).value).toBe("https://example.org/videos/1");
+    (q("queue-url") as HTMLInputElement).value = "";
+    server({ type: "error", code: "rate_limited", message: "slow", retryAfterMs: 1000 });
+    expect(q("queue-problem").textContent).toBe("Too many links at once. Try again in a few seconds.");
+    expect((q("queue-url") as HTMLInputElement).value).toBe("https://example.org/videos/2");
+  });
+
+  test("two adds in flight: the first lands, so a refusal is the second's", async () => {
+    const { paste, server, q } = await setup();
+    paste("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    paste("https://example.org/videos/2");
+    server({ type: "queue-changed", queue: [item("mine", yt("dQw4w9WgXcQ"), "me")], by: "me" });
+    server({ type: "error", code: "unsupported_url", message: "no" });
+    expect(q("queue-problem").textContent).toBe("That link can't be played in this room.");
+    expect((q("queue-url") as HTMLInputElement).value).toBe("https://example.org/videos/2");
+  });
+
+  test("update says when it claimed the error, so the room doesn't show it again (QA OME-569 F3)", async () => {
+    const { panel, paste, server, state } = await setup();
+    paste("https://example.org/videos/42");
+    server({ type: "error", code: "unsupported_url", message: "no" });
+    expect(panel.update(state())).toBe(true);
+    server({ type: "error", code: "rate_limited", message: "slow", retryAfterMs: 1000 });
+    expect(panel.update(state())).toBe(false);
+  });
+
   test("an error that isn't about my add doesn't show here", async () => {
     const { server, q } = await setup();
     server({ type: "error", code: "rate_limited", message: "slow", retryAfterMs: 1000 });
