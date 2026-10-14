@@ -18,6 +18,7 @@ impl std::fmt::Display for EntropyError {
 impl std::error::Error for EntropyError {}
 
 const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+const HEX: &[u8; 16] = b"0123456789abcdef";
 const BASE32: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
 
 fn random<const N: usize>() -> Result<[u8; N], EntropyError> {
@@ -96,12 +97,28 @@ pub fn new_room_id() -> Result<RoomId, EntropyError> {
 
 /// A fresh member id: a v4 UUID in lowercase hex, as `crypto.randomUUID()` writes it (36 chars).
 pub fn mint_member_id() -> Result<MemberId, EntropyError> {
-    MemberId::parse("stub").ok_or(EntropyError)
+    let mut b = random::<16>()?;
+    // RFC 4122: version 4 in the high nibble of byte 6, variant 10 in the top bits of byte 8.
+    if let Some(v) = b.get_mut(6) {
+        *v = (*v & 0x0f) | 0x40;
+    }
+    if let Some(v) = b.get_mut(8) {
+        *v = (*v & 0x3f) | 0x80;
+    }
+    let mut out = String::with_capacity(36);
+    for (i, byte) in b.iter().enumerate() {
+        if matches!(i, 4 | 6 | 8 | 10) {
+            out.push('-');
+        }
+        out.push(char::from(HEX.get(usize::from(byte >> 4)).copied().unwrap_or(b'0')));
+        out.push(char::from(HEX.get(usize::from(byte & 15)).copied().unwrap_or(b'0')));
+    }
+    MemberId::parse(&out).ok_or(EntropyError)
 }
 
 /// A fresh queue item id (ADR 0031 section 1): 12 random bytes, base64url, 16 chars. Opaque, never reused.
 pub fn mint_item_id() -> Result<QueueItemId, EntropyError> {
-    QueueItemId::parse("stub").ok_or(EntropyError)
+    QueueItemId::parse(&base64url(&random::<12>()?)).ok_or(EntropyError)
 }
 
 /// SHA-256 of a secret: what the store keeps instead of it (ADR 0028 §3).
@@ -207,7 +224,7 @@ mod tests {
             parts.iter().map(|p| p.len()).collect::<Vec<_>>() == [8, 4, 4, 4, 12]
                 && id.bytes().all(|b| b == b'-' || b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
                 && parts[2].starts_with('4')
-                && "89ab".contains(&parts[3][..1])
+                && parts[3].starts_with(|c| "89ab".contains(c))
         };
         let ids: Vec<_> = (0..200).map(|_| mint_member_id().unwrap()).collect();
         assert!(ids.iter().all(|id| shape(id.as_str())), "{:?}", ids.first().map(MemberId::as_str));
