@@ -168,6 +168,69 @@ describe("generic embed TV (ADR 0024 §3)", () => {
       }
     });
 
+    const stripUnlock = (tv: GenericTv): HTMLButtonElement | null => tv.strip.querySelector<HTMLButtonElement>("[data-testid=generic-strip-unlock]");
+    const stripHint = (tv: GenericTv): HTMLElement | null => tv.strip.querySelector<HTMLElement>("[data-testid=generic-hint]");
+
+    test("after Load without the extension: the strip keeps the hint and offers no unlock", async () => {
+      const tv = await make();
+      loadButton(tv).click();
+      expect(stripHint(tv)?.hidden).toBe(false);
+      expect(stripUnlock(tv)?.hidden ?? true).toBe(true);
+    });
+
+    test("after Load with the extension: the strip hint becomes Unlock, which recreates the frame once unlocked (OME-1060)", async () => {
+      const tv = await make();
+      deliver(PRESENT);
+      expect(stripUnlock(tv)?.hidden ?? true).toBe(true);
+      loadButton(tv).click();
+      const first = tv.screen.querySelector("iframe");
+      expect(stripHint(tv)?.hidden).toBe(true);
+      expect(stripUnlock(tv)?.hidden).toBe(false);
+      expect(stripUnlock(tv)?.textContent).toBe("Blank/error? Unlock");
+      expect(stripUnlock(tv)?.title).toContain("media.example.org");
+      stripUnlock(tv)?.click();
+      expect(posted).toEqual([{ source: "omega-share", kind: "unlock", host: "media.example.org" }]);
+      expect(stripUnlock(tv)?.disabled).toBe(true);
+      deliver(unlockResult("unlocked"));
+      await Promise.resolve();
+      const frames = tv.screen.querySelectorAll("iframe");
+      expect(frames).toHaveLength(1);
+      expect(frames[0]).not.toBe(first);
+      expect(frames[0]?.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin allow-presentation");
+      expect(stripUnlock(tv)?.disabled).toBe(false);
+    });
+
+    test("present arriving after Load turns the hint into Unlock too", async () => {
+      const tv = await make();
+      loadButton(tv).click();
+      deliver(PRESENT);
+      expect(stripHint(tv)?.hidden).toBe(true);
+      expect(stripUnlock(tv)?.hidden).toBe(false);
+    });
+
+    test("after Load, denied keeps Unlock to retry; unsupported puts the hint back", async () => {
+      const denied = await make();
+      deliver(PRESENT);
+      loadButton(denied).click();
+      const frame = denied.screen.querySelector("iframe");
+      stripUnlock(denied)?.click();
+      deliver(unlockResult("denied"));
+      await Promise.resolve();
+      expect(denied.screen.querySelector("iframe")).toBe(frame);
+      expect(stripUnlock(denied)?.hidden).toBe(false);
+      expect(stripUnlock(denied)?.disabled).toBe(false);
+      expect(stripUnlock(denied)?.title).toContain("wasn't unlocked");
+
+      const unsupported = await make();
+      deliver(PRESENT);
+      loadButton(unsupported).click();
+      stripUnlock(unsupported)?.click();
+      deliver(unlockResult("unsupported"));
+      await Promise.resolve();
+      expect(stripUnlock(unsupported)?.hidden).toBe(true);
+      expect(stripHint(unsupported)?.hidden).toBe(false);
+    });
+
     test("a consent tab closed without an answer: back on the room, Unlock works again", async () => {
       const tv = await make();
       deliver(PRESENT);

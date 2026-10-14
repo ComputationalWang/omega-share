@@ -1,4 +1,5 @@
 // The generic tier's TV (ADR 0024 §3): a click-to-load card, then one sandboxed iframe. Text only, no third-party request before Load.
+import type { UnlockOutcome } from "@omega/shared/extension-bridge";
 import type { ExtensionBridge } from "../extension-bridge";
 import type { TvGeneric } from "../tv";
 import { el } from "./dom";
@@ -36,9 +37,22 @@ export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge): Gene
     title: `Blank or an error page? ${frame.host} doesn't allow playing its videos here.`,
     hidden: true,
   }, "generic-hint");
-  strip.append(label, hint);
+  // With the extension, the hint becomes this after Load (OME-1060): the card's Unlock left with the card.
+  const stripUnlock = el("button", {
+    type: "button",
+    className: "generic-strip-unlock",
+    textContent: "Blank/error? Unlock",
+    title: `Blank or an error page? Unlock ${frame.host} with the Omega Share extension and reload it.`,
+    hidden: true,
+  }, "generic-strip-unlock");
+  strip.append(label, hint, stripUnlock);
 
   let loaded = false;
+  let present = false;
+  const showStrip = (): void => {
+    hint.hidden = !loaded || present;
+    stripUnlock.hidden = !loaded || !present;
+  };
   /** Creates the iframe, or recreates it so its first navigation happens under the extension's rules. */
   const play = (): void => {
     loaded = true;
@@ -46,30 +60,46 @@ export function createGenericTv(frame: TvGeneric, bridge: ExtensionBridge): Gene
     const iframe = el("iframe", { src: frame.src, allow: frame.allow, referrerPolicy: frame.referrerPolicy, title: frame.title }, "shared-video");
     iframe.setAttribute("sandbox", frame.sandbox);
     screen.replaceChildren(iframe);
-    hint.hidden = false;
+    showStrip();
+  };
+  /** Asks the extension to unlock the host from `button`; reloads the frame once unlocked, else calls `failed`. */
+  const askUnlock = (button: HTMLButtonElement, failed: (outcome: Exclude<UnlockOutcome, "unlocked">) => void): void => {
+    button.disabled = true;
+    // A consent tab closed without an answer sends nothing back: coming back to the room lets the viewer ask again.
+    window.addEventListener("focus", () => (button.disabled = false), { once: true });
+    void bridge.unlock(frame.host).then((outcome) => {
+      button.disabled = false;
+      if (outcome === "unlocked") play();
+      else failed(outcome);
+    });
   };
   load.addEventListener("click", () => {
     if (!loaded) play();
   });
 
   bridge.whenPresent(() => {
+    present = true;
+    showStrip();
     extHint.hidden = true;
     const unlock = el("button", { type: "button", className: "enter", textContent: "Unlock with extension" }, "generic-unlock");
     actions.append(" ", unlock);
     unlock.addEventListener("click", () => {
-      unlock.disabled = true;
-      // A consent tab closed without an answer sends nothing back: coming back to the room lets the viewer ask again.
-      window.addEventListener("focus", () => (unlock.disabled = false), { once: true });
       status.hidden = true;
-      void bridge.unlock(frame.host).then((outcome) => {
-        unlock.disabled = false;
-        if (outcome === "unlocked") {
-          play();
-          return;
-        }
+      askUnlock(unlock, (outcome) => {
         status.textContent = outcome === "denied" ? `${frame.host} wasn't unlocked.` : `The extension can't unlock ${frame.host} in this browser.`;
         status.hidden = false;
       });
+    });
+  });
+  stripUnlock.addEventListener("click", () => {
+    askUnlock(stripUnlock, (outcome) => {
+      if (outcome === "denied") {
+        stripUnlock.title = `${frame.host} wasn't unlocked. Click to ask again.`;
+        return;
+      }
+      // The extension can't help in this browser: back to the plain hint.
+      present = false;
+      showStrip();
     });
   });
 
