@@ -31,7 +31,16 @@ const only = process.argv
   ?.slice("--files=".length)
   .split(",");
 
-const targetDir = process.env["CARGO_TARGET_DIR"] ?? join(root, "target");
+// cargo knows where its target dir is (CARGO_TARGET_DIR, relative paths, build.target-dir).
+const metadata: unknown = JSON.parse(
+  Bun.spawnSync(["cargo", "metadata", "--format-version", "1", "--no-deps", "--locked"], {
+    cwd: root,
+  }).stdout.toString(),
+);
+const targetDir =
+  typeof metadata === "object" && metadata !== null && "target_directory" in metadata
+    ? String(metadata.target_directory)
+    : join(root, "target");
 if (run(["cargo", "build", "--locked", "--features", "test-hooks", "--bin", "omega-server"]) !== 0) process.exit(2);
 const bin = join(targetDir, "debug/omega-server");
 if (!existsSync(bin)) {
@@ -63,11 +72,15 @@ if (results.length === 0) {
   console.error("the suite produced no results");
   process.exit(2);
 }
-// A second pass with a binary that cannot start: whatever still passes never needed a server.
+// Only to find manifest candidates (--dump, --write-manifest), not on every check: a second pass
+// with a binary that cannot start, whatever still passes never needed a server.
+const wantsCandidates = dump !== undefined || write;
 const serverFree = new Set(
-  suite("/nonexistent/omega-server")
-    .filter((t) => t.status === "pass")
-    .map((t) => t.id),
+  wantsCandidates
+    ? suite("/nonexistent/omega-server")
+        .filter((t) => t.status === "pass")
+        .map((t) => t.id)
+    : [],
 );
 
 const parsed: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -77,10 +90,11 @@ const listed =
     : [];
 if (dump !== undefined) writeFileSync(dump, JSON.stringify({ results, serverFree: [...serverFree] }));
 const verdict = evaluate(results, listed, serverFree);
+if (!wantsCandidates) verdict.unlisted = [];
 
 console.log(
   `\nblack-box: ${String(verdict.counts.pass)} pass, ${String(verdict.counts.fail)} fail, ` +
-    `${String(verdict.counts["not-black-box"])} not-black-box, ${String(verdict.counts.skip)} skipped, ${String(verdict.counts["no-server"])} never start a server ` +
+    `${String(verdict.counts["not-black-box"])} not-black-box, ${String(verdict.counts.skip)} skipped, ${wantsCandidates ? `${String(verdict.counts["no-server"])} never start a server ` : ""}` +
     `(${String(listed.length)} in the manifest)`,
 );
 if (verdict.unlisted.length > 0) {

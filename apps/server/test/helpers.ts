@@ -1,8 +1,7 @@
 import { parseServerMessage, type ServerMessage } from "@omega/shared";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { envFor, NotBlackBox } from "../../server-rs/blackbox/env";
+import { envFor } from "../../server-rs/blackbox/env";
+import { blackBoxServer } from "../../server-rs/blackbox/handle";
+import { spawnServer } from "../../server-rs/blackbox/spawn";
 import { startServer, type OmegaServer, type ServerOptions } from "../src/server";
 
 export { NotBlackBox } from "../../server-rs/blackbox/env";
@@ -20,62 +19,20 @@ export interface TestServer {
 
 /** `OMEGA_SERVER_BIN`: run this suite against that binary instead of the in-process server (S8). */
 const BLACK_BOX_BIN = process.env["OMEGA_SERVER_BIN"];
-const BOOT_TIMEOUT_MS = 10_000;
-const LISTENING = /omega-share server on http:\/\/([^/\s]+)\//;
-const children = new Set<Bun.Subprocess>();
-process.on("exit", () => {
-  for (const child of children) child.kill("SIGKILL");
-});
 
 /**
- * Spawns the binary like the in-process start: synchronously, PORT=0, polling its stdout for the
- * listening line. Only the members a black-box test can honour exist on `server`; touching any
- * other (`registry`, `publish`, ...) throws NotBlackBox so the runner can classify the test.
+ * Spawns the binary like the in-process start (synchronously, PORT=0). Only the members a black-box
+ * test can honour exist on `server`; touching any other throws NotBlackBox so the runner can classify
+ * the test.
  */
 function startBlackBox(bin: string, opts: Partial<ServerOptions>): TestServer {
   const { env, clock } = envFor({ ...opts });
-  const dir = mkdtempSync(join(tmpdir(), "omega-bb-"));
-  const out = join(dir, "stdout");
-  const err = join(dir, "stderr");
-  const child = Bun.spawn([bin], {
-    env: { PATH: process.env["PATH"] ?? "", ...env },
-    stdout: Bun.file(out),
-    stderr: Bun.file(err),
-  });
-  children.add(child);
-  const deadline = Date.now() + BOOT_TIMEOUT_MS;
-  let host: string | undefined;
-  while (host === undefined) {
-    host = LISTENING.exec(readFileSync(out, "utf8"))?.[1];
-    if (host !== undefined) break;
-    if (child.exitCode !== null || Date.now() > deadline) {
-      child.kill("SIGKILL");
-      children.delete(child);
-      throw new Error(`omega-server did not start: ${readFileSync(err, "utf8").trim()}`);
-    }
-    Bun.sleepSync(5);
-  }
-  const port = Number(host.slice(host.lastIndexOf(":") + 1));
-  const stop = async (): Promise<void> => {
-    child.kill("SIGTERM");
-    await child.exited;
-    children.delete(child);
-    rmSync(dir, { recursive: true, force: true });
-  };
-  const handle = new Proxy(
-    { port, stop },
-    {
-      get(target, prop) {
-        if (prop in target) return target[prop as keyof typeof target];
-        throw new NotBlackBox(`server.${String(prop)} is not available against the binary`);
-      },
-    },
-  );
+  const { port, stop } = spawnServer(bin, env);
   const http = `http://127.0.0.1:${String(port)}`;
   clock?.attach(http);
-  // The proxy stands in for OmegaServer: it only ever answers port and stop.
+  // The handle stands in for OmegaServer: it only ever answers port and stop.
   return {
-    server: handle as unknown as OmegaServer,
+    server: blackBoxServer(port, stop) as unknown as OmegaServer,
     http,
     ws: (roomId = "lobby") => `ws://127.0.0.1:${String(port)}/rooms/${roomId}/ws`,
   };

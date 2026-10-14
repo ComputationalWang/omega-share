@@ -85,7 +85,9 @@ describe("spawnServer", () => {
   test("closing the stdin pipe (the harness dying) is what the guard listens to: the child is given a pipe", async () => {
     const pidFile = join(scratch, "pid");
     const s = spawnServer(
-      fake(`${LINE}\necho $$ > ${pidFile}\n[ -p /dev/stdin ] && echo pipe > ${pidFile}.stdin\nexec sleep 30`),
+      fake(
+        `${LINE}\necho $$ > ${pidFile}\n{ [ -p /dev/stdin ] || [ -S /dev/stdin ]; } && echo pipe > ${pidFile}.stdin\nexec sleep 30`,
+      ),
       {},
     );
     await Bun.sleep(100);
