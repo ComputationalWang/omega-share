@@ -253,6 +253,14 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         "off" => false,
         _ => return Err(fail("TRUST_PROXY", "must be loopback or off")),
     };
+    // Behind the tunnel every client is a loopback peer: without the forwarded address they would share one key,
+    // and a loopback key skips every per-key limit (S10 CFG-1). Stricter than Bun, which only warned.
+    if public_origin.is_some() && !trust_proxy {
+        return Err(fail(
+            "TRUST_PROXY",
+            "must be loopback when PUBLIC_ORIGIN is set (the tunnel's clients are told apart by X-Forwarded-For)",
+        ));
+    }
 
     let static_dir = match get("STATIC_DIR") {
         None => None,
@@ -542,7 +550,7 @@ mod tests {
     #[test]
     fn normalizes_a_public_origins_case_and_trailing_slash() {
         assert_eq!(
-            ok(&[("PUBLIC_ORIGIN", "https://Quiet-Otter.ngrok-free.app/")])
+            ok(&[("PUBLIC_ORIGIN", "https://Quiet-Otter.ngrok-free.app/"), ("TRUST_PROXY", "loopback")])
                 .public_origin
                 .as_deref(),
             Some("https://quiet-otter.ngrok-free.app")
@@ -621,7 +629,8 @@ mod tests {
         assert_eq!(
             ok(&[
                 ("SITE_ORIGIN", "https://Watch.Example.org"),
-                ("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app")
+                ("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"),
+                ("TRUST_PROXY", "loopback")
             ])
             .own_hosts,
             vec!["localhost", "watch.example.org", "quiet-otter.ngrok-free.app"]
@@ -630,7 +639,7 @@ mod tests {
         assert_eq!(ok(&[("SITE_ORIGIN", "http://[::1]:5173")]).own_hosts, vec!["localhost"]);
         // The same host twice is listed once.
         assert_eq!(
-            ok(&[("SITE_ORIGIN", "https://omega.example"), ("PUBLIC_ORIGIN", "https://omega.example")]).own_hosts,
+            ok(&[("SITE_ORIGIN", "https://omega.example"), ("PUBLIC_ORIGIN", "https://omega.example"), ("TRUST_PROXY", "loopback")]).own_hosts,
             vec!["localhost", "omega.example"]
         );
     }

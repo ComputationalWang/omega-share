@@ -77,6 +77,22 @@ fn a_bad_public_origin_exits_non_zero_before_listening() {
     assert!(!String::from_utf8_lossy(&out.stdout).contains("server on"));
 }
 
+// S10 CFG-1: behind a public origin without the forwarded address every client would be a loopback peer.
+#[test]
+fn an_https_public_origin_without_trust_proxy_exits_one_before_listening() {
+    let out = Command::new(BIN)
+        .arg("serve")
+        .env("PORT", "0")
+        .env("DB_PATH", ":memory:")
+        .env("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("TRUST_PROXY") && err.contains("PUBLIC_ORIGIN"), "{err}");
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("server on"));
+}
+
 #[test]
 fn a_non_utf8_config_value_is_refused_naming_the_variable() {
     use std::os::unix::ffi::OsStringExt;

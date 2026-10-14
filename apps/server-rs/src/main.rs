@@ -89,9 +89,6 @@ fn run_serve() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    if config.public_origin.is_some() && !config.trust_proxy {
-        stderr_line("PUBLIC_ORIGIN is set without TRUST_PROXY=loopback: all tunnelled clients will share one rate-limit bucket");
-    }
     if !["127.0.0.1", "::1", "localhost"].contains(&config.hostname.as_str()) {
         stderr_line(&format!(
             "HOST={} is not loopback: the server is reachable without the tunnel (ADR 0015 §3)",

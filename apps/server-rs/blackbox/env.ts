@@ -63,6 +63,8 @@ export function envFor(opts: Record<string, unknown>): Mapped {
       env[mapped[0]] = mapped[1](value);
     }
   }
+  // The Rust server refuses a public origin without TRUST_PROXY (S10 CFG-1; the TS server only warned).
+  if (env["PUBLIC_ORIGIN"] !== undefined) env["TRUST_PROXY"] = "loopback";
   if (clock !== undefined) {
     env["OMEGA_TEST_MONO"] = String(clock.mono);
     env["OMEGA_TEST_WALL"] = String(clock.wall);

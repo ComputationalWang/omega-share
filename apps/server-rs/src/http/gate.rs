@@ -10,8 +10,9 @@ use crate::app::App;
 use crate::rate_limit::{self, is_loopback_key};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// The client key of the request (`ipOf`), set by the layer.
@@ -149,12 +150,22 @@ pub fn client_key(app: &App, peer: Option<IpAddr>, headers: &HeaderMap) -> Strin
             None => forwarded = Some(value.into_owned()),
         }
     }
-    rate_limit::client_key(&peer.to_string(), forwarded.as_deref(), app.config.trust_proxy)
+    let key = rate_limit::client_key(&peer.to_string(), forwarded.as_deref(), app.config.trust_proxy);
+    // Behind a public origin every client came through the tunnel: none is local, so none skips the per-key limits
+    // (CFG-1). A client of the tunnel host itself shares one bucket.
+    if app.config.public_origin.is_some() && is_loopback_key(&key) {
+        return "proxy:loopback".to_owned();
+    }
+    key
 }
 
-/// Counts HTTP requests being handled; drops the count when the request ends or is cancelled.
+/// Counts HTTP requests being handled, in all and per client key; drops the counts when the request ends or is
+/// cancelled.
 #[derive(Debug)]
-pub struct InFlight<'a>(&'a AtomicUsize);
+pub struct InFlight<'a> {
+    total: &'a AtomicUsize,
+    key: Option<(&'a Mutex<HashMap<String, usize>>, String)>,
+}
 
 impl<'a> InFlight<'a> {
     /// `None` when `max` are already in flight.
@@ -163,13 +174,38 @@ impl<'a> InFlight<'a> {
             counter.fetch_sub(1, Ordering::AcqRel);
             return None;
         }
-        Some(Self(counter))
+        Some(Self { total: counter, key: None })
+    }
+
+    /// Also counts against `key`: `false` (and nothing counted) when it already has `max`.
+    fn enter_key(&mut self, keys: &'a Mutex<HashMap<String, usize>>, key: &str, max: usize) -> bool {
+        let mut counts = keys.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let n = counts.entry(key.to_owned()).or_insert(0);
+        if *n >= max {
+            if *n == 0 {
+                counts.remove(key);
+            }
+            return false;
+        }
+        *n += 1;
+        drop(counts);
+        self.key = Some((keys, key.to_owned()));
+        true
     }
 }
 
 impl Drop for InFlight<'_> {
     fn drop(&mut self) {
-        self.0.fetch_sub(1, Ordering::AcqRel);
+        self.total.fetch_sub(1, Ordering::AcqRel);
+        if let Some((keys, key)) = self.key.take() {
+            let mut counts = keys.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            if let Some(n) = counts.get_mut(&key) {
+                *n = n.saturating_sub(1);
+                if *n == 0 {
+                    counts.remove(&key);
+                }
+            }
+        }
     }
 }
 
@@ -186,9 +222,15 @@ pub fn admit_http<'a>(app: &'a App, key: &str) -> Result<InFlight<'a>, Box<Respo
             return Err(Box::new(res));
         }
     }
-    InFlight::enter(&app.http.in_flight, app.config.max_http_in_flight).ok_or_else(|| {
+    let busy = || {
         let mut res = with_type(StatusCode::SERVICE_UNAVAILABLE, PLAIN, "server busy");
         retry_after(&mut res, 1000);
         Box::new(res)
-    })
+    };
+    let mut guard = InFlight::enter(&app.http.in_flight, app.config.max_http_in_flight).ok_or_else(busy)?;
+    // One key can't hold every slot with slow bodies (HTTP-2). Loopback is local dev and tests.
+    if !is_loopback_key(key) && !guard.enter_key(&app.http.key_in_flight, key, app.http.key_in_flight_max()) {
+        return Err(busy());
+    }
+    Ok(guard)
 }
