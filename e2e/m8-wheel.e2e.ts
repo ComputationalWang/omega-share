@@ -312,7 +312,7 @@ test.describe("closing the wheel", () => {
     await expect(item("Laugh")).toBeFocused();
     // Roving tabindex: one stop in the menu, the selected one.
     const stops = await a.page.locator("[role=menuitem]").evaluateAll((els) => els.map((e) => e.getAttribute("tabindex")));
-    expect(stops).toEqual(["-1", "0", "-1", "-1", "-1", "-1"]);
+    expect(stops).toEqual(["-1", "0", "-1", "-1", "-1", "-1", "-1", "-1"]);
   });
 });
 
