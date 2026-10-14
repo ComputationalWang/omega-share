@@ -21,6 +21,12 @@ const RUNNERS: &[&str] = &[
     "member-id",
     "nickname",
     "nickname-key",
+    "raw-avatar",
+    "raw-chat-text",
+    "raw-member-id",
+    "raw-nickname",
+    "raw-seat-index",
+    "raw-standing-slot",
     "normalize-hostname",
     "parse-bearer",
     "queue-item-id",
@@ -254,4 +260,35 @@ fn room_primitives_agree() {
     schema_corpus::<StandingSlot>(include_str!("../corpus/out/standing-slot.json"));
     schema_corpus::<ControlPolicy>(include_str!("../corpus/out/control-policy.json"));
     schema_corpus::<RoomVisibility>(include_str!("../corpus/out/room-visibility.json"));
+}
+
+/// Raw JSON text through `T`'s `Deserialize` (what the socket delivers), output via `Serialize`.
+fn raw_corpus<T: DeserializeOwned + Serialize>(json: &str) {
+    let cases: Vec<Case<String, Value>> = load::<String, Value>(json)
+        .into_iter()
+        .map(|c| Case {
+            output: c.output.map(numeric),
+            ..c
+        })
+        .collect();
+    agree(cases, |text| {
+        serde_json::from_str::<T>(text)
+            .ok()
+            .and_then(|t| serde_json::to_value(t).ok())
+            .map(numeric)
+    });
+}
+
+#[test]
+fn raw_numbers_agree() {
+    raw_corpus::<Avatar>(include_str!("../corpus/out/raw-avatar.json"));
+    raw_corpus::<SeatIndex>(include_str!("../corpus/out/raw-seat-index.json"));
+    raw_corpus::<StandingSlot>(include_str!("../corpus/out/raw-standing-slot.json"));
+}
+
+#[test]
+fn raw_strings_agree() {
+    raw_corpus::<MemberId>(include_str!("../corpus/out/raw-member-id.json"));
+    raw_corpus::<Nickname>(include_str!("../corpus/out/raw-nickname.json"));
+    raw_corpus::<ChatText>(include_str!("../corpus/out/raw-chat-text.json"));
 }

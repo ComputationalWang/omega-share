@@ -23,7 +23,7 @@ import {
 } from "@omega/shared";
 import { nicknameKey } from "@omega/shared/confusables";
 import { CONFUSABLES } from "../../../packages/shared/src/confusables-table";
-import type { Case } from "./corpora";
+import { decidedRaw, type Case, type RawInput } from "./corpora";
 
 /** A schema as a corpus: the parsed output on success, `ok: false` on refusal. */
 export const parsed = (schema: v.GenericSchema, inputs: readonly unknown[]): Case[] =>
@@ -415,3 +415,64 @@ const keyInputs = (): string[] => {
   return [...out];
 };
 export const nicknameKeyCases = (): Case[] => keyInputs().map((input) => ({ input, ok: true, output: nicknameKey(input) }));
+
+// ---- raw JSON text -------------------------------------------------------------------------------
+// What `JSON.stringify` never writes, as the server's parse step would see it (decidedRaw).
+
+/** A lone-surrogate output can't be written as corpus JSON that serde reads, so the record gets U+FFFD. */
+const safeOutput = (o: unknown): unknown => (typeof o === "string" ? o.toWellFormed() : o);
+const rawParsed = (schema: v.GenericSchema, inputs: readonly RawInput[]): Case[] =>
+  decidedRaw(inputs, (j) => {
+    const r = v.safeParse(schema, j);
+    return r.success ? safeOutput(r.output) : null;
+  });
+
+const RAW_NUMBERS: RawInput[] = [
+  { text: "-0", rustRefuses: true },
+  { text: "0" },
+  { text: "1.0", rustRefuses: true },
+  { text: "3.0", rustRefuses: true },
+  { text: "0.0", rustRefuses: true },
+  { text: "1e0", rustRefuses: true },
+  { text: "1E0", rustRefuses: true },
+  { text: "2e0", rustRefuses: true },
+  { text: "1e2", rustRefuses: true },
+  { text: "7.0e0", rustRefuses: true },
+  ...["1", "2", "3", "4", "7", "8", "24", "25", "-1", "1.5", "03", "+3", "", " 3", "3 ", "[3]", "[]", "{}", '{"a":3}', '"3"', "null", "true", "false", "1e400", "NaN"].map((text) => ({ text })),
+];
+export const rawAvatarCases = (): Case[] => rawParsed(AvatarSchema, RAW_NUMBERS);
+export const rawSeatIndexCases = (): Case[] => rawParsed(SeatIndexSchema, RAW_NUMBERS);
+export const rawStandingSlotCases = (): Case[] => rawParsed(StandingSlotSchema, RAW_NUMBERS);
+
+const RAW_STRINGS = (good: string): RawInput[] => [
+  { text: JSON.stringify(good) },
+  { text: `"${good}\\ud800"`, rustRefuses: true },
+  { text: `"\\ud800${good}"`, rustRefuses: true },
+  { text: `"${good}\\udc00${good}"`, rustRefuses: true },
+  { text: `"${good}\\ud83d\\ude00"` },
+  { text: `"${good}\\ud83d"`, rustRefuses: true },
+  { text: `"\\u0061${good}"` },
+  { text: `"${good}\\u0000"` },
+  { text: `"${good}\\u200d"` },
+  { text: `"\\ufeff${good}"` },
+  { text: `"\\u0085${good}"` },
+  { text: `["${good}"]` },
+  { text: `{"v":"${good}"}` },
+  { text: "[]" },
+  { text: "{}" },
+  { text: "0" },
+  { text: "-0" },
+  { text: "1.0" },
+  { text: "1e2" },
+  { text: "null" },
+  { text: "true" },
+  { text: `"${good}` },
+  { text: good },
+  { text: `'${good}'` },
+  { text: `"${good}" ` },
+  { text: ` "${good}"` },
+  { text: `"${good}""${good}"` },
+];
+export const rawMemberIdCases = (): Case[] => rawParsed(MemberIdSchema, RAW_STRINGS("m1"));
+export const rawNicknameCases = (): Case[] => rawParsed(NicknameSchema, RAW_STRINGS("Alice"));
+export const rawChatTextCases = (): Case[] => rawParsed(ChatTextSchema, RAW_STRINGS("hi there"));

@@ -110,6 +110,12 @@ const constantCases = (): Case[] =>
 export const corpora: Corpus[] = [
   { name: "normalize-hostname", cases: () => decided(HOSTNAMES, normalizeHostname) },
   { name: "constants", cases: constantCases },
+  { name: "raw-avatar", cases: text.rawAvatarCases },
+  { name: "raw-seat-index", cases: text.rawSeatIndexCases },
+  { name: "raw-standing-slot", cases: text.rawStandingSlotCases },
+  { name: "raw-member-id", cases: text.rawMemberIdCases },
+  { name: "raw-nickname", cases: text.rawNicknameCases },
+  { name: "raw-chat-text", cases: text.rawChatTextCases },
   { name: "member-id", cases: text.memberIdCases },
   { name: "queue-item-id", cases: text.queueItemIdCases },
   { name: "room-id", cases: text.roomIdCases },
