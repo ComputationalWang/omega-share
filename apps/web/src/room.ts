@@ -1272,6 +1272,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     { getItem: (k) => sessionStorage.getItem(k), removeItem: (k) => { sessionStorage.removeItem(k); } },
     opts.roomId,
     send,
+    [location.hostname],
   );
   const dispatch = (e: ViewEvent): void => {
     const next = reduce(state, e);

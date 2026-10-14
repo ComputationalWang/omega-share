@@ -11,7 +11,7 @@ import {
   type RoomSummary,
 } from "@omega/shared";
 import { el } from "./controls/dom";
-import { stashPendingLayout, type PendingStore } from "./pending-layout";
+import { shareableLink, stashPendingLayout, stashPendingShare, type PendingStore } from "./pending-layout";
 import { DEFAULT_PRESET, PRESETS, PRESET_THUMB } from "./presets";
 import { forgetRoom, loadRoomSecrets, rememberRoom, type SecretsStore } from "./room-secrets";
 import { deleteSavedLayout, loadSavedLayouts, type LayoutStore } from "./saved-layouts";
@@ -31,6 +31,8 @@ export interface HomeOptions {
   readonly fetch: (url: string, init?: RequestInit) => Promise<Response>;
   /** Opens a room page, e.g. `location.assign`. */
   readonly navigate: (path: string) => void;
+  /** The raw `#share=` link main.ts took at boot (OME-1085); validated here, played in the room this form creates. */
+  readonly share: string | null;
 }
 
 export interface Home {
@@ -131,7 +133,19 @@ export function mountHome(opts: HomeOptions): Home {
   };
   renderSaved();
   title.placeholder = "Friday film night";
-  form.append(el("h2", { textContent: "Make a room" }), titleLabel, title, picker, savedSlot, check, error, submit, el("p", { className: "note", textContent: "Share the link once you're inside." }));
+  // A link from the extension: only one the queue would take is shown (as text) and kept; anything else is dropped silently.
+  let shared = opts.share === null ? null : shareableLink(opts.share, [location.hostname]);
+  const shareNote = el("p", { className: "note share-pending" }, "share-pending");
+  if (shared !== null) {
+    const discard = el("button", { type: "button", className: "link", textContent: "Don't add it" }, "share-discard");
+    discard.addEventListener("click", () => {
+      shared = null;
+      shareNote.remove();
+      title.focus();
+    });
+    shareNote.append("This video will play in your new room: ", el("span", { className: "share-url", textContent: shared }), " ", discard);
+  }
+  form.append(el("h2", { textContent: "Make a room" }), ...(shared === null ? [] : [shareNote]), titleLabel, title, picker, savedSlot, check, error, submit, el("p", { className: "note", textContent: "Share the link once you're inside." }));
 
   const fail = (message: string): void => {
     error.textContent = message;
@@ -185,6 +199,8 @@ export function mountHome(opts: HomeOptions): Home {
         }
         // A saved layout waits for the room page. If the tab's storage is blocked the room is simply the empty preset.
         if (pending !== null) stashPendingLayout(opts.session, res.room.id, pending);
+        // Likewise the shared link: the owner's first join queues it (lost only if the tab's storage is blocked).
+        if (shared !== null) stashPendingShare(opts.session, res.room.id, shared);
         opts.navigate(`/r/${res.room.id}`);
       })
       .catch(() => {
