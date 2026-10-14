@@ -52,6 +52,13 @@ fn lock(inner: &Mutex<Inner>) -> MutexGuard<'_, Inner> {
     inner.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
+/// Why a `set` gave up before every due timer had fired and been acknowledged.
+#[derive(Debug, PartialEq, Eq)]
+pub enum SetError {
+    TooManyFires(usize),
+    AckTimeout,
+}
+
 /// A clock the test moves by hand. `sleep(ms)` resolves when virtual time reaches its deadline.
 pub struct VirtualClock {
     inner: Arc<Mutex<Inner>>,
@@ -82,9 +89,14 @@ impl VirtualClock {
         })
     }
 
+    /// Limits for the ack wait and the fires per `set` (tests shrink them).
+    pub fn with_limits(mono: f64, wall: Option<i64>, _ack_timeout: Duration, _max_fires: usize) -> Arc<Self> {
+        Self::starting_at(mono, wall)
+    }
+
     /// Sets both clocks and fires every timer due at or before the new monotonic time, one at a
     /// time in deadline order, waiting for each to be acknowledged. Returns how many fired.
-    pub async fn set(&self, mono: f64, wall: i64) -> usize {
+    pub async fn set(&self, mono: f64, wall: i64) -> Result<usize, SetError> {
         let _one_at_a_time = self.setting.lock().await;
         {
             let mut inner = lock(&self.inner);
@@ -105,7 +117,7 @@ impl VirtualClock {
                 }
             }
         }
-        fired
+        Ok(fired)
     }
 
     /// The earliest due timer (ties: armed first), removed from the list.
@@ -190,7 +202,10 @@ struct SetTime {
 /// `POST /__test/time {mono, wall}` → `{"fired":n}`; `GET /__test/time` → `{"pending":n}`.
 async fn post_time(State(clock): State<Arc<VirtualClock>>, body: Bytes) -> (StatusCode, String) {
     match serde_json::from_slice::<SetTime>(&body) {
-        Ok(t) if t.mono.is_finite() => (StatusCode::OK, format!(r#"{{"fired":{}}}"#, clock.set(t.mono, t.wall).await)),
+        Ok(t) if t.mono.is_finite() => (
+            StatusCode::OK,
+            format!(r#"{{"fired":{}}}"#, clock.set(t.mono, t.wall).await.unwrap_or(0)),
+        ),
         _ => (StatusCode::BAD_REQUEST, r#"{"error":"expected {mono, wall}"}"#.to_owned()),
     }
 }
@@ -213,10 +228,12 @@ pub fn install() -> (SharedClock, Router) {
         std::env::var("OMEGA_TEST_WALL").ok().as_deref(),
     );
     let clock = VirtualClock::starting_at(mono, wall);
-    let router = Router::new()
-        .route("/__test/time", get(get_time).post(post_time))
-        .with_state(clock.clone());
-    (clock, router)
+    (clock.clone(), routes(clock))
+}
+
+/// `POST`/`GET /__test/time` over `clock`.
+pub fn routes(clock: Arc<VirtualClock>) -> Router {
+    Router::new().route("/__test/time", get(get_time).post(post_time)).with_state(clock)
 }
 
 #[cfg(test)]
@@ -224,7 +241,9 @@ mod tests {
     use super::*;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::sync::oneshot;
 
     #[test]
     fn the_starting_time_comes_from_the_environment_or_defaults() {
@@ -241,7 +260,7 @@ mod tests {
     #[tokio::test]
     async fn time_only_moves_when_set() {
         let clock = VirtualClock::shared();
-        assert_eq!(clock.set(1_000.0, 5_000).await, 0);
+        assert_eq!(clock.set(1_000.0, 5_000).await.unwrap(), 0);
         assert_eq!(clock.mono_ms(), 1_000.0);
         assert_eq!(clock.wall_ms(), 5_000);
     }
@@ -249,7 +268,7 @@ mod tests {
     #[tokio::test]
     async fn sleep_resolves_only_when_time_reaches_the_deadline() {
         let clock = VirtualClock::shared();
-        clock.set(100.0, 0).await;
+        clock.set(100.0, 0).await.unwrap();
         let done = Arc::new(AtomicBool::new(false));
         let (c, d) = (clock.clone(), done.clone());
         tokio::spawn(async move {
@@ -258,9 +277,9 @@ mod tests {
         });
         tokio::task::yield_now().await;
         assert_eq!(clock.pending(), 1);
-        clock.set(149.0, 0).await;
+        clock.set(149.0, 0).await.unwrap();
         assert!(!done.load(Ordering::SeqCst));
-        assert_eq!(clock.set(150.0, 0).await, 1);
+        assert_eq!(clock.set(150.0, 0).await.unwrap(), 1);
         assert!(done.load(Ordering::SeqCst));
         assert_eq!(clock.pending(), 0);
     }
@@ -277,7 +296,7 @@ mod tests {
             d.store(true, Ordering::SeqCst);
         });
         tokio::task::yield_now().await;
-        clock.set(10.0, 0).await;
+        clock.set(10.0, 0).await.unwrap();
         assert!(done.load(Ordering::SeqCst), "set returned before the sleeper finished");
     }
 
@@ -293,7 +312,7 @@ mod tests {
             });
         }
         tokio::task::yield_now().await;
-        assert_eq!(clock.set(100.0, 0).await, 3);
+        assert_eq!(clock.set(100.0, 0).await.unwrap(), 3);
         assert_eq!(*order.lock().unwrap(), vec!["a", "b", "c"]);
     }
 
@@ -310,11 +329,11 @@ mod tests {
         });
         tokio::task::yield_now().await;
         // The wake at 10 re-arms for 20 (virtual now is the set time, so deadline = 10 + 10).
-        assert_eq!(clock.set(10.0, 0).await, 1);
+        assert_eq!(clock.set(10.0, 0).await.unwrap(), 1);
         assert_eq!(*ticks.lock().unwrap(), 1);
-        assert_eq!(clock.set(20.0, 0).await, 1);
+        assert_eq!(clock.set(20.0, 0).await.unwrap(), 1);
         assert_eq!(*ticks.lock().unwrap(), 2);
-        assert_eq!(clock.set(30.0, 0).await, 1);
+        assert_eq!(clock.set(30.0, 0).await.unwrap(), 1);
         assert_eq!(*ticks.lock().unwrap(), 3);
     }
 
@@ -330,7 +349,7 @@ mod tests {
         tokio::task::yield_now().await;
         handle.abort();
         let _ = handle.await;
-        assert_eq!(clock.set(20.0, 0).await, 0);
+        assert_eq!(clock.set(20.0, 0).await.unwrap(), 0);
     }
 
     #[tokio::test]
@@ -341,7 +360,7 @@ mod tests {
             tokio::spawn(async move { c.sleep(ms).await });
         }
         tokio::task::yield_now().await;
-        assert_eq!(clock.set(0.0, 0).await, 3);
+        assert_eq!(clock.set(0.0, 0).await.unwrap(), 3);
     }
 
     async fn http(addr: std::net::SocketAddr, request: &str) -> String {
@@ -374,5 +393,106 @@ mod tests {
         assert_eq!(clock.wall_ms(), 1_700_000_000_000);
         let bad = "POST /__test/time HTTP/1.1\r\nhost: x\r\nconnection: close\r\ncontent-length: 2\r\n\r\n{}";
         assert!(http(addr, bad).await.starts_with("HTTP/1.1 400"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn set_waits_for_a_task_the_woken_task_spawns() {
+        let clock = VirtualClock::shared();
+        let done = Arc::new(AtomicBool::new(false));
+        let (c, d) = (clock.clone(), done.clone());
+        tokio::spawn(async move {
+            c.sleep(10.0).await;
+            let d = d.clone();
+            tokio::spawn(async move {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                d.store(true, Ordering::SeqCst);
+            });
+        });
+        tokio::task::yield_now().await;
+        clock.set(10.0, 0).await.unwrap();
+        assert!(done.load(Ordering::SeqCst), "set returned before the spawned work finished");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_sleeper_that_keeps_rearming_a_zero_delay_hits_the_fire_limit() {
+        let clock = VirtualClock::with_limits(0.0, None, Duration::from_secs(5), 20);
+        let c = clock.clone();
+        tokio::spawn(async move {
+            loop {
+                c.sleep(0.0).await;
+            }
+        });
+        tokio::task::yield_now().await;
+        assert_eq!(clock.set(0.0, 0).await, Err(SetError::TooManyFires(20)));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_sleeper_that_never_lets_go_of_its_future_times_out() {
+        let clock = VirtualClock::with_limits(0.0, None, Duration::from_millis(50), 100);
+        let c = clock.clone();
+        let (held_tx, held_rx) = oneshot::channel::<()>();
+        tokio::spawn(async move {
+            let sleep = c.sleep(1.0);
+            // Keeps the future alive past its wake, so the ack never comes.
+            let _ = held_rx.await;
+            drop(sleep);
+        });
+        tokio::task::yield_now().await;
+        assert_eq!(clock.set(5.0, 0).await, Err(SetError::AckTimeout));
+        drop(held_tx);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn the_route_answers_500_with_a_reason_when_set_gives_up() {
+        let clock = VirtualClock::with_limits(0.0, None, Duration::from_millis(50), 100);
+        let router = routes(clock.clone());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, router).await });
+        let (held_tx, held_rx) = oneshot::channel::<()>();
+        let c = clock.clone();
+        tokio::spawn(async move {
+            let sleep = c.sleep(1.0);
+            let _ = held_rx.await;
+            drop(sleep);
+        });
+        tokio::task::yield_now().await;
+        let body = r#"{"mono":5,"wall":0}"#;
+        let post = format!(
+            "POST /__test/time HTTP/1.1\r\nhost: x\r\nconnection: close\r\ncontent-length: {}\r\n\r\n{body}",
+            body.len()
+        );
+        let reply = http(addr, &post).await;
+        assert!(reply.starts_with("HTTP/1.1 500"), "{reply}");
+        assert!(reply.contains("ack"), "{reply}");
+        drop(held_tx);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_client_that_hangs_up_mid_set_does_not_leave_due_timers_unfired() {
+        let clock = VirtualClock::shared();
+        let router = routes(clock.clone());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, router).await });
+        let done = Arc::new(AtomicBool::new(false));
+        let (c, d) = (clock.clone(), done.clone());
+        tokio::spawn(async move {
+            c.sleep(5.0).await;
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            d.store(true, Ordering::SeqCst);
+        });
+        tokio::task::yield_now().await;
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let body = r#"{"mono":10,"wall":0}"#;
+        let post = format!(
+            "POST /__test/time HTTP/1.1\r\nhost: x\r\ncontent-length: {}\r\n\r\n{body}",
+            body.len()
+        );
+        stream.write_all(post.as_bytes()).await.unwrap();
+        drop(stream);
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert_eq!(clock.pending(), 0);
+        assert_eq!(clock.mono_ms(), 10.0);
     }
 }
