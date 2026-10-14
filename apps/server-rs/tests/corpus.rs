@@ -16,8 +16,8 @@ use omega_server::contract::text::{ChatText, Nickname, ReportNote, RoomTitle};
 use omega_server::embed_policy::EmbedPolicy;
 use omega_server::log::redact_addresses;
 use omega_server::metrics::{Gauges, Metrics};
-use omega_server::secrets::hash_secret;
 use omega_server::rate_limit::{address_key, client_key, is_loopback_key};
+use omega_server::secrets::hash_secret;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -653,7 +653,14 @@ fn metrics_render_agrees() {
             }
         }
         let [rooms, sockets, members, open_reports] = input.gauges;
-        let out = m.render(&Gauges { rooms, sockets, members, open_reports, rss_bytes: 0.0, uptime_seconds: 0.0 });
+        let out = m.render(&Gauges {
+            rooms,
+            sockets,
+            members,
+            open_reports,
+            rss_bytes: 0.0,
+            uptime_seconds: 0.0,
+        });
         let cut = out.find("# HELP process_resident_memory_bytes")?;
         out.get(..cut).map(str::to_owned)
     });
