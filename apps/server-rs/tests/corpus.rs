@@ -11,7 +11,11 @@ use omega_server::contract::generic_embed::{
 };
 use omega_server::contract::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken, RoomId, ShareToken, parse_bearer};
 use omega_server::contract::layout::{Facing, Furniture, Kind, RoomLayout, footprint_cells, layout_seats};
+use omega_server::contract::responses::{
+    CreateRoomResponse, DeleteRoomResponse, QueueAddResponse, ReportResponse, RoomListResponse, ShareResponse,
+};
 use omega_server::contract::room::{Avatar, ControlPolicy, RoomVisibility, SeatIndex, StandingSlot};
+use omega_server::contract::server_message::{encode, parse_server_message};
 use omega_server::contract::text::{ChatText, Nickname, ReportNote, RoomTitle};
 use omega_server::embed_policy::EmbedPolicy;
 use omega_server::log::redact_addresses;
@@ -54,6 +58,8 @@ const RUNNERS: &[&str] = &[
     "redact-addresses",
     "report-note",
     "resume-token",
+    "response-raw",
+    "response-roundtrip",
     "room-id",
     "room-layout",
     "room-layout-input",
@@ -62,6 +68,8 @@ const RUNNERS: &[&str] = &[
     "room-title",
     "room-visibility",
     "seat-index",
+    "server-message-raw",
+    "server-message-roundtrip",
     "share-token",
     "standing-slot",
     "unicode-digest",
@@ -607,4 +615,74 @@ fn embed_policy_restore_agrees() {
         load::<PolicyEmbed, String>(include_str!("../corpus/out/embed-policy-restore.json")),
         |i| policy(&i.mode).restore(&i.embed).and_then(|e| to_json(&e)),
     );
+}
+
+// ---- outbound: what the server produces (OME-1160)
+
+/// The text parses as a server message and what Rust makes of it, as a JSON value (key order is not
+/// compared here: the roundtrip corpus pins it byte for byte).
+#[test]
+fn server_message_raw_agrees() {
+    agree(
+        load::<String, Value>(include_str!("../corpus/out/server-message-raw.json")),
+        |text| parse_server_message(text).and_then(|m| serde_json::to_value(&m).ok()),
+    );
+}
+
+/// The TS server's own bytes: parse, encode again, identical text.
+#[test]
+fn server_message_roundtrip_agrees() {
+    agree(
+        load::<String, String>(include_str!("../corpus/out/server-message-roundtrip.json")),
+        |text| parse_server_message(text).map(|m| encode(&m)),
+    );
+}
+
+#[derive(Deserialize, Debug)]
+struct Body {
+    kind: String,
+    text: String,
+}
+
+/// Any response body, as the two outputs the corpora compare.
+trait Out {
+    fn value(&self) -> Option<Value>;
+    fn text(&self) -> Option<String>;
+}
+
+impl<T: Serialize> Out for T {
+    fn value(&self) -> Option<Value> {
+        serde_json::to_value(self).ok()
+    }
+    fn text(&self) -> Option<String> {
+        serde_json::to_string(self).ok()
+    }
+}
+
+/// Parses the body as the response its `kind` names and applies `out` to the result.
+fn response<R>(body: &Body, out: impl Fn(&dyn Out) -> Option<R>) -> Option<R> {
+    let t = body.text.as_str();
+    match body.kind.as_str() {
+        "share" => out(&serde_json::from_str::<ShareResponse>(t).ok()?),
+        "queue-add" => out(&serde_json::from_str::<QueueAddResponse>(t).ok()?),
+        "create-room" => out(&serde_json::from_str::<CreateRoomResponse>(t).ok()?),
+        "delete-room" => out(&serde_json::from_str::<DeleteRoomResponse>(t).ok()?),
+        "report" => out(&serde_json::from_str::<ReportResponse>(t).ok()?),
+        "room-list" => out(&serde_json::from_str::<RoomListResponse>(t).ok()?),
+        other => panic!("unknown response kind {other}"),
+    }
+}
+
+#[test]
+fn response_raw_agrees() {
+    agree(load::<Body, Value>(include_str!("../corpus/out/response-raw.json")), |b| {
+        response(b, |r| r.value())
+    });
+}
+
+#[test]
+fn response_roundtrip_agrees() {
+    agree(load::<Body, String>(include_str!("../corpus/out/response-roundtrip.json")), |b| {
+        response(b, |r| r.text())
+    });
 }
