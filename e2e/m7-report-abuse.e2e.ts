@@ -45,6 +45,7 @@ import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import { TEST_ROOM_IDS } from "./support/test-rooms";
 import { takedownBridge } from "./support/takedown-bridge";
+import { serverArgv } from "./support/server-cmd";
 
 // +6 is moderation-queue-abuse's server; the two run in parallel in a full suite.
 const SERVER_PORT = PORTS.server + 8;
@@ -310,7 +311,7 @@ function startServer(): { fixture: Fixture; stop: () => Promise<void> } {
     ADMIN_SOCKET: socketPath,
   };
   let output = "";
-  const child: ChildProcess = spawnOwned(SERVER_PORT, "bun", ["apps/server/src/index.ts"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
+  const child: ChildProcess = spawnOwned(SERVER_PORT, ...serverArgv(), { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout?.on("data", (d: Buffer) => (output += d.toString()));
   child.stderr?.on("data", (d: Buffer) => (output += d.toString()));
   let next = 1;

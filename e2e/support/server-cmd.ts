@@ -1,6 +1,39 @@
-export function serverBackend(_env: NodeJS.ProcessEnv): "bun" | "rust" {
-  return "bun";
+// Which server the e2e suite runs against (OME-1170, ADR 0050): the Bun server by default, the Rust binary with E2E_SERVER=rust.
+import { spawnSync } from "node:child_process";
+import { join, resolve } from "node:path";
+
+const ROOT = resolve(import.meta.dirname, "../..");
+
+export function serverBackend(env: NodeJS.ProcessEnv): "bun" | "rust" {
+  const v = env["E2E_SERVER"] ?? "bun";
+  if (v !== "bun" && v !== "rust") throw new Error(`E2E_SERVER must be bun or rust, not ${JSON.stringify(v)}`);
+  return v;
 }
-export function serverProcess(_env: NodeJS.ProcessEnv): { command: string; args: string[] } {
-  return { command: "", args: [] };
+
+/** cargo knows the target dir (CARGO_TARGET_DIR, config, default). */
+function targetDir(env: NodeJS.ProcessEnv): string {
+  const set = env["CARGO_TARGET_DIR"];
+  if (set !== undefined && set !== "") return resolve(ROOT, set);
+  const r = spawnSync("cargo", ["metadata", "--format-version", "1", "--no-deps", "--locked"], { cwd: ROOT, encoding: "utf8" });
+  const meta: unknown = JSON.parse(r.stdout);
+  if (typeof meta !== "object" || meta === null || !("target_directory" in meta) || typeof meta.target_directory !== "string") throw new Error("cargo metadata gave no target_directory");
+  return meta.target_directory;
+}
+
+/** The server process to spawn, from the repo root, with the same env either way. */
+export function serverProcess(env: NodeJS.ProcessEnv): { command: string; args: string[] } {
+  if (serverBackend(env) === "bun") return { command: "bun", args: ["apps/server/src/index.ts"] };
+  return { command: join(targetDir(env), "debug/omega-server"), args: [] };
+}
+
+/** Builds the debug binary once per run (the runner calls this; workers only compute the path). */
+export function buildRustServer(env: NodeJS.ProcessEnv): void {
+  const r = spawnSync("cargo", ["build", "--locked", "--bin", "omega-server"], { cwd: ROOT, stdio: "inherit", env });
+  if (r.status !== 0) throw new Error("cargo build of omega-server failed");
+}
+
+/** `serverProcess` as spread-able spawn arguments: `spawnOwned(port, ...serverArgv(), opts)`. */
+export function serverArgv(): [string, string[]] {
+  const { command, args } = serverProcess(process.env);
+  return [command, args];
 }
