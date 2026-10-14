@@ -67,6 +67,16 @@ Full spec from the contract inventory, ranked by risk:
 
 Schemas, field orders and constants: read the TS source (`packages/shared/src`), it is short. The server sends what it builds with object literals; mirror those literals.
 
+## The comparison test
+
+Every ported schema or contract function gets a corpus: inputs that the TS side decides (accepted with an output, or refused) and the Rust side must decide the same way.
+
+1. Add a corpus to `corpus/corpora.ts`: a name and `cases()`, using `decided(inputs, tsFunction)` for a function, or `v.safeParse(Schema, input)` for a schema (record the parsed output on success). Cover the edges: limits ±1 in UTF-16 units, emoji and astral characters, U+FEFF and U+0085, NFKC-changing input, unknown keys on `object` vs `strictObject`, nulls and absent keys, wrong types, every literal and picklist value.
+2. `bun apps/server-rs/corpus/gen.ts` writes `corpus/out/<name>.json`, one case per line. Commit it.
+3. Add a test in `tests/corpus.rs` that loads the file with `include_str!` and runs `agree(...)` with the Rust function.
+
+`corpus/corpus.test.ts` (in `bun run test`) fails when a recorded file no longer matches what the TS contract decides, so a `packages/shared` change can't land without regenerating, and regenerating can't land without the Rust side agreeing.
+
 ## Deliberate differences
 
 Rust is stricter than Valibot in three places that no real client reaches. The comparison test lists them as expected disagreements:
