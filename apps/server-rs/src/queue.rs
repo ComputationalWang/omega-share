@@ -7,9 +7,20 @@
 //! Call order for an add: [`admit`] (checks and spends the buckets, before the URL is looked at), then [`add`].
 
 use crate::app::App;
+use crate::contract::capabilities::playback_caps;
+use crate::contract::constants::{QUEUE_ENDED_DEBOUNCE_MS, QUEUE_ENDED_TOLERANCE_S, QUEUE_MAX};
+use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId};
+use crate::contract::room::ControlPolicy;
+use crate::contract::server_message::ServerMessage;
 use crate::contract::state::QueueItem;
+use crate::log::{LogEvent, log_error};
+use crate::outbox::publish_msg;
+use crate::playback::expected_position;
 use crate::registry::RoomInner;
+use crate::room::Advance;
+use crate::secrets::mint_item_id;
+use crate::store::{RoomStore, StoreError, StoredQueueItem};
 
 /// Who is changing the queue: the member, and whether they joined as owner. Their add bucket is
 /// `RoomInner::member_add_bucket(member_id)`, shared by the socket and HTTP.
@@ -38,33 +49,197 @@ pub enum QueueAddRefusal {
 /// A `queue-add`'s checks before the URL is looked at (ADR 0031 section 3): control policy, then the member's
 /// bucket, then the room's. `Ok` when they pass (the buckets are spent).
 pub fn admit(app: &App, inner: &mut RoomInner, actor: &QueueActor) -> Result<(), QueueRefusal> {
-    let _ = (app, inner, actor);
+    if inner.room.control_policy() == ControlPolicy::Owner && !actor.owner {
+        return Err(QueueRefusal::ControlOwnerOnly);
+    }
+    let now = app.mono();
+    let member = inner.member_add_bucket(&actor.member_id, now);
+    if !member.take(now) {
+        return Err(QueueRefusal::RateLimited {
+            retry_after_ms: member.retry_after_ms(now) as u64,
+        });
+    }
+    if !inner.queue_add_bucket.take(now) {
+        // The room's limit is everyone's: the member keeps their own add.
+        inner.member_add_bucket(&actor.member_id, now).refund(now);
+        return Err(QueueRefusal::RateLimited {
+            retry_after_ms: inner.queue_add_bucket.retry_after_ms(now) as u64,
+        });
+    }
     Ok(())
+}
+
+fn owner_only(inner: &RoomInner, actor: &QueueActor) -> Result<(), QueueRefusal> {
+    if inner.room.control_policy() == ControlPolicy::Owner && !actor.owner {
+        Err(QueueRefusal::ControlOwnerOnly)
+    } else {
+        Ok(())
+    }
+}
+
+/// Store first: if the write fails nothing changes, so memory never runs ahead of the database.
+fn persisted<T>(app: &App, write: impl FnOnce(&RoomStore<'_>) -> Result<T, StoreError>) -> bool {
+    let store = app.store();
+    match write(&store.rooms()) {
+        Ok(_) => true,
+        Err(err) => {
+            log_error(LogEvent::StoreQueue, Some(&err));
+            false
+        }
+    }
+}
+
+fn queue_changed(inner: &mut RoomInner, by: Option<MemberId>) {
+    let queue = inner.room.queue().iter().cloned().collect();
+    publish_msg(inner, &ServerMessage::QueueChanged { queue, by });
+}
+
+/// Memory and frames of an advance whose write has landed (ADR 0031 section 5): embed-changed (the spread's
+/// critical path, by `started_by`), then queue-changed (by `by`), then who stopped catching.
+fn started(app: &App, inner: &mut RoomInner, started_by: Option<MemberId>, by: Option<MemberId>) {
+    let Some(advanced) = inner.room.advance(app.mono(), started_by.clone(), app.wall()) else {
+        return;
+    };
+    let Advance { item, embed_switch } = advanced;
+    publish_msg(
+        inner,
+        &ServerMessage::embed_changed(Some(item.embed), started_by, embed_switch.playback, Some(item.id)),
+    );
+    queue_changed(inner, by);
+    for member_id in embed_switch.uncaught {
+        publish_msg(
+            inner,
+            &ServerMessage::MemberStatus {
+                member_id,
+                catching: false,
+            },
+        );
+    }
+}
+
+/// One synchronous step (ADR 0031 section 5): store, then memory and frames.
+fn advance_now(app: &App, inner: &mut RoomInner, by: Option<MemberId>) {
+    let Some(next) = inner.room.queue().front().cloned() else {
+        return;
+    };
+    let stored = StoredQueueItem {
+        id: next.id,
+        embed: next.embed,
+    };
+    if !persisted(app, |s| s.advance_queue(&inner.room.id, &stored)) {
+        return;
+    }
+    started(app, inner, None, by);
 }
 
 /// After `admit`: parses `url` with the share parser, checks `QUEUE_MAX`, stores, then tells the room. In a room
 /// with no current item the same write starts the queue's head (ADR 0031 section 5).
 pub fn add(app: &App, inner: &mut RoomInner, actor: &QueueActor, url: &str) -> Result<QueueItem, QueueAddRefusal> {
-    let _ = (app, inner, actor, url);
-    Err(QueueAddRefusal::Unavailable)
+    // Only the parsed embed is ever stored or relayed (ADR 0031 section 2, ADR 0024).
+    let Some(embed) = app.embeds.accept(url) else {
+        return Err(QueueAddRefusal::UnsupportedUrl);
+    };
+    // Refuse, never evict.
+    if inner.room.queue().len() >= QUEUE_MAX {
+        return Err(QueueAddRefusal::QueueFull);
+    }
+    let now = app.mono();
+    let give_back = |inner: &mut RoomInner| {
+        // The server's failure, not the member's: they keep their adds.
+        inner.member_add_bucket(&actor.member_id, now).refund(now);
+        inner.queue_add_bucket.refund(now);
+        QueueAddRefusal::Unavailable
+    };
+    let Ok(id) = mint_item_id() else {
+        return Err(give_back(inner));
+    };
+    let item = QueueItem {
+        id,
+        embed,
+        by: Some(actor.member_id.clone()),
+    };
+    let new = StoredQueueItem {
+        id: item.id.clone(),
+        embed: item.embed.clone(),
+    };
+    // Nothing for ended or queue-advance to name: the add starts the head itself (normally `item`; a queue left
+    // over after a dropped embed row plays first).
+    let head = inner.room.item_id().is_none().then(|| {
+        inner.room.queue().front().map_or_else(
+            || new.clone(),
+            |h| StoredQueueItem {
+                id: h.id.clone(),
+                embed: h.embed.clone(),
+            },
+        )
+    });
+    let room_id = inner.room.id.clone();
+    let written = persisted(app, |s| match &head {
+        None => s.add_queue_item(&room_id, &new),
+        Some(head) => s.add_queue_item_and_start(&room_id, &new, head),
+    });
+    if !written {
+        return Err(give_back(inner));
+    }
+    inner.room.enqueue(item.clone());
+    let by = Some(actor.member_id.clone());
+    if head.is_none() {
+        queue_changed(inner, by);
+    } else {
+        started(app, inner, by.clone(), by);
+    }
+    Ok(item)
 }
 
 /// `queue-remove`: refused under the owner policy; an item that isn't there is ignored (`Ok`).
 pub fn remove(app: &App, inner: &mut RoomInner, actor: &QueueActor, item: &QueueItemId) -> Result<(), QueueRefusal> {
-    let _ = (app, inner, actor, item);
+    owner_only(inner, actor)?;
+    // Removed already, or advanced: a race, not a mistake.
+    if !inner.room.queue().iter().any(|i| i.id == *item) {
+        return Ok(());
+    }
+    if !persisted(app, |s| s.remove_queue_item(&inner.room.id, item)) {
+        return Ok(());
+    }
+    inner.room.dequeue(item);
+    queue_changed(inner, Some(actor.member_id.clone()));
     Ok(())
 }
 
 /// `queue-advance`: refused under the owner policy; ignored (`Ok`) unless `from` is the current item.
 pub fn advance(app: &App, inner: &mut RoomInner, actor: &QueueActor, from: &QueueItemId) -> Result<(), QueueRefusal> {
-    let _ = (app, inner, actor, from);
+    owner_only(inner, actor)?;
+    // Two clicks from the same item skip one item: the second names what is no longer current.
+    if inner.room.item_id() == Some(from) {
+        advance_now(app, inner, Some(actor.member_id.clone()));
+    }
     Ok(())
 }
 
 /// `ended` from a joined member: advances on the first valid report (ADR 0031 section 4), else nothing.
 /// Not subject to the control policy.
 pub fn ended(app: &App, inner: &mut RoomInner, item: &QueueItemId, position: f64) {
-    let _ = (app, inner, item, position);
+    if inner.room.item_id() != Some(item) {
+        return;
+    }
+    // Live embeds never end and generic ones have no API: they advance by queue-advance only.
+    let Some(AnyEmbed::Synced(embed)) = inner.room.current_embed() else {
+        return;
+    };
+    if playback_caps(embed).live {
+        return;
+    }
+    if app.mono() - inner.room.item_since() < QUEUE_ENDED_DEBOUNCE_MS as f64 {
+        return;
+    }
+    let Some(playback) = inner.room.current_playback() else {
+        return;
+    };
+    // Drops reports from before a seek, and local-only seeks (R1 B3).
+    if (position - expected_position(playback, app.wall())).abs() > QUEUE_ENDED_TOLERANCE_S {
+        return;
+    }
+    advance_now(app, inner, None);
 }
 
 #[cfg(test)]

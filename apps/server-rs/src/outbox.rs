@@ -248,7 +248,9 @@ pub fn publish_except(inner: &mut RoomInner, conn: ConnId, frame: &Utf8Bytes) {
 
 /// Encodes `msg` once and publishes it to every subscriber (`server.publish(topic, JSON.stringify(msg))`).
 pub fn publish_msg(inner: &mut RoomInner, msg: &ServerMessage) {
-    let _ = (inner, msg);
+    if let Some(frame) = encode_frame(msg) {
+        publish_all(inner, &frame);
+    }
 }
 
 /// `ws.send(frame)`: to one connection, subscribed or not. False if it is gone or went dead.

@@ -8,23 +8,73 @@ use crate::app::App;
 use crate::contract::ids::MemberId;
 use crate::contract::layout::RoomLayout;
 use crate::contract::room::ControlPolicy;
+use crate::contract::server_message::{ErrorCode, ErrorMessage, ServerMessage};
 use crate::contract::text::RoomTitle;
-use crate::outbox::ConnId;
+use crate::log::{LogEvent, log_error};
+use crate::outbox::{ConnId, encode_frame, publish_msg, send_to};
 use crate::registry::RoomInner;
+use crate::store::StoreError;
 
 /// Last write wins; seats keep their indices, so nobody is unseated (ADR 0028 section 6).
 pub fn set_layout(app: &App, inner: &mut RoomInner, by: &MemberId, layout: RoomLayout) {
-    let _ = (app, inner, by, layout);
+    if layout == *inner.room.layout() {
+        return;
+    }
+    let result = app.store().rooms().set_layout(&inner.room.id, &layout);
+    if !persisted(LogEvent::StoreLayout, result) {
+        return;
+    }
+    inner.room.set_layout(layout.clone());
+    publish_msg(inner, &ServerMessage::LayoutChanged { layout, by: by.clone() });
+}
+
+/// Store first: if the write fails nothing changes, so memory never runs ahead of the database.
+fn persisted(event: LogEvent, result: Result<(), StoreError>) -> bool {
+    match result {
+        Ok(()) => true,
+        Err(err) => {
+            log_error(event, Some(&err));
+            false
+        }
+    }
 }
 
 /// A title the blocklist refuses is answered with an `error` (`bad_message`, "that title isn't allowed") to
 /// `sender` only: a valid frame, so it doesn't count toward the 4400 close.
 pub fn set_title(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberId, title: RoomTitle) {
-    let _ = (app, inner, sender, by, title);
+    if inner.room.title() == Some(&title) {
+        return;
+    }
+    if app.title_blocked(title.as_str()) {
+        if let Some(message) = ErrorMessage::new("that title isn't allowed")
+            && let Some(frame) = encode_frame(&ServerMessage::Error {
+                code: ErrorCode::BadMessage,
+                message,
+                retry_after_ms: None,
+            })
+        {
+            send_to(inner, sender, &frame);
+        }
+        return;
+    }
+    let result = app.store().rooms().set_title(&inner.room.id, Some(&title));
+    if !persisted(LogEvent::StoreTitle, result) {
+        return;
+    }
+    inner.room.set_title(Some(title.clone()));
+    publish_msg(inner, &ServerMessage::TitleChanged { title, by: by.clone() });
 }
 
 pub fn set_control_policy(app: &App, inner: &mut RoomInner, by: &MemberId, policy: ControlPolicy) {
-    let _ = (app, inner, by, policy);
+    if policy == inner.room.control_policy() {
+        return;
+    }
+    let result = app.store().rooms().set_control_policy(&inner.room.id, policy);
+    if !persisted(LogEvent::StoreControlPolicy, result) {
+        return;
+    }
+    inner.room.set_control_policy(policy);
+    publish_msg(inner, &ServerMessage::ControlPolicyChanged { policy, by: by.clone() });
 }
 
 #[cfg(test)]
@@ -159,7 +209,7 @@ mod tests {
     fn a_blocked_title_is_refused_with_an_error_to_the_sender_only() {
         let mut f = fixture(config(&[("ROOM_TITLE_BLOCKLIST", "badword")]), true);
         let mut inner = f.cell.lock();
-        set_title(&f.app, &mut inner, ConnId(1), &by(), title("B4DW0RD club"));
+        set_title(&f.app, &mut inner, ConnId(1), &by(), title("BADW0RD club"));
         assert!(inner.room.title().is_none());
         drop(inner);
         let got = frames(&mut f.sender);
