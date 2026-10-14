@@ -652,7 +652,7 @@ mod tests {
     // apps/server/test/queue.test.ts:929
     #[test]
     fn a_failed_store_write_changes_nothing_sends_no_frame_and_gives_the_adds_back() {
-        let (app, clock) = app();
+        let (app, _) = app();
         // A room the store has no row for: the write fails.
         let room = Room::new(rid("ghost"), RoomInit::default(), T0).unwrap();
         let cell = app.registry.add_room(room, app.mono()).unwrap();
