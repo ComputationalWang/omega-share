@@ -197,6 +197,13 @@ describe("FurnitureSchema", () => {
     ["a rug touching the far corner", { kind: "rug", col: 3, row: 3, facing: "se" }],
     ["a runner touching the far edge", { kind: "runner", col: 7, row: 8, facing: "ne" }],
     ["a frame on the left wall", { kind: "frame", col: 0, row: 9, facing: "se" }],
+    ["a teal floor cushion facing nw", { kind: "floorcushion", col: 4, row: 4, facing: "nw", variant: 1 }],
+    ["a pink bench touching the far edge", { kind: "bench", col: 8, row: 9, facing: "ne", variant: 1 }],
+    ["a turntable", { kind: "turntable", col: 7, row: 0, facing: "sw" }],
+    ["a teal speaker", { kind: "speaker", col: 0, row: 6, facing: "se", variant: 1 }],
+    ["a charcoal cat", { kind: "cat", col: 9, row: 5, facing: "sw", variant: 1 }],
+    ["a wall shelf on the right wall", { kind: "wallshelf", col: 7, row: 0, facing: "sw" }],
+    ["party garland on the left wall", { kind: "garland", col: 0, row: 2, facing: "se", variant: 1 }],
     ["an unknown extra key (server objects are non-strict)", { kind: "tv", col: 0, row: 0, facing: "se", glow: true }],
   ])("accepts %s", (_name, input) => {
     accepts(FurnitureSchema, input);
@@ -228,6 +235,19 @@ describe("FurnitureSchema", () => {
     ["a frame on a window segment", { kind: "frame", col: 0, row: 5, facing: "se" }],
     ["a frame on a sconce segment", { kind: "frame", col: 8, row: 0, facing: "sw" }],
     ["a missing facing", { kind: "tv", col: 0, row: 0 }],
+    ["a third floor cushion colour", { kind: "floorcushion", col: 0, row: 0, facing: "ne", variant: 2 }],
+    ["a bench hanging off the floor", { kind: "bench", col: 9, row: 0, facing: "ne" }],
+    ["a turned bench hanging off the floor", { kind: "bench", col: 0, row: 9, facing: "se" }],
+    ["a turntable facing the TV", { kind: "turntable", col: 0, row: 0, facing: "ne" }],
+    ["a second turntable colour", { kind: "turntable", col: 0, row: 0, facing: "se", variant: 1 }],
+    ["a speaker facing the TV", { kind: "speaker", col: 0, row: 0, facing: "nw" }],
+    ["a cat facing the TV", { kind: "cat", col: 0, row: 0, facing: "ne" }],
+    ["a wall shelf off the wall", { kind: "wallshelf", col: 3, row: 2, facing: "sw" }],
+    ["a wall shelf on a window segment", { kind: "wallshelf", col: 0, row: 6, facing: "se" }],
+    ["a second wall shelf colour", { kind: "wallshelf", col: 2, row: 0, facing: "sw", variant: 1 }],
+    ["a garland off the wall", { kind: "garland", col: 1, row: 3, facing: "se" }],
+    ["a garland on a sconce segment", { kind: "garland", col: 8, row: 0, facing: "sw" }],
+    ["a garland facing the TV", { kind: "garland", col: 2, row: 0, facing: "ne" }],
   ])("rejects %s", (_name, input) => {
     rejects(FurnitureSchema, input);
   });
@@ -253,16 +273,18 @@ const ASSETS = join(import.meta.dir, "..", "..", "..", "assets");
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(ASSETS, path), "utf8"));
 
 describe("the catalogue matches the art", () => {
-  const furnitureMeta = v.parse(v.object({ meta: v.object({ omega: v.object({ pieces: v.array(PieceSchema) }) }) }), readJson("furniture/furniture.json"));
+  const AtlasSchema = v.object({ meta: v.object({ omega: v.object({ pieces: v.array(PieceSchema) }) }) });
+  /** Set (g) and catalogue v2 (OME-1103, its own lazy atlas) together. */
+  const pieces = ["furniture/furniture.json", "furniture/furniture-v2.json"].flatMap((path) => v.parse(AtlasSchema, readJson(path)).meta.omega.pieces);
   /** Contract kind → set (g) atlas id. The kilim runner is `rug` in the atlas; the contract's `rug` is the room's. */
   const atlasId = (kind: string): string => (kind === "runner" ? "rug" : kind);
 
   test("every set (g) piece is a kind", () => {
     const kinds: readonly string[] = FURNITURE_KINDS;
-    for (const p of furnitureMeta.meta.omega.pieces) expect(kinds).toContain(p.id === "rug" ? "runner" : p.id);
+    for (const p of pieces) expect(kinds).toContain(p.id === "rug" ? "runner" : p.id);
   });
 
-  test.each(furnitureMeta.meta.omega.pieces.map((p) => [p.id === "rug" ? "runner" : p.id, p] as const))("%s: facings, variants, layer, footprints and seats", (kind, piece) => {
+  test.each(pieces.map((p) => [p.id === "rug" ? "runner" : p.id, p] as const))("%s: facings, variants, layer, footprints and seats", (kind, piece) => {
     const spec = FURNITURE[v.parse(v.picklist(FURNITURE_KINDS), kind)];
     expect(atlasId(kind)).toBe(piece.id);
     expect(spec.facings.map(String).sort()).toEqual([...piece.dirs].sort());
