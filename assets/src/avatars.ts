@@ -167,7 +167,8 @@ function withFarLimbs(roles: RoleMap): RoleMap {
     if (!s) throw new Error(`missing role ${src}`);
     return { ramp: s.ramp, tone: 2, group };
   };
-  return { ...roles, r: far("T", "r"), l: far("L", "l"), f: far("F", "f") };
+  // Z: the doze glyph (set p), the same cream on every avatar.
+  return { ...roles, r: far("T", "r"), l: far("L", "l"), f: far("F", "f"), Z: { ramp: "cream", tone: 0 } };
 }
 
 const JUNO: AvatarDef = {
@@ -523,6 +524,10 @@ export interface Stamp {
   x: number;
   y: number;
   rows: readonly string[];
+  /** Only fills empty pixels, so it passes behind the head and hair (a far arm, a hand behind the head). */
+  behind?: boolean;
+  /** Stamped after mirroring, at the mirrored spot but not itself mirrored (a "z" must not read backwards). */
+  flat?: boolean;
 }
 
 /** Per-frame motion on top of a base pose (set d). Offsets are 1× px, in template space. */
@@ -534,6 +539,8 @@ export interface Motion {
   headDrop?: number;
   /** Replaces the standing legs (idle pose only). The last row always lands on the floor line (y 60). */
   legs?: readonly string[];
+  /** Front view only, relative to the head origin, after the overlays (so inside Pip's lenses, through Mo's beard): eyes and mouth. */
+  face?: readonly Stamp[];
   /** Stamped last, relative to the (lifted) torso origin: arm swings and gestures. */
   after?: readonly Stamp[];
 }
@@ -575,6 +582,30 @@ export function composeMotion(a: AvatarDef, pose: Pose, dir: Dir, m: Motion): Gr
     const base = ov.on === "head" ? o.head : o.torso;
     stamp(g, ov.rows, base.x + ov.x, base.y + ov.y);
   }
-  for (const s of m.after ?? []) stamp(g, s.rows, o.torso.x + s.x, o.torso.y + s.y);
-  return dir === "se" || dir === "ne" ? g : mirror(g);
+  if (view === "front") for (const s of m.face ?? []) stamp(g, s.rows, o.head.x + s.x, o.head.y + s.y);
+  for (const s of m.after ?? []) {
+    if (s.flat === true) continue;
+    if (s.behind === true) stampBehind(g, s.rows, o.torso.x + s.x, o.torso.y + s.y);
+    else stamp(g, s.rows, o.torso.x + s.x, o.torso.y + s.y);
+  }
+  const mirrored = dir === "sw" || dir === "nw";
+  const out = mirrored ? mirror(g) : g;
+  for (const s of m.after ?? []) {
+    if (s.flat !== true) continue;
+    const w = Math.max(...s.rows.map((r) => r.length));
+    const x = o.torso.x + s.x;
+    stamp(out, s.rows, mirrored ? CELL.w - x - w : x, o.torso.y + s.y);
+  }
+  return out;
+}
+
+function stampBehind(g: Grid, rows: readonly string[], x: number, y: number): void {
+  rows.forEach((row, dy) => {
+    const line = g[y + dy];
+    if (!line) return;
+    for (let dx = 0; dx < row.length; dx++) {
+      const ch = row.charAt(dx);
+      if (ch !== "." && ch !== "_" && line[x + dx] === ".") line[x + dx] = ch;
+    }
+  });
 }

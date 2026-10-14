@@ -7,6 +7,13 @@ import { AVATARS, BACK_DIRS, CELL, FLOOR, FRONT_DIRS, SEAT_HEIGHT, composeFrame,
 import {
   BREATHE,
   BREATHE_MS,
+  CHEER_FRAMES,
+  CHEER_MS,
+  CHEER_SEQUENCE,
+  YAWN_FRAMES,
+  YAWN_SEQUENCE,
+  cheerMotion,
+  yawnMotion,
   EMOTES,
   EMOTE_CELL,
   EMOTE_FRAMES,
@@ -860,6 +867,123 @@ function buildMotion(base: Map<string, Uint8Array>): void {
   buildMotionPreviews(all);
 }
 
+// ---------------------------------------------------------------- set (p): expressions (OME-1104, lazy)
+
+/** Set (p): cheer and yawn/doze, 2 frames × pose × dir per avatar, in `avatars/expressions.png` + `.json`. motion.png is full, so
+ *  this is a second lazy sheet with motion.json's schema: one row per avatar, cheer then yawn, each poses × dirs × frames. */
+function buildExpressions(base: Map<string, Uint8Array>): void {
+  const sheetW = 1024, sheetH = pow2(AVATARS.length * CELL.h);
+  const sheet = new Uint8Array(sheetW * sheetH);
+  const frames: Record<string, Frame> = {};
+  const images = new Map<string, { img: Uint8Array; w: number; h: number }>();
+  const anims: Record<string, Anim> = {};
+  const motionFor = (id: "cheer" | "yawn", a: (typeof AVATARS)[number], pose: Pose, dir: Dir, n: number): Motion =>
+    id === "cheer" ? cheerMotion(viewOf(dir), pose, n, a.holds === true) : yawnMotion(viewOf(dir), n, a.holds === true);
+  AVATARS.forEach((a, i) => {
+    let col = 0;
+    for (const id of ["cheer", "yawn"] as const) {
+      for (const pose of POSES) {
+        for (const dir of DIRS) {
+          const keys: string[] = [];
+          for (let n = 0; n < (id === "cheer" ? CHEER_FRAMES : YAWN_FRAMES); n++) {
+            const key = `${id}/${a.id}/${pose}/${dir}/${String(n)}`;
+            if (frames[key]) throw new Error(`duplicate expression key ${key}`);
+            const img = render(composeMotion(a, pose, dir, motionFor(id, a, pose, dir, n)), a.roles);
+            assertInside(key, img, CELL.w, CELL.h);
+            const x = col * CELL.w, y = i * CELL.h;
+            blit(sheet, sheetW, img, CELL.w, CELL.h, x, y);
+            frames[key] = {
+              frame: { x, y, w: CELL.w, h: CELL.h },
+              rotated: false,
+              trimmed: false,
+              spriteSourceSize: { x: 0, y: 0, w: CELL.w, h: CELL.h },
+              sourceSize: { w: CELL.w, h: CELL.h },
+              anchor: { x: FLOOR.x / CELL.w, y: FLOOR.y / CELL.h },
+            };
+            images.set(key, { img, w: CELL.w, h: CELL.h });
+            keys.push(key);
+            col++;
+          }
+          const name = `${id}/${a.id}/${pose}/${dir}`;
+          anims[name] = id === "cheer"
+            ? { frames: CHEER_SEQUENCE.map((n) => keys[n] ?? ""), ms: CHEER_SEQUENCE.map(() => CHEER_MS), loop: false }
+            : { frames: YAWN_SEQUENCE.map(([n]) => keys[n] ?? ""), ms: YAWN_SEQUENCE.map(([, ms]) => ms), loop: false };
+        }
+      }
+    }
+  });
+  registerKeys("expressions", Object.keys(frames));
+  const dir = join(ROOT, "avatars");
+  writeFileSync(join(dir, "expressions.png"), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
+  const animations: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(anims)) animations[k] = v.frames;
+  const atlas = {
+    frames,
+    animations,
+    meta: {
+      app: "omega-share assets/src/build.ts",
+      version: "1",
+      image: "expressions.png",
+      format: "RGBA8888",
+      size: { w: sheetW, h: sheetH },
+      scale: "1",
+      omega: {
+        license: "CC-BY-SA-4.0",
+        tile: TILE,
+        cell: CELL,
+        floorPoint: FLOOR,
+        gestures: [{ id: "cheer", label: "Cheer" }, { id: "yawn", label: "Yawn" }],
+        anims,
+      },
+    },
+  };
+  writeFileSync(join(dir, "expressions.json"), JSON.stringify(atlas, null, 1) + "\n");
+  const all = new Map<string, { img: Uint8Array; w: number; h: number }>(images);
+  for (const [k, img] of base) all.set(k, { img, w: CELL.w, h: CELL.h });
+  // Strip: per avatar a cheer row and a yawn row, each the base pose then frames 0 and 1, poses × (se, ne) (sw/nw are their mirrors).
+  const rows = AVATARS.flatMap((a) => (["cheer", "yawn"] as const).map((id) =>
+    POSES.flatMap((p) => DIRS.flatMap((d) => [`${a.id}/${p}/${d}/0`, `${id}/${a.id}/${p}/${d}/0`, `${id}/${a.id}/${p}/${d}/1`, ""]))));
+  strip("expressions-strip@4x.png", 32, rows, all, CELL.w, CELL.h, true);
+  buildExpressionScene(all);
+}
+
+/** `expressions-scene@1x/2x.png`: the room's floor at 1×, every avatar twice (standing, and seated in an armchair), in two panels:
+ *  frame 0 of each expression on the left, frame 1 on the right. Top row cheers, bottom row yawns/dozes. */
+function buildExpressionScene(sprites: Sprites): void {
+  const room = new Map(buildRoomFrames().map((f) => [f.key, f]));
+  const PW = 330, PH = 196, W = PW * 2 + 6, H = PH * 2 + 6;
+  const img = new Uint8Array(W * H).fill(OUTLINE);
+  const facing: readonly Dir[] = ["se", "sw", "ne", "nw"];
+  for (let panel = 0; panel < 4; panel++) {
+    const n = panel % 2, id = panel < 2 ? "cheer" : "yawn";
+    const ox = n * (PW + 6), oy = Math.floor(panel / 2) * (PH + 6);
+    for (let y = 0; y < PH; y++) img.fill(colorIndex("night", 2), (oy + y) * W + ox, (oy + y) * W + ox + PW);
+    const cc = (c: number, r: number): { x: number; y: number } => ({ x: ox + PW / 2 + (c - r) * 32, y: oy + 4 + (c + r + 1) * 16 });
+    const draw = (key: string, p: { x: number; y: number }, fx: number, fy: number): void => {
+      const f = room.get(key) ?? (() => { const s = sprites.get(key); if (!s) throw new Error(`missing ${key}`); return { ...s, ax: fx, ay: fy }; })();
+      blitAt(img, W, H, f.img, f.w, f.h, p.x - f.ax, p.y - f.ay);
+    };
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) draw((c + r) % 3 === 0 ? "floor/1" : "floor/0", cc(c, r), 0, 0);
+    // Standing on the far diagonal, seated in armchairs on the near one; each avatar faces a different way.
+    const items: { y: number; x: number; draw: () => void }[] = [];
+    AVATARS.forEach((a, i) => {
+      const d = facing[i] ?? "se";
+      const sd = facing[(i + 1) % 4] ?? "se";
+      const sp = cc(i, 3 - i), st = cc(i + 2, 5 - i);
+      items.push({ ...sp, draw: () => { draw(`${id}/${a.id}/idle/${d}/${String(n)}`, sp, FLOOR.x, FLOOR.y); } });
+      items.push({ ...st, draw: () => {
+        draw(`armchair/${sd}/back`, st, 0, 0);
+        draw(`${id}/${a.id}/sit/${sd}/${String(n)}`, st, FLOOR.x, FLOOR.y);
+        draw(`armchair/${sd}/front`, st, 0, 0);
+      } });
+    });
+    items.sort((p, q) => p.y - q.y || p.x - q.x);
+    for (const it of items) it.draw();
+  }
+  writeFileSync(join(ROOT, "preview", "expressions-scene@1x.png"), encodeIndexedPng(W, H, img, PALETTE));
+  writeFileSync(join(ROOT, "preview", "expressions-scene@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+}
+
 type Sprites = ReadonlyMap<string, { img: Uint8Array; w: number; h: number }>;
 
 /** A small honey diamond under each floor point, so planted feet can be checked at a glance. */
@@ -1538,12 +1662,12 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "ui/edit.png", "ui/edit.json"]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "ui/edit.png", "ui/edit.json"]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json"];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json"];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
@@ -1622,6 +1746,7 @@ const uiFrames = buildUi(avatarImages, furnitureSet.frames);
 buildOwnerPreviews(furnitureSet, uiFrames);
 buildPresets(furnitureSet);
 buildMotion(avatarImages);
+buildExpressions(avatarImages);
 buildStore();
 buildSite({ room: buildRoomFrames(), avatars: avatarImages, ui: uiFrames });
 console.log(`palette: ${String(PALETTE.length - 1)} colours`);

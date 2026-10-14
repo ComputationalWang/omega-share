@@ -1,7 +1,7 @@
 // Set (d): avatar motion. Walk cycles, breathing, the wave gesture and the emote icons.
 // Everything reuses the set (a) role templates through `composeMotion`, so shading, the plum outline,
 // mirroring (SW/NW) and the per-avatar overlays come for free and stay on the shared palette.
-import type { Motion, Stamp, View } from "./avatars";
+import type { Motion, Pose, Stamp, View } from "./avatars";
 import type { RoleMap } from "./sprite";
 
 /** Walk: 4 frames, contact → passing → contact → passing. The body rises 1 px on the passing frames.
@@ -312,6 +312,89 @@ export const WAVE_FRAMES = 2;
 /** One-shot wave: the hand rocks three times, then the base pose returns. */
 export const WAVE_SEQUENCE: readonly number[] = [0, 1, 0, 1, 0, 1];
 export const WAVE_MS = 160;
+
+// ---- Expressions (set p, OME-1104): cheer and yawn/doze --------------------------------------------------
+// Two frames each, every pose and facing, on their own lazy sheet (`avatars/expressions.png`). Faces only show facing the
+// camera; from behind the arms and the head carry the reaction, so each one still reads at 1× in ne/nw.
+
+/** The same arm on the template-right side: rows mirrored about the torso's centre column (x 7.5). */
+function mirrorArm(st: Stamp): Stamp {
+  const w = Math.max(...st.rows.map((r) => r.length));
+  const flip = (r: string): string => {
+    let o = "";
+    for (let i = w - 1; i >= 0; i--) o += r.charAt(i) || ".";
+    return o;
+  };
+  return { ...st, x: 15 - (st.x + w - 1), rows: st.rows.map(flip) };
+}
+const erases = (st: Stamp): boolean => st.rows.some((r) => r.includes("_"));
+/** Both arms, or only the free one when the right hand holds a prop (Kiki's popcorn). The far arm (template-right facing the camera,
+ *  template-left from behind) passes behind head and hair. */
+function bothArms(view: View, arm: (role: string) => Stamp[], holds: boolean): Stamp[] {
+  const r = armRoles(view);
+  const back = (sts: Stamp[]): Stamp[] => sts.map((st) => (erases(st) ? st : { ...st, behind: true }));
+  const left = arm(r.left), right = arm(r.right).map(mirrorArm);
+  const out = view === "front" ? left : back(left);
+  if (!holds) out.push(...(view === "front" ? back(right) : right));
+  return out;
+}
+const ERASE_ARM: Stamp = { x: -1, y: 4, rows: ["____", "____", "____", "____", "____"] };
+
+/** Cheer: fists up in a V. Frame 0 elbows bent, fists by the ears; frame 1 arms high, up on tiptoe (idle), mouth wide open. */
+const CHEER_ARMS: readonly (readonly string[])[] = [
+  ["SS......", "SSS.....", ".SSA....", "..AA....", "..AAA...", "...AAA..", "....AAAA", ".....AAA"],
+  ["SS......", "SS......", "SSA.....", ".AA.....", ".AA.....", ".AA.....", ".AA.....", ".AAA....", "..AAA...", "...AAA..", "....AAAA", ".....AAA"],
+];
+/** Tiptoe legs for the cheer's hop (lift 1): heels up, toes on the floor line. */
+const TIPTOE_FRONT = [
+  "....LLL..lll....", "....LLL..lll....", "....LLL..lll....", "....LLL..lll....", "....LLL..lll....", "....LLL..lll....", "....LLL..lll....",
+  "....LLL..lll....", "....LLL..ffff...", "....FFFF.fff....", ".....FFF........",
+];
+const TIPTOE_BACK = [
+  "....lll..LLL....", "....lll..LLL....", "....lll..LLL....", "....lll..LLL....", "....lll..LLL....", "....lll..LLL....", "....lll..LLL....",
+  "....lll..LLL....", "....fff..LLL....", "....fff..FFF....", ".........FF.....",
+];
+/** Faces, relative to the head origin. Eyes live in cols 9–10 and 13–14 (rows 8–9), the mouth at cols 11–12 (row 11). */
+const HAPPY_EYES: Stamp = { x: 9, y: 8, rows: ["EESSEE", "SSSSSS"] };
+const SHUT_EYES: Stamp = { x: 9, y: 8, rows: ["SSSSSS", "EESSEE"] };
+const GRIN: Stamp = { x: 10, y: 11, rows: ["SEES", ".SS."] };
+const OPEN_GRIN: Stamp = { x: 10, y: 11, rows: ["EEEE", "SEES"] };
+const YAWN_MOUTH: Stamp = { x: 11, y: 10, rows: ["EE", "EE", "EE", "EE"] };
+
+export function cheerMotion(view: View, pose: Pose, n: number, holds = false): Motion {
+  const arms = CHEER_ARMS[n];
+  if (!arms) throw new Error(`no cheer frame ${String(n)}`);
+  const arm = (role: string): Stamp[] => [ERASE_ARM, { x: -6, y: 1 - arms.length, rows: arms.map((r) => r.replace(/A/g, role)) }];
+  const hop = n === 1 && pose === "idle";
+  const m: Motion = { after: bothArms(view, arm, holds), face: [HAPPY_EYES, n === 1 ? OPEN_GRIN : GRIN] };
+  if (hop) return { ...m, lift: 1, legs: view === "front" ? TIPTOE_FRONT : TIPTOE_BACK };
+  return m;
+}
+export const CHEER_FRAMES = 2;
+/** One-shot cheer: three pumps, then the base pose returns. */
+export const CHEER_SEQUENCE: readonly number[] = [0, 1, 0, 1, 0, 1];
+export const CHEER_MS = 180;
+
+/** Yawn: a big stretch, elbows out and hands behind the head (only peeking past it), eyes shut, mouth wide. */
+const STRETCH_ARM = [".....SS.", "....AAS.", "...AA...", "..AA....", ".AA.....", ".AA.....", ".AAA....", "..AAA...", "...AAA..", "....AAA.", ".....AAA", "......AA", "......AA"];
+/** Doze: a small "z" and a smaller one up and out, floating off the head (never mirrored). */
+const DOZE_Z: Stamp = { x: 14, y: -28, flat: true, rows: ["...ZZZ", "....Z.", "...ZZZ", "ZZZZ..", "..Z...", ".Z....", "ZZZZ.."] };
+
+export function yawnMotion(view: View, n: number, holds = false): Motion {
+  if (n === 0) {
+    const arm = (role: string): Stamp[] => [ERASE_ARM, { x: -6, y: 2 - STRETCH_ARM.length, rows: STRETCH_ARM.map((r) => r.replace(/A/g, role)), behind: true }];
+    // The stretch reaches behind the head on both sides, so both arms pass behind it.
+    return { after: bothArms(view, arm, holds), face: [SHUT_EYES, YAWN_MOUTH] };
+  }
+  if (n !== 1) throw new Error(`no yawn frame ${String(n)}`);
+  return { headDrop: 2, face: [SHUT_EYES], after: [DOZE_Z] };
+}
+export const YAWN_FRAMES = 2;
+/** One-shot: the yawn, then a doze that holds, then the base pose returns. [frame, ms] pairs. */
+export const YAWN_SEQUENCE: readonly (readonly [number, number])[] = [
+  [0, 900],
+  [1, 1800],
+];
 
 // ---- Emote icons ------------------------------------------------------------------------------------------
 // 16×16 cells, drawn like the UI icons (auto-shade + plum outline). They float above the name tag.
