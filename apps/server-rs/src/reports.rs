@@ -168,8 +168,12 @@ impl ReportDedup {
 pub enum FileResult {
     Received,
     AlreadyReported,
-    RateLimited { retry_after_ms: u64 },
+    RateLimited {
+        retry_after_ms: u64,
+    },
     Unavailable,
+    /// The room was removed between the lookup and now.
+    RoomGone,
 }
 
 /// The process-wide report state: the per-key limiter, the duplicate marks, the taken-down ids.
@@ -758,6 +762,19 @@ mod tests {
         for outcome in ["invalid_body", "payload_too_large", "room_not_found"] {
             assert!(t.contains(&format!("outcome=\"{outcome}\"}} 1")), "{outcome}");
         }
+    }
+
+    // A handler fetched the cell, then the room was removed: the report is refused, nothing is stored or counted as sent.
+    #[test]
+    fn a_report_to_a_room_removed_after_the_lookup_is_refused() {
+        let (app, _) = app();
+        let cell = add_room(&app, ROOM, RoomInit::default());
+        app.remove_room(&rid(ROOM), RemoveReason::Closed);
+        let mut inner = cell.lock();
+        assert_eq!(file(&app, &mut inner, KEY, &spam()), FileResult::RoomGone);
+        drop(inner);
+        assert!(stored(&app).is_empty());
+        assert!(text(&app).contains("outcome=\"room_not_found\"} 1"));
     }
 
     // apps/server/test/takedown.test.ts:262

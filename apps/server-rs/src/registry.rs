@@ -9,7 +9,7 @@
 //! (reports, sockets, store row) run in `App::remove_room`, after the registry lock is released.
 
 use crate::contract::ids::{MemberId, RoomId, ShareToken};
-use crate::outbox::Subscribers;
+use crate::outbox::{ConnId, Outbox, Subscribers};
 use crate::rate_limit::TokenBucket;
 use crate::room::Room;
 use crate::secrets::hash_secret;
@@ -171,6 +171,13 @@ impl RoomInner {
         self.subscribers.len() + self.grants.len() + self.member_adds.len()
     }
 
+    /// A socket opened on the room. `Err(Closed)` if the room was removed: an upgrade that raced the removal
+    /// would otherwise keep a socket that never gets its close frame.
+    pub fn attach_socket(&mut self, conn: ConnId, outbox: Outbox) -> Result<(), Closed> {
+        let _ = (conn, outbox);
+        Err(Closed)
+    }
+
     pub fn id(&self) -> &RoomId {
         &self.room.id
     }
@@ -194,7 +201,17 @@ impl RoomCell {
     pub fn lock(&self) -> MutexGuard<'_, RoomInner> {
         self.inner.lock().unwrap_or_else(PoisonError::into_inner)
     }
+
+    /// Like [`Self::lock`], but `None` once the room was removed. Handlers enter a room through
+    /// `App::with_open_room`, which uses this.
+    pub fn lock_open(&self) -> Option<MutexGuard<'_, RoomInner>> {
+        Some(self.lock())
+    }
 }
+
+/// The room was removed: it takes no more sockets, shares, queue changes or reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Closed;
 
 /// `addRoom` of an id already registered.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -230,11 +247,6 @@ impl Registry {
     pub fn get(&self, id: &RoomId) -> Option<Arc<RoomCell>> {
         let slots = self.read();
         slots.cells.get(slots.by_id.get(id)?).cloned()
-    }
-
-    /// `has(room)`: this very cell is the registered one (a re-created room of the same id is another cell).
-    pub fn is_registered(&self, cell: &Arc<RoomCell>) -> bool {
-        self.get(&cell.id).is_some_and(|c| Arc::ptr_eq(&c, cell))
     }
 
     pub fn len(&self) -> usize {
@@ -333,6 +345,10 @@ mod tests {
     }
 
     // apps/server/src/rooms.ts: a Map, so insertion order
+    fn is_registered(r: &Registry, cell: &Arc<RoomCell>) -> bool {
+        r.get(&cell.id).is_some_and(|c| Arc::ptr_eq(&c, cell))
+    }
+
     #[test]
     fn rooms_iterate_in_insertion_order_even_after_removals_and_re_adds() {
         let r = Registry::new();
@@ -362,17 +378,17 @@ mod tests {
     fn removal_unlinks_once_marks_the_cell_closed_and_a_recreated_room_is_another_cell() {
         let r = Registry::new();
         let old = r.add_room(room("film-club"), 0.0).unwrap();
-        assert!(r.is_registered(&old));
+        assert!(is_registered(&r, &old));
         let gone = r.remove(&rid("film-club")).unwrap();
         assert!(Arc::ptr_eq(&gone, &old));
         assert!(old.lock().closed);
         assert!(r.remove(&rid("film-club")).is_none());
         assert!(r.get(&rid("film-club")).is_none());
-        assert!(!r.is_registered(&old));
+        assert!(!is_registered(&r, &old));
         let fresh = r.add_room(room("film-club"), 0.0).unwrap();
         assert!(!fresh.lock().closed);
-        assert!(!r.is_registered(&old), "the old cell stays unregistered");
-        assert!(r.is_registered(&fresh));
+        assert!(!is_registered(&r, &old), "the old cell stays unregistered");
+        assert!(is_registered(&r, &fresh));
     }
 
     #[test]
@@ -385,6 +401,43 @@ mod tests {
         assert!(r.remove_if(&rid("zzz"), |_| true).is_none());
         assert!(r.remove_if(&rid("a"), |inner| inner.room.member_count() == 0).is_some());
         assert!(cell.lock().closed);
+    }
+
+    #[test]
+    fn lock_open_refuses_a_removed_room_and_attach_socket_too() {
+        let r = Registry::new();
+        let cell = r.add_room(room("a"), 0.0).unwrap();
+        assert!(cell.lock_open().is_some());
+        let (tx, _rx) = channel();
+        assert!(cell.lock().attach_socket(ConnId(1), tx).is_ok());
+        r.remove(&rid("a")).unwrap();
+        assert!(cell.lock_open().is_none(), "the fetched cell is closed");
+        let (tx, mut rx) = channel();
+        assert_eq!(cell.lock().attach_socket(ConnId(2), tx), Err(Closed));
+        assert!(!cell.lock().subscribers.is_attached(ConnId(2)));
+        assert!(rx.try_recv().is_none());
+    }
+
+    // The registry write lock is never held while waiting on a room: a busy room is "not due, retry later".
+    #[test]
+    fn remove_if_does_not_wait_for_a_busy_room() {
+        let r = Arc::new(Registry::new());
+        let cell = r.add_room(room("a"), 0.0).unwrap();
+        let (held_tx, held_rx) = std::sync::mpsc::channel();
+        let c2 = cell.clone();
+        let holder = std::thread::spawn(move || {
+            let _g = c2.lock();
+            held_tx.send(()).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(400));
+        });
+        held_rx.recv().unwrap();
+        let started = std::time::Instant::now();
+        assert!(r.remove_if(&rid("a"), |_| true).is_none());
+        assert!(started.elapsed() < std::time::Duration::from_millis(200), "it waited");
+        assert!(r.get(&rid("a")).is_some(), "still registered, so the next sweep retries");
+        assert!(!cell.lock().closed);
+        holder.join().unwrap();
+        assert!(r.remove_if(&rid("a"), |_| true).is_some());
     }
 
     #[test]

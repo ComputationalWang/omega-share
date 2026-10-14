@@ -33,13 +33,18 @@ pub struct QueueActor {
 /// Why `admit`, `remove` or `advance` refused: the control policy, or an add bucket.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueueRefusal {
+    /// The room was removed between the lookup and now.
+    RoomClosed,
     ControlOwnerOnly,
-    RateLimited { retry_after_ms: u64 },
+    RateLimited {
+        retry_after_ms: u64,
+    },
 }
 
 /// Why `add` refused an admitted URL.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueueAddRefusal {
+    RoomClosed,
     UnsupportedUrl,
     QueueFull,
     /// The store write failed: nothing changed, and the adds were given back.
@@ -337,6 +342,25 @@ mod tests {
 
     fn types(frames: &[Value]) -> Vec<&str> {
         frames.iter().map(|f| f["type"].as_str().unwrap()).collect()
+    }
+
+    #[test]
+    fn a_closed_room_refuses_every_queue_action_and_changes_nothing() {
+        let mut f = fixture();
+        let current = f.share(YT1);
+        let a = actor("alice", true);
+        let queued = f.add(&a, YT2).unwrap();
+        f.frames();
+        f.app.remove_room(&rid("film-club"), crate::registry::RemoveReason::Closed);
+        let mut inner = f.cell.lock();
+        assert_eq!(admit(&f.app, &mut inner, &a), Err(QueueRefusal::RoomClosed));
+        assert_eq!(add(&f.app, &mut inner, &a, YT2).unwrap_err(), QueueAddRefusal::RoomClosed);
+        assert_eq!(remove(&f.app, &mut inner, &a, &queued.id), Err(QueueRefusal::RoomClosed));
+        assert_eq!(advance(&f.app, &mut inner, &a, &current), Err(QueueRefusal::RoomClosed));
+        ended(&f.app, &mut inner, &current, 0.0);
+        assert_eq!(inner.room.queue().len(), 1);
+        drop(inner);
+        assert!(f.frames().is_empty());
     }
 
     // apps/server/test/queue.test.ts:167

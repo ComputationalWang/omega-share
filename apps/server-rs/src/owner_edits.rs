@@ -162,6 +162,22 @@ mod tests {
     }
 
     #[test]
+    fn edits_to_a_room_removed_after_the_lookup_do_nothing() {
+        let mut f = fixture(config(&[]), true);
+        // Closed but its row still there, so only the closed check can stop the edits.
+        f.cell.lock().closed = true;
+        let mut inner = f.cell.lock();
+        set_layout(&f.app, &mut inner, &by(), smaller_layout());
+        set_title(&f.app, &mut inner, ConnId(1), &by(), title("Friday films"));
+        set_control_policy(&f.app, &mut inner, &by(), ControlPolicy::Owner);
+        assert!(inner.room.title().is_none());
+        assert_eq!(inner.room.control_policy(), ControlPolicy::Everyone);
+        assert_eq!(*inner.room.layout(), default_layout());
+        drop(inner);
+        assert!(frames(&mut f.other).is_empty() && frames(&mut f.sender).is_empty());
+    }
+
+    #[test]
     fn the_same_layout_changes_nothing_and_says_nothing() {
         let mut f = fixture(config(&[]), true);
         let mut inner = f.cell.lock();

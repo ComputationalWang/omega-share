@@ -25,7 +25,7 @@ use crate::headers::{Header, security_headers};
 use crate::log::{LogEvent, log_error};
 use crate::metrics::Metrics;
 use crate::outbox::close_all;
-use crate::registry::{Registry, RemoveReason, RoomCell, RoomInner};
+use crate::registry::{DuplicateRoom, Registry, RemoveReason, RoomCell, RoomInner};
 use crate::reports::ReportsState;
 use crate::room::{HeldSeat, Room, RoomInit, SEAT_HOLD_MS};
 use crate::secrets::EntropyError;
@@ -336,6 +336,27 @@ impl App {
         true
     }
 
+    /// THE way a handler enters a room: looks the cell up, takes its lock and runs `f` on the locked state.
+    /// `None` if the room does not exist or was removed (a join closes ROOM_CLOSED, a share answers 404).
+    /// `f` is synchronous: no `.await`, and it must not call the registry (it holds a room lock).
+    pub fn with_open_room<R>(&self, id: &RoomId, f: impl FnOnce(&mut RoomInner) -> R) -> Option<R> {
+        let _ = (id, f);
+        None
+    }
+
+    /// Registers a new room (`POST /rooms`: create the row first, then this). `Err` if the id is taken.
+    pub fn insert_room(&self, room: Room) -> Result<Arc<RoomCell>, DuplicateRoom> {
+        let _ = room;
+        Err(DuplicateRoom)
+    }
+
+    /// `closeAll` (ws.ts): a close frame to every socket of every room, counted in the close metrics.
+    /// The graceful restart uses it with SERVICE_RESTART. Returns how many were queued.
+    pub fn close_all_sockets(&self, code: u16, reason: &'static str) -> usize {
+        let _ = (code, reason);
+        0
+    }
+
     /// The hooks of a room already unlinked from the registry (`remove_room`, and GC after `remove_if`).
     pub(crate) fn end_room(&self, cell: &Arc<RoomCell>, reason: RemoveReason, mut seen: impl FnMut(Hook)) {
         seen(Hook::Reports);
@@ -621,6 +642,50 @@ mod tests {
         app.registry.add_room(room, 0.0).unwrap();
         assert!(app.remove_room(&rid("ghost"), RemoveReason::Closed));
         assert!(app.registry.is_empty());
+    }
+
+    #[test]
+    fn with_open_room_runs_on_a_live_room_and_refuses_a_missing_or_removed_one() {
+        let (app, _) = app();
+        let cell = add_room(&app, "film-club", RoomInit::default());
+        assert_eq!(app.with_open_room(&rid("film-club"), |i| i.room.member_count()), Some(0));
+        assert_eq!(app.with_open_room(&rid("nope"), |_| ()), None);
+        app.remove_room(&rid("film-club"), RemoveReason::Closed);
+        assert_eq!(app.with_open_room(&rid("film-club"), |_| ()), None);
+        assert!(cell.lock_open().is_none());
+    }
+
+    #[test]
+    fn insert_room_registers_once_and_the_room_is_reachable() {
+        let (app, _) = app();
+        let room = crate::room::Room::new(rid("pop-up"), RoomInit::default(), T0).unwrap();
+        let cell = app.insert_room(room).unwrap();
+        assert!(std::sync::Arc::ptr_eq(&cell, &app.registry.get(&rid("pop-up")).unwrap()));
+        let again = crate::room::Room::new(rid("pop-up"), RoomInit::default(), T0).unwrap();
+        assert!(app.insert_room(again).is_err());
+    }
+
+    // apps/server/src/ws.ts:386 closeAll
+    #[test]
+    fn close_all_sockets_closes_every_rooms_sockets_and_counts_them() {
+        let (app, _) = app();
+        let a = add_room(&app, "film-club", RoomInit::default());
+        let b = add_room(&app, "lobby", RoomInit::default());
+        let (tx1, mut r1) = channel();
+        let (tx2, mut r2) = channel();
+        let (tx3, mut r3) = channel();
+        a.lock().subscribers.attach(ConnId(1), tx1);
+        a.lock().subscribers.attach(ConnId(2), tx2);
+        b.lock().subscribers.attach(ConnId(3), tx3);
+        assert_eq!(app.close_all_sockets(1012, "server restarting"), 3);
+        for rx in [&mut r1, &mut r2, &mut r3] {
+            let Some(Outbound::Close(code, reason)) = rx.try_recv() else {
+                panic!()
+            };
+            assert_eq!((code, reason), (1012, "server restarting"));
+        }
+        assert!(app.metrics.render(&Default::default()).contains("code=\"1012\"} 3"));
+        assert!(app.registry.get(&rid("lobby")).is_some(), "rooms stay");
     }
 
     #[test]

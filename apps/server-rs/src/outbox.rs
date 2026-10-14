@@ -247,10 +247,12 @@ pub fn publish_except(inner: &mut RoomInner, conn: ConnId, frame: &Utf8Bytes) {
 }
 
 /// Encodes `msg` once and publishes it to every subscriber (`server.publish(topic, JSON.stringify(msg))`).
-pub fn publish_msg(inner: &mut RoomInner, msg: &ServerMessage) {
+/// False, and nothing is encoded, when the room has no subscriber.
+pub fn publish_msg(inner: &mut RoomInner, msg: &ServerMessage) -> bool {
     if let Some(frame) = encode_frame(msg) {
         publish_all(inner, &frame);
     }
+    true
 }
 
 /// `ws.send(frame)`: to one connection, subscribed or not. False if it is gone or went dead.
@@ -435,6 +437,20 @@ mod tests {
         let rx = &mut rxs[0].1;
         assert_eq!(text(rx.recv().await.unwrap()), "last words");
         assert!(rx.recv().await.is_none());
+    }
+
+    #[test]
+    fn publish_msg_skips_the_encode_when_nobody_is_subscribed() {
+        use crate::contract::server_message::ServerMessage;
+        let mut empty = inner();
+        assert!(!publish_msg(&mut empty, &ServerMessage::RoomFull {}));
+        let (mut with, mut rxs) = room_with(1);
+        assert!(publish_msg(&mut with, &ServerMessage::RoomFull {}));
+        assert!(rxs[0].1.try_recv().is_some());
+        // Attached but not subscribed is nobody either.
+        let (tx, _rx) = channel();
+        empty.subscribers.attach(ConnId(5), tx);
+        assert!(!publish_msg(&mut empty, &ServerMessage::RoomFull {}));
     }
 
     #[test]
