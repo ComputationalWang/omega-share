@@ -335,3 +335,21 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod debug_tests {
+    use super::*;
+
+    // ADR 0032 "name hashes only": the video a member controls is not printed by `{:?}`.
+    #[test]
+    fn a_controls_debug_has_no_url() {
+        let control = Control {
+            url: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+            playing: true,
+            position: 12.5,
+        };
+        let text = format!("{control:?}");
+        assert!(text.contains("Control") && text.contains("12.5") && text.contains("true"), "{text}");
+        assert!(!text.contains("youtube") && !text.contains("dQw4w9WgXcQ"), "{text}");
+    }
+}

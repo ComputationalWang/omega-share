@@ -3,9 +3,10 @@
 //    produce the same state, bit for bit (the TS expression order is mirrored).
 //  - room-script: a scripted sequence of Room operations (hand-written and seeded random) run against the real
 //    `Room` with fixed ids and times (`crypto.randomUUID` and `Date.now` are pinned while it runs). The trace
-//    holds each operation's result plus the snapshot and summary after it; Rust replays the script and must
-//    produce the identical trace. The snapshot's `layout` is dropped (it is the default layout throughout and
-//    the outbound corpora already cover its bytes).
+//    holds each operation's result plus the snapshot (as an object, and as the `JSON.stringify` text, so key order is
+//    pinned too) and summary after it; Rust replays the script and must
+//    produce the identical trace. The snapshot object drops its `layout` (the default layout throughout); the text keeps it,
+//    and the outbound corpora cover the layout bytes on their own.
 import { MAX_POSITION_S, SEAT_COUNT, canonicalizeEmbed, normalizeNickname, type AnyEmbed, type Embed, type PlaybackState } from "@omega/shared";
 import { nicknameKey } from "@omega/shared/confusables";
 import { applyControl, expectedPosition, loadPlayback, restoredPlayback } from "../../server/src/playback";
@@ -248,7 +249,7 @@ function trace(script: Script): unknown[] {
       const result = apply(room, op);
       const snapshot = asJson(room.snapshot()) as Json;
       delete snapshot["layout"];
-      return { result: asJson(result), snapshot, summary: asJson(room.summary()) };
+      return { result: asJson(result), snapshot, snapshotJson: JSON.stringify(room.snapshot()), summary: asJson(room.summary()) };
     });
   } finally {
     (crypto as { randomUUID: () => string }).randomUUID = realUuid;
@@ -626,7 +627,7 @@ function fuzz(seed: number): Case {
       const result = apply(room, op);
       const snapshot = asJson(room.snapshot()) as Json;
       delete snapshot["layout"];
-      outputs.push({ result: asJson(result), snapshot, summary: asJson(room.summary()) });
+      outputs.push({ result: asJson(result), snapshot, snapshotJson: JSON.stringify(room.snapshot()), summary: asJson(room.summary()) });
     }
   } finally {
     (crypto as { randomUUID: () => string }).randomUUID = realUuid;

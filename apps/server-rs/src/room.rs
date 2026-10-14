@@ -1688,3 +1688,45 @@ mod tests {
         assert!(!seed.is_owner("") && !seed.is_invited("") && !seed.is_owner("anything"));
     }
 }
+
+/// ADR 0032 "name hashes only": nothing a room holds that identifies a person or a video reaches a `{:?}`
+/// (panic messages and logs print them).
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
+mod debug_tests {
+    use super::*;
+    use crate::contract::text::RoomTitle;
+    use crate::embed_policy::EmbedPolicy;
+
+    #[test]
+    fn a_held_seats_debug_has_no_name_hash() {
+        let held = HeldSeat {
+            name_hash: [0xab; 32],
+            seat: SeatIndex::new(3).unwrap(),
+        };
+        let text = format!("{held:?}");
+        assert!(text.contains("HeldSeat") && text.contains("seat"), "{text}");
+        assert!(!text.contains("171") && !text.contains("ab"), "{text}");
+    }
+
+    #[test]
+    fn a_room_inits_debug_has_no_title_embed_hashes_or_queue() {
+        let embed = EmbedPolicy::new(true, &[], &[])
+            .unwrap()
+            .accept("https://youtu.be/dQw4w9WgXcQ")
+            .unwrap();
+        let init = RoomInit {
+            title: Some(RoomTitle::parse("Secret club").unwrap()),
+            embed: Some(embed.clone()),
+            owner_hash: Some([9; 32]),
+            invite_hash: Some([8; 32]),
+            queue: vec![(mint_item_id().unwrap(), embed)],
+            ..RoomInit::default()
+        };
+        let text = format!("{init:?}");
+        assert!(text.contains("RoomInit"), "{text}");
+        for leak in ["Secret", "youtube", "dQw4w9WgXcQ", "9, 9", "8, 8"] {
+            assert!(!text.contains(leak), "{leak} in {text}");
+        }
+    }
+}
