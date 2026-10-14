@@ -11,7 +11,7 @@ use super::constants::{MAX_LISTED_ROOMS, REPORT_KEY_REFILL_MS, RETRY_AFTER_MAX_M
 use super::generic_embed::AnyEmbed;
 use super::ids::{InviteKey, OwnerToken, RoomId};
 use super::room::RoomVisibility;
-use super::server_message::{ErrorMessage, RetryAfter};
+use super::server_message::{EncodeError, ErrorMessage, RetryAfter};
 use super::state::{QueueItem, RoomSummary, present, wire_type};
 use super::text::RoomTitle;
 use serde::de::Error as _;
@@ -245,9 +245,8 @@ fn check_room_list(r: &RoomListResponse) -> Result<(), &'static str> {
 }
 
 /// What the server writes for any response body.
-pub fn to_body<T: Serialize>(body: &T) -> String {
-    // Plain data with string keys: serialization cannot fail.
-    serde_json::to_string(body).unwrap_or_default()
+pub fn to_body<T: Serialize>(body: &T) -> Result<String, EncodeError> {
+    serde_json::to_string(body).or_else(|_| Ok(String::new())) // red: still the silent empty body
 }
 
 #[cfg(test)]
@@ -262,7 +261,7 @@ mod tests {
     /// Parses `body` as `T` and writes it back: the same bytes when `body` is in the server's key order.
     fn same<T: DeserializeOwned + Serialize>(body: &str) {
         let parsed: T = serde_json::from_str(body).unwrap_or_else(|e| panic!("refused {body}: {e}"));
-        assert_eq!(to_body(&parsed), body);
+        assert_eq!(to_body(&parsed).unwrap(), body);
     }
 
     fn refused<T: DeserializeOwned>(body: &str) {
@@ -379,7 +378,10 @@ mod tests {
         // unknown keys are stripped so the server can add fields
         let stripped: RoomListResponse =
             serde_json::from_str(r#"{"rooms":[{"id":"lobby","memberCount":0,"seatedCount":0,"name":"Lobby"}],"next":null}"#).unwrap();
-        assert_eq!(to_body(&stripped), r#"{"rooms":[{"id":"lobby","memberCount":0,"seatedCount":0}]}"#);
+        assert_eq!(
+            to_body(&stripped).unwrap(),
+            r#"{"rooms":[{"id":"lobby","memberCount":0,"seatedCount":0}]}"#
+        );
         for bad in [
             r#"{"id":"lobby","memberCount":26,"seatedCount":0}"#,
             r#"{"id":"lobby","memberCount":-1,"seatedCount":0}"#,
@@ -395,5 +397,23 @@ mod tests {
         let list = |n: usize| format!(r#"{{"rooms":[{}]}}"#, (0..n).map(room).collect::<Vec<_>>().join(","));
         same::<RoomListResponse>(&list(100));
         refused::<RoomListResponse>(&list(101));
+    }
+
+    // Every public part of a response is a JSON object when read on its own, never serde's array form.
+    #[test]
+    fn response_parts_refuse_the_array_form() {
+        refused::<ErrorBody<ShareErrorCode, SHORT>>(r#"["invalid_body","m"]"#);
+        refused::<ErrorBody<ShareErrorCode, SHORT>>(r#"["invalid_body","m",null]"#);
+        refused::<ShareOk>(&format!("[{YT}]"));
+        refused::<QueueAddOk>(&format!(r#"[{{"id":"q1","embed":{YT},"by":null}}]"#));
+        refused::<CreatedRoom>(r#"["film-club","Friday films","public"]"#);
+        refused::<CreateOk>(&format!(
+            r#"[{{"id":"a","title":"Friday films","visibility":"public"}},"{T1}",null]"#
+        ));
+        refused::<DeleteOk>("[]");
+        refused::<ReportOk>(r#"["received"]"#);
+        same::<ReportOk>(r#"{"status":"received"}"#);
+        same::<DeleteOk>("{}");
+        same::<ErrorBody<ShareErrorCode, SHORT>>(r#"{"code":"invalid_body","message":"m"}"#);
     }
 }

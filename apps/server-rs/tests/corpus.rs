@@ -638,7 +638,7 @@ fn server_message_raw_agrees() {
 fn server_message_roundtrip_agrees() {
     agree(
         load::<String, String>(include_str!("../corpus/out/server-message-roundtrip.json")),
-        |text| parse_server_message(text).map(|m| encode(&m)),
+        |text| parse_server_message(text).and_then(|m| encode(&m).ok()),
     );
 }
 
@@ -688,6 +688,9 @@ fn response_raw_agrees() {
 fn response_roundtrip_agrees() {
     agree(load::<Body, String>(include_str!("../corpus/out/response-roundtrip.json")), |b| {
         response(b, |r| r.text())
+    });
+}
+
 // ---- OME-1162: secrets and metrics.
 
 #[test]

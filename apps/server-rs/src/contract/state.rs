@@ -58,6 +58,12 @@ pub(crate) fn js_number<S: Serializer>(n: f64, s: S) -> Result<S::Ok, S::Error> 
     }
 }
 
+/// `Number.prototype.toString` for a finite double.
+pub fn js_number_string(n: f64) -> String {
+    let _ = n; // red: stub
+    String::new()
+}
+
 /// A struct that `Serialize`s with the field order written here and `Deserialize`s strictly: through a
 /// private wire struct (same fields, serde attributes shared), read from a JSON object only, then
 /// `$check`ed. `Option` fields use `skip_serializing_if`, and `present`/`nullable` for the
@@ -293,6 +299,55 @@ wire_type!(
         queue: Option<Vec<QueueItem>>,
     }
 );
+
+impl RoomState {
+    /// The room as the server sends it: `playback` is `null` or a state, never absent (`Room.snapshot`
+    /// always writes the key), and `layout` and `controlPolicy` are always there. `title`, `itemId` and
+    /// `queue` are added with the `with_*` methods.
+    pub fn new(
+        id: RoomId,
+        seats: Vec<Option<MemberId>>,
+        members: Vec<Member>,
+        embed: Option<AnyEmbed>,
+        playback: Option<PlaybackState>,
+        layout: RoomLayout,
+        control_policy: ControlPolicy,
+    ) -> Self {
+        let _ = playback; // red: stub
+        Self {
+            id,
+            seats,
+            members,
+            embed,
+            playback: None,
+            layout: Some(layout),
+            control_policy: Some(control_policy),
+            title: None,
+            item_id: None,
+            queue: None,
+        }
+    }
+
+    /// `None` or an empty title sends no `title` key, like an untitled room.
+    #[must_use]
+    pub fn with_title(mut self, title: Option<RoomTitle>) -> Self {
+        self.title = title;
+        self
+    }
+
+    #[must_use]
+    pub fn with_item_id(mut self, item_id: Option<QueueItemId>) -> Self {
+        self.item_id = item_id;
+        self
+    }
+
+    /// An empty queue sends no `queue` key (`snapshot()` only sets it when non-empty).
+    #[must_use]
+    pub fn with_queue(mut self, queue: Vec<QueueItem>) -> Self {
+        self.queue = (!queue.is_empty()).then_some(queue);
+        self
+    }
+}
 
 /// The checks `RoomStateSchema` runs after the shape.
 fn check_room_state(r: &RoomState) -> Result<(), &'static str> {

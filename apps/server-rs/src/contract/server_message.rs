@@ -221,7 +221,35 @@ server_messages! {
     }
 }
 
+/// Serialization failed. The text is fixed: nothing of the value can reach a log through it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EncodeError;
+
+impl std::fmt::Display for EncodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("could not encode a server message")
+    }
+}
+
+impl std::error::Error for EncodeError {}
+
 impl ServerMessage {
+    /// `embed-changed` as the server sends it: `playback` is `null` or a state, never absent.
+    pub fn embed_changed(
+        embed: Option<AnyEmbed>,
+        by: Option<MemberId>,
+        playback: Option<PlaybackState>,
+        item_id: Option<QueueItemId>,
+    ) -> Self {
+        let _ = playback; // red: stub
+        Self::EmbedChanged {
+            embed,
+            by,
+            playback: None,
+            item_id,
+        }
+    }
+
     /// The checks on top of the shape (`embed-changed`'s and `queue-changed`'s `v.check`s; the snapshot's
     /// are `RoomState`'s own).
     fn check(&self) -> Result<(), &'static str> {
@@ -253,9 +281,8 @@ impl<'de> Deserialize<'de> for ServerMessage {
 }
 
 /// What the server writes for `msg`: `JSON.stringify(msg)`'s bytes for the values the server builds.
-pub fn encode(msg: &ServerMessage) -> String {
-    // Plain data with string keys: serialization cannot fail.
-    serde_json::to_string(msg).unwrap_or_default()
+pub fn encode(msg: &ServerMessage) -> Result<String, EncodeError> {
+    serde_json::to_string(msg).or_else(|_| Ok(String::new())) // red: still the silent empty frame
 }
 
 /// `parseServerMessage`: the frame is at most `MAX_SERVER_MESSAGE_BYTES` (UTF-8), JSON, and a valid message.
@@ -270,6 +297,7 @@ pub fn parse_server_message(frame: &str) -> Option<ServerMessage> {
 mod tests {
     use super::*;
     use crate::contract::constants::SEAT_COUNT;
+    use crate::contract::room::ControlPolicy;
     use crate::contract::state::{PlaybackAction, Position, Rate, Rev};
 
     const YT: &str = r#"{"provider":"youtube","videoId":"dQw4w9WgXcQ","url":"https://www.youtube.com/embed/dQw4w9WgXcQ"}"#;
@@ -301,7 +329,7 @@ mod tests {
     /// The text parses and encodes back to the same bytes (so its key order is the server's).
     fn same(frame: &str) {
         let parsed = parse_server_message(frame).unwrap_or_else(|| panic!("refused: {frame}"));
-        assert_eq!(encode(&parsed), frame);
+        assert_eq!(encode(&parsed).unwrap(), frame);
     }
 
     fn refused(frame: &str) {
@@ -504,12 +532,12 @@ mod tests {
     fn text_is_normalized_and_unknown_keys_stripped() {
         let m = parse_server_message(r#"{"type":"title-changed","title":" Ｆｒｉｄａｙ films ","by":"m1","extra":1}"#);
         assert_eq!(
-            m.map(|m| encode(&m)).as_deref(),
+            m.map(|m| encode(&m).unwrap()).as_deref(),
             Some(r#"{"type":"title-changed","title":"Friday films","by":"m1"}"#)
         );
         let m = parse_server_message(r#"{"type":"chat","memberId":"m1","text":"  hi  ","at":1,"x":[]}"#);
         assert_eq!(
-            m.map(|m| encode(&m)).as_deref(),
+            m.map(|m| encode(&m).unwrap()).as_deref(),
             Some(r#"{"type":"chat","memberId":"m1","text":"hi","at":1}"#)
         );
         refused(&format!(r#"{{"type":"chat","memberId":"m1","text":"{}","at":0}}"#, "x".repeat(281)));
@@ -607,6 +635,7 @@ mod tests {
                     by: None,
                 },
             })
+            .unwrap()
         };
         assert!(pb(3.0, 1.0).contains(r#""position":3,"rate":1,"#));
         assert!(pb(-0.0, 2.0).contains(r#""position":0,"rate":2,"#));
@@ -639,22 +668,119 @@ mod tests {
             member_id: id("m1"),
             seat: None,
         };
-        assert_eq!(encode(&msg), r#"{"type":"seat-changed","memberId":"m1","seat":null}"#);
+        assert_eq!(encode(&msg).unwrap(), r#"{"type":"seat-changed","memberId":"m1","seat":null}"#);
         let msg = ServerMessage::Error {
             code: ErrorCode::RateLimited,
             message: ErrorMessage::new("slow").unwrap(),
             retry_after_ms: RetryAfterMs::new(1500),
         };
         assert_eq!(
-            encode(&msg),
+            encode(&msg).unwrap(),
             r#"{"type":"error","code":"rate_limited","message":"slow","retryAfterMs":1500}"#
         );
-        assert_eq!(encode(&ServerMessage::RoomFull {}), r#"{"type":"room-full"}"#);
+        assert_eq!(encode(&ServerMessage::RoomFull {}).unwrap(), r#"{"type":"room-full"}"#);
         let msg = ServerMessage::MemberLeft {
             member_id: id("m1"),
             reason: Some(MemberLeftReason::Left),
         };
-        assert_eq!(encode(&msg), r#"{"type":"member-left","memberId":"m1","reason":"left"}"#);
+        assert_eq!(encode(&msg).unwrap(), r#"{"type":"member-left","memberId":"m1","reason":"left"}"#);
         assert!(ErrorMessage::new("x".repeat(201)).is_none());
+    }
+
+    // Number.prototype.toString: client-controlled positions come back in the room broadcast.
+    #[test]
+    fn small_and_large_numbers_print_like_javascript() {
+        use crate::contract::state::js_number_string as js;
+        for (n, want) in [
+            (0.0, "0"),
+            (-0.0, "0"),
+            (3.0, "3"),
+            (-3.0, "-3"),
+            (0.5, "0.5"),
+            (0.000001, "0.000001"),
+            (0.000005, "0.000005"),
+            (0.0000099999, "0.0000099999"),
+            (0.00001, "0.00001"),
+            (0.0000005, "5e-7"),
+            (1e-7, "1e-7"),
+            (1.5e-7, "1.5e-7"),
+            (43199.99999999996, "43199.99999999996"),
+            (0.1 + 0.2, "0.30000000000000004"),
+            (9_007_199_254_740_992.0, "9007199254740992"),
+            (1e20, "100000000000000000000"),
+            (1e21, "1e+21"),
+            (1.5e21, "1.5e+21"),
+            (-1.5e21, "-1.5e+21"),
+            (-5e-7, "-5e-7"),
+        ] {
+            assert_eq!(js(n), want, "{n:?}");
+        }
+    }
+
+    #[test]
+    fn a_position_in_the_small_range_is_encoded_like_json_stringify() {
+        let text = |p: f64| {
+            let playback = PlaybackState {
+                playing: true,
+                position: Position::new(p).unwrap(),
+                rate: Rate::new(1.0).unwrap(),
+                at: ServerTime(1),
+                rev: Rev(2),
+                action: PlaybackAction::Seek,
+                by: None,
+            };
+            encode(&ServerMessage::Playback { playback }).unwrap()
+        };
+        assert!(text(0.000005).contains(r#""position":0.000005,"#));
+        assert!(text(0.000001).contains(r#""position":0.000001,"#));
+        assert!(text(5e-7).contains(r#""position":5e-7,"#));
+    }
+
+    // The TS server always sends `playback` (null or a state), so the senders cannot leave it out.
+    #[test]
+    fn sending_constructors_always_write_playback() {
+        let embed = serde_json::from_str::<AnyEmbed>(YT).unwrap();
+        let msg = ServerMessage::embed_changed(Some(embed), None, None, None);
+        let text = encode(&msg).unwrap();
+        assert!(text.contains(r#""by":null,"playback":null}"#), "{text}");
+        let msg = ServerMessage::embed_changed(None, None, None, None);
+        assert_eq!(
+            encode(&msg).unwrap(),
+            r#"{"type":"embed-changed","embed":null,"by":null,"playback":null}"#
+        );
+        let state = RoomState::new(
+            crate::contract::ids::RoomId::parse("lobby").unwrap(),
+            vec![None; SEAT_COUNT],
+            vec![],
+            None,
+            None,
+            crate::contract::layout::default_layout(),
+            ControlPolicy::Everyone,
+        );
+        let json = serde_json::to_string(&state).unwrap();
+        assert!(json.contains(r#""embed":null,"playback":null,"layout":"#), "{json}");
+        assert!(json.ends_with(r#""controlPolicy":"everyone"}"#), "{json}");
+        let titled = state
+            .with_title(crate::contract::text::RoomTitle::parse("Friday films"))
+            .with_item_id(None)
+            .with_queue(vec![]);
+        assert!(
+            serde_json::to_string(&titled)
+                .unwrap()
+                .ends_with(r#""controlPolicy":"everyone","title":"Friday films"}"#)
+        );
+    }
+
+    #[test]
+    fn an_encode_failure_is_an_error_with_fixed_text() {
+        struct Broken;
+        impl Serialize for Broken {
+            fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+                Err(serde::ser::Error::custom("secret value leaked here"))
+            }
+        }
+        let err = crate::contract::responses::to_body(&Broken).unwrap_err();
+        assert_eq!(err, EncodeError);
+        assert_eq!(err.to_string(), "could not encode a server message");
     }
 }

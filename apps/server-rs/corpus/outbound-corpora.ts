@@ -125,6 +125,8 @@ const FRAMES: unknown[] = [
   { type: "playback", playback: { ...PLAYING, position: 1234.5678, rate: 1.5 } },
   { type: "playback", playback: { ...PLAYING, position: 0.00001, rate: 1 } },
   { type: "playback", playback: { ...PLAYING, position: 1e-7, rate: 1 } },
+  ...[0.000001, 0.000005, 0.0000099999, 5e-7, 1.5e-7, 5e-324, 43199.99999999996, 43200, 0.1 + 0.7, 1 / 3, 100.1, 12345.678].map((position) => ({ type: "playback", playback: { ...PLAYING, position } })),
+  ...[0.25, 0.3, 0.75, 1.25, 1.75].map((rate) => ({ type: "playback", playback: { ...PLAYING, rate } })),
   { type: "playback", playback: { ...PLAYING, position: 86399 / 2, rate: 1 } },
   { type: "layout-changed", layout: { furniture: [{ kind: "tv", col: 0, row: 0, facing: "se" }, ...[[1, 5], [2, 4], [4, 2], [5, 1], [3, 7], [4, 6], [6, 4], [7, 3]].map(([col, row]) => ({ kind: "armchair", col, row, facing: (col ?? 0) < (row ?? 0) ? "ne" : "nw" }))] }, by: "m1" },
   { type: "title-changed", title: "Friday films", by: "m1" },
