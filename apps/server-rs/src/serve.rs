@@ -52,6 +52,15 @@ pub async fn serve(config: ServerConfig) -> Result<(), ServeError> {
     served
 }
 
+/// Each slice builds its routes in its own file; S5's gate and headers wrap the lot (and answer what no route does).
+pub fn build_router(app: Arc<App>) -> Router {
+    let routes = Router::new()
+        .merge(crate::http::router(app.clone()))
+        .merge(crate::ws::router(app.clone()))
+        .fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
+    crate::http::wrap(app, routes)
+}
+
 async fn listen(config: ServerConfig, app: Arc<App>) -> Result<(), ServeError> {
     let listener = TcpListener::bind((config.hostname.as_str(), config.port)).await?;
     let addr = listener.local_addr()?;
@@ -64,11 +73,8 @@ async fn listen(config: ServerConfig, app: Arc<App>) -> Result<(), ServeError> {
         "omega-share server on http://{addr}/ (site origin {}{via})",
         config.site_origin
     ));
-    // Each slice builds its routes in its own file; the fallback goes last.
-    let router = Router::new()
-        .merge(crate::http::router(app.clone()))
-        .merge(crate::ws::router(app.clone()))
-        .fallback(|| async { (StatusCode::NOT_FOUND, "not found") });
+    app.http.bind(&config, addr.port());
+    let router = build_router(app);
 
     let (stop, mut stopped) = watch::channel(false);
     let serving = axum::serve(listener, router).with_graceful_shutdown(async move {

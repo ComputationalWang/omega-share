@@ -49,6 +49,9 @@ pub struct ServerConfig {
     pub max_connections: u32,
     /// `RESUME_GRACE_MS`: how long a dropped durable member is held (ADR 0043).
     pub resume_grace_ms: u32,
+    /// `MAX_HTTP_IN_FLIGHT`: HTTP requests handled at once, whatever their clients; more get 503
+    /// (`maxHttpInFlight` in server.ts, threat model section 10). Zero refuses every request.
+    pub max_http_in_flight: usize,
 }
 
 /// A refused variable: `invalid KEY: why`.
@@ -69,6 +72,9 @@ impl std::error::Error for ConfigError {}
 /// The M6 hosted target (20 rooms × 25 people = 500 sockets) with 2× headroom (OME-573).
 pub const DEFAULT_MAX_CONNECTIONS: u32 = 1024;
 
+/// HTTP requests handled at once by default (`MAX_HTTP_IN_FLIGHT` in http.ts).
+pub const DEFAULT_MAX_HTTP_IN_FLIGHT: usize = 256;
+
 /// Dev default for `DB_PATH`: `apps/server-rs/data/omega.db` (git-ignored), never under a static dir.
 pub fn default_db_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("data/omega.db")
@@ -77,7 +83,7 @@ pub fn default_db_path() -> PathBuf {
 pub type Env = HashMap<String, String>;
 
 /// Every variable the server reads; a non-UTF-8 value in one of them is refused, never mangled.
-pub const CONFIG_KEYS: [&str; 15] = [
+pub const CONFIG_KEYS: [&str; 16] = [
     "PORT",
     "HOST",
     "SITE_ORIGIN",
@@ -89,6 +95,7 @@ pub const CONFIG_KEYS: [&str; 15] = [
     "METRICS_PORT",
     "MAX_CONNECTIONS",
     "RESUME_GRACE_MS",
+    "MAX_HTTP_IN_FLIGHT",
     "GENERIC_EMBEDS",
     "GENERIC_EMBED_DENYLIST",
     "ROOM_TITLE_BLOCKLIST",
@@ -345,6 +352,7 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         metrics_port,
         max_connections,
         resume_grace_ms,
+        max_http_in_flight: DEFAULT_MAX_HTTP_IN_FLIGHT,
     })
 }
 
@@ -418,6 +426,7 @@ mod tests {
                 metrics_port: None,
                 max_connections: 1024,
                 resume_grace_ms: 120_000,
+                max_http_in_flight: 256,
             }
         );
     }
@@ -457,6 +466,7 @@ mod tests {
                 metrics_port: None,
                 max_connections: 1024,
                 resume_grace_ms: 120_000,
+                max_http_in_flight: 256,
             }
         );
     }
@@ -646,6 +656,18 @@ mod tests {
         }
         for bad in ["", "4999", "600001", "1.5", "abc", "-40000", "4e4", "99999999"] {
             refuses(&[("RESUME_GRACE_MS", bad)], "RESUME_GRACE_MS");
+        }
+    }
+
+    // apps/server/test/http-limits.test.ts:132,161 (`maxHttpInFlight`); zero is legal and refuses everything
+    #[test]
+    fn max_http_in_flight_defaults_to_256_and_may_be_zero() {
+        assert_eq!(ok(&[]).max_http_in_flight, 256);
+        for (raw, want) in [("1", 1), ("0", 0), ("256", 256), ("99999", 99_999)] {
+            assert_eq!(ok(&[("MAX_HTTP_IN_FLIGHT", raw)]).max_http_in_flight, want);
+        }
+        for bad in ["", "-1", "1.5", "abc", "1e3", "1000000"] {
+            refuses(&[("MAX_HTTP_IN_FLIGHT", bad)], "MAX_HTTP_IN_FLIGHT");
         }
     }
 

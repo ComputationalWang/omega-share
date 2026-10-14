@@ -1,0 +1,8 @@
+[
+{"input":"http://localhost:5173","ok":true,"output":"Contact: http://localhost:5173/contact.html\nExpires: 2027-10-01T00:00:00Z\nCanonical: http://localhost:5173/.well-known/security.txt\nPreferred-Languages: en\n"},
+{"input":"https://quiet-otter.ngrok-free.app","ok":true,"output":"Contact: https://quiet-otter.ngrok-free.app/contact.html\nExpires: 2027-10-01T00:00:00Z\nCanonical: https://quiet-otter.ngrok-free.app/.well-known/security.txt\nPreferred-Languages: en\n"},
+{"input":"https://a.example:8443","ok":true,"output":"Contact: https://a.example:8443/contact.html\nExpires: 2027-10-01T00:00:00Z\nCanonical: https://a.example:8443/.well-known/security.txt\nPreferred-Languages: en\n"},
+{"input":"http://127.0.0.1:8787","ok":true,"output":"Contact: http://127.0.0.1:8787/contact.html\nExpires: 2027-10-01T00:00:00Z\nCanonical: http://127.0.0.1:8787/.well-known/security.txt\nPreferred-Languages: en\n"},
+{"input":"https://x.example/\"<&>'","ok":true,"output":"Contact: https://x.example/\"<&>'/contact.html\nExpires: 2027-10-01T00:00:00Z\nCanonical: https://x.example/\"<&>'/.well-known/security.txt\nPreferred-Languages: en\n"},
+{"input":"","ok":true,"output":"Contact: /contact.html\nExpires: 2027-10-01T00:00:00Z\nCanonical: /.well-known/security.txt\nPreferred-Languages: en\n"}
+]

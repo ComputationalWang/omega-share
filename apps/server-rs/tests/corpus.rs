@@ -21,6 +21,9 @@ use omega_server::contract::server_message::{encode, parse_server_message};
 use omega_server::contract::state::PlaybackState;
 use omega_server::contract::text::{ChatText, Nickname, ReportNote, RoomTitle};
 use omega_server::embed_policy::EmbedPolicy;
+use omega_server::http::mime::mime_type;
+use omega_server::http::path::{normalize_path, route_path};
+use omega_server::http::site_meta::{security_txt, site_meta, with_meta};
 use omega_server::log::redact_addresses;
 use omega_server::metrics::{Gauges, Metrics};
 use omega_server::playback::{Control, apply_control, expected_position, load_playback, restored_playback};
@@ -38,6 +41,12 @@ mod room_script;
 
 /// Every corpus file has a runner below; a new `corpus/out/*.json` without one fails `every_corpus_has_a_runner`.
 const RUNNERS: &[&str] = &[
+    "site-meta",
+    "with-meta",
+    "security-txt",
+    "url-pathname",
+    "route-path",
+    "mime-type",
     "block-key",
     "redact-note",
     "room-gc-expired",
@@ -927,5 +936,51 @@ fn room_gc_expired_agrees() {
         };
         let room = Room::new(RoomId::parse("aaaaaaaaaaaaaaaaaaaaaaaaaa")?, init, 0).ok()?;
         Some(expired(&room, i.now))
+    });
+}
+
+// ---- HTTP (OME-1166)
+
+#[test]
+fn site_meta_agrees() {
+    agree(
+        load::<(String, Option<String>), String>(include_str!("../corpus/out/site-meta.json")),
+        |(origin, title)| Some(site_meta(origin, title.as_deref())),
+    );
+}
+
+#[test]
+fn with_meta_agrees() {
+    agree(
+        load::<(String, String), String>(include_str!("../corpus/out/with-meta.json")),
+        |(page, meta)| Some(with_meta(page, meta)),
+    );
+}
+
+#[test]
+fn security_txt_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/security-txt.json")), |origin| {
+        Some(security_txt(origin))
+    });
+}
+
+#[test]
+fn url_pathname_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/url-pathname.json")), |raw| {
+        Some(normalize_path(raw))
+    });
+}
+
+#[test]
+fn route_path_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/route-path.json")), |raw| {
+        Some(route_path(&normalize_path(raw)))
+    });
+}
+
+#[test]
+fn mime_type_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/mime-type.json")), |name| {
+        mime_type(name).map(str::to_owned)
     });
 }
