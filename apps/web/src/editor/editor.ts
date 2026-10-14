@@ -72,6 +72,13 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   bookshelf: "Bookcase",
   runner: "Kilim runner",
   frame: "Print",
+  floorcushion: "Floor cushions",
+  bench: "Storage bench",
+  turntable: "Record console",
+  speaker: "Floor speaker",
+  cat: "Sleepy cat",
+  wallshelf: "Wall shelf",
+  garland: "String lights",
 };
 
 const DELETED = "Room deleted.";

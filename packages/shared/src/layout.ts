@@ -43,7 +43,8 @@ const FIXED: readonly Facing[] = ["se"];
 
 /**
  * Every piece a layout may hold. The room atlas gives `armchair`, `tv`, `lamp`, `plant` and the 7×7 `rug`;
- * set (g) gives the rest. Set (g)'s kilim runner is atlas id `rug`, so here it is `runner`.
+ * set (g) gives the v1 rest, catalogue v2 (`assets/furniture/furniture-v2.json`, lazy) the last seven. Set (g)'s kilim runner is
+ * atlas id `rug`, so here it is `runner`.
  */
 export const FURNITURE = {
   armchair: piece("object", FACINGS, ONE, { seats: true }),
@@ -62,6 +63,13 @@ export const FURNITURE = {
   bookshelf: piece("object", CAMERA, { cols: 2, rows: 1 }, { wallBacked: true }),
   runner: piece("floor", ["ne", "nw"], { cols: 3, rows: 2 }, { variants: 2 }),
   frame: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 2 }),
+  floorcushion: piece("object", FACINGS, ONE, { seats: true, variants: 2 }),
+  bench: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 2 }),
+  turntable: piece("object", CAMERA, ONE),
+  speaker: piece("object", CAMERA, ONE, { variants: 2 }),
+  cat: piece("object", CAMERA, ONE, { variants: 2 }),
+  wallshelf: piece("wall", CAMERA, { cols: 0, rows: 0 }),
+  garland: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 2 }),
 } as const satisfies Record<string, FurnitureSpec>;
 
 export type FurnitureKind = keyof typeof FURNITURE;

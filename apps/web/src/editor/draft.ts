@@ -162,7 +162,9 @@ export interface TrayTab {
   readonly kinds: readonly FurnitureKind[];
 }
 
-const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter(pick);
+// shortcut: catalogue v2 (furniture-v2.json) isn't loaded by the web yet, so its kinds stay out of the tray; the web hookup issue drops this.
+const NOT_DRAWN: ReadonlySet<FurnitureKind> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland"]);
+const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter((k) => !NOT_DRAWN.has(k) && pick(k));
 const isSeat = (k: FurnitureKind): boolean => FURNITURE[k].seats;
 const isFlat = (k: FurnitureKind): boolean => FURNITURE[k].layer !== "object";
 
