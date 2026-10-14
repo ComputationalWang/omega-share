@@ -4,6 +4,9 @@
 
 use crate::app::App;
 use crate::contract::ids::RoomId;
+use crate::log::{LogEvent, log_error};
+use crate::registry::RemoveReason;
+use crate::reports;
 use crate::room::Room;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -16,22 +19,56 @@ pub const ROOM_IDLE_TTL_MS: i64 = 20 * 60 * 1000;
 
 /// Whether GC should end the room at `now` (Unix ms). Pinned rooms never; occupied ones are checked by the caller.
 pub fn expired(room: &Room, now: i64) -> bool {
-    let _ = (room, now);
-    false
+    if room.pinned {
+        return false;
+    }
+    now.saturating_sub(room.last_active_at.unwrap_or(room.created_at)) >= ROOM_IDLE_TTL_MS
 }
 
 /// One sweep at `now`: touches every occupied room (its stored `last_active_at` is then at most one interval old
 /// if the process dies while they are in it), ends the expired ones, and returns the ids removed, in registry order.
 pub fn sweep_rooms(app: &App, now: i64) -> Vec<RoomId> {
-    let _ = (app, now);
-    Vec::new()
+    let mut due = Vec::new();
+    for cell in app.registry.values() {
+        let mut inner = cell.lock();
+        if inner.room.member_count() > 0 {
+            app.mark_active(&mut inner, now);
+        } else if expired(&inner.room, now) {
+            due.push(cell.id.clone());
+        }
+    }
+    let mut removed = Vec::new();
+    for id in due {
+        // Checked again under the registry's and the room's locks: someone may have joined since the pass above.
+        let gone = app
+            .registry
+            .remove_if(&id, |inner| inner.room.member_count() == 0 && expired(&inner.room, now));
+        if let Some(cell) = gone {
+            app.end_room(&cell, RemoveReason::Closed, |_| {});
+            removed.push(id);
+        }
+    }
+    removed
+}
+
+/// One sweep, then report retention (ADR 0033 section 3); a failed purge is logged and the next sweep tries again.
+fn sweep_once(app: &App) {
+    sweep_rooms(app, app.wall());
+    if let Err(err) = reports::purge(app) {
+        log_error(LogEvent::GcPurge, Some(&err));
+    }
 }
 
 /// Sweeps now, then every `ROOM_GC_INTERVAL_MS` on the app's clock (so the virtual clock of the test build drives
 /// it), purging old reports after each sweep. The task ends when its handle is aborted or the runtime stops.
 pub fn spawn_room_gc(app: Arc<App>) -> JoinHandle<()> {
+    // The boot sweep runs before this returns, so it is done before the caller starts listening.
+    sweep_once(&app);
     tokio::spawn(async move {
-        let _ = app;
+        loop {
+            app.clock.sleep(ROOM_GC_INTERVAL_MS as f64).await;
+            sweep_once(&app);
+        }
     })
 }
 

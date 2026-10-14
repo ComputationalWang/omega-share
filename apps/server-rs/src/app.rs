@@ -14,9 +14,11 @@ use crate::clock::SharedClock;
 use crate::config::{DbPath, ServerConfig};
 use crate::contract::Invalid;
 use crate::contract::confusables::nickname_key;
-use crate::contract::constants::close;
-use crate::contract::ids::RoomId;
+use crate::contract::constants::{DEFAULT_ROOM_ID, QUEUE_MAX, close};
+use crate::contract::generic_embed::AnyEmbed;
+use crate::contract::ids::{QueueItemId, RoomId};
 use crate::contract::js_compat::is_js_whitespace;
+use crate::contract::layout::default_layout;
 use crate::contract::unicode_props::{is_punctuation, is_symbol};
 use crate::embed_policy::EmbedPolicy;
 use crate::headers::{Header, security_headers};
@@ -25,8 +27,9 @@ use crate::metrics::Metrics;
 use crate::outbox::close_all;
 use crate::registry::{Registry, RemoveReason, RoomCell, RoomInner};
 use crate::reports::ReportsState;
+use crate::room::{HeldSeat, Room, RoomInit, SEAT_HOLD_MS};
 use crate::secrets::EntropyError;
-use crate::store::{SeatHold, Store, StoreError};
+use crate::store::{NewRoom, SeatHold, Store, StoreError};
 use icu_properties::CodePointMapData;
 use icu_properties::props::{GeneralCategory, GeneralCategoryGroup};
 use std::fmt;
@@ -64,6 +67,18 @@ impl fmt::Display for BootError {
 }
 
 impl std::error::Error for BootError {}
+
+/// A message-only error, for log lines that are not a failure of something else.
+#[derive(Debug)]
+struct Note(String);
+
+impl fmt::Display for Note {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for Note {}
 
 /// The `ROOM_TITLE_BLOCKLIST` check (server.ts `titleBlocker`): titles containing a term, case and lookalikes
 /// folded and separators dropped, can't be created or listed.
@@ -149,20 +164,136 @@ impl App {
     /// process saved (once, so a crash loop can't replay them), loads the rooms (stored ones, then the lobby if the
     /// store lacks it) and applies the holds. A corrupt room row fails with a message naming the room.
     pub fn boot(config: ServerConfig, clock: SharedClock) -> Result<Arc<Self>, BootError> {
-        Self::boot_with(config, clock, &[])
+        let lobby = RoomId::parse(DEFAULT_ROOM_ID).ok_or_else(|| BootError::Policy(Invalid::new("default room id")))?;
+        Self::boot_with(config, clock, &[lobby])
     }
 
     /// `boot` with the configured seed rooms (TS `rooms` option; `boot` passes just the lobby): created pinned and
     /// public if the store lacks them, in this order after the stored ones.
     pub fn boot_with(config: ServerConfig, clock: SharedClock, seeds: &[RoomId]) -> Result<Arc<Self>, BootError> {
-        let _ = (config, clock, seeds);
-        Err(BootError::Entropy(EntropyError))
+        let path = match &config.db_path {
+            DbPath::Memory => ":memory:".to_owned(),
+            DbPath::File(p) => p.to_string_lossy().into_owned(),
+        };
+        let store = Store::open(&path).map_err(|cause| BootError::Db { path, cause })?;
+        // Taken once, so a crash loop can't replay them (ADR 0032).
+        let holds = store.rooms().take_seat_holds().unwrap_or_else(|err| {
+            log_error(LogEvent::StoreSeatHolds, Some(&err));
+            Vec::new()
+        });
+        let app = Self::new(config, clock, store)?;
+        app.load_rooms(seeds)?;
+        app.apply_seat_holds(&holds);
+        Ok(Arc::new(app))
+    }
+
+    /// `loadRooms` (server.ts): every stored room, then the configured ones the store lacks. A stored embed the
+    /// policy no longer accepts (GENERIC_EMBEDS off, a newly denied host) comes back as none; the row keeps it, so
+    /// switching back restores it. Queue items get the same treatment. A restored current item counts as current
+    /// from now (monotonic), so `ended` waits out the debounce again (ADR 0031 section 4).
+    fn load_rooms(&self, configured: &[RoomId]) -> Result<(), BootError> {
+        let (now, since) = (self.wall(), self.mono());
+        let stored = self.store().rooms().list_rooms().map_err(BootError::Store)?;
+        for r in stored {
+            // A taken-down room's row that a failed delete left behind (ADR 0033 section 5): never served again.
+            if self.reports.is_taken_down(&r.id) {
+                let deleted = self.store().rooms().delete_room(&r.id);
+                if let Err(err) = deleted {
+                    log_error(LogEvent::StoreDeleteRoom, Some(&err));
+                }
+                continue;
+            }
+            let embed = r.embed.as_ref().and_then(|e| self.embeds.restore(e));
+            // Items the policy no longer accepts are left out; their rows stay, as for the embed.
+            let mut restored: Vec<(QueueItemId, AnyEmbed)> = r
+                .queue
+                .iter()
+                .filter(|i| r.item_id.as_ref() != Some(&i.id))
+                .filter_map(|i| Some((i.id.clone(), self.embeds.restore(&i.embed)?)))
+                .collect();
+            // Hidden rows don't count toward QUEUE_MAX while hidden, so a flip back can bring more: keep the oldest.
+            // The rest are deleted, or they would stay ahead of later adds and come back in their place.
+            if restored.len() > QUEUE_MAX {
+                let cut = restored.split_off(QUEUE_MAX);
+                log_error(
+                    LogEvent::StoreQueue,
+                    Some(&Note(format!("restored queue over QUEUE_MAX: {} items deleted", cut.len()))),
+                );
+                for (item, _) in &cut {
+                    self.store().rooms().remove_queue_item(&r.id, item).map_err(BootError::Store)?;
+                }
+            }
+            let init = RoomInit {
+                layout: Some(r.layout),
+                item_id: if embed.is_some() { r.item_id } else { None },
+                embed,
+                title: r.title,
+                visibility: Some(r.visibility),
+                pinned: Some(r.pinned),
+                created_at: Some(r.created_at),
+                owner_hash: r.owner_hash,
+                invite_hash: r.invite_hash,
+                last_active_at: r.last_active_at,
+                control_policy: Some(r.control_policy),
+                queue: restored,
+                item_since: Some(since),
+            };
+            self.add_loaded(Room::new(r.id, init, now).map_err(BootError::Entropy)?)?;
+        }
+        for id in configured {
+            // A taken-down seed isn't seeded again.
+            if self.registry.get(id).is_some() || self.reports.is_taken_down(id) {
+                continue;
+            }
+            let seed = NewRoom::seed(id.clone(), None, now, default_layout());
+            self.store().rooms().create_room(&seed).map_err(BootError::Store)?;
+            let init = RoomInit {
+                created_at: Some(now),
+                ..RoomInit::default()
+            };
+            self.add_loaded(Room::new(id.clone(), init, now).map_err(BootError::Entropy)?)?;
+        }
+        Ok(())
+    }
+
+    fn add_loaded(&self, room: Room) -> Result<(), BootError> {
+        self.registry
+            .add_room(room, self.mono())
+            .map(drop)
+            .map_err(|_| BootError::Store(StoreError::Invalid("room id")))
+    }
+
+    /// The seats the last process held, kept `SEAT_HOLD_MS` for their names (ADR 0032).
+    fn apply_seat_holds(&self, holds: &[SeatHold]) {
+        for cell in self.registry.values() {
+            let held: Vec<HeldSeat> = holds
+                .iter()
+                .filter(|h| h.room_id == cell.id)
+                .map(|h| HeldSeat {
+                    name_hash: h.name_hash,
+                    seat: h.seat,
+                })
+                .collect();
+            if !held.is_empty() {
+                cell.lock().room.hold_seats(&held, self.wall().saturating_add(SEAT_HOLD_MS));
+            }
+        }
     }
 
     /// The seats every room holds, for a graceful restart to save (`drain` in server.ts): registry order, then
     /// seat order.
     pub fn seat_holds(&self) -> Vec<SeatHold> {
-        Vec::new()
+        let mut holds = Vec::new();
+        for cell in self.registry.values() {
+            for h in cell.lock().room.held_seats() {
+                holds.push(SeatHold {
+                    room_id: cell.id.clone(),
+                    name_hash: h.name_hash,
+                    seat: h.seat,
+                });
+            }
+        }
+        holds
     }
 
     /// Monotonic ms (`now`): limiters, the `ended` debounce.

@@ -1,10 +1,14 @@
 //! The `serve` command: config → listener → router, until SIGTERM/SIGINT.
 
+use crate::app::{App, BootError};
+use crate::clock::SystemClock;
 use crate::config::ServerConfig;
 use crate::log::stdout_line;
+use crate::rooms_gc::spawn_room_gc;
 use axum::Router;
 use axum::http::StatusCode;
 use std::future::IntoFuture;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::sync::watch;
@@ -13,8 +17,42 @@ use tokio::sync::watch;
 /// apps/server/src/server.ts), so a stalled client can't hold a restart until systemd's SIGKILL.
 const DRAIN_GRACE: Duration = Duration::from_millis(3000);
 
-/// Binds and serves until a shutdown signal. Errors before listening are returned, not panicked.
-pub async fn serve(config: ServerConfig) -> std::io::Result<()> {
+/// Why `serve` stopped with an error: the app could not start, or the listener failed.
+#[derive(Debug)]
+pub enum ServeError {
+    /// Printed as it is (`DB_PATH <path>: <message>`, or the corrupt row's room): nothing was served.
+    Boot(BootError),
+    Io(std::io::Error),
+}
+
+impl std::fmt::Display for ServeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Boot(e) => write!(f, "{e}"),
+            Self::Io(e) => write!(f, "serve: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for ServeError {}
+
+impl From<std::io::Error> for ServeError {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e)
+    }
+}
+
+/// Boots the app (database, rooms, seat holds, the boot GC sweep), binds and serves until a shutdown signal.
+/// Errors before listening are returned, not panicked.
+pub async fn serve(config: ServerConfig) -> Result<(), ServeError> {
+    let app = App::boot(config.clone(), SystemClock::shared()).map_err(ServeError::Boot)?;
+    let gc = spawn_room_gc(app.clone());
+    let served = listen(config, app).await;
+    gc.abort();
+    served
+}
+
+async fn listen(config: ServerConfig, _app: Arc<App>) -> Result<(), ServeError> {
     let listener = TcpListener::bind((config.hostname.as_str(), config.port)).await?;
     let addr = listener.local_addr()?;
     let via = config
@@ -35,13 +73,13 @@ pub async fn serve(config: ServerConfig) -> std::io::Result<()> {
     });
     let mut serving = std::pin::pin!(serving.into_future());
     tokio::select! {
-        served = &mut serving => return served,
+        served = &mut serving => return served.map_err(ServeError::Io),
         () = shutdown_signal() => {}
     }
     // Stop accepting, let in-flight requests finish, but only for so long.
     let _ = stop.send(true);
     match tokio::time::timeout(DRAIN_GRACE, serving).await {
-        Ok(served) => served,
+        Ok(served) => served.map_err(ServeError::Io),
         Err(_) => Ok(()),
     }
 }
