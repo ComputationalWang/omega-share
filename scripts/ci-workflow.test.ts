@@ -83,16 +83,17 @@ describe("package.json check", () => {
     expect(scripts()["check"]).toMatch(/ && bun run check:rs$/);
   });
 
-  test("check:rs runs fmt, clippy -D warnings, the tests and cargo-deny, all locked", () => {
+  test("check:rs runs fmt, clippy -D warnings, the tests, cargo-deny (all locked) and the black-box manifest", () => {
     const rs = scripts()["check:rs"] ?? "";
     for (const part of [
       "cargo fmt --all --check",
       "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings",
       "cargo test --workspace --all-features --locked",
       "cargo deny --log-level error check",
+      "bun run blackbox",
     ]) {
       expect(rs).toContain(part);
     }
-    expect(rs.split(" && ")).toHaveLength(4);
+    expect(rs.split(" && ")).toHaveLength(5);
   });
 });

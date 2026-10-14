@@ -156,7 +156,7 @@ impl Fx {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         app.http.bind(&app.config, addr.port());
-        let router = crate::serve::build_router(app.clone());
+        let router = crate::serve::build_router(app.clone(), axum::Router::new());
         tokio::spawn(crate::http::server::serve(listener, router, std::future::pending()));
         Self {
             app,
@@ -1499,7 +1499,7 @@ async fn a_client_that_never_finishes_its_headers_is_cut_off() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     app.http.bind(&app.config, addr.port());
-    let router = crate::serve::build_router(app);
+    let router = crate::serve::build_router(app, axum::Router::new());
     tokio::spawn(crate::http::server::serve_with(
         listener,
         router,

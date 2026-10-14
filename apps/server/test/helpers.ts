@@ -1,5 +1,11 @@
 import { parseServerMessage, type ServerMessage } from "@omega/shared";
+import { envFor } from "../../server-rs/blackbox/env";
+import { blackBoxServer } from "../../server-rs/blackbox/handle";
+import { spawnServer } from "../../server-rs/blackbox/spawn";
 import { startServer, type OmegaServer, type ServerOptions } from "../src/server";
+
+export { NotBlackBox } from "../../server-rs/blackbox/env";
+export { TestClock } from "../../server-rs/blackbox/clock";
 
 export const SITE_ORIGIN = "http://localhost:5173";
 export const EXTENSION_ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop";
@@ -11,7 +17,29 @@ export interface TestServer {
   ws: (roomId?: string) => string;
 }
 
+/** `OMEGA_SERVER_BIN`: run this suite against that binary instead of the in-process server (S8). */
+const BLACK_BOX_BIN = process.env["OMEGA_SERVER_BIN"];
+
+/**
+ * Spawns the binary like the in-process start (synchronously, PORT=0). Only the members a black-box
+ * test can honour exist on `server`; touching any other throws NotBlackBox so the runner can classify
+ * the test.
+ */
+function startBlackBox(bin: string, opts: Partial<ServerOptions>): TestServer {
+  const { env, clock } = envFor({ ...opts });
+  const { port, stop } = spawnServer(bin, env);
+  const http = `http://127.0.0.1:${String(port)}`;
+  clock?.attach(http);
+  // The handle stands in for OmegaServer: it only ever answers port and stop.
+  return {
+    server: blackBoxServer(port, stop) as unknown as OmegaServer,
+    http,
+    ws: (roomId = "lobby") => `ws://127.0.0.1:${String(port)}/rooms/${roomId}/ws`,
+  };
+}
+
 export function start(opts: Partial<ServerOptions> = {}): TestServer {
+  if (BLACK_BOX_BIN !== undefined) return startBlackBox(BLACK_BOX_BIN, opts);
   const server = startServer({ port: 0, hostname: "127.0.0.1", siteOrigin: SITE_ORIGIN, ...opts });
   const http = `http://127.0.0.1:${String(server.port)}`;
   return { server, http, ws: (roomId = "lobby") => `ws://127.0.0.1:${String(server.port)}/rooms/${roomId}/ws` };
