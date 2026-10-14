@@ -241,11 +241,10 @@ impl ServerMessage {
         playback: Option<PlaybackState>,
         item_id: Option<QueueItemId>,
     ) -> Self {
-        let _ = playback; // red: stub
         Self::EmbedChanged {
             embed,
             by,
-            playback: None,
+            playback: Some(playback),
             item_id,
         }
     }
@@ -282,7 +281,7 @@ impl<'de> Deserialize<'de> for ServerMessage {
 
 /// What the server writes for `msg`: `JSON.stringify(msg)`'s bytes for the values the server builds.
 pub fn encode(msg: &ServerMessage) -> Result<String, EncodeError> {
-    serde_json::to_string(msg).or_else(|_| Ok(String::new())) // red: still the silent empty frame
+    serde_json::to_string(msg).map_err(|_| EncodeError)
 }
 
 /// `parseServerMessage`: the frame is at most `MAX_SERVER_MESSAGE_BYTES` (UTF-8), JSON, and a valid message.
