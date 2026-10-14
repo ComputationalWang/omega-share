@@ -32,7 +32,7 @@ Integration tests (`tests/*.rs`) are separate crates: helper functions there nee
 | `ws.ts`, `ws-sessions.ts`, `ws-limits.ts`, `ws-owner-edits.ts` | `ws/*` | S6 |
 | `rooms-gc.ts`, `reports.ts`, `admin.ts`, `cli.ts`, `metrics.ts`, `scripts/backup.ts`, graceful restart | same names; `omega-server admin …`, `omega-server backup …` | S7 |
 | `test/helpers.ts` (black-box mode), test hooks | `test_hooks.rs` (feature `test-hooks`) | S8 |
-| `relay-latency.ts` | `src/bin/omega-load.rs` | S9 |
+| `relay-latency.ts` + the load comparison | `perf/server-compare.ts` (TS, external, runs any server command; replaces the planned `src/bin/omega-load.rs`) | S9 |
 
 Not ported: `activity`, `discord-upstream` and `extension-bridge` from shared (the server doesn't use them). `parseServerMessage` only matters to the load generator.
 
@@ -85,7 +85,7 @@ Full spec from the contract inventory, ranked by risk:
 7. **`toLowerCase` on decoded query params** (Twitch channel: U+212A KELVIN SIGN lowercases to `k`). Decode like `URLSearchParams` (`+` is space, lossy UTF-8), then `to_lowercase`.
 8. **Confusables** (`nicknameKey`): port the table from `confusables-table.ts` as data (`include_str!` of a generated file), same Unicode 18.0.0 source.
 
-9. **Outbound bytes** (`contract/{state,server_message,responses}.rs`). `encode`/`to_body` write the key order of the TS server's object literals, not the schema's (`Member`: `id, nickname, avatar, standingSlot, catching, muted, away`). `Position`/`Rate` write like `JSON.stringify` (`3`, not `3.0`; `-0` as `0`); the only remaining float difference is the exponent switch: serde_json writes `1e-6` where JS writes `0.000001` (magnitudes in `[1e-6, 1e-5)`), and `1e16`+ differs too, both unreachable for positions (<= 43200) and rates (<= 2). `playback` is `Option<Option<_>>` (absent / `null` / state) so a parsed message re-encodes to what it was; the server always sends `Some(None)` or `Some(Some(_))`. The `Deserialize` side exists for tests and the load generator; the corpora there run the other way round (`*-roundtrip`: TS-built bytes must re-encode identically; `*-raw`: Rust refuses/strips what Valibot does).
+9. **Outbound bytes** (`contract/{state,server_message,responses}.rs`). `encode`/`to_body` write the key order of the TS server's object literals, not the schema's (`Member`: `id, nickname, avatar, standingSlot, catching, muted, away`). `Position`/`Rate` are written by `js_number_string`, a port of `Number.prototype.toString` (`3`, `-0` as `0`, `5e-7`, `1.5e+21`; corpus-checked), so the bytes equal `JSON.stringify`'s, including client-controlled positions the room echoes. `encode`/`to_body` return `Result` (`EncodeError`, fixed text): a failure is logged and skipped, never an empty frame. `playback` is `Option<Option<_>>` (absent / `null` / state) so a parsed message re-encodes to what it was; senders use `RoomState::new` / `ServerMessage::embed_changed`, which always write `null` or a state. The `Deserialize` side exists for tests and the load generator; the corpora there run the other way round (`*-roundtrip`: TS-built bytes must re-encode identically; `*-raw`: Rust refuses/strips what Valibot does).
 
 Schemas, field orders and constants: read the TS source (`packages/shared/src`), it is short. The server sends what it builds with object literals; mirror those literals.
 

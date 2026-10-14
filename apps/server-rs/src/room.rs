@@ -677,24 +677,26 @@ impl Room {
     }
 
     pub fn snapshot(&self) -> RoomState {
-        RoomState {
-            id: self.id.clone(),
-            seats: self
-                .seats
-                .iter()
-                .map(|s| s.and_then(|slot| Some(self.slots.get(usize::from(slot))?.as_ref()?.member.id.clone())))
-                .collect(),
-            // Absent means false, so only catching, muted and away members carry the fields.
-            members: self.order_recs().map(Rec::view).collect(),
-            embed: self.embed.clone(),
-            playback: Some(self.playback.clone()),
-            layout: Some(self.layout.clone()),
-            control_policy: Some(self.control_policy),
-            // Like the summary: an untitled (seeded) room sends no title key; nor an empty queue or no item a queue key.
-            title: self.title.clone(),
-            item_id: self.current_item_id.clone(),
-            queue: (!self.upcoming.is_empty()).then(|| self.upcoming.iter().cloned().collect()),
-        }
+        let seats = self
+            .seats
+            .iter()
+            .map(|s| s.and_then(|slot| Some(self.slots.get(usize::from(slot))?.as_ref()?.member.id.clone())))
+            .collect();
+        // Absent means false, so only catching, muted and away members carry the fields.
+        let members = self.order_recs().map(Rec::view).collect();
+        // Like the summary: an untitled (seeded) room sends no title key; nor an empty queue or no item a queue key.
+        RoomState::new(
+            self.id.clone(),
+            seats,
+            members,
+            self.embed.clone(),
+            self.playback.clone(),
+            self.layout.clone(),
+            self.control_policy,
+        )
+        .with_title(self.title.clone())
+        .with_item_id(self.current_item_id.clone())
+        .with_queue(self.upcoming.iter().cloned().collect())
     }
 
     /// A member as the room sees it: `catching`, `muted` and `away` only when true.

@@ -11,8 +11,8 @@ use super::constants::{MAX_LISTED_ROOMS, REPORT_KEY_REFILL_MS, RETRY_AFTER_MAX_M
 use super::generic_embed::AnyEmbed;
 use super::ids::{InviteKey, OwnerToken, RoomId};
 use super::room::RoomVisibility;
-use super::server_message::{ErrorMessage, RetryAfter};
-use super::state::{QueueItem, RoomSummary, present, wire_type};
+use super::server_message::{EncodeError, ErrorMessage, RetryAfter};
+use super::state::{QueueItem, RoomSummary, always_ok, present, wire_type};
 use super::text::RoomTitle;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -71,15 +71,35 @@ pub enum ReportStatus {
     AlreadyReported,
 }
 
-/// The `error` object of a failure. Only read through an `Obj` (see [`Response`]).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// The `error` object of a failure.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorBody<C, const MAX: u64> {
     pub code: C,
     pub message: ErrorMessage,
     /// With `rate_limited`; the server also sends `Retry-After` in seconds.
-    #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<RetryAfter<MAX>>,
+}
+
+impl<'de, C: Deserialize<'de>, const MAX: u64> Deserialize<'de> for ErrorBody<C, MAX> {
+    /// A JSON object only, never serde's array form.
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Wire<C, const MAX: u64> {
+            code: C,
+            message: ErrorMessage,
+            #[serde(default, deserialize_with = "present")]
+            retry_after_ms: Option<RetryAfter<MAX>>,
+        }
+        let Obj(w) = Obj::<Wire<C, MAX>>::deserialize(d)?;
+        Ok(Self {
+            code: w.code,
+            message: w.message,
+            retry_after_ms: w.retry_after_ms,
+        })
+    }
 }
 
 /// A body whose `ok` is exactly `B`.
@@ -158,32 +178,38 @@ const CREATE: u64 = ROOM_CREATE_RETRY_AFTER_MAX_MS;
 /// A report 429 may wait out the key bucket's full refill.
 const REPORT: u64 = REPORT_KEY_REFILL_MS;
 
-/// `POST /rooms/:id/share` success: `{"ok":true,"embed":...}`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ShareOk {
-    pub embed: AnyEmbed,
-}
+wire_type!(
+    /// `POST /rooms/:id/share` success: `{"ok":true,"embed":...}`.
+    ShareOk, ShareOkWire, check = always_ok, derive(Eq),
+    {
+        embed: AnyEmbed,
+    }
+);
 pub type ShareResponse = Response<ShareOk, ShareErrorCode, SHORT>;
 
-/// `POST /rooms/:id/queue` success: `{"ok":true,"item":{id,embed,by}}`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct QueueAddOk {
-    pub item: QueueItem,
-}
+wire_type!(
+    /// `POST /rooms/:id/queue` success: `{"ok":true,"item":{id,embed,by}}`.
+    QueueAddOk, QueueAddOkWire, check = always_ok,
+    {
+        item: QueueItem,
+    }
+);
 pub type QueueAddResponse = Response<QueueAddOk, ShareErrorCode, SHORT>;
 
-/// The room a `POST /rooms` created. Only read through an `Obj`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CreatedRoom {
-    pub id: RoomId,
-    pub title: RoomTitle,
-    pub visibility: RoomVisibility,
-}
+wire_type!(
+    /// The room a `POST /rooms` created.
+    CreatedRoom, CreatedRoomWire, check = always_ok, derive(Eq),
+    {
+        id: RoomId,
+        title: RoomTitle,
+        visibility: RoomVisibility,
+    }
+);
 
 /// `POST /rooms` 201: `{"ok":true,"room":{id,title,visibility},"ownerToken":...,"inviteKey"?:...}`;
 /// `inviteKey` iff the room is private. No `PartialEq`: it carries secrets.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", try_from = "CreateOkWire")]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateOk {
     pub room: CreatedRoom,
     pub owner_token: OwnerToken,
@@ -198,6 +224,14 @@ struct CreateOkWire {
     owner_token: OwnerToken,
     #[serde(default, deserialize_with = "present")]
     invite_key: Option<InviteKey>,
+}
+
+impl<'de> Deserialize<'de> for CreateOk {
+    /// A JSON object only; `inviteKey` iff the room is private.
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let Obj(w) = Obj::<CreateOkWire>::deserialize(d)?;
+        Self::try_from(w).map_err(D::Error::custom)
+    }
 }
 
 impl TryFrom<CreateOkWire> for CreateOk {
@@ -216,16 +250,20 @@ impl TryFrom<CreateOkWire> for CreateOk {
 }
 pub type CreateRoomResponse = Response<CreateOk, CreateRoomErrorCode, CREATE>;
 
-/// `DELETE /rooms/:id` success: `{"ok":true}`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DeleteOk {}
+wire_type!(
+    /// `DELETE /rooms/:id` success: `{"ok":true}`.
+    DeleteOk, DeleteOkWire, check = always_ok, derive(Eq, Copy),
+    {}
+);
 pub type DeleteRoomResponse = Response<DeleteOk, DeleteRoomErrorCode, SHORT>;
 
-/// `POST /rooms/:id/report` success: `{"ok":true,"status":...}`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReportOk {
-    pub status: ReportStatus,
-}
+wire_type!(
+    /// `POST /rooms/:id/report` success: `{"ok":true,"status":...}`.
+    ReportOk, ReportOkWire, check = always_ok, derive(Eq, Copy),
+    {
+        status: ReportStatus,
+    }
+);
 pub type ReportResponse = Response<ReportOk, ReportErrorCode, REPORT>;
 
 wire_type!(
@@ -245,9 +283,8 @@ fn check_room_list(r: &RoomListResponse) -> Result<(), &'static str> {
 }
 
 /// What the server writes for any response body.
-pub fn to_body<T: Serialize>(body: &T) -> String {
-    // Plain data with string keys: serialization cannot fail.
-    serde_json::to_string(body).unwrap_or_default()
+pub fn to_body<T: Serialize>(body: &T) -> Result<String, EncodeError> {
+    serde_json::to_string(body).map_err(|_| EncodeError)
 }
 
 #[cfg(test)]
@@ -262,7 +299,7 @@ mod tests {
     /// Parses `body` as `T` and writes it back: the same bytes when `body` is in the server's key order.
     fn same<T: DeserializeOwned + Serialize>(body: &str) {
         let parsed: T = serde_json::from_str(body).unwrap_or_else(|e| panic!("refused {body}: {e}"));
-        assert_eq!(to_body(&parsed), body);
+        assert_eq!(to_body(&parsed).unwrap(), body);
     }
 
     fn refused<T: DeserializeOwned>(body: &str) {
@@ -379,7 +416,10 @@ mod tests {
         // unknown keys are stripped so the server can add fields
         let stripped: RoomListResponse =
             serde_json::from_str(r#"{"rooms":[{"id":"lobby","memberCount":0,"seatedCount":0,"name":"Lobby"}],"next":null}"#).unwrap();
-        assert_eq!(to_body(&stripped), r#"{"rooms":[{"id":"lobby","memberCount":0,"seatedCount":0}]}"#);
+        assert_eq!(
+            to_body(&stripped).unwrap(),
+            r#"{"rooms":[{"id":"lobby","memberCount":0,"seatedCount":0}]}"#
+        );
         for bad in [
             r#"{"id":"lobby","memberCount":26,"seatedCount":0}"#,
             r#"{"id":"lobby","memberCount":-1,"seatedCount":0}"#,
@@ -395,5 +435,23 @@ mod tests {
         let list = |n: usize| format!(r#"{{"rooms":[{}]}}"#, (0..n).map(room).collect::<Vec<_>>().join(","));
         same::<RoomListResponse>(&list(100));
         refused::<RoomListResponse>(&list(101));
+    }
+
+    // Every public part of a response is a JSON object when read on its own, never serde's array form.
+    #[test]
+    fn response_parts_refuse_the_array_form() {
+        refused::<ErrorBody<ShareErrorCode, SHORT>>(r#"["invalid_body","m"]"#);
+        refused::<ErrorBody<ShareErrorCode, SHORT>>(r#"["invalid_body","m",null]"#);
+        refused::<ShareOk>(&format!("[{YT}]"));
+        refused::<QueueAddOk>(&format!(r#"[{{"id":"q1","embed":{YT},"by":null}}]"#));
+        refused::<CreatedRoom>(r#"["film-club","Friday films","public"]"#);
+        refused::<CreateOk>(&format!(
+            r#"[{{"id":"a","title":"Friday films","visibility":"public"}},"{T1}",null]"#
+        ));
+        refused::<DeleteOk>("[]");
+        refused::<ReportOk>(r#"["received"]"#);
+        same::<ReportOk>(r#"{"status":"received"}"#);
+        same::<DeleteOk>("{}");
+        same::<ErrorBody<ShareErrorCode, SHORT>>(r#"{"code":"invalid_body","message":"m"}"#);
     }
 }

@@ -45,17 +45,31 @@ pub(crate) fn layout_present<'de, D: Deserializer<'de>>(d: D) -> Result<Option<R
     layout(d).map(Some)
 }
 
-/// `JSON.stringify` of a number: integral values without `.0`, `-0` as `0`. Other values are
-/// serde_json's shortest round-trip form, which differs from JS only for magnitudes in `[1e-6, 1e-5)`
-/// (`1e-6` vs `0.000001`) and from `1e16` up: both far outside positions (<= 43200 s) and rates.
-pub(crate) fn js_number<S: Serializer>(n: f64, s: S) -> Result<S::Ok, S::Error> {
+/// `Number.prototype.toString` for a finite double: integers below 2^53 without a fraction (`-0` as
+/// `0`); `1e21` and up, and below `1e-6`, in exponent form with an explicit sign (`1.5e+21`, `5e-7`);
+/// everything else as the shortest round-trip digits, never in exponent form.
+pub fn js_number_string(n: f64) -> String {
     if n == 0.0 {
-        s.serialize_u8(0)
+        "0".to_owned()
     } else if n.fract() == 0.0 && n.abs() < 9_007_199_254_740_992.0 {
-        s.serialize_i64(n as i64)
+        format!("{}", n as i64)
+    } else if n.abs() >= 1e21 || n.abs() < 1e-6 {
+        let text = format!("{n:e}");
+        match text.split_once('e') {
+            Some((mantissa, exp)) if !exp.starts_with('-') => format!("{mantissa}e+{exp}"),
+            _ => text,
+        }
     } else {
-        s.serialize_f64(n)
+        format!("{n}")
     }
+}
+
+/// Writes `n` as [`js_number_string`] does, so the bytes equal `JSON.stringify`'s.
+pub(crate) fn js_number<S: Serializer>(n: f64, s: S) -> Result<S::Ok, S::Error> {
+    use serde::ser::Error;
+    serde_json::value::RawValue::from_string(js_number_string(n))
+        .map_err(S::Error::custom)?
+        .serialize(s)
 }
 
 /// A struct that `Serialize`s with the field order written here and `Deserialize`s strictly: through a
@@ -65,10 +79,11 @@ pub(crate) fn js_number<S: Serializer>(n: f64, s: S) -> Result<S::Ok, S::Error> 
 macro_rules! wire_type {
     (
         $(#[$meta:meta])* $name:ident, $wire:ident, check = $check:expr,
+        $(derive($($derive:ident),*),)?
         { $( $(#[$fm:meta])* $f:ident : $t:ty ),* $(,)? }
     ) => {
         $(#[$meta])*
-        #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+        #[derive(Debug, Clone, PartialEq, serde::Serialize $(, $($derive),*)?)]
         #[serde(rename_all = "camelCase")]
         pub struct $name { $( $(#[$fm])* pub $f: $t ),* }
 
@@ -77,6 +92,7 @@ macro_rules! wire_type {
         struct $wire { $( $(#[$fm])* $f: $t ),* }
 
         impl<'de> serde::Deserialize<'de> for $name {
+            #[allow(unused_variables, reason = "a type without fields reads no field")]
             fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
                 let $crate::contract::Obj(w) = $crate::contract::Obj::<$wire>::deserialize(d)?;
                 let this = Self { $( $f: w.$f ),* };
@@ -89,7 +105,7 @@ macro_rules! wire_type {
 }
 pub(crate) use wire_type;
 
-fn always_ok<T>(_: &T) -> Result<(), &'static str> {
+pub(crate) fn always_ok<T>(_: &T) -> Result<(), &'static str> {
     Ok(())
 }
 
@@ -299,6 +315,54 @@ wire_type!(
         queue: Option<Vec<QueueItem>>,
     }
 );
+
+impl RoomState {
+    /// The room as the server sends it: `playback` is `null` or a state, never absent (`Room.snapshot`
+    /// always writes the key), and `layout` and `controlPolicy` are always there. `title`, `itemId` and
+    /// `queue` are added with the `with_*` methods.
+    pub fn new(
+        id: RoomId,
+        seats: Vec<Option<MemberId>>,
+        members: Vec<Member>,
+        embed: Option<AnyEmbed>,
+        playback: Option<PlaybackState>,
+        layout: RoomLayout,
+        control_policy: ControlPolicy,
+    ) -> Self {
+        Self {
+            id,
+            seats,
+            members,
+            embed,
+            playback: Some(playback),
+            layout: Some(layout),
+            control_policy: Some(control_policy),
+            title: None,
+            item_id: None,
+            queue: None,
+        }
+    }
+
+    /// `None` or an empty title sends no `title` key, like an untitled room.
+    #[must_use]
+    pub fn with_title(mut self, title: Option<RoomTitle>) -> Self {
+        self.title = title;
+        self
+    }
+
+    #[must_use]
+    pub fn with_item_id(mut self, item_id: Option<QueueItemId>) -> Self {
+        self.item_id = item_id;
+        self
+    }
+
+    /// An empty queue sends no `queue` key (`snapshot()` only sets it when non-empty).
+    #[must_use]
+    pub fn with_queue(mut self, queue: Vec<QueueItem>) -> Self {
+        self.queue = (!queue.is_empty()).then_some(queue);
+        self
+    }
+}
 
 /// The checks `RoomStateSchema` runs after the shape.
 fn check_room_state(r: &RoomState) -> Result<(), &'static str> {
