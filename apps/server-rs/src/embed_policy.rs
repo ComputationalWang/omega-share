@@ -1,29 +1,62 @@
 //! Which embeds this server accepts, mirroring `apps/server/src/embed-policy.ts`.
 
 use crate::contract::Invalid;
-use crate::contract::generic_embed::AnyEmbed;
+use crate::contract::embed::under_domain_of;
+use crate::contract::generic_embed::{AnyEmbed, AnyEmbedOptions, canonicalize_any_embed, normalize_hostname};
 
+/// Which embeds this server accepts: a synced provider's, or a generic one when the switch is on, its host
+/// is not ours and not denied. The share path and the restore after a restart both go through it.
 #[derive(Debug, Clone)]
 pub struct EmbedPolicy {
     pub generic_embeds: bool,
+    own_hosts: Vec<String>,
+    denylist: Vec<String>,
+}
+
+fn normalized(hosts: &[String], what: &str) -> Result<Vec<String>, Invalid> {
+    hosts
+        .iter()
+        .map(|h| normalize_hostname(h).ok_or_else(|| Invalid::new(format!("invalid {what} entry {h:?}: not a bare hostname"))))
+        .collect()
 }
 
 impl EmbedPolicy {
-    /// `own_hosts` and `denylist` are bare hostnames; a bad entry is an error (the server refuses to start).
-    pub fn new(generic_embeds: bool, _own_hosts: &[String], _denylist: &[String]) -> Result<Self, Invalid> {
-        Ok(Self { generic_embeds })
+    /// `own_hosts` (never a generic embed) and `denylist` (`GENERIC_EMBED_DENYLIST`, ADR 0024 §6) are bare
+    /// hostnames; a bad entry is an error (the server refuses to start).
+    pub fn new(generic_embeds: bool, own_hosts: &[String], denylist: &[String]) -> Result<Self, Invalid> {
+        Ok(Self {
+            generic_embeds,
+            own_hosts: normalized(own_hosts, "own host")?,
+            denylist: normalized(denylist, "denylist")?,
+        })
     }
 
-    pub fn is_denied_host(&self, _host: &str) -> bool {
-        false
+    /// The denylist hook: `host` is a denied domain or one of its subdomains.
+    pub fn is_denied_host(&self, host: &str) -> bool {
+        self.denylist.iter().any(|d| under_domain_of(host, d))
     }
 
-    pub fn accept(&self, _url: &str) -> Option<AnyEmbed> {
-        None
+    /// The embed a shared URL becomes, or `None` for `unsupported_url`.
+    pub fn accept(&self, url: &str) -> Option<AnyEmbed> {
+        let embed = canonicalize_any_embed(
+            url,
+            AnyEmbedOptions {
+                generic: self.generic_embeds,
+                own_hosts: &self.own_hosts,
+            },
+        )?;
+        match &embed {
+            AnyEmbed::Generic(g) if self.is_denied_host(g.host()) => None,
+            _ => Some(embed),
+        }
     }
 
-    pub fn restore(&self, _embed: &AnyEmbed) -> Option<AnyEmbed> {
-        None
+    /// A stored embed if this policy would still accept it, else `None` (kill switch off, newly denied host).
+    pub fn restore(&self, embed: &AnyEmbed) -> Option<AnyEmbed> {
+        match embed {
+            AnyEmbed::Synced(_) => Some(embed.clone()),
+            AnyEmbed::Generic(g) => self.accept(g.url()).filter(|again| again.url() == g.url()),
+        }
     }
 }
 
@@ -112,6 +145,6 @@ mod tests {
     #[test]
     fn entries_are_normalised() {
         let p = EmbedPolicy::new(true, &[], &hosts(&[" Bücher-Bad.DE. "])).unwrap();
-        assert!(p.is_denied_host("xn--bcher-bad-q5a.de"));
+        assert!(p.is_denied_host("xn--bcher-bad-q9a.de"));
     }
 }

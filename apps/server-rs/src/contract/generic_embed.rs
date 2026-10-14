@@ -1,9 +1,11 @@
 //! Generic embeds (ADR 0024), mirroring `packages/shared/src/generic-embed.ts`.
 
-use super::embed::Embed;
-use super::js_compat::{is_js_whitespace, js_trim};
+use super::embed::{Embed, canonicalize_embed, is_synced_provider_host, literal, parse_plain_url, under_domain, under_domain_of};
+use super::js_compat::{is_js_whitespace, js_trim, utf16_len};
+use serde::ser::SerializeStruct;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use url::Url;
+use validator::{Validate, ValidationError};
 
 /// Longest canonical generic embed URL we store or broadcast (ADR 0024 §1).
 pub const MAX_GENERIC_EMBED_URL_LENGTH: usize = 1024;
@@ -26,13 +28,43 @@ impl GenericEmbed {
 
 impl Serialize for GenericEmbed {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_unit()
+        let mut st = s.serialize_struct("GenericEmbed", 3)?;
+        st.serialize_field("provider", "generic")?;
+        st.serialize_field("host", &self.host)?;
+        st.serialize_field("url", &self.url)?;
+        st.end()
     }
 }
 
+literal!(GenericTag, "generic");
+
+fn check_url_length(url: &str) -> Result<(), ValidationError> {
+    if utf16_len(url) <= MAX_GENERIC_EMBED_URL_LENGTH {
+        Ok(())
+    } else {
+        Err(ValidationError::new("max_length"))
+    }
+}
+
+/// `GenericEmbedSchema`: a plain `v.object` (unknown keys dropped) plus the canonical check.
+#[derive(Deserialize, Validate)]
+struct GenericWire {
+    #[allow(dead_code, reason = "only the literal is checked")]
+    provider: GenericTag,
+    host: String,
+    #[validate(custom(function = "check_url_length"))]
+    url: String,
+}
+
 impl<'de> Deserialize<'de> for GenericEmbed {
-    fn deserialize<D: Deserializer<'de>>(_: D) -> Result<Self, D::Error> {
-        Err(serde::de::Error::custom("stub"))
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+        let wire = GenericWire::deserialize(d)?;
+        wire.validate().map_err(D::Error::custom)?;
+        match canonicalize_generic_embed(&wire.url, &[]) {
+            Some(c) if c.url == wire.url && c.host == wire.host => Ok(c),
+            _ => Err(D::Error::custom("url is not a canonical generic embed url")),
+        }
     }
 }
 
@@ -45,20 +77,117 @@ pub enum AnyEmbed {
 }
 
 impl AnyEmbed {
+    /// `isSyncedEmbed`: true for the synced tier (YouTube, Twitch, Vimeo).
     pub fn is_synced(&self) -> bool {
-        false
+        matches!(self, Self::Synced(_))
     }
+
     pub fn url(&self) -> &str {
-        ""
+        match self {
+            Self::Generic(e) => e.url(),
+            Self::Synced(e) => e.url(),
+        }
     }
 }
 
-pub fn is_public_dns_name(_host: &str) -> bool {
-    false
+/// Hostname label: 1-63 of `[a-z0-9-]`, no hyphen at either end (the TS lookarounds, by hand).
+fn is_dns_label(l: &str) -> bool {
+    (1..=63).contains(&l.len())
+        && l.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        && !l.starts_with('-')
+        && !l.ends_with('-')
 }
 
-pub fn canonicalize_generic_embed(_input: &str, _own_hosts: &[String]) -> Option<GenericEmbed> {
-    None
+/// Last label must be alphabetic or punycode: `^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$`. The URL parser turns
+/// any host whose last label is numeric (or hex) into a dotted IPv4 address, so this also rejects every IPv4
+/// literal; IPv6 literals fail the label rule on `[`.
+fn is_tld(l: &str) -> bool {
+    let alpha = (2..=63).contains(&l.len()) && l.bytes().all(|b| b.is_ascii_lowercase());
+    let puny = l
+        .strip_prefix("xn--")
+        .is_some_and(|r| (1..=59).contains(&r.len()) && r.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-'));
+    alpha || puny
+}
+
+/// Special-use, reserved and private-network names: they never resolve publicly, or only inside someone's network.
+const PRIVATE_SUFFIXES: [&str; 14] = [
+    "localhost",
+    "local",
+    "internal",
+    "localdomain",
+    "lan",
+    "home",
+    "corp",
+    "intranet",
+    "arpa",
+    "test",
+    "example",
+    "invalid",
+    "onion",
+    "alt",
+];
+/// Public wildcard DNS that answers with loopback or with an IP spelled in the name.
+const IP_IN_DNS_DOMAINS: [&str; 8] = [
+    "localtest.me",
+    "lvh.me",
+    "vcap.me",
+    "localhost.direct",
+    "nip.io",
+    "sslip.io",
+    "xip.io",
+    "traefik.me",
+];
+
+pub fn is_public_dns_name(host: &str) -> bool {
+    if utf16_len(host) > 253 {
+        return false;
+    }
+    let mut count = 0usize;
+    let mut last = "";
+    for l in host.split('.') {
+        if !is_dns_label(l) {
+            return false;
+        }
+        count += 1;
+        last = l;
+    }
+    count >= 2 && is_tld(last) && !under_domain(host, &PRIVATE_SUFFIXES) && !under_domain(host, &IP_IN_DNS_DOMAINS)
+}
+
+/// `canonicalizeGenericEmbed`: `https:` only, no userinfo, default port, a public DNS name (no IP literal, no
+/// private or special-use name), not one of `own_hosts` and not a synced provider's host. Pure; never panics.
+pub fn canonicalize_generic_embed(input: &str, own_hosts: &[String]) -> Option<GenericEmbed> {
+    let url = parse_plain_url(input)?;
+    if url.scheme() != "https" {
+        return None;
+    }
+    let host = url.host_str()?;
+    if !is_public_dns_name(host) || is_synced_provider_host(host) {
+        return None;
+    }
+    if own_hosts
+        .iter()
+        .filter_map(|h| normalize_hostname(h))
+        .any(|own| under_domain_of(host, &own))
+    {
+        return None;
+    }
+    let host = host.to_owned();
+    let mut url = url;
+    // Bun (WebKit) percent-encodes `^` in a path, the `url` crate leaves it; the stored form is Bun's, and
+    // the TS server re-canonicalizes stored rows at boot, so a `^` here would be refused after a rollback.
+    if url.path().contains('^') {
+        let path = url.path().replace('^', "%5E");
+        url.set_path(&path);
+    }
+    let href = url.as_str();
+    if utf16_len(href) > MAX_GENERIC_EMBED_URL_LENGTH {
+        return None;
+    }
+    Some(GenericEmbed {
+        host,
+        url: href.to_owned(),
+    })
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -68,8 +197,17 @@ pub struct AnyEmbedOptions<'a> {
     pub own_hosts: &'a [String],
 }
 
-pub fn canonicalize_any_embed(_input: &str, _opts: AnyEmbedOptions<'_>) -> Option<AnyEmbed> {
-    None
+/// `canonicalizeAnyEmbed`, the share path: a synced provider's URL becomes its synced embed or nothing; any
+/// other URL becomes a generic embed when `generic` is on.
+pub fn canonicalize_any_embed(input: &str, opts: AnyEmbedOptions<'_>) -> Option<AnyEmbed> {
+    if let Some(synced) = canonicalize_embed(input) {
+        return Some(AnyEmbed::Synced(synced));
+    }
+    if opts.generic {
+        canonicalize_generic_embed(input, opts.own_hosts).map(AnyEmbed::Generic)
+    } else {
+        None
+    }
 }
 
 /// `normalizeHostname`: a bare hostname, trimmed, one trailing dot dropped, WHATWG-parsed to its

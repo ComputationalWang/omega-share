@@ -278,6 +278,29 @@ const genericWithLengths = (): string[] => {
   return out;
 };
 
+/** Every ASCII char (and a spread of others) in the path, query, fragment and host of a generic URL: finds where the two URL parsers' percent-encode sets and IDNA tables part. */
+const sweepChars = (): string[] => {
+  const cs: string[] = [];
+  for (let c = 0; c < 0x100; c++) cs.push(String.fromCharCode(c));
+  for (const [lo, hi] of [[0x100, 0x530], [0x1c00, 0x1d00], [0x2000, 0x2200], [0x2460, 0x2500], [0x3000, 0x3100], [0xfb00, 0xfb50], [0xfe00, 0xfe70], [0xff00, 0xfff0]] as const)
+    for (let c = lo; c < hi; c++) cs.push(String.fromCharCode(c));
+  for (const c of [0x1f600, 0x10000, 0x1d400, 0xe0001, 0x10ffff, 0x1d7ce, 0x2f800]) cs.push(String.fromCodePoint(c));
+  return cs;
+};
+const GENERIC_SWEEP: string[] = (() => {
+  const out: string[] = [];
+  const cs = sweepChars();
+  for (const ch of cs.slice(0, 0x100)) out.push(`https://player.example.com/a${ch}b`, `https://player.example.com/?a${ch}b`, `https://player.example.com/#a${ch}b`, `https://player.example.com/?a=${ch}&b`, `https://player.example.com/a%${ch}b`);
+  for (const ch of cs) out.push(`https://a${ch}b.com/x`, `https://${ch}.example.com/x`);
+  for (const ch of cs.slice(0x100).filter((_, i) => i % 7 === 0)) out.push(`https://player.example.com/a${ch}b?q=${ch}#${ch}`);
+  return out;
+})();
+
+/** The sweep again, in the host of each synced provider: an IDNA mapping that lands on `youtu.be` etc. */
+const HOST_SWEEP: string[] = sweepChars()
+  .filter((_, i) => i < 0x100 || i % 5 === 0)
+  .flatMap((ch) => [`https://you${ch}tu.be/${YT}`, `https://www.${ch}youtube.com/watch?v=${YT}`, `https://twitch${ch}.tv/some_streamer`, `https://vimeo.com${ch}/76979871`, `https://player.vimeo.com/video/76979871?h=abc12${ch}`, `https://player.twitch.tv/?channel=a${ch}`]);
+
 const GENERIC_URLS = clean([
   ...GENERIC_HOSTS.flatMap((h) => ["/embed/42", "", "/x?y=1#z"].map((p) => `https://${h}${p}`)),
   ...["player.example.com", "xn--bcher-kva.de", "bücher.de"].flatMap((h) => GENERIC_PATHS.map((p) => `https://${h}${p}`)),
@@ -376,7 +399,7 @@ const HAND_INVALID: unknown[] = [
 export const embedCorpora: Corpus[] = [
   {
     name: "canonicalize-embed",
-    cases: () => decide(clean([...SYNCED_URLS, ...mutants(0x0ae226, 120)]), (s) => canonicalizeEmbed(s)),
+    cases: () => decide(clean([...SYNCED_URLS, ...HOST_SWEEP, ...mutants(0x0ae226, 120)]), (s) => canonicalizeEmbed(s)),
   },
   {
     name: "canonicalize-any-embed",
@@ -384,7 +407,7 @@ export const embedCorpora: Corpus[] = [
   },
   {
     name: "canonicalize-generic-embed",
-    cases: () => decide(clean([...GENERIC_URLS, ...mutants(0x51ed, 30).map((u) => u.replace(/^https:\/\/[^/?#]+/, "https://player.example.com"))]), (s) => canonicalizeGenericEmbed(s)),
+    cases: () => decide(clean([...GENERIC_URLS, ...GENERIC_SWEEP, ...mutants(0x51ed, 30).map((u) => u.replace(/^https:\/\/[^/?#]+/, "https://player.example.com"))]), (s) => canonicalizeGenericEmbed(s)),
   },
   {
     name: "any-embed-schema",
@@ -424,7 +447,7 @@ export const embedCorpora: Corpus[] = [
 
 const POLICY_URLS = [
   "https://bad.video.net/x", "https://BAD.video.net/x", "https://cdn.bad.video.net/x", "https://notbad.video.net/x", "https://bad.video.net.evil.com/x", "https://video.net/x",
-  "https://x.bücher-bad.de/x", "https://xn--bcher-bad-q5a.de/x", "https://omega.example.org/x", "https://a.own.site.net/", "https://own.site.net./", "https://player.example.com/x",
+  "https://x.bücher-bad.de/x", "https://xn--bcher-bad-q9a.de/x", "https://omega.example.org/x", "https://a.own.site.net/", "https://own.site.net./", "https://player.example.com/x",
   "https://youtube.com/watch?v=" + YT, "https://youtu.be/" + YT,
 ];
 

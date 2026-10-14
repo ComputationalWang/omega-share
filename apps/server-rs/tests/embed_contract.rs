@@ -671,6 +671,21 @@ fn generic_href_cap_is_1024_units() {
     assert!(generic(&at(MAX_GENERIC_EMBED_URL_LENGTH - 1)).is_some());
 }
 
+/// Parity note: Bun percent-encodes `^` in a path (`%5E`), the `url` crate does not. Found by the corpus sweep.
+#[test]
+fn caret_in_a_path_is_percent_encoded_like_bun() {
+    assert_eq!(
+        canonicalize_generic_embed("https://player.example.com/a^b", &[]).unwrap().url(),
+        "https://player.example.com/a%5Eb"
+    );
+    assert_eq!(
+        canonicalize_generic_embed("https://player.example.com/a%^b?c=^#^", &[])
+            .unwrap()
+            .url(),
+        "https://player.example.com/a%%5Eb?c=^#^"
+    );
+}
+
 #[test]
 fn dns_label_and_name_length_rules() {
     let label63 = "a".repeat(63);
