@@ -9,3 +9,4 @@ pub mod log;
 pub mod presets;
 pub mod rate_limit;
 pub mod serve;
+pub mod store;
