@@ -148,7 +148,9 @@ test.describe("generic embed shared from the extension → click-to-load in the 
       expect(lines, id).toBe(1);
     }
     // With the extension, the hint turns into Unlock (OME-1060): it still fits the slot whole, on one line.
-    await room.evaluate(() => window.postMessage({ source: "omega-share", kind: "present", version: "1.4.0" }, location.origin));
+    await room.evaluate(() => {
+      window.postMessage({ source: "omega-share", kind: "present", version: "1.4.0" }, location.origin);
+    });
     const stripUnlock = room.getByTestId("generic-strip-unlock");
     await expect(stripUnlock).toHaveText("Blank/error? Unlock");
     await expect(room.getByTestId("generic-hint")).toBeHidden();
