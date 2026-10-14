@@ -1,7 +1,7 @@
 //! Port of `apps/server/src/secrets.ts`: minting, hashing and checking bearer secrets (ADR 0015, 0028, 0043).
 //! Randomness is the OS CSPRNG (`getrandom`), never a seeded generator. Nothing here prints a secret.
 
-use crate::contract::ids::{InviteKey, OwnerToken, ResumeToken, RoomId, ShareToken};
+use crate::contract::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken, RoomId, ShareToken};
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
@@ -92,6 +92,16 @@ pub fn mint_resume_token() -> Result<ResumeToken, EntropyError> {
 
 pub fn new_room_id() -> Result<RoomId, EntropyError> {
     RoomId::parse(&room_id_from_bytes(&random::<16>()?)).ok_or(EntropyError)
+}
+
+/// A fresh member id: a v4 UUID in lowercase hex, as `crypto.randomUUID()` writes it (36 chars).
+pub fn mint_member_id() -> Result<MemberId, EntropyError> {
+    MemberId::parse("stub").ok_or(EntropyError)
+}
+
+/// A fresh queue item id (ADR 0031 section 1): 12 random bytes, base64url, 16 chars. Opaque, never reused.
+pub fn mint_item_id() -> Result<QueueItemId, EntropyError> {
+    QueueItemId::parse("stub").ok_or(EntropyError)
 }
 
 /// SHA-256 of a secret: what the store keeps instead of it (ADR 0028 §3).
@@ -187,5 +197,29 @@ mod tests {
     #[test]
     fn errors_name_no_secret() {
         assert_eq!(EntropyError.to_string(), "no secure randomness");
+    }
+
+    #[test]
+    fn member_ids_are_v4_uuids_in_lowercase_hex() {
+        // `crypto.randomUUID()`: 8-4-4-4-12, version nibble 4, variant 8..b.
+        let shape = |id: &str| {
+            let parts: Vec<&str> = id.split('-').collect();
+            parts.iter().map(|p| p.len()).collect::<Vec<_>>() == [8, 4, 4, 4, 12]
+                && id.bytes().all(|b| b == b'-' || b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                && parts[2].starts_with('4')
+                && "89ab".contains(&parts[3][..1])
+        };
+        let ids: Vec<_> = (0..200).map(|_| mint_member_id().unwrap()).collect();
+        assert!(ids.iter().all(|id| shape(id.as_str())), "{:?}", ids.first().map(MemberId::as_str));
+        let distinct: std::collections::HashSet<_> = ids.iter().map(MemberId::as_str).collect();
+        assert_eq!(distinct.len(), ids.len());
+    }
+
+    #[test]
+    fn item_ids_are_16_base64url_chars() {
+        let ids: Vec<_> = (0..200).map(|_| mint_item_id().unwrap()).collect();
+        assert!(ids.iter().all(|id| id.as_str().len() == 16));
+        let distinct: std::collections::HashSet<_> = ids.iter().map(QueueItemId::as_str).collect();
+        assert_eq!(distinct.len(), ids.len());
     }
 }
