@@ -1,11 +1,16 @@
 //! The wire contract, mirroring `packages/shared` (ADR 0050). Every type here is parsed at the
 //! boundary; nothing past it handles unparsed input.
 
+pub mod confusables;
 pub mod constants;
 pub mod generic_embed;
+pub mod ids;
 pub mod js_compat;
 pub mod layout;
+pub mod room;
 pub mod session;
+pub mod text;
+pub mod unicode_props;
 
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{DeserializeOwned, MapAccess, Visitor};

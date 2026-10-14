@@ -4,6 +4,9 @@
 // longer matches the TS side, so a `packages/shared` change can't land without the Rust copy noticing:
 // regenerate with `bun apps/server-rs/corpus/gen.ts`, then make the Rust tests pass.
 import { normalizeHostname } from "@omega/shared";
+import { CONFUSABLES } from "../../../packages/shared/src/confusables-table";
+import * as text from "./text-corpora";
+import { unicodeDigestCases } from "./unicode-digest";
 import * as constants from "../../../packages/shared/src/constants";
 import { layoutCorpora } from "./layout-corpora";
 import { redactAddresses } from "../../server/src/log";
@@ -112,6 +115,29 @@ const constantCases = (): Case[] =>
 export const corpora: Corpus[] = [
   { name: "normalize-hostname", cases: () => decided(HOSTNAMES, normalizeHostname) },
   { name: "constants", cases: constantCases },
+  { name: "unicode-digest", cases: unicodeDigestCases },
+  { name: "raw-avatar", cases: text.rawAvatarCases },
+  { name: "raw-seat-index", cases: text.rawSeatIndexCases },
+  { name: "raw-standing-slot", cases: text.rawStandingSlotCases },
+  { name: "raw-member-id", cases: text.rawMemberIdCases },
+  { name: "raw-nickname", cases: text.rawNicknameCases },
+  { name: "raw-chat-text", cases: text.rawChatTextCases },
+  { name: "member-id", cases: text.memberIdCases },
+  { name: "queue-item-id", cases: text.queueItemIdCases },
+  { name: "room-id", cases: text.roomIdCases },
+  { name: "share-token", cases: text.shareTokenCases },
+  { name: "resume-token", cases: text.resumeTokenCases },
+  { name: "parse-bearer", cases: text.parseBearerCases },
+  { name: "nickname", cases: text.nicknameCases },
+  { name: "room-title", cases: text.roomTitleCases },
+  { name: "chat-text", cases: text.chatTextCases },
+  { name: "report-note", cases: text.reportNoteCases },
+  { name: "nickname-key", cases: text.nicknameKeyCases },
+  { name: "avatar", cases: text.avatarCases },
+  { name: "seat-index", cases: text.seatIndexCases },
+  { name: "standing-slot", cases: text.standingSlotCases },
+  { name: "control-policy", cases: text.controlPolicyCases },
+  { name: "room-visibility", cases: text.roomVisibilityCases },
   ...layoutCorpora,
   { name: "redact-addresses", cases: () => decided(dedup([...redactInputs(), "a@b.\u212Aom", "a@b.c\u212A", "\u017Fa@b.com", "a@b.\u017F\u017F"]), redactAddresses) },
   { name: "address-key", cases: () => decided(dedup(ADDRESSES), addressKey) },
@@ -122,4 +148,8 @@ export const corpora: Corpus[] = [
 /** One case per line, so a changed decision shows as a one-line diff. */
 export const render = (cases: readonly Case[]): string => `[\n${cases.map((c) => JSON.stringify(c)).join(",\n")}\n]\n`;
 
-export const outPath = (name: string): URL => new URL(`out/${name}.json`, import.meta.url);
+/** The UTS #39 table the Rust `nickname_key` loads (`include_str!`): the TS table verbatim, one entry per line. */
+export const confusablesTxt: string = CONFUSABLES;
+export const confusablesPath = new URL("../src/contract/confusables.txt", import.meta.url);
+
+export const outPath =(name: string): URL => new URL(`out/${name}.json`, import.meta.url);

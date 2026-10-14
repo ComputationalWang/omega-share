@@ -2,29 +2,56 @@
 //! be the Rust decision too. Regenerate with `bun apps/server-rs/corpus/gen.ts`.
 #![allow(clippy::panic, reason = "a test harness: a bad corpus file should fail loudly")]
 
+use omega_server::contract::confusables::nickname_key;
 use omega_server::contract::constants;
 use omega_server::contract::generic_embed::normalize_hostname;
+use omega_server::contract::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken, RoomId, ShareToken, parse_bearer};
 use omega_server::contract::layout::{Facing, Furniture, Kind, RoomLayout, footprint_cells, layout_seats};
+use omega_server::contract::room::{Avatar, ControlPolicy, RoomVisibility, SeatIndex, StandingSlot};
+use omega_server::contract::text::{ChatText, Nickname, ReportNote, RoomTitle};
 use omega_server::log::redact_addresses;
 use omega_server::rate_limit::{address_key, client_key, is_loopback_key};
-use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 /// Every corpus file has a runner below; a new `corpus/out/*.json` without one fails `every_corpus_has_a_runner`.
 const RUNNERS: &[&str] = &[
     "address-key",
+    "avatar",
+    "chat-text",
     "client-key",
     "constants",
+    "control-policy",
     "footprint-cells",
     "is-loopback-key",
     "layout-seats",
+    "member-id",
+    "nickname",
+    "nickname-key",
     "normalize-hostname",
+    "parse-bearer",
+    "queue-item-id",
+    "raw-avatar",
+    "raw-chat-text",
+    "raw-member-id",
+    "raw-nickname",
+    "raw-seat-index",
+    "raw-standing-slot",
     "redact-addresses",
+    "report-note",
+    "resume-token",
+    "room-id",
     "room-layout",
     "room-layout-input",
     "room-layout-input-raw",
     "room-layout-raw",
+    "room-title",
+    "room-visibility",
+    "seat-index",
+    "share-token",
+    "standing-slot",
+    "unicode-digest",
 ];
 
 /// One TS decision: refused (`ok: false`) or accepted with `output`. `rust: "refuses"` marks a
@@ -288,4 +315,169 @@ fn layout_seats_agree() {
         let pieces: Vec<Furniture> = l.furniture.iter().map(PieceIn::furniture).collect();
         serde_json::to_value(layout_seats(&pieces)).ok()
     });
+}
+
+/// A schema case: the wire value goes through `T`'s `Deserialize`, and what comes back out through
+/// its `Serialize` is the recorded output. Wrong types are part of the corpus.
+fn schema<T: DeserializeOwned + Serialize>(v: &Value) -> Option<Value> {
+    let parsed: T = serde_json::from_value(v.clone()).ok()?;
+    serde_json::to_value(parsed).ok().map(numeric)
+}
+
+fn schema_corpus<T: DeserializeOwned + Serialize>(json: &str) {
+    let cases: Vec<Case<Value, Value>> = load::<Value, Value>(json)
+        .into_iter()
+        .map(|c| Case {
+            output: c.output.map(numeric),
+            ..c
+        })
+        .collect();
+    agree(cases, |v| schema::<T>(v));
+}
+
+#[test]
+fn ids_agree() {
+    schema_corpus::<MemberId>(include_str!("../corpus/out/member-id.json"));
+    schema_corpus::<QueueItemId>(include_str!("../corpus/out/queue-item-id.json"));
+    schema_corpus::<RoomId>(include_str!("../corpus/out/room-id.json"));
+    schema_corpus::<ResumeToken>(include_str!("../corpus/out/resume-token.json"));
+}
+
+#[test]
+fn share_owner_and_invite_tokens_agree() {
+    schema_corpus::<ShareToken>(include_str!("../corpus/out/share-token.json"));
+    schema_corpus::<OwnerToken>(include_str!("../corpus/out/share-token.json"));
+    schema_corpus::<InviteKey>(include_str!("../corpus/out/share-token.json"));
+}
+
+#[test]
+fn parse_bearer_agrees() {
+    agree(load::<Value, String>(include_str!("../corpus/out/parse-bearer.json")), |v| {
+        v.as_str().and_then(parse_bearer).map(|t| t.as_str().to_owned())
+    });
+}
+
+#[test]
+fn text_schemas_agree() {
+    schema_corpus::<Nickname>(include_str!("../corpus/out/nickname.json"));
+    schema_corpus::<RoomTitle>(include_str!("../corpus/out/room-title.json"));
+    schema_corpus::<ChatText>(include_str!("../corpus/out/chat-text.json"));
+    schema_corpus::<ReportNote>(include_str!("../corpus/out/report-note.json"));
+}
+
+#[test]
+fn nickname_key_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/nickname-key.json")), |s| {
+        Some(nickname_key(s))
+    });
+}
+
+#[test]
+fn room_primitives_agree() {
+    schema_corpus::<Avatar>(include_str!("../corpus/out/avatar.json"));
+    schema_corpus::<SeatIndex>(include_str!("../corpus/out/seat-index.json"));
+    schema_corpus::<StandingSlot>(include_str!("../corpus/out/standing-slot.json"));
+    schema_corpus::<ControlPolicy>(include_str!("../corpus/out/control-policy.json"));
+    schema_corpus::<RoomVisibility>(include_str!("../corpus/out/room-visibility.json"));
+}
+
+/// Raw JSON text through `T`'s `Deserialize` (what the socket delivers), output via `Serialize`.
+fn raw_corpus<T: DeserializeOwned + Serialize>(json: &str) {
+    let cases: Vec<Case<String, Value>> = load::<String, Value>(json)
+        .into_iter()
+        .map(|c| Case {
+            output: c.output.map(numeric),
+            ..c
+        })
+        .collect();
+    agree(cases, |text| {
+        serde_json::from_str::<T>(text)
+            .ok()
+            .and_then(|t| serde_json::to_value(t).ok())
+            .map(numeric)
+    });
+}
+
+#[test]
+fn raw_numbers_agree() {
+    raw_corpus::<Avatar>(include_str!("../corpus/out/raw-avatar.json"));
+    raw_corpus::<SeatIndex>(include_str!("../corpus/out/raw-seat-index.json"));
+    raw_corpus::<StandingSlot>(include_str!("../corpus/out/raw-standing-slot.json"));
+}
+
+#[test]
+fn raw_strings_agree() {
+    raw_corpus::<MemberId>(include_str!("../corpus/out/raw-member-id.json"));
+    raw_corpus::<Nickname>(include_str!("../corpus/out/raw-nickname.json"));
+    raw_corpus::<ChatText>(include_str!("../corpus/out/raw-chat-text.json"));
+}
+
+/// `corpus/unicode-digest.ts`, line for line: the SHA-256 of every 0x1000 block of per-code-point
+/// lines (normal forms, lowercase, nickname key, property flags). A failing block is a Unicode
+/// version drift between Bun's ICU and the Rust tables.
+fn unicode_digest_line(cp: u32, out: &mut String) {
+    use omega_server::contract::unicode_props as p;
+    use std::fmt::Write;
+    use unicode_normalization::UnicodeNormalization;
+    let Some(c) = char::from_u32(cp) else { return };
+    let s = c.to_string();
+    let hex = |t: &str| t.chars().map(|c| format!("{:x}", u32::from(c))).collect::<Vec<_>>().join(",");
+    let flags = [
+        p::is_letter(c),
+        p::is_mark(c),
+        p::is_number(c),
+        p::is_punctuation(c),
+        p::is_symbol(c),
+        p::is_control(c),
+        p::is_format(c),
+        p::is_extended_pictographic(c),
+        p::is_latin(c),
+        p::is_latin_lookalike_script(c),
+        p::is_capital(c),
+    ];
+    let flags: String = flags.iter().map(|f| if *f { '1' } else { '0' }).collect();
+    let _ = writeln!(
+        out,
+        "{cp:x}|{}|{}|{}|{}|{}|{flags}",
+        hex(&s.nfkc().collect::<String>()),
+        hex(&s.nfc().collect::<String>()),
+        hex(&s.nfd().collect::<String>()),
+        hex(&s.to_lowercase()),
+        hex(&nickname_key(&s)),
+    );
+}
+
+#[test]
+fn unicode_tables_agree_with_buns_icu() {
+    use sha2::{Digest, Sha256};
+    let cases = load::<String, String>(include_str!("../corpus/out/unicode-digest.json"));
+    assert_eq!(cases.len(), 0x110000 / 0x1000);
+    // Blocks are independent: spread them over the cores to keep a debug run in a few seconds.
+    let threads = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
+    let per = cases.len().div_ceil(threads);
+    let mut wrong: Vec<String> = std::thread::scope(|scope| {
+        let workers: Vec<_> = cases
+            .chunks(per)
+            .map(|batch| {
+                scope.spawn(move || {
+                    let mut wrong = Vec::new();
+                    for case in batch {
+                        let start = u32::from_str_radix(&case.input, 16).unwrap();
+                        let mut text = String::new();
+                        for cp in start..start + 0x1000 {
+                            unicode_digest_line(cp, &mut text);
+                        }
+                        let digest: String = Sha256::digest(text.as_bytes()).iter().map(|b| format!("{b:02x}")).collect();
+                        if Some(&digest) != case.output.as_ref() {
+                            wrong.push(format!("block U+{start:04X}"));
+                        }
+                    }
+                    wrong
+                })
+            })
+            .collect();
+        workers.into_iter().flat_map(|w| w.join().unwrap()).collect()
+    });
+    wrong.sort();
+    assert!(wrong.is_empty(), "Unicode drift in {} block(s): {}", wrong.len(), wrong.join(", "));
 }
