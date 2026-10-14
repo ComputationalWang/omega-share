@@ -1,4 +1,6 @@
 // Room screen. Loaded lazily after Enter so PixiJS stays out of the initial bundle.
+// The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
+import "./room.css";
 import "pixi.js/unsafe-eval";
 import { MAX_ROOM_MEMBERS, isSyncedEmbed, type AnyEmbed, type Avatar, type ClientMessage, type EmoteKind, type Embed, type ErrorCode, type MemberId, type Nickname, type ResumeToken, type RoomId, type RoomLayout } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";

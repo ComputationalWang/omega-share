@@ -37,3 +37,17 @@ export function withConnectSrc(html: string, sources: readonly string[]): string
   if (!re.test(html)) throw new Error("no connect-src in index.html CSP");
   return html.replace(re, () => ["connect-src 'self'", ...sources].join(" "));
 }
+
+/**
+ * Dev only (OME-1023): the dev server injects JS-imported CSS (room.ts → room.css) as an inline <style>, where
+ * `vite build` emits a <link>. Vite stamps those styles with `html.cspNonce`, and style-src allows that nonce.
+ * Fixed, not random: it guards nothing a dev page doesn't already trust, and the build never carries it.
+ */
+export const DEV_STYLE_NONCE = "omega-dev-style";
+
+/** Appends `'nonce-<nonce>'` to the meta CSP's `style-src`. */
+export function withStyleNonce(html: string, nonce: string): string {
+  const re = /style-src 'self'[^;"]*/;
+  if (!re.test(html)) throw new Error("no style-src in the page CSP");
+  return html.replace(re, (src) => `${src} 'nonce-${nonce}'`);
+}

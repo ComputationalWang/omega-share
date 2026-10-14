@@ -1,0 +1,4 @@
+/* The pop-out windows' one stylesheet (OME-1023): the site base, then the room chrome over it, in the room tab's order (a
+ * room rule wins a tie with a base rule). Inlined at build time, so the window fetches one file. */
+@import "../style.css";
+@import "../room.css";

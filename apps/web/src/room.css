@@ -1,0 +1,421 @@
+/* Room chrome (OME-1023): set (c)–(l), the TV frame and the app's room rules. Only the room loads this: room.ts imports it, so
+ * Vite fetches it before the room chunk resolves, and the pop-out entries import it. The site pages (landing, directory,
+ * legal) ship style.css alone. The generated design spec is imported as is so it never drifts (Vite rebases its url()s and
+ * inlines it). Art: CC BY-SA 4.0 (assets/LICENSE). App rules below only place and size things. */
+@import "../../../assets/ui/reference.css";
+
+.status { min-height: 1.4em; margin: 0 0 8px; color: var(--muted); }
+.stage-wrap { position: relative; width: 100%; }
+.stage-clip { position: absolute; overflow: hidden; }
+.stage { position: absolute; top: 0; left: 0; width: 960px; height: 600px; transform-origin: 0 0; }
+.scene { position: absolute; inset: 0; width: 960px; height: 600px; }
+/* The TV box is the player rect (>= 356x200, layout.ts); the bezel is an outline so it never eats into it. */
+.tv { position: absolute; background: #000; display: grid; place-items: center; }
+/* Reserved for the set (e) shared transport + personal volume (OME-89); the shelf is its slot. */
+.controls { position: absolute; }
+.tv iframe { width: 100%; height: 100%; border: 0; }
+.tv .tv-sdk { width: 100%; height: 100%; }
+.tv-empty { margin: 16px; color: var(--muted); text-align: center; font-size: 0.9em; }
+/* Generic tier (ADR 0024 §3): the load card fills the TV until Load; the strip takes the sync controls' slot. */
+.tv .tv-generic { width: 100%; height: 100%; display: grid; place-items: center; }
+.generic-card { max-width: 80%; text-align: center; color: #eee; }
+.generic-card p { margin: 0 0 6px; overflow-wrap: anywhere; }
+.generic-note { color: var(--muted); font-size: 0.85em; }
+.generic-strip { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; font-size: 0.8em; color: var(--muted); }
+.generic-label { padding: 2px 8px; border: 1px solid currentColor; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; white-space: nowrap; }
+.generic-hint { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overlay, .tags, .bubbles { position: absolute; inset: 0; pointer-events: none; }
+/* A seat is the 52×26 floor diamond: a 26√2 square turned 45° and squashed to half height (stage.ts places it with the
+ * translate property, which applies after this transform). The box itself is the diamond, so its outline and shadow
+ * trace the tile (a clip-path would cut a focus ring away, OME-701): a light ring over a dark one reads on any floor. */
+.seat { position: absolute; left: -18.385px; top: -18.385px; width: 36.77px; height: 36.77px; padding: 0; border: 0; background: transparent; pointer-events: auto; cursor: pointer; transform: scaleY(0.5) rotate(45deg); }
+.seat:hover, .seat:focus-visible { background: rgb(234 172 139 / 0.35); outline: none; }
+.seat:focus-visible { outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
+.seat[data-occupied="true"]:not(.mine) { cursor: default; }
+/* Name tags wear .ui-tag; the name ellipsizes inside, so the catching-up hourglass can hang off the tag's left end. */
+.tag { position: absolute; left: 0; top: 0; translate: -50% 0; max-width: 160px; height: 20px; display: flex; align-items: center; font-size: 12px; }
+.tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Floating chat bubbles (OME-730, set l .ui-float; bubbles/floats.ts): a pool of 8 slots, each riding its speaker's head
+ * by transform. No CSS animation or transition (OME-802, ADR 0040): Blink restyles a running CSS animation on every main
+ * frame, even a composited one, so floats.ts writes the 24-step rise (translate), the fades (opacity) and the push
+ * (transform) on the bare .float-motion wrapper, on one shared step clock; the push is instant. */
+.bubbles { contain: layout paint; }
+.float-slot { position: absolute; left: 0; top: 0; }
+.float-motion > .ui-float, .float-motion > .ui-float.is-leaving { animation: none; transition: none; }
+/* The stacked twin (floats.ts, OME-802): a bubble's box with its speaker's name, laid out but never painted, so a bubble
+ * that stacks takes its size from the frame's own layout instead of forcing one. Box metrics mirror .ui-float and its
+ * .say / .who (reference.css); the words are generated content, out of selectors' text and the accessibility tree. */
+.float-twin { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; box-sizing: border-box; margin: 0; width: max-content; max-width: 168px;
+  border: solid transparent; border-width: calc(5 * var(--ui-px)) calc(5 * var(--ui-px)) calc(6 * var(--ui-px)) calc(5 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px));
+  font: 500 12px/15px system-ui, sans-serif; overflow-wrap: anywhere; }
+.float-twin > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.float-twin > span::before { content: attr(data-who); font-weight: 700; margin-right: 0.35em; }
+.float-twin > span::after { content: attr(data-say); }
+.chat { display: flex; gap: 8px; margin-top: 8px; }
+/* The chat log (OME-594, set k): the strip's lines at 1× art. It scrolls; the first line's auto margin keeps a short log at the foot. */
+.chat-log { --ui-px: 1px; contain: content; justify-content: flex-start; overflow-y: auto; overscroll-behavior: contain; max-height: 168px; margin-top: 8px; padding: 4px; }
+.chat-log > :first-child { margin-top: auto; }
+.chat-log:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
+.chat-log-sys .ui-sysline { max-width: 100%; }
+/* Held (pointer or focus inside): faded lines read as settled again (the ageing itself is held in chat/log.ts). */
+.chat-log:hover .ui-fs-line.is-faded, .chat-log:focus-within .ui-fs-line.is-faded { border-image-source: url("../../../assets/ui/slices/fs-line-settled.png"); border-color: transparent; color: var(--ui-text); }
+/* A turn shows the scrim for one frame (~120 ms), set k "6 s · 1 frame"; reduced motion skips it. One short animation per turn, none at rest. */
+.chat-log .ui-fs-line.is-settled::after, .chat-log .ui-fs-line.is-faded::after { content: ""; position: absolute; inset: calc(-4 * var(--ui-px)); background: url("../../../assets/ui/slices/scrim-0.png") 0 0 / calc(2 * var(--ui-px)) calc(4 * var(--ui-px)); pointer-events: none; animation: chat-turn-settle 120ms step-end forwards; }
+.chat-log .ui-fs-line.is-faded::after { animation-name: chat-turn-fade; }
+@keyframes chat-turn-settle { to { visibility: hidden; } }
+@keyframes chat-turn-fade { to { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .chat-log .ui-fs-line.is-settled::after, .chat-log .ui-fs-line.is-faded::after { content: none; } }
+.chat input:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
+.chat input { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--panel); }
+.chat > button:not(.ui-button) { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #1d1a2b; font-weight: 600; }
+.room-full { text-align: center; margin: 15vh auto; }
+.seat:disabled { cursor: default; }
+.notice { margin: 8px 0 0; color: var(--error); }
+
+/* ---- Set (e) playback chrome (OME-89). Shared transport in the TV's control-bar slot at 1×; personal pod below the stage. ---- */
+/* Own compositor layer: the readout/seek repaint each second without re-rastering the page around them. */
+.controls { --ui-px: 1px; }
+.controls > .ui-transport { will-change: transform; }
+.ui-seek input, .ui-vol-track input { position: absolute; inset: -8px -4px; width: calc(100% + 8px); height: calc(100% + 16px); margin: 0; opacity: 0; cursor: pointer; }
+.ui-seek input:disabled { cursor: default; }
+.ui-seek:focus-within, .ui-vol-track:focus-within { outline: 1px solid var(--ui-text); outline-offset: 5px; }
+.ui-seek.is-disabled .ui-seek-head { display: none; }
+.room-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.catching-notice { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; }
+.syslines { position: absolute; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 4px; overflow: hidden; pointer-events: none; }
+.syslines .ui-sysline { max-width: 100%; white-space: nowrap; overflow: hidden; animation: sysline-fade 6s linear forwards; }
+.ui-sysline b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@keyframes sysline-fade { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .syslines .ui-sysline { animation: none; } }
+.sync-notice, .tv-hint { color: var(--muted); }
+.tv-hint { margin: 0 0 8px; }
+/* Touch (OME-905): send is a 44 px key with the send icon, its whole box to the finger, so the field keeps its room. */
+.chat > .ui-button.icon.chat-send-icon { flex: none; width: 44px; height: 44px; margin-inline: 0; }
+.chat:has(> .chat-send-icon) input { min-height: 44px; }
+.chat[data-cooldown="true"] input, .chat[data-cooldown="true"] button { opacity: 0.6; }
+.room-full .enter { display: inline-block; margin-top: 12px; text-decoration: none; }
+
+/* "Report this room" (OME-601, ADR 0033, set k): the guest's quiet key at the room's foot (1×), and the dialog at 2× on the
+ * room's dither scrim. No motion: it appears and goes in one frame. */
+.room-foot { --ui-px: 1px; display: flex; justify-content: flex-end; align-items: center; margin-top: 8px; }
+.room-foot .report-key { font-size: 11px; }
+.ui-button.report-key.is-disabled { border-image-source: url("../../../assets/ui/slices/button-primary-disabled.png"); color: var(--ui-disabled-text); cursor: default; }
+.report-dialog { --ui-px: 2px; margin: auto; background: transparent; width: min(calc(100vw - 16px), 480px); max-width: none; max-height: calc(100dvh - 16px); overflow: auto; }
+.report-dialog:has(> form[hidden]) { width: min(calc(100vw - 16px), 380px); }
+.report-dialog .ui-report { width: auto; }
+.report-dialog::backdrop { background: url("../../../assets/ui/slices/scrim-0.png") 0 0 / 2px 4px; image-rendering: pixelated; }
+.report-dialog .report-note { display: grid; gap: 4px; font-size: 12px; font-weight: 700; }
+.report-dialog .optional { font-weight: 500; color: var(--ui-muted); }
+.report-dialog .report-note-error { color: var(--error); }
+
+/* Owner layout editor (OME-410, set (h)): the title, the "Edit room" key, the click layer over the stage and the tray. */
+.room-title { margin: 0 0 4px; font-size: 1.25rem; overflow-wrap: anywhere; }
+.edit-bar { display: flex; justify-content: flex-end; margin: 8px 0 0; }
+.edit-bar:empty { display: none; }
+.editor-hit { position: absolute; inset: 0; cursor: pointer; }
+.editor-hit.holding { cursor: copy; }
+.editor { display: grid; gap: 8px; margin: 8px 0; }
+.editor .ui-slot { cursor: pointer; }
+.editor-slot-name { font-size: 11px; line-height: 1.1; text-align: center; color: var(--fg); }
+.editor-piece, .editor-save-row, .editor-mine, .editor-settings, .editor-confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.editor-picked, .editor-count, .editor-message { margin: 0; }
+.editor-count { color: var(--muted); }
+.editor-problems { margin: 0; padding-left: 1.2em; color: var(--error); }
+.editor-problems:empty { display: none; }
+.editor-confirm p { margin: 0; }
+
+/* ---- Emotes (OME-415, set (i)): the key leads the chat row at 1×; the picker opens above it at page 2×. ---- */
+.emote-picker { --ui-px: 1px; position: relative; display: flex; align-items: center; }
+/* Set (l)'s emote wheel (OME-732): page chrome at 2× (42 px slots), placed in viewport px by emote/wheel-place.ts over your
+ * head or docked above the composer. reference.css fades it in (4 steps, never scaled: pixel art doesn't resample) and
+ * skips that under reduced motion. */
+.emote-picker .ui-wheel { --ui-px: 2px; position: fixed; z-index: 30; }
+.ui-button.self.is-cooling { border-image-source: url("../../../assets/ui/slices/button-self-cool.png"); cursor: default; }
+/* prefers-reduced-motion: the picker icon, still, bottom-centred over the avatar. */
+.emote-badge { position: absolute; left: 0; top: 0; translate: -50% -100%; }
+
+/* Owner moderation (ADR 0030, set j "house rules"). The menu hangs over the member's name tag with its tail on it. */
+.tags.pickable .tag:not(.self) { pointer-events: auto; cursor: pointer; }
+.tags.pickable .tag:not(.self):focus-visible { outline: 1px solid var(--ui-text); outline-offset: 2px; }
+.tag-zip { flex: none; margin-left: 3px; }
+.mod-menu { position: absolute; left: 0; top: 0; translate: -50% -100%; z-index: 2; }
+.mod-menu .ask { flex-basis: 100%; margin-bottom: 4px; }
+.mod-menu .ui-modrow.is-ask { gap: 4px; }
+.mod-policy { display: grid; gap: 6px; margin-right: auto; padding: 8px 10px; max-width: 420px; font-size: 13px; }
+.mod-policy-head { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 700; }
+.mod-policy-tiles { display: flex; gap: 8px; }
+.mod-policy-tile { display: inline-flex; place-items: center; align-items: center; gap: 6px; padding: 2px 8px; color: var(--ui-text); font: inherit; font-weight: 700; }
+.mod-policy-note { margin: 0; color: var(--muted); font-size: 12px; }
+/* Muted by the host: a charcoal well that says why (set j input-muted). */
+.chat input.is-muted { border-color: #3a3442; background: #2a2630; color: var(--muted); cursor: not-allowed; }
+.chat[data-muted="true"] input { opacity: 1; }
+/* Removed (4005): set (j)'s doorway vignette, the wait in words, Rejoin waiting it out, then a way elsewhere. */
+[data-testid="room-kicked"] { display: grid; justify-items: center; gap: 8px; }
+[data-testid="room-kicked"][hidden] { display: none; }
+[data-testid="room-kicked"] .ui-scene { --ui-px: 2px; }
+[data-testid="room-kicked"] .ui-button { --ui-px: 2px; font: inherit; font-weight: 700; }
+[data-testid="room-kicked"] .enter { margin-top: 0; }
+
+/* ---- "Up next" (set j `.ui-queue`, OME-508): below the TV, page chrome 2×. The design CSS draws rows, chips and keys. ---- */
+.queue-panel { margin-top: 8px; }
+.queue-head { display: flex; align-items: center; gap: 8px; }
+.queue-head h3 { margin: 0; font-size: 15px; flex: 1; }
+.queue-count { font-size: 12px; font-weight: 700; color: var(--muted); }
+.queue-form { display: flex; align-items: center; gap: 8px; }
+.queue-form .ui-input { flex: 1; min-width: 0; }
+/* The design's focus slice alone is too faint to find (OME-701): fields get the same ring as the chat field. */
+.ui-input:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
+.queue-form .ui-button { display: inline-flex; align-items: center; gap: 6px; }
+.queue-problem { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--accent); font-size: 13px; font-weight: 700; }
+.queue-note { margin: 0; font-size: 12px; color: var(--muted); }
+
+/* ---- Phone watch layout (OME-596, set k `ui-m7-watch`, ≤ 600 px wide): TV full width, the room at 1× in a window, chat under it. ----
+ * room.ts puts .ui-touch on the room root and .is-phone on the window. `overflow: clip` isn't a scroll container, so focus can't
+ * scroll it behind room-window.ts's back; touch-action leaves vertical swipes to the page and gives sideways ones to the drag. */
+.stage-clip.is-phone { overflow: clip; touch-action: pan-y; cursor: grab; }
+.stage-clip.is-phone.is-dragging { cursor: grabbing; }
+.stage-clip.is-phone .stage { will-change: transform; }
+.stage-clip.is-phone:has(:focus-visible) { outline: 2px solid var(--ui-text); outline-offset: -2px; }
+/* Seats: a 52×44 oval to the finger instead of the floor diamond. */
+.ui-touch .seat { left: -26px; top: -22px; width: 52px; height: 44px; border-radius: 50%; transform: none; }
+.ui-touch .seat:focus-visible { outline: 2px solid var(--ui-text); outline-offset: -2px; box-shadow: inset 0 0 0 4px var(--ui-page); }
+.ui-touch .chat, .ui-touch .invite { align-items: stretch; }
+.ui-touch .chat input, .ui-touch .chat > button:not(.ui-button), .ui-touch .invite input, .ui-touch .invite button, .ui-touch .queue-form .ui-input { min-height: 44px; }
+.ui-touch .invite button { min-width: 44px; }
+/* The seek and volume art stay as drawn; their transparent inputs grow to 44 px tall, centred on the track (whose padding box is ~0 tall). */
+.ui-touch .ui-seek input, .ui-touch .ui-vol-track input { top: 50%; bottom: auto; height: 44px; translate: 0 -50%; }
+.ui-touch .chat-log { max-height: 148px; }
+
+/* ---- Full screen (OME-597, set k `ui-m7-desktop` / `ui-m7-band`): our wrapper, never the provider's iframe. room.ts places the
+ * picture, shelf and strip from layout.ts `fullscreenLayout` (absolute, like the room page): nothing of ours over the player. ---- */
+.stage-wrap.is-fs { background: var(--bg); overflow: hidden; }
+/* Keep the provider intact on very short screens; scroll to reach picture or controls, with no overlay.
+ * Hidden scrollbars keep clientWidth stable when this fallback switches on. */
+.stage-wrap.is-fs[data-fs-scroll="true"] { overflow-y: auto; scrollbar-width: none; }
+/* No element full screen (iPhone Safari): the same layout as a full-viewport page, clear of the notch and the home bar. */
+.stage-wrap.is-pseudo-fs { position: fixed; z-index: 10; top: env(safe-area-inset-top); left: env(safe-area-inset-left); right: env(safe-area-inset-right); width: auto; height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+body:has(.is-pseudo-fs) { overflow: hidden; }
+.controls > .fs-key { flex: none; margin-left: 4px; }
+.fs-strip { position: absolute; --ui-px: 1px; }
+.fs-strip-head { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
+.fs-strip-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-strip .chat-log { max-height: none; min-height: 0; margin: 0; }
+.fs-strip .chat { margin: 0; min-width: 0; gap: 4px; }
+.fs-strip .chat input { min-width: 0; }
+.fs-strip [data-testid="fs-strip-toggle"] { position: relative; }
+/* The count uses the existing key footprint, so incoming chat cannot take pixels from the field. */
+.fs-unread { position: absolute; bottom: 0; left: 0; right: 0; max-width: 100%; padding: 0; font-size: 9px; line-height: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+/* Collapsed: the field and the show-chat key on one bar under the picture; the lines are out of sight (only the count). */
+.fs-strip[data-strip="band"] { display: flex; align-items: center; gap: 4px; padding-block: 0; }
+.fs-strip[data-strip="band"] .fs-strip-head { display: none; }
+/* Out of sight, still the polite live region a screen reader hears (display: none would silence it). */
+.fs-strip[data-strip="band"] .chat-log { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.fs-strip[data-strip="band"] .chat { flex: 1; }
+
+/* ---- Pop-out chat (OME-598, set k `ui-m7-popout` / `ui-m7-away`, desktop only). The key ends the chat row; while the
+ * chat is in its window the row's place is the placeholder (page 2×). The window: the mustard rim, head, log, field. ---- */
+.pop-out { --ui-px: 1px; display: flex; align-items: center; }
+.chat-away { --ui-px: 2px; grid-template-columns: auto 1fr auto; align-items: center; justify-items: start; text-align: left; gap: 12px; margin-top: 8px; }
+.chat-away b { color: var(--ui-text); }
+.chat-away .ui-button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 700; }
+.popout-page { height: 100vh; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.popout-page main { max-width: none; width: 100%; min-height: 0; padding: 6px; display: grid; }
+.popout-footer { margin: 0; padding: 0 8px 4px; font-size: 0.75rem; }
+.popout { --ui-px: 1px; position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 6px; min-height: 0; padding: 4px; }
+.popout-head { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
+.popout-title { flex: 1; }
+.popout-people { display: flex; align-items: center; gap: 2px; font-size: 12px; color: var(--ui-muted); }
+.popout .chat-log { max-height: none; min-height: 0; margin: 0; }
+.popout-chat { display: flex; align-items: center; gap: 4px; }
+.popout-chat input { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 6px; border: 1px solid #554d73; background: var(--panel); font-size: 13px; }
+.popout-chat input:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
+.popout-chat input.is-muted { border-color: #3a3442; background: #2a2630; color: var(--muted); cursor: not-allowed; }
+.popout-chat[data-cooldown="true"] input, .popout-chat button:disabled { opacity: 0.6; }
+.popout-gone { --ui-px: 2px; position: absolute; left: 8px; right: 8px; top: 25%; z-index: 2; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.popout-gone-keys { display: flex; justify-content: center; gap: 8px; }
+.popout-gone .ui-button { font: inherit; font-weight: 700; }
+
+/* ---- Pop-out room (OME-600, set k `ui-m7-popout` / `ui-m7-away`, desktop only). The key sits in the room's top bar;
+ * while the room is in its window the stage's place is the placeholder (page 2×). The window: the room at 1× (scaled
+ * down to fit, never up) with the brass plate, the mustard rim, and the chat column beside it. ---- */
+.room-top { --ui-px: 1px; display: flex; align-items: center; gap: 8px; }
+.room-top .room-title { flex: 1; }
+.room-top > .ui-button { margin-left: auto; }
+.room-away { --ui-px: 2px; max-width: 520px; margin: 8px auto 0; }
+.room-away b { color: var(--ui-text); }
+.room-away-keys { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.room-away .ui-button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 700; }
+/* The columns are CSS (the chat column is layout.ts POP_ROOM_CHAT_W wide), so the window's size never follows its content. */
+.poproom-page main { padding: 0; min-width: 0; overflow: hidden; }
+.poproom { position: relative; display: flex; min-height: 0; height: 100%; }
+.poproom-room { --ui-px: 1px; position: relative; flex: 1 1 0; min-width: 0; height: 100%; overflow: hidden; }
+.poproom-clip { position: absolute; overflow: hidden; }
+.poproom-plate { position: absolute; left: 12px; top: 12px; z-index: 1; margin: 0; font-size: 11px; text-transform: none; letter-spacing: 0; }
+.poproom-chat { flex: 0 0 300px; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
+.poproom-chat .popout { min-width: 0; height: 100%; }
+
+/* ---- Desktop wide layout (OME-642, ≥ 1024 px landscape, layout.ts WIDE_QUERY): the TV, its shelf and the room fill the left
+ * column (the wrap flexes to what's left, room.ts sizes it all from that box with `wideLayout`), the chat and Up next are a
+ * full-height column on the right, WIDE_CHAT_W (320 px) wide. Nothing you need while watching is below the fold. ---- */
+/* The page is the viewport: the room's column takes what the footer (Source, Privacy) leaves, the footer under it. */
+body:has(> main > .room-wide) { display: flex; flex-direction: column; height: 100dvh; }
+main:has(> .room-wide) { flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; max-width: none; padding: 0; }
+body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; margin: 0 320px 0 0; padding: 2px 16px 6px; }
+.room-wide { box-sizing: border-box; height: 100%; margin-right: 320px; padding: 12px 16px; display: flex; flex-direction: column; overflow-y: auto; }
+.room-wide > * { flex: none; }
+/* At least room for the TV at its minimum and a small room (the column scrolls under an open editor instead). */
+.room-wide > .stage-wrap:not(.is-fs) { flex: 1 0 420px; }
+.room-wide > .room-bar:not(:has(> :not([hidden]))) { display: none; }
+.room-side { position: fixed; top: 0; right: 0; bottom: 0; width: 320px; box-sizing: border-box; padding: 12px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid #3a3452; background: var(--bg); }
+.room-side[hidden] { display: none; }
+.room-side > * { flex: none; margin: 0; }
+.room-side > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
+.room-side > .queue-panel { max-height: 40%; overflow-y: auto; }
+.room-side > .chat-away, .room-side > .room-away { max-width: none; }
+.room-side .chat input, .room-side .invite input { min-width: 0; }
+.room-side .chat > button:not(.ui-button) { padding-inline: 12px; }
+/* The volume pod in the TV's shelf (OME-642): beside the transport, not squeezed. The shelf is a size container: as it
+ * narrows the words go (out of sight, not out of the accessibility tree) before anything overlaps (the plate's name, the hints), then the chips keep only their glyphs and
+ * the pod's chip goes (its mustard rim and its group's label say "only you"), so on a phone the seek bar and the volume
+ * track keep a 44 px finger. */
+.controls { container-type: inline-size; }
+/* A short Twitch phone cannot stack the shelf and composer. Keep all playback controls reachable by
+ * scrolling the narrow shelf, with its content clipped inside its box rather than over the composer. */
+.controls.scroll-transport { overflow-x: auto; scrollbar-width: none; }
+.controls.scroll-transport > .ui-transport { flex: 0 0 360px; }
+.controls.scroll-transport .ui-seek { min-width: 44px; }
+.controls > .ui-volume { flex: none; margin-left: 4px; }
+/* Out of sight only: a screen reader still hears the plate's name and the hints (QA OME-658). */
+.controls.ui-tv-shelf.compact :is(.ui-live-note, .ui-plate-name, .ui-hint-text) { display: inline; }
+@container (max-width: 720px) { .ui-plate-name, .ui-hint-text, .ui-live-note { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; } }
+@container (max-width: 520px) { .ui-chip { font-size: 0; gap: 0; } .ui-volume > .ui-chip { display: none; } }
+.ui-touch .controls .ui-vol-track { width: 48px; }
+
+/* ---- Quality, only you (OME-599, set k `ui-m7-quality`). The key ends the shelf before full screen; the tray (the moderation
+ * menu's, mustard rim) hangs under the shelf in the page, over the room, never over the picture; in full screen it is a row in
+ * the shelf's place (the rest of the shelf steps aside while it's open). */
+.controls > .quality-key { flex: none; margin-left: 4px; }
+.quality-menu { --ui-px: 1px; }
+.stage-wrap > .quality-menu { position: absolute; z-index: 3; }
+.quality-rows { display: grid; gap: 1px; }
+.controls.is-quality-row > :not(.quality-menu) { display: none; }
+.controls > .quality-menu.is-row { flex: 1; min-width: 0; overflow-x: auto; }
+.quality-menu.is-row .quality-rows { display: flex; }
+.quality-menu.is-row > .foot { display: none; }
+.quality-menu.is-row > .ui-qx { flex: none; margin-left: auto; }
+/* OME-776: on touch the wheel's chip names the sticker without its key ("1"): there's no keyboard to press it on. */
+@media (pointer: coarse), (hover: none) { .ui-wheel-label .ui-kbd { display: none; } }
+/* M9 W2 (OME-768): the first-visit hint in the flow under the room bar (never over the picture or the composer), the "?"
+ * help dialog on the report dialog's scrim, and "Room not found". Plain chrome until a design set skins them; no motion. */
+.first-hint { --ui-px: 1px; display: flex; align-items: center; gap: 8px; margin: 6px 0; padding: 4px 4px 4px 10px; }
+.first-hint[hidden] { display: none; }
+.first-hint-text { flex: 1; margin: 0; font-size: 13px; font-weight: 600; color: var(--ui-text); }
+.help-key { font-weight: 700; min-width: 28px; }
+/* M9 W3 (OME-769): "Hide for me". The People key sits beside "?"; its list is in the flow under the room bar (never over
+ * the picture). A hidden person's name tag and avatar are dimmed (the avatar by alpha, room-view.ts), set once per change. */
+.room-top > .ui-button:not([hidden]) ~ .ui-button { margin-left: 0; }
+.people { --ui-px: 1px; margin: 6px 0; padding: 6px 10px; color: var(--ui-text); }
+.people[hidden] { display: none; }
+.people-note { margin: 0 0 6px; font-size: 12px; line-height: 1.4; }
+.people-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.people-row { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; }
+.people-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.people-row.is-hidden .people-name { opacity: 0.6; }
+.people-hidden { flex: none; font-size: 11px; }
+.people-away { flex: none; font-size: 11px; }
+.people-row.is-away .people-name { opacity: 0.6; }
+.people-toggle { flex: none; font: inherit; font-size: 12px; font-weight: 700; }
+.tag.is-hidden { opacity: 0.5; }
+.tag.is-away { opacity: 0.6; }
+.help-dialog { --ui-px: 2px; margin: auto; width: min(calc(100vw - 16px), 520px); max-width: none; max-height: calc(100dvh - 16px); overflow: auto; color: var(--ui-text); }
+.help-dialog::backdrop { background: url("../../../assets/ui/slices/scrim-0.png") 0 0 / 2px 4px; image-rendering: pixelated; }
+.help-dialog h2 { margin: 0 0 8px; font-size: 15px; }
+.help-dialog h3 { margin: 12px 0 4px; font-size: 13px; }
+.help-dialog p, .help-dialog li, .help-dialog dd { font-size: 12px; line-height: 1.4; }
+.help-dialog ul, .help-dialog p { margin: 0; }
+.help-dialog ul { padding-left: 18px; }
+.help-keys { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0 0 4px; align-items: baseline; }
+.help-keys dt { font-size: 12px; font-weight: 700; }
+.help-keys dd { margin: 0; }
+.help-keys kbd { font: inherit; font-weight: 700; padding: 0 4px; border: 1px solid currentColor; border-radius: 2px; }
+.help-dialog .acts { display: flex; justify-content: flex-end; margin-top: 12px; }
+.room-not-found .ui-scene { --ui-px: 2px; margin: 0 auto 8px; }
+.room-not-found .rooms-public { margin-top: 24px; }
+.room-not-found .room-list { list-style: none; padding: 0; }
+.room-not-found .not-found-state { font-size: 13px; }
+
+/* M10 portrait: the viewport owns the height; the room gives space to the composer and chat. */
+body:has(> main > .room-portrait) { height: 100dvh; overflow: hidden; }
+main:has(> .room-portrait) { max-width: none; padding: 0; }
+body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; right: 0; padding: 0 4px; height: 20px; font-size: 11px; }
+.room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: calc(var(--portrait-height, 100dvh) - 20px); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
+.room-portrait > * { flex: none; }
+.room-portrait > .room-top { min-height: 44px; padding-inline: 4px; }
+.room-portrait > .stage-wrap:not(.is-fs) { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.room-portrait > .status:empty, .room-portrait > .editor-panel:empty, .room-portrait > .room-bar:empty { display: none; }
+.room-portrait > .chat-log { height: 76px; max-height: 76px; margin: 0; background: linear-gradient(transparent, var(--bg)); }
+.room-portrait > .chat { margin: 0; gap: 4px; padding: 4px; min-width: 0; }
+.room-portrait .chat input { min-width: 0; width: 0; font-size: 16px; }
+.room-portrait .chat > .ui-button { flex: none; min-width: 44px; min-height: 44px; padding-inline: 6px; }
+.room-portrait .portrait-keys { display: flex; justify-content: space-between; gap: 4px; padding: 2px 4px; }
+.room-portrait .portrait-keys .ui-button { flex: 1; min-height: 44px; }
+.room-portrait > .portrait-stowed { display: none; }
+.portrait-sheet { position: fixed; inset: var(--portrait-sheet-top, 260px) 0 20px; margin: 0; width: 100%; max-width: none; max-height: none; height: auto; padding: 8px; overflow: hidden; }
+.portrait-sheet[open] { display: flex; flex-direction: column; }
+.portrait-sheet::backdrop { background: transparent; }
+.portrait-sheet-head { display: flex; align-items: center; flex: none; gap: 8px; }
+.portrait-sheet-head h2 { flex: 1; margin: 0; font-size: 18px; }
+.portrait-sheet-head .ui-button { min-height: 44px; }
+.portrait-sheet-content { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
+.portrait-sheet-content > .chat-log { flex: 1; min-height: 0; max-height: none; }
+.portrait-sheet-content > .chat { margin: 4px 0 0; flex: none; }
+.portrait-sheet-content > .queue-panel { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 4px; margin: 0; padding: 4px; }
+.portrait-sheet .queue-head { flex-wrap: wrap; }
+.portrait-sheet .ui-qlist { flex: 1; min-height: 0; overflow-y: auto; }
+.portrait-sheet .ui-qrow { min-height: 44px; }
+.portrait-sheet .queue-form { flex: none; gap: 4px; }
+.portrait-sheet .queue-form input { font-size: 16px; }
+.portrait-sheet .ui-qx { min-width: 44px; min-height: 44px; }
+.portrait-sheet-content > .portrait-stowed { margin: 4px 0; }
+.room-portrait.portrait-typing { padding-top: 0; }
+.room-portrait.portrait-typing > .room-top, .room-portrait.portrait-typing > .portrait-keys { display: none; }
+.room-portrait.portrait-typing .stage-clip, .room-portrait.portrait-typing .controls { visibility: hidden; }
+.room-portrait.portrait-typing > .stage-wrap { flex: 0 1 var(--portrait-picture-height); max-height: calc(var(--portrait-height) - 180px); }
+.room-portrait.portrait-typing > .chat-log { flex: 1; height: auto; max-height: none; min-height: 0; }
+.room-portrait.portrait-typing .portrait-sheet { bottom: auto; height: calc(var(--portrait-top) + var(--portrait-height) - var(--portrait-sheet-top) - 20px); }
+@media (prefers-reduced-motion: reduce) { .portrait-sheet { transition: none; } }
+
+.room-portrait .chat .ui-button.icon { width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
+.room-portrait .chat .emote-picker { flex: none; }
+.room-portrait .chat input { min-width: 140px; }
+.room-portrait .ui-wheel-slot { width: 44px; height: 44px; }
+/* One frame around a sheet leaves room for its fixed paste row when the keyboard is up. */
+.portrait-sheet { --ui-px: 1px; background: var(--ui-panel); }
+.portrait-sheet-content > .queue-panel { border: 0; }
+
+/* Raster faces remain on top; solid underpaint gives contrast tools the same palette as the artwork. */
+.portrait-sheet .queue-form .ui-button:not(:disabled) { background-color: var(--ui-accent); background-clip: padding-box; }
+/* Match the fresh cream and settled night card interiors without painting faded words-only lines. */
+.portrait-sheet .ui-fs-line { background-clip: padding-box; }
+.portrait-sheet .ui-fs-line:not(.is-settled):not(.is-faded) { background-color: #f4ead2; }
+.portrait-sheet .ui-fs-line.is-settled,
+.portrait-sheet .chat-log:hover .ui-fs-line.is-faded,
+.portrait-sheet .chat-log:focus-within .ui-fs-line.is-faded { background-color: #343766; }
+/* Scrolling uses the physical button box, so a focused shelf key brings its whole touch target into view. */
+.room-portrait .controls .ui-button.icon { flex: none; width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
+/* People shares the portrait height budget; its member rows scroll instead of displacing the dock. */
+.room-portrait > .people { flex: 0 1 35%; max-height: 35%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.room-portrait .people-row, .room-portrait .people-toggle { min-height: 44px; }
+/* Keep the list's close toggle and a complete wrapped chat line reachable while the keyboard is open. */
+.room-portrait.portrait-typing:has(> .people:not([hidden])) > .room-top,
+.room-portrait.portrait-typing > .room-top:focus-within { display: flex; }
+.room-portrait.portrait-typing:has(> .people:not([hidden])) > .chat-log { min-height: 64px; }
+
+/* Only the queue content scrolls in sheets. The paste row needs no keyboard-size inference. */
+.queue-content { display: contents; }
+.portrait-sheet-content > .queue-panel.portrait-stowed { margin: 0; }
+.portrait-sheet .queue-content { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 4px; overflow-y: auto; overscroll-behavior: contain; }
+.portrait-sheet .queue-content > * { flex: none; }
+.portrait-sheet .queue-content .ui-qlist { max-height: none; overflow: visible; }
+.portrait-sheet .queue-form .ui-button { min-width: 44px; min-height: 44px; }
