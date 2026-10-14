@@ -54,25 +54,25 @@ describe("evaluate", () => {
     r("d", "pass"),
     r("u", "pass", "unit.test.ts"),
   ];
-  const usesServer = (file: string): boolean => file !== "unit.test.ts";
+  const serverFree = new Set(["u"]);
 
   test("a listed test that no longer passes is a regression; a listed test that vanished too", () => {
-    expect(evaluate(results, ["a", "b", "gone"], usesServer).regressions).toEqual(["b", "gone"]);
+    expect(evaluate(results, ["a", "b", "gone"], serverFree).regressions).toEqual(["b", "gone"]);
   });
 
   test("a listed not-black-box test is a regression", () => {
-    expect(evaluate(results, ["c"], usesServer).regressions).toEqual(["c"]);
+    expect(evaluate(results, ["c"], serverFree).regressions).toEqual(["c"]);
   });
 
-  test("passing tests that touch a server and aren't listed are reported; pure units are not", () => {
-    expect(evaluate(results, ["a"], usesServer).unlisted).toEqual(["d"]);
+  test("passing tests that touch a server and aren't listed are reported; tests that pass without any server are not", () => {
+    expect(evaluate(results, ["a"], serverFree).unlisted).toEqual(["d"]);
   });
 
   test("counts by status", () => {
-    expect(evaluate(results, [], usesServer).counts).toEqual({ pass: 3, fail: 1, "not-black-box": 1, skip: 0 });
+    expect(evaluate(results, [], serverFree).counts).toEqual({ pass: 2, fail: 1, "not-black-box": 1, skip: 0, "no-server": 1 });
   });
 
   test("everything listed passes: no regressions", () => {
-    expect(evaluate(results, ["a", "d"], usesServer).regressions).toEqual([]);
+    expect(evaluate(results, ["a", "d"], serverFree).regressions).toEqual([]);
   });
 });
