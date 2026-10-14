@@ -57,6 +57,42 @@ describe(".github/workflows/check.yml", () => {
     const setup = steps.find((s) => s.uses?.startsWith("oven-sh/setup-bun@"));
     expect(setup?.with?.["bun-version-file"]).toBe(".bun-version");
     const runs = steps.flatMap((s) => (s.run === undefined ? [] : [s.run.trim()]));
-    expect(runs).toEqual(["bun install --frozen-lockfile", "bun run check"]);
+    expect(runs[0]).toBe("bun install --frozen-lockfile");
+    expect(runs.at(-1)).toBe("bun run check");
+  });
+
+  // The Rust half of the gate (ADR 0050) needs cargo-deny; the download is pinned by its checksum.
+  test("installs cargo-deny from a pinned release, verified by sha256", () => {
+    const runs = (load().jobs["check"]?.steps ?? []).flatMap((s) => (s.run === undefined ? [] : [s.run.trim()]));
+    expect(runs.slice(1, -1)).toHaveLength(1);
+    const install = runs[1] ?? "";
+    const tarball = /releases\/download\/(\d+\.\d+\.\d+)\/(cargo-deny-\1-[\w-]+\.tar\.gz)\n/.exec(install)?.[2];
+    expect(tarball).toBeDefined();
+    // The checksum covers the very file that is downloaded and unpacked.
+    expect(install).toMatch(new RegExp(`echo "[0-9a-f]{64} {2}${(tarball ?? "?").replace(/\./g, "\\.")}" \\| sha256sum -c -`));
+    expect(install).toContain(`tar xzf ${tarball ?? "?"} `);
+  });
+});
+
+// `bun run check` is the gate (ADR 0039 §7); its Rust half (ADR 0050) must keep every check.
+describe("package.json check", () => {
+  const scripts = (): Record<string, string> =>
+    v.parse(v.object({ scripts: v.record(v.string(), v.string()) }), JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"))).scripts;
+
+  test("ends by running check:rs", () => {
+    expect(scripts()["check"]).toMatch(/ && bun run check:rs$/);
+  });
+
+  test("check:rs runs fmt, clippy -D warnings, the tests and cargo-deny, all locked", () => {
+    const rs = scripts()["check:rs"] ?? "";
+    for (const part of [
+      "cargo fmt --all --check",
+      "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings",
+      "cargo test --workspace --all-features --locked",
+      "cargo deny --log-level error check",
+    ]) {
+      expect(rs).toContain(part);
+    }
+    expect(rs.split(" && ")).toHaveLength(4);
   });
 });

@@ -14,3 +14,7 @@ test-results/
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
 e2e/real/results/
+
+# Rust build output (ADR 0050); agents share one target dir via CARGO_TARGET_DIR.
+/target/
+apps/server-rs/data/
