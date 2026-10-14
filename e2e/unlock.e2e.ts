@@ -25,8 +25,8 @@ test.beforeEach(async ({ context, serviceWorker }) => {
   await expect.poll(() => serviceWorker.evaluate(async () => (await chrome.scripting.getRegisteredContentScripts()).flatMap((s) => s.matches ?? []))).toContain("http://localhost/*");
 });
 
-async function openRoom(page: Page, host = XFO_HOST): Promise<void> {
-  await page.goto(`${URLS.fixtures}/unlock-room.html?host=${host}`);
+async function openRoom(page: Page, host = XFO_HOST, framePage = "xfo"): Promise<void> {
+  await page.goto(`${URLS.fixtures}/unlock-room.html?host=${host}&page=${framePage}`);
   await expect(page.locator("#present")).toHaveText(/^present \d/);
 }
 
@@ -53,6 +53,18 @@ test("an XFO host is blank without the unlock, plays with it, and is blank again
     await load(page);
     return played(page).count();
   }).toBe(0);
+});
+
+// ADR 0047 §3 (OME-1055): the host 403s unless Referer is its own origin, as kwik.cx does.
+test("a Referer-gated host is refused without the unlock and plays with it", async ({ page }) => {
+  await openRoom(page, XFO_HOST, "referer");
+  await load(page);
+  await expect(played(page)).toHaveCount(0);
+
+  await page.locator("#unlock").click();
+  await expect(page.locator("#result")).toHaveText(`${XFO_HOST} unlocked`);
+  await load(page);
+  await expect(played(page)).toHaveText("referer host played");
 });
 
 test("closing the room tab removes its rules", async ({ context, serviceWorker }) => {

@@ -13,6 +13,8 @@ Bun.serve({
     if (rel.includes("..") || !(await file.exists())) return new Response("not found", { status: 404 });
     // A generic host that refuses to be framed (OME-1040, e2e/unlock.e2e.ts).
     if (rel === "/xfo-frame.html") return new Response(file, { headers: { "X-Frame-Options": "DENY" } });
+    // A kwik-style Referer gate (OME-1055, ADR 0047 §3): 403 unless the request claims the host framed itself.
+    if (rel === "/referer-frame.html" && req.headers.get("referer") !== `https://${new URL(req.url).hostname}/`) return new Response("forbidden", { status: 403 });
     return new Response(file);
   },
 });

@@ -10,7 +10,7 @@ import {
 } from "@omega/shared/extension-bridge";
 
 /**
- * "Unlock with extension" (ADR 0047 §2, §5): the background's half. A room page on our origin asks, through the
+ * "Unlock with extension" (ADR 0047 §2, §3, §5): the background's half. A room page on our origin asks, through the
  * bridge content script, to unlock one generic host; this installs DNR session rules for that host in that tab only,
  * after the consent page when the host isn't granted yet, and removes them again.
  */
@@ -137,8 +137,8 @@ export function createUnlocker(deps: UnlockDeps) {
 
   async function rulesFor(tabId: number, host: string, ruleIdBase: number, csp: boolean): Promise<UnlockRule[] | null> {
     const ownHost = new URL(await deps.ourOrigin()).hostname;
-    // Referer (§3) waits for board sign-off (OME-1055).
-    return unlockRules({ tabId, ownHost, host, ruleIdBase, csp, referer: false });
+    // Referer = the host's own origin (§3, board sign-off on OME-1039).
+    return unlockRules({ tabId, ownHost, host, ruleIdBase, csp, referer: true });
   }
 
   function install(tabId: number, host: string): Promise<UnlockOutcome> {
@@ -154,7 +154,7 @@ export function createUnlocker(deps: UnlockDeps) {
         try {
           await dnr.updateSessionRules({ removeRuleIds: ids, addRules: rules });
         } catch (error) {
-          // Chromium before 128 has no responseHeaders condition and refuses the whole update: keep the XFO rule.
+          // Chromium before 128 has no responseHeaders condition and refuses the whole update: keep the XFO and Referer rules.
           if (!csp) throw error;
           await dnr.updateSessionRules({ removeRuleIds: ids, addRules: (await rulesFor(tabId, host, base, false)) ?? [] });
         }
