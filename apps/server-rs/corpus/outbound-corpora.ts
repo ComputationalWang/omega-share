@@ -17,7 +17,6 @@ import {
   ShareResponseSchema,
   normalizeNickname,
   type AnyEmbed,
-  type Avatar,
   type Nickname,
 } from "@omega/shared";
 import { Room } from "../../server/src/room";
@@ -41,14 +40,14 @@ const nick = (s: string): Nickname => {
 /** Real `Room.snapshot()` / `Room.view()` output with the random parts (uuids, clock) made deterministic. */
 function snapshotFrames(): string[] {
   const make = (init: ConstructorParameters<typeof Room>[1], setup: (room: Room, ids: string[]) => void): Record<string, unknown> => {
-    const room = new Room("film-club", { pinned: false, ...init });
+    const room = new Room("film-club", { pinned: false, itemId: "cur1", ...init });
     const ids = ["alice", "Bob 2", "carol", "dave"].map((n, i) => {
-      const joined = room.join(nick(n), (i % 4) as Avatar);
+      const joined = room.join(nick(n), (i % 4));
       if (!joined.ok) throw new Error("join");
       return joined.member.id;
     });
     setup(room, ids);
-    return { snapshot: room.snapshot() as unknown as Record<string, unknown>, ids, views: room.snapshot().members };
+    return { snapshot: room.snapshot(), ids, views: room.snapshot().members };
   };
   const frames: string[] = [];
   const emit = (built: Record<string, unknown>, wrap: (self: string, room: unknown) => unknown): void => {
@@ -60,8 +59,8 @@ function snapshotFrames(): string[] {
     frames.push(text.replace(/"at":\d+/g, `"at":${String(AT)}`));
   };
   const plain = make({ title: "Friday films", embed: YT, queue: [{ id: "q1", embed: VM }, { id: "q2", embed: GEN }] }, (room, ids) => {
-    room.sit(ids[0] as never, 2 as never);
-    room.sit(ids[1] as never, 5 as never);
+    room.sit(ids[0] as never, 2);
+    room.sit(ids[1] as never, 5);
     room.setAway(ids[2] as never, true);
     room.setCatching(ids[1] as never, true);
     room.setMuted(ids[2] as never, true);
@@ -72,7 +71,7 @@ function snapshotFrames(): string[] {
   emit(plain, (self, room) => ({ type: "snapshot", self, room, shareToken: TOKEN, resumeToken: RESUME, resumed: true }));
   emit(make({ embed: GEN }, () => undefined), (self, room) => ({ type: "snapshot", self, room, shareToken: TOKEN }));
   emit(make({}, () => undefined), (self, room) => ({ type: "snapshot", self, room, shareToken: TOKEN2 }));
-  emit(make({ embed: TW, title: "Ünïcode" }, (room, ids) => room.sit(ids[3] as never, 7 as never)), (self, room) => ({ type: "snapshot", self, room, shareToken: TOKEN }));
+  emit(make({ embed: TW, title: "Ünïcode" }, (room, ids) => room.sit(ids[3] as never, 7)), (self, room) => ({ type: "snapshot", self, room, shareToken: TOKEN }));
   // Members as `view` builds them: `standingSlot` first, then catching, muted, away.
   const views = (plain["views"] as unknown[]).map((view) => JSON.stringify({ type: "member-joined", member: view }));
   for (const text of views) {
@@ -169,7 +168,7 @@ function mutations(value: unknown, depth: number): unknown[] {
     if (path.length > 0) {
       edit((p, k) => {
         if (Array.isArray(p)) p.splice(k as number, 1);
-        else delete p[k as string];
+        else Reflect.deleteProperty(p, k);
       });
       edit((p, k) => void ((p as Record<string | number, unknown>)[k] = null));
       for (const plant of PLANTS) edit((p, k) => void ((p as Record<string | number, unknown>)[k] = plant));
@@ -461,7 +460,7 @@ const RESPONSE_EDGES: Record<string, unknown[]> = {
     { rooms: [{ id: "lobby", memberCount: 1.5, seatedCount: 0 }] }, { rooms: [{ id: "lobby", memberCount: 0, seatedCount: 0, title: null }] },
     { rooms: [{ id: "lobby", memberCount: 0, seatedCount: 0, title: "" }] }, { rooms: [{ id: "lobby", memberCount: 0, seatedCount: 0, title: " Ｆｒｉｄａｙ " }] },
     { rooms: [{ id: "lobby", memberCount: 0, seatedCount: 0, extra: 1 }], extra: 1 }, { rooms: [{ id: "lobby", memberCount: 0 }] }, { rooms: [{ memberCount: 0, seatedCount: 0 }] },
-    { rooms: {} }, { rooms: null }, {}, { rooms: [[]] }, { rooms: [["lobby", 0, 0]] }, [], '[[]]' as never,
+    { rooms: {} }, { rooms: null }, {}, { rooms: [[]] }, { rooms: [["lobby", 0, 0]] }, [], '[[]]',
   ],
 };
 

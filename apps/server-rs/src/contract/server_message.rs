@@ -254,14 +254,16 @@ impl<'de> Deserialize<'de> for ServerMessage {
 
 /// What the server writes for `msg`: `JSON.stringify(msg)`'s bytes for the values the server builds.
 pub fn encode(msg: &ServerMessage) -> String {
-    let _ = msg; // red: stub
-    String::new()
+    // Plain data with string keys: serialization cannot fail.
+    serde_json::to_string(msg).unwrap_or_default()
 }
 
 /// `parseServerMessage`: the frame is at most `MAX_SERVER_MESSAGE_BYTES` (UTF-8), JSON, and a valid message.
 pub fn parse_server_message(frame: &str) -> Option<ServerMessage> {
-    let _ = (frame, MAX_SERVER_MESSAGE_BYTES); // red: stub
-    None
+    if frame.len() > MAX_SERVER_MESSAGE_BYTES {
+        return None;
+    }
+    serde_json::from_str(frame).ok()
 }
 
 #[cfg(test)]

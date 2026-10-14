@@ -246,8 +246,8 @@ fn check_room_list(r: &RoomListResponse) -> Result<(), &'static str> {
 
 /// What the server writes for any response body.
 pub fn to_body<T: Serialize>(body: &T) -> String {
-    let _ = body; // red: stub
-    String::new()
+    // Plain data with string keys: serialization cannot fail.
+    serde_json::to_string(body).unwrap_or_default()
 }
 
 #[cfg(test)]
