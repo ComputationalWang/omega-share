@@ -26,7 +26,7 @@ Integration tests (`tests/*.rs`) are separate crates: helper functions there nee
 | `index.ts` | `main.rs`, `serve.rs` | S1 ✓ (grows in S5–S7) |
 | `rate-limit.ts` `Clock`, `monotonic`, `wallNow`, `schedule` | `clock.rs` | S1 ✓ |
 | `packages/shared/src/*` (server-used parts) | `contract/*` | S2 |
-| `store/db.ts`, `store/rooms.ts`, `store/reports.ts`, `migrations/*.sql` | `store/*` (migrations embedded with `include_str!` from `apps/server/migrations`) | S3 |
+| `store/db.ts`, `store/rooms.ts`, `store/reports.ts`, `migrations/*.sql` | `store/*` (migrations embedded with `include_str!` from `apps/server/migrations`) | S3 ✓ |
 | `room.ts`, `rooms.ts`, `playback.ts`, `queue.ts`, `rate-limit.ts`, `secrets.ts`, `embed-policy.ts`, `presets.ts`, `log.ts`, `headers.ts` | same names, `snake_case.rs` | S4 |
 | `http.ts`, `static.ts`, `site-meta.ts`, `server.ts` (routing, Host/Origin gate) | `http/*` | S5 |
 | `ws.ts`, `ws-sessions.ts`, `ws-limits.ts`, `ws-owner-edits.ts` | `ws/*` | S6 |
@@ -89,6 +89,10 @@ Full spec from the contract inventory, ranked by risk:
 
 Schemas, field orders and constants: read the TS source (`packages/shared/src`), it is short. The server sends what it builds with object literals; mirror those literals.
 
+## Rollback interop (S3)
+
+For 7 days after the switch the TS server may be put back on the Rust server's database file. `interop/spec.json` (from `interop/spec.ts`) is replayed through both servers' stores; `interop/dump.json` is what the TS stores read back (raw rows, schema SQL and typed listings). `tests/store_interop.rs` must read the same from the TS-written file and write a file that dumps the same; `interop/interop.test.ts` (in `bun run test`) has the TS stores read the committed `rust-written.db`. Regenerate the TS half with `bun apps/server-rs/interop/gen.ts`, the Rust files (`rust-written.db`, `rust-mixed.db`, written atomically by one test) with `UPDATE_INTEROP=1 cargo test -p omega-server --test store_interop`. The Rust binary embeds the TS migration files, so it never runs a migration the TS server does not know (a test compares the directory with the embedded list).
+
 ## The comparison test
 
 Every ported schema or contract function gets a corpus: inputs that the TS side decides (accepted with an output, or refused) and the Rust side must decide the same way.
@@ -103,13 +107,14 @@ For anything the server reads as JSON text (WebSocket frames, HTTP bodies, store
 
 ## Deliberate differences
 
-Rust differs from the TS server in four places that no real client reaches (the first three are stricter than Valibot). The comparison test lists them as expected disagreements:
+Rust differs from the TS server in a few places that no real client reaches (all but log scrubbing are stricter than Valibot). The comparison test lists them as expected disagreements:
 
 | Input | TS | Rust |
 |---|---|---|
 | Duplicate JSON keys | last one wins | rejected |
 | Integers written `1.0`, `1e2` or `-0` | accepted | rejected (`JSON.stringify` never writes them) |
 | Lone surrogates in text (`"\ud800"`) | accepted | rejected |
+| Request body that is not valid UTF-8 (`parse_*_request` take bytes) | decoded lossily (`Buffer.toString("utf8")`, `rate-limit.ts:152`), may be accepted | rejected |
 | Log scrubbing (`log.rs`) | cuts at the first `"` or `'` | also cuts at the first backtick, because serde errors quote input with backticks |
 
 Anything else that differs is a bug, unless ADR 0050 is amended.
