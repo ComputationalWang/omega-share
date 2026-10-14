@@ -1,7 +1,7 @@
 import { type AnyEmbed, canonicalizeEmbed, canonicalizeGenericEmbed } from "@omega/shared";
 
 /** Most candidate URLs we look at per tier from one page scan; the rest are ignored. */
-export const MAX_CANDIDATES = 500;
+const MAX_CANDIDATES = 500;
 
 /** Smaller frames are widgets, trackers or ads, not the video (OME-1037). */
 export const MIN_FRAME_WIDTH = 200;

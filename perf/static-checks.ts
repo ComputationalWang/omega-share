@@ -34,9 +34,9 @@ export interface BundleSize {
   readonly files: readonly string[];
 }
 
-/** Gzipped size of JS loaded by index.html up front: entry scripts + modulepreloads. Dynamic chunks are excluded. */
-export function initialJsGzipKb(distDir: string): BundleSize {
-  const html = readFileSync(join(distDir, "index.html"), "utf8");
+/** Gzipped size of JS a page (index.html by default) loads up front: entry scripts + modulepreloads. Dynamic chunks are excluded. */
+export function initialJsGzipKb(distDir: string, page = "index.html"): BundleSize {
+  const html = readFileSync(join(distDir, page), "utf8");
   const refs = [
     ...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g),
     ...html.matchAll(/<link\b[^>]*\brel="modulepreload"[^>]*\bhref="([^"]+)"/g),

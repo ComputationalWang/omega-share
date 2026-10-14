@@ -33,6 +33,9 @@ const GECKO_ANDROID = { strict_min_version: "142.0" } as const;
 export default defineConfig({
   srcDir: "src",
   imports: false,
+  // `@omega/shared` is only declarations, but `sideEffects` is unset there, so the popup kept room/layout/report schemas
+  // it never uses (`RoomIdSchema` lives in room.ts). Telling the bundler drops them (OME-1102: popup JS −1.5 KB gz).
+  vite: () => ({ build: { rollupOptions: { treeshake: { moduleSideEffects: (id: string) => !id.includes("/packages/shared/") } } } }),
   hooks: {
     "build:publicAssets": (_wxt, files) => {
       for (const size of ICON_SIZES) {
