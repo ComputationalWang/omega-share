@@ -266,7 +266,7 @@ const NEW_BLOCK_STARTS = [
 const NEW_CODE_POINTS = NEW_BLOCK_STARTS.flatMap((s) => [0, 1, 2, 3, 4, 7, 15, 31].map((d) => cp(s + d)));
 
 const LATIN_PLAIN = "AaBbCcEeHhIiJjKkMmNnOoPpSsTtXxYyZzDdFfGgLlQqRrUuVvWw";
-const lookalikes = (script: string, chars: string): string[] => [...chars].flatMap((c) => [`${script}${c}lice`, `Ali${c}e`, `${c}${c}`, `bob ${c}${c}`, `${c}bc 12`]);
+const lookalikes = (script: string, chars: string): string[] => Array.from(chars).flatMap((c) => [`${script}${c}lice`, `Ali${c}e`, `${c}${c}`, `bob ${c}${c}`, `${c}bc 12`]);
 const CYRILLIC = "АаВЕеКкМНОоРрСсТуХхІіЈјԁԛԝѕѵ";
 const GREEK = "ΑΒΕΖΗΙΚΜΝΟΡΤΥΧαινοορυ";
 const ARMENIAN = "ցհոօսԱԲԳ";
@@ -313,7 +313,7 @@ const NAME_INPUTS: unknown[] = [
   ...lookalikes("Alice", GREEK),
   ...lookalikes("Alice", ARMENIAN),
   ...lookalikes("Alice", CHEROKEE),
-  ...[...LATIN_PLAIN].slice(0, 20).map((c) => `${c}${CYRILLIC[3]}`),
+  ...Array.from(LATIN_PLAIN).slice(0, 20).map((c) => `${c}${CYRILLIC.charAt(3)}`),
   // very long, RTL, wrong types
   rep("a", 10000), rep("é", 10000), rep("😀", 10000), rep(" ", 10000), rep("​", 10000),
   ...WRONG_TYPES,
@@ -324,7 +324,7 @@ export const nicknameCases = (): Case[] => parsed(NicknameSchema, NAME_INPUTS);
 const TITLE_EXTRA: unknown[] = [
   "Friday films", "Tom's movie night!", "Anime & chill (EU)", "Café #2", "  Ｆｉｌｍｓ  ", "Room #️⃣", "Room 1️⃣", "Room 1⃣", "Room ❤︎", "Room ❤️", "Filмs", "Фильмы",
   "a\u0000b", "a‮b", "a​b", "a‍b", "<b>x</b>", "a/b", "film 🎬", "a  b", "a\nb", "ㅤ", "say \"hi\"", "a;b", "a=b", "a~b", "a*b", "a$b", "a%b", "a@b", "a[b]", "a{b}", "a|b", "a`b", "a^b", "a\\b", "a<b", "a>b", "a’b", "a‘b", "a…", "a!?,:#+()&'", "!", "?!", "'", "(", ")", "#", "#1", "1#", "+", "&", ",", ":", "a, b: c", "(a)", "((a))", "a (b) c",
-  rep("a", 31), rep("a", 32), rep("a", 33), rep("!", 32), rep("!", 33), rep("(", 32), `${rep("a", 31)} `, `${rep("a", 32)} `, `${rep("a ", 16)}`.trim(), `${rep("a ", 17)}`.trim(), rep("é", 32), rep("é", 33), rep("李", 32), rep("李", 33), rep("ａ", 32), rep("ａ", 33), rep(cp(0x1d400), 32), rep(cp(0x1d400), 33), rep("ﬁ", 16), rep("ﬁ", 17),
+  rep("a", 31), rep("a", 32), rep("a", 33), rep("!", 32), rep("!", 33), rep("(", 32), `${rep("a", 31)} `, `${rep("a", 32)} `, rep("a ", 16).trim(), rep("a ", 17).trim(), rep("é", 32), rep("é", 33), rep("李", 32), rep("李", 33), rep("ａ", 32), rep("ａ", 33), rep(cp(0x1d400), 32), rep(cp(0x1d400), 33), rep("ﬁ", 16), rep("ﬁ", 17),
   `x${rep("́", 2)}`, `x${rep("́", 3)}`, `x${rep("́", 2)} y${rep("́", 2)}`, "#⃣", "1︎", "©️", "™️", "©", "™", "®", "a™", "a™b",
   "❤️", "☺️", "☃", "☃︎", "a☃", "☃", "♥", "★", "♪ music", "→", "a→b",
   "Ελληνικά ταινίες", "Фильмы", "映画の夜", "Movie 映画", "Мovie", "Movіe", "Ꮯinema", "Ողջույն films",
