@@ -216,7 +216,7 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, session: Optio
         // Clock sample: sender only, allowed before join. The token bucket already counted it. (Both ids are
         // validated 0..=PING_ID_MAX, so `new` never refuses a parsed one.)
         if let Some(id) = PingId::new(id.get()) {
-            let at = ServerTime(u64::try_from(app.wall()).unwrap_or(0));
+            let at = real_wall_ms();
             send_msg(inner, conn.id, &ServerMessage::Pong { id, at });
         }
         return;
@@ -275,7 +275,7 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, session: Optio
                 send_error(inner, conn.id, ErrorCode::Muted, "the room's owner muted you");
                 return;
             }
-            let at = ServerTime(u64::try_from(app.wall()).unwrap_or(0));
+            let at = real_wall_ms();
             publish_msg(
                 inner,
                 &ServerMessage::Chat {
@@ -495,4 +495,13 @@ fn queue_refused(inner: &mut RoomInner, conn: &Conn, refused: Refusal) {
         Refusal::Full => send_error(inner, conn.id, ErrorCode::QueueFull, "the queue is full"),
         Refusal::Silent => {}
     }
+}
+
+/// `Date.now()`: ws.ts stamps `pong` and `chat` with the system clock, not the injected `wallNow`, so a test's virtual
+/// wall clock does not move them.
+fn real_wall_ms() -> ServerTime {
+    let ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX));
+    ServerTime(ms)
 }

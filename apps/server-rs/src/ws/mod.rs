@@ -79,6 +79,16 @@ impl Default for WsState {
 }
 
 impl WsState {
+    /// The knobs the config sets; the limiters start full.
+    pub fn from_config(config: &crate::config::ServerConfig) -> Self {
+        Self {
+            join_timeout_ms: f64::from(config.join_timeout_ms),
+            status_interval_ms: f64::from(config.status_interval_ms),
+            max_per_ip: config.max_connections_per_ip.map(|n| n as usize),
+            ..Self::default()
+        }
+    }
+
     /// The port the server listens on, for the Host and Origin allowlists. Call once after binding.
     pub fn set_port(&self, port: u16) {
         self.port.store(port, Ordering::Relaxed);

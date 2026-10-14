@@ -163,7 +163,7 @@ impl App {
             reports: ReportsState::new(taken_down),
             title_blocker: TitleBlocker::new(&config.room_title_blocklist),
             http: HttpState::default(),
-            ws: WsState::default(),
+            ws: WsState::from_config(&config),
             ops: OpsState::default(),
             store: Mutex::new(store),
             embeds,

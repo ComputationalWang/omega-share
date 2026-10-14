@@ -317,6 +317,19 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
             })?,
     };
 
+    let positive = |key: &'static str, default: Option<u32>| -> Result<Option<u32>, ConfigError> {
+        match get(key) {
+            None => Ok(default),
+            Some(raw) => digits(raw, 6)
+                .filter(|n| *n >= 1)
+                .map(Some)
+                .ok_or_else(|| fail(key, "must be a positive integer")),
+        }
+    };
+    let max_connections_per_ip = positive("MAX_CONNECTIONS_PER_IP", None)?;
+    let join_timeout_ms = positive("JOIN_TIMEOUT_MS", Some(DEFAULT_JOIN_TIMEOUT_MS))?.unwrap_or(DEFAULT_JOIN_TIMEOUT_MS);
+    let status_interval_ms = positive("STATUS_INTERVAL_MS", Some(DEFAULT_STATUS_INTERVAL_MS))?.unwrap_or(DEFAULT_STATUS_INTERVAL_MS);
+
     let generic_embeds = match get("GENERIC_EMBEDS").unwrap_or("on") {
         "on" => true,
         "off" => false,
@@ -356,9 +369,9 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         metrics_port,
         max_connections,
         resume_grace_ms,
-        max_connections_per_ip: None,
-        join_timeout_ms: DEFAULT_JOIN_TIMEOUT_MS,
-        status_interval_ms: DEFAULT_STATUS_INTERVAL_MS,
+        max_connections_per_ip,
+        join_timeout_ms,
+        status_interval_ms,
     })
 }
 
@@ -414,7 +427,11 @@ mod tests {
 
     #[test]
     fn the_websocket_knobs_parse_and_refuse_junk() {
-        let cfg = ok(&[("MAX_CONNECTIONS_PER_IP", "3"), ("JOIN_TIMEOUT_MS", "200"), ("STATUS_INTERVAL_MS", "20")]);
+        let cfg = ok(&[
+            ("MAX_CONNECTIONS_PER_IP", "3"),
+            ("JOIN_TIMEOUT_MS", "200"),
+            ("STATUS_INTERVAL_MS", "20"),
+        ]);
         assert_eq!(
             (cfg.max_connections_per_ip, cfg.join_timeout_ms, cfg.status_interval_ms),
             (Some(3), 200, 20)

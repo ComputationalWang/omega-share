@@ -105,6 +105,12 @@ impl Drop for Closer {
     }
 }
 
+/// The socket's own timers run on real time, as the TS `setTimeout`s do: only the hold expiry (`schedule` in the TS)
+/// follows the app clock, so a virtual clock moves holds and nothing else.
+fn real_sleep(ms: f64) -> Sleep {
+    Box::pin(sleep(Duration::from_secs_f64(ms.max(0.0) / 1000.0)))
+}
+
 /// A timer that may not be armed: pending forever when it isn't.
 async fn timer(t: &mut Option<Sleep>) {
     match t {
@@ -196,13 +202,13 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
     };
     let conn = &mut guard.conn;
 
-    // Idle and pings are the transport's, in real time; the join timer, status flush and hold expiry run on the app clock.
+    // Idle, pings, the join timer and the status flush are real time (the TS uses `setTimeout`); the hold expiry runs on the app clock.
     let idle_for = Duration::from_secs_f64((app.ws.idle_timeout_ms / 1000.0).max(0.001));
     let idle = sleep(idle_for);
     tokio::pin!(idle);
     let mut pings = interval_at(Instant::now() + idle_for / 2, idle_for / 2);
     pings.set_missed_tick_behavior(MissedTickBehavior::Delay);
-    let mut join: Option<Sleep> = Some(app.clock.sleep(app.ws.join_timeout_ms));
+    let mut join: Option<Sleep> = Some(real_sleep(app.ws.join_timeout_ms));
     let mut status: Option<Sleep> = None;
     let mut sent_close = false;
 
@@ -222,14 +228,14 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
                 }
                 match std::mem::replace(&mut conn.join_timer, TimerCmd::Keep) {
                     TimerCmd::Keep => {}
-                    TimerCmd::Arm => join = Some(app.clock.sleep(app.ws.join_timeout_ms)),
+                    TimerCmd::Arm => join = Some(real_sleep(app.ws.join_timeout_ms)),
                     TimerCmd::Clear => {
                         join = None;
                         status = None;
                     }
                 }
                 if let Some(wait) = conn.status_in.take() {
-                    status = Some(app.clock.sleep(wait));
+                    status = Some(real_sleep(wait));
                 }
                 // A new session (join) or none (leave): a trailing publish armed for the old one is stale.
                 if conn.left {
