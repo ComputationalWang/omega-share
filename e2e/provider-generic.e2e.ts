@@ -147,6 +147,18 @@ test.describe("generic embed shared from the extension → click-to-load in the 
       });
       expect(lines, id).toBe(1);
     }
+    // With the extension, the hint turns into Unlock (OME-1060): it still fits the slot whole, on one line.
+    await room.evaluate(() => window.postMessage({ source: "omega-share", kind: "present", version: "1.4.0" }, location.origin));
+    const stripUnlock = room.getByTestId("generic-strip-unlock");
+    await expect(stripUnlock).toHaveText("Blank/error? Unlock");
+    await expect(room.getByTestId("generic-hint")).toBeHidden();
+    const unlockFit = await stripUnlock.evaluate((b) => {
+      const box = b.getBoundingClientRect();
+      const slot = b.parentElement?.parentElement?.getBoundingClientRect();
+      const at = JSON.stringify({ unlock: [b.scrollWidth, b.clientWidth, box.right, box.height], slot: slot?.right });
+      return { inSlot: !!slot && box.right <= slot.right + 0.5, whole: b.scrollWidth <= b.clientWidth, at };
+    });
+    expect({ inSlot: unlockFit.inSlot, whole: unlockFit.whole }, unlockFit.at).toEqual({ inSlot: true, whole: true });
 
     // The hostile embed tries every way out, each with a real user activation inside the frame: script, then links.
     const inner = room.frameLocator(site.sharedVideo);
