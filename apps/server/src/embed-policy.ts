@@ -1,6 +1,6 @@
 import { canonicalizeAnyEmbed, isSyncedEmbed, normalizeHostname, type AnyEmbed } from "@omega/shared";
 
-export interface EmbedPolicyOptions {
+interface EmbedPolicyOptions {
   /** The GENERIC_EMBEDS kill switch (ADR 0024 §5). */
   genericEmbeds: boolean;
   /** Our own hostnames: they and their subdomains are never a generic embed. */

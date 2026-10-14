@@ -71,12 +71,12 @@ export class ReportDedup {
 }
 
 /** What `file` decided after the key bucket and the parse. */
-export type FileResult =
+type FileResult =
   | { status: "received" | "already_reported" }
   | { code: "rate_limited"; retryAfterMs: number }
   | { code: "unavailable" };
 
-export interface ReportsDeps {
+interface ReportsDeps {
   rooms: RoomRegistry;
   store: ReportStore;
   /** Deletes a room's row (and so its queue and seat holds); false if there was none. */

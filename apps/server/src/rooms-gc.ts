@@ -8,7 +8,7 @@ export const ROOM_GC_INTERVAL_MS = 60 * 1000;
 /** A room with nobody in it goes this long after the last member left (`last_active_at`), or after `created_at` if nobody ever joined. */
 export const ROOM_IDLE_TTL_MS = 20 * 60 * 1000;
 
-export interface RoomGcDeps {
+interface RoomGcDeps {
   rooms: RoomRegistry;
   /** Unix ms, the clock `created_at` and `last_active_at` are written with. */
   wallNow: () => number;

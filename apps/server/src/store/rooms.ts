@@ -46,7 +46,7 @@ export interface StoredRoom {
 }
 
 /** An upcoming queue item as stored: no `by` (ADR 0031 §6). */
-export interface StoredQueueItem {
+interface StoredQueueItem {
   id: QueueItemId;
   embed: AnyEmbed;
 }

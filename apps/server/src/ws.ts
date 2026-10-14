@@ -28,7 +28,6 @@ import type { Room } from "./room";
 import type { PerRoom, RoomRegistry } from "./rooms";
 import { mintResumeToken, mintSecret } from "./secrets";
 
-export { SERVICE_RESTART };
 import { logError } from "./log";
 import { Metrics, SERVICE_RESTART, type CountedClose } from "./metrics";
 
@@ -152,7 +151,7 @@ const realSchedule: Schedule = (run, ms) => {
 /** 16 random bytes, base64url without padding: 22 chars (ADR 0015). */
 const mintShareToken = (): ShareToken => mintSecret();
 
-export interface WsDeps {
+interface WsDeps {
   /** Sockets that have not joined within this are closed. */
   joinTimeoutMs: number;
   /** Live rooms; their sockets and share grants are kept per room and end with it. */
@@ -188,7 +187,7 @@ export interface WsDeps {
   resumeGraceMs?: number;
 }
 
-export interface Ws {
+interface Ws {
   /** Upgrade limiter, asked before the room lookup and the connection caps: a 429, or null to admit. */
   admitUpgrade: (ip: string) => Response | null;
   connData: (room: Room, ip: string) => ConnData;

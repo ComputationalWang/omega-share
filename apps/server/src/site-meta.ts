@@ -5,10 +5,10 @@ import { ROOM_TITLE_MAX_LENGTH } from "@omega/shared";
  * without running our JS (research m9-release-legal §5). Only a public, listable room's title is ever
  * personalised; anything else gets the generic card, byte for byte, so a preview leaks nothing.
  */
-export const SITE_NAME = "omega-share";
+const SITE_NAME = "omega-share";
 const DESCRIPTION = "Watch videos together in a cosy pixel room. Share a video from any page with the browser extension and sit with friends, in sync.";
 /** Our own CC BY-SA card, the same for every room: never a provider thumbnail (§5.2 item 4). */
-export const OG_IMAGE_PATH = "/og-image.png";
+const OG_IMAGE_PATH = "/og-image.png";
 const OG_TITLE_MAX = 80;
 /** Bidi controls, zero-width characters, the BOM and Hangul fillers: invisible, or they reorder the text around them. */
 const INVISIBLE = /[\u061C\u115F\u1160\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\u3164\uFEFF\uFFA0]/gu;
@@ -62,7 +62,7 @@ export function withMeta(page: string, meta: string): string {
  * RFC 9116 wants Expires under a year out. A test fails 30 days before this date: renew it then
  * (docs/ops/hosting.md). Contact is the contact page, never an invented address (operator facts: OME-788).
  */
-export const SECURITY_TXT_EXPIRES = "2027-10-01T00:00:00Z";
+const SECURITY_TXT_EXPIRES = "2027-10-01T00:00:00Z";
 
 /** `/.well-known/security.txt` for `origin` (PUBLIC_ORIGIN, else SITE_ORIGIN). */
 export function securityTxt(origin: string): string {

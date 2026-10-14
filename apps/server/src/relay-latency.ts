@@ -31,7 +31,7 @@ import { expectedPosition } from "./playback";
 import { TokenBucket } from "./rate-limit";
 import { CHAT_PER_SECOND, CONTROL_BURST, ROOM_CONTROL_BURST, ROOM_CONTROL_PER_SECOND } from "./ws";
 
-export interface RelayLatencyOptions {
+interface RelayLatencyOptions {
   url: string;
   clients?: number;
   samples?: number;
@@ -44,7 +44,7 @@ export interface RelayLatencyOptions {
   flood?: boolean;
 }
 
-export interface RelayLatencyResult {
+interface RelayLatencyResult {
   clients: number;
   flood: boolean;
   samples: number;

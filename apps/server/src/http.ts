@@ -132,7 +132,7 @@ export const newShareGrant = (memberId: MemberId, owner: boolean, queueBucket: T
   queueBucket,
 });
 
-export interface HttpDeps {
+interface HttpDeps {
   rooms: RoomRegistry;
   /** The grant `token` holds in `room` (ws.ts), if any. */
   shareGrant: (room: Room, token: ShareToken) => ShareGrant | undefined;

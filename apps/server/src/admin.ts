@@ -23,7 +23,7 @@ import type { RoomStore } from "./store/rooms";
  */
 
 /** One `GET /rooms` entry. Strict, so a field like a hash can't slip into the CLI's output unnoticed. */
-export const AdminRoomSchema = v.strictObject({
+const AdminRoomSchema = v.strictObject({
   id: RoomIdSchema,
   title: v.string(),
   visibility: RoomVisibilitySchema,
@@ -41,7 +41,7 @@ export const AdminErrorSchema = v.object({ error: v.string() });
 const UnixMs = v.pipe(v.number(), v.safeInteger());
 const NullableText = v.nullable(v.string());
 /** One open report as the operator sees it: what the table holds (ADR 0033 §3), nothing more. */
-export const AdminReportSchema = v.strictObject({
+const AdminReportSchema = v.strictObject({
   id: ReportIdSchema,
   createdAt: UnixMs,
   reason: v.picklist(REPORT_REASONS),
@@ -52,7 +52,7 @@ export const AdminReportSchema = v.strictObject({
   embedUrl: NullableText,
 });
 /** A reported room: its state now, and its open reports, newest first. Strict, like AdminRoomSchema. */
-export const AdminReportRoomSchema = v.strictObject({
+const AdminReportRoomSchema = v.strictObject({
   id: RoomIdSchema,
   state: v.picklist(["live", "taken_down", "gone"]),
   /** Now; null unless live. */
@@ -64,7 +64,7 @@ export const AdminReportRoomSchema = v.strictObject({
 export type AdminReportRoom = v.InferOutput<typeof AdminReportRoomSchema>;
 export const AdminReportListSchema = v.strictObject({ rooms: v.array(AdminReportRoomSchema) });
 
-export interface AdminOptions {
+interface AdminOptions {
   rooms: RoomRegistry;
   store: Pick<RoomStore, "deleteRoom" | "setPinned">;
   /** The report queue and takedowns (ADR 0033 §5). Without it, those routes answer 503. */

@@ -22,7 +22,7 @@ import type { RoomRegistry } from "./rooms";
 import type { RoomStore } from "./store/rooms";
 
 /** The store writes a queue action makes: one each (ADR 0031 §6). */
-export type QueuePersistence = Pick<RoomStore, "addQueueItem" | "addQueueItemAndStart" | "removeQueueItem" | "advanceQueue">;
+type QueuePersistence = Pick<RoomStore, "addQueueItem" | "addQueueItemAndStart" | "removeQueueItem" | "advanceQueue">;
 
 /** Who is changing the queue: the member, whether they joined as owner, and their add bucket. */
 export interface QueueActor {
@@ -42,7 +42,7 @@ export type QueueAddRefusal =
   /** The store write failed: nothing changed, and the adds were given back. */
   | { code: "unavailable" };
 
-export interface QueueDeps {
+interface QueueDeps {
   rooms: RoomRegistry;
   embeds: EmbedPolicy;
   publish: (topic: string, data: string) => void;

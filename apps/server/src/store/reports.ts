@@ -27,7 +27,6 @@ export interface NewReport {
   /** Unix ms. */
   createdAt: number;
 }
-export type StoredReport = NewReport;
 
 const UnixMsSchema = v.pipe(v.number(), v.safeInteger(), v.minValue(0));
 /** Bounded, so a hand-edited row can't flood the operator's terminal. */
@@ -110,8 +109,8 @@ export class ReportStore {
   }
 
   /** Open reports, newest first. */
-  listOpen(): StoredReport[] {
-    const out: StoredReport[] = [];
+  listOpen(): NewReport[] {
+    const out: NewReport[] = [];
     for (const row of this.#listOpen.all()) {
       const parsed = v.safeParse(RowSchema, row);
       if (!parsed.success) {
