@@ -7,11 +7,12 @@ import { DIRS, cycleFrame, oneShotFrame, parseMotion } from "../src/walk/motion"
 
 const motion: unknown = await Bun.file(new URL("../../../assets/avatars/motion.json", import.meta.url)).json();
 const avatars: unknown = await Bun.file(new URL("../../../assets/avatars/avatars.json", import.meta.url)).json();
+const expressions: unknown = await Bun.file(new URL("../../../assets/avatars/expressions.json", import.meta.url)).json();
 
 const clone = (x: unknown): Record<string, unknown> => structuredClone(x) as Record<string, unknown>;
 
 describe("parseMotion", () => {
-  const m = parseMotion(motion, avatars);
+  const m = parseMotion(motion, avatars, expressions);
 
   test("one entry per avatar index, in avatars.json order", () => {
     expect(m.walk.length).toBe(AVATAR_COUNT);
@@ -39,13 +40,13 @@ describe("parseMotion", () => {
     const meta = bad["meta"] as { omega: { anims: Record<string, { frames: string[] }> } };
     const anim = meta.omega.anims["breathe/juno/sit/ne"];
     if (anim) anim.frames[1] = "breathe/juno/sit/ne/9";
-    expect(() => parseMotion(bad, avatars)).toThrow();
+    expect(() => parseMotion(bad, avatars, expressions)).toThrow();
   });
 
   test("refuses a walk timing other than the one walks.ts moves at", () => {
     const bad = clone(motion);
     (bad["meta"] as { omega: { walk: { frameMs: number } } }).omega.walk.frameMs = 100;
-    expect(() => parseMotion(bad, avatars)).toThrow();
+    expect(() => parseMotion(bad, avatars, expressions)).toThrow();
   });
 
   // OME-731 (ADR 0037): the Smooth tier's walk is set (l)'s 8-frame cycle at 75 ms; its even frames are the 4-frame keys.
@@ -60,24 +61,24 @@ describe("parseMotion", () => {
   test("refuses a walk8 timing other than 75 ms a frame", () => {
     const bad = clone(motion);
     (bad["meta"] as { omega: { walk8: { frameMs: number } } }).omega.walk8.frameMs = 100;
-    expect(() => parseMotion(bad, avatars)).toThrow();
+    expect(() => parseMotion(bad, avatars, expressions)).toThrow();
     const ms = clone(motion);
     const anim = (ms["meta"] as { omega: { anims: Record<string, { ms: number[] }> } }).omega.anims["walk8/pip/ne"];
     if (anim) anim.ms[3] = 150;
-    expect(() => parseMotion(ms, avatars)).toThrow();
+    expect(() => parseMotion(ms, avatars, expressions)).toThrow();
   });
 
   test("refuses a walk8 whose even frames aren't the 4-frame walk's (switching tiers mid-stride would pop)", () => {
     const bad = clone(motion);
     const anim = (bad["meta"] as { omega: { anims: Record<string, { frames: string[] }> } }).omega.anims["walk8/mo/sw"];
     if (anim) anim.frames[2] = "walk8/mo/sw/3";
-    expect(() => parseMotion(bad, avatars)).toThrow();
+    expect(() => parseMotion(bad, avatars, expressions)).toThrow();
   });
 
   test("refuses a sheet without a walk8 for some avatar and direction", () => {
     const bad = clone(motion);
     delete (bad["meta"] as { omega: { anims: Record<string, unknown> } }).omega.anims["walk8/kiki/nw"];
-    expect(() => parseMotion(bad, avatars)).toThrow();
+    expect(() => parseMotion(bad, avatars, expressions)).toThrow();
   });
 
   // OME-415: wave and the emote stickers are one-shots (loop false), named in meta.omega.anims.
@@ -98,22 +99,47 @@ describe("parseMotion", () => {
     expect(Object.keys(m.emote).sort()).toEqual(["clap", "exclaim", "heart", "laugh", "question"]);
   });
 
+  // OME-1121: cheer and yawn come from the expressions sheet (PR #192), one-shots like the wave.
+  test("cheer is a one-shot per avatar, pose and direction: 6 × 180 ms; yawn is 900 then 1800 ms", () => {
+    for (const [a, id] of ["juno", "pip", "mo", "kiki"].entries())
+      for (const pose of ["idle", "sit"] as const)
+        for (const [d, dir] of DIRS.entries()) {
+          const c = m.cheer[a]?.[pose][d];
+          expect(c?.ms).toEqual([180, 180, 180, 180, 180, 180]);
+          expect(c?.frames[0]).toBe(`cheer/${id}/${pose}/${dir}/0`);
+          expect(m.yawn[a]?.[pose][d]).toEqual({ frames: [`yawn/${id}/${pose}/${dir}/0`, `yawn/${id}/${pose}/${dir}/1`], ms: [900, 1800] });
+        }
+  });
+
+  test("refuses an expressions sheet without a cheer for some avatar, pose and direction", () => {
+    const bad = clone(expressions);
+    delete (bad["meta"] as { omega: { anims: Record<string, unknown> } }).omega.anims["cheer/mo/sit/se"];
+    expect(() => parseMotion(motion, avatars, bad)).toThrow();
+  });
+
+  test("refuses a yawn naming a frame no sheet has", () => {
+    const bad = clone(expressions);
+    delete (bad["frames"] as Record<string, unknown>)["yawn/kiki/idle/nw/1"];
+    expect(() => parseMotion(motion, avatars, bad)).toThrow();
+  });
+
   test("refuses a sheet without a wave for some avatar, pose and direction", () => {
     const bad = clone(motion);
     delete (bad["meta"] as { omega: { anims: Record<string, unknown> } }).omega.anims["wave/pip/idle/sw"];
-    expect(() => parseMotion(bad, avatars)).toThrow();
+    expect(() => parseMotion(bad, avatars, expressions)).toThrow();
   });
 
   test("refuses an emote whose timing doesn't match its frames", () => {
     const bad = clone(motion);
     const anim = (bad["meta"] as { omega: { anims: Record<string, { ms: number[] }> } }).omega.anims["emote/clap"];
     anim?.ms.pop();
-    expect(() => parseMotion(bad, avatars)).toThrow();
+    expect(() => parseMotion(bad, avatars, expressions)).toThrow();
   });
 
   test("refuses junk", () => {
-    expect(() => parseMotion({}, avatars)).toThrow();
-    expect(() => parseMotion(motion, null)).toThrow();
+    expect(() => parseMotion({}, avatars, expressions)).toThrow();
+    expect(() => parseMotion(motion, null, expressions)).toThrow();
+    expect(() => parseMotion(motion, avatars, {})).toThrow();
   });
 });
 
