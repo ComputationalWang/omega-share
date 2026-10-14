@@ -307,6 +307,10 @@ const V2_BENCHES: RoomLayout = v.parse(RoomLayoutSchema, {
 });
 
 describe("catalogue v2", () => {
+  test("both sheets share the layer indices sceneOf reads from whichever loaded first", () => {
+    expect(v2.meta.omega.layers).toEqual(manifest.meta.omega.layers);
+  });
+
   test("each sheet loads only for its own pieces", () => {
     expect(usesV2(DEFAULT_LAYOUT)).toBe(false);
     expect(usesV2(SET_G)).toBe(false);
