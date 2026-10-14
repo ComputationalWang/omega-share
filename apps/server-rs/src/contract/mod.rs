@@ -6,9 +6,11 @@ pub mod generic_embed;
 pub mod js_compat;
 pub mod session;
 
-use serde::de::{DeserializeOwned, Error as _};
+use serde::de::value::MapAccessDeserializer;
+use serde::de::{DeserializeOwned, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::fmt;
+use std::marker::PhantomData;
 use validator::{Validate, ValidationErrors};
 
 /// Input the contract refuses. `reason` is for tests only: it can quote the input (a field name, a
@@ -41,7 +43,18 @@ pub struct Obj<T>(pub T);
 
 impl<'de, T: Deserialize<'de>> Deserialize<'de> for Obj<T> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        Err(D::Error::custom("not yet"))
+        struct MapOnly<T>(PhantomData<T>);
+        impl<'de, T: Deserialize<'de>> Visitor<'de> for MapOnly<T> {
+            type Value = T;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a JSON object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<T, A::Error> {
+                T::deserialize(MapAccessDeserializer::new(map))
+            }
+        }
+        // `deserialize_map` refuses an array before the derived visitor could read it as a sequence.
+        deserializer.deserialize_map(MapOnly(PhantomData)).map(Obj)
     }
 }
 
@@ -54,7 +67,7 @@ impl<T: Validate> Validate for Obj<T> {
 /// The shape (serde), then the field rules (validator), in one step. Duplicate keys are refused
 /// (serde), unlike `JSON.parse`'s last-wins: a deliberate difference (PORTING.md).
 pub fn parse_json<T: DeserializeOwned + Validate>(raw: &[u8]) -> Result<T, Invalid> {
-    let wire: T = serde_json::from_slice(raw).map_err(|e| Invalid::new(e.to_string()))?;
+    let Obj(wire) = serde_json::from_slice::<Obj<T>>(raw).map_err(|e| Invalid::new(e.to_string()))?;
     wire.validate().map_err(|e| Invalid::new(e.to_string()))?;
     Ok(wire)
 }

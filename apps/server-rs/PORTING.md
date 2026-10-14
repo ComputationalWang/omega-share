@@ -42,6 +42,7 @@ Not ported: `activity`, `discord-upstream` and `extension-bridge` from shared (t
 2. **No `unsafe`** (`forbid`).
 3. **Parse at the boundary, once.** Bytes from a socket, an HTTP body, a header, a URL, a SQLite row or an env var become a domain type in one `parse` step; nothing past it holds unchecked input. The shape:
    - `serde` deserializes into a *wire* struct (`#[serde(deny_unknown_fields)]` where the TS schema is `strictObject`, default where it is `object`).
+   - Every struct- or tagged-enum-typed field is a `contract::Obj<_>` (and `parse_json` reads the top level through one): serde's derive otherwise also accepts a struct's *array form* (`["tv",0,0,"se"]` as a furniture piece), which Valibot refuses. `Vec<Obj<Piece>>`, `Option<Obj<Embed>>`, and so on.
    - `validator` (`#[derive(Validate)]`) checks field rules. JS-semantics rules are custom functions from `contract/js_compat.rs` (`utf16_len`, `js_trim`, `is_js_whitespace`, ...), never the crate's built-in `length` (it counts `char`s, Valibot counts UTF-16 units).
    - `TryFrom<Wire>` builds the domain type (newtypes such as `RoomId`, `MemberId`, `Nickname`) whose constructor is the only way to get one.
    - Oversized input is refused **before** parsing (frame and body caps from `contract/constants.rs`).
@@ -75,7 +76,9 @@ Every ported schema or contract function gets a corpus: inputs that the TS side 
 
 1. Add a corpus to `corpus/corpora.ts`: a name and `cases()`, using `decided(inputs, tsFunction)` for a function, or `v.safeParse(Schema, input)` for a schema (record the parsed output on success). Cover the edges: limits ±1 in UTF-16 units, emoji and astral characters, U+FEFF and U+0085, NFKC-changing input, unknown keys on `object` vs `strictObject`, nulls and absent keys, wrong types, every literal and picklist value.
 2. `bun apps/server-rs/corpus/gen.ts` writes `corpus/out/<name>.json`, one case per line. Commit it.
-3. Add a test in `tests/corpus.rs` that loads the file with `include_str!` and runs `agree(...)` with the Rust function.
+3. Add a test in `tests/corpus.rs` that loads the file with `include_str!` and runs `agree(...)` with the Rust function, and register the name in `RUNNERS` (a file without a runner fails the suite).
+
+For anything the server reads as JSON text (WebSocket frames, HTTP bodies, stored rows), also add a **raw** corpus with `decidedRaw`: inputs are JSON *text*, so it can hold what `JSON.stringify` never writes (`-0`, `1.0`, `1e2`, duplicate keys, an object's array form, lone surrogate escapes). Mark the deliberate differences `rustRefuses: true`; the harness then requires Rust to refuse them whatever TS decided.
 
 `corpus/corpus.test.ts` (in `bun run test`) fails when a recorded file no longer matches what the TS contract decides, so a `packages/shared` change can't land without regenerating, and regenerating can't land without the Rust side agreeing.
 
@@ -86,7 +89,7 @@ Rust is stricter than Valibot in three places that no real client reaches. The c
 | Input | TS | Rust |
 |---|---|---|
 | Duplicate JSON keys | last one wins | rejected |
-| Integers written `1.0` or `1e2` | accepted | rejected (`JSON.stringify` never writes them) |
+| Integers written `1.0`, `1e2` or `-0` | accepted | rejected (`JSON.stringify` never writes them) |
 | Lone surrogates in text (`"\ud800"`) | accepted | rejected |
 
 Anything else that differs is a bug, unless ADR 0050 is amended.
