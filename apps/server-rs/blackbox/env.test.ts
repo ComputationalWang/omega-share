@@ -56,6 +56,13 @@ describe("envFor: start() options become environment variables", () => {
     expect(Object.keys(env).sort()).toEqual(["DB_PATH", "HOST", "PORT", "SITE_ORIGIN"]);
   });
 
+  test("the WebSocket knobs map onto their variables", () => {
+    const { env } = envFor({ joinTimeoutMs: 50, statusIntervalMs: 20, maxConnectionsPerIp: 2 });
+    expect(env["JOIN_TIMEOUT_MS"]).toBe("50");
+    expect(env["STATUS_INTERVAL_MS"]).toBe("20");
+    expect(env["MAX_CONNECTIONS_PER_IP"]).toBe("2");
+  });
+
   test("genericEmbeds true is on", () => {
     expect(envFor({ genericEmbeds: true }).env["GENERIC_EMBEDS"]).toBe("on");
   });
@@ -66,10 +73,7 @@ describe("envFor: start() options become environment variables", () => {
     ["reportStore", {}],
     ["rooms", ["lobby"]],
     ["seatHolds", []],
-    ["joinTimeoutMs", 50],
-    ["statusIntervalMs", 50],
     ["roomGcIntervalMs", 50],
-    ["maxConnectionsPerIp", 2],
     ["maxHttpInFlight", 2],
     ["ownHosts", ["x"]],
     ["now", () => 1],
