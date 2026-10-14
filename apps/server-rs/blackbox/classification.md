@@ -25,9 +25,9 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 | S4c (room core) | 0 | 0 | 0 | 0 | 18 | 0 | 0 | 18 |
 | S5 | 153 | 1 | 26 | 10 | 79 | 0 | 0 | 269 |
 | S6 | 88 | 2 | 82 | 16 | 14 | 0 | 0 | 202 |
-| S7 | 1 | 0 | 0 | 5 | 91 | 0 | 1 | 98 |
+| S7 | 4 | 0 | 0 | 4 | 89 | 0 | 1 | 98 |
 | none (shell) | 0 | 0 | 0 | 0 | 0 | 82 | 0 | 82 |
-| **all** | **242** | **3** | **108** | **31** | **299** | **82** | **1** | **766** |
+| **all** | **245** | **3** | **108** | **30** | **297** | **82** | **1** | **766** |
 
 ## Tests
 
@@ -508,18 +508,18 @@ Owner: none (shell). 28 tests: E 28.
 
 ### persistence.test.ts
 
-Owner: S7. 8 tests: A 1, C 3, D 4.
+Owner: S7. 8 tests: A 4, C 2, D 2.
 
 | line | cat | test |
 |---|---|---|
-| 68 | C | rooms, layout and last embed survive a restart (OME-280) › first boot seeds the lobby with DEFAULT_LAYOUT, and the snapshot carries it |
-| 80 | C | rooms, layout and last embed survive a restart (OME-280) › the snapshot carries the stored layout, not the default |
-| 92 | D | rooms, layout and last embed survive a restart (OME-280) › configured rooms missing from the DB are seeded; stored rooms load even when not configured |
-| 103 | D | rooms, layout and last embed survive a restart (OME-280) › the last shared embed comes back after a restart, paused at 0 |
-| 119 | D | rooms, layout and last embed survive a restart (OME-280) › a restored embed can be played: control applies to it |
-| 134 | C | rooms, layout and last embed survive a restart (OME-280) › a corrupt row refuses to boot instead of serving a forged layout (D4) |
-| 143 | A | rooms, layout and last embed survive a restart (OME-280) › without a store, the snapshot still carries DEFAULT_LAYOUT |
-| 151 | D | the store is never on the relay path (OME-280) › control, chat, sit, status and ping never touch the store; a share writes the embed once |
+| 73 | C | rooms, layout and last embed survive a restart (OME-280) › first boot seeds the lobby with DEFAULT_LAYOUT, and the snapshot carries it |
+| 85 | C | rooms, layout and last embed survive a restart (OME-280) › the snapshot carries the stored layout, not the default |
+| 97 | D | rooms, layout and last embed survive a restart (OME-280) › configured rooms missing from the DB are seeded; stored rooms load even when not configured |
+| 108 | A | rooms, layout and last embed survive a restart (OME-280) › the last shared embed comes back after a restart, paused at 0 |
+| 124 | A | rooms, layout and last embed survive a restart (OME-280) › a restored embed can be played: control applies to it |
+| 139 | A ✓ | rooms, layout and last embed survive a restart (OME-280) › a corrupt row refuses to boot instead of serving a forged layout (D4) |
+| 148 | A | rooms, layout and last embed survive a restart (OME-280) › without a store, the snapshot still carries DEFAULT_LAYOUT |
+| 156 | D | the store is never on the relay path (OME-280) › control, chat, sit, status and ping never touch the store; a share writes the embed once |
 
 ### playback-sync.test.ts
 

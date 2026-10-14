@@ -45,6 +45,12 @@ describe("spawnServer", () => {
     expect(s.banner).toContain("guard=1");
   });
 
+  test("finds the listening line after the operator CLI socket line the server prints first", () => {
+    const s = spawnServer(fake(`echo "operator CLI socket at /tmp/x/admin.sock"\n${LINE}\nexec sleep 30`), {});
+    expect(s.port).toBe(4242);
+    expect(s.banner).toContain("omega-share server on");
+  });
+
   test("stop sends SIGTERM and waits for a server that exits", async () => {
     const s = spawnServer(fake(`${LINE}\nexec sleep 30`), {});
     await s.stop();
