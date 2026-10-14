@@ -34,8 +34,8 @@ export interface Cycle {
 
 export type FrameRects = v.InferOutput<typeof FramesSchema>;
 
-/** The emotes drawn as a sticker over the avatar (`emote/<kind>`); `wave` is the avatar's own animation. */
-export type StickerKind = Exclude<EmoteKind, "wave">;
+/** The emotes drawn as a sticker over the avatar (`emote/<kind>`); `wave`, `cheer` and `yawn` are the avatar's own animations. */
+export type StickerKind = Exclude<EmoteKind, "wave" | "cheer" | "yawn">;
 
 /** Per pose, per direction (DIRS order). */
 export interface PoseCycles {

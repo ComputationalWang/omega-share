@@ -19,8 +19,8 @@ function rejects(schema: v.GenericSchema, input: unknown): void {
 }
 
 describe("EMOTE_KINDS", () => {
-  test("is the atlas emotes plus wave", () => {
-    expect([...EMOTE_KINDS].sort()).toEqual(["clap", "exclaim", "heart", "laugh", "question", "wave"]);
+  test("is the atlas emotes plus the per-avatar animations wave, cheer and yawn (OME-1116)", () => {
+    expect([...EMOTE_KINDS].sort()).toEqual(["cheer", "clap", "exclaim", "heart", "laugh", "question", "wave", "yawn"]);
   });
 });
 

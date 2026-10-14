@@ -5,7 +5,7 @@ import { EMOTE_BURST, EMOTE_REFILL_MS, type EmoteKind } from "@omega/shared";
 export const PICKER_KINDS: readonly EmoteKind[] = ["heart", "laugh", "question", "exclaim", "clap", "wave"];
 
 /** What the picker says for each (the atlas's `meta.omega` labels). */
-export const EMOTE_LABELS: Readonly<Record<EmoteKind, string>> = { heart: "Heart", laugh: "Laugh", question: "Question", exclaim: "Surprise", clap: "Clap", wave: "Wave" };
+export const EMOTE_LABELS: Readonly<Record<EmoteKind, string>> = { heart: "Heart", laugh: "Laugh", question: "Question", exclaim: "Surprise", clap: "Clap", wave: "Wave", cheer: "Cheer", yawn: "Yawn" };
 
 /** The emote a key (KeyboardEvent.key) picks, or null. */
 export function kindForKey(key: string): EmoteKind | null {

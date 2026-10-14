@@ -47,6 +47,16 @@ describe("emote relay", () => {
     expect(await a.client.next("emoted")).toEqual({ type: "emoted", memberId: b.snapshot.self, kind: "wave" });
   });
 
+  test("cheer and yawn (OME-1116) relay like wave", async () => {
+    t = start();
+    const a = await join("alice");
+    const b = await join("bob");
+    for (const kind of ["cheer", "yawn"] as const) {
+      a.client.send({ type: "emote", kind });
+      expect(await b.client.next("emoted")).toEqual({ type: "emoted", memberId: a.snapshot.self, kind });
+    }
+  });
+
   test("an emote before join gets not_joined and reaches nobody", async () => {
     t = start();
     const b = await join("bob");
@@ -86,6 +96,18 @@ describe("emote limits", () => {
     expect((await b.client.next("emoted")).kind).toBe("question");
     a.client.send({ type: "emote", kind: "question" });
     expect((await a.client.next("error")).code).toBe("rate_limited");
+  });
+
+  test("cheer and yawn share the one emote bucket", async () => {
+    const clock = fakeClock();
+    t = start({ now: clock.now });
+    const a = await join("alice");
+    const b = await join("bob");
+    for (let i = 0; i < EMOTE_BURST; i++) a.client.send({ type: "emote", kind: i % 2 === 0 ? "cheer" : "yawn" });
+    for (let i = 0; i < EMOTE_BURST; i++) await b.client.next("emoted");
+    a.client.send({ type: "emote", kind: "cheer" });
+    expect((await a.client.next("error")).code).toBe("rate_limited");
+    await b.client.none("emoted", 50);
   });
 
   test("each member has their own bucket", async () => {
