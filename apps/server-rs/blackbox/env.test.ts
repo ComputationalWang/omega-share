@@ -4,7 +4,12 @@ import { envFor, NotBlackBox } from "./env";
 
 describe("envFor: start() options become environment variables", () => {
   test("the defaults: ephemeral port, loopback, nothing on disk", () => {
-    expect(envFor({}).env).toEqual({ PORT: "0", HOST: "127.0.0.1", SITE_ORIGIN: "http://localhost:5173", DB_PATH: ":memory:" });
+    expect(envFor({}).env).toEqual({
+      PORT: "0",
+      HOST: "127.0.0.1",
+      SITE_ORIGIN: "http://localhost:5173",
+      DB_PATH: ":memory:",
+    });
   });
 
   test("each mappable option has its variable", () => {
@@ -41,7 +46,13 @@ describe("envFor: start() options become environment variables", () => {
   });
 
   test("null and undefined options set nothing", () => {
-    const { env } = envFor({ publicOrigin: null, staticDir: null, extensionIds: null, registry: undefined, trustProxy: false });
+    const { env } = envFor({
+      publicOrigin: null,
+      staticDir: null,
+      extensionIds: null,
+      registry: undefined,
+      trustProxy: false,
+    });
     expect(Object.keys(env).sort()).toEqual(["DB_PATH", "HOST", "PORT", "SITE_ORIGIN"]);
   });
 
@@ -71,7 +82,11 @@ describe("envFor: start() options become environment variables", () => {
 
   test("a TestClock's functions are allowed and fix the starting time", () => {
     const clock = new TestClock(42, 1_700_000_000_000);
-    const mapped = envFor({ now: clock.now, wallNow: clock.wallNow, schedule: clock.schedule });
+    const mapped = envFor({
+      now: clock.now,
+      wallNow: clock.wallNow,
+      schedule: clock.schedule,
+    });
     expect(mapped.clock).toBe(clock);
     expect(mapped.env["OMEGA_TEST_MONO"]).toBe("42");
     expect(mapped.env["OMEGA_TEST_WALL"]).toBe("1700000000000");
@@ -133,7 +148,11 @@ describe("TestClock", () => {
   });
 
   test("attached, a refused set is an error", async () => {
-    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response("no", { status: 400 }) });
+    const server = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      fetch: () => new Response("no", { status: 400 }),
+    });
     servers.push(server);
     const clock = new TestClock();
     clock.attach(`http://127.0.0.1:${String(server.port)}`);
