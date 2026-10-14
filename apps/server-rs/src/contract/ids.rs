@@ -88,6 +88,15 @@ string_newtype!(
     |s| exact_token(s, RESUME_TOKEN_LENGTH)
 );
 
+macro_rules! stub_ct_eq {
+    ($($name:ident),*) => {$(impl $name {
+        pub fn ct_eq(&self, _other: &Self) -> bool {
+            false
+        }
+    })*};
+}
+stub_ct_eq!(ShareToken, OwnerToken, InviteKey, ResumeToken);
+
 /// Length of a share token (ADR 0015).
 pub const SHARE_TOKEN_LENGTH: usize = 22;
 /// Length of a resume token (ADR 0043).
@@ -203,5 +212,32 @@ mod tests {
         assert!(serde_json::from_str::<MemberId>("null").is_err());
         // Escaped input is unescaped before validation: "m1" is "m1".
         assert_eq!(serde_json::from_str::<MemberId>("\"m\\u0031\"").unwrap().as_str(), "m1");
+    }
+
+    #[test]
+    fn secrets_never_debug_print_their_value() {
+        // PORTING.md rule 8: a `{:?}` or a failed assert must not leak a bearer secret.
+        let share = ShareToken::parse(TOKEN).unwrap();
+        let owner = OwnerToken::parse(TOKEN).unwrap();
+        let invite = InviteKey::parse(TOKEN).unwrap();
+        let resume = ResumeToken::parse(&format!("Ab_-{}", "x".repeat(39))).unwrap();
+        for shown in [format!("{share:?}"), format!("{owner:?}"), format!("{invite:#?}"), format!("{resume:?}")] {
+            assert!(!shown.contains("AbCd") && !shown.contains("Ab_-"), "{shown}");
+        }
+        assert_eq!(format!("{share:?}"), "ShareToken(…)");
+    }
+
+    #[test]
+    fn secrets_compare_with_ct_eq() {
+        // PORTING.md rule 9: constant-time compare (no PartialEq on secrets).
+        let a = ShareToken::parse(TOKEN).unwrap();
+        assert!(a.ct_eq(&ShareToken::parse(TOKEN).unwrap()));
+        assert!(!a.ct_eq(&ShareToken::parse(&"a".repeat(22)).unwrap()));
+        let r = ResumeToken::parse(&"x".repeat(43)).unwrap();
+        assert!(r.ct_eq(&ResumeToken::parse(&"x".repeat(43)).unwrap()));
+        assert!(!r.ct_eq(&ResumeToken::parse(&"y".repeat(43)).unwrap()));
+        let o = OwnerToken::parse(TOKEN).unwrap();
+        assert!(o.ct_eq(&o.clone()));
+        assert!(!InviteKey::parse(TOKEN).unwrap().ct_eq(&InviteKey::parse(&"b".repeat(22)).unwrap()));
     }
 }
