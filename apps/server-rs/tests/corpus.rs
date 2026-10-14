@@ -17,6 +17,8 @@ const RUNNERS: &[&str] = &[
     "normalize-hostname",
     "room-layout",
     "room-layout-input",
+    "room-layout-input-raw",
+    "room-layout-raw",
 ];
 
 /// One TS decision: refused (`ok: false`) or accepted with `output`. `rust: "refuses"` marks a
@@ -186,6 +188,20 @@ fn layout_decision(input: &Value, parse: fn(&[u8]) -> Result<RoomLayout, omega_s
 fn room_layout_agrees() {
     agree(load::<Value, Value>(include_str!("../corpus/out/room-layout.json")), |input| {
         layout_decision(input, RoomLayout::parse)
+    });
+}
+
+#[test]
+fn room_layout_raw_agrees() {
+    agree(load::<String, Value>(include_str!("../corpus/out/room-layout-raw.json")), |text| {
+        RoomLayout::parse(text.as_bytes()).ok().and_then(|l| serde_json::to_value(&l).ok())
+    });
+}
+
+#[test]
+fn room_layout_input_raw_agrees() {
+    agree(load::<String, Value>(include_str!("../corpus/out/room-layout-input-raw.json")), |text| {
+        RoomLayout::parse_input(text.as_bytes()).ok().and_then(|l| serde_json::to_value(&l).ok())
     });
 }
 

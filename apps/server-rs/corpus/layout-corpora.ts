@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, FACINGS, FURNITURE, FURNITURE_KINDS, RoomLayoutInputSchema, RoomLayoutSchema, footprintCells, layoutSeats } from "../../../packages/shared/src/layout";
-import type { Case, Corpus } from "./corpora";
+import { decidedRaw, type Case, type Corpus, type RawInput } from "./corpora";
 
 type Piece = Record<string, unknown>;
 const TV: Piece = { kind: "tv", col: 0, row: 0, facing: "se" };
@@ -146,7 +146,59 @@ const seatInputs = (): unknown[] => [
   layout({ kind: "sofa", col: 1, row: 5, facing: "ne" }, { kind: "couch", col: 6, row: 1, facing: "nw" }, { kind: "bench", col: 4, row: 4, facing: "se" }),
 ];
 
+const tvText = '{"kind":"tv","col":0,"row":0,"facing":"se"}';
+const chairText = SEATS.map(([c, r]) => JSON.stringify(chair(c, r)));
+const chairArrays = SEATS.map(([c, r]) => `["armchair",${String(c)},${String(r)},"${c < r ? "ne" : "nw"}"]`);
+const roomText = (...pieces: string[]): string => `{"furniture":[${pieces.join(",")}]}`;
+
+/** Text JSON.stringify never writes: the array form of an object (TS refuses), numbers written `-0`/`1.0`/`1e2` and duplicate keys (TS accepts, Rust refuses). */
+const rawInputs = (): RawInput[] => {
+  const full = (...pieces: string[]): string => roomText(tvText, ...chairText, ...pieces);
+  return [
+    { text: full() },
+    { text: roomText(tvText, ...chairText.slice(0, 7)) },
+    // Array forms: serde's derive would read these; Valibot refuses.
+    { text: roomText('["tv",0,0,"se"]', ...chairText) },
+    { text: roomText('["tv",0,0,"se"]', ...chairArrays) },
+    { text: roomText(tvText, ...chairArrays) },
+    { text: `[[${tvText},${chairText.join(",")}]]` },
+    { text: `[${tvText},${chairText.join(",")}]` },
+    { text: "[]" },
+    { text: "[[]]" },
+    { text: '[["tv",0,0,"se"]]' },
+    { text: full('["plant",9,9,"se"]') },
+    { text: full("[]") },
+    { text: full("{}") },
+    { text: "not json" },
+    { text: "" },
+    // Numbers JSON.stringify never writes: TS accepts, Rust refuses.
+    { text: roomText(tvText.replace('"col":0', '"col":-0'), ...chairText), rustRefuses: true },
+    { text: roomText(tvText.replace('"row":0', '"row":-0'), ...chairText), rustRefuses: true },
+    { text: roomText(tvText.replace('"col":0', '"col":0.0'), ...chairText), rustRefuses: true },
+    { text: roomText(tvText.replace('"row":0', '"row":0e0'), ...chairText), rustRefuses: true },
+    { text: full('{"kind":"plant","col":1e1,"row":9,"facing":"se"}') },
+    { text: full('{"kind":"plant","col":9.0,"row":9,"facing":"se"}'), rustRefuses: true },
+    { text: full('{"kind":"plant","col":9,"row":0.9e1,"facing":"se"}'), rustRefuses: true },
+    { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":-0}'), rustRefuses: true },
+    { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":0.0}'), rustRefuses: true },
+    { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":0e5}'), rustRefuses: true },
+    { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","variant":1e0}') },
+    // Duplicate keys: TS keeps the last, Rust refuses.
+    { text: `{"furniture":[],"furniture":[${tvText},${chairText.join(",")}]}`, rustRefuses: true },
+    { text: `{"furniture":[${tvText},${chairText.join(",")}],"furniture":[]}`, rustRefuses: true },
+    { text: full('{"kind":"plant","kind":"lamp","col":9,"row":9,"facing":"se"}'), rustRefuses: true },
+    { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","facing":"sw"}'), rustRefuses: true },
+  ];
+};
+
+const rawDecision = (schema: v.GenericSchema) => (json: unknown): unknown => {
+  const r = v.safeParse(schema, json);
+  return r.success ? r.output : null;
+};
+
 export const layoutCorpora: Corpus[] = [
+  { name: "room-layout-raw", cases: () => decidedRaw(rawInputs(), rawDecision(RoomLayoutSchema)) },
+  { name: "room-layout-input-raw", cases: () => decidedRaw(rawInputs(), rawDecision(RoomLayoutInputSchema)) },
   { name: "room-layout", cases: () => parsed(RoomLayoutSchema, inputs()) },
   { name: "room-layout-input", cases: () => parsed(RoomLayoutInputSchema, inputs()) },
   { name: "layout-seats", cases: () => seatInputs().map((input) => ({ input, ok: true, output: layoutSeats(input as never) })) },
