@@ -1,7 +1,7 @@
 import type { Embed, Provider } from "@omega/shared";
 import { browser } from "wxt/browser";
 import { type ListedEmbed, type ScanOutcome, scanTab } from "../../embeds";
-import { FALLBACK_ROOMS, type RoomList, type RoomsProbe, loadRooms, withRoomTabs } from "../../rooms";
+import { FALLBACK_ROOMS, NEW_ROOM, type RoomList, type RoomsProbe, loadRooms, newRoomUrl, withNewRoom, withRoomTabs } from "../../rooms";
 import { collectCandidateUrls } from "../../scan";
 import { serverStatus } from "../../server-status";
 import { SERVER_BASE_URL_KEY, hostPermissionPattern, ownHostsOf, readServerBaseUrl } from "../../settings";
@@ -24,6 +24,7 @@ const ui = {
   form: byId("share-form", HTMLFormElement),
   room: byId("room", HTMLSelectElement),
   share: byId("share", HTMLButtonElement),
+  shareLabel: byId("share-label", HTMLSpanElement),
   queue: byId("queue", HTMLButtonElement),
   status: byId("status", HTMLParagraphElement),
   server: byId("server-status", HTMLParagraphElement),
@@ -154,12 +155,18 @@ interface ServerState {
   readonly tabs: RoomTabs;
 }
 
-/** Share and Add to queue stay off until the server state is known, then follows the §5.4 table for the selected room. */
+/**
+ * Share and Add to queue stay off until the server state is known, then follows the §5.4 table for the selected room.
+ * "New room…" only opens the site (OME-1086), so it needs no token and works with the server away; its status line stays.
+ */
 let server: ServerState | null = null;
 
 function renderServer(): void {
-  const status = server === null ? null : serverStatus({ ...server, hasToken: server.tabs.tokens.has(ui.room.value) });
-  ui.share.disabled = status?.canShare !== true;
+  const newRoom = ui.room.value === NEW_ROOM;
+  const status = server === null ? null : serverStatus({ ...server, hasToken: newRoom || server.tabs.tokens.has(ui.room.value) });
+  ui.share.disabled = server === null || (!newRoom && status?.canShare !== true);
+  ui.shareLabel.textContent = newRoom ? "Create room & share" : "Share";
+  ui.queue.hidden = newRoom;
   ui.queue.disabled = ui.share.disabled;
   ui.server.hidden = status?.message === null || status === null;
   ui.serverMessage.textContent = status?.message ?? "";
@@ -189,7 +196,7 @@ void scan().then(render);
 // One `GET /rooms` per popup open, in parallel with the scan so the embed list isn't held up.
 void serverBaseUrl.then(loadServer).then((state) => {
   server = state;
-  renderRooms(withRoomTabs(state.probe.kind === "ok" ? state.probe.list : FALLBACK_ROOMS, state.tabs));
+  renderRooms(withNewRoom(withRoomTabs(state.probe.kind === "ok" ? state.probe.list : FALLBACK_ROOMS, state.tabs), state.probe, state.tabs.tokens));
   renderServer();
 });
 
@@ -201,6 +208,13 @@ ui.form.addEventListener("submit", (event) => {
   if (selected === null || server === null) return;
   const { origin, tabs } = server;
   const roomId = ui.room.value;
+  if (roomId === NEW_ROOM) {
+    // The site creates the room and queues the video (ADR 0049); the URL is a candidate the scan already validated.
+    void browser.tabs.create({ url: newRoomUrl(origin, selected.value) }).then(() => {
+      window.close();
+    });
+    return;
+  }
   const options = { baseUrl: origin, roomId, url: selected.value, token: tabs.tokens.get(roomId) ?? null, fetch: (u: string, init: RequestInit) => fetch(u, init) };
   // Enter in the form shares; only the "Add to queue" button queues (ADR 0031).
   const queue = event.submitter === ui.queue;

@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { loadRooms, withRoomTabs } from "../src/rooms";
+import { NEW_ROOM, loadRooms, newRoomUrl, withNewRoom, withRoomTabs } from "../src/rooms";
 
 const BASE = "http://localhost:8787";
 const json = (body: unknown, status = 200) =>
@@ -153,5 +153,46 @@ describe("withRoomTabs: the dropdown is the open room tabs first, then the liste
       ],
       selected: PRIVATE,
     });
+  });
+});
+
+describe("withNewRoom: \"New room…\" ends the dropdown, preselected when there's no room to share into (OME-1086)", () => {
+  const T = "AAAAAAAAAAAAAAAAAAAAAA";
+  const ok = { kind: "ok", list: FALLBACK } as const;
+  const list = { rooms: [{ id: "movies", label: "movies" }, ...FALLBACK.rooms], selected: "movies" };
+  const NEW = { id: NEW_ROOM, label: "New room…" };
+
+  test("a room holding a share token keeps its selection; New room comes last", () => {
+    expect(withNewRoom(list, ok, new Map([["movies", T]]))).toEqual({ rooms: [...list.rooms, NEW], selected: "movies" });
+  });
+
+  test("no room holds a share token: New room is selected", () => {
+    expect(withNewRoom(list, ok, new Map()).selected).toBe(NEW_ROOM);
+  });
+
+  test("a token for a room that isn't in the dropdown doesn't count", () => {
+    expect(withNewRoom(list, ok, new Map([["gone", T]])).selected).toBe(NEW_ROOM);
+  });
+
+  for (const kind of ["unreachable", "offline", "sign-in"] as const) {
+    test(`the probe failed (${kind}): New room is selected even with a token`, () => {
+      expect(withNewRoom(list, { kind }, new Map([["movies", T]])).selected).toBe(NEW_ROOM);
+    });
+  }
+
+  test("the sentinel is no valid room id", () => {
+    expect(NEW_ROOM).toBe("");
+  });
+});
+
+describe("newRoomUrl: the ADR 0049 hand-off link", () => {
+  test("the site's home with the video in a #share= fragment, percent-encoded", () => {
+    expect(newRoomUrl("https://omega.example", "https://www.youtube.com/embed/aqz-KE-bpKQ?start=5&t=1")).toBe(
+      "https://omega.example/#share=https%3A%2F%2Fwww.youtube.com%2Fembed%2Faqz-KE-bpKQ%3Fstart%3D5%26t%3D1",
+    );
+  });
+
+  test("a local origin with a port", () => {
+    expect(newRoomUrl("http://localhost:8787", "https://player.vimeo.com/video/76979871")).toBe("http://localhost:8787/#share=https%3A%2F%2Fplayer.vimeo.com%2Fvideo%2F76979871");
   });
 });

@@ -67,3 +67,20 @@ export function withRoomTabs(list: RoomList, tabs: { readonly rooms: readonly st
   const rest = list.rooms.filter((r) => !tabs.rooms.includes(r.id));
   return { rooms: [...open, ...rest], selected: tabs.rooms.find((id) => tabs.tokens.has(id)) ?? first };
 }
+
+/** The "New room…" option's value; no room id is empty. */
+export const NEW_ROOM = "";
+
+/**
+ * Appends "New room…" (OME-1086). It's preselected unless the probe answered and a listed room holds a share token:
+ * without one there's no room the user can share into.
+ */
+export function withNewRoom(list: RoomList, probe: RoomsProbe, tokens: ReadonlyMap<string, string>): RoomList {
+  const canShare = probe.kind === "ok" && list.rooms.some((r) => tokens.has(r.id));
+  return { rooms: [...list.rooms, { id: NEW_ROOM, label: "New room…" }], selected: canShare ? list.selected : NEW_ROOM };
+}
+
+/** The site's home with the video carried along in the fragment (ADR 0049); `origin` is the parsed server base URL. */
+export function newRoomUrl(origin: string, url: string): string {
+  return `${origin}/#share=${encodeURIComponent(url)}`;
+}
