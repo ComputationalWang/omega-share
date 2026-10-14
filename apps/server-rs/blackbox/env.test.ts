@@ -160,6 +160,10 @@ describe("TestClock", () => {
     servers.push(server);
     const clock = new TestClock();
     clock.attach(`http://127.0.0.1:${String(server.port)}`);
-    expect(clock.set({ mono: 1 })).rejects.toThrow("400");
+    const failure = await clock.set({ mono: 1 }).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(String(failure)).toContain("400");
   });
 });

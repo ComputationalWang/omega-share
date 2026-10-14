@@ -14,8 +14,13 @@ const manifestPath = join(import.meta.dir, "manifest.json");
 /** Shell-script tests (deploy kit, monitor, tunnel): not server code, nothing to compare (category E). */
 const NOT_SERVER = ["deploy-kit.test.ts", "monitor.test.ts", "tunnel-script.test.ts"];
 
-function run(cmd: string[], env: Record<string, string | undefined> = {}): number {
-  const proc = Bun.spawnSync(cmd, { cwd: root, env: { ...process.env, ...env }, stdout: "inherit", stderr: "inherit" });
+function run(cmd: string[], env: Record<string, string | undefined> = {}, quiet = false): number {
+  const proc = Bun.spawnSync(cmd, {
+    cwd: root,
+    env: { ...process.env, ...env },
+    stdout: quiet ? "ignore" : "inherit",
+    stderr: quiet ? "ignore" : "inherit",
+  });
   return proc.exitCode;
 }
 
@@ -41,9 +46,13 @@ const files = (only ?? readdirSync(join(root, testDir)).filter((f) => f.endsWith
 function suite(bin: string): TestResult[] {
   const scratch = mkdtempSync(join(tmpdir(), "omega-blackbox-"));
   const junit = join(scratch, "junit.xml");
-  run(["bun", "test", "--timeout", "4000", "--reporter=junit", `--reporter-outfile=${junit}`, ...files], {
-    OMEGA_SERVER_BIN: bin,
-  });
+  // Hundreds of expected failures: the verdict below is the output; --verbose shows bun's own.
+  const quiet = !process.argv.includes("--verbose");
+  run(
+    ["bun", "test", "--timeout", "4000", "--reporter=junit", `--reporter-outfile=${junit}`, ...files],
+    { OMEGA_SERVER_BIN: bin },
+    quiet,
+  );
   const results = parseJunit(existsSync(junit) ? readFileSync(junit, "utf8") : "");
   rmSync(scratch, { recursive: true, force: true });
   return results;
