@@ -2,6 +2,7 @@
 //! boundary; nothing past it handles unparsed input.
 
 pub mod capabilities;
+pub mod client_message;
 pub mod confusables;
 pub mod constants;
 pub mod embed;
@@ -9,6 +10,7 @@ pub mod generic_embed;
 pub mod ids;
 pub mod js_compat;
 pub mod layout;
+pub mod requests;
 pub mod room;
 pub mod session;
 pub mod text;

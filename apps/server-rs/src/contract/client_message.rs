@@ -1,0 +1,452 @@
+//! Client → server frames, mirroring `ClientMessageSchema` / `parseClientMessage` in
+//! `packages/shared/src/messages.ts`. The server's main untrusted-input boundary: every
+//! WebSocket text frame comes through [`parse_client_message`].
+//!
+//! Shape (serde, strict, string-only tags) → field rules (validator) → [`ClientMessage`], whose
+//! fields are all merged newtypes or the small ones below, so nothing downstream holds raw input.
+
+use super::constants::{MAX_CLIENT_MESSAGE_BYTES, MAX_EMBED_URL_LENGTH, MAX_POSITION_S, MAX_URL_LENGTH, PING_ID_MAX};
+use super::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken};
+use super::js_compat::utf16_len;
+use super::layout::RoomLayout;
+use super::room::{Avatar, ControlPolicy, SeatIndex};
+use super::text::{ChatText, Nickname, RoomTitle};
+use super::{Obj, parse_json};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
+use validator::{Validate, ValidationError, ValidationErrors};
+
+/// `EMOTE_KINDS`.
+// shortcut: duplicate of the outbound slice's EmoteKind, replace on merge
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EmoteKind {
+    Clap,
+    Exclaim,
+    Heart,
+    Laugh,
+    Question,
+    Wave,
+    Cheer,
+    Yawn,
+}
+
+/// Seconds into the video: finite, `0..=MAX_POSITION_S` (`PositionSchema`).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct Position(f64);
+
+impl Position {
+    pub fn get(self) -> f64 {
+        self.0
+    }
+}
+
+/// Id a client picks for a `ping` (`PingIdSchema`): an integer in `0..=PING_ID_MAX`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct PingId(u32);
+
+impl PingId {
+    pub fn get(self) -> u32 {
+        self.0
+    }
+}
+
+/// `control.url`: at most `MAX_EMBED_URL_LENGTH` UTF-16 units. Unparsed text: compared with the
+/// current embed's url, never opened.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ControlUrl(String);
+
+/// `queue-add.url`: at most `MAX_URL_LENGTH` UTF-16 units. Raw page URL for the share parser.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct QueueUrl(String);
+
+macro_rules! as_str {
+    ($($t:ty),*) => {$(impl $t { pub fn as_str(&self) -> &str { &self.0 } })*};
+}
+as_str!(ControlUrl, QueueUrl);
+
+/// A frame the server accepts. Secrets keep their no-leak `Debug`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", rename_all = "kebab-case", rename_all_fields = "camelCase")]
+pub enum ClientMessage {
+    Join {
+        nickname: Nickname,
+        avatar: Avatar,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        owner_token: Option<OwnerToken>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        invite_key: Option<InviteKey>,
+        /// Present only as `true`.
+        #[serde(skip_serializing_if = "std::ops::Not::not")]
+        durable_session: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        resume_token: Option<ResumeToken>,
+    },
+    Leave {},
+    Presence { away: bool },
+    Sit { seat: Option<SeatIndex> },
+    Chat { text: ChatText },
+    Ping { id: PingId },
+    Control { url: ControlUrl, playing: bool, position: Position },
+    Status { catching: bool },
+    LayoutSet { layout: RoomLayout },
+    TitleSet { title: RoomTitle },
+    Emote { kind: EmoteKind },
+    Kick { member_id: MemberId },
+    Mute { member_id: MemberId, muted: bool },
+    ControlPolicy { policy: ControlPolicy },
+    QueueAdd { url: QueueUrl },
+    QueueRemove { item_id: QueueItemId },
+    QueueAdvance { from_item_id: QueueItemId },
+    Ended { item_id: QueueItemId, position: Position },
+}
+
+// ---- wire ----------------------------------------------------------------------------------
+
+/// Absent is `None`; an explicit `null` is refused (`v.optional` is not nullable).
+fn present<'de, D: Deserializer<'de>, T: Deserialize<'de>>(d: D) -> Result<Option<T>, D::Error> {
+    T::deserialize(d).map(Some)
+}
+
+/// `v.literal(true)`.
+#[derive(Debug)]
+struct True;
+
+impl<'de> Deserialize<'de> for True {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        if bool::deserialize(d)? { Ok(Self) } else { Err(serde::de::Error::custom("expected true")) }
+    }
+}
+
+fn control_url_len(s: &str) -> Result<(), ValidationError> {
+    if utf16_len(s) <= MAX_EMBED_URL_LENGTH { Ok(()) } else { Err(ValidationError::new("control_url_length")) }
+}
+
+fn queue_url_len(s: &str) -> Result<(), ValidationError> {
+    if utf16_len(s) <= MAX_URL_LENGTH { Ok(()) } else { Err(ValidationError::new("queue_url_length")) }
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct JoinW {
+    nickname: Nickname,
+    avatar: Avatar,
+    #[serde(default, deserialize_with = "present")]
+    owner_token: Option<OwnerToken>,
+    #[serde(default, deserialize_with = "present")]
+    invite_key: Option<InviteKey>,
+    #[serde(default, deserialize_with = "present")]
+    durable_session: Option<True>,
+    #[serde(default, deserialize_with = "present")]
+    resume_token: Option<ResumeToken>,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct LeaveW {}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct PresenceW {
+    away: bool,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct SitW {
+    /// Required; `null` stands up.
+    #[serde(deserialize_with = "Option::deserialize")]
+    seat: Option<SeatIndex>,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct ChatW {
+    text: ChatText,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct PingW {
+    #[validate(range(min = 0, max = PING_ID_MAX))]
+    id: u32,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct ControlW {
+    #[validate(custom(function = "control_url_len"))]
+    url: String,
+    playing: bool,
+    #[validate(range(min = 0.0, max = MAX_POSITION_S))]
+    position: f64,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct StatusW {
+    catching: bool,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct LayoutSetW {
+    /// Checked by `RoomLayout::parse_input` in `convert` (its wire types are private).
+    layout: Obj<Value>,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct TitleSetW {
+    title: RoomTitle,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct EmoteW {
+    kind: EmoteKind,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct KickW {
+    member_id: MemberId,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct MuteW {
+    member_id: MemberId,
+    muted: bool,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct ControlPolicyW {
+    policy: ControlPolicy,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct QueueAddW {
+    #[validate(custom(function = "queue_url_len"))]
+    url: String,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct QueueRemoveW {
+    item_id: QueueItemId,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct QueueAdvanceW {
+    from_item_id: QueueItemId,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct EndedW {
+    item_id: QueueItemId,
+    #[validate(range(min = 0.0, max = MAX_POSITION_S))]
+    position: f64,
+}
+
+/// Internally tagged by a string `type`; the top level is read through `Obj` (no array form).
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+enum Wire {
+    #[serde(rename = "join")]
+    Join(JoinW),
+    #[serde(rename = "leave")]
+    Leave(LeaveW),
+    #[serde(rename = "presence")]
+    Presence(PresenceW),
+    #[serde(rename = "sit")]
+    Sit(SitW),
+    #[serde(rename = "chat")]
+    Chat(ChatW),
+    #[serde(rename = "ping")]
+    Ping(PingW),
+    #[serde(rename = "control")]
+    Control(ControlW),
+    #[serde(rename = "status")]
+    Status(StatusW),
+    #[serde(rename = "layout-set")]
+    LayoutSet(LayoutSetW),
+    #[serde(rename = "title-set")]
+    TitleSet(TitleSetW),
+    #[serde(rename = "emote")]
+    Emote(EmoteW),
+    #[serde(rename = "kick")]
+    Kick(KickW),
+    #[serde(rename = "mute")]
+    Mute(MuteW),
+    #[serde(rename = "control-policy")]
+    ControlPolicy(ControlPolicyW),
+    #[serde(rename = "queue-add")]
+    QueueAdd(QueueAddW),
+    #[serde(rename = "queue-remove")]
+    QueueRemove(QueueRemoveW),
+    #[serde(rename = "queue-advance")]
+    QueueAdvance(QueueAdvanceW),
+    #[serde(rename = "ended")]
+    Ended(EndedW),
+}
+
+impl Validate for Wire {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        match self {
+            Self::Join(m) => m.validate(),
+            Self::Leave(m) => m.validate(),
+            Self::Presence(m) => m.validate(),
+            Self::Sit(m) => m.validate(),
+            Self::Chat(m) => m.validate(),
+            Self::Ping(m) => m.validate(),
+            Self::Control(m) => m.validate(),
+            Self::Status(m) => m.validate(),
+            Self::LayoutSet(m) => m.validate(),
+            Self::TitleSet(m) => m.validate(),
+            Self::Emote(m) => m.validate(),
+            Self::Kick(m) => m.validate(),
+            Self::Mute(m) => m.validate(),
+            Self::ControlPolicy(m) => m.validate(),
+            Self::QueueAdd(m) => m.validate(),
+            Self::QueueRemove(m) => m.validate(),
+            Self::QueueAdvance(m) => m.validate(),
+            Self::Ended(m) => m.validate(),
+        }
+    }
+}
+
+/// Fields are already validated, so this only wraps them (and checks the layout).
+fn convert(wire: Wire) -> Option<ClientMessage> {
+    Some(match wire {
+        Wire::Join(m) => ClientMessage::Join {
+            nickname: m.nickname,
+            avatar: m.avatar,
+            owner_token: m.owner_token,
+            invite_key: m.invite_key,
+            durable_session: m.durable_session.is_some(),
+            resume_token: m.resume_token,
+        },
+        Wire::Leave(_) => ClientMessage::Leave {},
+        Wire::Presence(m) => ClientMessage::Presence { away: m.away },
+        Wire::Sit(m) => ClientMessage::Sit { seat: m.seat },
+        Wire::Chat(m) => ClientMessage::Chat { text: m.text },
+        Wire::Ping(m) => ClientMessage::Ping { id: PingId(m.id) },
+        Wire::Control(m) => ClientMessage::Control { url: ControlUrl(m.url), playing: m.playing, position: Position(m.position) },
+        Wire::Status(m) => ClientMessage::Status { catching: m.catching },
+        Wire::LayoutSet(m) => ClientMessage::LayoutSet { layout: RoomLayout::parse_input(m.layout.0.to_string().as_bytes()).ok()? },
+        Wire::TitleSet(m) => ClientMessage::TitleSet { title: m.title },
+        Wire::Emote(m) => ClientMessage::Emote { kind: m.kind },
+        Wire::Kick(m) => ClientMessage::Kick { member_id: m.member_id },
+        Wire::Mute(m) => ClientMessage::Mute { member_id: m.member_id, muted: m.muted },
+        Wire::ControlPolicy(m) => ClientMessage::ControlPolicy { policy: m.policy },
+        Wire::QueueAdd(m) => ClientMessage::QueueAdd { url: QueueUrl(m.url) },
+        Wire::QueueRemove(m) => ClientMessage::QueueRemove { item_id: m.item_id },
+        Wire::QueueAdvance(m) => ClientMessage::QueueAdvance { from_item_id: m.from_item_id },
+        Wire::Ended(m) => ClientMessage::Ended { item_id: m.item_id, position: Position(m.position) },
+    })
+}
+
+/// `parseClientMessage`: `None` for anything the contract refuses. Never panics. The size check
+/// (UTF-8 bytes, `MAX_CLIENT_MESSAGE_BYTES`) comes before any JSON is read.
+pub fn parse_client_message(frame: &str) -> Option<ClientMessage> {
+    // RED stub
+    let _ = (frame, MAX_CLIENT_MESSAGE_BYTES, parse_json::<Wire>, convert);
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn parse(v: &Value) -> Option<ClientMessage> {
+        parse_client_message(&v.to_string())
+    }
+
+    fn echo(v: Value) {
+        let got = parse(&v).and_then(|m| serde_json::to_value(m).ok());
+        assert_eq!(got, Some(v));
+    }
+
+    #[test]
+    fn every_variant_parses_back_to_itself() {
+        // packages/shared/test/{queue,moderation,catching,emote,session}-contract.test.ts
+        let token = "A".repeat(22);
+        for v in [
+            json!({"type":"join","nickname":"Alice","avatar":1}),
+            json!({"type":"join","nickname":"Alice","avatar":1,"ownerToken":token,"inviteKey":token,"durableSession":true,"resumeToken":"B".repeat(43)}),
+            json!({"type":"leave"}),
+            json!({"type":"presence","away":true}),
+            json!({"type":"sit","seat":4}),
+            json!({"type":"sit","seat":null}),
+            json!({"type":"chat","text":"hello"}),
+            json!({"type":"ping","id":7}),
+            json!({"type":"control","url":"https://youtu.be/x","playing":true,"position":12.5}),
+            json!({"type":"status","catching":true}),
+            json!({"type":"title-set","title":"Films"}),
+            json!({"type":"emote","kind":"cheer"}),
+            json!({"type":"kick","memberId":"m2"}),
+            json!({"type":"mute","memberId":"m2","muted":false}),
+            json!({"type":"control-policy","policy":"owner"}),
+            json!({"type":"queue-add","url":"https://youtu.be/dQw4w9WgXcQ"}),
+            json!({"type":"queue-remove","itemId":"q1"}),
+            json!({"type":"queue-advance","fromItemId":"q1"}),
+            json!({"type":"ended","itemId":"q1","position":212.5}),
+        ] {
+            echo(v);
+        }
+    }
+
+    #[test]
+    fn rejects_garbage_and_bad_fields() {
+        // packages/shared/test/wire.test.ts:228-248
+        assert!(parse_client_message("{nope").is_none());
+        assert!(parse_client_message(r#"{"type":"sit","seat":99}"#).is_none());
+        assert!(parse_client_message(r#"{"type":"sit"}"#).is_none(), "seat is required, null stands up");
+        assert!(parse_client_message(r#"{"type":"join","nickname":"A","avatar":0,"durableSession":false}"#).is_none());
+        assert!(parse_client_message(r#"{"type":"join","nickname":"A","avatar":0,"shareToken":"x"}"#).is_none());
+        // packages/shared/test/queue-contract.test.ts:135, playback.test.ts:135
+        assert!(parse_client_message(r#"{"type":"ended","itemId":"q1","position":Infinity}"#).is_none());
+        assert!(parse_client_message(r#"{"type":"control","url":"u","playing":true,"position":1e999}"#).is_none());
+        // the array form of a tagged object, and a numeric tag
+        assert!(parse_client_message(r#"["leave"]"#).is_none());
+        assert!(parse_client_message(r#"{"type":1}"#).is_none());
+    }
+
+    #[test]
+    fn frame_cap_is_in_utf8_bytes_and_checked_first() {
+        // packages/shared/test/wire.test.ts:243-248
+        let pad = |n: usize| format!(r#"{{"type":"leave"}}{}"#, " ".repeat(n));
+        assert!(parse_client_message(&pad(4096 - 16)).is_some());
+        assert!(parse_client_message(&pad(4096 - 15)).is_none());
+        let euros = json!({"type":"chat","text":"€".repeat(1400)}).to_string();
+        assert!(euros.len() > 4096 && euros.chars().count() < 4096);
+        assert!(parse_client_message(&euros).is_none());
+        // Oversize and not even JSON: refused without being read.
+        assert!(parse_client_message(&"{".repeat(100_000)).is_none());
+    }
+
+    #[test]
+    fn layout_set_uses_the_strict_layout_rules() {
+        // packages/shared/test/rooms-contract.test.ts:300-305
+        let one_tv = json!({"furniture":[{"kind":"tv","col":0,"row":0,"facing":"se"}]});
+        assert!(parse(&json!({"type":"layout-set","layout":one_tv})).is_none(), "seat count is part of the layout rules");
+        assert!(parse(&json!({"type":"layout-set","layout":{"furniture":[]}})).is_none());
+        assert!(parse(&json!({"type":"layout-set","layout":[]})).is_none());
+        assert!(parse(&json!({"type":"layout-set"})).is_none());
+    }
+
+    #[test]
+    fn urls_are_capped_in_utf16_units() {
+        let control = |u: String| json!({"type":"control","url":u,"playing":true,"position":0});
+        assert!(parse(&control("😀".repeat(64))).is_some());
+        assert!(parse(&control("😀".repeat(65))).is_none());
+        assert!(parse(&json!({"type":"queue-add","url":"😀".repeat(1024)})).is_some());
+        assert!(parse(&json!({"type":"queue-add","url":"😀".repeat(1025)})).is_none());
+    }
+}

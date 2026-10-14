@@ -4,7 +4,9 @@
 
 use omega_server::contract::capabilities::playback_caps;
 use omega_server::contract::confusables::nickname_key;
+use omega_server::contract::client_message::parse_client_message;
 use omega_server::contract::constants;
+use omega_server::contract::requests::{parse_create_room_request, parse_report_request, parse_share_request};
 use omega_server::contract::embed::{Embed, canonicalize_embed};
 use omega_server::contract::generic_embed::{
     AnyEmbed, AnyEmbedOptions, canonicalize_any_embed, canonicalize_generic_embed, normalize_hostname,
@@ -31,8 +33,10 @@ const RUNNERS: &[&str] = &[
     "canonicalize-generic-embed",
     "chat-text",
     "client-key",
+    "client-message-raw",
     "constants",
     "control-policy",
+    "create-room-request-raw",
     "embed-policy-accept",
     "embed-policy-restore",
     "footprint-cells",
@@ -53,6 +57,7 @@ const RUNNERS: &[&str] = &[
     "raw-standing-slot",
     "redact-addresses",
     "report-note",
+    "report-request-raw",
     "resume-token",
     "room-id",
     "room-layout",
@@ -62,6 +67,7 @@ const RUNNERS: &[&str] = &[
     "room-title",
     "room-visibility",
     "seat-index",
+    "share-request-raw",
     "share-token",
     "standing-slot",
     "unicode-digest",
@@ -607,4 +613,42 @@ fn embed_policy_restore_agrees() {
         load::<PolicyEmbed, String>(include_str!("../corpus/out/embed-policy-restore.json")),
         |i| policy(&i.mode).restore(&i.embed).and_then(|e| to_json(&e)),
     );
+}
+
+/// Every number as f64 (JS has one number type; Rust writes `1.0` where TS writes `1`).
+fn deep_numeric(v: Value) -> Value {
+    match v {
+        Value::Array(a) => Value::Array(a.into_iter().map(deep_numeric).collect()),
+        Value::Object(o) => Value::Object(o.into_iter().map(|(k, v)| (k, deep_numeric(v))).collect()),
+        other => numeric(other),
+    }
+}
+
+/// Raw inbound text through `parse`; the corpus holds frames and bodies as JSON text.
+fn inbound<T: Serialize>(json: &str, parse: impl Fn(&str) -> Option<T>) {
+    let cases = load::<String, Value>(json)
+        .into_iter()
+        .map(|c| Case { output: c.output.map(deep_numeric), ..c })
+        .collect();
+    agree(cases, |text| parse(text).and_then(|t| serde_json::to_value(t).ok()).map(deep_numeric));
+}
+
+#[test]
+fn client_message_raw_agrees() {
+    inbound(include_str!("../corpus/out/client-message-raw.json"), parse_client_message);
+}
+
+#[test]
+fn create_room_request_raw_agrees() {
+    inbound(include_str!("../corpus/out/create-room-request-raw.json"), |t| parse_create_room_request(t.as_bytes()).ok());
+}
+
+#[test]
+fn share_request_raw_agrees() {
+    inbound(include_str!("../corpus/out/share-request-raw.json"), |t| parse_share_request(t.as_bytes()).ok());
+}
+
+#[test]
+fn report_request_raw_agrees() {
+    inbound(include_str!("../corpus/out/report-request-raw.json"), |t| parse_report_request(t.as_bytes()).ok());
 }
