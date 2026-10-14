@@ -130,6 +130,9 @@ impl<'de> Deserialize<'de> for PingId {
 pub struct Position(f64);
 
 impl Position {
+    /// The start of a video: `loadPlayback` and `restoredPlayback` write a literal `0`.
+    pub const ZERO: Self = Self(0.0);
+
     pub fn new(s: f64) -> Option<Self> {
         (s.is_finite() && (0.0..=MAX_POSITION_S).contains(&s)).then_some(Self(s))
     }
@@ -155,6 +158,9 @@ impl<'de> Deserialize<'de> for Position {
 pub struct Rate(f64);
 
 impl Rate {
+    /// Normal speed: the literal `1` every server-built playback state carries.
+    pub const ONE: Self = Self(1.0);
+
     pub fn new(r: f64) -> Option<Self> {
         (r.is_finite() && (PLAYBACK_RATE_MIN..=PLAYBACK_RATE_MAX).contains(&r)).then_some(Self(r))
     }

@@ -7,6 +7,7 @@ pub mod embed_policy;
 pub mod headers;
 pub mod log;
 pub mod metrics;
+pub mod playback;
 pub mod presets;
 pub mod rate_limit;
 pub mod secrets;
