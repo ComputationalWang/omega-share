@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, isSyncedEmbed, type AnyEmbed, type Avatar, type ClientMessage, type EmoteKind, type Embed, type ErrorCode, type MemberId, type Nickname, type ResumeToken, type RoomId, type RoomLayout } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, isSyncedEmbed, type AnyEmbed, type Avatar, type ClientMessage, type EmoteKind, type Embed, type ErrorCode, type MemberId, type Nickname, type ResumeToken, type RoomId } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection, type SocketLike } from "./connection";
 import { trackShareToken } from "./share-token";
@@ -22,7 +22,7 @@ import { mountErrorText, playerErrorText, providerHint } from "./controls/player
 import { chatIntent, sitIntent } from "./intents";
 import { layoutOf } from "./furniture";
 import { createPendingApplier } from "./pending-layout";
-import { FS_STRIP_W, PHONE_QUERY, STAGE_H, STAGE_W, TAG_OFFSET_Y, WIDE_QUERY, fullscreenLayout, portraitLayout, roomLayout, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_QUERY, STAGE_H, STAGE_W, WIDE_QUERY, fullscreenLayout, portraitLayout, roomLayout, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createFullscreen, type FullscreenMode } from "./fullscreen";
 import { createRoomWindow } from "./room-window";
 import type { PlayerError } from "./player/adapter";
@@ -32,8 +32,7 @@ import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, t
 import { genericFrame, tvFrame, type TvFrame } from "./tv";
 import { createGenericTv } from "./controls/generic-tv";
 import type { ExtensionBridge } from "./extension-bridge";
-import type { Editor } from "./editor/editor";
-import type { Moderation } from "./owner/moderation";
+import { createOwnerTools } from "./owner-tools";
 import { createEmotePicker } from "./emote/picker";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
@@ -785,12 +784,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let frame = 0;
   let expiryTimer: ReturnType<typeof setTimeout> | null = null;
   let tvKey: string | null = null;
-  /** The owner's unsaved draft, shown to them instead of the room's layout while they edit. */
-  let preview: RoomLayout | null = null;
-  let editToggle: HTMLButtonElement | null = null;
-  let editor: Editor | null = null;
-  /** Bumped on each open/close, so a slow chunk load for an editor that was closed meanwhile is dropped. */
-  let editorGen = 0;
   let shownError: ViewState["lastError"] = null;
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -835,123 +828,23 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (frame === 0) frame = requestAnimationFrame(render);
   };
 
-  const closeEditor = (): void => {
-    editorGen++;
-    editor?.destroy();
-    editor = null;
-    preview = null;
-    if (editToggle !== null) {
-      editToggle.ariaPressed = "false";
-      editToggle.lastChild?.replaceWith("Edit room");
-    }
-    requestRender();
-  };
-
-  const openEditor = (toggle: HTMLButtonElement, ownerToken: NonNullable<RoomSecret["ownerToken"]>): void => {
-    const gen = ++editorGen;
-    toggle.ariaPressed = "true";
-    toggle.lastChild?.replaceWith("Done");
-    void import("./editor/editor")
-      .then(({ mountEditor }) =>
-        mountEditor({
-          panel: editorPanel,
-          stage,
-          view,
-          saved: () => layoutOf(state.room),
-          title: () => state.title,
-          preview: (l) => {
-            preview = l;
-            requestRender();
-          },
-          send,
-          roomId: opts.roomId,
-          serverUrl: opts.serverUrl,
-          ownerToken,
-          fetch: (url, init) => fetch(url, init),
-          alive: () => gen === editorGen,
-        }),
-      )
-      .then((e) => {
-        if (gen !== editorGen) e.destroy();
-        else editor = e;
-      })
-      .catch((e: unknown) => {
-        console.warn("editor failed to load", e);
-        if (gen === editorGen) closeEditor();
-      });
-  };
-
-  let moderation: Moderation | null = null;
-  /** Bumped when the tools go, so a chunk that loads after that is dropped. */
-  let moderationGen = 0;
-  /** The chunk failed to load: don't retry on every render (a reload tries again). */
-  let moderationFailed = false;
-  /** The owner's moderation tools (ADR 0030): their own lazy chunk, loaded only on an owner's page. */
-  const renderModeration = (s: ViewState): void => {
-    const want = s.owner && opts.secret?.ownerToken !== undefined && screen(s).stage;
-    if (!want) {
-      if (moderationGen % 2 === 1) {
-        moderationGen++;
-        moderation?.destroy();
-        moderation = null;
-      }
-      return;
-    }
-    if (moderation !== null) {
-      moderation.update();
-      return;
-    }
-    if (moderationGen % 2 === 1 || moderationFailed) return;
-    const gen = ++moderationGen;
-    void import("./owner/moderation")
-      .then(({ mountModeration }) => {
-        if (gen !== moderationGen) return;
-        moderation = mountModeration({ stage, tags, bar: editBar, view: () => state, send, stageWidth: STAGE_W, anchor: (id) => {
-          const p = roomStage.anchor(id);
-          return p === undefined ? undefined : { x: p.x, y: p.y + TAG_OFFSET_Y };
-        } });
-        moderation.update();
-      })
-      .catch((e: unknown) => {
-        console.warn("moderation tools failed to load", e);
-        moderationFailed = true;
-        if (gen === moderationGen) moderationGen++;
-      });
-  };
-
-  /** Said once per page, the first time an owner is in their open room on a phone. */
-  let arrangeHinted = false;
-  /** Only the owner, in an open room, gets the key; it isn't in the DOM for anyone else. Never on a phone (set k). */
-  const renderEditToggle = (s: ViewState): void => {
-    const ownerToken = opts.secret?.ownerToken;
-    const owns = s.owner && ownerToken !== undefined && screen(s).stage;
-    if (owns && phone.matches && !arrangeHinted && s.status === "open") {
-      arrangeHinted = true;
-      chatLog.append({ kind: "system", line: { glyph: "host", actor: null, verb: "Arrange the room on a computer.", time: null, self: true } });
-    }
-    const want = owns && !phone.matches && !roomOut();
-    if (!want) {
-      if (editToggle !== null) {
-        closeEditor();
-        editToggle.remove();
-        editToggle = null;
-      }
-      return;
-    }
-    if (editToggle !== null) {
-      editToggle.disabled = s.status !== "open";
-      return;
-    }
-    const b = el("button", { type: "button", className: "ui-button self" }, "edit-room");
-    b.ariaPressed = "false";
-    b.append(el("span", { className: "ui-sprite ui-icon-arrange", ariaHidden: "true" }), "Edit room");
-    b.addEventListener("click", () => {
-      if (editor !== null || b.ariaPressed === "true") closeEditor();
-      else openEditor(b, ownerToken);
-    });
-    editBar.append(b);
-    editToggle = b;
-  };
+  const owner = createOwnerTools({
+    ownerToken: opts.secret?.ownerToken,
+    roomId: opts.roomId,
+    serverUrl: opts.serverUrl,
+    stage,
+    tags,
+    view,
+    anchor: (id) => roomStage.anchor(id),
+    bar: editBar,
+    panel: editorPanel,
+    state: () => state,
+    send,
+    requestRender,
+    phone: () => phone.matches,
+    roomOut,
+    log: (e) => { chatLog.append(e); },
+  });
 
   /** The seat the phone's window last centred on, so it follows me when I sit, and only then. */
   let centredSeat = -1;
@@ -992,9 +885,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const wasOut = wasRoomOut;
     wasRoomOut = out;
     // The editor draws on the stage, which is in the window now.
-    if (out) closeEditor();
+    if (out) owner.closeEditor();
     renderChatRow(state);
-    renderEditToggle(state);
+    owner.render(state);
     fit();
     if (on) {
       relay?.update(popState(state));
@@ -1015,7 +908,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const s = state;
     // The stage first: it rebuilds the seats for a new layout before anything reads them. Out in its window, the room
     // is drawn there, not here.
-    if (!roomOut()) roomStage.render(s, preview ?? layoutOf(s.room), pbView?.catching === true);
+    if (!roomOut()) roomStage.render(s, owner.preview() ?? layoutOf(s.room), pbView?.catching === true);
     const mySeat = s.self === null ? -1 : (s.room?.seats.indexOf(s.self) ?? -1);
     if (mySeat !== centredSeat) {
       centredSeat = mySeat;
@@ -1026,8 +919,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
     if (title.textContent !== (s.title ?? "")) title.textContent = s.title ?? "";
     title.hidden = s.title === null;
-    renderEditToggle(s);
-    editor?.update();
+    owner.render(s);
     status.textContent = STATUS_TEXT[s.status];
     const shown = screen(s);
     wrap.hidden = !shown.stage;
@@ -1071,7 +963,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       }
     }
 
-    renderModeration(s);
     // The landing form held focus and is gone: once the room (or the card in its place) shows, its first key takes it.
     if (!landed && s.status !== "idle" && s.status !== "connecting" && s.status !== "reconnecting") {
       landed = true;
@@ -1335,7 +1226,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
     // Esc dismisses the first-visit hint and still does whatever else it does here.
     if (ev.key === "Escape") firstHint.dismiss();
-    if (moderation?.key(ev) === true) ev.preventDefault();
+    if (owner.key(ev)) ev.preventDefault();
     else if (!help.key.hidden && help.shortcut(ev)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
     else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && fs.key(ev.key, typingIn(ev.target), ev.repeat)) ev.preventDefault();
