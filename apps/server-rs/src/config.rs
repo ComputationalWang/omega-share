@@ -49,6 +49,12 @@ pub struct ServerConfig {
     pub max_connections: u32,
     /// `RESUME_GRACE_MS`: how long a dropped durable member is held (ADR 0043).
     pub resume_grace_ms: u32,
+    /// `MAX_CONNECTIONS_PER_IP`: open WebSockets per client key; unset is 50, or 10 behind a trusted proxy.
+    pub max_connections_per_ip: Option<u32>,
+    /// `JOIN_TIMEOUT_MS`: a socket that has not joined within this is closed (default 10 s).
+    pub join_timeout_ms: u32,
+    /// `STATUS_INTERVAL_MS`: `member-status` coalescing interval (default 1 s).
+    pub status_interval_ms: u32,
 }
 
 /// A refused variable: `invalid KEY: why`.
@@ -68,6 +74,8 @@ impl std::error::Error for ConfigError {}
 
 /// The M6 hosted target (20 rooms × 25 people = 500 sockets) with 2× headroom (OME-573).
 pub const DEFAULT_MAX_CONNECTIONS: u32 = 1024;
+pub const DEFAULT_JOIN_TIMEOUT_MS: u32 = 10_000;
+pub const DEFAULT_STATUS_INTERVAL_MS: u32 = 1000;
 
 /// Dev default for `DB_PATH`: `apps/server-rs/data/omega.db` (git-ignored), never under a static dir.
 pub fn default_db_path() -> PathBuf {
@@ -77,7 +85,7 @@ pub fn default_db_path() -> PathBuf {
 pub type Env = HashMap<String, String>;
 
 /// Every variable the server reads; a non-UTF-8 value in one of them is refused, never mangled.
-pub const CONFIG_KEYS: [&str; 15] = [
+pub const CONFIG_KEYS: [&str; 18] = [
     "PORT",
     "HOST",
     "SITE_ORIGIN",
@@ -89,6 +97,9 @@ pub const CONFIG_KEYS: [&str; 15] = [
     "METRICS_PORT",
     "MAX_CONNECTIONS",
     "RESUME_GRACE_MS",
+    "MAX_CONNECTIONS_PER_IP",
+    "JOIN_TIMEOUT_MS",
+    "STATUS_INTERVAL_MS",
     "GENERIC_EMBEDS",
     "GENERIC_EMBED_DENYLIST",
     "ROOM_TITLE_BLOCKLIST",
@@ -345,6 +356,9 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         metrics_port,
         max_connections,
         resume_grace_ms,
+        max_connections_per_ip: None,
+        join_timeout_ms: DEFAULT_JOIN_TIMEOUT_MS,
+        status_interval_ms: DEFAULT_STATUS_INTERVAL_MS,
     })
 }
 
@@ -399,6 +413,25 @@ mod tests {
     }
 
     #[test]
+    fn the_websocket_knobs_parse_and_refuse_junk() {
+        let cfg = ok(&[("MAX_CONNECTIONS_PER_IP", "3"), ("JOIN_TIMEOUT_MS", "200"), ("STATUS_INTERVAL_MS", "20")]);
+        assert_eq!(
+            (cfg.max_connections_per_ip, cfg.join_timeout_ms, cfg.status_interval_ms),
+            (Some(3), 200, 20)
+        );
+        for (key, bad) in [
+            ("MAX_CONNECTIONS_PER_IP", "0"),
+            ("MAX_CONNECTIONS_PER_IP", "x"),
+            ("JOIN_TIMEOUT_MS", "0"),
+            ("JOIN_TIMEOUT_MS", "-5"),
+            ("STATUS_INTERVAL_MS", "1.5"),
+            ("STATUS_INTERVAL_MS", ""),
+        ] {
+            refuses(&[(key, bad)], key);
+        }
+    }
+
+    #[test]
     fn defaults_to_local_dev() {
         assert_eq!(
             ok(&[]),
@@ -418,6 +451,9 @@ mod tests {
                 metrics_port: None,
                 max_connections: 1024,
                 resume_grace_ms: 120_000,
+                max_connections_per_ip: None,
+                join_timeout_ms: 10_000,
+                status_interval_ms: 1000,
             }
         );
     }
@@ -457,6 +493,9 @@ mod tests {
                 metrics_port: None,
                 max_connections: 1024,
                 resume_grace_ms: 120_000,
+                max_connections_per_ip: None,
+                join_timeout_ms: 10_000,
+                status_interval_ms: 1000,
             }
         );
     }
