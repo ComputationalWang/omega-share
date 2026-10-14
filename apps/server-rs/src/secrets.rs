@@ -93,7 +93,7 @@ pub fn mint_resume_token() -> Result<ResumeToken, EntropyError> {
 
 /// A fresh report id: 16 random bytes, 22 chars (`mintSecret` in reports.ts). The operator's handle, never sent to the reporter.
 pub fn mint_report_id() -> Result<crate::store::ReportId, EntropyError> {
-    Err(EntropyError)
+    crate::store::ReportId::parse(&mint_16()?).ok_or(EntropyError)
 }
 
 pub fn new_room_id() -> Result<RoomId, EntropyError> {

@@ -159,6 +159,13 @@ impl RoomInner {
         self.member_adds.remove(id);
     }
 
+    /// Every member ends with the room (ws.ts `sessions.endAll`, minus the sessions S6 adds): share grants are
+    /// revoked and member state dropped. Sockets are closed by `outbox::close_all`.
+    pub fn end_all(&mut self) {
+        self.grants.clear();
+        self.member_adds.clear();
+    }
+
     /// Entries in the per-room maps (sockets, grants, member buckets): what the TS suite's `perRoomSizes` counts.
     pub fn entries(&self) -> usize {
         self.subscribers.len() + self.grants.len() + self.member_adds.len()

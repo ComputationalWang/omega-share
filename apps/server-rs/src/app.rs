@@ -16,13 +16,19 @@ use crate::contract::Invalid;
 use crate::contract::confusables::nickname_key;
 use crate::contract::constants::close;
 use crate::contract::ids::RoomId;
+use crate::contract::js_compat::is_js_whitespace;
+use crate::contract::unicode_props::{is_punctuation, is_symbol};
 use crate::embed_policy::EmbedPolicy;
 use crate::headers::{Header, security_headers};
+use crate::log::{LogEvent, log_error};
 use crate::metrics::Metrics;
+use crate::outbox::close_all;
 use crate::registry::{Registry, RemoveReason, RoomCell, RoomInner};
 use crate::reports::ReportsState;
 use crate::secrets::EntropyError;
 use crate::store::{Store, StoreError};
+use icu_properties::CodePointMapData;
+use icu_properties::props::{GeneralCategory, GeneralCategoryGroup};
 use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -68,19 +74,31 @@ pub struct TitleBlocker {
 
 /// `blockKey`: `nicknameKey` with whitespace, punctuation and symbols removed (`bad word` and `b.a.d-w_o r d` match `badword`).
 pub fn block_key(text: &str) -> String {
-    text.to_owned()
+    nickname_key(text)
+        .chars()
+        .filter(|&c| !(is_separator(c) || is_punctuation(c) || is_symbol(c) || is_js_whitespace(c)))
+        .collect()
+}
+
+/// `\p{Z}`
+fn is_separator(c: char) -> bool {
+    GeneralCategoryGroup::Separator.contains(CodePointMapData::<GeneralCategory>::new().get(c))
 }
 
 impl TitleBlocker {
     pub fn new(terms: &[String]) -> Self {
-        let _ = terms;
-        Self::default()
+        Self {
+            keys: terms.iter().map(|t| block_key(t)).filter(|k| !k.is_empty()).collect(),
+        }
     }
 
     /// True if `title` contains a blocked term. The empty title (an unset one) is never blocked.
     pub fn blocked(&self, title: &str) -> bool {
-        let _ = title;
-        false
+        if title.is_empty() || self.keys.is_empty() {
+            return false;
+        }
+        let key = block_key(title);
+        self.keys.iter().any(|k| key.contains(k.as_str()))
     }
 }
 
@@ -111,18 +129,30 @@ pub struct App {
 impl App {
     /// Wires the app around an open `store` without loading any room: `boot` does that. Tests use it directly.
     pub fn new(config: ServerConfig, clock: SharedClock, store: Store) -> Result<Self, BootError> {
-        let _ = (config, clock, store);
-        Err(BootError::Entropy(EntropyError))
+        let embeds =
+            EmbedPolicy::new(config.generic_embeds, &config.own_hosts, &config.generic_embed_denylist).map_err(BootError::Policy)?;
+        let taken_down = store.reports().takedowns().map_err(BootError::Store)?;
+        Ok(Self {
+            headers: security_headers(config.generic_embeds),
+            metrics: Metrics::new(),
+            registry: Registry::new(),
+            reports: ReportsState::new(taken_down),
+            title_blocker: TitleBlocker::new(&config.room_title_blocklist),
+            store: Mutex::new(store),
+            embeds,
+            clock,
+            config,
+        })
     }
 
     /// Monotonic ms (`now`): limiters, the `ended` debounce.
     pub fn mono(&self) -> f64 {
-        0.0
+        self.clock.mono_ms()
     }
 
     /// Unix ms (`wallNow`).
     pub fn wall(&self) -> i64 {
-        0
+        self.clock.wall_ms()
     }
 
     /// The one database connection (rooms and reports share it, as in index.ts). Keep the guard short.
@@ -133,7 +163,11 @@ impl App {
     /// Room GC's clock (server.ts `markActive`): memory first, so a failed write can only make GC late.
     /// Logs `store.last_active` on failure.
     pub fn mark_active(&self, inner: &mut RoomInner, at: i64) {
-        let _ = (inner, at);
+        inner.room.last_active_at = Some(at);
+        let result = self.store().rooms().set_last_active(&inner.room.id, at);
+        if let Err(err) = result {
+            log_error(LogEvent::StoreLastActive, Some(&err));
+        }
     }
 
     pub fn title_blocked(&self, title: &str) -> bool {
@@ -144,14 +178,37 @@ impl App {
     /// reports, sockets (every outbox gets ROOM_CLOSED, or TAKEN_DOWN for a takedown; grants are revoked), the
     /// store row. False if the room was not registered. Never call it with a room lock held.
     pub fn remove_room(&self, id: &RoomId, reason: RemoveReason) -> bool {
-        let _ = (id, reason);
-        false
+        let Some(cell) = self.registry.remove(id) else {
+            return false;
+        };
+        self.end_room(&cell, reason, |_| {});
+        true
     }
 
     /// The hooks of a room already unlinked from the registry (`remove_room`, and GC after `remove_if`).
     pub(crate) fn end_room(&self, cell: &Arc<RoomCell>, reason: RemoveReason, mut seen: impl FnMut(Hook)) {
-        let _ = (cell, reason, &mut seen);
-        let _ = close::ROOM_CLOSED;
+        seen(Hook::Reports);
+        self.reports.drop_room(&cell.id);
+
+        seen(Hook::Sockets);
+        let (code, why) = match reason {
+            RemoveReason::Closed => (close::ROOM_CLOSED, "room closed"),
+            RemoveReason::TakenDown => (close::TAKEN_DOWN, "room taken down"),
+        };
+        {
+            let mut inner = cell.lock();
+            for _ in 0..close_all(&mut inner, code, why) {
+                self.metrics.count_close(code);
+            }
+            inner.end_all();
+        }
+
+        seen(Hook::Store);
+        // The room is gone from memory; a row that survives comes back at the next boot, where GC or the operator can end it.
+        let deleted = self.store().rooms().delete_room(&cell.id);
+        if let Err(err) = deleted {
+            log_error(LogEvent::StoreDeleteRoom, Some(&err));
+        }
     }
 
     /// Where the database is, for the binary's messages.
@@ -161,11 +218,6 @@ impl App {
             DbPath::File(p) => p.display().to_string(),
         }
     }
-}
-
-#[allow(dead_code, reason = "the stub")]
-fn _uses() {
-    let _ = (nickname_key, security_headers);
 }
 
 #[cfg(test)]
@@ -429,7 +481,7 @@ mod tests {
         assert_eq!(app.mono(), 2500.0);
         assert_eq!(app.wall(), T0 + 1);
         app.store().rooms().list_rooms().unwrap();
-        assert!(app.title_blocked("fine") == false);
+        assert!(!app.title_blocked("fine"));
     }
 
     #[test]

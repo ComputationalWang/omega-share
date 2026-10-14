@@ -5,18 +5,20 @@
 //! State that outlives a request is [`ReportsState`] (`app.reports`); everything else is a function over the
 //! `&App`, the room's locked [`RoomInner`] where a room is involved, and the store.
 
-use crate::app::App;
-use crate::contract::constants::{REPORT_MAX_OPEN, REPORT_RETENTION_MS};
+use crate::app::{App, lock};
+use crate::contract::constants::{REPORT_KEY_BURST, REPORT_KEY_REFILL_MS, REPORT_MAX_OPEN, REPORT_RETENTION_MS, REPORT_ROOM_REFILL_MS};
 use crate::contract::ids::RoomId;
 use crate::contract::requests::{ReportReason, ReportRequest};
 use crate::contract::room::RoomVisibility;
-use crate::rate_limit::KeyedLimiter;
+use crate::log::{LogEvent, log_error, redact_addresses};
+use crate::rate_limit::{DEFAULT_MAX_KEYS, KeyedLimiter, is_loopback_key};
 use crate::registry::RemoveReason;
 use crate::registry::RoomInner;
-use crate::store::{REPORT_MAX_ROWS, ReportId, StoreError};
+use crate::secrets::mint_report_id;
+use crate::store::{NewReport, REPORT_MAX_ROWS, ReportId, StoreError};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::{Mutex, RwLock};
+use std::sync::{Mutex, PoisonError, RwLock};
 
 /// Most duplicate marks held: one per stored report at most, so no more than the table's rows.
 pub const MAX_DEDUP_ENTRIES: usize = REPORT_MAX_ROWS;
@@ -25,7 +27,61 @@ pub const MAX_DEDUP_ENTRIES: usize = REPORT_MAX_ROWS;
 /// Phone-like: 7 or more digits with single spaces, dots or dashes between them and an optional leading `+`,
 /// not inside a word or a URL path or query (`/76979871`), so links stay usable as evidence.
 pub fn redact_note(note: &str) -> String {
-    note.to_owned()
+    replace_phones(&redact_addresses(note))
+}
+
+/// JS `\w` (no `u` flag): ASCII only.
+fn is_word(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_'
+}
+
+/// The end of the phone-like run starting at `start`, if one does:
+/// `(?<![\w/.=?&#%+:-])\+?\d(?:[ .-]?\d){6,}(?!\w)`, with the regex's backtracking (a run followed by a word
+/// character gives digits back until what follows is a separator).
+fn phone_at(c: &[char], start: usize) -> Option<usize> {
+    if start > 0 && c.get(start - 1).is_some_and(|&p| is_word(p) || "/.=?&#%+:-".contains(p)) {
+        return None;
+    }
+    let digit = |i: usize| c.get(i).is_some_and(char::is_ascii_digit);
+    let mut i = start + usize::from(c.get(start) == Some(&'+'));
+    if !digit(i) {
+        return None;
+    }
+    i += 1;
+    // `ends[k]` is where the run stands after k + 1 repetitions of `[ .-]?\d`.
+    let mut ends = Vec::new();
+    loop {
+        let j = i + usize::from(matches!(c.get(i), Some(' ' | '.' | '-')));
+        if !digit(j) {
+            break;
+        }
+        i = j + 1;
+        ends.push(i);
+    }
+    ends.iter()
+        .skip(5)
+        .rev()
+        .find(|&&end| !c.get(end).is_some_and(|&n| is_word(n)))
+        .copied()
+}
+
+fn replace_phones(s: &str) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    let mut out = String::with_capacity(s.len());
+    let mut i = 0;
+    while let Some(&ch) = chars.get(i) {
+        match phone_at(&chars, i) {
+            Some(end) => {
+                out.push_str("<phone>");
+                i = end;
+            }
+            None => {
+                out.push(ch);
+                i += 1;
+            }
+        }
+    }
+    out
 }
 
 /// Which client keys reported which room, for `already_reported` (ADR 0033 section 3). Memory only, never
@@ -50,26 +106,60 @@ impl ReportDedup {
     }
 
     pub fn size(&self) -> usize {
-        0
+        self.marks.len()
+    }
+
+    /// `"<room> <key>"`, as the TS map key (a room id has no space, so it can't collide).
+    fn mark(room: &RoomId, key: &str) -> String {
+        format!("{} {key}", room.as_str())
     }
 
     pub fn has(&self, room: &RoomId, key: &str) -> bool {
-        let _ = (room, key);
-        false
+        self.marks.contains_key(&Self::mark(room, key))
     }
 
     pub fn add(&mut self, room: &RoomId, key: &str, at: i64) {
-        let _ = (room, key, at);
+        let mark = Self::mark(room, key);
+        if let Some(old) = self.marks.remove(&mark) {
+            self.order.remove(&old.seq);
+        }
+        let seq = self.seq;
+        self.seq = seq.saturating_add(1);
+        self.order.insert(seq, mark.clone());
+        self.marks.insert(
+            mark,
+            Mark {
+                seq,
+                room: room.clone(),
+                at,
+            },
+        );
+        if self.marks.len() > MAX_DEDUP_ENTRIES
+            && let Some((_, oldest)) = self.order.pop_first()
+        {
+            self.marks.remove(&oldest);
+        }
     }
 
     /// Drops marks made at or before `cutoff` (their rows are purged with them).
     pub fn expire(&mut self, cutoff: i64) {
-        let _ = cutoff;
+        self.retain(|m| m.at > cutoff);
     }
 
     /// The room is gone, taken down, or its reports were dismissed: it may be reported afresh.
     pub fn drop_room(&mut self, room: &RoomId) {
-        let _ = room;
+        self.retain(|m| m.room != *room);
+    }
+
+    fn retain(&mut self, keep: impl Fn(&Mark) -> bool) {
+        let order = &mut self.order;
+        self.marks.retain(|_, m| {
+            let kept = keep(m);
+            if !kept {
+                order.remove(&m.seq);
+            }
+            kept
+        });
     }
 }
 
@@ -94,7 +184,11 @@ impl ReportsState {
     /// `taken_down`: the tombstones the store holds.
     pub fn new(taken_down: Vec<RoomId>) -> Self {
         Self {
-            keys: Mutex::new(KeyedLimiter::new(3.0, 1.0, 1024)),
+            keys: Mutex::new(KeyedLimiter::new(
+                f64::from(REPORT_KEY_BURST),
+                1000.0 / REPORT_KEY_REFILL_MS as f64,
+                DEFAULT_MAX_KEYS,
+            )),
             dedup: Mutex::new(ReportDedup::new()),
             taken_down: RwLock::new(taken_down.into_iter().collect()),
         }
@@ -102,46 +196,127 @@ impl ReportsState {
 
     /// `isTakenDown`: the id was taken down (a tombstone), live or not.
     pub fn is_taken_down(&self, id: &RoomId) -> bool {
-        let _ = id;
-        false
+        self.taken_down.read().unwrap_or_else(PoisonError::into_inner).contains(id)
     }
 
     pub fn dedup_size(&self) -> usize {
-        0
+        lock(&self.dedup).size()
     }
 
     /// A tombstone written elsewhere (tests, the store).
     pub fn mark_taken_down(&self, id: &RoomId) {
-        let _ = id;
+        self.taken_down.write().unwrap_or_else(PoisonError::into_inner).insert(id.clone());
     }
 
     /// For tests and the removal hook.
     pub fn dedup_add(&self, room: &RoomId, key: &str, at: i64) {
-        let _ = (room, key, at);
+        lock(&self.dedup).add(room, key, at);
     }
 
     /// The removal hook of a room: its duplicate marks go.
     pub fn drop_room(&self, room: &RoomId) {
-        let _ = room;
+        lock(&self.dedup).drop_room(room);
     }
 }
 
 /// The key bucket, before the body is parsed: 0 if a report may go ahead, else the wait in ms. Loopback skips it.
 pub fn admit_key(app: &App, key: &str) -> u64 {
-    let _ = (app, key);
-    0
+    if is_loopback_key(key) {
+        return 0;
+    }
+    let now = app.mono();
+    let mut keys = lock(&app.reports.keys);
+    if keys.take(key, now) {
+        return 0;
+    }
+    keys.retry_after_ms_capped(key, now, REPORT_KEY_REFILL_MS as f64).max(1000.0) as u64
+}
+
+/// A key a duplicate can be pinned on: not loopback (dev, tests), not the shared `proxy:unknown` or an unknown peer.
+fn usable_key(key: &str) -> bool {
+    !is_loopback_key(key) && key != "proxy:unknown" && key != "unknown"
+}
+
+fn reason_str(reason: ReportReason) -> &'static str {
+    match reason {
+        ReportReason::Sexual => "sexual",
+        ReportReason::Violence => "violence",
+        ReportReason::Hate => "hate",
+        ReportReason::Spam => "spam",
+        ReportReason::Danger => "danger",
+        ReportReason::Other => "other",
+    }
+}
+
+/// Why a store write did not happen.
+enum Unwritten {
+    Capped,
+    Failed(Box<dyn std::error::Error>),
 }
 
 /// The rest of the check order: room bucket, duplicate, open cap, store.
 pub fn file(app: &App, inner: &mut RoomInner, key: &str, request: &ReportRequest) -> FileResult {
-    let _ = (app, inner, key, request);
-    FileResult::Unavailable
+    let now = app.mono();
+    let metrics = &app.metrics;
+    if !inner.report_bucket.take(now) {
+        metrics.count_report("rate_limited", None);
+        let wait = inner.report_bucket.retry_after_ms_capped(now, REPORT_ROOM_REFILL_MS as f64);
+        return FileResult::RateLimited {
+            retry_after_ms: wait.max(1000.0) as u64,
+        };
+    }
+    let keyed = usable_key(key);
+    if keyed && lock(&app.reports.dedup).has(&inner.room.id, key) {
+        metrics.count_report("already_reported", None);
+        return FileResult::AlreadyReported;
+    }
+    let written = (|| {
+        let id = mint_report_id().map_err(|e| Unwritten::Failed(Box::new(e)))?;
+        let report = NewReport {
+            id,
+            room_id: inner.room.id.clone(),
+            reason: reason_str(request.reason).to_owned(),
+            note: request.note.as_ref().map(|n| redact_note(n.as_str())),
+            room_title: inner.room.title().map(|t| t.as_str().to_owned()),
+            embed_url: inner.room.current_embed().map(|e| e.url().to_owned()),
+            created_at: app.wall(),
+        };
+        let store = app.store();
+        let reports = store.reports();
+        let open = reports.open_count().map_err(|e| Unwritten::Failed(Box::new(e)))?;
+        if open >= REPORT_MAX_OPEN {
+            return Err(Unwritten::Capped);
+        }
+        reports.add(&report).map_err(|e| Unwritten::Failed(Box::new(e)))
+    })();
+    match written {
+        Ok(()) => {}
+        Err(Unwritten::Capped) => {
+            metrics.count_report("unavailable", None);
+            return FileResult::Unavailable;
+        }
+        Err(Unwritten::Failed(err)) => {
+            // The event and the error class only: the message is cut at its first quote and scrubbed (log.rs).
+            log_error(LogEvent::StoreReport, Some(err.as_ref()));
+            inner.report_bucket.refund(now);
+            if !is_loopback_key(key) {
+                lock(&app.reports.keys).refund(key, now);
+            }
+            metrics.count_report("unavailable", None);
+            return FileResult::Unavailable;
+        }
+    }
+    if keyed {
+        lock(&app.reports.dedup).add(&inner.room.id, key, app.wall());
+    }
+    metrics.count_report("received", Some(reason_str(request.reason)));
+    FileResult::Received
 }
 
 /// An answer decided before `file` (bad body, unknown room, key bucket), for `/metrics`:
 /// `invalid_body`, `payload_too_large`, `room_not_found`, `rate_limited`, `unavailable`.
 pub fn count(app: &App, outcome: &str) {
-    let _ = (app, outcome);
+    app.metrics.count_report(outcome, None);
 }
 
 /// Whether the id has been taken down.
@@ -151,8 +326,7 @@ pub fn is_taken_down(app: &App, id: &RoomId) -> bool {
 
 /// Open reports (`GET /metrics`' gauge).
 pub fn open_count(app: &App) -> Result<usize, StoreError> {
-    let _ = app;
-    Ok(0)
+    app.store().reports().open_count()
 }
 
 /// A reported room's state now.
@@ -192,19 +366,75 @@ pub struct AdminReportRoom {
 
 /// Open reports grouped by room, most reported first.
 pub fn list(app: &App) -> Result<Vec<AdminReportRoom>, StoreError> {
-    let _ = app;
-    Ok(Vec::new())
+    // Newest first, so each room's reports stay newest first. The store lock is released before any room's.
+    let open = app.store().reports().list_open()?;
+    let mut rooms: Vec<AdminReportRoom> = Vec::new();
+    let mut index: HashMap<RoomId, usize> = HashMap::new();
+    for r in open {
+        let at = match index.get(&r.room_id) {
+            Some(&at) => at,
+            None => {
+                let entry = match app.registry.get(&r.room_id) {
+                    Some(cell) => {
+                        let inner = cell.lock();
+                        AdminReportRoom {
+                            id: r.room_id.clone(),
+                            state: ReportedState::Live,
+                            title: Some(inner.room.title().map_or_else(String::new, |t| t.as_str().to_owned())),
+                            visibility: Some(inner.room.visibility),
+                            members: Some(inner.room.member_count()),
+                            reports: Vec::new(),
+                        }
+                    }
+                    None => AdminReportRoom {
+                        id: r.room_id.clone(),
+                        state: if app.reports.is_taken_down(&r.room_id) {
+                            ReportedState::TakenDown
+                        } else {
+                            ReportedState::Gone
+                        },
+                        title: None,
+                        visibility: None,
+                        members: None,
+                        reports: Vec::new(),
+                    },
+                };
+                rooms.push(entry);
+                index.insert(r.room_id.clone(), rooms.len() - 1);
+                rooms.len() - 1
+            }
+        };
+        if let Some(entry) = rooms.get_mut(at) {
+            entry.reports.push(AdminReport {
+                id: r.id,
+                created_at: r.created_at,
+                reason: r.reason,
+                note: r.note,
+                title: r.room_title,
+                embed_url: r.embed_url,
+            });
+        }
+    }
+    let newest = |e: &AdminReportRoom| e.reports.first().map_or(0, |r| r.created_at);
+    rooms.sort_by(|a, b| {
+        b.reports
+            .len()
+            .cmp(&a.reports.len())
+            .then_with(|| newest(b).cmp(&newest(a)))
+            .then_with(|| a.id.as_str().cmp(b.id.as_str()))
+    });
+    Ok(rooms)
 }
 
 /// 1 if the report was open, else 0.
 pub fn dismiss(app: &App, id: &ReportId) -> Result<usize, StoreError> {
-    let _ = (app, id);
-    Ok(0)
+    Ok(usize::from(app.store().reports().dismiss(id)?))
 }
 
 pub fn dismiss_room(app: &App, room: &RoomId) -> Result<usize, StoreError> {
-    let _ = (app, room);
-    Ok(0)
+    let n = app.store().reports().dismiss_room(room)?;
+    app.reports.drop_room(room);
+    Ok(n)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -215,13 +445,29 @@ pub struct Takedown {
 
 /// Ends the room for good (ADR 0033 section 5). `Err`, changing nothing, if the tombstone can't be written.
 pub fn takedown(app: &App, id: &RoomId) -> Result<Takedown, StoreError> {
-    let _ = (app, id, RemoveReason::TakenDown);
-    Ok(Takedown { live: false })
+    // The tombstone first: if it can't be written, the room is left as it was.
+    let added = app.store().reports().add_takedown(id, app.wall())?;
+    app.reports.mark_taken_down(id);
+    let live = app.remove_room(id, RemoveReason::TakenDown);
+    // The removal hook deleted the row already; this catches one a failed earlier delete left behind.
+    let deleted = app.store().rooms().delete_room(id);
+    if let Err(err) = deleted {
+        log_error(LogEvent::StoreDeleteRoom, Some(&err));
+    }
+    app.store().reports().action_room(id)?;
+    app.reports.drop_room(id);
+    if added {
+        app.metrics.count_takedown();
+    }
+    Ok(Takedown { live })
 }
 
 /// Retention: the GC sweep runs it.
 pub fn purge(app: &App) -> Result<(), StoreError> {
-    let _ = (app, REPORT_RETENTION_MS, REPORT_MAX_OPEN);
+    let now = app.wall();
+    let retention = i64::try_from(REPORT_RETENTION_MS).unwrap_or(i64::MAX);
+    app.store().reports().purge(now.saturating_sub(retention).saturating_add(1))?;
+    lock(&app.reports.dedup).expire(now.saturating_sub(retention));
     Ok(())
 }
 
@@ -664,7 +910,7 @@ mod tests {
                 crate::contract::layout::default_layout(),
             ))
             .unwrap();
-        assert_eq!(takedown(&app, &rid(ROOM)).unwrap().live, false);
+        assert!(!takedown(&app, &rid(ROOM)).unwrap().live);
         assert!(app.store().rooms().list_rooms().unwrap().is_empty());
     }
 
