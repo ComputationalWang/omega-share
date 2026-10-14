@@ -40,10 +40,21 @@ impl Server {
     /// The port the `metrics on http://127.0.0.1:<port>/metrics (loopback only)` line names.
     fn metrics_port(&self) -> u16 {
         let line = self.lines.iter().find(|l| l.starts_with("metrics on ")).unwrap();
-        line.trim_start_matches("metrics on http://127.0.0.1:").split('/').next().unwrap().parse().unwrap()
+        line.trim_start_matches("metrics on http://127.0.0.1:")
+            .split('/')
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap()
     }
     fn terminate(&mut self, signal: &str) -> std::process::ExitStatus {
-        assert!(Command::new("kill").args([&format!("-{signal}"), &self.child.id().to_string()]).status().unwrap().success());
+        assert!(
+            Command::new("kill")
+                .args([&format!("-{signal}"), &self.child.id().to_string()])
+                .status()
+                .unwrap()
+                .success()
+        );
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
             if let Some(status) = self.child.try_wait().unwrap() {
@@ -89,7 +100,10 @@ fn start(extra: &[(&str, &str)]) -> Server {
     let metrics_off = extra.iter().any(|(k, v)| *k == "METRICS_PORT" && *v == "off");
     let mut lines: Vec<String> = Vec::new();
     // The metrics line is the last one printed; without metrics, the server line is.
-    while !lines.iter().any(|l| l.starts_with(if metrics_off { "omega-share server on " } else { "metrics on " })) {
+    while !lines
+        .iter()
+        .any(|l| l.starts_with(if metrics_off { "omega-share server on " } else { "metrics on " }))
+    {
         match rx.recv_timeout(Duration::from_secs(10)) {
             Ok(line) => lines.push(line),
             Err(_) => {
@@ -102,7 +116,12 @@ fn start(extra: &[(&str, &str)]) -> Server {
 }
 
 fn cli(args: &[&str], socket: &Path) -> std::process::Output {
-    Command::new(BIN).arg("admin").args(args).env("ADMIN_SOCKET", socket).output().unwrap()
+    Command::new(BIN)
+        .arg("admin")
+        .args(args)
+        .env("ADMIN_SOCKET", socket)
+        .output()
+        .unwrap()
 }
 
 fn text(out: &[u8]) -> String {
@@ -113,8 +132,17 @@ fn text(out: &[u8]) -> String {
 #[test]
 fn startup_says_where_the_cli_socket_and_the_metrics_are_before_and_after_the_server_line() {
     let server = start(&[]);
-    let at = |prefix: &str| server.lines.iter().position(|l| l.starts_with(prefix)).unwrap_or_else(|| panic!("{prefix}: {:?}", server.lines));
-    assert_eq!(server.lines[at("operator CLI socket at ")], format!("operator CLI socket at {}", server.socket().display()));
+    let at = |prefix: &str| {
+        server
+            .lines
+            .iter()
+            .position(|l| l.starts_with(prefix))
+            .unwrap_or_else(|| panic!("{prefix}: {:?}", server.lines))
+    };
+    assert_eq!(
+        server.lines[at("operator CLI socket at ")],
+        format!("operator CLI socket at {}", server.socket().display())
+    );
     assert!(at("operator CLI socket at ") < at("omega-share server on "));
     assert!(at("omega-share server on ") < at("metrics on "));
     assert!(server.lines[at("metrics on ")].ends_with("/metrics (loopback only)"));
@@ -131,7 +159,10 @@ fn the_admin_socket_is_owner_only_and_the_cli_reaches_the_running_server() {
     let mut lines = stdout.lines();
     assert_eq!(lines.next(), Some("id\ttitle\tvisibility\tcreated\tlast active\tpinned\tmembers"));
     let lobby = lines.next().unwrap();
-    assert!(lobby.starts_with("lobby\t-\tpublic\t") && lobby.ends_with("\tnever\tyes\t0"), "{lobby}");
+    assert!(
+        lobby.starts_with("lobby\t-\tpublic\t") && lobby.ends_with("\tnever\tyes\t0"),
+        "{lobby}"
+    );
     // The same room, taken down over the socket: it is gone from the list and the reports are empty.
     let out = cli(&["reports", "list"], &server.socket());
     assert_eq!((out.status.code(), text(&out.stdout)), (Some(0), "no open reports\n".to_owned()));
@@ -151,10 +182,21 @@ fn the_cli_exits_2_on_usage_and_1_without_a_server() {
     assert!(text(&out.stderr).starts_with("usage: omega-server admin rooms list | rooms delete <id>"));
     let out = cli(&["rooms", "list"], &socket);
     assert_eq!(out.status.code(), Some(1));
-    assert!(text(&out.stderr).starts_with(&format!("no server on {}: ", socket.display())), "{}", text(&out.stderr));
-    let out = Command::new(BIN).args(["admin", "rooms", "list"]).env("ADMIN_SOCKET", "off").output().unwrap();
+    assert!(
+        text(&out.stderr).starts_with(&format!("no server on {}: ", socket.display())),
+        "{}",
+        text(&out.stderr)
+    );
+    let out = Command::new(BIN)
+        .args(["admin", "rooms", "list"])
+        .env("ADMIN_SOCKET", "off")
+        .output()
+        .unwrap();
     assert_eq!(out.status.code(), Some(1));
-    assert_eq!(text(&out.stderr), "the admin socket is off (ADMIN_SOCKET=off or DB_PATH=:memory:)\n");
+    assert_eq!(
+        text(&out.stderr),
+        "the admin socket is off (ADMIN_SOCKET=off or DB_PATH=:memory:)\n"
+    );
 }
 
 // apps/server/src/index.ts:47: the CLI is optional, the site matters more
@@ -164,7 +206,11 @@ fn a_path_that_is_not_a_socket_leaves_the_server_serving_without_a_cli_and_the_f
     let in_the_way = dir.path().join("taken");
     std::fs::write(&in_the_way, "not a socket").unwrap();
     let mut server = start(&[("ADMIN_SOCKET", in_the_way.to_str().unwrap())]);
-    assert!(!server.lines.iter().any(|l| l.starts_with("operator CLI socket")), "{:?}", server.lines);
+    assert!(
+        !server.lines.iter().any(|l| l.starts_with("operator CLI socket")),
+        "{:?}",
+        server.lines
+    );
     assert_eq!(std::fs::read_to_string(&in_the_way).unwrap(), "not a socket");
     let status = server.terminate("TERM");
     assert_eq!(status.code(), Some(0));
@@ -209,10 +255,16 @@ fn sigterm_and_sigint_exit_zero_quietly_remove_the_socket_and_checkpoint_the_wal
         assert_eq!(server.stderr(), "", "SIG{signal}");
         assert!(!server.socket().exists(), "the admin socket is removed");
         let wal = PathBuf::from(format!("{}-wal", server.db().display()));
-        assert_eq!(std::fs::metadata(&wal).map_or(0, |m| m.len()), 0, "the WAL is checkpointed and truncated");
+        assert_eq!(
+            std::fs::metadata(&wal).map_or(0, |m| m.len()),
+            0,
+            "the WAL is checkpointed and truncated"
+        );
         // The database is whole: the lobby is in the file.
         let conn = rusqlite::Connection::open_with_flags(server.db(), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
-        let rooms: i64 = conn.query_row("SELECT count(*) FROM rooms WHERE id = 'lobby'", [], |r| r.get(0)).unwrap();
+        let rooms: i64 = conn
+            .query_row("SELECT count(*) FROM rooms WHERE id = 'lobby'", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(rooms, 1);
     }
 }
@@ -222,7 +274,13 @@ fn sigterm_and_sigint_exit_zero_quietly_remove_the_socket_and_checkpoint_the_wal
 fn a_second_signal_is_ignored_while_shutting_down() {
     let mut server = start(&[]);
     let line = server.lines.iter().find(|l| l.starts_with("omega-share server on ")).unwrap();
-    let addr = line.split_whitespace().nth(3).unwrap().trim_start_matches("http://").trim_end_matches('/').to_owned();
+    let addr = line
+        .split_whitespace()
+        .nth(3)
+        .unwrap()
+        .trim_start_matches("http://")
+        .trim_end_matches('/')
+        .to_owned();
     // A stalled request keeps the drain open for its grace period: the window for the second signal.
     let mut stalled = TcpStream::connect(&addr).unwrap();
     write!(stalled, "GET / HTTP/1.1\r\nHost: {addr}\r\nX-A: ").unwrap();
@@ -255,18 +313,32 @@ fn backup_runs_as_a_subcommand_with_the_ts_lines_and_exit_codes() {
     let mut server = start(&[("DB_PATH", db.to_str().unwrap()), ("ADMIN_SOCKET", "off"), ("METRICS_PORT", "off")]);
     assert_eq!(server.terminate("TERM").code(), Some(0));
     let backups = dir.path().join("backups");
-    let run = |args: &[&str]| Command::new(BIN).arg("backup").args(args).env("DB_PATH", &db).env("BACKUP_DIR", &backups).output().unwrap();
+    let run = |args: &[&str]| {
+        Command::new(BIN)
+            .arg("backup")
+            .args(args)
+            .env("DB_PATH", &db)
+            .env("BACKUP_DIR", &backups)
+            .output()
+            .unwrap()
+    };
     let out = run(&["snapshot"]);
     assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
     let line = text(&out.stdout);
-    assert!(line.starts_with(&format!("snapshot {}/omega-", backups.display())) && line.trim_end().ends_with(".db"), "{line}");
+    assert!(
+        line.starts_with(&format!("snapshot {}/omega-", backups.display())) && line.trim_end().ends_with(".db"),
+        "{line}"
+    );
     let snap = line.trim_end().trim_start_matches("snapshot ").to_owned();
     assert_eq!(std::fs::metadata(&snap).unwrap().permissions().mode() & 0o777, 0o600);
     let out = run(&["verify", &snap]);
     assert_eq!(text(&out.stdout), format!("ok {snap}: 1 rooms\n"));
     let out = run(&["bogus"]);
     assert_eq!(out.status.code(), Some(2));
-    assert_eq!(text(&out.stderr), "usage: omega-server backup snapshot | verify <file> | restore <file> | prune   (env: DB_PATH, BACKUP_DIR)\n");
+    assert_eq!(
+        text(&out.stderr),
+        "usage: omega-server backup snapshot | verify <file> | restore <file> | prune   (env: DB_PATH, BACKUP_DIR)\n"
+    );
     let bad = dir.path().join("omega-2026-10-08.db");
     std::fs::write(&bad, "garbage").unwrap();
     let out = run(&["restore", bad.to_str().unwrap()]);

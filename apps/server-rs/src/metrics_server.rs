@@ -24,7 +24,9 @@ pub struct Answer {
 
 /// `process.memoryUsage.rss()`: the resident set from `/proc/self/status` (`VmRSS`, in kB); 0 where it is not readable.
 fn rss_bytes() -> f64 {
-    let Ok(status) = std::fs::read_to_string("/proc/self/status") else { return 0.0 };
+    let Ok(status) = std::fs::read_to_string("/proc/self/status") else {
+        return 0.0;
+    };
     let kb = status
         .lines()
         .find_map(|l| l.strip_prefix("VmRSS:"))
@@ -80,7 +82,10 @@ pub fn respond(app: &App, port: u16, method: &str, host: Option<&str>, path: &st
     }
     Answer {
         status: 200,
-        headers: vec![("content-type", "text/plain; version=0.0.4; charset=utf-8"), ("cache-control", "no-store")],
+        headers: vec![
+            ("content-type", "text/plain; version=0.0.4; charset=utf-8"),
+            ("cache-control", "no-store"),
+        ],
         body: render(app),
     }
 }
@@ -104,9 +109,15 @@ impl MetricsServer {
 async fn scrape(State((app, port)): State<(Arc<App>, u16)>, method: Method, headers: HeaderMap, uri: Uri) -> Response {
     let host = headers.get(header::HOST).and_then(|h| h.to_str().ok());
     let answer = respond(&app, port, method.as_str(), host, uri.path());
-    let mut response = (StatusCode::from_u16(answer.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR), answer.body).into_response();
+    let mut response = (
+        StatusCode::from_u16(answer.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+        answer.body,
+    )
+        .into_response();
     for (name, value) in answer.headers {
-        response.headers_mut().insert(HeaderName::from_static(name), HeaderValue::from_static(value));
+        response
+            .headers_mut()
+            .insert(HeaderName::from_static(name), HeaderValue::from_static(value));
     }
     response
 }
@@ -139,8 +150,11 @@ mod tests {
     const TITLE: &str = "Very Private Title";
 
     fn sample(text: &str, name: &str) -> f64 {
-        let line = text.lines().find(|l| l.starts_with(&format!("{name} "))).unwrap_or_else(|| panic!("no sample {name}"));
-        line[name.len() + 1..].parse().unwrap()
+        let line = text
+            .lines()
+            .find(|l| l.starts_with(&format!("{name} ")))
+            .unwrap_or_else(|| panic!("no sample {name}"));
+        line.get(name.len() + 1..).unwrap().parse().unwrap()
     }
 
     // apps/server/test/metrics.test.ts:50
@@ -184,7 +198,12 @@ mod tests {
         for (cell, id, name) in [(&a, "m1", NICK), (&b, "m2", "other-nick")] {
             cell.lock()
                 .room
-                .join_with_id(crate::contract::ids::MemberId::parse(id).unwrap(), &Nickname::parse(name).unwrap(), Avatar::new(0).unwrap(), None)
+                .join_with_id(
+                    crate::contract::ids::MemberId::parse(id).unwrap(),
+                    &Nickname::parse(name).unwrap(),
+                    Avatar::new(0).unwrap(),
+                    None,
+                )
                 .unwrap();
         }
         app.metrics.observe_relay(0.2);
@@ -210,7 +229,10 @@ mod tests {
         app.metrics.count_close(4029);
         app.remove_room(&rid(ROOM), RemoveReason::Closed);
         let after = render(&app);
-        assert!(after.contains("omega_ws_closes_total{code=\"4029\"} 1\n") && after.contains("omega_ws_closes_total{code=\"4004\"} 1\n"), "{after}");
+        assert!(
+            after.contains("omega_ws_closes_total{code=\"4029\"} 1\n") && after.contains("omega_ws_closes_total{code=\"4004\"} 1\n"),
+            "{after}"
+        );
     }
 
     // apps/server/test/metrics.test.ts:102
@@ -224,7 +246,12 @@ mod tests {
         let cell = add_room(&app, ROOM, init);
         cell.lock()
             .room
-            .join_with_id(crate::contract::ids::MemberId::parse("m1").unwrap(), &Nickname::parse(NICK).unwrap(), Avatar::new(0).unwrap(), None)
+            .join_with_id(
+                crate::contract::ids::MemberId::parse("m1").unwrap(),
+                &Nickname::parse(NICK).unwrap(),
+                Avatar::new(0).unwrap(),
+                None,
+            )
             .unwrap();
         let text = render(&app);
         for secret in [NICK, ROOM, TITLE, "lobby", "127.0.0.1", "203.0.113.9", "::1"] {
@@ -236,7 +263,10 @@ mod tests {
             if let Some(rest) = line.strip_prefix("# ") {
                 let mut parts = rest.splitn(3, ' ');
                 assert!(matches!(parts.next(), Some("HELP" | "TYPE")), "{line}");
-                assert!(parts.next().is_some_and(|n| n.bytes().all(|b| b.is_ascii_lowercase() || b == b'_')), "{line}");
+                assert!(
+                    parts.next().is_some_and(|n| n.bytes().all(|b| b.is_ascii_lowercase() || b == b'_')),
+                    "{line}"
+                );
                 assert!(parts.next().is_some_and(|t| !t.is_empty()), "{line}");
                 continue;
             }
@@ -250,7 +280,16 @@ mod tests {
                 let value = value.trim_matches('"');
                 let known = match key {
                     "le" | "code" => value == "+Inf" || value.parse::<f64>().is_ok(),
-                    "outcome" => ["received", "already_reported", "invalid_body", "payload_too_large", "room_not_found", "rate_limited", "unavailable"].contains(&value),
+                    "outcome" => [
+                        "received",
+                        "already_reported",
+                        "invalid_body",
+                        "payload_too_large",
+                        "room_not_found",
+                        "rate_limited",
+                        "unavailable",
+                    ]
+                    .contains(&value),
                     "reason" => ["sexual", "violence", "hate", "spam", "danger", "other"].contains(&value),
                     _ => false,
                 };
@@ -277,12 +316,31 @@ mod tests {
         let port = server.port();
         let ok = get(addr, &format!("127.0.0.1:{port}"), "GET", "/metrics").await;
         assert!(ok.starts_with("HTTP/1.1 200"), "{ok}");
-        assert!(ok.to_lowercase().contains("content-type: text/plain; version=0.0.4; charset=utf-8"), "{ok}");
+        assert!(
+            ok.to_lowercase().contains("content-type: text/plain; version=0.0.4; charset=utf-8"),
+            "{ok}"
+        );
         assert!(ok.contains("omega_rooms 0"), "{ok}");
-        assert!(get(addr, &format!("localhost:{port}"), "GET", "/metrics").await.starts_with("HTTP/1.1 200"));
-        assert!(get(addr, "omega-share.duckdns.org", "GET", "/metrics").await.starts_with("HTTP/1.1 421"));
-        assert!(get(addr, &format!("127.0.0.1:{port}"), "GET", "/").await.starts_with("HTTP/1.1 404"));
-        assert!(get(addr, &format!("127.0.0.1:{port}"), "POST", "/metrics").await.starts_with("HTTP/1.1 405"));
+        assert!(
+            get(addr, &format!("localhost:{port}"), "GET", "/metrics")
+                .await
+                .starts_with("HTTP/1.1 200")
+        );
+        assert!(
+            get(addr, "omega-share.duckdns.org", "GET", "/metrics")
+                .await
+                .starts_with("HTTP/1.1 421")
+        );
+        assert!(
+            get(addr, &format!("127.0.0.1:{port}"), "GET", "/")
+                .await
+                .starts_with("HTTP/1.1 404")
+        );
+        assert!(
+            get(addr, &format!("127.0.0.1:{port}"), "POST", "/metrics")
+                .await
+                .starts_with("HTTP/1.1 405")
+        );
         server.stop();
     }
 }

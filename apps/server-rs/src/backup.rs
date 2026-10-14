@@ -60,7 +60,9 @@ fn remove_if_exists(path: &Path) -> Result<(), String> {
 
 /// `dirname`: `.` for a bare file name.
 fn dir_of(path: &Path) -> PathBuf {
-    path.parent().filter(|p| !p.as_os_str().is_empty()).map_or_else(|| PathBuf::from("."), Path::to_path_buf)
+    path.parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .map_or_else(|| PathBuf::from("."), Path::to_path_buf)
 }
 
 /// The directory exists and is 0700 (not chmod-ed through a symlink: a linked backup dir is the operator's choice,
@@ -71,7 +73,11 @@ fn ensure_private_dir(dir: &Path) -> Result<(), String> {
     if !linked {
         fs::set_permissions(dir, fs::Permissions::from_mode(0o700)).map_err(ioerr)?;
     }
-    if fs::metadata(dir).map_err(ioerr)?.is_dir() { Ok(()) } else { Err(format!("{} is not a directory", dir.display())) }
+    if fs::metadata(dir).map_err(ioerr)?.is_dir() {
+        Ok(())
+    } else {
+        Err(format!("{} is not a directory", dir.display()))
+    }
 }
 
 fn has_magic(path: &Path) -> Result<bool, String> {
@@ -98,9 +104,16 @@ fn check(path: &Path) -> Result<usize, String> {
         .map_err(sqlerr)?;
     let problems: Vec<&str> = integrity.iter().map(String::as_str).filter(|m| *m != "ok").collect();
     if !problems.is_empty() || integrity.is_empty() {
-        return Err(format!("integrity_check: {}", problems.iter().take(3).copied().collect::<Vec<_>>().join("; ")));
+        return Err(format!(
+            "integrity_check: {}",
+            problems.iter().take(3).copied().collect::<Vec<_>>().join("; ")
+        ));
     }
-    if conn.prepare("PRAGMA foreign_key_check").and_then(|mut s| s.exists([])).map_err(sqlerr)? {
+    if conn
+        .prepare("PRAGMA foreign_key_check")
+        .and_then(|mut s| s.exists([]))
+        .map_err(sqlerr)?
+    {
         return Err("foreign_key_check failed".to_owned());
     }
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).map_err(sqlerr)?;
@@ -109,7 +122,10 @@ fn check(path: &Path) -> Result<usize, String> {
         return Err(format!("schema version {version}, this server knows 1\u{2013}{latest}"));
     }
     conn.query_row("PRAGMA journal_mode = DELETE", [], |_| Ok(())).map_err(sqlerr)?;
-    RoomStore::new(&conn).list_rooms().map(|rooms| rooms.len()).map_err(|e| e.to_string())
+    RoomStore::new(&conn)
+        .list_rooms()
+        .map(|rooms| rooms.len())
+        .map_err(|e| e.to_string())
 }
 
 /// A new private scratch directory under the system temp dir.
@@ -125,7 +141,12 @@ fn scratch_dir() -> Result<PathBuf, String> {
 /// Copies `from` to a new file `to` (exclusively created, 0600), never into an existing path or through a link.
 fn copy_new(from: &Path, to: &Path) -> Result<(), String> {
     let mut src = File::open(from).map_err(ioerr)?;
-    let mut dst = OpenOptions::new().write(true).create_new(true).mode(0o600).open(to).map_err(ioerr)?;
+    let mut dst = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(to)
+        .map_err(ioerr)?;
     io::copy(&mut src, &mut dst).map_err(ioerr)?;
     dst.sync_all().map_err(ioerr)
 }
@@ -142,7 +163,14 @@ pub fn verify_snapshot(path: &Path) -> Result<usize, String> {
 fn is_snapshot(name: &str) -> bool {
     let b = name.as_bytes();
     let digits = |from: usize, to: usize| b.get(from..to).is_some_and(|d| d.iter().all(u8::is_ascii_digit));
-    name.len() == 19 && name.starts_with("omega-") && digits(6, 10) && b.get(10) == Some(&b'-') && digits(11, 13) && b.get(13) == Some(&b'-') && digits(14, 16) && name.ends_with(".db")
+    name.len() == 19
+        && name.starts_with("omega-")
+        && digits(6, 10)
+        && b.get(10) == Some(&b'-')
+        && digits(11, 13)
+        && b.get(13) == Some(&b'-')
+        && digits(14, 16)
+        && name.ends_with(".db")
 }
 
 /// `.omega-YYYY-MM-DD.db.tmp`.
@@ -190,9 +218,11 @@ pub fn prune(dir: &Path, keep: usize, now_ms: i64) -> Result<Vec<PathBuf>, Strin
 /// and renames it to `final_path`.
 fn build(db_path: &Path, tmp: &Path, final_path: &Path) -> Result<(), String> {
     {
-        let src = Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(sqlerr)?;
+        let src =
+            Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(sqlerr)?;
         src.busy_timeout(Duration::from_millis(5000)).map_err(sqlerr)?;
-        let mut dst = Connection::open_with_flags(tmp, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(sqlerr)?;
+        let mut dst =
+            Connection::open_with_flags(tmp, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(sqlerr)?;
         // -1 pages per step: the whole copy in one step, one consistent point in time.
         let backup = Backup::new(&src, &mut dst).map_err(sqlerr)?;
         // A source locked by a writer is retried for up to 30 s, as the busy timeout would.
@@ -224,7 +254,12 @@ pub fn snapshot(db_path: &Path, dir: &Path, now_ms: i64) -> Result<PathBuf, Stri
     let tmp = dir.join(format!(".{name}.tmp"));
     // A planted link at the temp name is unlinked, not written through; the exclusive create below never follows one.
     remove_if_exists(&tmp)?;
-    OpenOptions::new().write(true).create_new(true).mode(0o600).open(&tmp).map_err(ioerr)?;
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&tmp)
+        .map_err(ioerr)?;
     let built = build(db_path, &tmp, &final_path);
     // Gone after a good rename; otherwise a full-size copy no later night would reuse.
     for suffix in ["", "-wal", "-shm", "-journal"] {
@@ -242,8 +277,14 @@ pub fn snapshot(db_path: &Path, dir: &Path, now_ms: i64) -> Result<PathBuf, Stri
 fn checkpoint(db_path: &Path) -> Result<(), String> {
     let conn = Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(sqlerr)?;
     conn.busy_timeout(Duration::ZERO).map_err(sqlerr)?;
-    let busy: i64 = conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |r| r.get(0)).map_err(sqlerr)?;
-    if busy == 0 { Ok(()) } else { Err(format!("{} is busy: stop the server first", db_path.display())) }
+    let busy: i64 = conn
+        .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |r| r.get(0))
+        .map_err(sqlerr)?;
+    if busy == 0 {
+        Ok(())
+    } else {
+        Err(format!("{} is busy: stop the server first", db_path.display()))
+    }
 }
 
 /// A hard link where the filesystem allows one (instant, no space), else a full copy.
@@ -272,7 +313,12 @@ pub fn restore(snapshot_path: &Path, db_path: &Path, now_ms: i64) -> Result<Rest
     ensure_private_dir(&dir)?;
     let base = db_path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
     let tmp = dir.join(format!(".{base}.restore-tmp"));
-    let tmp_files = [tmp.clone(), PathBuf::from(format!("{}-journal", tmp.display())), PathBuf::from(format!("{}-wal", tmp.display())), PathBuf::from(format!("{}-shm", tmp.display()))];
+    let tmp_files = [
+        tmp.clone(),
+        PathBuf::from(format!("{}-journal", tmp.display())),
+        PathBuf::from(format!("{}-wal", tmp.display())),
+        PathBuf::from(format!("{}-shm", tmp.display())),
+    ];
     for f in &tmp_files {
         remove_if_exists(f)?;
     }
@@ -336,7 +382,10 @@ pub fn run_backup(args: &[String], env: &Env, now_ms: i64, out: &mut dyn FnMut(&
     }
     let done: Result<(), String> = (|| {
         match (cmd, file) {
-            (Some("snapshot"), _) => out(&format!("snapshot {}", snapshot(Path::new(db_path), Path::new(backup_dir), now_ms)?.display())),
+            (Some("snapshot"), _) => out(&format!(
+                "snapshot {}",
+                snapshot(Path::new(db_path), Path::new(backup_dir), now_ms)?.display()
+            )),
             (Some("prune"), _) => {
                 for f in prune(Path::new(backup_dir), KEEP, now_ms)? {
                     out(&format!("pruned {}", f.display()));
@@ -368,8 +417,8 @@ pub fn run_backup(args: &[String], env: &Env, now_ms: i64, out: &mut dyn FnMut(&
 mod tests {
     use super::*;
     use crate::contract::layout::default_layout;
-    use crate::store::{NewRoom, open_database};
     use crate::store::RoomStore;
+    use crate::store::{NewRoom, open_database};
     use sha2::{Digest, Sha256};
     use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
     use std::time::{Duration, SystemTime};
@@ -396,7 +445,10 @@ mod tests {
     }
 
     fn sorted_names(dir: &Path) -> Vec<String> {
-        let mut v: Vec<String> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+        let mut v: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
         v.sort();
         v
     }
@@ -414,7 +466,9 @@ mod tests {
         store.create_room(&NewRoom::seed(rid("lobby"), None, 1, default_layout())).unwrap();
         store.create_room(&NewRoom::seed(rid("den"), None, 2, default_layout())).unwrap();
         for i in 0..extra {
-            store.create_room(&NewRoom::seed(rid(&format!("seed-{i}")), None, 3, default_layout())).unwrap();
+            store
+                .create_room(&NewRoom::seed(rid(&format!("seed-{i}")), None, 3, default_layout()))
+                .unwrap();
         }
         conn.execute_batch("COMMIT").unwrap();
         conn.query_row("PRAGMA journal_mode = DELETE", [], |_| Ok(())).unwrap();
@@ -423,7 +477,12 @@ mod tests {
     /// Room ids without migrating or switching the file's journal mode.
     fn rooms(path: &Path) -> Vec<String> {
         let conn = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
-        RoomStore::new(&conn).list_rooms().unwrap().into_iter().map(|r| r.id.as_str().to_owned()).collect()
+        RoomStore::new(&conn)
+            .list_rooms()
+            .unwrap()
+            .into_iter()
+            .map(|r| r.id.as_str().to_owned())
+            .collect()
     }
 
     fn args(parts: &[&str]) -> Vec<String> {
@@ -455,7 +514,9 @@ mod tests {
         let out = t.path().join("backups");
         snapshot(&live, &out, NIGHT).unwrap();
         let conn = open_database(live.to_str().unwrap()).unwrap();
-        RoomStore::new(&conn).create_room(&NewRoom::seed(rid("late"), None, 9, default_layout())).unwrap();
+        RoomStore::new(&conn)
+            .create_room(&NewRoom::seed(rid("late"), None, 9, default_layout()))
+            .unwrap();
         drop(conn);
         let path = snapshot(&live, &out, NIGHT + 20 * HOUR).unwrap();
         assert_eq!(verify_snapshot(&path).unwrap(), 3);
@@ -482,7 +543,9 @@ mod tests {
                     conn.execute_batch("BEGIN").unwrap();
                     let store = RoomStore::new(&conn);
                     for suffix in ["a", "b"] {
-                        store.create_room(&NewRoom::seed(rid(&format!("w-{i}{suffix}")), None, 5, default_layout())).unwrap();
+                        store
+                            .create_room(&NewRoom::seed(rid(&format!("w-{i}{suffix}")), None, 5, default_layout()))
+                            .unwrap();
                     }
                     conn.execute_batch("COMMIT").unwrap();
                     if i == 0 {
@@ -534,7 +597,12 @@ mod tests {
         let stale = out.join(".omega-2026-10-06.db.tmp");
         std::fs::write(&stale, "x".repeat(4096)).unwrap();
         let old = SystemTime::UNIX_EPOCH + Duration::from_millis(u64::try_from(NIGHT - 2 * DAY).unwrap());
-        std::fs::File::options().write(true).open(&stale).unwrap().set_modified(old).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&stale)
+            .unwrap()
+            .set_modified(old)
+            .unwrap();
         snapshot(&live, &out, NIGHT).unwrap();
         assert_eq!(sorted_names(&out), ["omega-2026-10-08.db"]);
     }
@@ -583,9 +651,19 @@ mod tests {
         std::fs::write(out.join(".other.tmp"), "not ours").unwrap();
         let now = NIGHT;
         let old = SystemTime::UNIX_EPOCH + Duration::from_millis(u64::try_from(now - 2 * DAY).unwrap());
-        std::fs::File::options().write(true).open(&stale).unwrap().set_modified(old).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&stale)
+            .unwrap()
+            .set_modified(old)
+            .unwrap();
         let fresh = SystemTime::UNIX_EPOCH + Duration::from_millis(u64::try_from(now - 1000).unwrap());
-        std::fs::File::options().write(true).open(out.join(".omega-2026-09-02.db.tmp")).unwrap().set_modified(fresh).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(out.join(".omega-2026-09-02.db.tmp"))
+            .unwrap()
+            .set_modified(fresh)
+            .unwrap();
         assert_eq!(prune(out, KEEP, now).unwrap(), [stale]);
         assert_eq!(sorted_names(out), [".omega-2026-09-02.db.tmp", ".other.tmp"]);
     }
@@ -615,7 +693,8 @@ mod tests {
             }
             "a forged layout" => {
                 let conn = rusqlite::Connection::open(snap).unwrap();
-                conn.execute("UPDATE rooms SET layout = ? WHERE id = 'den'", [r#"{"furniture":[]}"#]).unwrap();
+                conn.execute("UPDATE rooms SET layout = ? WHERE id = 'den'", [r#"{"furniture":[]}"#])
+                    .unwrap();
             }
             "an empty database" => {
                 std::fs::remove_file(snap).unwrap();
@@ -628,7 +707,13 @@ mod tests {
     // apps/server/test/backup.test.ts:204
     #[test]
     fn restore_refuses_a_bad_snapshot_and_leaves_db_path_untouched() {
-        for kind in ["not a database", "truncated", "a damaged page", "a forged layout", "an empty database"] {
+        for kind in [
+            "not a database",
+            "truncated",
+            "a damaged page",
+            "a forged layout",
+            "an empty database",
+        ] {
             let t = tempfile::tempdir().unwrap();
             let src = t.path().join("src/omega.db");
             seed(&src, 400);
@@ -657,7 +742,9 @@ mod tests {
         let scratch = t.path().join("scratch/omega.db");
         seed(&scratch, 0);
         let open = open_database(scratch.to_str().unwrap()).unwrap();
-        RoomStore::new(&open).create_room(&NewRoom::seed(rid("beta"), None, 9, default_layout())).unwrap();
+        RoomStore::new(&open)
+            .create_room(&NewRoom::seed(rid("beta"), None, 9, default_layout()))
+            .unwrap();
         let live = t.path().join("crashed/omega.db");
         std::fs::DirBuilder::new().mode(0o700).create(live.parent().unwrap()).unwrap();
         std::fs::copy(&scratch, &live).unwrap();
@@ -686,13 +773,18 @@ mod tests {
         let live = t.path().join("live/omega.db");
         seed(&live, 0);
         let server = open_database(live.to_str().unwrap()).unwrap();
-        RoomStore::new(&server).create_room(&NewRoom::seed(rid("beta"), None, 9, default_layout())).unwrap();
+        RoomStore::new(&server)
+            .create_room(&NewRoom::seed(rid("beta"), None, 9, default_layout()))
+            .unwrap();
         server.execute_batch("BEGIN").unwrap();
         server.query_row("SELECT count(*) FROM rooms", [], |_| Ok(())).unwrap();
         let err = restore(&snap, &live, NIGHT).unwrap_err();
         assert!(err.contains("busy"), "{err}");
         server.execute_batch("COMMIT").unwrap();
-        let leftovers: Vec<String> = sorted_names(live.parent().unwrap()).into_iter().filter(|f| f.contains("pre-restore") || f.contains("restore-tmp")).collect();
+        let leftovers: Vec<String> = sorted_names(live.parent().unwrap())
+            .into_iter()
+            .filter(|f| f.contains("pre-restore") || f.contains("restore-tmp"))
+            .collect();
         assert_eq!(leftovers, Vec::<String>::new());
         assert_eq!(rooms(&live), ["lobby", "den", "beta"]);
     }
@@ -717,7 +809,9 @@ mod tests {
         let run = |parts: &[&str], env: &[(&str, &str)]| {
             let env: Env = env.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect();
             let (mut out, mut err) = (Vec::new(), Vec::new());
-            let code = run_backup(&args(parts), &env, NIGHT, &mut |l| out.push(l.to_owned()), &mut |l| err.push(l.to_owned()));
+            let code = run_backup(&args(parts), &env, NIGHT, &mut |l| out.push(l.to_owned()), &mut |l| {
+                err.push(l.to_owned())
+            });
             (code, out, err)
         };
         let usage_line = vec![usage().to_owned()];
@@ -728,7 +822,10 @@ mod tests {
         assert_eq!(run(&["verify"], &[]), (2, vec![], usage_line.clone()));
         assert_eq!(run(&["prune", "extra"], &[]), (2, vec![], usage_line.clone()));
         assert_eq!(run(&["snapshot", "file"], &[("DB_PATH", "/x.db")]), (2, vec![], usage_line));
-        assert_eq!(usage(), "usage: omega-server backup snapshot | verify <file> | restore <file> | prune   (env: DB_PATH, BACKUP_DIR)");
+        assert_eq!(
+            usage(),
+            "usage: omega-server backup snapshot | verify <file> | restore <file> | prune   (env: DB_PATH, BACKUP_DIR)"
+        );
     }
 
     // apps/server/test/backup.test.ts:317, apps/server/scripts/backup.ts:main
@@ -745,15 +842,23 @@ mod tests {
         .into();
         let run = |parts: &[&str]| {
             let (mut out, mut err) = (Vec::new(), Vec::new());
-            let code = run_backup(&args(parts), &env, NIGHT, &mut |l| out.push(l.to_owned()), &mut |l| err.push(l.to_owned()));
+            let code = run_backup(&args(parts), &env, NIGHT, &mut |l| out.push(l.to_owned()), &mut |l| {
+                err.push(l.to_owned())
+            });
             (code, out, err)
         };
         let snap = backups.join("omega-2026-10-08.db");
         assert_eq!(run(&["snapshot"]), (0, vec![format!("snapshot {}", snap.display())], vec![]));
-        assert_eq!(run(&["verify", snap.to_str().unwrap()]), (0, vec![format!("ok {}: 2 rooms", snap.display())], vec![]));
+        assert_eq!(
+            run(&["verify", snap.to_str().unwrap()]),
+            (0, vec![format!("ok {}: 2 rooms", snap.display())], vec![])
+        );
         let (code, out, _) = run(&["restore", snap.to_str().unwrap()]);
         assert_eq!(code, 0);
-        assert!(out[0].starts_with(&format!("restored {} \u{2192} {}: 2 rooms", snap.display(), live.display())), "{out:?}");
+        assert!(
+            out[0].starts_with(&format!("restored {} \u{2192} {}: 2 rooms", snap.display(), live.display())),
+            "{out:?}"
+        );
         assert!(out[1].starts_with("previous database kept at "), "{out:?}");
         assert_eq!(run(&["prune"]), (0, vec![], vec![]));
         let bad = t.path().join("omega-2026-10-08.db");

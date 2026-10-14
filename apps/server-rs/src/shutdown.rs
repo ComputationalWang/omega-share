@@ -62,12 +62,20 @@ mod tests {
         let mut receivers = Vec::new();
         for room in ["lobby", "other", "lobby"] {
             let (outbox, rx) = channel();
-            app.registry.get(&rid(room)).unwrap().lock().attach_socket(ConnId::next(), outbox).unwrap();
+            app.registry
+                .get(&rid(room))
+                .unwrap()
+                .lock()
+                .attach_socket(ConnId::next(), outbox)
+                .unwrap();
             receivers.push(rx);
         }
         let holds = drain_sockets(&app);
         for rx in &mut receivers {
-            assert!(matches!(rx.try_recv(), Some(Outbound::Close(1012, _))), "closed with SERVICE_RESTART");
+            assert!(
+                matches!(rx.try_recv(), Some(Outbound::Close(1012, _))),
+                "closed with SERVICE_RESTART"
+            );
         }
         let mut seats: Vec<(String, u8)> = holds.iter().map(|h| (h.room_id.as_str().to_owned(), h.seat.get())).collect();
         seats.sort();
@@ -94,7 +102,12 @@ mod tests {
         for id in ["lobby", "gone"] {
             app.store()
                 .rooms()
-                .create_room(&crate::store::NewRoom::seed(rid(id), None, T0, crate::contract::layout::default_layout()))
+                .create_room(&crate::store::NewRoom::seed(
+                    rid(id),
+                    None,
+                    T0,
+                    crate::contract::layout::default_layout(),
+                ))
                 .unwrap();
         }
         let hold = |room: &str, byte: u8, seat: u64| SeatHold {
@@ -103,13 +116,23 @@ mod tests {
             seat: SeatIndex::new(seat).unwrap(),
         };
         let holds = [hold("lobby", 1, 0), hold("gone", 2, 4)];
-        assert!(std::fs::metadata(dir.path().join("omega.db-wal")).unwrap().len() > 0, "rows still in the WAL");
+        assert!(
+            std::fs::metadata(dir.path().join("omega.db-wal")).unwrap().len() > 0,
+            "rows still in the WAL"
+        );
         finish(&app, &holds).unwrap();
-        assert_eq!(std::fs::metadata(dir.path().join("omega.db-wal")).map_or(0, |m| m.len()), 0, "WAL emptied");
+        assert_eq!(
+            std::fs::metadata(dir.path().join("omega.db-wal")).map_or(0, |m| m.len()),
+            0,
+            "WAL emptied"
+        );
         // The next boot takes them once; a room the holds name that is gone is ignored by the store.
         app.store().rooms().delete_room(&rid("gone")).unwrap();
         let taken = app.store().rooms().take_seat_holds().unwrap();
-        assert_eq!(taken.iter().map(|h| (h.room_id.as_str(), h.seat.get())).collect::<Vec<_>>(), [("lobby", 0)]);
+        assert_eq!(
+            taken.iter().map(|h| (h.room_id.as_str(), h.seat.get())).collect::<Vec<_>>(),
+            [("lobby", 0)]
+        );
         assert!(app.store().rooms().take_seat_holds().unwrap().is_empty());
     }
 }

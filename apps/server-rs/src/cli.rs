@@ -4,6 +4,7 @@
 //!
 //! Exit codes: 0 done, 1 failed (no such room or report, no server, server error), 2 usage.
 
+use crate::config::{Env, admin_socket_for};
 use crate::contract::Obj;
 use crate::contract::ids::RoomId;
 use crate::contract::room::RoomVisibility;
@@ -13,7 +14,6 @@ use icu_properties::props::GeneralCategory;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
-use crate::config::{Env, admin_socket_for};
 use std::fmt::Write as _;
 use std::io::{ErrorKind, Read, Write as _};
 use std::os::unix::net::UnixStream;
@@ -34,16 +34,26 @@ pub fn usage() -> &'static str {
 #[serde(tag = "verb", rename_all = "kebab-case")]
 pub enum Command {
     List,
-    Delete { id: RoomId },
-    Pin { id: RoomId },
-    Unpin { id: RoomId },
-    Takedown { id: RoomId },
+    Delete {
+        id: RoomId,
+    },
+    Pin {
+        id: RoomId,
+    },
+    Unpin {
+        id: RoomId,
+    },
+    Takedown {
+        id: RoomId,
+    },
     Reports,
     Dismiss {
         #[serde(rename = "reportId")]
         report_id: ReportId,
     },
-    DismissRoom { id: RoomId },
+    DismissRoom {
+        id: RoomId,
+    },
 }
 
 fn parse_reports(verb: Option<&str>, args: &[String]) -> Option<Command> {
@@ -147,8 +157,8 @@ fn required<'de, D: Deserializer<'de>, T: Deserialize<'de>>(d: D) -> Result<Opti
     Option::<T>::deserialize(d)
 }
 
-fn known_reason(reason: &String) -> Result<(), ValidationError> {
-    if ["sexual", "violence", "hate", "spam", "danger", "other"].contains(&reason.as_str()) {
+fn known_reason(reason: &str) -> Result<(), ValidationError> {
+    if ["sexual", "violence", "hate", "spam", "danger", "other"].contains(&reason) {
         Ok(())
     } else {
         Err(ValidationError::new("reason"))
@@ -527,7 +537,10 @@ mod tests {
         assert_eq!(parse_args(&argv(&["rooms", "delete", id])), Some(Command::Delete { id: rid(id) }));
         assert_eq!(parse_args(&argv(&["rooms", "pin", id])), Some(Command::Pin { id: rid(id) }));
         assert_eq!(parse_args(&argv(&["rooms", "unpin", id])), Some(Command::Unpin { id: rid(id) }));
-        assert_eq!(parse_args(&argv(&["rooms", "takedown", id])), Some(Command::Takedown { id: rid(id) }));
+        assert_eq!(
+            parse_args(&argv(&["rooms", "takedown", id])),
+            Some(Command::Takedown { id: rid(id) })
+        );
         assert_eq!(parse_args(&argv(&["reports", "list"])), Some(Command::Reports));
         assert_eq!(
             parse_args(&argv(&["reports", "dismiss", "--room", id])),
@@ -576,15 +589,30 @@ mod tests {
     fn the_other_answers_print_one_line() {
         let id = "aaaaaaaaaaaaaaaaaaaaaaaaaa";
         let say = |cmd: Command, body: Value| success(&cmd, &body).unwrap();
-        assert_eq!(say(Command::Delete { id: rid(id) }, serde_json::json!({"deleted": id})), [format!("deleted {id}")]);
-        assert_eq!(say(Command::Pin { id: rid(id) }, serde_json::json!({})), [format!("pinned {id}")]);
-        assert_eq!(say(Command::Unpin { id: rid(id) }, serde_json::json!({})), [format!("unpinned {id}")]);
         assert_eq!(
-            say(Command::Takedown { id: rid(id) }, serde_json::json!({"takenDown": id, "live": false})),
+            say(Command::Delete { id: rid(id) }, serde_json::json!({"deleted": id})),
+            [format!("deleted {id}")]
+        );
+        assert_eq!(say(Command::Pin { id: rid(id) }, serde_json::json!({})), [format!("pinned {id}")]);
+        assert_eq!(
+            say(Command::Unpin { id: rid(id) }, serde_json::json!({})),
+            [format!("unpinned {id}")]
+        );
+        assert_eq!(
+            say(
+                Command::Takedown { id: rid(id) },
+                serde_json::json!({"takenDown": id, "live": false})
+            ),
             [format!("taken down {id} (it was not live)")]
         );
-        assert_eq!(say(Command::DismissRoom { id: rid(id) }, serde_json::json!({"dismissed": 3})), ["dismissed 3"]);
-        assert_eq!(success(&Command::Reports, &serde_json::json!({"rooms": []})).unwrap(), ["no open reports"]);
+        assert_eq!(
+            say(Command::DismissRoom { id: rid(id) }, serde_json::json!({"dismissed": 3})),
+            ["dismissed 3"]
+        );
+        assert_eq!(
+            success(&Command::Reports, &serde_json::json!({"rooms": []})).unwrap(),
+            ["no open reports"]
+        );
     }
 
     use crate::admin::start_admin;
@@ -675,7 +703,10 @@ mod tests {
         let (code, _, err) = cli(&path, &["rooms", "unpin", "lobby"]).await;
         assert_eq!(
             (code, err),
-            (1, vec!["lobby is a seeded room with no owner: it stays pinned (delete it instead)".to_owned()])
+            (
+                1,
+                vec!["lobby is a seeded room with no owner: it stays pinned (delete it instead)".to_owned()]
+            )
         );
         let (code, out, _) = cli(&path, &["rooms", "pin", "lobby"]).await;
         assert_eq!((code, out), (0, vec!["pinned lobby".to_owned()]));
@@ -695,7 +726,12 @@ mod tests {
     async fn a_bad_command_exits_2_with_usage_without_calling_the_server() {
         let (_dir, path) = sock();
         // No server: reaching it would be exit 1.
-        for parts in [vec![], vec!["rooms", "delete", "../lobby"], vec!["reports", "dismiss", "x"], vec!["rooms", "list", "extra"]] {
+        for parts in [
+            vec![],
+            vec!["rooms", "delete", "../lobby"],
+            vec!["reports", "dismiss", "x"],
+            vec!["rooms", "list", "extra"],
+        ] {
             let (code, out, err) = cli(&path, &parts).await;
             assert_eq!((code, out, err), (2, vec![], vec![usage().to_owned()]), "{parts:?}");
         }
@@ -730,10 +766,17 @@ mod tests {
         };
         assert_eq!(
             run(&[("ADMIN_SOCKET", "off")]),
-            (1, vec![], vec!["the admin socket is off (ADMIN_SOCKET=off or DB_PATH=:memory:)".to_owned()])
+            (
+                1,
+                vec![],
+                vec!["the admin socket is off (ADMIN_SOCKET=off or DB_PATH=:memory:)".to_owned()]
+            )
         );
         assert_eq!(run(&[("DB_PATH", ":memory:")]).0, 1);
-        assert_eq!(run(&[("ADMIN_SOCKET", "")]), (2, vec![], vec!["invalid ADMIN_SOCKET: must not be empty".to_owned()]));
+        assert_eq!(
+            run(&[("ADMIN_SOCKET", "")]),
+            (2, vec![], vec!["invalid ADMIN_SOCKET: must not be empty".to_owned()])
+        );
     }
 
     // apps/server/src/cli.ts:185
@@ -759,7 +802,10 @@ mod tests {
         // An error text is user-influenced: escaped like a title.
         let hostile = b"HTTP/1.1 500 x\r\ncontent-length: 23\r\n\r\n{\"error\":\"a\\u001b[2Jb\"}";
         assert_eq!(run(hostile), (1, vec![], vec!["a\\u001b[2Jb".to_owned()]));
-        assert_eq!(run(b"HTTP/1.1 502 x\r\ncontent-length: 4\r\n\r\nnope"), (1, vec![], vec!["server answered 502".to_owned()]));
+        assert_eq!(
+            run(b"HTTP/1.1 502 x\r\ncontent-length: 4\r\n\r\nnope"),
+            (1, vec![], vec!["server answered 502".to_owned()])
+        );
         assert_eq!(
             run(b"HTTP/1.1 200 x\r\ncontent-length: 2\r\n\r\n{}"),
             (1, vec![], vec!["unexpected answer from the server".to_owned()])
@@ -768,14 +814,24 @@ mod tests {
 
     #[test]
     fn parse_response_reads_content_length_and_chunked_bodies() {
-        assert_eq!(parse_response(b"HTTP/1.1 200 OK\r\ncontent-length: 5\r\n\r\nhello"), Some((200, b"hello".to_vec())));
+        assert_eq!(
+            parse_response(b"HTTP/1.1 200 OK\r\ncontent-length: 5\r\n\r\nhello"),
+            Some((200, b"hello".to_vec()))
+        );
         assert_eq!(
             parse_response(b"HTTP/1.1 404 Not Found\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabc\r\n2\r\nde\r\n0\r\n\r\n"),
             Some((404, b"abcde".to_vec()))
         );
         // No framing at all: the body is what the close delivered.
         assert_eq!(parse_response(b"HTTP/1.1 200 OK\r\n\r\nxyz"), Some((200, b"xyz".to_vec())));
-        for bad in [&b""[..], b"HTTP/1.1", b"garbage\r\n\r\n", b"HTTP/1.1 abc x\r\n\r\n", b"HTTP/1.1 200 OK\r\ncontent-length: 9\r\n\r\nshort", b"HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\nzz\r\n"] {
+        for bad in [
+            &b""[..],
+            b"HTTP/1.1",
+            b"garbage\r\n\r\n",
+            b"HTTP/1.1 abc x\r\n\r\n",
+            b"HTTP/1.1 200 OK\r\ncontent-length: 9\r\n\r\nshort",
+            b"HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\nzz\r\n",
+        ] {
             assert_eq!(parse_response(bad), None, "{bad:?}");
         }
     }

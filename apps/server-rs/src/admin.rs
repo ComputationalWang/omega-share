@@ -174,7 +174,10 @@ fn pin(app: &App, id: &RoomId, pinned: bool) -> Reply {
     if !pinned && !inner.room.has_owner() {
         return error(
             409,
-            &format!("{} is a seeded room with no owner: it stays pinned (delete it instead)", id.as_str()),
+            &format!(
+                "{} is a seeded room with no owner: it stays pinned (delete it instead)",
+                id.as_str()
+            ),
         );
     }
     // Store first: if the write fails, memory still matches the row.
@@ -200,7 +203,9 @@ fn delete(app: &App, id: &RoomId) -> Reply {
 }
 
 fn report_route(app: &App, method: &str, raw: &str) -> Reply {
-    let Some(id) = ReportId::parse(raw) else { return error(404, "not found") };
+    let Some(id) = ReportId::parse(raw) else {
+        return error(404, "not found");
+    };
     if method != "POST" {
         return not_allowed();
     }
@@ -212,7 +217,9 @@ fn report_route(app: &App, method: &str, raw: &str) -> Reply {
 }
 
 fn room_route(app: &App, method: &str, raw: &str, verb: Option<&str>) -> Reply {
-    let Some(id) = RoomId::parse(raw) else { return error(404, "not found") };
+    let Some(id) = RoomId::parse(raw) else {
+        return error(404, "not found");
+    };
     let Some(verb) = verb else {
         return if method == "DELETE" { delete(app, &id) } else { not_allowed() };
     };
@@ -258,7 +265,9 @@ pub fn handle(app: &App, method: &str, path: &str) -> Reply {
     if let Some(raw) = path.strip_prefix("/reports/").and_then(|rest| rest.strip_suffix("/dismiss")) {
         return report_route(app, method, raw);
     }
-    let Some(rest) = path.strip_prefix("/rooms/") else { return error(404, "not found") };
+    let Some(rest) = path.strip_prefix("/rooms/") else {
+        return error(404, "not found");
+    };
     let (raw, verb) = match rest.split_once('/') {
         None => (rest, None),
         Some((raw, verb)) => (raw, Some(verb)),
@@ -392,7 +401,13 @@ mod tests {
     }
 
     fn stored_ids(app: &App) -> Vec<String> {
-        app.store().rooms().list_rooms().unwrap().into_iter().map(|r| r.id.as_str().to_owned()).collect()
+        app.store()
+            .rooms()
+            .list_rooms()
+            .unwrap()
+            .into_iter()
+            .map(|r| r.id.as_str().to_owned())
+            .collect()
     }
 
     // apps/server/test/cli.test.ts:60
@@ -474,11 +489,25 @@ mod tests {
         let (status, body) = call(&app, "POST", &format!("/rooms/{A}/pin"));
         assert_eq!((status, body), (200, json!({"pinned": true, "id": A})));
         assert!(cell.lock().room.pinned);
-        assert!(app.store().rooms().list_rooms().unwrap().iter().any(|r| r.id.as_str() == A && r.pinned));
+        assert!(
+            app.store()
+                .rooms()
+                .list_rooms()
+                .unwrap()
+                .iter()
+                .any(|r| r.id.as_str() == A && r.pinned)
+        );
         let (status, body) = call(&app, "POST", &format!("/rooms/{A}/unpin"));
         assert_eq!((status, body), (200, json!({"pinned": false, "id": A})));
         assert!(!cell.lock().room.pinned);
-        assert!(app.store().rooms().list_rooms().unwrap().iter().any(|r| r.id.as_str() == A && !r.pinned));
+        assert!(
+            app.store()
+                .rooms()
+                .list_rooms()
+                .unwrap()
+                .iter()
+                .any(|r| r.id.as_str() == A && !r.pinned)
+        );
     }
 
     // apps/server/test/cli.test.ts:200
@@ -489,10 +518,20 @@ mod tests {
         let (status, body) = call(&app, "POST", "/rooms/lobby/unpin");
         assert_eq!(
             (status, body),
-            (409, json!({"error": "lobby is a seeded room with no owner: it stays pinned (delete it instead)"}))
+            (
+                409,
+                json!({"error": "lobby is a seeded room with no owner: it stays pinned (delete it instead)"})
+            )
         );
         assert!(cell.lock().room.pinned);
-        assert!(app.store().rooms().list_rooms().unwrap().iter().any(|r| r.id.as_str() == "lobby" && r.pinned));
+        assert!(
+            app.store()
+                .rooms()
+                .list_rooms()
+                .unwrap()
+                .iter()
+                .any(|r| r.id.as_str() == "lobby" && r.pinned)
+        );
     }
 
     // apps/server/test/cli.test.ts:210
@@ -675,7 +714,8 @@ mod tests {
         let (_dir, path) = tmp();
         let server = start_admin(app.clone(), &path).unwrap();
         let body = "x".repeat(2048);
-        let request = format!("POST /rooms/lobby/pin HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Length: 2048\r\n\r\n{body}");
+        let request =
+            format!("POST /rooms/lobby/pin HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Length: 2048\r\n\r\n{body}");
         let answer = over_socket(&path, &request);
         assert!(answer.starts_with("HTTP/1.1 413"), "{answer}");
         server.stop().await;

@@ -941,9 +941,10 @@ fn room_gc_expired_agrees() {
 
 #[test]
 fn cli_parse_args_agrees() {
-    agree(load::<Vec<String>, Value>(include_str!("../corpus/out/cli-parse-args.json")), |argv| {
-        cli::parse_args(argv).and_then(|c| serde_json::to_value(c).ok())
-    });
+    agree(
+        load::<Vec<String>, Value>(include_str!("../corpus/out/cli-parse-args.json")),
+        |argv| cli::parse_args(argv).and_then(|c| serde_json::to_value(c).ok()),
+    );
 }
 
 #[test]
@@ -955,7 +956,9 @@ fn cli_printable_agrees() {
 
 #[test]
 fn cli_time_agrees() {
-    agree(load::<Option<i64>, String>(include_str!("../corpus/out/cli-time.json")), |ms| cli::time(*ms));
+    agree(load::<Option<i64>, String>(include_str!("../corpus/out/cli-time.json")), |ms| {
+        cli::time(*ms)
+    });
 }
 
 #[test]
