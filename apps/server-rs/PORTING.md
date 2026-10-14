@@ -28,6 +28,10 @@ Integration tests (`tests/*.rs`) are separate crates: helper functions there nee
 | `packages/shared/src/*` (server-used parts) | `contract/*` | S2 |
 | `store/db.ts`, `store/rooms.ts`, `store/reports.ts`, `migrations/*.sql` | `store/*` (migrations embedded with `include_str!` from `apps/server/migrations`) | S3 ✓ |
 | `room.ts`, `rooms.ts`, `playback.ts`, `queue.ts`, `rate-limit.ts`, `secrets.ts`, `embed-policy.ts`, `presets.ts`, `log.ts`, `headers.ts` | same names, `snake_case.rs` | S4 |
+| `server.ts` (`startServer` state, `loadRooms`, `titleBlocker`), `index.ts` (database open, seat holds) | `app.rs` | S4d |
+| `rooms.ts`, the `perRoom` maps | `registry.rs` (`Registry`, `RoomCell`, `RoomInner`) | S4d |
+| `ws.ts` publish and backpressure | `outbox.rs` | S4d |
+| `queue.ts`, `reports.ts`, `rooms-gc.ts`, `ws-owner-edits.ts` | `queue.rs`, `reports.rs`, `rooms_gc.rs`, `owner_edits.rs` | S4d |
 | `http.ts`, `static.ts`, `site-meta.ts`, `server.ts` (routing, Host/Origin gate) | `http/*` | S5 |
 | `ws.ts`, `ws-sessions.ts`, `ws-limits.ts`, `ws-owner-edits.ts` | `ws/*` | S6 |
 | `rooms-gc.ts`, `reports.ts`, `admin.ts`, `cli.ts`, `metrics.ts`, `scripts/backup.ts`, graceful restart | same names; `omega-server admin …`, `omega-server backup …` | S7 |
@@ -50,7 +54,7 @@ Not ported: `activity`, `discord-upstream` and `extension-bridge` from shared (t
 5. **Never block the runtime for long, never hold a lock across `.await`.** SQLite calls are short synchronous calls under the store mutex (see [Runtime architecture](#runtime-architecture-s4s7)); nothing slow happens under a room lock.
 6. **Serialize once per broadcast.** A room message is encoded to one `Utf8Bytes` and cloned (refcount) to every member's send queue. Send queues are bounded; a member who can't keep up is closed (the TS server's backpressure close), never buffered without limit.
 7. **Output field order = the TS object literal's order**, optional keys omitted with `skip_serializing_if` (the TS server never sends `undefined`; `null` only where the TS code writes `null`). Clients parse JSON, so float formatting may differ (`1.0` vs `1`), key presence may not.
-8. **Logging = `log.rs`**: one JSON line per error on stderr, a fixed event name, the message cut at its first quote and scrubbed of IPs and emails (port of `log.ts`). Never log a room id, title, nickname, token or address.
+8. **Logging = `log.rs`**: one JSON line per error on stderr, a fixed event name (`LogEvent`: the `store.*` and `gc.*` names of log.ts, `shutdown`, and `ws.encode` for a server message that failed to serialize, which TS cannot do), the message cut at its first quote and scrubbed of IPs and emails (port of `log.ts`). Never log a room id, title, nickname, token or address.
 9. **Secrets**: tokens from the OS CSPRNG (`getrandom`), hashed exactly as `secrets.ts` does so stored hashes still verify, compared in constant time (`subtle`).
 10. **Every new dependency** needs a line in the PR: why, licence (cargo-deny enforces the allow list in `deny.toml`), and that the std or an existing crate can't do it.
 11. **TDD**: the commit with the failing tests comes before the implementation commit (CLAUDE.md, `/mattpocock-skills:tdd`). Port each TS test case for the module as a Rust test, with a `// apps/server/test/<file>.test.ts:<line>` comment, and keep its intent and its expected values.
@@ -71,6 +75,10 @@ The TS server is single-threaded: every handler runs to completion, so a room's 
 - **HTTP**: axum `Router`. The Host/Origin gate and the in-flight cap are a layer before routing; body caps apply while reading, never after buffering; hyper's header-read timeout is set (slowloris), since the drain deadline only bounds shutdown.
 - **Shutdown** (`index.ts`, ADR 0032): stop accepting, close every socket with `SERVICE_RESTART`, wait at most `DRAIN_GRACE`, save seat holds, `wal_checkpoint(TRUNCATE)`, exit 0.
 - **Performance**: no allocation per subscriber per frame beyond the refcount clone; no JSON re-parse of our own output; `HashMap`s keyed by the newtypes; no `format!` on the relay path except the one serialization.
+
+### The app core (S4d)
+
+`App::boot(config, clock)` opens the one database, loads the rooms and applies the seat holds; `serve` does it before binding and starts `spawn_room_gc`. Handlers take `&App` and work on a room through `registry.get(&id)`, `cell.lock()` and a `&mut RoomInner`; the domain functions (`queue::add`, `owner_edits::set_title`, `reports::file`, `outbox::publish_msg`, ...) take `(&App, &mut RoomInner, ...)` and are synchronous. A room that is removed (`App::remove_room`, GC, takedown) is unlinked from the registry and marked `RoomInner::closed` under its lock (a handler that fetched the cell earlier must refuse), then its sockets get a close frame, its grants are revoked and its row is deleted, in that order. A per-room map that TS keeps via `perRoom` is a field of `RoomInner`, so it cannot outlive the room. Subscriber queues are bounded `try_send` channels (`outbox.rs`): a subscriber past `BACKPRESSURE_LIMIT` is dropped from the room and its writer ends the connection without a close frame.
 
 ## Contract hazards (S2)
 

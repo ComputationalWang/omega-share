@@ -22,7 +22,7 @@ interface RoomGcDeps {
 }
 
 /** Whether GC should end an idle room at `now`. Pinned rooms never; occupied ones are checked by the caller. */
-function expired(room: Room, now: number): boolean {
+export function expired(room: Room, now: number): boolean {
   if (room.pinned) return false;
   return now - (room.lastActiveAt ?? room.createdAt) >= ROOM_IDLE_TTL_MS;
 }

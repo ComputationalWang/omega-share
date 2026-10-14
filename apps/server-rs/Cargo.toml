@@ -15,7 +15,7 @@ path = "src/main.rs"
 test-hooks = []
 
 [dependencies]
-axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio"] }
+axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio", "ws"] }
 icu_properties = "2.3"
 serde = { version = "1", features = ["derive"] }
 # float_roundtrip: long-digit decimals round like JS, or a limit check can flip.
@@ -32,6 +32,7 @@ validator = { version = "0.21", features = ["derive"] }
 
 [dev-dependencies]
 tempfile = "3"
+tokio = { version = "1.53.3", features = ["test-util"] }
 
 [lints]
 workspace = true

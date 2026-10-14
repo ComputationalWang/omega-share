@@ -68,7 +68,7 @@ fn run_serve() -> ExitCode {
     match served {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            stderr_line(&format!("serve: {err}"));
+            stderr_line(&err.to_string());
             ExitCode::FAILURE
         }
     }

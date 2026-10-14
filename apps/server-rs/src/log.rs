@@ -44,6 +44,9 @@ pub enum LogEvent {
     GcPurge,
     #[serde(rename = "shutdown")]
     Shutdown,
+    /// A server message that failed to serialize (never in TS: `JSON.stringify` cannot fail on these).
+    #[serde(rename = "ws.encode")]
+    Encode,
 }
 
 const MAX_MESSAGE: usize = 240;

@@ -8,13 +8,23 @@ use crate::contract::ids::MemberId;
 use crate::contract::state::{PlaybackAction, PlaybackState, Position, Rate, Rev, ServerTime};
 
 /// A `control` message's payload.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Control<'a> {
     /// Canonical `Embed.url` of the video being controlled.
     pub url: &'a str,
     pub playing: bool,
     /// The wire schema bounds it to `0..=MAX_POSITION_S`; it is clamped anyway.
     pub position: f64,
+}
+
+/// Without the url: which video a member controls is not for logs (ADR 0032).
+impl std::fmt::Debug for Control<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Control")
+            .field("playing", &self.playing)
+            .field("position", &self.position)
+            .finish_non_exhaustive()
+    }
 }
 
 /// A position further than this from the extrapolated one counts as a seek (ADR 0011).
@@ -333,5 +343,23 @@ mod tests {
                 "{url}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod debug_tests {
+    use super::*;
+
+    // ADR 0032 "name hashes only": the video a member controls is not printed by `{:?}`.
+    #[test]
+    fn a_controls_debug_has_no_url() {
+        let control = Control {
+            url: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+            playing: true,
+            position: 12.5,
+        };
+        let text = format!("{control:?}");
+        assert!(text.contains("Control") && text.contains("12.5") && text.contains("true"), "{text}");
+        assert!(!text.contains("youtube") && !text.contains("dQw4w9WgXcQ"), "{text}");
     }
 }

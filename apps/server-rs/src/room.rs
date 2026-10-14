@@ -27,10 +27,17 @@ pub const MAX_MEMBERS_PER_CLIENT: usize = 5;
 pub const SEAT_HOLD_MS: i64 = 30_000;
 
 /// A seated member's name, as SHA-256 of its `nicknameKey`, and seat: what a graceful restart keeps (ADR 0032).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct HeldSeat {
     pub name_hash: [u8; 32],
     pub seat: SeatIndex,
+}
+
+/// The seat only: a name hash identifies a person across restarts (ADR 0032, "name hashes only", on disk and nowhere else).
+impl std::fmt::Debug for HeldSeat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HeldSeat").field("seat", &self.seat.get()).finish_non_exhaustive()
+    }
 }
 
 /// Why a join was refused.
@@ -66,7 +73,7 @@ pub struct Advance {
 
 /// The optional constructor fields of `new Room(id, init)`. Without the ADR 0028 fields the room is a seed:
 /// pinned, public, ownerless.
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct RoomInit {
     pub layout: Option<RoomLayout>,
     /// The last embed shared before a restart: it comes back paused at 0.
@@ -88,6 +95,19 @@ pub struct RoomInit {
     pub queue: Vec<(QueueItemId, AnyEmbed)>,
     /// When the restored item becomes current again, on the server's monotonic clock (the `ended` debounce).
     pub item_since: Option<f64>,
+}
+
+/// Which fields are set, never their values: a title, an embed, an owner or invite hash and queued videos must not reach a log.
+impl std::fmt::Debug for RoomInit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RoomInit")
+            .field("title", &self.title.is_some())
+            .field("embed", &self.embed.is_some())
+            .field("owner_hash", &self.owner_hash.is_some())
+            .field("invite_hash", &self.invite_hash.is_some())
+            .field("queue", &self.queue.len())
+            .finish_non_exhaustive()
+    }
 }
 
 /// A joined member and what the room tracks about them.
@@ -1686,5 +1706,47 @@ mod tests {
         assert!(r.is_invited("invite-key") && !r.is_invited("owner-token"));
         let seed = room();
         assert!(!seed.is_owner("") && !seed.is_invited("") && !seed.is_owner("anything"));
+    }
+}
+
+/// ADR 0032 "name hashes only": nothing a room holds that identifies a person or a video reaches a `{:?}`
+/// (panic messages and logs print them).
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
+mod debug_tests {
+    use super::*;
+    use crate::contract::text::RoomTitle;
+    use crate::embed_policy::EmbedPolicy;
+
+    #[test]
+    fn a_held_seats_debug_has_no_name_hash() {
+        let held = HeldSeat {
+            name_hash: [0xab; 32],
+            seat: SeatIndex::new(3).unwrap(),
+        };
+        let text = format!("{held:?}");
+        assert!(text.contains("HeldSeat") && text.contains("seat"), "{text}");
+        assert!(!text.contains("171") && !text.contains("ab"), "{text}");
+    }
+
+    #[test]
+    fn a_room_inits_debug_has_no_title_embed_hashes_or_queue() {
+        let embed = EmbedPolicy::new(true, &[], &[])
+            .unwrap()
+            .accept("https://youtu.be/dQw4w9WgXcQ")
+            .unwrap();
+        let init = RoomInit {
+            title: Some(RoomTitle::parse("Secret club").unwrap()),
+            embed: Some(embed.clone()),
+            owner_hash: Some([9; 32]),
+            invite_hash: Some([8; 32]),
+            queue: vec![(mint_item_id().unwrap(), embed)],
+            ..RoomInit::default()
+        };
+        let text = format!("{init:?}");
+        assert!(text.contains("RoomInit"), "{text}");
+        for leak in ["Secret", "youtube", "dQw4w9WgXcQ", "9, 9", "8, 8"] {
+            assert!(!text.contains(leak), "{leak} in {text}");
+        }
     }
 }
