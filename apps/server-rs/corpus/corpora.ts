@@ -10,6 +10,7 @@ import * as text from "./text-corpora";
 import { unicodeDigestCases } from "./unicode-digest";
 import * as constants from "../../../packages/shared/src/constants";
 import { layoutCorpora } from "./layout-corpora";
+import { outboundCorpora } from "./outbound-corpora";
 import { inboundCorpora } from "./inbound-corpora";
 import { secretsMetricsCorpora } from "./secrets-metrics-corpora";
 import { redactAddresses } from "../../server/src/log";
@@ -143,6 +144,7 @@ export const corpora: Corpus[] = [
   { name: "control-policy", cases: text.controlPolicyCases },
   { name: "room-visibility", cases: text.roomVisibilityCases },
   ...layoutCorpora,
+  ...outboundCorpora,
   ...inboundCorpora,
   ...secretsMetricsCorpora,
   { name: "redact-addresses", cases: () => decided(dedup([...redactInputs(), "a@b.\u212Aom", "a@b.c\u212A", "\u017Fa@b.com", "a@b.\u017F\u017F"]), redactAddresses) },
