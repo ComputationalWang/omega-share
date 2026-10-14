@@ -29,6 +29,12 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
+/// Per-socket tungstenite buffers. The defaults (128 KiB each) cost 500 sockets about 60 MB: client frames are at most
+/// `MAX_CLIENT_MESSAGE_BYTES` and the outbox already bounds what waits to be written (`BACKPRESSURE_LIMIT`).
+const READ_BUFFER_BYTES: usize = 8 * 1024;
+const WRITE_BUFFER_BYTES: usize = 16 * 1024;
+const MAX_WRITE_BUFFER_BYTES: usize = 512 * 1024;
+
 /// Open sockets one client key may hold: 50, or 10 behind a trusted proxy (every client then has its own key).
 const MAX_PER_IP: usize = 50;
 const MAX_PER_IP_PROXIED: usize = 10;
@@ -176,6 +182,9 @@ async fn upgrade(
         Ok(ws) => ws
             .max_message_size(MAX_CLIENT_MESSAGE_BYTES)
             .max_frame_size(MAX_CLIENT_MESSAGE_BYTES)
+            .read_buffer_size(READ_BUFFER_BYTES)
+            .write_buffer_size(WRITE_BUFFER_BYTES)
+            .max_write_buffer_size(MAX_WRITE_BUFFER_BYTES)
             .on_upgrade(move |socket| conn::run(app, socket, id, cell, ip, keyed, slot)),
         // A plain request without a handshake.
         Err(_) if known => plain(StatusCode::UPGRADE_REQUIRED, "expected a WebSocket upgrade"),
