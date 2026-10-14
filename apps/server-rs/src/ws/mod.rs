@@ -46,6 +46,8 @@ pub struct WsState {
     pub status_interval_ms: f64,
     /// Open sockets allowed per client key; `None` is 50, or 10 behind a trusted proxy.
     pub max_per_ip: Option<usize>,
+    /// A socket silent for this long is dropped; the server pings at half of it (`idleTimeout`, 60 s).
+    pub idle_timeout_ms: f64,
     port: AtomicU16,
     draining: AtomicBool,
     connections: AtomicUsize,
@@ -63,6 +65,7 @@ impl Default for WsState {
             join_timeout_ms: 10_000.0,
             status_interval_ms: 1000.0,
             max_per_ip: None,
+            idle_timeout_ms: 60_000.0,
             port: AtomicU16::new(0),
             draining: AtomicBool::new(false),
             connections: AtomicUsize::new(0),

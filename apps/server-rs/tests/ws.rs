@@ -79,6 +79,7 @@ struct Opts {
     status_interval_ms: Option<f64>,
     max_per_ip: Option<usize>,
     resume_grace_ms: Option<u32>,
+    idle_timeout_ms: Option<f64>,
 }
 
 async fn start(opts: Opts) -> Server {
@@ -105,6 +106,9 @@ async fn start(opts: Opts) -> Server {
             inner.ws.status_interval_ms = v;
         }
         inner.ws.max_per_ip = opts.max_per_ip;
+        if let Some(v) = opts.idle_timeout_ms {
+            inner.ws.idle_timeout_ms = v;
+        }
     }
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -628,7 +632,7 @@ async fn presence_is_published_on_transitions_only() {
 
 // apps/server/test/emote.test.ts
 #[tokio::test]
-async fn an_emote_is_relayed_to_everyone_and_limited_to_a_burst_of_three() {
+async fn an_emote_is_relayed_to_everyone_and_the_fourth_in_a_burst_is_refused() {
     let s = start(Opts::default()).await;
     let (mut a, asnap) = joined(&s, "alice").await;
     let (mut b, _) = joined(&s, "bob").await;
@@ -1082,10 +1086,220 @@ async fn a_flood_gets_one_rate_limited_notice_then_4029() {
     for i in 0..90 {
         c.send(json!({"type": "ping", "id": i})).await;
     }
-    let e = c.next("error").await;
-    assert_eq!(e["code"], "rate_limited");
-    assert_eq!(e["message"], "too many messages, slow down");
     assert_eq!(c.closed().await, Some(4029));
-    let seen = c.inbox.iter().filter(|m| m["type"] == "error").count();
-    assert_eq!(seen, 0, "one notice per streak");
+    let errors: Vec<_> = c.inbox.iter().filter(|m| m["type"] == "error").collect();
+    assert_eq!(errors.len(), 1, "one notice per streak: {errors:?}");
+    assert_eq!(errors[0]["code"], "rate_limited");
+    assert_eq!(errors[0]["message"], "too many messages, slow down");
+    let pongs = c.inbox.iter().filter(|m| m["type"] == "pong").count();
+    assert!((15..=30).contains(&pongs), "{pongs} pongs before the limiter");
+}
+
+// ---------- review of #244 ----------
+
+/// A text frame of about `kb` KB that is valid JSON, so the test client can parse it.
+fn big_frame(kb: usize) -> axum::extract::ws::Utf8Bytes {
+    axum::extract::ws::Utf8Bytes::from(format!("{{\"type\":\"chat\",\"pad\":\"{}\"}}", "a".repeat(kb * 1024)))
+}
+
+// OME-1167 review B1 (Bun's closeOnBackpressureLimit)
+#[tokio::test]
+async fn a_client_that_never_reads_is_dropped_at_the_backpressure_limit_and_nobody_else_notices() {
+    let s = start(Opts {
+        max_per_ip: Some(2),
+        ..Opts::default()
+    })
+    .await;
+    let (mut watcher, _) = joined(&s, "watcher").await;
+    let (mut stalled, ssnap) = joined(&s, "stalled").await;
+    watcher.next("member-joined").await;
+    // The stalled client is never polled again: its socket buffers fill, then its outbox passes the limit.
+    let frame = big_frame(60);
+    for _ in 0..600 {
+        s.app
+            .with_open_room(&rid("lobby"), |inner| omega_server::outbox::publish_all(inner, &frame))
+            .unwrap();
+        while watcher.pump(Duration::from_millis(1)).await {}
+        if watcher.inbox.iter().any(|m| m["type"] == "member-left") {
+            break;
+        }
+    }
+    let seen = watcher.inbox.iter().filter(|m| m["type"] == "chat").count();
+    let left = watcher.next("member-left").await;
+    assert_eq!(left["memberId"], ssnap["self"]);
+    assert!(seen > 0, "the reading member got the flood");
+    assert!(watcher.closed.is_none(), "the reading member was never dropped");
+    // The cut connection: whatever it had buffered, then the end with no close frame.
+    assert_eq!(stalled.closed().await, None);
+    // Its slot is free again: two sockets are the cap from this address.
+    let mut fresh = connect(&s).await;
+    fresh.join("fresh").await;
+}
+
+// OME-1167 review N2 (idleTimeout)
+#[tokio::test]
+async fn a_socket_that_says_nothing_and_answers_no_ping_is_dropped_at_the_idle_timeout() {
+    let s = start(Opts {
+        idle_timeout_ms: Some(400.0),
+        ..Opts::default()
+    })
+    .await;
+    let (mut quiet, _) = joined(&s, "quiet").await;
+    let (mut lively, _) = joined(&s, "lively").await;
+    let started = Instant::now();
+    // The lively one is polled, so tungstenite answers the server's pings.
+    while s.app.with_open_room(&rid("lobby"), |i| i.room.member_count()).unwrap() == 2 {
+        lively.pump(Duration::from_millis(20)).await;
+        assert!(started.elapsed() < Duration::from_millis(1000), "not dropped in time");
+    }
+    assert!(
+        started.elapsed() >= Duration::from_millis(300),
+        "dropped early: {:?}",
+        started.elapsed()
+    );
+    assert!(lively.closed.is_none());
+    assert_eq!(quiet.closed().await, None);
+}
+
+// OME-1167 review N4 (ws.data.buckets.queue survives leave and rejoin on one socket)
+#[tokio::test]
+async fn the_queue_add_bucket_belongs_to_the_socket_not_the_member() {
+    let s = start(Opts::default()).await;
+    let (mut a, _) = joined(&s, "alice").await;
+    for _ in 0..3 {
+        a.send(json!({"type": "queue-add", "url": YT2})).await;
+    }
+    a.next("queue-changed").await;
+    a.send(json!({"type": "leave"})).await;
+    a.join("alice2").await;
+    a.send(json!({"type": "queue-add", "url": YT2})).await;
+    let e = a.next("error").await;
+    assert_eq!(e["code"], "rate_limited");
+    assert_eq!(e["message"], "too many videos queued, slow down");
+}
+
+// OME-1167 review N3
+#[tokio::test]
+async fn a_status_timer_left_over_from_before_a_leave_does_not_flush_the_next_session() {
+    let s = start(Opts {
+        status_interval_ms: Some(200.0),
+        ..Opts::default()
+    })
+    .await;
+    let (mut a, _) = joined(&s, "alice").await;
+    let (mut w, _) = joined(&s, "watcher").await;
+    embed_in_lobby(&s, YT);
+    a.send(json!({"type": "status", "catching": true})).await;
+    w.next("member-status").await;
+    a.send(json!({"type": "status", "catching": false})).await;
+    a.send(json!({"type": "leave"})).await;
+    a.join("alice").await;
+    a.send(json!({"type": "status", "catching": true})).await;
+    // Only the new session's own publish: the immediate one, and nothing from the old timer.
+    let first = w.next("member-status").await;
+    assert_eq!(first["catching"], true);
+    w.none("member-status", 400).await;
+}
+
+// apps/server/test/abuse.test.ts:540
+#[tokio::test]
+async fn a_frame_of_exactly_4096_bytes_passes_one_more_cuts_and_the_server_stays_up() {
+    let s = start(Opts::default()).await;
+    let mut ok = connect(&s).await;
+    let head = "{\"type\":\"ping\",\"id\":1,\"x\":\"";
+    let pad = 4096 - head.len() - 2;
+    ok.send_raw(&format!("{head}{}\"}}", "a".repeat(pad))).await;
+    // Within the limit, so not cut: refused as a bad message (unknown key).
+    assert_eq!(ok.next("error").await["code"], "bad_message");
+    let mut big = connect(&s).await;
+    big.send_raw(&"a".repeat(4097)).await;
+    assert_eq!(big.closed().await, None);
+    let mut after = connect(&s).await;
+    after.join("still-up").await;
+}
+
+// apps/server/test/room-auth.test.ts (ADR 0028 section 6)
+#[tokio::test]
+async fn title_edits_are_limited_a_blocked_title_answers_the_sender_only() {
+    let s = start(Opts {
+        env: vec![("ROOM_TITLE_BLOCKLIST", "badword")],
+        ..Opts::default()
+    })
+    .await;
+    add_room(&s, "mine", false);
+    let (mut o, _) = joined_as(&s, "mine", json!({"ownerToken": OWNER}), "olive", &[]).await;
+    let (mut g, _) = joined_as(&s, "mine", json!({}), "guest", &[]).await;
+    o.send(json!({"type": "title-set", "title": "b a d w o r d"})).await;
+    let e = o.next("error").await;
+    assert_ne!(e["code"], "rate_limited");
+    g.none("title-changed", 150).await;
+    for t in ["One", "Two", "Three"] {
+        o.send(json!({"type": "title-set", "title": t})).await;
+    }
+    let limited = o.next("error").await;
+    assert_eq!(limited["code"], "rate_limited");
+    assert_eq!(limited["message"], "too many room edits, slow down");
+}
+
+// apps/server/test/queue.test.ts
+#[tokio::test]
+async fn queue_remove_drops_an_upcoming_item_for_everyone() {
+    let s = start(Opts::default()).await;
+    let (mut a, _) = joined(&s, "alice").await;
+    let (mut b, _) = joined(&s, "bob").await;
+    a.send(json!({"type": "queue-add", "url": YT})).await;
+    b.next("queue-changed").await;
+    a.send(json!({"type": "queue-add", "url": YT2})).await;
+    let queued = b.next("queue-changed").await;
+    let id = queued["queue"][0]["id"].as_str().unwrap().to_owned();
+    a.send(json!({"type": "queue-remove", "itemId": id})).await;
+    let after = b.next("queue-changed").await;
+    assert!(after["queue"].as_array().unwrap().is_empty());
+}
+
+// apps/server/test/playback-sync.test.ts (ADR 0018 section 2: the room's limit is everyone's)
+#[tokio::test]
+async fn the_room_wide_control_limit_is_everyones_and_answers_every_time() {
+    let s = start(Opts::default()).await;
+    let mut all = Vec::new();
+    for i in 0..4 {
+        all.push(joined(&s, &format!("m{i}")).await.0);
+    }
+    embed_in_lobby(&s, YT);
+    let ctl = json!({"type": "control", "url": "https://www.youtube.com/embed/dQw4w9WgXcQ", "playing": true, "position": 1});
+    // 4 members x 4 burst = 16 attempts; the room allows a burst of 8.
+    for c in &mut all {
+        for _ in 0..4 {
+            c.send(ctl.clone()).await;
+        }
+    }
+    let mut refused = 0;
+    for c in &mut all {
+        c.none("never", 300).await;
+        refused += c
+            .inbox
+            .iter()
+            .filter(|m| m["type"] == "error" && m["message"] == "this room is changing playback too fast, slow down")
+            .count();
+    }
+    assert!((7..=9).contains(&refused), "{refused} refusals");
+}
+
+// apps/server/test/moderation.test.ts (ADR 0030 section 2: the owner is never locked out)
+#[tokio::test]
+async fn a_kicked_address_cannot_rejoin_but_an_owner_from_it_can() {
+    let s = start(Opts {
+        env: vec![("TRUST_PROXY", "loopback")],
+        ..Opts::default()
+    })
+    .await;
+    add_room(&s, "mine", false);
+    let (mut o, _) = joined_as(&s, "mine", json!({"ownerToken": OWNER}), "olive", &[(XFF, "192.0.2.1")]).await;
+    let (_g, gsnap) = joined_as(&s, "mine", json!({}), "guest", &[(XFF, "192.0.2.9")]).await;
+    o.next("member-joined").await;
+    o.send(json!({"type": "kick", "memberId": gsnap["self"]})).await;
+    o.next("member-left").await;
+    let (mut again, snap) = joined_as(&s, "mine", json!({"ownerToken": OWNER}), "olive2", &[(XFF, "192.0.2.9")]).await;
+    assert_eq!(snap["owner"], true);
+    again.none("error", 100).await;
 }
