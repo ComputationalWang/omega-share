@@ -138,6 +138,17 @@ mod tests {
     }
 
     #[test]
+    fn debug_never_prints_user_text() {
+        let share = parse_share_request(br#"{"url":"https://SECRETMARK.example/"}"#).unwrap();
+        let report = parse_report_request(br#"{"reason":"spam","note":"SECRETMARK words"}"#).unwrap();
+        let create = parse_create_room_request(br#"{"title":"SECRETMARK","visibility":"public"}"#).unwrap();
+        for shown in [format!("{share:?}"), format!("{report:?}"), format!("{create:?}")] {
+            assert!(!shown.contains("SECRETMARK"), "{shown}");
+        }
+        assert!(format!("{report:?}").contains("Spam"));
+    }
+
+    #[test]
     fn share_bodies() {
         // packages/shared/test/wire.test.ts:117
         assert_eq!(
