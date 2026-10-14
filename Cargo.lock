@@ -569,6 +569,7 @@ name = "omega-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "getrandom",
  "icu_properties",
  "rusqlite",
  "serde",
