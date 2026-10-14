@@ -31,6 +31,7 @@
     "apps/server/test/http-limits.test.ts::per-key HTTP request limit::loopback peers without the proxy skip the per-key limit (ADR 0018 §3: local dev, e2e, the load test)",
     "apps/server/test/http-limits.test.ts::per-key HTTP request limit::prepending to X-Forwarded-For does not make a new key (T-07)",
     "apps/server/test/http-limits.test.ts::per-key HTTP request limit::spoofed X-Forwarded-For from a non-loopback peer is ignored (T-08)",
+    "apps/server/test/persistence.test.ts::rooms, layout and last embed survive a restart (OME-280)::a corrupt row refuses to boot instead of serving a forged layout (D4)",
     "apps/server/test/qa-rooms.test.ts::1. creation limits (ADR 0028 §1, threat model §1.2)::a refused creation makes no room; a malformed body and an oversize body still take from the key's bucket",
     "apps/server/test/qa-rooms.test.ts::1. creation limits (ADR 0028 §1, threat model §1.2)::globally: many keys together hit 429 rate_limited after ROOM_CREATE_GLOBAL_BURST, and the refill restores one",
     "apps/server/test/qa-rooms.test.ts::1. creation limits (ADR 0028 §1, threat model §1.2)::per key: the burst succeeds, then 429 rate_limited with Retry-After and retryAfterMs; another key is unaffected; the refill restores it",

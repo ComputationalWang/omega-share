@@ -23,11 +23,11 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 | S3 (ported: store/reports.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
 | S3 (ported: store/rooms.rs) | 0 | 0 | 0 | 0 | 28 | 0 | 0 | 28 |
 | S4c (room core) | 0 | 0 | 0 | 0 | 18 | 0 | 0 | 18 |
-| S5 | 201 | 2 | 11 | 5 | 50 | 0 | 0 | 269 |
+| S5 | 201 | 2 | 12 | 4 | 50 | 0 | 0 | 269 |
 | S6 | 88 | 2 | 82 | 16 | 14 | 0 | 0 | 202 |
-| S7 | 1 | 0 | 0 | 5 | 91 | 0 | 1 | 98 |
+| S7 | 4 | 0 | 0 | 4 | 89 | 0 | 1 | 98 |
 | none (shell) | 0 | 0 | 0 | 0 | 0 | 82 | 0 | 82 |
-| **all** | **290** | **4** | **93** | **26** | **270** | **82** | **1** | **766** |
+| **all** | **293** | **4** | **94** | **24** | **268** | **82** | **1** | **766** |
 
 ## Tests
 
@@ -130,7 +130,7 @@ Owner: S5. 31 tests: A 28, C 1, D 2.
 | 275 | A ✓ | responses › the Permissions-Policy leaves the player features to the iframes' allow attribute |
 | 281 | A ✓ | responses › GET /healthz is the readiness probe; GET / still answers without a static site |
 | 289 | C | responses › GET /healthz answers 503 once the database can't be read (OME-840) |
-| 299 | A (timing: in-process only) | responses › GET /healthz with its database check still answers in under 5 ms (p95) |
+| 299 | A | responses › GET /healthz with its database check still answers in under 5 ms (p95) |
 | 313 | A ✓ | serving the built site on the same origin (STATIC_DIR) › / and site routes get index.html, not cached |
 | 325 | A ✓ | serving the built site on the same origin (STATIC_DIR) › hashed assets are immutable; a missing asset is 404, not index.html |
 | 339 | A ✓ | serving the built site on the same origin (STATIC_DIR) › never serves a file outside the root |
@@ -508,18 +508,18 @@ Owner: none (shell). 28 tests: E 28.
 
 ### persistence.test.ts
 
-Owner: S7. 8 tests: A 1, C 3, D 4.
+Owner: S7. 8 tests: A 4, C 2, D 2.
 
 | line | cat | test |
 |---|---|---|
-| 68 | C | rooms, layout and last embed survive a restart (OME-280) › first boot seeds the lobby with DEFAULT_LAYOUT, and the snapshot carries it |
-| 80 | C | rooms, layout and last embed survive a restart (OME-280) › the snapshot carries the stored layout, not the default |
-| 92 | D | rooms, layout and last embed survive a restart (OME-280) › configured rooms missing from the DB are seeded; stored rooms load even when not configured |
-| 103 | D | rooms, layout and last embed survive a restart (OME-280) › the last shared embed comes back after a restart, paused at 0 |
-| 119 | D | rooms, layout and last embed survive a restart (OME-280) › a restored embed can be played: control applies to it |
-| 134 | C | rooms, layout and last embed survive a restart (OME-280) › a corrupt row refuses to boot instead of serving a forged layout (D4) |
-| 143 | A | rooms, layout and last embed survive a restart (OME-280) › without a store, the snapshot still carries DEFAULT_LAYOUT |
-| 151 | D | the store is never on the relay path (OME-280) › control, chat, sit, status and ping never touch the store; a share writes the embed once |
+| 74 | C | rooms, layout and last embed survive a restart (OME-280) › first boot seeds the lobby with DEFAULT_LAYOUT, and the snapshot carries it |
+| 86 | C | rooms, layout and last embed survive a restart (OME-280) › the snapshot carries the stored layout, not the default |
+| 98 | D | rooms, layout and last embed survive a restart (OME-280) › configured rooms missing from the DB are seeded; stored rooms load even when not configured |
+| 109 | A | rooms, layout and last embed survive a restart (OME-280) › the last shared embed comes back after a restart, paused at 0 |
+| 125 | A | rooms, layout and last embed survive a restart (OME-280) › a restored embed can be played: control applies to it |
+| 140 | A ✓ | rooms, layout and last embed survive a restart (OME-280) › a corrupt row refuses to boot instead of serving a forged layout (D4) |
+| 149 | A | rooms, layout and last embed survive a restart (OME-280) › without a store, the snapshot still carries DEFAULT_LAYOUT |
+| 157 | D | the store is never on the relay path (OME-280) › control, chat, sit, status and ping never touch the store; a share writes the embed once |
 
 ### playback-sync.test.ts
 
@@ -597,48 +597,48 @@ Owner: S5. 6 tests: A* 1, A 5.
 
 ### qa-rooms.test.ts
 
-Owner: S5. 38 tests: A 21, B 6, C 4, D 7.
+Owner: S5. 38 tests: A 21, B 7, C 3, D 7.
 
 | line | cat | test |
 |---|---|---|
 | 201 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › per key: the burst succeeds, then 429 rate_limited with Retry-After and retryAfterMs; another key is unaffected; the refill restores it |
 | 225 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › a refused creation makes no room; a malformed body and an oversize body still take from the key's bucket |
 | 235 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › globally: many keys together hit 429 rate_limited after ROOM_CREATE_GLOBAL_BURST, and the refill restores one |
-| 249 | C | 1. creation limits (ADR 0028 §1, threat model §1.2) › at MAX_ROOMS: 503 too_many_rooms, and NO room is evicted: every room, the least recently active included, is still joinable and still deletable by its owner (also after a restart) |
-| 293 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › with TRUST_PROXY off a spoofed X-Forwarded-For does not reset the per-key bucket |
-| 302 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › with a trusted proxy the key is the rightmost forwarded entry: a client-chosen prefix does not reset it, a different client gets its own |
-| 321 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a private room is never in GET /rooms: not new, not with members, not titled, not after a title-set |
-| 348 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a join without the invite key, with a wrong one, or with another private room's key is refused: invite_required, no snapshot, no broadcasts, socket stays open |
-| 371 | A | 2. private rooms (ADR 0028 §4, threat model §3) › with the right invite key the join works as a guest; the owner token admits too, as the owner |
-| 382 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a failed attempt does not lock the right key out: after refusals the invite key still joins |
-| 390 | A ✓ | 2. private rooms (ADR 0028 §4, threat model §3) › visibility cannot be changed by a client: the create body is strict and the id format is the same for public and private |
-| 408 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › no frame any client receives, and no HTTP response but the create one, ever carries the owner token or the invite key |
-| 464 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › snapshot `owner` is a boolean true, only in the owner's own snapshot: never in a guest's frames, a wrong-token joiner's, or any member record |
-| 492 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › the owner token is a secret of its own room: it makes nobody the owner of another room |
-| 507 | C | 4. delete (ADR 0028 §2) › owner DELETE closes every socket in the room with 4004, joined or not; their share tokens stop working; a re-join is refused; the id is not reissued |
-| 549 | A | 4. delete (ADR 0028 §2) › a member's share token cannot delete; neither can a wrong or missing bearer; the room survives them all |
-| 561 | A ✓ | 4. delete (ADR 0028 §2) › seeded rooms have no owner: nobody can delete the lobby |
-| 567 | A ✓ | 4. delete (ADR 0028 §2) › a deleted private room: its invite key and owner token stop admitting anyone |
-| 589 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the constants are the ADR's: 20 min with nobody in it, never joined or emptied, swept every minute (OME-904) |
-| 594 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a created room nobody joined is kept for 20 min, then removed from the list, the store and the join path |
-| 608 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with a member is never collected, however old; its member stays connected |
-| 622 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with an unjoined socket expires at 20 minutes and closes the socket |
-| 635 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › activity resets the idle timer: an empty room goes 20 min after its last member left, not after its creation |
-| 662 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the seeded lobby is pinned: never collected, however long it sits empty |
-| 674 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › at boot, a stored room past its limit is swept immediately, with a pinned one beside it kept |
-| 700 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner (guest, wrong owner token, an invite-key holder) gets not_owner, and nothing is broadcast or stored |
-| 723 | C | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › the owner's invalid layouts are refused with bad_message and the stored layout is unchanged |
-| 769 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a frame over the size cap closes the socket (no layout parse, no write); the stored layout is unchanged |
-| 779 | C | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a valid layout from the owner is broadcast as layout-changed to every member (by: the owner), persisted, and seen by later joiners |
-| 804 | B | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › owner edits are limited per socket (layout-set and title-set share ROOM_EDIT_BURST); the refill is honoured; refused edits change nothing |
-| 826 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner's layout-set does not draw from the owner's bucket, and a flood of them ends in the 4400 close |
-| 844 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › WS upgrades to unknown ids cost a token like real upgrades: after the burst from one key, 429 with Retry-After; another key is unaffected |
-| 860 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › once a key is limited, an unknown id and an existing private room's id get the very same answer (no existence oracle through the limiter) |
-| 873 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong invite keys from one key are limited across rooms and sockets (rate_limited, retryAfterMs), 4400 follows, and the right key still gets through |
-| 895 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong owner tokens from one key are limited too: the guests join while the bucket lasts, then rate_limited and no snapshot |
-| 914 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE: an unknown id is 404 (specified: 404, then auth); a wrong bearer on a real room is 401 until the per-key failed-auth bucket empties, then 429 with Retry-After |
-| 938 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE probes at unknown ids from one key are bounded by the HTTP gate (429 + Retry-After) |
-| 949 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › a share probe at an unknown room is 404 and at a private room without a grant is 401, with the same typed shape (existence is not a secret: ids are 128 bits) |
+| 249 | B | 1. creation limits (ADR 0028 §1, threat model §1.2) › at MAX_ROOMS: 503 too_many_rooms, and NO room is evicted: every room, the least recently active included, is still joinable and still deletable by its owner (also after a restart) |
+| 296 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › with TRUST_PROXY off a spoofed X-Forwarded-For does not reset the per-key bucket |
+| 305 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › with a trusted proxy the key is the rightmost forwarded entry: a client-chosen prefix does not reset it, a different client gets its own |
+| 324 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a private room is never in GET /rooms: not new, not with members, not titled, not after a title-set |
+| 351 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a join without the invite key, with a wrong one, or with another private room's key is refused: invite_required, no snapshot, no broadcasts, socket stays open |
+| 374 | A | 2. private rooms (ADR 0028 §4, threat model §3) › with the right invite key the join works as a guest; the owner token admits too, as the owner |
+| 385 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a failed attempt does not lock the right key out: after refusals the invite key still joins |
+| 393 | A ✓ | 2. private rooms (ADR 0028 §4, threat model §3) › visibility cannot be changed by a client: the create body is strict and the id format is the same for public and private |
+| 411 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › no frame any client receives, and no HTTP response but the create one, ever carries the owner token or the invite key |
+| 467 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › snapshot `owner` is a boolean true, only in the owner's own snapshot: never in a guest's frames, a wrong-token joiner's, or any member record |
+| 495 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › the owner token is a secret of its own room: it makes nobody the owner of another room |
+| 510 | C | 4. delete (ADR 0028 §2) › owner DELETE closes every socket in the room with 4004, joined or not; their share tokens stop working; a re-join is refused; the id is not reissued |
+| 552 | A | 4. delete (ADR 0028 §2) › a member's share token cannot delete; neither can a wrong or missing bearer; the room survives them all |
+| 564 | A ✓ | 4. delete (ADR 0028 §2) › seeded rooms have no owner: nobody can delete the lobby |
+| 570 | A ✓ | 4. delete (ADR 0028 §2) › a deleted private room: its invite key and owner token stop admitting anyone |
+| 592 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the constants are the ADR's: 20 min with nobody in it, never joined or emptied, swept every minute (OME-904) |
+| 597 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a created room nobody joined is kept for 20 min, then removed from the list, the store and the join path |
+| 611 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with a member is never collected, however old; its member stays connected |
+| 625 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with an unjoined socket expires at 20 minutes and closes the socket |
+| 638 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › activity resets the idle timer: an empty room goes 20 min after its last member left, not after its creation |
+| 665 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the seeded lobby is pinned: never collected, however long it sits empty |
+| 677 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › at boot, a stored room past its limit is swept immediately, with a pinned one beside it kept |
+| 703 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner (guest, wrong owner token, an invite-key holder) gets not_owner, and nothing is broadcast or stored |
+| 726 | C | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › the owner's invalid layouts are refused with bad_message and the stored layout is unchanged |
+| 772 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a frame over the size cap closes the socket (no layout parse, no write); the stored layout is unchanged |
+| 782 | C | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a valid layout from the owner is broadcast as layout-changed to every member (by: the owner), persisted, and seen by later joiners |
+| 807 | B | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › owner edits are limited per socket (layout-set and title-set share ROOM_EDIT_BURST); the refill is honoured; refused edits change nothing |
+| 829 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner's layout-set does not draw from the owner's bucket, and a flood of them ends in the 4400 close |
+| 847 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › WS upgrades to unknown ids cost a token like real upgrades: after the burst from one key, 429 with Retry-After; another key is unaffected |
+| 863 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › once a key is limited, an unknown id and an existing private room's id get the very same answer (no existence oracle through the limiter) |
+| 876 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong invite keys from one key are limited across rooms and sockets (rate_limited, retryAfterMs), 4400 follows, and the right key still gets through |
+| 898 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong owner tokens from one key are limited too: the guests join while the bucket lasts, then rate_limited and no snapshot |
+| 917 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE: an unknown id is 404 (specified: 404, then auth); a wrong bearer on a real room is 401 until the per-key failed-auth bucket empties, then 429 with Retry-After |
+| 941 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE probes at unknown ids from one key are bounded by the HTTP gate (429 + Retry-After) |
+| 952 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › a share probe at an unknown room is 404 and at a private room without a grant is 401, with the same typed shape (existence is not a secret: ids are 128 bits) |
 
 ### queue.test.ts
 
@@ -992,7 +992,7 @@ Owner: S5. 19 tests: A 14, D 5.
 | 153 | A ✓ | site routes: shell, share card and real 404s › unknown paths and invalid room ids are 404 with the not-found page, in the privacy page's look |
 | 169 | A ✓ | site routes: shell, share card and real 404s › the html pages still serve, with the site-wide card |
 | 179 | A ✓ | site routes: shell, share card and real 404s › a page that ships its own description, icon and manifest tags serves one of each: the server's (OME-767) |
-| 199 | A (timing: in-process only) | site routes: shell, share card and real 404s › the share card costs under 2 ms p95 on the shell route |
+| 199 | A | site routes: shell, share card and real 404s › the share card costs under 2 ms p95 on the shell route |
 | 219 | A ✓ | robots.txt, icons and the manifest › robots.txt allows the site, keeps crawlers off the API, has no sitemap and doesn't hide /r/ from noindex |
 | 233 | A ✓ | robots.txt, icons and the manifest › security.txt (RFC 9116) points at the contact page, is canonical on the public origin and a day-cached |
 | 247 | A ✓ | robots.txt, icons and the manifest › security.txt Expires is under a year out and not within 30 days: renew it before this fails (docs/ops/hosting.md) |
