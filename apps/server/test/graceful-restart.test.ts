@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_LAYOUT, type ServerMessage } from "@omega/shared";
 import { createConnection, type Connection, type SocketLike } from "../../web/src/connection";
-import { SERVICE_RESTART } from "../src/ws";
+import { SERVICE_RESTART } from "../src/metrics";
 import { openDatabase } from "../src/store/db";
 import { RoomStore } from "../src/store/rooms";
 import { SEAT_HOLD_MS } from "../src/room";

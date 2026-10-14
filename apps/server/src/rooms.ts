@@ -1,7 +1,7 @@
 import type { Room } from "./room";
 
 /** Why a room ends: `closed` (owner delete, GC, operator delete) or `taken_down` (operator takedown, ADR 0033 §5). */
-export type RemoveReason = "closed" | "taken_down";
+type RemoveReason = "closed" | "taken_down";
 
 /** State kept per live room (a limiter, its sockets…), dropped when the room is removed. */
 export interface PerRoom<T> {

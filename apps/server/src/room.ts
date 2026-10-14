@@ -26,8 +26,8 @@ import { nicknameKey } from "@omega/shared/confusables";
 import { applyControl, loadPlayback, restoredPlayback, type Control } from "./playback";
 import { secretMatches } from "./secrets";
 
-export type SitResult = "ok" | "seat_taken";
-export type JoinResult = { ok: true; member: Member } | { ok: false; reason: "room_full" | "too_many_members" | "nickname_taken" };
+type SitResult = "ok" | "seat_taken";
+type JoinResult = { ok: true; member: Member } | { ok: false; reason: "room_full" | "too_many_members" | "nickname_taken" };
 
 /**
  * Joined members one client key may hold in a room (threat model §6, room squatting). Pending the
@@ -39,7 +39,7 @@ export const MAX_MEMBERS_PER_CLIENT = 5;
 export const SEAT_HOLD_MS = 30_000;
 
 /** A seated member's name, as SHA-256 of its `nicknameKey`, and seat: what a graceful restart keeps (ADR 0032). */
-export interface HeldSeat {
+interface HeldSeat {
   nameHash: Uint8Array;
   seat: SeatIndex;
 }
@@ -58,7 +58,7 @@ interface Held {
 }
 
 /** What `Room.setEmbed` changed besides the embed. */
-export interface EmbedSwitch {
+interface EmbedSwitch {
   playback: PlaybackState | null;
   uncaught: readonly MemberId[];
 }

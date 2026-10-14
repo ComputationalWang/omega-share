@@ -4,7 +4,7 @@
  * and message, never a room id, title, nickname or address: callers have no free-form field, and the
  * message is cut at its first quote (store and Valibot errors quote ids and input) and scrubbed of IPs and emails.
  */
-export type LogEvent =
+type LogEvent =
   | "store.new_room"
   | "store.delete_room"
   | "store.last_active"
