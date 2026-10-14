@@ -13,10 +13,12 @@ use icu_properties::props::GeneralCategory;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
-use crate::config::Env;
+use crate::config::{Env, admin_socket_for};
 use std::fmt::Write as _;
+use std::io::{ErrorKind, Read, Write as _};
+use std::os::unix::net::UnixStream;
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use validator::{Validate, ValidationError};
 
 const MAX_SAFE: i64 = 9_007_199_254_740_991;
@@ -338,16 +340,88 @@ pub fn success(cmd: &Command, body: &Value) -> Option<Vec<String>> {
 /// `FETCH_TIMEOUT_MS`: the server answers from memory at once; a hung one shouldn't hang the operator's ssh session.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_millis(10_000);
 
-/// One request on the admin socket (HTTP/1.1, `Connection: close`): the status and the body.
+/// More than any real answer (a room list is a few hundred bytes per room): a runaway reply is cut off.
+const MAX_RESPONSE_BYTES: u64 = 16 * 1024 * 1024;
+
+/// One request on the admin socket (HTTP/1.1, `Connection: close`): the status and the body. Only the Unix socket,
+/// never TCP; `timeout` bounds the whole exchange.
 pub fn request(socket: &Path, method: &str, path: &str, timeout: Duration) -> Result<(u16, Vec<u8>), String> {
-    let _ = (socket, method, path, timeout);
-    Err("not implemented".to_owned())
+    let deadline = Instant::now() + timeout;
+    let timed_out = || format!("timed out after {} ms", timeout.as_millis());
+    let mut stream = UnixStream::connect(socket).map_err(|e| e.to_string())?;
+    let left = || deadline.checked_duration_since(Instant::now()).filter(|d| !d.is_zero());
+    stream.set_write_timeout(left()).map_err(|e| e.to_string())?;
+    // The host is ignored on a Unix socket; the server listens nowhere else.
+    let head = format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
+    stream.write_all(head.as_bytes()).map_err(|e| e.to_string())?;
+    let mut raw = Vec::new();
+    let mut chunk = [0u8; 8192];
+    loop {
+        let Some(remaining) = left() else { return Err(timed_out()) };
+        stream.set_read_timeout(Some(remaining)).map_err(|e| e.to_string())?;
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(n) => raw.extend_from_slice(chunk.get(..n).unwrap_or_default()),
+            Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => return Err(timed_out()),
+            Err(e) if e.kind() == ErrorKind::Interrupted => {}
+            Err(e) => return Err(e.to_string()),
+        }
+        if raw.len() as u64 > MAX_RESPONSE_BYTES {
+            return Err("answer too large".to_owned());
+        }
+    }
+    parse_response(&raw).ok_or_else(|| "malformed answer".to_owned())
 }
 
-/// Splits a raw HTTP/1.1 answer into its status and body (content-length or chunked).
+fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+/// A `Transfer-Encoding: chunked` body (extensions ignored, trailers not read).
+fn dechunk(mut rest: &[u8]) -> Option<Vec<u8>> {
+    let mut body = Vec::new();
+    loop {
+        let line_end = find(rest, b"\r\n")?;
+        let line = std::str::from_utf8(rest.get(..line_end)?).ok()?;
+        let size = usize::from_str_radix(line.split(';').next()?.trim(), 16).ok()?;
+        rest = rest.get(line_end + 2..)?;
+        if size == 0 {
+            return Some(body);
+        }
+        body.extend_from_slice(rest.get(..size)?);
+        rest = rest.get(size..)?.strip_prefix(b"\r\n")?;
+    }
+}
+
+/// Splits a raw HTTP/1.1 answer into its status and body (content-length, chunked, or whatever the close delivered).
 pub fn parse_response(raw: &[u8]) -> Option<(u16, Vec<u8>)> {
-    let _ = raw;
-    None
+    let split = find(raw, b"\r\n\r\n")?;
+    let head = std::str::from_utf8(raw.get(..split)?).ok()?;
+    let body = raw.get(split + 4..)?;
+    let mut lines = head.split("\r\n");
+    let mut status_line = lines.next()?.split(' ');
+    if !status_line.next()?.starts_with("HTTP/1.") {
+        return None;
+    }
+    let status: u16 = status_line.next()?.parse().ok()?;
+    let mut length = None;
+    let mut chunked = false;
+    for line in lines {
+        let (name, value) = line.split_once(':')?;
+        match name.trim().to_ascii_lowercase().as_str() {
+            "content-length" => length = Some(value.trim().parse::<usize>().ok()?),
+            "transfer-encoding" => chunked = value.to_ascii_lowercase().contains("chunked"),
+            _ => {}
+        }
+    }
+    let body = if chunked {
+        dechunk(body)?
+    } else if let Some(n) = length {
+        body.get(..n)?.to_vec()
+    } else {
+        body.to_vec()
+    };
+    Some((status, body))
 }
 
 /// Where a run reads its environment and writes its lines.
@@ -359,10 +433,61 @@ pub struct Io<'a> {
     pub err: &'a mut dyn FnMut(&str),
 }
 
-/// `runCli`: the arguments after `admin`; returns the exit code.
+fn call(cmd: &Command) -> (&'static str, String) {
+    match cmd {
+        Command::List => ("GET", "/rooms".to_owned()),
+        Command::Delete { id } => ("DELETE", format!("/rooms/{}", id.as_str())),
+        Command::Pin { id } => ("POST", format!("/rooms/{}/pin", id.as_str())),
+        Command::Unpin { id } => ("POST", format!("/rooms/{}/unpin", id.as_str())),
+        Command::Takedown { id } => ("POST", format!("/rooms/{}/takedown", id.as_str())),
+        Command::Reports => ("GET", "/reports".to_owned()),
+        Command::Dismiss { report_id } => ("POST", format!("/reports/{}/dismiss", report_id.as_str())),
+        Command::DismissRoom { id } => ("POST", format!("/rooms/{}/reports/dismiss", id.as_str())),
+    }
+}
+
+/// `runCli`: the arguments after `admin`; returns the exit code (0 done, 1 failed, 2 usage). It prints only what the
+/// server's answer parses to, and the server's error text escaped like a title.
 pub fn run_cli(argv: &[String], io: &mut Io<'_>) -> i32 {
-    let _ = (argv, io);
-    99
+    let Some(cmd) = parse_args(argv) else {
+        (io.err)(usage());
+        return 2;
+    };
+    let socket = match admin_socket_for(io.env, io.cwd) {
+        Ok(socket) => socket,
+        Err(err) => {
+            (io.err)(&err.to_string());
+            return 2;
+        }
+    };
+    let Some(socket) = socket else {
+        (io.err)("the admin socket is off (ADMIN_SOCKET=off or DB_PATH=:memory:)");
+        return 1;
+    };
+    let (method, path) = call(&cmd);
+    let (status, body) = match request(&socket, method, &path, REQUEST_TIMEOUT) {
+        Ok(answer) => answer,
+        Err(err) => {
+            (io.err)(&format!("no server on {}: {err}", socket.display()));
+            return 1;
+        }
+    };
+    let body: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+    if !(200..300).contains(&status) {
+        match body.get("error").and_then(Value::as_str) {
+            Some(text) => (io.err)(&printable(text)),
+            None => (io.err)(&format!("server answered {status}")),
+        }
+        return 1;
+    }
+    let Some(lines) = success(&cmd, &body) else {
+        (io.err)("unexpected answer from the server");
+        return 1;
+    };
+    for line in &lines {
+        (io.out)(line);
+    }
+    0
 }
 
 #[cfg(test)]
