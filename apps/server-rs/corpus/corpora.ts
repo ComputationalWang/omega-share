@@ -7,11 +7,15 @@ import { normalizeHostname } from "@omega/shared";
 import * as constants from "../../../packages/shared/src/constants";
 import { layoutCorpora } from "./layout-corpora";
 
-/** One decision: `ok` false means the TS side refused `input`; `output` is what it produced otherwise. */
+/**
+ * One decision: `ok` false means the TS side refused `input`; `output` is what it produced otherwise.
+ * `rust: "refuses"` marks a deliberate difference (PORTING.md): Rust must refuse whatever TS decided.
+ */
 export interface Case {
   input: unknown;
   ok: boolean;
   output?: unknown;
+  rust?: "refuses";
 }
 
 export interface Corpus {
@@ -25,6 +29,28 @@ export const decided = <I,>(inputs: readonly I[], run: (input: I) => unknown): C
   inputs.map((input) => {
     const output = run(input);
     return output === null ? { input, ok: false } : { input, ok: true, output };
+  });
+
+/**
+ * Raw JSON text, decided as the server sees it: `JSON.parse`, then `decide` (null means refused). The
+ * only way to test what `JSON.stringify` never writes: `-0`, `1.0`, `1e2`, duplicate keys, the array
+ * form of an object. Mark the deliberate differences `rustRefuses`.
+ */
+export interface RawInput {
+  text: string;
+  rustRefuses?: true;
+}
+
+export const decidedRaw = (inputs: readonly RawInput[], decide: (parsed: unknown) => unknown): Case[] =>
+  inputs.map(({ text, rustRefuses }) => {
+    let output: unknown = null;
+    try {
+      output = decide(JSON.parse(text));
+    } catch {
+      // Not JSON: refused, as the server's parse step does.
+    }
+    const decision: Case = output === null ? { input: text, ok: false } : { input: text, ok: true, output };
+    return rustRefuses === true ? { ...decision, rust: "refuses" } : decision;
   });
 
 const HOSTNAMES = [

@@ -19,13 +19,22 @@ const RUNNERS: &[&str] = &[
     "room-layout-input",
 ];
 
-/// One TS decision: refused (`ok: false`) or accepted with `output`.
+/// One TS decision: refused (`ok: false`) or accepted with `output`. `rust: "refuses"` marks a
+/// deliberate difference (PORTING.md): Rust must refuse, whatever TS decided.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Case<I, O> {
     input: I,
     ok: bool,
     output: Option<O>,
+    #[serde(default)]
+    rust: Option<Deliberate>,
+}
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "lowercase")]
+enum Deliberate {
+    Refuses,
 }
 
 fn load<I: DeserializeOwned, O: DeserializeOwned>(json: &str) -> Vec<Case<I, O>> {
@@ -39,10 +48,13 @@ fn agree<I: std::fmt::Debug, O: PartialEq + std::fmt::Debug>(cases: Vec<Case<I, 
     for case in cases {
         // An accepted case must say what it produced, or a Rust refusal would pass as agreement.
         assert!(!case.ok || case.output.is_some(), "{:?}: ok without an output", case.input);
-        let ts = if case.ok { case.output } else { None };
+        let want = match (case.rust, case.ok) {
+            (Some(Deliberate::Refuses), _) | (None, false) => None,
+            (None, true) => case.output,
+        };
         let got = rust(&case.input);
-        if got != ts {
-            wrong.push(format!("{:?}: TS {ts:?}, Rust {got:?}", case.input));
+        if got != want {
+            wrong.push(format!("{:?}: want {want:?}, Rust {got:?}", case.input));
         }
     }
     assert!(wrong.is_empty(), "{} disagreement(s):\n{}", wrong.len(), wrong.join("\n"));

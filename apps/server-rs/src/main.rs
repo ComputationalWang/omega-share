@@ -1,4 +1,4 @@
-use omega_server::config::{Env, parse_config};
+use omega_server::config::{Env, env_from_os, parse_config};
 use omega_server::serve::serve;
 use std::process::ExitCode;
 
@@ -16,10 +16,13 @@ fn main() -> ExitCode {
 }
 
 fn run_serve() -> ExitCode {
-    // Lossy, so a non-UTF-8 value is refused by the parser instead of crashing the process.
-    let env: Env = std::env::vars_os()
-        .map(|(k, v)| (k.to_string_lossy().into_owned(), v.to_string_lossy().into_owned()))
-        .collect();
+    let env: Env = match env_from_os(std::env::vars_os()) {
+        Ok(env) => env,
+        Err(err) => {
+            eprintln!("{err}");
+            return ExitCode::FAILURE;
+        }
+    };
     let cwd = match std::env::current_dir() {
         Ok(cwd) => cwd,
         Err(err) => {
@@ -50,7 +53,10 @@ fn run_serve() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    match runtime.block_on(serve(config)) {
+    let served = runtime.block_on(serve(config));
+    // Connections past the drain deadline are cut here rather than awaited.
+    runtime.shutdown_timeout(std::time::Duration::from_millis(500));
+    match served {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("serve: {err}");

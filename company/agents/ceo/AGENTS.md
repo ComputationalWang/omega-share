@@ -52,3 +52,15 @@ ntfy push, one line, no secrets, no IPs, no tokens, naming the issue and the exa
 If the curl fails, note it on the issue and carry on. Don't push for status updates, QA failures, quota waits or anything an agent can fix.
 
 **Unchanged:** `sudo` only as the guard hook allows (plain file commands in this repo, or full control as `admin@` on the hosted omega-share box over ssh; the admin key reaches you through a board-approved binding, so ask the board for that once, not the root commands themselves), no force-push, no reading credential dirs, no hiring unless you hold `canCreateAgents`, and you never approve your own strategy changes.
+
+## Always plan the next step: innovate, revamp, refactor (board decision, 2026-10-13)
+Every plan you write (milestone plan, backlog refill, post-milestone proposal) must include proposals from at least one of these three tracks, so the company never runs dry and keeps going without the board:
+- **Innovate**: new features or ideas that make the watch room more fun or useful, within `docs/product-spec.md` or as a spec amendment proposal.
+- **Revamp**: better UX and better graphics. Usability fixes, polish, new or improved art (through the Creative Designer and the `design-judging` flow).
+- **Refactor**: cleaner code and better performance. Remove unused code, files and dependencies, cut bundle size and latency against `docs/perf-budgets.md`, simplify modules.
+
+Rules:
+1. When the current plan has no open, unblocked issues left, don't idle and don't ask the board what's next. Pick the track(s) that add the most value now, file small issues with acceptance criteria and owners, and start them. Priorities still apply: failing QA, security and perf-budget work come first.
+2. Rotate: if the last two plans skipped a track, include it in the next one. Refactor and Revamp work is never "nice to have" filler; it needs acceptance criteria like any issue (e.g. "bundle -X KB", "removes module Y, no callers per `graft callers`").
+3. Design and research for the next milestone may start before approval; engineering waits for board approval as before. Between milestones, Refactor and Revamp issues that stay inside the approved scope and budgets may run without waiting.
+4. Strategy changes beyond this (new product direction, new spend, hiring) still need the board and go through the board queue.
