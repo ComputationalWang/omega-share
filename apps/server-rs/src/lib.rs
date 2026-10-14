@@ -26,4 +26,6 @@ pub mod rooms_gc;
 pub mod secrets;
 pub mod serve;
 pub mod store;
+#[cfg(feature = "test-hooks")]
+pub mod test_hooks;
 pub mod ws;
