@@ -511,6 +511,37 @@ mod tests {
     }
 
     #[test]
+    fn debug_never_prints_tokens_or_user_text() {
+        let token = "SecretTokenAAAAAAAAAA";
+        let join = json!({"type":"join","nickname":"Alice","avatar":1,"ownerToken":token,"inviteKey":token,"resumeToken":"B".repeat(43)});
+        let chat = json!({"type":"chat","text":"private words"});
+        let queue = json!({"type":"queue-add","url":"https://private.example/x"});
+        for v in [join, chat, queue] {
+            let shown = format!("{:?}", parse(&v).unwrap());
+            for secret in [token, "BBBBBBBB", "private", "Alice"] {
+                assert!(!shown.contains(secret), "{shown}");
+            }
+        }
+    }
+
+    #[test]
+    fn layout_set_refuses_duplicate_keys_inside_the_layout() {
+        let piece = r#"{"kind":"tv","col":0,"row":0,"facing":"se"}"#;
+        let layout = serde_json::to_string(&json!({"furniture":[
+            {"kind":"tv","col":0,"row":0,"facing":"se"},
+            {"kind":"armchair","col":1,"row":5,"facing":"ne"},{"kind":"armchair","col":2,"row":4,"facing":"ne"},
+            {"kind":"armchair","col":4,"row":2,"facing":"ne"},{"kind":"armchair","col":5,"row":1,"facing":"ne"},
+            {"kind":"armchair","col":3,"row":7,"facing":"nw"},{"kind":"armchair","col":4,"row":6,"facing":"nw"},
+            {"kind":"armchair","col":6,"row":4,"facing":"nw"},{"kind":"armchair","col":7,"row":3,"facing":"nw"},
+        ]})).unwrap();
+        assert!(parse_client_message(&format!(r#"{{"type":"layout-set","layout":{layout}}}"#)).is_some());
+        let dup_piece = layout.replace(piece, r#"{"kind":"tv","kind":"tv","col":0,"row":0,"facing":"se"}"#);
+        assert!(parse_client_message(&format!(r#"{{"type":"layout-set","layout":{dup_piece}}}"#)).is_none());
+        let dup_key = layout.replacen('{', r#"{"furniture":[],"#, 1);
+        assert!(parse_client_message(&format!(r#"{{"type":"layout-set","layout":{dup_key}}}"#)).is_none());
+    }
+
+    #[test]
     fn urls_are_capped_in_utf16_units() {
         let control = |u: String| json!({"type":"control","url":u,"playing":true,"position":0});
         assert!(parse(&control("😀".repeat(64))).is_some());

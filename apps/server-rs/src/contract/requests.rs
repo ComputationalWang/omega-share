@@ -85,6 +85,7 @@ pub fn parse_report_request(body: &[u8]) -> Result<ReportRequest, Invalid> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contract::constants::{MAX_CREATE_BODY_BYTES, MAX_REPORT_BODY_BYTES, MAX_SHARE_BODY_BYTES};
 
     #[test]
     fn create_room_bodies() {
@@ -102,6 +103,30 @@ mod tests {
         ] {
             assert!(parse_create_room_request(bad).is_err(), "{}", String::from_utf8_lossy(bad));
         }
+    }
+
+    #[test]
+    fn bodies_over_their_cap_are_refused_unread() {
+        // apps/server/src/http.ts:53 (share), constants.ts (create, report)
+        let pad = |json: &str, total: usize| format!("{json}{}", " ".repeat(total - json.len()));
+        let create = r#"{"title":"Films","visibility":"public"}"#;
+        assert!(parse_create_room_request(pad(create, MAX_CREATE_BODY_BYTES).as_bytes()).is_ok());
+        assert!(parse_create_room_request(pad(create, MAX_CREATE_BODY_BYTES + 1).as_bytes()).is_err());
+        let share = r#"{"url":"x"}"#;
+        assert!(parse_share_request(pad(share, MAX_SHARE_BODY_BYTES).as_bytes()).is_ok());
+        assert!(parse_share_request(pad(share, MAX_SHARE_BODY_BYTES + 1).as_bytes()).is_err());
+        let report = r#"{"reason":"spam"}"#;
+        assert!(parse_report_request(pad(report, MAX_REPORT_BODY_BYTES).as_bytes()).is_ok());
+        assert!(parse_report_request(pad(report, MAX_REPORT_BODY_BYTES + 1).as_bytes()).is_err());
+        // Not even JSON, and huge: refused without being read.
+        assert!(parse_share_request(&vec![b'{'; 1 << 20]).is_err());
+    }
+
+    #[test]
+    fn invalid_utf8_is_refused_where_ts_decodes_lossily() {
+        // apps/server/src/rate-limit.ts:152 (deliberate difference, PORTING.md)
+        assert!(parse_share_request(b"{\"url\":\"\xff\"}").is_err());
+        assert!(parse_report_request(b"{\"reason\":\"spam\",\"note\":\"a\xc3\"}").is_err());
     }
 
     #[test]

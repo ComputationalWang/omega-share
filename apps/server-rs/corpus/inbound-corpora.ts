@@ -155,8 +155,38 @@ const invalid: Raw[] = [
   ok('{"type":"ended","itemId":"q1","position":Infinity}'),
 ];
 
+const LAYOUT_JSON = JSON.stringify(LAYOUT);
+const F = JSON.stringify(LAYOUT.furniture);
+const POS = (n: string): string => `{"type":"control","url":"u","playing":true,"position":${n}}`;
+
+// Long-digit decimals: JS rounds correctly, so serde_json needs float_roundtrip to take the same side of a limit.
+const floats: Raw[] = [
+  ok(POS("43200.0000000000031806322522291669")),
+  ok(POS("43200.00000000000001")),
+  ok(POS("43199.99999999999999999")),
+  ok(POS("43200.000000000007")),
+  ok(POS("43200.00000000001")),
+  ok(POS("0.30000000000000004441")),
+  ok(POS("-0.0000000000000000000001")),
+  ok(POS("5e-324")),
+  ok(POS("2.2250738585072011e-308")),
+  ok(POS("1.7976931348623157e308")),
+  ok(POS("123456789.123456789123456789")),
+  ok(POS("1e-400")),
+  ok(`{"type":"ended","itemId":"q1","position":43200.0000000000031806322522291669}`),
+  ok(`{"type":"ended","itemId":"q1","position":8.98846567431158e307}`),
+];
+
+// Duplicate keys inside the layout: TS takes the last, Rust refuses like everywhere else.
+const layoutDuplicates: Raw[] = [
+  rr(`{"type":"layout-set","layout":{"furniture":${F},"furniture":${F}}}`),
+  rr(`{"type":"layout-set","layout":${LAYOUT_JSON.replace('"kind":"tv"', '"kind":"tv","kind":"tv"')}}`),
+  rr(`{"type":"layout-set","layout":${LAYOUT_JSON.replace('"col":0', '"col":0,"col":0')}}`),
+];
+
 // TS accepts, Rust deliberately refuses.
 const deliberate: Raw[] = [
+  ...layoutDuplicates,
   rr('{"type":"leave","type":"leave"}'),
   rr('{"type":"sit","seat":1,"seat":2}'),
   rr('{"type":"leave","type":"chat"}'),
@@ -186,7 +216,7 @@ const sizeEdges = (): Raw[] => {
   return out;
 };
 
-const frames = (): Raw[] => [...valid, ...invalid, ...deliberate, ...sizeEdges()];
+const frames = (): Raw[] => [...valid, ...floats, ...invalid, ...deliberate, ...sizeEdges()];
 
 /** A lone-surrogate output can't be written as corpus JSON serde reads; such cases are `rustRefuses`, so the record gets U+FFFD. */
 const safe = (o: unknown): unknown =>

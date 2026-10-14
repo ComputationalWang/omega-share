@@ -665,6 +665,9 @@ fn share_request_raw_agrees() {
 fn report_request_raw_agrees() {
     inbound(include_str!("../corpus/out/report-request-raw.json"), |t| {
         parse_report_request(t.as_bytes()).ok()
+    });
+}
+
 // ---- OME-1162: secrets and metrics.
 
 #[test]
