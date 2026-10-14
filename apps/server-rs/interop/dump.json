@@ -67,6 +67,20 @@
       "item_id": "n1"
     },
     {
+      "id": "full-queue",
+      "title": "Twenty",
+      "created_at": 1700000000009,
+      "layout": "{\"furniture\":[{\"kind\":\"tv\",\"col\":0,\"row\":0,\"facing\":\"se\"},{\"kind\":\"rug\",\"col\":1,\"row\":1,\"facing\":\"se\"},{\"kind\":\"armchair\",\"col\":1,\"row\":5,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":2,\"row\":4,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":4,\"row\":2,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":5,\"row\":1,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":3,\"row\":7,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":4,\"row\":6,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":6,\"row\":4,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":7,\"row\":3,\"facing\":\"nw\"},{\"kind\":\"lamp\",\"col\":9,\"row\":0,\"facing\":\"se\"},{\"kind\":\"plant\",\"col\":0,\"row\":9,\"facing\":\"se\"}]}",
+      "embed": null,
+      "visibility": "public",
+      "pinned": 1,
+      "owner_hash": null,
+      "invite_hash": null,
+      "last_active_at": null,
+      "control_policy": "everyone",
+      "item_id": null
+    },
+    {
       "id": "lobby",
       "title": "Lobby",
       "created_at": 1700000000000,
@@ -77,6 +91,20 @@
       "owner_hash": null,
       "invite_hash": null,
       "last_active_at": 1700000100000,
+      "control_policy": "everyone",
+      "item_id": null
+    },
+    {
+      "id": "max-title",
+      "title": "𐐀𐐀𐐀𐐀𐐀𐐀𐐀𐐀q́q́q́q́q́q́q́q́",
+      "created_at": 1700000000008,
+      "layout": "{\"furniture\":[{\"kind\":\"tv\",\"col\":0,\"row\":0,\"facing\":\"se\"},{\"kind\":\"rug\",\"col\":1,\"row\":1,\"facing\":\"se\"},{\"kind\":\"armchair\",\"col\":1,\"row\":5,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":2,\"row\":4,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":4,\"row\":2,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":5,\"row\":1,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":3,\"row\":7,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":4,\"row\":6,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":6,\"row\":4,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":7,\"row\":3,\"facing\":\"nw\"},{\"kind\":\"lamp\",\"col\":9,\"row\":0,\"facing\":\"se\"},{\"kind\":\"plant\",\"col\":0,\"row\":9,\"facing\":\"se\"}]}",
+      "embed": null,
+      "visibility": "public",
+      "pinned": 1,
+      "owner_hash": null,
+      "invite_hash": null,
+      "last_active_at": null,
       "control_policy": "everyone",
       "item_id": null
     },
@@ -93,6 +121,34 @@
       "last_active_at": 0,
       "control_policy": "everyone",
       "item_id": null
+    },
+    {
+      "id": "mutated",
+      "title": "",
+      "created_at": 1700000000007,
+      "layout": "{\"furniture\":[{\"kind\":\"tv\",\"col\":0,\"row\":0,\"facing\":\"se\"},{\"kind\":\"rug\",\"col\":1,\"row\":1,\"facing\":\"se\"},{\"kind\":\"armchair\",\"col\":1,\"row\":5,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":2,\"row\":4,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":4,\"row\":2,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":5,\"row\":1,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":3,\"row\":7,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":4,\"row\":6,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":6,\"row\":4,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":7,\"row\":3,\"facing\":\"nw\"},{\"kind\":\"lamp\",\"col\":9,\"row\":0,\"facing\":\"se\"},{\"kind\":\"plant\",\"col\":9,\"row\":9,\"facing\":\"se\"},{\"kind\":\"monstera\",\"col\":8,\"row\":8,\"facing\":\"se\",\"variant\":1}]}",
+      "embed": null,
+      "visibility": "public",
+      "pinned": 1,
+      "owner_hash": null,
+      "invite_hash": null,
+      "last_active_at": 1700000500000,
+      "control_policy": "everyone",
+      "item_id": null
+    },
+    {
+      "id": "requeue",
+      "title": "Requeue",
+      "created_at": 1700000000006,
+      "layout": "{\"furniture\":[{\"kind\":\"tv\",\"col\":0,\"row\":0,\"facing\":\"se\"},{\"kind\":\"rug\",\"col\":1,\"row\":1,\"facing\":\"se\"},{\"kind\":\"armchair\",\"col\":1,\"row\":5,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":2,\"row\":4,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":4,\"row\":2,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":5,\"row\":1,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":3,\"row\":7,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":4,\"row\":6,\"facing\":\"ne\"},{\"kind\":\"armchair\",\"col\":6,\"row\":4,\"facing\":\"nw\"},{\"kind\":\"armchair\",\"col\":7,\"row\":3,\"facing\":\"nw\"},{\"kind\":\"lamp\",\"col\":9,\"row\":0,\"facing\":\"se\"},{\"kind\":\"plant\",\"col\":0,\"row\":9,\"facing\":\"se\"}]}",
+      "embed": "{\"provider\":\"youtube\",\"videoId\":\"dQw4w9WgXcQ\",\"url\":\"https://www.youtube.com/embed/dQw4w9WgXcQ\"}",
+      "visibility": "public",
+      "pinned": 1,
+      "owner_hash": null,
+      "invite_hash": null,
+      "last_active_at": null,
+      "control_policy": "everyone",
+      "item_id": "cur"
     },
     {
       "id": "start-room",
@@ -155,6 +211,150 @@
       "embed": "{\"provider\":\"youtube\",\"videoId\":\"dQw4w9WgXcQ\",\"url\":\"https://www.youtube.com/embed/dQw4w9WgXcQ\"}"
     },
     {
+      "room_id": "full-queue",
+      "id": "i01",
+      "position": 1,
+      "embed": "{\"provider\":\"youtube\",\"videoId\":\"dQw4w9WgXcQ\",\"url\":\"https://www.youtube.com/embed/dQw4w9WgXcQ\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i02",
+      "position": 2,
+      "embed": "{\"provider\":\"vimeo\",\"videoId\":\"76979871\",\"hash\":null,\"url\":\"https://player.vimeo.com/video/76979871\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i03",
+      "position": 3,
+      "embed": "{\"provider\":\"twitch\",\"kind\":\"vod\",\"videoId\":\"1234567890\",\"url\":\"https://player.twitch.tv/?video=v1234567890\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i04",
+      "position": 4,
+      "embed": "{\"provider\":\"youtube\",\"videoId\":\"dQw4w9WgXcQ\",\"url\":\"https://www.youtube.com/embed/dQw4w9WgXcQ\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i05",
+      "position": 5,
+      "embed": "{\"provider\":\"vimeo\",\"videoId\":\"76979871\",\"hash\":null,\"url\":\"https://player.vimeo.com/video/76979871\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i06",
+      "position": 6,
+      "embed": "{\"provider\":\"twitch\",\"kind\":\"vod\",\"videoId\":\"1234567890\",\"url\":\"https://player.twitch.tv/?video=v1234567890\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i07",
+      "position": 7,
+      "embed": "{\"provider\":\"youtube\",\"videoId\":\"dQw4w9WgXcQ\",\"url\":\"https://www.youtube.com/embed/dQw4w9WgXcQ\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i08",
+      "position": 8,
+      "embed": "{\"provider\":\"vimeo\",\"videoId\":\"76979871\",\"hash\":null,\"url\":\"https://player.vimeo.com/video/76979871\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i09",
+      "position": 9,
+      "embed": "{\"provider\":\"twitch\",\"kind\":\"vod\",\"videoId\":\"1234567890\",\"url\":\"https://player.twitch.tv/?video=v1234567890\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i10",
+      "position": 10,
+      "embed": "{\"provider\":\"youtube\",\"videoId\":\"dQw4w9WgXcQ\",\"url\":\"https://www.youtube.com/embed/dQw4w9WgXcQ\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i11",
+      "position": 11,
+      "embed": "{\"provider\":\"vimeo\",\"videoId\":\"76979871\",\"hash\":null,\"url\":\"https://player.vimeo.com/video/76979871\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i12",
+      "position": 12,
+      "embed": "{\"provider\":\"twitch\",\"kind\":\"vod\",\"videoId\":\"1234567890\",\"url\":\"https://player.twitch.tv/?video=v1234567890\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i13",
+      "position": 13,
+      "embed": "{\"provider\":\"youtube\",\"videoId\":\"dQw4w9WgXcQ\",\"url\":\"https://www.youtube.com/embed/dQw4w9WgXcQ\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i14",
+      "position": 14,
+      "embed": "{\"provider\":\"vimeo\",\"videoId\":\"76979871\",\"hash\":null,\"url\":\"https://player.vimeo.com/video/76979871\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i15",
+      "position": 15,
+      "embed": "{\"provider\":\"twitch\",\"kind\":\"vod\",\"videoId\":\"1234567890\",\"url\":\"https://player.twitch.tv/?video=v1234567890\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i16",
+      "position": 16,
+      "embed": "{\"provider\":\"youtube\",\"videoId\":\"dQw4w9WgXcQ\",\"url\":\"https://www.youtube.com/embed/dQw4w9WgXcQ\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i17",
+      "position": 17,
+      "embed": "{\"provider\":\"vimeo\",\"videoId\":\"76979871\",\"hash\":null,\"url\":\"https://player.vimeo.com/video/76979871\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i18",
+      "position": 18,
+      "embed": "{\"provider\":\"twitch\",\"kind\":\"vod\",\"videoId\":\"1234567890\",\"url\":\"https://player.twitch.tv/?video=v1234567890\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i19",
+      "position": 19,
+      "embed": "{\"provider\":\"youtube\",\"videoId\":\"dQw4w9WgXcQ\",\"url\":\"https://www.youtube.com/embed/dQw4w9WgXcQ\"}"
+    },
+    {
+      "room_id": "full-queue",
+      "id": "i20",
+      "position": 20,
+      "embed": "{\"provider\":\"vimeo\",\"videoId\":\"76979871\",\"hash\":null,\"url\":\"https://player.vimeo.com/video/76979871\"}"
+    },
+    {
+      "room_id": "requeue",
+      "id": "a",
+      "position": 1,
+      "embed": "{\"provider\":\"vimeo\",\"videoId\":\"76979871\",\"hash\":null,\"url\":\"https://player.vimeo.com/video/76979871\"}"
+    },
+    {
+      "room_id": "requeue",
+      "id": "c",
+      "position": 3,
+      "embed": "{\"provider\":\"generic\",\"host\":\"example.com\",\"url\":\"https://example.com/video/%C3%BC?a=1\"}"
+    },
+    {
+      "room_id": "requeue",
+      "id": "cur",
+      "position": 4,
+      "embed": "{\"provider\":\"vimeo\",\"videoId\":\"76979871\",\"hash\":null,\"url\":\"https://player.vimeo.com/video/76979871\"}"
+    },
+    {
+      "room_id": "requeue",
+      "id": "d",
+      "position": 5,
+      "embed": "{\"provider\":\"youtube\",\"videoId\":\"dQw4w9WgXcQ\",\"url\":\"https://www.youtube.com/embed/dQw4w9WgXcQ\"}"
+    },
+    {
       "room_id": "start-room",
       "id": "s2",
       "position": 1,
@@ -169,26 +369,16 @@
     },
     {
       "room_id": "lobby",
-      "name_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "seat": 0
+      "name_hash": "abababababababababababababababababababababababababababababababab",
+      "seat": 2
     },
     {
       "room_id": "lobby",
-      "name_hash": "abababababababababababababababababababababababababababababababab",
-      "seat": 2
+      "name_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "seat": 5
     }
   ],
   "rawReports": [
-    {
-      "id": "aaaaaaaaaaaaaaaaaaaaaa",
-      "room_id": "lobby",
-      "reason": "spam",
-      "note": null,
-      "room_title": "Lobby",
-      "embed_url": "https://www.youtube.com/embed/dQw4w9WgXcQ",
-      "created_at": 1700000200000,
-      "state": "dismissed"
-    },
     {
       "id": "bbbbbbbbbbbbbbbbbbbbbb",
       "room_id": "abcdefghijklmnopqrstuvwxyz",
@@ -196,7 +386,7 @@
       "note": "slurs in the title: ünï 🎬",
       "room_title": "Film club",
       "embed_url": null,
-      "created_at": 1700000200001,
+      "created_at": 1700002000001,
       "state": "actioned"
     },
     {
@@ -206,7 +396,7 @@
       "note": null,
       "room_title": null,
       "embed_url": "https://example.com/video/%C3%BC?a=1",
-      "created_at": 1700000200002,
+      "created_at": 1700002000002,
       "state": "actioned"
     },
     {
@@ -216,7 +406,7 @@
       "note": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
       "room_title": "Movie night",
       "embed_url": null,
-      "created_at": 1700000200003,
+      "created_at": 1700002000003,
       "state": "open"
     },
     {
@@ -226,7 +416,7 @@
       "note": null,
       "room_title": null,
       "embed_url": null,
-      "created_at": 1700000200003,
+      "created_at": 1700002000003,
       "state": "open"
     },
     {
@@ -236,8 +426,22 @@
       "note": null,
       "room_title": "Lobby",
       "embed_url": null,
-      "created_at": 1700000200004,
+      "created_at": 1700002000004,
       "state": "open"
+    }
+  ],
+  "bulkReports": [
+    {
+      "state": "dismissed",
+      "n": 4980,
+      "oldest": 1700001000010,
+      "newest": 1700001004989
+    },
+    {
+      "state": "open",
+      "n": 15,
+      "oldest": 1700001004990,
+      "newest": 1700001005004
     }
   ],
   "rawTakedowns": [
@@ -876,6 +1080,586 @@
       "controlPolicy": "everyone",
       "itemId": null,
       "queue": []
+    },
+    {
+      "id": "requeue",
+      "title": "Requeue",
+      "createdAt": 1700000000006,
+      "layout": {
+        "furniture": [
+          {
+            "kind": "tv",
+            "col": 0,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "rug",
+            "col": 1,
+            "row": 1,
+            "facing": "se"
+          },
+          {
+            "kind": "armchair",
+            "col": 1,
+            "row": 5,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 2,
+            "row": 4,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 2,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 5,
+            "row": 1,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 3,
+            "row": 7,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 6,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 6,
+            "row": 4,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 7,
+            "row": 3,
+            "facing": "nw"
+          },
+          {
+            "kind": "lamp",
+            "col": 9,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "plant",
+            "col": 0,
+            "row": 9,
+            "facing": "se"
+          }
+        ]
+      },
+      "embed": {
+        "provider": "youtube",
+        "videoId": "dQw4w9WgXcQ",
+        "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+      },
+      "visibility": "public",
+      "pinned": true,
+      "ownerHash": null,
+      "inviteHash": null,
+      "lastActiveAt": null,
+      "controlPolicy": "everyone",
+      "itemId": "cur",
+      "queue": [
+        {
+          "id": "a",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": null,
+            "url": "https://player.vimeo.com/video/76979871"
+          }
+        },
+        {
+          "id": "c",
+          "embed": {
+            "provider": "generic",
+            "host": "example.com",
+            "url": "https://example.com/video/%C3%BC?a=1"
+          }
+        },
+        {
+          "id": "cur",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": null,
+            "url": "https://player.vimeo.com/video/76979871"
+          }
+        },
+        {
+          "id": "d",
+          "embed": {
+            "provider": "youtube",
+            "videoId": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mutated",
+      "title": "",
+      "createdAt": 1700000000007,
+      "layout": {
+        "furniture": [
+          {
+            "kind": "tv",
+            "col": 0,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "rug",
+            "col": 1,
+            "row": 1,
+            "facing": "se"
+          },
+          {
+            "kind": "armchair",
+            "col": 1,
+            "row": 5,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 2,
+            "row": 4,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 2,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 5,
+            "row": 1,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 3,
+            "row": 7,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 6,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 6,
+            "row": 4,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 7,
+            "row": 3,
+            "facing": "nw"
+          },
+          {
+            "kind": "lamp",
+            "col": 9,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "plant",
+            "col": 9,
+            "row": 9,
+            "facing": "se"
+          },
+          {
+            "kind": "monstera",
+            "col": 8,
+            "row": 8,
+            "facing": "se",
+            "variant": 1
+          }
+        ]
+      },
+      "embed": null,
+      "visibility": "public",
+      "pinned": true,
+      "ownerHash": null,
+      "inviteHash": null,
+      "lastActiveAt": 1700000500000,
+      "controlPolicy": "everyone",
+      "itemId": null,
+      "queue": []
+    },
+    {
+      "id": "max-title",
+      "title": "𐐀𐐀𐐀𐐀𐐀𐐀𐐀𐐀q́q́q́q́q́q́q́q́",
+      "createdAt": 1700000000008,
+      "layout": {
+        "furniture": [
+          {
+            "kind": "tv",
+            "col": 0,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "rug",
+            "col": 1,
+            "row": 1,
+            "facing": "se"
+          },
+          {
+            "kind": "armchair",
+            "col": 1,
+            "row": 5,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 2,
+            "row": 4,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 2,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 5,
+            "row": 1,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 3,
+            "row": 7,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 6,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 6,
+            "row": 4,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 7,
+            "row": 3,
+            "facing": "nw"
+          },
+          {
+            "kind": "lamp",
+            "col": 9,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "plant",
+            "col": 0,
+            "row": 9,
+            "facing": "se"
+          }
+        ]
+      },
+      "embed": null,
+      "visibility": "public",
+      "pinned": true,
+      "ownerHash": null,
+      "inviteHash": null,
+      "lastActiveAt": null,
+      "controlPolicy": "everyone",
+      "itemId": null,
+      "queue": []
+    },
+    {
+      "id": "full-queue",
+      "title": "Twenty",
+      "createdAt": 1700000000009,
+      "layout": {
+        "furniture": [
+          {
+            "kind": "tv",
+            "col": 0,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "rug",
+            "col": 1,
+            "row": 1,
+            "facing": "se"
+          },
+          {
+            "kind": "armchair",
+            "col": 1,
+            "row": 5,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 2,
+            "row": 4,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 2,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 5,
+            "row": 1,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 3,
+            "row": 7,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 4,
+            "row": 6,
+            "facing": "ne"
+          },
+          {
+            "kind": "armchair",
+            "col": 6,
+            "row": 4,
+            "facing": "nw"
+          },
+          {
+            "kind": "armchair",
+            "col": 7,
+            "row": 3,
+            "facing": "nw"
+          },
+          {
+            "kind": "lamp",
+            "col": 9,
+            "row": 0,
+            "facing": "se"
+          },
+          {
+            "kind": "plant",
+            "col": 0,
+            "row": 9,
+            "facing": "se"
+          }
+        ]
+      },
+      "embed": null,
+      "visibility": "public",
+      "pinned": true,
+      "ownerHash": null,
+      "inviteHash": null,
+      "lastActiveAt": null,
+      "controlPolicy": "everyone",
+      "itemId": null,
+      "queue": [
+        {
+          "id": "i01",
+          "embed": {
+            "provider": "youtube",
+            "videoId": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+          }
+        },
+        {
+          "id": "i02",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": null,
+            "url": "https://player.vimeo.com/video/76979871"
+          }
+        },
+        {
+          "id": "i03",
+          "embed": {
+            "provider": "twitch",
+            "kind": "vod",
+            "videoId": "1234567890",
+            "url": "https://player.twitch.tv/?video=v1234567890"
+          }
+        },
+        {
+          "id": "i04",
+          "embed": {
+            "provider": "youtube",
+            "videoId": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+          }
+        },
+        {
+          "id": "i05",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": null,
+            "url": "https://player.vimeo.com/video/76979871"
+          }
+        },
+        {
+          "id": "i06",
+          "embed": {
+            "provider": "twitch",
+            "kind": "vod",
+            "videoId": "1234567890",
+            "url": "https://player.twitch.tv/?video=v1234567890"
+          }
+        },
+        {
+          "id": "i07",
+          "embed": {
+            "provider": "youtube",
+            "videoId": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+          }
+        },
+        {
+          "id": "i08",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": null,
+            "url": "https://player.vimeo.com/video/76979871"
+          }
+        },
+        {
+          "id": "i09",
+          "embed": {
+            "provider": "twitch",
+            "kind": "vod",
+            "videoId": "1234567890",
+            "url": "https://player.twitch.tv/?video=v1234567890"
+          }
+        },
+        {
+          "id": "i10",
+          "embed": {
+            "provider": "youtube",
+            "videoId": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+          }
+        },
+        {
+          "id": "i11",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": null,
+            "url": "https://player.vimeo.com/video/76979871"
+          }
+        },
+        {
+          "id": "i12",
+          "embed": {
+            "provider": "twitch",
+            "kind": "vod",
+            "videoId": "1234567890",
+            "url": "https://player.twitch.tv/?video=v1234567890"
+          }
+        },
+        {
+          "id": "i13",
+          "embed": {
+            "provider": "youtube",
+            "videoId": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+          }
+        },
+        {
+          "id": "i14",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": null,
+            "url": "https://player.vimeo.com/video/76979871"
+          }
+        },
+        {
+          "id": "i15",
+          "embed": {
+            "provider": "twitch",
+            "kind": "vod",
+            "videoId": "1234567890",
+            "url": "https://player.twitch.tv/?video=v1234567890"
+          }
+        },
+        {
+          "id": "i16",
+          "embed": {
+            "provider": "youtube",
+            "videoId": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+          }
+        },
+        {
+          "id": "i17",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": null,
+            "url": "https://player.vimeo.com/video/76979871"
+          }
+        },
+        {
+          "id": "i18",
+          "embed": {
+            "provider": "twitch",
+            "kind": "vod",
+            "videoId": "1234567890",
+            "url": "https://player.twitch.tv/?video=v1234567890"
+          }
+        },
+        {
+          "id": "i19",
+          "embed": {
+            "provider": "youtube",
+            "videoId": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+          }
+        },
+        {
+          "id": "i20",
+          "embed": {
+            "provider": "vimeo",
+            "videoId": "76979871",
+            "hash": null,
+            "url": "https://player.vimeo.com/video/76979871"
+          }
+        }
+      ]
     }
   ],
   "openReports": [
@@ -886,7 +1670,7 @@
       "note": null,
       "roomTitle": "Lobby",
       "embedUrl": null,
-      "createdAt": 1700000200004
+      "createdAt": 1700002000004
     },
     {
       "id": "dddddddddddddddddddddd",
@@ -895,7 +1679,7 @@
       "note": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
       "roomTitle": "Movie night",
       "embedUrl": null,
-      "createdAt": 1700000200003
+      "createdAt": 1700002000003
     },
     {
       "id": "eeeeeeeeeeeeeeeeeeeeee",
@@ -904,10 +1688,10 @@
       "note": null,
       "roomTitle": null,
       "embedUrl": null,
-      "createdAt": 1700000200003
+      "createdAt": 1700002000003
     }
   ],
-  "openCount": 3,
+  "openCount": 18,
   "takedowns": [
     "abcdefghijklmnopqrstuvwxyz",
     "gone-room"
@@ -920,13 +1704,13 @@
     },
     {
       "roomId": "lobby",
-      "nameHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "seat": 0
+      "nameHash": "abababababababababababababababababababababababababababababababab",
+      "seat": 2
     },
     {
       "roomId": "lobby",
-      "nameHash": "abababababababababababababababababababababababababababababababab",
-      "seat": 2
+      "nameHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "seat": 5
     }
   ]
 }

@@ -47,21 +47,71 @@ export const spec = {
     { id: "untitled", title: "", createdAt: 1_700_000_000_000, layout: DEFAULT_LAYOUT },
     { id: "movie-night", title: "Movie night", createdAt: 1_700_000_000_004, layout: CUSTOM_LAYOUT, unpin: true, lastActiveAt: 0 },
     { id: "doomed", title: "Doomed", createdAt: 1_700_000_000_005, layout: DEFAULT_LAYOUT, queue: [{ id: "d1", embed: YOUTUBE }], deleted: true },
+    {
+      id: "requeue",
+      title: "Requeue",
+      createdAt: 1_700_000_000_006,
+      layout: DEFAULT_LAYOUT,
+      embed: YOUTUBE,
+      itemId: "cur",
+      queue: [{ id: "a", embed: VIMEO }, { id: "b", embed: TWITCH_VOD }, { id: "c", embed: GENERIC }],
+      // The current item is not in the queue (remove says false), so its id is free to queue again; a removal leaves a position gap.
+      ops: [
+        { op: "removeItem", id: "cur" },
+        { op: "addItem", item: { id: "cur", embed: VIMEO } },
+        { op: "removeItem", id: "b" },
+        { op: "removeItem", id: "b" },
+        { op: "addItem", item: { id: "d", embed: YOUTUBE } },
+      ],
+    },
+    {
+      id: "mutated",
+      title: "Before",
+      createdAt: 1_700_000_000_007,
+      layout: DEFAULT_LAYOUT,
+      embed: YOUTUBE,
+      itemId: "m1",
+      ops: [
+        { op: "setTitle", title: "After" },
+        { op: "setLayout", layout: CUSTOM_LAYOUT },
+        { op: "setEmbed", embed: VIMEO_HASH, itemId: "m2" },
+        { op: "setEmbed", embed: null },
+        { op: "setTitle", title: "" },
+        { op: "setLastActive", at: 1_700_000_500_000 },
+      ],
+    },
+    // 8 astral letters (16 UTF-16 units) and 8 letters with a combining mark that has no precomposed form (16 units): exactly 32.
+    { id: "max-title", title: `${"\u{10400}".repeat(8)}${"q\u0301".repeat(8)}`, createdAt: 1_700_000_000_008, layout: DEFAULT_LAYOUT },
+    {
+      id: "full-queue",
+      title: "Twenty",
+      createdAt: 1_700_000_000_009,
+      layout: DEFAULT_LAYOUT,
+      queue: Array.from({ length: 20 }, (_, i) => ({ id: `i${String(i + 1).padStart(2, "0")}`, embed: i % 3 === 0 ? YOUTUBE : i % 3 === 1 ? VIMEO : TWITCH_VOD })),
+    },
   ],
   seatHolds: [
     { roomId: "lobby", nameHash: hex(0xaa), seat: 0 },
     { roomId: "lobby", nameHash: hex(0xab), seat: 2 },
     { roomId: "abcdefghijklmnopqrstuvwxyz", nameHash: hex(0xff), seat: 7 },
     { roomId: "doomed", nameHash: hex(0x10), seat: 3 },
+    // Same room and name hash again: INSERT OR REPLACE, the later seat wins.
+    { roomId: "lobby", nameHash: hex(0xaa), seat: 5 },
   ],
   reports: [
-    { id: rid("a"), roomId: "lobby", reason: "spam", note: null, roomTitle: "Lobby", embedUrl: YOUTUBE.url, createdAt: 1_700_000_200_000 },
-    { id: rid("b"), roomId: "abcdefghijklmnopqrstuvwxyz", reason: "hate", note: "slurs in the title: ünï 🎬", roomTitle: "Film club", embedUrl: null, createdAt: 1_700_000_200_001 },
-    { id: rid("c"), roomId: "abcdefghijklmnopqrstuvwxyz", reason: "sexual", note: null, roomTitle: null, embedUrl: GENERIC.url, createdAt: 1_700_000_200_002 },
-    { id: rid("d"), roomId: "movie-night", reason: "violence", note: "x".repeat(300), roomTitle: "Movie night", embedUrl: null, createdAt: 1_700_000_200_003 },
-    { id: rid("e"), roomId: "movie-night", reason: "danger", note: null, roomTitle: null, embedUrl: null, createdAt: 1_700_000_200_003 },
-    { id: rid("f"), roomId: "lobby", reason: "other", note: null, roomTitle: "Lobby", embedUrl: null, createdAt: 1_700_000_200_004 },
+    { id: rid("a"), roomId: "lobby", reason: "spam", note: null, roomTitle: "Lobby", embedUrl: YOUTUBE.url, createdAt: 1_700_002_000_000 },
+    { id: rid("b"), roomId: "abcdefghijklmnopqrstuvwxyz", reason: "hate", note: "slurs in the title: ünï 🎬", roomTitle: "Film club", embedUrl: null, createdAt: 1_700_002_000_001 },
+    { id: rid("c"), roomId: "abcdefghijklmnopqrstuvwxyz", reason: "sexual", note: null, roomTitle: null, embedUrl: GENERIC.url, createdAt: 1_700_002_000_002 },
+    { id: rid("d"), roomId: "movie-night", reason: "violence", note: "x".repeat(300), roomTitle: "Movie night", embedUrl: null, createdAt: 1_700_002_000_003 },
+    { id: rid("e"), roomId: "movie-night", reason: "danger", note: null, roomTitle: null, embedUrl: null, createdAt: 1_700_002_000_003 },
+    { id: rid("f"), roomId: "lobby", reason: "other", note: null, roomTitle: "Lobby", embedUrl: null, createdAt: 1_700_002_000_004 },
   ],
+  /**
+   * Report rows past REPORT_MAX_ROWS: `first` rows, those created before `base + closeBelow` closed, then `then` more
+   * (each add trims the oldest closed rows). Ids are `bulk` + 18 digits.
+   */
+  bulk: { first: 4995, then: 10, base: 1_700_001_000_000, closeBelow: 4990 },
+  purgeBefore: 1_700_001_000_010,
   /** Report ids dismissed one by one, then rooms whose open reports are actioned, then takedowns. */
   dismiss: [rid("a")],
   actionRooms: ["abcdefghijklmnopqrstuvwxyz"],
@@ -70,6 +120,42 @@ export const spec = {
     { roomId: "gone-room", at: 1_700_000_300_999 },
     { roomId: "abcdefghijklmnopqrstuvwxyz", at: 1_700_000_300_001 },
   ],
+  /** The mixed-history step: applied by one server's stores to the database the other one wrote. */
+  mixed: {
+    newRooms: [
+      {
+        id: "mixed-new",
+        title: "Mixed",
+        createdAt: 1_700_000_000_010,
+        layout: CUSTOM_LAYOUT,
+        visibility: "private",
+        pinned: false,
+        ownerHash: hex(3),
+        inviteHash: hex(4),
+        embed: TWITCH_VOD,
+        itemId: "mx",
+        queue: [{ id: "mq1", embed: GENERIC }],
+      },
+    ],
+    ops: [
+      { room: "lobby", op: "setTitle", title: "Lobby two" },
+      { room: "lobby", op: "addItem", item: { id: "l1", embed: VIMEO } },
+      { room: "lobby", op: "advance", item: { id: "l1", embed: VIMEO } },
+      { room: "abcdefghijklmnopqrstuvwxyz", op: "removeItem", id: "q2" },
+      { room: "abcdefghijklmnopqrstuvwxyz", op: "addItem", item: { id: "q5", embed: VIMEO } },
+      { room: "movie-night", op: "setControlPolicy", policy: "owner" },
+      { room: "movie-night", op: "setLastActive", at: 1_700_000_999_999 },
+      { room: "movie-night", op: "setPinned", pinned: true },
+      { room: "untitled", op: "setEmbed", embed: YOUTUBE, itemId: "u1" },
+    ],
+    deleteRooms: ["start-room"],
+    holds: [{ roomId: "lobby", nameHash: hex(0xcc), seat: 6 }],
+    reports: [{ id: rid("g"), roomId: "lobby", reason: "danger", note: "after the switch", roomTitle: "Lobby two", embedUrl: null, createdAt: 1_700_002_900_000 }],
+    dismiss: [rid("f")],
+    actionRooms: ["movie-night"],
+    takedowns: [{ roomId: "mixed-gone", at: 1_700_000_900_001 }],
+    purgeBefore: 1_700_002_000_002,
+  },
 };
 
 export type Spec = typeof spec;
