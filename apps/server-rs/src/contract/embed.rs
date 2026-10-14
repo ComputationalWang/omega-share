@@ -3,6 +3,7 @@
 //! Embeds are canonicalised with the WHATWG URL parser (the `url` crate here, `new URL()` in Bun) and
 //! stored; when rooms load, the canonical-url check below must accept what the TS server stored.
 
+use super::Obj;
 use super::constants::MAX_URL_LENGTH;
 use super::js_compat::{js_trim, utf16_len};
 use serde::ser::SerializeStruct;
@@ -334,7 +335,7 @@ impl TryFrom<EmbedWire> for Embed {
 impl<'de> Deserialize<'de> for Embed {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         use serde::de::Error;
-        let wire = EmbedWire::deserialize(d)?;
+        let Obj(wire) = Obj::<EmbedWire>::deserialize(d)?;
         wire.validate().map_err(D::Error::custom)?;
         Self::try_from(wire).map_err(D::Error::custom)
     }

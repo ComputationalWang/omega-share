@@ -1,5 +1,6 @@
 //! Generic embeds (ADR 0024), mirroring `packages/shared/src/generic-embed.ts`.
 
+use super::Obj;
 use super::embed::{Embed, canonicalize_embed, is_synced_provider_host, literal, parse_plain_url, under_domain, under_domain_of};
 use super::js_compat::{is_js_whitespace, js_trim, utf16_len};
 use serde::ser::SerializeStruct;
@@ -59,7 +60,7 @@ struct GenericWire {
 impl<'de> Deserialize<'de> for GenericEmbed {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         use serde::de::Error;
-        let wire = GenericWire::deserialize(d)?;
+        let Obj(wire) = Obj::<GenericWire>::deserialize(d)?;
         wire.validate().map_err(D::Error::custom)?;
         match canonicalize_generic_embed(&wire.url, &[]) {
             Some(c) if c.url == wire.url && c.host == wire.host => Ok(c),
