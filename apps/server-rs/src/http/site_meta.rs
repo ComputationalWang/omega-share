@@ -1,21 +1,147 @@
-//! Port of `apps/server/src/site-meta.ts`: the share card written into every served page.
+//! Port of `apps/server/src/site-meta.ts`: the share card (Open Graph + Twitter) written into every served page,
+//! so a pasted link previews without running our JS. Only a public, listable room's title is ever personalised;
+//! anything else gets the generic card, byte for byte, so a preview leaks nothing. Corpora: `site-meta`,
+//! `with-meta`, `security-txt` against the TS functions.
+
+use crate::contract::constants::ROOM_TITLE_MAX_LENGTH;
+use crate::contract::js_compat::{is_js_whitespace, js_trim};
+use unicode_normalization::UnicodeNormalization;
+
+const SITE_NAME: &str = "omega-share";
+const DESCRIPTION: &str = "Watch videos together in a cosy pixel room. Share a video from any page with the browser extension and sit with friends, in sync.";
+/// Our own CC BY-SA card, the same for every room: never a provider thumbnail.
+const OG_IMAGE_PATH: &str = "/og-image.png";
+const OG_TITLE_MAX: usize = 80;
+
+/// Bidi controls, zero-width characters, the BOM and Hangul fillers: invisible, or they reorder the text around them.
+const fn is_invisible(c: char) -> bool {
+    matches!(
+        c,
+        '\u{61C}' | '\u{115F}' | '\u{1160}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{2069}' | '\u{3164}' | '\u{FEFF}' | '\u{FFA0}'
+    )
+}
+
+fn escape_attr(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Code points, not UTF-16 units, so a cut never splits a surrogate pair.
+fn cut(s: &str, max: usize) -> String {
+    s.chars().take(max).collect()
+}
+
+fn og_title(title: Option<&str>) -> String {
+    // Titles are NFKC and bidi-free by schema; a seeded or legacy row may not be, so clean again.
+    let mut clean = String::new();
+    let mut in_space = false;
+    for c in title.unwrap_or("").nfkc().filter(|c| !is_invisible(*c)) {
+        if is_js_whitespace(c) {
+            if !in_space {
+                clean.push(' ');
+            }
+            in_space = true;
+        } else {
+            clean.push(c);
+            in_space = false;
+        }
+    }
+    let clean = cut(js_trim(&clean), ROOM_TITLE_MAX_LENGTH);
+    let clean = js_trim(&clean);
+    if clean.is_empty() {
+        SITE_NAME.to_owned()
+    } else {
+        cut(&format!("{clean} · {SITE_NAME}"), OG_TITLE_MAX)
+    }
+}
 
 /// The `<head>` tags for a page: `title` is a public room's title, or `None` for the generic card.
 pub fn site_meta(origin: &str, title: Option<&str>) -> String {
-    let _ = (origin, title);
-    String::new()
+    let t = escape_attr(&og_title(title));
+    let d = escape_attr(DESCRIPTION);
+    let image = escape_attr(&format!("{origin}{OG_IMAGE_PATH}"));
+    format!(
+        concat!(
+            r#"<meta name="description" content="{d}" />"#,
+            r#"<meta property="og:site_name" content="{site}" />"#,
+            r#"<meta property="og:type" content="website" />"#,
+            r#"<meta property="og:title" content="{t}" />"#,
+            r#"<meta property="og:description" content="{d}" />"#,
+            r#"<meta property="og:image" content="{image}" />"#,
+            r#"<meta property="og:image:width" content="1200" />"#,
+            r#"<meta property="og:image:height" content="630" />"#,
+            r#"<meta property="og:image:alt" content="{site}" />"#,
+            r#"<meta name="twitter:card" content="summary_large_image" />"#,
+            r#"<link rel="icon" href="/favicon.ico" sizes="32x32" />"#,
+            r#"<link rel="apple-touch-icon" href="/apple-touch-icon.png" />"#,
+            r#"<link rel="manifest" href="/manifest.webmanifest" />"#,
+        ),
+        d = d,
+        t = t,
+        image = image,
+        site = SITE_NAME,
+    )
 }
 
-/// `page` with `meta` added just before `</head>` (or unchanged if it has none).
-pub fn with_meta(page: &str, meta: &str) -> String {
-    let _ = meta;
-    page.to_owned()
+/// The length of the tag at the start of `s` that `OWN_TAGS` removes, with the whitespace after it: the regex
+/// `<meta name="description"[^>]*>\s*|<link rel="(?:icon|apple-touch-icon|manifest)"[^>]*>\s*`.
+fn own_tag_len(s: &str) -> Option<usize> {
+    let after = [
+        r#"<meta name="description""#,
+        r#"<link rel="icon""#,
+        r#"<link rel="apple-touch-icon""#,
+        r#"<link rel="manifest""#,
+    ]
+    .iter()
+    .find_map(|prefix| s.strip_prefix(prefix))?;
+    let tag_end = after.find('>')? + 1;
+    let rest = after.get(tag_end..)?;
+    let spaces = rest.len() - rest.trim_start_matches(is_js_whitespace).len();
+    Some(s.len() - rest.len() + spaces)
 }
+
+/// `page` with `meta` added just before `</head>` (or unchanged if it has none). The page's own description, icon
+/// and manifest tags before it are dropped (OME-767): the served copy keeps only ours.
+pub fn with_meta(page: &str, meta: &str) -> String {
+    let Some(at) = page.find("</head>") else {
+        return page.to_owned();
+    };
+    let (head, tail) = (page.get(..at).unwrap_or(""), page.get(at..).unwrap_or(""));
+    let mut out = String::with_capacity(page.len() + meta.len());
+    let mut rest = head;
+    while let Some(c) = rest.chars().next() {
+        if let Some(n) = own_tag_len(rest) {
+            rest = rest.get(n..).unwrap_or("");
+        } else {
+            out.push(c);
+            rest = rest.get(c.len_utf8()..).unwrap_or("");
+        }
+    }
+    out.push_str(meta);
+    out.push_str(tail);
+    out
+}
+
+/// RFC 9116 wants Expires under a year out. A TS test fails 30 days before this date: renew it then
+/// (docs/ops/hosting.md). Contact is the contact page, never an invented address.
+const SECURITY_TXT_EXPIRES: &str = "2027-10-01T00:00:00Z";
 
 /// `/.well-known/security.txt` for `origin` (PUBLIC_ORIGIN, else SITE_ORIGIN).
 pub fn security_txt(origin: &str) -> String {
-    let _ = origin;
-    String::new()
+    format!(
+        "Contact: {origin}/contact.html\nExpires: {SECURITY_TXT_EXPIRES}\nCanonical: {origin}/.well-known/security.txt\nPreferred-Languages: en\n"
+    )
 }
 
 #[cfg(test)]
