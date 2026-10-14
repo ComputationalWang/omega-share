@@ -136,7 +136,7 @@
   <div class="row">
     <div class="screen" style="width:520px;height:330px;background:url('room@1x.png') -330px -150px;image-rendering:pixelated" id="wheelroom">
       <div class="ui-wheel" role="menu" aria-label="Emotes" id="w1" style="--ui-px:2px"></div>
-      <span class="note" style="left:8px;bottom:8px">T (focus not in a field) opens it with Heart selected. ← → ↑ ↓ go round, 1–6 send at once, Enter / Space sends, Esc or T closes. Focus comes back where it was.</span>
+      <span class="note" style="left:8px;bottom:8px">T (focus not in a field) opens it with Heart selected. ← → ↑ ↓ go round, 1–8 send at once, Enter / Space sends, Esc or T closes. Focus comes back where it was.</span>
     </div>
     <div class="col">
       <h3 class="cap">States (2×)</h3>
@@ -154,7 +154,7 @@
           <button class="ui-button icon" aria-label="Send"><span class="ui-sprite ui-icon-send"></span></button>
         </form>
       </div>
-      <p class="cap-p" style="max-width:390px">The key (icon/wheel: six beads, the top one lit) sits left of the field, <code>aria-haspopup="menu"</code>, <code>aria-expanded</code>. Tap opens the same wheel over your avatar; with no avatar in view (watch-only, panned away) it docks centred above the composer, without a tail. Slots are 42 CSS px at 2×, the 44 px <code>.ui-touch</code> hit areas fit between them.</p>
+      <p class="cap-p" style="max-width:390px">The key (icon/wheel: eight beads, the top one lit) sits left of the field, <code>aria-haspopup="menu"</code>, <code>aria-expanded</code>. Tap opens the same wheel over your avatar; with no avatar in view (watch-only, panned away) it docks centred above the composer, without a tail. Slots are 42 CSS px at 2× and sit 41 px apart centre to centre, so each slot is its own hit area (no extra <code>.ui-touch</code> padding, it would overlap the neighbours).</p>
     </div>
     <div class="col">
       <h3 class="cap">Cooling (the server slowed your emotes)</h3>
@@ -315,7 +315,7 @@
   document.getElementById("rise").setAttribute("points", rp.join(" "));
 
   // ---- Wheels.
-  const ORDER = [["heart", "Heart"], ["laugh", "Laugh"], ["question", "Question"], ["exclaim", "Surprise"], ["clap", "Clap"], ["wave", "Wave"]];
+  const ORDER = [["heart", "Heart"], ["laugh", "Laugh"], ["question", "Question"], ["exclaim", "Surprise"], ["clap", "Clap"], ["wave", "Wave"], ["cheer", "Cheer"], ["yawn", "Yawn"]];
   function wheel(el, { sel = 0, hover = -1, press = -1, focus = true, cool = false, label = true } = {}) {
     el.innerHTML = ORDER.map(([id, name], k) => {
       const cls = ["ui-wheel-slot", k === hover ? "is-hover" : "", k === sel && !cool ? "is-selected" : "", k === sel && focus && !cool ? "is-focus" : "", k === press ? "is-press" : ""].join(" ");
