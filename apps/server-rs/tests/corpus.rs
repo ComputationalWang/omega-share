@@ -38,6 +38,7 @@ const RUNNERS: &[&str] = &[
     "seat-index",
     "share-token",
     "standing-slot",
+    "unicode-digest",
 ];
 
 /// One TS decision: refused (`ok: false`) or accepted with `output`. `rust: "refuses"` marks a
@@ -291,4 +292,59 @@ fn raw_strings_agree() {
     raw_corpus::<MemberId>(include_str!("../corpus/out/raw-member-id.json"));
     raw_corpus::<Nickname>(include_str!("../corpus/out/raw-nickname.json"));
     raw_corpus::<ChatText>(include_str!("../corpus/out/raw-chat-text.json"));
+}
+
+/// `corpus/unicode-digest.ts`, line for line: the SHA-256 of every 0x1000 block of per-code-point
+/// lines (normal forms, lowercase, nickname key, property flags). A failing block is a Unicode
+/// version drift between Bun's ICU and the Rust tables.
+fn unicode_digest_line(cp: u32, out: &mut String) {
+    use omega_server::contract::unicode_props as p;
+    use std::fmt::Write;
+    use unicode_normalization::UnicodeNormalization;
+    let Some(c) = char::from_u32(cp) else { return };
+    let s = c.to_string();
+    let hex = |t: &str| t.chars().map(|c| format!("{:x}", u32::from(c))).collect::<Vec<_>>().join(",");
+    let flags = [
+        p::is_letter(c),
+        p::is_mark(c),
+        p::is_number(c),
+        p::is_punctuation(c),
+        p::is_symbol(c),
+        p::is_control(c),
+        p::is_format(c),
+        p::is_extended_pictographic(c),
+        p::is_latin(c),
+        p::is_latin_lookalike_script(c),
+        p::is_capital(c),
+    ];
+    let flags: String = flags.iter().map(|f| if *f { '1' } else { '0' }).collect();
+    let _ = writeln!(
+        out,
+        "{cp:x}|{}|{}|{}|{}|{}|{flags}",
+        hex(&s.nfkc().collect::<String>()),
+        hex(&s.nfc().collect::<String>()),
+        hex(&s.nfd().collect::<String>()),
+        hex(&s.to_lowercase()),
+        hex(&nickname_key(&s)),
+    );
+}
+
+#[test]
+fn unicode_tables_agree_with_buns_icu() {
+    use sha2::{Digest, Sha256};
+    let cases = load::<String, String>(include_str!("../corpus/out/unicode-digest.json"));
+    assert_eq!(cases.len(), 0x110000 / 0x1000);
+    let mut wrong = Vec::new();
+    for case in cases {
+        let start = u32::from_str_radix(&case.input, 16).unwrap();
+        let mut text = String::new();
+        for cp in start..start + 0x1000 {
+            unicode_digest_line(cp, &mut text);
+        }
+        let digest: String = Sha256::digest(text.as_bytes()).iter().map(|b| format!("{b:02x}")).collect();
+        if Some(&digest) != case.output.as_ref() {
+            wrong.push(format!("block U+{start:04X}"));
+        }
+    }
+    assert!(wrong.is_empty(), "Unicode drift in {} block(s): {}", wrong.len(), wrong.join(", "));
 }

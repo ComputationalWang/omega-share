@@ -52,6 +52,18 @@ pub fn is_control_format_or_separator(c: char) -> bool {
     )
 }
 
+/// `\p{Cc}`
+pub fn is_control(c: char) -> bool {
+    let _ = c;
+    false
+}
+
+/// `\p{Cf}`
+pub fn is_format(c: char) -> bool {
+    let _ = c;
+    false
+}
+
 /// `\p{Script=Latin}` (Script, not Script_Extensions).
 pub fn is_latin(c: char) -> bool {
     CodePointMapData::<Script>::new().get(c) == Script::Latin

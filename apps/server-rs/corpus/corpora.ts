@@ -6,6 +6,7 @@
 import { normalizeHostname } from "@omega/shared";
 import { CONFUSABLES } from "../../../packages/shared/src/confusables-table";
 import * as text from "./text-corpora";
+import { unicodeDigestCases } from "./unicode-digest";
 import * as constants from "../../../packages/shared/src/constants";
 
 /**
@@ -110,6 +111,7 @@ const constantCases = (): Case[] =>
 export const corpora: Corpus[] = [
   { name: "normalize-hostname", cases: () => decided(HOSTNAMES, normalizeHostname) },
   { name: "constants", cases: constantCases },
+  { name: "unicode-digest", cases: unicodeDigestCases },
   { name: "raw-avatar", cases: text.rawAvatarCases },
   { name: "raw-seat-index", cases: text.rawSeatIndexCases },
   { name: "raw-standing-slot", cases: text.rawStandingSlotCases },
