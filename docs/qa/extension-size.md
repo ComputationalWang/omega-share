@@ -42,4 +42,4 @@ For `docs/perf-budgets.md`, pending the Lead's approval:
 |---|---|---|
 | Extension | Popup JS (gzipped, every chunk `popup.html` loads) | ≤ 20 KB |
 
-16.1 KB today leaves about 20 % headroom. To measure, run `bunx wxt build` in `apps/extension`, then sum `gzip -9c | wc -c` over the `/chunks/*.js` files that `.output/chrome-mv3/popup.html` references.
+16.1 KB today (15.8 KB at Bun's default gzip level) leaves about 20 % headroom. `bun run perf` records it as `ext.popupJsGzip`. It is a static check on the shipped `chrome-mv3` build, summing the entry script and modulepreloads in `popup.html` (`perf/static-checks.ts` `initialJsGzipKb`).

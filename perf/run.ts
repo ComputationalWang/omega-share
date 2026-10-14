@@ -50,6 +50,12 @@ if (existsSync(join(WEB_DIST_DIR, "index.html"))) {
 } else {
   recordMetric({ id: "site.initialJsGzip", pending: "apps/web/dist not built (OME-6)" });
 }
+if (existsSync(join(EXTENSION_SHIPPED_DIR, "popup.html"))) {
+  const b = initialJsGzipKb(EXTENSION_SHIPPED_DIR, "popup.html");
+  recordMetric({ id: "ext.popupJsGzip", value: b.kb, note: `${String(b.files.length)} popup JS files` });
+} else {
+  recordMetric({ id: "ext.popupJsGzip", pending: "chrome extension not built (OME-7)" });
+}
 // Manifest budgets apply to the shipped builds, not the e2e builds with their extra host permissions.
 for (const [browser, dir, prefix] of [["chrome", EXTENSION_SHIPPED_DIR, "ext"], ["firefox", FIREFOX_SHIPPED_DIR, "ext.firefox"]] as const) {
   const manifestPath = join(dir, "manifest.json");
