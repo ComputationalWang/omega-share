@@ -26,7 +26,7 @@ use crate::outbox::close_all;
 use crate::registry::{Registry, RemoveReason, RoomCell, RoomInner};
 use crate::reports::ReportsState;
 use crate::secrets::EntropyError;
-use crate::store::{Store, StoreError};
+use crate::store::{SeatHold, Store, StoreError};
 use icu_properties::CodePointMapData;
 use icu_properties::props::{GeneralCategory, GeneralCategoryGroup};
 use std::fmt;
@@ -143,6 +143,26 @@ impl App {
             clock,
             config,
         })
+    }
+
+    /// `startServer` as index.ts runs it: opens the database `config.db_path` names, takes the seat holds the last
+    /// process saved (once, so a crash loop can't replay them), loads the rooms (stored ones, then the lobby if the
+    /// store lacks it) and applies the holds. A corrupt room row fails with a message naming the room.
+    pub fn boot(config: ServerConfig, clock: SharedClock) -> Result<Arc<Self>, BootError> {
+        Self::boot_with(config, clock, &[])
+    }
+
+    /// `boot` with the configured seed rooms (TS `rooms` option; `boot` passes just the lobby): created pinned and
+    /// public if the store lacks them, in this order after the stored ones.
+    pub fn boot_with(config: ServerConfig, clock: SharedClock, seeds: &[RoomId]) -> Result<Arc<Self>, BootError> {
+        let _ = (config, clock, seeds);
+        Err(BootError::Entropy(EntropyError))
+    }
+
+    /// The seats every room holds, for a graceful restart to save (`drain` in server.ts): registry order, then
+    /// seat order.
+    pub fn seat_holds(&self) -> Vec<SeatHold> {
+        Vec::new()
     }
 
     /// Monotonic ms (`now`): limiters, the `ended` debounce.
@@ -513,5 +533,331 @@ mod tests {
         assert_eq!(e.to_string(), "DB_PATH /data/omega.db: database file: permission denied");
         let e = BootError::Store(StoreError::CorruptRoom { id: "\"lobby\"".into() });
         assert!(e.to_string().contains("lobby"));
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::indexing_slicing, reason = "tests")]
+mod boot_tests {
+    use super::testing::*;
+    use super::*;
+    use crate::config::DbPath;
+    use crate::contract::constants::QUEUE_MAX;
+    use crate::contract::layout::default_layout;
+    use crate::contract::room::{Avatar, ControlPolicy, RoomVisibility, SeatIndex};
+    use crate::contract::text::{Nickname, RoomTitle};
+    use crate::room::SEAT_HOLD_MS;
+    use crate::secrets::{hash_secret, mint_item_id};
+    use crate::store::{NewRoom, StoredQueueItem};
+
+    const YT: &str = "https://youtu.be/dQw4w9WgXcQ";
+    const GENERIC: &str = "https://player.example-host.net/embed/42";
+
+    fn file_config(dir: &tempfile::TempDir, extra: &[(&str, &str)]) -> ServerConfig {
+        let mut config = config(extra);
+        config.db_path = DbPath::File(dir.path().join("omega.db"));
+        config
+    }
+
+    fn open(dir: &tempfile::TempDir) -> Store {
+        Store::open(dir.path().join("omega.db").to_str().unwrap()).unwrap()
+    }
+
+    fn boot(config: ServerConfig) -> Result<Arc<App>, BootError> {
+        App::boot(config, clock())
+    }
+
+    fn room_ids(app: &App) -> Vec<String> {
+        app.registry.values().iter().map(|c| c.id.as_str().to_owned()).collect()
+    }
+
+    fn nick(name: &str) -> Nickname {
+        Nickname::parse(name).unwrap()
+    }
+
+    // apps/server/test/persistence.test.ts: the lobby is seeded and stored
+    #[test]
+    fn a_fresh_database_gets_the_pinned_public_lobby_in_memory_and_in_the_store() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = boot(file_config(&dir, &[])).unwrap();
+        assert_eq!(room_ids(&app), ["lobby"]);
+        let cell = app.registry.get(&rid("lobby")).unwrap();
+        let inner = cell.lock();
+        assert!(inner.room.pinned && inner.room.visibility == RoomVisibility::Public);
+        assert_eq!(*inner.room.layout(), default_layout());
+        assert!(inner.room.title().is_none());
+        drop(inner);
+        let rows = app.store().rooms().list_rooms().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0].pinned);
+    }
+
+    #[test]
+    fn configured_seed_rooms_come_after_the_stored_ones_in_order_and_are_not_seeded_twice() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let store = open(&dir);
+            for (id, at) in [("stored-b", T0 - 10), ("stored-a", T0 - 20)] {
+                store
+                    .rooms()
+                    .create_room(&NewRoom::seed(rid(id), None, at, default_layout()))
+                    .unwrap();
+            }
+        }
+        let seeds = [rid("seed-1"), rid("stored-a"), rid("seed-2")];
+        let app = App::boot_with(file_config(&dir, &[]), clock(), &seeds).unwrap();
+        // Stored rooms oldest first (created_at), then the seeds the store lacked.
+        assert_eq!(room_ids(&app), ["stored-a", "stored-b", "seed-1", "seed-2"]);
+        assert_eq!(app.store().rooms().list_rooms().unwrap().len(), 4);
+        let seeded = app.registry.get(&rid("seed-1")).unwrap();
+        assert_eq!(seeded.lock().room.created_at, T0, "stamped with the wall clock");
+    }
+
+    // apps/server/test/persistence.test.ts:103, :115
+    #[test]
+    fn a_stored_embed_comes_back_paused_at_zero_with_the_rooms_settings() {
+        let dir = tempfile::tempdir().unwrap();
+        let (embed, item) = {
+            let store = open(&dir);
+            let policy = crate::embed_policy::EmbedPolicy::new(true, &[], &[]).unwrap();
+            let embed = policy.accept(YT).unwrap();
+            let id = mint_item_id().unwrap();
+            let title = Some(RoomTitle::parse("Film club").unwrap());
+            let mut new = NewRoom::seed(rid("film-club"), title, T0 - 99, default_layout());
+            new.pinned = false;
+            new.owner_hash = Some([9; 32]);
+            new.visibility = RoomVisibility::Private;
+            new.invite_hash = Some([8; 32]);
+            store.rooms().create_room(&new).unwrap();
+            store.rooms().set_embed(&rid("film-club"), Some(&embed), Some(&id)).unwrap();
+            store.rooms().set_control_policy(&rid("film-club"), ControlPolicy::Owner).unwrap();
+            store.rooms().set_last_active(&rid("film-club"), T0 - 5).unwrap();
+            (embed, id)
+        };
+        let app = boot(file_config(&dir, &[])).unwrap();
+        let cell = app.registry.get(&rid("film-club")).unwrap();
+        let inner = cell.lock();
+        let room = &inner.room;
+        assert_eq!(room.current_embed(), Some(&embed));
+        assert_eq!(room.item_id(), Some(&item));
+        let pb = room.current_playback().unwrap();
+        assert!(!pb.playing && pb.by.is_none());
+        assert_eq!(room.title().unwrap().as_str(), "Film club");
+        assert!(!room.pinned);
+        assert_eq!(room.visibility, RoomVisibility::Private);
+        assert_eq!(room.created_at, T0 - 99);
+        assert_eq!(room.last_active_at, Some(T0 - 5));
+        assert_eq!(room.control_policy(), ControlPolicy::Owner);
+        assert!(room.has_owner());
+        assert_eq!(room.invite_hash, Some([8; 32]));
+        assert_eq!(
+            room.item_since(),
+            1000.0,
+            "current from boot on, on the monotonic clock: ended waits out the debounce again"
+        );
+    }
+
+    // apps/server/test/generic-embeds.test.ts: switching GENERIC_EMBEDS off hides, the row keeps it
+    #[test]
+    fn an_embed_the_policy_no_longer_accepts_comes_back_as_none_and_the_row_keeps_it() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let store = open(&dir);
+            let policy = crate::embed_policy::EmbedPolicy::new(true, &[], &[]).unwrap();
+            let embed = policy.accept(GENERIC).unwrap();
+            store
+                .rooms()
+                .create_room(&NewRoom::seed(rid("lobby"), None, T0, default_layout()))
+                .unwrap();
+            store
+                .rooms()
+                .set_embed(&rid("lobby"), Some(&embed), Some(&mint_item_id().unwrap()))
+                .unwrap();
+        }
+        let app = boot(file_config(&dir, &[("GENERIC_EMBEDS", "off")])).unwrap();
+        let cell = app.registry.get(&rid("lobby")).unwrap();
+        assert!(cell.lock().room.current_embed().is_none());
+        assert!(cell.lock().room.item_id().is_none());
+        assert!(app.store().rooms().list_rooms().unwrap()[0].embed.is_some(), "the row keeps it");
+        drop(cell);
+        drop(app);
+        let app = boot(file_config(&dir, &[])).unwrap();
+        let restored = app.registry.get(&rid("lobby")).unwrap().lock().room.current_embed().is_some();
+        assert!(restored, "switching back restores it");
+    }
+
+    // apps/server/test/queue.test.ts:639, :662, :695
+    #[test]
+    fn a_restored_queue_skips_hidden_rows_and_cuts_past_the_cap_for_good() {
+        let dir = tempfile::tempdir().unwrap();
+        let policy = crate::embed_policy::EmbedPolicy::new(true, &[], &[]).unwrap();
+        let (current, queued) = {
+            let store = open(&dir);
+            store
+                .rooms()
+                .create_room(&NewRoom::seed(rid("lobby"), None, T0, default_layout()))
+                .unwrap();
+            let current = mint_item_id().unwrap();
+            store
+                .rooms()
+                .set_embed(&rid("lobby"), Some(&policy.accept(YT).unwrap()), Some(&current))
+                .unwrap();
+            let mut ids = Vec::new();
+            for i in 0..QUEUE_MAX + 2 {
+                let id = mint_item_id().unwrap();
+                let embed = policy.accept(&format!("{GENERIC}{i}")).unwrap();
+                store
+                    .rooms()
+                    .add_queue_item(&rid("lobby"), &StoredQueueItem { id: id.clone(), embed })
+                    .unwrap();
+                ids.push(id);
+            }
+            (current, ids)
+        };
+        // Generic embeds off: every queued row is hidden, none is cut.
+        let app = boot(file_config(&dir, &[("GENERIC_EMBEDS", "off")])).unwrap();
+        assert!(app.registry.get(&rid("lobby")).unwrap().lock().room.queue().is_empty());
+        assert_eq!(app.store().rooms().list_rooms().unwrap()[0].queue.len(), QUEUE_MAX + 2);
+        drop(app);
+        // On again: the oldest QUEUE_MAX are kept, the two past the cap are deleted.
+        let app = boot(file_config(&dir, &[])).unwrap();
+        let cell = app.registry.get(&rid("lobby")).unwrap();
+        let kept: Vec<_> = cell.lock().room.queue().iter().map(|i| i.id.clone()).collect();
+        assert_eq!(kept, queued[..QUEUE_MAX]);
+        assert_eq!(cell.lock().room.item_id(), Some(&current));
+        let stored: Vec<_> = app.store().rooms().list_rooms().unwrap()[0]
+            .queue
+            .iter()
+            .map(|i| i.id.clone())
+            .collect();
+        assert_eq!(stored, queued[..QUEUE_MAX], "a cut row is gone for good");
+        assert!(
+            cell.lock().room.queue().iter().all(|i| i.by.is_none()),
+            "nobody is known to have added them"
+        );
+    }
+
+    // apps/server/test/takedown.test.ts:166
+    #[test]
+    fn a_taken_down_room_is_not_loaded_or_reseeded_and_a_leftover_row_is_deleted() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let store = open(&dir);
+            store
+                .rooms()
+                .create_room(&NewRoom::seed(rid("lobby"), None, T0, default_layout()))
+                .unwrap();
+            store
+                .rooms()
+                .create_room(&NewRoom::seed(rid("gone"), None, T0, default_layout()))
+                .unwrap();
+            store.reports().add_takedown(&rid("gone"), T0).unwrap();
+            store.reports().add_takedown(&rid("seed"), T0).unwrap();
+        }
+        let app = App::boot_with(file_config(&dir, &[]), clock(), &[rid("seed")]).unwrap();
+        assert_eq!(room_ids(&app), ["lobby"]);
+        assert!(app.reports.is_taken_down(&rid("gone")));
+        let rows: Vec<String> = app
+            .store()
+            .rooms()
+            .list_rooms()
+            .unwrap()
+            .iter()
+            .map(|r| r.id.as_str().to_owned())
+            .collect();
+        assert_eq!(rows, ["lobby"], "the leftover row is gone and the seed was never created");
+    }
+
+    // apps/server/test/persistence.test.ts:134
+    #[test]
+    fn a_corrupt_row_refuses_to_boot_naming_the_room() {
+        let dir = tempfile::tempdir().unwrap();
+        drop(boot(file_config(&dir, &[])).unwrap());
+        let db = rusqlite::Connection::open(dir.path().join("omega.db")).unwrap();
+        db.execute("UPDATE rooms SET layout = ? WHERE id = 'lobby'", [r#"{"furniture":[]}"#])
+            .unwrap();
+        drop(db);
+        let Err(err) = boot(file_config(&dir, &[])) else { panic!("booted") };
+        assert!(matches!(err, BootError::Store(_)));
+        assert!(err.to_string().contains("lobby"), "{err}");
+    }
+
+    #[test]
+    fn a_database_that_cannot_be_opened_fails_as_db_path_says() {
+        let mut config = config(&[]);
+        config.db_path = DbPath::File("/proc/no-such-dir/omega.db".into());
+        let Err(err) = boot(config) else { panic!("booted") };
+        assert!(err.to_string().starts_with("DB_PATH /proc/no-such-dir/omega.db: "), "{err}");
+    }
+
+    // apps/server/test/graceful-restart.test.ts
+    #[test]
+    fn seat_holds_are_taken_once_and_applied_to_their_rooms_for_the_hold_time() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let store = open(&dir);
+            store
+                .rooms()
+                .create_room(&NewRoom::seed(rid("lobby"), None, T0, default_layout()))
+                .unwrap();
+            let hold = SeatHold {
+                room_id: rid("lobby"),
+                name_hash: hash_secret(&crate::contract::confusables::nickname_key("alice")),
+                seat: SeatIndex::new(3).unwrap(),
+            };
+            store.rooms().save_seat_holds(&[hold]).unwrap();
+        }
+        let app = boot(file_config(&dir, &[])).unwrap();
+        assert!(
+            app.store().rooms().take_seat_holds().unwrap().is_empty(),
+            "taken once: a crash loop can't replay them"
+        );
+        let cell = app.registry.get(&rid("lobby")).unwrap();
+        let mut inner = cell.lock();
+        let alice = inner.room.join(&nick("alice"), Avatar::new(0).unwrap(), None).unwrap().unwrap();
+        // The hold runs SEAT_HOLD_MS from the boot's wall clock (T0).
+        assert_eq!(inner.room.claim_held_seat(&alice.id, T0 + SEAT_HOLD_MS).map(|s| s.get()), Some(3));
+    }
+
+    #[test]
+    fn seat_holds_expire_after_the_hold_time() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let store = open(&dir);
+            store
+                .rooms()
+                .create_room(&NewRoom::seed(rid("lobby"), None, T0, default_layout()))
+                .unwrap();
+            let hold = SeatHold {
+                room_id: rid("lobby"),
+                name_hash: hash_secret(&crate::contract::confusables::nickname_key("alice")),
+                seat: SeatIndex::new(1).unwrap(),
+            };
+            store.rooms().save_seat_holds(&[hold]).unwrap();
+        }
+        let app = boot(file_config(&dir, &[])).unwrap();
+        let cell = app.registry.get(&rid("lobby")).unwrap();
+        let mut inner = cell.lock();
+        let alice = inner.room.join(&nick("alice"), Avatar::new(0).unwrap(), None).unwrap().unwrap();
+        assert_eq!(inner.room.claim_held_seat(&alice.id, T0 + SEAT_HOLD_MS + 1), None);
+    }
+
+    #[test]
+    fn seat_holds_lists_every_seated_member_by_name_hash_in_registry_then_seat_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = App::boot_with(file_config(&dir, &[]), clock(), &[rid("lobby"), rid("second")]).unwrap();
+        for (room, name, seat) in [("second", "bob", 2), ("lobby", "alice", 5), ("lobby", "carol", 1)] {
+            let cell = app.registry.get(&rid(room)).unwrap();
+            let mut inner = cell.lock();
+            let m = inner.room.join(&nick(name), Avatar::new(0).unwrap(), None).unwrap().unwrap();
+            inner.room.sit(&m.id, SeatIndex::new(seat));
+        }
+        let holds = app.seat_holds();
+        let got: Vec<(&str, u8)> = holds.iter().map(|h| (h.room_id.as_str(), h.seat.get())).collect();
+        assert_eq!(got, [("lobby", 1), ("lobby", 5), ("second", 2)]);
+        assert_eq!(
+            holds[0].name_hash,
+            hash_secret(&crate::contract::confusables::nickname_key("carol"))
+        );
     }
 }

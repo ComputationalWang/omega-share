@@ -142,3 +142,60 @@ fn sigterm_exits_promptly_even_with_a_stalled_request() {
     assert!(status.success(), "{status:?}");
     assert_eq!(stderr_of(&mut server), "");
 }
+
+/// Runs `serve` against the database file `db`; `None` if it is still running after `limit` (and is then killed).
+fn serve_on(db: &std::path::Path, limit: Duration) -> Option<std::process::Output> {
+    let child = Command::new(BIN)
+        .arg("serve")
+        .env("PORT", "0")
+        .env("DB_PATH", db)
+        .env("ADMIN_SOCKET", "off")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let pid = child.id();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(child.wait_with_output());
+    });
+    match rx.recv_timeout(limit) {
+        Ok(out) => Some(out.unwrap()),
+        Err(_) => {
+            let _ = Command::new("kill").args(["-KILL", &pid.to_string()]).status();
+            None
+        }
+    }
+}
+
+// apps/server/test/persistence.test.ts:134
+#[test]
+fn a_corrupt_room_row_refuses_to_boot_naming_the_room_and_exits_non_zero() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("omega.db");
+    // A first boot creates the database and seeds the lobby.
+    assert!(serve_on(&db, Duration::from_millis(1500)).is_none(), "a healthy boot keeps serving");
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let rows = conn
+        .execute("UPDATE rooms SET layout = ? WHERE id = 'lobby'", [r#"{"furniture":[]}"#])
+        .unwrap();
+    assert_eq!(rows, 1, "the first boot stored the lobby");
+    drop(conn);
+    let out = serve_on(&db, Duration::from_secs(10)).expect("a corrupt row must stop the boot");
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("lobby"),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("server on"));
+}
+
+// apps/server/src/index.ts: `DB_PATH <path>: <message>`
+#[test]
+fn a_database_that_cannot_be_opened_exits_one_with_the_db_path_line() {
+    let out = serve_on(std::path::Path::new("/proc/no-such-dir/omega.db"), Duration::from_secs(10)).expect("must not serve");
+    assert_eq!(out.status.code(), Some(1));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.starts_with("DB_PATH /proc/no-such-dir/omega.db: "), "{err}");
+}

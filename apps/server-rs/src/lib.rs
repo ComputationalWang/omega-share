@@ -17,6 +17,7 @@ pub mod rate_limit;
 pub mod registry;
 pub mod reports;
 pub mod room;
+pub mod rooms_gc;
 pub mod secrets;
 pub mod serve;
 pub mod store;

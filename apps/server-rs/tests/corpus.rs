@@ -2,6 +2,7 @@
 //! be the Rust decision too. Regenerate with `bun apps/server-rs/corpus/gen.ts`.
 #![allow(clippy::panic, reason = "a test harness: a bad corpus file should fail loudly")]
 
+use omega_server::app::{TitleBlocker, block_key};
 use omega_server::contract::capabilities::playback_caps;
 use omega_server::contract::confusables::nickname_key;
 use omega_server::contract::constants;
@@ -24,6 +25,9 @@ use omega_server::log::redact_addresses;
 use omega_server::metrics::{Gauges, Metrics};
 use omega_server::playback::{Control, apply_control, expected_position, load_playback, restored_playback};
 use omega_server::rate_limit::{address_key, client_key, is_loopback_key};
+use omega_server::reports::redact_note;
+use omega_server::room::{Room, RoomInit};
+use omega_server::rooms_gc::expired;
 use omega_server::secrets::hash_secret;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -34,6 +38,10 @@ mod room_script;
 
 /// Every corpus file has a runner below; a new `corpus/out/*.json` without one fails `every_corpus_has_a_runner`.
 const RUNNERS: &[&str] = &[
+    "block-key",
+    "redact-note",
+    "room-gc-expired",
+    "title-blocker",
     "playback-control",
     "playback-expected",
     "playback-load",
@@ -873,4 +881,51 @@ fn room_script_agrees() {
         load::<room_script::Script, Vec<Value>>(include_str!("../corpus/out/room-script.json")),
         room_script::run,
     );
+}
+
+// ---- app core (OME-1164)
+
+#[test]
+fn redact_note_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/redact-note.json")), |input| {
+        Some(redact_note(input))
+    });
+}
+
+#[test]
+fn block_key_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/block-key.json")), |input| {
+        Some(block_key(input))
+    });
+}
+
+#[test]
+fn title_blocker_agrees() {
+    agree(
+        load::<(Vec<String>, String), bool>(include_str!("../corpus/out/title-blocker.json")),
+        |(terms, title)| Some(TitleBlocker::new(terms).blocked(title)),
+    );
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GcIn {
+    pinned: bool,
+    created_at: i64,
+    last_active_at: Option<i64>,
+    now: i64,
+}
+
+#[test]
+fn room_gc_expired_agrees() {
+    agree(load::<GcIn, bool>(include_str!("../corpus/out/room-gc-expired.json")), |i| {
+        let init = RoomInit {
+            pinned: Some(i.pinned),
+            created_at: Some(i.created_at),
+            last_active_at: i.last_active_at,
+            ..RoomInit::default()
+        };
+        let room = Room::new(RoomId::parse("aaaaaaaaaaaaaaaaaaaaaaaaaa")?, init, 0).ok()?;
+        Some(expired(&room, i.now))
+    });
 }
