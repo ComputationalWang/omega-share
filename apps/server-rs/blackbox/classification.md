@@ -23,11 +23,11 @@ Heuristics: D also holds every test that still passes when the binary cannot sta
 | S3 (ported: store/reports.rs) | 0 | 0 | 0 | 0 | 11 | 0 | 0 | 11 |
 | S3 (ported: store/rooms.rs) | 0 | 0 | 0 | 0 | 28 | 0 | 0 | 28 |
 | S4c (room core) | 0 | 0 | 0 | 0 | 18 | 0 | 0 | 18 |
-| S5 | 153 | 1 | 26 | 10 | 79 | 0 | 0 | 269 |
+| S5 | 201 | 2 | 11 | 5 | 50 | 0 | 0 | 269 |
 | S6 | 88 | 2 | 82 | 16 | 14 | 0 | 0 | 202 |
 | S7 | 1 | 0 | 0 | 5 | 91 | 0 | 1 | 98 |
 | none (shell) | 0 | 0 | 0 | 0 | 0 | 82 | 0 | 82 |
-| **all** | **242** | **3** | **108** | **31** | **299** | **82** | **1** | **766** |
+| **all** | **290** | **4** | **93** | **26** | **270** | **82** | **1** | **766** |
 
 ## Tests
 
@@ -110,36 +110,36 @@ Owner: S5. 31 tests: A 28, C 1, D 2.
 | line | cat | test |
 |---|---|---|
 | 64 | D | bind (T-11) › listens on 127.0.0.1 unless told otherwise |
-| 75 | A | Host allowlist (T-06, DNS rebinding) › an unknown Host is refused with 421 on every route, before routing |
-| 88 | A | Host allowlist (T-06, DNS rebinding) › a WebSocket upgrade with an unknown Host is refused with 421 |
-| 94 | A | Host allowlist (T-06, DNS rebinding) › the public host and loopback names on our port are accepted, in any case |
-| 101 | A | Host allowlist (T-06, DNS rebinding) › without a public origin only loopback names are accepted (localhost dev unchanged) |
-| 113 | A | HSTS (threat model §10, research M4 D1) › an https public origin gets HSTS on every response to the public host, refusals included |
-| 122 | A | HSTS (threat model §10, research M4 D1) › the same server never sends HSTS to its loopback names (plain http, localhost dev) |
+| 75 | A ✓ | Host allowlist (T-06, DNS rebinding) › an unknown Host is refused with 421 on every route, before routing |
+| 88 | A ✓ | Host allowlist (T-06, DNS rebinding) › a WebSocket upgrade with an unknown Host is refused with 421 |
+| 94 | A ✓ | Host allowlist (T-06, DNS rebinding) › the public host and loopback names on our port are accepted, in any case |
+| 101 | A ✓ | Host allowlist (T-06, DNS rebinding) › without a public origin only loopback names are accepted (localhost dev unchanged) |
+| 113 | A ✓ | HSTS (threat model §10, research M4 D1) › an https public origin gets HSTS on every response to the public host, refusals included |
+| 122 | A ✓ | HSTS (threat model §10, research M4 D1) › the same server never sends HSTS to its loopback names (plain http, localhost dev) |
 | 131 | A | HSTS (threat model §10, research M4 D1) › no HSTS without a public origin, or with a plain-http one |
 | 143 | A | Origin allowlist (T-04, T-05) › the public origin may call the API and connect |
-| 154 | A | Origin allowlist (T-04, T-05) › any other Origin is refused with 403, on plain GETs and upgrades alike |
-| 165 | A | Origin allowlist (T-04, T-05) › the site and extension origins stay allowed, and the dev site is unchanged |
-| 175 | A | Origin allowlist (T-04, T-05) › EXTENSION_IDS narrows extension origins to the listed ids |
+| 154 | A ✓ | Origin allowlist (T-04, T-05) › any other Origin is refused with 403, on plain GETs and upgrades alike |
+| 165 | A ✓ | Origin allowlist (T-04, T-05) › the site and extension origins stay allowed, and the dev site is unchanged |
+| 175 | A ✓ | Origin allowlist (T-04, T-05) › EXTENSION_IDS narrows extension origins to the listed ids |
 | 181 | A | Origin allowlist (T-04, T-05) › Firefox extension origins (per-install UUID) may preflight and POST a share, even with EXTENSION_IDS pinned (OME-617) |
-| 202 | A | Origin allowlist (T-04, T-05) › malformed moz-extension origins are refused with 403 |
-| 217 | A | Origin allowlist (T-04, T-05) › extension origins get Access-Control-Allow-Credentials on the preflight and the response (OME-683) |
-| 234 | A | Origin allowlist (T-04, T-05) › web origins never get Access-Control-Allow-Credentials, and a disallowed origin gets no CORS headers (OME-683) |
-| 254 | A | Origin allowlist (T-04, T-05) › CORS preflight allows the share token and ngrok headers |
-| 270 | A | responses › carry the strict CSP with enforced Trusted Types, Permissions-Policy, COOP and CORP (T-13, W-CSP) |
+| 202 | A ✓ | Origin allowlist (T-04, T-05) › malformed moz-extension origins are refused with 403 |
+| 217 | A ✓ | Origin allowlist (T-04, T-05) › extension origins get Access-Control-Allow-Credentials on the preflight and the response (OME-683) |
+| 234 | A ✓ | Origin allowlist (T-04, T-05) › web origins never get Access-Control-Allow-Credentials, and a disallowed origin gets no CORS headers (OME-683) |
+| 254 | A ✓ | Origin allowlist (T-04, T-05) › CORS preflight allows the share token and ngrok headers |
+| 270 | A ✓ | responses › carry the strict CSP with enforced Trusted Types, Permissions-Policy, COOP and CORP (T-13, W-CSP) |
 | 275 | A ✓ | responses › the Permissions-Policy leaves the player features to the iframes' allow attribute |
-| 281 | A | responses › GET /healthz is the readiness probe; GET / still answers without a static site |
+| 281 | A ✓ | responses › GET /healthz is the readiness probe; GET / still answers without a static site |
 | 289 | C | responses › GET /healthz answers 503 once the database can't be read (OME-840) |
-| 299 | A ✓ | responses › GET /healthz with its database check still answers in under 5 ms (p95) |
-| 313 | A | serving the built site on the same origin (STATIC_DIR) › / and site routes get index.html, not cached |
-| 325 | A | serving the built site on the same origin (STATIC_DIR) › hashed assets are immutable; a missing asset is 404, not index.html |
+| 299 | A (timing: in-process only) | responses › GET /healthz with its database check still answers in under 5 ms (p95) |
+| 313 | A ✓ | serving the built site on the same origin (STATIC_DIR) › / and site routes get index.html, not cached |
+| 325 | A ✓ | serving the built site on the same origin (STATIC_DIR) › hashed assets are immutable; a missing asset is 404, not index.html |
 | 339 | A ✓ | serving the built site on the same origin (STATIC_DIR) › never serves a file outside the root |
 | 347 | A ✓ | serving the built site on the same origin (STATIC_DIR) › a NUL byte in the path is a plain 404, not a 500 with a stack trace |
 | 356 | A | serving the built site on the same origin (STATIC_DIR) › the API and the WebSocket keep their routes, and the served page's origin may use them |
 | 384 | A | room share limiter (§6 share spam) › a room takes a burst of 2 switches, then answers 429 with Retry-After and retryAfterMs |
 | 406 | D | room share limiter (§6 share spam) › another room is unaffected |
 | 414 | A | room share limiter (§6 share spam) › a refused URL doesn't use up the room's switches |
-| 424 | A | room share limiter (§6 share spam) › every share 429 carries Retry-After, including the failed-attempt limiter |
+| 424 | A ✓ | room share limiter (§6 share spam) › every share 429 carries Retry-After, including the failed-attempt limiter |
 
 ### cli.test.ts
 
@@ -360,8 +360,8 @@ Owner: S5. 30 tests: A 22, B 4, D 4.
 | 255 | D | a generic embed persists like any other (OME-280) › it comes back after a restart, still with playback null |
 | 266 | D | a generic embed persists like any other (OME-280) › with GENERIC_EMBEDS=off it is restored as embed null, and comes back when switched on again |
 | 281 | D | a generic embed persists like any other (OME-280) › a host denied after it was shared is restored as embed null |
-| 319 | A | CSP frame-src follows the kill switch (ADR 0024 §4) › on: frame-src adds https:, script-src unchanged |
-| 326 | A | CSP frame-src follows the kill switch (ADR 0024 §4) › off: frame-src drops https:, script-src unchanged |
+| 319 | A ✓ | CSP frame-src follows the kill switch (ADR 0024 §4) › on: frame-src adds https:, script-src unchanged |
+| 326 | A ✓ | CSP frame-src follows the kill switch (ADR 0024 §4) › off: frame-src drops https:, script-src unchanged |
 
 ### graceful-restart.test.ts
 
@@ -377,19 +377,19 @@ Owner: S7. 5 tests: D 5.
 
 ### http-limits.test.ts
 
-Owner: S5. 9 tests: B 9.
+Owner: S5. 9 tests: A 9.
 
 | line | cat | test |
 |---|---|---|
-| 53 | B | per-key HTTP request limit › a burst over the bucket gets 429 with Retry-After, on every route |
-| 62 | B | per-key HTTP request limit › a different key is unaffected, and a refill lets the limited key back in |
-| 70 | B | per-key HTTP request limit › prepending to X-Forwarded-For does not make a new key (T-07) |
-| 76 | B | per-key HTTP request limit › a full cold page load, then a reload, never hits the limit |
-| 89 | B | per-key HTTP request limit › WebSocket upgrades keep their own limiter and don't use up the HTTP bucket (ADR 0018) |
-| 102 | B | per-key HTTP request limit › loopback peers without the proxy skip the per-key limit (ADR 0018 §3: local dev, e2e, the load test) |
-| 114 | B | per-key HTTP request limit › spoofed X-Forwarded-For from a non-loopback peer is ignored (T-08) |
-| 131 | B | global in-flight HTTP cap › when full, the next request gets 503 with Retry-After; it clears once a request finishes |
-| 160 | B | global in-flight HTTP cap › the cap holds however many keys the requests come from, loopback included |
+| 53 | A ✓ | per-key HTTP request limit › a burst over the bucket gets 429 with Retry-After, on every route |
+| 62 | A ✓ | per-key HTTP request limit › a different key is unaffected, and a refill lets the limited key back in |
+| 70 | A ✓ | per-key HTTP request limit › prepending to X-Forwarded-For does not make a new key (T-07) |
+| 76 | A ✓ | per-key HTTP request limit › a full cold page load, then a reload, never hits the limit |
+| 89 | A | per-key HTTP request limit › WebSocket upgrades keep their own limiter and don't use up the HTTP bucket (ADR 0018) |
+| 102 | A ✓ | per-key HTTP request limit › loopback peers without the proxy skip the per-key limit (ADR 0018 §3: local dev, e2e, the load test) |
+| 114 | A ✓ | per-key HTTP request limit › spoofed X-Forwarded-For from a non-loopback peer is ignored (T-08) |
+| 131 | A | global in-flight HTTP cap › when full, the next request gets 503 with Retry-After; it clears once a request finishes |
+| 160 | A ✓ | global in-flight HTTP cap › the cap holds however many keys the requests come from, loopback included |
 
 ### log.test.ts
 
@@ -597,48 +597,48 @@ Owner: S5. 6 tests: A* 1, A 5.
 
 ### qa-rooms.test.ts
 
-Owner: S5. 38 tests: A 17, B 9, C 5, D 7.
+Owner: S5. 38 tests: A 21, B 6, C 4, D 7.
 
 | line | cat | test |
 |---|---|---|
-| 201 | B | 1. creation limits (ADR 0028 §1, threat model §1.2) › per key: the burst succeeds, then 429 rate_limited with Retry-After and retryAfterMs; another key is unaffected; the refill restores it |
-| 225 | A | 1. creation limits (ADR 0028 §1, threat model §1.2) › a refused creation makes no room; a malformed body and an oversize body still take from the key's bucket |
-| 235 | B | 1. creation limits (ADR 0028 §1, threat model §1.2) › globally: many keys together hit 429 rate_limited after ROOM_CREATE_GLOBAL_BURST, and the refill restores one |
+| 201 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › per key: the burst succeeds, then 429 rate_limited with Retry-After and retryAfterMs; another key is unaffected; the refill restores it |
+| 225 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › a refused creation makes no room; a malformed body and an oversize body still take from the key's bucket |
+| 235 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › globally: many keys together hit 429 rate_limited after ROOM_CREATE_GLOBAL_BURST, and the refill restores one |
 | 249 | C | 1. creation limits (ADR 0028 §1, threat model §1.2) › at MAX_ROOMS: 503 too_many_rooms, and NO room is evicted: every room, the least recently active included, is still joinable and still deletable by its owner (also after a restart) |
-| 293 | A | 1. creation limits (ADR 0028 §1, threat model §1.2) › with TRUST_PROXY off a spoofed X-Forwarded-For does not reset the per-key bucket |
-| 302 | A | 1. creation limits (ADR 0028 §1, threat model §1.2) › with a trusted proxy the key is the rightmost forwarded entry: a client-chosen prefix does not reset it, a different client gets its own |
+| 293 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › with TRUST_PROXY off a spoofed X-Forwarded-For does not reset the per-key bucket |
+| 302 | A ✓ | 1. creation limits (ADR 0028 §1, threat model §1.2) › with a trusted proxy the key is the rightmost forwarded entry: a client-chosen prefix does not reset it, a different client gets its own |
 | 321 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a private room is never in GET /rooms: not new, not with members, not titled, not after a title-set |
 | 348 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a join without the invite key, with a wrong one, or with another private room's key is refused: invite_required, no snapshot, no broadcasts, socket stays open |
 | 371 | A | 2. private rooms (ADR 0028 §4, threat model §3) › with the right invite key the join works as a guest; the owner token admits too, as the owner |
 | 382 | A | 2. private rooms (ADR 0028 §4, threat model §3) › a failed attempt does not lock the right key out: after refusals the invite key still joins |
-| 390 | A | 2. private rooms (ADR 0028 §4, threat model §3) › visibility cannot be changed by a client: the create body is strict and the id format is the same for public and private |
+| 390 | A ✓ | 2. private rooms (ADR 0028 §4, threat model §3) › visibility cannot be changed by a client: the create body is strict and the id format is the same for public and private |
 | 408 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › no frame any client receives, and no HTTP response but the create one, ever carries the owner token or the invite key |
 | 464 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › snapshot `owner` is a boolean true, only in the owner's own snapshot: never in a guest's frames, a wrong-token joiner's, or any member record |
 | 492 | A | 3. the owner token and invite key never leave (ADR 0028 §3, threat model §2, §6.2 S2) › the owner token is a secret of its own room: it makes nobody the owner of another room |
 | 507 | C | 4. delete (ADR 0028 §2) › owner DELETE closes every socket in the room with 4004, joined or not; their share tokens stop working; a re-join is refused; the id is not reissued |
-| 548 | A | 4. delete (ADR 0028 §2) › a member's share token cannot delete; neither can a wrong or missing bearer; the room survives them all |
-| 560 | A | 4. delete (ADR 0028 §2) › seeded rooms have no owner: nobody can delete the lobby |
-| 566 | C | 4. delete (ADR 0028 §2) › a deleted private room: its invite key and owner token stop admitting anyone |
-| 588 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the constants are the ADR's: 20 min with nobody in it, never joined or emptied, swept every minute (OME-904) |
-| 593 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a created room nobody joined is kept for 20 min, then removed from the list, the store and the join path |
-| 607 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with a member is never collected, however old; its member stays connected |
-| 621 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with an unjoined socket expires at 20 minutes and closes the socket |
-| 634 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › activity resets the idle timer: an empty room goes 20 min after its last member left, not after its creation |
-| 661 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the seeded lobby is pinned: never collected, however long it sits empty |
-| 673 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › at boot, a stored room past its limit is swept immediately, with a pinned one beside it kept |
-| 699 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner (guest, wrong owner token, an invite-key holder) gets not_owner, and nothing is broadcast or stored |
-| 722 | C | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › the owner's invalid layouts are refused with bad_message and the stored layout is unchanged |
-| 767 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a frame over the size cap closes the socket (no layout parse, no write); the stored layout is unchanged |
-| 777 | C | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a valid layout from the owner is broadcast as layout-changed to every member (by: the owner), persisted, and seen by later joiners |
-| 802 | B | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › owner edits are limited per socket (layout-set and title-set share ROOM_EDIT_BURST); the refill is honoured; refused edits change nothing |
-| 824 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner's layout-set does not draw from the owner's bucket, and a flood of them ends in the 4400 close |
-| 842 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › WS upgrades to unknown ids cost a token like real upgrades: after the burst from one key, 429 with Retry-After; another key is unaffected |
-| 858 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › once a key is limited, an unknown id and an existing private room's id get the very same answer (no existence oracle through the limiter) |
-| 871 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong invite keys from one key are limited across rooms and sockets (rate_limited, retryAfterMs), 4400 follows, and the right key still gets through |
-| 893 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong owner tokens from one key are limited too: the guests join while the bucket lasts, then rate_limited and no snapshot |
-| 912 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE: an unknown id is 404 (specified: 404, then auth); a wrong bearer on a real room is 401 until the per-key failed-auth bucket empties, then 429 with Retry-After |
-| 936 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE probes at unknown ids from one key are bounded by the HTTP gate (429 + Retry-After) |
-| 947 | A | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › a share probe at an unknown room is 404 and at a private room without a grant is 401, with the same typed shape (existence is not a secret: ids are 128 bits) |
+| 549 | A | 4. delete (ADR 0028 §2) › a member's share token cannot delete; neither can a wrong or missing bearer; the room survives them all |
+| 561 | A ✓ | 4. delete (ADR 0028 §2) › seeded rooms have no owner: nobody can delete the lobby |
+| 567 | A ✓ | 4. delete (ADR 0028 §2) › a deleted private room: its invite key and owner token stop admitting anyone |
+| 589 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the constants are the ADR's: 20 min with nobody in it, never joined or emptied, swept every minute (OME-904) |
+| 594 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a created room nobody joined is kept for 20 min, then removed from the list, the store and the join path |
+| 608 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with a member is never collected, however old; its member stays connected |
+| 622 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › a room with an unjoined socket expires at 20 minutes and closes the socket |
+| 635 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › activity resets the idle timer: an empty room goes 20 min after its last member left, not after its creation |
+| 662 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › the seeded lobby is pinned: never collected, however long it sits empty |
+| 674 | D | 5. GC with an injected clock (ADR 0028 §2, threat model §1.3) › at boot, a stored room past its limit is swept immediately, with a pinned one beside it kept |
+| 700 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner (guest, wrong owner token, an invite-key holder) gets not_owner, and nothing is broadcast or stored |
+| 723 | C | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › the owner's invalid layouts are refused with bad_message and the stored layout is unchanged |
+| 769 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a frame over the size cap closes the socket (no layout parse, no write); the stored layout is unchanged |
+| 779 | C | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a valid layout from the owner is broadcast as layout-changed to every member (by: the owner), persisted, and seen by later joiners |
+| 804 | B | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › owner edits are limited per socket (layout-set and title-set share ROOM_EDIT_BURST); the refill is honoured; refused edits change nothing |
+| 826 | A | 6. layout-set (ADR 0028 §6, threat model §6.2 S7) › a non-owner's layout-set does not draw from the owner's bucket, and a flood of them ends in the 4400 close |
+| 844 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › WS upgrades to unknown ids cost a token like real upgrades: after the burst from one key, 429 with Retry-After; another key is unaffected |
+| 860 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › once a key is limited, an unknown id and an existing private room's id get the very same answer (no existence oracle through the limiter) |
+| 873 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong invite keys from one key are limited across rooms and sockets (rate_limited, retryAfterMs), 4400 follows, and the right key still gets through |
+| 895 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › wrong owner tokens from one key are limited too: the guests join while the bucket lasts, then rate_limited and no snapshot |
+| 914 | B | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE: an unknown id is 404 (specified: 404, then auth); a wrong bearer on a real room is 401 until the per-key failed-auth bucket empties, then 429 with Retry-After |
+| 938 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › DELETE probes at unknown ids from one key are bounded by the HTTP gate (429 + Retry-After) |
+| 949 | A ✓ | 7. enumeration probes are bounded and answered uniformly (threat model §3.3) › a share probe at an unknown room is 404 and at a private room without a grant is 401, with the same typed shape (existence is not a secret: ids are 128 bits) |
 
 ### queue.test.ts
 
@@ -746,49 +746,49 @@ Owner: S3 (ported: store/reports.rs). 11 tests: D 11.
 
 ### reports.test.ts
 
-Owner: S5. 39 tests: C 2, D 37.
+Owner: S5. 39 tests: A* 1, A 31, D 7.
 
 | line | cat | test |
 |---|---|---|
-| 77 | D | a report › is stored with 202 received: reason, redacted note, the room's title and what was playing |
-| 98 | D | a report › without a note, note is null; the answer never carries a report id or count |
-| 107 | D | a report › keeps nothing about the reporter: no address, user agent, referer, origin or cookie |
-| 119 | D | a report › is never logged |
-| 134 | D | a report › the largest valid body is under 1 KiB and is accepted |
-| 143 | D | duplicates › the same key reporting the same room again gets 200 already_reported, and nothing new is stored |
-| 152 | D | duplicates › other keys, and other rooms, are not duplicates |
-| 160 | D | duplicates › with no usable client key there is no duplicate check (proxy:unknown shares one key bucket) |
-| 168 | D | duplicates › the duplicate set stays bounded and is dropped with its room |
-| 181 | D | ReportDedup › holds at most 5000 entries, evicting the oldest |
-| 189 | D | ReportDedup › expire drops entries at or before the cutoff; dropRoom drops one room's |
-| 202 | D | limits › per key: 3 at once (duplicates count), then 429 with Retry-After until the refill |
-| 218 | D | limits › per room: 20 across reporters, then 429; other rooms are unaffected |
-| 231 | D | limits › a flood of malformed bodies costs the key bucket but never the room's |
-| 238 | D | limits › reports to unknown rooms never take from a bucket |
-| 244 | C | limits › loopback (local dev) skips the key bucket and the duplicate check; the room bucket still applies |
-| 255 | D | limits › at 1000 open reports: 503 unavailable, nothing stored |
-| 269 | D | limits › a store failure is 503 unavailable and leaves no duplicate mark |
-| 297 | D | refused bodies › not JSON: 400 invalid_body, nothing stored |
-| 297 | D | refused bodies › an array: 400 invalid_body, nothing stored |
-| 297 | D | refused bodies › an unknown reason: 400 invalid_body, nothing stored |
-| 297 | D | refused bodies › an extra key: 400 invalid_body, nothing stored |
-| 297 | D | refused bodies › a blank note: 400 invalid_body, nothing stored |
-| 297 | D | refused bodies › a note over 300: 400 invalid_body, nothing stored |
-| 297 | D | refused bodies › a bidi override: 400 invalid_body, nothing stored |
-| 297 | D | refused bodies › no reason: 400 invalid_body, nothing stored |
-| 307 | D | refused bodies › over 2048 bytes: 413 payload_too_large, by Content-Length or by the stream |
-| 324 | D | refused bodies › an unknown or malformed room id: 404 room_not_found, never echoing the id |
-| 341 | D | cross-site simple POSTs (OME-698) › content-type text/plain: 415 invalid_body, nothing stored, no bucket used |
-| 341 | D | cross-site simple POSTs (OME-698) › content-type text/plain;charset=UTF-8: 415 invalid_body, nothing stored, no bucket used |
-| 341 | D | cross-site simple POSTs (OME-698) › content-type application/x-www-form-urlencoded: 415 invalid_body, nothing stored, no bucket used |
-| 341 | D | cross-site simple POSTs (OME-698) › content-type multipart/form-data; boundary=x: 415 invalid_body, nothing stored, no bucket used |
-| 341 | D | cross-site simple POSTs (OME-698) › content-type null: 415 invalid_body, nothing stored, no bucket used |
-| 355 | D | cross-site simple POSTs (OME-698) › application/json with a charset is accepted |
-| 360 | D | cross-site simple POSTs (OME-698) › a foreign or opaque Origin: 403, nothing stored |
-| 370 | D | redactNote › replaces emails, IPv4 and IPv6 addresses and phone-like runs; keeps links |
-| 379 | D | metrics › counts outcomes, reasons and the open gauge, never a room id or a note |
-| 402 | D | retention › rows and duplicate marks go 30 days after created_at, whatever their state |
-| 418 | C | retention › the room GC sweep purges them |
+| 90 | A ✓ | a report › is stored with 202 received: reason, redacted note, the room's title and what was playing |
+| 111 | A ✓ | a report › without a note, note is null; the answer never carries a report id or count |
+| 120 | A ✓ | a report › keeps nothing about the reporter: no address, user agent, referer, origin or cookie |
+| 132 | D | a report › is never logged |
+| 147 | A ✓ | a report › the largest valid body is under 1 KiB and is accepted |
+| 156 | A ✓ | duplicates › the same key reporting the same room again gets 200 already_reported, and nothing new is stored |
+| 165 | A ✓ | duplicates › other keys, and other rooms, are not duplicates |
+| 173 | A ✓ | duplicates › with no usable client key there is no duplicate check (proxy:unknown shares one key bucket) |
+| 181 | D | duplicates › the duplicate set stays bounded and is dropped with its room |
+| 194 | D | ReportDedup › holds at most 5000 entries, evicting the oldest |
+| 202 | D | ReportDedup › expire drops entries at or before the cutoff; dropRoom drops one room's |
+| 215 | A ✓ | limits › per key: 3 at once (duplicates count), then 429 with Retry-After until the refill |
+| 231 | A ✓ | limits › per room: 20 across reporters, then 429; other rooms are unaffected |
+| 244 | A ✓ | limits › a flood of malformed bodies costs the key bucket but never the room's |
+| 251 | A ✓ | limits › reports to unknown rooms never take from a bucket |
+| 257 | A ✓ | limits › loopback (local dev) skips the key bucket and the duplicate check; the room bucket still applies |
+| 271 | A ✓ | limits › at 1000 open reports: 503 unavailable, nothing stored |
+| 285 | D | limits › a store failure is 503 unavailable and leaves no duplicate mark |
+| 313 | A ✓ | refused bodies › not JSON: 400 invalid_body, nothing stored |
+| 313 | A ✓ | refused bodies › an array: 400 invalid_body, nothing stored |
+| 313 | A ✓ | refused bodies › an unknown reason: 400 invalid_body, nothing stored |
+| 313 | A ✓ | refused bodies › an extra key: 400 invalid_body, nothing stored |
+| 313 | A ✓ | refused bodies › a blank note: 400 invalid_body, nothing stored |
+| 313 | A ✓ | refused bodies › a note over 300: 400 invalid_body, nothing stored |
+| 313 | A ✓ | refused bodies › a bidi override: 400 invalid_body, nothing stored |
+| 313 | A ✓ | refused bodies › no reason: 400 invalid_body, nothing stored |
+| 323 | A ✓ | refused bodies › over 2048 bytes: 413 payload_too_large, by Content-Length or by the stream |
+| 340 | A ✓ | refused bodies › an unknown or malformed room id: 404 room_not_found, never echoing the id |
+| 357 | A ✓ | cross-site simple POSTs (OME-698) › content-type text/plain: 415 invalid_body, nothing stored, no bucket used |
+| 357 | A ✓ | cross-site simple POSTs (OME-698) › content-type text/plain;charset=UTF-8: 415 invalid_body, nothing stored, no bucket used |
+| 357 | A ✓ | cross-site simple POSTs (OME-698) › content-type application/x-www-form-urlencoded: 415 invalid_body, nothing stored, no bucket used |
+| 357 | A ✓ | cross-site simple POSTs (OME-698) › content-type multipart/form-data; boundary=x: 415 invalid_body, nothing stored, no bucket used |
+| 357 | A ✓ | cross-site simple POSTs (OME-698) › content-type null: 415 invalid_body, nothing stored, no bucket used |
+| 371 | A ✓ | cross-site simple POSTs (OME-698) › application/json with a charset is accepted |
+| 376 | A ✓ | cross-site simple POSTs (OME-698) › a foreign or opaque Origin: 403, nothing stored |
+| 386 | D | redactNote › replaces emails, IPv4 and IPv6 addresses and phone-like runs; keeps links |
+| 395 | A* | metrics › counts outcomes, reasons and the open gauge, never a room id or a note |
+| 418 | D | retention › rows and duplicate marks go 30 days after created_at, whatever their state |
+| 434 | A ✓ | retention › the room GC sweep purges them |
 
 ### room-auth.test.ts
 
@@ -828,42 +828,42 @@ Owner: S6. 29 tests: A 17, B 5, C 5, D 2.
 
 ### room-create.test.ts
 
-Owner: S5. 32 tests: A 19, B 4, C 1, D 8.
+Owner: S5. 32 tests: A 23, B 1, D 8.
 
 | line | cat | test |
 |---|---|---|
-| 96 | A | POST /rooms creates a room (ADR 0028 §1) › 201 with a server-chosen 26-char base32 id, the title and visibility, an owner token and no invite key for a public room |
-| 110 | A | POST /rooms creates a room (ADR 0028 §1) › a private room also gets an invite key; ids, tokens and keys are all distinct |
-| 119 | A | POST /rooms creates a room (ADR 0028 §1) › the room starts from DEFAULT_LAYOUT with no embed, and anyone can join it |
-| 130 | A | POST /rooms creates a room (ADR 0028 §1) › each preset id builds the room from its judged D1 layout (OME-910); omitting it is classic, today's DEFAULT_LAYOUT |
-| 144 | A | POST /rooms creates a room (ADR 0028 §1) › an unknown, mis-cased or non-string preset id is 400 invalid_body and creates nothing |
-| 156 | A | POST /rooms creates a room (ADR 0028 §1) › the title is normalised by RoomTitleSchema (NFKC, trimmed) |
-| 162 | A | POST /rooms creates a room (ADR 0028 §1) › a bad body is 400 invalid_body: not JSON, a bad title, an unknown visibility, extra keys |
-| 178 | A | POST /rooms creates a room (ADR 0028 §1) › a body over MAX_CREATE_BODY_BYTES is 413 payload_too_large |
-| 185 | A | POST /rooms creates a room (ADR 0028 §1) › a foreign Origin is refused; the site origin may create |
-| 193 | A | POST /rooms creates a room (ADR 0028 §1) › a body a browser can send cross-site without a preflight (not application/json) is 415 invalid_body and costs no creation (OME-698) |
-| 208 | A | POST /rooms creates a room (ADR 0028 §1) › a CORS preflight from the site allows POST and DELETE with an Authorization header |
-| 224 | A | POST /rooms creates a room (ADR 0028 §1) › a blocklisted title (ROOM_TITLE_BLOCKLIST, case and lookalikes folded) is 400 invalid_body |
-| 234 | A | POST /rooms creates a room (ADR 0028 §1) › the blocklist ignores whitespace and punctuation between letters: 'bad word', 'b.a.d-w_o r d' are refused |
-| 244 | D | POST /rooms creates a room (ADR 0028 §1) › a store that can't write answers a typed 503 unavailable (no-store, nothing created) and gives the creation back |
-| 283 | B | creation limits (ADR 0028 §1) › per key: 2 at once, then 429 rate_limited with Retry-After until one refills; other keys unaffected |
-| 302 | B | creation limits (ADR 0028 §1) › the per-key 429 gives the real wait, past the 60 s cap of other limits: the full refill, then what's left of it |
-| 319 | A | creation limits (ADR 0028 §1) › malformed bodies take from the same per-key bucket |
-| 326 | B | creation limits (ADR 0028 §1) › server-wide: 10 at once from many keys, then 429 until one refills |
-| 337 | D | creation limits (ADR 0028 §1) › at MAX_ROOMS (500, pinned included) creation is 503 too_many_rooms and no room is evicted |
-| 354 | A | DELETE /rooms/:id (ADR 0028 §1, §2) › the owner deletes: 200 ok, sockets close with ROOM_CLOSED (4004), the room leaves the list and its share tokens stop working |
-| 374 | D | DELETE /rooms/:id (ADR 0028 §1, §2) › a store that can't delete the row answers 503 unavailable and keeps the room: its sockets stay open, the owner can try again |
-| 410 | A | DELETE /rooms/:id (ADR 0028 §1, §2) › unknown room is 404 room_not_found; a missing, malformed or wrong bearer is 401 unauthorized; another room's token doesn't work |
-| 430 | A | DELETE /rooms/:id (ADR 0028 §1, §2) › a seeded (pinned) room has no owner: nobody can delete the lobby |
-| 437 | A | DELETE /rooms/:id (ADR 0028 §1, §2) › failed deletes take from a per-key bucket: guessing is 429 rate_limited after a burst |
-| 454 | A | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › private rooms are never listed; created rooms show their titles; seeded rooms without one carry no title |
-| 465 | B | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › pinned rooms first, then by members, then newest first |
-| 478 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a room whose title is on the blocklist is left out of the list |
-| 485 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a renamed room's list verdict follows its new title: blocked → clean is listed, clean → blocked is not |
-| 497 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › titles are checked against the blocklist once per room, not on every list request |
-| 514 | C | headers (ADR 0028 §4) › /r/* carries X-Robots-Tag: noindex, nofollow and Referrer-Policy strict-origin-when-cross-origin; the API doesn't get the robots tag |
-| 540 | D | persistence of created rooms (migration 0002) › a created room survives a restart with its title and visibility, and its owner token still deletes it |
-| 558 | D | persistence of created rooms (migration 0002) › no address, creator or hash of one is written to disk; the owner token and invite key are stored only as SHA-256 |
+| 93 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › 201 with a server-chosen 26-char base32 id, the title and visibility, an owner token and no invite key for a public room |
+| 107 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › a private room also gets an invite key; ids, tokens and keys are all distinct |
+| 116 | A | POST /rooms creates a room (ADR 0028 §1) › the room starts from DEFAULT_LAYOUT with no embed, and anyone can join it |
+| 127 | A | POST /rooms creates a room (ADR 0028 §1) › each preset id builds the room from its judged D1 layout (OME-910); omitting it is classic, today's DEFAULT_LAYOUT |
+| 141 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › an unknown, mis-cased or non-string preset id is 400 invalid_body and creates nothing |
+| 153 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › the title is normalised by RoomTitleSchema (NFKC, trimmed) |
+| 159 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › a bad body is 400 invalid_body: not JSON, a bad title, an unknown visibility, extra keys |
+| 175 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › a body over MAX_CREATE_BODY_BYTES is 413 payload_too_large |
+| 182 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › a foreign Origin is refused; the site origin may create |
+| 190 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › a body a browser can send cross-site without a preflight (not application/json) is 415 invalid_body and costs no creation (OME-698) |
+| 205 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › a CORS preflight from the site allows POST and DELETE with an Authorization header |
+| 221 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › a blocklisted title (ROOM_TITLE_BLOCKLIST, case and lookalikes folded) is 400 invalid_body |
+| 231 | A ✓ | POST /rooms creates a room (ADR 0028 §1) › the blocklist ignores whitespace and punctuation between letters: 'bad word', 'b.a.d-w_o r d' are refused |
+| 241 | D | POST /rooms creates a room (ADR 0028 §1) › a store that can't write answers a typed 503 unavailable (no-store, nothing created) and gives the creation back |
+| 280 | A ✓ | creation limits (ADR 0028 §1) › per key: 2 at once, then 429 rate_limited with Retry-After until one refills; other keys unaffected |
+| 299 | A ✓ | creation limits (ADR 0028 §1) › the per-key 429 gives the real wait, past the 60 s cap of other limits: the full refill, then what's left of it |
+| 316 | A ✓ | creation limits (ADR 0028 §1) › malformed bodies take from the same per-key bucket |
+| 323 | A ✓ | creation limits (ADR 0028 §1) › server-wide: 10 at once from many keys, then 429 until one refills |
+| 334 | D | creation limits (ADR 0028 §1) › at MAX_ROOMS (500, pinned included) creation is 503 too_many_rooms and no room is evicted |
+| 351 | A | DELETE /rooms/:id (ADR 0028 §1, §2) › the owner deletes: 200 ok, sockets close with ROOM_CLOSED (4004), the room leaves the list and its share tokens stop working |
+| 371 | D | DELETE /rooms/:id (ADR 0028 §1, §2) › a store that can't delete the row answers 503 unavailable and keeps the room: its sockets stay open, the owner can try again |
+| 407 | A ✓ | DELETE /rooms/:id (ADR 0028 §1, §2) › unknown room is 404 room_not_found; a missing, malformed or wrong bearer is 401 unauthorized; another room's token doesn't work |
+| 427 | A ✓ | DELETE /rooms/:id (ADR 0028 §1, §2) › a seeded (pinned) room has no owner: nobody can delete the lobby |
+| 434 | A ✓ | DELETE /rooms/:id (ADR 0028 §1, §2) › failed deletes take from a per-key bucket: guessing is 429 rate_limited after a burst |
+| 451 | A ✓ | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › private rooms are never listed; created rooms show their titles; seeded rooms without one carry no title |
+| 462 | B | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › pinned rooms first, then by members, then newest first |
+| 475 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a room whose title is on the blocklist is left out of the list |
+| 482 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a renamed room's list verdict follows its new title: blocked → clean is listed, clean → blocked is not |
+| 494 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › titles are checked against the blocklist once per room, not on every list request |
+| 511 | A ✓ | headers (ADR 0028 §4) › /r/* carries X-Robots-Tag: noindex, nofollow and Referrer-Policy strict-origin-when-cross-origin; the API doesn't get the robots tag |
+| 537 | D | persistence of created rooms (migration 0002) › a created room survives a restart with its title and visibility, and its owner token still deletes it |
+| 555 | D | persistence of created rooms (migration 0002) › no address, creator or hash of one is written to disk; the owner token and invite key are stored only as SHA-256 |
 
 ### room-lifecycle.test.ts
 
@@ -925,13 +925,13 @@ Owner: S5. 27 tests: A 27.
 | 75 | A | POST /rooms/:id/share › rejects an oversized body with 413 |
 | 82 | A | POST /rooms/:id/share › unknown room is 404 room_not_found |
 | 89 | A | POST /rooms/:id/share › a request from a foreign origin is refused with 403 |
-| 104 | A | CORS › allows the extension and the site origin |
+| 104 | A ✓ | CORS › allows the extension and the site origin |
 | 112 | A ✓ | CORS › does not allow any other origin |
-| 121 | A | readiness › GET / answers 200 so process supervisors (Playwright webServer) can see the server is up |
+| 121 | A ✓ | readiness › GET / answers 200 so process supervisors (Playwright webServer) can see the server is up |
 | 128 | A | requests without an Origin (curl, server-to-server) › may share (with a member's token) and connect: they are not a cross-site risk |
 | 138 | A | GET /rooms › lists the default room with member and seated counts |
 | 155 | A ✓ | WebSocket /rooms/:id/ws › upgrade to an unknown room is 404 |
-| 160 | A | WebSocket /rooms/:id/ws › upgrade from a foreign origin is refused |
+| 160 | A ✓ | WebSocket /rooms/:id/ws › upgrade from a foreign origin is refused |
 | 167 | A | WebSocket /rooms/:id/ws › the site origin may connect |
 | 173 | A | WebSocket /rooms/:id/ws › join sends a snapshot to the joiner and member-joined to the others |
 | 195 | A | WebSocket /rooms/:id/ws › sit on a free seat is broadcast to everyone, including the sitter |
@@ -969,14 +969,14 @@ Owner: S5. 12 tests: A 9, D 3.
 | 96 | A | share token lifecycle (ADR 0015 §7) › a token dies when its socket closes (T-02) |
 | 105 | D | share token lifecycle (ADR 0015 §7) › a token for one room can't share into another (T-03) |
 | 118 | A | failed share attempts › a garbage-token flood from a client can't lock out a member sharing from the same address |
-| 125 | A | failed share attempts › but it is itself rate limited, so token guessing stays bounded |
+| 125 | A ✓ | failed share attempts › but it is itself rate limited, so token guessing stays bounded |
 | 146 | A | share limits behind the tunnel (T-10) › per member: many addresses don't lift the limit |
 | 155 | D | share limits behind the tunnel (T-10) › per forwarded client: burst 5 across its members; another client is unaffected |
 | 164 | D | share limits behind the tunnel (T-10) › globally: burst 20 however many members, rooms and addresses |
 
 ### site.test.ts
 
-Owner: S5. 19 tests: A 14, C 1, D 4.
+Owner: S5. 19 tests: A 14, D 5.
 
 | line | cat | test |
 |---|---|---|
@@ -984,21 +984,21 @@ Owner: S5. 19 tests: A 14, C 1, D 4.
 | 79 | D | siteMeta: the share card tags › a room title is wrapped and attribute-escaped: quotes, <, > and & |
 | 83 | D | siteMeta: the share card tags › bidi controls and zero-width characters are dropped, and the title is NFKC-normalised |
 | 90 | D | siteMeta: the share card tags › a legacy over-long title is cut to the title limit, and og:title stays within 80 characters |
-| 98 | A | site routes: shell, share card and real 404s › / and /r/<valid id> get the shell with the generic card, not cached |
-| 114 | A | site routes: shell, share card and real 404s › a public room's link shows its title |
-| 123 | A | site routes: shell, share card and real 404s › a private room gets the generic card, byte-identical to an unknown id |
-| 132 | A | site routes: shell, share card and real 404s › a taken-down room gets the generic card, byte-identical to an unknown id |
-| 144 | C | site routes: shell, share card and real 404s › a title the lobby hides (blocklist) gets the generic card too |
-| 151 | A | site routes: shell, share card and real 404s › unknown paths and invalid room ids are 404 with the not-found page, in the privacy page's look |
-| 167 | A | site routes: shell, share card and real 404s › the html pages still serve, with the site-wide card |
-| 177 | A | site routes: shell, share card and real 404s › a page that ships its own description, icon and manifest tags serves one of each: the server's (OME-767) |
-| 197 | A | site routes: shell, share card and real 404s › the share card costs under 2 ms p95 on the shell route |
-| 217 | A | robots.txt, icons and the manifest › robots.txt allows the site, keeps crawlers off the API, has no sitemap and doesn't hide /r/ from noindex |
-| 231 | A | robots.txt, icons and the manifest › security.txt (RFC 9116) points at the contact page, is canonical on the public origin and a day-cached |
-| 245 | A | robots.txt, icons and the manifest › security.txt Expires is under a year out and not within 30 days: renew it before this fails (docs/ops/hosting.md) |
-| 261 | A | robots.txt, icons and the manifest › favicon, apple-touch-icon and the share image are served with a day's cache |
-| 277 | A | robots.txt, icons and the manifest › the manifest names the app, uses the site colours, starts at / standalone, and its icons resolve |
-| 306 | A | robots.txt, icons and the manifest › the served icons and share image are the judged M9 art from assets/site, byte for byte (OME-762, OME-785) |
+| 98 | A ✓ | site routes: shell, share card and real 404s › / and /r/<valid id> get the shell with the generic card, not cached |
+| 114 | A ✓ | site routes: shell, share card and real 404s › a public room's link shows its title |
+| 123 | A ✓ | site routes: shell, share card and real 404s › a private room gets the generic card, byte-identical to an unknown id |
+| 132 | D | site routes: shell, share card and real 404s › a taken-down room gets the generic card, byte-identical to an unknown id |
+| 144 | A ✓ | site routes: shell, share card and real 404s › a title the lobby hides (blocklist) gets the generic card too |
+| 153 | A ✓ | site routes: shell, share card and real 404s › unknown paths and invalid room ids are 404 with the not-found page, in the privacy page's look |
+| 169 | A ✓ | site routes: shell, share card and real 404s › the html pages still serve, with the site-wide card |
+| 179 | A ✓ | site routes: shell, share card and real 404s › a page that ships its own description, icon and manifest tags serves one of each: the server's (OME-767) |
+| 199 | A (timing: in-process only) | site routes: shell, share card and real 404s › the share card costs under 2 ms p95 on the shell route |
+| 219 | A ✓ | robots.txt, icons and the manifest › robots.txt allows the site, keeps crawlers off the API, has no sitemap and doesn't hide /r/ from noindex |
+| 233 | A ✓ | robots.txt, icons and the manifest › security.txt (RFC 9116) points at the contact page, is canonical on the public origin and a day-cached |
+| 247 | A ✓ | robots.txt, icons and the manifest › security.txt Expires is under a year out and not within 30 days: renew it before this fails (docs/ops/hosting.md) |
+| 263 | A ✓ | robots.txt, icons and the manifest › favicon, apple-touch-icon and the share image are served with a day's cache |
+| 279 | A ✓ | robots.txt, icons and the manifest › the manifest names the app, uses the site colours, starts at / standalone, and its icons resolve |
+| 308 | A ✓ | robots.txt, icons and the manifest › the served icons and share image are the judged M9 art from assets/site, byte for byte (OME-762, OME-785) |
 
 ### store.test.ts
 

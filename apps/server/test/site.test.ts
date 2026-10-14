@@ -142,9 +142,11 @@ describe("site routes: shell, share card and real 404s", () => {
   });
 
   test("a title the lobby hides (blocklist) gets the generic card too", async () => {
-    const store = new RoomStore(openDatabase(join(mkdtempSync(join(tmpdir(), "omega-site-db-")), "omega.db")));
-    store.createRoom({ id: "film-club", title: "Film club", createdAt: Date.now(), layout: DEFAULT_LAYOUT, visibility: "public", pinned: false, ownerHash: OWNER });
-    t = start({ staticDir: site(), publicOrigin: PUBLIC_ORIGIN, store, roomTitleBlocklist: ["film"] });
+    const dbPath = join(mkdtempSync(join(tmpdir(), "omega-site-db-")), "omega.db");
+    const seed = openDatabase(dbPath);
+    new RoomStore(seed).createRoom({ id: "film-club", title: "Film club", createdAt: Date.now(), layout: DEFAULT_LAYOUT, visibility: "public", pinned: false, ownerHash: OWNER });
+    seed.close();
+    t = start({ staticDir: site(), publicOrigin: PUBLIC_ORIGIN, dbPath, roomTitleBlocklist: ["film"] });
     expect(ogTitle(await (await get("/r/film-club")).text())).toBe("omega-share");
   });
 
