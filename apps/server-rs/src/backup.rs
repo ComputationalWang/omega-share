@@ -310,7 +310,8 @@ fn stamp(now_ms: i64) -> String {
 /// -wal/-shm never meets the new file.
 pub fn restore(snapshot_path: &Path, db_path: &Path, now_ms: i64) -> Result<Restored, String> {
     let dir = dir_of(db_path);
-    ensure_private_dir(&dir)?;
+    // Created 0700 if missing, never chmod-ed if it exists: it may be shared with other readers (backup.ts restore).
+    fs::DirBuilder::new().recursive(true).mode(0o700).create(&dir).map_err(ioerr)?;
     let base = db_path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
     let tmp = dir.join(format!(".{base}.restore-tmp"));
     let tmp_files = [
