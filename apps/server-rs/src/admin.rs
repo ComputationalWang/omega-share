@@ -313,27 +313,23 @@ pub struct AdminServer {
     path: PathBuf,
 }
 
+/// The bytes a `sockaddr_un` path holds (108 with the NUL).
+const SUN_PATH_MAX: usize = 107;
+/// `<parent>/.a<8 hex>/s` is this much longer than `<parent>`.
+const STAGING_EXTRA: usize = 1 + 9 + 2;
+
 /// A private (0700) directory beside `socket` to bind in, so the socket never exists with a mode someone else can
 /// use (the TS server binds under umask 0177 for the same reason; a process-wide umask change is not thread-safe).
-fn private_dir(socket: &Path) -> Result<PathBuf, AdminError> {
-    let parent = socket
-        .parent()
-        .filter(|p| !p.as_os_str().is_empty())
-        .map_or_else(|| PathBuf::from("."), Path::to_path_buf);
-    let mut random = [0u8; 8];
+fn private_dir(parent: &Path) -> Result<PathBuf, AdminError> {
+    let mut random = [0u8; 4];
     getrandom::fill(&mut random).map_err(|_| AdminError::Io("no entropy".to_owned()))?;
     let name: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    let dir = parent.join(format!(".omega-admin-{name}"));
+    let dir = parent.join(format!(".a{name}"));
     std::fs::DirBuilder::new().mode(0o700).create(&dir)?;
     Ok(dir)
 }
 
-fn bind_secured(app: Arc<App>, socket: &Path, dir: &Path) -> Result<AdminServer, AdminError> {
-    clear_stale_socket(socket, std::fs::metadata(dir)?.uid())?;
-    let staged = dir.join("s");
-    let listener = UnixListener::bind(&staged)?;
-    std::fs::set_permissions(&staged, std::fs::Permissions::from_mode(0o600))?;
-    std::fs::rename(&staged, socket)?;
+fn serve_on(app: Arc<App>, listener: UnixListener, socket: &Path) -> AdminServer {
     let router = Router::new()
         .fallback(serve_request)
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
@@ -342,17 +338,47 @@ fn bind_secured(app: Arc<App>, socket: &Path, dir: &Path) -> Result<AdminServer,
         // The listener ends only when the task is aborted at shutdown; an accept error is retried by axum.
         let _ = axum::serve(listener, router).await;
     });
-    Ok(AdminServer {
+    AdminServer {
         task,
         path: socket.to_path_buf(),
-    })
+    }
+}
+
+fn bind_staged(app: Arc<App>, socket: &Path, dir: &Path) -> Result<AdminServer, AdminError> {
+    clear_stale_socket(socket, std::fs::metadata(dir)?.uid())?;
+    let staged = dir.join("s");
+    let listener = UnixListener::bind(&staged)?;
+    std::fs::set_permissions(&staged, std::fs::Permissions::from_mode(0o600))?;
+    std::fs::rename(&staged, socket)?;
+    Ok(serve_on(app, listener, socket))
+}
+
+/// The final path fits `sun_path` but a staging path beside it would not: bind it directly, as the TS server does,
+/// and chmod 0600 right after (the socket is reachable by others only for that instant).
+fn bind_direct(app: Arc<App>, socket: &Path) -> Result<AdminServer, AdminError> {
+    // The running user's id, from the owner of /proc/self.
+    clear_stale_socket(socket, std::fs::metadata("/proc/self")?.uid())?;
+    let listener = UnixListener::bind(socket)?;
+    if let Err(err) = std::fs::set_permissions(socket, std::fs::Permissions::from_mode(0o600)) {
+        drop(listener);
+        let _ = std::fs::remove_file(socket);
+        return Err(err.into());
+    }
+    Ok(serve_on(app, listener, socket))
 }
 
 /// Listens on `socket`, mode 0600 from the moment it exists. Fails if the path is taken by something that is not
 /// a socket of ours, or if the socket can't be secured; then nothing is left listening.
 pub fn start_admin(app: Arc<App>, socket: &Path) -> Result<AdminServer, AdminError> {
-    let dir = private_dir(socket)?;
-    let started = bind_secured(app, socket, &dir);
+    let parent = socket
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+    if parent.as_os_str().len() + STAGING_EXTRA > SUN_PATH_MAX {
+        return bind_direct(app, socket);
+    }
+    let dir = private_dir(&parent)?;
+    let started = bind_staged(app, socket, &dir);
     // Whatever happened, the staging directory and anything left in it go.
     let _ = std::fs::remove_dir_all(&dir);
     started
@@ -735,8 +761,8 @@ mod long_path_tests {
         let (app, _) = app();
         let dir = tempfile::tempdir().unwrap();
         let mut parent = dir.path().to_path_buf();
-        while parent.as_os_str().len() < 85 {
-            parent.push("deeper-dir");
+        while parent.as_os_str().len() < 96 {
+            parent.push("dd");
         }
         std::fs::create_dir_all(&parent).unwrap();
         let path = parent.join("a.sock");
