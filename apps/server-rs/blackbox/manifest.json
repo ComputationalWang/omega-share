@@ -1,0 +1,11 @@
+{
+  "tests": [
+    "apps/server/test/abuse.test.ts::abuse limits::the latency probe refuses a run with no samples",
+    "apps/server/test/boundary.test.ts::responses::GET /healthz with its database check still answers in under 5 ms (p95)",
+    "apps/server/test/boundary.test.ts::responses::the Permissions-Policy leaves the player features to the iframes' allow attribute",
+    "apps/server/test/boundary.test.ts::serving the built site on the same origin (STATIC_DIR)::a NUL byte in the path is a plain 404, not a 500 with a stack trace",
+    "apps/server/test/boundary.test.ts::serving the built site on the same origin (STATIC_DIR)::never serves a file outside the root",
+    "apps/server/test/server.test.ts::CORS::does not allow any other origin",
+    "apps/server/test/server.test.ts::WebSocket /rooms/:id/ws::upgrade to an unknown room is 404"
+  ]
+}
