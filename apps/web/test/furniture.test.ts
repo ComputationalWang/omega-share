@@ -286,7 +286,7 @@ const V2_SEATS: RoomLayout = v.parse(RoomLayoutSchema, {
     { kind: "bench", col: 5, row: 6, facing: "ne" },
     { kind: "bench", col: 8, row: 5, facing: "nw", variant: 1 },
     { kind: "garland", col: 4, row: 0, facing: "sw" },
-    { kind: "garland", col: 5, row: 0, facing: "sw", variant: 1 },
+    { kind: "garland", col: 3, row: 0, facing: "sw", variant: 1 },
     { kind: "wallshelf", col: 0, row: 4, facing: "se" },
     { kind: "turntable", col: 0, row: 8, facing: "se" },
     { kind: "speaker", col: 1, row: 9, facing: "se" },
@@ -359,6 +359,6 @@ describe("catalogue v2", () => {
     expect(keys.filter((k) => k.startsWith("wall/l/") && k !== "wall/l/end").every((k) => k === "wall/l/plain")).toBe(true);
     const a = sprite(sceneOf(V2_SEATS, [v2]), "furniture/garland/warm/sw/back");
     const b = sprite(sceneOf(V2_SEATS, [v2]), "furniture/garland/party/sw/back");
-    expect([b.x - a.x, b.y - a.y]).toEqual([cellCenter(5, 0).x - cellCenter(4, 0).x, cellCenter(5, 0).y - cellCenter(4, 0).y]);
+    expect([b.x - a.x, b.y - a.y]).toEqual([cellCenter(3, 0).x - cellCenter(4, 0).x, cellCenter(3, 0).y - cellCenter(4, 0).y]);
   });
 });
