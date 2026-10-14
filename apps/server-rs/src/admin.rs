@@ -721,3 +721,40 @@ mod tests {
         server.stop().await;
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
+mod long_path_tests {
+    use super::*;
+    use crate::app::testing::app;
+    use std::os::unix::fs::PermissionsExt;
+
+    // sun_path holds 107 bytes: a final path that fits must start even when a staging path beside it would not.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_socket_path_near_the_unix_limit_still_binds_owner_only() {
+        let (app, _) = app();
+        let dir = tempfile::tempdir().unwrap();
+        let mut parent = dir.path().to_path_buf();
+        while parent.as_os_str().len() < 85 {
+            parent.push("deeper-dir");
+        }
+        std::fs::create_dir_all(&parent).unwrap();
+        let path = parent.join("a.sock");
+        assert!(path.as_os_str().len() < 107 && path.as_os_str().len() > 90);
+        let server = start_admin(app, &path).unwrap();
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        server.stop().await;
+        assert!(!path.exists());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn nothing_is_left_beside_the_socket() {
+        let (app, _) = app();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("admin.sock");
+        let server = start_admin(app, &path).unwrap();
+        let names: Vec<_> = std::fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().file_name()).collect();
+        assert_eq!(names, ["admin.sock"]);
+        server.stop().await;
+    }
+}
