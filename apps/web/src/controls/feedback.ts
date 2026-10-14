@@ -1,3 +1,4 @@
+import type { ErrorCode } from "@omega/shared";
 import { coolingDown, isMuted, type Refusal, type ViewState } from "../state";
 
 // Placeholder copy for the M3 safety states until the set (f) chrome is wired (OME-193). Text only: it goes
@@ -79,3 +80,38 @@ export function kickedCard(until: number | null, now: number): KickedCard {
     nextChangeMs: left - (minutes - 1) * MINUTE_MS,
   };
 }
+
+/** The room's status line: only a connection on its way says anything. */
+export const STATUS_TEXT: Record<ViewState["status"], string> = {
+  idle: "",
+  connecting: "Connecting…",
+  open: "",
+  reconnecting: "Connection lost, reconnecting…",
+  full: "",
+  refused: "",
+  closed: "",
+  "taken-down": "",
+  kicked: "",
+  "not-found": "",
+  replaced: "",
+};
+
+/** The room's notice for a server error. */
+export const ERROR_TEXT: Record<ErrorCode, string> = {
+  seat_taken: "Someone just took that seat.",
+  rate_limited: "Slow down a little.",
+  bad_message: "That didn't go through.",
+  not_joined: "Still joining, try again in a moment.",
+  already_joined: "You're already in this room.",
+  no_embed: "That video isn't playing here any more.",
+  nickname_taken: "Someone in this room already has that name.",
+  too_many_members: "Too many people from your network are in this room.",
+  invite_required: "This room is private. You need an invite link to join.",
+  not_owner: "Only the room's owner can do that.",
+  muted: "The room's owner muted your chat.",
+  control_owner_only: "Only the room's owner can control the video here.",
+  bad_target: "That person isn't in this room any more.",
+  queue_full: "The queue is full. Remove one to add another.",
+  unsupported_url: "That link can't be played in this room.",
+  resume_expired: "Your session expired. Enter the room again.",
+};
