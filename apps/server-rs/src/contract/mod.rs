@@ -2,6 +2,7 @@
 //! boundary; nothing past it handles unparsed input.
 
 pub mod capabilities;
+pub mod client_message;
 pub mod confusables;
 pub mod constants;
 pub mod embed;
@@ -9,6 +10,7 @@ pub mod generic_embed;
 pub mod ids;
 pub mod js_compat;
 pub mod layout;
+pub mod requests;
 pub mod room;
 pub mod session;
 pub mod text;
@@ -17,19 +19,21 @@ pub mod unicode_props;
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{DeserializeOwned, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::borrow::Cow;
 use std::fmt;
 use std::marker::PhantomData;
 use validator::{Validate, ValidationErrors};
 
-/// Input the contract refuses. `reason` is for tests only: it can quote the input (a field name, a
-/// value), so it is never logged and never sent on the wire.
+/// Input the contract refuses. Outside this crate's unit tests `parse_json` sets a fixed category
+/// ("json", "rules"), never serde's or validator's text, which quotes the input (keys, values,
+/// variant names). Other constructors pass their own text; none may include untrusted input.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Invalid {
-    pub reason: String,
+    pub reason: Cow<'static, str>,
 }
 
 impl Invalid {
-    pub fn new(reason: impl Into<String>) -> Self {
+    pub fn new(reason: impl Into<Cow<'static, str>>) -> Self {
         Self { reason: reason.into() }
     }
 }
@@ -79,11 +83,22 @@ impl<T: Validate> Validate for Obj<T> {
     }
 }
 
+/// The full message only in unit tests (it quotes input and costs an allocation per refusal).
+#[cfg(test)]
+fn detail(_category: &'static str, e: &dyn fmt::Display) -> Invalid {
+    Invalid::new(e.to_string())
+}
+
+#[cfg(not(test))]
+fn detail(category: &'static str, _e: &dyn fmt::Display) -> Invalid {
+    Invalid::new(category)
+}
+
 /// The shape (serde), then the field rules (validator), in one step. Duplicate keys are refused
 /// (serde), unlike `JSON.parse`'s last-wins: a deliberate difference (PORTING.md).
 pub fn parse_json<T: DeserializeOwned + Validate>(raw: &[u8]) -> Result<T, Invalid> {
-    let Obj(wire) = serde_json::from_slice::<Obj<T>>(raw).map_err(|e| Invalid::new(e.to_string()))?;
-    wire.validate().map_err(|e| Invalid::new(e.to_string()))?;
+    let Obj(wire) = serde_json::from_slice::<Obj<T>>(raw).map_err(|e| detail("json", &e))?;
+    wire.validate().map_err(|e| detail("rules", &e))?;
     Ok(wire)
 }
 

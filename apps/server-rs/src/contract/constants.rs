@@ -34,6 +34,8 @@ pub const MAX_SERVER_MESSAGE_BYTES: usize = 65_536;
 pub const MAX_LISTED_ROOMS: usize = 100;
 /// Largest `POST /rooms` body, in bytes (ADR 0028).
 pub const MAX_CREATE_BODY_BYTES: usize = 1024;
+/// Largest `POST /rooms/:id/share` body, in bytes (private in apps/server/src/http.ts:53).
+pub const MAX_SHARE_BODY_BYTES: usize = 4096;
 
 /// Per client key: this many creations at once, then one every ROOM_CREATE_KEY_REFILL_MS (ADR 0028).
 pub const ROOM_CREATE_KEY_BURST: u32 = 2;
