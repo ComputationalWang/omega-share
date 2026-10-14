@@ -5,16 +5,22 @@
 use omega_server::contract::constants;
 use omega_server::contract::generic_embed::normalize_hostname;
 use omega_server::contract::layout::{Facing, Furniture, Kind, RoomLayout, footprint_cells, layout_seats};
+use omega_server::log::redact_addresses;
+use omega_server::rate_limit::{address_key, client_key, is_loopback_key};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
 /// Every corpus file has a runner below; a new `corpus/out/*.json` without one fails `every_corpus_has_a_runner`.
 const RUNNERS: &[&str] = &[
+    "address-key",
+    "client-key",
     "constants",
     "footprint-cells",
+    "is-loopback-key",
     "layout-seats",
     "normalize-hostname",
+    "redact-addresses",
     "room-layout",
     "room-layout-input",
     "room-layout-input-raw",
@@ -82,6 +88,36 @@ fn normalize_hostname_agrees() {
         load::<String, String>(include_str!("../corpus/out/normalize-hostname.json")),
         |input| normalize_hostname(input),
     );
+}
+
+#[test]
+fn redact_addresses_agrees() {
+    agree(
+        load::<String, String>(include_str!("../corpus/out/redact-addresses.json")),
+        |input| Some(redact_addresses(input)),
+    );
+}
+
+#[test]
+fn address_key_agrees() {
+    agree(load::<String, String>(include_str!("../corpus/out/address-key.json")), |input| {
+        Some(address_key(input))
+    });
+}
+
+#[test]
+fn client_key_agrees() {
+    agree(
+        load::<(String, Option<String>, bool), String>(include_str!("../corpus/out/client-key.json")),
+        |(peer, xff, trust)| Some(client_key(peer, xff.as_deref(), *trust)),
+    );
+}
+
+#[test]
+fn is_loopback_key_agrees() {
+    agree(load::<String, bool>(include_str!("../corpus/out/is-loopback-key.json")), |input| {
+        Some(is_loopback_key(input))
+    });
 }
 
 /// Numbers compare by value: TS has one number type, Rust's constants are integers or floats.

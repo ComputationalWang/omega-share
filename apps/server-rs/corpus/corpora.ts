@@ -6,6 +6,9 @@
 import { normalizeHostname } from "@omega/shared";
 import * as constants from "../../../packages/shared/src/constants";
 import { layoutCorpora } from "./layout-corpora";
+import { redactAddresses } from "../../server/src/log";
+import { addressKey, clientKey, isLoopbackKey } from "../../server/src/rate-limit";
+import { ADDRESSES, clientInputs, dedup, loopbackInputs, redactInputs } from "./address-inputs";
 
 /**
  * One decision: `ok` false means the TS side refused `input`; `output` is what it produced otherwise.
@@ -110,6 +113,10 @@ export const corpora: Corpus[] = [
   { name: "normalize-hostname", cases: () => decided(HOSTNAMES, normalizeHostname) },
   { name: "constants", cases: constantCases },
   ...layoutCorpora,
+  { name: "redact-addresses", cases: () => decided(dedup([...redactInputs(), "a@b.\u212Aom", "a@b.c\u212A", "\u017Fa@b.com", "a@b.\u017F\u017F"]), redactAddresses) },
+  { name: "address-key", cases: () => decided(dedup(ADDRESSES), addressKey) },
+  { name: "client-key", cases: () => decided(dedup(clientInputs()), ([peer, xff, trust]) => clientKey(peer, xff, trust)) },
+  { name: "is-loopback-key", cases: () => decided(dedup(loopbackInputs()), isLoopbackKey) },
 ];
 
 /** One case per line, so a changed decision shows as a one-line diff. */
