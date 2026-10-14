@@ -47,7 +47,15 @@ fn run_serve() -> ExitCode {
             config.hostname
         ));
     }
-    let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
+    // The black-box suite needs `POST /__test/time` to know a woken task's work is done, which only
+    // holds on one thread (see test_hooks.rs); the default and release builds stay multi-thread.
+    #[cfg(feature = "test-hooks")]
+    let mut builder = tokio::runtime::Builder::new_current_thread();
+    #[cfg(not(feature = "test-hooks"))]
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+    #[cfg(feature = "test-hooks")]
+    stop_when_stdin_closes();
+    let runtime = match builder.enable_all().build() {
         Ok(runtime) => runtime,
         Err(err) => {
             stderr_line(&format!("runtime: {err}"));
@@ -64,4 +72,21 @@ fn run_serve() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// Test-hooks only, opt-in (`OMEGA_TEST_STDIN_GUARD=1`): the harness spawns the server with a piped
+/// stdin, so a harness that dies closes the pipe and the server goes with it instead of lingering.
+#[cfg(feature = "test-hooks")]
+fn stop_when_stdin_closes() {
+    use std::io::Read;
+    if std::env::var_os("OMEGA_TEST_STDIN_GUARD").is_none() {
+        return;
+    }
+    // A plain thread: a blocking read must not run on the single-threaded runtime.
+    std::thread::spawn(|| {
+        let mut sink = [0_u8; 256];
+        let mut stdin = std::io::stdin().lock();
+        while matches!(stdin.read(&mut sink), Ok(n) if n > 0) {}
+        std::process::exit(0);
+    });
 }
