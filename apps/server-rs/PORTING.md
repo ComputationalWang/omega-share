@@ -128,6 +128,7 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | CLI: a date outside the JS `Date` range (more than 8.64e15 ms from the epoch) in an answer | `toISOString` throws, the CLI dies with a stack | `unexpected answer from the server`, exit 1 |
 | Error text of an unreachable admin socket (`no server on <socket>: …`) and of failed file operations in `backup` | Bun's / Node's error message | the OS error text (`Connection refused (os error 111)`) |
 | Backup | `VACUUM INTO` | SQLite's online backup API in one step (same one-read-transaction consistency); a symlink found inside the backup directory is replaced or unlinked, never followed |
+| `restore`: the old DB kept aside when a hard link is not possible | `copyFileSync` (overwrites an existing `<db>.pre-restore-<stamp>`) | exclusive create (`create_new`): an existing file is an error, never overwritten or followed |
 | Admin socket creation | `umask(0o177)` around `Bun.serve({unix})` | bound in a private 0700 directory beside the socket, chmod 0600, renamed into place (a process-wide umask is not thread safe); a stale socket is cleared only if it is a socket owned by the running user |
 
 Anything else that differs is a bug, unless ADR 0050 is amended.
