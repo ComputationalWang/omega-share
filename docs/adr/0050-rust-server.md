@@ -2,7 +2,7 @@
 
 **Status:** accepted (2026-10-14), board decision. Partly supersedes [ADR 0001](0001-stack.md): its **Server** bullet (Hono on `Bun.serve`) ends at promotion (§6). Tracking: OME-1141.
 
-**Update:** Production switched to Rust on <date> (PR #263); Bun rollback until <date+7>; S13 pending.
+**Update:** Production switched to Rust on 2026-10-15 (PR #263); Bun rollback until 2026-10-22; S13 pending.
 
 ## Decision
 

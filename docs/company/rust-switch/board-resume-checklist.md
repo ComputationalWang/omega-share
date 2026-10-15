@@ -1,10 +1,10 @@
 # Draft (c): board checklist to resume the company
 
-Do this only after the production switch succeeded (`docs/ops/switch-to-rust.md` § 3 green) and the PR carrying this file has merged. Fill the `<date>` placeholders in ADR 0050 and the drafts first.
+Do this only after the production switch succeeded (`docs/ops/switch-to-rust.md` § 3 green) and the PR carrying this file has merged.
 
 Pause snapshots: `/tmp/claude-1000/-home-wang-Projects-omega-share/cb2ee54c-4e75-4b63-b637-fa877b3247c3/scratchpad/{agents-before.json,routines-before.json}`. Before the pause every agent had heartbeats enabled and `status: idle`, except QA Engineer 2 (`status: error`, look at its last run before resuming it). Each agent was paused with `pauseReason: manual`.
 
-- [ ] Fill `<date>` and `<date+7>` in `docs/adr/0050-rust-server.md` (a docs-only PR or direct board edit) and in the drafts below.
+- [x] Fill `<date>` and `<date+7>` in `docs/adr/0050-rust-server.md` (a docs-only PR or direct board edit) and in the drafts below.
 - [ ] Sync the instruction bundles: each agent reads its managed `instructions/AGENTS.md` under `~/.paperclip/instances/default/companies/3cbbb61c-a24b-4200-aaa0-00a320534649/agents/<id>/instructions/`, not the repo copy. Copy the merged `company/agents/<slug>/AGENTS.md` into it for server-engineer, lead-engineer, qa-engineer and qa-engineer-2, or the agents will not see the Rust rules. `CLAUDE.md` is read from the repo checkout (make sure each worktree has `main` merged in).
 - [ ] Post draft (a), `coordination-update.md`, to the Coordination document on OME-1.
 - [ ] Create the four courier issues from `courier-issues.md` (Server Engineer, Lead Engineer, QA Engineer, QA Engineer 2), assigned to each agent.
@@ -30,4 +30,4 @@ Pause snapshots: `/tmp/claude-1000/-home-wang-Projects-omega-share/cb2ee54c-4e75
   | Company Optimizer weekly review | `b0959874-0e9d-447e-b339-d4abf625d934` | `0 20 * * 0,1,2,3` |
 
 - [ ] Watch the first day: server journal (`docs/ops/switch-to-rust.md` § 5), the first daily full suite (it builds the Rust binary on a cold cache), and that no agent runs `--server bun`.
-- [ ] After <date+7> with no rollback: tell the CEO to plan S13 (rename, delete the TS server, drop Bun from the box, update ADR 0001).
+- [ ] After 2026-10-22 with no rollback: tell the CEO to plan S13 (rename, delete the TS server, drop Bun from the box, update ADR 0001).
