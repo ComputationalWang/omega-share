@@ -162,6 +162,7 @@ Measured with `perf/server-compare.ts` defaults (500 sockets, 60 s), release bui
 - **Release profile**: `lto = "fat"`, `codegen-units = 1`, `overflow-checks = true`, `debug = false`, `strip = "symbols"`.
 - Not worth it, measured or reasoned: per-connection idle deadline (client frames are ~1 k/s in total, the server's 25 k/s of outgoing frames never touch it); allocator tuning (not tried: RSS is already flat at ~18 MB against Bun's 64 MB).
 - The floor: the kernel send path (loopback delivers inline in the sender's `write`) is about two thirds of the server's CPU and is the same for Bun, so "CPU avg better than Bun by more than the noise threshold" is not reachable by user-space work alone.
+- The board accepted the 2-worker CPU cost; the amended gate and the measurements are in [ADR 0051](../../docs/adr/0051-rust-server-cpu-gate.md).
 
 ## The black-box suite (S8)
 
