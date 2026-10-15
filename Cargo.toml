@@ -27,6 +27,14 @@ string_slice = "deny"
 print_stdout = "deny"
 print_stderr = "deny"
 
+# e2e against the Rust server (OME-1170): close to what ships, quick to build; a debug server starves the browser's probes on a 2-core runner.
+[profile.e2e]
+inherits = "release"
+lto = false
+codegen-units = 16
+debug = false
+incremental = true
+
 [profile.release]
 lto = "fat"
 codegen-units = 1

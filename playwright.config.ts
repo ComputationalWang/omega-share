@@ -6,6 +6,7 @@ import { PORTS, URLS, available, scripts } from "./e2e/support/apps";
 import { ownedCommand } from "./e2e/support/owned";
 import { decideReuse, headSha, ownerAlive, readOwner, removeOwner } from "./e2e/support/owner";
 import { agentIdentity, slotFor } from "./e2e/support/ports";
+import { buildRustServer, serverBackend, serverProcess } from "./e2e/support/server-cmd";
 
 type WebServer = NonNullable<Parameters<typeof defineConfig>[0]["webServer"]>;
 type Server = Extract<WebServer, readonly unknown[]>[number];
@@ -43,7 +44,11 @@ const servers: Server[] = [owned(PORTS.fixtures, URLS.fixtures, "bun e2e/fixture
 // The server boots from a fresh DB holding the lobby and the test rooms (e2e/support/test-rooms.ts, OME-341), one file per port.
 if (available.server) {
   const db = join(tmpdir(), `omega-e2e-${String(PORTS.server)}.db`);
-  servers.push(owned(PORTS.server, URLS.server, `bun e2e/fixtures/seed-rooms.ts ${db} && bun run --filter @omega/server dev`, { PORT: String(PORTS.server), SITE_ORIGIN: URLS.web, DB_PATH: db, RESUME_GRACE_MS: "40000" }));
+  // E2E_SERVER=rust (OME-1170): the Rust binary, built once by the runner, with the same env.
+  const rust = serverBackend(process.env) === "rust";
+  if (rust && runner) buildRustServer(process.env);
+  const start = rust ? `exec '${serverProcess(process.env).command}'` : "bun run --filter @omega/server dev";
+  servers.push(owned(PORTS.server, URLS.server, `bun e2e/fixtures/seed-rooms.ts ${db} && ${start}`, { PORT: String(PORTS.server), SITE_ORIGIN: URLS.web, DB_PATH: db, RESUME_GRACE_MS: "40000" }));
 }
 if (available.web) {
   const mode = process.env["OMEGA_WEB_MODE"] === "preview" && "preview" in scripts("web") ? "preview" : "dev";
