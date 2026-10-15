@@ -390,4 +390,41 @@ mod tests {
         assert_eq!(rec.ops(), ["feed x", "flush"]);
         task.abort();
     }
+
+    /// A sink whose every frame takes 9 s to accept: a client that drips just under the per-write timeout.
+    struct Drip(Option<Pin<Box<tokio::time::Sleep>>>);
+
+    impl Sink<Message> for Drip {
+        type Error = ();
+        fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            let sleep = self.0.get_or_insert_with(|| Box::pin(tokio::time::sleep(Duration::from_secs(9))));
+            if sleep.as_mut().poll(cx).is_pending() {
+                return Poll::Pending;
+            }
+            self.0 = None;
+            Poll::Ready(Ok(()))
+        }
+        fn start_send(self: Pin<&mut Self>, _: Message) -> Result<(), ()> {
+            Ok(())
+        }
+        fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            Poll::Ready(Ok(()))
+        }
+        fn poll_close(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    // The 10 s write timeout covers the whole batch: 64 frames at 9 s each must not hold the writer for 576 s.
+    #[tokio::test(start_paused = true)]
+    async fn a_dripping_sink_cannot_hold_the_writer_past_one_timeout() {
+        let (outbox, rx) = channel();
+        for _ in 0..MAX_BATCH - 1 {
+            assert!(outbox.send_text(&text("x")));
+        }
+        assert!(outbox.send_close(1000, "bye"));
+        let start = tokio::time::Instant::now();
+        assert!(!write(Drip(None), rx, Arc::new(Notify::new())).await);
+        assert!(start.elapsed() <= WRITE_TIMEOUT + Duration::from_secs(1), "{:?}", start.elapsed());
+    }
 }

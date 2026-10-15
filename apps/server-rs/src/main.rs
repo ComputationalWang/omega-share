@@ -158,7 +158,8 @@ mod tests {
         assert_eq!(worker_threads(None), Some(2));
         assert_eq!(worker_threads(Some("1")), Some(1));
         assert_eq!(worker_threads(Some("8")), Some(8));
-        for bad in ["0", "", "-1", "two", "1.5"] {
+        assert_eq!(worker_threads(Some("256")), Some(256));
+        for bad in ["0", "", "-1", "two", "1.5", "257", "100000"] {
             assert_eq!(worker_threads(Some(bad)), None, "{bad}");
         }
     }
