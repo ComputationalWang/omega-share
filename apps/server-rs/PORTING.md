@@ -178,6 +178,7 @@ Measured with `perf/server-compare.ts` defaults (500 sockets, 60 s), release bui
 - **Worker threads** (`main.rs`): a thread per core burns CPU on cross-thread wakeups and idle spinning for a load a single core serves. The default is 2; `OMEGA_WORKER_THREADS=1` selects the current-thread scheduler (CPU equal to Bun, tail latency equal to Bun's, not better), a larger number selects that many workers. The `test-hooks` build always runs on one thread.
 - **Release profile**: `lto = "fat"`, `codegen-units = 1`, `overflow-checks = true`, `debug = false`, `strip = "symbols"`.
 - Not worth it, measured or reasoned: per-connection idle deadline (client frames are ~1 k/s in total, the server's 25 k/s of outgoing frames never touch it); allocator tuning (not tried: RSS is already flat at ~18 MB against Bun's 64 MB).
+- Room-sharded WebSocket threads (`OMEGA_WS_SHARDS`, OME-1173) were measured and not adopted: see "Follow-up: room-sharded WebSocket threads" in `docs/adr/0051-rust-server-cpu-gate.md`.
 - The floor: the kernel send path (loopback delivers inline in the sender's `write`) is about two thirds of the server's CPU and is the same for Bun, so "CPU avg better than Bun by more than the noise threshold" is not reachable by user-space work alone.
 - The board accepted the 2-worker CPU cost; the amended gate and the measurements are in [ADR 0051](../../docs/adr/0051-rust-server-cpu-gate.md).
 
