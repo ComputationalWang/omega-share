@@ -41,9 +41,16 @@ use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, Uri};
 use axum::middleware::{Next, from_fn_with_state};
 use axum::response::Response;
 use gate::{Allowed, ClientKey};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex, OnceLock};
+
+/// Requests one client key may have in flight at once: a cold page load runs about 40 in parallel (http-limits.test.ts), so 64 is generous
+/// for a person; it takes four keys to fill the global 256 (HTTP-2). A slot is held while the request is handled (its body read under the 5 s
+/// total deadline) and released when the response head is produced: a response body that streams slowly is bounded by the connection caps and
+/// `StallGuard`, not by this count.
+pub const KEY_IN_FLIGHT: usize = 64;
 
 /// The limiters of the API routes (http.ts `createHttpApp`).
 #[derive(Debug)]
@@ -65,10 +72,13 @@ pub struct HttpState {
     requests: Mutex<KeyedLimiter>,
     /// HTTP requests being handled at once.
     in_flight: AtomicUsize,
+    /// Requests being handled per client key (not loopback).
+    key_in_flight: Mutex<HashMap<String, usize>>,
+    key_in_flight_max: AtomicUsize,
     api: Mutex<ApiLimits>,
     allowed: OnceLock<Allowed>,
     site: OnceLock<Option<site::Site>>,
-    /// How long a request body may take in all, ms.
+    /// How long a request body may take in all, ms (bodies are a few KB: 5 s, Bun had no total).
     body_total_ms: std::sync::atomic::AtomicU64,
 }
 
@@ -80,6 +90,8 @@ impl Default for HttpState {
         Self {
             requests: Mutex::new(key_limiter(gate::HTTP_BURST, gate::HTTP_PER_SECOND)),
             in_flight: AtomicUsize::new(0),
+            key_in_flight: Mutex::new(HashMap::new()),
+            key_in_flight_max: AtomicUsize::new(KEY_IN_FLIGHT),
             api: Mutex::new(ApiLimits {
                 creates: key_limiter(f64::from(ROOM_CREATE_KEY_BURST), 1000.0 / ROOM_CREATE_KEY_REFILL_MS as f64),
                 global_creates: TokenBucket::new(
@@ -94,7 +106,7 @@ impl Default for HttpState {
             }),
             allowed: OnceLock::new(),
             site: OnceLock::new(),
-            body_total_ms: std::sync::atomic::AtomicU64::new(30_000),
+            body_total_ms: std::sync::atomic::AtomicU64::new(5_000),
         }
     }
 }
@@ -111,6 +123,15 @@ impl HttpState {
             u64::try_from(total.as_millis()).unwrap_or(u64::MAX),
             std::sync::atomic::Ordering::Relaxed,
         );
+    }
+
+    /// Overrides the per-key cap on requests being handled (tests).
+    pub fn set_key_in_flight(&self, max: usize) {
+        self.key_in_flight_max.store(max, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    fn key_in_flight_max(&self) -> usize {
+        self.key_in_flight_max.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Called once the listener has a port: the Host and Origin allowlists need it (server.ts `allowedHosts`), and
@@ -166,6 +187,14 @@ fn is_ws_path(path: &str) -> bool {
         .is_some_and(|(id, tail)| !id.is_empty() && tail == "ws")
 }
 
+/// `Upgrade: websocket` (the handler checks the rest of the handshake).
+fn is_upgrade(headers: &HeaderMap) -> bool {
+    headers
+        .get("upgrade")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.eq_ignore_ascii_case("websocket"))
+}
+
 /// Bun's URL parser resolves dot segments before anything routes: the request's path becomes the normalized one.
 fn normalized(uri: &Uri) -> Option<Uri> {
     let path = path::normalize_path(uri.path());
@@ -212,7 +241,9 @@ async fn gated(app: &Arc<App>, mut req: Request, next: Next, route: String) -> R
     let upgrade_path = is_ws_path(req.uri().path());
     req.extensions_mut().insert(RoutePath(route));
     req.extensions_mut().insert(ClientKey(key.clone()));
-    if upgrade_path {
+    // Only the GET upgrade: any other method on the path is an ordinary request and is metered like one (WS-1).
+    let upgrade = upgrade_path && req.method() == Method::GET && is_upgrade(req.headers());
+    if upgrade {
         return next.run(req).await;
     }
     let _in_flight = match gate::admit_http(app, &key) {
