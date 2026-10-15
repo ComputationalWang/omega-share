@@ -378,7 +378,7 @@ describe("deploy/deploy.sh --server", () => {
 
   test("the rsync target differs per kind for the same sha", () => {
     withBun((path) => {
-      const dest = (kind: string) => new RegExp(`rsync [^\\n]*:/opt/omega-share/releases/${HEAD}(-rust)?/\\n`).exec(dry(path, "--server", kind).out)?.[1] ?? "none";
+      const dest = (kind: string) => new RegExp(`rsync [^\\n]*:/opt/omega-share/releases/${HEAD}(-rust)?/ \\n`).exec(dry(path, "--server", kind).out)?.[1] ?? "none";
       expect(dest("bun")).toBe("none");
       expect(dest("rust")).toBe("-rust");
     });

@@ -4,12 +4,13 @@
 #   DEPLOY_HOST=deploy@<server-ip> [DEPLOY_KEY=<private key path>] deploy/deploy.sh [--server rust|bun] [--dry-run]
 #
 # Everything is built here, never on the box, and from the committed tree (git archive), so
-# ignored files and local env never reach a release. --server picks what runs (default bun until the
-# switch PR, ADR 0050, flips it):
+# ignored files and local env never reach a release. --server picks what runs (default rust since the
+# switch PR, ADR 0050; Bun needs an explicit --server bun):
 #   bun   the site (vite) and the server's production node_modules (pure JS, so arch-independent);
 #   rust  the site and the aarch64 omega-server binary (scripts/build-server-rs.sh, then the artifact checks in
 #         deploy/check-server-binary.sh: a binary that fails them is never uploaded).
-# Either goes to /opt/omega-share/releases/<commit> with the launcher bin/omega-ops; `current` is flipped and
+# Bun goes to /opt/omega-share/releases/<commit>, Rust to releases/<commit>-rust (so a deploy of one kind from the
+# same commit never rsyncs --delete into the other's live or rollback dir), each with the launcher bin/omega-ops; `current` is flipped and
 # the server's unit restarted (omega-share.service runs a Rust release, omega-share-bun.service a Bun one);
 # if /healthz doesn't answer, the previous release and ITS unit are put back. A restart is graceful (ADR 0032):
 # sockets close with 1012 and clients reconnect on their own, back in their seats.
@@ -24,7 +25,7 @@ usage() {
 }
 
 dry_run=0
-server=bun
+server=rust
 while (( $# )); do
   case "$1" in
     --dry-run) dry_run=1; shift ;;
@@ -51,7 +52,7 @@ if [[ -n "$(git -C "$root" status --porcelain --untracked-files=no)" ]]; then
 fi
 
 base="${OMEGA_DEPLOY_BASE:-/opt/omega-share}" # the override is for the tests, which run the remote script on a scratch dir
-release="$base/releases/$sha"
+release="$base/releases/$sha"; [[ "$server" == rust ]] && release="$release-rust"
 ssh_cmd=(ssh -o BatchMode=yes -o IdentitiesOnly=yes)
 if [[ -n "${DEPLOY_KEY:-}" ]]; then ssh_cmd+=(-i "$DEPLOY_KEY"); fi
 stage="$(mktemp -d)"

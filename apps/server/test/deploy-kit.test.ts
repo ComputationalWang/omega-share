@@ -262,7 +262,7 @@ describe("deploy/deploy.sh", () => {
 
   test("a dry run builds locally, ships a release by commit and flips current", () => {
     withFakeBun(BUN_VERSION, (path) => {
-      const r = run(path, { DEPLOY_HOST: "deploy@203.0.113.7" }, "--dry-run");
+      const r = run(path, { DEPLOY_HOST: "deploy@203.0.113.7" }, "--server", "bun", "--dry-run");
       expect(r.code).toBe(0);
       expect(r.out).toContain("bun run --filter @omega/web build");
       // The archive has no .git: the site's footer version comes from the commit being shipped (OME-767).
