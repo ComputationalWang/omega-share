@@ -201,9 +201,10 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
     }, 0);
   };
   clip.addEventListener("pointerup", end);
-  // A finger the window lost (capture taken away, an up it never heard) is gone, and so is a pinch it was part of.
+  // A finger the window lost (capture taken away, an up it never heard) is gone, and so is a pinch it was part of. Only
+  // the window's own capture: the event bubbles, and a seat losing a finger to the pinch is how a pinch starts (OME-1197).
   clip.addEventListener("lostpointercapture", (ev) => {
-    if (fingers.has(ev.pointerId)) end(ev);
+    if (ev.target === clip && fingers.has(ev.pointerId)) end(ev);
   });
   clip.addEventListener("pointercancel", (ev) => {
     end(ev);
