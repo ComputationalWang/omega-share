@@ -151,6 +151,7 @@ describe("deploy/check-server-binary.sh (artifact checks)", () => {
     ["a test env var", "OMEGA_TEST_MONO", "OMEGA_TEST_"],
     ["SQLite's load_extension", "load_extension", "load_extension"],
     ["a build-machine home path", "/home/someone/.cargo/registry", "/home/"],
+    ["the build's source path", "/srv/ci/work/apps/server-rs", "/apps/server-rs"],
   ])("refuses a binary containing %s", (_name, bytes, marker) => {
     const r = check({}, `${"a".repeat(1_500_000)}${bytes}${"b".repeat(600_000)}`);
     expect(r.code).toBe(1);
