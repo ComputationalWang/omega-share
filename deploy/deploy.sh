@@ -68,7 +68,7 @@ kind=@KIND@
 base=@BASE@
 release=@RELEASE@
 bun_unit() { if systemctl cat omega-share-bun >/dev/null 2>&1; then echo omega-share-bun; else echo omega-share; fi; }
-unit_of() { if [ -x "$1/omega-server" ]; then echo omega-share; else bun_unit; fi; }
+unit_of() { if [ -e "$1/omega-server" ]; then echo omega-share; else bun_unit; fi; }
 flip() { ln -sfn "$1" "$base/current.new" && mv -T "$base/current.new" "$base/current"; }
 healthy() { for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS -o /dev/null http://127.0.0.1:8787/healthz && return 0; sleep 1; done; return 1; }
 if [ "$kind" = rust ]; then
@@ -97,7 +97,7 @@ fi
 cd "$base/releases"
 cur="$(readlink -f "$base/current")"
 keepbun=""
-for d in $(ls -1t); do if [ ! -e "$d/omega-server" ]; then keepbun="$d"; break; fi; done
+for d in $(ls -1t); do if [ -e "$d/apps/server/src/index.ts" ] && [ ! -e "$d/omega-server" ]; then keepbun="$d"; break; fi; done
 ls -1t | tail -n +6 | while read -r old; do
   [ "$base/releases/$old" = "$cur" ] && continue
   [ "$old" = "$keepbun" ] && continue
@@ -129,7 +129,7 @@ run install -m 0755 "$src/deploy/omega-ops" "$rel/bin/omega-ops"
 if [[ "$server" == rust ]]; then
   # Built from the archive (reproducible, no local edits), then checked before anything leaves this machine.
   in_dir "$src" env "CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-$HOME/.cache/omega-share/deploy-target}" scripts/build-server-rs.sh --out "$rel/omega-server"
-  in_dir "$src" deploy/check-server-binary.sh "$rel/omega-server"
+  in_dir "$src" env "OMEGA_BUILD_ROOT=$src" deploy/check-server-binary.sh "$rel/omega-server"
 else
   # The server + shared sources and the preset layouts it builds rooms from, with production node_modules.
   archive "$rel" package.json bun.lock .bun-version apps/server packages/shared assets/presets

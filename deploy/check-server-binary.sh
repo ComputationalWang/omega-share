@@ -3,8 +3,8 @@
 #
 #   deploy/check-server-binary.sh <omega-server> [max-glibc]     (default: GLIBC in deploy/server-rs-build.env)
 #
-# Needs readelf and objdump with aarch64 support (binutils-multiarch or a full binutils). Prints one FAIL line per
-# broken property and exits 1; exits 0 with "ok" otherwise.
+# Needs readelf (it reads any ELF; no objdump). Prints one FAIL line per broken property and exits 1; exits 0 with "ok"
+# otherwise. OMEGA_BUILD_ROOT (the directory the build ran in; deploy.sh sets it) and HOME must not appear in the binary.
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -35,14 +35,22 @@ grep -Eq 'BIND_NOW|FLAGS_1.*NOW' <<< "$dyn" || fail "lazy binding: no BIND_NOW, 
 
 grep -Eq '\.symtab|\.debug_' <<< "$(readelf -SW "$bin" 2>&1)" && fail "not stripped (.symtab or .debug_* present)"
 
-newest="$(objdump -T "$bin" 2>/dev/null | grep -o 'GLIBC_[0-9][0-9.]*' | sed 's/^GLIBC_//' | sort -V | tail -1)"
-if [[ -n "$newest" && "$(printf '%s\n%s\n' "$max" "$newest" | sort -V | tail -1)" != "$max" ]]; then
-  fail "needs GLIBC_$newest, newer than the pinned $max"
+# Fails closed: a readelf that errors, or a binary with no versioned GLIBC symbol (it is not a glibc binary, or the
+# listing is empty), is a failure, never a pass.
+if syms="$(readelf --dyn-syms -W "$bin" 2>/dev/null)" && newest="$(grep -o 'GLIBC_[0-9][0-9.]*' <<< "$syms" | sed 's/^GLIBC_//' | sort -V | tail -1)" && [[ -n "$newest" ]]; then
+  [[ "$(printf '%s\n%s\n' "$max" "$newest" | sort -V | tail -1)" == "$max" ]] || fail "needs GLIBC_$newest, newer than the pinned $max"
+else
+  fail "cannot read any GLIBC_ symbol version (readelf --dyn-syms failed or found none): glibc check not possible"
 fi
 
 # /apps/server-rs: an absolute build path (CARGO_MANIFEST_DIR) that --remap-path-prefix cannot rewrite.
-for needle in /__test/ OMEGA_TEST_ load_extension /home/ /apps/server-rs; do
-  grep -aq -- "$needle" "$bin" && fail "contains '$needle'"
+needles=(/__test/ OMEGA_TEST_ load_extension /home/ /apps/server-rs)
+# The build's own root and HOME, when they are real paths (at least 4 characters, not "/").
+for own in "${OMEGA_BUILD_ROOT:-}" "${HOME:-}"; do
+  (( ${#own} >= 4 )) && needles+=("$own")
+done
+for needle in "${needles[@]}"; do
+  grep -aqF -- "$needle" "$bin" && fail "contains '$needle'"
 done
 
 size="$(wc -c < "$bin")"

@@ -87,8 +87,9 @@ UMask=0077
 MemoryMax=512M
 # The runtime keeps at most 32 blocking threads (max_blocking_threads) beside its workers.
 TasksMax=256
-# The server's connection caps (1280 sockets by default, 128 per non-loopback peer) are sized for 4096: never lower.
-# MAX_CONNECTIONS (at most 3072) + 256 HTTP headroom + a file per response fits.
+# The server's connection caps are fixed numbers sized for 4096: never lower. 1280 sockets in all by default
+# (MAX_CONNECTIONS 1024 + 256 HTTP headroom; at most 3072 + 256), 128 per non-loopback peer address (Caddy's loopback
+# connections are exempt; WebSockets per client key are capped separately, 10 behind the proxy), and a file per response.
 LimitNOFILE=4096
 # No core dumps: they would hold live room state.
 LimitCORE=0

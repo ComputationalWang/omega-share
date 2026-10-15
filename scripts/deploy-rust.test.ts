@@ -493,7 +493,7 @@ describe("deploy/omega-share.service (the Rust server's unit)", () => {
 
   test("LimitNOFILE covers MAX_CONNECTIONS' ceiling, the 256 HTTP headroom and a file per response", () => {
     const ceiling = 3072;
-    // The server's connection caps (1280 total by default, 128 per non-loopback peer) are fixed numbers sized for 4096: never lower.
+    // The server's connection caps are fixed numbers sized for 4096: never lower.
     expect(Number(unit.get("LimitNOFILE")?.at(-1))).toBeGreaterThanOrEqual(4096);
     expect(Number(unit.get("LimitNOFILE")?.at(-1))).toBeGreaterThanOrEqual(ceiling + 256 + 256);
     expect(env).not.toMatch(/MAX_CONNECTIONS=(\d+)/); // the default (1024) applies unless an env file raises it

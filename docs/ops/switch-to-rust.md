@@ -20,7 +20,13 @@ Decision: ADR 0050 (stage "Stable": production with the Bun release kept for ins
 2. `D=... deploy/deploy.sh --server rust --dry-run` lists every step: build, artifact checks, rsync, flip, restart, rollback.
 3. The 24 h local soak under load passed (ADR 0050, stage "Stable"), and no migration is pending between the Bun and the Rust schema.
 4. **Ship a Bun release made by this kit**, so the 7-day rollback target has the launcher and survives pruning: `env $D deploy/deploy.sh --server bun` (a no-op restart for users).
-5. Take a snapshot and check it: `ssh $A admin@$SERVER_IP 'sudo systemctl start omega-share-backup.service && sudo -u omega-share /opt/omega-share/current/bin/omega-ops backup verify $(ls -1t /var/backups/omega-share/omega-*.db | head -n 1)'`, and pull it off-box with `deploy/backup/pull.sh`.
+5. Take a snapshot and check it. The snapshot directory is `0700` and owned by `omega-share`, so list it as that user, and fail loudly when nothing is there (an empty file name would make `verify` run on nothing):
+
+   ```sh
+   ssh $A admin@$SERVER_IP 'sudo systemctl start omega-share-backup.service && sudo -u omega-share sh -c '"'"'snap=$(ls -1t /var/backups/omega-share/omega-*.db | head -n 1); test -n "$snap" || { echo "no snapshot found in /var/backups/omega-share" >&2; exit 1; }; /opt/omega-share/current/bin/omega-ops backup verify "$snap"'"'"''
+   ```
+
+   Then pull it off-box with `deploy/backup/pull.sh`. Stop here if the verify prints anything but `ok`.
 
 ## 1. Root step: provision the two units
 
@@ -44,10 +50,25 @@ It builds, runs the artifact checks (a failing binary is never uploaded), ships 
 1. Public: `curl -sI https://omega-share.duckdns.org/healthz` is 200 with the security headers; `ssh $A admin@$SERVER_IP 'journalctl -u omega-share -n 40 -o cat'` has no `"level":"error"` line, no `status=31/SYS` (blocked syscall) and no `panic`.
 2. Metrics over ssh as in hosting.md: `omega_rooms` and `omega_sockets` back to the pre-switch values after the reconnects, `process_resident_memory_bytes` flat.
 3. **A real join through the public origin**: open the site in a browser, join a room, share a video from the extension, watch two clients stay in sync, reload one (it returns to its seat).
-4. **The proxy's X-Forwarded-For, forged** (the server reads the rightmost entry and exempts loopback keys from per-key limits, so a proxy that passed a client's header through would let anyone claim loopback): from outside the box, `for i in $(seq 1 400); do curl -s -o /dev/null -w '%{http_code}\n' -H 'X-Forwarded-For: 127.0.0.1' https://omega-share.duckdns.org/rooms; done | sort | uniq -c` must show 429s. All 200 means Caddy kept the client's header: stop and roll back. Caddy's documented behaviour (2.5+, no trusted proxy configured) is to drop the client's `X-Forwarded-*` and set `X-Forwarded-For` to the peer, which is why the Caddyfile has no `trusted_proxies` and no `header_up` for it.
-5. Caddy limits: `curl -s -o /dev/null -w '%{http_code}\n' -H "X-Pad: $(head -c 20000 /dev/zero | tr '\0' a)" https://omega-share.duckdns.org/healthz` is 431 (Caddy's `max_header_size 12KiB`; the server itself refuses more than 16 KiB).
-6. Backup: `ssh $A admin@$SERVER_IP 'sudo systemctl start omega-share-backup.service; systemctl show omega-share-backup.service -p Result'` is `success` and the newest file verifies.
-7. Operator CLI: `ssh $A admin@$SERVER_IP 'sudo -u omega-share env DB_PATH=/var/lib/omega-share/omega.db /opt/omega-share/current/bin/omega-ops admin reports list'` answers; the monitor (`omega-share-monitor`) keeps counting reports.
+4. **The proxy's X-Forwarded-For, forged.** The server reads the rightmost entry and exempts loopback keys from per-key limits, so a proxy that passed a client's header through would let anyone claim loopback and skip every limit. The per-key HTTP bucket is a burst of 120 refilling at 20/s, so only a **parallel** burst well over 120 in about a second tells the two apart (a sequential curl loop runs at 3 to 8 requests a second and shows 200s either way). From outside the box:
+
+   ```sh
+   U=https://omega-share.duckdns.org/rooms
+   # control: no header, must show 429s (the burst exceeds the limit)
+   seq 1 600 | xargs -P 64 -I{} curl -s -o /dev/null -w '%{http_code}\n' $U | sort | uniq -c
+   sleep 15   # let the bucket refill
+   # forged: must show 429s like the control
+   seq 1 600 | xargs -P 64 -I{} curl -s -o /dev/null -w '%{http_code}\n' -H 'X-Forwarded-For: 127.0.0.1' $U | sort | uniq -c
+   sleep 15
+   # sanity: a burst under the limit is all 200
+   seq 1 60 | xargs -P 4 -I{} curl -s -o /dev/null -w '%{http_code}\n' $U | sort | uniq -c
+   ```
+
+   Pass: the control and the forged run both show 429s, and the under-the-limit run is all 200. **All 200s in the forged run means Caddy passed the header through: stop and roll back.** (All 200s in the control run means the burst was too slow to prove anything: raise `-P`.) Caddy's documented behaviour (2.5+, no trusted proxy configured) is to drop the client's `X-Forwarded-*` and set `X-Forwarded-For` to the peer, which is why the Caddyfile has no `trusted_proxies` and no `header_up` for it.
+5. Caddy header limit: `curl -s -o /dev/null -w '%{http_code}\n' -H "X-Pad: $(head -c 20000 /dev/zero | tr '\0' a)" https://omega-share.duckdns.org/healthz` is 431 (Caddy's `max_header_size 12KiB`; the server itself refuses more than 16 KiB).
+6. **A WebSocket survives Caddy's timeouts.** `idle 2m` and `read_body 30s` are Caddy server timeouts, and whether they cut an upgraded WebSocket was checked once locally with Caddy 2.11.7 (see the PR) but never on the box. Join a room in the browser through the public origin, leave the tab idle for more than 2.5 minutes (the server pings every 30 s), and confirm it is still connected (the avatar is still there, chat/emote still goes through, no reconnect banner). If it drops at 2 minutes, remove `idle` from `deploy/Caddyfile` first and re-run `provision.sh logs`.
+7. Backup: `ssh $A admin@$SERVER_IP 'sudo systemctl start omega-share-backup.service; systemctl show omega-share-backup.service -p Result'` is `success` and the newest file verifies.
+8. Operator CLI: `ssh $A admin@$SERVER_IP 'sudo -u omega-share env DB_PATH=/var/lib/omega-share/omega.db /opt/omega-share/current/bin/omega-ops admin reports list'` answers; the monitor (`omega-share-monitor`) keeps counting reports.
 
 ### Hardening checklist on the aarch64 box (soak step)
 
@@ -56,14 +77,14 @@ None of these can be proved on a development machine; run all of them. Each fail
 | Option | Check (as `admin@`) | Expect |
 | --- | --- | --- |
 | `MemoryDenyWriteExecute=yes` | the service is `active` and stays so under the 24 h load | no `status=SIGSEGV`/`SIGSYS`; `systemctl show omega-share -p MemoryDenyWriteExecute` is `yes` |
-| `SystemCallFilter` (`@system-service`, minus `@privileged @resources @mount @obsolete @debug @raw-io @reboot @swap @cpu-emulation`) | `journalctl -u omega-share -p warning` after the soak, plus a snapshot, a restore, a room delete through the CLI and a graceful restart | no `status=31/SYS`; if one appears, `journalctl -k | grep -i audit` names the call |
+| `SystemCallFilter` (`@system-service`, minus `@privileged @resources @mount @obsolete @debug @raw-io @reboot @swap @cpu-emulation`) | `journalctl -u omega-share -p warning` after the soak, plus a snapshot, a restore, a room delete through the CLI and a graceful restart | no `status=31/SYS`; if one appears, `sudo journalctl -k \| grep -i audit` (the kernel journal needs sudo as `admin@`) names the call |
 | `SocketBindDeny=any` + `SocketBindAllow=tcp:8787`, `tcp:9464` (systemd 249+) | `ss -ltnp` shows the server on 127.0.0.1:8787 and 127.0.0.1:9464; `systemd-analyze security omega-share` lists no unknown-directive warning | it binds; metrics answer |
 | `IPAddressDeny=any` + `IPAddressAllow=localhost` | Caddy still reaches `127.0.0.1:8787` (step 3.1); `systemctl show omega-share -p IPAddressDeny` | public requests succeed |
-| `PrivateUsers=yes` | a room created in step 3.3 survives `systemctl restart omega-share`; `ls -ld /var/lib/omega-share` still `omega-share` 0700 | the DB opens read-write, the admin socket works (step 3.7) |
+| `PrivateUsers=yes` | a room created in step 3.3 survives `systemctl restart omega-share`; `ls -ld /var/lib/omega-share` still `omega-share` 0700 | the DB opens read-write, the admin socket works (step 3.8) |
 | `NoExecPaths=/var/lib/omega-share` | the DB and admin socket work; `systemctl show omega-share -p NoExecPaths` | no `Permission denied` for the DB |
 | `LimitNOFILE=4096` | `grep 'Max open files' /proc/$(systemctl show -p MainPID --value omega-share)/limits` | 4096 (never lower: the connection caps are fixed numbers sized for it) |
 | `LimitCORE=0`, `RUST_BACKTRACE=0`, no `NODE_ENV` | `systemctl show omega-share -p LimitCORE -p Environment` | `LimitCORE=0`; no `NODE_ENV` |
-| Caddy `max_header_size`, `timeouts` | steps 3.4 and 3.5; `systemctl is-active caddy` | 431 over the limit; Caddy active |
+| Caddy `max_header_size`, `timeouts` | steps 3.4, 3.5 and 3.6; `systemctl is-active caddy` | 431 over the limit; Caddy active |
 
 Soak watch (24 h under load, then the 7 days): flat RSS, no restarts (`systemctl show omega-share -p NRestarts` is 0), `omega_ws_closes_total{code="4029"}` not climbing without a flooder, the journal free of errors.
 
@@ -76,6 +97,8 @@ env $D deploy/deploy.sh --server bun
 from a checkout at or after this kit. It rebuilds the Bun release, stops `omega-share`, restarts `omega-share-bun` and checks `/healthz`. Faster, by hand as `deploy@`: flip `current` to the newest release without an `omega-server` file (`ls -1t /opt/omega-share/releases` shows it; deploys keep the newest Bun release past the usual 5), then `systemctl stop omega-share && systemctl restart omega-share-bun`. A release must not have a migration ahead of the Bun code: none may land in the window (the server refuses a DB with a newer `user_version`), or restore the pre-switch snapshot (backup.md § Restore, which picks the unit that serves the current release).
 
 ## 5. During the 7 days
+
+- **Which server a deploy ships.** The `deploy.sh` default is `--server bun` until the switch PR; after this runbook succeeds and the board agrees, that PR flips the default to `--server rust`, so a plain `deploy.sh` (QA2 at milestone sign-off, any agent) stays on Rust. Bun is only ever deployed with an explicit `--server bun`. Until the flip, always pass `--server rust` yourself.
 
 - Daily: the three metrics above, `journalctl -u omega-share -p warning --since -1d`, the nightly snapshot's `Result` and `verify`, the monitor's ntfy.
 - No migrations, no new Rust deploys that change the DB schema. Ordinary Rust deploys are fine (`--server rust`); each keeps the newest Bun release.
