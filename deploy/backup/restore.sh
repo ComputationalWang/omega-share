@@ -11,20 +11,24 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: restore.sh <snapshot.db>   (env: DB_PATH, OMEGA_SERVICE, OMEGA_USER, OMEGA_BUN, OMEGA_APP_DIR, OMEGA_CHECK_URL)" >&2
+  echo "usage: restore.sh <snapshot.db>   (env: DB_PATH, OMEGA_SERVICE, OMEGA_USER, OMEGA_OPS, OMEGA_BUN, OMEGA_APP_DIR (Bun release only), OMEGA_CHECK_URL)" >&2
   exit 2
 }
 [[ $# -eq 1 ]] || usage
 snap=$1
 [[ -f $snap ]] || { echo "restore.sh: no such snapshot: $snap" >&2; exit 2; }
 
-service=${OMEGA_SERVICE:-omega-share}
 user=${OMEGA_USER:-omega-share}
-bun=${OMEGA_BUN:-/usr/local/bin/bun}
-app=${OMEGA_APP_DIR:-/opt/omega-share/current}
+# The release's launcher: omega-server backup ... (Rust) or Bun's backup script (the rollback window).
+ops=${OMEGA_OPS:-/opt/omega-share/current/bin/omega-ops}
+# The unit that serves the current release: omega-share (Rust, or Bun on a box not yet re-provisioned) or omega-share-bun.
+release_dir=$(dirname "$(dirname "$(readlink -f "$ops")")")
+if [[ -n ${OMEGA_SERVICE:-} ]]; then service=$OMEGA_SERVICE
+elif [[ ! -e $release_dir/omega-server ]] && systemctl cat omega-share-bun > /dev/null 2>&1; then service=omega-share-bun
+else service=omega-share; fi
 db=${DB_PATH:-/var/lib/omega-share/omega.db}
 check=${OMEGA_CHECK_URL:-http://127.0.0.1:8787/rooms}
-backup=("$bun" "$app/apps/server/scripts/backup.ts")
+backup=("$ops" backup)
 
 echo "1/4 verify $snap"
 runuser -u "$user" -- "${backup[@]}" verify "$snap"

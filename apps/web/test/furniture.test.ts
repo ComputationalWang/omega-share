@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, RoomLayoutSchema, footprintCells, parseServerMessage, type RoomLayout, type RoomState } from "@omega/shared";
-import { FurnitureManifestSchema, RoomManifestSchema, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, type Scene } from "../src/furniture";
+import { FurnitureManifestSchema, RoomManifestSchema, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, type Scene } from "../src/furniture";
 import { cellCenter } from "../src/layout";
 
 // Furniture and seats from snapshot.room.layout (OME-278, ADR 0021); set (g) art: assets/furniture (OME-261).
 
 const manifest = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture.json", import.meta.url)).json());
+const v2 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v2.json", import.meta.url)).json());
 const room = v.parse(RoomManifestSchema, await Bun.file(new URL("../../../assets/room/room.json", import.meta.url)).json());
 /** The classic preset: the pre-M4 room (tv, 7×7 rug, eight armchairs, lamp, plant), all room-atlas kinds. */
 const CLASSIC: RoomLayout = v.parse(RoomLayoutSchema, await Bun.file(new URL("../../../assets/presets/classic.json", import.meta.url)).json());
@@ -92,7 +93,7 @@ describe("the set (g) atlas is only needed for set (g) pieces", () => {
 });
 
 describe("scene: DEFAULT_LAYOUT looks like today", () => {
-  const scene = sceneOf(DEFAULT_LAYOUT, null);
+  const scene = sceneOf(DEFAULT_LAYOUT, []);
 
   test("no furniture sprites: the room's pieces are still the placeholder floor and seat markers", () => {
     expect(scene.sprites).toEqual([]);
@@ -112,7 +113,7 @@ describe("scene: DEFAULT_LAYOUT looks like today", () => {
 });
 
 describe("scene: a set (g) layout", () => {
-  const scene = sceneOf(SET_G, manifest);
+  const scene = sceneOf(SET_G, [manifest]);
 
   test("every sprite is a frame in the atlas, coloured by the piece's variant", () => {
     for (const k of keysOf(scene)) expect(manifest.frames[k]).toBeDefined();
@@ -181,7 +182,7 @@ describe("scene: a set (g) layout", () => {
   });
 
   test("without the atlas yet, the layout's set (g) pieces aren't drawn and nothing breaks", () => {
-    const bare = sceneOf(SET_G, null);
+    const bare = sceneOf(SET_G, []);
     expect(bare.sprites).toEqual([]);
     expect(bare.seats.map((s) => s.at)).toEqual(seatPoints(SET_G));
   });
@@ -204,7 +205,7 @@ describe("scene: a set (g) layout", () => {
 
 // OME-1062: the room atlas (assets/room, OME-31) draws the room-atlas kinds, the plank floor and the two back walls.
 describe("room atlas", () => {
-  const classic = sceneOf(CLASSIC, null, room);
+  const classic = sceneOf(CLASSIC, [], room);
   const at = (s: Scene, key: string, col: number, row: number): Scene["sprites"][number] | undefined =>
     s.sprites.find((x) => x.key === key && x.x === cellCenter(col, row).x && x.y === cellCenter(col, row).y);
 
@@ -255,7 +256,7 @@ describe("room atlas", () => {
   });
 
   test("a set (g) room gets the floor and walls too; a wall with a print hangs it on plain segments, drawn after them", () => {
-    const g = sceneOf(SET_G, manifest, room);
+    const g = sceneOf(SET_G, [manifest], room);
     const keys = keysOf(g);
     // The print hangs on the right wall: no poster there, the left wall keeps its window.
     expect(keys.filter((k) => k.startsWith("wall/r/") && k !== "wall/r/end").every((k) => k === "wall/r/plain")).toBe(true);
@@ -267,8 +268,101 @@ describe("room atlas", () => {
   });
 
   test("without the room atlas, the classic room keeps its placeholder markers and draws nothing", () => {
-    const bare = sceneOf(CLASSIC, null, null);
+    const bare = sceneOf(CLASSIC, [], null);
     expect(bare.sprites).toEqual([]);
     expect(bare.seats.every((s) => s.marker)).toBe(true);
+  });
+});
+
+// OME-1113: catalogue v2 (assets/furniture/furniture-v2.json, OME-1103) is a second lazy sheet, read the same way as set (g).
+/** Every v2 seat in every facing: floor cushions ne nw se sw (seats 0–3), then benches ne and nw (4–7). */
+const V2_SEATS: RoomLayout = v.parse(RoomLayoutSchema, {
+  furniture: [
+    { kind: "tv", col: 0, row: 0, facing: "se" },
+    { kind: "floorcushion", col: 2, row: 5, facing: "ne" },
+    { kind: "floorcushion", col: 5, row: 2, facing: "nw", variant: 1 },
+    { kind: "floorcushion", col: 3, row: 7, facing: "se" },
+    { kind: "floorcushion", col: 7, row: 3, facing: "sw" },
+    { kind: "bench", col: 5, row: 6, facing: "ne" },
+    { kind: "bench", col: 8, row: 5, facing: "nw", variant: 1 },
+    { kind: "garland", col: 4, row: 0, facing: "sw" },
+    { kind: "garland", col: 3, row: 0, facing: "sw", variant: 1 },
+    { kind: "wallshelf", col: 0, row: 4, facing: "se" },
+    { kind: "turntable", col: 0, row: 8, facing: "se" },
+    { kind: "speaker", col: 1, row: 9, facing: "se" },
+    { kind: "cat", col: 9, row: 9, facing: "sw", variant: 1 },
+  ],
+});
+/** Benches facing se and sw (seats 0–3), with four cushions to make eight seats. */
+const V2_BENCHES: RoomLayout = v.parse(RoomLayoutSchema, {
+  furniture: [
+    { kind: "tv", col: 0, row: 0, facing: "se" },
+    { kind: "bench", col: 2, row: 5, facing: "se" },
+    { kind: "bench", col: 5, row: 2, facing: "sw" },
+    { kind: "floorcushion", col: 4, row: 7, facing: "ne" },
+    { kind: "floorcushion", col: 7, row: 4, facing: "nw" },
+    { kind: "floorcushion", col: 6, row: 8, facing: "se" },
+    { kind: "floorcushion", col: 8, row: 6, facing: "sw" },
+  ],
+});
+
+describe("catalogue v2", () => {
+  test("both sheets share the layer indices sceneOf reads from whichever loaded first", () => {
+    expect(v2.meta.omega.layers).toEqual(manifest.meta.omega.layers);
+  });
+
+  test("each sheet loads only for its own pieces", () => {
+    expect(usesV2(DEFAULT_LAYOUT)).toBe(false);
+    expect(usesV2(SET_G)).toBe(false);
+    expect(usesV2(V2_SEATS)).toBe(true);
+    expect(usesSetG(V2_SEATS)).toBe(false);
+    expect(usesSetG({ furniture: [...V2_SEATS.furniture, { kind: "monstera", col: 9, row: 0, facing: "sw" }] })).toBe(true);
+  });
+
+  test("v2 pieces draw from the v2 sheet, coloured by variant, on their anchor cell", () => {
+    const s = sceneOf(V2_SEATS, [manifest, v2]);
+    for (const k of keysOf(s)) expect(v2.frames[k]).toBeDefined();
+    expect(sprite(s, "furniture/floorcushion/teal/nw/back")).toMatchObject(cellCenter(5, 2));
+    expect(sprite(s, "furniture/cat/charcoal/sw/back").layer).toBe("object");
+    expect(sprite(s, "furniture/wallshelf/wood/se/back").layer).toBe("wall");
+  });
+
+  test("with only set (g) loaded, v2 pieces wait and their seats still work", () => {
+    const s = sceneOf(V2_SEATS, [manifest]);
+    expect(s.sprites).toEqual([]);
+    expect(s.seats.map((x) => x.at)).toEqual(seatPoints(V2_SEATS));
+  });
+
+  test("a sitter on a floor cushion or a bench draws over its back and under its front, in all four facings", () => {
+    const cases = [
+      [V2_SEATS, 0, "floorcushion/mustard/ne"],
+      [V2_SEATS, 1, "floorcushion/teal/nw"],
+      [V2_SEATS, 2, "floorcushion/mustard/se"],
+      [V2_SEATS, 3, "floorcushion/mustard/sw"],
+      [V2_SEATS, 4, "bench/teal/ne"],
+      [V2_SEATS, 5, "bench/teal/ne"],
+      [V2_SEATS, 6, "bench/pink/nw"],
+      [V2_SEATS, 7, "bench/pink/nw"],
+      [V2_BENCHES, 0, "bench/teal/se"],
+      [V2_BENCHES, 1, "bench/teal/se"],
+      [V2_BENCHES, 2, "bench/teal/sw"],
+      [V2_BENCHES, 3, "bench/teal/sw"],
+    ] as const;
+    for (const [layout, i, piece] of cases) {
+      const s = sceneOf(layout, [v2]);
+      const z = s.seats[i]?.z ?? NaN;
+      expect(z).toBeGreaterThan(sprite(s, `furniture/${piece}/back`).z);
+      const front = s.sprites.find((x) => x.key === `furniture/${piece}/front`);
+      if (front !== undefined) expect(z).toBeLessThan(front.z);
+    }
+  });
+
+  test("garlands on neighbouring segments hang on plain wall, so their strings join up", () => {
+    const keys = keysOf(sceneOf(V2_SEATS, [v2], room));
+    expect(keys.filter((k) => k.startsWith("wall/r/") && k !== "wall/r/end").every((k) => k === "wall/r/plain")).toBe(true);
+    expect(keys.filter((k) => k.startsWith("wall/l/") && k !== "wall/l/end").every((k) => k === "wall/l/plain")).toBe(true);
+    const a = sprite(sceneOf(V2_SEATS, [v2]), "furniture/garland/warm/sw/back");
+    const b = sprite(sceneOf(V2_SEATS, [v2]), "furniture/garland/party/sw/back");
+    expect([b.x - a.x, b.y - a.y]).toEqual([cellCenter(3, 0).x - cellCenter(4, 0).x, cellCenter(3, 0).y - cellCenter(4, 0).y]);
   });
 });

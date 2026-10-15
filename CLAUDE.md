@@ -7,14 +7,15 @@ A Habbo-inspired social watch room: a web extension finds a video embed on the p
 2. **Safety** — validate every boundary. Embeds: synced providers by allowlist; anything else only through the generic tier (ADR 0024: validated, sandboxed, click-to-load). Never build an iframe from an unparsed string.
 3. **UX / looks** — usable first, pretty later. Design work runs in parallel but never blocks engineering.
 
-## Stack (see ADR 0001)
-Bun workspaces · TypeScript (strict, see `tsconfig.base.json`) · `apps/extension` (WXT, Chromium MV3) · `apps/web` (Vite + PixiJS) · `apps/server` (Bun + Hono + Bun.serve WebSockets) · `packages/shared` (Valibot schemas → types; the wire contract).
-Tests: `bun test` (unit), Playwright + Chromium (e2e, `bun run e2e`). Gate: `bun run check`.
+## Stack (ADR 0001; the server: ADR 0050)
+Bun workspaces · TypeScript (strict, see `tsconfig.base.json`) · `apps/extension` (WXT, Chromium MV3) · `apps/web` (Vite + PixiJS) · `apps/server-rs` (the server, Rust: axum/tokio, rusqlite, serde + `validator`; binary `omega-server`; ADR 0050) · `packages/shared` (Valibot schemas → types; the wire contract). `apps/server` (Bun + Hono) is frozen: only the parity reference and the 7-day rollback until S13 renames `apps/server-rs` to `apps/server` and deletes it.
+Tests: `bun test` (unit), `cargo test -p omega-server`, Playwright + Chromium (e2e, `bun run e2e`, runs against the Rust server; `E2E_SERVER=bun` for the TS one). Gate: `bun run check` = typecheck, lint, unit tests, then `check:rs` (fmt, clippy `-D warnings`, cargo tests, cargo-deny, black-box suite).
 
 ## How we work
 - **Find code with Graft first.** Use the `graft` MCP tools (`graft_find_code`, `graft_file_api`, `graft_trace_calls`, `graft_repo_map`) or `graft ask/grep/map` before broad grep/read exploration. The graph is a local cache (`graft/`, git-ignored). If it's missing in a fresh worktree, run `graft build`.
 - **TDD is mandatory.** Before implementing any feature or fix in the webapp or extension, run `/mattpocock-skills:tdd` and follow it. The failing-test commit must precede the implementation commit — QA rejects issues where it doesn't.
-- **Contract first.** `packages/shared` is owned by the Lead Engineer. Changing it requires a contract issue; dependent issues are marked blocked by it. Never edit it from a feature branch without that issue.
+- **Contract first.** `packages/shared` is owned by the Lead Engineer. Changing it requires a contract issue; dependent issues are marked blocked by it. Never edit it from a feature branch without that issue. Valibot there stays the source of truth for the TS clients; the Rust mirror in `apps/server-rs/src/contract` changes in the same contract issue, with the comparison corpus regenerated (`bun apps/server-rs/corpus/gen.ts`) and committed.
+- **Server work starts at `apps/server-rs/PORTING.md`** (commands, rules, module map, deliberate differences, black-box suite). No feature work in `apps/server` (TS).
 - **Claim before you touch.** Comment on your issue with the paths you will change (e.g. `apps/extension/**`) and check the *Coordination* document on the "Company Ops" issue for overlapping claims. Overlap → ask the CEO to sequence.
 - **Talk via issues.** Need something from another agent → create a sub-issue assigned to them (@mentions do not wake anyone). Replies go in comments.
 - **Small branches.** One issue = one short-lived branch, mirrored as a GitHub issue and merged into `main` only through a PR (skill `github-flow`, ADR 0039). Lead Engineer merges one at a time. CI `check` + `e2e` gate the merge; QA's PR review covers acceptance, perf for perf-relevant diffs and real providers; the full suite runs daily and at milestone sign-off (ADR 0041, `docs/adr/0041-lean-review-pipeline.md`).
@@ -22,6 +23,7 @@ Tests: `bun test` (unit), Playwright + Chromium (e2e, `bun run e2e`). Gate: `bun
 - **Subagents** (`.claude/agents/`): run on Sonnet 5.5, max 4 per agent, 20 company-wide (enforced by hooks — if denied, wait or do it yourself). Code-writing subagents use `implementer` (own worktree). Summarize subagent results into the Paperclip issue.
 
 ## Hard rules
+- Rust (`apps/server-rs`): no `unsafe`; no `unwrap`/`expect`/`panic!`/indexing (clippy denies them outside tests); validate every boundary with `validator` into a domain type; never log room ids, titles, nicknames, tokens or addresses. One `CARGO_TARGET_DIR=$HOME/.cache/omega-share/cargo-target-<issue>` per agent/worktree and `CARGO_BUILD_JOBS=4`.
 - No `any`, no non-null assertions to silence errors, no `@ts-ignore`. Parse external data with Valibot at the boundary.
 - No Habbo/Sulake assets, names or trademarks. All art is original (CC BY-SA 4.0, `assets/`).
 - Code is AGPL-3.0-only. Don't add dependencies with incompatible licenses; justify every new dependency against the bundle budget.

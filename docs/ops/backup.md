@@ -6,7 +6,7 @@ The server keeps rooms, layouts and each room's last embed in one SQLite file (`
 
 | Layer | Where | Kept | Tool |
 | --- | --- | --- | --- |
-| Nightly snapshot | the box, `/var/backups/omega-share/omega-<UTC date>.db` | newest 14 | `omega-share-backup.timer` → `apps/server/scripts/backup.ts snapshot` |
+| Nightly snapshot | the box, `/var/backups/omega-share/omega-<UTC date>.db` | newest 14 | `omega-share-backup.timer` → `/opt/omega-share/current/bin/omega-ops backup snapshot` (Bun: `apps/server/scripts/backup.ts snapshot`; Rust: `omega-server backup snapshot`) |
 | Off-box copy | the operator's machine | newest 14 | `deploy/backup/pull.sh` (rsync over SSH) |
 | Provider disk backup | the cloud provider | per provider | optional, see [Options](#options-not-set-up) |
 
@@ -21,8 +21,8 @@ These defaults match the deploy kit (`deploy/omega-share.service`, `deploy/provi
 | Service and its user | `omega-share` | `OMEGA_SERVICE`, `OMEGA_USER` (restore.sh); `User=` in the unit |
 | Live database | `/var/lib/omega-share/omega.db` | `DB_PATH` (also read from `/etc/omega-share/env` by the unit; a different path there also needs a drop-in for the unit's `ConditionPathExists` and `ReadWritePaths`) |
 | Snapshots | `/var/backups/omega-share` (0700, service user) | `BACKUP_DIR` |
-| App checkout | `/opt/omega-share/current` | `OMEGA_APP_DIR` |
-| Bun | `/usr/local/bin/bun` | `OMEGA_BUN` |
+| Launcher | `/opt/omega-share/current/bin/omega-ops` | `OMEGA_OPS` (restore.sh) |
+| App checkout and Bun (Bun release only, 7-day rollback window) | `/opt/omega-share/current`, `/usr/local/bin/bun` | `OMEGA_APP_DIR`, `OMEGA_BUN` (read by the launcher) |
 | SSH user for pulls | `deploy` | the user in `OMEGA_BACKUP_SOURCE`, plus `sudoers.omega-backup` |
 
 ## Nightly snapshot (on the box)
@@ -51,7 +51,8 @@ systemctl list-timers omega-share-backup.timer       # next run
 Check a snapshot by hand at any time. This works on a copy and never writes to the file:
 
 ```sh
-runuser -u omega-share -- /usr/local/bin/bun /opt/omega-share/current/apps/server/scripts/backup.ts verify /var/backups/omega-share/omega-2026-10-08.db
+runuser -u omega-share -- /opt/omega-share/current/bin/omega-ops backup verify /var/backups/omega-share/omega-2026-10-08.db
+# the same for either server; underneath: omega-server backup verify <file> (Rust) or bun apps/server/scripts/backup.ts verify <file> (Bun)
 # ok /var/backups/omega-share/omega-2026-10-08.db: 3 rooms
 ```
 

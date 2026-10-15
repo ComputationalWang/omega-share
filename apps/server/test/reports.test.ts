@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { Database } from "bun:sqlite";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as v from "valibot";
 import {
   DEFAULT_LAYOUT,
@@ -18,17 +21,20 @@ import { RoomRegistry } from "../src/rooms";
 import { openDatabase } from "../src/store/db";
 import { ReportStore } from "../src/store/reports";
 import { RoomStore } from "../src/store/rooms";
-import { start, type TestServer } from "./helpers";
+import { start, TestClock, type TestServer } from "./helpers";
 
 /** `POST /rooms/:id/report` (ADR 0033 §1–§4): parse, limits, duplicates, what is stored, metrics, retention. */
 
 let t: TestServer | null = null;
 let db: Database | null = null;
+let dir: string | null = null;
 afterEach(async () => {
   await t?.server.stop(true);
   t = null;
   db?.close();
   db = null;
+  if (dir !== null) rmSync(dir, { recursive: true, force: true });
+  dir = null;
 });
 
 const T0 = Date.UTC(2026, 9, 9);
@@ -42,22 +48,29 @@ interface Fixture {
   db: Database;
   reportStore: ReportStore;
   rooms: RoomRegistry;
-  wall: { ms: number };
-  mono: { ms: number };
+  clock: TestClock;
 }
 
-function boot(): Fixture {
-  const d = openDatabase(":memory:");
+/**
+ * Two rooms seeded in a database file the server opens (`dbPath`: the binary's DB_PATH), with a clock the test moves.
+ * `inProcess` hands the server this process's store and registry instead, for tests that spy on them.
+ */
+function boot(inProcess = false): Fixture {
+  dir = mkdtempSync(join(tmpdir(), "omega-reports-"));
+  const path = join(dir, "omega.db");
+  const d = openDatabase(inProcess ? ":memory:" : path);
   db = d;
   const store = new RoomStore(d);
   const reportStore = new ReportStore(d);
   for (const id of [ROOM, OTHER]) store.createRoom({ id, title: "Film club", createdAt: T0, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
   store.setEmbed(ROOM, EMBED);
-  const wall = { ms: T0 };
-  const mono = { ms: 1_000_000 };
+  const clock = new TestClock(1_000_000, T0);
   const rooms = new RoomRegistry();
-  t = start({ store, reportStore, registry: rooms, trustProxy: true, wallNow: () => wall.ms, now: () => mono.ms });
-  return { t, db: d, reportStore, rooms, wall, mono };
+  const clocks = { wallNow: clock.wallNow, now: clock.now };
+  t = inProcess
+    ? start({ store, reportStore, registry: rooms, trustProxy: true, ...clocks })
+    : start({ dbPath: path, trustProxy: true, ...clocks });
+  return { t, db: d, reportStore, rooms, clock };
 }
 
 /** From a keyed client (the tunnel's rightmost X-Forwarded-For) unless `ip` is null. */
@@ -76,7 +89,7 @@ const rows = (f: Fixture) => f.db.query<Record<string, unknown>, []>("SELECT * F
 describe("a report", () => {
   test("is stored with 202 received: reason, redacted note, the room's title and what was playing", async () => {
     const f = boot();
-    f.wall.ms = T0 + 5000;
+    await f.clock.set({ wall: T0 + 5000 });
     const res = await report(f, ROOM, { reason: "hate", note: "host posts slurs, mail me at ada@example.com" });
     expect(res.status).toBe(202);
     expect(res.headers.get("cache-control")).toBe("no-store");
@@ -117,7 +130,7 @@ describe("a report", () => {
   });
 
   test("is never logged", async () => {
-    const f = boot();
+    const f = boot(true);
     const err = spyOn(console, "error");
     const log = spyOn(console, "log");
     const warn = spyOn(console, "warn");
@@ -166,7 +179,7 @@ describe("duplicates", () => {
   });
 
   test("the duplicate set stays bounded and is dropped with its room", async () => {
-    const f = boot();
+    const f = boot(true);
     await report(f, ROOM, { reason: "spam" }, "198.51.100.1");
     await report(f, OTHER, { reason: "spam" }, "198.51.100.1");
     expect(f.t.server.reports.dedupSize).toBe(2);
@@ -211,7 +224,7 @@ describe("limits", () => {
     expect(body.error.retryAfterMs).toBeGreaterThan(0);
     expect(body.error.retryAfterMs).toBeLessThanOrEqual(REPORT_KEY_REFILL_MS);
     expect(Number(limited.headers.get("retry-after"))).toBe(Math.ceil((body.error.retryAfterMs ?? 0) / 1000));
-    f.mono.ms += REPORT_KEY_REFILL_MS;
+    await f.clock.set({ mono: f.clock.mono + REPORT_KEY_REFILL_MS });
     expect((await report(f, OTHER, { reason: "spam" })).status).toBe(202);
   });
 
@@ -224,7 +237,7 @@ describe("limits", () => {
     if (body.ok) throw new Error("expected an error");
     expect(body.error.retryAfterMs).toBeLessThanOrEqual(REPORT_ROOM_REFILL_MS);
     expect((await report(f, OTHER, { reason: "spam" }, "198.51.100.200")).status).toBe(202);
-    f.mono.ms += REPORT_ROOM_REFILL_MS;
+    await f.clock.set({ mono: f.clock.mono + REPORT_ROOM_REFILL_MS });
     expect((await report(f, ROOM, { reason: "spam" }, "198.51.100.201")).status).toBe(202);
   });
 
@@ -242,12 +255,15 @@ describe("limits", () => {
   });
 
   test("loopback (local dev) skips the key bucket and the duplicate check; the room bucket still applies", async () => {
-    const d = openDatabase(":memory:");
+    dir = mkdtempSync(join(tmpdir(), "omega-reports-"));
+    const path = join(dir, "omega.db");
+    const d = openDatabase(path);
     db = d;
     const store = new RoomStore(d);
     store.createRoom({ id: ROOM, title: "Film club", createdAt: T0, layout: DEFAULT_LAYOUT, pinned: false, ownerHash: OWNER });
-    t = start({ store, reportStore: new ReportStore(d), now: () => 0, wallNow: () => T0 });
-    const f: Fixture = { t, db: d, reportStore: new ReportStore(d), rooms: new RoomRegistry(), wall: { ms: T0 }, mono: { ms: 0 } };
+    const clock = new TestClock(0, T0);
+    t = start({ dbPath: path, now: clock.now, wallNow: clock.wallNow });
+    const f: Fixture = { t, db: d, reportStore: new ReportStore(d), rooms: new RoomRegistry(), clock };
     for (let i = 0; i < REPORT_ROOM_BURST; i++) expect((await report(f, ROOM, { reason: "spam" }, null)).status).toBe(202);
     expect((await report(f, ROOM, { reason: "spam" }, null)).status).toBe(429);
   });
@@ -267,7 +283,7 @@ describe("limits", () => {
   });
 
   test("a store failure is 503 unavailable and leaves no duplicate mark", async () => {
-    const f = boot();
+    const f = boot(true);
     const add = spyOn(f.reportStore, "add").mockImplementation(() => {
       throw new Error("disk full");
     });
@@ -404,23 +420,26 @@ describe("retention", () => {
     await report(f, ROOM, { reason: "spam" });
     await report(f, OTHER, { reason: "spam" }, "198.51.100.8");
     f.reportStore.dismissRoom(OTHER);
-    f.wall.ms = T0 + REPORT_RETENTION_MS - 1;
+    await f.clock.set({ wall: T0 + REPORT_RETENTION_MS - 1 });
     f.t.server.reports.purge();
     expect(rows(f)).toHaveLength(2);
-    f.wall.ms = T0 + REPORT_RETENTION_MS;
+    await f.clock.set({ wall: T0 + REPORT_RETENTION_MS });
     f.t.server.reports.purge();
     expect(rows(f)).toEqual([]);
     expect(f.t.server.reports.dedupSize).toBe(0);
-    f.mono.ms += REPORT_KEY_REFILL_MS;
+    await f.clock.set({ mono: f.clock.mono + REPORT_KEY_REFILL_MS });
     expect((await report(f, ROOM, { reason: "spam" })).status).toBe(202);
   });
 
   test("the room GC sweep purges them", () => {
-    const d = openDatabase(":memory:");
+    dir = mkdtempSync(join(tmpdir(), "omega-reports-"));
+    const path = join(dir, "omega.db");
+    const d = openDatabase(path);
     db = d;
     const reportStore = new ReportStore(d);
     reportStore.add({ id: "o".repeat(22), roomId: ROOM, reason: "spam", note: null, roomTitle: null, embedUrl: null, createdAt: T0 - REPORT_RETENTION_MS });
-    t = start({ store: new RoomStore(d), reportStore, wallNow: () => T0, roomGcIntervalMs: 60_000 });
+    const clock = new TestClock(1_000_000, T0);
+    t = start({ dbPath: path, wallNow: clock.wallNow, now: clock.now });
     // The boot sweep.
     expect(d.query("SELECT 1 FROM reports").all()).toEqual([]);
   });

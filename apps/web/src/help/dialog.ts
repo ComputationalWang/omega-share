@@ -32,7 +32,7 @@ const KEYBOARD: readonly Row[] = [
   [["Enter"], "Jump to the message field; Enter again sends."],
   [["Esc"], "Leave the field, close a menu, or leave full screen."],
   [["T"], "Open the emote wheel; arrows pick, Enter sends."],
-  [["1–6"], "Send an emote straight away."],
+  [["1–8"], "Send an emote straight away."],
   [["F"], "Full screen: the picture with the chat beside it."],
   [["?"], "This help."],
 ];

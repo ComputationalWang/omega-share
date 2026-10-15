@@ -1,0 +1,43 @@
+[workspace]
+resolver = "3"
+members = ["apps/server-rs"]
+
+[workspace.package]
+edition = "2024"
+license = "AGPL-3.0-only"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+
+# No panics reachable from input (ADR 0050): every fallible step returns a Result the caller handles.
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
+dbg_macro = "deny"
+exit = "deny"
+string_slice = "deny"
+# A closed stdout/stderr must not panic the server: use `log::stdout_line` / `log::stderr_line`.
+print_stdout = "deny"
+print_stderr = "deny"
+
+# e2e against the Rust server (OME-1170): close to what ships, quick to build; a debug server starves the browser's probes on a 2-core runner.
+[profile.e2e]
+inherits = "release"
+lto = false
+codegen-units = 16
+debug = false
+incremental = true
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+debug = false
+strip = "symbols"
+overflow-checks = true

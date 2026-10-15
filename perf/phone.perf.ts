@@ -143,10 +143,10 @@ test("phone: frames per provider on a Pixel-class phone in the watch layout (8 a
       await measure(c.key, c.label);
     }
     await share(request, room.id, `https://${GENERIC_HOST}/embed/42`);
-    for (const c of clients) {
-      await c.page.getByTestId("generic-load").click({ timeout: 15_000 });
-      await expect(c.page.frameLocator(site.sharedVideo).locator("div")).toBeVisible({ timeout: 15_000 });
-    }
+    // Click-to-load is per member, so only the observer loads it (OME-1198, as chat.perf.ts OME-813): 8 canvas + rAF
+    // fixture iframes doubled the browser's renderer work and cost the observer's main thread ~1 ms p95 by contention.
+    await observer.page.getByTestId("generic-load").click({ timeout: 15_000 });
+    await expect(observer.page.frameLocator(site.sharedVideo).locator("div")).toBeVisible({ timeout: 15_000 });
     await measure("generic", "generic embed loaded");
 
     for (const [k, r] of Object.entries(rows)) {

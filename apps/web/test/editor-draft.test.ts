@@ -162,7 +162,7 @@ describe("defaultFacing", () => {
 });
 
 describe("TRAY_TABS", () => {
-  test("every kind is in exactly one tab", () => {
+  test("every kind, catalogue v2 too (OME-1113), is in exactly one tab", () => {
     const all: string[] = TRAY_TABS.flatMap((t) => [...t.kinds]);
     expect([...all].sort()).toEqual([...FURNITURE_KINDS].sort());
   });
@@ -173,6 +173,9 @@ describe("TRAY_TABS", () => {
     expect(TRAY_TABS[0]?.kinds.every((k) => FURNITURE[k].seats)).toBe(true);
     expect(tab("decor")).toContain("tv");
     for (const k of ["rug", "runner", "frame"]) expect(tab("floor")).toContain(k);
+    for (const k of ["floorcushion", "bench"]) expect(tab("seats")).toContain(k);
+    for (const k of ["turntable", "speaker", "cat"]) expect(tab("decor")).toContain(k);
+    for (const k of ["wallshelf", "garland"]) expect(tab("floor")).toContain(k);
   });
 });
 

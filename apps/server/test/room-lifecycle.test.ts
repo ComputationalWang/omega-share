@@ -3,7 +3,14 @@ import { CLOSE_CODES, type RoomId } from "@omega/shared";
 import { Room } from "../src/room";
 import { RoomRegistry } from "../src/rooms";
 import type { RoomPersistence } from "../src/server";
-import { Client, postShare, start, tokenOf, type TestServer } from "./helpers";
+import {
+  Client,
+  postShare,
+  start,
+  tokenOf,
+  TestClock,
+  type TestServer,
+} from "./helpers";
 
 /** Rooms come and go at run time (M5 S1, threat model §0 / §7 #2, S5). */
 
@@ -16,15 +23,14 @@ afterEach(async () => {
 });
 
 const YT = "https://youtu.be/dQw4w9WgXcQ";
-const share = (roomId: string, token: string): Promise<Response> => postShare(t ?? fail(), JSON.stringify({ url: YT }), { roomId, token });
+const share = (roomId: string, token: string): Promise<Response> =>
+  postShare(t ?? fail(), JSON.stringify({ url: YT }), { roomId, token });
 function fail(): never {
   throw new Error("no server");
 }
-function fakeClock() {
-  const clock = { ms: 1_000_000, now: () => clock.ms };
-  return clock;
-}
-const total = (sizes: readonly number[]): number => sizes.reduce((a, b) => a + b, 0);
+const fakeClock = (): TestClock => new TestClock();
+const total = (sizes: readonly number[]): number =>
+  sizes.reduce((a, b) => a + b, 0);
 
 describe("RoomRegistry.removeRoom", () => {
   test("closes the room's sockets, joined or not, and leaves other rooms alone", async () => {
@@ -47,7 +53,9 @@ describe("RoomRegistry.removeRoom", () => {
     lobby.client.send({ type: "chat", text: "still here" });
     expect((await lobby.client.next("chat")).text).toBe("still here");
     expect(registry.get("film-club")).toBeUndefined();
-    const listed: unknown = await fetch(`${t.http}/rooms`).then((r) => r.json());
+    const listed: unknown = await fetch(`${t.http}/rooms`).then((r) =>
+      r.json(),
+    );
     expect(listed).toEqual({
       rooms: [{ id: "lobby", memberCount: 1, seatedCount: 0 }],
     });
@@ -58,7 +66,9 @@ describe("RoomRegistry.removeRoom", () => {
     const registry = new RoomRegistry();
     t = start({ registry });
     registry.addRoom(new Room("film-club"));
-    const members = await Promise.all(["alice", "bob", "carol"].map((name) => Client.join(t?.ws("film-club") ?? fail(), name)));
+    // One after the other: the asserts below assume alice joined first. Concurrent opens reach the server in no promised order.
+    const members: Awaited<ReturnType<typeof Client.join>>[] = [];
+    for (const name of ["alice", "bob", "carol"]) members.push(await Client.join(t.ws("film-club"), name));
     for (const m of members) clients.push(m.client);
     // Everyone has seen everyone join before the room goes.
     await members[0]?.client.next("member-joined");
@@ -68,7 +78,9 @@ describe("RoomRegistry.removeRoom", () => {
     registry.removeRoom(registry.get("film-club") ?? fail());
     for (const m of members) {
       expect((await m.client.closed).code).toBe(CLOSE_CODES.ROOM_CLOSED);
-      expect(m.client.raw.filter((frame) => frame.includes('"member-left"'))).toEqual([]);
+      expect(
+        m.client.raw.filter((frame) => frame.includes('"member-left"')),
+      ).toEqual([]);
     }
   });
 
@@ -125,7 +137,10 @@ describe("RoomRegistry.removeRoom", () => {
     });
     const slow = fetch(`${t.http}/rooms/film-club/share`, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${tokenOf(a.snapshot)}` },
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${tokenOf(a.snapshot)}`,
+      },
       body,
     });
     await Bun.sleep(50);
@@ -139,7 +154,12 @@ describe("RoomRegistry.removeRoom", () => {
   test("1000 rooms created, used and removed: every per-room map is back at its baseline", async () => {
     const clock = fakeClock();
     const registry = new RoomRegistry();
-    t = start({ registry, now: clock.now, maxConnections: 2000, maxConnectionsPerIp: 2000 });
+    t = start({
+      registry,
+      now: clock.now,
+      maxConnections: 2000,
+      maxConnectionsPerIp: 2000,
+    });
     const baseline = registry.perRoomSizes();
     const lobby = await Client.join(t.ws(), "lobby-regular");
     clients.push(lobby.client);
@@ -161,7 +181,7 @@ describe("RoomRegistry.removeRoom", () => {
       );
       // One at a time, each after a refill: the per-key and global share buckets see a calm client.
       for (const { id, client, snapshot } of batch) {
-        clock.ms += 10_000;
+        await clock.set({ mono: clock.mono + 10_000 });
         expect((await share(id, tokenOf(snapshot))).status).toBe(200);
         const url = (await client.next("embed-changed")).embed?.url ?? "";
         client.send({ type: "control", url, playing: true, position: 1 });
@@ -170,9 +190,12 @@ describe("RoomRegistry.removeRoom", () => {
     }
     expect(registry.size).toBe(ROOMS + 1);
     // Sockets, share grants, share buckets and control buckets: at least four entries per room.
-    expect(total(registry.perRoomSizes())).toBeGreaterThanOrEqual(withLobby + 4 * ROOMS);
+    expect(total(registry.perRoomSizes())).toBeGreaterThanOrEqual(
+      withLobby + 4 * ROOMS,
+    );
 
-    for (let i = 0; i < ROOMS; i++) registry.removeRoom(registry.get(`room-${String(i)}`) ?? fail());
+    for (let i = 0; i < ROOMS; i++)
+      registry.removeRoom(registry.get(`room-${String(i)}`) ?? fail());
     await Promise.all(members.map((c) => c.closed));
 
     expect(registry.size).toBe(1);
@@ -201,13 +224,18 @@ describe("upgrade limiter before the room lookup (threat model S5)", () => {
     const clock = fakeClock();
     t = start({ now: clock.now, trustProxy: true });
     const probe = (address: string, room: string) =>
-      fetch(`${t?.http ?? fail()}/rooms/${room}/ws`, { headers: { upgrade: "websocket", "x-forwarded-for": address } });
-    for (let i = 0; i < 10; i++) expect((await probe("198.51.100.1", `guess-${String(i)}`)).status).toBe(404);
+      fetch(`${t?.http ?? fail()}/rooms/${room}/ws`, {
+        headers: { upgrade: "websocket", "x-forwarded-for": address },
+      });
+    for (let i = 0; i < 10; i++)
+      expect((await probe("198.51.100.1", `guess-${String(i)}`)).status).toBe(
+        404,
+      );
     const refused = await probe("198.51.100.1", "guess-10");
     expect(refused.status).toBe(429);
     expect(refused.headers.get("retry-after")).toBe("2");
     expect((await probe("198.51.100.2", "guess-11")).status).toBe(404);
-    clock.ms += 2000;
+    await clock.set({ mono: clock.mono + 2000 });
     expect((await probe("198.51.100.1", "guess-12")).status).toBe(404);
   });
 });

@@ -3,7 +3,7 @@
 //   cream card     = someone talking (set c's bubble, set k's fresh strip line). A bubble is that line, floating over the speaker.
 //   mustard rim    = you: your own bubble wears tag/self's rim, the wheel is yours alone (sets e/f/h/i/k: mustard = only you).
 //   the tail       = who said it. It always points at the speaker's head; a bubble pushed up a stack has no tail and names the speaker.
-//   a ring of six  = the emote wheel: the same six stickers, in the same order, as set (i)'s picker and keys 1–6.
+//   a ring of eight = the emote wheel: the same eight stickers, in the same order, as set (i)'s picker and keys 1–8.
 // No new colours: still the 67.
 import { OUTLINE, colorIndex, type RampName, type Tone } from "./palette";
 import { blank, render, stamp, type RoleMap } from "./sprite";
@@ -68,18 +68,19 @@ function tail(dir: "s" | "sw" | "se"): UiFrame {
 export const WHEEL = {
   size: 77,
   centre: 38,
-  /** Slot centres sit this far from the wheel's centre, every 60°, clockwise from 12 o'clock. */
-  radius: 24,
+  /** Slot centres sit this far from the wheel's centre, every 45°, clockwise from 12 o'clock. 27 is the least that keeps 8 round
+   *  21 px slots apart (neighbours 20.7 px centre to centre); the outer slots sit on the rim like beads set into it (OME-1122). */
+  radius: 27,
   slot: 21,
   hub: 21,
   focus: 27,
-  /** Same order as set (i)'s picker and keys 1–6. */
-  order: ["heart", "laugh", "question", "exclaim", "clap", "wave"],
+  /** Same order as set (i)'s picker and keys 1–8. */
+  order: ["heart", "laugh", "question", "exclaim", "clap", "wave", "cheer", "yawn"],
 } as const;
 
 /** Top-left of slot k inside the wheel (whole art px; the left/right pairs mirror exactly about the centre). */
 export function slotOrigin(k: number): { x: number; y: number } {
-  const a = ((-90 + 60 * k) * Math.PI) / 180;
+  const a = ((-90 + (360 / WHEEL.order.length) * k) * Math.PI) / 180;
   const half = (WHEEL.slot - 1) / 2;
   return { x: WHEEL.centre + Math.round(WHEEL.radius * Math.cos(a)) - half, y: WHEEL.centre + Math.round(WHEEL.radius * Math.sin(a)) - half };
 }
@@ -100,11 +101,11 @@ const tone3 = (ul: number, d: number, ramp: RampName): number => {
   return c(ramp, k > 0.3 ? 0 : k < -0.3 ? 2 : 1);
 };
 
-/** The wheel: a night tray in a mustard rim (the picker's materials, made round), six spoke grooves between the slots so it reads
+/** The wheel: a night tray in a mustard rim (the picker's materials, made round), eight spoke grooves between the slots so it reads
  *  as a wheel even with the slots empty, and a sunken ring round the hub. Hub and slots are separate sprites on top. */
 function wheelDisc(): UiFrame {
   const { size, centre } = WHEEL;
-  const spokes = [-60, 0, 60, 120, 180, 240].map((a) => (a * Math.PI) / 180);
+  const spokes = WHEEL.order.map((_, k) => ((-90 + 22.5 + 45 * k) * Math.PI) / 180);
   const img = disc(size, (d, ul, x, y) => {
     if (d >= 38.5) return 0;
     if (d >= 37.5) return O;
@@ -187,22 +188,22 @@ const ROLES: RoleMap = {
   k: { ramp: "night", tone: 1 },
 };
 
-/** The touch key by the chat input: six beads round a small face, the top one lit mustard: "pick one from the ring". */
+/** The touch key by the chat input: eight beads round a small face, the top one lit mustard: "pick one from the ring". */
 function wheelIcon(): UiFrame {
   const rows = [
     "................",
     ".......mm.......",
     ".......mm.......",
+    "...cc......cc...",
+    "...cc......cc...",
     "................",
-    "..cc........cc..",
-    "..cc........cc..",
     "......cccc......",
-    ".....cckkcc.....",
-    ".....cccccc.....",
+    ".cc..cckkcc..cc.",
+    ".cc..cccccc..cc.",
     "......cccc......",
-    "..cc........cc..",
-    "..cc........cc..",
     "................",
+    "...cc......cc...",
+    "...cc......cc...",
     ".......cc.......",
     ".......cc.......",
     "................",
@@ -281,7 +282,7 @@ export function wheelMeta(): Record<string, unknown> {
     slots: WHEEL.order.map((id, k) => ({ id, key: String(k + 1), ...slotOrigin(k) })),
     hubOrigin: { x: WHEEL.centre - (WHEEL.hub - 1) / 2, y: WHEEL.centre - (WHEEL.hub - 1) / 2 },
     focusInset: (WHEEL.focus - WHEEL.slot) / 2,
-    keys: { open: "t", close: ["Escape", "t"], next: ["ArrowRight", "ArrowDown"], prev: ["ArrowLeft", "ArrowUp"], first: "Home", last: "End", send: ["Enter", " "], direct: ["1", "2", "3", "4", "5", "6"] },
+    keys: { open: "t", close: ["Escape", "t"], next: ["ArrowRight", "ArrowDown"], prev: ["ArrowLeft", "ArrowUp"], first: "Home", last: "End", send: ["Enter", " "], direct: WHEEL.order.map((_, k) => String(k + 1)) },
   };
 }
 
@@ -360,7 +361,7 @@ export function chatFloatCss(rects: Readonly<Record<string, { x: number; y: numb
 @keyframes ui-float-life-reduced { 0%, ${rFadeAt}% { opacity: 1; } 100% { opacity: 0; } }
 
 /* Emote wheel: <div class="ui-wheel" role="menu" aria-label="Emotes"> in page chrome (--ui-px: 2px, never inside the scaled stage), its
- * tail tip on your bubble anchor (stageToPage). Six <button class="ui-wheel-slot" role="menuitem" aria-keyshortcuts="1".."6"
+ * tail tip on your bubble anchor (stageToPage). Eight <button class="ui-wheel-slot" role="menuitem" aria-keyshortcuts="1".."8"
  * aria-label="Heart"> (roving tabindex), then <span class="ui-wheel-hub"> with the selected sticker, then the label chip.
  * Slots hold .ui-emote-pick-<id> (set i). At 2× each slot is ${String(WHEEL.slot * 2)} CSS px: touch-sized without extra hit areas. */
 .ui-wheel { position: absolute; ${sheet} ${pos("wheel/disc")} }

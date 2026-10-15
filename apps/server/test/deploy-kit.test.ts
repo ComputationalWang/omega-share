@@ -48,7 +48,7 @@ describe("deploy/omega-share.service (D7 hardening)", () => {
     expect(env).toContain("SITE_ORIGIN=https://omega-share.duckdns.org");
     expect(env).toContain("DB_PATH=/var/lib/omega-share/omega.db");
     expect(env).toContain("STATIC_DIR=/opt/omega-share/current/apps/web/dist");
-    expect(unit.get("ExecStart")?.at(-1)).toBe("/usr/local/bin/bun /opt/omega-share/current/apps/server/src/index.ts");
+    expect(unit.get("ExecStart")?.at(-1)).toBe("/opt/omega-share/current/omega-server serve");
   });
 
   test("carries no secret", () => {
@@ -177,7 +177,7 @@ describe("nightly backup wiring (OME-358 engine, OME-363)", () => {
     expect(rules).toEqual(["deploy ALL=(omega-share) NOPASSWD: /usr/bin/rsync --server --sender *"]);
   });
 
-  test("the snapshot unit uses the server unit's user, DB, env file, Bun and checkout, and waits for the DB", () => {
+  test("the snapshot unit uses the server unit's user, DB, env file and checkout, and waits for the DB", () => {
     const server = unitKeys(read("omega-share.service"));
     const backup = unitKeys(read("backup/omega-share-backup.service"));
     expect(backup.get("User")?.at(-1)).toBe(server.get("User")?.at(-1));
@@ -185,9 +185,9 @@ describe("nightly backup wiring (OME-358 engine, OME-363)", () => {
     expect(dbPath(backup)).toBe(dbPath(server));
     expect(server.get("EnvironmentFile")?.at(-1)).toBe("-/etc/omega-share/env");
     expect(backup.get("EnvironmentFile")?.at(-1)).toBe("-/etc/omega-share/env");
-    const [bun, entry] = (server.get("ExecStart")?.at(-1) ?? "").split(" ");
-    const app = entry?.replace(/\/apps\/server\/src\/index\.ts$/, "");
-    expect(backup.get("ExecStart")?.at(-1)).toBe(`${bun ?? ""} ${app ?? ""}/apps/server/scripts/backup.ts snapshot`);
+    // Whichever server the release holds (OME-1174): the release's launcher picks omega-server or Bun.
+    const app = (server.get("ExecStart")?.at(-1) ?? "").replace(/\/omega-server serve$/, "");
+    expect(backup.get("ExecStart")?.at(-1)).toBe(`${app}/bin/omega-ops backup snapshot`);
     expect(backup.get("ConditionPathExists")?.at(-1)).toBe("/var/lib/omega-share/omega.db");
   });
 
@@ -262,14 +262,14 @@ describe("deploy/deploy.sh", () => {
 
   test("a dry run builds locally, ships a release by commit and flips current", () => {
     withFakeBun(BUN_VERSION, (path) => {
-      const r = run(path, { DEPLOY_HOST: "deploy@203.0.113.7" }, "--dry-run");
+      const r = run(path, { DEPLOY_HOST: "deploy@203.0.113.7" }, "--server", "bun", "--dry-run");
       expect(r.code).toBe(0);
       expect(r.out).toContain("bun run --filter @omega/web build");
       // The archive has no .git: the site's footer version comes from the commit being shipped (OME-767).
       expect(r.out).toMatch(/OMEGA_BUILD_SHA=[0-9a-f]{40} bun run --filter @omega\/web build/);
       expect(r.out).toMatch(/rsync .* deploy@203\.0\.113\.7:\/opt\/omega-share\/releases\/[0-9a-f]{40}\//);
       expect(r.out).toMatch(/flip \/opt\/omega-share\/releases\/[0-9a-f]{40}\n/);
-      expect(r.out).toContain("systemctl restart omega-share");
+      expect(r.out).toMatch(/systemctl restart /);
       expect(r.out).not.toMatch(/ssh [^\n]*\b(bun install|vite|build)\b/);
     });
   });
@@ -312,7 +312,7 @@ describe("review hardening (OME-356)", () => {
 
   test("a failed health check puts the previous release back", () => {
     const script = read("deploy.sh");
-    expect(script).toMatch(/prev=\\"\\\$\(readlink -f/);
+    expect(script).toMatch(/prev="\$\(readlink -f/);
     expect(script).toContain("rolled back to");
   });
 

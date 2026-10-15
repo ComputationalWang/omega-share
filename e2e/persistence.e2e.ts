@@ -21,6 +21,7 @@ import { site } from "./support/selectors";
 import { WALK_SETTLE_MS, scene, seatedBetween, selfId } from "./support/scene";
 import { SET_G, SET_G_SEAT_PIECE } from "./fixtures/layouts";
 import { expect, test } from "./support/csp";
+import { serverArgv } from "./support/server-cmd";
 
 /** This spec's own pair in the agent's port block (OME-821): 5193/8807 on slot 0. */
 const SERVER_PORT = PORTS.persistServer;
@@ -116,7 +117,7 @@ test.describe("restart persistence (own server, own DB file)", () => {
   let web: Proc | undefined;
 
   const startServer = async (): Promise<Proc> => {
-    const proc = new Proc(SERVER_PORT, "bun", ["apps/server/src/index.ts"], ROOT, {
+    const proc = new Proc(SERVER_PORT, ...serverArgv(), ROOT, {
       PORT: String(SERVER_PORT),
       HOST: "127.0.0.1",
       SITE_ORIGIN: WEB_URL,

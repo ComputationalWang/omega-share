@@ -1,0 +1,15 @@
+[
+{"input":0,"ok":true,"output":"omega-1970-01-01.db"},
+{"input":1,"ok":true,"output":"omega-1970-01-01.db"},
+{"input":86399999,"ok":true,"output":"omega-1970-01-01.db"},
+{"input":86400000,"ok":true,"output":"omega-1970-01-02.db"},
+{"input":1790000000000,"ok":true,"output":"omega-2026-09-21.db"},
+{"input":1792022399999,"ok":true,"output":"omega-2026-10-14.db"},
+{"input":1709164800000,"ok":true,"output":"omega-2024-02-29.db"},
+{"input":946684800000,"ok":true,"output":"omega-2000-01-01.db"},
+{"input":946684799999,"ok":true,"output":"omega-1999-12-31.db"},
+{"input":-86400000,"ok":true,"output":"omega-1969-12-31.db"},
+{"input":-1,"ok":true,"output":"omega-1969-12-31.db"},
+{"input":-2195942400000,"ok":true,"output":"omega-1900-06-01.db"},
+{"input":4107542400000,"ok":true,"output":"omega-2100-03-01.db"}
+]

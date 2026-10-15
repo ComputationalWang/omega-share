@@ -1,5 +1,6 @@
 # CI e2e (OME-822, ADR 0039 §7 amendment): the deterministic Playwright lanes on every PR, before the merge.
 # Four shards each write a blob report; the `e2e` job merges them into one HTML report and is the required check.
+# Runs against the Rust server (ADR 0050; the e2e-rust.yml lane is gone). E2E_SERVER=bun runs the TS reference locally until S13.
 # Not here: e2e-real (real third-party network), perf (budgets are tied to the operator machine) and Firefox.
 name: e2e
 
@@ -32,6 +33,17 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
+      # Same cache as check.yml (rustup is on the runner and installs the rust-toolchain.toml pin);
+      # playwright.config.ts builds the e2e-profile omega-server once per shard, then every spec talks to it.
+      - name: Cache Rust build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
       - name: Cache Playwright browsers
         id: browsers
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

@@ -2,22 +2,24 @@ import { describe, expect, test } from "bun:test";
 import { EMOTE_BURST, EMOTE_KINDS, EMOTE_REFILL_MS } from "@omega/shared";
 import { EMOTE_MARGIN_MS, PICKER_KINDS, createEmoteBucket, kindForKey } from "../src/emote/emotes";
 
-// OME-415: the emote picker's order and shortcuts (set (i): 5 stickers, the groove, the wave; keys 1–6), and the
+// OME-415: the emote picker's order and shortcuts (set (i): 5 stickers, the groove, the wave, then OME-1121's cheer and
+// yawn; keys 1–8), and the
 // local bucket that mirrors the server's (C2: EMOTE_BURST at once, then one per EMOTE_REFILL_MS), a little slower,
 // so the key cools before the server would answer rate_limited (which would cool chat too).
 
 describe("picker", () => {
-  test("is the five stickers in the atlas order, then the wave", () => {
-    expect(PICKER_KINDS).toEqual(["heart", "laugh", "question", "exclaim", "clap", "wave"]);
-    // cheer/yawn (OME-1116) join the picker with the expressions hookup.
-    expect([...PICKER_KINDS].sort()).toEqual(EMOTE_KINDS.filter((k) => k !== "cheer" && k !== "yawn").sort());
+  test("is the five stickers in the atlas order, the wave, then cheer and yawn: every EMOTE_KINDS once", () => {
+    expect(PICKER_KINDS).toEqual(["heart", "laugh", "question", "exclaim", "clap", "wave", "cheer", "yawn"]);
+    expect([...PICKER_KINDS].sort()).toEqual([...EMOTE_KINDS].sort());
   });
 
-  test("keys 1–6 pick in that order; anything else picks nothing", () => {
+  test("keys 1–8 pick in that order; anything else picks nothing", () => {
     expect(kindForKey("1")).toBe("heart");
     expect(kindForKey("5")).toBe("clap");
     expect(kindForKey("6")).toBe("wave");
-    for (const k of ["0", "7", "a", "Enter", "", "11"]) expect(kindForKey(k)).toBeNull();
+    expect(kindForKey("7")).toBe("cheer");
+    expect(kindForKey("8")).toBe("yawn");
+    for (const k of ["0", "9", "a", "Enter", "", "11"]) expect(kindForKey(k)).toBeNull();
   });
 });
 

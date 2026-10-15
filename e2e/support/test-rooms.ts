@@ -48,6 +48,7 @@ export const SPEC_ROOMS = {
   "m10-composer": ["l568", "l667", "l932", "p360", "p390"],
   "m10-sessions": ["hide", "reload", "expire", "expreload", "tabs"],
   "m10-a11y": ["dock360", "dock390", "fs", "away", "moved"],
+  furniture: ["v2seats", "v2benches"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

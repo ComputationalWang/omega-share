@@ -3,7 +3,7 @@ import { DEFAULT_LAYOUT, type MemberId } from "@omega/shared";
 import { standDepth } from "../src/furniture";
 import { cellCenter } from "../src/layout";
 import { EMOTE_LIFT, createAnimator } from "../src/walk/animator";
-import { parseMotion } from "../src/walk/motion";
+import { DIRS, parseMotion } from "../src/walk/motion";
 import { walkGrid } from "../src/walk/path";
 import { createWalks, type Pose, type WalkTarget, type Walks } from "../src/walk/walks";
 
@@ -12,7 +12,8 @@ import { createWalks, type Pose, type WalkTarget, type Walks } from "../src/walk
 
 const motion: unknown = await Bun.file(new URL("../../../assets/avatars/motion.json", import.meta.url)).json();
 const avatars: unknown = await Bun.file(new URL("../../../assets/avatars/avatars.json", import.meta.url)).json();
-const frames = parseMotion(motion, avatars);
+const expressions: unknown = await Bun.file(new URL("../../../assets/avatars/expressions.json", import.meta.url)).json();
+const frames = parseMotion(motion, avatars, expressions);
 
 const id = (s: string): MemberId => s;
 const standAt = (who: string, col: number, row: number): WalkTarget => {
@@ -324,19 +325,66 @@ describe("emotes", () => {
     const s = ready({ reduced: true });
     s.anim.emote(id("a"), "wave");
     s.anim.emote(id("b"), "heart");
+    s.anim.emote(id("a"), "cheer");
+    s.anim.emote(id("b"), "yawn");
     expect(s.rafs.length).toBe(0);
     expect(s.timers.length).toBe(0);
     expect(s.draws.some((d) => d.frame?.startsWith("wave") === true)).toBe(false);
     expect(s.stickers.some((x) => x.frame !== null)).toBe(false);
   });
 
-  test("cheer and yawn (OME-1116) draw nothing until the expressions atlas is hooked up", () => {
+  // OME-1121: cheer and yawn swap the avatar's frames like the wave, from the expressions sheet.
+  test("a standing cheer plays cheer/<avatar>/idle/<dir> on 180 ms frames, then the pose comes back", () => {
     const s = ready();
+    s.at(1000);
     s.anim.emote(id("a"), "cheer");
+    const at = run(s, 1000, 2400);
+    for (const t of [1000, 1180, 1360, 1540, 1720, 1900, 2080]) expect(at).toContain(t);
+    const a = framesOf(s, "a").filter((f, i, all) => i === 0 || f !== all[i - 1]);
+    expect(a.slice(0, 6)).toEqual(["cheer/juno/idle/ne/0", "cheer/juno/idle/ne/1", "cheer/juno/idle/ne/0", "cheer/juno/idle/ne/1", "cheer/juno/idle/ne/0", "cheer/juno/idle/ne/1"]);
+    expect(a[6]).toMatch(/^(juno\/idle\/ne\/0|breathe\/juno\/idle\/ne\/1)$/);
+    expect(s.stickers.every((x) => x.frame === null)).toBe(true);
+  });
+
+  test("a seated yawn holds 900 then 1800 ms in the sit pose and the seat's facing, then the pose comes back", () => {
+    const s = ready();
+    s.at(500);
     s.anim.emote(id("b"), "yawn");
-    expect(s.rafs.length).toBe(0);
-    expect(s.timers.length).toBe(0);
-    expect(s.stickers.some((x) => x.frame !== null)).toBe(false);
+    const at = run(s, 500, 3500);
+    for (const t of [500, 1400, 3200]) expect(at).toContain(t);
+    const b = framesOf(s, "b").filter((f, i, all) => i === 0 || f !== all[i - 1]);
+    expect(b.slice(0, 2)).toEqual(["yawn/kiki/sit/nw/0", "yawn/kiki/sit/nw/1"]);
+    expect(b[2]).toMatch(/^(kiki\/sit\/nw\/0|breathe\/kiki\/sit\/nw\/1)$/);
+  });
+
+  test("cheer and yawn play seated in every facing, and standing in both resting facings", () => {
+    const s = setup();
+    s.anim.setFrames(frames);
+    const seats = DIRS.map((dir, i) => ({ id: id(`s${dir}`), at: cellCenter(2 + i, 1), z: 1, seatFacing: dir }));
+    s.walks.place([standAt("ne", 2, 9), standAt("nw", 9, 2), ...seats], 0);
+    const everyone = [id("ne"), id("nw"), ...seats.map((x) => x.id)];
+    s.anim.set(everyone.map((who) => ({ id: who, avatar: 1 })));
+    for (const kind of ["cheer", "yawn"] as const) {
+      s.draws.length = 0;
+      s.at(10_000);
+      for (const who of everyone) s.anim.emote(who, kind);
+      s.frame(10_000);
+      const shown = everyone.map((who) => s.draws.filter((d) => d.id === who).at(-1)?.frame);
+      expect(shown).toEqual([`${kind}/pip/idle/ne/0`, `${kind}/pip/idle/nw/0`, ...DIRS.map((d) => `${kind}/pip/sit/${d}/0`)]);
+      s.at(20_000);
+      s.anim.set(everyone.map((who) => ({ id: who, avatar: 1 })));
+    }
+  });
+
+  test("a cheer started mid-yawn replaces it: one avatar plays one gesture at a time", () => {
+    const s = ready();
+    s.at(0);
+    s.anim.emote(id("a"), "yawn");
+    s.frame(0);
+    s.at(100);
+    s.anim.emote(id("a"), "cheer");
+    s.frame(100);
+    expect(framesOf(s, "a").at(-1)).toBe("cheer/juno/idle/ne/0");
   });
 
   test("an emote from someone not in the room draws nothing", () => {

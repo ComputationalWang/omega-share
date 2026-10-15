@@ -69,7 +69,6 @@ function render(outcome: ScanOutcome): void {
   renderEmbeds(outcome.kind === "embeds" ? outcome.embeds : null);
 }
 
-/** `null`: the tab could not be read, so neither the list nor "no video found" applies. */
 const PROVIDER_NAMES: Readonly<Record<Provider, string>> = { youtube: "YouTube", twitch: "Twitch", vimeo: "Vimeo" };
 
 /** What the user sees for an embed: the video id, or the channel for Twitch live. */
@@ -107,6 +106,7 @@ function embedRow(embed: ListedEmbed): (HTMLSpanElement | string)[] {
   return [sprite("glyph-radio-off"), sprite(source), body, " ", chip];
 }
 
+/** `null`: the tab could not be read, so neither the list nor "no video found" applies. */
 function renderEmbeds(embeds: readonly ListedEmbed[] | null): void {
   if (embeds === null) {
     ui.empty.hidden = true;
@@ -174,8 +174,9 @@ function renderServer(): void {
   ui.options.dataset["emphasis"] = String(status?.openOptions === true);
 }
 
+const fetchServer = (u: string, init: RequestInit): Promise<Response> => fetch(u, init);
+
 async function loadServer(origin: string): Promise<ServerState> {
-  const fetchServer = (u: string, init: RequestInit): Promise<Response> => fetch(u, init);
   const [permitted, probe, tabs] = await Promise.all([
     browser.permissions.contains({ origins: [hostPermissionPattern(origin)] }).catch(() => false),
     loadRooms({ baseUrl: origin, fetch: fetchServer }),
@@ -218,7 +219,7 @@ ui.form.addEventListener("submit", (event) => {
     });
     return;
   }
-  const options = { baseUrl: origin, roomId, url: selected.value, token: tabs.tokens.get(roomId) ?? null, fetch: (u: string, init: RequestInit) => fetch(u, init) };
+  const options = { baseUrl: origin, roomId, url: selected.value, token: tabs.tokens.get(roomId) ?? null, fetch: fetchServer };
   // Enter in the form shares; only the "Add to queue" button queues (ADR 0031).
   const queue = event.submitter === ui.queue;
   ui.share.disabled = true;

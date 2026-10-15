@@ -57,6 +57,91 @@ describe(".github/workflows/check.yml", () => {
     const setup = steps.find((s) => s.uses?.startsWith("oven-sh/setup-bun@"));
     expect(setup?.with?.["bun-version-file"]).toBe(".bun-version");
     const runs = steps.flatMap((s) => (s.run === undefined ? [] : [s.run.trim()]));
-    expect(runs).toEqual(["bun install --frozen-lockfile", "bun run check"]);
+    expect(runs[0]).toBe("bun install --frozen-lockfile");
+    expect(runs.at(-1)).toBe("bun run check");
   });
+
+  // The Rust half of the gate (ADR 0050) needs cargo-deny; the download is pinned by its checksum.
+  test("installs cargo-deny from a pinned release, verified by sha256", () => {
+    const runs = (load().jobs["check"]?.steps ?? []).flatMap((s) => (s.run === undefined ? [] : [s.run.trim()]));
+    expect(runs.slice(1, -1)).toHaveLength(1);
+    const install = runs[1] ?? "";
+    const tarball = /releases\/download\/(\d+\.\d+\.\d+)\/(cargo-deny-\1-[\w-]+\.tar\.gz)\n/.exec(install)?.[2];
+    expect(tarball).toBeDefined();
+    // The checksum covers the very file that is downloaded and unpacked.
+    expect(install).toMatch(new RegExp(`echo "[0-9a-f]{64} {2}${(tarball ?? "?").replace(/\./g, "\\.")}" \\| sha256sum -c -`));
+    expect(install).toContain(`tar xzf ${tarball ?? "?"} `);
+  });
+});
+
+// `bun run check` is the gate (ADR 0039 §7); its Rust half (ADR 0050) must keep every check.
+describe("package.json check", () => {
+  const scripts = (): Record<string, string> =>
+    v.parse(v.object({ scripts: v.record(v.string(), v.string()) }), JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"))).scripts;
+
+  test("ends by running check:rs", () => {
+    expect(scripts()["check"]).toMatch(/ && bun run check:rs$/);
+  });
+
+  test("check:rs runs fmt, clippy -D warnings, the tests, cargo-deny (all locked) and the black-box manifest", () => {
+    const rs = scripts()["check:rs"] ?? "";
+    for (const part of [
+      "cargo fmt --all --check",
+      "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings",
+      "cargo test --workspace --all-features --locked",
+      "cargo deny --log-level error check",
+      "bun run blackbox",
+    ]) {
+      expect(rs).toContain(part);
+    }
+    expect(rs.split(" && ")).toHaveLength(5);
+  });
+});
+
+// L2 (S10): advisories are published after a PR merges, so a daily run of the same check finds them.
+describe(".github/workflows/advisories.yml", () => {
+  const file = new URL("../.github/workflows/advisories.yml", import.meta.url);
+  const text = (): string => {
+    expect(existsSync(file)).toBe(true);
+    return readFileSync(file, "utf8");
+  };
+  const wf = () =>
+    v.parse(
+      v.object({
+        on: v.object({ schedule: v.array(v.object({ cron: v.string() })), workflow_dispatch: v.optional(v.unknown()) }),
+        permissions: v.record(v.string(), v.string()),
+        jobs: v.record(v.string(), v.object({ "runs-on": v.string(), steps: v.array(Step) })),
+      }),
+      Bun.YAML.parse(text()),
+    );
+
+  test("runs daily with a read-only token that may open issues", () => {
+    const w = wf();
+    expect(w.on.schedule).toHaveLength(1);
+    expect(w.on.schedule[0]?.cron).toMatch(/^\d+ \d+ \* \* \*$/);
+    expect(w.permissions).toEqual({ contents: "read", issues: "write" });
+  });
+
+  test("pins every action by SHA and installs the same checksummed cargo-deny as check.yml", () => {
+    for (const [, ref, rest] of text().matchAll(/uses:\s*(\S+)(.*)$/gm)) {
+      expect(ref).toMatch(/^[\w.-]+\/[\w.-]+@[0-9a-f]{40}$/);
+      expect(rest).toMatch(/#\s*v\d+\.\d+\.\d+/);
+    }
+    const sha = /echo "([0-9a-f]{64}) {2}cargo-deny/.exec(readFileSync(path, "utf8"))?.[1];
+    expect(sha).toBeDefined();
+    expect(text()).toContain(sha ?? "?");
+  });
+
+  test("checks advisories locked, and on failure opens or updates one issue", () => {
+    const body = text();
+    expect(body).toContain("cargo deny --locked check advisories");
+    expect(body).toMatch(/if: failure\(\)/);
+    expect(body).toContain("gh issue");
+  });
+});
+
+test("deny.toml names unmaintained and unsound explicitly", () => {
+  const toml = readFileSync(new URL("../deny.toml", import.meta.url), "utf8");
+  expect(toml).toMatch(/^unmaintained = "all"$/m);
+  expect(toml).toMatch(/^unsound = "all"$/m);
 });

@@ -1,4 +1,4 @@
-// Emotes (OME-415): the picker and keys 1–6 send `emote`; every client plays `emoted` once over the sender's avatar
+// Emotes (OME-415): the picker and keys 1–8 send `emote`; every client plays `emoted` once over the sender's avatar
 // (a wave in the avatar's own frames, idle or seated). Under prefers-reduced-motion it's a static badge instead.
 import * as v from "valibot";
 import { expect, test } from "./support/csp";

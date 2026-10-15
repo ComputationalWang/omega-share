@@ -328,7 +328,9 @@ describe("WebSocket /rooms/:id/ws", () => {
 
 describe("room capacity (ADR 0006)", () => {
   test(`the ${String(MAX_ROOM_MEMBERS + 1)}th member gets room-full and is closed; a freed slot can be reused`, async () => {
-    const members = await Promise.all(Array.from({ length: MAX_ROOM_MEMBERS }, (_, i) => join(`m${String(i)}`)));
+    // One after the other: `last` must be the member that joined last. Concurrent opens reach the server in no promised order.
+    const members: Awaited<ReturnType<typeof join>>[] = [];
+    for (let i = 0; i < MAX_ROOM_MEMBERS; i++) members.push(await join(`m${String(i)}`));
     const first = members[0];
     const last = members.at(-1);
     if (first === undefined || last === undefined) throw new Error("no members joined");

@@ -30,7 +30,7 @@ import { RoomRegistry } from "../src/rooms";
 import { openDatabase } from "../src/store/db";
 import { RoomStore, type NewRoom } from "../src/store/rooms";
 import type { RoomPersistence } from "../src/server";
-import { Client, SITE_ORIGIN, postShare, start, tokenOf, type TestServer } from "./helpers";
+import { Client, SITE_ORIGIN, postShare, start, TestClock, tokenOf, type TestServer } from "./helpers";
 
 /** `POST /rooms`, `DELETE /rooms/:id`, the public list and `/r/*` headers (ADR 0028 §1, §2, §4, §7; OME-404). */
 
@@ -52,10 +52,7 @@ function fail(): never {
   throw new Error("no server");
 }
 const server = (): TestServer => t ?? fail();
-function fakeClock() {
-  const clock = { ms: 1_000_000, now: () => clock.ms };
-  return clock;
-}
+const fakeClock = (): TestClock => new TestClock();
 
 let nextAddress = 1;
 /** A fresh client address each call, so tests don't share the per-key creation bucket. */
@@ -295,7 +292,7 @@ describe("creation limits (ADR 0028 §1)", () => {
     }
     expect(Number(refused.headers.get("retry-after"))).toBeGreaterThanOrEqual(1);
     expect((await create({ title: "Den", visibility: "public" }, { address: "198.51.100.201" })).status).toBe(201);
-    clock.ms += ROOM_CREATE_KEY_REFILL_MS;
+    await clock.set({ mono: clock.mono + ROOM_CREATE_KEY_REFILL_MS });
     expect((await create({ title: "Den", visibility: "public" }, { address })).status).toBe(201);
   });
 
@@ -312,7 +309,7 @@ describe("creation limits (ADR 0028 §1)", () => {
     };
     expect(ROOM_CREATE_RETRY_AFTER_MAX_MS).toBe(600_000);
     expect(await waitOf()).toEqual({ header: "600", ms: 600_000 });
-    clock.ms += 4 * 60_000;
+    await clock.set({ mono: clock.mono + 4 * 60_000 });
     expect(await waitOf()).toEqual({ header: "360", ms: 360_000 });
   });
 
@@ -330,7 +327,7 @@ describe("creation limits (ADR 0028 §1)", () => {
     const refused = await create({ title: "Den", visibility: "public" });
     expect(refused.status).toBe(429);
     expect(await errorOf(refused)).toBe("rate_limited");
-    clock.ms += ROOM_CREATE_GLOBAL_REFILL_MS;
+    await clock.set({ mono: clock.mono + ROOM_CREATE_GLOBAL_REFILL_MS });
     expect((await create({ title: "Den", visibility: "public" })).status).toBe(201);
   });
 
@@ -464,11 +461,12 @@ describe("GET /rooms lists public rooms only (ADR 0028 §4, research §3.5)", ()
 
   test("pinned rooms first, then by members, then newest first", async () => {
     const clock = fakeClock();
-    t = start({ trustProxy: true, now: clock.now });
+    t = start({ trustProxy: true, now: clock.now, wallNow: clock.wallNow });
     const old = await created(await create({ title: "Old", visibility: "public" }));
-    await Bun.sleep(5);
+    // The wall clock is the test's, so "newest first" needs it moved, not a sleep (the black-box binary's is virtual).
+    await clock.set({ wall: clock.wall + 5 });
     const busy = await created(await create({ title: "Busy", visibility: "public" }));
-    await Bun.sleep(5);
+    await clock.set({ wall: clock.wall + 5 });
     const fresh = await created(await create({ title: "Fresh", visibility: "public" }));
     const a = await Client.join(server().ws(busy.room.id), "alice");
     clients.push(a.client);

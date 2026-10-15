@@ -122,6 +122,8 @@ export const BUDGETS: readonly Budget[] = [
   // Threat model §8 Q (OME-192): 24 members at the allowed chat/control rates + 1 socket flooding chat at 10× L1.
   { id: "server.relayLatencyFlood", area: "Server", metric: "Relay latency, control action, under flood", docMetric: "Relay latency for a control action under flood, localhost", unit: "ms", limit: 50, comparator: "<=" },
   { id: "ext.popupToList", area: "Extension", metric: "Popup opened → embeds listed", docMetric: "Popup opened → embeds listed", unit: "ms", limit: 300, comparator: "<=" },
+  // OME-1102: the shipped Chromium popup, every chunk popup.html loads.
+  { id: "ext.popupJsGzip", area: "Extension", metric: "Popup JS (gzipped)", docMetric: "Popup JS (gzipped, every chunk `popup.html` loads)", unit: "KB", limit: 20, comparator: "<=" },
   { id: "ext.contentScripts", area: "Extension", metric: "Declared content scripts", docMetric: "Content scripts on page load", unit: "count", limit: 0, comparator: "<=" },
   { id: "ext.persistentBackground", area: "Extension", metric: "Persistent background violations", docMetric: "Persistent background", unit: "count", limit: 0, comparator: "<=" },
   // OME-1042: the opt-in "video found" content script, one scan + count, on every https page once opted in.

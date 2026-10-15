@@ -1,8 +1,10 @@
-// Set (a) avatars + set (d) motion sheets (assets/avatars, CC BY-SA 4.0). Its own chunk: room-view.ts imports it once
+// Set (a) avatars + set (d) motion + set (p) expressions sheets (assets/avatars, CC BY-SA 4.0). Its own chunk: room-view.ts imports it once
 // the room has people in it (after join), so first paint and TTI never pay for it (ADR 0010).
 import { ImageSource, Rectangle, Texture } from "pixi.js";
 import avatarsJson from "../../../../assets/avatars/avatars.json";
 import avatarsPng from "../../../../assets/avatars/avatars.png?url";
+import expressionsJson from "../../../../assets/avatars/expressions.json";
+import expressionsPng from "../../../../assets/avatars/expressions.png?url";
 import motionJson from "../../../../assets/avatars/motion.json";
 import motionPng from "../../../../assets/avatars/motion.png?url";
 import { parseMotion, type MotionFrames } from "./motion";
@@ -32,11 +34,12 @@ async function source(url: string): Promise<ImageSource> {
 }
 
 async function load(): Promise<MotionAtlas> {
-  const frames = parseMotion(motionJson, avatarsJson);
-  const [motionSrc, avatarsSrc] = await Promise.all([source(motionPng), source(avatarsPng)]);
+  const frames = parseMotion(motionJson, avatarsJson, expressionsJson);
+  const [motionSrc, avatarsSrc, expressionsSrc] = await Promise.all([source(motionPng), source(avatarsPng), source(expressionsPng)]);
   const sheets = [
     { rects: frames.sheets.motion, src: motionSrc },
     { rects: frames.sheets.avatars, src: avatarsSrc },
+    { rects: frames.sheets.expressions, src: expressionsSrc },
   ];
   const cache = new Map<string, Texture>();
   return {

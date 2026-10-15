@@ -69,14 +69,14 @@ describe("the help key", () => {
 });
 
 describe("what it says", () => {
-  test("a labelled modal: keyboard controls (sit, chat, T, 1–6, F, Enter, Esc, ?) and touch controls", async () => {
+  test("a labelled modal: keyboard controls (sit, chat, T, 1–8, F, Enter, Esc, ?) and touch controls", async () => {
     const { help } = await setup();
     help.key.click();
     expect(help.dialog.getAttribute("aria-modal")).toBe("true");
     const labelledBy = help.dialog.getAttribute("aria-labelledby") ?? "";
     expect(document.getElementById(labelledBy)?.textContent).toMatch(/help|how/i);
     const all = text(help.dialog);
-    for (const k of ["T", "1–6", "F", "Enter", "Esc", "?"]) expect(shown(help.dialog, "kbd").map(text)).toContain(k);
+    for (const k of ["T", "1–8", "F", "Enter", "Esc", "?"]) expect(shown(help.dialog, "kbd").map(text)).toContain(k);
     expect(all).toMatch(/click a seat/i);
     expect(all).toMatch(/touch/i);
     expect(all).toMatch(/tap a seat/i);

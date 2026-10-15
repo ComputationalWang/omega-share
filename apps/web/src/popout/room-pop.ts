@@ -40,7 +40,7 @@ export interface RoomPopoutOptions<H> {
 }
 
 export interface RoomPopout {
-  /** A keydown on the window: keys 1–6 emote, Escape closes the picker. True if it was ours. */
+  /** A keydown on the window: keys 1–8 emote, Escape closes the picker. True if it was ours. */
   key(ev: KeyboardEvent): boolean;
   /** The window is closing (pagehide). */
   bye(): void;

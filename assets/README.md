@@ -26,6 +26,7 @@ assets/
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
   furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×512 indexed PNG-8, 7 more pieces
   furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
+  themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
   site/                 # set m (M9): the website's favicon.ico + PNGs, apple-touch 180, manifest 192/512 + maskable 512, og-card.png 1200×630,
                         #   how-1-find / how-2-share / how-3-watch.png landing panels (368×224 each)
@@ -392,7 +393,7 @@ mustard rim = only you · rust key = the one irreversible action.
 | `emotes/tray` + `emotes/tail` | 16×16, 16×6 | 6 | `.ui-emotes[role=menu]`: the picker, night in the mustard rim, with a 2:1 tail down to the emote key. Set `--ui-tail-x` to the key's centre (from the tray's padding edge). The tail's top 3 rows open the tray's bottom rim. |
 | `emotes/slot/<idle\|hover\|press\|cool>` | 12×12 | 4 | `.ui-emote[role=menuitem]`, 24 art px. idle = flat, hover/focus = sunken well with a cream lit edge, press = mustard rim, cool (`aria-disabled`) = charcoal well. |
 | `emotes/sep` | 2×14 | — | Groove between the 5 stickers and the wave. |
-| `emote-pick/<heart\|laugh\|question\|exclaim\|clap\|wave>` | 16×16 | — | Picker icons: the motion atlas's settled emote frame (same roles, so the same pixels), centred, except two thin ones drawn a size up so they hold their own at 1× next to the 11 px heart and laugh: `exclaim` (6×12, a heavier bar and a 4 px dot) and `clap` (12×10, the same V palms, taller). Each sits in a 24 art px `emotes/slot` cell, at page 2× and room 1× alike. `wave` is new: an open blush palm with two cream motion ticks, in the sticker style. In the room (1×) they double as a static fallback for the floating sticker. Keys 1–6 (`aria-keyshortcuts`, said in the title; no digits on the cells). |
+| `emote-pick/<heart\|laugh\|question\|exclaim\|clap\|wave\|cheer\|yawn>` | 16×16 | — | Picker icons: the motion atlas's settled emote frame (same roles, so the same pixels), centred, except two thin ones drawn a size up so they hold their own at 1× next to the 11 px heart and laugh: `exclaim` (6×12, a heavier bar and a 4 px dot) and `clap` (12×10, the same V palms, taller). Each sits in a 24 art px `emotes/slot` cell, at page 2× and room 1× alike. `wave` is new: an open blush palm with two cream motion ticks, in the sticker style. `cheer` and `yawn` (OME-1122) stand in for set (p)'s gestures the same way: `cheer` a raised blush fist on a mustard cuff, a plum thumb crease, cream pump ticks either side (a closed block, never the wave's open palm); `yawn` laugh's mustard face with the eyes shut flat, the mouth a tall O, a cream z off its brow. In the room (1×) they double as a static fallback for the floating sticker. Keys 1–8 (`aria-keyshortcuts`, said in the title; no digits on the cells). |
 | `scrim/0` | 2×4 | — (tile) | `.ui-scrim`: 1-bit plum dither, 50 %, to dim the stage behind the 4004 card mid-session. No alpha. |
 | `door/<closed\|locked>` | 16×24 | — | Room-list thumbnails beside `door/open\|full\|private`: closed = dark wood, plum sill, moon hanger. locked = shut, empty keyhole, lamplight under the door. |
 | `icon/<closed\|emote>` | 16×16 | — | Close room / room closed (a door hanger with a hole, a slit and a crescent moon) · the emote key (a cream line face, so it can't be mistaken for the filled laugh sticker). |
@@ -570,12 +571,12 @@ Walk: `preview/walk8-strip@4x.png` (every frame, in-betweens on the odd columns)
 |---|---|---|---|
 | `bubble/float`, `bubble/float-self` | 14×14 | 5 5 6 5 | `p.ui-float` (room scale, in the stage overlay): set (k)'s fresh cream card one size up, with a 2 px plum foot so it lifts off busy floors. `-self` (`.is-self`) = your own message, in tag/self's mustard rim. |
 | `bubble/tail-<s\|sw\|se>` | 12×7 | — (slice file) | The tail, on `::after`. Top 3 rows open the card's lip, outline and foot; 4 rows show. Anchor = the tip. `s` (default) points straight down; `sw` / `se` (`.tail-sw`, `.tail-se`) lean 2:1 toward a speaker the box had to leave at the stage (or visible window) edge. |
-| `wheel/disc` | 77×77 | — | `.ui-wheel[role=menu]` (page chrome, `--ui-px`): night tray, mustard rim, six spoke grooves, a sunk ring round the hub. |
+| `wheel/disc` | 77×77 | — | `.ui-wheel[role=menu]` (page chrome, `--ui-px`): night tray, mustard rim, eight spoke grooves, a sunk ring round the hub. |
 | `wheel/slot/<idle\|hover\|selected\|press\|cool>` | 21×21 | — | `.ui-wheel-slot[role=menuitem]`, each holding set (i)'s `.ui-emote-pick-<id>`. idle = sunken well · hover = cream lit edge · selected (`aria-current`, `:focus-visible`, `.is-selected`) = mustard rim · press = mustard rim, deeper well, sticker 1 px down · cool (`aria-disabled`) = charcoal, sticker dimmed. 42 CSS px at 2×. |
 | `wheel/focus` | 27×27 | — | Keyboard focus ring round a slot (`:focus-visible::after`, 3 art px out): 1 px cream between plum, set (c)'s focus language made round. Never on hover. |
 | `wheel/hub` | 21×21 | — | `.ui-wheel-hub`: wood bezel, deep well. Shows the selected sticker (`icon/emote` before a pick, set (f)'s `wait/<n>` while cooling). |
 | `wheel/tail` | 9×7 | — (slice file) | From the rim down to your head. `.no-tail` when the wheel docks (no avatar in view) or is clamped vertically. |
-| `icon/wheel` | 16×16 | — | The touch key by the chat input (`.ui-button.self.icon`, `aria-haspopup="menu"`, `aria-expanded`): six beads round a face, the top one lit. |
+| `icon/wheel` | 16×16 | — | The touch key by the chat input (`.ui-button.self.icon`, `aria-haspopup="menu"`, `aria-expanded`): eight beads round a face, the top one lit. |
 | `kbd/0` | 12×12 | 3 4 4 4, fixed height | `kbd.ui-kbd`: a keycap for hints ("Press [Enter] to chat", "[T] emotes", the wheel's label chip). Page chrome (2×) only. |
 
 **Bubbles: geometry, motion, stacking.** All numbers are in `ui.json` `meta.omega.bubbles` (ms and stage px) and baked into the CSS.
@@ -604,12 +605,12 @@ Walk: `preview/walk8-strip@4x.png` (every frame, in-betweens on the odd columns)
 - **Known limit:** a stacked card can cover the heads of people seated behind its speaker (Remy's older card in the mock-up). Accepted: name tags hang under the
   feet (`TAG_OFFSET_Y`), so identity stays readable, and the card is gone within 5 s. Don't push stacks sideways to dodge heads: a sideways stack loses the speaker.
 
-**Emote wheel.** Geometry in `meta.omega.wheel` (art px): slot `k` (0–5, `order`: heart, laugh, question, exclaim, clap, wave = keys 1–6) has its top-left at `slots[k]`,
-every 60° clockwise from 12 o'clock on a 24 px radius; the hub at `hubOrigin`. The CSS places them already (`.ui-wheel-slot:nth-child(k)`).
+**Emote wheel.** Geometry in `meta.omega.wheel` (art px): slot `k` (0–7, `order`: heart, laugh, question, exclaim, clap, wave, cheer, yawn = keys 1–8) has its top-left at `slots[k]`,
+every 45° clockwise from 12 o'clock on a 27 px radius (OME-1122; the least that keeps eight round slots apart, so the outer ones sit on the rim like set beads); the hub at `hubOrigin`. The CSS places them already (`.ui-wheel-slot:nth-child(k)`).
 - **Where:** page chrome at `--ui-px: 2px` (never inside the scaled stage, so it's always 154 CSS px and the slots are touch-sized), its tail tip on your bubble anchor
   (`stageToPage`). The label chip (`.ui-chip.self.ui-wheel-label`, the emote name + its key in a `kbd.ui-kbd.is-small`) sits above the wheel, not on your avatar.
   Clamp it inside the stage box; clamped vertically, or with no avatar of yours in view (phone watch-only, panned away), it docks centred above the composer with `.no-tail`.
-- **Keyboard:** T (focus not in a text field) opens it with Heart selected and focused (roving tabindex). → / ↓ next clockwise, ← / ↑ back, Home / End, 1–6 send at once,
+- **Keyboard:** T (focus not in a text field) opens it with Heart selected and focused (roving tabindex). → / ↓ next clockwise, ← / ↑ back, Home / End, 1–8 send at once,
   Enter / Space send the selected one, Esc or T close; Tab closes and moves on. Focus returns to where it was. `role=menu` `aria-label="Emotes"`, items `role=menuitem` with
   `aria-label` and `aria-keyshortcuts`.
 - **Pointer:** hovering a slot shows `hover` and previews it in the hub; click sends and closes; a click outside closes.
@@ -770,6 +771,35 @@ Load it with `motion.json` (or the first time someone reacts). One row per avata
   frame 0 left, frame 1 right, cheers on top, yawns/dozes below).
 - Engineering hookup (emote picker, server message) is a follow-up issue after the design judge passes.
 
+## Holiday theme: Halloween (`themes/halloween/halloween.json`, OME-1185, lazy)
+
+One lazy sheet per theme (plan: OME-1140). Load it only while the theme is active (Oct 24 – Nov 1, the viewer's local date;
+`meta.omega.period`). Same PixiJS v8 format as the room atlas: 256×128 indexed PNG-8, no trim, no rotation, per-frame `anchor`.
+Every key starts with `halloween/`, so nothing collides in Pixi's texture cache. Style rules: `STYLE.md` § Holiday themes.
+
+| Key | Size | Place at | Notes |
+|---|---|---|---|
+| `halloween/window/0`, `/1` | 20×87 | the `wall/l/window0` / `window1` cell's floor point | Moonlit view: a big harvest moon, a bare tree, a crooked house with one lit window on a hill. Only the panes, so the room's window frame, mullion and sill stay. |
+| `halloween/pumpkin/big`, `/small` | 16×13, 9×8 | the `wall/l/window0` cell | Jack-o'-lanterns on the sill, carved faces toward the room, lit from inside. |
+| `halloween/pumpkin/mid` | 12×10 | the `wall/l/window1` cell | |
+| `halloween/web/corner-l`, `/corner-r` | | `(0,0)`, where `wall/corner` goes | Cobweb in the back top corner, one half per wall; a spider hangs off the right half. |
+| `halloween/web/l-end`, `/r-end` | | `(0,9)`, `(9,0)`, where `wall/l/end` / `wall/r/end` go | Small webs in the open wall ends' top corners. |
+| `halloween/bat/<0-3>` | 16×16 | anywhere on the back walls | Flap cycle: wings up, mid, down, mid. Facing right; mirror (`scale.x = -1`) to fly left. Anchor = centre `(8, 8)`. |
+| `halloween/hat/<avatar frame key>` | varies | the avatar's floor point | A witch hat for **every** frame key in `avatars.json`, `motion.json` and `expressions.json` (416 keys, 32 shared rects). |
+
+- **`meta.omega.decor`** lists the decor in draw order, each `{ key, on }`, where `on` is the wall frame key it belongs to. For every wall cell
+  drawn with that frame, place the decal at that cell's `cellCenter(col, row)`. If the room has no such wall (an owner removed the window), skip it.
+  Draw decor after the walls and the console and before anything on the floor. It never changes, so it can go into the cached background.
+- **`meta.omega.effect`** = `{ frames, ms: 90, max: 6, layer: "behind-avatars", facing: "right" }`: up to 6 bats crossing the back walls, behind
+  every avatar and piece of furniture, looping `frames` at 90 ms. The engine owns the paths. Pixi's `animations["halloween/bat"]` has the same 4 frames.
+- **Hats.** Whenever an avatar shows texture `K`, show `halloween/hat/K` at the **same position**, drawn directly over the avatar sprite (as its
+  sibling right after it, so a seated avatar's hat still sits under the chair's `front` layer). There's no offset to compute: each hat key's anchor is the
+  avatar's floor point, which can lie outside the hat image. Every key exists, including mirrored dirs, `/1` blink and back keys, `breathe/*/1`, `walk8/*`,
+  `wave/*`, `cheer/*` and `yawn/*`, so a key lookup never misses. Emote icons have no hat. Overlaying hat on avatar gives exactly the frame with the hat on:
+  Pip's beanie and Mo's bucket hat are fully covered (the build fails if any pixel of either would show), and raised arms stay in front of the brim.
+- Previews: `preview/halloween-room@1x.png` / `@2x` (the default room dressed, with bats and every sitter hatted), `preview/halloween-hats@4x.png`
+  (per avatar: each pose × dir without and with the hat, then a row of hatted walk, wave, cheer, yawn and breathe frames), `preview/halloween-sheet@2x.png`.
+
 ## Furniture atlas (`furniture/furniture.json`, set g, M4/M5)
 
 Furniture catalogue v1 for customizable rooms. It's a separate, lazy sheet: the default room doesn't need it, so load it only when a room
@@ -921,10 +951,15 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
 | `furniture/furniture-v2.png` (catalogue v2, lazy) | 10 261 |
 | `furniture/furniture-v2.json` (catalogue v2, lazy) | 22 867 raw / 1 657 gz |
+| `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
+| `themes/halloween/halloween.json` (OME-1185, lazy) | 152 616 raw / 3 718 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Measured total now: 188 010 B (≈ 183.6 KB) of 300 KB**, eager 98 724, lazy 89 286 (`bun assets/src/build.ts`). Rows not named below are
+**Measured total now: 195 623 B (≈ 191.0 KB) of 300 KB**, eager 99 106, lazy 96 517 (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
+
+The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
+`halloween.json` 3 718 gz. No existing file changes. Measured total with it: 195 623 B of 307 200.
 
 Catalogue v2 (OME-1103) adds **14 412 B (≈ 14.1 KB)** against `main` as the build measures it (159 946 → 174 358): lazy +14 104
 (`furniture-v2.png` 10 261 + `furniture-v2.json` 1 657 gz, `edit.png` +1 867 for 12 thumbnails and 5 swatches, `edit.json` +319 gz), eager +308

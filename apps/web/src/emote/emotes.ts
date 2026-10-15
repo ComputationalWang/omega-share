@@ -1,8 +1,8 @@
 // Emotes (OME-415): the picker's order and shortcuts, and the local bucket that keeps us under the server's emote limit.
 import { EMOTE_BURST, EMOTE_REFILL_MS, type EmoteKind } from "@omega/shared";
 
-/** Set (i)'s picker: the five stickers in the motion atlas's order, the groove, then the wave. Keys 1–6 pick them in this order. */
-export const PICKER_KINDS: readonly EmoteKind[] = ["heart", "laugh", "question", "exclaim", "clap", "wave"];
+/** Set (i)'s picker: the five stickers in the motion atlas's order, the wave, then set (p)'s cheer and yawn. Keys 1–8 pick them in this order. */
+export const PICKER_KINDS: readonly EmoteKind[] = ["heart", "laugh", "question", "exclaim", "clap", "wave", "cheer", "yawn"];
 
 /** What the picker says for each (the atlas's `meta.omega` labels). */
 export const EMOTE_LABELS: Readonly<Record<EmoteKind, string>> = { heart: "Heart", laugh: "Laugh", question: "Question", exclaim: "Surprise", clap: "Clap", wave: "Wave", cheer: "Cheer", yawn: "Yawn" };

@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": { "lib": ["ES2023", "DOM"], "types": ["bun"] },
-  "include": ["playwright.config.ts", "e2e", "perf", "scripts"]
+  "include": ["playwright.config.ts", "e2e", "perf", "scripts", "apps/server-rs/corpus", "apps/server-rs/interop", "apps/server-rs/blackbox"]
 }

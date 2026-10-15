@@ -14,7 +14,7 @@
     },
     {
       "paths": [
-        "apps/server/src/{ws,room,rooms,playback,queue,server,index}.ts"
+        "apps/server/src/{ws,ws-limits,ws-sessions,ws-owner-edits,room,rooms,playback,queue,server,index}.ts"
       ],
       "full": true,
       "specs": [
@@ -847,7 +847,8 @@
         "scripts/**",
         "apps/server/scripts/**",
         "assets/src/**",
-        "assets/preview/**"
+        "assets/preview/**",
+        "assets/themes/**"
       ],
       "except": [
         "scripts/tunnel.sh"
@@ -866,6 +867,19 @@
         ".ignore"
       ],
       "why": "agent config, CI, deploy"
+    },
+    {
+      "paths": [
+        "apps/server-rs/**",
+        "Cargo.toml",
+        "Cargo.lock",
+        "rust-toolchain.toml",
+        "clippy.toml",
+        "rustfmt.toml",
+        "deny.toml",
+        ".cargo/**"
+      ],
+      "why": "the Rust server (ADR 0050): checked by bun run check:rs; no e2e runs against it until OME-1149 points the suite at the binary"
     }
   ]
 }

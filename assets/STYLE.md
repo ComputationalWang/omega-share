@@ -440,6 +440,39 @@ Three ways to say "this page has a video" on a 16 px toolbar icon were tried in 
 - **Scale** is the site's page chrome, 2× (`--ui-px: 2px`). System font, no web font. The only new pixels are the lamp and a 9×6 cream
   chevron for the room field. No new colours: still the 67.
 
+## Holiday themes
+
+A holiday theme dresses the classic room for a few days a year (plan: OME-1140). It has four parts: wall and window decor, a small
+background effect, a hat for every avatar, and an optional warm or cool accent on the lamps. It stays the Dusk Lounge: the same palette
+(`src/palette.ts`, no new colours), the 1 px plum outline, top-left light and 1× pixel density. A theme is something laid over the room, never
+a new room.
+
+**Decor**
+- Wall and window overlays only. Nothing stands on the floor, so decor can never collide with furniture or a seat, and an owner's layout never has to know about it.
+- Every decal attaches to a wall frame (`wall/l/window0`, `wall/corner`, …). Its anchor is that wall cell's floor point, the same rule as the walls.
+  Decals on a wall face are cast onto the wall plane, so they shear with it on the 2:1 grid, like the poster and the window.
+- Decor is sparse: two or three accents per wall, small enough that the room still reads as the classic room at 1×. Props such as the
+  jack-o'-lanterns are role-grid sprites, shaded and outlined like the avatars. Flat decals such as cobwebs carry no outline, because they lie flat on the wallpaper.
+- A window view replaces only the glass. The frame, mullion, transom and sill stay the room's own, so the window keeps its shape in every theme.
+- Light inside decor is warm (`mustard` and `ginger` glow); the projector's `glow` stays the room's only cold light.
+
+**Effect sprites** are at most 16×16, with 2–4 frames, outlined so they hold on both wall tones. They face right; the engine mirrors them to go left.
+
+**Hats.** One hat per holiday, worn by every avatar in every room:
+1. **The hat replaces the avatar's own headwear.** Pip's beanie and Mo's bucket hat come off; their hair stays. Juno's puff and Kiki's buns
+   aren't headwear, so the hat sits on top of them.
+2. **Every avatar stays recognisable.** The hat never covers the eyes, glasses, beard or mouth, and keeps the main silhouette cue visible:
+   Juno's puff shows under the brim, Kiki's buns poke out on both sides of the crown, Pip keeps the ginger fringe and glasses, Mo keeps the beard and broad shoulders.
+3. **The hat sits where the head is.** Big hair lifts it (Juno's brim sits 3 px higher), and a hat that replaced headwear sits where that headwear was.
+   It must be wide enough to hide the old headwear completely. The build fails if any pixel of a beanie or bucket hat would still show.
+4. **Arms keep their depth.** A waving or cheering arm passes in front of the brim, and the yawn's hands pass behind the crown.
+5. **Same light and outline as the avatar.** The hat is composed into the avatar's role grid before shading, so it gets the same edge shading, highlight and plum outline.
+   The halloween witch hat is `charcoal` with a `ginger` band, a `mustard` buckle on the face side and a little `lilac` darn on the crown. The tip folds back, away from the face.
+
+How it's built: for every frame in the avatar, motion and expression sheets, the build composes the frame twice, once as shipped and once with the
+headwear off and the hat on. The hat sprite is the difference between the two (the hat, plus any hair or re-shaded edge under it), cropped.
+Drawn over the avatar at the same floor point, it gives exactly the hatted frame. Frames whose difference has the same pixels share one rect.
+
 ## Budget
 | Set | Files | Bytes |
 |---|---|---|
@@ -459,6 +492,7 @@ Three ways to say "this page has a video" on a 16 px toolbar icon were tried in 
 | (l) bubbles, wheel, smooth walk (M8) | added to the (c) files: `ui.png` + `ui.json` (gz) + 7 slices + `reference.css` (gz) · `avatars/motion.png` + `motion.json` (gz, lazy) | **≈ 5.3 KB** eager · **4.9 KB** lazy |
 | (m) site icons, share card, panels (M9) | `site/*`: their own caps, not this budget (landing panels ≤ 60 KB together, share card < 150 KB) | panels **6.8 KB**, share card **13.8 KB**, icons **5.9 KB** |
 | (o) popup kit + toolbar found (OME-1041) | `ui/popup/kit.png` + `kit.css` (gz) + 17 existing slices (in the extension package) · `store/found-16\|32\|48\|64.png` + `icon-64.png` | popup **6.8 KB** (kit 4.1 KB new) · icons **2.2 KB** |
+| Halloween theme (OME-1185, lazy, only Oct 24 – Nov 1) | `themes/halloween/halloween.png` + `halloween.json` (gz) | 3 513 + 3 718 ≈ **7.1 KB** (cap 40 KB per theme) |
 | total art budget | | ≤ 300 KB (≈ 127.2 KB used, as printed by `bun assets/src/build.ts`) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.

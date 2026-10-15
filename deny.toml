@@ -1,0 +1,41 @@
+# cargo-deny (ADR 0050): run by `bun run check:rs` and CI. Supply-chain gate for apps/server-rs.
+
+[graph]
+all-features = true
+
+[advisories]
+# Every RustSec advisory (vulnerable, unmaintained, unsound, yanked) fails the check until triaged here.
+unmaintained = "all"
+unsound = "all"
+yanked = "deny"
+ignore = []
+
+[licenses]
+# Compatible with AGPL-3.0-only (the project's licence). Add one only with a reason in the PR.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "Unicode-3.0",
+  "CC0-1.0",
+  "MPL-2.0",
+  "AGPL-3.0-only",
+]
+confidence-threshold = 0.9
+unused-allowed-license = "allow"
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Our own path dependencies are fine.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
