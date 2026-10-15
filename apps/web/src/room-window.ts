@@ -43,7 +43,7 @@ export interface RoomWindow {
   readonly pan: () => Point;
 }
 
-export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: () => Point): RoomWindow {
+export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: () => Point, _onLabels: (k: number) => void = () => undefined): RoomWindow {
   let active = false;
   const view = { w: 0, h: 0 };
   let pan: Point = { x: 0, y: 0 };

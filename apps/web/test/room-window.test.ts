@@ -25,7 +25,9 @@ async function setup() {
   const stage = document.createElement("div");
   clip.append(stage);
   document.body.append(clip);
-  const win = createRoomWindow(clip, stage, () => ({ x: 480, y: 300 }));
+  const at = { home: { x: 480, y: 300 } };
+  const labels: number[] = [];
+  const win = createRoomWindow(clip, stage, () => at.home, (k) => labels.push(k));
   const key = (name: string): HTMLButtonElement => {
     const k = clip.querySelector<HTMLButtonElement>(`[data-testid="room-zoom-${name}"]`);
     if (k === null) throw new Error(`no ${name} key`);
@@ -38,7 +40,7 @@ async function setup() {
   const pointer = (type: string, id: number, x: number, y: number): void => {
     clip.dispatchEvent(new PointerEvent(type, { pointerId: id, clientX: x, clientY: y, isPrimary: id === 1, button: 0, bubbles: true, pointerType: "touch" }));
   };
-  return { win, clip, stage, key, zoom, pointer };
+  return { win, clip, stage, key, zoom, pointer, at, labels };
 }
 
 describe("on a phone", () => {
@@ -88,6 +90,55 @@ describe("on a phone", () => {
     expect(stage.style.getPropertyValue("--label-scale")).toBe("1");
     key("fit").click();
     expect(Number(stage.style.getPropertyValue("--label-scale"))).toBeCloseTo(0.85 / FIT, 5);
+  });
+});
+
+describe("on a phone, edges", () => {
+  test("the bubbles hear the label scale with the CSS, once per change", async () => {
+    const { win, key, labels } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    key("fit").click();
+    expect(labels.at(0)).toBe(1);
+    expect(labels.at(-1)).toBeCloseTo(0.85 / FIT, 5);
+  });
+
+  test("the zoom keys don't stop the window following the seats", async () => {
+    const { win, key, at } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    key("in").click();
+    at.home = { x: 200, y: 300 };
+    win.set(true, VIEW.w, VIEW.h);
+    // At 1.25× the window covers 312 stage px: centred on x 200 its left edge is at 44.
+    expect(win.pan().x).toBe(44);
+  });
+
+  test("zoomed in, focus on something past the window's right edge pans it into view", async () => {
+    const { win, stage, key } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    key("in").click();
+    key("in").click();
+    key("in").click();
+    key("in").click();
+    const before = win.pan().x;
+    // Stage x 600 at 2×, measured from the stage's own top-left (happy-dom's rects are zero).
+    const seat = document.createElement("button");
+    seat.getBoundingClientRect = () => ({ left: 1200, top: 600, width: 0, height: 0, right: 1200, bottom: 600, x: 1200, y: 600, toJSON: () => ({}) });
+    stage.append(seat);
+    seat.focus();
+    expect(win.pan().x).toBeGreaterThan(before);
+  });
+
+  test("a finger the window lost track of never makes the next touch a pinch", async () => {
+    const { win, clip, zoom, pointer } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    pointer("pointerdown", 1, 150, 135);
+    clip.dispatchEvent(new PointerEvent("lostpointercapture", { pointerId: 1, pointerType: "touch", bubbles: true }));
+    const before = win.pan().x;
+    clip.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 2, clientX: 200, clientY: 135, isPrimary: true, button: 0, bubbles: true, pointerType: "touch" }));
+    clip.dispatchEvent(new PointerEvent("pointermove", { pointerId: 2, clientX: 260, clientY: 135, isPrimary: true, bubbles: true, pointerType: "touch" }));
+    clip.dispatchEvent(new PointerEvent("pointerup", { pointerId: 2, clientX: 260, clientY: 135, isPrimary: true, bubbles: true, pointerType: "touch" }));
+    expect(zoom()).toBe(1);
+    expect(win.pan().x).toBe(before - 60);
   });
 });
 

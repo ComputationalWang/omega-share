@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // A real DOM for this file only; the other web tests stay DOM-free.
@@ -538,4 +538,43 @@ test("a bubble sent away drops to half its opacity and is gone at the clock's fi
   expect(shown()).toHaveLength(11);
   advance(STEP);
   expect(shown()).toHaveLength(10);
+});
+
+// OME-1184: zoomed out on a phone, bubbles are shown k× their size (room.css --label-scale on the motion wrapper), so
+// they're clamped and stacked by the size they're shown at. Their box and push are written in the wrapper's own units.
+describe("shown k× their size (phone zoom, OME-1184)", () => {
+  test("clamped at the stage edge by the shown width", async () => {
+    const { floats, frame, bubbleOf } = await setup();
+    floats.scale(2);
+    floats.say(say("b", "right", 950, 500));
+    frame();
+    const r = bubbleOf("right");
+    // Shown 200 wide: its box starts at stage x 960 - 4 - 200 = 756, 194 stage px left of the head, 97 of its own.
+    expect(r.style.left).toBe("-97px");
+    expect(r.style.getPropertyValue("--tail-x")).toBe("97px");
+  });
+
+  test("bubbles that only overlap at the shown size stack", async () => {
+    const { floats, frame, push } = await setup();
+    floats.scale(2);
+    floats.say(say("a", "left", 300));
+    floats.say(say("b", "right", 400));
+    frame();
+    expect(push("right")).toBe("0px");
+    // Shown 60 tall: clear by 60 + 3 stage px, which is 31.5 px of its own.
+    expect(push("left")).toBe("-31.5px");
+  });
+
+  test("a new scale re-places the bubbles already up", async () => {
+    const { floats, frame, bubbleOf, push } = await setup();
+    floats.say(say("a", "left", 300));
+    floats.say(say("b", "right", 400));
+    frame();
+    expect(push("left")).toBe("0px");
+    expect(bubbleOf("right").style.left).toBe("-50px");
+    floats.scale(2);
+    expect(push("left")).toBe("-31.5px");
+    floats.scale(1);
+    expect(push("left")).toBe("0px");
+  });
 });

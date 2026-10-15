@@ -77,6 +77,8 @@ export interface Floats {
   settle(id: MemberId, x: number, y: number): void;
   /** Drop the bubbles of anyone not in `ids` (they left). */
   keep(ids: { has(id: MemberId): boolean }): void;
+  /** Bubbles are shown `k`× their size (OME-1184 stub). */
+  scale(k: number): void;
 }
 
 export interface FloatsOptions {
@@ -441,6 +443,9 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     },
     keep(ids) {
       for (const s of slots) if (s.speaker !== null && !ids.has(s.speaker)) free(s);
+    },
+    scale() {
+      // OME-1184 stub (red).
     },
   };
 }
