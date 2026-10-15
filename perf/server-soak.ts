@@ -862,6 +862,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
     plannedRestarts: planned,
     unplannedExits,
     unexpectedCloses,
+    badMessages: 0,
     errors: tally.unexpectedErrors([...EXPECTED_ERROR_EVENTS, ...args.allowErrors]),
     integrity,
     consistency,

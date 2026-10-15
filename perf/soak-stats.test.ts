@@ -88,6 +88,7 @@ const good = (): SoakResult => ({
   plannedRestarts: 1,
   unplannedExits: 0,
   unexpectedCloses: 0,
+  badMessages: 0,
   errors: {},
   integrity: "ok",
   consistency: [{ name: "reports", client: 4, server: 4 }],
@@ -100,7 +101,7 @@ describe("evaluate", () => {
     expect(checks.filter((c) => !c.ok)).toEqual([]);
     expect(checks.every((c) => c.enforced)).toBe(true);
     const names = checks.map((c) => c.name);
-    for (const n of ["no unplanned exits", "no unexpected error lines", "rss slope", "fd slope", "thread slope", "wal slope", "p99 per window", "planned restarts", "integrity_check", "metrics consistency", "abusive clients cut", "unexpected closes"]) expect(names).toContain(n);
+    for (const n of ["no unplanned exits", "no unexpected error lines", "rss slope", "fd slope", "thread slope", "wal slope", "p99 per window", "planned restarts", "integrity_check", "metrics consistency", "abusive clients cut", "unexpected closes", "client frames well-formed"]) expect(names).toContain(n);
   });
   const fails = (r: SoakResult, name: string): boolean => evaluate(r).some((c) => c.name === name && !c.ok);
   test("each criterion fails loudly", () => {
@@ -109,6 +110,7 @@ describe("evaluate", () => {
     expect(fails({ ...good(), windows: [{ startMs: 0, count: 100, p50: 1, p95: 3, p99: 51 }] }, "p99 per window")).toBe(true);
     expect(fails({ ...good(), integrity: "row 1 missing" }, "integrity_check")).toBe(true);
     expect(fails({ ...good(), unexpectedCloses: 1 }, "unexpected closes")).toBe(true);
+    expect(fails({ ...good(), badMessages: 1 }, "client frames well-formed")).toBe(true);
     expect(fails({ ...good(), consistency: [{ name: "reports", client: 4, server: 5 }] }, "metrics consistency")).toBe(true);
     expect(fails({ ...good(), abuse: [{ kind: "flood", started: 3, cut: 2 }] }, "abusive clients cut")).toBe(true);
   });

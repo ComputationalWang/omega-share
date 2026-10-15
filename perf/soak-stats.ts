@@ -34,6 +34,8 @@ export interface SoakResult {
   plannedRestarts: number;
   unplannedExits: number;
   unexpectedCloses: number;
+  /** `bad_message` answers to the soak's own regular clients: a harness bug, not a server finding. */
+  badMessages: number;
   /** Error-level stderr events outside the expected list, by event. */
   errors: Record<string, number>;
   integrity: string;
