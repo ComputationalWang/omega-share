@@ -1328,116 +1328,121 @@ async fn a_socket_attaching_after_the_drain_started_is_closed_1012() {
 }
 
 // ---------- room shards (OME-1173) ----------
+// The test-hooks build keeps one thread and ignores OMEGA_WS_SHARDS, so these only run without it.
+#[cfg(not(feature = "test-hooks"))]
+mod shard_tests {
+    use super::*;
 
-fn sharded(n: &'static str) -> Opts {
-    Opts {
-        env: vec![("OMEGA_WS_SHARDS", n)],
-        ..Opts::default()
+    fn sharded(n: &'static str) -> Opts {
+        Opts {
+            env: vec![("OMEGA_WS_SHARDS", n)],
+            ..Opts::default()
+        }
     }
-}
 
-/// A second room that lives on a different shard than the lobby.
-fn room_on_another_shard(s: &Server) -> String {
-    let shards = s.app.ws.shards().unwrap();
-    let id = (0..)
-        .map(|i| format!("room{i:022}"))
-        .find(|id| shards.index_of(id) != shards.index_of("lobby"))
-        .unwrap();
-    add_room(s, &id, false);
-    id
-}
+    /// A second room that lives on a different shard than the lobby.
+    fn room_on_another_shard(s: &Server) -> String {
+        let shards = s.app.ws.shards().unwrap();
+        let id = (0..)
+            .map(|i| format!("room{i:022}"))
+            .find(|id| shards.index_of(id) != shards.index_of("lobby"))
+            .unwrap();
+        add_room(s, &id, false);
+        id
+    }
 
-#[tokio::test]
-async fn sockets_of_rooms_on_different_shards_each_run_on_their_own_shard() {
-    let s = start(sharded("2")).await;
-    let other = room_on_another_shard(&s);
-    let (mut a, _) = joined(&s, "alice").await;
-    let (mut b, _) = joined_as(&s, &other, json!({}), "bob", &[]).await;
-    a.send(json!({"type": "chat", "text": "hi"})).await;
-    assert_eq!(a.next("chat").await["text"], "hi");
-    b.send(json!({"type": "chat", "text": "yo"})).await;
-    assert_eq!(b.next("chat").await["text"], "yo");
-    let shards = s.app.ws.shards().unwrap();
-    let placed = shards.placed();
-    assert_eq!(placed.len(), 2);
-    assert_eq!(placed[shards.index_of("lobby")], 1);
-    assert_eq!(placed[shards.index_of(&other)], 1);
-}
+    #[tokio::test]
+    async fn sockets_of_rooms_on_different_shards_each_run_on_their_own_shard() {
+        let s = start(sharded("2")).await;
+        let other = room_on_another_shard(&s);
+        let (mut a, _) = joined(&s, "alice").await;
+        let (mut b, _) = joined_as(&s, &other, json!({}), "bob", &[]).await;
+        a.send(json!({"type": "chat", "text": "hi"})).await;
+        assert_eq!(a.next("chat").await["text"], "hi");
+        b.send(json!({"type": "chat", "text": "yo"})).await;
+        assert_eq!(b.next("chat").await["text"], "yo");
+        let shards = s.app.ws.shards().unwrap();
+        let placed = shards.placed();
+        assert_eq!(placed.len(), 2);
+        assert_eq!(placed[shards.index_of("lobby")], 1);
+        assert_eq!(placed[shards.index_of(&other)], 1);
+    }
 
-#[tokio::test]
-async fn an_unknown_room_is_still_a_404_and_places_nothing() {
-    let s = start(sharded("2")).await;
-    assert_eq!(status_of(try_connect(&s, "bad!id", None, &[]).await.err().unwrap()), 404);
-    assert_eq!(s.app.ws.shards().unwrap().placed(), [0, 0]);
-}
+    #[tokio::test]
+    async fn an_unknown_room_is_still_a_404_and_places_nothing() {
+        let s = start(sharded("2")).await;
+        assert_eq!(status_of(try_connect(&s, "bad!id", None, &[]).await.err().unwrap()), 404);
+        assert_eq!(s.app.ws.shards().unwrap().placed(), [0, 0]);
+    }
 
-#[tokio::test]
-async fn a_publish_that_starts_off_the_shard_reaches_its_sockets() {
-    let s = start(sharded("2")).await;
-    let (mut a, _) = joined(&s, "alice").await;
-    embed_in_lobby(&s, YT);
-    assert_eq!(a.next("embed-changed").await["embed"]["videoId"], "dQw4w9WgXcQ");
-}
+    #[tokio::test]
+    async fn a_publish_that_starts_off_the_shard_reaches_its_sockets() {
+        let s = start(sharded("2")).await;
+        let (mut a, _) = joined(&s, "alice").await;
+        embed_in_lobby(&s, YT);
+        assert_eq!(a.next("embed-changed").await["embed"]["videoId"], "dQw4w9WgXcQ");
+    }
 
-#[tokio::test]
-async fn drain_closes_sockets_on_every_shard_and_returns_the_seats() {
-    let s = start(sharded("2")).await;
-    let other = room_on_another_shard(&s);
-    let (mut a, _) = joined(&s, "alice").await;
-    a.send(json!({"type": "sit", "seat": 3})).await;
-    a.next("seat-changed").await;
-    let (mut b, _) = joined_as(&s, &other, json!({}), "bob", &[]).await;
-    b.send(json!({"type": "sit", "seat": 1})).await;
-    b.next("seat-changed").await;
-    let holds = omega_server::ws::drain(&s.app);
-    assert_eq!(holds.len(), 2);
-    assert_eq!(a.closed().await, Some(1012));
-    assert_eq!(b.closed().await, Some(1012));
-    s.app.ws.shards().unwrap().stop(Duration::from_millis(500));
-}
+    #[tokio::test]
+    async fn drain_closes_sockets_on_every_shard_and_returns_the_seats() {
+        let s = start(sharded("2")).await;
+        let other = room_on_another_shard(&s);
+        let (mut a, _) = joined(&s, "alice").await;
+        a.send(json!({"type": "sit", "seat": 3})).await;
+        a.next("seat-changed").await;
+        let (mut b, _) = joined_as(&s, &other, json!({}), "bob", &[]).await;
+        b.send(json!({"type": "sit", "seat": 1})).await;
+        b.next("seat-changed").await;
+        let holds = omega_server::ws::drain(&s.app);
+        assert_eq!(holds.len(), 2);
+        assert_eq!(a.closed().await, Some(1012));
+        assert_eq!(b.closed().await, Some(1012));
+        s.app.ws.shards().unwrap().stop(Duration::from_millis(500));
+    }
 
-#[tokio::test]
-async fn stopping_the_shards_cuts_open_sockets_within_the_grace_and_releases_their_slots() {
-    let s = start(sharded("2")).await;
-    let (mut a, _) = joined(&s, "alice").await;
-    let t = Instant::now();
-    s.app.ws.shards().unwrap().stop(Duration::from_millis(500));
-    assert!(t.elapsed() < Duration::from_secs(1));
-    assert_eq!(a.closed().await, None);
-    assert_eq!(s.app.ws.connections(), 0);
-}
+    #[tokio::test]
+    async fn stopping_the_shards_cuts_open_sockets_within_the_grace_and_releases_their_slots() {
+        let s = start(sharded("2")).await;
+        let (mut a, _) = joined(&s, "alice").await;
+        let t = Instant::now();
+        s.app.ws.shards().unwrap().stop(Duration::from_millis(500));
+        assert!(t.elapsed() < Duration::from_secs(1));
+        assert_eq!(a.closed().await, None);
+        assert_eq!(s.app.ws.connections(), 0);
+    }
 
-// #254 review: the admission permit and the stall guard are fields of the accepted stream, so a socket handed to
-// its shard keeps its place under the global cap until it closes.
-#[tokio::test]
-async fn a_socket_run_by_a_shard_keeps_its_admission_place_until_it_closes() {
-    use omega_server::http::server::{Limits, serve_limited};
-    let s = start(sharded("2")).await;
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let addr = listener.local_addr().unwrap();
-    let router = omega_server::serve::build_router(s.app.clone(), axum::Router::new());
-    let limits = Limits {
-        max_connections: 1,
-        ..Limits::default()
-    };
-    tokio::spawn(async move {
-        let _ = serve_limited(listener, router, std::future::pending(), limits).await;
-    });
-    let capped = Server {
-        addr,
-        app: s.app.clone(),
-        clock: s.clock.clone(),
-    };
-    let host = s.addr.to_string();
-    let host = [("host", host.as_str())];
-    let mut a = try_connect(&capped, "lobby", None, &host).await.unwrap();
-    a.join("alice").await;
-    // Over the cap the listener closes the connection before any response.
-    assert!(try_connect(&capped, "lobby", None, &host).await.is_err());
-    drop(a);
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    assert!(
-        try_connect(&capped, "lobby", None, &host).await.is_ok(),
-        "the place came back when the socket closed"
-    );
+    // #254 review: the admission permit and the stall guard are fields of the accepted stream, so a socket handed to
+    // its shard keeps its place under the global cap until it closes.
+    #[tokio::test]
+    async fn a_socket_run_by_a_shard_keeps_its_admission_place_until_it_closes() {
+        use omega_server::http::server::{Limits, serve_limited};
+        let s = start(sharded("2")).await;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let router = omega_server::serve::build_router(s.app.clone(), axum::Router::new());
+        let limits = Limits {
+            max_connections: 1,
+            ..Limits::default()
+        };
+        tokio::spawn(async move {
+            let _ = serve_limited(listener, router, std::future::pending(), limits).await;
+        });
+        let capped = Server {
+            addr,
+            app: s.app.clone(),
+            clock: s.clock.clone(),
+        };
+        let host = s.addr.to_string();
+        let host = [("host", host.as_str())];
+        let mut a = try_connect(&capped, "lobby", None, &host).await.unwrap();
+        a.join("alice").await;
+        // Over the cap the listener closes the connection before any response.
+        assert!(try_connect(&capped, "lobby", None, &host).await.is_err());
+        drop(a);
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(
+            try_connect(&capped, "lobby", None, &host).await.is_ok(),
+            "the place came back when the socket closed"
+        );
+    }
 }
