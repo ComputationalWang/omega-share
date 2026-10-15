@@ -34,8 +34,6 @@ export interface RoomViewOptions {
 
 export interface RoomView {
   readonly canvas: HTMLCanvasElement;
-  /** The holiday theme's effect (ADR 0052), over the room canvas and under the DOM layers; hidden while it doesn't run. */
-  readonly effectCanvas: HTMLCanvasElement;
   /** The room's shell, furniture and seat markers; rebuilt once per layout change (or when an atlas arrives). Draws on the next `update`. */
   setScene(scene: Scene, sheets: readonly (Sheet | null)[], walkGrid: Uint8Array): void;
   /** Seat occupancy and who sits or stands where; redraws once, then walks anyone whose spot changed (walk/). */
@@ -375,6 +373,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const startEffect = (): void => {
     if (effectRunning || paused || particles === null || !effectAllowed()) return;
     effectRunning = true;
+    // Put in the DOM only once an effect runs, right over the room canvas: an unthemed room's DOM is unchanged.
+    if (!fxCanvas.isConnected) app.canvas.after(fxCanvas);
     fxCanvas.hidden = false;
     effectLast = performance.now();
     requestAnimationFrame(effectFrame);
@@ -403,7 +403,6 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
 
   return {
     canvas: app.canvas,
-    effectCanvas: fxCanvas,
     setScene(scene, sheets, walkGrid) {
       walks.setGrid(walkGrid);
       lastScene = scene;
