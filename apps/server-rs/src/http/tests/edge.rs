@@ -277,7 +277,10 @@ async fn a_stalled_request_body_is_cut_at_the_total_deadline_and_frees_its_slot(
     let mut held = hold_slow_reports(fx.addr, &host, "X-Forwarded-For: 198.51.100.31\r\n", 1).await;
     let mut slow = held.remove(0);
     let mut buf = vec![0u8; 4096];
-    let n = tokio::time::timeout(Duration::from_secs(3), slow.read(&mut buf)).await.unwrap().unwrap();
+    let n = tokio::time::timeout(Duration::from_secs(3), slow.read(&mut buf))
+        .await
+        .unwrap()
+        .unwrap();
     assert!(String::from_utf8_lossy(&buf[..n]).starts_with("HTTP/1.1 400"));
     assert_eq!(fx.get("/healthz", &[("x-forwarded-for", "198.51.100.32")]).await.status, 200);
 }
@@ -290,7 +293,14 @@ async fn an_upgraded_websocket_keeps_its_place_under_the_global_cap() {
         "/ws",
         get(|ws: WebSocketUpgrade| async move { ws.on_upgrade(|mut socket| async move { while socket.recv().await.is_some() {} }) }),
     );
-    let addr = listen(router, Limits { max_connections: 1, ..quick() }).await;
+    let addr = listen(
+        router,
+        Limits {
+            max_connections: 1,
+            ..quick()
+        },
+    )
+    .await;
     let mut ws = TcpStream::connect(addr).await.unwrap();
     ws.write_all(b"GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n")
         .await
@@ -305,7 +315,10 @@ async fn an_upgraded_websocket_keeps_its_place_under_the_global_cap() {
     assert!(read.is_ok() && got.is_empty(), "the upgraded socket's place was given away");
     drop(ws);
     tokio::time::sleep(Duration::from_millis(200)).await;
-    assert!(get_ok(addr).await.starts_with("HTTP/1.1 200"), "the place came back when the socket closed");
+    assert!(
+        get_ok(addr).await.starts_with("HTTP/1.1 200"),
+        "the place came back when the socket closed"
+    );
 }
 
 // Review: behind a public origin every loopback client shares `proxy:loopback`, which the per-key cap covers.
