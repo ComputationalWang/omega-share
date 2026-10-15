@@ -64,6 +64,9 @@ async function expectEffectRuns(page: Page): Promise<void> {
   await page.waitForTimeout(1000);
   expect(((await theme(page))?.ticks ?? 0) - ticks0).toBeGreaterThan(10);
   expect((await roomRenders(page)) - renders0).toBeLessThanOrEqual(6);
+  // And no layer of its own: the particles are drawn into the room canvas (QA OME-1211, an extra full-size layer cost a
+  // phone ~2.5 ms a frame even when empty).
+  expect(await page.locator('[data-testid="room"] canvas').count()).toBe(1);
 }
 
 const cases: [name: "desk" | "phone", options: BrowserContextOptions | undefined][] = [

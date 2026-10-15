@@ -173,18 +173,20 @@ describe("createParticles: a fixed pool moving in whole pixels", () => {
   });
 });
 
-describe("createEffectPainter: the effect on its own canvas, so a tick never redraws the room (QA OME-1206)", () => {
-  type Call = [string, ...number[]];
-  /** A 2D context that records calls; the image is opaque to the painter. */
+describe("createEffectPainter: particles drawn into the room canvas over saved patches, no extra layer (QA OME-1206, OME-1211)", () => {
+  type Call = [string, ...unknown[]];
+  /** A 2D context that records calls; drawImage's source is recorded by identity. */
   const fakeCtx = () => {
     const calls: Call[] = [];
     return {
       calls,
       ctx: {
+        save: () => void calls.push(["save"]),
+        restore: () => void calls.push(["restore"]),
         setTransform: (a: number, b: number, c: number, d: number, e: number, f: number) => void calls.push(["setTransform", a, b, c, d, e, f]),
         clearRect: (x: number, y: number, w: number, h: number) => void calls.push(["clearRect", x, y, w, h]),
-        drawImage: (_img: unknown, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number) =>
-          void calls.push(["drawImage", sx, sy, sw, sh, dx, dy, dw, dh]),
+        drawImage: (img: unknown, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number) =>
+          void calls.push(["drawImage", img, sx, sy, sw, sh, dx, dy, dw, dh]),
       },
     };
   };
@@ -201,55 +203,87 @@ describe("createEffectPainter: the effect on its own canvas, so a tick never red
     phase: Uint8Array.of(0, 1),
     step: () => undefined,
   });
-  const image = {} as CanvasImageSource;
+  // Stand-ins for the sheet, the room canvas and the patch canvas: only their identity matters.
+  const sheet = { name: "sheet" } as unknown as CanvasImageSource;
+  const roomCanvas = { name: "room" } as unknown as CanvasImageSource;
+  const patchCanvas = { name: "patches" } as unknown as CanvasImageSource;
+  // r = max(8, 6) + 1 = 9; at scale 2 a patch is 36 device px square.
+  const side = 36;
+  const setup = (scale: number) => {
+    const room = fakeCtx();
+    const patches = fakeCtx();
+    const painter = createEffectPainter({ ctx: room.ctx, canvas: roomCanvas, patchCtx: patches.ctx, patchCanvas, image: sheet, frames, scale });
+    return { room, patches, painter };
+  };
+  const draws = (calls: Call[], src: unknown): Call[] => calls.filter((c) => c[0] === "drawImage" && c[1] === src);
 
-  test("paint draws each particle once, at its whole-pixel spot scaled to the canvas, in its own frame", () => {
-    const { calls, ctx } = fakeCtx();
-    createEffectPainter(ctx, image, frames, 2).paint(still(), 0);
-    expect(calls.filter((c) => c[0] === "drawImage")).toEqual([
-      ["drawImage", 0, 0, 8, 6, -4, -3, 8, 6],
-      ["drawImage", 8, 0, 8, 6, -4, -3, 8, 6],
+  test("paint saves the room under each particle, then draws it at its whole-pixel spot, scaled, in its own frame", () => {
+    const { room, patches, painter } = setup(2);
+    painter.paint(still(), 0);
+    expect(draws(patches.calls, roomCanvas)).toEqual([
+      ["drawImage", roomCanvas, 200 - 18, 100 - 18, side, side, 0, 0, side, side],
+      ["drawImage", roomCanvas, 600 - 18, 140 - 18, side, side, side, 0, side, side],
     ]);
-    const transforms = calls.filter((c) => c[0] === "setTransform");
+    expect(draws(room.calls, sheet)).toEqual([
+      ["drawImage", sheet, 0, 0, 8, 6, -4, -3, 8, 6],
+      ["drawImage", sheet, 8, 0, 8, 6, -4, -3, 8, 6],
+    ]);
+    const transforms = room.calls.filter((c) => c[0] === "setTransform");
     expect(transforms).toContainEqual(["setTransform", 2, 0, 0, 2, 200, 100]);
     // Mirrored: effect frames face right, a left-goer is flipped about its spot.
     expect(transforms).toContainEqual(["setTransform", -2, 0, 0, 2, 600, 140]);
   });
 
-  test("the step picks the frame: step 1 swaps them", () => {
-    const { calls, ctx } = fakeCtx();
-    createEffectPainter(ctx, image, frames, 1).paint(still(), 1);
-    expect(calls.filter((c) => c[0] === "drawImage").map((c) => c[1])).toEqual([8, 0]);
+  test("the room context's state is saved and restored around a paint (Pixi draws with it too)", () => {
+    const { room, painter } = setup(1);
+    painter.paint(still(), 0);
+    expect(room.calls[0]?.[0]).toBe("save");
+    expect(room.calls.at(-1)?.[0]).toBe("restore");
   });
 
-  test("the next paint clears only where the last one drew, before drawing", () => {
-    const { calls, ctx } = fakeCtx();
-    const painter = createEffectPainter(ctx, image, frames, 1);
+  test("the step picks the frame: step 1 swaps them", () => {
+    const { room, painter } = setup(1);
+    painter.paint(still(), 1);
+    expect(draws(room.calls, sheet).map((c) => c[2])).toEqual([8, 0]);
+  });
+
+  test("the next paint puts the saved patches back, last first, before saving and drawing again", () => {
+    const { room, painter } = setup(2);
     const p = still();
     painter.paint(p, 0);
-    calls.length = 0;
+    room.calls.length = 0;
     p.x[0] = 110;
     painter.paint(p, 0);
-    const clears = calls.filter((c) => c[0] === "clearRect");
-    expect(clears).toHaveLength(2);
-    // Each clear covers the old sprite (8×6 around its anchor) wherever the anchor sits in the frame.
-    for (const [i, [x, y]] of [[100, 50], [300, 70]].entries()) {
-      const c = clears[i] ?? [];
-      const [cx, cy, cw, ch] = [c[1] ?? NaN, c[2] ?? NaN, c[3] ?? NaN, c[4] ?? NaN];
-      expect(cx <= (x ?? 0) - 8 && cy <= (y ?? 0) - 6 && cx + cw >= (x ?? 0) + 8 && cy + ch >= (y ?? 0) + 6).toBe(true);
-    }
-    const lastClear = calls.findLastIndex((c) => c[0] === "clearRect");
-    const firstDraw = calls.findIndex((c) => c[0] === "drawImage");
-    expect(lastClear).toBeLessThan(firstDraw);
+    // Each patch: cleared (the room has transparent pixels), then the saved pixels drawn back.
+    expect(room.calls.filter((c) => c[0] === "clearRect")).toEqual([
+      ["clearRect", 600 - 18, 140 - 18, side, side],
+      ["clearRect", 200 - 18, 100 - 18, side, side],
+    ]);
+    expect(draws(room.calls, patchCanvas)).toEqual([
+      ["drawImage", patchCanvas, side, 0, side, side, 600 - 18, 140 - 18, side, side],
+      ["drawImage", patchCanvas, 0, 0, side, side, 200 - 18, 100 - 18, side, side],
+    ]);
+    const lastRestore = room.calls.findLastIndex((c) => c[0] === "drawImage" && c[1] === patchCanvas);
+    const firstDraw = room.calls.findIndex((c) => c[0] === "drawImage" && c[1] === sheet);
+    expect(lastRestore).toBeLessThan(firstDraw);
   });
 
-  test("clear wipes what was drawn and nothing is drawn", () => {
-    const { calls, ctx } = fakeCtx();
-    const painter = createEffectPainter(ctx, image, frames, 1);
+  test("after the room was drawn again, the old patches are stale: the next paint doesn't put them back", () => {
+    const { room, painter } = setup(1);
     painter.paint(still(), 0);
-    calls.length = 0;
+    painter.roomDrawn();
+    room.calls.length = 0;
+    painter.paint(still(), 0);
+    expect(draws(room.calls, patchCanvas)).toHaveLength(0);
+    expect(draws(room.calls, sheet)).toHaveLength(2);
+  });
+
+  test("clear puts the room back and draws no particle", () => {
+    const { room, painter } = setup(1);
+    painter.paint(still(), 0);
+    room.calls.length = 0;
     painter.clear();
-    expect(calls.filter((c) => c[0] === "clearRect")).toHaveLength(2);
-    expect(calls.filter((c) => c[0] === "drawImage")).toHaveLength(0);
+    expect(draws(room.calls, patchCanvas)).toHaveLength(2);
+    expect(draws(room.calls, sheet)).toHaveLength(0);
   });
 });
