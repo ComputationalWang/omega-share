@@ -847,7 +847,8 @@
         "scripts/**",
         "apps/server/scripts/**",
         "assets/src/**",
-        "assets/preview/**"
+        "assets/preview/**",
+        "assets/themes/**"
       ],
       "except": [
         "scripts/tunnel.sh"
