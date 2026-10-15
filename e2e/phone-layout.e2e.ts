@@ -28,7 +28,7 @@ test.afterEach(async () => {
   contexts = [];
 });
 
-async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag", options: BrowserContextOptions = PHONE): Promise<Page> {
+async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch", options: BrowserContextOptions = PHONE): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("phone-layout", name).url, count: 1, nicknamePrefix: `ph${name}`, contextOptions: () => options });
   const c = clients[0];
   if (c === undefined) throw new Error("no client");
@@ -206,6 +206,47 @@ test("after a finger drag (no click follows it), the next keyboard Enter on a se
   await frames(page);
   await page.keyboard.press("Enter");
   await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
+});
+
+test("a two-finger pinch zooms the room around the fingers; the keys zoom out to the whole room and back; the zoom is kept on this device (OME-1184)", async ({ browser }) => {
+  const page = await one(browser, "pinch");
+  const win = page.locator(site.roomWindow);
+  await win.scrollIntoViewIfNeeded();
+  await frames(page);
+  const box = await win.boundingBox();
+  if (box === null) throw new Error("no window");
+  expect((await stageTransform(page)).scale).toBe(1);
+  // A real two-finger touch over CDP, spread sideways (a vertical swipe stays the page's): 80 px apart to 160.
+  const cdp = await page.context().newCDPSession(page);
+  const cx = Math.round(box.x + box.width / 2);
+  const cy = Math.round(box.y + box.height / 2);
+  const fingers = (d: number) => [{ x: cx - d / 2, y: cy, id: 1 }, { x: cx + d / 2, y: cy, id: 2 }];
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: fingers(80) });
+  for (let d = 90; d <= 160; d += 10) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: fingers(d) });
+    await frames(page);
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await frames(page);
+  expect((await stageTransform(page)).scale).toBeCloseTo(2, 1);
+  // The page itself didn't zoom: the browser's pinch-zoom is off over the room.
+  expect(await page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(1);
+
+  // The keys, for people who can't pinch: fit shows the whole 960 px stage in the window, zoom in brings it closer.
+  const fit = page.getByTestId("room-zoom-fit");
+  await fit.tap();
+  await frames(page);
+  expect((await stageTransform(page)).scale * 960).toBeLessThanOrEqual(box.width + 0.5);
+  // Zoomed all the way out, a name tag is still readable: at least 10 px of text on screen.
+  const tagPx = await page.locator(site.nicknameTag).first().evaluate((el) => el.getBoundingClientRect().height);
+  expect(tagPx).toBeGreaterThanOrEqual(15);
+  await page.getByTestId("room-zoom-in").tap();
+  await frames(page);
+  const zoomed = (await stageTransform(page)).scale;
+  expect(zoomed * 960).toBeGreaterThan(box.width);
+
+  // It's this viewer's alone, kept in localStorage (room-window.test.ts reads it back), never sent.
+  expect(Number(await page.evaluate(() => localStorage.getItem("omega.roomZoom")))).toBeCloseTo(zoomed, 5);
 });
 
 test("keyboard: Tab reaches every seat, a focused seat is panned into the window with a visible ring, Enter sits", async ({ browser }) => {

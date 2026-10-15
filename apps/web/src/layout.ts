@@ -298,10 +298,18 @@ export function popRoomLayout(width: number, height: number): PopRoomLayout {
 }
 
 /** The top-left of a `view`-sized window onto the stage centred on `centre` (stage px), kept on the stage, whole pixels. */
-export function panTo(view: { readonly w: number; readonly h: number }, centre: Point): Point {
+export function panTo(view: { readonly w: number; readonly h: number }, centre: Point, _zoom = 1): Point {
   const clamp = (v: number, max: number): number => Math.max(0, Math.min(Math.max(0, max), Math.round(v)));
   return { x: clamp(centre.x - view.w / 2, STAGE_W - view.w), y: clamp(centre.y - view.h / 2, STAGE_H - view.h) };
 }
+
+// OME-1184 stubs (red).
+export const MAX_ZOOM = 1;
+export const minZoom = (_view: { readonly w: number; readonly h: number }): number => 1;
+export const clampZoom = (_z: number, _view: { readonly w: number; readonly h: number }): number => 1;
+export const labelScale = (_zoom: number): number => 1;
+export const readZoom = (_s: string | null): number | null => null;
+export const pinchView = (_start: { zoom: number; at: Point; dist: number }, _now: { dist: number; mid: Point }, _view: { readonly w: number; readonly h: number }): { zoom: number; centre: Point } => ({ zoom: 1, centre: { x: 0, y: 0 } });
 
 /** A stage-space rect on the page. */
 export function stageToPage(l: RoomLayout, r: Rect): Rect {
