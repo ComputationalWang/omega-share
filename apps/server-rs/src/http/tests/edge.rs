@@ -331,3 +331,22 @@ async fn behind_a_public_origin_the_loopback_key_is_capped_per_key() {
     let res = fx.get("/healthz", &[("host", host)]).await;
     assert_eq!((res.status, res.text().as_str()), (503, "server busy"));
 }
+
+// e2e-tunnel: behind a public origin the local tunnel host (every client of the e2e fixture is 127.0.0.1) keeps the
+// loopback exemption from the rate limiters and WebSocket caps; only the in-flight cap covers it (OME-1171 review).
+#[tokio::test]
+async fn behind_a_public_origin_loopback_clients_are_not_metered_by_the_upgrade_limiter() {
+    let host = "quiet-otter.ngrok-free.app";
+    let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"), ("TRUST_PROXY", "loopback")]).await;
+    for i in 0..(crate::ws::limits::UPGRADE_BURST as usize + 5) {
+        let mut s = TcpStream::connect(fx.addr).await.unwrap();
+        let req = format!(
+            "GET /rooms/lobby/ws HTTP/1.1\r\nHost: {host}\r\nOrigin: https://{host}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"
+        );
+        s.write_all(req.as_bytes()).await.unwrap();
+        let mut buf = vec![0u8; 1024];
+        let n = s.read(&mut buf).await.unwrap();
+        let head = String::from_utf8_lossy(&buf[..n]).into_owned();
+        assert!(head.starts_with("HTTP/1.1 101"), "upgrade {i}: {head}");
+    }
+}
