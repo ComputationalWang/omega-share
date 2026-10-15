@@ -26,6 +26,7 @@ assets/
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
   furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×512 indexed PNG-8, 7 more pieces
   furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
+  themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
   site/                 # set m (M9): the website's favicon.ico + PNGs, apple-touch 180, manifest 192/512 + maskable 512, og-card.png 1200×630,
                         #   how-1-find / how-2-share / how-3-watch.png landing panels (368×224 each)
@@ -770,6 +771,35 @@ Load it with `motion.json` (or the first time someone reacts). One row per avata
   frame 0 left, frame 1 right, cheers on top, yawns/dozes below).
 - Engineering hookup (emote picker, server message) is a follow-up issue after the design judge passes.
 
+## Holiday theme: Halloween (`themes/halloween/halloween.json`, OME-1185, lazy)
+
+One lazy sheet per theme (plan: OME-1140). Load it only while the theme is active (Oct 24 – Nov 1, the viewer's local date;
+`meta.omega.period`). Same PixiJS v8 format as the room atlas: 256×128 indexed PNG-8, no trim, no rotation, per-frame `anchor`.
+Every key starts with `halloween/`, so nothing collides in Pixi's texture cache. Style rules: `STYLE.md` § Holiday themes.
+
+| Key | Size | Place at | Notes |
+|---|---|---|---|
+| `halloween/window/0`, `/1` | 20×87 | the `wall/l/window0` / `window1` cell's floor point | Moonlit view: a big harvest moon, a bare tree, a crooked house with one lit window on a hill. Only the panes, so the room's window frame, mullion and sill stay. |
+| `halloween/pumpkin/big`, `/small` | 16×13, 9×8 | the `wall/l/window0` cell | Jack-o'-lanterns on the sill, carved faces toward the room, lit from inside. |
+| `halloween/pumpkin/mid` | 12×10 | the `wall/l/window1` cell | |
+| `halloween/web/corner-l`, `/corner-r` | | `(0,0)`, where `wall/corner` goes | Cobweb in the back top corner, one half per wall; a spider hangs off the right half. |
+| `halloween/web/l-end`, `/r-end` | | `(0,9)`, `(9,0)`, where `wall/l/end` / `wall/r/end` go | Small webs in the open wall ends' top corners. |
+| `halloween/bat/<0-3>` | 16×16 | anywhere on the back walls | Flap cycle: wings up, mid, down, mid. Facing right; mirror (`scale.x = -1`) to fly left. Anchor = centre `(8, 8)`. |
+| `halloween/hat/<avatar frame key>` | varies | the avatar's floor point | A witch hat for **every** frame key in `avatars.json`, `motion.json` and `expressions.json` (416 keys, 32 shared rects). |
+
+- **`meta.omega.decor`** lists the decor in draw order, each `{ key, on }`, where `on` is the wall frame key it belongs to. For every wall cell
+  drawn with that frame, place the decal at that cell's `cellCenter(col, row)`. If the room has no such wall (an owner removed the window), skip it.
+  Draw decor after the walls and the console and before anything on the floor. It never changes, so it can go into the cached background.
+- **`meta.omega.effect`** = `{ frames, ms: 90, max: 6, layer: "behind-avatars", facing: "right" }`: up to 6 bats crossing the back walls, behind
+  every avatar and piece of furniture, looping `frames` at 90 ms. The engine owns the paths. Pixi's `animations["halloween/bat"]` has the same 4 frames.
+- **Hats.** Whenever an avatar shows texture `K`, show `halloween/hat/K` at the **same position**, drawn directly over the avatar sprite (as its
+  sibling right after it, so a seated avatar's hat still sits under the chair's `front` layer). There's no offset to compute: each hat key's anchor is the
+  avatar's floor point, which can lie outside the hat image. Every key exists, including mirrored dirs, `/1` blink and back keys, `breathe/*/1`, `walk8/*`,
+  `wave/*`, `cheer/*` and `yawn/*`, so a key lookup never misses. Emote icons have no hat. Overlaying hat on avatar gives exactly the frame with the hat on:
+  Pip's beanie and Mo's bucket hat are fully covered (the build fails if any pixel of either would show), and raised arms stay in front of the brim.
+- Previews: `preview/halloween-room@1x.png` / `@2x` (the default room dressed, with bats and every sitter hatted), `preview/halloween-hats@4x.png`
+  (per avatar: each pose × dir without and with the hat, then a row of hatted walk, wave, cheer, yawn and breathe frames), `preview/halloween-sheet@2x.png`.
+
 ## Furniture atlas (`furniture/furniture.json`, set g, M4/M5)
 
 Furniture catalogue v1 for customizable rooms. It's a separate, lazy sheet: the default room doesn't need it, so load it only when a room
@@ -921,10 +951,15 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
 | `furniture/furniture-v2.png` (catalogue v2, lazy) | 10 261 |
 | `furniture/furniture-v2.json` (catalogue v2, lazy) | 22 867 raw / 1 657 gz |
+| `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
+| `themes/halloween/halloween.json` (OME-1185, lazy) | 152 616 raw / 3 718 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Measured total now: 188 010 B (≈ 183.6 KB) of 300 KB**, eager 98 724, lazy 89 286 (`bun assets/src/build.ts`). Rows not named below are
+**Measured total now: 195 623 B (≈ 191.0 KB) of 300 KB**, eager 99 106, lazy 96 517 (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
+
+The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
+`halloween.json` 3 718 gz. No existing file changes. Measured total with it: 195 623 B of 307 200.
 
 Catalogue v2 (OME-1103) adds **14 412 B (≈ 14.1 KB)** against `main` as the build measures it (159 946 → 174 358): lazy +14 104
 (`furniture-v2.png` 10 261 + `furniture-v2.json` 1 657 gz, `edit.png` +1 867 for 12 thumbnails and 5 swatches, `edit.json` +319 gz), eager +308
