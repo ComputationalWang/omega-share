@@ -745,9 +745,14 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
   const quiesce = async (label: string): Promise<void> => {
     paused = true;
     for (const room of rooms) for (const c of room.clients) c.stopTraffic();
+    // Quiet clients would be cut by the server's idle timeout while the last abusive client runs out; real ones ping.
+    const keepalive = setInterval(() => {
+      for (const c of open) c.send({ type: "ping", id: 1 });
+    }, 15_000);
     const until = Date.now() + 200_000;
     while (inflight > 0 && Date.now() < until) await sleep(250);
     await sleep(2000);
+    clearInterval(keepalive);
     const g = await gauges();
     const mine = [...open];
     const eq = (name: string, client: number, serverVal: number | undefined): void => {
