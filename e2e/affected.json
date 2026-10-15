@@ -139,8 +139,13 @@
       "why": "real-lane helpers"
     },
     {
-      "paths": ["e2e/real/twitch-gate.ts", "e2e/real/twitch-live.ts"],
-      "specs": ["e2e/real/real-providers.real.ts"],
+      "paths": [
+        "e2e/real/twitch-gate.ts",
+        "e2e/real/twitch-live.ts"
+      ],
+      "specs": [
+        "e2e/real/real-providers.real.ts"
+      ],
       "why": "paired Twitch gate/live discovery and evidence: sole consumer"
     },
     {
@@ -170,6 +175,7 @@
         "e2e/room-view.e2e.ts",
         "e2e/rooms-web.e2e.ts",
         "e2e/source-link.e2e.ts",
+        "e2e/theme.e2e.ts",
         "e2e/tv-frame.e2e.ts",
         "e2e/walk.e2e.ts",
         "e2e/website-redesign.e2e.ts",
@@ -518,6 +524,23 @@
     },
     {
       "paths": [
+        "apps/web/src/theme/**",
+        "assets/themes/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/theme.e2e.ts",
+        "perf/chat.perf.ts",
+        "perf/phone.perf.ts",
+        "perf/site.perf.ts",
+        "perf/walk-tiers.perf.ts"
+      ]
+    },
+    {
+      "paths": [
         "assets/presets/**",
         "apps/server/src/presets.ts"
       ],
@@ -847,8 +870,7 @@
         "scripts/**",
         "apps/server/scripts/**",
         "assets/src/**",
-        "assets/preview/**",
-        "assets/themes/**"
+        "assets/preview/**"
       ],
       "except": [
         "scripts/tunnel.sh"

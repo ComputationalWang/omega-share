@@ -49,6 +49,7 @@ export const SPEC_ROOMS = {
   "m10-sessions": ["hide", "reload", "expire", "expreload", "tabs"],
   "m10-a11y": ["dock360", "dock390", "fs", "away", "moved"],
   furniture: ["v2seats", "v2benches"],
+  theme: ["desk", "phone", "reduced", "off"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
