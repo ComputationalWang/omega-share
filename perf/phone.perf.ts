@@ -122,7 +122,7 @@ test("phone: frames per provider on a Pixel-class phone in the watch layout (8 a
     if (observer === undefined) throw new Error("no observer");
     const win = observer.page.locator(site.roomWindow);
     const lines = observer.page.locator(site.chatLogLine);
-    const measure = async (p: FrameProvider, label: string): Promise<void> => {
+    const onScreen = async (): Promise<void> => {
       // The room window and the top of the chat log on screen together, so both are painted.
       await win.evaluate((el) => {
         el.scrollIntoView({ block: "start" });
@@ -130,12 +130,19 @@ test("phone: frames per provider on a Pixel-class phone in the watch layout (8 a
       await expect(win).toBeInViewport();
       await expect(observer.page.locator(site.chatLog)).toBeInViewport();
       await observer.page.waitForTimeout(CHAT_EVERY_MS);
+    };
+    const measure = async (p: FrameProvider, label: string): Promise<void> => {
+      await onScreen();
       const [w, sent, drags] = await Promise.all([tracedFrames(browser, observer.page, WINDOW_MS), chatter(senders, p), drag(observer.page)]);
       await expect(lines.last()).toContainText(`${p} `);
       rows[p] = { ...record(p, w, `${label} playing, Pixel 7 emulation, ${String(CLIENTS)} avatars, ${String(drags)} drags of ${String(DRAG_PX)} px, ${String(sent)} chats in ${String(WINDOW_MS)} ms`), sent, drags };
     };
 
     await waitPlaying(clients);
+    // Untraced warm-up under the same load (OME-1199): the first window after the joins carries JIT and first-use work
+    // (~0.5 ms p95, 6.6–7.6 ms vs 5.7–7.4 ms after it) that would otherwise always land on the YouTube row.
+    await onScreen();
+    await Promise.all([chatter(senders, "warm-up"), drag(observer.page)]);
     await measure("youtube", "YouTube");
     for (const c of PROVIDER_CASES) {
       await share(request, room.id, c.shareUrl);
