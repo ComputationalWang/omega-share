@@ -42,6 +42,7 @@ import { ownedRoom } from "./support/owned-rooms";
 import { signalOwned, spawnOwned } from "./support/owned";
 import { site } from "./support/selectors";
 import { openDirectory } from "./support/directory";
+import { serverArgv } from "./support/server-cmd";
 
 const SERVER_PORT = PORTS.server + 10;
 const SERVER_URL = `http://127.0.0.1:${String(SERVER_PORT)}`;
@@ -301,7 +302,7 @@ async function startServer(port: number, siteOrigin: string, metricsPort: number
   const db = join(dir, "omega.db");
   const seeded = spawnSync("bun", ["e2e/fixtures/seed-rooms.ts", db], { cwd: ROOT, encoding: "utf8" });
   if (seeded.status !== 0) throw new Error(`seeding failed:\n${seeded.stdout}\n${seeded.stderr}`);
-  const proc = new Proc(port, "bun", ["apps/server/src/index.ts"], ROOT, {
+  const proc = new Proc(port, ...serverArgv(), ROOT, {
     ...cleanEnv(),
     PORT: String(port),
     HOST: "127.0.0.1",

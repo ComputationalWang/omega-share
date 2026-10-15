@@ -20,6 +20,7 @@ import { stubExternalNetwork } from "./support/network";
 import { signalOwned, spawnOwned } from "./support/owned";
 import { site } from "./support/selectors";
 import { openDirectory } from "./support/directory";
+import { serverArgv } from "./support/server-cmd";
 
 // In this agent's port block, between the fixture page (+0) and the tunnel lanes (+30…).
 const SERVER_PORT = PORTS.fixtures + 20;
@@ -85,7 +86,7 @@ test.describe("room presets and saved layouts (own server and site)", () => {
     const db = join(dir, "omega.db");
     const seed = spawnSync("bun", ["e2e/fixtures/seed-rooms.ts", db], { cwd: ROOT, encoding: "utf8" });
     if (seed.status !== 0) throw new Error(`seeding the DB failed:\n${seed.stdout}\n${seed.stderr}`);
-    const s = new Proc(SERVER_PORT, "bun", ["apps/server/src/index.ts"], ROOT, { PORT: String(SERVER_PORT), HOST: "127.0.0.1", SITE_ORIGIN: WEB_URL, TRUST_PROXY: "loopback", DB_PATH: db, ADMIN_SOCKET: "off" });
+    const s = new Proc(SERVER_PORT, ...serverArgv(), ROOT, { PORT: String(SERVER_PORT), HOST: "127.0.0.1", SITE_ORIGIN: WEB_URL, TRUST_PROXY: "loopback", DB_PATH: db, ADMIN_SOCKET: "off" });
     server = s;
     await s.waitFor("server", () => s.output.includes(`omega-share server on http://127.0.0.1:${String(SERVER_PORT)}/`));
     const w = new Proc(WEB_PORT, "bunx", ["vite", "--port", String(WEB_PORT), "--strictPort", "--host", "localhost"], join(ROOT, "apps/web"), { VITE_SERVER_URL: SERVER_URL });
