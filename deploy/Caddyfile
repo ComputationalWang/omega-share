@@ -19,10 +19,28 @@
 	}
 	servers {
 		protocols h1 h2
+		# Slow-loris and oversize heads stop here, in front of the origin (#254, ADR 0050). max_header_size sits under the
+		# server's own 16 KiB refusal (Go allows a little slack above it). The server holds no per-client connection cap
+		# behind the proxy: nftables' per-source `ct count` is that limit. No write timeout: it would cut slow downloads of
+		# the site's big assets, and the server has its own write-stall guard. Upgraded WebSockets are exempt from these.
+		max_header_size 12KiB
+		timeouts {
+			read_header 10s
+			read_body 30s
+			idle 2m
+		}
 	}
 }
 
 omega-share.duckdns.org {
 	encode zstd gzip
-	reverse_proxy 127.0.0.1:8787
+	# No trusted-proxy setting and no header_up on X-Forwarded-For: Caddy then drops any client-sent X-Forwarded-* and sets
+	# X-Forwarded-For to the TCP peer, so the rightmost entry the server reads (TRUST_PROXY=loopback) is the real client
+	# and a remote client cannot pose as 127.0.0.1. docs/ops/switch-to-rust.md checks this with a forged header.
+	reverse_proxy 127.0.0.1:8787 {
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 30s
+		}
+	}
 }

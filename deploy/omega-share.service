@@ -1,9 +1,17 @@
-# omega-share server (ADR 0020). Installed to /etc/systemd/system by deploy/provision.sh.
-# Loopback only: Caddy on the same box is the only way in. Hardening per research D7.
+# omega-share server, the Rust release (ADR 0020, 0050). Installed to /etc/systemd/system by deploy/provision.sh.
+# Loopback only: Caddy on the same box is the only way in. Hardening per research D7 and the S10 audit.
+# The Bun release (the 7-day rollback window after the switch) runs as omega-share-bun.service; each unit starts only
+# when `current` holds its server (ConditionPathExists), and deploy/deploy.sh stops the other one when it switches.
+#
+# BOX: options below that a local `systemd-analyze verify` cannot prove and the soak step must check on the aarch64 box
+# (docs/ops/switch-to-rust.md has the commands): MemoryDenyWriteExecute, SystemCallFilter, SocketBindDeny/SocketBindAllow,
+# IPAddressDeny/IPAddressAllow, PrivateUsers, NoExecPaths. If one stops the server, drop only that line, note it in the
+# runbook and open an issue; the rest of the sandbox stays.
 [Unit]
-Description=omega-share server
+Description=omega-share server (Rust)
 After=network-online.target
 Wants=network-online.target
+ConditionPathExists=/opt/omega-share/current/omega-server
 # deploy can't reset-failed (polkit allows start/stop/restart only), so allow a burst of restarts.
 StartLimitIntervalSec=60
 StartLimitBurst=10
@@ -12,7 +20,7 @@ StartLimitBurst=10
 Type=simple
 User=omega-share
 Group=omega-share
-Environment=NODE_ENV=production
+Environment=RUST_BACKTRACE=0
 Environment=HOST=127.0.0.1
 Environment=PORT=8787
 Environment=TRUST_PROXY=loopback
@@ -25,7 +33,7 @@ Environment=DB_PATH=/var/lib/omega-share/omega.db
 Environment=METRICS_PORT=9464
 # Optional per-box overrides (e.g. DB_PATH); the backup unit reads the same file.
 EnvironmentFile=-/etc/omega-share/env
-ExecStart=/usr/local/bin/bun /opt/omega-share/current/apps/server/src/index.ts
+ExecStart=/opt/omega-share/current/omega-server serve
 Restart=on-failure
 RestartSec=2
 # Graceful restart (OME-504): SIGTERM closes sockets with 1012, keeps seats and closes the DB, then exits 0.
@@ -40,7 +48,12 @@ ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes
+# BOX: PrivateUsers maps only root and the service user; check the state dir stays readable and writable.
+PrivateUsers=yes
 ReadWritePaths=/var/lib/omega-share
+# BOX: NoExecPaths. The DB directory is data only; the binary lives under /opt, which stays executable
+# (an ExecPaths line for it is not needed: nothing excludes /opt).
+NoExecPaths=/var/lib/omega-share
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes
@@ -53,16 +66,32 @@ RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
+# BOX: MemoryDenyWriteExecute. Rust has no JIT (Bun does, which is why its unit lacks this).
+MemoryDenyWriteExecute=yes
 RemoveIPC=yes
 CapabilityBoundingSet=
 AmbientCapabilities=
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# BOX: IPAddressDeny/IPAddressAllow. The server makes no outbound connection; Caddy reaches it over loopback.
+IPAddressDeny=any
+IPAddressAllow=localhost
+# BOX: SocketBindDeny/SocketBindAllow (systemd 249+). Only the app and metrics ports; the admin socket is a Unix socket.
+SocketBindDeny=any
+SocketBindAllow=tcp:8787
+SocketBindAllow=tcp:9464
 SystemCallArchitectures=native
+# BOX: SystemCallFilter. A blocked call kills the process with SIGSYS (status=31/SYS in the journal).
 SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @obsolete @debug @raw-io @reboot @swap @cpu-emulation
 UMask=0077
 MemoryMax=512M
+# The runtime keeps at most 32 blocking threads (max_blocking_threads) beside its workers.
 TasksMax=256
+# The server's connection caps (1280 sockets by default, 128 per non-loopback peer) are sized for 4096: never lower.
+# MAX_CONNECTIONS (at most 3072) + 256 HTTP headroom + a file per response fits.
 LimitNOFILE=4096
+# No core dumps: they would hold live room state.
+LimitCORE=0
 
 [Install]
 WantedBy=multi-user.target

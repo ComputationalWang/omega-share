@@ -312,7 +312,7 @@ describe("review hardening (OME-356)", () => {
 
   test("a failed health check puts the previous release back", () => {
     const script = read("deploy.sh");
-    expect(script).toMatch(/prev=\\"\\\$\(readlink -f/);
+    expect(script).toMatch(/prev="\$\(readlink -f/);
     expect(script).toContain("rolled back to");
   });
 

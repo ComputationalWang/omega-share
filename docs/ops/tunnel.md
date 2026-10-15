@@ -33,6 +33,12 @@ The *Visit Site* pass is a cookie. If it expires or is cleared mid-session, the 
 
 **Gating.** Whether the whole tunnel sits behind ngrok's `oauth` edge action with an email allowlist is board decision B3 (ADR 0015 §9). If it does, the Traffic Policy file is generated at run time from Paperclip secrets into `$PAPERCLIP_RUN_SCRATCH_DIR` and passed with `--traffic-policy-file`. It is never committed: the allowlist is personal data.
 
+## The Rust server (ADR 0050)
+
+`TUNNEL_SERVER=rust scripts/tunnel.sh https://<name>.ngrok-free.dev` builds `omega-server` (`cargo build --release --locked -p omega-server`) and runs `omega-server serve` with the same environment; its database is `$DB_PATH` (default `apps/server-rs/data/tunnel.db`). By hand: `PUBLIC_ORIGIN=... TRUST_PROXY=loopback STATIC_DIR=$PWD/apps/web/dist DB_PATH=... target/release/omega-server serve`.
+
+The server reads the rightmost `X-Forwarded-For` entry and exempts loopback keys from per-key limits, so the tunnel must append the real client address to the header rather than pass a client's value through. ngrok and cloudflared both set it to the connecting client; this repo has not proved that against a forged header. Before a public session, send `curl -H 'X-Forwarded-For: 127.0.0.1' https://<tunnel>/rooms` a few hundred times: a proxy that works as needed still rate-limits you (429). Treat a tunnel that does not as unsupported.
+
 ## cloudflared (fallback, no account)
 
 `cloudflared` (Apache-2.0) gives a random `*.trycloudflare.com` host each run. Start the tunnel first to learn it, then start the server with it:

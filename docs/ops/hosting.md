@@ -26,11 +26,15 @@ DEPLOY_HOST=deploy@$SERVER_IP DEPLOY_KEY=$DEPLOY_KEY_PATH deploy/deploy.sh
 
 The script refuses a dirty tree and a Bun that differs from `.bun-version` (checked both locally and on the box). It ends with a `/healthz` check on the box. Afterwards, check from outside: `curl -sI https://omega-share.duckdns.org/healthz`.
 
+**Which server (ADR 0050, OME-1174).** `deploy.sh --server bun` (the default until the switch PR flips it) ships the Bun release; `--server rust` cross-builds the aarch64 `omega-server` locally (`scripts/build-server-rs.sh`, pinned zig and glibc in `deploy/server-rs-build.env`, tools from `scripts/install-server-rs-tools.sh`), runs the artifact checks (`deploy/check-server-binary.sh`: aarch64 PIE, full RELRO, non-exec stack, stripped, glibc at most the pin, no `/__test/`, `OMEGA_TEST_`, `load_extension` or build paths) and uploads it only if they pass. Both ship `bin/omega-ops`, the launcher the backup unit, `restore.sh` and the monitor call (`omega-ops backup|admin ...`), so they work for either server. A Rust release runs as `omega-share.service`, a Bun one as `omega-share-bun.service`; the deploy stops the other and restarts its own, and an unhealthy deploy puts back the previous release **and its unit**. The first Rust deploy needs `provision.sh base` first (two units, polkit); the script refuses before flipping anything otherwise. The runbook is [switch-to-rust.md](switch-to-rust.md).
+
+**Bun rollback for 7 days after the switch:** `DEPLOY_HOST=deploy@$SERVER_IP DEPLOY_KEY=$DEPLOY_KEY_PATH deploy/deploy.sh --server bun` from a checkout at or after this kit's commit. The newest Bun release also stays in `/opt/omega-share/releases` past the usual 5, so flipping `current` to it by hand and restarting `omega-share-bun` works too. No DB migrations land in that window, so the Bun server accepts the same DB.
+
 **Rollback:** list `/opt/omega-share/releases/` (the 5 newest are kept). Then, as `deploy`:
 
 ```sh
 ln -sfn /opt/omega-share/releases/<older-sha> /opt/omega-share/current.new && mv -T /opt/omega-share/current.new /opt/omega-share/current
-systemctl restart omega-share
+systemctl restart omega-share        # omega-share-bun for a Bun release (a Rust release has omega-server in it); stop the other unit first
 ```
 
 A rollback across a DB migration doesn't work: the server refuses a DB whose `user_version` is newer than the code. In that case, restore the snapshot taken before the deploy (below).
@@ -155,6 +159,8 @@ Set these once per shell:
 set -a; . ~/Projects/omega-share/.env; set +a
 A="-o IdentitiesOnly=yes -i ~/.config/omega-share/admin-key"
 CLI="cd /opt/omega-share/current && sudo -u omega-share env DB_PATH=/var/lib/omega-share/omega.db /usr/local/bin/bun apps/server/src/cli.ts"
+# Either server (the release's launcher; the Rust binary's admin verbs are the same): "$OPS admin rooms list"
+OPS="sudo -u omega-share env DB_PATH=/var/lib/omega-share/omega.db /opt/omega-share/current/bin/omega-ops"
 ```
 
 ### `omega-share is down`

@@ -23,7 +23,7 @@ checks=" ${OMEGA_MONITOR_CHECKS:-health tls reports disk} "
 prefix=${OMEGA_MONITOR_PREFIX:+$OMEGA_MONITOR_PREFIX }
 ntfy=${OMEGA_NTFY_SERVER:-https://ntfy.sh}
 ssh_key=${OMEGA_MONITOR_SSH_KEY:-$HOME/.config/omega-share/admin-key}
-reports_cmd=${OMEGA_MONITOR_REPORTS_CMD:-cd /opt/omega-share/current && sudo -n -u omega-share env DB_PATH=/var/lib/omega-share/omega.db /usr/local/bin/bun apps/server/src/cli.ts reports list}
+reports_cmd=${OMEGA_MONITOR_REPORTS_CMD:-sudo -n -u omega-share env DB_PATH=/var/lib/omega-share/omega.db /opt/omega-share/current/bin/omega-ops admin reports list}
 disk_paths=(/ /var/lib/omega-share)
 # Percent used of each path, in order, on one line ("91 7"): nothing else about the box's disks leaves it.
 disk_default='df -P / /var/lib/omega-share | awk '\''NR > 1 { printf "%s%d", (NR > 2 ? " " : ""), $5 } END { print "" }'\'

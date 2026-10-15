@@ -28,24 +28,26 @@ const unitKeys = (text: string) => {
   }
   return keys;
 };
-const pins = Object.fromEntries(
+const pins: Record<string, string> = Object.fromEntries(
   readFileSync(join(DEPLOY, "server-rs-build.env"), "utf8")
     .split("\n")
     .flatMap((l) => (/^[A-Z0-9_]+=\S+$/.test(l) ? [l.split("=") as [string, string]] : [])),
 );
 
+const pin = (k: string): string => pins[k] ?? "";
+
 describe("pinned build tools (deploy/server-rs-build.env)", () => {
   test("glibc, zig and cargo-zigbuild are pinned with checksums", () => {
-    expect(pins["GLIBC"]).toMatch(/^2\.\d+$/);
-    expect(pins["ZIG_VERSION"]).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(pins["ZIG_SHA256_X86_64"]).toMatch(/^[0-9a-f]{64}$/);
-    expect(pins["ZIG_SHA256_AARCH64"]).toMatch(/^[0-9a-f]{64}$/);
-    expect(pins["CARGO_ZIGBUILD_VERSION"]).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(pins["CARGO_ZIGBUILD_CRATE_SHA256"]).toMatch(/^[0-9a-f]{64}$/);
+    expect(pin("GLIBC")).toMatch(/^2\.\d+$/);
+    expect(pin("ZIG_VERSION")).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(pin("ZIG_SHA256_X86_64")).toMatch(/^[0-9a-f]{64}$/);
+    expect(pin("ZIG_SHA256_AARCH64")).toMatch(/^[0-9a-f]{64}$/);
+    expect(pin("CARGO_ZIGBUILD_VERSION")).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(pin("CARGO_ZIGBUILD_CRATE_SHA256")).toMatch(/^[0-9a-f]{64}$/);
   });
 
   test("the glibc pin is no newer than Ubuntu 22.04's, which every later LTS also has", () => {
-    expect(Number(pins["GLIBC"]?.split(".")[1])).toBeLessThanOrEqual(35);
+    expect(Number(pin("GLIBC").split(".")[1])).toBeLessThanOrEqual(35);
   });
 });
 
@@ -54,7 +56,7 @@ describe("scripts/build-server-rs.sh", () => {
   test("a dry run shows the locked, glibc-pinned zig cross build with the path remap", () => {
     const r = spawn(["bash", SCRIPT, "--dry-run"], { PATH: process.env["PATH"] ?? "" });
     expect(r.code, r.out).toBe(0);
-    expect(r.out).toContain(`cargo zigbuild --release --locked --target aarch64-unknown-linux-gnu.${pins["GLIBC"]} -p omega-server`);
+    expect(r.out).toContain(`cargo zigbuild --release --locked --target aarch64-unknown-linux-gnu.${pin("GLIBC")} -p omega-server`);
     expect(r.out).toMatch(/RUSTFLAGS=\S*--remap-path-prefix=\S+=\/src/);
   });
 
@@ -66,7 +68,7 @@ describe("scripts/build-server-rs.sh", () => {
     const dir = tmp();
     try {
       fake(dir, "zig", 'echo 0.0.1');
-      fake(dir, "cargo-zigbuild", `echo cargo-zigbuild ${pins["CARGO_ZIGBUILD_VERSION"]}`);
+      fake(dir, "cargo-zigbuild", `echo cargo-zigbuild ${pin("CARGO_ZIGBUILD_VERSION")}`);
       const r = spawn(["bash", SCRIPT], { PATH: `${dir}:${process.env["PATH"] ?? ""}` });
       expect(r.code).toBe(1);
       expect(r.out).toContain("zig");
@@ -79,8 +81,8 @@ describe("scripts/build-server-rs.sh", () => {
     const dir = tmp();
     try {
       const target = join(dir, "target");
-      fake(dir, "zig", `echo ${pins["ZIG_VERSION"]}`);
-      fake(dir, "cargo-zigbuild", `echo cargo-zigbuild ${pins["CARGO_ZIGBUILD_VERSION"]}`);
+      fake(dir, "zig", `echo ${pin("ZIG_VERSION")}`);
+      fake(dir, "cargo-zigbuild", `echo cargo-zigbuild ${pin("CARGO_ZIGBUILD_VERSION")}`);
       fake(
         dir,
         "cargo",
@@ -90,7 +92,7 @@ describe("scripts/build-server-rs.sh", () => {
       const r = spawn(["bash", SCRIPT, "--out", out], { PATH: `${dir}:${process.env["PATH"] ?? ""}`, CARGO_TARGET_DIR: target });
       expect(r.code, r.out).toBe(0);
       expect(readFileSync(out, "utf8")).toBe("bin\n");
-      expect(readFileSync(join(dir, "args"), "utf8")).toContain(`zigbuild --release --locked --target aarch64-unknown-linux-gnu.${pins["GLIBC"]}`);
+      expect(readFileSync(join(dir, "args"), "utf8")).toContain(`zigbuild --release --locked --target aarch64-unknown-linux-gnu.${pin("GLIBC")}`);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -145,14 +147,14 @@ describe("deploy/check-server-binary.sh (artifact checks)", () => {
   });
 
   test.each([
-    ["the test-hooks routes", "x/__test/time"],
-    ["a test env var", "OMEGA_TEST_MONO"],
-    ["SQLite's load_extension", "load_extension"],
-    ["a build-machine home path", "/home/someone/.cargo/registry"],
-  ])("refuses a binary containing %s", (_name, needle) => {
-    const r = check({}, `${"a".repeat(1_500_000)}${needle}${"b".repeat(600_000)}`);
+    ["the test-hooks routes", "x/__test/time", "/__test/"],
+    ["a test env var", "OMEGA_TEST_MONO", "OMEGA_TEST_"],
+    ["SQLite's load_extension", "load_extension", "load_extension"],
+    ["a build-machine home path", "/home/someone/.cargo/registry", "/home/"],
+  ])("refuses a binary containing %s", (_name, bytes, marker) => {
+    const r = check({}, `${"a".repeat(1_500_000)}${bytes}${"b".repeat(600_000)}`);
     expect(r.code).toBe(1);
-    expect(r.out).toContain(needle);
+    expect(r.out).toContain(marker);
   });
 
   test("refuses a binary that is far too small or far too large", () => {
@@ -306,7 +308,7 @@ describe("deploy/deploy.sh --server", () => {
     remote(
       "rust",
       (b) => {
-        for (let i = 0; i < 6; i++) mkRelease(b, `rust-${i}`, true, 100 + i * 100);
+        for (let i = 0; i < 6; i++) mkRelease(b, `rust-${String(i)}`, true, 100 + i * 100);
         mkRelease(b, "bun-newest", false, 1000);
         mkRelease(b, "bun-older", false, 5000);
         link(b, mkRelease(b, "prev", true, 50));
@@ -359,7 +361,7 @@ describe("deploy/deploy.sh --server", () => {
       ({ code, out, calls }) => {
         expect(code, out).toBe(0);
         expect(calls).toContain("restart omega-share\n");
-        expect(calls).not.toContain("omega-share-bun");
+        expect(calls).not.toContain("restart omega-share-bun");
       },
       { has: ["omega-share"], rustExec: false },
     );
@@ -392,8 +394,8 @@ describe("deploy/omega-share.service (the Rust server's unit)", () => {
   });
 
   test("binds only the app and metrics ports", () => {
-    const port = /PORT=(\d+)/.exec(env)?.[1];
-    const metrics = /METRICS_PORT=(\d+)/.exec(env)?.[1];
+    const port = /PORT=(\d+)/.exec(env)?.[1] ?? "";
+    const metrics = /METRICS_PORT=(\d+)/.exec(env)?.[1] ?? "";
     expect(unit.get("SocketBindAllow")).toEqual([`tcp:${port}`, `tcp:${metrics}`]);
   });
 

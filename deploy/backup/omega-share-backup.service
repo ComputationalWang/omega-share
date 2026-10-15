@@ -17,7 +17,8 @@ Environment=BACKUP_DIR=/var/backups/omega-share
 # ConditionPathExists or ReadWritePaths: such a box needs a drop-in that sets both, or every run is
 # skipped and only pull.sh's 36 h alarm notices.
 EnvironmentFile=-/etc/omega-share/env
-ExecStart=/usr/local/bin/bun /opt/omega-share/current/apps/server/scripts/backup.ts snapshot
+# The release's launcher runs omega-server (Rust) or Bun (the rollback window): bin/omega-ops, deploy/omega-ops.
+ExecStart=/opt/omega-share/current/bin/omega-ops backup snapshot
 UMask=0077
 Nice=10
 IOSchedulingClass=idle
@@ -44,4 +45,4 @@ ProtectClock=yes
 ProtectHostname=yes
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
-# No MemoryDenyWriteExecute: Bun's JIT needs writable+executable pages.
+# No MemoryDenyWriteExecute: the Bun release (rollback window) JITs.

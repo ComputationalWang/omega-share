@@ -369,7 +369,7 @@ fi
     const live = seed();
     const before = sha(live);
     const r = Bun.spawnSync(["bash", RESTORE, bad], {
-      env: { PATH: `${bin}:${process.env["PATH"] ?? ""}`, DB_PATH: live, OMEGA_OPS: OPS, OMEGA_BUN: process.execPath, OMEGA_APP_DIR: REPO },
+      env: { PATH: `${bin}:${process.env["PATH"] ?? ""}`, DB_PATH: live, OMEGA_SERVICE: "omega-share", OMEGA_OPS: OPS, OMEGA_BUN: process.execPath, OMEGA_APP_DIR: REPO },
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -389,7 +389,7 @@ fi
     const live = seed();
     const snap = snapshot(seed(join(tmp(), "src/omega.db")), join(tmp(), "backups"), NIGHT);
     const r = Bun.spawnSync(["bash", RESTORE, snap], {
-      env: { PATH: `${bin}:${process.env["PATH"] ?? ""}`, DB_PATH: live, OMEGA_OPS: OPS, OMEGA_BUN: process.execPath, OMEGA_APP_DIR: REPO },
+      env: { PATH: `${bin}:${process.env["PATH"] ?? ""}`, DB_PATH: live, OMEGA_SERVICE: "omega-share", OMEGA_OPS: OPS, OMEGA_BUN: process.execPath, OMEGA_APP_DIR: REPO },
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -418,6 +418,7 @@ fi
       env: {
         PATH: `${bin}:${process.env["PATH"] ?? ""}`,
         DB_PATH: live,
+        OMEGA_SERVICE: "omega-share",
         OMEGA_OPS: OPS,
         OMEGA_BUN: process.execPath,
         OMEGA_APP_DIR: REPO,
@@ -507,7 +508,7 @@ describe("systemd units", () => {
     for (const line of ["Type=oneshot", "User=omega-share", "UMask=0077", "PrivateNetwork=yes", "NoNewPrivileges=yes", "ProtectSystem=strict", "ReadWritePaths=/var/backups/omega-share"]) {
       expect(unit.split("\n")).toContain(line);
     }
-    expect(unit).toMatch(/^ExecStart=\S*bun \S*apps\/server\/scripts\/backup\.ts snapshot$/m);
+    expect(unit).toMatch(/^ExecStart=\/opt\/omega-share\/current\/bin\/omega-ops backup snapshot$/m);
   });
 
   test("the timer runs nightly and catches up after downtime", () => {
