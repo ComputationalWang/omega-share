@@ -43,7 +43,7 @@ ssh $A admin@$SERVER_IP 'sudo bash omega-deploy/provision.sh base'   # then, fro
 env $D deploy/deploy.sh --server rust
 ```
 
-It builds, runs the artifact checks (a failing binary is never uploaded), ships `releases/<sha>/omega-server`, flips `current`, stops `omega-share-bun`, restarts `omega-share`, waits for `/healthz` and rolls back to the previous release **and unit** by itself if it does not answer. Sockets close with 1012 and clients reconnect into their seats.
+It builds, runs the artifact checks (a failing binary is never uploaded), ships `releases/<sha>-rust/omega-server` (a Bun release of the same commit stays at `releases/<sha>`, so the rollback target is never overwritten), flips `current`, stops `omega-share-bun`, restarts `omega-share`, waits for `/healthz` and rolls back to the previous release **and unit** by itself if it does not answer. Sockets close with 1012 and clients reconnect into their seats.
 
 ## 3. Verify
 
@@ -98,8 +98,8 @@ from a checkout at or after this kit. It rebuilds the Bun release, stops `omega-
 
 ## 5. During the 7 days
 
-- **Which server a deploy ships.** The `deploy.sh` default is `--server bun` until the switch PR; after this runbook succeeds and the board agrees, that PR flips the default to `--server rust`, so a plain `deploy.sh` (QA2 at milestone sign-off, any agent) stays on Rust. Bun is only ever deployed with an explicit `--server bun`. Until the flip, always pass `--server rust` yourself.
+- **Which server a deploy ships.** The switch PR flipped the `deploy.sh` default to `--server rust`, so a plain `deploy.sh` (QA2 at milestone sign-off, any agent) ships Rust. Bun is only ever deployed with an explicit `--server bun`. Release dirs are per kind: Bun at `releases/<sha>`, Rust at `releases/<sha>-rust`.
 
 - Daily: the three metrics above, `journalctl -u omega-share -p warning --since -1d`, the nightly snapshot's `Result` and `verify`, the monitor's ntfy.
 - No migrations, no new Rust deploys that change the DB schema. Ordinary Rust deploys are fine (`--server rust`); each keeps the newest Bun release.
-- After 7 days with no rollback and the board's sign-off: flip the `deploy.sh` default to `rust`, then S13 deletes the Bun server, `omega-share-bun.service` (and its provision/polkit lines), the Bun branch in `deploy/omega-ops` and `keepbun` in the deploy's prune step.
+- After 7 days with no rollback and the board's sign-off: S13 deletes the Bun server, `omega-share-bun.service` (and its provision/polkit lines), the Bun branch in `deploy/omega-ops` and `keepbun` in the deploy's prune step.
