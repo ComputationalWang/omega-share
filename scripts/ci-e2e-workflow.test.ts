@@ -73,6 +73,11 @@ describe(".github/workflows/e2e.yml", () => {
     expect(String(cache?.with?.["key"])).toContain("hashFiles('bun.lock')");
   });
 
+  test("each shard caches the Rust build like check.yml: e2e runs against the Rust server (the playwright config builds the binary)", () => {
+    const cache = (load().jobs["shard"]?.steps ?? []).find((s) => s.name === "Cache Rust build");
+    expect(cache?.with?.["key"]).toBe("cargo-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}");
+  });
+
   test("each shard uploads its blob report, and the e2e job merges them and fails when any shard failed", () => {
     const wf = load();
     const upload = (wf.jobs["shard"]?.steps ?? []).find((s) => s.uses?.startsWith("actions/upload-artifact@"));
