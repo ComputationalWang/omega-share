@@ -30,5 +30,5 @@ During a holiday the classic room gets a seasonal look: wall and window decor, a
 ## Consequences
 
 - Adding a theme means one row in `periods.ts`, one motion in `atlas.ts` and one sheet module. The engine itself doesn't change.
-- QA's perf rows (phone, desktop, chat-burst, 25 walkers) are run with `omega.theme=christmas`, the heaviest theme at 40 sprites.
+- e2e and perf contexts pin `omega.theme` through `e2e/support/csp.ts` `watchCsp`: `off` by default, so the calendar never changes a run, or `OMEGA_THEME=<id>`. A typo is refused. QA runs the phone, desktop, chat-burst and 25-walker perf rows with `OMEGA_THEME=christmas`, the heaviest theme at 40 sprites. A spec that forces a theme in its own init script wins.
 - Not done: the optional palette accent (a lamp tint), and turning the effect back on after reduced motion is switched off mid-session (it comes back the next time the room opens).
