@@ -31,7 +31,10 @@ pub fn sweep_rooms(app: &App, now: i64) -> Vec<RoomId> {
     let mut due = Vec::new();
     for cell in app.registry.values() {
         let mut inner = cell.lock();
-        if inner.room.member_count() > 0 {
+        if inner.closed {
+            // Poisoned (RoomCell::lock): ended below, never kept alive by the members it still lists.
+            due.push(cell.id.clone());
+        } else if inner.room.member_count() > 0 {
             app.mark_active(&mut inner, now);
         } else if expired(&inner.room, now) {
             due.push(cell.id.clone());
@@ -40,11 +43,16 @@ pub fn sweep_rooms(app: &App, now: i64) -> Vec<RoomId> {
     let mut removed = Vec::new();
     for id in due {
         // Checked again under the registry's and the room's locks: someone may have joined since the pass above.
-        let gone = app
-            .registry
-            .remove_if(&id, |inner| inner.room.member_count() == 0 && expired(&inner.room, now));
+        let gone = app.registry.remove_if(&id, |inner| {
+            inner.closed || (inner.room.member_count() == 0 && expired(&inner.room, now))
+        });
         if let Some(cell) = gone {
-            app.end_room(&cell, RemoveReason::Closed, |_| {});
+            // A poisoned pinned room (the lobby) keeps its row: the next boot restores it fresh.
+            let keep_row = {
+                let inner = cell.lock();
+                inner.closed && inner.room.pinned
+            };
+            app.end_room_with(&cell, RemoveReason::Closed, |_| {}, keep_row);
             removed.push(id);
         }
     }
@@ -263,6 +271,45 @@ mod tests {
         assert_eq!(ids(sweep_rooms(&app, now)), [ID_A, ID_B]);
         let left: Vec<String> = app.registry.values().iter().map(|c| c.id.as_str().to_owned()).collect();
         assert_eq!(left, ["lobby", ID_C]);
+    }
+
+    fn poison(cell: &Arc<crate::registry::RoomCell>) {
+        let c = cell.clone();
+        let _ = std::thread::spawn(move || {
+            let _g = c.lock();
+            panic!("a handler bug");
+        })
+        .join();
+        drop(cell.lock()); // takes the room offline (closed, sockets 1012)
+    }
+
+    // B1 (OME-1172 review): a poisoned room is closed but listed members; GC must end it, not keep it alive.
+    #[test]
+    fn a_poisoned_room_is_removed_by_the_next_sweep_with_its_members_and_row() {
+        let (app, _) = app();
+        let cell = add_room(&app, ID_A, created(T0, Some(T0)));
+        let nick = crate::contract::text::Nickname::parse("alice").unwrap();
+        cell.lock()
+            .room
+            .join(&nick, crate::contract::room::Avatar::new(0).unwrap(), None)
+            .unwrap()
+            .unwrap();
+        poison(&cell);
+        assert_eq!(ids(sweep_rooms(&app, T0 + 1)), [ID_A]);
+        assert!(app.registry.get(&rid(ID_A)).is_none());
+        assert!(cell.lock().sessions.is_empty(), "sessions ended");
+        assert!(app.store().rooms().list_rooms().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_poisoned_lobby_is_removed_but_keeps_its_row_for_the_next_boot() {
+        let (app, _) = app();
+        let cell = add_room(&app, "lobby", RoomInit::default());
+        poison(&cell);
+        assert_eq!(ids(sweep_rooms(&app, T0 + 1)), ["lobby"]);
+        assert!(app.registry.get(&rid("lobby")).is_none());
+        let rows = app.store().rooms().list_rooms().unwrap();
+        assert_eq!(rows.len(), 1, "the row stays: the next boot restores the lobby fresh");
     }
 
     // apps/server/test/rooms-gc.test.ts:150

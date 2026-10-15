@@ -1,0 +1,42 @@
+# Daily supply-chain check (S10 L2): RustSec publishes advisories after a PR has merged, so the PR gate alone
+# would not see them. Same pinned cargo-deny as check.yml; a failure opens one issue, later failures comment on it.
+name: advisories
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  advisories:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install cargo-deny
+        run: |
+          curl -sSfLO https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz
+          echo "9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f  cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz" | sha256sum -c -
+          tar xzf cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz --strip-components=1 -C "$HOME/.cargo/bin" cargo-deny-0.20.2-x86_64-unknown-linux-musl/cargo-deny
+      - run: cargo deny --locked check advisories 2>&1 | tee advisories.txt; exit "${PIPESTATUS[0]}"
+        shell: bash
+      - name: Open or update the issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="cargo-deny advisories failing"
+          body="$(printf 'The daily `cargo deny --locked check advisories` failed: %s\n\n```\n%s\n```\n' "$RUN_URL" "$(head -c 20000 advisories.txt 2>/dev/null)")"
+          number="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi

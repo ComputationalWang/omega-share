@@ -680,11 +680,6 @@ pub async fn report(mut cx: Cx, id: &str) -> Response {
     if declared_too_large(&cx.headers, MAX_REPORT_BODY_BYTES) {
         return fail(StatusCode::PAYLOAD_TOO_LARGE, ReportErrorCode::PayloadTooLarge, "body too large");
     }
-    let text = match read_body(&mut cx, MAX_REPORT_BODY_BYTES).await {
-        Ok(text) => Some(text),
-        Err(BodyError::TooLarge) => return fail(StatusCode::PAYLOAD_TOO_LARGE, ReportErrorCode::PayloadTooLarge, "body too large"),
-        Err(BodyError::Failed) => None,
-    };
     // A taken-down room is not in the registry: the same answer as an id that never existed.
     let room_id = RoomId::parse(id).filter(|r| app.with_open_room(r, |_| ()).is_some());
     let Some(room_id) = room_id else {
@@ -695,6 +690,12 @@ pub async fn report(mut cx: Cx, id: &str) -> Response {
         count(&app, "rate_limited");
         return limited(wait);
     }
+    // Only now the body: a client that never sends it must have paid for the lookup and a token first (HTTP-2).
+    let text = match read_body(&mut cx, MAX_REPORT_BODY_BYTES).await {
+        Ok(text) => Some(text),
+        Err(BodyError::TooLarge) => return fail(StatusCode::PAYLOAD_TOO_LARGE, ReportErrorCode::PayloadTooLarge, "body too large"),
+        Err(BodyError::Failed) => None,
+    };
     let Some(text) = text.filter(|t| is_json_text(t)) else {
         return fail(StatusCode::BAD_REQUEST, ReportErrorCode::InvalidBody, "body is not JSON");
     };

@@ -7,6 +7,7 @@ use std::process::ExitCode;
 const USAGE: &str = "usage: omega-server [serve | admin <verb> ... | backup <verb> ...]";
 
 fn main() -> ExitCode {
+    omega_server::panic_hook::install();
     let mut args = std::env::args_os().skip(1);
     let command = args.next();
     // Arguments that are not UTF-8 cannot be ids, files we were told to read, or verbs: usage.
@@ -49,7 +50,7 @@ fn run_admin(args: &[String]) -> ExitCode {
 
 /// `omega-server backup <verb> ...`: snapshots and restores of `DB_PATH` (`BACKUP_DIR` for the snapshots).
 fn run_backup(args: &[String]) -> ExitCode {
-    let env: Env = ["DB_PATH", "BACKUP_DIR"]
+    let env: Env = ["DB_PATH", "BACKUP_DIR", "ADMIN_SOCKET"]
         .into_iter()
         .filter_map(|key| Some((key.to_owned(), std::env::var(key).ok()?)))
         .collect();
@@ -101,9 +102,6 @@ fn run_serve() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    if config.public_origin.is_some() && !config.trust_proxy {
-        stderr_line("PUBLIC_ORIGIN is set without TRUST_PROXY=loopback: all tunnelled clients will share one rate-limit bucket");
-    }
     if !["127.0.0.1", "::1", "localhost"].contains(&config.hostname.as_str()) {
         stderr_line(&format!(
             "HOST={} is not loopback: the server is reachable without the tunnel (ADR 0015 §3)",

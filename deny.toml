@@ -5,6 +5,8 @@ all-features = true
 
 [advisories]
 # Every RustSec advisory (vulnerable, unmaintained, unsound, yanked) fails the check until triaged here.
+unmaintained = "all"
+unsound = "all"
 yanked = "deny"
 ignore = []
 

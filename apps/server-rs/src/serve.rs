@@ -20,6 +20,8 @@ use tokio::sync::watch;
 /// How long a shutdown waits for open connections before cutting them off (`DRAIN_GRACE_MS` in
 /// apps/server/src/server.ts), so a stalled client can't hold a restart until systemd's SIGKILL.
 const DRAIN_GRACE: Duration = Duration::from_millis(3000);
+/// Open sockets beyond `MAX_CONNECTIONS` that plain HTTP may use (each response can hold one file too).
+const HTTP_HEADROOM: usize = 256;
 
 /// Why `serve` stopped with an error: the app could not start, or the listener failed.
 #[derive(Debug)]
@@ -129,10 +131,28 @@ async fn listen(
     let router = build_router(app.clone(), hooks);
 
     let (stop, mut stopped) = watch::channel(false);
-    let serving = crate::http::server::serve(listener, router, async move {
-        // Resolves on the stop signal, or if the sender is gone (nothing left to wait for).
-        let _ = stopped.wait_for(|stop| *stop).await;
-    });
+    // Sockets in all: the WebSocket cap plus headroom for HTTP, so `MAX_CONNECTIONS` (at most 3072) and the files
+    // behind responses stay under the unit's `LimitNOFILE=4096`.
+    let limits = crate::http::server::Limits {
+        max_connections: usize::try_from(config.max_connections)
+            .unwrap_or(usize::MAX)
+            .saturating_add(HTTP_HEADROOM),
+        max_per_ip: crate::http::server::Limits::default().max_per_ip.max(
+            usize::try_from(config.max_connections_per_ip.unwrap_or(0))
+                .unwrap_or(0)
+                .saturating_add(64),
+        ),
+        ..crate::http::server::Limits::default()
+    };
+    let serving = crate::http::server::serve_limited(
+        listener,
+        router,
+        async move {
+            // Resolves on the stop signal, or if the sender is gone (nothing left to wait for).
+            let _ = stopped.wait_for(|stop| *stop).await;
+        },
+        limits,
+    );
     let mut serving = std::pin::pin!(serving);
     let ended = tokio::select! {
         served = &mut serving => Some(served),

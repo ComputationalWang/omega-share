@@ -54,6 +54,8 @@ pub enum AdminError {
     NotSocket(PathBuf),
     /// It is a socket, but another user's: not ours to remove.
     NotOurs(PathBuf),
+    /// A live server already answers on it.
+    InUse(PathBuf),
     Io(String),
 }
 
@@ -62,6 +64,7 @@ impl std::fmt::Display for AdminError {
         match self {
             Self::NotSocket(p) => write!(f, "admin socket {}: exists and is not a socket", p.display()),
             Self::NotOurs(p) => write!(f, "admin socket {}: exists and belongs to another user", p.display()),
+            Self::InUse(p) => write!(f, "admin socket {}: in use by a running server", p.display()),
             Self::Io(e) => f.write_str(e),
         }
     }
@@ -309,6 +312,10 @@ pub fn clear_stale_socket(path: &Path, uid: u32) -> Result<(), AdminError> {
     }
     if meta.uid() != uid {
         return Err(AdminError::NotOurs(path.to_path_buf()));
+    }
+    // A socket someone still answers on is a live server (a second start, or a restore's neighbour): never unlink it.
+    if std::os::unix::net::UnixStream::connect(path).is_ok() {
+        return Err(AdminError::InUse(path.to_path_buf()));
     }
     std::fs::remove_file(path)?;
     Ok(())
@@ -755,6 +762,22 @@ mod tests {
         let answer = over_socket(&path, "GET /rooms HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
         assert!(answer.starts_with("HTTP/1.1 200"), "{answer}");
         server.stop().await;
+    }
+
+    // L8: a second server (or a mistaken start) must not unlink the socket a live server answers on.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_socket_that_still_answers_is_refused_and_left_alone() {
+        let (app, _) = app();
+        let (_dir, path) = tmp();
+        let live = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        let err = start_admin(app, &path).err().unwrap();
+        assert!(err.to_string().contains("in use"), "{err}");
+        assert!(std::fs::symlink_metadata(&path).unwrap().file_type().is_socket());
+        assert!(
+            std::os::unix::net::UnixStream::connect(&path).is_ok(),
+            "the live listener still answers"
+        );
+        drop(live);
     }
 
     // apps/server/test/cli.test.ts:310

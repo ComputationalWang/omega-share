@@ -20,7 +20,7 @@ use std::collections::HashMap;
 const MAX_SAFE_INTEGER: i64 = (1 << 53) - 1;
 
 /// A room as stored. `title` is `None` for a seeded room that has none (stored as `''`).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct StoredRoom {
     pub id: RoomId,
     pub title: Option<RoomTitle>,
@@ -46,14 +46,14 @@ pub struct StoredRoom {
 }
 
 /// An upcoming queue item as stored: no `by` (ADR 0031 §6).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct StoredQueueItem {
     pub id: QueueItemId,
     pub embed: AnyEmbed,
 }
 
 /// A seat held across a graceful restart (ADR 0032): the name only as SHA-256 of its nickname key.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SeatHold {
     pub room_id: RoomId,
     pub name_hash: [u8; 32],
@@ -61,7 +61,7 @@ pub struct SeatHold {
 }
 
 /// What `create_room` takes.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct NewRoom {
     pub id: RoomId,
     pub title: Option<RoomTitle>,
@@ -71,6 +71,43 @@ pub struct NewRoom {
     pub pinned: bool,
     pub owner_hash: Option<[u8; 32]>,
     pub invite_hash: Option<[u8; 32]>,
+}
+
+// L5: which fields are set, never their values (titles, hashes, seat names and video URLs stay out of logs and panics).
+impl std::fmt::Debug for StoredRoom {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StoredRoom")
+            .field("pinned", &self.pinned)
+            .field("title", &self.title.is_some())
+            .field("embed", &self.embed.is_some())
+            .field("owner_hash", &self.owner_hash.is_some())
+            .field("invite_hash", &self.invite_hash.is_some())
+            .field("queue", &self.queue.len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl std::fmt::Debug for StoredQueueItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StoredQueueItem").finish_non_exhaustive()
+    }
+}
+
+impl std::fmt::Debug for SeatHold {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SeatHold").finish_non_exhaustive()
+    }
+}
+
+impl std::fmt::Debug for NewRoom {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NewRoom")
+            .field("pinned", &self.pinned)
+            .field("title", &self.title.is_some())
+            .field("owner_hash", &self.owner_hash.is_some())
+            .field("invite_hash", &self.invite_hash.is_some())
+            .finish_non_exhaustive()
+    }
 }
 
 impl NewRoom {
@@ -474,6 +511,54 @@ mod tests {
             embed: embed(json),
         }
     }
+    // L5: `{:?}` of a stored row must never put a title, a hash, a seat name or a video URL in a log or a panic.
+    #[test]
+    fn debug_output_shows_what_is_set_never_the_values() {
+        let mut new = NewRoom::seed(rid("secret-room-id"), title("Zq Secret Title"), 1, default_layout());
+        new.owner_hash = Some([0xab; 32]);
+        new.invite_hash = Some([0xcd; 32]);
+        let hold = SeatHold {
+            room_id: rid("secret-room-id"),
+            name_hash: [0xef; 32],
+            seat: SeatIndex::new(3).unwrap(),
+        };
+        let stored = StoredRoom {
+            id: rid("secret-room-id"),
+            title: title("Zq Secret Title"),
+            created_at: 1,
+            layout: default_layout(),
+            embed: Some(embed(YOUTUBE)),
+            visibility: RoomVisibility::Public,
+            pinned: false,
+            owner_hash: Some([0xab; 32]),
+            invite_hash: Some([0xcd; 32]),
+            last_active_at: None,
+            control_policy: crate::contract::room::DEFAULT_CONTROL_POLICY,
+            item_id: None,
+            queue: vec![item("q1", VIMEO)],
+        };
+        let queued = item("q1", TWITCH);
+        for text in [
+            format!("{new:?}"),
+            format!("{hold:?}"),
+            format!("{stored:?}"),
+            format!("{queued:?}"),
+        ] {
+            for secret in [
+                "Zq Secret",
+                "secret-room-id",
+                "171",
+                "205",
+                "239",
+                "dQw4w9WgXcQ",
+                "76979871",
+                "1234567890",
+            ] {
+                assert!(!text.contains(secret), "{secret} in {text}");
+            }
+        }
+    }
+
     fn title(s: &str) -> Option<RoomTitle> {
         Some(RoomTitle::parse(s).unwrap())
     }

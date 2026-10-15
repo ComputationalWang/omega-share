@@ -344,7 +344,7 @@ async fn an_unknown_host_is_421_on_every_route_before_routing() {
 // apps/server/test/boundary.test.ts:94,101
 #[tokio::test]
 async fn loopback_names_on_our_port_and_the_public_host_are_accepted_in_any_case() {
-    let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app")]).await;
+    let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"), ("TRUST_PROXY", "loopback")]).await;
     let port = fx.addr.port();
     for host in [
         format!("localhost:{port}"),
@@ -371,7 +371,7 @@ async fn loopback_names_on_our_port_and_the_public_host_are_accepted_in_any_case
 // apps/server/test/boundary.test.ts:113,122,131
 #[tokio::test]
 async fn hsts_goes_only_to_the_https_public_host_on_every_response() {
-    let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app")]).await;
+    let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"), ("TRUST_PROXY", "loopback")]).await;
     let public = [("host", "quiet-otter.ngrok-free.app")];
     for res in [
         fx.get("/healthz", &public).await,
@@ -399,7 +399,7 @@ async fn hsts_goes_only_to_the_https_public_host_on_every_response() {
 // apps/server/test/boundary.test.ts:143,154,165,175
 #[tokio::test]
 async fn origins_are_checked_before_routing_and_a_missing_origin_is_fine() {
-    let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app")]).await;
+    let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"), ("TRUST_PROXY", "loopback")]).await;
     for origin in [
         SITE,
         EXT,
@@ -1573,7 +1573,7 @@ fn og_title(html: &str) -> Option<String> {
 // apps/server/test/site.test.ts:101,109
 #[tokio::test]
 async fn the_shell_has_the_generic_card_and_is_never_cached() {
-    let fx = Fx::with_site(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app")]).await;
+    let fx = Fx::with_site(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"), ("TRUST_PROXY", "loopback")]).await;
     let host = [("host", "quiet-otter.ngrok-free.app")];
     for path in ["/", "/r/lobby", "/r/lobby/", "/r/no-such-room", "/index.html"] {
         let res = fx.get(path, &host).await;
@@ -1691,7 +1691,7 @@ async fn html_pages_serve_with_the_card_and_replace_their_own_tags() {
 // apps/server/test/site.test.ts:225-300
 #[tokio::test]
 async fn robots_security_txt_icons_and_the_manifest_are_served_with_a_days_cache() {
-    let fx = Fx::with_site(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app")]).await;
+    let fx = Fx::with_site(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"), ("TRUST_PROXY", "loopback")]).await;
     let host = [("host", "quiet-otter.ngrok-free.app")];
     let robots = fx.get("/robots.txt", &host).await;
     assert_eq!(robots.header("content-type"), Some("text/plain; charset=utf-8"));
@@ -1807,7 +1807,8 @@ async fn the_api_keeps_its_routes_next_to_the_site() {
 async fn the_gate_function_refuses_what_the_layer_refuses() {
     use crate::http::gate;
     use axum::http::{HeaderMap, HeaderValue};
-    let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app")]).await;
+    let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"), ("TRUST_PROXY", "loopback")]).await;
+    let off = Fx::start(&[]).await;
     let mut h = HeaderMap::new();
     h.insert("host", HeaderValue::from_str(&format!("127.0.0.1:{}", fx.addr.port())).unwrap());
     assert!(gate::refusal(&fx.app, &h).is_none());
@@ -1821,7 +1822,7 @@ async fn the_gate_function_refuses_what_the_layer_refuses() {
     let peer: std::net::IpAddr = "127.0.0.1".parse().unwrap();
     let mut xff = HeaderMap::new();
     xff.insert("x-forwarded-for", HeaderValue::from_static("10.9.9.9, 198.51.100.1"));
-    assert_eq!(gate::client_key(&fx.app, Some(peer), &xff), "127.0.0.1", "TRUST_PROXY is off");
+    assert_eq!(gate::client_key(&off.app, Some(peer), &xff), "127.0.0.1", "TRUST_PROXY is off");
     let proxied = Fx::proxied(&[]).await;
     assert_eq!(gate::client_key(&proxied.app, Some(peer), &xff), "198.51.100.1");
     assert_eq!(gate::client_key(&proxied.app, None, &xff), "unknown");
@@ -1983,3 +1984,5 @@ async fn a_request_in_flight_finishes_after_the_shutdown_signal_and_serve_then_r
         .unwrap()
         .unwrap();
 }
+
+mod edge;
