@@ -14,6 +14,7 @@ import { PORTS, ROOT } from "./support/apps";
 import { spawnOwned } from "./support/owned";
 import { stubExternalNetwork } from "./support/network";
 import { EVIL_HOST, PUBLIC_HOST, startTunnelProxy, type TunnelProxy } from "./fixtures/proxy";
+import { serverArgv } from "./support/server-cmd";
 
 function portFrom(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -117,7 +118,7 @@ async function startLane(ports: LanePorts, options: LaneOptions = {}): Promise<T
   const dbPath = dbDir === null ? ":memory:" : join(dbDir, "omega.db");
   options.seedDb?.(dbPath);
   let output = "";
-  const child = spawnOwned(ports.server, "bun", ["apps/server/src/index.ts"], {
+  const child = spawnOwned(ports.server, ...serverArgv(), {
     cwd: ROOT,
     env: {
       ...process.env,

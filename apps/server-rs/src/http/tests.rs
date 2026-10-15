@@ -766,6 +766,35 @@ async fn bodies_over_the_cap_are_413_by_content_length_or_by_the_stream_without_
     );
 }
 
+// e2e/m7-report-abuse.e2e.ts:519 (OME-1170): a keep-alive client must be told the connection ends, or it reuses the dead socket (EPIPE).
+#[tokio::test]
+async fn a_413_with_the_body_unread_says_connection_close() {
+    let fx = Fx::proxied(&[]).await;
+    let body = vec![b'a'; 8192];
+    let mut req = format!(
+        "POST /rooms/lobby/report HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nContent-Type: application/json\r\nX-Forwarded-For: 198.51.100.9\r\nContent-Length: {}\r\n\r\n",
+        fx.addr.port(),
+        body.len()
+    )
+    .into_bytes();
+    req.extend_from_slice(&body);
+    let mut stream = TcpStream::connect(fx.addr).await.unwrap();
+    stream.write_all(&req).await.unwrap();
+    let mut head = Vec::new();
+    let mut chunk = [0u8; 4096];
+    while !head.windows(4).any(|w| w == b"\r\n\r\n") {
+        let n = tokio::time::timeout(Duration::from_secs(10), stream.read(&mut chunk))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(n > 0, "closed before a full head");
+        head.extend_from_slice(&chunk[..n]);
+    }
+    let head = String::from_utf8_lossy(&head).to_ascii_lowercase();
+    assert!(head.starts_with("http/1.1 413"), "{head}");
+    assert!(head.contains("\r\nconnection: close\r\n"), "{head}");
+}
+
 // apps/server/test/room-create.test.ts:224,234
 #[tokio::test]
 async fn a_blocklisted_title_is_refused_whatever_the_spelling() {

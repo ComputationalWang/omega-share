@@ -39,6 +39,7 @@ import {
 import { PORTS, ROOT } from "./support/apps";
 import { spawnOwned } from "./support/owned";
 import { ownedRoom } from "./support/owned-rooms";
+import { serverArgv } from "./support/server-cmd";
 
 const SERVER_PORT = PORTS.server + 6;
 const SITE_ORIGIN = `http://localhost:${String(PORTS.web)}`;
@@ -275,7 +276,7 @@ function startServer(): { server: ServerFixture; stop: () => Promise<void> } {
     GENERIC_EMBED_DENYLIST: DENIED_DOMAIN,
   };
   let output = "";
-  const child: ChildProcess = spawnOwned(SERVER_PORT, "bun", ["apps/server/src/index.ts"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
+  const child: ChildProcess = spawnOwned(SERVER_PORT, ...serverArgv(), { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
   child.stdout?.on("data", (d: Buffer) => (output += d.toString()));
   child.stderr?.on("data", (d: Buffer) => (output += d.toString()));
   return {

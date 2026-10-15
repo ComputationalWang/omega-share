@@ -323,6 +323,7 @@
     "apps/server/test/room-create.test.ts::DELETE /rooms/:id (ADR 0028 §1, §2)::failed deletes take from a per-key bucket: guessing is 429 rate_limited after a burst",
     "apps/server/test/room-create.test.ts::DELETE /rooms/:id (ADR 0028 §1, §2)::the owner deletes: 200 ok, sockets close with ROOM_CLOSED (4004), the room leaves the list and its share tokens stop working",
     "apps/server/test/room-create.test.ts::DELETE /rooms/:id (ADR 0028 §1, §2)::unknown room is 404 room_not_found; a missing, malformed or wrong bearer is 401 unauthorized; another room's token doesn't work",
+    "apps/server/test/room-create.test.ts::GET /rooms lists public rooms only (ADR 0028 §4, research §3.5)::pinned rooms first, then by members, then newest first",
     "apps/server/test/room-create.test.ts::GET /rooms lists public rooms only (ADR 0028 §4, research §3.5)::private rooms are never listed; created rooms show their titles; seeded rooms without one carry no title",
     "apps/server/test/room-create.test.ts::POST /rooms creates a room (ADR 0028 §1)::201 with a server-chosen 26-char base32 id, the title and visibility, an owner token and no invite key for a public room",
     "apps/server/test/room-create.test.ts::POST /rooms creates a room (ADR 0028 §1)::a CORS preflight from the site allows POST and DELETE with an Authorization header",

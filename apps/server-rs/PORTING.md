@@ -172,3 +172,8 @@ How the pieces fit:
 - **No hooks in the default binary**: `tests/no_test_hooks.rs` builds the default lib in the normal target dir (dependencies shared: about 4 s warm, one crate compile cold) and fails if `/__test/`, `OMEGA_TEST_` or `__test/time` is in it. It checks the lib, not the binary, because a default binary built there would replace `debug/omega-server`, which the other integration tests run with the hooks; every hook string lives in the lib, main.rs only calls it.
 
 Behaviour the suite pins that a separate process must keep: an oversized WS frame closes with **1006**; a raw chunked POST over 4 KB gets `HTTP/1.1 413 Payload Too Large` with a `payload_too_large` body; a corrupt room row fails boot naming the room; a clean SIGTERM exits 0 with nothing on stderr; upgrade refusals (421, 403, 404, 429, 503) are plain HTTP responses before the 101; header names are lowercase.
+
+## e2e and fuzzing (OME-1170)
+- `E2E_SERVER=rust bunx playwright test --project=e2e|e2e-sync|e2e-tunnel` builds the debug binary once (`e2e/support/server-cmd.ts`) and runs every spec, including those that spawn their own server, against it. Bun stays the default. CI: `.github/workflows/e2e-rust.yml`, only on PRs touching `apps/server-rs/**`. `e2e-real` and `perf` are not run.
+- `tests/wire_fuzz.rs`: seeded fuzzing of WebSocket frames (mutated corpus frames, binary, oversized, deep JSON, duplicate keys, joins, leaves and kicks across three rooms) and HTTP bodies (`POST /rooms`, `/share`, `/queue`, `/report`). `FUZZ_ITERS=20000 FUZZ_SEED=7 cargo test --test wire_fuzz -- --nocapture` for a long run.
+- A 413 answers `Connection: close`: the body is left unread, so a keep-alive client must not reuse the socket.
