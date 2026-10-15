@@ -55,7 +55,9 @@ async function tagPath(page: Page, nickname: string, ms: number, act: () => Prom
         const seen: string[] = [];
         const end = performance.now() + duration;
         const tick = (): void => {
-          const t = (el as HTMLElement).style.transform;
+          // A tag hangs from the translate property ("x y", or "x" when y is 0, OME-1184), read as translate(x, y).
+          const [x, y = "0px"] = (el as HTMLElement).style.translate.split(" ");
+          const t = x === undefined || x === "" ? "" : `translate(${x}, ${y})`;
           if (seen.at(-1) !== t) seen.push(t);
           if (performance.now() < end) requestAnimationFrame(tick);
           else resolve(seen);

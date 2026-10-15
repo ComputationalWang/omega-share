@@ -35,7 +35,9 @@
 .seat:focus-visible { outline: 4px solid var(--ui-text); box-shadow: 0 0 0 7px var(--ui-page); }
 .seat[data-occupied="true"]:not(.mine) { cursor: default; }
 /* Name tags wear .ui-tag; the name ellipsizes inside, so the catching-up hourglass can hang off the tag's left end. */
-.tag { position: absolute; left: 0; top: 0; translate: -50% 0; max-width: 160px; height: 20px; display: flex; align-items: center; font-size: 12px; }
+/* Tags hang from `translate` (stage.ts `place`) and centre by `transform`, so the phone's --label-scale (below) grows
+ * them around their anchor. */
+.tag { position: absolute; left: 0; top: 0; transform: translateX(-50%); transform-origin: 0 0; max-width: 160px; height: 20px; display: flex; align-items: center; font-size: 12px; }
 .tag-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Floating chat bubbles (OME-730, set l .ui-float; bubbles/floats.ts): a pool of 8 slots, each riding its speaker's head
  * by transform. No CSS animation or transition (OME-802, ADR 0040): Blink restyles a running CSS animation on every main
@@ -178,6 +180,12 @@
 .stage-clip.is-phone.is-dragging { cursor: grabbing; }
 .stage-clip.is-phone .stage { will-change: transform; }
 .stage-clip.is-phone:has(:focus-visible) { outline: 2px solid var(--ui-text); outline-offset: -2px; }
+/* Zoomed out, names and bubbles stay readable (room-window.ts --label-scale, OME-1184): a tag grows around its anchor,
+ * a bubble around its speaker's head (the motion wrapper sits on the slot's anchor; floats.ts `scale` places it). */
+.stage-clip.is-phone .tag, .stage-clip.is-phone .float-motion { transform-origin: 0 0; scale: var(--label-scale, 1); }
+/* Zoom keys (OME-1184), for people who can't pinch: a row in the window's bottom-right corner, 44×44 each. */
+.room-zoom { position: absolute; right: 4px; bottom: 4px; display: flex; gap: 4px; }
+.room-zoom > .ui-button { display: inline-flex; align-items: center; width: 44px; height: 44px; margin: 0; padding: 0; justify-content: center; font-size: 16px; font-weight: 700; }
 /* Seats: a 52×44 oval to the finger instead of the floor diamond. */
 .ui-touch .seat { left: -26px; top: -22px; width: 52px; height: 44px; border-radius: 50%; transform: none; }
 .ui-touch .seat:focus-visible { outline: 2px solid var(--ui-text); outline-offset: -2px; box-shadow: inset 0 0 0 4px var(--ui-page); }

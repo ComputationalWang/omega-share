@@ -50,14 +50,17 @@ export interface Stage {
   seat(i: number): Point | undefined;
   /** Where a member is drawn now, or was put by the last render. */
   anchor(id: MemberId): Point | undefined;
+  /** Bubbles are shown `k`× their size (the phone's zoomed-out room window, OME-1184). */
+  labelScale(k: number): void;
   /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
   head(id: MemberId): Point | undefined;
   /** How many times the furniture was rebuilt for a new layout. */
   layoutBuilds(): number;
 }
 
+/** A name tag's anchor: `translate`, so room.css's centring and readable-zoom scale stay in `transform` / `scale`. */
 function place(e: HTMLElement, p: Point): void {
-  e.style.transform = `translate(${String(p.x)}px, ${String(p.y)}px)`;
+  e.style.translate = `${String(p.x)}px ${String(p.y)}px`;
 }
 
 function box(e: HTMLElement, r: Rect): void {
@@ -333,6 +336,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       else hiddenIds.delete(id);
       tagEls.get(id)?.classList.toggle("is-hidden", hidden);
       view.setDimmed(id, hidden);
+    },
+    labelScale: (k) => {
+      floats.scale(k);
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),

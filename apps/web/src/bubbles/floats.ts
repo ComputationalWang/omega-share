@@ -77,6 +77,11 @@ export interface Floats {
   settle(id: MemberId, x: number, y: number): void;
   /** Drop the bubbles of anyone not in `ids` (they left). */
   keep(ids: { has(id: MemberId): boolean }): void;
+  /**
+   * Bubbles are shown `k`× their measured size (OME-1184: room.css --label-scale on the motion wrapper, zoomed out on a
+   * phone): they're clamped and stacked by the size they're shown at, and the ones up are placed again.
+   */
+  scale(k: number): void;
 }
 
 export interface FloatsOptions {
@@ -187,6 +192,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   const order: Slot[] = [];
   let seq = 0;
   let clock: unknown = null;
+  /** Bubbles show k× their measured size (OME-1184, `scale`); pushes and dx are stage px. */
+  let k = 1;
 
   /** Back to the pool; `hide` false when the node is reused at once (it stays shown: one attribute write fewer). */
   const free = (s: Slot, hide = true): void => {
@@ -258,12 +265,16 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     s.outer.style.transform = `translate(${px(x)}, ${px(y)})`;
   };
 
-  /** Keep the box inside the stage's sides; the tail leans when the speaker is past a straight tail's reach. */
+  /**
+   * Keep the box inside the stage's sides; the tail leans when the speaker is past a straight tail's reach. `dx` is in
+   * stage px; the box's own styles are in its px (shown `k`× inside the motion wrapper).
+   */
   const placeBox = (s: Slot): void => {
-    const left = Math.round(Math.max(MARGIN, Math.min(STAGE_W - MARGIN - s.w, s.ax - s.w / 2)));
+    const w = s.w * k;
+    const left = Math.round(Math.max(MARGIN, Math.min(STAGE_W - MARGIN - w, s.ax - w / 2)));
     s.dx = left - Math.round(s.ax);
-    const tailX = Math.max(TAIL_MIN, Math.min(s.w - TAIL_MIN, -s.dx));
-    s.p.style.left = px(s.dx);
+    const tailX = Math.max(TAIL_MIN, Math.min(s.w - TAIL_MIN, -s.dx / k));
+    s.p.style.left = px(s.dx / k);
     s.p.style.top = px(-(s.h + TAIL_BELOW));
     s.p.style.setProperty("--tail-x", px(tailX));
     s.p.classList.toggle("tail-sw", tailX < TAIL_S_REACH);
@@ -273,7 +284,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   const setPush = (s: Slot, push: number): void => {
     if (push === s.push) return;
     s.push = push;
-    s.motion.style.transform = push === 0 ? "" : `translateY(${px(-push)})`;
+    s.motion.style.transform = push === 0 ? "" : `translateY(${px(-push / k)})`;
   };
 
   /**
@@ -312,19 +323,19 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           const lead = reduced ? 0 : Math.max(0, Math.min(Math.floor(((n.startedAt - s.startedAt) * FLOAT_RISE) / FLOAT_LIFE_MS), s.rise - n.rise));
           const x0 = s.ax + s.dx;
           const nx0 = n.ax + n.dx;
-          if (x0 >= nx0 + n.w || nx0 >= x0 + s.w) continue;
-          const top = s.ay - (s.h + TAIL_BELOW) - push - lead;
-          const bottom = top + s.h;
-          const nTop = n.ay - (n.h + TAIL_BELOW) - n.push;
-          const nBottom = nTop + n.h + (n.stacked ? 0 : TAIL_BELOW);
-          if (top >= nBottom + GAP || bottom + (s.stacked ? 0 : TAIL_BELOW) + GAP <= nTop) continue;
+          if (x0 >= nx0 + n.w * k || nx0 >= x0 + s.w * k) continue;
+          const top = s.ay - (s.h + TAIL_BELOW) * k - push - lead;
+          const bottom = top + s.h * k;
+          const nTop = n.ay - (n.h + TAIL_BELOW) * k - n.push;
+          const nBottom = nTop + (n.h + (n.stacked ? 0 : TAIL_BELOW)) * k;
+          if (top >= nBottom + GAP || bottom + (s.stacked ? 0 : TAIL_BELOW * k) + GAP <= nTop) continue;
           push += Math.max(0, bottom + GAP - nTop);
           // Re-measured and re-centred: the next pass checks the box as it now is.
           if (!s.stacked) stack(s);
           moved = true;
         }
       }
-      if (i > 0 && s.ay - (s.h + TAIL_BELOW) - push - (reduced ? 0 : FLOAT_RISE) < ROOM_VIEW.y) {
+      if (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - (reduced ? 0 : FLOAT_RISE) < ROOM_VIEW.y) {
         leave(s);
         continue;
       }
@@ -441,6 +452,19 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     },
     keep(ids) {
       for (const s of slots) if (s.speaker !== null && !ids.has(s.speaker)) free(s);
+    },
+    scale(next) {
+      if (next === k) return;
+      k = next;
+      for (const s of slots) {
+        if (s.state === FREE || !s.measured) continue;
+        placeBox(s);
+        // The push is written in the wrapper's own px: rewrite it at the new scale (live ones are stacked again below).
+        const push = s.state === LIVE ? 0 : s.push;
+        s.push = Number.NaN;
+        setPush(s, push);
+      }
+      resolve();
     },
   };
 }
