@@ -40,7 +40,8 @@ if [[ -n "$newest" && "$(printf '%s\n%s\n' "$max" "$newest" | sort -V | tail -1)
   fail "needs GLIBC_$newest, newer than the pinned $max"
 fi
 
-for needle in /__test/ OMEGA_TEST_ load_extension /home/; do
+# /apps/server-rs: an absolute build path (CARGO_MANIFEST_DIR) that --remap-path-prefix cannot rewrite.
+for needle in /__test/ OMEGA_TEST_ load_extension /home/ /apps/server-rs; do
   grep -aq -- "$needle" "$bin" && fail "contains '$needle'"
 done
 
