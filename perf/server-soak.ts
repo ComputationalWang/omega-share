@@ -132,9 +132,15 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
   const segments: Sample[][] = [[]];
   const lat: { tMs: number; ms: number }[] = [];
   const unexpected: string[] = [];
+  const unexpectedBy = new Map<string, number>();
+  const note = (cls: string, detail: string): void => {
+    unexpectedBy.set(cls, (unexpectedBy.get(cls) ?? 0) + 1);
+    if (unexpected.length < 20) unexpected.push(`${cls}: ${detail}`);
+  };
   let unexpectedCloses = 0;
   let unplannedExits = 0;
   let probeTimeouts = 0;
+  let badMessages = 0;
   let stopping = false as boolean;
   let paused = false as boolean;
   const stopped = (): boolean => stopping;
@@ -246,6 +252,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
     } else if (d.startsWith('{"type":"error"')) {
       const code = String((JSON.parse(d) as Json)["code"]);
       errorsSeen.set(code, (errorsSeen.get(code) ?? 0) + 1);
+      if (code === "bad_message") badMessages++;
       if (!c.alive || c.self === "") done.fail(`join refused: ${code}`);
     } else if (d.startsWith('{"type":"room-full"')) done.fail("room full");
   };
@@ -295,7 +302,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
             countClose(code);
             if (!c.expected && !stopping) {
               unexpectedCloses++;
-              if (unexpected.length < 20) unexpected.push(`${c.room.kind} ${c.nickname}: ${why}${code === undefined ? "" : ` ${String(code)}`}${wasAlive ? "" : " (before join)"}`);
+              note(`${c.room.kind} socket closed${wasAlive ? "" : " before join"}${code === undefined ? "" : ` (${String(code)})`}`, `${c.nickname}: ${why}`);
             }
             done.fail(`closed before join: ${why}`);
           },
@@ -332,7 +339,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
     } catch (err) {
       if (!stopped()) {
         op("step-error");
-        if (unexpected.length < 20) unexpected.push(`step: ${err instanceof Error ? err.message : String(err)}`);
+        note("step failed", err instanceof Error ? err.message : String(err));
       }
     } finally {
       inflight--;
@@ -439,7 +446,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
   let layoutN = 0;
   const churnRoom = (room: RoomRef): void => {
     loop(5000, () => reconnectOne(room));
-    // owner edits: layout, title, control policy (a quick toggle that restores "anyone")
+    // owner edits: layout, title, control policy (a quick toggle that restores "everyone")
     loop(9000, async () => {
       const owner = ownerOf(room);
       if (owner === undefined) return;
@@ -450,7 +457,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
       await sleep(2500);
       owner.send({ type: "control-policy", policy: "owner" });
       await sleep(1500);
-      owner.send({ type: "control-policy", policy: "anyone" });
+      owner.send({ type: "control-policy", policy: "everyone" });
     });
     // queue add (ws and HTTP), advance, ended, and a share from a member
     loop(8000, async () => {
@@ -595,7 +602,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
     const cut = await Promise.race([gone.then(() => true), sleep(deadlineMs).then(() => false)]);
     if (cut) a.cut++;
     else {
-      if (unexpected.length < 20) unexpected.push(`abuser ${kind} not cut within ${String(deadlineMs)} ms`);
+      note(`abuser ${kind} not cut`, `within ${String(deadlineMs)} ms`);
       ws.close();
     }
   };
@@ -607,7 +614,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
       const sock = connect(port, "127.0.0.1");
       const timer = setTimeout(() => {
         timedOut = true;
-        if (unexpected.length < 20) unexpected.push("abuser slow-body not cut within 90000 ms");
+        note("abuser slow-body not cut", "within 90000 ms");
         sock.destroy();
         res();
       }, 90_000);
@@ -792,7 +799,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
         try {
           await connectClient(fresh);
         } catch (err) {
-          if (unexpected.length < 20) unexpected.push(`rejoin ${c.nickname}: ${err instanceof Error ? err.message : String(err)}`);
+          note("rejoin after restart failed", `${c.nickname}: ${err instanceof Error ? err.message : String(err)}`);
           unexpectedCloses++;
           return;
         }
@@ -862,7 +869,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
     plannedRestarts: planned,
     unplannedExits,
     unexpectedCloses,
-    badMessages: 0,
+    badMessages,
     errors: tally.unexpectedErrors([...EXPECTED_ERROR_EVENTS, ...args.allowErrors]),
     integrity,
     consistency,
@@ -889,6 +896,7 @@ export async function runSoak(args: SoakArgs): Promise<{ pass: boolean; checks: 
     ops: Object.fromEntries(ops),
     abuse: result.abuse,
     unexpected,
+    unexpectedBy: Object.fromEntries(unexpectedBy),
     consistency,
     integrity,
   };

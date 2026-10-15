@@ -207,6 +207,7 @@ export function evaluate(r: SoakResult): Check[] {
   const abuse = (list: SoakResult["abuse"]): string => list.map((a) => `${a.kind} ${String(a.cut)}/${String(a.started)}`).join(", ");
   const notCut = r.abuse.filter((a) => a.cut !== a.started);
   add("abusive clients cut", notCut.length === 0, notCut.length === 0 ? abuse(r.abuse) || "none ran" : abuse(notCut));
+  add("client frames well-formed", r.badMessages === 0, `${String(r.badMessages)} bad_message answers to the soak's own clients (a harness bug if not 0)`);
   add("unexpected closes", r.unexpectedCloses === 0, `${String(r.unexpectedCloses)} sockets closed that the soak did not expect`);
   return checks;
 }
