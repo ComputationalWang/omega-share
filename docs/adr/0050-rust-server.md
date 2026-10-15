@@ -29,3 +29,7 @@ The company was paused (all agents and routines) for the port, and the TS server
 - `bun run check` runs `bun run check:rs` too: `cargo fmt --check`, `clippy -D warnings`, `cargo test`, `cargo deny check`. Agents need the pinned toolchain (`mise` installs `rust`) and `cargo-deny`. Worktrees share one Cargo target dir (`CARGO_TARGET_DIR`), and at most 2 builds run at once.
 - `apps/server-rs/PORTING.md` is the working guide: module map, rules, contract hazards, the black-box suite plan.
 - ADR 0001's "anything that doesn't run on Bun needs an ADR": this is that ADR.
+
+## Security note: connection limits behind the proxy
+
+Production runs behind Caddy on the box. Caddy pools its upstream connections, so idle client connections never reach the origin, and every origin request is limited per client by its `X-Forwarded-For` key (rate bucket, 64 in flight per key, 256 in all). WebSockets map 1:1 to client connections and have a per-key cap at upgrade. Per-client connection limits therefore belong to Caddy; the origin keeps only the global open-connection cap and the per-address cap for direct (non-loopback) peers. The S11 deploy checklist verifies Caddy's timeouts and per-client limits.

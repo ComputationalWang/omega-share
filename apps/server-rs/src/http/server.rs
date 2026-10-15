@@ -129,6 +129,8 @@ struct StallGuard {
     inner: TcpStream,
     stall: Duration,
     timer: Option<Pin<Box<Sleep>>>,
+    /// The timer is counting a stall that began at its last reset (it is reused, not reallocated, per episode).
+    armed: bool,
     /// Held as long as the stream lives, so an upgraded WebSocket keeps its place too.
     _permit: Permit,
 }
@@ -136,11 +138,15 @@ struct StallGuard {
 impl StallGuard {
     fn guard<T>(&mut self, cx: &mut Context<'_>, polled: Poll<std::io::Result<T>>) -> Poll<std::io::Result<T>> {
         if polled.is_ready() {
-            self.timer = None;
+            self.armed = false;
             return polled;
         }
-        let stall = self.stall;
-        let timer = self.timer.get_or_insert_with(|| Box::pin(tokio::time::sleep(stall)));
+        let deadline = tokio::time::Instant::now() + self.stall;
+        let timer = self.timer.get_or_insert_with(|| Box::pin(tokio::time::sleep_until(deadline)));
+        if !self.armed {
+            timer.as_mut().reset(deadline);
+            self.armed = true;
+        }
         if timer.as_mut().poll(cx).is_ready() {
             return Poll::Ready(Err(std::io::ErrorKind::TimedOut.into()));
         }
@@ -240,6 +246,7 @@ pub async fn serve_limited(
             inner: stream,
             stall: limits.write_stall,
             timer: None,
+            armed: false,
             _permit: permit,
         };
         let connection = http1::Builder::new()
