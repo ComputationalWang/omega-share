@@ -137,6 +137,8 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | Config knobs `MAX_CONNECTIONS_PER_IP`, `JOIN_TIMEOUT_MS`, `STATUS_INTERVAL_MS` | `startServer` options only | also environment variables (the black-box harness maps the options onto them) |
 | Usage lines of the operator tools | `usage: cli.ts rooms list …`, `usage: backup.ts snapshot …` | `usage: omega-server admin …`, `usage: omega-server backup …` (the command is the binary) |
 | CLI: a date outside the JS `Date` range (more than 8.64e15 ms from the epoch) in an answer | `toISOString` throws, the CLI dies with a stack | `unexpected answer from the server`, exit 1 |
+| `backup restore` with `ADMIN_SOCKET=off` (residual risk) | n/a | no socket to ask whether a server runs, so only the checkpoint's busy check (the server holds the DB) guards the swap |
+| Admin socket start with a stale socket file (L8, residual risk) | n/a | connect-first race: two simultaneous starts could both see the stale file and both bind; systemd never starts two instances |
 | Error text of an unreachable admin socket (`no server on <socket>: …`) and of failed file operations in `backup` | Bun's / Node's error message | the OS error text (`Connection refused (os error 111)`) |
 | Backup | `VACUUM INTO` | SQLite's online backup API in one step (same one-read-transaction consistency); a symlink found inside the backup directory is replaced or unlinked, never followed |
 | `restore`: the old DB kept aside when a hard link is not possible | `copyFileSync` (overwrites an existing `<db>.pre-restore-<stamp>`) | exclusive create (`create_new`): an existing file is an error, never overwritten or followed |

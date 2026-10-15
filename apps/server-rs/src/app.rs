@@ -383,7 +383,12 @@ impl App {
     }
 
     /// The hooks of a room already unlinked from the registry (`remove_room`, and GC after `remove_if`).
-    pub(crate) fn end_room(&self, cell: &Arc<RoomCell>, reason: RemoveReason, mut seen: impl FnMut(Hook)) {
+    pub(crate) fn end_room(&self, cell: &Arc<RoomCell>, reason: RemoveReason, seen: impl FnMut(Hook)) {
+        self.end_room_with(cell, reason, seen, false);
+    }
+
+    /// `end_room`; `keep_row` leaves the stored row so the next boot restores the room (a poisoned pinned room).
+    pub(crate) fn end_room_with(&self, cell: &Arc<RoomCell>, reason: RemoveReason, mut seen: impl FnMut(Hook), keep_row: bool) {
         seen(Hook::Reports);
         self.reports.drop_room(&cell.id);
 
@@ -401,6 +406,9 @@ impl App {
         }
 
         seen(Hook::Store);
+        if keep_row {
+            return;
+        }
         // The room is gone from memory; a row that survives comes back at the next boot, where GC or the operator can end it.
         let deleted = self.store().rooms().delete_room(&cell.id);
         if let Err(err) = deleted {

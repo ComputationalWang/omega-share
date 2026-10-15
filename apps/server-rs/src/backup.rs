@@ -363,7 +363,7 @@ pub fn restore(snapshot_path: &Path, db_path: &Path, now_ms: i64) -> Result<Rest
 fn refuse_if_serving(env: &Env, db_path: &Path, cwd: &Path) -> Result<(), String> {
     let socket = match env.get("ADMIN_SOCKET").map(String::as_str) {
         Some("off") => return Ok(()),
-        Some(raw) if !raw.is_empty() => PathBuf::from(raw),
+        Some(raw) if !raw.is_empty() => crate::config::resolve(cwd, raw),
         _ => dir_of(db_path).join("admin.sock"),
     };
     match std::os::unix::net::UnixStream::connect(&socket) {
