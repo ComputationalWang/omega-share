@@ -71,7 +71,7 @@ const sidesFit = (r: Rect, side: number, width: number): boolean => r.x >= side 
 /** Set (k) phone watch layout (OME-596): at most this wide, the room page stacks TV, room and chat, with no editor. */
 export const PHONE_MAX_W = 600;
 export const PHONE_QUERY = `(max-width: ${String(PHONE_MAX_W)}px)`;
-/** The phone's room window: the stage at 1×, cropped to this height (set k: "cropped to the seats"). */
+/** The phone's room window: the stage at 1× (until the viewer zooms it, OME-1184), cropped to this height (set k: "cropped to the seats"). */
 export const PHONE_ROOM_H = 270;
 
 /**
@@ -297,19 +297,43 @@ export function popRoomLayout(width: number, height: number): PopRoomLayout {
   };
 }
 
-/** The top-left of a `view`-sized window onto the stage centred on `centre` (stage px), kept on the stage, whole pixels. */
-export function panTo(view: { readonly w: number; readonly h: number }, centre: Point, _zoom = 1): Point {
+/**
+ * The top-left of a `view`-sized window onto the stage centred on `centre` (stage px), kept on the stage, whole pixels.
+ * At `zoom` (OME-1184) the window covers `view / zoom` stage px.
+ */
+export function panTo(view: { readonly w: number; readonly h: number }, centre: Point, zoom = 1): Point {
+  const w = view.w / zoom;
+  const h = view.h / zoom;
   const clamp = (v: number, max: number): number => Math.max(0, Math.min(Math.max(0, max), Math.round(v)));
-  return { x: clamp(centre.x - view.w / 2, STAGE_W - view.w), y: clamp(centre.y - view.h / 2, STAGE_H - view.h) };
+  return { x: clamp(centre.x - w / 2, STAGE_W - w), y: clamp(centre.y - h / 2, STAGE_H - h) };
 }
 
-// OME-1184 stubs (red).
-export const MAX_ZOOM = 1;
-export const minZoom = (_view: { readonly w: number; readonly h: number }): number => 1;
-export const clampZoom = (_z: number, _view: { readonly w: number; readonly h: number }): number => 1;
-export const labelScale = (_zoom: number): number => 1;
-export const readZoom = (_s: string | null): number | null => null;
-export const pinchView = (_start: { zoom: number; at: Point; dist: number }, _now: { dist: number; mid: Point }, _view: { readonly w: number; readonly h: number }): { zoom: number; centre: Point } => ({ zoom: 1, centre: { x: 0, y: 0 } });
+interface Size { readonly w: number; readonly h: number }
+
+/** The phone window's zoom range (OME-1184): from the whole stage on screen (never above 1×) up to this. */
+export const MAX_ZOOM = 2;
+export const minZoom = (view: Size): number => Math.min(1, view.w / STAGE_W, view.h / STAGE_H);
+export const clampZoom = (z: number, view: Size): number => (Number.isFinite(z) ? Math.max(minZoom(view), Math.min(MAX_ZOOM, z)) : 1);
+
+/** Zoomed out, names and bubbles are counter-scaled so they never show below this fraction of their 1× size. */
+const LABEL_MIN = 0.85;
+export const labelScale = (zoom: number): number => Math.max(1, LABEL_MIN / zoom);
+
+/** The stored zoom is untrusted (anyone can edit localStorage): a positive finite number, or null. */
+export function readZoom(s: string | null): number | null {
+  const z = Number(s ?? "");
+  return s !== null && s !== "" && Number.isFinite(z) && z > 0 ? z : null;
+}
+
+/**
+ * A pinch that started at `start` (zoom, the stage point under the fingers' midpoint, the fingers' distance), now
+ * `now` (distance, midpoint in window px): the zoom scales with the distance, and the start's stage point stays under
+ * the midpoint. Returns the window's new centre (stage px) for `panTo`.
+ */
+export function pinchView(start: { readonly zoom: number; readonly at: Point; readonly dist: number }, now: { readonly dist: number; readonly mid: Point }, view: Size): { zoom: number; centre: Point } {
+  const zoom = clampZoom(start.dist > 0 ? (start.zoom * now.dist) / start.dist : start.zoom, view);
+  return { zoom, centre: { x: start.at.x - now.mid.x / zoom + view.w / (2 * zoom), y: start.at.y - now.mid.y / zoom + view.h / (2 * zoom) } };
+}
 
 /** A stage-space rect on the page. */
 export function stageToPage(l: RoomLayout, r: Rect): Rect {

@@ -56,8 +56,9 @@ export interface Stage {
   layoutBuilds(): number;
 }
 
+/** A name tag's anchor: `translate`, so room.css's centring and readable-zoom scale stay in `transform` / `scale`. */
 function place(e: HTMLElement, p: Point): void {
-  e.style.transform = `translate(${String(p.x)}px, ${String(p.y)}px)`;
+  e.style.translate = `${String(p.x)}px ${String(p.y)}px`;
 }
 
 function box(e: HTMLElement, r: Rect): void {

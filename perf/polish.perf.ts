@@ -76,10 +76,10 @@ async function joinWithVideo(
   return clients;
 }
 
-/** Every nickname tag's transform on `page` now, by nickname: one cheap read, outside the traced window. */
+/** Every nickname tag's anchor (`translate`) on `page` now, by nickname: one cheap read, outside the traced window. */
 const tagTransforms = (page: Page): Promise<Record<string, string>> =>
   page.evaluate(() =>
-    Object.fromEntries([...document.querySelectorAll("[data-testid='nickname-tag']")].map((t) => [t.textContent, (t as HTMLElement).style.transform])),
+    Object.fromEntries([...document.querySelectorAll("[data-testid='nickname-tag']")].map((t) => [t.textContent, (t as HTMLElement).style.translate])),
   );
 
 /**
