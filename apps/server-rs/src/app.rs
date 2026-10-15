@@ -38,9 +38,14 @@ use icu_properties::props::{GeneralCategory, GeneralCategoryGroup};
 use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-/// Locks a mutex, recovering a poisoned one (a handler panicked): the data is plain state that is still valid.
+/// Locks a store or reports mutex. A poisoned one (a handler panicked) is logged once and recovered: that state is
+/// single statements or transactions, so it is still valid. A room's own lock is different, see `RoomCell::lock`.
 pub fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    m.lock().unwrap_or_else(|poisoned| {
+        m.clear_poison();
+        crate::log::log_error(crate::log::LogEvent::StatePoisoned, None);
+        poisoned.into_inner()
+    })
 }
 
 /// Why the process cannot start. The binary prints it on stderr and exits 1.
@@ -62,7 +67,8 @@ impl fmt::Display for BootError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Db { path, cause } => write!(f, "DB_PATH {path}: {cause}"),
-            Self::Store(e) => write!(f, "{e}"),
+            // A corrupt room is named (persistence.test.ts:134), but its id is stored data: escaped like a title.
+            Self::Store(e) => write!(f, "{}", crate::cli::printable(&e.to_string())),
             Self::Policy(e) => write!(f, "{e}"),
             Self::Entropy(e) => write!(f, "{e}"),
         }
@@ -377,7 +383,12 @@ impl App {
     }
 
     /// The hooks of a room already unlinked from the registry (`remove_room`, and GC after `remove_if`).
-    pub(crate) fn end_room(&self, cell: &Arc<RoomCell>, reason: RemoveReason, mut seen: impl FnMut(Hook)) {
+    pub(crate) fn end_room(&self, cell: &Arc<RoomCell>, reason: RemoveReason, seen: impl FnMut(Hook)) {
+        self.end_room_with(cell, reason, seen, false);
+    }
+
+    /// `end_room`; `keep_row` leaves the stored row so the next boot restores the room (a poisoned pinned room).
+    pub(crate) fn end_room_with(&self, cell: &Arc<RoomCell>, reason: RemoveReason, mut seen: impl FnMut(Hook), keep_row: bool) {
         seen(Hook::Reports);
         self.reports.drop_room(&cell.id);
 
@@ -395,6 +406,9 @@ impl App {
         }
 
         seen(Hook::Store);
+        if keep_row {
+            return;
+        }
         // The room is gone from memory; a row that survives comes back at the next boot, where GC or the operator can end it.
         let deleted = self.store().rooms().delete_room(&cell.id);
         if let Err(err) = deleted {
@@ -764,6 +778,32 @@ mod tests {
         assert_eq!(e.to_string(), "DB_PATH /data/omega.db: database file: permission denied");
         let e = BootError::Store(StoreError::CorruptRoom { id: "\"lobby\"".into() });
         assert!(e.to_string().contains("lobby"));
+    }
+
+    // M2: store and reports state is single statements, so a poisoned lock is logged once and serving continues.
+    #[test]
+    fn a_poisoned_state_lock_is_recovered_and_the_poison_cleared() {
+        let m = Arc::new(Mutex::new(1));
+        let m2 = Arc::clone(&m);
+        let _ = std::thread::spawn(move || {
+            let _g = m2.lock();
+            panic!("bug");
+        })
+        .join();
+        assert!(m.is_poisoned());
+        assert_eq!(*lock(&m), 1);
+        assert!(!m.is_poisoned(), "logged once, not on every later lock");
+    }
+
+    // L4: the corrupt room is still named, but a stored id cannot drive the operator's terminal.
+    #[test]
+    fn the_corrupt_room_in_a_boot_error_is_escaped() {
+        let e = BootError::Store(StoreError::CorruptRoom {
+            id: "\"lo\u{7f}b\u{85}by\u{1b}[2J\"".into(),
+        });
+        let text = e.to_string();
+        assert!(text.contains("lo\\u007fb\\u0085by\\u001b[2J"), "{text}");
+        assert!(!text.chars().any(char::is_control), "{text:?}");
     }
 }
 

@@ -1,0 +1,7 @@
+# Read by cargo (and cargo-zigbuild) for every target, host or cross, so the aarch64 release gets the same SQLite.
+# The bundled SQLite is compiled by libsqlite3-sys's build script through the `cc` crate, which appends these flags
+# after its own: with zig as the cross C compiler they are plain preprocessor flags it accepts unchanged.
+# - No loadable extensions: `load_extension()` does not exist, so no SQL (or SQL injection) can load native code.
+# - SQLITE_DQS=0: a double-quoted token is an identifier, never a string literal (a typo cannot silently match a column name).
+[env]
+LIBSQLITE3_FLAGS = "-USQLITE_ENABLE_LOAD_EXTENSION -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_DQS=0"

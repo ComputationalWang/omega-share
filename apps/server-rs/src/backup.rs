@@ -8,9 +8,9 @@
 use crate::cli::time;
 use crate::config::Env;
 use crate::store::RoomStore;
-use crate::store::db::latest_migration;
+use crate::store::db::{latest_migration, open_raw};
+use rusqlite::OpenFlags;
 use rusqlite::backup::{Backup, StepResult};
-use rusqlite::{Connection, OpenFlags};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, ErrorKind, Read};
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
@@ -96,8 +96,7 @@ fn check(path: &Path) -> Result<usize, String> {
     if !has_magic(path)? {
         return Err("not an SQLite database".to_owned());
     }
-    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX)
-        .map_err(|e| format!("cannot open: {e}"))?;
+    let conn = open_raw(path, OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(|e| format!("cannot open: {e}"))?;
     let integrity: Vec<String> = conn
         .prepare("PRAGMA integrity_check")
         .and_then(|mut s| s.query_map([], |r| r.get::<_, String>(0))?.collect())
@@ -218,11 +217,9 @@ pub fn prune(dir: &Path, keep: usize, now_ms: i64) -> Result<Vec<PathBuf>, Strin
 /// and renames it to `final_path`.
 fn build(db_path: &Path, tmp: &Path, final_path: &Path) -> Result<(), String> {
     {
-        let src =
-            Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(sqlerr)?;
+        let src = open_raw(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(sqlerr)?;
         src.busy_timeout(Duration::from_millis(5000)).map_err(sqlerr)?;
-        let mut dst =
-            Connection::open_with_flags(tmp, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(sqlerr)?;
+        let mut dst = open_raw(tmp, OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(sqlerr)?;
         // -1 pages per step: the whole copy in one step, one consistent point in time.
         let backup = Backup::new(&src, &mut dst).map_err(sqlerr)?;
         // A source locked by a writer is retried for up to 30 s, as the busy timeout would.
@@ -275,7 +272,7 @@ pub fn snapshot(db_path: &Path, dir: &Path, now_ms: i64) -> Result<PathBuf, Stri
 /// frames there that the main file alone doesn't have. Fails when another connection holds the DB, i.e. the server
 /// is still running.
 fn checkpoint(db_path: &Path) -> Result<(), String> {
-    let conn = Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(sqlerr)?;
+    let conn = open_raw(db_path, OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(sqlerr)?;
     conn.busy_timeout(Duration::ZERO).map_err(sqlerr)?;
     let busy: i64 = conn
         .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |r| r.get(0))
@@ -359,6 +356,25 @@ pub fn restore(snapshot_path: &Path, db_path: &Path, now_ms: i64) -> Result<Rest
     Ok(Restored { rooms, previous })
 }
 
+/// L6: refuses while a server answers on the admin socket (`ADMIN_SOCKET`, else beside the DB, as the server
+/// binds it): swapping the file under a live server would lose its writes. A flock would need `unsafe`/libc, and
+/// the socket is bound only while the server runs (a crash leaves a stale file that nothing answers on).
+/// `ADMIN_SOCKET=off` has no socket to ask: the checkpoint in `restore` (busy while the server holds the DB) still guards it.
+fn refuse_if_serving(env: &Env, db_path: &Path, cwd: &Path) -> Result<(), String> {
+    let socket = match env.get("ADMIN_SOCKET").map(String::as_str) {
+        Some("off") => return Ok(()),
+        Some(raw) if !raw.is_empty() => crate::config::resolve(cwd, raw),
+        _ => dir_of(db_path).join("admin.sock"),
+    };
+    match std::os::unix::net::UnixStream::connect(&socket) {
+        Ok(_) => Err(format!(
+            "refusing to restore: a server is running (it answers on {}): stop the server first",
+            socket.display()
+        )),
+        Err(_) => Ok(()),
+    }
+}
+
 const USAGE: &str = "usage: omega-server backup snapshot | verify <file> | restore <file> | prune   (env: DB_PATH, BACKUP_DIR)";
 
 /// The usage line (`backup.ts` becomes `omega-server backup`: the one deliberate difference in the text).
@@ -394,6 +410,8 @@ pub fn run_backup(args: &[String], env: &Env, now_ms: i64, out: &mut dyn FnMut(&
             }
             (Some("verify"), Some(file)) => out(&format!("ok {file}: {} rooms", verify_snapshot(Path::new(file))?)),
             (Some("restore"), Some(file)) => {
+                let cwd = std::env::current_dir().map_err(|e| format!("cannot read the working directory: {e}"))?;
+                refuse_if_serving(env, Path::new(db_path), &cwd)?;
                 let done = restore(Path::new(file), Path::new(db_path), now_ms)?;
                 out(&format!("restored {file} \u{2192} {db_path}: {} rooms", done.rooms));
                 if let Some(previous) = done.previous {
@@ -802,6 +820,52 @@ mod tests {
         assert_eq!(done, Restored { rooms: 2, previous: None });
         assert_eq!(mode(&live), 0o600);
         assert_eq!(rooms(&live), ["lobby", "den"]);
+    }
+
+    // L6: a running server answers on its admin socket; restore must not swap the file under it.
+    #[test]
+    fn restore_through_the_cli_refuses_while_the_admin_socket_answers() {
+        let t = tempfile::tempdir().unwrap();
+        let live = t.path().join("live/omega.db");
+        seed(&live, 0);
+        let snap = snapshot(&live, &t.path().join("backups"), NIGHT).unwrap();
+        let sock = t.path().join("live/admin.sock");
+        let listener = std::os::unix::net::UnixListener::bind(&sock).unwrap();
+        let before = std::fs::read(&live).unwrap();
+        let env: Env = [("DB_PATH".to_owned(), live.display().to_string())].into();
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let code = run_backup(
+            &args(&["restore", snap.to_str().unwrap()]),
+            &env,
+            NIGHT,
+            &mut |l| out.push(l.to_owned()),
+            &mut |l| err.push(l.to_owned()),
+        );
+        assert_eq!((code, out.len()), (1, 0), "{err:?}");
+        assert!(err[0].contains("running") && err[0].contains("stop the server"), "{err:?}");
+        assert_eq!(std::fs::read(&live).unwrap(), before, "nothing changed");
+        drop(listener);
+        // A stale socket file (nothing listens) does not block a restore of a stopped server.
+        let env_off: Env = [("DB_PATH".to_owned(), live.display().to_string())].into();
+        let code = run_backup(
+            &args(&["restore", snap.to_str().unwrap()]),
+            &env_off,
+            NIGHT,
+            &mut |_| {},
+            &mut |l| err.push(l.to_owned()),
+        );
+        assert_eq!(code, 0, "{err:?}");
+    }
+
+    // L6 (review): a relative ADMIN_SOCKET resolves against the working directory, as the server does.
+    #[test]
+    fn a_relative_admin_socket_is_resolved_against_the_working_directory() {
+        let t = tempfile::tempdir().unwrap();
+        let _listener = std::os::unix::net::UnixListener::bind(t.path().join("run.sock")).unwrap();
+        let env: Env = [("ADMIN_SOCKET".to_owned(), "x/../run.sock".to_owned())].into();
+        let db = t.path().join("elsewhere/omega.db");
+        assert!(refuse_if_serving(&env, &db, t.path()).is_err());
+        assert!(refuse_if_serving(&env, &db, &t.path().join("other")).is_ok());
     }
 
     // apps/server/test/backup.test.ts:311
