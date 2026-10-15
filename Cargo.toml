@@ -38,4 +38,6 @@ incremental = true
 [profile.release]
 lto = "fat"
 codegen-units = 1
-debug = "line-tables-only"
+debug = false
+strip = "symbols"
+overflow-checks = true

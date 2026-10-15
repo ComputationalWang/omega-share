@@ -176,7 +176,7 @@ fn parse_origin(key: &'static str, raw: &str, http_on_loopback: bool) -> Result<
 }
 
 /// Node's `path.resolve`: absolute and lexically normalised, symlinks untouched.
-fn resolve(cwd: &Path, raw: &str) -> PathBuf {
+pub(crate) fn resolve(cwd: &Path, raw: &str) -> PathBuf {
     let mut out = PathBuf::new();
     for part in cwd.join(raw).components() {
         match part {

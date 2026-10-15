@@ -137,6 +137,9 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | Config knobs `MAX_CONNECTIONS_PER_IP`, `JOIN_TIMEOUT_MS`, `STATUS_INTERVAL_MS` | `startServer` options only | also environment variables (the black-box harness maps the options onto them) |
 | Usage lines of the operator tools | `usage: cli.ts rooms list …`, `usage: backup.ts snapshot …` | `usage: omega-server admin …`, `usage: omega-server backup …` (the command is the binary) |
 | CLI: a date outside the JS `Date` range (more than 8.64e15 ms from the epoch) in an answer | `toISOString` throws, the CLI dies with a stack | `unexpected answer from the server`, exit 1 |
+| `backup restore` with `ADMIN_SOCKET=off` (residual risk) | n/a | no socket to ask whether a server runs, so only the checkpoint's busy check (the server holds the DB) guards the swap |
+| Admin socket start with a stale socket file (L8, residual risk) | n/a | connect-first race: two simultaneous starts could both see the stale file and both bind; systemd never starts two instances |
+| A room whose lock was poisoned (a panic under the room lock), pinned or seeded ones such as the lobby included | n/a (no such state) | taken offline at once (closed, sockets 1012), ended at the next GC sweep (within `ROOM_GC_INTERVAL_MS`) with its store row kept; it stays offline until the next restart, when boot restores it fresh. No live re-add: rebuilding from the row would duplicate `load_rooms`, and a seed rebuild would lose a pinned room's owner, title and layout. The lints make a panic under the lock unreachable in practice; the operator signal is the `room.poisoned` log event, then restart |
 | Error text of an unreachable admin socket (`no server on <socket>: …`) and of failed file operations in `backup` | Bun's / Node's error message | the OS error text (`Connection refused (os error 111)`) |
 | Backup | `VACUUM INTO` | SQLite's online backup API in one step (same one-read-transaction consistency); a symlink found inside the backup directory is replaced or unlinked, never followed |
 | `restore`: the old DB kept aside when a hard link is not possible | `copyFileSync` (overwrites an existing `<db>.pre-restore-<stamp>`) | exclusive create (`create_new`): an existing file is an error, never overwritten or followed |
@@ -157,8 +160,26 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | HTTP: a static path with a dot segment (`.env`, `.git/...`, `assets/.x`) | served if the file exists | 404; only the explicit `/.well-known/security.txt` route serves a dot path: safety over parity |
 | `PUBLIC_ORIGIN=http://...` | `startServer` accepts it in a test (`parseConfig` refuses it) | the config refuses it, as `parseConfig` does: `boundary.test.ts` "no HSTS ... plain-http one" cannot run against the binary |
 | HTTP request body with invalid UTF-8 | decoded lossily, then `JSON.parse` | the same (`String::from_utf8_lossy`): the route decodes first, so the `parse_*_request` row above does not apply to HTTP |
+| A panic | Bun prints the error and stack | one JSON `panic` event with the source location only (the payload can hold a nickname, title or URL), `panic_hook.rs` |
+| A poisoned room lock (a handler panicked under it) | n/a (JS has no poisoning) | the room goes offline: marked closed, sockets closed 1012, `room.poisoned` logged; store and reports locks log `state.poisoned` once and continue |
+| SQLite build and connections | Bun's SQLite | `.cargo/config.toml` sets `LIBSQLITE3_FLAGS` (no loadable extensions, `SQLITE_DQS=0`); every connection is defensive with an untrusted schema; `secure_delete=FAST`, `journal_size_limit=4 MiB` (per connection, same file format) |
+| `restore` while the server runs | not checked | refused when the admin socket answers a connect; a start also refuses to unlink a socket that answers |
+| A corrupt room's id in the boot failure | the raw id | the same id, control and format characters escaped (`cli::printable`) |
 
 Anything else that differs is a bug, unless ADR 0050 is amended.
+
+## Performance (S9b, OME-1169)
+
+Measured with `perf/server-compare.ts` defaults (500 sockets, 60 s), release build, against Bun. What mattered, in order:
+
+- **Socket buffers** (`ws/mod.rs`): tungstenite's default 128 KiB read and write buffer per socket was the whole RSS gap (83 MB under load, 19 MB with 8 KiB read / 16 KiB write). Client frames are at most 4096 bytes and the outbox bounds queued bytes, so nothing needs more.
+- **One flush per burst** (`ws/conn.rs` `write`): the writer feeds every frame already queued (at most 64) and flushes once, instead of a flush per frame. Order, the byte accounting and the close-frame-last rule are unchanged (unit tests there).
+- **No timer for a write that completes at once** (`within`): the 10 s write timeout only goes on the timer wheel when the write would block.
+- **Worker threads** (`main.rs`): a thread per core burns CPU on cross-thread wakeups and idle spinning for a load a single core serves. The default is 2; `OMEGA_WORKER_THREADS=1` selects the current-thread scheduler (CPU equal to Bun, tail latency equal to Bun's, not better), a larger number selects that many workers. The `test-hooks` build always runs on one thread.
+- **Release profile**: `lto = "fat"`, `codegen-units = 1`, `overflow-checks = true`, `debug = false`, `strip = "symbols"`.
+- Not worth it, measured or reasoned: per-connection idle deadline (client frames are ~1 k/s in total, the server's 25 k/s of outgoing frames never touch it); allocator tuning (not tried: RSS is already flat at ~18 MB against Bun's 64 MB).
+- The floor: the kernel send path (loopback delivers inline in the sender's `write`) is about two thirds of the server's CPU and is the same for Bun, so "CPU avg better than Bun by more than the noise threshold" is not reachable by user-space work alone.
+- The board accepted the 2-worker CPU cost; the amended gate and the measurements are in [ADR 0051](../../docs/adr/0051-rust-server-cpu-gate.md).
 
 ## The black-box suite (S8)
 

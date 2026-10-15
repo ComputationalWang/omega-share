@@ -26,7 +26,7 @@ string_newtype!(
 );
 
 /// One report as written: the room's snapshot at report time, nothing about the reporter (ADR 0033 §3).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct NewReport {
     pub id: ReportId,
     pub room_id: RoomId,
@@ -41,6 +41,18 @@ pub struct NewReport {
     pub embed_url: Option<String>,
     /// Unix ms.
     pub created_at: i64,
+}
+
+// L5: the reporter's note, the room's title and the video URL are user text: only which are set shows.
+impl std::fmt::Debug for NewReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NewReport")
+            .field("reason", &self.reason)
+            .field("note", &self.note.is_some())
+            .field("room_title", &self.room_title.is_some())
+            .field("embed_url", &self.embed_url.is_some())
+            .finish_non_exhaustive()
+    }
 }
 
 fn check_text(t: Option<&String>, max: usize, what: &'static str) -> Result<(), StoreError> {
@@ -242,6 +254,18 @@ mod tests {
             c.get()
         });
         ReportId::parse(&format!("r{n:021}")).unwrap()
+    }
+    // L5: a report row carries the reporter's note and the video URL: `{:?}` shows only what is set.
+    #[test]
+    fn debug_output_never_shows_the_note_title_or_url() {
+        let mut r = report();
+        r.note = Some("zq-note-text".into());
+        r.room_title = Some("zq-title-text".into());
+        r.embed_url = Some("https://example.test/zq-url-text".into());
+        let text = format!("{r:?}");
+        for secret in ["zq-note", "zq-title", "zq-url", ROOM] {
+            assert!(!text.contains(secret), "{secret} in {text}");
+        }
     }
     fn report() -> NewReport {
         NewReport {

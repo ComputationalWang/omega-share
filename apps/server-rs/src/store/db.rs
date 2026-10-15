@@ -1,6 +1,7 @@
 //! Port of `apps/server/src/store/db.ts`: open, pragmas, forward-only migrations.
 
 use super::StoreError;
+use rusqlite::config::DbConfig;
 use rusqlite::{Connection, OpenFlags};
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
@@ -114,6 +115,23 @@ fn ensure_private_file(path: &Path) -> std::io::Result<()> {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
 }
 
+/// Every connection to a database file goes through here (the server's own and the backup tool's, which opens
+/// operator-supplied snapshots): defensive mode (no `writable_schema`, no writes to shadow tables) and an untrusted
+/// schema (a view or trigger in a hostile file cannot call risky functions). A relative path gets a `./`: the
+/// bundled SQLite is built with SQLITE_USE_URI (the flag cannot turn that off) and Bun's `new Database(path)` takes
+/// a `file:` path as a file name, so it must never start with `file:`.
+pub fn open_raw(path: &Path, flags: OpenFlags) -> rusqlite::Result<Connection> {
+    let flags = flags | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let conn = if path.is_absolute() {
+        Connection::open_with_flags(path, flags)?
+    } else {
+        Connection::open_with_flags(Path::new(".").join(path), flags)?
+    };
+    conn.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
+    conn.set_db_config(DbConfig::SQLITE_DBCONFIG_TRUSTED_SCHEMA, false)?;
+    Ok(conn)
+}
+
 /// `openDatabase` with the embedded migrations.
 pub fn open_database(path: &str) -> Result<Connection, StoreError> {
     open_database_with(path, &MIGRATIONS)
@@ -126,21 +144,16 @@ pub fn open_database_with(path: &str, migrations: &[Migration<'_>]) -> Result<Co
         Connection::open_in_memory()?
     } else {
         ensure_private_file(Path::new(path)).map_err(|e| StoreError::Io(e.kind()))?;
-        // Bun's `new Database(path)` takes a `file:` path as a file name, and so must we. The bundled SQLite is built with
-        // SQLITE_USE_URI (the flag cannot turn that off), so a relative path gets a `./`: that can never start with `file:`.
-        let path = if path.starts_with('/') {
-            path.to_owned()
-        } else {
-            format!("./{path}")
-        };
-        Connection::open_with_flags(
-            &path,
-            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-        )?
+        open_raw(Path::new(path), OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE)?
     };
     // `journal_mode` answers with a row, so it is a query.
     conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
-    conn.execute_batch("PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;")?;
+    // secure_delete FAST: a taken-down room's title or a deleted report's note is overwritten in the page, not left
+    // in a free page. journal_size_limit: the WAL is truncated to 4 MiB after a checkpoint instead of keeping its
+    // peak size. Both are per connection, so the file format (and the TS server on the same file) is unchanged.
+    conn.execute_batch(
+        "PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON; PRAGMA secure_delete = FAST; PRAGMA journal_size_limit = 4194304;",
+    )?;
     conn.busy_timeout(Duration::from_millis(2000))?;
     migrate(&conn, migrations)?;
     Ok(conn)
@@ -357,6 +370,55 @@ mod tests {
         c.execute("INSERT INTO takedowns (room_id, at) VALUES ('a', 1)", []).unwrap();
         checkpoint(&c).unwrap();
         assert_eq!(std::fs::metadata(format!("{path}-wal")).unwrap().len(), 0);
+    }
+
+    // L3: no extension can be loaded, even if a statement reaches `load_extension`.
+    #[test]
+    fn load_extension_does_not_exist() {
+        let (_d, path) = tmp();
+        let c = open_database(&path).unwrap();
+        let err = c.query_row("SELECT load_extension('x')", [], |_| Ok(())).unwrap_err();
+        assert!(err.to_string().contains("no such function"), "{err}");
+    }
+
+    // L3: defensive mode (no writable_schema, no raw shadow-table writes) and untrusted schema on every connection.
+    #[test]
+    fn every_connection_is_defensive_with_an_untrusted_schema() {
+        let (_d, path) = tmp();
+        let main = open_database(&path).unwrap();
+        let raw = open_raw(Path::new(&path), OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
+        for c in [&main, &raw] {
+            assert_eq!(pragma(c, "trusted_schema"), rusqlite::types::Value::Integer(0));
+            c.execute_batch("PRAGMA writable_schema = ON").unwrap();
+            let err = c
+                .execute("UPDATE sqlite_master SET sql = sql WHERE name = 'rooms'", [])
+                .unwrap_err();
+            assert!(err.to_string().contains("table sqlite_master may not be modified"), "{err}");
+        }
+    }
+
+    // L9: deleted titles and reports do not linger in free pages or the WAL, and the WAL cannot stay large.
+    #[test]
+    fn deleted_content_is_overwritten_and_the_journal_is_capped() {
+        let (_d, path) = tmp();
+        let c = open_database(&path).unwrap();
+        assert_eq!(pragma(&c, "secure_delete"), rusqlite::types::Value::Integer(2), "FAST");
+        let rusqlite::types::Value::Integer(limit) = pragma(&c, "journal_size_limit") else {
+            panic!()
+        };
+        assert!(limit > 0, "{limit}");
+    }
+
+    // L7: one open path for every connection: a relative `file:` path is a file name, never a URI.
+    #[test]
+    fn open_raw_takes_a_file_prefixed_relative_path_as_a_file_name() {
+        let name = format!("file:omega-raw-test-{}?mode=memory", std::process::id());
+        let c = open_raw(Path::new(&name), OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE).unwrap();
+        c.execute_batch("CREATE TABLE t (a)").unwrap();
+        drop(c);
+        let exists = std::fs::metadata(&name).is_ok_and(|m| m.len() > 0);
+        let _ = std::fs::remove_file(&name);
+        assert!(exists, "the literal file was not created: the path was read as a URI");
     }
 
     // Bun's `new Database(path)` has no URI handling: a `file:` path is a file name, never a URI.
