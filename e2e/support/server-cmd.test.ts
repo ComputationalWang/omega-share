@@ -23,6 +23,8 @@ describe("serverProcess", () => {
 // OME-1210: a cargo that cannot spawn (not on PATH) has status null; the error must name the spawn failure, not just "failed".
 describe("buildRustServer", () => {
   test("names the spawn error and the PATH when cargo is not found", () => {
-    expect(() => buildRustServer({ PATH: "/nonexistent" })).toThrow(/ENOENT[\s\S]*PATH/);
+    expect(() => {
+      buildRustServer({ PATH: "/nonexistent" });
+    }).toThrow(/ENOENT[\s\S]*PATH/);
   });
 });
