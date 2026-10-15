@@ -150,13 +150,7 @@ pub fn client_key(app: &App, peer: Option<IpAddr>, headers: &HeaderMap) -> Strin
             None => forwarded = Some(value.into_owned()),
         }
     }
-    let key = rate_limit::client_key(&peer.to_string(), forwarded.as_deref(), app.config.trust_proxy);
-    // Behind a public origin every client came through the tunnel: none is local, so none skips the per-key limits
-    // (CFG-1). A client of the tunnel host itself shares one bucket.
-    if app.config.public_origin.is_some() && is_loopback_key(&key) {
-        return "proxy:loopback".to_owned();
-    }
-    key
+    rate_limit::client_key(&peer.to_string(), forwarded.as_deref(), app.config.trust_proxy)
 }
 
 /// Counts HTTP requests being handled, in all and per client key; drops the counts when the request ends or is
@@ -228,8 +222,12 @@ pub fn admit_http<'a>(app: &'a App, key: &str) -> Result<InFlight<'a>, Box<Respo
         Box::new(res)
     };
     let mut guard = InFlight::enter(&app.http.in_flight, app.config.max_http_in_flight).ok_or_else(busy)?;
-    // One key can't hold every slot with slow bodies (HTTP-2). Loopback is local dev and tests.
-    if !is_loopback_key(key) && !guard.enter_key(&app.http.key_in_flight, key, app.http.key_in_flight_max()) {
+    // One key can't hold every slot with slow bodies (HTTP-2). A loopback key is local dev and tests and skips the
+    // rate limits; behind a public origin (CFG-1) it is still capped in flight, all loopback clients together.
+    let loopback = is_loopback_key(key);
+    let capped = if loopback { "proxy:loopback" } else { key };
+    if (!loopback || app.config.public_origin.is_some()) && !guard.enter_key(&app.http.key_in_flight, capped, app.http.key_in_flight_max())
+    {
         return Err(busy());
     }
     Ok(guard)

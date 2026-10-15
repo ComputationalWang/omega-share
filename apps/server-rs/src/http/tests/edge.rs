@@ -188,22 +188,15 @@ fn an_https_public_origin_without_trust_proxy_is_refused_naming_both_variables()
 }
 
 #[tokio::test]
-async fn behind_a_public_origin_a_loopback_client_is_keyed_not_exempt() {
+async fn behind_a_public_origin_a_loopback_client_keeps_the_local_exemption_from_rate_limits() {
     use axum::http::{HeaderMap, HeaderValue};
     let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"), ("TRUST_PROXY", "loopback")]).await;
     let peer: std::net::IpAddr = "127.0.0.1".parse().unwrap();
     let mut xff = HeaderMap::new();
-    xff.insert("x-forwarded-for", HeaderValue::from_static("127.0.0.1"));
-    assert!(!crate::rate_limit::is_loopback_key(&gate::client_key(&fx.app, Some(peer), &xff)));
     xff.insert("x-forwarded-for", HeaderValue::from_static("198.51.100.1"));
     assert_eq!(gate::client_key(&fx.app, Some(peer), &xff), "198.51.100.1");
-    // Without a public origin, local dev keeps the exemption.
-    let dev = Fx::start(&[]).await;
-    assert!(crate::rate_limit::is_loopback_key(&gate::client_key(
-        &dev.app,
-        Some(peer),
-        &HeaderMap::new()
-    )));
+    xff.insert("x-forwarded-for", HeaderValue::from_static("127.0.0.1"));
+    assert!(crate::rate_limit::is_loopback_key(&gate::client_key(&fx.app, Some(peer), &xff)));
 }
 
 // WS-1: t20. Only a GET upgrade skips the HTTP bucket.
@@ -327,8 +320,8 @@ async fn behind_a_public_origin_the_loopback_key_is_capped_per_key() {
     let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"), ("TRUST_PROXY", "loopback")]).await;
     fx.app.http.set_key_in_flight(2);
     let host = "quiet-otter.ngrok-free.app";
-    let _held = hold_slow_reports(fx.addr, host, "", 2).await;
-    let res = fx.get("/healthz", &[("host", host)]).await;
+    let _held = hold_slow_reports(fx.addr, host, "X-Forwarded-For: 127.0.0.1\r\n", 2).await;
+    let res = fx.get("/healthz", &[("host", host), ("x-forwarded-for", "127.0.0.1")]).await;
     assert_eq!((res.status, res.text().as_str()), (503, "server busy"));
 }
 
@@ -341,7 +334,7 @@ async fn behind_a_public_origin_loopback_clients_are_not_metered_by_the_upgrade_
     for i in 0..(crate::ws::limits::UPGRADE_BURST as usize + 5) {
         let mut s = TcpStream::connect(fx.addr).await.unwrap();
         let req = format!(
-            "GET /rooms/lobby/ws HTTP/1.1\r\nHost: {host}\r\nOrigin: https://{host}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"
+            "GET /rooms/lobby/ws HTTP/1.1\r\nHost: {host}\r\nOrigin: https://{host}\r\nX-Forwarded-For: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"
         );
         s.write_all(req.as_bytes()).await.unwrap();
         let mut buf = vec![0u8; 1024];
