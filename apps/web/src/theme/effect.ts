@@ -81,3 +81,30 @@ export function createParticles(motion: EffectMotion, count: number, rand: () =>
     },
   };
 }
+
+/** One effect frame in the theme sheet: its rect, and its anchor in px from the rect's top-left. */
+export interface EffectFrame {
+  readonly sx: number;
+  readonly sy: number;
+  readonly w: number;
+  readonly h: number;
+  readonly ox: number;
+  readonly oy: number;
+}
+
+/** The part of CanvasRenderingContext2D the painter uses. */
+export interface EffectContext {
+  setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void;
+  clearRect(x: number, y: number, w: number, h: number): void;
+  drawImage(image: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void;
+}
+
+export interface EffectPainter {
+  paint(p: Particles, step: number): void;
+  clear(): void;
+}
+
+/** Stub (red): draws nothing. */
+export function createEffectPainter(_ctx: EffectContext, _image: CanvasImageSource, _frames: readonly EffectFrame[], _scale: number): EffectPainter {
+  return { paint: () => undefined, clear: () => undefined };
+}

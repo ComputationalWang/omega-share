@@ -43,10 +43,27 @@ async function expectThemed(page: Page): Promise<void> {
   await expect.poll(async () => (await theme(page))?.hats ?? 0).toBeGreaterThan(0);
 }
 
+/** How many times the room canvas has drawn (`window.__omega.room.roomRenders`). */
+async function roomRenders(page: Page): Promise<number> {
+  const n = await page.evaluate(() => {
+    const debug: unknown = Reflect.get(window, "__omega");
+    const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+    const get: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "roomRenders") : null;
+    return typeof get === "function" ? (Reflect.apply(get, room, []) as unknown) : null;
+  });
+  return v.parse(v.number(), n);
+}
+
 async function expectEffectRuns(page: Page): Promise<void> {
   await expect.poll(async () => (await theme(page))?.effect ?? 0).toBeGreaterThan(0);
   const first = (await theme(page))?.ticks ?? 0;
   await expect.poll(async () => (await theme(page))?.ticks ?? 0).toBeGreaterThan(first);
+  // The effect draws on its own canvas (QA OME-1206): over a second of ~30 ticks, the idle room itself only breathes.
+  const ticks0 = (await theme(page))?.ticks ?? 0;
+  const renders0 = await roomRenders(page);
+  await page.waitForTimeout(1000);
+  expect(((await theme(page))?.ticks ?? 0) - ticks0).toBeGreaterThan(10);
+  expect((await roomRenders(page)) - renders0).toBeLessThanOrEqual(6);
 }
 
 const cases: [name: "desk" | "phone", options: BrowserContextOptions | undefined][] = [

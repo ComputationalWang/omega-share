@@ -5,7 +5,7 @@ import * as v from "valibot";
 import { DEFAULT_LAYOUT, type RoomLayout } from "@omega/shared";
 import { RoomManifestSchema, sceneOf } from "../src/furniture";
 import { decorSprites } from "../src/theme/decor";
-import { EFFECT_MIN_INTERVAL_MS, MAX_EFFECT_SPRITES, createParticles, type EffectMotion } from "../src/theme/effect";
+import { EFFECT_MIN_INTERVAL_MS, MAX_EFFECT_SPRITES, createEffectPainter, createParticles, type EffectMotion, type Particles } from "../src/theme/effect";
 import { activeTheme, easterSunday, resolveTheme, type ThemeId } from "../src/theme/periods";
 
 const room = v.parse(RoomManifestSchema, await Bun.file(new URL("../../../assets/room/room.json", import.meta.url)).json());
@@ -170,5 +170,86 @@ describe("createParticles: a fixed pool moving in whole pixels", () => {
 
   test("the loop is capped at 30 Hz", () => {
     expect(1000 / EFFECT_MIN_INTERVAL_MS).toBeLessThanOrEqual(30.31);
+  });
+});
+
+describe("createEffectPainter: the effect on its own canvas, so a tick never redraws the room (QA OME-1206)", () => {
+  type Call = [string, ...number[]];
+  /** A 2D context that records calls; the image is opaque to the painter. */
+  const fakeCtx = () => {
+    const calls: Call[] = [];
+    return {
+      calls,
+      ctx: {
+        setTransform: (a: number, b: number, c: number, d: number, e: number, f: number) => void calls.push(["setTransform", a, b, c, d, e, f]),
+        clearRect: (x: number, y: number, w: number, h: number) => void calls.push(["clearRect", x, y, w, h]),
+        drawImage: (_img: unknown, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number) =>
+          void calls.push(["drawImage", sx, sy, sw, sh, dx, dy, dw, dh]),
+      },
+    };
+  };
+  const frames = [
+    { sx: 0, sy: 0, w: 8, h: 6, ox: 4, oy: 3 },
+    { sx: 8, sy: 0, w: 8, h: 6, ox: 4, oy: 3 },
+  ];
+  /** Two particles at fixed spots: the second goes left (mirrored) with frame phase 1. */
+  const still = (): Particles => ({
+    count: 2,
+    x: Int32Array.of(100, 300),
+    y: Int32Array.of(50, 70),
+    flip: Uint8Array.of(0, 1),
+    phase: Uint8Array.of(0, 1),
+    step: () => undefined,
+  });
+  const image = {} as CanvasImageSource;
+
+  test("paint draws each particle once, at its whole-pixel spot scaled to the canvas, in its own frame", () => {
+    const { calls, ctx } = fakeCtx();
+    createEffectPainter(ctx, image, frames, 2).paint(still(), 0);
+    expect(calls.filter((c) => c[0] === "drawImage")).toEqual([
+      ["drawImage", 0, 0, 8, 6, -4, -3, 8, 6],
+      ["drawImage", 8, 0, 8, 6, -4, -3, 8, 6],
+    ]);
+    const transforms = calls.filter((c) => c[0] === "setTransform");
+    expect(transforms).toContainEqual(["setTransform", 2, 0, 0, 2, 200, 100]);
+    // Mirrored: effect frames face right, a left-goer is flipped about its spot.
+    expect(transforms).toContainEqual(["setTransform", -2, 0, 0, 2, 600, 140]);
+  });
+
+  test("the step picks the frame: step 1 swaps them", () => {
+    const { calls, ctx } = fakeCtx();
+    createEffectPainter(ctx, image, frames, 1).paint(still(), 1);
+    expect(calls.filter((c) => c[0] === "drawImage").map((c) => c[1])).toEqual([8, 0]);
+  });
+
+  test("the next paint clears only where the last one drew, before drawing", () => {
+    const { calls, ctx } = fakeCtx();
+    const painter = createEffectPainter(ctx, image, frames, 1);
+    const p = still();
+    painter.paint(p, 0);
+    calls.length = 0;
+    p.x[0] = 110;
+    painter.paint(p, 0);
+    const clears = calls.filter((c) => c[0] === "clearRect");
+    expect(clears).toHaveLength(2);
+    // Each clear covers the old sprite (8×6 around its anchor) wherever the anchor sits in the frame.
+    for (const [i, [x, y]] of [[100, 50], [300, 70]].entries()) {
+      const c = clears[i] ?? [];
+      const [cx, cy, cw, ch] = [c[1] ?? NaN, c[2] ?? NaN, c[3] ?? NaN, c[4] ?? NaN];
+      expect(cx <= (x ?? 0) - 8 && cy <= (y ?? 0) - 6 && cx + cw >= (x ?? 0) + 8 && cy + ch >= (y ?? 0) + 6).toBe(true);
+    }
+    const lastClear = calls.findLastIndex((c) => c[0] === "clearRect");
+    const firstDraw = calls.findIndex((c) => c[0] === "drawImage");
+    expect(lastClear).toBeLessThan(firstDraw);
+  });
+
+  test("clear wipes what was drawn and nothing is drawn", () => {
+    const { calls, ctx } = fakeCtx();
+    const painter = createEffectPainter(ctx, image, frames, 1);
+    painter.paint(still(), 0);
+    calls.length = 0;
+    painter.clear();
+    expect(calls.filter((c) => c[0] === "clearRect")).toHaveLength(2);
+    expect(calls.filter((c) => c[0] === "drawImage")).toHaveLength(0);
   });
 });
