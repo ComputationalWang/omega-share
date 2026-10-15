@@ -2,6 +2,8 @@
 
 **Status:** accepted (2026-10-14), board decision. Partly supersedes [ADR 0001](0001-stack.md): its **Server** bullet (Hono on `Bun.serve`) ends at promotion (§6). Tracking: OME-1141.
 
+**Update:** Production switched to Rust on 2026-10-15 (PR #263); Bun rollback until 2026-10-22; S13 pending.
+
 ## Decision
 
 1. **Rewrite `apps/server` in Rust as `apps/server-rs`**, next to the TS server, and switch once it is proven. At promotion it is renamed to `apps/server`, the TS server is deleted, and Bun leaves the box.

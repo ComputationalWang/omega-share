@@ -1,11 +1,11 @@
-// Which server the e2e suite runs against (OME-1170, ADR 0050): the Bun server by default, the Rust binary with E2E_SERVER=rust.
+// Which server the e2e suite runs against (OME-1170, ADR 0050): the Rust binary by default (production runs it), the TS server with E2E_SERVER=bun until S13 deletes it.
 import { spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 
 export function serverBackend(env: NodeJS.ProcessEnv): "bun" | "rust" {
-  const v = env["E2E_SERVER"] ?? "bun";
+  const v = env["E2E_SERVER"] ?? "rust";
   if (v !== "bun" && v !== "rust") throw new Error(`E2E_SERVER must be bun or rust, not ${JSON.stringify(v)}`);
   return v;
 }

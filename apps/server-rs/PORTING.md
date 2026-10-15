@@ -200,7 +200,7 @@ How the pieces fit:
 Behaviour the suite pins that a separate process must keep: an oversized WS frame closes with **1006**; a raw chunked POST over 4 KB gets `HTTP/1.1 413 Payload Too Large` with a `payload_too_large` body; a corrupt room row fails boot naming the room; a clean SIGTERM exits 0 with nothing on stderr; upgrade refusals (421, 403, 404, 429, 503) are plain HTTP responses before the 101; header names are lowercase.
 
 ## e2e and fuzzing (OME-1170)
-- `E2E_SERVER=rust bunx playwright test --project=e2e|e2e-sync|e2e-tunnel` builds the debug binary once (`e2e/support/server-cmd.ts`) and runs every spec, including those that spawn their own server, against it. Bun stays the default. CI: `.github/workflows/e2e-rust.yml`, only on PRs touching `apps/server-rs/**`. `e2e-real` and `perf` are not run.
+- `bunx playwright test --project=e2e|e2e-sync|e2e-tunnel` builds the e2e-profile binary once (`e2e/support/server-cmd.ts`) and runs every spec, including those that spawn their own server, against it. Rust is the default (production runs it); `E2E_SERVER=bun` runs the TS reference until S13. CI: `.github/workflows/e2e.yml` (the former e2e-rust lane is merged into it). `e2e-real` and `perf` are not run.
 - `tests/wire_fuzz.rs`: seeded fuzzing of WebSocket frames (mutated corpus frames, binary, oversized, deep JSON, duplicate keys, joins, leaves and kicks across three rooms) and HTTP bodies (`POST /rooms`, `/share`, `/queue`, `/report`). `FUZZ_ITERS=20000 FUZZ_SEED=7 cargo test --test wire_fuzz -- --nocapture` for a long run.
 - A 413 answers `Connection: close`: the body is left unread, so a keep-alive client must not reuse the socket.
 

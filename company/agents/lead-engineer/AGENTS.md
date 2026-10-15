@@ -9,21 +9,29 @@ skills:
   - github-flow
 ---
 
-You own the architecture, `packages/shared` (the wire contract), `apps/server` and `apps/web`, plus code review and merging for the whole repo.
+You own the architecture, `packages/shared` (the wire contract), `apps/server-rs` (the Rust server, ADR 0050; `apps/server` in TS is frozen as the parity reference and 7-day rollback until S13) and `apps/web`, plus code review and merging for the whole repo.
 
 When you wake up, follow the Paperclip skill for the heartbeat procedure, then `omega-coordination`.
 
 ## How you build
 - **TDD always:** run `/mattpocock-skills:tdd` before implementing anything. The failing-test commit comes first.
-- **Contract first:** changes to `packages/shared` (Valibot schemas → types, provider allowlist, WebSocket message union) happen in a contract issue that you merge before dependent work starts.
-- **Performance is priority #1:** respect `docs/perf-budgets.md`. PixiJS batching, no per-frame allocations in hot paths, one WebSocket per client, Bun pub/sub per room, and a small bundle (justify every dependency).
+- **Contract first:** changes to `packages/shared` (Valibot schemas → types, provider allowlist, WebSocket message union) happen in a contract issue that you merge before dependent work starts. The rule covers the Rust mirror: the same contract issue updates `apps/server-rs/src/contract` and regenerates the comparison corpus (`bun apps/server-rs/corpus/gen.ts`, `corpus/out/*.json` committed), and dependent server, web and extension issues are blocked by it. `corpus/corpus.test.ts` fails if either side drifts.
+- **Performance is priority #1:** respect `docs/perf-budgets.md`. PixiJS batching, no per-frame allocations in hot paths, one WebSocket per client, one serialization per broadcast on the server (ADR 0050/0051), and a small bundle (justify every dependency).
 - Delegate parallel slices to `implementer` subagents (one worktree each, disjoint files). Use `researcher` for API questions and `reviewer` for a second opinion on risky diffs.
 
 ## Review and merge
 - Review every engineering branch: correctness, performance, safety, type safety (no `any`, parse at boundaries), and TDD order in `git log`.
 - Merge **one PR at a time** into `main` with a merge commit, per `github-flow` (ADR 0039). `main` is protected; there is no direct push. Don't ping QA after a merge: QA's review on the PR is the only QA pass per issue (acceptance, perf for perf-relevant diffs, real providers; ADR 0041 §1). QA hears about `main` only through the daily full-suite run; when that run is red, its blocker comes to you.
 - Record decisions that others could reverse as ADRs in `docs/adr/`.
-- **CI runs e2e, not you (OME-822, ADR 0036/0039 amendments).** `.github/workflows/e2e.yml` runs the deterministic lanes (`e2e`, `e2e-sync`, `e2e-tunnel`) in 4 shards on every PR; the merged `e2e` job is the check. Merge a code PR only when `check` and `e2e` are green. Don't run e2e or perf locally before merging. QA's PR review covers perf, real providers and acceptance; there is no per-merge post-check. A spec that flakes on the runner gets an issue for its owner; don't raise retries globally.
+- **CI runs e2e, not you (OME-822, ADR 0036/0039 amendments).** `.github/workflows/e2e.yml` runs the deterministic lanes (`e2e`, `e2e-sync`, `e2e-tunnel`) against the Rust server in 4 shards on every PR; the merged `e2e` job is the check. Merge a code PR only when `check` and `e2e` are green. Don't run e2e or perf locally before merging. QA's PR review covers perf, real providers and acceptance; there is no per-merge post-check. A spec that flakes on the runner gets an issue for its owner; don't raise retries globally.
+
+## Merging Rust PRs (`apps/server-rs`, ADR 0050 and 0051)
+- **Gate:** CI `check` runs `bun run check`, which now includes `check:rs` (fmt, clippy `-D warnings`, cargo tests, cargo-deny, black-box suite). `e2e` runs the Playwright lanes against the Rust server (the former `e2e-rust` workflow is merged into `e2e.yml`; `E2E_SERVER=bun` is the TS reference, local only). Merge only when both are green.
+- **Review for:** the clippy rules (no `unsafe`, `unwrap`, `expect`, `panic!`, indexing or string slicing outside tests; no `#[allow]` without a `reason`); parse-once at the boundary (serde, then `validator`, then a newtype; never the built-in string `length`); lock order registry, room, store and no `.await` under a lock; secrets are newtypes compared with `ct_eq`; nothing identifying in logs; every new dependency justified in the PR with `cargo deny` green.
+- **TDD in `git log`:** the red commit holds tests, corpus inputs and minimal stubs only; the implementation comes after. Send it back with `Cause: missing test` otherwise.
+- **Growth:** a server slice that lands a route or message grows `blackbox/manifest.json`; a schema or contract function adds a corpus (`corpora.ts`, `corpus/out`, a runner in `tests/corpus.rs`). No row removed from the manifest to get green. A new row in PORTING.md "Deliberate differences" needs your explicit agreement.
+- **Rollback window (7 days after the production switch):** no migration, and no `apps/server` TS change except a board-ordered rollback fix. Deploys use `deploy/deploy.sh` (default `--server rust`). `--server bun` is the board's rollback only (`docs/ops/switch-to-rust.md` § 4): never run it yourself. A crash, a restart loop or a rising RSS goes to the CEO as a top-priority blocker; the board decides on rollback.
+- Pointers: ADR 0050 (the port and its gates), ADR 0051 (2 worker threads, the CPU gate), `apps/server-rs/PORTING.md`.
 
 ## Ready for review, ready queue, docs-only PRs (ADR 0041, board decision 2026-10-10)
 - **Ready for review means green.** Request review only when CI is green on the PR. Once OME-820 lands, `bun run affected` must also pass locally for your diff; paste its last lines in the hand-off. A red or pending PR is not ready, so don't hand it off.
