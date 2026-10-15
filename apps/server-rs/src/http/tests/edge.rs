@@ -229,3 +229,92 @@ async fn other_methods_on_the_ws_path_are_metered_like_any_route() {
     }
     assert!(limited, "a GET without Upgrade never hit the bucket");
 }
+
+async fn hold_slow_reports(addr: SocketAddr, host: &str, extra: &str, n: usize) -> Vec<TcpStream> {
+    let mut held = Vec::new();
+    for _ in 0..n {
+        let mut s = TcpStream::connect(addr).await.unwrap();
+        let head = format!(
+            "POST /rooms/lobby/report HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\n{extra}Content-Length: 40\r\n\r\n{{"
+        );
+        s.write_all(head.as_bytes()).await.unwrap();
+        held.push(s);
+    }
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    held
+}
+
+// Review: a slot is held while the request is handled (body included), not while the response body streams.
+#[tokio::test]
+async fn a_slow_reader_of_a_big_static_file_does_not_hold_its_keys_in_flight_slots() {
+    let fx = Fx::with_site(&[("TRUST_PROXY", "loopback")]).await;
+    std::fs::write(fx.root().join("assets/big.bin"), vec![0u8; 24 << 20]).unwrap();
+    fx.app.http.set_key_in_flight(2);
+    let mut readers = Vec::new();
+    for _ in 0..4 {
+        let mut s = TcpStream::connect(fx.addr).await.unwrap();
+        let req = format!(
+            "GET /assets/big.bin HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nX-Forwarded-For: 198.51.100.30\r\n\r\n",
+            fx.addr.port()
+        );
+        s.write_all(req.as_bytes()).await.unwrap();
+        readers.push(s);
+    }
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(
+        fx.get("/healthz", &[("x-forwarded-for", "198.51.100.30")]).await.status,
+        200,
+        "streaming responses still hold the key's slots"
+    );
+}
+
+// Review: a stalled request body is cut at the total deadline, answered, and its slot freed.
+#[tokio::test]
+async fn a_stalled_request_body_is_cut_at_the_total_deadline_and_frees_its_slot() {
+    let fx = Fx::proxied(&[("MAX_HTTP_IN_FLIGHT", "1")]).await;
+    fx.app.http.set_body_total(Duration::from_millis(300));
+    let host = format!("127.0.0.1:{}", fx.addr.port());
+    let mut held = hold_slow_reports(fx.addr, &host, "X-Forwarded-For: 198.51.100.31\r\n", 1).await;
+    let mut slow = held.remove(0);
+    let mut buf = vec![0u8; 4096];
+    let n = tokio::time::timeout(Duration::from_secs(3), slow.read(&mut buf)).await.unwrap().unwrap();
+    assert!(String::from_utf8_lossy(&buf[..n]).starts_with("HTTP/1.1 400"));
+    assert_eq!(fx.get("/healthz", &[("x-forwarded-for", "198.51.100.32")]).await.status, 200);
+}
+
+// Review: the admission permit rides along with the stream through an upgrade.
+#[tokio::test]
+async fn an_upgraded_websocket_keeps_its_place_under_the_global_cap() {
+    use axum::extract::ws::WebSocketUpgrade;
+    let router = big_router().route(
+        "/ws",
+        get(|ws: WebSocketUpgrade| async move { ws.on_upgrade(|mut socket| async move { while socket.recv().await.is_some() {} }) }),
+    );
+    let addr = listen(router, Limits { max_connections: 1, ..quick() }).await;
+    let mut ws = TcpStream::connect(addr).await.unwrap();
+    ws.write_all(b"GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n")
+        .await
+        .unwrap();
+    let mut buf = vec![0u8; 1024];
+    let n = ws.read(&mut buf).await.unwrap();
+    assert!(String::from_utf8_lossy(&buf[..n]).starts_with("HTTP/1.1 101"));
+    let mut other = TcpStream::connect(addr).await.unwrap();
+    let _ = other.write_all(b"GET /ok HTTP/1.1\r\nHost: x\r\n\r\n").await;
+    let mut got = Vec::new();
+    let read = tokio::time::timeout(Duration::from_secs(2), other.read_to_end(&mut got)).await;
+    assert!(read.is_ok() && got.is_empty(), "the upgraded socket's place was given away");
+    drop(ws);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(get_ok(addr).await.starts_with("HTTP/1.1 200"), "the place came back when the socket closed");
+}
+
+// Review: behind a public origin every loopback client shares `proxy:loopback`, which the per-key cap covers.
+#[tokio::test]
+async fn behind_a_public_origin_the_loopback_key_is_capped_per_key() {
+    let fx = Fx::start(&[("PUBLIC_ORIGIN", "https://quiet-otter.ngrok-free.app"), ("TRUST_PROXY", "loopback")]).await;
+    fx.app.http.set_key_in_flight(2);
+    let host = "quiet-otter.ngrok-free.app";
+    let _held = hold_slow_reports(fx.addr, host, "", 2).await;
+    let res = fx.get("/healthz", &[("host", host)]).await;
+    assert_eq!((res.status, res.text().as_str()), (503, "server busy"));
+}
