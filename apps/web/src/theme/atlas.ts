@@ -3,12 +3,14 @@
 import type { Texture } from "pixi.js";
 import type { Sheet } from "../atlas-sheet";
 import type { DecorPiece } from "./decor";
-import type { EffectMotion } from "./effect";
+import type { EffectFrame, EffectMotion } from "./effect";
 import type { ThemeId } from "./periods";
 
 export interface ThemeEffect {
-  /** Animation frames, all in the theme's one sheet; they face right. */
-  readonly frames: readonly string[];
+  /** The theme's one sheet, drawn straight onto the effect canvas. */
+  readonly image: CanvasImageSource;
+  /** Animation frames in it; they face right. */
+  readonly frames: readonly EffectFrame[];
   /** ms per frame. */
   readonly ms: number;
   /** How many sprites (≤ MAX_EFFECT_SPRITES). */

@@ -13,8 +13,9 @@ During a holiday the classic room gets a seasonal look: wall and window decor, a
 **"Classic" means the layout equals `DEFAULT_LAYOUT`.** The preset id never reaches the client, and the classic preset is byte-identical to `DEFAULT_LAYOUT`. `sceneOf` sets `Scene.classic` when `layoutKey(layout) === layoutKey(DEFAULT_LAYOUT)`. An owner-edited classic room counts as a different layout and gets no decor. Hats and the effect show in every room.
 
 **Layers** (`room-view.ts`, inside the zoomed stage, so pinch-zoom scales them for free):
-- `decor` sits between the static background (floor and walls) and `effect`. Each piece is a sprite at the floor point of its wall frame (`meta.omega.decor[].on`). The decor is rebuilt only when the scene changes or the theme arrives.
-- `effect` sits behind the seat markers, furniture objects and avatars. It is one container of at most 40 pooled sprites, and every frame comes from the theme's one sheet.
+- `decor` sits right after the static background (floor and walls), under the seat markers, furniture objects and avatars. Each piece is a sprite at the floor point of its wall frame (`meta.omega.decor[].on`). The decor is rebuilt only when the scene changes or the theme arrives.
+- The effect is **not** a Pixi layer. It is drawn on its own transparent canvas (`.scene-fx`), which sits over the room canvas and under the DOM layers (seat keys, tags, bubbles), inside the same zoomed stage. It draws at most 40 particles, every frame from the theme's one sheet. Particles pass in front of avatars, not behind them.
+  - Why: the first version drew the effect inside the Pixi stage, so each 30 Hz tick redrew the whole room (floor, walls, furniture, avatars) on the 2D canvas renderer. QA ([OME-1206](/OME/issues/OME-1206)) measured phone work p95 at +2.5 to +3.6 ms, over the 8 ms budget. On its own canvas, a tick only clears the squares it drew last time and draws the particles again (`createEffectPainter`), and the room keeps rendering on demand.
 - Hats: each avatar gets one sprite in the object layer at `zIndex + 0.5`, which is over its own avatar and under the next depth. Its texture is `theme.hat(avatarFrame)`. The theme sheet's hat is the difference between the hatted frame and the shipped one (assets/STYLE.md "Holiday themes"), so drawing it over the frame replaces the avatar's own headwear. A frame with no hat (an emote sticker) hides it. Lookups are cached per frame key, so a walking frame builds no strings.
 
 **Lazy art.** `room-view.ts` imports `theme/atlas.ts` only while a theme is active, and each theme's sheet is its own chunk below that (`theme/halloween.ts`: 7.6 KB gzipped, cap 40 KB). Until the art for the four later themes lands (plan issue E), they draw placeholder coloured rects from `theme/placeholder.ts`. Neither the landing page nor `index.html` preloads any of this.
@@ -22,7 +23,7 @@ During a holiday the classic room gets a seasonal look: wall and window decor, a
 **Effect perf rules.**
 - `theme/effect.ts` keeps positions and velocities in typed arrays allocated once. `step()` writes into the same arrays, and positions are whole pixels.
 - The effect runs on its own rAF loop, capped at 30 Hz (`EFFECT_MIN_INTERVAL_MS = 33`). The room itself renders on demand (OME-185).
-- When a walk frame drew less than half an effect frame ago, the effect skips its own draw, because the walk loop draws again on its next frame anyway. This keeps a walking room from drawing twice.
+- An effect tick never renders the room. An idle themed room draws itself only when avatars breathe, as an unthemed room does; `e2e/theme.e2e.ts` asserts this.
 - The loop stops while the room is paused (full screen, popped out) and restarts on resume. rAF stops by itself while the tab is hidden.
 - No filters and no blend modes.
 - The effect is off under `prefers-reduced-motion` and once the walk tier settles on Basic (ADR 0037: reduced motion, Save-Data, weak devices, or a dropped Smooth). While the tier is still probing, the effect runs. Decor and hats stay in every case.

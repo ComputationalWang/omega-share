@@ -104,7 +104,40 @@ export interface EffectPainter {
   clear(): void;
 }
 
-/** Stub (red): draws nothing. */
-export function createEffectPainter(_ctx: EffectContext, _image: CanvasImageSource, _frames: readonly EffectFrame[], _scale: number): EffectPainter {
-  return { paint: () => undefined, clear: () => undefined };
+/**
+ * Draws particles on the effect's own canvas (QA OME-1206: ticking the whole Pixi stage cost a phone ~3 ms a frame).
+ * A paint clears only the squares the last one drew, then draws each particle once; `scale` is the canvas's pixel
+ * ratio. Nothing is allocated per paint.
+ */
+export function createEffectPainter(ctx: EffectContext, image: CanvasImageSource, frames: readonly EffectFrame[], scale: number): EffectPainter {
+  // Any frame drawn about any anchor inside it, mirrored or not, stays within R of the particle's spot.
+  const r = frames.reduce((m, f) => Math.max(m, f.w, f.h), 0) + 1;
+  const n = frames.length;
+  const lastX = new Int32Array(MAX_EFFECT_SPRITES);
+  const lastY = new Int32Array(MAX_EFFECT_SPRITES);
+  let drawn = 0;
+  const clear = (): void => {
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    for (let i = 0; i < drawn; i++) ctx.clearRect((lastX[i] ?? 0) - r, (lastY[i] ?? 0) - r, 2 * r, 2 * r);
+    drawn = 0;
+  };
+  return {
+    clear,
+    paint(p, step) {
+      clear();
+      if (n === 0) return;
+      const count = Math.min(p.count, MAX_EFFECT_SPRITES);
+      for (let i = 0; i < count; i++) {
+        const x = p.x[i] ?? 0;
+        const y = p.y[i] ?? 0;
+        const f = frames[(step + (p.phase[i] ?? 0)) % n];
+        if (f === undefined) continue;
+        ctx.setTransform(p.flip[i] === 1 ? -scale : scale, 0, 0, scale, x * scale, y * scale);
+        ctx.drawImage(image, f.sx, f.sy, f.w, f.h, -f.ox, -f.oy, f.w, f.h);
+        lastX[i] = x;
+        lastY[i] = y;
+      }
+      drawn = count;
+    },
+  };
 }

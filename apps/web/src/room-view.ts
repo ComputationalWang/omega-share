@@ -1,7 +1,7 @@
 // The PixiJS layer: floor, furniture, seats and avatars, on the 2D canvas renderer (ADR 0029). Rendered on demand (no ticker): frames
 // run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
 // when its frame changes (walk/animator.ts).
-import { Application, Container, Graphics, Sprite, Ticker, type Texture } from "pixi.js";
+import { Application, Container, Graphics, Sprite, Ticker } from "pixi.js";
 import { AVATAR_COUNT, type EmoteKind, type MemberId } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
 import type { Scene } from "./furniture";
@@ -12,7 +12,7 @@ import { createTier, createTierProbe, readTierHints } from "./walk/tier";
 import { createWalks, type Dir } from "./walk/walks";
 import type { ThemeAtlas } from "./theme/atlas";
 import { decorSprites } from "./theme/decor";
-import { EFFECT_MIN_INTERVAL_MS, createParticles, type Particles } from "./theme/effect";
+import { EFFECT_MIN_INTERVAL_MS, createEffectPainter, createParticles, type EffectPainter, type Particles } from "./theme/effect";
 import { resolveTheme } from "./theme/periods";
 
 export interface AvatarPlacement {
@@ -34,6 +34,8 @@ export interface RoomViewOptions {
 
 export interface RoomView {
   readonly canvas: HTMLCanvasElement;
+  /** The holiday theme's effect (ADR 0052), over the room canvas and under the DOM layers; hidden while it doesn't run. */
+  readonly effectCanvas: HTMLCanvasElement;
   /** The room's shell, furniture and seat markers; rebuilt once per layout change (or when an atlas arrives). Draws on the next `update`. */
   setScene(scene: Scene, sheets: readonly (Sheet | null)[], walkGrid: Uint8Array): void;
   /** Seat occupancy and who sits or stands where; redraws once, then walks anyone whose spot changed (walk/). */
@@ -160,15 +162,14 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   // Static: the floor, then rugs and wall pieces in furniture order. Objects sort with the avatars by depth.
   const background = new Container();
   background.addChild(floor);
-  // The holiday theme (ADR 0052): decor over the walls, then the effect, both behind the furniture and avatars.
+  // The holiday theme (ADR 0052): decor over the walls, behind the furniture and avatars (the effect has its own canvas).
   const decorLayer = new Container({ label: "decor" });
-  const effectLayer = new Container({ label: "effect", visible: false });
   const editLayer = new Container({ label: "edit" });
   const markerLayer = new Container();
   const objectLayer = new Container({ sortableChildren: true });
   // Emote stickers float over everyone (OME-415).
   const emoteLayer = new Container({ label: "emotes" });
-  app.stage.addChild(background, decorLayer, effectLayer, editLayer, markerLayer, objectLayer, emoteLayer);
+  app.stage.addChild(background, decorLayer, editLayer, markerLayer, objectLayer, emoteLayer);
 
   /** Marker per placeholder seat, by seat index. */
   let markers: (Graphics | null)[] = [];
@@ -183,14 +184,11 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
 
   let paused = false;
   let renders = 0;
-  /** When the room was last drawn: the effect skips its own draw if a walk frame just drew (or is about to). */
-  let lastRender = -Infinity;
   const render = (): void => {
     if (paused) return;
     pumpSystem();
     app.render();
     renders++;
-    lastRender = performance.now();
   };
 
   // The holiday theme (ADR 0052): from the local date, or forced by localStorage["omega.theme"]. Its art loads in its
@@ -334,12 +332,19 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     render,
   });
 
-  // The theme's effect (ADR 0052): one container of pooled sprites from one texture, on its own rAF loop at ≤ 30 Hz
-  // (the room itself renders on demand). Off under reduced motion and once the tier settles Basic; stops while the
-  // room is paused, and rAF stops with a hidden tab.
+  // The theme's effect (ADR 0052): particles on their own canvas over the room, so a tick clears and draws only them and
+  // never redraws the Pixi stage (QA OME-1206). Its own rAF loop at ≤ 30 Hz; off under reduced motion and once the tier
+  // settles Basic; stops while the room is paused, and rAF stops with a hidden tab.
+  const fxScale = Math.min(2, globalThis.devicePixelRatio || 1);
+  const fxCanvas = document.createElement("canvas");
+  fxCanvas.className = "scene-fx";
+  fxCanvas.width = STAGE_W * fxScale;
+  fxCanvas.height = STAGE_H * fxScale;
+  fxCanvas.hidden = true;
+  const fxCtx = fxCanvas.getContext("2d");
+  if (fxCtx !== null) fxCtx.imageSmoothingEnabled = false;
   let particles: Particles | null = null;
-  let effectSprites: Sprite[] = [];
-  let effectFrames: Texture[] = [];
+  let painter: EffectPainter | null = null;
   let effectMs = 1000;
   let effectRunning = false;
   let effectLast = 0;
@@ -347,15 +352,15 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   let destroyed = false;
   const effectAllowed = (): boolean => !reduced.matches && (tier.smooth() || tier.probing());
   const effectFrame = (t: number): void => {
-    if (destroyed || paused || particles === null) {
+    if (destroyed || paused || particles === null || painter === null) {
       effectRunning = false;
       return;
     }
     if (!effectAllowed()) {
       // shortcut: once off (reduced motion turned on, tier settled Basic) it stays off until the room is opened again.
       effectRunning = false;
-      effectLayer.visible = false;
-      render();
+      painter.clear();
+      fxCanvas.hidden = true;
       return;
     }
     requestAnimationFrame(effectFrame);
@@ -364,24 +369,13 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     effectLast = t;
     // A long gap (tab back, resume): step as one frame, not a jump across the room.
     particles.step(Math.min(dt, 100));
-    const frames = effectFrames.length;
-    const step = Math.floor(t / effectMs);
-    for (let i = 0; i < effectSprites.length; i++) {
-      const sp = effectSprites[i];
-      if (sp === undefined) continue;
-      sp.x = particles.x[i] ?? 0;
-      sp.y = particles.y[i] ?? 0;
-      const tex = effectFrames[(step + (particles.phase[i] ?? 0)) % frames];
-      if (tex !== undefined && sp.texture !== tex) sp.texture = tex;
-    }
+    painter.paint(particles, Math.floor(t / effectMs));
     effectTicks++;
-    // A walk frame drew just now and draws again next frame anyway: it carries the effect along.
-    if (t - lastRender > EFFECT_MIN_INTERVAL_MS / 2) render();
   };
   const startEffect = (): void => {
     if (effectRunning || paused || particles === null || !effectAllowed()) return;
     effectRunning = true;
-    effectLayer.visible = true;
+    fxCanvas.hidden = false;
     effectLast = performance.now();
     requestAnimationFrame(effectFrame);
   };
@@ -393,19 +387,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         theme = t;
         placeDecor();
         for (const entry of pool.values()) wearHat(entry);
-        effectFrames = t.effect.frames.flatMap((k) => t.texture(k) ?? []);
-        const first = effectFrames[0];
-        if (first !== undefined) {
+        if (fxCtx !== null && t.effect.frames.length > 0) {
           effectMs = t.effect.ms;
-          const p = createParticles(t.effect.motion, t.effect.max, Math.random);
-          particles = p;
-          effectSprites = Array.from({ length: p.count }, (_, i) => {
-            const sp = new Sprite({ texture: first, label: "effect", x: p.x[i] ?? 0, y: p.y[i] ?? 0 });
-            // Effect frames face right; the left-goers are mirrored once, here.
-            if (p.flip[i] === 1) sp.scale.x = -1;
-            effectLayer.addChild(sp);
-            return sp;
-          });
+          particles = createParticles(t.effect.motion, t.effect.max, Math.random);
+          painter = createEffectPainter(fxCtx, t.effect.image, t.effect.frames, fxScale);
           startEffect();
         }
         render();
@@ -418,6 +403,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
 
   return {
     canvas: app.canvas,
+    effectCanvas: fxCanvas,
     setScene(scene, sheets, walkGrid) {
       walks.setGrid(walkGrid);
       lastScene = scene;
@@ -543,7 +529,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       const sorted = [...objectLayer.children].sort((a, b) => a.zIndex - b.zIndex);
       return [...background.children, ...markerLayer.children, ...sorted].map((c) => c.label);
     },
-    theme: () => ({ id: themeId, decor: decorLayer.children.length, hats: hatsShown, effect: effectLayer.visible ? effectLayer.children.length : 0, ticks: effectTicks }),
+    theme: () => ({ id: themeId, decor: decorLayer.children.length, hats: hatsShown, effect: effectRunning ? (particles?.count ?? 0) : 0, ticks: effectTicks }),
     destroy() {
       destroyed = true;
       animator.dispose();

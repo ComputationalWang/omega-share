@@ -26,13 +26,17 @@ export async function loadHalloween(): Promise<ThemeAtlas> {
   const m = v.parse(ThemeManifestSchema, json);
   const sheet = await loadSheet(m.frames, pngUrl);
   const { effect, hat, decor } = m.meta.omega;
+  const frames = effect.frames.flatMap((k) => {
+    const f = m.frames[k];
+    return f === undefined ? [] : [{ sx: f.frame.x, sy: f.frame.y, w: f.frame.w, h: f.frame.h, ox: Math.round(f.anchor.x * f.frame.w), oy: Math.round(f.anchor.y * f.frame.h) }];
+  });
   /** Per avatar frame key: its hat (or none). Filled once per key, so a walking frame never builds a string. */
   const hats = new Map<string, Texture | null>();
   return {
     ...sheet,
     id: "halloween",
     decor,
-    effect: { frames: effect.frames, ms: effect.ms, max: Math.min(effect.max, MAX_EFFECT_SPRITES), motion: MOTIONS.halloween },
+    effect: { image: sheet.image, frames, ms: effect.ms, max: Math.min(effect.max, MAX_EFFECT_SPRITES), motion: MOTIONS.halloween },
     hat(frame) {
       let t = hats.get(frame);
       if (t === undefined) {

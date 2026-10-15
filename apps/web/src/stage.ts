@@ -116,7 +116,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
   });
   view.canvas.className = "scene";
-  root.append(view.canvas, overlay, tags, bubbles, rail);
+  root.append(view.canvas, view.effectCanvas, overlay, tags, bubbles, rail);
 
   let drawnSeats: readonly unknown[] | undefined;
   let drawnMembers: readonly unknown[] | undefined;

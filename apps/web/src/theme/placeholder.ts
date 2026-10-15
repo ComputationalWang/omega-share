@@ -36,10 +36,9 @@ export function loadPlaceholder(id: Exclude<ThemeId, "halloween">): Promise<Them
   const source = new CanvasSource({ resource: canvas, scaleMode: "nearest" });
   // Decor hangs over its wall frame's floor point, about head height on the wall; a hat sits on the head (sitting is lower).
   const decor = new Texture({ source, frame: DECOR, defaultAnchor: { x: 0.5, y: 7 } });
-  const particle = new Texture({ source, frame: PARTICLE, defaultAnchor: { x: 0.5, y: 0.5 } });
   const standingHat = new Texture({ source, frame: HAT, defaultAnchor: { x: 0.5, y: 7 } });
   const sittingHat = new Texture({ source, frame: HAT, defaultAnchor: { x: 0.5, y: 6 } });
-  const keys: Readonly<Record<string, Texture>> = { [`${id}/decor`]: decor, [`${id}/particle`]: particle };
+  const keys: Readonly<Record<string, Texture>> = { [`${id}/decor`]: decor };
   return Promise.resolve({
     id,
     texture: (key) => keys[key],
@@ -47,7 +46,7 @@ export function loadPlaceholder(id: Exclude<ThemeId, "halloween">): Promise<Them
       { key: `${id}/decor`, on: "wall/l/window0" },
       { key: `${id}/decor`, on: "wall/r/poster0" },
     ],
-    effect: { frames: [`${id}/particle`], ms: 1000, max: look.max, motion: MOTIONS[id] },
+    effect: { image: canvas, frames: [{ sx: PARTICLE.x, sy: PARTICLE.y, w: PARTICLE.width, h: PARTICLE.height, ox: 3, oy: 3 }], ms: 1000, max: look.max, motion: MOTIONS[id] },
     hat: (frame) => (frame.includes("/sit/") ? sittingHat : standingHat),
   });
 }
