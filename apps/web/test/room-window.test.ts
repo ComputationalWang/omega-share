@@ -128,6 +128,24 @@ describe("on a phone, edges", () => {
     expect(win.pan().x).toBeGreaterThan(before);
   });
 
+  test("a pinch that starts on a seat keeps going when the seat loses the finger to the window (OME-1197)", async () => {
+    const { win, stage, zoom, pointer } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    const seat = document.createElement("button");
+    stage.append(seat);
+    // The first finger lands on a seat (which holds it, touch's implicit capture) and wanders a little.
+    seat.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, clientX: 150, clientY: 135, isPrimary: true, button: 0, bubbles: true, pointerType: "touch" }));
+    pointer("pointermove", 1, 154, 135);
+    pointer("pointerdown", 2, 254, 135);
+    // The window takes both fingers for the pinch: the seat hears it lost finger 1, and that bubbles up.
+    seat.dispatchEvent(new PointerEvent("lostpointercapture", { pointerId: 1, pointerType: "touch", bubbles: true }));
+    pointer("pointermove", 1, 104, 135);
+    pointer("pointermove", 2, 304, 135);
+    pointer("pointerup", 1, 104, 135);
+    pointer("pointerup", 2, 304, 135);
+    expect(zoom()).toBe(2);
+  });
+
   test("a finger the window lost track of never makes the next touch a pinch", async () => {
     const { win, clip, zoom, pointer } = await setup();
     win.set(true, VIEW.w, VIEW.h);
