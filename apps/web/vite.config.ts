@@ -78,6 +78,8 @@ export default defineConfig(({ command, mode }) => ({
         chat: "chat.html",
         room: "room.html",
       },
+      // @omega/shared is sideEffects:false (OME-1120); one chunk keeps its used exports from splitting into per-module requests.
+      output: { codeSplitting: { groups: [{ name: "shared", test: /[\\/]packages[\\/]shared[\\/]/ }] } },
     },
   },
 }));
