@@ -857,7 +857,7 @@ Owner: S5. 32 tests: A 23, B 1, D 8.
 | 427 | A ✓ | DELETE /rooms/:id (ADR 0028 §1, §2) › a seeded (pinned) room has no owner: nobody can delete the lobby |
 | 434 | A ✓ | DELETE /rooms/:id (ADR 0028 §1, §2) › failed deletes take from a per-key bucket: guessing is 429 rate_limited after a burst |
 | 451 | A ✓ | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › private rooms are never listed; created rooms show their titles; seeded rooms without one carry no title |
-| 462 | B | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › pinned rooms first, then by members, then newest first |
+| 462 | A ✓ | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › pinned rooms first, then by members, then newest first |
 | 475 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a room whose title is on the blocklist is left out of the list |
 | 482 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › a renamed room's list verdict follows its new title: blocked → clean is listed, clean → blocked is not |
 | 494 | D | GET /rooms lists public rooms only (ADR 0028 §4, research §3.5) › titles are checked against the blocklist once per room, not on every list request |

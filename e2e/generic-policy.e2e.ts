@@ -9,6 +9,7 @@ import { PORTS, ROOT } from "./support/apps";
 import { signalOwned, spawnOwned } from "./support/owned";
 import { EMBED_URL } from "./support/network";
 import { expect, test } from "./support/csp";
+import { serverArgv } from "./support/server-cmd";
 
 const ON_PORT = PORTS.genericOn;
 const OFF_PORT = PORTS.genericOff;
@@ -25,7 +26,7 @@ class Proc {
     readonly port: number,
     env: NodeJS.ProcessEnv,
   ) {
-    this.child = spawnOwned(port, "bun", ["apps/server/src/index.ts"], { cwd: ROOT, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
+    this.child = spawnOwned(port, ...serverArgv(), { cwd: ROOT, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
     this.child.stdout?.on("data", (d: Buffer) => (this.output += d.toString()));
     this.child.stderr?.on("data", (d: Buffer) => (this.output += d.toString()));
   }
