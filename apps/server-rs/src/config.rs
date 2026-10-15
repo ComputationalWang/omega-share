@@ -58,6 +58,8 @@ pub struct ServerConfig {
     /// `MAX_HTTP_IN_FLIGHT`: HTTP requests handled at once, whatever their clients; more get 503
     /// (`maxHttpInFlight` in server.ts, threat model section 10). Zero refuses every request.
     pub max_http_in_flight: usize,
+    /// `OMEGA_WS_SHARDS`: room-shard threads for WebSocket connections; 0 (default) keeps them on the main runtime.
+    pub ws_shards: usize,
 }
 
 /// A refused variable: `invalid KEY: why`.
@@ -91,7 +93,7 @@ pub fn default_db_path() -> PathBuf {
 pub type Env = HashMap<String, String>;
 
 /// Every variable the server reads; a non-UTF-8 value in one of them is refused, never mangled.
-pub const CONFIG_KEYS: [&str; 19] = [
+pub const CONFIG_KEYS: [&str; 20] = [
     "PORT",
     "HOST",
     "SITE_ORIGIN",
@@ -111,6 +113,7 @@ pub const CONFIG_KEYS: [&str; 19] = [
     "GENERIC_EMBED_DENYLIST",
     "ROOM_TITLE_BLOCKLIST",
     "ADMIN_SOCKET",
+    "OMEGA_WS_SHARDS",
 ];
 
 /// The process environment as UTF-8. Variables we don't read are skipped whatever their bytes.
@@ -392,6 +395,7 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         join_timeout_ms,
         status_interval_ms,
         max_http_in_flight,
+        ws_shards: 0,
     })
 }
 
@@ -492,6 +496,7 @@ mod tests {
                 join_timeout_ms: 10_000,
                 status_interval_ms: 1000,
                 max_http_in_flight: 256,
+                ws_shards: 0,
             }
         );
     }
@@ -535,6 +540,7 @@ mod tests {
                 join_timeout_ms: 10_000,
                 status_interval_ms: 1000,
                 max_http_in_flight: 256,
+                ws_shards: 0,
             }
         );
     }
@@ -724,6 +730,18 @@ mod tests {
         }
         for bad in ["", "4999", "600001", "1.5", "abc", "-40000", "4e4", "99999999"] {
             refuses(&[("RESUME_GRACE_MS", bad)], "RESUME_GRACE_MS");
+        }
+    }
+
+    // OME-1173: 0 (default) is off, 1..=64 shard threads
+    #[test]
+    fn omega_ws_shards_is_0_to_64() {
+        assert_eq!(ok(&[]).ws_shards, 0);
+        for (raw, want) in [("0", 0), ("1", 1), ("4", 4), ("64", 64)] {
+            assert_eq!(ok(&[("OMEGA_WS_SHARDS", raw)]).ws_shards, want);
+        }
+        for bad in ["", "-1", "65", "1.5", "two", "1e1"] {
+            refuses(&[("OMEGA_WS_SHARDS", bad)], "OMEGA_WS_SHARDS");
         }
     }
 

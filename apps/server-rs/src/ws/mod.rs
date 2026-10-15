@@ -10,6 +10,7 @@ mod frames;
 mod handle;
 pub mod limits;
 pub mod session;
+pub mod shards;
 
 use crate::app::{App, lock};
 use crate::contract::constants::MAX_CLIENT_MESSAGE_BYTES;
@@ -93,6 +94,11 @@ impl WsState {
             max_per_ip: config.max_connections_per_ip.map(|n| n as usize),
             ..Self::default()
         }
+    }
+
+    /// The room shards, when `OMEGA_WS_SHARDS` asked for any.
+    pub fn shards(&self) -> Option<&shards::Shards> {
+        None
     }
 
     /// Open sockets, joined or not (`omega_sockets`).
