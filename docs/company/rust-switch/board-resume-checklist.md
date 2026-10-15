@@ -2,7 +2,7 @@
 
 Do this only after the production switch succeeded (`docs/ops/switch-to-rust.md` § 3 green) and the PR carrying this file has merged.
 
-Pause snapshots: `/tmp/claude-1000/-home-wang-Projects-omega-share/cb2ee54c-4e75-4b63-b637-fa877b3247c3/scratchpad/{agents-before.json,routines-before.json}`. Before the pause every agent had heartbeats enabled and `status: idle`, except QA Engineer 2 (`status: error`, look at its last run before resuming it). Each agent was paused with `pauseReason: manual`.
+Pause state (from the board's snapshots of `paperclipai agent list` / `routine list`): before the pause every agent had heartbeats enabled and `status: idle`, except QA Engineer 2 (`status: error`, look at its last run before resuming it). Each agent was paused with `pauseReason: manual`.
 
 - [x] Fill `<date>` and `<date+7>` in `docs/adr/0050-rust-server.md` (a docs-only PR or direct board edit) and in the drafts below.
 - [ ] Sync the instruction bundles: each agent reads its managed `instructions/AGENTS.md` under `~/.paperclip/instances/default/companies/3cbbb61c-a24b-4200-aaa0-00a320534649/agents/<id>/instructions/`, not the repo copy. Copy the merged `company/agents/<slug>/AGENTS.md` into it for server-engineer, lead-engineer, qa-engineer and qa-engineer-2, or the agents will not see the Rust rules. `CLAUDE.md` is read from the repo checkout (make sure each worktree has `main` merged in).
