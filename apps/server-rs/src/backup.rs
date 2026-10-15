@@ -360,7 +360,7 @@ pub fn restore(snapshot_path: &Path, db_path: &Path, now_ms: i64) -> Result<Rest
 /// binds it): swapping the file under a live server would lose its writes. A flock would need `unsafe`/libc, and
 /// the socket is bound only while the server runs (a crash leaves a stale file that nothing answers on).
 /// `ADMIN_SOCKET=off` has no socket to ask: the checkpoint in `restore` (busy while the server holds the DB) still guards it.
-fn refuse_if_serving(env: &Env, db_path: &Path) -> Result<(), String> {
+fn refuse_if_serving(env: &Env, db_path: &Path, cwd: &Path) -> Result<(), String> {
     let socket = match env.get("ADMIN_SOCKET").map(String::as_str) {
         Some("off") => return Ok(()),
         Some(raw) if !raw.is_empty() => PathBuf::from(raw),
@@ -410,7 +410,8 @@ pub fn run_backup(args: &[String], env: &Env, now_ms: i64, out: &mut dyn FnMut(&
             }
             (Some("verify"), Some(file)) => out(&format!("ok {file}: {} rooms", verify_snapshot(Path::new(file))?)),
             (Some("restore"), Some(file)) => {
-                refuse_if_serving(env, Path::new(db_path))?;
+                let cwd = std::env::current_dir().map_err(|e| format!("cannot read the working directory: {e}"))?;
+                refuse_if_serving(env, Path::new(db_path), &cwd)?;
                 let done = restore(Path::new(file), Path::new(db_path), now_ms)?;
                 out(&format!("restored {file} \u{2192} {db_path}: {} rooms", done.rooms));
                 if let Some(previous) = done.previous {
@@ -854,6 +855,17 @@ mod tests {
             &mut |l| err.push(l.to_owned()),
         );
         assert_eq!(code, 0, "{err:?}");
+    }
+
+    // L6 (review): a relative ADMIN_SOCKET resolves against the working directory, as the server does.
+    #[test]
+    fn a_relative_admin_socket_is_resolved_against_the_working_directory() {
+        let t = tempfile::tempdir().unwrap();
+        let _listener = std::os::unix::net::UnixListener::bind(t.path().join("run.sock")).unwrap();
+        let env: Env = [("ADMIN_SOCKET".to_owned(), "x/../run.sock".to_owned())].into();
+        let db = t.path().join("elsewhere/omega.db");
+        assert!(refuse_if_serving(&env, &db, t.path()).is_err());
+        assert!(refuse_if_serving(&env, &db, &t.path().join("other")).is_ok());
     }
 
     // apps/server/test/backup.test.ts:311

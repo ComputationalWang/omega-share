@@ -265,6 +265,41 @@ mod tests {
         assert_eq!(left, ["lobby", ID_C]);
     }
 
+    fn poison(cell: &Arc<crate::registry::RoomCell>) {
+        let c = cell.clone();
+        let _ = std::thread::spawn(move || {
+            let _g = c.lock();
+            panic!("a handler bug");
+        })
+        .join();
+        drop(cell.lock()); // takes the room offline (closed, sockets 1012)
+    }
+
+    // B1 (OME-1172 review): a poisoned room is closed but listed members; GC must end it, not keep it alive.
+    #[test]
+    fn a_poisoned_room_is_removed_by_the_next_sweep_with_its_members_and_row() {
+        let (app, _) = app();
+        let cell = add_room(&app, ID_A, created(T0, Some(T0)));
+        let nick = crate::contract::text::Nickname::parse("alice").unwrap();
+        cell.lock().room.join(&nick, crate::contract::room::Avatar::new(0).unwrap(), None).unwrap().unwrap();
+        poison(&cell);
+        assert_eq!(ids(sweep_rooms(&app, T0 + 1)), [ID_A]);
+        assert!(app.registry.get(&rid(ID_A)).is_none());
+        assert!(cell.lock().sessions.is_empty(), "sessions ended");
+        assert!(app.store().rooms().list_rooms().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_poisoned_lobby_is_removed_but_keeps_its_row_for_the_next_boot() {
+        let (app, _) = app();
+        let cell = add_room(&app, "lobby", RoomInit::default());
+        poison(&cell);
+        assert_eq!(ids(sweep_rooms(&app, T0 + 1)), ["lobby"]);
+        assert!(app.registry.get(&rid("lobby")).is_none());
+        let rows = app.store().rooms().list_rooms().unwrap();
+        assert_eq!(rows.len(), 1, "the row stays: the next boot restores the lobby fresh");
+    }
+
     // apps/server/test/rooms-gc.test.ts:150
     #[tokio::test(start_paused = true)]
     async fn sweeps_once_at_start_then_every_interval_until_aborted() {
