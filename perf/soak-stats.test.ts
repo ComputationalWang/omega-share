@@ -144,7 +144,7 @@ describe("evaluate", () => {
 describe("parseSoakArgs", () => {
   test("defaults: 24 h, a restart every 3 h", () => {
     const a = parseSoakArgs(["--server", "bun x.ts"]);
-    expect(a).toMatchObject({ server: "bun x.ts", minutes: 24 * 60, restartEveryMin: 180, sampleS: 10, rooms: 10, members: 20 });
+    expect(a).toMatchObject({ server: "bun x.ts", minutes: 24 * 60, restartEveryMin: 180, sampleS: 10, rooms: 8, members: 22 });
   });
   test("--minutes shortens the run and the restart spacing follows", () => {
     const a = parseSoakArgs(["--server", "s", "--minutes", "5"]);

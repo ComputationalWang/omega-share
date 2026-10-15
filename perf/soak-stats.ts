@@ -237,8 +237,8 @@ export function parseSoakArgs(argv: string[]): SoakArgs {
   const server = flags.get("server");
   if (server === undefined || server === "") throw new Error('--server "<command>" is required');
   const minutes = numIn("--minutes", flags.get("minutes"), 24 * 60, 0.1, 7 * 24 * 60);
-  const rooms = numIn("--rooms", flags.get("rooms"), 10, 2, 100);
-  const members = numIn("--members", flags.get("members"), 20, 5, 25);
+  const rooms = numIn("--rooms", flags.get("rooms"), 8, 2, 100);
+  const members = numIn("--members", flags.get("members"), 22, 5, 25);
   // Headroom for the room churn and the abusive clients on top of the steady members.
   if (rooms * members + 50 > SOCKET_LIMIT) throw new Error(`--rooms × --members + 50 must stay within ${String(SOCKET_LIMIT)} sockets`);
   return {

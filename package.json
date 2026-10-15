@@ -18,6 +18,8 @@
     "e2e:reap": "bun e2e/support/reap.ts",
     "e2e:real": "bun e2e/support/headed.ts playwright test --project=e2e-real",
     "perf": "bun perf/run.ts",
+    "soak": "bun perf/server-soak.ts",
+    "soak:smoke": "bun test ./perf/server-soak.smoke.ts",
     "affected": "bun scripts/affected.ts",
     "perf:submit": "bun perf/runner/submit.ts",
     "perf:result": "bun perf/runner/result.ts",

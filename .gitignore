@@ -18,3 +18,6 @@ e2e/real/results/
 # Rust build output (ADR 0050); agents share one target dir via CARGO_TARGET_DIR.
 /target/
 apps/server-rs/data/
+
+# Soak run output (perf/server-soak.ts, default --out).
+/soak-out/
