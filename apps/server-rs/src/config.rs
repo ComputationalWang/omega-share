@@ -84,8 +84,16 @@ pub const DEFAULT_STATUS_INTERVAL_MS: u32 = 1000;
 pub const DEFAULT_MAX_HTTP_IN_FLIGHT: usize = 256;
 
 /// Dev default for `DB_PATH`: `apps/server-rs/data/omega.db` (git-ignored), never under a static dir.
+#[cfg(debug_assertions)]
 pub fn default_db_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("data/omega.db")
+}
+
+/// A release build never embeds the build directory (the artifact check rejects it): its serving config requires
+/// `DB_PATH`, and the operator CLI is run with it set, so this relative path is only a placeholder.
+#[cfg(not(debug_assertions))]
+pub fn default_db_path() -> PathBuf {
+    PathBuf::from("data/omega.db")
 }
 
 pub type Env = HashMap<String, String>;

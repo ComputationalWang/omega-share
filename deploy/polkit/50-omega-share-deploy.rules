@@ -1,7 +1,9 @@
-// The deploy user may start, stop and restart omega-share.service, and nothing else (ADR 0020).
+// The deploy user may start, stop and restart the two server units, and nothing else (ADR 0020, 0050):
+// omega-share.service runs the Rust release, omega-share-bun.service the Bun one for the 7-day rollback window.
+// deploy/deploy.sh stops the one the release doesn't use. Drop the Bun unit here with the Bun server (S13).
 polkit.addRule(function (action, subject) {
   if (action.id === "org.freedesktop.systemd1.manage-units" &&
-      action.lookup("unit") === "omega-share.service" &&
+      ["omega-share.service", "omega-share-bun.service"].indexOf(action.lookup("unit")) !== -1 &&
       ["start", "stop", "restart"].indexOf(action.lookup("verb")) !== -1 &&
       subject.user === "deploy") {
     return polkit.Result.YES;

@@ -7,6 +7,8 @@
 # ngrok is the operator's own install, never a repo dependency. It reads its authtoken from
 # NGROK_AUTHTOKEN (a Paperclip secret) or from the operator's own ngrok config. This script never
 # reads, prints or passes the token, and the server process runs without it. Stop it (Ctrl-C) when the session ends: the URL is public.
+# TUNNEL_SERVER=rust runs the Rust server (apps/server-rs, ADR 0050) instead of Bun's; its state goes to
+# $DB_PATH (default apps/server-rs/data/tunnel.db), which a release build needs set.
 set -euo pipefail
 
 usage() {
@@ -31,12 +33,25 @@ port="${PORT:-8787}"
 [[ "$port" =~ ^[1-9][0-9]{0,4}$ ]] || usage
 static_dir="$root/apps/web/dist"
 server_env=(PUBLIC_ORIGIN="$public_url" TRUST_PROXY=loopback HOST=127.0.0.1 PORT="$port" STATIC_DIR="$static_dir")
+case "${TUNNEL_SERVER:-bun}" in
+  bun)
+    build_server=(true)
+    server_cmd=(bun apps/server/src/index.ts)
+    ;;
+  rust)
+    build_server=(cargo build --release --locked -p omega-server)
+    server_env+=(DB_PATH="${DB_PATH:-$root/apps/server-rs/data/tunnel.db}")
+    server_cmd=("${CARGO_TARGET_DIR:-$root/target}/release/omega-server" serve)
+    ;;
+  *) usage ;;
+esac
 # Point ngrok at 127.0.0.1 explicitly: its default "localhost" may resolve to ::1 first.
 tunnel=(ngrok http "127.0.0.1:$port" --url "$public_url")
 
 if (( dry_run )); then
   echo "bun run --filter @omega/web build"
-  echo "env -u NGROK_AUTHTOKEN ${server_env[*]} bun apps/server/src/index.ts"
+  [[ "${build_server[0]}" == true ]] || echo "${build_server[*]}"
+  echo "env -u NGROK_AUTHTOKEN ${server_env[*]} ${server_cmd[*]}"
   echo "${tunnel[*]}"
   exit 0
 fi
@@ -45,7 +60,9 @@ command -v ngrok >/dev/null || { echo "ngrok is not installed (see docs/ops/tunn
 
 cd "$root"
 bun run --filter @omega/web build
-env -u NGROK_AUTHTOKEN "${server_env[@]}" bun apps/server/src/index.ts &
+"${build_server[@]}"
+if [[ "${TUNNEL_SERVER:-bun}" == rust ]]; then mkdir -p "$(dirname "${DB_PATH:-$root/apps/server-rs/data/tunnel.db}")"; fi
+env -u NGROK_AUTHTOKEN "${server_env[@]}" "${server_cmd[@]}" &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true' EXIT INT TERM
 
