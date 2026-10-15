@@ -33,3 +33,29 @@ About two thirds of Rust's CPU is in the kernel send path (loopback `write` deli
 
 - Bursty rooms keep the p99 win (about 40% to 50% lower than Bun) at about 30% more CPU than Bun, on a load that is about 11% of one core.
 - Revisit if the box becomes CPU-bound: set `OMEGA_WORKER_THREADS=1`, no rebuild.
+
+## Follow-up: room-sharded WebSocket threads (OME-1173, not adopted)
+
+Idea: give each room a home thread (N shard threads, each a current-thread runtime; a connection's task runs on the shard that owns its room) so a publish never wakes another thread, while different rooms still use different cores. Built behind `OMEGA_WS_SHARDS=N` and measured; the board decided not to merge it. Code: closed PR #259, branch `board/OME-1173-room-shards`.
+
+Release build, `perf/server-compare.ts` defaults (500 sockets), 3 alternating runs, min to max. `m1` is one main-runtime thread (`OMEGA_WORKER_THREADS=1`).
+
+| server | p95 ms | p99 ms | max ms | RSS avg MB | CPU avg % | CPU peak % |
+|---|---|---|---|---|---|---|
+| Bun | 4.03-4.51 | 6.39-6.86 | 10.9-11.3 | 63.6-64.0 | 10.9-11.3 | 40-48 |
+| Rust, 2 workers (the default) | 1.91-2.16 | 3.30-3.89 | 5.8-8.1 | 18.5-18.6 | 14.1-14.8 | 32-44 |
+| 2 shards + m1 | 1.92-2.28 | 3.52-3.87 | 8.0-9.4 | 18.2-18.3 | 14.4-14.8 | 36-40 |
+| 4 shards + m1 | 1.98-2.27 | 3.29-3.52 | 4.4-7.6 | 18.4-18.6 | 15.6-16.2 | 40-48 |
+
+Skewed run (`--rooms 4`, 100 sockets, 3 runs):
+
+| server | p99 ms | CPU avg % | CPU peak % |
+|---|---|---|---|
+| Bun | 1.08-2.07 | 2.8-3.1 | 12-20 |
+| Rust, 2 workers | 1.01-2.10 | 3.2-3.3 | 12 |
+| 2 shards + m1 | 1.55-2.19 | 3.0-3.2 | 8 |
+| 4 shards + m1 | 1.01-1.91 | 3.2-3.3 | 8-12 |
+
+Conclusion: CPU is equal or slightly higher than two workers, p99 and RSS are the same. Sharding adds a runtime per shard, a new shutdown path and an `App` and `Shards` ownership cycle for no measured gain.
+
+Cause (unverified: `perf` is not installed, so no profiler confirmed it): pinning rooms removed the cross-thread handoff on the relay path, yet CPU did not fall to the one-thread level (10.3-11.2 %). The step from one thread to two or more is probably per-thread park and unpark under the bursty load (fewer frames batched per wakeup), not work-stealing handoff.

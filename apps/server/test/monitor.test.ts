@@ -278,7 +278,7 @@ describe("deploy/monitor/monitor.sh: new abuse reports", () => {
     s.set("ssh-fails", "");
     s.run(T0, { OMEGA_MONITOR_CHECKS: "reports", OMEGA_MONITOR_REPORTS_CMD: "" });
     const argv = s.lines("ssh.log")[0] ?? "";
-    expect(argv).toContain("apps/server/src/cli.ts reports list");
+    expect(argv).toContain("/opt/omega-share/current/bin/omega-ops admin reports list");
     expect(argv).toMatch(/sudo -n -u omega-share /); // -n: never wait for a password in batch mode
   });
 

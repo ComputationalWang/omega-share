@@ -27,6 +27,8 @@ ROOMS="cd /opt/omega-share/current && sudo -u omega-share env DB_PATH=/var/lib/o
 ssh $A admin@$SERVER_IP "$ROOMS list"
 ```
 
+With the Rust server (ADR 0050) use the release's launcher, which works for both servers and takes the same verbs: `OPS="sudo -u omega-share env DB_PATH=/var/lib/omega-share/omega.db /opt/omega-share/current/bin/omega-ops"`, then `ssh $A admin@$SERVER_IP "$OPS admin rooms list"`, i.e. `omega-ops admin rooms list` (it runs `omega-server admin rooms list`; for a Bun release it runs `cli.ts rooms list`). The commands below show the Bun form until S13 removes it; swap the prefix.
+
 - `sudo -u omega-share`: only the service user can open the socket. Running it as `admin` without sudo fails with `no server on …` (permission denied).
 - `cd /opt/omega-share/current`: the service user can't read `admin`'s home, and Bun reads config from the working directory.
 - If `/etc/omega-share/env` moves the database, pass that `DB_PATH` instead (or `ADMIN_SOCKET=<path>`).

@@ -1,0 +1,26 @@
+#!/bin/sh
+# The release's launcher (OME-1174): the one command the backup unit, restore.sh and the monitor call, so they work for
+# a Rust release (omega-server) and a Bun release (the 7-day rollback window) alike. Ships as <release>/bin/omega-ops.
+#
+#   omega-ops serve | backup <verb> … | admin <verb> …
+#
+# A Rust release has <release>/omega-server, which takes the same verbs; a Bun release maps them onto its entry points.
+# OMEGA_APP_DIR (the release dir) and OMEGA_BUN are overrides for tests and unusual boxes.
+# Delete the Bun branch with the Bun server (S13).
+set -eu
+
+app="${OMEGA_APP_DIR:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}"
+bun="${OMEGA_BUN:-/usr/local/bin/bun}"
+verb="${1:-}"
+
+if [ -x "$app/omega-server" ]; then
+  case "$verb" in serve | backup | admin) exec "$app/omega-server" "$@" ;; esac
+else
+  case "$verb" in
+    serve) exec "$bun" "$app/apps/server/src/index.ts" ;;
+    backup) shift; exec "$bun" "$app/apps/server/scripts/backup.ts" "$@" ;;
+    admin) shift; exec "$bun" "$app/apps/server/src/cli.ts" "$@" ;;
+  esac
+fi
+echo "usage: omega-ops serve | backup <verb> | admin <verb>" >&2
+exit 2

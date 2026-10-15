@@ -77,10 +77,12 @@ base() {
     rm -r -f "$tmp"
   fi
 
-  install -m 0644 "$here/omega-share.service" /etc/systemd/system/
+  # Two server units (ADR 0050): omega-share.service runs a Rust release, omega-share-bun.service a Bun one (the 7-day
+  # rollback window); each starts only when `current` holds its server, so both stay enabled.
+  install -m 0644 "$here/omega-share.service" "$here/omega-share-bun.service" /etc/systemd/system/
   install -m 0644 "$here/backup/omega-share-backup.service" "$here/backup/omega-share-backup.timer" /etc/systemd/system/
   systemctl daemon-reload
-  systemctl enable omega-share.service
+  systemctl enable omega-share.service omega-share-bun.service
   systemctl enable --now omega-share-backup.timer
   systemctl restart omega-share-backup.timer # an already-active timer keeps its old schedule otherwise
   logs
