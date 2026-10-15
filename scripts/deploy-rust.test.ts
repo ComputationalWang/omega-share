@@ -237,13 +237,13 @@ describe("deploy/deploy.sh --server", () => {
     });
   });
 
-  test("the default stays bun until the switch PR: no cross build", () => {
+  test("the default is rust (the switch PR): a plain deploy cross-builds and ships omega-server", () => {
     withBun((path) => {
       const r = dry(path);
       expect(r.code, r.out).toBe(0);
-      expect(r.out).not.toContain("build-server-rs.sh");
-      expect(r.out).toContain("apps/server");
-      expect(r.out).toContain("bin/omega-ops");
+      expect(r.out).toContain("build-server-rs.sh");
+      expect(r.out).not.toMatch(/bun install [^\n]*--production/);
+      expect(r.out).toMatch(/releases\/[0-9a-f]{40}-rust\//);
     });
   });
 
@@ -255,14 +255,14 @@ describe("deploy/deploy.sh --server", () => {
         const out = r.out;
         const build = out.indexOf("build-server-rs.sh");
         const check = out.indexOf("check-server-binary.sh");
-        const ship = out.search(/rsync .* deploy@203\.0\.113\.7:\/opt\/omega-share\/releases\/[0-9a-f]{40}\//);
+        const ship = out.search(/rsync .* deploy@203\.0\.113\.7:\/opt\/omega-share\/releases\/[0-9a-f]{40}-rust\//);
         expect(build).toBeGreaterThan(-1);
         expect(check).toBeGreaterThan(build);
         expect(ship).toBeGreaterThan(check);
         expect(out).toMatch(/--out \S+\/release\/omega-server/);
         expect(out).toContain("bin/omega-ops");
         expect(out).not.toMatch(/bun install [^\n]*--production/);
-        expect(out).toMatch(/flip \/opt\/omega-share\/releases\/[0-9a-f]{40}\n/);
+        expect(out).toMatch(/flip \/opt\/omega-share\/releases\/[0-9a-f]{40}-rust\n/);
         expect(out).toContain("rolled back to");
         expect(out).toContain("/healthz");
       }
@@ -276,6 +276,8 @@ describe("deploy/deploy.sh --server", () => {
       expect(r.out).toMatch(/bun install [^\n]*--production/);
       expect(r.out).toContain("bun --version");
       expect(r.out).not.toContain("build-server-rs.sh");
+      expect(r.out).toMatch(/deploy@203\.0\.113\.7:\/opt\/omega-share\/releases\/[0-9a-f]{40}\//);
+      expect(r.out).toMatch(/flip \/opt\/omega-share\/releases\/[0-9a-f]{40}\n/);
     });
   });
 
@@ -343,6 +345,88 @@ describe("deploy/deploy.sh --server", () => {
         expect(existsSync(join(base, "releases", "rust-5"))).toBe(false);
         expect(existsSync(join(base, "releases", "prev"))).toBe(true);
       },
+    );
+  });
+
+  const HEAD = Bun.spawnSync(["git", "rev-parse", "HEAD"], { cwd: join(DEPLOY, "..") }).stdout.toString().trim();
+
+  test("a rust deploy of the sha the live Bun release runs goes to <sha>-rust and leaves <sha> untouched", () => {
+    remote(
+      "rust",
+      (b) => link(b, mkRelease(b, HEAD, false, 100)),
+      ({ code, out, base, calls }) => {
+        expect(code, out).toBe(0);
+        expect(currentIs(base).trim()).toBe(join(base, "releases", `${HEAD}-rust`));
+        expect(existsSync(join(base, "releases", HEAD, "apps/server/src/index.ts"))).toBe(true);
+        expect(calls).toContain("restart omega-share\n");
+      },
+    );
+  });
+
+  test("a bun deploy of a sha whose Rust release exists goes to <sha> and leaves <sha>-rust untouched", () => {
+    remote(
+      "bun",
+      (b) => link(b, mkRelease(b, `${HEAD}-rust`, true, 100)),
+      ({ code, out, base, calls }) => {
+        expect(code, out).toBe(0);
+        expect(currentIs(base).trim()).toBe(join(base, "releases", HEAD));
+        expect(existsSync(join(base, "releases", `${HEAD}-rust`, "omega-server"))).toBe(true);
+        expect(calls).toContain("restart omega-share-bun\n");
+      },
+    );
+  });
+
+  test("the rsync target differs per kind for the same sha", () => {
+    withBun((path) => {
+      const dest = (kind: string) => new RegExp(`rsync [^\\n]*:/opt/omega-share/releases/${HEAD}(-rust)?/\\n`).exec(dry(path, "--server", kind).out)?.[1] ?? "none";
+      expect(dest("bun")).toBe("none");
+      expect(dest("rust")).toBe("-rust");
+    });
+  });
+
+  test("retention keeps the Bun target across name forms, and the 5 newest", () => {
+    remote(
+      "rust",
+      (b) => {
+        for (let i = 0; i < 6; i++) mkRelease(b, `${"a".repeat(39)}${String(i)}-rust`, true, 100 + i * 100);
+        mkRelease(b, "b".repeat(40), false, 9000);
+        mkRelease(b, "c".repeat(40), false, 9500);
+        link(b, mkRelease(b, "prev-rust", true, 50));
+      },
+      ({ code, out, base }) => {
+        expect(code, out).toBe(0);
+        expect(existsSync(join(base, "releases", "b".repeat(40)))).toBe(true);
+        expect(existsSync(join(base, "releases", "c".repeat(40)))).toBe(false);
+        expect(existsSync(join(base, "releases", `${"a".repeat(39)}5-rust`))).toBe(false);
+      },
+    );
+  });
+
+  test("a failed healthz rolls a same-sha rust deploy back to the Bun <sha> dir and its unit", () => {
+    remote(
+      "rust",
+      (b) => link(b, mkRelease(b, HEAD, false, 100)),
+      ({ code, out, base, calls }) => {
+        expect(code).toBe(1);
+        expect(out).toContain(`rolled back to ${join(base, "releases", HEAD)}`);
+        expect(currentIs(base).trim()).toBe(join(base, "releases", HEAD));
+        expect(calls.lastIndexOf("restart omega-share-bun")).toBeGreaterThan(calls.indexOf("restart omega-share\n"));
+      },
+      { healthy: false },
+    );
+  });
+
+  test("a failed healthz rolls a same-sha bun deploy back to the <sha>-rust dir and its unit", () => {
+    remote(
+      "bun",
+      (b) => link(b, mkRelease(b, `${HEAD}-rust`, true, 100)),
+      ({ code, out, base, calls }) => {
+        expect(code).toBe(1);
+        expect(out).toContain(`rolled back to ${join(base, "releases", `${HEAD}-rust`)}`);
+        expect(currentIs(base).trim()).toBe(join(base, "releases", `${HEAD}-rust`));
+        expect(calls.lastIndexOf("restart omega-share\n")).toBeGreaterThan(calls.indexOf("restart omega-share-bun"));
+      },
+      { healthy: false },
     );
   });
 
@@ -624,7 +708,7 @@ describe("docs", () => {
   });
   test("a plain deploy after the switch stays on Rust: hosting.md and the runbook say Bun is only deployed explicitly", () => {
     for (const name of ["hosting.md", "switch-to-rust.md"]) {
-      expect(doc(name), name).toMatch(/default to `--server rust`|flips the default/);
+      expect(doc(name), name).toMatch(/default to `--server rust`|flipped the default/);
       expect(doc(name), name).toMatch(/explicit `--server bun`/);
     }
   });
