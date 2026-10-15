@@ -79,6 +79,8 @@ export interface RoomHandle {
   readonly roomRenders: () => number;
   /** A member's avatar alpha (dimmed when I hid them, OME-769), for e2e checks. */
   readonly avatarAlpha: (id: MemberId) => number | undefined;
+  /** The holiday theme drawn now (room-view.ts `theme`), for e2e. */
+  readonly theme: () => ReturnType<Stage["view"]["theme"]>;
 }
 
 const NOTICE_MS = 3000;
@@ -794,5 +796,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id) };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme() };
 }

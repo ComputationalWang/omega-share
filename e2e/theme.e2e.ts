@@ -86,7 +86,8 @@ test("off: no theme at all", async ({ browser }) => {
   });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
-  await expect.poll(async () => (await theme(page))?.id ?? "missing").toBeNull();
-  const t = await theme(page);
-  expect([t?.decor, t?.hats, t?.effect]).toEqual([0, 0, 0]);
+  // Wait until I'm drawn in the room, so a theme would have shown by now.
+  await expect.poll(async () => (await theme(page)) !== null).toBe(true);
+  await page.waitForTimeout(500);
+  expect(await theme(page)).toEqual({ id: null, decor: 0, hats: 0, effect: 0, ticks: 0 });
 });
