@@ -52,7 +52,12 @@ import { buildPopupVignettes } from "./popup";
 import { POPUP_KIT_SLICES, POPUP_KIT_SPRITES, brightDots, chevronFrame, popupKitCss } from "./popupkit";
 import { BUBBLES, buildChatFloatFrames, chatFloatCss, wheelMeta } from "./chatfloat";
 import { PRESETS, THUMB, THUMB_SCALE, presetThumb } from "./presets";
-import { allAvatarFrames, buildBatFrames, buildDecorFrames, buildHatFrames } from "./halloween";
+import { HALLOWEEN } from "./halloween";
+import { CHRISTMAS } from "./christmas";
+import { EASTER } from "./easter";
+import { SINTERKLAAS } from "./sinterklaas";
+import { VALENTINES } from "./valentines";
+import { allAvatarFrames, buildHatFrames, type ThemeDef } from "./theme";
 import * as v from "valibot";
 import { FURNITURE, RoomLayoutInputSchema, footprintCells, type RoomLayout } from "@omega/shared";
 
@@ -1676,14 +1681,18 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
   writeFileSync(join(ROOT, "preview", "presets@1x.png"), encodeIndexedPng(fw, fh, full, PALETTE));
 }
 
-// ---------------------------------------------------------------- holiday themes: Halloween (OME-1185, lazy)
+// ---------------------------------------------------------------- holiday themes (OME-1185, OME-1187, lazy)
 
-/** `themes/halloween/halloween.png` + `.json`: wall/window decor, bat flap frames and a witch hat for every avatar frame.
+const THEMES: readonly ThemeDef[] = [HALLOWEEN, SINTERKLAAS, CHRISTMAS, VALENTINES, EASTER];
+const THEME_FILES = THEMES.flatMap((t) => [`themes/${t.id}/${t.id}.png`, `themes/${t.id}/${t.id}.json`]);
+
+/** `themes/<id>/<id>.png` + `.json`: wall/window decor, effect frames and a hat for every avatar frame (≤ 40 KB per theme).
  *  Hat frames with identical pixels share one rect; each key keeps its own anchor (the avatar's floor point). */
-function buildHalloween(avatarImages: Map<string, Uint8Array>): void {
-  const hats = buildHatFrames();
-  const decor = buildDecorFrames();
-  const bats = buildBatFrames();
+function buildTheme(t: ThemeDef, avatarImages: Map<string, Uint8Array>): void {
+  const id = t.id;
+  const hats = buildHatFrames(id, t.hat);
+  const decor = t.decor();
+  const fx = t.effect.frames;
   // Dedupe hat images by pixels.
   const unique = new Map<string, RoomFrame>();
   const rectOf = new Map<string, string>();
@@ -1693,7 +1702,7 @@ function buildHalloween(avatarImages: Map<string, Uint8Array>): void {
     const u = unique.get(sig);
     if (u) rectOf.set(h.key, u.key);
   }
-  const packed = pack([...decor.frames, ...bats, ...unique.values()], 256);
+  const packed = pack([...decor.frames, ...fx, ...unique.values()], 256);
   const sheet = new Uint8Array(packed.w * packed.h);
   const at = new Map(packed.placed.map((p) => [p.key, p]));
   for (const p of packed.placed) blit(sheet, packed.w, p.img, p.w, p.h, p.x, p.y);
@@ -1706,7 +1715,7 @@ function buildHalloween(avatarImages: Map<string, Uint8Array>): void {
     anchor: { x: ax / p.w, y: ay / p.h },
   });
   const frames: Record<string, Frame> = {};
-  for (const f of [...decor.frames, ...bats]) {
+  for (const f of [...decor.frames, ...fx]) {
     const p = at.get(f.key);
     if (!p) throw new Error(`unpacked ${f.key}`);
     frames[f.key] = frame(p, f.ax, f.ay);
@@ -1716,36 +1725,38 @@ function buildHalloween(avatarImages: Map<string, Uint8Array>): void {
     if (!p) throw new Error(`unpacked ${h.key}`);
     frames[h.key] = frame(p, h.ax, h.ay);
   }
-  registerKeys("halloween", Object.keys(frames));
-  const dir = join(ROOT, "themes", "halloween");
+  registerKeys(id, Object.keys(frames));
+  const dir = join(ROOT, "themes", id);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "halloween.png"), encodeIndexedPng(packed.w, packed.h, sheet, PALETTE));
-  const batKeys = bats.map((b) => b.key);
+  writeFileSync(join(dir, `${id}.png`), encodeIndexedPng(packed.w, packed.h, sheet, PALETTE));
+  const fxKeys = fx.map((b) => b.key);
   const atlas = {
     frames,
-    animations: { "halloween/bat": [...batKeys, batKeys[1] ?? ""].slice(0, 4) },
+    // A cycling effect (fx, pepernoten) is one Pixi animation; variant effects (snowflakes) are just frames.
+    animations: t.effect.ms === undefined ? {} : { [(fxKeys[0] ?? "").replace(/\/0$/, "")]: fxKeys },
     meta: {
       app: "omega-share assets/src/build.ts",
       version: "1",
-      image: "halloween.png",
+      image: `${id}.png`,
       format: "RGBA8888",
       size: { w: packed.w, h: packed.h },
       scale: "1",
       omega: {
         license: "CC-BY-SA-4.0",
-        theme: "halloween",
-        period: { from: "10-24", to: "11-01" },
+        theme: id,
+        period: t.period,
         decor: decor.meta,
-        effect: { frames: batKeys, ms: 90, max: 6, layer: "behind-avatars", facing: "right" },
-        hat: { prefix: "halloween/hat/", count: hats.length, rects: unique.size },
+        effect: { frames: fxKeys, ms: t.effect.ms, max: t.effect.max, layer: "behind-avatars", motion: t.effect.motion, facing: t.effect.facing },
+        hat: { prefix: `${id}/hat/`, count: hats.length, rects: unique.size, replaces: t.hat.replaces },
+        accent: t.accent,
       },
     },
   };
-  writeFileSync(join(dir, "halloween.json"), JSON.stringify(atlas, null, 1) + "\n");
-  // Previews: the sheet, a hat contact strip, and the classic room dressed for Halloween.
+  writeFileSync(join(dir, `${id}.json`), JSON.stringify(atlas, null, 1) + "\n");
+  // Previews: the sheet, a hat contact strip, and the classic room dressed for the theme.
   const big = upscale(sheet, packed.w, packed.h, 2).map((v) => (v === 0 ? colorIndex("wall", 1) : v));
-  writeFileSync(join(ROOT, "preview", "halloween-sheet@2x.png"), encodeIndexedPng(packed.w * 2, packed.h * 2, big, PALETTE));
-  const hatByKey = new Map(hats.map((h) => [h.key.slice("halloween/hat/".length), h]));
+  writeFileSync(join(ROOT, "preview", `${id}-sheet@2x.png`), encodeIndexedPng(packed.w * 2, packed.h * 2, big, PALETTE));
+  const hatByKey = new Map(hats.map((h) => [h.key.slice(`${id}/hat/`.length), h]));
   const sprites = new Map<string, { img: Uint8Array; w: number; h: number }>();
   const base = new Map<string, Uint8Array>();
   for (const s of allAvatarFrames()) base.set(s.key, avatarImages.get(s.key) ?? render(composeMotion(s.avatar, s.pose, s.dir, s.motion), s.avatar.roles));
@@ -1775,38 +1786,40 @@ function buildHalloween(avatarImages: Map<string, Uint8Array>): void {
     }
     rows.push(r1, r2);
   }
-  strip("halloween-hats@4x.png", 16, rows, sprites, CELL.w, CH, true);
-  const extra = new Map<string, RoomFrame>([...decor.frames, ...bats, ...hats].map((f) => [f.key, f]));
+  strip(`${id}-hats@4x.png`, 16, rows, sprites, CELL.w, CH, true);
+  const extra = new Map<string, RoomFrame>([...decor.frames, ...fx, ...hats].map((f) => [f.key, f]));
   const roomFrames = buildRoomFrames();
   const layout = defaultLayout();
   const wallFrame = (on: string): { c: number; r: number }[] => {
     if (on === "wall/corner") return [{ c: 0, r: 0 }];
     if (on === "wall/l/end") return [{ c: 0, r: 9 }];
     if (on === "wall/r/end") return [{ c: 9, r: 0 }];
-    return layout.walls.l.flatMap((k, r) => (k === on ? [{ c: 0, r }] : []));
+    if (on === "wall/l") return layout.walls.l.map((_, r) => ({ c: 0, r }));
+    if (on === "wall/r") return layout.walls.r.map((_, c) => ({ c, r: 0 }));
+    return [...layout.walls.l.flatMap((k, r) => (k === on ? [{ c: 0, r }] : [])), ...layout.walls.r.flatMap((k, c) => (k === on ? [{ c, r: 0 }] : []))];
   };
   const { img, W, H } = composeRoomScene(roomFrames, avatarImages, layout, {
     extra,
-    over: (key) => (hatByKey.has(key) ? `halloween/hat/${key}` : undefined),
+    over: (key) => (hatByKey.has(key) ? `${id}/hat/${key}` : undefined),
     walls: (draw, cc) => {
       for (const m of decor.meta) for (const { c, r } of wallFrame(m.on)) { const p = cc(c, r); draw(m.key, p.x, p.y); }
-      // Bats crossing the back wall (preview positions; the engine animates them).
-      for (const [i, x, y] of [[0, 330, 150], [2, 372, 132], [1, 560, 110], [3, 610, 160], [0, 700, 128]] as const) draw(`halloween/bat/${String(i)}`, x, y);
+      // Effect sprites (preview positions; the engine animates them).
+      for (const [i, x, y] of t.preview) draw(fxKeys[i] ?? "", x, y);
     },
   });
-  writeFileSync(join(ROOT, "preview", "halloween-room@1x.png"), encodeIndexedPng(W, H, img, PALETTE));
-  writeFileSync(join(ROOT, "preview", "halloween-room@2x.png"), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
+  writeFileSync(join(ROOT, "preview", `${id}-room@1x.png`), encodeIndexedPng(W, H, img, PALETTE));
+  writeFileSync(join(ROOT, "preview", `${id}-room@2x.png`), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
 }
 
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "ui/edit.png", "ui/edit.json", "themes/halloween/halloween.png", "themes/halloween/halloween.json"]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "ui/edit.png", "ui/edit.json", ...THEME_FILES]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "themes/halloween/halloween.png", "themes/halloween/halloween.json"];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", ...THEME_FILES];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
@@ -1886,7 +1899,7 @@ buildOwnerPreviews(furnitureSet, uiFrames);
 buildPresets(furnitureSet);
 buildMotion(avatarImages);
 buildExpressions(avatarImages);
-buildHalloween(avatarImages);
+for (const t of THEMES) buildTheme(t, avatarImages);
 buildStore();
 buildSite({ room: buildRoomFrames(), avatars: avatarImages, ui: uiFrames });
 console.log(`palette: ${String(PALETTE.length - 1)} colours`);

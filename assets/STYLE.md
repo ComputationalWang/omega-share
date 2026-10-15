@@ -459,8 +459,10 @@ a new room.
 **Effect sprites** are at most 16×16, with 2–4 frames, outlined so they hold on both wall tones. They face right; the engine mirrors them to go left.
 
 **Hats.** One hat per holiday, worn by every avatar in every room:
-1. **The hat replaces the avatar's own headwear.** Pip's beanie and Mo's bucket hat come off; their hair stays. Juno's puff and Kiki's buns
-   aren't headwear, so the hat sits on top of them.
+1. **A crown hat replaces the avatar's own headwear.** For the witch hat, the mitre and the Santa hat, Pip's beanie and Mo's bucket hat come off,
+   and their hair stays. Juno's puff and Kiki's buns aren't headwear, so the hat sits on top of them. **A band accessory is worn over it.** The heart
+   headband and the bunny ears sit on the beanie or bucket hat. A thin band can't hide them, and swapping them for invented hair would change who Pip
+   and Mo are. A band follows the top of the head, hair or hat it sits on.
 2. **Every avatar stays recognisable.** The hat never covers the eyes, glasses, beard or mouth, and keeps the main silhouette cue visible:
    Juno's puff shows under the brim, Kiki's buns poke out on both sides of the crown, Pip keeps the ginger fringe and glasses, Mo keeps the beard and broad shoulders.
 3. **The hat sits where the head is.** Big hair lifts it (Juno's brim sits 3 px higher), and a hat that replaced headwear sits where that headwear was.
@@ -468,6 +470,19 @@ a new room.
 4. **Arms keep their depth.** A waving or cheering arm passes in front of the brim, and the yawn's hands pass behind the crown.
 5. **Same light and outline as the avatar.** The hat is composed into the avatar's role grid before shading, so it gets the same edge shading, highlight and plum outline.
    The halloween witch hat is `charcoal` with a `ginger` band, a `mustard` buckle on the face side and a little `lilac` darn on the crown. The tip folds back, away from the face.
+6. **Every hat leans or folds toward the back of the head**, never over the face: the witch hat's tip, the Santa hat's pom, the far bunny ear.
+
+| Theme | Hat | Decor | Effect |
+|---|---|---|---|
+| Halloween | witch hat (above) | moonlit window, jack-o'-lanterns on the sill, cobwebs | bats, `charcoal` |
+| Sinterklaas | mitre: `rust` body, `mustard` band, seam and a plain cross on the front only | steamboat at night in the window; a `mustard` clog with a carrot and two wrapped surprises on the sill; a corner swag of `rust`/`mustard`/`cream` paper flags. **No Zwarte Piet imagery**, in any theme. | pepernoot, `wood` with dark speckles |
+| Christmas | Santa hat: `rust` cone, `cream` fur trim and pom | snowy rooftops in the window; an `olive` pine garland with `rust`/`mustard`/`teal` lights along the crown of both walls; three striped stockings under the poster | snowflakes, `cream` |
+| Valentine's | headband: `velvet` band, two `pink` hearts on `mustard` springs | `pink`/`cream` paper hearts on a `velvet` string along both walls; the lamps take a `pink` accent | heart, `pink` |
+| Easter | bunny ears: `cream`, `pink` inside (front only) | blossom branches (`wood`, `pink`, `mustard` centres) against a pale `glow` sky; painted eggs on the sill; a corner swag of paper eggs | blossom petal, `pink` |
+
+- **Flat paper decor** (bunting, flags, paper eggs) is painted upright on the wall rather than sheared, so the shapes stay square at 1×. Like the cobwebs it has no
+  outline: it uses colours that stand off both wall tones (`pink`, `cream`, `mustard`, `teal`).
+- **Repeating decor** (garland, bunting) is one decal per wall segment that tiles seamlessly, so it follows any wall length.
 
 How it's built: for every frame in the avatar, motion and expression sheets, the build composes the frame twice, once as shipped and once with the
 headwear off and the hat on. The hat sprite is the difference between the two (the hat, plus any hair or re-shaded edge under it), cropped.
@@ -492,7 +507,11 @@ Drawn over the avatar at the same floor point, it gives exactly the hatted frame
 | (l) bubbles, wheel, smooth walk (M8) | added to the (c) files: `ui.png` + `ui.json` (gz) + 7 slices + `reference.css` (gz) · `avatars/motion.png` + `motion.json` (gz, lazy) | **≈ 5.3 KB** eager · **4.9 KB** lazy |
 | (m) site icons, share card, panels (M9) | `site/*`: their own caps, not this budget (landing panels ≤ 60 KB together, share card < 150 KB) | panels **6.8 KB**, share card **13.8 KB**, icons **5.9 KB** |
 | (o) popup kit + toolbar found (OME-1041) | `ui/popup/kit.png` + `kit.css` (gz) + 17 existing slices (in the extension package) · `store/found-16\|32\|48\|64.png` + `icon-64.png` | popup **6.8 KB** (kit 4.1 KB new) · icons **2.2 KB** |
-| Halloween theme (OME-1185, lazy, only Oct 24 – Nov 1) | `themes/halloween/halloween.png` + `halloween.json` (gz) | 3 513 + 3 718 ≈ **7.1 KB** (cap 40 KB per theme) |
-| total art budget | | ≤ 300 KB (≈ 127.2 KB used, as printed by `bun assets/src/build.ts`) |
+| Halloween theme (OME-1185, lazy, only Oct 24 – Nov 1) | `themes/halloween/halloween.png` + `halloween.json` (gz) | 3 513 + 3 740 ≈ **7.1 KB** (cap 40 KB per theme) |
+| Sinterklaas theme (OME-1187, lazy) | `themes/sinterklaas/*` | 2 799 + 3 597 ≈ **6.2 KB** |
+| Christmas theme (OME-1187, lazy) | `themes/christmas/*` | 2 280 + 3 309 ≈ **5.5 KB** |
+| Valentine's theme (OME-1187, lazy) | `themes/valentines/*` | 1 117 + 3 224 ≈ **4.2 KB** |
+| Easter theme (OME-1187, lazy) | `themes/easter/*` | 2 890 + 3 532 ≈ **6.3 KB** |
+| total art budget | | ≤ 300 KB (≈ 213.3 KB used, as printed by `bun assets/src/build.ts`) |
 
 Previews (`preview/`) and mood boards (`src/moodboards/`) are documentation and never ship.
