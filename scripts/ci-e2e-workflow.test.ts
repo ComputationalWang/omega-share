@@ -68,7 +68,7 @@ describe(".github/workflows/e2e.yml", () => {
 
   test("caches the Playwright browsers keyed on the lockfile", () => {
     const steps = load().jobs["shard"]?.steps ?? [];
-    const cache = steps.find((s) => s.uses?.startsWith("actions/cache@"));
+    const cache = steps.find((s) => s.uses?.startsWith("actions/cache@") && s.name !== "Cache Rust build");
     expect(cache?.with?.["path"]).toBe("~/.cache/ms-playwright");
     expect(String(cache?.with?.["key"])).toContain("hashFiles('bun.lock')");
   });
