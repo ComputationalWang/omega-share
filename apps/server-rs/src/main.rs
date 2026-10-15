@@ -62,12 +62,13 @@ fn run_backup(args: &[String]) -> ExitCode {
 
 /// Worker threads of the release runtime (PORTING.md "Performance"). Two is the measured default: one thread (the
 /// current-thread scheduler) matches Bun's CPU but not its tail latency under bursts; a thread per core costs
-/// 1.3-2x the CPU of two for no latency gain. `OMEGA_WORKER_THREADS=1` selects the current-thread scheduler.
+/// 1.3-2x the CPU of two for no latency gain. `OMEGA_WORKER_THREADS=1` selects the current-thread scheduler;
+/// 1..=256 is accepted (ADR 0051).
 #[cfg(not(feature = "test-hooks"))]
 fn worker_threads(raw: Option<&str>) -> Option<usize> {
     match raw {
         None => Some(2),
-        Some(n) => n.parse().ok().filter(|n| *n >= 1),
+        Some(n) => n.parse().ok().filter(|n| (1..=256).contains(n)),
     }
 }
 
@@ -110,7 +111,9 @@ fn run_serve() -> ExitCode {
         ));
     }
     // The black-box suite needs `POST /__test/time` to know a woken task's work is done, which only
-    // holds on one thread (see test_hooks.rs); the default and release builds stay multi-thread.
+    // holds on one thread (see test_hooks.rs). Release: `OMEGA_WORKER_THREADS=1` is the current-thread
+    // scheduler, anything else (default 2) is multi-thread. Blocking threads are capped at 32 so the spawn
+    // never fails under systemd `TasksMax=256` (tokio panics when a blocking thread cannot start).
     #[cfg(feature = "test-hooks")]
     omega_server::test_hooks::stop_when_stdin_closes();
     #[cfg(feature = "test-hooks")]
@@ -124,11 +127,11 @@ fn run_serve() -> ExitCode {
             b
         }
         None => {
-            stderr_line("invalid OMEGA_WORKER_THREADS: expected a whole number of at least 1");
+            stderr_line("invalid OMEGA_WORKER_THREADS: expected a whole number from 1 to 256");
             return ExitCode::FAILURE;
         }
     };
-    let runtime = match builder.enable_all().build() {
+    let runtime = match builder.enable_all().max_blocking_threads(32).build() {
         Ok(runtime) => runtime,
         Err(err) => {
             stderr_line(&format!("runtime: {err}"));
@@ -158,7 +161,8 @@ mod tests {
         assert_eq!(worker_threads(None), Some(2));
         assert_eq!(worker_threads(Some("1")), Some(1));
         assert_eq!(worker_threads(Some("8")), Some(8));
-        for bad in ["0", "", "-1", "two", "1.5"] {
+        assert_eq!(worker_threads(Some("256")), Some(256));
+        for bad in ["0", "", "-1", "two", "1.5", "257", "100000"] {
             assert_eq!(worker_threads(Some(bad)), None, "{bad}");
         }
     }

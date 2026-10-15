@@ -125,18 +125,18 @@ const CLOSE_WAIT: Duration = Duration::from_secs(1);
 /// Frames fed before a flush, so a busy room cannot hold one socket's first frame back.
 const MAX_BATCH: usize = 64;
 
-/// Runs one socket write, cut off after `WRITE_TIMEOUT`. A write that completes at once (nearly all of them) never
-/// touches the timer wheel; only one that would block is polled again under a timeout.
-async fn within<E>(op: impl std::future::Future<Output = Result<(), E>>) -> bool {
+/// Runs socket writes, cut off after `WRITE_TIMEOUT` in total. A run that completes at once (nearly all of them)
+/// never touches the timer wheel; only one that would block is polled again under a timeout.
+async fn within<T, E>(op: impl std::future::Future<Output = Result<T, E>>) -> Option<T> {
     let mut op = std::pin::pin!(op);
     if let std::task::Poll::Ready(done) = std::future::poll_fn(|cx| std::task::Poll::Ready(op.as_mut().poll(cx))).await {
-        return done.is_ok();
+        return done.ok();
     }
-    matches!(tokio::time::timeout(WRITE_TIMEOUT, op).await, Ok(Ok(())))
+    tokio::time::timeout(WRITE_TIMEOUT, op).await.ok()?.ok()
 }
 
 async fn send<S: Sink<Message> + Unpin>(sink: &mut S, msg: Message) -> bool {
-    within(sink.send(msg)).await
+    within(sink.send(msg)).await.is_some()
 }
 
 fn close_message(code: u16, reason: &'static str) -> Message {
@@ -155,29 +155,30 @@ async fn write<S: Sink<Message> + Unpin>(mut sink: S, mut rx: OutboxRx, ping: Ar
                 None => return false,
                 Some(first) => {
                     // Everything already queued is fed, then flushed once: one write per burst, not per frame.
-                    let mut next = Some(first);
-                    let mut closed = false;
-                    let mut fed = 0;
-                    while let Some(out) = next.take() {
-                        let (msg, last) = match out {
-                            Outbound::Text(text) => (Message::Text(text), false),
-                            Outbound::Close(code, reason) => (close_message(code, reason), true),
-                        };
-                        if !within(sink.feed(msg)).await {
-                            return false;
+                    // One timeout covers the whole batch, so a client dripping a frame per 9 s cannot hold the writer.
+                    let batch = async {
+                        let mut next = Some(first);
+                        let mut fed = 0;
+                        while let Some(out) = next.take() {
+                            let (msg, last) = match out {
+                                Outbound::Text(text) => (Message::Text(text), false),
+                                Outbound::Close(code, reason) => (close_message(code, reason), true),
+                            };
+                            sink.feed(msg).await?;
+                            fed += 1;
+                            if last || fed >= MAX_BATCH {
+                                sink.flush().await?;
+                                return Ok::<bool, S::Error>(last);
+                            }
+                            next = rx.try_recv();
                         }
-                        fed += 1;
-                        if last || fed >= MAX_BATCH {
-                            closed = last;
-                            break;
-                        }
-                        next = rx.try_recv();
-                    }
-                    if !within(sink.flush()).await {
-                        return false;
-                    }
-                    if closed {
-                        return true;
+                        sink.flush().await?;
+                        Ok(false)
+                    };
+                    match within(batch).await {
+                        None => return false,
+                        Some(true) => return true,
+                        Some(false) => {}
                     }
                 }
             },
@@ -389,5 +390,42 @@ mod tests {
         }
         assert_eq!(rec.ops(), ["feed x", "flush"]);
         task.abort();
+    }
+
+    /// A sink whose every frame takes 9 s to accept: a client that drips just under the per-write timeout.
+    struct Drip(Option<Pin<Box<tokio::time::Sleep>>>);
+
+    impl Sink<Message> for Drip {
+        type Error = ();
+        fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            let sleep = self.0.get_or_insert_with(|| Box::pin(tokio::time::sleep(Duration::from_secs(9))));
+            if sleep.as_mut().poll(cx).is_pending() {
+                return Poll::Pending;
+            }
+            self.0 = None;
+            Poll::Ready(Ok(()))
+        }
+        fn start_send(self: Pin<&mut Self>, _: Message) -> Result<(), ()> {
+            Ok(())
+        }
+        fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            Poll::Ready(Ok(()))
+        }
+        fn poll_close(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Result<(), ()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    // The 10 s write timeout covers the whole batch: 64 frames at 9 s each must not hold the writer for 576 s.
+    #[tokio::test(start_paused = true)]
+    async fn a_dripping_sink_cannot_hold_the_writer_past_one_timeout() {
+        let (outbox, rx) = channel();
+        for _ in 0..MAX_BATCH - 1 {
+            assert!(outbox.send_text(&text("x")));
+        }
+        assert!(outbox.send_close(1000, "bye"));
+        let start = tokio::time::Instant::now();
+        assert!(!write(Drip(None), rx, Arc::new(Notify::new())).await);
+        assert!(start.elapsed() <= WRITE_TIMEOUT + Duration::from_secs(1), "{:?}", start.elapsed());
     }
 }
