@@ -234,6 +234,17 @@ describe("createEffectPainter: particles drawn into the room canvas over saved p
     expect(transforms).toContainEqual(["setTransform", -2, 0, 0, 2, 600, 140]);
   });
 
+  test("each patch slot is cleared before the room is copied into it (copying transparent margins must not keep the last patch)", () => {
+    const { patches, painter } = setup(2);
+    painter.paint(still(), 0);
+    expect(patches.calls).toEqual([
+      ["clearRect", 0, 0, side, side],
+      ["drawImage", roomCanvas, 200 - 18, 100 - 18, side, side, 0, 0, side, side],
+      ["clearRect", side, 0, side, side],
+      ["drawImage", roomCanvas, 600 - 18, 140 - 18, side, side, side, 0, side, side],
+    ]);
+  });
+
   test("the room context's state is saved and restored around a paint (Pixi draws with it too)", () => {
     const { room, painter } = setup(1);
     painter.paint(still(), 0);
@@ -268,10 +279,10 @@ describe("createEffectPainter: particles drawn into the room canvas over saved p
     expect(lastRestore).toBeLessThan(firstDraw);
   });
 
-  test("after the room was drawn again, the old patches are stale: the next paint doesn't put them back", () => {
+  test("after clear, the next paint has nothing to put back", () => {
     const { room, painter } = setup(1);
     painter.paint(still(), 0);
-    painter.roomDrawn();
+    painter.clear();
     room.calls.length = 0;
     painter.paint(still(), 0);
     expect(draws(room.calls, patchCanvas)).toHaveLength(0);

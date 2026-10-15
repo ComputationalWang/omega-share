@@ -12,7 +12,7 @@ import { createTier, createTierProbe, readTierHints } from "./walk/tier";
 import { createWalks, type Dir } from "./walk/walks";
 import type { ThemeAtlas } from "./theme/atlas";
 import { decorSprites } from "./theme/decor";
-import { EFFECT_MIN_INTERVAL_MS, createEffectPainter, createParticles, type EffectPainter, type Particles } from "./theme/effect";
+import { EFFECT_MIN_INTERVAL_MS, createEffectPainter, createParticles, patchCanvasSize, type EffectPainter, type Particles } from "./theme/effect";
 import { resolveTheme } from "./theme/periods";
 
 export interface AvatarPlacement {
@@ -185,8 +185,13 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const render = (): void => {
     if (paused) return;
     pumpSystem();
+    // Pixi's 2D clear doesn't reliably reach the transparent margins it never draws over, so the particles come off
+    // first (their squares put back): Pixi starts from its own last frame, then they go on again as they were.
+    const fx = effectRunning ? painter : null;
+    fx?.clear();
     app.render();
     renders++;
+    if (fx !== null && particles !== null) fx.paint(particles, effectStep);
   };
 
   // The holiday theme (ADR 0052): from the local date, or forced by localStorage["omega.theme"]. Its art loads in its
@@ -330,20 +335,15 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     render,
   });
 
-  // The theme's effect (ADR 0052): particles on their own canvas over the room, so a tick clears and draws only them and
-  // never redraws the Pixi stage (QA OME-1206). Its own rAF loop at ≤ 30 Hz; off under reduced motion and once the tier
-  // settles Basic; stops while the room is paused, and rAF stops with a hidden tab.
+  // The theme's effect (ADR 0052): particles drawn straight into the room canvas over saved patches, so it adds no layer
+  // (QA OME-1211) and an effect tick never renders the room (OME-1206). Its own rAF loop at ≤ 30 Hz; off under reduced
+  // motion and once the tier settles Basic; stops while the room is paused, and rAF stops with a hidden tab.
   const fxScale = Math.min(2, globalThis.devicePixelRatio || 1);
-  const fxCanvas = document.createElement("canvas");
-  fxCanvas.className = "scene-fx";
-  fxCanvas.width = STAGE_W * fxScale;
-  fxCanvas.height = STAGE_H * fxScale;
-  fxCanvas.hidden = true;
-  const fxCtx = fxCanvas.getContext("2d");
-  if (fxCtx !== null) fxCtx.imageSmoothingEnabled = false;
   let particles: Particles | null = null;
   let painter: EffectPainter | null = null;
   let effectMs = 1000;
+  /** The frame step last painted, so a room render can paint the particles again as they were. */
+  let effectStep = 0;
   let effectRunning = false;
   let effectLast = 0;
   let effectTicks = 0;
@@ -358,7 +358,6 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       // shortcut: once off (reduced motion turned on, tier settled Basic) it stays off until the room is opened again.
       effectRunning = false;
       painter.clear();
-      fxCanvas.hidden = true;
       return;
     }
     requestAnimationFrame(effectFrame);
@@ -367,15 +366,13 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     effectLast = t;
     // A long gap (tab back, resume): step as one frame, not a jump across the room.
     particles.step(Math.min(dt, 100));
-    painter.paint(particles, Math.floor(t / effectMs));
+    effectStep = Math.floor(t / effectMs);
+    painter.paint(particles, effectStep);
     effectTicks++;
   };
   const startEffect = (): void => {
     if (effectRunning || paused || particles === null || !effectAllowed()) return;
     effectRunning = true;
-    // Put in the DOM only once an effect runs, right over the room canvas: an unthemed room's DOM is unchanged.
-    if (!fxCanvas.isConnected) app.canvas.after(fxCanvas);
-    fxCanvas.hidden = false;
     effectLast = performance.now();
     requestAnimationFrame(effectFrame);
   };
@@ -387,10 +384,17 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         theme = t;
         placeDecor();
         for (const entry of pool.values()) wearHat(entry);
-        if (fxCtx !== null && t.effect.frames.length > 0) {
+        // Pixi's 2D renderer (ADR 0029) owns this context; getContext hands back the same one.
+        const ctx = app.canvas.getContext("2d");
+        const patchCanvas = document.createElement("canvas");
+        const size = patchCanvasSize(t.effect.frames, fxScale);
+        patchCanvas.width = size.w;
+        patchCanvas.height = size.h;
+        const patchCtx = patchCanvas.getContext("2d");
+        if (ctx !== null && patchCtx !== null && t.effect.frames.length > 0) {
           effectMs = t.effect.ms;
           particles = createParticles(t.effect.motion, t.effect.max, Math.random);
-          painter = createEffectPainter(fxCtx, t.effect.image, t.effect.frames, fxScale);
+          painter = createEffectPainter({ ctx, canvas: app.canvas, patchCtx, patchCanvas, image: t.effect.image, frames: t.effect.frames, scale: fxScale });
           startEffect();
         }
         render();
