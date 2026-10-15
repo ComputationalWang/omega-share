@@ -39,15 +39,11 @@ impl Shards {
             handles.push(runtime.handle().clone());
             let (stop, stopped) = oneshot::channel::<Duration>();
             stops.push(stop);
-            threads.push(
-                std::thread::Builder::new()
-                    .name(format!("omega-shard-{i}"))
-                    .spawn(move || {
-                        // A dropped sender (the shards were dropped) stops the shard too.
-                        let grace = runtime.block_on(stopped).unwrap_or_default();
-                        runtime.shutdown_timeout(grace);
-                    })?,
-            );
+            threads.push(std::thread::Builder::new().name(format!("omega-shard-{i}")).spawn(move || {
+                // A dropped sender (the shards were dropped) stops the shard too.
+                let grace = runtime.block_on(stopped).unwrap_or_default();
+                runtime.shutdown_timeout(grace);
+            })?);
         }
         Ok(Self {
             placed: (0..n).map(|_| AtomicU64::new(0)).collect(),
