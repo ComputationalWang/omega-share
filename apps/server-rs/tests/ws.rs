@@ -1406,3 +1406,38 @@ async fn stopping_the_shards_cuts_open_sockets_within_the_grace_and_releases_the
     assert_eq!(a.closed().await, None);
     assert_eq!(s.app.ws.connections(), 0);
 }
+
+// #254 review: the admission permit and the stall guard are fields of the accepted stream, so a socket handed to
+// its shard keeps its place under the global cap until it closes.
+#[tokio::test]
+async fn a_socket_run_by_a_shard_keeps_its_admission_place_until_it_closes() {
+    use omega_server::http::server::{Limits, serve_limited};
+    let s = start(sharded("2")).await;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let router = omega_server::serve::build_router(s.app.clone(), axum::Router::new());
+    let limits = Limits {
+        max_connections: 1,
+        ..Limits::default()
+    };
+    tokio::spawn(async move {
+        let _ = serve_limited(listener, router, std::future::pending(), limits).await;
+    });
+    let capped = Server {
+        addr,
+        app: s.app.clone(),
+        clock: s.clock.clone(),
+    };
+    let host = s.addr.to_string();
+    let host = [("host", host.as_str())];
+    let mut a = try_connect(&capped, "lobby", None, &host).await.unwrap();
+    a.join("alice").await;
+    // Over the cap the listener closes the connection before any response.
+    assert!(try_connect(&capped, "lobby", None, &host).await.is_err());
+    drop(a);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(
+        try_connect(&capped, "lobby", None, &host).await.is_ok(),
+        "the place came back when the socket closed"
+    );
+}

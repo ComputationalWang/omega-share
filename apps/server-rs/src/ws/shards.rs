@@ -34,7 +34,8 @@ impl Shards {
     pub fn start(n: usize) -> std::io::Result<Self> {
         let (mut handles, mut stops, mut threads) = (Vec::new(), Vec::new(), Vec::new());
         for i in 0..n {
-            let runtime = Builder::new_current_thread().enable_all().build()?;
+            // A few blocking threads per shard: 64 shards must fit systemd TasksMax (ADR 0051 caps the main runtime at 32).
+            let runtime = Builder::new_current_thread().enable_all().max_blocking_threads(4).build()?;
             handles.push(runtime.handle().clone());
             let (stop, stopped) = oneshot::channel::<Duration>();
             stops.push(stop);
