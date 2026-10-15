@@ -1,41 +1,99 @@
-//! Room shards (OME-1173): a room's sockets run on one home thread, so a publish to its subscribers never wakes
-//! another thread. STUB (red commit).
+//! Room shards (OME-1173, PORTING.md "Performance"): a room's sockets run on one home thread, so a publish to its
+//! subscribers never wakes another thread, while different rooms still run on different cores.
+//!
+//! N shards are N OS threads, each a current-thread runtime. A connection is upgraded on the main runtime (the
+//! upgraded IO stays registered with its reactor: a read wakes the shard across threads, which is fine at the
+//! client-frame rate), then its task (reader, writer, timers) is spawned on the shard that owns the room.
+//! Publishes that start elsewhere (HTTP, GC, admin, drain) reach the outboxes through channels, a cross-thread
+//! wake that is rare. A task that panics is caught by tokio and ends only that connection.
 
 use std::future::Future;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, PoisonError};
+use std::thread::JoinHandle;
 use std::time::Duration;
+use tokio::runtime::{Builder, Handle};
+use tokio::sync::oneshot;
 
 #[derive(Debug)]
-pub struct Shards;
+pub struct Shards {
+    handles: Vec<Handle>,
+    placed: Vec<AtomicU64>,
+    stops: Mutex<Vec<oneshot::Sender<Duration>>>,
+    threads: Mutex<Vec<JoinHandle<()>>>,
+}
+
+/// FNV-1a: stable across runs and builds, unlike a randomly keyed hasher.
+fn fnv1a(text: &str) -> u64 {
+    text.bytes()
+        .fold(0xcbf2_9ce4_8422_2325, |h, b| (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3))
+}
 
 impl Shards {
     /// `n` shard threads, each a current-thread runtime.
-    pub fn start(_n: usize) -> std::io::Result<Self> {
-        Ok(Self)
+    pub fn start(n: usize) -> std::io::Result<Self> {
+        let (mut handles, mut stops, mut threads) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            let runtime = Builder::new_current_thread().enable_all().build()?;
+            handles.push(runtime.handle().clone());
+            let (stop, stopped) = oneshot::channel::<Duration>();
+            stops.push(stop);
+            threads.push(
+                std::thread::Builder::new()
+                    .name(format!("omega-shard-{i}"))
+                    .spawn(move || {
+                        // A dropped sender (the shards were dropped) stops the shard too.
+                        let grace = runtime.block_on(stopped).unwrap_or_default();
+                        runtime.shutdown_timeout(grace);
+                    })?,
+            );
+        }
+        Ok(Self {
+            placed: (0..n).map(|_| AtomicU64::new(0)).collect(),
+            handles,
+            stops: Mutex::new(stops),
+            threads: Mutex::new(threads),
+        })
     }
 
     pub fn len(&self) -> usize {
-        0
+        self.handles.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        true
+        self.handles.is_empty()
     }
 
     /// The shard that owns `room`: stable for the life of the process.
-    pub fn index_of(&self, _room: &str) -> usize {
-        0
+    pub fn index_of(&self, room: &str) -> usize {
+        usize::try_from(fnv1a(room) % self.handles.len().max(1) as u64).unwrap_or(0)
     }
 
     /// Connection tasks placed on each shard so far.
     pub fn placed(&self) -> Vec<u64> {
-        Vec::new()
+        self.placed.iter().map(|n| n.load(Ordering::Relaxed)).collect()
     }
 
-    /// Runs `fut` on the shard that owns `room`.
-    pub fn spawn<F: Future<Output = ()> + Send + 'static>(&self, _room: &str, _fut: F) {}
+    /// Runs `fut` on the shard that owns `room`. After `stop` the task is dropped unrun.
+    pub fn spawn<F: Future<Output = ()> + Send + 'static>(&self, room: &str, fut: F) {
+        let i = self.index_of(room);
+        if let (Some(handle), Some(count)) = (self.handles.get(i), self.placed.get(i)) {
+            count.fetch_add(1, Ordering::Relaxed);
+            drop(handle.spawn(fut));
+        }
+    }
 
     /// Stops every shard (their tasks are dropped) and joins the threads, within about `grace`.
-    pub fn stop(&self, _grace: Duration) {}
+    pub fn stop(&self, grace: Duration) {
+        let stops = std::mem::take(&mut *self.stops.lock().unwrap_or_else(PoisonError::into_inner));
+        for stop in stops {
+            let _ = stop.send(grace);
+        }
+        let threads = std::mem::take(&mut *self.threads.lock().unwrap_or_else(PoisonError::into_inner));
+        for thread in threads {
+            let _ = thread.join();
+        }
+    }
 }
 
 #[cfg(test)]

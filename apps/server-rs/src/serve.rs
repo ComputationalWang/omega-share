@@ -146,7 +146,20 @@ async fn listen(
             let _ = stop.send(true);
             let holds = shutdown::drain_sockets(&app);
             // Connections past the grace are cut, not awaited; a listener error now changes nothing.
+            let began = tokio::time::Instant::now();
             let _ = tokio::time::timeout(DRAIN_GRACE, serving).await;
+            // An upgraded socket is no longer the listener's: with shards, wait (within the same grace) for the
+            // shard tasks to write their close frames and release their slots, then stop and join the threads.
+            if let Some(shards) = app.ws.shards() {
+                let left = DRAIN_GRACE.saturating_sub(began.elapsed());
+                let _ = tokio::time::timeout(left, async {
+                    while app.ws.connections() > 0 {
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                })
+                .await;
+                shards.stop(Duration::from_millis(100));
+            }
             Ok(holds)
         }
     };

@@ -352,6 +352,14 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
             .ok_or_else(|| fail("MAX_HTTP_IN_FLIGHT", "must be an integer from 0 to 99999"))?,
     };
 
+    let ws_shards = match get("OMEGA_WS_SHARDS") {
+        None => 0,
+        Some(raw) => digits(raw, 2)
+            .filter(|n| *n <= 64)
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| fail("OMEGA_WS_SHARDS", "must be an integer from 0 to 64"))?,
+    };
+
     let generic_embeds = match get("GENERIC_EMBEDS").unwrap_or("on") {
         "on" => true,
         "off" => false,
@@ -395,7 +403,7 @@ fn parse_config_as(env: &Env, cwd: &Path, dev_build: bool) -> Result<ServerConfi
         join_timeout_ms,
         status_interval_ms,
         max_http_in_flight,
-        ws_shards: 0,
+        ws_shards,
     })
 }
 

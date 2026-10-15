@@ -63,6 +63,7 @@ pub struct WsState {
     joins: Mutex<KeyedLimiter>,
     failed_owners: Mutex<KeyedLimiter>,
     failed_invites: Mutex<KeyedLimiter>,
+    shards: Option<shards::Shards>,
 }
 
 impl Default for WsState {
@@ -81,6 +82,7 @@ impl Default for WsState {
             joins: limiter(JOIN_BURST, JOIN_PER_SECOND),
             failed_owners: limiter(FAILED_BURST, FAILED_PER_SECOND),
             failed_invites: limiter(FAILED_BURST, FAILED_PER_SECOND),
+            shards: None,
         }
     }
 }
@@ -92,13 +94,21 @@ impl WsState {
             join_timeout_ms: f64::from(config.join_timeout_ms),
             status_interval_ms: f64::from(config.status_interval_ms),
             max_per_ip: config.max_connections_per_ip.map(|n| n as usize),
+            // The test-hooks build keeps one thread: the virtual clock's ack relies on it (PORTING.md).
+            shards: if cfg!(feature = "test-hooks") || config.ws_shards == 0 {
+                None
+            } else {
+                shards::Shards::start(config.ws_shards)
+                    .map_err(|err| crate::log::stderr_line(&format!("OMEGA_WS_SHARDS: {err}; sockets stay on the main runtime")))
+                    .ok()
+            },
             ..Self::default()
         }
     }
 
     /// The room shards, when `OMEGA_WS_SHARDS` asked for any.
     pub fn shards(&self) -> Option<&shards::Shards> {
-        None
+        self.shards.as_ref()
     }
 
     /// Open sockets, joined or not (`omega_sockets`).
@@ -191,7 +201,14 @@ async fn upgrade(
             .read_buffer_size(READ_BUFFER_BYTES)
             .write_buffer_size(WRITE_BUFFER_BYTES)
             .max_write_buffer_size(MAX_WRITE_BUFFER_BYTES)
-            .on_upgrade(move |socket| conn::run(app, socket, id, cell, ip, keyed, slot)),
+            .on_upgrade(move |socket| async move {
+                // The room was validated above; its home shard (if any) runs the connection from here on.
+                let room = id.as_str().to_owned();
+                match app.clone().ws.shards() {
+                    Some(shards) => shards.spawn(&room, conn::run(app, socket, id, cell, ip, keyed, slot)),
+                    None => conn::run(app, socket, id, cell, ip, keyed, slot).await,
+                }
+            }),
         // A plain request without a handshake.
         Err(_) if known => plain(StatusCode::UPGRADE_REQUIRED, "expected a WebSocket upgrade"),
         Err(_) => plain(StatusCode::NOT_FOUND, "unknown room"),
