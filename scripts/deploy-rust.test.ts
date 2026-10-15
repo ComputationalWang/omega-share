@@ -107,19 +107,20 @@ describe("deploy/check-server-binary.sh (artifact checks)", () => {
       "  INTERP         0x0002e0 0x00000000000002e0 0x00000000000002e0 0x00001b 0x00001b R   0x1\n  GNU_RELRO      0x44c160 0x000000000046c160 0x000000000046c160 0x011cc0 0x011ea0 R   0x1\n  GNU_STACK      0x000000 0x0000000000000000 0x0000000000000000 0x000000 0x1000000 RW  0\n",
     "-dW": " 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE\n",
     "-SW": "  [ 1] .interp           PROGBITS        00000000000002e0 0002e0 00001b 00   A  0   0  1\n  [ 9] .text             PROGBITS        0000000000100000 100000 200000 00  AX  0   0 64\n",
-    objdump: "0000000000000000      DF *UND*\t0000000000000000 (GLIBC_2.17) memcpy\n0000000000000000      DF *UND*\t0000000000000000 (GLIBC_2.34) pthread_create\n",
+    "--dyn-syms": "    12: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND memcpy@GLIBC_2.17 (2)\n    13: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND pthread_create@GLIBC_2.34 (3)\n",
   };
+  const DYN = (extra: string) => `${GOOD["--dyn-syms"] ?? ""}${extra}`;
   /** Runs the checker on a binary whose readelf/objdump output is GOOD with `patch` applied; `bytes` is the file's content. */
-  const check = (patch: Record<string, string>, bytes = "a".repeat(2_000_000), max = "2.35") => {
+  const check = (patch: Record<string, string>, bytes = "a".repeat(2_000_000), max = "2.35", env: Record<string, string> = {}) => {
     const dir = tmp();
     try {
       const out: Record<string, string> = { ...GOOD, ...patch };
       for (const [k, v] of Object.entries(out)) writeFileSync(join(dir, `fx${k}`), v);
-      fake(dir, "readelf", `cat "${dir}/fx$1"`);
-      fake(dir, "objdump", `cat "${dir}/fxobjdump"`);
+      // A fixture holding FAIL makes the tool exit 1, as readelf does on a file it cannot read.
+      fake(dir, "readelf", `if grep -q '^FAIL$' "${dir}/fx$1"; then exit 1; fi\ncat "${dir}/fx$1"`);
       const bin = join(dir, "omega-server");
       writeFileSync(bin, bytes);
-      return spawn(["bash", SCRIPT, bin, max], { PATH: `${dir}:${process.env["PATH"] ?? ""}` });
+      return spawn(["bash", SCRIPT, bin, max], { PATH: `${dir}:${process.env["PATH"] ?? ""}`, ...env });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -139,7 +140,10 @@ describe("deploy/check-server-binary.sh (artifact checks)", () => {
     ["statically linked", { "-lW": GOOD["-lW"]?.replace("INTERP", "OTHER") ?? "" }, "dynamic"],
     ["unstripped", { "-SW": `${GOOD["-SW"] ?? ""}  [30] .symtab           SYMTAB          0000000000000000 400000 100000 18   31 100 8\n` }, "stripped"],
     ["debug info", { "-SW": `${GOOD["-SW"] ?? ""}  [31] .debug_info       PROGBITS        0000000000000000 400000 100000 00      0   0  1\n` }, "stripped"],
-    ["a glibc newer than the pin", { objdump: `${GOOD["objdump"] ?? ""}0000000000000000      DF *UND*\t0000000000000000 (GLIBC_2.36) arc4random\n` }, "GLIBC_2.36"],
+    ["a glibc newer than the pin", { "--dyn-syms": DYN("    14: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND arc4random@GLIBC_2.36 (4)\n") }, "GLIBC_2.36"],
+    ["a readelf that cannot read the binary", { "--dyn-syms": "FAIL\n" }, "GLIBC"],
+    ["no GLIBC symbols at all (the check would otherwise pass silently)", { "--dyn-syms": "    12: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND memcpy (2)\n" }, "GLIBC"],
+    ["an empty symbol listing", { "--dyn-syms": "" }, "GLIBC"],
   ])("refuses %s", (_name, patch, word) => {
     const r = check(patch);
     expect(r.code).toBe(1);
@@ -158,12 +162,24 @@ describe("deploy/check-server-binary.sh (artifact checks)", () => {
     expect(r.out).toContain(marker);
   });
 
+  test("refuses the build root and the builder's HOME, wherever they sit in the binary", () => {
+    const planted = (path: string) => `${"a".repeat(1_500_000)}${path}/apps/x${"b".repeat(600_000)}`;
+    const root = check({}, planted("/srv/ci/work-1234"), "2.35", { OMEGA_BUILD_ROOT: "/srv/ci/work-1234" });
+    expect(root.code).toBe(1);
+    expect(root.out).toContain("/srv/ci/work-1234");
+    const home = check({}, planted("/builder/home"), "2.35", { HOME: "/builder/home" });
+    expect(home.code).toBe(1);
+    expect(home.out).toContain("/builder/home");
+    // Neither planted: clean.
+    expect(check({}, "a".repeat(2_000_000), "2.35", { OMEGA_BUILD_ROOT: "/srv/ci/work-1234", HOME: "/builder/home" }).code).toBe(0);
+  });
+
   test("refuses a binary that is far too small or far too large", () => {
     expect(check({}, "tiny").code).toBe(1);
   });
 
   test("a GLIBC_2.9 symbol compares as older than 2.35 (version sort, not text)", () => {
-    expect(check({ objdump: `${GOOD["objdump"] ?? ""}0000000000000000      DF *UND*\t0000000000000000 (GLIBC_2.9) x\n` }).code).toBe(0);
+    expect(check({ "--dyn-syms": DYN("    14: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND x@GLIBC_2.9 (4)\n") }).code).toBe(0);
   });
 });
 
@@ -299,6 +315,10 @@ describe("deploy/deploy.sh --server", () => {
     const d = join(base, "releases", sha);
     mkdirSync(d, { recursive: true });
     if (rust) writeFileSync(join(d, "omega-server"), "x");
+    else {
+      mkdirSync(join(d, "apps/server/src"), { recursive: true });
+      writeFileSync(join(d, "apps/server/src/index.ts"), "x");
+    }
     Bun.spawnSync(["touch", "-d", new Date(Date.now() - ageSeconds * 1000).toISOString(), d]);
     return d;
   };
@@ -323,6 +343,54 @@ describe("deploy/deploy.sh --server", () => {
         expect(existsSync(join(base, "releases", "rust-5"))).toBe(false);
         expect(existsSync(join(base, "releases", "prev"))).toBe(true);
       },
+    );
+  });
+
+  test("a half-uploaded release (neither server inside) never displaces the Bun release kept for rollback", () => {
+    remote(
+      "rust",
+      (b) => {
+        for (let i = 0; i < 6; i++) mkRelease(b, `rust-${String(i)}`, true, 100 + i * 100);
+        mkdirSync(join(b, "releases", "partial"), { recursive: true });
+        Bun.spawnSync(["touch", "-d", new Date(Date.now() - 60_000).toISOString(), join(b, "releases", "partial")]);
+        mkRelease(b, "bun-real", false, 9000);
+        link(b, mkRelease(b, "prev", true, 50));
+      },
+      ({ code, out, base }) => {
+        expect(code, out).toBe(0);
+        expect(existsSync(join(base, "releases", "bun-real"))).toBe(true);
+      },
+    );
+  });
+
+  test("an unhealthy bun deploy puts the previous Rust release back and restarts the Rust unit (the mirror)", () => {
+    remote(
+      "bun",
+      (b) => link(b, mkRelease(b, "prev-rust", true, 100)),
+      ({ code, out, base, calls }) => {
+        expect(code).toBe(1);
+        expect(out).toContain("rolled back to");
+        expect(currentIs(base)).toContain("prev-rust");
+        expect(calls).toContain("stop omega-share-bun\n");
+        expect(calls.lastIndexOf("restart omega-share\n")).toBeGreaterThan(calls.indexOf("restart omega-share-bun"));
+      },
+      { healthy: false },
+    );
+  });
+
+  test("a release holding both servers runs Rust only: rolling back to it restarts omega-share", () => {
+    remote(
+      "bun",
+      (b) => {
+        const both = mkRelease(b, "prev-both", false, 100);
+        writeFileSync(join(both, "omega-server"), "x");
+        link(b, both);
+      },
+      ({ calls, out }) => {
+        expect(out).toContain("rolled back to");
+        expect(calls.lastIndexOf("restart omega-share\n")).toBeGreaterThan(-1);
+      },
+      { healthy: false },
     );
   });
 
@@ -415,6 +483,12 @@ describe("deploy/omega-share.service (the Rust server's unit)", () => {
     for (const group of ["@privileged", "@resources", "@mount", "@obsolete", "@debug", "@raw-io", "@reboot", "@swap", "@cpu-emulation"]) {
       expect(filters, group).toContain(group);
     }
+  });
+
+  test("the unit's connection-cap comment states the server's real numbers (1024 + 256 = 1280 total, 128 per non-loopback peer)", () => {
+    expect(text).toContain("1280");
+    expect(text).toContain("1024 + 256");
+    expect(text).toContain("128 per non-loopback peer");
   });
 
   test("LimitNOFILE covers MAX_CONNECTIONS' ceiling, the 256 HTTP headroom and a file per response", () => {
@@ -526,6 +600,32 @@ describe("docs", () => {
     expect(d).toMatch(/7 days?/);
     for (const option of ["MemoryDenyWriteExecute", "SystemCallFilter", "SocketBind", "IPAddressDeny", "PrivateUsers", "NoExecPaths", "max_header_size"]) {
       expect(d, option).toContain(option);
+    }
+  });
+  test("the XFF check is a parallel burst over the 120 limit, with a control run and a stays-under sanity run", () => {
+    const d = doc("switch-to-rust.md");
+    expect(d).toMatch(/xargs -P \d+/);
+    expect(d).toMatch(/seq 1 600/);
+    expect(d).toMatch(/control/i);
+    expect(d).toMatch(/under the limit/i);
+  });
+  test("the snapshot is listed as the service user and the step fails loudly when none is found", () => {
+    const d = doc("switch-to-rust.md");
+    expect(d).toMatch(/sudo -u omega-share sh -c/);
+    expect(d).toMatch(/no snapshot found/);
+  });
+  test("the runbook holds a WebSocket open past Caddy's 2m idle timeout", () => {
+    expect(doc("switch-to-rust.md")).toMatch(/2\.5 minutes/);
+  });
+  test("the journalctl pipe in the hardening table is escaped and its sudo noted", () => {
+    const d = doc("switch-to-rust.md");
+    expect(d).not.toMatch(/journalctl -k \| grep/);
+    expect(d).toMatch(/journalctl -k \\\| grep/);
+  });
+  test("a plain deploy after the switch stays on Rust: hosting.md and the runbook say Bun is only deployed explicitly", () => {
+    for (const name of ["hosting.md", "switch-to-rust.md"]) {
+      expect(doc(name), name).toMatch(/default to `--server rust`|flips the default/);
+      expect(doc(name), name).toMatch(/explicit `--server bun`/);
     }
   });
   test("hosting, backup, rooms and tunnel docs show the Rust commands next to the Bun ones", () => {
