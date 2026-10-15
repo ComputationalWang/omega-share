@@ -551,7 +551,8 @@ describe("shown k× their size (phone zoom, OME-1184)", () => {
     const r = bubbleOf("right");
     // Shown 200 wide: its box starts at stage x 960 - 4 - 200 = 756, 194 stage px left of the head, 97 of its own.
     expect(r.style.left).toBe("-97px");
-    expect(r.style.getPropertyValue("--tail-x")).toBe("97px");
+    // The head is 3 of its own px from the box's right edge: past a tail's reach, so the tail leans as far as it goes.
+    expect(r.style.getPropertyValue("--tail-x")).toBe("94px");
   });
 
   test("bubbles that only overlap at the shown size stack", async () => {

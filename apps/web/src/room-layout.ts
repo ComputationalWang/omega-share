@@ -53,6 +53,8 @@ export interface RoomLayoutOptions {
   readonly wrap: HTMLElement;
   readonly clip: HTMLElement;
   readonly stage: HTMLElement;
+  /** The phone window's label scale changed (OME-1184): the bubbles are shown that much bigger (Stage.labelScale). */
+  readonly labelScale?: (k: number) => void;
   /** The TV and its shelf (room-tv.ts). */
   readonly tv: {
     readonly tv: HTMLElement;
@@ -296,7 +298,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   placeChat();
 
   /** The phone's window looks at the middle of the seats until you drag it, sit, or focus something off-screen. */
-  const roomWindow = createRoomWindow(clip, stage, () => seatsMiddle);
+  const roomWindow = createRoomWindow(clip, stage, () => seatsMiddle, o.labelScale);
   let seatsMiddle: Point = { x: STAGE_W / 2, y: STAGE_H / 2 };
   let fsScrollWidth = -1;
   let fsScrollHeight = -1;

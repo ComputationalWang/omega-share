@@ -43,7 +43,7 @@ export interface RoomWindow {
   readonly pan: () => Point;
 }
 
-export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: () => Point, _onLabels: (k: number) => void = () => undefined): RoomWindow {
+export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: () => Point, onLabels: (k: number) => void = () => undefined): RoomWindow {
   let active = false;
   const view = { w: 0, h: 0 };
   let pan: Point = { x: 0, y: 0 };
@@ -65,15 +65,23 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
     // The clamp may have moved it: keep the centre we actually show, so a drag starts from what's on screen.
     looking = shown();
   };
-  /** Restyle the labels for the zoom (one style pass, not per frame). */
+  /** The label scale the stage has now (null: unset, off the phone). */
+  let labels: number | null = null;
+  /** Restyle the labels for the zoom (one style pass, not per frame), and tell the bubbles (floats.ts `scale`). */
   const settleLabels = (): void => {
-    stage.style.setProperty("--label-scale", String(labelScale(zoom)));
+    const k = labelScale(zoom);
+    if (k === labels) return;
+    labels = k;
+    stage.style.setProperty("--label-scale", String(k));
+    onLabels(k);
   };
-  /** A zoom the viewer chose: shown around `at` (stage px), its labels settled, and remembered. */
-  const zoomTo = (z: number, at: Point): void => {
+  /** A zoom the viewer chose: around the window's centre, its labels settled, and remembered. */
+  const zoomTo = (z: number): void => {
     if (!active) return;
     zoom = z;
-    centre(at);
+    // A window that follows the seats keeps following them (a zoom isn't a move); one that was moved stays put.
+    if (looking === null) apply();
+    else centre(looking);
     settleLabels();
     storeZoom(zoom);
   };
@@ -82,7 +90,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
   const key = (name: string, label: string, text: string, next: () => number): void => {
     const k = el("button", { type: "button", className: "ui-button", ariaLabel: label, title: label, textContent: text }, `room-zoom-${name}`);
     k.addEventListener("click", () => {
-      zoomTo(next(), shown());
+      zoomTo(next());
     });
     keys.append(k);
   };
@@ -131,7 +139,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
   clip.addEventListener("pointerdown", (ev) => {
     if (!active) return;
     if (ev.pointerType === "touch") fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-    const start = fingers.size === 2 ? two() : null;
+    const start = fingers.size >= 2 && pinch === null ? two() : null;
     if (start !== null) {
       // A second finger: the drag (if any) becomes a pinch, and nothing under the fingers is tapped.
       if (dragFrame !== 0) cancelAnimationFrame(dragFrame);
@@ -193,6 +201,10 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
     }, 0);
   };
   clip.addEventListener("pointerup", end);
+  // A finger the window lost (capture taken away, an up it never heard) is gone, and so is a pinch it was part of.
+  clip.addEventListener("lostpointercapture", (ev) => {
+    if (fingers.has(ev.pointerId)) end(ev);
+  });
   clip.addEventListener("pointercancel", (ev) => {
     end(ev);
     dragged = false;
@@ -216,7 +228,8 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
     const s = stage.getBoundingClientRect();
     const x = (r.left - s.left + r.width / 2) / zoom;
     const y = (r.top - s.top + r.height / 2) / zoom;
-    const inside = x - pan.x >= REVEAL_MARGIN && pan.x + view.w - x >= REVEAL_MARGIN && y - pan.y >= REVEAL_MARGIN && pan.y + view.h - y >= REVEAL_MARGIN;
+    const m = REVEAL_MARGIN / zoom;
+    const inside = x - pan.x >= m && pan.x + view.w / zoom - x >= m && y - pan.y >= m && pan.y + view.h / zoom - y >= m;
     if (!inside) centre({ x, y });
   });
 
@@ -236,6 +249,8 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
         pinch = null;
         fingers.clear();
         stage.style.removeProperty("--label-scale");
+        if (labels !== null && labels !== 1) onLabels(1);
+        labels = null;
       }
     },
     centre,
