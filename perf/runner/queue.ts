@@ -11,6 +11,8 @@ export interface JobRequest {
   readonly issue: string;
   /** Forces the walk tier for every perf context (ADR 0037); unset = the client picks. */
   readonly motion?: "smooth" | "basic";
+  /** Pins the holiday theme in every perf context (OMEGA_THEME, ADR 0052); unset = off. */
+  readonly theme?: string;
   /** 1 for a submitted job; a job requeued after a load-invalid run carries the next attempt number (OME-882). */
   readonly attempt?: number;
   readonly retryOf?: string;
