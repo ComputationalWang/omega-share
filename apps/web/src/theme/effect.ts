@@ -113,12 +113,51 @@ export interface EffectPainter {
   clear(): void;
 }
 
-/** Stub (red). */
-export function createEffectPainter(_o: EffectPainterOptions): EffectPainter {
-  return { paint: () => undefined, clear: () => undefined };
+/** Any frame drawn about any anchor inside it, mirrored or not, stays within this of the particle's spot. */
+const reach = (frames: readonly EffectFrame[]): number => frames.reduce((m, f) => Math.max(m, f.w, f.h), 0) + 1;
+
+/**
+ * Draws particles on the effect's own small overlay canvas (ADR 0052). It never renders the room (QA OME-1206) and never
+ * reads a canvas (OME-1212: a readback per particle took a phone to ~250 ms a frame). The overlay covers only the
+ * effect's band at 1 px per stage px, because a full-size layer cost ~2.5 ms a frame even when empty (OME-1211). A paint
+ * clears the squares the last one drew, then draws each particle once. Nothing is allocated per paint.
+ */
+export function createEffectPainter(o: EffectPainterOptions): EffectPainter {
+  const { ctx, image, frames, origin } = o;
+  const r = reach(frames);
+  const n = frames.length;
+  const lastX = new Int32Array(MAX_EFFECT_SPRITES);
+  const lastY = new Int32Array(MAX_EFFECT_SPRITES);
+  let drawn = 0;
+  const clear = (): void => {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    for (let i = 0; i < drawn; i++) ctx.clearRect((lastX[i] ?? 0) - r, (lastY[i] ?? 0) - r, 2 * r, 2 * r);
+    drawn = 0;
+  };
+  return {
+    clear,
+    paint(p, step) {
+      clear();
+      if (n === 0) return;
+      const count = Math.min(p.count, MAX_EFFECT_SPRITES);
+      for (let i = 0; i < count; i++) {
+        const x = (p.x[i] ?? 0) - origin.x;
+        const y = (p.y[i] ?? 0) - origin.y;
+        const f = frames[(step + (p.phase[i] ?? 0)) % n];
+        if (f === undefined) continue;
+        ctx.setTransform(p.flip[i] === 1 ? -1 : 1, 0, 0, 1, x, y);
+        ctx.drawImage(image, f.sx, f.sy, f.w, f.h, -f.ox, -f.oy, f.w, f.h);
+        lastX[i] = x;
+        lastY[i] = y;
+      }
+      drawn = count;
+    },
+  };
 }
 
-/** Stub (red). */
-export function effectBounds(_motion: EffectMotion, _frames: readonly EffectFrame[]): Rect {
-  return { x: 0, y: 0, w: 0, h: 0 };
+/** The overlay's rect on the stage: the drift area, plus the wrap margin and a sprite's reach on every side. */
+export function effectBounds(motion: EffectMotion, frames: readonly EffectFrame[]): Rect {
+  const pad = MARGIN + reach(frames);
+  const { area } = motion;
+  return { x: Math.floor(area.x) - pad, y: Math.floor(area.y) - pad, w: Math.ceil(area.w) + 2 * pad, h: Math.ceil(area.h) + 2 * pad };
 }

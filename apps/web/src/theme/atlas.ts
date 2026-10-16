@@ -26,15 +26,19 @@ export interface ThemeAtlas extends Sheet {
   hat(avatarFrame: string): Texture | undefined;
 }
 
-const FULL = { x: 0, y: 0, w: 960, h: 600 };
+/**
+ * Where every theme's particles drift: the band of the two back walls and the window, not the whole stage. The
+ * effect's overlay covers only this band (plus margins), at most a third of the stage (QA OME-1211, ADR 0052).
+ */
+const BAND = { x: 160, y: 40, w: 640, h: 200 };
 
 /** How each theme's particles drift (plan OME-1140: bats cross the back wall, the rest fall, rise or blow). */
 export const MOTIONS: Readonly<Record<ThemeId, EffectMotion>> = {
-  halloween: { area: { x: 120, y: 40, w: 720, h: 200 }, vx: [30, 55], vy: [-6, 6], flipX: true },
-  sinterklaas: { area: FULL, vx: [-6, 6], vy: [20, 35], flipX: false },
-  christmas: { area: FULL, vx: [-10, 10], vy: [22, 45], flipX: false },
-  valentine: { area: FULL, vx: [-8, 8], vy: [-22, -12], flipX: false },
-  easter: { area: FULL, vx: [14, 28], vy: [8, 18], flipX: true },
+  halloween: { area: BAND, vx: [30, 55], vy: [-6, 6], flipX: true },
+  sinterklaas: { area: BAND, vx: [-6, 6], vy: [20, 35], flipX: false },
+  christmas: { area: BAND, vx: [-10, 10], vy: [22, 45], flipX: false },
+  valentine: { area: BAND, vx: [-8, 8], vy: [-22, -12], flipX: false },
+  easter: { area: BAND, vx: [14, 28], vy: [8, 18], flipX: true },
 };
 
 /** Load once per theme; a failed load is forgotten so a later room can retry. */
