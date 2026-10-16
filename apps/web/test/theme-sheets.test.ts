@@ -6,6 +6,7 @@ import { DEFAULT_LAYOUT } from "@omega/shared";
 import { RoomManifestSchema, sceneOf } from "../src/furniture";
 import { decorSprites } from "../src/theme/decor";
 import { ThemeManifestSchema } from "../src/theme/sheet";
+import { packEffectFrames } from "../src/theme/effect";
 
 const asset = (p: string): URL => new URL(`../../../assets/${p}`, import.meta.url);
 const room = v.parse(RoomManifestSchema, await Bun.file(asset("room/room.json")).json());
@@ -64,5 +65,24 @@ describe("effect timing at the boundary", () => {
   });
   test("an animated effect keeps its frame time", () => {
     expect(parseSheet("sinterklaas").meta.omega.effect.ms).toBe(160);
+  });
+});
+
+describe("packEffectFrames: the effect draws from its own small canvas, not the sheet's <img> (QA OME-1223: +2 ms work a frame on a phone)", () => {
+  test("frames sit side by side from x 0, top-aligned, anchors kept; the canvas fits them exactly", () => {
+    const packed = packEffectFrames([
+      { sx: 100, sy: 40, w: 5, h: 5, ox: 2, oy: 2 },
+      { sx: 120, sy: 40, w: 3, h: 4, ox: 1, oy: 2 },
+      { sx: 9, sy: 200, w: 8, h: 7, ox: 4, oy: 3 },
+    ]);
+    expect(packed).toEqual({
+      w: 16,
+      h: 7,
+      frames: [
+        { sx: 0, sy: 0, w: 5, h: 5, ox: 2, oy: 2 },
+        { sx: 5, sy: 0, w: 3, h: 4, ox: 1, oy: 2 },
+        { sx: 8, sy: 0, w: 8, h: 7, ox: 4, oy: 3 },
+      ],
+    });
   });
 });

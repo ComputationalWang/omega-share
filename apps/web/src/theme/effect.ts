@@ -161,3 +161,8 @@ export function effectBounds(motion: EffectMotion, frames: readonly EffectFrame[
   const { area } = motion;
   return { x: Math.floor(area.x) - pad, y: Math.floor(area.y) - pad, w: Math.ceil(area.w) + 2 * pad, h: Math.ceil(area.h) + 2 * pad };
 }
+
+// shortcut: red-commit stub (OME-1189).
+export function packEffectFrames(frames: readonly EffectFrame[]): { w: number; h: number; frames: EffectFrame[] } {
+  return { w: 0, h: 0, frames: [...frames] };
+}
