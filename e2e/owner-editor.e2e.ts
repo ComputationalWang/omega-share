@@ -177,7 +177,8 @@ test("keyboard only: a cell cursor places, selects, moves, turns and puts back f
   await press(`${site.editorSlot}[data-kind="popcorn"]`);
   await expect(hit).toBeFocused();
   await expect(owner.locator(site.editorPicked)).toContainText("arrow keys");
-  await expect(cursor).toHaveText("Popcorn cart, column 1 row 1");
+  // The TV stands on (0,0), so the cursor says the cart can't go there.
+  await expect(cursor).toHaveText("Popcorn cart, column 1 row 1, can't go here");
   await keys(...Array<string>(9).fill("ArrowRight"), ...Array<string>(9).fill("ArrowDown"));
   await expect(cursor).toHaveText("Popcorn cart, column 10 row 10");
   await keys("Enter");

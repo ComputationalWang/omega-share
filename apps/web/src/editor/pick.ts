@@ -34,9 +34,29 @@ export function slotAt(x: number, y: number): Slot | null {
 
 export type CursorKey = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
 
-/** The keyboard cursor's next slot (OME-1245). */
-export function step(slot: Slot, _key: CursorKey): Slot {
-  return slot;
+const clampCell = (n: number): number => Math.max(0, Math.min(FLOOR_CELLS - 1, n));
+
+/**
+ * The keyboard cursor's next slot (OME-1245): Right/Left walk the column, Down/Up the row. Up from the back row steps onto
+ * the right wall, Left from the first column onto the left wall; along a wall the arrows walk its slots, and the way out
+ * of the wall (Down, Right) steps back onto the floor.
+ */
+export function step(slot: Slot, key: CursorKey): Slot {
+  const { col, row, wall } = slot;
+  if (wall === "sw") {
+    if (key === "ArrowDown") return { col, row, wall: null };
+    if (key === "ArrowUp") return slot;
+    return { col: clampCell(col + (key === "ArrowRight" ? 1 : -1)), row, wall };
+  }
+  if (wall === "se") {
+    if (key === "ArrowRight") return { col, row, wall: null };
+    if (key === "ArrowLeft") return slot;
+    return { col, row: clampCell(row + (key === "ArrowDown" ? 1 : -1)), wall };
+  }
+  if (key === "ArrowUp" && row === 0) return { col, row, wall: "sw" };
+  if (key === "ArrowLeft" && col === 0) return { col, row, wall: "se" };
+  if (key === "ArrowRight" || key === "ArrowLeft") return { col: clampCell(col + (key === "ArrowRight" ? 1 : -1)), row, wall };
+  return { col, row: clampCell(row + (key === "ArrowDown" ? 1 : -1)), wall };
 }
 
 export type MarkerState = "ok" | "no" | "sel";

@@ -3,7 +3,7 @@
 // them alone) and sends one `layout-set` on Save, only once the draft is a valid layout. Rename sends `title-set`; delete is
 // `DELETE /rooms/:id` with the owner token, after a confirm step. Every string goes in as text.
 import * as v from "valibot";
-import { Container, Sprite } from "pixi.js";
+import { Container, Graphics, Sprite } from "pixi.js";
 import {
   DeleteRoomResponseSchema,
   FLOOR_CELLS,
@@ -23,10 +23,10 @@ import furnitureJson from "../../../../assets/furniture/furniture.json";
 import furnitureV2Json from "../../../../assets/furniture/furniture-v2.json";
 import { el } from "../controls/dom";
 import { FurnitureManifestSchema } from "../furniture";
-import { cellCenter } from "../layout";
+import { TILE_H, TILE_W, cellCenter } from "../layout";
 import { TRAY_TABS, defaultFacing, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
 import { loadEditAtlas, type EditAtlas } from "./edit-atlas";
-import { markerKeys, slotAt, type MarkerState, type Slot } from "./pick";
+import { markerKeys, slotAt, step, type CursorKey, type MarkerState, type Slot } from "./pick";
 import { SAVED_LAYOUT_NAME_MAX, saveLayout, saveMessage, type LayoutStore } from "../saved-layouts";
 
 export interface EditorContext {
@@ -131,6 +131,27 @@ function moved(layout: RoomLayout, index: number, slot: Slot): RoomLayout | null
   return { furniture: layout.furniture.map((p, i) => (i === index ? next : p)) };
 }
 
+const CURSOR_KEYS: ReadonlySet<string> = new Set<CursorKey>(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
+const isCursorKey = (key: string): key is CursorKey => CURSOR_KEYS.has(key);
+/** How tall the keyboard cursor's frame stands on a wall slot. */
+const WALL_CURSOR_H = 64;
+
+/** "column 3 row 5", or "right wall 3" (a print's slot along the back-right wall, sw) / "left wall 3" (se). */
+const placeOf = (s: Slot): string =>
+  s.wall === null ? `column ${String(s.col + 1)} row ${String(s.row + 1)}` : s.wall === "sw" ? `right wall ${String(s.col + 1)}` : `left wall ${String(s.row + 1)}`;
+
+/** The keyboard cursor's outline: the cell's diamond, or the wall face above its back edge. Dark under light, so one of the two lines has 3:1 on any floor or wall. */
+function drawCursor(g: Graphics, s: Slot): void {
+  const p = cellCenter(s.col, s.row);
+  const top = { x: p.x, y: p.y - TILE_H / 2 };
+  const side = { x: s.wall === "se" ? p.x - TILE_W / 2 : p.x + TILE_W / 2, y: p.y };
+  const points =
+    s.wall === null
+      ? [top.x, top.y, p.x + TILE_W / 2, p.y, p.x, p.y + TILE_H / 2, p.x - TILE_W / 2, p.y]
+      : [top.x, top.y, side.x, side.y, side.x, side.y - WALL_CURSOR_H, top.x, top.y - WALL_CURSOR_H];
+  g.clear().poly(points).stroke({ width: 5, color: 0x101018 }).poly(points).stroke({ width: 2.5, color: 0xffffff });
+}
+
 export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   const atlas: EditAtlas = await loadEditAtlas();
   // Closed (or closed and reopened) while the kit loaded: touch nothing a newer editor may own.
@@ -141,6 +162,8 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   let held: { kind: FurnitureKind; variant: number } | null = null;
   let selected: number | null = null;
   let hover: Slot | null = null;
+  /** The keyboard cursor (OME-1245): shown while the room has keyboard focus, redrawn only on key input. */
+  let cursor: Slot = { col: 0, row: 0, wall: null };
   let tab: TrayTab["id"] = "seats";
   /** A `layout-set` went out and its `layout-changed` hasn't come back. */
   let saving = false;
@@ -157,7 +180,8 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     }
   }
   const markers = new Container({ label: "edit-markers" });
-  ctx.view.editLayer.addChild(grid, markers);
+  const cursorMark = new Graphics({ label: "edit-cursor", visible: false });
+  ctx.view.editLayer.addChild(grid, markers, cursorMark);
 
   const addMarkers = (f: Pick<Furniture, "kind" | "col" | "row" | "facing">, state: MarkerState): void => {
     for (const m of markerKeys(f, state)) {
@@ -183,8 +207,12 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     ctx.view.redraw();
   };
 
-  // ---- Click layer over the stage.
-  const hit = el("div", { className: "editor-hit" }, "editor-hit");
+  // ---- Click layer over the stage, and the keyboard's way in: arrows walk a cell cursor, Enter (or Space) acts like a click there.
+  const hit = el(
+    "div",
+    { className: "editor-hit", tabIndex: 0, role: "application", ariaLabel: "Room floor. Arrow keys move the cursor, Enter places, picks or moves a piece." },
+    "editor-hit",
+  );
   const slotOf = (ev: MouseEvent): Slot | null => {
     const r = hit.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) return null;
@@ -202,7 +230,51 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   });
   hit.addEventListener("click", (ev) => {
     const s = slotOf(ev);
-    if (s === null) return;
+    if (s !== null) act(s);
+  });
+  hit.addEventListener("keydown", (ev) => {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    if (isCursorKey(ev.key)) cursor = step(cursor, ev.key);
+    else if (ev.key === "Enter" || ev.key === " ") act(cursor);
+    else return;
+    // Taken here, so the room's Enter-to-chat and the page's scroll don't also run.
+    ev.preventDefault();
+    showCursor();
+  });
+  // Only a keyboard focus shows the cursor: a click focuses the layer too, and the pointer has its own markers.
+  hit.addEventListener("focus", () => {
+    if (hit.matches(":focus-visible")) showCursor();
+  });
+  hit.addEventListener("blur", () => {
+    if (!cursorMark.visible) return;
+    cursorMark.visible = false;
+    hover = null;
+    drawMarkers();
+  });
+  function showCursor(): void {
+    hover = cursor;
+    drawCursor(cursorMark, cursor);
+    cursorMark.visible = true;
+    cursorText.textContent = describeCursor();
+    drawMarkers();
+  }
+  /** What the cursor is on, for the live line: "Sofa, column 3 row 5". */
+  function describeCursor(): string {
+    const at = indexAt(draft, cursor);
+    const piece = at === null ? undefined : draft.furniture[at];
+    const sel = selected === null ? undefined : draft.furniture[selected];
+    const where = placeOf(cursor);
+    if (held !== null) {
+      const c = candidate(held.kind, held.variant, cursor);
+      return `${NAMES[held.kind]}, ${where}${c !== null && fits(draft, c) ? "" : ", can't go here"}`;
+    }
+    if (piece !== undefined) return `${NAMES[piece.kind]}, ${where}`;
+    const empty = `${cursor.wall === null ? "Empty floor" : "Empty wall"}, ${where}`;
+    if (sel === undefined || selected === null) return empty;
+    const name = NAMES[sel.kind].toLowerCase();
+    return moved(draft, selected, cursor) === null ? `${empty}: the ${name} can't go here` : `${empty}: Enter moves the ${name} here`;
+  }
+  function act(s: Slot): void {
     say("");
     if (held !== null) {
       const c = candidate(held.kind, held.variant, s);
@@ -227,7 +299,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       return;
     }
     setDraft(next, selected);
-  });
+  }
   ctx.stage.append(hit);
 
   // ---- Tray: tabs, cubbies, the picked piece's name, colours and actions, the count, Save.
@@ -251,11 +323,13 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       b.dataset["kind"] = kind;
       const colour = coloursOf(kind)[0];
       b.append(colour === undefined ? el("span", { className: "editor-slot-name", textContent: NAMES[kind] }) : sprite(`ui-thumb-${atlasId(kind) ?? kind}-${colour}`));
-      b.addEventListener("click", () => {
+      b.addEventListener("click", (ev) => {
         if (b.ariaDisabled === "true") return;
         held = held?.kind === kind ? null : { kind, variant: 0 };
         selected = null;
         refresh();
+        // Picked with the keyboard (no pointer, so detail 0): the room takes focus, with the cursor where it last was.
+        if (held !== null && ev.detail === 0) hit.focus({ preventScroll: true });
       });
       slots.set(kind, b);
     }
@@ -267,6 +341,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   const rotateBtn = el("button", { type: "button", className: "ui-button secondary", textContent: "Turn" }, "editor-rotate");
   const removeBtn = el("button", { type: "button", className: "ui-button secondary", textContent: "Put back" }, "editor-remove");
   const count = el("p", { className: "editor-count" }, "editor-count");
+  const cursorText = el("p", { className: "editor-cursor", ariaLive: "polite" }, "editor-cursor");
   const problemList = el("ul", { className: "editor-problems", ariaLive: "polite" }, "editor-problems");
   const message = el("p", { className: "editor-message", role: "status" }, "editor-message");
   const saveBtn = el("button", { type: "button", className: "ui-button", textContent: "Save layout" }, "editor-save");
@@ -277,9 +352,11 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     if (next === null) say("It can't turn there.");
     else setDraft(next, selected);
   });
-  removeBtn.addEventListener("click", () => {
+  removeBtn.addEventListener("click", (ev) => {
     if (selected === null) return;
     setDraft(remove(draft, selected), null);
+    // The button turns off under the keyboard's focus: hand it to the room rather than lose it to the page.
+    if (ev.detail === 0) hit.focus({ preventScroll: true });
   });
   saveBtn.addEventListener("click", () => {
     if (problems(draft).length > 0 || sameLayout(draft, saved)) return;
@@ -307,7 +384,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   const minePanel = el("div", { className: "editor-mine" });
   minePanel.append(mineLabel, mineName, mineBtn);
   const piecePanel = el("div", { className: "editor-piece" });
-  piecePanel.append(pickedName, swatches, rotateBtn, removeBtn);
+  piecePanel.append(pickedName, swatches, rotateBtn, removeBtn, cursorText);
   const savePanel = el("div", { className: "editor-save-row" });
   savePanel.append(count, saveBtn, resetBtn, message);
 
@@ -397,7 +474,12 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     const piece = selected === null ? undefined : draft.furniture[selected];
     const kind = held?.kind ?? piece?.kind;
     const variant = held?.variant ?? piece?.variant ?? 0;
-    pickedName.textContent = held !== null ? `${NAMES[held.kind]}: click the room to place it` : piece !== undefined ? NAMES[piece.kind] : "Pick a piece in the room or the tray";
+    pickedName.textContent =
+      held !== null
+        ? `${NAMES[held.kind]}: click the room, or use the arrow keys and Enter there, to place it`
+        : piece !== undefined
+          ? `${NAMES[piece.kind]}: arrow keys and Enter in the room move it`
+          : "Pick a piece in the room or the tray (in the room: arrow keys, then Enter)";
     rotateBtn.disabled = piece === undefined;
     removeBtn.disabled = piece === undefined;
     const colours = kind === undefined ? [] : coloursOf(kind);
@@ -452,9 +534,10 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       ctx.preview(null);
       hit.remove();
       root.remove();
-      ctx.view.editLayer.removeChild(grid, markers);
+      ctx.view.editLayer.removeChild(grid, markers, cursorMark);
       grid.destroy({ children: true });
       markers.destroy({ children: true });
+      cursorMark.destroy();
       ctx.view.redraw();
     },
   };
