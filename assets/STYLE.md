@@ -86,6 +86,12 @@ All three render the same scene with the same sprites. Only the palette and the 
   `night` blue, chat bubbles are cream card, and the primary action is mustard (the one warm accent, like the lamps). Secondary is navy.
 - **Chunky keys:** buttons stand on a 2 px lip; pressed loses the lip and the label drops 2 px. Hover brightens by one ramp step.
   The focus indicator is the mustard outer ring (fields) or a cream outline (buttons), never colour alone. Errors are rust **plus** the warn icon.
+  Every focusable cell or row (tray cubbies, emote cells, menu rows) adds a cream ring outside it on top of its hover look, at least
+  2 CSS px on screen and ≥ 3:1 against what it covers (it always lands on a night face: 11:1 or more). Never `outline: none` without one (OME-1247).
+  Spacing holds it: tray cubbies sit 3 art px apart (6 CSS px in page chrome), so a 2 px ring leaves 4 px of dusk well before the next
+  cubby's outline; menu rows and emote cells are 1 art px apart (2 CSS px), exactly the ring's width, so it never covers a neighbour.
+- **Type floor:** menu and control words are at least 12 CSS px as rendered at 1280×720. Anything that would be smaller inside the
+  scaled stage (the host's member menu: 11 px × 0.68) is page chrome instead, placed at the member in page px (OME-1247).
 - **Scale:** page chrome is 2× (1 art px = 2 CSS px). Tags, bubbles and the seat cursor live in the room and are 1×, like the avatars.
 - **Seat cursor:** a 2 px band on the tile diamond, plum-stroked inside and out, so it holds on honey floor, gold rug and velvet.
   State is never colour alone: corner brackets = free, closed ring = mine, dashed ring = taken.

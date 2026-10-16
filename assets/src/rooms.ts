@@ -714,7 +714,9 @@ ${["emote-pick/heart", "emote-pick/laugh", "emote-pick/question", "emote-pick/ex
 .ui-emotes { ${nineRule("emotes/tray", 6)} position: relative; display: inline-flex; align-items: center; gap: ${u(1)}; padding: 0; }
 .ui-emotes::after { content: ""; position: absolute; left: var(--ui-tail-x, 50%); top: calc(100% + ${u(3)}); width: ${u(16)}; height: ${u(6)}; translate: -50% 0; background: ${slice("emotes/tail")} 0 0 / 100% 100%; }
 .ui-emote { ${nineRule("emotes/slot/idle", 4)} position: relative; display: grid; place-items: center; width: ${u(24)}; height: ${u(24)}; padding: 0; background: none; cursor: pointer; }
-.ui-emote:hover, .ui-emote.is-hover, .ui-emote:focus-visible { ${src("emotes/slot/hover")} outline: none; }
+.ui-emote:hover, .ui-emote.is-hover, .ui-emote:focus-visible, .ui-emote.is-focus { ${src("emotes/slot/hover")} }
+/* Keyboard focus (OME-1247): the cream ring outside the cell, on the tray's night face (11:1), never under 2 CSS px. */
+.ui-emote:focus-visible, .ui-emote.is-focus { outline: max(2px, var(--ui-px)) solid var(--ui-text); outline-offset: 0; }
 .ui-emote:active, .ui-emote.is-press { ${src("emotes/slot/press")} }
 .ui-emote[aria-disabled="true"] { ${src("emotes/slot/cool")} cursor: default; }
 `;

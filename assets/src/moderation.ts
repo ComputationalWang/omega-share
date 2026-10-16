@@ -212,7 +212,10 @@ export function moderationCss(): string {
 
 /* Moderation menu: <div class="ui-emotes ui-modmenu" role="menu" aria-label="Kit"> opened from a member's avatar (host only, never
  * on yourself). Header: .ui-portrait-<avatar> + the name + a square close key (icon/close, Esc). Then .ui-modsep, then the rows.
- * The tail points down at the avatar's name tag: set --ui-tail-x like the picker. */
+ * The tail points down at the avatar's name tag: set --ui-tail-x like the picker.
+ * Scale (OME-1247): the menu is page chrome (--ui-px: 2px), mounted outside .ui-room and placed at the member's tag in page px, like
+ * the emote wheel. Its words are never under 12 CSS px on screen: inside the stage they'd shrink with it (11 px × 0.68 ≈ 7.5 px at
+ * 1280×720). The .ui-room sizes below only cover the old in-stage mount until the app moves it. */
 .ui-emotes.ui-modmenu { display: inline-grid; align-items: stretch; gap: ${u(1)}; min-width: ${u(96)}; }
 .ui-modmenu .head { display: flex; align-items: center; gap: ${u(3)}; color: var(--ui-text); font-weight: 700; font-size: 12px; padding: 0 0 0 ${u(1)}; }
 .ui-room .ui-modmenu .head { font-size: 11px; }
@@ -222,10 +225,13 @@ export function moderationCss(): string {
  * "Remove from room" (icon/remove). Remove asks first: the row turns .is-ask with "Remove Kit for 10 min?" + Keep / Remove keys. */
 .ui-modrow { ${nineRule("menu/row/idle", 4)} display: flex; align-items: center; gap: ${u(3)}; min-height: ${u(20)}; padding: 0 ${u(1)}; background: none; color: var(--ui-text); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
 .ui-room .ui-modrow { font-size: 11px; }
-.ui-modrow:hover, .ui-modrow.is-hover, .ui-modrow:focus-visible { ${src("menu/row/hover")} outline: none; }
+.ui-modrow:hover, .ui-modrow.is-hover, .ui-modrow:focus-visible, .ui-modrow.is-focus { ${src("menu/row/hover")} }
+/* Keyboard focus (OME-1247, WCAG 2.4.11/2.4.13): the sunken well plus a cream ring outside the row. One art px of gap between rows
+ * and the tray's night face behind them, so the ring always lands on night (11:1) and never covers a neighbour. */
+.ui-modrow:focus-visible, .ui-modrow.is-focus { outline: max(2px, var(--ui-px)) solid var(--ui-text); outline-offset: 0; }
 .ui-modrow:active, .ui-modrow.is-press { ${src("menu/row/press")} }
 .ui-modrow.is-ask { ${src("menu/row/ask")} cursor: default; flex-wrap: wrap; padding: ${u(1)}; }
-.ui-modrow.is-ask .ui-button { font-size: 11px; min-height: ${u(16)}; }
+.ui-modrow.is-ask .ui-button { font-size: 12px; min-height: ${u(16)}; }
 
 /* Owner-only playback, seen by everyone but the host: each shared key is .ui-button.shared.is-held (aria-disabled="true", label
  * "Only the host controls playback"), its icon the -off variant. The shelf chip reads glyph/host + "Host" instead of "Everyone". */

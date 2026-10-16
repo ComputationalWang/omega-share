@@ -420,7 +420,10 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 /* Cubby: one catalogue piece. Centre its thumb/<id>/<colour> (≤ 44×40 art px) inside; footprint glyph bottom-left.
  * Pressed (aria-pressed="true") = it's in your hand: mustard double rim. aria-disabled="true" = the room is at MAX_FURNITURE. */
 .ui-slot { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/slot-idle.png") 6 fill / calc(6 * var(--ui-px)) stretch; position: relative; display: grid; place-items: center; width: calc(52 * var(--ui-px)); height: calc(50 * var(--ui-px)); padding: 0; background: none; cursor: grab; flex: none; }
-.ui-slot:hover, .ui-slot.is-hover, .ui-slot:focus-visible { border-image-source: url("slices/slot-hover.png"); outline: none; }
+.ui-slot:hover, .ui-slot.is-hover, .ui-slot:focus-visible, .ui-slot.is-focus { border-image-source: url("slices/slot-hover.png"); }
+/* Keyboard focus (OME-1247, WCAG 2.4.11/2.4.13): the lit edge plus a cream ring hugging the cubby's plum outline, on the dusk well
+ * (14:1), never under 2 CSS px. Offset 0 keeps it inside the tray's padding, so the scrolling tray doesn't clip it. */
+.ui-slot:focus-visible, .ui-slot.is-focus { outline: max(2px, var(--ui-px)) solid var(--ui-text); outline-offset: 0; }
 .ui-slot[aria-pressed="true"] { border-image-source: url("slices/slot-held.png"); cursor: grabbing; }
 .ui-slot[aria-disabled="true"] { border-image-source: url("slices/slot-off.png"); cursor: default; }
 .ui-slot .ui-fp { position: absolute; left: calc(1 * var(--ui-px)); bottom: calc(1 * var(--ui-px)); }
@@ -512,7 +515,9 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 .ui-emotes { border-style: solid; border-color: transparent; border-width: calc(6 * var(--ui-px)); border-image: url("slices/emotes-tray.png") 6 fill / calc(6 * var(--ui-px)) stretch; position: relative; display: inline-flex; align-items: center; gap: calc(1 * var(--ui-px)); padding: 0; }
 .ui-emotes::after { content: ""; position: absolute; left: var(--ui-tail-x, 50%); top: calc(100% + calc(3 * var(--ui-px))); width: calc(16 * var(--ui-px)); height: calc(6 * var(--ui-px)); translate: -50% 0; background: url("slices/emotes-tail.png") 0 0 / 100% 100%; }
 .ui-emote { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/emotes-slot-idle.png") 4 fill / calc(4 * var(--ui-px)) stretch; position: relative; display: grid; place-items: center; width: calc(24 * var(--ui-px)); height: calc(24 * var(--ui-px)); padding: 0; background: none; cursor: pointer; }
-.ui-emote:hover, .ui-emote.is-hover, .ui-emote:focus-visible { border-image-source: url("slices/emotes-slot-hover.png"); outline: none; }
+.ui-emote:hover, .ui-emote.is-hover, .ui-emote:focus-visible, .ui-emote.is-focus { border-image-source: url("slices/emotes-slot-hover.png"); }
+/* Keyboard focus (OME-1247): the cream ring outside the cell, on the tray's night face (11:1), never under 2 CSS px. */
+.ui-emote:focus-visible, .ui-emote.is-focus { outline: max(2px, var(--ui-px)) solid var(--ui-text); outline-offset: 0; }
 .ui-emote:active, .ui-emote.is-press { border-image-source: url("slices/emotes-slot-press.png"); }
 .ui-emote[aria-disabled="true"] { border-image-source: url("slices/emotes-slot-cool.png"); cursor: default; }
 
@@ -523,7 +528,10 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
 
 /* Moderation menu: <div class="ui-emotes ui-modmenu" role="menu" aria-label="Kit"> opened from a member's avatar (host only, never
  * on yourself). Header: .ui-portrait-<avatar> + the name + a square close key (icon/close, Esc). Then .ui-modsep, then the rows.
- * The tail points down at the avatar's name tag: set --ui-tail-x like the picker. */
+ * The tail points down at the avatar's name tag: set --ui-tail-x like the picker.
+ * Scale (OME-1247): the menu is page chrome (--ui-px: 2px), mounted outside .ui-room and placed at the member's tag in page px, like
+ * the emote wheel. Its words are never under 12 CSS px on screen: inside the stage they'd shrink with it (11 px × 0.68 ≈ 7.5 px at
+ * 1280×720). The .ui-room sizes below only cover the old in-stage mount until the app moves it. */
 .ui-emotes.ui-modmenu { display: inline-grid; align-items: stretch; gap: calc(1 * var(--ui-px)); min-width: calc(96 * var(--ui-px)); }
 .ui-modmenu .head { display: flex; align-items: center; gap: calc(3 * var(--ui-px)); color: var(--ui-text); font-weight: 700; font-size: 12px; padding: 0 0 0 calc(1 * var(--ui-px)); }
 .ui-room .ui-modmenu .head { font-size: 11px; }
@@ -533,10 +541,13 @@ a.ui-card:hover, a.ui-card:focus-visible, .ui-card.is-hover { border-image-sourc
  * "Remove from room" (icon/remove). Remove asks first: the row turns .is-ask with "Remove Kit for 10 min?" + Keep / Remove keys. */
 .ui-modrow { border-style: solid; border-color: transparent; border-width: calc(4 * var(--ui-px)); border-image: url("slices/menu-row-idle.png") 4 fill / calc(4 * var(--ui-px)) stretch; display: flex; align-items: center; gap: calc(3 * var(--ui-px)); min-height: calc(20 * var(--ui-px)); padding: 0 calc(1 * var(--ui-px)); background: none; color: var(--ui-text); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
 .ui-room .ui-modrow { font-size: 11px; }
-.ui-modrow:hover, .ui-modrow.is-hover, .ui-modrow:focus-visible { border-image-source: url("slices/menu-row-hover.png"); outline: none; }
+.ui-modrow:hover, .ui-modrow.is-hover, .ui-modrow:focus-visible, .ui-modrow.is-focus { border-image-source: url("slices/menu-row-hover.png"); }
+/* Keyboard focus (OME-1247, WCAG 2.4.11/2.4.13): the sunken well plus a cream ring outside the row. One art px of gap between rows
+ * and the tray's night face behind them, so the ring always lands on night (11:1) and never covers a neighbour. */
+.ui-modrow:focus-visible, .ui-modrow.is-focus { outline: max(2px, var(--ui-px)) solid var(--ui-text); outline-offset: 0; }
 .ui-modrow:active, .ui-modrow.is-press { border-image-source: url("slices/menu-row-press.png"); }
 .ui-modrow.is-ask { border-image-source: url("slices/menu-row-ask.png"); cursor: default; flex-wrap: wrap; padding: calc(1 * var(--ui-px)); }
-.ui-modrow.is-ask .ui-button { font-size: 11px; min-height: calc(16 * var(--ui-px)); }
+.ui-modrow.is-ask .ui-button { font-size: 12px; min-height: calc(16 * var(--ui-px)); }
 
 /* Owner-only playback, seen by everyone but the host: each shared key is .ui-button.shared.is-held (aria-disabled="true", label
  * "Only the host controls playback"), its icon the -off variant. The shelf chip reads glyph/host + "Host" instead of "Everyone". */
