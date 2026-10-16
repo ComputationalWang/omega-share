@@ -118,8 +118,12 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
   let mine = new Set<string>();
   let current: string | undefined;
   let claimed: ViewState["lastError"] = null;
-  /** My last move until the new order shows it: its key gets focus back and the new place is said. */
-  let moved: { id: string; key: string; from: number } | null = null;
+  /**
+   * My last move, until the next queue change: if that change swapped the item with `past` (its neighbour on the side
+   * it moved to), the key gets focus back and the new place is said. Anything else (the server dropped the move, or
+   * someone else's change came first) only clears it.
+   */
+  let moved: { id: string; key: string; past: string; by: -1 | 1 } | null = null;
 
   const say = (text: string | null): void => {
     problem.hidden = text === null;
@@ -158,8 +162,9 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
     const queue = state?.room?.queue ?? NO_ITEMS;
     const from = queue.findIndex((i) => i.id === id);
     const to = from + by;
-    if (from < 0 || to < 0 || to >= queue.length) return;
-    if (o.send({ type: "queue-move", itemId: id, toIndex: to })) moved = { id, key, from };
+    const past = queue[to]?.id;
+    if (from < 0 || past === undefined) return;
+    if (o.send({ type: "queue-move", itemId: id, toIndex: to })) moved = { id, key, past, by };
   };
   list.addEventListener("click", (ev) => {
     if (!(ev.target instanceof HTMLElement)) return;
@@ -242,6 +247,7 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
       const held = controlHeld(s);
       const key = `${String(held)}|${String(s.owner)}|${s.self ?? ""}`;
       if (queue !== drawnQueue || s.room?.members !== drawnMembers || key !== drawnKey) {
+        const queueChanged = queue !== drawnQueue;
         drawnQueue = queue;
         drawnMembers = s.room?.members;
         drawnKey = key;
@@ -252,11 +258,11 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
         const focused = active instanceof HTMLElement && list.contains(active) ? { id: active.closest<HTMLElement>("[data-item]")?.dataset["item"], key: active.dataset["testid"] } : null;
         list.replaceChildren(...queue.map((it, i) => row(it, i, s, canRemove)));
         let refocus = focused;
-        if (moved !== null) {
+        if (moved !== null && queueChanged) {
           const m = moved;
+          moved = null;
           const at = queue.findIndex((i) => i.id === m.id);
-          if (at !== m.from) {
-            moved = null;
+          if (at >= 0 && queue[at - m.by]?.id === m.past) {
             const it = queue[at];
             if (it !== undefined) {
               status.textContent = `Moved ${itemTitle(it.embed)} to place ${String(at + 1)} of ${String(queue.length)}.`;
