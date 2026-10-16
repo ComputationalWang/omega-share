@@ -354,6 +354,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
         box(clip, l.stage);
         roomWindow.set(false, 0, 0);
         stage.style.transform = stageTransform(l.scale);
+        stage.style.setProperty("--stage-scale", String(l.scale));
       }
       wrap.style.height = "";
       return;
@@ -371,6 +372,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       controls.ariaLabel = "Playback controls; scroll horizontally for more";
     }
     box(clip, l.stage);
+    // room.css sizes the host's tag hit areas by it; the phone window keeps its own zoom.
+    stage.style.setProperty("--stage-scale", String(onPhone ? 1 : l.scale));
     if (onPhone) roomWindow.set(true, l.stage.w, l.stage.h);
     else {
       roomWindow.set(false, 0, 0);
