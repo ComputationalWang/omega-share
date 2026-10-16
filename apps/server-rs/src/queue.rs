@@ -14,7 +14,7 @@ use crate::contract::capabilities::playback_caps;
 use crate::contract::constants::{QUEUE_ENDED_DEBOUNCE_MS, QUEUE_ENDED_TOLERANCE_S, QUEUE_MAX};
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId};
-use crate::contract::room::ControlPolicy;
+use crate::contract::room::{ControlPolicy, QueueIndex};
 use crate::contract::server_message::ServerMessage;
 use crate::contract::state::QueueItem;
 use crate::log::{LogEvent, log_error};
@@ -223,6 +223,17 @@ pub fn remove(app: &App, inner: &mut RoomInner, actor: &QueueActor, item: &Queue
     Ok(())
 }
 
+/// `queue-move`: stub (OME-1249 red).
+pub fn move_item(
+    _app: &App,
+    _inner: &mut RoomInner,
+    _actor: &QueueActor,
+    _item: &QueueItemId,
+    _to: QueueIndex,
+) -> Result<(), QueueRefusal> {
+    Ok(())
+}
+
 /// `queue-advance`: refused under the owner policy; ignored (`Ok`) unless `from` is the current item.
 pub fn advance(app: &App, inner: &mut RoomInner, actor: &QueueActor, from: &QueueItemId) -> Result<(), QueueRefusal> {
     if inner.closed {
@@ -375,6 +386,10 @@ mod tests {
         assert_eq!(add(&f.app, &mut inner, &a, YT2).unwrap_err(), QueueAddRefusal::RoomClosed);
         assert_eq!(remove(&f.app, &mut inner, &a, &queued.id), Err(QueueRefusal::RoomClosed));
         assert_eq!(advance(&f.app, &mut inner, &a, &current), Err(QueueRefusal::RoomClosed));
+        assert_eq!(
+            move_item(&f.app, &mut inner, &a, &queued.id, QueueIndex::new(0).unwrap()),
+            Err(QueueRefusal::RoomClosed)
+        );
         ended(&f.app, &mut inner, &current, 0.0);
         assert_eq!(inner.room.queue().len(), 1);
         drop(inner);
@@ -516,6 +531,53 @@ mod tests {
         assert!(f.frames().is_empty());
     }
 
+    fn qi(n: u64) -> QueueIndex {
+        QueueIndex::new(n).unwrap()
+    }
+
+    // OME-1249
+    #[test]
+    fn move_item_reorders_for_everyone_stores_the_order_and_ignores_no_ops() {
+        let mut f = fixture();
+        f.share(YT1);
+        let (a, b) = (actor("alice", false), actor("bob", false));
+        let [x, y, z] = [YT2, YT1, YT2].map(|u| f.add(&a, u).unwrap().id.as_str().to_owned());
+        f.frames();
+        let id = |s: &str| QueueItemId::parse(s).unwrap();
+        let stored_ids = |f: &Fixture| f.stored().queue.iter().map(|i| i.id.as_str().to_owned()).collect::<Vec<_>>();
+        {
+            let mut inner = f.cell.lock();
+            assert_eq!(move_item(&f.app, &mut inner, &b, &id(&z), qi(0)), Ok(()));
+        }
+        let frames = f.frames();
+        assert_eq!(types(&frames), ["queue-changed"]);
+        assert_eq!(frames[0]["by"], "bob");
+        let ids: Vec<&str> = frames[0]["queue"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|i| i["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, [z.as_str(), x.as_str(), y.as_str()]);
+        assert_eq!(f.queue_ids(), [z.as_str(), x.as_str(), y.as_str()]);
+        assert_eq!(stored_ids(&f), [z.as_str(), x.as_str(), y.as_str()]);
+        {
+            let mut inner = f.cell.lock();
+            // Already there, and an item that isn't queued (gone, or the current one): ignored, no frame.
+            assert_eq!(move_item(&f.app, &mut inner, &b, &id(&z), qi(0)), Ok(()));
+            assert_eq!(move_item(&f.app, &mut inner, &b, &id("never-was"), qi(1)), Ok(()));
+        }
+        assert!(f.frames().is_empty());
+        {
+            // Past the end (the queue shrank since the client looked): to the last place.
+            let mut inner = f.cell.lock();
+            assert_eq!(move_item(&f.app, &mut inner, &b, &id(&x), qi(19)), Ok(()));
+        }
+        assert_eq!(types(&f.frames()), ["queue-changed"]);
+        assert_eq!(f.queue_ids(), [z.as_str(), y.as_str(), x.as_str()]);
+        assert_eq!(stored_ids(&f), [z.as_str(), y.as_str(), x.as_str()]);
+    }
+
     // apps/server/test/queue.test.ts:304
     #[test]
     fn advance_from_the_current_item_sends_embed_changed_first_then_queue_changed() {
@@ -623,6 +685,10 @@ mod tests {
         }
         assert_eq!(remove(&f.app, &mut inner, &guest, &item.id), Err(QueueRefusal::ControlOwnerOnly));
         assert_eq!(advance(&f.app, &mut inner, &guest, &current), Err(QueueRefusal::ControlOwnerOnly));
+        assert_eq!(
+            move_item(&f.app, &mut inner, &guest, &item.id, QueueIndex::new(0).unwrap()),
+            Err(QueueRefusal::ControlOwnerOnly)
+        );
         assert_eq!(inner.room.queue().len(), 1);
         assert!(
             inner.member_add_bucket(&guest.member_id, f.app.mono()).take(f.app.mono()),

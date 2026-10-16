@@ -96,6 +96,26 @@ describe("client queue-remove", () => {
   });
 });
 
+describe("client queue-move", () => {
+  test.each([0, 7, QUEUE_MAX - 1])("accepts toIndex %p", (toIndex) => {
+    expect(parseClientMessage(JSON.stringify({ type: "queue-move", itemId: "q1", toIndex }))).toEqual({ type: "queue-move", itemId: "q1", toIndex });
+  });
+
+  test.each([
+    ["missing itemId", { type: "queue-move", toIndex: 0 }],
+    ["missing toIndex", { type: "queue-move", itemId: "q1" }],
+    ["oversize itemId", { type: "queue-move", itemId: "a".repeat(33), toIndex: 0 }],
+    ["toIndex at QUEUE_MAX", { type: "queue-move", itemId: "q1", toIndex: QUEUE_MAX }],
+    ["negative toIndex", { type: "queue-move", itemId: "q1", toIndex: -1 }],
+    ["fractional toIndex", { type: "queue-move", itemId: "q1", toIndex: 1.5 }],
+    ["string toIndex", { type: "queue-move", itemId: "q1", toIndex: "1" }],
+    ["null toIndex", { type: "queue-move", itemId: "q1", toIndex: null }],
+    ["extra key", { type: "queue-move", itemId: "q1", toIndex: 0, by: 1 }],
+  ])("rejects %s", (_name, input) => {
+    rejects(ClientMessageSchema, input);
+  });
+});
+
 describe("client queue-advance", () => {
   test("names the item it skips", () => {
     expect(parseClientMessage('{"type":"queue-advance","fromItemId":"q1"}')).toEqual({ type: "queue-advance", fromItemId: "q1" });

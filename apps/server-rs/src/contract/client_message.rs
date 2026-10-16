@@ -519,10 +519,29 @@ mod tests {
             json!({"type":"control-policy","policy":"owner"}),
             json!({"type":"queue-add","url":"https://youtu.be/dQw4w9WgXcQ"}),
             json!({"type":"queue-remove","itemId":"q1"}),
+            json!({"type":"queue-move","itemId":"q1","toIndex":0}),
+            json!({"type":"queue-move","itemId":"q1","toIndex":19}),
             json!({"type":"queue-advance","fromItemId":"q1"}),
             json!({"type":"ended","itemId":"q1","position":212.5}),
         ] {
             echo(v);
+        }
+    }
+
+    #[test]
+    fn queue_move_to_index_is_an_integer_below_queue_max() {
+        // packages/shared/test/queue-contract.test.ts (client queue-move)
+        for bad in [
+            json!({"type":"queue-move","itemId":"q1","toIndex":20}),
+            json!({"type":"queue-move","itemId":"q1","toIndex":-1}),
+            json!({"type":"queue-move","itemId":"q1","toIndex":1.5}),
+            json!({"type":"queue-move","itemId":"q1","toIndex":"1"}),
+            json!({"type":"queue-move","itemId":"q1","toIndex":null}),
+            json!({"type":"queue-move","itemId":"q1"}),
+            json!({"type":"queue-move","toIndex":0}),
+            json!({"type":"queue-move","itemId":"q1","toIndex":0,"by":1}),
+        ] {
+            assert!(parse(&bad).is_none(), "{bad}");
         }
     }
 

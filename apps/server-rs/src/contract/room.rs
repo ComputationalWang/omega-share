@@ -1,7 +1,7 @@
 //! Small room primitives from `room.ts` and `room-ownership.ts`. Members, room state, presets and
 //! messages belong to later slices.
 
-use super::constants::{AVATAR_COUNT, MAX_ROOM_MEMBERS, SEAT_COUNT};
+use super::constants::{AVATAR_COUNT, MAX_ROOM_MEMBERS, QUEUE_MAX, SEAT_COUNT};
 use serde::{Deserialize, Serialize};
 
 /// A bounded index: a JSON integer in `0..count`. Floats, strings and negatives are refused.
@@ -44,6 +44,11 @@ bounded_index!(
     /// `StandingSlotSchema`: an integer in `0..MAX_ROOM_MEMBERS`.
     StandingSlot,
     MAX_ROOM_MEMBERS
+);
+bounded_index!(
+    /// `QueueIndexSchema`: a place in the queue, an integer in `0..QUEUE_MAX`.
+    QueueIndex,
+    QUEUE_MAX
 );
 
 /// Who may send `control` frames and shares (ADR 0030).

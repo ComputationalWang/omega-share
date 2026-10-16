@@ -376,6 +376,28 @@ describe("queue-remove (ADR 0031 §2, §3)", () => {
   });
 });
 
+// OME-1249: landed after the Rust switch, so only the Rust server implements it; the frozen TS one ignores it.
+describe("queue-move (OME-1249)", () => {
+  test.skipIf(process.env["OMEGA_SERVER_BIN"] === undefined)("reorders Up next for everyone; by is the mover, an unknown item is ignored", async () => {
+    t = start();
+    const alice = await joined();
+    const bob = await joined();
+    await alice.client.next("member-joined");
+    await share(alice);
+    await added(alice.client, watch(1));
+    await added(alice.client, watch(2));
+    const queue = await added(alice.client, watch(3));
+    for (let i = 0; i < 3; i++) await bob.client.next("queue-changed");
+    bob.client.send({ type: "queue-move", itemId: queue[2]?.id, toIndex: 0 });
+    const changed = await alice.client.next("queue-changed");
+    expect(changed.by).toBe(bob.snapshot.self);
+    expect(changed.queue.map((i) => i.id)).toEqual([queue[2]?.id, queue[0]?.id, queue[1]?.id]);
+    bob.client.send({ type: "queue-move", itemId: "never-was", toIndex: 0 });
+    await alice.client.none("queue-changed", 100);
+    await bob.client.none("error", 0);
+  });
+});
+
 describe("queue-advance (ADR 0031 §2, §5)", () => {
   test("from the current item: embed-changed (by null, a load, the item's id) first, then queue-changed by the advancer", async () => {
     t = start();
