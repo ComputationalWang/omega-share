@@ -2,7 +2,7 @@
 
 How `apps/server-rs` is built. Read it before you touch the crate. The decision and its gates are in [ADR 0050](../../docs/adr/0050-rust-server.md); the tracking issue is OME-1141.
 
-The TS server in `apps/server` is the reference. It is **frozen**: no feature work lands there until the switch. When the two disagree, the TS behaviour wins, unless a row in [Deliberate differences](#deliberate-differences) says otherwise.
+Production runs this crate since 2026-10-15 (see [Production](#production-s11)). The TS server in `apps/server` is the reference and stays **frozen**: no feature work lands there. It is the rollback target until 2026-10-22; after that, with the board's sign-off, S13 renames this crate to `apps/server` and deletes the TS one. Until then, when the two disagree, the TS behaviour wins, unless a row in [Deliberate differences](#deliberate-differences) says otherwise.
 
 ## Commands
 
@@ -25,18 +25,18 @@ Integration tests (`tests/*.rs`) are separate crates: helper functions there nee
 | `config.ts` | `config.rs` | S1 ✓ |
 | `index.ts` | `main.rs`, `serve.rs` | S1 ✓ (grows in S5–S7) |
 | `rate-limit.ts` `Clock`, `monotonic`, `wallNow`, `schedule` | `clock.rs` | S1 ✓ |
-| `packages/shared/src/*` (server-used parts) | `contract/*` | S2 |
+| `packages/shared/src/*` (server-used parts) | `contract/*` | S2 ✓ |
 | `store/db.ts`, `store/rooms.ts`, `store/reports.ts`, `migrations/*.sql` | `store/*` (migrations embedded with `include_str!` from `apps/server/migrations`) | S3 ✓ |
-| `room.ts`, `rooms.ts`, `playback.ts`, `queue.ts`, `rate-limit.ts`, `secrets.ts`, `embed-policy.ts`, `presets.ts`, `log.ts`, `headers.ts` | same names, `snake_case.rs` | S4 |
-| `server.ts` (`startServer` state, `loadRooms`, `titleBlocker`), `index.ts` (database open, seat holds) | `app.rs` | S4d |
-| `rooms.ts`, the `perRoom` maps | `registry.rs` (`Registry`, `RoomCell`, `RoomInner`) | S4d |
-| `ws.ts` publish and backpressure | `outbox.rs` | S4d |
-| `queue.ts`, `reports.ts`, `rooms-gc.ts`, `ws-owner-edits.ts` | `queue.rs`, `reports.rs`, `rooms_gc.rs`, `owner_edits.rs` | S4d |
-| `http.ts`, `static.ts`, `site-meta.ts`, `server.ts` (routing, Host/Origin gate) | `http/*` | S5 |
-| `ws.ts`, `ws-sessions.ts`, `ws-limits.ts`, `ws-owner-edits.ts` | `ws/*` | S6 |
-| `rooms-gc.ts`, `reports.ts`, `admin.ts`, `cli.ts`, `metrics.ts`, `scripts/backup.ts`, graceful restart | same names; `omega-server admin …`, `omega-server backup …` | S7 |
-| `test/helpers.ts` (black-box mode), test hooks | `test_hooks.rs` (feature `test-hooks`) | S8 |
-| `relay-latency.ts` + the load comparison | `perf/server-compare.ts` (TS, external, runs any server command; replaces the planned `src/bin/omega-load.rs`) | S9 |
+| `room.ts`, `rooms.ts`, `playback.ts`, `queue.ts`, `rate-limit.ts`, `secrets.ts`, `embed-policy.ts`, `presets.ts`, `log.ts`, `headers.ts` | same names, `snake_case.rs` | S4 ✓ |
+| `server.ts` (`startServer` state, `loadRooms`, `titleBlocker`), `index.ts` (database open, seat holds) | `app.rs` | S4d ✓ |
+| `rooms.ts`, the `perRoom` maps | `registry.rs` (`Registry`, `RoomCell`, `RoomInner`) | S4d ✓ |
+| `ws.ts` publish and backpressure | `outbox.rs` | S4d ✓ |
+| `queue.ts`, `reports.ts`, `rooms-gc.ts`, `ws-owner-edits.ts` | `queue.rs`, `reports.rs`, `rooms_gc.rs`, `owner_edits.rs` | S4d ✓ |
+| `http.ts`, `static.ts`, `site-meta.ts`, `server.ts` (routing, Host/Origin gate) | `http/*` | S5 ✓ |
+| `ws.ts`, `ws-sessions.ts`, `ws-limits.ts`, `ws-owner-edits.ts` | `ws/*` | S6 ✓ |
+| `rooms-gc.ts`, `reports.ts`, `admin.ts`, `cli.ts`, `metrics.ts`, `scripts/backup.ts`, graceful restart | same names; `omega-server admin …`, `omega-server backup …` | S7 ✓ |
+| `test/helpers.ts` (black-box mode), test hooks | `test_hooks.rs` (feature `test-hooks`) | S8 ✓ |
+| `relay-latency.ts` + the load comparison | `perf/server-compare.ts` (TS, external, runs any server command; replaces the planned `src/bin/omega-load.rs`) | S9 ✓ |
 
 Not ported: `activity`, `discord-upstream` and `extension-bridge` from shared (the server doesn't use them). `parseServerMessage` only matters to the load generator.
 
@@ -99,7 +99,7 @@ Schemas, field orders and constants: read the TS source (`packages/shared/src`),
 
 ## Rollback interop (S3)
 
-For 7 days after the switch the TS server may be put back on the Rust server's database file. `interop/spec.json` (from `interop/spec.ts`) is replayed through both servers' stores; `interop/dump.json` is what the TS stores read back (raw rows, schema SQL and typed listings). `tests/store_interop.rs` must read the same from the TS-written file and write a file that dumps the same; `interop/interop.test.ts` (in `bun run test`) has the TS stores read the committed `rust-written.db`. Regenerate the TS half with `bun apps/server-rs/interop/gen.ts`, the Rust files (`rust-written.db`, `rust-mixed.db`, written atomically by one test) with `UPDATE_INTEROP=1 cargo test -p omega-server --test store_interop`. The Rust binary embeds the TS migration files, so it never runs a migration the TS server does not know (a test compares the directory with the embedded list).
+Until 2026-10-22 (7 days after the switch) the TS server may be put back on the Rust server's database file, so no migration lands before then. `interop/spec.json` (from `interop/spec.ts`) is replayed through both servers' stores; `interop/dump.json` is what the TS stores read back (raw rows, schema SQL and typed listings). `tests/store_interop.rs` must read the same from the TS-written file and write a file that dumps the same; `interop/interop.test.ts` (in `bun run test`) has the TS stores read the committed `rust-written.db`. Regenerate the TS half with `bun apps/server-rs/interop/gen.ts`, the Rust files (`rust-written.db`, `rust-mixed.db`, written atomically by one test) with `UPDATE_INTEROP=1 cargo test -p omega-server --test store_interop`. The Rust binary embeds the TS migration files, so it never runs a migration the TS server does not know (a test compares the directory with the embedded list).
 
 ## The comparison test
 
@@ -204,6 +204,13 @@ Behaviour the suite pins that a separate process must keep: an oversized WS fram
 - `tests/wire_fuzz.rs`: seeded fuzzing of WebSocket frames (mutated corpus frames, binary, oversized, deep JSON, duplicate keys, joins, leaves and kicks across three rooms) and HTTP bodies (`POST /rooms`, `/share`, `/queue`, `/report`). `FUZZ_ITERS=20000 FUZZ_SEED=7 cargo test --test wire_fuzz -- --nocapture` for a long run.
 - A 413 answers `Connection: close`: the body is left unread, so a keep-alive client must not reuse the socket.
 
-## Deploy notes (S11 checklist)
+## Production (S11)
 
-- Verify Caddy's timeouts (read header/body, write, idle) and its per-client connection and request limits before cutover: the origin has no per-client connection limit behind the proxy (see "Deliberate differences"), and Caddy must forward the client address in `X-Forwarded-For` with `TRUST_PROXY=loopback`.
+Switched on 2026-10-15; the runbook is [`docs/ops/switch-to-rust.md`](../../docs/ops/switch-to-rust.md) (rollback in § 4).
+
+- **Build and deploy.** `deploy/deploy.sh` (default `--server rust`) cross-builds the release binary for the box (aarch64, glibc ≤ 2.35) with cargo-zigbuild (`scripts/build-server-rs.sh`; tools from `scripts/install-server-rs-tools.sh`, versions in `deploy/server-rs-build.env`), refuses a binary that fails `deploy/check-server-binary.sh`, ships it to `releases/<commit>-rust` and restarts `omega-share.service`, the hardened Rust unit. `omega-share-bun.service` is the rollback. The one build warning, `linker stderr: ignoring deprecated linker optimization setting '1'`, is zig's linker ignoring rustc's `-O1`: harmless.
+- **Behind Caddy.** The origin has no per-client connection limit (see [Deliberate differences](#deliberate-differences)): those belong to Caddy, which pools its upstream connections. Clients are keyed on the `X-Forwarded-For` Caddy sets, so the server needs `TRUST_PROXY=loopback` with a public origin (it refuses to start without it).
+- **Verified on the box** (runbook § 3 and the hardening checklist, 2026-10-15): every hardening option in `deploy/omega-share.service` holds (`systemd-analyze security` 0.9 SAFE). Caddy replaces a forged `X-Forwarded-For`, so the burst is still rate limited. A request head over Caddy's `max_header_size 12KiB` is a 431 over HTTP/1.1 and a killed stream over HTTP/2. A WebSocket left idle for 160 s survives Caddy's `idle 2m`: the server pings every 30 s.
+- **Restart.** A graceful restart closes every socket with 1012 and saves the seat holds in SQLite. Resume tokens live in memory only, so after a restart a resume answers `resume_expired` and the client rejoins once without the token (`apps/web/src/connection.ts`, ADR 0043 amendment); the hold (`SEAT_HOLD_MS`, 30 s, by nickname hash) puts it back in its seat. Test a restart that way, not by retrying the old token: that only runs into the join rate limit.
+- **Memory.** About 14 MB RSS after boot, about 30 MB once the site has been served, then flat: five full downloads of the site in a row left it unchanged. The step is most likely the allocator keeping the freed file-read buffers, not a leak. The 8.6 h soak (about 185 sockets, on the dev machine, no site traffic) stayed between 12 and 15 MB with no unexpected close.
+- **Watch until 2026-10-22.** `process_resident_memory_bytes` on `127.0.0.1:9464/metrics`, `NRestarts` of `omega-share`, and `"level":"error"` in its journal (as `admin@`, with sudo). A rising RSS, a restart loop or a crash goes to the CEO; the board decides on the rollback.

@@ -16,7 +16,7 @@ You own the implementation of the server: `apps/server-rs`, the Rust server (axu
 When you wake up, follow the Paperclip skill for the heartbeat procedure, then `omega-coordination`.
 
 ## Required reading, before you touch the crate
-`apps/server-rs/PORTING.md`: commands, rules, module map, runtime architecture, contract hazards, the comparison test, deliberate differences, performance, the black-box suite, deploy notes. Then ADR 0050 and 0051. When Rust and the TS reference disagree, the TS behaviour wins unless a row in PORTING.md "Deliberate differences" says otherwise. **A new difference is a bug, unless you add the row and the Lead agrees.**
+`apps/server-rs/PORTING.md`: commands, rules, module map, runtime architecture, contract hazards, the comparison test, deliberate differences, performance, the black-box suite, production (deploy, restart, memory). Then ADR 0050 and 0051. When Rust and the TS reference disagree, the TS behaviour wins unless a row in PORTING.md "Deliberate differences" says otherwise. **A new difference is a bug, unless you add the row and the Lead agrees.**
 
 ## What you own
 - `apps/server-rs/**` (including `corpus/`, `blackbox/`, `interop/`, `tests/`) and `perf/server-*.ts`: WebSocket and HTTP hardening, limiters, close codes, backpressure, room and playback state, the Host/Origin checks, the operator tools (`omega-server admin …`, `backup …`), and future server features and fixes.
