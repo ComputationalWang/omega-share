@@ -106,3 +106,41 @@ test("the host's pickable name tags each catch a 24×24 px square at 960 and at 
     await leaveAll(clients.splice(-1));
   }
 });
+
+/** Points inside one tag's visible box that another member's hit area takes (it may only lose to a visible tag on top). */
+function stolen(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const tags = [...document.querySelectorAll<HTMLElement>(".tags.pickable [data-member][role=button]")];
+    const out: string[] = [];
+    for (const tag of tags) {
+      const r = tag.getBoundingClientRect();
+      for (let fx = 0.1; fx < 1; fx += 0.2) {
+        for (let fy = 0.1; fy < 1; fy += 0.2) {
+          const x = r.left + r.width * fx;
+          const y = r.top + r.height * fy;
+          const hit = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-member], [data-pad]");
+          const who = hit?.dataset["member"] ?? hit?.dataset["pad"];
+          if (who === tag.dataset["member"]) continue;
+          // Another tag's own box drawn over this one is the art's overlap, not a hit area's.
+          const box = hit?.getBoundingClientRect();
+          const visible = hit?.dataset["member"] !== undefined && box !== undefined && x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
+          if (!visible) out.push(`${tag.textContent} at ${fx.toFixed(1)},${fy.toFixed(1)} → ${hit?.textContent ?? "nothing"}`);
+        }
+      }
+    }
+    return out;
+  });
+}
+
+test("crowded (8 in the room): no tag's hit area takes a click from another tag's visible box", async ({ browser }) => {
+  const { id, ownerToken, inviteKey } = ownedRoom("crowd");
+  const secrets = JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } });
+  // As perf/moderation.perf.ts has it: the host first, at the default 1280×720, then seven guests.
+  const host = await open(browser, `${URLS.web}/r/${id}`, "host", {}, secrets);
+  clients.push(...(await joinRoom(browser, { roomUrl: `${URLS.web}/r/${id}#k=${inviteKey}`, count: 7, nicknamePrefix: "md" })));
+  await expect(host.locator(`.tags.pickable ${site.nicknameTag}[role=button]`)).toHaveCount(7);
+  await host.locator(site.nicknameTag).first().scrollIntoViewIfNeeded();
+  expect(await stolen(host)).toEqual([]);
+  // What perf/moderation.perf.ts does: md-1's tag takes the click and opens md-1's menu.
+  await host.locator(site.nicknameTag).filter({ hasText: "md-1" }).click({ timeout: 10_000 });
+});
