@@ -343,3 +343,80 @@ test("portrait keeps queue messages in a keyboard-reachable region above the pas
   expect(region?.hasAttribute("role")).toBe(false);
   expect((q("queue-form").compareDocumentPosition(q("queue-problem")) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true);
 });
+
+// OME-1250 (QA OME-1243 K2): reorder Up next with Move up/down keys and Alt+Arrow, on the rows a member may remove.
+describe("reorder Up next", () => {
+  const three = (): RoomState => room({ queue: [item("a", yt("aaaaaaaaaaa"), "me"), item("b", yt("bbbbbbbbbbb"), "me"), item("c", yt("ccccccccccc"), "kit")] });
+  const key = (r: HTMLElement | undefined, testId: string): HTMLButtonElement => {
+    const b = r?.querySelector<HTMLButtonElement>(`[data-testid=${testId}]`);
+    if (b === null || b === undefined) throw new Error(`no ${testId}`);
+    return b;
+  };
+
+  test("Move up and Move down show where × shows, with the title in their names", async () => {
+    const { rows } = await setup(three());
+    const [a, , c] = rows();
+    expect(key(a, "queue-move-up").getAttribute("aria-label")).toBe("Move YouTube video aaaaaaaaaaa up");
+    expect(key(a, "queue-move-down").getAttribute("aria-label")).toBe("Move YouTube video aaaaaaaaaaa down");
+    expect(c?.querySelector("[data-testid=queue-move-up]")).toBeNull();
+    expect(c?.querySelector("[data-testid=queue-move-down]")).toBeNull();
+  });
+
+  test("the owner moves any row; a held queue moves nothing", async () => {
+    const { rows } = await setup(room({ queue: [item("a"), item("b")] }), true);
+    expect(rows().map((r) => r.querySelector("[data-testid=queue-move-up]") !== null)).toEqual([true, true]);
+    const held = await setup(room({ queue: [item("a", yt("aaaaaaaaaaa"), "me")], controlPolicy: "owner" }));
+    expect(held.rows()[0]?.querySelector("[data-testid=queue-move-up]")).toBeNull();
+  });
+
+  test("Move down and Move up send queue-move to the next place; the ends are off and send nothing", async () => {
+    const { rows, sent } = await setup(three());
+    const [a, b] = rows();
+    key(a, "queue-move-up").click();
+    expect(key(a, "queue-move-up").getAttribute("aria-disabled")).toBe("true");
+    key(a, "queue-move-down").click();
+    key(b, "queue-move-up").click();
+    expect(sent).toEqual([
+      { type: "queue-move", itemId: "a", toIndex: 1 },
+      { type: "queue-move", itemId: "b", toIndex: 0 },
+    ]);
+  });
+
+  test("Alt+ArrowUp and Alt+ArrowDown on a row's key move it; plain arrows don't", async () => {
+    const { rows, sent } = await setup(three());
+    const b = key(rows()[1], "queue-remove");
+    const press = (k: string, altKey: boolean): boolean => b.dispatchEvent(new KeyboardEvent("keydown", { key: k, altKey, bubbles: true, cancelable: true }));
+    expect(press("ArrowUp", true)).toBe(false);
+    press("ArrowDown", true);
+    press("ArrowDown", false);
+    expect(sent).toEqual([
+      { type: "queue-move", itemId: "b", toIndex: 0 },
+      { type: "queue-move", itemId: "b", toIndex: 2 },
+    ]);
+  });
+
+  test("after the new order arrives, focus stays on the moved row's key and the move is announced", async () => {
+    const { rows, server, q } = await setup(three());
+    const down = key(rows()[0], "queue-move-down");
+    down.focus();
+    down.click();
+    const [a, b, c] = three().queue ?? [];
+    if (a === undefined || b === undefined || c === undefined) throw new Error("three items");
+    server({ type: "queue-changed", queue: [b, a, c], by: "me" });
+    const moved = rows()[1];
+    expect(moved?.dataset["item"]).toBe("a");
+    expect(document.activeElement).toBe(key(moved, "queue-move-down"));
+    expect(q("queue-status").getAttribute("role")).toBe("status");
+    expect(q("queue-status").textContent).toBe("Moved YouTube video aaaaaaaaaaa to place 2 of 3.");
+  });
+
+  test("someone else's queue change keeps focus on the same key and announces nothing", async () => {
+    const { rows, server, q } = await setup(three());
+    key(rows()[1], "queue-remove").focus();
+    const [a, b] = three().queue ?? [];
+    if (a === undefined || b === undefined) throw new Error("two items");
+    server({ type: "queue-changed", queue: [a, b], by: "kit" });
+    expect(document.activeElement).toBe(key(rows()[1], "queue-remove"));
+    expect(q("queue-status").textContent).toBe("");
+  });
+});
