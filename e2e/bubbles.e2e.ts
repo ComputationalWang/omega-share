@@ -62,7 +62,7 @@ test("the layer is aria-hidden with no live region, holds 16 nodes, and a bubble
   await expect(layer).not.toHaveAttribute("aria-live", /.*/);
   await expect(layer.locator(".float-slot")).toHaveCount(16);
   await expect(a.page.locator(site.chatLog)).toHaveAttribute("aria-live", "polite");
-  await expect(a.page.locator(`${site.room} [role=log], ${site.room} [aria-live]`)).toHaveCount(1); // only the sysline rail
+  await expect(a.page.locator(`${site.room} [role=log], ${site.room} [aria-live]`)).toHaveCount(0); // the sysline rail is visual only too (OME-1246)
 
   const before = await settledRenders(a.page);
   await say(b.page, "first bubble");
