@@ -32,6 +32,13 @@ export function slotAt(x: number, y: number): Slot | null {
   return right ? { col: i, row: 0, wall: "sw" } : { col: 0, row: i, wall: "se" };
 }
 
+export type CursorKey = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
+
+/** The keyboard cursor's next slot (OME-1245). */
+export function step(slot: Slot, _key: CursorKey): Slot {
+  return slot;
+}
+
 export type MarkerState = "ok" | "no" | "sel";
 
 export interface Marker {

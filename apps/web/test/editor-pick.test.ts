@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { cellCenter } from "../src/layout";
-import { markerKeys, slotAt } from "../src/editor/pick";
+import { markerKeys, slotAt, step, type Slot } from "../src/editor/pick";
 
 describe("slotAt: a click on the stage to the floor cell or wall slot under it", () => {
   test("a cell's centre and points inside its diamond pick that cell", () => {
@@ -48,5 +48,34 @@ describe("markerKeys: the set (h) footprint markers for a piece", () => {
     expect(keys).toHaveLength(49);
     expect(keys[0]).toEqual({ key: "place/sel/1x1", col: 1, row: 1 });
     expect(keys[48]).toEqual({ key: "place/sel/1x1", col: 7, row: 7 });
+  });
+});
+
+describe("step: the editor's keyboard cursor (OME-1245)", () => {
+  const floor = (col: number, row: number): Slot => ({ col, row, wall: null });
+  test("on the floor, Right/Left walk the column and Down/Up the row, stopping at the far edges", () => {
+    expect(step(floor(3, 4), "ArrowRight")).toEqual(floor(4, 4));
+    expect(step(floor(3, 4), "ArrowLeft")).toEqual(floor(2, 4));
+    expect(step(floor(3, 4), "ArrowDown")).toEqual(floor(3, 5));
+    expect(step(floor(3, 4), "ArrowUp")).toEqual(floor(3, 3));
+    expect(step(floor(9, 4), "ArrowRight")).toEqual(floor(9, 4));
+    expect(step(floor(3, 9), "ArrowDown")).toEqual(floor(3, 9));
+  });
+
+  test("up from the back row is the right wall's slot, left from the first column the left wall's, and back down again", () => {
+    expect(step(floor(2, 0), "ArrowUp")).toEqual({ col: 2, row: 0, wall: "sw" });
+    expect(step(floor(0, 6), "ArrowLeft")).toEqual({ col: 0, row: 6, wall: "se" });
+    expect(step({ col: 2, row: 0, wall: "sw" }, "ArrowDown")).toEqual(floor(2, 0));
+    expect(step({ col: 0, row: 6, wall: "se" }, "ArrowRight")).toEqual(floor(0, 6));
+  });
+
+  test("along a wall the cursor walks its slots and stays on the wall", () => {
+    expect(step({ col: 2, row: 0, wall: "sw" }, "ArrowRight")).toEqual({ col: 3, row: 0, wall: "sw" });
+    expect(step({ col: 2, row: 0, wall: "sw" }, "ArrowLeft")).toEqual({ col: 1, row: 0, wall: "sw" });
+    expect(step({ col: 2, row: 0, wall: "sw" }, "ArrowUp")).toEqual({ col: 2, row: 0, wall: "sw" });
+    expect(step({ col: 9, row: 0, wall: "sw" }, "ArrowRight")).toEqual({ col: 9, row: 0, wall: "sw" });
+    expect(step({ col: 0, row: 6, wall: "se" }, "ArrowDown")).toEqual({ col: 0, row: 7, wall: "se" });
+    expect(step({ col: 0, row: 6, wall: "se" }, "ArrowUp")).toEqual({ col: 0, row: 5, wall: "se" });
+    expect(step({ col: 0, row: 6, wall: "se" }, "ArrowLeft")).toEqual({ col: 0, row: 6, wall: "se" });
   });
 });
