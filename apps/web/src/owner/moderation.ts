@@ -78,8 +78,14 @@ export function mountModeration(o: ModerationOptions): Moderation {
     }
   };
 
-  const closeMenu = (): void => {
+  /** Another member's tag to stand in when the opener goes (a kick), else the playback setting: never <body> (K3). */
+  const otherTag = (gone: MemberId | null): HTMLElement | undefined =>
+    [...o.tags.querySelectorAll<HTMLElement>("[data-member][role=button]")].find((t) => t.dataset["member"] !== gone);
+
+  /** `moveOn`: the member is on their way out, so focus goes to another tag rather than theirs. */
+  const closeMenu = (moveOn = false): void => {
     const back = opener;
+    const was = target;
     target = null;
     opener = null;
     asking = false;
@@ -87,11 +93,21 @@ export function mountModeration(o: ModerationOptions): Moderation {
     placedAt = "";
     menu.remove();
     document.removeEventListener("pointerdown", onOutside, true);
-    if (back?.isConnected === true) {
-      back.setAttribute("aria-expanded", "false");
-      if (menu.contains(document.activeElement) || document.activeElement === document.body || document.activeElement === back) back.focus();
-    }
+    back?.setAttribute("aria-expanded", "false");
+    // Removing the menu dropped focus to <body> if it was inside.
+    if (document.activeElement !== document.body && document.activeElement !== back) return;
+    const to = back?.isConnected === true && !moveOn ? back : (otherTag(was) ?? tiles.find((b) => b.tabIndex === 0));
+    to?.focus();
   };
+
+  // A dialog: Tab and Shift+Tab go round its keys (K4).
+  menu.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Tab") return;
+    ev.preventDefault();
+    const keys = [...menu.querySelectorAll<HTMLElement>("button")];
+    const i = keys.findIndex((k) => k === document.activeElement);
+    keys[(i + (ev.shiftKey ? -1 : 1) + keys.length) % keys.length]?.focus();
+  });
 
   /** A press anywhere but the menu or a name tag closes it (a tag press toggles or switches the menu itself). */
   function onOutside(ev: Event): void {
@@ -162,9 +178,11 @@ export function mountModeration(o: ModerationOptions): Moderation {
   });
   confirm.addEventListener("click", () => {
     if (target !== null) o.send({ type: "kick", memberId: target });
+    closeMenu(true);
+  });
+  close.addEventListener("click", () => {
     closeMenu();
   });
-  close.addEventListener("click", closeMenu);
 
   // ---- Name tags: for the owner, other members' tags are menu buttons.
   // A tag, or its hit pad under the tags (stage.ts, OME-1239), which stands for it.
@@ -292,7 +310,10 @@ export function mountModeration(o: ModerationOptions): Moderation {
     },
     key(ev) {
       if (ev.key !== "Escape" || target === null) return false;
+      // Back to the tag even when focus had wandered off the menu (K4).
+      const back = opener;
       closeMenu();
+      if (back?.isConnected === true) back.focus();
       return true;
     },
     destroy() {

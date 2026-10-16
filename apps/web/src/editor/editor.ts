@@ -346,6 +346,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   keepBtn.addEventListener("click", () => {
     confirm.hidden = true;
     deleteBtn.hidden = false;
+    deleteBtn.focus();
   });
   confirmBtn.addEventListener("click", () => {
     confirmBtn.disabled = true;
