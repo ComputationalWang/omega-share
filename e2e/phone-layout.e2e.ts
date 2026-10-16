@@ -28,7 +28,7 @@ test.afterEach(async () => {
   contexts = [];
 });
 
-async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch", options: BrowserContextOptions = PHONE): Promise<Page> {
+async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll", options: BrowserContextOptions = PHONE): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("phone-layout", name).url, count: 1, nicknamePrefix: `ph${name}`, contextOptions: () => options });
   const c = clients[0];
   if (c === undefined) throw new Error("no client");
@@ -247,6 +247,21 @@ test("a two-finger pinch zooms the room around the fingers; the keys zoom out to
 
   // It's this viewer's alone, kept in localStorage (room-window.test.ts reads it back), never sent.
   expect(Number(await page.evaluate(() => localStorage.getItem("omega.roomZoom")))).toBeCloseTo(zoomed, 5);
+});
+
+test("a downward swipe can't pull-to-refresh the room: the page itself has no overscroll; the pop-out page is 100dvh (OME-1240)", async ({ browser }) => {
+  const page = await one(browser, "overscroll");
+  for (const el of ["documentElement", "body"] as const) {
+    expect(await page.evaluate((k) => getComputedStyle(document[k]).overscrollBehaviorY, el)).toMatch(/^(none|contain)$/);
+  }
+  // The pop-out page (room.css, loaded with the room) is 100dvh too, 100vh only as the fallback.
+  const popout = await page.evaluate(() => {
+    for (const sheet of Array.from(document.styleSheets)) {
+      for (const rule of Array.from(sheet.cssRules)) if (rule instanceof CSSStyleRule && rule.selectorText === ".popout-page") return rule.style.height;
+    }
+    return null;
+  });
+  expect(popout).toBe("100dvh");
 });
 
 test("keyboard: Tab reaches every seat, a focused seat is panned into the window with a visible ring, Enter sits", async ({ browser }) => {
