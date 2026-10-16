@@ -86,7 +86,7 @@ describe("logEntries", () => {
   });
 
   test("the snapshot after a drop says once that missed chat isn't shown, resumed or not (OME-1248)", () => {
-    const gap = [{ kind: "system", line: { glyph: "everyone", actor: null, verb: "You were disconnected; messages sent meanwhile aren't shown", time: null, self: true } }];
+    const gap: ChatLogEntry[] = [{ kind: "system", line: { glyph: "everyone", actor: null, verb: "You were disconnected; messages sent meanwhile aren't shown", time: null, self: true } }];
     const dropped = reduce(reduce(joined(), { type: "disconnected" }), { type: "connecting" });
     const back = step(dropped, msg({ type: "snapshot", self: "a", room: room(), resumed: true }));
     expect(back.entries).toEqual(gap);

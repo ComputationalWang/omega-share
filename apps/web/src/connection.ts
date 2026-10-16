@@ -55,7 +55,7 @@ export interface Connection {
   /**
    * Idempotent: connects now (backoff reset) unless a socket is connecting/open or a retry is pending, or the
    * connection is stopped for good (full, refused, kicked, expired, replaced). With `probe`, an open socket that
-   * stays silent for PROBE_TIMEOUT_MS is closed so the normal reconnect runs.
+   * stays silent for PROBE_TIMEOUT_MS is closed so the normal reconnect runs, and a network drop's pending retry runs now.
    */
   ensureConnected(opts?: { readonly probe?: boolean }): void;
   /** Alias of `ensureConnected()`, e.g. when a page comes back from bfcache. */
@@ -100,6 +100,8 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
   /** Backoff spent on refused rejoins since the last snapshot. */
   let refusedWaited = 0;
   let retryTimer: Timer | null = null;
+  /** The pending retry waits because the server asked (4029, 4008, `rate_limited`, a refused rejoin): a probe can't cut it. */
+  let retryPaced = false;
   let probeTimer: Timer | null = null;
   /** Token to resume with; set from storage or the latest snapshot. */
   let token: ResumeToken | null = opts.resumeToken ?? null;
@@ -234,6 +236,7 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       opts.onEvent({ type: "disconnected" });
       if (ev.code === CLOSE_CODES.ROOM_FULL) stopped = true;
       if (stopped) return;
+      retryPaced = ev.code === CLOSE_CODES.RATE_LIMITED || ev.code === CLOSE_CODES.BAD_MESSAGES || retryAfter !== null || refusedRetry;
       const delay = retryDelay(ev.code);
       retryAfter = null;
       refusedRetry = false;
@@ -276,7 +279,12 @@ export function createConnection<Timer>(opts: ConnectionOptions<Timer>): Connect
       }
       return;
     }
-    if (retryTimer !== null) return;
+    if (retryTimer !== null) {
+      // The network may be back (`online`, a tab shown again): don't sit out a drop's backoff.
+      if (o?.probe !== true || retryPaced) return;
+      opts.clearTimer(retryTimer);
+      retryTimer = null;
+    }
     closed = false;
     attempts = 0;
     retryAfter = null;

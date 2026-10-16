@@ -75,6 +75,11 @@ export function joinedLine(nickname: string): SystemLine {
   return { glyph: "everyone", actor: nickname, verb: "joined the room", time: null };
 }
 
+/** The rejoin after a drop (OME-1248): the server keeps no chat history, even for a resumed session. Only I see it. */
+export function gapLine(): SystemLine {
+  return { glyph: "everyone", actor: null, verb: "You were disconnected; messages sent meanwhile aren't shown", time: null, self: true };
+}
+
 /** The host removed me (4005). Only I see it. */
 export function removedMeLine(): SystemLine {
   return { glyph: "host", actor: "The host", verb: "removed you from the room", time: null, self: true };
