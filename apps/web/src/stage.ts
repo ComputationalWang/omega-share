@@ -81,11 +81,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const tags = el("div", { className: "tags" });
   // Decorative (createFloats makes it aria-hidden): the chat log is the accessible record of what was said.
   const bubbles = el("div", { className: "bubbles" });
-  // Chat system lines ("Ana paused"): caption rail in the stage's bottom-left, text only.
-  const rail = el("div", { className: "syslines", ariaLive: "polite" });
+  // Chat system lines ("Ana paused"): caption rail in the stage's bottom-left, text only. Visual only (OME-1246): the
+  // chat log says each line already, so a screen reader hears it once.
+  const rail = el("div", { className: "syslines", ariaHidden: "true" });
   box(rail, SYSLINE_RAIL);
 
   const tagEls = new Map<MemberId, HTMLElement>();
+  /** Each tag's hit pad (room.css `.tag-pad`, OME-1239): ahead of every tag in `.tags`, so a drawn tag always wins a click. */
+  const padEls = new Map<MemberId, HTMLElement>();
   /** Members I hid (OME-769): their tags are made dimmed too. */
   const hiddenIds = new Set<MemberId>();
   const timers = {
@@ -109,6 +112,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       floats.move(id, x, head);
       const tag = tagEls.get(id);
       if (tag !== undefined) place(tag, { x, y: y + TAG_OFFSET_Y });
+      const pad = padEls.get(id);
+      if (pad !== undefined) place(pad, { x, y: y + TAG_OFFSET_Y });
       o.onMove?.(id);
     },
     onStop: (id, x, y) => {
@@ -116,6 +121,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
   });
   view.canvas.className = "scene";
+  // The picture only: who is here and what they say is in the people list and the chat log (OME-1246).
+  view.canvas.ariaHidden = "true";
   root.append(view.canvas, overlay, tags, bubbles, rail);
 
   let drawnSeats: readonly unknown[] | undefined;
@@ -273,6 +280,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       if (members.has(id)) continue;
       e.remove();
       tagEls.delete(id);
+      padEls.get(id)?.remove();
+      padEls.delete(id);
       hourglasses.delete(e);
     }
     badges.keep(members);
@@ -285,8 +294,13 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         if (hiddenIds.has(m.id)) e.classList.add("is-hidden");
         tagEls.set(m.id, e);
         tags.append(e);
+        const pad = el("span", { className: "tag-pad", ariaHidden: "true" });
+        pad.dataset["pad"] = m.id;
+        padEls.set(m.id, pad);
+        tags.prepend(pad);
       }
       e.classList.toggle("self", m.id === s.self);
+      padEls.get(m.id)?.classList.toggle("self", m.id === s.self);
       // Away (OME-911): the tag is dimmed and says "Away" to screen readers; toggled only on a change.
       const isAway = m.away === true;
       if (e.classList.contains("is-away") !== isAway) {
@@ -295,7 +309,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         else e.querySelector(".tag-away")?.remove();
       }
       const p = view.position(m.id) ?? placedAt.get(m.id);
-      if (p !== undefined) place(e, { x: p.x, y: p.y + TAG_OFFSET_Y });
+      if (p !== undefined) {
+        place(e, { x: p.x, y: p.y + TAG_OFFSET_Y });
+        const pad = padEls.get(m.id);
+        if (pad !== undefined) place(pad, { x: p.x, y: p.y + TAG_OFFSET_Y });
+      }
     }
 
     // The state says whose bubbles show (a speaker who left, or a reconnect, takes theirs along). Every line the floats

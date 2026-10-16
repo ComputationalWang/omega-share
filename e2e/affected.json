@@ -157,6 +157,7 @@
         "**/*.md"
       ],
       "specs": [
+        "e2e/a11y-presence.e2e.ts",
         "e2e/acceptance.e2e.ts",
         "e2e/csp.e2e.ts",
         "e2e/furniture.e2e.ts",
@@ -175,6 +176,7 @@
         "e2e/room-view.e2e.ts",
         "e2e/rooms-web.e2e.ts",
         "e2e/source-link.e2e.ts",
+        "e2e/targets.e2e.ts",
         "e2e/theme.e2e.ts",
         "e2e/tv-frame.e2e.ts",
         "e2e/walk.e2e.ts",
@@ -353,6 +355,7 @@
         "**/*.md"
       ],
       "specs": [
+        "e2e/a11y-presence.e2e.ts",
         "e2e/bubbles.e2e.ts",
         "e2e/chat-log.e2e.ts",
         "e2e/m7-a11y.e2e.ts",

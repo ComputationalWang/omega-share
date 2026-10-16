@@ -96,7 +96,7 @@ export function mountModeration(o: ModerationOptions): Moderation {
   /** A press anywhere but the menu or a name tag closes it (a tag press toggles or switches the menu itself). */
   function onOutside(ev: Event): void {
     const t = ev.target;
-    if (t instanceof Node && (menu.contains(t) || (t instanceof Element && t.closest("[data-member]") !== null && o.tags.contains(t)))) return;
+    if (t instanceof Node && (menu.contains(t) || (t instanceof Element && t.closest("[data-member], [data-pad]") !== null && o.tags.contains(t)))) return;
     closeMenu();
   }
 
@@ -167,13 +167,20 @@ export function mountModeration(o: ModerationOptions): Moderation {
   close.addEventListener("click", closeMenu);
 
   // ---- Name tags: for the owner, other members' tags are menu buttons.
+  // A tag, or its hit pad under the tags (stage.ts, OME-1239), which stands for it.
+  const hitOf = (t: EventTarget | null): HTMLElement | null => (t instanceof Element ? t.closest<HTMLElement>("[data-member], [data-pad]") : null);
   const pickedFrom = (t: EventTarget | null): MemberId | null => {
-    if (!(t instanceof Element)) return null;
-    const tag = t.closest<HTMLElement>("[data-member]");
-    const id = tag?.dataset["member"];
+    const hit = hitOf(t);
+    const id = hit?.dataset["member"] ?? hit?.dataset["pad"];
     return id === undefined || id === o.view().self ? null : id;
   };
-  const tagOf = (t: EventTarget | null): HTMLElement | null => (t instanceof Element ? t.closest<HTMLElement>("[data-member]") : null);
+  const tagOf = (t: EventTarget | null): HTMLElement | null => {
+    const hit = hitOf(t);
+    const pad = hit?.dataset["pad"];
+    if (pad === undefined) return hit;
+    for (const tag of o.tags.querySelectorAll<HTMLElement>("[data-member]")) if (tag.dataset["member"] === pad) return tag;
+    return null;
+  };
   const onTagClick = (ev: MouseEvent): void => {
     const id = pickedFrom(ev.target);
     if (id === null) return;

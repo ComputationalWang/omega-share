@@ -10,8 +10,8 @@ import { FAKE_VIMEO_SDK, serveRealVimeoSdk } from "./support/network";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { joinForToken, postShare } from "./support/share";
 import { site } from "./support/selectors";
-/** Playback lines only: a helper's throwaway join leaves and logs "… left the room" (ADR 0043) in between. */
-const LEFT = "left the room";
+/** Playback lines only: a helper's throwaway join logs "… joined the room" and "… left the room" (ADR 0043, OME-1246) in between. */
+const LEFT = /(joined|left) the room/;
 import { roomPlayback } from "../perf/sync";
 
 const VIMEO_ID = "76979871";
