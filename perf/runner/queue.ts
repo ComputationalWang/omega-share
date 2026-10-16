@@ -3,6 +3,7 @@
 // Layout: <queue>/<id>/job.json, running.json (while running), result.json (when done), run.log, report.md; <queue>/.last-built (sha whose build is reusable).
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { THEME_IDS } from "../../apps/web/src/theme/periods";
 
 export interface JobRequest {
   readonly sha: string;
@@ -11,6 +12,8 @@ export interface JobRequest {
   readonly issue: string;
   /** Forces the walk tier for every perf context (ADR 0037); unset = the client picks. */
   readonly motion?: "smooth" | "basic";
+  /** Pins the holiday theme in every perf context (OMEGA_THEME, ADR 0052); unset = off. */
+  readonly theme?: string;
   /** 1 for a submitted job; a job requeued after a load-invalid run carries the next attempt number (OME-882). */
   readonly attempt?: number;
   readonly retryOf?: string;
@@ -102,6 +105,7 @@ export type Executor = (job: Job, ctx: RunContext) => Promise<{ readonly exitCod
 export const DEFAULT_TIMEOUT_MS = 90 * 60_000;
 // A Set of strings, not the union: job.json can be written by hand or by an older client.
 const MOTIONS: ReadonlySet<string> = new Set(["smooth", "basic"]);
+const THEMES: ReadonlySet<string> = new Set(["off", ...THEME_IDS]);
 const SPEC = /^(?:\.\/)?perf\/[\w.-]+\.perf\.ts$/;
 
 function writeJson(path: string, value: unknown): void {
@@ -121,6 +125,7 @@ export function submitJob(dir: string, req: JobRequest, now = Date.now()): strin
   if (!/^[0-9a-f]{40}$/.test(req.sha)) throw new Error(`sha must be a full 40-char commit sha, got ${req.sha}`);
   for (const s of req.specs) if (!SPEC.test(s)) throw new Error(`not a perf spec: ${s} (expected perf/<name>.perf.ts)`);
   if (req.motion !== undefined && !MOTIONS.has(req.motion)) throw new Error(`motion must be smooth or basic, got ${req.motion}`);
+  if (req.theme !== undefined && !THEMES.has(req.theme)) throw new Error(`theme must be off or one of ${THEME_IDS.join(", ")}, got ${req.theme}`);
   const id = `${String(now).padStart(13, "0")}-${Math.random().toString(36).slice(2, 8)}`;
   mkdirSync(join(dir, id), { recursive: true });
   const job: Job = { ...req, id, submittedAt: now };
@@ -128,9 +133,9 @@ export function submitJob(dir: string, req: JobRequest, now = Date.now()): strin
   return id;
 }
 
-/** Env for the job's perf run. Always sets OMEGA_PERF_MOTION, so an unforced job can't inherit a tier from the runner's env. */
+/** Env for the job's perf run. Always sets both, so a job can't inherit a tier or a theme from the runner's env. */
 export function jobEnv(job: Job): Record<string, string> {
-  return { OMEGA_PERF_MOTION: job.motion ?? "" };
+  return { OMEGA_PERF_MOTION: job.motion ?? "", OMEGA_THEME: job.theme ?? "off" };
 }
 
 function jobIds(dir: string): string[] {

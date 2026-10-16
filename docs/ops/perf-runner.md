@@ -5,13 +5,14 @@ Perf runs take 5 to 25 minutes. Agent runs end before that, and a background job
 ## For agents
 
 ```
-bun run perf:submit --issue OME-123 [--motion smooth|basic] [perf/site.perf.ts ...]   # queues the committed HEAD (or --sha <sha>); returns at once
+bun run perf:submit --issue OME-123 [--motion smooth|basic] [--theme <id>] [perf/site.perf.ts ...]   # queues the committed HEAD (or --sha <sha>); returns at once
 bun run perf:result <job-id>                                   # next heartbeat. --latest = newest job
 ```
 
 - `perf:result` exits 0 passed, 1 failed (budget or spec; prints the report), 2 still queued/running (end the run again, don't sleep), 3 unknown job.
 - Only the committed sha is measured. Push or commit first; uncommitted changes print a warning and are ignored.
 - `--motion smooth|basic` forces the walk tier in every perf context (`OMEGA_PERF_MOTION`, ADR 0037); without it the client picks. Submit one job per tier for a both-tier run.
+- `--theme halloween|sinterklaas|christmas|valentine|easter|off` pins the holiday theme in every perf context (`OMEGA_THEME`, ADR 0052); without it the run is unthemed (`off`). The themed pass before each period (ADR 0052) is one job with `--theme <id> --motion smooth` next to an unthemed one on the same `--sha`.
 - No specs = the full perf suite. Specs follow `perf/<name>.perf.ts` (ADR 0036 targeted runs).
 - Post the verdict (numbers from `report.md`) into the issue on the wake that reads it.
 

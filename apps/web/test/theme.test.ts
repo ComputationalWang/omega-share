@@ -6,6 +6,8 @@ import { DEFAULT_LAYOUT, type RoomLayout } from "@omega/shared";
 import { RoomManifestSchema, sceneOf } from "../src/furniture";
 import { decorSprites } from "../src/theme/decor";
 import { MOTIONS } from "../src/theme/atlas";
+import { ThemeManifestSchema } from "../src/theme/halloween";
+import halloweenJson from "../../../assets/themes/halloween/halloween.json";
 import { EFFECT_MIN_INTERVAL_MS, MAX_EFFECT_SPRITES, createEffectPainter, createParticles, effectBounds, type EffectMotion, type Particles } from "../src/theme/effect";
 import { THEME_IDS, activeTheme, easterSunday, resolveTheme, type ThemeId } from "../src/theme/periods";
 
@@ -274,4 +276,29 @@ describe("effectBounds: the overlay covers every sprite of the effect, and is sm
       expect(b.w * b.h).toBeLessThanOrEqual((960 * 600) / 3);
     });
   }
+});
+
+describe("Halloween sheet (OME-1188): the real art covers what the room draws", () => {
+  const asset = (p: string): URL => new URL(`../../../assets/${p}`, import.meta.url);
+  const sheet = v.parse(ThemeManifestSchema, halloweenJson);
+  const { decor, effect, hat } = sheet.meta.omega;
+
+  test("every decor piece and bat frame is in the sheet, and every decor piece hangs in the classic room", () => {
+    for (const k of [...decor.map((d) => d.key), ...effect.frames]) expect(sheet.frames[k]).toBeDefined();
+    expect(decorSprites(sceneOf(DEFAULT_LAYOUT, [], room), decor)).toHaveLength(decor.length);
+  });
+
+  test("every avatar body frame (all four avatars, every facing and pose) has a hat", async () => {
+    const missing: string[] = [];
+    for (const f of ["avatars", "motion", "expressions"]) {
+      const { frames } = v.parse(v.object({ frames: v.record(v.string(), v.unknown()) }), await Bun.file(asset(`avatars/${f}.json`)).json());
+      // Emote bubbles float over the head; they are not the avatar.
+      for (const k of Object.keys(frames)) if (!k.startsWith("emote/") && sheet.frames[hat.prefix + k] === undefined) missing.push(k);
+    }
+    expect(missing).toEqual([]);
+  });
+
+  test("the sheet is at most 40 KB gzipped", async () => {
+    expect(Bun.gzipSync(await Bun.file(asset("themes/halloween/halloween.png")).bytes()).length).toBeLessThanOrEqual(40 * 1024);
+  });
 });

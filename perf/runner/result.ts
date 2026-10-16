@@ -24,7 +24,7 @@ const r = readResult(dir, id);
 if (!r) process.exit(3);
 const secs = Math.round((r.finishedAt - r.startedAt) / 1000);
 console.log(`${id}: ${r.status.toUpperCase()} in ${String(secs)} s${r.reason ? `: ${r.reason}` : ""}${r.exitCode === null ? "" : ` (exit ${String(r.exitCode)})`}`);
-console.log(`sha ${r.sha}; ${r.specs.length > 0 ? r.specs.join(" ") : "all specs"}${r.motion ? `; motion ${r.motion}` : ""}; requester ${r.requester}${r.issue ? `; issue ${r.issue}` : ""}`);
+console.log(`sha ${r.sha}; ${r.specs.length > 0 ? r.specs.join(" ") : "all specs"}${r.motion ? `; motion ${r.motion}` : ""}${r.theme ? `; theme ${r.theme}` : ""}; requester ${r.requester}${r.issue ? `; issue ${r.issue}` : ""}`);
 if (r.loadPeak !== undefined) console.log(`load at start ${String(r.loadAtStart)}, peak ${String(r.loadPeak)} (${String(r.loadSamples?.length ?? 0)} samples in result.json)`);
 console.log(`log ${join(dir, id, "run.log")}`);
 if (r.status === "invalid") {

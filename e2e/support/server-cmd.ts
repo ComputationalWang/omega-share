@@ -29,6 +29,7 @@ export function serverProcess(env: NodeJS.ProcessEnv): { command: string; args: 
 /** Builds the e2e-profile binary (Cargo.toml [profile.e2e]: release without LTO) once per run (the runner calls this; workers only compute the path). */
 export function buildRustServer(env: NodeJS.ProcessEnv): void {
   const r = spawnSync("cargo", ["build", "--locked", "--profile", "e2e", "--bin", "omega-server"], { cwd: ROOT, stdio: "inherit", env });
+  if (r.error) throw new Error(`cargo build of omega-server could not start cargo (${String(Reflect.get(r.error, "code"))}): ${r.error.message} (is cargo on PATH? PATH=${env["PATH"] ?? ""})`);
   if (r.status !== 0) throw new Error("cargo build of omega-server failed");
 }
 

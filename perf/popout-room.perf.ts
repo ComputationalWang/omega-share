@@ -49,11 +49,12 @@ test("pop-out room: both windows' frames with 25 members (video playing, chat ~8
     await waitPlaying(clients);
     const [pop] = await Promise.all([observer.context.waitForEvent("page"), page.locator(site.roomPopout).click()]);
     await pop.waitForLoadState();
-    await expect(pop.locator(`${site.poproomRoom} canvas`)).toBeVisible();
+    // The scene, not the theme's effect overlay (`canvas.scene-fx`, ADR 0052), which sleeps until it is in view.
+    await expect(pop.locator(`${site.poproomRoom} canvas.scene`)).toBeVisible();
     await expect(pop.locator(site.nicknameTag)).toHaveCount(MAX_ROOM_MEMBERS);
     await expect(page.locator(site.roomAway)).toBeVisible();
     // One renderer: the window's. The room tab has no canvas on screen.
-    await expect(page.locator(`${site.room} canvas`)).toBeHidden();
+    for (const canvas of await page.locator(`${site.room} canvas`).all()) await expect(canvas).toBeHidden();
     await pop.waitForTimeout(1000);
     const measure = async (w: Which, target: Page): Promise<{ p95: number; missedPct: number; workP95: number }> => {
       const t = await tracedFrames(browser, target, WINDOW_MS);
