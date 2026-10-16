@@ -128,3 +128,25 @@ test("a first visit to / fetches no preset thumbnails or picker code; intent war
   await expect(thumbs).toHaveCount(6);
   await expect.poll(() => thumbs.evaluateAll((imgs) => imgs.every((e) => e instanceof HTMLImageElement && e.complete && e.naturalWidth > 0))).toBe(true);
 });
+
+test("phone: the entry and directory use 100dvh (100vh as the fallback), and the entry adds no scroll past the screen at 390×664 (OME-1240)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 664 });
+  await page.goto(URLS.web);
+  // Headless Chromium has no URL bar, so vh equals dvh there: read the declared rules (the last valid one wins).
+  const heights = await page.evaluate(() => {
+    const out: Record<string, string> = {};
+    for (const sheet of Array.from(document.styleSheets)) {
+      for (const rule of Array.from(sheet.cssRules)) {
+        if (!(rule instanceof CSSStyleRule)) continue;
+        for (const sel of [".welcome", ".directory"]) {
+          if (rule.selectorText === sel) out[sel] = rule.style.minHeight || rule.style.height;
+        }
+      }
+    }
+    return out;
+  });
+  expect(heights).toEqual({ ".welcome": "100dvh", ".directory": "100dvh" });
+  // The doorstep's own content is taller than 664 px, so the page scrolls; the min-height must add nothing past the screen.
+  const minHeight = await page.locator(".welcome").evaluate((el) => parseFloat(getComputedStyle(el).minHeight));
+  expect(minHeight).toBeLessThanOrEqual(await page.evaluate(() => window.innerHeight));
+});

@@ -399,3 +399,84 @@ for (const c of CASES) {
     }
   });
 }
+
+// ---- Reorder (OME-1250, QA OME-1243 K2) -----------------------------------------------------------------------------
+// Move up / Move down on the rows a member may remove, and Alt+Arrow on a focused row's key: the other client sees the
+// new order, focus stays on the moved row's key and a status line says where it went. The phone's Up next sheet is
+// the same panel, with 44 px keys. A member adds 3 at once (QUEUE_ADD_MEMBER_BURST): the start link and two queued.
+
+const REORDER = [ytUrl("9bZkp7q19f0"), ytUrl("M7lc1UVf-VE")] as const;
+
+/** The start link, then REORDER queued, from one member: the queue's ids in order. */
+async function fillQueue(page: Page): Promise<string[]> {
+  await startWith(page, WATCH_URL);
+  for (const [i, url] of REORDER.entries()) {
+    await paste(page, url);
+    await expect(page.locator(site.queueRow)).toHaveCount(i + 1);
+  }
+  return rowIds(page);
+}
+
+const size = async (page: Page, selector: string): Promise<number> => {
+  const box = await page.locator(selector).first().boundingBox();
+  return Math.min(box?.width ?? 0, box?.height ?? 0);
+};
+
+test("reorder Up next: Move up/down and Alt+Arrow, focus stays, announced, the other client sees it, only on removable rows", async ({ browser }) => {
+  test.setTimeout(90_000);
+  clients = await joinRoom(browser, { roomUrl: testRoom("provider-queue", "reorder").url, count: 2, nicknamePrefix: "mv" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("need two clients");
+  const [x, y] = await fillQueue(a.page);
+  await paste(b.page, ytUrl("aqz-KE-bpKQ"));
+  await expect(a.page.locator(site.queueRow)).toHaveCount(3);
+  const z = (await rowIds(a.page))[2];
+  if (x === undefined || y === undefined || z === undefined) throw new Error("three rows");
+  await expect.poll(() => rowIds(b.page)).toEqual([x, y, z]);
+
+  // A guest moves only their own rows, like ×: b's keys are on b's row alone, a's on a's two.
+  await expect(b.page.locator(site.queueMoveUp)).toHaveCount(1);
+  await expect(b.page.locator(`[data-item="${z}"] ${site.queueMoveDown}`)).toHaveCount(1);
+  await expect(a.page.locator(site.queueMoveUp)).toHaveCount(2);
+  await expect(a.page.locator(`[data-item="${z}"] ${site.queueMoveUp}`)).toHaveCount(0);
+  const down = a.page.locator(`${site.queueRow}:nth-child(1) ${site.queueMoveDown}`);
+  await expect(down).toHaveAccessibleName("Move YouTube video 9bZkp7q19f0 down");
+  await expect(a.page.locator(`${site.queueRow}:nth-child(1) ${site.queueMoveUp}`)).toHaveAccessibleName("Move YouTube video 9bZkp7q19f0 up");
+  expect(await size(a.page, site.queueMoveUp)).toBeGreaterThanOrEqual(24);
+  expect(await size(a.page, site.queueMoveDown)).toBeGreaterThanOrEqual(24);
+
+  await down.click();
+  for (const c of clients) await expect.poll(() => rowIds(c.page)).toEqual([y, x, z]);
+  await expect(a.page.locator(`[data-item="${x}"] ${site.queueMoveDown}`)).toBeFocused();
+  await expect(a.page.locator(site.queueStatus)).toHaveAttribute("role", "status");
+  await expect(a.page.locator(site.queueStatus)).toHaveText("Moved YouTube video 9bZkp7q19f0 to place 2 of 3.");
+
+  // The keyboard: Alt+ArrowDown, then Alt+ArrowUp twice, on whichever of the row's keys has focus.
+  await a.page.keyboard.press("Alt+ArrowDown");
+  for (const c of clients) await expect.poll(() => rowIds(c.page)).toEqual([y, z, x]);
+  await a.page.keyboard.press("Alt+ArrowUp");
+  await expect.poll(() => rowIds(a.page)).toEqual([y, x, z]);
+  await a.page.keyboard.press("Alt+ArrowUp");
+  for (const c of clients) await expect.poll(() => rowIds(c.page)).toEqual([x, y, z]);
+  await expect(a.page.locator(`[data-item="${x}"] ${site.queueMoveDown}`)).toBeFocused();
+  await expect(a.page.locator(site.queueStatus)).toHaveText("Moved YouTube video 9bZkp7q19f0 to place 1 of 3.");
+});
+
+test("reorder in the phone's Up next sheet: 44 px keys, the move lands and focus stays", async ({ browser }) => {
+  test.setTimeout(90_000);
+  clients = await joinRoom(browser, { roomUrl: testRoom("provider-queue", "reorderphone").url, count: 1, nicknamePrefix: "mvp",
+    contextOptions: () => ({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("No portrait client");
+  await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
+  await page.locator('[data-testid="portrait-queue"]').click();
+  await expect(page.locator('[data-testid="portrait-sheet"]')).toBeVisible();
+  const [x, y] = await fillQueue(page);
+  if (x === undefined || y === undefined) throw new Error("two rows");
+  expect(await size(page, site.queueMoveUp)).toBeGreaterThanOrEqual(44);
+  expect(await size(page, site.queueMoveDown)).toBeGreaterThanOrEqual(44);
+  await page.locator(`[data-item="${y}"] ${site.queueMoveUp}`).tap();
+  await expect.poll(() => rowIds(page)).toEqual([y, x]);
+  await expect(page.locator(`[data-item="${y}"] ${site.queueMoveUp}`)).toBeFocused();
+  await expect(page.locator(site.queueStatus)).toHaveText("Moved YouTube video M7lc1UVf-VE to place 1 of 2.");
+});

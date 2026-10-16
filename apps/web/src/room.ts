@@ -792,6 +792,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   document.addEventListener("resume", () => {
     c.ensureConnected({ probe: true });
   });
+  // The network is back: reconnect now rather than at the end of the backoff (OME-1248).
+  window.addEventListener("online", () => {
+    c.ensureConnected({ probe: true });
+  });
 
   const onMedia = (): void => {
     // Moving a focused node blurs it: whatever you were typing in keeps focus when the chat changes column.

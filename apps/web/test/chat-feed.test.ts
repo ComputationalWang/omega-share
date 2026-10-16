@@ -85,6 +85,15 @@ describe("logEntries", () => {
     expect(step(first.next, { type: "kicked", until: 600_000 }).entries).toEqual([]);
   });
 
+  test("the snapshot after a drop says once that missed chat isn't shown, resumed or not (OME-1248)", () => {
+    const gap: ChatLogEntry[] = [{ kind: "system", line: { glyph: "everyone", actor: null, verb: "You were disconnected; messages sent meanwhile aren't shown", time: null, self: true } }];
+    const dropped = reduce(reduce(joined(), { type: "disconnected" }), { type: "connecting" });
+    const back = step(dropped, msg({ type: "snapshot", self: "a", room: room(), resumed: true }));
+    expect(back.entries).toEqual(gap);
+    expect(step(back.next, msg({ type: "snapshot", self: "a", room: room(), resumed: true })).entries).toEqual([]);
+    expect(step(reduce(joined(), { type: "disconnected" }), msg({ type: "snapshot", self: "a", room: room() })).entries).toEqual(gap);
+  });
+
   test("a snapshot, a tick and a drop log nothing", () => {
     expect(step(initialState, msg({ type: "snapshot", self: "a", room: room() })).entries).toEqual([]);
     expect(step(joined(), { type: "tick", now: 100_000 }).entries).toEqual([]);

@@ -75,6 +75,8 @@ test("now playing near the TV follows the state; the canvas is out of the AX tre
 
   await expect(a.page.getByText("YouTube video, playing", { exact: true })).toBeAttached();
   await a.page.locator(site.playToggle).click();
+  // The seek keeps the room's last known play state (seekIntent): seeking before the pause echoes would resume at 83.
+  await expect(a.page.getByText(/^YouTube video, paused at /)).toBeAttached();
   await a.page.locator(site.seek).fill("83");
   await expect(a.page.getByText("YouTube video, paused at 1:23", { exact: true })).toBeAttached();
   const nowPlaying = a.page.getByText("YouTube video, paused at 1:23", { exact: true });
