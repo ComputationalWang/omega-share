@@ -72,6 +72,8 @@ const valid: Raw[] = [
   js({ type: "queue-add", url: URL128(2048) }),
   js({ type: "queue-add", url: "😀".repeat(1024) }),
   js({ type: "queue-remove", itemId: "q1" }),
+  js({ type: "queue-move", itemId: "q1", toIndex: 0 }),
+  js({ type: "queue-move", itemId: "q1", toIndex: 19 }),
   js({ type: "queue-advance", fromItemId: "q1" }),
   js({ type: "ended", itemId: "q1", position: 212.5 }),
   js({ type: "ended", itemId: "q1", position: 0 }),
@@ -116,6 +118,7 @@ const invalid: Raw[] = [
   ...mutations({ type: "emote", kind: "wave" }), ...mutations({ type: "kick", memberId: "m2" }),
   ...mutations({ type: "mute", memberId: "m2", muted: true }), ...mutations({ type: "control-policy", policy: "owner" }),
   ...mutations({ type: "queue-add", url: "u" }), ...mutations({ type: "queue-remove", itemId: "q1" }),
+  ...mutations({ type: "queue-move", itemId: "q1", toIndex: 0 }),
   ...mutations({ type: "queue-advance", fromItemId: "q1" }), ...mutations({ type: "ended", itemId: "q1", position: 1 }),
   // optional join fields: null is not absent, wrong shapes
   js({ ...JOIN, ownerToken: null }), js({ ...JOIN, inviteKey: null }), js({ ...JOIN, resumeToken: null }), js({ ...JOIN, durableSession: null }),
@@ -149,6 +152,9 @@ const invalid: Raw[] = [
   js({ type: "control-policy", policy: "Owner" }), js({ type: "control-policy", policy: "all" }),
   js({ type: "queue-remove", itemId: "" }), js({ type: "queue-remove", itemId: "a".repeat(33) }), js({ type: "queue-remove", itemId: "q 1" }),
   js({ type: "queue-advance", fromItemId: "a".repeat(33) }),
+  js({ type: "queue-move", itemId: "q1", toIndex: 20 }), js({ type: "queue-move", itemId: "q1", toIndex: -1 }),
+  js({ type: "queue-move", itemId: "q1", toIndex: 1.5 }), js({ type: "queue-move", itemId: "q1", toIndex: "1" }),
+  js({ type: "queue-move", itemId: "q 1", toIndex: 0 }), ok('{"type":"queue-move","itemId":"q1","toIndex":1e400}'),
   // queue-add / ended
   js({ type: "queue-add", url: URL128(2049) }), js({ type: "queue-add", url: "😀".repeat(1025) }), js({ type: "queue-add", url: "é".repeat(2049) }),
   js({ type: "ended", itemId: "q1", position: -1 }), js({ type: "ended", itemId: "q1", position: 43201 }),

@@ -1259,6 +1259,36 @@ async fn queue_remove_drops_an_upcoming_item_for_everyone() {
     assert!(after["queue"].as_array().unwrap().is_empty());
 }
 
+// OME-1249: queue-move reorders Up next for everyone, by the mover
+#[tokio::test]
+async fn queue_move_reorders_upcoming_items_for_everyone() {
+    let s = start(Opts::default()).await;
+    let (mut a, _) = joined(&s, "alice").await;
+    let (mut b, bsnap) = joined(&s, "bob").await;
+    // The first add starts playing; the other two wait in the queue.
+    let mut before = Value::Null;
+    for url in [YT, YT2, YT] {
+        a.send(json!({"type": "queue-add", "url": url})).await;
+        before = b.next("queue-changed").await;
+    }
+    let ids: Vec<String> = before["queue"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["id"].as_str().unwrap().to_owned())
+        .collect();
+    b.send(json!({"type": "queue-move", "itemId": ids[1], "toIndex": 0})).await;
+    let after = b.next("queue-changed").await;
+    let order: Vec<&str> = after["queue"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(order, [ids[1].as_str(), ids[0].as_str()]);
+    assert_eq!(after["by"], bsnap["self"]);
+}
+
 // apps/server/test/playback-sync.test.ts (ADR 0018 section 2: the room's limit is everyone's)
 #[tokio::test]
 async fn the_room_wide_control_limit_is_everyones_and_answers_every_time() {

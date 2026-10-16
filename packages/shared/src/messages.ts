@@ -22,7 +22,7 @@ import {
   SeatIndexSchema,
 } from "./room";
 import { RoomLayoutInputSchema, RoomLayoutSchema } from "./layout";
-import { QueueItemIdSchema, QueueSchema } from "./queue";
+import { QueueIndexSchema, QueueItemIdSchema, QueueSchema } from "./queue";
 import { InviteKeySchema, OwnerTokenSchema } from "./room-ownership";
 import { RetryAfterMsSchema, ShareTokenSchema } from "./share";
 import { ResumeTokenSchema } from "./session";
@@ -133,6 +133,12 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("queue-add"), url: v.pipe(v.string(), v.maxLength(MAX_URL_LENGTH)) }),
   /** Drop an upcoming item. */
   v.strictObject({ type: v.literal("queue-remove"), itemId: QueueItemIdSchema }),
+  /**
+   * Move an upcoming item so it sits at `toIndex` afterwards (0 = plays next); past the end means last. Only upcoming
+   * items move: the current item isn't in the queue, so naming it is ignored like any unknown id, as is a move to
+   * where the item already is (no `queue-changed`). Rate-limited by the per-socket frame limit only, like `queue-remove`.
+   */
+  v.strictObject({ type: v.literal("queue-move"), itemId: QueueItemIdSchema, toIndex: QueueIndexSchema }),
   /** Manual next: applies only while `fromItemId` is the current item, so two clicks skip one item. The only way past live and generic items. */
   v.strictObject({ type: v.literal("queue-advance"), fromItemId: QueueItemIdSchema }),
   /**

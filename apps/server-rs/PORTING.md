@@ -147,6 +147,7 @@ Rust differs from the TS server in a few places that no real client reaches (all
 | HTTP: a static file that is a symlink out of `STATIC_DIR` | served (`Bun.file` follows it) | 404: the real path must stay under the root |
 | HTTP: `content-disposition: filename=...` on a served file whose type Bun does not know (`.webmanifest`, no extension) | sent by Bun | not sent (nothing reads it) |
 | HTTP: `HEAD` | Bun answers `content-length: 0` | the length of the GET body, as hyper does |
+| `queue-move` (OME-1249, the first message after the switch) | ignored: the frozen server only knows the type | reorders the queue; its black-box case runs only against the binary |
 | HTTP: a request body that takes over 5 s in all (S10: was 30 s) (a client trickling a byte per stall timeout) | read until Bun's idle timeout, which a trickle never trips | refused (400 as a body that is not JSON) and the in-flight slot freed: stricter than Bun, closes a flood hole |
 | HTTP (S10a): a client that stops reading a response | Bun's `idleTimeout` closes it after about 10 s | the same: a write with no progress for 10 s cuts the connection (`StallGuard` in `http/server.rs`), WebSocket upgrades included |
 | HTTP (S10a): open connections | no cap (Bun's own limits) | `MAX_CONNECTIONS` + 256 in all, WebSockets included (under `LimitNOFILE=4096`); 128 (or `MAX_CONNECTIONS_PER_IP` + 64) per non-loopback peer address; over the cap the socket is closed at once. Behind the tunnel every peer is loopback, so only the global cap and the per-key in-flight cap below apply |

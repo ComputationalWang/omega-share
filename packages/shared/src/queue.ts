@@ -17,6 +17,9 @@ export const QueueItemSchema = v.object({
 });
 export type QueueItem = v.InferOutput<typeof QueueItemSchema>;
 
+/** A place in the queue (`queue-move`): an integer in `0..QUEUE_MAX`. */
+export const QueueIndexSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(QUEUE_MAX - 1));
+
 /** Upcoming items in play order, at most QUEUE_MAX, distinct ids. The current item isn't in it. */
 export const QueueSchema = v.pipe(
   v.array(QueueItemSchema),
