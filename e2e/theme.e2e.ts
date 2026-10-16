@@ -16,7 +16,7 @@ test.afterEach(async () => {
   clients = [];
 });
 
-const ThemeInfo = v.object({ id: v.nullable(v.string()), decor: v.number(), hats: v.number(), effect: v.number(), ticks: v.number() });
+const ThemeInfo = v.object({ id: v.nullable(v.string()), decor: v.number(), hats: v.number(), effect: v.number(), ticks: v.number(), worstTickMs: v.number() });
 
 /** The dev handle (apps/web/src/main.ts `window.__omega.room.theme`): what the room view draws of the theme now. */
 async function theme(page: Page): Promise<v.InferOutput<typeof ThemeInfo> | null> {
@@ -64,9 +64,12 @@ async function expectEffectRuns(page: Page): Promise<void> {
   await page.waitForTimeout(1000);
   expect(((await theme(page))?.ticks ?? 0) - ticks0).toBeGreaterThan(10);
   expect((await roomRenders(page)) - renders0).toBeLessThanOrEqual(6);
-  // And no layer of its own: the particles are drawn into the room canvas (QA OME-1211, an extra full-size layer cost a
-  // phone ~2.5 ms a frame even when empty).
-  expect(await page.locator('[data-testid="room"] canvas').count()).toBe(1);
+  // Its own layer is small: a full-size one cost a phone ~2.5 ms a frame even when empty (QA OME-1211).
+  const stage = await page.locator("canvas.scene").boundingBox();
+  const fx = await page.locator("canvas.scene-fx").boundingBox();
+  expect(stage !== null && fx !== null && fx.width * fx.height <= (stage.width * stage.height) / 3).toBe(true);
+  // And a tick is cheap: reading the room canvas back once made it ~250 ms on a phone (QA OME-1212).
+  expect((await theme(page))?.worstTickMs ?? Infinity).toBeLessThan(4);
 }
 
 const cases: [name: "desk" | "phone", options: BrowserContextOptions | undefined][] = [
@@ -109,5 +112,5 @@ test("off: no theme at all", async ({ browser }) => {
   // Wait until I'm drawn in the room, so a theme would have shown by now.
   await expect.poll(async () => (await theme(page)) !== null).toBe(true);
   await page.waitForTimeout(500);
-  expect(await theme(page)).toEqual({ id: null, decor: 0, hats: 0, effect: 0, ticks: 0 });
+  expect(await theme(page)).toEqual({ id: null, decor: 0, hats: 0, effect: 0, ticks: 0, worstTickMs: 0 });
 });

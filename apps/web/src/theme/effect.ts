@@ -92,98 +92,33 @@ export interface EffectFrame {
   readonly oy: number;
 }
 
-/** The part of CanvasRenderingContext2D the painter uses. */
+/** The part of CanvasRenderingContext2D the painter uses: no reads (QA OME-1212). */
 export interface EffectContext {
-  save(): void;
-  restore(): void;
   setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void;
   clearRect(x: number, y: number, w: number, h: number): void;
   drawImage(image: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void;
 }
 
 export interface EffectPainterOptions {
-  /** The room canvas and its context (Pixi's own 2D canvas). */
+  /** The overlay canvas's context, at 1 px per stage px. */
   readonly ctx: EffectContext;
-  readonly canvas: CanvasImageSource;
-  /** A small canvas that keeps what each particle covers, one square slot per particle. */
-  readonly patchCtx: EffectContext;
-  readonly patchCanvas: CanvasImageSource;
-  /** The theme sheet and its effect frames. */
   readonly image: CanvasImageSource;
   readonly frames: readonly EffectFrame[];
-  /** Device px per stage px. */
-  readonly scale: number;
+  /** The overlay's top-left on the stage. */
+  readonly origin: { readonly x: number; readonly y: number };
 }
 
 export interface EffectPainter {
-  /** Put back what the last paint covered, then save and draw `p`. */
   paint(p: Particles, step: number): void;
-  /** Put back what the last paint covered. */
   clear(): void;
 }
 
-/**
- * Draws particles straight into the room canvas, so the effect adds no layer (QA OME-1211: an extra full-size canvas cost
- * a phone ~2.5 ms a frame even empty) and never renders the room (OME-1206). Before drawing a particle it copies the
- * square of room pixels under it into its slot on the patch canvas; the next paint clears and puts those squares back,
- * last first so overlaps come back right, and draws again. The room view clears before each room render, so Pixi
- * always starts from its own frame. The room context's state is saved and restored around each paint, since Pixi draws with it too.
- * Nothing is allocated per paint.
- */
-export function createEffectPainter(o: EffectPainterOptions): EffectPainter {
-  const { ctx, canvas, patchCtx, patchCanvas, image, frames, scale } = o;
-  // Any frame drawn about any anchor inside it, mirrored or not, stays within R of the particle's spot.
-  const r = frames.reduce((m, f) => Math.max(m, f.w, f.h), 0) + 1;
-  /** A patch's side in device px. */
-  const side = 2 * r * scale;
-  const n = frames.length;
-  const lastX = new Int32Array(MAX_EFFECT_SPRITES);
-  const lastY = new Int32Array(MAX_EFFECT_SPRITES);
-  let saved = 0;
-  /** Put the saved squares back, last first; the caller holds ctx's state. */
-  const putBack = (): void => {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    for (let i = saved - 1; i >= 0; i--) {
-      const x = lastX[i] ?? 0;
-      const y = lastY[i] ?? 0;
-      ctx.clearRect(x, y, side, side);
-      ctx.drawImage(patchCanvas, i * side, 0, side, side, x, y, side, side);
-    }
-    saved = 0;
-  };
-  return {
-    paint(p, step) {
-      ctx.save();
-      putBack();
-      const count = n === 0 ? 0 : Math.min(p.count, MAX_EFFECT_SPRITES);
-      for (let i = 0; i < count; i++) {
-        const px = p.x[i] ?? 0;
-        const py = p.y[i] ?? 0;
-        const f = frames[(step + (p.phase[i] ?? 0)) % n];
-        if (f === undefined) continue;
-        const x = (px - r) * scale;
-        const y = (py - r) * scale;
-        // Cleared first: drawing the room's transparent margins over the slot would keep the last patch there.
-        patchCtx.clearRect(i * side, 0, side, side);
-        patchCtx.drawImage(canvas, x, y, side, side, i * side, 0, side, side);
-        lastX[i] = x;
-        lastY[i] = y;
-        saved = i + 1;
-        ctx.setTransform(p.flip[i] === 1 ? -scale : scale, 0, 0, scale, px * scale, py * scale);
-        ctx.drawImage(image, f.sx, f.sy, f.w, f.h, -f.ox, -f.oy, f.w, f.h);
-      }
-      ctx.restore();
-    },
-    clear() {
-      ctx.save();
-      putBack();
-      ctx.restore();
-    },
-  };
+/** Stub (red). */
+export function createEffectPainter(_o: EffectPainterOptions): EffectPainter {
+  return { paint: () => undefined, clear: () => undefined };
 }
 
-/** The patch canvas's size in device px for `frames` at `scale`: one square slot per particle, side by side. */
-export function patchCanvasSize(frames: readonly EffectFrame[], scale: number): { w: number; h: number } {
-  const side = 2 * (frames.reduce((m, f) => Math.max(m, f.w, f.h), 0) + 1) * scale;
-  return { w: side * MAX_EFFECT_SPRITES, h: side };
+/** Stub (red). */
+export function effectBounds(_motion: EffectMotion, _frames: readonly EffectFrame[]): Rect {
+  return { x: 0, y: 0, w: 0, h: 0 };
 }

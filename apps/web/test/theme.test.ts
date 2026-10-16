@@ -5,8 +5,9 @@ import * as v from "valibot";
 import { DEFAULT_LAYOUT, type RoomLayout } from "@omega/shared";
 import { RoomManifestSchema, sceneOf } from "../src/furniture";
 import { decorSprites } from "../src/theme/decor";
-import { EFFECT_MIN_INTERVAL_MS, MAX_EFFECT_SPRITES, createEffectPainter, createParticles, type EffectMotion, type Particles } from "../src/theme/effect";
-import { activeTheme, easterSunday, resolveTheme, type ThemeId } from "../src/theme/periods";
+import { MOTIONS } from "../src/theme/atlas";
+import { EFFECT_MIN_INTERVAL_MS, MAX_EFFECT_SPRITES, createEffectPainter, createParticles, effectBounds, type EffectMotion, type Particles } from "../src/theme/effect";
+import { THEME_IDS, activeTheme, easterSunday, resolveTheme, type ThemeId } from "../src/theme/periods";
 
 const room = v.parse(RoomManifestSchema, await Bun.file(new URL("../../../assets/room/room.json", import.meta.url)).json());
 
@@ -173,20 +174,18 @@ describe("createParticles: a fixed pool moving in whole pixels", () => {
   });
 });
 
-describe("createEffectPainter: particles drawn into the room canvas over saved patches, no extra layer (QA OME-1206, OME-1211)", () => {
-  type Call = [string, ...unknown[]];
-  /** A 2D context that records calls; drawImage's source is recorded by identity. */
+describe("createEffectPainter: a small overlay canvas over the effect's band; a tick never reads a canvas (QA OME-1206, 1211, 1212)", () => {
+  type Call = [string, ...number[]];
+  /** A 2D context that records calls; the image is opaque to the painter. */
   const fakeCtx = () => {
     const calls: Call[] = [];
     return {
       calls,
       ctx: {
-        save: () => void calls.push(["save"]),
-        restore: () => void calls.push(["restore"]),
         setTransform: (a: number, b: number, c: number, d: number, e: number, f: number) => void calls.push(["setTransform", a, b, c, d, e, f]),
         clearRect: (x: number, y: number, w: number, h: number) => void calls.push(["clearRect", x, y, w, h]),
-        drawImage: (img: unknown, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number) =>
-          void calls.push(["drawImage", img, sx, sy, sw, sh, dx, dy, dw, dh]),
+        drawImage: (_img: unknown, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number) =>
+          void calls.push(["drawImage", sx, sy, sw, sh, dx, dy, dw, dh]),
       },
     };
   };
@@ -194,7 +193,7 @@ describe("createEffectPainter: particles drawn into the room canvas over saved p
     { sx: 0, sy: 0, w: 8, h: 6, ox: 4, oy: 3 },
     { sx: 8, sy: 0, w: 8, h: 6, ox: 4, oy: 3 },
   ];
-  /** Two particles at fixed spots: the second goes left (mirrored) with frame phase 1. */
+  /** Two particles at fixed stage spots: the second goes left (mirrored) with frame phase 1. */
   const still = (): Particles => ({
     count: 2,
     x: Int32Array.of(100, 300),
@@ -203,98 +202,76 @@ describe("createEffectPainter: particles drawn into the room canvas over saved p
     phase: Uint8Array.of(0, 1),
     step: () => undefined,
   });
-  // Stand-ins for the sheet, the room canvas and the patch canvas: only their identity matters.
-  const sheet = { name: "sheet" } as unknown as CanvasImageSource;
-  const roomCanvas = { name: "room" } as unknown as CanvasImageSource;
-  const patchCanvas = { name: "patches" } as unknown as CanvasImageSource;
-  // r = max(8, 6) + 1 = 9; at scale 2 a patch is 36 device px square.
-  const side = 36;
-  const setup = (scale: number) => {
-    const room = fakeCtx();
-    const patches = fakeCtx();
-    const painter = createEffectPainter({ ctx: room.ctx, canvas: roomCanvas, patchCtx: patches.ctx, patchCanvas, image: sheet, frames, scale });
-    return { room, patches, painter };
-  };
-  const draws = (calls: Call[], src: unknown): Call[] => calls.filter((c) => c[0] === "drawImage" && c[1] === src);
+  const image = { name: "sheet" } as unknown as CanvasImageSource;
+  /** The overlay's top-left on the stage: particles are drawn relative to it. */
+  const origin = { x: 40, y: 20 };
 
-  test("paint saves the room under each particle, then draws it at its whole-pixel spot, scaled, in its own frame", () => {
-    const { room, patches, painter } = setup(2);
-    painter.paint(still(), 0);
-    expect(draws(patches.calls, roomCanvas)).toEqual([
-      ["drawImage", roomCanvas, 200 - 18, 100 - 18, side, side, 0, 0, side, side],
-      ["drawImage", roomCanvas, 600 - 18, 140 - 18, side, side, side, 0, side, side],
+  test("paint draws each particle once, relative to the overlay's origin, in its own frame", () => {
+    const { calls, ctx } = fakeCtx();
+    createEffectPainter({ ctx, image, frames, origin }).paint(still(), 0);
+    expect(calls.filter((c) => c[0] === "drawImage")).toEqual([
+      ["drawImage", 0, 0, 8, 6, -4, -3, 8, 6],
+      ["drawImage", 8, 0, 8, 6, -4, -3, 8, 6],
     ]);
-    expect(draws(room.calls, sheet)).toEqual([
-      ["drawImage", sheet, 0, 0, 8, 6, -4, -3, 8, 6],
-      ["drawImage", sheet, 8, 0, 8, 6, -4, -3, 8, 6],
-    ]);
-    const transforms = room.calls.filter((c) => c[0] === "setTransform");
-    expect(transforms).toContainEqual(["setTransform", 2, 0, 0, 2, 200, 100]);
+    const transforms = calls.filter((c) => c[0] === "setTransform");
+    expect(transforms).toContainEqual(["setTransform", 1, 0, 0, 1, 60, 30]);
     // Mirrored: effect frames face right, a left-goer is flipped about its spot.
-    expect(transforms).toContainEqual(["setTransform", -2, 0, 0, 2, 600, 140]);
-  });
-
-  test("each patch slot is cleared before the room is copied into it (copying transparent margins must not keep the last patch)", () => {
-    const { patches, painter } = setup(2);
-    painter.paint(still(), 0);
-    expect(patches.calls).toEqual([
-      ["clearRect", 0, 0, side, side],
-      ["drawImage", roomCanvas, 200 - 18, 100 - 18, side, side, 0, 0, side, side],
-      ["clearRect", side, 0, side, side],
-      ["drawImage", roomCanvas, 600 - 18, 140 - 18, side, side, side, 0, side, side],
-    ]);
-  });
-
-  test("the room context's state is saved and restored around a paint (Pixi draws with it too)", () => {
-    const { room, painter } = setup(1);
-    painter.paint(still(), 0);
-    expect(room.calls[0]?.[0]).toBe("save");
-    expect(room.calls.at(-1)?.[0]).toBe("restore");
+    expect(transforms).toContainEqual(["setTransform", -1, 0, 0, 1, 260, 50]);
   });
 
   test("the step picks the frame: step 1 swaps them", () => {
-    const { room, painter } = setup(1);
-    painter.paint(still(), 1);
-    expect(draws(room.calls, sheet).map((c) => c[2])).toEqual([8, 0]);
+    const { calls, ctx } = fakeCtx();
+    createEffectPainter({ ctx, image, frames, origin }).paint(still(), 1);
+    expect(calls.filter((c) => c[0] === "drawImage").map((c) => c[1])).toEqual([8, 0]);
   });
 
-  test("the next paint puts the saved patches back, last first, before saving and drawing again", () => {
-    const { room, painter } = setup(2);
+  test("the next paint clears only the squares the last one drew, before drawing; it never reads a canvas", () => {
+    const { calls, ctx } = fakeCtx();
+    const painter = createEffectPainter({ ctx, image, frames, origin });
     const p = still();
     painter.paint(p, 0);
-    room.calls.length = 0;
+    calls.length = 0;
     p.x[0] = 110;
     painter.paint(p, 0);
-    // Each patch: cleared (the room has transparent pixels), then the saved pixels drawn back.
-    expect(room.calls.filter((c) => c[0] === "clearRect")).toEqual([
-      ["clearRect", 600 - 18, 140 - 18, side, side],
-      ["clearRect", 200 - 18, 100 - 18, side, side],
+    // r = max(8, 6) + 1 = 9: each old sprite's square, in overlay px.
+    expect(calls.filter((c) => c[0] === "clearRect")).toEqual([
+      ["clearRect", 60 - 9, 30 - 9, 18, 18],
+      ["clearRect", 260 - 9, 50 - 9, 18, 18],
     ]);
-    expect(draws(room.calls, patchCanvas)).toEqual([
-      ["drawImage", patchCanvas, side, 0, side, side, 600 - 18, 140 - 18, side, side],
-      ["drawImage", patchCanvas, 0, 0, side, side, 200 - 18, 100 - 18, side, side],
-    ]);
-    const lastRestore = room.calls.findLastIndex((c) => c[0] === "drawImage" && c[1] === patchCanvas);
-    const firstDraw = room.calls.findIndex((c) => c[0] === "drawImage" && c[1] === sheet);
-    expect(lastRestore).toBeLessThan(firstDraw);
+    const lastClear = calls.findLastIndex((c) => c[0] === "clearRect");
+    const firstDraw = calls.findIndex((c) => c[0] === "drawImage");
+    expect(lastClear).toBeLessThan(firstDraw);
   });
 
-  test("after clear, the next paint has nothing to put back", () => {
-    const { room, painter } = setup(1);
+  test("clear wipes what was drawn and draws nothing", () => {
+    const { calls, ctx } = fakeCtx();
+    const painter = createEffectPainter({ ctx, image, frames, origin });
     painter.paint(still(), 0);
+    calls.length = 0;
     painter.clear();
-    room.calls.length = 0;
-    painter.paint(still(), 0);
-    expect(draws(room.calls, patchCanvas)).toHaveLength(0);
-    expect(draws(room.calls, sheet)).toHaveLength(2);
+    expect(calls.filter((c) => c[0] === "clearRect")).toHaveLength(2);
+    expect(calls.filter((c) => c[0] === "drawImage")).toHaveLength(0);
   });
+});
 
-  test("clear puts the room back and draws no particle", () => {
-    const { room, painter } = setup(1);
-    painter.paint(still(), 0);
-    room.calls.length = 0;
-    painter.clear();
-    expect(draws(room.calls, patchCanvas)).toHaveLength(2);
-    expect(draws(room.calls, sheet)).toHaveLength(0);
-  });
+describe("effectBounds: the overlay covers every sprite of the effect, and is small", () => {
+  const lcg = (seed: number) => (): number => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  const frames = [{ sx: 0, sy: 0, w: 16, h: 12, ox: 8, oy: 6 }];
+  for (const id of THEME_IDS) {
+    test(`${id}: every sprite stays inside its overlay over a long run, and the overlay is at most a third of the stage`, () => {
+      const motion = MOTIONS[id];
+      const b = effectBounds(motion, frames);
+      const p = createParticles(motion, 40, lcg(7));
+      for (let s = 0; s < 3000; s++) {
+        p.step(EFFECT_MIN_INTERVAL_MS);
+        for (let i = 0; i < p.count; i++) {
+          const x = p.x[i] ?? NaN;
+          const y = p.y[i] ?? NaN;
+          // The sprite's square around its spot (any anchor inside a 16×12 frame, mirrored or not).
+          expect(x - 17 >= b.x && x + 17 <= b.x + b.w && y - 17 >= b.y && y + 17 <= b.y + b.h).toBe(true);
+        }
+      }
+      expect(b.w * b.h).toBeLessThanOrEqual((960 * 600) / 3);
+    });
+  }
 });
