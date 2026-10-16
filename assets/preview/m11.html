@@ -1,0 +1,57 @@
+<!doctype html>
+<!-- OME-1247: keyboard focus on tray cubbies, emote cells and member-menu rows, and the member menu's size at 1280×720.
+     Uses ../ui/reference.css only (no app code). Screenshots: bun assets/src/shoot-m11.ts (writes preview/ui-m11-*@1x|2x.png).
+     Not shipped. Art CC BY-SA 4.0. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>omega-share focus ring + member menu scale (OME-1247)</title>
+<link rel="stylesheet" href="../ui/reference.css">
+<style>
+  body { margin: 0; background: #1c1420; color: var(--ui-text); font: 600 15px/1.35 system-ui, sans-serif; }
+  section { padding: 24px; width: fit-content; }
+  h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ui-muted); margin: 0 0 12px; }
+  .row { display: flex; gap: 28px; align-items: flex-start; }
+  .shot { display: grid; gap: 8px; justify-items: start; }
+  .lbl { font: 700 12px system-ui; color: var(--ui-accent); letter-spacing: .04em; }
+  .lbl span { color: var(--ui-muted); font-weight: 500; letter-spacing: 0; }
+  .cap { font-size: 11px; color: var(--ui-muted); font-weight: 500; margin: 12px 0 0; line-height: 1.45; max-width: 900px; }
+  /* A 1280×720 window's room, at the wide layout's stage scale (960 px column, 0.68). */
+  .win { position: relative; width: 653px; height: 362px; overflow: hidden; background: url("room@1x.png") 0 -41px / 653px auto; image-rendering: pixelated; }
+  .win .ui-room { position: absolute; left: 0; top: 0; width: 960px; height: 532px; transform: scale(0.68); transform-origin: 0 0; }
+  .win .ui-room .ui-modmenu, .win > .ui-modmenu { position: absolute; }
+</style>
+</head>
+<body>
+<section id="m11-focus">
+  <h2>Keyboard focus: hover look + a cream ring outside, page chrome 2× (2 CSS px ring)</h2>
+  <div class="row">
+    <div class="shot"><span class="lbl">Tray cubbies <span>idle · hover · focus · held + focus</span></span>
+      <div class="ui-tray"><button class="ui-slot" aria-label="sofa-velvet"><span class="ui-sprite ui-thumb-sofa-velvet"></span><span class="ui-sprite ui-glyph-fp-1x2 ui-fp"></span></button><button class="ui-slot is-hover" aria-label="couch-cream"><span class="ui-sprite ui-thumb-couch-cream"></span><span class="ui-sprite ui-glyph-fp-1x2 ui-fp"></span></button><button class="ui-slot is-focus" aria-label="wingback-ginger"><span class="ui-sprite ui-thumb-wingback-ginger"></span><span class="ui-sprite ui-glyph-fp-1x1 ui-fp"></span></button><button class="ui-slot is-focus" aria-pressed="true" aria-label="beanbag-blush"><span class="ui-sprite ui-thumb-beanbag-blush"></span><span class="ui-sprite ui-glyph-fp-1x1 ui-fp"></span></button></div>
+    </div>
+    <div class="shot"><span class="lbl">Emote cells <span>idle · hover · focus</span></span>
+      <div class="ui-emotes" role="menu" aria-label="Emotes"><button class="ui-emote" role="menuitem" aria-label="Heart"><span class="ui-sprite ui-emote-pick-heart"></span></button><button class="ui-emote is-hover" role="menuitem" aria-label="Laugh"><span class="ui-sprite ui-emote-pick-laugh"></span></button><button class="ui-emote is-focus" role="menuitem" aria-label="Question"><span class="ui-sprite ui-emote-pick-question"></span></button><button class="ui-emote" role="menuitem" aria-label="Clap"><span class="ui-sprite ui-emote-pick-clap"></span></button></div>
+    </div>
+    <div class="shot"><span class="lbl">Member menu rows <span>hover · focus</span></span>
+      <div class="ui-emotes ui-modmenu" role="menu" aria-label="Moss"><div class="head"><span class="ui-sprite ui-portrait-mo"></span><span class="name">Moss</span><button class="ui-sprite ui-qx" aria-label="Close menu"></button></div><span class="ui-modsep"></span><button class="ui-modrow is-hover" role="menuitem"><span class="ui-sprite ui-icon-chat-mute"></span>Mute chat</button><button class="ui-modrow is-focus" role="menuitem"><span class="ui-sprite ui-icon-remove"></span>Remove from room</button></div>
+    </div>
+    <div class="shot"><span class="lbl">Ask row <span>keys at 12 px, Remove focused</span></span>
+      <div class="ui-emotes ui-modmenu" role="menu" aria-label="Moss"><div class="head"><span class="ui-sprite ui-portrait-mo"></span><span class="name">Moss</span><button class="ui-sprite ui-qx" aria-label="Close menu"></button></div><span class="ui-modsep"></span><button class="ui-modrow" role="menuitem"><span class="ui-sprite ui-icon-chat-mute"></span>Mute chat</button><div class="ui-modrow is-ask" style="gap:4px"><span style="flex-basis:100%;margin-bottom:4px">Remove Moss for 10 min?</span><button class="ui-button secondary">Keep</button><button class="ui-button is-focus" style="outline:2px solid var(--ui-text);outline-offset:2px">Remove</button></div></div>
+    </div>
+  </div>
+  <p class="cap">The ring is the kit's cream (#fff7ea), 1 art px = 2 CSS px, at offset 0, so it hugs the cell's own plum outline and always lands on a night face: the tray's dusk well behind cubbies (14:1), the picker's night face between cells and rows (11:1). It never covers the next row or cell (1 art px gap) and stays inside the scrolling tray's padding, so it isn't clipped. Hover keeps its lit edge; focus is that plus the ring, so focus is a shape, not a colour swap.</p>
+</section>
+<section id="m11-scale">
+  <h2>The host's member menu in a 1280×720 window (stage scale 0.68)</h2>
+  <div class="row">
+    <div class="shot"><span class="lbl">Now <span>inside the stage: 11 px × 0.68 ≈ 7.5 px words, 0.7 px ring</span></span>
+      <div class="win"><div class="ui-room"><div class="ui-emotes ui-modmenu" role="menu" aria-label="Moss" style="left:420px;top:200px"><div class="head"><span class="ui-sprite ui-portrait-mo"></span><span class="name">Moss</span><button class="ui-sprite ui-qx" aria-label="Close menu"></button></div><span class="ui-modsep"></span><button class="ui-modrow is-focus" role="menuitem"><span class="ui-sprite ui-icon-chat-mute"></span>Mute chat</button><button class="ui-modrow" role="menuitem"><span class="ui-sprite ui-icon-remove"></span>Remove from room</button></div></div></div>
+    </div>
+    <div class="shot"><span class="lbl">Proposed <span>page chrome at the member's tag: 12 px words, 2 px ring</span></span>
+      <div class="win"><div class="ui-room"></div><div class="ui-emotes ui-modmenu" role="menu" aria-label="Moss" style="left:200px;top:40px"><div class="head"><span class="ui-sprite ui-portrait-mo"></span><span class="name">Moss</span><button class="ui-sprite ui-qx" aria-label="Close menu"></button></div><span class="ui-modsep"></span><button class="ui-modrow is-focus" role="menuitem"><span class="ui-sprite ui-icon-chat-mute"></span>Mute chat</button><button class="ui-modrow" role="menuitem"><span class="ui-sprite ui-icon-remove"></span>Remove from room</button></div></div>
+    </div>
+  </div>
+  <p class="cap">Minimum: menu words ≥ 12 CSS px as rendered at 1280×720 (head, rows, and the Keep / Remove keys). The stage scales with the window, so anything inside it shrinks; the menu is page chrome instead (--ui-px: 2px, like the emote wheel), mounted outside .ui-room and placed at the member's tag in page px (stage px × scale + the stage's offset). It stays at 2× art whatever the window, never resampled. The app's edge clamp (MENU_HALF_W, stage px) becomes the menu's own half width in page px.</p>
+</section>
+</body>
+</html>
