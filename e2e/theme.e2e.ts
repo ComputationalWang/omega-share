@@ -39,7 +39,8 @@ const christmas = async (context: BrowserContext): Promise<void> => {
 
 async function expectThemed(page: Page): Promise<void> {
   await expect.poll(async () => (await theme(page))?.id ?? null).toBe("christmas");
-  await expect.poll(async () => (await theme(page))?.decor ?? 0).toBeGreaterThan(0);
+  // The real Christmas sheet (OME-1189): 2 window views, a garland on each of the 10 segments of both walls, 3 stockings.
+  await expect.poll(async () => (await theme(page))?.decor ?? 0).toBe(25);
   await expect.poll(async () => (await theme(page))?.hats ?? 0).toBeGreaterThan(0);
 }
 
