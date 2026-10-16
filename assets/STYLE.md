@@ -100,6 +100,8 @@ All three render the same scene with the same sprites. Only the palette and the 
   **Focus:** all three fields keep a 2 px `--ui-text` `#fff7ea` outline, offset 1 px, outside the border: **4.07:1** against `--field-border`,
   13.7:1 on `--panel`, 16.0:1 on `--bg`, and twice the border's width. The invite field had only the browser's default ring; it now gets the
   same outline as the chat fields. `apps/web/test/field-border.test.ts` guards the ratio, the three borders and the three focus rules.
+  Muted fields (`.chat input.is-muted`, `.popout-chat input.is-muted`) keep `#3a3442` on purpose: a disabled field is exempt from 1.4.11,
+  and the dim edge, together with the muted text and `not-allowed` cursor, is what shows it can't be typed in.
 - **Icons** are 16×16 role-grid sprites, auto-shaded and auto-outlined exactly like the avatars, so they sit on either dark chrome or the honey floor.
 
 ## Motion (set d)
