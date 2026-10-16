@@ -9,6 +9,8 @@
   --muted: #b8b0cc;
   --accent: #eaac8b;
   --error: #ff8a80;
+  /* Text-field border (OME-1242): palette wall-light, 3.37:1 on --panel and 3.93:1 on --bg (WCAG 1.4.11 needs 3:1). */
+  --field-border: #8a6f9e;
   font: 16px/1.4 system-ui, sans-serif;
 }
 * { box-sizing: border-box; }
