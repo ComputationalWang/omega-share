@@ -9,7 +9,7 @@ use super::constants::{MAX_CLIENT_MESSAGE_BYTES, MAX_EMBED_URL_LENGTH, MAX_POSIT
 use super::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken};
 use super::js_compat::utf16_len;
 use super::layout::{RoomLayout, RoomLayoutInput};
-use super::room::{Avatar, ControlPolicy, SeatIndex};
+use super::room::{Avatar, ControlPolicy, QueueIndex, SeatIndex};
 use super::text::{ChatText, Nickname, RoomTitle};
 use super::{Obj, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -133,6 +133,10 @@ pub enum ClientMessage {
     QueueRemove {
         item_id: QueueItemId,
     },
+    QueueMove {
+        item_id: QueueItemId,
+        to_index: QueueIndex,
+    },
     QueueAdvance {
         from_item_id: QueueItemId,
     },
@@ -162,6 +166,7 @@ impl ClientMessage {
             Self::ControlPolicy { .. } => "control-policy",
             Self::QueueAdd { .. } => "queue-add",
             Self::QueueRemove { .. } => "queue-remove",
+            Self::QueueMove { .. } => "queue-move",
             Self::QueueAdvance { .. } => "queue-advance",
             Self::Ended { .. } => "ended",
         }
@@ -326,6 +331,13 @@ struct QueueRemoveW {
 
 #[derive(Deserialize, Validate)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct QueueMoveW {
+    item_id: QueueItemId,
+    to_index: QueueIndex,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct QueueAdvanceW {
     from_item_id: QueueItemId,
 }
@@ -374,6 +386,8 @@ enum Wire {
     QueueAdd(QueueAddW),
     #[serde(rename = "queue-remove")]
     QueueRemove(QueueRemoveW),
+    #[serde(rename = "queue-move")]
+    QueueMove(QueueMoveW),
     #[serde(rename = "queue-advance")]
     QueueAdvance(QueueAdvanceW),
     #[serde(rename = "ended")]
@@ -399,6 +413,7 @@ impl Validate for Wire {
             Self::ControlPolicy(m) => m.validate(),
             Self::QueueAdd(m) => m.validate(),
             Self::QueueRemove(m) => m.validate(),
+            Self::QueueMove(m) => m.validate(),
             Self::QueueAdvance(m) => m.validate(),
             Self::Ended(m) => m.validate(),
         }
@@ -438,6 +453,10 @@ fn convert(wire: Wire) -> ClientMessage {
         Wire::ControlPolicy(m) => ClientMessage::ControlPolicy { policy: m.policy },
         Wire::QueueAdd(m) => ClientMessage::QueueAdd { url: QueueUrl(m.url) },
         Wire::QueueRemove(m) => ClientMessage::QueueRemove { item_id: m.item_id },
+        Wire::QueueMove(m) => ClientMessage::QueueMove {
+            item_id: m.item_id,
+            to_index: m.to_index,
+        },
         Wire::QueueAdvance(m) => ClientMessage::QueueAdvance {
             from_item_id: m.from_item_id,
         },

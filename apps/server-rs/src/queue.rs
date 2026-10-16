@@ -223,14 +223,29 @@ pub fn remove(app: &App, inner: &mut RoomInner, actor: &QueueActor, item: &Queue
     Ok(())
 }
 
-/// `queue-move`: stub (OME-1249 red).
-pub fn move_item(
-    _app: &App,
-    _inner: &mut RoomInner,
-    _actor: &QueueActor,
-    _item: &QueueItemId,
-    _to: QueueIndex,
-) -> Result<(), QueueRefusal> {
+/// `queue-move`: refused under the owner policy like `queue-remove`. An item that isn't queued (gone, or the
+/// current one) or already at its place is ignored (`Ok`, no frame); a place past the end means last.
+pub fn move_item(app: &App, inner: &mut RoomInner, actor: &QueueActor, item: &QueueItemId, to: QueueIndex) -> Result<(), QueueRefusal> {
+    if inner.closed {
+        return Err(QueueRefusal::RoomClosed);
+    }
+    owner_only(inner, actor)?;
+    let queue = inner.room.queue();
+    let Some(from) = queue.iter().position(|i| i.id == *item) else {
+        return Ok(());
+    };
+    let to = usize::from(to.get()).min(queue.len().saturating_sub(1));
+    if from == to {
+        return Ok(());
+    }
+    let mut ids: Vec<QueueItemId> = queue.iter().map(|i| i.id.clone()).collect();
+    let moved = ids.remove(from);
+    ids.insert(to, moved);
+    if !persisted(app, |s| s.reorder_queue(&inner.room.id, &ids)) {
+        return Ok(());
+    }
+    inner.room.move_queued(from, to);
+    queue_changed(inner, Some(actor.member_id.clone()));
     Ok(())
 }
 

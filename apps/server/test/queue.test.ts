@@ -391,7 +391,7 @@ describe("queue-move (OME-1249)", () => {
     bob.client.send({ type: "queue-move", itemId: queue[2]?.id, toIndex: 0 });
     const changed = await alice.client.next("queue-changed");
     expect(changed.by).toBe(bob.snapshot.self);
-    expect(changed.queue.map((i) => i.id)).toEqual([queue[2]?.id, queue[0]?.id, queue[1]?.id]);
+    expect(changed.queue).toEqual([...queue.slice(2), ...queue.slice(0, 2)]);
     bob.client.send({ type: "queue-move", itemId: "never-was", toIndex: 0 });
     await alice.client.none("queue-changed", 100);
     await bob.client.none("error", 0);

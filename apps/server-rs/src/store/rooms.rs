@@ -252,6 +252,7 @@ const ROOMS_SELECT: &str = "SELECT id, title, created_at, layout, embed, visibil
 // Appended after the room's last item; the room must exist (foreign key).
 const INSERT_QUEUE_ITEM: &str = "INSERT INTO queue_items (room_id, id, position, embed) SELECT ?1, ?2, coalesce(max(position), 0) + 1, ?3 FROM queue_items WHERE room_id = ?4";
 const DELETE_QUEUE_ITEM: &str = "DELETE FROM queue_items WHERE room_id = ? AND id = ?";
+const SET_QUEUE_POSITION: &str = "UPDATE queue_items SET position = ? WHERE room_id = ? AND id = ?";
 const SET_EMBED: &str = "UPDATE rooms SET embed = ?, item_id = ? WHERE id = ?";
 
 impl<'a> RoomStore<'a> {
@@ -403,6 +404,17 @@ impl<'a> RoomStore<'a> {
             .prepare_cached(DELETE_QUEUE_ITEM)?
             .execute([room_id.as_str(), item_id.as_str()])?
             > 0)
+    }
+
+    /// `queue-move`, in one transaction: `ids` is the room's whole queue in its new play order.
+    pub fn reorder_queue(&self, room_id: &RoomId, ids: &[QueueItemId]) -> Result<(), StoreError> {
+        let tx = self.conn.unchecked_transaction()?;
+        let mut update = self.conn.prepare_cached(SET_QUEUE_POSITION)?;
+        for (position, id) in (1_i64..).zip(ids) {
+            update.execute(params![position, room_id.as_str(), id.as_str()])?;
+        }
+        drop(update);
+        Ok(tx.commit()?)
     }
 
     /// An advance (ADR 0031 §5), in one transaction: the upcoming `item` leaves the queue and becomes the
