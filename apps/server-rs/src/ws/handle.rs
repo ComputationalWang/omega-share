@@ -177,6 +177,7 @@ fn admit_type(
         | ClientMessage::ControlPolicy { .. }
         | ClientMessage::QueueAdd { .. }
         | ClientMessage::QueueRemove { .. }
+        | ClientMessage::QueueMove { .. }
         | ClientMessage::QueueAdvance { .. }
         | ClientMessage::Ended { .. } => true,
     }
@@ -353,6 +354,15 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, session: Optio
                 owner,
             };
             if let Err(refused) = queue::remove(app, inner, &actor, &item_id) {
+                queue_refused(inner, conn, refused.into());
+            }
+        }
+        ClientMessage::QueueMove { item_id, to_index } => {
+            let actor = QueueActor {
+                member_id: member.clone(),
+                owner,
+            };
+            if let Err(refused) = queue::move_item(app, inner, &actor, &item_id, to_index) {
                 queue_refused(inner, conn, refused.into());
             }
         }

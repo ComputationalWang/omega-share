@@ -256,7 +256,7 @@ test("malformed messages on the real channel: no frame, no chat, no close or ado
   const pop = await popOut(a);
   const { name } = channelOf(pop);
   await say(b.page, "before");
-  await expect(pop.locator(site.chatLogLine)).toHaveText(["spfa-2 before"]);
+  await expect(pop.locator(site.chatLogLine).filter({ hasNotText: "joined the room" })).toHaveText(["spfa-2 before"]);
   const before = await snapshot(pop);
   const bLines = await b.page.locator(site.chatLogLine).allInnerTexts();
   const spoof = await spoofer(a.context, URLS.web);
@@ -287,7 +287,7 @@ test("well-formed forgeries on another tab's or another room's channel never rea
   const pop = await popOut(a);
   const { room, tab } = channelOf(pop);
   await say(b.page, "before");
-  await expect(pop.locator(site.chatLogLine)).toHaveText(["spfb-2 before"]);
+  await expect(pop.locator(site.chatLogLine).filter({ hasNotText: "joined the room" })).toHaveText(["spfb-2 before"]);
   const before = await snapshot(pop);
   const bLines = await b.page.locator(site.chatLogLine).allInnerTexts();
   const spoof = await spoofer(a.context, URLS.web);
@@ -329,7 +329,7 @@ test("malformed messages toward the window: its log, count, title, form and plug
   const { name } = channelOf(pop);
   await say(b.page, "one");
   await say(b.page, "two");
-  await expect(pop.locator(site.chatLogLine)).toHaveText(["spfc-2 one", "spfc-2 two"]);
+  await expect(pop.locator(site.chatLogLine).filter({ hasNotText: "joined the room" })).toHaveText(["spfc-2 one", "spfc-2 two"]);
   const before = await snapshot(pop);
   const spoof = await spoofer(a.context, URLS.web);
   const mark = tap.frames.length;
@@ -393,7 +393,7 @@ test("a page on another origin opening the channel is not heard: no frame, no ad
   const pop = await popOut(a);
   const { name } = channelOf(pop);
   await say(b.page, "before");
-  await expect(pop.locator(site.chatLogLine)).toHaveText(["spfd-2 before"]);
+  await expect(pop.locator(site.chatLogLine).filter({ hasNotText: "joined the room" })).toHaveText(["spfd-2 before"]);
   const before = await snapshot(pop);
   const bLines = await b.page.locator(site.chatLogLine).allInnerTexts();
   const web = new URL(URLS.web);

@@ -216,6 +216,7 @@ export function createWs({
       // The queue's add buckets come after its control-policy check, in `handle` (ADR 0031 §3).
       case "queue-add":
       case "queue-remove":
+      case "queue-move":
       case "queue-advance":
       case "ended":
         return true;
@@ -340,6 +341,9 @@ export function createWs({
         if ("code" in added) queueRefused(ws, added);
         return;
       }
+      // OME-1249 came after the Rust switch: the frozen TS server (rollback only) ignores reorders.
+      case "queue-move":
+        return;
       case "queue-remove":
       case "queue-advance": {
         const actor = actorOf(session);

@@ -189,7 +189,8 @@ test("pop-out chat: a hidden member's lines are gone from the window's backlog a
   await expect(pop.locator(site.chatLogLine).filter({ hasText: "a from window" })).toHaveCount(1);
   await expect(pop.locator(site.chatLogLine).filter({ hasText: "c after b" })).toHaveCount(1);
   await expect(pop.locator(site.chatLog)).not.toContainText("b live");
-  await expect(pop.locator(site.chatLog)).not.toContainText(b.nickname);
+  // Presence lines name B ("joined the room", OME-1246): hiding hides what B says, not that B is here.
+  await expect(pop.locator(site.chatLogLine).filter({ hasText: b.nickname }).filter({ hasNotText: "joined the room" })).toHaveCount(0);
   // The live regions in the window say nothing of B either.
   expect(await pop.locator("[aria-live], [role=log], [role=status]").evaluateAll((els) => els.some((e) => e.textContent.includes("b live")))).toBe(false);
 

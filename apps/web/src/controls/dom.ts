@@ -17,6 +17,14 @@ function setText(e: HTMLElement, text: string): void {
   if (e.textContent !== text) e.textContent = text;
 }
 
+/** "YouTube video, paused at 1:23". No position while playing, so it doesn't change every second. */
+function nowPlayingText(v: PlaybackView): string {
+  if (v.provider === null) return "";
+  const what = `${PROVIDER_NAMES[v.provider]} ${v.live ? "live stream" : "video"}`;
+  if (v.playing) return `${what}, playing`;
+  return v.live ? `${what}, paused` : `${what}, paused at ${formatClock(v.position)}`;
+}
+
 /** A transparent range input laid over the slider art (the art is decoration). */
 function range(label: string, testId: string): HTMLInputElement {
   return el("input", { type: "range", min: "0", step: "any", ariaLabel: label }, testId);
@@ -63,7 +71,9 @@ export function createTransport(c: Pick<PlaybackController, "togglePlay" | "seek
   const plateName = el("span", { className: "ui-plate-name" });
   const plate = el("span", { className: "ui-plate", hidden: true }, "provider-plate");
   plate.append(plateGlyph, plateName);
-  root.append(chip, key, cur, seek, dur, pill, note, toLive, hint, plate);
+  // What plays, for a screen reader (OME-1246): not live, it follows the room's state, never the clock.
+  const nowPlaying = el("span", { className: "sr-only" }, "now-playing");
+  root.append(chip, key, cur, seek, dur, pill, note, toLive, hint, plate, nowPlaying);
 
   let dragging = false;
   let last: PlaybackView | null = null;
@@ -116,6 +126,7 @@ export function createTransport(c: Pick<PlaybackController, "togglePlay" | "seek
         // By content kind, not provider: a Twitch VOD is on-demand video.
         plateGlyph.className = `ui-sprite ${v.live ? "ui-glyph-src-live" : "ui-glyph-src-video"}`;
       }
+      setText(nowPlaying, nowPlayingText(v));
       if (prev?.policy !== v.policy) {
         // Owner-only (ADR 0030, set j): the chip says who holds the remote, for the host too.
         const host = v.policy === "owner";

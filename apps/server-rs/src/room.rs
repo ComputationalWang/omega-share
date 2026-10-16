@@ -623,6 +623,13 @@ impl Room {
         self.upcoming.len() != before
     }
 
+    /// Moves the upcoming item at `from` to `to`; both are in range (the caller checks).
+    pub fn move_queued(&mut self, from: usize, to: usize) {
+        if let Some(item) = self.upcoming.remove(from) {
+            self.upcoming.insert(to, item);
+        }
+    }
+
     /// Makes the first upcoming item current at `since` (ADR 0031 section 5): its embed loads at 0, by `by`
     /// (nobody for an advance, the adder when an add starts an empty room). `None` with an empty queue.
     pub fn advance(&mut self, since: f64, by: Option<MemberId>, now_wall: i64) -> Option<Advance> {

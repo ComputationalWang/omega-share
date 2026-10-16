@@ -249,6 +249,7 @@
     "apps/server/test/queue.test.ts::queue-advance (ADR 0031 §2, §5)::onto a generic item: playback null, so it stays click-to-load (ADR 0024)",
     "apps/server/test/queue.test.ts::queue-advance (ADR 0031 §2, §5)::two clicks on next from the same item skip one item, not two; a stale fromItemId is ignored",
     "apps/server/test/queue.test.ts::queue-advance (ADR 0031 §2, §5)::with an empty queue: nothing changes",
+    "apps/server/test/queue.test.ts::queue-move (OME-1249)::reorders Up next for everyone; by is the mover, an unknown item is ignored",
     "apps/server/test/queue.test.ts::queue-remove (ADR 0031 §2, §3)::an item that isn't there: ignored, no error and no queue-changed",
     "apps/server/test/queue.test.ts::queue-remove (ADR 0031 §2, §3)::drops an upcoming item for everyone; by is the remover",
     "apps/server/test/queue.test.ts::shares and item ids (ADR 0031 §1)::every share mints a fresh itemId, in embed-changed and the snapshot, and doesn't touch the queue",

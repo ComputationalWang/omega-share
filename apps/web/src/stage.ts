@@ -81,8 +81,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const tags = el("div", { className: "tags" });
   // Decorative (createFloats makes it aria-hidden): the chat log is the accessible record of what was said.
   const bubbles = el("div", { className: "bubbles" });
-  // Chat system lines ("Ana paused"): caption rail in the stage's bottom-left, text only.
-  const rail = el("div", { className: "syslines", ariaLive: "polite" });
+  // Chat system lines ("Ana paused"): caption rail in the stage's bottom-left, text only. Visual only (OME-1246): the
+  // chat log says each line already, so a screen reader hears it once.
+  const rail = el("div", { className: "syslines", ariaHidden: "true" });
   box(rail, SYSLINE_RAIL);
 
   const tagEls = new Map<MemberId, HTMLElement>();
@@ -120,6 +121,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
   });
   view.canvas.className = "scene";
+  // The picture only: who is here and what they say is in the people list and the chat log (OME-1246).
+  view.canvas.ariaHidden = "true";
   root.append(view.canvas, overlay, tags, bubbles, rail);
 
   let drawnSeats: readonly unknown[] | undefined;
