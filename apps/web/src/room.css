@@ -240,7 +240,7 @@ body:has(.is-pseudo-fs) { overflow: hidden; }
 .chat-away { --ui-px: 2px; grid-template-columns: auto 1fr auto; align-items: center; justify-items: start; text-align: left; gap: 12px; margin-top: 8px; }
 .chat-away b { color: var(--ui-text); }
 .chat-away .ui-button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 700; }
-.popout-page { height: 100vh; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.popout-page { height: 100vh; height: 100dvh; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .popout-page main { max-width: none; width: 100%; min-height: 0; padding: 6px; display: grid; }
 .popout-footer { margin: 0; padding: 0 8px 4px; font-size: 0.75rem; }
 .popout { --ui-px: 1px; position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 6px; min-height: 0; padding: 4px; }
@@ -369,6 +369,8 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 
 /* M10 portrait: the viewport owns the height; the room gives space to the composer and chat. */
 body:has(> main > .room-portrait) { height: 100dvh; overflow: hidden; }
+/* A downward swipe in the room must not pull-to-refresh it mid-video (OME-1240); pinch zoom is unaffected. */
+:root[data-view="room"], :root[data-view="room"] body { overscroll-behavior-y: none; }
 main:has(> .room-portrait) { max-width: none; padding: 0; }
 body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; right: 0; padding: 0 4px; height: 20px; font-size: 11px; }
 .room-portrait { position: fixed; inset-inline: 0; top: var(--portrait-top, 0px); height: calc(var(--portrait-height, 100dvh) - 20px); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); display: flex; flex-direction: column; overflow: hidden; }
