@@ -371,6 +371,20 @@
     },
     {
       "paths": [
+        "apps/web/src/page-title.ts"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/page-title.e2e.ts",
+        "e2e/popout-room.e2e.ts",
+        "perf/chat.perf.ts"
+      ]
+    },
+    {
+      "paths": [
         "apps/web/src/bubbles/**"
       ],
       "except": [

@@ -9,6 +9,8 @@
   --muted: #b8b0cc;
   --accent: #eaac8b;
   --error: #ff8a80;
+  /* Text-field border (OME-1242): palette wall-light, 3.37:1 on --panel and 3.93:1 on --bg (WCAG 1.4.11 needs 3:1). */
+  --field-border: #8a6f9e;
   font: 16px/1.4 system-ui, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -29,7 +31,8 @@ button, input { font: inherit; color: inherit; }
 .skip-link:focus { top: max(8px, env(safe-area-inset-top)); }
 main:focus { outline: none; }
 /* Rooms panel lists (OME-409): the not-found page's too. The home page's own look is the Dusk block at the end. */
-.invite input { padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--bg); }
+.invite input { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--field-border); background: var(--bg); }
+.invite input:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
 .room-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .room-list a { color: var(--accent); }
 .room-list .role, .room-list .count { color: var(--muted); font-size: 0.9em; }

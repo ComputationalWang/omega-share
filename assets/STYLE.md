@@ -86,11 +86,28 @@ All three render the same scene with the same sprites. Only the palette and the 
   `night` blue, chat bubbles are cream card, and the primary action is mustard (the one warm accent, like the lamps). Secondary is navy.
 - **Chunky keys:** buttons stand on a 2 px lip; pressed loses the lip and the label drops 2 px. Hover brightens by one ramp step.
   The focus indicator is the mustard outer ring (fields) or a cream outline (buttons), never colour alone. Errors are rust **plus** the warn icon.
+  Every focusable cell or row (tray cubbies, emote cells, menu rows) adds a cream ring outside it on top of its hover look, at least
+  2 CSS px on screen and ≥ 3:1 against what it covers (it always lands on a night face: 11:1 or more). Never `outline: none` without one (OME-1247).
+  Spacing holds it: tray cubbies sit 3 art px apart (6 CSS px in page chrome), so a 2 px ring leaves 4 px of dusk well before the next
+  cubby's outline; menu rows and emote cells are 1 art px apart (2 CSS px), exactly the ring's width, so it never covers a neighbour.
+- **Type floor:** menu and control words are at least 12 CSS px as rendered at 1280×720. Anything that would be smaller inside the
+  scaled stage (the host's member menu: 11 px × 0.68) is page chrome instead, placed at the member in page px (OME-1247).
 - **Scale:** page chrome is 2× (1 art px = 2 CSS px). Tags, bubbles and the seat cursor live in the room and are 1×, like the avatars.
 - **Seat cursor:** a 2 px band on the tile diamond, plum-stroked inside and out, so it holds on honey floor, gold rug and velvet.
   State is never colour alone: corner brackets = free, closed ring = mine, dashed ring = taken.
 - **Type:** the system font, bold for actions. The only lettering is the "omega-share" wordmark: 2 px strokes, mustard + cream faces
   on a rust/cream-shade extrusion, and a teal hyphen.
+- **Field border token (OME-1242):** the site's CSS text fields (chat, invite, pop-out chat) draw a 1 px `--field-border`
+  `#8a6f9e`, the palette's `wall` light. It keeps the old border's plum-lilac hue but lifts it to **3.37:1** on `--panel`
+  `#2a2540` and **3.93:1** on `--bg` `#1d1a2b` (WCAG 1.4.11 asks 3:1 for a component boundary; the old `#554d73` was 1.9:1).
+  Brighter lilac (`lilac` light `#a17fd0`, 4.5:1) was rejected: lilac is Kiki's hue and the faded chat line's colour, so an outline in
+  it reads as a state, and the extra contrast isn't needed. The chosen border stays clear of the site's warm focus colours (`--accent`
+  `#eaac8b` 2.2:1, `--dusk-honey` `#f3cf83` 2.9:1) by hue as well as luminance.
+  **Focus:** all three fields keep a 2 px `--ui-text` `#fff7ea` outline, offset 1 px, outside the border: **4.07:1** against `--field-border`,
+  13.7:1 on `--panel`, 16.0:1 on `--bg`, and twice the border's width. The invite field had only the browser's default ring; it now gets the
+  same outline as the chat fields. `apps/web/test/field-border.test.ts` guards the ratio, the three borders and the three focus rules.
+  Muted fields (`.chat input.is-muted`, `.popout-chat input.is-muted`) keep `#3a3442` on purpose: a disabled field is exempt from 1.4.11,
+  and the dim edge, together with the muted text and `not-allowed` cursor, is what shows it can't be typed in.
 - **Icons** are 16×16 role-grid sprites, auto-shaded and auto-outlined exactly like the avatars, so they sit on either dark chrome or the honey floor.
 
 ## Motion (set d)

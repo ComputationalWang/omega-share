@@ -39,6 +39,7 @@ import { createHelp } from "./help/dialog";
 import { createFirstHint } from "./help/hint";
 import { createHiddenMembers } from "./hide/hidden";
 import { createPeople } from "./hide/people";
+import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
 
 export interface RoomOptions {
   readonly root: HTMLElement;
@@ -115,7 +116,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
   const writeText = (t: string): Promise<void> => ("clipboard" in navigator ? navigator.clipboard.writeText(t) : Promise.reject(new Error("no clipboard")));
-  const invite = createInviteControl(inviteLink(opts.origin, opts.roomId, opts.secret?.inviteKey), opts.secret?.inviteKey !== undefined, writeText);
+  const { root: invite, stop: stopInvite } = createInviteControl(inviteLink(opts.origin, opts.roomId, opts.secret?.inviteKey), opts.secret?.inviteKey !== undefined, writeText);
   invite.hidden = true;
 
   // The TV and its control bar sit above the scaled stage, unscaled, so the player keeps
@@ -573,9 +574,17 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     send,
     [location.hostname],
   );
+  // The tab's title (OME-1238): others' chat while the tab is hidden counts in front. Written on chat, rename and status
+  // changes only, never per frame (a hidden tab draws none anyway).
+  let unread = 0;
+  const writeTitle = (s: ViewState): void => {
+    const t = screen(s).notFound ? NOT_FOUND_TITLE : roomPageTitle(s.title, unread);
+    if (document.title !== t) document.title = t;
+  };
   const dispatch = (e: ViewEvent): void => {
     const next = reduce(state, e);
     if (next === state) return;
+    const unreadBefore = unread;
     // Who said it, so "Hide for me" can take a line down later (OME-769).
     const from = e.type === "server" && e.msg.type === "chat" ? e.msg.memberId : undefined;
     for (const entry of logEntries(state, next, e)) {
@@ -583,11 +592,15 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       // Popped out: the window gets the line now, not on the next frame (a hidden tab draws none).
       relay?.append(entry, from);
       // Collapsed in full screen: count what others said while the lines are out of sight.
-      if (entry.kind === "chat" && !entry.self) layout.missed();
+      if (entry.kind === "chat" && !entry.self) {
+        layout.missed();
+        if (document.visibilityState === "hidden") unread++;
+      }
     }
     const expiriesChanged = next.bubbles !== state.bubbles || next.syslines !== state.syslines || next.cooldownUntil !== state.cooldownUntil;
     const prevRoom = state.room;
     const prevOwner = state.owner;
+    if (unread !== unreadBefore || next.title !== state.title || next.status !== state.status) writeTitle(next);
     state = next;
     applyPending({ owner: next.owner && opts.secret?.ownerToken !== undefined, hasRoom: next.room !== null });
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
@@ -756,6 +769,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     relay?.close();
     c.close();
     clock.stop();
+    stopInvite();
   });
   window.addEventListener("pageshow", (ev) => {
     if (!ev.persisted) return;
@@ -765,7 +779,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Hidden: a best-effort away hint on the open socket. Visible again (or resumed from a freeze): make sure the socket
   // is live, probing one that may have died while suspended. One path, so these events never race two connections.
   const onVisibility = (): void => {
-    if (document.visibilityState !== "hidden") c.ensureConnected({ probe: true });
+    if (document.visibilityState !== "hidden") {
+      c.ensureConnected({ probe: true });
+      if (unread !== 0) {
+        unread = 0;
+        writeTitle(state);
+      }
+    }
     sendPresence(state.status === "open");
   };
   document.addEventListener("visibilitychange", onVisibility);
@@ -793,6 +813,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   portrait.addEventListener("change", onMedia);
   coarse.addEventListener("change", onMedia);
   tvBox.sync(state);
+  writeTitle(state);
   render();
   pbView = playback.view();
   renderControls();

@@ -658,7 +658,10 @@ ${lazyRules}
 /* Cubby: one catalogue piece. Centre its thumb/<id>/<colour> (≤ ${String(thumbBox.w)}×${String(thumbBox.h)} art px) inside; footprint glyph bottom-left.
  * Pressed (aria-pressed="true") = it's in your hand: mustard double rim. aria-disabled="true" = the room is at MAX_FURNITURE. */
 .ui-slot { ${nineRule("slot/idle", 6)} position: relative; display: grid; place-items: center; width: ${u(thumbBox.w + 8)}; height: ${u(thumbBox.h + 10)}; padding: 0; background: none; cursor: grab; flex: none; }
-.ui-slot:hover, .ui-slot.is-hover, .ui-slot:focus-visible { ${src("slot/hover")} outline: none; }
+.ui-slot:hover, .ui-slot.is-hover, .ui-slot:focus-visible, .ui-slot.is-focus { ${src("slot/hover")} }
+/* Keyboard focus (OME-1247, WCAG 2.4.11/2.4.13): the lit edge plus a cream ring hugging the cubby's plum outline, on the dusk well
+ * (14:1), never under 2 CSS px. Offset 0 keeps it inside the tray's padding, so the scrolling tray doesn't clip it. */
+.ui-slot:focus-visible, .ui-slot.is-focus { outline: max(2px, var(--ui-px)) solid var(--ui-text); outline-offset: 0; }
 .ui-slot[aria-pressed="true"] { ${src("slot/held")} cursor: grabbing; }
 .ui-slot[aria-disabled="true"] { ${src("slot/off")} cursor: default; }
 .ui-slot .ui-fp { position: absolute; left: ${u(1)}; bottom: ${u(1)}; }

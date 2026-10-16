@@ -3,6 +3,7 @@
 // `<html data-view>` scopes the site styles to entry/directory, so the room's own layouts never see them.
 import { DEFAULT_ROOM_ID, type Avatar, type Nickname, type ResumeToken } from "@omega/shared";
 import { createExtensionBridge } from "./extension-bridge";
+import { SITE_TITLE } from "./page-title";
 import { loadProfile, saveProfile, validateNickname } from "./profile";
 import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
 import { loadRoomSecrets, secretFor, takeInviteKey, type SecretsStore } from "./room-secrets";
@@ -67,6 +68,8 @@ const show = (view: View): void => {
   form.hidden = view !== "entry";
   homeRoot.hidden = view !== "directory";
   roomRoot.hidden = view !== "room";
+  // The room writes its own title (OME-1238).
+  if (view !== "room") document.title = `${view === "entry" ? "Pick a nickname" : "Find or create a room"} · ${SITE_TITLE}`;
 };
 // A room link enters that room; only the home page offers the directory.
 enter.textContent = pathRoom === null ? "Enter lobby" : "Enter room";
@@ -223,6 +226,7 @@ if (pathRoom === null) {
   }
   if (profile.nickname !== null && resumed === null) openDirectory(profile.nickname);
   else {
+    show("entry");
     for (const target of [form, findRoom]) {
       target.addEventListener("focusin", mountHome, { once: true });
       target.addEventListener("pointerover", mountHome, { once: true });

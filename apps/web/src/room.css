@@ -72,7 +72,7 @@
 @keyframes chat-turn-fade { to { visibility: hidden; } }
 @media (prefers-reduced-motion: reduce) { .chat-log .ui-fs-line.is-settled::after, .chat-log .ui-fs-line.is-faded::after { content: none; } }
 .chat input:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
-.chat input { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #554d73; background: var(--panel); }
+.chat input { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--field-border); background: var(--panel); }
 .chat > button:not(.ui-button) { padding: 8px 16px; border: 0; border-radius: 6px; background: var(--accent); color: #1d1a2b; font-weight: 600; }
 .room-full { text-align: center; margin: 15vh auto; }
 .seat:disabled { cursor: default; }
@@ -245,7 +245,7 @@ body:has(.is-pseudo-fs) { overflow: hidden; }
 .popout-people { display: flex; align-items: center; gap: 2px; font-size: 12px; color: var(--ui-muted); }
 .popout .chat-log { max-height: none; min-height: 0; margin: 0; }
 .popout-chat { display: flex; align-items: center; gap: 4px; }
-.popout-chat input { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 6px; border: 1px solid #554d73; background: var(--panel); font-size: 13px; }
+.popout-chat input { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--field-border); background: var(--panel); font-size: 13px; }
 .popout-chat input:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
 .popout-chat input.is-muted { border-color: #3a3442; background: #2a2630; color: var(--muted); cursor: not-allowed; }
 .popout-chat[data-cooldown="true"] input, .popout-chat button:disabled { opacity: 0.6; }

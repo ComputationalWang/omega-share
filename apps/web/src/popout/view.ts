@@ -7,6 +7,7 @@ import type { RoomId } from "@omega/shared";
 import { createChatLog } from "../chat/log";
 import { el, sprite } from "../controls/dom";
 import { createEmotePicker } from "../emote/picker";
+import { roomPageTitle } from "../page-title";
 import { parsePopMessage, type PopChannel, type PopKind, type RoomSideMessage } from "./channel";
 
 /** How often the window tells its room tab it's still there (relay.ts POP_LEASE_MS lets it go after long silence). */
@@ -173,7 +174,7 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
         for (const e of m.entries) log.append(e);
         return;
       case "room-state":
-        o.document.title = room ? (m.title === null ? "Room · omega-share" : `${m.title} · omega-share`) : m.title === null ? "Chat · omega-share" : `Chat · ${m.title} · omega-share`;
+        o.document.title = room ? roomPageTitle(m.title, 0) : m.title === null ? "Chat · omega-share" : `Chat · ${m.title} · omega-share`;
         people.textContent = `${String(m.people)} / ${String(m.cap)}`;
         held = m.cooling || m.muted || !m.open;
         if (input.placeholder !== m.placeholder) input.placeholder = m.placeholder;
