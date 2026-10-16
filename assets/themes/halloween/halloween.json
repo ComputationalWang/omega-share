@@ -10370,12 +10370,14 @@
     "ms": 90,
     "max": 6,
     "layer": "behind-avatars",
+    "motion": "fly",
     "facing": "right"
    },
    "hat": {
     "prefix": "halloween/hat/",
     "count": 416,
-    "rects": 32
+    "rects": 32,
+    "replaces": true
    }
   }
  }

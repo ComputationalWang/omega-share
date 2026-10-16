@@ -27,6 +27,7 @@ assets/
   furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×512 indexed PNG-8, 7 more pieces
   furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
+  themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
   store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
   site/                 # set m (M9): the website's favicon.ico + PNGs, apple-touch 180, manifest 192/512 + maskable 512, og-card.png 1200×630,
                         #   how-1-find / how-2-share / how-3-watch.png landing panels (368×224 each)
@@ -790,7 +791,7 @@ Every key starts with `halloween/`, so nothing collides in Pixi's texture cache.
 - **`meta.omega.decor`** lists the decor in draw order, each `{ key, on }`, where `on` is the wall frame key it belongs to. For every wall cell
   drawn with that frame, place the decal at that cell's `cellCenter(col, row)`. If the room has no such wall (an owner removed the window), skip it.
   Draw decor after the walls and the console and before anything on the floor. It never changes, so it can go into the cached background.
-- **`meta.omega.effect`** = `{ frames, ms: 90, max: 6, layer: "behind-avatars", facing: "right" }`: up to 6 bats crossing the back walls, behind
+- **`meta.omega.effect`** = `{ frames, ms: 90, max: 6, layer: "behind-avatars", motion: "fly", facing: "right" }`: up to 6 bats crossing the back walls, behind
   every avatar and piece of furniture, looping `frames` at 90 ms. The engine owns the paths. Pixi's `animations["halloween/bat"]` has the same 4 frames.
 - **Hats.** Whenever an avatar shows texture `K`, show `halloween/hat/K` at the **same position**, drawn directly over the avatar sprite (as its
   sibling right after it, so a seated avatar's hat still sits under the chair's `front` layer). There's no offset to compute: each hat key's anchor is the
@@ -799,6 +800,31 @@ Every key starts with `halloween/`, so nothing collides in Pixi's texture cache.
   Pip's beanie and Mo's bucket hat are fully covered (the build fails if any pixel of either would show), and raised arms stay in front of the brim.
 - Previews: `preview/halloween-room@1x.png` / `@2x` (the default room dressed, with bats and every sitter hatted), `preview/halloween-hats@4x.png`
   (per avatar: each pose × dir without and with the hat, then a row of hatted walk, wave, cheer, yawn and breathe frames), `preview/halloween-sheet@2x.png`.
+
+## Holiday themes B: Sinterklaas, Christmas, Valentine's, Easter (OME-1187, lazy)
+
+Same format and rules as Halloween above: one lazy 256-wide indexed PNG-8 per theme under `themes/<id>/`, keys prefixed `<id>/`, decor in
+`meta.omega.decor`, a hat for every avatar frame key (416 keys each) under `meta.omega.hat.prefix`, anchored at the avatar's floor point. What's new:
+
+- **`meta.omega.period`** is either `{ from: "MM-DD", to: "MM-DD" }` (local date, both ends inclusive) or, for Easter, `{ easter: { from: -7, to: 1 } }`:
+  days relative to Easter Sunday (Gregorian computus), so Easter runs from the Sunday before Easter Sunday through Easter Monday.
+- **`meta.omega.effect.motion`**: `fly` (crosses the back wall sideways, Halloween's bats), `fall` (drifts down) or `rise` (floats up). If `ms` is
+  absent the frames are **variants** (Christmas's three snowflakes): each particle picks one and keeps it, and there's no Pixi animation.
+- **`meta.omega.hat.replaces`**: `true` for crown hats (mitre, Santa hat), which hide Pip's beanie and Mo's bucket hat like the witch hat does. `false`
+  for band accessories (heart headband, bunny ears), which are worn over the avatar's own headwear. Either way the overlay gives the exact frame.
+- **Decor `on: "wall/l"` / `"wall/r"`**: the decal goes on **every** segment of that wall (a garland or bunting that repeats along it), at each
+  segment cell's floor point. `wall/r/poster0` / `poster1` work like the window keys.
+- **`meta.omega.accent`** (optional) = `{ lamps: "#rrggbb" }`: a tint for the room's lamp and sconce glow while the theme is on (Valentine's only).
+
+| Theme (period) | Decor (`on`) | Effect | Hat |
+|---|---|---|---|
+| `sinterklaas` (Nov 14 – Dec 6) | `window/0`, `/1` (20×87): a white steamboat with a red chimney and a string of flags in a night harbour. `shoe` (16×11, a yellow clog with a carrot for the horse) and `surprise/small` (8×8) on the `window0` sill, `surprise/big` (12×10) on the `window1` sill. `flags/corner-l`, `-r` (32×23, `wall/corner`): a paper-flag swag in red, gold and cream. **No Zwarte Piet imagery.** | `pepernoot/<0-1>` 8×8, a quarter-turn tumble at 160 ms, `fall`, ≤ 20 | Red mitre with a gold band, seam and cross (replaces) |
+| `christmas` (Dec 7 – Dec 31) | `window/0`, `/1`: snow-capped rooftops with lit windows, falling snow, a drift on the ledge. `garland/l`, `/r` (32×23, `wall/l` / `wall/r`): a pine swag with three lights per segment. `stocking/0`, `/1` (`wall/r/poster0`) and `stocking/2` (`wall/r/poster1`), 9×13 each, hung under the poster. | `snow/<0-2>` ≤ 5×5, variants, `fall`, ≤ 40 | Santa hat: fur trim, the tip flops back to a pom (replaces) |
+| `valentines` (Feb 10 – Feb 14) | `bunting/l`, `/r` (32×21, `wall/l` / `wall/r`): paper hearts, pink then cream, on a rose string, along both walls. Pink lamp accent. | `heart/<0-1>` 8×7, a beat at 300 ms, `rise`, ≤ 12 | Heart headband: rose band, two pink hearts on gold springs (worn over) |
+| `easter` (Easter − 7 → Easter Monday) | `window/0`, `/1`: blossom branches against a spring sky over a green hill. `egg/dots` (8×9), `egg/zigzag` (6×8) on the `window0` sill, `egg/band` (6×7) on `window1`. `eggs/corner-l`, `-r` (32×24, `wall/corner`): a swag of paper eggs. | `petal/<0-1>` 6×6, a tumble at 220 ms, `fall`, ≤ 20 | Bunny ears: the far ear folds at the tip (worn over) |
+
+- Previews per theme: `preview/<id>-room@1x.png` / `@2x`, `preview/<id>-hats@4x.png`, `preview/<id>-sheet@2x.png`.
+- `src/themes.test.ts` checks every shipped theme: a hat for every avatar frame key, ≤ 40 KB, effect sprites inside their size limit, decor only on walls.
 
 ## Furniture atlas (`furniture/furniture.json`, set g, M4/M5)
 
@@ -952,14 +978,21 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `furniture/furniture-v2.png` (catalogue v2, lazy) | 10 261 |
 | `furniture/furniture-v2.json` (catalogue v2, lazy) | 22 867 raw / 1 657 gz |
 | `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
-| `themes/halloween/halloween.json` (OME-1185, lazy) | 152 616 raw / 3 718 gz |
+| `themes/halloween/halloween.json` (OME-1185, lazy) | 152 659 raw / 3 740 gz |
+| `themes/sinterklaas/sinterklaas.png` + `.json` (OME-1187, lazy) | 2 799 + 3 597 gz |
+| `themes/christmas/christmas.png` + `.json` (OME-1187, lazy) | 2 280 + 3 309 gz |
+| `themes/valentines/valentines.png` + `.json` (OME-1187, lazy) | 1 117 + 3 224 gz |
+| `themes/easter/easter.png` + `.json` (OME-1187, lazy) | 2 890 + 3 532 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Measured total now: 195 623 B (≈ 191.0 KB) of 300 KB**, eager 99 106, lazy 96 517 (`bun assets/src/build.ts`). Rows not named below are
+**Measured total now: 218 393 B (≈ 213.3 KB) of 300 KB**, eager 99 106, lazy 119 287 (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
 `halloween.json` 3 718 gz. No existing file changes. Measured total with it: 195 623 B of 307 200.
+
+Themes B (OME-1187) add **22 748 B (≈ 22.2 KB)**, all lazy, one theme fetched at a time (cap: 40 KB each): Sinterklaas 6 396, Christmas 5 589,
+Valentine's 4 341, Easter 6 422. `halloween.json` grows 22 B gz (the new `motion` and `replaces` meta fields). Measured total: 218 393 B of 307 200.
 
 Catalogue v2 (OME-1103) adds **14 412 B (≈ 14.1 KB)** against `main` as the build measures it (159 946 → 174 358): lazy +14 104
 (`furniture-v2.png` 10 261 + `furniture-v2.json` 1 657 gz, `edit.png` +1 867 for 12 thumbnails and 5 swatches, `edit.json` +319 gz), eager +308

@@ -1,0 +1,10275 @@
+{
+ "frames": {
+  "sinterklaas/window/0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 20,
+    "h": 87
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 20,
+    "h": 87
+   },
+   "sourceSize": {
+    "w": 20,
+    "h": 87
+   },
+   "anchor": {
+    "x": 1.55,
+    "y": 2.0114942528735633
+   }
+  },
+  "sinterklaas/window/1": {
+   "frame": {
+    "x": 21,
+    "y": 0,
+    "w": 20,
+    "h": 87
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 20,
+    "h": 87
+   },
+   "sourceSize": {
+    "w": 20,
+    "h": 87
+   },
+   "anchor": {
+    "x": 1.05,
+    "y": 2.0689655172413794
+   }
+  },
+  "sinterklaas/shoe": {
+   "frame": {
+    "x": 94,
+    "y": 90,
+    "w": 16,
+    "h": 11
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 11
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 11
+   },
+   "anchor": {
+    "x": 1.5,
+    "y": 9.090909090909092
+   }
+  },
+  "sinterklaas/surprise/small": {
+   "frame": {
+    "x": 124,
+    "y": 99,
+    "w": 8,
+    "h": 8
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 8,
+    "h": 8
+   },
+   "sourceSize": {
+    "w": 8,
+    "h": 8
+   },
+   "anchor": {
+    "x": 3.75,
+    "y": 11.5
+   }
+  },
+  "sinterklaas/surprise/big": {
+   "frame": {
+    "x": 111,
+    "y": 90,
+    "w": 12,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 12,
+    "h": 10
+   },
+   "anchor": {
+    "x": 1.8333333333333333,
+    "y": 9.9
+   }
+  },
+  "sinterklaas/flags/corner-l": {
+   "frame": {
+    "x": 42,
+    "y": 0,
+    "w": 32,
+    "h": 23
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 23
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 23
+   },
+   "anchor": {
+    "x": 1,
+    "y": 9.478260869565217
+   }
+  },
+  "sinterklaas/flags/corner-r": {
+   "frame": {
+    "x": 75,
+    "y": 0,
+    "w": 32,
+    "h": 23
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 23
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 23
+   },
+   "anchor": {
+    "x": 0,
+    "y": 9.478260869565217
+   }
+  },
+  "sinterklaas/pepernoot/0": {
+   "frame": {
+    "x": 124,
+    "y": 90,
+    "w": 8,
+    "h": 8
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 8,
+    "h": 8
+   },
+   "sourceSize": {
+    "w": 8,
+    "h": 8
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sinterklaas/pepernoot/1": {
+   "frame": {
+    "x": 133,
+    "y": 90,
+    "w": 8,
+    "h": 8
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 8,
+    "h": 8
+   },
+   "sourceSize": {
+    "w": 8,
+    "h": 8
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "sinterklaas/hat/juno/idle/se/0": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/juno/idle/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/breathe/juno/idle/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.7142857142857144
+   }
+  },
+  "sinterklaas/hat/wave/juno/idle/se/0": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/wave/juno/idle/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/cheer/juno/idle/se/0": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/cheer/juno/idle/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/yawn/juno/idle/se/0": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/yawn/juno/idle/se/1": {
+   "frame": {
+    "x": 62,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/juno/idle/sw/0": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/juno/idle/sw/1": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/breathe/juno/idle/sw/1": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.7142857142857144
+   }
+  },
+  "sinterklaas/hat/wave/juno/idle/sw/0": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/wave/juno/idle/sw/1": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/cheer/juno/idle/sw/0": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/cheer/juno/idle/sw/1": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/yawn/juno/idle/sw/0": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/yawn/juno/idle/sw/1": {
+   "frame": {
+    "x": 102,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/juno/idle/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/juno/idle/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/breathe/juno/idle/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.7142857142857144
+   }
+  },
+  "sinterklaas/hat/wave/juno/idle/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/wave/juno/idle/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/cheer/juno/idle/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/cheer/juno/idle/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/yawn/juno/idle/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/yawn/juno/idle/ne/1": {
+   "frame": {
+    "x": 0,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/juno/idle/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/juno/idle/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/breathe/juno/idle/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.7142857142857144
+   }
+  },
+  "sinterklaas/hat/wave/juno/idle/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/wave/juno/idle/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/cheer/juno/idle/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/cheer/juno/idle/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/yawn/juno/idle/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/yawn/juno/idle/nw/1": {
+   "frame": {
+    "x": 142,
+    "y": 89,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/juno/sit/se/0": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/juno/sit/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/breathe/juno/sit/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.619047619047619
+   }
+  },
+  "sinterklaas/hat/wave/juno/sit/se/0": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/wave/juno/sit/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/cheer/juno/sit/se/0": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/cheer/juno/sit/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/yawn/juno/sit/se/0": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/yawn/juno/sit/se/1": {
+   "frame": {
+    "x": 62,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.5714285714285716
+   }
+  },
+  "sinterklaas/hat/juno/sit/sw/0": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/juno/sit/sw/1": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/breathe/juno/sit/sw/1": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.619047619047619
+   }
+  },
+  "sinterklaas/hat/wave/juno/sit/sw/0": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/wave/juno/sit/sw/1": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/cheer/juno/sit/sw/0": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/cheer/juno/sit/sw/1": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/yawn/juno/sit/sw/0": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/yawn/juno/sit/sw/1": {
+   "frame": {
+    "x": 102,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.5714285714285716
+   }
+  },
+  "sinterklaas/hat/juno/sit/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/juno/sit/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/breathe/juno/sit/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.619047619047619
+   }
+  },
+  "sinterklaas/hat/wave/juno/sit/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/wave/juno/sit/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/cheer/juno/sit/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/cheer/juno/sit/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/yawn/juno/sit/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/yawn/juno/sit/ne/1": {
+   "frame": {
+    "x": 0,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.5714285714285716
+   }
+  },
+  "sinterklaas/hat/juno/sit/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/juno/sit/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/breathe/juno/sit/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.619047619047619
+   }
+  },
+  "sinterklaas/hat/wave/juno/sit/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/wave/juno/sit/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/cheer/juno/sit/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/cheer/juno/sit/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/yawn/juno/sit/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.6666666666666665
+   }
+  },
+  "sinterklaas/hat/yawn/juno/sit/nw/1": {
+   "frame": {
+    "x": 142,
+    "y": 89,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.5714285714285716
+   }
+  },
+  "sinterklaas/hat/walk/juno/se/0": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk/juno/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk/juno/se/2": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk/juno/se/3": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk8/juno/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk8/juno/se/3": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk8/juno/se/5": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk8/juno/se/7": {
+   "frame": {
+    "x": 42,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk/juno/sw/0": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk/juno/sw/1": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk/juno/sw/2": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk/juno/sw/3": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk8/juno/sw/1": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk8/juno/sw/3": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk8/juno/sw/5": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk8/juno/sw/7": {
+   "frame": {
+    "x": 82,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk/juno/ne/0": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk/juno/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk/juno/ne/2": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk/juno/ne/3": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk8/juno/ne/1": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk8/juno/ne/3": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk8/juno/ne/5": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk8/juno/ne/7": {
+   "frame": {
+    "x": 122,
+    "y": 68,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.47368421052631576,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk/juno/nw/0": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk/juno/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk/juno/nw/2": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk/juno/nw/3": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk8/juno/nw/1": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk8/juno/nw/3": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/walk8/juno/nw/5": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.761904761904762
+   }
+  },
+  "sinterklaas/hat/walk8/juno/nw/7": {
+   "frame": {
+    "x": 20,
+    "y": 88,
+    "w": 19,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 19,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 19,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.5263157894736842,
+    "y": 2.8095238095238093
+   }
+  },
+  "sinterklaas/hat/pip/idle/se/0": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/pip/idle/se/1": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/breathe/pip/idle/se/1": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.409090909090909
+   }
+  },
+  "sinterklaas/hat/wave/pip/idle/se/0": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/wave/pip/idle/se/1": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/cheer/pip/idle/se/0": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/cheer/pip/idle/se/1": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/yawn/pip/idle/se/0": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/yawn/pip/idle/se/1": {
+   "frame": {
+    "x": 132,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/pip/idle/sw/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/pip/idle/sw/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/breathe/pip/idle/sw/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.409090909090909
+   }
+  },
+  "sinterklaas/hat/wave/pip/idle/sw/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/wave/pip/idle/sw/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/cheer/pip/idle/sw/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/cheer/pip/idle/sw/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/yawn/pip/idle/sw/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/yawn/pip/idle/sw/1": {
+   "frame": {
+    "x": 132,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/pip/idle/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/pip/idle/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/breathe/pip/idle/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.409090909090909
+   }
+  },
+  "sinterklaas/hat/wave/pip/idle/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/wave/pip/idle/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/cheer/pip/idle/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/cheer/pip/idle/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/yawn/pip/idle/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/yawn/pip/idle/ne/1": {
+   "frame": {
+    "x": 180,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/pip/idle/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/pip/idle/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/breathe/pip/idle/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.409090909090909
+   }
+  },
+  "sinterklaas/hat/wave/pip/idle/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/wave/pip/idle/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/cheer/pip/idle/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/cheer/pip/idle/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/yawn/pip/idle/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/yawn/pip/idle/nw/1": {
+   "frame": {
+    "x": 228,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/pip/sit/se/0": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/pip/sit/se/1": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/breathe/pip/sit/se/1": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3181818181818183
+   }
+  },
+  "sinterklaas/hat/wave/pip/sit/se/0": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/wave/pip/sit/se/1": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/cheer/pip/sit/se/0": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/cheer/pip/sit/se/1": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/yawn/pip/sit/se/0": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/yawn/pip/sit/se/1": {
+   "frame": {
+    "x": 132,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.272727272727273
+   }
+  },
+  "sinterklaas/hat/pip/sit/sw/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/pip/sit/sw/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/breathe/pip/sit/sw/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3181818181818183
+   }
+  },
+  "sinterklaas/hat/wave/pip/sit/sw/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/wave/pip/sit/sw/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/cheer/pip/sit/sw/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/cheer/pip/sit/sw/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/yawn/pip/sit/sw/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/yawn/pip/sit/sw/1": {
+   "frame": {
+    "x": 132,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.272727272727273
+   }
+  },
+  "sinterklaas/hat/pip/sit/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/pip/sit/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/breathe/pip/sit/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3181818181818183
+   }
+  },
+  "sinterklaas/hat/wave/pip/sit/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/wave/pip/sit/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/cheer/pip/sit/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/cheer/pip/sit/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/yawn/pip/sit/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/yawn/pip/sit/ne/1": {
+   "frame": {
+    "x": 180,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.272727272727273
+   }
+  },
+  "sinterklaas/hat/pip/sit/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/pip/sit/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/breathe/pip/sit/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3181818181818183
+   }
+  },
+  "sinterklaas/hat/wave/pip/sit/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/wave/pip/sit/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/cheer/pip/sit/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/cheer/pip/sit/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/yawn/pip/sit/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.3636363636363638
+   }
+  },
+  "sinterklaas/hat/yawn/pip/sit/nw/1": {
+   "frame": {
+    "x": 228,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.272727272727273
+   }
+  },
+  "sinterklaas/hat/walk/pip/se/0": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk/pip/se/1": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk/pip/se/2": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk/pip/se/3": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk8/pip/se/1": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk8/pip/se/3": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk8/pip/se/5": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk8/pip/se/7": {
+   "frame": {
+    "x": 108,
+    "y": 23,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk/pip/sw/0": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk/pip/sw/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk/pip/sw/2": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk/pip/sw/3": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk8/pip/sw/1": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk8/pip/sw/3": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk8/pip/sw/5": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk8/pip/sw/7": {
+   "frame": {
+    "x": 108,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk/pip/ne/0": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk/pip/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk/pip/ne/2": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk/pip/ne/3": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk8/pip/ne/1": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk8/pip/ne/3": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk8/pip/ne/5": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk8/pip/ne/7": {
+   "frame": {
+    "x": 156,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.4782608695652174,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk/pip/nw/0": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk/pip/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk/pip/nw/2": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk/pip/nw/3": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk8/pip/nw/1": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk8/pip/nw/3": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/walk8/pip/nw/5": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.4545454545454546
+   }
+  },
+  "sinterklaas/hat/walk8/pip/nw/7": {
+   "frame": {
+    "x": 204,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 23,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 23,
+    "h": 22
+   },
+   "anchor": {
+    "x": 0.5217391304347826,
+    "y": 2.5
+   }
+  },
+  "sinterklaas/hat/mo/idle/se/0": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/mo/idle/se/1": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/breathe/mo/idle/se/1": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4285714285714284
+   }
+  },
+  "sinterklaas/hat/wave/mo/idle/se/0": {
+   "frame": {
+    "x": 182,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/wave/mo/idle/se/1": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/cheer/mo/idle/se/0": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/cheer/mo/idle/se/1": {
+   "frame": {
+    "x": 208,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/yawn/mo/idle/se/0": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/yawn/mo/idle/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/mo/idle/sw/0": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/mo/idle/sw/1": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/breathe/mo/idle/sw/1": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4285714285714284
+   }
+  },
+  "sinterklaas/hat/wave/mo/idle/sw/0": {
+   "frame": {
+    "x": 156,
+    "y": 45,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/wave/mo/idle/sw/1": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/cheer/mo/idle/sw/0": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/cheer/mo/idle/sw/1": {
+   "frame": {
+    "x": 182,
+    "y": 45,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/yawn/mo/idle/sw/0": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/yawn/mo/idle/sw/1": {
+   "frame": {
+    "x": 208,
+    "y": 45,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/mo/idle/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/mo/idle/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/breathe/mo/idle/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4285714285714284
+   }
+  },
+  "sinterklaas/hat/wave/mo/idle/ne/0": {
+   "frame": {
+    "x": 68,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/wave/mo/idle/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/cheer/mo/idle/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/cheer/mo/idle/ne/1": {
+   "frame": {
+    "x": 94,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/yawn/mo/idle/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/yawn/mo/idle/ne/1": {
+   "frame": {
+    "x": 120,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/mo/idle/nw/0": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/mo/idle/nw/1": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/breathe/mo/idle/nw/1": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4285714285714284
+   }
+  },
+  "sinterklaas/hat/wave/mo/idle/nw/0": {
+   "frame": {
+    "x": 172,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/wave/mo/idle/nw/1": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/cheer/mo/idle/nw/0": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/cheer/mo/idle/nw/1": {
+   "frame": {
+    "x": 198,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/yawn/mo/idle/nw/0": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/yawn/mo/idle/nw/1": {
+   "frame": {
+    "x": 224,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/mo/sit/se/0": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/mo/sit/se/1": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/breathe/mo/sit/se/1": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.3333333333333335
+   }
+  },
+  "sinterklaas/hat/wave/mo/sit/se/0": {
+   "frame": {
+    "x": 182,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/wave/mo/sit/se/1": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/cheer/mo/sit/se/0": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/cheer/mo/sit/se/1": {
+   "frame": {
+    "x": 208,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/yawn/mo/sit/se/0": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/yawn/mo/sit/se/1": {
+   "frame": {
+    "x": 42,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.2857142857142856
+   }
+  },
+  "sinterklaas/hat/mo/sit/sw/0": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/mo/sit/sw/1": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/breathe/mo/sit/sw/1": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.3333333333333335
+   }
+  },
+  "sinterklaas/hat/wave/mo/sit/sw/0": {
+   "frame": {
+    "x": 156,
+    "y": 45,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/wave/mo/sit/sw/1": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/cheer/mo/sit/sw/0": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/cheer/mo/sit/sw/1": {
+   "frame": {
+    "x": 182,
+    "y": 45,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/yawn/mo/sit/sw/0": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/yawn/mo/sit/sw/1": {
+   "frame": {
+    "x": 208,
+    "y": 45,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.2857142857142856
+   }
+  },
+  "sinterklaas/hat/mo/sit/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/mo/sit/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/breathe/mo/sit/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.3333333333333335
+   }
+  },
+  "sinterklaas/hat/wave/mo/sit/ne/0": {
+   "frame": {
+    "x": 68,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/wave/mo/sit/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/cheer/mo/sit/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/cheer/mo/sit/ne/1": {
+   "frame": {
+    "x": 94,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/yawn/mo/sit/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/yawn/mo/sit/ne/1": {
+   "frame": {
+    "x": 120,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.2857142857142856
+   }
+  },
+  "sinterklaas/hat/mo/sit/nw/0": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/mo/sit/nw/1": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/breathe/mo/sit/nw/1": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.3333333333333335
+   }
+  },
+  "sinterklaas/hat/wave/mo/sit/nw/0": {
+   "frame": {
+    "x": 172,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/wave/mo/sit/nw/1": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/cheer/mo/sit/nw/0": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/cheer/mo/sit/nw/1": {
+   "frame": {
+    "x": 198,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/yawn/mo/sit/nw/0": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.380952380952381
+   }
+  },
+  "sinterklaas/hat/yawn/mo/sit/nw/1": {
+   "frame": {
+    "x": 224,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.2857142857142856
+   }
+  },
+  "sinterklaas/hat/walk/mo/se/0": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk/mo/se/1": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk/mo/se/2": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk/mo/se/3": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk8/mo/se/1": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk8/mo/se/3": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk8/mo/se/5": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk8/mo/se/7": {
+   "frame": {
+    "x": 156,
+    "y": 23,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk/mo/sw/0": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk/mo/sw/1": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk/mo/sw/2": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk/mo/sw/3": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk8/mo/sw/1": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk8/mo/sw/3": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk8/mo/sw/5": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk8/mo/sw/7": {
+   "frame": {
+    "x": 68,
+    "y": 24,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk/mo/ne/0": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk/mo/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk/mo/ne/2": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk/mo/ne/3": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk8/mo/ne/1": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk8/mo/ne/3": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk8/mo/ne/5": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk8/mo/ne/7": {
+   "frame": {
+    "x": 42,
+    "y": 46,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.48,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk/mo/nw/0": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk/mo/nw/1": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk/mo/nw/2": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk/mo/nw/3": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk8/mo/nw/1": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk8/mo/nw/3": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/walk8/mo/nw/5": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.4761904761904763
+   }
+  },
+  "sinterklaas/hat/walk8/mo/nw/7": {
+   "frame": {
+    "x": 146,
+    "y": 67,
+    "w": 25,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 25,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 25,
+    "h": 21
+   },
+   "anchor": {
+    "x": 0.52,
+    "y": 2.5238095238095237
+   }
+  },
+  "sinterklaas/hat/kiki/idle/se/0": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/kiki/idle/se/1": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/breathe/kiki/idle/se/1": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.7
+   }
+  },
+  "sinterklaas/hat/wave/kiki/idle/se/0": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/wave/kiki/idle/se/1": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/idle/se/0": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/idle/se/1": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/idle/se/0": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/idle/se/1": {
+   "frame": {
+    "x": 180,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/kiki/idle/sw/0": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/kiki/idle/sw/1": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/breathe/kiki/idle/sw/1": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.7
+   }
+  },
+  "sinterklaas/hat/wave/kiki/idle/sw/0": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/wave/kiki/idle/sw/1": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/idle/sw/0": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/idle/sw/1": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/idle/sw/0": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/idle/sw/1": {
+   "frame": {
+    "x": 216,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/kiki/idle/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/kiki/idle/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/breathe/kiki/idle/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.7
+   }
+  },
+  "sinterklaas/hat/wave/kiki/idle/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/wave/kiki/idle/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/idle/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/idle/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/idle/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/idle/ne/1": {
+   "frame": {
+    "x": 40,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/kiki/idle/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/kiki/idle/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/breathe/kiki/idle/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.7
+   }
+  },
+  "sinterklaas/hat/wave/kiki/idle/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/wave/kiki/idle/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/idle/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/idle/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/idle/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/idle/nw/1": {
+   "frame": {
+    "x": 76,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/kiki/sit/se/0": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/kiki/sit/se/1": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/breathe/kiki/sit/se/1": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.6
+   }
+  },
+  "sinterklaas/hat/wave/kiki/sit/se/0": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/wave/kiki/sit/se/1": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/sit/se/0": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/sit/se/1": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/sit/se/0": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/sit/se/1": {
+   "frame": {
+    "x": 180,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.55
+   }
+  },
+  "sinterklaas/hat/kiki/sit/sw/0": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/kiki/sit/sw/1": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/breathe/kiki/sit/sw/1": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.6
+   }
+  },
+  "sinterklaas/hat/wave/kiki/sit/sw/0": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/wave/kiki/sit/sw/1": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/sit/sw/0": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/sit/sw/1": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/sit/sw/0": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/sit/sw/1": {
+   "frame": {
+    "x": 216,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.55
+   }
+  },
+  "sinterklaas/hat/kiki/sit/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/kiki/sit/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/breathe/kiki/sit/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.6
+   }
+  },
+  "sinterklaas/hat/wave/kiki/sit/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/wave/kiki/sit/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/sit/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/sit/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/sit/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/sit/ne/1": {
+   "frame": {
+    "x": 40,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.55
+   }
+  },
+  "sinterklaas/hat/kiki/sit/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/kiki/sit/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/breathe/kiki/sit/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.6
+   }
+  },
+  "sinterklaas/hat/wave/kiki/sit/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/wave/kiki/sit/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/sit/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/cheer/kiki/sit/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/sit/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.65
+   }
+  },
+  "sinterklaas/hat/yawn/kiki/sit/nw/1": {
+   "frame": {
+    "x": 76,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.55
+   }
+  },
+  "sinterklaas/hat/walk/kiki/se/0": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk/kiki/se/1": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk/kiki/se/2": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk/kiki/se/3": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/se/1": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/se/3": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/se/5": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/se/7": {
+   "frame": {
+    "x": 162,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk/kiki/sw/0": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk/kiki/sw/1": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk/kiki/sw/2": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk/kiki/sw/3": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/sw/1": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/sw/3": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/sw/5": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/sw/7": {
+   "frame": {
+    "x": 198,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk/kiki/ne/0": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk/kiki/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk/kiki/ne/2": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk/kiki/ne/3": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/ne/1": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/ne/3": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/ne/5": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/ne/7": {
+   "frame": {
+    "x": 234,
+    "y": 89,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.47058823529411764,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk/kiki/nw/0": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk/kiki/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk/kiki/nw/2": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk/kiki/nw/3": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/nw/1": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/nw/3": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.8
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/nw/5": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.75
+   }
+  },
+  "sinterklaas/hat/walk8/kiki/nw/7": {
+   "frame": {
+    "x": 58,
+    "y": 90,
+    "w": 17,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 17,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 17,
+    "h": 20
+   },
+   "anchor": {
+    "x": 0.5294117647058824,
+    "y": 2.8
+   }
+  }
+ },
+ "animations": {
+  "sinterklaas/pepernoot": [
+   "sinterklaas/pepernoot/0",
+   "sinterklaas/pepernoot/1"
+  ]
+ },
+ "meta": {
+  "app": "omega-share assets/src/build.ts",
+  "version": "1",
+  "image": "sinterklaas.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 256,
+   "h": 128
+  },
+  "scale": "1",
+  "omega": {
+   "license": "CC-BY-SA-4.0",
+   "theme": "sinterklaas",
+   "period": {
+    "from": "11-14",
+    "to": "12-06"
+   },
+   "decor": [
+    {
+     "key": "sinterklaas/window/0",
+     "on": "wall/l/window0"
+    },
+    {
+     "key": "sinterklaas/window/1",
+     "on": "wall/l/window1"
+    },
+    {
+     "key": "sinterklaas/shoe",
+     "on": "wall/l/window0"
+    },
+    {
+     "key": "sinterklaas/surprise/small",
+     "on": "wall/l/window0"
+    },
+    {
+     "key": "sinterklaas/surprise/big",
+     "on": "wall/l/window1"
+    },
+    {
+     "key": "sinterklaas/flags/corner-l",
+     "on": "wall/corner"
+    },
+    {
+     "key": "sinterklaas/flags/corner-r",
+     "on": "wall/corner"
+    }
+   ],
+   "effect": {
+    "frames": [
+     "sinterklaas/pepernoot/0",
+     "sinterklaas/pepernoot/1"
+    ],
+    "ms": 160,
+    "max": 20,
+    "layer": "behind-avatars",
+    "motion": "fall"
+   },
+   "hat": {
+    "prefix": "sinterklaas/hat/",
+    "count": 416,
+    "rects": 40,
+    "replaces": true
+   }
+  }
+ }
+}
