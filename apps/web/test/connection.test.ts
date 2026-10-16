@@ -742,6 +742,34 @@ describe("durable sessions (ADR 0043)", () => {
     expect(retryTimers()).toHaveLength(1);
   });
 
+  test("probe (window online, OME-1248): a pending network-drop backoff is cut and the socket opens now", () => {
+    const c = durable();
+    last().open();
+    last().receive(snapshot);
+    last().drop();
+    expect(retryTimers()).toHaveLength(1);
+    c.ensureConnected({ probe: true });
+    expect(sockets).toHaveLength(2);
+    expect(retryTimers()).toHaveLength(0);
+    c.ensureConnected({ probe: true });
+    expect(sockets).toHaveLength(2);
+  });
+
+  test("probe leaves a server-paced retry alone: 4029 and rate_limited still wait", () => {
+    const c = durable();
+    last().open();
+    last().receive(snapshot);
+    last().drop(CLOSE_CODES.RATE_LIMITED);
+    c.ensureConnected({ probe: true });
+    expect(sockets).toHaveLength(1);
+    runRetry();
+    last().open();
+    last().receive({ type: "error", code: "rate_limited", message: "x", retryAfterMs: 4000 });
+    c.ensureConnected({ probe: true });
+    expect(sockets).toHaveLength(2);
+    expect(retryTimers()).toHaveLength(1);
+  });
+
   test("probe: silence on an open socket is closed and reconnected; any message cancels the probe", () => {
     const c = durable();
     last().open();

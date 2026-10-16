@@ -52,6 +52,7 @@ export const SPEC_ROOMS = {
   theme: ["desk", "phone", "reduced", "off"],
   targets: ["desk", "touch"],
   "a11y-presence": ["join", "tv"],
+  reconnect: ["main"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

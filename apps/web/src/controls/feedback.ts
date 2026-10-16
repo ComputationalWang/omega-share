@@ -36,7 +36,7 @@ export function refusalCard(r: Refusal): RefusalCard {
 }
 
 export interface ChatView {
-  /** The server said `rate_limited`: hold chat until its `retryAfterMs` is up. */
+  /** Send is held: the server said `rate_limited` (until its `retryAfterMs` is up), or the socket is down (OME-1248). */
   readonly cooling: boolean;
   /** The owner muted my chat (ADR 0030): the field is a read-only well that says so, and Send is held. */
   readonly muted: boolean;
@@ -45,10 +45,13 @@ export interface ChatView {
 
 const OPEN: ChatView = { cooling: false, muted: false, placeholder: "Say something…" };
 const COOLING: ChatView = { cooling: true, muted: false, placeholder: "Slow down a moment…" };
+const OFFLINE: ChatView = { cooling: true, muted: false, placeholder: "Not connected" };
 const MUTED: ChatView = { cooling: true, muted: true, placeholder: "The host muted your chat" };
 
 export function chatView(state: ViewState, now: number): ChatView {
   if (state.self !== null && isMuted(state, state.self)) return MUTED;
+  // The text stays in the field until the rejoin; a send now would be dropped without a word.
+  if (state.status !== "open") return OFFLINE;
   return coolingDown(state, now) ? COOLING : OPEN;
 }
 
