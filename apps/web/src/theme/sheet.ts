@@ -4,7 +4,7 @@ import * as v from "valibot";
 import type { Texture } from "pixi.js";
 import { loadSheet } from "../atlas-sheet";
 import { MOTIONS, type ThemeAtlas } from "./atlas";
-import { MAX_EFFECT_SPRITES } from "./effect";
+import { MAX_EFFECT_SPRITES, packEffectFrames } from "./effect";
 import type { ThemeId } from "./periods";
 
 const XY = v.object({ x: v.number(), y: v.number() });
@@ -35,13 +35,23 @@ export async function loadThemeSheet(id: ThemeId, json: unknown, pngUrl: string)
     const f = m.frames[k];
     return f === undefined ? [] : [{ sx: f.frame.x, sy: f.frame.y, w: f.frame.w, h: f.frame.h, ox: Math.round(f.anchor.x * f.frame.w), oy: Math.round(f.anchor.y * f.frame.h) }];
   });
+  // The effect's own canvas, like the placeholder's: the painter never draws from the <img> (QA OME-1223).
+  const packed = packEffectFrames(frames);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, packed.w);
+  canvas.height = Math.max(1, packed.h);
+  const g = canvas.getContext("2d");
+  packed.frames.forEach((p, i) => {
+    const f = frames[i];
+    if (g !== null && f !== undefined) g.drawImage(sheet.image, f.sx, f.sy, f.w, f.h, p.sx, 0, f.w, f.h);
+  });
   /** Per avatar frame key: its hat (or none). Filled once per key, so a walking frame never builds a string. */
   const hats = new Map<string, Texture | null>();
   return {
     ...sheet,
     id,
     decor,
-    effect: { image: sheet.image, frames, ms: effect.ms, max: Math.min(effect.max, MAX_EFFECT_SPRITES), motion: MOTIONS[id] },
+    effect: { image: canvas, frames: packed.frames, ms: effect.ms, max: Math.min(effect.max, MAX_EFFECT_SPRITES), motion: MOTIONS[id] },
     hat(frame) {
       let t = hats.get(frame);
       if (t === undefined) {
