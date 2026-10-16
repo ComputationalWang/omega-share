@@ -61,7 +61,10 @@ test("a hidden room tab counts others' chat in its title, not mine or system lin
 
   // Visible: nothing counts.
   await say(b.page, "while you look");
-  await expect(a.page.locator(site.chatLogLine)).toHaveCount(1);
+  // B's join line may land in A's log too (OME-1246), depending on who was up first: count only the chat line, and
+  // from here on count lines relative to what is there now (the join, if any, came before B's first line).
+  await expect(a.page.locator(site.chatLogLine).filter({ hasText: "while you look" })).toHaveCount(1);
+  const lines = await a.page.locator(site.chatLogLine).count();
   await expect(a.page).toHaveTitle(base);
 
   await setHidden(a.page, true);
@@ -71,9 +74,9 @@ test("a hidden room tab counts others' chat in its title, not mine or system lin
   await expect(a.page).toHaveTitle(`(2) ${base}`);
   // My own line and a system line (b leaves) don't count.
   await say(a.page, "mine");
-  await expect(a.page.locator(site.chatLogLine)).toHaveCount(4);
+  await expect(a.page.locator(site.chatLogLine)).toHaveCount(lines + 3);
   await b.context.close();
-  await expect(a.page.locator(site.chatLogLine)).toHaveCount(5);
+  await expect(a.page.locator(site.chatLogLine)).toHaveCount(lines + 4);
   await expect(a.page).toHaveTitle(`(2) ${base}`);
 
   await setHidden(a.page, false);
