@@ -116,7 +116,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     },
   });
   const writeText = (t: string): Promise<void> => ("clipboard" in navigator ? navigator.clipboard.writeText(t) : Promise.reject(new Error("no clipboard")));
-  const invite = createInviteControl(inviteLink(opts.origin, opts.roomId, opts.secret?.inviteKey), opts.secret?.inviteKey !== undefined, writeText);
+  const { root: invite, stop: stopInvite } = createInviteControl(inviteLink(opts.origin, opts.roomId, opts.secret?.inviteKey), opts.secret?.inviteKey !== undefined, writeText);
   invite.hidden = true;
 
   // The TV and its control bar sit above the scaled stage, unscaled, so the player keeps
@@ -769,6 +769,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     relay?.close();
     c.close();
     clock.stop();
+    stopInvite();
   });
   window.addEventListener("pageshow", (ev) => {
     if (!ev.persisted) return;
