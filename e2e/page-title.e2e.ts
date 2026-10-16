@@ -61,7 +61,8 @@ test("a hidden room tab counts others' chat in its title, not mine or system lin
 
   // Visible: nothing counts.
   await say(b.page, "while you look");
-  await expect(a.page.locator(site.chatLogLine)).toHaveCount(1);
+  // B's join line may land in A's log too (OME-1246), depending on who was up first: count only the chat line.
+  await expect(a.page.locator(site.chatLogLine).filter({ hasText: "while you look" })).toHaveCount(1);
   await expect(a.page).toHaveTitle(base);
 
   await setHidden(a.page, true);
