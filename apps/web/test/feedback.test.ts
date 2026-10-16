@@ -48,6 +48,12 @@ describe("chatView", () => {
     expect(chatView(s, 1500)).toEqual({ cooling: true, muted: false, placeholder: "Slow down a moment…" });
     expect(chatView(s, 3000)).toEqual({ cooling: false, muted: false, placeholder: "Say something…" });
   });
+
+  test("while reconnecting (OME-1248): Send is held and the text waits in the field", () => {
+    const dropped = reduce(open, { type: "disconnected" });
+    expect(chatView(dropped, 0)).toEqual({ cooling: true, muted: false, placeholder: "Not connected" });
+    expect(chatView(reduce(dropped, { type: "connecting" }), 0)).toEqual({ cooling: true, muted: false, placeholder: "Not connected" });
+  });
 });
 
 describe("chatView: muted by the host (ADR 0030)", () => {

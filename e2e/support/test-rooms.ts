@@ -51,6 +51,7 @@ export const SPEC_ROOMS = {
   furniture: ["v2seats", "v2benches"],
   theme: ["desk", "phone", "reduced", "off"],
   "a11y-presence": ["join", "tv"],
+  reconnect: ["main"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
