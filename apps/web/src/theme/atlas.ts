@@ -41,17 +41,27 @@ export const MOTIONS: Readonly<Record<ThemeId, EffectMotion>> = {
   easter: { area: BAND, vx: [14, 28], vy: [8, 18], flipX: true },
 };
 
+/** Each theme's sheet folder under assets/themes (Valentine's is plural there). */
+const SHEET_DIRS: Readonly<Record<ThemeId, string>> = { halloween: "halloween", sinterklaas: "sinterklaas", christmas: "christmas", valentine: "valentines", easter: "easter" };
+
 /** Load once per theme; a failed load is forgotten so a later room can retry. */
 const loading = new Map<ThemeId, Promise<ThemeAtlas>>();
 
 export function loadTheme(id: ThemeId): Promise<ThemeAtlas> {
   let p = loading.get(id);
   if (p === undefined) {
-    // shortcut: four themes draw placeholder rects until their art lands (plan OME-1140 issue E); each then gets its own module like halloween.ts.
-    p = (id === "halloween" ? import("./halloween").then((m) => m.loadHalloween()) : import("./placeholder").then((m) => m.loadPlaceholder(id))).catch((e: unknown) => {
-      loading.delete(id);
-      throw e;
-    });
+    // Lazy globs: every theme's manifest and PNG URL is its own chunk, fetched only for the theme shown.
+    const jsons = import.meta.glob<unknown>("../../../../assets/themes/*/*.json", { import: "default" });
+    const pngs = import.meta.glob<string>("../../../../assets/themes/*/*.png", { query: "?url", import: "default" });
+    const base = `../../../../assets/themes/${SHEET_DIRS[id]}/${SHEET_DIRS[id]}`;
+    const json = jsons[`${base}.json`];
+    const png = pngs[`${base}.png`];
+    p = (json === undefined || png === undefined ? Promise.reject(new Error(`no sheet for theme ${id}`)) : Promise.all([json(), png(), import("./sheet")]).then(([j, url, m]) => m.loadThemeSheet(id, j, url))).catch(
+      (e: unknown) => {
+        loading.delete(id);
+        throw e;
+      },
+    );
     loading.set(id, p);
   }
   return p;

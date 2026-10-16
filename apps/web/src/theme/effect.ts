@@ -161,3 +161,17 @@ export function effectBounds(motion: EffectMotion, frames: readonly EffectFrame[
   const { area } = motion;
   return { x: Math.floor(area.x) - pad, y: Math.floor(area.y) - pad, w: Math.ceil(area.w) + 2 * pad, h: Math.ceil(area.h) + 2 * pad };
 }
+
+/**
+ * The effect frames side by side on their own small canvas, top-aligned. The painter draws from that canvas: drawing
+ * from the sheet's <img> cost a phone ~50 µs per particle a frame (QA OME-1223: Christmas's 40 flakes, +2 ms work).
+ */
+export function packEffectFrames(frames: readonly EffectFrame[]): { w: number; h: number; frames: EffectFrame[] } {
+  let x = 0;
+  const packed = frames.map((f) => {
+    const p = { ...f, sx: x, sy: 0 };
+    x += f.w;
+    return p;
+  });
+  return { w: x, h: frames.reduce((m, f) => Math.max(m, f.h), 0), frames: packed };
+}
