@@ -26,7 +26,7 @@
 .generic-strip { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; font-size: 0.8em; color: var(--muted); }
 .generic-label { padding: 2px 8px; border: 1px solid currentColor; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; white-space: nowrap; }
 .generic-hint { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.generic-strip-unlock { min-width: 0; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--accent); color: #1d1a2b; font: inherit; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.generic-strip-unlock { min-width: 0; min-height: 24px; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--accent); color: #1d1a2b; font: inherit; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .generic-strip-unlock:disabled { opacity: 0.6; }
 .overlay, .tags, .bubbles { position: absolute; inset: 0; pointer-events: none; }
 /* A seat is the 52×26 floor diamond: a 26√2 square turned 45° and squashed to half height (stage.ts places it with the
@@ -142,6 +142,11 @@
 
 /* Owner moderation (ADR 0030, set j "house rules"). The menu hangs over the member's name tag with its tail on it. */
 .tags.pickable .tag:not(.self) { pointer-events: auto; cursor: pointer; }
+/* WCAG 2.5.8 (OME-1239): a 24×24 CSS px hit pad centred on each tag however the stage is shown. The desktop fit is
+ * --stage-scale (room-layout.ts); on the phone a tag is never shown below LABEL_MIN 0.85 (layout.ts labelScale), hence
+ * the 0.85. Pads come before every tag in .tags (stage.ts), so a drawn tag always wins over a neighbour's pad. */
+.tag-pad { display: none; }
+.tags.pickable .tag-pad:not(.self) { --hit: calc(24px / 0.85 / var(--stage-scale, 1)); display: block; position: absolute; left: 0; top: 0; width: var(--hit); height: var(--hit); transform: translate(-50%, calc(10px - 50%)); transform-origin: 0 0; pointer-events: auto; cursor: pointer; }
 .tags.pickable .tag:not(.self):focus-visible { outline: 1px solid var(--ui-text); outline-offset: 2px; }
 .tag-zip { flex: none; margin-left: 3px; }
 .mod-menu { position: absolute; left: 0; top: 0; translate: -50% -100%; z-index: 2; }
@@ -184,7 +189,7 @@
 .stage-clip.is-phone:has(:focus-visible) { outline: 2px solid var(--ui-text); outline-offset: -2px; }
 /* Zoomed out, names and bubbles stay readable (room-window.ts --label-scale, OME-1184): a tag grows around its anchor,
  * a bubble around its speaker's head (the motion wrapper sits on the slot's anchor; floats.ts `scale` places it). */
-.stage-clip.is-phone .tag, .stage-clip.is-phone .float-motion { transform-origin: 0 0; scale: var(--label-scale, 1); }
+.stage-clip.is-phone .tag, .stage-clip.is-phone .tag-pad, .stage-clip.is-phone .float-motion { transform-origin: 0 0; scale: var(--label-scale, 1); }
 /* Zoom keys (OME-1184), for people who can't pinch: a row in the window's bottom-right corner, 44×44 each. */
 .room-zoom { position: absolute; right: 4px; bottom: 4px; display: flex; gap: 4px; }
 .room-zoom > .ui-button { display: inline-flex; align-items: center; width: 44px; height: 44px; margin: 0; padding: 0; justify-content: center; font-size: 16px; font-weight: 700; }
@@ -194,6 +199,7 @@
 .ui-touch .chat, .ui-touch .invite { align-items: stretch; }
 .ui-touch .chat input, .ui-touch .chat > button:not(.ui-button), .ui-touch .invite input, .ui-touch .invite button, .ui-touch .queue-form .ui-input { min-height: 44px; }
 .ui-touch .invite button { min-width: 44px; }
+.ui-touch .generic-strip-unlock { min-height: 44px; }
 /* The seek and volume art stay as drawn; their transparent inputs grow to 44 px tall, centred on the track (whose padding box is ~0 tall). */
 .ui-touch .ui-seek input, .ui-touch .ui-vol-track input { top: 50%; bottom: auto; height: 44px; translate: 0 -50%; }
 .ui-touch .chat-log { max-height: 148px; }

@@ -176,6 +176,7 @@
         "e2e/room-view.e2e.ts",
         "e2e/rooms-web.e2e.ts",
         "e2e/source-link.e2e.ts",
+        "e2e/targets.e2e.ts",
         "e2e/theme.e2e.ts",
         "e2e/tv-frame.e2e.ts",
         "e2e/walk.e2e.ts",
