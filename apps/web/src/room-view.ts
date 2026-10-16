@@ -346,16 +346,26 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   let effectTicks = 0;
   let destroyed = false;
   const effectAllowed = (): boolean => !reduced.matches && (tier.smooth() || tier.probing());
+  /** At least half the effect's band is on screen. The phone's room window crops the back walls away, so the effect
+   * sleeps there until the room is zoomed out (QA OME-1216); an observer, so it costs nothing per frame. */
+  let inView = false;
+  const stopEffect = (): void => {
+    effectRunning = false;
+    painter?.clear();
+    fxCanvas.style.visibility = "hidden";
+  };
   const effectFrame = (t: number): void => {
     if (destroyed || paused || particles === null || painter === null) {
       effectRunning = false;
       return;
     }
+    if (!inView) {
+      stopEffect();
+      return;
+    }
     if (!effectAllowed()) {
       // shortcut: once off (reduced motion turned on, tier settled Basic) it stays off until the room is opened again.
-      effectRunning = false;
-      painter.clear();
-      fxCanvas.hidden = true;
+      stopEffect();
       return;
     }
     requestAnimationFrame(effectFrame);
@@ -367,17 +377,25 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     particles.step(Math.min(dt, 100));
     painter.paint(particles, Math.floor(t / effectMs));
     effectTicks++;
-    worstTick = Math.max(worstTick, performance.now() - start);
+    // The first ticks pay one-off costs (the sheet's first upload); the guard is for the steady state.
+    if (effectTicks > 3) worstTick = Math.max(worstTick, performance.now() - start);
   };
   const startEffect = (): void => {
-    if (effectRunning || paused || particles === null || !effectAllowed()) return;
+    if (effectRunning || paused || !inView || particles === null || !effectAllowed()) return;
     effectRunning = true;
-    // Put in the DOM only once an effect runs, right over the room canvas: an unthemed room's DOM is unchanged.
-    if (!fxCanvas.isConnected) app.canvas.after(fxCanvas);
-    fxCanvas.hidden = false;
+    fxCanvas.style.visibility = "visible";
     effectLast = performance.now();
     requestAnimationFrame(effectFrame);
   };
+  const fxObserver = new IntersectionObserver(
+    (entries) => {
+      const e = entries.at(-1);
+      if (e === undefined) return;
+      inView = e.intersectionRatio >= 0.5;
+      if (inView) startEffect();
+    },
+    { threshold: [0, 0.5, 1] },
+  );
   if (themeId !== null) {
     void import("./theme/atlas")
       .then((m) => m.loadTheme(themeId))
@@ -397,7 +415,13 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
           effectMs = t.effect.ms;
           particles = createParticles(t.effect.motion, t.effect.max, Math.random);
           painter = createEffectPainter({ ctx, image: t.effect.image, frames: t.effect.frames, origin: b });
-          startEffect();
+          if (effectAllowed()) {
+            // In the DOM only for an effect, right over the room canvas: an unthemed room's DOM is unchanged. Hidden
+            // with visibility, not display, so the observer can still see where it is.
+            fxCanvas.style.visibility = "hidden";
+            app.canvas.after(fxCanvas);
+            fxObserver.observe(fxCanvas);
+          }
         }
         render();
       })
@@ -537,6 +561,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     theme: () => ({ id: themeId, decor: decorLayer.children.length, hats: hatsShown, effect: effectRunning ? (particles?.count ?? 0) : 0, ticks: effectTicks, worstTickMs: worstTick }),
     destroy() {
       destroyed = true;
+      fxObserver.disconnect();
       fxCanvas.remove();
       animator.dispose();
       app.destroy(true, { children: true });
