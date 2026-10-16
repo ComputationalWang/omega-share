@@ -42,8 +42,8 @@ test("chat lands in everyone's log with the sender's name; mine is marked; the b
   await say(a.page, "hello <b>there</b>");
   await say(b.page, "hi back");
   for (const c of clients) {
-    await expect(c.page.locator(site.chatLogLine)).toHaveText(["cl-1 hello <b>there</b>", "cl-2 hi back"]);
-    await expect(c.page.locator(`${site.chatLogLine} b`)).toHaveText(["cl-1", "cl-2"]);
+    await expect(c.page.locator(site.chatLogLine).filter({ hasNotText: "joined the room" })).toHaveText(["cl-1 hello <b>there</b>", "cl-2 hi back"]);
+    await expect(c.page.locator(site.chatLogLine).filter({ hasNotText: "joined the room" }).locator("b")).toHaveText(["cl-1", "cl-2"]);
   }
   await expect(a.page.locator(`${site.chatLogLine}.self`)).toHaveText(["cl-1 hello <b>there</b>"]);
   await expect(b.page.locator(`${site.chatLogLine}.self`)).toHaveText(["cl-2 hi back"]);

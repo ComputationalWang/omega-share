@@ -64,6 +64,14 @@ describe("logEntries", () => {
     expect(step(joined(), msg({ type: "member-left", memberId: "zz", reason: "left" })).entries).toEqual([]);
   });
 
+  test("someone new joining is logged by name once (OME-1246); a member already here (a resume) logs nothing", () => {
+    const zed: Member = { id: "z", nickname: "Zed", avatar: 2 };
+    const first = step(joined(), msg({ type: "member-joined", member: zed }));
+    expect(first.entries).toEqual([{ kind: "system", line: { glyph: "everyone", actor: "Zed", verb: "joined the room", time: null } }]);
+    expect(step(first.next, msg({ type: "member-joined", member: zed })).entries).toEqual([]);
+    expect(step(joined(), msg({ type: "member-joined", member: kit })).entries).toEqual([]);
+  });
+
   test("going away and coming back (presence, a resumed snapshot) logs nothing", () => {
     const away = step(joined(), msg({ type: "member-presence", memberId: "k", away: true }));
     expect(away.entries).toEqual([]);
