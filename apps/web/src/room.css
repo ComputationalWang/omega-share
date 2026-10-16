@@ -169,6 +169,10 @@
 
 /* ---- "Up next" (set j `.ui-queue`, OME-508): below the TV, page chrome 2×. The design CSS draws rows, chips and keys. ---- */
 .queue-panel { margin-top: 8px; }
+/* Move up / Move down (OME-1250): 1× kit keys, 26×28 px, beside the ×. */
+.queue-keys { display: flex; align-items: center; gap: 4px; }
+.queue-move { --ui-px: 1px; font-size: 10px; line-height: 1; }
+.queue-move[aria-disabled="true"] { opacity: 0.5; cursor: default; }
 .queue-head { display: flex; align-items: center; gap: 8px; }
 .queue-head h3 { margin: 0; font-size: 15px; flex: 1; }
 .queue-count { font-size: 12px; font-weight: 700; color: var(--muted); }
@@ -394,7 +398,7 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .portrait-sheet .ui-qrow { min-height: 44px; }
 .portrait-sheet .queue-form { flex: none; gap: 4px; }
 .portrait-sheet .queue-form input { font-size: 16px; }
-.portrait-sheet .ui-qx { min-width: 44px; min-height: 44px; }
+.portrait-sheet .ui-qx, .portrait-sheet .queue-move { min-width: 44px; min-height: 44px; }
 .portrait-sheet-content > .portrait-stowed { margin: 4px 0; }
 .room-portrait.portrait-typing { padding-top: 0; }
 .room-portrait.portrait-typing > .room-top, .room-portrait.portrait-typing > .portrait-keys { display: none; }

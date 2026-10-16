@@ -1,5 +1,5 @@
 // The "Up next" panel (ADR 0031, set j `.ui-queue`): the room's upcoming items, a paste-a-link field and the keys to remove
-// one or play the next now. Everything here is text: titles come from the parsed embed's ids, names from `members`, and no
+// or move one (Move up/down, Alt+Arrow on a row's key; OME-1250) or play the next now. Everything here is text: titles come from the parsed embed's ids, names from `members`, and no
 // row ever loads anything (a generic item stays click-to-load on the TV, ADR 0024). The list is rebuilt only when the queue,
 // the members or who may act change: room.ts calls `update` once per state change, and an unchanged input costs a few compares.
 import { QUEUE_MAX, canonicalizeAnyEmbed, isSyncedEmbed, normalizeHostname, type AnyEmbed, type ClientMessage, type ErrorCode, type MemberId, type QueueItem } from "@omega/shared";
@@ -96,9 +96,10 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
   const full = el("p", { className: "queue-note", hidden: true }, "queue-full");
   full.append(el("span", { className: "ui-pill-full", textContent: "Full" }), " ", FULL_TEXT);
   const heldLine = el("p", { className: "queue-note", textContent: "Only the host can change the queue.", hidden: true }, "queue-held");
+  const status = el("p", { className: "visually-hidden", role: "status" }, "queue-status");
   const content = el("div", { className: "queue-content" });
   content.append(head, empty, list);
-  root.append(content, form, problem, full, heldLine);
+  root.append(content, form, problem, full, heldLine, status);
   let portrait = false;
 
   let state: ViewState | null = null;
@@ -117,6 +118,12 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
   let mine = new Set<string>();
   let current: string | undefined;
   let claimed: ViewState["lastError"] = null;
+  /**
+   * My last move, until the next queue change: if that change swapped the item with `past` (its neighbour on the side
+   * it moved to), the key gets focus back and the new place is said. Anything else (the server dropped the move, or
+   * someone else's change came first) only clears it.
+   */
+  let moved: { id: string; key: string; past: string; by: -1 | 1 } | null = null;
 
   const say = (text: string | null): void => {
     problem.hidden = text === null;
@@ -151,11 +158,39 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
     const from = state?.room?.itemId;
     if (from !== undefined) o.send({ type: "queue-advance", fromItemId: from });
   });
+  const move = (id: string, by: -1 | 1, key: string): void => {
+    const queue = state?.room?.queue ?? NO_ITEMS;
+    const from = queue.findIndex((i) => i.id === id);
+    const to = from + by;
+    const past = queue[to]?.id;
+    if (from < 0 || past === undefined) return;
+    if (o.send({ type: "queue-move", itemId: id, toIndex: to })) moved = { id, key, past, by };
+  };
   list.addEventListener("click", (ev) => {
     if (!(ev.target instanceof HTMLElement)) return;
-    const id = ev.target.closest<HTMLElement>("[data-testid=queue-remove]")?.closest<HTMLElement>("[data-item]")?.dataset["item"];
-    if (id !== undefined) o.send({ type: "queue-remove", itemId: id });
+    const key = ev.target.closest<HTMLElement>("button[data-testid]");
+    const id = key?.closest<HTMLElement>("[data-item]")?.dataset["item"];
+    const testId = key?.dataset["testid"];
+    if (id === undefined || testId === undefined) return;
+    if (testId === "queue-remove") o.send({ type: "queue-remove", itemId: id });
+    else if (testId === "queue-move-up") move(id, -1, testId);
+    else if (testId === "queue-move-down") move(id, 1, testId);
   });
+  list.addEventListener("keydown", (ev) => {
+    if (!ev.altKey || (ev.key !== "ArrowUp" && ev.key !== "ArrowDown") || !(ev.target instanceof HTMLElement)) return;
+    const row = ev.target.closest<HTMLElement>("[data-item]");
+    const id = row?.dataset["item"];
+    const testId = ev.target.dataset["testid"];
+    // Only rows with move keys move: the same members and rows as the keys.
+    if (id === undefined || testId === undefined || row?.querySelector("[data-testid=queue-move-up]") === null) return;
+    ev.preventDefault();
+    move(id, ev.key === "ArrowUp" ? -1 : 1, testId);
+  });
+  /** The key `testId` in the row of item `id`, if it's drawn. */
+  const keyOf = (id: string, testId: string): HTMLElement | null => {
+    for (const r of list.children) if (r instanceof HTMLElement && r.dataset["item"] === id) return r.querySelector<HTMLElement>(`[data-testid=${testId}]`);
+    return null;
+  };
 
   const row = (it: QueueItem, i: number, s: ViewState, canRemove: (by: MemberId | null) => boolean): HTMLElement => {
     const li = el("li", { className: i === 0 ? "ui-qrow is-next" : "ui-qrow" }, "queue-row");
@@ -172,9 +207,18 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
     chip.append(sprite(synced ? "ui-glyph-insync" : "ui-glyph-outsync"), synced ? "Synced" : "Not synced");
     li.append(sprite(`ui-qsrc ui-qsrc-${kindOf(it.embed)}`), body, chip);
     if (canRemove(it.by)) {
+      const keys = el("span", { className: "queue-keys" });
+      const up = el("button", { type: "button", className: "ui-button icon queue-move", textContent: "▲" }, "queue-move-up");
+      up.setAttribute("aria-label", `Move ${title} up`);
+      const down = el("button", { type: "button", className: "ui-button icon queue-move", textContent: "▼" }, "queue-move-down");
+      down.setAttribute("aria-label", `Move ${title} down`);
+      // aria-disabled, not disabled: a key that just reached an end keeps focus.
+      if (i === 0) up.setAttribute("aria-disabled", "true");
+      if (i === (s.room?.queue ?? NO_ITEMS).length - 1) down.setAttribute("aria-disabled", "true");
       const x = el("button", { type: "button", className: "ui-sprite ui-qx" }, "queue-remove");
       x.setAttribute("aria-label", `Remove ${title} from the queue`);
-      li.append(x);
+      keys.append(up, down, x);
+      li.append(keys);
     }
     return li;
   };
@@ -203,12 +247,31 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
       const held = controlHeld(s);
       const key = `${String(held)}|${String(s.owner)}|${s.self ?? ""}`;
       if (queue !== drawnQueue || s.room?.members !== drawnMembers || key !== drawnKey) {
+        const queueChanged = queue !== drawnQueue;
         drawnQueue = queue;
         drawnMembers = s.room?.members;
         drawnKey = key;
         renders++;
         const canRemove = (by: MemberId | null): boolean => !held && (s.owner || (by !== null && by === s.self));
+        // A rebuild keeps focus on the same key of the same item (it would drop to the page otherwise).
+        const active = document.activeElement;
+        const focused = active instanceof HTMLElement && list.contains(active) ? { id: active.closest<HTMLElement>("[data-item]")?.dataset["item"], key: active.dataset["testid"] } : null;
         list.replaceChildren(...queue.map((it, i) => row(it, i, s, canRemove)));
+        let refocus = focused;
+        if (moved !== null && queueChanged) {
+          const m = moved;
+          moved = null;
+          const at = queue.findIndex((i) => i.id === m.id);
+          if (at >= 0 && queue[at - m.by]?.id === m.past) {
+            const it = queue[at];
+            if (it !== undefined) {
+              status.textContent = `Moved ${itemTitle(it.embed)} to place ${String(at + 1)} of ${String(queue.length)}.`;
+              // A tap may not focus the key; take focus only from the list or the page, never from another control.
+              if (focused !== null || active === null || active === document.body) refocus = m;
+            }
+          }
+        }
+        if (refocus?.id !== undefined && refocus.key !== undefined) keyOf(refocus.id, refocus.key)?.focus();
         count.textContent = `${String(queue.length)} / ${String(QUEUE_MAX)}`;
         empty.hidden = queue.length > 0;
         const isFull = queue.length >= QUEUE_MAX;

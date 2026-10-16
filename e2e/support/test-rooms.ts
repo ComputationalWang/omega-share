@@ -17,7 +17,7 @@ export const SPEC_ROOMS = {
   walk: ["main", "reduced", "smooth"],
   emotes: ["sticker", "waver", "typist", "burst", "still", "wheel", "wheelcost", "wheelwalk", "wheeltap"],
   polish: ["every", "late", "drop"],
-  "provider-queue": ["main", "ended", "generic", "yt", "twvod", "vimeo", "mixed"],
+  "provider-queue": ["main", "ended", "generic", "yt", "twvod", "vimeo", "mixed", "reorder", "reorderphone"],
   "queue-perf": ["frames", "spread"],
   "ext-firefox": ["share"],
   "chat-log": ["lines", "keys", "reduced"],
