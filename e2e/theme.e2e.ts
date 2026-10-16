@@ -2,7 +2,7 @@
 // decor, every avatar wears its hat, and the background effect runs, except under prefers-reduced-motion. The dates,
 // override parsing, decor placement and particle pool are apps/web/test/theme.test.ts; the frame cost is QA's perf rows.
 import * as v from "valibot";
-import { devices, type BrowserContext, type BrowserContextOptions, type Page } from "@playwright/test";
+import { devices, type BrowserContext, type Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
@@ -72,19 +72,26 @@ async function expectEffectRuns(page: Page): Promise<void> {
   expect((await theme(page))?.worstTickMs ?? Infinity).toBeLessThan(4);
 }
 
-const cases: [name: "desk" | "phone", options: BrowserContextOptions | undefined][] = [
-  ["desk", undefined],
-  ["phone", devices["Pixel 7"]],
-];
-for (const [name, options] of cases) {
-  test(`${name}: a forced theme dresses the classic room, hats every avatar and runs its effect`, async ({ browser }) => {
-    clients = await joinRoom(browser, { roomUrl: testRoom("theme", name).url, count: 1, nicknamePrefix: `th${name}`, setup: christmas, ...(options === undefined ? {} : { contextOptions: () => options }) });
-    const page = clients[0]?.page;
-    if (page === undefined) throw new Error("no client");
-    await expectThemed(page);
-    await expectEffectRuns(page);
-  });
-}
+test("desk: a forced theme dresses the classic room, hats every avatar and runs its effect", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("theme", "desk").url, count: 1, nicknamePrefix: "thdesk", setup: christmas });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await expectThemed(page);
+  await expectEffectRuns(page);
+});
+
+test("phone: decor and hats; the effect sleeps while the room window crops its band, and runs once the room is fitted", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("theme", "phone").url, count: 1, nicknamePrefix: "thphone", setup: christmas, contextOptions: () => devices["Pixel 7"] });
+  const page = clients[0]?.page;
+  if (page === undefined) throw new Error("no client");
+  await expectThemed(page);
+  // The watch layout shows the floor around me, not the back walls: an effect there costs frames for little to see (QA OME-1216).
+  await page.waitForTimeout(1000);
+  expect((await theme(page))?.effect).toBe(0);
+  expect((await theme(page))?.ticks).toBe(0);
+  await page.getByTestId("room-zoom-fit").tap();
+  await expectEffectRuns(page);
+});
 
 test("reduced motion: decor and hats stay, no effect", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("theme", "reduced").url, count: 1, nicknamePrefix: "thrm", setup: christmas, contextOptions: () => ({ reducedMotion: "reduce" }) });
