@@ -9,6 +9,8 @@
 .stage-clip { position: absolute; overflow: hidden; }
 .stage { position: absolute; top: 0; left: 0; width: 960px; height: 600px; transform-origin: 0 0; }
 .scene { position: absolute; inset: 0; width: 960px; height: 600px; }
+/* The holiday theme's effect (ADR 0052): a small overlay over its band only, 1 backing px per stage px. */
+.scene-fx { position: absolute; pointer-events: none; image-rendering: pixelated; }
 /* The TV box is the player rect (>= 356x200, layout.ts); the bezel is an outline so it never eats into it. */
 .tv { position: absolute; background: #000; display: grid; place-items: center; }
 /* Reserved for the set (e) shared transport + personal volume (OME-89); the shelf is its slot. */

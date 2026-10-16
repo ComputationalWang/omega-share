@@ -10,6 +10,10 @@ import { createAnimator } from "./walk/animator";
 import type { MotionAtlas } from "./walk/motion-atlas";
 import { createTier, createTierProbe, readTierHints } from "./walk/tier";
 import { createWalks, type Dir } from "./walk/walks";
+import type { ThemeAtlas } from "./theme/atlas";
+import { decorSprites } from "./theme/decor";
+import { EFFECT_MIN_INTERVAL_MS, createEffectPainter, createParticles, effectBounds, type EffectPainter, type Particles } from "./theme/effect";
+import { resolveTheme } from "./theme/periods";
 
 export interface AvatarPlacement {
   readonly id: MemberId;
@@ -57,6 +61,8 @@ export interface RoomView {
   alpha(id: MemberId): number | undefined;
   /** Labels in draw order (floor, furniture frame keys, `seat:<i>`, `avatar:<id>`), for e2e depth checks. */
   drawOrder(): string[];
+  /** The holiday theme drawn now (ADR 0052): its id, decor pieces, hats and effect sprites shown, effect frames run. */
+  theme(): { id: string | null; decor: number; hats: number; effect: number; ticks: number; worstTickMs: number };
   destroy(): void;
 }
 
@@ -116,6 +122,20 @@ export function quietSystemTicker(ticker: Ticker): () => void {
   };
 }
 
+/** Per member: the placeholder shape until the motion atlas is in, then a sprite. `x`/`y` is where it's drawn. */
+interface Entry {
+  node: Graphics | Sprite;
+  avatar: number;
+  x: number;
+  y: number;
+  walking: boolean;
+  frame: string | null;
+  sticker: Sprite | null;
+  stickerFrame: string | null;
+  /** The holiday theme's hat over the avatar (ADR 0052); made on first need, then hidden or re-framed. */
+  hat: Sprite | null;
+}
+
 export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomView> {
   const app = new Application();
   await app.init({
@@ -140,19 +160,20 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   // Static: the floor, then rugs and wall pieces in furniture order. Objects sort with the avatars by depth.
   const background = new Container();
   background.addChild(floor);
+  // The holiday theme (ADR 0052): decor over the walls, behind the furniture and avatars (the effect has its own canvas).
+  const decorLayer = new Container({ label: "decor" });
   const editLayer = new Container({ label: "edit" });
   const markerLayer = new Container();
   const objectLayer = new Container({ sortableChildren: true });
   // Emote stickers float over everyone (OME-415).
   const emoteLayer = new Container({ label: "emotes" });
-  app.stage.addChild(background, editLayer, markerLayer, objectLayer, emoteLayer);
+  app.stage.addChild(background, decorLayer, editLayer, markerLayer, objectLayer, emoteLayer);
 
   /** Marker per placeholder seat, by seat index. */
   let markers: (Graphics | null)[] = [];
   let lastTaken: (boolean | null)[] = [];
   let furniture: Sprite[] = [];
-  /** Per member: the placeholder shape until the motion atlas is in, then a sprite. `x`/`y` is where it's drawn. */
-  const pool = new Map<MemberId, { node: Graphics | Sprite; avatar: number; x: number; y: number; walking: boolean; frame: string | null; sticker: Sprite | null; stickerFrame: string | null }>();
+  const pool = new Map<MemberId, Entry>();
 
   /** Members drawn dimmed (OME-769); a member's node takes it on when made or swapped for a sprite. */
   const dimmed = new Set<MemberId>();
@@ -166,6 +187,45 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     pumpSystem();
     app.render();
     renders++;
+  };
+
+  // The holiday theme (ADR 0052): from the local date, or forced by localStorage["omega.theme"]. Its art loads in its
+  // own chunk; until then (or without it) the room is drawn as usual.
+  const themeId = resolveTheme(new Date(), storage()?.getItem("omega.theme") ?? null);
+  let theme: ThemeAtlas | null = null;
+  /** The scene as last set, so the decor can be placed when the theme arrives after it. */
+  let lastScene: Scene | null = null;
+  let hatsShown = 0;
+  const placeDecor = (): void => {
+    for (const c of decorLayer.removeChildren()) c.destroy();
+    if (theme === null || lastScene === null) return;
+    for (const d of decorSprites(lastScene, theme.decor)) {
+      const texture = theme.texture(d.key);
+      if (texture !== undefined) decorLayer.addChild(new Sprite({ texture, label: d.key, x: d.x, y: d.y }));
+    }
+  };
+  /** Put the theme's hat over the avatar's frame (the hat sprite is the difference to the hatted frame), or take it off. */
+  const wearHat = (entry: Entry): void => {
+    const texture = theme === null || entry.frame === null ? undefined : theme.hat(entry.frame);
+    if (texture === undefined) {
+      if (entry.hat?.visible === true) {
+        entry.hat.visible = false;
+        hatsShown--;
+      }
+      return;
+    }
+    if (entry.hat === null) {
+      entry.hat = new Sprite({ texture, label: `hat:${entry.node.label}`, visible: false });
+      objectLayer.addChild(entry.hat);
+    } else if (entry.hat.texture !== texture) entry.hat.texture = texture;
+    entry.hat.position.copyFrom(entry.node.position);
+    // Just over its own avatar and under whatever sorts next (depths are whole numbers).
+    entry.hat.zIndex = entry.node.zIndex + 0.5;
+    entry.hat.alpha = entry.node.alpha;
+    if (!entry.hat.visible) {
+      entry.hat.visible = true;
+      hatsShown++;
+    }
   };
 
   // Walking (OME-408): every client walks avatars to their spot itself; frames run only while someone walks.
@@ -235,6 +295,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       entry.frame = texture === undefined ? null : frame;
       entry.node.position.set(pose.x, pose.y);
       entry.node.zIndex = pose.z;
+      wearHat(entry);
       // The DOM followers (tags, bubbles, badges) move in whole px, and only when the pixel changes: each move is a
       // fresh transform string, so a Smooth frame that stays on the same pixel writes nothing (R-M8a §2).
       const x = Math.round(pose.x);
@@ -269,10 +330,113 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     render,
   });
 
+  // The theme's effect (ADR 0052): particles on a small overlay canvas over the effect's band only, at 1 px per stage px
+  // (QA OME-1211), drawn without reading any canvas (OME-1212); a tick never renders the room (OME-1206). Its own rAF
+  // loop at ≤ 30 Hz; off under reduced motion and once the tier settles Basic; stops while the room is paused, and rAF
+  // stops with a hidden tab.
+  const fxCanvas = document.createElement("canvas");
+  fxCanvas.className = "scene-fx";
+  let particles: Particles | null = null;
+  let painter: EffectPainter | null = null;
+  let effectMs = 1000;
+  /** The slowest effect tick so far (ms), for e2e. */
+  let worstTick = 0;
+  let effectRunning = false;
+  let effectLast = 0;
+  let effectTicks = 0;
+  let destroyed = false;
+  const effectAllowed = (): boolean => !reduced.matches && (tier.smooth() || tier.probing());
+  /** At least half the effect's band is on screen. The phone's room window crops the back walls away, so the effect
+   * sleeps there until the room is zoomed out (QA OME-1216); an observer, so it costs nothing per frame. */
+  let inView = false;
+  const stopEffect = (): void => {
+    effectRunning = false;
+    painter?.clear();
+    fxCanvas.style.visibility = "hidden";
+  };
+  const effectFrame = (t: number): void => {
+    if (destroyed || paused || particles === null || painter === null) {
+      effectRunning = false;
+      return;
+    }
+    if (!inView) {
+      stopEffect();
+      return;
+    }
+    if (!effectAllowed()) {
+      // shortcut: once off (reduced motion turned on, tier settled Basic) it stays off until the room is opened again.
+      stopEffect();
+      return;
+    }
+    requestAnimationFrame(effectFrame);
+    const dt = t - effectLast;
+    if (dt < EFFECT_MIN_INTERVAL_MS) return;
+    effectLast = t;
+    const start = performance.now();
+    // A long gap (tab back, resume): step as one frame, not a jump across the room.
+    particles.step(Math.min(dt, 100));
+    painter.paint(particles, Math.floor(t / effectMs));
+    effectTicks++;
+    // The first ticks pay one-off costs (the sheet's first upload); the guard is for the steady state.
+    if (effectTicks > 3) worstTick = Math.max(worstTick, performance.now() - start);
+  };
+  const startEffect = (): void => {
+    if (effectRunning || paused || !inView || particles === null || !effectAllowed()) return;
+    effectRunning = true;
+    fxCanvas.style.visibility = "visible";
+    effectLast = performance.now();
+    requestAnimationFrame(effectFrame);
+  };
+  const fxObserver = new IntersectionObserver(
+    (entries) => {
+      const e = entries.at(-1);
+      if (e === undefined) return;
+      inView = e.intersectionRatio >= 0.5;
+      if (inView) startEffect();
+    },
+    { threshold: [0, 0.5, 1] },
+  );
+  if (themeId !== null) {
+    void import("./theme/atlas")
+      .then((m) => m.loadTheme(themeId))
+      .then((t) => {
+        if (destroyed) return;
+        theme = t;
+        placeDecor();
+        for (const entry of pool.values()) wearHat(entry);
+        const b = effectBounds(t.effect.motion, t.effect.frames);
+        // 1 backing px per stage px: the pixel art scales up with CSS (image-rendering: pixelated) like the rest.
+        fxCanvas.width = b.w;
+        fxCanvas.height = b.h;
+        Object.assign(fxCanvas.style, { left: `${String(b.x)}px`, top: `${String(b.y)}px`, width: `${String(b.w)}px`, height: `${String(b.h)}px` });
+        const ctx = fxCanvas.getContext("2d");
+        if (ctx !== null && t.effect.frames.length > 0) {
+          ctx.imageSmoothingEnabled = false;
+          effectMs = t.effect.ms;
+          particles = createParticles(t.effect.motion, t.effect.max, Math.random);
+          painter = createEffectPainter({ ctx, image: t.effect.image, frames: t.effect.frames, origin: b });
+          if (effectAllowed()) {
+            // In the DOM only for an effect, right over the room canvas: an unthemed room's DOM is unchanged. Hidden
+            // with visibility, not display, so the observer can still see where it is.
+            fxCanvas.style.visibility = "hidden";
+            app.canvas.after(fxCanvas);
+            fxObserver.observe(fxCanvas);
+          }
+        }
+        render();
+      })
+      // Without the theme's art the room is drawn as usual.
+      .catch((e: unknown) => {
+        console.warn("theme atlas failed to load", e);
+      });
+  }
+
   return {
     canvas: app.canvas,
     setScene(scene, sheets, walkGrid) {
       walks.setGrid(walkGrid);
+      lastScene = scene;
+      placeDecor();
       for (const s of furniture) s.destroy();
       for (const m of markers) m?.destroy();
       furniture = [];
@@ -317,13 +481,15 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         if (pool.has(a.id)) continue;
         const g = new Graphics({ label: `avatar:${a.id}`, alpha: alphaOf(a.id) });
         drawAvatar(g, a.avatar);
-        pool.set(a.id, { node: g, avatar: a.avatar, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null });
+        pool.set(a.id, { node: g, avatar: a.avatar, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null, hat: null });
         objectLayer.addChild(g);
       }
       for (const [id, entry] of pool) {
         if (seen.has(id)) continue;
         entry.node.destroy();
         entry.sticker?.destroy();
+        if (entry.hat?.visible === true) hatsShown--;
+        entry.hat?.destroy();
         pool.delete(id);
       }
       walks.place(avatars, performance.now());
@@ -352,6 +518,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       paused = next;
       // Resuming queues one frame that draws everyone where they are now (a walk may have ended meanwhile).
       animator.pause(next);
+      if (!next) startEffect();
     },
     paused: () => paused,
     renders: () => renders,
@@ -365,6 +532,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       const e = pool.get(id);
       if (e === undefined) return;
       e.node.alpha = alphaOf(id);
+      if (e.hat !== null) e.hat.alpha = e.node.alpha;
       render();
     },
     setAway(id, on) {
@@ -374,6 +542,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       const e = pool.get(id);
       if (e === undefined) return;
       e.node.alpha = alphaOf(id);
+      if (e.hat !== null) e.hat.alpha = e.node.alpha;
       render();
     },
     alpha: (id) => pool.get(id)?.node.alpha,
@@ -389,7 +558,11 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       const sorted = [...objectLayer.children].sort((a, b) => a.zIndex - b.zIndex);
       return [...background.children, ...markerLayer.children, ...sorted].map((c) => c.label);
     },
+    theme: () => ({ id: themeId, decor: decorLayer.children.length, hats: hatsShown, effect: effectRunning ? (particles?.count ?? 0) : 0, ticks: effectTicks, worstTickMs: worstTick }),
     destroy() {
+      destroyed = true;
+      fxObserver.disconnect();
+      fxCanvas.remove();
       animator.dispose();
       app.destroy(true, { children: true });
     },

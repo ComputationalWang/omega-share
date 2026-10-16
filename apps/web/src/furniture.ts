@@ -10,6 +10,8 @@ import { cellCenter, type Point } from "./layout";
  * key draw the same room, however their objects were written (a parsed snapshot, a recolour back to variant 0).
  */
 export const layoutKey = (l: RoomLayout): string => l.furniture.map((f) => `${f.kind} ${String(f.col)} ${String(f.row)} ${f.facing} ${String(f.variant ?? 0)}`).join(";");
+/** The classic preset's layout key (OME-1186): its rooms get the holiday theme's decor. */
+const CLASSIC_KEY = layoutKey(DEFAULT_LAYOUT);
 
 /** The pieces the room atlas draws (placeholder floor and seat markers until it loads); everything else is set (g). */
 const ROOM_KINDS: ReadonlySet<FurnitureKind> = new Set(["armchair", "tv", "lamp", "plant", "rug"]);
@@ -128,6 +130,8 @@ export interface SceneSeat {
 export interface Scene {
   readonly sprites: readonly FurnitureSprite[];
   readonly seats: readonly SceneSeat[];
+  /** The layout is the classic preset's (= DEFAULT_LAYOUT; the preset id never reaches the client): theme decor goes here. */
+  readonly classic: boolean;
 }
 
 type Piece = FurnitureManifest["meta"]["omega"]["pieces"][number];
@@ -161,7 +165,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
       seats.push({ at, z, marker: f.kind === "armchair" && room === null });
     }
   }
-  return { sprites, seats };
+  return { sprites, seats, classic: layoutKey(layout) === CLASSIC_KEY };
 }
 
 function pushSprites(

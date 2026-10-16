@@ -38,6 +38,12 @@ export interface CspRecorder {
 
 const BINDING = "__omegaCspViolation";
 
+/** `OMEGA_THEME`: a theme id or `off` (the default). A typo is refused, so a run never reads as themed while it isn't (OME-750). */
+const PINNED_THEME = process.env["OMEGA_THEME"] ?? "off";
+if (!["off", "halloween", "sinterklaas", "christmas", "valentine", "easter"].includes(PINNED_THEME)) {
+  throw new Error(`OMEGA_THEME must be a theme id or off, not ${JSON.stringify(PINNED_THEME)}`);
+}
+
 // One worker runs one test at a time, so module state is per test. Violations that land between tests (late
 // events, beforeAll contexts) stay queued and fail the next teardown instead of being lost.
 const enforced: CspViolation[] = [];
@@ -144,6 +150,16 @@ export async function watchCsp<C extends BrowserContext>(context: C): Promise<C>
     record(v, source.page.url());
   });
   await context.addInitScript(forwardViolations, BINDING);
+  // The holiday theme is pinned (ADR 0052): `off` unless OMEGA_THEME names one (QA's perf rows run with christmas). Otherwise
+  // from Oct 24 the date alone would add hats, decor and an effect loop that redraws the room, and render-count and
+  // draw-order checks would change with the calendar. A spec's own init script runs after this one, so its value wins.
+  await context.addInitScript((theme) => {
+    try {
+      localStorage.setItem("omega.theme", theme);
+    } catch {
+      // Opaque origins (about:blank, data:) have no storage.
+    }
+  }, PINNED_THEME);
   context.on("console", (msg) => {
     recordConsole(msg.type(), msg.text());
   });

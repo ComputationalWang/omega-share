@@ -8,13 +8,15 @@ export interface Sheet {
 
 type Frames = Readonly<Record<string, { readonly frame: { x: number; y: number; w: number; h: number }; readonly anchor: { x: number; y: number } }>>;
 
-export async function loadSheet(frames: Frames, pngUrl: string): Promise<Sheet> {
+/** The sheet, plus its decoded image for code that draws without Pixi (the theme effect's canvas). */
+export async function loadSheet(frames: Frames, pngUrl: string): Promise<Sheet & { readonly image: HTMLImageElement }> {
   const img = new Image();
   img.src = pngUrl;
   await img.decode();
   const source = new ImageSource({ resource: img, scaleMode: "nearest" });
   const cache = new Map<string, Texture>();
   return {
+    image: img,
     texture(key) {
       let t = cache.get(key);
       const f = frames[key];
