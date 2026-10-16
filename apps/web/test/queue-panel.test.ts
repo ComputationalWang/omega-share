@@ -410,6 +410,17 @@ describe("reorder Up next", () => {
     expect(q("queue-status").textContent).toBe("Moved YouTube video aaaaaaaaaaa to place 2 of 3.");
   });
 
+  test("a move the server dropped isn't announced, nor focused, when someone else's change shifts the item (QA OME-1262)", async () => {
+    const { rows, server, q } = await setup(three());
+    key(rows()[1], "queue-move-up").click();
+    (document.activeElement as HTMLElement | null)?.blur();
+    const [, b, c] = three().queue ?? [];
+    if (b === undefined || c === undefined) throw new Error("three items");
+    server({ type: "queue-changed", queue: [b, c], by: "kit" });
+    expect(q("queue-status").textContent).toBe("");
+    expect(document.activeElement).toBe(document.body);
+  });
+
   test("someone else's queue change keeps focus on the same key and announces nothing", async () => {
     const { rows, server, q } = await setup(three());
     key(rows()[1], "queue-remove").focus();
