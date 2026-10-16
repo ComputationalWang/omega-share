@@ -8,8 +8,8 @@ import { PENDING, available } from "./support/apps";
 import { VIDEO_ID } from "./support/network";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
-/** Playback lines only: a helper's throwaway join leaves and logs "… left the room" (ADR 0043) in between. */
-const LEFT = "left the room";
+/** Playback lines only: a helper's throwaway join logs "… joined the room" and "… left the room" (ADR 0043, OME-1246) in between. */
+const LEFT = /(joined|left) the room/;
 import { PLAYING, PAUSED, SPREAD_BUDGET_MS, SETTLE_MS, fakeState, measureSpread, roomPlayback, shareVideo, waitPlaying } from "../perf/sync";
 
 // Each test has its own room, so they spread over the lane's workers (OME-341).

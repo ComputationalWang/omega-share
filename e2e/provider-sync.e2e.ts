@@ -9,8 +9,8 @@ import { PENDING, URLS, available } from "./support/apps";
 import { FAKE_VIMEO_SDK } from "./support/network";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
-/** Playback lines only: a helper's throwaway join leaves and logs "… left the room" (ADR 0043) in between. */
-const LEFT = "left the room";
+/** Playback lines only: a helper's throwaway join logs "… joined the room" and "… left the room" (ADR 0043, OME-1246) in between. */
+const LEFT = /(joined|left) the room/;
 import type { RoomName } from "./support/test-rooms";
 import {
   TWITCH_CHANNEL,

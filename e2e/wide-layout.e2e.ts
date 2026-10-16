@@ -188,7 +188,7 @@ test("a long log stays at its foot when the chat changes column (1024 px) and in
     }
   }));
   const log = page.locator(site.chatLog);
-  await expect(log.locator(site.chatLogLine)).toHaveCount(20);
+  await expect(log.locator(site.chatLogLine).filter({ hasText: "line " })).toHaveCount(20);
   const atFoot = (): Promise<boolean> => log.evaluate((e) => e.scrollHeight - e.scrollTop - e.clientHeight <= 2);
   // It overflows the column's log, and the reader is at its foot.
   expect(await log.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);

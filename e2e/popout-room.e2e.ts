@@ -147,7 +147,7 @@ test("pop out room: the window draws the room and the chat; the page keeps the p
   // The room: both members' tags, the eight seats, the backlog in the chat column (a full log).
   await expect.poll(async () => (await pop.locator(site.nicknameTag).allInnerTexts()).sort()).toEqual(["prshow-1", "prshow-2"]);
   await expect(pop.locator(site.seat)).toHaveCount(8);
-  await expect(pop.locator(`${site.poproomChat} ${site.chatLogLine}`)).toHaveText(["prshow-2 before"]);
+  await expect(pop.locator(`${site.poproomChat} ${site.chatLogLine}`).filter({ hasNotText: "joined the room" })).toHaveText(["prshow-2 before"]);
   // The brass plate says where the picture is and the room's time.
   await expect(pop.locator(site.poproomPlate)).toHaveText(/^Playing on your main screen · \d+:\d\d$/);
   // Never two renderers: the page's is paused; never two sockets: the window opened none.

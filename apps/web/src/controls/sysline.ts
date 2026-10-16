@@ -70,6 +70,11 @@ export function leftLine(nickname: string): SystemLine {
   return { glyph: "everyone", actor: nickname, verb: "left the room", time: null };
 }
 
+/** Someone new came in (OME-1246). Never for my own join or a resume: neither is a `member-joined` for a new member. */
+export function joinedLine(nickname: string): SystemLine {
+  return { glyph: "everyone", actor: nickname, verb: "joined the room", time: null };
+}
+
 /** The host removed me (4005). Only I see it. */
 export function removedMeLine(): SystemLine {
   return { glyph: "host", actor: "The host", verb: "removed you from the room", time: null, self: true };

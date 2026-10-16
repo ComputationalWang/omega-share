@@ -80,7 +80,7 @@ test("pop out: the chat moves to its own window over the one socket, both ways; 
   // Opened with noopener: the window has no handle on the room tab.
   expect(await pop.evaluate(() => window.opener === null)).toBe(true);
   // The backlog came over, and both ways work from here.
-  await expect(pop.locator(site.chatLogLine)).toHaveText(["porelay-2 before"]);
+  await expect(pop.locator(site.chatLogLine).filter({ hasNotText: "joined the room" })).toHaveText(["porelay-2 before"]);
   await say(b.page, "to the window");
   await expect(pop.locator(site.chatLogLine).last()).toHaveText("porelay-2 to the window");
   await say(pop, "from the window");
