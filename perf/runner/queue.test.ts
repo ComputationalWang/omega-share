@@ -34,6 +34,13 @@ describe("submitJob", () => {
     // @ts-expect-error: a job.json written by hand or an old client can carry any string
     expect(() => submitJob(dir, bad)).toThrow(/motion/);
   });
+
+  // OME-1219: one themed perf pass before each holiday period (ADR 0052) is a flag, not a hand run.
+  test("a job can pin a holiday theme; anything but a theme id or off is refused", () => {
+    const id = submitJob(dir, { sha: "a".repeat(40), specs: [], requester: "qa", issue: "OME-1219", theme: "halloween" });
+    expect(JSON.parse(readFileSync(join(dir, id, "job.json"), "utf8"))).toMatchObject({ theme: "halloween" });
+    expect(() => submitJob(dir, { sha: "a".repeat(40), specs: [], requester: "qa", issue: "OME-1219", theme: "haloween" })).toThrow(/theme/);
+  });
 });
 
 describe("runPending", () => {
@@ -133,15 +140,19 @@ describe("jobStatus", () => {
 });
 
 describe("jobEnv", () => {
-  const job = (motion?: "smooth" | "basic"): Job => ({ sha: "a".repeat(40), specs: [], requester: "qa", issue: "OME-733", id: "1", submittedAt: 1, ...(motion ? { motion } : {}) });
+  const job = (motion?: "smooth" | "basic", theme?: string): Job => ({ sha: "a".repeat(40), specs: [], requester: "qa", issue: "OME-733", id: "1", submittedAt: 1, ...(motion ? { motion } : {}), ...(theme ? { theme } : {}) });
 
   test("a forced tier reaches the perf run as OMEGA_PERF_MOTION", () => {
-    expect(jobEnv(job("smooth"))).toEqual({ OMEGA_PERF_MOTION: "smooth" });
-    expect(jobEnv(job("basic"))).toEqual({ OMEGA_PERF_MOTION: "basic" });
+    expect(jobEnv(job("smooth"))).toMatchObject({ OMEGA_PERF_MOTION: "smooth" });
+    expect(jobEnv(job("basic"))).toMatchObject({ OMEGA_PERF_MOTION: "basic" });
   });
 
-  test("an unforced job clears OMEGA_PERF_MOTION, so the runner's own env can't force a tier", () => {
-    expect(jobEnv(job())).toEqual({ OMEGA_PERF_MOTION: "" });
+  test("an unforced job clears OMEGA_PERF_MOTION and pins OMEGA_THEME off, so the runner's own env can't leak in", () => {
+    expect(jobEnv(job())).toEqual({ OMEGA_PERF_MOTION: "", OMEGA_THEME: "off" });
+  });
+
+  test("a pinned theme reaches the perf run as OMEGA_THEME", () => {
+    expect(jobEnv(job("smooth", "halloween"))).toEqual({ OMEGA_PERF_MOTION: "smooth", OMEGA_THEME: "halloween" });
   });
 });
 
