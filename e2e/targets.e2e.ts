@@ -62,8 +62,9 @@ function misses(page: Page): Promise<Record<string, string[]>> {
       // Corners 0.5 px inside the square, edge midpoints and the centre.
       for (const dx of [-11.5, 0, 11.5]) {
         for (const dy of [-11.5, 0, 11.5]) {
-          const hit = document.elementFromPoint(cx + dx, cy + dy);
-          if (hit?.closest("[data-member]") !== tag) missed.push(`${String(dx)},${String(dy)}: ${hit?.tagName ?? "nothing"}`);
+          // The tag itself, or its hit pad (stage.ts lays one under the tags for it).
+          const hit = document.elementFromPoint(cx + dx, cy + dy)?.closest<HTMLElement>("[data-member], [data-pad]");
+          if (hit !== tag && hit?.dataset["pad"] !== tag.dataset["member"]) missed.push(`${String(dx)},${String(dy)}: ${hit?.className ?? "nothing"}`);
         }
       }
       out[tag.textContent] = missed;
@@ -140,7 +141,8 @@ test("crowded (8 in the room): no tag's hit area takes a click from another tag'
   clients.push(...(await joinRoom(browser, { roomUrl: `${URLS.web}/r/${id}#k=${inviteKey}`, count: 7, nicknamePrefix: "md" })));
   await expect(host.locator(`.tags.pickable ${site.nicknameTag}[role=button]`)).toHaveCount(7);
   await host.locator(site.nicknameTag).first().scrollIntoViewIfNeeded();
-  expect(await stolen(host)).toEqual([]);
+  // Polled: a tag that just arrived grows in from nothing for a moment.
+  await expect.poll(() => stolen(host), { timeout: 10_000 }).toEqual([]);
   // What perf/moderation.perf.ts does: md-1's tag takes the click and opens md-1's menu.
   await host.locator(site.nicknameTag).filter({ hasText: "md-1" }).click({ timeout: 10_000 });
 });
