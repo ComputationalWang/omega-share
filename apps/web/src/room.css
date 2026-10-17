@@ -309,7 +309,6 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 /* The owner's bar under Up next (OME-1301): Edit room and the playback setting stacked, full width. */
 .room-side > .edit-bar { flex-direction: column; align-items: stretch; gap: 8px; }
 .room-side > .edit-bar > .mod-policy { margin-right: 0; max-width: none; }
-.room-side:has(> .edit-bar:not(:empty)) > .queue-panel { max-height: 30%; }
 .room-side .chat input, .room-side .invite input { min-width: 0; }
 .room-side .chat > button:not(.ui-button) { padding-inline: 12px; }
 /* A phone held sideways (OME-1297): the picture at its minimum and its shelf take the column's height, so the first-visit
