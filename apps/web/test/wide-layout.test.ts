@@ -20,8 +20,8 @@ const BOXES: readonly (readonly [number, number])[] = [
 ];
 
 describe("wide breakpoint", () => {
-  test("two columns from 1024 px wide, landscape only", () => {
-    expect(WIDE_QUERY).toBe("(min-width: 1024px) and (orientation: landscape)");
+  test("two columns from 1024 px wide, landscape only, and on a short landscape screen past the phone layout (OME-1297)", () => {
+    expect(WIDE_QUERY).toBe("(min-width: 1024px) and (orientation: landscape), (min-width: 601px) and (max-height: 500px) and (orientation: landscape)");
   });
   test("the chat column is 320 px", () => {
     expect(WIDE_CHAT_W).toBe(320);

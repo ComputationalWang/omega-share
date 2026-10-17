@@ -344,6 +344,13 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     controls.tabIndex = -1;
     controls.ariaLabel = "Playback controls";
     if (wide.matches) {
+      // The chat column follows the visual viewport (OME-1297): an on-screen keyboard that keeps the layout viewport
+      // (iOS) never covers the field. Not under a pinch zoom, where the column stays put.
+      const v = window.visualViewport ?? null;
+      const follow = v !== null && v.scale === 1;
+      side.style.top = follow ? `${String(v.offsetTop)}px` : "";
+      side.style.height = follow ? `${String(Math.min(v.height, window.innerHeight))}px` : "";
+      side.classList.toggle("is-typing", follow && window.innerHeight - v.height > 100);
       // The left column's box sizes it all (the wrap flexes to what the column has left), so the page never scrolls.
       const w = wrap.clientWidth;
       const h = wrap.clientHeight;

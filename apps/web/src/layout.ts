@@ -111,7 +111,9 @@ export function portraitLayout(width: number, height: number, provider: Provider
  * the room on the left and the chat (with Up next) in a full-height column on the right, WIDE_CHAT_W wide (style.css).
  */
 const WIDE_MIN_W = 1024;
-export const WIDE_QUERY = `(min-width: ${String(WIDE_MIN_W)}px) and (orientation: landscape)`;
+/** A phone held sideways (OME-1297): past the phone layout and at most this tall, two columns too, the chat column narrower (room.css). */
+const SHORT_MAX_H = 500;
+export const WIDE_QUERY = `(min-width: ${String(WIDE_MIN_W)}px) and (orientation: landscape), (min-width: ${String(PHONE_MAX_W + 1)}px) and (max-height: ${String(SHORT_MAX_H)}px) and (orientation: landscape)`;
 export const WIDE_CHAT_W = 320;
 /**
  * The TV's share of the left column's height once the shelf is taken off; the room gets the rest. OME-1050 (board): the

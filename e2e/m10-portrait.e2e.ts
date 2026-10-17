@@ -198,8 +198,36 @@ for (const [width, height] of [[360, 740], [390, 844]] as const) {
       window.dispatchEvent(new Event("resize"));
     });
     await expect(page.locator("#room-root")).not.toHaveClass(/portrait-typing/);
-    await page.setViewportSize({ width: 844, height: 390 });
+    // OME-1297: rotating to landscape and back keeps playback, the seat and a draft, and the dock comes back.
+    const seat = page.locator(`${site.seat}[data-occupied="false"]`).first();
+    await seat.focus();
+    await seat.press("Enter");
+    await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
+    const video = page.locator(site.sharedVideo);
+    // Marked, so a rebuilt player (playback restarting) would show.
+    await video.evaluate((node) => { node.dataset["e2eKept"] = "1"; });
+    await input.fill("draft across a turn");
+    const rotate = async (w: number, h: number): Promise<void> => {
+      await page.setViewportSize({ width: w, height: h });
+      // The simulated visualViewport above stays installed: keep it in step with the layout viewport.
+      await page.evaluate(() => {
+        const viewport = window.visualViewport;
+        if (viewport === null) throw new Error("No visual viewport");
+        Object.assign(viewport, { width: innerWidth, height: innerHeight, offsetTop: 0 });
+        window.dispatchEvent(new Event("resize"));
+      });
+      await expect(video).toHaveAttribute("data-e2e-kept", "1");
+      await expect(page.locator(`${site.seat}.mine`)).toHaveCount(1);
+      await expect(input).toHaveValue("draft across a turn");
+    };
+    await rotate(844, 390);
     await expect(page.locator("#room-root")).not.toHaveClass(/room-portrait/);
+    await expect(page.locator("#room-root")).toHaveClass(/room-wide/);
     await expect(link).toHaveCount(0);
+    await visibleInViewport(input, 390);
+    await rotate(width, height);
+    await expect(page.locator("#room-root")).toHaveClass(/room-portrait/);
+    await expect(link).toBeVisible();
+    for (const target of [input, link]) await visibleInViewport(target, height);
   });
 }
