@@ -4,6 +4,7 @@
 // `DELETE /rooms/:id` with the owner token, after a confirm step. Every string goes in as text.
 import * as v from "valibot";
 import { Container, Graphics, Sprite } from "pixi.js";
+import { drawCursor } from "./cursor";
 import {
   DeleteRoomResponseSchema,
   FLOOR_CELLS,
@@ -23,10 +24,10 @@ import furnitureJson from "../../../../assets/furniture/furniture.json";
 import furnitureV2Json from "../../../../assets/furniture/furniture-v2.json";
 import { el } from "../controls/dom";
 import { FurnitureManifestSchema } from "../furniture";
-import { TILE_H, TILE_W, cellCenter } from "../layout";
+import { cellCenter } from "../layout";
 import { TRAY_TABS, defaultFacing, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
 import { loadEditAtlas, type EditAtlas } from "./edit-atlas";
-import { cursorStrokes, markerKeys, slotAt, step, type CursorKey, type MarkerState, type Slot } from "./pick";
+import { markerKeys, slotAt, step, type CursorKey, type MarkerState, type Slot } from "./pick";
 import { SAVED_LAYOUT_NAME_MAX, saveLayout, saveMessage, type LayoutStore } from "../saved-layouts";
 
 export interface EditorContext {
@@ -133,25 +134,9 @@ function moved(layout: RoomLayout, index: number, slot: Slot): RoomLayout | null
 
 const CURSOR_KEYS: ReadonlySet<string> = new Set<CursorKey>(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
 const isCursorKey = (key: string): key is CursorKey => CURSOR_KEYS.has(key);
-/** How tall the keyboard cursor's frame stands on a wall slot. */
-const WALL_CURSOR_H = 64;
-
 /** "column 3 row 5", or "right wall 3" (a print's slot along the back-right wall, sw) / "left wall 3" (se). */
 const placeOf = (s: Slot): string =>
   s.wall === null ? `column ${String(s.col + 1)} row ${String(s.row + 1)}` : s.wall === "sw" ? `right wall ${String(s.col + 1)}` : `left wall ${String(s.row + 1)}`;
-
-/** The keyboard cursor's outline: the cell's diamond, or the wall face above its back edge. Dark under light, so one of the two lines has 3:1 on any floor or wall. */
-function drawCursor(g: Graphics, s: Slot, scale: number): void {
-  const p = cellCenter(s.col, s.row);
-  const top = { x: p.x, y: p.y - TILE_H / 2 };
-  const side = { x: s.wall === "se" ? p.x - TILE_W / 2 : p.x + TILE_W / 2, y: p.y };
-  const points =
-    s.wall === null
-      ? [top.x, top.y, p.x + TILE_W / 2, p.y, p.x, p.y + TILE_H / 2, p.x - TILE_W / 2, p.y]
-      : [top.x, top.y, side.x, side.y, side.x, side.y - WALL_CURSOR_H, top.x, top.y - WALL_CURSOR_H];
-  const w = cursorStrokes(scale);
-  g.clear().poly(points).stroke({ width: w.dark, color: 0x101018 }).poly(points).stroke({ width: w.light, color: 0xffffff });
-}
 
 export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   const atlas: EditAtlas = await loadEditAtlas();
