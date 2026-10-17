@@ -31,9 +31,15 @@ async function inside(l: Locator, top: number, bottom: number, left = 0, right =
   expect(b.y + b.height).toBeLessThanOrEqual(bottom);
   expect(b.x).toBeGreaterThanOrEqual(left);
   expect(b.x + b.width).toBeLessThanOrEqual(right);
+  // A box can sit in the viewport yet be clipped by a scrolling ancestor (QA OME-1305): the finger must land on it.
+  expect(await l.evaluate((node) => {
+    const r = node.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return hit !== null && (hit === node || node.contains(hit)) ? "reachable" : hit?.outerHTML.slice(0, 80) ?? "nothing";
+  }), String(l)).toBe("reachable");
 }
 
-async function open(browser: Parameters<typeof joinRoom>[0], name: "l844" | "l667" | "notch", width: number, height: number): Promise<Page> {
+async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "notch", width: number, height: number): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", name).url, count: 1, nicknamePrefix: `land${name}`,
     contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
   const page = clients[0]?.page;
@@ -42,7 +48,7 @@ async function open(browser: Parameters<typeof joinRoom>[0], name: "l844" | "l66
   return page;
 }
 
-for (const [name, width, height] of [["l844", 844, 390], ["l667", 667, 375]] as const) {
+for (const [name, width, height] of [["l932", 932, 430], ["l844", 844, 390], ["l667", 667, 375]] as const) {
   test(`${String(width)}×${String(height)} landscape: picture, shelf, Up next and chat fit unscrolled; the field stays above the keyboard`, async ({ browser }) => {
     const page = await open(browser, name, width, height);
     await expect(page.locator("#room-root")).not.toHaveClass(/room-portrait/);
@@ -54,6 +60,7 @@ for (const [name, width, height] of [["l844", 844, 390], ["l667", 667, 375]] as 
     // The picture keeps its ADR 0012 minimum; the field keeps its room.
     expect((await box(page.locator(site.tv))).width).toBeGreaterThanOrEqual(356);
     expect((await box(input)).width).toBeGreaterThanOrEqual(120);
+    expect((await box(page.locator(site.queueUrl))).width).toBeGreaterThanOrEqual(120);
 
     await input.fill("sideways hello");
     await input.press("Enter");
