@@ -280,6 +280,7 @@
       ],
       "specs": [
         "e2e/landing.e2e.ts",
+        "e2e/legal.e2e.ts",
         "e2e/source-link.e2e.ts",
         "e2e/tunnel-m9-site.e2e.ts",
         "perf/landing.perf.ts"
