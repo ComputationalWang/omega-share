@@ -54,3 +54,24 @@ export const V2_BENCHES: RoomLayout = {
 };
 /** Seat i of V2_BENCHES → its piece's frames. */
 export const V2_BENCHES_PIECE = ["bench/teal/se", "bench/teal/se", "bench/teal/sw", "bench/teal/sw", "floorcushion/mustard/ne", "floorcushion/mustard/nw", "floorcushion/mustard/se", "floorcushion/mustard/sw"];
+/** Catalogue v3 (OME-1348, OME-1351): eight poufs on the default seat cells (ne nw se sw, then the same in lilac), and every other v3 piece. */
+export const V3_POUFS: RoomLayout = {
+  furniture: [
+    { kind: "tv", col: 0, row: 0, facing: "se" },
+    { kind: "pouf", col: 1, row: 5, facing: "ne" },
+    { kind: "pouf", col: 2, row: 4, facing: "nw" },
+    { kind: "pouf", col: 4, row: 2, facing: "se" },
+    { kind: "pouf", col: 5, row: 1, facing: "sw" },
+    { kind: "pouf", col: 3, row: 7, facing: "ne", variant: 1 },
+    { kind: "pouf", col: 4, row: 6, facing: "nw", variant: 1 },
+    { kind: "pouf", col: 6, row: 4, facing: "se", variant: 1 },
+    { kind: "pouf", col: 7, row: 3, facing: "sw", variant: 1 },
+    { kind: "coffeetable", col: 3, row: 3, facing: "se" },
+    { kind: "aquarium", col: 0, row: 9, facing: "se" },
+    { kind: "arcade", col: 9, row: 0, facing: "sw" },
+    { kind: "neonsign", col: 4, row: 0, facing: "sw", variant: 1 },
+    { kind: "wallclock", col: 0, row: 4, facing: "se" },
+  ],
+};
+/** Seat i of V3_POUFS → its piece's frames. */
+export const V3_POUFS_PIECE = ["pouf/rust/ne", "pouf/rust/nw", "pouf/rust/se", "pouf/rust/sw", "pouf/lilac/ne", "pouf/lilac/nw", "pouf/lilac/se", "pouf/lilac/sw"];
