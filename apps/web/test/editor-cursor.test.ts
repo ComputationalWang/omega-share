@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Graphics, Polygon } from "pixi.js";
-import { drawCursor } from "../src/editor/cursor";
+import { drawCursor } from "../src/cell-cursor";
 import type { Slot } from "../src/editor/pick";
 
 /** Every shape the Graphics strokes, with whether its path closes (Pixi v8: `closePath` on the polygon). */

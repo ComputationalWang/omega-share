@@ -4,7 +4,7 @@
 import { Application, Container, Graphics, Sprite, Ticker } from "pixi.js";
 import { AVATAR_COUNT, type EmoteKind, type FloorCell, type MemberId } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
-import { drawCursor } from "./editor/cursor";
+import { drawCursor } from "./cell-cursor";
 import type { Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { createAnimator } from "./walk/animator";
