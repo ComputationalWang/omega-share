@@ -158,6 +158,7 @@
       ],
       "specs": [
         "e2e/a11y-presence.e2e.ts",
+        "e2e/a11y-sweep.e2e.ts",
         "e2e/acceptance.e2e.ts",
         "e2e/csp.e2e.ts",
         "e2e/furniture.e2e.ts",
@@ -793,6 +794,7 @@
         "**/*.md"
       ],
       "specs": [
+        "e2e/a11y-sweep.e2e.ts",
         "e2e/acceptance.e2e.ts",
         "e2e/extension-a11y.e2e.ts",
         "e2e/extension-phone.e2e.ts",
