@@ -371,6 +371,9 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
   .ui-touch .controls .ui-transport > .ui-chip { display: none; }
   .ui-touch:not(.room-portrait) .controls .ui-vol-track { display: none; }
   .ui-touch .controls > :is(.ui-volume, .fs-key, .quality-key) { margin-left: 0; }
+  /* The mute key's 44 px finger reaches over the pod's own 8 px frame: 1 px of its 9 px lead stays (an hour-long Vimeo's
+   * two h:mm:ss readouts left the seek bar 43 px), and 10 px after it, since the next key has no lead here (QA OME-1342). */
+  .ui-touch:not(.room-portrait) .controls .ui-volume > .ui-button.icon { margin: 0 10px 0 1px; }
 }
 /* A narrow Up next (the 256 px landscape-phone column, OME-1313): the chips keep only their glyphs so the title stays
  * readable; the word stays for a screen reader. */
