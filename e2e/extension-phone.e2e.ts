@@ -1,4 +1,4 @@
-// The popup on a phone (OME-743): Firefox for Android opens it as a full-screen sheet 360-412 px wide with a touch pointer.
+// The popup on a phone (OME-743): Firefox for Android opens it as a full-screen sheet 320-412 px wide with a touch pointer.
 // Chromium here stands in: the popup page opened as a tab, a viewport of that width, and Blink's pointer/hover switches.
 // What every phone has in common is `(hover: none)`. The pointer is not reliable: on Firefox for Android 157 (emulator, the
 // OME-743 smoke) a touchscreen that also reports a stylus gives `(pointer: fine)`, and so would an S Pen phone.
@@ -43,7 +43,7 @@ const PHONES = [
 for (const phone of PHONES) test.describe(phone.name, () => {
   const p = String(phone.pointer);
   test.use({ extraArgs: [`--blink-settings=primaryPointerType=${p},availablePointerTypes=${p},primaryHoverType=1,availableHoverTypes=1`] });
-for (const [width, height] of [[360, 740], [412, 915]] as const) {
+for (const [width, height] of [[320, 640], [360, 740], [412, 915]] as const) {
   test(`the popup fits and is usable at ${String(width)} px on ${phone.name}`, async ({ context, openPopup }) => {
     const popup = await setup(context, openPopup);
     await popup.setViewportSize({ width, height });
