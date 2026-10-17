@@ -522,3 +522,7 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .portrait-sheet .queue-form .ui-button { min-width: 44px; min-height: 44px; }
 /* A tag the phone window crops (room-window.ts) is off to pointers, pad and all; focus still reaches it and pans it whole. */
 .tags.pickable .tag.is-cropped, .tags.pickable .tag-pad.is-cropped { pointer-events: none; }
+/* Free walking (OME-1350): the floor layer under the seat keys; a blocked click or step flashes not-allowed. */
+.walk-floor { position: absolute; inset: 0; }
+.walk-floor:focus-visible { outline: 4px solid var(--ui-text); outline-offset: -4px; }
+.walk-floor.no-go { cursor: not-allowed; }

@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, type Avatar, type ClientMessage, type EmoteKind, type MemberId, type Nickname, type ResumeToken, type RoomId } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type MemberId, type Nickname, type ResumeToken, type RoomId } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
@@ -19,7 +19,7 @@ import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
-import { chatIntent, sitIntent } from "./intents";
+import { chatIntent, sitIntent, stepAllowed, stepCell, walkIntent } from "./intents";
 import { layoutOf } from "./furniture";
 import { createPendingApplier } from "./pending-layout";
 import { PHONE_QUERY, SHORT_QUERY, STAGE_W, WIDE_QUERY, type Rect } from "./layout";
@@ -137,7 +137,27 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     onLayout: (points) => {
       layout.seats(points);
     },
+    onFloor: (cell) => walkTo(cell),
+    onStep: (key, repeat) => {
+      const now = performance.now();
+      if (!stepAllowed(repeat, now, lastStep)) return true;
+      // From where I'm headed (my cell), else where I'm drawn (a seat, my standing spot).
+      const me = state.room?.members.find((m) => m.id === state.self);
+      const from = me?.cell ?? (state.self === null ? null : roomStage.cellOf(state.self));
+      const to = from === null ? null : stepCell(from, key);
+      if (to === null) return from === null;
+      lastStep = now;
+      return walkTo(to);
+    },
   });
+  /** Free walking (OME-1350): send `walk` to free floor; false (the floor flashes) when nobody can stand there. */
+  function walkTo(cell: FloorCell): boolean {
+    const msg = walkIntent(state, cell);
+    if (msg === "blocked") return false;
+    if (msg !== null) send(msg);
+    return true;
+  }
+  let lastStep = -Infinity;
   const { root: stage, overlay, tags, view } = roomStage;
   const clip = el("div", { className: "stage-clip" }, "room-window");
   clip.append(stage);

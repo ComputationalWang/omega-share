@@ -17,7 +17,8 @@ export const WALK_FRAMES = 4;
 /** ADR 0037 `meta.omega.walk8`: the Smooth tier's cycle, 8 frames at 75 ms (still one tile per 600 ms cycle). */
 export const SMOOTH_FRAME_MS = 75;
 export const SMOOTH_FRAMES = 8;
-const TILE_MS = WALK_FRAME_MS * WALK_FRAMES;
+/** One tile's walk: the most often a held arrow key steps (OME-1350). */
+export const TILE_MS = WALK_FRAME_MS * WALK_FRAMES;
 /** Screen length of one step between neighbouring cells. */
 const TILE_LEN = Math.hypot(TILE_W / 2, TILE_H / 2);
 /** Spread of rest phases for people placed at once, so a room doesn't breathe in step. */

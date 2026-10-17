@@ -49,6 +49,8 @@ export const site = {
   poproomChat: id("poproom-chat"),
   poproomPlate: id("poproom-plate"),
   nicknameTag: id("nickname-tag"),
+  // Free walking (OME-1350, ADR 0053): the floor layer under the seat keys; click, tap or arrow keys walk.
+  walkFloor: id("walk-floor"),
   roomFull: id("room-full"),
   // OME-272: the AGPL-3.0 §13 source offer in the site footer.
   sourceLink: id("source-link"),

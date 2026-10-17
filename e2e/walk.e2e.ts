@@ -5,6 +5,7 @@ import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { stubExternalNetwork } from "./support/network";
 import { site } from "./support/selectors";
+import { TAG_OFFSET_Y, cellCenter } from "../apps/web/src/layout";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -163,4 +164,89 @@ test("prefers-reduced-motion: the others' avatars jump straight to the seat", as
   await a.page.waitForTimeout(6000);
   const path = await tagPath(a.page, "still-2", 3000, () => b.page.locator(`${site.seat}[data-seat="0"]`).click());
   expect(path.length, `positions: ${path.join(" | ")}`).toBeLessThanOrEqual(2);
+});
+
+// Free walking (OME-1350, ADR 0053), on the default layout: (0,0) is the TV, (3,8) and (4,8) open floor.
+
+/** Where `nickname`'s tag hangs when they rest on cell (x, y): the cell's centre, TAG_OFFSET_Y below. */
+const restOn = (x: number, y: number): string => {
+  const p = cellCenter(x, y);
+  return `${String(Math.round(p.x))}px ${String(Math.round(p.y + TAG_OFFSET_Y))}px`;
+};
+const tagAt = (page: Page, nickname: string): Promise<string> => page.locator(site.nicknameTag).filter({ hasText: nickname }).evaluate((el) => (el as HTMLElement).style.translate);
+
+/** Clicks stage point `cellCenter(x, y)` on the floor layer, wherever the stage is scaled to. */
+async function clickCell(page: Page, x: number, y: number): Promise<void> {
+  const floor = page.locator(site.walkFloor);
+  const box = await floor.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { left: r.left, top: r.top, k: r.width / (el as HTMLElement).offsetWidth };
+  });
+  const p = cellCenter(x, y);
+  await page.mouse.click(box.left + p.x * box.k, box.top + p.y * box.k);
+}
+
+/** Every `walk` frame `page` sends from now on (the socket is already open, so its `send` is wrapped in place). */
+async function spyWalks(page: Page): Promise<string[]> {
+  const walks: string[] = [];
+  await page.exposeFunction("__sentWalk", (t: string) => walks.push(t));
+  await page.evaluate(() => {
+    const proto = WebSocket.prototype;
+    const send: unknown = Reflect.get(proto, "send");
+    if (typeof send !== "function") return;
+    Reflect.set(proto, "send", function (this: WebSocket, data: unknown) {
+      const spy: unknown = Reflect.get(window, "__sentWalk");
+      if (typeof data === "string" && data.includes('"walk"') && typeof spy === "function") Reflect.apply(spy, window, [data]);
+      Reflect.apply(send, this, [data]);
+    });
+  });
+  return walks;
+}
+
+test("a click on free floor walks there: everyone sees the walk and rests on that cell; an arrow key then steps one cell", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "free").url, count: 2, nicknamePrefix: "free" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("need two clients");
+  await a.page.waitForTimeout(6000); // b walked in from the door
+  const path = await tagPath(a.page, "free-2", 8000, () => clickCell(b.page, 3, 8));
+  expect(path.length, `the others see b walk: ${path.join(" | ")}`).toBeGreaterThan(3);
+  for (const page of [a.page, b.page]) await expect.poll(() => tagAt(page, "free-2"), { timeout: 10_000 }).toBe(restOn(3, 8));
+  // The keyboard way (a11y): the floor takes focus, and an arrow key steps one cell.
+  await b.page.locator(site.walkFloor).focus();
+  await b.page.keyboard.press("ArrowRight");
+  for (const page of [a.page, b.page]) await expect.poll(() => tagAt(page, "free-2"), { timeout: 10_000 }).toBe(restOn(4, 8));
+});
+
+test("a held arrow key steps at most once a tile", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "keys").url, count: 1, nicknamePrefix: "keys" });
+  const [a] = clients;
+  if (a === undefined) throw new Error("no client");
+  await a.page.waitForTimeout(4000);
+  await clickCell(a.page, 9, 8);
+  await expect.poll(() => tagAt(a.page, "keys-1"), { timeout: 10_000 }).toBe(restOn(9, 8));
+  const walks = await spyWalks(a.page);
+  await a.page.locator(site.walkFloor).focus();
+  // Held for 1.5 s: the browser repeats the key ~every 33 ms, the room steps at most once per 600 ms tile.
+  await a.page.keyboard.down("ArrowLeft");
+  for (let i = 0; i < 45; i++) {
+    await a.page.keyboard.down("ArrowLeft");
+    await a.page.waitForTimeout(33);
+  }
+  await a.page.keyboard.up("ArrowLeft");
+  expect(walks.length, walks.join(" | ")).toBeGreaterThanOrEqual(2);
+  expect(walks.length, walks.join(" | ")).toBeLessThanOrEqual(4);
+});
+
+test("a click on a solid piece sends nothing and flashes can't-go-there", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "blocked").url, count: 1, nicknamePrefix: "blocked" });
+  const [a] = clients;
+  if (a === undefined) throw new Error("no client");
+  await a.page.waitForTimeout(4000);
+  const sent = await spyWalks(a.page);
+  const before = await tagAt(a.page, "blocked-1");
+  await clickCell(a.page, 0, 0);
+  await expect(a.page.locator(site.walkFloor)).toHaveClass(/\bno-go\b/);
+  await expect(a.page.locator(site.walkFloor)).not.toHaveClass(/\bno-go\b/, { timeout: 2000 });
+  expect(sent).toEqual([]);
+  expect(await tagAt(a.page, "blocked-1")).toBe(before);
 });
