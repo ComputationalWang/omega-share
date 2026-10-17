@@ -59,6 +59,11 @@ export function step(slot: Slot, key: CursorKey): Slot {
   return { col, row: clampCell(row + (key === "ArrowDown" ? 1 : -1)), wall };
 }
 
+/** The keyboard cursor's dark and light line widths in stage px, for a stage shown at `scale` screen px per stage px. */
+export function cursorStrokes(_scale: number): { readonly dark: number; readonly light: number } {
+  return { dark: 5, light: 2.5 };
+}
+
 export type MarkerState = "ok" | "no" | "sel";
 
 export interface Marker {
