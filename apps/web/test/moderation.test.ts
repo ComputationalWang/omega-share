@@ -189,7 +189,7 @@ describe("member menu", () => {
     setAnchor({ x: 500, y: 250 });
     mod.update();
     expect(menu()?.style.transform).not.toBe(before);
-    expect(menu()?.style.transform).toBe("translate(500px, 235px)");
+    expect(menu()?.style.transform).toBe("translate(500px, 247px)");
   });
 
   // OME-1254 (K7): the menu is page chrome, at the kit's 2 px art pixel and 12 px words, not the stage's 1× scale.
@@ -206,9 +206,19 @@ describe("member menu", () => {
     setRects({ left: 30, top: 20, width: 480, height: 300 }, { left: 10, top: 5, width: 800, height: 400 });
     setAnchor({ x: 400, y: 310 });
     tag("kit").click();
-    // x = 20 + 400 × 0.5; y = 15 + 310 × 0.5, less the tail's 15 page px (its tip 3 px onto the tag).
-    expect(menu()?.style.transform).toBe("translate(220px, 155px)");
+    // x = 20 + 400 × 0.5; y = 15 + 310 × 0.5, less 3 page px (the tail's tip hangs 6 below the tray: 3 onto the tag).
+    expect(menu()?.style.transform).toBe("translate(220px, 167px)");
     expect(menu()?.style.getPropertyValue("--ui-tail-x")).toBe("calc(50% + 0px)");
+  });
+
+  test("it follows its member while they walk, with no render: the stage moves their tag, the menu moves with it", async () => {
+    const { tag, menu, setAnchor } = await setup();
+    tag("kit").click();
+    setAnchor({ x: 300, y: 200 });
+    // stage.ts `place`, on every frame of a walk.
+    tag("kit").style.translate = "300px 210px";
+    await Promise.resolve();
+    expect(menu()?.style.transform).toBe("translate(300px, 197px)");
   });
 
   test("it stays inside the clip by its own width; the tail keeps pointing at the member", async () => {
@@ -222,7 +232,7 @@ describe("member menu", () => {
     } finally {
       if (w !== undefined) Object.defineProperty(HTMLElement.prototype, "offsetWidth", w);
     }
-    expect(menu()?.style.transform).toBe("translate(120px, 285px)");
+    expect(menu()?.style.transform).toBe("translate(120px, 297px)");
     expect(menu()?.style.getPropertyValue("--ui-tail-x")).toBe("calc(50% + -100px)");
   });
 
