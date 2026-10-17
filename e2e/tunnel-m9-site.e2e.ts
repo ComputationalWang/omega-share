@@ -241,7 +241,7 @@ test.describe("legal pages", () => {
       const res = await get(legalPath(name), CHROME);
       expect(res.status).toBe(200);
       expect(res.headers["content-type"]).toContain("text/html");
-      expect(text(res)).toContain("<h1>");
+      expect(text(res)).toMatch(/<h1[\s>]/);
       expect(res.headers["content-security-policy"]).toContain("default-src 'self'");
       expect(res.headers["x-content-type-options"]).toBe("nosniff");
     });
