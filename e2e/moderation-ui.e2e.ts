@@ -81,6 +81,29 @@ test("only the owner loads the moderation tools: a guest's tag opens Mute / Remo
   await kitTag.click();
   await expect(owner.locator(site.modMenu)).toBeVisible();
   await expect(owner.locator(site.modMenu)).toContainText("kit");
+  // OME-1254 (K7): page chrome at 1280×720, not the stage's 1× scale: 12 px words, the tail on kit's tag.
+  expect(await owner.locator(site.modMenu).evaluate((m) => m.closest(".ui-room") === null)).toBe(true);
+  for (const words of [owner.locator(`${site.modMenu} .name`), owner.locator(site.modMute)]) {
+    expect(Number.parseFloat(await words.evaluate((e) => getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(12);
+  }
+  const menuBox = await owner.locator(site.modMenu).boundingBox();
+  const tagBox = await kitTag.boundingBox();
+  if (menuBox === null || tagBox === null) throw new Error("menu or tag not laid out");
+  const tail = await owner.locator(site.modMenu).evaluate((m) => {
+    const t = getComputedStyle(m, "::after");
+    return { left: Number.parseFloat(t.left), top: Number.parseFloat(t.top), height: Number.parseFloat(t.height) };
+  });
+  const tip = menuBox.y + tail.top + tail.height;
+  expect(tip).toBeGreaterThanOrEqual(tagBox.y - 1);
+  expect(tip).toBeLessThanOrEqual(tagBox.y + tagBox.height);
+  expect(menuBox.x + tail.left).toBeGreaterThanOrEqual(tagBox.x);
+  expect(menuBox.x + tail.left).toBeLessThanOrEqual(tagBox.x + tagBox.width);
+  await owner.keyboard.press("Escape");
+  // From the keyboard: the first row's focus ring is 2 CSS px.
+  await kitTag.focus();
+  await owner.keyboard.press("Enter");
+  await expect(owner.locator(site.modMute)).toBeFocused();
+  expect(Number.parseFloat(await owner.locator(site.modMute).evaluate((e) => getComputedStyle(e).outlineWidth))).toBeGreaterThanOrEqual(2);
   await owner.locator(site.modMute).click();
   await expect(owner.locator(site.modMenu)).toHaveCount(0);
   await expect.poll(() => sent(ownerFrames, "mute")).toHaveLength(1);
