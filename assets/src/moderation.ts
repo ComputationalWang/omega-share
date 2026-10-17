@@ -215,16 +215,14 @@ export function moderationCss(): string {
  * The tail points down at the avatar's name tag: set --ui-tail-x like the picker.
  * Scale (OME-1247): the menu is page chrome (--ui-px: 2px), mounted outside .ui-room and placed at the member's tag in page px, like
  * the emote wheel. Its words are never under 12 CSS px on screen: inside the stage they'd shrink with it (11 px × 0.68 ≈ 7.5 px at
- * 1280×720). The .ui-room sizes below only cover the old in-stage mount until the app moves it. */
+ * 1280×720). */
 .ui-emotes.ui-modmenu { display: inline-grid; align-items: stretch; gap: ${u(1)}; min-width: ${u(96)}; }
 .ui-modmenu .head { display: flex; align-items: center; gap: ${u(3)}; color: var(--ui-text); font-weight: 700; font-size: 12px; padding: 0 0 0 ${u(1)}; }
-.ui-room .ui-modmenu .head { font-size: 11px; }
 .ui-modmenu .head .name { flex: 1; }
 .ui-modsep { display: block; height: ${u(2)}; background: ${slice("menu/sep")} 0 0 / ${u(4)} ${u(2)} repeat-x; }
 /* A row: <button class="ui-modrow" role="menuitem"> icon + words. "Mute chat" (icon/chat-mute) ↔ "Unmute chat" (icon/chat), and
  * "Remove from room" (icon/remove). Remove asks first: the row turns .is-ask with "Remove Kit for 10 min?" + Keep / Remove keys. */
 .ui-modrow { ${nineRule("menu/row/idle", 4)} display: flex; align-items: center; gap: ${u(3)}; min-height: ${u(20)}; padding: 0 ${u(1)}; background: none; color: var(--ui-text); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
-.ui-room .ui-modrow { font-size: 11px; }
 .ui-modrow:hover, .ui-modrow.is-hover, .ui-modrow:focus-visible, .ui-modrow.is-focus { ${src("menu/row/hover")} }
 /* Keyboard focus (OME-1247, WCAG 2.4.11/2.4.13): the sunken well plus a cream ring outside the row. One art px of gap between rows
  * and the tray's night face behind them, so the ring always lands on night (11:1) and never covers a neighbour. */

@@ -8,7 +8,8 @@ import type { Point } from "../layout";
 import { controlPolicy, isMuted, type ViewState } from "../state";
 
 export interface ModerationOptions {
-  /** The scaled stage: the menu sits in its coordinates, over the member's name tag. */
+  /** The scaled `.ui-room` stage. The menu is page chrome (2 px art pixel, 12 px words; OME-1254), so it mounts in the
+   * stage's parent (room.ts `.stage-clip`) and is placed in page px over the member's name tag. */
   readonly stage: HTMLElement;
   /** The name-tag layer (room.ts): one `[data-member]` span per member. */
   readonly tags: HTMLElement;
@@ -16,9 +17,9 @@ export interface ModerationOptions {
   readonly bar: HTMLElement;
   readonly view: () => ViewState;
   readonly send: (m: ClientMessage) => boolean;
-  /** The top of a member's name tag on the stage now: the menu's tail points there. */
+  /** The top of a member's name tag on the stage now, in stage px: the menu's tail points there. */
   readonly anchor: (id: MemberId) => Point | undefined;
-  /** The stage's width in its own px (layout.ts STAGE_W): the menu stays inside it. */
+  /** The stage's width in its own px (layout.ts STAGE_W): its on-page width over this is its scale. */
   readonly stageWidth: number;
 }
 
@@ -32,8 +33,8 @@ export interface Moderation {
 
 /** Portrait sprites by avatar index (assets/README.md: juno, pip, mo, kiki). */
 const PORTRAITS = ["juno", "pip", "mo", "kiki"] as const;
-/** The menu stays this far (stage px) from the stage's sides; its tail still points at the member. */
-const MENU_HALF_W = 110;
+/** The tray's bottom sits this far (page px) over the tag: the tail's tip (9 art px at 2 px) lands 3 px onto it. */
+const TAIL_PX = 15;
 
 const POLICY_TEXT: Record<ControlPolicy, string> = {
   everyone: "Anyone in the room can play, pause and skip. Everyone sees who did it.",
@@ -41,6 +42,7 @@ const POLICY_TEXT: Record<ControlPolicy, string> = {
 };
 
 export function mountModeration(o: ModerationOptions): Moderation {
+  const layer = o.stage.parentElement ?? o.stage;
   // ---- The member menu: the emote picker's tray (mustard "only you" rim), rows instead of cells.
   const menu = el("div", { className: "ui-emotes ui-modmenu mod-menu", role: "dialog" }, "mod-menu");
   const portrait = sprite("ui-portrait-juno");
@@ -130,21 +132,27 @@ export function mountModeration(o: ModerationOptions): Moderation {
     name.textContent = m.nickname;
     menu.setAttribute("aria-label", m.nickname);
     showRemove(false, m.nickname);
+    layer.append(menu);
     placeMenu(id);
-    o.stage.append(menu);
     syncMenu(s);
   };
 
-  /** Over the member's tag, kept inside the stage; the tail keeps pointing at the member. */
+  /** Over the member's tag (stage px × the stage's scale + its offset in the layer), kept inside the layer by the menu's
+   * own width; the tail keeps pointing at the member. */
   const placeMenu = (id: MemberId): void => {
     const p = o.anchor(id);
     if (p === undefined) return;
-    const x = Math.min(o.stageWidth - MENU_HALF_W, Math.max(MENU_HALF_W, p.x));
-    const transform = `translate(${String(x)}px, ${String(p.y - 6)}px)`;
+    const s = o.stage.getBoundingClientRect();
+    const l = layer.getBoundingClientRect();
+    const k = s.width / o.stageWidth;
+    const px = s.left - l.left + p.x * k;
+    const half = menu.offsetWidth / 2;
+    const x = Math.min(layer.clientWidth - half, Math.max(half, px));
+    const transform = `translate(${String(x)}px, ${String(s.top - l.top + p.y * k - TAIL_PX)}px)`;
     if (transform === placedAt) return;
     placedAt = transform;
     menu.style.transform = transform;
-    menu.style.setProperty("--ui-tail-x", `calc(50% + ${String(p.x - x)}px)`);
+    menu.style.setProperty("--ui-tail-x", `calc(50% + ${String(px - x)}px)`);
   };
 
   /** The open menu follows the state: its member left → close; moved → it follows; their mute changed → the row flips. */
