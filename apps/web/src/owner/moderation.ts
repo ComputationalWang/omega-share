@@ -33,8 +33,9 @@ export interface Moderation {
 
 /** Portrait sprites by avatar index (assets/README.md: juno, pip, mo, kiki). */
 const PORTRAITS = ["juno", "pip", "mo", "kiki"] as const;
-/** The tray's bottom sits this far (page px) over the tag: the tail's tip (9 art px at 2 px) lands 3 px onto it. */
-const TAIL_PX = 15;
+/** The tray's bottom sits this far (page px) over the tag: the tail's tip hangs 6 below it (reference.css
+ * `.ui-emotes::after` at 2 px), so it lands 3 px onto the tag. */
+const TAIL_PX = 3;
 
 const POLICY_TEXT: Record<ControlPolicy, string> = {
   everyone: "Anyone in the room can play, pause and skip. Everyone sees who did it.",
@@ -66,6 +67,13 @@ export function mountModeration(o: ModerationOptions): Moderation {
   /** The tag it was opened from: focus goes back there on close. */
   let opener: HTMLElement | null = null;
   let placedAt = "";
+  /** The stage's scale and its offset in the layer, half the menu's width and the layer's: read once per open, resize or content
+   * change, so following a walk reads no layout. */
+  let k = 1;
+  let dx = 0;
+  let dy = 0;
+  let half = 0;
+  let room = 0;
   let asking = false;
   let shownMuted: boolean | null = null;
 
@@ -78,6 +86,7 @@ export function mountModeration(o: ModerationOptions): Moderation {
     } else {
       removeRow.replaceChildren(removeKey);
     }
+    replace();
   };
 
   /** Another member's tag to stand in when the opener goes (a kick), else the playback setting: never <body> (K3). */
@@ -93,6 +102,8 @@ export function mountModeration(o: ModerationOptions): Moderation {
     asking = false;
     shownMuted = null;
     placedAt = "";
+    follow.disconnect();
+    resized.disconnect();
     menu.remove();
     document.removeEventListener("pointerdown", onOutside, true);
     back?.setAttribute("aria-expanded", "false");
@@ -133,22 +144,41 @@ export function mountModeration(o: ModerationOptions): Moderation {
     menu.setAttribute("aria-label", m.nickname);
     showRemove(false, m.nickname);
     layer.append(menu);
-    placeMenu(id);
     syncMenu(s);
+    // stage.ts moves a walking member's tag every frame without a render; a refit resizes the layer (room-layout.ts).
+    if (from !== null) follow.observe(from, { attributes: true, attributeFilter: ["style"] });
+    resized.observe(layer);
   };
+
+  const measure = (): void => {
+    const st = o.stage.getBoundingClientRect();
+    const l = layer.getBoundingClientRect();
+    k = st.width / o.stageWidth;
+    dx = st.left - l.left;
+    dy = st.top - l.top;
+    half = menu.offsetWidth / 2;
+    room = layer.clientWidth;
+    placedAt = "";
+  };
+  const replace = (): void => {
+    if (target === null || !menu.isConnected) return;
+    measure();
+    placeMenu(target);
+  };
+  const follow = new MutationObserver(() => {
+    if (target !== null) placeMenu(target);
+  });
+  // shortcut: a stage pan or zoom that keeps the layer's size isn't seen; on a phone that's a press, which closes the menu.
+  const resized = new ResizeObserver(replace);
 
   /** Over the member's tag (stage px × the stage's scale + its offset in the layer), kept inside the layer by the menu's
    * own width; the tail keeps pointing at the member. */
   const placeMenu = (id: MemberId): void => {
     const p = o.anchor(id);
     if (p === undefined) return;
-    const s = o.stage.getBoundingClientRect();
-    const l = layer.getBoundingClientRect();
-    const k = s.width / o.stageWidth;
-    const px = s.left - l.left + p.x * k;
-    const half = menu.offsetWidth / 2;
-    const x = Math.min(layer.clientWidth - half, Math.max(half, px));
-    const transform = `translate(${String(x)}px, ${String(s.top - l.top + p.y * k - TAIL_PX)}px)`;
+    const px = dx + p.x * k;
+    const x = Math.min(room - half, Math.max(half, px));
+    const transform = `translate(${String(x)}px, ${String(dy + p.y * k - TAIL_PX)}px)`;
     if (transform === placedAt) return;
     placedAt = transform;
     menu.style.transform = transform;
@@ -162,12 +192,15 @@ export function mountModeration(o: ModerationOptions): Moderation {
       closeMenu();
       return;
     }
-    placeMenu(target);
     const muted = isMuted(s, target);
-    if (muted === shownMuted) return;
+    if (muted === shownMuted) {
+      placeMenu(target);
+      return;
+    }
     shownMuted = muted;
     muteIcon.className = `ui-sprite ${muted ? "ui-icon-chat" : "ui-icon-chat-mute"}`;
     muteRow.replaceChildren(muteIcon, muted ? "Unmute chat" : "Mute chat");
+    replace();
   };
 
   muteRow.addEventListener("click", () => {
