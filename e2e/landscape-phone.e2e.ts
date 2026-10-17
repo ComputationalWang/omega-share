@@ -41,7 +41,7 @@ async function inside(l: Locator, top: number, bottom: number, left = 0, right =
 }
 
 async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "q932" | "q844" | "q667" | "notch", width: number, height: number): Promise<Page> {
-  clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", name).url, count: 1, nicknamePrefix: `land${name}`,
+  clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", name).url, count: 1, nicknamePrefix: `land${name}${String(test.info().retry)}${String(test.info().repeatEachIndex)}`,
     contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
   const page = clients[0]?.page;
   if (page === undefined) throw new Error("no client");
@@ -106,7 +106,7 @@ test("844×390 landscape with a notch: the room and the chat column keep clear o
 async function fillQueue(roomId: string, tag: string): Promise<() => void> {
   const sockets = await Promise.all([0, 1, 2].map((m) => new Promise<WebSocket>((resolve, reject) => {
     const ws = new WebSocket(`${URLS.server.replace(/^http/, "ws")}/rooms/${roomId}/ws`);
-    ws.addEventListener("open", () => { ws.send(JSON.stringify({ type: "join", nickname: `${tag}q${String(m)}`, avatar: 0 })); });
+    ws.addEventListener("open", () => { ws.send(JSON.stringify({ type: "join", nickname: `${tag}q${String(m)}r${String(test.info().retry)}${String(test.info().repeatEachIndex)}`, avatar: 0 })); });
     let sent = false;
     ws.addEventListener("message", (ev: MessageEvent<unknown>) => {
       if (sent || typeof ev.data !== "string" || !ev.data.includes('"snapshot"')) return;
@@ -133,9 +133,12 @@ for (const [name, width, height] of [["q932", 932, 430], ["q844", 844, 390], ["q
       expect(await list.evaluate((n) => n.clientHeight)).toBeGreaterThanOrEqual(20);
       for (const l of [site.tv, site.playToggle, site.queueCount, site.queueUrl, site.queueAdd, site.chatInput]) await inside(page.locator(l), 0, height, 0, width);
       expect((await box(page.locator(site.chatLog))).height).toBeGreaterThanOrEqual(60);
-      const last = rows.last();
-      await last.scrollIntoViewIfNeeded();
-      await inside(last, 0, height, 0, width);
+      // Rows redraw while the adds land: retry the scroll until the last one holds still.
+      await expect(async () => {
+        const last = rows.last();
+        await last.scrollIntoViewIfNeeded({ timeout: 1_000 });
+        await inside(last, 0, height, 0, width);
+      }).toPass({ timeout: 10_000 });
       expect(await page.evaluate(() => window.scrollY)).toBe(0);
       // The keyboard up while typing a link: the link field and Add stay above it.
       const url = page.locator(site.queueUrl);
