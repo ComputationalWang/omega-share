@@ -3,7 +3,7 @@
 // the guest's tag and the member menu's keys are 44×44 to the finger (assets/STYLE.md), counting a `::before` hit area.
 import AxeBuilder from "@axe-core/playwright";
 import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page } from "@playwright/test";
-import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
+import { QUEUE_ADD_MEMBER_BURST, QUEUE_ADD_ROOM_BURST, QUEUE_ADD_ROOM_REFILL_MS, QUEUE_MAX, ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
@@ -78,6 +78,49 @@ test("1280×800: the owner's room is as big as a guest's, and axe finds no targe
   await expect(host.locator(site.controlPolicy)).toBeInViewport();
   const { violations } = await new AxeBuilder({ page: host }).include(site.room).withRules(["target-size"]).analyze();
   expect(violations.map((v) => v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? ""}`)).flat()).toEqual([]);
+});
+
+/**
+ * Fills Up next to QUEUE_MAX through raw members (one plays, QUEUE_MAX wait): a room burst at once, then one per room
+ * refill, round-robin so no member passes its own burst. Returns the closer.
+ */
+async function fillQueue(roomId: string, inviteKey: string, tag: string): Promise<() => void> {
+  const total = QUEUE_MAX + 1;
+  const members = Math.ceil(total / QUEUE_ADD_MEMBER_BURST);
+  const sockets = await Promise.all(Array.from({ length: members }, (_, m) => new Promise<WebSocket>((resolve, reject) => {
+    const ws = new WebSocket(`${URLS.server.replace(/^http/, "ws")}/rooms/${roomId}/ws`);
+    ws.addEventListener("open", () => { ws.send(JSON.stringify({ type: "join", nickname: `${tag}${String(m)}r${String(test.info().retry)}`, avatar: 0, inviteKey })); });
+    ws.addEventListener("message", (ev: MessageEvent<unknown>) => {
+      if (typeof ev.data === "string" && ev.data.includes('"snapshot"')) resolve(ws);
+    });
+    ws.addEventListener("error", () => { reject(new Error("websocket error")); });
+  })));
+  for (let i = 0; i < total; i++) {
+    if (i >= QUEUE_ADD_ROOM_BURST) await new Promise((r) => setTimeout(r, QUEUE_ADD_ROOM_REFILL_MS + 200));
+    // An 11-character video id.
+    sockets[i % members]?.send(JSON.stringify({ type: "queue-add", url: `https://youtu.be/${`${tag}${String(test.info().retry)}x${String(i)}`.padEnd(11, "a")}` }));
+  }
+  return () => { for (const ws of sockets) ws.close(); };
+}
+
+test("1280×800, a full Up next: the owner's list shows a row and scrolls to the last, the chat log keeps three lines", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const { host } = await ownerAndGuest(browser, "roomfull", DESK, DESK);
+  const { id, inviteKey } = ownedRoom("roomfull");
+  const close = await fillQueue(id, inviteKey, "qf");
+  try {
+    const rows = host.locator(site.queueRow);
+    await expect.poll(() => rows.count(), { timeout: 15_000 }).toBe(QUEUE_MAX);
+    const list = host.locator(`${site.queuePanel} .ui-qlist`);
+    const row = (await rows.first().boundingBox())?.height ?? 0;
+    expect(await list.evaluate((n) => n.clientHeight), "Up next list height").toBeGreaterThanOrEqual(row);
+    expect((await host.locator(site.chatLog).boundingBox())?.height ?? 0, "chat log height").toBeGreaterThanOrEqual(60);
+    await rows.last().scrollIntoViewIfNeeded();
+    await expect(rows.last()).toBeInViewport();
+    expect(await host.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
+  } finally {
+    close();
+  }
 });
 
 test("390×844 touch: the guest's tag and every key in the member menu are 44×44 to the finger", async ({ browser }) => {
