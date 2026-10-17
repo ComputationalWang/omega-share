@@ -147,6 +147,8 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
 
   /** Chat, unless the room holds it (cooling or muted, as the page's own form would). */
   const say = (text: string): boolean => {
+    const ran = o.command?.(text) ?? null;
+    if (ran !== null) return ran;
     if (state?.cooling === true || state?.muted === true) return false;
     const msg = chatIntent(text);
     return msg !== null && o.send(msg);

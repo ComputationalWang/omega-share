@@ -154,12 +154,14 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
     }
   }
 
-  function emote(i: number): void {
+  function emote(i: number): boolean {
     const kind = PICKER_KINDS[i];
     const now = o.now();
-    if (kind === undefined || bucket.readyAt(now) > now) return;
-    if (o.send({ type: "emote", kind })) bucket.take(now);
+    if (kind === undefined || bucket.readyAt(now) > now) return false;
+    const sent = o.send({ type: "emote", kind });
+    if (sent) bucket.take(now);
     rearm();
+    return sent;
   }
 
   /** A pick from the open wheel sends and closes; while cooling it sends nothing and stays open, the dial running (OME-776). */
@@ -278,6 +280,6 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
     close() {
       close(true);
     },
-    emote: () => false,
+    emote: (kind) => emote(PICKER_KINDS.indexOf(kind)),
   };
 }

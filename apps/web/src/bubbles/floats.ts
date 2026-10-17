@@ -14,6 +14,7 @@
 // The layer is decorative (aria-hidden, no live region): the chat log is the accessible record.
 import type { MemberId } from "@omega/shared";
 import { el } from "../controls/dom";
+import { isShout } from "../chat/effects";
 import { ROOM_VIEW, STAGE_W, type Point } from "../layout";
 
 /** Set (l) `meta.omega.bubbles`: a 5 s life, a 24 px rise in whole-pixel steps; 10 per speaker, 16 on screen (OME-1050). */
@@ -414,7 +415,10 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       s.seq = ++seq;
       s.startedAt = now - elapsed;
       // Not .is-live until its size arrives in this frame's layout, before paint: then it is placed and shown at its age.
-      s.p.className = m.self ? "ui-float is-self" : "ui-float";
+      const shout = isShout(m.text);
+      s.p.className = `ui-float${m.self ? " is-self" : ""}${shout ? " is-shout" : ""}`;
+      // The twin measures the stacked size, so it wears the shout's weight too.
+      s.twin.classList.toggle("is-shout", shout);
       s.stacked = false;
       s.who.hidden = true;
       s.whoText.data = m.name;

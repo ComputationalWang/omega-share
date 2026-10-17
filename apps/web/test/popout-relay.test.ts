@@ -154,15 +154,13 @@ describe("chat relay (room tab)", () => {
     relay.update({ ...STATE, cooling: true });
     take();
     from({ t: "pop-say", pop: "p1", seq: 1, text: "/wave" });
+    expect(take()).toEqual([{ t: "room-said", pop: "p1", seq: 1, ok: true }]);
     relay.update({ ...STATE, cooling: false });
     take();
     from({ t: "pop-say", pop: "p1", seq: 2, text: "/x" });
     expect(ran).toEqual(["/wave"]);
     expect(sent).toEqual([{ type: "chat", text: "/x" }]);
-    expect(take()).toEqual([
-      { t: "room-said", pop: "p1", seq: 1, ok: true },
-      { t: "room-said", pop: "p1", seq: 2, ok: true },
-    ]);
+    expect(take()).toEqual([{ t: "room-said", pop: "p1", seq: 2, ok: true }]);
   });
 
   test("while chat cools or is muted, the pop-out's chat is held (not ok), emotes still go", async () => {
