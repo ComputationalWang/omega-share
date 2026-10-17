@@ -113,6 +113,8 @@ export function portraitLayout(width: number, height: number, provider: Provider
 const WIDE_MIN_W = 1024;
 /** A phone held sideways (OME-1297): past the phone layout and at most this tall, two columns too, the chat column narrower (room.css). */
 const SHORT_MAX_H = 500;
+/** The two columns on a short screen (a phone held sideways): the chat column has no room for the owner's bar. */
+export const SHORT_QUERY = `(max-height: ${String(SHORT_MAX_H)}px)`;
 export const WIDE_QUERY = `(min-width: ${String(WIDE_MIN_W)}px) and (orientation: landscape), (min-width: ${String(PHONE_MAX_W + 1)}px) and (max-height: ${String(SHORT_MAX_H)}px) and (orientation: landscape)`;
 export const WIDE_CHAT_W = 320;
 /**

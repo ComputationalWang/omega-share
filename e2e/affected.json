@@ -171,6 +171,7 @@
         "e2e/m7-a11y.e2e.ts",
         "e2e/m9-help.e2e.ts",
         "e2e/m9-hide.e2e.ts",
+        "e2e/owner-room-size.e2e.ts",
         "e2e/persistence.e2e.ts",
         "e2e/phone-layout.e2e.ts",
         "e2e/qa-rooms.e2e.ts",
@@ -491,6 +492,7 @@
         "e2e/moderation-ui.e2e.ts",
         "e2e/moderation.e2e.ts",
         "e2e/owner-focus.e2e.ts",
+        "e2e/owner-room-size.e2e.ts",
         "perf/moderation.perf.ts"
       ]
     },

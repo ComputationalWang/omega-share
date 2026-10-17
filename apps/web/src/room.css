@@ -149,6 +149,9 @@
 .tags.pickable .tag-pad:not(.self) { --hit: calc(24px / 0.85 / var(--stage-scale, 1)); display: block; position: absolute; left: 0; top: 0; width: var(--hit); height: var(--hit); transform: translate(-50%, calc(10px - 50%)); transform-origin: 0 0; pointer-events: auto; cursor: pointer; }
 .tags.pickable .tag:not(.self):focus-visible { outline: 1px solid var(--ui-text); outline-offset: 2px; }
 .tag-zip { flex: none; margin-left: 3px; }
+/* 44×44 to the finger (OME-1301, house touch rule): the phone shows a tag at LABEL_MIN 0.85 at the least, hence the 0.85. */
+.ui-touch .tags.pickable .tag:not(.self)::before, .ui-touch .mod-remove-key::before { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, calc(44px / 0.85)); height: max(100%, calc(44px / 0.85)); translate: -50% -50%; }
+.ui-touch .mod-remove-key { position: relative; }
 .mod-menu { position: absolute; left: 0; top: 0; translate: -50% -100%; z-index: 2; }
 .mod-menu .ask { flex-basis: 100%; margin-bottom: 4px; }
 .mod-menu .ui-modrow.is-ask { gap: 4px; }
@@ -303,6 +306,9 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 /* Typing a link: the chat steps aside too, so Up next's field has the column. */
 .room-side.is-typing:has(> .queue-panel:focus-within) > :is(.chat-log, .chat, .chat-away) { display: none; }
 .room-side > .chat-away, .room-side > .room-away { max-width: none; }
+/* The owner's bar under Up next (OME-1301): Edit room and the playback setting stacked, full width. */
+.room-side > .edit-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+.room-side > .edit-bar > .mod-policy { margin-right: 0; max-width: none; }
 .room-side .chat input, .room-side .invite input { min-width: 0; }
 .room-side .chat > button:not(.ui-button) { padding-inline: 12px; }
 /* A phone held sideways (OME-1297): the picture at its minimum and its shelf take the column's height, so the first-visit
