@@ -242,11 +242,18 @@ test("320×640 with a mouse, owner and guest: the tag is 44×44, no seat or tag 
     expect(await targetSize(page)).toEqual([]);
     await page.getByRole("button", { name: "Close" }).click();
   }
-  // kit sits in the back row (Fit: at 1× this window shows only the front row), so kit's tag is cropped at 1×. The owner
-  // still reaches it by keyboard: Tab focuses it, the window pans to show it whole, Enter opens the menu (QA OME-1330 R2).
-  await kit.locator("[data-testid=room-zoom-fit]").click();
+  // kit sits in the back row from a desktop window; a 320 px window shows only the front row at 1×, so kit's tag is
+  // cropped there. The owner still reaches it by keyboard: Tab focuses it, the window pans to show it whole, Enter opens
+  // the menu (QA OME-1330 R2). 320×720: with the CI runner's fonts a 320×640 page is too short for any room window, which
+  // OME-1302 then hides whole.
+  await kit.setViewportSize({ width: 1280, height: 800 });
   await kit.locator(`${site.seat}[data-seat="0"]`).click();
   await expect(kit.locator(`${site.seat}.mine`)).toHaveCount(1);
+  await host.setViewportSize({ width: 320, height: 720 });
+  await expect(host.locator(site.roomWindow)).toBeVisible();
+  // Zoomed in, the window crops kit's tag for sure: off to pointers, still in the tab order.
+  for (let i = 0; i < 2; i++) await host.locator("[data-testid=room-zoom-in]").click();
+  await expect(kitTag).toHaveClass(/(^|\s)is-cropped(\s|$)/);
   await host.locator(site.chatInput).focus();
   let reached = false;
   for (let i = 0; i < 80 && !reached; i++) {
