@@ -18,7 +18,7 @@
 body { margin: 0; background: var(--bg); color: var(--fg); }
 /* viewport-fit=cover (OME-596): the page reaches the screen's edges, so it keeps the notch and the rounded corners' insets clear. */
 main { max-width: 980px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left)); }
-/* Keep the 356 px TV inside a 360 px viewport. */
+/* Keep the 356 px TV inside a 360 px viewport (narrower, it takes the width: ADR 0012 amendment). */
 @media (max-width: 400px) { main { padding: max(8px, env(safe-area-inset-top)) max(2px, env(safe-area-inset-right)) 8px max(2px, env(safe-area-inset-left)); } }
 button, input { font: inherit; color: inherit; }
 /* AGPL-3.0 §13 source offer (OME-272): quiet, below the stage, never over it. */

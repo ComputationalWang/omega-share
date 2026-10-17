@@ -20,10 +20,8 @@ describe("roomLayout: YouTube RMF player size", () => {
     expect(tv.h).toBeGreaterThanOrEqual(200);
   });
 
-  test("the TV still meets the minimum when the container is narrower than it", () => {
-    const { tv } = roomLayout(300);
-    expect(tv.w).toBeGreaterThanOrEqual(356);
-    expect(tv.h).toBeGreaterThanOrEqual(200);
+  test("narrower than 356 px the TV takes the container's width and keeps YouTube's 200×200 (ADR 0012 amendment, OME-1302)", () => {
+    expect(roomLayout(300).tv).toMatchObject({ x: 0, w: 300, h: 200 });
   });
 
   test("the TV is 16:9 and grows on wide windows", () => {
