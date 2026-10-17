@@ -45,6 +45,7 @@ export const SPEC_ROOMS = {
   "m9-help": ["hint", "hintesc", "help", "helpkey", "touch", "reduced", "kbkey", "kbq"],
   "m9-hide": ["main", "tag", "popchat", "poproom", "reconn"],
   "m10-portrait": ["360", "390", "people360", "people390"],
+  "landscape-phone": ["l932", "l844", "l667", "q932", "q844", "q667", "notch"],
   "m10-composer": ["l568", "l667", "l932", "p360", "p390"],
   "m10-sessions": ["hide", "reload", "expire", "expreload", "tabs"],
   "m10-a11y": ["dock360", "dock390", "fs", "away", "moved", "fullq"],

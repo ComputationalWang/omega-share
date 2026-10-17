@@ -74,7 +74,8 @@ describe("every legal page is built, served and CSP-clean", () => {
       expect(html).toMatch(/<title>[^<]+ · omega-share<\/title>/);
       expect(count(html, /<h1[\s>]/g)).toBe(1);
       expect(count(html, /<main[\s>]/g)).toBe(1);
-      expect(html).toMatch(/<main class="privacy">/);
+      // The skip link is the first thing in <main>, so the 404 page (which swaps <main> out) has no dangling one (OME-1299).
+      expect(html).toMatch(/<main class="privacy">\s*(?:<!--[\s\S]*?-->\s*)?<a class="skip-link" href="#content">Skip to content<\/a>\s*<h1 id="content" tabindex="-1">/);
       expect(count(html, /<footer[\s>]/g)).toBe(1);
     });
   }

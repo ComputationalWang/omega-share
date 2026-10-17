@@ -29,7 +29,7 @@ button, input { font: inherit; color: inherit; }
 /* Skip link (OME-767): the first stop in tab order, out of sight until it has focus. */
 .skip-link { position: absolute; left: 8px; top: -200px; z-index: 100; padding: 8px 12px; border-radius: 6px; background: var(--accent); color: var(--bg); font-weight: 600; }
 .skip-link:focus { top: max(8px, env(safe-area-inset-top)); }
-main:focus { outline: none; }
+main:focus, .privacy h1:focus { outline: none; }
 /* Rooms panel lists (OME-409): the not-found page's too. The home page's own look is the Dusk block at the end. */
 .invite input { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--field-border); background: var(--bg); }
 .invite input:focus-visible { outline: 2px solid var(--ui-text); outline-offset: 1px; }
@@ -49,7 +49,7 @@ legend { padding: 0; margin-bottom: 6px; }
 .privacy { max-width: 640px; margin: 6vh auto; padding: 0 16px; line-height: 1.5; }
 .privacy h2 { margin: 1.4em 0 0.3em; font-size: 1.1rem; }
 .privacy p { margin: 0 0 0.8em; }
-.privacy a { color: var(--accent); }
+.privacy a:not(.skip-link) { color: var(--accent); overflow-wrap: anywhere; }
 
 /* Room layout picker (OME-910): native radios in labels. A sideways row on a phone-width panel (one swipe, snap), thumbs
  * keep their 212:176 ratio from the width/height attributes so nothing shifts as they load. */
