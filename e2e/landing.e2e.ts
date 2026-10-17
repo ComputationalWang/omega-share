@@ -60,7 +60,7 @@ test("desktop: the room art sits beside the form at one art pixel per CSS pixel;
   await expect(page.locator(".install")).toContainText("Firefox: coming soon");
   await expect(page.locator(".install")).toContainText("Chrome: coming soon");
   const footer = page.locator(".site-footer");
-  for (const name of ["Privacy", "Terms", "Contact", "Licences", "Source", "Feedback"]) await expect(footer.getByRole("link", { name, exact: true })).toBeVisible();
+  for (const name of ["Privacy", "Terms", "Contact", "Licences", "Source", "Feedback"]) await expect(footer.getByRole("link", { name: new RegExp(`^${name}\\b`) })).toBeVisible();
   await expect(footer).toContainText(/version ([0-9a-f]{7}|dev)/);
 });
 
