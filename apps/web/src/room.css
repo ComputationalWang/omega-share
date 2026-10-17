@@ -309,6 +309,11 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 /* The owner's bar under Up next (OME-1301): Edit room and the playback setting stacked, full width. */
 .room-side > .edit-bar { flex-direction: column; align-items: stretch; gap: 8px; }
 .room-side > .edit-bar > .mod-policy { margin-right: 0; max-width: none; }
+/* 800 px tall or less (OME-1320): the policy's explanation is for screen readers only, so the chat log keeps three lines
+ * beside a full Up next (at 1024×768 it had two). The tiles say who controls playback. */
+@media (max-height: 800px) {
+  .room-side > .edit-bar .mod-policy-note { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 .room-side .chat input, .room-side .invite input { min-width: 0; }
 .room-side .chat > button:not(.ui-button) { padding-inline: 12px; }
 /* A phone held sideways (OME-1297): the picture at its minimum and its shelf take the column's height, so the first-visit
