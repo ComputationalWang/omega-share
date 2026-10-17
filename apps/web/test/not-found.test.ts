@@ -47,7 +47,7 @@ describe("Room not found", () => {
     const { nf } = await setup();
     nf.show();
     expect(nf.root.hidden).toBe(false);
-    expect(nf.root.querySelector("h2")?.textContent).toBe("This room doesn't exist or was taken down");
+    expect(nf.root.querySelector("h1")?.textContent).toBe("This room doesn't exist or was taken down");
     const home = nf.root.querySelector<HTMLAnchorElement>("[data-testid=not-found-home]");
     expect(home?.textContent).toBe("Go home");
     expect(home?.getAttribute("href")).toBe("/");

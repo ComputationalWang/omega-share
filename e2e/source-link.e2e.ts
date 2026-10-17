@@ -21,6 +21,13 @@ test.describe("source link", () => {
     await expect(link).toHaveAttribute("rel", /^(?=.*\bnoopener\b)(?=.*\bnoreferrer\b)/);
   });
 
+  test("every new-tab link on the landing page says so in its name (OME-1282)", async ({ page }) => {
+    await page.goto(`${URLS.web}/`);
+    const links = page.locator("a[target=_blank]");
+    expect(await links.count()).toBeGreaterThan(0);
+    for (const link of await links.all()) await expect(link).toHaveAccessibleName(/new tab/);
+  });
+
   test("in the room at 1280x720 it stays clear of the stage", async ({ browser }) => {
     const clients = await joinRoom(browser, { roomUrl: `${URLS.web}/r/${DEFAULT_ROOM_ID}`, count: 1, nicknamePrefix: "src" });
     try {

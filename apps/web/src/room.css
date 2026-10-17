@@ -362,6 +362,7 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .help-keys dd { margin: 0; }
 .help-keys kbd { font: inherit; font-weight: 700; padding: 0 4px; border: 1px solid currentColor; border-radius: 2px; }
 .help-dialog .acts { display: flex; justify-content: flex-end; margin-top: 12px; }
+.room-not-found h1 { font-size: 1.5em; margin: 0.83em 0; } /* sized like the other cards' <h2> (OME-1282) */
 .room-not-found .ui-scene { --ui-px: 2px; margin: 0 auto 8px; }
 .room-not-found .rooms-public { margin-top: 24px; }
 .room-not-found .room-list { list-style: none; padding: 0; }
