@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { AvatarSchema, NICKNAME_MAX_LENGTH, NicknameSchema, type Avatar, type Nickname } from "@omega/shared";
+import { AvatarSchema, NICKNAME_MAX_LENGTH, NicknameSchema, type Avatar, type Nickname, type Tint } from "@omega/shared";
 
 export interface KeyValueStore {
   getItem(key: string): string | null;
@@ -9,6 +9,7 @@ export interface KeyValueStore {
 export interface Profile {
   readonly nickname: Nickname | null;
   readonly avatar: Avatar;
+  readonly tint: Tint;
 }
 
 const NICKNAME_KEY = "omega.nickname";
@@ -37,7 +38,7 @@ function read(store: KeyValueStore, key: string): string | null {
 export function loadProfile(store: KeyValueStore): Profile {
   const nick = v.safeParse(NicknameSchema, read(store, NICKNAME_KEY));
   const avatar = v.safeParse(AvatarSchema, Number(read(store, AVATAR_KEY) ?? "0"));
-  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0 };
+  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, tint: 0 };
 }
 
 export function saveProfile(store: KeyValueStore, profile: { nickname: Nickname; avatar: Avatar }): boolean {
@@ -48,4 +49,8 @@ export function saveProfile(store: KeyValueStore, profile: { nickname: Nickname;
   } catch {
     return false;
   }
+}
+
+export function saveTint(_store: KeyValueStore, _tint: Tint): boolean {
+  return false;
 }
