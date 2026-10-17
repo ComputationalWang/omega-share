@@ -22,7 +22,7 @@ import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { chatIntent, sitIntent } from "./intents";
 import { layoutOf } from "./furniture";
 import { createPendingApplier } from "./pending-layout";
-import { PHONE_QUERY, STAGE_W, WIDE_QUERY, type Rect } from "./layout";
+import { PHONE_QUERY, SHORT_QUERY, STAGE_W, WIDE_QUERY, type Rect } from "./layout";
 import { createRoomLayout } from "./room-layout";
 import { createStage, type Stage } from "./stage";
 import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
@@ -337,6 +337,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const portrait = globalThis.matchMedia(`${PHONE_QUERY} and (orientation: portrait)`);
   // Desktop wide layout (OME-642): the room on the left, the chat and Up next in a full-height column on the right.
   const wide = globalThis.matchMedia(WIDE_QUERY);
+  const short = globalThis.matchMedia(SHORT_QUERY);
   const side = el("div", { className: "room-side", hidden: true }, "room-side");
   // Touch (the design system's coarse pointer, or the phone layout): the send key is a 44 px icon named "Send", so the
   // field keeps its room in full screen's narrow strip (OME-905). A mouse and keyboard keep the word "Say".
@@ -382,10 +383,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     roomAway,
     invite,
     side,
+    ownerBar: editBar,
+    editorPanel,
     settings: [editBar, tvBox.personal, invite, cards.foot, firstHint.root],
     phone,
     portrait,
     wide,
+    short,
     stageShown: () => screen(state).stage,
     roomOut,
     hint: firstHint,
@@ -819,6 +823,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   wide.addEventListener("change", onMedia);
   portrait.addEventListener("change", onMedia);
   coarse.addEventListener("change", onMedia);
+  short.addEventListener("change", onMedia);
   tvBox.sync(state);
   writeTitle(state);
   render();

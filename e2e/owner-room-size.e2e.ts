@@ -61,7 +61,8 @@ const hitBox = (target: Locator): Promise<{ w: number; h: number }> =>
     const k = e instanceof HTMLElement && e.offsetWidth > 0 ? r.width / e.offsetWidth : 1;
     const b = getComputedStyle(e, "::before");
     const px = (v: string): number => (b.content === "none" || b.display === "none" ? 0 : (Number.parseFloat(v) || 0) * k);
-    return { w: Math.max(r.width, px(b.width)), h: Math.max(r.height, px(b.height)) };
+    // Whole px: offsetWidth is rounded, so the scale is off by a fraction of a pixel.
+    return { w: Math.round(Math.max(r.width, px(b.width))), h: Math.round(Math.max(r.height, px(b.height))) };
   });
 
 const area = async (page: Page): Promise<number> => {

@@ -80,11 +80,15 @@ export interface RoomLayoutOptions {
   readonly invite: HTMLElement;
   /** The wide layout's right-hand column. */
   readonly side: HTMLElement;
+  /** The owner's bar (Edit room, Who controls playback) and the editor's panel under it. */
+  readonly ownerBar: HTMLElement;
+  readonly editorPanel: HTMLElement;
   /** What the portrait dock's settings sheet holds. */
   readonly settings: readonly HTMLElement[];
   readonly phone: { readonly matches: boolean };
   readonly portrait: { readonly matches: boolean };
   readonly wide: { readonly matches: boolean };
+  readonly short: { readonly matches: boolean };
   /** The room is up (state.ts `screen().stage`). */
   readonly stageShown: () => boolean;
   /** The whole room is in its own window (OME-600): the page shows the picture only. */
@@ -287,6 +291,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       notice.after(invite);
       tvBox.personal.after(queuePanel.root);
     }
+    // Wide and tall enough, the owner's bar goes under Up next (OME-1301): under the stage it cost the owner half the room.
+    if (two && !o.short.matches) queuePanel.root.after(o.ownerBar);
+    else o.editorPanel.before(o.ownerBar);
     if (fs.mode() !== "off") stripHead.after(chatLog.root, chatForm, chatAway);
     else if (two) side.append(chatLog.root, chatForm, chatAway);
     else if (phone.matches) wrap.after(chatLog.root, chatForm, chatAway);

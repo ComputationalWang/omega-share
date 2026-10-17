@@ -20,7 +20,7 @@ beforeEach(() => {
 
 const div = (): HTMLElement => document.createElement("div");
 
-async function setup(o: { wide?: boolean } = {}) {
+async function setup(o: { wide?: boolean; short?: boolean } = {}) {
   const { createRoomLayout } = await import("../src/room-layout");
   const { createRoomTv } = await import("../src/room-tv");
   const playback = createPlaybackController({ send: () => true, clock: { ready: false, serverNow: () => 0, tick: () => undefined }, now: () => 0, setInterval: () => 0, clearInterval: () => undefined });
@@ -43,22 +43,25 @@ async function setup(o: { wide?: boolean } = {}) {
   const roomAway = div();
   const invite = div();
   const side = div();
-  root.append(wrap, roomAway, tv.personal, queue.root, notice, log.root, form, invite, side);
+  const ownerBar = div();
+  const editorPanel = div();
+  root.append(wrap, roomAway, ownerBar, editorPanel, tv.personal, queue.root, notice, log.root, form, invite, side);
   document.body.replaceChildren(root);
   const layout = createRoomLayout({
-    root, wrap, clip, stage, tv, log, queue, notice, roomAway, invite, side,
+    root, wrap, clip, stage, tv, log, queue, notice, roomAway, invite, side, ownerBar, editorPanel,
     composer: { form, away, popOut, picker: { root: pickerRoot, close: () => undefined } },
     settings: [],
     phone: { matches: false },
     portrait: { matches: false },
     wide: { matches: o.wide === true },
+    short: { matches: o.short === true },
     stageShown: () => true,
     roomOut: () => false,
     hint: { dismiss: () => undefined },
     placeRoom: () => undefined,
   });
   fsMode = layout.fs.mode();
-  return { layout, root, wrap, log, form, notice, side, queue, invite };
+  return { layout, root, wrap, log, form, notice, side, queue, invite, ownerBar, editorPanel };
 }
 
 describe("room layout", () => {
@@ -77,6 +80,13 @@ describe("room layout", () => {
     expect(queue.root.parentElement).toBe(side);
     expect(log.root.parentElement).toBe(side);
     expect(form.parentElement).toBe(side);
+  });
+
+  test("the owner's bar goes under Up next on a wide screen, and stays over the editor on a short one (OME-1301)", async () => {
+    const tall = await setup({ wide: true });
+    expect(tall.queue.root.nextElementSibling).toBe(tall.ownerBar);
+    const short = await setup({ wide: true, short: true });
+    expect(short.ownerBar.nextElementSibling).toBe(short.editorPanel);
   });
 
   test("the strip's collapse key is remembered on this device", async () => {
