@@ -20,3 +20,5 @@
 **Consequences:** Pixi's canvas renderer chunk (~28 KB gz) loads with the room instead of the WebGL one. That's lazy, so initial JS is unchanged. Filters, meshes and custom shaders aren't available. If the room ever needs them, measure on software compositing first, and draw them on a separate WebGL layer that renders on change only. Don't move the whole room back to WebGL.
 
 **Amended by [ADR 0037](0037-tiered-walking.md) (2026-10-10):** "No per-frame loop" holds for the Basic tier. In the Smooth tier the room renders every frame while anyone walks, and only then; the tier is probed per device.
+
+**Amended by [ADR 0053](0053-free-walking.md) (2026-10-17):** walking is no longer seat-only: `walk {cell}` stands a member on any free floor cell, and the server holds that cell. Clients still path locally with the same BFS.

@@ -64,7 +64,7 @@ describe("client set-tint", () => {
   });
 
   test("join takes an optional tint", () => {
-    const join = { type: "join", nickname: "alice", avatar: 0 };
+    const join = { type: "join" as const, nickname: "alice", avatar: 0 };
     expect(parseClientMessage(JSON.stringify({ ...join, tint: 5 }))).toEqual({ ...join, tint: 5 });
     expect(parseClientMessage(JSON.stringify(join))).toEqual(join);
     rejects(ClientMessageSchema, { ...join, tint: 6 });

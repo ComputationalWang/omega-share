@@ -154,7 +154,7 @@ const invalid: Raw[] = [
   // walk, set-tint, join tint (OME-1346)
   ...[10, -1, 1.5, "1", null, 1e400].flatMap((n) => [js({ type: "walk", cell: { x: n, y: 0 } }), js({ type: "walk", cell: { x: 0, y: n } })]),
   js({ type: "walk", cell: { x: 1 } }), js({ type: "walk", cell: null }), js({ type: "walk", cell: [1, 1] }), js({ type: "walk", cell: { x: 1, y: 1, z: 1 } }),
-  ok('{"type":"walk","cell":{"x":1.0,"y":2}}'), ok('{"type":"walk","cell":{"x":1,"y":1e400}}'),
+  ok('{"type":"walk","cell":{"x":1,"y":1e400}}'),
   ...[6, -1, 0.5, "1", null, true].map((tint) => js({ type: "set-tint", tint })), js({ ...JOIN, tint: 6 }), js({ ...JOIN, tint: null }),
   js({ type: "emote", kind: "Wave" }), js({ type: "emote", kind: "dance" }), js({ type: "emote", kind: "" }), js({ type: "emote", kind: 1 }),
   js({ type: "kick", memberId: "" }), js({ type: "kick", memberId: "a".repeat(65) }), js({ type: "kick", memberId: "a b" }), js({ type: "kick", memberId: "mé" }),
@@ -208,6 +208,7 @@ const deliberate: Raw[] = [
   rr('{"type":"chat","text":"a","text":"b"}'),
   rr('{"type":"sit","seat":1.0}'), rr('{"type":"sit","seat":-0}'), rr('{"type":"sit","seat":1e0}'), rr('{"type":"sit","seat":0e5}'),
   rr('{"type":"ping","id":1.0}'), rr('{"type":"ping","id":-0}'), rr('{"type":"ping","id":1e2}'), rr('{"type":"ping","id":2147483647.0}'),
+  rr('{"type":"walk","cell":{"x":1.0,"y":2}}'), rr('{"type":"set-tint","tint":1e0}'),
   rr('{"type":"join","nickname":"Alice","avatar":1.0}'), rr('{"type":"join","nickname":"Alice","avatar":1e0}'),
   rr('{"type":"chat","text":"a\\ud800"}'), rr('{"type":"chat","text":"\\udc00a"}'),
   rr('{"type":"control","url":"\\ud800","playing":true,"position":1}'), rr('{"type":"queue-add","url":"\\udc00"}'),

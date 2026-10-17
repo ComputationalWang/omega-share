@@ -9,6 +9,8 @@ pub const FLOOR_CELLS: usize = 10;
 /// Most pieces in a room layout (ADR 0021).
 pub const MAX_FURNITURE: usize = 32;
 pub const AVATAR_COUNT: usize = 4;
+/// Shirt tints (ADR 0053); tint 0 is the avatar's own colours.
+pub const TINT_COUNT: usize = 6;
 /// People in one room; matches the load-test budget in docs/perf-budgets.md.
 pub const MAX_ROOM_MEMBERS: usize = 25;
 /// Room ids are `[a-z0-9-]`, 1 to this many characters.
@@ -54,6 +56,10 @@ pub const ROOM_EDIT_REFILL_MS: u64 = 2000;
 /// Per member, `emote` (wave included).
 pub const EMOTE_BURST: u32 = 3;
 pub const EMOTE_REFILL_MS: u64 = 1000;
+
+/// Per member, `walk` (ADR 0053): 4/s, over it dropped silently.
+pub const WALK_BURST: u32 = 8;
+pub const WALK_REFILL_MS: u64 = 250;
 
 /// After a kick, joins from the kicked member's address are closed with KICKED for this long (ADR 0030).
 pub const KICK_COOLDOWN_MS: u64 = 10 * 60_000;

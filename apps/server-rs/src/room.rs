@@ -11,8 +11,8 @@ use crate::contract::confusables::nickname_key;
 use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
-use crate::contract::layout::{RoomLayout, default_layout};
-use crate::contract::room::{Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, RoomVisibility, SeatIndex, StandingSlot};
+use crate::contract::layout::{RoomLayout, default_layout, door_cell};
+use crate::contract::room::{Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, RoomVisibility, SeatIndex, StandingSlot, Tint};
 use crate::contract::state::{Member, PlaybackState, QueueItem, RoomState, RoomSummary};
 use crate::contract::text::{Nickname, RoomTitle};
 use crate::playback::{Control, apply_control, load_playback, restored_playback};
@@ -53,6 +53,18 @@ pub enum JoinFailure {
 pub enum SitResult {
     Ok,
     SeatTaken,
+    NotMember,
+}
+
+/// What `Room::walk` did (ADR 0053).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WalkResult {
+    /// `stood_up`: they were seated, and that seat is free now.
+    Walked {
+        stood_up: bool,
+    },
+    /// A solid piece (seats included) covers the cell.
+    Blocked,
     NotMember,
 }
 
@@ -259,8 +271,49 @@ impl Room {
     }
 
     /// Replaces the layout. Seats keep their indices: every valid layout has `SEAT_COUNT` seat cells (ADR 0028 section 6).
-    pub fn set_layout(&mut self, layout: RoomLayout) {
+    /// Standing members whose cell it covers go to the door, or to their standing spot (`None`) when it covers the
+    /// door too (ADR 0053); returns them, in join order, with where they went.
+    pub fn set_layout(&mut self, layout: RoomLayout) -> Vec<(MemberId, Option<FloorCell>)> {
         self.layout = layout;
+        let door = door_cell().filter(|&d| self.layout.standable(d));
+        let mut moved = Vec::new();
+        for &s in &self.order {
+            let Some(rec) = self.slots.get_mut(usize::from(s)).and_then(Option::as_mut) else {
+                continue;
+            };
+            if rec.member.cell.is_some_and(|c| !self.layout.standable(c)) {
+                rec.member.cell = door;
+                moved.push((rec.member.id.clone(), door));
+            }
+        }
+        moved
+    }
+
+    /// Stands `member` on `cell`, off their seat if they had one (ADR 0053).
+    pub fn walk(&mut self, member: &MemberId, cell: FloorCell) -> WalkResult {
+        let Some(&slot) = self.index.get(member) else {
+            return WalkResult::NotMember;
+        };
+        if !self.layout.standable(cell) {
+            return WalkResult::Blocked;
+        }
+        let stood_up = self.seats.contains(&Some(slot));
+        self.free(slot);
+        if let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::as_mut) {
+            rec.member.cell = Some(cell);
+        }
+        WalkResult::Walked { stood_up }
+    }
+
+    /// Sets `member`'s shirt tint; false if unchanged or not a member. Tint 0 is stored as absent (ADR 0053).
+    pub fn set_tint(&mut self, member: &MemberId, tint: Tint) -> bool {
+        let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) else {
+            return false;
+        };
+        let next = (tint.get() != 0).then_some(tint);
+        let changed = rec.member.tint != next;
+        rec.member.tint = next;
+        changed
     }
 
     pub fn title(&self) -> Option<&RoomTitle> {
@@ -403,6 +456,8 @@ impl Room {
             catching: None,
             muted: None,
             away: None,
+            cell: None,
+            tint: None,
         };
         self.index.insert(member.id.clone(), slot);
         self.name_keys.insert(name_key.clone());
@@ -509,6 +564,10 @@ impl Room {
         self.free(slot);
         if let Some(cell) = seat.and_then(|s| self.seats.get_mut(usize::from(s.get()))) {
             *cell = Some(slot);
+        }
+        // Sitting, or standing up to the standing spot: no standing cell either way (ADR 0053).
+        if let Some(rec) = self.slots.get_mut(usize::from(slot)).and_then(Option::as_mut) {
+            rec.member.cell = None;
         }
         SitResult::Ok
     }
@@ -728,7 +787,7 @@ impl Room {
 
     /// A member as the room sees it: `catching`, `muted` and `away` only when true.
     pub fn view(&self, member: &Member) -> Member {
-        self.rec(&member.id).map_or_else(|| member.clone(), |rec| rec.view_of(member))
+        self.rec(&member.id).map_or_else(|| member.clone(), Rec::view)
     }
 
     /// Whether `token` is this room's owner token (constant-time; a pinned room has no owner).
@@ -754,11 +813,7 @@ impl Room {
 
 impl Rec {
     fn view(&self) -> Member {
-        self.view_of(&self.member)
-    }
-
-    fn view_of(&self, member: &Member) -> Member {
-        let mut out = member.clone();
+        let mut out = self.member.clone();
         if self.catching {
             out.catching = Some(true);
         }
@@ -1714,49 +1769,6 @@ mod tests {
         let seed = room();
         assert!(!seed.is_owner("") && !seed.is_invited("") && !seed.is_owner("anything"));
     }
-}
-
-/// ADR 0032 "name hashes only": nothing a room holds that identifies a person or a video reaches a `{:?}`
-/// (panic messages and logs print them).
-#[cfg(test)]
-#[allow(clippy::unwrap_used, reason = "tests")]
-mod debug_tests {
-    use super::*;
-    use crate::contract::text::RoomTitle;
-    use crate::embed_policy::EmbedPolicy;
-
-    #[test]
-    fn a_held_seats_debug_has_no_name_hash() {
-        let held = HeldSeat {
-            name_hash: [0xab; 32],
-            seat: SeatIndex::new(3).unwrap(),
-        };
-        let text = format!("{held:?}");
-        assert!(text.contains("HeldSeat") && text.contains("seat"), "{text}");
-        assert!(!text.contains("171") && !text.contains("ab"), "{text}");
-    }
-
-    #[test]
-    fn a_room_inits_debug_has_no_title_embed_hashes_or_queue() {
-        let embed = EmbedPolicy::new(true, &[], &[])
-            .unwrap()
-            .accept("https://youtu.be/dQw4w9WgXcQ")
-            .unwrap();
-        let init = RoomInit {
-            title: Some(RoomTitle::parse("Secret club").unwrap()),
-            embed: Some(embed.clone()),
-            owner_hash: Some([9; 32]),
-            invite_hash: Some([8; 32]),
-            queue: vec![(mint_item_id().unwrap(), embed)],
-            ..RoomInit::default()
-        };
-        let text = format!("{init:?}");
-        assert!(text.contains("RoomInit"), "{text}");
-        for leak in ["Secret", "youtube", "dQw4w9WgXcQ", "9, 9", "8, 8"] {
-            assert!(!text.contains(leak), "{leak} in {text}");
-        }
-    }
-
     // ---- free walking and tint (OME-1346, ADR 0053)
 
     fn cell(x: u64, y: u64) -> FloorCell {
@@ -1850,6 +1862,51 @@ mod debug_tests {
             r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"tint":4}"#
         );
         assert!(r.set_tint(&a, Tint::new(0).unwrap()));
-        assert_eq!(json(&r.snapshot().members[0]), r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#);
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#
+        );
+    }
+}
+
+/// ADR 0032 "name hashes only": nothing a room holds that identifies a person or a video reaches a `{:?}`
+/// (panic messages and logs print them).
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "tests")]
+mod debug_tests {
+    use super::*;
+    use crate::contract::text::RoomTitle;
+    use crate::embed_policy::EmbedPolicy;
+
+    #[test]
+    fn a_held_seats_debug_has_no_name_hash() {
+        let held = HeldSeat {
+            name_hash: [0xab; 32],
+            seat: SeatIndex::new(3).unwrap(),
+        };
+        let text = format!("{held:?}");
+        assert!(text.contains("HeldSeat") && text.contains("seat"), "{text}");
+        assert!(!text.contains("171") && !text.contains("ab"), "{text}");
+    }
+
+    #[test]
+    fn a_room_inits_debug_has_no_title_embed_hashes_or_queue() {
+        let embed = EmbedPolicy::new(true, &[], &[])
+            .unwrap()
+            .accept("https://youtu.be/dQw4w9WgXcQ")
+            .unwrap();
+        let init = RoomInit {
+            title: Some(RoomTitle::parse("Secret club").unwrap()),
+            embed: Some(embed.clone()),
+            owner_hash: Some([9; 32]),
+            invite_hash: Some([8; 32]),
+            queue: vec![(mint_item_id().unwrap(), embed)],
+            ..RoomInit::default()
+        };
+        let text = format!("{init:?}");
+        assert!(text.contains("RoomInit"), "{text}");
+        for leak in ["Secret", "youtube", "dQw4w9WgXcQ", "9, 9", "8, 8"] {
+            assert!(!text.contains(leak), "{leak} in {text}");
+        }
     }
 }

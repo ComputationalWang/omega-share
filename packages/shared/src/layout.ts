@@ -141,6 +141,22 @@ export interface Seat {
   readonly facing: Facing;
 }
 
+/** A floor cell by its column (`x`) and row (`y`), 0..FLOOR_CELLS-1 (ADR 0053). */
+const FLOOR_CELL_ENTRIES = { x: CellSchema, y: CellSchema };
+/** Server → client (`walked`, a member's `cell`): unknown keys are stripped. */
+export const FloorCellSchema = v.object(FLOOR_CELL_ENTRIES);
+/** Client → server (`walk`): unknown keys are refused. */
+export const FloorCellInputSchema = v.strictObject(FLOOR_CELL_ENTRIES);
+export type FloorCell = v.InferOutput<typeof FloorCellSchema>;
+
+/** Where people walk in, and where a layout change sends someone whose cell it covered: the floor's front corner. */
+export const DOOR_CELL: FloorCell = { x: FLOOR_CELLS - 1, y: FLOOR_CELLS - 1 };
+
+/** A cell someone may stand on (`walk`): no solid piece covers it. Seats are solid, so they need `sit`. */
+export function isStandable(layout: { readonly furniture: readonly Placed[] }, cell: FloorCell): boolean {
+  return !layout.furniture.some((f) => FURNITURE[f.kind].layer === "object" && footprintCells(f).some(([c, r]) => c === cell.x && r === cell.y));
+}
+
 /** Seat `i` is the `i`-th seat cell across seat-giving pieces, in `furniture` order (ADR 0021). */
 export function layoutSeats(layout: { readonly furniture: readonly Placed[] }): Seat[] {
   const seats: Seat[] = [];

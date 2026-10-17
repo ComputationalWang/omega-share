@@ -19,7 +19,7 @@ use crate::playback::Control;
 use crate::queue::{self, QueueActor, QueueAddRefusal, QueueRefusal};
 use crate::rate_limit::TokenBucket;
 use crate::registry::RoomInner;
-use crate::room::SitResult;
+use crate::room::{SitResult, WalkResult};
 use std::sync::Arc;
 
 /// What arrived on the socket.
@@ -167,6 +167,8 @@ fn admit_type(
         }
         // Unjoined sockets get not_joined in `handle`.
         ClientMessage::Emote { .. } => owner.is_none() || admit!(emote, "too many emotes, slow down"),
+        // Over the walk bucket: dropped silently, no notice and no streak toward a close (ADR 0053).
+        ClientMessage::Walk { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none(),
         // The queue's add buckets come after its control-policy check, in `handle` (ADR 0031 section 3).
         ClientMessage::Leave {}
         | ClientMessage::Ping { .. }
@@ -179,7 +181,8 @@ fn admit_type(
         | ClientMessage::QueueRemove { .. }
         | ClientMessage::QueueMove { .. }
         | ClientMessage::QueueAdvance { .. }
-        | ClientMessage::Ended { .. } => true,
+        | ClientMessage::Ended { .. }
+        | ClientMessage::SetTint { .. } => true,
     }
 }
 
@@ -270,6 +273,39 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, session: Optio
                     seat,
                 },
             );
+        }
+        ClientMessage::Walk { cell } => match inner.room.walk(member, cell) {
+            WalkResult::Blocked => send_error(inner, conn.id, ErrorCode::BadCell, "you can't stand there"),
+            WalkResult::NotMember => {}
+            WalkResult::Walked { stood_up } => {
+                if stood_up {
+                    publish_msg(
+                        inner,
+                        &ServerMessage::SeatChanged {
+                            member_id: member.clone(),
+                            seat: None,
+                        },
+                    );
+                }
+                publish_msg(
+                    inner,
+                    &ServerMessage::Walked {
+                        member_id: member.clone(),
+                        cell: Some(cell),
+                    },
+                );
+            }
+        },
+        ClientMessage::SetTint { tint } => {
+            if inner.room.set_tint(member, tint) {
+                publish_msg(
+                    inner,
+                    &ServerMessage::TintChanged {
+                        member_id: member.clone(),
+                        tint,
+                    },
+                );
+            }
         }
         ClientMessage::Chat { text } => {
             if inner.room.is_muted(member) {

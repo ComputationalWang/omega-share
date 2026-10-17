@@ -57,6 +57,19 @@ describe("reduce", () => {
     expect(s.room?.seats.every((x) => x === null)).toBe(true);
   });
 
+  test("walked sets or clears a member's cell, any seat-changed clears it, tint-changed sets the tint (ADR 0053)", () => {
+    let s = server(joined(room({ members: [alice, bob] })), { type: "walked", memberId: "b", cell: { x: 3, y: 4 } });
+    expect(s.room?.members[1]?.cell).toEqual({ x: 3, y: 4 });
+    s = server(s, { type: "seat-changed", memberId: "b", seat: 1 });
+    expect(s.room?.members[1]).toEqual(bob);
+    s = server(s, { type: "walked", memberId: "b", cell: { x: 9, y: 9 } });
+    s = server(s, { type: "walked", memberId: "b", cell: null });
+    expect(s.room?.members[1]).toEqual(bob);
+    s = server(s, { type: "tint-changed", memberId: "a", tint: 4 });
+    expect(s.room?.members[0]).toEqual({ ...alice, tint: 4 });
+    expect(server(s, { type: "walked", memberId: "zzz", cell: { x: 1, y: 1 } })).toBe(s);
+  });
+
   test("seat-changed for an unknown member is ignored", () => {
     const before = joined();
     expect(server(before, { type: "seat-changed", memberId: "zzz", seat: 0 })).toBe(before);
