@@ -10,6 +10,7 @@ import { stubExternalNetwork } from "./support/network";
 import { site } from "./support/selectors";
 import { openDirectory } from "./support/directory";
 import { cellCenter } from "../apps/web/src/layout";
+import { defaultFacing } from "../apps/web/src/editor/draft";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -56,6 +57,8 @@ async function handle(page: Page, what: "layout" | "builds"): Promise<unknown> {
 }
 const layoutOf = async (page: Page): Promise<RoomLayout["furniture"]> =>
   v.parse(v.object({ furniture: v.array(v.object({ kind: v.string(), col: v.number(), row: v.number() })) }), await handle(page, "layout")).furniture as RoomLayout["furniture"];
+const savedOf = async (page: Page): Promise<RoomLayout["furniture"]> =>
+  v.parse(v.object({ furniture: v.array(v.object({ kind: v.string(), col: v.number(), row: v.number(), facing: v.string() })) }), await handle(page, "layout")).furniture as RoomLayout["furniture"];
 const builds = async (page: Page): Promise<number> => v.parse(v.number(), await handle(page, "builds"));
 
 /** Click floor cell (col, row) through the editor's hit layer (the stage is CSS-scaled from 960×600). */
@@ -144,4 +147,71 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
 
   // The guest never fetched the editor chunk or the edit kit.
   expect(guestReq.filter((u) => EDITOR_URL.test(u))).toEqual([]);
+});
+
+test("keyboard only: a cell cursor places, selects, moves, turns and puts back furniture, and Save keeps it (OME-1245)", async ({ browser }) => {
+  const owner = await newPage(browser, []);
+  await owner.goto(`${URLS.web}/`);
+  await openDirectory(owner, "Owner");
+  await owner.locator(site.createRoomTitle).fill("Keys only");
+  await owner.locator(site.createRoomSubmit).click();
+  await owner.waitForURL(/\/r\/[a-z2-7]{26}$/);
+  await enter(owner, "owner");
+  const keys = async (...pressed: string[]): Promise<void> => {
+    for (const k of pressed) await owner.keyboard.press(k);
+  };
+  const press = async (selector: string): Promise<void> => {
+    await owner.locator(selector).first().focus();
+    await keys("Enter");
+  };
+  const hit = owner.locator(site.editorHit);
+  const cursor = owner.locator(site.editorCursor);
+  await press(site.editRoom);
+  await expect(owner.locator(site.editorTray)).toBeVisible();
+  // The room is a keyboard target, and the prompt names its keys.
+  await expect(hit).toHaveAttribute("tabindex", "0");
+  await expect(owner.locator(site.editorPicked)).toContainText("arrow keys");
+
+  // A tray piece picked with the keyboard hands focus to the room; arrows walk the cursor, Enter puts it down.
+  await press(`${site.editorTab}:has-text("Decor")`);
+  await press(`${site.editorSlot}[data-kind="popcorn"]`);
+  await expect(hit).toBeFocused();
+  await expect(owner.locator(site.editorPicked)).toContainText("arrow keys");
+  // The TV stands on (0,0), so the cursor says the cart can't go there.
+  await expect(cursor).toHaveText("Popcorn cart, column 1 row 1, can't go here");
+  await keys(...Array<string>(9).fill("ArrowRight"), ...Array<string>(9).fill("ArrowDown"));
+  await expect(cursor).toHaveText("Popcorn cart, column 10 row 10");
+  await keys("Enter");
+  await expect(owner.locator(site.editorRotate)).toBeEnabled();
+  await press(site.editorRotate);
+
+  // Select the lamp at (9,0) from the room, and move it to (8,1).
+  await hit.focus();
+  await keys(...Array<string>(9).fill("ArrowUp"));
+  await expect(cursor).toHaveText("Lamp, column 10 row 1");
+  await keys("Enter", "ArrowDown", "ArrowLeft", "Enter");
+
+  // Put back the plant at (0,9).
+  await keys(...Array<string>(8).fill("ArrowLeft"), ...Array<string>(8).fill("ArrowDown"));
+  await expect(cursor).toHaveText("Plant, column 1 row 10");
+  await keys("Enter");
+  await press(site.editorRemove);
+
+  // A print on the right wall: the cursor stays where it was, and up from the back row is the wall.
+  await press(`${site.editorTab}:has-text("Floor & wall")`);
+  await press(`${site.editorSlot}[data-kind="frame"]`);
+  await expect(hit).toBeFocused();
+  await keys("ArrowRight", "ArrowRight", ...Array<string>(10).fill("ArrowUp"));
+  await expect(cursor).toHaveText("Print, right wall 3");
+  await keys("Enter");
+
+  await press(site.editorSave);
+  await expect(owner.locator(site.editorMessage)).toHaveText("Saved.");
+  const saved = await savedOf(owner);
+  expect(saved.find((f) => f.kind === "popcorn")).toMatchObject({ col: 9, row: 9 });
+  expect(saved.find((f) => f.kind === "popcorn")?.facing).not.toBe(defaultFacing("popcorn", 9, 9));
+  expect(saved.find((f) => f.kind === "lamp")).toMatchObject({ col: 8, row: 1 });
+  expect(saved.find((f) => f.kind === "plant")).toBeUndefined();
+  expect(saved.find((f) => f.kind === "frame")).toMatchObject({ col: 2, row: 0, facing: "sw" });
+  expect(saved).toHaveLength(DEFAULT_LAYOUT.furniture.length + 1);
 });

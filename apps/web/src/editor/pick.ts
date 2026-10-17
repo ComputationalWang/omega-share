@@ -32,6 +32,43 @@ export function slotAt(x: number, y: number): Slot | null {
   return right ? { col: i, row: 0, wall: "sw" } : { col: 0, row: i, wall: "se" };
 }
 
+export type CursorKey = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
+
+const clampCell = (n: number): number => Math.max(0, Math.min(FLOOR_CELLS - 1, n));
+
+/**
+ * The keyboard cursor's next slot (OME-1245): Right/Left walk the column, Down/Up the row. Up from the back row steps onto
+ * the right wall, Left from the first column onto the left wall; along a wall the arrows walk its slots, and the way out
+ * of the wall (Down, Right) steps back onto the floor.
+ */
+export function step(slot: Slot, key: CursorKey): Slot {
+  const { col, row, wall } = slot;
+  if (wall === "sw") {
+    if (key === "ArrowDown") return { col, row, wall: null };
+    if (key === "ArrowUp") return slot;
+    return { col: clampCell(col + (key === "ArrowRight" ? 1 : -1)), row, wall };
+  }
+  if (wall === "se") {
+    if (key === "ArrowRight") return { col, row, wall: null };
+    if (key === "ArrowLeft") return slot;
+    return { col, row: clampCell(row + (key === "ArrowDown" ? 1 : -1)), wall };
+  }
+  if (key === "ArrowUp" && row === 0) return { col, row, wall: "sw" };
+  if (key === "ArrowLeft" && col === 0) return { col, row, wall: "se" };
+  if (key === "ArrowRight" || key === "ArrowLeft") return { col: clampCell(col + (key === "ArrowRight" ? 1 : -1)), row, wall };
+  return { col, row: clampCell(row + (key === "ArrowDown" ? 1 : -1)), wall };
+}
+
+/**
+ * The keyboard cursor's dark and light line widths in stage px, for a stage shown at `scale` screen px per stage px. The
+ * editor shows the room small (≈0.29 at 1280×720), so the lines grow to stay ≥2 px light inside ≥5 px dark on screen
+ * (QA OME-1274); at full size and above, the drawn design.
+ */
+export function cursorStrokes(scale: number): { readonly dark: number; readonly light: number } {
+  const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  return { dark: Math.max(5, 5 / s), light: Math.max(2.5, 2 / s) };
+}
+
 export type MarkerState = "ok" | "no" | "sel";
 
 export interface Marker {
