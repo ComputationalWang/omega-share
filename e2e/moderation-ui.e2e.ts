@@ -100,6 +100,17 @@ test("only the owner loads the moderation tools: a guest's tag opens Mute / Remo
     const tip = box.top + Number.parseFloat(own.borderTopWidth) + Number.parseFloat(tail.top) + Number.parseFloat(tail.height);
     return x >= t.left && x <= t.right && tip >= t.top - 1 && tip <= t.bottom ? "on the tag" : `tail ${String(x)},${String(tip)} vs tag ${String(t.left)}–${String(t.right)},${String(t.top)}–${String(t.bottom)}`;
   }, [site.modMenu, site.nicknameTag])).toBe("on the tag");
+  // The whole tray shows (QA OME-1275): at 1280×720 the stage's clip is shorter than the tray, so nothing may clip it or
+  // stack over it. Its corners and the name hit-test to the menu, and it's inside the viewport.
+  expect(await owner.locator(site.modMenu).evaluate((m) => {
+    const r = m.getBoundingClientRect();
+    const n = m.querySelector(".name")?.getBoundingClientRect();
+    if (n === undefined) return "no name";
+    const points = [[r.left + 2, r.top + 2], [r.right - 2, r.top + 2], [r.left + 2, r.bottom - 2], [r.right - 2, r.bottom - 2], [n.left + n.width / 2, n.top + n.height / 2]];
+    const hidden = points.filter(([x = 0, y = 0]) => !m.contains(document.elementFromPoint(x, y)));
+    const inView = r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight;
+    return hidden.length === 0 && inView ? "visible" : `hidden at ${JSON.stringify(hidden)}, menu ${JSON.stringify(r)}`;
+  })).toBe("visible");
   await owner.keyboard.press("Escape");
   // From the keyboard: the first row's focus ring is 2 CSS px.
   await kitTag.focus();

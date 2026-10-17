@@ -21,7 +21,9 @@ const room: RoomState = { id: "r1", seats: [null, null, null, null, null, null, 
 async function setup(owner = true) {
   const { mountModeration } = await import("../src/owner/moderation");
   let state: ViewState = reduce(initialState, { type: "server", msg: { type: "snapshot", self: "me", room, owner }, now: 0 });
-  // As room.ts builds it: the scaled `.ui-room` stage inside its clip, which is page chrome (OME-1254).
+  // As room.ts builds it: the scaled `.ui-room` stage inside its clip (overflow: hidden), inside the wrap that also holds
+  // the TV. The menu is page chrome in the wrap, which doesn't clip it (OME-1254).
+  const wrap = document.createElement("div");
   const clip = document.createElement("div");
   const stage = document.createElement("div");
   stage.className = "stage ui-room";
@@ -29,12 +31,13 @@ async function setup(owner = true) {
   const bar = document.createElement("div");
   stage.append(tags);
   clip.append(stage);
-  document.body.replaceChildren(clip, bar);
+  wrap.append(clip);
+  document.body.replaceChildren(wrap, bar);
   let stageRect = { left: 0, top: 0, width: 960, height: 600 };
-  let clipRect = { left: 0, top: 0, width: 960, height: 600 };
+  let wrapRect = { left: 0, top: 0, width: 960, height: 600 };
   stage.getBoundingClientRect = () => DOMRect.fromRect({ x: stageRect.left, y: stageRect.top, width: stageRect.width, height: stageRect.height });
-  clip.getBoundingClientRect = () => DOMRect.fromRect({ x: clipRect.left, y: clipRect.top, width: clipRect.width, height: clipRect.height });
-  Object.defineProperty(clip, "clientWidth", { get: () => clipRect.width });
+  wrap.getBoundingClientRect = () => DOMRect.fromRect({ x: wrapRect.left, y: wrapRect.top, width: wrapRect.width, height: wrapRect.height });
+  Object.defineProperty(wrap, "clientWidth", { get: () => wrapRect.width });
   // Name tags as room.ts draws them: one span per member with data-member, the nickname as text.
   for (const m of room.members) {
     const t = document.createElement("span");
@@ -51,6 +54,7 @@ async function setup(owner = true) {
   let anchorAt = { x: 400, y: 310 };
   const mod = mountModeration({
     stage,
+    layer: wrap,
     tags,
     bar,
     view: () => state,
@@ -80,11 +84,11 @@ async function setup(owner = true) {
   const setAnchor = (p: { x: number; y: number }): void => {
     anchorAt = p;
   };
-  const setRects = (st: typeof stageRect, cl: typeof clipRect): void => {
+  const setRects = (st: typeof stageRect, cl: typeof wrapRect): void => {
     stageRect = st;
-    clipRect = cl;
+    wrapRect = cl;
   };
-  return { mod, sent, tag, tags, bar, menu, row, server, stage, clip, setAnchor, setRects };
+  return { mod, sent, tag, tags, bar, menu, row, server, stage, clip, wrap, setAnchor, setRects };
 }
 
 describe("member menu", () => {
@@ -193,16 +197,17 @@ describe("member menu", () => {
   });
 
   // OME-1254 (K7): the menu is page chrome, at the kit's 2 px art pixel and 12 px words, not the stage's 1× scale.
-  test("the menu mounts outside the .ui-room stage, in the stage's clip", async () => {
-    const { tag, menu, clip } = await setup();
+  test("the menu mounts outside the .ui-room stage and its clip, in the wrap: a short clip can't cut its head off", async () => {
+    const { tag, menu, clip, wrap } = await setup();
     tag("kit").click();
-    expect(menu()?.parentElement).toBe(clip);
+    expect(menu()?.parentElement).toBe(wrap);
     expect(menu()?.closest(".ui-room")).toBeNull();
+    expect(clip.contains(menu())).toBe(false);
   });
 
-  test("it sits in page px: stage px × the stage's scale + the stage's offset in the clip; the tail lands on the tag", async () => {
+  test("it sits in page px: stage px × the stage's scale + the stage's offset in the wrap; the tail lands on the tag", async () => {
     const { tag, menu, setAnchor, setRects } = await setup();
-    // A half-scale stage panned 20 px right and 15 px down of its clip.
+    // A half-scale stage 20 px right and 15 px down in the wrap.
     setRects({ left: 30, top: 20, width: 480, height: 300 }, { left: 10, top: 5, width: 800, height: 400 });
     setAnchor({ x: 400, y: 310 });
     tag("kit").click();
@@ -221,7 +226,7 @@ describe("member menu", () => {
     expect(menu()?.style.transform).toBe("translate(300px, 197px)");
   });
 
-  test("it stays inside the clip by its own width; the tail keeps pointing at the member", async () => {
+  test("it stays inside the wrap by its own width; the tail keeps pointing at the member", async () => {
     const { tag, menu, setAnchor, setRects } = await setup();
     setRects({ left: 0, top: 0, width: 960, height: 600 }, { left: 0, top: 0, width: 960, height: 600 });
     setAnchor({ x: 20, y: 300 });
