@@ -59,15 +59,7 @@ export function step(slot: Slot, key: CursorKey): Slot {
   return { col, row: clampCell(row + (key === "ArrowDown" ? 1 : -1)), wall };
 }
 
-/**
- * The keyboard cursor's dark and light line widths in stage px, for a stage shown at `scale` screen px per stage px. The
- * editor shows the room small (≈0.29 at 1280×720), so the lines grow to stay ≥2 px light inside ≥5 px dark on screen
- * (QA OME-1274); at full size and above, the drawn design.
- */
-export function cursorStrokes(scale: number): { readonly dark: number; readonly light: number } {
-  const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
-  return { dark: Math.max(5, 5 / s), light: Math.max(2.5, 2 / s) };
-}
+export { cursorStrokes } from "../cell-cursor";
 
 export type MarkerState = "ok" | "no" | "sel";
 

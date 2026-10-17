@@ -9,7 +9,7 @@ import { clickSettled } from "./support/room";
 import { site } from "./support/selectors";
 import { WALK_SETTLE_MS, scene, seatedBetween, selfId } from "./support/scene";
 import { testRoomId } from "./support/test-rooms";
-import { SET_G, SET_G_SEAT_PIECE, V2_BENCHES, V2_BENCHES_PIECE, V2_SEATS, V2_SEATS_PIECE } from "./fixtures/layouts";
+import { SET_G, SET_G_SEAT_PIECE, V2_BENCHES, V2_BENCHES_PIECE, V2_SEATS, V2_SEATS_PIECE, V3_POUFS, V3_POUFS_PIECE } from "./fixtures/layouts";
 
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
 
@@ -132,10 +132,12 @@ test.describe("furniture from the room layout", () => {
   });
 
   // OME-1113: catalogue v2 is its own lazy sheet; a v2 room fetches it (and not set (g)), and every v2 seat seats in every facing.
+  // OME-1351: catalogue v3's pieces share that sheet; the pouf seats in every facing and every v3 piece draws.
   // Seeded rooms of their own: this test sits on given seats, so another spec's sitter in the lobby can't take one.
   for (const [name, room, layout, pieces, sits] of [
     ["cushions in all four facings, benches ne and nw", "v2seats", V2_SEATS, V2_SEATS_PIECE, [0, 1, 2, 3, 4, 7]],
     ["benches se and sw", "v2benches", V2_BENCHES, V2_BENCHES_PIECE, [0, 3]],
+    ["poufs in all four facings, beside every v3 piece", "v3poufs", V3_POUFS, V3_POUFS_PIECE, [0, 1, 2, 3]],
   ] as const) {
     test(`a catalogue v2 room loads only the v2 sheet and seats sitters on ${name}`, async ({ browser }) => {
       const context = await watchCsp(await browser.newContext());
@@ -151,6 +153,11 @@ test.describe("furniture from the room layout", () => {
         await expect.poll(async () => (await scene(page)).some((k) => k.startsWith("furniture/"))).toBe(true);
         expect(atlas.some((u) => isV2(u) && u.includes(".png"))).toBe(true);
         expect(atlas.filter((u) => !isV2(u))).toEqual([]);
+        const kinds = layout.furniture.map((f) => f.kind).filter((k) => k !== "tv");
+        await expect.poll(async () => {
+          const drawn = new Set((await scene(page)).map((k) => k.split("/")[1]));
+          return kinds.filter((k) => !drawn.has(k));
+        }).toEqual([]);
 
         const self = await selfId(page);
         const seats = page.locator(site.seat);

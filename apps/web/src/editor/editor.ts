@@ -4,7 +4,7 @@
 // `DELETE /rooms/:id` with the owner token, after a confirm step. Every string goes in as text.
 import * as v from "valibot";
 import { Container, Graphics, Sprite } from "pixi.js";
-import { drawCursor } from "./cursor";
+import { drawCursor } from "../cell-cursor";
 import {
   DeleteRoomResponseSchema,
   FLOOR_CELLS,

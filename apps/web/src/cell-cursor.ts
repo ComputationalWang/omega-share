@@ -1,7 +1,18 @@
-// The owner editor's keyboard cursor outline (OME-1245): one Graphics, redrawn only on key input. Part of the lazy editor chunk.
+// The cell cursor outline: the owner editor's keyboard cursor (OME-1245) and free walking's hover diamond (OME-1350). One
+// Graphics, redrawn only on input. Outside editor/ so the room can draw it without loading the lazy editor chunk.
 import type { Graphics } from "pixi.js";
-import { TILE_H, TILE_W, cellCenter } from "../layout";
-import { cursorStrokes, type Slot } from "./pick";
+import { TILE_H, TILE_W, cellCenter } from "./layout";
+import type { Slot } from "./editor/pick";
+
+/**
+ * The keyboard cursor's dark and light line widths in stage px, for a stage shown at `scale` screen px per stage px. The
+ * editor shows the room small (≈0.29 at 1280×720), so the lines grow to stay ≥2 px light inside ≥5 px dark on screen
+ * (QA OME-1274); at full size and above, the drawn design.
+ */
+export function cursorStrokes(scale: number): { readonly dark: number; readonly light: number } {
+  const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  return { dark: Math.max(5, 5 / s), light: Math.max(2.5, 2 / s) };
+}
 
 /** How tall the keyboard cursor's frame stands on a wall slot. */
 const WALL_CURSOR_H = 64;

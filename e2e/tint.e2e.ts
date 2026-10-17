@@ -2,7 +2,7 @@
 // room's Shirt key (sends `set-tint`); every client draws the member with that avatar's PLTE-swapped sheets at once.
 import * as v from "valibot";
 import type { Page } from "@playwright/test";
-import { expect, test } from "./support/csp";
+import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
@@ -42,7 +42,7 @@ async function frames(page: Page, id: string): Promise<v.InferOutput<typeof Fram
 }
 
 test("landing: six named swatches under the avatars, 44 px to a finger, recoloured per avatar", async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const context = await watchCsp(await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }));
   const page = await context.newPage();
   await page.goto(URLS.web);
   const row = page.getByRole("radiogroup", { name: "Shirt colour" });

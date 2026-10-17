@@ -102,19 +102,23 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   await expect(owner.locator(site.editorTitle)).toHaveValue("Edit me");
   expect(ownerReq.some((u) => EDITOR_URL.test(u))).toBe(true);
 
-  // Move the lamp from (9,0) to (8,1) and put a popcorn cart at (9,9): one save, one layout-changed.
+  // Move the lamp from (9,0) to (8,1), put a popcorn cart at (9,9) and an aquarium at (9,8): one save, one layout-changed.
   const before = await builds(guest);
   await clickCell(owner, 9, 0);
   await clickCell(owner, 8, 1);
   await owner.locator(site.editorTab).filter({ hasText: "Decor" }).click();
   await owner.locator(`${site.editorSlot}[data-kind="popcorn"]`).click();
   await clickCell(owner, 9, 9);
+  // A catalogue v3 piece (OME-1351) comes from the same tray.
+  await owner.locator(`${site.editorSlot}[data-kind="aquarium"]`).click();
+  await clickCell(owner, 9, 8);
   // The owner sees the draft; the guest doesn't until it's saved.
   expect(await layoutOf(guest)).toHaveLength(DEFAULT_LAYOUT.furniture.length);
   await expect(owner.locator(site.editorProblems)).toBeEmpty();
   await owner.locator(site.editorSave).click();
   await expect.poll(async () => (await layoutOf(guest)).find((f) => f.kind === "popcorn")).toMatchObject({ col: 9, row: 9 });
   expect((await layoutOf(guest)).find((f) => f.kind === "lamp")).toMatchObject({ col: 8, row: 1 });
+  expect((await layoutOf(guest)).find((f) => f.kind === "aquarium")).toMatchObject({ col: 9, row: 8 });
   // The static furniture was rebuilt once for that change, and not again while the room just runs.
   expect(await builds(guest)).toBe(before + 1);
   await guest.locator(site.chatInput).fill("nice");
