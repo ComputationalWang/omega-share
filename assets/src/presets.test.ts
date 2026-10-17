@@ -40,6 +40,12 @@ describe("room presets", () => {
     });
   }
 
+  test("one preset shows off at least three catalogue v3 pieces (OME-1351)", () => {
+    const v3 = ["coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock"];
+    const most = Math.max(...PRESETS.map((p) => new Set(p.layout.furniture.map((f) => f.kind).filter((k) => v3.includes(k))).size));
+    expect(most).toBeGreaterThanOrEqual(3);
+  });
+
   test("thumbnails: one per preset at the manifest size, ≤ 40 KB together, no strays", () => {
     let bytes = 0;
     for (const entry of manifest.presets) {
