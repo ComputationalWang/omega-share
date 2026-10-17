@@ -97,7 +97,7 @@ describe("member menu", () => {
   });
 
   test("clicking a tag opens that member's menu: their name as text, Mute chat and Remove from room", async () => {
-    const { tag, menu, stage } = await setup();
+    const { tag, menu } = await setup();
     tag("mo").click();
     const m = menu();
     expect(m).not.toBeNull();
@@ -135,7 +135,7 @@ describe("member menu", () => {
   });
 
   test("Remove asks first (\"Remove Kit for 10 min?\"); Keep backs out, Remove sends kick", async () => {
-    const { tag, menu, row, sent, stage } = await setup();
+    const { tag, menu, row, sent } = await setup();
     tag("kit").click();
     document.querySelector<HTMLButtonElement>("[data-testid=mod-remove] button")?.click();
     expect(sent).toEqual([]);
