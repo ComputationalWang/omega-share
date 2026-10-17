@@ -147,3 +147,94 @@ test("390×844 touch: the guest's tag and every key in the member menu are 44×4
   await expect(host.locator(site.modKeep)).toBeVisible();
   expect(await measure()).toEqual([]);
 });
+
+// QA OME-1324 G1–G3 (OME-1325): a phone held sideways, a narrow mouse window, and seats a window crops.
+const LAND: BrowserContextOptions = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
+const NARROW: BrowserContextOptions = { viewport: { width: 320, height: 640 } };
+
+const targetSize = async (page: Page): Promise<string[]> => {
+  const { violations } = await new AxeBuilder({ page }).include(site.room).withRules(["target-size"]).analyze();
+  return violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? ""}`));
+};
+
+/**
+ * Every seat and tag opener in the room window a finger can reach (visible, not inert) whose hit box (its own or its
+ * centred `::before`, as drawn) has under 44×44 CSS px showing inside the stage's pane. A seat the window crops must
+ * be inert or hidden, never visible, clipped and still focusable (G3).
+ */
+const exposedSmall = (page: Page): Promise<string[]> =>
+  page.evaluate(() => {
+    const out: string[] = [];
+    const room = document.querySelector("[data-testid=room-window]");
+    const pane = room?.querySelector(".stage-pane") ?? room;
+    if (!(room instanceof HTMLElement) || !(pane instanceof HTMLElement)) return ["no room window"];
+    const p = pane.getBoundingClientRect();
+    for (const e of room.querySelectorAll<HTMLElement>("[data-testid=seat], [data-testid=nickname-tag][role=button]")) {
+      if (e.closest("[inert]") !== null || !e.checkVisibility({ visibilityProperty: true })) continue;
+      const r = e.getBoundingClientRect();
+      const k = e.offsetWidth > 0 ? r.width / e.offsetWidth : 1;
+      const b = getComputedStyle(e, "::before");
+      const px = (v: string): number => (b.content === "none" || b.display === "none" ? 0 : (Number.parseFloat(v) || 0) * k);
+      const w = Math.max(r.width, px(b.width));
+      const h = Math.max(r.height, px(b.height));
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const vw = Math.min(cx + w / 2, p.right) - Math.max(cx - w / 2, p.left);
+      const vh = Math.min(cy + h / 2, p.bottom) - Math.max(cy - h / 2, p.top);
+      if (Math.round(vw) < 44 || Math.round(vh) < 44) out.push(`${e.dataset["testid"] ?? ""}${e.dataset["seat"] ?? ""} ${String(Math.round(w))}×${String(Math.round(h))}, ${String(Math.round(Math.max(0, vw)))}×${String(Math.round(Math.max(0, vh)))} showing`);
+    }
+    return out;
+  });
+
+/** The room window is wholly on screen once scrolled to, or not shown at all (OME-1302's whole-room-or-none). */
+async function wholeOrNone(page: Page): Promise<void> {
+  const win = page.locator(site.roomWindow);
+  const b = await win.boundingBox();
+  if (b === null || b.height === 0 || !(await win.isVisible())) return;
+  await win.scrollIntoViewIfNeeded();
+  const vp = page.viewportSize();
+  const r = await win.boundingBox();
+  if (vp === null || r === null) throw new Error("not laid out");
+  expect(r.y, "room window top").toBeGreaterThanOrEqual(0);
+  expect(r.y + r.height, "room window bottom").toBeLessThanOrEqual(vp.height);
+  expect(r.x, "room window left").toBeGreaterThanOrEqual(0);
+  expect(r.x + r.width, "room window right").toBeLessThanOrEqual(vp.width);
+}
+
+test("844×390 touch, owner and guest: .ui-touch, the whole room on screen, seats and the tag 44×44, axe clean at rest and with People open", async ({ browser }) => {
+  const { host, kit, kitTag } = await ownerAndGuest(browser, "roomland", LAND, LAND);
+  for (const page of [host, kit]) {
+    await expect(page.locator(".ui-touch").first()).toBeAttached();
+    await wholeOrNone(page);
+    expect(await exposedSmall(page)).toEqual([]);
+    expect(await targetSize(page)).toEqual([]);
+  }
+  const tag = await hitBox(kitTag);
+  expect(Math.min(tag.w, tag.h), "owner's tag opener").toBeGreaterThanOrEqual(44);
+  for (const page of [host, kit]) {
+    await page.locator(site.peopleKey).click();
+    await expect(page.locator(site.peoplePanel)).toBeVisible();
+    await wholeOrNone(page);
+    expect(await exposedSmall(page)).toEqual([]);
+    expect(await targetSize(page)).toEqual([]);
+  }
+});
+
+test("320×640 with a mouse, owner and guest: the tag is 44×44, no seat or tag shows clipped, axe clean at rest, with the share sheet and the member menu", async ({ browser }) => {
+  const { host, kit, kitTag } = await ownerAndGuest(browser, "roomnarr", NARROW, NARROW);
+  await expect(host.locator(".ui-touch").first()).toBeAttached();
+  const tag = await hitBox(kitTag);
+  expect(Math.min(tag.w, tag.h), "owner's tag opener").toBeGreaterThanOrEqual(44);
+  for (const page of [host, kit]) {
+    expect(await exposedSmall(page)).toEqual([]);
+    expect(await targetSize(page)).toEqual([]);
+    await page.locator("[data-testid=portrait-link]").click();
+    expect(await exposedSmall(page)).toEqual([]);
+    expect(await targetSize(page)).toEqual([]);
+    await page.keyboard.press("Escape");
+  }
+  await kitTag.focus();
+  await host.keyboard.press("Enter");
+  await expect(host.locator(site.modMenu)).toBeVisible();
+  expect(await exposedSmall(host)).toEqual([]);
+});
