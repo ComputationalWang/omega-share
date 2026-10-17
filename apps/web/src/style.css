@@ -49,7 +49,7 @@ legend { padding: 0; margin-bottom: 6px; }
 .privacy { max-width: 640px; margin: 6vh auto; padding: 0 16px; line-height: 1.5; }
 .privacy h2 { margin: 1.4em 0 0.3em; font-size: 1.1rem; }
 .privacy p { margin: 0 0 0.8em; }
-.privacy a { color: var(--accent); }
+.privacy a { color: var(--accent); overflow-wrap: anywhere; }
 
 /* Room layout picker (OME-910): native radios in labels. A sideways row on a phone-width panel (one swipe, snap), thumbs
  * keep their 212:176 ratio from the width/height attributes so nothing shifts as they load. */
