@@ -17,6 +17,8 @@ export interface OwnerToolsOptions {
   /** The scaled stage, its name-tag layer and its view (stage.ts). */
   readonly stage: HTMLElement;
   readonly tags: HTMLElement;
+  /** Where the member menu mounts: page chrome over the stage, not clipped by it (owner/moderation.ts). */
+  readonly layer: HTMLElement;
   readonly view: EditorContext["view"];
   /** Where a member is drawn now (stage.ts `anchor`). */
   readonly anchor: (id: MemberId) => Point | undefined;
@@ -124,7 +126,7 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     void import("./owner/moderation")
       .then(({ mountModeration }) => {
         if (gen !== moderationGen) return;
-        moderation = mountModeration({ stage: o.stage, tags: o.tags, bar: o.bar, view: o.state, send: o.send, stageWidth: STAGE_W, anchor: (id) => {
+        moderation = mountModeration({ stage: o.stage, layer: o.layer, tags: o.tags, bar: o.bar, view: o.state, send: o.send, stageWidth: STAGE_W, anchor: (id) => {
           const p = o.anchor(id);
           return p === undefined ? undefined : { x: p.x, y: p.y + TAG_OFFSET_Y };
         } });

@@ -416,6 +416,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     roomId: opts.roomId,
     serverUrl: opts.serverUrl,
     stage,
+    layer: wrap,
     tags,
     view,
     anchor: (id) => roomStage.anchor(id),

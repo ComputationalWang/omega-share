@@ -8,9 +8,11 @@ import type { Point } from "../layout";
 import { controlPolicy, isMuted, type ViewState } from "../state";
 
 export interface ModerationOptions {
-  /** The scaled `.ui-room` stage. The menu is page chrome (2 px art pixel, 12 px words; OME-1254), so it mounts in the
-   * stage's parent (room.ts `.stage-clip`) and is placed in page px over the member's name tag. */
+  /** The scaled `.ui-room` stage. */
   readonly stage: HTMLElement;
+  /** Where the menu mounts (room.ts `.stage-wrap`): page chrome (2 px art pixel, 12 px words; OME-1254), placed in page
+   * px over the member's name tag. Not the stage's clip, which is shorter than the tray at 1280×720 (QA OME-1275). */
+  readonly layer: HTMLElement;
   /** The name-tag layer (room.ts): one `[data-member]` span per member. */
   readonly tags: HTMLElement;
   /** Where the playback setting goes. */
@@ -43,7 +45,7 @@ const POLICY_TEXT: Record<ControlPolicy, string> = {
 };
 
 export function mountModeration(o: ModerationOptions): Moderation {
-  const layer = o.stage.parentElement ?? o.stage;
+  const { layer } = o;
   // ---- The member menu: the emote picker's tray (mustard "only you" rim), rows instead of cells.
   const menu = el("div", { className: "ui-emotes ui-modmenu mod-menu", role: "dialog" }, "mod-menu");
   const portrait = sprite("ui-portrait-juno");
@@ -148,6 +150,8 @@ export function mountModeration(o: ModerationOptions): Moderation {
     // stage.ts moves a walking member's tag every frame without a render; a refit resizes the layer (room-layout.ts).
     if (from !== null) follow.observe(from, { attributes: true, attributeFilter: ["style"] });
     resized.observe(layer);
+    // A refit can rescale the stage, so its clip resizes, without changing the layer's size.
+    if (o.stage.parentElement !== null) resized.observe(o.stage.parentElement);
   };
 
   const measure = (): void => {
