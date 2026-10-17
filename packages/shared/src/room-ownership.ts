@@ -114,11 +114,17 @@ export const ROOM_SECRETS_STORAGE_KEY = "omega.rooms";
 /** Most rooms kept at `ROOM_SECRETS_STORAGE_KEY`; the site drops the oldest first. */
 export const MAX_ROOM_SECRETS = 50;
 
-/** Value at `ROOM_SECRETS_STORAGE_KEY`, after `JSON.parse`. */
+/**
+ * Value at `ROOM_SECRETS_STORAGE_KEY`, after `JSON.parse`. `title` is the create response's, kept so
+ * a private room (never in `GET /rooms`) has a label; records saved before it have none. Never log it.
+ */
 export const RoomSecretsSchema = v.strictObject({
   v: v.literal(1),
   rooms: v.pipe(
-    v.record(RoomIdSchema, v.strictObject({ ownerToken: v.optional(OwnerTokenSchema), inviteKey: v.optional(InviteKeySchema) })),
+    v.record(
+      RoomIdSchema,
+      v.strictObject({ ownerToken: v.optional(OwnerTokenSchema), inviteKey: v.optional(InviteKeySchema), title: v.optional(RoomTitleSchema) }),
+    ),
     v.check((r) => Object.keys(r).length <= MAX_ROOM_SECRETS, "too many rooms"),
   ),
 });
