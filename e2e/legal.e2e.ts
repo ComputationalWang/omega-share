@@ -16,6 +16,9 @@ for (const name of PAGES) {
     await expect(skip).toBeFocused();
     await expect(skip).toBeVisible();
     await expect(skip).toHaveText("Skip to content");
+    // Readable: the page's link colour (.privacy a) must not paint the text in the link's own background (QA OME-1310).
+    const [fg, bg] = await skip.evaluate((e) => [getComputedStyle(e).color, getComputedStyle(e).backgroundColor]);
+    expect(fg).not.toBe(bg);
     await page.keyboard.press("Enter");
     // The target is the page's heading: the link sits inside <main> (the 404 page swaps <main> out), so aiming at
     // <main> itself would send the next Tab back to the link (QA OME-1308).
