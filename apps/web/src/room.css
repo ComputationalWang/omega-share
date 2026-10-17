@@ -350,7 +350,8 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 /* The volume pod in the TV's shelf (OME-642): beside the transport, not squeezed. The shelf is a size container: as it
  * narrows the words go (out of sight, not out of the accessibility tree) before anything overlaps (the plate's name, the hints), then the chips keep only their glyphs and
  * the pod's chip goes (its mustard rim and its group's label say "only you"), so on a phone the seek bar and the volume
- * track keep a 44 px finger. */
+ * track keep a 44 px finger. 580 px: Twitch's widest transport (both chips' words, 1:00:00 readouts, the hop hint and the
+ * plate) plus the pod and its two keys needs ~565 px of content box (QA OME-1333: at 844×390 it overlapped at 522). */
 .controls { container-type: inline-size; }
 /* A short Twitch phone cannot stack the shelf and composer. Keep all playback controls reachable by
  * scrolling the narrow shelf, with its content clipped inside its box rather than over the composer. */
@@ -361,7 +362,7 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 /* Out of sight only: a screen reader still hears the plate's name and the hints (QA OME-658). */
 .controls.ui-tv-shelf.compact :is(.ui-live-note, .ui-plate-name, .ui-hint-text) { display: inline; }
 @container (max-width: 720px) { .ui-plate-name, .ui-hint-text, .ui-live-note { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; } }
-@container (max-width: 520px) { .controls .ui-chip { font-size: 0; gap: 0; } .ui-volume > .ui-chip { display: none; } }
+@container (max-width: 580px) { .controls .ui-chip { font-size: 0; gap: 0; } .ui-volume > .ui-chip { display: none; } }
 /* A narrow Up next (the 256 px landscape-phone column, OME-1313): the chips keep only their glyphs so the title stays
  * readable; the word stays for a screen reader. */
 .queue-panel { container-type: inline-size; }
