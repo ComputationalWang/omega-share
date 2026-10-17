@@ -247,7 +247,7 @@ describe("site storage for room secrets", () => {
     const old = { v: 1, rooms: { k3v4: { ownerToken: mint(), inviteKey: mint() } } };
     expect(ok(RoomSecretsSchema, old)).toBe(true);
     const titled = v.parse(RoomSecretsSchema, { v: 1, rooms: { k3v4: { ownerToken: mint(), title: "Friday films" } } });
-    expect(titled.rooms.k3v4?.title).toBe("Friday films");
+    expect(titled.rooms["k3v4"]?.title).toBe("Friday films");
     expect(ok(RoomSecretsSchema, { v: 1, rooms: { k3v4: { title: "a\u202Eb" } } })).toBe(false);
     expect(ok(RoomSecretsSchema, { v: 1, rooms: { k3v4: { title: "x".repeat(10_000) } } })).toBe(false);
     expect(ok(RoomSecretsSchema, { v: 1, rooms: { k3v4: { title: 7 } } })).toBe(false);
