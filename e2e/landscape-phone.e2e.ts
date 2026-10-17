@@ -43,7 +43,7 @@ async function inside(l: Locator, top: number, bottom: number, left = 0, right =
   }), String(l)).toBe("reachable");
 }
 
-async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "q932" | "q844" | "q667" | "notch" | "twitch" | "tvshelf" | "tliveshelf" | "vshelf" | "vhourshelf", width: number, height: number, setup?: JoinOptions["setup"]): Promise<Page> {
+async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "q932" | "q844" | "q667" | "notch" | "twitch" | "tvshelf" | "tliveshelf" | "vshelf" | "vhourshelf", width: number, height: number, setup: NonNullable<JoinOptions["setup"]> = () => Promise.resolve()): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", name).url, count: 1, nicknamePrefix: `land${name}${String(test.info().retry)}${String(test.info().repeatEachIndex)}`, setup,
     contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
   const page = clients[0]?.page;
@@ -185,8 +185,8 @@ test("844×390 with Twitch's taller TV: the room window holds a whole seat row b
 // vhourshelf: a Vimeo over an hour, played past 1:00:00, so both readouts are h:mm:ss, the widest they get (QA OME-1342).
 for (const [name, key, at] of [["tvshelf", "twitchVod", 0], ["tliveshelf", "twitchLive", 0], ["vshelf", "vimeo", 0], ["vhourshelf", "vimeo", 3800]] as const) {
   test(`844×390 touch, ${name === "vhourshelf" ? "vimeo past an hour" : key}: no two boxes in the shelf overlap, each wholly in the shelf, axe clean on it (QA OME-1333)`, async ({ browser, request }) => {
-    const page = await open(browser, name, 844, 390, at === 0 ? undefined : (context) => context.route("https://player.vimeo.com/api/player.js", (route) =>
-      route.fulfill({ contentType: "text/javascript", body: `${FAKE_VIMEO_SDK}\nwindow.__fakeVimeo.configure({ duration: 4000 });` })));
+    const page = await open(browser, name, 844, 390, at === 0 ? undefined : async (context) => { await context.route("https://player.vimeo.com/api/player.js", (route) =>
+      route.fulfill({ contentType: "text/javascript", body: `${FAKE_VIMEO_SDK}\nwindow.__fakeVimeo.configure({ duration: 4000 });` })); });
     await shareProvider(request, providerCase(key).shareUrl, testRoom("landscape-phone", name).id);
     await expect(page.locator(`${site.tv} iframe`)).toBeAttached({ timeout: 10_000 });
     await expect(page.locator("[data-testid=provider-plate]")).toBeVisible();
