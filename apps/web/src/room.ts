@@ -31,6 +31,7 @@ import { createOwnerTools } from "./owner-tools";
 import { createEmotePicker } from "./emote/picker";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
+import { HELP_LINE, chatSticker, createStickerGate, slashCommand } from "./chat/effects";
 import { chatKey } from "./chat/enter";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
 import { createChatRelay, type ChatRelay } from "./popout/relay";
@@ -595,6 +596,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const from = e.type === "server" && e.msg.type === "chat" ? e.msg.memberId : undefined;
     for (const entry of logEntries(state, next, e)) {
       chatLog.append(entry, from);
+      if (entry.kind === "chat" && from !== undefined) popSticker(from, entry.text);
       // Popped out: the window gets the line now, not on the next frame (a hidden tab draws none).
       relay?.append(entry, from);
       // Collapsed in full screen: count what others said while the lines are out of sight.
@@ -650,6 +652,22 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     relay?.emote(id, kind);
     if (!roomOut()) roomStage.emote(id, kind, state);
   };
+  // Chat stickers (OME-1349): read from the relayed line by every viewer, nothing on the wire; one per member per 3 s,
+  // none under reduced motion.
+  const stickers = createStickerGate();
+  const popSticker = (id: MemberId, text: string): void => {
+    const kind = reducedMotion.matches ? null : chatSticker(text);
+    if (kind !== null && stickers.allow(id, performance.now())) emoted(id, kind);
+  };
+  /** A slash command (OME-1349), from the box or the pop-out: true/false = ran (sent or not), null = not one, it's chat. */
+  const runSlash = (text: string): boolean | null => {
+    const cmd = slashCommand(text);
+    if (cmd === null) return null;
+    if (cmd.type === "emote") return picker.emote(cmd.kind);
+    chatLog.append({ kind: "system", line: HELP_LINE });
+    relay?.append({ kind: "system", line: HELP_LINE });
+    return true;
+  };
   const kickedStore = sessionStorage;
   const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted, hidden: isHidden, session: (token) => {
     sentAway = false;
@@ -688,6 +706,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       ? createChatRelay({
           channel: browserChannel(channelName(opts.roomId, tab)),
           send: (m) => c.send(m),
+          command: runSlash,
           openWindow: (kind) => {
             if (kind === "room") window.open(roomPopoutUrl(opts.roomId, tab), "_blank", "noopener,popup,width=1280,height=668");
             else window.open(popoutUrl(opts.roomId, tab), "_blank", "noopener,popup,width=380,height=640");
@@ -730,9 +749,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   chatForm.addEventListener("submit", (ev) => {
     ev.preventDefault();
     // Held while the server says rate_limited; the text stays in the box for when it reopens.
-    if (chatView(state, Date.now()).cooling) return;
-    const msg = chatIntent(chatInput.value);
-    if (msg !== null && c.send(msg)) {
+    const ran = runSlash(chatInput.value);
+    if (ran === null && chatView(state, Date.now()).cooling) return;
+    const msg = ran === null ? chatIntent(chatInput.value) : null;
+    if (ran === true || (msg !== null && c.send(msg))) {
       chatInput.value = "";
       firstHint.dismiss();
       // Sent from the key without the field focused: the next line goes straight in.

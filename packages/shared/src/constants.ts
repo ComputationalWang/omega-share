@@ -6,6 +6,8 @@ export const FLOOR_CELLS = 10;
 /** Most pieces in a room layout (ADR 0021); a full layout is ~2 KB of a snapshot. */
 export const MAX_FURNITURE = 32;
 export const AVATAR_COUNT = 4;
+/** Shirt tints a member can pick (ADR 0053); tint 0 is the avatar's own colours. */
+export const TINT_COUNT = 6;
 /** People in one room; matches the load-test budget in docs/perf-budgets.md. */
 export const MAX_ROOM_MEMBERS = 25;
 /** Room ids are `[a-z0-9-]`, 1 to this many characters. */
@@ -60,6 +62,13 @@ export const ROOM_EDIT_REFILL_MS = 2000;
  */
 export const EMOTE_BURST = 3;
 export const EMOTE_REFILL_MS = 1000;
+
+/**
+ * Per member, `walk` (ADR 0053): this many at once, then one every WALK_REFILL_MS (4/s). Over it, the server drops
+ * the walk silently: no error, no disconnect. It counts against the per-socket frame limit too.
+ */
+export const WALK_BURST = 8;
+export const WALK_REFILL_MS = 250;
 
 /*
  * Owner moderation (ADR 0030). In memory only, keyed by room and client address (ADR 0028 §7):

@@ -1,4 +1,4 @@
-import { DEFAULT_CONTROL_POLICY, type ControlPolicy, type ErrorCode, type MemberId, type PlaybackState, type RoomState, type ServerMessage } from "@omega/shared";
+import { DEFAULT_CONTROL_POLICY, type ControlPolicy, type ErrorCode, type Member, type MemberId, type PlaybackState, type RoomState, type ServerMessage } from "@omega/shared";
 import { FLOAT_PER_SPEAKER } from "./bubbles/floats";
 import { mutedLine, policyLine, systemLine, type SystemLine } from "./controls/sysline";
 
@@ -161,6 +161,24 @@ function withPlayback(state: ViewState, room: RoomState, pb: PlaybackState | nul
   return { ...state, room: next, syslines: pushLine(state, line, pb.rev, now) };
 }
 
+function withoutCell(m: Member): Member {
+  const next = { ...m };
+  delete next.cell;
+  return next;
+}
+
+/** Replace one member through `update`; unknown members change nothing. */
+function withMember(state: ViewState, id: MemberId, update: (m: Member) => Member): ViewState {
+  return withRoom(state, (room) => {
+    const i = room.members.findIndex((m) => m.id === id);
+    const cur = room.members[i];
+    if (cur === undefined) return null;
+    const members = [...room.members];
+    members[i] = update(cur);
+    return { ...room, members };
+  });
+}
+
 function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState {
   switch (msg.type) {
     case "snapshot":
@@ -216,7 +234,9 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
         if (!hasMember(room, msg.memberId)) return null;
         const seats = room.seats.map((s) => (s === msg.memberId ? null : s));
         if (msg.seat !== null) seats[msg.seat] = msg.memberId;
-        return { ...room, seats };
+        // Any sit leaves the standing cell (ADR 0053): seated, or back on the standing spot.
+        const members = room.members.map((m) => (m.id === msg.memberId && m.cell !== undefined ? withoutCell(m) : m));
+        return { ...room, seats, members };
       });
     case "embed-changed": {
       if (state.room === null) return state;
@@ -248,6 +268,13 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     case "member-status":
       return state.room === null || !hasMember(state.room, msg.memberId) ? state : withCatching(state, msg.memberId, msg.catching);
     // Owner edits (ADR 0028): seats keep their indices, so only the layout changes; the scene follows it (room.ts).
+    // ADR 0053: a member's standing cell and shirt tint live on the member.
+    case "walked": {
+      const cell = msg.cell;
+      return withMember(state, msg.memberId, (m) => (cell === null ? withoutCell(m) : { ...m, cell }));
+    }
+    case "tint-changed":
+      return withMember(state, msg.memberId, (m) => ({ ...m, tint: msg.tint }));
     case "layout-changed":
       return withRoom(state, (room) => ({ ...room, layout: msg.layout }));
     case "title-changed":

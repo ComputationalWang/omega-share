@@ -20,8 +20,9 @@ import {
   RoomStateSchema,
   RoomTitleSchema,
   SeatIndexSchema,
+  TintSchema,
 } from "./room";
-import { RoomLayoutInputSchema, RoomLayoutSchema } from "./layout";
+import { FloorCellInputSchema, FloorCellSchema, RoomLayoutInputSchema, RoomLayoutSchema } from "./layout";
 import { QueueIndexSchema, QueueItemIdSchema, QueueSchema } from "./queue";
 import { InviteKeySchema, OwnerTokenSchema } from "./room-ownership";
 import { RetryAfterMsSchema, ShareTokenSchema } from "./share";
@@ -79,12 +80,22 @@ export const ClientMessageSchema = v.variant("type", [
     durableSession: v.optional(v.literal(true)),
     /** Resume authority; server identity overrides nickname/avatar and invite fields. */
     resumeToken: v.optional(ResumeTokenSchema),
+    /** Shirt tint (ADR 0053); absent means 0. A resume keeps the member's own. */
+    tint: v.optional(TintSchema),
   }),
   v.strictObject({ type: v.literal("leave") }),
   /** Advisory visibility transition, never extends a disconnected hold. */
   v.strictObject({ type: v.literal("presence"), away: v.boolean() }),
   /** `seat: null` stands up. */
   v.strictObject({ type: v.literal("sit"), seat: v.nullable(SeatIndexSchema) }),
+  /**
+   * Stand on a floor cell (ADR 0053). Needs `join`. A cell under a solid piece, seats included (use `sit`), is
+   * answered `error: bad_cell`. From a seat it stands up first (`seat-changed` null, then `walked`). Clients path
+   * there themselves; send the destination only. Per member WALK_BURST / WALK_REFILL_MS, over it dropped silently.
+   */
+  v.strictObject({ type: v.literal("walk"), cell: FloorCellInputSchema }),
+  /** Needs `join`. Change shirt tint; relayed as `tint-changed` (setting the current tint is a no-op). Shares the `emote` bucket. */
+  v.strictObject({ type: v.literal("set-tint"), tint: TintSchema }),
   v.strictObject({ type: v.literal("chat"), text: ChatTextSchema }),
   /** Clock sample; allowed before `join`. Answered with `pong` to the sender only. */
   v.strictObject({ type: v.literal("ping"), id: PingIdSchema }),
@@ -179,6 +190,8 @@ export const ERROR_CODES = [
   "unsupported_url",
   /** Unknown, expired, revoked or wrong-room resume credential; no fresh join fallback. */
   "resume_expired",
+  /** `walk` to a cell under a solid piece or a seat (ADR 0053). */
+  "bad_cell",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -208,6 +221,13 @@ export const ServerMessageSchema = v.variant("type", [
   /** `reason` is absent from a pre-M6 server: read it as `left`. */
   v.object({ type: v.literal("member-left"), memberId: MemberIdSchema, reason: v.optional(v.picklist(MEMBER_LEFT_REASONS)) }),
   v.object({ type: v.literal("seat-changed"), memberId: MemberIdSchema, seat: v.nullable(SeatIndexSchema) }),
+  /**
+   * A member's standing cell changed (ADR 0053): a `walk`, or a layout change that covered their cell (sent after
+   * `layout-changed`: to DOOR_CELL, or null, their standing spot, when the door is covered too). Path there locally.
+   */
+  v.object({ type: v.literal("walked"), memberId: MemberIdSchema, cell: v.nullable(FloorCellSchema) }),
+  /** A member changed shirt tint (ADR 0053). */
+  v.object({ type: v.literal("tint-changed"), memberId: MemberIdSchema, tint: TintSchema }),
   v.object({
     type: v.literal("chat"),
     memberId: MemberIdSchema,

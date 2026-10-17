@@ -1,7 +1,8 @@
 //! Small room primitives from `room.ts` and `room-ownership.ts`. Members, room state, presets and
 //! messages belong to later slices.
 
-use super::constants::{AVATAR_COUNT, MAX_ROOM_MEMBERS, QUEUE_MAX, SEAT_COUNT};
+use super::Obj;
+use super::constants::{AVATAR_COUNT, FLOOR_CELLS, MAX_ROOM_MEMBERS, QUEUE_MAX, SEAT_COUNT, TINT_COUNT};
 use serde::{Deserialize, Serialize};
 
 /// A bounded index: a JSON integer in `0..count`. Floats, strings and negatives are refused.
@@ -50,6 +51,60 @@ bounded_index!(
     QueueIndex,
     QUEUE_MAX
 );
+
+bounded_index!(
+    /// `TintSchema`: a shirt tint, an integer in `0..TINT_COUNT`; 0 is the avatar's own colours (ADR 0053).
+    Tint,
+    TINT_COUNT
+);
+bounded_index!(
+    /// One coordinate of a floor cell: an integer in `0..FLOOR_CELLS`.
+    FloorCoord,
+    FLOOR_CELLS
+);
+
+/// `FloorCellSchema`: column `x`, row `y` (ADR 0053). Read as an object only; unknown keys are stripped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+pub struct FloorCell {
+    pub x: FloorCoord,
+    pub y: FloorCoord,
+}
+
+impl FloorCell {
+    pub fn new(x: u64, y: u64) -> Option<Self> {
+        Some(Self {
+            x: FloorCoord::new(x)?,
+            y: FloorCoord::new(y)?,
+        })
+    }
+}
+
+#[derive(Deserialize)]
+struct LooseCell {
+    x: FloorCoord,
+    y: FloorCoord,
+}
+
+impl<'de> Deserialize<'de> for FloorCell {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let Obj(LooseCell { x, y }) = Obj::deserialize(deserializer)?;
+        Ok(Self { x, y })
+    }
+}
+
+/// `FloorCellInputSchema` (`walk`): the same, but unknown keys are refused. Read it through `Obj`.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FloorCellInput {
+    x: FloorCoord,
+    y: FloorCoord,
+}
+
+impl From<FloorCellInput> for FloorCell {
+    fn from(c: FloorCellInput) -> Self {
+        Self { x: c.x, y: c.y }
+    }
+}
 
 /// Who may send `control` frames and shares (ADR 0030).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
