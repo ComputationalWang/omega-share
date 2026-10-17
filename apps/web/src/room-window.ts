@@ -47,7 +47,7 @@ export interface RoomWindow {
   readonly pan: () => Point;
 }
 
-export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: () => Point, onLabels: (k: number) => void = () => undefined): RoomWindow {
+export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h: number) => Point, onLabels: (k: number) => void = () => undefined): RoomWindow {
   let active = false;
   const view = { w: 0, h: 0 };
   let pan: Point = { x: 0, y: 0 };
@@ -58,10 +58,43 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
   const pane = el("div", { className: "stage-pane" });
   stage.before(pane);
   pane.append(stage);
+  // In the window, a seat or name tag the pane crops is inert: no finger or focus lands on a sliver of it (QA OME-1324
+  // G3). The browser tracks the crossings off the main thread, so a drag costs nothing here. A tag's 44 px ::before
+  // (room.css) reaches 16 px past its 20 px box, hence the tighter root for tags. Off the phone nothing is made inert.
+  const cropped = new Set<HTMLElement>();
+  const crop = (e: HTMLElement): void => {
+    e.inert = active && cropped.has(e);
+  };
+  const watch = (margin: string): IntersectionObserver =>
+    new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!(e.target instanceof HTMLElement)) continue;
+        if (e.intersectionRatio < 0.99) cropped.add(e.target);
+        else cropped.delete(e.target);
+        crop(e.target);
+      }
+    }, { root: pane, rootMargin: margin, threshold: 0.99 });
+  const seatsSeen = watch("0px");
+  const tagsSeen = watch("-16px");
+  for (const s of stage.querySelectorAll(".seat")) seatsSeen.observe(s);
+  const tagLayer = stage.querySelector(".tags");
+  if (tagLayer !== null) {
+    for (const t of tagLayer.querySelectorAll(".tag")) tagsSeen.observe(t);
+    new MutationObserver((records) => {
+      for (const r of records) {
+        for (const n of r.addedNodes) if (n instanceof HTMLElement && n.classList.contains("tag")) tagsSeen.observe(n);
+        for (const n of r.removedNodes) {
+          if (!(n instanceof HTMLElement)) continue;
+          tagsSeen.unobserve(n);
+          cropped.delete(n);
+        }
+      }
+    }).observe(tagLayer, { childList: true });
+  }
 
   const apply = (): void => {
     zoom = clampZoom(zoom, view);
-    pan = panTo(view, looking ?? home(), zoom);
+    pan = panTo(view, looking ?? home(view.h / zoom), zoom);
     stage.style.transform = `translate(${String(-pan.x * zoom)}px, ${String(-pan.y * zoom)}px) scale(${String(zoom)})`;
   };
   /** The window's centre now, stage px. */
@@ -244,6 +277,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
 
   return {
     set(on, w, h) {
+      if (on !== active) for (const e of cropped) e.inert = on;
       active = on;
       const column = h >= KEYS_COLUMN_H;
       view.w = on && column ? Math.max(0, w - KEYS_BAND) : w;

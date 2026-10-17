@@ -129,6 +129,9 @@ test("390×844 touch: the guest's tag and every key in the member menu are 44×4
   expect(tag.w, "tag opener width").toBeGreaterThanOrEqual(44);
   expect(tag.h, "tag opener height").toBeGreaterThanOrEqual(44);
 
+  // A tag the window crops is inert (OME-1325): the whole room on screen first.
+  await host.locator("[data-testid=room-zoom-fit]").click();
+  await expect(kitTag).not.toHaveAttribute("inert");
   await kitTag.focus();
   await host.keyboard.press("Enter");
   const menu = host.locator(site.modMenu);
@@ -160,10 +163,11 @@ const targetSize = async (page: Page): Promise<string[]> => {
 /**
  * Every seat and tag opener in the room window a finger can reach (visible, not inert) whose hit box (its own or its
  * centred `::before`, as drawn) has under 44×44 CSS px showing inside the stage's pane. A seat the window crops must
- * be inert or hidden, never visible, clipped and still focusable (G3).
+ * be inert or hidden, never visible, clipped and still focusable (G3). `zoomed`: the viewer zoomed out, so a target may
+ * be drawn under 44 px, but must still show whole.
  */
-const exposedSmall = (page: Page): Promise<string[]> =>
-  page.evaluate(() => {
+const exposedSmall = (page: Page, zoomed = false): Promise<string[]> =>
+  page.evaluate((zoomed) => {
     const out: string[] = [];
     const room = document.querySelector("[data-testid=room-window]");
     const pane = room?.querySelector(".stage-pane") ?? room;
@@ -181,10 +185,10 @@ const exposedSmall = (page: Page): Promise<string[]> =>
       const cy = r.top + r.height / 2;
       const vw = Math.min(cx + w / 2, p.right) - Math.max(cx - w / 2, p.left);
       const vh = Math.min(cy + h / 2, p.bottom) - Math.max(cy - h / 2, p.top);
-      if (Math.round(vw) < 44 || Math.round(vh) < 44) out.push(`${e.dataset["testid"] ?? ""}${e.dataset["seat"] ?? ""} ${String(Math.round(w))}×${String(Math.round(h))}, ${String(Math.round(Math.max(0, vw)))}×${String(Math.round(Math.max(0, vh)))} showing`);
+      if (Math.round(vw) < (zoomed ? Math.round(w) : 44) || Math.round(vh) < (zoomed ? Math.round(h) : 44)) out.push(`${e.dataset["testid"] ?? ""}${e.dataset["seat"] ?? ""} ${String(Math.round(w))}×${String(Math.round(h))}, ${String(Math.round(Math.max(0, vw)))}×${String(Math.round(Math.max(0, vh)))} showing`);
     }
     return out;
-  });
+  }, zoomed);
 
 /** The room window is wholly on screen once scrolled to, or not shown at all (OME-1302's whole-room-or-none). */
 async function wholeOrNone(page: Page): Promise<void> {
@@ -231,10 +235,17 @@ test("320×640 with a mouse, owner and guest: the tag is 44×44, no seat or tag 
     await page.locator("[data-testid=portrait-link]").click();
     expect(await exposedSmall(page)).toEqual([]);
     expect(await targetSize(page)).toEqual([]);
-    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Close" }).click();
   }
+  // A tag the window crops is inert, and this window is too short to show kit's tag whole: the owner opens kit's menu
+  // in a taller window (the whole room on screen), then the window goes back to 320×640 with the menu open.
+  await host.setViewportSize({ width: 390, height: 844 });
+  await host.locator("[data-testid=room-zoom-fit]").click();
+  await expect(kitTag).not.toHaveAttribute("inert");
   await kitTag.focus();
   await host.keyboard.press("Enter");
   await expect(host.locator(site.modMenu)).toBeVisible();
-  expect(await exposedSmall(host)).toEqual([]);
+  await host.setViewportSize({ width: 320, height: 640 });
+  await expect(host.locator(site.modMenu)).toBeVisible();
+  expect(await exposedSmall(host, true)).toEqual([]);
 });

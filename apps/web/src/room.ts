@@ -387,6 +387,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     editorPanel,
     settings: [editBar, tvBox.personal, invite, cards.foot, firstHint.root],
     phone,
+    coarse,
     portrait,
     wide,
     short,

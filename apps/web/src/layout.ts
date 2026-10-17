@@ -319,6 +319,26 @@ export function panTo(view: { readonly w: number; readonly h: number }, centre: 
   return { x: clamp(centre.x - w / 2, STAGE_W - w), y: clamp(centre.y - h / 2, STAGE_H - h) };
 }
 
+/** A seat's touch hit area is 44 px tall (room.css .ui-touch .seat), centred on its point. */
+const SEAT_HIT_H = 44;
+
+/**
+ * Where the phone's room window looks first (stage px), `h` stage px tall: the middle of the seats' bounding box, or in
+ * a window too short for every row (320×640, QA OME-1324 G3) the front row with a pixel to spare, so those seats show
+ * whole and stay tappable instead of every row cropped (room-window.ts makes a cropped seat inert).
+ */
+export function seatsHome(points: readonly Point[], h: number): Point {
+  if (points.length === 0) return { x: STAGE_W / 2, y: STAGE_H / 2 };
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const p of points) {
+    x0 = Math.min(x0, p.x);
+    x1 = Math.max(x1, p.x);
+    y0 = Math.min(y0, p.y);
+    y1 = Math.max(y1, p.y);
+  }
+  return { x: (x0 + x1) / 2, y: y1 - y0 + SEAT_HIT_H <= h ? (y0 + y1) / 2 : y1 + SEAT_HIT_H / 2 + 1 - h / 2 };
+}
+
 interface Size { readonly w: number; readonly h: number }
 
 /** The phone window's zoom range (OME-1184): from the whole stage on screen (never above 1×) up to this. */

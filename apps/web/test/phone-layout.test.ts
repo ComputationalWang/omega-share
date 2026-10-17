@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT } from "@omega/shared";
 import { seatPoints } from "../src/furniture";
-import { PHONE_MAX_W, PHONE_QUERY, PHONE_ROOM_H, PHONE_ROOM_MIN_H, fullscreenLayout, portraitLayout, STAGE_H, STAGE_W, panTo, roomLayout, type Rect } from "../src/layout";
+import { PHONE_MAX_W, PHONE_QUERY, PHONE_ROOM_H, PHONE_ROOM_MIN_H, fullscreenLayout, portraitLayout, STAGE_H, STAGE_W, panTo, roomLayout, seatsHome, type Rect } from "../src/layout";
 
 const SEATS = seatPoints(DEFAULT_LAYOUT);
 const intersects = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -134,5 +134,25 @@ describe("edge to edge: viewport-fit=cover and safe areas (index.html, style.css
     const rule = (sel: string): string => new RegExp(`(?:^|\\n)${sel.replace(".", "\\.")} \\{([^}]*)\\}`).exec(text)?.[1] ?? "";
     for (const side of ["left", "right", "top"]) expect(rule("main")).toContain(`env(safe-area-inset-${side}`);
     expect(rule(".site-footer")).toContain("env(safe-area-inset-bottom");
+  });
+});
+
+describe("where the window looks first (QA OME-1324 G3)", () => {
+  const ys = SEATS.map((p) => p.y);
+  const top = Math.min(...ys);
+  const front = Math.max(...ys);
+  test("a window tall enough for every seat looks at their middle", () => {
+    expect(seatsHome(SEATS, 400).y).toBe((top + front) / 2);
+  });
+  test("a shorter one shows the front row whole (its 44 px hit areas) instead of every row cropped", () => {
+    const h = 77;
+    const pan = panTo({ w: 320, h }, seatsHome(SEATS, h));
+    for (const y of ys.filter((v) => v === front)) {
+      expect(y - 22).toBeGreaterThanOrEqual(pan.y);
+      expect(y + 22).toBeLessThanOrEqual(pan.y + h);
+    }
+  });
+  test("no seats: the stage's middle", () => {
+    expect(seatsHome([], 100)).toEqual({ x: STAGE_W / 2, y: STAGE_H / 2 });
   });
 });
