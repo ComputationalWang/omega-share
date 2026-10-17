@@ -6,7 +6,9 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
+import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import { site } from "./support/selectors";
+import { openDirectory } from "./support/directory";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -149,4 +151,75 @@ test("phone: the entry and directory use 100dvh (100vh as the fallback), and the
   // The doorstep's own content is taller than 664 px, so the page scrolls; the min-height must add nothing past the screen.
   const minHeight = await page.locator(".welcome").evaluate((el) => parseFloat(getComputedStyle(el).minHeight));
   expect(minHeight).toBeLessThanOrEqual(await page.evaluate(() => window.innerHeight));
+});
+
+// OME-1281 (round-3 audit, OME-1237): the directory's forms. The title error is tied to its input, every Forget key
+// names its room, focus never drops to <body> when a row goes, and the armed owner's key fits at 320 px.
+test.describe("directory forms", () => {
+  const first = "qadirfirst".padEnd(26, "a");
+  const second = "qadirsecond".padEnd(26, "a");
+  const owned = "qadirowned".padEnd(26, "a");
+  /** Saved rooms in this browser before the page loads, oldest first (the list shows the newest first). */
+  const seed = async (page: Page, rooms: Record<string, { ownerToken?: string; inviteKey?: string }>): Promise<void> => {
+    await page.addInitScript(([k, v]) => localStorage.setItem(k, v), [ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms })] as const);
+  };
+
+  test("an empty submit marks the title invalid and points it at the error; typing clears both", async ({ page }) => {
+    await page.goto(URLS.web);
+    await openDirectory(page);
+    const title = page.locator(site.createRoomTitle);
+    await page.locator(site.createRoomSubmit).click();
+    await expect(page.locator(site.createRoomError)).not.toBeEmpty();
+    const errorId = await page.locator(site.createRoomError).getAttribute("id");
+    expect(errorId).toBeTruthy();
+    await expect(title).toHaveAttribute("aria-invalid", "true");
+    await expect(title).toHaveAttribute("aria-describedby", errorId ?? "");
+    await title.press("M");
+    await expect(title).not.toHaveAttribute("aria-invalid", "true");
+    await expect(title).not.toHaveAttribute("aria-describedby", /./);
+  });
+
+  test("each Forget key names its room; after a forget focus moves to the next row's key, then to the heading", async ({ page }) => {
+    await seed(page, { [first]: { inviteKey: "QaInviteKey-dirfirst".padEnd(22, "y") }, [second]: { inviteKey: "QaInviteKey-dirsecnd".padEnd(22, "y") } });
+    await page.goto(URLS.web);
+    await openDirectory(page);
+    const rows = page.locator(site.yourRoom);
+    await expect(rows).toHaveCount(2);
+    for (const row of await rows.all()) {
+      const name = (await row.locator(site.yourRoomLink).textContent()) ?? "";
+      expect(name).not.toBe("");
+      await expect(row.locator(site.yourRoomForget)).toHaveAccessibleName(new RegExp(name));
+    }
+    await rows.first().locator(site.yourRoomForget).click();
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first().locator(site.yourRoomForget)).toBeFocused();
+    await rows.first().locator(site.yourRoomForget).press("Enter");
+    await expect(rows).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Your rooms" })).toBeFocused();
+  });
+
+  test("an owner's armed Forget keeps focus, and the confirmed forget moves it to the next row", async ({ page }) => {
+    await seed(page, { [first]: { inviteKey: "QaInviteKey-dirfirst".padEnd(22, "y") }, [owned]: { ownerToken: "QaOwnerToken-dirowned".padEnd(22, "x") } });
+    await page.goto(URLS.web);
+    await openDirectory(page);
+    const rows = page.locator(site.yourRoom);
+    const forget = rows.first().locator(site.yourRoomForget);
+    await forget.click();
+    await expect(forget).toHaveAccessibleName(/for good/);
+    await expect(forget).toBeFocused();
+    await forget.click();
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first().locator(site.yourRoomForget)).toBeFocused();
+  });
+
+  test("at 320 px an owned room's armed Forget key adds no sideways scroll", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await seed(page, { [owned]: { ownerToken: "QaOwnerToken-dirowned".padEnd(22, "x") } });
+    await page.goto(URLS.web);
+    await openDirectory(page);
+    const forget = page.locator(site.yourRoomForget);
+    await forget.click();
+    await expect(forget).toHaveAccessibleName(/for good/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  });
 });
