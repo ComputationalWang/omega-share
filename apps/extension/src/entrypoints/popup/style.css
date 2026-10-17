@@ -3,6 +3,9 @@
 body { margin: 0; }
 p { margin: 0; }
 #host:empty { display: none; }
+/* The status lines are live regions from the start (OME-1286): while empty they stay in the a11y tree, out of the layout,
+   so a message put in them is announced. `display: none` (or `hidden`) would drop them from the tree until it arrives. */
+#status:empty, #server-status:empty { position: absolute; width: 0; height: 0; padding: 0; border: 0; overflow: hidden; }
 /* The OME-842 vignettes: drawn at 2× by the kit, crisp. */
 .pk-state img { display: block; image-rendering: pixelated; }
 /* The share form: the embeds, the room and the keys, one column on the panel. */
@@ -11,11 +14,13 @@ p { margin: 0; }
 /* The visually hidden radio is positioned against its own row. */
 .pk-embed { position: relative; }
 .pk-keys .ui-button { min-width: 0; }
+/* WCAG 2.5.8 with a mouse too: the footer's text keys get a 24 px box, the text stays where it was. */
+.pk-link, .legal a { display: inline-flex; align-items: center; justify-content: center; min-height: 24px; min-width: 24px; }
 /* A phone (Firefox for Android opens the popup as a full-screen sheet, 360-412 px): fill the sheet, 44 px touch targets.
    `hover: none`, not `pointer: coarse`: a touchscreen that also reports a stylus (S Pen, the Android emulator) is a fine pointer.
    A hover query, not a width one: desktop Chrome sizes the popup to its body, so a width query could loop. */
 @media (hover: none) {
   main { gap: calc(6 * var(--ui-px)); }
-  .pk-link { min-width: 44px; }
-  .legal a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+  .pk-link { min-height: 44px; min-width: 44px; }
+  .legal a { min-height: 44px; min-width: 44px; }
 }

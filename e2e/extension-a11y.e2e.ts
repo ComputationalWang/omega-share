@@ -37,7 +37,9 @@ test("both status lines are live regions in the a11y tree, empty while idle", as
     await expect(el).not.toHaveAttribute("hidden");
     await expect(el).toHaveText("");
     // In the a11y tree: not display:none or visibility:hidden, only out of the way while empty.
-    expect(await el.evaluate((e) => [getComputedStyle(e).display, getComputedStyle(e).visibility])).toEqual(["block", "visible"]);
+    const style = await el.evaluate((e) => ({ display: getComputedStyle(e).display, visibility: getComputedStyle(e).visibility }));
+    expect(style.display).not.toBe("none");
+    expect(style.visibility).toBe("visible");
   }
   await expect(p.getByRole("status").and(p.locator(popup.shareStatus))).toHaveCount(1);
   await expect(p.getByRole("status").and(p.locator(REGIONS[1]))).toHaveCount(1);

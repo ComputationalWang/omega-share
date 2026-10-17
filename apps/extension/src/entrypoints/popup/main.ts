@@ -135,6 +135,8 @@ function renderEmbeds(embeds: readonly ListedEmbed[] | null): void {
       return li;
     }),
   );
+  // Keyboard and screen reader users land on the list (OME-1286); the first row is the checked one.
+  ui.embeds.querySelector("input")?.focus();
 }
 
 function renderRooms({ rooms, selected }: RoomList): void {
@@ -143,7 +145,6 @@ function renderRooms({ rooms, selected }: RoomList): void {
 
 /** Success is the room's system line with a check, an error is rust text with the warn icon (never colour alone). */
 function showStatus(state: "ok" | "error", message: string): void {
-  ui.status.hidden = false;
   ui.status.dataset["state"] = state;
   ui.status.className = state === "ok" ? "ui-sysline" : "pk-error";
   ui.status.replaceChildren(sprite(state === "ok" ? "glyph-check" : "icon-warn"), span("", message));
@@ -169,9 +170,15 @@ function renderServer(): void {
   ui.shareLabel.textContent = newRoom ? "Create room & share" : "Share";
   ui.queue.hidden = newRoom;
   ui.queue.disabled = ui.share.disabled;
-  ui.server.hidden = status?.message === null || status === null;
+  // A live region, so it stays in the DOM: empty (CSS `:empty`) when there is nothing to say, never `hidden` (OME-1286).
   ui.serverMessage.textContent = status?.message ?? "";
   ui.serverAway.hidden = status?.away !== true;
+  // Only on a change between quiet and saying something, so an unchanged line isn't re-inserted (and re-announced).
+  const say = ui.serverMessage.textContent !== "";
+  if (say !== ui.server.hasChildNodes()) {
+    if (say) ui.server.append(ui.serverAway, ui.serverMessage);
+    else ui.server.replaceChildren();
+  }
   ui.options.dataset["emphasis"] = String(status?.openOptions === true);
 }
 
@@ -208,11 +215,24 @@ void serverBaseUrl.then(loadServer).then((state) => {
 ui.room.addEventListener("change", renderServer);
 // A new room or embed makes the last share's line stale; the load error (no server state) still explains why Share is off.
 ui.form.addEventListener("change", () => {
-  if (server !== null) ui.status.hidden = true;
+  if (server !== null) ui.status.replaceChildren();
 });
+
+/** A share in flight. The keys go aria-disabled, not disabled, so the focused one keeps focus (OME-1286). */
+let busy = false;
+
+function setBusy(on: boolean): void {
+  busy = on;
+  for (const key of [ui.share, ui.queue]) {
+    key.classList.toggle("is-disabled", on);
+    if (on) key.setAttribute("aria-disabled", "true");
+    else key.removeAttribute("aria-disabled");
+  }
+}
 
 ui.form.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (busy) return;
   const selected = ui.embeds.querySelector<HTMLInputElement>("input[name=embed]:checked");
   if (selected === null || server === null) return;
   const { origin, tabs } = server;
@@ -227,15 +247,17 @@ ui.form.addEventListener("submit", (event) => {
   const options = { baseUrl: origin, roomId, url: selected.value, token: tabs.tokens.get(roomId) ?? null, fetch: fetchServer };
   // Enter in the form shares; only the "Add to queue" button queues (ADR 0031).
   const queue = event.submitter === ui.queue;
-  ui.share.disabled = true;
-  ui.queue.disabled = true;
-  ui.status.hidden = true;
+  setBusy(true);
+  ui.status.replaceChildren();
   void (queue ? addToQueue(options) : shareEmbed(options))
     .then((result) => {
       if (result.ok) showStatus("ok", queue ? `Added to the queue in ${roomId}.` : `Shared to ${roomId}.`);
       else showStatus("error", result.message);
     })
-    .finally(renderServer);
+    .finally(() => {
+      setBusy(false);
+      renderServer();
+    });
 });
 
 // Close the popup once the options page is open: Firefox for Android opens it in a tab behind the popup's full-screen
