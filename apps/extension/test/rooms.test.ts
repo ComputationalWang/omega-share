@@ -208,16 +208,21 @@ describe("roomUrl: the success line's link to the room (OME-1287)", () => {
   });
 });
 
-describe("withLastRoom: the room shared into last is preselected while it's listed (OME-1287)", () => {
+describe("withLastRoom: the room shared into last is preselected while it's listed and holds a share token (OME-1287)", () => {
   const LIST = { rooms: [{ id: "lobby", label: "lobby (1)" }, { id: "movies", label: "Movies (2)" }], selected: "lobby" };
+  const TOKENS = new Map([["lobby", "t1"], ["movies", "t2"]]);
 
-  test("a listed last room is selected", () => {
-    expect(withLastRoom(LIST, "movies")).toEqual({ ...LIST, selected: "movies" });
+  test("a listed last room with a token is selected", () => {
+    expect(withLastRoom(LIST, "movies", TOKENS)).toEqual({ ...LIST, selected: "movies" });
+  });
+
+  test("a listed last room without a token is ignored: there's nothing to share into", () => {
+    expect(withLastRoom(LIST, "movies", new Map([["lobby", "t1"]]))).toEqual(LIST);
   });
 
   for (const stored of ["gone", undefined, 42, null, NEW_ROOM]) {
     test(`${String(stored)} is ignored`, () => {
-      expect(withLastRoom(LIST, stored)).toEqual(LIST);
+      expect(withLastRoom(LIST, stored, new Map([...TOKENS, ["gone", "t3"]]))).toEqual(LIST);
     });
   }
 });

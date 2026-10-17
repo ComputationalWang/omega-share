@@ -120,7 +120,7 @@ test.describe("found indicator", () => {
         return tab?.id === undefined ? "no tab" : chrome.action.getTitle({ tabId: tab.id });
       }, page.url());
     await gotoFixture(page, "providers-embed");
-    await expect.poll(title).toBe("omega share: video found");
+    await expect.poll(title).toBe("omega share: 6 videos found");
     await gotoFixture(page, "no-video");
     await expect.poll(title).toBe("omega share");
     // A video added later is picked up by the throttled recheck.
@@ -129,6 +129,6 @@ test.describe("found indicator", () => {
       frame.src = "https://www.youtube.com/embed/aqz-KE-bpKQ";
       document.body.append(frame);
     });
-    await expect.poll(title, { timeout: 3000 }).toBe("omega share: video found");
+    await expect.poll(title, { timeout: 3000 }).toBe("omega share: 1 video found");
   });
 });

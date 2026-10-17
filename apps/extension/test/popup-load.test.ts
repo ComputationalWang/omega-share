@@ -12,7 +12,7 @@ interface BrowserStub {
   readonly storageSet?: (items: Record<string, unknown>) => Promise<void>;
   readonly permissionsContains: () => Promise<boolean>;
   readonly tabsQuery?: (query: { readonly url?: readonly string[] }) => Promise<unknown[]>;
-  readonly executeScript?: (details: { readonly args?: readonly unknown[] }) => Promise<unknown[]>;
+  readonly executeScript?: (details: { readonly target: { readonly tabId: number }; readonly args?: readonly unknown[] }) => Promise<unknown[]>;
 }
 
 const unhandled: unknown[] = [];
@@ -30,7 +30,7 @@ void mock.module("wxt/browser", () => ({
     storage: { local: { get: () => stubbed().storageGet(), set: (items: Record<string, unknown>) => stubbed().storageSet?.(items) ?? Promise.resolve() } },
     permissions: { contains: () => stubbed().permissionsContains() },
     tabs: { query: (query: { readonly url?: readonly string[] }) => stubbed().tabsQuery?.(query) ?? Promise.resolve([{ id: 1 }]) },
-    scripting: { executeScript: (details: { readonly args?: readonly unknown[] }) => stubbed().executeScript?.(details) ?? Promise.reject(new Error("cannot access tab")) },
+    scripting: { executeScript: (details: { readonly target: { readonly tabId: number }; readonly args?: readonly unknown[] }) => stubbed().executeScript?.(details) ?? Promise.reject(new Error("cannot access tab")) },
     runtime: { openOptionsPage: () => Promise.resolve() },
   },
 }));
@@ -115,7 +115,8 @@ describe("after a successful share", () => {
   const TOKEN = "AAAAAAAAAAAAAAAAAAAAAA";
   const json = (body: unknown): Response => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
 
-  async function shared(stored: Record<string, unknown> = {}, saved: Record<string, unknown>[] = []): Promise<Document> {
+  /** `roomTabs`: the rooms open in site tabs, each holding its share token. */
+  async function shared(stored: Record<string, unknown> = {}, saved: Record<string, unknown>[] = [], roomTabs: readonly string[] = ["lobby"]): Promise<Document> {
     globalThis.fetch = ((url: string) =>
       Promise.resolve(
         url.endsWith("/share")
@@ -129,14 +130,14 @@ describe("after a successful share", () => {
         return Promise.resolve();
       },
       permissionsContains: () => Promise.resolve(true),
-      tabsQuery: (query) => Promise.resolve(query.url === undefined ? [{ id: 1, url: "https://example.com/" }] : [{ id: 2, url: `${ORIGIN}/r/lobby` }]),
-      executeScript: ({ args }) =>
+      tabsQuery: (query) => Promise.resolve(query.url === undefined ? [{ id: 1, url: "https://example.com/" }] : roomTabs.map((id, i) => ({ id: i + 2, url: `${ORIGIN}/r/${id}` }))),
+      executeScript: ({ target, args }) =>
         Promise.resolve([
           {
             result:
               args === undefined
                 ? { urls: ["https://example.com/", "https://www.youtube.com/embed/aqz-KE-bpKQ", "https://www.youtube.com/embed/dQw4w9WgXcQ"], media: [], frames: [] }
-                : JSON.stringify({ roomId: "lobby", token: TOKEN }),
+                : JSON.stringify({ roomId: roomTabs[target.tabId - 2], token: TOKEN }),
           },
         ]),
     });
@@ -160,8 +161,14 @@ describe("after a successful share", () => {
     const saved: Record<string, unknown>[] = [];
     await shared({}, saved);
     expect(saved).toEqual([{ lastRoom: "lobby" }]);
-    const reopened = await shared({ lastRoom: "movies" });
+    const reopened = await shared({ lastRoom: "movies" }, [], ["lobby", "movies"]);
     expect([...(el(reopened, "room") as HTMLSelectElement).options].find((o) => o.defaultSelected)?.value).toBe("movies");
+  });
+
+  // e2e provider-share (PR #330): the room tab moved on to another room, so the last room has no token any more.
+  test("a remembered room without a share token gives way to the room tab that has one", async () => {
+    const document = await shared({ lastRoom: "movies" });
+    expect([...(el(document, "room") as HTMLSelectElement).options].find((o) => o.defaultSelected)?.value).toBe("lobby");
   });
 
   test("a remembered room that's gone is ignored", async () => {
