@@ -242,6 +242,16 @@ describe("site storage for room secrets", () => {
     const many = Object.fromEntries(Array.from({ length: MAX_ROOM_SECRETS + 1 }, (_, i) => [`r${String(i)}`, { ownerToken: mint() }]));
     expect(ok(RoomSecretsSchema, { v: 1, rooms: many })).toBe(false);
   });
+
+  test("may keep the room title; records saved without one still parse", () => {
+    const old = { v: 1, rooms: { k3v4: { ownerToken: mint(), inviteKey: mint() } } };
+    expect(ok(RoomSecretsSchema, old)).toBe(true);
+    const titled = v.parse(RoomSecretsSchema, { v: 1, rooms: { k3v4: { ownerToken: mint(), title: "Friday films" } } });
+    expect(titled.rooms.k3v4?.title).toBe("Friday films");
+    expect(ok(RoomSecretsSchema, { v: 1, rooms: { k3v4: { title: "a\u202Eb" } } })).toBe(false);
+    expect(ok(RoomSecretsSchema, { v: 1, rooms: { k3v4: { title: "x".repeat(10_000) } } })).toBe(false);
+    expect(ok(RoomSecretsSchema, { v: 1, rooms: { k3v4: { title: 7 } } })).toBe(false);
+  });
 });
 
 /** A valid layout with MAX_FURNITURE pieces, every optional field present (the biggest real `layout-set`). */
