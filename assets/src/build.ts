@@ -1228,6 +1228,7 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   buildFurnitureRoom(pieces, all, "furniture-room", showroom());
   buildFurnitureRoom(pieces, all, "furniture-layout", sampleLayout());
   buildFurnitureRoom(pieces, all, "furniture-v2-room", showroomV2());
+  buildFurnitureRoom(pieces, all, "furniture-v3-room", showroomV3());
   buildSeatContact(pieces, all, V2_SEATS);
   return { frames, pieces, all };
 }
@@ -1390,7 +1391,7 @@ function showroom(): { placements: Placement[]; standing: [string, number, numbe
 }
 
 /** Catalogue v2 (OME-1103): its seats get a contact sheet, its pieces a room of their own. */
-const V2_SEATS: readonly string[] = ["floorcushion", "bench"];
+const V2_SEATS: readonly string[] = ["floorcushion", "bench", "pouf"];
 
 /** `furniture-v2-seats@2x.png`: one row per v2 seat piece × colour × avatar, one column per facing (ne nw se sw); a 2-seat piece holds
  *  the same avatar on both seats, so every avatar is checked on every seat in every facing. Empty seats lead each piece's block. */
@@ -1449,6 +1450,32 @@ function showroomV2(): { placements: Placement[]; standing: [string, number, num
       { id: "monstera", colour: "teal", dir: "sw", col: 9, row: 0 },
     ],
     standing: [["mo/idle/se/0", 6, 8]],
+  };
+}
+
+/** Catalogue v3 (OME-1348): the six new pieces in both facings, poufs taken and free, around a coffee table. */
+function showroomV3(): { placements: Placement[]; standing: [string, number, number][] } {
+  return {
+    placements: [
+      { id: "neonsign", colour: "pink", dir: "sw", col: 2, row: 0 },
+      { id: "neonsign", colour: "teal", dir: "se", col: 0, row: 2 },
+      { id: "wallclock", colour: "brass", dir: "sw", col: 4, row: 0 },
+      { id: "wallclock", colour: "brass", dir: "se", col: 0, row: 4 },
+      { id: "garland", colour: "warm", dir: "sw", col: 7, row: 0 },
+      { id: "arcade", colour: "night", dir: "sw", col: 6, row: 0 },
+      { id: "arcade", colour: "night", dir: "se", col: 0, row: 7 },
+      { id: "aquarium", colour: "teal", dir: "sw", col: 9, row: 0 },
+      { id: "aquarium", colour: "teal", dir: "se", col: 0, row: 9 },
+      { id: "coffeetable", colour: "wood", dir: "sw", col: 4, row: 4 },
+      { id: "coffeetable", colour: "wood", dir: "se", col: 7, row: 7 },
+      { id: "pouf", colour: "rust", dir: "ne", col: 4, row: 5, sitters: ["pip"] },
+      { id: "pouf", colour: "lilac", dir: "nw", col: 5, row: 4, sitters: ["kiki"] },
+      { id: "pouf", colour: "lilac", dir: "sw", col: 4, row: 3, sitters: ["mo"] },
+      { id: "pouf", colour: "rust", dir: "se", col: 3, row: 4, sitters: ["juno"] },
+      { id: "pouf", colour: "rust", dir: "sw", col: 7, row: 6 },
+      { id: "pouf", colour: "lilac", dir: "se", col: 6, row: 7 },
+    ],
+    standing: [["mo/idle/se/0", 8, 4]],
   };
 }
 
