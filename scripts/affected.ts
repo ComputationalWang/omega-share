@@ -42,7 +42,7 @@ const list = (xs: readonly string[]) => (xs.length === 0 ? "none" : xs.join(" ")
 const perfCmd = s.full ? `${PERF_LOCK} bun run perf` : s.perf.length > 0 ? `${PERF_LOCK} bun run perf ${s.perf.join(" ")}` : null;
 const realCmd = s.real.length > 0 ? `bun run e2e:real ${s.real.join(" ")}` : null;
 const firefoxCmd = s.full || s.firefox.length > 0 ? "bun run ext:firefox" : null;
-const e2eCmd = s.full ? "bun run e2e" : s.e2e.length > 0 ? `bun run --filter @omega/extension build:e2e && bunx playwright test --project=e2e --project=e2e-sync --project=e2e-tunnel ${s.e2e.join(" ")}` : null;
+const e2eCmd = s.full ? "bun run e2e" : s.e2e.length > 0 ? `bun run --filter @omega/extension build:e2e && bunx playwright test --project=e2e --project=e2e-sync --project=e2e-tunnel --project=e2e-a11y ${s.e2e.join(" ")}` : null;
 
 console.log(`affected ${args.base}...${args.head}: ${String(changed.length)} file(s) changed`);
 for (const r of s.reasons) console.log(`  full suite: ${r}`);

@@ -49,20 +49,21 @@ describe(".github/workflows/e2e.yml", () => {
     expect(wf.permissions).toEqual({ contents: "read" });
   });
 
-  test("shards the run 4 ways and lets every shard finish", () => {
+  test("shards the run 4 ways plus the a11y sweep, and lets every shard finish", () => {
     const shard = load().jobs["shard"];
     expect(shard?.strategy?.["fail-fast"]).toBe(false);
-    expect(shard?.strategy?.matrix["shard"]).toEqual([1, 2, 3, 4]);
+    expect(shard?.strategy?.matrix["shard"]).toEqual([1, 2, 3, 4, "a11y"]);
   });
 
   test("each shard runs exactly the deterministic lanes, never e2e-real, perf or Firefox", () => {
     const cmds = runs(load().jobs["shard"]?.steps ?? []);
     const pw = cmds.filter((c) => c.includes("playwright test"));
-    expect(pw).toHaveLength(1);
-    const cmd = pw[0] ?? "";
+    expect(pw).toHaveLength(2);
+    const [cmd = "", a11y = ""] = pw;
     expect(cmd).toContain("--shard=${{ matrix.shard }}/4");
-    const projects = [...cmd.matchAll(/--project=(\S+)/g)].map((m) => m[1]);
-    expect(projects).toEqual(["e2e", "e2e-sync", "e2e-tunnel"]);
+    const projects = (c: string) => [...c.matchAll(/--project=(\S+)/g)].map((m) => m[1]);
+    expect(projects(cmd)).toEqual(["e2e", "e2e-sync", "e2e-tunnel"]);
+    expect(projects(a11y)).toEqual(["e2e-a11y"]);
     expect(cmds).toContain("bun run --filter @omega/extension build:e2e");
   });
 

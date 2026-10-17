@@ -24,7 +24,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        # The a11y sweep (OME-1326) is a fifth job of its own: about 2 min in one worker.
+        shard: [1, 2, 3, 4, a11y]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,7 +59,11 @@ jobs:
         run: bunx playwright install-deps chromium
       - run: bun run --filter @omega/extension build:e2e
       - name: Playwright shard ${{ matrix.shard }}/4
+        if: matrix.shard != 'a11y'
         run: bunx playwright test --project=e2e --project=e2e-sync --project=e2e-tunnel --shard=${{ matrix.shard }}/4 --reporter=list,blob
+      - name: Playwright a11y sweep
+        if: matrix.shard == 'a11y'
+        run: bunx playwright test --project=e2e-a11y --reporter=list,blob
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
