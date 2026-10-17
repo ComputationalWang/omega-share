@@ -42,7 +42,7 @@ async function inside(l: Locator, top: number, bottom: number, left = 0, right =
   }), String(l)).toBe("reachable");
 }
 
-async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "q932" | "q844" | "q667" | "notch" | "twitch" | "tvshelf" | "tliveshelf", width: number, height: number): Promise<Page> {
+async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "q932" | "q844" | "q667" | "notch" | "twitch" | "tvshelf" | "tliveshelf" | "vshelf", width: number, height: number): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", name).url, count: 1, nicknamePrefix: `land${name}${String(test.info().retry)}${String(test.info().repeatEachIndex)}`,
     contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
   const page = clients[0]?.page;
@@ -181,7 +181,7 @@ test("844×390 with Twitch's taller TV: the room window holds a whole seat row b
   expect(violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? ""}`))).toEqual([]);
 });
 
-for (const [name, key] of [["tvshelf", "twitchVod"], ["tliveshelf", "twitchLive"]] as const) {
+for (const [name, key] of [["tvshelf", "twitchVod"], ["tliveshelf", "twitchLive"], ["vshelf", "vimeo"]] as const) {
   test(`844×390 touch, ${key}: no two boxes in the shelf overlap, each wholly in the shelf, axe clean on it (QA OME-1333)`, async ({ browser, request }) => {
     const page = await open(browser, name, 844, 390);
     await shareProvider(request, providerCase(key).shareUrl, testRoom("landscape-phone", name).id);
@@ -205,6 +205,8 @@ for (const [name, key] of [["tvshelf", "twitchVod"], ["tliveshelf", "twitchLive"
       return out;
     });
     expect(clash).toEqual([]);
+    // A seekable provider keeps a seek bar a finger can drag (QA OME-1337: Vimeo's collapsed to its thumb).
+    if (key !== "twitchLive") expect((await box(page.locator(".controls .ui-seek"))).width).toBeGreaterThanOrEqual(44);
     const { violations } = await new AxeBuilder({ page }).include(".controls").analyze();
     expect(violations.flatMap((v) => v.nodes.map((n) => `${v.id} ${n.target.join(" ")}`))).toEqual([]);
   });
