@@ -87,9 +87,9 @@ test("only the owner loads the moderation tools: a guest's tag opens Mute / Remo
     expect(Number.parseFloat(await words.evaluate((e) => getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(12);
   }
   // The tail's tip and centre against kit's tag, both read in one frame (kit may still be walking in, the menu with them).
-  await expect.poll(() => owner.evaluate(() => {
-    const m = document.querySelector("[data-testid=mod-menu]");
-    const tag = [...document.querySelectorAll<HTMLElement>("[data-member]")].find((t) => t.textContent.includes("kit"));
+  await expect.poll(() => owner.evaluate(([menuSel, tagSel]) => {
+    const m = document.querySelector(menuSel ?? "");
+    const tag = [...document.querySelectorAll<HTMLElement>(tagSel ?? "")].find((t) => t.textContent.includes("kit"));
     if (m === null || tag === undefined) return "not laid out";
     const box = m.getBoundingClientRect();
     const t = tag.getBoundingClientRect();
@@ -99,7 +99,7 @@ test("only the owner loads the moderation tools: a guest's tag opens Mute / Remo
     const x = box.left + Number.parseFloat(own.borderLeftWidth) + Number.parseFloat(tail.left);
     const tip = box.top + Number.parseFloat(own.borderTopWidth) + Number.parseFloat(tail.top) + Number.parseFloat(tail.height);
     return x >= t.left && x <= t.right && tip >= t.top - 1 && tip <= t.bottom ? "on the tag" : `tail ${String(x)},${String(tip)} vs tag ${String(t.left)}–${String(t.right)},${String(t.top)}–${String(t.bottom)}`;
-  })).toBe("on the tag");
+  }, [site.modMenu, site.nicknameTag])).toBe("on the tag");
   await owner.keyboard.press("Escape");
   // From the keyboard: the first row's focus ring is 2 CSS px.
   await kitTag.focus();
