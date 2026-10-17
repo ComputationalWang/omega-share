@@ -33,6 +33,7 @@ import {
 } from "./motion";
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
+import { contactSheet, tintsTable } from "./tints";
 import { CATALOGUE_V2, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
 import { blank, blit, render, stamp, upscale, type Grid } from "./sprite";
@@ -1888,6 +1889,14 @@ function buildSite(src: SiteSources): void {
   for (const p of buildPanels(src)) write(p);
 }
 
+/** Shirt tints (OME-1347): the PLTE-swap table and a 4 × 6 contact sheet at 1× and 2×. No sheet bytes change. */
+function buildTints(): void {
+  writeFileSync(join(ROOT, "avatars", "tints.json"), JSON.stringify(tintsTable(), null, 1) + "\n");
+  const c = contactSheet();
+  writeFileSync(join(ROOT, "preview", "tints-sheet@1x.png"), encodeIndexedPng(c.w, c.h, c.img, c.palette));
+  writeFileSync(join(ROOT, "preview", "tints-sheet@2x.png"), encodeIndexedPng(c.w * 2, c.h * 2, upscale(c.img, c.w, c.h, 2), c.palette));
+}
+
 mkdirSync(join(ROOT, "preview"), { recursive: true });
 mkdirSync(join(ROOT, "src", "moodboards"), { recursive: true });
 const avatarImages = buildAvatars();
@@ -1899,6 +1908,7 @@ buildOwnerPreviews(furnitureSet, uiFrames);
 buildPresets(furnitureSet);
 buildMotion(avatarImages);
 buildExpressions(avatarImages);
+buildTints();
 for (const t of THEMES) buildTheme(t, avatarImages);
 buildStore();
 buildSite({ room: buildRoomFrames(), avatars: avatarImages, ui: uiFrames });

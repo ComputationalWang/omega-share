@@ -1,0 +1,239 @@
+{
+ "license": "CC-BY-SA-4.0",
+ "method": "runtime PLTE swap: in avatars.png, motion.png and expressions.png replace PLTE entry slots[t] with tints[n].colors[t] (t = 0 highlight, 1 base, 2 shade); use the copy only for that avatar's frames",
+ "sheets": [
+  "avatars.png",
+  "motion.png",
+  "expressions.png"
+ ],
+ "avatars": {
+  "juno": {
+   "slots": [
+    14,
+    15,
+    16
+   ],
+   "tints": [
+    {
+     "id": "mustard",
+     "colors": [
+      "#f7d36b",
+      "#e8b33c",
+      "#b9822a"
+     ]
+    },
+    {
+     "id": "teal",
+     "colors": [
+      "#6fd0c4",
+      "#3aa7a3",
+      "#23706f"
+     ]
+    },
+    {
+     "id": "rust",
+     "colors": [
+      "#e07a55",
+      "#c2553a",
+      "#8a3527"
+     ]
+    },
+    {
+     "id": "lilac",
+     "colors": [
+      "#c6a8ec",
+      "#a17fd0",
+      "#6f55a0"
+     ]
+    },
+    {
+     "id": "pink",
+     "colors": [
+      "#f7b3c8",
+      "#f08fb0",
+      "#c2607f"
+     ]
+    },
+    {
+     "id": "olive",
+     "colors": [
+      "#a0ad5a",
+      "#7d8a3e",
+      "#5a6429"
+     ]
+    }
+   ]
+  },
+  "pip": {
+   "slots": [
+    17,
+    18,
+    19
+   ],
+   "tints": [
+    {
+     "id": "teal",
+     "colors": [
+      "#6fd0c4",
+      "#3aa7a3",
+      "#23706f"
+     ]
+    },
+    {
+     "id": "mustard",
+     "colors": [
+      "#f7d36b",
+      "#e8b33c",
+      "#b9822a"
+     ]
+    },
+    {
+     "id": "lilac",
+     "colors": [
+      "#c6a8ec",
+      "#a17fd0",
+      "#6f55a0"
+     ]
+    },
+    {
+     "id": "pink",
+     "colors": [
+      "#f7b3c8",
+      "#f08fb0",
+      "#c2607f"
+     ]
+    },
+    {
+     "id": "olive",
+     "colors": [
+      "#a0ad5a",
+      "#7d8a3e",
+      "#5a6429"
+     ]
+    },
+    {
+     "id": "velvet",
+     "colors": [
+      "#b85a6e",
+      "#8f3f55",
+      "#652a3e"
+     ]
+    }
+   ]
+  },
+  "mo": {
+   "slots": [
+    20,
+    21,
+    22
+   ],
+   "tints": [
+    {
+     "id": "rust",
+     "colors": [
+      "#e07a55",
+      "#c2553a",
+      "#8a3527"
+     ]
+    },
+    {
+     "id": "teal",
+     "colors": [
+      "#6fd0c4",
+      "#3aa7a3",
+      "#23706f"
+     ]
+    },
+    {
+     "id": "mustard",
+     "colors": [
+      "#f7d36b",
+      "#e8b33c",
+      "#b9822a"
+     ]
+    },
+    {
+     "id": "lilac",
+     "colors": [
+      "#c6a8ec",
+      "#a17fd0",
+      "#6f55a0"
+     ]
+    },
+    {
+     "id": "pink",
+     "colors": [
+      "#f7b3c8",
+      "#f08fb0",
+      "#c2607f"
+     ]
+    },
+    {
+     "id": "velvet",
+     "colors": [
+      "#b85a6e",
+      "#8f3f55",
+      "#652a3e"
+     ]
+    }
+   ]
+  },
+  "kiki": {
+   "slots": [
+    23,
+    24,
+    25
+   ],
+   "tints": [
+    {
+     "id": "lilac",
+     "colors": [
+      "#c6a8ec",
+      "#a17fd0",
+      "#6f55a0"
+     ]
+    },
+    {
+     "id": "teal",
+     "colors": [
+      "#6fd0c4",
+      "#3aa7a3",
+      "#23706f"
+     ]
+    },
+    {
+     "id": "navy",
+     "colors": [
+      "#56679c",
+      "#3d4c7a",
+      "#2a3458"
+     ]
+    },
+    {
+     "id": "rust",
+     "colors": [
+      "#e07a55",
+      "#c2553a",
+      "#8a3527"
+     ]
+    },
+    {
+     "id": "olive",
+     "colors": [
+      "#a0ad5a",
+      "#7d8a3e",
+      "#5a6429"
+     ]
+    },
+    {
+     "id": "ginger",
+     "colors": [
+      "#f09a4e",
+      "#d9772e",
+      "#a4531d"
+     ]
+    }
+   ]
+  }
+ }
+}
