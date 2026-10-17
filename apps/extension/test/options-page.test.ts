@@ -59,21 +59,21 @@ afterEach(() => {
   unhandled.length = 0;
 });
 
-function el<T extends HTMLElement>(document: Document, testId: string): T {
-  const found = document.querySelector<T>(`[data-testid="${testId}"]`);
+function el(document: Document, testId: string): HTMLElement {
+  const found = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
   if (found === null) throw new Error(`${testId} missing`);
   return found;
 }
 
 function submit(document: Document, value: string): void {
-  const input = el<HTMLInputElement>(document, "server-url-input");
+  const input = (el(document, "server-url-input") as HTMLInputElement);
   input.value = value;
-  el<HTMLButtonElement>(document, "server-url-save").click();
+  (el(document, "server-url-save") as HTMLButtonElement).click();
 }
 
 test("a refused found-toggle request leaves the box unchecked and says why", async () => {
   const document = await openOptions({ request: () => Promise.resolve(false) });
-  const toggle = el<HTMLInputElement>(document, "found-toggle");
+  const toggle = (el(document, "found-toggle") as HTMLInputElement);
   toggle.click();
   await settle();
   expect(toggle.checked).toBe(false);
@@ -97,7 +97,7 @@ test("the URL field is described by its hint", async () => {
 
 test("a validation error marks the field invalid; a good save clears it", async () => {
   const document = await openOptions();
-  const input = el<HTMLInputElement>(document, "server-url-input");
+  const input = (el(document, "server-url-input") as HTMLInputElement);
   submit(document, "ftp://example.com");
   await settle();
   expect(el(document, "server-url-status").dataset["state"]).toBe("error");
@@ -110,7 +110,7 @@ test("a validation error marks the field invalid; a good save clears it", async 
 
 test("editing the field clears the Saved status", async () => {
   const document = await openOptions();
-  const input = el<HTMLInputElement>(document, "server-url-input");
+  const input = (el(document, "server-url-input") as HTMLInputElement);
   submit(document, "http://localhost:8787");
   await settle();
   expect(el(document, "server-url-status").textContent).not.toBe("");

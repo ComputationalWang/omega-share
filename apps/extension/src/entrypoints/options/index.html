@@ -7,6 +7,7 @@
     <meta name="manifest.open_in_tab" content="false" />
     <style>
       body { font: 14px/1.4 system-ui, sans-serif; margin: 16px; color: #222; }
+      h1 { font-size: 18px; margin: 0 0 12px; }
       form { display: grid; gap: 8px; max-width: 420px; }
       #found-form { margin-top: 16px; }
       input { font: inherit; padding: 4px; }
@@ -23,17 +24,21 @@
     </style>
   </head>
   <body>
+    <main>
+    <h1>omega share settings</h1>
     <form id="form">
       <label for="url">Server URL</label>
-      <input id="url" data-testid="server-url-input" type="url" required placeholder="http://localhost:8787 or https://your-tunnel.example" />
-      <small>Use <code>http://localhost:&lt;port&gt;</code> or an <code>https://</code> address, with no path.</small>
+      <input id="url" data-testid="server-url-input" type="url" aria-describedby="url-hint" required placeholder="http://localhost:8787 or https://your-tunnel.example" />
+      <small id="url-hint">Use <code>http://localhost:&lt;port&gt;</code> or an <code>https://</code> address, with no path.</small>
       <button type="submit" id="save" data-testid="server-url-save">Save</button>
       <p id="status" data-testid="server-url-status" role="status"></p>
     </form>
     <form id="found-form">
       <label><input id="found" data-testid="found-toggle" type="checkbox" disabled /> Show when a page has a video</label>
       <small>Lights the toolbar icon when the page you're on has a video to share. This needs permission to read every https site; the extension only counts videos there and sends nothing anywhere. Off by default.</small>
+      <p id="found-status" data-testid="found-status" role="status"></p>
     </form>
+    </main>
     <footer class="legal" data-testid="legal-links">
       <a href="https://omega-share.duckdns.org/privacy.html#extension" target="_blank" rel="noreferrer noopener">Privacy</a>
       <a href="https://omega-share.duckdns.org/terms.html" target="_blank" rel="noreferrer noopener">Terms</a>
