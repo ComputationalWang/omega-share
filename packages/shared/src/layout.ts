@@ -70,6 +70,12 @@ export const FURNITURE = {
   cat: piece("object", CAMERA, ONE, { variants: 2 }),
   wallshelf: piece("wall", CAMERA, { cols: 0, rows: 0 }),
   garland: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 2 }),
+  coffeetable: piece("object", CAMERA, ONE),
+  pouf: piece("object", FACINGS, ONE, { seats: true, variants: 2 }),
+  neonsign: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 2 }),
+  aquarium: piece("object", CAMERA, ONE),
+  arcade: piece("object", CAMERA, ONE),
+  wallclock: piece("wall", CAMERA, { cols: 0, rows: 0 }),
 } as const satisfies Record<string, FurnitureSpec>;
 
 export type FurnitureKind = keyof typeof FURNITURE;

@@ -89,7 +89,7 @@ const overlaps = (): unknown[] => [
 
 const wallPieces = (): unknown[] => {
   const out: unknown[] = [];
-  for (const kind of ["frame", "wallshelf", "garland", "bookshelf"] as const)
+  for (const kind of ["frame", "wallshelf", "garland", "neonsign", "wallclock", "bookshelf"] as const)
     for (let i = 0; i < 10; i++) {
       out.push(around({ kind, col: i, row: 0, facing: "sw" }), around({ kind, col: 0, row: i, facing: "se" }));
       out.push(around({ kind, col: i, row: 1, facing: "sw" }), around({ kind, col: 1, row: i, facing: "se" }));
