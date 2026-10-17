@@ -374,6 +374,9 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
   /* The mute key's 44 px finger reaches over the pod's own 8 px frame: 1 px of its 9 px lead stays (an hour-long Vimeo's
    * two h:mm:ss readouts left the seek bar 43 px), and 10 px after it, since the next key has no lead here (QA OME-1342). */
   .ui-touch:not(.room-portrait) .controls .ui-volume > .ui-button.icon { margin: 0 10px 0 1px; }
+  /* Nor the seek-only hint's glyph: its words live in a hover title a finger never sees, and CI's wider fonts left an
+   * hour-long Vimeo's seek bar 29 px with it in. A screen reader still reads it. */
+  .ui-touch:not(.room-portrait) .controls .ui-hint { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 }
 /* A narrow Up next (the 256 px landscape-phone column, OME-1313): the chips keep only their glyphs so the title stays
  * readable; the word stays for a screen reader. */
