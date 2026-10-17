@@ -17,7 +17,8 @@ beforeEach(() => {
 // Off the phone nothing changes: no keys, and a pinch does nothing.
 
 const VIEW = { w: 390, h: 270 };
-const FIT = 390 / 960;
+/** The room shows beside the zoom keys' 52 px column (OME-1302): fit is that pane's width. */
+const FIT = (390 - 52) / 960;
 
 async function setup() {
   const { createRoomWindow } = await import("../src/room-window");
@@ -93,6 +94,22 @@ describe("on a phone", () => {
   });
 });
 
+describe("on a phone, the zoom keys' band (OME-1302, QA OME-1300 F3/F4)", () => {
+  test("a tall window has the keys in a column beside the room, a short one in a row under it, a sliver none at all", async () => {
+    const { win, clip } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    expect(clip.dataset["keys"]).toBe("column");
+    expect(clip.style.visibility).toBe("");
+    win.set(true, VIEW.w, 120);
+    expect(clip.dataset["keys"]).toBe("row");
+    expect(clip.style.visibility).toBe("");
+    win.set(true, VIEW.w, 40);
+    expect(clip.style.visibility).toBe("hidden");
+    win.set(false, 960, 40);
+    expect(clip.style.visibility).toBe("");
+  });
+});
+
 describe("on a phone, edges", () => {
   test("the bubbles hear the label scale with the CSS, once per change", async () => {
     const { win, key, labels } = await setup();
@@ -108,8 +125,8 @@ describe("on a phone, edges", () => {
     key("in").click();
     at.home = { x: 200, y: 300 };
     win.set(true, VIEW.w, VIEW.h);
-    // At 1.25× the window covers 312 stage px: centred on x 200 its left edge is at 44.
-    expect(win.pan().x).toBe(44);
+    // At 1.25× the pane (390 − the keys' 52 px) covers 270.4 stage px: centred on x 200 its left edge is at 65.
+    expect(win.pan().x).toBe(65);
   });
 
   test("zoomed in, focus on something past the window's right edge pans it into view", async () => {
