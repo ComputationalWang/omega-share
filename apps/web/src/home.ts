@@ -197,7 +197,7 @@ export function mountHome(opts: HomeOptions): Home {
           fail(res.error.code === "rate_limited" && wait !== undefined ? `You've made a lot of rooms. Try again ${minutes(wait)}.` : ERRORS[res.error.code]);
           return;
         }
-        const saved = rememberRoom(opts.store, res.room.id, res.inviteKey === undefined ? { ownerToken: res.ownerToken } : { ownerToken: res.ownerToken, inviteKey: res.inviteKey });
+        const saved = rememberRoom(opts.store, res.room.id, res.inviteKey === undefined ? { ownerToken: res.ownerToken, title: res.room.title } : { ownerToken: res.ownerToken, inviteKey: res.inviteKey, title: res.room.title });
         // Without its secrets the room can't be managed, and a private one can't even be joined: say so, don't go.
         if (!saved) {
           fail(STORAGE_ERROR);
@@ -214,7 +214,7 @@ export function mountHome(opts: HomeOptions): Home {
       });
   });
 
-  // Your rooms: ids and roles only, never a secret.
+  // Your rooms: the listed title, else the saved one, else the id; and roles. Never a secret.
   const yours = el("ul", { className: "room-list" }, "your-rooms");
   const yoursEmpty = el("p", { className: "list-note", textContent: "No saved rooms in this browser yet." }, "your-rooms-empty");
   const yoursSection = el("section", { className: "rooms-yours" });
@@ -235,7 +235,7 @@ export function mountHome(opts: HomeOptions): Home {
         const li = el("li", {}, "your-room");
         li.dataset["owner"] = String(secret.ownerToken !== undefined);
         li.dataset["room"] = id;
-        const name = titles.get(id) ?? id;
+        const name = titles.get(id) ?? secret.title ?? id;
         const a = el("a", { href: `/r/${id}`, textContent: name }, "your-room-link");
         const owner = secret.ownerToken !== undefined;
         const forget = el("button", { type: "button", className: "link", textContent: "Forget", ariaLabel: `Forget ${name}` }, "your-room-forget");

@@ -10,7 +10,7 @@ import { trackShareToken } from "./share-token";
 import { clearResume, saveResume, type ResumeStore } from "./session-record";
 import { presenceHint } from "./session-lifecycle";
 import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
-import { inviteLink, joinMessage, type RoomSecret, type SecretsStore } from "./room-secrets";
+import { inviteLink, joinMessage, retitleRoom, type RoomSecret, type SecretsStore } from "./room-secrets";
 import { createInviteControl } from "./controls/invite";
 import { el, sprite } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
@@ -602,6 +602,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const prevRoom = state.room;
     const prevOwner = state.owner;
     if (unread !== unreadBefore || next.title !== state.title || next.status !== state.status) writeTitle(next);
+    // Keeps Your rooms' label current for a room this browser saved (OME-1284).
+    if (next.title !== null && next.title !== state.title) retitleRoom(opts.secrets, opts.roomId, next.title);
     state = next;
     applyPending({ owner: next.owner && opts.secret?.ownerToken !== undefined, hasRoom: next.room !== null });
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.

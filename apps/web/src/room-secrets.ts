@@ -75,8 +75,11 @@ export function rememberRoom(store: SecretsStore, id: RoomId, secret: RoomSecret
 }
 
 /** A rename this client saw: updates the saved room's title in place (its age kept); a room it doesn't have stays unsaved. */
-export function retitleRoom(_store: SecretsStore, _id: RoomId, _title: RoomTitle): boolean {
-  return false;
+export function retitleRoom(store: SecretsStore, id: RoomId, title: RoomTitle): boolean {
+  const { rooms } = loadRoomSecrets(store);
+  const prev = rooms[id];
+  if (prev === undefined || prev.title === title) return false;
+  return save(store, { ...rooms, [id]: { ...prev, title } });
 }
 
 export function forgetRoom(store: SecretsStore, id: RoomId): boolean {
