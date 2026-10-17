@@ -79,15 +79,21 @@ s.position.set(seatTileCenter.x, seatTileCenter.y);
 ## Shirt tints (`avatars/tints.json`, OME-1347)
 
 Each avatar has 6 shirt/accent tints; tint 0 is the shipped look. A tint swaps the avatar's swatch ramp (Juno's hoodie,
-Pip's jumper + beanie band + pom-pom, Mo's bomber, Kiki's pinafore) for another ramp of the shared palette. Skin, hair,
-trousers, shoes and props never change. No new colours, no new frames, no new sheet bytes.
+Pip's jumper + beanie band + pom-pom, Mo's bomber, Kiki's pinafore) for another ramp. Skin, hair, trousers, shoes and
+props never change. No new frames, no new sheet bytes.
 
 | avatar | 0 (shipped) | 1 | 2 | 3 | 4 | 5 |
 |---|---|---|---|---|---|---|
-| `juno` | mustard | teal | rust | lilac | pink | olive |
-| `pip` | teal | mustard | lilac | pink | olive | velvet |
-| `mo` | rust | teal | mustard | lilac | pink | velvet |
-| `kiki` | lilac | teal | navy | rust | olive | ginger |
+| `juno` | mustard | teal | lilac | olive | ice | denim |
+| `pip` | teal | lilac | lemon | ice | denim | berry |
+| `mo` | rust | mustard | teal | lilac | ice | berry |
+| `kiki` | lilac | rust | lemon | ice | berry | denim |
+
+- **Tint-only ramps (OME-1360).** `denim`, `ice`, `lemon` and `berry` (`TINT_RAMPS` in `src/tints.ts`) exist only in
+  `tints.json`, never in `PALETTE`, so the shipped sheets keep their PLTE. They were needed because no 6-ramp pick from
+  the shared palette stays apart under colour-blind vision: under deutan/protan the palette collapses to lightness plus
+  a blue–yellow axis, where rust/ginger/mustard/olive merge, as do lilac/teal/navy. Denim replaces navy (2.0:1 on the
+  dark bg) and berry replaces velvet (2.4:1).
 
 - **Runtime palette swap, not a bake.** Baking 5 more copies of `avatars.png` + `motion.png` + `expressions.png` would add
   about 170 KB (5 × 34 KB) against the 300 KB art budget. The swap costs 0 bytes: the three sheets share one PLTE, and the
@@ -100,10 +106,12 @@ trousers, shoes and props never change. No new colours, no new frames, no new sh
   1 row of 64 px in `avatars.png` and `expressions.png`, 2 rows in `motion.png`; the `emote/*` icons share Juno's second motion row, so always draw them from the untinted sheet).
 - `tints.json`: `{ sheets, avatars: { <id>: { slots: [hi, base, shade], tints: [{ id, colors: [hi, base, shade] }] × 6 } } }`.
 - **Checks** (`src/tints.test.ts`): the swatch ramp sits only on shirt roles; no tint reuses a ramp the avatar already wears;
-  tints are ΔE ≥ 20 apart (lowest: Kiki rust/ginger 22) and ≥ 20 from skin and hair; each tint is ΔE ≥ 25 from the dark
-  site bg (`#1d1a2b`) and the light floor; `slots` hold the tint-0 colours in all three shipped sheets.
-- Contact sheet: `preview/tints-sheet@1x.png` / `@2x.png` (rows = avatars, columns = tints, each cell idle SE + walk SW;
-  light floor panel on top, dark site bg below).
+  within an avatar, tints are ΔE ≥ 20 apart with normal vision and with simulated deuteranopia and protanopia
+  (Machado 2009, severity 1; lowest pair 23.4) and ≥ 20 from skin and hair; each tint has ≥ 3:1 contrast (lowest: denim 3.33)
+  and ΔE ≥ 25 against the dark site bg (`#1d1a2b`, and `#1c1a2e`), and ΔE ≥ 25 against the light floor; Pip never gets
+  both olive and mustard; `slots` hold the tint-0 colours in all three shipped sheets.
+- Contact sheet: `preview/tints-sheet@1x.png` / `@2x.png` (rows = avatars, columns = tints, each cell idle SE + walk SW).
+  Panels top to bottom: light floor, dark site bg, then the floor panel as seen with deuteranopia and with protanopia.
 
 ## Room atlas (`room/room.json`, same format)
 

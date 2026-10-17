@@ -31,14 +31,6 @@
      ]
     },
     {
-     "id": "rust",
-     "colors": [
-      "#e07a55",
-      "#c2553a",
-      "#8a3527"
-     ]
-    },
-    {
      "id": "lilac",
      "colors": [
       "#c6a8ec",
@@ -47,19 +39,27 @@
      ]
     },
     {
-     "id": "pink",
-     "colors": [
-      "#f7b3c8",
-      "#f08fb0",
-      "#c2607f"
-     ]
-    },
-    {
      "id": "olive",
      "colors": [
       "#a0ad5a",
       "#7d8a3e",
       "#5a6429"
+     ]
+    },
+    {
+     "id": "ice",
+     "colors": [
+      "#c4f4f7",
+      "#8fe3ec",
+      "#5ab0c4"
+     ]
+    },
+    {
+     "id": "denim",
+     "colors": [
+      "#5f8cf0",
+      "#3366e0",
+      "#2445a0"
      ]
     }
    ]
@@ -80,14 +80,6 @@
      ]
     },
     {
-     "id": "mustard",
-     "colors": [
-      "#f7d36b",
-      "#e8b33c",
-      "#b9822a"
-     ]
-    },
-    {
      "id": "lilac",
      "colors": [
       "#c6a8ec",
@@ -96,27 +88,35 @@
      ]
     },
     {
-     "id": "pink",
+     "id": "lemon",
      "colors": [
-      "#f7b3c8",
-      "#f08fb0",
-      "#c2607f"
+      "#fbf0a6",
+      "#f0dc6e",
+      "#c4ac44"
      ]
     },
     {
-     "id": "olive",
+     "id": "ice",
      "colors": [
-      "#a0ad5a",
-      "#7d8a3e",
-      "#5a6429"
+      "#c4f4f7",
+      "#8fe3ec",
+      "#5ab0c4"
      ]
     },
     {
-     "id": "velvet",
+     "id": "denim",
      "colors": [
-      "#b85a6e",
-      "#8f3f55",
-      "#652a3e"
+      "#5f8cf0",
+      "#3366e0",
+      "#2445a0"
+     ]
+    },
+    {
+     "id": "berry",
+     "colors": [
+      "#e0708c",
+      "#c0466a",
+      "#8a2e4c"
      ]
     }
    ]
@@ -137,19 +137,19 @@
      ]
     },
     {
-     "id": "teal",
-     "colors": [
-      "#6fd0c4",
-      "#3aa7a3",
-      "#23706f"
-     ]
-    },
-    {
      "id": "mustard",
      "colors": [
       "#f7d36b",
       "#e8b33c",
       "#b9822a"
+     ]
+    },
+    {
+     "id": "teal",
+     "colors": [
+      "#6fd0c4",
+      "#3aa7a3",
+      "#23706f"
      ]
     },
     {
@@ -161,19 +161,19 @@
      ]
     },
     {
-     "id": "pink",
+     "id": "ice",
      "colors": [
-      "#f7b3c8",
-      "#f08fb0",
-      "#c2607f"
+      "#c4f4f7",
+      "#8fe3ec",
+      "#5ab0c4"
      ]
     },
     {
-     "id": "velvet",
+     "id": "berry",
      "colors": [
-      "#b85a6e",
-      "#8f3f55",
-      "#652a3e"
+      "#e0708c",
+      "#c0466a",
+      "#8a2e4c"
      ]
     }
    ]
@@ -194,22 +194,6 @@
      ]
     },
     {
-     "id": "teal",
-     "colors": [
-      "#6fd0c4",
-      "#3aa7a3",
-      "#23706f"
-     ]
-    },
-    {
-     "id": "navy",
-     "colors": [
-      "#56679c",
-      "#3d4c7a",
-      "#2a3458"
-     ]
-    },
-    {
      "id": "rust",
      "colors": [
       "#e07a55",
@@ -218,19 +202,35 @@
      ]
     },
     {
-     "id": "olive",
+     "id": "lemon",
      "colors": [
-      "#a0ad5a",
-      "#7d8a3e",
-      "#5a6429"
+      "#fbf0a6",
+      "#f0dc6e",
+      "#c4ac44"
      ]
     },
     {
-     "id": "ginger",
+     "id": "ice",
      "colors": [
-      "#f09a4e",
-      "#d9772e",
-      "#a4531d"
+      "#c4f4f7",
+      "#8fe3ec",
+      "#5ab0c4"
+     ]
+    },
+    {
+     "id": "berry",
+     "colors": [
+      "#e0708c",
+      "#c0466a",
+      "#8a2e4c"
+     ]
+    },
+    {
+     "id": "denim",
+     "colors": [
+      "#5f8cf0",
+      "#3366e0",
+      "#2445a0"
      ]
     }
    ]
