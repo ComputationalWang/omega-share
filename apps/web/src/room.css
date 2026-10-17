@@ -277,23 +277,32 @@ body:has(.is-pseudo-fs) { overflow: hidden; }
 .poproom-chat { flex: 0 0 300px; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
 .poproom-chat .popout { min-width: 0; height: 100%; }
 
-/* ---- Desktop wide layout (OME-642, ≥ 1024 px landscape, layout.ts WIDE_QUERY): the TV, its shelf and the room fill the left
+/* ---- Desktop wide layout (OME-642, ≥ 1024 px landscape or a short landscape phone, layout.ts WIDE_QUERY): the TV, its shelf and the room fill the left
  * column (the wrap flexes to what's left, room.ts sizes it all from that box with `wideLayout`), the chat and Up next are a
  * full-height column on the right, WIDE_CHAT_W (320 px) wide. Nothing you need while watching is below the fold. ---- */
 /* The page is the viewport: the room's column takes what the footer (Source, Privacy) leaves, the footer under it. */
-body:has(> main > .room-wide) { display: flex; flex-direction: column; height: 100dvh; }
+/* --wide-side: the chat column with the right notch inset. A phone held sideways (OME-1297, ≤ 500 px tall) gets 256 px:
+ * the field keeps 120 px beside the emote and send keys, and at 667 px the room's column still holds the 356 px picture.
+ * The left inset pads the room's column. */
+body:has(> main > .room-wide) { --wide-side: calc(320px + env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; height: 100dvh; }
+@media (max-height: 500px) { body:has(> main > .room-wide) { --wide-side: calc(256px + env(safe-area-inset-right, 0px)); } }
 main:has(> .room-wide) { flex: 1 1 auto; min-height: 0; width: 100%; box-sizing: border-box; max-width: none; padding: 0; }
-body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; margin: 0 320px 0 0; padding: 2px 16px 6px; }
-.room-wide { box-sizing: border-box; height: 100%; margin-right: 320px; padding: 12px 16px; display: flex; flex-direction: column; overflow-y: auto; }
+body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; margin: 0 var(--wide-side) 0 0; padding: 2px 16px 6px max(16px, env(safe-area-inset-left)); }
+.room-wide { box-sizing: border-box; height: 100%; margin-right: var(--wide-side); padding: 12px 16px 12px max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; overflow-y: auto; }
 .room-wide > * { flex: none; }
 /* At least room for the TV at its minimum and a small room (the column scrolls under an open editor instead). */
 .room-wide > .stage-wrap:not(.is-fs) { flex: 1 0 420px; }
 .room-wide > .room-bar:not(:has(> :not([hidden]))) { display: none; }
-.room-side { position: fixed; top: 0; right: 0; bottom: 0; width: 320px; box-sizing: border-box; padding: 12px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid #3a3452; background: var(--bg); }
+.room-side { position: fixed; top: 0; right: 0; bottom: 0; width: var(--wide-side); box-sizing: border-box; padding: 12px max(12px, env(safe-area-inset-right)) 12px 12px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid #3a3452; background: var(--bg); }
 .room-side[hidden] { display: none; }
+/* A phone held sideways (OME-1297): the picture at its minimum and its shelf take the column's height, so the first-visit
+ * hint (the help key says the same) and Up next's empty-state art give way. */
+@media (max-height: 500px) { .room-wide > .first-hint, .room-side .ui-qempty > :first-child { display: none; } }
 .room-side > * { flex: none; margin: 0; }
 .room-side > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
 .room-side > .queue-panel { max-height: 40%; overflow-y: auto; }
+/* An on-screen keyboard is up (room-layout.ts, OME-1297): the invite and Up next step aside unless you're typing in them. */
+.room-side.is-typing > :is(.invite, .queue-panel):not(:focus-within) { display: none; }
 .room-side > .chat-away, .room-side > .room-away { max-width: none; }
 .room-side .chat input, .room-side .invite input { min-width: 0; }
 .room-side .chat > button:not(.ui-button) { padding-inline: 12px; }
