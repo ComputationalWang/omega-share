@@ -147,7 +147,7 @@ describe("after a successful share", () => {
     const room = el(document, "room") as HTMLSelectElement;
     room.value = "movies";
     room.dispatchEvent(new window.Event("change", { bubbles: true }));
-    expect(el(document, "status").hidden).toBe(true);
+    expect(el(document, "status").textContent).toBe("");
   });
 
   test("picking another embed clears the status", async () => {
@@ -158,6 +158,6 @@ describe("after a successful share", () => {
     if (other === undefined) throw new Error("no second embed");
     other.checked = true;
     other.dispatchEvent(new window.Event("change", { bubbles: true }));
-    expect(el(document, "status").hidden).toBe(true);
+    expect(el(document, "status").textContent).toBe("");
   });
 });

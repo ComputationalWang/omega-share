@@ -442,7 +442,9 @@ test("keyboard only, no mouse: join, sit, chat, then the wheel by T and by its k
   try {
     const page = await context.newPage();
     await page.goto(room.url);
-    await tabTo(page, "nickname-input", "land", problems);
+    // The field has focus on arrival (OME-1280).
+    await expect(page.locator(site.nicknameInput)).toBeFocused();
+    await checkFocus(page, "land", problems);
     await page.keyboard.type("whkeys");
     await tabTo(page, "avatar-option", "avatar", problems);
     await tabTo(page, "join-button", "join", problems);

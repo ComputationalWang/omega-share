@@ -347,10 +347,15 @@ test("keyboard only, no mouse: join, sit, chat, full screen in and out, chat out
 
   // Land on the site and join as a guest.
   await page.goto(room.url);
-  await tabTo(page, "nickname-input", "land", problems);
+  // The field has focus on arrival (OME-1280).
+  await expect(page.locator(site.nicknameInput)).toBeFocused();
+  await checkFocus(page, "land", problems);
   await page.keyboard.type("axkeys");
   await tabTo(page, "avatar-option", "avatar", problems);
   await page.keyboard.press("ArrowRight");
+  // The arrow picks the next avatar, not only the focus ring (OME-1280).
+  await expect(page.locator(site.avatarOption).nth(1)).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator(site.avatarOption).nth(1)).toBeFocused();
   await checkFocus(page, "avatar picked", problems);
   await tabTo(page, "join-button", "join", problems);
   await page.keyboard.press("Enter");

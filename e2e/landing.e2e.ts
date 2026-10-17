@@ -25,9 +25,11 @@ async function heroLoaded(page: Page): Promise<void> {
   await expect.poll(() => img.evaluate((e) => e instanceof HTMLImageElement && e.complete && e.naturalWidth > 0)).toBe(true);
 }
 
-test("keyboard only: the skip link comes first, then the nickname field, and the skip link moves focus to the page", async ({ page }) => {
+test("keyboard only: the nickname field has focus on arrival, the skip link is still the first Tab stop, and it moves focus to the page", async ({ page }) => {
   await page.goto(URLS.web);
-  await page.keyboard.press("Tab");
+  // Desktop: the page's one task is focused at once (OME-1280); the skip link stays first in the Tab order.
+  await expect(page.locator("#nickname")).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
   const skip = page.locator(".skip-link");
   await expect(skip).toBeFocused();
   await expect(skip).toBeVisible();
@@ -92,6 +94,62 @@ test.describe("phone", () => {
     await page.waitForLoadState("load");
     expect(await page.evaluate(() => (window as Window & { __cls?: number }).__cls ?? 1)).toBeLessThanOrEqual(0.05);
   });
+
+  test("touch: nothing takes focus on arrival, so the keyboard stays down (OME-1280)", async ({ page }) => {
+    await page.goto(URLS.web);
+    await expect(page.locator(site.nicknameInput)).toBeVisible();
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+  });
+});
+
+// OME-1280: the avatar radiogroup moves its selection with the arrow keys (wrapping), Home and End, like a click.
+test("keyboard only: arrows, Home and End change the chosen avatar, and the profile saves it", async ({ page }) => {
+  await page.goto(URLS.web);
+  const options = page.locator(site.avatarOption);
+  const chosen = async (i: number): Promise<void> => {
+    for (let j = 0; j < 4; j++) {
+      await expect(options.nth(j)).toHaveAttribute("aria-checked", String(j === i));
+      await expect(options.nth(j)).toHaveAttribute("tabindex", j === i ? "0" : "-1");
+    }
+    await expect(options.nth(i)).toBeFocused();
+  };
+  await page.keyboard.type("Arrows");
+  await page.keyboard.press("Tab");
+  await chosen(0);
+  await page.keyboard.press("ArrowRight");
+  await chosen(1);
+  await page.keyboard.press("ArrowDown");
+  await chosen(2);
+  await page.keyboard.press("ArrowUp");
+  await chosen(1);
+  await page.keyboard.press("ArrowLeft");
+  await chosen(0);
+  await page.keyboard.press("ArrowLeft");
+  await chosen(3);
+  await page.keyboard.press("ArrowRight");
+  await chosen(0);
+  await page.keyboard.press("End");
+  await chosen(3);
+  await page.keyboard.press("Home");
+  await chosen(0);
+  await page.keyboard.press("ArrowUp");
+  await chosen(3);
+  // Saved like a click: Find or create a room stores the profile with it.
+  await page.locator(site.findRoom).click();
+  await expect(page.locator("#home-root")).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("omega.avatar"))).toBe("3");
+});
+
+test("a nickname error clears as soon as the field is fixed, before the next submit (OME-1280)", async ({ page }) => {
+  await page.goto(URLS.web);
+  const nickname = page.locator(site.nicknameInput);
+  await page.locator(site.findRoom).click();
+  await expect(page.locator("#nickname-error")).toHaveText("Pick a nickname.");
+  await expect(nickname).toHaveAttribute("aria-invalid", "true");
+  await page.keyboard.type("Fixed");
+  await expect(page.locator("#nickname-error")).toHaveText("");
+  await expect(nickname).not.toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("#landing")).toBeVisible();
 });
 
 test.describe("reduced motion", () => {
@@ -122,9 +180,9 @@ test("a first visit to / fetches no preset thumbnails or picker code; intent war
   // Whatever the page would fetch after `load`, still without input (perf/landing.perf.ts waits as long).
   await page.waitForTimeout(1000);
   expect(fetched, "picker files fetched before any interaction").toEqual([]);
-  await page.locator(site.nicknameInput).focus();
-  await expect.poll(() => fetched.length).toBeGreaterThan(0);
+  // The field is focused on arrival (OME-1280), so typing in it is the intent.
   await page.locator(site.nicknameInput).fill("Visitor");
+  await expect.poll(() => fetched.length).toBeGreaterThan(0);
   await page.locator(site.findRoom).click();
   const thumbs = page.locator(".preset-picker img");
   await expect(thumbs).toHaveCount(6);
