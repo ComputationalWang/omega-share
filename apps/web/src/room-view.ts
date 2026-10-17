@@ -136,6 +136,13 @@ interface Entry {
   hat: Sprite | null;
 }
 
+/** Caches the static room shell as one texture, repainted on the next render (OME-1341). */
+export function bakeShell(layer: Container): void {
+  if (layer.isCachedAsTexture) layer.updateCacheTexture();
+  // Drawn 1:1 at the canvas resolution; nearest keeps the pixel art crisp if a bound lands off the pixel grid.
+  else layer.cacheAsTexture({ scaleMode: "nearest" });
+}
+
 export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomView> {
   const app = new Application();
   await app.init({
@@ -160,6 +167,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   // Static: the floor, then rugs and wall pieces in furniture order. Objects sort with the avatars by depth.
   const background = new Container();
   background.addChild(floor);
+  bakeShell(background);
   // The holiday theme (ADR 0052): decor over the walls, behind the furniture and avatars (the effect has its own canvas).
   const decorLayer = new Container({ label: "decor" });
   const editLayer = new Container({ label: "edit" });
@@ -455,6 +463,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       }
       // The room atlas's planks cover every cell: skip drawing the placeholder floor under them.
       floor.visible = !planks;
+      bakeShell(background);
       markers = scene.seats.map((seat, i) => {
         if (!seat.marker) return null;
         const g = new Graphics({ label: `seat:${String(i)}` });
