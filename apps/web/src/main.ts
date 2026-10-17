@@ -37,6 +37,7 @@ const editProfile = must("[data-testid=edit-profile]", HTMLButtonElement);
 const directoryTitle = must("#directory-title", HTMLElement);
 const greeting = must("#directory-greeting", HTMLElement);
 const directory = must("#directory", HTMLElement);
+const avatarGroup = must(".avatars", HTMLElement);
 const options = [...document.querySelectorAll<HTMLButtonElement>("[data-testid=avatar-option]")];
 
 const pathRoom = roomIdInPath(location.pathname);
@@ -93,6 +94,38 @@ options.forEach((o, i) => {
     selectAvatar(i);
   });
 });
+// The radiogroup's keys (WAI-ARIA radio pattern): arrows move the choice and wrap, Home and End go to the ends.
+const AVATAR_KEYS: Readonly<Record<string, (i: number, n: number) => number>> = {
+  ArrowRight: (i, n) => (i + 1) % n,
+  ArrowDown: (i, n) => (i + 1) % n,
+  ArrowLeft: (i, n) => (i + n - 1) % n,
+  ArrowUp: (i, n) => (i + n - 1) % n,
+  Home: () => 0,
+  End: (_, n) => n - 1,
+};
+avatarGroup.addEventListener("keydown", (ev) => {
+  const step = AVATAR_KEYS[ev.key];
+  if (step === undefined || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+  ev.preventDefault();
+  const next = options[step(avatar, options.length)];
+  next?.click();
+  next?.focus();
+});
+input.addEventListener("input", () => {
+  if (input.ariaInvalid !== "true") return;
+  error.textContent = "";
+  input.ariaInvalid = "false";
+});
+
+// Back in a room this tab was in (reload, restore, return): no Enter form, the stored session rejoins the same member.
+// sessionStorage, not localStorage, so a second tab never shares it (ADR 0043). Blocked storage reads as no record.
+const resumed =
+  pathRoom === null
+    ? null
+    : loadResume({ getItem: (k) => sessionStorage.getItem(k), setItem: (k, value) => { sessionStorage.setItem(k, value); }, removeItem: (k) => { sessionStorage.removeItem(k); } }, pathRoom);
+// Desktop: the entry form is the page's one task, so its field starts focused. Not on touch (the keyboard would pop up),
+// and before the intent listeners below, so arriving is not intent (OME-1280).
+if (resumed === null && (pathRoom !== null || profile.nickname === null) && matchMedia("(pointer: fine)").matches) input.focus();
 
 // Warm the room chunk once the user shows intent, without competing with first paint. On a room link that is anything in
 // the entry form (the room is the only way on). On the home page only Enter lobby is: a nickname typed on the way to the
@@ -100,8 +133,7 @@ options.forEach((o, i) => {
 let roomModule: Promise<typeof RoomModule> | null = null;
 const loadRoom = (): Promise<typeof RoomModule> => (roomModule ??= import("./room"));
 const intent: HTMLElement = pathRoom === null ? enter : form;
-intent.addEventListener("focusin", () => void loadRoom(), { once: true });
-intent.addEventListener("pointerover", () => void loadRoom(), { once: true });
+for (const type of ["focusin", "pointerover", "input"]) intent.addEventListener(type, () => void loadRoom(), { once: true });
 
 /** Checks the nickname field; on failure says why and puts focus back in it. */
 const checkedNickname = (): Nickname | null => {
@@ -156,12 +188,6 @@ form.addEventListener("submit", (ev) => {
   enterRoom(nickname, avatar);
 });
 
-// Back in a room this tab was in (reload, restore, return): no Enter form, the stored session rejoins the same member.
-// sessionStorage, not localStorage, so a second tab never shares it (ADR 0043). Blocked storage reads as no record.
-const resumed =
-  pathRoom === null
-    ? null
-    : loadResume({ getItem: (k) => sessionStorage.getItem(k), setItem: (k, value) => { sessionStorage.setItem(k, value); }, removeItem: (k) => { sessionStorage.removeItem(k); } }, pathRoom);
 if (resumed !== null) {
   // Straight back in: no entry form while the room loads.
   document.documentElement.dataset["view"] = "room";
@@ -228,8 +254,7 @@ if (pathRoom === null) {
   else {
     show("entry");
     for (const target of [form, findRoom]) {
-      target.addEventListener("focusin", mountHome, { once: true });
-      target.addEventListener("pointerover", mountHome, { once: true });
+      for (const type of ["focusin", "pointerover", "input"]) target.addEventListener(type, mountHome, { once: true });
     }
   }
 } else if (resumed === null) show("entry");
