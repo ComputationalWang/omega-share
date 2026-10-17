@@ -1,7 +1,8 @@
 // The owner's layout editor (OME-410, ADR 0028): a lazy chunk only the owner ever loads. The owner moves and places furniture,
 // saves once, renames and deletes; a guest sees each change live, and its static furniture is rebuilt once per change.
-// One room per test: the creation bucket is 2 per key (ROOM_CREATE_KEY_BURST).
-import { DEFAULT_LAYOUT, type RoomLayout } from "@omega/shared";
+// One room per test, and at most one UI create in this file: the creation bucket is 2 per key (ROOM_CREATE_KEY_BURST)
+// and rooms-web.e2e.ts may share the shard.
+import { DEFAULT_LAYOUT, ROOM_SECRETS_STORAGE_KEY, type RoomLayout } from "@omega/shared";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import * as v from "valibot";
 import { expect, test, watchCsp } from "./support/csp";
@@ -9,6 +10,7 @@ import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { site } from "./support/selectors";
 import { openDirectory } from "./support/directory";
+import { ownedRoom } from "./support/owned-rooms";
 import { cellCenter } from "../apps/web/src/layout";
 import { defaultFacing } from "../apps/web/src/editor/draft";
 
@@ -150,12 +152,17 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
 });
 
 test("keyboard only: a cell cursor places, selects, moves, turns and puts back furniture, and Save keeps it (OME-1245)", async ({ browser }) => {
+  // A seeded owned room, not a UI create: with the test above and rooms-web.e2e.ts in one shard, a third create from
+  // the same key is rate limited (OME-1294).
+  const { id, ownerToken, inviteKey } = ownedRoom("editorkbd");
   const owner = await newPage(browser, []);
-  await owner.goto(`${URLS.web}/`);
-  await openDirectory(owner, "Owner");
-  await owner.locator(site.createRoomTitle).fill("Keys only");
-  await owner.locator(site.createRoomSubmit).click();
-  await owner.waitForURL(/\/r\/[a-z2-7]{26}$/);
+  await owner.addInitScript(
+    ([key, value]) => {
+      localStorage.setItem(key, value);
+    },
+    [ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } })] as const,
+  );
+  await owner.goto(`${URLS.web}/r/${id}`);
   await enter(owner, "owner");
   const keys = async (...pressed: string[]): Promise<void> => {
     for (const k of pressed) await owner.keyboard.press(k);
