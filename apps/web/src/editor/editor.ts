@@ -26,7 +26,7 @@ import { FurnitureManifestSchema } from "../furniture";
 import { TILE_H, TILE_W, cellCenter } from "../layout";
 import { TRAY_TABS, defaultFacing, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
 import { loadEditAtlas, type EditAtlas } from "./edit-atlas";
-import { markerKeys, slotAt, step, type CursorKey, type MarkerState, type Slot } from "./pick";
+import { cursorStrokes, markerKeys, slotAt, step, type CursorKey, type MarkerState, type Slot } from "./pick";
 import { SAVED_LAYOUT_NAME_MAX, saveLayout, saveMessage, type LayoutStore } from "../saved-layouts";
 
 export interface EditorContext {
@@ -141,7 +141,7 @@ const placeOf = (s: Slot): string =>
   s.wall === null ? `column ${String(s.col + 1)} row ${String(s.row + 1)}` : s.wall === "sw" ? `right wall ${String(s.col + 1)}` : `left wall ${String(s.row + 1)}`;
 
 /** The keyboard cursor's outline: the cell's diamond, or the wall face above its back edge. Dark under light, so one of the two lines has 3:1 on any floor or wall. */
-function drawCursor(g: Graphics, s: Slot): void {
+function drawCursor(g: Graphics, s: Slot, scale: number): void {
   const p = cellCenter(s.col, s.row);
   const top = { x: p.x, y: p.y - TILE_H / 2 };
   const side = { x: s.wall === "se" ? p.x - TILE_W / 2 : p.x + TILE_W / 2, y: p.y };
@@ -149,7 +149,8 @@ function drawCursor(g: Graphics, s: Slot): void {
     s.wall === null
       ? [top.x, top.y, p.x + TILE_W / 2, p.y, p.x, p.y + TILE_H / 2, p.x - TILE_W / 2, p.y]
       : [top.x, top.y, side.x, side.y, side.x, side.y - WALL_CURSOR_H, top.x, top.y - WALL_CURSOR_H];
-  g.clear().poly(points).stroke({ width: 5, color: 0x101018 }).poly(points).stroke({ width: 2.5, color: 0xffffff });
+  const w = cursorStrokes(scale);
+  g.clear().poly(points).stroke({ width: w.dark, color: 0x101018 }).poly(points).stroke({ width: w.light, color: 0xffffff });
 }
 
 export async function mountEditor(ctx: EditorContext): Promise<Editor> {
@@ -253,7 +254,9 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   });
   function showCursor(): void {
     hover = cursor;
-    drawCursor(cursorMark, cursor);
+    // Screen px per stage px, read once per key press (the stage is CSS-scaled, small in the editor).
+    const r = hit.getBoundingClientRect();
+    drawCursor(cursorMark, cursor, hit.offsetWidth > 0 ? r.width / hit.offsetWidth : 1);
     cursorMark.visible = true;
     cursorText.textContent = describeCursor();
     drawMarkers();
