@@ -9,6 +9,7 @@ assets/
   avatars/motion.png    # set d (M5, lazy-load): 1024×512 indexed PNG-8, walk / breathe / wave / emote icons; set l: walk8 in-betweens
   avatars/expressions.png  # set p (OME-1104, lazy-load): 1024×256 indexed PNG-8, cheer + yawn/doze, 2 frames × pose × dir × avatar
   avatars/expressions.json # set p: PixiJS v8 atlas, motion.json's schema (frames, animations, meta.omega.anims, gestures)
+  avatars/tints.json    # OME-1347: 6 shirt tints per avatar, a runtime PLTE swap table (no extra sheets)
   avatars/motion.json   # set d: PixiJS v8 atlas + meta.omega.anims (frames, per-frame ms, loop)
   room/room.png         # shipped: 512×512 indexed PNG-8 (set b: floor, rug, walls, seats, corner console + projector, props)
   room/room.json        # shipped: PixiJS v8 spritesheet atlas + meta.omega room contract
@@ -74,6 +75,35 @@ s.position.set(seatTileCenter.x, seatTileCenter.y);
 - **`meta.omega`:** `tile {64×32}`, `cell`, `floorPoint`, `seatHeight`, `poses`, `dirs`, `blink`, and
   `avatars[] {id, label, blurb, colors {main, dark}}` (use `colors.main` for nickname tags and the picker).
 - Status: accepted, see `docs/adr/0004-sprite-atlas-format.md`. `meta.format` is informational (PixiJS v8 ignores it); the PNG is indexed PNG-8.
+
+## Shirt tints (`avatars/tints.json`, OME-1347)
+
+Each avatar has 6 shirt/accent tints; tint 0 is the shipped look. A tint swaps the avatar's swatch ramp (Juno's hoodie,
+Pip's jumper + beanie band + pom-pom, Mo's bomber, Kiki's pinafore) for another ramp of the shared palette. Skin, hair,
+trousers, shoes and props never change. No new colours, no new frames, no new sheet bytes.
+
+| avatar | 0 (shipped) | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| `juno` | mustard | teal | rust | lilac | pink | olive |
+| `pip` | teal | mustard | lilac | pink | olive | velvet |
+| `mo` | rust | teal | mustard | lilac | pink | velvet |
+| `kiki` | lilac | teal | navy | rust | olive | ginger |
+
+- **Runtime palette swap, not a bake.** Baking 5 more copies of `avatars.png` + `motion.png` + `expressions.png` would add
+  about 170 KB (5 × 34 KB) against the 300 KB art budget. The swap costs 0 bytes: the three sheets share one PLTE, and the
+  avatar's swatch ramp sits at 3 fixed PLTE entries (`slots`, highlight/base/shade).
+- **How (client):** for an (avatar, tint ≠ 0) in the room, copy the sheet's PNG bytes, overwrite PLTE entry `slots[t]`
+  with `tints[n].colors[t]` (3 bytes each at PLTE data offset `3 × slot`), recompute that chunk's CRC-32, decode, and
+  use the texture **only for that avatar's frames** (the same ramp may mean a different part on another avatar, e.g.
+  mustard is Kiki's popcorn). CPU: a 3-entry byte patch + one image decode per (avatar, tint) pair, done once, nothing per frame.
+  Memory: each pair is one more texture; crop to the avatar's rows if that matters (each avatar owns its own row band:
+  1 row of 64 px in `avatars.png` and `expressions.png`, 2 rows in `motion.png`; the `emote/*` icons share Juno's second motion row, so always draw them from the untinted sheet).
+- `tints.json`: `{ sheets, avatars: { <id>: { slots: [hi, base, shade], tints: [{ id, colors: [hi, base, shade] }] × 6 } } }`.
+- **Checks** (`src/tints.test.ts`): the swatch ramp sits only on shirt roles; no tint reuses a ramp the avatar already wears;
+  tints are ΔE ≥ 20 apart (lowest: Kiki rust/ginger 22) and ≥ 20 from skin and hair; each tint is ΔE ≥ 25 from the dark
+  site bg (`#1d1a2b`) and the light floor; `slots` hold the tint-0 colours in all three shipped sheets.
+- Contact sheet: `preview/tints-sheet@1x.png` / `@2x.png` (rows = avatars, columns = tints, each cell idle SE + walk SW;
+  light floor panel on top, dark site bg below).
 
 ## Room atlas (`room/room.json`, same format)
 

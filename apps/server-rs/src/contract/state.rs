@@ -11,7 +11,7 @@ use super::constants::{MAX_POSITION_S, MAX_ROOM_MEMBERS, PING_ID_MAX, PLAYBACK_R
 use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, QueueItemId, RoomId};
 use super::layout::RoomLayout;
-use super::room::{Avatar, ControlPolicy, StandingSlot};
+use super::room::{Avatar, ControlPolicy, FloorCell, StandingSlot, Tint};
 use super::text::{Nickname, RoomTitle};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashSet;
@@ -258,6 +258,12 @@ wire_type!(
         muted: Option<bool>,
         #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
         away: Option<bool>,
+        /// Where they stand after a `walk` (ADR 0053); absent when seated or on their standing spot.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        cell: Option<FloorCell>,
+        /// Absent means 0.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        tint: Option<Tint>,
     }
 );
 

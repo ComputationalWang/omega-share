@@ -11,7 +11,7 @@ use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, QueueItemId, ResumeToken, ShareToken};
 use super::js_compat::utf16_len;
 use super::layout::RoomLayout;
-use super::room::{ControlPolicy, SeatIndex};
+use super::room::{ControlPolicy, FloorCell, SeatIndex, Tint};
 use super::state::{
     EmoteKind, Member, PingId, PlaybackState, QueueItem, RoomState, ServerTime, layout, nullable, playback_matches_embed, present,
     queue_is_valid,
@@ -41,6 +41,7 @@ pub enum ErrorCode {
     QueueFull,
     UnsupportedUrl,
     ResumeExpired,
+    BadCell,
 }
 
 /// `MEMBER_LEFT_REASONS`.
@@ -182,6 +183,12 @@ server_messages! {
         #[serde(deserialize_with = "nullable")]
         seat: Option<SeatIndex>,
     }
+    "walked" Walked WalkedWire {
+        member_id: MemberId,
+        #[serde(deserialize_with = "nullable")]
+        cell: Option<FloorCell>,
+    }
+    "tint-changed" TintChanged TintChangedWire { member_id: MemberId, tint: Tint }
     "chat" Chat ChatWire { member_id: MemberId, text: ChatText, at: ServerTime }
     "embed-changed" EmbedChanged EmbedChangedWire {
         #[serde(deserialize_with = "nullable")]

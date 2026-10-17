@@ -219,6 +219,8 @@ export function createWs({
       case "queue-move":
       case "queue-advance":
       case "ended":
+      case "walk":
+      case "set-tint":
         return true;
     }
   };
@@ -343,6 +345,10 @@ export function createWs({
       }
       // OME-1249 came after the Rust switch: the frozen TS server (rollback only) ignores reorders.
       case "queue-move":
+        return;
+      // OME-1346 (ADR 0053) came after the Rust switch too: the frozen TS server ignores walks and tints.
+      case "walk":
+      case "set-tint":
         return;
       case "queue-remove":
       case "queue-advance": {

@@ -29,6 +29,8 @@ export interface EmotePicker {
   key(ev: KeyboardEvent): boolean;
   /** Close the wheel if it's open (your avatar started walking), focus back where it was. */
   close(): void;
+  /** Send `kind` through the bucket, as a key would (OME-1349: /wave in chat). True if it went out. */
+  emote(kind: EmoteKind): boolean;
 }
 
 /** Typing somewhere: digits and T belong to the field, not to the wheel. */
@@ -152,12 +154,14 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
     }
   }
 
-  function emote(i: number): void {
+  function emote(i: number): boolean {
     const kind = PICKER_KINDS[i];
     const now = o.now();
-    if (kind === undefined || bucket.readyAt(now) > now) return;
-    if (o.send({ type: "emote", kind })) bucket.take(now);
+    if (kind === undefined || bucket.readyAt(now) > now) return false;
+    const sent = o.send({ type: "emote", kind });
+    if (sent) bucket.take(now);
     rearm();
+    return sent;
   }
 
   /** A pick from the open wheel sends and closes; while cooling it sends nothing and stays open, the dial running (OME-776). */
@@ -276,5 +280,6 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
     close() {
       close(true);
     },
+    emote: (kind) => emote(PICKER_KINDS.indexOf(kind)),
   };
 }

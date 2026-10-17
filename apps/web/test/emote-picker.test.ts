@@ -374,3 +374,18 @@ test("dismissing the keyboard in onOpen does not resume typing when the wheel cl
   picker.close();
   expect(document.activeElement === field).toBe(false);
 });
+
+describe("emote(kind) (OME-1349: slash commands)", () => {
+  test("sends that emote through the same bucket as the keys: the burst goes, then nothing until it refills", async () => {
+    const { picker, sent, key } = await setup();
+    for (let i = 0; i < EMOTE_BURST; i++) expect(picker.emote("wave")).toBe(true);
+    expect(picker.emote("clap")).toBe(false);
+    expect(sent).toEqual(Array.from({ length: EMOTE_BURST }, () => ({ type: "emote", kind: "wave" })));
+    expect(key.classList.contains("is-cooling")).toBe(true);
+  });
+
+  test("a socket that can't send spends nothing and answers false", async () => {
+    const { picker } = await setup({ sendOk: false });
+    expect(picker.emote("heart")).toBe(false);
+  });
+});
