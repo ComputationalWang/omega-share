@@ -297,7 +297,22 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .room-side[hidden] { display: none; }
 /* A phone held sideways (OME-1297): the picture at its minimum and its shelf take the column's height, so the first-visit
  * hint (the help key says the same) and Up next's empty-state art give way. */
-@media (max-height: 500px) { .room-wide > .first-hint, .room-side .ui-qempty > :first-child { display: none; } }
+@media (max-height: 500px) {
+  .room-wide > .first-hint, .room-side .ui-qempty > :first-child { display: none; }
+  /* QA OME-1305: no 40 % cap; Up next sizes to its content, its list scrolling above a link field
+   * that stays put (the portrait sheet's pattern). The field gets the row: the link glyph goes, Add keeps only its icon. */
+  .room-side > .queue-panel { display: flex; flex-direction: column; gap: 4px; flex-shrink: 1; min-height: 0; max-height: none; padding: 4px; overflow: hidden; }
+  .room-side .queue-panel > * { flex: none; }
+  /* The log takes what's left, so Up next shrinks (its list scrolling) only once the column is full. */
+  .room-side > .chat-log { flex-basis: 0; }
+  .room-side .queue-panel > .queue-content { display: flex; flex: 1 1 auto; min-height: 0; flex-direction: column; }
+  .room-side .queue-content > * { flex: none; }
+  /* The list scrolls, not its box: an empty queue leaves no scroll region without a focusable stop (axe). */
+  .room-side .queue-content > .ui-qlist { flex: 0 1 auto; min-height: 0; max-height: none; overflow-y: auto; }
+  .room-side .queue-form { gap: 4px; }
+  .room-side .queue-form > :first-child { display: none; }
+  .room-side .queue-form .ui-button { font-size: 0; gap: 0; }
+}
 .room-side > * { flex: none; margin: 0; }
 .room-side > .chat-log { flex: 1 1 auto; min-height: 0; max-height: none; }
 .room-side > .queue-panel { max-height: 40%; overflow-y: auto; }
