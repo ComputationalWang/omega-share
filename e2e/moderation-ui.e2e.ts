@@ -86,18 +86,20 @@ test("only the owner loads the moderation tools: a guest's tag opens Mute / Remo
   for (const words of [owner.locator(`${site.modMenu} .name`), owner.locator(site.modMute)]) {
     expect(Number.parseFloat(await words.evaluate((e) => getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(12);
   }
-  const menuBox = await owner.locator(site.modMenu).boundingBox();
-  const tagBox = await kitTag.boundingBox();
-  if (menuBox === null || tagBox === null) throw new Error("menu or tag not laid out");
-  const tail = await owner.locator(site.modMenu).evaluate((m) => {
-    const t = getComputedStyle(m, "::after");
-    return { left: Number.parseFloat(t.left), top: Number.parseFloat(t.top), height: Number.parseFloat(t.height) };
-  });
-  const tip = menuBox.y + tail.top + tail.height;
-  expect(tip).toBeGreaterThanOrEqual(tagBox.y - 1);
-  expect(tip).toBeLessThanOrEqual(tagBox.y + tagBox.height);
-  expect(menuBox.x + tail.left).toBeGreaterThanOrEqual(tagBox.x);
-  expect(menuBox.x + tail.left).toBeLessThanOrEqual(tagBox.x + tagBox.width);
+  // The tail's tip and centre against kit's tag, both read in one frame (kit may still be walking in, the menu with them).
+  await expect.poll(() => owner.evaluate(() => {
+    const m = document.querySelector("[data-testid=mod-menu]");
+    const tag = [...document.querySelectorAll<HTMLElement>("[data-member]")].find((t) => t.textContent.includes("kit"));
+    if (m === null || tag === undefined) return "not laid out";
+    const box = m.getBoundingClientRect();
+    const t = tag.getBoundingClientRect();
+    const tail = getComputedStyle(m, "::after");
+    // The tail is placed in the tray's padding box, centred on its `left` (translate: -50% 0).
+    const own = getComputedStyle(m);
+    const x = box.left + Number.parseFloat(own.borderLeftWidth) + Number.parseFloat(tail.left);
+    const tip = box.top + Number.parseFloat(own.borderTopWidth) + Number.parseFloat(tail.top) + Number.parseFloat(tail.height);
+    return x >= t.left && x <= t.right && tip >= t.top - 1 && tip <= t.bottom ? "on the tag" : `tail ${String(x)},${String(tip)} vs tag ${String(t.left)}–${String(t.right)},${String(t.top)}–${String(t.bottom)}`;
+  })).toBe("on the tag");
   await owner.keyboard.press("Escape");
   // From the keyboard: the first row's focus ring is 2 CSS px.
   await kitTag.focus();
