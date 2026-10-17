@@ -126,6 +126,8 @@ test("? opens the help dialog: modal, focus inside and trapped, no canvas redraw
   await expect(dialog).toHaveAttribute("aria-modal", "true");
   await expect(dialog).toContainText("Report room");
   await expect(dialog.locator("a[href='/privacy.html']")).toHaveCount(1);
+  // OME-1282: a link that opens a new tab says so.
+  for (const link of await dialog.locator("a[target=_blank]").all()) await expect(link).toHaveAccessibleName(/new tab/);
   expect(await page.evaluate(() => document.activeElement?.closest("[data-testid=help-dialog]") != null)).toBe(true);
   // Twenty Tabs never leave the dialog.
   for (let i = 0; i < 20; i++) {
@@ -356,7 +358,8 @@ test("an unknown room id: 'Room not found' with Go home and the open rooms, neve
     await enterRoom(page, `${URLS.web}/r/no-such-room-here`, "nf-1");
     const nf = page.locator(site.notFound);
     await expect(nf).toBeVisible();
-    await expect(nf.locator("h2")).toHaveText("This room doesn't exist or was taken down");
+    // The room page has no other <h1> while this screen shows (OME-1282).
+    await expect(nf.locator("h1")).toHaveText("This room doesn't exist or was taken down");
     await expect(page.locator(site.notFoundHome)).toHaveAttribute("href", "/");
     await expect(page.locator(site.notFoundRoom).first()).toBeVisible();
     await expect(page.locator(site.connectionStatus)).toHaveText("");

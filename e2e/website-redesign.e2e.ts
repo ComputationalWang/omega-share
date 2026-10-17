@@ -157,8 +157,8 @@ test("the footer's own pages answer, and the source links point at the repositor
     const href = await footer.getByRole("link", { name, exact: true }).getAttribute("href");
     expect((await request.get(new URL(href ?? "", URLS.web).href)).status()).toBe(200);
   }
-  const source = await footer.getByRole("link", { name: "Source", exact: true }).getAttribute("href");
+  const source = await footer.getByRole("link", { name: /^Source\b/ }).getAttribute("href");
   expect(source).toMatch(/^https:\/\//);
-  await expect(footer.getByRole("link", { name: "Feedback", exact: true })).toHaveAttribute("href", `${source ?? ""}/issues`);
+  await expect(footer.getByRole("link", { name: /^Feedback\b/ })).toHaveAttribute("href", `${source ?? ""}/issues`);
   await expect(footer).toContainText("Original art · CC BY-SA 4.0");
 });
