@@ -6,9 +6,9 @@ import type { ChatLog } from "./chat/log";
 import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, PHONE_ROOM_MIN_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, seatsHome, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, seatsHome, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
-import { createRoomWindow } from "./room-window";
+import { KEYS_COLUMN_H, createRoomWindow } from "./room-window";
 
 /** The full-screen strip's last open/collapsed state on this device (set k: "the strip remembers"). */
 const STRIP_STORAGE_KEY = "omega.fsStrip";
@@ -309,6 +309,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   const fit = (): void => {
     const roomOut = o.roomOut();
+    // Only the wide layout's touch window (below) stretches the wrap.
+    wrap.style.minHeight = "";
     if (fs.mode() !== "off") {
       // The room popped out: its chat is in the window, so the picture is alone.
       const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), roomOut ? "none" : stripMode);
@@ -357,9 +359,11 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       if ("stage" in l) {
         // A touch screen too small for the room at 1× (a phone held sideways) gets the phone's window instead: seats
         // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves, never
-        // under a whole window (Twitch's taller TV): the column scrolls to the rest.
+        // under the keys' column height (Twitch's taller TV, QA OME-1330 R1), so every seat row shows whole beside the
+        // keys; the wrap grows to hold it and the column scrolls to the rest.
         if (o.coarse.matches && l.scale < 1) {
-          const r = { x: 0, y: l.stage.y, w: Math.min(w, STAGE_W), h: Math.max(PHONE_ROOM_MIN_H, Math.min(PHONE_ROOM_H, h - l.stage.y)) };
+          const r = { x: 0, y: l.stage.y, w: Math.min(w, STAGE_W), h: Math.max(KEYS_COLUMN_H, Math.min(PHONE_ROOM_H, h - l.stage.y)) };
+          wrap.style.minHeight = `${String(r.y + r.h)}px`;
           box(clip, r);
           stage.style.setProperty("--stage-scale", "1");
           roomWindow.set(true, r.w, r.h);
