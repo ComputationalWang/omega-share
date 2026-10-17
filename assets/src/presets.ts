@@ -28,7 +28,7 @@ const p = (kind: Kind, col: number, row: number, facing: Facing, variant = 0): F
   variant === 0 ? { kind, col, row, facing } : { kind, col, row, facing, variant };
 const TV = p("tv", 0, 0, "se");
 
-// Variants: sofa velvet|navy, couch cream|olive, beanbag blush|navy, monstera rust|teal, runner lilac|teal, frame dusk|tide.
+// Variants: sofa velvet|navy, couch cream|olive, beanbag blush|navy, monstera rust|teal, runner lilac|teal, frame dusk|tide, pouf rust|lilac, neonsign pink|teal.
 export const PRESETS: readonly Preset[] = [
   {
     id: "classic",
@@ -76,19 +76,19 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "lounge",
     name: "Lounge",
-    blurb: "Beanbags on kilim runners, low light, plants.",
+    blurb: "Beanbags and poufs on kilim runners, neon glow, plants.",
     layout: {
       furniture: [
         TV,
         p("beanbag", 2, 4, "ne"), p("beanbag", 4, 2, "nw", 1),
-        p("beanbag", 2, 6, "ne", 1), p("beanbag", 6, 2, "nw"),
+        p("pouf", 2, 6, "ne", 1), p("pouf", 6, 2, "nw"),
         p("beanbag", 5, 7, "ne"), p("beanbag", 7, 5, "nw", 1),
         p("couch", 6, 8, "ne", 1),
         p("runner", 1, 4, "ne"), p("runner", 4, 1, "nw", 1), p("runner", 5, 5, "nw"),
-        p("sidetable", 4, 4, "sw"),
+        p("coffeetable", 4, 4, "sw"),
         p("arclamp", 1, 8, "se"), p("arclamp", 8, 1, "sw"),
         p("monstera", 0, 7, "se", 1), p("monstera", 7, 0, "sw"), p("monstera", 9, 9, "se", 1),
-        p("frame", 0, 2, "se"), p("frame", 2, 0, "sw", 1),
+        p("frame", 0, 2, "se"), p("neonsign", 2, 0, "sw", 1),
       ],
     },
   },
