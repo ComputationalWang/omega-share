@@ -131,8 +131,6 @@ const measure = (page: Page): Promise<string[]> =>
  * shortcut: an entry no longer seen doesn't fail; prune it when its issue closes.
  */
 const KNOWN: readonly { issue: string; surface: string; problem: RegExp }[] = [
-  { issue: "OME-1334", surface: "not found", problem: /^target under 44 px \(\.ui-touch\): a\[data-testid=not-found-(room|home)\]/ },
-  { issue: "OME-1334", surface: "editor", problem: /^target under 44 px \(\.ui-touch\): button\[data-testid=editor-tab\]/ },
 ];
 
 /** Every problem on the page as it is now, one soft assertion per surface so one test reports them all. */
