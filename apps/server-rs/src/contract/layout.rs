@@ -744,6 +744,12 @@ mod tests {
             pv("cat", 9, 5, "sw", 1),
             p("wallshelf", 7, 0, "sw"),
             pv("garland", 0, 2, "se", 1),
+            p("coffeetable", 4, 4, "se"),
+            pv("pouf", 5, 5, "nw", 1),
+            pv("neonsign", 3, 0, "sw", 1),
+            p("aquarium", 6, 6, "sw"),
+            p("arcade", 2, 7, "se"),
+            p("wallclock", 0, 3, "se"),
         ];
         for c in cases {
             assert!(piece_accepts(&c), "{c}");
@@ -810,6 +816,13 @@ mod tests {
             ("a garland off the wall", p("garland", 1, 3, "se")),
             ("a garland on a sconce segment", p("garland", 8, 0, "sw")),
             ("a garland facing the TV", p("garland", 2, 0, "ne")),
+            ("a coffee table facing the TV", p("coffeetable", 4, 4, "ne")),
+            ("a third pouf colour", pv("pouf", 5, 5, "se", 2)),
+            ("a neon sign off the wall", p("neonsign", 1, 3, "se")),
+            ("a neon sign on a sconce segment", p("neonsign", 8, 0, "sw")),
+            ("a second aquarium colour", pv("aquarium", 6, 6, "sw", 1)),
+            ("an arcade cabinet facing the TV", p("arcade", 2, 7, "nw")),
+            ("a wall clock on a window segment", p("wallclock", 0, 6, "se")),
         ];
         for (name, input) in cases {
             assert!(!piece_accepts(&input), "{name}");
