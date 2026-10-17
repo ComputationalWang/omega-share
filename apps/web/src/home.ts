@@ -79,7 +79,7 @@ export function mountHome(opts: HomeOptions): Home {
   const priv = el("input", { type: "checkbox", id: "create-room-private" }, "create-room-private");
   const privLabel = el("label", { htmlFor: priv.id, textContent: "Private · only people with the invite link can join" });
   const submit = el("button", { type: "submit", className: "enter", textContent: SUBMIT_LABEL }, "create-room-submit");
-  const error = el("p", { className: "error", ariaLive: "polite" }, "create-room-error");
+  const error = el("p", { className: "error", id: "create-room-error", ariaLive: "polite" }, "create-room-error");
   const check = el("div", { className: "check" });
   check.append(priv, privLabel);
 
@@ -154,6 +154,11 @@ export function mountHome(opts: HomeOptions): Home {
     title.focus();
   };
 
+  title.addEventListener("input", () => {
+    title.removeAttribute("aria-invalid");
+    title.removeAttribute("aria-describedby");
+  });
+
   form.addEventListener("submit", (ev) => {
     ev.preventDefault();
     const chosen = [...form.querySelectorAll("input[name=preset]")].find((r): r is HTMLInputElement => r instanceof HTMLInputElement && r.checked)?.value ?? DEFAULT_PRESET;
@@ -170,7 +175,8 @@ export function mountHome(opts: HomeOptions): Home {
     const req = v.safeParse(CreateRoomRequestSchema, { title: title.value, visibility: priv.checked ? "private" : "public", preset: pending === null ? chosen : "empty" });
     if (!req.success) {
       fail(title.value.trim() === "" ? "Give the room a name." : ERRORS.invalid_body);
-      title.focus();
+      title.setAttribute("aria-invalid", "true");
+      title.setAttribute("aria-describedby", error.id);
       return;
     }
     error.textContent = "";
@@ -212,23 +218,33 @@ export function mountHome(opts: HomeOptions): Home {
   const yours = el("ul", { className: "room-list" }, "your-rooms");
   const yoursEmpty = el("p", { className: "list-note", textContent: "No saved rooms in this browser yet." }, "your-rooms-empty");
   const yoursSection = el("section", { className: "rooms-yours" });
-  yoursSection.append(el("h2", { textContent: "Your rooms" }), yours);
+  const yoursHeading = el("h2", { tabIndex: -1, textContent: "Your rooms" });
+  yoursSection.append(yoursHeading, yours);
   const armed = new Set<string>();
   const renderYours = (): void => {
     const rooms = Object.entries(loadRoomSecrets(opts.store).rooms).reverse();
+    // Rebuilding drops focus to <body>: put it back on the same room's key, else the row now in its place, else the heading.
+    const rows = [...yours.children];
+    const had = rows.findIndex((li) => li.contains(document.activeElement));
+    const hadId = had < 0 ? undefined : rows[had]?.getAttribute("data-room");
+    const keys: HTMLButtonElement[] = [];
     if (rooms.length === 0) yours.after(yoursEmpty);
     else yoursEmpty.remove();
     yours.replaceChildren(
       ...rooms.map(([id, secret]) => {
         const li = el("li", {}, "your-room");
         li.dataset["owner"] = String(secret.ownerToken !== undefined);
-        const a = el("a", { href: `/r/${id}`, textContent: titles.get(id) ?? id }, "your-room-link");
+        li.dataset["room"] = id;
+        const name = titles.get(id) ?? id;
+        const a = el("a", { href: `/r/${id}`, textContent: name }, "your-room-link");
         const owner = secret.ownerToken !== undefined;
-        const forget = el("button", { type: "button", className: "link", textContent: "Forget" }, "your-room-forget");
+        const forget = el("button", { type: "button", className: "link", textContent: "Forget", ariaLabel: `Forget ${name}` }, "your-room-forget");
+        keys.push(forget);
         // The owner token can't be recovered (research §2.4), so forgetting a room you own takes a second click.
         // Armed rooms live outside the render: the GET /rooms reply re-renders, and must not disarm a first click.
         const confirm = (): void => {
           forget.textContent = "Forget for good? You can't undo this";
+          forget.ariaLabel = `Forget for good? You can't undo this: ${name}`;
         };
         if (armed.has(id)) confirm();
         forget.addEventListener("click", () => {
@@ -250,6 +266,9 @@ export function mountHome(opts: HomeOptions): Home {
         return li;
       }),
     );
+    if (had < 0) return;
+    const same = rooms.findIndex(([id]) => id === hadId);
+    (keys[same < 0 ? Math.min(had, keys.length - 1) : same] ?? yoursHeading).focus();
   };
 
   // Public rooms.

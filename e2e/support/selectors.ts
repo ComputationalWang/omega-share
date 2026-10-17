@@ -67,6 +67,7 @@ export const site = {
   publicRoomsRetry: id("public-rooms-retry"),
   yourRoom: id("your-room"),
   yourRoomLink: id("your-room-link"),
+  yourRoomForget: id("your-room-forget"),
   inviteLink: id("invite-link"),
   inviteCopy: id("invite-copy"),
   roomClosed: id("room-closed"),
