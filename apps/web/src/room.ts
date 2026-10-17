@@ -518,7 +518,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const s = state;
     // The stage first: it rebuilds the seats for a new layout before anything reads them. Out in its window, the room
     // is drawn there, not here.
-    if (!roomOut()) roomStage.render(s, owner.preview() ?? layoutOf(s.room), pbView?.catching === true);
+    if (!roomOut()) roomStage.render(s, owner.preview() ?? layoutOf(s.room), pbView?.catching === true, owner.editing());
     const mySeat = s.self === null ? -1 : (s.room?.seats.indexOf(s.self) ?? -1);
     if (mySeat !== centredSeat) {
       centredSeat = mySeat;

@@ -44,6 +44,8 @@ export interface OwnerTools {
   /** The owner's unsaved draft, shown to them instead of the room's layout while they edit. */
   readonly preview: () => RoomLayout | null;
   readonly closeEditor: () => void;
+  /** The editor is open (or loading): it owns the room floor's clicks and keys. */
+  readonly editing: () => boolean;
   /** A keydown on the page: true if the moderation tools took it. */
   readonly key: (ev: KeyboardEvent) => boolean;
 }
@@ -71,6 +73,7 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     const gen = ++editorGen;
     toggle.ariaPressed = "true";
     toggle.lastChild?.replaceWith("Done");
+    o.requestRender();
     void import("./editor/editor")
       .then(({ mountEditor }) =>
         mountEditor({
@@ -181,6 +184,7 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     moderate: renderModeration,
     preview: () => preview,
     closeEditor,
+    editing: () => editToggle?.ariaPressed === "true",
     key: (ev) => {
       if (moderation?.key(ev) === true) return true;
       // Escape in the open editor works like Done, then focus is back on the key (K5).

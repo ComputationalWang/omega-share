@@ -21,7 +21,7 @@ async function start(root: HTMLElement, roomId: RoomId, tab: string): Promise<vo
       if (atlasFrame !== 0) return;
       atlasFrame = requestAnimationFrame(() => {
         atlasFrame = 0;
-        stage?.render(shown, layoutOf(shown.room), selfCatching);
+        stage?.render(shown, layoutOf(shown.room), selfCatching, false);
       });
     },
   }).catch((e: unknown) => {
@@ -42,7 +42,7 @@ async function start(root: HTMLElement, roomId: RoomId, tab: string): Promise<vo
       render: (s, catching) => {
         shown = s;
         selfCatching = catching;
-        stage.render(s, layoutOf(s.room), catching);
+        stage.render(s, layoutOf(s.room), catching, false);
       },
       emote: (id, kind) => {
         stage.emote(id, kind, shown);
