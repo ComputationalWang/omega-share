@@ -2,8 +2,9 @@
 // run only while someone walks (once per step in Basic, every frame in Smooth, ADR 0037), and breathing redraws only
 // when its frame changes (walk/animator.ts).
 import { Application, Container, Graphics, Sprite, Ticker } from "pixi.js";
-import { AVATAR_COUNT, type EmoteKind, type MemberId } from "@omega/shared";
+import { AVATAR_COUNT, type EmoteKind, type FloorCell, type MemberId } from "@omega/shared";
 import type { Sheet } from "./atlas-sheet";
+import { drawCursor } from "./editor/cursor";
 import type { Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
 import { createAnimator } from "./walk/animator";
@@ -42,6 +43,8 @@ export interface RoomView {
   position(id: MemberId): Point | undefined;
   /** The owner editor's layer (set (h) grid and footprint markers): over the floor, rugs and walls, under seats and objects. */
   readonly editLayer: Container;
+  /** Free walking (OME-1350): the editor's cursor diamond on the floor cell under the pointer, or none. Draws once per change. `scale`: screen px per stage px. */
+  marker(cell: FloorCell | null, scale: number): void;
   /** Draw once now, after the editor changed its layer. */
   redraw(): void;
   /** Full screen hides the room (OME-597): stop drawing until resumed, then draw once as things are now. */
@@ -172,10 +175,12 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const decorLayer = new Container({ label: "decor" });
   const editLayer = new Container({ label: "edit" });
   const markerLayer = new Container();
+  // Free walking's hover diamond (OME-1350): on the floor, under seats and avatars; not in `drawOrder`.
+  const hover = new Graphics({ label: "walk-marker", visible: false });
   const objectLayer = new Container({ sortableChildren: true });
   // Emote stickers float over everyone (OME-415).
   const emoteLayer = new Container({ label: "emotes" });
-  app.stage.addChild(background, decorLayer, editLayer, markerLayer, objectLayer, emoteLayer);
+  app.stage.addChild(background, decorLayer, editLayer, hover, markerLayer, objectLayer, emoteLayer);
 
   /** Marker per placeholder seat, by seat index. */
   let markers: (Graphics | null)[] = [];
@@ -521,6 +526,16 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       }
     },
     editLayer,
+    marker(cell, scale) {
+      if (cell === null) {
+        if (!hover.visible) return;
+        hover.visible = false;
+      } else {
+        drawCursor(hover, { col: cell.x, row: cell.y, wall: null }, scale);
+        hover.visible = true;
+      }
+      render();
+    },
     redraw: render,
     setPaused(next) {
       if (next === paused) return;

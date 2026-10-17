@@ -2,7 +2,7 @@
 // bubbles, emote badges and the system-line rail. Drawn from the room's state on the frames the caller asks for. Made
 // once per page: the room tab's (room.ts), or, with the room popped out, the room window's (popout/room-pop.ts, OME-600),
 // so the window draws exactly what the page would. The caller owns what clicks on a seat do.
-import { SEAT_COUNT, layoutSeats, type EmoteKind, type MemberId, type RoomLayout } from "@omega/shared";
+import { SEAT_COUNT, layoutSeats, type EmoteKind, type FloorCell, type MemberId, type RoomLayout } from "@omega/shared";
 import { createFloats } from "./bubbles/floats";
 import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
@@ -10,12 +10,12 @@ import { createEmoteBadges } from "./emote/badges";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
-import { seatViews } from "./intents";
-import { SYSLINE_RAIL, TAG_OFFSET_Y, type Point, type Rect } from "./layout";
+import { isStepKey, seatViews, type StepKey } from "./intents";
+import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
 import { BUBBLE_MS, catchingUp, type StageState } from "./state";
 import { EMOTE_LIFT } from "./walk/animator";
-import { walkGrid } from "./walk/path";
+import { cellAt, colOf, rowOf, walkGrid } from "./walk/path";
 import { standingPlacement } from "./walk/standing";
 import { awayChanges } from "./session-lifecycle";
 import type { Dir } from "./walk/walks";
@@ -29,6 +29,13 @@ export interface StageOptions {
   readonly onLayout?: (seats: readonly Point[]) => void;
   /** An avatar moved a whole pixel (it's walking): the emote wheel closes when it's mine (OME-732). */
   readonly onMove?: (id: MemberId) => void;
+  /**
+   * Free walking (OME-1350, ADR 0053): a click or tap on floor cell `cell`. False when nobody can stand there: the floor
+   * flashes "can't go there". Without it the floor takes no input (the pop-out room's window).
+   */
+  readonly onFloor?: (cell: FloorCell) => boolean;
+  /** An arrow key on the focused floor (`repeat`: held down); false flashes as `onFloor` does. */
+  readonly onStep?: (key: StepKey, repeat: boolean) => boolean;
 }
 
 export interface Stage {
@@ -50,6 +57,8 @@ export interface Stage {
   seat(i: number): Point | undefined;
   /** Where a member is drawn now, or was put by the last render. */
   anchor(id: MemberId): Point | undefined;
+  /** The floor cell a member is on now (mid-walk: the one they are crossing), or null if not drawn. */
+  cellOf(id: MemberId): FloorCell | null;
   /** Bubbles are shown `k`× their size (the phone's zoomed-out room window, OME-1184). */
   labelScale(k: number): void;
   /** Where a member's emote shows (stage px): `anchor` lifted by EMOTE_LIFT. */
@@ -62,6 +71,9 @@ export interface Stage {
 function place(e: HTMLElement, p: Point): void {
   e.style.translate = `${String(p.x)}px ${String(p.y)}px`;
 }
+
+/** How long the floor shows "can't go there" after a blocked click or step. */
+const NO_GO_MS = 400;
 
 function box(e: HTMLElement, r: Rect): void {
   Object.assign(e.style, { left: `${String(r.x)}px`, top: `${String(r.y)}px`, width: `${String(r.w)}px`, height: `${String(r.h)}px` });
@@ -78,6 +90,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     return b;
   });
   overlay.append(...seatButtons);
+  // Free walking (OME-1350): the floor under the seat keys, tags and bubbles takes clicks, taps and (focused) arrow keys.
+  const floorHit = o.onFloor === undefined ? null : el("div", { className: "walk-floor", tabIndex: -1, role: "application", ariaLabel: "Room floor. Arrow keys walk your avatar one cell." }, "walk-floor");
+  const floorNote = el("span", { className: "sr-only", role: "status" });
   const tags = el("div", { className: "tags" });
   // Decorative (createFloats makes it aria-hidden): the chat log is the accessible record of what was said.
   const bubbles = el("div", { className: "bubbles" });
@@ -123,7 +138,52 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   view.canvas.className = "scene";
   // The picture only: who is here and what they say is in the people list and the chat log (OME-1246).
   view.canvas.ariaHidden = "true";
-  root.append(view.canvas, overlay, tags, bubbles, rail);
+  root.append(view.canvas, ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, rail);
+  if (floorHit !== null) {
+    /** Stage px under the pointer: the stage is CSS-scaled (and zoomed on a phone). */
+    const cellUnder = (ev: MouseEvent): FloorCell | null => {
+      const r = floorHit.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return null;
+      const k = floorHit.offsetWidth / r.width;
+      const c = cellAt({ x: (ev.clientX - r.left) * k, y: (ev.clientY - r.top) * k });
+      return c < 0 ? null : { x: colOf(c), y: rowOf(c) };
+    };
+    let noGo: ReturnType<typeof setTimeout> | undefined;
+    const flash = (): void => {
+      clearTimeout(noGo);
+      floorHit.classList.add("no-go");
+      floorNote.textContent = "You can't go there.";
+      noGo = setTimeout(() => {
+        floorHit.classList.remove("no-go");
+        floorNote.textContent = "";
+      }, NO_GO_MS);
+    };
+    let hover: FloorCell | null = null;
+    floorHit.addEventListener("pointermove", (ev) => {
+      // A finger has no hover: a tap walks, a drag pans the phone's room window.
+      if (ev.pointerType === "touch") return;
+      const c = cellUnder(ev);
+      if (c?.x === hover?.x && c?.y === hover?.y) return;
+      hover = c;
+      view.marker(c, floorHit.getBoundingClientRect().width / Math.max(1, floorHit.offsetWidth));
+    });
+    floorHit.addEventListener("pointerleave", () => {
+      if (hover === null) return;
+      hover = null;
+      view.marker(null, 1);
+    });
+    floorHit.addEventListener("click", (ev) => {
+      const c = cellUnder(ev);
+      if (c !== null && o.onFloor?.(c) === false) flash();
+    });
+    floorHit.addEventListener("keydown", (ev) => {
+      if (ev.ctrlKey || ev.metaKey || ev.altKey || !isStepKey(ev.key)) return;
+      // Taken here: the page doesn't scroll, and the room's own keys don't also run.
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (o.onStep?.(ev.key, ev.repeat) === false) flash();
+    });
+  }
 
   let drawnSeats: readonly unknown[] | undefined;
   let drawnMembers: readonly unknown[] | undefined;
@@ -235,6 +295,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       drawnSeats = seatsNow;
       drawnMembers = membersNow;
       const placements: AvatarPlacement[] = [];
+      const everyone = s.room?.members ?? [];
       const at = new Map<MemberId, Point>();
       placedAt = at;
       for (const v of views) {
@@ -244,7 +305,13 @@ export async function createStage(o: StageOptions): Promise<Stage> {
           at.set(v.member.id, p);
         }
       }
-      const everyone = s.room?.members ?? [];
+      // Someone who walked somewhere stands on that cell (ADR 0053); a seat wins if both ever showed.
+      for (const m of everyone) {
+        if (m.cell === undefined || at.has(m.id)) continue;
+        const p = cellCenter(m.cell.x, m.cell.y);
+        placements.push({ id: m.id, avatar: m.avatar, at: p, z: standDepth(p), seatFacing: null });
+        at.set(m.id, p);
+      }
       const claimed = new Set<number>();
       for (const m of everyone) if (m.standingSlot !== undefined) claimed.add(m.standingSlot);
       const standers = everyone.filter((m) => !at.has(m.id));
@@ -264,6 +331,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       awayIds = away.now;
       view.update(views.map((v) => v.member !== null), placements);
     }
+    if (floorHit !== null) floorHit.tabIndex = s.status === "open" ? 0 : -1;
 
     for (const v of views) {
       const b = seatButtons[v.index];
@@ -360,6 +428,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     },
     seat: (i) => seats[i],
     anchor: (id) => view.position(id) ?? placedAt.get(id),
+    cellOf(id) {
+      const p = view.position(id) ?? placedAt.get(id);
+      const c = p === undefined ? -1 : cellAt(p);
+      return c < 0 ? null : { x: colOf(c), y: rowOf(c) };
+    },
     head: (id) => {
       const p = view.position(id) ?? placedAt.get(id);
       return p === undefined ? undefined : { x: p.x, y: p.y - liftOf(id) };

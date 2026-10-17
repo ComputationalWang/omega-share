@@ -1,7 +1,8 @@
 import * as v from "valibot";
-import { ChatTextSchema, MAX_POSITION_S, SEAT_COUNT, type ClientMessage, type FloorCell, type Embed, type Member, type PlaybackState, type QueueItemId } from "@omega/shared";
+import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, isStandable, type ClientMessage, type FloorCell, type Embed, type Member, type PlaybackState, type QueueItemId } from "@omega/shared";
 import type { ViewState } from "./state";
 import { expectedPosition } from "./sync";
+import { TILE_MS } from "./walk/walks";
 
 export interface SeatView {
   readonly index: number;
@@ -30,23 +31,30 @@ export function sitIntent(state: ViewState, seat: number): ClientMessage | null 
 }
 
 /** Clicking or tapping a floor cell (ADR 0053). Stub: OME-1350 red commit. */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1350)
-export function walkIntent(_state: ViewState, _cell: FloorCell): ClientMessage | "blocked" | null {
-  return null;
+/** Clicking or tapping a floor cell (ADR 0053): walk to free floor, "blocked" under a solid piece (seats too: they sit), nothing for my own cell. */
+export function walkIntent(state: ViewState, cell: FloorCell): ClientMessage | "blocked" | null {
+  const room = state.room;
+  if (state.status !== "open" || room === null) return null;
+  if (!isStandable(room.layout ?? DEFAULT_LAYOUT, cell)) return "blocked";
+  const here = room.members.find((m) => m.id === state.self)?.cell;
+  if (here?.x === cell.x && here.y === cell.y) return null;
+  return { type: "walk", cell: { x: cell.x, y: cell.y } };
 }
 
 export type StepKey = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
 
-/** The cell an arrow key steps to. Stub: OME-1350 red commit. */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1350)
-export function stepCell(_from: FloorCell, _key: StepKey): FloorCell | null {
-  return null;
+export const isStepKey = (k: string): k is StepKey => k === "ArrowLeft" || k === "ArrowRight" || k === "ArrowUp" || k === "ArrowDown";
+
+/** The cell an arrow key steps to, as the editor's cursor does: Right/Left walk the column, Down/Up the row; null off the floor. */
+export function stepCell(from: FloorCell, key: StepKey): FloorCell | null {
+  const x = from.x + (key === "ArrowRight" ? 1 : key === "ArrowLeft" ? -1 : 0);
+  const y = from.y + (key === "ArrowDown" ? 1 : key === "ArrowUp" ? -1 : 0);
+  return x >= 0 && x < FLOOR_CELLS && y >= 0 && y < FLOOR_CELLS ? { x, y } : null;
 }
 
-/** Whether an arrow key press steps now. Stub: OME-1350 red commit. */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1350)
-export function stepAllowed(_repeat: boolean, _now: number, _last: number): boolean {
-  return false;
+/** A held arrow key steps at most once a tile, the walk rate; a fresh press always steps. */
+export function stepAllowed(repeat: boolean, now: number, last: number): boolean {
+  return !repeat || now - last >= TILE_MS;
 }
 
 export function chatIntent(raw: string): ClientMessage | null {
