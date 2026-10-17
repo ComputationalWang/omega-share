@@ -201,7 +201,8 @@ test("after a finger drag (no click follows it), the next keyboard Enter on a se
   await frames(page);
   expect((await stageTransform(page)).x).toBeLessThan(before.x);
 
-  const seat = page.locator(`${site.seat}[data-occupied="false"]`).first();
+  // One the window shows whole: a seat it crops is inert (OME-1325).
+  const seat = page.locator(`${site.seat}[data-occupied="false"]:not([inert])`).first();
   await page.keyboard.press("Shift");
   await seat.focus();
   await frames(page);
