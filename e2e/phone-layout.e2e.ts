@@ -331,8 +331,29 @@ test("no editor on a phone: the owner gets one line in chat instead; on a wide s
 // keeps the strip on it, the zoom keys never sit on a seat, and an open People panel never leaves a sliver of a room.
 const SMALL: BrowserContextOptions = { viewport: { width: 320, height: 640 } };
 
-const targetSize = async (page: Page): Promise<unknown[]> =>
-  (await new AxeBuilder({ page }).include(site.roomWindow).withRules(["target-size"]).analyze()).violations;
+/**
+ * axe target-size in the room window, plus what axe can't see. axe ignores overflow clipping (axe-core getTargetRects
+ * takes the whole boundingClientRect), so a seat cut by the room pane's edge counts the zoom keys' band past that edge
+ * as covering its cut-off part. Such a seat is checked by geometry instead: no zoom key meets the pane, so no key ever
+ * covers what's drawn of a seat. Anything else axe finds is returned.
+ */
+async function targetSize(page: Page): Promise<string[]> {
+  const { violations } = await new AxeBuilder({ page }).include(site.roomWindow).withRules(["target-size"]).analyze();
+  const found = violations.flatMap((v) => v.nodes.map((n) => ({ target: String(n.target[0]), by: n.any.flatMap((c) => (c.relatedNodes ?? []).map((r) => String(r.target[0]))) })));
+  return page.evaluate((found) => {
+    const pane = document.querySelector(".stage-pane")?.getBoundingClientRect();
+    if (pane === undefined) return ["no room pane"];
+    const meets = (a: DOMRect, b: DOMRect): boolean => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const out = [...document.querySelectorAll(".room-zoom > button")].filter((k) => meets(k.getBoundingClientRect(), pane)).map((k) => `${k.ariaLabel ?? "a zoom key"} meets the room pane`);
+    const isKey = (sel: string): boolean => document.querySelector(sel)?.closest(".room-zoom") != null;
+    for (const f of found) {
+      const r = document.querySelector(f.target)?.getBoundingClientRect();
+      const cut = r !== undefined && (r.left < pane.left || r.right > pane.right || r.top < pane.top || r.bottom > pane.bottom);
+      if (!(cut && f.by.length > 0 && f.by.every(isKey))) out.push(f.target);
+    }
+    return out;
+  }, found);
+}
 
 test("320×640: the TV is no wider than the screen, and the zoom keys cover no seat (QA OME-1300 F3)", async ({ browser }) => {
   const page = await one(browser, "small", SMALL);
