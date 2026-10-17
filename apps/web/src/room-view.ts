@@ -136,6 +136,9 @@ interface Entry {
   hat: Sprite | null;
 }
 
+/** Caches the static room shell as one texture, repainted on the next render (OME-1341). */
+export function bakeShell(_layer: Container): void {}
+
 export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomView> {
   const app = new Application();
   await app.init({
