@@ -218,7 +218,7 @@ void scan().then(render);
 // One `GET /rooms` per popup open, in parallel with the scan so the embed list isn't held up.
 void Promise.all([serverBaseUrl.then(loadServer), stored]).then(([state, items]) => {
   server = state;
-  const list = withLastRoom(withRoomTabs(state.probe.kind === "ok" ? state.probe.list : FALLBACK_ROOMS, state.tabs), items[LAST_ROOM_KEY]);
+  const list = withLastRoom(withRoomTabs(state.probe.kind === "ok" ? state.probe.list : FALLBACK_ROOMS, state.tabs), items[LAST_ROOM_KEY], state.tabs.tokens);
   renderRooms(withNewRoom(list, state.probe, state.tabs.tokens));
   renderServer();
 }, () => {
