@@ -579,3 +579,15 @@ describe("shown k× their size (phone zoom, OME-1184)", () => {
     expect(push("left")).toBe("0px");
   });
 });
+
+test("an all-caps line (4+ letters) is a shout: the bubble and its twin wear .is-shout; the next line in that node doesn't (OME-1349)", async () => {
+  const { floats, layer, bubbleOf, advance, FLOAT_LIFE_MS, FLOAT_LEAVE_MS } = await setup();
+  floats.say(say("a", "GOAL!!", 480));
+  const p = bubbleOf("GOAL!!");
+  expect(p.classList.contains("is-shout")).toBe(true);
+  expect(p.parentElement?.parentElement?.querySelector(".float-twin")?.classList.contains("is-shout")).toBe(true);
+  advance(FLOAT_LIFE_MS + FLOAT_LEAVE_MS);
+  floats.say(say("a", "Goal", 480));
+  expect(bubbleOf("Goal").classList.contains("is-shout")).toBe(false);
+  expect([...layer.querySelectorAll(".float-twin.is-shout")]).toHaveLength(0);
+});

@@ -29,6 +29,8 @@ export interface ChatRelayOptions<H> {
   readonly onPopped: (on: boolean) => void;
   /** A seat clicked in the room window: the page sits or stands (sitIntent) and sends it. */
   readonly onSeat: (seat: number) => void;
+  /** A slash command typed in the pop-out (OME-1349): the page runs it; true/false = ran (ok or not), null = not a command, send it as chat. */
+  readonly command?: (text: string) => boolean | null;
   readonly setTimer: (fn: () => void, ms: number) => H;
   readonly clearTimer: (h: H) => void;
 }

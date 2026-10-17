@@ -11,7 +11,7 @@ import type { PopMessage } from "../src/popout/channel";
 const LINE = (text: string): ChatLogEntry => ({ kind: "chat", nickname: "Ada", text, self: false });
 const STATE = { title: "Movie night", people: 3, cap: 8, open: true, cooling: false, muted: false, placeholder: "Say something…" };
 
-async function setup(opts: { sendOk?: boolean } = {}) {
+async function setup(opts: { sendOk?: boolean; command?: (text: string) => boolean | null } = {}) {
   const { createChatRelay, POP_LEASE_MS } = await import("../src/popout/relay");
   const posted: PopMessage[] = [];
   let deliver: (data: unknown) => void = () => undefined;
@@ -42,6 +42,7 @@ async function setup(opts: { sendOk?: boolean } = {}) {
     },
     onPopped: (on) => popped.push(on),
     onSeat: (seat) => seats.push(seat),
+    ...(opts.command === undefined ? {} : { command: opts.command }),
     setTimer: (fn, ms) => {
       const id = nextId++;
       timers.set(id, { fn, at: now + ms });
@@ -144,6 +145,24 @@ describe("chat relay (room tab)", () => {
     down.take();
     down.from({ t: "pop-say", pop: "p1", seq: 1, text: "hi" });
     expect(down.take()).toEqual([{ t: "room-said", pop: "p1", seq: 1, ok: false }]);
+  });
+
+  test("a slash command from the pop-out is the page's to run (OME-1349): not sent as chat, even while chat cools", async () => {
+    const ran: string[] = [];
+    const { relay, take, from, sent } = await setup({ command: (text) => (text.startsWith("/w") ? (ran.push(text), true) : null) });
+    from({ t: "pop-ready", pop: "p1" });
+    relay.update({ ...STATE, cooling: true });
+    take();
+    from({ t: "pop-say", pop: "p1", seq: 1, text: "/wave" });
+    relay.update({ ...STATE, cooling: false });
+    take();
+    from({ t: "pop-say", pop: "p1", seq: 2, text: "/x" });
+    expect(ran).toEqual(["/wave"]);
+    expect(sent).toEqual([{ type: "chat", text: "/x" }]);
+    expect(take()).toEqual([
+      { t: "room-said", pop: "p1", seq: 1, ok: true },
+      { t: "room-said", pop: "p1", seq: 2, ok: true },
+    ]);
   });
 
   test("while chat cools or is muted, the pop-out's chat is held (not ok), emotes still go", async () => {

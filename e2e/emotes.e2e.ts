@@ -42,7 +42,7 @@ async function frames(page: Page, id: string): Promise<v.InferOutput<typeof Fram
 
 test.describe("emotes", () => {
   /** Two clients in the test's own room, both drawn with the motion atlas (b walked in and is at rest). */
-  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "typist" | "burst" | "still" | "wheel" | "wheelwalk") {
+  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "slash" | "typist" | "burst" | "still" | "wheel" | "wheelwalk") {
     clients = await joinRoom(browser, { roomUrl: testRoom("emotes", prefix).url, count: 2, nicknamePrefix: prefix });
     const [a, b] = clients;
     if (a === undefined || b === undefined) throw new Error("need two clients");
@@ -75,6 +75,15 @@ test.describe("emotes", () => {
     await b.page.locator("body").click({ position: { x: 2, y: 2 } });
     await b.page.keyboard.press("6");
     await expect.poll(async () => (await frames(a.page, bId))?.avatar ?? "", { timeout: 3000, intervals: [40] }).toMatch(/^wave\/\w+\/sit\//);
+  });
+
+  test("/wave in the chat box waves for the other client and says no line (OME-1349)", async ({ browser }) => {
+    const { a, b, bId } = await pair(browser, "slash");
+    await b.page.locator(site.chatInput).fill("/wave");
+    await b.page.locator(site.chatInput).press("Enter");
+    await expect.poll(async () => (await frames(a.page, bId))?.avatar ?? "", { timeout: 3000, intervals: [40] }).toMatch(/^wave\/\w+\/idle\//);
+    await expect(b.page.locator(site.chatInput)).toHaveValue("");
+    await expect(a.page.locator(site.chatMessage).filter({ hasText: "/wave" })).toHaveCount(0);
   });
 
   test("digits typed into chat are chat, not emotes", async ({ browser }) => {

@@ -29,6 +29,8 @@ export interface EmotePicker {
   key(ev: KeyboardEvent): boolean;
   /** Close the wheel if it's open (your avatar started walking), focus back where it was. */
   close(): void;
+  /** Send `kind` through the bucket, as a key would (OME-1349: /wave in chat). True if it went out. */
+  emote(kind: EmoteKind): boolean;
 }
 
 /** Typing somewhere: digits and T belong to the field, not to the wheel. */
@@ -276,5 +278,6 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
     close() {
       close(true);
     },
+    emote: () => false,
   };
 }
