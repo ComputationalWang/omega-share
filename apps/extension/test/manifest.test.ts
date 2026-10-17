@@ -35,6 +35,10 @@ const PRODUCTION_HOSTS = ["https://omega-share.duckdns.org/*"];
 // The unlock fixture host (e2e/unlock.e2e.ts), pre-granted like a host the viewer already allowed.
 const E2E_HOSTS = ["http://localhost/*", "https://www.youtube.com/*", "http://xfo.omega-fixture.net/*", "https://xfo.omega-fixture.net/*"];
 
+const SHORTCUT = "Alt+Shift+O";
+// Chrome's and Firefox's own Ctrl/Alt+Shift shortcuts (Windows/Linux keyboard-shortcut help pages) a suggestion must avoid.
+const BROWSER_SHORTCUTS = ["Ctrl+Shift+B", "Ctrl+Shift+D", "Ctrl+Shift+I", "Ctrl+Shift+J", "Ctrl+Shift+M", "Ctrl+Shift+N", "Ctrl+Shift+O", "Ctrl+Shift+P", "Ctrl+Shift+Q", "Ctrl+Shift+T", "Ctrl+Shift+W", "Ctrl+Shift+Y", "Alt+Shift+A", "Alt+Shift+I", "Alt+Shift+T"];
+
 const cases = [
   { name: "production", browser: "chrome", mode: "production", hostPermissions: PRODUCTION_HOSTS, permissions: PERMISSIONS },
   { name: "e2e", browser: "chrome", mode: "e2e", hostPermissions: E2E_HOSTS, permissions: [...PERMISSIONS, DNR] },
@@ -91,6 +95,12 @@ for (const { name: mode, browser, hostPermissions, permissions } of cases) {
       expect(manifests.get(mode)).not.toHaveProperty("web_accessible_resources");
       const background = browser === "firefox" ? { scripts: ["background.js"] } : { service_worker: "background.js" };
       expect(manifests.get(mode)).toHaveProperty("background", background);
+    });
+
+    // OME-1287: a shortcut opens the popup. Alt+Shift+O isn't one of Chrome's or Firefox's own shortcuts.
+    test("opens the popup with a suggested shortcut that no browser default holds", () => {
+      expect(manifests.get(mode)).toHaveProperty("commands._execute_action.suggested_key.default", SHORTCUT);
+      expect(BROWSER_SHORTCUTS).not.toContain(SHORTCUT);
     });
 
     if (browser === "firefox") {
