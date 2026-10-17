@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import * as v from "valibot";
-import { CreateRoomResponseSchema, DEFAULT_LAYOUT, FLOOR_CELLS, WALK_BURST, WALK_REFILL_MS, type RoomLayout } from "@omega/shared";
+import { CreateRoomResponseSchema, DEFAULT_LAYOUT, EMOTE_BURST, FLOOR_CELLS, WALK_BURST, WALK_REFILL_MS, type RoomLayout } from "@omega/shared";
 import { Client, start, TestClock, type TestServer } from "./helpers";
 
 // OME-1346 (ADR 0053): free walking and shirt tint landed after the Rust switch, so only the Rust server
@@ -111,5 +111,15 @@ describe("tint (OME-1346)", () => {
     for (const c of [a.client, b.client]) expect(await c.next("tint-changed")).toEqual({ type: "tint-changed", memberId: b.snapshot.self, tint: 5 });
     b.client.send({ type: "set-tint", tint: 6 });
     expect((await b.client.next("error")).code).toBe("bad_message");
+  });
+
+  binaryOnly(`set-tint shares the emote bucket: ${String(EMOTE_BURST)} changes relay, the next is rate_limited`, async () => {
+    const clock = new TestClock();
+    t = start({ now: clock.now });
+    const a = await join("alice");
+    for (let i = 0; i <= EMOTE_BURST; i++) a.client.send({ type: "set-tint", tint: 1 + (i % 2) });
+    for (let i = 0; i < EMOTE_BURST; i++) await a.client.next("tint-changed");
+    expect((await a.client.next("error")).code).toBe("rate_limited");
+    await a.client.none("tint-changed", 100);
   });
 });
