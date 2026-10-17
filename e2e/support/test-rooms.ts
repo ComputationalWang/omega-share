@@ -47,7 +47,7 @@ export const SPEC_ROOMS = {
   "m10-portrait": ["360", "390", "people360", "people390"],
   "m10-composer": ["l568", "l667", "l932", "p360", "p390"],
   "m10-sessions": ["hide", "reload", "expire", "expreload", "tabs"],
-  "m10-a11y": ["dock360", "dock390", "fs", "away", "moved"],
+  "m10-a11y": ["dock360", "dock390", "fs", "away", "moved", "fullq"],
   furniture: ["v2seats", "v2benches"],
   theme: ["desk", "phone", "reduced", "off"],
   targets: ["desk", "touch"],
