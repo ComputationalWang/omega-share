@@ -73,6 +73,8 @@ export const PHONE_MAX_W = 600;
 export const PHONE_QUERY = `(max-width: ${String(PHONE_MAX_W)}px)`;
 /** The phone's room window: the stage at 1× (until the viewer zooms it, OME-1184), cropped to this height (set k: "cropped to the seats"). */
 export const PHONE_ROOM_H = 270;
+/** The portrait room window is at least this tall (its row of zoom keys and a strip of room) or not shown (OME-1302). */
+export const PHONE_ROOM_MIN_H = 96;
 
 /**
  * `provider`: the room's embed, for its minimum player size (ADR 0012; Twitch's is larger).
