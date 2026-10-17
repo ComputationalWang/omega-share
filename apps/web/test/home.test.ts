@@ -120,17 +120,17 @@ describe("create room (POST /rooms)", () => {
     expect(post?.url).toBe(`${SERVER}/rooms`);
     expect(new Headers(post?.init?.headers).get("content-type")).toBe("application/json");
     expect(JSON.parse(typeof post?.init?.body === "string" ? post.init.body : "null")).toEqual({ title: "Movie night", visibility: "private", preset: "classic" });
-    expect(loadRoomSecrets(store).rooms[ROOM]).toEqual({ ownerToken: OWNER, inviteKey: KEY });
+    expect(loadRoomSecrets(store).rooms[ROOM]).toEqual({ ownerToken: OWNER, inviteKey: KEY, title: "Movie night" });
     expect(navigated).toEqual([`/r/${ROOM}`]);
   });
 
-  test("a public room is posted as public and saves only the owner token", async () => {
+  test("a public room is posted as public and saves the owner token and title, no invite key", async () => {
     created = { status: 201, body: { ok: true, room: { id: ROOM, title: "Open house", visibility: "public" }, ownerToken: OWNER } };
     const root = await mount();
     await submit(root, "Open house", false);
     const post = calls.find((c) => c.init?.method === "POST");
     expect(JSON.parse(typeof post?.init?.body === "string" ? post.init.body : "null")).toEqual({ title: "Open house", visibility: "public", preset: "classic" });
-    expect(loadRoomSecrets(store).rooms[ROOM]).toEqual({ ownerToken: OWNER });
+    expect(loadRoomSecrets(store).rooms[ROOM]).toEqual({ ownerToken: OWNER, title: "Open house" });
   });
 
   test("an invalid title is refused on the page: nothing is posted", async () => {
@@ -288,6 +288,22 @@ describe("open rooms: loading, empty and error are told apart (OME-935)", () => 
 });
 
 describe("your rooms: an honest empty state and plain labels (OME-935)", () => {
+  test("a private room reads by its saved title, as text; the public title wins when listed; no title falls back to the id (OME-1284)", async () => {
+    rememberRoom(store, ROOM, { ownerToken: OWNER, inviteKey: KEY, title: "Film night" });
+    let root = await mount();
+    const link = byTestId(root, "your-room-link", HTMLAnchorElement);
+    expect(link.textContent).toBe("Film night");
+    expect(link.children).toHaveLength(0);
+    listed = [{ id: ROOM, memberCount: 1, seatedCount: 0, title: "Open house" }];
+    root = await mount();
+    expect(byTestId(root, "your-room-link", HTMLAnchorElement).textContent).toBe("Open house");
+    store.data.clear();
+    rememberRoom(store, ROOM, { inviteKey: KEY });
+    listed = [];
+    root = await mount();
+    expect(byTestId(root, "your-room-link", HTMLAnchorElement).textContent).toBe(ROOM);
+  });
+
   test("no saved rooms says so instead of hiding the section", async () => {
     const root = await mount();
     expect(byTestId(root, "your-rooms-empty", HTMLElement).textContent).toBe("No saved rooms in this browser yet.");

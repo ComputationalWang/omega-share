@@ -55,7 +55,7 @@ test("create a private room, invite a guest by link, then close it with 4004", a
   const owner = await newPage(browser);
   await owner.goto(`${URLS.web}/`);
   await openDirectory(owner, "Owner");
-  await owner.locator(site.createRoomTitle).fill("Movie night");
+  await owner.locator(site.createRoomTitle).fill("Film night");
   await owner.locator(site.createRoomPrivate).check();
   await owner.locator(site.createRoomSubmit).click();
   await owner.waitForURL(/\/r\/[a-z2-7]{26}$/);
@@ -98,6 +98,8 @@ test("create a private room, invite a guest by link, then close it with 4004", a
   await home.goto(`${URLS.web}/`);
   await openDirectory(home, "Owner");
   await expect(home.locator(site.yourRoomLink)).toHaveAttribute("href", `/r/${roomId}`);
+  // By its title, not the raw id: a private room is never in the public list (OME-1284).
+  await expect(home.locator(site.yourRoomLink)).toHaveText("Film night");
   expect(await home.content()).not.toContain(ownerToken);
   await home.close();
 
