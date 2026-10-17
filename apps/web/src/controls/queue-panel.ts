@@ -101,6 +101,19 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
   content.append(head, empty, list);
   root.append(content, form, problem, full, heldLine, status);
   let portrait = false;
+  /** A list that scrolls is a named tab stop (a viewer's rows have no control to scroll it by key), and only then. */
+  const fitStop = (): void => {
+    const over = list.scrollHeight > list.clientHeight;
+    if (over === list.hasAttribute("tabindex")) return;
+    if (over) {
+      list.tabIndex = 0;
+      list.setAttribute("aria-label", "Up next");
+    } else {
+      list.removeAttribute("tabindex");
+      list.removeAttribute("aria-label");
+    }
+  };
+  new ResizeObserver(fitStop).observe(list);
 
   let state: ViewState | null = null;
   let drawnQueue: readonly QueueItem[] | undefined;
@@ -240,6 +253,7 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
         content.removeAttribute("role");
         content.removeAttribute("aria-label");
       }
+      fitStop();
     },
     update(s) {
       state = s;
@@ -257,6 +271,7 @@ export function createQueuePanel(o: QueuePanelOptions): QueuePanel {
         const active = document.activeElement;
         const focused = active instanceof HTMLElement && list.contains(active) ? { id: active.closest<HTMLElement>("[data-item]")?.dataset["item"], key: active.dataset["testid"] } : null;
         list.replaceChildren(...queue.map((it, i) => row(it, i, s, canRemove)));
+        fitStop();
         let refocus = focused;
         if (moved !== null && queueChanged) {
           const m = moved;

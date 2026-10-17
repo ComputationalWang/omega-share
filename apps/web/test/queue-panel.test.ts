@@ -431,3 +431,23 @@ describe("reorder Up next", () => {
     expect(q("queue-status").textContent).toBe("");
   });
 });
+
+// OME-1312 (QA OME-1311): a list that scrolls is a named keyboard stop while it overflows (a viewer's rows have no
+// control to scroll it with), and only then: a short or empty queue adds no tab stop. axe scrollable-region-focusable.
+test("the list is a named tab stop only while it overflows", async () => {
+  const { server, q } = await setup();
+  const list = q("queue-list");
+  const box = { scroll: 0, client: 0 };
+  Object.defineProperty(list, "scrollHeight", { get: () => box.scroll });
+  Object.defineProperty(list, "clientHeight", { get: () => box.client });
+  expect(list.hasAttribute("tabindex")).toBe(false);
+  box.scroll = 400;
+  box.client = 200;
+  server({ type: "queue-changed", queue: ["a", "b", "c", "d", "e", "f", "g", "h"].map((i) => item(i)), by: "kit" });
+  expect(list.tabIndex).toBe(0);
+  expect(list.getAttribute("aria-label")).toBe("Up next");
+  box.scroll = 100;
+  server({ type: "queue-changed", queue: [item("a")], by: "kit" });
+  expect(list.hasAttribute("tabindex")).toBe(false);
+  expect(list.hasAttribute("aria-label")).toBe(false);
+});

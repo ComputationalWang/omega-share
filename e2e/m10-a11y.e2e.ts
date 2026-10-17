@@ -19,6 +19,7 @@ import { stubExternalNetwork } from "./support/network";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import { openDirectory } from "./support/directory";
+import { socketUrl } from "./support/bots";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -324,4 +325,35 @@ test("the session-moved card: zero axe violations; its Return key is a named but
   await expect(card).toBeVisible();
   await expect(card.locator(id("room-replaced-return"))).toHaveAccessibleName(/\S/);
   expect(await violations(first.page), "session moved").toEqual([]);
+});
+
+// OME-1312 (QA OME-1311): with 8 waiting the list scrolls at 1280×720, and a viewer's rows have no control to scroll it.
+test("Up next with a full list, a viewer's view at 1280×720: zero axe violations; the list is a keyboard stop", async ({ browser }) => {
+  const room = testRoom("m10-a11y", "fullq");
+  clients = await joinRoom(browser, { roomUrl: room.url, count: 1, nicknamePrefix: "axfullq", contextOptions: () => ({ viewport: { width: 1280, height: 720 } }) });
+  const viewer = clients[0];
+  if (viewer === undefined) throw new Error("no client");
+  const raw = await watchCsp(await browser.newContext());
+  extra.push(raw);
+  const rawPage = await raw.newPage();
+  await rawPage.goto(URLS.web);
+  // Three raw members queue 3 links each: the first starts playing, 8 wait.
+  await rawPage.evaluate(async (url) => {
+    for (let m = 0; m < 3; m++) {
+      const ws = new WebSocket(url);
+      await new Promise<void>((resolve) => {
+        ws.addEventListener("open", () => { ws.send(JSON.stringify({ type: "join", nickname: `fullq${String(m)}`, avatar: m })); });
+        ws.addEventListener("message", (ev: MessageEvent<unknown>) => {
+          if (typeof ev.data === "string" && ev.data.includes('"snapshot"')) resolve();
+        });
+      });
+      for (let i = 0; i < 3; i++) ws.send(JSON.stringify({ type: "queue-add", url: `https://www.youtube.com/watch?v=fullq${String(m)}${String(i)}0000` }));
+    }
+  }, socketUrl(room.id));
+  await expect(viewer.page.locator(site.queueCount)).toHaveText("8 / 20");
+  const list = viewer.page.locator(id("queue-list"));
+  expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight), "the list overflows").toBe(true);
+  await expect(list).toHaveAttribute("tabindex", "0");
+  await expect(list).toHaveAccessibleName("Up next");
+  expect(await violations(viewer.page), "full Up next").toEqual([]);
 });
