@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_POSITION_S, type PlaybackState, type RoomState } from "@omega/shared";
-import { chatIntent, playerIntent, seatViews, seekIntent, sitIntent, togglePlayIntent, type PlaybackTarget } from "../src/intents";
+import { chatIntent, playerIntent, seatViews, seekIntent, sitIntent, stepAllowed, stepCell, togglePlayIntent, walkIntent, type PlaybackTarget } from "../src/intents";
+import { TILE_MS } from "../src/walk/walks";
 import { initialState, reduce, type ViewState } from "../src/state";
 
 const seats = ["b", null, "a", null, null, null, null, null];
@@ -102,5 +103,46 @@ describe("playerIntent (a click inside the player → control)", () => {
   });
   test("no embed: null", () => {
     expect(playerIntent({ embed: null, playback: null }, true, 1)).toBeNull();
+  });
+});
+
+// Free walking (OME-1350, ADR 0053) on the default layout: (0,0) is the TV, (5,1) a chair, (3,8) open floor.
+describe("walkIntent", () => {
+  test("a free floor cell sends walk", () => {
+    expect(walkIntent(open, { x: 3, y: 8 })).toEqual({ type: "walk", cell: { x: 3, y: 8 } });
+  });
+  test("a cell under a solid piece is blocked, and nothing is sent", () => {
+    expect(walkIntent(open, { x: 0, y: 0 })).toBe("blocked");
+    expect(walkIntent(open, { x: 5, y: 1 })).toBe("blocked");
+  });
+  test("the cell I already stand on does nothing", () => {
+    const here = reduce(open, { type: "server", msg: { type: "walked", memberId: "a", cell: { x: 3, y: 8 } }, now: 0 });
+    expect(walkIntent(here, { x: 3, y: 8 })).toBeNull();
+  });
+  test("nothing is sent while not connected", () => {
+    expect(walkIntent(reduce(open, { type: "disconnected" }), { x: 3, y: 8 })).toBeNull();
+  });
+});
+
+describe("stepCell", () => {
+  test("Right/Left walk the column, Down/Up the row", () => {
+    expect(stepCell({ x: 4, y: 4 }, "ArrowRight")).toEqual({ x: 5, y: 4 });
+    expect(stepCell({ x: 4, y: 4 }, "ArrowLeft")).toEqual({ x: 3, y: 4 });
+    expect(stepCell({ x: 4, y: 4 }, "ArrowDown")).toEqual({ x: 4, y: 5 });
+    expect(stepCell({ x: 4, y: 4 }, "ArrowUp")).toEqual({ x: 4, y: 3 });
+  });
+  test("off the floor is no step", () => {
+    expect(stepCell({ x: 0, y: 4 }, "ArrowLeft")).toBeNull();
+    expect(stepCell({ x: 4, y: 9 }, "ArrowDown")).toBeNull();
+  });
+});
+
+describe("stepAllowed", () => {
+  test("a fresh key press always steps", () => {
+    expect(stepAllowed(false, 100, 50)).toBe(true);
+  });
+  test("a held key repeats at most once a tile (the walk rate)", () => {
+    expect(stepAllowed(true, 1000 + TILE_MS - 1, 1000)).toBe(false);
+    expect(stepAllowed(true, 1000 + TILE_MS, 1000)).toBe(true);
   });
 });

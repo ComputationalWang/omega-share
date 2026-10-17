@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { ChatTextSchema, MAX_POSITION_S, SEAT_COUNT, type ClientMessage, type Embed, type Member, type PlaybackState, type QueueItemId } from "@omega/shared";
+import { ChatTextSchema, MAX_POSITION_S, SEAT_COUNT, type ClientMessage, type FloorCell, type Embed, type Member, type PlaybackState, type QueueItemId } from "@omega/shared";
 import type { ViewState } from "./state";
 import { expectedPosition } from "./sync";
 
@@ -27,6 +27,26 @@ export function sitIntent(state: ViewState, seat: number): ClientMessage | null 
   const occupant = state.room.seats[seat] ?? null;
   if (occupant === null) return { type: "sit", seat };
   return occupant === state.self ? { type: "sit", seat: null } : null;
+}
+
+/** Clicking or tapping a floor cell (ADR 0053). Stub: OME-1350 red commit. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1350)
+export function walkIntent(_state: ViewState, _cell: FloorCell): ClientMessage | "blocked" | null {
+  return null;
+}
+
+export type StepKey = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
+
+/** The cell an arrow key steps to. Stub: OME-1350 red commit. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1350)
+export function stepCell(_from: FloorCell, _key: StepKey): FloorCell | null {
+  return null;
+}
+
+/** Whether an arrow key press steps now. Stub: OME-1350 red commit. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub (OME-1350)
+export function stepAllowed(_repeat: boolean, _now: number, _last: number): boolean {
+  return false;
 }
 
 export function chatIntent(raw: string): ClientMessage | null {
