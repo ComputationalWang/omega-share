@@ -42,7 +42,7 @@ async function inside(l: Locator, top: number, bottom: number, left = 0, right =
   }), String(l)).toBe("reachable");
 }
 
-async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "q932" | "q844" | "q667" | "notch" | "twitch", width: number, height: number): Promise<Page> {
+async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "q932" | "q844" | "q667" | "notch" | "twitch" | "tvshelf" | "tliveshelf", width: number, height: number): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", name).url, count: 1, nicknamePrefix: `land${name}${String(test.info().retry)}${String(test.info().repeatEachIndex)}`,
     contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
   const page = clients[0]?.page;
@@ -180,3 +180,32 @@ test("844×390 with Twitch's taller TV: the room window holds a whole seat row b
   const { violations } = await new AxeBuilder({ page }).include(site.room).withRules(["target-size"]).analyze();
   expect(violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? ""}`))).toEqual([]);
 });
+
+for (const [name, key] of [["tvshelf", "twitchVod"], ["tliveshelf", "twitchLive"]] as const) {
+  test(`844×390 touch, ${key}: no two boxes in the shelf overlap, each wholly in the shelf, axe clean on it (QA OME-1333)`, async ({ browser, request }) => {
+    const page = await open(browser, name, 844, 390);
+    await shareProvider(request, providerCase(key).shareUrl, testRoom("landscape-phone", name).id);
+    await expect(page.locator(`${site.tv} iframe`)).toBeAttached({ timeout: 10_000 });
+    await expect(page.locator("[data-testid=provider-plate]")).toBeVisible();
+    const clash = await page.locator(".controls").evaluate((shelf) => {
+      const s = shelf.getBoundingClientRect();
+      const units = [...shelf.querySelectorAll<HTMLElement>(".ui-chip, .ui-button, .ui-readout, .ui-seek, .ui-vol-track, .ui-live, .ui-hint, .ui-plate")]
+        .filter((e) => e.checkVisibility() && e.getBoundingClientRect().width > 1);
+      const name = (e: Element): string => `${e.className} ${e.getAttribute("data-testid") ?? ""}`.trim();
+      const out: string[] = [];
+      for (const [i, a] of units.entries()) {
+        const r = a.getBoundingClientRect();
+        if (r.left < s.left || r.right > s.right || r.top < s.top || r.bottom > s.bottom) out.push(`${name(a)} leaves the shelf`);
+        for (const b of units.slice(i + 1)) {
+          if (a.contains(b) || b.contains(a)) continue;
+          const q = b.getBoundingClientRect();
+          if (Math.min(r.right, q.right) - Math.max(r.left, q.left) > 0 && Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top) > 0) out.push(`${name(a)} × ${name(b)}`);
+        }
+      }
+      return out;
+    });
+    expect(clash).toEqual([]);
+    const { violations } = await new AxeBuilder({ page }).include(".controls").analyze();
+    expect(violations.flatMap((v) => v.nodes.map((n) => `${v.id} ${n.target.join(" ")}`))).toEqual([]);
+  });
+}
