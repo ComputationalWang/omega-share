@@ -420,6 +420,10 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .room-not-found .ui-scene { --ui-px: 2px; margin: 0 auto 8px; }
 .room-not-found .rooms-public { margin-top: 24px; }
 .room-not-found .room-list { list-style: none; padding: 0; }
+/* Under .ui-touch the not-found links grow to 44 px; the editor tabs keep their art and get a ::before hit area (OME-1334). */
+.ui-touch .room-not-found .room-list a, .ui-touch .room-not-found .enter { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 44px; min-height: 44px; }
+.ui-touch .ui-tab { position: relative; }
+.ui-touch .ui-tab::before { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); translate: -50% -50%; }
 .room-not-found .not-found-state { font-size: 13px; }
 
 /* M10 portrait: the viewport owns the height; the room gives space to the composer and chat. */
