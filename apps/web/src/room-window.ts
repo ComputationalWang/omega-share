@@ -8,7 +8,7 @@
 // compositor work like the drag; the readable-label counter-scale (--label-scale, room.css) is restyled once a pinch
 // ends, never per frame. The zoom is this viewer's: kept in localStorage, never sent.
 import { el } from "./controls/dom";
-import { clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, type Point } from "./layout";
+import { PHONE_ROOM_MIN_H, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, type Point } from "./layout";
 
 /** A press that moves less than this is a tap (it sits); more is a drag (it pans, and its click is dropped). */
 const DRAG_SLOP = 8;
@@ -17,6 +17,10 @@ const REVEAL_MARGIN = 32;
 /** One zoom key press. */
 const ZOOM_STEP = 1.25;
 export const ZOOM_STORAGE_KEY = "omega.roomZoom";
+/** The zoom keys' own band in the window, 44 px keys and 4 px gaps: over the room they hid seats (QA OME-1300 F3). */
+const KEYS_BAND = 52;
+/** A column beside the room needs three keys' height; a shorter window has them in a row under the room. */
+const KEYS_COLUMN_H = 3 * 44 + 4 * 4;
 
 function storedZoom(): number | null {
   try {
@@ -50,6 +54,10 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
   /** Null until someone moves it: then it follows `home` (the middle of the seats) across layouts and resizes. */
   let looking: Point | null = null;
   let zoom = storedZoom() ?? 1;
+  // The stage's own pane, clipped beside (or above) the keys' band, so no key ever sits on a seat.
+  const pane = el("div", { className: "stage-pane" });
+  stage.before(pane);
+  pane.append(stage);
 
   const apply = (): void => {
     zoom = clampZoom(zoom, view);
@@ -147,7 +155,7 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
       down = null;
       dragged = true;
       clip.classList.remove("is-dragging");
-      const r = clip.getBoundingClientRect();
+      const r = pane.getBoundingClientRect();
       pinch = { zoom, at: { x: pan.x + (start.mid.x - r.left) / zoom, y: pan.y + (start.mid.y - r.top) / zoom }, dist: start.dist, left: r.left, top: r.top };
       for (const id of fingers.keys()) clip.setPointerCapture(id);
       return;
@@ -237,9 +245,13 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
   return {
     set(on, w, h) {
       active = on;
-      view.w = w;
-      view.h = h;
+      const column = h >= KEYS_COLUMN_H;
+      view.w = on && column ? Math.max(0, w - KEYS_BAND) : w;
+      view.h = on && !column ? Math.max(0, h - KEYS_BAND) : h;
+      clip.dataset["keys"] = column ? "column" : "row";
       clip.classList.toggle("is-phone", on);
+      // Too short for a window (portrait-dock under an open panel): no room at all, rather than a sliver (QA OME-1300 F4).
+      clip.style.visibility = on && h < PHONE_ROOM_MIN_H ? "hidden" : "";
       keys.hidden = !on;
       if (on) {
         apply();

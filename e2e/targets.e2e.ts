@@ -54,6 +54,8 @@ function misses(page: Page): Promise<Record<string, string[]>> {
   return page.evaluate(() => {
     const out: Record<string, string[]> = {};
     for (const tag of document.querySelectorAll<HTMLElement>(".tags.pickable [data-member][role=button]")) {
+      // Focus pans the phone's room window to the tag (room-window.ts); scrolling brings the page's part.
+      tag.focus({ preventScroll: true });
       tag.scrollIntoView({ block: "center", inline: "center" });
       const r = tag.getBoundingClientRect();
       const cx = r.left + r.width / 2;

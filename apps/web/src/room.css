@@ -198,7 +198,13 @@
  * a bubble around its speaker's head (the motion wrapper sits on the slot's anchor; floats.ts `scale` places it). */
 .stage-clip.is-phone .tag, .stage-clip.is-phone .tag-pad, .stage-clip.is-phone .float-motion { transform-origin: 0 0; scale: var(--label-scale, 1); }
 /* Zoom keys (OME-1184), for people who can't pinch: a row in the window's bottom-right corner, 44×44 each. */
+.stage-pane { position: absolute; inset: 0; }
+/* The zoom keys keep a band of their own (room-window.ts KEYS_BAND): a column beside the room, or a row under a short one. */
+.stage-clip.is-phone > .stage-pane { overflow: clip; }
+.stage-clip.is-phone[data-keys="column"] > .stage-pane { right: 52px; }
+.stage-clip.is-phone[data-keys="row"] > .stage-pane { bottom: 52px; }
 .room-zoom { position: absolute; right: 4px; bottom: 4px; display: flex; gap: 4px; }
+.stage-clip[data-keys="column"] > .room-zoom { flex-direction: column; }
 .room-zoom > .ui-button { display: inline-flex; align-items: center; width: 44px; height: 44px; margin: 0; padding: 0; justify-content: center; font-size: 16px; font-weight: 700; }
 /* Seats: a 52×44 oval to the finger instead of the floor diamond. */
 .ui-touch .seat { left: -26px; top: -22px; width: 52px; height: 44px; border-radius: 50%; transform: none; }
@@ -471,7 +477,7 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 /* Scrolling uses the physical button box, so a focused shelf key brings its whole touch target into view. */
 .room-portrait .controls .ui-button.icon { flex: none; width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin-inline: 0; }
 /* People shares the portrait height budget; its member rows scroll instead of displacing the dock. */
-.room-portrait > .people { flex: 0 1 35%; max-height: 35%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.room-portrait > .people { flex: 0 1 auto; max-height: 35%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .room-portrait .people-row, .room-portrait .people-toggle { min-height: 44px; }
 /* Keep the list's close toggle and a complete wrapped chat line reachable while the keyboard is open. */
 .room-portrait.portrait-typing:has(> .people:not([hidden])) > .room-top,

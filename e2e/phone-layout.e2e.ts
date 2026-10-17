@@ -4,6 +4,7 @@
 // field is ≥ 44×44 CSS px to the finger. At 360 px the player keeps ADR 0012's 356×200 and nothing covers it.
 // The pure geometry (breakpoint, crop, pan clamp, safe areas) is apps/web/test/phone-layout.test.ts; the frame budget
 // on a Pixel-class phone is perf/phone.perf.ts.
+import AxeBuilder from "@axe-core/playwright";
 import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page } from "@playwright/test";
 import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import { expect, test, watchCsp } from "./support/csp";
@@ -28,7 +29,7 @@ test.afterEach(async () => {
   contexts = [];
 });
 
-async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll", options: BrowserContextOptions = PHONE): Promise<Page> {
+async function one(browser: Browser, name: "stack" | "touch" | "narrow" | "drag" | "keys" | "afterdrag" | "pinch" | "overscroll" | "small" | "smallfs" | "people390" | "people320", options: BrowserContextOptions = PHONE): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("phone-layout", name).url, count: 1, nicknamePrefix: `ph${name}`, contextOptions: () => options });
   const c = clients[0];
   if (c === undefined) throw new Error("no client");
@@ -325,3 +326,85 @@ test("no editor on a phone: the owner gets one line in chat instead; on a wide s
   await expect(page.locator(site.editorTray)).toHaveCount(0);
   await expect(line).toHaveCount(1);
 });
+
+// Small phones (OME-1302, QA OME-1300 F2–F4): at 320 px the TV keeps YouTube's 200×200 within the screen, full screen
+// keeps the strip on it, the zoom keys never sit on a seat, and an open People panel never leaves a sliver of a room.
+const SMALL: BrowserContextOptions = { viewport: { width: 320, height: 640 } };
+
+/**
+ * axe target-size in the room window, plus what axe can't see. axe ignores overflow clipping (axe-core getTargetRects
+ * takes the whole boundingClientRect), so a seat cut by the room pane's edge counts the zoom keys' band past that edge
+ * as covering its cut-off part. Such a seat is checked by geometry instead: no zoom key meets the pane, so no key ever
+ * covers what's drawn of a seat. Anything else axe finds is returned.
+ */
+async function targetSize(page: Page): Promise<string[]> {
+  const { violations } = await new AxeBuilder({ page }).include(site.roomWindow).withRules(["target-size"]).analyze();
+  const found = violations.flatMap((v) => v.nodes.map((n) => ({ target: String(n.target[0]), by: n.any.flatMap((c) => (c.relatedNodes ?? []).map((r) => String(r.target[0]))) })));
+  return page.evaluate((found) => {
+    const pane = document.querySelector(".stage-pane")?.getBoundingClientRect();
+    if (pane === undefined) return ["no room pane"];
+    const meets = (a: DOMRect, b: DOMRect): boolean => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const out = [...document.querySelectorAll(".room-zoom > button")].filter((k) => meets(k.getBoundingClientRect(), pane)).map((k) => `${k.ariaLabel ?? "a zoom key"} meets the room pane`);
+    const isKey = (sel: string): boolean => document.querySelector(sel)?.closest(".room-zoom") != null;
+    for (const f of found) {
+      const r = document.querySelector(f.target)?.getBoundingClientRect();
+      const cut = r !== undefined && (r.left < pane.left || r.right > pane.right || r.top < pane.top || r.bottom > pane.bottom);
+      if (!(cut && f.by.length > 0 && f.by.every(isKey))) out.push(f.target);
+    }
+    return out;
+  }, found);
+}
+
+test("320×640: the TV is no wider than the screen, and the zoom keys cover no seat (QA OME-1300 F3)", async ({ browser }) => {
+  const page = await one(browser, "small", SMALL);
+  await expect(page.getByTestId("room-zoom-fit")).toBeVisible();
+  const { right, inner } = await page.locator(site.tv).evaluate((e) => ({ right: e.getBoundingClientRect().right, inner: innerWidth }));
+  expect(right).toBeLessThanOrEqual(inner);
+  expect(await targetSize(page)).toEqual([]);
+});
+
+test("320×640 full screen: the strip and every key in full screen are on the screen (QA OME-1300 F2)", async ({ browser }) => {
+  const page = await one(browser, "smallfs", SMALL);
+  await page.locator(site.fullscreenToggle).click();
+  await expect(page.locator(site.fsStrip)).toBeVisible();
+  await frames(page);
+  const off = await page.locator(site.fsRoot).evaluate((root) => {
+    const keys = root.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), [data-testid="fs-strip"]');
+    return [...keys]
+      .filter((e) => e.checkVisibility({ visibilityProperty: true }))
+      .filter((e) => {
+        const r = e.getBoundingClientRect();
+        return r.width > 0 && (r.left < 0 || r.right > innerWidth);
+      })
+      .map((e) => e.getAttribute("data-testid") ?? e.getAttribute("aria-label") ?? e.tagName);
+  });
+  expect(off).toEqual([]);
+});
+
+for (const [name, label, options] of [["people390", "390×844 touch", PHONE], ["people320", "320×640", SMALL]] as const) {
+  test(`${label}, the People panel open: the room window is whole or gone, its zoom keys whole inside it (QA OME-1300 F4)`, async ({ browser }) => {
+    const page = await one(browser, name, options);
+    await page.locator(site.peopleKey).click();
+    await expect(page.locator(site.peoplePanel)).toBeVisible();
+    await frames(page);
+    const win = page.locator(site.roomWindow);
+    if (await win.isVisible()) {
+      const w = await win.boundingBox();
+      if (w === null) throw new Error("not laid out");
+      // No partial strip: a window shows at least the column of zoom keys.
+      expect(w.height).toBeGreaterThanOrEqual(96);
+      for (const k of await page.locator('[data-testid^="room-zoom-"]').all()) {
+        if (!(await k.isVisible())) continue;
+        const b = await k.boundingBox();
+        if (b === null) throw new Error("not laid out");
+        expect(b.width).toBeGreaterThanOrEqual(44);
+        expect(b.height).toBeGreaterThanOrEqual(44);
+        expect(b.x).toBeGreaterThanOrEqual(w.x);
+        expect(b.y).toBeGreaterThanOrEqual(w.y);
+        expect(b.x + b.width).toBeLessThanOrEqual(w.x + w.width + 0.5);
+        expect(b.y + b.height).toBeLessThanOrEqual(w.y + w.height + 0.5);
+      }
+    } else await expect(page.getByTestId("room-zoom-fit")).toBeHidden();
+    expect(await targetSize(page)).toEqual([]);
+  });
+}

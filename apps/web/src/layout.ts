@@ -47,6 +47,11 @@ const TV_MIN_W = 356;
 /** Twitch: "Embedded video windows must be at least 400x300 pixels" (research M2 §2.1) → 534×300 at 16:9. */
 const TWITCH_TV_MIN_W = 534;
 const TV_MAX_W = 560;
+/** YouTube's own floor is 200×200 (ADR 0012 amendment, OME-1302): narrower than TV_MIN_W the TV takes the screen's width
+ * and keeps 200 px of height (the player letterboxes), so a 320 px phone never scrolls sideways. Twitch's can't shrink. */
+const RMF_MIN = 200;
+const minTvW = (provider: Provider | null, room: number): number => (provider === "twitch" ? TWITCH_TV_MIN_W : Math.min(TV_MIN_W, room));
+const tvH = (w: number): number => Math.max(RMF_MIN, Math.round((w * 9) / 16));
 /** Room for the TV's bezel, painted outside the player rect (`.ui-tv-frame`, border-image-outset). */
 const TV_BEZEL = 6;
 /** The media shelf's speakers, painted outside the control bar each side (`.ui-tv-shelf`). */
@@ -73,6 +78,8 @@ export const PHONE_MAX_W = 600;
 export const PHONE_QUERY = `(max-width: ${String(PHONE_MAX_W)}px)`;
 /** The phone's room window: the stage at 1× (until the viewer zooms it, OME-1184), cropped to this height (set k: "cropped to the seats"). */
 export const PHONE_ROOM_H = 270;
+/** The portrait room window is at least this tall (its row of zoom keys and a strip of room) or not shown (OME-1302). */
+export const PHONE_ROOM_MIN_H = 96;
 
 /**
  * `provider`: the room's embed, for its minimum player size (ADR 0012; Twitch's is larger).
@@ -81,16 +88,16 @@ export const PHONE_ROOM_H = 270;
  */
 export function roomLayout(containerWidth: number, provider: Provider | null = null, phone = false): RoomLayout {
   const width = Math.floor(containerWidth);
-  const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
+  const min = minTvW(provider, width);
   if (phone) {
     const w = Math.max(min, width);
-    const tv = { x: 0, y: TV_BEZEL, w, h: Math.round((w * 9) / 16) };
+    const tv = { x: 0, y: TV_BEZEL, w, h: tvH(w) };
     const controls = { x: 0, y: tv.y + tv.h + GAP, w, h: CONTROL_BAR_H };
     const stage = { x: 0, y: controls.y + controls.h + GAP, w: Math.min(width, STAGE_W), h: PHONE_ROOM_H };
     return { tv, controls, stage, scale: 1, height: stage.y + stage.h, compact: { tv: true, controls: true } };
   }
   const tvW = Math.max(min, Math.min(TV_MAX_W, width - 2 * TV_BEZEL));
-  const tv = { x: Math.max(0, Math.floor((width - tvW) / 2)), y: TV_BEZEL, w: tvW, h: Math.round((tvW * 9) / 16) };
+  const tv = { x: Math.max(0, Math.floor((width - tvW) / 2)), y: TV_BEZEL, w: tvW, h: tvH(tvW) };
   const controls = { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
   const scale = Math.min(1, width / STAGE_W);
   const stage = { x: 0, y: controls.y + controls.h + GAP, w: ROOM_VIEW.w * scale, h: ROOM_VIEW.h * scale };
@@ -98,12 +105,12 @@ export function roomLayout(containerWidth: number, provider: Provider | null = n
   return { tv, controls, stage, scale, height: stage.y + stage.h, compact };
 }
 
-/** Portrait keeps the room inside the available box; the crop may shrink all the way to zero. */
+/** Portrait keeps the room inside the available box: a whole window (PHONE_ROOM_MIN_H) or none, never a sliver. */
 export function portraitLayout(width: number, height: number, provider: Provider | null, typing: boolean): RoomLayout {
   const base = roomLayout(width, provider, true);
   const y = typing ? base.tv.y + base.tv.h : base.stage.y;
   return { ...base, controls: typing ? { ...base.controls, h: 0 } : base.controls,
-    stage: { ...base.stage, y, h: typing ? 0 : Math.max(0, height - y) }, height };
+    stage: { ...base.stage, y, h: typing || height - y < PHONE_ROOM_MIN_H ? 0 : height - y }, height };
 }
 
 /**
@@ -179,12 +186,12 @@ export interface FullscreenLayout {
 export function fullscreenLayout(width: number, height: number, provider: Provider | null, strip: StripMode | "none"): FullscreenLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
-  const min = provider === "twitch" ? TWITCH_TV_MIN_W : TV_MIN_W;
+  const min = minTvW(provider, w);
   const below = GAP + CONTROL_BAR_H;
   /** The largest 16:9 picture in aw×ah, never under the minimum. */
   const fitTv = (aw: number, ah: number): { w: number; h: number } => {
     const tw = Math.max(min, Math.min(aw, Math.floor((ah * 16) / 9)));
-    return { w: tw, h: Math.round((tw * 9) / 16) };
+    return { w: tw, h: tvH(tw) };
   };
   /** The shelf under the picture, its speakers inside the picture's width when they fit. */
   const shelf = (tv: Rect): Rect => {
@@ -214,7 +221,7 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
     // A second row cannot fit under Twitch's 300 px minimum on short phones. Drop the shelf's
     // speaker outsets and share one row instead; keep the composer's 44 px content plus its frame.
     const compactBandH = CONTROL_BAR_H + 4;
-    const minTvH = Math.round((min * 9) / 16);
+    const minTvH = tvH(min);
     if (minTvH + below + GAP + bandH > h
       && h >= compactBandH
       && w >= FS_BAND_SCROLL_MIN + GAP + FS_BAND_FIELD_MIN) {
@@ -248,7 +255,7 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   const aw = w - stripW;
   // Keep the picture stable when collapsing into a phone band with its 4 px composer frame.
   const sideBelow = below + (w < FS_STRIP_WIDE_FROM ? 4 : 0);
-  const side = w > h && aw >= min && h - sideBelow >= Math.round((min * 9) / 16);
+  const side = w > h && aw >= min && h - sideBelow >= tvH(min);
   if (side) {
     const pic = fitTv(aw, h - sideBelow);
     const tv = { x: Math.max(0, Math.floor((aw - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h - sideBelow) / 2)), ...pic };
@@ -257,7 +264,7 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
   }
   // Reserve the open strip's header, composer and frame before sizing a below-player picture.
   const openStripH = 112;
-  const minTvH = Math.round((min * 9) / 16);
+  const minTvH = tvH(min);
   // Short landscape cannot hold the provider minimum plus an open strip. Show a compact band
   // until more space is available; the caller keeps the user's remembered open preference.
   // Below 356 px Twitch also needs vertical scrolling: its intact player stays above the band.

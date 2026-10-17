@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT } from "@omega/shared";
 import { seatPoints } from "../src/furniture";
-import { PHONE_MAX_W, PHONE_QUERY, PHONE_ROOM_H, STAGE_H, STAGE_W, panTo, roomLayout, type Rect } from "../src/layout";
+import { PHONE_MAX_W, PHONE_QUERY, PHONE_ROOM_H, PHONE_ROOM_MIN_H, fullscreenLayout, portraitLayout, STAGE_H, STAGE_W, panTo, roomLayout, type Rect } from "../src/layout";
 
 const SEATS = seatPoints(DEFAULT_LAYOUT);
 const intersects = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -19,11 +19,32 @@ describe("phone breakpoint (set k: phone ≤ 600 px wide)", () => {
 });
 
 describe("roomLayout, phone: ADR 0012 player minimum", () => {
-  test.each(PHONE_WIDTHS)("the TV is at least 356×200 and 16:9 at width %p", (width) => {
+  test.each(PHONE_WIDTHS)("the TV keeps YouTube's 200×200, fills the width and never passes it at width %p (OME-1302)", (width) => {
     const { tv } = roomLayout(width, "youtube", true);
-    expect(tv.w).toBeGreaterThanOrEqual(356);
+    expect(tv).toMatchObject({ x: 0, w: width });
     expect(tv.h).toBeGreaterThanOrEqual(200);
-    expect(Math.abs(tv.w / tv.h - 16 / 9)).toBeLessThan(0.01);
+    if (width >= 356) expect(Math.abs(tv.w / tv.h - 16 / 9)).toBeLessThan(0.01);
+  });
+
+  test("at 320 px the TV is 320×200: the player letterboxes, the page never scrolls sideways (QA OME-1300 F3)", () => {
+    expect(roomLayout(320, null, true).tv).toMatchObject({ x: 0, w: 320, h: 200 });
+  });
+
+  test.each(["open", "band"] as const)("full screen at 320×640, strip %p: the picture is on the screen and ≥ 200×200 (QA OME-1300 F2)", (strip) => {
+    const l = fullscreenLayout(320, 640, "youtube", strip);
+    expect(l.tv.x).toBeGreaterThanOrEqual(0);
+    expect(l.tv.x + l.tv.w).toBeLessThanOrEqual(320);
+    expect(l.tv.h).toBeGreaterThanOrEqual(200);
+    expect(l.strip.x).toBeGreaterThanOrEqual(0);
+    expect(l.strip.x + l.strip.w).toBeLessThanOrEqual(320);
+  });
+
+  test("portrait: the room window is whole (room for its zoom keys and a strip of room) or gone, never a sliver (QA OME-1300 F4)", () => {
+    for (let h = 200; h <= 800; h++) {
+      const { stage } = portraitLayout(390, h, null, false);
+      expect(stage.h === 0 || stage.h >= PHONE_ROOM_MIN_H).toBe(true);
+    }
+    expect(PHONE_ROOM_MIN_H).toBeGreaterThanOrEqual(96);
   });
 
   test("at 360 px the TV fills the container's width (356 px inside a 2 px page margin)", () => {
