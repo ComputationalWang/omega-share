@@ -161,7 +161,9 @@ test.describe("directory forms", () => {
   const owned = "qadirowned".padEnd(26, "a");
   /** Saved rooms in this browser before the page loads, oldest first (the list shows the newest first). */
   const seed = async (page: Page, rooms: Record<string, { ownerToken?: string; inviteKey?: string }>): Promise<void> => {
-    await page.addInitScript(([k, v]) => localStorage.setItem(k, v), [ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms })] as const);
+    await page.addInitScript(([k, v]) => {
+      localStorage.setItem(k, v);
+    }, [ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms })] as const);
   };
 
   test("an empty submit marks the title invalid and points it at the error; typing clears both", async ({ page }) => {
