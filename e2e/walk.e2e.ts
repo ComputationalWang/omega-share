@@ -245,8 +245,12 @@ test("a click on a solid piece sends nothing and flashes can't-go-there", async 
   const sent = await spyWalks(a.page);
   const before = await tagAt(a.page, "blocked-1");
   await clickCell(a.page, 0, 0);
+  const note = a.page.locator(`${site.walkFloor} + [role="status"]`);
   await expect(a.page.locator(site.walkFloor)).toHaveClass(/\bno-go\b/);
   await expect(a.page.locator(site.walkFloor)).not.toHaveClass(/\bno-go\b/, { timeout: 2000 });
+  // The cursor flash is 400 ms; the note stays ~1.5 s so a screen reader that polls late still says it (OME-1364).
+  await expect(note).toHaveText("You can't go there.");
+  await expect(note).toHaveText("", { timeout: 3000 });
   expect(sent).toEqual([]);
   expect(await tagAt(a.page, "blocked-1")).toBe(before);
 });
