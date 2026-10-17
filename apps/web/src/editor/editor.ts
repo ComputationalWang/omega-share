@@ -81,6 +81,12 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   cat: "Sleepy cat",
   wallshelf: "Wall shelf",
   garland: "String lights",
+  coffeetable: "Coffee table",
+  pouf: "Pouf",
+  neonsign: "Neon sign",
+  aquarium: "Aquarium",
+  arcade: "Arcade cabinet",
+  wallclock: "Wall clock",
 };
 
 const DELETED = "Room deleted.";

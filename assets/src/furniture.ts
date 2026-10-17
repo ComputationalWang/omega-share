@@ -498,6 +498,168 @@ function floorSpeaker(k: Kit, c: RampName): void {
   k.box(-4.5, 4.5, -3.5, 3.5, 3, 36, c, { paint: baffle });
 }
 
+// ---------------------------------------------------------------- catalogue v3 (OME-1348): same parts and ramps, six more pieces
+
+/** Low coffee table: the console's square legs, a magazine shelf, and a book stack, a remote and a mug on top. */
+function coffeeTable(k: Kit): void {
+  for (const [x, y] of [[-6.5, -4.5], [5.5, -4.5], [-6.5, 3.5], [5.5, 3.5]] as const) k.box(x, x + 1, y, y + 1, 0, 9, "wood", { tones: { top: 0, sw: 2, se: 2 } });
+  k.box(-6, 6, -4, 4, 3, 4, "wood", { tones: { top: 1, sw: 2, se: 2 } });
+  k.box(-4.5, 1.5, -3, 2.5, 4, 5, "pink", { paint: (p, f) => (f === "top" && Math.abs(p.y + 1.6) < 0.5 ? ["cream", 0] : null) });
+  k.box(-7.5, 7.5, -5.5, 5.5, 9, 11, "wood", { paint: (p, f) => (f !== "top" && p.z < 9.8 ? ["wood", 2] : null) });
+  const band: LPaint = (p, f) => (f !== "top" && Math.abs(p.z - 11.7) < 0.4 ? ["cream", 0] : null);
+  k.box(-5.5, -0.5, -3.5, 2, 11, 12.4, "navy", { paint: band });
+  k.box(-5, -1, -3, 1.5, 12.4, 13.6, "rust", { paint: (p, f) => (f === "top" && Math.abs(p.x + 3) < 0.5 ? ["cream", 0] : null) });
+  k.box(1, 5, -4, -2.8, 11, 11.8, "charcoal", { paint: (p, f) => (f === "top" && Math.floor(p.x * 1.2) % 2 === 0 ? ["rust", 0] : null) });
+  k.ell({ x: 3.6, y: 1.8, z: 0 }, { x: 1.2, y: 1.2, z: Infinity }, [-8, 8, -8, 8, 11, 14.5], "teal", { paint: (_p, f) => (f === "top" ? ["hairDark", 0] : null) });
+  k.box(4.6, 5.4, 1.4, 2.2, 11.8, 13.6, "teal");
+}
+
+/** Knitted pouf: a squat drum with cable-knit ribs, a cream welt round the middle and a button on the top. */
+function pouf(k: Kit, c: RampName): void {
+  const knit: LPaint = (p, f) => {
+    // The top is eight knitted wedges, alternately catching the light, round a cream button.
+    if (f === "top") return Math.hypot(p.x, p.y) < 1.1 ? ["cream", 0] : Math.floor((Math.atan2(p.y, p.x) * 4) / Math.PI + 8) % 2 === 0 ? [c, 0] : [c, 1];
+    if (Math.abs(p.z - 4) < 0.6) return ["cream", 1];
+    // Chevrons: rib stripes that zig-zag, one row of knit per 2 units of height.
+    const a = Math.atan2(p.y, p.x) * 4;
+    return Math.floor(a + (Math.floor(p.z / 2) % 2 === 0 ? 0.5 : 0) + 40) % 2 === 0 ? [c, 2] : null;
+  };
+  k.ell({ x: 0, y: 0, z: 0 }, { x: 6.4, y: 6.4, z: Infinity }, [-8, 8, -8, 8, 0, SEAT_HEIGHT - 1], c, { paint: knit });
+  k.ell({ x: 0, y: 0, z: SEAT_HEIGHT - 1.6 }, { x: 6.4, y: 6.4, z: 1.8 }, [-8, 8, -8, 8, SEAT_HEIGHT - 1, SEAT_HEIGHT + 1], c, { paint: knit });
+}
+
+/** Neon sign on a smoked backplate: a little TV with a play mark, one tube colour per variant, brass stand-offs at the corners. */
+function neonSign(k: Kit, c: RampName): void {
+  const X0 = -7, X1 = 7, Z0 = 82, Z1 = 102;
+  // Distance to the tube path in the wall plane: a rounded screen, two antennae and a play triangle inside.
+  const seg = (x: number, z: number, ax: number, az: number, bx: number, bz: number): number => {
+    const dx = bx - ax, dz = bz - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+    return Math.hypot(x - ax - t * dx, z - az - t * dz);
+  };
+  const tube = (x: number, z: number): number => {
+    const rx = Math.max(Math.abs(x) - 3.5, 0), rz = Math.max(Math.abs(z - 90.5) - 3, 0);
+    const screen = Math.abs(Math.hypot(rx, rz) - 1.8);
+    const ant = Math.min(seg(x, z, -0.6, 95.3, -2.6, 99), seg(x, z, 0.6, 95.3, 2.6, 99));
+    const play = Math.min(seg(x, z, -1.4, 88.4, -1.4, 92.6), seg(x, z, -1.4, 88.4, 2, 90.5), seg(x, z, -1.4, 92.6, 2, 90.5));
+    return Math.min(screen, ant, play);
+  };
+  k.box(X0, X1, 7, 8, Z0, Z1, "night", {
+    paint: (p, f) => {
+      if (f !== "front") return f === "top" ? ["night", 0] : ["night", 2];
+      if ((Math.abs(p.x - X0 - 1) < 0.6 || Math.abs(p.x - X1 + 1) < 0.6) && (Math.abs(p.z - Z0 - 1.5) < 0.8 || Math.abs(p.z - Z1 + 1.5) < 0.8)) return ["mustard", 0];
+      const d = tube(p.x, p.z);
+      if (d < 0.4) return ["cream", 0];
+      if (d < 0.9) return [c, 0];
+      if (d < 1.7) return [c, 2];
+      return ["night", 2];
+    },
+  });
+}
+
+/** Fish tank on a wood stand: gravel, a swaying weed, two fish and a stream of bubbles behind glass, under a charcoal lid. */
+function aquarium(k: Kit): void {
+  k.box(-7, 7, -4.5, 4.5, 0, 1.5, "charcoal");
+  const doors: LPaint = (p, f) => {
+    if (f === "top") return ["wood", 0];
+    if (f !== "front") return null;
+    if (Math.abs(p.x) < 0.4) return ["wood", 2];
+    return Math.abs(Math.abs(p.x) - 1.4) < 0.5 && Math.abs(p.z - 8) < 1 ? ["mustard", 0] : null;
+  };
+  k.box(-6.5, 6.5, -4, 4, 1.5, 12, "wood", { paint: doors });
+  const water: LPaint = (p, f) => {
+    if (f === "top") return ["teal", 0];
+    const along = f === "front" ? p.x : p.y;
+    const t: Tone = f === "front" ? 1 : 2;
+    if (Math.abs(along) > (f === "front" ? 6.4 : 3.4)) return ["glow", 2]; // glass edge
+    if (p.z < 14 + Math.sin(along * 1.4) * 0.5) return hash(Math.floor(along * 2) + 3, Math.floor(p.z * 2)) % 3 === 0 ? ["mustard", 1] : ["cream", 2];
+    if (f === "front") {
+      const fish = (cx: number, cz: number, ramp: RampName): Paint | null => {
+        const dx = p.x - cx, dz = p.z - cz;
+        if (dx * dx * 0.5 + dz * dz * 2 < 1.6) return Math.abs(dx - 0.6) < 0.3 && dz > 0 ? ["outline", 1] : [ramp, 0];
+        if (dx < -1.4 && dx > -2.6 && Math.abs(dz) < (-dx - 1.4) * 0.9) return [ramp, 1];
+        return null;
+      };
+      const hit = fish(2.5, 22, "ginger") ?? fish(-3, 18, "pink");
+      if (hit) return hit;
+      if (Math.abs(p.x + 4.5 + Math.sin(p.z * 0.6) * 0.8) < 0.6 && p.z < 23) return ["olive", 0];
+      if (Math.abs(p.x - 4.8) < 0.5 && Math.floor(p.z) % 3 === 0 && p.z > 15) return ["glow", 0];
+    }
+    if (p.z > 26.6) return ["glow", 1];
+    return ["teal", t];
+  };
+  k.box(-6.8, 6.8, -3.8, 3.8, 12, 27.5, "teal", { paint: water });
+  k.box(-7, 7, -4, 4, 27.5, 29, "charcoal", { paint: (p, f) => (f === "top" && Math.abs(p.x - 3) < 1.5 && Math.abs(p.y) < 1 ? ["charcoal", 2] : null) });
+}
+
+/** Arcade cabinet: a night-blue body with lilac side stripes, a joystick deck, a screen mid-game and a lit marquee. */
+function arcade(k: Kit): void {
+  const side: LPaint = (p, f) => {
+    if (f === "top") return ["night", 0];
+    if (f === "right" && Math.abs(p.y - p.z * 0.25 + 4) < 1.2) return ["lilac", 1];
+    return null;
+  };
+  k.box(-6, 6, -3, 5, 0, 22, "night", {
+    paint: (p, f) => {
+      if (f === "front" && p.z > 6 && p.z < 12 && Math.abs(p.x) < 2) return Math.abs(p.z - 9) < 0.5 && Math.abs(p.x) < 1 ? ["glow", 0] : ["charcoal", 2]; // coin door
+      return side(p, f);
+    },
+  });
+  const deck: LPaint = (p, f) => {
+    if (f !== "top") return f === "front" ? ["charcoal", 1] : side(p, f);
+    for (const [bx, ramp] of [[1.5, "pink"], [3.3, "teal"], [5, "mustard"]] as const) if (Math.hypot(p.x - bx + 1, p.y + 3.5) < 0.8) return [ramp, 0];
+    return ["charcoal", 0];
+  };
+  k.box(-6, 6, -6, 5, 22, 24, "charcoal", { paint: deck });
+  k.ell({ x: -3, y: -4, z: 0 }, { x: 0.4, y: 0.4, z: Infinity }, [-8, 8, -8, 8, 24, 26], "charcoal");
+  k.ell({ x: -3, y: -4, z: 26.6 }, { x: 0.9, y: 0.9, z: 0.9 }, [-8, 8, -8, 8, 25.6, 28], "rust");
+  const screen: LPaint = (p, f) => {
+    if (f !== "front") return side(p, f);
+    if (Math.abs(p.x) > 5 || p.z < 25.5 || p.z > 38) return ["night", 1];
+    const gx = Math.floor((p.x + 5) * 1.2), gz = Math.floor((p.z - 25.5) * 1.2);
+    // A 12×15 game: two rows of invaders, a ship and its shot.
+    if (gz >= 11 && gz <= 13 && (gx % 3 === 1 || (gz === 12 && gx % 3 !== 2))) return gz === 13 ? ["pink", 0] : ["pink", 1];
+    if (gz >= 7 && gz <= 8 && gx % 4 !== 3) return ["mustard", 0];
+    if (gz <= 1 && Math.abs(gx - 5) <= 1 - gz + 1) return ["teal", 0];
+    if (gx === 5 && gz === 4) return ["cream", 0];
+    return hash(gx, gz) % 29 === 0 ? ["glow", 2] : ["outline", 1];
+  };
+  k.box(-6, 6, -1, 5, 24, 39, "night", { paint: screen });
+  const marquee: LPaint = (p, f) => {
+    if (f !== "front") return f === "top" ? ["night", 0] : side(p, f);
+    if (p.z < 40 || p.z > 44.5 || Math.abs(p.x) > 5) return ["night", 1];
+    return Math.abs(p.z - 42.2 - Math.sin(p.x * 1.1) * 1.2) < 0.7 ? ["pink", 0] : ["glow", 0];
+  };
+  k.box(-6, 6, -2.5, 5, 39, 45.5, "night", { paint: marquee });
+}
+
+/** Sunburst wall clock: a cream face with ticks and hands on a brass hub, twelve rays with bead tips. */
+function wallClock(k: Kit): void {
+  const CZ = 94;
+  // Eight thick brass rays, long and short in turn, stepped down in width so they taper (a wall slant squashes thin ones).
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4;
+    const len = i % 2 === 0 ? 10.5 : 8.5;
+    for (let r = 5; r < len; r += 0.5) {
+      const w = r < len - 2 ? 1 : 0.6;
+      k.box(Math.cos(a) * r - w, Math.cos(a) * r + w, 7.4, 8, CZ + Math.sin(a) * r - w, CZ + Math.sin(a) * r + w, "mustard", { tones: { top: 0, sw: i % 2 === 0 ? 0 : 1, se: 1 } });
+    }
+  }
+  const face: LPaint = (p, f) => {
+    if (f === "top") return ["mustard", 0];
+    const x = p.x, z = p.z - CZ, r = Math.hypot(x, z);
+    if (r > 4.6) return ["mustard", r > 5.2 ? 2 : 1];
+    if (r < 0.7) return ["mustard", 0];
+    const ang = Math.atan2(z, x);
+    if (r > 3.2 && Math.abs(((ang * 6) / Math.PI + 24.5) % 1 - 0.5) < 0.18) return ["charcoal", 1];
+    // Ten past ten.
+    const onHand = (t: number, l: number): boolean => r < l && Math.abs(x * Math.sin(t) - z * Math.cos(t)) < 0.4 && x * Math.cos(t) + z * Math.sin(t) > 0;
+    if (onHand((Math.PI * 5) / 6, 2.6) || onHand(Math.PI / 6, 3.6)) return ["outline", 1];
+    return ["cream", 0];
+  };
+  k.ell({ x: 0, y: 7, z: CZ }, { x: 5.6, y: Infinity, z: 5.6 }, [-8, 8, 6.4, 8, 0, 200], "cream", { paint: face });
+}
+
 // ---------------------------------------------------------------- sleepy cat (hand-pixelled role grid on a ray-cast cushion)
 
 /** Loaf cat facing sw (head front-left), eyes shut, tail wrapped round its front. `o` is a hand-placed inner contour. */
@@ -737,10 +899,17 @@ export const PIECES: readonly PieceDef[] = [
   { id: "cat", label: "Sleepy cat", kind: "fun", colours: ["ginger", "charcoal"], dirs: ["se", "sw"], cols: 1, rows: 1, image: (d, c, s, cv) => sleepyCat(d, asRamp(c), s, cv) },
   { id: "wallshelf", label: "Wall shelf", kind: "wall", mount: "wall", layer: "wall", colours: ["wood"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { wallShelf(k); } },
   { id: "garland", label: "String lights", kind: "light", mount: "wall", layer: "wall", colours: ["warm", "party"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k, c) => { garland(k, c); } },
+  // Catalogue v3 (OME-1348), packed into the v2 sheet.
+  { id: "coffeetable", label: "Coffee table", kind: "table", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { coffeeTable(k); } },
+  { id: "pouf", label: "Knitted pouf", kind: "seat", colours: ["rust", "lilac"], dirs: ALL, cols: 1, rows: 1, seats: [0], build: (k, c) => { pouf(k, asRamp(c)); } },
+  { id: "neonsign", label: "Neon sign", kind: "light", mount: "wall", layer: "wall", colours: ["pink", "teal"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k, c) => { neonSign(k, asRamp(c)); } },
+  { id: "aquarium", label: "Aquarium", kind: "fun", colours: ["teal"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { aquarium(k); } },
+  { id: "arcade", label: "Arcade cabinet", kind: "fun", colours: ["night"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { arcade(k); } },
+  { id: "wallclock", label: "Sunburst clock", kind: "wall", mount: "wall", layer: "wall", colours: ["brass"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { wallClock(k); } },
 ];
 
 /** Catalogue v2 (OME-1103): shipped as its own lazy atlas, `furniture/furniture-v2.json`. */
-export const CATALOGUE_V2: ReadonlySet<string> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland"]);
+export const CATALOGUE_V2: ReadonlySet<string> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland", "coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock"]);
 
 export interface Canvas { w: number; h: number; ax: number; ay: number }
 const CANVAS: Canvas = { w: 480, h: 400, ax: 220, ay: 300 };

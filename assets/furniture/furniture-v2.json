@@ -1,8 +1,104 @@
 {
  "frames": {
+  "furniture/aquarium/teal/se/back": {
+   "frame": {
+    "x": 98,
+    "y": 0,
+    "w": 48,
+    "h": 53
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 53
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 53
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7735849056603774
+   }
+  },
+  "furniture/aquarium/teal/sw/back": {
+   "frame": {
+    "x": 147,
+    "y": 0,
+    "w": 48,
+    "h": 53
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 53
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 53
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7735849056603774
+   }
+  },
+  "furniture/arcade/night/se/back": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 67
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 67
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 67
+   },
+   "anchor": {
+    "x": 0.4791666666666667,
+    "y": 0.8507462686567164
+   }
+  },
+  "furniture/arcade/night/sw/back": {
+   "frame": {
+    "x": 49,
+    "y": 0,
+    "w": 48,
+    "h": 67
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 67
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 67
+   },
+   "anchor": {
+    "x": 0.5208333333333334,
+    "y": 0.8507462686567164
+   }
+  },
   "furniture/bench/pink/ne/back": {
    "frame": {
-    "x": 140,
+    "x": 336,
     "y": 0,
     "w": 90,
     "h": 52
@@ -26,8 +122,8 @@
   },
   "furniture/bench/pink/ne/front": {
    "frame": {
-    "x": 231,
-    "y": 0,
+    "x": 336,
+    "y": 53,
     "w": 90,
     "h": 52
    },
@@ -50,8 +146,8 @@
   },
   "furniture/bench/pink/nw/back": {
    "frame": {
-    "x": 322,
-    "y": 0,
+    "x": 98,
+    "y": 54,
     "w": 90,
     "h": 52
    },
@@ -74,8 +170,8 @@
   },
   "furniture/bench/pink/nw/front": {
    "frame": {
-    "x": 413,
-    "y": 0,
+    "x": 189,
+    "y": 54,
     "w": 90,
     "h": 52
    },
@@ -98,8 +194,8 @@
   },
   "furniture/bench/pink/se/back": {
    "frame": {
-    "x": 140,
-    "y": 53,
+    "x": 0,
+    "y": 68,
     "w": 90,
     "h": 52
    },
@@ -122,8 +218,8 @@
   },
   "furniture/bench/pink/se/front": {
    "frame": {
-    "x": 231,
-    "y": 53,
+    "x": 280,
+    "y": 106,
     "w": 90,
     "h": 52
    },
@@ -146,8 +242,8 @@
   },
   "furniture/bench/pink/sw/back": {
    "frame": {
-    "x": 322,
-    "y": 53,
+    "x": 371,
+    "y": 106,
     "w": 90,
     "h": 52
    },
@@ -170,8 +266,8 @@
   },
   "furniture/bench/pink/sw/front": {
    "frame": {
-    "x": 413,
-    "y": 53,
+    "x": 91,
+    "y": 107,
     "w": 90,
     "h": 52
    },
@@ -194,8 +290,8 @@
   },
   "furniture/bench/teal/ne/back": {
    "frame": {
-    "x": 0,
-    "y": 54,
+    "x": 182,
+    "y": 107,
     "w": 90,
     "h": 52
    },
@@ -218,8 +314,8 @@
   },
   "furniture/bench/teal/ne/front": {
    "frame": {
-    "x": 91,
-    "y": 106,
+    "x": 0,
+    "y": 121,
     "w": 90,
     "h": 52
    },
@@ -242,8 +338,8 @@
   },
   "furniture/bench/teal/nw/back": {
    "frame": {
-    "x": 182,
-    "y": 106,
+    "x": 273,
+    "y": 159,
     "w": 90,
     "h": 52
    },
@@ -266,8 +362,8 @@
   },
   "furniture/bench/teal/nw/front": {
    "frame": {
-    "x": 273,
-    "y": 106,
+    "x": 364,
+    "y": 159,
     "w": 90,
     "h": 52
    },
@@ -290,8 +386,8 @@
   },
   "furniture/bench/teal/se/back": {
    "frame": {
-    "x": 364,
-    "y": 106,
+    "x": 91,
+    "y": 160,
     "w": 90,
     "h": 52
    },
@@ -314,8 +410,8 @@
   },
   "furniture/bench/teal/se/front": {
    "frame": {
-    "x": 0,
-    "y": 107,
+    "x": 182,
+    "y": 160,
     "w": 90,
     "h": 52
    },
@@ -338,8 +434,8 @@
   },
   "furniture/bench/teal/sw/back": {
    "frame": {
-    "x": 91,
-    "y": 159,
+    "x": 0,
+    "y": 174,
     "w": 90,
     "h": 52
    },
@@ -362,8 +458,8 @@
   },
   "furniture/bench/teal/sw/front": {
    "frame": {
-    "x": 182,
-    "y": 159,
+    "x": 273,
+    "y": 212,
     "w": 90,
     "h": 52
    },
@@ -386,8 +482,8 @@
   },
   "furniture/cat/charcoal/se/back": {
    "frame": {
-    "x": 287,
-    "y": 238,
+    "x": 59,
+    "y": 294,
     "w": 42,
     "h": 29
    },
@@ -410,8 +506,8 @@
   },
   "furniture/cat/charcoal/sw/back": {
    "frame": {
-    "x": 330,
-    "y": 238,
+    "x": 235,
+    "y": 301,
     "w": 42,
     "h": 29
    },
@@ -434,8 +530,8 @@
   },
   "furniture/cat/ginger/se/back": {
    "frame": {
-    "x": 373,
-    "y": 238,
+    "x": 278,
+    "y": 301,
     "w": 42,
     "h": 29
    },
@@ -458,8 +554,8 @@
   },
   "furniture/cat/ginger/sw/back": {
    "frame": {
-    "x": 416,
-    "y": 238,
+    "x": 0,
+    "y": 303,
     "w": 42,
     "h": 29
    },
@@ -480,10 +576,58 @@
     "y": 0.6206896551724138
    }
   },
+  "furniture/coffeetable/wood/se/back": {
+   "frame": {
+    "x": 209,
+    "y": 253,
+    "w": 54,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 37
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6756756756756757
+   }
+  },
+  "furniture/coffeetable/wood/sw/back": {
+   "frame": {
+    "x": 364,
+    "y": 255,
+    "w": 54,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 37
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6756756756756757
+   }
+  },
   "furniture/floorcushion/mustard/ne/back": {
    "frame": {
-    "x": 273,
-    "y": 202,
+    "x": 117,
+    "y": 256,
     "w": 58,
     "h": 35
    },
@@ -506,8 +650,8 @@
   },
   "furniture/floorcushion/mustard/ne/front": {
    "frame": {
-    "x": 332,
-    "y": 202,
+    "x": 264,
+    "y": 265,
     "w": 58,
     "h": 35
    },
@@ -530,8 +674,8 @@
   },
   "furniture/floorcushion/mustard/nw/back": {
    "frame": {
-    "x": 391,
-    "y": 202,
+    "x": 0,
+    "y": 267,
     "w": 58,
     "h": 35
    },
@@ -554,8 +698,8 @@
   },
   "furniture/floorcushion/mustard/nw/front": {
    "frame": {
-    "x": 450,
-    "y": 202,
+    "x": 176,
+    "y": 291,
     "w": 58,
     "h": 35
    },
@@ -578,8 +722,8 @@
   },
   "furniture/floorcushion/mustard/se/back": {
    "frame": {
-    "x": 273,
-    "y": 159,
+    "x": 364,
+    "y": 212,
     "w": 58,
     "h": 42
    },
@@ -602,8 +746,8 @@
   },
   "furniture/floorcushion/mustard/sw/back": {
    "frame": {
-    "x": 332,
-    "y": 159,
+    "x": 423,
+    "y": 212,
     "w": 58,
     "h": 42
    },
@@ -626,8 +770,8 @@
   },
   "furniture/floorcushion/teal/ne/back": {
    "frame": {
-    "x": 51,
-    "y": 212,
+    "x": 117,
+    "y": 292,
     "w": 58,
     "h": 35
    },
@@ -650,8 +794,8 @@
   },
   "furniture/floorcushion/teal/ne/front": {
    "frame": {
-    "x": 110,
-    "y": 212,
+    "x": 323,
+    "y": 293,
     "w": 58,
     "h": 35
    },
@@ -674,8 +818,8 @@
   },
   "furniture/floorcushion/teal/nw/back": {
    "frame": {
-    "x": 169,
-    "y": 212,
+    "x": 382,
+    "y": 293,
     "w": 58,
     "h": 35
    },
@@ -698,8 +842,8 @@
   },
   "furniture/floorcushion/teal/nw/front": {
    "frame": {
-    "x": 228,
-    "y": 238,
+    "x": 441,
+    "y": 293,
     "w": 58,
     "h": 35
    },
@@ -722,8 +866,8 @@
   },
   "furniture/floorcushion/teal/se/back": {
    "frame": {
-    "x": 391,
-    "y": 159,
+    "x": 91,
+    "y": 213,
     "w": 58,
     "h": 42
    },
@@ -746,8 +890,8 @@
   },
   "furniture/floorcushion/teal/sw/back": {
    "frame": {
-    "x": 450,
-    "y": 159,
+    "x": 150,
+    "y": 213,
     "w": 58,
     "h": 42
    },
@@ -770,8 +914,8 @@
   },
   "furniture/garland/party/se/back": {
    "frame": {
-    "x": 44,
-    "y": 248,
+    "x": 78,
+    "y": 356,
     "w": 37,
     "h": 26
    },
@@ -794,8 +938,8 @@
   },
   "furniture/garland/party/sw/back": {
    "frame": {
-    "x": 82,
-    "y": 248,
+    "x": 116,
+    "y": 356,
     "w": 37,
     "h": 26
    },
@@ -818,8 +962,8 @@
   },
   "furniture/garland/warm/se/back": {
    "frame": {
-    "x": 120,
-    "y": 248,
+    "x": 154,
+    "y": 356,
     "w": 37,
     "h": 26
    },
@@ -842,8 +986,8 @@
   },
   "furniture/garland/warm/sw/back": {
    "frame": {
-    "x": 158,
-    "y": 248,
+    "x": 300,
+    "y": 357,
     "w": 37,
     "h": 26
    },
@@ -864,9 +1008,297 @@
     "y": 4.961538461538462
    }
   },
-  "furniture/speaker/teal/se/back": {
+  "furniture/neonsign/pink/se/back": {
+   "frame": {
+    "x": 51,
+    "y": 227,
+    "w": 32,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 37
+   },
+   "anchor": {
+    "x": 0.96875,
+    "y": 3.189189189189189
+   }
+  },
+  "furniture/neonsign/pink/sw/back": {
+   "frame": {
+    "x": 419,
+    "y": 255,
+    "w": 32,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 37
+   },
+   "anchor": {
+    "x": 0.03125,
+    "y": 3.189189189189189
+   }
+  },
+  "furniture/neonsign/teal/se/back": {
+   "frame": {
+    "x": 452,
+    "y": 255,
+    "w": 32,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 37
+   },
+   "anchor": {
+    "x": 0.96875,
+    "y": 3.189189189189189
+   }
+  },
+  "furniture/neonsign/teal/sw/back": {
+   "frame": {
+    "x": 84,
+    "y": 256,
+    "w": 32,
+    "h": 37
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 37
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 37
+   },
+   "anchor": {
+    "x": 0.03125,
+    "y": 3.189189189189189
+   }
+  },
+  "furniture/pouf/lilac/ne/back": {
+   "frame": {
+    "x": 133,
+    "y": 328,
+    "w": 38,
+    "h": 27
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 27
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 27
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6296296296296297
+   }
+  },
+  "furniture/pouf/lilac/nw/back": {
+   "frame": {
+    "x": 365,
+    "y": 329,
+    "w": 38,
+    "h": 27
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 27
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 27
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6296296296296297
+   }
+  },
+  "furniture/pouf/lilac/se/back": {
+   "frame": {
+    "x": 404,
+    "y": 329,
+    "w": 38,
+    "h": 27
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 27
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 27
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6296296296296297
+   }
+  },
+  "furniture/pouf/lilac/sw/back": {
+   "frame": {
+    "x": 443,
+    "y": 329,
+    "w": 38,
+    "h": 27
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 27
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 27
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6296296296296297
+   }
+  },
+  "furniture/pouf/rust/ne/back": {
+   "frame": {
+    "x": 222,
+    "y": 331,
+    "w": 38,
+    "h": 27
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 27
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 27
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6296296296296297
+   }
+  },
+  "furniture/pouf/rust/nw/back": {
+   "frame": {
+    "x": 261,
+    "y": 331,
+    "w": 38,
+    "h": 27
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 27
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 27
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6296296296296297
+   }
+  },
+  "furniture/pouf/rust/se/back": {
    "frame": {
     "x": 0,
+    "y": 333,
+    "w": 38,
+    "h": 27
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 27
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 27
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6296296296296297
+   }
+  },
+  "furniture/pouf/rust/sw/back": {
+   "frame": {
+    "x": 39,
+    "y": 353,
+    "w": 38,
+    "h": 27
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 38,
+    "h": 27
+   },
+   "sourceSize": {
+    "w": 38,
+    "h": 27
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6296296296296297
+   }
+  },
+  "furniture/speaker/teal/se/back": {
+   "frame": {
+    "x": 196,
     "y": 0,
     "w": 34,
     "h": 53
@@ -890,7 +1322,7 @@
   },
   "furniture/speaker/teal/sw/back": {
    "frame": {
-    "x": 35,
+    "x": 231,
     "y": 0,
     "w": 34,
     "h": 53
@@ -914,7 +1346,7 @@
   },
   "furniture/speaker/wood/se/back": {
    "frame": {
-    "x": 70,
+    "x": 266,
     "y": 0,
     "w": 34,
     "h": 53
@@ -938,7 +1370,7 @@
   },
   "furniture/speaker/wood/sw/back": {
    "frame": {
-    "x": 105,
+    "x": 301,
     "y": 0,
     "w": 34,
     "h": 53
@@ -962,8 +1394,8 @@
   },
   "furniture/turntable/wood/se/back": {
    "frame": {
-    "x": 0,
-    "y": 160,
+    "x": 209,
+    "y": 213,
     "w": 50,
     "h": 39
    },
@@ -987,7 +1419,7 @@
   "furniture/turntable/wood/sw/back": {
    "frame": {
     "x": 0,
-    "y": 200,
+    "y": 227,
     "w": 50,
     "h": 39
    },
@@ -1008,10 +1440,58 @@
     "y": 0.717948717948718
    }
   },
+  "furniture/wallclock/brass/se/back": {
+   "frame": {
+    "x": 43,
+    "y": 324,
+    "w": 45,
+    "h": 28
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 45,
+    "h": 28
+   },
+   "sourceSize": {
+    "w": 45,
+    "h": 28
+   },
+   "anchor": {
+    "x": 0.8444444444444444,
+    "y": 4.142857142857143
+   }
+  },
+  "furniture/wallclock/brass/sw/back": {
+   "frame": {
+    "x": 176,
+    "y": 327,
+    "w": 45,
+    "h": 28
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 45,
+    "h": 28
+   },
+   "sourceSize": {
+    "w": 45,
+    "h": 28
+   },
+   "anchor": {
+    "x": 0.15555555555555556,
+    "y": 4.142857142857143
+   }
+  },
   "furniture/wallshelf/wood/se/back": {
    "frame": {
-    "x": 459,
-    "y": 238,
+    "x": 89,
+    "y": 328,
     "w": 43,
     "h": 27
    },
@@ -1034,8 +1514,8 @@
   },
   "furniture/wallshelf/wood/sw/back": {
    "frame": {
-    "x": 0,
-    "y": 240,
+    "x": 321,
+    "y": 329,
     "w": 43,
     "h": 27
    },
@@ -1512,6 +1992,344 @@
      "colours": [
       "warm",
       "party"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 0,
+      "rows": 0
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 0,
+       "rows": 0
+      },
+      "sw": {
+       "cols": 0,
+       "rows": 0
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "coffeetable",
+     "label": "Coffee table",
+     "kind": "table",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "wood"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "pouf",
+     "label": "Knitted pouf",
+     "kind": "seat",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "rust",
+      "lilac"
+     ],
+     "dirs": [
+      "ne",
+      "nw",
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "ne": {
+       "cols": 1,
+       "rows": 1
+      },
+      "nw": {
+       "cols": 1,
+       "rows": 1
+      },
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "ne": {
+       "x": 0,
+       "y": 0
+      },
+      "nw": {
+       "x": 0,
+       "y": 0
+      },
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "ne": [
+       "back"
+      ],
+      "nw": [
+       "back"
+      ],
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "seatsByDir": {
+      "ne": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "ne"
+       }
+      ],
+      "nw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "nw"
+       }
+      ],
+      "se": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "se"
+       }
+      ],
+      "sw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "sw"
+       }
+      ]
+     }
+    },
+    {
+     "id": "neonsign",
+     "label": "Neon sign",
+     "kind": "light",
+     "mount": "wall",
+     "layer": "wall",
+     "colours": [
+      "pink",
+      "teal"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 0,
+      "rows": 0
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 0,
+       "rows": 0
+      },
+      "sw": {
+       "cols": 0,
+       "rows": 0
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "aquarium",
+     "label": "Aquarium",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "teal"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "arcade",
+     "label": "Arcade cabinet",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "night"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "wallclock",
+     "label": "Sunburst clock",
+     "kind": "wall",
+     "mount": "wall",
+     "layer": "wall",
+     "colours": [
+      "brass"
      ],
      "dirs": [
       "se",

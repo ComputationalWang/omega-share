@@ -57,9 +57,15 @@ pub enum Kind {
     Cat,
     Wallshelf,
     Garland,
+    Coffeetable,
+    Pouf,
+    Neonsign,
+    Aquarium,
+    Arcade,
+    Wallclock,
 }
 
-pub const KINDS: [Kind; 23] = [
+pub const KINDS: [Kind; 29] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -83,6 +89,12 @@ pub const KINDS: [Kind; 23] = [
     Kind::Cat,
     Kind::Wallshelf,
     Kind::Garland,
+    Kind::Coffeetable,
+    Kind::Pouf,
+    Kind::Neonsign,
+    Kind::Aquarium,
+    Kind::Arcade,
+    Kind::Wallclock,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -147,14 +159,16 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Rug => Spec::new(Floor, FIXED, 7, 7),
         Kind::Sofa | Kind::Couch => Spec::new(Object, ALL, 2, 1).seated().variants(2),
         Kind::Wingback => Spec::new(Object, ALL, 1, 1).seated(),
-        Kind::Beanbag | Kind::Floorcushion => Spec::new(Object, ALL, 1, 1).seated().variants(2),
-        Kind::Sidetable | Kind::Arclamp | Kind::Popcorn | Kind::Turntable => Spec::new(Object, CAMERA, 1, 1),
+        Kind::Beanbag | Kind::Floorcushion | Kind::Pouf => Spec::new(Object, ALL, 1, 1).seated().variants(2),
+        Kind::Sidetable | Kind::Arclamp | Kind::Popcorn | Kind::Turntable | Kind::Coffeetable | Kind::Aquarium | Kind::Arcade => {
+            Spec::new(Object, CAMERA, 1, 1)
+        }
         Kind::Monstera | Kind::Speaker | Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2),
         Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).backed(),
         Kind::Runner => Spec::new(Floor, ON_FLOOR, 3, 2).variants(2),
-        Kind::Frame | Kind::Garland => Spec::new(Wall, CAMERA, 0, 0).variants(2),
+        Kind::Frame | Kind::Garland | Kind::Neonsign => Spec::new(Wall, CAMERA, 0, 0).variants(2),
         Kind::Bench => Spec::new(Object, ALL, 2, 1).seated().variants(2),
-        Kind::Wallshelf => Spec::new(Wall, CAMERA, 0, 0),
+        Kind::Wallshelf | Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
     }
 }
 
@@ -744,6 +758,12 @@ mod tests {
             pv("cat", 9, 5, "sw", 1),
             p("wallshelf", 7, 0, "sw"),
             pv("garland", 0, 2, "se", 1),
+            p("coffeetable", 4, 4, "se"),
+            pv("pouf", 5, 5, "nw", 1),
+            pv("neonsign", 3, 0, "sw", 1),
+            p("aquarium", 6, 6, "sw"),
+            p("arcade", 2, 7, "se"),
+            p("wallclock", 0, 3, "se"),
         ];
         for c in cases {
             assert!(piece_accepts(&c), "{c}");
@@ -810,6 +830,13 @@ mod tests {
             ("a garland off the wall", p("garland", 1, 3, "se")),
             ("a garland on a sconce segment", p("garland", 8, 0, "sw")),
             ("a garland facing the TV", p("garland", 2, 0, "ne")),
+            ("a coffee table facing the TV", p("coffeetable", 4, 4, "ne")),
+            ("a third pouf colour", pv("pouf", 5, 5, "se", 2)),
+            ("a neon sign off the wall", p("neonsign", 1, 3, "se")),
+            ("a neon sign on a sconce segment", p("neonsign", 8, 0, "sw")),
+            ("a second aquarium colour", pv("aquarium", 6, 6, "sw", 1)),
+            ("an arcade cabinet facing the TV", p("arcade", 2, 7, "nw")),
+            ("a wall clock on a window segment", p("wallclock", 0, 6, "se")),
         ];
         for (name, input) in cases {
             assert!(!piece_accepts(&input), "{name}");

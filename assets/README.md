@@ -9,6 +9,7 @@ assets/
   avatars/motion.png    # set d (M5, lazy-load): 1024×512 indexed PNG-8, walk / breathe / wave / emote icons; set l: walk8 in-betweens
   avatars/expressions.png  # set p (OME-1104, lazy-load): 1024×256 indexed PNG-8, cheer + yawn/doze, 2 frames × pose × dir × avatar
   avatars/expressions.json # set p: PixiJS v8 atlas, motion.json's schema (frames, animations, meta.omega.anims, gestures)
+  avatars/tints.json    # OME-1347: 6 shirt tints per avatar, a runtime PLTE swap table (no extra sheets)
   avatars/motion.json   # set d: PixiJS v8 atlas + meta.omega.anims (frames, per-frame ms, loop)
   room/room.png         # shipped: 512×512 indexed PNG-8 (set b: floor, rug, walls, seats, corner console + projector, props)
   room/room.json        # shipped: PixiJS v8 spritesheet atlas + meta.omega room contract
@@ -24,7 +25,7 @@ assets/
   ui/edit.json          # set h: PixiJS v8 atlas for ui/edit.png
   furniture/furniture.png  # set g (M4/M5, lazy-load): 1024×512 indexed PNG-8, furniture catalogue v1
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
-  furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×512 indexed PNG-8, 7 more pieces
+  furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×512 indexed PNG-8, 7 more pieces + catalogue v3's 6 (OME-1348)
   furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
@@ -74,6 +75,35 @@ s.position.set(seatTileCenter.x, seatTileCenter.y);
 - **`meta.omega`:** `tile {64×32}`, `cell`, `floorPoint`, `seatHeight`, `poses`, `dirs`, `blink`, and
   `avatars[] {id, label, blurb, colors {main, dark}}` (use `colors.main` for nickname tags and the picker).
 - Status: accepted, see `docs/adr/0004-sprite-atlas-format.md`. `meta.format` is informational (PixiJS v8 ignores it); the PNG is indexed PNG-8.
+
+## Shirt tints (`avatars/tints.json`, OME-1347)
+
+Each avatar has 6 shirt/accent tints; tint 0 is the shipped look. A tint swaps the avatar's swatch ramp (Juno's hoodie,
+Pip's jumper + beanie band + pom-pom, Mo's bomber, Kiki's pinafore) for another ramp of the shared palette. Skin, hair,
+trousers, shoes and props never change. No new colours, no new frames, no new sheet bytes.
+
+| avatar | 0 (shipped) | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| `juno` | mustard | teal | rust | lilac | pink | olive |
+| `pip` | teal | mustard | lilac | pink | olive | velvet |
+| `mo` | rust | teal | mustard | lilac | pink | velvet |
+| `kiki` | lilac | teal | navy | rust | olive | ginger |
+
+- **Runtime palette swap, not a bake.** Baking 5 more copies of `avatars.png` + `motion.png` + `expressions.png` would add
+  about 170 KB (5 × 34 KB) against the 300 KB art budget. The swap costs 0 bytes: the three sheets share one PLTE, and the
+  avatar's swatch ramp sits at 3 fixed PLTE entries (`slots`, highlight/base/shade).
+- **How (client):** for an (avatar, tint ≠ 0) in the room, copy the sheet's PNG bytes, overwrite PLTE entry `slots[t]`
+  with `tints[n].colors[t]` (3 bytes each at PLTE data offset `3 × slot`), recompute that chunk's CRC-32, decode, and
+  use the texture **only for that avatar's frames** (the same ramp may mean a different part on another avatar, e.g.
+  mustard is Kiki's popcorn). CPU: a 3-entry byte patch + one image decode per (avatar, tint) pair, done once, nothing per frame.
+  Memory: each pair is one more texture; crop to the avatar's rows if that matters (each avatar owns its own row band:
+  1 row of 64 px in `avatars.png` and `expressions.png`, 2 rows in `motion.png`; the `emote/*` icons share Juno's second motion row, so always draw them from the untinted sheet).
+- `tints.json`: `{ sheets, avatars: { <id>: { slots: [hi, base, shade], tints: [{ id, colors: [hi, base, shade] }] × 6 } } }`.
+- **Checks** (`src/tints.test.ts`): the swatch ramp sits only on shirt roles; no tint reuses a ramp the avatar already wears;
+  tints are ΔE ≥ 20 apart (lowest: Kiki rust/ginger 22) and ≥ 20 from skin and hair; each tint is ΔE ≥ 25 from the dark
+  site bg (`#1d1a2b`) and the light floor; `slots` hold the tint-0 colours in all three shipped sheets.
+- Contact sheet: `preview/tints-sheet@1x.png` / `@2x.png` (rows = avatars, columns = tints, each cell idle SE + walk SW;
+  light floor panel on top, dark site bg below).
 
 ## Room atlas (`room/room.json`, same format)
 
@@ -839,6 +869,22 @@ to `FURNITURE` in `packages/shared`, nothing reads this sheet. Previews: `previe
 `preview/furniture-v2-seats@2x.png`, the **seat contact sheet**: one row per v2 seat piece × colour × avatar (an empty row leads each piece),
 one column per facing `ne nw se sw`. A 2-seat piece holds the same avatar on both seats, so every avatar is shown on every v2 seat in every facing.
 
+**Catalogue v3 (OME-1348) is packed into the same v2 sheet** (still 512×512), same schema and key rule. Six pieces built from the existing parts
+and ramps (the console's square legs, the side table's mug, the cushions' piping, the arc lamp's brass knuckles, the frame's wall depth):
+
+| id | label | layer / mount | facings | colours | footprint |
+|---|---|---|---|---|---|
+| `coffeetable` | Coffee table | object, floor | `se sw` | `wood` | 1×1 |
+| `pouf` | Knitted pouf (seat, no front layer) | object, floor | `ne nw se sw` | `rust`, `lilac` | 1×1, 1 seat |
+| `neonsign` | Neon sign | wall | `se sw` | `pink`, `teal` (tube colour) | wall |
+| `aquarium` | Aquarium | object, floor | `se sw` | `teal` | 1×1 |
+| `arcade` | Arcade cabinet | object, floor | `se sw` | `night` | 1×1 |
+| `wallclock` | Sunburst clock | wall | `se sw` | `brass` | wall |
+
+The brief's `stringlights` already ships as v2's `garland`, so the sixth piece is the clock. Like v2, nothing reads these until the Lead adds
+the ids to `FURNITURE` in `packages/shared`. Preview: `preview/furniture-v3-room@1x.png` / `@2x` (every v3 piece, both facings, poufs taken and free);
+the pouf joins `preview/furniture-v2-seats@2x.png`.
+
 **Frame key:** `furniture/<id>/<colour>/<dir>/<back|front>`. Every key starts with `furniture/`, so nothing collides with the
 room's `armchair`, `plant` or `lamp` in Pixi's texture cache.
 
@@ -975,8 +1021,8 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `ui/reference.css` (if ported as-is) | 102 130 raw / 20 369 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| `furniture/furniture-v2.png` (catalogue v2, lazy) | 10 261 |
-| `furniture/furniture-v2.json` (catalogue v2, lazy) | 22 867 raw / 1 657 gz |
+| `furniture/furniture-v2.png` (catalogue v2 + v3, lazy) | 15 636 |
+| `furniture/furniture-v2.json` (catalogue v2 + v3, lazy) | 34 789 raw / 2 268 gz |
 | `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
 | `themes/halloween/halloween.json` (OME-1185, lazy) | 152 659 raw / 3 740 gz |
 | `themes/sinterklaas/sinterklaas.png` + `.json` (OME-1187, lazy) | 2 799 + 3 597 gz |
@@ -998,6 +1044,9 @@ Catalogue v2 (OME-1103) adds **14 412 B (≈ 14.1 KB)** against `main` as the bu
 (`furniture-v2.png` 10 261 + `furniture-v2.json` 1 657 gz, `edit.png` +1 867 for 12 thumbnails and 5 swatches, `edit.json` +319 gz), eager +308
 (`reference.css` gz: the new `.ui-thumb-*` / `.ui-swatch-*` rules). The v1 sheet is byte-identical. A separate sheet costs about 1.3 KB more than
 packing v2 into `furniture.png` (measured: 13 152 B that way), but it keeps v1-only rooms 10 KB lighter. `edit.png` stays 256×1024 (frames still end at y 708).
+
+Catalogue v3 (OME-1348) adds **7 493 B (≈ 7.3 KB)** against `main` (218 779 → 226 272 of 307 200): lazy +7 293 (`furniture-v2.png` +5 375,
+`furniture-v2.json` +611 gz, `edit.png` +1 127 for 8 thumbnails, `edit.json` +180 gz), eager +200 (`reference.css` gz, the new `.ui-thumb-*` rules).
 
 Set (p) (OME-1104) adds **13 652 B (≈ 13.3 KB)** against `main` as `bun assets/src/build.ts` measures it (159 946 → 173 598 of 307 200; 174 358 → 188 010 on top of catalogue v2), all lazy:
 `expressions.png` 10 863 + `expressions.json` 2 789 gz. No existing file changes (the avatar and motion sheets are byte-identical).
