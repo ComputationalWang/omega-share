@@ -21,11 +21,23 @@ const room: RoomState = { id: "r1", seats: [null, null, null, null, null, null, 
 async function setup(owner = true) {
   const { mountModeration } = await import("../src/owner/moderation");
   let state: ViewState = reduce(initialState, { type: "server", msg: { type: "snapshot", self: "me", room, owner }, now: 0 });
+  // As room.ts builds it: the scaled `.ui-room` stage inside its clip (overflow: hidden), inside the wrap that also holds
+  // the TV. The menu is page chrome in the wrap, which doesn't clip it (OME-1254).
+  const wrap = document.createElement("div");
+  const clip = document.createElement("div");
   const stage = document.createElement("div");
+  stage.className = "stage ui-room";
   const tags = document.createElement("div");
   const bar = document.createElement("div");
   stage.append(tags);
-  document.body.replaceChildren(stage, bar);
+  clip.append(stage);
+  wrap.append(clip);
+  document.body.replaceChildren(wrap, bar);
+  let stageRect = { left: 0, top: 0, width: 960, height: 600 };
+  let wrapRect = { left: 0, top: 0, width: 960, height: 600 };
+  stage.getBoundingClientRect = () => DOMRect.fromRect({ x: stageRect.left, y: stageRect.top, width: stageRect.width, height: stageRect.height });
+  wrap.getBoundingClientRect = () => DOMRect.fromRect({ x: wrapRect.left, y: wrapRect.top, width: wrapRect.width, height: wrapRect.height });
+  Object.defineProperty(wrap, "clientWidth", { get: () => wrapRect.width });
   // Name tags as room.ts draws them: one span per member with data-member, the nickname as text.
   for (const m of room.members) {
     const t = document.createElement("span");
@@ -42,6 +54,7 @@ async function setup(owner = true) {
   let anchorAt = { x: 400, y: 310 };
   const mod = mountModeration({
     stage,
+    layer: wrap,
     tags,
     bar,
     view: () => state,
@@ -57,9 +70,9 @@ async function setup(owner = true) {
     if (t === null) throw new Error(`no tag ${id}`);
     return t;
   };
-  const menu = (): HTMLElement | null => stage.querySelector<HTMLElement>("[data-testid=mod-menu]");
+  const menu = (): HTMLElement | null => document.querySelector<HTMLElement>("[data-testid=mod-menu]");
   const row = (testId: string): HTMLElement => {
-    const b = stage.querySelector<HTMLElement>(`[data-testid=${testId}]`);
+    const b = document.querySelector<HTMLElement>(`[data-testid=${testId}]`);
     if (b === null) throw new Error(`no ${testId}`);
     return b;
   };
@@ -71,7 +84,11 @@ async function setup(owner = true) {
   const setAnchor = (p: { x: number; y: number }): void => {
     anchorAt = p;
   };
-  return { mod, sent, tag, tags, bar, menu, row, server, stage, setAnchor };
+  const setRects = (st: typeof stageRect, cl: typeof wrapRect): void => {
+    stageRect = st;
+    wrapRect = cl;
+  };
+  return { mod, sent, tag, tags, bar, menu, row, server, stage, clip, wrap, setAnchor, setRects };
 }
 
 describe("member menu", () => {
@@ -84,7 +101,7 @@ describe("member menu", () => {
   });
 
   test("clicking a tag opens that member's menu: their name as text, Mute chat and Remove from room", async () => {
-    const { tag, menu, stage } = await setup();
+    const { tag, menu } = await setup();
     tag("mo").click();
     const m = menu();
     expect(m).not.toBeNull();
@@ -95,8 +112,8 @@ describe("member menu", () => {
     expect(m?.querySelector(".name")?.textContent).toBe("<b>Mo</b>");
     expect(m?.querySelector("b")).toBeNull();
     expect(m?.querySelector(".ui-portrait-mo")).not.toBeNull();
-    expect([...stage.querySelectorAll(".ui-modrow")].map((e) => e.textContent)).toEqual(["Mute chat", "Remove from room"]);
-    expect(stage.querySelector("[data-testid=mod-remove] button")?.textContent).toBe("Remove from room");
+    expect([...document.querySelectorAll(".ui-modrow")].map((e) => e.textContent)).toEqual(["Mute chat", "Remove from room"]);
+    expect(document.querySelector("[data-testid=mod-remove] button")?.textContent).toBe("Remove from room");
   });
 
   test("clicking my own tag opens nothing", async () => {
@@ -122,16 +139,16 @@ describe("member menu", () => {
   });
 
   test("Remove asks first (\"Remove Kit for 10 min?\"); Keep backs out, Remove sends kick", async () => {
-    const { tag, menu, row, sent, stage } = await setup();
+    const { tag, menu, row, sent } = await setup();
     tag("kit").click();
-    stage.querySelector<HTMLButtonElement>("[data-testid=mod-remove] button")?.click();
+    document.querySelector<HTMLButtonElement>("[data-testid=mod-remove] button")?.click();
     expect(sent).toEqual([]);
     expect(row("mod-remove").classList.contains("is-ask")).toBe(true);
     expect(row("mod-remove").textContent).toContain("Remove Kit for 10 min?");
     row("mod-keep").click();
     expect(sent).toEqual([]);
     expect(row("mod-remove").classList.contains("is-ask")).toBe(false);
-    stage.querySelector<HTMLButtonElement>("[data-testid=mod-remove] button")?.click();
+    document.querySelector<HTMLButtonElement>("[data-testid=mod-remove] button")?.click();
     row("mod-confirm").click();
     expect(sent).toEqual([{ type: "kick", memberId: "kit" }]);
     expect(menu()).toBeNull();
@@ -176,7 +193,52 @@ describe("member menu", () => {
     setAnchor({ x: 500, y: 250 });
     mod.update();
     expect(menu()?.style.transform).not.toBe(before);
-    expect(menu()?.style.transform).toBe("translate(500px, 244px)");
+    expect(menu()?.style.transform).toBe("translate(500px, 247px)");
+  });
+
+  // OME-1254 (K7): the menu is page chrome, at the kit's 2 px art pixel and 12 px words, not the stage's 1× scale.
+  test("the menu mounts outside the .ui-room stage and its clip, in the wrap: a short clip can't cut its head off", async () => {
+    const { tag, menu, clip, wrap } = await setup();
+    tag("kit").click();
+    expect(menu()?.parentElement).toBe(wrap);
+    expect(menu()?.closest(".ui-room")).toBeNull();
+    expect(clip.contains(menu())).toBe(false);
+  });
+
+  test("it sits in page px: stage px × the stage's scale + the stage's offset in the wrap; the tail lands on the tag", async () => {
+    const { tag, menu, setAnchor, setRects } = await setup();
+    // A half-scale stage 20 px right and 15 px down in the wrap.
+    setRects({ left: 30, top: 20, width: 480, height: 300 }, { left: 10, top: 5, width: 800, height: 400 });
+    setAnchor({ x: 400, y: 310 });
+    tag("kit").click();
+    // x = 20 + 400 × 0.5; y = 15 + 310 × 0.5, less 3 page px (the tail's tip hangs 6 below the tray: 3 onto the tag).
+    expect(menu()?.style.transform).toBe("translate(220px, 167px)");
+    expect(menu()?.style.getPropertyValue("--ui-tail-x")).toBe("calc(50% + 0px)");
+  });
+
+  test("it follows its member while they walk, with no render: the stage moves their tag, the menu moves with it", async () => {
+    const { tag, menu, setAnchor } = await setup();
+    tag("kit").click();
+    setAnchor({ x: 300, y: 200 });
+    // stage.ts `place`, on every frame of a walk.
+    tag("kit").style.translate = "300px 210px";
+    await Promise.resolve();
+    expect(menu()?.style.transform).toBe("translate(300px, 197px)");
+  });
+
+  test("it stays inside the wrap by its own width; the tail keeps pointing at the member", async () => {
+    const { tag, menu, setAnchor, setRects } = await setup();
+    setRects({ left: 0, top: 0, width: 960, height: 600 }, { left: 0, top: 0, width: 960, height: 600 });
+    setAnchor({ x: 20, y: 300 });
+    const w = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get(this: HTMLElement) { return this.dataset["testid"] === "mod-menu" ? 240 : 0; } });
+    try {
+      tag("kit").click();
+    } finally {
+      if (w !== undefined) Object.defineProperty(HTMLElement.prototype, "offsetWidth", w);
+    }
+    expect(menu()?.style.transform).toBe("translate(120px, 297px)");
+    expect(menu()?.style.getPropertyValue("--ui-tail-x")).toBe("calc(50% + -100px)");
   });
 
   test("Enter on a focused tag opens its menu (keyboard)", async () => {

@@ -81,6 +81,42 @@ test("only the owner loads the moderation tools: a guest's tag opens Mute / Remo
   await kitTag.click();
   await expect(owner.locator(site.modMenu)).toBeVisible();
   await expect(owner.locator(site.modMenu)).toContainText("kit");
+  // OME-1254 (K7): page chrome at 1280×720, not the stage's 1× scale: 12 px words, the tail on kit's tag.
+  expect(await owner.locator(site.modMenu).evaluate((m) => m.closest(".ui-room") === null)).toBe(true);
+  for (const words of [owner.locator(`${site.modMenu} .name`), owner.locator(site.modMute)]) {
+    expect(Number.parseFloat(await words.evaluate((e) => getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(12);
+  }
+  // The tail's tip and centre against kit's tag, both read in one frame (kit may still be walking in, the menu with them).
+  await expect.poll(() => owner.evaluate(([menuSel, tagSel]) => {
+    const m = document.querySelector(menuSel ?? "");
+    const tag = [...document.querySelectorAll<HTMLElement>(tagSel ?? "")].find((t) => t.textContent.includes("kit"));
+    if (m === null || tag === undefined) return "not laid out";
+    const box = m.getBoundingClientRect();
+    const t = tag.getBoundingClientRect();
+    const tail = getComputedStyle(m, "::after");
+    // The tail is placed in the tray's padding box, centred on its `left` (translate: -50% 0).
+    const own = getComputedStyle(m);
+    const x = box.left + Number.parseFloat(own.borderLeftWidth) + Number.parseFloat(tail.left);
+    const tip = box.top + Number.parseFloat(own.borderTopWidth) + Number.parseFloat(tail.top) + Number.parseFloat(tail.height);
+    return x >= t.left && x <= t.right && tip >= t.top - 1 && tip <= t.bottom ? "on the tag" : `tail ${String(x)},${String(tip)} vs tag ${String(t.left)}–${String(t.right)},${String(t.top)}–${String(t.bottom)}`;
+  }, [site.modMenu, site.nicknameTag])).toBe("on the tag");
+  // The whole tray shows (QA OME-1275): at 1280×720 the stage's clip is shorter than the tray, so nothing may clip it or
+  // stack over it. Its corners and the name hit-test to the menu, and it's inside the viewport.
+  expect(await owner.locator(site.modMenu).evaluate((m) => {
+    const r = m.getBoundingClientRect();
+    const n = m.querySelector(".name")?.getBoundingClientRect();
+    if (n === undefined) return "no name";
+    const points = [[r.left + 2, r.top + 2], [r.right - 2, r.top + 2], [r.left + 2, r.bottom - 2], [r.right - 2, r.bottom - 2], [n.left + n.width / 2, n.top + n.height / 2]];
+    const hidden = points.filter(([x = 0, y = 0]) => !m.contains(document.elementFromPoint(x, y)));
+    const inView = r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight;
+    return hidden.length === 0 && inView ? "visible" : `hidden at ${JSON.stringify(hidden)}, menu ${JSON.stringify(r)}`;
+  })).toBe("visible");
+  await owner.keyboard.press("Escape");
+  // From the keyboard: the first row's focus ring is 2 CSS px.
+  await kitTag.focus();
+  await owner.keyboard.press("Enter");
+  await expect(owner.locator(site.modMute)).toBeFocused();
+  expect(Number.parseFloat(await owner.locator(site.modMute).evaluate((e) => getComputedStyle(e).outlineWidth))).toBeGreaterThanOrEqual(2);
   await owner.locator(site.modMute).click();
   await expect(owner.locator(site.modMenu)).toHaveCount(0);
   await expect.poll(() => sent(ownerFrames, "mute")).toHaveLength(1);

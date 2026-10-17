@@ -29,6 +29,7 @@ async function setup(o: { owns?: boolean; phone?: boolean } = {}) {
     roomId: ROOM.id,
     serverUrl: "http://srv.test",
     stage: document.createElement("div"),
+    layer: document.createElement("div"),
     tags: document.createElement("div"),
     view: { editLayer: new Container(), redraw: () => undefined },
     anchor: () => undefined,
