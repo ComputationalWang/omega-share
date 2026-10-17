@@ -16,5 +16,6 @@ export function drawCursor(g: Graphics, s: Slot, scale: number): void {
       ? [top.x, top.y, p.x + TILE_W / 2, p.y, p.x, p.y + TILE_H / 2, p.x - TILE_W / 2, p.y]
       : [top.x, top.y, side.x, side.y, side.x, side.y - WALL_CURSOR_H, top.x, top.y - WALL_CURSOR_H];
   const w = cursorStrokes(scale);
-  g.clear().poly(points).stroke({ width: w.dark, color: 0x101018 }).poly(points).stroke({ width: w.light, color: 0xffffff });
+  // Closed: without it Pixi strokes an open path and the fourth side is missing.
+  g.clear().poly(points, true).stroke({ width: w.dark, color: 0x101018 }).poly(points, true).stroke({ width: w.light, color: 0xffffff });
 }
