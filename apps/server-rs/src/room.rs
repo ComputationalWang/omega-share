@@ -1756,4 +1756,100 @@ mod debug_tests {
             assert!(!text.contains(leak), "{leak} in {text}");
         }
     }
+
+    // ---- free walking and tint (OME-1346, ADR 0053)
+
+    fn cell(x: u64, y: u64) -> FloorCell {
+        FloorCell::new(x, y).unwrap()
+    }
+    /// The default layout plus `extra` pieces (JSON objects).
+    fn layout_plus(extra: &[serde_json::Value]) -> RoomLayout {
+        let mut v: serde_json::Value = serde_json::from_str(&default_layout().to_json()).unwrap();
+        v["furniture"].as_array_mut().unwrap().extend(extra.iter().cloned());
+        RoomLayout::parse(v.to_string().as_bytes()).unwrap()
+    }
+    fn table(col: u8, row: u8) -> serde_json::Value {
+        serde_json::json!({"kind":"sidetable","col":col,"row":row,"facing":"se"})
+    }
+
+    #[test]
+    fn walking_to_free_floor_or_a_rug_sets_the_cell() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert_eq!(r.walk(&a, cell(3, 3)), WalkResult::Walked { stood_up: false });
+        assert_eq!(r.member(&a).unwrap().cell, Some(cell(3, 3)));
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"cell":{"x":3,"y":3}}"#
+        );
+        assert_eq!(r.walk(&a, cell(9, 9)), WalkResult::Walked { stood_up: false });
+        assert_eq!(r.member(&a).unwrap().cell, Some(cell(9, 9)));
+    }
+
+    #[test]
+    fn solid_pieces_and_seats_refuse_a_walk() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        r.walk(&a, cell(3, 3));
+        // the tv, an armchair (seat 0), the lamp
+        for c in [cell(0, 0), cell(1, 5), cell(9, 0)] {
+            assert_eq!(r.walk(&a, c), WalkResult::Blocked);
+        }
+        assert_eq!(r.member(&a).unwrap().cell, Some(cell(3, 3)));
+        assert_eq!(r.walk(&mid("ghost"), cell(3, 3)), WalkResult::NotMember);
+    }
+
+    #[test]
+    fn walking_off_a_seat_stands_up_and_sitting_clears_the_cell() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        r.sit(&a, Some(seat(2)));
+        assert_eq!(r.walk(&a, cell(4, 4)), WalkResult::Walked { stood_up: true });
+        assert!(r.snapshot().seats.iter().all(Option::is_none));
+        assert_eq!(r.sit(&a, Some(seat(2))), SitResult::Ok);
+        assert_eq!(r.member(&a).unwrap().cell, None);
+        r.walk(&a, cell(4, 4));
+        assert_eq!(r.sit(&a, None), SitResult::Ok);
+        assert_eq!(r.member(&a).unwrap().cell, None, "standing up goes back to the standing spot");
+        // A refused sit keeps the cell.
+        let b = join(&mut r, "m2", "bob", None);
+        r.sit(&b, Some(seat(2)));
+        r.walk(&a, cell(4, 4));
+        assert_eq!(r.sit(&a, Some(seat(2))), SitResult::SeatTaken);
+        assert_eq!(r.member(&a).unwrap().cell, Some(cell(4, 4)));
+    }
+
+    #[test]
+    fn a_layout_that_covers_a_standing_cell_moves_them_to_the_door() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        let b = join(&mut r, "m2", "bob", None);
+        let c = join(&mut r, "m3", "carol", None);
+        r.walk(&a, cell(8, 8));
+        r.walk(&b, cell(3, 3));
+        r.sit(&c, Some(seat(0)));
+        assert_eq!(r.set_layout(layout_plus(&[table(8, 8)])), vec![(a.clone(), Some(cell(9, 9)))]);
+        assert_eq!(r.member(&a).unwrap().cell, Some(cell(9, 9)));
+        assert_eq!(r.member(&b).unwrap().cell, Some(cell(3, 3)));
+        // The door itself covered: back to the standing spot.
+        assert_eq!(r.set_layout(layout_plus(&[table(8, 8), table(9, 9)])), vec![(a.clone(), None)]);
+        assert_eq!(r.member(&a).unwrap().cell, None);
+        assert_eq!(r.set_layout(default_layout()), vec![]);
+    }
+
+    #[test]
+    fn tint_is_absent_at_0_and_changes_once() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(!r.set_tint(&a, Tint::new(0).unwrap()));
+        assert!(r.set_tint(&a, Tint::new(4).unwrap()));
+        assert!(!r.set_tint(&a, Tint::new(4).unwrap()));
+        assert!(!r.set_tint(&mid("ghost"), Tint::new(1).unwrap()));
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"tint":4}"#
+        );
+        assert!(r.set_tint(&a, Tint::new(0).unwrap()));
+        assert_eq!(json(&r.snapshot().members[0]), r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#);
+    }
 }

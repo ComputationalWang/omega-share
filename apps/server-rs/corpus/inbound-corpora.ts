@@ -47,6 +47,9 @@ const valid: Raw[] = [
   js({ type: "sit", seat: 0 }),
   js({ type: "sit", seat: 7 }),
   js({ type: "sit", seat: null }),
+  js({ type: "walk", cell: { x: 0, y: 0 } }), js({ type: "walk", cell: { x: 9, y: 9 } }), js({ type: "walk", cell: { y: 3, x: 8 } }),
+  ...[0, 1, 2, 3, 4, 5].map((tint) => js({ type: "set-tint", tint })),
+  js({ ...JOIN, tint: 0 }), js({ ...JOIN, tint: 5 }),
   js({ type: "chat", text: "hello there" }),
   js({ type: "chat", text: "  Ｈello  " }),
   js({ type: "ping", id: 0 }),
@@ -119,6 +122,7 @@ const invalid: Raw[] = [
   ...mutations({ type: "mute", memberId: "m2", muted: true }), ...mutations({ type: "control-policy", policy: "owner" }),
   ...mutations({ type: "queue-add", url: "u" }), ...mutations({ type: "queue-remove", itemId: "q1" }),
   ...mutations({ type: "queue-move", itemId: "q1", toIndex: 0 }),
+  ...mutations({ type: "walk", cell: { x: 1, y: 1 } }), ...mutations({ type: "set-tint", tint: 1 }),
   ...mutations({ type: "queue-advance", fromItemId: "q1" }), ...mutations({ type: "ended", itemId: "q1", position: 1 }),
   // optional join fields: null is not absent, wrong shapes
   js({ ...JOIN, ownerToken: null }), js({ ...JOIN, inviteKey: null }), js({ ...JOIN, resumeToken: null }), js({ ...JOIN, durableSession: null }),
@@ -147,6 +151,11 @@ const invalid: Raw[] = [
   ok('{"type":"control","url":"u","playing":true,"position":43200.0000001}'),
   // title, emote, ids
   js({ type: "title-set", title: "" }), js({ type: "title-set", title: "a‮b" }), js({ type: "title-set", title: "a".repeat(33) }),
+  // walk, set-tint, join tint (OME-1346)
+  ...[10, -1, 1.5, "1", null, 1e400].flatMap((n) => [js({ type: "walk", cell: { x: n, y: 0 } }), js({ type: "walk", cell: { x: 0, y: n } })]),
+  js({ type: "walk", cell: { x: 1 } }), js({ type: "walk", cell: null }), js({ type: "walk", cell: [1, 1] }), js({ type: "walk", cell: { x: 1, y: 1, z: 1 } }),
+  ok('{"type":"walk","cell":{"x":1.0,"y":2}}'), ok('{"type":"walk","cell":{"x":1,"y":1e400}}'),
+  ...[6, -1, 0.5, "1", null, true].map((tint) => js({ type: "set-tint", tint })), js({ ...JOIN, tint: 6 }), js({ ...JOIN, tint: null }),
   js({ type: "emote", kind: "Wave" }), js({ type: "emote", kind: "dance" }), js({ type: "emote", kind: "" }), js({ type: "emote", kind: 1 }),
   js({ type: "kick", memberId: "" }), js({ type: "kick", memberId: "a".repeat(65) }), js({ type: "kick", memberId: "a b" }), js({ type: "kick", memberId: "mé" }),
   js({ type: "control-policy", policy: "Owner" }), js({ type: "control-policy", policy: "all" }),
