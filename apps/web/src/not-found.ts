@@ -27,7 +27,8 @@ export function createNotFound(o: NotFoundOptions): NotFound {
   const open = el("section", { className: "rooms-public" });
   open.append(el("h3", { textContent: "Open rooms" }), list, state, retry);
   root.append(
-    el("h2", { textContent: "This room doesn't exist or was taken down" }),
+    // The page's only heading while it shows: the directory's <h1> is hidden in a room.
+    el("h1", { textContent: "This room doesn't exist or was taken down" }),
     el("p", { textContent: "Check the link, or pick an open room. If someone sent you this link, ask them to send it again, exactly as it was." }),
     home,
     open,
