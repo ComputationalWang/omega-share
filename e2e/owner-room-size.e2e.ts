@@ -38,7 +38,9 @@ async function open(browser: Browser, options: BrowserContextOptions, url: strin
   await page.goto(url);
   await page.locator(site.nicknameInput).fill(nickname);
   await page.locator(site.joinButton).click();
-  await expect(page.locator(site.room)).toBeVisible();
+  // Attached, not visible: a 320×640 window too short for the room hides it whole (OME-1302).
+  await expect(page.locator(site.room)).toBeAttached();
+  await expect(page.locator(site.chatInput)).toBeVisible();
   return page;
 }
 

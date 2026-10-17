@@ -64,6 +64,12 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   const cropped = new Set<HTMLElement>();
   const crop = (e: HTMLElement): void => {
     e.inert = active && cropped.has(e);
+    // A cropped tag's hit pad (stage.ts) goes with it, or it would still open the menu.
+    const id = e.dataset["member"];
+    if (id !== undefined) {
+      const pad = stage.querySelector<HTMLElement>(`.tag-pad[data-pad="${id}"]`);
+      if (pad !== null) pad.inert = e.inert;
+    }
   };
   const watch = (margin: string): IntersectionObserver =>
     new IntersectionObserver((entries) => {
@@ -277,8 +283,9 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
 
   return {
     set(on, w, h) {
-      if (on !== active) for (const e of cropped) e.inert = on;
+      const was = active;
       active = on;
+      if (on !== was) for (const e of cropped) crop(e);
       const column = h >= KEYS_COLUMN_H;
       view.w = on && column ? Math.max(0, w - KEYS_BAND) : w;
       view.h = on && !column ? Math.max(0, h - KEYS_BAND) : h;

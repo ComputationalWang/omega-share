@@ -99,12 +99,18 @@ test("the host's pickable name tags each catch a 24×24 px square at 960 and at 
   const { id, ownerToken, inviteKey } = ownedRoom("targets");
   const secrets = JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } });
   const guest = `${URLS.web}/r/${id}#k=${inviteKey}`;
-  await open(browser, guest, "kit", DESK);
-  await open(browser, guest, "longer-name", DESK);
+  // Seated in the front row's middle two seats: on the phone the window shows them, and a tag it crops is inert (OME-1325).
+  const kit = await open(browser, guest, "kit", DESK);
+  const longer = await open(browser, guest, "longer-name", DESK);
+  await kit.locator(`${site.seat}[data-seat="5"]`).click();
+  await longer.locator(`${site.seat}[data-seat="6"]`).click();
+  await expect(kit.locator(`${site.seat}.mine`)).toHaveCount(1);
+  await expect(longer.locator(`${site.seat}.mine`)).toHaveCount(1);
   for (const [name, options] of [["960", DESK], ["390", PHONE]] as const) {
     const host = await open(browser, `${URLS.web}/r/${id}`, `host${name}`, options, secrets);
     const pickable = host.locator(`.tags.pickable ${site.nicknameTag}[role=button]`);
     await expect(pickable).toHaveCount(2);
+    await expect(host.locator(`${site.nicknameTag}[inert]`)).toHaveCount(0);
     expect(await misses(host), `at ${name} wide`).toEqual({ kit: [], "longer-name": [] });
     await leaveAll(clients.splice(-1));
   }

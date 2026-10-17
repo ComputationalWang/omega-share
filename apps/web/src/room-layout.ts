@@ -6,7 +6,7 @@ import type { ChatLog } from "./chat/log";
 import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, seatsHome, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, PHONE_ROOM_MIN_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, seatsHome, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { createRoomWindow } from "./room-window";
 
@@ -356,9 +356,10 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       boxTv(l);
       if ("stage" in l) {
         // A touch screen too small for the room at 1× (a phone held sideways) gets the phone's window instead: seats
-        // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves.
+        // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves, never
+        // under a whole window (Twitch's taller TV): the column scrolls to the rest.
         if (o.coarse.matches && l.scale < 1) {
-          const r = { x: 0, y: l.stage.y, w: Math.min(w, STAGE_W), h: Math.min(PHONE_ROOM_H, Math.max(0, h - l.stage.y)) };
+          const r = { x: 0, y: l.stage.y, w: Math.min(w, STAGE_W), h: Math.max(PHONE_ROOM_MIN_H, Math.min(PHONE_ROOM_H, h - l.stage.y)) };
           box(clip, r);
           stage.style.setProperty("--stage-scale", "1");
           roomWindow.set(true, r.w, r.h);
