@@ -129,10 +129,10 @@ test("wide: frames per provider at 1920x1080 with a chat burst at the rate limit
       await measure(c.key, c.label);
     }
     await share(request, room.id, `https://${GENERIC_HOST}/embed/42`);
-    for (const c of clients) {
-      await c.page.getByTestId("generic-load").click({ timeout: 15_000 });
-      await expect(c.page.frameLocator(site.sharedVideo).locator("div")).toBeVisible({ timeout: 15_000 });
-    }
+    // Only the observer loads it, as in chat.perf.ts (OME-813) and phone.perf.ts (OME-1198): 8 canvas+rAF fixture
+    // iframes in this one browser cost the observer about 3 frames a window by contention, not by room code (OME-1268).
+    await observer.page.getByTestId("generic-load").click({ timeout: 15_000 });
+    await expect(observer.page.frameLocator(site.sharedVideo).locator("div")).toBeVisible({ timeout: 15_000 });
     await measure("generic", "generic embed loaded");
 
     for (const [k, r] of Object.entries(rows)) {
