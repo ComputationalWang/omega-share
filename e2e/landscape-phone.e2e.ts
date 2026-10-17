@@ -218,6 +218,10 @@ for (const [name, key, at] of [["tvshelf", "twitchVod", 0], ["tliveshelf", "twit
     expect(clash).toEqual([]);
     // A seekable provider keeps a seek bar a finger can drag (QA OME-1337: Vimeo's collapsed to its thumb).
     if (key !== "twitchLive") expect((await box(page.locator(".controls .ui-seek"))).width).toBeGreaterThanOrEqual(44);
+    // Each key's 44 px finger target stays clear of the next one's: their centres are at least 44 px apart (QA OME-1342).
+    const centres = await page.locator(".controls .ui-button").evaluateAll((keys) => keys.filter((k) => k.checkVisibility() && k.getBoundingClientRect().width > 1)
+      .map((k) => { const r = k.getBoundingClientRect(); return r.left + r.width / 2; }));
+    expect(centres.slice(1).map((c, i) => c - (centres[i] ?? -Infinity)).filter((d) => d < 44)).toEqual([]);
     const { violations } = await new AxeBuilder({ page }).include(".controls").analyze();
     expect(violations.flatMap((v) => v.nodes.map((n) => `${v.id} ${n.target.join(" ")}`))).toEqual([]);
   });
