@@ -105,25 +105,28 @@ async function fillQueue(roomId: string, inviteKey: string, tag: string): Promis
   return () => { for (const ws of sockets) ws.close(); };
 }
 
-test("1280×800, a full Up next: the owner's list shows a row and scrolls to the last, the chat log keeps three lines", async ({ browser }) => {
-  test.setTimeout(90_000);
-  const { host } = await ownerAndGuest(browser, "roomfull", DESK, DESK);
-  const { id, inviteKey } = ownedRoom("roomfull");
-  const close = await fillQueue(id, inviteKey, "qf");
-  try {
-    const rows = host.locator(site.queueRow);
-    await expect.poll(() => rows.count(), { timeout: 15_000 }).toBe(QUEUE_MAX);
-    const list = host.locator(`${site.queuePanel} .ui-qlist`);
-    const row = (await rows.first().boundingBox())?.height ?? 0;
-    expect(await list.evaluate((n) => n.clientHeight), "Up next list height").toBeGreaterThanOrEqual(row);
-    expect((await host.locator(site.chatLog).boundingBox())?.height ?? 0, "chat log height").toBeGreaterThanOrEqual(60);
-    await rows.last().scrollIntoViewIfNeeded();
-    await expect(rows.last()).toBeInViewport();
-    expect(await host.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
-  } finally {
-    close();
-  }
-});
+// 1024×768 (OME-1320): the smallest wide layout, where the owner's bar left the log two lines.
+for (const [size, viewport, name] of [["1280×800", DESK, "roomfull"], ["1024×768", { viewport: { width: 1024, height: 768 } }, "roomfulls"]] as const) {
+  test(`${size}, a full Up next: the owner's list shows a row and scrolls to the last, the chat log keeps three lines`, async ({ browser }) => {
+    test.setTimeout(90_000);
+    const { host } = await ownerAndGuest(browser, name, viewport, viewport);
+    const { id, inviteKey } = ownedRoom(name);
+    const close = await fillQueue(id, inviteKey, "qf");
+    try {
+      const rows = host.locator(site.queueRow);
+      await expect.poll(() => rows.count(), { timeout: 15_000 }).toBe(QUEUE_MAX);
+      const list = host.locator(`${site.queuePanel} .ui-qlist`);
+      const row = (await rows.first().boundingBox())?.height ?? 0;
+      expect(await list.evaluate((n) => n.clientHeight), "Up next list height").toBeGreaterThanOrEqual(row);
+      expect((await host.locator(site.chatLog).boundingBox())?.height ?? 0, "chat log height").toBeGreaterThanOrEqual(60);
+      await rows.last().scrollIntoViewIfNeeded();
+      await expect(rows.last()).toBeInViewport();
+      expect(await host.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
+    } finally {
+      close();
+    }
+  });
+}
 
 test("390×844 touch: the guest's tag and every key in the member menu are 44×44 to the finger", async ({ browser }) => {
   const { host, kitTag } = await ownerAndGuest(browser, "roomtouch", TOUCH, DESK);
