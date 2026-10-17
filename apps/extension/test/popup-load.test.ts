@@ -135,7 +135,7 @@ describe("after a successful share", () => {
           },
         ]),
     });
-    (el(document, "share-form") as HTMLFormElement).requestSubmit(el(document, "share") as HTMLButtonElement);
+    (el(document, "share-form") as HTMLFormElement).requestSubmit(el(document, "share"));
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(el(document, "status").textContent).toContain("Shared to lobby.");
     expect(el(document, "status").hidden).toBe(false);

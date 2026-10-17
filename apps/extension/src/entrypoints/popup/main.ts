@@ -48,7 +48,8 @@ function hostOf(url: string | undefined): string {
   return protocol === "https:" || protocol === "http:" ? host : "";
 }
 
-const tab = targetTab();
+// A failed query reads as no tab, so the scan ends on "unreadable" instead of spinning (OME-1285).
+const tab = targetTab().catch(() => undefined);
 
 async function scan(): Promise<ScanOutcome> {
   const tabId = (await tab)?.id;
@@ -205,6 +206,10 @@ void serverBaseUrl.then(loadServer).then((state) => {
 });
 
 ui.room.addEventListener("change", renderServer);
+// A new room or embed makes the last share's line stale; the load error (no server state) still explains why Share is off.
+ui.form.addEventListener("change", () => {
+  if (server !== null) ui.status.hidden = true;
+});
 
 ui.form.addEventListener("submit", (event) => {
   event.preventDefault();
