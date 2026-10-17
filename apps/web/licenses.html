@@ -12,10 +12,10 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <main id="main" class="privacy" tabindex="-1">
+    <main class="privacy">
       <!-- Inside main: the 404 page borrows this file and swaps main out, skip link and all (site.rs not_found_page). -->
-      <a class="skip-link" href="#main">Skip to content</a>
-      <h1>Licences &amp; credits</h1>
+      <a class="skip-link" href="#content">Skip to content</a>
+      <h1 id="content" tabindex="-1">Licences &amp; credits</h1>
 
       <h2 id="source">Source code</h2>
       <p>omega-share is free software under the GNU Affero General Public License, version 3 only (AGPL-3.0-only). You can get the complete source code of this site, change it and run your own under the same licence: it is at <a href="%OMEGA_SOURCE_URL%" target="_blank" rel="noopener noreferrer">%OMEGA_SOURCE_URL%</a>. The licence's full text is the <code>LICENSE</code> file there, and at <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">gnu.org</a>.</p>
