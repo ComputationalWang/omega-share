@@ -8,6 +8,7 @@
 //! left out when absent.
 
 use super::constants::{FLOOR_CELLS, MAX_FURNITURE, SEAT_COUNT};
+use super::room::FloorCell;
 use super::{Invalid, Obj, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashSet;
@@ -412,11 +413,26 @@ impl RoomLayout {
         layout_seats(&self.furniture)
     }
 
+    /// `isStandable`: no solid piece covers `cell`. Seats are solid, so they need `sit` (ADR 0053).
+    pub fn standable(&self, cell: FloorCell) -> bool {
+        let at = (u32::from(cell.x.get()), u32::from(cell.y.get()));
+        !self
+            .furniture
+            .iter()
+            .any(|f| spec(f.kind).layer == Layer::Object && footprint_cells(f).contains(&at))
+    }
+
     /// The canonical JSON: what the TS server's `JSON.stringify(parsed)` writes.
     pub fn to_json(&self) -> String {
         // Plain data of strings and small integers: serialization cannot fail.
         serde_json::to_string(self).unwrap_or_default()
     }
+}
+
+/// `DOOR_CELL`: where people walk in, the floor's front corner; a layout change sends someone whose cell it covered here.
+pub fn door_cell() -> Option<FloorCell> {
+    let last = u64::try_from(FLOOR_CELLS - 1).ok()?;
+    FloorCell::new(last, last)
 }
 
 /// Two rows of four armchairs facing the TV, split by an aisle (the pre-M4 `SEAT_CELLS`).

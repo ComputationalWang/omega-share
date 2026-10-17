@@ -352,6 +352,7 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         invite_key,
         durable_session,
         resume_token,
+        tint,
     } = msg
     else {
         return;
@@ -418,6 +419,9 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         Ok(Ok(member)) => member,
     };
     conn.join_timer = TimerCmd::Clear;
+    if let Some(tint) = tint {
+        inner.room.set_tint(&member.id, *tint);
+    }
     // Back after a restart under the same name: the seat it held, in its snapshot and, after the join, for the room.
     let held_seat = inner.room.claim_held_seat(&member.id, wall);
     // A muted member's address, back within MUTE_MEMORY_MS, starts muted; the owner never does (ADR 0030 section 3).

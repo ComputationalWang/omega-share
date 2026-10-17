@@ -7,10 +7,11 @@ import {
   ROOM_ID_MAX_LENGTH,
   ROOM_TITLE_MAX_LENGTH,
   SEAT_COUNT,
+  TINT_COUNT,
 } from "./constants";
 import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
 import { MemberIdSchema, QueueItemIdSchema } from "./ids";
-import { RoomLayoutSchema } from "./layout";
+import { FloorCellSchema, RoomLayoutSchema } from "./layout";
 import { OptionalPlaybackSchema } from "./playback";
 import { QueueSchema } from "./queue";
 
@@ -81,6 +82,10 @@ export type Avatar = v.InferOutput<typeof AvatarSchema>;
 export const SeatIndexSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(SEAT_COUNT - 1));
 export type SeatIndex = v.InferOutput<typeof SeatIndexSchema>;
 
+/** Shirt tint (ADR 0053): 0 is the avatar's own colours. */
+export const TintSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(TINT_COUNT - 1));
+export type Tint = v.InferOutput<typeof TintSchema>;
+
 /**
  * Who may send `control` frames and shares (ADR 0030). `owner`: only members who joined with the
  * owner token. New and seeded rooms start at DEFAULT_CONTROL_POLICY.
@@ -106,6 +111,10 @@ export const MemberSchema = v.object({
   standingSlot: v.optional(StandingSlotSchema),
   /** The owner muted this member's chat (ADR 0030). Absent means false. */
   muted: v.optional(v.boolean()),
+  /** Where they stand after a `walk` (ADR 0053). Absent: seated, or on their standing spot (`standingSlot`). */
+  cell: v.optional(FloorCellSchema),
+  /** Shirt tint (ADR 0053). Absent means 0. */
+  tint: v.optional(TintSchema),
 });
 export type Member = v.InferOutput<typeof MemberSchema>;
 

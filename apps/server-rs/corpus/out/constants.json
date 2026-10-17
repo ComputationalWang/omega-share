@@ -65,5 +65,8 @@
 {"input":"ROOM_EDIT_REFILL_MS","ok":true,"output":2000},
 {"input":"ROOM_ID_MAX_LENGTH","ok":true,"output":32},
 {"input":"ROOM_TITLE_MAX_LENGTH","ok":true,"output":32},
-{"input":"SEAT_COUNT","ok":true,"output":8}
+{"input":"SEAT_COUNT","ok":true,"output":8},
+{"input":"TINT_COUNT","ok":true,"output":6},
+{"input":"WALK_BURST","ok":true,"output":8},
+{"input":"WALK_REFILL_MS","ok":true,"output":250}
 ]

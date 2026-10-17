@@ -117,4 +117,5 @@ export const ERROR_TEXT: Record<ErrorCode, string> = {
   queue_full: "The queue is full. Remove one to add another.",
   unsupported_url: "That link can't be played in this room.",
   resume_expired: "Your session expired. Enter the room again.",
+  bad_cell: "You can't stand there.",
 };
