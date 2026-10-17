@@ -6,9 +6,9 @@ import type { ChatLog } from "./chat/log";
 import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, STAGE_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, seatsHome, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
-import { createRoomWindow } from "./room-window";
+import { KEYS_COLUMN_H, createRoomWindow } from "./room-window";
 
 /** The full-screen strip's last open/collapsed state on this device (set k: "the strip remembers"). */
 const STRIP_STORAGE_KEY = "omega.fsStrip";
@@ -27,19 +27,6 @@ function storeStrip(mode: StripMode): void {
   } catch {
     // Storage off (private mode): it's remembered for this page only.
   }
-}
-
-/** The middle of the seats' bounding box (stage px): where the phone's room window looks first. */
-function middleOf(points: readonly Point[]): Point {
-  if (points.length === 0) return { x: STAGE_W / 2, y: STAGE_H / 2 };
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const p of points) {
-    x0 = Math.min(x0, p.x);
-    x1 = Math.max(x1, p.x);
-    y0 = Math.min(y0, p.y);
-    y1 = Math.max(y1, p.y);
-  }
-  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
 }
 
 function box(e: HTMLElement, r: Rect): void {
@@ -86,6 +73,8 @@ export interface RoomLayoutOptions {
   /** What the portrait dock's settings sheet holds. */
   readonly settings: readonly HTMLElement[];
   readonly phone: { readonly matches: boolean };
+  /** A coarse pointer: touch hit areas (.ui-touch) even past the phone layout's width (QA OME-1324 G1). */
+  readonly coarse: { readonly matches: boolean };
   readonly portrait: { readonly matches: boolean };
   readonly wide: { readonly matches: boolean };
   readonly short: { readonly matches: boolean };
@@ -299,14 +288,15 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     else if (phone.matches) wrap.after(chatLog.root, chatForm, chatAway);
     else notice.after(chatLog.root, chatForm, chatAway);
     if (portraitOn) chatForm.before(dock.keys);
-    // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch).
-    root.classList.toggle("ui-touch", phone.matches);
+    // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch): the phone layout
+    // (a narrow mouse window too) or a touch screen held sideways (QA OME-1324 G1/G2).
+    root.classList.toggle("ui-touch", phone.matches || o.coarse.matches);
   };
   placeChat();
 
   /** The phone's window looks at the middle of the seats until you drag it, sit, or focus something off-screen. */
-  const roomWindow = createRoomWindow(clip, stage, () => seatsMiddle, o.labelScale);
-  let seatsMiddle: Point = { x: STAGE_W / 2, y: STAGE_H / 2 };
+  const roomWindow = createRoomWindow(clip, stage, (h) => seatsHome(seatPoints, h), o.labelScale);
+  let seatPoints: readonly Point[] = [];
   let fsScrollWidth = -1;
   let fsScrollHeight = -1;
   let fsScrollTarget = -1;
@@ -319,6 +309,8 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   };
   const fit = (): void => {
     const roomOut = o.roomOut();
+    // Only the wide layout's touch window (below) stretches the wrap.
+    wrap.style.minHeight = "";
     if (fs.mode() !== "off") {
       // The room popped out: its chat is in the window, so the picture is alone.
       const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), roomOut ? "none" : stripMode);
@@ -365,10 +357,22 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
       const l = roomOut ? fullscreenLayout(w, h, tvBox.provider(), "none") : wideLayout(w, h, tvBox.provider());
       boxTv(l);
       if ("stage" in l) {
-        box(clip, l.stage);
-        roomWindow.set(false, 0, 0);
-        stage.style.transform = stageTransform(l.scale);
-        stage.style.setProperty("--stage-scale", String(l.scale));
+        // A touch screen too small for the room at 1× (a phone held sideways) gets the phone's window instead: seats
+        // scaled to a third were 15×8 px (QA OME-1324 G1). It takes the column's width and what the TV leaves, never
+        // under the keys' column height (Twitch's taller TV, QA OME-1330 R1), so every seat row shows whole beside the
+        // keys; the wrap grows to hold it and the column scrolls to the rest.
+        if (o.coarse.matches && l.scale < 1) {
+          const r = { x: 0, y: l.stage.y, w: Math.min(w, STAGE_W), h: Math.max(KEYS_COLUMN_H, Math.min(PHONE_ROOM_H, h - l.stage.y)) };
+          wrap.style.minHeight = `${String(r.y + r.h)}px`;
+          box(clip, r);
+          stage.style.setProperty("--stage-scale", "1");
+          roomWindow.set(true, r.w, r.h);
+        } else {
+          box(clip, l.stage);
+          roomWindow.set(false, 0, 0);
+          stage.style.transform = stageTransform(l.scale);
+          stage.style.setProperty("--stage-scale", String(l.scale));
+        }
       }
       wrap.style.height = "";
       return;
@@ -413,7 +417,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     portraitOn: () => portraitOn,
     dock,
     seats: (points) => {
-      seatsMiddle = middleOf(points);
+      seatPoints = points;
       if (phone.matches) fit();
     },
     centre: (p) => {

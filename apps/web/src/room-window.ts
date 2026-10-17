@@ -20,7 +20,9 @@ export const ZOOM_STORAGE_KEY = "omega.roomZoom";
 /** The zoom keys' own band in the window, 44 px keys and 4 px gaps: over the room they hid seats (QA OME-1300 F3). */
 const KEYS_BAND = 52;
 /** A column beside the room needs three keys' height; a shorter window has them in a row under the room. */
-const KEYS_COLUMN_H = 3 * 44 + 4 * 4;
+export const KEYS_COLUMN_H = 3 * 44 + 4 * 4;
+/** How far inside the pane a tag's box must sit to be whole to the finger: its 52 px ::before less its 20 px height, halved. */
+const TAG_CROP = 16;
 
 function storedZoom(): number | null {
   try {
@@ -47,7 +49,7 @@ export interface RoomWindow {
   readonly pan: () => Point;
 }
 
-export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: () => Point, onLabels: (k: number) => void = () => undefined): RoomWindow {
+export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h: number) => Point, onLabels: (k: number) => void = () => undefined): RoomWindow {
   let active = false;
   const view = { w: 0, h: 0 };
   let pan: Point = { x: 0, y: 0 };
@@ -58,10 +60,58 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
   const pane = el("div", { className: "stage-pane" });
   stage.before(pane);
   pane.append(stage);
+  // The pane is overflow: hidden (room.css), which focus may scroll: the view is the stage's transform alone.
+  const unscroll = (): void => {
+    pane.scrollTop = 0;
+    pane.scrollLeft = 0;
+  };
+  pane.addEventListener("scroll", unscroll, { passive: true });
+  // In the window, a seat the pane crops is inert: no finger or focus lands on a sliver of it (QA OME-1324 G3); the
+  // rows it shows whole are enough to sit. A cropped name tag (and its hit pad) is only off to pointers: it stays in the
+  // tab order, and its focus pans the window to show it whole, or an owner at 320 px couldn't reach a member's menu at
+  // all (QA OME-1330 R2). The browser tracks the crossings off the main thread, so a drag costs nothing here. A tag's
+  // 44 px ::before (room.css) reaches 16 px past its 20 px box, hence the tighter root for tags. Off the phone, nothing.
+  const cropped = new Set<HTMLElement>();
+  const crop = (e: HTMLElement): void => {
+    const off = active && cropped.has(e);
+    const id = e.dataset["member"];
+    if (id === undefined) {
+      e.inert = off;
+      return;
+    }
+    e.classList.toggle("is-cropped", off);
+    stage.querySelector(`.tag-pad[data-pad="${id}"]`)?.classList.toggle("is-cropped", off);
+  };
+  const watch = (margin: string): IntersectionObserver =>
+    new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!(e.target instanceof HTMLElement)) continue;
+        if (e.intersectionRatio < 0.99) cropped.add(e.target);
+        else cropped.delete(e.target);
+        crop(e.target);
+      }
+    }, { root: pane, rootMargin: margin, threshold: 0.99 });
+  const seatsSeen = watch("0px");
+  const tagsSeen = watch(`-${String(TAG_CROP)}px`);
+  for (const s of stage.querySelectorAll(".seat")) seatsSeen.observe(s);
+  const tagLayer = stage.querySelector(".tags");
+  if (tagLayer !== null) {
+    for (const t of tagLayer.querySelectorAll(".tag")) tagsSeen.observe(t);
+    new MutationObserver((records) => {
+      for (const r of records) {
+        for (const n of r.addedNodes) if (n instanceof HTMLElement && n.classList.contains("tag")) tagsSeen.observe(n);
+        for (const n of r.removedNodes) {
+          if (!(n instanceof HTMLElement)) continue;
+          tagsSeen.unobserve(n);
+          cropped.delete(n);
+        }
+      }
+    }).observe(tagLayer, { childList: true });
+  }
 
   const apply = (): void => {
     zoom = clampZoom(zoom, view);
-    pan = panTo(view, looking ?? home(), zoom);
+    pan = panTo(view, looking ?? home(view.h / zoom), zoom);
     stage.style.transform = `translate(${String(-pan.x * zoom)}px, ${String(-pan.y * zoom)}px) scale(${String(zoom)})`;
   };
   /** The window's centre now, stage px. */
@@ -232,19 +282,27 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: ()
   );
   // Keyboard: whatever takes focus in the stage (a seat, a name tag) is panned into the window.
   stage.addEventListener("focusin", (ev) => {
+    unscroll();
     if (!active || !(ev.target instanceof Element)) return;
     const r = ev.target.getBoundingClientRect();
     const s = stage.getBoundingClientRect();
     const x = (r.left - s.left + r.width / 2) / zoom;
     const y = (r.top - s.top + r.height / 2) / zoom;
     const m = REVEAL_MARGIN / zoom;
-    const inside = x - pan.x >= m && pan.x + view.w / zoom - x >= m && y - pan.y >= m && pan.y + view.h / zoom - y >= m;
+    // A tag must also clear the tags' crop margin (above) on every side, or it would stay off to pointers.
+    const e = TAG_CROP / zoom;
+    const whole = !(ev.target instanceof HTMLElement && ev.target.classList.contains("tag")) ||
+      ((r.left - s.left) / zoom - pan.x >= e && pan.x + view.w / zoom - (r.right - s.left) / zoom >= e &&
+        (r.top - s.top) / zoom - pan.y >= e && pan.y + view.h / zoom - (r.bottom - s.top) / zoom >= e);
+    const inside = whole && x - pan.x >= m && pan.x + view.w / zoom - x >= m && y - pan.y >= m && pan.y + view.h / zoom - y >= m;
     if (!inside) centre({ x, y });
   });
 
   return {
     set(on, w, h) {
+      const was = active;
       active = on;
+      if (on !== was) for (const e of cropped) crop(e);
       const column = h >= KEYS_COLUMN_H;
       view.w = on && column ? Math.max(0, w - KEYS_BAND) : w;
       view.h = on && !column ? Math.max(0, h - KEYS_BAND) : h;

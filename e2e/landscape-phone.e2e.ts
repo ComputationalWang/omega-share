@@ -8,6 +8,8 @@ import { PENDING, available } from "./support/apps";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 import { URLS } from "./support/apps";
+import AxeBuilder from "@axe-core/playwright";
+import { providerCase, shareProvider } from "../perf/providers";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -40,7 +42,7 @@ async function inside(l: Locator, top: number, bottom: number, left = 0, right =
   }), String(l)).toBe("reachable");
 }
 
-async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "q932" | "q844" | "q667" | "notch", width: number, height: number): Promise<Page> {
+async function open(browser: Parameters<typeof joinRoom>[0], name: "l932" | "l844" | "l667" | "q932" | "q844" | "q667" | "notch" | "twitch", width: number, height: number): Promise<Page> {
   clients = await joinRoom(browser, { roomUrl: testRoom("landscape-phone", name).url, count: 1, nicknamePrefix: `land${name}${String(test.info().retry)}${String(test.info().repeatEachIndex)}`,
     contextOptions: () => ({ viewport: { width, height }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }) });
   const page = clients[0]?.page;
@@ -164,3 +166,17 @@ for (const [name, width, height] of [["q932", 932, 430], ["q844", 844, 390], ["q
     }
   });
 }
+
+test("844×390 with Twitch's taller TV: the room window holds a whole seat row beside its keys, nothing covers the keys, axe target-size clean (QA OME-1330 R1)", async ({ browser, request }) => {
+  const page = await open(browser, "twitch", 844, 390);
+  await shareProvider(request, providerCase("twitchVod").shareUrl, testRoom("landscape-phone", "twitch").id);
+  await expect(page.locator(`${site.tv} iframe`)).toBeAttached({ timeout: 10_000 });
+  const win = page.locator(site.roomWindow);
+  await win.scrollIntoViewIfNeeded();
+  await inside(win, 0, 390, 0, 844);
+  // A whole row at least: four seats a finger can take.
+  await expect.poll(() => page.locator(`${site.seat}:not([inert])`).count()).toBeGreaterThanOrEqual(4);
+  for (const k of ["in", "out", "fit"]) await inside(page.locator(`[data-testid=room-zoom-${k}]`), 0, 390, 0, 844);
+  const { violations } = await new AxeBuilder({ page }).include(site.room).withRules(["target-size"]).analyze();
+  expect(violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? ""}`))).toEqual([]);
+});

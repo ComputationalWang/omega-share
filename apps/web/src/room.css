@@ -200,7 +200,9 @@
 /* Zoom keys (OME-1184), for people who can't pinch: a row in the window's bottom-right corner, 44×44 each. */
 .stage-pane { position: absolute; inset: 0; }
 /* The zoom keys keep a band of their own (room-window.ts KEYS_BAND): a column beside the room, or a row under a short one. */
-.stage-clip.is-phone > .stage-pane { overflow: clip; }
+/* The pane hides, not clips (OME-1325): axe-core only counts `overflow: hidden` as clipping, so a cropped tag would read as
+ * overlapping the keys under the window. room-window.ts holds the pane's scroll at 0, so focus still can't scroll it. */
+.stage-clip.is-phone > .stage-pane { overflow: hidden; }
 .stage-clip.is-phone[data-keys="column"] > .stage-pane { right: 52px; }
 .stage-clip.is-phone[data-keys="row"] > .stage-pane { bottom: 52px; }
 .room-zoom { position: absolute; right: 4px; bottom: 4px; display: flex; gap: 4px; }
@@ -496,3 +498,5 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .portrait-sheet .queue-content > * { flex: none; }
 .portrait-sheet .queue-content .ui-qlist { max-height: none; overflow: visible; }
 .portrait-sheet .queue-form .ui-button { min-width: 44px; min-height: 44px; }
+/* A tag the phone window crops (room-window.ts) is off to pointers, pad and all; focus still reaches it and pans it whole. */
+.tags.pickable .tag.is-cropped, .tags.pickable .tag-pad.is-cropped { pointer-events: none; }

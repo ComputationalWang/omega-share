@@ -52,6 +52,7 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
     composer: { form, away, popOut, picker: { root: pickerRoot, close: () => undefined } },
     settings: [],
     phone: { matches: false },
+    coarse: { matches: false },
     portrait: { matches: false },
     wide: { matches: o.wide === true },
     short: { matches: o.short === true },

@@ -38,7 +38,9 @@ async function open(browser: Browser, options: BrowserContextOptions, url: strin
   await page.goto(url);
   await page.locator(site.nicknameInput).fill(nickname);
   await page.locator(site.joinButton).click();
-  await expect(page.locator(site.room)).toBeVisible();
+  // Attached, not visible: a 320×640 window too short for the room hides it whole (OME-1302).
+  await expect(page.locator(site.room)).toBeAttached();
+  await expect(page.locator(site.chatInput)).toBeVisible();
   return page;
 }
 
@@ -132,6 +134,9 @@ test("390×844 touch: the guest's tag and every key in the member menu are 44×4
   expect(tag.w, "tag opener width").toBeGreaterThanOrEqual(44);
   expect(tag.h, "tag opener height").toBeGreaterThanOrEqual(44);
 
+  // A tag the window crops is inert (OME-1325): the whole room on screen first.
+  await host.locator("[data-testid=room-zoom-fit]").click();
+  await expect(kitTag).not.toHaveAttribute("inert");
   await kitTag.focus();
   await host.keyboard.press("Enter");
   const menu = host.locator(site.modMenu);
@@ -149,4 +154,116 @@ test("390×844 touch: the guest's tag and every key in the member menu are 44×4
   await host.locator(site.modRemove).locator("button").first().click();
   await expect(host.locator(site.modKeep)).toBeVisible();
   expect(await measure()).toEqual([]);
+});
+
+// QA OME-1324 G1–G3 (OME-1325): a phone held sideways, a narrow mouse window, and seats a window crops.
+const LAND: BrowserContextOptions = { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
+const NARROW: BrowserContextOptions = { viewport: { width: 320, height: 640 } };
+
+const targetSize = async (page: Page): Promise<string[]> => {
+  const { violations } = await new AxeBuilder({ page }).include(site.room).withRules(["target-size"]).analyze();
+  return violations.flatMap((v) => v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? ""}`));
+};
+
+/**
+ * Every seat and tag opener in the room window a finger can reach (visible, not inert) whose hit box (its own or its
+ * centred `::before`, as drawn) has under 44×44 CSS px showing inside the stage's pane. A seat the window crops must
+ * be inert or hidden (a seat) or off to pointers (a tag, which focus pans into view), never a sliver a finger can hit (G3).
+ */
+const exposedSmall = (page: Page): Promise<string[]> =>
+  page.evaluate(() => {
+    const out: string[] = [];
+    const room = document.querySelector("[data-testid=room-window]");
+    const pane = room?.querySelector(".stage-pane") ?? room;
+    if (!(room instanceof HTMLElement) || !(pane instanceof HTMLElement)) return ["no room window"];
+    const p = pane.getBoundingClientRect();
+    for (const e of room.querySelectorAll<HTMLElement>("[data-testid=seat], [data-testid=nickname-tag][role=button]")) {
+      // Inert, hidden, or (a cropped tag) off to pointers: focus pans the window to show it whole.
+      if (e.closest("[inert]") !== null || !e.checkVisibility({ visibilityProperty: true }) || getComputedStyle(e).pointerEvents === "none") continue;
+      const r = e.getBoundingClientRect();
+      const k = e.offsetWidth > 0 ? r.width / e.offsetWidth : 1;
+      const b = getComputedStyle(e, "::before");
+      const px = (v: string): number => (b.content === "none" || b.display === "none" ? 0 : (Number.parseFloat(v) || 0) * k);
+      const w = Math.max(r.width, px(b.width));
+      const h = Math.max(r.height, px(b.height));
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const vw = Math.min(cx + w / 2, p.right) - Math.max(cx - w / 2, p.left);
+      const vh = Math.min(cy + h / 2, p.bottom) - Math.max(cy - h / 2, p.top);
+      if (Math.round(vw) < 44 || Math.round(vh) < 44) out.push(`${e.dataset["testid"] ?? ""}${e.dataset["seat"] ?? ""} ${String(Math.round(w))}×${String(Math.round(h))}, ${String(Math.round(Math.max(0, vw)))}×${String(Math.round(Math.max(0, vh)))} showing`);
+    }
+    return out;
+  });
+
+/** The room window is wholly on screen once scrolled to, or not shown at all (OME-1302's whole-room-or-none). */
+async function wholeOrNone(page: Page): Promise<void> {
+  const win = page.locator(site.roomWindow);
+  const b = await win.boundingBox();
+  if (b === null || b.height === 0 || !(await win.isVisible())) return;
+  await win.scrollIntoViewIfNeeded();
+  const vp = page.viewportSize();
+  const r = await win.boundingBox();
+  if (vp === null || r === null) throw new Error("not laid out");
+  expect(r.y, "room window top").toBeGreaterThanOrEqual(0);
+  expect(r.y + r.height, "room window bottom").toBeLessThanOrEqual(vp.height);
+  expect(r.x, "room window left").toBeGreaterThanOrEqual(0);
+  expect(r.x + r.width, "room window right").toBeLessThanOrEqual(vp.width);
+}
+
+test("844×390 touch, owner and guest: .ui-touch, the whole room on screen, seats and the tag 44×44, axe clean at rest and with People open", async ({ browser }) => {
+  const { host, kit, kitTag } = await ownerAndGuest(browser, "roomland", LAND, LAND);
+  for (const page of [host, kit]) {
+    await expect(page.locator(".ui-touch").first()).toBeAttached();
+    await wholeOrNone(page);
+    expect(await exposedSmall(page)).toEqual([]);
+    expect(await targetSize(page)).toEqual([]);
+  }
+  const tag = await hitBox(kitTag);
+  expect(Math.min(tag.w, tag.h), "owner's tag opener").toBeGreaterThanOrEqual(44);
+  for (const page of [host, kit]) {
+    await page.locator(site.peopleKey).click();
+    await expect(page.locator(site.peoplePanel)).toBeVisible();
+    await wholeOrNone(page);
+    expect(await exposedSmall(page)).toEqual([]);
+    expect(await targetSize(page)).toEqual([]);
+  }
+});
+
+test("320×640 with a mouse, owner and guest: the tag is 44×44, no seat or tag shows clipped, axe clean at rest, with the share sheet and the member menu", async ({ browser }) => {
+  const { host, kit, kitTag } = await ownerAndGuest(browser, "roomnarr", NARROW, NARROW);
+  await expect(host.locator(".ui-touch").first()).toBeAttached();
+  const tag = await hitBox(kitTag);
+  expect(Math.min(tag.w, tag.h), "owner's tag opener").toBeGreaterThanOrEqual(44);
+  for (const page of [host, kit]) {
+    expect(await exposedSmall(page)).toEqual([]);
+    expect(await targetSize(page)).toEqual([]);
+    await page.locator("[data-testid=portrait-link]").click();
+    expect(await exposedSmall(page)).toEqual([]);
+    expect(await targetSize(page)).toEqual([]);
+    await page.getByRole("button", { name: "Close" }).click();
+  }
+  // kit sits in the back row from a desktop window; a 320 px window shows only the front row at 1×, so kit's tag is
+  // cropped there. The owner still reaches it by keyboard: Tab focuses it, the window pans to show it whole, Enter opens
+  // the menu (QA OME-1330 R2). 320×720: with the CI runner's fonts a 320×640 page is too short for any room window, which
+  // OME-1302 then hides whole.
+  await kit.setViewportSize({ width: 1280, height: 800 });
+  await kit.locator(`${site.seat}[data-seat="0"]`).click();
+  await expect(kit.locator(`${site.seat}.mine`)).toHaveCount(1);
+  await host.setViewportSize({ width: 320, height: 720 });
+  await expect(host.locator(site.roomWindow)).toBeVisible();
+  // Zoomed in, the window crops kit's tag for sure: off to pointers, still in the tab order.
+  for (let i = 0; i < 2; i++) await host.locator("[data-testid=room-zoom-in]").click();
+  await expect(kitTag).toHaveClass(/(^|\s)is-cropped(\s|$)/);
+  await host.locator(site.chatInput).focus();
+  let reached = false;
+  for (let i = 0; i < 80 && !reached; i++) {
+    await host.keyboard.press("Tab");
+    reached = await kitTag.evaluate((e) => e === document.activeElement);
+  }
+  expect(reached, "Tab reaches kit's tag").toBe(true);
+  await expect.poll(() => exposedSmall(host)).toEqual([]);
+  expect(Math.min(...Object.values(await hitBox(kitTag))), "kit's tag, focused").toBeGreaterThanOrEqual(44);
+  await host.keyboard.press("Enter");
+  await expect(host.locator(site.modMenu)).toBeVisible();
+  expect(await exposedSmall(host)).toEqual([]);
 });
