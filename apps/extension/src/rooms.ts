@@ -84,3 +84,19 @@ export function withNewRoom(list: RoomList, probe: RoomsProbe, tokens: ReadonlyM
 export function newRoomUrl(origin: string, url: string): string {
   return `${origin}/#share=${encodeURIComponent(url)}`;
 }
+
+/**
+ * The room shared into last (OME-1287), selected while the dropdown lists it and it holds a share token: without one it
+ * can't be shared into, and the room tab that has one wins. `stored` is the raw storage value.
+ */
+export function withLastRoom(list: RoomList, stored: unknown, tokens: ReadonlyMap<string, string>): RoomList {
+  return typeof stored === "string" && tokens.has(stored) && list.rooms.some((r) => r.id === stored) ? { ...list, selected: stored } : list;
+}
+
+/** The storage key for `withLastRoom`. */
+export const LAST_ROOM_KEY = "lastRoom";
+
+/** The room on the site (`apps/web/src/route.ts`); `origin` is the parsed server base URL. */
+export function roomUrl(origin: string, id: string): string {
+  return new URL(`/r/${encodeURIComponent(id)}`, origin).href;
+}

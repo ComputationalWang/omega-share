@@ -46,8 +46,8 @@ async function syncFoundScript(): Promise<void> {
 }
 
 async function setAction(tabId: number, count: number): Promise<void> {
-  const { path, title } = actionState(count);
-  await Promise.all([browser.action.setIcon({ tabId, path }), browser.action.setTitle({ tabId, title })]).catch(() => undefined);
+  const { path, title, badge } = actionState(count);
+  await Promise.all([browser.action.setIcon({ tabId, path }), browser.action.setTitle({ tabId, title }), browser.action.setBadgeText({ tabId, text: badge })]).catch(() => undefined);
 }
 
 let foundQueue: Promise<void> = Promise.resolve();

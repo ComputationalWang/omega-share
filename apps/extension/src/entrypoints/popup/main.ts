@@ -1,7 +1,7 @@
 import type { Embed, Provider } from "@omega/shared";
 import { browser } from "wxt/browser";
 import { type ListedEmbed, type ScanOutcome, scanTab } from "../../embeds";
-import { FALLBACK_ROOMS, NEW_ROOM, type RoomList, type RoomsProbe, loadRooms, newRoomUrl, withNewRoom, withRoomTabs } from "../../rooms";
+import { FALLBACK_ROOMS, LAST_ROOM_KEY, NEW_ROOM, type RoomList, type RoomsProbe, loadRooms, newRoomUrl, roomUrl, withLastRoom, withNewRoom, withRoomTabs } from "../../rooms";
 import { collectCandidateUrls } from "../../scan";
 import { serverStatus } from "../../server-status";
 import { SERVER_BASE_URL_KEY, hostPermissionPattern, ownHostsOf, readServerBaseUrl } from "../../settings";
@@ -144,10 +144,22 @@ function renderRooms({ rooms, selected }: RoomList): void {
 }
 
 /** Success is the room's system line with a check, an error is rust text with the warn icon (never colour alone). */
-function showStatus(state: "ok" | "error", message: string): void {
+function showStatus(state: "ok" | "error", message: string | HTMLSpanElement): void {
   ui.status.dataset["state"] = state;
   ui.status.className = state === "ok" ? "ui-sysline" : "pk-error";
-  ui.status.replaceChildren(sprite(state === "ok" ? "glyph-check" : "icon-warn"), span("", message));
+  ui.status.replaceChildren(sprite(state === "ok" ? "glyph-check" : "icon-warn"), typeof message === "string" ? span("", message) : message);
+}
+
+/** "Shared to <room>." with the room id linking to the room on the site, in a new tab (OME-1287). */
+function sharedLine(prefix: string, origin: string, roomId: string): HTMLSpanElement {
+  const link = document.createElement("a");
+  link.href = roomUrl(origin, roomId);
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = roomId;
+  const line = span("", prefix);
+  line.append(link, ".");
+  return line;
 }
 
 interface ServerState {
@@ -197,15 +209,17 @@ async function loadServer(origin: string): Promise<ServerState> {
   return { origin, permitted, probe, tabs };
 }
 
-const serverBaseUrl = browser.storage.local.get(SERVER_BASE_URL_KEY).then((items) => readServerBaseUrl(items[SERVER_BASE_URL_KEY]));
+const stored = browser.storage.local.get([SERVER_BASE_URL_KEY, LAST_ROOM_KEY]);
+const serverBaseUrl = stored.then((items) => readServerBaseUrl(items[SERVER_BASE_URL_KEY]));
 
 renderRooms(FALLBACK_ROOMS);
 renderServer();
 void scan().then(render);
 // One `GET /rooms` per popup open, in parallel with the scan so the embed list isn't held up.
-void serverBaseUrl.then(loadServer).then((state) => {
+void Promise.all([serverBaseUrl.then(loadServer), stored]).then(([state, items]) => {
   server = state;
-  renderRooms(withNewRoom(withRoomTabs(state.probe.kind === "ok" ? state.probe.list : FALLBACK_ROOMS, state.tabs), state.probe, state.tabs.tokens));
+  const list = withLastRoom(withRoomTabs(state.probe.kind === "ok" ? state.probe.list : FALLBACK_ROOMS, state.tabs), items[LAST_ROOM_KEY], state.tabs.tokens);
+  renderRooms(withNewRoom(list, state.probe, state.tabs.tokens));
   renderServer();
 }, () => {
   // Storage or the server load threw: Share stays off on the fallback rooms, but say why (OME-1101).
@@ -251,8 +265,12 @@ ui.form.addEventListener("submit", (event) => {
   ui.status.replaceChildren();
   void (queue ? addToQueue(options) : shareEmbed(options))
     .then((result) => {
-      if (result.ok) showStatus("ok", queue ? `Added to the queue in ${roomId}.` : `Shared to ${roomId}.`);
-      else showStatus("error", result.message);
+      if (!result.ok) {
+        showStatus("error", result.message);
+        return;
+      }
+      showStatus("ok", sharedLine(queue ? "Added to the queue in " : "Shared to ", origin, roomId));
+      void browser.storage.local.set({ [LAST_ROOM_KEY]: roomId }).catch(() => undefined);
     })
     .finally(() => {
       setBusy(false);

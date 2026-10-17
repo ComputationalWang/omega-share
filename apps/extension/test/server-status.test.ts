@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { serverStatus, type StatusInput } from "../src/server-status";
+import { DEFAULT_SERVER_BASE_URL } from "../src/settings";
 
 const ORIGIN = "https://abc123.ngrok-free.app";
 const OK = { kind: "ok", list: { rooms: [{ id: "lobby", label: "lobby (1)" }], selected: "lobby" } } as const;
@@ -65,5 +66,20 @@ describe("serverStatus (research OME-119 §5.4)", () => {
     for (const probe of [OK, { kind: "unreachable" }, { kind: "offline" }, { kind: "sign-in" }] as const) {
       expect(serverStatus({ origin: ORIGIN, permitted: false, probe, hasToken: false }).openOptions).toBe(true);
     }
+  });
+});
+
+// OME-1287: users of the default (hosted) server run no tunnel, so its wording doesn't mention one.
+describe("the default server's wording has no tunnel in it", () => {
+  test("unreachable", () => {
+    expect(serverStatus({ origin: DEFAULT_SERVER_BASE_URL, permitted: true, probe: { kind: "unreachable" }, hasToken: true }).message).toBe(
+      `Can't reach ${DEFAULT_SERVER_BASE_URL}. Check your connection and try again.`,
+    );
+  });
+
+  test("offline", () => {
+    expect(serverStatus({ origin: DEFAULT_SERVER_BASE_URL, permitted: true, probe: { kind: "offline" }, hasToken: true }).message).toBe(
+      `The server at ${DEFAULT_SERVER_BASE_URL} isn't answering. Try again in a few minutes.`,
+    );
   });
 });

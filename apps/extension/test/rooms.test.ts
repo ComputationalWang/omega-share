@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { NEW_ROOM, loadRooms, newRoomUrl, withNewRoom, withRoomTabs } from "../src/rooms";
+import { NEW_ROOM, loadRooms, newRoomUrl, roomUrl, withLastRoom, withNewRoom, withRoomTabs } from "../src/rooms";
 
 const BASE = "http://localhost:8787";
 const json = (body: unknown, status = 200) =>
@@ -195,4 +195,34 @@ describe("newRoomUrl: the ADR 0049 hand-off link", () => {
   test("a local origin with a port", () => {
     expect(newRoomUrl("http://localhost:8787", "https://player.vimeo.com/video/76979871")).toBe("http://localhost:8787/#share=https%3A%2F%2Fplayer.vimeo.com%2Fvideo%2F76979871");
   });
+});
+
+describe("roomUrl: the success line's link to the room (OME-1287)", () => {
+  test("the site's /r/<id> on the parsed origin", () => {
+    expect(roomUrl("https://omega.example", "movies")).toBe("https://omega.example/r/movies");
+    expect(roomUrl("http://localhost:8787", "lobby")).toBe("http://localhost:8787/r/lobby");
+  });
+
+  test("the id is percent-encoded, so it can't leave the path", () => {
+    expect(roomUrl("https://omega.example", "a/../b?c#d")).toBe("https://omega.example/r/a%2F..%2Fb%3Fc%23d");
+  });
+});
+
+describe("withLastRoom: the room shared into last is preselected while it's listed and holds a share token (OME-1287)", () => {
+  const LIST = { rooms: [{ id: "lobby", label: "lobby (1)" }, { id: "movies", label: "Movies (2)" }], selected: "lobby" };
+  const TOKENS = new Map([["lobby", "t1"], ["movies", "t2"]]);
+
+  test("a listed last room with a token is selected", () => {
+    expect(withLastRoom(LIST, "movies", TOKENS)).toEqual({ ...LIST, selected: "movies" });
+  });
+
+  test("a listed last room without a token is ignored: there's nothing to share into", () => {
+    expect(withLastRoom(LIST, "movies", new Map([["lobby", "t1"]]))).toEqual(LIST);
+  });
+
+  for (const stored of ["gone", undefined, 42, null, NEW_ROOM]) {
+    test(`${String(stored)} is ignored`, () => {
+      expect(withLastRoom(LIST, stored, new Map([...TOKENS, ["gone", "t3"]]))).toEqual(LIST);
+    });
+  }
 });

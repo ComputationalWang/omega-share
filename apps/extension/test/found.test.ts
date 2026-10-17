@@ -47,17 +47,20 @@ describe("parseFoundMessage", () => {
 });
 
 describe("actionState", () => {
-  test("found: the lit-lamp icon and a title that says so", () => {
+  test("found: the lit-lamp icon, the count on the badge, and a title that says it (OME-1287)", () => {
     expect(actionState(2)).toEqual({
       path: { 16: "icon/found-16.png", 32: "icon/found-32.png", 48: "icon/found-48.png", 64: "icon/found-64.png" },
-      title: "omega share: video found",
+      title: "omega share: 2 videos found",
+      badge: "2",
     });
+    expect(actionState(1)).toMatchObject({ title: "omega share: 1 video found", badge: "1" });
   });
 
   test("nothing: back to the idle icon and title", () => {
     expect(actionState(0)).toEqual({
       path: { 16: "icon/16.png", 32: "icon/32.png", 48: "icon/48.png", 64: "icon/idle-64.png" },
       title: "omega share",
+      badge: "",
     });
   });
 });

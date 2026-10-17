@@ -27,9 +27,10 @@ export function parseFoundMessage(raw: unknown): number | null {
 const FOUND_ICONS = { 16: "icon/found-16.png", 32: "icon/found-32.png", 48: "icon/found-48.png", 64: "icon/found-64.png" };
 const IDLE_ICONS = { 16: "icon/16.png", 32: "icon/32.png", 48: "icon/48.png", 64: "icon/idle-64.png" };
 
-/** The tab's toolbar icon and title: the lit tally lamp (assets/README.md, OME-1041) when it has a video. */
-export function actionState(count: number): { path: Record<number, string>; title: string } {
-  return count > 0 ? { path: FOUND_ICONS, title: "omega share: video found" } : { path: IDLE_ICONS, title: "omega share" };
+/** The tab's toolbar icon, title and badge: the lit tally lamp (assets/README.md, OME-1041) and the count when it has a video. */
+export function actionState(count: number): { path: Record<number, string>; title: string; badge: string } {
+  if (count === 0) return { path: IDLE_ICONS, title: "omega share", badge: "" };
+  return { path: FOUND_ICONS, title: `omega share: ${String(count)} ${count === 1 ? "video" : "videos"} found`, badge: String(count) };
 }
 
 /** `fn` at once, then at most once per `ms`: a burst of triggers inside the window gets one trailing run. */

@@ -64,6 +64,8 @@ export default defineConfig({
     description: "Share the video on this page into an omega-share room.",
     icons,
     action: { default_icon: icons },
+    // Opens the popup (OME-1287). Alt+Shift+O isn't taken by Chrome or Firefox; the user can change it in the browser.
+    commands: { _execute_action: { suggested_key: { default: "Alt+Shift+O" } } },
     // "Unlock with extension" (ADR 0047 §4): Chromium asks for DNR with the one host it unlocks. Firefox can't make it
     // optional, and there it has no prompt and acts only on hosts the viewer granted. The e2e builds hold it because
     // Playwright can't click the permission prompt.
