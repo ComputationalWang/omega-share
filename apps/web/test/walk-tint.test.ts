@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { AVATAR_COUNT, TINT_COUNT } from "@omega/shared";
-import { parseTints, retintPng } from "../src/walk/tint";
+import { AVATAR_IDS, parseTints, retintPng } from "../src/walk/tint";
 
 // OME-1352 (ADR 0053, art OME-1347): a shirt tint is a PLTE swap of the avatar sheets. tints.json names, per avatar,
 // the 3 palette slots of its swatch ramp and 6 ramps; tint 0 is the shipped look.
@@ -24,6 +24,10 @@ function chunks(png: Uint8Array): { type: string; data: Uint8Array; crcOk: boole
 const hexAt = (plte: Uint8Array, slot: number): string => `#${Array.from(plte.subarray(slot * 3, slot * 3 + 3), (b) => b.toString(16).padStart(2, "0")).join("")}`;
 
 describe("parseTints", () => {
+  test("AVATAR_IDS is avatars.json's avatar order", async () => {
+    const avatars = (await Bun.file(new URL("../../../assets/avatars/avatars.json", import.meta.url)).json()) as { meta: { omega: { avatars: { id: string }[] } } };
+    expect(AVATAR_IDS).toEqual(avatars.meta.omega.avatars.map((a) => a.id));
+  });
   test("gives every avatar, in avatar order, its 3 swatch slots and 6 ramps", () => {
     const t = parseTints(tintsJson, IDS);
     expect(t).toHaveLength(AVATAR_COUNT);

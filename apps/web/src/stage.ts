@@ -240,7 +240,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       for (const v of views) {
         const p = seats[v.index];
         if (v.member !== null && p !== undefined) {
-          placements.push({ id: v.member.id, avatar: v.member.avatar, at: p, z: scene.seats[v.index]?.z ?? standDepth(p), seatFacing: seatFacings[v.index] ?? null });
+          placements.push({ id: v.member.id, avatar: v.member.avatar, tint: v.member.tint ?? 0, at: p, z: scene.seats[v.index]?.z ?? standDepth(p), seatFacing: seatFacings[v.index] ?? null });
           at.set(v.member.id, p);
         }
       }
@@ -253,7 +253,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         const i = standSpots.get(m.id);
         const p = i === undefined ? undefined : standing[i];
         if (p === undefined) continue;
-        placements.push({ id: m.id, avatar: m.avatar, at: p, z: standDepth(p), seatFacing: null });
+        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, at: p, z: standDepth(p), seatFacing: null });
         at.set(m.id, p);
       }
       // Away dims the avatar in place; set before the update so a new avatar is made at its alpha. Seats stay.

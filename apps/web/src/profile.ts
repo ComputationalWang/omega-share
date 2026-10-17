@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { AvatarSchema, NICKNAME_MAX_LENGTH, NicknameSchema, type Avatar, type Nickname, type Tint } from "@omega/shared";
+import { AvatarSchema, NICKNAME_MAX_LENGTH, NicknameSchema, TintSchema, type Avatar, type Nickname, type Tint } from "@omega/shared";
 
 export interface KeyValueStore {
   getItem(key: string): string | null;
@@ -14,6 +14,7 @@ export interface Profile {
 
 const NICKNAME_KEY = "omega.nickname";
 const AVATAR_KEY = "omega.avatar";
+const TINT_KEY = "omega.tint";
 
 export type NicknameResult = { readonly ok: true; readonly nickname: Nickname } | { readonly ok: false; readonly message: string };
 
@@ -38,7 +39,8 @@ function read(store: KeyValueStore, key: string): string | null {
 export function loadProfile(store: KeyValueStore): Profile {
   const nick = v.safeParse(NicknameSchema, read(store, NICKNAME_KEY));
   const avatar = v.safeParse(AvatarSchema, Number(read(store, AVATAR_KEY) ?? "0"));
-  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, tint: 0 };
+  const tint = v.safeParse(TintSchema, Number(read(store, TINT_KEY) ?? "0"));
+  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, tint: tint.success ? tint.output : 0 };
 }
 
 export function saveProfile(store: KeyValueStore, profile: { nickname: Nickname; avatar: Avatar }): boolean {
@@ -51,6 +53,12 @@ export function saveProfile(store: KeyValueStore, profile: { nickname: Nickname;
   }
 }
 
-export function saveTint(_store: KeyValueStore, _tint: Tint): boolean {
-  return false;
+/** The shirt tint (ADR 0053) is saved on its own: a pick in the room changes it with no nickname to hand. */
+export function saveTint(store: KeyValueStore, tint: Tint): boolean {
+  try {
+    store.setItem(TINT_KEY, String(tint));
+    return true;
+  } catch {
+    return false;
+  }
 }

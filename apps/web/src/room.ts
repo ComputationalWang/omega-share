@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, type Avatar, type ClientMessage, type EmoteKind, type MemberId, type Nickname, type ResumeToken, type RoomId } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, type Avatar, type ClientMessage, type EmoteKind, type MemberId, type Nickname, type ResumeToken, type RoomId, type Tint } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
@@ -40,6 +40,10 @@ import { createHelp } from "./help/dialog";
 import { createFirstHint } from "./help/hint";
 import { createHiddenMembers } from "./hide/hidden";
 import { createPeople } from "./hide/people";
+import tintsJson from "../../../assets/avatars/tints.json";
+import { createTintKey } from "./controls/tint-key";
+import { saveTint } from "./profile";
+import { AVATAR_IDS, parseTints } from "./walk/tint";
 import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
 
 export interface RoomOptions {
@@ -48,6 +52,8 @@ export interface RoomOptions {
   readonly socketUrl: string;
   readonly nickname: Nickname;
   readonly avatar: Avatar;
+  /** Shirt tint to join with (ADR 0053, the profile's). */
+  readonly tint: Tint;
   /** This room's owner token and invite key from `omega.rooms`, if the browser holds any (ADR 0028). */
   readonly secret: RoomSecret | undefined;
   /** Where `omega.rooms` lives: a closed room is forgotten. */
@@ -294,7 +300,17 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     ev.preventDefault();
     people.open(id);
   });
-  roomTop.append(title, popRoomKey, people.key, help.key);
+  // Shirt tint (OME-1352): my avatar's ramps from tints.json, the pick saved in the profile for the next visit.
+  const tintKey = createTintKey({
+    tints: parseTints(tintsJson, AVATAR_IDS)[opts.avatar]?.tints ?? [],
+    tint: opts.tint,
+    send: (m) => send(m),
+    onPick: (t) => {
+      saveTint(opts.secrets, t);
+    },
+  });
+  tintKey.key.hidden = true;
+  roomTop.append(title, popRoomKey, tintKey.key, people.key, help.key);
   // The first-visit hint (OME-768): in the flow under the room bar, so it never covers the picture or the composer.
   const firstHint = createFirstHint({
     // The `localStorage` getter itself throws when storage is blocked.
@@ -361,7 +377,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
   };
   renderSend();
-  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
+  opts.root.replaceChildren(roomTop, firstHint.root, tintKey.panel, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
   // Declared before the layout: its first fit() reads roomOut.
   /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
   let relay: ChatRelay | null = null;
@@ -515,6 +531,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     wrap.hidden = !shown.stage;
     help.key.hidden = !shown.stage;
     people.key.hidden = !shown.stage;
+    tintKey.key.hidden = !shown.stage;
+    if (!shown.stage) tintKey.close();
     if (shown.stage) people.update(s.room?.members ?? [], s.self);
     else people.close();
     if (!shown.stage) {
@@ -679,7 +697,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
   const c: Connection = kickedTill !== null ? stoppedConnection() : createConnection({
     url: opts.socketUrl,
-    join: joinMessage(opts.nickname, opts.avatar, opts.secret),
+    join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint),
     durable: true,
     ...(opts.resumeToken === undefined ? {} : { resumeToken: opts.resumeToken }),
     createSocket: browserSocket,
