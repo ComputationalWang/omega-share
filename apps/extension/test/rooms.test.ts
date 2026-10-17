@@ -216,7 +216,7 @@ describe("withLastRoom: the room shared into last is preselected while it's list
   });
 
   for (const stored of ["gone", undefined, 42, null, NEW_ROOM]) {
-    test(`${JSON.stringify(stored) ?? "undefined"} is ignored`, () => {
+    test(`${String(stored)} is ignored`, () => {
       expect(withLastRoom(LIST, stored)).toEqual(LIST);
     });
   }

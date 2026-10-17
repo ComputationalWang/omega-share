@@ -1,4 +1,5 @@
 import type { RoomsProbe } from "./rooms";
+import { DEFAULT_SERVER_BASE_URL } from "./settings";
 
 export interface StatusInput {
   readonly origin: string;
@@ -22,8 +23,11 @@ export interface ServerStatus {
 /** Status wording, shared with the share call's errors so both say the same thing. */
 export const STATUS_TEXT = {
   permission: (origin: string): string => `Allow access to ${origin} in Options.`,
-  unreachable: (origin: string): string => `Can't reach ${origin}. Is the tunnel running?`,
-  offline: (origin: string): string => `The server at ${origin} isn't answering. The tunnel may be offline.`,
+  // Only a self-hosted server sits behind a tunnel; the default one doesn't (OME-1287).
+  unreachable: (origin: string): string =>
+    `Can't reach ${origin}. ${origin === DEFAULT_SERVER_BASE_URL ? "Check your connection and try again." : "Is the tunnel running?"}`,
+  offline: (origin: string): string =>
+    `The server at ${origin} isn't answering. ${origin === DEFAULT_SERVER_BASE_URL ? "Try again in a few minutes." : "The tunnel may be offline."}`,
   signIn: "Sign in to the room in a browser tab first.",
   noToken: "Open the room in a tab to share into it.",
   tokenRejected: "The room didn't accept this share. Reload the room tab and try again.",
