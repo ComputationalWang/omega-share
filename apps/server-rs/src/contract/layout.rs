@@ -57,9 +57,15 @@ pub enum Kind {
     Cat,
     Wallshelf,
     Garland,
+    Coffeetable,
+    Pouf,
+    Neonsign,
+    Aquarium,
+    Arcade,
+    Wallclock,
 }
 
-pub const KINDS: [Kind; 23] = [
+pub const KINDS: [Kind; 29] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -83,6 +89,12 @@ pub const KINDS: [Kind; 23] = [
     Kind::Cat,
     Kind::Wallshelf,
     Kind::Garland,
+    Kind::Coffeetable,
+    Kind::Pouf,
+    Kind::Neonsign,
+    Kind::Aquarium,
+    Kind::Arcade,
+    Kind::Wallclock,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -147,14 +159,16 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Rug => Spec::new(Floor, FIXED, 7, 7),
         Kind::Sofa | Kind::Couch => Spec::new(Object, ALL, 2, 1).seated().variants(2),
         Kind::Wingback => Spec::new(Object, ALL, 1, 1).seated(),
-        Kind::Beanbag | Kind::Floorcushion => Spec::new(Object, ALL, 1, 1).seated().variants(2),
-        Kind::Sidetable | Kind::Arclamp | Kind::Popcorn | Kind::Turntable => Spec::new(Object, CAMERA, 1, 1),
+        Kind::Beanbag | Kind::Floorcushion | Kind::Pouf => Spec::new(Object, ALL, 1, 1).seated().variants(2),
+        Kind::Sidetable | Kind::Arclamp | Kind::Popcorn | Kind::Turntable | Kind::Coffeetable | Kind::Aquarium | Kind::Arcade => {
+            Spec::new(Object, CAMERA, 1, 1)
+        }
         Kind::Monstera | Kind::Speaker | Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2),
         Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).backed(),
         Kind::Runner => Spec::new(Floor, ON_FLOOR, 3, 2).variants(2),
-        Kind::Frame | Kind::Garland => Spec::new(Wall, CAMERA, 0, 0).variants(2),
+        Kind::Frame | Kind::Garland | Kind::Neonsign => Spec::new(Wall, CAMERA, 0, 0).variants(2),
         Kind::Bench => Spec::new(Object, ALL, 2, 1).seated().variants(2),
-        Kind::Wallshelf => Spec::new(Wall, CAMERA, 0, 0),
+        Kind::Wallshelf | Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
     }
 }
 
