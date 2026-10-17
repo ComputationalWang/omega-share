@@ -128,6 +128,11 @@ for (const [name, width, height] of [["q932", 932, 430], ["q844", 844, 390], ["q
       const rows = page.locator(site.queueRow);
       // At least: a retry reuses the room and its queue.
       await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(8);
+      // The title stays readable in the narrow column (OME-1313): the chip keeps only its glyph, its word stays for a screen reader.
+      const first = rows.first();
+      expect((await box(first.locator(".title"))).width).toBeGreaterThanOrEqual(110);
+      expect((await box(first.locator(".ui-chip"))).width).toBeLessThanOrEqual(32);
+      await expect(first.locator(".ui-chip")).toHaveText(/synced/i);
       // At 667×375 about half a row shows (CI's fonts give 23 px); the list scrolls to the rest, checked below.
       const list = page.locator(`${site.queuePanel} .ui-qlist`);
       expect(await list.evaluate((n) => n.clientHeight)).toBeGreaterThanOrEqual(20);
