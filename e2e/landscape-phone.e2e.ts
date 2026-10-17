@@ -135,6 +135,19 @@ for (const [name, width, height] of [["q932", 932, 430], ["q844", 844, 390], ["q
       await last.scrollIntoViewIfNeeded();
       await inside(last, 0, height, 0, width);
       expect(await page.evaluate(() => window.scrollY)).toBe(0);
+      // The keyboard up while typing a link: the link field and Add stay above it.
+      const url = page.locator(site.queueUrl);
+      await url.focus();
+      const kb = { top: 24, height: height - 220 };
+      await page.evaluate(({ top, height: h }) => {
+        const v = new EventTarget();
+        Object.assign(v, { height: h, width: innerWidth, offsetTop: top, offsetLeft: 0, scale: 1 });
+        Object.defineProperty(window, "visualViewport", { configurable: true, value: v });
+        window.dispatchEvent(new Event("resize"));
+      }, kb);
+      await expect(url).toBeFocused();
+      await expect.poll(async () => { const b = await box(url); return b.y + b.height; }).toBeLessThanOrEqual(kb.top + kb.height);
+      for (const l of [url, page.locator(site.queueAdd)]) await inside(l, kb.top, kb.top + kb.height);
     } finally {
       close();
     }
