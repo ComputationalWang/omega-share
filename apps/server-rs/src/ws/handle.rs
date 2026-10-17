@@ -167,6 +167,8 @@ fn admit_type(
         }
         // Unjoined sockets get not_joined in `handle`.
         ClientMessage::Emote { .. } => owner.is_none() || admit!(emote, "too many emotes, slow down"),
+        // Cosmetic broadcasts share one bucket (ADR 0053).
+        ClientMessage::SetTint { .. } => owner.is_none() || admit!(emote, "too many tint changes, slow down"),
         // Over the walk bucket: dropped silently, no notice and no streak toward a close (ADR 0053).
         ClientMessage::Walk { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none(),
         // The queue's add buckets come after its control-policy check, in `handle` (ADR 0031 section 3).
@@ -181,8 +183,7 @@ fn admit_type(
         | ClientMessage::QueueRemove { .. }
         | ClientMessage::QueueMove { .. }
         | ClientMessage::QueueAdvance { .. }
-        | ClientMessage::Ended { .. }
-        | ClientMessage::SetTint { .. } => true,
+        | ClientMessage::Ended { .. } => true,
     }
 }
 

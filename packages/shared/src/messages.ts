@@ -94,7 +94,7 @@ export const ClientMessageSchema = v.variant("type", [
    * there themselves; send the destination only. Per member WALK_BURST / WALK_REFILL_MS, over it dropped silently.
    */
   v.strictObject({ type: v.literal("walk"), cell: FloorCellInputSchema }),
-  /** Needs `join`. Change shirt tint; relayed as `tint-changed` (setting the current tint is a no-op). */
+  /** Needs `join`. Change shirt tint; relayed as `tint-changed` (setting the current tint is a no-op). Shares the `emote` bucket. */
   v.strictObject({ type: v.literal("set-tint"), tint: TintSchema }),
   v.strictObject({ type: v.literal("chat"), text: ChatTextSchema }),
   /** Clock sample; allowed before `join`. Answered with `pong` to the sender only. */

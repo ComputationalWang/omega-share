@@ -399,6 +399,7 @@
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::the html pages still serve, with the site-wide card",
     "apps/server/test/site.test.ts::site routes: shell, share card and real 404s::unknown paths and invalid room ids are 404 with the not-found page, in the privacy page's look",
     "apps/server/test/walk.test.ts::tint (OME-1346)::join sets it, set-tint changes it for everyone, the snapshot carries it",
+    "apps/server/test/walk.test.ts::tint (OME-1346)::set-tint shares the emote bucket: 3 changes relay, the next is rate_limited",
     "apps/server/test/walk.test.ts::walk (OME-1346)::a burst of 8 walks relays, the next is dropped silently, a refill restores one",
     "apps/server/test/walk.test.ts::walk (OME-1346)::a layout that covers a standing member's cell walks them to the door",
     "apps/server/test/walk.test.ts::walk (OME-1346)::a walk to free floor is relayed as walked to everyone and lands in the next snapshot",
