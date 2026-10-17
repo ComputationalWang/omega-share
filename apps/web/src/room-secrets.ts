@@ -11,6 +11,7 @@ import {
   type OwnerToken,
   type RoomId,
   type RoomSecrets,
+  type RoomTitle,
 } from "@omega/shared";
 
 // The site's owner tokens and invite keys (ADR 0028, research §2.3, §3.2). Unlike the share token they outlive the tab,
@@ -71,6 +72,11 @@ export function rememberRoom(store: SecretsStore, id: RoomId, secret: RoomSecret
   for (const [k, s] of entries) if (!dropped.has(k)) rooms[k] = s;
   rooms[id] = { ...prev, ...secret };
   return save(store, rooms);
+}
+
+/** A rename this client saw: updates the saved room's title in place (its age kept); a room it doesn't have stays unsaved. */
+export function retitleRoom(_store: SecretsStore, _id: RoomId, _title: RoomTitle): boolean {
+  return false;
 }
 
 export function forgetRoom(store: SecretsStore, id: RoomId): boolean {

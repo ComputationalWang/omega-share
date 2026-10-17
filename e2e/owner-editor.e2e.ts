@@ -133,6 +133,9 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   await owner.locator(site.editorRename).click();
   for (const p of [owner, guest]) await expect(p.locator(site.roomTitle)).toHaveText("Friday films");
   await expect(owner.locator(site.editorRoomMessage)).toHaveText("Renamed.");
+  // The saved record follows, so Your rooms shows the new name (OME-1284).
+  const roomId = new URL(owner.url()).pathname.split("/")[2] ?? "";
+  await expect.poll(() => owner.evaluate(([k, id]) => (JSON.parse(localStorage.getItem(k) ?? "{}") as { rooms?: Record<string, { title?: string }> }).rooms?.[id]?.title, [ROOM_SECRETS_STORAGE_KEY, roomId] as const)).toBe("Friday films");
   // Renaming to the name it already has settles at once without a title-set: the server would answer an unchanged
   // title with nothing, so "Renaming…" would wait on an unrelated update (OME-482).
   titleSets.length = 0;

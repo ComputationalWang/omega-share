@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_ROOM_SECRETS, ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
-import { forgetRoom, inviteLink, joinMessage, loadRoomSecrets, rememberRoom, secretFor, takeInviteKey } from "../src/room-secrets";
+import { forgetRoom, inviteLink, joinMessage, loadRoomSecrets, rememberRoom, retitleRoom, secretFor, takeInviteKey } from "../src/room-secrets";
 
 const OWNER = "o".repeat(21) + "A";
 const KEY = "k".repeat(21) + "_";
@@ -119,6 +119,17 @@ describe("rememberRoom / forgetRoom", () => {
     rememberRoom(s, "lobby", { inviteKey: KEY });
     forgetRoom(s, ROOM);
     expect(Object.keys(loadRoomSecrets(s).rooms)).toEqual(["lobby"]);
+  });
+
+  test("retitleRoom updates a saved room's title in place, and never saves a room it doesn't have (OME-1284)", () => {
+    const s = new MemoryStore();
+    rememberRoom(s, ROOM, { ownerToken: OWNER, title: "Film night" });
+    rememberRoom(s, "lobby", { inviteKey: KEY });
+    retitleRoom(s, ROOM, "Friday films");
+    expect(loadRoomSecrets(s).rooms[ROOM]).toEqual({ ownerToken: OWNER, title: "Friday films" });
+    expect(Object.keys(loadRoomSecrets(s).rooms)).toEqual([ROOM, "lobby"]);
+    retitleRoom(s, "other", "Nope");
+    expect(Object.keys(loadRoomSecrets(s).rooms)).toEqual([ROOM, "lobby"]);
   });
 
   test("a full or disabled store reports false instead of throwing", () => {
