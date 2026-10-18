@@ -7,7 +7,7 @@ import type { Sheet } from "./atlas-sheet";
 import { drawCursor } from "./cell-cursor";
 import type { Scene } from "./furniture";
 import { AVATAR_COLORS, FLOOR_CELLS, STAGE_H, STAGE_W, TILE_H, TILE_W, cellCenter, type Point } from "./layout";
-import { createAnimator } from "./walk/animator";
+import { createAnimator, type FurnitureLoop } from "./walk/animator";
 import type { MotionAtlas } from "./walk/motion-atlas";
 import { createTier, createTierProbe, readTierHints } from "./walk/tier";
 import { createWalks, type Dir } from "./walk/walks";
@@ -45,6 +45,10 @@ export interface RoomView {
   readonly canvas: HTMLCanvasElement;
   /** The room's shell, furniture and seat markers; rebuilt once per layout change (or when an atlas arrives). Draws on the next `update`. */
   setScene(scene: Scene, sheets: readonly (Sheet | null)[], walkGrid: Uint8Array): void;
+  /** The layout's pieces in use (furniture.ts `piecesInUse`, OME-1407): theirs loop, the rest show their still frame. Per change. */
+  setInUse(pieces: ReadonlySet<number>): void;
+  /** The furniture loops running now: each piece's idle frame key and the loop frame shown (-1 still), for e2e. */
+  loops(): { key: string; frame: number }[];
   /** Seat occupancy and who sits or stands where; redraws once, then walks anyone whose spot changed (walk/). */
   update(seatTaken: readonly boolean[], avatars: readonly AvatarPlacement[]): void;
   /** Where an avatar is drawn now (mid-walk, between cells), stage px. */
@@ -155,6 +159,14 @@ interface Entry {
   accessory: number;
 }
 
+/** A piece that can play its "in use" loop: its sprite, idle texture and loop textures. */
+interface Loop extends FurnitureLoop {
+  readonly sprite: Sprite;
+  readonly piece: number;
+  readonly idle: Texture;
+  readonly textures: readonly Texture[];
+}
+
 /** Caches the static room shell as one texture, repainted on the next render (OME-1341). */
 export function bakeShell(layer: Container): void {
   if (layer.isCachedAsTexture) layer.updateCacheTexture();
@@ -187,6 +199,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const background = new Container();
   background.addChild(floor);
   bakeShell(background);
+  // Wall pieces with a loop (the neon sign, OME-1407) sit just over the baked shell, so a loop frame never repaints it.
+  const liveWall = new Container({ label: "live-wall" });
   // The holiday theme (ADR 0052): decor over the walls, behind the furniture and avatars (the effect has its own canvas).
   const decorLayer = new Container({ label: "decor" });
   const editLayer = new Container({ label: "edit" });
@@ -196,12 +210,16 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   const objectLayer = new Container({ sortableChildren: true });
   // Emote stickers float over everyone (OME-415).
   const emoteLayer = new Container({ label: "emotes" });
-  app.stage.addChild(background, decorLayer, editLayer, hover, markerLayer, objectLayer, emoteLayer);
+  app.stage.addChild(background, liveWall, decorLayer, editLayer, hover, markerLayer, objectLayer, emoteLayer);
 
   /** Marker per placeholder seat, by seat index. */
   let markers: (Graphics | null)[] = [];
   let lastTaken: (boolean | null)[] = [];
   let furniture: Sprite[] = [];
+  /** Every piece that can loop, in scene order; `running` the ones in use now (the animator's loop indices). */
+  let looping: Loop[] = [];
+  let running: Loop[] = [];
+  let inUse: ReadonlySet<number> = new Set<number>();
   const pool = new Map<MemberId, Entry>();
 
   /** Members drawn dimmed (OME-769); a member's node takes it on when made or swapped for a sprite. */
@@ -415,6 +433,12 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       entry.sticker.position.set(x, y);
       entry.sticker.visible = true;
       entry.stickerFrame = frame;
+    },
+    drawLoop(i, frame) {
+      const l = running[i];
+      if (l === undefined) return;
+      const t = frame < 0 ? l.idle : (l.textures[frame] ?? l.idle);
+      if (l.sprite.texture !== t) l.sprite.texture = t;
     },
     render,
   });
@@ -646,6 +670,15 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       });
   }
 
+  /** Hand the in-use loops to the animator; pieces no longer in use go back to their idle frame. */
+  const applyLoops = (): void => {
+    const was = running.length;
+    running = looping.filter((l) => inUse.has(l.piece));
+    for (const l of looping) if (!inUse.has(l.piece)) l.sprite.texture = l.idle;
+    // Nothing looped and nothing does: no frame to ask for (a scene build in a room without loops costs no render).
+    if (was > 0 || running.length > 0) animator.setLoops(running);
+  };
+
   return {
     canvas: app.canvas,
     setScene(scene, sheets, walkGrid) {
@@ -655,6 +688,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       for (const s of furniture) s.destroy();
       for (const m of markers) m?.destroy();
       furniture = [];
+      looping = [];
       // Floor tiles and rugs, then walls and wall pieces, then objects; the background keeps that order, objects sort by depth.
       const ordered = ["floor", "wall", "object"].flatMap((layer) => scene.sprites.filter((f) => f.layer === layer));
       // Room and set (g) keys never collide (set (g)'s all start with `furniture/`).
@@ -666,8 +700,16 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         planks ||= f.key.startsWith("floor/");
         const s = new Sprite({ texture, label: f.key, x: f.x, y: f.y, zIndex: f.z });
         furniture.push(s);
-        (f.layer === "object" ? objectLayer : background).addChild(s);
+        let live = false;
+        if (f.use !== undefined) {
+          // A loop runs only with all its frames in a loaded sheet; otherwise the piece stays still.
+          const textures = f.use.frames.flatMap((k) => sheets.map((sheet) => sheet?.texture(k)).find((t) => t !== undefined) ?? []);
+          live = textures.length === f.use.frames.length;
+          if (live) looping.push({ sprite: s, piece: f.use.piece, idle: texture, textures, frames: textures.length, ms: f.use.ms });
+        }
+        (f.layer === "object" ? objectLayer : live ? liveWall : background).addChild(s);
       }
+      applyLoops();
       // The room atlas's planks cover every cell: skip drawing the placeholder floor under them.
       floor.visible = !planks;
       bakeShell(background);
@@ -680,6 +722,12 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       });
       lastTaken = markers.map(() => null);
     },
+    setInUse(pieces) {
+      if (pieces.size === inUse.size && [...pieces].every((p) => inUse.has(p))) return;
+      inUse = pieces;
+      applyLoops();
+    },
+    loops: () => running.map((l) => ({ key: l.sprite.label, frame: l.textures.indexOf(l.sprite.texture) })),
     update(seatTaken, avatars) {
       markers.forEach((g, i) => {
         if (g === null) return;
@@ -798,7 +846,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     },
     drawOrder() {
       const sorted = [...objectLayer.children].sort((a, b) => a.zIndex - b.zIndex);
-      return [...background.children, ...markerLayer.children, ...sorted].map((c) => c.label);
+      return [...background.children, ...liveWall.children, ...markerLayer.children, ...sorted].map((c) => c.label);
     },
     theme: () => ({ id: themeId, decor: decorLayer.children.length, hats: hatsShown, effect: effectRunning ? (particles?.count ?? 0) : 0, ticks: effectTicks, worstTickMs: worstTick }),
     confetti() {

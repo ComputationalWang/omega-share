@@ -2,8 +2,9 @@
 // (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet and furniture-v2-atlas.ts
 // catalogue v2 (OME-1113), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
-import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Furniture, type FurnitureKind, type RoomLayout, type RoomState } from "@omega/shared";
+import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Facing, type Furniture, type FurnitureKind, type RoomLayout, type RoomState } from "@omega/shared";
 import { cellCenter, type Point } from "./layout";
+import { cellOf } from "./walk/path";
 
 /**
  * A layout's content as a string: each piece's fields in a fixed order, an absent variant as 0. Two layouts with the same
@@ -34,6 +35,8 @@ export const FurnitureManifestSchema = v.object({
           colours: v.pipe(v.array(v.string()), v.minLength(1)),
           sortByDir: v.record(DIR, v.optional(XY)),
           layersByDir: v.record(DIR, v.optional(v.array(v.picklist(["back", "front"])))),
+          /** The "in use" loop (OME-1405): frame count and ms per frame; its frames are `meta.omega.useKey`. */
+          use: v.optional(v.object({ frames: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(16)), ms: v.pipe(v.number(), v.minValue(16)) })),
         }),
       ),
     }),
@@ -108,6 +111,29 @@ export function standingPoints(layout: RoomLayout): Point[] {
   return spots.slice(0, MAX_ROOM_MEMBERS);
 }
 
+/** The pieces with an "in use" loop (OME-1405 art, assets/README.md); all 1×1 or wall pieces. */
+const LOOP_KINDS: ReadonlySet<FurnitureKind> = new Set(["arcade", "turntable", "aquarium", "neonsign"]);
+/** From a piece's cell to the one at its front: +col is se, +row is sw on screen (cellCenter). */
+const FRONT: Readonly<Record<Facing, readonly [number, number]>> = { se: [1, 0], sw: [0, 1], ne: [0, -1], nw: [-1, 0] };
+
+/**
+ * Indices of the layout's pieces in use (OME-1407): someone stands on the cell at the front of a looping piece (a wall
+ * piece's front is the floor cell under it), and the neon sign hums while a video plays. `standing` holds walk cells
+ * (`cellOf`). Worked out when someone stands or the layout changes, never per frame.
+ */
+export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, playing: boolean): Set<number> {
+  const out = new Set<number>();
+  layout.furniture.forEach((f, i) => {
+    if (!LOOP_KINDS.has(f.kind)) return;
+    const [dc, dr] = FURNITURE[f.kind].layer === "wall" ? [0, 0] : FRONT[f.facing];
+    const c = f.col + dc;
+    const r = f.row + dr;
+    const near = c >= 0 && c < FLOOR_CELLS && r >= 0 && r < FLOOR_CELLS && standing.has(cellOf(c, r));
+    if (near || (playing && f.kind === "neonsign")) out.add(i);
+  });
+  return out;
+}
+
 export interface FurnitureSprite {
   /** Frame key in the furniture atlas. */
   readonly key: string;
@@ -117,6 +143,8 @@ export interface FurnitureSprite {
   /** `floor` and `wall` draw with the static background in furniture order; `object` sorts with avatars by `z`. */
   readonly layer: "floor" | "wall" | "object";
   readonly z: number;
+  /** An "in use" loop (OME-1407): the furniture index, the loop's frame keys and its frame time. */
+  readonly use?: { readonly piece: number; readonly frames: readonly string[]; readonly ms: number };
 }
 
 export interface SceneSeat {
@@ -148,13 +176,13 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
   const sprites: FurnitureSprite[] = [];
   const seats: SceneSeat[] = [];
   if (room !== null) pushShell(sprites, layout, room);
-  for (const f of layout.furniture) {
+  for (const [i, f] of layout.furniture.entries()) {
     const spec = FURNITURE[f.kind];
     const piece = ROOM_KINDS.has(f.kind) ? undefined : pieces.get(atlasId(f.kind));
     const anchor = cellCenter(f.col, f.row);
     const sort = piece?.sortByDir[f.facing];
     const drawn = piece !== undefined && sort !== undefined && layers !== undefined ? { piece, sort, layers } : null;
-    if (drawn !== null) pushSprites(sprites, f, anchor, drawn);
+    if (drawn !== null) pushSprites(sprites, f, i, anchor, drawn);
     else if (room !== null) pushRoomPiece(sprites, f, anchor);
     if (!spec.seats) continue;
     for (const [c, r] of footprintCells(f)) {
@@ -171,6 +199,7 @@ export function sceneOf(layout: RoomLayout, manifests: readonly FurnitureManifes
 function pushSprites(
   out: FurnitureSprite[],
   f: Furniture,
+  index: number,
   anchor: Point,
   { piece, sort, layers }: { readonly piece: Piece; readonly sort: { readonly x: number; readonly y: number }; readonly layers: FurnitureManifest["meta"]["omega"]["layers"] },
 ): void {
@@ -183,6 +212,10 @@ function pushSprites(
       y: anchor.y,
       layer,
       z: depth(anchor.x + sort.x, anchor.y + sort.y, layers[part]),
+      // The loop swaps the back frame in place (same size and anchor).
+      ...(part === "back" && piece.use !== undefined
+        ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => `furniture/${piece.id}/${colour}/use/${f.facing}/${String(n)}`), ms: piece.use.ms } }
+        : {}),
     });
   }
 }

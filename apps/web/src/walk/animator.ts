@@ -4,6 +4,7 @@
 // for one rAF, so a hidden tab never renders. An emote (OME-415) plays once on the same loop, its
 // timers on the one-shot's own frame times: a gesture (wave, cheer, yawn) swaps the avatar's frames, a sticker is drawn
 // above the avatar. A dance (OME-1378) plays the avatar's own walk cycle in place for DANCE_MS, on the walkers' clock.
+// Furniture in use (OME-1407) loops on the same clock: one timer per frame change, none once nothing is in use.
 import type { EmoteKind, MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, oneShotFrame, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
 import { SMOOTH_FRAMES, SMOOTH_FRAME_MS, WALK_FRAMES, WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
@@ -40,12 +41,22 @@ export interface AnimatorOptions {
   readonly draw: (id: MemberId, avatar: number, pose: Pose, frame: string | null) => void;
   /** Put `id`'s emote sticker (a motion frame key) with its bottom centre at (x, y), or hide it (null). Called on every draw. */
   readonly drawEmote: (id: MemberId, frame: string | null, x: number, y: number) => void;
+  /** Furniture loop `i` (setLoops) shows `frame`, or its still frame (-1). */
+  readonly drawLoop: (i: number, frame: number) => void;
   readonly render: () => void;
+}
+
+/** A furniture "in use" loop (OME-1407): how many frames, and the frame time on Smooth. */
+export interface FurnitureLoop {
+  readonly frames: number;
+  readonly ms: number;
 }
 
 export interface Animator {
   /** Who is in the room, after `walks.place`: draws them now (the caller renders) and keeps animating as needed. */
   set(avatars: readonly AnimatedAvatar[]): void;
+  /** The furniture loops that run now (OME-1407), drawn through `drawLoop` by index. */
+  setLoops(loops: readonly FurnitureLoop[]): void;
   /** The motion atlas arrived: redraw everyone with it on the next frame. */
   setFrames(frames: MotionFrames): void;
   /** `id` emoted: play it once from now. Nothing under prefers-reduced-motion (room.ts shows a static badge). */
@@ -68,6 +79,10 @@ export function createAnimator(o: AnimatorOptions): Animator {
   const plays = new Map<MemberId, { gesture: GestureKind | null; gestureAt: number; sticker: StickerKind | null; stickerAt: number; danceAt: number | null }>();
   /** Set by drawAll: ms until the next emote frame change (Infinity if none). */
   let nextEmote = Infinity;
+  /** Furniture "in use" loops running now (OME-1407). */
+  let loops: readonly FurnitureLoop[] = [];
+  /** Set by drawAll: ms until the next loop frame change (Infinity if none). */
+  let nextLoop = Infinity;
   /** Set by drawAll: someone danced in it, so the next frame is on the walkers' clock. */
   let dancing = false;
 
@@ -87,6 +102,17 @@ export function createAnimator(o: AnimatorOptions): Animator {
     let next = Infinity;
     nextEmote = Infinity;
     dancing = false;
+    nextLoop = Infinity;
+    if (loops.length > 0) {
+      // Basic steps every loop on the walkers' 150 ms clock; Smooth gives each its own frame time. Still: frame -1.
+      const smooth = o.smooth();
+      let i = 0;
+      for (const l of loops) {
+        const ms = smooth ? l.ms : WALK_FRAME_MS;
+        o.drawLoop(i++, still ? -1 : Math.floor(now / ms) % l.frames);
+        if (!still) nextLoop = Math.min(nextLoop, ms - (now % ms));
+      }
+    }
     for (const a of list) {
       if (!o.walks.sample(a.id, now, pose)) continue;
       let frame = frameKey(a.avatar, pose, still);
@@ -166,7 +192,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       timer = null;
     }
     if (disposed || paused) return;
-    let wait = nextEmote;
+    let wait = Math.min(nextEmote, nextLoop);
     if (walking && o.smooth()) {
       requestFrame();
       return;
@@ -190,6 +216,10 @@ export function createAnimator(o: AnimatorOptions): Animator {
       const now = o.now();
       const next = drawAll(now);
       schedule(now, next, o.walks.walking(now) || dancing);
+    },
+    setLoops(next) {
+      loops = next;
+      requestFrame();
     },
     setFrames(f) {
       frames = f;
