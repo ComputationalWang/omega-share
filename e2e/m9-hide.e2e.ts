@@ -319,3 +319,17 @@ test("a right-click or long-press on someone's name tag opens People on their Hi
   await a.page.locator(site.nicknameTag).filter({ hasText: a.nickname }).dispatchEvent("contextmenu");
   await expect(a.page.locator(site.peoplePanel)).toBeHidden();
 });
+
+// OME-1390: hiding someone mid-typing takes their "…" at once (their off never reaches the hidden side).
+test("hiding a member who is typing takes their typing dots away at once", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("m9-hide", "typing").url, count: 2, nicknamePrefix: "ht" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("no clients");
+  await expect(a.page.locator(site.nicknameTag)).toHaveCount(2);
+  const dots = a.page.locator(`${site.room} .bubbles [data-testid=typing-dots]`);
+  await b.page.locator(site.chatInput).pressSequentially("hel");
+  await expect(dots).toBeVisible();
+  await hideFor(a.page, b.nickname);
+  // Well inside the server's 5 s typing timeout: only the hide can have taken them.
+  await expect(dots).toHaveCount(0, { timeout: 2000 });
+});

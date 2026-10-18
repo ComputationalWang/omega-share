@@ -710,3 +710,17 @@ test("two typers stack (dots keep their tail), and dots never rise, so the older
   frame();
   expect(layer.querySelectorAll(".ui-float.is-typing.is-leaving")).toHaveLength(0);
 });
+
+test("a typing node sent away (pushed off the top) doesn't block a fresh typing on: the dots come back at once (OME-1390)", async () => {
+  const { floats, frame, layer } = await setup();
+  // Head at 100: the older dots, pushed over the newer, would cross the room's top at 60 and go.
+  floats.typing("a", true, { x: 480, y: 100 });
+  floats.typing("b", true, { x: 480, y: 100 });
+  frame();
+  expect(layer.querySelectorAll(".ui-float.is-typing.is-leaving")).toHaveLength(1);
+  const gone = layer.querySelector<HTMLElement>(".ui-float.is-typing.is-leaving");
+  floats.typing("a", true, { x: 300, y: 300 });
+  const live = [...layer.querySelectorAll<HTMLElement>(".ui-float.is-typing:not(.is-leaving)")].filter((p) => p.closest<HTMLElement>(".float-slot")?.hidden === false);
+  expect(live).toHaveLength(2);
+  expect(gone?.classList.contains("is-leaving")).toBe(true);
+});
