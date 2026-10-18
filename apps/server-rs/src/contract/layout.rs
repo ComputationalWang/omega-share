@@ -889,6 +889,43 @@ mod tests {
         }
     }
 
+    fn door(col: u8, row: u8, target: Value) -> Value {
+        json!({"kind":"door","col":col,"row":row,"facing": if row == 0 {"sw"} else {"se"},"target":target})
+    }
+
+    // packages/shared/test/door-roll-contract.test.ts (OME-1423)
+    #[test]
+    fn a_door_is_a_wall_backed_camera_object_with_a_room_id_target() {
+        let s = spec(Kind::Door);
+        assert_eq!((s.layer, s.facings, s.cols, s.rows, s.seats, s.variants, s.wall_backed), (Layer::Object, CAMERA, 1, 1, false, 2, true));
+        let l = parse(&base(vec![json!({"kind":"door","col":3,"row":0,"facing":"sw","target":"film-club","variant":1})]));
+        assert!(l.to_json().ends_with(r#"{"kind":"door","col":3,"row":0,"facing":"sw","variant":1,"target":"film-club"}]}"#));
+        for bad in [json!(null), json!(""), json!("Lobby"), json!("https://evil.example/"), json!("a".repeat(33)), json!(7)] {
+            assert!(!accepts(&base(vec![door(3, 0, bad.clone())])), "{bad}");
+        }
+        assert!(!accepts(&base(vec![p("door", 3, 0, "sw")])));
+        assert!(!piece_accepts(&json!({"kind":"plant","col":9,"row":9,"facing":"se","target":"lobby"})));
+        assert!(!accepts(&base(vec![door(3, 1, json!("lobby"))])));
+    }
+
+    #[test]
+    fn a_layout_holds_at_most_two_doors() {
+        assert_eq!(MAX_DOORS, 2);
+        let two = base(vec![door(3, 0, json!("a")), door(0, 3, json!("b"))]);
+        assert!(accepts(&two) && accepts_input(&two));
+        let three = base(vec![door(3, 0, json!("a")), door(4, 0, json!("b")), door(0, 3, json!("c"))]);
+        assert!(!accepts(&three) && !accepts_input(&three));
+    }
+
+    #[test]
+    fn has_door_to_names_any_door_target() {
+        let l = parse(&base(vec![door(3, 0, json!("film-club")), door(0, 3, json!("lobby"))]));
+        let id = |s: &str| crate::contract::ids::RoomId::parse(s).unwrap();
+        assert!(l.has_door_to(&id("lobby")) && l.has_door_to(&id("film-club")));
+        assert!(!l.has_door_to(&id("film")));
+        assert!(!default_layout().has_door_to(&id("lobby")));
+    }
+
     // packages/shared/test/preset-contract.test.ts:5
     #[test]
     fn preset_ids() {

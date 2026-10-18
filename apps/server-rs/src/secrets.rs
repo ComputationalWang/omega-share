@@ -142,6 +142,36 @@ pub fn secret_matches(hash: Option<&[u8]>, secret: &str) -> bool {
 mod tests {
     use super::*;
 
+    // OME-1423: a die by rejection sampling, so every face is equally likely.
+    #[test]
+    fn uniform_rejects_the_biased_tail_and_maps_into_one_to_sides() {
+        // 2^32 = 6 * 715827882 + 4: the top 4 draws would favour faces 1..4, so they are drawn again.
+        let mut draws = [u32::MAX, u32::MAX - 3, 0].into_iter();
+        assert_eq!(uniform(6, || draws.next().ok_or(EntropyError)), Ok(1));
+        let mut draws = [u32::MAX - 4].into_iter();
+        assert_eq!(uniform(6, || draws.next().ok_or(EntropyError)), Ok(6));
+        let mut draws = [5, 11].into_iter();
+        assert_eq!((uniform(6, || draws.next().ok_or(EntropyError)), uniform(6, || Ok(11))), (Ok(6), Ok(6)));
+        // A power of two rejects nothing.
+        assert_eq!(uniform(2, || Ok(u32::MAX)), Ok(2));
+        assert_eq!(uniform(6, || Err(EntropyError)), Err(EntropyError));
+    }
+
+    #[test]
+    fn roll_lands_in_one_to_sides_and_covers_every_face() {
+        use crate::contract::room::DiceSides;
+        for n in [2u64, 6, 100] {
+            let sides = DiceSides::new(n).unwrap();
+            let mut seen = std::collections::HashSet::new();
+            for _ in 0..4000 {
+                let v = u64::from(roll(sides).unwrap().get());
+                assert!((1..=n).contains(&v));
+                seen.insert(v);
+            }
+            assert_eq!(seen.len() as u64, n);
+        }
+    }
+
     fn hex(bytes: &[u8]) -> String {
         bytes.iter().map(|b| format!("{b:02x}")).collect()
     }
