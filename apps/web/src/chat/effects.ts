@@ -15,12 +15,12 @@ export function slashCommand(text: string): SlashCommand | null {
 }
 
 /** `/me <text>` (OME-1375): the action, or null. */
-export function meAction(_text: string): string | null {
-  return null;
+export function meAction(text: string): string | null {
+  return /^\s*\/me\s+(\S.*?)\s*$/is.exec(text)?.[1] ?? null;
 }
 
 /** What `/help` says, to me only. */
-export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")}`, time: null, self: true };
+export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")} · /me <action>`, time: null, self: true };
 
 const STICKERS: readonly (readonly [RegExp, EmoteKind])[] = [
   [/<3/, "heart"],

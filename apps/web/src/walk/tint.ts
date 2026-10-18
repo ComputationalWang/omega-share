@@ -27,8 +27,8 @@ export function parseTints(json: unknown, ids: readonly string[]): readonly Avat
 }
 
 /** A member's shirt colour for their bubble edge and name tag (OME-1375). */
-export function tintAccent(_tints: readonly AvatarTints[], _avatar: number, _tint: number): string | null {
-  return null;
+export function tintAccent(tints: readonly AvatarTints[], avatar: number, tint: number): string | null {
+  return tints[avatar]?.tints[tint]?.colors[1] ?? null;
 }
 
 const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
