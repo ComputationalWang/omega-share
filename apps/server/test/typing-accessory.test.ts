@@ -116,6 +116,22 @@ describe("typing (OME-1387)", () => {
     b.client.send({ type: "typing", on: true });
     await owner.client.none("typing-changed", 100);
   });
+
+  binaryOnly("a durable socket drop clears it; a resume keeps the accessory", async () => {
+    t = start();
+    const a = await join("alice", { durableSession: true, accessory: 2 });
+    const b = await join("bob");
+    a.client.send({ type: "typing", on: true });
+    await b.client.next("typing-changed");
+    a.client.socket.close();
+    expect(await b.client.next("typing-changed", 3000)).toEqual({ type: "typing-changed", memberId: a.snapshot.self, on: false });
+    const token = a.snapshot.resumeToken ?? fail();
+    const r = await Client.open(t.ws());
+    clients.push(r);
+    r.send({ type: "join", nickname: "x", avatar: 1, resumeToken: token });
+    const snap = await r.next("snapshot");
+    expect(snap.room.members.find((m) => m.id === a.snapshot.self)?.accessory).toBe(2);
+  });
 });
 
 describe("accessory (OME-1387)", () => {

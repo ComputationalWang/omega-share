@@ -404,6 +404,7 @@
     "apps/server/test/typing-accessory.test.ts::accessory (OME-1387)::set-accessory shares the emote bucket: 3 changes relay, the next is rate_limited",
     "apps/server/test/typing-accessory.test.ts::typing (OME-1387)::a burst of 2 relays, the next is dropped silently, a refill restores one",
     "apps/server/test/typing-accessory.test.ts::typing (OME-1387)::a chat line clears it first: typing-changed off, then the chat",
+    "apps/server/test/typing-accessory.test.ts::typing (OME-1387)::a durable socket drop clears it; a resume keeps the accessory",
     "apps/server/test/typing-accessory.test.ts::typing (OME-1387)::before join it is not_joined; muting clears it, and a muted member's typing reaches nobody",
     "apps/server/test/typing-accessory.test.ts::typing (OME-1387)::leaving clears it: member-left, and no typing-changed after the timeout",
     "apps/server/test/typing-accessory.test.ts::typing (OME-1387)::on is relayed to everyone once; a refresh relays nothing; a late joiner's snapshot has no typing",
