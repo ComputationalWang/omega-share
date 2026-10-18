@@ -13,6 +13,8 @@ export interface PeopleOptions {
   readonly onChange: (id: MemberId, hidden: boolean) => void;
   /** Walk over (OME-1376): the walk to that member, or null when no cell beside them is free. */
   readonly walkOver: (id: MemberId) => (() => void) | null;
+  /** Follow (OME-1389): walk over after each of their walks, until I stop. */
+  readonly follow: (id: MemberId) => void;
 }
 
 export interface People {
@@ -97,7 +99,12 @@ export function createPeople(o: PeopleOptions): People {
       walk.addEventListener("click", () => {
         o.walkOver(m.id)?.();
       });
-      li.append(walk);
+      const follow = el("button", { type: "button", className: "ui-button secondary people-walk", textContent: "Follow" }, "people-follow");
+      follow.setAttribute("aria-label", `Follow ${m.nickname}`);
+      follow.addEventListener("click", () => {
+        o.follow(m.id);
+      });
+      li.append(walk, follow);
       const b = el("button", { type: "button", className: "ui-button secondary people-toggle" }, "people-toggle");
       b.addEventListener("click", () => {
         const hide = !o.hidden.has(m.id);

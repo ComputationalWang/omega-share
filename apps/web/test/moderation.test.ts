@@ -52,6 +52,7 @@ async function setup(owner = true, walkable: (id: string) => boolean = () => tru
   }
   const sent: ClientMessage[] = [];
   const walked: string[] = [];
+  const followed: string[] = [];
   let anchorAt = { x: 400, y: 310 };
   const mod = mountModeration({
     stage,
@@ -66,6 +67,7 @@ async function setup(owner = true, walkable: (id: string) => boolean = () => tru
     anchor: () => anchorAt,
     stageWidth: 960,
     walkOver: (id) => (walkable(id) ? () => void walked.push(id) : null),
+    follow: (id) => void followed.push(id),
   });
   const tag = (id: string): HTMLElement => {
     const t = tags.querySelector<HTMLElement>(`[data-member="${id}"]`);
@@ -90,7 +92,7 @@ async function setup(owner = true, walkable: (id: string) => boolean = () => tru
     stageRect = st;
     wrapRect = cl;
   };
-  return { mod, sent, walked, tag, tags, bar, menu, row, server, stage, clip, wrap, setAnchor, setRects };
+  return { mod, sent, walked, followed, tag, tags, bar, menu, row, server, stage, clip, wrap, setAnchor, setRects };
 }
 
 describe("member menu", () => {
@@ -114,7 +116,7 @@ describe("member menu", () => {
     expect(m?.querySelector(".name")?.textContent).toBe("<b>Mo</b>");
     expect(m?.querySelector("b")).toBeNull();
     expect(m?.querySelector(".ui-portrait-mo")).not.toBeNull();
-    expect([...document.querySelectorAll(".ui-modrow")].map((e) => e.textContent)).toEqual(["Walk over", "Mute chat", "Remove from room"]);
+    expect([...document.querySelectorAll(".ui-modrow")].map((e) => e.textContent)).toEqual(["Walk over", "Follow", "Mute chat", "Remove from room"]);
     expect(document.querySelector("[data-testid=mod-remove] button")?.textContent).toBe("Remove from room");
   });
 
@@ -133,6 +135,15 @@ describe("member menu", () => {
     expect(menu()).toBeNull();
     tag("mo").click();
     expect((row("mod-walk-over") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  // OME-1389: Follow starts following them and closes.
+  test("Follow follows them and closes", async () => {
+    const { tag, menu, row, followed } = await setup(true);
+    tag("kit").click();
+    row("mod-follow").click();
+    expect(followed).toEqual(["kit"]);
+    expect(menu()).toBeNull();
   });
 
   test("Mute chat sends mute and closes; once muted the row offers Unmute chat, and the tag carries the zip", async () => {

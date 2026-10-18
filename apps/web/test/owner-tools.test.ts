@@ -34,6 +34,7 @@ async function setup(o: { owns?: boolean; phone?: boolean } = {}) {
     view: { editLayer: new Container(), redraw: () => undefined },
     anchor: () => undefined,
     walkOver: () => null,
+    follow: () => undefined,
     bar,
     panel: document.createElement("div"),
     state: () => state,

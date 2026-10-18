@@ -25,7 +25,7 @@ async function setup(members: readonly Member[] = [ada, bo, kit], self: MemberId
   const hidden = createHiddenMembers({ getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v) }, "lobby");
   const changes: [MemberId, boolean][] = [];
   const walked: MemberId[] = [];
-  const people = createPeople({ hidden, onChange: (id, on) => changes.push([id, on]), walkOver: (id) => (walkable(id) ? () => void walked.push(id) : null) });
+  const people = createPeople({ hidden, onChange: (id, on) => changes.push([id, on]), walkOver: (id) => (walkable(id) ? () => void walked.push(id) : null), follow: () => undefined });
   document.body.replaceChildren(people.key, people.panel, people.status);
   people.update(members, self);
   const row = (id: string): HTMLElement | null => people.panel.querySelector<HTMLElement>(`[data-member="${id}"]`);

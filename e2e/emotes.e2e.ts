@@ -304,3 +304,32 @@ test.describe("emotes", () => {
     });
   });
 });
+
+// OME-1389: 3 different members clapping or cheering within 3 s → every client plays one confetti burst (derived locally).
+test("crowd applause: three members clap within 3 s and every client plays one confetti burst", async ({ browser }) => {
+  clients = await joinRoom(browser, {
+    roomUrl: testRoom("emotes", "applause").url,
+    count: 3,
+    nicknamePrefix: "applause",
+    setup: async (context) => {
+      await context.addInitScript(() => {
+        localStorage.setItem("omega.motion", "smooth");
+      });
+    },
+  });
+  const confetti = (page: Page): Promise<number> =>
+    page.evaluate(() => {
+      const debug: unknown = Reflect.get(window, "__omega");
+      const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+      const get: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "confetti") : null;
+      return typeof get === "function" ? (Reflect.apply(get, room, []) as number) : -1;
+    });
+  for (const c of clients) expect(await confetti(c.page)).toBe(0);
+  // Clap is key 5, cheer key 7.
+  for (const [i, c] of clients.entries()) await c.page.keyboard.press(i === 1 ? "7" : "5");
+  for (const c of clients) await expect.poll(() => confetti(c.page), { timeout: 3000 }).toBe(1);
+  // A second round inside 10 s plays nothing more.
+  for (const c of clients) await c.page.keyboard.press("5");
+  await clients[0]?.page.waitForTimeout(1000);
+  for (const c of clients) expect(await confetti(c.page)).toBe(1);
+});
