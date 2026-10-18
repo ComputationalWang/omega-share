@@ -9,7 +9,7 @@ use super::constants::{MAX_CLIENT_MESSAGE_BYTES, MAX_EMBED_URL_LENGTH, MAX_POSIT
 use super::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken};
 use super::js_compat::utf16_len;
 use super::layout::{RoomLayout, RoomLayoutInput};
-use super::room::{Avatar, ControlPolicy, FloorCell, FloorCellInput, QueueIndex, SeatIndex, Tint};
+use super::room::{Accessory, Avatar, ControlPolicy, FloorCell, FloorCellInput, QueueIndex, SeatIndex, Tint};
 use super::text::{ChatText, Nickname, RoomTitle};
 use super::{Obj, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -89,6 +89,8 @@ pub enum ClientMessage {
         resume_token: Option<ResumeToken>,
         #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
         tint: Option<Tint>,
+        #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
+        accessory: Option<Accessory>,
     },
     Leave {},
     Presence {
@@ -102,6 +104,12 @@ pub enum ClientMessage {
     },
     SetTint {
         tint: Tint,
+    },
+    SetAccessory {
+        accessory: Accessory,
+    },
+    Typing {
+        on: bool,
     },
     Chat {
         text: ChatText,
@@ -165,6 +173,8 @@ impl ClientMessage {
             Self::Sit { .. } => "sit",
             Self::Walk { .. } => "walk",
             Self::SetTint { .. } => "set-tint",
+            Self::SetAccessory { .. } => "set-accessory",
+            Self::Typing { .. } => "typing",
             Self::Chat { .. } => "chat",
             Self::Ping { .. } => "ping",
             Self::Control { .. } => "control",
@@ -242,6 +252,8 @@ struct JoinW {
     resume_token: Option<ResumeToken>,
     #[serde(default, deserialize_with = "present")]
     tint: Option<Tint>,
+    #[serde(default, deserialize_with = "present")]
+    accessory: Option<Accessory>,
 }
 
 #[derive(Deserialize, Validate)]
@@ -272,6 +284,18 @@ struct WalkW {
 #[serde(deny_unknown_fields)]
 struct SetTintW {
     tint: Tint,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct SetAccessoryW {
+    accessory: Accessory,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct TypingW {
+    on: bool,
 }
 
 #[derive(Deserialize, Validate)]
@@ -391,6 +415,10 @@ enum Wire {
     Walk(WalkW),
     #[serde(rename = "set-tint")]
     SetTint(SetTintW),
+    #[serde(rename = "set-accessory")]
+    SetAccessory(SetAccessoryW),
+    #[serde(rename = "typing")]
+    Typing(TypingW),
     #[serde(rename = "chat")]
     Chat(ChatW),
     #[serde(rename = "ping")]
@@ -432,6 +460,8 @@ impl Validate for Wire {
             Self::Sit(m) => m.validate(),
             Self::Walk(m) => m.validate(),
             Self::SetTint(m) => m.validate(),
+            Self::SetAccessory(m) => m.validate(),
+            Self::Typing(m) => m.validate(),
             Self::Chat(m) => m.validate(),
             Self::Ping(m) => m.validate(),
             Self::Control(m) => m.validate(),
@@ -462,12 +492,15 @@ fn convert(wire: Wire) -> ClientMessage {
             durable_session: m.durable_session.is_some(),
             resume_token: m.resume_token,
             tint: m.tint,
+            accessory: m.accessory,
         },
         Wire::Leave(_) => ClientMessage::Leave {},
         Wire::Presence(m) => ClientMessage::Presence { away: m.away },
         Wire::Sit(m) => ClientMessage::Sit { seat: m.seat },
         Wire::Walk(m) => ClientMessage::Walk { cell: m.cell.0.into() },
         Wire::SetTint(m) => ClientMessage::SetTint { tint: m.tint },
+        Wire::SetAccessory(m) => ClientMessage::SetAccessory { accessory: m.accessory },
+        Wire::Typing(m) => ClientMessage::Typing { on: m.on },
         Wire::Chat(m) => ClientMessage::Chat { text: m.text },
         Wire::Ping(m) => ClientMessage::Ping { id: PingId(m.id) },
         Wire::Control(m) => ClientMessage::Control {

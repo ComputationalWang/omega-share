@@ -139,7 +139,7 @@ describe("accessory (OME-1387)", () => {
       expect((await a.client.next("error")).code).toBe("bad_message");
     }
     await a.client.none("accessory-changed", 100);
-    const late = await Client.open((t ?? fail()).ws());
+    const late = await Client.open(t.ws());
     clients.push(late);
     late.send({ type: "join", nickname: "bob", avatar: 0, accessory: ACCESSORY_COUNT });
     expect((await late.next("error")).code).toBe("bad_message");

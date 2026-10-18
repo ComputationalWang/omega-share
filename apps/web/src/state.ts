@@ -275,6 +275,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     }
     case "tint-changed":
       return withMember(state, msg.memberId, (m) => ({ ...m, tint: msg.tint }));
+    case "accessory-changed":
+      return withMember(state, msg.memberId, (m) => ({ ...m, accessory: msg.accessory }));
     case "layout-changed":
       return withRoom(state, (room) => ({ ...room, layout: msg.layout }));
     case "title-changed":
@@ -292,6 +294,7 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     case "pong":
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
+    case "typing-changed":
       return state;
     // Owner moderation (ADR 0030). Everyone gets `member-muted`, but only the muted member's log says so; everyone's says the policy.
     case "member-muted": {

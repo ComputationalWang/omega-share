@@ -8,6 +8,8 @@ export const MAX_FURNITURE = 32;
 export const AVATAR_COUNT = 4;
 /** Shirt tints a member can pick (ADR 0053); tint 0 is the avatar's own colours. */
 export const TINT_COUNT = 6;
+/** Avatar accessories a member can pick (ADR 0053, OME-1387); accessory 0 is none. */
+export const ACCESSORY_COUNT = 5;
 /** People in one room; matches the load-test budget in docs/perf-budgets.md. */
 export const MAX_ROOM_MEMBERS = 25;
 /** Room ids are `[a-z0-9-]`, 1 to this many characters. */
@@ -69,6 +71,14 @@ export const EMOTE_REFILL_MS = 1000;
  */
 export const WALK_BURST = 8;
 export const WALK_REFILL_MS = 250;
+
+/**
+ * Per member, `typing` (ADR 0053, OME-1387): this many at once, then one every TYPING_REFILL_MS (1/s). Over it, the
+ * server drops the frame silently. A `typing {on: true}` not refreshed within TYPING_TIMEOUT_MS is cleared by the server.
+ */
+export const TYPING_BURST = 2;
+export const TYPING_REFILL_MS = 1000;
+export const TYPING_TIMEOUT_MS = 5000;
 
 /*
  * Owner moderation (ADR 0030). In memory only, keyed by room and client address (ADR 0028 §7):

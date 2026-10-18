@@ -12,7 +12,7 @@
 
 use super::Slot;
 use super::frames::close_with;
-use super::handle::{Frame, flush_status, on_frame};
+use super::handle::{Frame, clear_typing, flush_status, on_frame};
 use super::limits::{MemberBuckets, WS_BURST, WS_PER_SECOND};
 use super::session::{closed, session_of};
 use crate::app::App;
@@ -66,6 +66,8 @@ pub struct Conn {
     pub join_timer: TimerCmd,
     /// Arm the `member-status` trailing publish in this many ms.
     pub status_in: Option<f64>,
+    /// (Re)arm the typing timeout in this many ms (OME-1387).
+    pub typing_in: Option<f64>,
 }
 
 impl Conn {
@@ -84,6 +86,7 @@ impl Conn {
             left: false,
             join_timer: TimerCmd::Keep,
             status_in: None,
+            typing_in: None,
         }
     }
 }
@@ -243,6 +246,8 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
     pings.set_missed_tick_behavior(MissedTickBehavior::Delay);
     let mut join: Option<Sleep> = Some(real_sleep(app.ws.join_timeout_ms));
     let mut status: Option<Sleep> = None;
+    // The typing timeout runs on the app clock (no TS counterpart), so the black-box suite can drive it.
+    let mut typing: Option<Sleep> = None;
     let mut sent_close = false;
 
     loop {
@@ -265,14 +270,19 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
                     TimerCmd::Clear => {
                         join = None;
                         status = None;
+                        typing = None;
                     }
                 }
                 if let Some(wait) = conn.status_in.take() {
                     status = Some(real_sleep(wait));
                 }
+                if let Some(wait) = conn.typing_in.take() {
+                    typing = Some(app.clock.sleep(wait));
+                }
                 // A new session (join) or none (leave): a trailing publish armed for the old one is stale.
                 if conn.left {
                     status = None;
+                    typing = None;
                 }
             }
             done = &mut writer => {
@@ -305,6 +315,15 @@ pub async fn run(app: Arc<App>, mut socket: WebSocket, id: RoomId, cell: Option<
                         flush_status(&mut inner, &member);
                     }
                 }
+            }
+            () = timer(&mut typing) => {
+                if let Some(mut inner) = cell.lock_open()
+                    && let Some(member) = session_of(&inner, conn.member.as_ref(), conn.id).map(|s| s.member_id.clone())
+                {
+                    clear_typing(&mut inner, &member);
+                }
+                // Dropped after the publish: a virtual clock's `set` waits for it.
+                typing = None;
             }
         }
     }

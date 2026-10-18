@@ -7,6 +7,7 @@
 
 use super::conn::{Conn, TimerCmd};
 use super::frames::{close_with, publish_except_msg, send_error, send_error_after, send_msg};
+use super::handle::clear_typing;
 use super::limits::MemberBuckets;
 use crate::app::{App, lock};
 use crate::contract::client_message::ClientMessage;
@@ -149,6 +150,7 @@ fn hold(app: &Arc<App>, cell: &Arc<RoomCell>, inner: &mut RoomInner, member: &Me
             pending: false,
         };
     }
+    clear_typing(inner, member);
     inner.room.set_catching(member, false);
     if inner.room.take_catching_change(member).is_some() {
         publish_msg(
@@ -353,6 +355,7 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         durable_session,
         resume_token,
         tint,
+        accessory,
     } = msg
     else {
         return;
@@ -421,6 +424,9 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
     conn.join_timer = TimerCmd::Clear;
     if let Some(tint) = tint {
         inner.room.set_tint(&member.id, *tint);
+    }
+    if let Some(accessory) = accessory {
+        inner.room.set_accessory(&member.id, *accessory);
     }
     // Back after a restart under the same name: the seat it held, in its snapshot and, after the join, for the room.
     let held_seat = inner.room.claim_held_seat(&member.id, wall);

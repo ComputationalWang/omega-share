@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import {
+  ACCESSORY_COUNT,
   AVATAR_COUNT,
   MAX_ROOM_MEMBERS,
   NICKNAME_MAX_LENGTH,
@@ -86,6 +87,10 @@ export type SeatIndex = v.InferOutput<typeof SeatIndexSchema>;
 export const TintSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(TINT_COUNT - 1));
 export type Tint = v.InferOutput<typeof TintSchema>;
 
+/** Avatar accessory (ADR 0053, OME-1387): 0 is none. */
+export const AccessorySchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(ACCESSORY_COUNT - 1));
+export type Accessory = v.InferOutput<typeof AccessorySchema>;
+
 /**
  * Who may send `control` frames and shares (ADR 0030). `owner`: only members who joined with the
  * owner token. New and seeded rooms start at DEFAULT_CONTROL_POLICY.
@@ -115,6 +120,8 @@ export const MemberSchema = v.object({
   cell: v.optional(FloorCellSchema),
   /** Shirt tint (ADR 0053). Absent means 0. */
   tint: v.optional(TintSchema),
+  /** Avatar accessory (OME-1387). Absent means 0. */
+  accessory: v.optional(AccessorySchema),
 });
 export type Member = v.InferOutput<typeof MemberSchema>;
 

@@ -221,6 +221,8 @@ export function createWs({
       case "ended":
       case "walk":
       case "set-tint":
+      case "set-accessory":
+      case "typing":
         return true;
     }
   };
@@ -349,6 +351,9 @@ export function createWs({
       // OME-1346 (ADR 0053) came after the Rust switch too: the frozen TS server ignores walks and tints.
       case "walk":
       case "set-tint":
+      // OME-1387 too: the frozen TS server ignores accessories and typing.
+      case "set-accessory":
+      case "typing":
         return;
       case "queue-remove":
       case "queue-advance": {

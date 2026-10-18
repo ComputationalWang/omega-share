@@ -12,6 +12,7 @@ import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
 import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSchema, ServerTimeSchema } from "./playback";
 import {
   AvatarSchema,
+  AccessorySchema,
   ControlPolicySchema,
   INVISIBLE_LETTERS,
   MemberIdSchema,
@@ -82,6 +83,8 @@ export const ClientMessageSchema = v.variant("type", [
     resumeToken: v.optional(ResumeTokenSchema),
     /** Shirt tint (ADR 0053); absent means 0. A resume keeps the member's own. */
     tint: v.optional(TintSchema),
+    /** Avatar accessory (OME-1387); absent means 0. A resume keeps the member's own. */
+    accessory: v.optional(AccessorySchema),
   }),
   v.strictObject({ type: v.literal("leave") }),
   /** Advisory visibility transition, never extends a disconnected hold. */
@@ -96,6 +99,14 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("walk"), cell: FloorCellInputSchema }),
   /** Needs `join`. Change shirt tint; relayed as `tint-changed` (setting the current tint is a no-op). Shares the `emote` bucket. */
   v.strictObject({ type: v.literal("set-tint"), tint: TintSchema }),
+  /** Needs `join`. Change accessory; relayed as `accessory-changed` (setting the current one is a no-op). Shares the `emote` bucket. */
+  v.strictObject({ type: v.literal("set-accessory"), accessory: AccessorySchema }),
+  /**
+   * Needs `join`. The member is (or stopped) typing a chat line; relayed as `typing-changed` on change only. Resend
+   * `on: true` within TYPING_TIMEOUT_MS to stay on; the server clears it after that, on a chat line, a mute or a
+   * disconnect. Per member TYPING_BURST / TYPING_REFILL_MS, over it dropped silently. Never in a snapshot.
+   */
+  v.strictObject({ type: v.literal("typing"), on: v.boolean() }),
   v.strictObject({ type: v.literal("chat"), text: ChatTextSchema }),
   /** Clock sample; allowed before `join`. Answered with `pong` to the sender only. */
   v.strictObject({ type: v.literal("ping"), id: PingIdSchema }),
@@ -228,6 +239,10 @@ export const ServerMessageSchema = v.variant("type", [
   v.object({ type: v.literal("walked"), memberId: MemberIdSchema, cell: v.nullable(FloorCellSchema) }),
   /** A member changed shirt tint (ADR 0053). */
   v.object({ type: v.literal("tint-changed"), memberId: MemberIdSchema, tint: TintSchema }),
+  /** A member changed accessory (OME-1387). */
+  v.object({ type: v.literal("accessory-changed"), memberId: MemberIdSchema, accessory: AccessorySchema }),
+  /** A member started or stopped typing (OME-1387). Ephemeral: a member missing from these is not typing. */
+  v.object({ type: v.literal("typing-changed"), memberId: MemberIdSchema, on: v.boolean() }),
   v.object({
     type: v.literal("chat"),
     memberId: MemberIdSchema,

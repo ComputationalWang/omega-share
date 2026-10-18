@@ -70,6 +70,12 @@ describe("reduce", () => {
     expect(server(s, { type: "walked", memberId: "zzz", cell: { x: 1, y: 1 } })).toBe(s);
   });
 
+  test("accessory-changed sets the accessory; typing-changed leaves the state alone (OME-1387)", () => {
+    const s = server(joined(room({ members: [alice, bob] })), { type: "accessory-changed", memberId: "a", accessory: 3 });
+    expect(s.room?.members[0]).toEqual({ ...alice, accessory: 3 });
+    expect(server(s, { type: "typing-changed", memberId: "a", on: true })).toBe(s);
+  });
+
   test("seat-changed for an unknown member is ignored", () => {
     const before = joined();
     expect(server(before, { type: "seat-changed", memberId: "zzz", seat: 0 })).toBe(before);
