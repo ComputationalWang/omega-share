@@ -2,6 +2,8 @@ import * as v from "valibot";
 import {
   CHAT_MAX_LENGTH,
   CHAT_MAX_MARK_RUN,
+  DICE_MAX_SIDES,
+  DICE_MIN_SIDES,
   ERROR_MESSAGE_MAX_LENGTH,
   MAX_CLIENT_MESSAGE_BYTES,
   MAX_EMBED_URL_LENGTH,
@@ -57,6 +59,9 @@ export const plainTextSchema = (maxLength: number) =>
 /** `plainTextSchema` at 1–280 chars. */
 export const ChatTextSchema = plainTextSchema(CHAT_MAX_LENGTH);
 
+/** A die's faces, DICE_MIN_SIDES..DICE_MAX_SIDES (OME-1423). */
+export const DiceSidesSchema = v.pipe(v.number(), v.integer(), v.minValue(DICE_MIN_SIDES), v.maxValue(DICE_MAX_SIDES));
+
 /**
  * Emote bubbles in the avatar motion atlas (`emote/<kind>`), plus per-avatar animations, not bubbles: `wave` (motion atlas)
  * `cheer` / `yawn` (expressions atlas, OME-1104) and `dance` (OME-1374). One `emote` message and one rate limit for all of them.
@@ -108,6 +113,11 @@ export const ClientMessageSchema = v.variant("type", [
    */
   v.strictObject({ type: v.literal("typing"), on: v.boolean() }),
   v.strictObject({ type: v.literal("chat"), text: ChatTextSchema }),
+  /**
+   * `/roll` (OME-1423, ADR 0054): needs `join`, answered `rolled` to everyone. Like `chat`: the chat bucket, `muted`
+   * for a muted member, and it clears typing. The value is the server's, from the OS CSPRNG; never stored or logged.
+   */
+  v.strictObject({ type: v.literal("roll"), sides: DiceSidesSchema }),
   /** Clock sample; allowed before `join`. Answered with `pong` to the sender only. */
   v.strictObject({ type: v.literal("ping"), id: PingIdSchema }),
   /**
@@ -285,6 +295,11 @@ export const ServerMessageSchema = v.variant("type", [
   v.object({ type: v.literal("title-changed"), title: RoomTitleSchema, by: MemberIdSchema }),
   /** A member emoted (sender included). Fire-and-forget: not stored, never in a snapshot, so late joiners don't see it. */
   v.object({ type: v.literal("emoted"), memberId: MemberIdSchema, kind: EmoteKindSchema }),
+  /** A member rolled a `sides`-faced die and got `value`, 1..sides (sender included). Fire-and-forget, like `emoted`. */
+  v.pipe(
+    v.object({ type: v.literal("rolled"), memberId: MemberIdSchema, sides: DiceSidesSchema, value: v.pipe(v.number(), v.integer(), v.minValue(1)) }),
+    v.check((x) => x.value <= x.sides, "value above sides"),
+  ),
   /** The owner muted or unmuted a member's chat (ADR 0030); published to every member. */
   v.object({ type: v.literal("member-muted"), memberId: MemberIdSchema, muted: v.boolean() }),
   /** The owner changed who controls playback (ADR 0030). */

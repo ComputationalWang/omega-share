@@ -162,9 +162,9 @@ describe("defaultFacing", () => {
 });
 
 describe("TRAY_TABS", () => {
-  test("every kind, catalogue v2 too (OME-1113), is in exactly one tab", () => {
+  test("every kind, catalogue v2 too (OME-1113), is in exactly one tab; the door waits for its picker and art (OME-1423)", () => {
     const all: string[] = TRAY_TABS.flatMap((t) => [...t.kinds]);
-    expect([...all].sort()).toEqual([...FURNITURE_KINDS].sort());
+    expect([...all].sort()).toEqual(FURNITURE_KINDS.filter((k) => k !== "door").sort());
   });
   test("tab contents follow the catalogue", () => {
     expect(TRAY_TABS.map((t) => t.label)).toEqual(["Seats", "Decor", "Floor & wall"]);

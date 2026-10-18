@@ -5,19 +5,17 @@ import {
   MAX_ROOM_MEMBERS,
   NICKNAME_MAX_LENGTH,
   NICKNAME_MAX_MARK_RUN,
-  ROOM_ID_MAX_LENGTH,
   ROOM_TITLE_MAX_LENGTH,
   SEAT_COUNT,
   TINT_COUNT,
 } from "./constants";
 import { AnyEmbedSchema, playbackMatchesEmbed } from "./generic-embed";
-import { MemberIdSchema, QueueItemIdSchema } from "./ids";
+import { MemberIdSchema, QueueItemIdSchema, RoomIdSchema } from "./ids";
 import { FloorCellSchema, RoomLayoutSchema } from "./layout";
 import { OptionalPlaybackSchema } from "./playback";
 import { QueueSchema } from "./queue";
 
-export const RoomIdSchema = v.pipe(v.string(), v.regex(new RegExp(`^[a-z0-9-]{1,${String(ROOM_ID_MAX_LENGTH)}}$`)));
-export type RoomId = v.InferOutput<typeof RoomIdSchema>;
+export { RoomIdSchema, type RoomId } from "./ids";
 
 export { MemberIdSchema, type MemberId } from "./ids";
 

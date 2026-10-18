@@ -133,7 +133,26 @@ const shapes = (): unknown[] => {
   ];
 };
 
-const inputs = (): unknown[] => [...shapes(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
+/** Doors (OME-1423): the target is a room id, only a door has one, at most MAX_DOORS. */
+const doors = (): unknown[] => {
+  const door = (col: number, row: number, target: unknown, more: Piece = {}): Piece => ({ kind: "door", col, row, facing: row === 0 ? "sw" : "se", target, ...more });
+  const targets = ["lobby", "a", "a-b-9", "a".repeat(32), "a".repeat(33), "", "Lobby", "lob by", "https://evil.example/", "/rooms/lobby", "lobby/", "ö", "-", 7, null, true, [], {}, ["lobby"]];
+  return [
+    ...targets.map((target) => base(door(3, 0, target))),
+    base({ kind: "door", col: 3, row: 0, facing: "sw" }),
+    base(door(3, 0, "lobby", { variant: 1 })), base(door(3, 0, "lobby", { variant: 2 })),
+    base(door(0, 3, "lobby", { facing: "sw" })), base(door(3, 1, "lobby")), base(door(3, 0, "lobby", { facing: "ne" })),
+    base(door(3, 0, "lobby"), door(0, 3, "lobby")),
+    base(door(3, 0, "lobby"), door(4, 0, "x"), door(0, 3, "y")),
+    base(door(3, 0, "lobby"), door(4, 0, "x"), door(0, 3, "y"), door(0, 4, "z")),
+    base(door(3, 0, "lobby"), door(3, 0, "x")),
+    base(door(3, 0, "lobby"), { kind: "bookshelf", col: 3, row: 0, facing: "sw" }),
+    base(door(3, 0, "lobby"), { kind: "frame", col: 3, row: 0, facing: "sw" }),
+    ...["plant", "frame", "armchair", "rug"].map((kind) => base({ kind, col: kind === "frame" ? 2 : 9, row: kind === "frame" ? 0 : 9, facing: kind === "frame" ? "sw" : "se", target: "lobby" })),
+  ];
+};
+
+const inputs = (): unknown[] => [...shapes(), ...doors(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
 
 const footprintInputs = (): Piece[] =>
   FURNITURE_KINDS.flatMap((kind) => FACINGS.flatMap((facing) => [[0, 0], [3, 2], [9, 9], [8, 1]].map(([col, row]) => ({ kind, col, row, facing }))));
@@ -188,6 +207,9 @@ const rawInputs = (): RawInput[] => {
     { text: `{"furniture":[${tvText},${chairText.join(",")}],"furniture":[]}`, rustRefuses: true },
     { text: full('{"kind":"plant","kind":"lamp","col":9,"row":9,"facing":"se"}'), rustRefuses: true },
     { text: full('{"kind":"plant","col":9,"row":9,"facing":"se","facing":"sw"}'), rustRefuses: true },
+    { text: full('{"kind":"door","col":3,"row":0,"facing":"sw","target":"lobby"}') },
+    { text: full('{"kind":"door","col":3,"row":0,"facing":"sw","target":"lobby","target":"a"}'), rustRefuses: true },
+    { text: full('{"kind":"door","col":3,"row":0,"facing":"sw","target":"lob\\u0062y"}') },
   ];
 };
 

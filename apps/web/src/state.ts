@@ -295,6 +295,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
     case "typing-changed":
+    // Drawn by the /roll web issue (OME-1423 is its contract).
+    case "rolled":
       return state;
     // Owner moderation (ADR 0030). Everyone gets `member-muted`, but only the muted member's log says so; everyone's says the policy.
     case "member-muted": {

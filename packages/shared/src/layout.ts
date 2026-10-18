@@ -1,5 +1,6 @@
 import * as v from "valibot";
-import { FLOOR_CELLS, MAX_FURNITURE, SEAT_COUNT } from "./constants";
+import { FLOOR_CELLS, MAX_DOORS, MAX_FURNITURE, SEAT_COUNT } from "./constants";
+import { RoomIdSchema, type RoomId } from "./ids";
 
 /**
  * Room layout v1 (ADR 0021): the furniture in a room, as data in the snapshot. The catalogue below restates the
@@ -76,6 +77,8 @@ export const FURNITURE = {
   aquarium: piece("object", CAMERA, ONE),
   arcade: piece("object", CAMERA, ONE),
   wallclock: piece("wall", CAMERA, { cols: 0, rows: 0 }),
+  /** Leads to the room in its `target` (ADR 0054). */
+  door: piece("object", CAMERA, ONE, { variants: 2, wallBacked: true }),
 } as const satisfies Record<string, FurnitureSpec>;
 
 export type FurnitureKind = keyof typeof FURNITURE;
@@ -125,6 +128,8 @@ const FURNITURE_ENTRIES = {
   facing: FacingSchema,
   /** Absent means 0. */
   variant: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+  /** A door's room (ADR 0054): required on a door, refused on anything else. A room id, never a URL. */
+  target: v.optional(RoomIdSchema),
 };
 
 /** One piece's rules on top of its fields; `base` decides whether unknown keys are stripped or refused. */
@@ -135,6 +140,7 @@ const furniture = (base: v.ObjectSchema<typeof FURNITURE_ENTRIES, undefined> | v
     v.check((f) => (f.variant ?? 0) < FURNITURE[f.kind].variants, "variant the piece does not have"),
     v.check((f) => footprintCells(f).every(([c, r]) => c < FLOOR_CELLS && r < FLOOR_CELLS), "piece off the floor"),
     v.check((f) => onItsWall(f), "piece off its wall"),
+    v.check((f) => (f.kind === "door") === (f.target !== undefined), "a door needs a target, and only a door has one"),
   );
 
 /** A placed piece, server → client: unknown keys are stripped. */
@@ -194,6 +200,7 @@ const roomLayout = (base: v.ObjectSchema<LayoutEntries, undefined> | v.StrictObj
   v.pipe(
     base,
     v.check((l) => l.furniture.filter((f) => f.kind === "tv").length === 1, "exactly one tv"),
+    v.check((l) => l.furniture.filter((f) => f.kind === "door").length <= MAX_DOORS, "too many doors"),
     v.check((l) => layoutSeats(l).length === SEAT_COUNT, "seat cells must total SEAT_COUNT"),
     v.check((l) => disjoint(l.furniture, "object"), "solid pieces overlap"),
     v.check((l) => disjoint(l.furniture, "floor"), "rugs overlap"),
@@ -206,6 +213,11 @@ export type RoomLayout = v.InferOutput<typeof RoomLayoutSchema>;
 
 /** Client → server (`layout-set`, ADR 0028): the same rules, but unknown keys are refused, on the layout and on each piece. */
 export const RoomLayoutInputSchema = roomLayout(v.strictObject(layoutEntries(furniture(v.strictObject(FURNITURE_ENTRIES)))));
+
+/** A door of `layout` leads to `roomId`. The server refuses a `layout-set` with a door to its own room (ADR 0054). */
+export function hasDoorTo(layout: { readonly furniture: readonly { readonly target?: RoomId | undefined }[] }, roomId: RoomId): boolean {
+  return layout.furniture.some((f) => f.target === roomId);
+}
 
 /** Two rows of four armchairs facing the TV, split by an aisle (the pre-M4 `SEAT_CELLS`). */
 const DEFAULT_SEAT_CELLS = [

@@ -162,7 +162,8 @@ export interface TrayTab {
   readonly kinds: readonly FurnitureKind[];
 }
 
-const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter(pick);
+// The door needs a target picker and its art first (OME-1423 blocks that web issue).
+const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter((k) => k !== "door" && pick(k));
 const isSeat = (k: FurnitureKind): boolean => FURNITURE[k].seats;
 const isFlat = (k: FurnitureKind): boolean => FURNITURE[k].layer !== "object";
 

@@ -5,6 +5,11 @@ export const SEAT_COUNT = 8;
 export const FLOOR_CELLS = 10;
 /** Most pieces in a room layout (ADR 0021); a full layout is ~2 KB of a snapshot. */
 export const MAX_FURNITURE = 32;
+/** Most doors to other rooms in one layout (ADR 0054). */
+export const MAX_DOORS = 2;
+/** A `roll`'s die has DICE_MIN_SIDES..DICE_MAX_SIDES faces (OME-1423). */
+export const DICE_MIN_SIDES = 2;
+export const DICE_MAX_SIDES = 100;
 export const AVATAR_COUNT = 4;
 /** Shirt tints a member can pick (ADR 0053); tint 0 is the avatar's own colours. */
 export const TINT_COUNT = 6;
