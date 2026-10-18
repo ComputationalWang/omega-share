@@ -14,7 +14,7 @@
 // The layer is decorative (aria-hidden, no live region): the chat log is the accessible record.
 import type { MemberId } from "@omega/shared";
 import { el } from "../controls/dom";
-import { isShout } from "../chat/effects";
+import { isShout, meAction } from "../chat/effects";
 import { ROOM_VIEW, STAGE_W, type Point } from "../layout";
 
 /** Set (l) `meta.omega.bubbles`: a 5 s life, a 24 px rise in whole-pixel steps; 10 per speaker, 16 on screen (OME-1050). */
@@ -62,6 +62,8 @@ export interface FloatMessage {
   /** The speaker's nickname: a stacked bubble names them. */
   readonly name: string;
   readonly text: string;
+  /** The speaker's shirt colour (OME-1375), the bubble's edge. */
+  readonly accent?: string;
   /** My own bubble wears the mustard rim. */
   readonly self: boolean;
   /** The speaker's head (stage px): the tail's tip. */
@@ -415,17 +417,22 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       s.seq = ++seq;
       s.startedAt = now - elapsed;
       // Not .is-live until its size arrives in this frame's layout, before paint: then it is placed and shown at its age.
-      const shout = isShout(m.text);
-      s.p.className = `ui-float${m.self ? " is-self" : ""}${shout ? " is-shout" : ""}`;
+      // `/me waves` (OME-1375): an action names its speaker from the start ("Sam waves"), so it's the twin's size already.
+      const action = meAction(m.text);
+      const text = action ?? m.text;
+      const shout = isShout(text);
+      s.p.className = `ui-float${m.self ? " is-self" : ""}${shout ? " is-shout" : ""}${action === null ? "" : " is-action"}`;
+      s.p.style.setProperty("--tint", m.accent ?? "");
       // The twin measures the stacked size, so it wears the shout's weight too.
       s.twin.classList.toggle("is-shout", shout);
+      s.twin.classList.toggle("is-action", action !== null);
       s.stacked = false;
-      s.who.hidden = true;
+      s.who.hidden = action === null;
       s.whoText.data = m.name;
-      s.textNode.data = m.text;
+      s.textNode.data = text;
       s.text.setAttribute("data-testid", "chat-message");
       s.twinSay.dataset["who"] = m.name;
-      s.twinSay.dataset["say"] = m.text;
+      s.twinSay.dataset["say"] = text;
       s.push = 0;
       s.rise = 0;
       s.alpha = 1;

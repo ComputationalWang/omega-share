@@ -129,13 +129,14 @@ async function setup(o: { reduced?: boolean; nameW?: number } = {}) {
   };
 }
 
-const say = (id: string, text: string, x: number, y = 300, o: { self?: boolean; startedAt?: number } = {}) => ({
+const say = (id: string, text: string, x: number, y = 300, o: { self?: boolean; startedAt?: number; accent?: string } = {}) => ({
   id,
   name: `name-${id}`,
   text,
   self: o.self ?? false,
   at: { x, y },
   startedAt: o.startedAt ?? Number.NaN,
+  ...(o.accent === undefined ? {} : { accent: o.accent }),
 });
 
 test("the layer is decorative: aria-hidden, no live region (the chat log reads the message)", async () => {
@@ -590,4 +591,28 @@ test("an all-caps line (4+ letters) is a shout: the bubble and its twin wear .is
   floats.say(say("a", "Goal", 480));
   expect(bubbleOf("Goal").classList.contains("is-shout")).toBe(false);
   expect([...layer.querySelectorAll(".float-twin.is-shout")]).toHaveLength(0);
+});
+
+test("a bubble's edge wears its speaker's shirt colour (--tint); the next line in that node wears the new speaker's (OME-1375)", async () => {
+  const { floats, bubbleOf, advance, FLOAT_LIFE_MS, FLOAT_LEAVE_MS } = await setup();
+  floats.say(say("a", "hi", 480, 300, { accent: "#3aa7a3" }));
+  expect(bubbleOf("hi").style.getPropertyValue("--tint")).toBe("#3aa7a3");
+  advance(FLOAT_LIFE_MS + FLOAT_LEAVE_MS);
+  floats.say(say("b", "yo", 480));
+  expect(bubbleOf("yo").style.getPropertyValue("--tint")).toBe("");
+});
+
+test("a /me line is an action: the bubble names its speaker from the start and says the rest, italic; its twin matches (OME-1375)", async () => {
+  const { floats, layer, bubbleOf, advance, FLOAT_LIFE_MS, FLOAT_LEAVE_MS } = await setup();
+  floats.say(say("a", "/me waves", 480));
+  const p = bubbleOf("waves");
+  expect(p.classList.contains("is-action")).toBe(true);
+  expect(p.querySelector<HTMLElement>(".who")?.hidden).toBe(false);
+  expect(p.textContent).toBe("name-awaves");
+  expect(layer.querySelector<HTMLElement>(".float-twin > span")?.dataset["say"]).toBe("waves");
+  advance(FLOAT_LIFE_MS + FLOAT_LEAVE_MS);
+  floats.say(say("a", "plain", 480));
+  const q = bubbleOf("plain");
+  expect(q.classList.contains("is-action")).toBe(false);
+  expect(q.querySelector<HTMLElement>(".who")?.hidden).toBe(true);
 });

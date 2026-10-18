@@ -6,7 +6,7 @@ import { DEFAULT_LAYOUT, type RoomLayout } from "@omega/shared";
 import { RoomManifestSchema, sceneOf } from "../src/furniture";
 import { decorSprites } from "../src/theme/decor";
 import { MOTIONS } from "../src/theme/atlas";
-import { EFFECT_MIN_INTERVAL_MS, MAX_EFFECT_SPRITES, createEffectPainter, createParticles, effectBounds, type EffectMotion, type Particles } from "../src/theme/effect";
+import { EFFECT_MIN_INTERVAL_MS, MAX_EFFECT_SPRITES, createEffectPainter, createParticles, effectBounds, sparkleMotion, SPARKLE_MS, SPARKLE_SPRITES, type EffectMotion, type Particles } from "../src/theme/effect";
 import { THEME_IDS, activeTheme, easterSunday, resolveTheme, type ThemeId } from "../src/theme/periods";
 
 const room = v.parse(RoomManifestSchema, await Bun.file(new URL("../../../assets/room/room.json", import.meta.url)).json());
@@ -274,4 +274,21 @@ describe("effectBounds: the overlay covers every sprite of the effect, and is sm
       expect(b.w * b.h).toBeLessThanOrEqual((960 * 600) / 3);
     });
   }
+});
+
+// OME-1376: the door's arrival sparkle reuses the particle engine: at most 12 sprites, 600 ms, rising round the door.
+describe("arrival sparkle", () => {
+  test("at most 12 sprites for 600 ms, starting round the door and drifting up", () => {
+    expect(SPARKLE_SPRITES).toBeLessThanOrEqual(12);
+    expect(SPARKLE_MS).toBeLessThanOrEqual(600);
+    const door = { x: 400, y: 500 };
+    const m = sparkleMotion(door);
+    const p = createParticles(m, SPARKLE_SPRITES, Math.random);
+    expect(p.count).toBe(SPARKLE_SPRITES);
+    for (let i = 0; i < p.count; i++) {
+      expect(Math.abs((p.x[i] ?? 0) - door.x)).toBeLessThanOrEqual(16);
+      expect(Math.abs((p.y[i] ?? 0) - door.y)).toBeLessThanOrEqual(32);
+    }
+    expect(m.vy[1]).toBeLessThan(0);
+  });
 });

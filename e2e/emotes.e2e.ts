@@ -42,7 +42,7 @@ async function frames(page: Page, id: string): Promise<v.InferOutput<typeof Fram
 
 test.describe("emotes", () => {
   /** Two clients in the test's own room, both drawn with the motion atlas (b walked in and is at rest). */
-  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "slash" | "typist" | "burst" | "still" | "wheel" | "wheelwalk" | "dancer") {
+  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "slash" | "action" | "typist" | "burst" | "still" | "wheel" | "wheelwalk" | "dancer") {
     clients = await joinRoom(browser, { roomUrl: testRoom("emotes", prefix).url, count: 2, nicknamePrefix: prefix });
     const [a, b] = clients;
     if (a === undefined || b === undefined) throw new Error("need two clients");
@@ -100,6 +100,33 @@ test.describe("emotes", () => {
     await expect(a.page.getByText("Stand up to dance")).toHaveCount(0);
     await a.page.waitForTimeout(500);
     expect((await frames(a.page, bId))?.avatar ?? "").toMatch(/^(breathe\/)?\w+\/sit\//);
+  });
+
+  test("/me is an italic action line in both logs and bubbles; tag and bubble wear the speaker's shirt colour (OME-1375)", async ({ browser }) => {
+    const { a, b } = await pair(browser, "action");
+    await b.page.locator(site.chatInput).fill("/me waves at the screen");
+    await b.page.locator(site.chatInput).press("Enter");
+    const nick = (await a.page.locator(`${site.nicknameTag}.self`).textContent())?.trim() ?? "";
+    const bNick = (await b.page.locator(`${site.nicknameTag}.self`).textContent())?.trim() ?? "";
+    expect(bNick).not.toBe("");
+    for (const page of [a.page, b.page]) {
+      const line = page.locator(site.chatLogLine).filter({ hasText: "waves at the screen" });
+      await expect(line).toHaveText(`${bNick} waves at the screen`);
+      await expect(line).toHaveClass(/is-action/);
+      expect(await line.evaluate((e) => getComputedStyle(e).fontStyle)).toBe("italic");
+      const bubble = page.locator(".ui-float", { has: page.locator(site.chatMessage, { hasText: "waves at the screen" }) });
+      await expect(bubble).toHaveClass(/is-action/);
+      await expect(bubble).toContainText(bNick);
+      await expect(page.locator(site.chatLogLine).filter({ hasText: "/me" })).toHaveCount(0);
+    }
+    // The speaker's shirt colour: b's tag on a's page and b's bubble wear the same --tint, and a's own tag has one too.
+    const tint = async (loc: ReturnType<Page["locator"]>): Promise<string> => (await loc.evaluate((e) => getComputedStyle(e).getPropertyValue("--tint"))).trim();
+    const bTag = a.page.locator(site.nicknameTag).filter({ hasText: bNick });
+    const bBubble = a.page.locator(".ui-float", { has: a.page.locator(site.chatMessage, { hasText: "waves at the screen" }) });
+    expect(await tint(bTag)).toMatch(/^#[0-9a-f]{6}$/);
+    expect(await tint(bBubble)).toBe(await tint(bTag));
+    expect(nick).not.toBe("");
+    expect(await tint(a.page.locator(`${site.nicknameTag}.self`))).toMatch(/^#[0-9a-f]{6}$/);
   });
 
   test("digits typed into chat are chat, not emotes", async ({ browser }) => {

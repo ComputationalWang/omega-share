@@ -115,6 +115,7 @@ export const site = {
   // Owner moderation (OME-507, ADR 0030): the menu and setting are the lazy owner chunk; the notices are in the room chunk.
   modMenu: id("mod-menu"),
   modMute: id("mod-mute"),
+  modWalkOver: id("mod-walk-over"),
   modRemove: id("mod-remove"),
   modConfirm: id("mod-confirm"),
   modKeep: id("mod-keep"),
@@ -161,6 +162,7 @@ export const site = {
   peoplePanel: id("people-panel"),
   peopleRow: id("people-row"),
   peopleToggle: id("people-toggle"),
+  peopleWalkOver: id("people-walk-over"),
   peopleStatus: id("people-status"),
   helpDialog: id("help-dialog"),
   helpClose: id("help-close"),

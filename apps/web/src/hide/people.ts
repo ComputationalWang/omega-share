@@ -11,6 +11,8 @@ export interface PeopleOptions {
   readonly hidden: HiddenMembers;
   /** `id` was hidden (true) or shown again (false) by me. */
   readonly onChange: (id: MemberId, hidden: boolean) => void;
+  /** Walk over (OME-1376): the walk to that member, or null when no cell beside them is free. */
+  readonly walkOver: (id: MemberId) => (() => void) | null;
 }
 
 export interface People {
@@ -36,6 +38,8 @@ interface Row {
   readonly awayBadge: HTMLSpanElement;
   away: boolean;
   readonly button: HTMLButtonElement | null;
+  /** Walk over (OME-1376); null on my own row. */
+  readonly walk: HTMLButtonElement | null;
   nickname: string;
   shown: boolean | null;
 }
@@ -86,7 +90,14 @@ export function createPeople(o: PeopleOptions): People {
     const badge = el("span", { className: "ui-tag people-hidden", textContent: "hidden" });
     li.append(name);
     let button: HTMLButtonElement | null = null;
+    let walk: HTMLButtonElement | null = null;
     if (!self) {
+      walk = el("button", { type: "button", className: "ui-button secondary people-walk", textContent: "Walk over" }, "people-walk-over");
+      walk.setAttribute("aria-label", `Walk over to ${m.nickname}`);
+      walk.addEventListener("click", () => {
+        o.walkOver(m.id)?.();
+      });
+      li.append(walk);
       const b = el("button", { type: "button", className: "ui-button secondary people-toggle" }, "people-toggle");
       b.addEventListener("click", () => {
         const hide = !o.hidden.has(m.id);
@@ -100,7 +111,13 @@ export function createPeople(o: PeopleOptions): People {
       button = b;
     }
     const awayBadge = el("span", { className: "ui-tag people-away", textContent: "Away" });
-    return { li, name, badge, awayBadge, away: false, button, nickname: m.nickname, shown: null };
+    return { li, name, badge, awayBadge, away: false, button, walk, nickname: m.nickname, shown: null };
+  };
+
+  /** Walk over is disabled with no free cell beside them; judged only while the list is open (a BFS per member). */
+  const judgeWalks = (): void => {
+    if (panel.hidden) return;
+    for (const [id, r] of rows) if (r.walk !== null) r.walk.disabled = o.walkOver(id) === null;
   };
 
   const close = (): void => {
@@ -113,6 +130,7 @@ export function createPeople(o: PeopleOptions): People {
   const open = (focus?: MemberId): void => {
     panel.hidden = false;
     key.setAttribute("aria-expanded", "true");
+    judgeWalks();
     if (focus !== undefined) rows.get(focus)?.button?.focus();
   };
   key.addEventListener("click", () => {
@@ -160,6 +178,7 @@ export function createPeople(o: PeopleOptions): People {
         r.li.remove();
         rows.delete(id);
       }
+      judgeWalks();
     },
     open,
     close,

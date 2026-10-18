@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chatSticker, createStickerGate, isShout, slashCommand, STICKER_GAP_MS } from "../src/chat/effects";
+import { chatSticker, createStickerGate, HELP_LINE, isShout, meAction, slashCommand, STICKER_GAP_MS } from "../src/chat/effects";
 
 // OME-1349: chat effects at zero wire cost. Slash commands send the existing `emote`; chat stickers and the shout
 // bubble are read locally from the relayed text.
@@ -63,5 +63,25 @@ describe("sticker gate", () => {
     gate.allow("a", 0);
     gate.allow("a", 2000);
     expect(gate.allow("a", 3000)).toBe(true);
+  });
+});
+
+// OME-1375: `/me <text>` is a plain chat line on the wire; every client reads it as an action ("Sam waves").
+describe("meAction", () => {
+  test("/me and a space, then words, is that action, trimmed; any case", () => {
+    expect(meAction("/me waves at the screen")).toBe("waves at the screen");
+    expect(meAction("  /ME   dances  ")).toBe("dances");
+  });
+
+  test("anything else is not: no words after it, no space, mid-line, other commands", () => {
+    for (const text of ["/me", "/me ", "/meow", "/mewaves", "hi /me waves", "me waves", "/wave", "//me waves"]) expect(meAction(text)).toBeNull();
+  });
+
+  test("/me is plain chat to the slash parser: it goes on the wire as a chat line", () => {
+    expect(slashCommand("/me waves")).toBeNull();
+  });
+
+  test("/help lists /me", () => {
+    expect(HELP_LINE.verb).toContain("/me");
   });
 });

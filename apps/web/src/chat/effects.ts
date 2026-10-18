@@ -14,8 +14,13 @@ export function slashCommand(text: string): SlashCommand | null {
   return kind === undefined ? null : { type: "emote", kind };
 }
 
+/** `/me <text>` (OME-1375): the action, or null. */
+export function meAction(text: string): string | null {
+  return /^\s*\/me\s+(\S.*?)\s*$/is.exec(text)?.[1] ?? null;
+}
+
 /** What `/help` says, to me only. */
-export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")}`, time: null, self: true };
+export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")} · /me <action>`, time: null, self: true };
 
 /** What `/dance` says while I'm seated (OME-1378), to me only; nothing is sent. */
 export const DANCE_SEATED_LINE: SystemLine = { glyph: "host", actor: null, verb: "Stand up to dance", time: null, self: true };

@@ -18,18 +18,20 @@ const ada: Member = { id: "a", nickname: "Ada", avatar: 0 };
 const bo: Member = { id: "b", nickname: "Bo", avatar: 1 };
 const kit: Member = { id: "k", nickname: "<b>Kit</b>", avatar: 2 };
 
-async function setup(members: readonly Member[] = [ada, bo, kit], self: MemberId | null = "a") {
+async function setup(members: readonly Member[] = [ada, bo, kit], self: MemberId | null = "a", walkable: (id: MemberId) => boolean = () => true) {
   const { createPeople } = await import("../src/hide/people");
   const { createHiddenMembers } = await import("../src/hide/hidden");
   const data = new Map<string, string>();
   const hidden = createHiddenMembers({ getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v) }, "lobby");
   const changes: [MemberId, boolean][] = [];
-  const people = createPeople({ hidden, onChange: (id, on) => changes.push([id, on]) });
+  const walked: MemberId[] = [];
+  const people = createPeople({ hidden, onChange: (id, on) => changes.push([id, on]), walkOver: (id) => (walkable(id) ? () => void walked.push(id) : null) });
   document.body.replaceChildren(people.key, people.panel, people.status);
   people.update(members, self);
   const row = (id: string): HTMLElement | null => people.panel.querySelector<HTMLElement>(`[data-member="${id}"]`);
-  const button = (id: string): HTMLButtonElement | null => row(id)?.querySelector("button") ?? null;
-  return { people, hidden, changes, row, button };
+  const button = (id: string): HTMLButtonElement | null => row(id)?.querySelector("[data-testid=people-toggle]") ?? null;
+  const walkKey = (id: string): HTMLButtonElement | null => row(id)?.querySelector("[data-testid=people-walk-over]") ?? null;
+  return { people, hidden, changes, row, button, walkKey, walked };
 }
 
 describe("people list", () => {
@@ -129,4 +131,17 @@ test("Escape returns focus while the open panel still exposes its People key", a
   expect(panelOpenWhenKeyFocused).toBe(true);
   expect(document.activeElement === people.key).toBe(true);
   expect(people.panel.hidden).toBe(true);
+});
+
+describe("walk over", () => {
+  // OME-1376: everyone gets Walk over here (the member menu is the owner's); disabled with no free side beside them.
+  test("others' rows have Walk over naming them; it walks over, and is disabled with no free side", async () => {
+    const { people, walkKey, walked } = await setup(undefined, "a", (id) => id === "b");
+    people.open(); // judged while the list is open: a path search per member
+    expect(walkKey("a")).toBeNull();
+    expect(walkKey("b")?.getAttribute("aria-label")).toBe("Walk over to Bo");
+    walkKey("b")?.click();
+    expect(walked).toEqual(["b"]);
+    expect(walkKey("k")?.disabled).toBe(true);
+  });
 });

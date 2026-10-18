@@ -18,7 +18,12 @@ import { EMOTE_LIFT } from "./walk/animator";
 import { cellAt, colOf, rowOf, walkGrid } from "./walk/path";
 import { standingPlacement } from "./walk/standing";
 import { awayChanges } from "./session-lifecycle";
+import tintsJson from "../../../assets/avatars/tints.json";
+import { AVATAR_IDS, parseTints, tintAccent } from "./walk/tint";
 import type { Dir } from "./walk/walks";
+
+/** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
+const TINTS = parseTints(tintsJson, AVATAR_IDS);
 
 export interface StageOptions {
   /** Under prefers-reduced-motion an emote is a static badge over the avatar instead of an animation (OME-415). */
@@ -383,6 +388,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
         tags.prepend(pad);
       }
       e.classList.toggle("self", m.id === s.self);
+      // Their shirt's colour on the tag's edge (OME-1375); a tint picked live changes it.
+      const accent = tintAccent(TINTS, m.avatar, m.tint ?? 0) ?? "";
+      if (e.style.getPropertyValue("--tint") !== accent) e.style.setProperty("--tint", accent);
       padEls.get(m.id)?.classList.toggle("self", m.id === s.self);
       // Away (OME-911): the tag is dimmed and says "Away" to screen readers; toggled only on a change.
       const isAway = m.away === true;
@@ -408,7 +416,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const p = view.position(b.memberId) ?? placedAt.get(b.memberId);
       const m = members.get(b.memberId);
       if (p === undefined || m === undefined) return false;
-      floats.say({ id: b.memberId, name: m.nickname, text: b.text, self: b.memberId === s.self, at: { x: p.x, y: p.y - liftOf(b.memberId) }, startedAt: b.expiresAt - BUBBLE_MS });
+      const accent = tintAccent(TINTS, m.avatar, m.tint ?? 0);
+      floats.say({ id: b.memberId, name: m.nickname, text: b.text, ...(accent === null ? {} : { accent }), self: b.memberId === s.self, at: { x: p.x, y: p.y - liftOf(b.memberId) }, startedAt: b.expiresAt - BUBBLE_MS });
       return true;
     });
 

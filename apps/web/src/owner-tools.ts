@@ -22,6 +22,8 @@ export interface OwnerToolsOptions {
   readonly view: EditorContext["view"];
   /** Where a member is drawn now (stage.ts `anchor`). */
   readonly anchor: (id: MemberId) => Point | undefined;
+  /** Walk over (OME-1376, room.ts): the walk to that member, or null when no cell beside them is free. */
+  readonly walkOver: (id: MemberId) => (() => void) | null;
   /** Where the Edit room key and the playback setting go. */
   readonly bar: HTMLElement;
   readonly panel: HTMLElement;
@@ -129,7 +131,7 @@ export function createOwnerTools(o: OwnerToolsOptions): OwnerTools {
     void import("./owner/moderation")
       .then(({ mountModeration }) => {
         if (gen !== moderationGen) return;
-        moderation = mountModeration({ stage: o.stage, layer: o.layer, tags: o.tags, bar: o.bar, view: o.state, send: o.send, stageWidth: STAGE_W, anchor: (id) => {
+        moderation = mountModeration({ stage: o.stage, layer: o.layer, tags: o.tags, bar: o.bar, view: o.state, send: o.send, stageWidth: STAGE_W, walkOver: o.walkOver, anchor: (id) => {
           const p = o.anchor(id);
           return p === undefined ? undefined : { x: p.x, y: p.y + TAG_OFFSET_Y };
         } });

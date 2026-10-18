@@ -20,7 +20,11 @@ const standAt = (who: string, col: number, row: number): WalkTarget => {
 
 function setup(opts: { reduced?: boolean; smooth?: () => boolean } = {}) {
   let routes = 0;
+  let doors = 0;
   const walks = createWalks({
+    onDoor: () => {
+      doors++;
+    },
     reducedMotion: () => opts.reduced ?? false,
     smooth: opts.smooth ?? (() => false),
     route: (g, from, to) => {
@@ -31,7 +35,7 @@ function setup(opts: { reduced?: boolean; smooth?: () => boolean } = {}) {
   walks.setGrid(grid);
   const pose = emptyPose();
   const sample = (who: string, now: number) => (walks.sample(id(who), now, pose) ? { ...pose } : null);
-  return { walks, sample, routes: () => routes };
+  return { walks, sample, routes: () => routes, doors: () => doors };
 }
 
 describe("walks", () => {
@@ -57,6 +61,21 @@ describe("walks", () => {
     expect(half?.z).toBe(standDepth({ x: (door.x + next.x) / 2, y: (door.y + next.y) / 2 }));
     expect(sample("b", 1050 + 3 * TILE_MS)).toMatchObject({ ...cellCenter(6, 9), walking: false, sitting: false });
     expect(walks.walking(1050 + 3 * TILE_MS)).toBe(false);
+  });
+
+  // OME-1376: the arrival sparkle plays when someone walks in through the door, not for a snapshot, a move or a snap.
+  test("walking in from the door says so once; my snapshot, a seat change and reduced motion don't", () => {
+    const { walks, doors } = setup();
+    walks.place([sitAt("a", 1, 5)], 0);
+    expect(doors()).toBe(0);
+    walks.place([sitAt("a", 1, 5), standAt("b", 6, 9)], 1050);
+    expect(doors()).toBe(1);
+    walks.place([sitAt("a", 2, 4), standAt("b", 6, 9)], 2000);
+    expect(doors()).toBe(1);
+    const reduced = setup({ reduced: true });
+    reduced.walks.place([sitAt("a", 1, 5)], 0);
+    reduced.walks.place([sitAt("a", 1, 5), standAt("b", 6, 9)], 1050);
+    expect(reduced.doors()).toBe(0);
   });
 
   test("a seat change walks from the previous seat to the new one, then sits facing the seat's way", () => {
