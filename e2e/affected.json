@@ -440,7 +440,23 @@
         "**/*.md"
       ],
       "specs": [
+        "e2e/accessory.e2e.ts",
         "e2e/tint.e2e.ts"
+      ]
+    },
+    {
+      "paths": [
+        "apps/web/src/accessory/**",
+        "apps/web/src/controls/accessory-*.ts",
+        "assets/accessories/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/accessory.e2e.ts",
+        "e2e/theme.e2e.ts"
       ]
     },
     {
@@ -554,6 +570,7 @@
       "specs": [
         "e2e/m8-walk-tiers.e2e.ts",
         "e2e/polish.e2e.ts",
+        "e2e/accessory.e2e.ts",
         "e2e/tint.e2e.ts",
         "e2e/walk.e2e.ts",
         "perf/polish.perf.ts",
@@ -573,6 +590,7 @@
         "**/*.md"
       ],
       "specs": [
+        "e2e/accessory.e2e.ts",
         "e2e/theme.e2e.ts",
         "perf/chat.perf.ts",
         "perf/phone.perf.ts",
