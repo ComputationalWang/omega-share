@@ -2,12 +2,13 @@
 // 150 ms whole-step; Smooth: a render every frame while anyone walks), on desktop Chromium and on a Pixel 7 phone
 // (devices["Pixel 7"], the phone watch layout). One site client (the observer, tier forced with
 // localStorage["omega.motion"]) + 24 raw-socket bots that keep sitting on free seats and standing up again, one change
-// roughly every 120 ms, so most of the 24 are walking at any moment (8 seats, so the rest stand about). The video plays
+// roughly every 120 ms, and (OME-1353, ADR 0053) free-walking standing bots to random free cells, two walks a tick,
+// so most of the 24 are walking at any moment (8 seats, so the rest walk about). The video plays
 // (fake player). Rows: walk25.frameP95.<profile>.<tier> (quantised p95 ≤ one vsync), walk25.workP95.<profile>.<tier>
 // (≤ 8 ms), walk25.missedVsync.<profile>.<tier> (≤ 1 %), for profile = desktop | phone, tier = basic | smooth.
 import { devices, expect, test } from "@playwright/test";
 import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
-import { MAX_ROOM_MEMBERS } from "@omega/shared";
+import { DEFAULT_LAYOUT, FLOOR_CELLS, MAX_ROOM_MEMBERS, isStandable } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { socketUrl } from "../e2e/support/bots";
 import { watchCsp } from "../e2e/support/csp";
@@ -23,6 +24,12 @@ const WINDOW_MS = 5000;
 const BOTS = MAX_ROOM_MEMBERS - 1;
 const CHANGE_EVERY_MS = 120;
 const MIN_WALKERS = 15;
+/** Free walks per tick (ADR 0053): ~17/s room-wide, each bot well under its 4/s walk bucket. */
+const WALKS_PER_TICK = 2;
+/** Every cell a bot may walk to in the default layout (the seeded room has no layout of its own). */
+const FREE_CELLS = Array.from({ length: FLOOR_CELLS * FLOOR_CELLS }, (_, i) => ({ x: i % FLOOR_CELLS, y: Math.floor(i / FLOOR_CELLS) })).filter((c) =>
+  isStandable(DEFAULT_LAYOUT, c),
+);
 const PROFILES = ["desktop", "phone"] as const;
 const TIERS = ["basic", "smooth"] as const;
 type Profile = (typeof PROFILES)[number];
@@ -34,23 +41,26 @@ const ids = (p: Profile, t: Tier): string[] => [`walk25.frameP95.${p}.${t}`, `wa
 interface WalkerStats {
   readonly members: number;
   readonly changes: number;
+  /** `walked` relays seen so far (free walks to a cell). */
+  readonly walks: number;
   readonly errors: readonly string[];
   /** Bot nicknames with a seat change since the last `mark()` (sat or stood up: they walked). */
   readonly seatChanged: readonly string[];
 }
 
-/** 24 raw-socket bots on a page of the site origin, sitting on free seats and standing up again, one change per tick. */
+/** 24 raw-socket bots on a page of the site origin, sitting on free seats and standing up again, one change per tick, and free-walking standing bots. */
 async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: () => Promise<WalkerStats>; mark: () => Promise<WalkerStats>; stop: () => Promise<WalkerStats> }> {
   const context = await watchCsp(await browser.newContext());
   const page = await context.newPage();
   await page.goto(URLS.web);
   await page.evaluate(
-    async ({ url, bots, prefix, everyMs }) => {
+    async ({ url, bots, prefix, everyMs, cells, walksPerTick }) => {
       interface Bot { ws: WebSocket; self: string }
       const all: Bot[] = [];
       /** seats[i] is the member id holding seat i, from the server's snapshot / seat-changed / member-left stream. */
       let seats: (string | null)[] = [];
       let changes = 0;
+      let walks = 0;
       let members = 0;
       /** Bot nickname by member id, and the bots whose seat changed since the last mark(). */
       const names = new Map<string, string>();
@@ -82,6 +92,10 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
             else if (n === 0 && msg.type === "member-left") {
               members--;
               seats = seats.map((s) => (s === memberId ? null : s));
+            } else if (n === 0 && msg.type === "walked") {
+              walks++;
+              const who = memberId === null ? undefined : names.get(memberId);
+              if (who !== undefined) changedSinceMark.add(who);
             } else if (n === 0 && msg.type === "seat-changed" && "seat" in msg) {
               changes++;
               const who = memberId === null ? undefined : names.get(memberId);
@@ -110,8 +124,13 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
           const bot = seated[Math.floor(Math.random() * seated.length)];
           bot?.ws.send(JSON.stringify({ type: "sit", seat: null }));
         }
+        for (let k = 0; k < walksPerTick; k++) {
+          const bot = standing[Math.floor(Math.random() * standing.length)];
+          const cell = cells[Math.floor(Math.random() * cells.length)];
+          if (bot !== undefined && cell !== undefined) bot.ws.send(JSON.stringify({ type: "walk", cell }));
+        }
       }, everyMs);
-      const stats = () => ({ members, changes, errors: [...errors], seatChanged: [...changedSinceMark] });
+      const stats = () => ({ members, changes, walks, errors: [...errors], seatChanged: [...changedSinceMark] });
       Object.assign(window, {
         omegaWalkers: {
           stats,
@@ -128,7 +147,7 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
         },
       });
     },
-    { url: socketUrl(roomId), bots: BOTS, prefix: BOT_PREFIX, everyMs: CHANGE_EVERY_MS },
+    { url: socketUrl(roomId), bots: BOTS, prefix: BOT_PREFIX, everyMs: CHANGE_EVERY_MS, cells: FREE_CELLS, walksPerTick: WALKS_PER_TICK },
   );
   const call = async (fn: "stats" | "mark" | "stop"): Promise<WalkerStats> => {
     const raw: unknown = await page.evaluate((f): unknown => {
@@ -140,10 +159,11 @@ async function startWalkers(browser: Browser, roomId: string): Promise<{ stats: 
     if (typeof raw !== "object" || raw === null) throw new Error("walkers: bad stats");
     const members: unknown = Reflect.get(raw, "members");
     const changes: unknown = Reflect.get(raw, "changes");
+    const walks: unknown = Reflect.get(raw, "walks");
     const errors: unknown = Reflect.get(raw, "errors");
     const seatChanged: unknown = Reflect.get(raw, "seatChanged");
-    if (typeof members !== "number" || typeof changes !== "number" || !Array.isArray(errors) || !Array.isArray(seatChanged)) throw new Error("walkers: bad stats");
-    return { members, changes, errors: errors.map(String), seatChanged: seatChanged.map(String) };
+    if (typeof members !== "number" || typeof changes !== "number" || typeof walks !== "number" || !Array.isArray(errors) || !Array.isArray(seatChanged)) throw new Error("walkers: bad stats");
+    return { members, changes, walks, errors: errors.map(String), seatChanged: seatChanged.map(String) };
   };
   return {
     stats: () => call("stats"),
@@ -233,7 +253,7 @@ for (const profile of PROFILES) {
         const walking = walkedInWindow(start, end, s.seatChanged);
         const f = summarizeFrames(w.samples, VSYNC_MS);
         const workP95 = p95(w.workMs);
-        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes so far, video playing (fake player)`;
+        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free walks so far, ${String(s.errors.length)} errors, video playing (fake player)`;
         recordMetric({ id: `walk25.frameP95.${profile}.${tier}`, value: f.p95, note: `${f.note}; ${what}` });
         recordMetric({ id: `walk25.workP95.${profile}.${tier}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
         recordMetric({ id: `walk25.missedVsync.${profile}.${tier}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });
