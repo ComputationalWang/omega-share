@@ -363,13 +363,14 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           const nTop = n.ay - (n.h + TAIL_BELOW) * k - n.push;
           const nBottom = nTop + (n.h + (n.stacked ? 0 : TAIL_BELOW)) * k;
           if (top >= nBottom + GAP || bottom + (s.stacked ? 0 : TAIL_BELOW * k) + GAP <= nTop) continue;
-          push += Math.max(0, bottom + GAP - nTop);
+          // Typing dots never stack, so they keep their tail.
+          push += Math.max(0, bottom + (s.typing ? TAIL_BELOW * k : 0) + GAP - nTop);
           // Re-measured and re-centred: the next pass checks the box as it now is.
           if (!s.stacked && !s.typing) stack(s);
           moved = true;
         }
       }
-      if (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - (reduced ? 0 : FLOAT_RISE) < ROOM_VIEW.y) {
+      if (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - (reduced || s.typing ? 0 : FLOAT_RISE) < ROOM_VIEW.y) {
         leave(s);
         continue;
       }
