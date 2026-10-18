@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type MemberId, type Nickname, type ResumeToken, type RoomId } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type MemberId, type Nickname, type ResumeToken, type RoomId, type Tint } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
@@ -40,6 +40,10 @@ import { createHelp } from "./help/dialog";
 import { createFirstHint } from "./help/hint";
 import { createHiddenMembers } from "./hide/hidden";
 import { createPeople } from "./hide/people";
+import tintsJson from "../../../assets/avatars/tints.json";
+import { createTintSection } from "./controls/tint-section";
+import { saveTint } from "./profile";
+import { AVATAR_IDS, parseTints } from "./walk/tint";
 import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
 
 export interface RoomOptions {
@@ -48,6 +52,8 @@ export interface RoomOptions {
   readonly socketUrl: string;
   readonly nickname: Nickname;
   readonly avatar: Avatar;
+  /** Shirt tint to join with (ADR 0053, the profile's). */
+  readonly tint: Tint;
   /** This room's owner token and invite key from `omega.rooms`, if the browser holds any (ADR 0028). */
   readonly secret: RoomSecret | undefined;
   /** Where `omega.rooms` lives: a closed room is forgotten. */
@@ -314,6 +320,18 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     ev.preventDefault();
     people.open(id);
   });
+  // Shirt tint (OME-1352), atop the People panel: my avatar's ramps from tints.json, the pick saved for the next visit.
+  people.panel.prepend(
+    createTintSection({
+      tints: parseTints(tintsJson, AVATAR_IDS)[opts.avatar]?.tints ?? [],
+      tint: opts.tint,
+      send: (m) => send(m),
+      onPick: (t) => {
+        saveTint(opts.secrets, t);
+      },
+    }),
+  );
+
   roomTop.append(title, popRoomKey, people.key, help.key);
   // The first-visit hint (OME-768): in the flow under the room bar, so it never covers the picture or the composer.
   const firstHint = createFirstHint({
@@ -699,7 +717,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
   const c: Connection = kickedTill !== null ? stoppedConnection() : createConnection({
     url: opts.socketUrl,
-    join: joinMessage(opts.nickname, opts.avatar, opts.secret),
+    join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint),
     durable: true,
     ...(opts.resumeToken === undefined ? {} : { resumeToken: opts.resumeToken }),
     createSocket: browserSocket,

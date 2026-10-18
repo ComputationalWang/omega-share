@@ -240,6 +240,10 @@ describe("inviteLink", () => {
 });
 
 describe("joinMessage", () => {
+  test("carries a shirt tint, and leaves tint 0 out (absent means 0, ADR 0053)", () => {
+    expect(joinMessage("zoe", 1, undefined, 3)).toEqual({ type: "join", nickname: "zoe", avatar: 1, tint: 3 });
+    expect("tint" in joinMessage("zoe", 1, undefined, 0)).toBe(false);
+  });
   test("carries the stored owner token and invite key", () => {
     expect(joinMessage("zoe", 1, { ownerToken: OWNER, inviteKey: KEY })).toEqual({ type: "join", nickname: "zoe", avatar: 1, ownerToken: OWNER, inviteKey: KEY });
   });

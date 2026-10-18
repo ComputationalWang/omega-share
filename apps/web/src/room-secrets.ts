@@ -12,6 +12,7 @@ import {
   type RoomId,
   type RoomSecrets,
   type RoomTitle,
+  type Tint,
 } from "@omega/shared";
 
 // The site's owner tokens and invite keys (ADR 0028, research §2.3, §3.2). Unlike the share token they outlive the tab,
@@ -117,14 +118,15 @@ export function inviteLink(origin: string, id: RoomId, inviteKey?: InviteKey): s
   return `${origin}/r/${id}${inviteKey === undefined ? "" : `#k=${inviteKey}`}`;
 }
 
-/** `join` with the room's stored secrets; absent ones are left out (the server's join is a strictObject). */
-export function joinMessage(nickname: Nickname, avatar: Avatar, secret: RoomSecret | undefined): Extract<ClientMessage, { type: "join" }> {
+/** `join` with the room's stored secrets and shirt tint; absent ones (and tint 0) are left out (the server's join is a strictObject). */
+export function joinMessage(nickname: Nickname, avatar: Avatar, secret: RoomSecret | undefined, tint: Tint = 0): Extract<ClientMessage, { type: "join" }> {
   const ownerToken: OwnerToken | undefined = secret?.ownerToken;
   const inviteKey: InviteKey | undefined = secret?.inviteKey;
   return {
     type: "join",
     nickname,
     avatar,
+    ...(tint === 0 ? {} : { tint }),
     ...(ownerToken === undefined ? {} : { ownerToken }),
     ...(inviteKey === undefined ? {} : { inviteKey }),
   };
