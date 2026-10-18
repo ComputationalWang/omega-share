@@ -701,7 +701,7 @@ function door(k: Kit, painted: boolean, open: boolean): void {
     }
     return [slabC, 0];
   };
-  const knob = (x: number, z: number, kx: number): Paint | null => (Math.hypot(x - kx, z - 36) < 1.1 ? ["mustard", 0] : Math.abs(x - kx) < 0.6 && Math.abs(z - 33.5) < 0.6 ? ["outline", 1] : null);
+  const knob = (x: number, z: number, kx: number): Paint | null => (Math.hypot(x - kx, z - 36) < 1.1 ? ["mustard", 0] : Math.hypot(x - kx, z - 36) < 1.7 ? ["outline", 1] : Math.abs(x - kx) < 0.6 && Math.abs(z - 33.5) < 0.6 ? ["outline", 1] : null);
   if (!open) {
     k.box(X0, X1, 6.5, 8, 0.8, H, slabC, {
       paint: (p, f) => (f === "front" ? knob(p.x, p.z, X1 - 1.8) ?? panel(p.x, p.z, X0, X1) : f === "top" ? [slabC, 0] : [slabC, 2]),
