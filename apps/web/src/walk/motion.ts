@@ -8,7 +8,7 @@ import { SMOOTH_FRAMES, SMOOTH_FRAME_MS, WALK_FRAMES, WALK_FRAME_MS, type Dir } 
 export const DIRS: readonly Dir[] = ["se", "sw", "ne", "nw"];
 
 const FrameSchema = v.object({ frame: v.object({ x: v.number(), y: v.number(), w: v.number(), h: v.number() }), anchor: v.object({ x: v.number(), y: v.number() }) });
-const FramesSchema = v.record(v.string(), FrameSchema);
+export const FramesSchema = v.record(v.string(), FrameSchema);
 const AnimSchema = v.object({ frames: v.pipe(v.array(v.string()), v.minLength(1)), ms: v.array(v.pipe(v.number(), v.integer(), v.minValue(1))), loop: v.boolean() });
 
 export const MotionSheetSchema = v.object({

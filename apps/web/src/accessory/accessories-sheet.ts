@@ -8,7 +8,8 @@ import pngUrl from "../../../../assets/accessories/accessories.png?url";
 import { ACCESSORY_IDS } from "./hat";
 
 const XY = v.object({ x: v.number(), y: v.number() });
-const Hat = v.object({ prefix: v.string() });
+/** `bare`: Pip and Mo take their own headwear off under it (bare-sheet.ts). */
+const Hat = v.object({ prefix: v.string(), bare: v.boolean() });
 
 /** assets/README.md "Head accessories": frames, then `meta.omega.accessories[id]` with the theme manifest's `hat` shape. */
 export const AccessoryManifestSchema = v.object({

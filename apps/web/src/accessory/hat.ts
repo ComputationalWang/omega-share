@@ -11,3 +11,11 @@ export const ACCESSORY_IDS = ["partyhat", "crown", "headphones", "beanie"] as co
 export function wornHat<T>(accessory: number, frame: string, accessories: { hat(accessory: number, frame: string): T | undefined } | null, theme: { hat(frame: string): T | undefined } | null): T | undefined {
   return (accessory > 0 ? accessories?.hat(accessory, frame) : undefined) ?? theme?.hat(frame);
 }
+
+/**
+ * Whether `avatar` wearing `accessory` is drawn on its bare-head frame (OME-1409): Pip and Mo (1, 2) under the party hat,
+ * crown or headphones (1..3). The sheets' `meta.omega.bare`, pinned by accessory-sheet.test.ts.
+ */
+export function wearsBare(avatar: number, accessory: number): boolean {
+  return (avatar === 1 || avatar === 2) && accessory >= 1 && accessory <= 3;
+}

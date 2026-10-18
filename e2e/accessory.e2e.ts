@@ -17,7 +17,7 @@ test.afterEach(async () => {
   clients = [];
 });
 
-const Frames = v.nullable(v.object({ avatar: v.nullable(v.string()), accessory: v.number() }));
+const Frames = v.nullable(v.object({ avatar: v.nullable(v.string()), accessory: v.number(), bare: v.exactOptional(v.boolean()) }));
 const Hats = v.object({ hats: v.number() });
 
 /** Read `window.__omega.room[name](...args)`, the dev handle (apps/web/src/main.ts). */
@@ -125,4 +125,30 @@ test("under a holiday theme, my own accessory wins over its hat: one hat each", 
   // B wears none, so B gets the theme's hat; A only the party hat. Two members, two hats.
   expect(await accessoryOn(b.page, bId)).toBe(0);
   await expect.poll(async () => v.parse(Hats, await handle(b.page, "theme")).hats).toBe(2);
+});
+
+// OME-1404 (art OME-1409): under the crown, Pip and Mo are drawn on their bare-head frames, Juno on her own; the beanie
+// (it hides their headwear itself) puts them back on their own frames.
+test("Pip and Mo go bare-headed under a crown, Juno doesn't; under the beanie nobody does", async ({ browser }) => {
+  clients = await joinRoom(browser, {
+    roomUrl: testRoom("accessory", "bare").url,
+    count: 3,
+    nicknamePrefix: "accb",
+    setup: async (context) => {
+      await context.addInitScript(() => {
+        localStorage.setItem("omega.accessory", "2");
+      });
+    },
+  });
+  const [juno, pip, mo] = clients;
+  if (juno === undefined || pip === undefined || mo === undefined) throw new Error("need three clients");
+  const ids = await Promise.all([juno, pip, mo].map((c) => self(c.page)));
+  const bareOn = async (id: string | undefined): Promise<string> => {
+    const f = v.parse(Frames, await handle(juno.page, "avatarFrames", id));
+    return `${String(f?.accessory)}:${String(f?.bare)}`;
+  };
+  await expect.poll(() => Promise.all(ids.map(bareOn)), { timeout: 15_000 }).toEqual(["2:false", "2:true", "2:true"]);
+  await pip.page.getByTestId("people-key").click();
+  await pip.page.getByTestId("accessory-menu").getByRole("radio", { name: "Beanie" }).click();
+  await expect.poll(() => bareOn(ids[1]), { timeout: 3000, intervals: [50] }).toBe("4:false");
 });
