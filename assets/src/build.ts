@@ -58,7 +58,8 @@ import { CHRISTMAS } from "./christmas";
 import { EASTER } from "./easter";
 import { SINTERKLAAS } from "./sinterklaas";
 import { VALENTINES } from "./valentines";
-import { allAvatarFrames, buildHatFrames, type ThemeDef } from "./theme";
+import { allAvatarFrames, buildHatFrames, type HatFrame, type ThemeDef } from "./theme";
+import { ACCESSORIES } from "./accessories";
 import * as v from "valibot";
 import { FURNITURE, RoomLayoutInputSchema, footprintCells, type RoomLayout } from "@omega/shared";
 
@@ -1713,6 +1714,7 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
 
 const THEMES: readonly ThemeDef[] = [HALLOWEEN, SINTERKLAAS, CHRISTMAS, VALENTINES, EASTER];
 const THEME_FILES = THEMES.flatMap((t) => [`themes/${t.id}/${t.id}.png`, `themes/${t.id}/${t.id}.json`]);
+const ACCESSORY_FILES = ["accessories/accessories.png", "accessories/accessories.json"];
 
 /** `themes/<id>/<id>.png` + `.json`: wall/window decor, effect frames and a hat for every avatar frame (≤ 40 KB per theme).
  *  Hat frames with identical pixels share one rect; each key keeps its own anchor (the avatar's floor point). */
@@ -1839,15 +1841,77 @@ function buildTheme(t: ThemeDef, avatarImages: Map<string, Uint8Array>): void {
   writeFileSync(join(ROOT, "preview", `${id}-room@2x.png`), encodeIndexedPng(W * 2, H * 2, upscale(img, W, H, 2), PALETTE));
 }
 
+/** `accessories/accessories.png` + `.json` (OME-1388, lazy): four head accessories, each a hat for every avatar frame, built and anchored
+ *  exactly like a theme's hat. `meta.omega.accessories[id]` has the theme manifest's `hat` shape, so the web reuses the hat loader. */
+function buildAccessories(avatarImages: Map<string, Uint8Array>): void {
+  const hats = new Map(ACCESSORIES.map((a) => [a.id, buildHatFrames(a.id, a.hat)]));
+  // Hat frames with identical pixels share one rect (per accessory and across them); each key keeps its own anchor.
+  const unique = new Map<string, RoomFrame>();
+  const rectOf = new Map<string, string>();
+  const rects = new Map<string, Set<string>>();
+  for (const [id, hs] of hats) {
+    const own = new Set<string>();
+    for (const h of hs) {
+      const sig = `${String(h.w)}x${String(h.h)}:${Buffer.from(h.img).toString("base64")}`;
+      if (!unique.has(sig)) unique.set(sig, { key: `u${String(unique.size)}`, w: h.w, h: h.h, img: h.img, ax: h.ax, ay: h.ay });
+      const u = unique.get(sig);
+      if (u) { rectOf.set(h.key, u.key); own.add(u.key); }
+    }
+    rects.set(id, own);
+  }
+  const packed = pack([...unique.values()], 256);
+  const sheet = new Uint8Array(packed.w * packed.h);
+  const at = new Map(packed.placed.map((p) => [p.key, p]));
+  for (const p of packed.placed) blit(sheet, packed.w, p.img, p.w, p.h, p.x, p.y);
+  const frames: Record<string, Frame> = {};
+  for (const h of [...hats.values()].flat()) {
+    const p = at.get(rectOf.get(h.key) ?? "");
+    if (!p) throw new Error(`unpacked ${h.key}`);
+    frames[h.key] = { frame: { x: p.x, y: p.y, w: p.w, h: p.h }, rotated: false, trimmed: false, spriteSourceSize: { x: 0, y: 0, w: p.w, h: p.h }, sourceSize: { w: p.w, h: p.h }, anchor: { x: h.ax / p.w, y: h.ay / p.h } };
+  }
+  registerKeys("accessories", Object.keys(frames));
+  mkdirSync(join(ROOT, "accessories"), { recursive: true });
+  writeFileSync(join(ROOT, "accessories", "accessories.png"), encodeIndexedPng(packed.w, packed.h, sheet, PALETTE));
+  const accessories = Object.fromEntries(ACCESSORIES.map((a) => [a.id, { prefix: `${a.id}/hat/`, count: hats.get(a.id)?.length ?? 0, rects: rects.get(a.id)?.size ?? 0, replaces: a.hat.replaces }]));
+  const atlas = {
+    frames,
+    animations: {},
+    meta: { app: "omega-share assets/src/build.ts", version: "1", image: "accessories.png", format: "RGBA8888", size: { w: packed.w, h: packed.h }, scale: "1", omega: { license: "CC-BY-SA-4.0", accessories } },
+  };
+  writeFileSync(join(ROOT, "accessories", "accessories.json"), JSON.stringify(atlas, null, 1) + "\n");
+  // Contact sheet: one row per avatar, each accessory in idle (front, back), walk and sit (front, back), on 32×76 cells like the theme strips.
+  const big = upscale(sheet, packed.w, packed.h, 2).map((v) => (v === 0 ? colorIndex("wall", 1) : v));
+  writeFileSync(join(ROOT, "preview", "accessories-sheet@2x.png"), encodeIndexedPng(packed.w * 2, packed.h * 2, big, PALETTE));
+  const CH = CELL.h + 12;
+  const byKey = new Map<string, HatFrame>([...hats.values()].flat().map((h) => [h.key, h]));
+  const sprites = new Map<string, { img: Uint8Array; w: number; h: number }>();
+  const specs = new Map(allAvatarFrames().map((s) => [s.key, s]));
+  const baseOf = (k: string): Uint8Array | undefined => {
+    const s = specs.get(k);
+    return avatarImages.get(k) ?? (s && render(composeMotion(s.avatar, s.pose, s.dir, s.motion), s.avatar.roles));
+  };
+  const rows = AVATARS.map((a) => ACCESSORIES.flatMap((acc) => [`${a.id}/idle/se/0`, `${a.id}/idle/nw/0`, `walk/${a.id}/sw/1`, `${a.id}/sit/se/0`, `${a.id}/sit/ne/0`].map((k) => {
+    const b = baseOf(k);
+    const h = byKey.get(`${acc.id}/hat/${k}`);
+    if (!b || !h) throw new Error(`missing ${acc.id} on ${k}`);
+    const out = new Uint8Array(CELL.w * CH);
+    blitAt(out, CELL.w, CH, b, CELL.w, CELL.h, 0, 12);
+    blitAt(out, CELL.w, CH, h.img, h.w, h.h, FLOOR.x - h.ax, FLOOR.y + 12 - h.ay);
+    sprites.set(`${acc.id}:${k}`, { img: out, w: CELL.w, h: CH });
+    return `${acc.id}:${k}`;
+  })));
+  strip("accessories@4x.png", 20, rows, sprites, CELL.w, CH, true);
+}
+
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "ui/edit.png", "ui/edit.json", ...THEME_FILES]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "ui/edit.png", "ui/edit.json", ...THEME_FILES, ...ACCESSORY_FILES]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", ...THEME_FILES];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", ...THEME_FILES, ...ACCESSORY_FILES];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
@@ -1937,6 +2001,7 @@ buildMotion(avatarImages);
 buildExpressions(avatarImages);
 buildTints();
 for (const t of THEMES) buildTheme(t, avatarImages);
+buildAccessories(avatarImages);
 buildStore();
 buildSite({ room: buildRoomFrames(), avatars: avatarImages, ui: uiFrames });
 console.log(`palette: ${String(PALETTE.length - 1)} colours`);

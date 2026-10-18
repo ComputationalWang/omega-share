@@ -29,6 +29,7 @@ assets/
   furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
+  accessories/accessories.png|json  # OME-1388 (lazy): 256×256 PNG-8, four head accessories, each a hat per avatar frame (theme hat format)
   store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
   site/                 # set m (M9): the website's favicon.ico + PNGs, apple-touch 180, manifest 192/512 + maskable 512, og-card.png 1200×630,
                         #   how-1-find / how-2-share / how-3-watch.png landing panels (368×224 each)
@@ -864,6 +865,26 @@ Same format and rules as Halloween above: one lazy 256-wide indexed PNG-8 per th
 - Previews per theme: `preview/<id>-room@1x.png` / `@2x`, `preview/<id>-hats@4x.png`, `preview/<id>-sheet@2x.png`.
 - `src/themes.test.ts` checks every shipped theme: a hat for every avatar frame key, ≤ 40 KB, effect sprites inside their size limit, decor only on walls.
 
+## Head accessories (`accessories/accessories.json`, OME-1388, lazy)
+
+Four cosmetics in one lazy 256×256 indexed PNG-8, fetched only when someone in the room wears one. Each is a hat in exactly the holiday
+theme format above: one overlay for **every** avatar frame key (416 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`,
+`yawn`, all four dirs; dance reuses the walk frames, so it is covered), anchored at the avatar's floor point, drawn as the avatar's next sibling.
+
+`meta.omega.accessories` = `{ <id>: { prefix, count, rects, replaces } }`. Each value has the theme manifest's `meta.omega.hat` shape, so
+the theme hat loader works per accessory: the overlay for avatar frame `K` is `<prefix>K`.
+
+| Id (`prefix`) | Look | `replaces` | Rects |
+|---|---|---|---|
+| `partyhat` (`partyhat/hat/`) | Pink cone with cream stripes and a mustard pom, tipped toward the face | `false` (worn over) | 8 |
+| `crown` (`crown/hat/`) | Small gold crown: three points with pearls; a rust gem between two teal ones on the front | `false` | 20 |
+| `headphones` (`headphones/hat/`) | Charcoal band over the top, teal cups; the far cup peeks past the face | `false` | 74 |
+| `beanie` (`beanie/hat/`) | Rust knit with a ribbed cuff and a cream pom; takes off Pip's beanie and Mo's bucket hat like the Santa hat | `true` | 17 |
+
+- Bytes: `accessories.png` 3 970 + `accessories.json` 10 902 gz = **14 872 B**, all lazy.
+- Previews: `preview/accessories@4x.png` (contact sheet: a row per avatar; per accessory idle SE, idle NW, walk SW, sit SE, sit NE) and
+  `preview/accessories-sheet@2x.png`. Source: `src/accessories.ts`; `src/accessories.test.ts` checks keys, PNG-8 and the size cap.
+
 ## Furniture atlas (`furniture/furniture.json`, set g, M4/M5)
 
 Furniture catalogue v1 for customizable rooms. It's a separate, lazy sheet: the default room doesn't need it, so load it only when a room
@@ -1037,6 +1058,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `themes/christmas/christmas.png` + `.json` (OME-1187, lazy) | 2 280 + 3 309 gz |
 | `themes/valentines/valentines.png` + `.json` (OME-1187, lazy) | 1 117 + 3 224 gz |
 | `themes/easter/easter.png` + `.json` (OME-1187, lazy) | 2 890 + 3 532 gz |
+| `accessories/accessories.png` + `.json` (OME-1388, lazy) | 3 970 + 10 902 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
 **Measured total now: 218 393 B (≈ 213.3 KB) of 300 KB**, eager 99 106, lazy 119 287 (`bun assets/src/build.ts`). Rows not named below are
@@ -1055,6 +1077,9 @@ packing v2 into `furniture.png` (measured: 13 152 B that way), but it keeps v1-o
 
 Catalogue v3 (OME-1348) adds **7 493 B (≈ 7.3 KB)** against `main` (218 779 → 226 272 of 307 200): lazy +7 293 (`furniture-v2.png` +5 375,
 `furniture-v2.json` +611 gz, `edit.png` +1 127 for 8 thumbnails, `edit.json` +180 gz), eager +200 (`reference.css` gz, the new `.ui-thumb-*` rules).
+
+Head accessories (OME-1388) add **14 872 B (≈ 14.5 KB)**, all lazy: `accessories.png` 3 970 + `accessories.json` 10 902 gz. No existing file
+changes. Measured total: 241 171 B of 307 200.
 
 Set (p) (OME-1104) adds **13 652 B (≈ 13.3 KB)** against `main` as `bun assets/src/build.ts` measures it (159 946 → 173 598 of 307 200; 174 358 → 188 010 on top of catalogue v2), all lazy:
 `expressions.png` 10 863 + `expressions.json` 2 789 gz. No existing file changes (the avatar and motion sheets are byte-identical).
