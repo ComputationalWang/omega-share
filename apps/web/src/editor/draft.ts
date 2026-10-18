@@ -10,6 +10,7 @@ import {
   type Facing,
   type Furniture,
   type FurnitureKind,
+  type RoomId,
   type RoomLayout,
 } from "@omega/shared";
 import * as v from "valibot";
@@ -162,8 +163,13 @@ export interface TrayTab {
   readonly kinds: readonly FurnitureKind[];
 }
 
-// The door needs a target picker and its art first (OME-1423 blocks that web issue).
 const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter((k) => k !== "door" && pick(k));
+
+/** What the owner typed or pasted as a door's room (OME-1425): a room link of this site, or a bare room id. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub
+export function parseDoorTarget(text: string, origin: string, current: RoomId): { readonly ok: true; readonly id: RoomId } | { readonly ok: false; readonly error: string } {
+  return { ok: false, error: "" };
+}
 const isSeat = (k: FurnitureKind): boolean => FURNITURE[k].seats;
 const isFlat = (k: FurnitureKind): boolean => FURNITURE[k].layer !== "object";
 

@@ -2,7 +2,7 @@
 // (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet and furniture-v2-atlas.ts
 // catalogue v2 (OME-1113), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
-import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Facing, type Furniture, type FurnitureKind, type RoomLayout, type RoomState } from "@omega/shared";
+import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Facing, type Furniture, type FurnitureKind, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
 import { cellCenter, type Point } from "./layout";
 import { cellOf } from "./walk/path";
 
@@ -132,6 +132,12 @@ export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, p
     if (near || (playing && f.kind === "neonsign")) out.add(i);
   });
   return out;
+}
+
+/** The room a door leads to (OME-1425), if `(col, row)` is the cell in front of one of the layout's doors. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- red stub
+export function doorAt(layout: RoomLayout, col: number, row: number): RoomId | null {
+  return null;
 }
 
 export interface FurnitureSprite {

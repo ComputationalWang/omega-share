@@ -732,3 +732,32 @@ describe("animator: furniture loops", () => {
     expect(s.loopDraws).toEqual([[0, 0]]);
   });
 });
+
+// OME-1425: a door's open frame is a one-frame loop: a state (someone stands there), not motion.
+describe("animator: one-frame loops", () => {
+  test("drawn at frame 0 on Basic and Smooth, with no timer", () => {
+    for (const smooth of [false, true]) {
+      const s = setup({ smooth: () => smooth });
+      s.anim.setLoops([{ frames: 1, ms: 3_600_000 }]);
+      s.frame(0);
+      expect(s.loopDraws).toEqual([[0, 0]]);
+      expect(s.timers.length).toBe(0);
+      expect(s.rafs.length).toBe(0);
+    }
+  });
+
+  test("still under reduced motion: opening is not motion", () => {
+    const s = setup({ reduced: true });
+    s.anim.setLoops([{ frames: 1, ms: 3_600_000 }, { frames: 3, ms: 160 }]);
+    s.frame(0);
+    expect(s.loopDraws).toEqual([[0, 0], [1, -1]]);
+    expect(s.timers.length).toBe(0);
+  });
+
+  test("beside a longer loop it adds no wake-up of its own", () => {
+    const s = setup();
+    s.anim.setLoops([{ frames: 1, ms: 3_600_000 }, { frames: 3, ms: 160 }]);
+    s.frame(0);
+    expect(s.timers.at(-1)?.ms).toBe(150);
+  });
+});

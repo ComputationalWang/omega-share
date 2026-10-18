@@ -9,6 +9,10 @@ export interface NotFoundOptions {
   /** The server's HTTP origin. */
   readonly serverUrl: string;
   readonly fetch: (url: string, init?: RequestInit) => Promise<Response>;
+  /** `document.referrer`, this page's origin and path: a Back link shows when I came from another room of this site. */
+  readonly referrer?: string;
+  readonly origin?: string;
+  readonly path?: string;
 }
 
 export interface NotFound {

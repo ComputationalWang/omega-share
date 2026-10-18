@@ -1,5 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { roomIdFromPath, wsUrl } from "../src/route";
+import { backPath, roomIdFromPath, wsUrl } from "../src/route";
+
+describe("backPath (OME-1425)", () => {
+  const O = "https://omega.test";
+  test("a room of this site other than the current one", () => {
+    expect(backPath(`${O}/r/start`, O, "/r/gone")).toBe("/r/start");
+    expect(backPath(`${O}/r/start?x=1#k=secret`, O, "/r/gone")).toBe("/r/start");
+  });
+  test("nothing for the same room, another origin, a non-room path or no referrer", () => {
+    expect(backPath(`${O}/r/gone`, O, "/r/gone")).toBeNull();
+    expect(backPath("https://evil.test/r/start", O, "/r/gone")).toBeNull();
+    expect(backPath(`${O}/`, O, "/r/gone")).toBeNull();
+    expect(backPath("", O, "/r/gone")).toBeNull();
+    expect(backPath("junk", O, "/r/gone")).toBeNull();
+  });
+});
 
 describe("roomIdFromPath", () => {
   test("reads /r/<room>", () => {
