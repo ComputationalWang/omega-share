@@ -1,6 +1,35 @@
+// The accessory row (OME-1391): none plus the four head accessories (OME-1388) in a radiogroup, named for screen
+// readers, keyed like the tint row. The landing ships it as static markup under the tint row (index.html); the People
+// panel builds the same markup. The glyphs are text, so neither the landing nor the panel fetches the accessories sheet.
+import { ACCESSORY_COUNT } from "@omega/shared";
+import { bindRadioRow, type RadioRow } from "./tint-row";
+
+/** Accessory 0..4 on the wire. */
+const NAMES = ["None", "Party hat", "Crown", "Headphones", "Beanie"] as const;
+const GLYPHS = ["∅", "🎉", "👑", "🎧", "🧶"] as const;
+
+/** The row's markup (the landing's is the same, in index.html). */
 export function buildAccessoryRow(): HTMLElement {
-  return document.createElement("div");
+  const group = document.createElement("div");
+  group.className = "tints accessories";
+  group.setAttribute("role", "radiogroup");
+  group.setAttribute("aria-label", "Accessory");
+  for (let a = 0; a < ACCESSORY_COUNT; a++) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "accessory";
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-label", NAMES[a] ?? "");
+    b.dataset["accessory"] = String(a);
+    b.dataset["testid"] = "accessory-option";
+    const glyph = document.createElement("span");
+    glyph.setAttribute("aria-hidden", "true");
+    glyph.textContent = GLYPHS[a] ?? "";
+    b.append(glyph);
+    group.append(b);
+  }
+  return group;
 }
-export function bindAccessoryRow(_group: HTMLElement, _onPick: (a: number) => void): { check(a: number): void } {
-  return { check: () => undefined };
-}
+
+/** Wires a row's options; `onPick` gets an accessory other than the checked one. */
+export const bindAccessoryRow: (group: HTMLElement, onPick: (a: number) => void) => RadioRow = bindRadioRow;

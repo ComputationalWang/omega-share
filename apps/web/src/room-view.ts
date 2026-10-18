@@ -11,6 +11,8 @@ import { createAnimator } from "./walk/animator";
 import type { MotionAtlas } from "./walk/motion-atlas";
 import { createTier, createTierProbe, readTierHints } from "./walk/tier";
 import { createWalks, type Dir } from "./walk/walks";
+import { wornHat } from "./accessory/hat";
+import type { AccessoryAtlas } from "./accessory/accessories-sheet";
 import type { ThemeAtlas } from "./theme/atlas";
 import { decorSprites } from "./theme/decor";
 import { CONFETTI_MS, CONFETTI_SPRITES, EFFECT_MIN_INTERVAL_MS, SPARKLE_MS, SPARKLE_SPRITES, confettiMotion, createEffectPainter, createParticles, effectBounds, sparkleMotion, type EffectFrame, type EffectMotion, type EffectPainter, type Particles } from "./theme/effect";
@@ -22,6 +24,8 @@ export interface AvatarPlacement {
   readonly avatar: number;
   /** Shirt tint (ADR 0053), 0 the avatar's own colours. */
   readonly tint: number;
+  /** Accessory (OME-1391), 0 none. */
+  readonly accessory: number;
   readonly at: Point;
   /** Depth among furniture and other avatars (furniture.ts: a sitter takes its seat's, others `standDepth`). */
   readonly z: number;
@@ -58,7 +62,7 @@ export interface RoomView {
   /** `id` emoted (OME-415): a one-shot on the render loop. Nothing under prefers-reduced-motion (room.ts shows a badge). */
   emote(id: MemberId, kind: EmoteKind): void;
   /** The motion frame each is drawn with now, their sticker's (null: none) and the shirt tint drawn, for e2e checks. */
-  frames(id: MemberId): { avatar: string | null; sticker: string | null; tint: number } | undefined;
+  frames(id: MemberId): { avatar: string | null; sticker: string | null; tint: number; accessory: number } | undefined;
   /** "Hide for me" (OME-769): draw this member's avatar dimmed (or not). One alpha write and one draw per change. */
   setDimmed(id: MemberId, dimmed: boolean): void;
   /** A member is away (OME-911): draw the avatar dimmed (or not). One alpha write and one draw per change; the seat stays. */
@@ -144,8 +148,10 @@ interface Entry {
   frame: string | null;
   sticker: Sprite | null;
   stickerFrame: string | null;
-  /** The holiday theme's hat over the avatar (ADR 0052); made on first need, then hidden or re-framed. */
+  /** The holiday theme's hat or their own accessory over the avatar (ADR 0052, OME-1391); made on first need, then hidden or re-framed. */
   hat: Sprite | null;
+  /** Their accessory (OME-1391), 0 none; drawn once the accessories sheet is in. */
+  accessory: number;
 }
 
 /** Caches the static room shell as one texture, repainted on the next render (OME-1341). */
@@ -226,9 +232,29 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       if (texture !== undefined) decorLayer.addChild(new Sprite({ texture, label: d.key, x: d.x, y: d.y }));
     }
   };
-  /** Put the theme's hat over the avatar's frame (the hat sprite is the difference to the hatted frame), or take it off. */
+  // Head accessories (OME-1391): the sheet is its own chunk, fetched once someone in the room wears one.
+  let accessories: AccessoryAtlas | null = null;
+  let accessoriesLoad = false;
+  const loadAccessories = (): void => {
+    if (accessoriesLoad) return;
+    accessoriesLoad = true;
+    void import("./accessory/accessories-sheet")
+      .then((m) => m.loadAccessories())
+      .then((a) => {
+        if (destroyed) return;
+        accessories = a;
+        for (const entry of pool.values()) wearHat(entry);
+        render();
+      })
+      // Without the sheet everyone is drawn bare-headed (or in the theme's hat); the next wearer retries.
+      .catch((e: unknown) => {
+        accessoriesLoad = false;
+        console.warn("accessories sheet failed to load", e);
+      });
+  };
+  /** Put the member's accessory, else the theme's hat, over the avatar's frame (the sprite is the difference to the hatted frame), or take it off. */
   const wearHat = (entry: Entry): void => {
-    const texture = theme === null || entry.frame === null ? undefined : theme.hat(entry.frame);
+    const texture = entry.frame === null ? undefined : wornHat(entry.accessory, entry.frame, accessories, theme);
     if (texture === undefined) {
       if (entry.hat?.visible === true) {
         entry.hat.visible = false;
@@ -635,11 +661,15 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         const had = pool.get(a.id);
         if (had !== undefined) {
           if (had.tint !== a.tint) retint(a.id, had, a.tint);
+          if (had.accessory !== a.accessory) {
+            had.accessory = a.accessory;
+            wearHat(had);
+          }
           continue;
         }
         const g = new Graphics({ label: `avatar:${a.id}`, alpha: alphaOf(a.id) });
         drawAvatar(g, a.avatar);
-        pool.set(a.id, { node: g, avatar: a.avatar, tint: 0, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null, hat: null });
+        pool.set(a.id, { node: g, avatar: a.avatar, tint: 0, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null, hat: null, accessory: a.accessory });
         objectLayer.addChild(g);
         const added = pool.get(a.id);
         if (added !== undefined && a.tint !== 0) retint(a.id, added, a.tint);
@@ -652,6 +682,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         entry.hat?.destroy();
         pool.delete(id);
       }
+      if (avatars.some((a) => a.accessory !== 0)) loadAccessories();
       walks.place(avatars, performance.now());
       animator.set(avatars);
       render();
@@ -719,7 +750,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     alpha: (id) => pool.get(id)?.node.alpha,
     frames(id) {
       const e = pool.get(id);
-      return e === undefined ? undefined : { avatar: e.frame, sticker: e.stickerFrame, tint: motion?.ready(e.avatar, e.tint) === true ? e.tint : 0 };
+      if (e === undefined) return undefined;
+      // The accessory drawn: the hat sprite shows its texture (not the theme's hat).
+      const own = e.frame === null || e.hat?.visible !== true ? undefined : accessories?.hat(e.accessory, e.frame);
+      return { avatar: e.frame, sticker: e.stickerFrame, tint: motion?.ready(e.avatar, e.tint) === true ? e.tint : 0, accessory: own !== undefined && own === e.hat?.texture ? e.accessory : 0 };
     },
     position(id) {
       const e = pool.get(id);

@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { ACCESSORY_COUNT } from "@omega/shared";
 import { ACCESSORY_IDS, wornHat } from "../src/accessory/hat";
-import { AccessoryManifestSchema } from "../src/accessory/sheet";
+import { AccessoryManifestSchema } from "../src/accessory/accessories-sheet";
 
 const asset = (p: string): URL => new URL(`../../../assets/${p}`, import.meta.url);
 const sheet = v.parse(AccessoryManifestSchema, await Bun.file(asset("accessories/accessories.json")).json());
@@ -18,13 +18,13 @@ for (const f of ["avatars", "motion", "expressions"]) {
 describe("accessories sheet", () => {
   test("accessory 1..4 are the sheet's four, in the wire order (0 is none)", () => {
     expect(ACCESSORY_IDS).toEqual(["partyhat", "crown", "headphones", "beanie"]);
-    expect(ACCESSORY_IDS.length).toBe(ACCESSORY_COUNT - 1);
+    expect(ACCESSORY_COUNT - 1).toBe(ACCESSORY_IDS.length);
     expect(Object.keys(sheet.meta.omega.accessories).sort()).toEqual([...ACCESSORY_IDS].sort());
   });
 
   test("every avatar body frame has each accessory's hat", () => {
     for (const id of ACCESSORY_IDS) {
-      const prefix = sheet.meta.omega.accessories[id]?.prefix ?? "missing/";
+      const { prefix } = sheet.meta.omega.accessories[id];
       expect(bodyFrames.filter((k) => sheet.frames[prefix + k] === undefined)).toEqual([]);
     }
   });

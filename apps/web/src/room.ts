@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type MemberId, type Nickname, type ResumeToken, type RoomId, type Tint } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type MemberId, type Nickname, type ResumeToken, type RoomId, type Tint } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
@@ -41,8 +41,9 @@ import { createFirstHint } from "./help/hint";
 import { createHiddenMembers } from "./hide/hidden";
 import { createPeople } from "./hide/people";
 import tintsJson from "../../../assets/avatars/tints.json";
+import { createAccessorySection } from "./controls/accessory-section";
 import { createTintSection } from "./controls/tint-section";
-import { saveTint } from "./profile";
+import { saveAccessory, saveTint } from "./profile";
 import { AVATAR_IDS, parseTints } from "./walk/tint";
 import { followStep } from "./walk/follow";
 import { createApplause } from "./emote/applause";
@@ -56,6 +57,8 @@ export interface RoomOptions {
   readonly avatar: Avatar;
   /** Shirt tint to join with (ADR 0053, the profile's). */
   readonly tint: Tint;
+  /** Accessory to join with (OME-1391, the profile's). */
+  readonly accessory: Accessory;
   /** This room's owner token and invite key from `omega.rooms`, if the browser holds any (ADR 0028). */
   readonly secret: RoomSecret | undefined;
   /** Where `omega.rooms` lives: a closed room is forgotten. */
@@ -372,6 +375,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       send: (m) => send(m),
       onPick: (t) => {
         saveTint(opts.secrets, t);
+      },
+    }),
+    // Its accessory (OME-1391), right under it.
+    createAccessorySection({
+      accessory: opts.accessory,
+      send: (m) => send(m),
+      onPick: (a) => {
+        saveAccessory(opts.secrets, a);
       },
     }),
   );
@@ -777,7 +788,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
   const c: Connection = kickedTill !== null ? stoppedConnection() : createConnection({
     url: opts.socketUrl,
-    join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint),
+    join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint, opts.accessory),
     durable: true,
     ...(opts.resumeToken === undefined ? {} : { resumeToken: opts.resumeToken }),
     createSocket: browserSocket,

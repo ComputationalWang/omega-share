@@ -35,13 +35,18 @@ const KEYS: Readonly<Record<string, (i: number, n: number) => number>> = {
   End: (_, n) => n - 1,
 };
 
-/** Wires a row's swatches; `onPick` gets a tint other than the checked one. */
-export function bindTintRow(group: HTMLElement, onPick: (t: Tint) => void): TintRow {
-  const swatches = [...group.querySelectorAll<HTMLButtonElement>("[role=radio]")];
+export interface RadioRow {
+  /** Check option `i` (the one tab stop). Picks nothing. */
+  check(i: number): void;
+}
+
+/** Wires a radiogroup's options (the tint and accessory rows); `onPick` gets an option other than the checked one. */
+export function bindRadioRow(group: HTMLElement, onPick: (i: number) => void): RadioRow {
+  const options = [...group.querySelectorAll<HTMLButtonElement>("[role=radio]")];
   let checked = 0;
   const check = (t: number): void => {
     checked = t;
-    swatches.forEach((b, i) => {
+    options.forEach((b, i) => {
       b.setAttribute("aria-checked", String(i === t));
       b.tabIndex = i === t ? 0 : -1;
     });
@@ -51,7 +56,7 @@ export function bindTintRow(group: HTMLElement, onPick: (t: Tint) => void): Tint
     check(t);
     onPick(t);
   };
-  swatches.forEach((b, i) => {
+  options.forEach((b, i) => {
     b.addEventListener("click", () => {
       pick(i);
     });
@@ -60,10 +65,17 @@ export function bindTintRow(group: HTMLElement, onPick: (t: Tint) => void): Tint
     const step = KEYS[ev.key];
     if (step === undefined || ev.altKey || ev.ctrlKey || ev.metaKey) return;
     ev.preventDefault();
-    const next = step(checked, swatches.length);
+    const next = step(checked, options.length);
     pick(next);
-    swatches[next]?.focus();
+    options[next]?.focus();
   });
+  return { check };
+}
+
+/** Wires a row's swatches; `onPick` gets a tint other than the checked one. */
+export function bindTintRow(group: HTMLElement, onPick: (t: Tint) => void): TintRow {
+  const swatches = [...group.querySelectorAll<HTMLButtonElement>("[role=radio]")];
+  const row = bindRadioRow(group, onPick);
   return {
     show(tints, tint) {
       swatches.forEach((b, i) => {
@@ -72,7 +84,7 @@ export function bindTintRow(group: HTMLElement, onPick: (t: Tint) => void): Tint
         b.setAttribute("aria-label", ramp.id.charAt(0).toUpperCase() + ramp.id.slice(1));
         b.style.setProperty("--swatch", ramp.colors[1] ?? "");
       });
-      check(tint);
+      row.check(tint);
     },
   };
 }

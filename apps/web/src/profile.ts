@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { AvatarSchema, NICKNAME_MAX_LENGTH, NicknameSchema, TintSchema, type Avatar, type Nickname, type Tint } from "@omega/shared";
+import { AccessorySchema, AvatarSchema, NICKNAME_MAX_LENGTH, NicknameSchema, TintSchema, type Accessory, type Avatar, type Nickname, type Tint } from "@omega/shared";
 
 export interface KeyValueStore {
   getItem(key: string): string | null;
@@ -10,12 +10,14 @@ export interface Profile {
   readonly nickname: Nickname | null;
   readonly avatar: Avatar;
   readonly tint: Tint;
-  readonly accessory: number;
+  /** Avatar accessory (OME-1391), 0 none. */
+  readonly accessory: Accessory;
 }
 
 const NICKNAME_KEY = "omega.nickname";
 const AVATAR_KEY = "omega.avatar";
 const TINT_KEY = "omega.tint";
+const ACCESSORY_KEY = "omega.accessory";
 
 export type NicknameResult = { readonly ok: true; readonly nickname: Nickname } | { readonly ok: false; readonly message: string };
 
@@ -41,7 +43,8 @@ export function loadProfile(store: KeyValueStore): Profile {
   const nick = v.safeParse(NicknameSchema, read(store, NICKNAME_KEY));
   const avatar = v.safeParse(AvatarSchema, Number(read(store, AVATAR_KEY) ?? "0"));
   const tint = v.safeParse(TintSchema, Number(read(store, TINT_KEY) ?? "0"));
-  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, tint: tint.success ? tint.output : 0, accessory: 0 };
+  const accessory = v.safeParse(AccessorySchema, Number(read(store, ACCESSORY_KEY) ?? "0"));
+  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, tint: tint.success ? tint.output : 0, accessory: accessory.success ? accessory.output : 0 };
 }
 
 export function saveProfile(store: KeyValueStore, profile: { nickname: Nickname; avatar: Avatar }): boolean {
@@ -64,6 +67,12 @@ export function saveTint(store: KeyValueStore, tint: Tint): boolean {
   }
 }
 
-export function saveAccessory(_store: KeyValueStore, _accessory: number): boolean {
-  return false;
+/** Likewise the accessory (OME-1391). */
+export function saveAccessory(store: KeyValueStore, accessory: Accessory): boolean {
+  try {
+    store.setItem(ACCESSORY_KEY, String(accessory));
+    return true;
+  } catch {
+    return false;
+  }
 }

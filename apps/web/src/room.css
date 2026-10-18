@@ -424,7 +424,7 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .people[hidden] { display: none; }
 .tint-section { margin-bottom: 8px; }
 .tint-section .tints { margin-top: 0; }
-.ui-touch .tint { width: 44px; height: 44px; }
+.ui-touch .tint, .ui-touch .accessory { width: 44px; height: 44px; }
 .people-note { margin: 0 0 6px; font-size: 12px; line-height: 1.4; }
 .people-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .people-row { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; }
