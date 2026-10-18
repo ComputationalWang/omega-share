@@ -11,7 +11,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-// OME-415: the emote key; pressing a sticker (or keys 1–8) sends `emote`; the key cools when the local bucket
+// OME-415: the emote key; pressing a sticker (or keys 1–9) sends `emote`; the key cools when the local bucket
 // (emotes.ts) is empty, so we never send what the server would drop. OME-732 (M8 W3): the key opens set (l)'s emote
 // wheel (T opens it too), the six stickers clockwise from 12 in key order, over your own head.
 
@@ -179,7 +179,7 @@ describe("emote wheel", () => {
     const at = (): number => slots.findIndex((b) => b === document.activeElement);
     expect(press("ArrowRight")).toBe(true);
     expect(at()).toBe(1);
-    expect(slots.map((b) => b.tabIndex)).toEqual([-1, 0, -1, -1, -1, -1, -1, -1]);
+    expect(slots.map((b) => b.tabIndex)).toEqual([-1, 0, -1, -1, -1, -1, -1, -1, -1]);
     expect(hub()?.querySelector(".ui-emote-pick-laugh")).not.toBeNull();
     expect(chip()).toBe("Laugh2");
     press("ArrowDown");
@@ -188,11 +188,11 @@ describe("emote wheel", () => {
     press("ArrowUp");
     expect(at()).toBe(0);
     press("ArrowLeft");
-    expect(at()).toBe(7);
+    expect(at()).toBe(8);
     press("ArrowRight");
     expect(at()).toBe(0);
     press("End");
-    expect(at()).toBe(7);
+    expect(at()).toBe(8);
     press("Home");
     expect(at()).toBe(0);
   });
@@ -232,7 +232,7 @@ describe("emote wheel", () => {
     key.click();
     items()[4]?.dispatchEvent(new Event("pointerenter"));
     expect(hub()?.querySelector(".ui-emote-pick-clap")).not.toBeNull();
-    expect(items().map((b) => b.tabIndex)).toEqual([0, -1, -1, -1, -1, -1, -1, -1]);
+    expect(items().map((b) => b.tabIndex)).toEqual([0, -1, -1, -1, -1, -1, -1, -1, -1]);
     items()[4]?.dispatchEvent(new Event("pointerleave"));
     expect(hub()?.querySelector(".ui-emote-pick-heart")).not.toBeNull();
   });

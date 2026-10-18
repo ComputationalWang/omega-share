@@ -17,6 +17,9 @@ export function slashCommand(text: string): SlashCommand | null {
 /** What `/help` says, to me only. */
 export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")}`, time: null, self: true };
 
+/** What `/dance` says while I'm seated (OME-1378), to me only; nothing is sent. */
+export const DANCE_SEATED_LINE: SystemLine = { glyph: "host", actor: null, verb: "Stand up to dance", time: null, self: true };
+
 const STICKERS: readonly (readonly [RegExp, EmoteKind])[] = [
   [/<3/, "heart"],
   [/\b(?:lol+|ha(?:ha)+h?)\b/i, "laugh"],
