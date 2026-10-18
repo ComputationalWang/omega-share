@@ -878,10 +878,10 @@ the theme hat loader works per accessory: the overlay for avatar frame `K` is `<
 |---|---|---|---|
 | `partyhat` (`partyhat/hat/`) | Pink cone with cream stripes and a mustard pom, tipped toward the face | `false` (worn over) | 8 |
 | `crown` (`crown/hat/`) | Small gold crown: three points with pearls; a rust gem between two teal ones on the front | `false` | 20 |
-| `headphones` (`headphones/hat/`) | Charcoal band over the top, teal cups; the far cup peeks past the face | `false` | 74 |
-| `beanie` (`beanie/hat/`) | Rust knit with a ribbed cuff and a cream pom; takes off Pip's beanie and Mo's bucket hat like the Santa hat | `true` | 17 |
+| `headphones` (`headphones/hat/`) | Lilac band over the top (parts from dark hair), teal cups; the far cup peeks past the face | `false` | 74 |
+| `beanie` (`beanie/hat/`) | Navy knit with a ribbed cuff and a mustard pom (never red and white like the Santa hat); takes off Pip's beanie and Mo's bucket hat like the Santa hat | `true` | 17 |
 
-- Bytes: `accessories.png` 3 970 + `accessories.json` 10 902 gz = **14 872 B**, all lazy.
+- Bytes: `accessories.png` 3 970 + `accessories.json` 8 481 gz = **12 451 B**, all lazy. Each key carries only `frame` + `anchor` (all the hat loader reads), minified: 201 KB raw to parse.
 - Previews: `preview/accessories@4x.png` (contact sheet: a row per avatar; per accessory idle SE, idle NW, walk SW, sit SE, sit NE) and
   `preview/accessories-sheet@2x.png`. Source: `src/accessories.ts`; `src/accessories.test.ts` checks keys, PNG-8 and the size cap.
 
@@ -1058,7 +1058,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `themes/christmas/christmas.png` + `.json` (OME-1187, lazy) | 2 280 + 3 309 gz |
 | `themes/valentines/valentines.png` + `.json` (OME-1187, lazy) | 1 117 + 3 224 gz |
 | `themes/easter/easter.png` + `.json` (OME-1187, lazy) | 2 890 + 3 532 gz |
-| `accessories/accessories.png` + `.json` (OME-1388, lazy) | 3 970 + 10 902 gz |
+| `accessories/accessories.png` + `.json` (OME-1388, lazy) | 3 970 + 8 481 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
 **Measured total now: 218 393 B (≈ 213.3 KB) of 300 KB**, eager 99 106, lazy 119 287 (`bun assets/src/build.ts`). Rows not named below are
@@ -1078,8 +1078,8 @@ packing v2 into `furniture.png` (measured: 13 152 B that way), but it keeps v1-o
 Catalogue v3 (OME-1348) adds **7 493 B (≈ 7.3 KB)** against `main` (218 779 → 226 272 of 307 200): lazy +7 293 (`furniture-v2.png` +5 375,
 `furniture-v2.json` +611 gz, `edit.png` +1 127 for 8 thumbnails, `edit.json` +180 gz), eager +200 (`reference.css` gz, the new `.ui-thumb-*` rules).
 
-Head accessories (OME-1388) add **14 872 B (≈ 14.5 KB)**, all lazy: `accessories.png` 3 970 + `accessories.json` 10 902 gz. No existing file
-changes. Measured total: 241 171 B of 307 200.
+Head accessories (OME-1388) add **12 451 B (≈ 12.2 KB)**, all lazy: `accessories.png` 3 970 + `accessories.json` 8 481 gz. No existing file
+changes. Measured total: 238 750 B of 307 200.
 
 Set (p) (OME-1104) adds **13 652 B (≈ 13.3 KB)** against `main` as `bun assets/src/build.ts` measures it (159 946 → 173 598 of 307 200; 174 358 → 188 010 on top of catalogue v2), all lazy:
 `expressions.png` 10 863 + `expressions.json` 2 789 gz. No existing file changes (the avatar and motion sheets are byte-identical).

@@ -78,9 +78,9 @@ export const CROWN: HatDef = { roles: CROWN_ROLES, replaces: false, rows: (id, v
 
 // ---------------------------------------------------------------- headphones
 
-/** Charcoal band over the top, teal cups on both ears (the far cup peeks past the face), a cream glint on the near cup. */
+/** Lilac band over the top (light enough to part from Juno's dark puff), teal cups on both ears (the far cup peeks past the face), a cream glint on the near cup. */
 const PHONES_ROLES: RoleMap = {
-  K: { ramp: "charcoal", hi: true, group: "K" },
+  K: { ramp: "lilac", hi: true, group: "K" },
   N: { ramp: "teal", hi: true, group: "N" },
   Q: { ramp: "cream", tone: 0, group: "N" },
 };
@@ -109,13 +109,13 @@ export const HEADPHONES: HatDef = { roles: PHONES_ROLES, replaces: false, rows: 
 
 // ---------------------------------------------------------------- beanie
 
-/** A rust knit beanie with a ribbed cuff and a cream pom. Like the Santa hat it takes off Pip's beanie and Mo's bucket hat, so it is
+/** A navy knit beanie with a ribbed cuff and a mustard pom (not red and white, so it never reads as the Santa hat). Like the Santa hat it takes off Pip's beanie and Mo's bucket hat, so it is
  *  wide enough to hide them; it sits on Juno's puff and between Kiki's buns. */
 const BEANIE_ROLES: RoleMap = {
-  K: { ramp: "rust", hi: true, group: "K" },
-  V: { ramp: "rust", tone: 1, group: "V" },
-  D: { ramp: "rust", tone: 2, group: "V" },
-  Q: { ramp: "cream", hi: true, group: "Q" },
+  K: { ramp: "navy", hi: true, group: "K" },
+  V: { ramp: "navy", tone: 1, group: "V" },
+  D: { ramp: "navy", tone: 2, group: "V" },
+  Q: { ramp: "mustard", hi: true, group: "Q" },
 };
 
 /** baseY: the cuff's bottom row; trim: the cuff's half-width; height: the dome above the cuff. */

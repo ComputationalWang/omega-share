@@ -1863,11 +1863,12 @@ function buildAccessories(avatarImages: Map<string, Uint8Array>): void {
   const sheet = new Uint8Array(packed.w * packed.h);
   const at = new Map(packed.placed.map((p) => [p.key, p]));
   for (const p of packed.placed) blit(sheet, packed.w, p.img, p.w, p.h, p.x, p.y);
-  const frames: Record<string, Frame> = {};
+  const frames: Record<string, Pick<Frame, "frame" | "anchor">> = {};
   for (const h of [...hats.values()].flat()) {
     const p = at.get(rectOf.get(h.key) ?? "");
     if (!p) throw new Error(`unpacked ${h.key}`);
-    frames[h.key] = { frame: { x: p.x, y: p.y, w: p.w, h: p.h }, rotated: false, trimmed: false, spriteSourceSize: { x: 0, y: 0, w: p.w, h: p.h }, sourceSize: { w: p.w, h: p.h }, anchor: { x: h.ax / p.w, y: h.ay / p.h } };
+    // Only what the hat loader reads (atlas-sheet.ts: frame + anchor): 1 664 keys, so every field costs parse time (judge OME-1394 #4).
+    frames[h.key] = { frame: { x: p.x, y: p.y, w: p.w, h: p.h }, anchor: { x: h.ax / p.w, y: h.ay / p.h } };
   }
   registerKeys("accessories", Object.keys(frames));
   mkdirSync(join(ROOT, "accessories"), { recursive: true });
@@ -1878,7 +1879,7 @@ function buildAccessories(avatarImages: Map<string, Uint8Array>): void {
     animations: {},
     meta: { app: "omega-share assets/src/build.ts", version: "1", image: "accessories.png", format: "RGBA8888", size: { w: packed.w, h: packed.h }, scale: "1", omega: { license: "CC-BY-SA-4.0", accessories } },
   };
-  writeFileSync(join(ROOT, "accessories", "accessories.json"), JSON.stringify(atlas, null, 1) + "\n");
+  writeFileSync(join(ROOT, "accessories", "accessories.json"), JSON.stringify(atlas) + "\n");
   // Contact sheet: one row per avatar, each accessory in idle (front, back), walk and sit (front, back), on 32×76 cells like the theme strips.
   const big = upscale(sheet, packed.w, packed.h, 2).map((v) => (v === 0 ? colorIndex("wall", 1) : v));
   writeFileSync(join(ROOT, "preview", "accessories-sheet@2x.png"), encodeIndexedPng(packed.w * 2, packed.h * 2, big, PALETTE));
