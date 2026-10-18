@@ -83,6 +83,7 @@
     "apps/server/test/emote.test.ts::emote relay::an emote is relayed as emoted to the whole room, sender included",
     "apps/server/test/emote.test.ts::emote relay::an emote isn't in a late joiner's snapshot",
     "apps/server/test/emote.test.ts::emote relay::cheer and yawn (OME-1116) relay like wave",
+    "apps/server/test/emote.test.ts::emote relay::dance (OME-1374) relays like wave",
     "apps/server/test/generic-embeds.test.ts::CSP frame-src follows the kill switch (ADR 0024 §4)::off: frame-src drops https:, script-src unchanged",
     "apps/server/test/generic-embeds.test.ts::CSP frame-src follows the kill switch (ADR 0024 §4)::on: frame-src adds https:, script-src unchanged",
     "apps/server/test/generic-embeds.test.ts::GENERIC_EMBEDS=off (ADR 0024 §5)::a generic URL is refused with unsupported_url; synced providers still work",

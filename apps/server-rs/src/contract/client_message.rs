@@ -28,6 +28,7 @@ pub enum EmoteKind {
     Wave,
     Cheer,
     Yawn,
+    Dance,
 }
 
 /// Seconds into the video: finite, `0..=MAX_POSITION_S` (`PositionSchema`).
