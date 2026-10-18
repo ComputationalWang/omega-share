@@ -31,7 +31,7 @@ import { createOwnerTools } from "./owner-tools";
 import { createEmotePicker } from "./emote/picker";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
-import { DANCE_SEATED_LINE, HELP_LINE, chatSticker, createStickerGate, slashCommand } from "./chat/effects";
+import { DANCE_SEATED_LINE, HELP_LINE, ROLL_USAGE_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
 import { chatKey } from "./chat/enter";
 import { createTypingSender } from "./chat/typing";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
@@ -712,10 +712,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (next === state) return;
     const unreadBefore = unread;
     // Who said it, so "Hide for me" can take a line down later (OME-769).
-    const from = e.type === "server" && e.msg.type === "chat" ? e.msg.memberId : undefined;
+    const from = e.type === "server" && (e.msg.type === "chat" || e.msg.type === "rolled") ? e.msg.memberId : undefined;
     for (const entry of logEntries(state, next, e)) {
       chatLog.append(entry, from);
       if (entry.kind === "chat" && from !== undefined) popSticker(from, entry.text);
+      // A max roll cheers (OME-1426); the server's chat bucket already paces rolls, so no sticker gate.
+      const cheer = e.type === "server" && e.msg.type === "rolled" ? rollSticker(e.msg.sides, e.msg.value) : null;
+      if (cheer !== null && from !== undefined) emoted(from, cheer);
       // Popped out: the window gets the line now, not on the next frame (a hidden tab draws none).
       relay?.append(entry, from);
       // Collapsed in full screen: count what others said while the lines are out of sight.
@@ -790,7 +793,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const cmd = slashCommand(text);
     if (cmd === null) return null;
     if (cmd.type === "emote" && !(cmd.kind === "dance" && iSit())) return picker.emote(cmd.kind);
-    const line = cmd.type === "help" ? HELP_LINE : DANCE_SEATED_LINE;
+    if (cmd.type === "roll") return send({ type: "roll", sides: cmd.sides });
+    const line = cmd.type === "help" ? HELP_LINE : cmd.type === "roll-usage" ? ROLL_USAGE_LINE : DANCE_SEATED_LINE;
     chatLog.append({ kind: "system", line });
     relay?.append({ kind: "system", line });
     return true;
