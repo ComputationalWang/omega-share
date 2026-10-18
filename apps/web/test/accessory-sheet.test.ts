@@ -3,12 +3,15 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { ACCESSORY_COUNT } from "@omega/shared";
-import { ACCESSORY_IDS, wornHat } from "../src/accessory/hat";
+import { ACCESSORY_IDS, wearsBare, wornHat } from "../src/accessory/hat";
+import { AVATAR_IDS } from "../src/walk/tint";
 import { AccessoryManifestSchema } from "../src/accessory/accessories-sheet";
+import { bareRects } from "../src/accessory/bare-sheet";
 
 const asset = (p: string): URL => new URL(`../../../assets/${p}`, import.meta.url);
 const sheet = v.parse(AccessoryManifestSchema, await Bun.file(asset("accessories/accessories.json")).json());
 
+const bare: unknown = await Bun.file(asset("accessories/bare.json")).json();
 const bodyFrames: string[] = [];
 for (const f of ["avatars", "motion", "expressions"]) {
   const { frames } = v.parse(v.object({ frames: v.record(v.string(), v.unknown()) }), await Bun.file(asset(`avatars/${f}.json`)).json());
@@ -49,5 +52,30 @@ describe("wornHat: the member's own accessory over the theme hat", () => {
     expect(wornHat(2, "k", null, theme)).toBe("theme:k");
     expect(wornHat(2, "bare", accessories, theme)).toBe("theme:bare");
     expect(wornHat<string>(2, "k", null, null)).toBeUndefined();
+  });
+});
+
+// OME-1404 (art OME-1409): Pip and Mo take their own headwear off under the party hat, crown and headphones.
+describe("bare heads under an accessory", () => {
+  const meta = v.parse(v.object({ meta: v.object({ omega: v.object({ bare: v.object({ avatars: v.array(v.string()), accessories: v.array(v.string()) }) }) }) }), bare).meta.omega.bare;
+  test("who goes bare is the sheets' rule: an avatar in bare.avatars wearing an accessory marked bare", () => {
+    for (let avatar = 0; avatar < AVATAR_IDS.length; avatar++)
+      for (let accessory = 0; accessory <= ACCESSORY_IDS.length; accessory++) {
+        const id = ACCESSORY_IDS[accessory - 1];
+        const want = id !== undefined && sheet.meta.omega.accessories[id].bare && meta.avatars.includes(AVATAR_IDS[avatar] ?? "") && meta.accessories.includes(id);
+        expect([avatar, accessory, wearsBare(avatar, accessory)]).toEqual([avatar, accessory, want]);
+      }
+    expect(wearsBare(1, 2)).toBe(true);
+    expect(wearsBare(2, 3)).toBe(true);
+    expect(wearsBare(1, 4)).toBe(false);
+    expect(wearsBare(0, 2)).toBe(false);
+  });
+  test("the bare frames are keyed as the body frames they stand in for: every one of Pip's and Mo's, no one else's", () => {
+    const rects = bareRects(bare);
+    const want = bodyFrames.filter((k) => /(^|\/)(pip|mo)\//.test(k)).sort();
+    expect(Object.keys(rects).sort()).toEqual(want);
+  });
+  test("a malformed bare sheet is refused", () => {
+    expect(() => bareRects({ frames: {}, meta: { omega: {} } })).toThrow();
   });
 });

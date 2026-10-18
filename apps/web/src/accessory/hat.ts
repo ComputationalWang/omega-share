@@ -11,3 +11,8 @@ export const ACCESSORY_IDS = ["partyhat", "crown", "headphones", "beanie"] as co
 export function wornHat<T>(accessory: number, frame: string, accessories: { hat(accessory: number, frame: string): T | undefined } | null, theme: { hat(frame: string): T | undefined } | null): T | undefined {
   return (accessory > 0 ? accessories?.hat(accessory, frame) : undefined) ?? theme?.hat(frame);
 }
+
+/** Whether `avatar` wearing `accessory` is drawn on its bare-head frame. */
+export function wearsBare(_avatar: number, _accessory: number): boolean {
+  return false;
+}
