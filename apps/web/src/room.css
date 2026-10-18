@@ -458,6 +458,8 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .help-dialog ul { padding-left: 18px; }
 .help-keys { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0 0 4px; align-items: baseline; }
 .help-keys dt { font-size: 12px; font-weight: 700; }
+.help-setting { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 12px; cursor: pointer; }
+.help-setting input { flex: none; width: 20px; height: 20px; margin: 0; }
 .help-keys dd { margin: 0; }
 .help-keys kbd { font: inherit; font-weight: 700; padding: 0 4px; border: 1px solid currentColor; border-radius: 2px; }
 .help-dialog .acts { display: flex; justify-content: flex-end; margin-top: 12px; }

@@ -114,7 +114,7 @@ export function createHelp(o: HelpOptions): Help {
         cinema.set(box.checked);
       });
       const label = el("label", { className: "help-setting", htmlFor: box.id });
-      label.append(box, " Cinema dim: the room dims while the video plays");
+      label.append(box, "Cinema dim: the room dims while the video plays");
       settings.append(label);
       cinemaBox = box;
     }
