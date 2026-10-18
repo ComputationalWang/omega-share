@@ -447,7 +447,7 @@ function garland(k: Kit, colour: string): void {
 }
 
 /** Record console: a mid-century cabinet (grille + drawers) with a turntable on top and a stack of sleeves beside it. */
-function recordConsole(k: Kit): void {
+function recordConsole(k: Kit, n = 0): void {
   for (const [x, y] of [[-6, -4], [5, -4], [-6, 3], [5, 3]] as const) k.box(x, x + 1, y, y + 1, 0, 4, "wood", { tones: { top: 0, sw: 2, se: 2 } });
   const front: LPaint = (p, f) => {
     if (f === "top") return ["wood", 0];
@@ -462,9 +462,13 @@ function recordConsole(k: Kit): void {
   k.box(-6.5, 2, -4.5, 4.5, 15, 16.5, "charcoal");
   const vinyl: LPaint = (p, f) => {
     if (f !== "top") return ["charcoal", 2];
-    const r = Math.hypot(p.x + 2.2, p.y);
+    const dx = p.x + 2.2, r = Math.hypot(dx, p.y);
     if (r < 0.4) return ["cream", 0];
+    // In use the record turns: a dot on the label and a glint across the grooves step a quarter turn per frame.
+    const a = Math.atan2(p.y, dx) - (n * Math.PI) / 2, da = Math.abs(Math.atan2(Math.sin(a), Math.cos(a)));
+    if (n > 0 && r < 1.3) return r > 0.6 && da < 0.9 ? ["cream", 1] : ["rust", 0];
     if (r < 1.3) return ["rust", 0];
+    if (n > 0 && r > 1.6 && r < 3.1 && Math.abs(da - Math.PI) < 0.45) return ["charcoal", 0];
     return Math.abs(r - 2.4) < 0.3 ? ["charcoal", 0] : ["hairDark", 1];
   };
   k.ell({ x: -2.2, y: 0, z: 0 }, { x: 3.4, y: 3.4, z: Infinity }, [-99, 99, -99, 99, 16.5, 17.4], "hairDark", { paint: vinyl });
@@ -529,7 +533,7 @@ function pouf(k: Kit, c: RampName): void {
 }
 
 /** Neon sign on a smoked backplate: a little TV with a play mark, one tube colour per variant, brass stand-offs at the corners. */
-function neonSign(k: Kit, c: RampName): void {
+function neonSign(k: Kit, c: RampName, n = 0): void {
   const X0 = -7, X1 = 7, Z0 = 82, Z1 = 102;
   // Distance to the tube path in the wall plane: a rounded screen, two antennae and a play triangle inside.
   const seg = (x: number, z: number, ax: number, az: number, bx: number, bz: number): number => {
@@ -544,14 +548,18 @@ function neonSign(k: Kit, c: RampName): void {
     const play = Math.min(seg(x, z, -1.1, 89, -1.1, 92), seg(x, z, -1.1, 89, 1.6, 90.5), seg(x, z, -1.1, 92, 1.6, 90.5));
     return Math.min(screen, ant, play);
   };
+  const antenna = (x: number, z: number): boolean => Math.min(seg(x, z, -0.6, 95.3, -2.6, 99), seg(x, z, 0.6, 95.3, 2.6, 99)) < 1.9 && z > 96.4;
+  const halo = n === 1 ? 1.5 : n === 2 ? 1.1 : 1.3;
   k.box(X0, X1, 7, 8, Z0, Z1, "night", {
     paint: (p, f) => {
       if (f !== "front") return f === "top" ? ["night", 0] : ["night", 2];
       if ((Math.abs(p.x - X0 - 1) < 0.6 || Math.abs(p.x - X1 + 1) < 0.6) && (Math.abs(p.z - Z0 - 1.5) < 0.8 || Math.abs(p.z - Z1 + 1.5) < 0.8)) return ["mustard", 0];
       const d = tube(p.x, p.z);
-      if (d < 0.4) return ["cream", 0];
+      // In use the tube hums: the halo swells and shrinks, and the antennae blink out for a frame (a clean gap above the screen).
+      if (n === 3 && antenna(p.x, p.z)) return ["night", 1];
+      if (d < 0.4) return n === 2 ? [c, 0] : ["cream", 0];
       if (d < 0.9) return [c, 0];
-      if (d < 1.3) return [c, 2];
+      if (d < halo) return [c, 2];
       // A dark gap round the glow keeps the glyph apart from the plate at 1×.
       if (d < 1.9) return ["outline", 1];
       return ["night", 1];
@@ -560,7 +568,7 @@ function neonSign(k: Kit, c: RampName): void {
 }
 
 /** Fish tank on a wood stand: gravel, a swaying weed, two fish and a stream of bubbles behind glass, under a charcoal lid. */
-function aquarium(k: Kit): void {
+function aquarium(k: Kit, n = 0): void {
   k.box(-7, 7, -4.5, 4.5, 0, 1.5, "charcoal");
   const doors: LPaint = (p, f) => {
     if (f === "top") return ["wood", 0];
@@ -585,7 +593,8 @@ function aquarium(k: Kit): void {
       const hit = fish(2.5, 22, "ginger") ?? fish(-3, 18, "pink");
       if (hit) return hit;
       if (Math.abs(p.x + 4.5 + Math.sin(p.z * 0.6) * 0.8) < 0.6 && p.z < 23) return ["olive", 0];
-      if (Math.abs(p.x - 4.8) < 0.5 && Math.floor(p.z) % 3 === 0 && p.z > 15) return ["glow", 0];
+      // In use the bubble stream rises one unit per frame (three frames make the 3-unit pitch loop).
+      if (Math.abs(p.x - 4.8) < 0.5 && Math.floor(p.z - n) % 3 === 0 && p.z > 15) return ["glow", 0];
     }
     if (p.z > 26.6) return ["glow", 1];
     return ["teal", t];
@@ -595,7 +604,7 @@ function aquarium(k: Kit): void {
 }
 
 /** Arcade cabinet: a night-blue body with lilac side stripes, a joystick deck, a screen mid-game and a lit marquee. */
-function arcade(k: Kit): void {
+function arcade(k: Kit, n = 0): void {
   const side: LPaint = (p, f) => {
     if (f === "top") return ["night", 0];
     if (f === "right" && Math.abs(p.y - p.z * 0.25 + 4) < 1.2) return ["lilac", 1];
@@ -619,12 +628,15 @@ function arcade(k: Kit): void {
     if (f !== "front") return side(p, f);
     if (Math.abs(p.x) > 5 || p.z < 25.5 || p.z > 38) return ["night", 1];
     const gx = Math.floor((p.x + 5) * 1.2), gz = Math.floor((p.z - 25.5) * 1.2);
-    // A 12×15 game: two rows of invaders, a ship and its shot.
-    if (gz >= 11 && gz <= 13 && (gx % 3 === 1 || (gz === 12 && gx % 3 !== 2))) return gz === 13 ? ["pink", 0] : ["pink", 1];
-    if (gz >= 7 && gz <= 8 && gx % 4 !== 3) return ["mustard", 0];
+    // A 12×15 game: two rows of invaders, a ship and its shot. In use the invaders step side to side, the shot climbs
+    // and a bright scan band rolls down the glass.
+    const ix = gx + 3 - (n % 2);
+    if (gx === 5 && gz === (n === 0 ? 4 : 3 + n * 2)) return ["cream", 0];
+    if (gz >= 11 && gz <= 13 && (ix % 3 === 1 || (gz === 12 && ix % 3 !== 2))) return gz === 13 ? ["pink", 0] : ["pink", 1];
+    if (gz >= 7 && gz <= 8 && (ix + 1) % 4 !== 3) return ["mustard", 0];
     if (gz <= 1 && Math.abs(gx - 5) <= 1 - gz + 1) return ["teal", 0];
-    if (gx === 5 && gz === 4) return ["cream", 0];
-    return hash(gx, gz) % 29 === 0 ? ["glow", 2] : ["outline", 1];
+    if (n > 0 && gz === 15 - n * 4) return ["night", 0];
+    return hash(gx, gz + n * 7) % 29 === 0 ? ["glow", 2] : ["outline", 1];
   };
   k.box(-6, 6, -1, 5, 24, 39, "night", { paint: screen });
   const marquee: LPaint = (p, f) => {
@@ -635,7 +647,7 @@ function arcade(k: Kit): void {
   k.box(-6, 6, -2.5, 5, 39, 45.5, "night", { paint: marquee });
 }
 
-/** Sunburst wall clock: a cream face in a dark rim with four bold ticks and hands on a brass hub, eight rays in light and shade. */
+/** Sunburst wall clock: a cream face in a dark rim with four soft ticks and bold hands on a brass hub, eight rays in light and mid tone. */
 function wallClock(k: Kit): void {
   const CZ = 94;
   // Eight thick brass rays, long and short in turn, stepped down in width so they taper (a wall slant squashes thin ones).
@@ -644,8 +656,8 @@ function wallClock(k: Kit): void {
     const len = i % 2 === 0 ? 10.5 : 8.5;
     for (let r = 5; r < len; r += 0.5) {
       const w = r < len - 2.5 ? 1.3 : r < len - 1 ? 0.9 : 0.6;
-      // Long rays catch the light, short ones sit in shade, so the burst reads as rays and not one yellow blot.
-      k.box(Math.cos(a) * r - w, Math.cos(a) * r + w, 7.4, 8, CZ + Math.sin(a) * r - w, CZ + Math.sin(a) * r + w, "mustard", { tones: i % 2 === 0 ? { top: 0, sw: 0, se: 1 } : { top: 1, sw: 2, se: 2 } });
+      // Long rays catch the light, short ones a mid tone (the darkest mustard went muddy next to the other brass props).
+      k.box(Math.cos(a) * r - w, Math.cos(a) * r + w, 7.4, 8, CZ + Math.sin(a) * r - w, CZ + Math.sin(a) * r + w, "mustard", { tones: i % 2 === 0 ? { top: 0, sw: 0, se: 1 } : { top: 1, sw: 1, se: 2 } });
     }
   }
   const face: LPaint = (p, f) => {
@@ -653,12 +665,12 @@ function wallClock(k: Kit): void {
     const x = p.x, z = p.z - CZ, r = Math.hypot(x, z);
     if (r > 4.6) return ["mustard", r > 5.2 ? 2 : 1];
     if (r > 3.9) return ["wood", 2]; // dark rim between the brass bezel and the face
-    if (r < 0.7) return ["mustard", 0];
-    // Bold ticks at 12, 3, 6 and 9 only; twelve thin ones turned into noise at 1×.
-    if (r > 3 && (Math.abs(x) < 0.55 || Math.abs(z) < 0.55)) return ["outline", 1];
-    // Ten past ten.
-    const onHand = (t: number, l: number): boolean => r < l && Math.abs(x * Math.sin(t) - z * Math.cos(t)) < 0.4 && x * Math.cos(t) + z * Math.sin(t) > 0;
-    if (onHand((Math.PI * 5) / 6, 2.6) || onHand(Math.PI / 6, 3.6)) return ["outline", 1];
+    if (r < 0.5) return ["mustard", 0];
+    // Ticks at 12, 3, 6 and 9 in a soft brown at the rim, so at 1× only the dark hands read as hands.
+    if (r > 3.2 && (Math.abs(x) < 0.55 || Math.abs(z) < 0.55)) return ["wood", 1];
+    // Ten past ten: bold dark hands that stop short of the ticks, leaving a cream gap.
+    const onHand = (t: number, l: number): boolean => r < l && Math.abs(x * Math.sin(t) - z * Math.cos(t)) < 0.55 && x * Math.cos(t) + z * Math.sin(t) > 0;
+    if (onHand((Math.PI * 5) / 6, 2.2) || onHand(Math.PI / 6, 3)) return ["outline", 1];
     return ["cream", 0];
   };
   k.ell({ x: 0, y: 7, z: CZ }, { x: 5.6, y: Infinity, z: 5.6 }, [-8, 8, 6.4, 8, 0, 200], "cream", { paint: face });
@@ -859,6 +871,8 @@ export interface PieceMeta {
   walkable: boolean;
   /** Layers per dir: `front` exists only where something sits between a sitter and the camera. */
   layersByDir: Partial<Record<FurnDir, ("back" | "front")[]>>;
+  /** "In use" loop, drawn in place of `back`: `furniture/<id>/<colour>/use/<dir>/<0..frames-1>`, each frame shown `ms`. */
+  use?: { frames: number; ms: number };
 }
 
 export interface PieceDef {
@@ -874,7 +888,9 @@ export interface PieceDef {
   /** Seat cells along local x (0 = anchor cell). */
   seats?: readonly number[];
   walkable?: boolean;
-  build?: (k: Kit, colour: string) => void;
+  /** "In use" loop: `frames` extra back frames (build gets n = 1..frames; n = 0 is the idle frame), each shown `ms`. */
+  use?: { frames: number; ms: number };
+  build?: (k: Kit, colour: string, n: number) => void;
   image?: (dir: FurnDir, colour: string, s?: number, cv?: Canvas) => Uint8Array;
 }
 
@@ -898,7 +914,7 @@ export const PIECES: readonly PieceDef[] = [
   // Catalogue v2 (OME-1103).
   { id: "floorcushion", label: "Floor cushions", kind: "seat", colours: ["mustard", "teal"], dirs: ALL, cols: 1, rows: 1, seats: [0], build: (k, c) => { floorCushion(k, asRamp(c)); } },
   { id: "bench", label: "Storage bench", kind: "seat", colours: ["teal", "pink"], dirs: ALL, cols: 2, rows: 1, seats: [0, 1], build: (k, c) => { bench(k, asRamp(c)); } },
-  { id: "turntable", label: "Record console", kind: "fun", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { recordConsole(k); } },
+  { id: "turntable", label: "Record console", kind: "fun", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, use: { frames: 4, ms: 120 }, build: (k, _c, n) => { recordConsole(k, n); } },
   { id: "speaker", label: "Floor speaker", kind: "fun", colours: ["wood", "teal"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k, c) => { floorSpeaker(k, asRamp(c)); } },
   { id: "cat", label: "Sleepy cat", kind: "fun", colours: ["ginger", "charcoal"], dirs: ["se", "sw"], cols: 1, rows: 1, image: (d, c, s, cv) => sleepyCat(d, asRamp(c), s, cv) },
   { id: "wallshelf", label: "Wall shelf", kind: "wall", mount: "wall", layer: "wall", colours: ["wood"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { wallShelf(k); } },
@@ -906,9 +922,9 @@ export const PIECES: readonly PieceDef[] = [
   // Catalogue v3 (OME-1348), packed into the v2 sheet.
   { id: "coffeetable", label: "Coffee table", kind: "table", colours: ["wood"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { coffeeTable(k); } },
   { id: "pouf", label: "Knitted pouf", kind: "seat", colours: ["rust", "lilac"], dirs: ALL, cols: 1, rows: 1, seats: [0], build: (k, c) => { pouf(k, asRamp(c)); } },
-  { id: "neonsign", label: "Neon sign", kind: "light", mount: "wall", layer: "wall", colours: ["pink", "teal"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k, c) => { neonSign(k, asRamp(c)); } },
-  { id: "aquarium", label: "Aquarium", kind: "fun", colours: ["teal"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { aquarium(k); } },
-  { id: "arcade", label: "Arcade cabinet", kind: "fun", colours: ["night"], dirs: ["se", "sw"], cols: 1, rows: 1, build: (k) => { arcade(k); } },
+  { id: "neonsign", label: "Neon sign", kind: "light", mount: "wall", layer: "wall", colours: ["pink", "teal"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, use: { frames: 3, ms: 140 }, build: (k, c, n) => { neonSign(k, asRamp(c), n); } },
+  { id: "aquarium", label: "Aquarium", kind: "fun", colours: ["teal"], dirs: ["se", "sw"], cols: 1, rows: 1, use: { frames: 3, ms: 220 }, build: (k, _c, n) => { aquarium(k, n); } },
+  { id: "arcade", label: "Arcade cabinet", kind: "fun", colours: ["night"], dirs: ["se", "sw"], cols: 1, rows: 1, use: { frames: 3, ms: 160 }, build: (k, _c, n) => { arcade(k, n); } },
   { id: "wallclock", label: "Sunburst clock", kind: "wall", mount: "wall", layer: "wall", colours: ["brass"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { wallClock(k); } },
 ];
 
@@ -942,12 +958,15 @@ function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFrame[] {
   const base = `furniture/${def.id}/${colour}/${dir}`;
   if (def.image) return [crop(`${base}/back`, def.image(dir, colour))];
   const k = new Kit(dir);
-  def.build?.(k, colour);
+  def.build?.(k, colour, 0);
   const back = k.parts.filter((p) => !p.front).map((p) => p.solid);
   const front = k.parts.filter((p) => p.front).map((p) => p.solid);
   const all = [...back, ...front];
   const full = renderSolids(all, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all");
-  if (front.length === 0) return [crop(`${base}/back`, full.img)];
+  if (front.length === 0) {
+    const idle = crop(`${base}/back`, full.img);
+    return [idle, ...useFrames(def, colour, dir, idle.rect)];
+  }
   const backImg = renderSolids(back, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
   const frontImg = new Uint8Array(CANVAS.w * CANVAS.h);
   const isFront = (i: number): boolean => (full.ids[i] ?? -1) >= back.length;
@@ -967,6 +986,22 @@ function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFrame[] {
   return [crop(`${base}/back`, backImg, rect), crop(`${base}/front`, frontImg, rect)];
 }
 
+/** The "in use" loop of a back-only piece, cut to the idle frame's rect (so one anchor), checked to move only inside it. */
+function useFrames(def: PieceDef, colour: string, dir: FurnDir, rect: { x0: number; y0: number; w: number; h: number }): RoomFrame[] {
+  const out: RoomFrame[] = [];
+  for (let n = 1; n <= (def.use?.frames ?? 0); n++) {
+    const k = new Kit(dir);
+    def.build?.(k, colour, n);
+    const img = renderSolids(k.parts.map((p) => p.solid), CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
+    const key = `furniture/${def.id}/${colour}/use/${dir}/${String(n - 1)}`;
+    const f = crop(key, img, rect);
+    const r = crop(`${key}/all`, img).rect;
+    if (r.x0 < rect.x0 || r.y0 < rect.y0 || r.x0 + r.w > rect.x0 + rect.w || r.y0 + r.h > rect.y0 + rect.h) throw new Error(`${key} spills out of the idle frame`);
+    out.push(f);
+  }
+  return out;
+}
+
 const swapsAxes = (d: FurnDir): boolean => d === "nw" || d === "se";
 
 export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
@@ -978,7 +1013,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
       for (const dir of def.dirs) {
         const fs = pieceFrames(def, colour, dir);
         frames.push(...fs);
-        layersByDir[dir] = fs.map((f) => (f.key.endsWith("/front") ? "front" : "back"));
+        layersByDir[dir] = fs.filter((f) => !f.key.includes("/use/")).map((f) => (f.key.endsWith("/front") ? "front" : "back"));
       }
     }
     const footprintByDir: PieceMeta["footprintByDir"] = {};
@@ -1006,6 +1041,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
       layersByDir,
     };
     if (def.seats) meta.seatsByDir = seatsByDir;
+    if (def.use) meta.use = { ...def.use };
     pieces.push(meta);
   }
   return { frames, pieces };
@@ -1017,7 +1053,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
 export function pieceImage(def: PieceDef, colour: string, dir: FurnDir, s: number, cv: Canvas): Uint8Array {
   if (def.image) return def.image(dir, colour, s, cv);
   const k = new Kit(dir);
-  def.build?.(k, colour);
+  def.build?.(k, colour, 0);
   return renderSolids(k.parts.map((p) => p.solid), cv.w, cv.h, cv.ax, cv.ay, "all", s).img;
 }
 
