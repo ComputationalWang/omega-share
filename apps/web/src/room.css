@@ -144,6 +144,8 @@
  * head or docked above the composer. reference.css fades it in (4 steps, never scaled: pixel art doesn't resample) and
  * skips that under reduced motion. */
 .emote-picker .ui-wheel { --ui-px: 2px; position: fixed; z-index: 30; }
+/* Dance (OME-1378), the 9th slot: the disc art has eight holes, so it hangs off the lower right, clear of exclaim. */
+.ui-wheel-slot:nth-child(9) { left: calc(68 * var(--ui-px)); top: calc(68 * var(--ui-px)); }
 .ui-button.self.is-cooling { border-image-source: url("../../../assets/ui/slices/button-self-cool.png"); cursor: default; }
 /* prefers-reduced-motion: the picker icon, still, bottom-centred over the avatar. */
 .emote-badge { position: absolute; left: 0; top: 0; translate: -50% -100%; }

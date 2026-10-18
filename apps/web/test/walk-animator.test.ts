@@ -233,8 +233,8 @@ describe("emotes", () => {
     return at;
   }
 
-  function ready(opts: { reduced?: boolean } = {}) {
-    const s = setup(opts);
+  function ready(opts: { reduced?: boolean; smooth?: boolean } = {}) {
+    const s = setup({ reduced: opts.reduced ?? false, smooth: () => opts.smooth ?? false });
     s.anim.setFrames(frames);
     s.walks.place([standAt("a", 4, 9), { id: id("b"), at: cellCenter(5, 1), z: 1, seatFacing: "nw" }], 0);
     s.anim.set([{ id: id("a"), avatar: 0 }, { id: id("b"), avatar: 3 }]);
@@ -321,12 +321,89 @@ describe("emotes", () => {
     }
   });
 
-  test("dance (OME-1374) draws nothing until its art lands", () => {
+  // OME-1378: dance reuses the walk cycle in place, turning se → sw → nw → ne every 4 Basic steps, for 8 s.
+  test("a standing dance plays its own walk frames on the 150 ms step clock, turning every 4 steps, for 8 s", () => {
     const s = ready();
+    s.at(1000);
     s.anim.emote(id("a"), "dance");
-    expect(s.rafs.length).toBe(0);
-    expect(s.timers.length).toBe(0);
-    expect(s.stickers.some((x) => x.frame !== null)).toBe(false);
+    expect(s.rafs.length).toBe(1);
+    const at = run(s, 1000, 9600);
+    for (let t = 1050; t <= 9000; t += 150) expect(at).toContain(t);
+    const a = framesOf(s, "a").filter((f, i, all) => i === 0 || f !== all[i - 1]);
+    const cycle = (d: string) => [0, 1, 2, 3].map((n) => `walk/juno/${d}/${String(n)}`);
+    expect(a.slice(0, 20)).toEqual([...cycle("ne"), ...cycle("se"), ...cycle("sw"), ...cycle("nw"), ...cycle("ne")]);
+    // Over at 8 s: back to the rest pose, its own facing.
+    const after = s.draws.filter((d) => d.id === "a").at(-1);
+    expect(after?.frame).toMatch(/^(juno\/idle\/ne\/0|breathe\/juno\/idle\/ne\/1)$/);
+    expect(after?.pose.walking).toBe(false);
+    expect(s.stickers.every((x) => x.frame === null)).toBe(true);
+  });
+
+  test("Smooth dances on walk8, one frame per rAF, and the tier probe counts it as a walk", () => {
+    const s = ready({ smooth: true });
+    s.at(1000);
+    s.anim.emote(id("a"), "dance");
+    const shown = new Set<string | null>();
+    let t = 1000;
+    while (s.rafs.length > 0 && t < 2000) {
+      s.frame(t);
+      shown.add(framesOf(s, "a").at(-1) ?? null);
+      expect(s.timers.length).toBe(0);
+      t += 1000 / 60;
+    }
+    for (const k of ["walk/juno/ne/0", "walk8/juno/ne/1", "walk8/juno/ne/7", "walk/juno/se/0", "walk8/juno/se/3"]) expect(shown.has(k)).toBe(true);
+    expect(s.rendered.at(-1)?.walking).toBe(true);
+  });
+
+  test("a seated member doesn't dance", () => {
+    const s = ready();
+    s.at(500);
+    s.anim.emote(id("b"), "dance");
+    run(s, 500, 2000);
+    expect(framesOf(s, "b").some((f) => f?.startsWith("walk") === true)).toBe(false);
+  });
+
+  test("walking off ends the dance: arrived, the avatar rests", () => {
+    const s = ready();
+    s.at(1000);
+    s.anim.emote(id("a"), "dance");
+    run(s, 1000, 1300);
+    s.walks.place([standAt("a", 4, 8), { id: id("b"), at: cellCenter(5, 1), z: 1, seatFacing: "nw" }], 1300);
+    s.anim.set([{ id: id("a"), avatar: 0 }, { id: id("b"), avatar: 3 }]);
+    run(s, 1300, 5000);
+    const last = s.draws.filter((d) => d.id === "a").at(-1);
+    expect(last?.pose.walking).toBe(false);
+    expect(last?.frame?.startsWith("walk")).toBe(false);
+  });
+
+  test("a dancer who leaves stops the step clock", () => {
+    const s = ready();
+    s.at(1000);
+    s.anim.emote(id("a"), "dance");
+    s.frame(1000);
+    s.anim.set([{ id: id("b"), avatar: 3 }]);
+    s.draws.length = 0;
+    const at = run(s, 1000, 4000);
+    expect(s.draws.some((d) => d.id === "a")).toBe(false);
+    // Only b's breathing, on its 400 ms clock.
+    expect(at.length).toBeLessThanOrEqual(8);
+  });
+
+  test("25 dancing together share one render per 150 ms step, like 25 walkers", () => {
+    const s = setup();
+    s.anim.setFrames(frames);
+    const people = Array.from({ length: 25 }, (_, i) => standAt(`p${String(i)}`, i % 10, 9 - Math.floor(i / 10)));
+    s.walks.place(people, 0);
+    s.anim.set(people.map((p, i) => ({ id: p.id, avatar: i % 4 })));
+    s.frame(0);
+    s.timers.length = 0;
+    const before = s.renders();
+    s.at(1000);
+    for (const p of people) s.anim.emote(p.id, "dance");
+    const at = run(s, 1000, 9000);
+    expect(s.renders() - before).toBe(at.length);
+    // 8 s of 150 ms steps (54) and the end frame; breathing changes may add some on the shared 400 ms clock.
+    expect(at.length).toBeLessThanOrEqual(55 + 20);
   });
 
   test("prefers-reduced-motion: no frame swaps, no sticker sprite, no timers (room.ts shows a static badge)", () => {
@@ -335,6 +412,7 @@ describe("emotes", () => {
     s.anim.emote(id("b"), "heart");
     s.anim.emote(id("a"), "cheer");
     s.anim.emote(id("b"), "yawn");
+    s.anim.emote(id("a"), "dance");
     expect(s.rafs.length).toBe(0);
     expect(s.timers.length).toBe(0);
     expect(s.draws.some((d) => d.frame?.startsWith("wave") === true)).toBe(false);

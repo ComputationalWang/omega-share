@@ -31,7 +31,7 @@ import { createOwnerTools } from "./owner-tools";
 import { createEmotePicker } from "./emote/picker";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
-import { HELP_LINE, chatSticker, createStickerGate, slashCommand } from "./chat/effects";
+import { DANCE_SEATED_LINE, HELP_LINE, chatSticker, createStickerGate, slashCommand } from "./chat/effects";
 import { chatKey } from "./chat/enter";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
 import { createChatRelay, type ChatRelay } from "./popout/relay";
@@ -242,7 +242,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (document.activeElement === chatInput) ev.preventDefault();
   });
   // The emote key and its picker (OME-415) lead the chat row: both are how you speak up.
+  const iSit = (): boolean => state.self !== null && (state.room?.seats.includes(state.self) ?? false);
   const picker = createEmotePicker({
+    seated: iSit,
     send: (m) => send(m),
     now: () => performance.now(),
     setTimer: (fn, ms) => setTimeout(fn, ms),
@@ -715,9 +717,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const runSlash = (text: string): boolean | null => {
     const cmd = slashCommand(text);
     if (cmd === null) return null;
-    if (cmd.type === "emote") return picker.emote(cmd.kind);
-    chatLog.append({ kind: "system", line: HELP_LINE });
-    relay?.append({ kind: "system", line: HELP_LINE });
+    if (cmd.type === "emote" && !(cmd.kind === "dance" && iSit())) return picker.emote(cmd.kind);
+    const line = cmd.type === "help" ? HELP_LINE : DANCE_SEATED_LINE;
+    chatLog.append({ kind: "system", line });
+    relay?.append({ kind: "system", line });
     return true;
   };
   const kickedStore = sessionStorage;
@@ -815,7 +818,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (document.activeElement === chatSend) chatInput.focus({ preventScroll: true });
     }
   });
-  // Keys 1–8 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
+  // Keys 1–9 emote and Escape closes the picker, anywhere on the page but a text field, while we're in the room.
   window.addEventListener("keydown", (ev) => {
     // The report and help dialogs are modal: the room's keys wait until they close.
     if (cards.reportOpen() || help.isOpen()) return;

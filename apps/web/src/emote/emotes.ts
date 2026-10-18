@@ -1,11 +1,14 @@
 // Emotes (OME-415): the picker's order and shortcuts, and the local bucket that keeps us under the server's emote limit.
 import { EMOTE_BURST, EMOTE_REFILL_MS, type EmoteKind } from "@omega/shared";
 
-/** Set (i)'s picker: the five stickers in the motion atlas's order, the wave, then set (p)'s cheer and yawn. Keys 1–8 pick them in this order. */
-export const PICKER_KINDS: readonly EmoteKind[] = ["heart", "laugh", "question", "exclaim", "clap", "wave", "cheer", "yawn"];
+/** Set (i)'s picker: the five stickers in the motion atlas's order, the wave, set (p)'s cheer and yawn, then dance (OME-1378). Keys 1–9 pick them in this order. */
+export const PICKER_KINDS: readonly EmoteKind[] = ["heart", "laugh", "question", "exclaim", "clap", "wave", "cheer", "yawn", "dance"];
 
 /** What the picker says for each (the atlas's `meta.omega` labels). */
 export const EMOTE_LABELS: Readonly<Record<EmoteKind, string>> = { heart: "Heart", laugh: "Laugh", question: "Question", exclaim: "Surprise", clap: "Clap", wave: "Wave", cheer: "Cheer", yawn: "Yawn", dance: "Dance" };
+
+/** The UI sprite class that shows `kind` in the picker and as its badge; dance has no art of its own (OME-1378), so it borrows the sound icon. */
+export const emoteIcon = (kind: EmoteKind): string => (kind === "dance" ? "ui-icon-sound" : `ui-emote-pick-${kind}`);
 
 /** The emote a key (KeyboardEvent.key) picks, or null. */
 export function kindForKey(key: string): EmoteKind | null {

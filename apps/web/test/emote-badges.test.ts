@@ -43,6 +43,15 @@ test("shows the kind's static icon at the avatar, then removes it after BADGE_MS
   expect(layer.children.length).toBe(0);
 });
 
+test("a dance badge (OME-1378) is the sound icon, for the dance's 8 s", async () => {
+  const { badges, layer, timers } = await setup();
+  const { DANCE_MS } = await import("../src/walk/animator");
+  badges.show("m1", "dance", { x: 0, y: 0 });
+  expect(layer.firstElementChild?.classList.contains("ui-icon-sound")).toBe(true);
+  expect(timers.at(-1)?.ms).toBe(DANCE_MS);
+  expect(DANCE_MS).toBe(8000);
+});
+
 test("a second emote replaces the member's badge and restarts its time", async () => {
   const { badges, layer, timers, cleared } = await setup();
   badges.show("m1", "heart", { x: 0, y: 0 });

@@ -11,7 +11,7 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-// OME-415: the emote key; pressing a sticker (or keys 1–8) sends `emote`; the key cools when the local bucket
+// OME-415: the emote key; pressing a sticker (or keys 1–9) sends `emote`; the key cools when the local bucket
 // (emotes.ts) is empty, so we never send what the server would drop. OME-732 (M8 W3): the key opens set (l)'s emote
 // wheel (T opens it too), the six stickers clockwise from 12 in key order, over your own head.
 
@@ -20,7 +20,7 @@ interface Where {
   room: Rect;
 }
 
-async function setup(o: { sendOk?: boolean; where?: Where; onOpen?: () => void } = {}) {
+async function setup(o: { sendOk?: boolean; where?: Where; onOpen?: () => void; seated?: () => boolean } = {}) {
   const { createEmotePicker } = await import("../src/emote/picker");
   let now = 0;
   const sent: ClientMessage[] = [];
@@ -36,6 +36,7 @@ async function setup(o: { sendOk?: boolean; where?: Where; onOpen?: () => void }
     clearTimer: () => undefined,
     ...(o.where === undefined ? {} : { locate: () => o.where ?? null }),
     ...(o.onOpen === undefined ? {} : { onOpen: o.onOpen }),
+    ...(o.seated === undefined ? {} : { seated: o.seated }),
   });
   const form = document.createElement("form");
   const field = document.createElement("input");
@@ -70,7 +71,7 @@ describe("emote wheel", () => {
     expect(picker.root.querySelector("[data-testid=emote-menu]")).toBeNull();
   });
 
-  test("the key opens the wheel: a menu labelled Emotes, all eight emotes in key order, clockwise from 12", async () => {
+  test("the key opens the wheel: a menu labelled Emotes, all nine emotes in key order, clockwise from 12, dance last", async () => {
     const { key, menu, items, hub, chip } = await setup();
     key.click();
     const m = menu();
@@ -80,15 +81,19 @@ describe("emote wheel", () => {
     expect(m.getAttribute("aria-label")).toBe("Emotes");
     expect(key.getAttribute("aria-expanded")).toBe("true");
     const slots = items();
-    // reference.css places .ui-wheel-slot:nth-child(1..8) clockwise from 12: the slots are the wheel's first eight children.
-    expect([...m.children].slice(0, 8)).toEqual(slots);
+    // reference.css places .ui-wheel-slot:nth-child(1..8) clockwise from 12, room.css the 9th: the slots are the wheel's first nine children.
+    // Compared by identity: a failing diff of DOM nodes never finishes printing.
+    expect(slots.length).toBe(9);
+    expect([...m.children].slice(0, 9).every((c, i) => c === slots[i])).toBe(true);
     expect(slots.every((b) => b.classList.contains("ui-wheel-slot"))).toBe(true);
-    expect(slots.map((b) => b.getAttribute("aria-label"))).toEqual(["Heart", "Laugh", "Question", "Surprise", "Clap", "Wave", "Cheer", "Yawn"]);
-    expect(slots.map((b) => b.getAttribute("aria-keyshortcuts"))).toEqual(["1", "2", "3", "4", "5", "6", "7", "8"]);
+    expect(slots.map((b) => b.getAttribute("aria-label"))).toEqual(["Heart", "Laugh", "Question", "Surprise", "Clap", "Wave", "Cheer", "Yawn", "Dance"]);
+    expect(slots.map((b) => b.getAttribute("aria-keyshortcuts"))).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+    // No dance art (OME-1378): its icon is the sound icon.
+    expect(slots[8]?.querySelector(".ui-icon-sound")).not.toBeNull();
     expect(slots[5]?.querySelector(".ui-emote-pick-wave")).not.toBeNull();
     expect(slots[7]?.querySelector(".ui-emote-pick-yawn")).not.toBeNull();
     // Heart is selected and focused (roving tabindex); the hub previews it and the chip names it with its key.
-    expect(slots.map((b) => b.tabIndex)).toEqual([0, -1, -1, -1, -1, -1, -1, -1]);
+    expect(slots.map((b) => b.tabIndex)).toEqual([0, -1, -1, -1, -1, -1, -1, -1, -1]);
     expect(document.activeElement).toBe(slots[0] ?? null);
     expect(hub()?.querySelector(".ui-emote-pick-heart")).not.toBeNull();
     expect(chip()).toBe("Heart1");
@@ -174,7 +179,7 @@ describe("emote wheel", () => {
     const at = (): number => slots.findIndex((b) => b === document.activeElement);
     expect(press("ArrowRight")).toBe(true);
     expect(at()).toBe(1);
-    expect(slots.map((b) => b.tabIndex)).toEqual([-1, 0, -1, -1, -1, -1, -1, -1]);
+    expect(slots.map((b) => b.tabIndex)).toEqual([-1, 0, -1, -1, -1, -1, -1, -1, -1]);
     expect(hub()?.querySelector(".ui-emote-pick-laugh")).not.toBeNull();
     expect(chip()).toBe("Laugh2");
     press("ArrowDown");
@@ -183,11 +188,11 @@ describe("emote wheel", () => {
     press("ArrowUp");
     expect(at()).toBe(0);
     press("ArrowLeft");
-    expect(at()).toBe(7);
+    expect(at()).toBe(8);
     press("ArrowRight");
     expect(at()).toBe(0);
     press("End");
-    expect(at()).toBe(7);
+    expect(at()).toBe(8);
     press("Home");
     expect(at()).toBe(0);
   });
@@ -227,7 +232,7 @@ describe("emote wheel", () => {
     key.click();
     items()[4]?.dispatchEvent(new Event("pointerenter"));
     expect(hub()?.querySelector(".ui-emote-pick-clap")).not.toBeNull();
-    expect(items().map((b) => b.tabIndex)).toEqual([0, -1, -1, -1, -1, -1, -1, -1]);
+    expect(items().map((b) => b.tabIndex)).toEqual([0, -1, -1, -1, -1, -1, -1, -1, -1]);
     items()[4]?.dispatchEvent(new Event("pointerleave"));
     expect(hub()?.querySelector(".ui-emote-pick-heart")).not.toBeNull();
   });
@@ -373,6 +378,35 @@ test("dismissing the keyboard in onOpen does not resume typing when the wheel cl
   key.click();
   picker.close();
   expect(document.activeElement === field).toBe(false);
+});
+
+describe("dance (OME-1378)", () => {
+  test("key 9 and the slot send dance while standing", async () => {
+    const { press, sent, key, items } = await setup({ seated: () => false });
+    expect(press("9")).toBe(true);
+    key.click();
+    items()[8]?.click();
+    expect(sent).toEqual([{ type: "emote", kind: "dance" }, { type: "emote", kind: "dance" }]);
+  });
+
+  test("seated: the dance slot is greyed out and nothing sends it; the other emotes still go", async () => {
+    let seated = true;
+    const { press, sent, key, items, picker } = await setup({ seated: () => seated });
+    key.click();
+    const dance = items()[8];
+    expect(dance?.getAttribute("aria-disabled")).toBe("true");
+    expect(items()[0]?.getAttribute("aria-disabled")).toBe("false");
+    dance?.click();
+    expect(press("9")).toBe(true);
+    expect(picker.emote("dance")).toBe(false);
+    expect(sent).toEqual([]);
+    expect(picker.emote("wave")).toBe(true);
+    // Stood up: open again and it's back.
+    seated = false;
+    key.click();
+    key.click();
+    expect(items()[8]?.getAttribute("aria-disabled")).toBe("false");
+  });
 });
 
 describe("emote(kind) (OME-1349: slash commands)", () => {

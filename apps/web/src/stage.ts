@@ -434,8 +434,6 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     applyCatching,
     emote(id, kind, s) {
       seated = s.room?.seats ?? seated;
-      // shortcut: no dance art or badge yet; drop it until the dance issue (OME-1345 batch 2) wires it in.
-      if (kind === "dance") return;
       if (!o.reducedMotion.matches) {
         view.emote(id, kind);
         return;

@@ -1,12 +1,12 @@
 // The emote key and set (l)'s emote wheel (OME-415, OME-732). The key (or T) opens the wheel over your own head: the six
 // stickers clockwise from 12 in key order, roving focus on the arrows, Enter/Space or a click sends, Esc or T closes and
-// focus goes back where it was. Keys 1–8 send straight away. When the local bucket is empty the key cools (`is-cooling`)
+// focus goes back where it was. Keys 1–9 send straight away. When the local bucket is empty the key cools (`is-cooling`)
 // and the slots are `aria-disabled` until a token is back, so we never send what the server would drop.
 // The wheel is DOM in page chrome, never the canvas: opening it draws nothing in the room (R-M8a §4).
 import type { ClientMessage, EmoteKind } from "@omega/shared";
 import { el, sprite } from "../controls/dom";
 import type { Point, Rect } from "../layout";
-import { EMOTE_LABELS, PICKER_KINDS, createEmoteBucket, kindForKey } from "./emotes";
+import { EMOTE_LABELS, PICKER_KINDS, createEmoteBucket, emoteIcon, kindForKey } from "./emotes";
 import { placeWheel } from "./wheel-place";
 
 export interface EmotePickerOptions {
@@ -21,11 +21,13 @@ export interface EmotePickerOptions {
   readonly locate?: () => { readonly head: Point | null; readonly room: Rect } | null;
   /** The wheel is opening (key or T), before it's placed: the page settles anything that would move it (OME-768). */
   readonly onOpen?: () => void;
+  /** You're seated: dance (OME-1378) is greyed out and never sent. Read on each open and each send. */
+  readonly seated?: () => boolean;
 }
 
 export interface EmotePicker {
   readonly root: HTMLElement;
-  /** A keydown on the page: T toggles the wheel, keys 1–8 emote, the wheel's own keys while it's open. True if it was ours (the caller prevents the default). */
+  /** A keydown on the page: T toggles the wheel, keys 1–9 emote, the wheel's own keys while it's open. True if it was ours (the caller prevents the default). */
   key(ev: KeyboardEvent): boolean;
   /** Close the wheel if it's open (your avatar started walking), focus back where it was. */
   close(): void;
@@ -49,7 +51,7 @@ interface Wheel {
 
 export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
   const root = el("div", { className: "emote-picker" });
-  const key = el("button", { type: "button", className: "ui-button self icon", ariaLabel: "Emote", title: "Emote (T, 1–8)" }, "emote-key");
+  const key = el("button", { type: "button", className: "ui-button self icon", ariaLabel: "Emote", title: "Emote (T, 1–9)" }, "emote-key");
   key.setAttribute("aria-haspopup", "menu");
   key.setAttribute("aria-expanded", "false");
   key.setAttribute("aria-keyshortcuts", "T");
@@ -76,7 +78,7 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
       b.setAttribute("aria-label", EMOTE_LABELS[kind]);
       b.setAttribute("aria-keyshortcuts", shortcut);
       b.dataset["kind"] = kind;
-      b.append(sprite(`ui-emote-pick-${kind}`));
+      b.append(sprite(emoteIcon(kind)));
       b.addEventListener("click", () => {
         pick(i);
       });
@@ -100,16 +102,17 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
 
   function showHub(kind: EmoteKind): void {
     if (wheel === null) return;
-    wheel.hub.replaceChildren(sprite(`ui-emote-pick-${kind}`));
+    wheel.hub.replaceChildren(sprite(emoteIcon(kind)));
   }
 
   /** The hub, the chip and the cool state from `selected` and the bucket. */
   function paintSelection(): void {
     if (wheel === null) return;
     const kind = PICKER_KINDS[selected] ?? "heart";
+    const seated = o.seated?.() ?? false;
     for (const [i, b] of wheel.slots.entries()) {
       b.tabIndex = i === selected ? 0 : -1;
-      b.setAttribute("aria-disabled", String(cooling));
+      b.setAttribute("aria-disabled", String(cooling || (seated && PICKER_KINDS[i] === "dance")));
     }
     if (cooling) {
       const now = o.now();
@@ -157,7 +160,7 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
   function emote(i: number): boolean {
     const kind = PICKER_KINDS[i];
     const now = o.now();
-    if (kind === undefined || bucket.readyAt(now) > now) return false;
+    if (kind === undefined || bucket.readyAt(now) > now || (kind === "dance" && o.seated?.() === true)) return false;
     const sent = o.send({ type: "emote", kind });
     if (sent) bucket.take(now);
     rearm();
@@ -166,7 +169,7 @@ export function createEmotePicker(o: EmotePickerOptions): EmotePicker {
 
   /** A pick from the open wheel sends and closes; while cooling it sends nothing and stays open, the dial running (OME-776). */
   function pick(i: number): void {
-    if (cooling) return;
+    if (cooling || (PICKER_KINDS[i] === "dance" && o.seated?.() === true)) return;
     emote(i);
     close(true);
   }

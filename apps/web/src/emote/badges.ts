@@ -2,6 +2,8 @@
 // gives as the floating sticker's static fallback) over the avatar for as long as the animation would have played.
 import type { EmoteKind, MemberId } from "@omega/shared";
 import { el } from "../controls/dom";
+import { DANCE_MS } from "../walk/animator";
+import { emoteIcon } from "./emotes";
 
 /** About as long as a sticker plays (set (d): 1.32 s), a little longer since it doesn't move. */
 export const BADGE_MS = 1600;
@@ -30,7 +32,7 @@ export function createEmoteBadges(layer: HTMLElement, o: { setTimer: (fn: () => 
   return {
     show(id, kind, at) {
       drop(id);
-      const e = el("span", { className: `emote-badge ui-sprite ui-emote-pick-${kind}`, ariaHidden: "true" }, "emote-badge");
+      const e = el("span", { className: `emote-badge ui-sprite ${emoteIcon(kind)}`, ariaHidden: "true" }, "emote-badge");
       e.dataset["member"] = id;
       place(e, at.x, at.y);
       layer.append(e);
@@ -38,7 +40,7 @@ export function createEmoteBadges(layer: HTMLElement, o: { setTimer: (fn: () => 
         if (shown.get(id)?.e !== e) return;
         e.remove();
         shown.delete(id);
-      }, BADGE_MS);
+      }, kind === "dance" ? DANCE_MS : BADGE_MS);
       shown.set(id, { e, timer });
     },
     move(id, x, y) {

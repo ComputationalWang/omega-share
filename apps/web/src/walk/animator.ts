@@ -3,16 +3,22 @@
 // until everyone has arrived. At rest, one timer to the next breathe change on a 400 ms clock. Each timer then asks
 // for one rAF, so a hidden tab never renders. An emote (OME-415) plays once on the same loop, its
 // timers on the one-shot's own frame times: a gesture (wave, cheer, yawn) swaps the avatar's frames, a sticker is drawn
-// above the avatar.
+// above the avatar. A dance (OME-1378) plays the avatar's own walk cycle in place for DANCE_MS, on the walkers' clock.
 import type { EmoteKind, MemberId } from "@omega/shared";
 import { DIRS, cycleFrame, oneShotFrame, type GestureKind, type MotionFrames, type StickerKind } from "./motion";
-import { WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
+import { SMOOTH_FRAMES, SMOOTH_FRAME_MS, WALK_FRAMES, WALK_FRAME_MS, emptyPose, type Pose, type Walks } from "./walks";
 
 /** Breathing redraws wait for this shared clock, so a room at rest renders at most 2.5 times a second however full. */
 export const BREATHE_TICK_MS = 400;
 
 /** How far above the floor point a sticker's bottom sits: just over the head, standing or seated. */
 export const EMOTE_LIFT = { idle: 60, sit: 50 } as const;
+
+/** How long a dance lasts, unless the dancer walks, sits or leaves first. */
+export const DANCE_MS = 8000;
+
+/** A dancer turns se → sw → nw → ne (DIRS indices), one facing per walk cycle: 4 Basic steps, 8 Smooth ones, so tiers agree. */
+const SPIN: readonly number[] = [0, 1, 3, 2];
 
 export interface AnimatedAvatar {
   readonly id: MemberId;
@@ -58,10 +64,12 @@ export function createAnimator(o: AnimatorOptions): Animator {
   let disposed = false;
   let paused = false;
   const pose = emptyPose();
-  /** Per member: the gesture playing (null: none) since when, and the sticker playing (null: none) since when. */
-  const plays = new Map<MemberId, { gesture: GestureKind | null; gestureAt: number; sticker: StickerKind | null; stickerAt: number }>();
+  /** Per member: the gesture playing (null: none) since when, the sticker playing (null: none) since when, and the dance's start (null: none). */
+  const plays = new Map<MemberId, { gesture: GestureKind | null; gestureAt: number; sticker: StickerKind | null; stickerAt: number; danceAt: number | null }>();
   /** Set by drawAll: ms until the next emote frame change (Infinity if none). */
   let nextEmote = Infinity;
+  /** Set by drawAll: someone danced in it, so the next frame is on the walkers' clock. */
+  let dancing = false;
 
   function frameKey(avatar: number, p: Pose, still: boolean): string | null {
     if (frames === null) return null;
@@ -78,12 +86,28 @@ export function createAnimator(o: AnimatorOptions): Animator {
     const still = o.reducedMotion();
     let next = Infinity;
     nextEmote = Infinity;
+    dancing = false;
     for (const a of list) {
       if (!o.walks.sample(a.id, now, pose)) continue;
       let frame = frameKey(a.avatar, pose, still);
       let sticker: string | null = null;
       const play = plays.get(a.id);
       if (play !== undefined && frames !== null && !still) {
+        if (play.danceAt !== null) {
+          const t = now - play.danceAt;
+          if (pose.walking || pose.sitting || t >= DANCE_MS) play.danceAt = null;
+          else {
+            const smooth = o.smooth();
+            const ms = smooth ? SMOOTH_FRAME_MS : WALK_FRAME_MS;
+            const per = smooth ? SMOOTH_FRAMES : WALK_FRAMES;
+            // Steps on the shared clock, counted from the one the dance started in; Basic draws walk8's even frames, as a walk does.
+            const k = Math.floor(now / ms) - Math.floor(play.danceAt / ms);
+            const turn = (SPIN.indexOf(DIRS.indexOf(pose.dir)) + Math.floor(k / per)) % SPIN.length;
+            frame = frames.walk8[a.avatar]?.[SPIN[turn] ?? 0]?.[(k % per) * (smooth ? 1 : 2)] ?? frame;
+            dancing = true;
+            nextEmote = Math.min(nextEmote, DANCE_MS - t);
+          }
+        }
         if (play.gesture !== null && !pose.walking) {
           const cycles = frames[play.gesture][a.avatar];
           const cycle = (pose.sitting ? cycles?.sit : cycles?.idle)?.[DIRS.indexOf(pose.dir)];
@@ -119,7 +143,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
     const now = o.now();
     const next = drawAll(now);
     o.render();
-    const walking = o.walks.walking(now);
+    const walking = o.walks.walking(now) || dancing;
     o.rendered?.(now, walking && o.smooth());
     schedule(now, next, walking);
   };
@@ -135,7 +159,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
     requestFrame();
   };
 
-  /** `walking` is `walks.walking(now)`, asked once per frame by the caller (each call walks a Map iterator). */
+  /** `walking` is `walks.walking(now)` or someone dancing, asked once per frame by the caller (each call walks a Map iterator). */
   function schedule(now: number, nextBreath: number, walking: boolean): void {
     if (timer !== null) {
       o.clearTimer(timer);
@@ -164,25 +188,29 @@ export function createAnimator(o: AnimatorOptions): Animator {
       for (const id of plays.keys()) if (!avatars.some((a) => a.id === id)) plays.delete(id);
       if (paused) return;
       const now = o.now();
-      schedule(now, drawAll(now), o.walks.walking(now));
+      const next = drawAll(now);
+      schedule(now, next, o.walks.walking(now) || dancing);
     },
     setFrames(f) {
       frames = f;
       requestFrame();
     },
     emote(id, kind) {
-      // shortcut: no dance art yet; drop it until the dance issue (OME-1345 batch 2) wires it in.
-      if (kind === "dance") return;
       if (disposed || paused || o.reducedMotion() || !list.some((a) => a.id === id)) return;
       let play = plays.get(id);
       if (play === undefined) {
-        play = { gesture: null, gestureAt: 0, sticker: null, stickerAt: 0 };
+        play = { gesture: null, gestureAt: 0, sticker: null, stickerAt: 0, danceAt: null };
         plays.set(id, play);
       }
       const now = o.now();
-      if (kind === "wave" || kind === "cheer" || kind === "yawn") {
+      // One avatar plays one of its own animations at a time: a gesture stops a dance and a dance a gesture.
+      if (kind === "dance") {
+        play.danceAt = now;
+        play.gesture = null;
+      } else if (kind === "wave" || kind === "cheer" || kind === "yawn") {
         play.gesture = kind;
         play.gestureAt = now;
+        play.danceAt = null;
       } else {
         play.sticker = kind;
         play.stickerAt = now;
