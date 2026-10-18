@@ -1867,6 +1867,41 @@ mod tests {
             r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#
         );
     }
+
+    #[test]
+    fn accessory_is_absent_at_0_and_changes_once() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(!r.set_accessory(&a, Accessory::new(0).unwrap()));
+        assert!(r.set_accessory(&a, Accessory::new(4).unwrap()));
+        assert!(!r.set_accessory(&a, Accessory::new(4).unwrap()));
+        assert!(!r.set_accessory(&mid("ghost"), Accessory::new(1).unwrap()));
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"accessory":4}"#
+        );
+        assert!(r.set_accessory(&a, Accessory::new(0).unwrap()));
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#
+        );
+    }
+
+    #[test]
+    fn typing_changes_once_and_is_never_in_the_snapshot() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(!r.set_typing(&a, false));
+        assert!(r.set_typing(&a, true));
+        assert!(!r.set_typing(&a, true));
+        assert!(!r.set_typing(&mid("ghost"), true));
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#
+        );
+        assert!(r.set_typing(&a, false));
+        assert!(!r.set_typing(&a, false));
+    }
 }
 
 /// ADR 0032 "name hashes only": nothing a room holds that identifies a person or a video reaches a `{:?}`
