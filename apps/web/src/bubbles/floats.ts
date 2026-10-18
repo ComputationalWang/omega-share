@@ -205,6 +205,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     layer.append(outer);
     return { outer, motion, p, who, whoText, text, textNode, dots, twin, twinSay, state: FREE, typing: false, dot: -1, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, stacked: false, measured: false, rise: 0, alpha: 1, leaveAt: 0 };
   });
+  /** Typing on, not yet a whole step: no node yet (where their head is, and since when). */
+  const waiting = new Map<MemberId, { x: number; y: number; since: number }>();
   /** Live bubbles, newest first, rebuilt per resolve (no allocation). */
   const order: Slot[] = [];
   let seq = 0;
@@ -273,7 +275,12 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       any = true;
       if (s.measured) paint(s, now);
     }
-    if (any) run(now);
+    for (const [id, w] of waiting) {
+      if (now - w.since < FLOAT_LIFE_MS / FLOAT_RISE) continue;
+      waiting.delete(id);
+      startTyping(id, w.x, w.y, now);
+    }
+    if (any || waiting.size > 0) run(now);
   };
 
   const run = (now: number): void => {
@@ -451,12 +458,33 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     run(now);
   };
 
+  /** Typing dots for `id` at (x, y): a pool node with three dots in place of words. */
+  const startTyping = (id: MemberId, x: number, y: number, now: number): void => {
+    const s = take(id);
+    if (s === null) return;
+    s.startedAt = now;
+    s.typing = true;
+    s.p.className = "ui-float is-typing";
+    s.p.style.setProperty("--tint", "");
+    s.twin.classList.remove("is-shout", "is-action");
+    s.stacked = false;
+    s.who.hidden = true;
+    s.whoText.data = "";
+    s.textNode.data = "";
+    s.dots.hidden = false;
+    s.dots.setAttribute("data-testid", "typing-dots");
+    s.twinSay.dataset["who"] = "";
+    s.twinSay.dataset["say"] = "…";
+    show(s, { x, y }, now);
+  };
+
   return {
     say(m) {
       const now = o.now();
       const elapsed = Number.isNaN(m.startedAt) ? 0 : Math.max(0, now - m.startedAt);
       if (elapsed >= FLOAT_LIFE_MS) return;
       // A line replaces its speaker's typing dots.
+      waiting.delete(m.id);
       for (const s of slots) if (s.typing && s.speaker === m.id) free(s);
       // FLOAT_PER_SPEAKER per speaker: their oldest goes.
       for (;;) {
@@ -494,31 +522,24 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     },
     typing(id, on, at) {
       if (!on) {
+        waiting.delete(id);
         for (const t of slots) if (t.typing && t.speaker === id) free(t);
         return;
       }
-      // One already up; a leaving one is left to go.
+      // One already up or waiting; a leaving one is left to go.
+      if (waiting.has(id)) return;
       for (const t of slots) if (t.typing && t.state === LIVE && t.speaker === id) return;
-      let s: Slot | null = null;
-      s = take(id);
-      if (s === null) return;
+      // Shown once on for a whole step (QA OME-1401): a line straight after the first keystroke costs no node.
       const now = o.now();
-      s.startedAt = now;
-      s.typing = true;
-      s.p.className = "ui-float is-typing";
-      s.p.style.setProperty("--tint", "");
-      s.twin.classList.remove("is-shout", "is-action");
-      s.stacked = false;
-      s.who.hidden = true;
-      s.whoText.data = "";
-      s.textNode.data = "";
-      s.dots.hidden = false;
-      s.dots.setAttribute("data-testid", "typing-dots");
-      s.twinSay.dataset["who"] = "";
-      s.twinSay.dataset["say"] = "…";
-      show(s, at, now);
+      waiting.set(id, { x: at.x, y: at.y, since: now });
+      run(now);
     },
     move(id, x, y) {
+      const w = waiting.get(id);
+      if (w !== undefined) {
+        w.x = x;
+        w.y = y;
+      }
       for (const s of slots) if (s.state !== FREE && s.speaker === id) anchor(s, x, y);
     },
     settle(id, x, y) {

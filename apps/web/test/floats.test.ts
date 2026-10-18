@@ -624,9 +624,10 @@ describe("typing", () => {
   const typingOf = (layer: HTMLElement): HTMLElement[] => [...layer.querySelectorAll<HTMLElement>(".ui-float.is-typing")].filter((p) => p.closest<HTMLElement>(".float-slot")?.hidden === false);
 
   test("typing on shows three dots in a pool node: no chat-message, no node created, one node per member", async () => {
-    const { floats, layer, slots, shown, texts } = await setup();
+    const { floats, layer, slots, shown, texts, advance } = await setup();
     floats.typing("a", true, { x: 480, y: 300 });
     floats.typing("a", true, { x: 480, y: 300 });
+    advance(2 * STEP + 1);
     expect(slots()).toHaveLength(16);
     expect(shown()).toHaveLength(1);
     expect(texts()).toEqual([]);
@@ -635,8 +636,9 @@ describe("typing", () => {
   });
 
   test("typing off frees its node", async () => {
-    const { floats, layer, shown } = await setup();
+    const { floats, layer, shown, advance } = await setup();
     floats.typing("a", true, { x: 480, y: 300 });
+    advance(2 * STEP + 1);
     floats.typing("a", false, { x: 480, y: 300 });
     floats.typing("b", false, { x: 480, y: 300 });
     expect(shown()).toHaveLength(0);
@@ -644,9 +646,10 @@ describe("typing", () => {
   });
 
   test("a real bubble from the same member replaces it; another member's doesn't", async () => {
-    const { floats, layer, shown, texts } = await setup();
+    const { floats, layer, shown, texts, advance } = await setup();
     floats.typing("a", true, { x: 480, y: 300 });
     floats.typing("b", true, { x: 200, y: 300 });
+    advance(2 * STEP + 1);
     floats.say(say("a", "hi", 480));
     expect(texts()).toEqual(["hi"]);
     expect(shown()).toHaveLength(2);
@@ -658,6 +661,7 @@ describe("typing", () => {
   test("the dots step on the clock, one lit at a time; it never rises, fades or expires", async () => {
     const { floats, layer, frame, advance, FLOAT_LIFE_MS } = await setup();
     floats.typing("a", true, { x: 480, y: 300 });
+    advance(2 * STEP + 1);
     frame();
     const [p] = typingOf(layer);
     const seen = new Set<string | undefined>();
@@ -677,14 +681,16 @@ describe("typing", () => {
   test("reduced motion: the dots are static (no step writes)", async () => {
     const { floats, layer, frame, advance } = await setup({ reduced: true });
     floats.typing("a", true, { x: 480, y: 300 });
+    advance(2 * STEP + 1);
     frame();
     advance(STEP * 6);
     expect(typingOf(layer)[0]?.dataset["dot"]).toBeUndefined();
   });
 
   test("it stays nearest the head: another member's older bubble in its way moves up over it", async () => {
-    const { floats, frame, push, layer } = await setup();
+    const { floats, frame, push, layer, advance } = await setup();
     floats.typing("a", true, { x: 480, y: 300 });
+    advance(2 * STEP + 1);
     frame();
     floats.say(say("b", "over", 500));
     frame();
@@ -693,8 +699,9 @@ describe("typing", () => {
   });
 
   test("move carries the dots; keep (whose lines show) leaves them, typing off takes them", async () => {
-    const { floats, layer } = await setup();
+    const { floats, layer, advance } = await setup();
     floats.typing("a", true, { x: 480, y: 300 });
+    advance(2 * STEP + 1);
     floats.move("a", 300, 280);
     expect(typingOf(layer)[0]?.closest<HTMLElement>(".float-slot")?.style.transform).toBe("translate(300px, 280px)");
     floats.keep(new Set());
@@ -703,26 +710,27 @@ describe("typing", () => {
 });
 
 test("two typers stack (dots keep their tail), and dots never rise, so the older pushed up near the room's top stays (OME-1390)", async () => {
-  const { floats, frame, layer } = await setup();
+  const { floats, frame, layer, advance } = await setup();
   // Head at 140: the newer dots' top is 106, the older (tail and all) pushed to 69; only a 24 px rise would cross the top at 60.
   floats.typing("a", true, { x: 480, y: 140 });
   floats.typing("b", true, { x: 480, y: 140 });
+  advance(2 * STEP + 1);
   frame();
   expect(layer.querySelectorAll(".ui-float.is-typing.is-leaving")).toHaveLength(0);
 });
 
 test("a typing node sent away (pushed off the top) doesn't block a fresh typing on: the dots come back at once (OME-1390)", async () => {
-  const { floats, frame, layer } = await setup();
+  const { floats, frame, layer, advance } = await setup();
   // Head at 100: the older dots, pushed over the newer, would cross the room's top at 60 and go.
   floats.typing("a", true, { x: 480, y: 100 });
   floats.typing("b", true, { x: 480, y: 100 });
+  advance(2 * STEP + 1);
   frame();
   expect(layer.querySelectorAll(".ui-float.is-typing.is-leaving")).toHaveLength(1);
-  const gone = layer.querySelector<HTMLElement>(".ui-float.is-typing.is-leaving");
   floats.typing("a", true, { x: 300, y: 300 });
+  advance(2 * STEP + 1);
   const live = [...layer.querySelectorAll<HTMLElement>(".ui-float.is-typing:not(.is-leaving)")].filter((p) => p.closest<HTMLElement>(".float-slot")?.hidden === false);
   expect(live).toHaveLength(2);
-  expect(gone?.classList.contains("is-leaving")).toBe(true);
 });
 
 // QA OME-1401 (perf): a line sent straight after the first keystroke (a paste, a quick word) must cost the room nothing
