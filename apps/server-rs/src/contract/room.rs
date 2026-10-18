@@ -2,19 +2,24 @@
 //! messages belong to later slices.
 
 use super::Obj;
-use super::constants::{ACCESSORY_COUNT, AVATAR_COUNT, FLOOR_CELLS, MAX_ROOM_MEMBERS, QUEUE_MAX, SEAT_COUNT, TINT_COUNT};
+use super::constants::{
+    ACCESSORY_COUNT, AVATAR_COUNT, DICE_MAX_SIDES, DICE_MIN_SIDES, FLOOR_CELLS, MAX_ROOM_MEMBERS, QUEUE_MAX, SEAT_COUNT, TINT_COUNT,
+};
 use serde::{Deserialize, Serialize};
 
-/// A bounded index: a JSON integer in `0..count`. Floats, strings and negatives are refused.
+/// A bounded index: a JSON integer in `0..count` (or `min..count`). Floats, strings and negatives are refused.
 macro_rules! bounded_index {
     ($(#[$meta:meta])* $name:ident, $count:expr) => {
+        bounded_index!($(#[$meta])* $name, 0, $count);
+    };
+    ($(#[$meta:meta])* $name:ident, $min:expr, $count:expr) => {
         $(#[$meta])*
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
         pub struct $name(u8);
 
         impl $name {
             pub fn new(n: u64) -> Option<Self> {
-                u8::try_from(n).ok().filter(|v| usize::from(*v) < $count).map(Self)
+                u8::try_from(n).ok().filter(|v| ($min..$count).contains(&usize::from(*v))).map(Self)
             }
 
             pub fn get(self) -> u8 {
@@ -61,6 +66,18 @@ bounded_index!(
     /// `AccessorySchema`: an avatar accessory, an integer in `0..ACCESSORY_COUNT`; 0 is none (OME-1387).
     Accessory,
     ACCESSORY_COUNT
+);
+bounded_index!(
+    /// `DiceSidesSchema`: a die's faces, an integer in `DICE_MIN_SIDES..=DICE_MAX_SIDES` (OME-1423).
+    DiceSides,
+    usize::from(DICE_MIN_SIDES),
+    usize::from(DICE_MAX_SIDES) + 1
+);
+bounded_index!(
+    /// A rolled face, `1..=DICE_MAX_SIDES`; `rolled` also checks it is at most its `sides`.
+    DieValue,
+    1,
+    usize::from(DICE_MAX_SIDES) + 1
 );
 bounded_index!(
     /// One coordinate of a floor cell: an integer in `0..FLOOR_CELLS`.

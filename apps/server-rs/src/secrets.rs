@@ -2,6 +2,7 @@
 //! Randomness is the OS CSPRNG (`getrandom`), never a seeded generator. Nothing here prints a secret.
 
 use crate::contract::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken, RoomId, ShareToken};
+use crate::contract::room::{DiceSides, DieValue};
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
@@ -137,6 +138,26 @@ pub fn secret_matches(hash: Option<&[u8]>, secret: &str) -> bool {
     hash.is_some_and(|h| bool::from(hash_secret(secret).as_slice().ct_eq(h)))
 }
 
+/// A die face in `1..=sides`, uniform: draws at or above the largest multiple of `sides` below 2^32 are drawn
+/// again, so no face is favoured (no modulo bias). Each draw is rejected with probability under `sides` / 2^32.
+fn uniform(sides: u32, mut draw: impl FnMut() -> Result<u32, EntropyError>) -> Result<u32, EntropyError> {
+    let sides = sides.max(1);
+    let span = 1u64 << 32;
+    let limit = span - span % u64::from(sides);
+    loop {
+        let x = draw()?;
+        if u64::from(x) < limit {
+            return Ok(x % sides + 1);
+        }
+    }
+}
+
+/// `/roll` (OME-1423): a die face from the OS CSPRNG.
+pub fn roll(sides: DiceSides) -> Result<DieValue, EntropyError> {
+    let face = uniform(u32::from(sides.get()), || random::<4>().map(u32::from_le_bytes))?;
+    DieValue::new(u64::from(face)).ok_or(EntropyError)
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::indexing_slicing, reason = "tests")]
 mod tests {
@@ -151,7 +172,10 @@ mod tests {
         let mut draws = [u32::MAX - 4].into_iter();
         assert_eq!(uniform(6, || draws.next().ok_or(EntropyError)), Ok(6));
         let mut draws = [5, 11].into_iter();
-        assert_eq!((uniform(6, || draws.next().ok_or(EntropyError)), uniform(6, || Ok(11))), (Ok(6), Ok(6)));
+        assert_eq!(
+            (uniform(6, || draws.next().ok_or(EntropyError)), uniform(6, || Ok(11))),
+            (Ok(6), Ok(6))
+        );
         // A power of two rejects nothing.
         assert_eq!(uniform(2, || Ok(u32::MAX)), Ok(2));
         assert_eq!(uniform(6, || Err(EntropyError)), Err(EntropyError));

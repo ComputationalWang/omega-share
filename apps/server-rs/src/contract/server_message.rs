@@ -11,7 +11,7 @@ use super::generic_embed::AnyEmbed;
 use super::ids::{MemberId, QueueItemId, ResumeToken, ShareToken};
 use super::js_compat::utf16_len;
 use super::layout::RoomLayout;
-use super::room::{Accessory, ControlPolicy, FloorCell, SeatIndex, Tint};
+use super::room::{Accessory, ControlPolicy, DiceSides, DieValue, FloorCell, SeatIndex, Tint};
 use super::state::{
     EmoteKind, Member, PingId, PlaybackState, QueueItem, RoomState, ServerTime, layout, nullable, playback_matches_embed, present,
     queue_is_valid,
@@ -219,6 +219,7 @@ server_messages! {
     }
     "title-changed" TitleChanged TitleChangedWire { title: RoomTitle, by: MemberId }
     "emoted" Emoted EmotedWire { member_id: MemberId, kind: EmoteKind }
+    "rolled" Rolled RolledWire { member_id: MemberId, sides: DiceSides, value: DieValue }
     "member-muted" MemberMuted MemberMutedWire { member_id: MemberId, muted: bool }
     "control-policy-changed" ControlPolicyChanged ControlPolicyChangedWire { policy: ControlPolicy, by: MemberId }
     "room-full" RoomFull RoomFullWire {}
@@ -274,6 +275,7 @@ impl ServerMessage {
                 }
             }
             Self::QueueChanged { queue, .. } if !queue_is_valid(queue) => Err("invalid queue"),
+            Self::Rolled { sides, value, .. } if value.get() > sides.get() => Err("value above sides"),
             _ => Ok(()),
         }
     }

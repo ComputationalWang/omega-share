@@ -20,6 +20,7 @@ use crate::queue::{self, QueueActor, QueueAddRefusal, QueueRefusal};
 use crate::rate_limit::TokenBucket;
 use crate::registry::RoomInner;
 use crate::room::{SitResult, WalkResult};
+use crate::secrets;
 use std::sync::Arc;
 
 /// What arrived on the socket.
@@ -125,6 +126,8 @@ fn admit_type(
     }
     match msg {
         ClientMessage::Chat { .. } => admit!(chat, "too many chat messages, slow down"),
+        // `/roll` is a chat line to the room (OME-1423).
+        ClientMessage::Roll { .. } => admit!(chat, "too many chat messages, slow down"),
         ClientMessage::Sit { .. } => admit!(sit, "too many seat changes, slow down"),
         ClientMessage::Control { .. } => {
             // Refused in `handle`, before any bucket: a guest can't drain the room's control budget (ADR 0030 section 4).
@@ -357,6 +360,25 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, session: Optio
                 },
             );
         }
+        ClientMessage::Roll { sides } => {
+            if inner.room.is_muted(member) {
+                send_error(inner, conn.id, ErrorCode::Muted, "the room's owner muted you");
+                return;
+            }
+            clear_typing(inner, member);
+            // No entropy: dropped, nothing logged (the value, like a chat line, never is).
+            let Ok(value) = secrets::roll(sides) else {
+                return;
+            };
+            publish_msg(
+                inner,
+                &ServerMessage::Rolled {
+                    member_id: member.clone(),
+                    sides,
+                    value,
+                },
+            );
+        }
         ClientMessage::Control { url, playing, position } => {
             if inner.room.control_policy() == ControlPolicy::Owner && !owner {
                 send_error(
@@ -384,7 +406,7 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, session: Optio
                 not_owner(app, inner, conn);
                 return;
             }
-            owner_edits::set_layout(app, inner, member, layout);
+            owner_edits::set_layout(app, inner, conn.id, member, layout);
         }
         ClientMessage::TitleSet { title } => {
             if !owner {

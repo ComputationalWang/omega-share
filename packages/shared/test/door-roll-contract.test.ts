@@ -13,13 +13,16 @@ import {
   parseClientMessage,
   parseServerMessage,
   type Furniture,
-  type RoomLayout,
 } from "../src/index";
 
 // Doors between rooms and /roll dice (OME-1423, ADR 0054).
 
-const accepts = (schema: v.GenericSchema, input: unknown): void => expect(v.safeParse(schema, input).issues).toBeUndefined();
-const rejects = (schema: v.GenericSchema, input: unknown): void => expect(v.safeParse(schema, input).success).toBe(false);
+const accepts = (schema: v.GenericSchema, input: unknown): void => {
+  expect(v.safeParse(schema, input).issues).toBeUndefined();
+};
+const rejects = (schema: v.GenericSchema, input: unknown): void => {
+  expect(v.safeParse(schema, input).success).toBe(false);
+};
 
 const SEATS = [[1, 5], [2, 4], [4, 2], [5, 1], [3, 7], [4, 6], [6, 4], [7, 3]] as const;
 const base = (...more: unknown[]): unknown => ({
@@ -79,7 +82,7 @@ describe("the door piece", () => {
   });
 
   test("hasDoorTo says whether any door leads to a room (a door may not lead to its own room)", () => {
-    const l = v.parse(RoomLayoutSchema, base(door(3, 0, { target: "film-club" }), door(0, 3, { target: "lobby" }))) as RoomLayout;
+    const l = v.parse(RoomLayoutSchema, base(door(3, 0, { target: "film-club" }), door(0, 3, { target: "lobby" })));
     expect(hasDoorTo(l, "lobby")).toBe(true);
     expect(hasDoorTo(l, "film-club")).toBe(true);
     expect(hasDoorTo(l, "film")).toBe(false);
@@ -103,7 +106,7 @@ describe("roll", () => {
   });
 
   test("rolled carries who, the die and a value in 1..sides", () => {
-    const rolled = { type: "rolled", memberId: "m1", sides: 6, value: 4 };
+    const rolled = { type: "rolled", memberId: "m1", sides: 6, value: 4 } as const;
     expect(parseServerMessage(JSON.stringify(rolled))).toEqual(rolled);
     for (const value of [1, 6]) accepts(ServerMessageSchema, { ...rolled, value });
     for (const value of [0, 7, 2.5, -1, "4", null]) rejects(ServerMessageSchema, { ...rolled, value });

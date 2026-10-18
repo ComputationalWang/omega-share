@@ -47,7 +47,7 @@ describe("doors (OME-1423)", () => {
     const { owner } = await ownRoom();
     const layout = withDoors("lobby", "no-such-room");
     owner.client.send({ type: "layout-set", layout });
-    expect((await owner.client.next("layout-changed")).layout).toEqual(layout);
+    expect(JSON.stringify((await owner.client.next("layout-changed")).layout)).toBe(JSON.stringify(layout));
   });
 
   binaryOnly("a third door is a bad_message and changes nothing", async () => {
@@ -101,7 +101,7 @@ describe("roll (OME-1423)", () => {
       expect((await a.client.next("error")).code).toBe("bad_message");
     }
     await a.client.none("rolled", 100);
-    const early = await Client.open((t ?? fail()).ws());
+    const early = await Client.open(t.ws());
     clients.push(early);
     early.send({ type: "roll", sides: 6 });
     expect((await early.next("error")).code).toBe("not_joined");

@@ -9,7 +9,7 @@ use super::constants::{MAX_CLIENT_MESSAGE_BYTES, MAX_EMBED_URL_LENGTH, MAX_POSIT
 use super::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken};
 use super::js_compat::utf16_len;
 use super::layout::{RoomLayout, RoomLayoutInput};
-use super::room::{Accessory, Avatar, ControlPolicy, FloorCell, FloorCellInput, QueueIndex, SeatIndex, Tint};
+use super::room::{Accessory, Avatar, ControlPolicy, DiceSides, FloorCell, FloorCellInput, QueueIndex, SeatIndex, Tint};
 use super::text::{ChatText, Nickname, RoomTitle};
 use super::{Obj, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -114,6 +114,9 @@ pub enum ClientMessage {
     Chat {
         text: ChatText,
     },
+    Roll {
+        sides: DiceSides,
+    },
     Ping {
         id: PingId,
     },
@@ -176,6 +179,7 @@ impl ClientMessage {
             Self::SetAccessory { .. } => "set-accessory",
             Self::Typing { .. } => "typing",
             Self::Chat { .. } => "chat",
+            Self::Roll { .. } => "roll",
             Self::Ping { .. } => "ping",
             Self::Control { .. } => "control",
             Self::Status { .. } => "status",
@@ -306,6 +310,12 @@ struct ChatW {
 
 #[derive(Deserialize, Validate)]
 #[serde(deny_unknown_fields)]
+struct RollW {
+    sides: DiceSides,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
 struct PingW {
     #[validate(range(min = 0, max = PING_ID_MAX))]
     id: u32,
@@ -421,6 +431,8 @@ enum Wire {
     Typing(TypingW),
     #[serde(rename = "chat")]
     Chat(ChatW),
+    #[serde(rename = "roll")]
+    Roll(RollW),
     #[serde(rename = "ping")]
     Ping(PingW),
     #[serde(rename = "control")]
@@ -463,6 +475,7 @@ impl Validate for Wire {
             Self::SetAccessory(m) => m.validate(),
             Self::Typing(m) => m.validate(),
             Self::Chat(m) => m.validate(),
+            Self::Roll(m) => m.validate(),
             Self::Ping(m) => m.validate(),
             Self::Control(m) => m.validate(),
             Self::Status(m) => m.validate(),
@@ -502,6 +515,7 @@ fn convert(wire: Wire) -> ClientMessage {
         Wire::SetAccessory(m) => ClientMessage::SetAccessory { accessory: m.accessory },
         Wire::Typing(m) => ClientMessage::Typing { on: m.on },
         Wire::Chat(m) => ClientMessage::Chat { text: m.text },
+        Wire::Roll(m) => ClientMessage::Roll { sides: m.sides },
         Wire::Ping(m) => ClientMessage::Ping { id: PingId(m.id) },
         Wire::Control(m) => ClientMessage::Control {
             url: ControlUrl(m.url),

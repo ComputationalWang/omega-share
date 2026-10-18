@@ -18,11 +18,17 @@ use crate::registry::RoomInner;
 use crate::store::StoreError;
 
 /// Last write wins; seats keep their indices, so nobody is unseated (ADR 0028 section 6).
-pub fn set_layout(app: &App, inner: &mut RoomInner, by: &MemberId, layout: RoomLayout) {
+/// A door to this very room is answered `bad_message` to `sender` only, like a blocked title (ADR 0054). A door to a
+/// room that doesn't exist is fine: the client shows its room-not-found page.
+pub fn set_layout(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberId, layout: RoomLayout) {
     if inner.closed {
         return;
     }
     if layout == *inner.room.layout() {
+        return;
+    }
+    if layout.has_door_to(&inner.room.id) {
+        refuse(inner, sender, "a door can't lead to its own room");
         return;
     }
     let result = app.store().rooms().set_layout(&inner.room.id, &layout);
@@ -48,6 +54,19 @@ fn persisted(event: LogEvent, result: Result<(), StoreError>) -> bool {
     }
 }
 
+/// `bad_message` to `sender` only, for a valid frame the room refuses: it doesn't count toward the 4400 close.
+fn refuse(inner: &mut RoomInner, sender: ConnId, text: &str) {
+    if let Some(message) = ErrorMessage::new(text)
+        && let Some(frame) = encode_frame(&ServerMessage::Error {
+            code: ErrorCode::BadMessage,
+            message,
+            retry_after_ms: None,
+        })
+    {
+        send_to(inner, sender, &frame);
+    }
+}
+
 /// A title the blocklist refuses is answered with an `error` (`bad_message`, "that title isn't allowed") to
 /// `sender` only: a valid frame, so it doesn't count toward the 4400 close.
 pub fn set_title(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberId, title: RoomTitle) {
@@ -58,15 +77,7 @@ pub fn set_title(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberId
         return;
     }
     if app.title_blocked(title.as_str()) {
-        if let Some(message) = ErrorMessage::new("that title isn't allowed")
-            && let Some(frame) = encode_frame(&ServerMessage::Error {
-                code: ErrorCode::BadMessage,
-                message,
-                retry_after_ms: None,
-            })
-        {
-            send_to(inner, sender, &frame);
-        }
+        refuse(inner, sender, "that title isn't allowed");
         return;
     }
     let result = app.store().rooms().set_title(&inner.room.id, Some(&title));
@@ -163,7 +174,7 @@ mod tests {
         let mut f = fixture(config(&[]), true);
         let layout = smaller_layout();
         let mut inner = f.cell.lock();
-        set_layout(&f.app, &mut inner, &by(), layout.clone());
+        set_layout(&f.app, &mut inner, ConnId(1), &by(), layout.clone());
         assert_eq!(*inner.room.layout(), layout);
         drop(inner);
         assert_eq!(f.app.store().rooms().list_rooms().unwrap()[0].layout, layout);
@@ -182,7 +193,7 @@ mod tests {
         // Closed but its row still there, so only the closed check can stop the edits.
         f.cell.lock().closed = true;
         let mut inner = f.cell.lock();
-        set_layout(&f.app, &mut inner, &by(), smaller_layout());
+        set_layout(&f.app, &mut inner, ConnId(1), &by(), smaller_layout());
         set_title(&f.app, &mut inner, ConnId(1), &by(), title("Friday films"));
         set_control_policy(&f.app, &mut inner, &by(), ControlPolicy::Owner);
         assert!(inner.room.title().is_none());
@@ -196,7 +207,7 @@ mod tests {
     fn the_same_layout_changes_nothing_and_says_nothing() {
         let mut f = fixture(config(&[]), true);
         let mut inner = f.cell.lock();
-        set_layout(&f.app, &mut inner, &by(), default_layout());
+        set_layout(&f.app, &mut inner, ConnId(1), &by(), default_layout());
         drop(inner);
         assert!(frames(&mut f.other).is_empty());
     }
@@ -205,7 +216,7 @@ mod tests {
     fn a_failed_store_write_changes_nothing_for_every_edit() {
         let mut f = fixture(config(&[]), false);
         let mut inner = f.cell.lock();
-        set_layout(&f.app, &mut inner, &by(), smaller_layout());
+        set_layout(&f.app, &mut inner, ConnId(1), &by(), smaller_layout());
         set_title(&f.app, &mut inner, ConnId(1), &by(), title("Friday films"));
         set_control_policy(&f.app, &mut inner, &by(), ControlPolicy::Owner);
         assert_eq!(*inner.room.layout(), default_layout());
@@ -233,6 +244,36 @@ mod tests {
             (got[0]["type"].as_str(), got[0]["title"].as_str(), got[0]["by"].as_str()),
             (Some("title-changed"), Some("Friday films"), Some(BY))
         );
+    }
+
+    /// The default layout plus a door to `target` (ADR 0054).
+    fn with_door(target: &str) -> RoomLayout {
+        let mut v: Value = serde_json::from_str(&default_layout().to_json()).unwrap();
+        v["furniture"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"kind":"door","col":3,"row":0,"facing":"sw","target":target}));
+        RoomLayout::parse_input(v.to_string().as_bytes()).unwrap()
+    }
+
+    // apps/server/test/door-roll.test.ts (OME-1423)
+    #[test]
+    fn a_door_to_its_own_room_is_refused_to_the_sender_only_and_one_elsewhere_is_saved() {
+        let mut f = fixture(config(&[]), true);
+        let mut inner = f.cell.lock();
+        let own = with_door(inner.room.id.as_str());
+        set_layout(&f.app, &mut inner, ConnId(1), &by(), own);
+        assert_eq!(*inner.room.layout(), default_layout());
+        drop(inner);
+        assert!(frames(&mut f.other).is_empty());
+        assert_eq!(
+            frames(&mut f.sender),
+            [serde_json::json!({"type": "error", "code": "bad_message", "message": "a door can't lead to its own room"})]
+        );
+        let elsewhere = with_door("no-such-room");
+        let mut inner = f.cell.lock();
+        set_layout(&f.app, &mut inner, ConnId(1), &by(), elsewhere.clone());
+        assert_eq!(*inner.room.layout(), elsewhere);
     }
 
     // apps/server/test/room-owner.test.ts ROOM_TITLE_BLOCKLIST on rename
