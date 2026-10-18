@@ -30,6 +30,7 @@ assets/
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
   accessories/accessories.png|json  # OME-1388 (lazy): 256×256 PNG-8, four head accessories, each a hat per avatar frame (theme hat format)
+  accessories/bare.png|json         # OME-1409 (lazy): 1024×512 PNG-8, Pip and Mo bare-headed for every avatar frame key (32×64 cells)
   store/                # set j: Chrome Web Store kit (extension icons 16/32/48/128, 440×280 promo tile, two 1280×800 screenshots)
   site/                 # set m (M9): the website's favicon.ico + PNGs, apple-touch 180, manifest 192/512 + maskable 512, og-card.png 1200×630,
                         #   how-1-find / how-2-share / how-3-watch.png landing panels (368×224 each)
@@ -881,7 +882,27 @@ the theme hat loader works per accessory: the overlay for avatar frame `K` is `<
 | `headphones` (`headphones/hat/`) | Lilac band over the top (parts from dark hair), teal cups; the far cup peeks past the face | `false` | 74 |
 | `beanie` (`beanie/hat/`) | Navy knit with a ribbed cuff and a mustard pom (never red and white like the Santa hat); takes off Pip's beanie and Mo's bucket hat like the Santa hat | `true` | 17 |
 
-- Bytes: `accessories.png` 3 970 + `accessories.json` 8 481 gz = **12 451 B**, all lazy. Each key carries only `frame` + `anchor` (all the hat loader reads), minified: 201 KB raw to parse.
+Each value also carries **`bare`** (OME-1409): `true` for `partyhat`, `crown` and `headphones`, `false` for `beanie`.
+
+### Bare heads under an accessory (`accessories/bare.json`, OME-1409, lazy)
+
+An overlay can't erase pixels, so a hat worn over Pip's beanie or Mo's bucket hat would sit on top of it. For an accessory with `bare: true`,
+Pip and Mo take their headwear off: Pip shows a messy ginger mop with two cowlick spikes, and Mo shows a short dark crop (beard and sideburn stay).
+Their overlays in `accessories.json` are drawn for those bare heads.
+
+`meta.omega.bare` = `{ prefix: "bare/", avatars: ["pip", "mo"], accessories: ["partyhat", "crown", "headphones"] }`. Frame `bare/K` exists
+for every avatar frame key `K` of Pip and Mo (104 each: idle/blink, `breathe`, `walk`, `walk8`, `sit`, `wave`, `cheer`, `yawn`, all four
+dirs; dance reuses walk). Each frame is a full 32×64 cell with the avatar sheets' anchor (`16/32`, `61/64`), so it swaps in for the texture
+directly. Keys carry only `frame` + `anchor`. Identical cells share a rect (200 rects for 208 keys).
+
+Web rule: when avatar `A` in `bare.avatars` wears accessory `X` with `accessories[X].bare`, draw texture `bare/K` instead of `K`, then the
+overlay `<X prefix>K` as usual. In every other case (Juno, Kiki, the beanie, no accessory) nothing changes.
+
+- Bytes: `bare.png` 15 445 + `bare.json` 1 488 gz = **16 933 B**, lazy (fetched only when Pip or Mo wears a `bare` accessory).
+- `src/accessories.ts` (`BARE`) defines the bare looks. `src/accessories.test.ts` checks that every key is present, the cell shape and
+  anchor, and PNG-8 under 16 KB. The contact sheet `preview/accessories@4x.png` shows Pip and Mo on their bare frames.
+
+- Bytes: `accessories.png` 4 234 + `accessories.json` 8 460 gz = **12 694 B**, all lazy (OME-1409 refitted Pip's and Mo's overlays to their bare heads: +243 B). Each key carries only `frame` + `anchor` (all the hat loader reads), minified: 201 KB raw to parse.
 - Previews: `preview/accessories@4x.png` (contact sheet: a row per avatar; per accessory idle SE, idle NW, walk SW, sit SE, sit NE) and
   `preview/accessories-sheet@2x.png`. Source: `src/accessories.ts`; `src/accessories.test.ts` checks keys, PNG-8 and the size cap.
 
@@ -1058,10 +1079,11 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `themes/christmas/christmas.png` + `.json` (OME-1187, lazy) | 2 280 + 3 309 gz |
 | `themes/valentines/valentines.png` + `.json` (OME-1187, lazy) | 1 117 + 3 224 gz |
 | `themes/easter/easter.png` + `.json` (OME-1187, lazy) | 2 890 + 3 532 gz |
-| `accessories/accessories.png` + `.json` (OME-1388, lazy) | 3 970 + 8 481 gz |
+| `accessories/accessories.png` + `.json` (OME-1388, lazy) | 4 234 + 8 460 gz |
+| `accessories/bare.png` + `.json` (OME-1409, lazy) | 15 445 + 1 488 gz |
 | **total shipped art** | **131 058 B (≈ 128.0 KB) of 300 KB** (1 KB = 1 024 B, as in the budget: 307 200 B). Eager 69 528 B; lazy (sets d + l's walk, g, h's edit kit, i's, j's and k's scenes, not-found) 61 530 B |
 
-**Measured total now: 218 393 B (≈ 213.3 KB) of 300 KB**, eager 99 106, lazy 119 287 (`bun assets/src/build.ts`). Rows not named below are
+**Measured total now: 255 904 B (≈ 249.9 KB) of 300 KB**, eager 99 734, lazy 156 170 (OME-1409) (`bun assets/src/build.ts`). Rows not named below are
 older hand-copied figures; the build's printout is the source of truth.
 
 The Halloween theme (OME-1185) adds **7 231 B (≈ 7.1 KB)**, all lazy and fetched only during the theme (cap: 40 KB per theme): `halloween.png` 3 513 +
@@ -1080,6 +1102,9 @@ Catalogue v3 (OME-1348) adds **7 493 B (≈ 7.3 KB)** against `main` (218 779 �
 
 Head accessories (OME-1388) add **12 451 B (≈ 12.2 KB)**, all lazy: `accessories.png` 3 970 + `accessories.json` 8 481 gz. No existing file
 changes. Measured total: 238 750 B of 307 200.
+
+Bare heads (OME-1409) add **17 154 B (≈ 16.8 KB)** as `bun assets/src/build.ts` measures it (238 750 → 255 904 of 307 200), all lazy:
+`bare.png` 15 445 + `bare.json` 1 488 gz, and `accessories.png` +264 / `.json` −19 gz for the refitted Pip and Mo overlays.
 
 Set (p) (OME-1104) adds **13 652 B (≈ 13.3 KB)** against `main` as `bun assets/src/build.ts` measures it (159 946 → 173 598 of 307 200; 174 358 → 188 010 on top of catalogue v2), all lazy:
 `expressions.png` 10 863 + `expressions.json` 2 789 gz. No existing file changes (the avatar and motion sheets are byte-identical).

@@ -59,7 +59,7 @@ import { EASTER } from "./easter";
 import { SINTERKLAAS } from "./sinterklaas";
 import { VALENTINES } from "./valentines";
 import { allAvatarFrames, buildHatFrames, type HatFrame, type ThemeDef } from "./theme";
-import { ACCESSORIES } from "./accessories";
+import { ACCESSORIES, BARE } from "./accessories";
 import * as v from "valibot";
 import { FURNITURE, RoomLayoutInputSchema, footprintCells, type RoomLayout } from "@omega/shared";
 
@@ -1714,7 +1714,7 @@ function buildPresets(set: { pieces: PieceMeta[]; all: FurnSprites }): void {
 
 const THEMES: readonly ThemeDef[] = [HALLOWEEN, SINTERKLAAS, CHRISTMAS, VALENTINES, EASTER];
 const THEME_FILES = THEMES.flatMap((t) => [`themes/${t.id}/${t.id}.png`, `themes/${t.id}/${t.id}.json`]);
-const ACCESSORY_FILES = ["accessories/accessories.png", "accessories/accessories.json"];
+const ACCESSORY_FILES = ["accessories/accessories.png", "accessories/accessories.json", "accessories/bare.png", "accessories/bare.json"];
 
 /** `themes/<id>/<id>.png` + `.json`: wall/window decor, effect frames and a hat for every avatar frame (≤ 40 KB per theme).
  *  Hat frames with identical pixels share one rect; each key keeps its own anchor (the avatar's floor point). */
@@ -1844,7 +1844,8 @@ function buildTheme(t: ThemeDef, avatarImages: Map<string, Uint8Array>): void {
 /** `accessories/accessories.png` + `.json` (OME-1388, lazy): four head accessories, each a hat for every avatar frame, built and anchored
  *  exactly like a theme's hat. `meta.omega.accessories[id]` has the theme manifest's `hat` shape, so the web reuses the hat loader. */
 function buildAccessories(avatarImages: Map<string, Uint8Array>): void {
-  const hats = new Map(ACCESSORIES.map((a) => [a.id, buildHatFrames(a.id, a.hat)]));
+  const hats = new Map(ACCESSORIES.map((a) => [a.id, buildHatFrames(a.id, a.hat, a.bare ? BARE : undefined)]));
+  const bareImages = buildBare();
   // Hat frames with identical pixels share one rect (per accessory and across them); each key keeps its own anchor.
   const unique = new Map<string, RoomFrame>();
   const rectOf = new Map<string, string>();
@@ -1873,7 +1874,7 @@ function buildAccessories(avatarImages: Map<string, Uint8Array>): void {
   registerKeys("accessories", Object.keys(frames));
   mkdirSync(join(ROOT, "accessories"), { recursive: true });
   writeFileSync(join(ROOT, "accessories", "accessories.png"), encodeIndexedPng(packed.w, packed.h, sheet, PALETTE));
-  const accessories = Object.fromEntries(ACCESSORIES.map((a) => [a.id, { prefix: `${a.id}/hat/`, count: hats.get(a.id)?.length ?? 0, rects: rects.get(a.id)?.size ?? 0, replaces: a.hat.replaces }]));
+  const accessories = Object.fromEntries(ACCESSORIES.map((a) => [a.id, { prefix: `${a.id}/hat/`, count: hats.get(a.id)?.length ?? 0, rects: rects.get(a.id)?.size ?? 0, replaces: a.hat.replaces, bare: a.bare }]));
   const atlas = {
     frames,
     animations: {},
@@ -1892,7 +1893,7 @@ function buildAccessories(avatarImages: Map<string, Uint8Array>): void {
     return avatarImages.get(k) ?? (s && render(composeMotion(s.avatar, s.pose, s.dir, s.motion), s.avatar.roles));
   };
   const rows = AVATARS.map((a) => ACCESSORIES.flatMap((acc) => [`${a.id}/idle/se/0`, `${a.id}/idle/nw/0`, `walk/${a.id}/sw/1`, `${a.id}/sit/se/0`, `${a.id}/sit/ne/0`].map((k) => {
-    const b = baseOf(k);
+    const b = (acc.bare ? bareImages.get(k) : undefined) ?? baseOf(k);
     const h = byKey.get(`${acc.id}/hat/${k}`);
     if (!b || !h) throw new Error(`missing ${acc.id} on ${k}`);
     const out = new Uint8Array(CELL.w * CH);
@@ -1902,6 +1903,47 @@ function buildAccessories(avatarImages: Map<string, Uint8Array>): void {
     return `${acc.id}:${k}`;
   })));
   strip("accessories@4x.png", 20, rows, sprites, CELL.w, CH, true);
+}
+
+/** `accessories/bare.png` + `.json` (OME-1409, lazy): Pip and Mo without their beanie / bucket hat, for every avatar frame key, in the
+ *  avatar sheets' 32×64 cell and anchor. The web shows `bare/<key>` instead of `<key>` while they wear an accessory with `bare: true`. */
+function buildBare(): Map<string, Uint8Array> {
+  const images = new Map<string, Uint8Array>();
+  const unique = new Map<string, RoomFrame>();
+  const rectOf = new Map<string, string>();
+  for (const { key, avatar, pose, dir, motion } of allAvatarFrames()) {
+    const b = BARE.get(avatar.id);
+    if (!b) continue;
+    const img = render(composeMotion(b, pose, dir, motion), b.roles);
+    assertInsideCell(`bare/${key}`, img);
+    images.set(key, img);
+    // Identical cells (a back view's blink, for one) share a rect.
+    const sig = Buffer.from(img).toString("base64");
+    if (!unique.has(sig)) unique.set(sig, { key: `b${String(unique.size)}`, w: CELL.w, h: CELL.h, img, ax: FLOOR.x, ay: FLOOR.y });
+    rectOf.set(key, unique.get(sig)?.key ?? "");
+  }
+  // A gutter-free grid of whole cells, like the avatar sheets (rows line up, so PNG filters compress them better than packed rects).
+  const cols = 32, cells = [...unique.values()];
+  const packed = { w: cols * CELL.w, h: pow2(Math.ceil(cells.length / cols) * CELL.h), placed: cells.map((c, i) => ({ ...c, x: (i % cols) * CELL.w, y: Math.floor(i / cols) * CELL.h })) };
+  const sheet = new Uint8Array(packed.w * packed.h);
+  const at = new Map(packed.placed.map((p) => [p.key, p]));
+  for (const p of packed.placed) blit(sheet, packed.w, p.img, p.w, p.h, p.x, p.y);
+  const frames: Record<string, Pick<Frame, "frame" | "anchor">> = {};
+  for (const key of images.keys()) {
+    const p = at.get(rectOf.get(key) ?? "");
+    if (!p) throw new Error(`unpacked bare/${key}`);
+    frames[`bare/${key}`] = { frame: { x: p.x, y: p.y, w: CELL.w, h: CELL.h }, anchor: { x: FLOOR.x / CELL.w, y: FLOOR.y / CELL.h } };
+  }
+  registerKeys("bare", Object.keys(frames));
+  writeFileSync(join(ROOT, "accessories", "bare.png"), encodeIndexedPng(packed.w, packed.h, sheet, PALETTE));
+  const bare = { prefix: "bare/", avatars: [...BARE.keys()], accessories: ACCESSORIES.filter((a) => a.bare).map((a) => a.id) };
+  const atlas = {
+    frames,
+    animations: {},
+    meta: { app: "omega-share assets/src/build.ts", version: "1", image: "bare.png", format: "RGBA8888", size: { w: packed.w, h: packed.h }, scale: "1", omega: { license: "CC-BY-SA-4.0", bare } },
+  };
+  writeFileSync(join(ROOT, "accessories", "bare.json"), JSON.stringify(atlas) + "\n");
+  return images;
 }
 
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at

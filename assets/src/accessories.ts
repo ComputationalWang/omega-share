@@ -1,5 +1,6 @@
 // Head accessories (OME-1388): a party hat, a crown, headphones and a beanie, each drawn over every avatar frame exactly like
 // a holiday theme's hat (theme.ts `buildHatFrames`). build.ts packs all four into one lazy sheet, accessories/accessories.png.
+import { AVATARS, type AvatarDef, type Overlay } from "./avatars";
 import type { RoleMap } from "./sprite";
 import { pad, type HatDef, type HatRows } from "./theme";
 import { BAND_FITS, type BandFit } from "./valentines";
@@ -8,6 +9,52 @@ const fitOf = <T>(fits: Readonly<Record<string, T>>, id: string, what: string): 
   const f = fits[id];
   if (!f) throw new Error(`no ${what} fit for ${id}`);
   return f;
+};
+
+// ---------------------------------------------------------------- bare heads (OME-1409)
+
+// An overlay can't erase pixels, so a hat worn over Pip's beanie or Mo's bucket hat would sit on top of it. Under the party hat,
+// crown and headphones the web shows these bare-headed looks instead (accessories/bare.png), and the overlay is diffed against them.
+
+/** Pip without the beanie: a messy ginger mop with two cowlick spikes where the pom was, the old fringe below. */
+function barePip(a: AvatarDef): AvatarDef {
+  const dome = [".....H..HH........", "....HHHHHHHHH.....", "..HHHHHHHHHHHHH...", ".HHHHHHHHHHHHHHHH."];
+  const overlays = a.overlays.map((ov): Overlay => {
+    if (ov.on !== "head" || !ov.rows.some((r) => r.includes("P"))) return ov;
+    // Beanie rows: y -9…0 knit and pom, then the ribbed band (y 1–2, now hair) and the fringe.
+    return { ...ov, y: -3, rows: [...dome, ...ov.rows.slice(10).map((r) => r.replace(/b/g, "H"))] };
+  });
+  return { ...a, overlays };
+}
+
+/** Mo without the bucket hat: a short dark crop with a hairline above the brow (back hair, sideburn and beard stay). */
+function bareMo(a: AvatarDef): AvatarDef {
+  const crop = (view: "front" | "back"): Overlay => ({
+    on: "head",
+    view,
+    x: 0,
+    y: -1,
+    rows: ["....HHHHHHHH....", "..HHHHHHHHHHHH..", ".HHHHHHHHHHHHHH.", ...(view === "front" ? ["HHHHHHHHHHHHHHH.", "HHHHHHHHHHHH...."] : ["HHHHHHHHHHHHHHHH", "HHHHHHHHHHHHHHHH"])],
+  });
+  return { ...a, overlays: [...a.overlays.filter((ov) => !ov.rows.some((r) => r.includes("a"))), crop("front"), crop("back")] };
+}
+
+const avatar = (id: string): AvatarDef => {
+  const a = AVATARS.find((x) => x.id === id);
+  if (!a) throw new Error(`no avatar ${id}`);
+  return a;
+};
+/** Bare-headed Pip and Mo, keyed by avatar id (`buildHatFrames`' `bases`). */
+export const BARE: ReadonlyMap<string, AvatarDef> = new Map([
+  ["pip", barePip(avatar("pip"))],
+  ["mo", bareMo(avatar("mo"))],
+]);
+
+/** Band fits on the bare heads: Pip's mop tops out at y -2, Mo's crop at y -1. */
+const FITS: Readonly<Record<string, BandFit>> = {
+  ...BAND_FITS,
+  pip: { ...fitOf(BAND_FITS, "pip", "bare"), topY: -2 },
+  mo: { ...fitOf(BAND_FITS, "mo", "bare"), topY: -1 },
 };
 
 // ---------------------------------------------------------------- party hat
@@ -40,7 +87,7 @@ function partyRows(f: BandFit): HatRows {
   return rows();
 }
 
-export const PARTY_HAT: HatDef = { roles: PARTY_ROLES, replaces: false, rows: (id) => partyRows(fitOf(BAND_FITS, id, "party hat")) };
+export const PARTY_HAT: HatDef = { roles: PARTY_ROLES, replaces: false, rows: (id) => partyRows(fitOf(FITS, id, "party hat")) };
 
 // ---------------------------------------------------------------- crown
 
@@ -74,7 +121,7 @@ function crownRows(f: BandFit, view: "front" | "back"): HatRows {
   return rows();
 }
 
-export const CROWN: HatDef = { roles: CROWN_ROLES, replaces: false, rows: (id, view) => crownRows(fitOf(BAND_FITS, id, "crown"), view) };
+export const CROWN: HatDef = { roles: CROWN_ROLES, replaces: false, rows: (id, view) => crownRows(fitOf(FITS, id, "crown"), view) };
 
 // ---------------------------------------------------------------- headphones
 
@@ -105,7 +152,7 @@ function phonesRows(f: BandFit, view: "front" | "back"): HatRows {
   return rows();
 }
 
-export const HEADPHONES: HatDef = { roles: PHONES_ROLES, replaces: false, rows: (id, view) => phonesRows(fitOf(BAND_FITS, id, "headphones"), view) };
+export const HEADPHONES: HatDef = { roles: PHONES_ROLES, replaces: false, rows: (id, view) => phonesRows(fitOf(FITS, id, "headphones"), view) };
 
 // ---------------------------------------------------------------- beanie
 
@@ -158,10 +205,11 @@ function beanieRows(f: BeanieFit): HatRows {
 
 export const BEANIE: HatDef = { roles: BEANIE_ROLES, replaces: true, rows: (id) => beanieRows(fitOf(BEANIE_FITS, id, "beanie")) };
 
-/** The sheet's order; each id is also its frame-key prefix (`<id>/hat/<avatar frame key>`). */
-export const ACCESSORIES: readonly { id: string; hat: HatDef }[] = [
-  { id: "partyhat", hat: PARTY_HAT },
-  { id: "crown", hat: CROWN },
-  { id: "headphones", hat: HEADPHONES },
-  { id: "beanie", hat: BEANIE },
+/** The sheet's order; each id is also its frame-key prefix (`<id>/hat/<avatar frame key>`). `bare`: worn over the head, so Pip and
+ *  Mo wear it bare-headed (their frames come from accessories/bare.png); the beanie replaces their headwear itself. */
+export const ACCESSORIES: readonly { id: string; hat: HatDef; bare: boolean }[] = [
+  { id: "partyhat", hat: PARTY_HAT, bare: true },
+  { id: "crown", hat: CROWN, bare: true },
+  { id: "headphones", hat: HEADPHONES, bare: true },
+  { id: "beanie", hat: BEANIE, bare: false },
 ];
