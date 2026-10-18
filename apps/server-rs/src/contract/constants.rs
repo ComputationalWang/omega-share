@@ -8,6 +8,11 @@ pub const SEAT_COUNT: usize = 8;
 pub const FLOOR_CELLS: usize = 10;
 /// Most pieces in a room layout (ADR 0021).
 pub const MAX_FURNITURE: usize = 32;
+/// Most doors to other rooms in one layout (ADR 0054).
+pub const MAX_DOORS: usize = 2;
+/// A `roll`'s die has DICE_MIN_SIDES..=DICE_MAX_SIDES faces (OME-1423).
+pub const DICE_MIN_SIDES: u8 = 2;
+pub const DICE_MAX_SIDES: u8 = 100;
 pub const AVATAR_COUNT: usize = 4;
 /// Shirt tints (ADR 0053); tint 0 is the avatar's own colours.
 pub const TINT_COUNT: usize = 6;

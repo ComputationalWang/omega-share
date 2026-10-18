@@ -7,7 +7,8 @@
 //! [`RoomLayout`] has one canonical JSON form ([`RoomLayout::to_json`]): the TS key order, `variant`
 //! left out when absent.
 
-use super::constants::{FLOOR_CELLS, MAX_FURNITURE, SEAT_COUNT};
+use super::constants::{FLOOR_CELLS, MAX_DOORS, MAX_FURNITURE, SEAT_COUNT};
+use super::ids::RoomId;
 use super::room::FloorCell;
 use super::{Invalid, Obj, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -63,9 +64,10 @@ pub enum Kind {
     Aquarium,
     Arcade,
     Wallclock,
+    Door,
 }
 
-pub const KINDS: [Kind; 29] = [
+pub const KINDS: [Kind; 30] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -95,6 +97,7 @@ pub const KINDS: [Kind; 29] = [
     Kind::Aquarium,
     Kind::Arcade,
     Kind::Wallclock,
+    Kind::Door,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -169,14 +172,15 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Frame | Kind::Garland | Kind::Neonsign => Spec::new(Wall, CAMERA, 0, 0).variants(2),
         Kind::Bench => Spec::new(Object, ALL, 2, 1).seated().variants(2),
         Kind::Wallshelf | Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
+        Kind::Door => Spec::new(Object, CAMERA, 1, 1).variants(2).backed(),
     }
 }
 
 /// Wall segments with a window, poster or sconce (the same on both walls); frames need a plain one.
 pub const WALL_FIXTURE_SEGMENTS: [u32; 3] = [5, 6, 8];
 
-/// A placed piece. `variant` absent means 0.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// A placed piece. `variant` absent means 0. `target` is a door's room (ADR 0054), set on a door and nothing else.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Furniture {
     pub kind: Kind,
     pub col: u8,
@@ -184,6 +188,8 @@ pub struct Furniture {
     pub facing: Facing,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub variant: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<RoomId>,
 }
 
 impl Furniture {
@@ -194,6 +200,7 @@ impl Furniture {
             row,
             facing,
             variant: None,
+            target: None,
         }
     }
 }
@@ -260,6 +267,7 @@ fn piece_ok(f: &Furniture) -> bool {
         && f.variant.unwrap_or(0) < s.variants
         && footprint_cells(f).iter().all(|&(c, r)| c < floor && r < floor)
         && on_its_wall(f, &s)
+        && (f.kind == Kind::Door) == f.target.is_some()
 }
 
 /// True if no two pieces of `layer` share a cell (wall pieces: a wall segment).
@@ -283,6 +291,7 @@ fn disjoint(furniture: &[Furniture], layer: Layer) -> bool {
 fn layout_ok(furniture: &[Furniture]) -> bool {
     furniture.len() <= MAX_FURNITURE
         && furniture.iter().filter(|f| f.kind == Kind::Tv).count() == 1
+        && furniture.iter().filter(|f| f.kind == Kind::Door).count() <= MAX_DOORS
         && layout_seats(furniture).len() == SEAT_COUNT
         && disjoint(furniture, Layer::Object)
         && disjoint(furniture, Layer::Floor)
@@ -309,9 +318,9 @@ fn check_piece<P: Wire>(p: &P) -> Result<(), ValidationError> {
     if piece_ok(&p.furniture()) { Ok(()) } else { refuse("piece") }
 }
 
-/// `variant` is optional but not nullable: `null` is refused where `Option` would read it as absent.
-fn present<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u32>, D::Error> {
-    u32::deserialize(d).map(Some)
+/// `variant` and `target` are optional but not nullable: `null` is refused where `Option` would read it as absent.
+fn present<'de, D: Deserializer<'de>, T: Deserialize<'de>>(d: D) -> Result<Option<T>, D::Error> {
+    T::deserialize(d).map(Some)
 }
 
 /// The strict and the stripping wire shapes differ only in `deny_unknown_fields`.
@@ -331,11 +340,13 @@ macro_rules! wire {
             facing: Facing,
             #[serde(default, deserialize_with = "present")]
             variant: Option<u32>,
+            #[serde(default, deserialize_with = "present")]
+            target: Option<RoomId>,
         }
 
         impl Wire for $piece {
             fn furniture(&self) -> Furniture {
-                Furniture { kind: self.kind, col: self.col, row: self.row, facing: self.facing, variant: self.variant }
+                Furniture { kind: self.kind, col: self.col, row: self.row, facing: self.facing, variant: self.variant, target: self.target.clone() }
             }
         }
 
@@ -425,6 +436,11 @@ impl RoomLayout {
 
     pub fn seats(&self) -> Vec<Seat> {
         layout_seats(&self.furniture)
+    }
+
+    /// `hasDoorTo`: a door leads to `room`. A `layout-set` may not hold a door to its own room (ADR 0054).
+    pub fn has_door_to(&self, room: &RoomId) -> bool {
+        self.furniture.iter().any(|f| f.target.as_ref() == Some(room))
     }
 
     /// `isStandable`: no solid piece covers `cell`. Seats are solid, so they need `sit` (ADR 0053).
@@ -887,6 +903,60 @@ mod tests {
         for k in KINDS {
             assert!(!spec(k).facings.is_empty());
         }
+    }
+
+    fn door(col: u8, row: u8, target: Value) -> Value {
+        json!({"kind":"door","col":col,"row":row,"facing": if row == 0 {"sw"} else {"se"},"target":target})
+    }
+
+    // packages/shared/test/door-roll-contract.test.ts (OME-1423)
+    #[test]
+    fn a_door_is_a_wall_backed_camera_object_with_a_room_id_target() {
+        let s = spec(Kind::Door);
+        assert_eq!(
+            (s.layer, s.facings, s.cols, s.rows, s.seats, s.variants, s.wall_backed),
+            (Layer::Object, CAMERA, 1, 1, false, 2, true)
+        );
+        let l = parse(&base(vec![
+            json!({"kind":"door","col":3,"row":0,"facing":"sw","target":"film-club","variant":1}),
+        ]));
+        assert!(
+            l.to_json()
+                .ends_with(r#"{"kind":"door","col":3,"row":0,"facing":"sw","variant":1,"target":"film-club"}]}"#)
+        );
+        for bad in [
+            json!(null),
+            json!(""),
+            json!("Lobby"),
+            json!("https://evil.example/"),
+            json!("a".repeat(33)),
+            json!(7),
+        ] {
+            assert!(!accepts(&base(vec![door(3, 0, bad.clone())])), "{bad}");
+        }
+        assert!(!accepts(&base(vec![p("door", 3, 0, "sw")])));
+        assert!(!piece_accepts(
+            &json!({"kind":"plant","col":9,"row":9,"facing":"se","target":"lobby"})
+        ));
+        assert!(!accepts(&base(vec![door(3, 1, json!("lobby"))])));
+    }
+
+    #[test]
+    fn a_layout_holds_at_most_two_doors() {
+        assert_eq!(MAX_DOORS, 2);
+        let two = base(vec![door(3, 0, json!("a")), door(0, 3, json!("b"))]);
+        assert!(accepts(&two) && accepts_input(&two));
+        let three = base(vec![door(3, 0, json!("a")), door(4, 0, json!("b")), door(0, 3, json!("c"))]);
+        assert!(!accepts(&three) && !accepts_input(&three));
+    }
+
+    #[test]
+    fn has_door_to_names_any_door_target() {
+        let l = parse(&base(vec![door(3, 0, json!("film-club")), door(0, 3, json!("lobby"))]));
+        let id = |s: &str| crate::contract::ids::RoomId::parse(s).unwrap();
+        assert!(l.has_door_to(&id("lobby")) && l.has_door_to(&id("film-club")));
+        assert!(!l.has_door_to(&id("film")));
+        assert!(!default_layout().has_door_to(&id("lobby")));
     }
 
     // packages/shared/test/preset-contract.test.ts:5

@@ -656,7 +656,7 @@ mod tests {
             .furniture()
             .iter()
             .filter(|f| f.kind != Kind::Tv)
-            .copied()
+            .cloned()
             .collect();
         let json = serde_json::to_string(&serde_json::json!({ "furniture": no_tv })).unwrap();
         assert!(RoomLayout::parse_input(json.as_bytes()).is_err());

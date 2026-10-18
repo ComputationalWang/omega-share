@@ -223,6 +223,7 @@ export function createWs({
       case "set-tint":
       case "set-accessory":
       case "typing":
+      case "roll":
         return true;
     }
   };
@@ -354,6 +355,8 @@ export function createWs({
       // OME-1387 too: the frozen TS server ignores accessories and typing.
       case "set-accessory":
       case "typing":
+      // OME-1423 too: the frozen TS server ignores rolls (and has no own-room door check).
+      case "roll":
         return;
       case "queue-remove":
       case "queue-advance": {
