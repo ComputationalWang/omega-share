@@ -354,6 +354,8 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       roomStage.hide(id, on);
       chatLog.hideFrom(isHidden);
       relay?.hideFrom(isHidden);
+      // Their off never comes now (dropped at intake): the room window drops their dots as the page did.
+      if (on) relay?.typing(id, false);
       if (on) dispatch({ type: "hide", memberId: id });
     },
   });
