@@ -2,7 +2,7 @@
 // (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet and furniture-v2-atlas.ts
 // catalogue v2 (OME-1113), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
-import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Facing, type Furniture, type FurnitureKind, type RoomLayout, type RoomState } from "@omega/shared";
+import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Facing, type Furniture, type FurnitureKind, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
 import { cellCenter, type Point } from "./layout";
 import { cellOf } from "./walk/path";
 
@@ -10,14 +10,14 @@ import { cellOf } from "./walk/path";
  * A layout's content as a string: each piece's fields in a fixed order, an absent variant as 0. Two layouts with the same
  * key draw the same room, however their objects were written (a parsed snapshot, a recolour back to variant 0).
  */
-export const layoutKey = (l: RoomLayout): string => l.furniture.map((f) => `${f.kind} ${String(f.col)} ${String(f.row)} ${f.facing} ${String(f.variant ?? 0)}`).join(";");
+export const layoutKey = (l: RoomLayout): string => l.furniture.map((f) => `${f.kind} ${String(f.col)} ${String(f.row)} ${f.facing} ${String(f.variant ?? 0)} ${f.target ?? ""}`).join(";");
 /** The classic preset's layout key (OME-1186): its rooms get the holiday theme's decor. */
 const CLASSIC_KEY = layoutKey(DEFAULT_LAYOUT);
 
 /** The pieces the room atlas draws (placeholder floor and seat markers until it loads); everything else is set (g). */
 const ROOM_KINDS: ReadonlySet<FurnitureKind> = new Set(["armchair", "tv", "lamp", "plant", "rug"]);
 /** Catalogue v2's pieces (assets/furniture/furniture-v2.json, its own lazy sheet). */
-const V2_KINDS: ReadonlySet<FurnitureKind> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland", "coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock"]);
+const V2_KINDS: ReadonlySet<FurnitureKind> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland", "coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock", "door"]);
 /** Set (g)'s kilim runner is atlas id `rug` (layout.ts in @omega/shared). */
 const atlasId = (kind: FurnitureKind): string => (kind === "runner" ? "rug" : kind);
 
@@ -37,6 +37,8 @@ export const FurnitureManifestSchema = v.object({
           layersByDir: v.record(DIR, v.optional(v.array(v.picklist(["back", "front"])))),
           /** The "in use" loop (OME-1405): frame count and ms per frame; its frames are `meta.omega.useKey`. */
           use: v.optional(v.object({ frames: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(16)), ms: v.pipe(v.number(), v.minValue(16)) })),
+          /** A door (OME-1424): an open frame, `furniture/<id>/<colour>/open/<dir>`, same rect and anchor as the closed back frame. */
+          open: v.optional(v.boolean()),
         }),
       ),
     }),
@@ -112,7 +114,9 @@ export function standingPoints(layout: RoomLayout): Point[] {
 }
 
 /** The pieces with an "in use" loop (OME-1405 art, assets/README.md); all 1×1 or wall pieces. */
-const LOOP_KINDS: ReadonlySet<FurnitureKind> = new Set(["arcade", "turntable", "aquarium", "neonsign"]);
+const LOOP_KINDS: ReadonlySet<FurnitureKind> = new Set(["arcade", "turntable", "aquarium", "neonsign", "door"]);
+/** A one-frame "loop" never steps; the frame time only has to be a valid one. */
+const OPEN_MS = 3_600_000;
 /** From a piece's cell to the one at its front: +col is se, +row is sw on screen (cellCenter). */
 const FRONT: Readonly<Record<Facing, readonly [number, number]>> = { se: [1, 0], sw: [0, 1], ne: [0, -1], nw: [-1, 0] };
 
@@ -132,6 +136,16 @@ export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, p
     if (near || (playing && f.kind === "neonsign")) out.add(i);
   });
   return out;
+}
+
+/** The room a door leads to (OME-1425), if `(col, row)` is the cell in front of one of the layout's doors. */
+export function doorAt(layout: RoomLayout, col: number, row: number): RoomId | null {
+  for (const f of layout.furniture) {
+    if (f.kind !== "door" || f.target === undefined) continue;
+    const [dc, dr] = FRONT[f.facing];
+    if (f.col + dc === col && f.row + dr === row) return f.target;
+  }
+  return null;
 }
 
 export interface FurnitureSprite {
@@ -212,10 +226,12 @@ function pushSprites(
       y: anchor.y,
       layer,
       z: depth(anchor.x + sort.x, anchor.y + sort.y, layers[part]),
-      // The loop swaps the back frame in place (same size and anchor).
+      // The loop swaps the back frame in place (same size and anchor). An open piece (a door) has one frame: its open one, a state.
       ...(part === "back" && piece.use !== undefined
         ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => `furniture/${piece.id}/${colour}/use/${f.facing}/${String(n)}`), ms: piece.use.ms } }
-        : {}),
+        : part === "back" && piece.open === true
+          ? { use: { piece: index, frames: [`furniture/${piece.id}/${colour}/open/${f.facing}`], ms: OPEN_MS } }
+          : {}),
     });
   }
 }

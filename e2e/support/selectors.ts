@@ -173,4 +173,15 @@ export const site = {
   notFound: id("room-not-found"),
   notFoundHome: id("not-found-home"),
   notFoundRoom: id("not-found-room"),
+  notFoundBack: id("not-found-back"),
+  // Doors (OME-1425): the chip in the room, the editor's target picker and the tray's door count.
+  doorChip: id("door-chip"),
+  doorGo: id("door-go"),
+  doorStay: id("door-stay"),
+  doorPicker: id("door-picker"),
+  doorTargetRoom: id("door-target-room"),
+  doorTargetInput: id("door-target-input"),
+  doorTargetUse: id("door-target-use"),
+  doorTargetError: id("door-target-error"),
+  editorDoors: id("editor-doors"),
 } as const;

@@ -235,3 +235,57 @@ test("keyboard only: a cell cursor places, selects, moves, turns and puts back f
   await expect(owner.locator(site.walkFloor)).toHaveJSProperty("inert", false);
   await expect(owner.locator(site.walkFloor)).toHaveAttribute("tabindex", "0");
 });
+
+// OME-1425: a door asks where it goes before it is placed; a link of another site (or this room's own) is refused inline.
+test("placing a door asks for its room: a bad link is refused inline, a saved room or a pasted link is placed and saved, two at most", async ({ browser }) => {
+  const { id, ownerToken, inviteKey } = ownedRoom("doored");
+  const film = "e2e-furniture-doortarget";
+  const owner = await newPage(browser, []);
+  await owner.addInitScript(
+    ([key, value]) => {
+      localStorage.setItem(key, value);
+    },
+    [ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey }, [film]: { title: "Film night" } } })] as const,
+  );
+  await owner.goto(`${URLS.web}/r/${id}`);
+  await enter(owner, "owner");
+  await owner.locator(site.editRoom).click();
+  await expect(owner.locator(site.editorTray)).toBeVisible();
+  await owner.locator(site.editorTab).filter({ hasText: "Decor" }).click();
+  const doorSlot = owner.locator(`${site.editorSlot}[data-kind="door"]`);
+  await expect(owner.locator(site.editorDoors)).toHaveText("Doors 0/2");
+
+  await doorSlot.click();
+  await expect(owner.locator(site.doorPicker)).toBeVisible();
+  // The saved rooms (this room left out) by title, and a place to paste a link.
+  await expect(owner.locator(site.doorTargetRoom)).toHaveText(["Film night"]);
+  for (const bad of ["https://evil.test/r/e2e-furniture-doortarget", `${URLS.web}/about`, "not a link", `${URLS.web}/r/${id}`]) {
+    await owner.locator(site.doorTargetInput).fill(bad);
+    await owner.locator(site.doorTargetUse).click();
+    await expect(owner.locator(site.doorTargetError)).toBeVisible();
+    await expect(owner.locator(site.doorTargetError)).toHaveAttribute("role", "alert");
+    await expect(owner.locator(site.doorPicker)).toBeVisible();
+  }
+  // Nothing was held, so nothing is placed.
+  await clickCell(owner, 0, 3);
+  expect((await layoutOf(owner)).some((f) => f.kind === "door")).toBe(false);
+  await expect(owner.locator(site.editorDoors)).toHaveText("Doors 0/2");
+
+  await owner.locator(site.doorTargetInput).fill(`${URLS.web}/r/${film}`);
+  await owner.locator(site.doorTargetUse).click();
+  await expect(owner.locator(site.doorPicker)).toBeHidden();
+  await clickCell(owner, 0, 3);
+  await expect(owner.locator(site.editorDoors)).toHaveText("Doors 1/2");
+
+  await doorSlot.click();
+  await owner.locator(site.doorTargetRoom).filter({ hasText: "Film night" }).click();
+  await clickCell(owner, 0, 5);
+  await expect(owner.locator(site.editorDoors)).toHaveText("Doors 2/2");
+  await expect(doorSlot).toHaveAttribute("aria-disabled", "true");
+  await expect(doorSlot).toHaveAttribute("title", /2 doors/);
+
+  await owner.locator(site.editorSave).click();
+  await expect(owner.locator(site.editorMessage)).toHaveText("Saved.");
+  const doors = v.parse(v.object({ furniture: v.array(v.object({ kind: v.string(), col: v.number(), target: v.optional(v.string()) })) }), await handle(owner, "layout")).furniture.filter((f) => f.kind === "door");
+  expect(doors.map((d) => d.target)).toEqual([film, film]);
+});

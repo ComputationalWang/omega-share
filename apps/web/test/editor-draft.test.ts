@@ -1,7 +1,52 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT, FURNITURE, FURNITURE_KINDS, MAX_FURNITURE, RoomLayoutSchema, type RoomLayout } from "@omega/shared";
 import * as v from "valibot";
-import { TRAY_TABS, defaultFacing, fits, layoutKey, move, pieceAt, place, problemText, problems, reconcile, remove, rotate, sameLayout } from "../src/editor/draft";
+import { TRAY_TABS, defaultFacing, fits, layoutKey, move, parseDoorTarget, pieceAt, place, problemText, problems, reconcile, remove, rotate, sameLayout } from "../src/editor/draft";
+
+// OME-1425: a door's room is picked from a link or an id; the link is this site's own, never another origin's.
+describe("parseDoorTarget", () => {
+  const ORIGIN = "https://omega.test";
+  const parse = (text: string, current = "here") => parseDoorTarget(text, ORIGIN, current);
+
+  test("accepts this site's room link, with or without the origin, a trailing slash, a hash or a query", () => {
+    for (const text of [`${ORIGIN}/r/film-club`, "/r/film-club", `  ${ORIGIN}/r/film-club/  `, `${ORIGIN}/r/film-club#k=abc`, `${ORIGIN}/r/film-club?x=1`]) {
+      expect(parse(text)).toEqual({ ok: true, id: "film-club" });
+    }
+  });
+  test("accepts a bare room id", () => {
+    expect(parse("film-club")).toEqual({ ok: true, id: "film-club" });
+  });
+  test("refuses another origin, other paths, and things that are not links", () => {
+    for (const text of ["https://evil.test/r/film-club", "//evil.test/r/film-club", `${ORIGIN}/about`, `${ORIGIN}/r/UPPER`, "javascript:alert(1)", "", "   ", "not a link", `${ORIGIN}/r/a/b`]) {
+      const r = parse(text);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.length).toBeGreaterThan(0);
+    }
+  });
+  test("refuses the room's own link and id, with its own words", () => {
+    const a = parse(`${ORIGIN}/r/here`);
+    const b = parse("here");
+    expect(a.ok).toBe(false);
+    expect(b).toEqual(a);
+    const bad = parse("https://evil.test/");
+    expect(!a.ok && !bad.ok && a.error !== bad.error).toBe(true);
+  });
+});
+
+describe("a door in the draft", () => {
+  const door = { kind: "door", col: 0, row: 3, facing: "se", target: "film-club" } as const;
+  test("keeps its room through a move", () => {
+    const l = place(L, door);
+    expect(l).not.toBeNull();
+    const at = (l?.furniture.length ?? 1) - 1;
+    expect(l === null ? null : move(l, at, 0, 5)?.furniture[at]).toEqual({ ...door, row: 5 });
+  });
+  test("a door to another room is a different layout from the same door to a third", () => {
+    const a = place(L, door);
+    const b = place(L, { ...door, target: "third" });
+    expect(a !== null && b !== null && sameLayout(a, b)).toBe(false);
+  });
+});
 
 // DEFAULT_LAYOUT indices: 0 tv, 1 rug, 2..9 armchairs ([1,5] [2,4] [4,2] [5,1] [3,7] [4,6] [6,4] [7,3]), 10 lamp, 11 plant.
 const L = DEFAULT_LAYOUT;
@@ -162,9 +207,10 @@ describe("defaultFacing", () => {
 });
 
 describe("TRAY_TABS", () => {
-  test("every kind, catalogue v2 too (OME-1113), is in exactly one tab; the door waits for its picker and art (OME-1423)", () => {
+  test("every kind, catalogue v2 and the door (OME-1425) too, is in exactly one tab", () => {
     const all: string[] = TRAY_TABS.flatMap((t) => [...t.kinds]);
-    expect([...all].sort()).toEqual(FURNITURE_KINDS.filter((k) => k !== "door").sort());
+    expect([...all].sort()).toEqual([...FURNITURE_KINDS].sort());
+    expect(TRAY_TABS.find((t) => t.id === "decor")?.kinds).toContain("door");
   });
   test("tab contents follow the catalogue", () => {
     expect(TRAY_TABS.map((t) => t.label)).toEqual(["Seats", "Decor", "Floor & wall"]);

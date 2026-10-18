@@ -80,3 +80,6 @@ export const V3_POUFS_PIECE = ["pouf/rust/ne", "pouf/rust/nw", "pouf/rust/se", "
 export const IN_USE: RoomLayout = {
   furniture: [...V2_BENCHES.furniture, { kind: "arcade", col: 2, row: 2, facing: "se" }, { kind: "neonsign", col: 0, row: 3, facing: "se" }],
 };
+
+/** V2_BENCHES plus a door on the left wall at (0, 3) facing se (its front: (1, 3)) to room `target` (OME-1425). */
+export const doorRoom = (target: string): RoomLayout => ({ furniture: [...V2_BENCHES.furniture, { kind: "door", col: 0, row: 3, facing: "se", target }] });

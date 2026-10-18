@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, RoomLayoutSchema, footprintCells, parseServerMessage, type RoomLayout, type RoomState } from "@omega/shared";
-import { FurnitureManifestSchema, RoomManifestSchema, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, type Scene } from "../src/furniture";
+import { FurnitureManifestSchema, RoomManifestSchema, doorAt, layoutKey, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, type Scene } from "../src/furniture";
 import { cellCenter } from "../src/layout";
 import { cellOf } from "../src/walk/path";
 
@@ -438,5 +438,46 @@ describe("sceneOf: in-use loops (OME-1407)", () => {
 
   test("every loop frame is in the v2 sheet", () => {
     for (const s of scene.sprites) for (const k of s.use?.frames ?? []) expect(v2.frames[k]).toBeDefined();
+  });
+});
+
+// OME-1425: a door opens while anyone stands in front of it, and my arrival there offers the way through.
+describe("doors (OME-1425)", () => {
+  const cells = (...cs: [number, number][]): Set<number> => new Set(cs.map(([c, r]) => cellOf(c, r)));
+  const door = (col: number, row: number, facing: "se" | "sw", target: string): RoomLayout["furniture"][number] => ({ kind: "door", col, row, facing, target });
+  const l: RoomLayout = { furniture: [{ kind: "tv", col: 0, row: 0, facing: "se" }, door(0, 3, "se", "other-room"), door(5, 0, "sw", "third-room")] };
+
+  test("piecesInUse: a door is in use while someone stands on the cell in front of it", () => {
+    expect(piecesInUse(l, cells([1, 3]), false)).toEqual(new Set([1]));
+    expect(piecesInUse(l, cells([5, 1]), false)).toEqual(new Set([2]));
+    expect(piecesInUse(l, cells([1, 3], [5, 1]), false)).toEqual(new Set([1, 2]));
+    expect(piecesInUse(l, cells([0, 4], [4, 0]), false)).toEqual(new Set());
+    expect(piecesInUse(l, cells(), true)).toEqual(new Set());
+  });
+
+  test("doorAt: the front cell gives the door's room, any other cell none", () => {
+    expect(doorAt(l, 1, 3)).toBe("other-room");
+    expect(doorAt(l, 5, 1)).toBe("third-room");
+    expect(doorAt(l, 0, 3)).toBeNull();
+    expect(doorAt(l, 1, 4)).toBeNull();
+    expect(doorAt(DEFAULT_LAYOUT, 1, 3)).toBeNull();
+  });
+
+  test("sceneOf: the door's back frame carries a one-frame open loop (its open frame, drawn while in use)", () => {
+    const scene = sceneOf(l, [v2]);
+    const s = sprite(scene, "furniture/door/wood/se/back");
+    expect(s.use?.piece).toBe(1);
+    expect(s.use?.frames).toEqual(["furniture/door/wood/open/se"]);
+    expect(v2.frames["furniture/door/wood/open/se"]).toBeDefined();
+    expect(sprite(scene, "furniture/door/wood/sw/back").use?.frames).toEqual(["furniture/door/wood/open/sw"]);
+  });
+
+  test("a layout key tells two doors apart by their rooms", () => {
+    expect(layoutKey({ furniture: [door(0, 3, "se", "elsewhere")] })).not.toBe(layoutKey({ furniture: [door(0, 3, "se", "other-room")] }));
+  });
+
+  test("the door draws from the v2 sheet", () => {
+    expect(usesV2(l)).toBe(true);
+    expect(usesSetG(l)).toBe(false); // the tv is a room-atlas piece: a door needs no set (g)
   });
 });

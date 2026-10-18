@@ -1,7 +1,7 @@
 // Furniture from snapshot.room.layout (OME-278, ADR 0021). The server doesn't hand out custom layouts yet, so the room
 // socket is routed and its snapshots rewritten: no layout (a pre-M4 server), DEFAULT_LAYOUT, or a test layout with set (g) pieces.
-import type { Page, Request } from "@playwright/test";
-import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, type RoomLayout } from "@omega/shared";
+import type { Browser, Page, Request } from "@playwright/test";
+import { DEFAULT_LAYOUT, DEFAULT_ROOM_ID, ROOM_SECRETS_STORAGE_KEY, type RoomLayout } from "@omega/shared";
 import { expect, test, watchCsp } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
@@ -10,7 +10,7 @@ import { site } from "./support/selectors";
 import { cellCenter } from "../apps/web/src/layout";
 import { WALK_SETTLE_MS, scene, seatedBetween, selfId } from "./support/scene";
 import { testRoomId } from "./support/test-rooms";
-import { IN_USE, SET_G, SET_G_SEAT_PIECE, V2_BENCHES, V2_BENCHES_PIECE, V2_SEATS, V2_SEATS_PIECE, V3_POUFS, V3_POUFS_PIECE } from "./fixtures/layouts";
+import { IN_USE, doorRoom, SET_G, SET_G_SEAT_PIECE, V2_BENCHES, V2_BENCHES_PIECE, V2_SEATS, V2_SEATS_PIECE, V3_POUFS, V3_POUFS_PIECE } from "./fixtures/layouts";
 
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
 
@@ -221,6 +221,84 @@ test.describe("furniture in use", () => {
       await expect.poll(() => loops(page), { timeout: WALK_SETTLE_MS }).toEqual([]);
     } finally {
       await context.close();
+    }
+  });
+
+  // OME-1425: a door opens while anyone stands in front of it; my arrival there offers "Go to <room> · Stay".
+  const DOOR_FRONT = [1, 3] as const;
+  const DOOR_OPEN = '[{"key":"furniture/door/wood/se/back","frame":0}]';
+
+  /** A fresh page in `room` (its snapshots carrying a door to `target`), a saved title for `target` when given. */
+  async function inDoorRoom(browser: Browser, room: string, target: string, title?: string): Promise<{ page: Page; close: () => Promise<void> }> {
+    const context = await watchCsp(await browser.newContext());
+    await stubExternalNetwork(context);
+    const page = await context.newPage();
+    if (title !== undefined) {
+      await page.addInitScript(
+        ([key, value]) => {
+          localStorage.setItem(key, value);
+        },
+        [ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [target]: { title } } })] as const,
+      );
+    }
+    await withLayout(page, { layout: doorRoom(target) });
+    await enter(page, "player-1", `${URLS.web}/r/${room}`);
+    await expect.poll(async () => (await scene(page)).includes("furniture/door/wood/se/back")).toBe(true);
+    return { page, close: () => context.close() };
+  }
+
+  test("standing in front of a door opens it and offers Go or Stay; Stay hides the chip until I arrive again", async ({ browser }) => {
+    const target = testRoomId("furniture", "doortarget");
+    const { page, close } = await inDoorRoom(browser, testRoomId("furniture", "doorstay"), target, "Film night");
+    try {
+      await expect(page.locator(site.doorChip)).toBeHidden();
+      await expect.poll(() => loops(page)).toEqual([]);
+      await clickCell(page, ...DOOR_FRONT);
+      await expect(page.locator(site.doorChip)).toBeVisible({ timeout: WALK_SETTLE_MS });
+      await expect(page.locator(site.doorChip)).toHaveText("Go to Film night · Stay");
+      await expect.poll(async () => JSON.stringify(await loops(page))).toBe(DOOR_OPEN);
+      // Nothing happens by itself.
+      await page.waitForTimeout(1000);
+      expect(new URL(page.url()).pathname).toBe(`/r/${testRoomId("furniture", "doorstay")}`);
+      await page.locator(site.doorStay).click();
+      await expect(page.locator(site.doorChip)).toBeHidden();
+      // Still standing there: the door stays open, the chip stays away.
+      expect(JSON.stringify(await loops(page))).toBe(DOOR_OPEN);
+      await clickCell(page, 7, 8);
+      await expect.poll(() => loops(page), { timeout: WALK_SETTLE_MS }).toEqual([]);
+      await clickCell(page, ...DOOR_FRONT);
+      await expect(page.locator(site.doorChip)).toBeVisible({ timeout: WALK_SETTLE_MS });
+    } finally {
+      await close();
+    }
+  });
+
+  test("Go lands in the door's room", async ({ browser }) => {
+    const target = testRoomId("furniture", "doortarget");
+    const { page, close } = await inDoorRoom(browser, testRoomId("furniture", "doorgo"), target);
+    try {
+      await clickCell(page, ...DOOR_FRONT);
+      await expect(page.locator(site.doorChip)).toHaveText("Go to another room · Stay", { timeout: WALK_SETTLE_MS });
+      await page.locator(site.doorGo).click();
+      await expect(page).toHaveURL(new RegExp(`/r/${target}$`));
+    } finally {
+      await close();
+    }
+  });
+
+  test("a door to a room that is gone lands on Room not found, with a Back link to the room I came from", async ({ browser }) => {
+    const from = testRoomId("furniture", "doorgone");
+    const { page, close } = await inDoorRoom(browser, from, "e2e-furniture-nowhere");
+    try {
+      await clickCell(page, ...DOOR_FRONT);
+      await expect(page.locator(site.doorGo)).toBeVisible({ timeout: WALK_SETTLE_MS });
+      await page.locator(site.doorGo).click();
+      await page.locator(site.nicknameInput).fill("player-1");
+      await page.locator(site.joinButton).click();
+      await expect(page.locator(site.notFound)).toBeVisible();
+      await expect(page.locator(site.notFoundBack)).toHaveAttribute("href", `/r/${from}`);
+    } finally {
+      await close();
     }
   });
 });

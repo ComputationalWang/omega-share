@@ -8,6 +8,17 @@ export function roomIdInPath(pathname: string): RoomId | null {
   return r.success ? r.output : null;
 }
 
+/** The room path to offer as "Back" on the not-found screen (OME-1425): where I came from, if a room of this site other than this one. */
+export function backPath(referrer: string, origin: string, currentPath: string): string | null {
+  try {
+    const from = new URL(referrer);
+    const id = from.origin === origin ? roomIdInPath(from.pathname) : null;
+    return id === null || id === roomIdInPath(currentPath) ? null : from.pathname;
+  } catch {
+    return null;
+  }
+}
+
 /** `/r/<room>` → room id; anything else (or an invalid id) → the default room. */
 export function roomIdFromPath(pathname: string): RoomId {
   return roomIdInPath(pathname) ?? DEFAULT_ROOM_ID;

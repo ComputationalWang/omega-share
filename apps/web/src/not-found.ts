@@ -4,11 +4,16 @@
 import * as v from "valibot";
 import { RoomListResponseSchema, type RoomSummary } from "@omega/shared";
 import { el, sprite } from "./controls/dom";
+import { backPath } from "./route";
 
 export interface NotFoundOptions {
   /** The server's HTTP origin. */
   readonly serverUrl: string;
   readonly fetch: (url: string, init?: RequestInit) => Promise<Response>;
+  /** `document.referrer`, this page's origin and path: a Back link shows when I came from another room of this site. */
+  readonly referrer?: string;
+  readonly origin?: string;
+  readonly path?: string;
 }
 
 export interface NotFound {
@@ -31,8 +36,11 @@ export function createNotFound(o: NotFoundOptions): NotFound {
     el("h1", { textContent: "This room doesn't exist or was taken down" }),
     el("p", { textContent: "Check the link, or pick an open room. If someone sent you this link, ask them to send it again, exactly as it was." }),
     home,
-    open,
   );
+  // Back (OME-1425): a door led here from another room of this site, so offer the way back; the path is checked as a room path.
+  const back = backPath(o.referrer ?? "", o.origin ?? "", o.path ?? "");
+  if (back !== null) root.append(el("a", { className: "enter", href: back, textContent: "Back" }, "not-found-back"));
+  root.append(open);
 
   const render = (rooms: readonly RoomSummary[]): void => {
     list.replaceChildren(

@@ -47,7 +47,7 @@ export function createRoomCards(o: RoomCardsOptions): RoomCards {
   const closedHome = el("a", { className: "enter", href: "/", textContent: "Go to the home page" });
   closed.append(el("h2", { textContent: "This room was closed" }), closedBody, closedHome);
   // Unknown, deleted, taken down, or private without a working key, and never got in (OME-768): one screen for all of them.
-  const notFound = createNotFound({ serverUrl: o.serverUrl, fetch: o.fetch });
+  const notFound = createNotFound({ serverUrl: o.serverUrl, fetch: o.fetch, referrer: document.referrer, origin: location.origin, path: location.pathname });
   // "Report this room" (OME-601, ADR 0033): a guest's quiet key, the last stop of the room. Not made at all in a room you own.
   const report = o.owns ? null : createReport({ roomId: o.roomId, serverUrl: o.serverUrl, fetch: o.fetch, leave: o.leave });
   const foot = el("div", { className: "room-foot", hidden: true }, "room-foot");

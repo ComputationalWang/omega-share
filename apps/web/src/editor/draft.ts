@@ -3,6 +3,7 @@ import {
   FURNITURE_KINDS,
   FurnitureSchema,
   MAX_FURNITURE,
+  RoomIdSchema,
   RoomLayoutSchema,
   SEAT_COUNT,
   footprintCells,
@@ -10,10 +11,12 @@ import {
   type Facing,
   type Furniture,
   type FurnitureKind,
+  type RoomId,
   type RoomLayout,
 } from "@omega/shared";
 import * as v from "valibot";
 import { layoutKey } from "../furniture";
+import { roomIdInPath } from "../route";
 
 export { layoutKey };
 
@@ -162,8 +165,28 @@ export interface TrayTab {
   readonly kinds: readonly FurnitureKind[];
 }
 
-// The door needs a target picker and its art first (OME-1423 blocks that web issue).
-const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter((k) => k !== "door" && pick(k));
+const kindsWhere = (pick: (k: FurnitureKind) => boolean): readonly FurnitureKind[] => FURNITURE_KINDS.filter(pick);
+
+/** What the owner typed or pasted as a door's room (OME-1425): a room link of this site, or a bare room id. */
+export function parseDoorTarget(text: string, origin: string, current: RoomId): { readonly ok: true; readonly id: RoomId } | { readonly ok: false; readonly error: string } {
+  const t = text.trim();
+  const bare = v.safeParse(RoomIdSchema, t);
+  let id: RoomId | null = bare.success ? bare.output : null;
+  if (id === null) {
+    try {
+      const url = new URL(t, origin);
+      if (url.origin === origin) id = roomIdInPath(url.pathname);
+    } catch {
+      id = null;
+    }
+  }
+  if (id === null) return { ok: false, error: "That is not a room link of this site. Paste a link like /r/<room>." };
+  if (id === current) return { ok: false, error: "A door can't lead to its own room." };
+  return { ok: true, id };
+}
+
+/** The most doors a room has (ADR 0054) and how many a draft has. */
+export const doorCount = (layout: Layout): number => layout.furniture.filter((f) => f.kind === "door").length;
 const isSeat = (k: FurnitureKind): boolean => FURNITURE[k].seats;
 const isFlat = (k: FurnitureKind): boolean => FURNITURE[k].layer !== "object";
 

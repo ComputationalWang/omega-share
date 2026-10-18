@@ -16,11 +16,12 @@ const SERVER = "http://srv.test";
 const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const LIST = () => json(200, { rooms: [{ id: "lobby", title: "Lobby", memberCount: 3, seatedCount: 1 }, { id: "film-club", title: "Film & club", memberCount: 1, seatedCount: 0 }] });
 
-async function setup(answers: (Response | Error)[] = [LIST()]) {
+async function setup(answers: (Response | Error)[] = [LIST()], extra: { referrer?: string; origin?: string; path?: string } = {}) {
   const { createNotFound } = await import("../src/not-found");
   const calls: string[] = [];
   const pending = [...answers];
   const nf = createNotFound({
+    ...extra,
     serverUrl: SERVER,
     fetch: (url) => {
       calls.push(url);
@@ -51,6 +52,29 @@ describe("Room not found", () => {
     const home = nf.root.querySelector<HTMLAnchorElement>("[data-testid=not-found-home]");
     expect(home?.textContent).toBe("Go home");
     expect(home?.getAttribute("href")).toBe("/");
+  });
+
+  // OME-1425: a door that leads nowhere has a way back to the room it came from.
+  test("Back: shown only when I came from another room of this site, and goes to that room's path", async () => {
+    const back = (nf: { root: HTMLElement }): string | null | undefined => nf.root.querySelector("[data-testid=not-found-back]")?.getAttribute("href");
+    const here = { origin: "https://omega.test", path: "/r/gone" };
+    const cases: [string, string | undefined][] = [
+      ["https://omega.test/r/start", "/r/start"],
+      ["https://omega.test/r/start/", "/r/start/"],
+      ["https://omega.test/r/gone", undefined],
+      ["https://omega.test/", undefined],
+      ["https://evil.test/r/start", undefined],
+      ["", undefined],
+      ["not a url", undefined],
+    ];
+    for (const [referrer, want] of cases) {
+      const { nf } = await setup([LIST()], { ...here, referrer });
+      nf.show();
+      expect(back(nf)).toBe(want);
+    }
+    const { nf } = await setup();
+    nf.show();
+    expect(back(nf)).toBeUndefined();
   });
 
   test("never says 'private', 'invite' or 'closed by its owner': the words are the same for every way in", async () => {

@@ -10,6 +10,9 @@
 /* Follow (OME-1389): a small chip in the room window's top-left corner while I follow someone. */
 .follow-chip { position: absolute; left: 8px; top: 8px; z-index: 3; text-transform: none; }
 .follow-chip .ui-button { font-size: 10px; padding: 0 4px; }
+/* Doors (OME-1425): "Go to <room> · Stay" in the top-right corner while I stand in front of a door. */
+.door-chip { position: absolute; right: 8px; top: 8px; z-index: 3; text-transform: none; }
+.door-chip .ui-button { font-size: 10px; padding: 0 4px; }
 .stage { position: absolute; top: 0; left: 0; width: 960px; height: 600px; transform-origin: 0 0; }
 .scene { position: absolute; inset: 0; width: 960px; height: 600px; }
 /* The holiday theme's effect (ADR 0052): a small overlay over its band only, 1 backing px per stage px. */
