@@ -32,6 +32,11 @@
 .generic-strip-unlock { min-width: 0; min-height: 24px; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--accent); color: #1d1a2b; font: inherit; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .generic-strip-unlock:disabled { opacity: 0.6; }
 .overlay, .tags, .bubbles { position: absolute; inset: 0; pointer-events: none; }
+/* Cinema dim (OME-1406, cinema.ts): one fixed rgba layer over the canvas, under the floor, seats, tags and bubbles. A class
+ * flips on play/pause/editor; the 400 ms fade is a one-off composited opacity transition, not a running animation. */
+.cinema-dim { position: absolute; inset: 0; pointer-events: none; background: rgb(8 6 18 / 0.45); opacity: 0; transition: opacity 400ms ease; }
+.cinema-dim.is-on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .cinema-dim { transition: none; } }
 /* A seat is the 52×26 floor diamond: a 26√2 square turned 45° and squashed to half height (stage.ts places it with the
  * translate property, which applies after this transform). The box itself is the diamond, so its outline and shadow
  * trace the tile (a clip-path would cut a focus ring away, OME-701): a light ring over a dark one reads on any floor. */

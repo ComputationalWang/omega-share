@@ -41,6 +41,8 @@ export interface StageOptions {
   readonly onFloor?: (cell: FloorCell) => boolean;
   /** An arrow key on the focused floor (`repeat`: held down); false flashes as `onFloor` does. */
   readonly onStep?: (key: StepKey, repeat: boolean) => boolean;
+  /** A layer right over the canvas, under the floor, seats, tags and bubbles: the cinema dim (OME-1406). */
+  readonly dim?: HTMLElement;
 }
 
 export interface Stage {
@@ -159,7 +161,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   view.canvas.className = "scene";
   // The picture only: who is here and what they say is in the people list and the chat log (OME-1246).
   view.canvas.ariaHidden = "true";
-  root.append(view.canvas, ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, rail);
+  root.append(view.canvas, ...(o.dim === undefined ? [] : [o.dim]), ...(floorHit === null ? [] : [floorHit, floorNote]), overlay, tags, bubbles, rail);
   if (floorHit !== null) {
     /** Stage px under the pointer: the stage is CSS-scaled (and zoomed on a phone). */
     const cellUnder = (ev: MouseEvent): FloorCell | null => {
