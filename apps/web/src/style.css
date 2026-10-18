@@ -126,6 +126,11 @@ legend { padding: 0; margin-bottom: 6px; }
 .a1 .avatar-sprite { background-position: 0 -64px; }
 .a2 .avatar-sprite { background-position: 0 -128px; }
 .a3 .avatar-sprite { background-position: 0 -192px; }
+/* Shirt tint row (OME-1352): six swatches, 28 px to a mouse, 44 px to a finger; here and in the room's Shirt panel. */
+.tints { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.tint { width: 28px; height: 28px; padding: 0; border: 2px solid var(--dusk-border, #5a4e6e); border-radius: 50%; background: var(--swatch, transparent); cursor: pointer; }
+.tint[aria-checked="true"] { border-color: var(--dusk-honey, #f2c46d); box-shadow: 0 0 0 2px var(--dusk-canvas, #1d1a2b), 0 0 0 4px var(--dusk-honey, #f2c46d); }
+@media (pointer: coarse) { .tint { width: 44px; height: 44px; } }
 .welcome .landing .enter { width: 100%; margin-top: 16px; }
 .welcome .find-room { margin-top: 8px; padding: 0; font-size: 15px; }
 .how { padding-top: 24px; border-top: 1px solid var(--dusk-divider); }

@@ -19,6 +19,8 @@ import { resolveTheme } from "./theme/periods";
 export interface AvatarPlacement {
   readonly id: MemberId;
   readonly avatar: number;
+  /** Shirt tint (ADR 0053), 0 the avatar's own colours. */
+  readonly tint: number;
   readonly at: Point;
   /** Depth among furniture and other avatars (furniture.ts: a sitter takes its seat's, others `standDepth`). */
   readonly z: number;
@@ -54,8 +56,8 @@ export interface RoomView {
   renders(): number;
   /** `id` emoted (OME-415): a one-shot on the render loop. Nothing under prefers-reduced-motion (room.ts shows a badge). */
   emote(id: MemberId, kind: EmoteKind): void;
-  /** The motion frame each is drawn with now, and their sticker's (null: none), for e2e checks. */
-  frames(id: MemberId): { avatar: string | null; sticker: string | null } | undefined;
+  /** The motion frame each is drawn with now, their sticker's (null: none) and the shirt tint drawn, for e2e checks. */
+  frames(id: MemberId): { avatar: string | null; sticker: string | null; tint: number } | undefined;
   /** "Hide for me" (OME-769): draw this member's avatar dimmed (or not). One alpha write and one draw per change. */
   setDimmed(id: MemberId, dimmed: boolean): void;
   /** A member is away (OME-911): draw the avatar dimmed (or not). One alpha write and one draw per change; the seat stays. */
@@ -129,6 +131,8 @@ export function quietSystemTicker(ticker: Ticker): () => void {
 interface Entry {
   node: Graphics | Sprite;
   avatar: number;
+  /** The shirt tint asked for; drawn once the atlas has its sheets (until then, tint 0's). */
+  tint: number;
   x: number;
   y: number;
   walking: boolean;
@@ -295,7 +299,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     draw(id, avatar, pose, frame) {
       const entry = pool.get(id);
       if (entry === undefined) return;
-      const texture = frame === null ? undefined : motion?.texture(frame);
+      const texture = frame === null ? undefined : motion?.texture(frame, avatar, entry.tint);
       if (texture !== undefined) {
         if (!(entry.node instanceof Sprite)) {
           const sprite = new Sprite({ texture, label: entry.node.label, alpha: entry.node.alpha });
@@ -444,6 +448,25 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       });
   }
 
+  /** A member's shirt tint changed (ADR 0053): their frame swaps to that tint's sheets now, or once they've loaded. */
+  function retint(id: MemberId, e: Entry, tint: number): void {
+    e.tint = tint;
+    const m = motion;
+    if (m === null) return;
+    const swap = (): void => {
+      if (pool.get(id) !== e || e.tint !== tint || e.frame === null || !(e.node instanceof Sprite)) return;
+      const t = m.texture(e.frame, e.avatar, tint);
+      if (t === undefined || t === e.node.texture) return;
+      e.node.texture = t;
+      render();
+    };
+    if (m.ready(e.avatar, tint)) swap();
+    else
+      m.loadTint(e.avatar, tint).then(swap, (err: unknown) => {
+        console.warn("tint sheets failed to load", err);
+      });
+  }
+
   return {
     canvas: app.canvas,
     setScene(scene, sheets, walkGrid) {
@@ -492,11 +515,17 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       const seen = new Set<MemberId>();
       for (const a of avatars) {
         seen.add(a.id);
-        if (pool.has(a.id)) continue;
+        const had = pool.get(a.id);
+        if (had !== undefined) {
+          if (had.tint !== a.tint) retint(a.id, had, a.tint);
+          continue;
+        }
         const g = new Graphics({ label: `avatar:${a.id}`, alpha: alphaOf(a.id) });
         drawAvatar(g, a.avatar);
-        pool.set(a.id, { node: g, avatar: a.avatar, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null, hat: null });
+        pool.set(a.id, { node: g, avatar: a.avatar, tint: 0, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null, hat: null });
         objectLayer.addChild(g);
+        const added = pool.get(a.id);
+        if (added !== undefined && a.tint !== 0) retint(a.id, added, a.tint);
       }
       for (const [id, entry] of pool) {
         if (seen.has(id)) continue;
@@ -517,6 +546,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
           .then((loaded) => {
             motion = loaded;
             animator.setFrames(loaded.frames);
+            for (const [id, e] of pool) if (e.tint !== 0) retint(id, e, e.tint);
           })
           // Without the sheets the room still works: placeholder avatars that walk. The next join retries.
           .catch((e: unknown) => {
@@ -572,7 +602,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     alpha: (id) => pool.get(id)?.node.alpha,
     frames(id) {
       const e = pool.get(id);
-      return e === undefined ? undefined : { avatar: e.frame, sticker: e.stickerFrame };
+      return e === undefined ? undefined : { avatar: e.frame, sticker: e.stickerFrame, tint: motion?.ready(e.avatar, e.tint) === true ? e.tint : 0 };
     },
     position(id) {
       const e = pool.get(id);

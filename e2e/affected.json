@@ -432,6 +432,19 @@
     },
     {
       "paths": [
+        "apps/web/src/controls/tint-*.ts",
+        "assets/avatars/tints.json"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/tint.e2e.ts"
+      ]
+    },
+    {
+      "paths": [
         "apps/web/src/emote/**"
       ],
       "except": [
@@ -541,6 +554,7 @@
       "specs": [
         "e2e/m8-walk-tiers.e2e.ts",
         "e2e/polish.e2e.ts",
+        "e2e/tint.e2e.ts",
         "e2e/walk.e2e.ts",
         "perf/polish.perf.ts",
         "perf/site.perf.ts",
