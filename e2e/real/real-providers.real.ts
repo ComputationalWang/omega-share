@@ -342,6 +342,13 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
         if (await gateShown(frame)) await frame.locator(TWITCH_START_WATCHING).click({ timeout: 3_000 });
         expect(await gateShown(frame), `${who}'s gate goes away`).toBe(false);
       }).toPass({ intervals: [1_000, 2_000], timeout: 20_000 });
+      // OME-1398: Twitch can reload the player and drop the gate before anyone presses. Then there is no gate left to test.
+      const beforePress = await Promise.all([gateShown(fa), gateShown(fb)]);
+      if (!beforePress.every(Boolean)) {
+        record("m3-twitch-gate", { notRun: "upstream gate dropped before Start Watching", channel, actions, beforePress, sdkEvents: await sdkEvents([a, b], started) });
+        test.skip(true, `Twitch dropped the mature gate before anyone pressed Start Watching (OME-1398): gate shown ${JSON.stringify(beforePress)}`);
+        return;
+      }
       // Each member has their own gate. Browser 1 presses first: browser 2 stays gated and nobody's room state changes.
       await action("viewer-1-start-watching", () => pressStartWatching(fa, "browser 1"));
       await a.page.waitForTimeout(3_000);
@@ -377,6 +384,7 @@ test("M3-twitch-gate · a mature-gated live channel: both members see the Start 
         actions,
         sdkEvents: await sdkEvents([a, b], started),
         hints,
+        beforePress,
         gatedViews: gatedViews.map((v) => ({ live: v.live, playing: v.playing, error: v.error })),
         halfway,
         adsAfterGate: ads.map((x) => x.length),
