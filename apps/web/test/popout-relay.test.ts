@@ -378,6 +378,26 @@ describe("room relay (OME-600)", () => {
     ]);
   });
 
+  test("typing dots go over to a room window (OME-1404): each on and off, and a rejoin's clear; a chat window gets none", async () => {
+    const room = await setup();
+    room.from({ t: "pop-ready", pop: "r1", kind: "room" });
+    room.take();
+    room.relay.typing("m1", true);
+    room.relay.typing("m1", false);
+    room.relay.stopTyping();
+    expect(room.take()).toEqual([
+      { t: "room-typing", member: "m1", on: true },
+      { t: "room-typing", member: "m1", on: false },
+      { t: "room-typing-clear" },
+    ]);
+    const chat = await setup();
+    chat.from({ t: "pop-ready", pop: "p1" });
+    chat.take();
+    chat.relay.typing("m1", true);
+    chat.relay.stopTyping();
+    expect(chat.take()).toEqual([]);
+  });
+
   test("a seat click from the room window comes back to the tab; from a chat window or a stranger it doesn't", async () => {
     const room = await setup();
     room.from({ t: "pop-ready", pop: "r1", kind: "room" });

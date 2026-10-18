@@ -33,6 +33,7 @@ async function setup(size = { w: 1280, h: 668 }) {
   const frames: FrameRequestCallback[] = [];
   const renders: { s: StageState; selfCatching: boolean }[] = [];
   const emotes: [MemberId, EmoteKind][] = [];
+  const typing: [MemberId | null, boolean][] = [];
   let focused = 0;
   const stageRoot = document.createElement("div");
   for (let i = 0; i < 8; i++) {
@@ -59,6 +60,8 @@ async function setup(size = { w: 1280, h: 668 }) {
       root: stageRoot,
       render: (s, selfCatching) => renders.push({ s, selfCatching }),
       emote: (id, kind) => emotes.push([id, kind]),
+      typing: (id, on) => typing.push([id, on]),
+      stopTyping: () => typing.push([null, false]),
     },
     size: () => size,
     requestFrame: (cb) => frames.push(cb),
@@ -88,7 +91,7 @@ async function setup(size = { w: 1280, h: 668 }) {
     if (!(e instanceof HTMLElement)) throw new Error("no plate");
     return e;
   };
-  return { popout, root, stageRoot, from, frame, take, adopt, renders, emotes, plate, focused: () => focused };
+  return { popout, root, stageRoot, from, frame, take, adopt, renders, emotes, typing, plate, focused: () => focused };
 }
 
 describe("whole-room window", () => {
@@ -179,6 +182,17 @@ describe("whole-room window", () => {
     from({ t: "room-emote", member: "m1", kind: "wave" });
     order.push(String(renders.length), String(emotes.length));
     expect(order).toEqual(["1", "1"]);
+  });
+
+  test("typing dots come and go as the room tab says, over the room as it is now; a clear takes everyone's (OME-1404)", async () => {
+    const { from, adopt, renders, typing } = await setup();
+    adopt();
+    from(VIEW);
+    from({ t: "room-typing", member: "m1", on: true });
+    expect(renders).toHaveLength(1);
+    from({ t: "room-typing", member: "m1", on: false });
+    from({ t: "room-typing-clear" });
+    expect(typing).toEqual([["m1", true], ["m1", false], [null, false]]);
   });
 
   test("a seat click (mouse or keyboard) goes to the room tab to send", async () => {
