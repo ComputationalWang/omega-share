@@ -724,3 +724,29 @@ test("a typing node sent away (pushed off the top) doesn't block a fresh typing 
   expect(live).toHaveLength(2);
   expect(gone?.classList.contains("is-leaving")).toBe(true);
 });
+
+// QA OME-1401 (perf): a line sent straight after the first keystroke (a paste, a quick word) must cost the room nothing
+// extra, so the dots wait one whole step of the clock before taking a node.
+describe("typing waits a step", () => {
+  test("a line within a step of typing on takes no typing node: nothing observed but the line, no dots ever", async () => {
+    const { floats, layer, advance, observed } = await setup();
+    floats.typing("a", true, { x: 480, y: 300 });
+    advance(STEP / 2);
+    floats.typing("a", false, { x: 480, y: 300 });
+    floats.say(say("a", "quick", 480));
+    advance(STEP * 3);
+    expect(layer.querySelectorAll(".ui-float.is-typing")).toHaveLength(0);
+    // The line's box and its twin, nothing else.
+    expect(observed()).toBe(2);
+  });
+
+  test("the dots show once typing has been on for a whole step, where the member is then", async () => {
+    const { floats, layer, advance, observed } = await setup();
+    floats.typing("a", true, { x: 480, y: 300 });
+    expect(observed()).toBe(0);
+    floats.move("a", 300, 280);
+    advance(STEP * 2 + 1);
+    const p = layer.querySelector<HTMLElement>(".ui-float.is-typing");
+    expect(p?.closest<HTMLElement>(".float-slot")?.style.transform).toBe("translate(300px, 280px)");
+  });
+});
