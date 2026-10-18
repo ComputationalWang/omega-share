@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { AVATAR_COUNT, TINT_COUNT } from "@omega/shared";
-import { AVATAR_IDS, parseTints, retintPng } from "../src/walk/tint";
+import { AVATAR_IDS, parseTints, retintPng, tintAccent } from "../src/walk/tint";
 
 // OME-1352 (ADR 0053, art OME-1347): a shirt tint is a PLTE swap of the avatar sheets. tints.json names, per avatar,
 // the 3 palette slots of its swatch ramp and 6 ramps; tint 0 is the shipped look.
@@ -76,5 +76,22 @@ describe("retintPng", () => {
     const png = await sheet("avatars");
     expect(() => retintPng(new Uint8Array(20), [0, 1, 2], ["#000000", "#000000", "#000000"])).toThrow();
     expect(() => retintPng(png, [200, 201, 202], ["#000000", "#000000", "#000000"])).toThrow();
+  });
+});
+
+// OME-1375: a member's bubble edge and name tag wear their shirt's colour: the middle of their tint's ramp (the swatch's).
+describe("tintAccent", () => {
+  const tints = parseTints(tintsJson, IDS);
+  test("is the middle colour of that avatar's ramp for that tint, for every avatar and tint", () => {
+    for (let a = 0; a < AVATAR_COUNT; a++) {
+      for (let t = 0; t < TINT_COUNT; t++) expect(tintAccent(tints, a, t)).toBe(tints[a]?.tints[t]?.colors[1] ?? "missing");
+    }
+    expect(tintAccent(tints, 0, 1)).toBe("#3aa7a3");
+  });
+
+  test("no avatar or tint by that number: null", () => {
+    expect(tintAccent(tints, AVATAR_COUNT, 0)).toBeNull();
+    expect(tintAccent(tints, 0, TINT_COUNT)).toBeNull();
+    expect(tintAccent(tints, -1, 0)).toBeNull();
   });
 });

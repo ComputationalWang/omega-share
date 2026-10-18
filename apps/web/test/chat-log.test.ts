@@ -96,6 +96,20 @@ describe("chat log: structure and accessibility", () => {
   });
 });
 
+describe("chat log: /me action lines (OME-1375)", () => {
+  test("a /me line reads as the speaker doing it, italic, the name still bold, text only", async () => {
+    const { lines, chat } = await setup();
+    chat("Sam", "/me waves at <b>the</b> screen");
+    chat("Kit", "hi");
+    const [action, plain] = lines();
+    expect(action?.textContent).toBe("Sam waves at <b>the</b> screen");
+    expect(action?.querySelector("b")?.textContent).toBe("Sam");
+    expect(action?.querySelectorAll("b").length).toBe(1);
+    expect(action?.classList.contains("is-action")).toBe(true);
+    expect(plain?.classList.contains("is-action")).toBe(false);
+  });
+});
+
 describe("chat log: cap and one append per message", () => {
   test("keeps only the newest `cap` lines, oldest dropped first", async () => {
     const { lines, chat } = await setup("settle", 5);
