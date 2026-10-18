@@ -757,7 +757,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
           onPopped,
           onSeat: (seat) => {
             const msg = sitIntent(state, seat);
-            if (msg !== null) c.send(msg);
+            if (msg === null) return;
+            walkGate.cancel();
+            c.send(msg);
           },
           setTimer: (fn, ms) => setTimeout(fn, ms),
           clearTimer: (h) => {
@@ -787,7 +789,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (!(ev.target instanceof HTMLElement)) return;
     const seat = Number(ev.target.closest<HTMLElement>("[data-seat]")?.dataset["seat"] ?? NaN);
     const msg = sitIntent(state, seat);
-    if (msg !== null) c.send(msg);
+    if (msg === null) return;
+    walkGate.cancel();
+    c.send(msg);
   });
   chatForm.addEventListener("submit", (ev) => {
     ev.preventDefault();
