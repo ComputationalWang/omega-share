@@ -10,6 +10,7 @@ export interface Profile {
   readonly nickname: Nickname | null;
   readonly avatar: Avatar;
   readonly tint: Tint;
+  readonly accessory: number;
 }
 
 const NICKNAME_KEY = "omega.nickname";
@@ -40,7 +41,7 @@ export function loadProfile(store: KeyValueStore): Profile {
   const nick = v.safeParse(NicknameSchema, read(store, NICKNAME_KEY));
   const avatar = v.safeParse(AvatarSchema, Number(read(store, AVATAR_KEY) ?? "0"));
   const tint = v.safeParse(TintSchema, Number(read(store, TINT_KEY) ?? "0"));
-  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, tint: tint.success ? tint.output : 0 };
+  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, tint: tint.success ? tint.output : 0, accessory: 0 };
 }
 
 export function saveProfile(store: KeyValueStore, profile: { nickname: Nickname; avatar: Avatar }): boolean {
@@ -61,4 +62,8 @@ export function saveTint(store: KeyValueStore, tint: Tint): boolean {
   } catch {
     return false;
   }
+}
+
+export function saveAccessory(_store: KeyValueStore, _accessory: number): boolean {
+  return false;
 }

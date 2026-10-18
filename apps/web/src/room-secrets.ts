@@ -119,7 +119,7 @@ export function inviteLink(origin: string, id: RoomId, inviteKey?: InviteKey): s
 }
 
 /** `join` with the room's stored secrets and shirt tint; absent ones (and tint 0) are left out (the server's join is a strictObject). */
-export function joinMessage(nickname: Nickname, avatar: Avatar, secret: RoomSecret | undefined, tint: Tint = 0): Extract<ClientMessage, { type: "join" }> {
+export function joinMessage(nickname: Nickname, avatar: Avatar, secret: RoomSecret | undefined, tint: Tint = 0, _accessory = 0): Extract<ClientMessage, { type: "join" }> {
   const ownerToken: OwnerToken | undefined = secret?.ownerToken;
   const inviteKey: InviteKey | undefined = secret?.inviteKey;
   return {

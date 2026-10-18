@@ -244,6 +244,11 @@ describe("joinMessage", () => {
     expect(joinMessage("zoe", 1, undefined, 3)).toEqual({ type: "join", nickname: "zoe", avatar: 1, tint: 3 });
     expect("tint" in joinMessage("zoe", 1, undefined, 0)).toBe(false);
   });
+  test("carries an accessory, and leaves accessory 0 out (absent means none, OME-1391)", () => {
+    expect(joinMessage("zoe", 1, undefined, 0, 2)).toEqual({ type: "join", nickname: "zoe", avatar: 1, accessory: 2 });
+    expect(joinMessage("zoe", 1, undefined, 3, 4)).toEqual({ type: "join", nickname: "zoe", avatar: 1, tint: 3, accessory: 4 });
+    expect("accessory" in joinMessage("zoe", 1, undefined, 3, 0)).toBe(false);
+  });
   test("carries the stored owner token and invite key", () => {
     expect(joinMessage("zoe", 1, { ownerToken: OWNER, inviteKey: KEY })).toEqual({ type: "join", nickname: "zoe", avatar: 1, ownerToken: OWNER, inviteKey: KEY });
   });
