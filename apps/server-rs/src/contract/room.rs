@@ -2,7 +2,7 @@
 //! messages belong to later slices.
 
 use super::Obj;
-use super::constants::{AVATAR_COUNT, FLOOR_CELLS, MAX_ROOM_MEMBERS, QUEUE_MAX, SEAT_COUNT, TINT_COUNT};
+use super::constants::{ACCESSORY_COUNT, AVATAR_COUNT, FLOOR_CELLS, MAX_ROOM_MEMBERS, QUEUE_MAX, SEAT_COUNT, TINT_COUNT};
 use serde::{Deserialize, Serialize};
 
 /// A bounded index: a JSON integer in `0..count`. Floats, strings and negatives are refused.
@@ -56,6 +56,11 @@ bounded_index!(
     /// `TintSchema`: a shirt tint, an integer in `0..TINT_COUNT`; 0 is the avatar's own colours (ADR 0053).
     Tint,
     TINT_COUNT
+);
+bounded_index!(
+    /// `AccessorySchema`: an avatar accessory, an integer in `0..ACCESSORY_COUNT`; 0 is none (OME-1387).
+    Accessory,
+    ACCESSORY_COUNT
 );
 bounded_index!(
     /// One coordinate of a floor cell: an integer in `0..FLOOR_CELLS`.

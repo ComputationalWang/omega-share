@@ -345,6 +345,8 @@ class LoadClient {
       case "emoted":
       case "walked":
       case "tint-changed":
+      case "accessory-changed":
+      case "typing-changed":
       case "pong":
       case "layout-changed":
       case "title-changed":

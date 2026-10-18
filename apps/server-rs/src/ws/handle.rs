@@ -8,7 +8,7 @@ use super::limits::{MAX_DROPPED_IN_A_ROW, MemberBuckets};
 use super::session::{close_self, count_bad, join, kick, leave, session_of, session_of_mut, target_of};
 use crate::app::{App, lock};
 use crate::contract::client_message::{ClientMessage, EmoteKind as InEmote, parse_client_message};
-use crate::contract::constants::close;
+use crate::contract::constants::{TYPING_TIMEOUT_MS, close};
 use crate::contract::ids::MemberId;
 use crate::contract::room::ControlPolicy;
 use crate::contract::server_message::{ErrorCode, ServerMessage};
@@ -169,6 +169,9 @@ fn admit_type(
         ClientMessage::Emote { .. } => owner.is_none() || admit!(emote, "too many emotes, slow down"),
         // Cosmetic broadcasts share one bucket (ADR 0053).
         ClientMessage::SetTint { .. } => owner.is_none() || admit!(emote, "too many tint changes, slow down"),
+        ClientMessage::SetAccessory { .. } => owner.is_none() || admit!(emote, "too many accessory changes, slow down"),
+        // Over the typing bucket: dropped silently, as for walks (OME-1387).
+        ClientMessage::Typing { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.typing).is_none(),
         // Over the walk bucket: dropped silently, no notice and no streak toward a close (ADR 0053).
         ClientMessage::Walk { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none(),
         // The queue's add buckets come after its control-policy check, in `handle` (ADR 0031 section 3).
@@ -309,11 +312,41 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, session: Optio
                 );
             }
         }
+        ClientMessage::SetAccessory { accessory } => {
+            if inner.room.set_accessory(member, accessory) {
+                publish_msg(
+                    inner,
+                    &ServerMessage::AccessoryChanged {
+                        member_id: member.clone(),
+                        accessory,
+                    },
+                );
+            }
+        }
+        ClientMessage::Typing { on } => {
+            // A muted member's typing reaches nobody, as their chat doesn't.
+            if on && inner.room.is_muted(member) {
+                return;
+            }
+            if on {
+                conn.typing_in = Some(TYPING_TIMEOUT_MS as f64);
+            }
+            if inner.room.set_typing(member, on) {
+                publish_msg(
+                    inner,
+                    &ServerMessage::TypingChanged {
+                        member_id: member.clone(),
+                        on,
+                    },
+                );
+            }
+        }
         ClientMessage::Chat { text } => {
             if inner.room.is_muted(member) {
                 send_error(inner, conn.id, ErrorCode::Muted, "the room's owner muted you");
                 return;
             }
+            clear_typing(inner, member);
             let at = real_wall_ms();
             publish_msg(
                 inner,
@@ -442,9 +475,31 @@ fn moderate(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, member: &Mem
         }
         ClientMessage::Kick { member_id } => kick(app, inner, &member_id),
         ClientMessage::Mute { member_id, muted } if inner.room.set_muted(&member_id, muted) => {
-            publish_msg(inner, &ServerMessage::MemberMuted { member_id, muted });
+            publish_msg(
+                inner,
+                &ServerMessage::MemberMuted {
+                    member_id: member_id.clone(),
+                    muted,
+                },
+            );
+            if muted {
+                clear_typing(inner, &member_id);
+            }
         }
         _ => {}
+    }
+}
+
+/// Clears the member's typing and tells the room, if they were typing (OME-1387): a chat line, a mute, a timeout, a disconnect.
+pub fn clear_typing(inner: &mut RoomInner, member: &MemberId) {
+    if inner.room.set_typing(member, false) {
+        publish_msg(
+            inner,
+            &ServerMessage::TypingChanged {
+                member_id: member.clone(),
+                on: false,
+            },
+        );
     }
 }
 

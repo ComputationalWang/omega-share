@@ -15,4 +15,10 @@
 - **Logs.** Cells, tints and room ids are never logged.
 - **Frozen TS server.** It ignores `walk` and `set-tint` (PORTING.md "Deliberate differences", as for `queue-move`); its black-box cases run against the binary only.
 
+**Amendment (2026-10-18, [OME-1387](/OME/issues/OME-1387)): typing indicator and accessory.**
+- **Accessory** works exactly like tint: `accessory` `0..ACCESSORY_COUNT-1` (5), 0 none, absent on a member means 0. Set on `join` (optional), changed with `set-accessory {accessory}`, relayed as `accessory-changed`; the current one is a no-op; the emote bucket; in the snapshot. The client's profile remembers it and sends it on join; the server keeps it in memory with the member, and a resume keeps it.
+- **Typing** is ephemeral: never in a snapshot or on a member. Client `typing {on}`; the server sends `typing-changed {memberId, on}` on change only, so a refresh (`on: true` again) relays nothing and only restarts the timeout. The server clears it (`typing-changed` false) after `TYPING_TIMEOUT_MS` 5000 without a refresh, before relaying the member's chat line, after `member-muted` true, and when a durable member's socket drops (held). A member who leaves just leaves: `member-left` clears it on clients. Per member `TYPING_BURST` 2, refilling one every `TYPING_REFILL_MS` 1000; over it dropped silently, as for walks. A muted member's `on` reaches nobody.
+- **Timer:** one per socket, re-armed by each accepted `on`, on the app clock (unlike the socket's other timers, it has no TS counterpart to match), so the black-box suite drives it with virtual time.
+- Nothing about either is logged. The frozen TS server ignores both types.
+
 **Consequences:** One more field each on a member (`cell`, `tint`), two client and two server message types and one error code. A rollback to the TS server would make walking and tints silently do nothing, nothing else. Pathing stays a client concern: a client that disagrees about the floor only draws a different route, never a different destination.

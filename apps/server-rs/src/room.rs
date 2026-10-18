@@ -12,7 +12,9 @@ use crate::contract::constants::{MAX_ROOM_MEMBERS, MUTE_MEMORY_MS, SEAT_COUNT};
 use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
 use crate::contract::layout::{RoomLayout, default_layout, door_cell};
-use crate::contract::room::{Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, RoomVisibility, SeatIndex, StandingSlot, Tint};
+use crate::contract::room::{
+    Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, RoomVisibility, SeatIndex, StandingSlot, Tint,
+};
 use crate::contract::state::{Member, PlaybackState, QueueItem, RoomState, RoomSummary};
 use crate::contract::text::{Nickname, RoomTitle};
 use crate::playback::{Control, apply_control, load_playback, restored_playback};
@@ -137,6 +139,8 @@ struct Rec {
     away: bool,
     /// `Some(n)`: the room was last told (`member-status`) they are catching, as its n-th announcement.
     announced: Option<u64>,
+    /// Typing a chat line (OME-1387). Ephemeral: never in a snapshot.
+    typing: bool,
 }
 
 type Slot = u8;
@@ -316,6 +320,27 @@ impl Room {
         changed
     }
 
+    /// Sets `member`'s accessory; false if unchanged or not a member. Accessory 0 is stored as absent (OME-1387).
+    pub fn set_accessory(&mut self, member: &MemberId, accessory: Accessory) -> bool {
+        let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) else {
+            return false;
+        };
+        let next = (accessory.get() != 0).then_some(accessory);
+        let changed = rec.member.accessory != next;
+        rec.member.accessory = next;
+        changed
+    }
+
+    /// Sets whether `member` is typing; false if unchanged or not a member (OME-1387).
+    pub fn set_typing(&mut self, member: &MemberId, on: bool) -> bool {
+        let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) else {
+            return false;
+        };
+        let changed = rec.typing != on;
+        rec.typing = on;
+        changed
+    }
+
     pub fn title(&self) -> Option<&RoomTitle> {
         self.title.as_ref()
     }
@@ -458,6 +483,7 @@ impl Room {
             away: None,
             cell: None,
             tint: None,
+            accessory: None,
         };
         self.index.insert(member.id.clone(), slot);
         self.name_keys.insert(name_key.clone());
@@ -474,6 +500,7 @@ impl Room {
                 muted: false,
                 away: false,
                 announced: None,
+                typing: false,
             });
         }
         self.order.push(slot);
@@ -1866,6 +1893,41 @@ mod tests {
             json(&r.snapshot().members[0]),
             r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#
         );
+    }
+
+    #[test]
+    fn accessory_is_absent_at_0_and_changes_once() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(!r.set_accessory(&a, Accessory::new(0).unwrap()));
+        assert!(r.set_accessory(&a, Accessory::new(4).unwrap()));
+        assert!(!r.set_accessory(&a, Accessory::new(4).unwrap()));
+        assert!(!r.set_accessory(&mid("ghost"), Accessory::new(1).unwrap()));
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"accessory":4}"#
+        );
+        assert!(r.set_accessory(&a, Accessory::new(0).unwrap()));
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#
+        );
+    }
+
+    #[test]
+    fn typing_changes_once_and_is_never_in_the_snapshot() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(!r.set_typing(&a, false));
+        assert!(r.set_typing(&a, true));
+        assert!(!r.set_typing(&a, true));
+        assert!(!r.set_typing(&mid("ghost"), true));
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#
+        );
+        assert!(r.set_typing(&a, false));
+        assert!(!r.set_typing(&a, false));
     }
 }
 
