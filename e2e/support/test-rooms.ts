@@ -57,6 +57,7 @@ export const SPEC_ROOMS = {
   reconnect: ["main"],
   tint: ["pick"],
   accessory: ["pick", "none", "theme", "bare"],
+  roll: ["two"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

@@ -4,7 +4,11 @@ import type { EmoteKind, MemberId } from "@omega/shared";
 import { PICKER_KINDS } from "../emote/emotes";
 import type { SystemLine } from "../controls/sysline";
 
-export type SlashCommand = { readonly type: "emote"; readonly kind: EmoteKind } | { readonly type: "help" };
+export type SlashCommand =
+  | { readonly type: "emote"; readonly kind: EmoteKind }
+  | { readonly type: "help" }
+  | { readonly type: "roll"; readonly sides: number }
+  | { readonly type: "roll-usage" };
 
 /** `/wave` … `/exclaim` (each emote's own name) and `/help`; anything else, `/x` included, is chat. */
 export function slashCommand(text: string): SlashCommand | null {
@@ -22,6 +26,9 @@ export function meAction(text: string): string | null {
 /** What `/help` says, to me only. */
 export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")} · /me <action>`, time: null, self: true };
 
+/** What a `/roll` the server would refuse says (OME-1426), to me only; nothing is sent. */
+export const ROLL_USAGE_LINE: SystemLine = { glyph: "host", actor: null, verb: "", time: null, self: true };
+
 /** What `/dance` says while I'm seated (OME-1378), to me only; nothing is sent. */
 export const DANCE_SEATED_LINE: SystemLine = { glyph: "host", actor: null, verb: "Stand up to dance", time: null, self: true };
 
@@ -35,6 +42,11 @@ const STICKERS: readonly (readonly [RegExp, EmoteKind])[] = [
 /** The sticker a chat line pops, or null. */
 export function chatSticker(text: string): EmoteKind | null {
   for (const [re, kind] of STICKERS) if (re.test(text)) return kind;
+  return null;
+}
+
+/** The sticker a roll pops (OME-1426): the cheer on a max roll, else null. */
+export function rollSticker(_sides: number, _value: number): EmoteKind | null {
   return null;
 }
 

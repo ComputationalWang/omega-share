@@ -91,6 +91,7 @@ test("a hidden member's chat and emotes stop at intake: no dispatch, no emote", 
   const { route, dispatched, emoted } = setup(["m2"]);
   route({ type: "message", msg: { type: "chat", memberId: "m2", text: "boo", at: 1 } });
   route({ type: "message", msg: { type: "emoted", memberId: "m2", kind: "wave" } });
+  route({ type: "message", msg: { type: "rolled", memberId: "m2", sides: 6, value: 6 } });
   expect(dispatched).toEqual([]);
   expect(emoted).toEqual([]);
 });
