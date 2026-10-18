@@ -14,6 +14,11 @@ export function slashCommand(text: string): SlashCommand | null {
   return kind === undefined ? null : { type: "emote", kind };
 }
 
+/** `/me <text>` (OME-1375): the action, or null. */
+export function meAction(_text: string): string | null {
+  return null;
+}
+
 /** What `/help` says, to me only. */
 export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")}`, time: null, self: true };
 

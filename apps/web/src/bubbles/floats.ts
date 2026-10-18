@@ -62,6 +62,8 @@ export interface FloatMessage {
   /** The speaker's nickname: a stacked bubble names them. */
   readonly name: string;
   readonly text: string;
+  /** The speaker's shirt colour (OME-1375), the bubble's edge. */
+  readonly accent?: string;
   /** My own bubble wears the mustard rim. */
   readonly self: boolean;
   /** The speaker's head (stage px): the tail's tip. */
