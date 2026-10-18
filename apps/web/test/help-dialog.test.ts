@@ -197,3 +197,34 @@ describe("focus", () => {
     expect(help.isOpen()).toBe(false);
   });
 });
+
+describe("the cinema dim toggle (OME-1406)", () => {
+  test("a Cinema dim checkbox shows the setting and switches it", async () => {
+    const { createHelp } = await import("../src/help/dialog");
+    let on = true;
+    const seen: boolean[] = [];
+    const help = createHelp({
+      owner: () => false,
+      cinema: {
+        on: () => on,
+        set: (v) => {
+          on = v;
+          seen.push(v);
+        },
+      },
+    });
+    document.body.replaceChildren(help.key, help.dialog);
+    help.key.click();
+    const box = help.dialog.querySelector<HTMLInputElement>('input[type="checkbox"][data-testid="cinema-toggle"]');
+    expect(box).not.toBeNull();
+    if (box === null) return;
+    expect(box.labels?.[0]?.textContent).toMatch(/cinema dim/i);
+    expect(box.checked).toBe(true);
+    box.click();
+    expect(seen).toEqual([false]);
+    help.close();
+    on = true;
+    help.key.click();
+    expect(box.checked).toBe(true);
+  });
+});

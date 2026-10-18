@@ -1,12 +1,14 @@
 // The "?" help dialog (OME-768, M9 W2). A key in the room bar, or `?` under T's rules (never in a text field, never with
 // Ctrl/Alt/Meta, never over another dialog), opens a modal <dialog>: the keyboard and touch controls, the owner's tools
 // (owners only), how to report a room, and the footer pages. Its content is static DOM built on the first open; nothing
-// in it touches the room's canvas. Focus is trapped inside and goes back where it was. Text only.
+// in it touches the room's canvas. Focus is trapped inside and goes back where it was. Text, plus the Cinema dim checkbox (OME-1406).
 import { el } from "../controls/dom";
 
 export interface HelpOptions {
   /** Checked on every open: the owner's tools show only in a room you own. */
   readonly owner: () => boolean;
+  /** The Cinema dim setting (OME-1406): a checkbox in the dialog. */
+  readonly cinema?: { on(): boolean; set(on: boolean): void };
 }
 
 export interface Help {
@@ -72,6 +74,7 @@ export function createHelp(o: HelpOptions): Help {
   let ownerPart: HTMLElement | null = null;
   let reportPart: HTMLElement | null = null;
   let closeKey: HTMLButtonElement | null = null;
+  let cinemaBox: HTMLInputElement | null = null;
   /** What had focus when the dialog opened; it gets it back on close. */
   let before: HTMLElement | null = null;
 
@@ -103,6 +106,20 @@ export function createHelp(o: HelpOptions): Help {
     const touch = section("On a touch screen");
     touch.append(list(TOUCH));
 
+    const settings = section("Settings");
+    const cinema = o.cinema;
+    if (cinema !== undefined) {
+      const box = el("input", { type: "checkbox", id: `cinema-dim-${n}` }, "cinema-toggle");
+      box.addEventListener("change", () => {
+        cinema.set(box.checked);
+      });
+      const label = el("label", { className: "help-setting", htmlFor: box.id });
+      label.append(box, "Cinema dim: the room dims while the video plays");
+      settings.append(label);
+      cinemaBox = box;
+    }
+    settings.hidden = cinema === undefined;
+
     const owner = section("Your room's tools", "help-owner");
     owner.append(list(OWNER));
     ownerPart = owner;
@@ -126,7 +143,7 @@ export function createHelp(o: HelpOptions): Help {
     closeKey = close;
     const acts = el("div", { className: "acts" });
     acts.append(close);
-    dialog.append(title, keyboard, touch, owner, report, pages, acts);
+    dialog.append(title, keyboard, touch, owner, report, pages, settings, acts);
   };
 
   const openHelp = (): void => {
@@ -138,6 +155,7 @@ export function createHelp(o: HelpOptions): Help {
     if (ownerPart !== null) ownerPart.hidden = !owns;
     // An owner never reports their own room (room.ts makes no Report key for them).
     if (reportPart !== null) reportPart.hidden = owns;
+    if (cinemaBox !== null && o.cinema !== undefined) cinemaBox.checked = o.cinema.on();
     dialog.showModal();
     closeKey?.focus();
   };
@@ -158,7 +176,7 @@ export function createHelp(o: HelpOptions): Help {
   // Focus is trapped inside: Tab past the last stop wraps to the first, and back.
   dialog.addEventListener("keydown", (ev) => {
     if (ev.key !== "Tab") return;
-    const stops = [...dialog.querySelectorAll<HTMLElement>("a[href], button")].filter((e) => e.closest("[hidden]") === null);
+    const stops = [...dialog.querySelectorAll<HTMLElement>("a[href], button, input")].filter((e) => e.closest("[hidden]") === null);
     const first = stops[0];
     const last = stops.at(-1);
     if (first === undefined || last === undefined) return;
