@@ -554,11 +554,11 @@ mod tests {
     // packages/shared/test/emote-contract.test.ts:44, moderation-contract.test.ts:96..190
     #[test]
     fn picklists_accept_their_words_only() {
-        for kind in ["clap", "exclaim", "heart", "laugh", "question", "wave", "cheer", "yawn"] {
+        for kind in ["clap", "exclaim", "heart", "laugh", "question", "wave", "cheer", "yawn", "dance"] {
             same(&format!(r#"{{"type":"emoted","memberId":"m1","kind":"{kind}"}}"#));
         }
         for frame in [
-            r#"{"type":"emoted","memberId":"m1","kind":"dance"}"#,
+            r#"{"type":"emoted","memberId":"m1","kind":"jump"}"#,
             r#"{"type":"emoted","memberId":"","kind":"wave"}"#,
             r#"{"type":"emoted","kind":"wave"}"#,
             r#"{"type":"member-left","memberId":"m2","reason":"banned"}"#,

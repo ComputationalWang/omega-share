@@ -58,9 +58,9 @@ export const ChatTextSchema = plainTextSchema(CHAT_MAX_LENGTH);
 
 /**
  * Emote bubbles in the avatar motion atlas (`emote/<kind>`), plus per-avatar animations, not bubbles: `wave` (motion atlas)
- * and `cheer` / `yawn` (expressions atlas, OME-1104). One `emote` message and one rate limit for all of them.
+ * `cheer` / `yawn` (expressions atlas, OME-1104) and `dance` (OME-1374). One `emote` message and one rate limit for all of them.
  */
-export const EMOTE_KINDS = ["clap", "exclaim", "heart", "laugh", "question", "wave", "cheer", "yawn"] as const;
+export const EMOTE_KINDS = ["clap", "exclaim", "heart", "laugh", "question", "wave", "cheer", "yawn", "dance"] as const;
 export const EmoteKindSchema = v.picklist(EMOTE_KINDS);
 export type EmoteKind = v.InferOutput<typeof EmoteKindSchema>;
 

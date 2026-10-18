@@ -28,6 +28,7 @@ pub enum EmoteKind {
     Wave,
     Cheer,
     Yawn,
+    Dance,
 }
 
 /// Seconds into the video: finite, `0..=MAX_POSITION_S` (`PositionSchema`).
@@ -566,6 +567,7 @@ mod tests {
             json!({"type":"status","catching":true}),
             json!({"type":"title-set","title":"Films"}),
             json!({"type":"emote","kind":"cheer"}),
+            json!({"type":"emote","kind":"dance"}),
             json!({"type":"kick","memberId":"m2"}),
             json!({"type":"mute","memberId":"m2","muted":false}),
             json!({"type":"control-policy","policy":"owner"}),

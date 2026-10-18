@@ -52,6 +52,14 @@ describe("emote relay", () => {
     }
   });
 
+  test("dance (OME-1374) relays like wave", async () => {
+    t = start();
+    const a = await join("alice");
+    const b = await join("bob");
+    a.client.send({ type: "emote", kind: "dance" });
+    expect(await b.client.next("emoted")).toEqual({ type: "emoted", memberId: a.snapshot.self, kind: "dance" });
+  });
+
   test("an emote before join gets not_joined and reaches nobody", async () => {
     t = start();
     const b = await join("bob");

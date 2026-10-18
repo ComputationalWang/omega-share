@@ -213,6 +213,7 @@ fn emote_kind(kind: InEmote) -> EmoteKind {
         InEmote::Wave => EmoteKind::Wave,
         InEmote::Cheer => EmoteKind::Cheer,
         InEmote::Yawn => EmoteKind::Yawn,
+        InEmote::Dance => EmoteKind::Dance,
     }
 }
 

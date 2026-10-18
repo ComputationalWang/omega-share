@@ -41,7 +41,7 @@ export type FrameRects = v.InferOutput<typeof FramesSchema>;
 export type GestureKind = "wave" | "cheer" | "yawn";
 
 /** The emotes drawn as a sticker over the avatar (`emote/<kind>`). */
-export type StickerKind = Exclude<EmoteKind, GestureKind>;
+export type StickerKind = Exclude<EmoteKind, GestureKind | "dance">;
 
 /** Per pose, per direction (DIRS order). */
 export interface PoseCycles {

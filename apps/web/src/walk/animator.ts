@@ -171,6 +171,8 @@ export function createAnimator(o: AnimatorOptions): Animator {
       requestFrame();
     },
     emote(id, kind) {
+      // shortcut: no dance art yet; drop it until the dance issue (OME-1345 batch 2) wires it in.
+      if (kind === "dance") return;
       if (disposed || paused || o.reducedMotion() || !list.some((a) => a.id === id)) return;
       let play = plays.get(id);
       if (play === undefined) {
