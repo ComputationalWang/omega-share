@@ -191,9 +191,10 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     const dots = el("span", { className: "dots", hidden: true });
     dots.append(el("i"), el("i"), el("i"));
     const say = el("span", { className: "say" });
-    say.append(who, text, dots);
+    say.append(who, text);
+    // Beside `.say`, not in it: `.say > span` stays the line's text alone.
     const p = el("p", { className: "ui-float" });
-    p.append(say);
+    p.append(say, dots);
     const twinSay = el("span");
     const twin = el("p", { className: "float-twin" });
     twin.append(twinSay);
