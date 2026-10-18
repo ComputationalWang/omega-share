@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { MAX_POSITION_S, type PlaybackState, type RoomState } from "@omega/shared";
-import { chatIntent, playerIntent, seatViews, seekIntent, sitIntent, stepAllowed, stepCell, togglePlayIntent, walkIntent, type PlaybackTarget } from "../src/intents";
+import { MAX_POSITION_S, WALK_REFILL_MS, type PlaybackState, type RoomState } from "@omega/shared";
+import { chatIntent, createWalkGate, playerIntent, seatViews, seekIntent, sitIntent, stepAllowed, stepCell, togglePlayIntent, walkIntent, type PlaybackTarget } from "../src/intents";
 import { TILE_MS } from "../src/walk/walks";
 import { initialState, reduce, type ViewState } from "../src/state";
 
@@ -144,5 +144,56 @@ describe("stepAllowed", () => {
   test("a held key repeats at most once a tile (the walk rate)", () => {
     expect(stepAllowed(true, 1000 + TILE_MS - 1, 1000)).toBe(false);
     expect(stepAllowed(true, 1000 + TILE_MS, 1000)).toBe(true);
+  });
+});
+
+describe("createWalkGate", () => {
+  function gate() {
+    let now = 0;
+    const timers: { at: number; fn: () => void }[] = [];
+    const sent: number[] = [];
+    const g = createWalkGate({
+      now: () => now,
+      send: (m) => {
+        if (m.type === "walk") sent.push(m.cell.x);
+      },
+      setTimer: (fn, ms) => {
+        timers.push({ at: now + ms, fn });
+      },
+    });
+    const walk = (x: number) => ({ type: "walk", cell: { x, y: 0 } }) as const;
+    const advance = (ms: number) => {
+      now += ms;
+      for (let t = timers[0]; t !== undefined && t.at <= now; t = timers[0]) {
+        timers.shift();
+        t.fn();
+      }
+    };
+    return { g, walk, advance, sent, timers };
+  }
+  test("a lone click sends at once", () => {
+    const { g, walk, sent } = gate();
+    g.push(walk(1));
+    expect(sent).toEqual([1]);
+  });
+  test("a click burst sends at most one walk per WALK_REFILL_MS, and the last click always lands", () => {
+    const { g, walk, advance, sent } = gate();
+    // 60 clicks at ~15/s for 4 s, as in QA OME-1353.
+    for (let i = 0; i < 60; i++) {
+      g.push(walk(i));
+      advance(66);
+    }
+    advance(WALK_REFILL_MS);
+    expect(sent.length).toBeLessThanOrEqual(Math.ceil((60 * 66) / WALK_REFILL_MS) + 1);
+    expect(sent.at(-1)).toBe(59);
+  });
+  test("clicks inside one window coalesce to the latest target, one timer", () => {
+    const { g, walk, advance, sent, timers } = gate();
+    g.push(walk(1));
+    g.push(walk(2));
+    g.push(walk(3));
+    expect(timers.length).toBe(1);
+    advance(WALK_REFILL_MS);
+    expect(sent).toEqual([1, 3]);
   });
 });

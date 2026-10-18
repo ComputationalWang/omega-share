@@ -94,3 +94,11 @@ export function seekIntent(t: PlaybackTarget, position: number): Control | null 
 export function playerIntent(t: PlaybackTarget, playing: boolean, position: number): Control | null {
   return control(t, playing, position);
 }
+
+export interface WalkGate {
+  push(msg: ClientMessage): void;
+}
+
+export function createWalkGate(_deps: { now: () => number; send: (m: ClientMessage) => void; setTimer: (fn: () => void, ms: number) => void }): WalkGate {
+  return { push: () => undefined };
+}
