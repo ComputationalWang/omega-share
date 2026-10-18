@@ -199,6 +199,8 @@ export function createPopoutView<H>(o: PopoutViewOptions<H>): PopoutView {
       case "room-view":
       case "room-tv":
       case "room-emote":
+      case "room-typing":
+      case "room-typing-clear":
       case "room-raise":
         if (room && adopted && !moved) o.onRoom?.(m);
         return;

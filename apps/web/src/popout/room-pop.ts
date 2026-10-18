@@ -17,6 +17,8 @@ export interface PopStage {
   readonly root: HTMLElement;
   render(s: StageState, selfCatching: boolean): void;
   emote(id: MemberId, kind: EmoteKind): void;
+  typing(id: MemberId, on: boolean): void;
+  stopTyping(): void;
 }
 
 export interface RoomPopoutOptions<H> {
@@ -102,6 +104,14 @@ export function createRoomPopout<H>(o: RoomPopoutOptions<H>): RoomPopout {
         // Over the avatar as the room is now: a member who just came in may not be drawn yet.
         if (queued) draw();
         o.stage.emote(m.member, m.kind);
+        return;
+      case "room-typing":
+        // As an emote: over the avatar as the room is now.
+        if (queued) draw();
+        o.stage.typing(m.member, m.on);
+        return;
+      case "room-typing-clear":
+        o.stage.stopTyping();
         return;
       case "room-raise":
         o.focusWindow();

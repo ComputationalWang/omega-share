@@ -47,6 +47,12 @@ async function start(root: HTMLElement, roomId: RoomId, tab: string): Promise<vo
       emote: (id, kind) => {
         stage.emote(id, kind, shown);
       },
+      typing: (id, on) => {
+        stage.typing(id, on);
+      },
+      stopTyping: () => {
+        stage.stopTyping();
+      },
     },
     size: () => ({ w: root.clientWidth, h: root.clientHeight }),
     requestFrame: (cb) => requestAnimationFrame(cb),

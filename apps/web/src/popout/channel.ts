@@ -90,6 +90,9 @@ const PopMessageSchema = v.variant("t", [
   v.strictObject({ t: v.literal("room-view"), ...StageFields, room: v.exactOptional(StageFields.room) }),
   v.strictObject({ t: v.literal("room-tv"), ...TvFields }),
   v.strictObject({ t: v.literal("room-emote"), member: MemberIdSchema, kind: EmoteKindSchema }),
+  /** Someone started or stopped typing (OME-1404); a clear takes everyone's dots (a rejoin). */
+  v.strictObject({ t: v.literal("room-typing"), member: MemberIdSchema, on: v.boolean() }),
+  v.strictObject({ t: v.literal("room-typing-clear") }),
   /** "Show the window" in the page: come to the front. */
   v.strictObject({ t: v.literal("room-raise") }),
   v.strictObject({ t: v.literal("pop-ready"), pop: IdSchema, kind: v.exactOptional(PopKindSchema) }),
@@ -108,7 +111,7 @@ export type PopMessage = v.InferOutput<typeof PopMessageSchema>;
 export type PopState = Omit<Extract<PopMessage, { t: "room-state" }>, "t">;
 export type PopTv = Omit<Extract<PopMessage, { t: "room-tv" }>, "t">;
 /** What the room window's side takes from the channel (popout/room-pop.ts). */
-export type RoomSideMessage = Extract<PopMessage, { t: "room-view" | "room-tv" | "room-emote" | "room-raise" }>;
+export type RoomSideMessage = Extract<PopMessage, { t: "room-view" | "room-tv" | "room-emote" | "room-typing" | "room-typing-clear" | "room-raise" }>;
 
 /**
  * The stage's state from a room-view message; a message without the room (it didn't change) keeps `room`, the same

@@ -32,7 +32,7 @@ export const SPEC_ROOMS = {
   popout: ["relay", "back", "reopen", "hidden", "gone", "offer", "twice"],
   "popout-perf": ["frames"],
   report: ["send", "states", "gone"],
-  "popout-room": ["show", "sit", "back", "fs", "keys", "reduced", "hidden", "chat", "phone"],
+  "popout-room": ["show", "sit", "back", "fs", "keys", "reduced", "hidden", "chat", "phone", "typing"],
   "popout-room-perf": ["frames"],
   "provider-quality": ["twvod", "live", "fs", "memory", "yt", "generic"],
   "m7-a11y": ["walkseat", "w1280", "w1920", "phone", "fs", "chatwin", "roomwin", "quality", "states", "gone", "log", "logone", "motion", "motionrm", "reduced", "send", "qreduced"],

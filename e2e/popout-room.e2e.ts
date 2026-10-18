@@ -196,6 +196,33 @@ test("sitting and chatting from the window go through the room tab", async ({ br
   expect(await sockets(a.page)).toBe(1);
 });
 
+// OME-1404: the typing dots reach the room window too (relayed like emotes): B types, A's window shows the "…" over B.
+test("someone typing shows the dots in the room window, and their line takes them away", async ({ browser }) => {
+  const [a, b] = await join(browser, "typing", 2);
+  if (a === undefined || b === undefined) throw new Error("no clients");
+  const pop = await popRoom(a.page, a.context);
+  const dots = pop.locator(`${site.poproomRoom} .bubbles [data-testid=typing-dots]`);
+  await b.page.locator(site.chatInput).pressSequentially("hel");
+  await expect(dots).toBeVisible();
+  await b.page.locator(site.chatInput).pressSequentially("lo");
+  await b.page.locator(site.chatInput).press("Enter");
+  await expect(pop.locator(`${site.poproomRoom} .bubbles [data-testid=chat-message]`, { hasText: "hello" })).toBeVisible();
+  await expect(dots).toHaveCount(0);
+});
+
+// QA OME-1416: hiding someone takes their dots from the page; the window must lose them too (a hidden member's off never comes).
+test("hiding someone mid-typing takes their dots from the room window", async ({ browser }) => {
+  const [a, b] = await join(browser, "typing", 2);
+  if (a === undefined || b === undefined) throw new Error("no clients");
+  const pop = await popRoom(a.page, a.context);
+  const dots = pop.locator(`${site.poproomRoom} .bubbles [data-testid=typing-dots]`);
+  await b.page.locator(site.chatInput).pressSequentially("hel");
+  await expect(dots).toBeVisible();
+  await a.page.locator(site.peopleKey).click();
+  await a.page.locator(site.peopleRow).filter({ hasText: b.nickname }).getByRole("button", { name: `Hide ${b.nickname} for me` }).click();
+  await expect(dots).toHaveCount(0);
+});
+
 test("bringing the room back (window key, page key, OS ×) reloads nothing and never drops the picture's sync", async ({ browser, request }) => {
   const room = testRoom("popout-room", "back");
   await shareVideo(request, room.id);
