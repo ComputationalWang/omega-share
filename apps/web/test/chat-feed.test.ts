@@ -27,6 +27,23 @@ describe("logEntries", () => {
     expect(step(joined(), msg({ type: "chat", memberId: "a", text: "me", at: 1 })).entries).toEqual([{ kind: "chat", nickname: "Ada", text: "me", self: true }]);
   });
 
+  // OME-1426: a roll is a log line anyone can read back, and a bubble over the roller (aria-hidden, like every bubble).
+  test("a roll logs \"Kit rolled 17 (d20)\"; mine says You", () => {
+    expect(step(joined(), msg({ type: "rolled", memberId: "k", sides: 20, value: 17 })).entries).toEqual([{ kind: "system", line: { glyph: "everyone", actor: "Kit", verb: "rolled 17 (d20)", time: null } }]);
+    expect(step(joined(), msg({ type: "rolled", memberId: "a", sides: 6, value: 3 })).entries).toEqual([{ kind: "system", line: { glyph: "everyone", actor: "You", verb: "rolled 3 (d6)", time: null } }]);
+  });
+
+  test("a roll puts \"🎲 17 / 20\" in a bubble over the roller", () => {
+    const { next } = step(joined(), msg({ type: "rolled", memberId: "k", sides: 20, value: 17 }, 500));
+    expect(next.bubbles.map((b) => [b.memberId, b.text])).toEqual([["k", "🎲 17 / 20"]]);
+  });
+
+  test("a roll from someone not in the room says nothing and shows nothing", () => {
+    const { entries, next } = step(joined(), msg({ type: "rolled", memberId: "zz", sides: 6, value: 6 }));
+    expect(entries).toEqual([]);
+    expect(next.bubbles).toEqual([]);
+  });
+
   test("chat from someone not in the room says nothing (the bubble is dropped too)", () => {
     expect(step(joined(), msg({ type: "chat", memberId: "zz", text: "ghost", at: 1 })).entries).toEqual([]);
   });

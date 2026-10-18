@@ -27,7 +27,7 @@ export function routeConnectionEvent(e: ConnectionEvent, sinks: RoomEventSinks, 
   sinks.shareToken.onEvent(e);
   if (e.type === "message") {
     if (e.msg.type === "pong") sinks.clock.onPong(e.msg.id, e.msg.at);
-    else if ((e.msg.type === "chat" || e.msg.type === "emoted" || e.msg.type === "typing-changed") && sinks.hidden(e.msg.memberId)) return;
+    else if ((e.msg.type === "chat" || e.msg.type === "emoted" || e.msg.type === "typing-changed" || e.msg.type === "rolled") && sinks.hidden(e.msg.memberId)) return;
     else if (e.msg.type === "emoted") sinks.emoted(e.msg.memberId, e.msg.kind);
     else if (e.msg.type === "typing-changed") sinks.typing(e.msg.memberId, e.msg.on);
     else {

@@ -254,10 +254,13 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       if (cur !== null && msg.playback.rev <= cur.rev) return state;
       return withPlayback(state, room, msg.playback, now);
     }
-    case "chat": {
+    // A roll (OME-1426) floats over the roller like a line of chat; the log has its readable record (chat/feed.ts).
+    case "chat":
+    case "rolled": {
       if (state.room === null || !hasMember(state.room, msg.memberId)) return state;
       const id = state.bubbleSeq + 1;
-      const bubble: Bubble = { id, memberId: msg.memberId, text: msg.text, expiresAt: now + BUBBLE_MS };
+      const text = msg.type === "chat" ? msg.text : `🎲 ${String(msg.value)} / ${String(msg.sides)}`;
+      const bubble: Bubble = { id, memberId: msg.memberId, text, expiresAt: now + BUBBLE_MS };
       // 2 per speaker: past that, their oldest goes.
       let theirs = 0;
       for (const b of state.bubbles) if (b.memberId === msg.memberId) theirs++;
@@ -295,8 +298,6 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
     case "typing-changed":
-    // Drawn by the /roll web issue (OME-1423 is its contract).
-    case "rolled":
       return state;
     // Owner moderation (ADR 0030). Everyone gets `member-muted`, but only the muted member's log says so; everyone's says the policy.
     case "member-muted": {

@@ -13,6 +13,12 @@ export function logEntries(prev: ViewState, next: ViewState, event: ViewEvent): 
     const who = next.room?.members.find((m) => m.id === msg.memberId);
     return who === undefined ? [] : [{ kind: "chat", nickname: who.nickname, text: msg.text, self: msg.memberId === next.self }];
   }
+  // OME-1426: the readable record of a roll; the bubble over the roller is aria-hidden.
+  if (msg.type === "rolled") {
+    const who = next.room?.members.find((m) => m.id === msg.memberId);
+    if (who === undefined) return [];
+    return [{ kind: "system", line: { glyph: "everyone", actor: msg.memberId === next.self ? "You" : who.nickname, verb: `rolled ${String(msg.value)} (d${String(msg.sides)})`, time: null } }];
+  }
   if (msg.type === "member-left") {
     const who = prev.room?.members.find((m) => m.id === msg.memberId);
     if (who === undefined) return [];
