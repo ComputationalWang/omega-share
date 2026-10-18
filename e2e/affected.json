@@ -565,7 +565,8 @@
     {
       "paths": [
         "apps/web/src/theme/**",
-        "assets/themes/**"
+        "assets/themes/**",
+        "assets/accessories/**"
       ],
       "except": [
         "**/*.test.ts",
