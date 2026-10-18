@@ -701,3 +701,12 @@ describe("typing", () => {
     expect(typingOf(layer)).toHaveLength(1);
   });
 });
+
+test("two typers stack (dots keep their tail), and dots never rise, so the older pushed up near the room's top stays (OME-1390)", async () => {
+  const { floats, frame, layer } = await setup();
+  // Head at 140: the newer dots' top is 106, the older pushed to 73; only a 24 px rise would cross the top at 60.
+  floats.typing("a", true, { x: 480, y: 140 });
+  floats.typing("b", true, { x: 480, y: 140 });
+  frame();
+  expect(layer.querySelectorAll(".ui-float.is-typing.is-leaving")).toHaveLength(0);
+});
