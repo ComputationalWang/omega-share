@@ -914,6 +914,19 @@ The brief's `stringlights` already ships as v2's `garland`, so the sixth piece i
 the ids to `FURNITURE` in `packages/shared`. Preview: `preview/furniture-v3-room@1x.png` / `@2x` (every v3 piece, both facings, poufs taken and free);
 the pouf joins `preview/furniture-v2-seats@2x.png`.
 
+**"In use" loops (OME-1405), same v2 sheet.** Four pieces get a short loop to show while someone uses them. Only the moving part changes
+(screen, platter, water, tube); every other pixel is the idle `back` frame, and each loop frame has the idle frame's size and anchor, so swap
+the texture in place (same sort point, same layer). Key: `furniture/<id>/<colour>/use/<dir>/<n>` (`meta.omega.useKey`). Pixi's
+`animations["furniture/<id>/<colour>/use/<dir>"]` lists the frames in order; the frame time is `meta.omega.pieces[].use = { frames, ms }`.
+Back to `…/<dir>/back` when nobody uses it. Preview: `preview/furniture-use@4x.png` (idle + each frame, 1× and 4×; `src/contact-use.sh`).
+
+| id | loop | frames | ms/frame |
+|---|---|---|---|
+| `turntable` | the record turns: a groove glint and a label dot step a quarter turn per frame | 4 | 120 |
+| `neonsign` | hum: the halo swells, then the core dims, then the antennae stutter dark (both colours) | 3 | 140 |
+| `aquarium` | the bubble stream rises one unit per frame | 3 | 220 |
+| `arcade` | screen: the invaders step side to side, the shot climbs, a scan band rolls down | 3 | 160 |
+
 **Frame key:** `furniture/<id>/<colour>/<dir>/<back|front>`. Every key starts with `furniture/`, so nothing collides with the
 room's `armchair`, `plant` or `lamp` in Pixi's texture cache.
 
@@ -1050,8 +1063,8 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `ui/reference.css` (if ported as-is) | 102 130 raw / 20 369 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| `furniture/furniture-v2.png` (catalogue v2 + v3, lazy) | 15 636 |
-| `furniture/furniture-v2.json` (catalogue v2 + v3, lazy) | 34 789 raw / 2 268 gz |
+| `furniture/furniture-v2.png` (catalogue v2 + v3 + use loops, lazy) | 20 737 |
+| `furniture/furniture-v2.json` (catalogue v2 + v3 + use loops, lazy) | 48 131 raw / 2 773 gz |
 | `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
 | `themes/halloween/halloween.json` (OME-1185, lazy) | 152 659 raw / 3 740 gz |
 | `themes/sinterklaas/sinterklaas.png` + `.json` (OME-1187, lazy) | 2 799 + 3 597 gz |
@@ -1080,6 +1093,10 @@ Catalogue v3 (OME-1348) adds **7 493 B (≈ 7.3 KB)** against `main` (218 779 �
 
 Head accessories (OME-1388) add **12 451 B (≈ 12.2 KB)**, all lazy: `accessories.png` 3 970 + `accessories.json` 8 481 gz. No existing file
 changes. Measured total: 238 750 B of 307 200.
+
+The "in use" loops (OME-1405) add **5 620 B (≈ 5.5 KB)**, all lazy, in the v2 sheet (still 512×512): 30 frames, `furniture-v2.png`
+15 613 → 20 737 (+5 124), `furniture-v2.json` +513 gz (frames, `animations`, `use`). The clock notes (shorter, bolder hands with a cream gap
+before softer ticks; mid-tone short rays) cost nothing measurable; `edit.png` +1 for the clock thumbnail. Measured total: 244 370 B of 307 200.
 
 Set (p) (OME-1104) adds **13 652 B (≈ 13.3 KB)** against `main` as `bun assets/src/build.ts` measures it (159 946 → 173 598 of 307 200; 174 358 → 188 010 on top of catalogue v2), all lazy:
 `expressions.png` 10 863 + `expressions.json` 2 789 gz. No existing file changes (the avatar and motion sheets are byte-identical).
