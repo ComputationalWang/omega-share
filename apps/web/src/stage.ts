@@ -460,6 +460,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       for (const id of typers) setTyping(id, false);
     },
     hide(id, hidden) {
+      // Their typing-changed stops at intake from now on (OME-769): their dots go with it.
+      if (hidden) setTyping(id, false);
       if (hidden) hiddenIds.add(id);
       else hiddenIds.delete(id);
       tagEls.get(id)?.classList.toggle("is-hidden", hidden);

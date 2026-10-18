@@ -493,13 +493,13 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       show(s, m.at, now);
     },
     typing(id, on, at) {
-      let s: Slot | null = null;
-      for (const t of slots) if (t.typing && t.speaker === id) s = t;
       if (!on) {
-        if (s !== null) free(s);
+        for (const t of slots) if (t.typing && t.speaker === id) free(t);
         return;
       }
-      if (s !== null) return;
+      // One already up; a leaving one is left to go.
+      for (const t of slots) if (t.typing && t.state === LIVE && t.speaker === id) return;
+      let s: Slot | null = null;
       s = take(id);
       if (s === null) return;
       const now = o.now();
