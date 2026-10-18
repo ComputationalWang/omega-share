@@ -192,6 +192,9 @@ test("client A types: client B sees the dots over A, then A's line in their plac
   // Typing then emptying the box takes the dots away again.
   await a.page.locator(site.chatInput).pressSequentially("x");
   await expect(dots).toBeVisible();
+  // The server's typing bucket is TYPING_BURST (2), one back per second: two ons just spent it, so wait for a token, or
+  // the off is dropped and the dots only go at the server's 5 s timeout.
+  await a.page.waitForTimeout(1100);
   await a.page.locator(site.chatInput).fill("");
   await expect(dots).toHaveCount(0);
 });
