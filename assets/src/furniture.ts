@@ -676,6 +676,51 @@ function wallClock(k: Kit): void {
   k.ell({ x: 0, y: 7, z: CZ }, { x: 5.6, y: Infinity, z: 5.6 }, [-8, 8, 6.4, 8, 0, 200], "cream", { paint: face });
 }
 
+// ---------------------------------------------------------------- doors (OME-1424): the bookcase's wall-backed build, the print's frame trims
+
+/** Panel door in a cased frame, flush on the wall it backs onto. Wood: a stained six-panel slab. Painted: teal, panels shaded
+ *  in its own ramp. Open: the slab swings 90° into the room on its left hinges, so the doorway shows a dark hall with a lit sill. */
+function door(k: Kit, painted: boolean, open: boolean): void {
+  const X0 = -6, X1 = 6, H = 74, T = 1.6; // opening, then the casing's width
+  const slabC: RampName = painted ? "teal" : "wood";
+  // Casing: lit on the top-left edges and in shade on the bottom-right ones, like the framed print's trim.
+  const trim: LPaint = (p, f) => (f === "top" ? ["wood", 0] : f !== "front" ? ["wood", 2] : p.x < X0 - T + 0.8 || p.z >= H + T - 0.8 ? ["wood", 0] : p.x >= X1 + T - 0.8 ? ["wood", 2] : null);
+  k.box(X0 - T, X0, 5.5, 8, 0, H, "wood", { paint: trim });
+  k.box(X1, X1 + T, 5.5, 8, 0, H, "wood", { paint: trim });
+  k.box(X0 - T - 0.6, X1 + T + 0.6, 5, 8, H, H + T + 0.6, "wood", { paint: trim });
+  // Sill: a brass threshold strip.
+  k.box(X0, X1, 5.5, 8, 0, 0.8, "mustard", { tones: { top: 0, sw: 1, se: 2 } });
+  // Panels: 2 columns × 3 rows of recessed fields on each face; the edge of a field is the beading.
+  const panel = (x: number, z: number, x0: number, x1: number): Paint | null => {
+    const cols = [[x0 + 1.4, (x0 + x1) / 2 - 0.7], [(x0 + x1) / 2 + 0.7, x1 - 1.4]] as const;
+    const rows = [[4, 26], [29, 51], [54, H - 4]] as const;
+    for (const [a, b] of cols) for (const [c, d] of rows) {
+      if (x < a || x >= b || z < c || z >= d) continue;
+      const edge = x < a + 0.7 || z >= d - 0.7 ? 2 : x >= b - 0.7 || z < c + 0.7 ? 0 : -1; // a groove: shadow top-left, catch-light bottom-right
+      return edge === -1 ? [slabC, 1] : [slabC, edge];
+    }
+    return [slabC, 0];
+  };
+  const knob = (x: number, z: number, kx: number): Paint | null => (Math.hypot(x - kx, z - 36) < 1.1 ? ["mustard", 0] : Math.hypot(x - kx, z - 36) < 1.7 ? ["outline", 1] : Math.abs(x - kx) < 0.6 && Math.abs(z - 33.5) < 0.6 ? ["outline", 1] : null);
+  if (!open) {
+    k.box(X0, X1, 6.5, 8, 0.8, H, slabC, {
+      paint: (p, f) => (f === "front" ? knob(p.x, p.z, X1 - 1.8) ?? panel(p.x, p.z, X0, X1) : f === "top" ? [slabC, 0] : [slabC, 2]),
+    });
+    return;
+  }
+  // The doorway: a dark hall, deeper toward the top, with lamplight on the floor.
+  k.box(X0, X1, 7.4, 8, 0.8, H, "night", {
+    paint: (p) => (p.z < 4 ? ["mustard", 2] : p.z < 9 && (Math.floor(p.x * 2 + p.z) & 1) === 0 ? ["night", 0] : p.z < 9 ? ["night", 1] : p.z > H - 22 ? ["outline", 1] : ["night", 2]),
+  });
+  // The slab swung open on the left hinges: we see its room-side face edge-on and its inner face.
+  const w = X1 - X0;
+  k.box(X0, X0 + 1.5, 6.5 - w, 6.5, 0.8, H, slabC, {
+    paint: (p, f) => (f === "right" ? knob(-p.y, p.z, -(6.5 - w) - 1.8) ?? panel(-p.y, p.z, -6.5, w - 6.5) : f === "top" ? [slabC, 0] : [slabC, 2]),
+  });
+  // Brass hinge knuckles on the jamb.
+  for (const z of [12, H - 12]) k.box(X0 - 0.4, X0 + 0.4, 6, 6.8, z - 2, z + 2, "mustard", { tones: { top: 0, sw: 0, se: 1 } });
+}
+
 // ---------------------------------------------------------------- sleepy cat (hand-pixelled role grid on a ray-cast cushion)
 
 /** Loaf cat facing sw (head front-left), eyes shut, tail wrapped round its front. `o` is a hand-placed inner contour. */
@@ -873,6 +918,8 @@ export interface PieceMeta {
   layersByDir: Partial<Record<FurnDir, ("back" | "front")[]>>;
   /** "In use" loop, drawn in place of `back`: `furniture/<id>/<colour>/use/<dir>/<0..frames-1>`, each frame shown `ms`. */
   use?: { frames: number; ms: number };
+  /** Has an "open" frame, drawn in place of `back` (same rect, so same anchor): `furniture/<id>/<colour>/open/<dir>`. */
+  open?: true;
 }
 
 export interface PieceDef {
@@ -890,6 +937,8 @@ export interface PieceDef {
   walkable?: boolean;
   /** "In use" loop: `frames` extra back frames (build gets n = 1..frames; n = 0 is the idle frame), each shown `ms`. */
   use?: { frames: number; ms: number };
+  /** Has an "open" frame: build gets n = 1 for it. */
+  open?: true;
   build?: (k: Kit, colour: string, n: number) => void;
   image?: (dir: FurnDir, colour: string, s?: number, cv?: Canvas) => Uint8Array;
 }
@@ -925,11 +974,13 @@ export const PIECES: readonly PieceDef[] = [
   { id: "neonsign", label: "Neon sign", kind: "light", mount: "wall", layer: "wall", colours: ["pink", "teal"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, use: { frames: 3, ms: 140 }, build: (k, c, n) => { neonSign(k, asRamp(c), n); } },
   { id: "aquarium", label: "Aquarium", kind: "fun", colours: ["teal"], dirs: ["se", "sw"], cols: 1, rows: 1, use: { frames: 3, ms: 220 }, build: (k, _c, n) => { aquarium(k, n); } },
   { id: "arcade", label: "Arcade cabinet", kind: "fun", colours: ["night"], dirs: ["se", "sw"], cols: 1, rows: 1, use: { frames: 3, ms: 160 }, build: (k, _c, n) => { arcade(k, n); } },
+  // Batch 5 (OME-1424), packed into the v2 sheet.
+  { id: "door", label: "Panel door", kind: "fun", colours: ["wood", "painted"], dirs: ["se", "sw"], cols: 1, rows: 1, walkable: true, open: true, build: (k, c, n) => { door(k, c === "painted", n === 1); } },
   { id: "wallclock", label: "Sunburst clock", kind: "wall", mount: "wall", layer: "wall", colours: ["brass"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { wallClock(k); } },
 ];
 
 /** Catalogue v2 (OME-1103): shipped as its own lazy atlas, `furniture/furniture-v2.json`. */
-export const CATALOGUE_V2: ReadonlySet<string> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland", "coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock"]);
+export const CATALOGUE_V2: ReadonlySet<string> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland", "coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock", "door"]);
 
 export interface Canvas { w: number; h: number; ax: number; ay: number }
 const CANVAS: Canvas = { w: 480, h: 400, ax: 220, ay: 300 };
@@ -963,6 +1014,15 @@ function pieceFrames(def: PieceDef, colour: string, dir: FurnDir): RoomFrame[] {
   const front = k.parts.filter((p) => p.front).map((p) => p.solid);
   const all = [...back, ...front];
   const full = renderSolids(all, CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all");
+  if (front.length === 0 && def.open) {
+    // Closed and open share one rect (the union), so one anchor: swap the texture in place.
+    const ko = new Kit(dir);
+    def.build?.(ko, colour, 1);
+    const openImg = renderSolids(ko.parts.map((p) => p.solid), CANVAS.w, CANVAS.h, CANVAS.ax, CANVAS.ay, "all").img;
+    const both = full.img.map((v, i) => v || (openImg[i] ?? 0));
+    const { rect } = crop(`${base}/both`, both);
+    return [crop(`${base}/back`, full.img, rect), crop(`furniture/${def.id}/${colour}/open/${dir}`, openImg, rect)];
+  }
   if (front.length === 0) {
     const idle = crop(`${base}/back`, full.img);
     return [idle, ...useFrames(def, colour, dir, idle.rect)];
@@ -1013,7 +1073,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
       for (const dir of def.dirs) {
         const fs = pieceFrames(def, colour, dir);
         frames.push(...fs);
-        layersByDir[dir] = fs.filter((f) => !f.key.includes("/use/")).map((f) => (f.key.endsWith("/front") ? "front" : "back"));
+        layersByDir[dir] = fs.filter((f) => !f.key.includes("/use/") && !f.key.includes("/open/")).map((f) => (f.key.endsWith("/front") ? "front" : "back"));
       }
     }
     const footprintByDir: PieceMeta["footprintByDir"] = {};
@@ -1042,6 +1102,7 @@ export function buildFurniture(): { frames: RoomFrame[]; pieces: PieceMeta[] } {
     };
     if (def.seats) meta.seatsByDir = seatsByDir;
     if (def.use) meta.use = { ...def.use };
+    if (def.open) meta.open = true;
     pieces.push(meta);
   }
   return { frames, pieces };

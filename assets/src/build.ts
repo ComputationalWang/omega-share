@@ -1231,6 +1231,7 @@ function buildFurnitureSet(roomFrames: readonly RoomFrame[], avatars: Map<string
   buildFurnitureRoom(pieces, all, "furniture-layout", sampleLayout());
   buildFurnitureRoom(pieces, all, "furniture-v2-room", showroomV2());
   buildFurnitureRoom(pieces, all, "furniture-v3-room", showroomV3());
+  buildFurnitureRoom(pieces, all, "furniture-door-room", showroomDoors());
   buildSeatContact(pieces, all, V2_SEATS);
   return { frames, pieces, all };
 }
@@ -1277,6 +1278,7 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
         seatHeight: SEAT_HEIGHT,
         key: "furniture/<id>/<colour>/<dir>/<back|front>",
         ...(Object.keys(animations).length > 0 ? { useKey: "furniture/<id>/<colour>/use/<dir>/<n>" } : {}),
+        ...(pieces.some((p) => p.open === true) ? { openKey: "furniture/<id>/<colour>/open/<dir>" } : {}),
         layers: { floor: 0, wall: 1, back: 2, avatar: 3, front: 4 },
         pieces,
       },
@@ -1369,6 +1371,8 @@ interface Placement {
   sitters?: string[];
   /** Set (h): the piece is in the owner's hand, not placed yet. */
   ghost?: boolean;
+  /** OME-1424: draw the piece's open frame instead of `back`. */
+  open?: boolean;
 }
 const cellAt = (c: number, r: number): { x: number; y: number } => ({ x: 480 + (c - r) * 32, y: 220 + (c + r + 1) * 16 });
 
@@ -1490,6 +1494,23 @@ function showroomV3(): { placements: Placement[]; standing: [string, number, num
   };
 }
 
+/** OME-1424: both doors on both walls beside the bookcase, one closed and one open per wall, someone walking through each. */
+function showroomDoors(): { placements: Placement[]; standing: [string, number, number][] } {
+  return {
+    placements: [
+      { id: "bookshelf", colour: "wood", dir: "sw", col: 2, row: 0 },
+      { id: "door", colour: "wood", dir: "sw", col: 4, row: 0 },
+      { id: "door", colour: "painted", dir: "sw", col: 6, row: 0, open: true },
+      { id: "frame", colour: "dusk", dir: "sw", col: 8, row: 0 },
+      { id: "bookshelf", colour: "wood", dir: "se", col: 0, row: 2 },
+      { id: "door", colour: "painted", dir: "se", col: 0, row: 4 },
+      { id: "door", colour: "wood", dir: "se", col: 0, row: 6, open: true },
+      { id: "monstera", colour: "teal", dir: "se", col: 0, row: 8 },
+    ],
+    standing: [["kiki/idle/se/0", 6, 1], ["pip/idle/sw/0", 1, 6], ["mo/idle/se/0", 4, 3], ["juno/idle/sw/0", 3, 5]],
+  };
+}
+
 /** A sample room: two sofas angled at the screen, snacks between them, beanbags up front, and a reading corner. */
 function sampleLayout(): { placements: Placement[]; standing: [string, number, number][] } {
   return {
@@ -1585,7 +1606,8 @@ function composeFurnitureRoom(pieces: readonly PieceMeta[], all: FurnSprites, pl
   const items: (FurnItem & { ghost?: boolean })[] = [];
   for (const p of plan.placements.filter((q) => meta(q.id).layer === "object")) {
     const a = cellAt(p.col, p.row);
-    items.push(...placePiece(meta(p.id), p.colour, p.dir, a.x, a.y, p.sitters ?? []).map((it) => ({ ...it, ghost: p.ghost === true })));
+    const open = p.open === true ? `furniture/${p.id}/${p.colour}/open/${p.dir}` : undefined;
+    items.push(...placePiece(meta(p.id), p.colour, p.dir, a.x, a.y, p.sitters ?? []).map((it) => ({ ...it, key: open !== undefined && it.layer === 2 ? open : it.key, ghost: p.ghost === true })));
   }
   for (const [key, c, r] of plan.standing) {
     const a = cellAt(c, r);

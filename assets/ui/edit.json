@@ -1344,6 +1344,54 @@
     "y": 0.5
    }
   },
+  "thumb/door/painted": {
+   "frame": {
+    "x": 237,
+    "y": 0,
+    "w": 18,
+    "h": 40
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 18,
+    "h": 40
+   },
+   "sourceSize": {
+    "w": 18,
+    "h": 40
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "thumb/door/wood": {
+   "frame": {
+    "x": 237,
+    "y": 41,
+    "w": 18,
+    "h": 40
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 18,
+    "h": 40
+   },
+   "sourceSize": {
+    "w": 18,
+    "h": 40
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
   "thumb/floorcushion/mustard": {
    "frame": {
     "x": 195,
