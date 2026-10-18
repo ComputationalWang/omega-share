@@ -238,6 +238,30 @@ test("Walk over walks me to a free cell beside them", async ({ browser }) => {
   for (const page of [a.page, b.page]) await expect.poll(async () => beside.includes(await tagAt(page, "over-1")), { timeout: 15_000 }).toBe(true);
 });
 
+// OME-1389: Follow walks me beside them after each of their walks, until I stop.
+test("Follow walks me beside them each time they walk; Stop ends it", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "follow").url, count: 2, nicknamePrefix: "follow" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("need two clients");
+  await a.page.waitForTimeout(6000); // b walked in from the door
+  await a.page.locator(site.peopleKey).click();
+  await a.page.locator(site.peopleRow).filter({ hasText: "follow-2" }).locator(site.peopleFollow).click();
+  await expect(a.page.locator(site.followChip)).toContainText("Following follow-2");
+  await a.page.keyboard.press("Escape");
+  const beside = (x: number, y: number): string[] => [restOn(x - 1, y), restOn(x + 1, y), restOn(x, y - 1), restOn(x, y + 1)];
+  for (const [x, y] of [[3, 8], [8, 4]] as const) {
+    await clickCell(b.page, x, y);
+    await expect.poll(() => tagAt(b.page, "follow-2"), { timeout: 10_000 }).toBe(restOn(x, y));
+    await expect.poll(async () => beside(x, y).includes(await tagAt(b.page, "follow-1")), { timeout: 15_000 }).toBe(true);
+  }
+  await a.page.locator(site.followStop).click();
+  await expect(a.page.locator(site.followChip)).toBeHidden();
+  const at = await tagAt(b.page, "follow-1");
+  await clickCell(b.page, 3, 8);
+  await expect.poll(() => tagAt(b.page, "follow-2"), { timeout: 10_000 }).toBe(restOn(3, 8));
+  expect(await tagAt(b.page, "follow-1"), "after Stop I stay put").toBe(at);
+});
+
 test("a held arrow key steps at most once a tile", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("walk", "keys").url, count: 1, nicknamePrefix: "keys" });
   const [a] = clients;
