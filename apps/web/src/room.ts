@@ -19,7 +19,7 @@ import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
-import { chatIntent, sitIntent, stepAllowed, stepCell, walkIntent } from "./intents";
+import { chatIntent, createWalkGate, sitIntent, stepAllowed, stepCell, walkIntent } from "./intents";
 import { layoutOf } from "./furniture";
 import { createPendingApplier } from "./pending-layout";
 import { PHONE_QUERY, SHORT_QUERY, STAGE_W, WIDE_QUERY, type Rect } from "./layout";
@@ -160,9 +160,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   function walkTo(cell: FloorCell): boolean {
     const msg = walkIntent(state, cell);
     if (msg === "blocked") return false;
-    if (msg !== null) send(msg);
+    if (msg !== null) walkGate.push(msg);
     return true;
   }
+  const walkGate = createWalkGate({
+    now: () => performance.now(),
+    send: (m) => send(m),
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+  });
   let lastStep = -Infinity;
   const { root: stage, overlay, tags, view } = roomStage;
   const clip = el("div", { className: "stage-clip" }, "room-window");

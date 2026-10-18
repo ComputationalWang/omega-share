@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, isStandable, type ClientMessage, type FloorCell, type Embed, type Member, type PlaybackState, type QueueItemId } from "@omega/shared";
+import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, WALK_REFILL_MS, isStandable, type ClientMessage, type FloorCell, type Embed, type Member, type PlaybackState, type QueueItemId } from "@omega/shared";
 import type { ViewState } from "./state";
 import { expectedPosition } from "./sync";
 import { TILE_MS } from "./walk/walks";
@@ -99,6 +99,27 @@ export interface WalkGate {
   push(msg: ClientMessage): void;
 }
 
-export function createWalkGate(_deps: { now: () => number; send: (m: ClientMessage) => void; setTimer: (fn: () => void, ms: number) => void }): WalkGate {
-  return { push: () => undefined };
+/**
+ * Free-walk clicks at the walk rate (OME-1371): at most one `walk` per WALK_REFILL_MS, the latest target sent last.
+ * A click flood then stays under the server's walk bucket and its per-socket frame limit, and the final click wins.
+ */
+export function createWalkGate(deps: { now: () => number; send: (m: ClientMessage) => void; setTimer: (fn: () => void, ms: number) => void }): WalkGate {
+  let last = -Infinity;
+  let pending: ClientMessage | null = null;
+  const flush = (): void => {
+    if (pending === null) return;
+    const m = pending;
+    pending = null;
+    last = deps.now();
+    deps.send(m);
+  };
+  return {
+    push(msg) {
+      const wait = last + WALK_REFILL_MS - deps.now();
+      const armed = pending !== null;
+      pending = msg;
+      if (wait <= 0) flush();
+      else if (!armed) deps.setTimer(flush, wait);
+    },
+  };
 }
