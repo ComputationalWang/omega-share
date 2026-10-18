@@ -6,6 +6,7 @@ import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { stubExternalNetwork } from "./support/network";
 import { site } from "./support/selectors";
 import { TAG_OFFSET_Y, cellCenter } from "../apps/web/src/layout";
+import { TILE_MS } from "../apps/web/src/walk/walks";
 
 test.fixme(!available.web, PENDING.web);
 test.fixme(!available.server, PENDING.server);
@@ -186,17 +187,23 @@ async function clickCell(page: Page, x: number, y: number): Promise<void> {
   await page.mouse.click(box.left + p.x * box.k, box.top + p.y * box.k);
 }
 
+/** A `walk` frame the page sent, and the page's `performance.now()` when it did. */
+interface SentWalk {
+  at: number;
+  data: string;
+}
+
 /** Every `walk` frame `page` sends from now on (the socket is already open, so its `send` is wrapped in place). */
-async function spyWalks(page: Page): Promise<string[]> {
-  const walks: string[] = [];
-  await page.exposeFunction("__sentWalk", (t: string) => walks.push(t));
+async function spyWalks(page: Page): Promise<SentWalk[]> {
+  const walks: SentWalk[] = [];
+  await page.exposeFunction("__sentWalk", (data: string, at: number) => walks.push({ at, data }));
   await page.evaluate(() => {
     const proto = WebSocket.prototype;
     const send: unknown = Reflect.get(proto, "send");
     if (typeof send !== "function") return;
     Reflect.set(proto, "send", function (this: WebSocket, data: unknown) {
       const spy: unknown = Reflect.get(window, "__sentWalk");
-      if (typeof data === "string" && data.includes('"walk"') && typeof spy === "function") Reflect.apply(spy, window, [data]);
+      if (typeof data === "string" && data.includes('"walk"') && typeof spy === "function") Reflect.apply(spy, window, [data, performance.now()]);
       Reflect.apply(send, this, [data]);
     });
   });
@@ -226,15 +233,18 @@ test("a held arrow key steps at most once a tile", async ({ browser }) => {
   await expect.poll(() => tagAt(a.page, "keys-1"), { timeout: 10_000 }).toBe(restOn(9, 8));
   const walks = await spyWalks(a.page);
   await a.page.locator(site.walkFloor).focus();
-  // Held for 1.5 s: the browser repeats the key ~every 33 ms, the room steps at most once per 600 ms tile.
+  // Held for at least 1.5 s: the browser repeats the key ~every 33 ms, the room steps at most once per 600 ms tile.
   await a.page.keyboard.down("ArrowLeft");
   for (let i = 0; i < 45; i++) {
     await a.page.keyboard.down("ArrowLeft");
     await a.page.waitForTimeout(33);
   }
   await a.page.keyboard.up("ArrowLeft");
-  expect(walks.length, walks.join(" | ")).toBeGreaterThanOrEqual(2);
-  expect(walks.length, walks.join(" | ")).toBeLessThanOrEqual(4);
+  // The bound is on the page's own clock, not a count: a loaded runner holds longer and may step more (OME-1368).
+  const log = walks.map((w) => `${w.at.toFixed(0)} ${w.data}`).join(" | ");
+  expect(walks.length, log).toBeGreaterThanOrEqual(2);
+  // 5 ms slack: the gate reads the clock just before the send it times.
+  for (let i = 1; i < walks.length; i++) expect((walks[i]?.at ?? 0) - (walks[i - 1]?.at ?? 0), log).toBeGreaterThanOrEqual(TILE_MS - 5);
 });
 
 test("a click on a solid piece sends nothing and flashes can't-go-there", async ({ browser }) => {
