@@ -30,7 +30,6 @@ export function sitIntent(state: ViewState, seat: number): ClientMessage | null 
   return occupant === state.self ? { type: "sit", seat: null } : null;
 }
 
-/** Clicking or tapping a floor cell (ADR 0053). Stub: OME-1350 red commit. */
 /** Clicking or tapping a floor cell (ADR 0053): walk to free floor, "blocked" under a solid piece (seats too: they sit), nothing for my own cell. */
 export function walkIntent(state: ViewState, cell: FloorCell): ClientMessage | "blocked" | null {
   const room = state.room;

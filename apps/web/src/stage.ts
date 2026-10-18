@@ -46,8 +46,9 @@ export interface Stage {
   /** The nickname tags' layer (the owner's moderation tools hang their menu off a tag). */
   readonly tags: HTMLElement;
   readonly view: RoomView;
-  /** Draw `s` with `layout` (the room's, or the owner's draft); `selfCatching` is my own player's catching-up flag. */
-  render(s: StageState, layout: RoomLayout, selfCatching: boolean): void;
+  /** Draw `s` with `layout` (the room's, or the owner's draft); `selfCatching` is my own player's catching-up flag; while
+   * `editing`, the owner editor's hit layer has the floor, so the walk floor is inert. */
+  render(s: StageState, layout: RoomLayout, selfCatching: boolean, editing: boolean): void;
   /** Only the catching-up hourglasses (my player's flag changes between renders). */
   applyCatching(s: StageState, selfCatching: boolean): void;
   emote(id: MemberId, kind: EmoteKind, s: StageState): void;
@@ -72,8 +73,10 @@ function place(e: HTMLElement, p: Point): void {
   e.style.translate = `${String(p.x)}px ${String(p.y)}px`;
 }
 
-/** How long the floor shows "can't go there" after a blocked click or step. */
+/** How long the floor's cursor shows "can't go there" after a blocked click or step. */
 const NO_GO_MS = 400;
+/** How long the status note says it: longer, for screen readers that poll live regions late (OME-1364). */
+const NO_GO_NOTE_MS = 1500;
 
 function box(e: HTMLElement, r: Rect): void {
   Object.assign(e.style, { left: `${String(r.x)}px`, top: `${String(r.y)}px`, width: `${String(r.w)}px`, height: `${String(r.h)}px` });
@@ -149,23 +152,31 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       return c < 0 ? null : { x: colOf(c), y: rowOf(c) };
     };
     let noGo: ReturnType<typeof setTimeout> | undefined;
+    let noGoNote: ReturnType<typeof setTimeout> | undefined;
     const flash = (): void => {
       clearTimeout(noGo);
+      clearTimeout(noGoNote);
       floorHit.classList.add("no-go");
       floorNote.textContent = "You can't go there.";
       noGo = setTimeout(() => {
         floorHit.classList.remove("no-go");
-        floorNote.textContent = "";
       }, NO_GO_MS);
+      noGoNote = setTimeout(() => {
+        floorNote.textContent = "";
+      }, NO_GO_NOTE_MS);
     };
     let hover: FloorCell | null = null;
+    let hoverScale = 1;
     floorHit.addEventListener("pointermove", (ev) => {
       // A finger has no hover: a tap walks, a drag pans the phone's room window.
       if (ev.pointerType === "touch") return;
       const c = cellUnder(ev);
-      if (c?.x === hover?.x && c?.y === hover?.y) return;
+      // The scale too: after a zoom or resize the same cell's diamond gets its new stroke.
+      const k = floorHit.getBoundingClientRect().width / Math.max(1, floorHit.offsetWidth);
+      if (c?.x === hover?.x && c?.y === hover?.y && k === hoverScale) return;
       hover = c;
-      view.marker(c, floorHit.getBoundingClientRect().width / Math.max(1, floorHit.offsetWidth));
+      hoverScale = k;
+      view.marker(c, k);
     });
     floorHit.addEventListener("pointerleave", () => {
       if (hover === null) return;
@@ -283,7 +294,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     }
   };
 
-  const render = (s: StageState, nextLayout: RoomLayout, selfCatching: boolean): void => {
+  const render = (s: StageState, nextLayout: RoomLayout, selfCatching: boolean, editing: boolean): void => {
     if (nextLayout !== layout) applyLayout(nextLayout);
     seated = s.room?.seats ?? [];
     const views = seatViews(s);
@@ -331,7 +342,11 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       awayIds = away.now;
       view.update(views.map((v) => v.member !== null), placements);
     }
-    if (floorHit !== null) floorHit.tabIndex = s.status === "open" ? 0 : -1;
+    if (floorHit !== null) {
+      const tab = s.status === "open" ? 0 : -1;
+      if (floorHit.tabIndex !== tab) floorHit.tabIndex = tab;
+      if (floorHit.inert !== editing) floorHit.inert = editing;
+    }
 
     for (const v of views) {
       const b = seatButtons[v.index];

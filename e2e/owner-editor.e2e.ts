@@ -184,6 +184,8 @@ test("keyboard only: a cell cursor places, selects, moves, turns and puts back f
   await expect(owner.locator(site.editorTray)).toBeVisible();
   // The room is a keyboard target, and the prompt names its keys.
   await expect(hit).toHaveAttribute("tabindex", "0");
+  // The walk floor under it is out of the way: one "Room floor" stop, and arrows don't also walk (OME-1364).
+  await expect(owner.locator(site.walkFloor)).toHaveJSProperty("inert", true);
   await expect(owner.locator(site.editorPicked)).toContainText("arrow keys");
 
   // A tray piece picked with the keyboard hands focus to the room; arrows walk the cursor, Enter puts it down.
@@ -228,4 +230,8 @@ test("keyboard only: a cell cursor places, selects, moves, turns and puts back f
   expect(saved.find((f) => f.kind === "plant")).toBeUndefined();
   expect(saved.find((f) => f.kind === "frame")).toMatchObject({ col: 2, row: 0, facing: "sw" });
   expect(saved).toHaveLength(DEFAULT_LAYOUT.furniture.length + 1);
+  // Done: the walk floor is a keyboard stop again.
+  await press(site.editRoom);
+  await expect(owner.locator(site.walkFloor)).toHaveJSProperty("inert", false);
+  await expect(owner.locator(site.walkFloor)).toHaveAttribute("tabindex", "0");
 });
