@@ -224,6 +224,20 @@ test("a click on free floor walks there: everyone sees the walk and rests on tha
   for (const page of [a.page, b.page]) await expect.poll(() => tagAt(page, "free-2"), { timeout: 10_000 }).toBe(restOn(4, 8));
 });
 
+// OME-1376: Walk over (People list; the owner's member menu runs the same intent) walks me beside the other one.
+test("Walk over walks me to a free cell beside them", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("walk", "over").url, count: 2, nicknamePrefix: "over" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("need two clients");
+  await a.page.waitForTimeout(6000); // b walked in from the door
+  await clickCell(b.page, 3, 8);
+  await expect.poll(() => tagAt(a.page, "over-2"), { timeout: 10_000 }).toBe(restOn(3, 8));
+  await a.page.locator(site.peopleKey).click();
+  await a.page.locator(site.peopleRow).filter({ hasText: "over-2" }).locator(site.peopleWalkOver).click();
+  const beside = [restOn(2, 8), restOn(4, 8), restOn(3, 7), restOn(3, 9)];
+  for (const page of [a.page, b.page]) await expect.poll(async () => beside.includes(await tagAt(page, "over-1")), { timeout: 15_000 }).toBe(true);
+});
+
 test("a held arrow key steps at most once a tile", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("walk", "keys").url, count: 1, nicknamePrefix: "keys" });
   const [a] = clients;

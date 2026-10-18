@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { DEFAULT_LAYOUT, FLOOR_CELLS, layoutSeats, type RoomLayout } from "@omega/shared";
 import { cellCenter } from "../src/layout";
 import { standingPoints } from "../src/furniture";
-import { DOOR, cellAt, cellOf, findPath, walkGrid } from "../src/walk/path";
+import { DOOR, cellAt, cellOf, findPath, walkGrid, walkOverCell } from "../src/walk/path";
 
 // OME-408: avatars walk on the layout grid, once per seat change. Solid pieces block; the start and goal may be solid
 // (a seat is its armchair's cell).
@@ -96,5 +96,39 @@ describe("findPath", () => {
     for (let i = 0; i < runs; i++) for (const s of seats) findPath(grid, DOOR, s);
     const perPath = (performance.now() - t0) / (runs * seats.length);
     expect(perPath).toBeLessThan(1);
+  });
+});
+
+// OME-1376: "Walk over" goes to the free cell beside a member that I reach in the fewest steps.
+describe("walkOverCell", () => {
+  const grid = walkGrid(DEFAULT_LAYOUT);
+  const none = new Set<number>();
+
+  test("the side nearest me along a path: from the door to someone at (6,9) is (7,9)", () => {
+    expect(walkOverCell(grid, DOOR, at(6, 9), none)).toBe(at(7, 9));
+  });
+
+  test("a side someone stands on is skipped for the next nearest", () => {
+    const c = walkOverCell(grid, DOOR, at(6, 9), new Set([at(7, 9)]));
+    expect([at(6, 8), at(5, 9)]).toContain(c);
+  });
+
+  test("solid sides are skipped: beside a seated member is open floor", () => {
+    const seat = seatCells(DEFAULT_LAYOUT)[0] ?? -1;
+    const c = walkOverCell(grid, DOOR, seat, none);
+    expect(c).toBeGreaterThanOrEqual(0);
+    expect(grid[c]).toBe(0);
+    const dc = Math.abs(Math.floor(c / FLOOR_CELLS) - Math.floor(seat / FLOOR_CELLS));
+    const dr = Math.abs((c % FLOOR_CELLS) - (seat % FLOOR_CELLS));
+    expect(dc + dr).toBe(1);
+  });
+
+  test("no free side, or I'm nowhere on the floor: -1", () => {
+    expect(walkOverCell(grid, DOOR, at(6, 8), new Set([at(7, 8), at(5, 8), at(6, 9), at(6, 7)]))).toBe(-1);
+    expect(walkOverCell(grid, -1, at(6, 8), none)).toBe(-1);
+  });
+
+  test("standing beside them already: my own cell", () => {
+    expect(walkOverCell(grid, at(7, 9), at(6, 9), none)).toBe(at(7, 9));
   });
 });
