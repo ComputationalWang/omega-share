@@ -2,8 +2,8 @@
  "frames": {
   "furniture/aquarium/teal/se/back": {
    "frame": {
-    "x": 392,
-    "y": 0,
+    "x": 294,
+    "y": 97,
     "w": 48,
     "h": 53
    },
@@ -26,8 +26,8 @@
   },
   "furniture/aquarium/teal/sw/back": {
    "frame": {
-    "x": 441,
-    "y": 0,
+    "x": 343,
+    "y": 97,
     "w": 48,
     "h": 53
    },
@@ -51,7 +51,7 @@
   "furniture/aquarium/teal/use/se/0": {
    "frame": {
     "x": 392,
-    "y": 54,
+    "y": 97,
     "w": 48,
     "h": 53
    },
@@ -75,7 +75,7 @@
   "furniture/aquarium/teal/use/se/1": {
    "frame": {
     "x": 441,
-    "y": 54,
+    "y": 136,
     "w": 48,
     "h": 53
    },
@@ -98,8 +98,8 @@
   },
   "furniture/aquarium/teal/use/se/2": {
    "frame": {
-    "x": 0,
-    "y": 68,
+    "x": 294,
+    "y": 151,
     "w": 48,
     "h": 53
    },
@@ -122,8 +122,8 @@
   },
   "furniture/aquarium/teal/use/sw/0": {
    "frame": {
-    "x": 49,
-    "y": 68,
+    "x": 343,
+    "y": 151,
     "w": 48,
     "h": 53
    },
@@ -146,8 +146,8 @@
   },
   "furniture/aquarium/teal/use/sw/1": {
    "frame": {
-    "x": 98,
-    "y": 68,
+    "x": 392,
+    "y": 151,
     "w": 48,
     "h": 53
    },
@@ -170,8 +170,8 @@
   },
   "furniture/aquarium/teal/use/sw/2": {
    "frame": {
-    "x": 147,
-    "y": 68,
+    "x": 0,
+    "y": 165,
     "w": 48,
     "h": 53
    },
@@ -194,7 +194,7 @@
   },
   "furniture/arcade/night/se/back": {
    "frame": {
-    "x": 0,
+    "x": 464,
     "y": 0,
     "w": 48,
     "h": 67
@@ -218,8 +218,8 @@
   },
   "furniture/arcade/night/sw/back": {
    "frame": {
-    "x": 49,
-    "y": 0,
+    "x": 464,
+    "y": 68,
     "w": 48,
     "h": 67
    },
@@ -242,8 +242,8 @@
   },
   "furniture/arcade/night/use/se/0": {
    "frame": {
-    "x": 98,
-    "y": 0,
+    "x": 0,
+    "y": 97,
     "w": 48,
     "h": 67
    },
@@ -266,8 +266,8 @@
   },
   "furniture/arcade/night/use/se/1": {
    "frame": {
-    "x": 147,
-    "y": 0,
+    "x": 49,
+    "y": 97,
     "w": 48,
     "h": 67
    },
@@ -290,8 +290,8 @@
   },
   "furniture/arcade/night/use/se/2": {
    "frame": {
-    "x": 196,
-    "y": 0,
+    "x": 98,
+    "y": 97,
     "w": 48,
     "h": 67
    },
@@ -314,8 +314,8 @@
   },
   "furniture/arcade/night/use/sw/0": {
    "frame": {
-    "x": 245,
-    "y": 0,
+    "x": 147,
+    "y": 97,
     "w": 48,
     "h": 67
    },
@@ -338,8 +338,8 @@
   },
   "furniture/arcade/night/use/sw/1": {
    "frame": {
-    "x": 294,
-    "y": 0,
+    "x": 196,
+    "y": 97,
     "w": 48,
     "h": 67
    },
@@ -362,8 +362,8 @@
   },
   "furniture/arcade/night/use/sw/2": {
    "frame": {
-    "x": 343,
-    "y": 0,
+    "x": 245,
+    "y": 97,
     "w": 48,
     "h": 67
    },
@@ -386,8 +386,8 @@
   },
   "furniture/bench/pink/ne/back": {
    "frame": {
-    "x": 336,
-    "y": 108,
+    "x": 189,
+    "y": 165,
     "w": 90,
     "h": 52
    },
@@ -410,8 +410,8 @@
   },
   "furniture/bench/pink/ne/front": {
    "frame": {
-    "x": 0,
-    "y": 122,
+    "x": 280,
+    "y": 205,
     "w": 90,
     "h": 52
    },
@@ -434,8 +434,8 @@
   },
   "furniture/bench/pink/nw/back": {
    "frame": {
-    "x": 91,
-    "y": 122,
+    "x": 371,
+    "y": 205,
     "w": 90,
     "h": 52
    },
@@ -458,8 +458,8 @@
   },
   "furniture/bench/pink/nw/front": {
    "frame": {
-    "x": 182,
-    "y": 122,
+    "x": 189,
+    "y": 218,
     "w": 90,
     "h": 52
    },
@@ -482,8 +482,8 @@
   },
   "furniture/bench/pink/se/back": {
    "frame": {
-    "x": 273,
-    "y": 161,
+    "x": 0,
+    "y": 219,
     "w": 90,
     "h": 52
    },
@@ -506,8 +506,8 @@
   },
   "furniture/bench/pink/se/front": {
    "frame": {
-    "x": 364,
-    "y": 161,
+    "x": 91,
+    "y": 219,
     "w": 90,
     "h": 52
    },
@@ -530,8 +530,8 @@
   },
   "furniture/bench/pink/sw/back": {
    "frame": {
-    "x": 0,
-    "y": 175,
+    "x": 280,
+    "y": 258,
     "w": 90,
     "h": 52
    },
@@ -554,8 +554,8 @@
   },
   "furniture/bench/pink/sw/front": {
    "frame": {
-    "x": 91,
-    "y": 175,
+    "x": 371,
+    "y": 258,
     "w": 90,
     "h": 52
    },
@@ -579,7 +579,7 @@
   "furniture/bench/teal/ne/back": {
    "frame": {
     "x": 182,
-    "y": 175,
+    "y": 271,
     "w": 90,
     "h": 52
    },
@@ -602,8 +602,8 @@
   },
   "furniture/bench/teal/ne/front": {
    "frame": {
-    "x": 273,
-    "y": 214,
+    "x": 0,
+    "y": 272,
     "w": 90,
     "h": 52
    },
@@ -626,8 +626,8 @@
   },
   "furniture/bench/teal/nw/back": {
    "frame": {
-    "x": 364,
-    "y": 214,
+    "x": 91,
+    "y": 272,
     "w": 90,
     "h": 52
    },
@@ -650,8 +650,8 @@
   },
   "furniture/bench/teal/nw/front": {
    "frame": {
-    "x": 0,
-    "y": 228,
+    "x": 273,
+    "y": 311,
     "w": 90,
     "h": 52
    },
@@ -674,8 +674,8 @@
   },
   "furniture/bench/teal/se/back": {
    "frame": {
-    "x": 91,
-    "y": 228,
+    "x": 364,
+    "y": 311,
     "w": 90,
     "h": 52
    },
@@ -699,7 +699,7 @@
   "furniture/bench/teal/se/front": {
    "frame": {
     "x": 182,
-    "y": 228,
+    "y": 324,
     "w": 90,
     "h": 52
    },
@@ -722,8 +722,8 @@
   },
   "furniture/bench/teal/sw/back": {
    "frame": {
-    "x": 273,
-    "y": 267,
+    "x": 0,
+    "y": 325,
     "w": 90,
     "h": 52
    },
@@ -746,8 +746,8 @@
   },
   "furniture/bench/teal/sw/front": {
    "frame": {
-    "x": 364,
-    "y": 267,
+    "x": 91,
+    "y": 325,
     "w": 90,
     "h": 52
    },
@@ -770,8 +770,8 @@
   },
   "furniture/cat/charcoal/se/back": {
    "frame": {
-    "x": 59,
-    "y": 400,
+    "x": 177,
+    "y": 521,
     "w": 42,
     "h": 29
    },
@@ -794,8 +794,8 @@
   },
   "furniture/cat/charcoal/sw/back": {
    "frame": {
-    "x": 427,
-    "y": 422,
+    "x": 220,
+    "y": 521,
     "w": 42,
     "h": 29
    },
@@ -818,8 +818,8 @@
   },
   "furniture/cat/ginger/se/back": {
    "frame": {
-    "x": 470,
-    "y": 422,
+    "x": 263,
+    "y": 521,
     "w": 42,
     "h": 29
    },
@@ -842,8 +842,8 @@
   },
   "furniture/cat/ginger/sw/back": {
    "frame": {
-    "x": 59,
-    "y": 430,
+    "x": 306,
+    "y": 521,
     "w": 42,
     "h": 29
    },
@@ -867,7 +867,7 @@
   "furniture/coffeetable/wood/se/back": {
    "frame": {
     "x": 0,
-    "y": 324,
+    "y": 418,
     "w": 54,
     "h": 37
    },
@@ -891,7 +891,7 @@
   "furniture/coffeetable/wood/sw/back": {
    "frame": {
     "x": 55,
-    "y": 324,
+    "y": 418,
     "w": 54,
     "h": 37
    },
@@ -912,10 +912,202 @@
     "y": 0.6756756756756757
    }
   },
+  "furniture/door/painted/open/se": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "sourceSize": {
+    "w": 57,
+    "h": 96
+   },
+   "anchor": {
+    "x": 0.5789473684210527,
+    "y": 0.96875
+   }
+  },
+  "furniture/door/painted/open/sw": {
+   "frame": {
+    "x": 58,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "sourceSize": {
+    "w": 57,
+    "h": 96
+   },
+   "anchor": {
+    "x": 0.42105263157894735,
+    "y": 0.96875
+   }
+  },
+  "furniture/door/painted/se/back": {
+   "frame": {
+    "x": 116,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "sourceSize": {
+    "w": 57,
+    "h": 96
+   },
+   "anchor": {
+    "x": 0.5789473684210527,
+    "y": 0.96875
+   }
+  },
+  "furniture/door/painted/sw/back": {
+   "frame": {
+    "x": 174,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "sourceSize": {
+    "w": 57,
+    "h": 96
+   },
+   "anchor": {
+    "x": 0.42105263157894735,
+    "y": 0.96875
+   }
+  },
+  "furniture/door/wood/open/se": {
+   "frame": {
+    "x": 232,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "sourceSize": {
+    "w": 57,
+    "h": 96
+   },
+   "anchor": {
+    "x": 0.5789473684210527,
+    "y": 0.96875
+   }
+  },
+  "furniture/door/wood/open/sw": {
+   "frame": {
+    "x": 290,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "sourceSize": {
+    "w": 57,
+    "h": 96
+   },
+   "anchor": {
+    "x": 0.42105263157894735,
+    "y": 0.96875
+   }
+  },
+  "furniture/door/wood/se/back": {
+   "frame": {
+    "x": 348,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "sourceSize": {
+    "w": 57,
+    "h": 96
+   },
+   "anchor": {
+    "x": 0.5789473684210527,
+    "y": 0.96875
+   }
+  },
+  "furniture/door/wood/sw/back": {
+   "frame": {
+    "x": 406,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 57,
+    "h": 96
+   },
+   "sourceSize": {
+    "w": 57,
+    "h": 96
+   },
+   "anchor": {
+    "x": 0.42105263157894735,
+    "y": 0.96875
+   }
+  },
   "furniture/floorcushion/mustard/ne/back": {
    "frame": {
-    "x": 132,
-    "y": 362,
+    "x": 198,
+    "y": 485,
     "w": 58,
     "h": 35
    },
@@ -938,8 +1130,8 @@
   },
   "furniture/floorcushion/mustard/ne/front": {
    "frame": {
-    "x": 440,
-    "y": 386,
+    "x": 257,
+    "y": 485,
     "w": 58,
     "h": 35
    },
@@ -962,8 +1154,8 @@
   },
   "furniture/floorcushion/mustard/nw/back": {
    "frame": {
-    "x": 132,
-    "y": 398,
+    "x": 316,
+    "y": 485,
     "w": 58,
     "h": 35
    },
@@ -986,8 +1178,8 @@
   },
   "furniture/floorcushion/mustard/nw/front": {
    "frame": {
-    "x": 191,
-    "y": 398,
+    "x": 375,
+    "y": 485,
     "w": 58,
     "h": 35
    },
@@ -1010,8 +1202,8 @@
   },
   "furniture/floorcushion/mustard/se/back": {
    "frame": {
-    "x": 0,
-    "y": 281,
+    "x": 273,
+    "y": 364,
     "w": 58,
     "h": 42
    },
@@ -1034,8 +1226,8 @@
   },
   "furniture/floorcushion/mustard/sw/back": {
    "frame": {
-    "x": 59,
-    "y": 281,
+    "x": 332,
+    "y": 364,
     "w": 58,
     "h": 42
    },
@@ -1058,8 +1250,8 @@
   },
   "furniture/floorcushion/teal/ne/back": {
    "frame": {
-    "x": 250,
-    "y": 398,
+    "x": 434,
+    "y": 485,
     "w": 58,
     "h": 35
    },
@@ -1082,8 +1274,8 @@
   },
   "furniture/floorcushion/teal/ne/front": {
    "frame": {
-    "x": 309,
-    "y": 398,
+    "x": 0,
+    "y": 494,
     "w": 58,
     "h": 35
    },
@@ -1106,8 +1298,8 @@
   },
   "furniture/floorcushion/teal/nw/back": {
    "frame": {
-    "x": 368,
-    "y": 398,
+    "x": 59,
+    "y": 494,
     "w": 58,
     "h": 35
    },
@@ -1130,8 +1322,8 @@
   },
   "furniture/floorcushion/teal/nw/front": {
    "frame": {
-    "x": 0,
-    "y": 400,
+    "x": 118,
+    "y": 495,
     "w": 58,
     "h": 35
    },
@@ -1154,8 +1346,8 @@
   },
   "furniture/floorcushion/teal/se/back": {
    "frame": {
-    "x": 118,
-    "y": 281,
+    "x": 391,
+    "y": 364,
     "w": 58,
     "h": 42
    },
@@ -1178,8 +1370,8 @@
   },
   "furniture/floorcushion/teal/sw/back": {
    "frame": {
-    "x": 177,
-    "y": 281,
+    "x": 450,
+    "y": 364,
     "w": 58,
     "h": 42
    },
@@ -1202,8 +1394,8 @@
   },
   "furniture/garland/party/se/back": {
    "frame": {
-    "x": 233,
-    "y": 462,
+    "x": 239,
+    "y": 551,
     "w": 37,
     "h": 26
    },
@@ -1226,8 +1418,8 @@
   },
   "furniture/garland/party/sw/back": {
    "frame": {
-    "x": 271,
-    "y": 462,
+    "x": 277,
+    "y": 551,
     "w": 37,
     "h": 26
    },
@@ -1250,8 +1442,8 @@
   },
   "furniture/garland/warm/se/back": {
    "frame": {
-    "x": 309,
-    "y": 462,
+    "x": 0,
+    "y": 558,
     "w": 37,
     "h": 26
    },
@@ -1274,8 +1466,8 @@
   },
   "furniture/garland/warm/sw/back": {
    "frame": {
-    "x": 347,
-    "y": 462,
+    "x": 38,
+    "y": 558,
     "w": 37,
     "h": 26
    },
@@ -1299,7 +1491,7 @@
   "furniture/neonsign/pink/se/back": {
    "frame": {
     "x": 110,
-    "y": 324,
+    "y": 418,
     "w": 32,
     "h": 37
    },
@@ -1322,8 +1514,8 @@
   },
   "furniture/neonsign/pink/sw/back": {
    "frame": {
-    "x": 143,
-    "y": 324,
+    "x": 204,
+    "y": 447,
     "w": 32,
     "h": 37
    },
@@ -1346,8 +1538,8 @@
   },
   "furniture/neonsign/pink/use/se/0": {
    "frame": {
-    "x": 176,
-    "y": 324,
+    "x": 237,
+    "y": 447,
     "w": 32,
     "h": 37
    },
@@ -1370,8 +1562,8 @@
   },
   "furniture/neonsign/pink/use/se/1": {
    "frame": {
-    "x": 440,
-    "y": 348,
+    "x": 270,
+    "y": 447,
     "w": 32,
     "h": 37
    },
@@ -1394,8 +1586,8 @@
   },
   "furniture/neonsign/pink/use/se/2": {
    "frame": {
-    "x": 473,
-    "y": 348,
+    "x": 303,
+    "y": 447,
     "w": 32,
     "h": 37
    },
@@ -1418,8 +1610,8 @@
   },
   "furniture/neonsign/pink/use/sw/0": {
    "frame": {
-    "x": 209,
-    "y": 360,
+    "x": 336,
+    "y": 447,
     "w": 32,
     "h": 37
    },
@@ -1442,8 +1634,8 @@
   },
   "furniture/neonsign/pink/use/sw/1": {
    "frame": {
-    "x": 242,
-    "y": 360,
+    "x": 369,
+    "y": 447,
     "w": 32,
     "h": 37
    },
@@ -1466,8 +1658,8 @@
   },
   "furniture/neonsign/pink/use/sw/2": {
    "frame": {
-    "x": 275,
-    "y": 360,
+    "x": 402,
+    "y": 447,
     "w": 32,
     "h": 37
    },
@@ -1490,8 +1682,8 @@
   },
   "furniture/neonsign/teal/se/back": {
    "frame": {
-    "x": 308,
-    "y": 360,
+    "x": 435,
+    "y": 447,
     "w": 32,
     "h": 37
    },
@@ -1514,8 +1706,8 @@
   },
   "furniture/neonsign/teal/sw/back": {
    "frame": {
-    "x": 341,
-    "y": 360,
+    "x": 468,
+    "y": 447,
     "w": 32,
     "h": 37
    },
@@ -1538,8 +1730,8 @@
   },
   "furniture/neonsign/teal/use/se/0": {
    "frame": {
-    "x": 374,
-    "y": 360,
+    "x": 0,
+    "y": 456,
     "w": 32,
     "h": 37
    },
@@ -1562,8 +1754,8 @@
   },
   "furniture/neonsign/teal/use/se/1": {
    "frame": {
-    "x": 407,
-    "y": 360,
+    "x": 33,
+    "y": 456,
     "w": 32,
     "h": 37
    },
@@ -1586,8 +1778,8 @@
   },
   "furniture/neonsign/teal/use/se/2": {
    "frame": {
-    "x": 0,
-    "y": 362,
+    "x": 66,
+    "y": 456,
     "w": 32,
     "h": 37
    },
@@ -1610,8 +1802,8 @@
   },
   "furniture/neonsign/teal/use/sw/0": {
    "frame": {
-    "x": 33,
-    "y": 362,
+    "x": 99,
+    "y": 456,
     "w": 32,
     "h": 37
    },
@@ -1634,8 +1826,8 @@
   },
   "furniture/neonsign/teal/use/sw/1": {
    "frame": {
-    "x": 66,
-    "y": 362,
+    "x": 132,
+    "y": 457,
     "w": 32,
     "h": 37
    },
@@ -1658,8 +1850,8 @@
   },
   "furniture/neonsign/teal/use/sw/2": {
    "frame": {
-    "x": 99,
-    "y": 362,
+    "x": 165,
+    "y": 457,
     "w": 32,
     "h": 37
    },
@@ -1682,8 +1874,8 @@
   },
   "furniture/pouf/lilac/ne/back": {
    "frame": {
-    "x": 282,
-    "y": 434,
+    "x": 44,
+    "y": 530,
     "w": 38,
     "h": 27
    },
@@ -1706,8 +1898,8 @@
   },
   "furniture/pouf/lilac/nw/back": {
    "frame": {
-    "x": 321,
-    "y": 434,
+    "x": 83,
+    "y": 531,
     "w": 38,
     "h": 27
    },
@@ -1730,8 +1922,8 @@
   },
   "furniture/pouf/lilac/se/back": {
    "frame": {
-    "x": 360,
-    "y": 434,
+    "x": 122,
+    "y": 531,
     "w": 38,
     "h": 27
    },
@@ -1754,8 +1946,8 @@
   },
   "furniture/pouf/lilac/sw/back": {
    "frame": {
-    "x": 0,
-    "y": 436,
+    "x": 441,
+    "y": 549,
     "w": 38,
     "h": 27
    },
@@ -1778,8 +1970,8 @@
   },
   "furniture/pouf/rust/ne/back": {
    "frame": {
-    "x": 399,
-    "y": 452,
+    "x": 349,
+    "y": 550,
     "w": 38,
     "h": 27
    },
@@ -1802,8 +1994,8 @@
   },
   "furniture/pouf/rust/nw/back": {
    "frame": {
-    "x": 438,
-    "y": 452,
+    "x": 388,
+    "y": 550,
     "w": 38,
     "h": 27
    },
@@ -1826,8 +2018,8 @@
   },
   "furniture/pouf/rust/se/back": {
    "frame": {
-    "x": 39,
-    "y": 460,
+    "x": 161,
+    "y": 551,
     "w": 38,
     "h": 27
    },
@@ -1850,8 +2042,8 @@
   },
   "furniture/pouf/rust/sw/back": {
    "frame": {
-    "x": 194,
-    "y": 462,
+    "x": 200,
+    "y": 551,
     "w": 38,
     "h": 27
    },
@@ -1874,8 +2066,8 @@
   },
   "furniture/speaker/teal/se/back": {
    "frame": {
-    "x": 196,
-    "y": 68,
+    "x": 49,
+    "y": 165,
     "w": 34,
     "h": 53
    },
@@ -1898,8 +2090,8 @@
   },
   "furniture/speaker/teal/sw/back": {
    "frame": {
-    "x": 231,
-    "y": 68,
+    "x": 84,
+    "y": 165,
     "w": 34,
     "h": 53
    },
@@ -1922,8 +2114,8 @@
   },
   "furniture/speaker/wood/se/back": {
    "frame": {
-    "x": 266,
-    "y": 68,
+    "x": 119,
+    "y": 165,
     "w": 34,
     "h": 53
    },
@@ -1946,8 +2138,8 @@
   },
   "furniture/speaker/wood/sw/back": {
    "frame": {
-    "x": 301,
-    "y": 68,
+    "x": 154,
+    "y": 165,
     "w": 34,
     "h": 53
    },
@@ -1970,8 +2162,8 @@
   },
   "furniture/turntable/wood/se/back": {
    "frame": {
-    "x": 455,
-    "y": 108,
+    "x": 182,
+    "y": 377,
     "w": 50,
     "h": 39
    },
@@ -1994,8 +2186,8 @@
   },
   "furniture/turntable/wood/sw/back": {
    "frame": {
-    "x": 455,
-    "y": 148,
+    "x": 0,
+    "y": 378,
     "w": 50,
     "h": 39
    },
@@ -2018,8 +2210,8 @@
   },
   "furniture/turntable/wood/use/se/0": {
    "frame": {
-    "x": 455,
-    "y": 188,
+    "x": 51,
+    "y": 378,
     "w": 50,
     "h": 39
    },
@@ -2042,8 +2234,8 @@
   },
   "furniture/turntable/wood/use/se/1": {
    "frame": {
-    "x": 455,
-    "y": 228,
+    "x": 102,
+    "y": 378,
     "w": 50,
     "h": 39
    },
@@ -2066,8 +2258,8 @@
   },
   "furniture/turntable/wood/use/se/2": {
    "frame": {
-    "x": 455,
-    "y": 268,
+    "x": 233,
+    "y": 407,
     "w": 50,
     "h": 39
    },
@@ -2090,8 +2282,8 @@
   },
   "furniture/turntable/wood/use/se/3": {
    "frame": {
-    "x": 455,
-    "y": 308,
+    "x": 284,
+    "y": 407,
     "w": 50,
     "h": 39
    },
@@ -2114,8 +2306,8 @@
   },
   "furniture/turntable/wood/use/sw/0": {
    "frame": {
-    "x": 236,
-    "y": 320,
+    "x": 335,
+    "y": 407,
     "w": 50,
     "h": 39
    },
@@ -2138,8 +2330,8 @@
   },
   "furniture/turntable/wood/use/sw/1": {
    "frame": {
-    "x": 287,
-    "y": 320,
+    "x": 386,
+    "y": 407,
     "w": 50,
     "h": 39
    },
@@ -2162,8 +2354,8 @@
   },
   "furniture/turntable/wood/use/sw/2": {
    "frame": {
-    "x": 338,
-    "y": 320,
+    "x": 437,
+    "y": 407,
     "w": 50,
     "h": 39
    },
@@ -2186,8 +2378,8 @@
   },
   "furniture/turntable/wood/use/sw/3": {
    "frame": {
-    "x": 389,
-    "y": 320,
+    "x": 153,
+    "y": 417,
     "w": 50,
     "h": 39
    },
@@ -2210,8 +2402,8 @@
   },
   "furniture/wallclock/brass/se/back": {
    "frame": {
-    "x": 102,
-    "y": 434,
+    "x": 349,
+    "y": 521,
     "w": 45,
     "h": 28
    },
@@ -2234,8 +2426,8 @@
   },
   "furniture/wallclock/brass/sw/back": {
    "frame": {
-    "x": 148,
-    "y": 434,
+    "x": 395,
+    "y": 521,
     "w": 45,
     "h": 28
    },
@@ -2258,8 +2450,8 @@
   },
   "furniture/wallshelf/wood/se/back": {
    "frame": {
-    "x": 194,
-    "y": 434,
+    "x": 441,
+    "y": 521,
     "w": 43,
     "h": 27
    },
@@ -2282,8 +2474,8 @@
   },
   "furniture/wallshelf/wood/sw/back": {
    "frame": {
-    "x": 238,
-    "y": 434,
+    "x": 0,
+    "y": 530,
     "w": 43,
     "h": 27
    },
@@ -2366,7 +2558,7 @@
   "format": "RGBA8888",
   "size": {
    "w": 512,
-   "h": 512
+   "h": 1024
   },
   "scale": "1",
   "omega": {
@@ -2378,6 +2570,7 @@
    "seatHeight": 8,
    "key": "furniture/<id>/<colour>/<dir>/<back|front>",
    "useKey": "furniture/<id>/<colour>/use/<dir>/<n>",
+   "openKey": "furniture/<id>/<colour>/open/<dir>",
    "layers": {
     "floor": 0,
     "wall": 1,
@@ -3160,6 +3353,55 @@
       "frames": 3,
       "ms": 160
      }
+    },
+    {
+     "id": "door",
+     "label": "Panel door",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "wood",
+      "painted"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": true,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "open": true
     },
     {
      "id": "wallclock",

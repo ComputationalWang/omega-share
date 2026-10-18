@@ -25,7 +25,7 @@ assets/
   ui/edit.json          # set h: PixiJS v8 atlas for ui/edit.png
   furniture/furniture.png  # set g (M4/M5, lazy-load): 1024×512 indexed PNG-8, furniture catalogue v1
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
-  furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×512 indexed PNG-8, 7 more pieces + catalogue v3's 6 (OME-1348)
+  furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×1024 indexed PNG-8 (512×512 until OME-1424), 7 more pieces + catalogue v3's 6 (OME-1348) + the door (OME-1424)
   furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
@@ -941,6 +941,15 @@ the texture in place (same sort point, same layer). Key: `furniture/<id>/<colour
 `animations["furniture/<id>/<colour>/use/<dir>"]` lists the frames in order; the frame time is `meta.omega.pieces[].use = { frames, ms }`.
 Back to `…/<dir>/back` when nobody uses it. Preview: `preview/furniture-use@4x.png` (idle + each frame, 1× and 4×; `src/contact-use.sh`).
 
+**Door (OME-1424), same v2 sheet.** `door` ("Panel door"): an object on the floor layer, 1×1, `se sw`, colours `wood` (stained six-panel slab)
+and `painted` (teal slab, panels shaded in the teal ramp), both in the bookcase's wood casing with the framed print's lit/shaded trim and a brass
+sill. It backs onto its cell's wall like the bookcase, so place it on a wall-side cell (row 0 for `sw`, col 0 for `se`). `walkable: true`: the
+door cell is where a walk ends. **Open frame:** `furniture/door/<colour>/open/<dir>` (`meta.omega.openKey`, `meta.omega.pieces[].open: true`);
+the slab swings 90° into the room on its left hinges and the doorway shows a dark hall with a lit sill. The closed `back` frame and the open frame
+share one rect (their union), so one anchor: swap the texture in place (same sort point, same layer). The open slab stays inside the cell.
+`open` is not a layer: `layersByDir` still lists only `back`. Preview: `preview/furniture-door-room@1x.png` / `@2x` (both doors, both facings,
+one closed and one open per wall, beside a bookcase). Like v2, nothing reads it until the Lead adds `door` to `FURNITURE` in `packages/shared`.
+
 | id | loop | frames | ms/frame |
 |---|---|---|---|
 | `turntable` | the record turns: a groove glint and a label dot step a quarter turn per frame | 4 | 120 |
@@ -1084,8 +1093,8 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `ui/reference.css` (if ported as-is) | 102 130 raw / 20 369 gz |
 | `furniture/furniture.png` (set g, lazy, M4/M5) | 21 930 |
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
-| `furniture/furniture-v2.png` (catalogue v2 + v3 + use loops, lazy) | 20 737 |
-| `furniture/furniture-v2.json` (catalogue v2 + v3 + use loops, lazy) | 48 131 raw / 2 773 gz |
+| `furniture/furniture-v2.png` (catalogue v2 + v3 + use loops + door, lazy) | 23 369 |
+| `furniture/furniture-v2.json` (catalogue v2 + v3 + use loops + door, lazy) | 2 958 gz |
 | `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
 | `themes/halloween/halloween.json` (OME-1185, lazy) | 152 659 raw / 3 740 gz |
 | `themes/sinterklaas/sinterklaas.png` + `.json` (OME-1187, lazy) | 2 799 + 3 597 gz |
@@ -1170,3 +1179,8 @@ Plain `gzip -c` (level 6 plus the file name in the header) reads about 20–45 B
 Source: `src/presets.ts`; regeneration: `bun assets/src/build.ts`; validation: `bun test assets/src/presets.test.ts`. `preview/presets@1x.png` shows all six at native scale with sitters; `preview/presets-thumbs@3x.png` shows the thumbnails enlarged without interpolation.
 
 Portrait UI reference: `preview/m10.html`, captured by `bun assets/src/shoot-m10.ts`. The 360×740 and 390×844 state boards cover watching, typing, chat, queue, link entry, emotes and host actions. These review PNGs do not ship. See `docs/design/m10-presets-phone.md` for interaction/focus rules, budget and self-check.
+
+The door (OME-1424) adds **3 309 B (≈ 3.2 KB)** (261 457 → 264 766 of 307 200): lazy `furniture-v2.png` 20 631 → 23 369 (+2 738, 8 frames),
+`furniture-v2.json` +203 gz, `edit.png` +278 / `edit.json` +44 gz for 2 thumbnails; eager `reference.css` +46 gz. **Size change:** the v2 sheet
+no longer fits 512×512 (the shelf packer runs ~70 px past the bottom with the doors' 8 tall frames), so it doubles to 512×1024, half empty,
+which leaves room for the rest of batch 5. GPU cost when loaded: 1 MB → 2 MB RGBA. A separate door sheet would need a new loader in the web app.
