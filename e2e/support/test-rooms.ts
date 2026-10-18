@@ -14,7 +14,7 @@ export const SPEC_ROOMS = {
   "provider-share": ["1", "2", "3", "4"],
   "provider-generic": ["main"],
   "room-view": ["main"],
-  walk: ["main", "reduced", "smooth", "free", "keys", "blocked"],
+  walk: ["main", "reduced", "smooth", "free", "keys", "blocked", "over"],
   emotes: ["sticker", "waver", "typist", "burst", "still", "wheel", "wheelcost", "wheelwalk", "wheeltap", "slash"],
   polish: ["every", "late", "drop"],
   "provider-queue": ["main", "ended", "generic", "yt", "twvod", "vimeo", "mixed", "reorder", "reorderphone"],

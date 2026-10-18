@@ -55,6 +55,8 @@ export interface WalksOptions {
   /** The Smooth tier (walk/tier.ts), read on every sample so a drop to Basic takes effect at once. */
   readonly smooth: () => boolean;
   /** Path finder (path.ts); a seam for counting calls. */
+  /** Someone just walked in through the door (OME-1376: the arrival sparkle). */
+  readonly onDoor?: () => void;
   readonly route?: (grid: Uint8Array, from: number, to: number) => number[] | null;
 }
 
@@ -212,6 +214,7 @@ export function createWalks(opts: WalksOptions): Walks {
           if (!snap) {
             const door = centerOf(DOOR);
             walk(fresh, t, door.x, door.y, DOOR, -1, now);
+            if (fresh.ts.length > 0) opts.onDoor?.();
           }
           continue;
         }

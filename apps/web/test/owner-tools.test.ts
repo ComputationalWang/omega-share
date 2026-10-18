@@ -33,6 +33,7 @@ async function setup(o: { owns?: boolean; phone?: boolean } = {}) {
     tags: document.createElement("div"),
     view: { editLayer: new Container(), redraw: () => undefined },
     anchor: () => undefined,
+    walkOver: () => null,
     bar,
     panel: document.createElement("div"),
     state: () => state,

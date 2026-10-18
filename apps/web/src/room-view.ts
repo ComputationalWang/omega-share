@@ -13,7 +13,8 @@ import { createTier, createTierProbe, readTierHints } from "./walk/tier";
 import { createWalks, type Dir } from "./walk/walks";
 import type { ThemeAtlas } from "./theme/atlas";
 import { decorSprites } from "./theme/decor";
-import { EFFECT_MIN_INTERVAL_MS, createEffectPainter, createParticles, effectBounds, type EffectPainter, type Particles } from "./theme/effect";
+import { EFFECT_MIN_INTERVAL_MS, SPARKLE_MS, SPARKLE_SPRITES, createEffectPainter, createParticles, effectBounds, sparkleMotion, type EffectFrame, type EffectPainter, type Particles } from "./theme/effect";
+import { DOOR, centerOf } from "./walk/path";
 import { resolveTheme } from "./theme/periods";
 
 export interface AvatarPlacement {
@@ -276,7 +277,13 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     frameTs = t;
     frameFn?.();
   };
-  const walks = createWalks({ reducedMotion: () => reduced.matches, smooth: tier.smooth });
+  const walks = createWalks({
+    reducedMotion: () => reduced.matches,
+    smooth: tier.smooth,
+    onDoor: () => {
+      arrive();
+    },
+  });
   let motion: MotionAtlas | null = null;
   let motionLoad = false;
   const animator = createAnimator({
@@ -448,6 +455,71 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       });
   }
 
+  // The door's arrival sparkle (OME-1376): the effect engine on its own small canvas round the door, 12 sprites for
+  // 600 ms. Off where the theme effect is: reduced motion, and the Basic tier. The canvas is made at the first arrival.
+  const sparkleAt = sparkleMotion(centerOf(DOOR));
+  /** A 5 px and a 3 px plus side by side, drawn here (original art, no sheet to fetch). */
+  const sparkleFrames: EffectFrame[] = [
+    { sx: 0, sy: 0, w: 5, h: 5, ox: 2, oy: 2 },
+    { sx: 5, sy: 1, w: 3, h: 3, ox: 1, oy: 1 },
+  ];
+  const sparkleBox = effectBounds(sparkleAt, sparkleFrames);
+  let sparkleFx: { canvas: HTMLCanvasElement; painter: EffectPainter } | null = null;
+  let sparks: Particles | null = null;
+  let sparkEnd = 0;
+  let sparkLast = 0;
+  const makeSparkle = (): { canvas: HTMLCanvasElement; painter: EffectPainter } | null => {
+    const art = document.createElement("canvas");
+    art.width = 8;
+    art.height = 5;
+    const g = art.getContext("2d");
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (g === null || ctx === null) return null;
+    g.fillStyle = "#ffd75e";
+    g.fillRect(2, 0, 1, 5);
+    g.fillRect(0, 2, 5, 1);
+    g.fillRect(6, 1, 1, 3);
+    g.fillRect(5, 2, 3, 1);
+    g.fillStyle = "#fffbe8";
+    g.fillRect(2, 2, 1, 1);
+    g.fillRect(6, 2, 1, 1);
+    canvas.className = "scene-fx";
+    canvas.width = sparkleBox.w;
+    canvas.height = sparkleBox.h;
+    Object.assign(canvas.style, { left: `${String(sparkleBox.x)}px`, top: `${String(sparkleBox.y)}px`, width: `${String(sparkleBox.w)}px`, height: `${String(sparkleBox.h)}px`, visibility: "hidden" });
+    ctx.imageSmoothingEnabled = false;
+    app.canvas.after(canvas);
+    return { canvas, painter: createEffectPainter({ ctx, image: art, frames: sparkleFrames, origin: sparkleBox }) };
+  };
+  const sparkFrame = (t: number): void => {
+    const fx = sparkleFx;
+    if (fx === null || sparks === null) return;
+    if (destroyed || t >= sparkEnd) {
+      fx.painter.clear();
+      fx.canvas.style.visibility = "hidden";
+      sparks = null;
+      return;
+    }
+    requestAnimationFrame(sparkFrame);
+    if (t - sparkLast < EFFECT_MIN_INTERVAL_MS) return;
+    sparks.step(t - sparkLast);
+    sparkLast = t;
+    fx.painter.paint(sparks, Math.floor(t / 100));
+  };
+  function arrive(): void {
+    if (destroyed || paused || !effectAllowed()) return;
+    sparkleFx ??= makeSparkle();
+    if (sparkleFx === null) return;
+    const running = sparks !== null;
+    // Once per arrival, not per frame; a second arrival restarts the burst.
+    sparks = createParticles(sparkleAt, SPARKLE_SPRITES, Math.random);
+    sparkLast = performance.now();
+    sparkEnd = sparkLast + SPARKLE_MS;
+    sparkleFx.canvas.style.visibility = "visible";
+    if (!running) requestAnimationFrame(sparkFrame);
+  }
+
   /** A member's shirt tint changed (ADR 0053): their frame swaps to that tint's sheets now, or once they've loaded. */
   function retint(id: MemberId, e: Entry, tint: number): void {
     e.tint = tint;
@@ -617,6 +689,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       destroyed = true;
       fxObserver.disconnect();
       fxCanvas.remove();
+      sparkleFx?.canvas.remove();
       animator.dispose();
       app.destroy(true, { children: true });
     },

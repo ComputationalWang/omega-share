@@ -19,7 +19,7 @@ import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
-import { chatIntent, createWalkGate, sitIntent, stepAllowed, stepCell, walkIntent } from "./intents";
+import { chatIntent, createWalkGate, sitIntent, stepAllowed, stepCell, walkIntent, walkOverIntent } from "./intents";
 import { layoutOf } from "./furniture";
 import { createPendingApplier } from "./pending-layout";
 import { PHONE_QUERY, SHORT_QUERY, STAGE_W, WIDE_QUERY, type Rect } from "./layout";
@@ -162,6 +162,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (msg === "blocked") return false;
     if (msg !== null) walkGate.push(msg);
     return true;
+  }
+  /** Walk over (OME-1376): the member menu's and the People list's key; null (disabled) with no free cell beside them. */
+  function walkOver(id: MemberId): (() => void) | null {
+    const msg = walkOverIntent(state, id, (m) => roomStage.cellOf(m));
+    return msg === null ? null : () => {
+      walkGate.push(msg);
+    };
   }
   const walkGate = createWalkGate({
     now: () => performance.now(),
@@ -306,6 +313,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   }, opts.roomId);
   const isHidden = (id: string): boolean => hidden.has(id);
   const people = createPeople({
+    walkOver,
     hidden,
     onChange: (id, on) => {
       roomStage.hide(id, on);
@@ -469,6 +477,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     tags,
     view,
     anchor: (id) => roomStage.anchor(id),
+    walkOver,
     bar: editBar,
     panel: editorPanel,
     state: () => state,
