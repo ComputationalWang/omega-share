@@ -661,8 +661,9 @@ describe("typing", () => {
     frame();
     const [p] = typingOf(layer);
     const seen = new Set<string | undefined>();
+    // A step's timer lands on the next whole ms: each +1 crosses exactly one step.
     for (let i = 0; i < 6; i++) {
-      advance(STEP);
+      advance(STEP + 1);
       seen.add(p?.dataset["dot"]);
     }
     expect(seen).toEqual(new Set(["0", "1", "2"]));

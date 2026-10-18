@@ -33,6 +33,7 @@ import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
 import { DANCE_SEATED_LINE, HELP_LINE, chatSticker, createStickerGate, slashCommand } from "./chat/effects";
 import { chatKey } from "./chat/enter";
+import { createTypingSender } from "./chat/typing";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
 import { createChatRelay, type ChatRelay } from "./popout/relay";
 import { createRoomCards } from "./room-cards";
@@ -767,7 +768,10 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (applause.push(id, kind, performance.now()) && !roomOut()) view.confetti();
   };
   const kickedStore = sessionStorage;
-  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted: relayedEmote, typing: () => undefined, hidden: isHidden, session: (token) => {
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); roomStage.stopTyping(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted: relayedEmote, typing: (id, on) => {
+    // My own box shows I'm typing.
+    if (id !== state.self) roomStage.typing(id, on);
+  }, hidden: isHidden, session: (token) => {
     sentAway = false;
     saveResume(resumeStore, { roomId: opts.roomId, token, nickname: opts.nickname, avatar: opts.avatar });
     // The server cleared away on this (re)join; a tab that came back while still hidden says so again.
@@ -848,6 +852,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     walkGate.cancel();
     c.send(msg);
   });
+  // The typing indicator (OME-1390): what the box holds, as the room sees it.
+  const typingSender = createTypingSender({ now: () => performance.now(), send: (on) => c.send({ type: "typing", on }) });
+  chatInput.addEventListener("input", () => {
+    typingSender.input(chatInput.value);
+  });
+  chatInput.addEventListener("blur", () => {
+    typingSender.blur();
+  });
   chatForm.addEventListener("submit", (ev) => {
     ev.preventDefault();
     // Held while the server says rate_limited; the text stays in the box for when it reopens.
@@ -856,6 +868,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     const msg = ran === null ? chatIntent(chatInput.value) : null;
     if (ran === true || (msg !== null && c.send(msg))) {
       chatInput.value = "";
+      // A line clears typing on the server; a slash command sends no line, so say it here.
+      if (ran === true) typingSender.input("");
+      else typingSender.sent();
       firstHint.dismiss();
       // Sent from the key without the field focused: the next line goes straight in.
       if (document.activeElement === chatSend) chatInput.focus({ preventScroll: true });
