@@ -368,7 +368,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     people.open(id);
   });
   // Shirt tint (OME-1352), atop the People panel: my avatar's ramps from tints.json, the pick saved for the next visit.
-  people.panel.prepend(
+  // The accessory (OME-1391) sits beside it: one line on a wide room, so the panel doesn't take height from the stage.
+  const look = document.createElement("div");
+  look.className = "look";
+  people.panel.prepend(look);
+  look.append(
     createTintSection({
       tints: parseTints(tintsJson, AVATAR_IDS)[opts.avatar]?.tints ?? [],
       tint: opts.tint,
@@ -377,7 +381,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
         saveTint(opts.secrets, t);
       },
     }),
-    // Its accessory (OME-1391), right under it.
     createAccessorySection({
       accessory: opts.accessory,
       send: (m) => send(m),
