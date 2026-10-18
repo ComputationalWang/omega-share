@@ -8,9 +8,10 @@ import { EMOTE_MARGIN_MS, PICKER_KINDS, createEmoteBucket, kindForKey } from "..
 // so the key cools before the server would answer rate_limited (which would cool chat too).
 
 describe("picker", () => {
-  test("is the five stickers in the atlas order, the wave, then cheer and yawn: every EMOTE_KINDS once", () => {
+  test("is the five stickers in the atlas order, the wave, then cheer and yawn: every EMOTE_KINDS once but dance", () => {
     expect(PICKER_KINDS).toEqual(["heart", "laugh", "question", "exclaim", "clap", "wave", "cheer", "yawn"]);
-    expect([...PICKER_KINDS].sort()).toEqual([...EMOTE_KINDS].sort());
+    // dance (OME-1374) joins the picker with its art in the dance issue.
+    expect([...PICKER_KINDS].sort()).toEqual(EMOTE_KINDS.filter((k) => k !== "dance").sort());
   });
 
   test("keys 1–8 pick in that order; anything else picks nothing", () => {

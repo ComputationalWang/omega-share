@@ -321,6 +321,14 @@ describe("emotes", () => {
     }
   });
 
+  test("dance (OME-1374) draws nothing until its art lands", () => {
+    const s = ready();
+    s.anim.emote(id("a"), "dance");
+    expect(s.rafs.length).toBe(0);
+    expect(s.timers.length).toBe(0);
+    expect(s.stickers.some((x) => x.frame !== null)).toBe(false);
+  });
+
   test("prefers-reduced-motion: no frame swaps, no sticker sprite, no timers (room.ts shows a static badge)", () => {
     const s = ready({ reduced: true });
     s.anim.emote(id("a"), "wave");

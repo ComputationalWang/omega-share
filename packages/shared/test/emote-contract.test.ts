@@ -19,8 +19,8 @@ function rejects(schema: v.GenericSchema, input: unknown): void {
 }
 
 describe("EMOTE_KINDS", () => {
-  test("is the atlas emotes plus the per-avatar animations wave, cheer and yawn (OME-1116)", () => {
-    expect([...EMOTE_KINDS].sort()).toEqual(["cheer", "clap", "exclaim", "heart", "laugh", "question", "wave", "yawn"]);
+  test("is the atlas emotes plus the per-avatar animations wave, cheer, yawn (OME-1116) and dance (OME-1374)", () => {
+    expect([...EMOTE_KINDS].sort()).toEqual(["cheer", "clap", "dance", "exclaim", "heart", "laugh", "question", "wave", "yawn"]);
   });
 });
 
@@ -30,7 +30,7 @@ describe("client emote", () => {
   });
 
   test.each([
-    ["unknown kind", { type: "emote", kind: "dance" }],
+    ["unknown kind", { type: "emote", kind: "jump" }],
     ["avatar name as kind", { type: "emote", kind: "pip" }],
     ["upper-case kind", { type: "emote", kind: "Wave" }],
     ["missing kind", { type: "emote" }],
@@ -63,7 +63,7 @@ describe("server emoted", () => {
   test.each([
     ["missing memberId", { type: "emoted", kind: "wave" }],
     ["bad memberId", { type: "emoted", memberId: "", kind: "wave" }],
-    ["unknown kind", { type: "emoted", memberId: "m1", kind: "dance" }],
+    ["unknown kind", { type: "emoted", memberId: "m1", kind: "jump" }],
     ["missing kind", { type: "emoted", memberId: "m1" }],
   ])("rejects %s", (_name, input) => {
     rejects(ServerMessageSchema, input);
