@@ -56,6 +56,8 @@ export function mountModeration(o: ModerationOptions): Moderation {
   close.append(sprite("ui-icon-close"));
   const head = el("div", { className: "head" });
   head.append(portrait, name, close);
+  const walkRow = el("button", { type: "button", className: "ui-modrow" }, "mod-walk-over");
+  walkRow.append(sprite("ui-icon-people"), "Walk over");
   const muteIcon = sprite("ui-icon-chat-mute");
   const muteRow = el("button", { type: "button", className: "ui-modrow" }, "mod-mute");
   // A row that turns into the question with its two keys, so it's a box holding buttons rather than one button.
@@ -64,7 +66,7 @@ export function mountModeration(o: ModerationOptions): Moderation {
   removeKey.append(sprite("ui-icon-remove"), "Remove from room");
   const keep = el("button", { type: "button", className: "ui-button secondary", textContent: "Keep" }, "mod-keep");
   const confirm = el("button", { type: "button", className: "ui-button", textContent: "Remove" }, "mod-confirm");
-  menu.append(head, el("span", { className: "ui-modsep" }), muteRow, removeRow);
+  menu.append(head, el("span", { className: "ui-modsep" }), walkRow, muteRow, removeRow);
 
   /** Whose menu is open; null = closed (the menu is out of the DOM). */
   let target: MemberId | null = null;
@@ -80,6 +82,8 @@ export function mountModeration(o: ModerationOptions): Moderation {
   let room = 0;
   let asking = false;
   let shownMuted: boolean | null = null;
+  /** The members Walk over was last judged for: someone moving can free or fill a cell beside the target. */
+  let walkMembers: unknown = null;
 
   const showRemove = (ask: boolean, nickname: string): void => {
     asking = ask;
@@ -105,6 +109,7 @@ export function mountModeration(o: ModerationOptions): Moderation {
     opener = null;
     asking = false;
     shownMuted = null;
+    walkMembers = null;
     placedAt = "";
     follow.disconnect();
     resized.disconnect();
@@ -198,6 +203,10 @@ export function mountModeration(o: ModerationOptions): Moderation {
       closeMenu();
       return;
     }
+    if (s.room.members !== walkMembers) {
+      walkMembers = s.room.members;
+      walkRow.disabled = o.walkOver(target) === null;
+    }
     const muted = isMuted(s, target);
     if (muted === shownMuted) {
       placeMenu(target);
@@ -209,6 +218,10 @@ export function mountModeration(o: ModerationOptions): Moderation {
     replace();
   };
 
+  walkRow.addEventListener("click", () => {
+    if (target !== null) o.walkOver(target)?.();
+    closeMenu();
+  });
   muteRow.addEventListener("click", () => {
     if (target === null) return;
     o.send({ type: "mute", memberId: target, muted: !isMuted(o.view(), target) });

@@ -3,6 +3,7 @@ import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT
 import type { ViewState } from "./state";
 import { expectedPosition } from "./sync";
 import { TILE_MS } from "./walk/walks";
+import { cellOf as cellIndex, colOf, rowOf, walkGrid, walkOverCell } from "./walk/path";
 
 export interface SeatView {
   readonly index: number;
@@ -41,8 +42,19 @@ export function walkIntent(state: ViewState, cell: FloorCell): ClientMessage | "
 }
 
 /** Walk over (OME-1376): `walk` to the free cell beside `target` nearest me; null if there's none. */
-export function walkOverIntent(_state: ViewState, _target: MemberId, _cellOf: (id: MemberId) => FloorCell | null): ClientMessage | null {
-  return null;
+/** `cellOf`: where the stage draws someone (a sitter's seat); a standing member's own cell comes first. */
+export function walkOverIntent(state: ViewState, target: MemberId, cellOf: (id: MemberId) => FloorCell | null): ClientMessage | null {
+  const room = state.room;
+  if (state.status !== "open" || room === null || state.self === null) return null;
+  const where = (id: MemberId): FloorCell | null => room.members.find((m) => m.id === id)?.cell ?? cellOf(id);
+  const here = where(state.self);
+  const there = where(target);
+  if (here === null || there === null) return null;
+  const taken = new Set<number>();
+  for (const m of room.members) if (m.cell !== undefined && m.id !== state.self && m.id !== target) taken.add(cellIndex(m.cell.x, m.cell.y));
+  const c = walkOverCell(walkGrid(room.layout ?? DEFAULT_LAYOUT), cellIndex(here.x, here.y), cellIndex(there.x, there.y), taken);
+  if (c < 0 || c === cellIndex(here.x, here.y)) return null;
+  return { type: "walk", cell: { x: colOf(c), y: rowOf(c) } };
 }
 
 export type StepKey = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";

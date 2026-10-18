@@ -214,6 +214,7 @@ export function createWalks(opts: WalksOptions): Walks {
           if (!snap) {
             const door = centerOf(DOOR);
             walk(fresh, t, door.x, door.y, DOOR, -1, now);
+            if (fresh.ts.length > 0) opts.onDoor?.();
           }
           continue;
         }

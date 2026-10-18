@@ -86,7 +86,8 @@ export function createParticles(motion: EffectMotion, count: number, rand: () =>
 export const SPARKLE_SPRITES = 12;
 export const SPARKLE_MS = 600;
 
-export const sparkleMotion = (at: { readonly x: number; readonly y: number }): EffectMotion => ({ area: { x: at.x, y: at.y, w: 0, h: 0 }, vx: [0, 0], vy: [0, 0], flipX: false });
+/** Round the door's floor point, drifting up and out; at ≤ 40 px/s over 600 ms nothing reaches the wrap margin. */
+export const sparkleMotion = (at: { readonly x: number; readonly y: number }): EffectMotion => ({ area: { x: at.x - 12, y: at.y - 24, w: 24, h: 24 }, vx: [-16, 16], vy: [-40, -12], flipX: false });
 
 /** One effect frame in the theme sheet: its rect, and its anchor in px from the rect's top-left. */
 export interface EffectFrame {

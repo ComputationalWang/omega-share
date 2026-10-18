@@ -136,7 +136,8 @@ test("Escape returns focus while the open panel still exposes its People key", a
 describe("walk over", () => {
   // OME-1376: everyone gets Walk over here (the member menu is the owner's); disabled with no free side beside them.
   test("others' rows have Walk over naming them; it walks over, and is disabled with no free side", async () => {
-    const { walkKey, walked } = await setup(undefined, "a", (id) => id === "b");
+    const { people, walkKey, walked } = await setup(undefined, "a", (id) => id === "b");
+    people.open(); // judged while the list is open: a path search per member
     expect(walkKey("a")).toBeNull();
     expect(walkKey("b")?.getAttribute("aria-label")).toBe("Walk over to Bo");
     walkKey("b")?.click();

@@ -38,8 +38,23 @@ const prev = new Int16Array(N);
 const queue = new Int16Array(N);
 
 /** Walk over (OME-1376): of the free cells beside `to`, the one `from` reaches in the fewest steps; -1 if none. */
-export function walkOverCell(_grid: Uint8Array, _from: number, _to: number, _taken: ReadonlySet<number>): number {
-  return -1;
+/** `taken`: cells someone stands on. Runs on a click or a members change, never per frame. */
+export function walkOverCell(grid: Uint8Array, from: number, to: number, taken: ReadonlySet<number>): number {
+  let best = -1;
+  let steps = Infinity;
+  const col = colOf(to);
+  const row = rowOf(to);
+  for (const [nc, nr] of [[col + 1, row], [col - 1, row], [col, row + 1], [col, row - 1]] as const) {
+    if (nc < 0 || nc >= FLOOR_CELLS || nr < 0 || nr >= FLOOR_CELLS) continue;
+    const n = cellOf(nc, nr);
+    if (grid[n] === 1 || taken.has(n)) continue;
+    const len = findPath(grid, from, n)?.length ?? Infinity;
+    if (len < steps) {
+      best = n;
+      steps = len;
+    }
+  }
+  return best;
 }
 
 /** Shortest 4-neighbour path from `from` to `to`, both included; null if solid cells cut them apart. */
