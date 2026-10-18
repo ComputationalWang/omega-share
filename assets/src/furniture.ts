@@ -548,15 +548,15 @@ function neonSign(k: Kit, c: RampName, n = 0): void {
     const play = Math.min(seg(x, z, -1.1, 89, -1.1, 92), seg(x, z, -1.1, 89, 1.6, 90.5), seg(x, z, -1.1, 92, 1.6, 90.5));
     return Math.min(screen, ant, play);
   };
-  const antenna = (x: number, z: number): boolean => Math.min(seg(x, z, -0.6, 95.3, -2.6, 99), seg(x, z, 0.6, 95.3, 2.6, 99)) < 1.9 && z > 94.6;
+  const antenna = (x: number, z: number): boolean => Math.min(seg(x, z, -0.6, 95.3, -2.6, 99), seg(x, z, 0.6, 95.3, 2.6, 99)) < 1.9 && z > 96.4;
   const halo = n === 1 ? 1.5 : n === 2 ? 1.1 : 1.3;
   k.box(X0, X1, 7, 8, Z0, Z1, "night", {
     paint: (p, f) => {
       if (f !== "front") return f === "top" ? ["night", 0] : ["night", 2];
       if ((Math.abs(p.x - X0 - 1) < 0.6 || Math.abs(p.x - X1 + 1) < 0.6) && (Math.abs(p.z - Z0 - 1.5) < 0.8 || Math.abs(p.z - Z1 + 1.5) < 0.8)) return ["mustard", 0];
       const d = tube(p.x, p.z);
-      // In use the tube hums: the halo swells and shrinks, and the antennae stutter dark for a frame (unlit glass on the plate).
-      if (n === 3 && antenna(p.x, p.z)) return d < 0.9 ? [c, 2] : ["night", 1];
+      // In use the tube hums: the halo swells and shrinks, and the antennae blink out for a frame (a clean gap above the screen).
+      if (n === 3 && antenna(p.x, p.z)) return ["night", 1];
       if (d < 0.4) return n === 2 ? [c, 0] : ["cream", 0];
       if (d < 0.9) return [c, 0];
       if (d < halo) return [c, 2];

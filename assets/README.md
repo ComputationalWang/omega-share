@@ -923,7 +923,7 @@ Back to `…/<dir>/back` when nobody uses it. Preview: `preview/furniture-use@4x
 | id | loop | frames | ms/frame |
 |---|---|---|---|
 | `turntable` | the record turns: a groove glint and a label dot step a quarter turn per frame | 4 | 120 |
-| `neonsign` | hum: the halo swells, then the core dims, then the antennae stutter dark (both colours) | 3 | 140 |
+| `neonsign` | hum: the halo swells, then the core dims, then the antennae blink out (both colours) | 3 | 140 |
 | `aquarium` | the bubble stream rises one unit per frame | 3 | 220 |
 | `arcade` | screen: the invaders step side to side, the shot climbs, a scan band rolls down | 3 | 160 |
 
@@ -1094,7 +1094,7 @@ Catalogue v3 (OME-1348) adds **7 493 B (≈ 7.3 KB)** against `main` (218 779 �
 Head accessories (OME-1388) add **12 451 B (≈ 12.2 KB)**, all lazy: `accessories.png` 3 970 + `accessories.json` 8 481 gz. No existing file
 changes. Measured total: 238 750 B of 307 200.
 
-The "in use" loops (OME-1405) add **5 620 B (≈ 5.5 KB)**, all lazy, in the v2 sheet (still 512×512): 30 frames, `furniture-v2.png`
+The "in use" loops (OME-1405) add **5 620 B (≈ 5.5 KB)** to the art total (eager + lazy; every added byte is in the lazy v2 sheet, still 512×512): 32 frames, `furniture-v2.png`
 15 613 → 20 737 (+5 124), `furniture-v2.json` +513 gz (frames, `animations`, `use`). The clock notes (shorter, bolder hands with a cream gap
 before softer ticks; mid-tone short rays) cost nothing measurable; `edit.png` +1 for the clock thumbnail. Measured total: 244 370 B of 307 200.
 
