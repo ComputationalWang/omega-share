@@ -636,9 +636,11 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
 
   /** Hand the in-use loops to the animator; pieces no longer in use go back to their idle frame. */
   const applyLoops = (): void => {
+    const was = running.length;
     running = looping.filter((l) => inUse.has(l.piece));
     for (const l of looping) if (!inUse.has(l.piece)) l.sprite.texture = l.idle;
-    animator.setLoops(running);
+    // Nothing looped and nothing does: no frame to ask for (a scene build in a room without loops costs no render).
+    if (was > 0 || running.length > 0) animator.setLoops(running);
   };
 
   return {
