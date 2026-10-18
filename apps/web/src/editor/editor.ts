@@ -9,8 +9,10 @@ import {
   DeleteRoomResponseSchema,
   FLOOR_CELLS,
   FURNITURE,
+  MAX_DOORS,
   MAX_FURNITURE,
   ROOM_TITLE_MAX_LENGTH,
+  RoomIdSchema,
   RoomTitleSchema,
   type ClientMessage,
   type DeleteRoomErrorCode,
@@ -25,7 +27,8 @@ import furnitureV2Json from "../../../../assets/furniture/furniture-v2.json";
 import { el } from "../controls/dom";
 import { FurnitureManifestSchema } from "../furniture";
 import { cellCenter } from "../layout";
-import { TRAY_TABS, defaultFacing, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
+import { loadRoomSecrets } from "../room-secrets";
+import { TRAY_TABS, defaultFacing, doorCount, parseDoorTarget, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
 import { loadEditAtlas, type EditAtlas } from "./edit-atlas";
 import { markerKeys, slotAt, step, type CursorKey, type MarkerState, type Slot } from "./pick";
 import { SAVED_LAYOUT_NAME_MAX, saveLayout, saveMessage, type LayoutStore } from "../saved-layouts";
@@ -113,12 +116,20 @@ const coloursOf = (kind: FurnitureKind): readonly string[] => {
 
 const sprite = (name: string): HTMLSpanElement => el("span", { className: `ui-sprite ${name}`, ariaHidden: "true" });
 
+/** The piece in hand: its kind, colour, and for a door the room it leads to (asked for first, OME-1425). */
+interface Held {
+  readonly kind: FurnitureKind;
+  readonly variant: number;
+  readonly target?: RoomId;
+}
+
 /** The piece a click would put down: the held kind at the slot, facing the wall it hangs on or its default way. */
-function candidate(kind: FurnitureKind, variant: number, slot: Slot): Furniture | null {
+function candidate({ kind, variant, target }: Held, slot: Slot): Furniture | null {
   const onWall = FURNITURE[kind].layer === "wall";
   if (onWall !== (slot.wall !== null)) return null;
   const facing = slot.wall ?? defaultFacing(kind, slot.col, slot.row);
-  return variant === 0 ? { kind, col: slot.col, row: slot.row, facing } : { kind, col: slot.col, row: slot.row, facing, variant };
+  const piece: Furniture = { kind, col: slot.col, row: slot.row, facing };
+  return { ...piece, ...(variant === 0 ? {} : { variant }), ...(target === undefined ? {} : { target }) };
 }
 
 /** The placed piece at a slot: on the floor, an object over a rug; on a wall, the print in that slot. */
@@ -152,7 +163,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
 
   let saved = ctx.saved();
   let draft = saved;
-  let held: { kind: FurnitureKind; variant: number } | null = null;
+  let held: Held | null = null;
   let selected: number | null = null;
   let hover: Slot | null = null;
   /** The keyboard cursor (OME-1245): shown while the room has keyboard focus, redrawn only on key input. */
@@ -190,7 +201,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     if (sel !== undefined) addMarkers(sel, "sel");
     if (hover !== null) {
       if (held !== null) {
-        const c = candidate(held.kind, held.variant, hover);
+        const c = candidate(held, hover);
         if (c !== null) addMarkers(c, fits(draft, c) ? "ok" : "no");
       } else if (selected !== null && sel !== undefined && indexAt(draft, hover) === null) {
         const next = moved(draft, selected, hover);
@@ -260,7 +271,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     const sel = selected === null ? undefined : draft.furniture[selected];
     const where = placeOf(cursor);
     if (held !== null) {
-      const c = candidate(held.kind, held.variant, cursor);
+      const c = candidate(held, cursor);
       return `${NAMES[held.kind]}, ${where}${c !== null && fits(draft, c) ? "" : ", can't go here"}`;
     }
     if (piece !== undefined) return `${NAMES[piece.kind]}, ${where}`;
@@ -272,7 +283,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
   function act(s: Slot): void {
     say("");
     if (held !== null) {
-      const c = candidate(held.kind, held.variant, s);
+      const c = candidate(held, s);
       const next = c === null ? null : place(draft, c);
       if (next === null) {
         say(c === null ? `The ${NAMES[held.kind].toLowerCase()} can't go there.` : "That spot is taken or off the floor.");
@@ -320,8 +331,15 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       b.append(colour === undefined ? el("span", { className: "editor-slot-name", textContent: NAMES[kind] }) : sprite(`ui-thumb-${atlasId(kind) ?? kind}-${colour}`));
       b.addEventListener("click", (ev) => {
         if (b.ariaDisabled === "true") return;
-        held = held?.kind === kind ? null : { kind, variant: 0 };
         selected = null;
+        if (kind === "door" && held?.kind !== "door") {
+          // A door asks where it leads before it can be placed.
+          held = null;
+          openPicker();
+          return;
+        }
+        picking = false;
+        held = held?.kind === kind ? null : { kind, variant: 0 };
         refresh();
         // Picked with the keyboard (no pointer, so detail 0): the room takes focus, with the cursor where it last was.
         if (held !== null && ev.detail === 0) hit.focus({ preventScroll: true });
@@ -330,6 +348,73 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     }
   }
   tray.append(...slots.values());
+  const doorsLine = el("p", { className: "editor-count" }, "editor-doors");
+
+  // ---- The door's room (OME-1425): one of this browser's saved rooms, or a pasted link of this site.
+  let picking = false;
+  const picker = el("div", { className: "editor-door-picker", hidden: true }, "door-picker");
+  const pickerRooms = el("ul", { className: "editor-door-rooms" });
+  const pickerInput = el("input", { type: "text", id: "editor-door-link", className: "ui-input", maxLength: 300, autocomplete: "off", placeholder: "https://…/r/room" }, "door-target-input");
+  const pickerUse = el("button", { type: "button", className: "ui-button", textContent: "Use link" }, "door-target-use");
+  const pickerCancel = el("button", { type: "button", className: "ui-button secondary", textContent: "Cancel" });
+  const pickerError = el("p", { className: "editor-message", role: "alert" }, "door-target-error");
+  picker.append(
+    el("p", { textContent: "Where does the door lead?" }),
+    pickerRooms,
+    el("label", { htmlFor: pickerInput.id, textContent: "Or paste a room link" }),
+    pickerInput,
+    pickerUse,
+    pickerCancel,
+    pickerError,
+  );
+  /** Rooms this browser saved (titles as text), this room left out; localStorage is untrusted, so ids are checked. */
+  const savedRooms = (): { id: RoomId; label: string }[] => {
+    try {
+      return Object.entries(loadRoomSecrets(localStorage).rooms).flatMap(([id, s]) => (id !== ctx.roomId && v.safeParse(RoomIdSchema, id).success ? [{ id, label: s.title ?? id }] : []));
+    } catch {
+      return [];
+    }
+  };
+  const chooseTarget = (target: RoomId): void => {
+    picking = false;
+    held = { kind: "door", variant: 0, target };
+    pickerInput.value = "";
+    pickerError.textContent = "";
+    refresh();
+    hit.focus({ preventScroll: true });
+  };
+  function openPicker(): void {
+    picking = true;
+    pickerError.textContent = "";
+    pickerRooms.replaceChildren(
+      ...savedRooms().map((r) => {
+        const b = el("button", { type: "button", className: "ui-button secondary", textContent: r.label }, "door-target-room");
+        b.addEventListener("click", () => {
+          chooseTarget(r.id);
+        });
+        const li = el("li");
+        li.append(b);
+        return li;
+      }),
+    );
+    refresh();
+    pickerInput.focus({ preventScroll: true });
+  }
+  const useLink = (): void => {
+    const r = parseDoorTarget(pickerInput.value, location.origin, ctx.roomId);
+    if (r.ok) chooseTarget(r.id);
+    else pickerError.textContent = r.error;
+  };
+  pickerUse.addEventListener("click", useLink);
+  pickerInput.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Enter") return;
+    ev.preventDefault();
+    useLink();
+  });
+  pickerCancel.addEventListener("click", () => {
+    picking = false;
+    refresh();
+  });
 
   const pickedName = el("p", { className: "editor-picked" }, "editor-picked");
   const swatches = el("div", { className: "ui-swatches", role: "radiogroup", ariaLabel: "Colour" });
@@ -441,7 +526,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
     }
   };
 
-  root.append(tabs, tray, piecePanel, problemList, savePanel, minePanel, settings);
+  root.append(tabs, tray, doorsLine, picker, piecePanel, problemList, savePanel, minePanel, settings);
   ctx.panel.replaceChildren(root);
 
   function say(text: string): void {
@@ -461,16 +546,23 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
       b.ariaSelected = String(TRAY_TABS[i]?.id === tab);
     });
     const full = draft.furniture.length >= MAX_FURNITURE;
+    const doors = doorCount(draft);
     for (const [kind, b] of slots) {
       b.hidden = !kinds.includes(kind);
       b.ariaPressed = String(held?.kind === kind);
-      b.ariaDisabled = String(full);
+      const capped = kind === "door" && doors >= MAX_DOORS;
+      b.ariaDisabled = String(full || capped);
+      b.title = capped ? `A room has at most ${String(MAX_DOORS)} doors` : NAMES[kind];
     }
+    doorsLine.textContent = `Doors ${String(doors)}/${String(MAX_DOORS)}`;
+    picker.hidden = !picking;
     const piece = selected === null ? undefined : draft.furniture[selected];
     const kind = held?.kind ?? piece?.kind;
     const variant = held?.variant ?? piece?.variant ?? 0;
     pickedName.textContent =
-      held !== null
+      picking
+        ? "Door: pick where it leads, then place it"
+        : held !== null
         ? `${NAMES[held.kind]}: click the room, or use the arrow keys and Enter there, to place it`
         : piece !== undefined
           ? `${NAMES[piece.kind]}: arrow keys and Enter in the room move it`
@@ -486,7 +578,7 @@ export async function mountEditor(ctx: EditorContext): Promise<Editor> {
             b.append(sprite(`ui-swatch-${c}`), sprite("ui-swatch-ring"));
             b.addEventListener("click", () => {
               if (held !== null) {
-                held = { kind: held.kind, variant: i };
+                held = { ...held, variant: i };
                 refresh();
               } else if (selected !== null && piece !== undefined) {
                 const recoloured: Furniture = { ...piece, variant: i };

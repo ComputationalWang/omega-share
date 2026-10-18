@@ -478,7 +478,6 @@ describe("doors (OME-1425)", () => {
 
   test("the door draws from the v2 sheet", () => {
     expect(usesV2(l)).toBe(true);
-    expect(usesSetG(l)).toBe(true); // the tv; a door alone needs no set (g)
-    expect(usesSetG({ furniture: [door(0, 3, "se", "other-room")] })).toBe(false);
+    expect(usesSetG(l)).toBe(false); // the tv is a room-atlas piece: a door needs no set (g)
   });
 });

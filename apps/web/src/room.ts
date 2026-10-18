@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type MemberId, type Nickname, type ResumeToken, type RoomId, type Tint } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type MemberId, type Nickname, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
@@ -10,7 +10,7 @@ import { trackShareToken } from "./share-token";
 import { clearResume, saveResume, type ResumeStore } from "./session-record";
 import { presenceHint } from "./session-lifecycle";
 import { routeConnectionEvent, type RoomEventSinks } from "./room-events";
-import { inviteLink, joinMessage, retitleRoom, type RoomSecret, type SecretsStore } from "./room-secrets";
+import { inviteLink, joinMessage, loadRoomSecrets, retitleRoom, type RoomSecret, type SecretsStore } from "./room-secrets";
 import { createInviteControl } from "./controls/invite";
 import { el, sprite } from "./controls/dom";
 import { createPlaybackController, type PlaybackView } from "./controls/playback";
@@ -20,7 +20,8 @@ import { createQueuePanel } from "./controls/queue-panel";
 import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
 import { chatIntent, createWalkGate, sitIntent, stepAllowed, stepCell, walkIntent, walkOverIntent } from "./intents";
-import { layoutOf } from "./furniture";
+import { doorAt, layoutOf } from "./furniture";
+import { createDoorChip } from "./door-chip";
 import { createPendingApplier } from "./pending-layout";
 import { PHONE_QUERY, SHORT_QUERY, STAGE_W, WIDE_QUERY, type Rect } from "./layout";
 import { createRoomLayout } from "./room-layout";
@@ -221,7 +222,32 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let lastStep = -Infinity;
   const { root: stage, overlay, tags, view } = roomStage;
   const clip = el("div", { className: "stage-clip" }, "room-window");
-  clip.append(stage, followChip);
+  // Doors (OME-1425): standing in front of one (not sitting) offers "Go to <room> · Stay". The title is the saved one, read
+  // on arrival; the cell is only looked at when my cell or the layout changes.
+  const doorChip = createDoorChip({
+    titleOf: (id) => {
+      try {
+        return loadRoomSecrets(localStorage).rooms[id]?.title ?? null;
+      } catch {
+        return null;
+      }
+    },
+    go: (path) => {
+      location.assign(path);
+    },
+  });
+  let doorCell = "";
+  let doorLayout: RoomLayout | null = null;
+  const updateDoorChip = (s: RoomState | null, self: MemberId | null, l: RoomLayout): void => {
+    const me = s === null || self === null ? undefined : s.members.find((m) => m.id === self);
+    const cell = me?.cell !== undefined && s?.seats.includes(me.id) === false ? me.cell : null;
+    const key = cell === null ? "" : `${String(cell.x)},${String(cell.y)}`;
+    if (key === doorCell && l === doorLayout) return;
+    doorCell = key;
+    doorLayout = l;
+    doorChip.at(cell === null ? null : doorAt(l, cell.x, cell.y));
+  };
+  clip.append(stage, followChip, doorChip.root);
   let state = initialState;
   let conn: Connection | null = null;
   const send = (m: ClientMessage): boolean => conn?.send(m) ?? false;
@@ -617,6 +643,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // The stage first: it rebuilds the seats for a new layout before anything reads them. Out in its window, the room
     // is drawn there, not here.
     if (!roomOut()) roomStage.render(s, owner.preview() ?? layoutOf(s.room), pbView?.catching === true, owner.editing());
+    updateDoorChip(s.room, s.self, layoutOf(s.room));
     dim();
     const mySeat = s.self === null ? -1 : (s.room?.seats.indexOf(s.self) ?? -1);
     if (mySeat !== centredSeat) {

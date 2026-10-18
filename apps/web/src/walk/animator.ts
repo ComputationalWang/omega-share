@@ -108,6 +108,11 @@ export function createAnimator(o: AnimatorOptions): Animator {
       const smooth = o.smooth();
       let i = 0;
       for (const l of loops) {
+        // One frame (a door's open one) is a state, not motion: drawn under reduced motion too, and never wakes the clock.
+        if (l.frames === 1) {
+          o.drawLoop(i++, 0);
+          continue;
+        }
         const ms = smooth ? l.ms : WALK_FRAME_MS;
         o.drawLoop(i++, still ? -1 : Math.floor(now / ms) % l.frames);
         if (!still) nextLoop = Math.min(nextLoop, ms - (now % ms));
