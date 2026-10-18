@@ -7,6 +7,8 @@ import { el } from "../controls/dom";
 export interface HelpOptions {
   /** Checked on every open: the owner's tools show only in a room you own. */
   readonly owner: () => boolean;
+  /** The Cinema dim setting (OME-1406): a checkbox in the dialog. */
+  readonly cinema?: { on(): boolean; set(on: boolean): void };
 }
 
 export interface Help {
