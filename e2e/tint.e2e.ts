@@ -81,8 +81,9 @@ test("the landing's tint goes with join, and a pick in the room shows for the ot
   await expect(menu).toBeVisible();
   await menu.getByRole("radio").nth(1).click();
   for (const page of [a.page, b.page]) await expect.poll(async () => (await frames(page, aId))?.tint, { timeout: 3000, intervals: [50] }).toBe(1);
-  // Same frames as before, from the tinted sheet: the tier's frame keys are untouched.
-  expect((await frames(b.page, aId))?.avatar ?? "").toMatch(/^(breathe\/)?\w+\/(idle|sit)\//);
+  // Same frames as before, from the tinted sheet: the tier's frame keys are untouched. A can still be walking in from
+  // the door after join (OME-1350), so a walk frame counts too (OME-1373).
+  expect((await frames(b.page, aId))?.avatar ?? "").toMatch(/^((breathe\/)?\w+\/(idle|sit)|walk\/\w+)\//);
   await a.page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
   await expect(a.page.getByTestId("people-key")).toBeFocused();
