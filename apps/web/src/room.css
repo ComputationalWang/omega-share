@@ -411,12 +411,9 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .room-top > .ui-button:not([hidden]) ~ .ui-button { margin-left: 0; }
 .people { --ui-px: 1px; margin: 6px 0; padding: 6px 10px; color: var(--ui-text); }
 .people[hidden] { display: none; }
-.tint-panel { --ui-px: 1px; margin: 6px 0; padding: 6px 10px; }
-.tint-panel[hidden] { display: none; }
-.tint-panel .tints { margin-top: 0; }
-/* Two icon keys side by side: their 44 px touch areas must not overlap (the People key's sits on top of this one's). */
-.ui-touch .room-top > .tint-key { margin-right: 12px; }
-.tint-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--swatch, transparent); box-shadow: 0 0 0 1px var(--ui-text); }
+.tint-section { margin-bottom: 8px; }
+.tint-section .tints { margin-top: 0; }
+.ui-touch .tint { width: 44px; height: 44px; }
 .people-note { margin: 0 0 6px; font-size: 12px; line-height: 1.4; }
 .people-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .people-row { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; }

@@ -1,5 +1,5 @@
-// Shirt tint (OME-1352, ADR 0053): a 6-swatch row under the landing avatar picker (sent with `join`) and behind the
-// room's Shirt key (sends `set-tint`); every client draws the member with that avatar's PLTE-swapped sheets at once.
+// Shirt tint (OME-1352, ADR 0053): a 6-swatch row under the landing avatar picker (sent with `join`) and at the top of
+// the People panel (sends `set-tint`); every client draws the member with that avatar's PLTE-swapped sheets at once.
 import * as v from "valibot";
 import type { Page } from "@playwright/test";
 import { expect, test, watchCsp } from "./support/csp";
@@ -76,7 +76,7 @@ test("the landing's tint goes with join, and a pick in the room shows for the ot
   if (a === undefined || b === undefined) throw new Error("need two clients");
   const aId = await self(a.page);
   await expect.poll(async () => (await frames(b.page, aId))?.tint, { timeout: 15_000 }).toBe(3);
-  await a.page.getByTestId("tint-key").click();
+  await a.page.getByTestId("people-key").click();
   const menu = a.page.getByTestId("tint-menu");
   await expect(menu).toBeVisible();
   await menu.getByRole("radio").nth(1).click();
@@ -85,5 +85,5 @@ test("the landing's tint goes with join, and a pick in the room shows for the ot
   expect((await frames(b.page, aId))?.avatar ?? "").toMatch(/^(breathe\/)?\w+\/(idle|sit)\//);
   await a.page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
-  await expect(a.page.getByTestId("tint-key")).toBeFocused();
+  await expect(a.page.getByTestId("people-key")).toBeFocused();
 });

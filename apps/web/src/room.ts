@@ -41,7 +41,7 @@ import { createFirstHint } from "./help/hint";
 import { createHiddenMembers } from "./hide/hidden";
 import { createPeople } from "./hide/people";
 import tintsJson from "../../../assets/avatars/tints.json";
-import { createTintKey } from "./controls/tint-key";
+import { createTintSection } from "./controls/tint-section";
 import { saveTint } from "./profile";
 import { AVATAR_IDS, parseTints } from "./walk/tint";
 import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
@@ -320,17 +320,19 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     ev.preventDefault();
     people.open(id);
   });
-  // Shirt tint (OME-1352): my avatar's ramps from tints.json, the pick saved in the profile for the next visit.
-  const tintKey = createTintKey({
-    tints: parseTints(tintsJson, AVATAR_IDS)[opts.avatar]?.tints ?? [],
-    tint: opts.tint,
-    send: (m) => send(m),
-    onPick: (t) => {
-      saveTint(opts.secrets, t);
-    },
-  });
-  tintKey.key.hidden = true;
-  roomTop.append(title, popRoomKey, tintKey.key, people.key, help.key);
+  // Shirt tint (OME-1352), atop the People panel: my avatar's ramps from tints.json, the pick saved for the next visit.
+  people.panel.prepend(
+    createTintSection({
+      tints: parseTints(tintsJson, AVATAR_IDS)[opts.avatar]?.tints ?? [],
+      tint: opts.tint,
+      send: (m) => send(m),
+      onPick: (t) => {
+        saveTint(opts.secrets, t);
+      },
+    }),
+  );
+
+  roomTop.append(title, popRoomKey, people.key, help.key);
   // The first-visit hint (OME-768): in the flow under the room bar, so it never covers the picture or the composer.
   const firstHint = createFirstHint({
     // The `localStorage` getter itself throws when storage is blocked.
@@ -397,7 +399,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     }
   };
   renderSend();
-  opts.root.replaceChildren(roomTop, firstHint.root, tintKey.panel, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
+  opts.root.replaceChildren(roomTop, firstHint.root, people.panel, people.status, status, tvBox.hint, wrap, roomAway, editBar, editorPanel, tvBox.personal, queuePanel.root, tvBox.notice, notice, chatLog.root, chatForm, invite, ...cards.cards, side, cards.foot, help.dialog);
   // Declared before the layout: its first fit() reads roomOut.
   /** The room tab's end of the pop-out chat; null where BroadcastChannel is missing. Made once the socket exists. */
   let relay: ChatRelay | null = null;
@@ -551,8 +553,6 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     wrap.hidden = !shown.stage;
     help.key.hidden = !shown.stage;
     people.key.hidden = !shown.stage;
-    tintKey.key.hidden = !shown.stage;
-    if (!shown.stage) tintKey.close();
     if (shown.stage) people.update(s.room?.members ?? [], s.self);
     else people.close();
     if (!shown.stage) {
