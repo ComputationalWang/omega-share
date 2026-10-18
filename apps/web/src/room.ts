@@ -38,6 +38,7 @@ import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, room
 import { createChatRelay, type ChatRelay } from "./popout/relay";
 import { createRoomCards } from "./room-cards";
 import { createHelp } from "./help/dialog";
+import { createCinemaDim } from "./cinema";
 import { createFirstHint } from "./help/hint";
 import { createHiddenMembers } from "./hide/hidden";
 import { createPeople } from "./hide/people";
@@ -142,8 +143,16 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const reducedMotion = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
   /** Set once the emote key exists: my own avatar walking closes the wheel (OME-732). */
   let closeWheel = (): void => undefined;
+  // Cinema dim (OME-1406): this device's setting, from localStorage (the getter itself throws when storage is blocked).
+  const cinema = createCinemaDim({
+    getItem: (k) => localStorage.getItem(k),
+    setItem: (k, v) => {
+      localStorage.setItem(k, v);
+    },
+  });
   const roomStage: Stage = await createStage({
     reducedMotion,
+    dim: cinema.el,
     onMove: (id) => {
       if (id === state.self) closeWheel();
     },
@@ -336,7 +345,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const popRoomKey = el("button", { type: "button", className: "ui-button self icon", ariaLabel: "Pop out room", title: "Pop out room", hidden: true }, "room-popout");
   popRoomKey.append(sprite("ui-icon-popout-room"));
   // The "?" help (OME-768): the room bar's last key; its dialog is built on the first open and never draws on the canvas.
-  const help = createHelp({ owner: () => state.owner && opts.secret?.ownerToken !== undefined });
+  const help = createHelp({ owner: () => state.owner && opts.secret?.ownerToken !== undefined, cinema });
   help.key.hidden = true;
   // "Hide for me" (OME-769): who I hid in this room, in this tab only. Never sent: it filters at intake (room-events.ts),
   // and the stage, the logs and the pop-out follow each change once.
@@ -510,7 +519,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (v === null) return;
     tvBox.show(v);
     roomStage.applyCatching(state, v.catching);
+    dim();
   }
+
+  /** The room dims while the video plays, lifted while the editor is open (OME-1406). */
+  const dim = (): void => {
+    cinema.update(pbView?.hasVideo === true && pbView.playing, owner.editing());
+  };
 
   const requestRender = (): void => {
     if (frame === 0) frame = requestAnimationFrame(render);
@@ -600,6 +615,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     // The stage first: it rebuilds the seats for a new layout before anything reads them. Out in its window, the room
     // is drawn there, not here.
     if (!roomOut()) roomStage.render(s, owner.preview() ?? layoutOf(s.room), pbView?.catching === true, owner.editing());
+    dim();
     const mySeat = s.self === null ? -1 : (s.room?.seats.indexOf(s.self) ?? -1);
     if (mySeat !== centredSeat) {
       centredSeat = mySeat;
