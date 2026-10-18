@@ -541,7 +541,7 @@ function neonSign(k: Kit, c: RampName): void {
     const rx = Math.max(Math.abs(x) - 3.5, 0), rz = Math.max(Math.abs(z - 90.5) - 3, 0);
     const screen = Math.abs(Math.hypot(rx, rz) - 1.8);
     const ant = Math.min(seg(x, z, -0.6, 95.3, -2.6, 99), seg(x, z, 0.6, 95.3, 2.6, 99));
-    const play = Math.min(seg(x, z, -1.4, 88.4, -1.4, 92.6), seg(x, z, -1.4, 88.4, 2, 90.5), seg(x, z, -1.4, 92.6, 2, 90.5));
+    const play = Math.min(seg(x, z, -1.1, 89, -1.1, 92), seg(x, z, -1.1, 89, 1.6, 90.5), seg(x, z, -1.1, 92, 1.6, 90.5));
     return Math.min(screen, ant, play);
   };
   k.box(X0, X1, 7, 8, Z0, Z1, "night", {
@@ -551,8 +551,10 @@ function neonSign(k: Kit, c: RampName): void {
       const d = tube(p.x, p.z);
       if (d < 0.4) return ["cream", 0];
       if (d < 0.9) return [c, 0];
-      if (d < 1.7) return [c, 2];
-      return ["night", 2];
+      if (d < 1.3) return [c, 2];
+      // A dark gap round the glow keeps the glyph apart from the plate at 1×.
+      if (d < 1.9) return ["outline", 1];
+      return ["night", 1];
     },
   });
 }
@@ -633,7 +635,7 @@ function arcade(k: Kit): void {
   k.box(-6, 6, -2.5, 5, 39, 45.5, "night", { paint: marquee });
 }
 
-/** Sunburst wall clock: a cream face with ticks and hands on a brass hub, twelve rays with bead tips. */
+/** Sunburst wall clock: a cream face in a dark rim with four bold ticks and hands on a brass hub, eight rays in light and shade. */
 function wallClock(k: Kit): void {
   const CZ = 94;
   // Eight thick brass rays, long and short in turn, stepped down in width so they taper (a wall slant squashes thin ones).
@@ -641,17 +643,19 @@ function wallClock(k: Kit): void {
     const a = (i * Math.PI) / 4;
     const len = i % 2 === 0 ? 10.5 : 8.5;
     for (let r = 5; r < len; r += 0.5) {
-      const w = r < len - 2 ? 1 : 0.6;
-      k.box(Math.cos(a) * r - w, Math.cos(a) * r + w, 7.4, 8, CZ + Math.sin(a) * r - w, CZ + Math.sin(a) * r + w, "mustard", { tones: { top: 0, sw: i % 2 === 0 ? 0 : 1, se: 1 } });
+      const w = r < len - 2.5 ? 1.3 : r < len - 1 ? 0.9 : 0.6;
+      // Long rays catch the light, short ones sit in shade, so the burst reads as rays and not one yellow blot.
+      k.box(Math.cos(a) * r - w, Math.cos(a) * r + w, 7.4, 8, CZ + Math.sin(a) * r - w, CZ + Math.sin(a) * r + w, "mustard", { tones: i % 2 === 0 ? { top: 0, sw: 0, se: 1 } : { top: 1, sw: 2, se: 2 } });
     }
   }
   const face: LPaint = (p, f) => {
     if (f === "top") return ["mustard", 0];
     const x = p.x, z = p.z - CZ, r = Math.hypot(x, z);
     if (r > 4.6) return ["mustard", r > 5.2 ? 2 : 1];
+    if (r > 3.9) return ["wood", 2]; // dark rim between the brass bezel and the face
     if (r < 0.7) return ["mustard", 0];
-    const ang = Math.atan2(z, x);
-    if (r > 3.2 && Math.abs(((ang * 6) / Math.PI + 24.5) % 1 - 0.5) < 0.18) return ["charcoal", 1];
+    // Bold ticks at 12, 3, 6 and 9 only; twelve thin ones turned into noise at 1×.
+    if (r > 3 && (Math.abs(x) < 0.55 || Math.abs(z) < 0.55)) return ["outline", 1];
     // Ten past ten.
     const onHand = (t: number, l: number): boolean => r < l && Math.abs(x * Math.sin(t) - z * Math.cos(t)) < 0.4 && x * Math.cos(t) + z * Math.sin(t) > 0;
     if (onHand((Math.PI * 5) / 6, 2.6) || onHand(Math.PI / 6, 3.6)) return ["outline", 1];
