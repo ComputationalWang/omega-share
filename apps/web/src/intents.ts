@@ -97,6 +97,7 @@ export function playerIntent(t: PlaybackTarget, playing: boolean, position: numb
 
 export interface WalkGate {
   push(msg: ClientMessage): void;
+  cancel(): void;
 }
 
 /**
@@ -121,5 +122,6 @@ export function createWalkGate(deps: { now: () => number; send: (m: ClientMessag
       if (wait <= 0) flush();
       else if (!armed) deps.setTimer(flush, wait);
     },
+    cancel: () => undefined,
   };
 }

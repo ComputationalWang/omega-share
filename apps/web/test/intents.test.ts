@@ -196,4 +196,12 @@ describe("createWalkGate", () => {
     advance(WALK_REFILL_MS);
     expect(sent).toEqual([1, 3]);
   });
+  test("cancel drops the held walk, so a seat click after a burst wins (QA OME-1372)", () => {
+    const { g, walk, advance, sent } = gate();
+    g.push(walk(1));
+    g.push(walk(2));
+    g.cancel();
+    advance(WALK_REFILL_MS);
+    expect(sent).toEqual([1]);
+  });
 });
