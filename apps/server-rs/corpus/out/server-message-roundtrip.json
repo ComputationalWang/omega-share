@@ -79,6 +79,7 @@
 {"input":"{\"type\":\"emoted\",\"memberId\":\"m1\",\"kind\":\"wave\"}","ok":true,"output":"{\"type\":\"emoted\",\"memberId\":\"m1\",\"kind\":\"wave\"}"},
 {"input":"{\"type\":\"emoted\",\"memberId\":\"m1\",\"kind\":\"cheer\"}","ok":true,"output":"{\"type\":\"emoted\",\"memberId\":\"m1\",\"kind\":\"cheer\"}"},
 {"input":"{\"type\":\"emoted\",\"memberId\":\"m1\",\"kind\":\"yawn\"}","ok":true,"output":"{\"type\":\"emoted\",\"memberId\":\"m1\",\"kind\":\"yawn\"}"},
+{"input":"{\"type\":\"emoted\",\"memberId\":\"m1\",\"kind\":\"dance\"}","ok":true,"output":"{\"type\":\"emoted\",\"memberId\":\"m1\",\"kind\":\"dance\"}"},
 {"input":"{\"type\":\"member-muted\",\"memberId\":\"m2\",\"muted\":true}","ok":true,"output":"{\"type\":\"member-muted\",\"memberId\":\"m2\",\"muted\":true}"},
 {"input":"{\"type\":\"member-muted\",\"memberId\":\"m2\",\"muted\":false}","ok":true,"output":"{\"type\":\"member-muted\",\"memberId\":\"m2\",\"muted\":false}"},
 {"input":"{\"type\":\"control-policy-changed\",\"policy\":\"owner\",\"by\":\"m1\"}","ok":true,"output":"{\"type\":\"control-policy-changed\",\"policy\":\"owner\",\"by\":\"m1\"}"},

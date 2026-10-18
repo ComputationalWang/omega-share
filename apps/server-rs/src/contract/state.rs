@@ -209,7 +209,7 @@ pub enum PlaybackAction {
     Load,
 }
 
-/// `EMOTE_KINDS`: bubbles in the motion atlas plus `wave`, `cheer` and `yawn`. Sent by clients in
+/// `EMOTE_KINDS`: bubbles in the motion atlas plus `wave`, `cheer`, `yawn` and `dance`. Sent by clients in
 /// `emote` and echoed by the server in `emoted`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -222,6 +222,7 @@ pub enum EmoteKind {
     Wave,
     Cheer,
     Yawn,
+    Dance,
 }
 
 // ---- playback, members, queue
