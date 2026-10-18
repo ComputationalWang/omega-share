@@ -25,6 +25,8 @@ export interface ModerationOptions {
   readonly stageWidth: number;
   /** Walk over (OME-1376): the walk to that member, or null when no cell beside them is free. */
   readonly walkOver: (id: MemberId) => (() => void) | null;
+  /** Follow (OME-1389). */
+  readonly follow: (id: MemberId) => void;
 }
 
 export interface Moderation {
@@ -58,6 +60,8 @@ export function mountModeration(o: ModerationOptions): Moderation {
   head.append(portrait, name, close);
   const walkRow = el("button", { type: "button", className: "ui-modrow" }, "mod-walk-over");
   walkRow.append(sprite("ui-icon-people"), "Walk over");
+  const followRow = el("button", { type: "button", className: "ui-modrow" }, "mod-follow");
+  followRow.append(sprite("ui-icon-people"), "Follow");
   const muteIcon = sprite("ui-icon-chat-mute");
   const muteRow = el("button", { type: "button", className: "ui-modrow" }, "mod-mute");
   // A row that turns into the question with its two keys, so it's a box holding buttons rather than one button.
@@ -66,7 +70,7 @@ export function mountModeration(o: ModerationOptions): Moderation {
   removeKey.append(sprite("ui-icon-remove"), "Remove from room");
   const keep = el("button", { type: "button", className: "ui-button secondary", textContent: "Keep" }, "mod-keep");
   const confirm = el("button", { type: "button", className: "ui-button", textContent: "Remove" }, "mod-confirm");
-  menu.append(head, el("span", { className: "ui-modsep" }), walkRow, muteRow, removeRow);
+  menu.append(head, el("span", { className: "ui-modsep" }), walkRow, followRow, muteRow, removeRow);
 
   /** Whose menu is open; null = closed (the menu is out of the DOM). */
   let target: MemberId | null = null;
@@ -220,6 +224,10 @@ export function mountModeration(o: ModerationOptions): Moderation {
 
   walkRow.addEventListener("click", () => {
     if (target !== null) o.walkOver(target)?.();
+    closeMenu();
+  });
+  followRow.addEventListener("click", () => {
+    if (target !== null) o.follow(target);
     closeMenu();
   });
   muteRow.addEventListener("click", () => {

@@ -12,5 +12,18 @@ export interface Applause {
 }
 
 export function createApplause(): Applause {
-  return { push: () => false };
+  /** Each member's last clap or cheer; the emote rate limit and the room cap keep it small. */
+  const last = new Map<MemberId, number>();
+  let quietUntil = -Infinity;
+  return {
+    push(id, kind, now) {
+      if (kind !== "clap" && kind !== "cheer") return false;
+      last.set(id, now);
+      for (const [m, t] of last) if (now - t >= APPLAUSE_WINDOW_MS) last.delete(m);
+      if (last.size < APPLAUSE_MEMBERS || now < quietUntil) return false;
+      last.clear();
+      quietUntil = now + APPLAUSE_COOLDOWN_MS;
+      return true;
+    },
+  };
 }

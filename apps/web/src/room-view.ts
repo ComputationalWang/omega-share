@@ -13,7 +13,7 @@ import { createTier, createTierProbe, readTierHints } from "./walk/tier";
 import { createWalks, type Dir } from "./walk/walks";
 import type { ThemeAtlas } from "./theme/atlas";
 import { decorSprites } from "./theme/decor";
-import { EFFECT_MIN_INTERVAL_MS, SPARKLE_MS, SPARKLE_SPRITES, createEffectPainter, createParticles, effectBounds, sparkleMotion, type EffectFrame, type EffectPainter, type Particles } from "./theme/effect";
+import { CONFETTI_MS, CONFETTI_SPRITES, EFFECT_MIN_INTERVAL_MS, SPARKLE_MS, SPARKLE_SPRITES, confettiMotion, createEffectPainter, createParticles, effectBounds, sparkleMotion, type EffectFrame, type EffectMotion, type EffectPainter, type Particles } from "./theme/effect";
 import { DOOR, centerOf } from "./walk/path";
 import { resolveTheme } from "./theme/periods";
 
@@ -69,6 +69,10 @@ export interface RoomView {
   drawOrder(): string[];
   /** The holiday theme drawn now (ADR 0052): its id, decor pieces, hats and effect sprites shown, effect frames run. */
   theme(): { id: string | null; decor: number; hats: number; effect: number; ticks: number; worstTickMs: number };
+  /** Crowd applause (OME-1389): one confetti burst over the room, unless reduced motion or the Basic tier rules it out. */
+  confetti(): void;
+  /** How many confetti bursts have played, for e2e. */
+  confettiBursts(): number;
   destroy(): void;
 }
 
@@ -455,70 +459,111 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       });
   }
 
-  // The door's arrival sparkle (OME-1376): the effect engine on its own small canvas round the door, 12 sprites for
-  // 600 ms. Off where the theme effect is: reduced motion, and the Basic tier. The canvas is made at the first arrival.
-  const sparkleAt = sparkleMotion(centerOf(DOOR));
-  /** A 5 px and a 3 px plus side by side, drawn here (original art, no sheet to fetch). */
-  const sparkleFrames: EffectFrame[] = [
-    { sx: 0, sy: 0, w: 5, h: 5, ox: 2, oy: 2 },
-    { sx: 5, sy: 1, w: 3, h: 3, ox: 1, oy: 1 },
-  ];
-  const sparkleBox = effectBounds(sparkleAt, sparkleFrames);
-  let sparkleFx: { canvas: HTMLCanvasElement; painter: EffectPainter } | null = null;
-  let sparks: Particles | null = null;
-  let sparkEnd = 0;
-  let sparkLast = 0;
-  const makeSparkle = (): { canvas: HTMLCanvasElement; painter: EffectPainter } | null => {
-    const art = document.createElement("canvas");
-    art.width = 8;
-    art.height = 5;
-    const g = art.getContext("2d");
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    if (g === null || ctx === null) return null;
-    g.fillStyle = "#ffd75e";
-    g.fillRect(2, 0, 1, 5);
-    g.fillRect(0, 2, 5, 1);
-    g.fillRect(6, 1, 1, 3);
-    g.fillRect(5, 2, 3, 1);
-    g.fillStyle = "#fffbe8";
-    g.fillRect(2, 2, 1, 1);
-    g.fillRect(6, 2, 1, 1);
-    canvas.className = "scene-fx";
-    canvas.width = sparkleBox.w;
-    canvas.height = sparkleBox.h;
-    Object.assign(canvas.style, { left: `${String(sparkleBox.x)}px`, top: `${String(sparkleBox.y)}px`, width: `${String(sparkleBox.w)}px`, height: `${String(sparkleBox.h)}px`, visibility: "hidden" });
-    ctx.imageSmoothingEnabled = false;
-    app.canvas.after(canvas);
-    return { canvas, painter: createEffectPainter({ ctx, image: art, frames: sparkleFrames, origin: sparkleBox }) };
+  // One-off bursts on the effect engine (ADR 0052), each on its own small canvas made at its first burst: the door's
+  // arrival sparkle (OME-1376, 12 sprites for 600 ms) and the crowd applause's confetti (OME-1389, 30 for 1.5 s). Off
+  // where the theme effect is: reduced motion, and the Basic tier. A second burst while one runs restarts it.
+  interface Burst { fire(): boolean; remove(): void }
+  /** `art`: draws the frames side by side on a `w` × `h` canvas (original art, no sheet to fetch). */
+  const createBurst = (motion: EffectMotion, frames: readonly EffectFrame[], w: number, h: number, art: (g: CanvasRenderingContext2D) => void, count: number, ms: number, frameMs: number): Burst => {
+    const box = effectBounds(motion, frames);
+    let fx: { canvas: HTMLCanvasElement; painter: EffectPainter } | null = null;
+    let parts: Particles | null = null;
+    let end = 0;
+    let last = 0;
+    const make = (): { canvas: HTMLCanvasElement; painter: EffectPainter } | null => {
+      const image = document.createElement("canvas");
+      image.width = w;
+      image.height = h;
+      const g = image.getContext("2d");
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (g === null || ctx === null) return null;
+      art(g);
+      canvas.className = "scene-fx";
+      canvas.width = box.w;
+      canvas.height = box.h;
+      Object.assign(canvas.style, { left: `${String(box.x)}px`, top: `${String(box.y)}px`, width: `${String(box.w)}px`, height: `${String(box.h)}px`, visibility: "hidden" });
+      ctx.imageSmoothingEnabled = false;
+      app.canvas.after(canvas);
+      return { canvas, painter: createEffectPainter({ ctx, image, frames, origin: box }) };
+    };
+    const frame = (t: number): void => {
+      if (fx === null || parts === null) return;
+      if (destroyed || t >= end) {
+        fx.painter.clear();
+        fx.canvas.style.visibility = "hidden";
+        parts = null;
+        return;
+      }
+      requestAnimationFrame(frame);
+      if (t - last < EFFECT_MIN_INTERVAL_MS) return;
+      parts.step(t - last);
+      last = t;
+      fx.painter.paint(parts, Math.floor(t / frameMs));
+    };
+    return {
+      fire() {
+        if (destroyed || paused || !effectAllowed()) return false;
+        fx ??= make();
+        if (fx === null) return false;
+        const running = parts !== null;
+        // Once per burst, not per frame.
+        parts = createParticles(motion, count, Math.random);
+        last = performance.now();
+        end = last + ms;
+        fx.canvas.style.visibility = "visible";
+        if (!running) requestAnimationFrame(frame);
+        return true;
+      },
+      remove() {
+        fx?.canvas.remove();
+      },
+    };
   };
-  const sparkFrame = (t: number): void => {
-    const fx = sparkleFx;
-    if (fx === null || sparks === null) return;
-    if (destroyed || t >= sparkEnd) {
-      fx.painter.clear();
-      fx.canvas.style.visibility = "hidden";
-      sparks = null;
-      return;
-    }
-    requestAnimationFrame(sparkFrame);
-    if (t - sparkLast < EFFECT_MIN_INTERVAL_MS) return;
-    sparks.step(t - sparkLast);
-    sparkLast = t;
-    fx.painter.paint(sparks, Math.floor(t / 100));
-  };
+  /** A 5 px and a 3 px plus side by side. */
+  const sparkle = createBurst(
+    sparkleMotion(centerOf(DOOR)),
+    [
+      { sx: 0, sy: 0, w: 5, h: 5, ox: 2, oy: 2 },
+      { sx: 5, sy: 1, w: 3, h: 3, ox: 1, oy: 1 },
+    ],
+    8,
+    5,
+    (g) => {
+      g.fillStyle = "#ffd75e";
+      g.fillRect(2, 0, 1, 5);
+      g.fillRect(0, 2, 5, 1);
+      g.fillRect(6, 1, 1, 3);
+      g.fillRect(5, 2, 3, 1);
+      g.fillStyle = "#fffbe8";
+      g.fillRect(2, 2, 1, 1);
+      g.fillRect(6, 2, 1, 1);
+    },
+    SPARKLE_SPRITES,
+    SPARKLE_MS,
+    100,
+  );
   function arrive(): void {
-    if (destroyed || paused || !effectAllowed()) return;
-    sparkleFx ??= makeSparkle();
-    if (sparkleFx === null) return;
-    const running = sparks !== null;
-    // Once per arrival, not per frame; a second arrival restarts the burst.
-    sparks = createParticles(sparkleAt, SPARKLE_SPRITES, Math.random);
-    sparkLast = performance.now();
-    sparkEnd = sparkLast + SPARKLE_MS;
-    sparkleFx.canvas.style.visibility = "visible";
-    if (!running) requestAnimationFrame(sparkFrame);
+    sparkle.fire();
   }
+  /** Four 2 × 4 px paper chips, one colour each; a piece cycles through them as it tumbles. */
+  const CONFETTI_COLORS = ["#ff5e7a", "#ffd75e", "#5ed3ff", "#7cff8a"];
+  const confetti = createBurst(
+    confettiMotion,
+    CONFETTI_COLORS.map((_, i) => ({ sx: i * 3, sy: 0, w: 2, h: 4, ox: 1, oy: 2 })),
+    12,
+    4,
+    (g) => {
+      for (const [i, c] of CONFETTI_COLORS.entries()) {
+        g.fillStyle = c;
+        g.fillRect(i * 3, 0, 2, 4);
+      }
+    },
+    CONFETTI_SPRITES,
+    CONFETTI_MS,
+    150,
+  );
+  let confettiBursts = 0;
 
   /** A member's shirt tint changed (ADR 0053): their frame swaps to that tint's sheets now, or once they've loaded. */
   function retint(id: MemberId, e: Entry, tint: number): void {
@@ -685,11 +730,16 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       return [...background.children, ...markerLayer.children, ...sorted].map((c) => c.label);
     },
     theme: () => ({ id: themeId, decor: decorLayer.children.length, hats: hatsShown, effect: effectRunning ? (particles?.count ?? 0) : 0, ticks: effectTicks, worstTickMs: worstTick }),
+    confetti() {
+      if (confetti.fire()) confettiBursts++;
+    },
+    confettiBursts: () => confettiBursts,
     destroy() {
       destroyed = true;
       fxObserver.disconnect();
       fxCanvas.remove();
-      sparkleFx?.canvas.remove();
+      sparkle.remove();
+      confetti.remove();
       animator.dispose();
       app.destroy(true, { children: true });
     },

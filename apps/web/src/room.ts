@@ -44,6 +44,8 @@ import tintsJson from "../../../assets/avatars/tints.json";
 import { createTintSection } from "./controls/tint-section";
 import { saveTint } from "./profile";
 import { AVATAR_IDS, parseTints } from "./walk/tint";
+import { followStep } from "./walk/follow";
+import { createApplause } from "./emote/applause";
 import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
 
 export interface RoomOptions {
@@ -89,6 +91,8 @@ export interface RoomHandle {
   readonly avatarAlpha: (id: MemberId) => number | undefined;
   /** The holiday theme drawn now (room-view.ts `theme`), for e2e. */
   readonly theme: () => ReturnType<Stage["view"]["theme"]>;
+  /** How many crowd-applause confetti bursts played (OME-1389), for e2e. */
+  readonly confetti: () => number;
 }
 
 const NOTICE_MS = 3000;
@@ -143,8 +147,12 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     onLayout: (points) => {
       layout.seats(points);
     },
-    onFloor: (cell) => walkTo(cell),
+    onFloor: (cell) => {
+      stopFollow();
+      return walkTo(cell);
+    },
     onStep: (key, repeat) => {
+      stopFollow();
       const now = performance.now();
       if (!stepAllowed(repeat, now, lastStep)) return true;
       // From where I'm headed (my cell), else where I'm drawn (a seat, my standing spot).
@@ -170,6 +178,26 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       walkGate.push(msg);
     };
   }
+  // Follow (OME-1389): who I follow, and the "Following Sam · Stop" chip over the room window.
+  let following: MemberId | null = null;
+  const followName = el("span");
+  const followStopKey = el("button", { type: "button", className: "ui-button secondary", textContent: "Stop" }, "follow-stop");
+  const followChip = el("div", { className: "ui-chip follow-chip", role: "status", hidden: true }, "follow-chip");
+  followChip.append(followName, " · ", followStopKey);
+  function stopFollow(): void {
+    if (following === null) return;
+    following = null;
+    followChip.hidden = true;
+  }
+  function follow(id: MemberId): void {
+    const nickname = state.room?.members.find((m) => m.id === id)?.nickname;
+    if (id === state.self || nickname === undefined) return;
+    following = id;
+    followName.textContent = `Following ${nickname}`;
+    followChip.hidden = false;
+    walkOver(id)?.();
+  }
+  followStopKey.addEventListener("click", stopFollow);
   const walkGate = createWalkGate({
     now: () => performance.now(),
     send: (m) => send(m),
@@ -178,7 +206,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   let lastStep = -Infinity;
   const { root: stage, overlay, tags, view } = roomStage;
   const clip = el("div", { className: "stage-clip" }, "room-window");
-  clip.append(stage);
+  clip.append(stage, followChip);
   let state = initialState;
   let conn: Connection | null = null;
   const send = (m: ClientMessage): boolean => conn?.send(m) ?? false;
@@ -316,6 +344,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const isHidden = (id: string): boolean => hidden.has(id);
   const people = createPeople({
     walkOver,
+    follow,
     hidden,
     onChange: (id, on) => {
       roomStage.hide(id, on);
@@ -480,6 +509,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     view,
     anchor: (id) => roomStage.anchor(id),
     walkOver,
+    follow,
     bar: editBar,
     panel: editorPanel,
     state: () => state,
@@ -660,12 +690,19 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       }
     }
     const expiriesChanged = next.bubbles !== state.bubbles || next.syslines !== state.syslines || next.cooldownUntil !== state.cooldownUntil;
+    const prevState = state;
     const prevRoom = state.room;
     const prevOwner = state.owner;
     if (unread !== unreadBefore || next.title !== state.title || next.status !== state.status) writeTitle(next);
     // Keeps Your rooms' label current for a room this browser saved (OME-1284).
     if (next.title !== null && next.title !== state.title) retitleRoom(opts.secrets, opts.roomId, next.title);
     state = next;
+    // Follow (OME-1389): their walk sends mine (through the walk gate); them or me sitting, or them leaving, stops it.
+    if (following !== null) {
+      const step = followStep(prevState, next, following);
+      if (step === "stop") stopFollow();
+      else if (step === "walk") walkOver(following)?.();
+    }
     applyPending({ owner: next.owner && opts.secret?.ownerToken !== undefined, hasRoom: next.room !== null });
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
@@ -723,8 +760,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     relay?.append({ kind: "system", line });
     return true;
   };
+  // Crowd applause (OME-1389): from the relayed emotes only (a chat sticker isn't one), so every client agrees.
+  const applause = createApplause();
+  const relayedEmote = (id: MemberId, kind: EmoteKind): void => {
+    emoted(id, kind);
+    if (applause.push(id, kind, performance.now()) && !roomOut()) view.confetti();
+  };
   const kickedStore = sessionStorage;
-  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted, hidden: isHidden, session: (token) => {
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted: relayedEmote, hidden: isHidden, session: (token) => {
     sentAway = false;
     saveResume(resumeStore, { roomId: opts.roomId, token, nickname: opts.nickname, avatar: opts.avatar });
     // The server cleared away on this (re)join; a tab that came back while still hidden says so again.
@@ -909,5 +952,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts() };
 }

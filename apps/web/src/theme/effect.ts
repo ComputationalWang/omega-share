@@ -89,6 +89,13 @@ export const SPARKLE_MS = 600;
 /** Round the door's floor point, drifting up and out; at ≤ 40 px/s over 600 ms nothing reaches the wrap margin. */
 export const sparkleMotion = (at: { readonly x: number; readonly y: number }): EffectMotion => ({ area: { x: at.x - 12, y: at.y - 24, w: 24, h: 24 }, vx: [-16, 16], vy: [-40, -12], flipX: false });
 
+/** Crowd applause (OME-1389): one confetti burst of this many sprites, for this long. */
+export const CONFETTI_SPRITES = 30;
+export const CONFETTI_MS = 1500;
+
+/** Over the room's middle, falling and swaying; a piece that falls out of the band comes back in at its top. */
+export const confettiMotion: EffectMotion = { area: { x: 200, y: 40, w: 560, h: 260 }, vx: [-24, 24], vy: [60, 120], flipX: false };
+
 /** One effect frame in the theme sheet: its rect, and its anchor in px from the rect's top-left. */
 export interface EffectFrame {
   readonly sx: number;
