@@ -7,9 +7,10 @@ import { PENDING, URLS, available } from "./support/apps";
 import { stubExternalNetwork } from "./support/network";
 import { clickSettled } from "./support/room";
 import { site } from "./support/selectors";
+import { cellCenter } from "../apps/web/src/layout";
 import { WALK_SETTLE_MS, scene, seatedBetween, selfId } from "./support/scene";
 import { testRoomId } from "./support/test-rooms";
-import { SET_G, SET_G_SEAT_PIECE, V2_BENCHES, V2_BENCHES_PIECE, V2_SEATS, V2_SEATS_PIECE, V3_POUFS, V3_POUFS_PIECE } from "./fixtures/layouts";
+import { IN_USE, SET_G, SET_G_SEAT_PIECE, V2_BENCHES, V2_BENCHES_PIECE, V2_SEATS, V2_SEATS_PIECE, V3_POUFS, V3_POUFS_PIECE } from "./fixtures/layouts";
 
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
 
@@ -172,4 +173,54 @@ test.describe("furniture from the room layout", () => {
       }
     });
   }
+});
+
+// OME-1407: a piece plays its "in use" loop while someone stands at its front, worked out on every client from where people stand.
+test.describe("furniture in use", () => {
+  test.fixme(!available.web, PENDING.web);
+  test.fixme(!available.server, PENDING.server);
+
+  /** The furniture loops running now (room-view.ts `loops`): idle key and frame shown. */
+  const loops = (page: Page): Promise<unknown> =>
+    page.evaluate(() => {
+      const debug: unknown = Reflect.get(window, "__omega");
+      const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+      const fn: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "furnitureLoops") : null;
+      return typeof fn === "function" ? (Reflect.apply(fn, room, []) as unknown) : null;
+    });
+
+  /** Clicks stage point `cellCenter(col, row)` on the floor layer, wherever the stage is scaled to. */
+  async function clickCell(page: Page, col: number, row: number): Promise<void> {
+    const box = await page.locator(site.walkFloor).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left, top: r.top, k: r.width / (el as HTMLElement).offsetWidth };
+    });
+    const p = cellCenter(col, row);
+    await page.mouse.click(box.left + p.x * box.k, box.top + p.y * box.k);
+  }
+
+  test("standing at the arcade's front plays its loop; walking away stops it", async ({ browser }) => {
+    const context = await watchCsp(await browser.newContext());
+    try {
+      await stubExternalNetwork(context);
+      const page = await context.newPage();
+      await withLayout(page, { layout: IN_USE });
+      await enter(page, "player-1", `${URLS.web}/r/${testRoomId("furniture", "inuse")}`);
+      await expect.poll(async () => (await scene(page)).includes("furniture/arcade/night/se/back")).toBe(true);
+      await expect.poll(() => loops(page), { timeout: WALK_SETTLE_MS }).toEqual([]);
+      await clickCell(page, 3, 2);
+      await expect.poll(async () => JSON.stringify(await loops(page)), { timeout: WALK_SETTLE_MS }).toMatch(/^\[\{"key":"furniture\/arcade\/night\/se\/back","frame":[0-2]\}\]$/);
+      // The loop steps: more than one frame shows over a second.
+      const seen = new Set<string>();
+      for (let i = 0; i < 10; i++) {
+        seen.add(JSON.stringify(await loops(page)));
+        await page.waitForTimeout(100);
+      }
+      expect(seen.size).toBeGreaterThan(1);
+      await clickCell(page, 7, 8);
+      await expect.poll(() => loops(page), { timeout: WALK_SETTLE_MS }).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
 });

@@ -75,3 +75,8 @@ export const V3_POUFS: RoomLayout = {
 };
 /** Seat i of V3_POUFS → its piece's frames. */
 export const V3_POUFS_PIECE = ["pouf/rust/ne", "pouf/rust/nw", "pouf/rust/se", "pouf/rust/sw", "pouf/lilac/ne", "pouf/lilac/nw", "pouf/lilac/se", "pouf/lilac/sw"];
+
+/** V2_BENCHES plus an arcade at (2, 2) facing se (its front: (3, 2)) and a neon sign on the left wall at (0, 3) (OME-1407). */
+export const IN_USE: RoomLayout = {
+  furniture: [...V2_BENCHES.furniture, { kind: "arcade", col: 2, row: 2, facing: "se" }, { kind: "neonsign", col: 0, row: 3, facing: "se" }],
+};

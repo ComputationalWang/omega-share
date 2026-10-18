@@ -8,7 +8,7 @@ import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { layoutKey as keyOfLayout, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2 } from "./furniture";
+import { layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import { isStepKey, seatViews, type StepKey } from "./intents";
 import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, type Point, type Rect } from "./layout";
@@ -239,6 +239,10 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let layoutBuilds = 0;
   /** Where the last render put each member (seat or standing spot), for UI anchored to someone not on screen yet. */
   let placedAt = new Map<MemberId, Point>();
+  /** The cells people stand on (not sit), and whether a video played, as the furniture in use was last worked out (OME-1407). */
+  let standCells = new Set<number>();
+  let inUseStale = true;
+  let drawnPlaying = false;
   /** The hourglass on each catching tag; a tag removed with its member takes its hourglass along. */
   const hourglasses = new Map<HTMLElement, HTMLElement>();
 
@@ -359,6 +363,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       for (const id of away.on) view.setAway(id, true);
       awayIds = away.now;
       view.update(views.map((v) => v.member !== null), placements);
+      standCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [cellAt(p.at)] : [])));
+      inUseStale = true;
+    }
+    const playing = s.room?.playback?.playing === true;
+    if (inUseStale || playing !== drawnPlaying) {
+      inUseStale = false;
+      drawnPlaying = playing;
+      view.setInUse(piecesInUse(nextLayout, standCells, playing));
     }
     if (floorHit !== null) {
       const tab = s.status === "open" ? 0 : -1;
