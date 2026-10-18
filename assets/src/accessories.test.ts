@@ -29,3 +29,31 @@ test("the sheet is PNG-8 and at most 512×256", () => {
   expect(png.readUInt32BE(20)).toBeLessThanOrEqual(256);
   expect([png[24], png[25]]).toEqual([8, 3]);
 });
+
+// OME-1409: Pip's beanie and Mo's bucket hat come off under a worn-over accessory, so the web swaps in bare-head frames.
+interface Bare {
+  frames: Record<string, { frame: { w: number; h: number }; anchor: { x: number; y: number } }>;
+  meta: { omega: { bare: { prefix: string; avatars: string[]; accessories: string[] } } };
+}
+const bare = JSON.parse(read("accessories/bare.json").toString("utf8")) as Bare;
+
+test("bare-head frames for Pip and Mo, every frame key, in the avatar cell shape", () => {
+  const { prefix, avatars, accessories } = bare.meta.omega.bare;
+  expect(prefix).toBe("bare/");
+  expect(avatars).toEqual(["pip", "mo"]);
+  expect(accessories).toEqual(["partyhat", "crown", "headphones"]);
+  const keys = avatarKeys.filter((k) => /(^|\/)(pip|mo)\//.test(k));
+  expect(keys.length).toBe(208);
+  expect(keys.filter((k) => !bare.frames[`${prefix}${k}`])).toEqual([]);
+  expect(Object.keys(bare.frames).length).toBe(208);
+  for (const f of Object.values(bare.frames)) {
+    expect([f.frame.w, f.frame.h]).toEqual([32, 64]);
+    expect(f.anchor).toEqual({ x: 0.5, y: 61 / 64 });
+  }
+});
+
+test("the bare sheet is PNG-8 and small", () => {
+  const png = read("accessories/bare.png");
+  expect([png[24], png[25]]).toEqual([8, 3]);
+  expect(png.length).toBeLessThan(16 * 1024);
+});

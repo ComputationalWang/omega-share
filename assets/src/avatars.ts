@@ -127,7 +127,7 @@ function sitLowerSE(g: Grid): void {
 }
 
 /** An overlay stamped relative to the head or torso origin (drawn facing SE or NE). */
-interface Overlay {
+export interface Overlay {
   on: "head" | "torso";
   /** Only stamp on the open-eye (false) or blink (true) frame. */
   blink?: boolean;

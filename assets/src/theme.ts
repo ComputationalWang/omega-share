@@ -119,9 +119,11 @@ const PAD = 16;
 
 /** Per avatar frame: the pixels that change when the hat goes on (hat, hair under it, re-shaded edges), cropped. Drawn over the avatar
  *  sprite at the same floor point, it gives exactly the hatted frame. Throws if the old headwear would peek out (an overlay can't erase). */
-export function buildHatFrames(theme: string, hat: HatDef): HatFrame[] {
-  const hattedById = new Map(AVATARS.map((a) => [a.id, hatted(a, hat)]));
-  return allAvatarFrames().map(({ key, avatar, pose, dir, motion }) => {
+export function buildHatFrames(theme: string, hat: HatDef, bases: ReadonlyMap<string, AvatarDef> = new Map()): HatFrame[] {
+  // `bases` swaps an avatar for another look under the hat (OME-1409: Pip and Mo bare-headed); the overlay is then diffed against that.
+  const hattedById = new Map(AVATARS.map((a) => [a.id, hatted(bases.get(a.id) ?? a, hat)]));
+  return allAvatarFrames().map(({ key, avatar: own, pose, dir, motion }) => {
+    const avatar = bases.get(own.id) ?? own;
     const h = hattedById.get(avatar.id);
     if (!h) throw new Error(`no hatted ${avatar.id}`);
     const before = render(composeMotion(avatar, pose, dir, motion), avatar.roles);
