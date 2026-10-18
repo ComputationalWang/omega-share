@@ -297,15 +297,15 @@ test.describe("closing the wheel", () => {
     const item = (name: string): Locator => a.page.getByRole("menuitem", { name });
     await expect(item("Heart")).toBeFocused();
     await a.page.keyboard.press("End");
-    await expect(item("Yawn")).toBeFocused();
+    await expect(item("Dance")).toBeFocused();
     await a.page.keyboard.press("ArrowRight");
     await expect(item("Heart")).toBeFocused();
     await a.page.keyboard.press("ArrowLeft");
-    await expect(item("Yawn")).toBeFocused();
+    await expect(item("Dance")).toBeFocused();
     await a.page.keyboard.press("Home");
     await expect(item("Heart")).toBeFocused();
     await a.page.keyboard.press("ArrowUp");
-    await expect(item("Yawn")).toBeFocused();
+    await expect(item("Dance")).toBeFocused();
     await a.page.keyboard.press("ArrowDown");
     await expect(item("Heart")).toBeFocused();
     await a.page.keyboard.press("ArrowDown");
@@ -352,7 +352,7 @@ test("cooling: after a burst the slots are disabled and show the dial, a pick se
   await a.page.keyboard.press("t");
   await expect(wheel).toBeVisible();
   const slots = wheel.getByRole("menuitem");
-  await expect(slots).toHaveCount(8);
+  await expect(slots).toHaveCount(9);
   for (const s of await slots.all()) await expect(s).toHaveAttribute("aria-disabled", "true");
   await expect(wheel.locator(".ui-wheel-hub .ui-wait")).toHaveCount(1);
   await expect(wheel.locator(".ui-wheel-label")).toHaveText(/Emotes in \d+ s/);
@@ -505,7 +505,7 @@ test("keyboard only, no mouse: join, sit, chat, then the wheel by T and by its k
   }
 });
 
-test("the open wheel has no axe violations (wcag2a/aa); it is a menu named Emotes of eight named menuitems", async ({ browser }) => {
+test("the open wheel has no axe violations (wcag2a/aa); it is a menu named Emotes of nine named menuitems", async ({ browser }) => {
   const { a } = await enter(browser, "axe");
   await body(a.page);
   await a.page.keyboard.press("t");
@@ -513,8 +513,8 @@ test("the open wheel has no axe violations (wcag2a/aa); it is a menu named Emote
   await expect(wheel).toBeVisible();
   await expect(wheel).toHaveAccessibleName("Emotes");
   const items = wheel.getByRole("menuitem");
-  await expect(items).toHaveCount(8);
-  const names = ["Heart", "Laugh", "Question", "Surprise", "Clap", "Wave", "Cheer", "Yawn"];
+  await expect(items).toHaveCount(9);
+  const names = ["Heart", "Laugh", "Question", "Surprise", "Clap", "Wave", "Cheer", "Yawn", "Dance"];
   for (const [i, item] of (await items.all()).entries()) {
     await expect(item).toHaveAccessibleName(names[i] ?? "?");
     await expect(item).toHaveAttribute("aria-keyshortcuts", String(i + 1));
