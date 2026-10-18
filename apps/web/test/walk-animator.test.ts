@@ -28,6 +28,7 @@ function setup(opts: { reduced?: boolean; smooth?: () => boolean } = {}) {
   let cleared = 0;
   const draws: { id: string; pose: Pose; frame: string | null }[] = [];
   const stickers: { id: string; frame: string | null; x: number; y: number }[] = [];
+  const loopDraws: [number, number][] = [];
   let renders = 0;
   const smooth = opts.smooth ?? (() => false);
   const inner = createWalks({ reducedMotion: () => opts.reduced ?? false, smooth });
@@ -59,6 +60,7 @@ function setup(opts: { reduced?: boolean; smooth?: () => boolean } = {}) {
     rendered: (start, walking) => rendered.push({ start, walking }),
     draw: (who, _avatar, pose, frame) => draws.push({ id: who, pose: { ...pose }, frame }),
     drawEmote: (who, frame, x, y) => stickers.push({ id: who, frame, x, y }),
+    drawLoop: (i, frame) => loopDraws.push([i, frame]),
     render: () => {
       renders++;
     },
@@ -68,6 +70,7 @@ function setup(opts: { reduced?: boolean; smooth?: () => boolean } = {}) {
     anim,
     draws,
     stickers,
+    loopDraws,
     rafs,
     timers,
     renders: () => renders,
@@ -647,5 +650,85 @@ describe("animator, Smooth tier", () => {
       expect(s.draws.at(-1)?.pose.walking).toBe(true);
       expect(s.walkingCalls() - before).toBe(1);
     }
+  });
+});
+
+// OME-1407: furniture "in use" loops run on the same clock as the walkers: the 150 ms step on Basic, their own frame time on
+// Smooth, through one timer then one rAF per frame change; still under reduced motion; nothing scheduled once none runs.
+describe("animator: furniture loops", () => {
+  /** Fire the pending timer and run its frame at the timer's time; returns that time. */
+  const step = (s: ReturnType<typeof setup>, t: number): number => {
+    const timer = s.timers.at(-1);
+    if (timer === undefined) throw new Error("no timer");
+    s.timers.length = 0;
+    timer.fn();
+    const at = t + timer.ms;
+    expect(s.frame(at)).toBe(true);
+    return at;
+  };
+
+  test("Basic: one frame per 150 ms step, wrapping, whatever the piece's own frame time", () => {
+    const s = setup();
+    s.anim.setLoops([{ frames: 3, ms: 160 }]);
+    expect(s.frame(0)).toBe(true);
+    expect(s.loopDraws).toEqual([[0, 0]]);
+    expect(s.timers.at(-1)?.ms).toBe(150);
+    let t = 0;
+    for (let i = 0; i < 3; i++) t = step(s, t);
+    expect(s.loopDraws.map(([, f]) => f)).toEqual([0, 1, 2, 0]);
+    expect(s.rafs.length).toBe(0); // timers, never a per-frame loop
+  });
+
+  test("Smooth: each loop on its own frame time; the next timer is the soonest change", () => {
+    const s = setup({ smooth: () => true });
+    s.anim.setLoops([
+      { frames: 3, ms: 160 },
+      { frames: 4, ms: 120 },
+    ]);
+    s.frame(0);
+    expect(s.timers.at(-1)?.ms).toBe(120);
+    s.loopDraws.length = 0;
+    let t = step(s, 0); // 120
+    expect(s.loopDraws).toEqual([
+      [0, 0],
+      [1, 1],
+    ]);
+    expect(s.timers.at(-1)?.ms).toBe(40);
+    s.loopDraws.length = 0;
+    t = step(s, t); // 160
+    expect(t).toBe(160);
+    expect(s.loopDraws).toEqual([
+      [0, 1],
+      [1, 1],
+    ]);
+  });
+
+  test("reduced motion: the still frame (-1), no timer", () => {
+    const s = setup({ reduced: true });
+    s.anim.setLoops([{ frames: 3, ms: 160 }]);
+    s.frame(0);
+    expect(s.loopDraws).toEqual([[0, -1]]);
+    expect(s.timers.length).toBe(0);
+  });
+
+  test("no loop left: one frame to draw the change, then nothing is scheduled", () => {
+    const s = setup();
+    s.anim.setLoops([{ frames: 3, ms: 160 }]);
+    s.frame(0);
+    s.anim.setLoops([]);
+    expect(s.frame(10)).toBe(true);
+    expect(s.cleared()).toBeGreaterThan(0);
+    expect(s.timers.length).toBe(1); // only the first loop's, cleared
+    expect(s.rafs.length).toBe(0);
+  });
+
+  test("paused (full screen): nothing drawn or scheduled until resumed", () => {
+    const s = setup();
+    s.anim.pause(true);
+    s.anim.setLoops([{ frames: 3, ms: 160 }]);
+    expect(s.rafs.length).toBe(0);
+    s.anim.pause(false);
+    expect(s.frame(0)).toBe(true);
+    expect(s.loopDraws).toEqual([[0, 0]]);
   });
 });

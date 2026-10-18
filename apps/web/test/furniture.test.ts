@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, RoomLayoutSchema, footprintCells, parseServerMessage, type RoomLayout, type RoomState } from "@omega/shared";
-import { FurnitureManifestSchema, RoomManifestSchema, layoutOf, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, type Scene } from "../src/furniture";
+import { FurnitureManifestSchema, RoomManifestSchema, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, type Scene } from "../src/furniture";
 import { cellCenter } from "../src/layout";
+import { cellOf } from "../src/walk/path";
 
 // Furniture and seats from snapshot.room.layout (OME-278, ADR 0021); set (g) art: assets/furniture (OME-261).
 
@@ -364,5 +365,78 @@ describe("catalogue v2", () => {
     const a = sprite(sceneOf(V2_SEATS, [v2]), "furniture/garland/warm/sw/back");
     const b = sprite(sceneOf(V2_SEATS, [v2]), "furniture/garland/party/sw/back");
     expect([b.x - a.x, b.y - a.y]).toEqual([cellCenter(3, 0).x - cellCenter(4, 0).x, cellCenter(3, 0).y - cellCenter(4, 0).y]);
+  });
+});
+
+// OME-1407: arcade, turntable, aquarium and neon sign play their "in use" loop while someone stands at their front.
+describe("piecesInUse", () => {
+  const cells = (...cs: [number, number][]): Set<number> => new Set(cs.map(([c, r]) => cellOf(c, r)));
+  // Not parsed (no seats; and the catalogue only lets these pieces face the camera, but the rule holds for every facing).
+  const arcade = (facing: "ne" | "nw" | "se" | "sw", col = 4, row = 4): RoomLayout => ({ furniture: [{ kind: "arcade", col, row, facing }] });
+
+  test("each facing: only the cell in front of the piece counts", () => {
+    expect(piecesInUse(arcade("se"), cells([5, 4]), false)).toEqual(new Set([0]));
+    expect(piecesInUse(arcade("sw"), cells([4, 5]), false)).toEqual(new Set([0]));
+    expect(piecesInUse(arcade("ne"), cells([4, 3]), false)).toEqual(new Set([0]));
+    expect(piecesInUse(arcade("nw"), cells([3, 4]), false)).toEqual(new Set([0]));
+    // Beside or behind it: not in use.
+    expect(piecesInUse(arcade("se"), cells([3, 4], [4, 3], [4, 5]), false)).toEqual(new Set());
+    expect(piecesInUse(arcade("sw"), cells([5, 4], [4, 3], [3, 4]), false)).toEqual(new Set());
+  });
+
+  test("a front cell off the floor never aliases a cell on it", () => {
+    // Facing ne at row 0, the front would be (4, -1): as a cell number that is (3, 9).
+    expect(piecesInUse(arcade("ne", 4, 0), cells([3, 9]), false)).toEqual(new Set());
+    expect(piecesInUse(arcade("se", 9, 2), cells([0, 2]), false)).toEqual(new Set());
+  });
+
+  test("a wall piece's front is the floor cell under it on its wall", () => {
+    const l: RoomLayout = ({
+      furniture: [
+        { kind: "tv", col: 0, row: 0, facing: "se" },
+        { kind: "neonsign", col: 4, row: 0, facing: "sw" },
+        { kind: "neonsign", col: 0, row: 3, facing: "se", variant: 1 },
+      ],
+    });
+    expect(piecesInUse(l, cells([4, 0]), false)).toEqual(new Set([1]));
+    expect(piecesInUse(l, cells([0, 3]), false)).toEqual(new Set([2]));
+    expect(piecesInUse(l, cells([4, 1], [1, 3]), false)).toEqual(new Set());
+  });
+
+  test("only the four pieces with a loop; the neon sign hums whenever a video plays", () => {
+    const l: RoomLayout = ({
+      furniture: [
+        { kind: "tv", col: 0, row: 0, facing: "se" },
+        { kind: "turntable", col: 2, row: 2, facing: "se" },
+        { kind: "aquarium", col: 2, row: 5, facing: "sw" },
+        { kind: "speaker", col: 6, row: 6, facing: "se" },
+        { kind: "neonsign", col: 4, row: 0, facing: "sw" },
+      ],
+    });
+    expect(piecesInUse(l, cells([3, 2], [2, 6], [7, 6]), false)).toEqual(new Set([1, 2]));
+    expect(piecesInUse(l, cells(), true)).toEqual(new Set([4]));
+    expect(piecesInUse(l, cells([3, 2]), true)).toEqual(new Set([1, 4]));
+  });
+});
+
+describe("sceneOf: in-use loops (OME-1407)", () => {
+  const l: RoomLayout = ({
+    furniture: [
+      { kind: "tv", col: 0, row: 0, facing: "se" },
+      { kind: "arcade", col: 2, row: 2, facing: "se" },
+      { kind: "neonsign", col: 0, row: 3, facing: "se", variant: 1 },
+      { kind: "speaker", col: 6, row: 6, facing: "se" },
+    ],
+  });
+  const scene = sceneOf(l, [v2]);
+
+  test("a piece with a loop carries its frames, frame time and furniture index; others none", () => {
+    expect(sprite(scene, "furniture/arcade/night/se/back").use).toEqual({ piece: 1, frames: ["furniture/arcade/night/use/se/0", "furniture/arcade/night/use/se/1", "furniture/arcade/night/use/se/2"], ms: 160 });
+    expect(sprite(scene, "furniture/neonsign/teal/se/back").use).toEqual({ piece: 2, frames: ["furniture/neonsign/teal/use/se/0", "furniture/neonsign/teal/use/se/1", "furniture/neonsign/teal/use/se/2"], ms: 140 });
+    expect(sprite(scene, "furniture/speaker/wood/se/back").use).toBeUndefined();
+  });
+
+  test("every loop frame is in the v2 sheet", () => {
+    for (const s of scene.sprites) for (const k of s.use?.frames ?? []) expect(v2.frames[k]).toBeDefined();
   });
 });

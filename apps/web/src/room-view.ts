@@ -381,6 +381,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       entry.sticker.visible = true;
       entry.stickerFrame = frame;
     },
+    drawLoop() {},
     render,
   });
 

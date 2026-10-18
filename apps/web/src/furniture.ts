@@ -108,6 +108,11 @@ export function standingPoints(layout: RoomLayout): Point[] {
   return spots.slice(0, MAX_ROOM_MEMBERS);
 }
 
+/** Stub (OME-1407 red). */
+export function piecesInUse(_layout: RoomLayout, _standing: ReadonlySet<number>, _playing: boolean): Set<number> {
+  return new Set();
+}
+
 export interface FurnitureSprite {
   /** Frame key in the furniture atlas. */
   readonly key: string;
@@ -117,6 +122,8 @@ export interface FurnitureSprite {
   /** `floor` and `wall` draw with the static background in furniture order; `object` sorts with avatars by `z`. */
   readonly layer: "floor" | "wall" | "object";
   readonly z: number;
+  /** An "in use" loop (OME-1407): the furniture index, the loop's frame keys and its frame time. */
+  readonly use?: { readonly piece: number; readonly frames: readonly string[]; readonly ms: number };
 }
 
 export interface SceneSeat {

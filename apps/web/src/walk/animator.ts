@@ -40,12 +40,22 @@ export interface AnimatorOptions {
   readonly draw: (id: MemberId, avatar: number, pose: Pose, frame: string | null) => void;
   /** Put `id`'s emote sticker (a motion frame key) with its bottom centre at (x, y), or hide it (null). Called on every draw. */
   readonly drawEmote: (id: MemberId, frame: string | null, x: number, y: number) => void;
+  /** Furniture loop `i` (setLoops) shows `frame`, or its still frame (-1). */
+  readonly drawLoop: (i: number, frame: number) => void;
   readonly render: () => void;
+}
+
+/** A furniture "in use" loop (OME-1407): how many frames, and the frame time on Smooth. */
+export interface FurnitureLoop {
+  readonly frames: number;
+  readonly ms: number;
 }
 
 export interface Animator {
   /** Who is in the room, after `walks.place`: draws them now (the caller renders) and keeps animating as needed. */
   set(avatars: readonly AnimatedAvatar[]): void;
+  /** The furniture loops that run now (OME-1407), drawn through `drawLoop` by index. */
+  setLoops(loops: readonly FurnitureLoop[]): void;
   /** The motion atlas arrived: redraw everyone with it on the next frame. */
   setFrames(frames: MotionFrames): void;
   /** `id` emoted: play it once from now. Nothing under prefers-reduced-motion (room.ts shows a static badge). */
@@ -191,6 +201,7 @@ export function createAnimator(o: AnimatorOptions): Animator {
       const next = drawAll(now);
       schedule(now, next, o.walks.walking(now) || dancing);
     },
+    setLoops() {},
     setFrames(f) {
       frames = f;
       requestFrame();
