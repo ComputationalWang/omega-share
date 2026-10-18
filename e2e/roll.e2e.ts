@@ -39,6 +39,6 @@ test("/roll d20 shows the same roll on both clients: a bubble over the roller an
   await expect(theirs).toContainText(`${a.nickname} rolled ${value} (d20)`);
   await expect(a.page.locator(site.chatLogLine).filter({ hasText: /rolled \d+ \(d20\)/ })).toContainText(`You rolled ${value} (d20)`);
   for (const page of [a.page, b.page]) await expect(page.locator(".ui-float").filter({ hasText: `🎲 ${value} / 20` })).toHaveCount(1);
-  // Nothing went out as chat: no "/roll d20" line anywhere.
-  for (const page of [a.page, b.page]) await expect(page.locator(site.chatLog)).not.toContainText("/roll d20");
+  // Nothing went out as chat: system lines only (the hint itself names /roll, so check the kind of line, not its text).
+  for (const page of [a.page, b.page]) await expect(page.locator(`${site.chatLog} .ui-fs-line`)).toHaveCount(0);
 });
