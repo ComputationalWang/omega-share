@@ -297,11 +297,11 @@ test("hide for me survives a real reconnect: still hidden, and the new socket se
   await openPeople(a.page);
   await expect(a.page.locator(site.peopleRow).filter({ hasText: b.nickname })).toContainText("hidden");
 
-  // Nothing about hiding went out on the reconnect: the join, clock pings and chat only, and B's id is in none of it.
+  // Nothing about hiding went out on the reconnect: the join, clock pings, chat and typing (OME-1390) only, and B's id is in none of it.
   const all = sockets.flat();
   const types = all.map((f) => v.parse(v.object({ type: v.string() }), JSON.parse(f)).type);
   expect(types).toContain("join");
-  expect(types.filter((t) => t !== "join" && t !== "ping" && t !== "chat")).toEqual([]);
+  expect(types.filter((t) => t !== "join" && t !== "ping" && t !== "chat" && t !== "typing")).toEqual([]);
   expect(all.some((f) => f.includes(bId))).toBe(false);
 });
 
@@ -318,4 +318,18 @@ test("a right-click or long-press on someone's name tag opens People on their Hi
   await expect(a.page.locator(site.peoplePanel)).toBeHidden();
   await a.page.locator(site.nicknameTag).filter({ hasText: a.nickname }).dispatchEvent("contextmenu");
   await expect(a.page.locator(site.peoplePanel)).toBeHidden();
+});
+
+// OME-1390: hiding someone mid-typing takes their "…" at once (their off never reaches the hidden side).
+test("hiding a member who is typing takes their typing dots away at once", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("m9-hide", "typing").url, count: 2, nicknamePrefix: "ht" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("no clients");
+  await expect(a.page.locator(site.nicknameTag)).toHaveCount(2);
+  const dots = a.page.locator(`${site.room} .bubbles [data-testid=typing-dots]`);
+  await b.page.locator(site.chatInput).pressSequentially("hel");
+  await expect(dots).toBeVisible();
+  await hideFor(a.page, b.nickname);
+  // Well inside the server's 5 s typing timeout: only the hide can have taken them.
+  await expect(dots).toHaveCount(0, { timeout: 2000 });
 });

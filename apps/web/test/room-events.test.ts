@@ -5,7 +5,7 @@ import { routeConnectionEvent } from "../src/room-events";
 import type { ViewEvent } from "../src/state";
 
 /** A real clock on fake timers: which timers are still pending after the event. */
-function setup(hidden: readonly string[] = []): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[]; emoted: [string, string][]; sessions: string[] } {
+function setup(hidden: readonly string[] = [], typing: (memberId: string, on: boolean) => void = () => undefined): { pending: Set<number>; route: (e: ConnectionEvent) => void; dispatched: ViewEvent[]; emoted: [string, string][]; sessions: string[] } {
   const pending = new Set<number>();
   let next = 0;
   const clock = createClockSync<number>({
@@ -26,6 +26,7 @@ function setup(hidden: readonly string[] = []): { pending: Set<number>; route: (
   const sessions: string[] = [];
   const sinks = {
     emoted: (memberId: string, kind: string) => emoted.push([memberId, kind]),
+    typing,
     clock,
     shareToken: { onEvent: () => undefined },
     joined: () => undefined,
@@ -121,4 +122,14 @@ test("an expired or replaced session stops the clock and reaches the state", () 
     expect(pending.size).toBe(0);
     expect(dispatched).toEqual([{ type }]);
   }
+});
+
+// OME-1390: typing-changed goes straight to the scene's typing sink, never the view state; a hidden member's stops at intake.
+test("typing-changed goes to the typing sink only; a hidden member's goes nowhere", () => {
+  const typed: [string, boolean][] = [];
+  const { route, dispatched } = setup(["m2"], (id, on) => typed.push([id, on]));
+  route({ type: "message", msg: { type: "typing-changed", memberId: "m1", on: true } });
+  route({ type: "message", msg: { type: "typing-changed", memberId: "m2", on: true } });
+  expect(typed).toEqual([["m1", true]]);
+  expect(dispatched).toEqual([]);
 });

@@ -57,6 +57,10 @@ export interface Stage {
   /** Only the catching-up hourglasses (my player's flag changes between renders). */
   applyCatching(s: StageState, selfCatching: boolean): void;
   emote(id: MemberId, kind: EmoteKind, s: StageState): void;
+  /** The member started or stopped typing (OME-1390): the "…" over their head. */
+  typing(id: MemberId, on: boolean): void;
+  /** Everyone's dots go (a rejoin: the server doesn't say who is typing in a snapshot). */
+  stopTyping(): void;
   /** "Hide for me" (OME-769): this member's tag and avatar dimmed (or not). Per change, never per frame. */
   hide(id: MemberId, hidden: boolean): void;
   /** Where seat `i` is (stage px), for the phone's window. */
@@ -123,6 +127,15 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const floats = createFloats(bubbles, { reducedMotion: o.reducedMotion, now: () => Date.now(), ...timers });
   const handoff = createHandoff();
   const speaking = new Set<MemberId>();
+  /** Who shows typing dots, so a member who left takes theirs along. */
+  const typers = new Set<MemberId>();
+  const setTyping = (id: MemberId, on: boolean): void => {
+    const p = view.position(id) ?? placedAt.get(id);
+    if (on && p === undefined) return;
+    floats.typing(id, on, { x: p?.x ?? 0, y: (p?.y ?? 0) - liftOf(id) });
+    if (on) typers.add(id);
+    else typers.delete(id);
+  };
   const badges = createEmoteBadges(bubbles, timers);
   /** The seats as last drawn, for the emote lift (a sitter's sticker sits lower). */
   let seated: readonly (MemberId | null)[] = [];
@@ -373,6 +386,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       hourglasses.delete(e);
     }
     badges.keep(members);
+    for (const id of typers) if (!members.has(id)) setTyping(id, false);
     for (const m of members.values()) {
       let e = tagEls.get(m.id);
       if (e === undefined) {
@@ -441,7 +455,13 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const p = view.position(id) ?? placedAt.get(id);
       if (p !== undefined) badges.show(id, kind, { x: p.x, y: p.y - liftOf(id) });
     },
+    typing: setTyping,
+    stopTyping() {
+      for (const id of typers) setTyping(id, false);
+    },
     hide(id, hidden) {
+      // Their typing-changed stops at intake from now on (OME-769): their dots go with it.
+      if (hidden) setTyping(id, false);
       if (hidden) hiddenIds.add(id);
       else hiddenIds.delete(id);
       tagEls.get(id)?.classList.toggle("is-hidden", hidden);

@@ -14,6 +14,8 @@ export interface RoomEventSinks {
   readonly dispatch: (e: ViewEvent) => void;
   /** Someone emoted (OME-415): straight to the scene; emotes are never view state. */
   readonly emoted: (memberId: MemberId, kind: EmoteKind) => void;
+  /** Someone started or stopped typing (OME-1390): straight to the scene, as emotes. */
+  readonly typing: (memberId: MemberId, on: boolean) => void;
   /** I hid this member for myself (OME-769): their chat and emotes stop here, before the state, the log or a pop-out. */
   readonly hidden: (memberId: MemberId) => boolean;
   /** A snapshot carried this member's resume token (ADR 0043): store it for this room. Never logged or put in state. */
@@ -25,8 +27,9 @@ export function routeConnectionEvent(e: ConnectionEvent, sinks: RoomEventSinks, 
   sinks.shareToken.onEvent(e);
   if (e.type === "message") {
     if (e.msg.type === "pong") sinks.clock.onPong(e.msg.id, e.msg.at);
-    else if ((e.msg.type === "chat" || e.msg.type === "emoted") && sinks.hidden(e.msg.memberId)) return;
+    else if ((e.msg.type === "chat" || e.msg.type === "emoted" || e.msg.type === "typing-changed") && sinks.hidden(e.msg.memberId)) return;
     else if (e.msg.type === "emoted") sinks.emoted(e.msg.memberId, e.msg.kind);
+    else if (e.msg.type === "typing-changed") sinks.typing(e.msg.memberId, e.msg.on);
     else {
       if (e.msg.type === "snapshot") sinks.joined();
       sinks.dispatch({ type: "server", msg: e.msg, now });

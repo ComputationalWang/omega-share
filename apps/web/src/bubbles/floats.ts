@@ -12,6 +12,9 @@
 // each new bubble's size from the frame's own layout, before paint, along with its stacked twin's (the same box with
 // the name, never painted), so neither a message nor a bubble that stacks forces a style and layout pass of its own.
 // The layer is decorative (aria-hidden, no live region): the chat log is the accessible record.
+// OME-1390: a typing indicator ("…") takes a node from the same pool. It never rises, fades or expires (the server clears
+// it), is ordered nearest the head, and a line from the same member replaces it. Its dots step on the same clock (ADR
+// 0040: no CSS animation in the room), one `data-dot` write a step; under reduced motion they're static.
 import type { MemberId } from "@omega/shared";
 import { el } from "../controls/dom";
 import { isShout, meAction } from "../chat/effects";
@@ -85,6 +88,8 @@ export interface Floats {
    * phone): they're clamped and stacked by the size they're shown at, and the ones up are placed again.
    */
   scale(k: number): void;
+  /** The member started or stopped typing (`at`: their head): the dots show or go. `keep` leaves them alone. */
+  typing(id: MemberId, on: boolean, at: Point): void;
 }
 
 export interface FloatsOptions {
@@ -131,10 +136,16 @@ interface Slot {
   readonly whoText: Text;
   readonly text: HTMLSpanElement;
   readonly textNode: Text;
+  /** The typing indicator's three dots, shown only on a typing node. */
+  readonly dots: HTMLSpanElement;
   /** The stacked twin: the bubble's box with its speaker's name, laid out but never painted (generated content). */
   readonly twin: HTMLParagraphElement;
   readonly twinSay: HTMLSpanElement;
   state: typeof FREE | typeof LIVE | typeof LEAVING;
+  /** A typing indicator, not a line. */
+  typing: boolean;
+  /** The lit dot as written (`data-dot`), -1 none. */
+  dot: number;
   speaker: MemberId | null;
   /** Arrival order, for oldest-first reuse. */
   seq: number;
@@ -177,10 +188,13 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     const whoText = document.createTextNode("");
     const who = el("b", { className: "who", hidden: true });
     who.append(whoText);
+    const dots = el("span", { className: "dots", hidden: true });
+    dots.append(el("i"), el("i"), el("i"));
     const say = el("span", { className: "say" });
     say.append(who, text);
+    // Beside `.say`, not in it: `.say > span` stays the line's text alone.
     const p = el("p", { className: "ui-float" });
-    p.append(say);
+    p.append(say, dots);
     const twinSay = el("span");
     const twin = el("p", { className: "float-twin" });
     twin.append(twinSay);
@@ -189,8 +203,10 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     const outer = el("div", { className: "float-slot", hidden: true });
     outer.append(motion, twin);
     layer.append(outer);
-    return { outer, motion, p, who, whoText, text, textNode, twin, twinSay, state: FREE, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, stacked: false, measured: false, rise: 0, alpha: 1, leaveAt: 0 };
+    return { outer, motion, p, who, whoText, text, textNode, dots, twin, twinSay, state: FREE, typing: false, dot: -1, speaker: null, seq: 0, startedAt: 0, ax: 0, ay: 0, dx: 0, w: 0, h: 0, sw: 0, sh: 0, sized: 0, push: 0, stacked: false, measured: false, rise: 0, alpha: 1, leaveAt: 0 };
   });
+  /** Typing on, not yet a whole step: no node yet (where their head is, and since when). */
+  const waiting = new Map<MemberId, { x: number; y: number; since: number }>();
   /** Live bubbles, newest first, rebuilt per resolve (no allocation). */
   const order: Slot[] = [];
   let seq = 0;
@@ -206,10 +222,18 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     watch.unobserve(s.twin);
     if (hide) s.outer.hidden = true;
     s.text.removeAttribute("data-testid");
+    if (s.typing) {
+      s.typing = false;
+      s.dots.hidden = true;
+      s.dots.removeAttribute("data-testid");
+      s.p.removeAttribute("data-dot");
+      s.dot = -1;
+    }
   };
 
   /** The rise and opacity for `now`, written only when they change. The rise counts whole steps to the clock's last. */
   const paint = (s: Slot, now: number): void => {
+    if (s.typing) return;
     const reduced = o.reducedMotion.matches;
     const rise = reduced ? 0 : Math.min(FLOAT_RISE, Math.max(0, stepOf(now) - Math.ceil((s.startedAt * FLOAT_RISE) / FLOAT_LIFE_MS)));
     const life = (now - s.startedAt) / FLOAT_LIFE_MS;
@@ -235,6 +259,15 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     let any = false;
     for (const s of slots) {
       if (s.state === FREE) continue;
+      if (s.typing && s.state === LIVE) {
+        any = true;
+        const dot = stepOf(now) % 3;
+        if (!o.reducedMotion.matches && dot !== s.dot) {
+          s.dot = dot;
+          s.p.dataset["dot"] = String(dot);
+        }
+        continue;
+      }
       if (s.state === LEAVING ? now >= s.leaveAt : now - s.startedAt >= FLOAT_LIFE_MS) {
         free(s);
         continue;
@@ -242,7 +275,12 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       any = true;
       if (s.measured) paint(s, now);
     }
-    if (any) run(now);
+    for (const [id, w] of waiting) {
+      if (now - w.since < FLOAT_LIFE_MS / FLOAT_RISE) continue;
+      waiting.delete(id);
+      startTyping(id, w.x, w.y, now);
+    }
+    if (any || waiting.size > 0) run(now);
   };
 
   const run = (now: number): void => {
@@ -312,7 +350,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
   const resolve = (): void => {
     order.length = 0;
     for (const s of slots) if (s.state === LIVE && s.measured) order.push(s);
-    order.sort((a, b) => b.seq - a.seq);
+    // Typing dots stay nearest the heads (they never rise): lines climb over them.
+    order.sort((a, b) => Number(b.typing) - Number(a.typing) || b.seq - a.seq);
     const reduced = o.reducedMotion.matches;
     for (let i = 0; i < order.length; i++) {
       const s = order[i];
@@ -332,13 +371,14 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
           const nTop = n.ay - (n.h + TAIL_BELOW) * k - n.push;
           const nBottom = nTop + (n.h + (n.stacked ? 0 : TAIL_BELOW)) * k;
           if (top >= nBottom + GAP || bottom + (s.stacked ? 0 : TAIL_BELOW * k) + GAP <= nTop) continue;
-          push += Math.max(0, bottom + GAP - nTop);
+          // Typing dots never stack, so they keep their tail.
+          push += Math.max(0, bottom + (s.typing ? TAIL_BELOW * k : 0) + GAP - nTop);
           // Re-measured and re-centred: the next pass checks the box as it now is.
-          if (!s.stacked) stack(s);
+          if (!s.stacked && !s.typing) stack(s);
           moved = true;
         }
       }
-      if (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - (reduced ? 0 : FLOAT_RISE) < ROOM_VIEW.y) {
+      if (i > 0 && s.ay - (s.h + TAIL_BELOW) * k - push - (reduced || s.typing ? 0 : FLOAT_RISE) < ROOM_VIEW.y) {
         leave(s);
         continue;
       }
@@ -383,11 +423,69 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     if (any) resolve();
   };
 
+  /** A node for `id`: a free one first, then the oldest leaving one, then the oldest on screen. */
+  const take = (id: MemberId): Slot | null => {
+    let slot: Slot | null = null;
+    for (const s of slots) {
+      if (s.state === FREE) {
+        slot = s;
+        break;
+      }
+      if (slot === null || (s.state === LEAVING && slot.state === LIVE) || (s.state === slot.state && s.seq < slot.seq)) slot = s;
+    }
+    if (slot === null) return null;
+    free(slot, false);
+    slot.state = LIVE;
+    slot.speaker = id;
+    slot.seq = ++seq;
+    return slot;
+  };
+
+  /** Shown at `at`, unplaced until its sizes arrive in the frame's layout. */
+  const show = (s: Slot, at: Point, now: number): void => {
+    s.push = 0;
+    s.rise = 0;
+    s.alpha = 1;
+    s.motion.style.transform = "";
+    s.motion.style.translate = "";
+    s.motion.style.opacity = "";
+    if (s.outer.hidden) s.outer.hidden = false;
+    anchor(s, at.x, at.y);
+    s.measured = false;
+    s.sized = 0;
+    watch.observe(s.p);
+    watch.observe(s.twin);
+    run(now);
+  };
+
+  /** Typing dots for `id` at (x, y): a pool node with three dots in place of words. */
+  const startTyping = (id: MemberId, x: number, y: number, now: number): void => {
+    const s = take(id);
+    if (s === null) return;
+    s.startedAt = now;
+    s.typing = true;
+    s.p.className = "ui-float is-typing";
+    s.p.style.setProperty("--tint", "");
+    s.twin.classList.remove("is-shout", "is-action");
+    s.stacked = false;
+    s.who.hidden = true;
+    s.whoText.data = "";
+    s.textNode.data = "";
+    s.dots.hidden = false;
+    s.dots.setAttribute("data-testid", "typing-dots");
+    s.twinSay.dataset["who"] = "";
+    s.twinSay.dataset["say"] = "…";
+    show(s, { x, y }, now);
+  };
+
   return {
     say(m) {
       const now = o.now();
       const elapsed = Number.isNaN(m.startedAt) ? 0 : Math.max(0, now - m.startedAt);
       if (elapsed >= FLOAT_LIFE_MS) return;
+      // A line replaces its speaker's typing dots.
+      waiting.delete(m.id);
+      for (const s of slots) if (s.typing && s.speaker === m.id) free(s);
       // FLOAT_PER_SPEAKER per speaker: their oldest goes.
       for (;;) {
         let count = 0;
@@ -400,21 +498,8 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
         if (count < FLOAT_PER_SPEAKER || oldest === null) break;
         leave(oldest);
       }
-      // A free node first, then the oldest leaving one, then the oldest on screen.
-      let slot: Slot | null = null;
-      for (const s of slots) {
-        if (s.state === FREE) {
-          slot = s;
-          break;
-        }
-        if (slot === null || (s.state === LEAVING && slot.state === LIVE) || (s.state === slot.state && s.seq < slot.seq)) slot = s;
-      }
-      if (slot === null) return;
-      const s = slot;
-      free(s, false);
-      s.state = LIVE;
-      s.speaker = m.id;
-      s.seq = ++seq;
+      const s = take(m.id);
+      if (s === null) return;
       s.startedAt = now - elapsed;
       // Not .is-live until its size arrives in this frame's layout, before paint: then it is placed and shown at its age.
       // `/me waves` (OME-1375): an action names its speaker from the start ("Sam waves"), so it's the twin's size already.
@@ -433,21 +518,28 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       s.text.setAttribute("data-testid", "chat-message");
       s.twinSay.dataset["who"] = m.name;
       s.twinSay.dataset["say"] = text;
-      s.push = 0;
-      s.rise = 0;
-      s.alpha = 1;
-      s.motion.style.transform = "";
-      s.motion.style.translate = "";
-      s.motion.style.opacity = "";
-      if (s.outer.hidden) s.outer.hidden = false;
-      anchor(s, m.at.x, m.at.y);
-      s.measured = false;
-      s.sized = 0;
-      watch.observe(s.p);
-      watch.observe(s.twin);
+      show(s, m.at, now);
+    },
+    typing(id, on, at) {
+      if (!on) {
+        waiting.delete(id);
+        for (const t of slots) if (t.typing && t.speaker === id) free(t);
+        return;
+      }
+      // One already up or waiting; a leaving one is left to go.
+      if (waiting.has(id)) return;
+      for (const t of slots) if (t.typing && t.state === LIVE && t.speaker === id) return;
+      // Shown once on for a whole step (QA OME-1401): a line straight after the first keystroke costs no node.
+      const now = o.now();
+      waiting.set(id, { x: at.x, y: at.y, since: now });
       run(now);
     },
     move(id, x, y) {
+      const w = waiting.get(id);
+      if (w !== undefined) {
+        w.x = x;
+        w.y = y;
+      }
       for (const s of slots) if (s.state !== FREE && s.speaker === id) anchor(s, x, y);
     },
     settle(id, x, y) {
@@ -462,7 +554,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       if (any) resolve();
     },
     keep(ids) {
-      for (const s of slots) if (s.speaker !== null && !ids.has(s.speaker)) free(s);
+      for (const s of slots) if (s.speaker !== null && !s.typing && !ids.has(s.speaker)) free(s);
     },
     scale(next) {
       if (next === k) return;
