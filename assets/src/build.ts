@@ -1254,8 +1254,16 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
   const dir = join(ROOT, "furniture");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${name}.png`), encodeIndexedPng(sheetW, sheetH, sheet, PALETTE));
+  // Pixi's own `animations`: one "in use" loop per piece, colour and dir (frame time in `meta.omega.pieces[].use.ms`).
+  const animations: Record<string, string[]> = {};
+  for (const p of pieces) {
+    for (const colour of p.use ? p.colours : []) {
+      for (const d of p.dirs) animations[`furniture/${p.id}/${colour}/use/${d}`] = Array.from({ length: p.use?.frames ?? 0 }, (_, n) => `furniture/${p.id}/${colour}/use/${d}/${String(n)}`);
+    }
+  }
   const atlas = {
     frames: atlasFrames,
+    ...(Object.keys(animations).length > 0 ? { animations } : {}),
     meta: {
       app: "omega-share assets/src/build.ts",
       version: "1",
@@ -1268,6 +1276,7 @@ function writeFurnitureAtlas(name: string, frames: readonly RoomFrame[], pieces:
         tile: TILE,
         seatHeight: SEAT_HEIGHT,
         key: "furniture/<id>/<colour>/<dir>/<back|front>",
+        ...(Object.keys(animations).length > 0 ? { useKey: "furniture/<id>/<colour>/use/<dir>/<n>" } : {}),
         layers: { floor: 0, wall: 1, back: 2, avatar: 3, front: 4 },
         pieces,
       },
