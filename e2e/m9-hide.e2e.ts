@@ -297,11 +297,11 @@ test("hide for me survives a real reconnect: still hidden, and the new socket se
   await openPeople(a.page);
   await expect(a.page.locator(site.peopleRow).filter({ hasText: b.nickname })).toContainText("hidden");
 
-  // Nothing about hiding went out on the reconnect: the join, clock pings and chat only, and B's id is in none of it.
+  // Nothing about hiding went out on the reconnect: the join, clock pings, chat and typing (OME-1390) only, and B's id is in none of it.
   const all = sockets.flat();
   const types = all.map((f) => v.parse(v.object({ type: v.string() }), JSON.parse(f)).type);
   expect(types).toContain("join");
-  expect(types.filter((t) => t !== "join" && t !== "ping" && t !== "chat")).toEqual([]);
+  expect(types.filter((t) => t !== "join" && t !== "ping" && t !== "chat" && t !== "typing")).toEqual([]);
   expect(all.some((f) => f.includes(bId))).toBe(false);
 });
 
