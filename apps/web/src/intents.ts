@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, WALK_REFILL_MS, isStandable, type ClientMessage, type FloorCell, type Embed, type Member, type PlaybackState, type QueueItemId } from "@omega/shared";
+import { ChatTextSchema, DEFAULT_LAYOUT, FLOOR_CELLS, MAX_POSITION_S, SEAT_COUNT, WALK_REFILL_MS, isStandable, type ClientMessage, type FloorCell, type Embed, type Member, type MemberId, type PlaybackState, type QueueItemId } from "@omega/shared";
 import type { ViewState } from "./state";
 import { expectedPosition } from "./sync";
 import { TILE_MS } from "./walk/walks";
@@ -38,6 +38,11 @@ export function walkIntent(state: ViewState, cell: FloorCell): ClientMessage | "
   const here = room.members.find((m) => m.id === state.self)?.cell;
   if (here?.x === cell.x && here.y === cell.y) return null;
   return { type: "walk", cell: { x: cell.x, y: cell.y } };
+}
+
+/** Walk over (OME-1376): `walk` to the free cell beside `target` nearest me; null if there's none. */
+export function walkOverIntent(_state: ViewState, _target: MemberId, _cellOf: (id: MemberId) => FloorCell | null): ClientMessage | null {
+  return null;
 }
 
 export type StepKey = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";

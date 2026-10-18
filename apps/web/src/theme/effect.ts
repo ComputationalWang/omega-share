@@ -82,6 +82,12 @@ export function createParticles(motion: EffectMotion, count: number, rand: () =>
   };
 }
 
+/** The door's arrival sparkle (OME-1376): this many sprites, for this long. */
+export const SPARKLE_SPRITES = 12;
+export const SPARKLE_MS = 600;
+
+export const sparkleMotion = (at: { readonly x: number; readonly y: number }): EffectMotion => ({ area: { x: at.x, y: at.y, w: 0, h: 0 }, vx: [0, 0], vy: [0, 0], flipX: false });
+
 /** One effect frame in the theme sheet: its rect, and its anchor in px from the rect's top-left. */
 export interface EffectFrame {
   readonly sx: number;

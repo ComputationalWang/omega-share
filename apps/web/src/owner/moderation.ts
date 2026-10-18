@@ -23,6 +23,8 @@ export interface ModerationOptions {
   readonly anchor: (id: MemberId) => Point | undefined;
   /** The stage's width in its own px (layout.ts STAGE_W): its on-page width over this is its scale. */
   readonly stageWidth: number;
+  /** Walk over (OME-1376): the walk to that member, or null when no cell beside them is free. */
+  readonly walkOver: (id: MemberId) => (() => void) | null;
 }
 
 export interface Moderation {

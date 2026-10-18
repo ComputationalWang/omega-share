@@ -11,6 +11,8 @@ export interface PeopleOptions {
   readonly hidden: HiddenMembers;
   /** `id` was hidden (true) or shown again (false) by me. */
   readonly onChange: (id: MemberId, hidden: boolean) => void;
+  /** Walk over (OME-1376): the walk to that member, or null when no cell beside them is free. */
+  readonly walkOver: (id: MemberId) => (() => void) | null;
 }
 
 export interface People {

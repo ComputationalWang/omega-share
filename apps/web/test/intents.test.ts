@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_POSITION_S, WALK_REFILL_MS, type PlaybackState, type RoomState } from "@omega/shared";
-import { chatIntent, createWalkGate, playerIntent, seatViews, seekIntent, sitIntent, stepAllowed, stepCell, togglePlayIntent, walkIntent, type PlaybackTarget } from "../src/intents";
+import { chatIntent, createWalkGate, playerIntent, seatViews, seekIntent, sitIntent, stepAllowed, stepCell, togglePlayIntent, walkIntent, walkOverIntent, type PlaybackTarget } from "../src/intents";
 import { TILE_MS } from "../src/walk/walks";
 import { initialState, reduce, type ViewState } from "../src/state";
 
@@ -203,5 +203,36 @@ describe("createWalkGate", () => {
     g.cancel();
     advance(WALK_REFILL_MS);
     expect(sent).toEqual([1]);
+  });
+});
+
+// OME-1376: Walk over (the member menu, the People list): walk to the free cell beside them nearest me.
+describe("walkOverIntent", () => {
+  const standing = (s: ViewState, id: string, x: number, y: number): ViewState => reduce(s, { type: "server", msg: { type: "walked", memberId: id, cell: { x, y } }, now: 0 });
+  const nowhere = (): null => null;
+
+  test("sends walk to their side nearest me", () => {
+    const s = standing(standing(open, "a", 9, 9), "b", 6, 9);
+    expect(walkOverIntent(s, "b", nowhere)).toEqual({ type: "walk", cell: { x: 7, y: 9 } });
+  });
+
+  test("a seated member's cell comes from the stage", () => {
+    const s = standing(open, "a", 9, 9);
+    const msg = walkOverIntent(s, "b", (id) => (id === "b" ? { x: 6, y: 9 } : null));
+    expect(msg).toEqual({ type: "walk", cell: { x: 7, y: 9 } });
+  });
+
+  test("a side someone else stands on is not picked", () => {
+    const three: ViewState = { ...open, room: open.room === null ? null : { ...open.room, members: [...open.room.members, { id: "c", nickname: "cy", avatar: 1 }] } };
+    const s = standing(standing(standing(three, "a", 9, 9), "b", 6, 9), "c", 7, 9);
+    const msg = walkOverIntent(s, "b", nowhere);
+    expect(msg).not.toBeNull();
+    expect(msg).not.toEqual({ type: "walk", cell: { x: 7, y: 9 } });
+  });
+
+  test("null when I'm already beside them, they're nowhere, or I'm not connected", () => {
+    expect(walkOverIntent(standing(standing(open, "a", 7, 9), "b", 6, 9), "b", nowhere)).toBeNull();
+    expect(walkOverIntent(standing(open, "a", 9, 9), "b", nowhere)).toBeNull();
+    expect(walkOverIntent(reduce(standing(standing(open, "a", 9, 9), "b", 6, 9), { type: "disconnected" }), "b", nowhere)).toBeNull();
   });
 });

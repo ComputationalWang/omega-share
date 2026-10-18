@@ -37,6 +37,11 @@ export function walkGrid(layout: RoomLayout): Uint8Array {
 const prev = new Int16Array(N);
 const queue = new Int16Array(N);
 
+/** Walk over (OME-1376): of the free cells beside `to`, the one `from` reaches in the fewest steps; -1 if none. */
+export function walkOverCell(_grid: Uint8Array, _from: number, _to: number, _taken: ReadonlySet<number>): number {
+  return -1;
+}
+
 /** Shortest 4-neighbour path from `from` to `to`, both included; null if solid cells cut them apart. */
 export function findPath(grid: Uint8Array, from: number, to: number): number[] | null {
   if (from < 0 || from >= N || to < 0 || to >= N) return null;

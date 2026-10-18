@@ -18,7 +18,7 @@ const kit: Member = { id: "kit", nickname: "Kit", avatar: 3 };
 const mo: Member = { id: "mo", nickname: "<b>Mo</b>", avatar: 2 };
 const room: RoomState = { id: "r1", seats: [null, null, null, null, null, null, null, null], members: [me, kit, mo], embed: null };
 
-async function setup(owner = true) {
+async function setup(owner = true, walkable: (id: string) => boolean = () => true) {
   const { mountModeration } = await import("../src/owner/moderation");
   let state: ViewState = reduce(initialState, { type: "server", msg: { type: "snapshot", self: "me", room, owner }, now: 0 });
   // As room.ts builds it: the scaled `.ui-room` stage inside its clip (overflow: hidden), inside the wrap that also holds
@@ -51,6 +51,7 @@ async function setup(owner = true) {
     tags.append(t);
   }
   const sent: ClientMessage[] = [];
+  const walked: string[] = [];
   let anchorAt = { x: 400, y: 310 };
   const mod = mountModeration({
     stage,
@@ -64,6 +65,7 @@ async function setup(owner = true) {
     },
     anchor: () => anchorAt,
     stageWidth: 960,
+    walkOver: (id) => (walkable(id) ? () => void walked.push(id) : null),
   });
   const tag = (id: string): HTMLElement => {
     const t = tags.querySelector<HTMLElement>(`[data-member="${id}"]`);
@@ -88,7 +90,7 @@ async function setup(owner = true) {
     stageRect = st;
     wrapRect = cl;
   };
-  return { mod, sent, tag, tags, bar, menu, row, server, stage, clip, wrap, setAnchor, setRects };
+  return { mod, sent, walked, tag, tags, bar, menu, row, server, stage, clip, wrap, setAnchor, setRects };
 }
 
 describe("member menu", () => {
@@ -112,7 +114,7 @@ describe("member menu", () => {
     expect(m?.querySelector(".name")?.textContent).toBe("<b>Mo</b>");
     expect(m?.querySelector("b")).toBeNull();
     expect(m?.querySelector(".ui-portrait-mo")).not.toBeNull();
-    expect([...document.querySelectorAll(".ui-modrow")].map((e) => e.textContent)).toEqual(["Mute chat", "Remove from room"]);
+    expect([...document.querySelectorAll(".ui-modrow")].map((e) => e.textContent)).toEqual(["Walk over", "Mute chat", "Remove from room"]);
     expect(document.querySelector("[data-testid=mod-remove] button")?.textContent).toBe("Remove from room");
   });
 
@@ -120,6 +122,17 @@ describe("member menu", () => {
     const { tag, menu } = await setup();
     tag("me").click();
     expect(menu()).toBeNull();
+  });
+
+  // OME-1376: Walk over walks me to the free cell beside them; with no free side the row is disabled.
+  test("Walk over walks over and closes; with no free side beside them it's disabled", async () => {
+    const { tag, menu, row, walked } = await setup(true, (id) => id === "kit");
+    tag("kit").click();
+    row("mod-walk-over").click();
+    expect(walked).toEqual(["kit"]);
+    expect(menu()).toBeNull();
+    tag("mo").click();
+    expect((row("mod-walk-over") as HTMLButtonElement).disabled).toBe(true);
   });
 
   test("Mute chat sends mute and closes; once muted the row offers Unmute chat, and the tag carries the zip", async () => {
