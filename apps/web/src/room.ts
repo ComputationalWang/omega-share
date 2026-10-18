@@ -782,9 +782,11 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (applause.push(id, kind, performance.now()) && !roomOut()) view.confetti();
   };
   const kickedStore = sessionStorage;
-  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); roomStage.stopTyping(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted: relayedEmote, typing: (id, on) => {
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); roomStage.stopTyping(); relay?.stopTyping(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted: relayedEmote, typing: (id, on) => {
     // My own box shows I'm typing.
-    if (id !== state.self) roomStage.typing(id, on);
+    if (id === state.self) return;
+    roomStage.typing(id, on);
+    relay?.typing(id, on);
   }, hidden: isHidden, session: (token) => {
     sentAway = false;
     saveResume(resumeStore, { roomId: opts.roomId, token, nickname: opts.nickname, avatar: opts.avatar });

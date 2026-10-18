@@ -53,6 +53,10 @@ export interface ChatRelay {
   tv(t: PopTv): void;
   /** Someone emoted: a room window draws it. */
   emote(member: MemberId, kind: EmoteKind): void;
+  /** Someone started or stopped typing: a room window draws the dots. */
+  typing(member: MemberId, on: boolean): void;
+  /** Everyone's dots go (a rejoin). */
+  stopTyping(): void;
   /** "Show the window": ask the adopted window to come to the front. */
   raise(): void;
   /** The room tab is going away (pagehide). */
@@ -200,6 +204,8 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
       case "room-view":
       case "room-tv":
       case "room-emote":
+      case "room-typing":
+      case "room-typing-clear":
       case "room-raise":
         return;
     }
@@ -240,6 +246,12 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
     },
     emote(member, kind) {
       if (activeKind === "room") o.channel.post({ t: "room-emote", member, kind });
+    },
+    typing(member, on) {
+      if (activeKind === "room") o.channel.post({ t: "room-typing", member, on });
+    },
+    stopTyping() {
+      if (activeKind === "room") o.channel.post({ t: "room-typing-clear" });
     },
     raise() {
       if (active !== null) o.channel.post({ t: "room-raise" });
