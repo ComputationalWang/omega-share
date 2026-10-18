@@ -85,6 +85,7 @@ export interface Floats {
    * phone): they're clamped and stacked by the size they're shown at, and the ones up are placed again.
    */
   scale(k: number): void;
+  typing(id: MemberId, on: boolean, at: Point): void;
 }
 
 export interface FloatsOptions {
@@ -464,6 +465,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     keep(ids) {
       for (const s of slots) if (s.speaker !== null && !ids.has(s.speaker)) free(s);
     },
+    typing() {},
     scale(next) {
       if (next === k) return;
       k = next;

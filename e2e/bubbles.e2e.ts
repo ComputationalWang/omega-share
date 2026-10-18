@@ -174,3 +174,24 @@ test("a line said while the room is popped out hangs over the speaker's head onc
   await expect(a.page.locator(site.roomAway)).toBeHidden();
   await expectCentred(a.page, "said while popped out");
 });
+
+// OME-1390: the typing indicator. A types: B sees the "…" over A, then A's line replaces it.
+test("client A types: client B sees the dots over A, then A's line in their place", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("bubbles", "typing").url, count: 2, nicknamePrefix: "ty" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("no clients");
+  const dots = b.page.locator(`${site.room} .bubbles [data-testid=typing-dots]`);
+  await a.page.locator(site.chatInput).pressSequentially("hel");
+  await expect(dots).toBeVisible();
+  // Screen readers are told nothing: the layer is aria-hidden.
+  await expect(b.page.locator(`${site.room} .bubbles`)).toHaveAttribute("aria-hidden", "true");
+  await a.page.locator(site.chatInput).pressSequentially("lo");
+  await a.page.locator(site.chatInput).press("Enter");
+  await expect(b.page.locator(`${site.room} .bubbles [data-testid=chat-message]`, { hasText: "hello" })).toBeVisible();
+  await expect(dots).toHaveCount(0);
+  // Typing then emptying the box takes the dots away again.
+  await a.page.locator(site.chatInput).pressSequentially("x");
+  await expect(dots).toBeVisible();
+  await a.page.locator(site.chatInput).fill("");
+  await expect(dots).toHaveCount(0);
+});

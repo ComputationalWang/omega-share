@@ -767,7 +767,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (applause.push(id, kind, performance.now()) && !roomOut()) view.confetti();
   };
   const kickedStore = sessionStorage;
-  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted: relayedEmote, hidden: isHidden, session: (token) => {
+  const sinks: RoomEventSinks = { clock, shareToken, joined: () => { playback.joined(); }, kicked: (wasIn) => (wasIn ? rememberKick : bouncedUntil)(kickedStore, opts.roomId, Date.now()), dispatch, emoted: relayedEmote, typing: () => undefined, hidden: isHidden, session: (token) => {
     sentAway = false;
     saveResume(resumeStore, { roomId: opts.roomId, token, nickname: opts.nickname, avatar: opts.avatar });
     // The server cleared away on this (re)join; a tab that came back while still hidden says so again.

@@ -14,6 +14,7 @@ export interface RoomEventSinks {
   readonly dispatch: (e: ViewEvent) => void;
   /** Someone emoted (OME-415): straight to the scene; emotes are never view state. */
   readonly emoted: (memberId: MemberId, kind: EmoteKind) => void;
+  readonly typing: (memberId: MemberId, on: boolean) => void;
   /** I hid this member for myself (OME-769): their chat and emotes stop here, before the state, the log or a pop-out. */
   readonly hidden: (memberId: MemberId) => boolean;
   /** A snapshot carried this member's resume token (ADR 0043): store it for this room. Never logged or put in state. */

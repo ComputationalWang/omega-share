@@ -616,3 +616,87 @@ test("a /me line is an action: the bubble names its speaker from the start and s
   expect(q.classList.contains("is-action")).toBe(false);
   expect(q.querySelector<HTMLElement>(".who")?.hidden).toBe(true);
 });
+
+// OME-1390: a typing indicator, a small "…" bubble over anyone typing. It takes a node from the same pool, never rises,
+// fades or expires (the server clears it: a line, a timeout, a mute, a leave), and stays nearest the head. Its dots step
+// on the layer's one clock (ADR 0040: no CSS animation in the room); under reduced motion they are static.
+describe("typing", () => {
+  const typingOf = (layer: HTMLElement): HTMLElement[] => [...layer.querySelectorAll<HTMLElement>(".ui-float.is-typing")].filter((p) => p.closest<HTMLElement>(".float-slot")?.hidden === false);
+
+  test("typing on shows three dots in a pool node: no chat-message, no node created, one node per member", async () => {
+    const { floats, layer, slots, shown, texts } = await setup();
+    floats.typing("a", true, { x: 480, y: 300 });
+    floats.typing("a", true, { x: 480, y: 300 });
+    expect(slots()).toHaveLength(16);
+    expect(shown()).toHaveLength(1);
+    expect(texts()).toEqual([]);
+    const [p] = typingOf(layer);
+    expect(p?.querySelectorAll("[data-testid=typing-dots] i")).toHaveLength(3);
+  });
+
+  test("typing off frees its node", async () => {
+    const { floats, layer, shown } = await setup();
+    floats.typing("a", true, { x: 480, y: 300 });
+    floats.typing("a", false, { x: 480, y: 300 });
+    floats.typing("b", false, { x: 480, y: 300 });
+    expect(shown()).toHaveLength(0);
+    expect(typingOf(layer)).toHaveLength(0);
+  });
+
+  test("a real bubble from the same member replaces it; another member's doesn't", async () => {
+    const { floats, layer, shown, texts } = await setup();
+    floats.typing("a", true, { x: 480, y: 300 });
+    floats.typing("b", true, { x: 200, y: 300 });
+    floats.say(say("a", "hi", 480));
+    expect(texts()).toEqual(["hi"]);
+    expect(shown()).toHaveLength(2);
+    expect(typingOf(layer)).toHaveLength(1);
+    expect(layer.querySelector(".ui-float.is-typing [data-testid=typing-dots]")).not.toBeNull();
+    expect(layer.querySelectorAll("[data-testid=typing-dots]")).toHaveLength(1);
+  });
+
+  test("the dots step on the clock, one lit at a time; it never rises, fades or expires", async () => {
+    const { floats, layer, frame, advance, FLOAT_LIFE_MS } = await setup();
+    floats.typing("a", true, { x: 480, y: 300 });
+    frame();
+    const [p] = typingOf(layer);
+    const seen = new Set<string | undefined>();
+    for (let i = 0; i < 6; i++) {
+      advance(STEP);
+      seen.add(p?.dataset["dot"]);
+    }
+    expect(seen).toEqual(new Set(["0", "1", "2"]));
+    advance(FLOAT_LIFE_MS * 3);
+    expect(typingOf(layer)).toHaveLength(1);
+    const motion = p?.parentElement;
+    expect(motion?.style.translate).toBe("");
+    expect(motion?.style.opacity).toBe("");
+  });
+
+  test("reduced motion: the dots are static (no step writes)", async () => {
+    const { floats, layer, frame, advance } = await setup({ reduced: true });
+    floats.typing("a", true, { x: 480, y: 300 });
+    frame();
+    advance(STEP * 6);
+    expect(typingOf(layer)[0]?.dataset["dot"]).toBeUndefined();
+  });
+
+  test("it stays nearest the head: another member's older bubble in its way moves up over it", async () => {
+    const { floats, frame, push, layer } = await setup();
+    floats.typing("a", true, { x: 480, y: 300 });
+    frame();
+    floats.say(say("b", "over", 500));
+    frame();
+    expect(push("over")).not.toBe("0px");
+    expect(typingOf(layer)[0]?.parentElement?.style.transform).toBe("");
+  });
+
+  test("move carries the dots; keep (whose lines show) leaves them, typing off takes them", async () => {
+    const { floats, layer } = await setup();
+    floats.typing("a", true, { x: 480, y: 300 });
+    floats.move("a", 300, 280);
+    expect(typingOf(layer)[0]?.closest<HTMLElement>(".float-slot")?.style.transform).toBe("translate(300px, 280px)");
+    floats.keep(new Set());
+    expect(typingOf(layer)).toHaveLength(1);
+  });
+});
