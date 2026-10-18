@@ -6,7 +6,7 @@ import { chatSticker, createStickerGate, isShout, slashCommand, STICKER_GAP_MS }
 
 describe("slashCommand", () => {
   test("each emote's name after a slash is that emote, any case, spaces around ignored", () => {
-    for (const kind of ["wave", "clap", "cheer", "yawn", "heart", "laugh", "question", "exclaim"] as const) {
+    for (const kind of ["wave", "clap", "cheer", "yawn", "heart", "laugh", "question", "exclaim", "dance"] as const) {
       expect(slashCommand(`/${kind}`)).toEqual({ type: "emote", kind });
     }
     expect(slashCommand("  /WAVE ")).toEqual({ type: "emote", kind: "wave" });
@@ -17,7 +17,7 @@ describe("slashCommand", () => {
   });
 
   test("anything else is chat: unknown commands, words after a command, no slash, a slash mid-line", () => {
-    for (const text of ["/x", "/dance", "/wave hi", "wave", "hi /wave", "/", "//wave", "/ wave"]) expect(slashCommand(text)).toBeNull();
+    for (const text of ["/x", "/dancing", "/wave hi", "wave", "hi /wave", "/", "//wave", "/ wave"]) expect(slashCommand(text)).toBeNull();
   });
 });
 

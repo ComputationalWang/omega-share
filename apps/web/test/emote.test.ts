@@ -8,10 +8,9 @@ import { EMOTE_MARGIN_MS, PICKER_KINDS, createEmoteBucket, kindForKey } from "..
 // so the key cools before the server would answer rate_limited (which would cool chat too).
 
 describe("picker", () => {
-  test("is the five stickers in the atlas order, the wave, then cheer and yawn: every EMOTE_KINDS once but dance", () => {
-    expect(PICKER_KINDS).toEqual(["heart", "laugh", "question", "exclaim", "clap", "wave", "cheer", "yawn"]);
-    // dance (OME-1374) joins the picker with its art in the dance issue.
-    expect([...PICKER_KINDS].sort()).toEqual(EMOTE_KINDS.filter((k) => k !== "dance").sort());
+  test("is the five stickers in the atlas order, the wave, cheer and yawn, then dance: every EMOTE_KINDS once", () => {
+    expect(PICKER_KINDS).toEqual(["heart", "laugh", "question", "exclaim", "clap", "wave", "cheer", "yawn", "dance"]);
+    expect([...PICKER_KINDS].sort()).toEqual([...EMOTE_KINDS].sort());
   });
 
   test("keys 1–8 pick in that order; anything else picks nothing", () => {
@@ -20,7 +19,8 @@ describe("picker", () => {
     expect(kindForKey("6")).toBe("wave");
     expect(kindForKey("7")).toBe("cheer");
     expect(kindForKey("8")).toBe("yawn");
-    for (const k of ["0", "9", "a", "Enter", "", "11"]) expect(kindForKey(k)).toBeNull();
+    expect(kindForKey("9")).toBe("dance");
+    for (const k of ["0", "a", "Enter", "", "11"]) expect(kindForKey(k)).toBeNull();
   });
 });
 
