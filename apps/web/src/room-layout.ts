@@ -5,6 +5,7 @@ import type { Embed } from "@omega/shared";
 import type { ChatLog } from "./chat/log";
 import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
+import { createFsChat, type FsChat } from "./fs-chat";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
 import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, seatsHome, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
@@ -91,6 +92,8 @@ export interface RoomLayoutOptions {
 
 export interface RoomLayout {
   readonly fs: Fullscreen;
+  /** Full screen's "hide chat" (OME-1491): its toggle and the bubbles over the picture. */
+  readonly fsChat: FsChat;
   /** Full screen's chat strip: shown only in full screen, while the room is here. */
   readonly strip: HTMLElement;
   /** Size the TV, its shelf, the strip and the stage for the screen as it is now. */
@@ -131,6 +134,33 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
   stripHead.append(sprite("ui-icon-chat"), stripTitle);
   strip.append(stripHead);
   wrap.append(strip);
+  const fsChat = createFsChat({
+    store: (() => {
+      try {
+        return localStorage;
+      } catch {
+        return null;
+      }
+    })(),
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (h) => { clearTimeout(h); },
+    home: stripHead,
+    onChange: (hidden) => {
+      // Hiding takes the strip and the shelf away: focus in them goes to the toggle, now in the pill.
+      const focused = document.activeElement;
+      wrap.classList.toggle("fs-chat-hidden", hidden);
+      if (hidden && focused instanceof HTMLElement && (strip.contains(focused) || controls.contains(focused))) fsChat.toggle.focus({ preventScroll: true });
+      renderStrip();
+      fit();
+    },
+  });
+  wrap.append(fsChat.bubbles, fsChat.pill);
+  // The pill dims after a while; a pointer over our wrapper (not the provider's iframe, which keeps its events) wakes it.
+  const wakePill = (): void => {
+    if (fsChat.hidden()) fsChat.wake();
+  };
+  wrap.addEventListener("pointermove", wakePill, { passive: true });
+  wrap.addEventListener("pointerdown", wakePill, { passive: true });
   let stripMode: StripMode = storedStrip();
   let unread = 0;
   let displayedStripMode = stripMode;
@@ -228,6 +258,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     o.placeRoom();
     unread = 0;
     chatLog.setAgeing(on ? "fade" : "settle");
+    fsChat.setActive(on);
     placeChat();
     setBehindInert(mode === "pseudo");
     renderStrip();
@@ -315,8 +346,9 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     wrap.style.minHeight = "";
     if (fs.mode() !== "off") {
       // The room popped out: its chat is in the window, so the picture is alone.
-      const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), roomOut ? "none" : stripMode);
+      const l = fullscreenLayout(wrap.clientWidth, wrap.clientHeight, tvBox.provider(), fsChat.hidden() ? "hidden" : roomOut ? "none" : stripMode);
       boxTv(l);
+      box(fsChat.bubbles, l.strip);
       box(strip, l.strip);
       strip.dataset["at"] = l.at;
       renderStrip(l.at === "band" ? "band" : stripMode);
@@ -411,6 +443,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
 
   return {
     fs,
+    fsChat,
     strip,
     fit,
     placeChat,
