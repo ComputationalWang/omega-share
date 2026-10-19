@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, MAX_ROOM_MEMBERS, RoomLayoutSchema, footprintCells, parseServerMessage, type RoomLayout, type RoomState } from "@omega/shared";
-import { FurnitureManifestSchema, RoomManifestSchema, doorAt, layoutKey, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, type Scene } from "../src/furniture";
+import { FurnitureManifestSchema, RoomManifestSchema, doorAt, layoutKey, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4, type Scene } from "../src/furniture";
 import { cellCenter } from "../src/layout";
 import { cellOf } from "../src/walk/path";
 
@@ -9,6 +9,7 @@ import { cellOf } from "../src/walk/path";
 
 const manifest = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture.json", import.meta.url)).json());
 const v2 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v2.json", import.meta.url)).json());
+const v4 = v.parse(FurnitureManifestSchema, await Bun.file(new URL("../../../assets/furniture/furniture-v4.json", import.meta.url)).json());
 const room = v.parse(RoomManifestSchema, await Bun.file(new URL("../../../assets/room/room.json", import.meta.url)).json());
 /** The classic preset: the pre-M4 room (tv, 7×7 rug, eight armchairs, lamp, plant), all room-atlas kinds. */
 const CLASSIC: RoomLayout = v.parse(RoomLayoutSchema, await Bun.file(new URL("../../../assets/presets/classic.json", import.meta.url)).json());
@@ -479,5 +480,62 @@ describe("doors (OME-1425)", () => {
   test("the door draws from the v2 sheet", () => {
     expect(usesV2(l)).toBe(true);
     expect(usesSetG(l)).toBe(false); // the tv is a room-atlas piece: a door needs no set (g)
+  });
+});
+
+// OME-1439: batch 6 (OME-1437 art, its own lazy sheet) and its three "in use" triggers.
+describe("batch 6: hammock, stool, bar counter, piano, fireplace", () => {
+  const cells = (...cs: [number, number][]): Set<number> => new Set(cs.map(([c, r]) => cellOf(c, r)));
+  const l: RoomLayout = {
+    furniture: [
+      { kind: "tv", col: 0, row: 0, facing: "se" },
+      { kind: "hammock", col: 4, row: 7, facing: "ne" },
+      { kind: "piano", col: 1, row: 0, facing: "sw" },
+      { kind: "fireplace", col: 7, row: 0, facing: "sw" },
+      { kind: "stool", col: 3, row: 1, facing: "ne", variant: 1 },
+      { kind: "barcounter", col: 0, row: 3, facing: "se" },
+      { kind: "piano", col: 0, row: 6, facing: "se", variant: 1 },
+    ],
+  };
+
+  test("only these pieces load the batch 6 sheet, and they load no other", () => {
+    expect(usesV4(l)).toBe(true);
+    expect(usesV4(V2_SEATS)).toBe(false);
+    expect(usesV4(DEFAULT_LAYOUT)).toBe(false);
+    const only6: RoomLayout = { furniture: l.furniture.filter((f) => f.kind !== "tv") };
+    expect(usesV2(only6)).toBe(false);
+    expect(usesSetG(only6)).toBe(false);
+  });
+
+  test("they draw from the batch 6 sheet, coloured by variant; the hammock, piano and fireplace carry their loops", () => {
+    const s = sceneOf(l, [manifest, v2, v4]);
+    for (const k of keysOf(s).filter((k) => k.startsWith("furniture/"))) expect(v4.frames[k]).toBeDefined();
+    for (const x of s.sprites) for (const k of x.use?.frames ?? []) expect(v4.frames[k]).toBeDefined();
+    expect(sprite(s, "furniture/stool/teal/ne/back")).toMatchObject(cellCenter(3, 1));
+    expect(sprite(s, "furniture/hammock/rust/ne/back").use).toMatchObject({ piece: 1, ms: 260 });
+    expect(sprite(s, "furniture/piano/charcoal/se/back").use?.frames).toHaveLength(2);
+    expect(sprite(s, "furniture/fireplace/stone/sw/back").use?.ms).toBe(120);
+    expect(sprite(s, "furniture/barcounter/wood/se/back").use).toBeUndefined();
+  });
+
+  test("the hammock sways while someone sits in it (either seat), not when someone stands in front", () => {
+    expect(piecesInUse(l, cells(), false, cells([4, 7]))).toEqual(new Set([1]));
+    expect(piecesInUse(l, cells(), false, cells([5, 7]))).toEqual(new Set([1]));
+    expect(piecesInUse(l, cells([4, 6], [5, 6]), false, cells())).toEqual(new Set());
+    // Sitting on a stool moves nothing.
+    expect(piecesInUse(l, cells(), false, cells([3, 1]))).toEqual(new Set());
+  });
+
+  test("the piano plays while someone stands at its front, on either footprint cell", () => {
+    expect(piecesInUse(l, cells([1, 1]), false)).toEqual(new Set([2]));
+    expect(piecesInUse(l, cells([2, 1]), false)).toEqual(new Set([2]));
+    // Turned against the left wall: its front is +col of both cells.
+    expect(piecesInUse(l, cells([1, 7]), false)).toEqual(new Set([6]));
+    expect(piecesInUse(l, cells([3, 0], [2, 2]), false)).toEqual(new Set());
+  });
+
+  test("the fireplace burns while a video plays, and only then", () => {
+    expect(piecesInUse(l, cells([7, 1]), false)).toEqual(new Set());
+    expect(piecesInUse(l, cells(), true)).toEqual(new Set([3]));
   });
 });

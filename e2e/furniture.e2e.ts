@@ -10,7 +10,7 @@ import { site } from "./support/selectors";
 import { cellCenter } from "../apps/web/src/layout";
 import { WALK_SETTLE_MS, scene, seatedBetween, selfId } from "./support/scene";
 import { testRoomId } from "./support/test-rooms";
-import { IN_USE, doorRoom, SET_G, SET_G_SEAT_PIECE, V2_BENCHES, V2_BENCHES_PIECE, V2_SEATS, V2_SEATS_PIECE, V3_POUFS, V3_POUFS_PIECE } from "./fixtures/layouts";
+import { BAR, BAR_PIECE, IN_USE, doorRoom, SET_G, SET_G_SEAT_PIECE, V2_BENCHES, V2_BENCHES_PIECE, V2_SEATS, V2_SEATS_PIECE, V3_POUFS, V3_POUFS_PIECE } from "./fixtures/layouts";
 
 const ROOM_URL = `${URLS.web}/r/${DEFAULT_ROOM_ID}`;
 
@@ -47,6 +47,8 @@ const furnitureOnly = (s: readonly string[]): string[] => s.filter((x) => !x.sta
 const isAtlas = (r: Request): boolean => /furniture[^/]*\.(png|json|js)(\?|$)/.test(r.url()) && !r.url().includes("/src/furniture.ts");
 /** Catalogue v2's sheet, manifest or chunk (OME-1113). */
 const isV2 = (u: string): boolean => /furniture-v2[^/]*\.(png|json|js|ts)(\?|$)/.test(u);
+/** Batch 6's sheet, manifest or chunk (OME-1439). */
+const isV4 = (u: string): boolean => /furniture-v4[^/]*\.(png|json|js|ts)(\?|$)/.test(u);
 
 /** True once `avatar:<self>` draws over `piece`'s back and, if it has one, under its front (a cushion facing the camera has none). */
 async function seatedOn(page: Page, self: string, piece: string): Promise<boolean> {
@@ -219,6 +221,71 @@ test.describe("furniture in use", () => {
       expect(seen.size).toBeGreaterThan(1);
       await clickCell(page, 7, 8);
       await expect.poll(() => loops(page), { timeout: WALK_SETTLE_MS }).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // OME-1439: batch 6 is its own lazy sheet; the hammock sways while someone sits in it, the piano plays while someone stands at its front.
+  test("a bar room loads only the batch 6 sheet; the hammock sways while I sit in it, the piano plays while I stand at it", async ({ browser }) => {
+    const context = await watchCsp(await browser.newContext());
+    try {
+      await stubExternalNetwork(context);
+      const page = await context.newPage();
+      const atlas: string[] = [];
+      page.on("request", (r) => {
+        if (isAtlas(r)) atlas.push(r.url());
+      });
+      await withLayout(page, { layout: BAR });
+      await enter(page, "bar-1", `${URLS.web}/r/${testRoomId("furniture", "bar")}`);
+      const kinds = BAR.furniture.map((f) => f.kind).filter((k) => k !== "tv");
+      await expect.poll(async () => {
+        const drawn = new Set((await scene(page)).map((k) => k.split("/")[1]));
+        return kinds.filter((k) => !drawn.has(k));
+      }).toEqual([]);
+      expect(atlas.some((u) => isV4(u) && u.includes(".png"))).toBe(true);
+      expect(atlas.filter((u) => !isV4(u))).toEqual([]);
+      await expect.poll(() => loops(page)).toEqual([]);
+
+      const self = await selfId(page);
+      const seats = page.locator(site.seat);
+      await clickSettled(page, seats.nth(0));
+      await expect.poll(() => seatedOn(page, self, BAR_PIECE[0] ?? ""), { timeout: WALK_SETTLE_MS }).toBe(true);
+      expect(await loops(page)).toEqual([]);
+      await clickSettled(page, seats.nth(5));
+      await expect.poll(() => seatedOn(page, self, BAR_PIECE[5] ?? ""), { timeout: WALK_SETTLE_MS }).toBe(true);
+      await expect.poll(async () => JSON.stringify(await loops(page)), { timeout: WALK_SETTLE_MS }).toMatch(/^\[\{"key":"furniture\/hammock\/rust\/ne\/back","frame":[0-3]\}\]$/);
+      const seen = new Set<string>();
+      for (let i = 0; i < 10; i++) {
+        seen.add(JSON.stringify(await loops(page)));
+        await page.waitForTimeout(150);
+      }
+      expect(seen.size).toBeGreaterThan(1);
+      await test.info().attach("room-bar-hammock.png", { body: await page.locator(site.room).screenshot(), contentType: "image/png" });
+
+      await clickCell(page, 2, 1);
+      await expect.poll(async () => JSON.stringify(await loops(page)), { timeout: WALK_SETTLE_MS }).toMatch(/^\[\{"key":"furniture\/piano\/wood\/sw\/back","frame":[01]\}\]$/);
+      await clickCell(page, 7, 8);
+      await expect.poll(() => loops(page), { timeout: WALK_SETTLE_MS }).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("under reduced motion the hammock someone sits in shows its still frame", async ({ browser }) => {
+    const context = await watchCsp(await browser.newContext({ reducedMotion: "reduce" }));
+    try {
+      await stubExternalNetwork(context);
+      const page = await context.newPage();
+      await withLayout(page, { layout: BAR });
+      await enter(page, "bar-still", `${URLS.web}/r/${testRoomId("furniture", "barstill")}`);
+      await expect.poll(async () => (await scene(page)).includes("furniture/hammock/rust/nw/back")).toBe(true);
+      const self = await selfId(page);
+      await clickSettled(page, page.locator(site.seat).nth(6));
+      await expect.poll(() => seatedOn(page, self, BAR_PIECE[6] ?? ""), { timeout: WALK_SETTLE_MS }).toBe(true);
+      await expect.poll(async () => JSON.stringify(await loops(page))).toBe('[{"key":"furniture/hammock/rust/nw/back","frame":-1}]');
+      await page.waitForTimeout(600);
+      expect(JSON.stringify(await loops(page))).toBe('[{"key":"furniture/hammock/rust/nw/back","frame":-1}]');
     } finally {
       await context.close();
     }

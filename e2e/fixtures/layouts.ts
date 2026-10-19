@@ -83,3 +83,24 @@ export const IN_USE: RoomLayout = {
 
 /** V2_BENCHES plus a door on the left wall at (0, 3) facing se (its front: (1, 3)) to room `target` (OME-1425). */
 export const doorRoom = (target: string): RoomLayout => ({ furniture: [...V2_BENCHES.furniture, { kind: "door", col: 0, row: 3, facing: "se", target }] });
+
+/**
+ * Batch 6 (OME-1439): four stools at two bar counters, two hammocks, a piano on the right wall at (1, 0) facing sw (its
+ * front: (1, 1) and (2, 1)) and a fireplace. Seats 0–3 are the stools, 4–5 the ne hammock, 6–7 the nw one.
+ */
+export const BAR: RoomLayout = {
+  furniture: [
+    { kind: "tv", col: 0, row: 0, facing: "se" },
+    { kind: "stool", col: 3, row: 1, facing: "ne" },
+    { kind: "stool", col: 4, row: 1, facing: "ne", variant: 1 },
+    { kind: "stool", col: 1, row: 3, facing: "nw" },
+    { kind: "stool", col: 1, row: 4, facing: "nw", variant: 1 },
+    { kind: "hammock", col: 4, row: 7, facing: "ne" },
+    { kind: "hammock", col: 7, row: 4, facing: "nw" },
+    { kind: "barcounter", col: 3, row: 0, facing: "sw" },
+    { kind: "barcounter", col: 0, row: 3, facing: "se" },
+    { kind: "piano", col: 1, row: 0, facing: "sw" },
+    { kind: "fireplace", col: 7, row: 0, facing: "sw" },
+  ],
+};
+export const BAR_PIECE = ["stool/wood/ne", "stool/teal/ne", "stool/wood/nw", "stool/teal/nw", "hammock/rust/ne", "hammock/rust/ne", "hammock/rust/nw", "hammock/rust/nw"];

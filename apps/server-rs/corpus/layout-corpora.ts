@@ -24,7 +24,7 @@ const parsed = (schema: v.GenericSchema, inputs: readonly unknown[]): Case[] =>
   });
 
 const preset = (id: string): unknown => JSON.parse(readFileSync(new URL(`../../../assets/presets/${id}.json`, import.meta.url), "utf8"));
-const PRESETS = ["classic", "cinema", "living", "lounge", "cafe", "empty"].map(preset);
+const PRESETS = ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty"].map(preset);
 
 const POSITIONS = [[0, 0], [0, 9], [9, 0], [9, 9], [4, 4], [5, 0], [0, 5], [8, 0], [0, 8], [2, 0], [0, 2], [9, 5], [3, 9]] as const;
 const everyKindEveryFacing = (): unknown[] =>
@@ -89,7 +89,7 @@ const overlaps = (): unknown[] => [
 
 const wallPieces = (): unknown[] => {
   const out: unknown[] = [];
-  for (const kind of ["frame", "wallshelf", "garland", "neonsign", "wallclock", "bookshelf"] as const)
+  for (const kind of ["frame", "wallshelf", "garland", "neonsign", "wallclock", "bookshelf", "fireplace"] as const)
     for (let i = 0; i < 10; i++) {
       out.push(around({ kind, col: i, row: 0, facing: "sw" }), around({ kind, col: 0, row: i, facing: "se" }));
       out.push(around({ kind, col: i, row: 1, facing: "sw" }), around({ kind, col: 1, row: i, facing: "se" }));

@@ -168,7 +168,7 @@ test.describe("reduced motion", () => {
 // OME-1022: the create form's preset picker (its chunk and the six thumbnails) is only needed once you head for the
 // directory, so a first visit to `/` fetches none of it. Intent in the entry form warms it, and by the time the
 // directory opens every thumbnail has its pixels (no pop-in). Dev serves `src/home.ts`, preview `home-<hash>.js`.
-const PICKER_URL = /\/(home|presets|preset-thumbs)(-[\w-]+)?\.(js|ts)(\?|$)|\/(classic|cinema|living|lounge|cafe|empty)(-[\w-]+)?\.png(\?|$)/;
+const PICKER_URL = /\/(home|presets|preset-thumbs)(-[\w-]+)?\.(js|ts)(\?|$)|\/(classic|cinema|living|lounge|cafe|bar|empty)(-[\w-]+)?\.png(\?|$)/;
 
 test("a first visit to / fetches no preset thumbnails or picker code; intent warms them and the directory shows all six", async ({ page }) => {
   const fetched: string[] = [];
