@@ -309,7 +309,8 @@ test.describe("furniture in use", () => {
       );
     }
     await withLayout(page, { layout: doorRoom(target) });
-    await enter(page, "player-1", `${URLS.web}/r/${room}`);
+    // One nickname per attempt: the last attempt's member holds its name for the resume grace (RESUME_GRACE_MS).
+    await enter(page, `door-${String(test.info().retry)}-${String(test.info().repeatEachIndex)}`, `${URLS.web}/r/${room}`);
     await expect.poll(async () => (await scene(page)).includes("furniture/door/wood/se/back")).toBe(true);
     return { page, close: () => context.close() };
   }

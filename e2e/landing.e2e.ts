@@ -287,10 +287,7 @@ test.describe("directory forms", () => {
 // OME-1473: the form is static HTML and its submit handler comes with the app script. Until then a click would submit
 // natively, which CSP form-action 'none' blocks: the join button stays disabled until the handler is attached.
 test("the join button is disabled until the app script has attached its handler (OME-1473)", async ({ page }) => {
-  let release = (): void => {};
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const { promise: held, resolve: release } = Promise.withResolvers<undefined>();
   // Dev serves /src/main.ts, preview the hashed entry chunk.
   await page.route(/\/src\/main\.ts$|\/assets\/index-[^/]*\.js$/, async (route) => {
     await held;
@@ -299,7 +296,7 @@ test("the join button is disabled until the app script has attached its handler 
   await page.goto(`${URLS.web}/r/${DEFAULT_ROOM_ID}`, { waitUntil: "commit" });
   await page.locator(site.nicknameInput).fill("early-bird");
   await expect(page.locator(site.joinButton)).toBeDisabled();
-  release();
+  release(undefined);
   await page.locator(site.joinButton).click();
   await expect(page.locator(site.room)).toBeVisible();
 });
