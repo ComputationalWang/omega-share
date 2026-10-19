@@ -131,7 +131,7 @@ avatar's hair ramp (3 entries), no new frames. Skin, shirt tint, trousers, shoes
 - **Hair-only slots.** Kiki's hair used to share `pink` with her shoes and popcorn stripes, and Pip's `ginger` is also the
   Halloween witch hat band, so a slot swap would have recoloured those. Their hair now uses `hairPink` / `hairGinger`
   (`src/palette.ts`): the same colours one blue step off (invisible), appended at the end of `PALETTE` so every older index
-  stays put. Cost: +6 PLTE entries in every sheet, +349 B across all shipped PNGs. Hair-only colours (blonde, chestnut,
+  stays put. Cost: +6 PLTE entries in every sheet, +349 B across all shipped PNGs (309 B in the art sheets + 40 B in `site/`). Hair-only colours (blonde, chestnut,
   silver, cherry, sky, mint, violet; `HAIR_RAMPS` in `src/hairs.ts`) live only in `hairs.json`.
 - **Order with tints: none needed.** Hair slots and tint slots are disjoint PLTE entries for every avatar (checked), so
   patch both into the same sheet copy in either order: one copy per (avatar, tint, hair) in use. The colours are written,
