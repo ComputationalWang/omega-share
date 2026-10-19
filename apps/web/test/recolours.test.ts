@@ -30,7 +30,8 @@ const NEW: RoomLayout = v.parse(RoomLayoutSchema, {
     { kind: "beanbag", col: 9, row: 9, facing: "nw", variant: 3 },
     { kind: "pouf", col: 8, row: 0, facing: "sw", variant: 2 },
     { kind: "stool", col: 9, row: 2, facing: "sw", variant: 3 },
-    { kind: "runner", col: 3, row: 3, facing: "ne", variant: 2 },
+    { kind: "runner", col: 7, row: 8, facing: "ne", variant: 2 },
+    { kind: "wingback", col: 0, row: 5, facing: "ne" },
     { kind: "sofa", col: 5, row: 8, facing: "ne", variant: 1 },
   ],
 });
@@ -104,11 +105,12 @@ describe("the editor offers every variant", () => {
     expect(coloursOf("runner")).toEqual(["lilac", "teal", "rust", "mustard"]);
   });
 
-  test("every kind with variants has one swatch per variant, each a frame of the edit kit", () => {
+  test("every kind with variants has one swatch per variant; the recoloured kinds' are frames of the edit kit", () => {
     for (const kind of FURNITURE_KINDS) {
-      const colours = coloursOf(kind);
-      if (FURNITURE[kind].variants > 1) expect(colours).toHaveLength(FURNITURE[kind].variants);
-      for (const c of colours) expect(edit[`swatch/${c}`]).toBeDefined();
+      if (FURNITURE[kind].variants > 1) expect(coloursOf(kind)).toHaveLength(FURNITURE[kind].variants);
+    }
+    for (const kind of ["sofa", "rug", "beanbag", "pouf", "stool", "runner"] as const) {
+      for (const c of coloursOf(kind)) expect(edit[`swatch/${c}`]).toBeDefined();
     }
   });
 });

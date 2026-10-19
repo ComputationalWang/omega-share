@@ -4,6 +4,7 @@
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Facing, type Furniture, type FurnitureKind, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
 import { cellCenter, type Point } from "./layout";
+import { recolourKey, recolourOf } from "./recolours";
 import { cellOf } from "./walk/path";
 
 /**
@@ -235,20 +236,24 @@ function pushSprites(
   anchor: Point,
   { piece, sort, layers }: { readonly piece: Piece; readonly sort: { readonly x: number; readonly y: number }; readonly layers: FurnitureManifest["meta"]["omega"]["layers"] },
 ): void {
-  const colour = piece.colours[f.variant ?? 0] ?? piece.colours[0] ?? "";
+  const variant = f.variant ?? 0;
+  // A new colour (OME-1463) draws its source colour's frames from that sheet's recoloured copy.
+  const recolour = recolourOf(f.kind, variant);
+  const prefix = recolour?.frames ?? `furniture/${piece.id}/${piece.colours[variant] ?? piece.colours[0] ?? ""}/`;
+  const frame = (rest: string): string => (recolour === undefined ? prefix + rest : recolourKey(f.kind, variant, prefix + rest));
   const layer = FURNITURE[f.kind].layer;
   for (const part of piece.layersByDir[f.facing] ?? []) {
     out.push({
-      key: `furniture/${piece.id}/${colour}/${f.facing}/${part}`,
+      key: frame(`${f.facing}/${part}`),
       x: anchor.x,
       y: anchor.y,
       layer,
       z: depth(anchor.x + sort.x, anchor.y + sort.y, layers[part]),
       // The loop swaps the back frame in place (same size and anchor). An open piece (a door) has one frame: its open one, a state.
       ...(part === "back" && piece.use !== undefined
-        ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => `furniture/${piece.id}/${colour}/use/${f.facing}/${String(n)}`), ms: piece.use.ms } }
+        ? { use: { piece: index, frames: Array.from({ length: piece.use.frames }, (_, n) => frame(`use/${f.facing}/${String(n)}`)), ms: piece.use.ms } }
         : part === "back" && piece.open === true
-          ? { use: { piece: index, frames: [`furniture/${piece.id}/${colour}/open/${f.facing}`], ms: OPEN_MS } }
+          ? { use: { piece: index, frames: [frame(`open/${f.facing}`)], ms: OPEN_MS } }
           : {}),
     });
   }
@@ -275,7 +280,9 @@ function pushShell(out: FurnitureSprite[], layout: RoomLayout, room: RoomManifes
     for (let col = 0; col < FLOOR_CELLS; col++) {
       const rug = rugs.find((f) => col >= f.col && col < f.col + rugSize && row >= f.row && row < f.row + rugSize);
       const plank = suggested.floor[row]?.[col] ?? "";
-      const key = rug !== undefined ? `rug/${rugPart(col - rug.col, row - rug.row, rugSize - 1)}` : plank.startsWith("floor/") ? plank : "floor/0";
+      const part = rug === undefined ? "" : `rug/${rugPart(col - rug.col, row - rug.row, rugSize - 1)}`;
+      const recoloured = rug !== undefined && recolourOf("rug", rug.variant ?? 0) !== undefined;
+      const key = rug === undefined ? (plank.startsWith("floor/") ? plank : "floor/0") : recoloured ? recolourKey("rug", rug.variant ?? 0, part) : part;
       out.push(shellSprite(key, col, row, "floor"));
     }
   }

@@ -255,7 +255,7 @@ describe("FurnitureSchema", () => {
     ["a garland facing the TV", { kind: "garland", col: 2, row: 0, facing: "ne" }],
     ["a hammock hanging off the floor", { kind: "hammock", col: 9, row: 0, facing: "ne" }],
     ["a second hammock colour", { kind: "hammock", col: 4, row: 4, facing: "ne", variant: 1 }],
-    ["a third stool colour", { kind: "stool", col: 3, row: 3, facing: "ne", variant: 2 }],
+    ["a fifth stool colour", { kind: "stool", col: 3, row: 3, facing: "ne", variant: 4 }],
     ["a bar counter facing the TV", { kind: "barcounter", col: 4, row: 4, facing: "ne" }],
     ["a piano facing the TV", { kind: "piano", col: 4, row: 4, facing: "nw" }],
     ["a fireplace away from its wall", { kind: "fireplace", col: 3, row: 1, facing: "sw" }],
