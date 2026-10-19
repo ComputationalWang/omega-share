@@ -31,6 +31,7 @@ type Row = readonly [keys: readonly string[], what: string];
 
 const KEYBOARD: readonly Row[] = [
   [[], "Click a seat to walk over and sit."],
+  [[], "Scroll over the room to zoom in or out; the Fit key in its corner shows the whole room again."],
   [["Shift", "Arrows"], "Jog a step on the focused floor; double-click the floor to jog there."],
   [["Enter"], "Jump to the message field; Enter again sends."],
   [["Esc"], "Leave the field, close a menu, or leave full screen."],

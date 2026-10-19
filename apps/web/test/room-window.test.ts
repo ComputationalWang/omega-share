@@ -191,3 +191,66 @@ describe("off the phone", () => {
     expect(stage.style.getPropertyValue("--label-scale")).toBe("");
   });
 });
+
+// OME-1490: on a computer the wheel zooms the fitted room around the pointer; the Fit key goes back to the whole room
+// (a double-click on the floor is a jog, OME-1350).
+describe("on a computer", () => {
+  /** The room fitted at half size: a 480×266 box. */
+  const FIT = 0.5;
+  const frame = () => new Promise((r) => requestAnimationFrame(r));
+  const wheel = (clip: HTMLElement, deltaY: number, x = 240, y = 133, ctrlKey = false): WheelEvent => {
+    const ev = new WheelEvent("wheel", { deltaY, clientX: x, clientY: y, ctrlKey, bubbles: true, cancelable: true });
+    clip.dispatchEvent(ev);
+    return ev;
+  };
+
+  test("at 1× the room is fitted as before", async () => {
+    const { win, stage } = await setup();
+    const { stageTransform } = await import("../src/layout");
+    win.desk(FIT);
+    expect(stage.style.transform).toBe(stageTransform(FIT));
+  });
+
+  test("wheel up zooms in, wheel down zooms out, once a frame, and the page doesn't scroll or zoom", async () => {
+    const { win, clip, zoom } = await setup();
+    win.desk(FIT);
+    const a = wheel(clip, -100);
+    wheel(clip, -100);
+    expect(a.defaultPrevented).toBe(true);
+    expect(zoom()).toBe(FIT);
+    await frame();
+    expect(zoom()).toBeGreaterThan(FIT * 1.25);
+    const zoomed = zoom();
+    expect(wheel(clip, 40, 240, 133, true).defaultPrevented).toBe(true);
+    await frame();
+    expect(zoom()).toBeLessThan(zoomed);
+    expect(zoom()).toBeGreaterThan(FIT);
+  });
+
+  test("the zoom is remembered on this device, apart from the phone's, and the Fit key, shown only zoomed in, goes back to 1×", async () => {
+    const { win, clip, stage, key } = await setup();
+    const { stageTransform } = await import("../src/layout");
+    win.desk(FIT);
+    expect(key("fit").closest("[hidden]")).not.toBeNull();
+    wheel(clip, -1000);
+    await frame();
+    expect(localStorage.getItem("omega.roomZoomDesk")).toBe("2");
+    expect(localStorage.getItem("omega.roomZoom")).toBeNull();
+    expect(key("fit").closest("[hidden]")).toBeNull();
+    const b = await setup();
+    b.win.desk(FIT);
+    expect(b.zoom()).toBe(FIT * 2);
+    key("fit").click();
+    expect(stage.style.transform).toBe(stageTransform(FIT));
+    expect(localStorage.getItem("omega.roomZoomDesk")).toBe("1");
+    expect(key("fit").closest("[hidden]")).not.toBeNull();
+  });
+
+  test("on the phone the wheel does nothing new", async () => {
+    const { win, clip, zoom } = await setup();
+    win.set(true, VIEW.w, VIEW.h);
+    expect(wheel(clip, -100).defaultPrevented).toBe(false);
+    await frame();
+    expect(zoom()).toBe(1);
+  });
+});

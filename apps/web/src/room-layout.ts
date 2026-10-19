@@ -6,7 +6,7 @@ import type { ChatLog } from "./chat/log";
 import { el, sprite } from "./controls/dom";
 import type { QueuePanel } from "./controls/queue-panel";
 import { createFullscreen, type Fullscreen, type FullscreenMode } from "./fullscreen";
-import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, seatsHome, stageTransform, wideLayout, type Point, type Rect, type StripMode } from "./layout";
+import { FS_STRIP_W, PHONE_ROOM_H, STAGE_W, fullscreenLayout, portraitLayout, roomLayout, seatsHome, wideLayout, type Point, type Rect, type StripMode } from "./layout";
 import { createPortraitDock } from "./portrait-dock";
 import { KEYS_COLUMN_H, createRoomWindow } from "./room-window";
 
@@ -372,7 +372,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
         } else {
           box(clip, l.stage);
           roomWindow.set(false, 0, 0);
-          stage.style.transform = stageTransform(l.scale);
+          roomWindow.desk(l.scale);
           stage.style.setProperty("--stage-scale", String(l.scale));
         }
       }
@@ -397,7 +397,7 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     if (onPhone) roomWindow.set(true, l.stage.w, l.stage.h);
     else {
       roomWindow.set(false, 0, 0);
-      stage.style.transform = stageTransform(l.scale);
+      roomWindow.desk(l.scale);
     }
     // The room popped out: the wrap ends where the stage would start, and the placeholder follows it.
     wrap.style.height = portraitOn ? "" : `${String(roomOut ? l.stage.y : l.height)}px`;
