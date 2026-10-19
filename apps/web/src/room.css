@@ -608,6 +608,10 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 .fs-chat-pill.is-idle:not(:focus-within) { opacity: 0.25; }
 .fs-chat-pill[hidden], .fs-bubbles[hidden] { display: none; }
 .fs-chat-toggle { font-size: 11px; text-transform: none; }
+/* In the strip's head the key gives way before the field does: the strip's one column never grows to its head's content
+ * (CI fonts made a 201 px strip's row overflow by 5 px). */
+.fs-strip { grid-template-columns: minmax(0, 1fr); }
+.fs-strip-head > .fs-chat-toggle { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fs-bubbles { position: absolute; z-index: 3; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end; gap: 6px; padding: 0 8px 12px; box-sizing: border-box; overflow: hidden; }
 .fs-bubble { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 6px; align-items: center; max-width: 100%; padding: 4px 8px 4px 4px; border-radius: 8px; background: rgb(43 29 47 / 0.82); color: var(--ui-text); font-size: 13px; line-height: 1.3; animation: fs-bubble 6s linear forwards; }
 .fs-bubble-head { grid-row: span 2; width: 32px; height: 28px; background: url("../../../assets/avatars/avatars.png") no-repeat; image-rendering: pixelated; }

@@ -83,7 +83,8 @@ export function createFsChat<H>(o: FsChatOptions<H>): FsChat {
   const render = (): void => {
     const next = active && chosen;
     toggle.setAttribute("aria-pressed", String(chosen));
-    toggle.textContent = next ? "Chat hidden · C" : "Hide chat";
+    // Short in the strip's head: a phone's narrow strip also holds the emote, pop-out and collapse keys there.
+    toggle.textContent = next ? "Chat hidden · C" : "Hide";
     // One key, two homes: the pill while hidden, the strip's head otherwise. Focus survives the move.
     const home = next ? pill : o.home;
     if (home !== undefined && toggle.parentElement !== home) {
