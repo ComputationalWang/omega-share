@@ -19,6 +19,7 @@ import { decorSprites } from "./theme/decor";
 import { CONFETTI_MS, CONFETTI_SPRITES, EFFECT_MIN_INTERVAL_MS, SPARKLE_MS, SPARKLE_SPRITES, confettiMotion, createEffectPainter, createParticles, effectBounds, sparkleMotion, type EffectFrame, type EffectMotion, type EffectPainter, type Particles } from "./theme/effect";
 import { DOOR, centerOf } from "./walk/path";
 import { resolveTheme } from "./theme/periods";
+import { livePieces, type LivePieces } from "./live-pieces";
 
 export interface AvatarPlacement {
   readonly id: MemberId;
@@ -200,7 +201,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   }
   // Static: the floor, then rugs and wall pieces in furniture order. Objects sort with the avatars by depth.
   const background = new Container();
-  background.addChild(floor);
+  // Static object pieces, depth-sorted, baked with the shell (OME-1448): their live copies draw only when needed (live-pieces.ts).
+  // The shell sorts by zIndex (Pixi sorts a parent once a child has one): over every floor and wall piece.
+  const baked = new Container({ label: "baked", sortableChildren: true, zIndex: Number.MAX_VALUE });
+  background.addChild(floor, baked);
   bakeShell(background);
   // Wall pieces with a loop (the neon sign, OME-1407) sit just over the baked shell, so a loop frame never repaints it.
   const liveWall = new Container({ label: "live-wall" });
@@ -219,6 +223,16 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   let markers: (Graphics | null)[] = [];
   let lastTaken: (boolean | null)[] = [];
   let furniture: Sprite[] = [];
+  /** The object pieces' live copies, by `live` index; `shadows` the same as a set, to tell them from avatars and hats. */
+  let pieceSprites: Sprite[] = [];
+  /** By the same index: the piece loops, so it has no baked copy and always draws live. */
+  let pieceLoops: boolean[] = [];
+  let shadows: ReadonlySet<Container> = new Set<Container>();
+  let live: LivePieces | null = null;
+  /** The layers under the objects changed (scene, decor): which pieces must always draw live is computed again. */
+  let pinDirty = false;
+  /** The walk hover's box, stage px (it draws under every object). */
+  let hoverBox = { x0: 0, y0: 0, x1: 0, y1: 0 };
   /** Every piece that can loop, in scene order; `running` the ones in use now (the animator's loop indices). */
   let looping: Loop[] = [];
   let running: Loop[] = [];
@@ -232,9 +246,63 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
 
   let paused = false;
   let renders = 0;
+  /** A sprite's box in stage px, from its texture and anchor (not `getBounds()`: that skips a sprite that isn't renderable). */
+  const spriteBox = { x0: 0, y0: 0, x1: 0, y1: 0 };
+  const boxOf = (c: Sprite): typeof spriteBox => {
+    const t = c.texture;
+    spriteBox.x0 = c.x - c.anchor.x * t.width;
+    spriteBox.y0 = c.y - c.anchor.y * t.height;
+    spriteBox.x1 = spriteBox.x0 + t.width;
+    spriteBox.y1 = spriteBox.y0 + t.height;
+    return spriteBox;
+  };
+  /** Pieces that always draw live: those with a loop, or under decor, a wall loop or a seat marker (drawn over the shell). */
+  const pin = (): void => {
+    pinDirty = false;
+    // Decor and wall loops are sprites, drawn over the shell.
+    const over = [...decorLayer.children, ...liveWall.children].flatMap((c) => (c instanceof Sprite ? [{ ...boxOf(c) }] : []));
+    // A seat marker is drawn on its next update: its cell's diamond.
+    for (const m of markerLayer.children) over.push({ x0: m.x - TILE_W / 2, y0: m.y - TILE_H / 2, x1: m.x + TILE_W / 2, y1: m.y + TILE_H / 2 });
+    live = livePieces(
+      pieceSprites.map((sprite, i) => {
+        const box = { ...boxOf(sprite) };
+        const pinned = pieceLoops[i] === true || over.some((o) => o.x0 < box.x1 && box.x0 < o.x1 && o.y0 < box.y1 && box.y0 < o.y1);
+        return { ...box, z: sprite.zIndex, pinned };
+      }),
+    );
+  };
+  /** Which pieces' live copies draw this frame: the ones something behind them overlaps (live-pieces.ts). Allocates nothing. */
+  const showLive = (): void => {
+    if (pinDirty) pin();
+    if (live === null) return;
+    // The editor's grid and markers sit under the objects: while it's open, every piece draws live, as before.
+    let all = editLayer.children.length > 0;
+    if (!all) {
+      live.begin();
+      for (const c of objectLayer.children) {
+        if (!c.visible || shadows.has(c)) continue;
+        // A placeholder avatar (before the motion atlas) has no cheap box: everything live until it's a sprite.
+        if (!(c instanceof Sprite)) {
+          all = true;
+          break;
+        }
+        const b = boxOf(c);
+        // A px of margin: an avatar between pixels touches its neighbours' at resolution 2.
+        live.cover(b.x0 - 1, b.y0 - 1, b.x1 + 1, b.y1 + 1, c.zIndex);
+      }
+      if (hover.visible) live.cover(hoverBox.x0, hoverBox.y0, hoverBox.x1, hoverBox.y1, -Infinity);
+      live.end();
+    }
+    for (let i = 0; i < pieceSprites.length; i++) {
+      const s = pieceSprites[i];
+      const want = all || live.live[i] === true;
+      if (s !== undefined && s.renderable !== want) s.renderable = want;
+    }
+  };
   const render = (): void => {
     if (paused) return;
     pumpSystem();
+    showLive();
     app.render();
     renders++;
   };
@@ -247,6 +315,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   let lastScene: Scene | null = null;
   let hatsShown = 0;
   const placeDecor = (): void => {
+    pinDirty = true;
     for (const c of decorLayer.removeChildren()) c.destroy();
     if (theme === null || lastScene === null) return;
     for (const d of decorSprites(lastScene, theme.decor)) {
@@ -700,9 +769,12 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       lastScene = scene;
       placeDecor();
       for (const s of furniture) s.destroy();
+      for (const c of baked.removeChildren()) c.destroy();
       for (const m of markers) m?.destroy();
       furniture = [];
       looping = [];
+      pieceSprites = [];
+      pieceLoops = [];
       // Floor tiles and rugs, then walls and wall pieces, then objects; the background keeps that order, objects sort by depth.
       const ordered = ["floor", "wall", "object"].flatMap((layer) => scene.sprites.filter((f) => f.layer === layer));
       // Room and set (g) keys never collide (set (g)'s all start with `furniture/`).
@@ -722,7 +794,14 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
           if (live) looping.push({ sprite: s, piece: f.use.piece, idle: texture, textures, frames: textures.length, ms: f.use.ms });
         }
         (f.layer === "object" ? objectLayer : live ? liveWall : background).addChild(s);
+        if (f.layer !== "object") continue;
+        pieceSprites.push(s);
+        pieceLoops.push(live);
+        // A loop's frames change: it has no baked copy.
+        if (!live) baked.addChild(new Sprite({ texture, label: f.key, x: f.x, y: f.y, zIndex: f.z }));
       }
+      shadows = new Set(pieceSprites);
+      pinDirty = true;
       applyLoops();
       // The room atlas's planks cover every cell: skip drawing the placeholder floor under them.
       floor.visible = !planks;
@@ -810,6 +889,8 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       } else {
         drawCursor(hover, { col: cell.x, row: cell.y, wall: null }, scale);
         hover.visible = true;
+        const b = hover.getBounds();
+        hoverBox = { x0: b.minX, y0: b.minY, x1: b.maxX, y1: b.maxY };
       }
       render();
     },
@@ -868,7 +949,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     },
     drawOrder() {
       const sorted = [...objectLayer.children].sort((a, b) => a.zIndex - b.zIndex);
-      return [...background.children, ...liveWall.children, ...markerLayer.children, ...sorted].map((c) => c.label);
+      return [...background.children.filter((c) => c !== baked), ...liveWall.children, ...markerLayer.children, ...sorted].map((c) => c.label);
     },
     theme: () => ({ id: themeId, decor: decorLayer.children.length, hats: hatsShown, effect: effectRunning ? (particles?.count ?? 0) : 0, ticks: effectTicks, worstTickMs: worstTick }),
     confetti() {

@@ -6,13 +6,16 @@
 // so most of the 24 are walking at any moment (8 seats, so the rest walk about). The video plays
 // (fake player). Rows: walk25.frameP95.<profile>.<tier> (quantised p95 ≤ one vsync), walk25.workP95.<profile>.<tier>
 // (≤ 8 ms), walk25.missedVsync.<profile>.<tier> (≤ 1 %), for profile = desktop | phone, tier = basic | smooth.
-// OMEGA_PERF_WALK_LAYOUT=<preset id> (OME-1439): the observer sees that preset instead (its snapshots rewritten). With bar the bots in
-// the hammock seats (4–7) sway them, a bot at the piano's front plays it and the playing video lights the fireplace: the
-// same rows with every batch 6 loop running. Bots still walk the default layout's free cells (the server's layout).
+// The observer sees the cafe preset (OME-1448, docs/perf-budgets.md): the shipped preset with the most object pieces, so
+// the rows hold the dearest furnished room, not only the default layout's. OMEGA_PERF_WALK_LAYOUT=<preset id> (OME-1439)
+// shows another preset, `default` the default layout. The room's own layout stays the default one (its snapshots are
+// rewritten in the observer's page), so bots walk the cells free in both. With bar the bots in the hammock seats (4–7)
+// sway them, a bot at the piano's front plays it and the playing video lights the fireplace: every batch 6 loop runs.
 import { devices, expect, test } from "@playwright/test";
 import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { DEFAULT_LAYOUT, FLOOR_CELLS, MAX_ROOM_MEMBERS, isStandable } from "@omega/shared";
+import * as v from "valibot";
+import { DEFAULT_LAYOUT, FLOOR_CELLS, MAX_ROOM_MEMBERS, RoomLayoutSchema, isStandable } from "@omega/shared";
 import { PENDING, URLS, available } from "../e2e/support/apps";
 import { socketUrl } from "../e2e/support/bots";
 import { watchCsp } from "../e2e/support/csp";
@@ -30,18 +33,18 @@ const CHANGE_EVERY_MS = 120;
 const MIN_WALKERS = 15;
 /** Free walks per tick (ADR 0053): ~17/s room-wide, each bot well under its 4/s walk bucket. */
 const WALKS_PER_TICK = 2;
-/** Every cell a bot may walk to in the default layout (the seeded room has no layout of its own). */
-const FREE_CELLS = Array.from({ length: FLOOR_CELLS * FLOOR_CELLS }, (_, i) => ({ x: i % FLOOR_CELLS, y: Math.floor(i / FLOOR_CELLS) })).filter((c) =>
-  isStandable(DEFAULT_LAYOUT, c),
-);
 const PROFILES = ["desktop", "phone"] as const;
 const TIERS = ["basic", "smooth"] as const;
 type Profile = (typeof PROFILES)[number];
 type Tier = (typeof TIERS)[number];
 const BOT_PREFIX = "w25-bot";
-const LAYOUT_PRESET = process.env["OMEGA_PERF_WALK_LAYOUT"] ?? "";
-if (LAYOUT_PRESET !== "" && !/^[a-z]{1,12}$/.test(LAYOUT_PRESET)) throw new Error(`OMEGA_PERF_WALK_LAYOUT must be a preset id, not ${JSON.stringify(LAYOUT_PRESET)}`);
-const BAR_LAYOUT: unknown = LAYOUT_PRESET === "" ? null : JSON.parse(readFileSync(new URL(`../assets/presets/${LAYOUT_PRESET}.json`, import.meta.url), "utf8"));
+const LAYOUT_PRESET = process.env["OMEGA_PERF_WALK_LAYOUT"] ?? "cafe";
+if (!/^[a-z]{1,12}$/.test(LAYOUT_PRESET)) throw new Error(`OMEGA_PERF_WALK_LAYOUT must be a preset id or default, not ${JSON.stringify(LAYOUT_PRESET)}`);
+const SHOWN_LAYOUT = LAYOUT_PRESET === "default" ? null : v.parse(RoomLayoutSchema, JSON.parse(readFileSync(new URL(`../assets/presets/${LAYOUT_PRESET}.json`, import.meta.url), "utf8")));
+/** Every cell a bot may walk to: free in the room's own (default) layout, which the server checks, and in the one shown. */
+const FREE_CELLS = Array.from({ length: FLOOR_CELLS * FLOOR_CELLS }, (_, i) => ({ x: i % FLOOR_CELLS, y: Math.floor(i / FLOOR_CELLS) })).filter(
+  (c) => isStandable(DEFAULT_LAYOUT, c) && (SHOWN_LAYOUT === null || isStandable(SHOWN_LAYOUT, c)),
+);
 
 const ids = (p: Profile, t: Tier): string[] => [`walk25.frameP95.${p}.${t}`, `walk25.workP95.${p}.${t}`, `walk25.missedVsync.${p}.${t}`];
 
@@ -231,16 +234,34 @@ for (const profile of PROFILES) {
           await context.addInitScript((t) => {
             localStorage.setItem("omega.motion", t);
           }, tier);
-          if (BAR_LAYOUT !== null) {
-            await context.routeWebSocket(/\/rooms\/[^/]+\/ws$/, (ws) => {
-              const server = ws.connectToServer();
-              server.onMessage((m) => {
-                const msg: unknown = typeof m === "string" ? JSON.parse(m) : null;
-                const room: unknown = typeof msg === "object" && msg !== null && Reflect.get(msg, "type") === "snapshot" ? Reflect.get(msg, "room") : null;
-                if (typeof room === "object" && room !== null) Reflect.set(room, "layout", BAR_LAYOUT);
-                ws.send(room === null ? m : JSON.stringify(msg));
+          if (SHOWN_LAYOUT !== null) {
+            // In the page, not through routeWebSocket: a routed socket hands every frame over the driver, which cost the
+            // observer ~1 ms on its worst frames and made a furnished room look dearer than it is (OME-1448).
+            await context.addInitScript((layout) => {
+              const onmessage = Object.getOwnPropertyDescriptor(WebSocket.prototype, "onmessage");
+              Object.defineProperty(WebSocket.prototype, "onmessage", {
+                configurable: true,
+                get(this: WebSocket): unknown {
+                  return onmessage?.get?.call(this);
+                },
+                set(this: WebSocket, fn: ((ev: MessageEvent<unknown>) => unknown) | null) {
+                  const room = /\/rooms\/[^/]+\/ws$/.test(this.url);
+                  onmessage?.set?.call(
+                    this,
+                    fn === null || !room
+                      ? fn
+                      : (ev: MessageEvent<unknown>) => {
+                          if (typeof ev.data !== "string" || !ev.data.includes('"snapshot"')) return fn.call(this, ev);
+                          const msg: unknown = JSON.parse(ev.data);
+                          const r: unknown = typeof msg === "object" && msg !== null && Reflect.get(msg, "type") === "snapshot" ? Reflect.get(msg, "room") : null;
+                          if (typeof r !== "object" || r === null) return fn.call(this, ev);
+                          Reflect.set(r, "layout", layout);
+                          return fn.call(this, new MessageEvent("message", { data: JSON.stringify(msg) }));
+                        },
+                  );
+                },
               });
-            });
+            }, SHOWN_LAYOUT);
           }
         },
       });
@@ -268,7 +289,7 @@ for (const profile of PROFILES) {
         const end = await botTags(page);
         const s = await walkers.stats();
         const loops: unknown =
-          BAR_LAYOUT === null
+          SHOWN_LAYOUT === null
             ? null
             : await page.evaluate(() => {
                 const room: unknown = Reflect.get(Reflect.get(window, "__omega") ?? {}, "room");
@@ -279,7 +300,7 @@ for (const profile of PROFILES) {
         const walking = walkedInWindow(start, end, s.seatChanged);
         const f = summarizeFrames(w.samples, VSYNC_MS);
         const workP95 = p95(w.workMs);
-        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free walks so far, ${String(s.errors.length)} errors, video playing (fake player)${loops === null ? "" : `, ${LAYOUT_PRESET} layout, loops at the end ${JSON.stringify(loops)}`}`;
+        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free walks so far, ${String(s.errors.length)} errors, video playing (fake player), ${LAYOUT_PRESET} layout${loops === null ? "" : `, loops at the end ${JSON.stringify(loops)}`}`;
         recordMetric({ id: `walk25.frameP95.${profile}.${tier}`, value: f.p95, note: `${f.note}; ${what}` });
         recordMetric({ id: `walk25.workP95.${profile}.${tier}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
         recordMetric({ id: `walk25.missedVsync.${profile}.${tier}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });
