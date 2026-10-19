@@ -6,7 +6,7 @@
 // so most of the 24 are walking at any moment (8 seats, so the rest walk about). The video plays
 // (fake player). Rows: walk25.frameP95.<profile>.<tier> (quantised p95 ≤ one vsync), walk25.workP95.<profile>.<tier>
 // (≤ 8 ms), walk25.missedVsync.<profile>.<tier> (≤ 1 %), for profile = desktop | phone, tier = basic | smooth.
-// OMEGA_PERF_WALK_LAYOUT=bar (OME-1439): the observer sees the Bar preset instead (its snapshots rewritten), so the bots in
+// OMEGA_PERF_WALK_LAYOUT=<preset id> (OME-1439): the observer sees that preset instead (its snapshots rewritten). With bar the bots in
 // the hammock seats (4–7) sway them, a bot at the piano's front plays it and the playing video lights the fireplace: the
 // same rows with every batch 6 loop running. Bots still walk the default layout's free cells (the server's layout).
 import { devices, expect, test } from "@playwright/test";
@@ -39,8 +39,9 @@ const TIERS = ["basic", "smooth"] as const;
 type Profile = (typeof PROFILES)[number];
 type Tier = (typeof TIERS)[number];
 const BOT_PREFIX = "w25-bot";
-const BAR_LAYOUT: unknown =
-  process.env["OMEGA_PERF_WALK_LAYOUT"] === "bar" ? JSON.parse(readFileSync(new URL("../assets/presets/bar.json", import.meta.url), "utf8")) : null;
+const LAYOUT_PRESET = process.env["OMEGA_PERF_WALK_LAYOUT"] ?? "";
+if (LAYOUT_PRESET !== "" && !/^[a-z]{1,12}$/.test(LAYOUT_PRESET)) throw new Error(`OMEGA_PERF_WALK_LAYOUT must be a preset id, not ${JSON.stringify(LAYOUT_PRESET)}`);
+const BAR_LAYOUT: unknown = LAYOUT_PRESET === "" ? null : JSON.parse(readFileSync(new URL(`../assets/presets/${LAYOUT_PRESET}.json`, import.meta.url), "utf8"));
 
 const ids = (p: Profile, t: Tier): string[] => [`walk25.frameP95.${p}.${t}`, `walk25.workP95.${p}.${t}`, `walk25.missedVsync.${p}.${t}`];
 
@@ -278,7 +279,7 @@ for (const profile of PROFILES) {
         const walking = walkedInWindow(start, end, s.seatChanged);
         const f = summarizeFrames(w.samples, VSYNC_MS);
         const workP95 = p95(w.workMs);
-        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free walks so far, ${String(s.errors.length)} errors, video playing (fake player)${loops === null ? "" : `, Bar layout, loops at the end ${JSON.stringify(loops)}`}`;
+        const what = `${profile === "phone" ? "Pixel 7 emulation" : "desktop Chromium"}, forced ${tier} tier, ${String(walking)} of ${String(Object.keys(start).length)} bot tags walked in the window (moved or changed seat), ${String(s.members)} members, ${String(s.changes)} seat changes and ${String(s.walks)} free walks so far, ${String(s.errors.length)} errors, video playing (fake player)${loops === null ? "" : `, ${LAYOUT_PRESET} layout, loops at the end ${JSON.stringify(loops)}`}`;
         recordMetric({ id: `walk25.frameP95.${profile}.${tier}`, value: f.p95, note: `${f.note}; ${what}` });
         recordMetric({ id: `walk25.workP95.${profile}.${tier}`, value: workP95, note: `${String(w.workMs.length)} traced frames, max ${Math.max(...w.workMs).toFixed(2)} ms; ${what}` });
         recordMetric({ id: `walk25.missedVsync.${profile}.${tier}`, value: f.missedPct, note: `${String(f.missed)} of ${String(f.frames)} frames; ${what}` });
