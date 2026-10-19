@@ -1,0 +1,1713 @@
+{
+ "frames": {
+  "furniture/barcounter/wood/se/back": {
+   "frame": {
+    "x": 0,
+    "y": 510,
+    "w": 91,
+    "h": 73
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 73
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 73
+   },
+   "anchor": {
+    "x": 0.7032967032967034,
+    "y": 0.6301369863013698
+   }
+  },
+  "furniture/barcounter/wood/sw/back": {
+   "frame": {
+    "x": 92,
+    "y": 510,
+    "w": 91,
+    "h": 73
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 91,
+    "h": 73
+   },
+   "sourceSize": {
+    "w": 91,
+    "h": 73
+   },
+   "anchor": {
+    "x": 0.2967032967032967,
+    "y": 0.6301369863013698
+   }
+  },
+  "furniture/fireplace/stone/se/back": {
+   "frame": {
+    "x": 184,
+    "y": 0,
+    "w": 54,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 60
+   },
+   "anchor": {
+    "x": 0.6296296296296297,
+    "y": 0.8333333333333334
+   }
+  },
+  "furniture/fireplace/stone/sw/back": {
+   "frame": {
+    "x": 184,
+    "y": 61,
+    "w": 54,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 60
+   },
+   "anchor": {
+    "x": 0.37037037037037035,
+    "y": 0.8333333333333334
+   }
+  },
+  "furniture/fireplace/stone/use/se/0": {
+   "frame": {
+    "x": 184,
+    "y": 122,
+    "w": 54,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 60
+   },
+   "anchor": {
+    "x": 0.6296296296296297,
+    "y": 0.8333333333333334
+   }
+  },
+  "furniture/fireplace/stone/use/se/1": {
+   "frame": {
+    "x": 184,
+    "y": 183,
+    "w": 54,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 60
+   },
+   "anchor": {
+    "x": 0.6296296296296297,
+    "y": 0.8333333333333334
+   }
+  },
+  "furniture/fireplace/stone/use/se/2": {
+   "frame": {
+    "x": 184,
+    "y": 244,
+    "w": 54,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 60
+   },
+   "anchor": {
+    "x": 0.6296296296296297,
+    "y": 0.8333333333333334
+   }
+  },
+  "furniture/fireplace/stone/use/se/3": {
+   "frame": {
+    "x": 184,
+    "y": 305,
+    "w": 54,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 60
+   },
+   "anchor": {
+    "x": 0.6296296296296297,
+    "y": 0.8333333333333334
+   }
+  },
+  "furniture/fireplace/stone/use/sw/0": {
+   "frame": {
+    "x": 184,
+    "y": 366,
+    "w": 54,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 60
+   },
+   "anchor": {
+    "x": 0.37037037037037035,
+    "y": 0.8333333333333334
+   }
+  },
+  "furniture/fireplace/stone/use/sw/1": {
+   "frame": {
+    "x": 184,
+    "y": 427,
+    "w": 54,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 60
+   },
+   "anchor": {
+    "x": 0.37037037037037035,
+    "y": 0.8333333333333334
+   }
+  },
+  "furniture/fireplace/stone/use/sw/2": {
+   "frame": {
+    "x": 184,
+    "y": 488,
+    "w": 54,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 60
+   },
+   "anchor": {
+    "x": 0.37037037037037035,
+    "y": 0.8333333333333334
+   }
+  },
+  "furniture/fireplace/stone/use/sw/3": {
+   "frame": {
+    "x": 184,
+    "y": 549,
+    "w": 54,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 54,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 54,
+    "h": 60
+   },
+   "anchor": {
+    "x": 0.37037037037037035,
+    "y": 0.8333333333333334
+   }
+  },
+  "furniture/hammock/rust/ne/back": {
+   "frame": {
+    "x": 0,
+    "y": 584,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.3181818181818182,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/nw/back": {
+   "frame": {
+    "x": 89,
+    "y": 584,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.6818181818181818,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/se/back": {
+   "frame": {
+    "x": 0,
+    "y": 648,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.6818181818181818,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/sw/back": {
+   "frame": {
+    "x": 89,
+    "y": 648,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.3181818181818182,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/ne/0": {
+   "frame": {
+    "x": 0,
+    "y": 712,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.3181818181818182,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/ne/1": {
+   "frame": {
+    "x": 0,
+    "y": 584,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.3181818181818182,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/ne/2": {
+   "frame": {
+    "x": 89,
+    "y": 712,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.3181818181818182,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/ne/3": {
+   "frame": {
+    "x": 0,
+    "y": 584,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.3181818181818182,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/nw/0": {
+   "frame": {
+    "x": 0,
+    "y": 776,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.6818181818181818,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/nw/1": {
+   "frame": {
+    "x": 89,
+    "y": 584,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.6818181818181818,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/nw/2": {
+   "frame": {
+    "x": 89,
+    "y": 776,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.6818181818181818,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/nw/3": {
+   "frame": {
+    "x": 89,
+    "y": 584,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.6818181818181818,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/se/0": {
+   "frame": {
+    "x": 0,
+    "y": 840,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.6818181818181818,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/se/1": {
+   "frame": {
+    "x": 0,
+    "y": 648,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.6818181818181818,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/se/2": {
+   "frame": {
+    "x": 89,
+    "y": 840,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.6818181818181818,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/se/3": {
+   "frame": {
+    "x": 0,
+    "y": 648,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.6818181818181818,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/sw/0": {
+   "frame": {
+    "x": 0,
+    "y": 904,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.3181818181818182,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/sw/1": {
+   "frame": {
+    "x": 89,
+    "y": 648,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.3181818181818182,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/sw/2": {
+   "frame": {
+    "x": 89,
+    "y": 904,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.3181818181818182,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/hammock/rust/use/sw/3": {
+   "frame": {
+    "x": 89,
+    "y": 648,
+    "w": 88,
+    "h": 63
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 88,
+    "h": 63
+   },
+   "sourceSize": {
+    "w": 88,
+    "h": 63
+   },
+   "anchor": {
+    "x": 0.3181818181818182,
+    "y": 0.5238095238095238
+   }
+  },
+  "furniture/piano/charcoal/se/back": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.7441860465116279,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/piano/charcoal/sw/back": {
+   "frame": {
+    "x": 87,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.2558139534883721,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/piano/charcoal/use/se/0": {
+   "frame": {
+    "x": 0,
+    "y": 85,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.7441860465116279,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/piano/charcoal/use/se/1": {
+   "frame": {
+    "x": 87,
+    "y": 85,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.7441860465116279,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/piano/charcoal/use/sw/0": {
+   "frame": {
+    "x": 0,
+    "y": 170,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.2558139534883721,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/piano/charcoal/use/sw/1": {
+   "frame": {
+    "x": 87,
+    "y": 170,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.2558139534883721,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/piano/wood/se/back": {
+   "frame": {
+    "x": 0,
+    "y": 255,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.7441860465116279,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/piano/wood/sw/back": {
+   "frame": {
+    "x": 87,
+    "y": 255,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.2558139534883721,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/piano/wood/use/se/0": {
+   "frame": {
+    "x": 0,
+    "y": 340,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.7441860465116279,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/piano/wood/use/se/1": {
+   "frame": {
+    "x": 87,
+    "y": 340,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.7441860465116279,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/piano/wood/use/sw/0": {
+   "frame": {
+    "x": 0,
+    "y": 425,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.2558139534883721,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/piano/wood/use/sw/1": {
+   "frame": {
+    "x": 87,
+    "y": 425,
+    "w": 86,
+    "h": 84
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 86,
+    "h": 84
+   },
+   "sourceSize": {
+    "w": 86,
+    "h": 84
+   },
+   "anchor": {
+    "x": 0.2558139534883721,
+    "y": 0.6785714285714286
+   }
+  },
+  "furniture/stool/teal/ne/back": {
+   "frame": {
+    "x": 178,
+    "y": 610,
+    "w": 36,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 25
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.64
+   }
+  },
+  "furniture/stool/teal/nw/back": {
+   "frame": {
+    "x": 215,
+    "y": 610,
+    "w": 36,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 25
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.64
+   }
+  },
+  "furniture/stool/teal/se/back": {
+   "frame": {
+    "x": 178,
+    "y": 636,
+    "w": 36,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 25
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.64
+   }
+  },
+  "furniture/stool/teal/sw/back": {
+   "frame": {
+    "x": 215,
+    "y": 636,
+    "w": 36,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 36,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 36,
+    "h": 25
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.64
+   }
+  },
+  "furniture/stool/wood/ne/back": {
+   "frame": {
+    "x": 178,
+    "y": 688,
+    "w": 34,
+    "h": 23
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 23
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 23
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7391304347826086
+   }
+  },
+  "furniture/stool/wood/nw/back": {
+   "frame": {
+    "x": 213,
+    "y": 688,
+    "w": 34,
+    "h": 23
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 34,
+    "h": 23
+   },
+   "sourceSize": {
+    "w": 34,
+    "h": 23
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7391304347826086
+   }
+  },
+  "furniture/stool/wood/se/back": {
+   "frame": {
+    "x": 178,
+    "y": 662,
+    "w": 35,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 35,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 35,
+    "h": 25
+   },
+   "anchor": {
+    "x": 0.4857142857142857,
+    "y": 0.68
+   }
+  },
+  "furniture/stool/wood/sw/back": {
+   "frame": {
+    "x": 214,
+    "y": 662,
+    "w": 35,
+    "h": 25
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 35,
+    "h": 25
+   },
+   "sourceSize": {
+    "w": 35,
+    "h": 25
+   },
+   "anchor": {
+    "x": 0.5142857142857142,
+    "y": 0.68
+   }
+  }
+ },
+ "animations": {
+  "furniture/hammock/rust/use/ne": [
+   "furniture/hammock/rust/use/ne/0",
+   "furniture/hammock/rust/use/ne/1",
+   "furniture/hammock/rust/use/ne/2",
+   "furniture/hammock/rust/use/ne/3"
+  ],
+  "furniture/hammock/rust/use/nw": [
+   "furniture/hammock/rust/use/nw/0",
+   "furniture/hammock/rust/use/nw/1",
+   "furniture/hammock/rust/use/nw/2",
+   "furniture/hammock/rust/use/nw/3"
+  ],
+  "furniture/hammock/rust/use/se": [
+   "furniture/hammock/rust/use/se/0",
+   "furniture/hammock/rust/use/se/1",
+   "furniture/hammock/rust/use/se/2",
+   "furniture/hammock/rust/use/se/3"
+  ],
+  "furniture/hammock/rust/use/sw": [
+   "furniture/hammock/rust/use/sw/0",
+   "furniture/hammock/rust/use/sw/1",
+   "furniture/hammock/rust/use/sw/2",
+   "furniture/hammock/rust/use/sw/3"
+  ],
+  "furniture/piano/wood/use/se": [
+   "furniture/piano/wood/use/se/0",
+   "furniture/piano/wood/use/se/1"
+  ],
+  "furniture/piano/wood/use/sw": [
+   "furniture/piano/wood/use/sw/0",
+   "furniture/piano/wood/use/sw/1"
+  ],
+  "furniture/piano/charcoal/use/se": [
+   "furniture/piano/charcoal/use/se/0",
+   "furniture/piano/charcoal/use/se/1"
+  ],
+  "furniture/piano/charcoal/use/sw": [
+   "furniture/piano/charcoal/use/sw/0",
+   "furniture/piano/charcoal/use/sw/1"
+  ],
+  "furniture/fireplace/stone/use/se": [
+   "furniture/fireplace/stone/use/se/0",
+   "furniture/fireplace/stone/use/se/1",
+   "furniture/fireplace/stone/use/se/2",
+   "furniture/fireplace/stone/use/se/3"
+  ],
+  "furniture/fireplace/stone/use/sw": [
+   "furniture/fireplace/stone/use/sw/0",
+   "furniture/fireplace/stone/use/sw/1",
+   "furniture/fireplace/stone/use/sw/2",
+   "furniture/fireplace/stone/use/sw/3"
+  ]
+ },
+ "meta": {
+  "app": "omega-share assets/src/build.ts",
+  "version": "1",
+  "image": "furniture-v4.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 256,
+   "h": 1024
+  },
+  "scale": "1",
+  "omega": {
+   "license": "CC-BY-SA-4.0",
+   "tile": {
+    "w": 64,
+    "h": 32
+   },
+   "seatHeight": 8,
+   "key": "furniture/<id>/<colour>/<dir>/<back|front>",
+   "useKey": "furniture/<id>/<colour>/use/<dir>/<n>",
+   "layers": {
+    "floor": 0,
+    "wall": 1,
+    "back": 2,
+    "avatar": 3,
+    "front": 4
+   },
+   "pieces": [
+    {
+     "id": "hammock",
+     "label": "Hammock",
+     "kind": "seat",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "rust"
+     ],
+     "dirs": [
+      "ne",
+      "nw",
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 2,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "ne": {
+       "cols": 2,
+       "rows": 1
+      },
+      "nw": {
+       "cols": 1,
+       "rows": 2
+      },
+      "se": {
+       "cols": 1,
+       "rows": 2
+      },
+      "sw": {
+       "cols": 2,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "ne": {
+       "x": 16,
+       "y": 8
+      },
+      "nw": {
+       "x": -16,
+       "y": 8
+      },
+      "se": {
+       "x": -16,
+       "y": 8
+      },
+      "sw": {
+       "x": 16,
+       "y": 8
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "ne": [
+       "back"
+      ],
+      "nw": [
+       "back"
+      ],
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "seatsByDir": {
+      "ne": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "ne"
+       },
+       {
+        "col": 1,
+        "row": 0,
+        "dir": "ne"
+       }
+      ],
+      "nw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "nw"
+       },
+       {
+        "col": 0,
+        "row": 1,
+        "dir": "nw"
+       }
+      ],
+      "se": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "se"
+       },
+       {
+        "col": 0,
+        "row": 1,
+        "dir": "se"
+       }
+      ],
+      "sw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "sw"
+       },
+       {
+        "col": 1,
+        "row": 0,
+        "dir": "sw"
+       }
+      ]
+     },
+     "use": {
+      "frames": 4,
+      "ms": 260
+     }
+    },
+    {
+     "id": "stool",
+     "label": "Stool",
+     "kind": "seat",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "wood",
+      "teal"
+     ],
+     "dirs": [
+      "ne",
+      "nw",
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "ne": {
+       "cols": 1,
+       "rows": 1
+      },
+      "nw": {
+       "cols": 1,
+       "rows": 1
+      },
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "ne": {
+       "x": 0,
+       "y": 0
+      },
+      "nw": {
+       "x": 0,
+       "y": 0
+      },
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "ne": [
+       "back"
+      ],
+      "nw": [
+       "back"
+      ],
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "seatsByDir": {
+      "ne": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "ne"
+       }
+      ],
+      "nw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "nw"
+       }
+      ],
+      "se": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "se"
+       }
+      ],
+      "sw": [
+       {
+        "col": 0,
+        "row": 0,
+        "dir": "sw"
+       }
+      ]
+     }
+    },
+    {
+     "id": "barcounter",
+     "label": "Bar counter",
+     "kind": "table",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "wood"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 2,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 2
+      },
+      "sw": {
+       "cols": 2,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": -16,
+       "y": 8
+      },
+      "sw": {
+       "x": 16,
+       "y": 8
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     }
+    },
+    {
+     "id": "piano",
+     "label": "Upright piano",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "wood",
+      "charcoal"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 2,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 2
+      },
+      "sw": {
+       "cols": 2,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": -16,
+       "y": 8
+      },
+      "sw": {
+       "x": 16,
+       "y": 8
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "use": {
+      "frames": 2,
+      "ms": 300
+     }
+    },
+    {
+     "id": "fireplace",
+     "label": "Fireplace",
+     "kind": "fun",
+     "mount": "floor",
+     "layer": "object",
+     "colours": [
+      "stone"
+     ],
+     "dirs": [
+      "se",
+      "sw"
+     ],
+     "footprint": {
+      "cols": 1,
+      "rows": 1
+     },
+     "footprintByDir": {
+      "se": {
+       "cols": 1,
+       "rows": 1
+      },
+      "sw": {
+       "cols": 1,
+       "rows": 1
+      }
+     },
+     "sortByDir": {
+      "se": {
+       "x": 0,
+       "y": 0
+      },
+      "sw": {
+       "x": 0,
+       "y": 0
+      }
+     },
+     "walkable": false,
+     "layersByDir": {
+      "se": [
+       "back"
+      ],
+      "sw": [
+       "back"
+      ]
+     },
+     "use": {
+      "frames": 4,
+      "ms": 120
+     }
+    }
+   ]
+  }
+ }
+}

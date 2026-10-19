@@ -28,6 +28,8 @@ assets/
   furniture/furniture.json # set g: PixiJS v8 atlas + meta.omega.pieces (footprint, z-sort point, seats, layers per facing)
   furniture/furniture-v2.png  # catalogue v2 (OME-1103, lazy-load): 512×1024 indexed PNG-8 (512×512 until OME-1424), 7 more pieces + catalogue v3's 6 (OME-1348) + the door (OME-1424)
   furniture/furniture-v2.json # catalogue v2: same atlas schema as furniture.json
+  furniture/furniture-v4.png  # batch 6 (OME-1437, lazy-load): 256×1024 indexed PNG-8, hammock, stool, bar counter, piano, fireplace + their loops
+  furniture/furniture-v4.json # batch 6: same atlas schema as furniture.json (+ `animations`, `useKey`)
   themes/halloween/halloween.png|json  # OME-1185 (lazy, only during the theme): 256×128 PNG-8, wall/window decor, bat frames, a witch hat per avatar frame
   themes/{sinterklaas,christmas,valentines,easter}/<id>.png|json  # OME-1187: the same format, one lazy sheet per theme
   accessories/accessories.png|json  # OME-1388 (lazy): 256×256 PNG-8, four head accessories, each a hat per avatar frame (theme hat format)
@@ -447,7 +449,7 @@ closed teal ring + dots = fits · dashed rust ring + hatching = can't go there �
 - **Room list:** private rooms use `door/private` + `.ui-pill-private` next to the name. "You're invited: …" cards are links (`a.ui-card`).
 - **Scale:** like the other sets, `--ui-px` (2× page chrome, 1× in `.ui-room`). No new colours: still the 67.
 - **`ui/edit.png` is 256×1024, and rows 709–1023 are reserved.** Sheets are powers of two (ADR 0004). The edit kit's frames cover
-  138 570 px², more than a 256×512 sheet holds (131 072), so the next size down can't fit them. The frames end at y 708. The rows below
+  138 570 px², more than a 256×512 sheet holds (131 072), so the next size down can't fit them. The frames end at y 753 (OME-1437's thumbnails). The rows below
   are room for M5 growth (thumbnails and markers for catalogue v2) without changing the sheet size. Empty rows cost almost nothing in the PNG
   (they compress to a few bytes), and the 1 MB texture only exists for an owner in edit mode.
 - **Bytes:** counted on the basis in § Budget. The edit kit is 10 259 B (lazy, owners only); set (h) as a whole is in that table.
@@ -994,6 +996,37 @@ one closed and one open per wall, beside a bookcase). Like v2, nothing reads it 
 | `aquarium` | the bubble stream rises one unit per frame | 3 | 220 |
 | `arcade` | screen: the invaders step side to side, the shot climbs, a scan band rolls down | 3 | 160 |
 
+**Batch 6 (OME-1437) is a third lazy sheet, `furniture/furniture-v4.png` + `.json` (256×1024), with exactly the v2 schema**: frame keys,
+anchors, `meta.omega.pieces`, `animations`, `useKey`. It isn't packed into v2 because `packages/shared/test/layout-contract.test.ts` requires
+every piece in `furniture.json` and `furniture-v2.json` to already be a `FURNITURE` kind. A separate sheet lets the art land before the
+hookup issue adds the five ids, and rooms without these pieces don't download them. Load it only when a room uses one of them.
+**Identical frames share one rect** in this sheet: the hammock's two "centre" loop frames are its idle frame, so the 52 keys use 44 rects.
+Nothing changes for a reader: every key has its own entry with the same size and anchor. Built from the existing parts: the bookcase's
+wall-backed build, the door's raised panels, the bench's stand wood, the pouf's piping, the neon sign's glow.
+
+| id | label | layer / mount | facings | colours | footprint |
+|---|---|---|---|---|---|
+| `hammock` | Hammock (seat, no front layer) | object, floor | `ne nw se sw` | `rust` | 2×1, 2 seats |
+| `stool` | Stool (seat, no front layer) | object, floor | `ne nw se sw` | `wood` (rush seat, 3 legs), `teal` (buttoned cushion, 4 legs, brass foot ring) | 1×1, 1 seat |
+| `barcounter` | Bar counter | object, floor, wall-backable | `se sw` | `wood` (teal tongue-and-groove front) | 2×1 |
+| `piano` | Upright piano | object, floor, wall-backable | `se sw` | `wood`, `charcoal` | 2×1 |
+| `fireplace` | Fireplace | object, floor, wall-backed | `se sw` | `stone` | 1×1 |
+
+The bar counter, piano and fireplace back onto their cell's wall like the bookcase and the door (their depth sits toward +y), so place them on a
+wall-side cell (row 0 for `sw`, col 0 for `se`). The counter and piano also stand free, because their backs never face the camera.
+Seats sit at `seatHeight` like every other seat (`preview/furniture-v4-seats@2x.png`: every avatar on both seats of the hammock and on both
+stools, in every facing).
+
+| id | loop | frames | ms/frame | intended trigger (the hookup issue wires it in `piecesInUse`) |
+|---|---|---|---|---|
+| `hammock` | the sling's belly and fringe swing one way, back to centre, the other way, back (frames 1 and 3 are the idle frame) | 4 | 260 | someone sits in it (either seat) |
+| `piano` | a chord goes down and the metronome ticks left, then another chord and it ticks right | 2 | 300 | someone stands on a cell at its front (either footprint cell) |
+| `fireplace` | the three flame tongues leap and flicker, a spark rises, the mantel candles flicker in turn | 4 | 120 | a video is playing, like `neonsign` |
+
+The hammock's sitter isn't moved by the loop. The swing is at most 1 px at a seat cell, and the ends stay put.
+Previews: `preview/furniture-v4-room@1x.png` / `@2x` (every piece, both facings, people seated and free), `preview/furniture-v4-seats@2x.png`,
+`preview/furniture-v4-atlas@2x.png`, and `preview/furniture-v4-use@4x.png` (`src/contact-use.sh assets/furniture <out> <gif-dir> furniture-v4`).
+
 **Frame key:** `furniture/<id>/<colour>/<dir>/<back|front>`. Every key starts with `furniture/`, so nothing collides with the
 room's `armchair`, `plant` or `lamp` in Pixi's texture cache.
 
@@ -1132,6 +1165,7 @@ are the lazy/eager split and the total). Previews and `src/` don't ship and aren
 | `furniture/furniture.json` (set g, lazy) | 37 570 raw / 2 418 gz |
 | `furniture/furniture-v2.png` (catalogue v2 + v3 + use loops + door, lazy) | 23 415 |
 | `furniture/furniture-v2.json` (catalogue v2 + v3 + use loops + door, lazy) | 2 958 gz |
+| `furniture/furniture-v4.png` + `.json` (batch 6, OME-1437, lazy) | 18 733 + 1 772 gz |
 | `themes/halloween/halloween.png` (OME-1185, lazy) | 3 513 |
 | `themes/halloween/halloween.json` (OME-1185, lazy) | 152 659 raw / 3 740 gz |
 | `themes/sinterklaas/sinterklaas.png` + `.json` (OME-1187, lazy) | 2 799 + 3 597 gz |
@@ -1165,6 +1199,11 @@ changes. Measured total: 238 750 B of 307 200.
 The "in use" loops (OME-1405) add **5 620 B (≈ 5.5 KB)** to the art total (eager + lazy; every added byte is in the lazy v2 sheet, still 512×512): 32 frames, `furniture-v2.png`
 15 613 → 20 737 (+5 124), `furniture-v2.json` +513 gz (frames, `animations`, `use`). The clock notes (shorter, bolder hands with a cream gap
 before softer ticks; mid-tone short rays) cost nothing measurable; `edit.png` +1 for the clock thumbnail. Measured total: 244 370 B of 307 200.
+
+Batch 6 (OME-1437) adds **22 384 B (≈ 21.9 KB)** against `main` (265 085 → 287 469 of 307 200, `bun assets/src/build.ts`). Lazy: `furniture-v4.png`
+18 733 + `furniture-v4.json` 1 772 gz, `edit.png` +1 460 and `edit.json` +229 gz (8 thumbnails). Eager: `reference.css` +208 gz (the new
+`.ui-thumb-*` rules). The v1 and v2 sheets are byte-identical. To fit the budget the hammock ships in one colour (a teal one cost 6.5 KB with its
+loop) and the piano loop has 2 frames.
 
 Bare heads (OME-1409) add **17 154 B (≈ 16.8 KB)** as `bun assets/src/build.ts` measures it (255 904 of 307 200 on its own; 261 418 measured on top of OME-1405), all lazy:
 `bare.png` 15 445 + `bare.json` 1 488 gz, and `accessories.png` +264 / `.json` −19 gz for the refitted Pip and Mo overlays.

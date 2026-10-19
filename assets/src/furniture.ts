@@ -721,6 +721,255 @@ function door(k: Kit, painted: boolean, open: boolean): void {
   for (const z of [12, H - 12]) k.box(X0 - 0.4, X0 + 0.4, 6, 6.8, z - 2, z + 2, "mustard", { tones: { top: 0, sw: 0, se: 1 } });
 }
 
+// ---------------------------------------------------------------- batch 6 (OME-1437): hammock, stool, bar counter, piano, fireplace
+
+/** Hammock on a bent-wood stand: a striped sling (rust or teal, cream and mustard) that sags between two spreader bars,
+ *  hung by cord fans from brass hooks. In use it sways: the sling's belly and its fringe swing sideways, the ends stay put. */
+function hammock(k: Kit, c: RampName, n = 0): void {
+  // Stand: a floor runner with two cross feet and an arm rising and leaning out at each end.
+  k.box(-6, 22, -1, 1, 0, 1.5, "wood", { tones: { top: 0, sw: 1, se: 2 } });
+  for (const x of [-7.5, 20.5]) k.box(x, x + 3, -6, 6, 0, 1.5, "wood");
+  for (const [x0, dx] of [[-5.5, -1], [21.5, 1]] as const) {
+    for (let t = 0; t <= 1; t += 0.05) k.box(x0 + dx * 2 * t - 0.7, x0 + dx * 2 * t + 0.7, -0.7, 0.7, 1.5 + 20 * t, 2.7 + 20 * t, "wood");
+    k.box(x0 + dx * 2 - 0.5, x0 + dx * 2 + 0.5, -0.5, 0.5, 22.2, 23.4, "mustard", { tones: { top: 0, sw: 0, se: 1 } });
+  }
+  const X0 = -3, X1 = 19, sag = (x: number): number => 6 + 0.036 * (x - 8) ** 2;
+  const zEnd = sag(X0);
+  // Sway [+1, 0, −1, 0]: the belly moves most, the ends not at all; the fringe lags a little further.
+  const s = Math.round(Math.sin((n * Math.PI) / 2));
+  const dy = (x: number): number => 0.9 * s * (zEnd - sag(x)) / (zEnd - sag(8));
+  const stripe = (y: number): Paint => {
+    const b = Math.floor((y + 5) / 2);
+    return b === 2 ? ["mustard", 0] : b % 2 === 0 ? [c, 0] : ["cream", 0];
+  };
+  for (let x = X0; x < X1; x += 1) {
+    const xc = x + 0.5, d = dy(xc);
+    for (let y = -5; y < 5; y += 2) {
+      const top = sag(xc) + 0.07 * (y + 1) ** 2;
+      k.box(x, x + 1, y + d, y + 2 + d, top - 1.2, top, c, {
+        // Step faces between slices take the stripe's own tone, so the sling reads as one smooth cloth; only its edges shade.
+        paint: (p, f) => (f === "top" || Math.abs(p.y - d) < 4.9 ? stripe(p.y - d) : [stripe(p.y - d)[0], 2]),
+      });
+    }
+    // Fringe: cream tassels every other unit along both long edges.
+    if (Math.round(xc + 0.5) % 2 === 0 && xc > X0 + 1 && xc < X1 - 1) {
+      for (const y of [-5.6, 5]) {
+        const top = sag(xc) + 0.07 * (y + 1) ** 2 - 1;
+        k.box(x + 0.2, x + 0.8, y + d, y + 0.6 + d, top - 1.6, top, "cream", { tones: { top: 0, sw: 1, se: 2 } });
+        k.box(x + 0.2, x + 0.8, y + d * 1.6, y + 0.6 + d * 1.6, top - 3.2, top - 1.6, "cream", { tones: { top: 0, sw: 1, se: 2 } });
+      }
+    }
+  }
+  // Spreader bars and the cord fans up to the hooks.
+  for (const [xb, xh] of [[X0 - 0.5, -7.5], [X1 + 0.5, 23.5]] as const) {
+    k.box(xb - 0.5, xb + 0.5, -6, 6, zEnd + 0.4, zEnd + 1.6, "wood", { tones: { top: 0, sw: 1, se: 2 } });
+    for (const y of [-5, 0, 5]) {
+      for (let t = 0; t < 1; t += 0.08) {
+        const x = xb + (xh - xb) * t, yy = y * (1 - t), z = zEnd + 1.6 + (22.2 - zEnd - 1.6) * t;
+        k.box(x - 0.3, x + 0.3, yy - 0.3, yy + 0.3, z - 0.4, z + 0.4, "cream", { tones: { top: 1, sw: 1, se: 2 } });
+      }
+    }
+  }
+}
+
+/** Low stool. Wood: a woven rush seat in a wood rim on three splayed legs. Padded (teal): a buttoned cushion with cream piping
+ *  on four charcoal legs and a brass foot ring. */
+function stool(k: Kit, colour: string): void {
+  const padded = colour !== "wood";
+  const c: RampName = padded ? asRamp(colour) : "wood";
+  const legC: RampName = padded ? "charcoal" : "wood";
+  const legs = padded ? [0.785, 2.356, 3.927, 5.498] : [1.9, 4.0, 6.1];
+  for (const a of legs) {
+    for (let z = 0; z < 6.5; z += 0.5) {
+      const r = 5 - z * 0.3;
+      k.box(Math.cos(a) * r - 0.6, Math.cos(a) * r + 0.6, Math.sin(a) * r - 0.6, Math.sin(a) * r + 0.6, z, z + 0.5, legC, { tones: { top: 0, sw: 1, se: 2 } });
+    }
+  }
+  if (!padded) {
+    k.ell({ x: 0, y: 0, z: 0 }, { x: 5.8, y: 5.8, z: Infinity }, [-8, 8, -8, 8, 6, SEAT_HEIGHT], "wood", {
+      paint: (p, f) => {
+        if (f !== "top") return p.z < 6.8 ? ["wood", 2] : null;
+        // Rush weave inside the rim: diagonal mustard bands that catch the light in turn.
+        if (Math.hypot(p.x, p.y) > 4.6) return null;
+        return Math.floor((p.x + p.y + 20) / 1.5) % 2 === 0 ? ["mustard", 0] : ["mustard", 1];
+      },
+    });
+    return;
+  }
+  for (let a = 0; a < 2 * Math.PI; a += 0.2) k.box(Math.cos(a) * 4.1 - 0.4, Math.cos(a) * 4.1 + 0.4, Math.sin(a) * 4.1 - 0.4, Math.sin(a) * 4.1 + 0.4, 2.4, 3, "mustard", { tones: { top: 0, sw: 0, se: 1 } });
+  k.ell({ x: 0, y: 0, z: 0 }, { x: 5.4, y: 5.4, z: Infinity }, [-8, 8, -8, 8, 5.8, 6.6], "charcoal");
+  k.ell({ x: 0, y: 0, z: 6.4 }, { x: 5.8, y: 5.8, z: 1.8 }, [-8, 8, -8, 8, 6.6, SEAT_HEIGHT + 0.4], c, {
+    paint: (p, f) => (f !== "top" ? (p.z < 7.2 ? ["cream", 1] : null) : Math.hypot(p.x, p.y) < 0.8 ? [c, 2] : null),
+  });
+}
+
+/** Bar counter for a wall: a teal tongue-and-groove front in a wood frame over a charcoal kick, a brass foot rail, a slate top with a brass
+ *  edge, and on it a jar of lemons, two tumblers and a service bell. */
+function barCounter(k: Kit): void {
+  const W0 = -7.5, W1 = 23.5, H = 28;
+  k.box(W0 + 0.5, W1 - 0.5, -3.5, 7, 0, 1.5, "charcoal");
+  const slats: LPaint = (p, f) => {
+    if (f === "top") return ["wood", 0];
+    if (f !== "front") return null;
+    if (p.x < W0 + 2 || p.x > W1 - 2 || p.z > H - 2.5 || Math.abs(p.x - 8) < 0.8) return null;
+    return Math.abs(((p.x + 40) % 2.5) - 1.25) > 0.95 ? ["teal", 2] : ["teal", 1];
+  };
+  k.box(W0 + 0.5, W1 - 0.5, -4, 7.5, 1.5, H, "wood", { paint: slats });
+  // Foot rail on three brass brackets.
+  k.ell({ x: 0, y: -6, z: 3.6 }, { x: Infinity, y: 0.7, z: 0.7 }, [W0 + 1.5, W1 - 1.5, -8, 8, 0, 9], "mustard");
+  for (const x of [W0 + 2, 8, W1 - 3]) k.box(x, x + 1, -6, -4, 3.2, 4, "mustard", { tones: { top: 0, sw: 1, se: 2 } });
+  k.box(W0, W1, -5.5, 8, H, H + 2, "charcoal", {
+    paint: (p, f) => (f === "top" ? (Math.abs(p.y + 5) < 0.5 ? ["charcoal", 1] : ["charcoal", 0]) : f === "front" ? ["mustard", p.z > H + 1 ? 0 : 1] : null),
+  });
+  // Jar of lemons: glass over yellow fruit, a cork lid.
+  k.ell({ x: -2.5, y: 2, z: 0 }, { x: 2.3, y: 2.3, z: Infinity }, [-99, 99, -99, 99, H + 2, H + 8], "glow", {
+    paint: (p, f) => (f === "top" ? ["wood", 0] : p.z > H + 7 ? ["wood", 1] : p.z < H + 6 && hash(Math.floor(p.x * 1.4 + 9), Math.floor(p.z * 1.2)) % 4 !== 0 ? ["mustard", (p.z < H + 3.5 ? 1 : 0)] : null),
+  });
+  // Two tumblers, then the bell.
+  for (const [x, y] of [[5.5, -1], [8, 1.5]] as const) {
+    k.ell({ x, y, z: 0 }, { x: 1, y: 1, z: Infinity }, [-99, 99, -99, 99, H + 2, H + 5], "glow", {
+      paint: (p, f) => (f !== "top" && p.z < H + 3.2 ? ["rust", 0] : null),
+    });
+  }
+  k.ell({ x: 17, y: 1, z: 0 }, { x: 1.8, y: 1.8, z: Infinity }, [-99, 99, -99, 99, H + 2, H + 2.6], "wood");
+  k.ell({ x: 17, y: 1, z: H + 2.6 }, { x: 1.6, y: 1.6, z: 2.2 }, [-99, 99, -99, 99, H + 2.6, H + 6], "mustard");
+  k.box(16.6, 17.4, 0.6, 1.4, H + 4.6, H + 5.8, "mustard");
+}
+
+/** Upright piano for a wall: two raised panels, cheeks round a keyboard, sheet music on the desk, brass pedals; a metronome
+ *  and a vase of tulips on the lid. Wood or charcoal (black) case. In use the keys go down a chord at a time and the
+ *  metronome ticks left, then right. */
+function piano(k: Kit, c: RampName, n = 0): void {
+  const W0 = -7, W1 = 23, KZ = 20;
+  const panels: LPaint = (p, f) => {
+    if (f === "top") return [c, 0];
+    if (f !== "front") return null;
+    // Two raised fields above the keys, one long field below, with a dark groove round each.
+    const fields = [[-5, 7, KZ + 5, 34], [9, 21, KZ + 5, 34], [-4, 20, 3, KZ - 6]] as const;
+    for (const [x0, x1, z0, z1] of fields) {
+      if (p.x < x0 || p.x >= x1 || p.z < z0 || p.z >= z1) continue;
+      return p.x < x0 + 0.7 || p.z >= z1 - 0.7 ? [c, 2] : p.x >= x1 - 0.7 || p.z < z0 + 0.7 ? [c, 0] : null;
+    }
+    return null;
+  };
+  k.box(W0, W1, 2, 8, 0, 37, c, { paint: panels });
+  k.box(W0 - 0.5, W1 + 0.5, 1.5, 8, 37, 38.5, c, { paint: (p, f) => (f !== "top" && p.z < 37.6 ? [c, 2] : null) });
+  // Cheeks, the legs under them and the keybed.
+  for (const x of [W0, W1 - 1.8]) {
+    k.box(x, x + 1.8, -3.5, 2, KZ - 3, KZ + 3, c, { paint: (_p, f) => (f === "top" ? [c, 0] : null) });
+    k.box(x + 0.3, x + 1.5, -3, -1.6, 0, KZ - 3, c);
+  }
+  k.box(W0 + 1.8, W1 - 1.8, -3.2, 2, KZ - 2.5, KZ - 0.5, c, { paint: (_p, f) => (f === "front" ? [c, 2] : null) });
+  // Keys: 18 white, each its own box; the black ones sit on the back half. Frame n presses one chord.
+  const chords = [[], [0, 2, 4, 9, 14], [3, 5, 7, 12, 16]] as const;
+  const down = new Set<number>(chords[n] ?? []);
+  const KW = (W1 - W0 - 3.6) / 18;
+  for (let i = 0; i < 18; i++) {
+    const x0 = W0 + 1.8 + i * KW, pressed = down.has(i);
+    k.box(x0 + 0.1, x0 + KW - 0.1, -3, 2, KZ - 0.5, pressed ? KZ + 0.2 : KZ + 0.7, "cream", {
+      tones: pressed ? { top: 2, sw: 2, se: 2 } : { top: 0, sw: 1, se: 2 },
+    });
+  }
+  for (let i = 0; i < 17; i++) {
+    if (![0, 1, 3, 4, 5].includes(i % 7)) continue;
+    const xb = W0 + 1.8 + (i + 1) * KW, pressed = n > 0 && (i + n * 3) % 6 === 0;
+    k.box(xb - 0.35, xb + 0.35, 0, 2, KZ + 0.7, pressed ? KZ + 0.9 : KZ + 1.3, "outline", { tones: { top: 1, sw: 1, se: 1 } });
+  }
+  // Fallboard (open, standing up behind the keys) and the desk with sheet music.
+  k.box(W0 + 1.8, W1 - 1.8, 2, 3, KZ - 0.5, KZ + 3, c, { paint: (p, f) => (f === "front" && Math.abs(p.z - KZ - 2) < 0.4 && Math.abs(p.x - 8) < 2 ? ["mustard", 0] : null) });
+  k.box(1, 15, 1.5, 2.4, KZ + 3, KZ + 10, "cream", {
+    paint: (p, f) => (f === "front" && Math.abs(p.x - 8) > 0.5 && (Math.round((p.z - KZ - 4) * 2) % 3 === 0) && p.z < KZ + 9 ? ["cream", 2] : null),
+  });
+  // Brass pedals.
+  for (const x of [5.5, 8, 10.5]) k.box(x - 0.5, x + 0.5, -0.5, 2, 1, 1.6, "mustard", { tones: { top: 0, sw: 1, se: 2 } });
+  // Metronome: a stepped charcoal pyramid (dark on either case, so the arm reads) with a brass arm, upright idle, swinging left then right in use.
+  const MX = 17, MY = 5, Z0 = 38.5;
+  for (let i = 0; i < 6; i++) {
+    const r = 2.2 - i * 0.32;
+    k.box(MX - r, MX + r, MY - r, MY + r, Z0 + i * 1.3, Z0 + (i + 1) * 1.3, "charcoal", {
+      paint: (p, f) => {
+        if (f !== "front") return null;
+        const t = [0, -0.5, 0.5][n] ?? 0;
+        const dx = p.x - MX, dz = p.z - Z0 - 1;
+        const along = dx * Math.sin(t) + dz * Math.cos(t), across = dx * Math.cos(t) - dz * Math.sin(t);
+        if (along > 0 && along < 6.5 && Math.abs(across) < 0.45) return Math.abs(along - 4) < 0.8 ? ["cream", 0] : ["mustard", 0];
+        return ["outline", 1];
+      },
+    });
+  }
+  // Vase of tulips.
+  k.ell({ x: -2, y: 5, z: 0 }, { x: 1.3, y: 1.3, z: Infinity }, [-99, 99, -99, 99, Z0, Z0 + 4], "teal");
+  for (const [x, y, h, ramp] of [[-2.6, 4.6, 7, "pink"], [-1.3, 5.4, 8.2, "rust"], [-2.2, 5.8, 6.2, "mustard"]] as const) {
+    k.box(x - 0.2, x + 0.2, y - 0.2, y + 0.2, Z0 + 4, Z0 + h, "olive", { tones: { top: 1, sw: 1, se: 2 } });
+    k.ell({ x, y, z: Z0 + h + 0.6 }, { x: 0.8, y: 0.8, z: 1.1 }, [-99, 99, -99, 99, Z0 + h - 0.6, Z0 + h + 1.8], ramp);
+  }
+}
+
+/** Fireplace for a wall: a cream stone surround, a brick-lined firebox with two crossed logs, a slate hearth and a wood mantel
+ *  with candles and a little vase. Idle it burns low; in use (during playback) the flames leap and flicker and a spark rises. */
+function fireplace(k: Kit, n = 0): void {
+  const D0 = 2, D1 = 8, OX = 4.5, OZ = 16, MZ = 30;
+  k.box(-8, 8, -1.5, D1, 0, 1.4, "charcoal", { paint: (p, f) => (f === "top" ? (p.y < D0 && Math.abs(p.x) < OX && n > 0 ? ["charcoal", 0] : ["charcoal", 1]) : null) });
+  const stone: LPaint = (p, f) => {
+    if (f === "top") return ["cream", 0];
+    // Brick border round the opening; big blocks with faint joints elsewhere.
+    const inBorder = Math.abs(p.x) < OX + 1.2 && p.z < OZ + 1.2;
+    if (f === "front" && inBorder) return (Math.floor(p.z / 1.5) + (Math.abs(p.x) > OX + 0.6 ? 1 : 0)) % 2 === 0 ? ["rust", 1] : ["rust", 2];
+    if (f === "front" && (Math.abs(p.z - 9) < 0.3 || Math.abs(p.z - 22) < 0.3)) return ["cream", 2];
+    return null;
+  };
+  k.box(-7.5, -OX, D0, D1, 1.4, MZ, "cream", { paint: stone });
+  k.box(OX, 7.5, D0, D1, 1.4, MZ, "cream", { paint: stone });
+  k.box(-OX, OX, D0, D1, OZ, MZ, "cream", { paint: stone });
+  k.box(-OX, OX, D0, D1, 1.4, 1.8, "charcoal", { tones: { top: 2, sw: 2, se: 2 } });
+  // Flames on the firebox's back wall: three tongues, low and steady idle, leaping in four flicker frames.
+  const tongues = [
+    [[-2, 4, 1.6], [0.3, 6, 2], [2.4, 3.5, 1.4]],
+    [[-2.2, 6.5, 1.8], [0.2, 10, 2.2], [2.6, 5, 1.5]],
+    [[-1.8, 8, 1.8], [0.6, 7.5, 2.1], [2.3, 7, 1.6]],
+    [[-2.4, 5.5, 1.7], [0, 11, 2.3], [2.5, 6.5, 1.6]],
+    [[-1.9, 7, 1.9], [0.5, 9, 2], [2.2, 4.5, 1.4]],
+  ] as const;
+  const fire = (x: number, z: number): Paint | null => {
+    const zb = 3.2;
+    let best = 0;
+    for (const [cx, h, w] of tongues[n] ?? tongues[0]) {
+      const t = (z - zb) / h;
+      if (t < 0 || t > 1) continue;
+      const half = w * (1 - t) * (1 + 0.3 * Math.sin(t * 6 + cx));
+      const q = 1 - Math.abs(x - cx) / half;
+      if (q > best) best = q;
+    }
+    if (best <= 0) return null;
+    return best > 0.65 ? ["glow", 0] : best > 0.4 ? ["mustard", 0] : best > 0.18 ? ["ginger", 0] : ["rust", 0];
+  };
+  const spark = (x: number, z: number): boolean => n > 0 && Math.abs(x - ([0, 1.5, -1, 2, -2][n] ?? 0)) < 0.5 && Math.abs(z - (9 + n * 1.5)) < 0.5;
+  k.box(-OX, OX, 5, D1, 1.8, OZ, "outline", {
+    paint: (p, f) => {
+      if (f !== "front") return null;
+      const flame = fire(p.x, p.z);
+      if (flame) return flame;
+      if (spark(p.x, p.z)) return ["mustard", 0];
+      // Firelit brick on the back wall, sooty toward the top.
+      if (p.z > OZ - 4) return ["outline", 1];
+      return (Math.floor(p.z / 1.5) + Math.floor((p.x + 9 + (Math.floor(p.z / 1.5) % 2) * 1.5) / 3)) % 2 === 0 ? ["rust", 2] : ["velvet", 2];
+    },
+  });
+  // Two logs: one across, one laid over it at an angle (stepped), end grain toward us.
+  const bark: LPaint = (p, f) => (f === "top" ? ["wood", 1] : Math.abs(p.x) > 3.2 ? ["wood", 0] : ["wood", 2]);
+  k.ell({ x: 0, y: 3.6, z: 3 }, { x: Infinity, y: 1.2, z: 1.2 }, [-3.6, 3.6, -9, 9, 1.8, 9], "wood", { paint: bark });
+  for (let i = 0; i < 5; i++) k.box(-2.6 + i * 1.2, -1.4 + i * 1.2, 2.4 + i * 0.4, 3.6 + i * 0.4, 3.6, 5, "hairDark", { tones: { top: 0, sw: 1, se: 2 } });
+  // Mantel and what stands on it.
+  k.box(-8.5, 8.5, D0 - 1.5, D1, MZ, MZ + 2, "wood", { paint: (p, f) => (f !== "top" && p.z < MZ + 0.8 ? ["wood", 2] : null) });
+  for (const [x, h] of [[-6, 4.5], [-4.6, 3]] as const) {
+    k.ell({ x, y: 4, z: 0 }, { x: 0.7, y: 0.7, z: Infinity }, [-99, 99, -99, 99, MZ + 2, MZ + 2 + h], "cream");
+    const lit = n === 0 || (n + (x < -5 ? 0 : 1)) % 2 === 0;
+    k.ell({ x, y: 4, z: MZ + 3.3 + h }, { x: 0.5, y: 0.5, z: lit ? 1.3 : 0.9 }, [-99, 99, -99, 99, MZ + 2 + h, MZ + 5 + h], "glow", { tones: { top: 0, sw: 0, se: 0 } });
+  }
+  k.ell({ x: 4.5, y: 4.5, z: 0 }, { x: 1.4, y: 1.4, z: Infinity }, [-99, 99, -99, 99, MZ + 2, MZ + 5.5], "teal", { paint: (p, f) => (f !== "top" && Math.abs(p.z - MZ - 4) < 0.4 ? ["cream", 0] : null) });
+  k.box(4.1, 4.9, 4.1, 4.9, MZ + 5.5, MZ + 9, "olive");
+}
+
 // ---------------------------------------------------------------- sleepy cat (hand-pixelled role grid on a ray-cast cushion)
 
 /** Loaf cat facing sw (head front-left), eyes shut, tail wrapped round its front. `o` is a hand-placed inner contour. */
@@ -977,10 +1226,18 @@ export const PIECES: readonly PieceDef[] = [
   // Batch 5 (OME-1424), packed into the v2 sheet.
   { id: "door", label: "Panel door", kind: "fun", colours: ["wood", "painted"], dirs: ["se", "sw"], cols: 1, rows: 1, walkable: true, open: true, build: (k, c, n) => { door(k, c === "painted", n === 1); } },
   { id: "wallclock", label: "Sunburst clock", kind: "wall", mount: "wall", layer: "wall", colours: ["brass"], dirs: ["se", "sw"], cols: 0, rows: 0, walkable: true, build: (k) => { wallClock(k); } },
+  // Batch 6 (OME-1437): its own small lazy sheet, furniture-v4.
+  { id: "hammock", label: "Hammock", kind: "seat", colours: ["rust"], dirs: ALL, cols: 2, rows: 1, seats: [0, 1], use: { frames: 4, ms: 260 }, build: (k, c, n) => { hammock(k, asRamp(c), n); } },
+  { id: "stool", label: "Stool", kind: "seat", colours: ["wood", "teal"], dirs: ALL, cols: 1, rows: 1, seats: [0], build: (k, c) => { stool(k, c); } },
+  { id: "barcounter", label: "Bar counter", kind: "table", colours: ["wood"], dirs: ["se", "sw"], cols: 2, rows: 1, build: (k) => { barCounter(k); } },
+  { id: "piano", label: "Upright piano", kind: "fun", colours: ["wood", "charcoal"], dirs: ["se", "sw"], cols: 2, rows: 1, use: { frames: 2, ms: 300 }, build: (k, c, n) => { piano(k, asRamp(c), n); } },
+  { id: "fireplace", label: "Fireplace", kind: "fun", colours: ["stone"], dirs: ["se", "sw"], cols: 1, rows: 1, use: { frames: 4, ms: 120 }, build: (k, _c, n) => { fireplace(k, n); } },
 ];
 
 /** Catalogue v2 (OME-1103): shipped as its own lazy atlas, `furniture/furniture-v2.json`. */
 export const CATALOGUE_V2: ReadonlySet<string> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland", "coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock", "door"]);
+/** Batch 6 (OME-1437): a third lazy atlas, `furniture/furniture-v4.json`, same schema. */
+export const CATALOGUE_V4: ReadonlySet<string> = new Set(["hammock", "stool", "barcounter", "piano", "fireplace"]);
 
 export interface Canvas { w: number; h: number; ax: number; ay: number }
 const CANVAS: Canvas = { w: 480, h: 400, ax: 220, ay: 300 };
