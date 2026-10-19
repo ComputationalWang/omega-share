@@ -1,7 +1,8 @@
 // Shirt tints (ADR 0053, art OME-1347): a tint is a PLTE swap of the avatar sheets. tints.json names, per avatar, the 3
 // palette entries of its swatch ramp and 6 ramps to put there; tint 0 is the shipped look. Pure, no Pixi.
 import * as v from "valibot";
-import { TINT_COUNT } from "@omega/shared";
+import { HAIR_COUNT, TINT_COUNT } from "@omega/shared";
+import { avatars as hairAvatars } from "../../../../assets/avatars/hairs.json";
 
 const HexSchema = v.pipe(v.string(), v.regex(/^#[0-9a-f]{6}$/));
 const SlotSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(255));
@@ -66,17 +67,38 @@ export function retintPng(png: Uint8Array, slots: readonly number[], colors: rea
   throw new Error("retint: no PLTE");
 }
 
-export interface AvatarHairs {
-  readonly slots: readonly number[];
-  readonly hairs: readonly TintRamp[];
+// Hair colours (OME-1438, art OME-1436): hairs.json is tints.json's shape on the hair slots (disjoint from the tint
+// ones). The art's own names for the shipped ramps (`hairDark`, …) are the swatch's "Dark", …
+const HairsSchema = v.object({
+  avatars: v.record(
+    v.string(),
+    v.object({
+      slots: v.tuple([SlotSchema, SlotSchema, SlotSchema]),
+      hairs: v.pipe(v.array(v.object({ id: v.pipe(v.string(), v.regex(/^[a-zA-Z]+$/), v.transform((id) => id.replace(/^hair(?=[A-Z])/, "").toLowerCase())), colors: v.tuple([HexSchema, HexSchema, HexSchema]) })), v.length(HAIR_COUNT)),
+    }),
+  ),
+});
+
+export type AvatarHairs = v.InferOutput<typeof HairsSchema>["avatars"][string];
+
+/** Each avatar's hair colours, in avatar order (`ids`). Throws if one is missing. */
+export function parseHairs(json: unknown, ids: readonly string[]): readonly AvatarHairs[] {
+  const { avatars } = v.parse(HairsSchema, json);
+  return ids.map((id) => {
+    const a = avatars[id];
+    if (a === undefined) throw new Error(`hairs: no avatar ${id}`);
+    return a;
+  });
 }
 
-/** Each avatar's hair colours (OME-1438), in avatar order. */
-export function parseHairs(_json: unknown, _ids: readonly string[]): readonly AvatarHairs[] {
-  throw new Error("todo");
-}
+/** The shipped hair colours, parsed once here so the landing, the room and the sheets share one copy (one chunk). */
+export const AVATAR_HAIRS: readonly AvatarHairs[] = parseHairs({ avatars: hairAvatars }, AVATAR_IDS);
 
-/** The PLTE patch for `avatar` in shirt `tint` and hair `hair`. */
-export function lookPatch(_tints: readonly AvatarTints[], _hairs: readonly AvatarHairs[], _avatar: number, _tint: number, _hair: number): { slots: number[]; colors: string[] } {
-  throw new Error("todo");
+/** The PLTE patch that draws `avatar` in shirt `tint` and hair `hair` (0s, or numbers it doesn't have: none of that part). */
+export function lookPatch(tints: readonly AvatarTints[], hairs: readonly AvatarHairs[], avatar: number, tint: number, hair: number): { slots: number[]; colors: string[] } {
+  const t = tint === 0 ? undefined : tints[avatar];
+  const h = hair === 0 ? undefined : hairs[avatar];
+  const tc = t?.tints[tint]?.colors;
+  const hc = h?.hairs[hair]?.colors;
+  return { slots: [...(tc === undefined ? [] : (t?.slots ?? [])), ...(hc === undefined ? [] : (h?.slots ?? []))], colors: [...(tc ?? []), ...(hc ?? [])] };
 }

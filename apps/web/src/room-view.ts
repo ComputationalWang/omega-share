@@ -25,6 +25,8 @@ export interface AvatarPlacement {
   readonly avatar: number;
   /** Shirt tint (ADR 0053), 0 the avatar's own colours. */
   readonly tint: number;
+  /** Hair colour (OME-1438), 0 the avatar's own. */
+  readonly hair: number;
   /** Accessory (OME-1391), 0 none. */
   readonly accessory: number;
   readonly at: Point;
@@ -66,8 +68,8 @@ export interface RoomView {
   renders(): number;
   /** `id` emoted (OME-415): a one-shot on the render loop. Nothing under prefers-reduced-motion (room.ts shows a badge). */
   emote(id: MemberId, kind: EmoteKind): void;
-  /** The motion frame each is drawn with now, their sticker's (null: none) and the shirt tint drawn, for e2e checks. */
-  frames(id: MemberId): { avatar: string | null; sticker: string | null; tint: number; accessory: number; bare: boolean } | undefined;
+  /** The motion frame each is drawn with now, their sticker's (null: none) and the shirt tint and hair drawn, for e2e checks. */
+  frames(id: MemberId): { avatar: string | null; sticker: string | null; tint: number; hair: number; accessory: number; bare: boolean } | undefined;
   /** "Hide for me" (OME-769): draw this member's avatar dimmed (or not). One alpha write and one draw per change. */
   setDimmed(id: MemberId, dimmed: boolean): void;
   /** A member is away (OME-911): draw the avatar dimmed (or not). One alpha write and one draw per change; the seat stays. */
@@ -145,8 +147,9 @@ export function quietSystemTicker(ticker: Ticker): () => void {
 interface Entry {
   node: Graphics | Sprite;
   avatar: number;
-  /** The shirt tint asked for; drawn once the atlas has its sheets (until then, tint 0's). */
+  /** The shirt tint and hair colour asked for; drawn once the atlas has that look's sheets (until then, the shipped look). */
   tint: number;
+  hair: number;
   x: number;
   y: number;
   walking: boolean;
@@ -262,7 +265,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
       .then((a) => {
         if (destroyed) return;
         accessories = a;
-        for (const entry of pool.values()) wearHat(entry);
+        for (const [id, entry] of pool) {
+          wearHat(entry);
+          if (entry.hair !== 0) relook(id, entry, entry.tint, entry.hair);
+        }
         render();
       })
       // Without the sheet everyone is drawn bare-headed (or in the theme's hat); the next wearer retries.
@@ -293,21 +299,21 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   };
   /** The member's body frame: the bare head under an accessory that takes their headwear off, once that sheet is in. */
   const body = (entry: Entry, frame: string, avatar: number): Texture | undefined =>
-    (bare !== null && wearsBare(avatar, entry.accessory) ? bare.texture(frame, avatar, entry.tint) : undefined) ?? motion?.texture(frame, avatar, entry.tint);
-  /** Their accessory changed, or the bare sheet came in: the body frame and the hat again, the tint's sheets too. */
+    (bare !== null && wearsBare(avatar, entry.accessory) ? bare.texture(frame, avatar, entry.tint, entry.hair) : undefined) ?? motion?.texture(frame, avatar, entry.tint, entry.hair);
+  /** Their accessory changed, or the bare sheet came in: the body frame and the hat again, their look's sheets too. */
   const reframe = (id: MemberId, entry: Entry): void => {
     if (entry.frame !== null && entry.node instanceof Sprite) {
       const t = body(entry, entry.frame, entry.avatar);
       if (t !== undefined && t !== entry.node.texture) entry.node.texture = t;
     }
     wearHat(entry);
-    if (entry.tint !== 0) retint(id, entry, entry.tint);
+    if (entry.tint !== 0 || entry.hair !== 0) relook(id, entry, entry.tint, entry.hair);
   };
   /** Put the member's accessory, else the theme's hat, over the avatar's frame (the sprite is the difference to the hatted frame), or take it off. */
   const wearHat = (entry: Entry): void => {
     // A hat fitted to the bare head waits for it: on their own headwear it would misfit.
     const own = wearsBare(entry.avatar, entry.accessory) && bare === null ? null : accessories;
-    const texture = entry.frame === null ? undefined : wornHat(entry.accessory, entry.frame, own, theme);
+    const texture = entry.frame === null ? undefined : wornHat(entry.accessory, entry.frame, own, theme, entry.avatar, entry.hair);
     if (texture === undefined) {
       if (entry.hat?.visible === true) {
         entry.hat.visible = false;
@@ -516,7 +522,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         if (destroyed) return;
         theme = t;
         placeDecor();
-        for (const entry of pool.values()) wearHat(entry);
+        for (const [id, entry] of pool) {
+          wearHat(entry);
+          if (entry.hair !== 0) relook(id, entry, entry.tint, entry.hair);
+        }
         const b = effectBounds(t.effect.motion, t.effect.frames);
         // 1 backing px per stage px: the pixel art scales up with CSS (image-rendering: pixelated) like the rest.
         fxCanvas.width = b.w;
@@ -650,23 +659,28 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
   );
   let confettiBursts = 0;
 
-  /** A member's shirt tint changed (ADR 0053): their frame swaps to that tint's sheets now, or once they've loaded. */
-  function retint(id: MemberId, e: Entry, tint: number): void {
+  /**
+   * A member's shirt tint (ADR 0053) or hair (OME-1438) changed: their frame and hat swap to that look's sheets now, or
+   * once they've loaded. Hats take the hair only (their own colours never tint).
+   */
+  function relook(id: MemberId, e: Entry, tint: number, hair: number): void {
     e.tint = tint;
+    e.hair = hair;
     const m = motion;
     if (m === null) return;
     const b = wearsBare(e.avatar, e.accessory) ? bare : null;
+    const a = e.accessory > 0 ? accessories : null;
     const swap = (): void => {
-      if (pool.get(id) !== e || e.tint !== tint || e.frame === null || !(e.node instanceof Sprite)) return;
+      if (pool.get(id) !== e || e.tint !== tint || e.hair !== hair || e.frame === null || !(e.node instanceof Sprite)) return;
       const t = body(e, e.frame, e.avatar);
-      if (t === undefined || t === e.node.texture) return;
-      e.node.texture = t;
+      if (t !== undefined && t !== e.node.texture) e.node.texture = t;
+      wearHat(e);
       render();
     };
-    if (m.ready(e.avatar, tint) && b?.ready(e.avatar, tint) !== false) swap();
+    if (m.ready(e.avatar, tint, hair) && b?.ready(e.avatar, tint, hair) !== false && a?.ready(e.avatar, 0, hair) !== false && theme?.ready(e.avatar, 0, hair) !== false) swap();
     else
-      Promise.all([m.loadTint(e.avatar, tint), b?.loadTint(e.avatar, tint)]).then(swap, (err: unknown) => {
-        console.warn("tint sheets failed to load", err);
+      Promise.all([m.loadTint(e.avatar, tint, hair), b?.loadTint(e.avatar, tint, hair), a?.loadTint(e.avatar, 0, hair), theme?.loadTint(e.avatar, 0, hair)]).then(swap, (err: unknown) => {
+        console.warn("look sheets failed to load", err);
       });
   }
 
@@ -744,7 +758,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         seen.add(a.id);
         const had = pool.get(a.id);
         if (had !== undefined) {
-          if (had.tint !== a.tint) retint(a.id, had, a.tint);
+          if (had.tint !== a.tint || had.hair !== a.hair) relook(a.id, had, a.tint, a.hair);
           if (had.accessory !== a.accessory) {
             had.accessory = a.accessory;
             reframe(a.id, had);
@@ -753,10 +767,10 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
         }
         const g = new Graphics({ label: `avatar:${a.id}`, alpha: alphaOf(a.id) });
         drawAvatar(g, a.avatar);
-        pool.set(a.id, { node: g, avatar: a.avatar, tint: 0, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null, hat: null, accessory: a.accessory });
+        pool.set(a.id, { node: g, avatar: a.avatar, tint: 0, hair: 0, x: NaN, y: NaN, walking: false, frame: null, sticker: null, stickerFrame: null, hat: null, accessory: a.accessory });
         objectLayer.addChild(g);
         const added = pool.get(a.id);
-        if (added !== undefined && a.tint !== 0) retint(a.id, added, a.tint);
+        if (added !== undefined && (a.tint !== 0 || a.hair !== 0)) relook(a.id, added, a.tint, a.hair);
       }
       for (const [id, entry] of pool) {
         if (seen.has(id)) continue;
@@ -779,7 +793,7 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
           .then((loaded) => {
             motion = loaded;
             animator.setFrames(loaded.frames);
-            for (const [id, e] of pool) if (e.tint !== 0) retint(id, e, e.tint);
+            for (const [id, e] of pool) if (e.tint !== 0 || e.hair !== 0) relook(id, e, e.tint, e.hair);
           })
           // Without the sheets the room still works: placeholder avatars that walk. The next join retries.
           .catch((e: unknown) => {
@@ -836,9 +850,17 @@ export async function createRoomView(opts: RoomViewOptions = {}): Promise<RoomVi
     frames(id) {
       const e = pool.get(id);
       if (e === undefined) return undefined;
-      // The accessory drawn: the hat sprite shows its texture (not the theme's hat).
-      const own = e.frame === null || e.hat?.visible !== true ? undefined : accessories?.hat(e.accessory, e.frame);
-      return { avatar: e.frame, sticker: e.stickerFrame, tint: motion?.ready(e.avatar, e.tint) === true ? e.tint : 0, accessory: own !== undefined && own === e.hat?.texture ? e.accessory : 0, bare: e.frame !== null && e.node instanceof Sprite && bare !== null && wearsBare(e.avatar, e.accessory) && e.node.texture === bare.texture(e.frame, e.avatar, e.tint) };
+      // The accessory drawn: the hat sprite shows its texture in their hair's copy (not the theme's hat, nor the shipped hair).
+      const own = e.frame === null || e.hat?.visible !== true || accessories?.ready(e.avatar, 0, e.hair) !== true ? undefined : accessories.hat(e.accessory, e.frame, e.avatar, e.hair);
+      const drawn = motion?.ready(e.avatar, e.tint, e.hair) === true;
+      return {
+        avatar: e.frame,
+        sticker: e.stickerFrame,
+        tint: drawn ? e.tint : 0,
+        hair: drawn ? e.hair : 0,
+        accessory: own !== undefined && own === e.hat?.texture ? e.accessory : 0,
+        bare: e.frame !== null && e.node instanceof Sprite && bare !== null && wearsBare(e.avatar, e.accessory) && e.node.texture === bare.texture(e.frame, e.avatar, e.tint, e.hair),
+      };
     },
     position(id) {
       const e = pool.get(id);

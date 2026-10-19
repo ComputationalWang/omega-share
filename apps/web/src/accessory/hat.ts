@@ -6,10 +6,17 @@ export const ACCESSORY_IDS = ["partyhat", "crown", "headphones", "beanie"] as co
 
 /**
  * The one hat over an avatar frame: the member's own accessory, else the holiday theme's (ADR 0052). Until the sheet is
- * in, or for a frame it has no hat for, the theme's hat stands in.
+ * in, or for a frame it has no hat for, the theme's hat stands in. Either comes in `avatar`'s `hair` copy (OME-1438).
  */
-export function wornHat<T>(accessory: number, frame: string, accessories: { hat(accessory: number, frame: string): T | undefined } | null, theme: { hat(frame: string): T | undefined } | null): T | undefined {
-  return (accessory > 0 ? accessories?.hat(accessory, frame) : undefined) ?? theme?.hat(frame);
+export function wornHat<T>(
+  accessory: number,
+  frame: string,
+  accessories: { hat(accessory: number, frame: string, avatar: number, hair: number): T | undefined } | null,
+  theme: { hat(frame: string, avatar: number, hair: number): T | undefined } | null,
+  avatar = 0,
+  hair = 0,
+): T | undefined {
+  return (accessory > 0 ? accessories?.hat(accessory, frame, avatar, hair) : undefined) ?? theme?.hat(frame, avatar, hair);
 }
 
 /**

@@ -8,19 +8,19 @@ export interface TintRow {
   show(tints: readonly { readonly id: string; readonly colors: readonly string[] }[], tint: Tint): void;
 }
 
-/** The row's markup (the landing's is the same, in index.html). */
-export function buildTintRow(): HTMLElement {
+/** The row's markup (the landing's is the same, in index.html). The hair row (OME-1438) is the same row, named for hair. */
+export function buildTintRow(label = "Shirt colour", testid = "tint-option"): HTMLElement {
   const group = document.createElement("div");
   group.className = "tints";
   group.setAttribute("role", "radiogroup");
-  group.setAttribute("aria-label", "Shirt colour");
+  group.setAttribute("aria-label", label);
   for (let t = 0; t < TINT_COUNT; t++) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "tint";
     b.setAttribute("role", "radio");
     b.dataset["tint"] = String(t);
-    b.dataset["testid"] = "tint-option";
+    b.dataset["testid"] = testid;
     group.append(b);
   }
   return group;
@@ -72,6 +72,9 @@ export function bindRadioRow(group: HTMLElement, onPick: (i: number) => void): R
   return { check };
 }
 
+/** The hair colour row (OME-1438): six swatches like the tint row's, shown with an avatar's hair ramps. */
+export const buildHairRow = (): HTMLElement => buildTintRow("Hair colour", "hair-option");
+
 /** Wires a row's swatches; `onPick` gets a tint other than the checked one. */
 export function bindTintRow(group: HTMLElement, onPick: (t: Tint) => void): TintRow {
   const swatches = [...group.querySelectorAll<HTMLButtonElement>("[role=radio]")];
@@ -87,9 +90,4 @@ export function bindTintRow(group: HTMLElement, onPick: (t: Tint) => void): Tint
       row.check(tint);
     },
   };
-}
-
-/** The hair colour row (OME-1438). */
-export function buildHairRow(): HTMLElement {
-  throw new Error("todo");
 }

@@ -1,17 +1,17 @@
 // Landing: nickname + avatar + one Enter click (which also satisfies autoplay). Keep this entry tiny; the room loads on demand.
 // Three views on one page (Dusk doorstep, OME-935): entry (the form), directory (find or make a room, `/` only) and room.
 // `<html data-view>` scopes the site styles to entry/directory, so the room's own layouts never see them.
-import { DEFAULT_ROOM_ID, type Accessory, type Avatar, type Nickname, type ResumeToken, type Tint } from "@omega/shared";
+import { DEFAULT_ROOM_ID, type Accessory, type Avatar, type Hair, type Nickname, type ResumeToken, type Tint } from "@omega/shared";
 import { createExtensionBridge } from "./extension-bridge";
 import { SITE_TITLE } from "./page-title";
 import tintsJson from "../../../assets/avatars/tints.json";
 import { bindRadioRow, bindTintRow } from "./controls/tint-row";
-import { loadProfile, saveAccessory, saveProfile, saveTint, validateNickname } from "./profile";
+import { loadProfile, saveAccessory, saveHair, saveProfile, saveTint, validateNickname } from "./profile";
 import { roomIdInPath, serverBaseUrl, wsUrl } from "./route";
 import { loadRoomSecrets, secretFor, takeInviteKey, type SecretsStore } from "./room-secrets";
 import { loadResume } from "./session-record";
 import { takeShareLink } from "./share-link";
-import { AVATAR_IDS, parseTints } from "./walk/tint";
+import { AVATAR_HAIRS, AVATAR_IDS, parseTints } from "./walk/tint";
 import type * as RoomModule from "./room";
 import type { RoomHandle } from "./room";
 
@@ -43,6 +43,7 @@ const directory = must("#directory", HTMLElement);
 const avatarGroup = must(".avatars", HTMLElement);
 const options = [...document.querySelectorAll<HTMLButtonElement>("[data-testid=avatar-option]")];
 const tintGroup = must("[data-testid=tint-row]", HTMLElement);
+const hairGroup = must("[data-testid=hair-row]", HTMLElement);
 const accessoryGroup = must("[data-testid=accessory-row]", HTMLElement);
 
 const pathRoom = roomIdInPath(location.pathname);
@@ -85,6 +86,7 @@ const profile = loadProfile(localStorage);
 let avatar: Avatar = profile.avatar;
 let tint: Tint = profile.tint;
 let accessory: Accessory = profile.accessory;
+let hair: Hair = profile.hair;
 if (profile.nickname !== null) input.value = profile.nickname;
 
 // Shirt tint (ADR 0053): the row under the avatars shows the chosen avatar's ramps; a pick is saved at once.
@@ -92,6 +94,11 @@ const tints = parseTints(tintsJson, AVATAR_IDS);
 const tintRow = bindTintRow(tintGroup, (t) => {
   tint = t;
   saveTint(storage, t);
+});
+// Hair colour (OME-1438), beside the tints: the same row on the avatar's hair ramps.
+const hairRow = bindTintRow(hairGroup, (h) => {
+  hair = h;
+  saveHair(storage, h);
 });
 // The accessory (OME-1391), under the tints; saved at once and sent with join. The row is static markup (index.html).
 bindRadioRow(accessoryGroup, (a) => {
@@ -102,6 +109,7 @@ bindRadioRow(accessoryGroup, (a) => {
 const selectAvatar = (a: Avatar): void => {
   avatar = a;
   tintRow.show(tints[a]?.tints ?? [], tint);
+  hairRow.show(AVATAR_HAIRS[a]?.hairs ?? [], hair);
   for (const o of options) {
     const on = o.dataset["avatar"] === String(a);
     o.ariaChecked = String(on);
@@ -183,6 +191,7 @@ const enterRoom = (nickname: Nickname, as: Avatar, resumeToken?: ResumeToken): v
         avatar: as,
         tint,
         accessory,
+        hair,
         ...(resumeToken === undefined ? {} : { resumeToken }),
         secret: secretFor(loadRoomSecrets(storage), roomId, invited),
         secrets: storage,

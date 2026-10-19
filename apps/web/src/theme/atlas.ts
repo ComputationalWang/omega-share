@@ -5,6 +5,7 @@ import type { Sheet } from "../atlas-sheet";
 import type { DecorPiece } from "./decor";
 import type { EffectFrame, EffectMotion } from "./effect";
 import type { ThemeId } from "./periods";
+import type { TintableSheets } from "../walk/tint-sheets";
 
 export interface ThemeEffect {
   /** The theme's one sheet, drawn straight onto the effect canvas. */
@@ -18,12 +19,15 @@ export interface ThemeEffect {
   readonly motion: EffectMotion;
 }
 
-export interface ThemeAtlas extends Sheet {
+export interface ThemeAtlas extends Sheet, Pick<TintableSheets, "ready" | "loadTint"> {
   readonly id: ThemeId;
   readonly decor: readonly DecorPiece[];
   readonly effect: ThemeEffect;
-  /** The hat drawn over an avatar frame (`breathe/juno/idle/se/0`, …) at the same floor point, or none for that frame. */
-  hat(avatarFrame: string): Texture | undefined;
+  /**
+   * The hat drawn over an avatar frame (`breathe/juno/idle/se/0`, …) at the same floor point, or none for that frame; in
+   * `avatar`'s `hair` copy (OME-1438) once `loadTint(avatar, 0, hair)` resolved.
+   */
+  hat(avatarFrame: string, avatar?: number, hair?: number): Texture | undefined;
 }
 
 /**
