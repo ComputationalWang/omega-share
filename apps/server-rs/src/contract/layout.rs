@@ -944,6 +944,11 @@ mod tests {
             assert!(piece_accepts(&pv(kind, col, row, facing, n - 1)), "{kind} {}", n - 1);
             assert!(!piece_accepts(&pv(kind, col, row, facing, n)), "{kind} {n}");
         }
+        // OME-1507 (art OME-1500): the two wall pieces take two recolours each.
+        for (kind, col, row, facing) in [("frame", 2, 0, "sw"), ("garland", 0, 2, "se")] {
+            assert!(piece_accepts(&pv(kind, col, row, facing, 3)), "{kind} 3");
+            assert!(!piece_accepts(&pv(kind, col, row, facing, 4)), "{kind} 4");
+        }
     }
 
     #[test]
