@@ -45,6 +45,8 @@ export interface RoomWindow {
   set(active: boolean, w: number, h: number): void;
   /** Look at `p` (stage px), clamped to the stage. */
   centre(p: Point): void;
+  /** Off the phone (OME-1490): the room fitted at `scale` in a w×h box; the wheel zooms it from there. */
+  desk(scale: number, w: number, h: number): void;
   /** Where the window looks now (stage px, top-left), for checks. */
   readonly pan: () => Point;
 }
@@ -325,6 +327,9 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
       }
     },
     centre,
+    desk() {
+      // stub (OME-1490 red)
+    },
     pan: () => pan,
   };
 }

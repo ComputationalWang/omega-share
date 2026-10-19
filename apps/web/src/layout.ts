@@ -366,6 +366,16 @@ export function pinchView(start: { readonly zoom: number; readonly at: Point; re
   return { zoom, centre: { x: start.at.x - now.mid.x / zoom + view.w / (2 * zoom), y: start.at.y - now.mid.y / zoom + view.h / (2 * zoom) } };
 }
 
+/** The desktop room's zoom (OME-1490): a multiple of its fitted scale, and its view's top-left (stage px). */
+export interface DeskView {
+  readonly zoom: number;
+  readonly pan: Point;
+}
+
+export function wheelView(_fit: number, from: DeskView, _at: Point, _zoom: number): DeskView {
+  return from;
+}
+
 /** A stage-space rect on the page. */
 export function stageToPage(l: RoomLayout, r: Rect): Rect {
   return { x: l.stage.x + (r.x - ROOM_VIEW.x) * l.scale, y: l.stage.y + (r.y - ROOM_VIEW.y) * l.scale, w: r.w * l.scale, h: r.h * l.scale };

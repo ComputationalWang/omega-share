@@ -2,7 +2,7 @@
 // screen" up to 2×; a pinch keeps the stage point under the fingers under the fingers; names and bubbles never shrink
 // below a readable size however far out you zoom.
 import { describe, expect, test } from "bun:test";
-import { MAX_ZOOM, STAGE_H, STAGE_W, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom } from "../src/layout";
+import { MAX_ZOOM, ROOM_VIEW, STAGE_H, STAGE_W, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, wheelView } from "../src/layout";
 
 const PHONE = { w: 390, h: 270 };
 
@@ -90,5 +90,49 @@ describe("readZoom: the stored zoom is untrusted", () => {
 
   test("anything else reads as no zoom", () => {
     for (const s of [null, "", "abc", "-1", "0", "Infinity", "NaN", "1e400"]) expect(readZoom(s)).toBeNull();
+  });
+});
+
+// OME-1490: on a computer the wheel zooms the fitted room, from the whole room (1×) to MAX_ZOOM× that, around the pointer.
+describe("wheelView: the stage point under the pointer stays under it", () => {
+  /** The room fitted at half size: its box is 480×266 px, showing ROOM_VIEW from (0, 60). */
+  const FIT = 0.5;
+  const HOME = { zoom: 1, pan: { x: ROOM_VIEW.x, y: ROOM_VIEW.y } };
+  const under = (v: { zoom: number; pan: { x: number; y: number } }, at: { x: number; y: number }) => ({ x: v.pan.x + at.x / (FIT * v.zoom), y: v.pan.y + at.y / (FIT * v.zoom) });
+
+  test("zooming in 2× in the middle of the room keeps the middle under the pointer", () => {
+    const at = { x: 240, y: 133 };
+    const v = wheelView(FIT, HOME, at, 2);
+    expect(v.zoom).toBe(2);
+    expect(v.pan).toEqual({ x: 240, y: 193 });
+    expect(under(v, at)).toEqual(under(HOME, at));
+  });
+
+  test("off-centre, and again from a zoomed view", () => {
+    const at = { x: 100, y: 50 };
+    const a = wheelView(FIT, HOME, at, 1.25);
+    expect(under(a, at).x).toBeCloseTo(under(HOME, at).x, 9);
+    expect(under(a, at).y).toBeCloseTo(under(HOME, at).y, 9);
+    const at2 = { x: 400, y: 200 };
+    const b = wheelView(FIT, a, at2, 1.6);
+    expect(under(b, at2).x).toBeCloseTo(under(a, at2).x, 9);
+    expect(under(b, at2).y).toBeCloseTo(under(a, at2).y, 9);
+  });
+
+  test("the zoom stays between the whole room and MAX_ZOOM× it", () => {
+    expect(wheelView(FIT, HOME, { x: 0, y: 0 }, 9).zoom).toBe(MAX_ZOOM);
+    expect(wheelView(FIT, HOME, { x: 0, y: 0 }, 0.2).zoom).toBe(1);
+    expect(wheelView(FIT, HOME, { x: 0, y: 0 }, Number.NaN).zoom).toBe(1);
+  });
+
+  test("the view never leaves the room: its edges are clamped to ROOM_VIEW", () => {
+    // Zoomed in at the room's bottom-right corner: the view's bottom-right is the room's.
+    const v = wheelView(FIT, HOME, { x: 480, y: 266 }, 2);
+    expect(v.pan.x + ROOM_VIEW.w / 2).toBeCloseTo(ROOM_VIEW.x + ROOM_VIEW.w, 9);
+    expect(v.pan.y + ROOM_VIEW.h / 2).toBeCloseTo(ROOM_VIEW.y + ROOM_VIEW.h, 9);
+    // A view pushed past the top-left comes back inside.
+    expect(wheelView(FIT, { zoom: 2, pan: { x: -500, y: -500 } }, { x: 0, y: 0 }, 2).pan).toEqual({ x: ROOM_VIEW.x, y: ROOM_VIEW.y });
+    // Back at 1× it's the whole room, wherever the pointer is.
+    expect(wheelView(FIT, v, { x: 37, y: 211 }, 1).pan).toEqual({ x: ROOM_VIEW.x, y: ROOM_VIEW.y });
   });
 });

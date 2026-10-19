@@ -62,6 +62,7 @@ export const SPEC_ROOMS = {
   poll: ["three"],
   hug: ["walk"],
   outfit: ["wear"],
+  "desk-zoom": ["main"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;
