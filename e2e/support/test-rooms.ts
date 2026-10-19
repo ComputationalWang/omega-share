@@ -60,6 +60,8 @@ export const SPEC_ROOMS = {
   accessory: ["pick", "none", "theme", "bare"],
   roll: ["two"],
   poll: ["three"],
+  hug: ["walk"],
+  outfit: ["wear"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

@@ -363,6 +363,7 @@
         "e2e/a11y-presence.e2e.ts",
         "e2e/bubbles.e2e.ts",
         "e2e/chat-log.e2e.ts",
+        "e2e/hug-outfits.e2e.ts",
         "e2e/m7-a11y.e2e.ts",
         "e2e/m8-bubbles.e2e.ts",
         "e2e/m9-hide.e2e.ts",
@@ -377,6 +378,18 @@
         "perf/popout.perf.ts",
         "perf/soak.perf.ts",
         "perf/wide.perf.ts"
+      ]
+    },
+    {
+      "paths": [
+        "apps/web/src/outfits/**"
+      ],
+      "except": [
+        "**/*.test.ts",
+        "**/*.md"
+      ],
+      "specs": [
+        "e2e/hug-outfits.e2e.ts"
       ]
     },
     {

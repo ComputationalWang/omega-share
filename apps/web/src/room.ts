@@ -33,7 +33,10 @@ import { createEmotePicker } from "./emote/picker";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
 import { createPollCard, type PollView } from "./chat/poll";
-import { DANCE_SEATED_LINE, HELP_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
+import { DANCE_SEATED_LINE, HELP_LINE, HUG_USAGE_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
+import { hugHint, hugStep, matchMember } from "./chat/hug";
+import type { SystemLine } from "./controls/sysline";
+import { createOutfitSlots } from "./outfits/slots";
 import { chatKey } from "./chat/enter";
 import { createTypingSender } from "./chat/typing";
 import { browserChannel, channelName, popoutSupported, popoutUrl, randomId, roomPopoutUrl, type PopState } from "./popout/channel";
@@ -154,11 +157,21 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       localStorage.setItem(k, v);
     },
   });
+  // /hug and /highfive (OME-1453): the walk over that's on its way, and the emote it ends with once I've stopped there.
+  let hug: { readonly target: MemberId; readonly cell: FloorCell; readonly kind: EmoteKind; arrived: boolean } | null = null;
+  function hugNow(): void {
+    const kind = hug?.kind;
+    hug = null;
+    if (kind !== undefined) picker.emote(kind);
+  }
   const roomStage: Stage = await createStage({
     reducedMotion,
     dim: cinema.el,
     onMove: (id) => {
       if (id === state.self) closeWheel();
+    },
+    onStop: (id) => {
+      if (id === state.self && hug?.arrived === true) hugNow();
     },
     requestRender: () => {
       requestRender();
@@ -415,31 +428,45 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const look = document.createElement("div");
   look.className = "look";
   people.panel.prepend(look);
-  look.append(
-    createTintSection({
-      tints: parseTints(tintsJson, AVATAR_IDS)[opts.avatar]?.tints ?? [],
-      tint: opts.tint,
-      send: (m) => send(m),
-      onPick: (t) => {
-        saveTint(opts.secrets, t);
-      },
-    }),
-    createHairSection({
-      hairs: AVATAR_HAIRS[opts.avatar]?.hairs ?? [],
-      hair: opts.hair,
-      send: (m) => send(m),
-      onPick: (h) => {
-        saveHair(opts.secrets, h);
-      },
-    }),
-    createAccessorySection({
-      accessory: opts.accessory,
-      send: (m) => send(m),
-      onPick: (a) => {
-        saveAccessory(opts.secrets, a);
-      },
-    }),
-  );
+  const tintSection = createTintSection({
+    tints: parseTints(tintsJson, AVATAR_IDS)[opts.avatar]?.tints ?? [],
+    tint: opts.tint,
+    send: (m) => send(m),
+    onPick: (t) => {
+      saveTint(opts.secrets, t);
+    },
+  });
+  const hairSection = createHairSection({
+    hairs: AVATAR_HAIRS[opts.avatar]?.hairs ?? [],
+    hair: opts.hair,
+    send: (m) => send(m),
+    onPick: (h) => {
+      saveHair(opts.secrets, h);
+    },
+  });
+  const accessorySection = createAccessorySection({
+    accessory: opts.accessory,
+    send: (m) => send(m),
+    onPick: (a) => {
+      saveAccessory(opts.secrets, a);
+    },
+  });
+  look.append(tintSection, hairSection, accessorySection);
+  // Outfit slots (OME-1453): what the rows show is what I wear; Wear picks in them, so only a change is sent (and saved).
+  const radios = (section: HTMLElement): HTMLButtonElement[] => [...section.querySelectorAll<HTMLButtonElement>("[role=radio]")];
+  const checked = (section: HTMLElement): number => Math.max(0, radios(section).findIndex((b) => b.getAttribute("aria-checked") === "true"));
+  look.append(createOutfitSlots({
+    store: opts.secrets,
+    current: () => {
+      const me = state.room?.members.find((m) => m.id === state.self);
+      return me === undefined ? null : { avatar: me.avatar, tint: checked(tintSection), hair: checked(hairSection), accessory: checked(accessorySection) };
+    },
+    wear: (fit) => {
+      radios(tintSection)[fit.tint]?.click();
+      radios(hairSection)[fit.hair]?.click();
+      radios(accessorySection)[fit.accessory]?.click();
+    },
+  }));
 
   roomTop.append(title, popRoomKey, people.key, help.key);
   // The first-visit hint (OME-768): in the flow under the room bar, so it never covers the picture or the composer.
@@ -807,6 +834,13 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       if (step === "stop") stopFollow();
       else if (step === "walk") walkOver(following)?.();
     }
+    if (hug !== null) {
+      const step = hugStep(prevState, next, hug);
+      if (step === "cancel") hug = null;
+      // The room's window draws no walk while it's popped out: there's no stop to wait for.
+      else if (step === "arrived" && roomOut()) hugNow();
+      else if (step === "arrived") hug.arrived = true;
+    }
     applyPending({ owner: next.owner && opts.secret?.ownerToken !== undefined, hasRoom: next.room !== null });
     // Straight to the sync loop, not via the next frame: a new playback is a hard seek.
     const room = next.room;
@@ -867,11 +901,39 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (cmd.type === "emote" && !(cmd.kind === "dance" && iSit())) return picker.emote(cmd.kind);
     if (cmd.type === "roll") return send({ type: "roll", sides: cmd.sides });
     if (cmd.type === "poll") return send({ type: "poll-open", question: cmd.question, options: [...cmd.options] });
-    const line = cmd.type === "help" ? HELP_LINE : cmd.type === "roll-usage" ? ROLL_USAGE_LINE : cmd.type === "poll-usage" ? POLL_USAGE_LINE : DANCE_SEATED_LINE;
-    chatLog.append({ kind: "system", line });
-    relay?.append({ kind: "system", line });
+    if (cmd.type === "hug") return startHug(cmd.kind, cmd.name);
+    hint(cmd.type === "help" ? HELP_LINE : cmd.type === "roll-usage" ? ROLL_USAGE_LINE : cmd.type === "hug-usage" ? HUG_USAGE_LINE : cmd.type === "poll-usage" ? POLL_USAGE_LINE : DANCE_SEATED_LINE);
     return true;
   };
+  /** A line to me only, here and in the pop-out. */
+  function hint(line: SystemLine): void {
+    chatLog.append({ kind: "system", line });
+    relay?.append({ kind: "system", line });
+  }
+  /** /hug and /highfive (OME-1453): walk over to them; the emote waits for the arrival (or goes now if I'm beside them). */
+  function startHug(kind: EmoteKind, name: string): boolean {
+    const room = state.room;
+    if (room === null || state.self === null) return false;
+    const m = matchMember(room.members, state.self, name);
+    if (m.type !== "match") {
+      hint(hugHint(m.type === "none" ? `Nobody here is called ${name}` : `More than one person here is called ${name}`));
+      return true;
+    }
+    hug = null;
+    const msg = walkOverIntent(state, m.id, (id) => roomStage.cellOf(id));
+    if (msg?.type === "walk") {
+      stopFollow();
+      walkGate.push(msg);
+      hug = { target: m.id, cell: msg.cell, kind, arrived: false };
+      return true;
+    }
+    const where = (id: MemberId): FloorCell | null => room.members.find((x) => x.id === id)?.cell ?? roomStage.cellOf(id);
+    const here = where(state.self);
+    const there = where(m.id);
+    if (here !== null && there !== null && Math.abs(here.x - there.x) + Math.abs(here.y - there.y) === 1) return picker.emote(kind);
+    hint(hugHint(`No free spot beside ${m.nickname}`));
+    return true;
+  }
   // Crowd applause (OME-1389): from the relayed emotes only (a chat sticker isn't one), so every client agrees.
   const applause = createApplause();
   const relayedEmote = (id: MemberId, kind: EmoteKind): void => {
