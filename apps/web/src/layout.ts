@@ -164,6 +164,10 @@ const FS_BAND_TRANSPORT_MIN = 280;
 /** Short phones use a horizontally scrolling shelf when even the usual compact transport cannot fit. */
 const FS_BAND_SCROLL_MIN = 240;
 
+/** Chat hidden (OME-1491): the bubbles' column beside the picture, and on a phone held sideways. */
+const FS_BUBBLES_W = 220;
+const FS_BUBBLES_NARROW_W = 160;
+
 export type StripMode = "open" | "band";
 
 /**
@@ -175,15 +179,16 @@ export type StripMode = "open" | "band";
 export interface FullscreenLayout {
   /** Initial viewport scroll when the provider minimum and touch band need more vertical space. */
   readonly scrollY?: number;
-  /** "alone": the room is popped out (OME-600), so the chat is in its window and the picture has the screen. */
-  readonly at: "side" | "below" | "band" | "alone";
+  /** "alone": the room is popped out (OME-600), so the chat is in its window and the picture has the screen.
+   * "hidden": the viewer hid the chat (OME-1491): no shelf, the picture as big as it gets beside the bubbles' column. */
+  readonly at: "side" | "below" | "band" | "alone" | "hidden";
   readonly tv: Rect;
   readonly controls: Rect;
   readonly strip: Rect;
   readonly compact: { readonly tv: boolean; readonly controls: boolean };
 }
 
-export function fullscreenLayout(width: number, height: number, provider: Provider | null, strip: StripMode | "none"): FullscreenLayout {
+export function fullscreenLayout(width: number, height: number, provider: Provider | null, strip: StripMode | "none" | "hidden"): FullscreenLayout {
   const w = Math.floor(width);
   const h = Math.floor(height);
   const min = minTvW(provider, w);
@@ -201,6 +206,15 @@ export function fullscreenLayout(width: number, height: number, provider: Provid
       : { x: tv.x, y: tv.y + tv.h + GAP, w: tv.w, h: CONTROL_BAR_H };
   };
   const compactOf = (controls: Rect, tv: Rect): { tv: boolean; controls: boolean } => ({ tv: true, controls: controls.w === tv.w });
+
+  if (strip === "hidden") {
+    // `strip` is the bubbles' column at the right: never over the player (ADR 0012 amendment, OME-1491).
+    const bw = w < FS_STRIP_WIDE_FROM ? FS_BUBBLES_NARROW_W : FS_BUBBLES_W;
+    const pic = fitTv(w - bw, h);
+    const tv = { x: Math.max(0, Math.floor((w - bw - pic.w) / 2)), y: Math.max(0, Math.floor((h - pic.h) / 2)), ...pic };
+    const sx = tv.x + tv.w;
+    return { at: "hidden", tv, controls: { x: 0, y: 0, w: 0, h: 0 }, strip: { x: sx, y: 0, w: Math.max(0, w - sx), h }, compact: { tv: true, controls: true } };
+  }
 
   if (strip === "none") {
     const pic = fitTv(w, h - below);

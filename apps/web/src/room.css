@@ -598,3 +598,37 @@ body:has(> main > .room-portrait) > .site-footer { position: fixed; bottom: 0; r
 /* On a computer (OME-1490) only Fit shows, in the room's top-right corner (the wall), while the wheel has zoomed it in. */
 .stage-clip:not(.is-phone) > .room-zoom { top: 4px; bottom: auto; }
 .stage-clip:not(.is-phone) > .room-zoom > :not([data-testid="room-zoom-fit"]) { display: none; }
+
+/* ---- Hide chat (OME-1491, board OME-1488): the strip and the shelf go, the picture takes the wrapper (layout.ts "hidden").
+ * Still nothing of ours over the player (ADR 0012, YouTube's RMF): the bubbles and the pill share a column at the picture's right
+ * (layout.ts "hidden", the strip's box). Bubbles never take the pointer; CSS animates transform and opacity only. ---- */
+.stage-wrap.fs-chat-hidden > .fs-strip, .stage-wrap.fs-chat-hidden > .controls { display: none; }
+.fs-chat-pill { position: absolute; top: 8px; right: 8px; z-index: 4; --ui-px: 1px; opacity: 0.9; transition: opacity 400ms; }
+/* Dimmed, not gone: a pointer over the provider's iframe never reaches us, so the way back stays in sight. */
+.fs-chat-pill.is-idle:not(:focus-within) { opacity: 0.25; }
+.fs-chat-pill[hidden], .fs-bubbles[hidden] { display: none; }
+.fs-chat-toggle { font-size: 11px; text-transform: none; }
+/* In the strip's head the key gives way before the field does: the strip's one column never grows to its head's content
+ * (CI fonts made a 201 px strip's row overflow by 5 px). */
+.fs-strip { grid-template-columns: minmax(0, 1fr); }
+.fs-strip-head > .fs-chat-toggle { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-bubbles { position: absolute; z-index: 3; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end; gap: 6px; padding: 0 8px 12px; box-sizing: border-box; overflow: hidden; }
+.fs-bubble { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 6px; align-items: center; max-width: 100%; padding: 4px 8px 4px 4px; border-radius: 8px; background: rgb(43 29 47 / 0.82); color: var(--ui-text); font-size: 13px; line-height: 1.3; animation: fs-bubble 6s linear forwards; }
+.fs-bubble-head { grid-row: span 2; width: 32px; height: 28px; background: url("../../../assets/avatars/avatars.png") no-repeat; image-rendering: pixelated; }
+.fs-bubble-head.a0 { background-position: 0 -10px; }
+.fs-bubble-head.a1 { background-position: 0 -74px; }
+.fs-bubble-head.a2 { background-position: 0 -138px; }
+.fs-bubble-head.a3 { background-position: 0 -202px; }
+.fs-bubble-name { font-weight: 700; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-bubble-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+@keyframes fs-bubble {
+  0% { opacity: 0; transform: translateY(8px); }
+  5% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-16px); }
+}
+@keyframes fs-bubble-still { 0% { opacity: 0; } 5% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .fs-bubble { animation-name: fs-bubble-still; }
+  .fs-chat-pill { transition: none; }
+}
