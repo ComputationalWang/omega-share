@@ -544,10 +544,10 @@ const DOOR_PRIVATE: readonly string[] = [
   "................",
 ];
 
-/** Variant swatches, 10×10: one per catalogue colour, the material's own ramp (brass = mustard). Prints get a tiny picture. */
+/** Variant swatches, 10×10: one per catalogue colour, the material's own ramp (brass = mustard, painted door = teal). Prints get a tiny picture. */
 const SWATCH_RAMP: Record<string, RampName> = {
   velvet: "velvet", navy: "navy", cream: "cream", olive: "olive", ginger: "ginger", blush: "blush",
-  wood: "wood", brass: "mustard", rust: "rust", teal: "teal", lilac: "lilac",
+  wood: "wood", brass: "mustard", rust: "rust", teal: "teal", painted: "teal", lilac: "lilac",
   mustard: "mustard", pink: "pink", charcoal: "charcoal",
 };
 const SWATCH_ART: Record<string, readonly string[]> = {
@@ -592,7 +592,7 @@ function swatchRing(): UiFrame {
 }
 
 /** Every catalogue colour, in tray order. */
-export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "brass", "rust", "teal", "lilac", "dusk", "tide", "mustard", "pink", "charcoal", "warm", "party"] as const;
+export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "painted", "brass", "rust", "teal", "lilac", "dusk", "tide", "mustard", "pink", "charcoal", "warm", "party"] as const;
 
 /** Footprints the catalogue uses (`footprintByDir`), each marker state. */
 const FOOTPRINT_SIZES: readonly (readonly [number, number])[] = [[1, 1], [2, 1], [1, 2], [3, 2], [2, 3]];
