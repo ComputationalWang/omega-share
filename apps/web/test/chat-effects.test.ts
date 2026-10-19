@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chatSticker, createStickerGate, HELP_LINE, isShout, meAction, ROLL_USAGE_LINE, rollSticker, slashCommand, STICKER_GAP_MS } from "../src/chat/effects";
+import { chatSticker, createStickerGate, HELP_LINE, isShout, meAction, POLL_USAGE_LINE, ROLL_USAGE_LINE, rollSticker, slashCommand, STICKER_GAP_MS } from "../src/chat/effects";
 
 // OME-1349: chat effects at zero wire cost. Slash commands send the existing `emote`; chat stickers and the shout
 // bubble are read locally from the relayed text.
@@ -117,5 +117,33 @@ describe("meAction", () => {
 
   test("/help lists /me", () => {
     expect(HELP_LINE.verb).toContain("/me");
+  });
+});
+
+// OME-1454: /poll Question? A | B | C. The question is the text up to and including the first "?", the options are
+// what follows, split on "|" and trimmed. Anything the server would refuse is the usage hint, and nothing is sent.
+describe("/poll", () => {
+  test("a question and 2 to 4 options opens a poll", () => {
+    expect(slashCommand("/poll Next video? A | B | C")).toEqual({ type: "poll", question: "Next video?", options: ["A", "B", "C"] });
+    expect(slashCommand("  /POLL  Pizza?   Yes|No  ")).toEqual({ type: "poll", question: "Pizza?", options: ["Yes", "No"] });
+    expect(slashCommand("/poll Pick? a | b | c | d")?.type).toBe("poll");
+  });
+
+  test("a later ? belongs to the options", () => {
+    expect(slashCommand("/poll Go? Yes? | No")).toEqual({ type: "poll", question: "Go?", options: ["Yes?", "No"] });
+  });
+
+  test("anything else is the usage hint: no question mark, no question, too few or too many options, empty or too long parts", () => {
+    const long = "x".repeat(41);
+    for (const text of ["/poll", "/poll hello", "/poll ? A | B", "/poll Q?", "/poll Q? A", "/poll Q? A |", "/poll Q? A | | B", "/poll Q? a | b | c | d | e", `/poll Q? A | ${long}`, `/poll ${"q".repeat(80)}? A | B`]) {
+      expect(slashCommand(text)).toEqual({ type: "poll-usage" });
+    }
+    expect(POLL_USAGE_LINE.verb).toContain("/poll");
+    expect(POLL_USAGE_LINE.self).toBe(true);
+  });
+
+  test("/polls is not /poll: it's chat; /help names /poll", () => {
+    expect(slashCommand("/polls")).toBeNull();
+    expect(HELP_LINE.verb).toContain("/poll");
   });
 });

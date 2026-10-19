@@ -59,6 +59,7 @@ export const SPEC_ROOMS = {
   hair: ["pick"],
   accessory: ["pick", "none", "theme", "bare"],
   roll: ["two"],
+  poll: ["three"],
 } as const;
 
 export type RoomSpec = keyof typeof SPEC_ROOMS;

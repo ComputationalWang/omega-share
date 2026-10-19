@@ -346,6 +346,26 @@ describe("pop-out room window's chat column (OME-600)", () => {
     expect(goneSeen).toEqual([true, false]);
   });
 
+  // OME-1454: the poll card sits above the log; a vote or a close goes back to the room tab.
+  test("shows the poll card the room tab relays, votes and closes through it, and drops it when the poll ends", async () => {
+    const { from, adopt, q, take, root } = await setup();
+    adopt();
+    expect(root.querySelector("[data-testid=poll-card]")?.hasAttribute("hidden")).toBe(true);
+    from({ t: "room-poll", view: { pollId: "p1", question: "Next video?", options: ["A", "B"], counts: [1, 0], vote: null, canClose: true, endsAt: Date.now() + 30_000 } });
+    const card = q("[data-testid=poll-card]", HTMLElement);
+    expect(card.hidden).toBe(false);
+    expect(card.textContent).toContain("Next video?");
+    expect(card.nextElementSibling?.getAttribute("data-testid")).toBe("chat-log");
+    card.querySelectorAll("button.poll-option")[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    card.querySelector("button.poll-close")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(take()).toEqual([
+      { t: "pop-vote", pop: "p1", pollId: "p1", option: 1 },
+      { t: "pop-poll-close", pop: "p1", pollId: "p1" },
+    ]);
+    from({ t: "room-poll", view: null });
+    expect(card.hidden).toBe(true);
+  });
+
   test("superseded by another window: the room window says the room moved", async () => {
     const { from, adopt, q } = await setup({ kind: "room" });
     adopt();

@@ -366,6 +366,7 @@
         "e2e/m7-a11y.e2e.ts",
         "e2e/m8-bubbles.e2e.ts",
         "e2e/m9-hide.e2e.ts",
+        "e2e/poll.e2e.ts",
         "e2e/popout.e2e.ts",
         "e2e/reconnect.e2e.ts",
         "e2e/roll.e2e.ts",
@@ -405,6 +406,7 @@
         "e2e/fullscreen.e2e.ts",
         "e2e/m7-a11y.e2e.ts",
         "e2e/m8-bubbles.e2e.ts",
+        "e2e/poll.e2e.ts",
         "e2e/popout-room.e2e.ts",
         "e2e/roll.e2e.ts",
         "perf/chat.perf.ts",
@@ -477,6 +479,7 @@
         "e2e/m8-wheel.e2e.ts",
         "e2e/m9-help.e2e.ts",
         "e2e/polish.e2e.ts",
+        "e2e/poll.e2e.ts",
         "e2e/roll.e2e.ts",
         "perf/chat.perf.ts",
         "perf/polish.perf.ts"
