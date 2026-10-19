@@ -23,4 +23,6 @@
 
 **Amendment (2026-10-19, [OME-1435](/OME/issues/OME-1435)): hair colour** works exactly like accessory: `hair` `0..HAIR_COUNT-1` (6), 0 the avatar's own and absent on a member; set on `join` (optional), changed with `set-hair {hair}` (the current one a no-op, the emote bucket), relayed as `hair-changed`, in the snapshot, kept by a resume, remembered in the client's profile; never logged, ignored by the frozen TS server.
 
+**Amendment (2026-10-19, [OME-1461](/OME/issues/OME-1461)): jog.** `walk` takes an optional `run: boolean` (absent: false), relayed as sent in `walked {memberId, cell, run}` (absent from old clients and layout moves); same validation, same walk bucket, never stored or logged.
+
 **Consequences:** One more field each on a member (`cell`, `tint`), two client and two server message types and one error code. A rollback to the TS server would make walking and tints silently do nothing, nothing else. Pathing stays a client concern: a client that disagrees about the floor only draws a different route, never a different destination.
