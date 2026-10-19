@@ -8,7 +8,9 @@ export type SlashCommand =
   | { readonly type: "emote"; readonly kind: EmoteKind }
   | { readonly type: "help" }
   | { readonly type: "roll"; readonly sides: number }
-  | { readonly type: "roll-usage" };
+  | { readonly type: "roll-usage" }
+  | { readonly type: "hug"; readonly kind: "heart" | "clap"; readonly name: string }
+  | { readonly type: "hug-usage" };
 
 /** `/wave` … `/exclaim` (each emote's own name), `/help` and `/roll [n|dn]`; anything else, `/x` included, is chat. */
 export function slashCommand(text: string): SlashCommand | null {
