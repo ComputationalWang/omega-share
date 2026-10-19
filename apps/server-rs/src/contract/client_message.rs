@@ -119,6 +119,9 @@ pub enum ClientMessage {
     SetHair {
         hair: Hair,
     },
+    FloorSit {
+        on: bool,
+    },
     Typing {
         on: bool,
     },
@@ -200,6 +203,7 @@ impl ClientMessage {
             Self::SetTint { .. } => "set-tint",
             Self::SetAccessory { .. } => "set-accessory",
             Self::SetHair { .. } => "set-hair",
+            Self::FloorSit { .. } => "floor-sit",
             Self::Typing { .. } => "typing",
             Self::Chat { .. } => "chat",
             Self::Roll { .. } => "roll",
@@ -343,6 +347,12 @@ struct SetHairW {
 #[derive(Deserialize, Validate)]
 #[serde(deny_unknown_fields)]
 struct TypingW {
+    on: bool,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct FloorSitW {
     on: bool,
 }
 
@@ -494,6 +504,8 @@ enum Wire {
     SetAccessory(SetAccessoryW),
     #[serde(rename = "set-hair")]
     SetHair(SetHairW),
+    #[serde(rename = "floor-sit")]
+    FloorSit(FloorSitW),
     #[serde(rename = "typing")]
     Typing(TypingW),
     #[serde(rename = "chat")]
@@ -547,6 +559,7 @@ impl Validate for Wire {
             Self::SetTint(m) => m.validate(),
             Self::SetAccessory(m) => m.validate(),
             Self::SetHair(m) => m.validate(),
+            Self::FloorSit(m) => m.validate(),
             Self::Typing(m) => m.validate(),
             Self::Chat(m) => m.validate(),
             Self::Roll(m) => m.validate(),
@@ -595,6 +608,7 @@ fn convert(wire: Wire) -> ClientMessage {
         Wire::SetTint(m) => ClientMessage::SetTint { tint: m.tint },
         Wire::SetAccessory(m) => ClientMessage::SetAccessory { accessory: m.accessory },
         Wire::SetHair(m) => ClientMessage::SetHair { hair: m.hair },
+        Wire::FloorSit(m) => ClientMessage::FloorSit { on: m.on },
         Wire::Typing(m) => ClientMessage::Typing { on: m.on },
         Wire::Chat(m) => ClientMessage::Chat { text: m.text },
         Wire::Roll(m) => ClientMessage::Roll { sides: m.sides },

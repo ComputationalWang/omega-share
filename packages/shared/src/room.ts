@@ -127,6 +127,8 @@ export const MemberSchema = v.object({
   accessory: v.optional(AccessorySchema),
   /** Hair colour (OME-1435). Absent means 0. */
   hair: v.optional(HairSchema),
+  /** Sitting on the floor of their `cell` (OME-1499). Absent means false; cleared by a walk, a sit or leaving. */
+  floorSit: v.optional(v.boolean()),
 });
 export type Member = v.InferOutput<typeof MemberSchema>;
 

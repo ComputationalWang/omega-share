@@ -6,7 +6,7 @@ use super::conn::{Conn, TimerCmd};
 use super::frames::{send_error, send_error_after, send_msg};
 use super::limits::{MAX_DROPPED_IN_A_ROW, MemberBuckets};
 use super::poll;
-use super::session::{close_self, count_bad, join, kick, leave, session_of, session_of_mut, target_of};
+use super::session::{close_self, count_bad, get_up, join, kick, leave, session_of, session_of_mut, target_of};
 use crate::app::{App, lock};
 use crate::contract::client_message::{ClientMessage, EmoteKind as InEmote, parse_client_message};
 use crate::contract::constants::{TYPING_TIMEOUT_MS, close};
@@ -20,7 +20,7 @@ use crate::playback::Control;
 use crate::queue::{self, QueueActor, QueueAddRefusal, QueueRefusal};
 use crate::rate_limit::TokenBucket;
 use crate::registry::{RoomCell, RoomInner};
-use crate::room::{SitResult, WalkResult};
+use crate::room::{FloorSitResult, SitResult, WalkResult};
 use crate::secrets;
 use std::sync::Arc;
 
@@ -183,6 +183,8 @@ fn admit_type(
         ClientMessage::Typing { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.typing).is_none(),
         // Over the walk bucket: dropped silently, no notice and no streak toward a close (ADR 0053).
         ClientMessage::Walk { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none(),
+        // A floor sit is a step in place: the walk bucket, dropped silently over it (OME-1499).
+        ClientMessage::FloorSit { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.walk).is_none(),
         // The queue's add buckets come after its control-policy check, in `handle` (ADR 0031 section 3).
         ClientMessage::Leave {}
         | ClientMessage::Ping { .. }
@@ -288,6 +290,7 @@ fn handle(
                 send_error(inner, conn.id, ErrorCode::SeatTaken, "seat is taken");
                 return;
             }
+            get_up(inner, member);
             publish_msg(
                 inner,
                 &ServerMessage::SeatChanged {
@@ -300,6 +303,7 @@ fn handle(
             WalkResult::Blocked => send_error(inner, conn.id, ErrorCode::BadCell, "you can't stand there"),
             WalkResult::NotMember => {}
             WalkResult::Walked { stood_up } => {
+                get_up(inner, member);
                 if stood_up {
                     publish_msg(
                         inner,
@@ -352,6 +356,19 @@ fn handle(
                 );
             }
         }
+        ClientMessage::FloorSit { on } => match inner.room.set_floor_sit(member, on) {
+            FloorSitResult::NotStanding => send_error(inner, conn.id, ErrorCode::BadCell, "walk to a free cell to sit on the floor"),
+            FloorSitResult::Unchanged => {}
+            FloorSitResult::Changed => {
+                publish_msg(
+                    inner,
+                    &ServerMessage::FloorSat {
+                        member_id: member.clone(),
+                        on,
+                    },
+                );
+            }
+        },
         ClientMessage::Typing { on } => {
             // A muted member's typing reaches nobody, as their chat doesn't.
             if on && inner.room.is_muted(member) {

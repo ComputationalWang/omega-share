@@ -199,7 +199,15 @@ function disjoint(furniture: readonly Placed[], layer: FurnitureSpec["layer"]): 
   return true;
 }
 
-const layoutEntries = (piece: ReturnType<typeof furniture>) => ({ furniture: v.pipe(v.array(piece), v.maxLength(MAX_FURNITURE)) });
+/** The room's lighting mood (OME-1499), set by the owner with `layout-set`. Absent, as on every layout saved before it, means "none". */
+export const ROOM_MOODS = ["none", "warm", "cool", "night"] as const;
+export const RoomMoodSchema = v.picklist(ROOM_MOODS);
+export type RoomMood = v.InferOutput<typeof RoomMoodSchema>;
+
+const layoutEntries = (piece: ReturnType<typeof furniture>) => ({
+  furniture: v.pipe(v.array(piece), v.maxLength(MAX_FURNITURE)),
+  mood: v.optional(RoomMoodSchema),
+});
 type LayoutEntries = ReturnType<typeof layoutEntries>;
 
 /** The layout's rules on top of its pieces' (ADR 0021 §3). */

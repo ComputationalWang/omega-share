@@ -25,6 +25,17 @@ pub enum Facing {
     Sw,
 }
 
+/// `RoomMoodSchema`: the room's lighting mood (OME-1499). A layout without one, as every layout saved before it, is `None`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Mood {
+    #[default]
+    None,
+    Warm,
+    Cool,
+    Night,
+}
+
 pub const FACINGS: [Facing; 4] = [Facing::Ne, Facing::Nw, Facing::Se, Facing::Sw];
 const CAMERA: &[Facing] = &[Facing::Se, Facing::Sw];
 /// One sprite, so one canonical facing.
@@ -375,11 +386,13 @@ macro_rules! wire {
             #[validate(length(max = 32))]
             #[validate(nested)]
             furniture: Vec<Obj<$piece>>,
+            #[serde(default, deserialize_with = "present")]
+            mood: Option<Mood>,
         }
 
         impl From<$layout> for RoomLayout {
             fn from(w: $layout) -> Self {
-                Self { furniture: w.furniture.iter().map(|p| p.0.furniture()).collect() }
+                Self { furniture: w.furniture.iter().map(|p| p.0.furniture()).collect(), mood: w.mood }
             }
         }
     };
@@ -434,6 +447,9 @@ impl From<RoomLayoutInput> for RoomLayout {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RoomLayout {
     furniture: Vec<Furniture>,
+    /// As sent: an explicit "none" stays, absent stays absent.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mood: Option<Mood>,
 }
 
 impl RoomLayout {
@@ -449,6 +465,10 @@ impl RoomLayout {
 
     pub fn furniture(&self) -> &[Furniture] {
         &self.furniture
+    }
+
+    pub fn mood(&self) -> Mood {
+        self.mood.unwrap_or_default()
     }
 
     pub fn seats(&self) -> Vec<Seat> {
@@ -501,7 +521,7 @@ pub fn default_layout() -> RoomLayout {
         Furniture::new(Kind::Plant, 0, 9, Facing::Se),
     ])
     .collect();
-    RoomLayout { furniture }
+    RoomLayout { furniture, mood: None }
 }
 
 /// The judged D1 room presets (room-ownership.ts).
@@ -622,7 +642,12 @@ mod tests {
         let old = parse(&base(vec![]));
         assert_eq!(old.mood(), Mood::None);
         assert!(!old.to_json().contains("mood"), "absent stays absent");
-        for (text, mood) in [("none", Mood::None), ("warm", Mood::Warm), ("cool", Mood::Cool), ("night", Mood::Night)] {
+        for (text, mood) in [
+            ("none", Mood::None),
+            ("warm", Mood::Warm),
+            ("cool", Mood::Cool),
+            ("night", Mood::Night),
+        ] {
             let mut v = base(vec![]);
             v["mood"] = json!(text);
             assert_eq!(parse(&v).mood(), mood);

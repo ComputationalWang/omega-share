@@ -70,6 +70,16 @@ pub enum WalkResult {
     NotMember,
 }
 
+/// What `Room::set_floor_sit` did (OME-1499).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FloorSitResult {
+    Changed,
+    /// Already so, or not a member.
+    Unchanged,
+    /// `on` without a cell: seated, or on the standing spot.
+    NotStanding,
+}
+
 /// What `Room::set_embed` changed besides the embed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EmbedSwitch {
@@ -342,6 +352,22 @@ impl Room {
         changed
     }
 
+    /// Sits `member` on the floor of their cell, or gets them up; stored as absent when off (OME-1499).
+    pub fn set_floor_sit(&mut self, member: &MemberId, on: bool) -> FloorSitResult {
+        let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) else {
+            return FloorSitResult::Unchanged;
+        };
+        if on && rec.member.cell.is_none() {
+            return FloorSitResult::NotStanding;
+        }
+        let next = on.then_some(true);
+        if rec.member.floor_sit == next {
+            return FloorSitResult::Unchanged;
+        }
+        rec.member.floor_sit = next;
+        FloorSitResult::Changed
+    }
+
     /// Sets whether `member` is typing; false if unchanged or not a member (OME-1387).
     pub fn set_typing(&mut self, member: &MemberId, on: bool) -> bool {
         let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) else {
@@ -496,6 +522,7 @@ impl Room {
             tint: None,
             accessory: None,
             hair: None,
+            floor_sit: None,
         };
         self.index.insert(member.id.clone(), slot);
         self.name_keys.insert(name_key.clone());
@@ -1911,7 +1938,11 @@ mod tests {
     fn floor_sit_needs_a_cell_changes_once_and_is_absent_when_off() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
-        assert_eq!(r.set_floor_sit(&a, true), FloorSitResult::NotStanding, "the standing spot is no cell");
+        assert_eq!(
+            r.set_floor_sit(&a, true),
+            FloorSitResult::NotStanding,
+            "the standing spot is no cell"
+        );
         assert_eq!(r.set_floor_sit(&a, false), FloorSitResult::Unchanged);
         r.sit(&a, Some(seat(2)));
         assert_eq!(r.set_floor_sit(&a, true), FloorSitResult::NotStanding, "seated");

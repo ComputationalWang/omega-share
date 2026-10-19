@@ -16,6 +16,7 @@ use crate::log::{LogEvent, log_error};
 use crate::outbox::{ConnId, encode_frame, publish_msg, send_to};
 use crate::registry::RoomInner;
 use crate::store::StoreError;
+use crate::ws::session::get_up;
 
 /// Last write wins; seats keep their indices, so nobody is unseated (ADR 0028 section 6).
 /// A door to this very room is answered `bad_message` to `sender` only, like a blocked title (ADR 0054). A door to a
@@ -39,6 +40,7 @@ pub fn set_layout(app: &App, inner: &mut RoomInner, sender: ConnId, by: &MemberI
     publish_msg(inner, &ServerMessage::LayoutChanged { layout, by: by.clone() });
     // After the layout, so clients path on the new floor (ADR 0053).
     for (member_id, cell) in moved {
+        get_up(inner, &member_id);
         publish_msg(
             inner,
             &ServerMessage::Walked {

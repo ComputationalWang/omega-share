@@ -196,6 +196,7 @@ server_messages! {
     "tint-changed" TintChanged TintChangedWire { member_id: MemberId, tint: Tint }
     "accessory-changed" AccessoryChanged AccessoryChangedWire { member_id: MemberId, accessory: Accessory }
     "hair-changed" HairChanged HairChangedWire { member_id: MemberId, hair: Hair }
+    "floor-sat" FloorSat FloorSatWire { member_id: MemberId, on: bool }
     "typing-changed" TypingChanged TypingChangedWire { member_id: MemberId, on: bool }
     "chat" Chat ChatWire { member_id: MemberId, text: ChatText, at: ServerTime }
     "embed-changed" EmbedChanged EmbedChangedWire {

@@ -26,7 +26,7 @@ describe("floor sit", () => {
   });
 
   test("server floor-sat names the member", () => {
-    const msg = { type: "floor-sat", memberId: "m1", on: true };
+    const msg = { type: "floor-sat", memberId: "m1", on: true } as const;
     expect(parseServerMessage(JSON.stringify(msg))).toEqual(msg);
     rejects(ServerMessageSchema, { type: "floor-sat", memberId: "m1", on: "yes" });
     rejects(ServerMessageSchema, { type: "floor-sat", on: true });
@@ -60,7 +60,7 @@ describe("room mood", () => {
   });
 
   test("layout-set carries it", () => {
-    const msg = { type: "layout-set", layout: { ...DEFAULT_LAYOUT, mood: "night" } };
+    const msg = { type: "layout-set", layout: { ...DEFAULT_LAYOUT, mood: "night" } } as const;
     expect(parseClientMessage(JSON.stringify(msg))).toEqual(msg);
   });
 });
