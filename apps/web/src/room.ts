@@ -2,7 +2,7 @@
 // The room chrome (OME-1023): Vite loads this stylesheet before the chunk resolves, so the room never paints unstyled.
 import "./room.css";
 import "pixi.js/unsafe-eval";
-import { MAX_ROOM_MEMBERS, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type MemberId, type Nickname, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
+import { MAX_ROOM_MEMBERS, type Accessory, type Avatar, type ClientMessage, type EmoteKind, type FloorCell, type Hair, type MemberId, type Nickname, type ResumeToken, type RoomId, type RoomLayout, type RoomState, type Tint } from "@omega/shared";
 import { browserNow, createClockSync } from "./clock";
 import { createConnection, type Connection } from "./connection";
 import { browserSocket, stoppedConnection } from "./room-socket";
@@ -45,9 +45,9 @@ import { createHiddenMembers } from "./hide/hidden";
 import { createPeople } from "./hide/people";
 import tintsJson from "../../../assets/avatars/tints.json";
 import { createAccessorySection } from "./controls/accessory-section";
-import { createTintSection } from "./controls/tint-section";
-import { saveAccessory, saveTint } from "./profile";
-import { AVATAR_IDS, parseTints } from "./walk/tint";
+import { createHairSection, createTintSection } from "./controls/tint-section";
+import { saveAccessory, saveHair, saveTint } from "./profile";
+import { AVATAR_HAIRS, AVATAR_IDS, parseTints } from "./walk/tint";
 import { followStep } from "./walk/follow";
 import { createApplause } from "./emote/applause";
 import { NOT_FOUND_TITLE, roomPageTitle } from "./page-title";
@@ -62,6 +62,8 @@ export interface RoomOptions {
   readonly tint: Tint;
   /** Accessory to join with (OME-1391, the profile's). */
   readonly accessory: Accessory;
+  /** Hair colour to join with (OME-1438, the profile's). */
+  readonly hair: Hair;
   /** This room's owner token and invite key from `omega.rooms`, if the browser holds any (ADR 0028). */
   readonly secret: RoomSecret | undefined;
   /** Where `omega.rooms` lives: a closed room is forgotten. */
@@ -408,7 +410,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     people.open(id);
   });
   // Shirt tint (OME-1352), atop the People panel: my avatar's ramps from tints.json, the pick saved for the next visit.
-  // The accessory (OME-1391) sits beside it: one line on a wide room, so the panel doesn't take height from the stage.
+  // Hair colour (OME-1438) and the accessory (OME-1391) sit beside it: one line on a wide room, so the panel doesn't take height from the stage.
   const look = document.createElement("div");
   look.className = "look";
   people.panel.prepend(look);
@@ -419,6 +421,14 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       send: (m) => send(m),
       onPick: (t) => {
         saveTint(opts.secrets, t);
+      },
+    }),
+    createHairSection({
+      hairs: AVATAR_HAIRS[opts.avatar]?.hairs ?? [],
+      hair: opts.hair,
+      send: (m) => send(m),
+      onPick: (h) => {
+        saveHair(opts.secrets, h);
       },
     }),
     createAccessorySection({
@@ -848,7 +858,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   const kickedTill = kickedUntil(kickedStore, opts.roomId, Date.now());
   const c: Connection = kickedTill !== null ? stoppedConnection() : createConnection({
     url: opts.socketUrl,
-    join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint, opts.accessory),
+    join: joinMessage(opts.nickname, opts.avatar, opts.secret, opts.tint, opts.accessory, opts.hair),
     durable: true,
     ...(opts.resumeToken === undefined ? {} : { resumeToken: opts.resumeToken }),
     createSocket: browserSocket,

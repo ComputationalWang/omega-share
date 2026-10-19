@@ -56,6 +56,7 @@ export const SPEC_ROOMS = {
   "a11y-presence": ["join", "tv"],
   reconnect: ["main"],
   tint: ["pick"],
+  hair: ["pick"],
   accessory: ["pick", "none", "theme", "bare"],
   roll: ["two"],
 } as const;

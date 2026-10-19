@@ -1,8 +1,8 @@
 // A holiday theme's sheet (assets/themes/<id>, CC BY-SA 4.0, OME-1185/OME-1187): wall and window decor, effect frames
 // and a hat per avatar frame. Parsed here at the boundary; atlas.ts fetches each theme's sheet as its own chunk.
 import * as v from "valibot";
-import type { Texture } from "pixi.js";
 import { loadSheet } from "../atlas-sheet";
+import { tintableSheets } from "../walk/tint-sheets";
 import { MOTIONS, type ThemeAtlas } from "./atlas";
 import { MAX_EFFECT_SPRITES, packEffectFrames } from "./effect";
 import type { ThemeId } from "./periods";
@@ -29,7 +29,8 @@ export const ThemeManifestSchema = v.object({
 
 export async function loadThemeSheet(id: ThemeId, json: unknown, pngUrl: string): Promise<ThemeAtlas> {
   const m = v.parse(ThemeManifestSchema, json);
-  const sheet = await loadSheet(m.frames, pngUrl);
+  // The hats also come in an avatar's hair colour (OME-1438): a second, recolourable view of the same small sheet.
+  const [sheet, hats] = await Promise.all([loadSheet(m.frames, pngUrl), tintableSheets([pngUrl], [m.frames])]);
   const { effect, hat, decor } = m.meta.omega;
   const frames = effect.frames.flatMap((k) => {
     const f = m.frames[k];
@@ -45,20 +46,22 @@ export async function loadThemeSheet(id: ThemeId, json: unknown, pngUrl: string)
     const f = frames[i];
     if (g !== null && f !== undefined) g.drawImage(sheet.image, f.sx, f.sy, f.w, f.h, p.sx, 0, f.w, f.h);
   });
-  /** Per avatar frame key: its hat (or none). Filled once per key, so a walking frame never builds a string. */
-  const hats = new Map<string, Texture | null>();
+  /** Per avatar frame key: its hat's key (or none). Filled once per key, so a walking frame never builds a string. */
+  const hatKeys = new Map<string, string | null>();
   return {
     ...sheet,
     id,
     decor,
     effect: { image: canvas, frames: packed.frames, ms: effect.ms, max: Math.min(effect.max, MAX_EFFECT_SPRITES), motion: MOTIONS[id] },
-    hat(frame) {
-      let t = hats.get(frame);
-      if (t === undefined) {
-        t = sheet.texture(hat.prefix + frame) ?? null;
-        hats.set(frame, t);
+    ready: hats.ready,
+    loadTint: hats.loadTint,
+    hat(frame, avatar = 0, hair = 0) {
+      let k = hatKeys.get(frame);
+      if (k === undefined) {
+        k = m.frames[hat.prefix + frame] === undefined ? null : hat.prefix + frame;
+        hatKeys.set(frame, k);
       }
-      return t ?? undefined;
+      return k === null ? undefined : hats.texture(k, avatar, 0, hair);
     },
   };
 }
