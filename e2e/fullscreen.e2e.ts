@@ -292,3 +292,75 @@ test("CSS mode: Tab stays inside the wrapper, and after a reload it still enters
   await page.locator(site.fullscreenToggle).click();
   await expect(root).not.toHaveClass(/is-pseudo-fs/);
 });
+
+// OME-1491: hide chat. The strip and the shelf go, the picture takes the wrapper, others' lines float over it for ~6 s.
+async function hideChatFlow(page: Page, other: Page, enter: () => Promise<void>): Promise<void> {
+  const root = page.locator(site.fsRoot);
+  await enter();
+  const toggle = page.locator(site.fsChatToggle);
+  await expect(toggle).toHaveAttribute("aria-label", "Hide chat");
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(toggle).toBeVisible();
+  await expect(page.locator(site.fsStrip)).toBeHidden();
+  await expect(page.locator(site.chatInput)).toBeHidden();
+  await expect(root.locator(".ui-tv-shelf")).toBeHidden();
+  // The picture fills the wrapper but for the bubbles' column at its right: nothing of ours over the player (ADR 0012).
+  const tv = await box(page.locator(site.tv));
+  const r = await box(root);
+  const bubbles = page.locator(site.fsBubbles);
+  const col = await box(bubbles);
+  expect(col.x).toBeGreaterThanOrEqual(tv.x + tv.width);
+  expect(col.x + col.width).toBeLessThanOrEqual(r.x + r.width + 1);
+  expect(tv.width + col.width).toBeGreaterThanOrEqual(r.width - 1);
+  expect((await box(page.locator(site.fsChatToggle))).x).toBeGreaterThanOrEqual(tv.x + tv.width);
+  await expect(bubbles).toHaveAttribute("aria-live", "polite");
+  await say(other, "seen as a bubble");
+  const bubble = bubbles.getByText("seen as a bubble");
+  await expect(bubble).toBeVisible();
+  expect(await bubbles.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe("none");
+  await expect(bubble).toHaveCount(0, { timeout: 9000 });
+}
+
+test("hide chat in full screen: strip and shelf go, a line shows as a bubble and fades, C brings the chat back, the choice is remembered", async ({ browser }) => {
+  const [a, b] = await join(browser, "hidechat", 2);
+  if (!a || !b) throw new Error("need 2 clients");
+  const page = a.page;
+  await hideChatFlow(page, b.page, async () => {
+    await page.locator(site.fullscreenToggle).click();
+    await expect.poll(() => inFullscreen(page)).toBe(true);
+  });
+  await page.keyboard.press("c");
+  await expect(page.locator(site.fsStrip)).toBeVisible();
+  await expect(page.locator(site.fsChatToggle)).toHaveAttribute("aria-pressed", "false");
+  await page.keyboard.press("c");
+  await expect(page.locator(site.fsStrip)).toBeHidden();
+  await page.keyboard.press("f");
+  await expect.poll(() => inFullscreen(page)).toBe(false);
+  // Leaving restores the normal layout; the next full screen starts hidden again.
+  await expect(page.locator(site.chatInput)).toBeVisible();
+  await expect(page.locator(site.roomWindow)).toBeVisible();
+  await page.locator(site.fullscreenToggle).click();
+  await expect.poll(() => inFullscreen(page)).toBe(true);
+  await expect(page.locator(site.fsStrip)).toBeHidden();
+  await expect(page.locator(site.fsChatToggle)).toHaveAttribute("aria-pressed", "true");
+});
+
+test("hide chat in the CSS mode on a phone held sideways", async ({ browser }) => {
+  const [a, b] = await join(browser, "hidepseudo", 2, { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, () => {
+    Reflect.deleteProperty(Element.prototype, "requestFullscreen");
+    Object.defineProperty(Document.prototype, "fullscreenEnabled", { get: () => false });
+  });
+  if (!a || !b) throw new Error("need 2 clients");
+  const page = a.page;
+  const root = page.locator(site.fsRoot);
+  await hideChatFlow(page, b.page, async () => {
+    await page.locator(site.fullscreenToggle).click();
+    await expect(root).toHaveClass(/is-pseudo-fs/);
+  });
+  await page.locator(site.fsChatToggle).click();
+  await expect(page.locator(site.fsStrip)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(root).not.toHaveClass(/is-pseudo-fs/);
+});

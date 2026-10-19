@@ -192,7 +192,8 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Monstera | Kind::Speaker | Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2),
         Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).backed(),
         Kind::Runner => Spec::new(Floor, ON_FLOOR, 3, 2).variants(4),
-        Kind::Frame | Kind::Garland | Kind::Neonsign => Spec::new(Wall, CAMERA, 0, 0).variants(2),
+        Kind::Frame | Kind::Garland => Spec::new(Wall, CAMERA, 0, 0).variants(4),
+        Kind::Neonsign => Spec::new(Wall, CAMERA, 0, 0).variants(2),
         Kind::Bench => Spec::new(Object, ALL, 2, 1).seated().variants(2),
         Kind::Wallshelf | Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
         Kind::Door => Spec::new(Object, CAMERA, 1, 1).variants(2).backed(),
@@ -989,6 +990,11 @@ mod tests {
             let (facing, col, row) = if kind == "runner" { ("ne", 4, 4) } else { ("se", 3, 3) };
             assert!(piece_accepts(&pv(kind, col, row, facing, n - 1)), "{kind} {}", n - 1);
             assert!(!piece_accepts(&pv(kind, col, row, facing, n)), "{kind} {n}");
+        }
+        // OME-1507 (art OME-1500): the two wall pieces take two recolours each.
+        for (kind, col, row, facing) in [("frame", 2, 0, "sw"), ("garland", 0, 2, "se")] {
+            assert!(piece_accepts(&pv(kind, col, row, facing, 3)), "{kind} 3");
+            assert!(!piece_accepts(&pv(kind, col, row, facing, 4)), "{kind} 4");
         }
     }
 

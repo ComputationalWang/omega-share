@@ -109,7 +109,7 @@ describe("the editor offers every variant", () => {
     for (const kind of FURNITURE_KINDS) {
       if (FURNITURE[kind].variants > 1) expect(coloursOf(kind)).toHaveLength(FURNITURE[kind].variants);
     }
-    for (const kind of ["sofa", "rug", "beanbag", "pouf", "stool", "runner"] as const) {
+    for (const kind of ["sofa", "rug", "beanbag", "pouf", "stool", "runner", "frame", "garland"] as const) {
       for (const c of coloursOf(kind)) expect(edit[`swatch/${c}`]).toBeDefined();
     }
   });

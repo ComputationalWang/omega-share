@@ -836,6 +836,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       relay?.append(entry, from);
       // Collapsed in full screen: count what others said while the lines are out of sight.
       if (entry.kind === "chat" && !entry.self) {
+        // Chat hidden in full screen (OME-1491): the line floats over the picture, unless I hid its speaker.
+        const speaker = from === undefined || isHidden(from) ? undefined : next.room?.members.find((m) => m.id === from);
+        if (speaker !== undefined) layout.fsChat.say(speaker.avatar, entry.nickname, entry.text);
         layout.missed();
         if (document.visibilityState === "hidden") unread++;
       }
@@ -1087,7 +1090,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (owner.key(ev)) ev.preventDefault();
     else if (!help.key.hidden && help.shortcut(ev)) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden && picker.key(ev)) ev.preventDefault();
-    else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && layout.fs.key(ev.key, typingIn(ev.target), ev.repeat)) ev.preventDefault();
+    else if (!ev.ctrlKey && !ev.metaKey && !ev.altKey && !wrap.hidden && (layout.fs.key(ev.key, typingIn(ev.target), ev.repeat) || layout.fsChat.key(ev.key, typingIn(ev.target), ev.repeat))) ev.preventDefault();
     else if (state.status === "open" && !chatForm.hidden) {
       // Enter with nothing that takes it focused jumps to the message field, here or in full screen; Esc hands back (OME-642).
       const k = chatKey(ev, chatInput);
