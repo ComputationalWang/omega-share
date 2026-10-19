@@ -21,4 +21,6 @@
 - **Timer:** one per socket, re-armed by each accepted `on`, on the app clock (unlike the socket's other timers, it has no TS counterpart to match), so the black-box suite drives it with virtual time.
 - Nothing about either is logged. The frozen TS server ignores both types.
 
+**Amendment (2026-10-19, [OME-1435](/OME/issues/OME-1435)): hair colour** works exactly like accessory: `hair` `0..HAIR_COUNT-1` (6), 0 the avatar's own and absent on a member; set on `join` (optional), changed with `set-hair {hair}` (the current one a no-op, the emote bucket), relayed as `hair-changed`, in the snapshot, kept by a resume, remembered in the client's profile; never logged, ignored by the frozen TS server.
+
 **Consequences:** One more field each on a member (`cell`, `tint`), two client and two server message types and one error code. A rollback to the TS server would make walking and tints silently do nothing, nothing else. Pathing stays a client concern: a client that disagrees about the floor only draws a different route, never a different destination.

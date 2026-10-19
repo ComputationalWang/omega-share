@@ -2,6 +2,7 @@ import * as v from "valibot";
 import {
   ACCESSORY_COUNT,
   AVATAR_COUNT,
+  HAIR_COUNT,
   MAX_ROOM_MEMBERS,
   NICKNAME_MAX_LENGTH,
   NICKNAME_MAX_MARK_RUN,
@@ -89,6 +90,10 @@ export type Tint = v.InferOutput<typeof TintSchema>;
 export const AccessorySchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(ACCESSORY_COUNT - 1));
 export type Accessory = v.InferOutput<typeof AccessorySchema>;
 
+/** Hair colour (ADR 0053, OME-1435): 0 is the avatar's own. */
+export const HairSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(HAIR_COUNT - 1));
+export type Hair = v.InferOutput<typeof HairSchema>;
+
 /**
  * Who may send `control` frames and shares (ADR 0030). `owner`: only members who joined with the
  * owner token. New and seeded rooms start at DEFAULT_CONTROL_POLICY.
@@ -120,6 +125,8 @@ export const MemberSchema = v.object({
   tint: v.optional(TintSchema),
   /** Avatar accessory (OME-1387). Absent means 0. */
   accessory: v.optional(AccessorySchema),
+  /** Hair colour (OME-1435). Absent means 0. */
+  hair: v.optional(HairSchema),
 });
 export type Member = v.InferOutput<typeof MemberSchema>;
 

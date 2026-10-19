@@ -13,7 +13,7 @@ use crate::contract::generic_embed::AnyEmbed;
 use crate::contract::ids::{MemberId, QueueItemId, RoomId};
 use crate::contract::layout::{RoomLayout, default_layout, door_cell};
 use crate::contract::room::{
-    Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, RoomVisibility, SeatIndex, StandingSlot, Tint,
+    Accessory, Avatar, ControlPolicy, DEFAULT_CONTROL_POLICY, FloorCell, Hair, RoomVisibility, SeatIndex, StandingSlot, Tint,
 };
 use crate::contract::state::{Member, PlaybackState, QueueItem, RoomState, RoomSummary};
 use crate::contract::text::{Nickname, RoomTitle};
@@ -331,6 +331,17 @@ impl Room {
         changed
     }
 
+    /// Sets `member`'s hair colour; false if unchanged or not a member. Hair 0 is stored as absent (OME-1435).
+    pub fn set_hair(&mut self, member: &MemberId, hair: Hair) -> bool {
+        let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) else {
+            return false;
+        };
+        let next = (hair.get() != 0).then_some(hair);
+        let changed = rec.member.hair != next;
+        rec.member.hair = next;
+        changed
+    }
+
     /// Sets whether `member` is typing; false if unchanged or not a member (OME-1387).
     pub fn set_typing(&mut self, member: &MemberId, on: bool) -> bool {
         let Some(rec) = self.index.get(member).and_then(|&s| self.slots.get_mut(usize::from(s))?.as_mut()) else {
@@ -484,6 +495,7 @@ impl Room {
             cell: None,
             tint: None,
             accessory: None,
+            hair: None,
         };
         self.index.insert(member.id.clone(), slot);
         self.name_keys.insert(name_key.clone());
