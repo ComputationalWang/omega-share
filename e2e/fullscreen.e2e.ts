@@ -306,11 +306,15 @@ async function hideChatFlow(page: Page, other: Page, enter: () => Promise<void>)
   await expect(page.locator(site.fsStrip)).toBeHidden();
   await expect(page.locator(site.chatInput)).toBeHidden();
   await expect(root.locator(".ui-tv-shelf")).toBeHidden();
-  // The picture fills the wrapper (one side, 16:9).
+  // The picture fills the wrapper but for the bubbles' column at its right: nothing of ours over the player (ADR 0012).
   const tv = await box(page.locator(site.tv));
   const r = await box(root);
-  expect(Math.max(r.width - tv.width, r.height - tv.height)).toBeLessThanOrEqual(1);
   const bubbles = page.locator(site.fsBubbles);
+  const col = await box(bubbles);
+  expect(col.x).toBeGreaterThanOrEqual(tv.x + tv.width);
+  expect(col.x + col.width).toBeLessThanOrEqual(r.x + r.width + 1);
+  expect(tv.width + col.width).toBeGreaterThanOrEqual(r.width - 1);
+  expect((await box(page.locator(site.fsChatToggle))).x).toBeGreaterThanOrEqual(tv.x + tv.width);
   await expect(bubbles).toHaveAttribute("aria-live", "polite");
   await say(other, "seen as a bubble");
   const bubble = bubbles.getByText("seen as a bubble");

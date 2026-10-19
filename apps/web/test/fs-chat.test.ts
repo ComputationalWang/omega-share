@@ -180,16 +180,19 @@ describe("the hide-chat toggle", () => {
   });
 });
 
-describe("fullscreenLayout with the chat hidden: the picture takes the wrapper, nothing under it", () => {
+describe("fullscreenLayout with the chat hidden: the picture is as big as it gets beside a bubble column, nothing under it", () => {
+  // YouTube's Required Minimum Functionality (ADR 0012): nothing of ours over any part of the player, so the bubbles get a
+  // column of their own at the right (the strip's box), never the picture's corner.
   test.each([
-    [1280, 720, { x: 0, y: 0, w: 1280, h: 720 }],
-    [844, 390, { x: 75, y: 0, w: 693, h: 390 }],
-    [1280, 1024, { x: 0, y: 152, w: 1280, h: 720 }],
-  ])("%i×%i", (w, h, tv) => {
+    [1280, 720, { x: 0, y: 62, w: 1060, h: 596 }, { x: 1060, y: 0, w: 220, h: 720 }],
+    [844, 390, { x: 0, y: 2, w: 684, h: 385 }, { x: 684, y: 0, w: 160, h: 390 }],
+    [1280, 1024, { x: 0, y: 214, w: 1060, h: 596 }, { x: 1060, y: 0, w: 220, h: 1024 }],
+    [2560, 1080, { x: 210, y: 0, w: 1920, h: 1080 }, { x: 2130, y: 0, w: 430, h: 1080 }],
+  ])("%i×%i", (w, h, tv, strip) => {
     const l = fullscreenLayout(w, h, "youtube", "hidden");
     expect(l.at).toBe("hidden");
     expect(l.tv).toEqual(tv);
-    expect(l.strip).toEqual({ x: 0, y: 0, w: 0, h: 0 });
+    expect(l.strip).toEqual(strip);
     expect(l.controls).toEqual({ x: 0, y: 0, w: 0, h: 0 });
   });
 });
