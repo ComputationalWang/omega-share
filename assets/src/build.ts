@@ -34,6 +34,7 @@ import {
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
 import { hairSheet, hairsTable } from "./hairs";
+import { recolourSheet, recoloursTable } from "./recolours";
 import { contactSheet, tintsTable } from "./tints";
 import { CATALOGUE_V2, CATALOGUE_V4, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
@@ -2019,12 +2020,12 @@ function buildBare(): Map<string, Uint8Array> {
 /** One byte basis for the art budget (README § Budget): bytes on the wire, i.e. PNGs as stored and text (JSON, CSS) gzipped at
  *  level 9, for every file under assets/ that ships, eager and lazy. Lazy: motion (set d), furniture (set g), edit kit (set h),
  *  and the closed / invite-required scenes (set i, fetched only by those pages). */
-const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "ui/edit.png", "ui/edit.json", ...THEME_FILES, ...ACCESSORY_FILES]);
+const LAZY = new Set(["avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/recolours.json", "ui/edit.png", "ui/edit.json", ...THEME_FILES, ...ACCESSORY_FILES]);
 
 function report(): void {
   const popup = readdirSync(join(ROOT, "ui", "popup")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/popup/${n}`);
   const scenes = readdirSync(join(ROOT, "ui", "scenes")).filter((n) => n.endsWith(".png")).sort().map((n) => `ui/scenes/${n}`);
-  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", ...THEME_FILES, ...ACCESSORY_FILES];
+  const files = ["avatars/avatars.png", "avatars/avatars.json", "avatars/motion.png", "avatars/motion.json", "avatars/expressions.png", "avatars/expressions.json", "room/room.png", "room/room.json", "ui/ui.png", "ui/ui.json", "ui/edit.png", "ui/edit.json", ...slicesFiles(), ...popup, ...scenes, "ui/reference.css", "ui/popup/kit.css", "furniture/furniture.png", "furniture/furniture.json", "furniture/furniture-v2.png", "furniture/furniture-v2.json", "furniture/furniture-v4.png", "furniture/furniture-v4.json", "furniture/recolours.json", ...THEME_FILES, ...ACCESSORY_FILES];
   files.push("presets/presets.json", ...PRESETS.flatMap((p) => [`presets/${p.id}.json`, `presets/thumbs/${p.id}.png`]));
   let total = 0, lazy = 0;
   for (const f of files) {
@@ -2101,6 +2102,14 @@ function buildTints(): void {
   writeFileSync(join(ROOT, "preview", "tints-sheet@2x.png"), encodeIndexedPng(c.w * 2, c.h * 2, upscale(c.img, c.w, c.h, 2), c.palette));
 }
 
+/** Furniture recolours (OME-1462): the PLTE-swap table and a contact sheet of every variant at 1× and 2×. No sheet bytes change. */
+function buildRecolours(): void {
+  writeFileSync(join(ROOT, "furniture", "recolours.json"), JSON.stringify(recoloursTable(), null, 1) + "\n");
+  const c = recolourSheet();
+  writeFileSync(join(ROOT, "preview", "recolours-sheet@1x.png"), encodeIndexedPng(c.w, c.h, c.img, c.palette));
+  writeFileSync(join(ROOT, "preview", "recolours-sheet@2x.png"), encodeIndexedPng(c.w * 2, c.h * 2, upscale(c.img, c.w, c.h, 2), c.palette));
+}
+
 /** Hair colours (OME-1436): the PLTE-swap table and a 4 × 6 (+ mixed hair × tint row) contact sheet at 1× and 2×. */
 function buildHairs(): void {
   writeFileSync(join(ROOT, "avatars", "hairs.json"), JSON.stringify(hairsTable(), null, 1) + "\n");
@@ -2122,6 +2131,7 @@ buildMotion(avatarImages);
 buildExpressions(avatarImages);
 buildTints();
 buildHairs();
+buildRecolours();
 for (const t of THEMES) buildTheme(t, avatarImages);
 buildAccessories(avatarImages);
 buildStore();

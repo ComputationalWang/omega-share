@@ -1,0 +1,203 @@
+{
+ "license": "CC-BY-SA-4.0",
+ "method": "runtime PLTE swap: in a copy of `sheet` replace PLTE entry slots[i] with colors[i] and use that copy only for the frames whose key starts with `frames` (the source colour's); do the same in a copy of ui/edit.png for `thumb`. Layout variant `variant` draws those frames; its tray chip is swatch/<id>",
+ "kinds": {
+  "sofa": {
+   "sheet": "furniture/furniture.png",
+   "frames": "furniture/sofa/velvet/",
+   "thumb": "thumb/sofa/velvet",
+   "slots": [
+    62,
+    63,
+    64
+   ],
+   "variants": [
+    {
+     "variant": 2,
+     "id": "teal",
+     "colors": [
+      "#6fd0c4",
+      "#3aa7a3",
+      "#23706f"
+     ]
+    },
+    {
+     "variant": 3,
+     "id": "ginger",
+     "colors": [
+      "#f09a4e",
+      "#d9772e",
+      "#a4531d"
+     ]
+    }
+   ]
+  },
+  "rug": {
+   "sheet": "room/room.png",
+   "frames": "rug/",
+   "slots": [
+    32,
+    33,
+    34,
+    14,
+    15,
+    16
+   ],
+   "variants": [
+    {
+     "variant": 1,
+     "id": "rust",
+     "colors": [
+      "#e07a55",
+      "#c2553a",
+      "#8a3527",
+      "#f7d36b",
+      "#e8b33c",
+      "#b9822a"
+     ]
+    },
+    {
+     "variant": 2,
+     "id": "teal",
+     "colors": [
+      "#6fd0c4",
+      "#3aa7a3",
+      "#23706f",
+      "#fff7ea",
+      "#f4ead2",
+      "#cbbd9f"
+     ]
+    }
+   ]
+  },
+  "beanbag": {
+   "sheet": "furniture/furniture.png",
+   "frames": "furniture/beanbag/blush/",
+   "thumb": "thumb/beanbag/blush",
+   "slots": [
+    47,
+    48,
+    49
+   ],
+   "variants": [
+    {
+     "variant": 2,
+     "id": "mustard",
+     "colors": [
+      "#f7d36b",
+      "#e8b33c",
+      "#b9822a"
+     ]
+    },
+    {
+     "variant": 3,
+     "id": "lilac",
+     "colors": [
+      "#c6a8ec",
+      "#a17fd0",
+      "#6f55a0"
+     ]
+    }
+   ]
+  },
+  "pouf": {
+   "sheet": "furniture/furniture-v2.png",
+   "frames": "furniture/pouf/rust/",
+   "thumb": "thumb/pouf/rust",
+   "slots": [
+    20,
+    21,
+    22
+   ],
+   "variants": [
+    {
+     "variant": 2,
+     "id": "teal",
+     "colors": [
+      "#6fd0c4",
+      "#3aa7a3",
+      "#23706f"
+     ]
+    },
+    {
+     "variant": 3,
+     "id": "mustard",
+     "colors": [
+      "#f7d36b",
+      "#e8b33c",
+      "#b9822a"
+     ]
+    }
+   ]
+  },
+  "stool": {
+   "sheet": "furniture/furniture-v4.png",
+   "frames": "furniture/stool/teal/",
+   "thumb": "thumb/stool/teal",
+   "slots": [
+    17,
+    18,
+    19
+   ],
+   "variants": [
+    {
+     "variant": 2,
+     "id": "lilac",
+     "colors": [
+      "#c6a8ec",
+      "#a17fd0",
+      "#6f55a0"
+     ]
+    },
+    {
+     "variant": 3,
+     "id": "mustard",
+     "colors": [
+      "#f7d36b",
+      "#e8b33c",
+      "#b9822a"
+     ]
+    }
+   ]
+  },
+  "runner": {
+   "sheet": "furniture/furniture.png",
+   "frames": "furniture/rug/lilac/",
+   "thumb": "thumb/rug/lilac",
+   "slots": [
+    23,
+    24,
+    25,
+    26,
+    27,
+    28
+   ],
+   "variants": [
+    {
+     "variant": 2,
+     "id": "rust",
+     "colors": [
+      "#e07a55",
+      "#c2553a",
+      "#8a3527",
+      "#6fd0c4",
+      "#3aa7a3",
+      "#23706f"
+     ]
+    },
+    {
+     "variant": 3,
+     "id": "mustard",
+     "colors": [
+      "#f7d36b",
+      "#e8b33c",
+      "#b9822a",
+      "#56679c",
+      "#3d4c7a",
+      "#2a3458"
+     ]
+    }
+   ]
+  }
+ }
+}
