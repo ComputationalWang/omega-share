@@ -192,7 +192,8 @@ describe("off the phone", () => {
   });
 });
 
-// OME-1490: on a computer the wheel zooms the fitted room around the pointer; a double-click goes back to the whole room.
+// OME-1490: on a computer the wheel zooms the fitted room around the pointer; the Fit key goes back to the whole room
+// (a double-click on the floor is a jog, OME-1350).
 describe("on a computer", () => {
   /** The room fitted at half size: a 480×266 box. */
   const FIT = 0.5;
@@ -226,20 +227,23 @@ describe("on a computer", () => {
     expect(zoom()).toBeGreaterThan(FIT);
   });
 
-  test("the zoom is remembered on this device, apart from the phone's, and a double-click goes back to 1×", async () => {
-    const { win, clip, stage } = await setup();
+  test("the zoom is remembered on this device, apart from the phone's, and the Fit key, shown only zoomed in, goes back to 1×", async () => {
+    const { win, clip, stage, key } = await setup();
     const { stageTransform } = await import("../src/layout");
     win.desk(FIT);
+    expect(key("fit").closest("[hidden]")).not.toBeNull();
     wheel(clip, -1000);
     await frame();
     expect(localStorage.getItem("omega.roomZoomDesk")).toBe("2");
     expect(localStorage.getItem("omega.roomZoom")).toBeNull();
+    expect(key("fit").closest("[hidden]")).toBeNull();
     const b = await setup();
     b.win.desk(FIT);
     expect(b.zoom()).toBe(FIT * 2);
-    clip.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    key("fit").click();
     expect(stage.style.transform).toBe(stageTransform(FIT));
     expect(localStorage.getItem("omega.roomZoomDesk")).toBe("1");
+    expect(key("fit").closest("[hidden]")).not.toBeNull();
   });
 
   test("on the phone the wheel does nothing new", async () => {

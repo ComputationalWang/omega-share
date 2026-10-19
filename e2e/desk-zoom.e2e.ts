@@ -1,5 +1,5 @@
 // Wheel zoom on a computer (OME-1490): the wheel over the room zooms it around the pointer, a tile click still walks
-// to the cell under the pointer at that zoom, and a double-click goes back to the whole room.
+// to the cell under the pointer at that zoom, and the Fit key goes back to the whole room.
 import { expect, test } from "./support/csp";
 import type { Page } from "@playwright/test";
 import { PENDING, available } from "./support/apps";
@@ -29,7 +29,7 @@ async function cellOnPage(page: Page, x: number, y: number): Promise<{ x: number
 /** The floor's on-screen scale (its CSS px per stage px). */
 const scaleOf = (page: Page): Promise<number> => page.locator(site.walkFloor).evaluate((el) => el.getBoundingClientRect().width / (el as HTMLElement).offsetWidth);
 
-test("the wheel zooms the room around the pointer, a click still walks to the tile under it, a double-click fits it again", async ({ browser }) => {
+test("the wheel zooms the room around the pointer, a click still walks to the tile under it, the Fit key fits it again", async ({ browser }) => {
   clients = await joinRoom(browser, { roomUrl: testRoom("desk-zoom", "main").url, count: 1, nicknamePrefix: "wheel" });
   const [a] = clients;
   if (a === undefined) throw new Error("no client");
@@ -62,8 +62,9 @@ test("the wheel zooms the room around the pointer, a click still walks to the ti
   const p = cellCenter(4, 8);
   const rest = `${String(Math.round(p.x))}px ${String(Math.round(p.y + TAG_OFFSET_Y))}px`;
   await expect.poll(() => page.locator(site.nicknameTag).filter({ hasText: "wheel-1" }).evaluate((el) => (el as HTMLElement).style.translate), { timeout: 10_000 }).toBe(rest);
-  // It's this viewer's alone, and a double-click goes back to the whole room.
+  // It's this viewer's alone, and the Fit key goes back to the whole room.
   expect(Number(await page.evaluate(() => localStorage.getItem("omega.roomZoomDesk")))).toBeGreaterThan(1.5);
-  await page.mouse.dblclick(cell.x, cell.y);
+  await page.getByTestId("room-zoom-fit").click();
+  await expect(page.getByTestId("room-zoom-fit")).toBeHidden();
   await expect.poll(() => scaleOf(page)).toBeCloseTo(fit, 5);
 });
