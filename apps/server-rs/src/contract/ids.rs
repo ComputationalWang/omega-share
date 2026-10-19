@@ -88,6 +88,11 @@ string_newtype!(
     |s| base64url(s, 32).then(|| s.to_owned())
 );
 string_newtype!(
+    /// Server-assigned poll id, `^[A-Za-z0-9_-]{1,32}$` (OME-1452).
+    PollId,
+    |s| base64url(s, 32).then(|| s.to_owned())
+);
+string_newtype!(
     /// Room id, `^[a-z0-9-]{1,32}$`.
     RoomId,
     |s| ((1..=ROOM_ID_MAX_LENGTH).contains(&s.len())

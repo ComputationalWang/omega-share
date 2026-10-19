@@ -90,6 +90,8 @@ const PAUSED = { playing: false, position: 3, rate: 0.5, at: AT, rev: 7, action:
 const ITEM = { id: "q1", embed: YT, by: "m1" };
 const MEMBER = { id: "m1", nickname: "alice", avatar: 0, standingSlot: 0 };
 
+const POLL = { pollId: "p1", by: "m1", question: "Next video?", options: ["A", "B", "C"], counts: [0, 2, 1], endsAt: 1_800_000_060_000 };
+
 const FRAMES: unknown[] = [
   { type: "member-joined", member: { ...MEMBER, catching: true, muted: true, away: true } },
   { type: "member-joined", member: { id: "m2", nickname: "Bob 2", avatar: 3, standingSlot: 24, away: true } },
@@ -112,6 +114,9 @@ const FRAMES: unknown[] = [
   ...[0, 3, 5].map((hair) => ({ type: "hair-changed", memberId: "m1", hair })),
   ...[true, false].map((on) => ({ type: "typing-changed", memberId: "m1", on })),
   ...[[2, 1], [2, 2], [6, 4], [100, 1], [100, 100]].map(([sides, value]) => ({ type: "rolled", memberId: "m1", sides, value })),
+  { type: "poll", ...POLL }, { type: "poll", ...POLL, options: ["a", "b", "c", "d"], counts: [25, 0, 0, 0] },
+  { type: "poll", ...POLL, question: "q".repeat(80), options: ["x".repeat(40), "🎉"], counts: [0, 0], endsAt: 0 },
+  { type: "poll-closed", pollId: "p1", counts: [0, 0] }, { type: "poll-closed", pollId: "p_1-X", counts: [1, 2, 3, 4] },
   { type: "chat", memberId: "m1", text: "hello", at: AT },
   { type: "chat", memberId: "m1", text: "emoji 🎉 and <b>tags</b>", at: 0 },
   { type: "embed-changed", embed: YT, by: "m1", playback: LOAD, itemId: "i1" },
@@ -339,6 +344,13 @@ const EDGE_TEXTS: string[] = [
   ...[0, 4, 5, -1, 0.5, "1", null].map((accessory) => JSON.stringify({ type: "accessory-changed", memberId: "m1", accessory })),
   ...[true, false, 1, "true", null, undefined].map((on) => JSON.stringify({ type: "typing-changed", memberId: "m1", on })),
   ...[[6, 0], [6, 7], [6, 6], [1, 1], [101, 1], [6.5, 1], [6, 2.5], [6, -1], ["6", 1], [6, null], [6, undefined]].map(([sides, value]) => JSON.stringify({ type: "rolled", memberId: "m1", sides, value })),
+  snap(ROOM(), { poll: POLL }), snap(ROOM(), { owner: true, poll: POLL }), snap(ROOM(), { poll: null }), snap(ROOM(), { poll: { ...POLL, counts: [0] } }),
+  ...[[0, 2], [0, 0, 0, 0], [0, -1, 0], [0, 0.5, 0], [0, 26, 0], [0, "1", 0], null].map((counts) => JSON.stringify({ type: "poll", ...POLL, counts })),
+  ...[[], ["A"], ["A", "B", "C", "D", "E"], ["A", ""], ["A", "x".repeat(41)], ["A", "\u3164"], null].map((options) => JSON.stringify({ type: "poll", ...POLL, options, counts: options?.map(() => 0) ?? [] })),
+  ...["", "q".repeat(81), "a\u202eb", "\u3164", null].map((question) => JSON.stringify({ type: "poll", ...POLL, question })),
+  ...[-1, 1.5, "1", null].map((endsAt) => JSON.stringify({ type: "poll", ...POLL, endsAt })),
+  ...["", "a b", "a".repeat(33), null].map((pollId) => JSON.stringify({ type: "poll", ...POLL, pollId })), JSON.stringify({ type: "poll", ...POLL, by: "a b" }),
+  ...[[1], [0, 0, 0, 0, 0], [0, -1], [0, 26], null].map((counts) => JSON.stringify({ type: "poll-closed", pollId: "p1", counts })), JSON.stringify({ type: "poll-closed", counts: [0, 0] }),
   JSON.stringify({ type: "rolled", memberId: "a b", sides: 6, value: 1 }), JSON.stringify({ type: "rolled", memberId: "m1", sides: 6, value: 1, extra: true }),
   ...[0, 4, 5, null].map((accessory) => JSON.stringify({ type: "member-joined", member: { id: "m1", nickname: "alice", avatar: 0, accessory } })),
   ...[0, 5, 6, -1, 0.5, "1", null].map((hair) => JSON.stringify({ type: "hair-changed", memberId: "m1", hair })),

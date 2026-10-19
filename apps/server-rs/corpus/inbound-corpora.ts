@@ -23,6 +23,7 @@ const LAYOUT = {
   ],
 };
 const JOIN = { type: "join", nickname: "Alice", avatar: 1 };
+const POLL_OPEN = { type: "poll-open", question: "Next video?", options: ["A", "B", "C"] };
 const CONTROL = { type: "control", url: "https://youtu.be/dQw4w9WgXcQ", playing: true, position: 12.5 };
 
 const WRONG = [null, true, false, 0, 1, -1, 1.5, "", "x", [], {}, [1], { a: 1 }];
@@ -56,6 +57,10 @@ const valid: Raw[] = [
   ...[0, 1, 2, 3, 4, 5].map((hair) => js({ type: "set-hair", hair })),
   js({ ...JOIN, hair: 0 }), js({ ...JOIN, hair: 5 }), js({ ...JOIN, tint: 2, accessory: 3, hair: 4 }),
   ...[2, 3, 6, 20, 99, 100].map((sides) => js({ type: "roll", sides })),
+  // polls (OME-1452)
+  js(POLL_OPEN), js({ type: "poll-open", question: "q".repeat(80), options: ["a", "b", "c", "d"] }),
+  js({ type: "poll-open", question: "  Next?  ", options: [" A ", "e\u0301", "x".repeat(40)] }), js({ type: "poll-open", question: "🎉🎉", options: ["👍", "👎"] }),
+  ...[0, 1, 2, 3].map((option) => js({ type: "vote", pollId: "p_1-X", option })), js({ type: "poll-close", pollId: "p1" }),
   js({ type: "chat", text: "hello there" }),
   js({ type: "chat", text: "  Ｈello  " }),
   js({ type: "ping", id: 0 }),
@@ -130,6 +135,7 @@ const invalid: Raw[] = [
   ...mutations({ type: "queue-move", itemId: "q1", toIndex: 0 }),
   ...mutations({ type: "walk", cell: { x: 1, y: 1 } }), ...mutations({ type: "set-tint", tint: 1 }),
   ...mutations({ type: "typing", on: true }), ...mutations({ type: "set-accessory", accessory: 1 }), ...mutations({ type: "roll", sides: 6 }),
+  ...mutations(POLL_OPEN), ...mutations({ type: "vote", pollId: "p1", option: 0 }), ...mutations({ type: "poll-close", pollId: "p1" }),
   ...mutations({ type: "set-hair", hair: 1 }),
   ...mutations({ type: "queue-advance", fromItemId: "q1" }), ...mutations({ type: "ended", itemId: "q1", position: 1 }),
   // optional join fields: null is not absent, wrong shapes
@@ -172,6 +178,15 @@ const invalid: Raw[] = [
   // roll (OME-1423)
   ...[1, 0, -2, 101, 255, 256, 1e9, 6.5, 2.0000001, "6", null, true, [6], {}].map((sides) => js({ type: "roll", sides })), js({ type: "roll", sides: 6, value: 3 }),
   ok('{"type":"roll","sides":1e400}'), ok('{"type":"roll","sides":-1e400}'),
+  // polls (OME-1452)
+  ...["", "   ", "q".repeat(81), "a\u202eb", "a\u200bb", "\u3164", "\u3164\u3164", "x\u0301\u0301\u0301\u0301", "a\nb", 1, null].flatMap((bad) => [
+    js({ type: "poll-open", question: bad, options: ["A", "B"] }), js({ type: "poll-open", question: "Next?", options: ["A", bad] }),
+  ]),
+  js({ type: "poll-open", question: "Next?", options: ["A", "x".repeat(41)] }),
+  ...[[], ["A"], ["A", "B", "C", "D", "E"], "A|B", { 0: "A", 1: "B" }].map((options) => js({ type: "poll-open", question: "Next?", options })),
+  js({ ...POLL_OPEN, extra: 1 }), js({ type: "vote", pollId: "p1", option: 0, extra: 1 }), js({ type: "poll-close", pollId: "p1", option: 0 }),
+  ...[4, -1, 0.5, 255, 256, "1", null, true].map((option) => js({ type: "vote", pollId: "p1", option })),
+  ...["", "a".repeat(33), "a b", "é", "a/b"].flatMap((pollId) => [js({ type: "vote", pollId, option: 0 }), js({ type: "poll-close", pollId })]),
   js({ type: "emote", kind: "Wave" }), js({ type: "emote", kind: "jump" }), js({ type: "emote", kind: "" }), js({ type: "emote", kind: 1 }),
   js({ type: "kick", memberId: "" }), js({ type: "kick", memberId: "a".repeat(65) }), js({ type: "kick", memberId: "a b" }), js({ type: "kick", memberId: "mé" }),
   js({ type: "control-policy", policy: "Owner" }), js({ type: "control-policy", policy: "all" }),
@@ -225,6 +240,7 @@ const deliberate: Raw[] = [
   rr('{"type":"sit","seat":1.0}'), rr('{"type":"sit","seat":-0}'), rr('{"type":"sit","seat":1e0}'), rr('{"type":"sit","seat":0e5}'),
   rr('{"type":"ping","id":1.0}'), rr('{"type":"ping","id":-0}'), rr('{"type":"ping","id":1e2}'), rr('{"type":"ping","id":2147483647.0}'),
   rr('{"type":"walk","cell":{"x":1.0,"y":2}}'), rr('{"type":"set-tint","tint":1e0}'), rr('{"type":"set-accessory","accessory":4.0}'), rr('{"type":"set-hair","hair":5.0}'),
+  rr('{"type":"vote","pollId":"p1","option":1.0}'), rr('{"type":"vote","pollId":"p1","option":1,"option":2}'),
   rr('{"type":"roll","sides":6.0}'), rr('{"type":"roll","sides":2e1}'), rr('{"type":"roll","sides":6,"sides":7}'),
   rr('{"type":"join","nickname":"Alice","avatar":1.0}'), rr('{"type":"join","nickname":"Alice","avatar":1e0}'),
   rr('{"type":"chat","text":"a\\ud800"}'), rr('{"type":"chat","text":"\\udc00a"}'),

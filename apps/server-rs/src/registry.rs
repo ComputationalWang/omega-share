@@ -98,6 +98,8 @@ pub struct RoomInner {
     /// its own room. S6's.
     pub resumable: HashMap<[u8; 32], MemberId>,
     member_adds: HashMap<MemberId, TokenBucket>,
+    /// The room's open poll (OME-1452): memory only, gone with the room.
+    pub poll: Option<crate::ws::poll::OpenPoll>,
 }
 
 /// Counts only: a room's Debug must not print names, hashes, titles or embeds (ADR 0032, "name hashes only").
@@ -135,6 +137,7 @@ impl RoomInner {
             sessions: HashMap::new(),
             resumable: HashMap::new(),
             member_adds: HashMap::new(),
+            poll: None,
         }
     }
 

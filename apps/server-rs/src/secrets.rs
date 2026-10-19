@@ -1,7 +1,7 @@
 //! Port of `apps/server/src/secrets.ts`: minting, hashing and checking bearer secrets (ADR 0015, 0028, 0043).
 //! Randomness is the OS CSPRNG (`getrandom`), never a seeded generator. Nothing here prints a secret.
 
-use crate::contract::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken, RoomId, ShareToken};
+use crate::contract::ids::{InviteKey, MemberId, OwnerToken, PollId, QueueItemId, ResumeToken, RoomId, ShareToken};
 use crate::contract::room::{DiceSides, DieValue};
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
@@ -125,6 +125,11 @@ pub fn mint_member_id() -> Result<MemberId, EntropyError> {
 /// A fresh queue item id (ADR 0031 section 1): 12 random bytes, base64url, 16 chars. Opaque, never reused.
 pub fn mint_item_id() -> Result<QueueItemId, EntropyError> {
     QueueItemId::parse(&base64url(&random::<12>()?)).ok_or(EntropyError)
+}
+
+/// A fresh poll id (OME-1452): 12 random bytes, base64url, 16 chars. Opaque, so a stale vote never hits a later poll.
+pub fn mint_poll_id() -> Result<PollId, EntropyError> {
+    PollId::parse(&base64url(&random::<12>()?)).ok_or(EntropyError)
 }
 
 /// SHA-256 of a secret: what the store keeps instead of it (ADR 0028 §3).

@@ -3,8 +3,8 @@
 
 use super::Obj;
 use super::constants::{
-    ACCESSORY_COUNT, AVATAR_COUNT, DICE_MAX_SIDES, DICE_MIN_SIDES, FLOOR_CELLS, HAIR_COUNT, MAX_ROOM_MEMBERS, QUEUE_MAX, SEAT_COUNT,
-    TINT_COUNT,
+    ACCESSORY_COUNT, AVATAR_COUNT, DICE_MAX_SIDES, DICE_MIN_SIDES, FLOOR_CELLS, HAIR_COUNT, MAX_ROOM_MEMBERS, POLL_MAX_OPTIONS, QUEUE_MAX,
+    SEAT_COUNT, TINT_COUNT,
 };
 use serde::{Deserialize, Serialize};
 
@@ -84,6 +84,16 @@ bounded_index!(
     DieValue,
     1,
     usize::from(DICE_MAX_SIDES) + 1
+);
+bounded_index!(
+    /// `PollOptionIndexSchema`: an index into a poll's options, `0..POLL_MAX_OPTIONS` (OME-1452).
+    PollOptionIndex,
+    POLL_MAX_OPTIONS
+);
+bounded_index!(
+    /// A poll option's vote count, `0..=MAX_ROOM_MEMBERS`.
+    PollCount,
+    MAX_ROOM_MEMBERS + 1
 );
 bounded_index!(
     /// One coordinate of a floor cell: an integer in `0..FLOOR_CELLS`.

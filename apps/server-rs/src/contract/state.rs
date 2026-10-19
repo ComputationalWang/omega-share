@@ -7,12 +7,15 @@
 //! type also has a strict `Deserialize` (tests and the load generator read what the server wrote):
 //! a JSON object only (never serde's array form), every schema rule re-checked.
 
-use super::constants::{MAX_POSITION_S, MAX_ROOM_MEMBERS, PING_ID_MAX, PLAYBACK_RATE_MAX, PLAYBACK_RATE_MIN, QUEUE_MAX, SEAT_COUNT};
+use super::constants::{
+    MAX_POSITION_S, MAX_ROOM_MEMBERS, PING_ID_MAX, PLAYBACK_RATE_MAX, PLAYBACK_RATE_MIN, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS, QUEUE_MAX,
+    SEAT_COUNT,
+};
 use super::generic_embed::AnyEmbed;
-use super::ids::{MemberId, QueueItemId, RoomId};
+use super::ids::{MemberId, PollId, QueueItemId, RoomId};
 use super::layout::RoomLayout;
-use super::room::{Accessory, Avatar, ControlPolicy, FloorCell, Hair, StandingSlot, Tint};
-use super::text::{Nickname, RoomTitle};
+use super::room::{Accessory, Avatar, ControlPolicy, FloorCell, Hair, PollCount, StandingSlot, Tint};
+use super::text::{Nickname, PollOption, PollQuestion, RoomTitle};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashSet;
 
@@ -284,6 +287,34 @@ wire_type!(
         by: Option<MemberId>,
     }
 );
+
+wire_type!(
+    /// The room's open poll (OME-1452, ADR 0055): `PollSchema`, in `poll` and the snapshot. `by` is the opener.
+    Poll, PollWire, check = check_poll,
+    {
+        poll_id: PollId,
+        by: MemberId,
+        question: PollQuestion,
+        options: Vec<PollOption>,
+        counts: Vec<PollCount>,
+        ends_at: ServerTime,
+    }
+);
+
+/// `PollCountsSchema`: one count per option, POLL_MIN_OPTIONS..=POLL_MAX_OPTIONS of them.
+pub fn poll_counts_are_valid(counts: &[PollCount]) -> bool {
+    (POLL_MIN_OPTIONS..=POLL_MAX_OPTIONS).contains(&counts.len())
+}
+
+fn check_poll(p: &Poll) -> Result<(), &'static str> {
+    if !(POLL_MIN_OPTIONS..=POLL_MAX_OPTIONS).contains(&p.options.len()) {
+        Err("2 to 4 options")
+    } else if p.counts.len() != p.options.len() {
+        Err("one count per option")
+    } else {
+        Ok(())
+    }
+}
 
 /// `QueueSchema`'s array rules: at most `QUEUE_MAX`, distinct ids.
 pub fn queue_is_valid(queue: &[QueueItem]) -> bool {
