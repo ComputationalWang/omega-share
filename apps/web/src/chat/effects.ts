@@ -8,6 +8,7 @@ import type { SystemLine } from "../controls/sysline";
 export type SlashCommand =
   | { readonly type: "emote"; readonly kind: EmoteKind }
   | { readonly type: "help" }
+  | { readonly type: "sit" }
   | { readonly type: "roll"; readonly sides: number }
   | { readonly type: "roll-usage" }
   | { readonly type: "poll"; readonly question: string; readonly options: readonly string[] }
@@ -24,7 +25,7 @@ function pollCommand(rest: string): SlashCommand {
   return { type: "poll", question: question.output, options: options.output };
 }
 
-/** `/wave` … `/exclaim` (each emote's own name), `/help`, `/roll [n|dn]`, `/poll` and `/hug|/highfive <name>` (OME-1453); anything else, `/x` included, is chat. */
+/** `/wave` … `/exclaim` (each emote's own name), `/help`, `/sit` (OME-1501), `/roll [n|dn]`, `/poll` and `/hug|/highfive <name>` (OME-1453); anything else, `/x` included, is chat. */
 export function slashCommand(text: string): SlashCommand | null {
   const hug = /^\s*\/(hug|highfive)(?:\s+(.*?))?\s*$/is.exec(text);
   if (hug !== null) {
@@ -33,6 +34,7 @@ export function slashCommand(text: string): SlashCommand | null {
   }
   const t = text.trim().toLowerCase();
   if (t === "/help") return { type: "help" };
+  if (t === "/sit") return { type: "sit" };
   if (t === "/roll") return { type: "roll", sides: 6 };
   if (t.startsWith("/roll ")) {
     const sides = Number(/^\/roll\s+d?(\d{1,3})$/.exec(t)?.[1]);
@@ -55,7 +57,7 @@ export function thinkText(text: string): string | null {
 }
 
 /** What `/help` says, to me only. */
-export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")} · /me <action> · /think <thought> · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B`, time: null, self: true };
+export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")} · /me <action> · /think <thought> · /sit · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B`, time: null, self: true };
 
 /** What a `/poll` the server would refuse says (OME-1454), to me only; nothing is sent. */
 export const POLL_USAGE_LINE: SystemLine = { glyph: "host", actor: null, verb: `Poll: /poll Question? A | B | C (${String(POLL_MIN_OPTIONS)}–${String(POLL_MAX_OPTIONS)} options, split on |)`, time: null, self: true };
@@ -65,6 +67,9 @@ export const ROLL_USAGE_LINE: SystemLine = { glyph: "host", actor: null, verb: `
 
 /** What `/hug` or `/highfive` with no name says (OME-1453), to me only; nothing is sent. */
 export const HUG_USAGE_LINE: SystemLine = { glyph: "host", actor: null, verb: "Hug someone: /hug <name> or /highfive <name>", time: null, self: true };
+
+/** What `/sit`, "Sit here" or S says with no floor cell under me (OME-1501), to me only; nothing is sent. */
+export const SIT_NO_CELL_LINE: SystemLine = { glyph: "host", actor: null, verb: "Step onto the floor to sit there", time: null, self: true };
 
 /** What `/dance` says while I'm seated (OME-1378), to me only; nothing is sent. */
 export const DANCE_SEATED_LINE: SystemLine = { glyph: "host", actor: null, verb: "Stand up to dance", time: null, self: true };

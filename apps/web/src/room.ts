@@ -19,11 +19,11 @@ import { qualityMemory } from "./controls/quality";
 import { createQueuePanel } from "./controls/queue-panel";
 import { ERROR_TEXT, STATUS_TEXT, chatView } from "./controls/feedback";
 import { bouncedUntil, kickedUntil, rememberKick } from "./kick-memory";
-import { chatIntent, createWalkGate, sitIntent, stepAllowed, stepCell, walkIntent, walkOverIntent } from "./intents";
+import { chatIntent, createWalkGate, floorSitIntent, sitIntent, stepAllowed, stepCell, walkIntent, walkOverIntent } from "./intents";
 import { doorAt, layoutOf } from "./furniture";
 import { createDoorChip } from "./door-chip";
 import { createPendingApplier } from "./pending-layout";
-import { PHONE_QUERY, SHORT_QUERY, STAGE_W, WIDE_QUERY, type Rect } from "./layout";
+import { PHONE_QUERY, SHORT_QUERY, STAGE_W, WIDE_QUERY, type Point, type Rect } from "./layout";
 import { createRoomLayout } from "./room-layout";
 import { createStage, type Stage } from "./stage";
 import { controlHeld, controlPolicy, initialState, nextExpiry, reduce, screen, type ViewEvent, type ViewState } from "./state";
@@ -33,7 +33,7 @@ import { createEmotePicker } from "./emote/picker";
 import { createChatLog } from "./chat/log";
 import { logEntries } from "./chat/feed";
 import { createPollCard, type PollView } from "./chat/poll";
-import { DANCE_SEATED_LINE, HELP_LINE, HUG_USAGE_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
+import { DANCE_SEATED_LINE, HELP_LINE, HUG_USAGE_LINE, POLL_USAGE_LINE, ROLL_USAGE_LINE, SIT_NO_CELL_LINE, chatSticker, createStickerGate, rollSticker, slashCommand } from "./chat/effects";
 import { hugHint, hugStep, matchMember } from "./chat/hug";
 import type { SystemLine } from "./controls/sysline";
 import { createOutfitSlots } from "./outfits/slots";
@@ -93,6 +93,8 @@ export interface RoomHandle {
   readonly layoutBuilds: () => number;
   /** A member's motion frame and emote sticker now (room-view.ts `frames`), for e2e emote checks. */
   readonly avatarFrames: (id: MemberId) => { avatar: string | null; sticker: string | null } | undefined;
+  /** Where a member's bubbles and sticker hang now (stage.ts `head`), for e2e seated-height checks. */
+  readonly head: (id: MemberId) => Point | undefined;
   /** How many times the "Up next" rows were rebuilt, for e2e "once per queue change" checks. */
   readonly queueRenders: () => number;
   /** Is the room's render loop paused (full screen hides it, OME-597)? For e2e checks. */
@@ -195,7 +197,22 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
       lastStep = now;
       return walkTo(to, run);
     },
+    onSit: () => {
+      floorSit();
+    },
   });
+  /** `/sit`, "Sit here" or S (OME-1501): sit on the floor of my cell or get up; with no cell under me, say so. */
+  function floorSit(): boolean {
+    const msg = floorSitIntent(state);
+    if (msg === "no-cell") {
+      hint(SIT_NO_CELL_LINE);
+      return true;
+    }
+    if (msg === null) return false;
+    // Following walks me on their next walk, which would get me up again.
+    stopFollow();
+    return send(msg);
+  }
   /** Free walking (OME-1350): send `walk` to free floor; false (the floor flashes) when nobody can stand there. */
   function walkTo(cell: FloorCell, run: boolean): boolean {
     const msg = walkIntent(state, cell, run);
@@ -327,7 +344,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (document.activeElement === chatInput) ev.preventDefault();
   });
   // The emote key and its picker (OME-415) lead the chat row: both are how you speak up.
-  const iSit = (): boolean => state.self !== null && (state.room?.seats.includes(state.self) ?? false);
+  const iSit = (): boolean => state.self !== null && ((state.room?.seats.includes(state.self) ?? false) || state.room?.members.some((m) => m.id === state.self && m.floorSit === true) === true);
   const picker = createEmotePicker({
     seated: iSit,
     send: (m) => send(m),
@@ -403,6 +420,9 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     walkOver,
     follow,
     hidden,
+    sit: () => {
+      floorSit();
+    },
     onChange: (id, on) => {
       roomStage.hide(id, on);
       chatLog.hideFrom(isHidden);
@@ -902,6 +922,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     if (cmd.type === "roll") return send({ type: "roll", sides: cmd.sides });
     if (cmd.type === "poll") return send({ type: "poll-open", question: cmd.question, options: [...cmd.options] });
     if (cmd.type === "hug") return startHug(cmd.kind, cmd.name);
+    if (cmd.type === "sit") return floorSit();
     hint(cmd.type === "help" ? HELP_LINE : cmd.type === "roll-usage" ? ROLL_USAGE_LINE : cmd.type === "hug-usage" ? HUG_USAGE_LINE : cmd.type === "poll-usage" ? POLL_USAGE_LINE : DANCE_SEATED_LINE);
     return true;
   };
@@ -1144,5 +1165,5 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   render();
   pbView = playback.view();
   renderControls();
-  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops() };
+  return { state: () => state, send: (m) => c.send(m), playback: () => playback.view(), scene: () => view.drawOrder(), layoutBuilds: () => roomStage.layoutBuilds(), avatarFrames: (id) => view.frames(id), head: (id) => roomStage.head(id), queueRenders: () => queuePanel.renders(), roomPaused: () => view.paused(), roomRenders: () => view.renders(), avatarAlpha: (id) => view.alpha(id), theme: () => view.theme(), confetti: () => view.confettiBursts(), furnitureLoops: () => view.loops() };
 }

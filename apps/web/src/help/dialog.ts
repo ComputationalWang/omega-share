@@ -33,6 +33,7 @@ const KEYBOARD: readonly Row[] = [
   [[], "Click a seat to walk over and sit."],
   [[], "Scroll over the room to zoom in or out; the Fit key in its corner shows the whole room again."],
   [["Shift", "Arrows"], "Jog a step on the focused floor; double-click the floor to jog there."],
+  [["S"], "Sit on the floor where you stand, or get up (also /sit, or Sit here in People)."],
   [["Enter"], "Jump to the message field; Enter again sends."],
   [["Esc"], "Leave the field, close a menu, or leave full screen."],
   [["T"], "Open the emote wheel; arrows pick, Enter sends."],

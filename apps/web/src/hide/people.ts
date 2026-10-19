@@ -15,6 +15,8 @@ export interface PeopleOptions {
   readonly walkOver: (id: MemberId) => (() => void) | null;
   /** Follow (OME-1389): walk over after each of their walks, until I stop. */
   readonly follow: (id: MemberId) => void;
+  /** Sit here / Stand up on my own row (OME-1501): toggle sitting on the floor of my cell. */
+  readonly sit: () => void;
 }
 
 export interface People {
@@ -42,6 +44,8 @@ interface Row {
   readonly button: HTMLButtonElement | null;
   /** Walk over (OME-1376); null on my own row. */
   readonly walk: HTMLButtonElement | null;
+  /** Sit here / Stand up (OME-1501); only on my own row. */
+  readonly sit: HTMLButtonElement | null;
   nickname: string;
   shown: boolean | null;
 }
@@ -93,7 +97,12 @@ export function createPeople(o: PeopleOptions): People {
     li.append(name);
     let button: HTMLButtonElement | null = null;
     let walk: HTMLButtonElement | null = null;
-    if (!self) {
+    let sit: HTMLButtonElement | null = null;
+    if (self) {
+      sit = el("button", { type: "button", className: "ui-button secondary people-walk", textContent: "Sit here" }, "people-sit");
+      sit.addEventListener("click", o.sit);
+      li.append(sit);
+    } else {
       walk = el("button", { type: "button", className: "ui-button secondary people-walk", textContent: "Walk over" }, "people-walk-over");
       walk.setAttribute("aria-label", `Walk over to ${m.nickname}`);
       walk.addEventListener("click", () => {
@@ -118,7 +127,7 @@ export function createPeople(o: PeopleOptions): People {
       button = b;
     }
     const awayBadge = el("span", { className: "ui-tag people-away", textContent: "Away" });
-    return { li, name, badge, awayBadge, away: false, button, walk, nickname: m.nickname, shown: null };
+    return { li, name, badge, awayBadge, away: false, button, walk, sit, nickname: m.nickname, shown: null };
   };
 
   /** Walk over is disabled with no free cell beside them; judged only while the list is open (a BFS per member). */
@@ -174,6 +183,11 @@ export function createPeople(o: PeopleOptions): People {
           rows.set(m.id, row);
         }
         paintAway(row, m.away === true);
+        if (row.sit !== null) {
+          const label = m.floorSit === true ? "Stand up" : "Sit here";
+          // Never disabled: with no cell under me the room says why (SIT_NO_CELL_LINE).
+          if (row.sit.textContent !== label) row.sit.textContent = label;
+        }
         paint(m.id, row);
         // Room order, moving only what's out of place.
         const want: ChildNode | null = prev === null ? list.firstChild : prev.nextSibling;

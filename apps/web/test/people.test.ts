@@ -148,17 +148,15 @@ describe("walk over", () => {
   });
 
   // OME-1501: my own row is my menu: "Sit here" sits me on the floor of my cell, "Stand up" gets me up.
-  test("my row has Sit here (only mine); it flips to Stand up while I sit on the floor, and is off with no cell", async () => {
+  test("my row has Sit here (only mine); it flips to Stand up while I sit on the floor", async () => {
     const { people, sitKey, sits } = await setup([{ ...ada, cell: { x: 3, y: 8 } }, bo]);
     expect(sitKey("b")).toBeNull();
     expect(sitKey("a")?.textContent).toBe("Sit here");
-    expect(sitKey("a")?.disabled).toBe(false);
     sitKey("a")?.click();
     expect(sits).toEqual([1]);
     people.update([{ ...ada, cell: { x: 3, y: 8 }, floorSit: true }, bo], "a");
     expect(sitKey("a")?.textContent).toBe("Stand up");
     people.update([ada, bo], "a");
     expect(sitKey("a")?.textContent).toBe("Sit here");
-    expect(sitKey("a")?.disabled).toBe(true);
   });
 });

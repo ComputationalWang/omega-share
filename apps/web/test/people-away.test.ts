@@ -20,7 +20,7 @@ describe("people list away label", () => {
     const { createHiddenMembers } = await import("../src/hide/hidden");
     const data = new Map<string, string>();
     const hidden = createHiddenMembers({ getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v) }, "lobby");
-    const people = createPeople({ hidden, onChange: () => undefined, walkOver: () => null, follow: () => undefined });
+    const people = createPeople({ hidden, onChange: () => undefined, walkOver: () => null, follow: () => undefined, sit: () => undefined });
     document.body.replaceChildren(people.key, people.panel, people.status);
     const row = (id: string): HTMLElement | null => people.panel.querySelector<HTMLElement>(`[data-member="${id}"]`);
 

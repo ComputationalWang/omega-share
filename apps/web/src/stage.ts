@@ -47,6 +47,8 @@ export interface StageOptions {
   readonly onFloor?: (cell: FloorCell, run: boolean) => boolean;
   /** An arrow key on the focused floor (`repeat`: held down, `run`: with Shift); false flashes as `onFloor` does. */
   readonly onStep?: (key: StepKey, repeat: boolean, run: boolean) => boolean;
+  /** S on the focused floor (OME-1501): sit on the floor or get up. */
+  readonly onSit?: () => void;
   /** A layer right over the canvas, under the floor, seats, tags and bubbles: the cinema dim (OME-1406). */
   readonly dim?: HTMLElement;
 }
@@ -111,7 +113,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   });
   overlay.append(...seatButtons);
   // Free walking (OME-1350): the floor under the seat keys, tags and bubbles takes clicks, taps and (focused) arrow keys.
-  const floorHit = o.onFloor === undefined ? null : el("div", { className: "walk-floor", tabIndex: -1, role: "application", ariaLabel: "Room floor. Arrow keys walk your avatar one cell; with Shift, jog." }, "walk-floor");
+  const floorHit = o.onFloor === undefined ? null : el("div", { className: "walk-floor", tabIndex: -1, role: "application", ariaLabel: "Room floor. Arrow keys walk your avatar one cell; with Shift, jog. S sits down or gets up." }, "walk-floor");
   const floorNote = el("span", { className: "sr-only", role: "status" });
   const tags = el("div", { className: "tags" });
   // Decorative (createFloats makes it aria-hidden): the chat log is the accessible record of what was said.
@@ -147,7 +149,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const badges = createEmoteBadges(bubbles, timers);
   /** The seats as last drawn, for the emote lift (a sitter's sticker sits lower). */
   let seated: readonly (MemberId | null)[] = [];
-  const liftOf = (id: MemberId): number => (seated.includes(id) ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
+  /** Who sits on the floor as last drawn (OME-1501): their sticker and bubbles sit lower too. */
+  let floorSat: ReadonlySet<MemberId> = new Set();
+  const liftOf = (id: MemberId): number => (seated.includes(id) || floorSat.has(id) ? EMOTE_LIFT.sit : EMOTE_LIFT.idle);
   // Tags, bubbles and emote badges ride along with a walking avatar; a bubble's tail tips just over the head.
   const view = await createRoomView({
     onMove: (id, x, y) => {
@@ -220,7 +224,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       if (o.onFloor?.(c, run) === false) flash();
     });
     floorHit.addEventListener("keydown", (ev) => {
-      if (ev.ctrlKey || ev.metaKey || ev.altKey || !isStepKey(ev.key)) return;
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      if (ev.key === "s" || ev.key === "S") {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (!ev.repeat) o.onSit?.();
+        return;
+      }
+      if (!isStepKey(ev.key)) return;
       // Taken here: the page doesn't scroll, and the room's own keys don't also run.
       ev.preventDefault();
       ev.stopPropagation();
@@ -391,8 +402,18 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       for (const m of everyone) {
         if (m.cell === undefined || at.has(m.id)) continue;
         const p = cellCenter(m.cell.x, m.cell.y);
-        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: p, z: standDepth(p), seatFacing: null, run: s.running.includes(m.id) });
+        placements.push({ id: m.id, avatar: m.avatar, tint: m.tint ?? 0, hair: m.hair ?? 0, accessory: m.accessory ?? 0, at: p, z: standDepth(p), seatFacing: null, run: s.running.includes(m.id), floorSit: m.floorSit === true });
         at.set(m.id, p);
+      }
+      // Sitting down or getting up in place moves no pixel, so no onMove: drop or lift their bubbles and badge here.
+      const wasSat = floorSat;
+      floorSat = new Set(everyone.flatMap((m) => (m.floorSit === true && m.cell !== undefined ? [m.id] : [])));
+      for (const id of new Set([...wasSat, ...floorSat])) {
+        if (wasSat.has(id) === floorSat.has(id)) continue;
+        const p = view.position(id) ?? at.get(id);
+        if (p === undefined) continue;
+        badges.move(id, p.x, p.y - liftOf(id));
+        floats.move(id, p.x, p.y - liftOf(id));
       }
       const claimed = new Set<number>();
       for (const m of everyone) if (m.standingSlot !== undefined) claimed.add(m.standingSlot);
