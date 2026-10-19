@@ -169,22 +169,24 @@ pub const fn spec(kind: Kind) -> Spec {
     match kind {
         Kind::Armchair => Spec::new(Object, ALL, 1, 1).seated(),
         Kind::Tv | Kind::Lamp | Kind::Plant => Spec::new(Object, FIXED, 1, 1),
-        Kind::Rug => Spec::new(Floor, FIXED, 7, 7),
-        Kind::Sofa | Kind::Couch => Spec::new(Object, ALL, 2, 1).seated().variants(2),
+        Kind::Rug => Spec::new(Floor, FIXED, 7, 7).variants(3),
+        Kind::Sofa => Spec::new(Object, ALL, 2, 1).seated().variants(4),
+        Kind::Couch => Spec::new(Object, ALL, 2, 1).seated().variants(2),
         Kind::Wingback => Spec::new(Object, ALL, 1, 1).seated(),
-        Kind::Beanbag | Kind::Floorcushion | Kind::Pouf => Spec::new(Object, ALL, 1, 1).seated().variants(2),
+        Kind::Beanbag | Kind::Pouf => Spec::new(Object, ALL, 1, 1).seated().variants(4),
+        Kind::Floorcushion => Spec::new(Object, ALL, 1, 1).seated().variants(2),
         Kind::Sidetable | Kind::Arclamp | Kind::Popcorn | Kind::Turntable | Kind::Coffeetable | Kind::Aquarium | Kind::Arcade => {
             Spec::new(Object, CAMERA, 1, 1)
         }
         Kind::Monstera | Kind::Speaker | Kind::Cat => Spec::new(Object, CAMERA, 1, 1).variants(2),
         Kind::Bookshelf => Spec::new(Object, CAMERA, 2, 1).backed(),
-        Kind::Runner => Spec::new(Floor, ON_FLOOR, 3, 2).variants(2),
+        Kind::Runner => Spec::new(Floor, ON_FLOOR, 3, 2).variants(4),
         Kind::Frame | Kind::Garland | Kind::Neonsign => Spec::new(Wall, CAMERA, 0, 0).variants(2),
         Kind::Bench => Spec::new(Object, ALL, 2, 1).seated().variants(2),
         Kind::Wallshelf | Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
         Kind::Door => Spec::new(Object, CAMERA, 1, 1).variants(2).backed(),
         Kind::Hammock => Spec::new(Object, ALL, 2, 1).seated(),
-        Kind::Stool => Spec::new(Object, ALL, 1, 1).seated().variants(2),
+        Kind::Stool => Spec::new(Object, ALL, 1, 1).seated().variants(4),
         Kind::Barcounter => Spec::new(Object, CAMERA, 2, 1),
         Kind::Piano => Spec::new(Object, CAMERA, 2, 1).variants(2),
         Kind::Fireplace => Spec::new(Object, CAMERA, 1, 1).backed(),
@@ -870,7 +872,7 @@ mod tests {
             ("a garland on a sconce segment", p("garland", 8, 0, "sw")),
             ("a garland facing the TV", p("garland", 2, 0, "ne")),
             ("a coffee table facing the TV", p("coffeetable", 4, 4, "ne")),
-            ("a third pouf colour", pv("pouf", 5, 5, "se", 2)),
+            ("a fifth pouf colour", pv("pouf", 5, 5, "se", 4)),
             ("a neon sign off the wall", p("neonsign", 1, 3, "se")),
             ("a neon sign on a sconce segment", p("neonsign", 8, 0, "sw")),
             ("a second aquarium colour", pv("aquarium", 6, 6, "sw", 1)),
@@ -878,7 +880,7 @@ mod tests {
             ("a wall clock on a window segment", p("wallclock", 0, 6, "se")),
             ("a hammock hanging off the floor", p("hammock", 9, 0, "ne")),
             ("a second hammock colour", pv("hammock", 4, 4, "ne", 1)),
-            ("a third stool colour", pv("stool", 3, 3, "ne", 2)),
+            ("a fifth stool colour", pv("stool", 3, 3, "ne", 4)),
             ("a bar counter facing the TV", p("barcounter", 4, 4, "ne")),
             ("a piano facing the TV", p("piano", 4, 4, "nw")),
             ("a fireplace away from its wall", p("fireplace", 3, 1, "sw")),
@@ -923,6 +925,25 @@ mod tests {
     #[test]
     fn wall_fixture_segments() {
         assert_eq!(WALL_FIXTURE_SEGMENTS, [5, 6, 8]);
+    }
+
+    // packages/shared/test/layout-contract.test.ts (OME-1463): the recolours (OME-1462) raise six kinds' variants.
+    #[test]
+    fn the_recoloured_kinds_take_their_extra_colours_and_no_more() {
+        for (kind, n) in [
+            ("sofa", 4),
+            ("beanbag", 4),
+            ("pouf", 4),
+            ("stool", 4),
+            ("runner", 4),
+            ("rug", 3),
+            ("couch", 2),
+            ("floorcushion", 2),
+        ] {
+            let (facing, col, row) = if kind == "runner" { ("ne", 4, 4) } else { ("se", 3, 3) };
+            assert!(piece_accepts(&pv(kind, col, row, facing, n - 1)), "{kind} {}", n - 1);
+            assert!(!piece_accepts(&pv(kind, col, row, facing, n)), "{kind} {n}");
+        }
     }
 
     #[test]

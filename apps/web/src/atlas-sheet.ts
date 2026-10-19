@@ -6,10 +6,10 @@ export interface Sheet {
   texture(key: string): Texture | undefined;
 }
 
-type Frames = Readonly<Record<string, { readonly frame: { x: number; y: number; w: number; h: number }; readonly anchor: { x: number; y: number } }>>;
+export type Frames = Readonly<Record<string, { readonly frame: { x: number; y: number; w: number; h: number }; readonly anchor: { x: number; y: number } }>>;
 
-/** The sheet, plus its decoded image for code that draws without Pixi (the theme effect's canvas). */
-export async function loadSheet(frames: Frames, pngUrl: string): Promise<Sheet & { readonly image: HTMLImageElement }> {
+/** The sheet, plus its decoded image for code that draws without Pixi (the theme effect's canvas) and its URL (a recolour's bytes). */
+export async function loadSheet(frames: Frames, pngUrl: string): Promise<Sheet & { readonly image: HTMLImageElement; readonly url: string }> {
   const img = new Image();
   img.src = pngUrl;
   await img.decode();
@@ -17,6 +17,7 @@ export async function loadSheet(frames: Frames, pngUrl: string): Promise<Sheet &
   const cache = new Map<string, Texture>();
   return {
     image: img,
+    url: pngUrl,
     texture(key) {
       let t = cache.get(key);
       const f = frames[key];

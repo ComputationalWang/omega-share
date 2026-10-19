@@ -293,3 +293,64 @@ test("placing a door asks for its room: a bad link is refused inline, a saved ro
   const doors = v.parse(v.object({ furniture: v.array(v.object({ kind: v.string(), col: v.number(), target: v.optional(v.string()) })) }), await handle(owner, "layout")).furniture.filter((f) => f.kind === "door");
   expect(doors.map((d) => d.target)).toEqual([film, film]);
 });
+
+test("the new colours (OME-1463): the editor offers them, they save, and a guest draws them, after a reload too", async ({ browser }) => {
+  const { id, ownerToken, inviteKey } = ownedRoom("recolour");
+  const owner = await newPage(browser, []);
+  await owner.addInitScript(
+    ([key, value]) => {
+      localStorage.setItem(key, value);
+    },
+    [ROOM_SECRETS_STORAGE_KEY, JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } })] as const,
+  );
+  await owner.goto(`${URLS.web}/r/${id}`);
+  await enter(owner, "owner");
+  await owner.locator(site.editRoom).click();
+  await expect(owner.locator(site.editorTray)).toBeVisible();
+  const swatch = (name: string) => owner.locator(`${site.editorSwatch}[aria-label="${name}"]`);
+
+  // The classic rug: its shipped navy and the two new ones.
+  await clickCell(owner, 3, 3);
+  await expect(owner.locator(site.editorSwatch)).toHaveCount(3);
+  await swatch("rust").click();
+  await expect(swatch("rust")).toHaveAttribute("aria-checked", "true");
+  // Two armchairs out, a teal sofa (2 seats) in: still 8 seats.
+  for (const [c, r] of [[1, 5], [2, 4]] as const) {
+    await clickCell(owner, c, r);
+    await owner.locator(site.editorRemove).click();
+  }
+  await owner.locator(site.editorTab).filter({ hasText: "Seats" }).click();
+  await owner.locator(`${site.editorSlot}[data-kind="sofa"]`).click();
+  await expect(owner.locator(site.editorSwatch)).toHaveCount(4);
+  await swatch("teal").click();
+  await clickCell(owner, 8, 8);
+  await expect(owner.locator(site.editorProblems)).toBeEmpty();
+  await owner.locator(site.editorSave).click();
+  await expect(owner.locator(site.editorMessage)).toHaveText("Saved.");
+
+  const saved = v.object({ furniture: v.array(v.object({ kind: v.string(), variant: v.optional(v.number()) })) });
+  const drawn = (p: Page): Promise<string[]> => p.evaluate(() => {
+    const debug: unknown = Reflect.get(window, "__omega");
+    const room: unknown = typeof debug === "object" && debug !== null ? Reflect.get(debug, "room") : null;
+    const f: unknown = typeof room === "object" && room !== null ? Reflect.get(room, "scene") : null;
+    return typeof f === "function" ? (Reflect.apply(f, room, []) as string[]) : [];
+  });
+  const guest = await newPage(browser, []);
+  for (const reload of [false, true]) {
+    // A reload resumes the session: no nickname step.
+    if (reload) {
+      await guest.reload();
+      await expect(guest.locator(site.room)).toBeVisible();
+    } else {
+      await guest.goto(`${URLS.web}/r/${id}#k=${inviteKey}`);
+      await enter(guest, "guest");
+    }
+    const variants = async (): Promise<(number | undefined)[]> => {
+      const furniture = v.parse(v.nullable(saved), await handle(guest, "layout"))?.furniture ?? [];
+      return ["rug", "sofa"].map((k) => furniture.find((f) => f.kind === k)?.variant);
+    };
+    await expect.poll(variants).toEqual([1, 2]);
+    // The sofa's frames come from its recoloured copy of the set (g) sheet.
+    await expect.poll(async () => (await drawn(guest)).some((k) => k.startsWith("recolour/sofa/2/furniture/sofa/velvet/"))).toBe(true);
+  }
+});

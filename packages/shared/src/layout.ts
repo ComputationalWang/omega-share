@@ -47,22 +47,23 @@ const FIXED: readonly Facing[] = ["se"];
  * set (g) gives the v1 rest, catalogue v2 (`assets/furniture/furniture-v2.json`, lazy) the next ones up to the door. Set (g)'s kilim runner is
  * atlas id `rug`, so here it is `runner`.
  */
+// The sofa, beanbag, runner, pouf and stool variants 2–3 and the rug variants 1–2 are recolours (OME-1463, assets/furniture/recolours.json).
 export const FURNITURE = {
   armchair: piece("object", FACINGS, ONE, { seats: true }),
   tv: piece("object", FIXED, ONE),
   lamp: piece("object", FIXED, ONE),
   plant: piece("object", FIXED, ONE),
-  rug: piece("floor", FIXED, { cols: 7, rows: 7 }),
-  sofa: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 2 }),
+  rug: piece("floor", FIXED, { cols: 7, rows: 7 }, { variants: 3 }),
+  sofa: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 4 }),
   couch: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 2 }),
   wingback: piece("object", FACINGS, ONE, { seats: true }),
-  beanbag: piece("object", FACINGS, ONE, { seats: true, variants: 2 }),
+  beanbag: piece("object", FACINGS, ONE, { seats: true, variants: 4 }),
   sidetable: piece("object", CAMERA, ONE),
   arclamp: piece("object", CAMERA, ONE),
   monstera: piece("object", CAMERA, ONE, { variants: 2 }),
   popcorn: piece("object", CAMERA, ONE),
   bookshelf: piece("object", CAMERA, { cols: 2, rows: 1 }, { wallBacked: true }),
-  runner: piece("floor", ["ne", "nw"], { cols: 3, rows: 2 }, { variants: 2 }),
+  runner: piece("floor", ["ne", "nw"], { cols: 3, rows: 2 }, { variants: 4 }),
   frame: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 2 }),
   floorcushion: piece("object", FACINGS, ONE, { seats: true, variants: 2 }),
   bench: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true, variants: 2 }),
@@ -72,7 +73,7 @@ export const FURNITURE = {
   wallshelf: piece("wall", CAMERA, { cols: 0, rows: 0 }),
   garland: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 2 }),
   coffeetable: piece("object", CAMERA, ONE),
-  pouf: piece("object", FACINGS, ONE, { seats: true, variants: 2 }),
+  pouf: piece("object", FACINGS, ONE, { seats: true, variants: 4 }),
   neonsign: piece("wall", CAMERA, { cols: 0, rows: 0 }, { variants: 2 }),
   aquarium: piece("object", CAMERA, ONE),
   arcade: piece("object", CAMERA, ONE),
@@ -81,7 +82,7 @@ export const FURNITURE = {
   door: piece("object", CAMERA, ONE, { variants: 2, wallBacked: true }),
   // Batch 6 (`assets/furniture/furniture-v4.json`, lazy). The counter and piano may back onto a wall but stand free too.
   hammock: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true }),
-  stool: piece("object", FACINGS, ONE, { seats: true, variants: 2 }),
+  stool: piece("object", FACINGS, ONE, { seats: true, variants: 4 }),
   barcounter: piece("object", CAMERA, { cols: 2, rows: 1 }),
   piano: piece("object", CAMERA, { cols: 2, rows: 1 }, { variants: 2 }),
   fireplace: piece("object", CAMERA, ONE, { wallBacked: true }),

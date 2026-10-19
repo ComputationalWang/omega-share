@@ -10,6 +10,8 @@ import { createEmoteBadges } from "./emote/badges";
 import type { FurnitureAtlas } from "./furniture-atlas";
 import { layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
+import type { RecolourSheets } from "./recolour-sheets";
+import { recolourOf, recoloursIn, type RecolourSheet } from "./recolours";
 import { doubleTap, isStepKey, seatViews, type StepKey } from "./intents";
 import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, type Point, type Rect } from "./layout";
 import { createRoomView, type AvatarPlacement, type RoomView } from "./room-view";
@@ -247,6 +249,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let v4Atlas: FurnitureAtlas | null = null;
   /** The room atlas (planks, walls, room-atlas kinds) once loaded; every room uses it. */
   let roomAtlas: RoomAtlas | null = null;
+  /** The new colours' sheet copies (OME-1463), once a layout used one; `recolouring` names the copies asked for. */
+  let recolours: RecolourSheets | null = null;
+  const recolouring = new Set<string>();
   /** The drawn layout's content; a re-join snapshot parses a new but equal layout, which keeps the scene. */
   let layoutKey = "";
   let layoutBuilds = 0;
@@ -263,8 +268,31 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   const buildScene = (l: RoomLayout): void => {
     const catalogues = [atlas, v2Atlas, v4Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
     scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null);
-    view.setScene(scene, [atlas, v2Atlas, v4Atlas, roomAtlas], grid);
+    view.setScene(scene, [atlas, v2Atlas, v4Atlas, roomAtlas, recolours], grid);
     drawnSeats = undefined;
+  };
+
+  const sourceOf = (sheet: RecolourSheet): FurnitureAtlas | RoomAtlas | null =>
+    sheet === "room/room.png" ? roomAtlas : sheet === "furniture/furniture.png" ? atlas : sheet === "furniture/furniture-v2.png" ? v2Atlas : v4Atlas;
+
+  /** The copies `l`'s new colours draw from, each once its source atlas is in; the chunk loads only for a layout with one. */
+  const loadRecolours = (key: string, l: RoomLayout): void => {
+    for (const { kind, variant } of recoloursIn(l)) {
+      const id = `${kind}/${String(variant)}`;
+      const r = recolourOf(kind, variant);
+      const source = r === undefined ? null : sourceOf(r.sheet);
+      if (source === null || recolouring.has(id)) continue;
+      recolouring.add(id);
+      const load = async (): Promise<void> => {
+        recolours ??= (await import("./recolour-sheets")).recolourSheets();
+        await recolours.load(kind, variant, source);
+      };
+      // A failed copy (chunk or sheet) is forgotten, so the next snapshot retries it.
+      lazyAtlas("recolour", key, l, () => load().catch((e: unknown) => {
+        recolouring.delete(id);
+        throw e;
+      }), () => undefined);
+    }
   };
 
   /** Load an atlas in its own chunk, then rebuild the scene if the room still shows `key`'s layout. */
@@ -273,6 +301,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       .then((loaded) => {
         keep(loaded);
         if (layoutKey !== key) return;
+        loadRecolours(key, l);
         buildScene(l);
         o.requestRender();
       })
@@ -301,6 +330,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       const p = seats[i];
       if (p !== undefined) b.style.translate = `${String(p.x)}px ${String(p.y)}px`;
     });
+    loadRecolours(key, next);
     if (roomAtlas === null) {
       lazyAtlas("room", key, next, () => import("./room-atlas").then((m) => m.loadRoomAtlas()), (a) => (roomAtlas = a));
     }

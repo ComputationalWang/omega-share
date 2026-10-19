@@ -255,7 +255,7 @@ describe("FurnitureSchema", () => {
     ["a garland facing the TV", { kind: "garland", col: 2, row: 0, facing: "ne" }],
     ["a hammock hanging off the floor", { kind: "hammock", col: 9, row: 0, facing: "ne" }],
     ["a second hammock colour", { kind: "hammock", col: 4, row: 4, facing: "ne", variant: 1 }],
-    ["a third stool colour", { kind: "stool", col: 3, row: 3, facing: "ne", variant: 2 }],
+    ["a fifth stool colour", { kind: "stool", col: 3, row: 3, facing: "ne", variant: 4 }],
     ["a bar counter facing the TV", { kind: "barcounter", col: 4, row: 4, facing: "ne" }],
     ["a piano facing the TV", { kind: "piano", col: 4, row: 4, facing: "nw" }],
     ["a fireplace away from its wall", { kind: "fireplace", col: 3, row: 1, facing: "sw" }],
@@ -289,6 +289,19 @@ describe("the catalogue matches the art", () => {
   const pieces = ["furniture/furniture.json", "furniture/furniture-v2.json", "furniture/furniture-v4.json"].flatMap((path) => v.parse(AtlasSchema, readJson(path)).meta.omega.pieces);
   /** Contract kind → set (g) atlas id. The kilim runner is `rug` in the atlas; the contract's `rug` is the room's. */
   const atlasId = (kind: string): string => (kind === "runner" ? "rug" : kind);
+  /** The extra colours by PLTE swap (OME-1462, assets/furniture/recolours.json), per contract kind. */
+  const recolours = v.parse(v.object({ kinds: v.record(v.string(), v.object({ variants: v.array(v.object({ variant: v.number() })) })) }), readJson("furniture/recolours.json")).kinds;
+  const extra = (kind: string): number => recolours[kind]?.variants.length ?? 0;
+
+  test("the recolours extend the shipped colours: variant numbers follow on, and the room's rug (one shipped look) takes its own (OME-1463)", () => {
+    for (const [kind, r] of Object.entries(recolours)) {
+      const shipped = kind === "rug" ? 1 : (pieces.find((p) => p.id === atlasId(kind))?.colours.length ?? NaN);
+      expect(r.variants.map((x) => x.variant)).toEqual(r.variants.map((_, i) => shipped + i));
+    }
+    expect(FURNITURE.rug.variants).toBe(1 + extra("rug"));
+    expect(FURNITURE.rug.variants).toBe(3);
+    expect(FURNITURE.sofa.variants).toBe(4);
+  });
 
   test("every set (g) piece is a kind", () => {
     const kinds: readonly string[] = FURNITURE_KINDS;
@@ -299,7 +312,7 @@ describe("the catalogue matches the art", () => {
     const spec = FURNITURE[v.parse(v.picklist(FURNITURE_KINDS), kind)];
     expect(atlasId(kind)).toBe(piece.id);
     expect(spec.facings.map(String).sort()).toEqual([...piece.dirs].sort());
-    expect(spec.variants).toBe(piece.colours.length);
+    expect(spec.variants).toBe(piece.colours.length + extra(kind));
     expect(spec.layer).toBe(piece.layer === "wall" ? "wall" : piece.layer === "floor" ? "floor" : "object");
     for (const facing of spec.facings) {
       const fp = piece.footprintByDir[facing];

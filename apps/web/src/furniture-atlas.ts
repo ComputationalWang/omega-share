@@ -7,6 +7,8 @@ import { loadSheet, once, type Sheet } from "./atlas-sheet";
 import { FurnitureManifestSchema, type FurnitureManifest } from "./furniture";
 
 export interface FurnitureAtlas extends Sheet {
+  /** The sheet's URL: a recolour (OME-1463) swaps a copy of its bytes. */
+  readonly url: string;
   readonly manifest: FurnitureManifest;
 }
 
