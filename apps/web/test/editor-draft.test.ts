@@ -276,3 +276,21 @@ describe("sameLayout / layoutKey: by content, not by how the objects were writte
     expect(reconcile({ saved: sofa, draft: sofa, next: recolouredBack, saving: false }).outcome).toBe("same");
   });
 });
+
+// OME-1502: the room's mood rides with the draft through every edit, and a mood change is a change to save.
+describe("the room mood in the draft", () => {
+  const N: RoomLayout = { ...L, mood: "night" };
+  test("place, move, turn and put back keep it", () => {
+    const placed = place(N, { kind: "plant", col: 9, row: 9, facing: "se" });
+    expect(placed?.mood).toBe("night");
+    expect(move(N, 10, 8, 1)?.mood).toBe("night");
+    expect(rotate(N, 2)?.mood).toBe("night");
+    expect(remove(N, 11).mood).toBe("night");
+  });
+  test("a different mood is a different layout; absent is the same as none", () => {
+    expect(sameLayout(L, N)).toBe(false);
+    expect(sameLayout(N, { ...L, mood: "warm" })).toBe(false);
+    expect(sameLayout(L, { ...L, mood: "none" })).toBe(true);
+    expect(sameLayout(N, { ...L, mood: "night" })).toBe(true);
+  });
+});

@@ -87,16 +87,49 @@ describe("the dim layer", () => {
   });
 });
 
+// OME-1502: the room's mood is a fixed tint on the same layer; the dim stacks on it, no second layer.
+describe("the room mood on the dim layer", () => {
+  test("warm, cool and night mark the layer; none clears it; the layer stays one childless element", async () => {
+    const { createCinemaDim } = await import("../src/cinema");
+    const c = createCinemaDim(memory());
+    for (const m of ["warm", "cool", "night"] as const) {
+      c.mood(m);
+      expect(c.el.dataset["mood"]).toBe(m);
+    }
+    c.mood("none");
+    expect(c.el.hasAttribute("data-mood")).toBe(false);
+    expect(c.el.childElementCount).toBe(0);
+  });
+
+  test("the dim comes and goes over a mood without touching it", async () => {
+    const { createCinemaDim } = await import("../src/cinema");
+    const c = createCinemaDim(memory());
+    c.mood("night");
+    c.update(true, false);
+    expect(c.el.classList.contains("is-on")).toBe(true);
+    expect(c.el.dataset["mood"]).toBe("night");
+    c.update(false, false);
+    expect(c.el.dataset["mood"]).toBe("night");
+  });
+});
+
 describe("room.css", () => {
   const css = readFileSync(new URL("../src/room.css", import.meta.url), "utf8");
   test("the layer fills the stage, lets clicks through, and fades in over 400 ms in CSS (no canvas filter)", () => {
     const rule = /\.cinema-dim\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
     expect(rule).toMatch(/inset:\s*0/);
     expect(rule).toMatch(/pointer-events:\s*none/);
-    expect(rule).toMatch(/background:\s*rgb/);
-    expect(rule).toMatch(/transition:\s*opacity 400ms/);
-    expect(css).toMatch(/\.cinema-dim\.is-on\s*\{[^}]*opacity:\s*1/);
+    // The mood holds the layer visible, so the dim fades its background colour, not the layer's opacity (OME-1502).
+    expect(rule).toMatch(/transition:\s*background-color 400ms/);
+    expect(css).toMatch(/\.cinema-dim\.is-on\s*\{[^}]*background-color:\s*rgb\(8 6 18 \/ 0\.45\)/);
     expect(css).not.toMatch(/filter:\s*brightness/);
+  });
+  test("each mood is a fixed rgba tint with a blend mode; none has no rule (OME-1502)", () => {
+    expect(css).toMatch(/\.cinema-dim\[data-mood\]\s*\{[^}]*mix-blend-mode:\s*multiply/);
+    for (const m of ["warm", "cool", "night"]) {
+      expect(css).toMatch(new RegExp(`\\.cinema-dim\\[data-mood="${m}"\\]\\s*\\{[^}]*background-image:\\s*linear-gradient\\(rgb\\([\\d ]+/ 0\\.\\d+\\)`));
+    }
+    expect(css).not.toMatch(/data-mood="none"/);
   });
   test("prefers-reduced-motion: no fade, only the end state", () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^@]*\.cinema-dim\s*\{\s*transition:\s*none/);

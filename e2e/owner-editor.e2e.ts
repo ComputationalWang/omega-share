@@ -115,6 +115,11 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   // So does a batch 6 piece (OME-1439): a fireplace backs onto the left wall.
   await owner.locator(`${site.editorSlot}[data-kind="fireplace"]`).click();
   await clickCell(owner, 0, 7);
+  // The room mood (OME-1502) is saved with the same layout-set, and only tints the one dim layer.
+  await owner.locator(`${site.editorMood}[data-mood="night"]`).click();
+  await expect(owner.locator(`${site.editorMood}[data-mood="night"]`)).toHaveAttribute("aria-checked", "true");
+  await expect(owner.locator(site.roomTint)).toHaveAttribute("data-mood", "night");
+  await expect(guest.locator(site.roomTint)).not.toHaveAttribute("data-mood", /./);
   // The owner sees the draft; the guest doesn't until it's saved.
   expect(await layoutOf(guest)).toHaveLength(DEFAULT_LAYOUT.furniture.length);
   await expect(owner.locator(site.editorProblems)).toBeEmpty();
@@ -123,6 +128,8 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   expect((await layoutOf(guest)).find((f) => f.kind === "lamp")).toMatchObject({ col: 8, row: 1 });
   expect((await layoutOf(guest)).find((f) => f.kind === "aquarium")).toMatchObject({ col: 9, row: 8 });
   expect((await savedOf(guest)).find((f) => f.kind === "fireplace")).toMatchObject({ col: 0, row: 7, facing: "se" });
+  await expect(guest.locator(site.roomTint)).toHaveAttribute("data-mood", "night");
+  await expect(guest.locator(site.roomTint)).toHaveCount(1);
   // The static furniture was rebuilt once for that change, and not again while the room just runs.
   expect(await builds(guest)).toBe(before + 1);
   await guest.locator(site.chatInput).fill("nice");
