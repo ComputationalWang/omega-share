@@ -1,9 +1,12 @@
 // /poll watch-party polls (OME-1454, contract OME-1452, ADR 0055): the opener's /poll puts a card above everyone's chat
 // log; votes show as live counts on every client; the opener closes it and the result lands in every log as a line.
 // A bad /poll is a local hint. Test ids of the card are local to this spec (apps/web/src/chat/poll.ts).
-import type { Page } from "@playwright/test";
-import { expect, test } from "./support/csp";
-import { PENDING, available } from "./support/apps";
+import type { BrowserContext, Page } from "@playwright/test";
+import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
+import { expect, test, watchCsp } from "./support/csp";
+import { PENDING, URLS, available } from "./support/apps";
+import { stubExternalNetwork } from "./support/network";
+import { ownedRoom } from "./support/owned-rooms";
 import { joinRoom, leaveAll, testRoom, type Client } from "./support/room";
 import { site } from "./support/selectors";
 
@@ -94,4 +97,49 @@ test("an open poll keeps the log as the tall row in the full-screen strip, the b
   await pop.waitForLoadState();
   await expect(card(pop)).toBeVisible();
   await taller(pop, ".popout");
+});
+
+// QA OME-1460: in a private room the owner's side column also holds the invite row, Up next and the owner's bar; at a
+// laptop's 1280×720 an open 4-option poll pushed Close poll and the composer below the fold, out of reach.
+test("the owner of a private room at 1280×720 reaches Close poll, the last option and the composer of a guest's poll", async ({ browser }) => {
+  const { id, ownerToken, inviteKey } = ownedRoom("pollowner");
+  const contexts: BrowserContext[] = [];
+  const open = async (secrets: string | null, nickname: string): Promise<Page> => {
+    const context = await watchCsp(await browser.newContext({ viewport: { width: 1280, height: 720 } }));
+    contexts.push(context);
+    if (secrets !== null) {
+      await context.addInitScript(
+        ([origin, key, value]) => {
+          if (location.origin === origin && localStorage.getItem(key ?? "") === null) localStorage.setItem(key ?? "", value ?? "");
+        },
+        [URLS.web, ROOM_SECRETS_STORAGE_KEY, secrets],
+      );
+    }
+    await stubExternalNetwork(context);
+    const page = await context.newPage();
+    await page.goto(`${URLS.web}/r/${id}${secrets === null ? `#k=${inviteKey}` : ""}`);
+    await page.locator(site.nicknameInput).fill(nickname);
+    await page.locator(site.joinButton).click();
+    await expect(page.locator(site.room)).toBeVisible();
+    return page;
+  };
+  try {
+    const owner = await open(JSON.stringify({ v: 1, rooms: { [id]: { ownerToken, inviteKey } } }), "host");
+    const guest = await open(null, "kit");
+    await say(guest, "/poll Sizes? A | B | C | D");
+    await expect(card(owner).locator('[data-testid="poll-option"]')).toHaveCount(4);
+    await expect(owner.locator(site.editRoom)).toBeVisible();
+    await expect(card(owner).locator("button.poll-close")).toBeInViewport({ ratio: 1 });
+    await expect(owner.locator(site.chatInput)).toBeInViewport({ ratio: 1 });
+    // The log keeps a few lines beside the card.
+    expect((await owner.locator(site.chatLog).boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(60);
+    // The last option is reachable (the options may scroll inside the card) and votes.
+    await option(owner, 3).click();
+    await expect(option(guest, 3).locator('[data-testid="poll-count"]')).toHaveText("1");
+    await expect(card(owner).locator("button.poll-close")).toBeInViewport({ ratio: 1 });
+    await card(owner).locator("button.poll-close").click();
+    await expect(card(guest)).toBeHidden();
+  } finally {
+    await Promise.all(contexts.map((c) => c.close().catch(() => undefined)));
+  }
 });
