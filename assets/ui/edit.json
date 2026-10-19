@@ -696,7 +696,7 @@
     "y": 0.5
    }
   },
-  "swatch/ginger": {
+  "swatch/frost": {
    "frame": {
     "x": 108,
     "y": 736,
@@ -720,7 +720,7 @@
     "y": 0.5
    }
   },
-  "swatch/lilac": {
+  "swatch/ginger": {
    "frame": {
     "x": 224,
     "y": 736,
@@ -744,7 +744,7 @@
     "y": 0.5
    }
   },
-  "swatch/mustard": {
+  "swatch/lilac": {
    "frame": {
     "x": 235,
     "y": 736,
@@ -768,7 +768,7 @@
     "y": 0.5
    }
   },
-  "swatch/navy": {
+  "swatch/meadow": {
    "frame": {
     "x": 246,
     "y": 736,
@@ -792,7 +792,7 @@
     "y": 0.5
    }
   },
-  "swatch/olive": {
+  "swatch/mustard": {
    "frame": {
     "x": 59,
     "y": 737,
@@ -816,7 +816,7 @@
     "y": 0.5
    }
   },
-  "swatch/painted": {
+  "swatch/navy": {
    "frame": {
     "x": 70,
     "y": 737,
@@ -840,7 +840,7 @@
     "y": 0.5
    }
   },
-  "swatch/party": {
+  "swatch/olive": {
    "frame": {
     "x": 188,
     "y": 738,
@@ -864,10 +864,82 @@
     "y": 0.5
    }
   },
-  "swatch/pink": {
+  "swatch/painted": {
    "frame": {
     "x": 199,
     "y": 738,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/party": {
+   "frame": {
+    "x": 210,
+    "y": 738,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/peach": {
+   "frame": {
+    "x": 0,
+    "y": 740,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/pink": {
+   "frame": {
+    "x": 38,
+    "y": 742,
     "w": 10,
     "h": 10
    },
@@ -914,78 +986,6 @@
   },
   "swatch/rust": {
    "frame": {
-    "x": 210,
-    "y": 738,
-    "w": 10,
-    "h": 10
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 10,
-    "h": 10
-   },
-   "sourceSize": {
-    "w": 10,
-    "h": 10
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "swatch/teal": {
-   "frame": {
-    "x": 0,
-    "y": 740,
-    "w": 10,
-    "h": 10
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 10,
-    "h": 10
-   },
-   "sourceSize": {
-    "w": 10,
-    "h": 10
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "swatch/tide": {
-   "frame": {
-    "x": 38,
-    "y": 742,
-    "w": 10,
-    "h": 10
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 10,
-    "h": 10
-   },
-   "sourceSize": {
-    "w": 10,
-    "h": 10
-   },
-   "anchor": {
-    "x": 0.5,
-    "y": 0.5
-   }
-  },
-  "swatch/velvet": {
-   "frame": {
     "x": 11,
     "y": 743,
     "w": 10,
@@ -1008,7 +1008,7 @@
     "y": 0.5
    }
   },
-  "swatch/warm": {
+  "swatch/sunset": {
    "frame": {
     "x": 22,
     "y": 743,
@@ -1032,10 +1032,106 @@
     "y": 0.5
    }
   },
-  "swatch/wood": {
+  "swatch/teal": {
    "frame": {
     "x": 166,
     "y": 746,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/tide": {
+   "frame": {
+    "x": 177,
+    "y": 746,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/velvet": {
+   "frame": {
+    "x": 81,
+    "y": 747,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/warm": {
+   "frame": {
+    "x": 92,
+    "y": 747,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "swatch/wood": {
+   "frame": {
+    "x": 103,
+    "y": 747,
     "w": 10,
     "h": 10
    },

@@ -198,6 +198,102 @@
      ]
     }
    ]
+  },
+  "frame": {
+   "sheet": "furniture/furniture.png",
+   "frames": "furniture/frame/dusk/",
+   "thumb": "thumb/frame/dusk",
+   "slots": [
+    26,
+    27,
+    28,
+    23,
+    24,
+    25,
+    32,
+    33,
+    34,
+    14,
+    15,
+    16
+   ],
+   "variants": [
+    {
+     "variant": 2,
+     "id": "meadow",
+     "colors": [
+      "#e8fbff",
+      "#b8e6f0",
+      "#7fbfd0",
+      "#6fd0c4",
+      "#3aa7a3",
+      "#23706f",
+      "#a0ad5a",
+      "#7d8a3e",
+      "#5a6429",
+      "#f7d36b",
+      "#e8b33c",
+      "#b9822a"
+     ]
+    },
+    {
+     "variant": 3,
+     "id": "sunset",
+     "colors": [
+      "#f09a4e",
+      "#d9772e",
+      "#a4531d",
+      "#e07a55",
+      "#c2553a",
+      "#8a3527",
+      "#b85a6e",
+      "#8f3f55",
+      "#652a3e",
+      "#fff7ea",
+      "#f4ead2",
+      "#cbbd9f"
+     ]
+    }
+   ]
+  },
+  "garland": {
+   "sheet": "furniture/furniture-v2.png",
+   "frames": "furniture/garland/warm/",
+   "thumb": "thumb/garland/warm",
+   "slots": [
+    59,
+    60,
+    61,
+    14,
+    15,
+    16
+   ],
+   "variants": [
+    {
+     "variant": 2,
+     "id": "frost",
+     "colors": [
+      "#6fd0c4",
+      "#3aa7a3",
+      "#23706f",
+      "#e8fbff",
+      "#b8e6f0",
+      "#7fbfd0"
+     ]
+    },
+    {
+     "variant": 3,
+     "id": "peach",
+     "colors": [
+      "#f2a08e",
+      "#e88a7a",
+      "#c86a5e",
+      "#f7d36b",
+      "#e8b33c",
+      "#b9822a"
+     ]
+    }
+   ]
   }
  }
 }

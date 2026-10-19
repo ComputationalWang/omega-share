@@ -1090,6 +1090,8 @@ runner (atlas id `rug` in `furniture/furniture.png`).
 | `pouf` | `rust`, `lilac` | `teal`, `mustard` | rust (`rust`) | furniture-v2.png |
 | `stool` | `wood`, `teal` | `lilac`, `mustard` (padded, like `teal`; ginger sat 19.6 from wood under CVD) | teal (`teal`) | furniture-v4.png |
 | `runner` | `lilac`, `teal` | `rust` (teal border), `mustard` (navy border) | lilac, pink (`lilac`) | furniture.png |
+| `frame` | `dusk`, `tide` | `meadow` (glow sky, teal and olive hills), `sunset` (ginger sky, cream sun, rust and velvet ridges) | pink, lilac, navy, mustard (`dusk`; trim and mat stay) | furniture.png |
+| `garland` | `warm`, `party` | `frost` (teal and ice bulbs), `peach` (blush and brass bulbs) | glow, mustard (`warm`) | furniture-v2.png |
 
 **Why runtime, in bytes.** Every sheet (room, furniture ×3, `ui/edit.png`) carries the full shared PALETTE in its PLTE, so a swap
 needs no new colours and no sheet byte changes: the table is **756 B gz** (3 223 B raw). Baking the same 12 colours (measured by
@@ -1112,6 +1114,17 @@ Colours are written, not indexes, so nothing cascades. The contract still says `
   every listed sheet.
 - Contact sheet: `preview/recolours-sheet@1x.png` / `@2x`: one row per kind (the rug as a 4×4 patch), one cell per variant with
   every facing, shipped colours first and a cream rule before the new ones; the room floor on top, the dark site bg below.
+
+**Wall decor (OME-1500).** `frame` and `garland` take 2 more each, same table, same path: **+401 B** (292 456 → 292 857 of
+307 200): `recolours.json` +180 gz, `edit.png` +89 and `edit.json` +51 gz for 4 picture chips (`swatch/meadow`, `sunset`, `frost`,
+`peach`, drawn like `dusk`/`warm`), `reference.css` +81 gz for their rules. No furniture sheet changes. A print or a bulb string
+has no one colour, so the sibling test compares pixels where two variants differ: mean CVD ΔE ≥ 20 (shipped dusk vs tide: 51.5;
+weakest new pair: meadow vs dusk 29.2). The new bulbs are ≥ 3:1 on the dark site bg and, on the wall under every mood, no weaker
+than the weakest shipped bulb (party's lilac); a first `ember` string (ginger) missed that under `cool`, and `pink` next to
+`frost`'s teal collapses for deutans (CVD ΔE 7), so it is `peach`. Contact sheet: `preview/recolours-wall@1x.png` / `@2x`, the
+same rows and cells on the flat wall base under the 4 room moods (top to bottom `none`, `warm` rgb(255 140 50 / .18), `cool`
+rgb(60 120 255 / .18), `night` rgb(14 12 46 / .5), as flat overlays: OME-1502 owns the real values), then the dark site bg.
+The contract still says `variants: 2` for both; the hookup raises it to 4 (the web picker reads the table already).
 
 ## Set (o) extension popup kit + toolbar "found" state (OME-1041, `ui/popup/` + `store/`)
 
@@ -1231,6 +1244,8 @@ packing v2 into `furniture.png` (measured: 13 152 B that way), but it keeps v1-o
 
 Catalogue v3 (OME-1348) adds **7 493 B (≈ 7.3 KB)** against `main` (218 779 → 226 272 of 307 200): lazy +7 293 (`furniture-v2.png` +5 375,
 `furniture-v2.json` +611 gz, `edit.png` +1 127 for 8 thumbnails, `edit.json` +180 gz), eager +200 (`reference.css` gz, the new `.ui-thumb-*` rules).
+
+Wall decor recolours (OME-1500) add **401 B**: 292 456 → 292 857 of 307 200 (see "Furniture recolours").
 
 Furniture recolours (OME-1462) add **756 B** (the gz table): 291 642 → 292 398 of 307 200. No sheet changes; baking them would cost
 +11 740 B (see "Furniture recolours").

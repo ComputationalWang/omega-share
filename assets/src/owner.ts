@@ -40,6 +40,10 @@ const ROLES: RoleMap = {
   g: { ramp: "glow", tone: 0 },
   l: { ramp: "lilac", tone: 0 },
   p: { ramp: "pink", tone: 0 },
+  k: { ramp: "olive", tone: 0 },
+  a: { ramp: "ginger", tone: 0 },
+  b: { ramp: "blush", tone: 0 },
+  u: { ramp: "rust", tone: 0 },
   o: { ramp: "outline", tone: 1 },
 };
 
@@ -558,6 +562,12 @@ const SWATCH_ART: Record<string, readonly string[]> = {
   // String lights on night: a sagging wire, then the bulbs (warm glow and brass, or party colours).
   warm: ["..........", ".NNNNNNNN.", ".xxNNNNxx.", ".NNxxxxNN.", ".gNNyyNNg.", ".gNNyyNNg.", ".NNNNNNNN.", ".NNNNNNNN.", ".NNNNNNNN.", ".........."],
   party: ["..........", ".NNNNNNNN.", ".xxNNNNxx.", ".NNxxxxNN.", ".pNNeeNNl.", ".pNNeeNNl.", ".NNNNNNNN.", ".NNNNNNNN.", ".NNNNNNNN.", ".........."],
+  // The recoloured print and string (OME-1500): a glow sky over teal and olive hills; an orange sky, a cream sun, rust peaks;
+  // the string's teal-and-ice and blush-and-brass bulbs.
+  meadow: ["..........", ".gggggggg.", ".gggggyyg.", ".gggggyyg.", ".ggeggggg.", ".geeegegg.", ".eeeeeeee.", ".kkkkkkkk.", ".kkkkkkkk.", ".........."],
+  sunset: ["..........", ".aaaaaaaa.", ".aaaaaiia.", ".aaaaaiia.", ".aauaaaaa.", ".auuuauaa.", ".uuuuuuuu.", ".vvvvvvvv.", ".vvvvvvvv.", ".........."],
+  frost: ["..........", ".NNNNNNNN.", ".xxNNNNxx.", ".NNxxxxNN.", ".eNNggNNe.", ".eNNggNNe.", ".NNNNNNNN.", ".NNNNNNNN.", ".NNNNNNNN.", ".........."],
+  peach: ["..........", ".NNNNNNNN.", ".xxNNNNxx.", ".NNxxxxNN.", ".bNNyyNNb.", ".bNNyyNNb.", ".NNNNNNNN.", ".NNNNNNNN.", ".NNNNNNNN.", ".........."],
 };
 function swatch(name: string): UiFrame {
   const ramp = SWATCH_RAMP[name];
@@ -592,7 +602,7 @@ function swatchRing(): UiFrame {
 }
 
 /** Every catalogue colour, in tray order. */
-export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "painted", "brass", "rust", "teal", "lilac", "dusk", "tide", "mustard", "pink", "charcoal", "warm", "party"] as const;
+export const SWATCHES = ["velvet", "navy", "cream", "olive", "ginger", "blush", "wood", "painted", "brass", "rust", "teal", "lilac", "dusk", "tide", "mustard", "pink", "charcoal", "warm", "party", "meadow", "sunset", "frost", "peach"] as const;
 
 /** Footprints the catalogue uses (`footprintByDir`), each marker state. */
 const FOOTPRINT_SIZES: readonly (readonly [number, number])[] = [[1, 1], [2, 1], [1, 2], [3, 2], [2, 3]];

@@ -34,7 +34,7 @@ import {
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
 import { hairSheet, hairsTable } from "./hairs";
-import { recolourSheet, recoloursTable } from "./recolours";
+import { recolourSheet, recoloursTable, wallRecolourSheet } from "./recolours";
 import { contactSheet, tintsTable } from "./tints";
 import { CATALOGUE_V2, CATALOGUE_V4, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
@@ -2108,6 +2108,9 @@ function buildRecolours(): void {
   const c = recolourSheet();
   writeFileSync(join(ROOT, "preview", "recolours-sheet@1x.png"), encodeIndexedPng(c.w, c.h, c.img, c.palette));
   writeFileSync(join(ROOT, "preview", "recolours-sheet@2x.png"), encodeIndexedPng(c.w * 2, c.h * 2, upscale(c.img, c.w, c.h, 2), c.palette));
+  const wall = wallRecolourSheet();
+  writeFileSync(join(ROOT, "preview", "recolours-wall@1x.png"), encodeIndexedPng(wall.w, wall.h, wall.img, wall.palette));
+  writeFileSync(join(ROOT, "preview", "recolours-wall@2x.png"), encodeIndexedPng(wall.w * 2, wall.h * 2, upscale(wall.img, wall.w, wall.h, 2), wall.palette));
 }
 
 /** Hair colours (OME-1436): the PLTE-swap table and a 4 × 6 (+ mixed hair × tint row) contact sheet at 1× and 2×. */
