@@ -218,6 +218,8 @@ form.addEventListener("submit", (ev) => {
   saveProfile(localStorage, { nickname, avatar });
   enterRoom(nickname, avatar);
 });
+// index.html ships the button disabled: a click before this handler would submit natively, blocked by CSP form-action (OME-1473).
+enter.disabled = false;
 
 if (resumed !== null) {
   // Straight back in: no entry form while the room loads.
