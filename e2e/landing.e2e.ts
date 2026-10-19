@@ -6,7 +6,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./support/csp";
 import { PENDING, URLS, available } from "./support/apps";
-import { ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
+import { DEFAULT_ROOM_ID, ROOM_SECRETS_STORAGE_KEY } from "@omega/shared";
 import { site } from "./support/selectors";
 import { openDirectory } from "./support/directory";
 
@@ -282,4 +282,21 @@ test.describe("directory forms", () => {
     await expect(forget).toHaveAccessibleName(/for good/);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   });
+});
+
+// OME-1473: the form is static HTML and its submit handler comes with the app script. Until then a click would submit
+// natively, which CSP form-action 'none' blocks: the join button stays disabled until the handler is attached.
+test("the join button is disabled until the app script has attached its handler (OME-1473)", async ({ page }) => {
+  const { promise: held, resolve: release } = Promise.withResolvers<undefined>();
+  // Dev serves /src/main.ts, preview the hashed entry chunk.
+  await page.route(/\/src\/main\.ts$|\/assets\/index-[^/]*\.js$/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto(`${URLS.web}/r/${DEFAULT_ROOM_ID}`, { waitUntil: "commit" });
+  await page.locator(site.nicknameInput).fill("early-bird");
+  await expect(page.locator(site.joinButton)).toBeDisabled();
+  release(undefined);
+  await page.locator(site.joinButton).click();
+  await expect(page.locator(site.room)).toBeVisible();
 });

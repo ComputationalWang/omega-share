@@ -17,7 +17,7 @@
 // 0040: no CSS animation in the room), one `data-dot` write a step; under reduced motion they're static.
 import type { MemberId } from "@omega/shared";
 import { el } from "../controls/dom";
-import { isShout, meAction } from "../chat/effects";
+import { isShout, meAction, thinkText } from "../chat/effects";
 import { ROOM_VIEW, STAGE_W, type Point } from "../layout";
 
 /** Set (l) `meta.omega.bubbles`: a 5 s life, a 24 px rise in whole-pixel steps; 10 per speaker, 16 on screen (OME-1050). */
@@ -466,7 +466,7 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
     s.typing = true;
     s.p.className = "ui-float is-typing";
     s.p.style.setProperty("--tint", "");
-    s.twin.classList.remove("is-shout", "is-action");
+    s.twin.classList.remove("is-shout", "is-action", "is-think");
     s.stacked = false;
     s.who.hidden = true;
     s.whoText.data = "";
@@ -504,13 +504,16 @@ export function createFloats(layer: HTMLElement, o: FloatsOptions): Floats {
       // Not .is-live until its size arrives in this frame's layout, before paint: then it is placed and shown at its age.
       // `/me waves` (OME-1375): an action names its speaker from the start ("Sam waves"), so it's the twin's size already.
       const action = meAction(m.text);
-      const text = action ?? m.text;
+      // `/think hmm` (OME-1465): a thought bubble, its words only, like a plain line.
+      const thought = thinkText(m.text);
+      const text = action ?? thought ?? m.text;
       const shout = isShout(text);
-      s.p.className = `ui-float${m.self ? " is-self" : ""}${shout ? " is-shout" : ""}${action === null ? "" : " is-action"}`;
+      s.p.className = `ui-float${m.self ? " is-self" : ""}${shout ? " is-shout" : ""}${action === null ? "" : " is-action"}${thought === null ? "" : " is-think"}`;
       s.p.style.setProperty("--tint", m.accent ?? "");
       // The twin measures the stacked size, so it wears the shout's weight too.
       s.twin.classList.toggle("is-shout", shout);
       s.twin.classList.toggle("is-action", action !== null);
+      s.twin.classList.toggle("is-think", thought !== null);
       s.stacked = false;
       s.who.hidden = action === null;
       s.whoText.data = m.name;

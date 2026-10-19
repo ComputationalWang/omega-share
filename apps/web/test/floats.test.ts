@@ -758,3 +758,20 @@ describe("typing waits a step", () => {
     expect(p?.closest<HTMLElement>(".float-slot")?.style.transform).toBe("translate(300px, 280px)");
   });
 });
+
+test("a /think line is a thought: the bubble wears .is-think, says the rest without its speaker, italic; its twin matches (OME-1465)", async () => {
+  const { floats, bubbleOf, advance, FLOAT_LIFE_MS, FLOAT_LEAVE_MS } = await setup();
+  floats.say(say("a", "/think is this live?", 480));
+  const p = bubbleOf("is this live?");
+  expect(p.classList.contains("is-think")).toBe(true);
+  expect(p.classList.contains("is-action")).toBe(false);
+  expect(p.querySelector<HTMLElement>(".who")?.hidden).toBe(true);
+  const twin = p.closest(".float-slot")?.querySelector<HTMLElement>(".float-twin");
+  expect(twin?.classList.contains("is-think")).toBe(true);
+  expect(twin?.querySelector("span")?.dataset["say"]).toBe("is this live?");
+  advance(FLOAT_LIFE_MS + FLOAT_LEAVE_MS);
+  floats.say(say("a", "plain", 480));
+  const q = bubbleOf("plain");
+  expect(q.classList.contains("is-think")).toBe(false);
+  expect(q.closest(".float-slot")?.querySelector(".float-twin")?.classList.contains("is-think")).toBe(false);
+});

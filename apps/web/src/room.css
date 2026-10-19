@@ -76,6 +76,13 @@
 .bubbles .ui-float::before { content: ""; position: absolute; left: -3px; top: 1px; bottom: 1px; width: 2px; background: var(--tint, transparent); }
 /* A /me action (OME-1375): italic in the log, the bubble and its twin (so the measured size holds). */
 .chat-log-line.is-action, .ui-float.is-action .say, .float-twin.is-action > span { font-style: italic; }
+/* A /think thought (OME-1465): italic like /me, in a cloud instead of the speech sprite. Same border widths, so the
+ * twin's measured size holds; the bubble sprite's own fill and ink (bubble-float.png, every theme): 13:1, AA. The tail
+ * becomes two small circles trailing to the speaker; a stacked thought has none, like a stacked line. */
+.chat-log-line.is-think, .ui-float.is-think .say, .float-twin.is-think > span { font-style: italic; }
+.ui-float.is-think { border-image: none; background: #f4ead2; border-radius: 14px / 12px; box-shadow: 0 0 0 2px var(--ui-bubble-text); }
+.ui-float.is-think.is-self { box-shadow: 0 0 0 2px var(--ui-bubble-text), inset 0 0 0 2px #f7d36b; }
+.ui-float.is-think::after { background: radial-gradient(circle at 70% 30%, #f4ead2 0 2.5px, var(--ui-bubble-text) 2.5px 4px, transparent 4.5px), radial-gradient(circle at 30% 85%, #f4ead2 0 1px, var(--ui-bubble-text) 1px 2.5px, transparent 3px); }
 /* Typing dots (OME-1390, floats.ts): three dots in a pool bubble. No CSS animation (ADR 0040): the step clock writes
  * data-dot, the lit one; without it (reduced motion) all three are static. */
 .ui-float .dots { display: inline-flex; gap: 3px; align-items: center; height: 15px; padding: 0 2px; }
