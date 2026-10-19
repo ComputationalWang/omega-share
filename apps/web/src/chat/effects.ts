@@ -49,6 +49,12 @@ export function meAction(text: string): string | null {
   return /^\s*\/me\s+(\S.*?)\s*$/is.exec(text)?.[1] ?? null;
 }
 
+/** `/think <text>` (OME-1465): the thought, or null. */
+export function thinkText(text: string): string | null {
+  void text;
+  return null;
+}
+
 /** What `/help` says, to me only. */
 export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")} · /me <action> · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B`, time: null, self: true };
 

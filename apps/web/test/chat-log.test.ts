@@ -110,6 +110,20 @@ describe("chat log: /me action lines (OME-1375)", () => {
   });
 });
 
+describe("chat log: /think thought lines (OME-1465)", () => {
+  test("a /think line reads as the speaker thinking it, italic, the name still bold, text only", async () => {
+    const { lines, chat } = await setup();
+    chat("Sam", "/think is <b>this</b> live?");
+    chat("Kit", "hi");
+    const [thought, plain] = lines();
+    expect(thought?.textContent).toBe("Sam thinks: is <b>this</b> live?");
+    expect(thought?.querySelector("b")?.textContent).toBe("Sam");
+    expect(thought?.querySelectorAll("b").length).toBe(1);
+    expect(thought?.classList.contains("is-think")).toBe(true);
+    expect(plain?.classList.contains("is-think")).toBe(false);
+  });
+});
+
 describe("chat log: cap and one append per message", () => {
   test("keeps only the newest `cap` lines, oldest dropped first", async () => {
     const { lines, chat } = await setup("settle", 5);
