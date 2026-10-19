@@ -616,6 +616,27 @@ mod tests {
         ])
     }
 
+    // packages/shared/test/floor-sit-mood-contract.test.ts (OME-1499)
+    #[test]
+    fn mood_is_optional_and_a_layout_without_one_loads_as_none() {
+        let old = parse(&base(vec![]));
+        assert_eq!(old.mood(), Mood::None);
+        assert!(!old.to_json().contains("mood"), "absent stays absent");
+        for (text, mood) in [("none", Mood::None), ("warm", Mood::Warm), ("cool", Mood::Cool), ("night", Mood::Night)] {
+            let mut v = base(vec![]);
+            v["mood"] = json!(text);
+            assert_eq!(parse(&v).mood(), mood);
+            assert!(RoomLayout::parse_input(v.to_string().as_bytes()).is_ok());
+            assert!(parse(&v).to_json().ends_with(&format!(r#","mood":"{text}"}}"#)));
+        }
+        for bad in [json!("dark"), json!("Warm"), json!(null), json!(0)] {
+            let mut v = base(vec![]);
+            v["mood"] = bad;
+            assert!(RoomLayout::parse(v.to_string().as_bytes()).is_err());
+            assert!(RoomLayout::parse_input(v.to_string().as_bytes()).is_err());
+        }
+    }
+
     // packages/shared/test/layout-contract.test.ts:67
     #[test]
     fn the_floor_is_10_and_a_layout_holds_32_pieces() {

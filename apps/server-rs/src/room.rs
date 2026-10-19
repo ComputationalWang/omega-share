@@ -1908,6 +1908,29 @@ mod tests {
     }
 
     #[test]
+    fn floor_sit_needs_a_cell_changes_once_and_is_absent_when_off() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert_eq!(r.set_floor_sit(&a, true), FloorSitResult::NotStanding, "the standing spot is no cell");
+        assert_eq!(r.set_floor_sit(&a, false), FloorSitResult::Unchanged);
+        r.sit(&a, Some(seat(2)));
+        assert_eq!(r.set_floor_sit(&a, true), FloorSitResult::NotStanding, "seated");
+        r.walk(&a, cell(3, 3));
+        assert_eq!(r.set_floor_sit(&a, true), FloorSitResult::Changed);
+        assert_eq!(r.set_floor_sit(&a, true), FloorSitResult::Unchanged);
+        assert_eq!(r.set_floor_sit(&mid("ghost"), true), FloorSitResult::Unchanged);
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"cell":{"x":3,"y":3},"floorSit":true}"#
+        );
+        assert_eq!(r.set_floor_sit(&a, false), FloorSitResult::Changed);
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"cell":{"x":3,"y":3}}"#
+        );
+    }
+
+    #[test]
     fn hair_is_absent_at_0_and_changes_once() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);

@@ -56,6 +56,8 @@ const valid: Raw[] = [
   js({ ...JOIN, accessory: 0 }), js({ ...JOIN, accessory: 4 }), js({ ...JOIN, tint: 2, accessory: 3 }),
   ...[0, 1, 2, 3, 4, 5].map((hair) => js({ type: "set-hair", hair })),
   js({ ...JOIN, hair: 0 }), js({ ...JOIN, hair: 5 }), js({ ...JOIN, tint: 2, accessory: 3, hair: 4 }),
+  js({ type: "floor-sit", on: true }), js({ type: "floor-sit", on: false }),
+  ...["none", "warm", "cool", "night"].map((mood) => js({ type: "layout-set", layout: { ...LAYOUT, mood } })),
   ...[2, 3, 6, 20, 99, 100].map((sides) => js({ type: "roll", sides })),
   // polls (OME-1452)
   js(POLL_OPEN), js({ type: "poll-open", question: "q".repeat(80), options: ["a", "b", "c", "d"] }),
@@ -136,7 +138,7 @@ const invalid: Raw[] = [
   ...mutations({ type: "walk", cell: { x: 1, y: 1 } }), ...mutations({ type: "set-tint", tint: 1 }),
   ...mutations({ type: "typing", on: true }), ...mutations({ type: "set-accessory", accessory: 1 }), ...mutations({ type: "roll", sides: 6 }),
   ...mutations(POLL_OPEN), ...mutations({ type: "vote", pollId: "p1", option: 0 }), ...mutations({ type: "poll-close", pollId: "p1" }),
-  ...mutations({ type: "set-hair", hair: 1 }),
+  ...mutations({ type: "set-hair", hair: 1 }), ...mutations({ type: "floor-sit", on: true }),
   ...mutations({ type: "queue-advance", fromItemId: "q1" }), ...mutations({ type: "ended", itemId: "q1", position: 1 }),
   // optional join fields: null is not absent, wrong shapes
   js({ ...JOIN, ownerToken: null }), js({ ...JOIN, inviteKey: null }), js({ ...JOIN, resumeToken: null }), js({ ...JOIN, durableSession: null }),
@@ -177,6 +179,9 @@ const invalid: Raw[] = [
   ...[5, -1, 0.5, "1", null, true].map((accessory) => js({ type: "set-accessory", accessory })), js({ ...JOIN, accessory: 5 }), js({ ...JOIN, accessory: null }),
   // set-hair, join hair (OME-1435)
   ...[6, -1, 0.5, "1", null, true].map((hair) => js({ type: "set-hair", hair })), js({ ...JOIN, hair: 6 }), js({ ...JOIN, hair: null }),
+  // floor-sit, layout mood (OME-1499)
+  ...[1, 0, "true", null, [], {}].map((on) => js({ type: "floor-sit", on })), js({ type: "floor-sit" }),
+  ...["dark", "Warm", "none ", "", null, 0, true, [], {}].map((mood) => js({ type: "layout-set", layout: { ...LAYOUT, mood } })),
   // roll (OME-1423)
   ...[1, 0, -2, 101, 255, 256, 1e9, 6.5, 2.0000001, "6", null, true, [6], {}].map((sides) => js({ type: "roll", sides })), js({ type: "roll", sides: 6, value: 3 }),
   ok('{"type":"roll","sides":1e400}'), ok('{"type":"roll","sides":-1e400}'),

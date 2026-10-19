@@ -152,7 +152,11 @@ const doors = (): unknown[] => {
   ];
 };
 
-const inputs = (): unknown[] => [...shapes(), ...doors(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
+/** Room mood (OME-1499): optional, one of ROOM_MOODS; absent means none. */
+const moods = (): unknown[] =>
+  ["none", "warm", "cool", "night", "dark", "Warm", "none ", "", null, 0, true, [], {}].flatMap((mood) => [{ ...(base() as object), mood }, { ...DEFAULT_LAYOUT, mood }]);
+
+const inputs = (): unknown[] => [...shapes(), ...doors(), ...moods(), ...everyKindEveryFacing(), ...variants(), ...cellGrid(), ...counts(), ...overlaps(), ...wallPieces()];
 
 const footprintInputs = (): Piece[] =>
   FURNITURE_KINDS.flatMap((kind) => FACINGS.flatMap((facing) => [[0, 0], [3, 2], [9, 9], [8, 1]].map(([col, row]) => ({ kind, col, row, facing }))));
