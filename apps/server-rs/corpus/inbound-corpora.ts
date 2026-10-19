@@ -53,6 +53,8 @@ const valid: Raw[] = [
   js({ type: "typing", on: true }), js({ type: "typing", on: false }),
   ...[0, 1, 2, 3, 4].map((accessory) => js({ type: "set-accessory", accessory })),
   js({ ...JOIN, accessory: 0 }), js({ ...JOIN, accessory: 4 }), js({ ...JOIN, tint: 2, accessory: 3 }),
+  ...[0, 1, 2, 3, 4, 5].map((hair) => js({ type: "set-hair", hair })),
+  js({ ...JOIN, hair: 0 }), js({ ...JOIN, hair: 5 }), js({ ...JOIN, tint: 2, accessory: 3, hair: 4 }),
   ...[2, 3, 6, 20, 99, 100].map((sides) => js({ type: "roll", sides })),
   js({ type: "chat", text: "hello there" }),
   js({ type: "chat", text: "  Ｈello  " }),
@@ -128,6 +130,7 @@ const invalid: Raw[] = [
   ...mutations({ type: "queue-move", itemId: "q1", toIndex: 0 }),
   ...mutations({ type: "walk", cell: { x: 1, y: 1 } }), ...mutations({ type: "set-tint", tint: 1 }),
   ...mutations({ type: "typing", on: true }), ...mutations({ type: "set-accessory", accessory: 1 }), ...mutations({ type: "roll", sides: 6 }),
+  ...mutations({ type: "set-hair", hair: 1 }),
   ...mutations({ type: "queue-advance", fromItemId: "q1" }), ...mutations({ type: "ended", itemId: "q1", position: 1 }),
   // optional join fields: null is not absent, wrong shapes
   js({ ...JOIN, ownerToken: null }), js({ ...JOIN, inviteKey: null }), js({ ...JOIN, resumeToken: null }), js({ ...JOIN, durableSession: null }),
@@ -164,6 +167,8 @@ const invalid: Raw[] = [
   // typing, set-accessory, join accessory (OME-1387)
   ...[1, 0, "true", null, [], {}].map((on) => js({ type: "typing", on })), js({ type: "typing" }),
   ...[5, -1, 0.5, "1", null, true].map((accessory) => js({ type: "set-accessory", accessory })), js({ ...JOIN, accessory: 5 }), js({ ...JOIN, accessory: null }),
+  // set-hair, join hair (OME-1435)
+  ...[6, -1, 0.5, "1", null, true].map((hair) => js({ type: "set-hair", hair })), js({ ...JOIN, hair: 6 }), js({ ...JOIN, hair: null }),
   // roll (OME-1423)
   ...[1, 0, -2, 101, 255, 256, 1e9, 6.5, 2.0000001, "6", null, true, [6], {}].map((sides) => js({ type: "roll", sides })), js({ type: "roll", sides: 6, value: 3 }),
   ok('{"type":"roll","sides":1e400}'), ok('{"type":"roll","sides":-1e400}'),
@@ -219,7 +224,7 @@ const deliberate: Raw[] = [
   rr('{"type":"chat","text":"a","text":"b"}'),
   rr('{"type":"sit","seat":1.0}'), rr('{"type":"sit","seat":-0}'), rr('{"type":"sit","seat":1e0}'), rr('{"type":"sit","seat":0e5}'),
   rr('{"type":"ping","id":1.0}'), rr('{"type":"ping","id":-0}'), rr('{"type":"ping","id":1e2}'), rr('{"type":"ping","id":2147483647.0}'),
-  rr('{"type":"walk","cell":{"x":1.0,"y":2}}'), rr('{"type":"set-tint","tint":1e0}'), rr('{"type":"set-accessory","accessory":4.0}'),
+  rr('{"type":"walk","cell":{"x":1.0,"y":2}}'), rr('{"type":"set-tint","tint":1e0}'), rr('{"type":"set-accessory","accessory":4.0}'), rr('{"type":"set-hair","hair":5.0}'),
   rr('{"type":"roll","sides":6.0}'), rr('{"type":"roll","sides":2e1}'), rr('{"type":"roll","sides":6,"sides":7}'),
   rr('{"type":"join","nickname":"Alice","avatar":1.0}'), rr('{"type":"join","nickname":"Alice","avatar":1e0}'),
   rr('{"type":"chat","text":"a\\ud800"}'), rr('{"type":"chat","text":"\\udc00a"}'),

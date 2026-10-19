@@ -356,6 +356,7 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
         resume_token,
         tint,
         accessory,
+        hair,
     } = msg
     else {
         return;
@@ -427,6 +428,9 @@ pub fn join(app: &App, inner: &mut RoomInner, conn: &mut Conn, msg: &ClientMessa
     }
     if let Some(accessory) = accessory {
         inner.room.set_accessory(&member.id, *accessory);
+    }
+    if let Some(hair) = hair {
+        inner.room.set_hair(&member.id, *hair);
     }
     // Back after a restart under the same name: the seat it held, in its snapshot and, after the join, for the room.
     let held_seat = inner.room.claim_held_seat(&member.id, wall);

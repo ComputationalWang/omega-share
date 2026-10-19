@@ -9,7 +9,7 @@ use super::constants::{MAX_CLIENT_MESSAGE_BYTES, MAX_EMBED_URL_LENGTH, MAX_POSIT
 use super::ids::{InviteKey, MemberId, OwnerToken, QueueItemId, ResumeToken};
 use super::js_compat::utf16_len;
 use super::layout::{RoomLayout, RoomLayoutInput};
-use super::room::{Accessory, Avatar, ControlPolicy, DiceSides, FloorCell, FloorCellInput, QueueIndex, SeatIndex, Tint};
+use super::room::{Accessory, Avatar, ControlPolicy, DiceSides, FloorCell, FloorCellInput, Hair, QueueIndex, SeatIndex, Tint};
 use super::text::{ChatText, Nickname, RoomTitle};
 use super::{Obj, parse_json};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -91,6 +91,8 @@ pub enum ClientMessage {
         tint: Option<Tint>,
         #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
         accessory: Option<Accessory>,
+        #[cfg_attr(test, serde(skip_serializing_if = "Option::is_none"))]
+        hair: Option<Hair>,
     },
     Leave {},
     Presence {
@@ -107,6 +109,9 @@ pub enum ClientMessage {
     },
     SetAccessory {
         accessory: Accessory,
+    },
+    SetHair {
+        hair: Hair,
     },
     Typing {
         on: bool,
@@ -177,6 +182,7 @@ impl ClientMessage {
             Self::Walk { .. } => "walk",
             Self::SetTint { .. } => "set-tint",
             Self::SetAccessory { .. } => "set-accessory",
+            Self::SetHair { .. } => "set-hair",
             Self::Typing { .. } => "typing",
             Self::Chat { .. } => "chat",
             Self::Roll { .. } => "roll",
@@ -258,6 +264,8 @@ struct JoinW {
     tint: Option<Tint>,
     #[serde(default, deserialize_with = "present")]
     accessory: Option<Accessory>,
+    #[serde(default, deserialize_with = "present")]
+    hair: Option<Hair>,
 }
 
 #[derive(Deserialize, Validate)]
@@ -294,6 +302,12 @@ struct SetTintW {
 #[serde(deny_unknown_fields)]
 struct SetAccessoryW {
     accessory: Accessory,
+}
+
+#[derive(Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+struct SetHairW {
+    hair: Hair,
 }
 
 #[derive(Deserialize, Validate)]
@@ -427,6 +441,8 @@ enum Wire {
     SetTint(SetTintW),
     #[serde(rename = "set-accessory")]
     SetAccessory(SetAccessoryW),
+    #[serde(rename = "set-hair")]
+    SetHair(SetHairW),
     #[serde(rename = "typing")]
     Typing(TypingW),
     #[serde(rename = "chat")]
@@ -473,6 +489,7 @@ impl Validate for Wire {
             Self::Walk(m) => m.validate(),
             Self::SetTint(m) => m.validate(),
             Self::SetAccessory(m) => m.validate(),
+            Self::SetHair(m) => m.validate(),
             Self::Typing(m) => m.validate(),
             Self::Chat(m) => m.validate(),
             Self::Roll(m) => m.validate(),
@@ -506,6 +523,7 @@ fn convert(wire: Wire) -> ClientMessage {
             resume_token: m.resume_token,
             tint: m.tint,
             accessory: m.accessory,
+            hair: m.hair,
         },
         Wire::Leave(_) => ClientMessage::Leave {},
         Wire::Presence(m) => ClientMessage::Presence { away: m.away },
@@ -513,6 +531,7 @@ fn convert(wire: Wire) -> ClientMessage {
         Wire::Walk(m) => ClientMessage::Walk { cell: m.cell.0.into() },
         Wire::SetTint(m) => ClientMessage::SetTint { tint: m.tint },
         Wire::SetAccessory(m) => ClientMessage::SetAccessory { accessory: m.accessory },
+        Wire::SetHair(m) => ClientMessage::SetHair { hair: m.hair },
         Wire::Typing(m) => ClientMessage::Typing { on: m.on },
         Wire::Chat(m) => ClientMessage::Chat { text: m.text },
         Wire::Roll(m) => ClientMessage::Roll { sides: m.sides },

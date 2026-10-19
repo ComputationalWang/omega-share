@@ -15,6 +15,7 @@ import { OptionalPlaybackSchema, PingIdSchema, PlaybackStateSchema, PositionSche
 import {
   AvatarSchema,
   AccessorySchema,
+  HairSchema,
   ControlPolicySchema,
   INVISIBLE_LETTERS,
   MemberIdSchema,
@@ -90,6 +91,8 @@ export const ClientMessageSchema = v.variant("type", [
     tint: v.optional(TintSchema),
     /** Avatar accessory (OME-1387); absent means 0. A resume keeps the member's own. */
     accessory: v.optional(AccessorySchema),
+    /** Hair colour (OME-1435); absent means 0. A resume keeps the member's own. */
+    hair: v.optional(HairSchema),
   }),
   v.strictObject({ type: v.literal("leave") }),
   /** Advisory visibility transition, never extends a disconnected hold. */
@@ -106,6 +109,8 @@ export const ClientMessageSchema = v.variant("type", [
   v.strictObject({ type: v.literal("set-tint"), tint: TintSchema }),
   /** Needs `join`. Change accessory; relayed as `accessory-changed` (setting the current one is a no-op). Shares the `emote` bucket. */
   v.strictObject({ type: v.literal("set-accessory"), accessory: AccessorySchema }),
+  /** Needs `join`. Change hair colour; relayed as `hair-changed` (setting the current one is a no-op). Shares the `emote` bucket. */
+  v.strictObject({ type: v.literal("set-hair"), hair: HairSchema }),
   /**
    * Needs `join`. The member is (or stopped) typing a chat line; relayed as `typing-changed` on change only. Resend
    * `on: true` within TYPING_TIMEOUT_MS to stay on; the server clears it after that, on a chat line, a mute or a
@@ -251,6 +256,8 @@ export const ServerMessageSchema = v.variant("type", [
   v.object({ type: v.literal("tint-changed"), memberId: MemberIdSchema, tint: TintSchema }),
   /** A member changed accessory (OME-1387). */
   v.object({ type: v.literal("accessory-changed"), memberId: MemberIdSchema, accessory: AccessorySchema }),
+  /** A member changed hair colour (OME-1435). */
+  v.object({ type: v.literal("hair-changed"), memberId: MemberIdSchema, hair: HairSchema }),
   /** A member started or stopped typing (OME-1387). Ephemeral: a member missing from these is not typing. */
   v.object({ type: v.literal("typing-changed"), memberId: MemberIdSchema, on: v.boolean() }),
   v.object({

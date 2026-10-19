@@ -18,6 +18,8 @@ pub const AVATAR_COUNT: usize = 4;
 pub const TINT_COUNT: usize = 6;
 /// Avatar accessories (ADR 0053, OME-1387); accessory 0 is none.
 pub const ACCESSORY_COUNT: usize = 5;
+/// Hair colours (ADR 0053, OME-1435); hair 0 is the avatar's own.
+pub const HAIR_COUNT: usize = 6;
 /// People in one room; matches the load-test budget in docs/perf-budgets.md.
 pub const MAX_ROOM_MEMBERS: usize = 25;
 /// Room ids are `[a-z0-9-]`, 1 to this many characters.

@@ -23,6 +23,7 @@
 {"input":"EMOTE_REFILL_MS","ok":true,"output":1000},
 {"input":"ERROR_MESSAGE_MAX_LENGTH","ok":true,"output":200},
 {"input":"FLOOR_CELLS","ok":true,"output":10},
+{"input":"HAIR_COUNT","ok":true,"output":6},
 {"input":"KICK_COOLDOWN_MS","ok":true,"output":600000},
 {"input":"MAX_CLIENT_MESSAGE_BYTES","ok":true,"output":4096},
 {"input":"MAX_CREATE_BODY_BYTES","ok":true,"output":1024},

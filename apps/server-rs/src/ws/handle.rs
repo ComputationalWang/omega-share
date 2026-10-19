@@ -173,6 +173,7 @@ fn admit_type(
         // Cosmetic broadcasts share one bucket (ADR 0053).
         ClientMessage::SetTint { .. } => owner.is_none() || admit!(emote, "too many tint changes, slow down"),
         ClientMessage::SetAccessory { .. } => owner.is_none() || admit!(emote, "too many accessory changes, slow down"),
+        ClientMessage::SetHair { .. } => owner.is_none() || admit!(emote, "too many hair changes, slow down"),
         // Over the typing bucket: dropped silently, as for walks (OME-1387).
         ClientMessage::Typing { .. } => owner.is_none() || spend(inner, conn, member, now, |b| &mut b.typing).is_none(),
         // Over the walk bucket: dropped silently, no notice and no streak toward a close (ADR 0053).
@@ -322,6 +323,17 @@ fn handle(app: &Arc<App>, inner: &mut RoomInner, conn: &mut Conn, session: Optio
                     &ServerMessage::AccessoryChanged {
                         member_id: member.clone(),
                         accessory,
+                    },
+                );
+            }
+        }
+        ClientMessage::SetHair { hair } => {
+            if inner.room.set_hair(member, hair) {
+                publish_msg(
+                    inner,
+                    &ServerMessage::HairChanged {
+                        member_id: member.clone(),
+                        hair,
                     },
                 );
             }

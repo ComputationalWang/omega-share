@@ -222,6 +222,7 @@ export function createWs({
       case "walk":
       case "set-tint":
       case "set-accessory":
+      case "set-hair":
       case "typing":
       case "roll":
         return true;
@@ -357,6 +358,8 @@ export function createWs({
       case "typing":
       // OME-1423 too: the frozen TS server ignores rolls (and has no own-room door check).
       case "roll":
+      // OME-1435 too: the frozen TS server ignores hair.
+      case "set-hair":
         return;
       case "queue-remove":
       case "queue-advance": {

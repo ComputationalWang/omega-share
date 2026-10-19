@@ -3,7 +3,8 @@
 
 use super::Obj;
 use super::constants::{
-    ACCESSORY_COUNT, AVATAR_COUNT, DICE_MAX_SIDES, DICE_MIN_SIDES, FLOOR_CELLS, MAX_ROOM_MEMBERS, QUEUE_MAX, SEAT_COUNT, TINT_COUNT,
+    ACCESSORY_COUNT, AVATAR_COUNT, DICE_MAX_SIDES, DICE_MIN_SIDES, FLOOR_CELLS, HAIR_COUNT, MAX_ROOM_MEMBERS, QUEUE_MAX, SEAT_COUNT,
+    TINT_COUNT,
 };
 use serde::{Deserialize, Serialize};
 
@@ -66,6 +67,11 @@ bounded_index!(
     /// `AccessorySchema`: an avatar accessory, an integer in `0..ACCESSORY_COUNT`; 0 is none (OME-1387).
     Accessory,
     ACCESSORY_COUNT
+);
+bounded_index!(
+    /// `HairSchema`: a hair colour, an integer in `0..HAIR_COUNT`; 0 is the avatar's own (OME-1435).
+    Hair,
+    HAIR_COUNT
 );
 bounded_index!(
     /// `DiceSidesSchema`: a die's faces, an integer in `DICE_MIN_SIDES..=DICE_MAX_SIDES` (OME-1423).
