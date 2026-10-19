@@ -24,6 +24,7 @@ import {
 } from "@omega/shared";
 import furnitureJson from "../../../../assets/furniture/furniture.json";
 import furnitureV2Json from "../../../../assets/furniture/furniture-v2.json";
+import furnitureV4Json from "../../../../assets/furniture/furniture-v4.json";
 import { el } from "../controls/dom";
 import { FurnitureManifestSchema } from "../furniture";
 import { cellCenter } from "../layout";
@@ -91,6 +92,11 @@ const NAMES: Readonly<Record<FurnitureKind, string>> = {
   arcade: "Arcade cabinet",
   wallclock: "Wall clock",
   door: "Door",
+  hammock: "Hammock",
+  stool: "Bar stool",
+  barcounter: "Bar counter",
+  piano: "Upright piano",
+  fireplace: "Fireplace",
 };
 
 const DELETED = "Room deleted.";
@@ -101,9 +107,9 @@ const DELETE_ERRORS: Readonly<Record<DeleteRoomErrorCode, string>> = {
   unavailable: "The server couldn't delete the room. Try again later.",
 };
 
-/** Colour names per catalogue piece, set (g) and v2 (the kilim runner is atlas id `rug`); the room atlas pieces have none. */
+/** Colour names per catalogue piece, set (g), v2 and batch 6 (the kilim runner is atlas id `rug`); the room atlas pieces have none. */
 const COLOURS: ReadonlyMap<string, readonly string[]> = new Map(
-  [furnitureJson, furnitureV2Json].flatMap((json) => v.parse(FurnitureManifestSchema, json).meta.omega.pieces.map((p) => [p.id, p.colours] as const)),
+  [furnitureJson, furnitureV2Json, furnitureV4Json].flatMap((json) => v.parse(FurnitureManifestSchema, json).meta.omega.pieces.map((p) => [p.id, p.colours] as const)),
 );
 const atlasId = (kind: FurnitureKind): string | null => {
   if (kind === "armchair" || kind === "tv" || kind === "lamp" || kind === "plant" || kind === "rug") return null;

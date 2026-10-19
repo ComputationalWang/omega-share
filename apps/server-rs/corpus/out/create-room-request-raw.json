@@ -7,6 +7,7 @@
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"living\"}","ok":true,"output":{"title":"Room","visibility":"public","preset":"living"}},
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"lounge\"}","ok":true,"output":{"title":"Room","visibility":"public","preset":"lounge"}},
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"cafe\"}","ok":true,"output":{"title":"Room","visibility":"public","preset":"cafe"}},
+{"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"bar\"}","ok":true,"output":{"title":"Room","visibility":"public","preset":"bar"}},
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"empty\"}","ok":true,"output":{"title":"Room","visibility":"public","preset":"empty"}},
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"\"}","ok":false},
 {"input":"{\"title\":\"Room\",\"visibility\":\"public\",\"preset\":\"Classic\"}","ok":false},

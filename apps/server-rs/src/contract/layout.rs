@@ -65,9 +65,14 @@ pub enum Kind {
     Arcade,
     Wallclock,
     Door,
+    Hammock,
+    Stool,
+    Barcounter,
+    Piano,
+    Fireplace,
 }
 
-pub const KINDS: [Kind; 30] = [
+pub const KINDS: [Kind; 35] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -98,6 +103,11 @@ pub const KINDS: [Kind; 30] = [
     Kind::Arcade,
     Kind::Wallclock,
     Kind::Door,
+    Kind::Hammock,
+    Kind::Stool,
+    Kind::Barcounter,
+    Kind::Piano,
+    Kind::Fireplace,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -173,6 +183,11 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Bench => Spec::new(Object, ALL, 2, 1).seated().variants(2),
         Kind::Wallshelf | Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
         Kind::Door => Spec::new(Object, CAMERA, 1, 1).variants(2).backed(),
+        Kind::Hammock => Spec::new(Object, ALL, 2, 1).seated(),
+        Kind::Stool => Spec::new(Object, ALL, 1, 1).seated().variants(2),
+        Kind::Barcounter => Spec::new(Object, CAMERA, 2, 1),
+        Kind::Piano => Spec::new(Object, CAMERA, 2, 1).variants(2),
+        Kind::Fireplace => Spec::new(Object, CAMERA, 1, 1).backed(),
     }
 }
 
@@ -496,15 +511,17 @@ pub enum RoomPresetId {
     Living,
     Lounge,
     Cafe,
+    Bar,
     Empty,
 }
 
-pub const ROOM_PRESET_IDS: [RoomPresetId; 6] = [
+pub const ROOM_PRESET_IDS: [RoomPresetId; 7] = [
     RoomPresetId::Classic,
     RoomPresetId::Cinema,
     RoomPresetId::Living,
     RoomPresetId::Lounge,
     RoomPresetId::Cafe,
+    RoomPresetId::Bar,
     RoomPresetId::Empty,
 ];
 
@@ -519,6 +536,7 @@ impl RoomPresetId {
             Self::Living => "living",
             Self::Lounge => "lounge",
             Self::Cafe => "cafe",
+            Self::Bar => "bar",
             Self::Empty => "empty",
         }
     }

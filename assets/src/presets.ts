@@ -28,7 +28,7 @@ const p = (kind: Kind, col: number, row: number, facing: Facing, variant = 0): F
   variant === 0 ? { kind, col, row, facing } : { kind, col, row, facing, variant };
 const TV = p("tv", 0, 0, "se");
 
-// Variants: sofa velvet|navy, couch cream|olive, beanbag blush|navy, monstera rust|teal, runner lilac|teal, frame dusk|tide, pouf rust|lilac, neonsign pink|teal.
+// Variants: sofa velvet|navy, couch cream|olive, beanbag blush|navy, monstera rust|teal, runner lilac|teal, frame dusk|tide, pouf rust|lilac, neonsign pink|teal, stool wood|teal, piano wood|charcoal.
 export const PRESETS: readonly Preset[] = [
   {
     id: "classic",
@@ -109,6 +109,26 @@ export const PRESETS: readonly Preset[] = [
         p("arclamp", 1, 7, "se"),
         p("monstera", 0, 9, "se"), p("monstera", 9, 0, "sw", 1), p("monstera", 0, 7, "se", 1),
         p("frame", 0, 4, "se", 1), p("frame", 4, 0, "sw"),
+      ],
+    },
+  },
+  {
+    id: "bar",
+    name: "Bar",
+    blurb: "Stools at the bar, hammocks, a piano and a crackling fire.",
+    layout: {
+      furniture: [
+        TV,
+        // Two counters backing onto the walls, two stools at each (they look at the counter, so toward the TV corner).
+        p("stool", 3, 1, "ne"), p("stool", 4, 1, "ne", 1),
+        p("stool", 1, 3, "nw"), p("stool", 1, 4, "nw", 1),
+        p("hammock", 4, 7, "ne"), p("hammock", 7, 4, "nw"),
+        p("barcounter", 3, 0, "sw"), p("barcounter", 0, 3, "se"),
+        p("piano", 1, 0, "sw"), p("bookshelf", 0, 1, "se"),
+        p("fireplace", 7, 0, "sw"),
+        p("runner", 4, 4, "ne", 1),
+        p("monstera", 0, 9, "se", 1), p("monstera", 9, 0, "sw"),
+        p("neonsign", 0, 7, "se"),
       ],
     },
   },

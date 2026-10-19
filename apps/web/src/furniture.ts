@@ -1,6 +1,6 @@
 // The room's furniture as a scene: seats, standing spots and set (g) sprites with their depth, from snapshot.room.layout
-// (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet and furniture-v2-atlas.ts
-// catalogue v2 (OME-1113), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
+// (ADR 0021). Pure, no Pixi: room-view.ts draws it, furniture-atlas.ts loads the set (g) sheet, furniture-v2-atlas.ts
+// catalogue v2 (OME-1113) and furniture-v4-atlas.ts batch 6 (OME-1439), each only when a layout needs it, room-atlas.ts the room sheet (planks, back walls and the room-atlas kinds, OME-1062) for every room.
 import * as v from "valibot";
 import { DEFAULT_LAYOUT, FLOOR_CELLS, FURNITURE, MAX_ROOM_MEMBERS, footprintCells, layoutSeats, type Facing, type Furniture, type FurnitureKind, type RoomId, type RoomLayout, type RoomState } from "@omega/shared";
 import { cellCenter, type Point } from "./layout";
@@ -18,6 +18,8 @@ const CLASSIC_KEY = layoutKey(DEFAULT_LAYOUT);
 const ROOM_KINDS: ReadonlySet<FurnitureKind> = new Set(["armchair", "tv", "lamp", "plant", "rug"]);
 /** Catalogue v2's pieces (assets/furniture/furniture-v2.json, its own lazy sheet). */
 const V2_KINDS: ReadonlySet<FurnitureKind> = new Set(["floorcushion", "bench", "turntable", "speaker", "cat", "wallshelf", "garland", "coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock", "door"]);
+/** Batch 6's pieces (assets/furniture/furniture-v4.json, its own lazy sheet). */
+const V4_KINDS: ReadonlySet<FurnitureKind> = new Set(["hammock", "stool", "barcounter", "piano", "fireplace"]);
 /** Set (g)'s kilim runner is atlas id `rug` (layout.ts in @omega/shared). */
 const atlasId = (kind: FurnitureKind): string => (kind === "runner" ? "rug" : kind);
 
@@ -80,12 +82,17 @@ export function layoutOf(room: RoomState | null): RoomLayout {
 
 /** True if the layout holds a set (g) piece, i.e. the furniture atlas must load. */
 export function usesSetG(layout: RoomLayout): boolean {
-  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind) && !V2_KINDS.has(f.kind));
+  return layout.furniture.some((f) => !ROOM_KINDS.has(f.kind) && !V2_KINDS.has(f.kind) && !V4_KINDS.has(f.kind));
 }
 
 /** True if the layout holds a catalogue v2 piece, i.e. the v2 sheet must load. */
 export function usesV2(layout: RoomLayout): boolean {
   return layout.furniture.some((f) => V2_KINDS.has(f.kind));
+}
+
+/** True if the layout holds a batch 6 piece, i.e. the v4 sheet must load. */
+export function usesV4(layout: RoomLayout): boolean {
+  return layout.furniture.some((f) => V4_KINDS.has(f.kind));
 }
 
 /** Seat i's floor point (ADR 0021: the i-th seat cell across seat pieces, in furniture order). */
@@ -113,27 +120,38 @@ export function standingPoints(layout: RoomLayout): Point[] {
   return spots.slice(0, MAX_ROOM_MEMBERS);
 }
 
-/** The pieces with an "in use" loop (OME-1405 art, assets/README.md); all 1×1 or wall pieces. */
-const LOOP_KINDS: ReadonlySet<FurnitureKind> = new Set(["arcade", "turntable", "aquarium", "neonsign", "door"]);
+/** The pieces with an "in use" loop (OME-1405, OME-1437 art, assets/README.md), by what sets it off: someone standing at
+ * their front, someone sitting in them, a video playing. */
+const FRONT_KINDS: ReadonlySet<FurnitureKind> = new Set(["arcade", "turntable", "aquarium", "neonsign", "door", "piano"]);
+const SEATED_KINDS: ReadonlySet<FurnitureKind> = new Set(["hammock"]);
+const PLAYING_KINDS: ReadonlySet<FurnitureKind> = new Set(["neonsign", "fireplace"]);
 /** A one-frame "loop" never steps; the frame time only has to be a valid one. */
 const OPEN_MS = 3_600_000;
 /** From a piece's cell to the one at its front: +col is se, +row is sw on screen (cellCenter). */
 const FRONT: Readonly<Record<Facing, readonly [number, number]>> = { se: [1, 0], sw: [0, 1], ne: [0, -1], nw: [-1, 0] };
+const NOBODY: ReadonlySet<number> = new Set();
 
 /**
- * Indices of the layout's pieces in use (OME-1407): someone stands on the cell at the front of a looping piece (a wall
- * piece's front is the floor cell under it), and the neon sign hums while a video plays. `standing` holds walk cells
- * (`cellOf`). Worked out when someone stands or the layout changes, never per frame.
+ * Indices of the layout's pieces in use (OME-1407, OME-1439): someone stands on a cell at the front of a front piece (any
+ * footprint cell's; a wall piece's front is the floor cell under it), someone sits in a seated piece, or a video plays.
+ * `standing` and `seated` hold walk cells (`cellOf`). Worked out when someone moves or the layout changes, never per frame.
  */
-export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, playing: boolean): Set<number> {
+export function piecesInUse(layout: RoomLayout, standing: ReadonlySet<number>, playing: boolean, seated: ReadonlySet<number> = NOBODY): Set<number> {
   const out = new Set<number>();
   layout.furniture.forEach((f, i) => {
-    if (!LOOP_KINDS.has(f.kind)) return;
-    const [dc, dr] = FURNITURE[f.kind].layer === "wall" ? [0, 0] : FRONT[f.facing];
-    const c = f.col + dc;
-    const r = f.row + dr;
-    const near = c >= 0 && c < FLOOR_CELLS && r >= 0 && r < FLOOR_CELLS && standing.has(cellOf(c, r));
-    if (near || (playing && f.kind === "neonsign")) out.add(i);
+    if (playing && PLAYING_KINDS.has(f.kind)) out.add(i);
+    else if (SEATED_KINDS.has(f.kind) && footprintCells(f).some(([c, r]) => seated.has(cellOf(c, r)))) out.add(i);
+    else if (FRONT_KINDS.has(f.kind)) {
+      const wall = FURNITURE[f.kind].layer === "wall";
+      const [dc, dr] = wall ? [0, 0] : FRONT[f.facing];
+      const cells: [number, number][] = wall ? [[f.col, f.row]] : footprintCells(f);
+      const near = cells.some(([col, row]) => {
+        const c = col + dc;
+        const r = row + dr;
+        return c >= 0 && c < FLOOR_CELLS && r >= 0 && r < FLOOR_CELLS && standing.has(cellOf(c, r));
+      });
+      if (near) out.add(i);
+    }
   });
   return out;
 }
