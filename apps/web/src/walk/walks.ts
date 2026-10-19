@@ -88,9 +88,11 @@ interface Entry {
   rate: number;
   /** When they arrived (or will); rest time counts from here. */
   restAt: number;
+  /** The last walk's final step direction, kept at rest (OME-1489); null with no walk seen, so they face the TV. */
+  restDir: Dir | null;
 }
 
-/** Standing people face the TV in the back corner: ne left of the aisle, nw right of it (like seats, ADR 0008). */
+/** With no walk seen (OME-1489), standing people face the TV in the back corner: ne left of the aisle, nw right of it (like seats, ADR 0008). */
 const standFacing = (cell: number): Dir => (colOf(cell) < rowOf(cell) ? "ne" : "nw");
 
 function dirOf(dx: number, dy: number): Dir {
@@ -119,7 +121,7 @@ export function createWalks(opts: WalksOptions): Walks {
   let snapNext = false;
   const scratch = emptyPose();
 
-  const at = (t: WalkTarget, now: number, restAt = now): Entry => ({ target: t, xs: [], ys: [], cells: [], ts: [], start: now, rate: 1, restAt });
+  const at = (t: WalkTarget, now: number, restAt = now): Entry => ({ target: t, xs: [], ys: [], cells: [], ts: [], start: now, rate: 1, restAt, restDir: null });
   const walkEnd = (e: Entry): number => e.start + (e.ts.at(-1) ?? 0) / e.rate;
   const rateOf = (t: WalkTarget): number => (t.run === true ? 2 : 1);
 
@@ -132,6 +134,7 @@ export function createWalks(opts: WalksOptions): Walks {
     const path = goal < 0 || from < 0 ? null : route(grid, from, goal);
     if (path === null) {
       e.start = e.restAt = now;
+      e.restDir = null;
       return;
     }
     // Turning round mid-step: head straight back to the cell just left.
@@ -143,11 +146,13 @@ export function createWalks(opts: WalksOptions): Walks {
     let px = x;
     let py = y;
     let ms = 0;
+    let dir = e.restDir;
     for (const c of path) {
       const p = c === goal ? t.at : centerOf(c);
       const d = Math.hypot(p.x - px, p.y - py);
       if (d === 0) continue;
       ms += (d / TILE_LEN) * TILE_MS;
+      dir = dirOf(p.x - px, p.y - py);
       e.xs.push(p.x);
       e.ys.push(p.y);
       e.cells.push(c);
@@ -155,6 +160,7 @@ export function createWalks(opts: WalksOptions): Walks {
       px = p.x;
       py = p.y;
     }
+    e.restDir = dir;
     if (ms === 0) e.xs.length = e.ys.length = e.cells.length = e.ts.length = 0;
     e.start = ms === 0 ? now : stepClock(now);
     e.restAt = e.start + ms / e.rate;
@@ -197,7 +203,7 @@ export function createWalks(opts: WalksOptions): Walks {
     out.x = tg.at.x;
     out.y = tg.at.y;
     out.z = tg.z;
-    out.dir = tg.seatFacing ?? standFacing(cellAt(tg.at));
+    out.dir = tg.seatFacing ?? e.restDir ?? standFacing(cellAt(tg.at));
     out.walking = false;
     out.sitting = tg.seatFacing !== null;
     out.step = 0;
@@ -233,6 +239,7 @@ export function createWalks(opts: WalksOptions): Walks {
         if (snap) {
           e.target = t;
           e.rate = 1;
+          e.restDir = null;
           e.xs.length = e.ys.length = e.cells.length = e.ts.length = 0;
           e.start = e.restAt = now;
           continue;
