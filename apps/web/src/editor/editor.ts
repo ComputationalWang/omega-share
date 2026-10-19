@@ -22,11 +22,8 @@ import {
   type RoomId,
   type RoomLayout,
 } from "@omega/shared";
-import furnitureJson from "../../../../assets/furniture/furniture.json";
-import furnitureV2Json from "../../../../assets/furniture/furniture-v2.json";
-import furnitureV4Json from "../../../../assets/furniture/furniture-v4.json";
 import { el } from "../controls/dom";
-import { FurnitureManifestSchema } from "../furniture";
+import { atlasId, coloursOf } from "./colours";
 import { cellCenter } from "../layout";
 import { loadRoomSecrets } from "../room-secrets";
 import { TRAY_TABS, defaultFacing, doorCount, parseDoorTarget, type TrayTab, fits, reconcile, pieceAt, place, problemText, problems, remove, rotate, sameLayout } from "./draft";
@@ -105,19 +102,6 @@ const DELETE_ERRORS: Readonly<Record<DeleteRoomErrorCode, string>> = {
   unauthorized: "This browser doesn't hold the room's owner key any more.",
   rate_limited: "Too many tries. Wait a moment and try again.",
   unavailable: "The server couldn't delete the room. Try again later.",
-};
-
-/** Colour names per catalogue piece, set (g), v2 and batch 6 (the kilim runner is atlas id `rug`); the room atlas pieces have none. */
-const COLOURS: ReadonlyMap<string, readonly string[]> = new Map(
-  [furnitureJson, furnitureV2Json, furnitureV4Json].flatMap((json) => v.parse(FurnitureManifestSchema, json).meta.omega.pieces.map((p) => [p.id, p.colours] as const)),
-);
-const atlasId = (kind: FurnitureKind): string | null => {
-  if (kind === "armchair" || kind === "tv" || kind === "lamp" || kind === "plant" || kind === "rug") return null;
-  return kind === "runner" ? "rug" : kind;
-};
-const coloursOf = (kind: FurnitureKind): readonly string[] => {
-  const id = atlasId(kind);
-  return id === null ? [] : (COLOURS.get(id) ?? []);
 };
 
 const sprite = (name: string): HTMLSpanElement => el("span", { className: `ui-sprite ${name}`, ariaHidden: "true" });
