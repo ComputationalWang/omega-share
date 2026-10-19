@@ -251,7 +251,7 @@ VIEWPORTS.forEach((vp, i) => {
       expect(skipped, "surfaces with no opener at this viewport").toEqual(GUEST_SKIPS[vp.name] ?? []);
     });
 
-    test("room as owner: rest, share sheet, member menu, editor", async ({ browser }) => {
+    test("room as owner: rest, share sheet, member menu, settings, editor", async ({ browser }) => {
       const { id: roomId, ownerToken, inviteKey } = ownedRoom(OWNED[i] ?? "sweepa");
       const owner = await newPage(browser, vp, JSON.stringify({ v: 1, rooms: { [roomId]: { ownerToken, inviteKey } } }));
       const skipped: string[] = [];
@@ -270,6 +270,7 @@ VIEWPORTS.forEach((vp, i) => {
         await expect(owner.locator(site.modMenu)).toBeVisible({ timeout: 5000 });
         return true;
       });
+      await step(owner, vp, "owner settings", skipped, () => visibleClick(owner, id("portrait-settings")));
       await step(owner, vp, "editor", skipped, async () => {
         const settings = owner.locator(id("portrait-settings"));
         if (await settings.isVisible()) await settings.click();
@@ -282,13 +283,18 @@ VIEWPORTS.forEach((vp, i) => {
   });
 });
 
-/** Surfaces a viewport's layout has no opener for, by design: no pop-outs on a phone, no report key or editor in portrait. */
+/** Surfaces a viewport's layout has no opener for, by design: no pop-outs on a phone, no report key or editor in portrait, the settings sheet only in portrait. */
 const GUEST_SKIPS: Record<string, string[]> = {
   "390x844-touch": ["report", "pop-out chat.html", "pop-out room.html"],
   "844x390-touch": ["pop-out chat.html", "pop-out room.html"],
   "320x640": ["report", "pop-out chat.html", "pop-out room.html"],
 };
-const OWNER_SKIPS: Record<string, string[]> = { "390x844-touch": ["editor"], "320x640": ["editor"] };
+const OWNER_SKIPS: Record<string, string[]> = {
+  "1280x800": ["owner settings"],
+  "390x844-touch": ["editor"],
+  "844x390-touch": ["owner settings"],
+  "320x640": ["editor"],
+};
 
 async function extAudit(page: Page, surface: string, width: number, height: number): Promise<void> {
   await page.setViewportSize({ width, height });
