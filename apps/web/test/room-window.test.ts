@@ -206,13 +206,13 @@ describe("on a computer", () => {
   test("at 1× the room is fitted as before", async () => {
     const { win, stage } = await setup();
     const { stageTransform } = await import("../src/layout");
-    win.desk(FIT, 480, 266);
+    win.desk(FIT);
     expect(stage.style.transform).toBe(stageTransform(FIT));
   });
 
   test("wheel up zooms in, wheel down zooms out, once a frame, and the page doesn't scroll or zoom", async () => {
     const { win, clip, zoom } = await setup();
-    win.desk(FIT, 480, 266);
+    win.desk(FIT);
     const a = wheel(clip, -100);
     wheel(clip, -100);
     expect(a.defaultPrevented).toBe(true);
@@ -229,13 +229,13 @@ describe("on a computer", () => {
   test("the zoom is remembered on this device, apart from the phone's, and a double-click goes back to 1×", async () => {
     const { win, clip, stage } = await setup();
     const { stageTransform } = await import("../src/layout");
-    win.desk(FIT, 480, 266);
+    win.desk(FIT);
     wheel(clip, -1000);
     await frame();
     expect(localStorage.getItem("omega.roomZoomDesk")).toBe("2");
     expect(localStorage.getItem("omega.roomZoom")).toBeNull();
     const b = await setup();
-    b.win.desk(FIT, 480, 266);
+    b.win.desk(FIT);
     expect(b.zoom()).toBe(FIT * 2);
     clip.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     expect(stage.style.transform).toBe(stageTransform(FIT));

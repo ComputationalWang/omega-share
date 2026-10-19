@@ -372,8 +372,16 @@ export interface DeskView {
   readonly pan: Point;
 }
 
-export function wheelView(_fit: number, from: DeskView, _at: Point, _zoom: number): DeskView {
-  return from;
+/**
+ * The desktop wheel (OME-1490): the room fitted at `fit`, zoomed from `from` to `zoom` (clamped from the whole room, 1, to
+ * MAX_ZOOM) around `at` (px in the room's box): the stage point under `at` stays under it, and the view stays in ROOM_VIEW.
+ */
+export function wheelView(fit: number, from: DeskView, at: Point, zoom: number): DeskView {
+  const z = Number.isFinite(zoom) ? Math.max(1, Math.min(MAX_ZOOM, zoom)) : 1;
+  const k0 = fit * from.zoom;
+  const k1 = fit * z;
+  const clamp = (v: number, lo: number, span: number): number => Math.max(lo, Math.min(lo + span - span / z, v));
+  return { zoom: z, pan: { x: clamp(from.pan.x + at.x / k0 - at.x / k1, ROOM_VIEW.x, ROOM_VIEW.w), y: clamp(from.pan.y + at.y / k0 - at.y / k1, ROOM_VIEW.y, ROOM_VIEW.h) } };
 }
 
 /** A stage-space rect on the page. */

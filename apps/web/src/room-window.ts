@@ -7,8 +7,12 @@
 // keys do the same for people who can't pinch. It's the same one transform (a scale after the translate), so it's
 // compositor work like the drag; the readable-label counter-scale (--label-scale, room.css) is restyled once a pinch
 // ends, never per frame. The zoom is this viewer's: kept in localStorage, never sent.
+// On a computer (OME-1490, `desk`) the room is fitted as before, and the wheel zooms it from there, up to MAX_ZOOM× the
+// fit, around the pointer (`wheelView`): a trackpad pinch (a ctrlKey wheel) too, never the page's. The wheel is summed
+// and drawn once a frame, the transform alone. A double-click goes back to the whole room. Its own key in localStorage,
+// as its zoom is a multiple of the fit, not the phone's stage scale.
 import { el } from "./controls/dom";
-import { PHONE_ROOM_MIN_H, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, type Point } from "./layout";
+import { PHONE_ROOM_MIN_H, ROOM_VIEW, clampZoom, labelScale, minZoom, panTo, pinchView, readZoom, wheelView, type DeskView, type Point } from "./layout";
 
 /** A press that moves less than this is a tap (it sits); more is a drag (it pans, and its click is dropped). */
 const DRAG_SLOP = 8;
@@ -17,6 +21,10 @@ const REVEAL_MARGIN = 32;
 /** One zoom key press. */
 const ZOOM_STEP = 1.25;
 export const ZOOM_STORAGE_KEY = "omega.roomZoom";
+const DESK_ZOOM_STORAGE_KEY = "omega.roomZoomDesk";
+/** The wheel's zoom per px of deltaY (a mouse notch, 100 px, is about one zoom key), and a trackpad pinch's. */
+const WHEEL_RATE = 0.0022;
+const PINCH_RATE = 0.01;
 /** The zoom keys' own band in the window, 44 px keys and 4 px gaps: over the room they hid seats (QA OME-1300 F3). */
 const KEYS_BAND = 52;
 /** A column beside the room needs three keys' height; a shorter window has them in a row under the room. */
@@ -24,17 +32,17 @@ export const KEYS_COLUMN_H = 3 * 44 + 4 * 4;
 /** How far inside the pane a tag's box must sit to be whole to the finger: its 52 px ::before less its 20 px height, halved. */
 const TAG_CROP = 16;
 
-function storedZoom(): number | null {
+function storedZoom(key = ZOOM_STORAGE_KEY): number | null {
   try {
-    return readZoom(localStorage.getItem(ZOOM_STORAGE_KEY));
+    return readZoom(localStorage.getItem(key));
   } catch {
     return null;
   }
 }
 
-function storeZoom(z: number): void {
+function storeZoom(z: number, key = ZOOM_STORAGE_KEY): void {
   try {
-    localStorage.setItem(ZOOM_STORAGE_KEY, String(z));
+    localStorage.setItem(key, String(z));
   } catch {
     // Storage off (private mode): it's kept for this page only.
   }
@@ -45,8 +53,8 @@ export interface RoomWindow {
   set(active: boolean, w: number, h: number): void;
   /** Look at `p` (stage px), clamped to the stage. */
   centre(p: Point): void;
-  /** Off the phone (OME-1490): the room fitted at `scale` in a w×h box; the wheel zooms it from there. */
-  desk(scale: number, w: number, h: number): void;
+  /** Off the phone (OME-1490): the room fitted at `scale` (its ROOM_VIEW in the clip); the wheel zooms it from there. */
+  desk(scale: number): void;
   /** Where the window looks now (stage px, top-left), for checks. */
   readonly pan: () => Point;
 }
@@ -58,6 +66,15 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   /** Null until someone moves it: then it follows `home` (the middle of the seats) across layouts and resizes. */
   let looking: Point | null = null;
   let zoom = storedZoom() ?? 1;
+  /** Off the phone: the room's fitted scale, and the wheel's zoom over it (null on the phone, or before the first fit). */
+  let desk: number | null = null;
+  const roomTopLeft: Point = { x: ROOM_VIEW.x, y: ROOM_VIEW.y };
+  let deskView: DeskView = { zoom: storedZoom(DESK_ZOOM_STORAGE_KEY) ?? 1, pan: roomTopLeft };
+  const applyDesk = (fit: number, v: DeskView): void => {
+    deskView = v;
+    const k = fit * v.zoom;
+    stage.style.transform = `translate(${String(-v.pan.x * k)}px, ${String(-v.pan.y * k)}px) scale(${String(k)})`;
+  };
   // The stage's own pane, clipped beside (or above) the keys' band, so no key ever sits on a seat.
   const pane = el("div", { className: "stage-pane" });
   stage.before(pane);
@@ -285,6 +302,19 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
   // Keyboard: whatever takes focus in the stage (a seat, a name tag) is panned into the window.
   stage.addEventListener("focusin", (ev) => {
     unscroll();
+    if (desk !== null && deskView.zoom > 1 && ev.target instanceof Element) {
+      // Zoomed in on a computer: something focused outside the view is centred in it.
+      const r = ev.target.getBoundingClientRect();
+      const s = stage.getBoundingClientRect();
+      const k = desk * deskView.zoom;
+      const x = (r.left - s.left + r.width / 2) / k;
+      const y = (r.top - s.top + r.height / 2) / k;
+      const w = ROOM_VIEW.w / deskView.zoom;
+      const h = ROOM_VIEW.h / deskView.zoom;
+      const p = deskView.pan;
+      if (x < p.x || x > p.x + w || y < p.y || y > p.y + h) applyDesk(desk, wheelView(desk, { zoom: deskView.zoom, pan: { x: x - w / 2, y: y - h / 2 } }, { x: 0, y: 0 }, deskView.zoom));
+      return;
+    }
     if (!active || !(ev.target instanceof Element)) return;
     const r = ev.target.getBoundingClientRect();
     const s = stage.getBoundingClientRect();
@@ -300,8 +330,41 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
     if (!inside) centre({ x, y });
   });
 
+  /** The wheel since the last frame (log zoom), where the pointer last was (client px), and the frame that draws it. */
+  let wheelLog = 0;
+  let wheelAt: Point = roomTopLeft;
+  let wheelFrame = 0;
+  const drawWheel = (): void => {
+    wheelFrame = 0;
+    const log = wheelLog;
+    wheelLog = 0;
+    if (desk === null) return;
+    const r = clip.getBoundingClientRect();
+    applyDesk(desk, wheelView(desk, deskView, { x: wheelAt.x - r.left, y: wheelAt.y - r.top }, deskView.zoom * Math.exp(log)));
+    storeZoom(deskView.zoom, DESK_ZOOM_STORAGE_KEY);
+  };
+  // Only the room's own box hears it: the TV, chat, panels and dialogs are outside the clip and keep their scroll.
+  clip.addEventListener(
+    "wheel",
+    (ev) => {
+      if (desk === null) return;
+      ev.preventDefault();
+      const px = ev.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : ev.deltaMode === WheelEvent.DOM_DELTA_PAGE ? 400 : 1;
+      wheelLog -= ev.deltaY * px * (ev.ctrlKey ? PINCH_RATE : WHEEL_RATE);
+      wheelAt = { x: ev.clientX, y: ev.clientY };
+      if (wheelFrame === 0) wheelFrame = requestAnimationFrame(drawWheel);
+    },
+    { passive: false },
+  );
+  clip.addEventListener("dblclick", () => {
+    if (desk === null) return;
+    applyDesk(desk, { zoom: 1, pan: roomTopLeft });
+    storeZoom(1, DESK_ZOOM_STORAGE_KEY);
+  });
+
   return {
     set(on, w, h) {
+      desk = null;
       const was = active;
       active = on;
       if (on !== was) for (const e of cropped) crop(e);
@@ -327,8 +390,9 @@ export function createRoomWindow(clip: HTMLElement, stage: HTMLElement, home: (h
       }
     },
     centre,
-    desk() {
-      // stub (OME-1490 red)
+    desk(fit) {
+      desk = fit;
+      applyDesk(fit, wheelView(fit, deskView, { x: 0, y: 0 }, deskView.zoom));
     },
     pan: () => pan,
   };
