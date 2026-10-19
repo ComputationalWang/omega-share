@@ -15,6 +15,8 @@ const table = JSON.parse(readFileSync(join(ROOT, "furniture", "recolours.json"),
 };
 const frames = sourcePieceFrames();
 const allCells = recolourCells();
+/** Built once: ~4 s each, so per-test calls sit at bun's 5 s timeout on CI (OME-1472). */
+const roomFrames = buildRoomFrames();
 /** Byte equality: expect().toEqual on 190 k-element typed arrays is very slow. */
 const same = (a: Uint8Array, b: Uint8Array | undefined): boolean => b !== undefined && Buffer.from(a).equals(Buffer.from(b));
 const CV: Canvas = { w: 480, h: 400, ax: 220, ay: 300 };
@@ -55,7 +57,7 @@ test("every new seat colour equals a direct render of the piece in that ramp, ev
 test("the room rug's swapped ramps never touch the floor planks", () => {
   const r = RECOLOURS["rug"];
   const swapped = new Set(r?.from.flatMap((f) => [0, 1, 2].map((t) => colorIndex(f, t as 0 | 1 | 2))));
-  for (const f of buildRoomFrames().filter((g) => g.key.startsWith("floor/"))) expect([...f.img].some((v) => swapped.has(v))).toBe(false);
+  for (const f of roomFrames.filter((g) => g.key.startsWith("floor/"))) expect([...f.img].some((v) => swapped.has(v))).toBe(false);
 });
 
 describe.each(Object.entries(RECOLOURS))("%s", (kind, r) => {
@@ -80,7 +82,7 @@ describe.each(Object.entries(RECOLOURS))("%s", (kind, r) => {
     expect(row?.variants.map((v) => v.variant)).toEqual([r.existing, r.existing + 1]);
   });
   test("the source frames, thumb and swatch chips exist", () => {
-    const keys = kind === "rug" ? buildRoomFrames().map((f) => f.key) : frames.map((f) => f.key);
+    const keys = kind === "rug" ? roomFrames.map((f) => f.key) : frames.map((f) => f.key);
     expect(keys.some((k) => k.startsWith(r.frames))).toBe(true);
     const edit = Object.keys((JSON.parse(readFileSync(join(ROOT, "ui", "edit.json"), "utf8")) as { frames: object }).frames);
     if (r.thumb) expect(edit).toContain(r.thumb);
