@@ -67,6 +67,15 @@ describe("hugStep", () => {
     expect(hugStep(start, walked(start, "a", 2, 2), hug)).toBe("cancel");
   });
 
+  // A /hug from a seat: the walk stands me up first, so being seated already isn't sitting down.
+  const sat = (st: ViewState, id: string, seat: number): ViewState => (st.room === null ? st : { ...st, room: { ...st.room, seats: st.room.seats.map((x, i) => (i === seat ? id : x)) } });
+
+  test("I sat down: cancel; already seated when it started: not yet", () => {
+    expect(hugStep(start, sat(start, "a", 2), hug)).toBe("cancel");
+    const seated = sat(start, "a", 2);
+    expect(hugStep(seated, walked(seated, "b", 6, 8), hug)).toBeNull();
+  });
+
   test("they left, or the room closed: cancel", () => {
     const gone = reduce(start, { type: "server", msg: { type: "member-left", memberId: "b" }, now: 0 });
     expect(hugStep(start, gone, hug)).toBe("cancel");
