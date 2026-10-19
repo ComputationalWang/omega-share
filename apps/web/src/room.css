@@ -261,6 +261,10 @@
 .poll-close { align-self: flex-end; }
 @media (pointer: coarse) { .poll-option, .poll-close { min-height: 44px; } }
 .ui-touch .poll-option, .ui-touch .poll-close { min-height: 44px; }
+/* The strip and the pop-out are head / log / field grids: an open card takes its own auto row so the log keeps the 1fr one
+ * (QA OME-1457). Collapsed to the band, the card waits for the strip to open, like the log. */
+.fs-strip:has(> .poll-card:not([hidden])), .popout:has(> .poll-card:not([hidden])) { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.fs-strip[data-strip="band"] > .poll-card { display: none; }
 
 /* ---- Full screen (OME-597, set k `ui-m7-desktop` / `ui-m7-band`): our wrapper, never the provider's iframe. room.ts places the
  * picture, shelf and strip from layout.ts `fullscreenLayout` (absolute, like the room page): nothing of ours over the player. ---- */
