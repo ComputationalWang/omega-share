@@ -108,6 +108,38 @@ describe("walks", () => {
     expect(sample("b", 0)?.dir).toBe("nw");
   });
 
+  test("after a walk, standing keeps the last step's facing until the next walk (OME-1489)", () => {
+    const { walks, sample } = setup();
+    walks.place([standAt("a", 5, 6)], 0);
+    // Each target is three tiles on one axis, so the last step's direction is the axis; none of these is the TV facing.
+    const legs: [number, number, Dir][] = [
+      [8, 6, "se"],
+      [5, 6, "nw"],
+      [5, 9, "sw"],
+      [8, 9, "se"],
+      [8, 6, "ne"],
+    ];
+    let now = 0;
+    for (const [col, row, dir] of legs) {
+      walks.place([standAt("a", col, row)], now);
+      now += 3 * TILE_MS;
+      expect(sample("a", now)).toMatchObject({ ...cellCenter(col, row), walking: false, dir });
+      expect(sample("a", now + 60_000)?.dir).toBe(dir);
+    }
+  });
+
+  test("with no walk seen, standing falls back to the TV facing: a new layout puts them there facing it again", () => {
+    const { walks, sample } = setup();
+    walks.place([standAt("a", 5, 6)], 0);
+    walks.place([standAt("a", 8, 6)], 0);
+    expect(sample("a", 3 * TILE_MS)?.dir).toBe("se");
+    const moved = walkGrid(DEFAULT_LAYOUT);
+    moved[0] = 0;
+    walks.setGrid(moved);
+    walks.place([standAt("a", 8, 5)], 3 * TILE_MS);
+    expect(sample("a", 3 * TILE_MS)?.dir).toBe("nw");
+  });
+
   test("a new target mid-walk turns from where the avatar is, without a jump", () => {
     const { walks, sample } = setup();
     walks.place([standAt("a", 9, 5)], 0);
