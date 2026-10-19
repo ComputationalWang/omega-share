@@ -130,6 +130,8 @@ legend { padding: 0; margin-bottom: 6px; }
 .tints { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .tint { width: 28px; height: 28px; padding: 0; border: 2px solid var(--dusk-border, #5a4e6e); border-radius: 50%; background: var(--swatch, transparent); cursor: pointer; }
 .tint[aria-checked="true"] { border-color: var(--dusk-honey, #f2c46d); box-shadow: 0 0 0 2px var(--dusk-canvas, #1d1a2b), 0 0 0 4px var(--dusk-honey, #f2c46d); }
+/* The hair row (OME-1438) beside the shirt row: one line wherever both fit, so the form is no taller on a desktop. */
+.looks { display: flex; flex-wrap: wrap; column-gap: 24px; }
 /* The accessory row (OME-1391): the tint swatch's shape and focus ring, with a text glyph instead of a colour. */
 .accessories { margin-top: 8px; }
 .accessory { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 2px solid var(--dusk-border, #5a4e6e); border-radius: 50%; background: var(--dusk-surface, #2a2540); color: var(--dusk-text, #f3e9dc); font-size: 14px; line-height: 1; cursor: pointer; }
