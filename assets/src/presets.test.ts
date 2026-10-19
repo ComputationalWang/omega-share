@@ -19,9 +19,9 @@ const manifest = v.parse(Manifest, JSON.parse(readFileSync(join(DIR, "presets.js
 const pngSize = (buf: Buffer): { w: number; h: number } => ({ w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) });
 
 describe("room presets", () => {
-  test("five or six, unique ids, the default among them", () => {
+  test("five to seven, unique ids, the default among them", () => {
     expect(manifest.presets.length).toBeGreaterThanOrEqual(5);
-    expect(manifest.presets.length).toBeLessThanOrEqual(6);
+    expect(manifest.presets.length).toBeLessThanOrEqual(7);
     const ids = manifest.presets.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain(manifest.default);
@@ -44,6 +44,13 @@ describe("room presets", () => {
     const v3 = ["coffeetable", "pouf", "neonsign", "aquarium", "arcade", "wallclock"];
     const most = Math.max(...PRESETS.map((p) => new Set(p.layout.furniture.map((f) => f.kind).filter((k) => v3.includes(k))).size));
     expect(most).toBeGreaterThanOrEqual(3);
+  });
+
+  test("the Bar preset shows off at least four batch 6 pieces (OME-1439)", () => {
+    const batch6 = ["hammock", "stool", "barcounter", "piano", "fireplace"];
+    const bar = PRESETS.find((p) => p.id === "bar");
+    expect(bar?.name).toBe("Bar");
+    expect(new Set(bar?.layout.furniture.map((f) => f.kind).filter((k) => batch6.includes(k))).size).toBeGreaterThanOrEqual(4);
   });
 
   test("thumbnails: one per preset at the manifest size, ≤ 40 KB together, no strays", () => {

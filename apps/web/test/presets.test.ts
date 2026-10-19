@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import * as v from "valibot";
 import { DEFAULT_ROOM_PRESET, ROOM_PRESET_IDS, RoomLayoutSchema } from "@omega/shared";
+import bar from "../../../assets/presets/bar.json";
 import cafe from "../../../assets/presets/cafe.json";
 import cinema from "../../../assets/presets/cinema.json";
 import classic from "../../../assets/presets/classic.json";
@@ -11,7 +12,7 @@ import lounge from "../../../assets/presets/lounge.json";
 import manifest from "../../../assets/presets/presets.json";
 import { DEFAULT_PRESET, PRESETS, PRESET_THUMB } from "../src/presets";
 
-const LAYOUTS: Readonly<Record<string, unknown>> = { classic, cinema, living, lounge, cafe, empty };
+const LAYOUTS: Readonly<Record<string, unknown>> = { classic, cinema, living, lounge, cafe, bar, empty };
 
 describe("room presets (assets/presets/presets.json)", () => {
   test("the picker offers exactly the contract's preset ids, in the manifest's order", () => {

@@ -204,6 +204,11 @@ describe("FurnitureSchema", () => {
     ["a charcoal cat", { kind: "cat", col: 9, row: 5, facing: "sw", variant: 1 }],
     ["a wall shelf on the right wall", { kind: "wallshelf", col: 7, row: 0, facing: "sw" }],
     ["party garland on the left wall", { kind: "garland", col: 0, row: 2, facing: "se", variant: 1 }],
+    ["a hammock facing nw", { kind: "hammock", col: 4, row: 4, facing: "nw" }],
+    ["a teal stool", { kind: "stool", col: 3, row: 3, facing: "ne", variant: 1 }],
+    ["a bar counter standing free", { kind: "barcounter", col: 4, row: 4, facing: "sw" }],
+    ["a charcoal piano against the left wall", { kind: "piano", col: 0, row: 2, facing: "se", variant: 1 }],
+    ["a fireplace on the right wall", { kind: "fireplace", col: 7, row: 0, facing: "sw" }],
     ["an unknown extra key (server objects are non-strict)", { kind: "tv", col: 0, row: 0, facing: "se", glow: true }],
   ])("accepts %s", (_name, input) => {
     accepts(FurnitureSchema, input);
@@ -248,6 +253,12 @@ describe("FurnitureSchema", () => {
     ["a garland off the wall", { kind: "garland", col: 1, row: 3, facing: "se" }],
     ["a garland on a sconce segment", { kind: "garland", col: 8, row: 0, facing: "sw" }],
     ["a garland facing the TV", { kind: "garland", col: 2, row: 0, facing: "ne" }],
+    ["a hammock hanging off the floor", { kind: "hammock", col: 9, row: 0, facing: "ne" }],
+    ["a second hammock colour", { kind: "hammock", col: 4, row: 4, facing: "ne", variant: 1 }],
+    ["a third stool colour", { kind: "stool", col: 3, row: 3, facing: "ne", variant: 2 }],
+    ["a bar counter facing the TV", { kind: "barcounter", col: 4, row: 4, facing: "ne" }],
+    ["a piano facing the TV", { kind: "piano", col: 4, row: 4, facing: "nw" }],
+    ["a fireplace away from its wall", { kind: "fireplace", col: 3, row: 1, facing: "sw" }],
   ])("rejects %s", (_name, input) => {
     rejects(FurnitureSchema, input);
   });
@@ -274,8 +285,8 @@ const readJson = (path: string): unknown => JSON.parse(readFileSync(join(ASSETS,
 
 describe("the catalogue matches the art", () => {
   const AtlasSchema = v.object({ meta: v.object({ omega: v.object({ pieces: v.array(PieceSchema) }) }) });
-  /** Set (g) and catalogue v2 (OME-1103, its own lazy atlas) together. */
-  const pieces = ["furniture/furniture.json", "furniture/furniture-v2.json"].flatMap((path) => v.parse(AtlasSchema, readJson(path)).meta.omega.pieces);
+  /** Set (g), catalogue v2 (OME-1103) and batch 6 (OME-1437), each its own lazy atlas, together. */
+  const pieces = ["furniture/furniture.json", "furniture/furniture-v2.json", "furniture/furniture-v4.json"].flatMap((path) => v.parse(AtlasSchema, readJson(path)).meta.omega.pieces);
   /** Contract kind → set (g) atlas id. The kilim runner is `rug` in the atlas; the contract's `rug` is the room's. */
   const atlasId = (kind: string): string => (kind === "runner" ? "rug" : kind);
 

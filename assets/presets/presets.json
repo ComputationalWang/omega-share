@@ -44,6 +44,13 @@
    "thumb": "thumbs/cafe.png"
   },
   {
+   "id": "bar",
+   "name": "Bar",
+   "blurb": "Stools at the bar, hammocks, a piano and a crackling fire.",
+   "layout": "bar.json",
+   "thumb": "thumbs/bar.png"
+  },
+  {
    "id": "empty",
    "name": "Empty",
    "blurb": "Just beanbags and bare boards. Furnish it your way.",

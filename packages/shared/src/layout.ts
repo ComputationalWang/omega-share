@@ -44,7 +44,7 @@ const FIXED: readonly Facing[] = ["se"];
 
 /**
  * Every piece a layout may hold. The room atlas gives `armchair`, `tv`, `lamp`, `plant` and the 7×7 `rug`;
- * set (g) gives the v1 rest, catalogue v2 (`assets/furniture/furniture-v2.json`, lazy) the last seven. Set (g)'s kilim runner is
+ * set (g) gives the v1 rest, catalogue v2 (`assets/furniture/furniture-v2.json`, lazy) the next ones up to the door. Set (g)'s kilim runner is
  * atlas id `rug`, so here it is `runner`.
  */
 export const FURNITURE = {
@@ -79,6 +79,12 @@ export const FURNITURE = {
   wallclock: piece("wall", CAMERA, { cols: 0, rows: 0 }),
   /** Leads to the room in its `target` (ADR 0054). */
   door: piece("object", CAMERA, ONE, { variants: 2, wallBacked: true }),
+  // Batch 6 (`assets/furniture/furniture-v4.json`, lazy). The counter and piano may back onto a wall but stand free too.
+  hammock: piece("object", FACINGS, { cols: 2, rows: 1 }, { seats: true }),
+  stool: piece("object", FACINGS, ONE, { seats: true, variants: 2 }),
+  barcounter: piece("object", CAMERA, { cols: 2, rows: 1 }),
+  piano: piece("object", CAMERA, { cols: 2, rows: 1 }, { variants: 2 }),
+  fireplace: piece("object", CAMERA, ONE, { wallBacked: true }),
 } as const satisfies Record<string, FurnitureSpec>;
 
 export type FurnitureKind = keyof typeof FURNITURE;

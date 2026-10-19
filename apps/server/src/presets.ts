@@ -2,6 +2,7 @@
 // preset id it names (OME-910); the id is checked by CreateRoomRequestSchema, never a layout from the request.
 import * as v from "valibot";
 import { RoomLayoutSchema, type RoomLayout, type RoomPresetId } from "@omega/shared";
+import bar from "../../../assets/presets/bar.json";
 import cafe from "../../../assets/presets/cafe.json";
 import cinema from "../../../assets/presets/cinema.json";
 import classic from "../../../assets/presets/classic.json";
@@ -22,6 +23,7 @@ const PRESET_LAYOUTS: Readonly<Record<RoomPresetId, RoomLayout>> = {
   living: parse("living", living),
   lounge: parse("lounge", lounge),
   cafe: parse("cafe", cafe),
+  bar: parse("bar", bar),
   empty: parse("empty", empty),
 };
 

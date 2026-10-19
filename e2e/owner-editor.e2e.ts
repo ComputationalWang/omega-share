@@ -112,6 +112,9 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   // A catalogue v3 piece (OME-1351) comes from the same tray.
   await owner.locator(`${site.editorSlot}[data-kind="aquarium"]`).click();
   await clickCell(owner, 9, 8);
+  // So does a batch 6 piece (OME-1439): a fireplace backs onto the left wall.
+  await owner.locator(`${site.editorSlot}[data-kind="fireplace"]`).click();
+  await clickCell(owner, 0, 7);
   // The owner sees the draft; the guest doesn't until it's saved.
   expect(await layoutOf(guest)).toHaveLength(DEFAULT_LAYOUT.furniture.length);
   await expect(owner.locator(site.editorProblems)).toBeEmpty();
@@ -119,6 +122,7 @@ test("only the owner loads the editor; a guest sees the saved layout and the new
   await expect.poll(async () => (await layoutOf(guest)).find((f) => f.kind === "popcorn")).toMatchObject({ col: 9, row: 9 });
   expect((await layoutOf(guest)).find((f) => f.kind === "lamp")).toMatchObject({ col: 8, row: 1 });
   expect((await layoutOf(guest)).find((f) => f.kind === "aquarium")).toMatchObject({ col: 9, row: 8 });
+  expect((await savedOf(guest)).find((f) => f.kind === "fireplace")).toMatchObject({ col: 0, row: 7, facing: "se" });
   // The static furniture was rebuilt once for that change, and not again while the room just runs.
   expect(await builds(guest)).toBe(before + 1);
   await guest.locator(site.chatInput).fill("nice");

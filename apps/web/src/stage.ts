@@ -8,7 +8,7 @@ import { createHandoff } from "./bubbles/handoff";
 import { el, renderSyslines } from "./controls/dom";
 import { createEmoteBadges } from "./emote/badges";
 import type { FurnitureAtlas } from "./furniture-atlas";
-import { layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2 } from "./furniture";
+import { layoutKey as keyOfLayout, layoutOf, piecesInUse, sceneOf, seatPoints, standDepth, standingPoints, usesSetG, usesV2, usesV4 } from "./furniture";
 import type { RoomAtlas } from "./room-atlas";
 import { isStepKey, seatViews, type StepKey } from "./intents";
 import { SYSLINE_RAIL, TAG_OFFSET_Y, cellCenter, type Point, type Rect } from "./layout";
@@ -234,6 +234,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let atlas: FurnitureAtlas | null = null;
   /** Catalogue v2's atlas once loaded (OME-1113); same shape as set (g)'s. */
   let v2Atlas: FurnitureAtlas | null = null;
+  /** Batch 6's atlas once loaded (OME-1439); same shape again. */
+  let v4Atlas: FurnitureAtlas | null = null;
   /** The room atlas (planks, walls, room-atlas kinds) once loaded; every room uses it. */
   let roomAtlas: RoomAtlas | null = null;
   /** The drawn layout's content; a re-join snapshot parses a new but equal layout, which keeps the scene. */
@@ -241,17 +243,18 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   let layoutBuilds = 0;
   /** Where the last render put each member (seat or standing spot), for UI anchored to someone not on screen yet. */
   let placedAt = new Map<MemberId, Point>();
-  /** The cells people stand on (not sit), and whether a video played, as the furniture in use was last worked out (OME-1407). */
+  /** The cells people stand on and sit on, and whether a video played, as the furniture in use was last worked out (OME-1407). */
   let standCells = new Set<number>();
+  let sitCells = new Set<number>();
   let inUseStale = true;
   let drawnPlaying = false;
   /** The hourglass on each catching tag; a tag removed with its member takes its hourglass along. */
   const hourglasses = new Map<HTMLElement, HTMLElement>();
 
   const buildScene = (l: RoomLayout): void => {
-    const catalogues = [atlas, v2Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
+    const catalogues = [atlas, v2Atlas, v4Atlas].flatMap((a) => (a === null ? [] : [a.manifest]));
     scene = sceneOf(l, catalogues, roomAtlas?.manifest ?? null);
-    view.setScene(scene, [atlas, v2Atlas, roomAtlas], grid);
+    view.setScene(scene, [atlas, v2Atlas, v4Atlas, roomAtlas], grid);
     drawnSeats = undefined;
   };
 
@@ -297,6 +300,9 @@ export async function createStage(o: StageOptions): Promise<Stage> {
     }
     if (usesV2(next) && v2Atlas === null) {
       lazyAtlas("furniture v2", key, next, () => import("./furniture-v2-atlas").then((m) => m.loadFurnitureV2Atlas()), (a) => (v2Atlas = a));
+    }
+    if (usesV4(next) && v4Atlas === null) {
+      lazyAtlas("furniture v4", key, next, () => import("./furniture-v4-atlas").then((m) => m.loadFurnitureV4Atlas()), (a) => (v4Atlas = a));
     }
   };
 
@@ -366,13 +372,14 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       awayIds = away.now;
       view.update(views.map((v) => v.member !== null), placements);
       standCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [cellAt(p.at)] : [])));
+      sitCells = new Set(placements.flatMap((p) => (p.seatFacing === null ? [] : [cellAt(p.at)])));
       inUseStale = true;
     }
     const playing = s.room?.playback?.playing === true;
     if (inUseStale || playing !== drawnPlaying) {
       inUseStale = false;
       drawnPlaying = playing;
-      view.setInUse(piecesInUse(nextLayout, standCells, playing));
+      view.setInUse(piecesInUse(nextLayout, standCells, playing, sitCells));
     }
     if (floorHit !== null) {
       const tab = s.status === "open" ? 0 : -1;

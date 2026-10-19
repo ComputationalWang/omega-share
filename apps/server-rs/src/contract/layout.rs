@@ -65,9 +65,14 @@ pub enum Kind {
     Arcade,
     Wallclock,
     Door,
+    Hammock,
+    Stool,
+    Barcounter,
+    Piano,
+    Fireplace,
 }
 
-pub const KINDS: [Kind; 30] = [
+pub const KINDS: [Kind; 35] = [
     Kind::Armchair,
     Kind::Tv,
     Kind::Lamp,
@@ -98,6 +103,11 @@ pub const KINDS: [Kind; 30] = [
     Kind::Arcade,
     Kind::Wallclock,
     Kind::Door,
+    Kind::Hammock,
+    Kind::Stool,
+    Kind::Barcounter,
+    Kind::Piano,
+    Kind::Fireplace,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -173,6 +183,11 @@ pub const fn spec(kind: Kind) -> Spec {
         Kind::Bench => Spec::new(Object, ALL, 2, 1).seated().variants(2),
         Kind::Wallshelf | Kind::Wallclock => Spec::new(Wall, CAMERA, 0, 0),
         Kind::Door => Spec::new(Object, CAMERA, 1, 1).variants(2).backed(),
+        Kind::Hammock => Spec::new(Object, ALL, 2, 1).seated(),
+        Kind::Stool => Spec::new(Object, ALL, 1, 1).seated().variants(2),
+        Kind::Barcounter => Spec::new(Object, CAMERA, 2, 1),
+        Kind::Piano => Spec::new(Object, CAMERA, 2, 1).variants(2),
+        Kind::Fireplace => Spec::new(Object, CAMERA, 1, 1).backed(),
     }
 }
 
@@ -496,15 +511,17 @@ pub enum RoomPresetId {
     Living,
     Lounge,
     Cafe,
+    Bar,
     Empty,
 }
 
-pub const ROOM_PRESET_IDS: [RoomPresetId; 6] = [
+pub const ROOM_PRESET_IDS: [RoomPresetId; 7] = [
     RoomPresetId::Classic,
     RoomPresetId::Cinema,
     RoomPresetId::Living,
     RoomPresetId::Lounge,
     RoomPresetId::Cafe,
+    RoomPresetId::Bar,
     RoomPresetId::Empty,
 ];
 
@@ -519,6 +536,7 @@ impl RoomPresetId {
             Self::Living => "living",
             Self::Lounge => "lounge",
             Self::Cafe => "cafe",
+            Self::Bar => "bar",
             Self::Empty => "empty",
         }
     }
@@ -780,6 +798,11 @@ mod tests {
             p("aquarium", 6, 6, "sw"),
             p("arcade", 2, 7, "se"),
             p("wallclock", 0, 3, "se"),
+            p("hammock", 4, 4, "nw"),
+            pv("stool", 3, 3, "ne", 1),
+            p("barcounter", 4, 4, "sw"),
+            pv("piano", 0, 2, "se", 1),
+            p("fireplace", 7, 0, "sw"),
         ];
         for c in cases {
             assert!(piece_accepts(&c), "{c}");
@@ -853,6 +876,12 @@ mod tests {
             ("a second aquarium colour", pv("aquarium", 6, 6, "sw", 1)),
             ("an arcade cabinet facing the TV", p("arcade", 2, 7, "nw")),
             ("a wall clock on a window segment", p("wallclock", 0, 6, "se")),
+            ("a hammock hanging off the floor", p("hammock", 9, 0, "ne")),
+            ("a second hammock colour", pv("hammock", 4, 4, "ne", 1)),
+            ("a third stool colour", pv("stool", 3, 3, "ne", 2)),
+            ("a bar counter facing the TV", p("barcounter", 4, 4, "ne")),
+            ("a piano facing the TV", p("piano", 4, 4, "nw")),
+            ("a fireplace away from its wall", p("fireplace", 3, 1, "sw")),
         ];
         for (name, input) in cases {
             assert!(!piece_accepts(&input), "{name}");
@@ -963,7 +992,7 @@ mod tests {
     #[test]
     fn preset_ids() {
         let ids: Vec<&str> = ROOM_PRESET_IDS.iter().map(|i| i.as_str()).collect();
-        assert_eq!(ids, ["classic", "cinema", "living", "lounge", "cafe", "empty"]);
+        assert_eq!(ids, ["classic", "cinema", "living", "lounge", "cafe", "bar", "empty"]);
         assert_eq!(DEFAULT_ROOM_PRESET.as_str(), "classic");
         for id in ROOM_PRESET_IDS {
             assert_eq!(serde_json::to_string(&id).unwrap(), format!("\"{}\"", id.as_str()));

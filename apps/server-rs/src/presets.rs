@@ -19,7 +19,7 @@ impl fmt::Display for PresetError {
 
 impl std::error::Error for PresetError {}
 
-/// All six preset layouts, parsed once at startup: a bad asset fails the boot, not a creation.
+/// All seven preset layouts, parsed once at startup: a bad asset fails the boot, not a creation.
 #[derive(Debug, Clone)]
 pub struct Presets {
     classic: RoomLayout,
@@ -27,6 +27,7 @@ pub struct Presets {
     living: RoomLayout,
     lounge: RoomLayout,
     cafe: RoomLayout,
+    bar: RoomLayout,
     empty: RoomLayout,
 }
 
@@ -38,6 +39,7 @@ impl Presets {
             RoomPresetId::Living => include_str!("../../../assets/presets/living.json"),
             RoomPresetId::Lounge => include_str!("../../../assets/presets/lounge.json"),
             RoomPresetId::Cafe => include_str!("../../../assets/presets/cafe.json"),
+            RoomPresetId::Bar => include_str!("../../../assets/presets/bar.json"),
             RoomPresetId::Empty => include_str!("../../../assets/presets/empty.json"),
         })
     }
@@ -51,6 +53,7 @@ impl Presets {
             living: parse(RoomPresetId::Living)?,
             lounge: parse(RoomPresetId::Lounge)?,
             cafe: parse(RoomPresetId::Cafe)?,
+            bar: parse(RoomPresetId::Bar)?,
             empty: parse(RoomPresetId::Empty)?,
         })
     }
@@ -62,6 +65,7 @@ impl Presets {
             RoomPresetId::Living => &self.living,
             RoomPresetId::Lounge => &self.lounge,
             RoomPresetId::Cafe => &self.cafe,
+            RoomPresetId::Bar => &self.bar,
             RoomPresetId::Empty => &self.empty,
         }
     }
