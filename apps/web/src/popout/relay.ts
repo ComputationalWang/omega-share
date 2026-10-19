@@ -76,7 +76,7 @@ const sameState = (a: PopState | null, b: PopState): boolean =>
 
 /** What the stage draws is the same: the same objects (the reducer keeps them when they don't change). */
 const sameStage = (a: StageState | null, b: StageState): boolean =>
-  a !== null && a.status === b.status && a.self === b.self && a.room === b.room && a.bubbles === b.bubbles && a.syslines === b.syslines && a.catching === b.catching;
+  a !== null && a.status === b.status && a.self === b.self && a.room === b.room && a.bubbles === b.bubbles && a.syslines === b.syslines && a.catching === b.catching && a.running === b.running;
 
 const sameTv = (a: PopTv | null, b: PopTv): boolean =>
   a !== null && a.video === b.video && a.playing === b.playing && a.position === b.position && a.live === b.live && a.catching === b.catching;
@@ -119,10 +119,10 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
     if (activeKind !== "room" || stage === null || sameStage(postedStage, stage)) return;
     // Only the slice: the page's state has more (errors, the owner flag, …) that the window has no use for. The room
     // (25 members, the queue, the layout) only when it changed: the window keeps the one it has.
-    const { status, self, room, bubbles, syslines, catching } = stage;
+    const { status, self, room, bubbles, syslines, catching, running } = stage;
     const sameRoom = postedStage !== null && postedStage.room === room;
     postedStage = stage;
-    o.channel.post(sameRoom ? { t: "room-view", status, self, bubbles, syslines, catching } : { t: "room-view", status, self, room, bubbles, syslines, catching });
+    o.channel.post(sameRoom ? { t: "room-view", status, self, bubbles, syslines, catching, running } : { t: "room-view", status, self, room, bubbles, syslines, catching, running });
   };
   const postTv = (): void => {
     if (activeKind !== "room" || tv === null || sameTv(postedTv, tv)) return;

@@ -23,7 +23,7 @@ const ROOM = { id: "movie-night", seats: [null, null, null, null, null, null, nu
 function withoutRoom<T extends { room: unknown }>(v: T): Omit<T, "room"> {
   return Object.fromEntries(Object.entries(v).filter(([k]) => k !== "room")) as Omit<T, "room">;
 }
-const VIEW = { t: "room-view", status: "open", self: "m1", room: ROOM, bubbles: [], syslines: [], catching: [] } as const;
+const VIEW = { t: "room-view", status: "open", self: "m1", room: ROOM, bubbles: [], syslines: [], catching: [], running: [] } as const;
 const TV = { t: "room-tv", video: true, playing: true, position: 1531, live: false, catching: false } as const;
 
 async function setup(size = { w: 1280, h: 668 }) {

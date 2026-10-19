@@ -203,7 +203,9 @@ export function createAnimator(o: AnimatorOptions): Animator {
       return;
     }
     if (walking) {
-      const at = (Math.floor(now / WALK_FRAME_MS) + 1) * WALK_FRAME_MS;
+      // A jog (OME-1464) steps on the half ticks of the same clock.
+      const ms = o.walks.jogging(now) ? WALK_FRAME_MS / 2 : WALK_FRAME_MS;
+      const at = (Math.floor(now / ms) + 1) * ms;
       wait = Math.min(wait, at - now);
     } else if (nextBreath !== Infinity) {
       const at = Math.ceil((now + nextBreath) / BREATHE_TICK_MS) * BREATHE_TICK_MS;

@@ -179,26 +179,26 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
     onLayout: (points) => {
       layout.seats(points);
     },
-    onFloor: (cell) => {
+    onFloor: (cell, run) => {
       stopFollow();
-      return walkTo(cell);
+      return walkTo(cell, run);
     },
-    onStep: (key, repeat) => {
+    onStep: (key, repeat, run) => {
       stopFollow();
       const now = performance.now();
-      if (!stepAllowed(repeat, now, lastStep)) return true;
+      if (!stepAllowed(repeat, now, lastStep, run)) return true;
       // From where I'm headed (my cell), else where I'm drawn (a seat, my standing spot).
       const me = state.room?.members.find((m) => m.id === state.self);
       const from = me?.cell ?? (state.self === null ? null : roomStage.cellOf(state.self));
       const to = from === null ? null : stepCell(from, key);
       if (to === null) return from === null;
       lastStep = now;
-      return walkTo(to);
+      return walkTo(to, run);
     },
   });
   /** Free walking (OME-1350): send `walk` to free floor; false (the floor flashes) when nobody can stand there. */
-  function walkTo(cell: FloorCell): boolean {
-    const msg = walkIntent(state, cell);
+  function walkTo(cell: FloorCell, run: boolean): boolean {
+    const msg = walkIntent(state, cell, run);
     if (msg === "blocked") return false;
     if (msg !== null) walkGate.push(msg);
     return true;

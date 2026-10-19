@@ -2,7 +2,8 @@
 // (someone who joined) or from where they were. Time-based: a hidden tab that comes back finds everyone arrived.
 // Basic: avatars move in whole steps, one per walk frame (ADR 0010 `stepPx`). Smooth (ADR 0037): they move every frame,
 // rounded to whole px, on the 8-frame 75 ms cycle. Either way every walk starts on a shared step clock, so all walkers
-// step together, Basic redraws at most once a step, and arrivals are the same on both tiers. A path is found once per target change;
+// step together, Basic redraws at most once a step, and arrivals are the same on both tiers. A jog (OME-1464) is the same
+// walk at twice the clock: Basic steps every 75 ms, Smooth's frames every 37.5 ms. A path is found once per target change;
 // `sample` allocates nothing.
 import type { MemberId } from "@omega/shared";
 import { standDepth } from "../furniture";
@@ -83,6 +84,8 @@ interface Entry {
   cells: number[];
   ts: number[];
   start: number;
+  /** 2 while jogging (OME-1464): walk time runs at twice the clock, so `ts` stay in walk ms. */
+  rate: number;
   /** When they arrived (or will); rest time counts from here. */
   restAt: number;
 }
@@ -116,12 +119,14 @@ export function createWalks(opts: WalksOptions): Walks {
   let snapNext = false;
   const scratch = emptyPose();
 
-  const at = (t: WalkTarget, now: number, restAt = now): Entry => ({ target: t, xs: [], ys: [], cells: [], ts: [], start: now, restAt });
-  const walkEnd = (e: Entry): number => e.start + (e.ts.at(-1) ?? 0);
+  const at = (t: WalkTarget, now: number, restAt = now): Entry => ({ target: t, xs: [], ys: [], cells: [], ts: [], start: now, rate: 1, restAt });
+  const walkEnd = (e: Entry): number => e.start + (e.ts.at(-1) ?? 0) / e.rate;
+  const rateOf = (t: WalkTarget): number => (t.run === true ? 2 : 1);
 
   /** A walk to `t` from point (x, y), routed from cell `from`; `back` is the cell just left if that's mid-step. */
   function walk(e: Entry, t: WalkTarget, x: number, y: number, from: number, back: number, now: number): void {
     e.target = t;
+    e.rate = rateOf(t);
     e.xs.length = e.ys.length = e.cells.length = e.ts.length = 0;
     const goal = cellAt(t.at);
     const path = goal < 0 || from < 0 ? null : route(grid, from, goal);
@@ -152,7 +157,7 @@ export function createWalks(opts: WalksOptions): Walks {
     }
     if (ms === 0) e.xs.length = e.ys.length = e.cells.length = e.ts.length = 0;
     e.start = ms === 0 ? now : stepClock(now);
-    e.restAt = e.start + ms;
+    e.restAt = e.start + ms / e.rate;
   }
 
   /** Walk time shown now: Smooth runs on the clock, Basic holds each 150 ms step. */
@@ -160,9 +165,10 @@ export function createWalks(opts: WalksOptions): Walks {
 
   function sampleEntry(e: Entry, now: number, out: Pose): void {
     const smooth = opts.smooth();
-    const t = smooth ? Math.max(0, now - e.start) : stepTime(now - e.start);
+    const walked = (now - e.start) * e.rate;
+    const t = smooth ? Math.max(0, walked) : stepTime(walked);
     const total = e.ts.at(-1) ?? 0;
-    if (now - e.start < total) {
+    if (walked < total) {
       let i = 1;
       while (i < e.ts.length - 1 && (e.ts[i] ?? 0) <= t) i++;
       const t0 = e.ts[i - 1] ?? 0;
@@ -222,9 +228,11 @@ export function createWalks(opts: WalksOptions): Walks {
           }
           continue;
         }
-        if (sameTarget(e.target, t)) continue;
+        // A jog to where they're already walking (a double-click's second click) re-times the rest of the way.
+        if (sameTarget(e.target, t) && (e.rate === rateOf(t) || walkEnd(e) <= now)) continue;
         if (snap) {
           e.target = t;
+          e.rate = 1;
           e.xs.length = e.ys.length = e.cells.length = e.ts.length = 0;
           e.start = e.restAt = now;
           continue;
@@ -235,7 +243,7 @@ export function createWalks(opts: WalksOptions): Walks {
           continue;
         }
         // Mid-step between two cells: route from the one ahead, or turn back to the one behind.
-        const tt = shownTime(now - e.start);
+        const tt = shownTime((now - e.start) * e.rate);
         let i = 1;
         while (i < e.ts.length - 1 && (e.ts[i] ?? 0) <= tt) i++;
         const ahead = e.cells[i] ?? -1;
@@ -254,7 +262,8 @@ export function createWalks(opts: WalksOptions): Walks {
       for (const e of entries.values()) if (walkEnd(e) > now) return true;
       return false;
     },
-    jogging() {
+    jogging(now) {
+      for (const e of entries.values()) if (e.rate > 1 && walkEnd(e) > now) return true;
       return false;
     },
   };

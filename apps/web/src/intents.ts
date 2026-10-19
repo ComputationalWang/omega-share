@@ -31,12 +31,16 @@ export function sitIntent(state: ViewState, seat: number): ClientMessage | null 
   return occupant === state.self ? { type: "sit", seat: null } : null;
 }
 
-/** Clicking or tapping a floor cell (ADR 0053): walk to free floor, "blocked" under a solid piece (seats too: they sit), nothing for my own cell. */
-export function walkIntent(state: ViewState, cell: FloorCell, _run = false): ClientMessage | "blocked" | null {
+/**
+ * Clicking or tapping a floor cell (ADR 0053): walk to free floor, "blocked" under a solid piece (seats too: they sit),
+ * nothing for my own cell. `run` jogs (OME-1464), even to my own cell: a double-click's first click already walks there.
+ */
+export function walkIntent(state: ViewState, cell: FloorCell, run = false): ClientMessage | "blocked" | null {
   const room = state.room;
   if (state.status !== "open" || room === null) return null;
   if (!isStandable(room.layout ?? DEFAULT_LAYOUT, cell)) return "blocked";
   const here = room.members.find((m) => m.id === state.self)?.cell;
+  if (run) return { type: "walk", cell: { x: cell.x, y: cell.y }, run };
   if (here?.x === cell.x && here.y === cell.y) return null;
   return { type: "walk", cell: { x: cell.x, y: cell.y } };
 }
@@ -68,9 +72,9 @@ export function stepCell(from: FloorCell, key: StepKey): FloorCell | null {
   return x >= 0 && x < FLOOR_CELLS && y >= 0 && y < FLOOR_CELLS ? { x, y } : null;
 }
 
-/** A held arrow key steps at most once a tile, the walk rate; a fresh press always steps. */
-export function stepAllowed(repeat: boolean, now: number, last: number, _run = false): boolean {
-  return !repeat || now - last >= TILE_MS;
+/** A held arrow key steps at most once a tile, the walk (or with `run`, the jog) rate; a fresh press always steps. */
+export function stepAllowed(repeat: boolean, now: number, last: number, run = false): boolean {
+  return !repeat || now - last >= (run ? TILE_MS / 2 : TILE_MS);
 }
 
 export function chatIntent(raw: string): ClientMessage | null {
@@ -147,9 +151,9 @@ export function createWalkGate(deps: { now: () => number; send: (m: ClientMessag
 }
 
 /** OME-1464: two clicks or taps on one cell within this many ms jog there. */
-export const DOUBLE_TAP_MS = 0;
+export const DOUBLE_TAP_MS = 500;
 
 /** True if a click on `cell` at `at` makes a double with the one before it (`prev`). */
-export function doubleTap(_prev: { readonly cell: FloorCell; readonly at: number } | null, _cell: FloorCell, _at: number): boolean {
-  return false;
+export function doubleTap(prev: { readonly cell: FloorCell; readonly at: number } | null, cell: FloorCell, at: number): boolean {
+  return prev !== null && prev.cell.x === cell.x && prev.cell.y === cell.y && at - prev.at <= DOUBLE_TAP_MS;
 }

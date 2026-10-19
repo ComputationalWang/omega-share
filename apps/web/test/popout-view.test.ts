@@ -294,7 +294,7 @@ describe("pop-out chat window", () => {
 // OME-600 (M7 W3b): the same window code is the chat column of the whole-room window. It says which window it is, its
 // put-back key puts the room back, and it hands the stage's messages (room, plate, emotes, raise) to the room side.
 describe("pop-out room window's chat column (OME-600)", () => {
-  const VIEW = { t: "room-view", status: "open", self: null, room: null, bubbles: [], syslines: [], catching: [] };
+  const VIEW = { t: "room-view", status: "open", self: null, room: null, bubbles: [], syslines: [], catching: [], running: [] };
 
   test("says it's the room window when ready; the put-back key puts the room back; the title is the room's", async () => {
     const { take, from, q, adopt } = await setup({ kind: "room" });

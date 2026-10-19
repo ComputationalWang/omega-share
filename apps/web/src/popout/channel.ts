@@ -80,6 +80,8 @@ const StageFields = {
     v.readonly(),
   ),
   catching: v.pipe(v.array(MemberIdSchema), v.maxLength(MAX_ROOM_MEMBERS), v.readonly()),
+  /** Who jogs (OME-1464). */
+  running: v.pipe(v.array(MemberIdSchema), v.maxLength(MAX_ROOM_MEMBERS), v.readonly()),
 };
 
 /** The room window's brass plate and my own catching-up flag, from the room tab's player (whole seconds). */
@@ -135,7 +137,7 @@ export type RoomSideMessage = Extract<PopMessage, { t: "room-view" | "room-tv" |
  * object, so the stage sees it unchanged. Typed as the state's slice: a change the message can't carry fails the build.
  */
 export function stageOf(m: Extract<PopMessage, { t: "room-view" }>, room: StageState["room"]): StageState {
-  return { status: m.status, self: m.self, room: m.room === undefined ? room : m.room, bubbles: m.bubbles, syslines: m.syslines, catching: m.catching };
+  return { status: m.status, self: m.self, room: m.room === undefined ? room : m.room, bubbles: m.bubbles, syslines: m.syslines, catching: m.catching, running: m.running };
 }
 
 export function parsePopMessage(data: unknown): PopMessage | null {
