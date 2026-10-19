@@ -63,3 +63,35 @@ test("a poll: opened by one, voted by two, counts on all three, closed by the op
     await expect(page.locator(site.chatLogLine).filter({ hasText: "Poll: Next video? — A 1 · B 1 · C 0" })).toHaveCount(1);
   }
 });
+
+// QA OME-1457: the card is one more child of the full-screen strip and the pop-out's 3-row grids; the log must keep the
+// stretching row, so the history stays readable for the whole poll. Collapsed to the band, the card waits for the strip.
+test("an open poll keeps the log as the tall row in the full-screen strip, the band and the chat pop-out", async ({ browser }) => {
+  clients = await joinRoom(browser, { roomUrl: testRoom("poll", "three").url, count: 2, nicknamePrefix: "poller" });
+  const [a, b] = clients;
+  if (a === undefined || b === undefined) throw new Error("no clients");
+  await say(b.page, "/poll Next? One | Two");
+  await expect(card(a.page)).toBeVisible();
+
+  const taller = async (page: Page, scope: string): Promise<void> => {
+    const c = await page.locator(scope).locator('[data-testid="poll-card"]').boundingBox();
+    const log = await page.locator(scope).locator(site.chatLog).boundingBox();
+    if (c === null || log === null) throw new Error("no boxes");
+    expect(log.height).toBeGreaterThan(c.height);
+  };
+
+  await a.page.locator(site.fullscreenToggle).click();
+  await expect(a.page.locator(site.fsStrip).locator('[data-testid="poll-card"]')).toBeVisible();
+  await taller(a.page, site.fsStrip);
+  await a.page.locator(site.fsStripToggle).click();
+  await expect(a.page.locator(site.fsStrip)).toHaveAttribute("data-strip", "band");
+  await expect(card(a.page)).toBeHidden();
+  await a.page.locator(site.fsStripToggle).click();
+  await expect(card(a.page)).toBeVisible();
+  await a.page.locator(site.fullscreenToggle).click();
+
+  const [pop] = await Promise.all([a.context.waitForEvent("page"), a.page.locator(site.chatPopout).click()]);
+  await pop.waitForLoadState();
+  await expect(card(pop)).toBeVisible();
+  await taller(pop, ".popout");
+});
