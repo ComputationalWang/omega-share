@@ -30,6 +30,9 @@ export const site = {
   fullscreenToggle: id("fullscreen-toggle"),
   fsStrip: id("fs-strip"),
   fsStripToggle: id("fs-strip-toggle"),
+  // Hide chat (OME-1491): its toggle (in the strip head, or the top-corner pill while hidden) and the overlay bubbles.
+  fsChatToggle: id("fs-chat-toggle"),
+  fsBubbles: id("fs-bubbles"),
   // Pop-out chat (OME-598): the room's key, its placeholder and bring-back key; in the window, its put-back key, the head
   // count, and the plug shown when the room tab is gone with its "Open the room here" key.
   chatPopout: id("chat-popout"),
