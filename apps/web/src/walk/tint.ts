@@ -65,3 +65,18 @@ export function retintPng(png: Uint8Array, slots: readonly number[], colors: rea
   }
   throw new Error("retint: no PLTE");
 }
+
+export interface AvatarHairs {
+  readonly slots: readonly number[];
+  readonly hairs: readonly TintRamp[];
+}
+
+/** Each avatar's hair colours (OME-1438), in avatar order. */
+export function parseHairs(_json: unknown, _ids: readonly string[]): readonly AvatarHairs[] {
+  throw new Error("todo");
+}
+
+/** The PLTE patch for `avatar` in shirt `tint` and hair `hair`. */
+export function lookPatch(_tints: readonly AvatarTints[], _hairs: readonly AvatarHairs[], _avatar: number, _tint: number, _hair: number): { slots: number[]; colors: string[] } {
+  throw new Error("todo");
+}

@@ -435,7 +435,8 @@
     {
       "paths": [
         "apps/web/src/controls/tint-*.ts",
-        "assets/avatars/tints.json"
+        "assets/avatars/tints.json",
+        "assets/avatars/hairs.json"
       ],
       "except": [
         "**/*.test.ts",
@@ -443,6 +444,7 @@
       ],
       "specs": [
         "e2e/accessory.e2e.ts",
+        "e2e/hair.e2e.ts",
         "e2e/tint.e2e.ts"
       ]
     },

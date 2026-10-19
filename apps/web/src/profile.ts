@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { AccessorySchema, AvatarSchema, NICKNAME_MAX_LENGTH, NicknameSchema, TintSchema, type Accessory, type Avatar, type Nickname, type Tint } from "@omega/shared";
+import { AccessorySchema, AvatarSchema, NICKNAME_MAX_LENGTH, NicknameSchema, TintSchema, type Accessory, type Avatar, type Hair, type Nickname, type Tint } from "@omega/shared";
 
 export interface KeyValueStore {
   getItem(key: string): string | null;
@@ -12,6 +12,8 @@ export interface Profile {
   readonly tint: Tint;
   /** Avatar accessory (OME-1391), 0 none. */
   readonly accessory: Accessory;
+  /** Hair colour (OME-1438), 0 the avatar's own. */
+  readonly hair: Hair;
 }
 
 const NICKNAME_KEY = "omega.nickname";
@@ -44,7 +46,7 @@ export function loadProfile(store: KeyValueStore): Profile {
   const avatar = v.safeParse(AvatarSchema, Number(read(store, AVATAR_KEY) ?? "0"));
   const tint = v.safeParse(TintSchema, Number(read(store, TINT_KEY) ?? "0"));
   const accessory = v.safeParse(AccessorySchema, Number(read(store, ACCESSORY_KEY) ?? "0"));
-  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, tint: tint.success ? tint.output : 0, accessory: accessory.success ? accessory.output : 0 };
+  return { nickname: nick.success ? nick.output : null, avatar: avatar.success ? avatar.output : 0, tint: tint.success ? tint.output : 0, accessory: accessory.success ? accessory.output : 0, hair: 0 };
 }
 
 export function saveProfile(store: KeyValueStore, profile: { nickname: Nickname; avatar: Avatar }): boolean {
@@ -75,4 +77,9 @@ export function saveAccessory(store: KeyValueStore, accessory: Accessory): boole
   } catch {
     return false;
   }
+}
+
+/** Likewise the hair colour (OME-1438). */
+export function saveHair(_store: KeyValueStore, _hair: Hair): boolean {
+  return false;
 }

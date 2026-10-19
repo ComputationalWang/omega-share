@@ -249,6 +249,10 @@ describe("joinMessage", () => {
     expect(joinMessage("zoe", 1, undefined, 3, 4)).toEqual({ type: "join", nickname: "zoe", avatar: 1, tint: 3, accessory: 4 });
     expect("accessory" in joinMessage("zoe", 1, undefined, 3, 0)).toBe(false);
   });
+  test("carries a hair colour, and leaves hair 0 out (absent means the avatar's own, OME-1438)", () => {
+    expect(joinMessage("zoe", 1, undefined, 3, 0, 2)).toEqual({ type: "join", nickname: "zoe", avatar: 1, tint: 3, hair: 2 });
+    expect("hair" in joinMessage("zoe", 1, undefined, 3, 4, 0)).toBe(false);
+  });
   test("carries the stored owner token and invite key", () => {
     expect(joinMessage("zoe", 1, { ownerToken: OWNER, inviteKey: KEY })).toEqual({ type: "join", nickname: "zoe", avatar: 1, ownerToken: OWNER, inviteKey: KEY });
   });

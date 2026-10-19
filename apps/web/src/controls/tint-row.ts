@@ -88,3 +88,8 @@ export function bindTintRow(group: HTMLElement, onPick: (t: Tint) => void): Tint
     },
   };
 }
+
+/** The hair colour row (OME-1438). */
+export function buildHairRow(): HTMLElement {
+  throw new Error("todo");
+}

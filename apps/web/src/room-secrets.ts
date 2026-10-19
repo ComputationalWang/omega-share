@@ -7,6 +7,7 @@ import {
   type Accessory,
   type Avatar,
   type ClientMessage,
+  type Hair,
   type InviteKey,
   type Nickname,
   type OwnerToken,
@@ -120,7 +121,7 @@ export function inviteLink(origin: string, id: RoomId, inviteKey?: InviteKey): s
 }
 
 /** `join` with the room's stored secrets, shirt tint and accessory; absent ones (and tint or accessory 0) are left out (the server's join is a strictObject). */
-export function joinMessage(nickname: Nickname, avatar: Avatar, secret: RoomSecret | undefined, tint: Tint = 0, accessory: Accessory = 0): Extract<ClientMessage, { type: "join" }> {
+export function joinMessage(nickname: Nickname, avatar: Avatar, secret: RoomSecret | undefined, tint: Tint = 0, accessory: Accessory = 0, _hair: Hair = 0): Extract<ClientMessage, { type: "join" }> {
   const ownerToken: OwnerToken | undefined = secret?.ownerToken;
   const inviteKey: InviteKey | undefined = secret?.inviteKey;
   return {

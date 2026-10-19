@@ -73,3 +73,20 @@ describe("tint row", () => {
     expect(picked).toEqual([]);
   });
 });
+
+// OME-1438: the hair colour row is the same radiogroup, named for hair, beside the tint row.
+describe("hair row", () => {
+  test("six swatches in a radiogroup named Hair colour, each its own test id", async () => {
+    const { bindTintRow, buildHairRow } = await import("../src/controls/tint-row");
+    const group = buildHairRow();
+    document.body.replaceChildren(group);
+    const picked: number[] = [];
+    bindTintRow(group, (h) => picked.push(h)).show(JUNO, 2);
+    const radios = [...group.querySelectorAll<HTMLButtonElement>("[role=radio]")];
+    expect(group.getAttribute("aria-label")).toBe("Hair colour");
+    expect(radios.map((r) => r.dataset["testid"])).toEqual(Array<string>(6).fill("hair-option"));
+    expect(radios[2]?.getAttribute("aria-checked")).toBe("true");
+    radios[4]?.click();
+    expect(picked).toEqual([4]);
+  });
+});
