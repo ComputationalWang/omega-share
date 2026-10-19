@@ -23,6 +23,7 @@ import { awayChanges } from "./session-lifecycle";
 import tintsJson from "../../../assets/avatars/tints.json";
 import { AVATAR_IDS, parseTints, tintAccent } from "./walk/tint";
 import type { Dir } from "./walk/walks";
+import { onceAsync } from "./once";
 
 /** The avatars' shirt ramps (tints.json), for the tag and bubble accents (OME-1375). */
 const TINTS = parseTints(tintsJson, AVATAR_IDS);
@@ -252,6 +253,8 @@ export async function createStage(o: StageOptions): Promise<Stage> {
   /** The new colours' sheet copies (OME-1463), once a layout used one; `recolouring` names the copies asked for. */
   let recolours: RecolourSheets | null = null;
   const recolouring = new Set<string>();
+  // One instance for every copy: two copies loading at once each made their own, and one copy was lost (OME-1495).
+  const recolourChunk = onceAsync(async () => (recolours = (await import("./recolour-sheets")).recolourSheets()));
   /** The drawn layout's content; a re-join snapshot parses a new but equal layout, which keeps the scene. */
   let layoutKey = "";
   let layoutBuilds = 0;
@@ -284,8 +287,7 @@ export async function createStage(o: StageOptions): Promise<Stage> {
       if (source === null || recolouring.has(id)) continue;
       recolouring.add(id);
       const load = async (): Promise<void> => {
-        recolours ??= (await import("./recolour-sheets")).recolourSheets();
-        await recolours.load(kind, variant, source);
+        await (await recolourChunk()).load(kind, variant, source);
       };
       // A failed copy (chunk or sheet) is forgotten, so the next snapshot retries it.
       lazyAtlas("recolour", key, l, () => load().catch((e: unknown) => {
