@@ -33,6 +33,7 @@ import {
 } from "./motion";
 import { OUTLINE, PALETTE, RAMPS, colorIndex } from "./palette";
 import { encodeIndexedApng, encodeIndexedPng, type RGBA } from "./png";
+import { hairSheet, hairsTable } from "./hairs";
 import { contactSheet, tintsTable } from "./tints";
 import { CATALOGUE_V2, THUMB_BOX, buildFurniture, buildThumbs, type FurnDir, type PieceMeta } from "./furniture";
 import { SEAT_DIRS, TILE, TV_SCREEN, WALL_H, buildRoomFrames, defaultLayout, type RoomFrame } from "./room";
@@ -2062,6 +2063,14 @@ function buildTints(): void {
   writeFileSync(join(ROOT, "preview", "tints-sheet@2x.png"), encodeIndexedPng(c.w * 2, c.h * 2, upscale(c.img, c.w, c.h, 2), c.palette));
 }
 
+/** Hair colours (OME-1436): the PLTE-swap table and a 4 × 6 (+ mixed hair × tint row) contact sheet at 1× and 2×. */
+function buildHairs(): void {
+  writeFileSync(join(ROOT, "avatars", "hairs.json"), JSON.stringify(hairsTable(), null, 1) + "\n");
+  const c = hairSheet();
+  writeFileSync(join(ROOT, "preview", "hairs-sheet@1x.png"), encodeIndexedPng(c.w, c.h, c.img, c.palette));
+  writeFileSync(join(ROOT, "preview", "hairs-sheet@2x.png"), encodeIndexedPng(c.w * 2, c.h * 2, upscale(c.img, c.w, c.h, 2), c.palette));
+}
+
 mkdirSync(join(ROOT, "preview"), { recursive: true });
 mkdirSync(join(ROOT, "src", "moodboards"), { recursive: true });
 const avatarImages = buildAvatars();
@@ -2074,6 +2083,7 @@ buildPresets(furnitureSet);
 buildMotion(avatarImages);
 buildExpressions(avatarImages);
 buildTints();
+buildHairs();
 for (const t of THEMES) buildTheme(t, avatarImages);
 buildAccessories(avatarImages);
 buildStore();

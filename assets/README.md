@@ -10,6 +10,7 @@ assets/
   avatars/expressions.png  # set p (OME-1104, lazy-load): 1024×256 indexed PNG-8, cheer + yawn/doze, 2 frames × pose × dir × avatar
   avatars/expressions.json # set p: PixiJS v8 atlas, motion.json's schema (frames, animations, meta.omega.anims, gestures)
   avatars/tints.json    # OME-1347: 6 shirt tints per avatar, a runtime PLTE swap table (no extra sheets)
+  avatars/hairs.json    # OME-1436: 6 hair colours per avatar, the same PLTE swap (hair slots disjoint from tint slots)
   avatars/motion.json   # set d: PixiJS v8 atlas + meta.omega.anims (frames, per-frame ms, loop)
   room/room.png         # shipped: 512×512 indexed PNG-8 (set b: floor, rug, walls, seats, corner console + projector, props)
   room/room.json        # shipped: PixiJS v8 spritesheet atlas + meta.omega room contract
@@ -114,6 +115,42 @@ props never change. No new frames, no new sheet bytes.
   both olive and mustard; `slots` hold the tint-0 colours in all three shipped sheets.
 - Contact sheet: `preview/tints-sheet@1x.png` / `@2x.png` (rows = avatars, columns = tints, each cell idle SE + walk SW).
   Panels top to bottom: light floor, dark site bg, then the floor panel as seen with deuteranopia and with protanopia.
+
+## Hair colours (`avatars/hairs.json`, OME-1436)
+
+Each avatar has 6 hair colours; hair 0 is the shipped look. Same technique as the shirt tints: a runtime PLTE swap of the
+avatar's hair ramp (3 entries), no new frames. Skin, shirt tint, trousers, shoes, props and accessory colours never change.
+
+| avatar | hair slots (hi, base, shade) | 0 (shipped) | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|---|
+| `juno` | `hairDark` | dark brown | ginger | blonde | silver | cherry | sky |
+| `pip` | `hairGinger` | ginger | dark brown | chestnut | silver | mint | violet |
+| `mo` (+ beard) | `hairDark` | dark brown | ginger | blonde | silver | sky | violet |
+| `kiki` | `hairPink` | pink | dark brown | ginger | chestnut | sky | violet |
+
+- **Hair-only slots.** Kiki's hair used to share `pink` with her shoes and popcorn stripes, and Pip's `ginger` is also the
+  Halloween witch hat band, so a slot swap would have recoloured those. Their hair now uses `hairPink` / `hairGinger`
+  (`src/palette.ts`): the same colours one blue step off (invisible), appended at the end of `PALETTE` so every older index
+  stays put. Cost: +6 PLTE entries in every sheet, +349 B across all shipped PNGs (309 B in the art sheets + 40 B in `site/`). Hair-only colours (blonde, chestnut,
+  silver, cherry, sky, mint, violet; `HAIR_RAMPS` in `src/hairs.ts`) live only in `hairs.json`.
+- **Order with tints: none needed.** Hair slots and tint slots are disjoint PLTE entries for every avatar (checked), so
+  patch both into the same sheet copy in either order: one copy per (avatar, tint, hair) in use. The colours are written,
+  not indexes, so a hair colour equal to some tint colour can't cascade.
+- **Which sheets:** `sheets` (`avatars.png`, `motion.png`, `expressions.png`, `accessories/bare.png`: Pip's and Mo's bare
+  heads use the same hair slots) and also `overlays` (`accessories/accessories.png`, every `themes/<id>/<id>.png`): a hat
+  overlay redraws the hair around the hat in the avatar's hair slots, so swap it for that avatar's hat frames too, or a
+  dyed avatar wears a ring of its old hair under a hat. Safe because no hat colour uses a hair ramp (checked). Paths are
+  relative to `avatars/`. As with tints, draw `emote/*` from the unswapped sheet.
+- `hairs.json`: `{ sheets, overlays, avatars: { <id>: { slots: [hi, base, shade], hairs: [{ id, colors: [hi, base, shade] }] × 6 } } }`,
+  767 B gz.
+- **Checks** (`src/hairs.test.ts`): the hair ramp sits only on hair roles (`H`, `q`, Mo's beard `b`) and on no tint slot; a
+  hair swap changes only hair pixels on front, back and bare-head frames; for all 36 hair × tint pairs, tint-then-hair and
+  hair-then-tint give the same pixels; within an avatar the hair colours are ΔE ≥ 20 apart with normal vision and with
+  simulated deuteranopia and protanopia, ≥ 20 from its skin and ≥ 20 from every one of its 6 tints; no hat role uses a hair
+  colour; `slots` hold the hair-0 colours in every listed sheet.
+- Contact sheet: `preview/hairs-sheet@1x.png` / `@2x.png`. Rows = avatars, columns = hair 0–5; each cell is idle SE, idle
+  NW (back of the head) and the bare head (Pip, Mo) or sitting SW (Juno, Kiki). Last row mixes hair × tint: avatar `k % 4`,
+  hair `k`, tint `5 − k`. Panels: light floor, dark site bg.
 
 ## Room atlas (`room/room.json`, same format)
 

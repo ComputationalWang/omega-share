@@ -32,6 +32,10 @@ export const RAMPS = {
   glow: ["#e8fbff", "#b8e6f0", "#7fbfd0"],
   velvet: ["#b85a6e", "#8f3f55", "#652a3e"],
   night: ["#4a4f8c", "#343766", "#24264a"],
+  // OME-1436: hair-only copies, one blue step off so they get their own PLTE slots and a hair palette swap can't recolour
+  // Kiki's shoes and popcorn (`pink`) or the Halloween hat band (`ginger`). Last, so every older index stays put.
+  hairPink: ["#f7b3c9", "#f08fb1", "#c26080"],
+  hairGinger: ["#f09a4f", "#d9772f", "#a4531e"],
 } as const satisfies Record<string, readonly [string, string, string]>;
 
 export type RampName = keyof typeof RAMPS;
