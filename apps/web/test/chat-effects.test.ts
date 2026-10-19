@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chatSticker, createStickerGate, HELP_LINE, isShout, meAction, POLL_USAGE_LINE, ROLL_USAGE_LINE, rollSticker, slashCommand, STICKER_GAP_MS } from "../src/chat/effects";
+import { chatSticker, createStickerGate, HELP_LINE, isShout, meAction, POLL_USAGE_LINE, ROLL_USAGE_LINE, rollSticker, slashCommand, STICKER_GAP_MS, thinkText } from "../src/chat/effects";
 
 // OME-1349: chat effects at zero wire cost. Slash commands send the existing `emote`; chat stickers and the shout
 // bubble are read locally from the relayed text.
@@ -145,5 +145,26 @@ describe("/poll", () => {
   test("/polls is not /poll: it's chat; /help names /poll", () => {
     expect(slashCommand("/polls")).toBeNull();
     expect(HELP_LINE.verb).toContain("/poll");
+  });
+});
+
+// OME-1465: `/think <text>` is a plain chat line on the wire; every client draws it as a thought.
+describe("thinkText", () => {
+  test("/think and a space, then words, is that thought, trimmed; any case", () => {
+    expect(thinkText("/think is this live?")).toBe("is this live?");
+    expect(thinkText("  /THINK   hmm  ")).toBe("hmm");
+  });
+
+  test("anything else is not: no words after it, no space, mid-line, /me, other commands", () => {
+    for (const text of ["/think", "/think ", "/thinking", "/thinkhmm", "hi /think hmm", "think hmm", "/me hmm", "//think hmm"]) expect(thinkText(text)).toBeNull();
+  });
+
+  test("/think is plain chat to the slash parser and not a /me action", () => {
+    expect(slashCommand("/think hmm")).toBeNull();
+    expect(meAction("/think hmm")).toBeNull();
+  });
+
+  test("/help lists /think", () => {
+    expect(HELP_LINE.verb).toContain("/think <thought>");
   });
 });

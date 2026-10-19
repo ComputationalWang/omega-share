@@ -49,8 +49,13 @@ export function meAction(text: string): string | null {
   return /^\s*\/me\s+(\S.*?)\s*$/is.exec(text)?.[1] ?? null;
 }
 
+/** `/think <text>` (OME-1465): the thought, or null. */
+export function thinkText(text: string): string | null {
+  return /^\s*\/think\s+(\S.*?)\s*$/is.exec(text)?.[1] ?? null;
+}
+
 /** What `/help` says, to me only. */
-export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")} · /me <action> · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B`, time: null, self: true };
+export const HELP_LINE: SystemLine = { glyph: "host", actor: null, verb: `Emotes: ${PICKER_KINDS.map((k) => `/${k}`).join(" ")} · /me <action> · /think <thought> · /roll [sides] · /hug <name> · /highfive <name> · /poll Question? A | B`, time: null, self: true };
 
 /** What a `/poll` the server would refuse says (OME-1454), to me only; nothing is sent. */
 export const POLL_USAGE_LINE: SystemLine = { glyph: "host", actor: null, verb: `Poll: /poll Question? A | B | C (${String(POLL_MIN_OPTIONS)}–${String(POLL_MAX_OPTIONS)} options, split on |)`, time: null, self: true };

@@ -42,7 +42,7 @@ async function frames(page: Page, id: string): Promise<v.InferOutput<typeof Fram
 
 test.describe("emotes", () => {
   /** Two clients in the test's own room, both drawn with the motion atlas (b walked in and is at rest). */
-  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "slash" | "action" | "typist" | "burst" | "still" | "wheel" | "wheelwalk" | "dancer") {
+  async function pair(browser: Parameters<typeof joinRoom>[0], prefix: "sticker" | "waver" | "slash" | "action" | "thinker" | "typist" | "burst" | "still" | "wheel" | "wheelwalk" | "dancer") {
     clients = await joinRoom(browser, { roomUrl: testRoom("emotes", prefix).url, count: 2, nicknamePrefix: prefix });
     const [a, b] = clients;
     if (a === undefined || b === undefined) throw new Error("need two clients");
@@ -100,6 +100,29 @@ test.describe("emotes", () => {
     await expect(a.page.getByText("Stand up to dance")).toHaveCount(0);
     await a.page.waitForTimeout(500);
     expect((await frames(a.page, bId))?.avatar ?? "").toMatch(/^(breathe\/)?\w+\/sit\//);
+  });
+
+  test("/think is an italic thought line in both logs and a thought bubble on both stages (OME-1465)", async ({ browser }) => {
+    const { a, b } = await pair(browser, "thinker");
+    await b.page.locator(site.chatInput).fill("/think is this live?");
+    await b.page.locator(site.chatInput).press("Enter");
+    const bNick = (await b.page.locator(`${site.nicknameTag}.self`).textContent())?.trim() ?? "";
+    expect(bNick).not.toBe("");
+    for (const page of [a.page, b.page]) {
+      const line = page.locator(site.chatLogLine).filter({ hasText: "is this live?" });
+      await expect(line).toHaveText(`${bNick} thinks: is this live?`);
+      await expect(line).toHaveClass(/is-think/);
+      expect(await line.evaluate((e) => getComputedStyle(e).fontStyle)).toBe("italic");
+      await expect(page.locator(site.chatLogLine).filter({ hasText: "/think" })).toHaveCount(0);
+      const bubble = page.locator(".ui-float", { has: page.locator(site.chatMessage, { hasText: "is this live?" }) });
+      await expect(bubble).toHaveClass(/is-think/);
+      // A cloud, not the speech sprite: rounded, no border-image; its tail is two small circles.
+      const look = await bubble.evaluate((e) => ({ image: getComputedStyle(e).borderImageSource, radius: getComputedStyle(e).borderTopLeftRadius, tail: getComputedStyle(e, "::after").backgroundImage, font: getComputedStyle(e.querySelector(".say") ?? e).fontStyle }));
+      expect(look.image).toBe("none");
+      expect(look.radius).not.toBe("0px");
+      expect(look.tail).toContain("radial-gradient");
+      expect(look.font).toBe("italic");
+    }
   });
 
   test("/me is an italic action line in both logs and bubbles; tag and bubble wear the speaker's shirt colour (OME-1375)", async ({ browser }) => {
