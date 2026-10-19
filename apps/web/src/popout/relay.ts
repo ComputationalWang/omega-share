@@ -8,6 +8,7 @@
 // picture's time for its plate, and each emote, and its seat clicks come back here to be sent.
 import type { ClientMessage, EmoteKind, MemberId } from "@omega/shared";
 import { CHAT_LOG_CAP, type ChatLogEntry } from "../chat/log";
+import type { PollView } from "../chat/poll";
 import { chatIntent } from "../intents";
 import type { StageState } from "../state";
 import { parsePopMessage, type PopChannel, type PopKind, type PopState, type PopTv } from "./channel";
@@ -31,6 +32,9 @@ export interface ChatRelayOptions<H> {
   readonly onSeat: (seat: number) => void;
   /** A slash command typed in the pop-out (OME-1349): the page runs it; true/false = ran (ok or not), null = not a command, send it as chat. */
   readonly command?: (text: string) => boolean | null;
+  /** A vote or a close from the window's poll card (OME-1454): the page sends it. */
+  readonly onVote?: (pollId: string, option: number) => void;
+  readonly onPollClose?: (pollId: string) => void;
   readonly setTimer: (fn: () => void, ms: number) => H;
   readonly clearTimer: (h: H) => void;
 }
@@ -51,6 +55,8 @@ export interface ChatRelay {
   view(s: StageState): void;
   /** The plate and my catching-up flag; posted to a room window when changed. */
   tv(t: PopTv): void;
+  /** The open poll's card, or null (OME-1454); posted when popped out, and again to a window adopted later. */
+  poll(v: PollView | null): void;
   /** Someone emoted: a room window draws it. */
   emote(member: MemberId, kind: EmoteKind): void;
   /** Someone started or stopped typing: a room window draws the dots. */
@@ -88,6 +94,7 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
   let postedStage: StageState | null = null;
   let tv: PopTv | null = null;
   let postedTv: PopTv | null = null;
+  let poll: PollView | null = null;
   let active: string | null = null;
   let activeKind: PopKind | null = null;
   let lastSeq = -1;
@@ -146,6 +153,7 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
     postState();
     postStage();
     postTv();
+    if (poll !== null) o.channel.post({ t: "room-poll", view: poll });
     if (was !== kind) o.onPopped(true);
   };
 
@@ -189,6 +197,12 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
       case "pop-sit":
         if (activeKind === "room" && fromActive(m.pop)) o.onSeat(m.seat);
         return;
+      case "pop-vote":
+        if (fromActive(m.pop)) o.onVote?.(m.pollId, m.option);
+        return;
+      case "pop-poll-close":
+        if (fromActive(m.pop)) o.onPollClose?.(m.pollId);
+        return;
       case "pop-back":
       case "pop-bye":
         if (fromActive(m.pop)) release();
@@ -207,6 +221,7 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
       case "room-typing":
       case "room-typing-clear":
       case "room-raise":
+      case "room-poll":
         return;
     }
   });
@@ -243,6 +258,10 @@ export function createChatRelay<H>(o: ChatRelayOptions<H>): ChatRelay {
     tv(t) {
       tv = t;
       postTv();
+    },
+    poll(v) {
+      poll = v;
+      if (active !== null) o.channel.post({ t: "room-poll", view: v });
     },
     emote(member, kind) {
       if (activeKind === "room") o.channel.post({ t: "room-emote", member, kind });

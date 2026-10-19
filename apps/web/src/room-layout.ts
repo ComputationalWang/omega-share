@@ -53,6 +53,8 @@ export interface RoomLayoutOptions {
     place(): void;
   };
   readonly log: ChatLog;
+  /** The poll card (OME-1454): always right above the log. */
+  readonly poll: HTMLElement;
   /** The chat row, its pop-out placeholder, and the keys that lead and end the row. */
   readonly composer: {
     readonly form: HTMLFormElement;
@@ -283,10 +285,10 @@ export function createRoomLayout(o: RoomLayoutOptions): RoomLayout {
     // Wide and tall enough, the owner's bar goes under Up next (OME-1301): under the stage it cost the owner half the room.
     if (two && !o.short.matches) queuePanel.root.after(o.ownerBar);
     else o.editorPanel.before(o.ownerBar);
-    if (fs.mode() !== "off") stripHead.after(chatLog.root, chatForm, chatAway);
-    else if (two) side.append(chatLog.root, chatForm, chatAway);
-    else if (phone.matches) wrap.after(chatLog.root, chatForm, chatAway);
-    else notice.after(chatLog.root, chatForm, chatAway);
+    if (fs.mode() !== "off") stripHead.after(o.poll, chatLog.root, chatForm, chatAway);
+    else if (two) side.append(o.poll, chatLog.root, chatForm, chatAway);
+    else if (phone.matches) wrap.after(o.poll, chatLog.root, chatForm, chatAway);
+    else notice.after(o.poll, chatLog.root, chatForm, chatAway);
     if (portraitOn) chatForm.before(dock.keys);
     // Set (k): every key and field is at least 44×44 CSS px to the finger (reference.css .ui-touch): the phone layout
     // (a narrow mouse window too) or a touch screen held sideways (QA OME-1324 G1/G2).

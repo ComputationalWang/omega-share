@@ -125,6 +125,34 @@ describe("where the pop-out is offered", () => {
   });
 });
 
+// OME-1454: the poll card's three messages are parsed like the rest.
+describe("poll messages", () => {
+  const view = { pollId: "p1", question: "Next video?", options: ["A", "B"], counts: [1, 0], vote: 0, canClose: false, endsAt: 99_000 };
+
+  test("the card, a vote and a close parse", () => {
+    const ok: unknown[] = [{ t: "room-poll", view }, { t: "room-poll", view: null }, { t: "pop-vote", pop: "p1", pollId: "p1", option: 3 }, { t: "pop-poll-close", pop: "p1", pollId: "p1" }];
+    for (const m of ok) {
+      expect(parsePopMessage(m)).not.toBeNull();
+    }
+  });
+
+  test("a card or vote the wire could not carry is dropped", () => {
+    for (const m of [
+      { t: "room-poll", view: { ...view, options: ["A"] } },
+      { t: "room-poll", view: { ...view, options: ["A", "B", "C", "D", "E"] } },
+      { t: "room-poll", view: { ...view, question: "" } },
+      { t: "room-poll", view: { ...view, counts: [-1, 0] } },
+      { t: "room-poll", view: { ...view, vote: 4 } },
+      { t: "room-poll", view: { ...view, extra: 1 } },
+      { t: "pop-vote", pop: "p1", pollId: "p1", option: 4 },
+      { t: "pop-vote", pop: "p1", pollId: "bad id!", option: 0 },
+      { t: "pop-poll-close", pop: "p1" },
+    ]) {
+      expect(parsePopMessage(m)).toBeNull();
+    }
+  });
+});
+
 describe("the pop-out's address", () => {
   test("carries the room and the tab in the hash, and reads back only valid ones", () => {
     const url = popoutUrl("movie-night", "t-abc123");

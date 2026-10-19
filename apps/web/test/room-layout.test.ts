@@ -42,13 +42,14 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
   const notice = div();
   const roomAway = div();
   const invite = div();
+  const poll = div();
   const side = div();
   const ownerBar = div();
   const editorPanel = div();
   root.append(wrap, roomAway, ownerBar, editorPanel, tv.personal, queue.root, notice, log.root, form, invite, side);
   document.body.replaceChildren(root);
   const layout = createRoomLayout({
-    root, wrap, clip, stage, tv, log, queue, notice, roomAway, invite, side, ownerBar, editorPanel,
+    root, wrap, clip, stage, tv, log, poll, queue, notice, roomAway, invite, side, ownerBar, editorPanel,
     composer: { form, away, popOut, picker: { root: pickerRoot, close: () => undefined } },
     settings: [],
     phone: { matches: false },
@@ -62,13 +63,15 @@ async function setup(o: { wide?: boolean; short?: boolean } = {}) {
     placeRoom: () => undefined,
   });
   fsMode = layout.fs.mode();
-  return { layout, root, wrap, log, form, notice, side, queue, invite, ownerBar, editorPanel };
+  return { layout, root, wrap, log, poll, form, notice, side, queue, invite, ownerBar, editorPanel };
 }
 
 describe("room layout", () => {
   test("in the page the chat sits right under the notices", async () => {
-    const { log, form, notice, side } = await setup();
-    expect(notice.nextElementSibling).toBe(log.root);
+    const { log, poll, form, notice, side } = await setup();
+    // The poll card (OME-1454) is pinned right above the log.
+    expect(notice.nextElementSibling).toBe(poll);
+    expect(poll.nextElementSibling).toBe(log.root);
     expect(log.root.nextElementSibling).toBe(form);
     expect(side.hidden).toBe(true);
   });

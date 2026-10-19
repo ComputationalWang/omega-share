@@ -117,3 +117,50 @@ describe("logEntries", () => {
     expect(step(joined(), { type: "disconnected" }).entries).toEqual([]);
   });
 });
+
+// OME-1454: the open poll is view state; its result is one log line when it closes. The server never says which option
+// I voted, so my vote is mine to keep (a `voted` event) and ends with the poll or when a new one starts.
+describe("polls", () => {
+  const open: Extract<ServerMessage, { type: "poll" }> = { type: "poll", pollId: "p1", by: "k", question: "Next video?", options: ["A", "B"], counts: [0, 0], endsAt: 90_000 };
+  const polled = (): ViewState => reduce(joined(), msg(open));
+
+  test("a poll message opens it; the next one replaces it whole", () => {
+    expect(polled().poll).toEqual({ pollId: "p1", by: "k", question: "Next video?", options: ["A", "B"], counts: [0, 0], endsAt: 90_000 });
+    const next = reduce(polled(), msg({ ...open, counts: [1, 0] }));
+    expect(next.poll?.counts).toEqual([1, 0]);
+  });
+
+  test("the snapshot carries an open poll, and a snapshot without one has none", () => {
+    const withPoll = reduce(initialState, msg({ type: "snapshot", self: "a", room: room(), poll: { pollId: "p9", by: "a", question: "Q?", options: ["x", "y"], counts: [1, 0], endsAt: 5 } }));
+    expect(withPoll.poll?.pollId).toBe("p9");
+    expect(reduce(withPoll, msg({ type: "snapshot", self: "a", room: room() })).poll).toBeNull();
+  });
+
+  test("my vote is kept across count changes of the same poll and forgotten for a new one", () => {
+    let s = reduce(polled(), { type: "voted", pollId: "p1", option: 1 });
+    expect(s.vote).toBe(1);
+    s = reduce(s, msg({ ...open, counts: [0, 1] }));
+    expect(s.vote).toBe(1);
+    s = reduce(s, msg({ ...open, pollId: "p2" }));
+    expect(s.vote).toBeNull();
+  });
+
+  test("a vote for a poll that is not open changes nothing", () => {
+    const s = polled();
+    expect(reduce(s, { type: "voted", pollId: "other", option: 0 })).toBe(s);
+    expect(reduce(joined(), { type: "voted", pollId: "p1", option: 0 }).vote).toBeNull();
+  });
+
+  test("closing removes the poll and my vote, and logs the result with the final counts", () => {
+    const voted = reduce(polled(), { type: "voted", pollId: "p1", option: 0 });
+    const { entries, next } = step(voted, msg({ type: "poll-closed", pollId: "p1", counts: [3, 1] }));
+    expect(next.poll).toBeNull();
+    expect(next.vote).toBeNull();
+    expect(entries).toEqual([{ kind: "system", line: { glyph: "everyone", actor: null, verb: "Poll: Next video? — A 3 · B 1", time: null } }]);
+  });
+
+  test("a close for a poll we don't have logs nothing", () => {
+    expect(step(joined(), msg({ type: "poll-closed", pollId: "p1", counts: [3, 1] })).entries).toEqual([]);
+    expect(step(polled(), msg({ type: "poll-closed", pollId: "zz", counts: [3, 1] })).entries).toEqual([]);
+  });
+});

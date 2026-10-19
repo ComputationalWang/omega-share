@@ -18,6 +18,7 @@ async function setup(opts: { sendOk?: boolean; command?: (text: string) => boole
   const sent: ClientMessage[] = [];
   const popped: boolean[] = [];
   const seats: number[] = [];
+  const polls: string[] = [];
   const kinds: string[] = [];
   let opened = 0;
   let now = 0;
@@ -42,6 +43,8 @@ async function setup(opts: { sendOk?: boolean; command?: (text: string) => boole
     },
     onPopped: (on) => popped.push(on),
     onSeat: (seat) => seats.push(seat),
+    onVote: (pollId, option) => polls.push(`vote ${pollId} ${String(option)}`),
+    onPollClose: (pollId) => polls.push(`close ${pollId}`),
     ...(opts.command === undefined ? {} : { command: opts.command }),
     setTimer: (fn, ms) => {
       const id = nextId++;
@@ -65,7 +68,7 @@ async function setup(opts: { sendOk?: boolean; command?: (text: string) => boole
     deliver(m);
   };
   const take = (): PopMessage[] => posted.splice(0);
-  return { relay, posted, take, from, sent, popped, seats, kinds, opened: () => opened, advance, POP_LEASE_MS };
+  return { relay, posted, take, from, sent, popped, seats, polls, kinds, opened: () => opened, advance, POP_LEASE_MS };
 }
 
 describe("chat relay (room tab)", () => {
@@ -464,5 +467,33 @@ describe("chat relay: hide for me", () => {
     relay.popOut();
     from({ t: "pop-ready", pop: "p1" });
     expect(take().find((m) => m.t === "room-log")).toEqual({ t: "room-log", reset: true, entries: [LINE("hi")] });
+  });
+});
+
+// OME-1454: the open poll's card is in the window too: it gets the card as it is (on adopt and on each change), and
+// the adopted window's vote and close go back to the room tab, which sends them.
+describe("poll over the channel", () => {
+  const VIEW = { pollId: "p1", question: "Next video?", options: ["A", "B"], counts: [1, 0], vote: null, canClose: true, endsAt: 99_000 };
+
+  test("a popped-out window gets the card on adopt and when it changes; a closed poll clears it", async () => {
+    const { relay, take, from } = await setup();
+    relay.poll(VIEW);
+    expect(take().filter((m) => m.t === "room-poll")).toEqual([]);
+    from({ t: "pop-ready", pop: "p1" });
+    expect(take().filter((m) => m.t === "room-poll")).toEqual([{ t: "room-poll", view: VIEW }]);
+    relay.poll({ ...VIEW, vote: 1 });
+    expect(take()).toEqual([{ t: "room-poll", view: { ...VIEW, vote: 1 } }]);
+    relay.poll(null);
+    expect(take()).toEqual([{ t: "room-poll", view: null }]);
+  });
+
+  test("the adopted window's vote and close reach the room tab; another window's do not", async () => {
+    const { from, polls } = await setup();
+    from({ t: "pop-ready", pop: "p1" });
+    from({ t: "pop-vote", pop: "p1", pollId: "p1", option: 1 });
+    from({ t: "pop-poll-close", pop: "p1", pollId: "p1" });
+    from({ t: "pop-vote", pop: "p2", pollId: "p1", option: 0 });
+    from({ t: "pop-poll-close", pop: "p2", pollId: "p1" });
+    expect(polls).toEqual(["vote p1 1", "close p1"]);
   });
 });

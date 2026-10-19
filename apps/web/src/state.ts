@@ -1,4 +1,4 @@
-import { DEFAULT_CONTROL_POLICY, type ControlPolicy, type ErrorCode, type Member, type MemberId, type PlaybackState, type RoomState, type ServerMessage } from "@omega/shared";
+import { DEFAULT_CONTROL_POLICY, type ControlPolicy, type ErrorCode, type Member, type MemberId, type PlaybackState, type Poll, type PollId, type RoomState, type ServerMessage } from "@omega/shared";
 import { FLOAT_PER_SPEAKER } from "./bubbles/floats";
 import { mutedLine, policyLine, systemLine, type SystemLine } from "./controls/sysline";
 
@@ -66,6 +66,10 @@ export interface ViewState {
   readonly modLines: number;
   /** With status "kicked": client time (Date.now ms) when the rejoin cooldown ends; null = unknown (a bounce). */
   readonly kickedUntil: number | null;
+  /** The room's open poll (OME-1454, ADR 0055): replaced whole by each `poll`, gone at `poll-closed`. */
+  readonly poll: Poll | null;
+  /** The option I voted for in `poll`: the server never says, so it's kept here (a `voted` event) and ends with the poll. */
+  readonly vote: number | null;
 }
 
 /** What the room's stage draws (stage.ts): the page's own state, or the slice the room tab mirrors to its room window (OME-600). */
@@ -92,9 +96,11 @@ export type ViewEvent =
   /** 4007: another tab resumed this session (ADR 0043). */
   | { readonly type: "replaced" }
   /** The user pressed "Return here" after `replaced`. */
-  | { readonly type: "reclaim" };
+  | { readonly type: "reclaim" }
+  /** I voted for `option` of poll `pollId` (the vote went out). */
+  | { readonly type: "voted"; readonly pollId: PollId; readonly option: number };
 
-export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], bubbleSeq: 0, syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null };
+export const initialState: ViewState = { status: "idle", self: null, room: null, bubbles: [], bubbleSeq: 0, syslines: [], lastError: null, refusal: null, cooldownUntil: 0, catching: [], owner: false, title: null, muted: [], modLines: 0, kickedUntil: null, poll: null, vote: null };
 
 /** Terminal until the user acts: the connection won't reconnect, so its events don't change the status. */
 const stopped = (s: ViewState): boolean => s.status === "full" || s.status === "refused" || s.status === "closed" || s.status === "taken-down" || s.status === "kicked" || s.status === "not-found" || s.status === "replaced";
@@ -195,6 +201,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
         owner: msg.owner === true,
         // An untitled snapshot (an older server, a rejoin) keeps the title we already know.
         title: msg.room.title ?? state.title,
+        poll: msg.poll ?? null,
+        vote: msg.poll?.pollId === state.poll?.pollId ? state.vote : null,
       };
     case "room-full":
       return { ...initialState, bubbleSeq: state.bubbleSeq, status: "full" };
@@ -300,10 +308,14 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
     // Drawn by W-emote; never part of the view state (OME-413).
     case "emoted":
     case "typing-changed":
-    // Drawn by the poll web issue (OME-1452 is its contract).
-    case "poll":
-    case "poll-closed":
       return state;
+    // A poll (OME-1454): the whole poll each time; my vote stays only for the same poll.
+    case "poll": {
+      const { pollId, by, question, options, counts, endsAt } = msg;
+      return { ...state, poll: { pollId, by, question, options, counts, endsAt }, vote: pollId === state.poll?.pollId ? state.vote : null };
+    }
+    case "poll-closed":
+      return state.poll?.pollId === msg.pollId ? { ...state, poll: null, vote: null } : state;
     // Owner moderation (ADR 0030). Everyone gets `member-muted`, but only the muted member's log says so; everyone's says the policy.
     case "member-muted": {
       if (state.room === null || !hasMember(state.room, msg.memberId)) return state;
@@ -324,6 +336,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
 
 export function reduce(state: ViewState, event: ViewEvent): ViewState {
   switch (event.type) {
+    case "voted":
+      return state.poll?.pollId === event.pollId && state.vote !== event.option ? { ...state, vote: event.option } : state;
     case "server":
       return onServer(state, event.msg, event.now);
     case "connecting":
