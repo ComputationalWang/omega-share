@@ -1896,6 +1896,25 @@ mod tests {
     }
 
     #[test]
+    fn hair_is_absent_at_0_and_changes_once() {
+        let mut r = room();
+        let a = join(&mut r, "m1", "alice", None);
+        assert!(!r.set_hair(&a, Hair::new(0).unwrap()));
+        assert!(r.set_hair(&a, Hair::new(5).unwrap()));
+        assert!(!r.set_hair(&a, Hair::new(5).unwrap()));
+        assert!(!r.set_hair(&mid("ghost"), Hair::new(1).unwrap()));
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0,"hair":5}"#
+        );
+        assert!(r.set_hair(&a, Hair::new(0).unwrap()));
+        assert_eq!(
+            json(&r.snapshot().members[0]),
+            r#"{"id":"m1","nickname":"alice","avatar":0,"standingSlot":0}"#
+        );
+    }
+
+    #[test]
     fn accessory_is_absent_at_0_and_changes_once() {
         let mut r = room();
         let a = join(&mut r, "m1", "alice", None);
