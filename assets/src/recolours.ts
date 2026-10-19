@@ -1,4 +1,4 @@
-// Furniture recolours (OME-1462): 2 extra colours for sofa, rug, beanbag, pouf, stool and runner, by the shirt tints' technique.
+// Furniture recolours (OME-1462): 2 extra colours for sofa, rug, beanbag, pouf, stool and runner (and OME-1500: frame, garland), by the shirt tints' technique.
 // Runtime PLTE swap, not a bake: every sheet carries the full PALETTE, so swapping a piece's fabric ramp slots in a copy of its
 // sheet (and of ui/edit.png for the tray thumbnail) gives the new colour with no new frames and no sheet bytes. Baking the same
 // 12 colours costs +11 101 B of PNG and +639 B of JSON gz (measured, see README "Furniture recolours"); the table is ~0.5 KB gz.
@@ -34,7 +34,13 @@ export const RECOLOURS: Readonly<Record<string, Recolour>> = {
   pouf: { sheet: "furniture/furniture-v2.png", frames: "furniture/pouf/rust/", thumb: "thumb/pouf/rust", existing: 2, from: ["rust"], variants: [{ id: "teal", to: ["teal"] }, { id: "mustard", to: ["mustard"] }] },
   stool: { sheet: "furniture/furniture-v4.png", frames: "furniture/stool/teal/", thumb: "thumb/stool/teal", existing: 2, from: ["teal"], variants: [{ id: "lilac", to: ["lilac"] }, { id: "mustard", to: ["mustard"] }] },
   runner: { sheet: "furniture/furniture.png", frames: "furniture/rug/lilac/", thumb: "thumb/rug/lilac", existing: 2, from: ["lilac", "pink"], variants: [{ id: "rust", to: ["rust", "teal"] }, { id: "mustard", to: ["mustard", "navy"] }] },
+  // OME-1500, wall decor. The dusk print's sky, far and near ridges and sun (the wood trim and mat stay); the warm string's two bulbs.
+  frame: { sheet: "furniture/furniture.png", frames: "furniture/frame/dusk/", thumb: "thumb/frame/dusk", existing: 2, from: ["pink", "lilac", "navy", "mustard"], variants: [{ id: "meadow", to: ["glow", "teal", "olive", "mustard"] }, { id: "sunset", to: ["ginger", "rust", "velvet", "cream"] }] },
+  garland: { sheet: "furniture/furniture-v2.png", frames: "furniture/garland/warm/", thumb: "thumb/garland/warm", existing: 2, from: ["glow", "mustard"], variants: [{ id: "frost", to: ["teal", "glow"] }, { id: "peach", to: ["blush", "mustard"] }] },
 };
+
+/** Wall-mounted kinds: they get their own contact sheet, on the wall and under the room moods, not on the floor. */
+export const WALL_KINDS: ReadonlySet<string> = new Set(["frame", "garland"]);
 
 /** Index remap for previews and tests: every tone of `from[i]` → the same tone of `to[i]`. */
 export function recolourRemap(r: Recolour, variant: number): Map<number, number> {
@@ -125,40 +131,84 @@ function rugPatch(room: readonly { key: string; img: Uint8Array }[]): Img {
   return { w: W, h: H, ax: W / 2, ay: H / 2, img };
 }
 
-/** Contact sheet: one row per kind, one cell per variant (shipped, then the 2 new), every facing in a cell. Light panel = the
- *  room floor, dark panel = the site bg (#1d1a2b), one above the other. A thin cream rule marks where the new variants start. */
-export function recolourSheet(): { w: number; h: number; img: Uint8Array; palette: RGBA[] } {
-  const cells = recolourCells();
-  const kinds = [...new Set(cells.map((c) => c.kind))];
-  const GAP = 4, PAD = 8;
+/** One panel of the contact sheets: one row per kind, one cell per variant (shipped, then the 2 new), every facing in a cell,
+ *  on a transparent ground (index 0). A thin cream rule marks where the new variants start. */
+function recolourPanel(kinds: readonly string[]): { w: number; h: number; img: Uint8Array } {
+  const cells = recolourCells().filter((c) => kinds.includes(c.kind));
+  const GAP = 4;
   const cellW = (c: (typeof cells)[number]): number => c.images.reduce((s, m) => s + m.w + GAP, GAP);
   const colW = Array.from({ length: 4 }, (_, i) => Math.max(...kinds.map((k) => { const c = cells.filter((x) => x.kind === k)[i]; return c ? cellW(c) : 0; })));
   const rowH = kinds.map((k) => Math.max(...cells.filter((c) => c.kind === k).flatMap((c) => c.images.map((m) => m.h))) + 2 * GAP);
-  const panelW = colW.reduce((a, b) => a + b, 0), panelH = rowH.reduce((a, b) => a + b, 0);
-  const w = panelW, h = panelH * 2 + PAD;
-  const palette = [...PALETTE, { r: 0x1d, g: 0x1a, b: 0x2b, a: 255 }];
-  const DARK = palette.length - 1, LIGHT = colorIndex("floor", 1), RULE = colorIndex("cream", 0);
-  const img = new Uint8Array(w * h).fill(colorIndex("cream", 1));
-  img.fill(LIGHT, 0, panelH * w);
-  img.fill(DARK, (panelH + PAD) * w);
-  for (const py of [0, panelH + PAD]) {
-    let y0 = py;
-    kinds.forEach((k, ri) => {
-      const row = cells.filter((c) => c.kind === k);
-      const shipped = (RECOLOURS[k]?.existing ?? 0);
-      let x0 = 0;
-      row.forEach((c, ci) => {
-        if (ci === shipped) for (let y = y0 + GAP; y < y0 + (rowH[ri] ?? 0) - GAP; y++) img[y * w + x0 - 1] = RULE;
-        let x = x0 + GAP;
-        for (const m of c.images) {
-          const oy = y0 + (rowH[ri] ?? 0) - GAP - m.h;
-          for (let yy = 0; yy < m.h; yy++) for (let xx = 0; xx < m.w; xx++) { const v = m.img[yy * m.w + xx] ?? 0; if (v !== 0) img[(oy + yy) * w + x + xx] = v; }
-          x += m.w + GAP;
-        }
-        x0 += colW[ci] ?? 0;
-      });
-      y0 += rowH[ri] ?? 0;
+  const w = colW.reduce((a, b) => a + b, 0), h = rowH.reduce((a, b) => a + b, 0);
+  const RULE = colorIndex("cream", 0);
+  const img = new Uint8Array(w * h);
+  let y0 = 0;
+  kinds.forEach((k, ri) => {
+    const row = cells.filter((c) => c.kind === k);
+    const shipped = RECOLOURS[k]?.existing ?? 0;
+    let x0 = 0;
+    row.forEach((c, ci) => {
+      if (ci === shipped) for (let y = y0 + GAP; y < y0 + (rowH[ri] ?? 0) - GAP; y++) img[y * w + x0 - 1] = RULE;
+      let x = x0 + GAP;
+      for (const m of c.images) {
+        const oy = y0 + (rowH[ri] ?? 0) - GAP - m.h;
+        for (let yy = 0; yy < m.h; yy++) for (let xx = 0; xx < m.w; xx++) { const v = m.img[yy * m.w + xx] ?? 0; if (v !== 0) img[(oy + yy) * w + x + xx] = v; }
+        x += m.w + GAP;
+      }
+      x0 += colW[ci] ?? 0;
     });
-  }
+    y0 += rowH[ri] ?? 0;
+  });
+  return { w, h, img };
+}
+
+/** Contact sheet of the floor kinds: the room floor panel on top, the dark site bg (#1d1a2b) panel below. */
+export function recolourSheet(): { w: number; h: number; img: Uint8Array; palette: RGBA[] } {
+  const p = recolourPanel(Object.keys(RECOLOURS).filter((k) => !WALL_KINDS.has(k)));
+  const PAD = 8;
+  const w = p.w, h = p.h * 2 + PAD;
+  const palette = [...PALETTE, { r: 0x1d, g: 0x1a, b: 0x2b, a: 255 }];
+  const DARK = palette.length - 1, LIGHT = colorIndex("floor", 1);
+  const img = new Uint8Array(w * h).fill(colorIndex("cream", 1));
+  for (const [py, bg] of [[0, LIGHT], [p.h + PAD, DARK]] as const)
+    for (let i = 0; i < p.w * p.h; i++) { const v = p.img[i] ?? 0; img[py * w + i] = v === 0 ? bg : v; }
+  return { w, h, img, palette };
+}
+
+/** Room moods as mocked here (OME-1500; the real ones are OME-1502's): a flat rgba over the whole room, like the cinema dim. */
+export const MOODS: readonly { id: string; rgb: readonly [number, number, number]; a: number }[] = [
+  { id: "none", rgb: [0, 0, 0], a: 0 },
+  { id: "warm", rgb: [255, 140, 50], a: 0.18 },
+  { id: "cool", rgb: [60, 120, 255], a: 0.18 },
+  { id: "night", rgb: [14, 12, 46], a: 0.5 },
+];
+export const SITE_BG = "#1d1a2b";
+
+/** Contact sheet of the wall kinds: a wall panel (wall base, flat) under each mood, top to bottom none, warm, cool, night, then
+ *  the dark site bg (the tray) with no mood. Truecolour, so the overlays are real blends; re-indexed for the PNG. */
+export function wallRecolourSheet(): { w: number; h: number; img: Uint8Array; palette: RGBA[] } {
+  const p = recolourPanel([...WALL_KINDS]);
+  const PAD = 6;
+  const panels = [...MOODS.map((m) => ({ bg: RAMPS.wall[1], mood: m })), { bg: SITE_BG, mood: MOODS[0] }];
+  const w = p.w, h = panels.length * (p.h + PAD) - PAD;
+  const hex = (s: string): [number, number, number] => { const n = Number.parseInt(s.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const palette: RGBA[] = [];
+  const slot = new Map<number, number>();
+  const index = ([r, g, b]: readonly number[]): number => {
+    const key = ((r ?? 0) << 16) | ((g ?? 0) << 8) | (b ?? 0);
+    let i = slot.get(key);
+    if (i === undefined) { i = palette.length; slot.set(key, i); palette.push({ r: r ?? 0, g: g ?? 0, b: b ?? 0, a: 255 }); }
+    return i;
+  };
+  const img = new Uint8Array(w * h).fill(index(hex(RAMPS.cream[1])));
+  panels.forEach(({ bg, mood }, pi) => {
+    const a = mood?.a ?? 0, tint = mood?.rgb ?? [0, 0, 0];
+    for (let i = 0; i < p.w * p.h; i++) {
+      const v = p.img[i] ?? 0, c = PALETTE[v];
+      const rgb = v === 0 || !c ? hex(bg) : [c.r, c.g, c.b];
+      img[pi * (p.h + PAD) * w + i] = index(rgb.map((x, k) => Math.round(x * (1 - a) + (tint[k] ?? 0) * a)));
+    }
+  });
+  if (palette.length > 256) throw new Error(`wall sheet: ${String(palette.length)} colours`);
   return { w, h, img, palette };
 }

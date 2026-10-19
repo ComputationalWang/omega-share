@@ -4,8 +4,8 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PIECES, pieceImage, type Canvas } from "./furniture";
-import { RAMPS, colorIndex, type RampName } from "./palette";
-import { RECOLOURS, recolourCells, recolourRemap, sourcePieceFrames } from "./recolours";
+import { PALETTE, RAMPS, colorIndex, type RampName } from "./palette";
+import { MOODS, RECOLOURS, SITE_BG, WALL_KINDS, recolourCells, recolourRemap, sourcePieceFrames } from "./recolours";
 import { buildRoomFrames } from "./room";
 import { applyRemap, contrast, cvdDeltaE, deltaE } from "./tints";
 
@@ -67,7 +67,7 @@ describe.each(Object.entries(RECOLOURS))("%s", (kind, r) => {
     expect(cells.length).toBe(r.existing + 2);
     expect(new Set(cells.map((c) => c.variant)).size).toBe(cells.length);
   });
-  test("new colours: ΔE ≥ 20 from every sibling (also deutan/protan), ΔE ≥ 25 from the floor, ≥ 3:1 on the dark site bg", () => {
+  test.skipIf(WALL_KINDS.has(kind))("new colours: ΔE ≥ 20 from every sibling (also deutan/protan), ΔE ≥ 25 from the floor, ≥ 3:1 on the dark site bg", () => {
     const base = (id: string): string => RAMPS[id as RampName][1];
     for (const v of r.variants) {
       for (const s of cells.map((c) => c.variant).filter((id) => id !== v.id)) expect(cvdDeltaE(base(v.id), base(s))).toBeGreaterThanOrEqual(20);
@@ -87,5 +87,45 @@ describe.each(Object.entries(RECOLOURS))("%s", (kind, r) => {
     const edit = Object.keys((JSON.parse(readFileSync(join(ROOT, "ui", "edit.json"), "utf8")) as { frames: object }).frames);
     if (r.thumb) expect(edit).toContain(r.thumb);
     for (const v of r.variants) expect(edit).toContain(`swatch/${v.id}`);
+  });
+});
+
+// Wall decor (OME-1500): a print or a string of bulbs has no one colour, so compare variants where they differ.
+const hex = (rgb: readonly number[]): string => "#" + rgb.map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
+const mix = (h: string, mood: (typeof MOODS)[number]): string => {
+  const n = Number.parseInt(h.slice(1), 16);
+  return hex([(n >> 16) & 255, (n >> 8) & 255, n & 255].map((x, k) => x * (1 - mood.a) + (mood.rgb[k] ?? 0) * mood.a));
+};
+
+describe.each([...WALL_KINDS])("%s (wall)", (kind) => {
+  const cells = allCells.filter((c) => c.kind === kind);
+  const r = RECOLOURS[kind];
+  test("each new variant vs every sibling: where they differ, the pixels are ΔE ≥ 20 apart on average (also deutan/protan)", () => {
+    for (const v of r?.variants ?? []) {
+      const a = cells.find((c) => c.variant === v.id);
+      for (const b of cells.filter((c) => c !== a)) {
+        let sum = 0, n = 0;
+        a?.images.forEach((m, i) => {
+          const o = b.images[i];
+          expect([o?.w, o?.h]).toEqual([m.w, m.h]);
+          m.img.forEach((x, j) => {
+            const y = o?.img[j] ?? 0, cx = PALETTE[x], cy = PALETTE[y];
+            if (x === y || x === 0 || y === 0 || !cx || !cy) return;
+            sum += cvdDeltaE(hex([cx.r, cx.g, cx.b]), hex([cy.r, cy.g, cy.b]));
+            n++;
+          });
+        });
+        expect(n).toBeGreaterThan(0);
+        expect(sum / n).toBeGreaterThanOrEqual(20);
+      }
+    }
+  });
+  test.skipIf(kind !== "garland")("new bulbs: ≥ 3:1 on the dark site bg, and on the wall in every mood no weaker than the weakest shipped bulb (party's lilac)", () => {
+    const wall = RAMPS.wall[1];
+    for (const mood of MOODS) {
+      const floor = Math.min(...(["glow", "mustard", "pink", "teal", "lilac"] as const).map((b) => contrast(mix(RAMPS[b][1], mood), mix(wall, mood))));
+      for (const v of r?.variants ?? []) for (const b of v.to) expect(contrast(mix(RAMPS[b][1], mood), mix(wall, mood))).toBeGreaterThanOrEqual(floor);
+    }
+    for (const v of r?.variants ?? []) for (const b of v.to) expect(contrast(RAMPS[b][1], SITE_BG)).toBeGreaterThanOrEqual(3);
   });
 });
