@@ -87,6 +87,19 @@ export const TYPING_BURST = 2;
 export const TYPING_REFILL_MS = 1000;
 export const TYPING_TIMEOUT_MS = 5000;
 
+/**
+ * Watch-party polls (OME-1452, ADR 0055): a question of 1–POLL_QUESTION_MAX_LENGTH chars, POLL_MIN_OPTIONS..POLL_MAX_OPTIONS
+ * options of 1–POLL_OPTION_MAX_LENGTH chars each. One poll per room, open POLL_DURATION_MS unless closed first.
+ */
+export const POLL_QUESTION_MAX_LENGTH = 80;
+export const POLL_OPTION_MAX_LENGTH = 40;
+export const POLL_MIN_OPTIONS = 2;
+export const POLL_MAX_OPTIONS = 4;
+export const POLL_DURATION_MS = 60_000;
+/** Per member, `vote`: this many at once, then one every VOTE_REFILL_MS (2/s). Over it, `rate_limited`. */
+export const VOTE_BURST = 2;
+export const VOTE_REFILL_MS = 500;
+
 /*
  * Owner moderation (ADR 0030). In memory only, keyed by room and client address (ADR 0028 §7):
  * a restart forgets them, and nothing about who was kicked or muted reaches the disk.
