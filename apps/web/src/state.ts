@@ -298,6 +298,8 @@ function onServer(state: ViewState, msg: ServerMessage, now: number): ViewState 
       return withMember(state, msg.memberId, (m) => ({ ...m, accessory: msg.accessory }));
     case "hair-changed":
       return withMember(state, msg.memberId, (m) => ({ ...m, hair: msg.hair }));
+    case "floor-sat":
+      return withMember(state, msg.memberId, (m) => ({ ...m, floorSit: msg.on }));
     case "layout-changed":
       return withRoom(state, (room) => ({ ...room, layout: msg.layout }));
     case "title-changed":

@@ -25,4 +25,8 @@
 
 **Amendment (2026-10-19, [OME-1461](/OME/issues/OME-1461)): jog.** `walk` takes an optional `run: boolean` (absent: false), relayed as sent in `walked {memberId, cell, run}` (absent from old clients and layout moves); same validation, same walk bucket, never stored or logged.
 
+**Amendment (2026-10-19, [OME-1499](/OME/issues/OME-1499)): floor sit and room mood.**
+- **Floor sit:** `floor-sit {on}` sits a member down on the floor of their `cell`, relayed as `floor-sat {memberId, on}` on change only, carried as `floorSit` (absent: false) on the member. `on` without a cell (seated, or on the standing spot) is `bad_cell`. A walk, a sit and a layout that moves them clear it, relayed as `floor-sat` false before the `walked` / `seat-changed`; leaving drops it with the member. It takes from the walk bucket and is dropped silently over it. The frozen TS server ignores it.
+- **Room mood:** the layout gets an optional `mood`, `"none" | "warm" | "cool" | "night"`, a lighting tint the client draws. It travels with the layout: set only by the owner through `layout-set` (a guest's is `not_owner`, an unknown value `bad_message`), saved with it, relayed in `layout-changed` and the snapshot. Absent means `"none"`, so every layout saved before loads unchanged, with no migration; the server keeps it as sent (an explicit `"none"` stays).
+
 **Consequences:** One more field each on a member (`cell`, `tint`), two client and two server message types and one error code. A rollback to the TS server would make walking and tints silently do nothing, nothing else. Pathing stays a client concern: a client that disagrees about the floor only draws a different route, never a different destination.

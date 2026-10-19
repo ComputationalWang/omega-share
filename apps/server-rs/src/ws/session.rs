@@ -19,7 +19,7 @@ use crate::contract::server_message::{ErrorCode, MemberLeftReason, ServerMessage
 use crate::outbox::{ConnId, publish_msg};
 use crate::rate_limit::KeyedLimiter;
 use crate::registry::{RoomCell, RoomInner, ShareGrant};
-use crate::room::JoinFailure;
+use crate::room::{FloorSitResult, JoinFailure};
 use crate::secrets::{hash_secret, mint_resume_token, mint_share_token};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -231,6 +231,19 @@ pub fn closed(app: &Arc<App>, cell: &Arc<RoomCell>, inner: &mut RoomInner, conn:
 }
 
 /// Explicit `leave`: no grace, both tokens die now. The socket keeps its buckets, the queue's included (ws.ts).
+/// Gets the member up off the floor and tells the room, if they sat there (OME-1499): before a walk, a sit or a layout move is relayed.
+pub fn get_up(inner: &mut RoomInner, member: &MemberId) {
+    if inner.room.set_floor_sit(member, false) == FloorSitResult::Changed {
+        publish_msg(
+            inner,
+            &ServerMessage::FloorSat {
+                member_id: member.clone(),
+                on: false,
+            },
+        );
+    }
+}
+
 pub fn leave(app: &App, inner: &mut RoomInner, conn: &mut Conn, member: &MemberId) {
     conn.parked_add = inner.take_member_bucket(member);
     if let Some(session) = end(app, inner, member) {

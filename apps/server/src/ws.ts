@@ -223,6 +223,7 @@ export function createWs({
       case "set-tint":
       case "set-accessory":
       case "set-hair":
+      case "floor-sit":
       case "typing":
       case "roll":
       case "poll-open":
@@ -363,6 +364,8 @@ export function createWs({
       case "roll":
       // OME-1435 too: the frozen TS server ignores hair.
       case "set-hair":
+      // OME-1499 too: the frozen TS server ignores floor sits (a layout's mood it stores with the rest of the layout).
+      case "floor-sit":
       // OME-1452 too: the frozen TS server ignores polls.
       case "poll-open":
       case "vote":

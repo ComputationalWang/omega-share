@@ -274,6 +274,9 @@ wire_type!(
         /// Absent means 0 (OME-1435).
         #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
         hair: Option<Hair>,
+        /// Sitting on the floor of `cell` (OME-1499); absent means false.
+        #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
+        floor_sit: Option<bool>,
     }
 );
 

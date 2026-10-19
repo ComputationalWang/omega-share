@@ -148,6 +148,12 @@ export const ClientMessageSchema = v.variant("type", [
   /** Needs `join`. Change hair colour; relayed as `hair-changed` (setting the current one is a no-op). Shares the `emote` bucket. */
   v.strictObject({ type: v.literal("set-hair"), hair: HairSchema }),
   /**
+   * Needs `join`. Sit down on (or get up from) the floor of the member's `cell` (OME-1499); relayed as `floor-sat` on
+   * change only. `on: true` without a `cell` (seated, or on the standing spot) is answered `error: bad_cell`. A walk,
+   * a sit or a layout that moves them clears it (`floor-sat` false first). Shares the walk bucket: over it dropped silently.
+   */
+  v.strictObject({ type: v.literal("floor-sit"), on: v.boolean() }),
+  /**
    * Needs `join`. The member is (or stopped) typing a chat line; relayed as `typing-changed` on change only. Resend
    * `on: true` within TYPING_TIMEOUT_MS to stay on; the server clears it after that, on a chat line, a mute or a
    * disconnect. Per member TYPING_BURST / TYPING_REFILL_MS, over it dropped silently. Never in a snapshot.
@@ -261,7 +267,7 @@ export const ERROR_CODES = [
   "unsupported_url",
   /** Unknown, expired, revoked or wrong-room resume credential; no fresh join fallback. */
   "resume_expired",
-  /** `walk` to a cell under a solid piece or a seat (ADR 0053). */
+  /** `walk` to a cell under a solid piece or a seat (ADR 0053); `floor-sit` on while not standing on a cell (OME-1499). */
   "bad_cell",
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -306,6 +312,8 @@ export const ServerMessageSchema = v.variant("type", [
   v.object({ type: v.literal("accessory-changed"), memberId: MemberIdSchema, accessory: AccessorySchema }),
   /** A member changed hair colour (OME-1435). */
   v.object({ type: v.literal("hair-changed"), memberId: MemberIdSchema, hair: HairSchema }),
+  /** A member sat down on (or got up from) the floor (OME-1499). */
+  v.object({ type: v.literal("floor-sat"), memberId: MemberIdSchema, on: v.boolean() }),
   /** A member started or stopped typing (OME-1387). Ephemeral: a member missing from these is not typing. */
   v.object({ type: v.literal("typing-changed"), memberId: MemberIdSchema, on: v.boolean() }),
   v.object({
