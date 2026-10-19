@@ -164,8 +164,9 @@ test.describe("room presets and saved layouts (own server and site)", () => {
     const values = await radios.evaluateAll((rs) => rs.map((r) => (r instanceof HTMLInputElement ? r.value : "")));
     expect([...values].sort()).toEqual([...ROOM_PRESET_IDS].sort());
     await expect(page.locator(radio("classic"))).toBeChecked();
-    // The untouched default (classic) is created by the #share= test below: this file's creates fill the global bucket.
-    for (const preset of ROOM_PRESET_IDS) {
+    // The untouched default (classic) is created by the #share= test below: this file's creates fill the global bucket
+    // (ROOM_CREATE_GLOBAL_BURST, 10), so classic isn't created here as well.
+    for (const preset of ROOM_PRESET_IDS.filter((p) => p !== "classic")) {
       await createRoom(page, `Room ${preset}`, radio(preset));
       expect(await layoutOf(page), preset).toEqual(presetLayout(preset));
     }
