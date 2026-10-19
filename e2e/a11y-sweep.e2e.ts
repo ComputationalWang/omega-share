@@ -261,6 +261,14 @@ VIEWPORTS.forEach((vp, i) => {
       await guest.goto(`${URLS.web}/r/${roomId}#k=${inviteKey}`);
       await enter(guest, "kit");
       await audit(owner, vp.name, "owner rest");
+      // QA OME-1460: a guest's 4-option poll beside the owner's panels, then the owner closes it.
+      await guest.locator(site.chatInput).fill("/poll Sizes? A | B | C | D");
+      await guest.locator(site.chatInput).press("Enter");
+      const poll = owner.locator('[data-testid="poll-card"]');
+      await expect(poll).toBeVisible();
+      await audit(owner, vp.name, "owner poll");
+      await poll.locator("button.poll-close").click();
+      await expect(poll).toBeHidden();
       await step(owner, vp, "owner share sheet", skipped, async () => (await visibleClick(owner, id("portrait-link"))) || (await owner.locator(site.inviteLink).isVisible()));
       await step(owner, vp, "member menu", skipped, async () => {
         // In portrait the tags may live in the People list instead.
