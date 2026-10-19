@@ -84,6 +84,7 @@ test("Wear puts a saved outfit back on, sending only what changed; another avata
   const frames = sent[0];
   if (a === undefined || frames === undefined) throw new Error("need a client");
   await a.page.locator(site.peopleKey).click();
+  await a.page.getByTestId("outfits").locator("summary").click();
   const slots = a.page.getByTestId("outfit-slot");
   await expect(slots).toHaveCount(3);
 

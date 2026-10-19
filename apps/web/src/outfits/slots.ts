@@ -19,9 +19,10 @@ const avatarName = (a: number): string => {
 };
 
 export function createOutfitSlots(o: OutfitSlotsOptions): HTMLElement {
-  const root = el("div", { className: "outfits" }, "outfits");
+  // Closed by default: an open list would take its height from the stage (the a11y sweep's seat keys at 1280×800).
+  const root = el("details", { className: "outfits" }, "outfits");
   const list = el("ul", { className: "people-list" });
-  root.append(el("p", { className: "people-note", textContent: "Outfits, saved in this browser." }), list);
+  root.append(el("summary", { className: "people-note", textContent: "Outfits" }), el("p", { className: "people-note", textContent: "Saved in this browser." }), list);
   for (let i = 0; i < OUTFIT_SLOTS; i++) {
     const n = String(i + 1);
     const label = el("span", { className: "people-name" });

@@ -454,7 +454,7 @@ export async function startRoom(opts: RoomOptions): Promise<RoomHandle> {
   // Outfit slots (OME-1453): what the rows show is what I wear; Wear picks in them, so only a change is sent (and saved).
   const radios = (section: HTMLElement): HTMLButtonElement[] => [...section.querySelectorAll<HTMLButtonElement>("[role=radio]")];
   const checked = (section: HTMLElement): number => Math.max(0, radios(section).findIndex((b) => b.getAttribute("aria-checked") === "true"));
-  look.after(createOutfitSlots({
+  look.append(createOutfitSlots({
     store: opts.secrets,
     current: () => {
       const me = state.room?.members.find((m) => m.id === state.self);

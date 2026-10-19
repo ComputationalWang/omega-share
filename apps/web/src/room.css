@@ -444,7 +444,9 @@ body:has(> main > .room-wide) > .site-footer { flex: none; max-width: none; marg
 .people-note { margin: 0 0 6px; font-size: 12px; line-height: 1.4; }
 .people-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .people-row { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; }
-.outfits { margin-top: 8px; }
+.outfits { margin-bottom: 8px; }
+.outfits > summary { cursor: pointer; }
+.ui-touch .outfits > summary { display: flex; align-items: center; min-height: 44px; min-width: 44px; width: max-content; }
 .outfits .people-row { flex-wrap: wrap; }
 .people-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .people-row.is-hidden .people-name { opacity: 0.6; }
